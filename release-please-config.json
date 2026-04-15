@@ -4,7 +4,7 @@
   "versioning": "prerelease",
   "prerelease": true,
   "prerelease-type": "rc",
-  "bootstrap-sha": "2624896363e5c0ef9bc7fb58110512b5efb7f8e6",
+  "bootstrap-sha": "d0594cf03370f42542e740280f6787b7f2c2544d",
   "packages": {
     "libs/grid": {
       "release-type": "node",

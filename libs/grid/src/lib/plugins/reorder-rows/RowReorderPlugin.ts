@@ -214,8 +214,8 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
 
     const row = rows[focusRow];
 
-    // Validate move
-    if (this.config.canMove && !this.config.canMove(row, focusRow, toIndex, direction)) {
+    // Validate move against both plugin queries and user callback
+    if (!this.canMoveRow(focusRow, toIndex)) {
       return;
     }
 
@@ -255,8 +255,8 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
     const direction = toIndex < fromIndex ? 'up' : 'down';
     const row = rows[fromIndex];
 
-    // Validate move
-    if (this.config.canMove && !this.config.canMove(row, fromIndex, toIndex, direction)) {
+    // Validate move against both plugin queries and user callback
+    if (!this.canMoveRow(fromIndex, toIndex)) {
       return;
     }
 
@@ -265,6 +265,9 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
 
   /**
    * Check if a row can be moved to a position.
+   * Consults both the user-provided `canMove` callback and the plugin query system
+   * (`canMoveRow` query) — GroupingRows blocks group header moves, Tree blocks
+   * parent node moves.
    * @param fromIndex - Current index of the row
    * @param toIndex - Target index
    */
@@ -273,6 +276,11 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
     if (fromIndex < 0 || fromIndex >= rows.length) return false;
     if (toIndex < 0 || toIndex >= rows.length) return false;
     if (fromIndex === toIndex) return false;
+
+    // Ask plugins via query system (Tree blocks parent nodes, GroupingRows blocks group headers)
+    const row = rows[fromIndex];
+    const queryResults = this.grid?.query?.('canMoveRow', row);
+    if (Array.isArray(queryResults) && queryResults.includes(false)) return false;
 
     if (!this.config.canMove) return true;
 
@@ -390,9 +398,8 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
         if (fromIndex !== toIndex) {
           const rows = this.sourceRows;
           const row = rows[fromIndex];
-          const direction = toIndex < fromIndex ? 'up' : 'down';
 
-          if (!this.config.canMove || this.config.canMove(row, fromIndex, toIndex, direction)) {
+          if (this.canMoveRow(fromIndex, toIndex)) {
             this.executeMove(row, fromIndex, toIndex, 'drag');
           }
         }

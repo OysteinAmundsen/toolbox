@@ -7,7 +7,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { BaseGridPlugin } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import { resolveColumns, resolveRows } from '../shared/data-collection';
 import { buildCsv, downloadBlob, downloadCsv } from './csv';
@@ -79,6 +79,14 @@ interface SelectionPluginState {
  * @internal Extends BaseGridPlugin
  */
 export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
+  /**
+   * Plugin manifest — declares queries for inter-plugin communication.
+   * @internal
+   */
+  static override readonly manifest: PluginManifest = {
+    queries: [{ type: 'export:csv', description: 'Triggers a CSV export' }],
+  };
+
   /** @internal */
   readonly name = 'export';
 
@@ -95,6 +103,18 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
   // #region Internal State
   private isExportingFlag = false;
   private lastExportInfo: { format: ExportFormat; timestamp: Date } | null = null;
+  // #endregion
+
+  // #region Query System
+
+  /** @internal */
+  override handleQuery(query: PluginQuery): unknown {
+    if (query.type === 'export:csv') {
+      this.exportCsv();
+      return true;
+    }
+    return undefined;
+  }
   // #endregion
 
   // #region Private Methods

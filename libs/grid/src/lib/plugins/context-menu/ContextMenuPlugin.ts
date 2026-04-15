@@ -35,8 +35,9 @@ const defaultItems: ContextMenuItem[] = [
     name: 'Copy',
     shortcut: 'Ctrl+C',
     action: (params) => {
-      const grid = (params as ContextMenuParams & { grid?: { plugins?: { clipboard?: { copy?: () => void } } } }).grid;
-      grid?.plugins?.clipboard?.copy?.();
+      // Use the query system instead of direct plugin access for proper decoupling
+      const grid = (params as ContextMenuParams & { grid?: { query?: (type: string) => unknown[] } }).grid;
+      grid?.query?.('clipboard:copy');
     },
   },
   { separator: true, id: 'sep1', name: '' },
@@ -44,9 +45,9 @@ const defaultItems: ContextMenuItem[] = [
     id: 'export-csv',
     name: 'Export CSV',
     action: (params) => {
-      const grid = (params as ContextMenuParams & { grid?: { plugins?: { export?: { exportCsv?: () => void } } } })
-        .grid;
-      grid?.plugins?.export?.exportCsv?.();
+      // Use the query system instead of direct plugin access for proper decoupling
+      const grid = (params as ContextMenuParams & { grid?: { query?: (type: string) => unknown[] } }).grid;
+      grid?.query?.('export:csv');
     },
   },
 ];

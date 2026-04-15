@@ -130,6 +130,15 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     queries: [{ type: 'sort:get-sort-config', description: 'Returns the current pivot sort configuration' }],
   };
 
+  /**
+   * Optional dependency on MultiSort for coordinated sorting.
+   * When MultiSort is loaded, Pivot queries its sort model to apply sorting
+   * to pivot columns.
+   */
+  static override readonly dependencies = [
+    { name: 'multiSort', required: false, reason: 'Queries sort model for pivot column sorting' },
+  ];
+
   /** @internal */
   readonly name = 'pivot';
   /** @internal */

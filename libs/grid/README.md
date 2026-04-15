@@ -711,10 +711,11 @@ export class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
 
 ### Inter-Plugin Communication
 
-Plugins can communicate with each other using two systems:
+Plugins can communicate with each other using three systems:
 
 1. **Event Bus** - For async notifications between plugins
 2. **Query System** - For sync state retrieval
+3. **Broadcast** - For events that both external consumers AND other plugins need
 
 #### Event Bus
 
@@ -738,11 +739,22 @@ export class MyPlugin extends BaseGridPlugin<MyConfig> {
   }
 
   private doSomething(): void {
-    // Emit to other plugins (not DOM events)
+    // Emit to other plugins only (not DOM events)
     this.emitPluginEvent('my-event', { data: 'value' });
+
+    // Emit to both plugins AND external addEventListener consumers
+    this.broadcast('sort-change', { sortModel: [...this.sortModel] });
   }
 }
 ```
+
+**Choosing the right emission method:**
+
+| Method                               | Audience           | Use when                                           |
+| ------------------------------------ | ------------------ | -------------------------------------------------- |
+| `this.emit(type, detail)`            | External consumers | Consumer-facing events with no plugin subscribers  |
+| `this.emitPluginEvent(type, detail)` | Other plugins only | Plugin-internal notifications                      |
+| `this.broadcast(type, detail)`       | Both               | State changes that both plugins and consumers need |
 
 #### Query System
 
@@ -784,10 +796,15 @@ const responses = grid.queryPlugins<boolean>({
 
 **Built-in query types:**
 
-| Query Type               | Context             | Response            | Description                     |
-| ------------------------ | ------------------- | ------------------- | ------------------------------- |
-| `CAN_MOVE_COLUMN`        | `ColumnConfig`      | `boolean`           | Can the column be reordered?    |
-| `GET_CONTEXT_MENU_ITEMS` | `ContextMenuParams` | `ContextMenuItem[]` | Get menu items for context menu |
+| Query Type            | Context             | Response            | Description                     |
+| --------------------- | ------------------- | ------------------- | ------------------------------- |
+| `sort:get-model`      | —                   | `SortModel`         | Get current sort model          |
+| `sort:set-model`      | `SortModel`         | —                   | Set sort model programmatically |
+| `canMoveColumn`       | `ColumnConfig`      | `boolean`           | Can the column be reordered?    |
+| `canMoveRow`          | row object          | `boolean`           | Can the row be reordered?       |
+| `clipboard:copy`      | —                   | —                   | Trigger copy action             |
+| `export:csv`          | —                   | —                   | Trigger CSV export              |
+| `getContextMenuItems` | `ContextMenuParams` | `ContextMenuItem[]` | Get menu items for context menu |
 
 Plugins can also define custom query types for their own inter-plugin communication.
 

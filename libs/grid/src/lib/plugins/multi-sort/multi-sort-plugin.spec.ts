@@ -122,6 +122,20 @@ describe('MultiSortPlugin', () => {
       expect(event.detail.sortModel).toEqual([{ field: 'name', direction: 'asc' }]);
     });
 
+    it('should broadcast sort-change to plugin event bus', () => {
+      const plugin = new MultiSortPlugin();
+      const emitSpy = vi.fn();
+      const grid = createGridMock([], sortableColumns);
+      (grid as any)._pluginManager = { emitPluginEvent: emitSpy };
+      plugin.attach(grid as any);
+
+      plugin.setSortModel([{ field: 'name', direction: 'asc' }]);
+
+      // broadcast() emits to both DOM and plugin event bus
+      expect(emitSpy).toHaveBeenCalledWith('sort-change', { sortModel: [{ field: 'name', direction: 'asc' }] });
+      expect(grid.dispatchEvent).toHaveBeenCalled();
+    });
+
     it('should request render when setting model', () => {
       const plugin = new MultiSortPlugin();
       const grid = createGridMock([], sortableColumns);

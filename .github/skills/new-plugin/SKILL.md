@@ -184,25 +184,27 @@ Navigate to `http://localhost:4401/grid/plugins/<plugin-name>/` after running `b
 
 BaseGridPlugin provides these protected helpers — use them instead of type casting:
 
-| Helper                         | Description                                        |
-| ------------------------------ | -------------------------------------------------- |
-| `this.grid`                    | Typed `GridElementRef` with all plugin APIs        |
-| `this.gridElement`             | Grid as `HTMLElement` for DOM queries (preferred)  |
-| `this.columns`                 | Current column configurations                      |
-| `this.visibleColumns`          | Only visible columns (for rendering)               |
-| `this.rows`                    | Processed rows (after filtering, grouping)         |
-| `this.sourceRows`              | Original unfiltered rows                           |
-| `this.disconnectSignal`        | AbortSignal for auto-cleanup of event listeners    |
-| `this.isAnimationEnabled`      | Whether grid animations are enabled                |
-| `this.animationDuration`       | Animation duration in ms (default: 200)            |
-| `this.gridIcons`               | Merged icon configuration                          |
-| `this.getPluginByName(name)`   | Get another plugin instance by name (preferred)    |
-| `this.getPlugin(PluginClass)`  | Get another plugin instance by class (alternative) |
-| `this.emit(eventName, detail)` | Dispatch custom event from grid                    |
-| `this.requestRender()`         | Request full re-render                             |
-| `this.requestAfterRender()`    | Request lightweight style update                   |
-| `this.resolveIcon(name)`       | Get icon value by name                             |
-| `this.setIcon(el, icon)`       | Set icon on element (string or SVG)                |
+| Helper                               | Description                                        |
+| ------------------------------------ | -------------------------------------------------- |
+| `this.grid`                          | Typed `GridElementRef` with all plugin APIs        |
+| `this.gridElement`                   | Grid as `HTMLElement` for DOM queries (preferred)  |
+| `this.columns`                       | Current column configurations                      |
+| `this.visibleColumns`                | Only visible columns (for rendering)               |
+| `this.rows`                          | Processed rows (after filtering, grouping)         |
+| `this.sourceRows`                    | Original unfiltered rows                           |
+| `this.disconnectSignal`              | AbortSignal for auto-cleanup of event listeners    |
+| `this.isAnimationEnabled`            | Whether grid animations are enabled                |
+| `this.animationDuration`             | Animation duration in ms (default: 200)            |
+| `this.gridIcons`                     | Merged icon configuration                          |
+| `this.getPluginByName(name)`         | Get another plugin instance by name (preferred)    |
+| `this.getPlugin(PluginClass)`        | Get another plugin instance by class (alternative) |
+| `this.emit(eventName, detail)`       | Dispatch custom event from grid (DOM consumers)    |
+| `this.emitPluginEvent(type, detail)` | Dispatch to plugin event bus (other plugins)       |
+| `this.broadcast(type, detail)`       | Dispatch to BOTH plugin bus AND DOM consumers      |
+| `this.requestRender()`               | Request full re-render                             |
+| `this.requestAfterRender()`          | Request lightweight style update                   |
+| `this.resolveIcon(name)`             | Get icon value by name                             |
+| `this.setIcon(el, icon)`             | Set icon on element (string or SVG)                |
 
 > **Note**: The grid uses light DOM. Use `this.gridElement` for all DOM queries.
 
@@ -222,16 +224,31 @@ Override these methods (implement only what's needed):
 - `renderRow(row, rowEl, rowIndex)` — Custom row rendering; return `true` to skip default
 - `handleQuery(query)` — Handle incoming queries from other plugins
 
-### Event Bus (Plugin-to-Plugin Communication)
+### Event Bus & Communication Channels
 
-Distinct from DOM events — for inter-plugin communication only:
+Plugins have **three emission methods**. Choosing the wrong one causes silent bugs (other plugins or consumers don't hear events).
+
+| Method                                    | Audience              | Use when                                                          |
+| ----------------------------------------- | --------------------- | ----------------------------------------------------------------- |
+| `this.emit(eventType, detail)`            | External consumers    | Consumer-facing events with no plugin subscribers (rare)          |
+| `this.emitPluginEvent(eventType, detail)` | Other plugins only    | Plugin-internal notifications (e.g., `filter-change` state sync)  |
+| `this.broadcast(eventType, detail)`       | Consumers AND plugins | Events that both plugins AND consumers need (e.g., `sort-change`) |
+
+**Decision tree:**
+
+1. Do other plugins need to react? (e.g., Selection clearing on sort) → Yes: use `broadcast()` or `emitPluginEvent()`
+2. Do external `addEventListener` consumers need this event? → Yes: use `broadcast()` or `emit()`
+3. Both audiences → **`broadcast()`** (most state-change events fall here)
 
 ```typescript
 // Subscribing (in attach)
 this.on('filter-change', (detail) => { /* handle */ });
 
-// Emitting
+// Plugin-only notification
 this.emitPluginEvent('filter-change', { field: 'name', value: 'Alice' });
+
+// Both plugin bus AND DOM (most common for state changes)
+this.broadcast('sort-change', { sortModel: [...this.sortModel] });
 
 // Declare in manifest
 static override readonly manifest: PluginManifest = {
@@ -239,11 +256,12 @@ static override readonly manifest: PluginManifest = {
 };
 ```
 
-| Method                                    | Description                        |
-| ----------------------------------------- | ---------------------------------- |
-| `this.on(eventType, callback)`            | Subscribe (auto-cleaned on detach) |
-| `this.off(eventType)`                     | Unsubscribe                        |
-| `this.emitPluginEvent(eventType, detail)` | Emit to subscribed plugins         |
+| Method                                    | Description                               |
+| ----------------------------------------- | ----------------------------------------- |
+| `this.on(eventType, callback)`            | Subscribe (auto-cleaned on detach)        |
+| `this.off(eventType)`                     | Unsubscribe                               |
+| `this.emitPluginEvent(eventType, detail)` | Emit to subscribed plugins only           |
+| `this.broadcast(eventType, detail)`       | Emit to BOTH plugin bus AND DOM consumers |
 
 ### Query System (Synchronous State Retrieval)
 

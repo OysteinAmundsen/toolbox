@@ -972,34 +972,20 @@ new TreePlugin({
   indentWidth?: number,         // Indent per level in px (default: 20)
   showExpandIcons?: boolean,    // Show expand/collapse icons (default: true)
   animation?: false | 'slide' | 'fade', // Animation style (default: 'slide')
-  dataSource?: TreeDataSource,  // Lazy-load paginated top-level nodes from server
-  pageSize?: number,            // Top-level nodes per page (default: 50)
 })
 
-// Lazy tree data source — fetch paged top-level nodes with embedded children
-interface TreeDataSource {
-  getRows(params: TreeGetRowsParams): Promise<TreeGetRowsResult>;
-}
-interface TreeGetRowsParams {
-  startNode: number;  // Zero-based first top-level node
-  count: number;      // Number of top-level nodes to fetch
-  sortModel?: Array<{ field: string; direction: 'asc' | 'desc' }>;
-  filterModel?: Record<string, unknown>;
-}
-interface TreeGetRowsResult {
-  rows: TreeRow[];              // Top-level nodes with children embedded
-  totalTopLevelCount: number;   // Total top-level nodes (-1 for infinite)
-  lastNode?: number;            // Final page marker for infinite scroll
-}
+// Server-side data: use with ServerSidePlugin for paginated tree data.
+// Tree claims datasource:data events and processes datasource:children events.
+// Viewport mapping (flat row → top-level node index) is handled automatically.
+// See ServerSidePlugin docs for dataSource.getChildRows() configuration.
 
-// Lazy mode API:
-// tree.setDataSource(ds)      — enter lazy mode, load first page
-// tree.refreshDataSource()    — clear & re-fetch from page 0
-// tree.loadMore()             — manually fetch next page
-// tree.isLoading              — check loading state
-// tree.getTotalTopLevelCount() / tree.getLoadedTopLevelCount()
-// Events: tree-load-start, tree-load-end, tree-load-error
-// CSS class: .tbw-tree-loading on grid during fetch
+// Core API:
+// tree.expand(key) / tree.collapse(key) / tree.toggle(key)
+// tree.expandAll() / tree.collapseAll()
+// tree.isExpanded(key) / tree.getExpandedKeys()
+// tree.expandToKey(key) — reveal a deeply nested node
+// tree.getFlattenedRows() / tree.getRowByKey(key)
+// Events: tree-expand
 ```
 
 ### MasterDetailPlugin
@@ -2072,7 +2058,7 @@ import { GridProvider, GridTypeProvider, GridIconProvider } from '@toolbox-web/g
 ### Colors
 
 | Variable | Description |
-|----------|-------------|
+m |----------|-------------|
 | `--tbw-color-bg` | Grid background (default: transparent) |
 | `--tbw-color-panel-bg` | Panel/popup background |
 | `--tbw-color-fg` | Foreground/text |

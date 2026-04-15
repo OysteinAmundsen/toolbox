@@ -86,7 +86,7 @@ Key TypeScript interfaces for configuration and events:
 - [Pivot Plugin](https://toolboxjs.com/grid/plugins/pivot/): Pivot table/pivot mode, cross-tabulation, row fields, column fields, value aggregation (sum, avg, count, min, max, first, last, custom), sorting, value formatting, events (pivot-toggle, pivot-state-change, pivot-config-change), dynamic pivot columns
 - [Tooltip Plugin](https://toolboxjs.com/grid/plugins/tooltip/): Popover tooltips for overflowing header/cell text, per-column static/dynamic overrides, CSS anchor positioning, Popover API
 
-**Incompatible combinations:** GroupingRows/Tree/Pivot are mutually incompatible (each transforms the full row model differently). ServerSide is incompatible with Pivot (requires full dataset). ServerSide + Tree can coexist (Tree has its own `dataSource` for lazy loading). ServerSide + GroupingRows can coexist using pre-defined groups with lazy-loaded row data. A dev-mode warning is shown when conflicts are detected.
+**Incompatible combinations:** GroupingRows/Tree/Pivot are mutually incompatible (each transforms the full row model differently). ServerSide is incompatible with Pivot (requires full dataset). ServerSide + Tree coexist via the unified DataSource event bus (Tree claims `datasource:data` events and handles `datasource:children`). ServerSide + GroupingRows can coexist using pre-defined groups with lazy-loaded row data. A dev-mode warning is shown when conflicts are detected.
 
 ## Core Features (Built-in, No Plugin Required)
 

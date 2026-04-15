@@ -41,8 +41,7 @@ import {
 } from '@toolbox-web/grid/plugins/filtering';
 import type { ReactNode } from 'react';
 import { useCallback, useContext } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot } from 'react-dom/client';
+import { removeFromContainer, renderToContainer } from '../lib/portal-bridge';
 import { registerFeature } from '../lib/feature-registry';
 import { GridElementContext } from '../lib/grid-element-context';
 
@@ -56,13 +55,17 @@ registerFeature('filtering', (rawConfig) => {
   // Bridge React filterPanelRenderer (1 arg) to vanilla (2 args)
   if (typeof config.filterPanelRenderer === 'function' && config.filterPanelRenderer.length <= 1) {
     const reactFn = config.filterPanelRenderer as unknown as (params: FilterPanelParams) => ReactNode;
+    // Track portal key per parent container to avoid leaks on re-render
+    const containerKeys = new WeakMap<HTMLElement, string>();
     options.filterPanelRenderer = (container: HTMLElement, params: FilterPanelParams) => {
+      // Remove previous portal for this container if it exists
+      const prevKey = containerKeys.get(container);
+      if (prevKey) removeFromContainer(prevKey);
+
       const wrapper = document.createElement('div');
       wrapper.style.display = 'contents';
-      const root = createRoot(wrapper);
-      flushSync(() => {
-        root.render(reactFn(params) as React.ReactElement);
-      });
+      const key = renderToContainer(wrapper, reactFn(params) as React.ReactElement);
+      containerKeys.set(container, key);
       container.appendChild(wrapper);
     };
   }

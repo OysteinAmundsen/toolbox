@@ -29,8 +29,7 @@ import '@toolbox-web/grid/features/pinned-rows';
 
 import { PinnedRowsPlugin, type PinnedRowsConfig, type PinnedRowsContext } from '@toolbox-web/grid/plugins/pinned-rows';
 import type { ReactNode } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot } from 'react-dom/client';
+import { renderToContainer } from '../lib/portal-bridge';
 import { registerFeature } from '../lib/feature-registry';
 
 registerFeature('pinnedRows', (rawConfig) => {
@@ -45,15 +44,15 @@ registerFeature('pinnedRows', (rawConfig) => {
     options.customPanels = config.customPanels.map((panel: any) => {
       if (typeof panel.render !== 'function') return panel;
       const reactFn = panel.render as unknown as (ctx: PinnedRowsContext) => ReactNode;
+      // Track portal key per wrapper so prune mechanism can clean up disconnected ones
+      const wrapperKeys = new WeakMap<HTMLElement, string>();
       return {
         ...panel,
         render: (ctx: PinnedRowsContext) => {
           const wrapper = document.createElement('div');
           wrapper.style.display = 'contents';
-          const root = createRoot(wrapper);
-          flushSync(() => {
-            root.render(reactFn(ctx) as React.ReactElement);
-          });
+          const key = renderToContainer(wrapper, reactFn(ctx) as React.ReactElement);
+          wrapperKeys.set(wrapper, key);
           return wrapper;
         },
       };

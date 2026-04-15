@@ -28,8 +28,7 @@ import {
   type GroupRowRenderParams,
 } from '@toolbox-web/grid/plugins/grouping-rows';
 import type { ReactNode } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot } from 'react-dom/client';
+import { renderToContainer } from '../lib/portal-bridge';
 import { registerFeature } from '../lib/feature-registry';
 
 registerFeature('groupingRows', (rawConfig) => {
@@ -42,13 +41,13 @@ registerFeature('groupingRows', (rawConfig) => {
   // Bridge React groupRowRenderer (returns ReactNode) to vanilla (returns HTMLElement | string | void)
   if (typeof config.groupRowRenderer === 'function') {
     const reactFn = config.groupRowRenderer as unknown as (params: GroupRowRenderParams) => ReactNode;
+    // Track portal key per wrapper so prune mechanism can clean up disconnected ones
+    const wrapperKeys = new WeakMap<HTMLElement, string>();
     options.groupRowRenderer = (params: GroupRowRenderParams) => {
       const wrapper = document.createElement('div');
       wrapper.style.display = 'contents';
-      const root = createRoot(wrapper);
-      flushSync(() => {
-        root.render(reactFn(params) as React.ReactElement);
-      });
+      const key = renderToContainer(wrapper, reactFn(params) as React.ReactElement);
+      wrapperKeys.set(wrapper, key);
       return wrapper;
     };
   }

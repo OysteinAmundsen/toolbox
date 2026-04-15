@@ -10,12 +10,11 @@ import type {
 } from '@toolbox-web/grid';
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import type { ReactNode } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
 import { getDetailRenderer, type DetailPanelContext } from './grid-detail-panel';
 import { getResponsiveCardRenderer, type ResponsiveCardContext } from './grid-responsive-card';
 import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
 import type { ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
+import { removeFromContainer, renderToContainer } from './portal-bridge';
 import { cleanupConfigRootsIn, processGridConfig } from './react-column-config';
 
 /**
@@ -134,21 +133,12 @@ export function clearFieldRegistries(): void {
 }
 
 /**
- * Tracks mounted React roots for cleanup.
+ * Cache for cell containers and their portal keys.
+ * WeakMap keyed by cell element for automatic GC when cells are removed.
  */
-interface MountedView {
-  root: Root;
+interface CellPortalCache {
+  portalKey: string;
   container: HTMLElement;
-}
-
-/**
- * Cache for cell containers and their React roots.
- * Key is a composite of rowIndex + field to uniquely identify each cell.
- */
-interface CellRootCache {
-  root: Root;
-  container: HTMLElement;
-  lastRowIndex: number;
 }
 
 /**
@@ -182,9 +172,12 @@ interface CellRootCache {
  * ```
  */
 export class GridAdapter implements FrameworkAdapter {
-  private mountedViews: MountedView[] = [];
-  /** Editor-specific views tracked separately for per-cell cleanup via releaseCell. */
-  private editorViews: MountedView[] = [];
+  /** Portal keys for all managed portals (for cleanup on destroy). */
+  private allPortalKeys = new Set<string>();
+  /** Portal keys for editor-specific portals (for per-cell cleanup via releaseCell). */
+  private editorPortalKeys = new Set<string>();
+  /** Maps portal keys to their containers (for container-based lookups in releaseCell/unmount). */
+  private keyToContainer = new Map<string, HTMLElement>();
   private typeDefaults: TypeDefaultsMap | null = null;
 
   /**
@@ -234,9 +227,9 @@ export class GridAdapter implements FrameworkAdapter {
    * Creates a view renderer function that renders a React component
    * and returns its container DOM element.
    *
-   * Uses a cell cache to reuse React roots for performance - instead of
-   * creating new roots on each render, we reuse existing ones and just
-   * call root.render() with new data.
+   * Uses a cell cache to reuse portals for performance - instead of
+   * creating new portals on each render, we reuse existing ones and
+   * update their content.
    *
    * Returns undefined if no renderer is registered for this element,
    * allowing the grid to use its default rendering.
@@ -250,37 +243,31 @@ export class GridAdapter implements FrameworkAdapter {
       return undefined;
     }
 
-    // Cell cache for this field - maps cell element to its React root
-    const cellCache = new WeakMap<HTMLElement, CellRootCache>();
+    // Cell cache for this field - maps cell element to its portal key + container
+    const cellCache = new WeakMap<HTMLElement, CellPortalCache>();
     return (ctx: CellRenderContext<TRow, TValue>) => {
       // Get the cell element from context (if available)
       const cellEl = (ctx as any).cellEl as HTMLElement | undefined;
 
       if (cellEl) {
-        // Check if we have a cached root for this cell
+        // Check if we have a cached portal for this cell
         const cached = cellCache.get(cellEl);
         if (cached) {
-          // Reuse existing root - re-render synchronously with flushSync for immediate DOM update
-          flushSync(() => {
-            cached.root.render(renderFn(ctx as CellRenderContext<unknown, unknown>));
-          });
+          // Reuse existing portal - update element synchronously
+          renderToContainer(cached.container, renderFn(ctx as CellRenderContext<unknown, unknown>), cached.portalKey);
           return cached.container;
         }
 
-        // Create new container and root for this cell
+        // Create new container and portal for this cell
         const container = document.createElement('div');
         container.className = 'react-cell-renderer';
         container.style.display = 'contents';
 
-        const root = createRoot(container);
-        // Use flushSync for synchronous initial render - prevents flicker
-        flushSync(() => {
-          root.render(renderFn(ctx as CellRenderContext<unknown, unknown>));
-        });
+        const portalKey = renderToContainer(container, renderFn(ctx as CellRenderContext<unknown, unknown>));
 
         // Cache for reuse
-        cellCache.set(cellEl, { root, container, lastRowIndex: (ctx as any).rowIndex ?? -1 });
-        this.mountedViews.push({ root, container });
+        cellCache.set(cellEl, { portalKey, container });
+        this.trackPortal(portalKey, container, false);
 
         return container;
       }
@@ -290,11 +277,8 @@ export class GridAdapter implements FrameworkAdapter {
       container.className = 'react-cell-renderer';
       container.style.display = 'contents';
 
-      const root = createRoot(container);
-      flushSync(() => {
-        root.render(renderFn(ctx as CellRenderContext<unknown, unknown>));
-      });
-      this.mountedViews.push({ root, container });
+      const portalKey = renderToContainer(container, renderFn(ctx as CellRenderContext<unknown, unknown>));
+      this.trackPortal(portalKey, container, false);
 
       return container;
     };
@@ -317,14 +301,10 @@ export class GridAdapter implements FrameworkAdapter {
       container.className = 'react-cell-editor';
       container.style.display = 'contents';
 
-      // Create React root and render synchronously for immediate display
-      const root = createRoot(container);
-      flushSync(() => {
-        root.render(editorFn(ctx as ColumnEditorContext<unknown, unknown>));
-      });
+      const portalKey = renderToContainer(container, editorFn(ctx as ColumnEditorContext<unknown, unknown>));
 
       // Track for cleanup (editor-specific for per-cell cleanup via releaseCell)
-      this.editorViews.push({ root, container });
+      this.trackPortal(portalKey, container, true);
 
       return container;
     };
@@ -349,12 +329,8 @@ export class GridAdapter implements FrameworkAdapter {
 
       const ctx: DetailPanelContext<TRow> = { row, rowIndex };
 
-      const root = createRoot(container);
-      flushSync(() => {
-        root.render(renderFn(ctx as DetailPanelContext<unknown>));
-      });
-
-      this.mountedViews.push({ root, container });
+      const portalKey = renderToContainer(container, renderFn(ctx as DetailPanelContext<unknown>));
+      this.trackPortal(portalKey, container, false);
 
       return container;
     };
@@ -392,12 +368,8 @@ export class GridAdapter implements FrameworkAdapter {
 
       const ctx: ResponsiveCardContext<TRow> = { row, index: rowIndex };
 
-      const root = createRoot(container);
-      flushSync(() => {
-        root.render(renderFn(ctx as ResponsiveCardContext<unknown>));
-      });
-
-      this.mountedViews.push({ root, container });
+      const portalKey = renderToContainer(container, renderFn(ctx as ResponsiveCardContext<unknown>));
+      this.trackPortal(portalKey, container, false);
 
       return container;
     };
@@ -421,25 +393,13 @@ export class GridAdapter implements FrameworkAdapter {
         grid: gridElement ?? (container as DataGridElement),
       };
 
-      const root = createRoot(container);
-      flushSync(() => {
-        root.render(renderFn(ctx));
-      });
-
-      this.mountedViews.push({ root, container });
+      const portalKey = renderToContainer(container, renderFn(ctx));
+      this.trackPortal(portalKey, container, false);
 
       // Return cleanup function
       return () => {
-        const index = this.mountedViews.findIndex((v) => v.container === container);
-        if (index !== -1) {
-          const { root: viewRoot } = this.mountedViews[index];
-          try {
-            viewRoot.unmount();
-          } catch {
-            // Ignore cleanup errors
-          }
-          this.mountedViews.splice(index, 1);
-        }
+        removeFromContainer(portalKey);
+        this.untrackPortal(portalKey);
       };
     };
   }
@@ -514,12 +474,8 @@ export class GridAdapter implements FrameworkAdapter {
       const container = document.createElement('span');
       container.style.display = 'contents';
 
-      const root = createRoot(container);
-      this.mountedViews.push({ root, container });
-
-      flushSync(() => {
-        root.render(renderFn(ctx) as React.ReactElement);
-      });
+      const portalKey = renderToContainer(container, renderFn(ctx) as React.ReactElement);
+      this.trackPortal(portalKey, container, false);
 
       return container;
     };
@@ -536,13 +492,9 @@ export class GridAdapter implements FrameworkAdapter {
       const container = document.createElement('span');
       container.style.display = 'contents';
 
-      const root = createRoot(container);
-      // Track in editor-specific array for per-cell cleanup via releaseCell
-      this.editorViews.push({ root, container });
-
-      flushSync(() => {
-        root.render(renderFn(ctx) as React.ReactElement);
-      });
+      const portalKey = renderToContainer(container, renderFn(ctx) as React.ReactElement);
+      // Track in editor-specific set for per-cell cleanup via releaseCell
+      this.trackPortal(portalKey, container, true);
 
       return container;
     };
@@ -559,57 +511,60 @@ export class GridAdapter implements FrameworkAdapter {
       const wrapper = document.createElement('div');
       wrapper.style.display = 'contents';
 
-      const root = createRoot(wrapper);
-      this.mountedViews.push({ root, container: wrapper });
-
-      flushSync(() => {
-        root.render(renderFn(params) as React.ReactElement);
-      });
+      const portalKey = renderToContainer(wrapper, renderFn(params) as React.ReactElement);
+      this.trackPortal(portalKey, wrapper, false);
 
       container.appendChild(wrapper);
     };
   }
 
+  // #region Portal tracking helpers
+
+  /** Register a portal key for lifecycle tracking. */
+  private trackPortal(key: string, container: HTMLElement, isEditor: boolean): void {
+    this.allPortalKeys.add(key);
+    this.keyToContainer.set(key, container);
+    if (isEditor) {
+      this.editorPortalKeys.add(key);
+    }
+  }
+
+  /** Unregister a portal key from all tracking sets. */
+  private untrackPortal(key: string): void {
+    this.allPortalKeys.delete(key);
+    this.editorPortalKeys.delete(key);
+    this.keyToContainer.delete(key);
+  }
+
+  // #endregion
+
   /**
-   * Clean up all mounted React roots.
+   * Clean up all mounted portals.
    * Call this when the grid is unmounted.
    */
   destroy(): void {
-    this.mountedViews.forEach(({ root }) => {
-      try {
-        root.unmount();
-      } catch {
-        // Ignore cleanup errors
-      }
-    });
-    this.mountedViews = [];
-    this.editorViews.forEach(({ root }) => {
-      try {
-        root.unmount();
-      } catch {
-        // Ignore cleanup errors
-      }
-    });
-    this.editorViews = [];
+    // Remove only this adapter's tracked portals, not all grids' portals
+    for (const key of this.allPortalKeys) {
+      removeFromContainer(key);
+    }
+    this.allPortalKeys.clear();
+    this.editorPortalKeys.clear();
+    this.keyToContainer.clear();
     fieldRegistries.clear();
   }
 
   /**
    * Called when a cell's content is about to be wiped.
-   * Destroys editor React roots whose container is inside the cell.
+   * Destroys editor portals whose container is inside the cell.
    * Also cleans up config-based editor roots (from processGridConfig/wrapReactEditor)
-   * that bypass the adapter's tracking arrays.
+   * that bypass the adapter's tracking.
    */
   releaseCell(cellEl: HTMLElement): void {
-    for (let i = this.editorViews.length - 1; i >= 0; i--) {
-      const { root, container } = this.editorViews[i];
-      if (cellEl.contains(container)) {
-        try {
-          root.unmount();
-        } catch {
-          // Ignore cleanup errors
-        }
-        this.editorViews.splice(i, 1);
+    for (const key of this.editorPortalKeys) {
+      const container = this.keyToContainer.get(key);
+      if (container && cellEl.contains(container)) {
+        removeFromContainer(key);
+        this.untrackPortal(key);
       }
     }
     // Clean up config-based editor roots created by wrapReactEditor
@@ -620,15 +575,12 @@ export class GridAdapter implements FrameworkAdapter {
    * Unmount a specific container (called when cell is recycled).
    */
   unmount(container: HTMLElement): void {
-    const index = this.mountedViews.findIndex((v) => v.container === container);
-    if (index !== -1) {
-      const { root } = this.mountedViews[index];
-      try {
-        root.unmount();
-      } catch {
-        // Ignore cleanup errors
+    for (const [key, c] of this.keyToContainer) {
+      if (c === container) {
+        removeFromContainer(key);
+        this.untrackPortal(key);
+        return;
       }
-      this.mountedViews.splice(index, 1);
     }
   }
 }

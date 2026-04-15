@@ -1,25 +1,12 @@
 /**
- * Lazy Tree Data Source Logic
+ * Tree Viewport Mapping Utilities
  *
- * Pure functions for scroll boundary detection and page loading
- * when using TreeDataSource for lazy-loaded tree data.
+ * Pure functions for translating between flat viewport row indices and
+ * top-level tree node indices. Used by the Tree plugin's
+ * `datasource:viewport-mapping` query handler.
  */
 
 import type { FlattenedTreeRow } from './types';
-
-/**
- * Default number of top-level nodes to fetch per page.
- */
-export const DEFAULT_PAGE_SIZE = 50;
-
-/**
- * Number of top-level nodes before the end of loaded data that triggers
- * a prefetch of the next page.
- */
-export const PREFETCH_THRESHOLD = 5;
-
-/** Scroll debounce delay in ms */
-export const SCROLL_DEBOUNCE_MS = 100;
 
 /**
  * Given a flat row index in the viewport, find the index of the
@@ -59,23 +46,4 @@ export function countTopLevelNodes(flattenedRows: FlattenedTreeRow[]): number {
     if (row.depth === 0) count++;
   }
   return count;
-}
-
-/**
- * Determine whether we should prefetch the next page of data.
- *
- * Returns `true` when the viewport's last visible row corresponds to a
- * top-level node that is within `threshold` nodes of the last loaded
- * top-level node.
- */
-export function shouldPrefetch(
-  flattenedRows: FlattenedTreeRow[],
-  viewportEnd: number,
-  loadedTopLevelCount: number,
-  threshold: number = PREFETCH_THRESHOLD,
-): boolean {
-  if (flattenedRows.length === 0) return false;
-
-  const lastVisibleTopLevel = getTopLevelNodeIndex(flattenedRows, viewportEnd);
-  return lastVisibleTopLevel >= loadedTopLevelCount - threshold;
 }

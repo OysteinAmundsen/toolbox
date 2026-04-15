@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countTopLevelNodes, getTopLevelNodeIndex, shouldPrefetch } from './tree-datasource';
+import { countTopLevelNodes, getTopLevelNodeIndex } from './tree-datasource';
 import type { FlattenedTreeRow } from './types';
 
 function makeFlatRow(key: string, depth: number): FlattenedTreeRow {
@@ -79,39 +79,6 @@ describe('tree-datasource', () => {
     it('should handle all roots (no children)', () => {
       const rows = [makeFlatRow('a', 0), makeFlatRow('b', 0), makeFlatRow('c', 0)];
       expect(countTopLevelNodes(rows)).toBe(3);
-    });
-  });
-
-  describe('shouldPrefetch', () => {
-    it('should return true when viewport is near end of loaded data', () => {
-      // 10 top-level nodes, each with 1 child = 20 flattened rows
-      const rows: FlattenedTreeRow[] = [];
-      for (let i = 0; i < 10; i++) {
-        rows.push(makeFlatRow(`node-${i}`, 0));
-        rows.push(makeFlatRow(`node-${i}-child`, 1));
-      }
-      // Viewport ends at row 15 → top-level node 7 of 10 → within threshold of 5
-      expect(shouldPrefetch(rows, 15, 10, 5)).toBe(true);
-    });
-
-    it('should return false when viewport is far from end', () => {
-      const rows: FlattenedTreeRow[] = [];
-      for (let i = 0; i < 20; i++) {
-        rows.push(makeFlatRow(`node-${i}`, 0));
-        rows.push(makeFlatRow(`node-${i}-child`, 1));
-      }
-      // Viewport ends at row 5 → top-level node 2 of 20 → well within margin
-      expect(shouldPrefetch(rows, 5, 20, 5)).toBe(false);
-    });
-
-    it('should return false for empty rows', () => {
-      expect(shouldPrefetch([], 0, 0, 5)).toBe(false);
-    });
-
-    it('should return true when all data fits in viewport', () => {
-      const rows = [makeFlatRow('a', 0), makeFlatRow('a-1', 1)];
-      // Only 1 top-level, viewport at end
-      expect(shouldPrefetch(rows, 1, 1, 5)).toBe(true);
     });
   });
 });

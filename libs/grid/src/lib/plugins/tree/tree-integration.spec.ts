@@ -580,4 +580,254 @@ describe('tree plugin integration', () => {
       expect(result).toBe(false);
     });
   });
+
+  describe('TreePlugin lazy mode (dataSource)', () => {
+    const createMockDataSource = (pages: Record<string, unknown>[][][]) => {
+      let callCount = 0;
+      return {
+        getRows: async (params: { startNode: number; count: number }) => {
+          const pageIndex = Math.floor(params.startNode / params.count);
+          const pageData = pages[pageIndex] ?? [];
+          callCount++;
+          return {
+            rows: pageData,
+            totalTopLevelCount: pages.flat().length,
+          };
+        },
+        getCallCount: () => callCount,
+      };
+    };
+
+    const createLazyPlugin = () => {
+      const mockGrid = {
+        dispatchEvent: () => {
+          /* noop */
+        },
+        requestRender: () => {
+          /* noop */
+        },
+        rows: [],
+        _columns: [],
+        query: () => undefined,
+        _pluginManager: {
+          subscribe: () => {
+            /* noop */
+          },
+          unsubscribe: () => {
+            /* noop */
+          },
+          emitPluginEvent: () => {
+            /* noop */
+          },
+        },
+      };
+      return { mockGrid };
+    };
+
+    it('should enter lazy mode when setDataSource is called', async () => {
+      const { mockGrid } = createLazyPlugin();
+      const plugin = new TreePlugin({ pageSize: 2 });
+      plugin.attach(mockGrid as any);
+
+      const ds = createMockDataSource([
+        [
+          { id: 1, name: 'Dept A', children: [{ id: 10, name: 'Team 1' }] },
+          { id: 2, name: 'Dept B', children: [{ id: 20, name: 'Team 2' }] },
+        ],
+      ]);
+
+      plugin.setDataSource(ds);
+
+      // Wait for async load
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(ds.getCallCount()).toBe(1);
+      expect(plugin.getTotalTopLevelCount()).toBe(2);
+      expect(plugin.getLoadedTopLevelCount()).toBe(2);
+    });
+
+    it('should flatten loaded lazy data in processRows', async () => {
+      const { mockGrid } = createLazyPlugin();
+      const plugin = new TreePlugin({ pageSize: 2, defaultExpanded: true });
+      plugin.attach(mockGrid as any);
+
+      const ds = createMockDataSource([
+        [
+          { id: 1, name: 'Dept A', children: [{ id: 10, name: 'Team 1' }] },
+          { id: 2, name: 'Dept B', children: [] },
+        ],
+      ]);
+
+      plugin.setDataSource(ds);
+      await new Promise((r) => setTimeout(r, 50));
+
+      // processRows should use lazy data, not input rows
+      const result = plugin.processRows([{ name: 'should be ignored' }]);
+      expect(result.length).toBe(3); // Dept A + Team 1 + Dept B
+      expect(result[0].name).toBe('Dept A');
+      expect((result[0] as any).__treeDepth).toBe(0);
+      expect(result[1].name).toBe('Team 1');
+      expect((result[1] as any).__treeDepth).toBe(1);
+      expect(result[2].name).toBe('Dept B');
+    });
+
+    it('should expose loading state via isLoading', async () => {
+      const { mockGrid } = createLazyPlugin();
+      const plugin = new TreePlugin({ pageSize: 2 });
+      plugin.attach(mockGrid as any);
+
+      let resolveGetRows!: (value: any) => void;
+      const ds = {
+        getRows: () =>
+          new Promise<any>((resolve) => {
+            resolveGetRows = resolve;
+          }),
+      };
+
+      plugin.setDataSource(ds);
+
+      // Should be loading now
+      expect(plugin.isLoading).toBe(true);
+
+      resolveGetRows({ rows: [{ id: 1, name: 'A' }], totalTopLevelCount: 1 });
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(plugin.isLoading).toBe(false);
+    });
+
+    it('should stop loading when all data is loaded', async () => {
+      const { mockGrid } = createLazyPlugin();
+      const plugin = new TreePlugin({ pageSize: 2 });
+      plugin.attach(mockGrid as any);
+
+      const ds = createMockDataSource([
+        [
+          { id: 1, name: 'A' },
+          { id: 2, name: 'B' },
+        ],
+      ]);
+
+      plugin.setDataSource(ds);
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(plugin.getLoadedTopLevelCount()).toBe(2);
+      expect(plugin.getTotalTopLevelCount()).toBe(2);
+    });
+
+    it('refreshDataSource should clear and reload', async () => {
+      const { mockGrid } = createLazyPlugin();
+      const plugin = new TreePlugin({ pageSize: 2 });
+      plugin.attach(mockGrid as any);
+
+      const ds = createMockDataSource([
+        [
+          { id: 1, name: 'A' },
+          { id: 2, name: 'B' },
+        ],
+      ]);
+
+      plugin.setDataSource(ds);
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(ds.getCallCount()).toBe(1);
+
+      plugin.refreshDataSource();
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(ds.getCallCount()).toBe(2);
+      expect(plugin.getLoadedTopLevelCount()).toBe(2);
+    });
+
+    it('loadMore should fetch next page manually', async () => {
+      const { mockGrid } = createLazyPlugin();
+      const plugin = new TreePlugin({ pageSize: 1 });
+      plugin.attach(mockGrid as any);
+
+      let callCount = 0;
+      const ds = {
+        getRows: async (params: { startNode: number; count: number }) => {
+          callCount++;
+          if (params.startNode === 0) {
+            return { rows: [{ id: 1, name: 'A' }], totalTopLevelCount: 3 };
+          }
+          if (params.startNode === 1) {
+            return { rows: [{ id: 2, name: 'B' }], totalTopLevelCount: 3 };
+          }
+          return { rows: [{ id: 3, name: 'C' }], totalTopLevelCount: 3 };
+        },
+      };
+
+      plugin.setDataSource(ds);
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(callCount).toBe(1);
+      expect(plugin.getLoadedTopLevelCount()).toBe(1);
+
+      await plugin.loadMore();
+      expect(callCount).toBe(2);
+      expect(plugin.getLoadedTopLevelCount()).toBe(2);
+    });
+
+    it('expand/collapse should work on loaded lazy data without server requests', async () => {
+      const { mockGrid } = createLazyPlugin();
+      const plugin = new TreePlugin({ pageSize: 2, defaultExpanded: false });
+      plugin.attach(mockGrid as any);
+
+      let callCount = 0;
+      const ds = {
+        getRows: async () => {
+          callCount++;
+          return {
+            rows: [
+              { id: 1, name: 'Dept A', children: [{ id: 10, name: 'Team 1' }] },
+              { id: 2, name: 'Dept B', children: [{ id: 20, name: 'Team 2' }] },
+            ],
+            totalTopLevelCount: 2,
+          };
+        },
+      };
+
+      plugin.setDataSource(ds);
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(callCount).toBe(1);
+
+      // Initially collapsed - only 2 rows
+      let result = plugin.processRows([]);
+      expect(result.length).toBe(2);
+
+      // Expand first node
+      plugin.expand('1');
+      result = plugin.processRows([]);
+      expect(result.length).toBe(3); // Dept A + Team 1 + Dept B
+
+      // Still only 1 server call
+      expect(callCount).toBe(1);
+
+      // Collapse
+      plugin.collapse('1');
+      result = plugin.processRows([]);
+      expect(result.length).toBe(2);
+      expect(callCount).toBe(1);
+    });
+
+    it('should handle data source errors gracefully', async () => {
+      const { mockGrid } = createLazyPlugin();
+      const plugin = new TreePlugin({ pageSize: 2 });
+      plugin.attach(mockGrid as any);
+
+      const ds = {
+        getRows: async () => {
+          throw new Error('Network error');
+        },
+      };
+
+      plugin.setDataSource(ds);
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Should not be loading after error
+      expect(plugin.isLoading).toBe(false);
+      expect(plugin.getLoadedTopLevelCount()).toBe(0);
+    });
+  });
 });

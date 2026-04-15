@@ -27,6 +27,10 @@
     .tree-cell-wrapper {
       display: inline-flex;
       align-items: center;
+      /* Prevent baseline differences between tree-toggle (inline-flex) and
+         tree-spacer (inline-block) from causing inconsistent row heights,
+         which would trigger a rowHeight oscillation loop in virtualization. */
+      vertical-align: middle;
       /* Override cell > * { overflow: hidden } which clips indented tree content */
       overflow: visible;
       /* Indent must be >= toggle icon width to keep leaf nodes aligned */
@@ -62,8 +66,9 @@
     }
 
     .tree-spacer {
-      /* Must match tree-toggle width for alignment */
+      /* Must match tree-toggle width and height for alignment */
       width: var(--tbw-tree-toggle-size, 1.25em);
+      height: var(--tbw-tree-toggle-size, 1.25em);
       display: inline-block;
       flex-shrink: 0;
     }
@@ -96,6 +101,28 @@
     }
     to {
       opacity: 1;
+    }
+  }
+
+  /* Loading state when lazy data source is fetching */
+  tbw-grid.tbw-tree-loading .rows-viewport::after {
+    content: '';
+    display: block;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--tbw-color-accent, #2563eb), transparent);
+    animation: tbw-tree-loading-bar 1s ease-in-out infinite;
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+  }
+
+  @keyframes tbw-tree-loading-bar {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
     }
   }
 } /* End @layer tbw-plugins */

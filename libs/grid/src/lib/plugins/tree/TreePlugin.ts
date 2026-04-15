@@ -5,18 +5,35 @@
  */
 
 import { GridClasses } from '../../core/constants';
+import type { GridElement } from '../../core/plugin/base-plugin';
 import {
   BaseGridPlugin,
   CellClickEvent,
   HeaderClickEvent,
+  ScrollEvent,
   type PluginManifest,
   type PluginQuery,
 } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ColumnViewRenderer, GridHost } from '../../core/types';
 import { collapseAll, expandAll, expandToKey, toggleExpand } from './tree-data';
+import {
+  DEFAULT_PAGE_SIZE,
+  PREFETCH_THRESHOLD,
+  SCROLL_DEBOUNCE_MS,
+  countTopLevelNodes,
+  shouldPrefetch,
+} from './tree-datasource';
 import { detectTreeStructure, inferChildrenField } from './tree-detect';
 import styles from './tree.css?inline';
-import type { ExpandCollapseAnimation, FlattenedTreeRow, TreeConfig, TreeExpandDetail, TreeRow } from './types';
+import type {
+  ExpandCollapseAnimation,
+  FlattenedTreeRow,
+  TreeConfig,
+  TreeDataSource,
+  TreeExpandDetail,
+  TreeGetRowsParams,
+  TreeRow,
+} from './types';
 
 /**
  * Tree Data Plugin for tbw-grid
@@ -97,18 +114,24 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
           'PivotPlugin replaces the entire row and column structure with aggregated pivot data. ' +
           'Tree hierarchy cannot coexist with pivot aggregation.',
       },
-      {
-        name: 'serverSide',
-        reason:
-          'TreePlugin requires the full hierarchy to flatten and manage expansion state. ' +
-          'ServerSidePlugin lazy-loads rows in blocks and cannot provide nested children on demand.',
-      },
     ],
     events: [
       {
         type: 'tree-expand',
         description:
           'Emitted when tree expansion state changes (toggle, expand all, collapse all). Broadcast to both DOM consumers and plugin bus.',
+      },
+      {
+        type: 'tree-load-start',
+        description: 'Emitted when the tree plugin begins fetching a page of data from the data source.',
+      },
+      {
+        type: 'tree-load-end',
+        description: 'Emitted when data source page loading completes successfully.',
+      },
+      {
+        type: 'tree-load-error',
+        description: 'Emitted when data source page loading fails.',
       },
     ],
     queries: [
@@ -142,6 +165,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       indentWidth: 20,
       showExpandIcons: true,
       animation: 'slide',
+      pageSize: DEFAULT_PAGE_SIZE,
     };
   }
 
@@ -155,6 +179,24 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   private keysToAnimate = new Set<string>();
   private sortState: { field: string; direction: 1 | -1 } | null = null;
 
+  // Lazy mode state
+  private lazyDataSource: TreeDataSource | null = null;
+  private lazyTopLevelNodes: TreeRow[] = [];
+  private lazyTotalTopLevelCount = 0;
+  private lazyLoadingInProgress = false;
+  private lazyHasMore = true;
+  private lazyScrollDebounceTimer?: ReturnType<typeof setTimeout>;
+
+  /** Cached original (unwrapped) renderer to prevent re-wrapping on repeated processColumns calls. */
+  private originalTreeColumnRenderer: ColumnViewRenderer | undefined;
+  /** Field name of the column currently wrapped with tree decorations. */
+  private wrappedTreeColumnField: string | undefined;
+
+  /** Whether the plugin is operating in lazy data source mode. */
+  private get isLazyMode(): boolean {
+    return this.lazyDataSource != null;
+  }
+
   /** @internal */
   override detach(): void {
     this.expandedKeys.clear();
@@ -164,6 +206,18 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     this.previousVisibleKeys.clear();
     this.keysToAnimate.clear();
     this.sortState = null;
+    // Lazy mode cleanup
+    this.lazyDataSource = null;
+    this.lazyTopLevelNodes = [];
+    this.lazyTotalTopLevelCount = 0;
+    this.lazyLoadingInProgress = false;
+    this.lazyHasMore = true;
+    if (this.lazyScrollDebounceTimer) {
+      clearTimeout(this.lazyScrollDebounceTimer);
+      this.lazyScrollDebounceTimer = undefined;
+    }
+    this.originalTreeColumnRenderer = undefined;
+    this.wrappedTreeColumnField = undefined;
   }
 
   /**
@@ -181,6 +235,38 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       }
     }
     return undefined;
+  }
+
+  // #endregion
+
+  // #region Lifecycle
+
+  /** @internal */
+  override attach(grid: GridElement): void {
+    super.attach(grid);
+
+    // Initialize lazy mode from config if dataSource provided
+    if (this.config.dataSource) {
+      this.setDataSource(this.config.dataSource);
+    }
+
+    // Listen for sort and filter changes — reset lazy data when server-side
+    // sort/filter needs to be re-applied.
+    this.on('sort-change', () => this.resetLazyDataOnModelChange());
+    this.on('filter-change', () => this.resetLazyDataOnModelChange());
+  }
+
+  /**
+   * When sort or filter models change, reset lazy data and re-fetch from page 0
+   * so the server can apply the new sort/filter.
+   */
+  private resetLazyDataOnModelChange(): void {
+    if (!this.isLazyMode) return;
+    this.lazyTopLevelNodes = [];
+    this.lazyTotalTopLevelCount = 0;
+    this.lazyHasMore = true;
+    this.initialExpansionDone = false;
+    this.loadNextLazyPage();
   }
 
   // #endregion
@@ -214,9 +300,11 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   /** @internal */
   override processRows(rows: readonly unknown[]): TreeRow[] {
     const childrenField = this.config.childrenField ?? 'children';
-    const treeRows = rows as readonly TreeRow[];
 
-    if (!detectTreeStructure(treeRows, childrenField)) {
+    // In lazy mode, use the internally managed top-level nodes instead of input rows
+    const treeRows = this.isLazyMode ? (this.lazyTopLevelNodes as readonly TreeRow[]) : (rows as readonly TreeRow[]);
+
+    if (treeRows.length === 0 || (!this.isLazyMode && !detectTreeStructure(treeRows, childrenField))) {
       this.flattenedRows = [];
       this.rowKeyMap.clear();
       this.previousVisibleKeys.clear();
@@ -349,7 +437,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
-    if (this.flattenedRows.length === 0) return [...columns];
+    // In lazy mode, wrap the column even before data arrives so the tree
+    // renderer is ready when rows load (avoids needing requestColumnsRender).
+    if (this.flattenedRows.length === 0 && !this.isLazyMode) return [...columns];
 
     const cols = [...columns] as ColumnConfig[];
     if (cols.length === 0) return cols;
@@ -363,7 +453,16 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       if (idx >= 0) targetIndex = idx;
     }
     const targetCol = cols[targetIndex];
-    const originalRenderer = targetCol.viewRenderer;
+    const targetField = targetCol.field;
+
+    // Capture the original (unwrapped) renderer only once per target column.
+    // On subsequent processColumns calls (e.g. after lazy page loads), reuse
+    // the cached original so we don't nest tree-cell-wrappers.
+    if (this.wrappedTreeColumnField !== targetField) {
+      this.originalTreeColumnRenderer = targetCol.viewRenderer;
+      this.wrappedTreeColumnField = targetField;
+    }
+    const originalRenderer = this.originalTreeColumnRenderer;
     const getConfig = () => this.config;
     const setIconFn = this.setIcon.bind(this);
 
@@ -498,6 +597,39 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     this.broadcast('sort-change', { field, direction: this.sortState?.direction ?? 0 });
     this.requestRender();
     return true;
+  }
+
+  /** @internal */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  override onScroll(event: ScrollEvent): void {
+    if (!this.isLazyMode || !this.lazyHasMore || this.lazyLoadingInProgress) return;
+
+    // Immediate check
+    this.checkLazyLoadThreshold();
+
+    // Debounced final check after scroll stops
+    if (this.lazyScrollDebounceTimer) {
+      clearTimeout(this.lazyScrollDebounceTimer);
+    }
+    this.lazyScrollDebounceTimer = setTimeout(() => {
+      this.checkLazyLoadThreshold();
+    }, SCROLL_DEBOUNCE_MS);
+  }
+
+  /**
+   * Check if the viewport is approaching the end of loaded data and
+   * trigger a load if needed.
+   */
+  private checkLazyLoadThreshold(): void {
+    if (!this.lazyHasMore || this.lazyLoadingInProgress || this.flattenedRows.length === 0) return;
+
+    const gridRef = this.grid as unknown as GridHost;
+    const viewportEnd = gridRef._virtualization?.end ?? 0;
+
+    const loadedTopLevel = countTopLevelNodes(this.flattenedRows);
+    if (shouldPrefetch(this.flattenedRows, viewportEnd, loadedTopLevel, PREFETCH_THRESHOLD)) {
+      this.loadNextLazyPage();
+    }
   }
 
   /** @internal */
@@ -705,6 +837,168 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   expandToKey(key: string): void {
     this.expandedKeys = expandToKey(this.rows as TreeRow[], key, this.config, this.expandedKeys);
     this.requestRender();
+  }
+
+  // #endregion
+
+  // #region Lazy Data Source API
+
+  /**
+   * Set a data source for lazy tree data loading.
+   *
+   * Enters lazy mode: the grid ignores the `rows` property and instead loads
+   * pages of top-level nodes from the data source as the user scrolls.
+   * Clears any existing data and loads the first page immediately.
+   *
+   * @param dataSource - Data source implementing `TreeDataSource.getRows()`
+   *
+   * @example
+   * ```ts
+   * const tree = grid.getPluginByName('tree');
+   * tree.setDataSource({
+   *   async getRows(params) {
+   *     const res = await fetch(
+   *       `/api/departments?start=${params.startNode}&count=${params.count}`
+   *     );
+   *     return res.json();
+   *   },
+   * });
+   * ```
+   */
+  setDataSource(dataSource: TreeDataSource): void {
+    this.lazyDataSource = dataSource;
+    this.lazyTopLevelNodes = [];
+    this.lazyTotalTopLevelCount = 0;
+    this.lazyHasMore = true;
+    this.lazyLoadingInProgress = false;
+    this.expandedKeys.clear();
+    this.initialExpansionDone = false;
+    this.loadNextLazyPage();
+  }
+
+  /**
+   * Clear all loaded data and re-fetch from the beginning.
+   * Useful after external data changes that require a complete refresh.
+   *
+   * @example
+   * ```ts
+   * const tree = grid.getPluginByName('tree');
+   * tree.refreshDataSource();
+   * ```
+   */
+  refreshDataSource(): void {
+    if (!this.lazyDataSource) return;
+    this.lazyTopLevelNodes = [];
+    this.lazyTotalTopLevelCount = 0;
+    this.lazyHasMore = true;
+    this.lazyLoadingInProgress = false;
+    this.expandedKeys.clear();
+    this.initialExpansionDone = false;
+    this.loadNextLazyPage();
+  }
+
+  /**
+   * Manually trigger loading the next page of top-level nodes.
+   * Normally pages load automatically on scroll; use this for custom UX
+   * (e.g. a "Load More" button).
+   *
+   * @example
+   * ```ts
+   * const tree = grid.getPluginByName('tree');
+   * await tree.loadMore();
+   * ```
+   */
+  async loadMore(): Promise<void> {
+    if (!this.lazyDataSource || !this.lazyHasMore || this.lazyLoadingInProgress) return;
+    await this.loadNextLazyPage();
+  }
+
+  /**
+   * Get the total number of top-level nodes as reported by the data source.
+   * Returns `0` if not in lazy mode or no data has been loaded yet.
+   */
+  getTotalTopLevelCount(): number {
+    return this.lazyTotalTopLevelCount;
+  }
+
+  /**
+   * Get the number of top-level nodes currently loaded.
+   */
+  getLoadedTopLevelCount(): number {
+    return this.lazyTopLevelNodes.length;
+  }
+
+  /**
+   * Check whether the tree is currently loading data from the data source.
+   */
+  get isLoading(): boolean {
+    return this.lazyLoadingInProgress;
+  }
+
+  /**
+   * Fetch the next page of top-level nodes from the data source.
+   */
+  private async loadNextLazyPage(): Promise<void> {
+    if (!this.lazyDataSource || this.lazyLoadingInProgress) return;
+
+    this.lazyLoadingInProgress = true;
+    this.gridElement?.classList.add('tbw-tree-loading');
+    this.broadcast('tree-load-start', undefined);
+
+    const pageSize = this.config.pageSize ?? DEFAULT_PAGE_SIZE;
+    const startNode = this.lazyTopLevelNodes.length;
+
+    // Build sort/filter params to pass through to the server
+    const params: TreeGetRowsParams = {
+      startNode,
+      count: pageSize,
+    };
+
+    // Pass sort model if available
+    const multiSortResults = this.grid?.query?.('sort:get-model', null);
+    if (Array.isArray(multiSortResults) && multiSortResults.length > 0) {
+      const sortModel = multiSortResults[0] as Array<{ field: string; direction: 'asc' | 'desc' }>;
+      if (Array.isArray(sortModel) && sortModel.length > 0) {
+        params.sortModel = sortModel;
+      }
+    } else if (this.sortState) {
+      params.sortModel = [{ field: this.sortState.field, direction: this.sortState.direction === 1 ? 'asc' : 'desc' }];
+    }
+
+    try {
+      const result = await this.lazyDataSource.getRows(params);
+
+      // Append new top-level nodes
+      this.lazyTopLevelNodes = [...this.lazyTopLevelNodes, ...result.rows];
+      this.lazyTotalTopLevelCount = result.totalTopLevelCount;
+
+      // Determine if there's more data
+      if (result.lastNode !== undefined) {
+        this.lazyHasMore = this.lazyTopLevelNodes.length <= result.lastNode;
+      } else if (result.totalTopLevelCount >= 0) {
+        this.lazyHasMore = this.lazyTopLevelNodes.length < result.totalTopLevelCount;
+      } else {
+        // Infinite scroll: no more data when result is empty or less than page size
+        this.lazyHasMore = result.rows.length >= pageSize;
+      }
+
+      this.lazyLoadingInProgress = false;
+      this.gridElement?.classList.remove('tbw-tree-loading');
+      this.broadcast('tree-load-end', {
+        totalTopLevelCount: this.lazyTotalTopLevelCount,
+        loadedCount: this.lazyTopLevelNodes.length,
+      });
+
+      // Re-render with the new data. ROWS phase is sufficient because
+      // processColumns already wrapped the column during initial setup.
+      // Using COLUMNS phase here would trigger a full pipeline rebuild that
+      // changes scroll height and causes a scroll → render feedback loop.
+      this.requestRender();
+    } catch (error: unknown) {
+      this.lazyLoadingInProgress = false;
+      this.gridElement?.classList.remove('tbw-tree-loading');
+      this.broadcast('tree-load-error', { error });
+    }
   }
 
   // #endregion

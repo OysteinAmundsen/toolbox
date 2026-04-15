@@ -400,8 +400,8 @@ describe('ServerSidePlugin', () => {
     it('should declare incompatibilities', () => {
       const manifest = ServerSidePlugin.manifest;
       expect(manifest.incompatibleWith).toBeDefined();
-      expect(manifest.incompatibleWith!.length).toBe(2);
-      expect(manifest.incompatibleWith!.map((i) => i.name)).toEqual(['tree', 'pivot']);
+      expect(manifest.incompatibleWith!.length).toBe(1);
+      expect(manifest.incompatibleWith!.map((i) => i.name)).toEqual(['pivot']);
     });
   });
 

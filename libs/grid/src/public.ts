@@ -221,6 +221,9 @@ export const PluginEvents = {
   SELECTION_CHANGE: 'selection-change',
   // Tree plugin
   TREE_EXPAND: 'tree-expand',
+  TREE_LOAD_START: 'tree-load-start',
+  TREE_LOAD_END: 'tree-load-end',
+  TREE_LOAD_ERROR: 'tree-load-error',
   // Filtering plugin
   FILTER_CHANGE: 'filter-change',
   // Sorting plugin

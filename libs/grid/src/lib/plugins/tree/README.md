@@ -38,14 +38,16 @@ grid.rows = data;
 
 ## Configuration
 
-| Option            | Type                         | Default      | Description                     |
-| ----------------- | ---------------------------- | ------------ | ------------------------------- |
-| `childrenField`   | `string`                     | `'children'` | Property name for child nodes   |
-| `autoDetect`      | `boolean`                    | `true`       | Auto-detect tree structure      |
-| `defaultExpanded` | `boolean`                    | `false`      | Expand all nodes initially      |
-| `indentWidth`     | `number`                     | `20`         | Pixels of indentation per level |
-| `showExpandIcons` | `boolean`                    | `true`       | Show expand/collapse icons      |
-| `animation`       | `false \| 'slide' \| 'fade'` | `'slide'`    | Expand/collapse animation style |
+| Option            | Type                         | Default      | Description                                      |
+| ----------------- | ---------------------------- | ------------ | ------------------------------------------------ |
+| `childrenField`   | `string`                     | `'children'` | Property name for child nodes                    |
+| `autoDetect`      | `boolean`                    | `true`       | Auto-detect tree structure                       |
+| `defaultExpanded` | `boolean`                    | `false`      | Expand all nodes initially                       |
+| `indentWidth`     | `number`                     | `20`         | Pixels of indentation per level                  |
+| `showExpandIcons` | `boolean`                    | `true`       | Show expand/collapse icons                       |
+| `animation`       | `false \| 'slide' \| 'fade'` | `'slide'`    | Expand/collapse animation style                  |
+| `dataSource`      | `TreeDataSource`             | —            | Data source for lazy-loading tree data           |
+| `pageSize`        | `number`                     | `50`         | Top-level nodes per page when using `dataSource` |
 
 ## Auto-Detection
 
@@ -64,6 +66,66 @@ grid.addEventListener('tree-expand', (e) => {
   console.log('Expanded:', e.detail.expanded);
   console.log('Depth:', e.detail.depth);
 });
+```
+
+### `tree-load-start` / `tree-load-end` / `tree-load-error`
+
+Fired during lazy data source loading:
+
+```typescript
+grid.addEventListener('tree-load-start', () => console.log('Loading...'));
+grid.addEventListener('tree-load-end', (e) => {
+  console.log(`Loaded ${e.detail.loadedCount}/${e.detail.totalTopLevelCount}`);
+});
+grid.addEventListener('tree-load-error', (e) => console.error(e.detail.error));
+```
+
+## Lazy Loading (Data Source)
+
+For large datasets where top-level nodes are paginated by the server, use the
+`dataSource` option to load tree data on demand as the user scrolls.
+
+```typescript
+const tree = new TreePlugin({
+  pageSize: 50,
+  dataSource: {
+    async getRows(params) {
+      const res = await fetch(`/api/departments?start=${params.startNode}&count=${params.count}`);
+      return res.json();
+      // Expected response: { rows: [...], totalTopLevelCount: 500 }
+    },
+  },
+});
+```
+
+The server returns pages of **top-level nodes with children already embedded**.
+Pagination operates at the top-level node granularity. Expand/collapse of
+loaded nodes works entirely client-side without additional server requests.
+
+### Sort/Filter Pass-Through
+
+When sort or filter state changes, the tree resets and re-fetches from page 0,
+passing `sortModel` and `filterModel` to the data source so the server can
+apply sorting/filtering.
+
+### Programmatic API (lazy mode)
+
+```typescript
+const tree = grid.getPluginByName('tree');
+
+// Set or change data source at runtime
+tree.setDataSource(myDataSource);
+
+// Re-fetch all data from the beginning
+tree.refreshDataSource();
+
+// Manually load the next page
+await tree.loadMore();
+
+// Check loading state
+console.log(tree.isLoading);
+console.log(tree.getTotalTopLevelCount());
+console.log(tree.getLoadedTopLevelCount());
 ```
 
 ## API Methods

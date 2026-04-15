@@ -70,13 +70,6 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     modifiesRowStructure: true,
     incompatibleWith: [
       {
-        name: 'tree',
-        reason:
-          'TreePlugin requires the full hierarchy to flatten and manage expansion state. ' +
-          'ServerSidePlugin lazy-loads rows in blocks and cannot provide nested children on demand. ' +
-          'Server-side tree would require lazy child loading as nodes expand.',
-      },
-      {
         name: 'pivot',
         reason:
           'PivotPlugin requires the full dataset to compute aggregations. ' +

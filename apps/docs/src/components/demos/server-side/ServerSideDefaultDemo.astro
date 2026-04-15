@@ -55,7 +55,7 @@ if (container) {
           return direction === 'asc' ? cmp : -cmp;
         });
       }
-      return { rows: data.slice(params.startRow, params.endRow), totalRowCount: data.length };
+      return { rows: data.slice(params.startNode, params.endNode), totalNodeCount: data.length };
     },
   });
 

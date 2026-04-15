@@ -509,6 +509,36 @@ describe('ServerSidePlugin', () => {
       // Remaining are placeholders
       expect((result[5] as any).__loading).toBe(true);
     });
+
+    it('should not throw when totalNodeCount is undefined (malformed datasource)', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalNodeCount: undefined }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(grid.requestRender).toHaveBeenCalled());
+
+      expect(() => plugin.processRows([])).not.toThrow();
+      expect(plugin.processRows([]).length).toBe(0);
+    });
+
+    it('should not throw when totalNodeCount is negative', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalNodeCount: -1 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(grid.requestRender).toHaveBeenCalled());
+
+      expect(() => plugin.processRows([])).not.toThrow();
+      expect(plugin.processRows([]).length).toBe(0);
+    });
   });
 
   describe('isRowLoaded', () => {

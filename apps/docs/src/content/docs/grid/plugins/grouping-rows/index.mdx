@@ -339,18 +339,17 @@ The row grouping plugin uses these class names:
 | `group-expand`   | `{ groupKey, groupPath }`                      | Fired when a pre-defined group is expanded   |
 | `group-collapse` | `{ groupKey, groupPath }`                      | Fired when a pre-defined group is collapsed  |
 
-## Server-Side Integration
+## Server-Side Data
 
-The Row Grouping plugin supports **pre-defined groups** for server-side scenarios where group structure comes from the server and row data is loaded on demand.
+> **Requires:** `ServerSidePlugin` — [see Server-Side Data Loading guide](/grid/guides/server-side-data/)
 
-### Declarative API (recommended)
-
-The simplest approach uses `groups` and `rows` callbacks in the config. The plugin manages the full lifecycle automatically — loading indicators, data fetching, caching, and rendering:
+For server-side scenarios where group structure is fetched from the server and rows are loaded on demand, use `ServerSidePlugin` alongside Row Grouping. ServerSide returns group definitions as root data; when the user expands a group, the plugin fetches group rows via `getChildRows()`.
 
 <Tabs syncKey="framework">
   <TabItem label="Vanilla JS">
 ```ts
 import '@toolbox-web/grid/features/grouping-rows';
+import '@toolbox-web/grid/features/server-side';
 import { queryGrid } from '@toolbox-web/grid';
 
 const grid = queryGrid('tbw-grid');
@@ -361,31 +360,66 @@ grid.gridConfig = {
     { field: 'salary', header: 'Salary', type: 'currency' },
   ],
   features: {
-    groupingRows: {
-      groups: () => fetch('/api/groups').then(r => r.json()),
-      rows: (group) => fetch(`/api/groups/${group.key}/rows`).then(r => r.json()),
-    },
+    serverSide: { pageSize: 50 },
+    groupingRows: true,
   },
 };
+
+grid.ready().then(() => {
+  grid.getPluginByName('serverSide').setDataSource({
+    async getRows(params) {
+      // Return group definitions as root-level nodes
+      const res = await fetch(`/api/groups?start=${params.startNode}&end=${params.endNode}`);
+      const data = await res.json();
+      return { rows: data.groups, totalNodeCount: data.total };
+    },
+    async getChildRows(params) {
+      // Return rows for an expanded group
+      const { groupKey } = params.context;
+      const res = await fetch(`/api/groups/${groupKey}/rows`);
+      return { rows: await res.json() };
+    },
+  });
+});
 ```
   </TabItem>
   <TabItem label="React">
 ```tsx
 import '@toolbox-web/grid-react/features/grouping-rows';
-import { DataGrid } from '@toolbox-web/grid-react';
+import '@toolbox-web/grid-react/features/server-side';
+import { DataGrid, useGrid } from '@toolbox-web/grid-react';
+import { useEffect } from 'react';
 
 function ServerGroupedGrid() {
+  const { ref, element } = useGrid();
+
+  useEffect(() => {
+    if (!element) return;
+    element.ready().then(() => {
+      element.getPluginByName('serverSide')?.setDataSource({
+        async getRows(params) {
+          const res = await fetch(`/api/groups?start=${params.startNode}&end=${params.endNode}`);
+          return res.json();
+        },
+        async getChildRows(params) {
+          const { groupKey } = params.context;
+          const res = await fetch(`/api/groups/${groupKey}/rows`);
+          return { rows: await res.json() };
+        },
+      });
+    });
+  }, [element]);
+
   return (
     <DataGrid
+      ref={ref}
       columns={[
         { field: 'name', header: 'Employee' },
         { field: 'department', header: 'Department' },
         { field: 'salary', header: 'Salary', type: 'currency' },
       ]}
-      groupingRows={{
-        groups: () => fetch('/api/groups').then(r => r.json()),
-        rows: (group) => fetch(`/api/groups/${group.key}/rows`).then(r => r.json()),
-      }}
+      serverSide={{ pageSize: 50 }}
+      groupingRows
     />
   );
 }
@@ -395,16 +429,31 @@ function ServerGroupedGrid() {
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/grouping-rows';
+import '@toolbox-web/grid-vue/features/server-side';
 import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { ref, onMounted } from 'vue';
 
-const groupingConfig = {
-  groups: () => fetch('/api/groups').then(r => r.json()),
-  rows: (group) => fetch(`/api/groups/${group.key}/rows`).then(r => r.json()),
-};
+const gridRef = ref(null);
+
+onMounted(async () => {
+  const grid = gridRef.value?.element;
+  await grid?.ready();
+  grid?.getPluginByName('serverSide')?.setDataSource({
+    async getRows(params) {
+      const res = await fetch(`/api/groups?start=${params.startNode}&end=${params.endNode}`);
+      return res.json();
+    },
+    async getChildRows(params) {
+      const { groupKey } = params.context;
+      const res = await fetch(`/api/groups/${groupKey}/rows`);
+      return { rows: await res.json() };
+    },
+  });
+});
 </script>
 
 <template>
-  <TbwGrid :grouping-rows="groupingConfig">
+  <TbwGrid ref="gridRef" :server-side="{ pageSize: 50 }" grouping-rows>
     <TbwGridColumn field="name" header="Employee" />
     <TbwGridColumn field="department" header="Department" />
     <TbwGridColumn field="salary" header="Salary" type="currency" />
@@ -415,50 +464,67 @@ const groupingConfig = {
   <TabItem label="Angular">
 ```typescript
 import '@toolbox-web/grid-angular/features/grouping-rows';
-import { Component } from '@angular/core';
+import '@toolbox-web/grid-angular/features/server-side';
+import { Component, viewChild, ElementRef } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-server-grouped-grid',
   imports: [Grid],
   template: `
-    <tbw-grid [columns]="columns" [groupingRows]="groupingConfig" style="height: 400px; display: block;">
+    <tbw-grid
+      #grid
+      [columns]="columns"
+      [serverSide]="{ pageSize: 50 }"
+      [groupingRows]="true"
+      style="height: 400px; display: block;">
     </tbw-grid>
   `,
 })
 export class ServerGroupedGridComponent {
-  columns = [
+  gridRef = viewChild<ElementRef<GridElement>>('grid');
+
+  columns: ColumnConfig[] = [
     { field: 'name', header: 'Employee' },
     { field: 'department', header: 'Department' },
     { field: 'salary', header: 'Salary', type: 'currency' },
   ];
 
-  groupingConfig = {
-    groups: () => fetch('/api/groups').then((r: any) => r.json()),
-    rows: (group: any) => fetch(`/api/groups/${group.key}/rows`).then((r: any) => r.json()),
-  };
+  ngAfterViewInit() {
+    this.gridRef()?.nativeElement.ready().then(() => {
+      this.gridRef()?.nativeElement.getPluginByName('serverSide')?.setDataSource({
+        async getRows(params: any) {
+          const res = await fetch(`/api/groups?start=${params.startNode}&end=${params.endNode}`);
+          return res.json();
+        },
+        async getChildRows(params: any) {
+          const { groupKey } = params.context;
+          const res = await fetch(`/api/groups/${groupKey}/rows`);
+          return { rows: await res.json() };
+        },
+      });
+    });
+  }
 }
 ```
   </TabItem>
 </Tabs>
 
-The `groups` config can also be a static array if the group structure is known upfront:
+**Data flow:**
+1. ServerSide fetches block → broadcasts `datasource:data`
+2. GroupingRowsPlugin claims data as pre-defined groups
+3. On group expand → fires `datasource:fetch-children` with `{ source: 'grouping-rows', groupKey }`
+4. ServerSide calls `getChildRows()` → broadcasts `datasource:children`
+5. GroupingRowsPlugin receives rows and renders them under the group
 
-```ts
-features: {
-  groupingRows: {
-    groups: [
-      { key: 'engineering', value: 'Engineering', rowCount: 150 },
-      { key: 'sales', value: 'Sales', rowCount: 89 },
-    ],
-    rows: (group) => fetch(`/api/groups/${group.key}/rows`).then(r => r.json()),
-  },
-},
-```
+:::note
+Child rows are fetched as a single batch — no pagination. If a group has many rows, limit the response server-side.
+:::
 
-### Imperative API
+### Standalone Mode (Without ServerSide)
 
-For full control over loading states and partial updates, use the plugin instance directly. Groups and rows can both be loaded asynchronously:
+If `ServerSidePlugin` is not loaded, use the imperative API to provide groups and rows directly:
 
 ```ts
 import '@toolbox-web/grid/features/grouping-rows';

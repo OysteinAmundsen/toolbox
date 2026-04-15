@@ -304,16 +304,20 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
 
     const blockSize = this.config.cacheBlockSize ?? 100;
 
+    // Guard against invalid totalNodeCount (e.g. undefined from a malformed datasource response,
+    // or -1 for infinite scroll mode where the total is unknown).
+    const nodeCount = Number.isFinite(this.totalNodeCount) && this.totalNodeCount >= 0 ? this.totalNodeCount : 0;
+
     // Grow array with stable placeholder objects (created once, reused across renders)
-    while (this.managedNodes.length < this.totalNodeCount) {
+    while (this.managedNodes.length < nodeCount) {
       const i = this.managedNodes.length;
       this.managedNodes.push({ __loading: true, __index: i });
     }
     // Shrink if total decreased
-    this.managedNodes.length = this.totalNodeCount;
+    this.managedNodes.length = nodeCount;
 
     // Replace placeholders with cached data (stable refs for unchanged entries)
-    for (let i = 0; i < this.totalNodeCount; i++) {
+    for (let i = 0; i < nodeCount; i++) {
       const cached = getRowFromCache(i, blockSize, this.loadedBlocks);
       if (cached) {
         this.managedNodes[i] = cached;

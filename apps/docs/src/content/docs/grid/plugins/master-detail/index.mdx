@@ -189,6 +189,86 @@ features: { masterDetail: { animation: false, ... } }
 Animation respects the grid-level `animation.mode` setting. If the grid has `animation: { mode: 'off' }`, plugin animations are disabled.
 :::
 
+## Server-Side Data
+
+> **Requires:** `ServerSidePlugin` — [see Server-Side Data Loading guide](/grid/guides/server-side-data/)
+
+When `ServerSidePlugin` is loaded, MasterDetailPlugin can fetch detail data from the server on demand. On detail expand, it queries `datasource:fetch-children` and renders the result using `detailRenderer`. When ServerSide is not present, `detailRenderer` works synchronously as today.
+
+```ts
+import '@toolbox-web/grid/features/master-detail';
+import '@toolbox-web/grid/features/server-side';
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'orderId', header: 'Order ID' },
+    { field: 'customer', header: 'Customer' },
+    { field: 'total', header: 'Total', type: 'currency' },
+  ],
+  features: {
+    serverSide: { pageSize: 50 },
+    masterDetail: {
+      detailRenderer: (row, rowIndex) => {
+        const plugin = grid.getPluginByName('masterDetail');
+
+        if (plugin.isDetailLoading(rowIndex)) {
+          return '<div class="loading">Loading order items…</div>';
+        }
+
+        const items = plugin.getDetailData(rowIndex);
+        if (!items) {
+          return '<div class="loading">Loading…</div>';
+        }
+
+        return `
+          <div class="order-details">
+            <h4>Order Items</h4>
+            <ul>
+              ${items.map((item: any) => `<li>${item.name} — $${item.price}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      },
+    },
+  },
+};
+
+grid.ready().then(() => {
+  grid.getPluginByName('serverSide').setDataSource({
+    async getRows(params) {
+      const res = await fetch(`/api/orders?start=${params.startNode}&end=${params.endNode}`);
+      const data = await res.json();
+      return { rows: data.orders, totalNodeCount: data.total };
+    },
+    async getChildRows(params) {
+      const { row } = params.context;
+      const res = await fetch(`/api/orders/${row.id}/items`);
+      return { rows: await res.json() };
+    },
+  });
+});
+```
+
+**Data flow:**
+1. ServerSide fetches rows → renders normally (MasterDetail does not claim root data)
+2. On detail expand → MasterDetailPlugin queries `datasource:fetch-children` with `{ source: 'master-detail', row, rowIndex }`
+3. ServerSide calls `getChildRows()` → broadcasts `datasource:children`
+4. MasterDetailPlugin stores the data and re-renders the detail panel
+5. `detailRenderer` uses `getDetailData(rowIndex)` to access the async data
+
+**Async API:**
+```ts
+const plugin = grid.getPluginByName('masterDetail');
+plugin.getDetailData(rowIndex);     // Get fetched detail data (or undefined if not loaded)
+plugin.isDetailLoading(rowIndex);   // Check if detail data is currently loading
+```
+
+:::note
+Child rows are fetched as a single batch — no pagination. If a detail row has many children, limit the response server-side.
+:::
+
 ## Nested Grid Example
 
 ```ts

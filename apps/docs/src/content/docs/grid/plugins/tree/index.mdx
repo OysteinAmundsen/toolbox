@@ -377,19 +377,6 @@ const rows = plugin.getFlattenedRows();  // Get flattened tree rows with metadat
 const row = plugin.getRowByKey(key);     // Find a row by its key
 ```
 
-### Lazy Mode API
-
-When using a `dataSource`, the following additional methods are available:
-
-```ts
-plugin.setDataSource(dataSource);        // Replace the data source at runtime
-plugin.refreshDataSource();              // Clear loaded data and re-fetch from start
-plugin.loadMore();                       // Manually trigger loading the next page
-plugin.isLoading;                        // true while a fetch is in progress
-plugin.getLoadedTopLevelCount();         // Number of top-level nodes loaded so far
-plugin.getTotalTopLevelCount();          // Total reported by the server (-1 if unknown)
-```
-
 ## Events
 
 <ShowSource>
@@ -408,22 +395,6 @@ grid.on('tree-expand', ({ key, row, expanded, depth, expandedKeys }) => {
 ```
 
 See [`TreeExpandDetail`](./Interfaces/TreeExpandDetail/) for the full event payload type.
-
-### Lazy Loading Events
-
-When using a `dataSource`, the following events track fetch lifecycle:
-
-```ts
-grid.on('tree-load-start', () => console.log('Fetching next page…'));
-grid.on('tree-load-end', () => console.log('Page loaded'));
-grid.on('tree-load-error', (e) => console.error('Fetch failed', e.detail));
-```
-
-| Event | Fired when |
-|---|---|
-| `tree-load-start` | A page fetch begins |
-| `tree-load-end` | A page fetch succeeds |
-| `tree-load-error` | A page fetch fails |
 
 ## Styling
 
@@ -475,7 +446,6 @@ The Tree plugin **cannot** be used with the following plugins:
 
 - **[Row Grouping](/grid/plugins/grouping-rows/)** — Both plugins transform the entire row model. Tree flattens nested hierarchies while Row Grouping groups flat rows with synthetic headers. Use one approach per grid.
 - **[Pivot](/grid/plugins/pivot/)** — Pivot replaces the entire row and column structure with aggregated pivot data. Tree hierarchy cannot coexist with pivot aggregation.
-- **[Server-Side](/grid/plugins/server-side/)** — Tree requires the full hierarchy to flatten and manage expansion state. Server-side lazy loading provides rows in blocks and cannot deliver nested children on demand.
 :::
 
 A development-mode warning is shown if incompatible plugins are loaded together.

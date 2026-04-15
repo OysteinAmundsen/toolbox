@@ -28,21 +28,20 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option             | Type                                                    | Default   | Description                              |
-| ------------------ | ------------------------------------------------------- | --------- | ---------------------------------------- |
-| `groupOn`          | `(row) => any[] \| any \| null \| false`                | -         | Function returning group key(s)          |
-| `groups`           | `GroupDefinition[] \| () => Promise<GroupDefinition[]>` | -         | Pre-defined groups (static or async)     |
-| `rows`             | `(group: GroupDefinition) => Promise<unknown[]>`        | -         | Callback to lazily load rows for a group |
-| `aggregators`      | `Record<string, AggregatorRef>`                         | `{}`      | Aggregation functions per field          |
-| `fullWidth`        | `boolean`                                               | `true`    | Group rows span full width               |
-| `defaultExpanded`  | `boolean \| number \| string \| string[]`               | `false`   | Start groups expanded                    |
-| `showRowCount`     | `boolean`                                               | `true`    | Show row count in group headers          |
-| `indentWidth`      | `number`                                                | `20`      | Indent width per depth level in pixels   |
-| `animation`        | `false \| 'slide' \| 'fade'`                            | `'slide'` | Expand/collapse animation style          |
-| `accordion`        | `boolean`                                               | `false`   | Only one group open at a time            |
-| `groupRowHeight`   | `number`                                                | -         | Height of group header rows (px)         |
-| `groupRowRenderer` | `(params) => HTMLElement \| string \| void`             | -         | Custom group row renderer                |
-| `formatLabel`      | `(value, depth, key) => string`                         | -         | Custom format function for group label   |
+| Option             | Type                                        | Default   | Description                            |
+| ------------------ | ------------------------------------------- | --------- | -------------------------------------- |
+| `groupOn`          | `(row) => any[] \| any \| null \| false`    | -         | Function returning group key(s)        |
+| `groups`           | `GroupDefinition[]`                         | -         | Pre-defined group structure            |
+| `aggregators`      | `Record<string, AggregatorRef>`             | `{}`      | Aggregation functions per field        |
+| `fullWidth`        | `boolean`                                   | `true`    | Group rows span full width             |
+| `defaultExpanded`  | `boolean \| number \| string \| string[]`   | `false`   | Start groups expanded                  |
+| `showRowCount`     | `boolean`                                   | `true`    | Show row count in group headers        |
+| `indentWidth`      | `number`                                    | `20`      | Indent width per depth level in pixels |
+| `animation`        | `false \| 'slide' \| 'fade'`                | `'slide'` | Expand/collapse animation style        |
+| `accordion`        | `boolean`                                   | `false`   | Only one group open at a time          |
+| `groupRowHeight`   | `number`                                    | -         | Height of group header rows (px)       |
+| `groupRowRenderer` | `(params) => HTMLElement \| string \| void` | -         | Custom group row renderer              |
+| `formatLabel`      | `(value, depth, key) => string`             | -         | Custom format function for group label |
 
 ## Multi-Level Grouping
 
@@ -86,15 +85,12 @@ grid.addEventListener('group-toggle', (e) => {
 
 ### `group-expand` / `group-collapse`
 
-Fired in pre-defined groups mode when a group is expanded or collapsed. Use these to lazily load data from a server.
+Fired in pre-defined groups mode when a group is expanded or collapsed.
 
 ```typescript
-grid.addEventListener('group-expand', async (e) => {
-  const { groupKey, groupPath } = e.detail;
-  grouping.setGroupLoading(groupKey, true);
-  const rows = await fetchGroupRows(groupKey);
-  grouping.setGroupRows(groupKey, rows);
-  grouping.setGroupLoading(groupKey, false);
+grid.addEventListener('group-expand', (e) => {
+  console.log('Group expanded:', e.detail.groupKey);
+  console.log('Group path:', e.detail.groupPath);
 });
 ```
 
@@ -145,60 +141,64 @@ grouping.setGroupOn((row) => row.category);
 grouping.refreshGroups();
 ```
 
-## Server-Side Grouping (Pre-Defined Groups)
+## Server-Side Data (Unified DataSource)
 
-For server-side scenarios, use `groups` and `rows` callbacks to lazily load data:
+When used together with `ServerSidePlugin`, grouped data is loaded through the
+unified DataSource architecture. The GroupingRows plugin automatically claims
+`datasource:data` events (interpreting rows as group definitions) and receives
+row data for expanded groups via `datasource:children` events.
 
 ```typescript
-// Declarative API (recommended) — plugin handles loading/caching automatically
-grid.gridConfig = {
-  features: {
-    groupingRows: {
-      groups: () => fetch('/api/groups').then((r) => r.json()),
-      rows: (group) => fetch(`/api/groups/${group.key}/rows`).then((r) => r.json()),
-    },
-  },
-};
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
+import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
 
-// Static groups with async rows
 grid.gridConfig = {
-  features: {
-    groupingRows: {
-      groups: [
-        { key: 'engineering', value: 'Engineering', rowCount: 150 },
-        { key: 'sales', value: 'Sales', rowCount: 89 },
-      ],
-      rows: (group) => fetch(`/api/groups/${group.key}/rows`).then((r) => r.json()),
-    },
-  },
+  plugins: [
+    new ServerSidePlugin({
+      dataSource: {
+        getRows: async (params) => {
+          const res = await fetch(`/api/groups?start=${params.startNode}&end=${params.endNode}`);
+          return res.json();
+          // Expected: { rows: [{ key: 'Eng', value: 'Engineering', rowCount: 150 }, ...], totalNodeCount: 5 }
+        },
+        getChildRows: async (params) => {
+          const { groupKey } = params.context;
+          const res = await fetch(`/api/groups/${groupKey}/rows`);
+          return { rows: await res.json() };
+        },
+      },
+    }),
+    new GroupingRowsPlugin(),
+  ],
 };
 ```
 
-### Imperative API
+The `ServerSidePlugin` manages data fetching while GroupingRows handles group
+rendering and expand/collapse. When a group is expanded, GroupingRows automatically
+fires a `datasource:fetch-children` query — the ServerSide plugin calls
+`getChildRows()` and delivers the results back via `datasource:children`.
+Viewport mapping is handled automatically for correct pagination.
 
-For full control over loading states and partial updates, use the plugin instance directly:
+### Imperative API (Without ServerSide)
+
+For full control without ServerSidePlugin, use the plugin instance directly:
 
 ```typescript
-import '@toolbox-web/grid/features/grouping-rows';
-import { queryGrid } from '@toolbox-web/grid';
-
-const grid = await queryGrid('tbw-grid', true);
-grid.gridConfig = {
-  features: { groupingRows: true },
-};
-
 const grouping = grid.getPluginByName('groupingRows');
 
-// Lazy-load rows when a group is expanded
-grid.on('group-expand', async ({ groupKey }) => {
+// Provide groups programmatically
+grouping.setGroups([
+  { key: 'engineering', value: 'Engineering', rowCount: 150 },
+  { key: 'sales', value: 'Sales', rowCount: 89 },
+]);
+
+// Populate rows for an expanded group
+grid.addEventListener('group-expand', async (e) => {
+  const { groupKey } = e.detail;
   grouping.setGroupLoading(groupKey, true);
   const rows = await fetchGroupRows(groupKey);
-  grouping.setGroupRows(groupKey, rows); // also clears loading state
+  grouping.setGroupRows(groupKey, rows);
 });
-
-// Load groups asynchronously
-const groups = await fetch('/api/groups').then((r) => r.json());
-grouping.setGroups(groups);
 ```
 
 | Method                          | Description                               |

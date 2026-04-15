@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.31.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.31.2...grid-1.31.3) (2026-04-15)
+
+
+### Bug Fixes
+
+* **grid,grid-angular:** tooltip anchor guard and overlay editor init ([4c71a0a](https://github.com/OysteinAmundsen/toolbox/commit/4c71a0ae7d62923b26ad2394ee829acaf2600c88))
+* **grid,grid-react:** thread gridEl for multi-grid portal resolution ([f18e397](https://github.com/OysteinAmundsen/toolbox/commit/f18e3975ccd22336bf65cbb44710dabe8781fe53))
+* **grid:** delegate sorting to render scheduler when processRows plugins are active ([#212](https://github.com/OysteinAmundsen/toolbox/issues/212)) ([03af9c4](https://github.com/OysteinAmundsen/toolbox/commit/03af9c4382d52b7900a42781f913e8e3e2c52bf4))
+* **grid:** fix tree plugin with pinned columns ([#214](https://github.com/OysteinAmundsen/toolbox/issues/214)) ([a38c893](https://github.com/OysteinAmundsen/toolbox/commit/a38c893cc141eb217c85a3ec96a300c903ed584a))
+
 ## [1.31.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.31.1...grid-1.31.2) (2026-04-13)
 
 

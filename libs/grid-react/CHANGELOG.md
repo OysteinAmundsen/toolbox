@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.18.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.18.4...grid-react-0.18.5) (2026-04-15)
+
+
+### Bug Fixes
+
+* **grid-react:** replace createRoot with portals for React context preservation ([#211](https://github.com/OysteinAmundsen/toolbox/issues/211)) ([79186d9](https://github.com/OysteinAmundsen/toolbox/commit/79186d9d8b02b02b2d4eaa04042fe01e93240009))
+* **grid,grid-react:** thread gridEl for multi-grid portal resolution ([f18e397](https://github.com/OysteinAmundsen/toolbox/commit/f18e3975ccd22336bf65cbb44710dabe8781fe53))
+
 ## [0.18.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.18.3...grid-react-0.18.4) (2026-04-13)
 
 

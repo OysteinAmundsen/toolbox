@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.11.4...grid-vue-0.11.5) (2026-04-15)
+
+
+### Bug Fixes
+
+* **grid-vue:** replace createApp with teleports for Vue context preservation ([e2caf8b](https://github.com/OysteinAmundsen/toolbox/commit/e2caf8bdf304a2686014a6737a58f098b282ee66))
+* **grid,grid-react:** thread gridEl for multi-grid portal resolution ([f18e397](https://github.com/OysteinAmundsen/toolbox/commit/f18e3975ccd22336bf65cbb44710dabe8781fe53))
+
 ## [0.11.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.11.3...grid-vue-0.11.4) (2026-04-13)
 
 

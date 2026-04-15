@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.0-rc.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.0.0-rc.1...grid-2.0.0-rc.2) (2026-04-15)
+
+
+### Bug Fixes
+
+* **grid:** sort group headers alphabetically instead of by data row encounter order ([9fb5648](https://github.com/OysteinAmundsen/toolbox/commit/9fb564822f14f5bee35544c6e39b9335cdde4e6c))
+
 ## [2.0.0-rc.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.0.0-rc.0...grid-2.0.0-rc.1) (2026-04-14)
 
 

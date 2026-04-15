@@ -220,25 +220,16 @@ const row = plugin.getRowByKey(key);     // Find a row by its key
 
 ### tree-expand
 
-Fired when a node is expanded or collapsed (via click or keyboard):
+Fired when a node is expanded or collapsed (via click, keyboard, `toggle()`, `expandAll()`, or `collapseAll()`):
 
 ```ts
-grid.on('tree-expand', ({ key, row, expanded, depth }) => {
+grid.on('tree-expand', ({ key, row, expanded, depth, expandedKeys }) => {
   console.log(`${expanded ? 'Expanded' : 'Collapsed'} node ${key} at depth ${depth}`);
+  console.log(`${expandedKeys?.length ?? 0} total nodes expanded`);
 });
 ```
 
 See [`TreeExpandDetail`](./Interfaces/TreeExpandDetail/) for the full event payload type.
-
-### tree-state-change
-
-Fired when the overall expansion state changes (via `toggle()`, `expandAll()`, or `collapseAll()`):
-
-```ts
-grid.on('tree-state-change', ({ expandedKeys }) => {
-  console.log(`${expandedKeys.length} nodes expanded`);
-});
-```
 
 ## Styling
 

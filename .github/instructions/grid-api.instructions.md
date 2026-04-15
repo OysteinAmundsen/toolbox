@@ -78,7 +78,7 @@ See the `new-plugin` skill for the complete guide: file structure, hooks, event 
 
 ## Inter-Plugin Communication Conventions
 
-- **Use `broadcast()` for events that both consumers and plugins need** — e.g., `sort-change`, `tree-state-change`, `grouping-state-change`. Never use `emit()` alone for state changes that other plugins react to (Selection, ColumnState, etc.)
+- **Use `broadcast()` for events that both consumers and plugins need** — e.g., `sort-change`, `filter-change`, `tree-expand`, `group-toggle`. Never use `emit()` alone for state changes that other plugins react to (Selection, ColumnState, etc.)
 - **Use `emitPluginEvent()` for plugin-internal notifications** — Events that only other plugins care about (not exposed to external `addEventListener` consumers)
 - **Use `emit()` only for consumer-facing events with no plugin subscribers** — Rare; most state-change events need both channels
 - **Use the query system for synchronous state access** — Never access another plugin's methods directly (e.g., `grid.plugins.clipboard.copy()`). Use `grid.query('clipboard:copy')` instead

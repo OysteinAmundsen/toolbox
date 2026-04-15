@@ -106,8 +106,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     ],
     events: [
       {
-        type: 'tree-state-change',
-        description: 'Emitted when tree expansion state changes (toggle, expand all, collapse all)',
+        type: 'tree-expand',
+        description:
+          'Emitted when tree expansion state changes (toggle, expand all, collapse all). Broadcast to both DOM consumers and plugin bus.',
       },
     ],
     queries: [
@@ -433,11 +434,12 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     if (!flatRow) return false;
 
     this.expandedKeys = toggleExpand(this.expandedKeys, key);
-    this.emit<TreeExpandDetail>('tree-expand', {
+    this.broadcast<TreeExpandDetail>('tree-expand', {
       key,
       row: flatRow.data,
       expanded: this.expandedKeys.has(key),
       depth: flatRow.depth,
+      expandedKeys: [...this.expandedKeys],
     });
     this.requestRender();
     return true;
@@ -454,11 +456,12 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
     event.preventDefault();
     this.expandedKeys = toggleExpand(this.expandedKeys, flatRow.key);
-    this.emit<TreeExpandDetail>('tree-expand', {
+    this.broadcast<TreeExpandDetail>('tree-expand', {
       key: flatRow.key,
       row: flatRow.data,
       expanded: this.expandedKeys.has(flatRow.key),
       depth: flatRow.depth,
+      expandedKeys: [...this.expandedKeys],
     });
     this.requestRenderWithFocus();
     return true;
@@ -571,7 +574,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
    * Toggle the expanded state of a tree node.
    *
    * If the node is expanded it will be collapsed, and vice versa.
-   * Emits a `tree-state-change` plugin event with the updated expanded keys.
+   * Emits a `tree-expand` event (broadcast to both DOM consumers and plugin bus).
    *
    * @param key - The unique key of the node to toggle (from {@link FlattenedTreeRow.key})
    *
@@ -583,7 +586,18 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
    */
   toggle(key: string): void {
     this.expandedKeys = toggleExpand(this.expandedKeys, key);
-    this.emitPluginEvent('tree-state-change', { expandedKeys: [...this.expandedKeys] });
+    const flatRow = this.rowKeyMap.get(key);
+    if (flatRow) {
+      this.broadcast<TreeExpandDetail>('tree-expand', {
+        key,
+        row: flatRow.data,
+        expanded: this.expandedKeys.has(key),
+        depth: flatRow.depth,
+        expandedKeys: [...this.expandedKeys],
+      });
+    } else {
+      this.emitPluginEvent('tree-expand', { expandedKeys: [...this.expandedKeys] });
+    }
     this.requestRender();
   }
 
@@ -591,7 +605,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
    * Expand all tree nodes recursively.
    *
    * Every node with children will be expanded, revealing the full tree hierarchy.
-   * Emits a `tree-state-change` plugin event.
+   * Emits a `tree-expand` plugin event.
    *
    * @example
    * ```ts
@@ -601,7 +615,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
    */
   expandAll(): void {
     this.expandedKeys = expandAll(this.rows as TreeRow[], this.config);
-    this.emitPluginEvent('tree-state-change', { expandedKeys: [...this.expandedKeys] });
+    this.emitPluginEvent('tree-expand', { expandedKeys: [...this.expandedKeys] });
     this.requestRender();
   }
 
@@ -609,7 +623,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
    * Collapse all tree nodes.
    *
    * Every node will be collapsed, showing only root-level rows.
-   * Emits a `tree-state-change` plugin event.
+   * Emits a `tree-expand` plugin event.
    *
    * @example
    * ```ts
@@ -619,7 +633,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
    */
   collapseAll(): void {
     this.expandedKeys = collapseAll();
-    this.emitPluginEvent('tree-state-change', { expandedKeys: [...this.expandedKeys] });
+    this.emitPluginEvent('tree-expand', { expandedKeys: [...this.expandedKeys] });
     this.requestRender();
   }
 

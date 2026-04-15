@@ -580,15 +580,15 @@ export class FilterPlugin extends BaseGridPlugin<FilterConfig> {
   // Declare events in manifest for discoverability
   static override readonly manifest: PluginManifest = {
     events: [
-      { type: 'filter-applied', description: 'Emitted when filters change' },
+      { type: 'filter-change', description: 'Emitted when filters change' },
     ],
   };
 
   applyFilter(criteria: FilterCriteria): void {
     // ... filter logic
 
-    // Emit to other plugins (NOT a DOM event)
-    this.emitPluginEvent('filter-applied', { criteria, rowCount: this.rows.length });
+    // Broadcast to both DOM consumers and other plugins
+    this.broadcast('filter-change', { criteria, rowCount: this.rows.length });
   }
 }
 
@@ -600,7 +600,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     super.attach(grid);
 
     // Subscribe — auto-cleaned on detach
-    this.on('filter-applied', (detail) => {
+    this.on('filter-change', (detail) => {
       console.log('Filter changed, clearing selection');
       this.clearSelection();
     });

@@ -91,6 +91,8 @@ export interface TreeExpandDetail<T = TreeRow> {
   expanded: boolean;
   /** Depth level of the row */
   depth: number;
+  /** All currently expanded keys after the operation */
+  expandedKeys?: string[];
 }
 
 // Module Augmentation - Register plugin name for type-safe getPluginByName()

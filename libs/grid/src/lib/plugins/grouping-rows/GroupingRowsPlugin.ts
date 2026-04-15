@@ -8,7 +8,7 @@ import { GridClasses } from '../../core/constants';
 import { aggregatorRegistry } from '../../core/internal/aggregators';
 import { announce, getA11yMessage } from '../../core/internal/aria';
 import { setRowLoadingState } from '../../core/internal/loading';
-import { BaseGridPlugin, CellClickEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, CellClickEvent, HeaderClickEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import { isExpanderColumn } from '../../core/plugin/expander-column';
 import type { RowElementInternal } from '../../core/types';
 import {
@@ -20,6 +20,7 @@ import {
   getGroupPath,
   getGroupRowCount,
   resolveDefaultExpanded,
+  resolveGroupFields,
   toggleGroupExpansion,
 } from './grouping-rows';
 import styles from './grouping-rows.css?inline';
@@ -113,6 +114,10 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
    */
   static override readonly manifest: PluginManifest<GroupingRowsConfig> = {
     modifiesRowStructure: true,
+    hookPriority: {
+      // Run before MultiSort so we can intercept header clicks on grouped columns
+      onHeaderClick: -1,
+    },
     incompatibleWith: [
       {
         name: 'tree',
@@ -145,6 +150,10 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       {
         type: 'canMoveRow',
         description: 'Returns false for group header rows (cannot be reordered)',
+      },
+      {
+        type: 'grouping:get-grouped-fields',
+        description: 'Returns the column field names that match group depth levels (string[])',
       },
     ],
     configRules: [
@@ -203,6 +212,12 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
   private loadingGroups = new Set<string>();
   /** Whether an async groups fetch is currently in progress */
   private groupsFetchInFlight = false;
+  /** Column fields that produce group values (depth 0, 1, ...). Cached for
+   *  the `grouping:get-grouped-fields` query so MultiSort can filter them out. */
+  private groupedFields: string[] = [];
+  /** User-specified sort directions per group depth level. Toggled via
+   *  header clicks on grouped columns. */
+  private userGroupSortDirections = new Map<number, 1 | -1>();
   /** Group keys with an in-flight rows fetch */
   private rowsFetchInFlight = new Set<string>();
   // #endregion
@@ -234,6 +249,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     this.groupRowsMap.clear();
     this.loadingGroups.clear();
     this.groupsFetchInFlight = false;
+    this.groupedFields = [];
+    this.userGroupSortDirections.clear();
     this.rowsFetchInFlight.clear();
   }
 
@@ -274,8 +291,100 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
         return false;
       }
     }
+    if (query.type === 'grouping:get-grouped-fields') {
+      return [...this.groupedFields];
+    }
     return undefined;
   }
+
+  /**
+   * Intercept header clicks on grouped columns to toggle group sort direction.
+   * Returns `true` for grouped columns to prevent MultiSort from handling them.
+   * @internal
+   */
+  override onHeaderClick(event: HeaderClickEvent): boolean | void {
+    const fieldIndex = this.groupedFields.indexOf(event.field);
+    if (fieldIndex === -1) return; // Not a grouped column — let other plugins handle it
+
+    if (!event.column.sortable) return;
+
+    // The fieldIndex in groupedFields corresponds to the group depth level
+    // (resolveGroupFields populates them in depth order: 0, 1, 2, ...)
+    const targetDepth = fieldIndex;
+
+    // Toggle direction: asc → desc → asc
+    const current = this.userGroupSortDirections.get(targetDepth) ?? 1;
+    this.userGroupSortDirections.set(targetDepth, current === 1 ? -1 : 1);
+
+    this.requestRender();
+    return true; // Prevent MultiSort from handling this column
+  }
+  // #endregion
+
+  // #region Sort State Resolution
+
+  /**
+   * Build a sort-direction map for each group depth level by cross-referencing
+   * the active sort state with the column fields that produce group values.
+   *
+   * Supports three direction sources (in priority order):
+   * 1. User-set directions via header clicks on grouped columns
+   * 2. MultiSort plugin model (for backwards compatibility / state restore)
+   * 3. Core single-column sort state
+   */
+  private resolveGroupSortDirections(rows: readonly any[]): Map<number, 1 | -1> | undefined {
+    const config = this.config;
+    if (typeof config.groupOn !== 'function' || rows.length === 0) {
+      this.groupedFields = [];
+      return undefined;
+    }
+
+    // Discover depth → field mapping by sampling rows
+    const columnFields = this.columns.map((c) => c.field);
+    const depthToField = resolveGroupFields([...rows], config.groupOn, columnFields);
+
+    // Cache grouped field names for the grouping:get-grouped-fields query
+    this.groupedFields = [...depthToField.values()];
+
+    if (depthToField.size === 0) return undefined;
+
+    // Start with user-set directions (from header clicks on grouped columns)
+    const directions = new Map<number, 1 | -1>(this.userGroupSortDirections);
+
+    // Fill missing depths from MultiSort model or core sort state
+    if (directions.size < depthToField.size) {
+      const activeSorts = new Map<string, 1 | -1>();
+
+      const multiSortResults = this.grid?.query?.('sort:get-model', null);
+      if (Array.isArray(multiSortResults) && multiSortResults.length > 0) {
+        const sortModel = multiSortResults[0] as Array<{ field: string; direction: 'asc' | 'desc' }>;
+        if (Array.isArray(sortModel)) {
+          for (const entry of sortModel) {
+            activeSorts.set(entry.field, entry.direction === 'desc' ? -1 : 1);
+          }
+        }
+      }
+
+      if (activeSorts.size === 0) {
+        const gridHost = this.grid as unknown as { _sortState?: { field: string; direction: 1 | -1 } | null };
+        if (gridHost._sortState) {
+          activeSorts.set(gridHost._sortState.field, gridHost._sortState.direction);
+        }
+      }
+
+      for (const [depth, field] of depthToField) {
+        if (!directions.has(depth)) {
+          const dir = activeSorts.get(field);
+          if (dir !== undefined) {
+            directions.set(depth, dir);
+          }
+        }
+      }
+    }
+
+    return directions.size > 0 ? directions : undefined;
+  }
+
   // #endregion
 
   // #region Hooks
@@ -329,10 +438,12 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
     // First build: get structure to know all group keys
     // (needed for index-based defaultExpanded)
+    const groupSortDirections = this.resolveGroupSortDirections(rows);
     const initialBuild = buildGroupedRowModel({
       rows: [...rows],
       config: config,
       expanded: new Set(), // Empty to get all root groups
+      groupSortDirections,
     });
 
     // If no grouping produced, return original rows
@@ -361,6 +472,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       config: config,
       expanded: this.expandedKeys,
       initialExpanded,
+      groupSortDirections,
     });
 
     this.isActive = true;

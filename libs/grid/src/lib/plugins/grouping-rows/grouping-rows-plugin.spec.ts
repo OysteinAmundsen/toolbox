@@ -1339,4 +1339,161 @@ describe('GroupingRowsPlugin', () => {
       });
     });
   });
+
+  describe('grouping:get-grouped-fields query', () => {
+    it('should return grouped field names after processRows', () => {
+      const plugin = new GroupingRowsPlugin({
+        groupOn: (row: any) => row.dept,
+      });
+      const rows = [
+        { name: 'Alice', dept: 'Engineering' },
+        { name: 'Bob', dept: 'Sales' },
+      ];
+      const columns: ColumnConfig[] = [
+        { field: 'name', header: 'Name' },
+        { field: 'dept', header: 'Department' },
+      ];
+      const grid = createMockGrid({ rows, columns });
+      plugin.attach(grid);
+      plugin.processRows(rows);
+
+      const result = plugin.handleQuery({ type: 'grouping:get-grouped-fields', context: null });
+      expect(result).toEqual(['dept']);
+    });
+
+    it('should return empty array when groupOn not configured', () => {
+      const plugin = new GroupingRowsPlugin({});
+      const grid = createMockGrid();
+      plugin.attach(grid);
+      plugin.processRows([]);
+
+      const result = plugin.handleQuery({ type: 'grouping:get-grouped-fields', context: null });
+      expect(result).toEqual([]);
+    });
+
+    it('should return multiple fields for multi-level grouping', () => {
+      const plugin = new GroupingRowsPlugin({
+        groupOn: (row: any) => [row.country, row.dept],
+      });
+      const rows = [
+        { name: 'Alice', country: 'Germany', dept: 'Engineering' },
+        { name: 'Bob', country: 'France', dept: 'Sales' },
+      ];
+      const columns: ColumnConfig[] = [
+        { field: 'name', header: 'Name' },
+        { field: 'country', header: 'Country' },
+        { field: 'dept', header: 'Department' },
+      ];
+      const grid = createMockGrid({ rows, columns });
+      plugin.attach(grid);
+      plugin.processRows(rows);
+
+      const result = plugin.handleQuery({ type: 'grouping:get-grouped-fields', context: null });
+      expect(result).toEqual(['country', 'dept']);
+    });
+  });
+
+  describe('onHeaderClick for grouped columns', () => {
+    it('should intercept header click on grouped column and return true', () => {
+      const plugin = new GroupingRowsPlugin({
+        groupOn: (row: any) => row.dept,
+      });
+      const rows = [
+        { name: 'Alice', dept: 'Engineering' },
+        { name: 'Bob', dept: 'Sales' },
+      ];
+      const columns: ColumnConfig[] = [
+        { field: 'name', header: 'Name', sortable: true },
+        { field: 'dept', header: 'Department', sortable: true },
+      ];
+      const grid = createMockGrid({ rows, columns });
+      plugin.attach(grid);
+      plugin.processRows(rows);
+
+      const event = {
+        colIndex: 1,
+        field: 'dept',
+        column: columns[1],
+        headerEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click'),
+      };
+      const handled = plugin.onHeaderClick!(event);
+      expect(handled).toBe(true);
+    });
+
+    it('should not intercept header click on non-grouped column', () => {
+      const plugin = new GroupingRowsPlugin({
+        groupOn: (row: any) => row.dept,
+      });
+      const rows = [
+        { name: 'Alice', dept: 'Engineering' },
+        { name: 'Bob', dept: 'Sales' },
+      ];
+      const columns: ColumnConfig[] = [
+        { field: 'name', header: 'Name', sortable: true },
+        { field: 'dept', header: 'Department', sortable: true },
+      ];
+      const grid = createMockGrid({ rows, columns });
+      plugin.attach(grid);
+      plugin.processRows(rows);
+
+      const event = {
+        colIndex: 0,
+        field: 'name',
+        column: columns[0],
+        headerEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click'),
+      };
+      const handled = plugin.onHeaderClick!(event);
+      expect(handled).toBeUndefined();
+    });
+
+    it('should toggle group sort direction on repeated clicks', () => {
+      const plugin = new GroupingRowsPlugin({
+        groupOn: (row: any) => row.dept,
+      });
+      const rows = [
+        { name: 'Alice', dept: 'Engineering' },
+        { name: 'Bob', dept: 'Sales' },
+      ];
+      const columns: ColumnConfig[] = [
+        { field: 'dept', header: 'Department', sortable: true },
+      ];
+      const grid = createMockGrid({ rows, columns });
+      plugin.attach(grid);
+
+      // First processRows: default ascending → groups: Engineering, Sales
+      let result = plugin.processRows(rows);
+      expect(result[0].__groupKey).toBe('Engineering');
+      expect(result[1].__groupKey).toBe('Sales');
+
+      // Click dept header to flip to descending
+      const event = {
+        colIndex: 0,
+        field: 'dept',
+        column: columns[0],
+        headerEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click'),
+      };
+      plugin.onHeaderClick!(event);
+
+      // Re-process rows — should now be descending
+      result = plugin.processRows(rows);
+      expect(result[0].__groupKey).toBe('Sales');
+      expect(result[1].__groupKey).toBe('Engineering');
+
+      // Click again to flip back to ascending
+      plugin.onHeaderClick!(event);
+      result = plugin.processRows(rows);
+      expect(result[0].__groupKey).toBe('Engineering');
+      expect(result[1].__groupKey).toBe('Sales');
+    });
+  });
+
+  describe('manifest hookPriority', () => {
+    it('should declare onHeaderClick priority lower than default', () => {
+      const manifest = GroupingRowsPlugin.manifest;
+      expect(manifest?.hookPriority?.onHeaderClick).toBe(-1);
+    });
+  });
 });

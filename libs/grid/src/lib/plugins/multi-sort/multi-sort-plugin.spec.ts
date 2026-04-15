@@ -749,4 +749,91 @@ describe('MultiSortPlugin', () => {
       expect(result).toBeUndefined();
     });
   });
+
+  describe('grouped field filtering', () => {
+    it('should exclude grouped fields from sort in processRows', () => {
+      const rows = [
+        { name: 'Zara', dept: 'Sales' },
+        { name: 'Alice', dept: 'Engineering' },
+        { name: 'Bob', dept: 'Engineering' },
+      ];
+      const columns = [
+        { field: 'name', header: 'Name', sortable: true },
+        { field: 'dept', header: 'Department', sortable: true },
+      ];
+      const grid = createGridMock(rows, columns);
+      // Mock query to return grouped fields (simulating GroupingRowsPlugin presence)
+      grid.query = ((type: string) => {
+        if (type === 'grouping:get-grouped-fields') return [['dept']];
+        return [];
+      }) as any;
+
+      const plugin = new MultiSortPlugin();
+      plugin.attach(grid as any);
+
+      // Set sort model with grouped field + data field
+      plugin.handleQuery({
+        type: 'sort:set-model',
+        context: [
+          { field: 'dept', direction: 'desc' },
+          { field: 'name', direction: 'asc' },
+        ],
+      });
+
+      const sorted = plugin.processRows(rows);
+
+      // Only name sort should be applied (dept is grouped, filtered out)
+      // Sorted by name asc: Alice, Bob, Zara
+      expect((sorted[0] as any).name).toBe('Alice');
+      expect((sorted[1] as any).name).toBe('Bob');
+      expect((sorted[2] as any).name).toBe('Zara');
+    });
+
+    it('should not filter when no grouping plugin is present', () => {
+      const rows = [
+        { name: 'Zara', dept: 'Sales' },
+        { name: 'Alice', dept: 'Engineering' },
+      ];
+      const columns = [
+        { field: 'name', header: 'Name', sortable: true },
+        { field: 'dept', header: 'Department', sortable: true },
+      ];
+      const grid = createGridMock(rows, columns);
+      // Default query returns [] (no grouping plugin)
+
+      const plugin = new MultiSortPlugin();
+      plugin.attach(grid as any);
+
+      plugin.handleQuery({
+        type: 'sort:set-model',
+        context: [{ field: 'dept', direction: 'asc' }],
+      });
+
+      const sorted = plugin.processRows(rows);
+
+      // dept sort should be applied since no grouping
+      expect((sorted[0] as any).dept).toBe('Engineering');
+      expect((sorted[1] as any).dept).toBe('Sales');
+    });
+
+    it('should still expose grouped fields in sort:get-model', () => {
+      const grid = createGridMock([], sortableColumns);
+      grid.query = ((type: string) => {
+        if (type === 'grouping:get-grouped-fields') return [['name']];
+        return [];
+      }) as any;
+
+      const plugin = new MultiSortPlugin();
+      plugin.attach(grid as any);
+
+      const model: SortModel[] = [
+        { field: 'name', direction: 'asc' },
+        { field: 'age', direction: 'desc' },
+      ];
+      plugin.handleQuery({ type: 'sort:set-model', context: model });
+
+      // Model should still contain grouped field for direction reading
+      expect(plugin.getSortModel()).toEqual(model);
+    });
+  });
 });

@@ -11,6 +11,7 @@ import {
   getGroupPath,
   getGroupRowCount,
   resolveDefaultExpanded,
+  resolveGroupFields,
   toggleGroupExpansion,
 } from './grouping-rows';
 import type { GroupDefinition, GroupingRowsConfig, RenderRow } from './types';
@@ -97,14 +98,14 @@ describe('row-grouping (buildGroupedRowModel)', () => {
     };
     const result = buildGroupedRowModel({ rows, config, expanded: new Set() });
 
-    // Two top-level groups: US and UK
+    // Two top-level groups: UK and US (sorted alphabetically by group value)
     expect(result.length).toBe(2);
-    const usGroup = result[0] as any;
-    const ukGroup = result[1] as any;
-    expect(usGroup.key).toBe('US');
-    expect(usGroup.rows.length).toBe(3); // Alice, Bob, Carol
+    const ukGroup = result[0] as any;
+    const usGroup = result[1] as any;
     expect(ukGroup.key).toBe('UK');
     expect(ukGroup.rows.length).toBe(1); // Dave
+    expect(usGroup.key).toBe('US');
+    expect(usGroup.rows.length).toBe(3); // Alice, Bob, Carol
   });
 
   it('nested group rows include only their own subtree rows', () => {
@@ -140,11 +141,11 @@ describe('row-grouping (buildGroupedRowModel)', () => {
     const expanded = new Set(['Eng']);
     const result = buildGroupedRowModel({ rows, config, expanded });
 
-    expect(result.length).toBe(3); // Eng group + 2 nested groups
+    expect(result.length).toBe(3); // Eng group + 2 nested groups (sorted alphabetically)
     expect((result[0] as any).key).toBe('Eng');
-    expect((result[1] as any).key).toBe('Eng||Frontend');
+    expect((result[1] as any).key).toBe('Eng||Backend');
     expect((result[1] as any).depth).toBe(1);
-    expect((result[2] as any).key).toBe('Eng||Backend');
+    expect((result[2] as any).key).toBe('Eng||Frontend');
   });
 
   it('handles null values in group path', () => {
@@ -157,9 +158,10 @@ describe('row-grouping (buildGroupedRowModel)', () => {
     };
     const result = buildGroupedRowModel({ rows, config, expanded: new Set() });
 
+    // Groups sorted alphabetically: 'Sales' < '∅' (char code 8709)
     expect(result.length).toBe(2);
-    expect((result[0] as any).key).toBe('∅');
-    expect((result[1] as any).key).toBe('Sales');
+    expect((result[0] as any).key).toBe('Sales');
+    expect((result[1] as any).key).toBe('∅');
   });
 
   it('expands all groups when initialExpanded contains all keys', () => {
@@ -214,16 +216,165 @@ describe('row-grouping (buildGroupedRowModel)', () => {
     // Now we have all keys - build final result
     result = buildGroupedRowModel({ rows, config, expanded });
 
-    // Should have: Eng group, Frontend group, Alice, Backend group, Bob = 5 items
+    // Should have: Eng group, Backend group, Bob, Frontend group, Alice = 5 items
+    // (nested groups sorted alphabetically: Backend < Frontend)
     expect(result.length).toBe(5);
     expect((result[0] as any).key).toBe('Eng');
     expect((result[0] as any).expanded).toBe(true);
-    expect((result[1] as any).key).toBe('Eng||Frontend');
+    expect((result[1] as any).key).toBe('Eng||Backend');
     expect((result[1] as any).expanded).toBe(true);
     expect(result[2].kind).toBe('data');
-    expect((result[3] as any).key).toBe('Eng||Backend');
+    expect((result[3] as any).key).toBe('Eng||Frontend');
     expect((result[3] as any).expanded).toBe(true);
     expect(result[4].kind).toBe('data');
+  });
+
+  it('sorts groups alphabetically regardless of data row input order', () => {
+    // Simulate a data-level sort by name (descending) which puts "Zara" first.
+    // Without group sorting, the "Sales" group (containing Zara) would appear
+    // before "Engineering" because Zara is encountered first in the input.
+    const rows = [
+      { name: 'Zara', dept: 'Sales' },
+      { name: 'Bob', dept: 'Engineering' },
+      { name: 'Alice', dept: 'Engineering' },
+      { name: 'Carol', dept: 'Sales' },
+    ];
+    const config: GroupingRowsConfig = {
+      groupOn: (r) => r.dept,
+    };
+    const result = buildGroupedRowModel({ rows, config, expanded: new Set(['Engineering', 'Sales']) });
+
+    // Groups should be alphabetical: Engineering before Sales
+    expect(result[0].kind).toBe('group');
+    expect((result[0] as any).key).toBe('Engineering');
+    expect(result[1].kind).toBe('data');
+    expect((result[1] as any).row.name).toBe('Bob');
+    expect(result[2].kind).toBe('data');
+    expect((result[2] as any).row.name).toBe('Alice');
+    expect(result[3].kind).toBe('group');
+    expect((result[3] as any).key).toBe('Sales');
+    expect(result[4].kind).toBe('data');
+    expect((result[4] as any).row.name).toBe('Zara');
+    expect(result[5].kind).toBe('data');
+    expect((result[5] as any).row.name).toBe('Carol');
+  });
+
+  it('preserves data row order within groups from input', () => {
+    // Data rows within each group should maintain their input order
+    // (which is the pre-sorted order from the pipeline)
+    const rows = [
+      { name: 'Charlie', dept: 'B-Team' },
+      { name: 'Alice', dept: 'A-Team' },
+      { name: 'Bob', dept: 'A-Team' },
+    ];
+    const config: GroupingRowsConfig = {
+      groupOn: (r) => r.dept,
+    };
+    const result = buildGroupedRowModel({ rows, config, expanded: new Set(['A-Team', 'B-Team']) });
+
+    // A-Team before B-Team (alphabetical groups)
+    expect((result[0] as any).key).toBe('A-Team');
+    // Data rows within A-Team preserve input order: Alice then Bob
+    expect((result[1] as any).row.name).toBe('Alice');
+    expect((result[2] as any).row.name).toBe('Bob');
+    expect((result[3] as any).key).toBe('B-Team');
+    expect((result[4] as any).row.name).toBe('Charlie');
+  });
+
+  it('respects descending sort direction for group depth', () => {
+    const rows = [
+      { name: 'Alice', dept: 'Engineering' },
+      { name: 'Bob', dept: 'Sales' },
+      { name: 'Carol', dept: 'Engineering' },
+    ];
+    const config: GroupingRowsConfig = {
+      groupOn: (r) => r.dept,
+    };
+    // Sort depth 0 descending (Z→A)
+    const directions = new Map([[0, -1 as 1 | -1]]);
+    const result = buildGroupedRowModel({
+      rows,
+      config,
+      expanded: new Set(['Engineering', 'Sales']),
+      groupSortDirections: directions,
+    });
+
+    // Sales before Engineering because descending
+    expect((result[0] as any).key).toBe('Sales');
+    expect((result[1] as any).row.name).toBe('Bob');
+    expect((result[2] as any).key).toBe('Engineering');
+    expect((result[3] as any).row.name).toBe('Alice');
+    expect((result[4] as any).row.name).toBe('Carol');
+  });
+
+  it('applies different sort directions per depth level', () => {
+    const rows = [
+      { name: 'Alice', country: 'Germany', dept: 'Engineering' },
+      { name: 'Bob', country: 'Germany', dept: 'Sales' },
+      { name: 'Carol', country: 'France', dept: 'Sales' },
+      { name: 'Dave', country: 'France', dept: 'Engineering' },
+    ];
+    const config: GroupingRowsConfig = {
+      groupOn: (r) => [r.country, r.dept],
+    };
+    // Depth 0 (country) descending, depth 1 (dept) ascending
+    const directions = new Map<number, 1 | -1>([
+      [0, -1],
+      [1, 1],
+    ]);
+    const result = buildGroupedRowModel({
+      rows,
+      config,
+      expanded: new Set(['Germany', 'France', 'Germany||Engineering', 'Germany||Sales', 'France||Engineering', 'France||Sales']),
+      groupSortDirections: directions,
+    });
+
+    // Country descending: Germany first, then France
+    const topGroups = result.filter((r) => r.kind === 'group' && (r as any).depth === 0);
+    expect(topGroups.length).toBe(2);
+    expect((topGroups[0] as any).key).toBe('Germany');
+    expect((topGroups[1] as any).key).toBe('France');
+
+    // Within each country, dept ascending: Engineering before Sales
+    const germanySubgroups = result.filter((r) => r.kind === 'group' && (r as any).depth === 1 && (r as any).key.startsWith('Germany'));
+    expect((germanySubgroups[0] as any).key).toBe('Germany||Engineering');
+    expect((germanySubgroups[1] as any).key).toBe('Germany||Sales');
+  });
+});
+
+describe('resolveGroupFields', () => {
+  it('maps single-value groupOn to the matching column field', () => {
+    const rows = [{ name: 'Alice', dept: 'Engineering' }];
+    const result = resolveGroupFields(rows, (r) => r.dept, ['name', 'dept']);
+    expect(result.get(0)).toBe('dept');
+    expect(result.size).toBe(1);
+  });
+
+  it('maps multi-level groupOn to matching column fields', () => {
+    const rows = [{ name: 'Alice', country: 'Germany', dept: 'Engineering' }];
+    const result = resolveGroupFields(rows, (r) => [r.country, r.dept], ['name', 'country', 'dept']);
+    expect(result.get(0)).toBe('country');
+    expect(result.get(1)).toBe('dept');
+    expect(result.size).toBe(2);
+  });
+
+  it('returns empty map when rows are empty', () => {
+    const result = resolveGroupFields([], (r) => r.dept, ['dept']);
+    expect(result.size).toBe(0);
+  });
+
+  it('returns empty map when groupOn returns null', () => {
+    const rows = [{ name: 'Alice' }];
+    const result = resolveGroupFields(rows, () => null, ['name']);
+    expect(result.size).toBe(0);
+  });
+
+  it('skips depths that do not match any column field', () => {
+    const rows = [{ name: 'Alice', dept: 'Engineering' }];
+    // Computed value that doesn't match any column
+    const result = resolveGroupFields(rows, (r) => [r.dept.toUpperCase(), r.dept], ['name', 'dept']);
+    expect(result.has(0)).toBe(false); // 'ENGINEERING' doesn't match any field value
+    expect(result.get(1)).toBe('dept');
   });
 });
 

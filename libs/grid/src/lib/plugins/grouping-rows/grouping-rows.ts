@@ -23,6 +23,9 @@ interface BuildGroupingArgs {
   expanded: Set<string>;
   /** Initial expanded state to apply (processed by the plugin) */
   initialExpanded?: Set<string>;
+  /** Sort direction per group depth level. 1 = ascending, -1 = descending.
+   *  When omitted, groups at all levels sort ascending. */
+  groupSortDirections?: Map<number, 1 | -1>;
 }
 
 /**
@@ -32,7 +35,7 @@ interface BuildGroupingArgs {
  * @param args - The grouping arguments
  * @returns Flattened array of render rows (groups + data rows)
  */
-export function buildGroupedRowModel({ rows, config, expanded, initialExpanded }: BuildGroupingArgs): RenderRow[] {
+export function buildGroupedRowModel({ rows, config, expanded, initialExpanded, groupSortDirections }: BuildGroupingArgs): RenderRow[] {
   const groupOn = config.groupOn;
   if (typeof groupOn !== 'function') {
     return [];
@@ -77,11 +80,31 @@ export function buildGroupedRowModel({ rows, config, expanded, initialExpanded }
   // Merge expanded sets - use initialExpanded on first render, then expanded takes over
   const effectiveExpanded = new Set([...expanded, ...(initialExpanded ?? [])]);
 
+  // Sort sibling groups by their group value so that group header order is
+  // deterministic and respects the active sort direction for each depth level.
+  // Default: ascending. When a user sorts a grouped column, the corresponding
+  // depth level's direction flips, keeping groups in predictable order.
+  const sortedChildren = (node: GroupNode): GroupNode[] => {
+    const children = [...node.children.values()];
+    // Determine direction for this depth level (children are one level deeper than the node)
+    const childDepth = node === root ? 0 : node.depth + 1;
+    const dir = groupSortDirections?.get(childDepth) ?? 1;
+    children.sort((a, b) => {
+      const av = a.value;
+      const bv = b.value;
+      if (av == null && bv == null) return 0;
+      if (av == null) return dir;
+      if (bv == null) return -dir;
+      return av > bv ? dir : av < bv ? -dir : 0;
+    });
+    return children;
+  };
+
   // Flatten tree to array
   const flat: RenderRow[] = [];
   const visit = (node: GroupNode) => {
     if (node === root) {
-      node.children.forEach((c) => visit(c));
+      for (const c of sortedChildren(node)) visit(c);
       return;
     }
 
@@ -97,7 +120,7 @@ export function buildGroupedRowModel({ rows, config, expanded, initialExpanded }
 
     if (isExpanded) {
       if (node.children.size) {
-        node.children.forEach((c) => visit(c));
+        for (const c of sortedChildren(node)) visit(c);
       } else {
         node.rows.forEach((r) => flat.push({ kind: 'data', row: r, rowIndex: rowIndexMap.get(r) ?? -1 }));
       }
@@ -106,6 +129,41 @@ export function buildGroupedRowModel({ rows, config, expanded, initialExpanded }
   visit(root);
 
   return flat;
+}
+
+/**
+ * Discover which column field produces the group value at each depth level.
+ *
+ * Samples the first row's `groupOn` output to get the group path, then checks
+ * which column fields produce matching values for that row. This mapping allows
+ * the plugin to apply user-invoked column sort directions to the correct group
+ * depth levels.
+ *
+ * @returns Map from depth index to column field name, or empty map if unmappable
+ */
+export function resolveGroupFields(
+  rows: any[],
+  groupOn: (row: any) => any[] | any | null | false,
+  columnFields: string[],
+): Map<number, string> {
+  const depthToField = new Map<number, string>();
+  if (rows.length === 0) return depthToField;
+
+  const sampleRow = rows[0];
+  let path: any = groupOn(sampleRow);
+  if (path == null || path === false) return depthToField;
+  if (!Array.isArray(path)) path = [path];
+
+  for (let depth = 0; depth < path.length; depth++) {
+    const groupValue = path[depth];
+    for (const field of columnFields) {
+      if (sampleRow[field] === groupValue) {
+        depthToField.set(depth, field);
+        break;
+      }
+    }
+  }
+  return depthToField;
 }
 
 /**

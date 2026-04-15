@@ -121,6 +121,23 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
   private clearCoreSortState(): void {
     this.#internalGrid._sortState = null;
   }
+
+  /**
+   * Remove sorts on fields that are owned by the grouping plugin.
+   * GroupingRowsPlugin handles group header ordering independently, so
+   * multi-sort should only sort by non-grouped data columns.
+   */
+  #filterGroupedFields(model: SortModel[]): SortModel[] {
+    const results = this.grid?.query?.('grouping:get-grouped-fields', null);
+    if (!Array.isArray(results) || results.length === 0) return model;
+
+    const groupedFields = results[0] as string[];
+    if (!Array.isArray(groupedFields) || groupedFields.length === 0) return model;
+
+    const groupedSet = new Set(groupedFields);
+    const filtered = model.filter((s) => !groupedSet.has(s.field));
+    return filtered.length === model.length ? model : filtered;
+  }
   // #endregion
 
   // #region Lifecycle
@@ -180,8 +197,14 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
 
     // Sort in-place — the input array is already a mutable copy from plugin-manager.
     // Pre-resolved comparator chain avoids column lookup on every pair comparison.
+    // Exclude fields owned by the grouping plugin — group header order is handled
+    // by GroupingRowsPlugin, so multi-sort should only affect within-group data order.
+    const effectiveModel = this.#filterGroupedFields(this.sortModel);
+
     const mutableRows = rows as unknown[];
-    sortRowsInPlace(mutableRows, this.sortModel, this.columns);
+    if (effectiveModel.length > 0) {
+      sortRowsInPlace(mutableRows, effectiveModel, this.columns);
+    }
     this.cachedSortResult = mutableRows;
     return mutableRows;
   }

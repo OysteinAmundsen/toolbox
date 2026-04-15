@@ -896,28 +896,20 @@ import '@toolbox-web/grid/features/filtering';
     progressBar.style.width = '100%';
     runBtn.disabled = false;
 
-    // Console log — single copyable markdown table
+    // Console log — single console.table with all metrics × scale points
     {
-      const pad = (s: string, w: number) => s.padEnd(w);
-      const rpad = (s: string, w: number) => s.padStart(w);
-      const header = ['Metric', ...SCALE_POINTS.map((n) => `${formatRowCount(n)} TBW`), ...SCALE_POINTS.map((n) => `${formatRowCount(n)} AG`)];
-      const colW = header.map((h) => Math.max(h.length, 10));
-
-      const rows: string[][] = [];
+      const tableData: Record<string, Record<string, string>> = {};
       for (const metric of ALL_METRICS) {
-        const row = [metric];
-        for (const r of allResults) row.push(formatMetric(metric, r.tbw.get(metric) ?? 0));
-        for (const r of allResults) row.push(formatMetric(metric, r.ag.get(metric) ?? 0));
-        rows.push(row);
-        // Update column widths
-        row.forEach((cell, ci) => { colW[ci] = Math.max(colW[ci], cell.length); });
+        const row: Record<string, string> = {};
+        for (const r of allResults) {
+          const label = formatRowCount(r.rowCount);
+          row[`${label} TBW`] = formatMetric(metric, r.tbw.get(metric) ?? 0);
+          row[`${label} AG`] = formatMetric(metric, r.ag.get(metric) ?? 0);
+        }
+        tableData[metric] = row;
       }
-
-      const line = (cells: string[]) => '| ' + cells.map((c, i) => (i === 0 ? pad(c, colW[i]) : rpad(c, colW[i]))).join(' | ') + ' |';
-      const sep = '|' + colW.map((w) => '-'.repeat(w + 2)).join('|') + '|';
-
-      const table = [line(header), sep, ...rows.map((r) => line(r))].join('\n');
-      console.log(`\n📊 Benchmark Results (${agGridVersion ? `AG Grid v${agGridVersion}` : 'AG Grid latest'})\n\n${table}\n`);
+      console.log(`📊 Benchmark Results (${agGridVersion ? `AG Grid v${agGridVersion}` : 'AG Grid latest'})`);
+      console.table(tableData);
     }
   });
   // #endregion

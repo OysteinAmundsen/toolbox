@@ -76,6 +76,27 @@ See the `new-plugin` skill for the complete guide: file structure, hooks, event 
 - **Plugin barrel exports = published API surface** — Each plugin's `index.ts` is a Vite entry point. Everything exported becomes public `@toolbox-web/grid/plugins/<name>` surface and gets TypeDoc docs. Only export the plugin class, public types, and intentionally public utilities
 - **Public API setters must always trigger render** — Plugin `set*` methods should call `refresh()` unconditionally, not `refreshIfActive()`. Guard rendering behind `isActive` only in internal callbacks
 
+## Inter-Plugin Communication Conventions
+
+- **Use `broadcast()` for events that both consumers and plugins need** — e.g., `sort-change`, `tree-state-change`, `grouping-state-change`. Never use `emit()` alone for state changes that other plugins react to (Selection, ColumnState, etc.)
+- **Use `emitPluginEvent()` for plugin-internal notifications** — Events that only other plugins care about (not exposed to external `addEventListener` consumers)
+- **Use `emit()` only for consumer-facing events with no plugin subscribers** — Rare; most state-change events need both channels
+- **Use the query system for synchronous state access** — Never access another plugin's methods directly (e.g., `grid.plugins.clipboard.copy()`). Use `grid.query('clipboard:copy')` instead
+- **Declare everything in manifests** — Queries in `manifest.queries`, events in `manifest.events`, dependencies in `static dependencies`. Undeclared contracts are invisible to validation and documentation tools
+- **Cross-plugin sort coordination** — When a plugin supports sorting and MultiSort may also be loaded, query `sort:get-model` to get the authoritative sort state rather than maintaining a separate sort model
+
+### Known Query Types
+
+| Query Type            | Handler Plugin     | Purpose                            |
+| --------------------- | ------------------ | ---------------------------------- |
+| `sort:get-model`      | MultiSort          | Get current sort model             |
+| `sort:set-model`      | MultiSort          | Set sort model programmatically    |
+| `canMoveColumn`       | PinnedColumns      | Check if column can be reordered   |
+| `canMoveRow`          | GroupingRows, Tree | Check if row can be reordered      |
+| `clipboard:copy`      | Clipboard          | Trigger copy action                |
+| `export:csv`          | Export             | Trigger CSV export                 |
+| `getContextMenuItems` | Various            | Collect context menu contributions |
+
 ## Feature & Plugin Usage Reference
 
 - **Editing is opt-in** — `editable: true` or `editor` requires `features: { editing: true }` or `EditingPlugin`

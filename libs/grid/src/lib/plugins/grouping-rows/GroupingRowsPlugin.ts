@@ -8,7 +8,13 @@ import { GridClasses } from '../../core/constants';
 import { aggregatorRegistry } from '../../core/internal/aggregators';
 import { announce, getA11yMessage } from '../../core/internal/aria';
 import { setRowLoadingState } from '../../core/internal/loading';
-import { BaseGridPlugin, CellClickEvent, HeaderClickEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
+import {
+  BaseGridPlugin,
+  CellClickEvent,
+  HeaderClickEvent,
+  type PluginManifest,
+  type PluginQuery,
+} from '../../core/plugin/base-plugin';
 import { isExpanderColumn } from '../../core/plugin/expander-column';
 import type { RowElementInternal } from '../../core/types';
 import {
@@ -178,6 +184,15 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       },
     ],
   };
+
+  /**
+   * Optional dependency on MultiSort for coordinated sort management.
+   * When MultiSort is loaded, GroupingRows queries its sort model to determine
+   * group header ordering. Without it, falls back to core sort state.
+   */
+  static override readonly dependencies = [
+    { name: 'multiSort', required: false, reason: 'Queries sort model for coordinated group sorting' },
+  ];
 
   /** @internal */
   readonly name = 'groupingRows';

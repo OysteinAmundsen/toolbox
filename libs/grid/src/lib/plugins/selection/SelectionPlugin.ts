@@ -297,10 +297,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     super.attach(grid);
 
     // Subscribe to events that invalidate selection
-    // When rows change due to filtering/grouping/tree operations, selection indices become invalid
+    // When rows change due to filtering/grouping/tree/sort operations, selection indices become invalid
     this.on('filter-applied', () => this.clearSelectionSilent());
     this.on('grouping-state-change', () => this.clearSelectionSilent());
     this.on('tree-state-change', () => this.clearSelectionSilent());
+    this.on('sort-change', () => this.clearSelectionSilent());
   }
 
   /**

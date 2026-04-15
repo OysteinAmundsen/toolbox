@@ -118,6 +118,15 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     ],
   };
 
+  /**
+   * Optional dependency on MultiSort for coordinated sorting.
+   * When MultiSort is loaded, Tree defers header click sorting to it and queries the
+   * sort model in processRows. When MultiSort is absent, Tree uses its own sort state.
+   */
+  static override readonly dependencies = [
+    { name: 'multiSort', required: false, reason: 'Queries sort model for coordinated tree sorting' },
+  ];
+
   /** @internal */
   readonly name = 'tree';
   /** @internal */
@@ -213,10 +222,13 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       return [...rows] as TreeRow[];
     }
 
-    // Assign stable keys, then optionally sort
+    // Assign stable keys, then optionally sort.
+    // When MultiSort is active, use its model instead of local sort state so
+    // Tree and MultiSort don't fight over sort ownership.
     let data = this.withStableKeys(treeRows);
-    if (this.sortState) {
-      data = this.sortTree(data, this.sortState.field, this.sortState.direction);
+    const effectiveSortState = this.resolveEffectiveSortState();
+    if (effectiveSortState) {
+      data = this.sortTree(data, effectiveSortState.field, effectiveSortState.direction);
     }
 
     // Initialize expansion if needed
@@ -291,6 +303,28 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       }
     }
     return result;
+  }
+
+  /**
+   * Resolve the effective sort state: prefer MultiSort's model when available,
+   * fall back to local tree sort state.
+   * This follows the same pattern as GroupingRowsPlugin.resolveGroupSortDirections.
+   */
+  private resolveEffectiveSortState(): { field: string; direction: 1 | -1 } | null {
+    // When MultiSort is loaded, prefer its model for consistency
+    const multiSortResults = this.grid?.query?.('sort:get-model', null);
+    if (Array.isArray(multiSortResults) && multiSortResults.length > 0) {
+      const sortModel = multiSortResults[0] as Array<{ field: string; direction: 'asc' | 'desc' }>;
+      if (Array.isArray(sortModel) && sortModel.length > 0) {
+        // Use the primary sort column from MultiSort
+        return {
+          field: sortModel[0].field,
+          direction: sortModel[0].direction === 'desc' ? -1 : 1,
+        };
+      }
+    }
+    // Fallback: local sort state (when MultiSort is not loaded)
+    return this.sortState;
   }
 
   /** Sort tree recursively, keeping children with parents */
@@ -434,6 +468,15 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   override onHeaderClick(event: HeaderClickEvent): boolean {
     if (this.flattenedRows.length === 0 || !event.column.sortable) return false;
 
+    // When MultiSort is active, let it handle header clicks entirely.
+    // Tree will pick up the sort model in processRows via resolveEffectiveSortState().
+    const multiSortResults = this.grid?.query?.('sort:get-model', null);
+    if (Array.isArray(multiSortResults) && multiSortResults.length > 0) {
+      // MultiSort is loaded — don't consume the event, let MultiSort handle it
+      return false;
+    }
+
+    // Fallback: manage own sort state when MultiSort is not loaded
     const { field } = event.column;
     if (!this.sortState || this.sortState.field !== field) {
       this.sortState = { field, direction: 1 };
@@ -449,7 +492,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       gridEl._sortState = this.sortState ? { ...this.sortState } : null;
     }
 
-    this.emit('sort-change', { field, direction: this.sortState?.direction ?? 0 });
+    this.broadcast('sort-change', { field, direction: this.sortState?.direction ?? 0 });
     this.requestRender();
     return true;
   }

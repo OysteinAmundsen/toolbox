@@ -8,7 +8,13 @@
  * **Without Selection plugin:** Copies entire grid
  */
 
-import { BaseGridPlugin, type GridElement, type PluginDependency } from '../../core/plugin/base-plugin';
+import {
+  BaseGridPlugin,
+  type GridElement,
+  type PluginDependency,
+  type PluginManifest,
+  type PluginQuery,
+} from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import { formatValueAsText, resolveColumns, resolveRows } from '../shared/data-collection';
 import { copyToClipboard } from './copy';
@@ -94,6 +100,14 @@ import {
  */
 export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
   /**
+   * Plugin manifest — declares queries for inter-plugin communication.
+   * @internal
+   */
+  static override readonly manifest: PluginManifest = {
+    queries: [{ type: 'clipboard:copy', description: 'Triggers a copy operation and returns the copied text' }],
+  };
+
+  /**
    * Plugin dependencies - ClipboardPlugin works best with SelectionPlugin.
    *
    * Without SelectionPlugin: copies entire grid, pastes at row 0 col 0.
@@ -138,6 +152,15 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
   /** @internal */
   override detach(): void {
     this.lastCopied = null;
+  }
+
+  /** @internal */
+  override handleQuery(query: PluginQuery): unknown {
+    if (query.type === 'clipboard:copy') {
+      this.copy();
+      return true;
+    }
+    return undefined;
   }
   // #endregion
 

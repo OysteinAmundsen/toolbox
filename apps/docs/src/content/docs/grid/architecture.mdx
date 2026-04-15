@@ -407,24 +407,37 @@ export class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
 
 ### Plugin Communication
 
-**Event Bus** (async, fire-and-forget):
+Plugins communicate via three channels:
+
+**Event Bus** (plugin-to-plugin notifications):
 
 ```typescript
-// Emit
+// Listen for events from other plugins
+this.on('selection-cleared', (detail) => { /* ... */ });
+
+// Emit to other plugins only
 this.emitPluginEvent('selection-cleared', { source: 'keyboard' });
 
-// Listen
-this.onPluginEvent('selection-cleared', (detail) => { /* ... */ });
+// Emit to both plugins AND external addEventListener consumers
+this.broadcast('sort-change', { sortModel: [...this.sortModel] });
 ```
 
-**Query System** (sync, request-response):
+**Query System** (sync state retrieval):
 
 ```typescript
-// Register handler
-this.registerQuery('getSelectedRanges', () => this.#ranges);
+// Declare queryable state in manifest
+static override readonly manifest = {
+  queries: [{ type: 'canMoveColumn', description: 'Check movability' }],
+};
+
+// Handle queries
+override handleQuery(query: PluginQuery): unknown {
+  if (query.type === 'canMoveColumn') return !column.pinned;
+  return undefined;
+}
 
 // Query from another plugin
-const ranges = this.queryPlugin('getSelectedRanges');
+const responses = this.grid.query<boolean>('canMoveColumn', column);
 ```
 
 ### Plugin Manifest

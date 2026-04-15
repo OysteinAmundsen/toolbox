@@ -688,6 +688,29 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   }
 
   /**
+   * Emit an event to **both** the plugin Event Bus (for inter-plugin communication)
+   * **and** the DOM (for external consumers via `addEventListener`).
+   *
+   * Use this when a state change is relevant to both other plugins and external
+   * consumers. For example, `sort-change` needs to invalidate Selection (plugin bus)
+   * and notify the host application (DOM event).
+   *
+   * @category Plugin Development
+   * @param eventType - The event type to broadcast
+   * @param detail - The event payload
+   *
+   * @example
+   * ```typescript
+   * // Notify both plugins and consumers of a sort change
+   * this.broadcast('sort-change', { sortModel: [...this.sortModel] });
+   * ```
+   */
+  protected broadcast<T>(eventType: string, detail: T): void {
+    this.emitPluginEvent(eventType, detail);
+    this.emit(eventType, detail);
+  }
+
+  /**
    * Request a re-render of the grid.
    * Uses ROWS phase - does NOT trigger processColumns hooks.
    */

@@ -124,6 +124,44 @@ const indices = selection.getSelectedRowIndices();
 const employees = indices.map((i) => myLocalData[i]); // May be wrong after sort/filter!
 ```
 
+## Inter-Plugin Communication
+
+Plugins communicate via three distinct channels. **Choosing the wrong channel is a common source of bugs** — other plugins silently miss events.
+
+| Channel              | Method                               | Audience              | Use when                                                                        |
+| -------------------- | ------------------------------------ | --------------------- | ------------------------------------------------------------------------------- |
+| **DOM Event**        | `this.emit(type, detail)`            | External consumers    | Consumer-facing: `sort-change`, `filter-applied`, `selection-change`            |
+| **Plugin Event Bus** | `this.emitPluginEvent(type, detail)` | Other plugins only    | Plugin-internal: `filter-change`, state sync between plugins                    |
+| **Broadcast (both)** | `this.broadcast(type, detail)`       | Consumers AND plugins | Events that both consumers AND plugins need: `sort-change`, `tree-state-change` |
+| **Query System**     | `this.grid.query(type, context)`     | Sync request/response | State retrieval: `sort:get-model`, `canMoveRow`, `clipboard:copy`               |
+
+### Decision Tree
+
+1. **Does this event need to reach external `addEventListener` consumers?**
+   - No → `emitPluginEvent()` (plugin bus only)
+   - Yes → continue to Q2
+2. **Does this event also need to reach other plugins** (e.g., Selection clearing on sort)?
+   - No → `emit()` (DOM only)
+   - Yes → `broadcast()` (both channels)
+3. **Is this a synchronous state request** (not a notification)?
+   - → `this.grid.query(type, context)` — declare query in manifest, handle in `handleQuery()`
+
+### Sorting Ownership Protocol
+
+When multiple plugins handle sorting (MultiSort, Tree, GroupingRows), follow this protocol:
+
+- **MultiSort is the sort authority** when loaded — other plugins must query `sort:get-model` from MultiSort rather than maintaining independent sort state
+- **Tree/GroupingRows**: Query `sort:get-model` in `processRows()` to get the effective sort; delegate header clicks to MultiSort when it's active; fall back to own sort logic only when MultiSort is absent
+- **All plugins that change sort state** must use `broadcast('sort-change', ...)` so both consumers and plugins (e.g., Selection) are notified
+
+### Query System Contracts
+
+Plugins that handle queries must:
+
+1. **Declare queries in manifest**: `static override readonly manifest = { queries: [{ type: 'myQuery' }] }`
+2. **Declare dependencies**: If you call `this.grid.query('x')`, declare the plugin that handles `x` as a dependency (at minimum `required: false`)
+3. **Return `undefined`** from `handleQuery()` for unrecognized query types — the PluginManager aggregates non-undefined responses
+
 ## Web Component Patterns
 
 - **Properties**: Use getters/setters for reactive properties that trigger re-renders

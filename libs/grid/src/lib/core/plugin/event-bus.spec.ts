@@ -347,3 +347,71 @@ describe('Query System', () => {
     });
   });
 });
+
+// ============================================================================
+// Broadcast (Dual-Emit) Tests
+// ============================================================================
+
+describe('broadcast()', () => {
+  let mockGrid: GridElementRef;
+  let pluginManager: PluginManager;
+
+  beforeEach(() => {
+    mockGrid = createMockGrid();
+    pluginManager = new PluginManager(mockGrid as any);
+    (mockGrid as any)._pluginManager = pluginManager;
+  });
+
+  afterEach(() => {
+    pluginManager.detachAll();
+  });
+
+  it('should emit to both plugin event bus and DOM', () => {
+    /** Test plugin that exposes broadcast for testing */
+    class BroadcasterPlugin extends BaseGridPlugin {
+      readonly name = 'broadcaster';
+      testBroadcast<T>(eventType: string, detail: T): void {
+        this.broadcast(eventType, detail);
+      }
+    }
+
+    const broadcaster = new BroadcasterPlugin();
+    const listener = new ListenerPlugin();
+
+    pluginManager.attach(broadcaster);
+    pluginManager.attach(listener);
+
+    broadcaster.testBroadcast('data-changed', { source: 'test' });
+
+    // Plugin bus should receive the event
+    expect(listener.receivedEvents).toHaveLength(1);
+    expect(listener.receivedEvents[0].detail).toEqual({ source: 'test' });
+
+    // DOM should also receive the event (via dispatchEvent)
+    expect(mockGrid.dispatchEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'data-changed' }));
+  });
+
+  it('should allow plugin subscribers to react to broadcast events', () => {
+    class SortEmitter extends BaseGridPlugin {
+      readonly name = 'sortEmitter';
+      testBroadcast(): void {
+        this.broadcast('sort-change', { sortModel: [{ field: 'name', direction: 'asc' }] });
+      }
+    }
+
+    const emitter = new SortEmitter();
+    const listener = new ListenerPlugin();
+
+    pluginManager.attach(emitter);
+    pluginManager.attach(listener);
+
+    // Subscribe to sort-change via plugin bus
+    const received: unknown[] = [];
+    listener.testOn('sort-change', (detail) => received.push(detail));
+
+    emitter.testBroadcast();
+
+    expect(received).toHaveLength(1);
+    expect(received[0]).toEqual({ sortModel: [{ field: 'name', direction: 'asc' }] });
+  });
+});

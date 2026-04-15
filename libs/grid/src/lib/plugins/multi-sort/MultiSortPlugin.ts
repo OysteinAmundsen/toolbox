@@ -161,7 +161,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
         if (!Array.isArray(model)) return false;
         this.sortModel = [...model] as SortModel[];
         this.clearCoreSortState();
-        this.emit('sort-change', { sortModel: [...this.sortModel] });
+        this.broadcast('sort-change', { sortModel: [...this.sortModel] });
         this.requestRender();
         return true;
       }
@@ -220,7 +220,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
     this.sortModel = toggleSort(this.sortModel, event.field, shiftKey, maxColumns);
     this.clearCoreSortState();
 
-    this.emit('sort-change', { sortModel: [...this.sortModel] });
+    this.broadcast('sort-change', { sortModel: [...this.sortModel] });
     this.requestRender();
     this.grid?.requestStateChange?.();
 
@@ -294,7 +294,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
   setSortModel(model: SortModel[]): void {
     this.sortModel = [...model];
     this.clearCoreSortState();
-    this.emit('sort-change', { sortModel: [...model] });
+    this.broadcast('sort-change', { sortModel: [...model] });
     this.requestRender();
     this.grid?.requestStateChange?.();
     if (model.length > 0) {
@@ -312,7 +312,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
   clearSort(): void {
     this.sortModel = [];
     this.clearCoreSortState();
-    this.emit('sort-change', { sortModel: [] });
+    this.broadcast('sort-change', { sortModel: [] });
     this.requestRender();
     this.grid?.requestStateChange?.();
     announce(this.gridElement!, getA11yMessage(this.gridElement!, 'sortCleared'));

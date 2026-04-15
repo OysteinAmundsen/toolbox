@@ -5,4 +5,19 @@
  * @module Plugins/Server-Side
  */
 export { ServerSidePlugin } from './ServerSidePlugin';
-export type { GetRowsParams, GetRowsResult, ServerSideConfig, ServerSideDataSource } from './types';
+export type {
+  DataRequestModel,
+  DataSourceChildrenDetail,
+  DataSourceDataDetail,
+  DataSourceErrorDetail,
+  DataSourceLoadingDetail,
+  FetchChildrenQuery,
+  GetChildRowsParams,
+  GetChildRowsResult,
+  GetRowsParams,
+  GetRowsResult,
+  ServerSideConfig,
+  ServerSideDataSource,
+  ViewportMappingQuery,
+  ViewportMappingResponse,
+} from './types';

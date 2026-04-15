@@ -538,3 +538,39 @@ grid.gridConfig = { columns: [...], ... };
 ```
 
 <LinkCard title="Getting Started" href="/grid/getting-started/" />
+
+---
+
+## DataSource
+
+<div id="tbw140" />
+
+### TBW140 — DataSource Fetch Error
+
+The `getRows()` call on the data source threw an error or returned a rejected promise.
+
+**Fix:** Check your data source implementation for network errors, malformed responses, or server-side failures. The error detail is included in the diagnostic message and in the `datasource:error` event.
+
+<div id="tbw141" />
+
+### TBW141 — DataSource Child Fetch Error
+
+The `getChildRows()` call on the data source threw an error or returned a rejected promise.
+
+**Fix:** Check your `getChildRows()` implementation. The error and parent context are included in the diagnostic message.
+
+<div id="tbw142" />
+
+### TBW142 — No Child Row Handler
+
+A plugin requested child rows via `datasource:fetch-children`, but the active data source does not implement `getChildRows()`.
+
+**Fix:** Add a `getChildRows()` method to your `ServerSideDataSource` if you are using Tree, GroupingRows, or MasterDetail plugins with server-side data.
+
+<div id="tbw143" />
+
+### TBW143 — DataSource Request Throttled
+
+A data fetch request was skipped because the maximum number of concurrent requests was already in-flight.
+
+**Info:** This is a debug-level diagnostic. The request will be retried automatically on the next scroll or render cycle.

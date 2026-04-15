@@ -1,6 +1,6 @@
 # Server-Side Plugin
 
-Lazy loading with block caching for large datasets.
+Central data orchestrator for lazy loading with block caching. Provides a **unified DataSource architecture** that other plugins (Tree, GroupingRows, MasterDetail) can consume via events and queries.
 
 ## Installation
 
@@ -25,11 +25,11 @@ grid.gridConfig = {
 // Set data source via method (not config)
 serverSide.setDataSource({
   getRows: async (params) => {
-    const response = await fetch(`/api/data?start=${params.startRow}&end=${params.endRow}`);
+    const response = await fetch(`/api/data?start=${params.startNode}&end=${params.endNode}`);
     const data = await response.json();
     return {
       rows: data.rows,
-      totalRowCount: data.total,
+      totalNodeCount: data.total,
     };
   },
 });
@@ -48,23 +48,57 @@ serverSide.setDataSource({
 ## Data Source Interface
 
 ```typescript
-interface ServerSideDataSource {
-  getRows(params: GetRowsParams): Promise<GetRowsResult>;
+interface ServerSideDataSource<TRow = any> {
+  getRows(params: GetRowsParams): Promise<GetRowsResult<TRow>>;
+  getChildRows?(params: GetChildRowsParams): Promise<GetChildRowsResult<TRow>>;
 }
 
 interface GetRowsParams {
-  startRow: number;
-  endRow: number;
-  sortModel?: SortModel[];
-  filterModel?: FilterModel;
+  startNode: number;
+  endNode: number;
+  sortModel?: unknown[];
+  filterModel?: Record<string, unknown>;
 }
 
-interface GetRowsResult {
-  rows: any[];
-  totalRowCount: number;
-  lastRow?: number; // If known, for infinite scroll
+interface GetRowsResult<TRow = any> {
+  rows: TRow[];
+  totalNodeCount: number;
+  lastNode?: number;
 }
 ```
+
+### Child Rows (Optional)
+
+For hierarchical data (tree nodes, grouped rows, master-detail), implement `getChildRows`:
+
+```typescript
+interface GetChildRowsParams {
+  parentRow: unknown;
+  context: { source: string }; // e.g. 'tree', 'groupingRows', 'masterDetail'
+}
+
+interface GetChildRowsResult<TRow = any> {
+  rows: TRow[];
+}
+```
+
+## Events
+
+The plugin broadcasts lifecycle events that other plugins can subscribe to:
+
+| Event                 | Detail Type                | When                               |
+| --------------------- | -------------------------- | ---------------------------------- |
+| `datasource:data`     | `DataSourceDataDetail`     | Block fetched (includes `claimed`) |
+| `datasource:children` | `DataSourceChildrenDetail` | Child rows fetched                 |
+| `datasource:loading`  | `DataSourceLoadingDetail`  | Loading state changes              |
+| `datasource:error`    | `DataSourceErrorDetail`    | Fetch error occurred               |
+
+## Queries
+
+| Query Type                  | Response             | Purpose                          |
+| --------------------------- | -------------------- | -------------------------------- |
+| `datasource:is-active`      | `boolean`            | Check if a data source is active |
+| `datasource:fetch-children` | `GetChildRowsResult` | Request child rows for a parent  |
 
 ## API Methods
 
@@ -82,12 +116,37 @@ serverSide.purgeCache();
 // Set new data source
 serverSide.setDataSource(newDataSource);
 
-// Get total row count
-const total = serverSide.getTotalRowCount();
+// Get total node count
+const total = serverSide.getTotalNodeCount();
 
-// Check if row is loaded
-const loaded = serverSide.isRowLoaded(rowIndex);
+// Check if node is loaded
+const loaded = serverSide.isNodeLoaded(nodeIndex);
 
 // Get loaded block count
 const blockCount = serverSide.getLoadedBlockCount();
 ```
+
+### Deprecated Methods
+
+| Deprecated           | Replacement           |
+| -------------------- | --------------------- |
+| `getTotalRowCount()` | `getTotalNodeCount()` |
+| `isRowLoaded(index)` | `isNodeLoaded(index)` |
+
+## Migration from v1
+
+| v1 Parameter    | v2 Parameter     |
+| --------------- | ---------------- |
+| `startRow`      | `startNode`      |
+| `endRow`        | `endNode`        |
+| `totalRowCount` | `totalNodeCount` |
+| `lastRow`       | `lastNode`       |
+
+## Diagnostic Codes
+
+| Code   | Severity | Description                          |
+| ------ | -------- | ------------------------------------ |
+| TBW140 | error    | `getRows()` fetch failed             |
+| TBW141 | error    | `getChildRows()` fetch failed        |
+| TBW142 | warn     | Child fetch requested but no handler |
+| TBW143 | debug    | Request throttled (concurrent limit) |

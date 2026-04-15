@@ -20,6 +20,36 @@ function createServerSideMockGrid(overrides: Record<string, unknown> = {}) {
   el.appendChild(document.createElement('div'));
   const rows: unknown[] = [];
 
+  // Plugin manager mock for event subscriptions (on/off/emitPluginEvent)
+  const eventListeners = new Map<string, Map<unknown, (detail: unknown) => void>>();
+  const pluginManager = {
+    subscribe(plugin: unknown, eventType: string, callback: (detail: unknown) => void) {
+      let listeners = eventListeners.get(eventType);
+      if (!listeners) {
+        listeners = new Map();
+        eventListeners.set(eventType, listeners);
+      }
+      listeners.set(plugin, callback);
+    },
+    unsubscribe(plugin: unknown, eventType: string) {
+      eventListeners.get(eventType)?.delete(plugin);
+    },
+    unsubscribeAll(plugin: unknown) {
+      for (const listeners of eventListeners.values()) {
+        listeners.delete(plugin);
+      }
+    },
+    emitPluginEvent<T>(eventType: string, detail: T) {
+      const listeners = eventListeners.get(eventType);
+      if (listeners) {
+        for (const callback of listeners.values()) {
+          callback(detail);
+        }
+      }
+    },
+    _hasRowStructurePlugins: true,
+  };
+
   Object.defineProperty(el, 'rows', { value: rows, writable: true, configurable: true });
   Object.defineProperty(el, 'sourceRows', { value: rows, writable: true, configurable: true });
   Object.defineProperty(el, 'columns', { value: [], writable: true, configurable: true });
@@ -37,6 +67,7 @@ function createServerSideMockGrid(overrides: Record<string, unknown> = {}) {
   Object.defineProperty(el, 'query', { value: () => [], configurable: true });
   Object.defineProperty(el, 'requestRender', { value: vi.fn(), writable: true, configurable: true });
   Object.defineProperty(el, 'refreshVirtualWindow', { value: vi.fn(), configurable: true });
+  Object.defineProperty(el, '_pluginManager', { value: pluginManager, writable: true, configurable: true });
 
   for (const [key, value] of Object.entries(overrides)) {
     if (key !== '_virtualization') {
@@ -132,7 +163,7 @@ describe('server-side plugin', () => {
       const mockDataSource: ServerSideDataSource = {
         getRows: vi.fn().mockResolvedValue({
           rows: [{ id: 1 }, { id: 2 }],
-          totalRowCount: 1000,
+          totalNodeCount: 1000,
         }),
       };
 
@@ -142,29 +173,29 @@ describe('server-side plugin', () => {
       });
 
       expect(mockDataSource.getRows).toHaveBeenCalledWith({
-        startRow: 200,
-        endRow: 300,
+        startNode: 200,
+        endNode: 300,
         sortModel: [{ field: 'name', direction: 'asc' }],
         filterModel: { status: 'active' },
       });
 
       expect(result.rows).toEqual([{ id: 1 }, { id: 2 }]);
-      expect(result.totalRowCount).toBe(1000);
+      expect(result.totalNodeCount).toBe(1000);
     });
 
     it('should handle first block correctly', async () => {
       const mockDataSource: ServerSideDataSource = {
         getRows: vi.fn().mockResolvedValue({
           rows: [],
-          totalRowCount: 0,
+          totalNodeCount: 0,
         }),
       };
 
       await loadBlock(mockDataSource, 0, 50, {});
 
       expect(mockDataSource.getRows).toHaveBeenCalledWith({
-        startRow: 0,
-        endRow: 50,
+        startNode: 0,
+        endNode: 50,
         sortModel: undefined,
         filterModel: undefined,
       });
@@ -412,7 +443,7 @@ describe('ServerSidePlugin', () => {
       plugin.attach(grid as any);
 
       const mockDS: ServerSideDataSource = {
-        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }, { id: 2 }], totalRowCount: 100 }),
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }, { id: 2 }], totalNodeCount: 100 }),
       };
 
       plugin.setDataSource(mockDS);
@@ -420,7 +451,7 @@ describe('ServerSidePlugin', () => {
       // Wait for the async load
       await vi.waitFor(() => expect(grid.requestRender).toHaveBeenCalled());
 
-      expect(mockDS.getRows).toHaveBeenCalledWith({ startRow: 0, endRow: 10 });
+      expect(mockDS.getRows).toHaveBeenCalledWith(expect.objectContaining({ startNode: 0, endNode: 10 }));
       expect(plugin.getTotalRowCount()).toBe(100);
       expect(plugin.getLoadedBlockCount()).toBe(1);
     });
@@ -431,13 +462,13 @@ describe('ServerSidePlugin', () => {
       plugin.attach(grid as any);
 
       const ds1: ServerSideDataSource = {
-        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalRowCount: 50 }),
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalNodeCount: 50 }),
       };
       plugin.setDataSource(ds1);
       await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(50));
 
       const ds2: ServerSideDataSource = {
-        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 2 }], totalRowCount: 200 }),
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 2 }], totalNodeCount: 200 }),
       };
       plugin.setDataSource(ds2);
       await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(200));
@@ -465,7 +496,7 @@ describe('ServerSidePlugin', () => {
       const mockDS: ServerSideDataSource = {
         getRows: vi
           .fn()
-          .mockResolvedValue({ rows: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }], totalRowCount: 10 }),
+          .mockResolvedValue({ rows: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }], totalNodeCount: 10 }),
       };
       plugin.setDataSource(mockDS);
       await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(10));
@@ -497,7 +528,7 @@ describe('ServerSidePlugin', () => {
       const mockDS: ServerSideDataSource = {
         getRows: vi
           .fn()
-          .mockResolvedValue({ rows: Array.from({ length: 100 }, (_, i) => ({ id: i })), totalRowCount: 500 }),
+          .mockResolvedValue({ rows: Array.from({ length: 100 }, (_, i) => ({ id: i })), totalNodeCount: 500 }),
       };
       plugin.setDataSource(mockDS);
       await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
@@ -516,7 +547,7 @@ describe('ServerSidePlugin', () => {
       plugin.attach(grid as any);
 
       const mockDS: ServerSideDataSource = {
-        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalRowCount: 10 }),
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalNodeCount: 10 }),
       };
       plugin.setDataSource(mockDS);
       await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
@@ -524,7 +555,8 @@ describe('ServerSidePlugin', () => {
       grid.requestRender.mockClear();
       plugin.refresh();
 
-      expect(plugin.getLoadedBlockCount()).toBe(0);
+      // refresh() delegates to setDataSource() which is async — wait for re-fetch
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
       expect(grid.requestRender).toHaveBeenCalled();
     });
 
@@ -545,7 +577,7 @@ describe('ServerSidePlugin', () => {
       plugin.attach(grid as any);
 
       const mockDS: ServerSideDataSource = {
-        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalRowCount: 10 }),
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalNodeCount: 10 }),
       };
       plugin.setDataSource(mockDS);
       await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
@@ -570,7 +602,7 @@ describe('ServerSidePlugin', () => {
       const mockDS: ServerSideDataSource = {
         getRows: vi
           .fn()
-          .mockResolvedValue({ rows: Array.from({ length: 10 }, (_, i) => ({ id: i })), totalRowCount: 100 }),
+          .mockResolvedValue({ rows: Array.from({ length: 10 }, (_, i) => ({ id: i })), totalNodeCount: 100 }),
       };
       plugin.setDataSource(mockDS);
       await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
@@ -604,7 +636,7 @@ describe('ServerSidePlugin', () => {
       plugin.attach(grid as any);
 
       const mockDS: ServerSideDataSource = {
-        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalRowCount: 10 }),
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalNodeCount: 10 }),
       };
       plugin.setDataSource(mockDS);
       await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));

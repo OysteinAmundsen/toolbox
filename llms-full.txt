@@ -560,13 +560,13 @@ gridConfig: {
       maxConcurrentRequests: 2,
       dataSource: {
         async getRows(params) {
-          // params: { startRow, endRow, sortModel, filterModel }
+          // params: { startNode, endNode, sortModel, filterModel }
           const response = await fetch('/api/employees', {
             method: 'POST',
-            body: JSON.stringify({ start: params.startRow, end: params.endRow }),
+            body: JSON.stringify({ start: params.startNode, end: params.endNode }),
           });
           const { rows, total } = await response.json();
-          return { rows, totalRowCount: total };
+          return { rows, totalNodeCount: total };
         },
       },
     },
@@ -1040,7 +1040,7 @@ new GroupingRowsPlugin({
 
 ### ServerSidePlugin
 
-Block-based virtual scrolling for large datasets. Does NOT coordinate sorting, filtering, or export — each plugin manages its own server-side behavior independently via its own async handlers (`sortHandler` on GridConfig, `filterHandler`/`valuesHandler` on FilteringPlugin, `groups`/`rows` on GroupingRowsPlugin).
+Unified data orchestrator for large datasets. Provides block-based virtual scrolling and broadcasts `datasource:data` / `datasource:children` / `datasource:loading` / `datasource:error` events that other plugins (Tree, GroupingRows, MasterDetail) can consume. Supports `getChildRows()` for hierarchical data. Uses node-space pagination (`startNode`/`endNode`/`totalNodeCount`). Automatically refetches on sort-change and filter-change events.
 
 ```typescript
 new ServerSidePlugin({
@@ -1048,7 +1048,10 @@ new ServerSidePlugin({
   cacheBlockSize?: number,       // Cache block size
   maxConcurrentRequests?: number, // Parallel request limit (default: 2)
 })
-// Then: plugin.setDataSource({ getRows: async (params) => ({ rows, totalRowCount }) })
+// Then: plugin.setDataSource({
+//   getRows: async (params) => ({ rows, totalNodeCount }),
+//   getChildRows?: async (params) => ({ rows }),  // optional, for tree/groups/master-detail
+// })
 ```
 
 ### ResponsivePlugin

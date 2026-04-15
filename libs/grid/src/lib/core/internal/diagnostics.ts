@@ -167,6 +167,16 @@ export const STYLE_NOT_FOUND = 'TBW121' as const;
 /** Invalid JSON in an HTML attribute. */
 export const INVALID_ATTRIBUTE_JSON = 'TBW130' as const;
 
+// --- DataSource / ServerSide (140–149) ---
+/** ServerSidePlugin: getRows() rejected. */
+export const DATASOURCE_FETCH_ERROR = 'TBW140' as const;
+/** ServerSidePlugin: getChildRows() rejected. */
+export const DATASOURCE_CHILD_FETCH_ERROR = 'TBW141' as const;
+/** ServerSidePlugin: getChildRows() not implemented but a plugin queried for children. */
+export const DATASOURCE_NO_CHILD_HANDLER = 'TBW142' as const;
+/** ServerSidePlugin: concurrent request limit reached, request deferred. */
+export const DATASOURCE_THROTTLED = 'TBW143' as const;
+
 export type DiagnosticCode =
   | typeof MISSING_PLUGIN
   | typeof MISSING_PLUGIN_CONFIG
@@ -206,7 +216,11 @@ export type DiagnosticCode =
   | typeof COLUMN_GROUPS_CONFLICT
   | typeof STYLE_EXTRACT_FAILED
   | typeof STYLE_NOT_FOUND
-  | typeof INVALID_ATTRIBUTE_JSON;
+  | typeof INVALID_ATTRIBUTE_JSON
+  | typeof DATASOURCE_FETCH_ERROR
+  | typeof DATASOURCE_CHILD_FETCH_ERROR
+  | typeof DATASOURCE_NO_CHILD_HANDLER
+  | typeof DATASOURCE_THROTTLED;
 
 // #endregion
 

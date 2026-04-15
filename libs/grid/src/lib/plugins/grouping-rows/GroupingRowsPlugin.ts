@@ -140,8 +140,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     ],
     events: [
       {
-        type: 'grouping-state-change',
-        description: 'Emitted when groups are expanded/collapsed. Subscribers can react to row visibility changes.',
+        type: 'group-toggle',
+        description: 'Emitted when groups are expanded/collapsed. Broadcast to both DOM consumers and plugin bus.',
       },
       {
         type: 'group-expand',
@@ -989,7 +989,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
    */
   expandAll(): void {
     this.expandedKeys = expandAllGroups(this.flattenedRows);
-    this.emitPluginEvent('grouping-state-change', { expandedKeys: [...this.expandedKeys] });
+    this.emitPluginEvent('group-toggle', { expandedKeys: [...this.expandedKeys] });
     this.requestRender();
   }
 
@@ -998,7 +998,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
    */
   collapseAll(): void {
     this.expandedKeys = collapseAllGroups();
-    this.emitPluginEvent('grouping-state-change', { expandedKeys: [...this.expandedKeys] });
+    this.emitPluginEvent('group-toggle', { expandedKeys: [...this.expandedKeys] });
     this.requestRender();
   }
 
@@ -1042,11 +1042,12 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       this.expandedKeys = toggleGroupExpansion(this.expandedKeys, key);
     }
 
-    this.emit<GroupToggleDetail>('group-toggle', {
+    this.broadcast<GroupToggleDetail>('group-toggle', {
       key,
       expanded: this.expandedKeys.has(key),
       value: group?.value,
       depth: group?.depth ?? 0,
+      expandedKeys: [...this.expandedKeys],
     });
 
     // Emit group-expand/group-collapse events for pre-defined mode
@@ -1077,11 +1078,6 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     } else {
       announce(this.gridElement, getA11yMessage(this.gridElement, 'groupCollapsed', groupName));
     }
-
-    // Notify other plugins that grouping state changed (row visibility changed)
-    this.emitPluginEvent('grouping-state-change', {
-      expandedKeys: [...this.expandedKeys],
-    });
 
     this.requestRender();
   }

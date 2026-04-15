@@ -128,12 +128,12 @@ const employees = indices.map((i) => myLocalData[i]); // May be wrong after sort
 
 Plugins communicate via three distinct channels. **Choosing the wrong channel is a common source of bugs** — other plugins silently miss events.
 
-| Channel              | Method                               | Audience              | Use when                                                                        |
-| -------------------- | ------------------------------------ | --------------------- | ------------------------------------------------------------------------------- |
-| **DOM Event**        | `this.emit(type, detail)`            | External consumers    | Consumer-facing: `sort-change`, `filter-applied`, `selection-change`            |
-| **Plugin Event Bus** | `this.emitPluginEvent(type, detail)` | Other plugins only    | Plugin-internal: `filter-change`, state sync between plugins                    |
-| **Broadcast (both)** | `this.broadcast(type, detail)`       | Consumers AND plugins | Events that both consumers AND plugins need: `sort-change`, `tree-state-change` |
-| **Query System**     | `this.grid.query(type, context)`     | Sync request/response | State retrieval: `sort:get-model`, `canMoveRow`, `clipboard:copy`               |
+| Channel              | Method                               | Audience              | Use when                                                                                                   |
+| -------------------- | ------------------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **DOM Event**        | `this.emit(type, detail)`            | External consumers    | Consumer-facing: `selection-change`, `cell-click`                                                          |
+| **Plugin Event Bus** | `this.emitPluginEvent(type, detail)` | Other plugins only    | Plugin-internal: silent filter changes, bulk expand/collapse                                               |
+| **Broadcast (both)** | `this.broadcast(type, detail)`       | Consumers AND plugins | Events that both consumers AND plugins need: `sort-change`, `filter-change`, `tree-expand`, `group-toggle` |
+| **Query System**     | `this.grid.query(type, context)`     | Sync request/response | State retrieval: `sort:get-model`, `canMoveRow`, `clipboard:copy`                                          |
 
 ### Decision Tree
 

@@ -290,6 +290,8 @@ export interface GroupToggleDetail {
   value: any;
   /** Depth level */
   depth: number;
+  /** All currently expanded keys after the operation */
+  expandedKeys?: string[];
 }
 
 // Module Augmentation - Register plugin name for type-safe getPluginByName()

@@ -125,8 +125,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   static override readonly manifest: PluginManifest = {
     events: [
       {
-        type: 'filter-applied',
-        description: 'Emitted when filter criteria change. Subscribers can react to row visibility changes.',
+        type: 'filter-change',
+        description: 'Emitted when filter criteria change. Broadcast to both DOM consumers and plugin bus.',
       },
     ],
     queries: [
@@ -515,7 +515,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.cachedInputSpot = null;
 
     if (!options?.silent) {
-      this.emit<FilterChangeDetail>('filter-change', {
+      this.broadcast<FilterChangeDetail>('filter-change', {
         filters: [...this.filters.values()],
         filteredRowCount: 0, // Will be accurate after processRows
         selected: this.computeSelected(),
@@ -530,9 +530,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
           ? getA11yMessage(this.gridElement!, 'filterCleared', header)
           : getA11yMessage(this.gridElement!, 'filterApplied', header),
       );
+    } else {
+      // Silent: notify plugins only (no DOM event), using same event name for unified subscriptions
+      this.emitPluginEvent('filter-change', { filters: [...this.filters.values()] });
     }
-    // Notify other plugins via Event Bus
-    this.emitPluginEvent('filter-applied', { filters: [...this.filters.values()] });
     this.requestRender();
   }
 
@@ -573,7 +574,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.cachedInputSpot = null;
 
     if (!options?.silent) {
-      this.emit<FilterChangeDetail>('filter-change', {
+      this.broadcast<FilterChangeDetail>('filter-change', {
         filters: [...this.filters.values()],
         filteredRowCount: 0,
         selected: this.computeSelected(),
@@ -581,9 +582,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       if (this.config.trackColumnState) {
         this.grid.requestStateChange?.();
       }
+    } else {
+      // Silent: notify plugins only (no DOM event)
+      this.emitPluginEvent('filter-change', { filters: [...this.filters.values()] });
     }
-    // Notify other plugins via Event Bus
-    this.emitPluginEvent('filter-applied', { filters: [...this.filters.values()] });
     this.requestRender();
   }
 
@@ -1164,7 +1166,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
         this.grid.rows = rows;
 
         if (!silent) {
-          this.emit<FilterChangeDetail>('filter-change', {
+          this.broadcast<FilterChangeDetail>('filter-change', {
             filters: filterList,
             filteredRowCount: rows.length,
             selected: this.computeSelected(),
@@ -1172,9 +1174,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
           if (this.config.trackColumnState) {
             this.grid.requestStateChange?.();
           }
+        } else {
+          // Silent: notify plugins only (no DOM event)
+          this.emitPluginEvent('filter-change', { filters: filterList });
         }
-        // Notify other plugins via Event Bus
-        this.emitPluginEvent('filter-applied', { filters: filterList });
 
         // Trigger afterRender to update filter button active state
         this.requestRender();
@@ -1190,7 +1193,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
     // Sync path: emit event and re-render (processRows will handle filtering)
     if (!silent) {
-      this.emit<FilterChangeDetail>('filter-change', {
+      this.broadcast<FilterChangeDetail>('filter-change', {
         filters: filterList,
         filteredRowCount: 0,
         selected: this.computeSelected(),
@@ -1198,9 +1201,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       if (this.config.trackColumnState) {
         this.grid.requestStateChange?.();
       }
+    } else {
+      // Silent: notify plugins only (no DOM event)
+      this.emitPluginEvent('filter-change', { filters: filterList });
     }
-    // Notify other plugins via Event Bus
-    this.emitPluginEvent('filter-applied', { filters: filterList });
     this.requestRender();
   }
   // #endregion

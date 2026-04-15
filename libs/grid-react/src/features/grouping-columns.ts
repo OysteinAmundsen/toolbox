@@ -29,8 +29,7 @@ import {
   type GroupingColumnsConfig,
 } from '@toolbox-web/grid/plugins/grouping-columns';
 import type { ReactNode } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot } from 'react-dom/client';
+import { renderToContainer } from '../lib/portal-bridge';
 import { registerFeature } from '../lib/feature-registry';
 
 /** Bridge a React render function to a vanilla DOM render function. */
@@ -40,10 +39,7 @@ function bridgeRenderer(
   return (params: GroupHeaderRenderParams) => {
     const wrapper = document.createElement('div');
     wrapper.style.display = 'contents';
-    const root = createRoot(wrapper);
-    flushSync(() => {
-      root.render(reactFn(params) as React.ReactElement);
-    });
+    renderToContainer(wrapper, reactFn(params) as React.ReactElement);
     return wrapper;
   };
 }

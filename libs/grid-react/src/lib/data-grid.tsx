@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   type ReactNode,
@@ -19,6 +20,8 @@ import { type GridDetailPanelProps } from './grid-detail-panel';
 import { GridIconContextInternal } from './grid-icon-registry';
 import { getResponsiveCardRenderer } from './grid-responsive-card';
 import { GridTypeContextInternal } from './grid-type-registry';
+import { setPortalManager } from './portal-bridge';
+import { PortalManager, type PortalManagerHandle } from './portal-manager';
 import { processGridConfig, type ColumnConfig, type GridConfig } from './react-column-config';
 import { GridAdapter } from './react-grid-adapter';
 import { createPluginsFromFeatures } from './use-sync-plugins';
@@ -841,33 +844,47 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     [],
   );
 
-  return (
-    <tbw-grid
-      ref={(el) => {
-        (gridRef as React.MutableRefObject<ExtendedGridElement | null>).current = el as ExtendedGridElement | null;
+  const portalManagerRef = useRef<PortalManagerHandle>(null);
 
-        // Set initial config synchronously in ref callback
-        // This ensures gridConfig is available before connectedCallback completes its initial setup
-        // React's useEffect runs too late (after paint), causing the grid to initialize without config
-        if (el) {
-          const grid = el as ExtendedGridElement;
-          // Use processedGridConfig which has React renderers/editors wrapped as DOM functions
-          // Cast through any because React renderers are not assignable to base DOM types
-          if (processedGridConfig) {
-            grid.gridConfig = processedGridConfig as any;
+  // Wire the PortalManager to the bridge so non-React code (adapter, feature files)
+  // can create portals that inherit the full React context tree.
+  // useLayoutEffect runs after children's effects, meaning PortalManager's
+  // useImperativeHandle has already set the handle before we read it here.
+  useLayoutEffect(() => {
+    setPortalManager(portalManagerRef.current);
+    return () => setPortalManager(null);
+  }, []);
+
+  return (
+    <>
+      <PortalManager ref={portalManagerRef} />
+      <tbw-grid
+        ref={(el) => {
+          (gridRef as React.MutableRefObject<ExtendedGridElement | null>).current = el as ExtendedGridElement | null;
+
+          // Set initial config synchronously in ref callback
+          // This ensures gridConfig is available before connectedCallback completes its initial setup
+          // React's useEffect runs too late (after paint), causing the grid to initialize without config
+          if (el) {
+            const grid = el as ExtendedGridElement;
+            // Use processedGridConfig which has React renderers/editors wrapped as DOM functions
+            // Cast through any because React renderers are not assignable to base DOM types
+            if (processedGridConfig) {
+              grid.gridConfig = processedGridConfig as any;
+            }
+            if (rows) {
+              grid.rows = rows;
+            }
+            if (processedColumns) {
+              grid.columns = processedColumns as any;
+            }
           }
-          if (rows) {
-            grid.rows = rows;
-          }
-          if (processedColumns) {
-            grid.columns = processedColumns as any;
-          }
-        }
-      }}
-      class={className}
-      style={style}
-    >
-      <GridElementContext.Provider value={gridRef}>{children}</GridElementContext.Provider>
-    </tbw-grid>
+        }}
+        class={className}
+        style={style}
+      >
+        <GridElementContext.Provider value={gridRef}>{children}</GridElementContext.Provider>
+      </tbw-grid>
+    </>
   );
 }) as <TRow = unknown>(props: DataGridProps<TRow> & { ref?: React.Ref<DataGridRef<TRow>> }) => React.ReactElement;

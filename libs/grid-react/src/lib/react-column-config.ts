@@ -8,8 +8,7 @@ import type {
   LoadingContext,
 } from '@toolbox-web/grid';
 import type { ReactNode } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot, type Root } from 'react-dom/client';
+import { removeFromContainer, renderToContainer } from './portal-bridge';
 
 // #region ColumnConfig Interface
 /**
@@ -120,12 +119,12 @@ export type ReactGridConfig<TRow = unknown> = GridConfig<TRow>;
 // adapter.processConfig on an already-processed config.
 const REACT_PROCESSED = Symbol('reactProcessed');
 
-// Track mounted roots for cleanup (stores root + container for targeted cleanup)
-const mountedRoots: { root: Root; container: HTMLElement }[] = [];
+// Track portal keys for config-based editors (for cleanup via cleanupConfigRootsIn)
+const mountedPortals: { key: string; container: HTMLElement }[] = [];
 
 /**
- * Clean up config-based editor React roots whose containers are inside the given element.
- * Called by the React GridAdapter's releaseCell to properly unmount editor roots
+ * Clean up config-based editor portals whose containers are inside the given element.
+ * Called by the React GridAdapter's releaseCell to properly unmount editor portals
  * that were created by `wrapReactEditor` (which bypasses the adapter's tracking).
  *
  * Only targets editor containers (`.react-cell-editor`), not renderer containers,
@@ -134,15 +133,11 @@ const mountedRoots: { root: Root; container: HTMLElement }[] = [];
  * @internal
  */
 export function cleanupConfigRootsIn(parentEl: HTMLElement): void {
-  for (let i = mountedRoots.length - 1; i >= 0; i--) {
-    const entry = mountedRoots[i];
+  for (let i = mountedPortals.length - 1; i >= 0; i--) {
+    const entry = mountedPortals[i];
     if (parentEl.contains(entry.container) && entry.container.classList.contains('react-cell-editor')) {
-      try {
-        entry.root.unmount();
-      } catch {
-        // Ignore cleanup errors
-      }
-      mountedRoots.splice(i, 1);
+      removeFromContainer(entry.key);
+      mountedPortals.splice(i, 1);
     }
   }
 }
@@ -154,8 +149,8 @@ export function cleanupConfigRootsIn(parentEl: HTMLElement): void {
 export function wrapReactRenderer<TRow>(
   renderFn: (ctx: CellRenderContext<TRow>) => ReactNode,
 ): (ctx: CellRenderContext<TRow>) => HTMLElement {
-  // Cell cache for reusing React roots
-  const cellCache = new WeakMap<HTMLElement, { root: Root; container: HTMLElement }>();
+  // Cell cache for reusing portals
+  const cellCache = new WeakMap<HTMLElement, { portalKey: string; container: HTMLElement }>();
 
   return (ctx: CellRenderContext<TRow>) => {
     const cellEl = (ctx as any).cellEl as HTMLElement | undefined;
@@ -163,9 +158,7 @@ export function wrapReactRenderer<TRow>(
     if (cellEl) {
       const cached = cellCache.get(cellEl);
       if (cached) {
-        flushSync(() => {
-          cached.root.render(renderFn(ctx));
-        });
+        renderToContainer(cached.container, renderFn(ctx), cached.portalKey);
         return cached.container;
       }
     }
@@ -174,15 +167,12 @@ export function wrapReactRenderer<TRow>(
     container.className = 'react-cell-renderer';
     container.style.display = 'contents';
 
-    const root = createRoot(container);
-    flushSync(() => {
-      root.render(renderFn(ctx));
-    });
+    const portalKey = renderToContainer(container, renderFn(ctx));
 
     if (cellEl) {
-      cellCache.set(cellEl, { root, container });
+      cellCache.set(cellEl, { portalKey, container });
     }
-    mountedRoots.push({ root, container });
+    mountedPortals.push({ key: portalKey, container });
 
     return container;
   };
@@ -200,11 +190,8 @@ export function wrapReactEditor<TRow>(
     container.className = 'react-cell-editor';
     container.style.display = 'contents';
 
-    const root = createRoot(container);
-    flushSync(() => {
-      root.render(editorFn(ctx));
-    });
-    mountedRoots.push({ root, container });
+    const portalKey = renderToContainer(container, editorFn(ctx));
+    mountedPortals.push({ key: portalKey, container });
 
     return container;
   };
@@ -222,11 +209,8 @@ export function wrapReactHeaderRenderer<TRow>(
     container.className = 'react-header-renderer';
     container.style.display = 'contents';
 
-    const root = createRoot(container);
-    flushSync(() => {
-      root.render(renderFn(ctx));
-    });
-    mountedRoots.push({ root, container });
+    const portalKey = renderToContainer(container, renderFn(ctx));
+    mountedPortals.push({ key: portalKey, container });
 
     return container;
   };
@@ -244,11 +228,8 @@ export function wrapReactHeaderLabelRenderer<TRow>(
     container.className = 'react-header-label-renderer';
     container.style.display = 'contents';
 
-    const root = createRoot(container);
-    flushSync(() => {
-      root.render(renderFn(ctx));
-    });
-    mountedRoots.push({ root, container });
+    const portalKey = renderToContainer(container, renderFn(ctx));
+    mountedPortals.push({ key: portalKey, container });
 
     return container;
   };
@@ -276,11 +257,8 @@ export function wrapReactLoadingRenderer(
     container.className = 'react-loading-renderer';
     container.style.display = 'contents';
 
-    const root = createRoot(container);
-    flushSync(() => {
-      root.render(result);
-    });
-    mountedRoots.push({ root, container });
+    const portalKey = renderToContainer(container, result);
+    mountedPortals.push({ key: portalKey, container });
 
     return container;
   };

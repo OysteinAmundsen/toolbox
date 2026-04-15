@@ -41,8 +41,7 @@ import {
 } from '@toolbox-web/grid/plugins/filtering';
 import type { ReactNode } from 'react';
 import { useCallback, useContext } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot } from 'react-dom/client';
+import { renderToContainer } from '../lib/portal-bridge';
 import { registerFeature } from '../lib/feature-registry';
 import { GridElementContext } from '../lib/grid-element-context';
 
@@ -59,10 +58,7 @@ registerFeature('filtering', (rawConfig) => {
     options.filterPanelRenderer = (container: HTMLElement, params: FilterPanelParams) => {
       const wrapper = document.createElement('div');
       wrapper.style.display = 'contents';
-      const root = createRoot(wrapper);
-      flushSync(() => {
-        root.render(reactFn(params) as React.ReactElement);
-      });
+      renderToContainer(wrapper, reactFn(params) as React.ReactElement);
       container.appendChild(wrapper);
     };
   }

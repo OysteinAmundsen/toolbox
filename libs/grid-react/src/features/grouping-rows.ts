@@ -28,8 +28,7 @@ import {
   type GroupRowRenderParams,
 } from '@toolbox-web/grid/plugins/grouping-rows';
 import type { ReactNode } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot } from 'react-dom/client';
+import { renderToContainer } from '../lib/portal-bridge';
 import { registerFeature } from '../lib/feature-registry';
 
 registerFeature('groupingRows', (rawConfig) => {
@@ -45,10 +44,7 @@ registerFeature('groupingRows', (rawConfig) => {
     options.groupRowRenderer = (params: GroupRowRenderParams) => {
       const wrapper = document.createElement('div');
       wrapper.style.display = 'contents';
-      const root = createRoot(wrapper);
-      flushSync(() => {
-        root.render(reactFn(params) as React.ReactElement);
-      });
+      renderToContainer(wrapper, reactFn(params) as React.ReactElement);
       return wrapper;
     };
   }

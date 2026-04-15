@@ -29,8 +29,7 @@ import '@toolbox-web/grid/features/pinned-rows';
 
 import { PinnedRowsPlugin, type PinnedRowsConfig, type PinnedRowsContext } from '@toolbox-web/grid/plugins/pinned-rows';
 import type { ReactNode } from 'react';
-import { flushSync } from 'react-dom';
-import { createRoot } from 'react-dom/client';
+import { renderToContainer } from '../lib/portal-bridge';
 import { registerFeature } from '../lib/feature-registry';
 
 registerFeature('pinnedRows', (rawConfig) => {
@@ -50,10 +49,7 @@ registerFeature('pinnedRows', (rawConfig) => {
         render: (ctx: PinnedRowsContext) => {
           const wrapper = document.createElement('div');
           wrapper.style.display = 'contents';
-          const root = createRoot(wrapper);
-          flushSync(() => {
-            root.render(reactFn(ctx) as React.ReactElement);
-          });
+          renderToContainer(wrapper, reactFn(ctx) as React.ReactElement);
           return wrapper;
         },
       };

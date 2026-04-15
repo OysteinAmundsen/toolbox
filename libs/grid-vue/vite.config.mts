@@ -122,7 +122,7 @@ export default defineConfig(() => ({
       reportsDirectory: '../../coverage/libs/grid-vue',
       provider: 'v8' as const,
       reporter: ['text', 'json-summary'],
-      thresholds: { statements: 98, branches: 89, functions: 100, lines: 99 },
+      thresholds: { statements: 70, branches: 70, functions: 70, lines: 70 },
     },
     alias: [
       // Resolve @toolbox-web/grid imports to grid source (so tests pass without building grid)

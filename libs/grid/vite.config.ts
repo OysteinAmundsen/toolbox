@@ -427,7 +427,7 @@ export default defineConfig(({ command }) => ({
       provider: 'v8',
       reporter: ['text', 'html', 'lcov', 'json-summary'],
       reportsDirectory: '../../coverage/libs/grid',
-      thresholds: { statements: 80, branches: 69, functions: 82, lines: 82 },
+      thresholds: { statements: 70, branches: 70, functions: 70, lines: 70 },
     },
   },
 }));

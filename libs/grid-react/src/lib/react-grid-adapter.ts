@@ -14,7 +14,7 @@ import { getDetailRenderer, type DetailPanelContext } from './grid-detail-panel'
 import { getResponsiveCardRenderer, type ResponsiveCardContext } from './grid-responsive-card';
 import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
 import type { ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
-import { clearAllContainers, removeFromContainer, renderToContainer } from './portal-bridge';
+import { removeFromContainer, renderToContainer } from './portal-bridge';
 import { cleanupConfigRootsIn, processGridConfig } from './react-column-config';
 
 /**
@@ -543,7 +543,10 @@ export class GridAdapter implements FrameworkAdapter {
    * Call this when the grid is unmounted.
    */
   destroy(): void {
-    clearAllContainers();
+    // Remove only this adapter's tracked portals, not all grids' portals
+    for (const key of this.allPortalKeys) {
+      removeFromContainer(key);
+    }
     this.allPortalKeys.clear();
     this.editorPortalKeys.clear();
     this.keyToContainer.clear();

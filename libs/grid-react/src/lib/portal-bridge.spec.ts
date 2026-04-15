@@ -1,30 +1,44 @@
 /**
- * Tests for portal-bridge — the module-level singleton that connects
- * non-React code to the PortalManager for context-preserving rendering.
+ * Tests for portal-bridge — the module-level registry that connects
+ * non-React code to per-grid PortalManagers for context-preserving rendering.
  *
  * @vitest-environment happy-dom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearAllContainers,
+  clearContainersForGrid,
   getPortalManager,
   removeFromContainer,
   renderToContainer,
-  resetKeyCounter,
+  resetBridge,
   setPortalManager,
 } from './portal-bridge';
 import type { PortalManagerHandle } from './portal-manager';
 
+/** Create a mock grid element for testing. */
+function createMockGrid(): HTMLElement {
+  const el = document.createElement('tbw-grid');
+  document.body.appendChild(el);
+  return el;
+}
+
+/** Create a mock PortalManager handle. */
+function createMockManager(): PortalManagerHandle {
+  return {
+    renderPortal: vi.fn(),
+    removePortal: vi.fn(),
+    clear: vi.fn(),
+  };
+}
+
 describe('portal-bridge', () => {
   beforeEach(() => {
-    setPortalManager(null);
-    clearAllContainers();
-    resetKeyCounter();
+    resetBridge();
   });
 
   afterEach(() => {
-    setPortalManager(null);
-    clearAllContainers();
+    resetBridge();
     document.body.innerHTML = '';
   });
 
@@ -35,25 +49,34 @@ describe('portal-bridge', () => {
       expect(getPortalManager()).toBeNull();
     });
 
-    it('should store and retrieve the portal manager', () => {
-      const mockManager: PortalManagerHandle = {
-        renderPortal: vi.fn(),
-        removePortal: vi.fn(),
-        clear: vi.fn(),
-      };
-      setPortalManager(mockManager);
+    it('should store and retrieve a manager by grid element', () => {
+      const gridEl = createMockGrid();
+      const mockManager = createMockManager();
+      setPortalManager(gridEl, mockManager);
+      expect(getPortalManager(gridEl)).toBe(mockManager);
+    });
+
+    it('should return the single manager when no gridEl is provided', () => {
+      const gridEl = createMockGrid();
+      const mockManager = createMockManager();
+      setPortalManager(gridEl, mockManager);
       expect(getPortalManager()).toBe(mockManager);
     });
 
+    it('should return null for unregistered grid', () => {
+      const gridEl = createMockGrid();
+      const otherEl = createMockGrid();
+      const mockManager = createMockManager();
+      setPortalManager(gridEl, mockManager);
+      expect(getPortalManager(otherEl)).toBeNull();
+    });
+
     it('should clear the manager when set to null', () => {
-      const mockManager: PortalManagerHandle = {
-        renderPortal: vi.fn(),
-        removePortal: vi.fn(),
-        clear: vi.fn(),
-      };
-      setPortalManager(mockManager);
-      setPortalManager(null);
-      expect(getPortalManager()).toBeNull();
+      const gridEl = createMockGrid();
+      const mockManager = createMockManager();
+      setPortalManager(gridEl, mockManager);
+      setPortalManager(gridEl, null);
+      expect(getPortalManager(gridEl)).toBeNull();
     });
   });
 
@@ -63,14 +86,12 @@ describe('portal-bridge', () => {
 
   describe('renderToContainer (with PortalManager)', () => {
     it('should delegate to portalManager.renderPortal', () => {
-      const mockManager: PortalManagerHandle = {
-        renderPortal: vi.fn(),
-        removePortal: vi.fn(),
-        clear: vi.fn(),
-      };
-      setPortalManager(mockManager);
+      const gridEl = createMockGrid();
+      const mockManager = createMockManager();
+      setPortalManager(gridEl, mockManager);
 
       const container = document.createElement('div');
+      gridEl.appendChild(container);
       const element = 'hello';
       const key = renderToContainer(container, element);
 
@@ -78,15 +99,25 @@ describe('portal-bridge', () => {
       expect(key).toMatch(/^p-\d+$/);
     });
 
+    it('should resolve grid via explicit gridEl parameter', () => {
+      const gridEl = createMockGrid();
+      const mockManager = createMockManager();
+      setPortalManager(gridEl, mockManager);
+
+      // Container is NOT inside the grid (detached), but gridEl is explicit
+      const container = document.createElement('div');
+      const key = renderToContainer(container, 'hello', undefined, gridEl);
+
+      expect(mockManager.renderPortal).toHaveBeenCalledWith(key, container, 'hello');
+    });
+
     it('should reuse existing key when provided', () => {
-      const mockManager: PortalManagerHandle = {
-        renderPortal: vi.fn(),
-        removePortal: vi.fn(),
-        clear: vi.fn(),
-      };
-      setPortalManager(mockManager);
+      const gridEl = createMockGrid();
+      const mockManager = createMockManager();
+      setPortalManager(gridEl, mockManager);
 
       const container = document.createElement('div');
+      gridEl.appendChild(container);
       const key = renderToContainer(container, 'hello', 'existing-key');
 
       expect(key).toBe('existing-key');
@@ -94,15 +125,12 @@ describe('portal-bridge', () => {
     });
 
     it('should generate unique keys', () => {
-      const mockManager: PortalManagerHandle = {
-        renderPortal: vi.fn(),
-        removePortal: vi.fn(),
-        clear: vi.fn(),
-      };
-      setPortalManager(mockManager);
+      const gridEl = createMockGrid();
+      const mockManager = createMockManager();
+      setPortalManager(gridEl, mockManager);
 
-      const key1 = renderToContainer(document.createElement('div'), 'a');
-      const key2 = renderToContainer(document.createElement('div'), 'b');
+      const key1 = renderToContainer(document.createElement('div'), 'a', undefined, gridEl);
+      const key2 = renderToContainer(document.createElement('div'), 'b', undefined, gridEl);
 
       expect(key1).not.toBe(key2);
     });
@@ -137,19 +165,43 @@ describe('portal-bridge', () => {
 
   // #endregion
 
+  // #region renderToContainer — fallback-to-portal transition
+
+  describe('renderToContainer (fallback-to-portal transition)', () => {
+    it('should clean up fallback root when PortalManager becomes available', () => {
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      // First render: no PM available, uses fallback
+      const key = renderToContainer(container, 'fallback content');
+      expect(container.textContent).toBe('fallback content');
+
+      // Now register a PM
+      const gridEl = createMockGrid();
+      const mockManager = createMockManager();
+      setPortalManager(gridEl, mockManager);
+
+      // Re-render with same key + explicit gridEl: should switch to PM
+      renderToContainer(container, 'portal content', key, gridEl);
+      expect(mockManager.renderPortal).toHaveBeenCalledWith(key, container, 'portal content');
+    });
+  });
+
+  // #endregion
+
   // #region removeFromContainer
 
   describe('removeFromContainer', () => {
-    it('should call portalManager.removePortal when manager is set', () => {
-      const mockManager: PortalManagerHandle = {
-        renderPortal: vi.fn(),
-        removePortal: vi.fn(),
-        clear: vi.fn(),
-      };
-      setPortalManager(mockManager);
+    it('should call the correct grid portalManager.removePortal', () => {
+      const gridEl = createMockGrid();
+      const mockManager = createMockManager();
+      setPortalManager(gridEl, mockManager);
 
-      removeFromContainer('some-key');
-      expect(mockManager.removePortal).toHaveBeenCalledWith('some-key');
+      const container = document.createElement('div');
+      const key = renderToContainer(container, 'content', undefined, gridEl);
+
+      removeFromContainer(key);
+      expect(mockManager.removePortal).toHaveBeenCalledWith(key);
     });
 
     it('should unmount fallback root when no manager', () => {
@@ -170,19 +222,78 @@ describe('portal-bridge', () => {
 
   // #endregion
 
-  // #region clearAllContainers
+  // #region Multi-grid isolation
+
+  describe('multi-grid isolation', () => {
+    it('should route portals to the correct grid PortalManager', () => {
+      const grid1 = createMockGrid();
+      const grid2 = createMockGrid();
+      const pm1 = createMockManager();
+      const pm2 = createMockManager();
+      setPortalManager(grid1, pm1);
+      setPortalManager(grid2, pm2);
+
+      const container1 = document.createElement('div');
+      grid1.appendChild(container1);
+      const container2 = document.createElement('div');
+      grid2.appendChild(container2);
+
+      renderToContainer(container1, 'grid1-content');
+      renderToContainer(container2, 'grid2-content');
+
+      expect(pm1.renderPortal).toHaveBeenCalledTimes(1);
+      expect(pm2.renderPortal).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not affect other grids when removing portals', () => {
+      const grid1 = createMockGrid();
+      const grid2 = createMockGrid();
+      const pm1 = createMockManager();
+      const pm2 = createMockManager();
+      setPortalManager(grid1, pm1);
+      setPortalManager(grid2, pm2);
+
+      const key1 = renderToContainer(document.createElement('div'), 'a', undefined, grid1);
+      renderToContainer(document.createElement('div'), 'b', undefined, grid2);
+
+      removeFromContainer(key1);
+      expect(pm1.removePortal).toHaveBeenCalledWith(key1);
+      expect(pm2.removePortal).not.toHaveBeenCalled();
+    });
+
+    it('should not affect other grids when clearing containers', () => {
+      const grid1 = createMockGrid();
+      const grid2 = createMockGrid();
+      const pm1 = createMockManager();
+      const pm2 = createMockManager();
+      setPortalManager(grid1, pm1);
+      setPortalManager(grid2, pm2);
+
+      renderToContainer(document.createElement('div'), 'a', undefined, grid1);
+      renderToContainer(document.createElement('div'), 'b', undefined, grid2);
+
+      clearContainersForGrid(grid1);
+      expect(pm1.clear).toHaveBeenCalled();
+      expect(pm2.clear).not.toHaveBeenCalled();
+    });
+  });
+
+  // #endregion
+
+  // #region clearAllContainers / clearContainersForGrid
 
   describe('clearAllContainers', () => {
-    it('should call portalManager.clear when manager is set', () => {
-      const mockManager: PortalManagerHandle = {
-        renderPortal: vi.fn(),
-        removePortal: vi.fn(),
-        clear: vi.fn(),
-      };
-      setPortalManager(mockManager);
+    it('should call clear on all PortalManagers', () => {
+      const grid1 = createMockGrid();
+      const grid2 = createMockGrid();
+      const pm1 = createMockManager();
+      const pm2 = createMockManager();
+      setPortalManager(grid1, pm1);
+      setPortalManager(grid2, pm2);
 
       clearAllContainers();
-      expect(mockManager.clear).toHaveBeenCalled();
+      expect(pm1.clear).toHaveBeenCalled();
+      expect(pm2.clear).toHaveBeenCalled();
     });
 
     it('should clear fallback roots', () => {

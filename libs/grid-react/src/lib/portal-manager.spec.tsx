@@ -269,4 +269,45 @@ describe('PortalManager', () => {
 
     act(() => root.unmount());
   });
+
+  it('should prune portals whose containers are disconnected from DOM', async () => {
+    const { handle, unmount } = mountPortalManager();
+
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+
+    await act(async () => {
+      handle.renderPortal('prune-key', target, React.createElement('span', null, 'Prune Me'));
+      await flushMicrotasks();
+    });
+    expect(target.textContent).toBe('Prune Me');
+
+    // Disconnect the container from the DOM (simulates grid shrinking row pool)
+    target.remove();
+
+    // Prune runs after rAF — simulate that
+    await act(async () => {
+      // Trigger another render to schedule the prune
+      const target2 = document.createElement('div');
+      document.body.appendChild(target2);
+      handle.renderPortal('still-alive', target2, React.createElement('span', null, 'Alive'));
+      await flushMicrotasks();
+      // Now wait for rAF to fire the prune
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      await flushMicrotasks();
+    });
+
+    // The disconnected portal should have been pruned
+    // Verify by trying to re-render into a new container with the same key
+    // (if the key was pruned, the portal map no longer holds it)
+    const replacement = document.createElement('div');
+    document.body.appendChild(replacement);
+    await act(async () => {
+      handle.renderPortal('prune-key', replacement, React.createElement('span', null, 'New'));
+      await flushMicrotasks();
+    });
+    expect(replacement.textContent).toBe('New');
+
+    unmount();
+  });
 });

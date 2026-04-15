@@ -41,10 +41,13 @@ registerFeature('groupingRows', (rawConfig) => {
   // Bridge React groupRowRenderer (returns ReactNode) to vanilla (returns HTMLElement | string | void)
   if (typeof config.groupRowRenderer === 'function') {
     const reactFn = config.groupRowRenderer as unknown as (params: GroupRowRenderParams) => ReactNode;
+    // Track portal key per wrapper so prune mechanism can clean up disconnected ones
+    const wrapperKeys = new WeakMap<HTMLElement, string>();
     options.groupRowRenderer = (params: GroupRowRenderParams) => {
       const wrapper = document.createElement('div');
       wrapper.style.display = 'contents';
-      renderToContainer(wrapper, reactFn(params) as React.ReactElement);
+      const key = renderToContainer(wrapper, reactFn(params) as React.ReactElement);
+      wrapperKeys.set(wrapper, key);
       return wrapper;
     };
   }

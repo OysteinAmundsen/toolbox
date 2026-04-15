@@ -59,6 +59,7 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
   const portalsRef = useRef(new Map<string, PortalEntry>());
   const [, forceRender] = useReducer((c: number) => c + 1, 0);
   const batchPendingRef = useRef(false);
+  const pruneTimerRef = useRef(0);
 
   /**
    * Schedule a single `flushSync` to commit all pending portal changes.
@@ -72,8 +73,29 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
       queueMicrotask(() => {
         batchPendingRef.current = false;
         flushSync(forceRender);
+        schedulePrune();
       });
     }
+  };
+
+  /**
+   * Schedule a prune pass after the next frame to remove portals whose
+   * containers have been detached from the DOM (e.g., grid shrank its
+   * row pool without calling adapter cleanup).
+   */
+  const schedulePrune = () => {
+    if (pruneTimerRef.current) return;
+    pruneTimerRef.current = requestAnimationFrame(() => {
+      pruneTimerRef.current = 0;
+      let changed = false;
+      for (const [key, entry] of portalsRef.current) {
+        if (!entry.container.isConnected) {
+          portalsRef.current.delete(key);
+          changed = true;
+        }
+      }
+      if (changed) flushSync(forceRender);
+    });
   };
 
   useImperativeHandle(
@@ -93,6 +115,10 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
       clear() {
         if (portalsRef.current.size > 0) {
           portalsRef.current.clear();
+          if (pruneTimerRef.current) {
+            cancelAnimationFrame(pruneTimerRef.current);
+            pruneTimerRef.current = 0;
+          }
           scheduleFlush();
         }
       },

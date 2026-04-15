@@ -848,11 +848,18 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
 
   // Wire the PortalManager to the bridge so non-React code (adapter, feature files)
   // can create portals that inherit the full React context tree.
-  // useLayoutEffect runs after children's effects, meaning PortalManager's
-  // useImperativeHandle has already set the handle before we read it here.
+  // PortalManager's imperative ref is assigned during React's commit phase,
+  // before layout effects run, so portalManagerRef.current is available here.
+  // useLayoutEffect keeps the bridge in place synchronously after commit and
+  // before passive effects run.
   useLayoutEffect(() => {
-    setPortalManager(portalManagerRef.current);
-    return () => setPortalManager(null);
+    const gridEl = gridRef.current;
+    if (gridEl && portalManagerRef.current) {
+      setPortalManager(gridEl, portalManagerRef.current);
+    }
+    return () => {
+      if (gridEl) setPortalManager(gridEl, null);
+    };
   }, []);
 
   return (

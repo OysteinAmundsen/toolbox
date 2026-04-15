@@ -44,12 +44,15 @@ registerFeature('pinnedRows', (rawConfig) => {
     options.customPanels = config.customPanels.map((panel: any) => {
       if (typeof panel.render !== 'function') return panel;
       const reactFn = panel.render as unknown as (ctx: PinnedRowsContext) => ReactNode;
+      // Track portal key per wrapper so prune mechanism can clean up disconnected ones
+      const wrapperKeys = new WeakMap<HTMLElement, string>();
       return {
         ...panel,
         render: (ctx: PinnedRowsContext) => {
           const wrapper = document.createElement('div');
           wrapper.style.display = 'contents';
-          renderToContainer(wrapper, reactFn(ctx) as React.ReactElement);
+          const key = renderToContainer(wrapper, reactFn(ctx) as React.ReactElement);
+          wrapperKeys.set(wrapper, key);
           return wrapper;
         },
       };

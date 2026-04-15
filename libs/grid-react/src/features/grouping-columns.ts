@@ -36,10 +36,13 @@ import { registerFeature } from '../lib/feature-registry';
 function bridgeRenderer(
   reactFn: (params: GroupHeaderRenderParams) => ReactNode,
 ): (params: GroupHeaderRenderParams) => HTMLElement {
+  // Track portal key per wrapper so prune mechanism can clean up disconnected ones
+  const wrapperKeys = new WeakMap<HTMLElement, string>();
   return (params: GroupHeaderRenderParams) => {
     const wrapper = document.createElement('div');
     wrapper.style.display = 'contents';
-    renderToContainer(wrapper, reactFn(params) as React.ReactElement);
+    const key = renderToContainer(wrapper, reactFn(params) as React.ReactElement);
+    wrapperKeys.set(wrapper, key);
     return wrapper;
   };
 }

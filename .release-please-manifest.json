@@ -1,6 +1,6 @@
 {
-  "libs/grid": "2.0.0-rc.1",
-  "libs/grid-angular": "1.0.0-rc.1",
-  "libs/grid-react": "1.0.0-rc.1",
-  "libs/grid-vue": "1.0.0-rc.1"
+  "libs/grid": "2.0.0-rc.2",
+  "libs/grid-angular": "1.0.0-rc.2",
+  "libs/grid-react": "1.0.0-rc.2",
+  "libs/grid-vue": "1.0.0-rc.2"
 }

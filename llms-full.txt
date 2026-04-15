@@ -1009,6 +1009,21 @@ new MasterDetailPlugin({
   showExpandColumn?: boolean,   // Show expand column (default: true)
   animation?: false | 'slide' | 'fade', // Animation style (default: 'slide')
 })
+
+// Server-side data: use with ServerSidePlugin for async detail content.
+// On expand, MasterDetail fires datasource:fetch-children with { source: 'master-detail', row, rowIndex }.
+// ServerSide calls getChildRows() and broadcasts datasource:children.
+// Use getDetailData(rowIndex) in detailRenderer to access async data.
+// When ServerSide is not present, detailRenderer works synchronously as today.
+
+// Core API:
+// masterDetail.expand(rowIndex) / masterDetail.collapse(rowIndex) / masterDetail.toggle(rowIndex)
+// masterDetail.expandAll() / masterDetail.collapseAll()
+// masterDetail.isExpanded(rowIndex) / masterDetail.getExpandedRows()
+// masterDetail.getDetailElement(rowIndex)
+// masterDetail.getDetailData(rowIndex) — async data from ServerSide
+// masterDetail.isDetailLoading(rowIndex) — check if data is loading
+// Events: detail-expand
 ```
 
 ### GroupingRowsPlugin

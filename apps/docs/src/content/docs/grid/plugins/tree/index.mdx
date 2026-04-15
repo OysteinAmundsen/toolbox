@@ -157,27 +157,18 @@ Use `treeColumn` to control which column displays the tree toggle when combining
   <TreePinnedColumnsDemo />
 </ShowSource>
 
-### Lazy Loading (Data Source)
+### Server-Side Data
 
-For large hierarchical datasets, use a **data source** to load top-level nodes on demand as the user scrolls. Each page of top-level nodes is fetched with its children already embedded — the grid handles expand/collapse locally while pagination operates at the top-level node granularity.
+> **Requires:** `ServerSidePlugin` — [see Server-Side Data Loading guide](/grid/guides/server-side-data/)
+
+For large hierarchical datasets, use `ServerSidePlugin` to fetch top-level tree nodes in blocks as the user scrolls. TreePlugin claims the incoming data and renders the hierarchy. Children can be embedded in the response or fetched lazily via `getChildRows()`.
 
 <Tabs syncKey="framework">
   <TabItem label="Vanilla JS">
 ```ts
 import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/tree';
-
-const dataSource = {
-  async getRows(params) {
-    // params: { startNode, count, sortModel, filterModel }
-    const res = await fetch(`/api/tree?start=${params.startNode}&count=${params.count}`);
-    const data = await res.json();
-    return {
-      rows: data.nodes,                // Top-level nodes with embedded children
-      totalTopLevelCount: data.total,  // Total top-level nodes on server
-    };
-  },
-};
+import '@toolbox-web/grid/features/server-side';
 
 const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
@@ -186,35 +177,57 @@ grid.gridConfig = {
     { field: 'role', header: 'Role' },
   ],
   features: {
-    tree: {
-      childrenField: 'children',
-      dataSource,
-      pageSize: 50,
-    },
+    serverSide: { pageSize: 50 },
+    tree: { childrenField: 'children' },
   },
 };
+
+grid.ready().then(() => {
+  grid.getPluginByName('serverSide').setDataSource({
+    async getRows(params) {
+      // params: { startNode, endNode, sortModel, filterModel }
+      const res = await fetch(`/api/tree?start=${params.startNode}&end=${params.endNode}`);
+      const data = await res.json();
+      return {
+        rows: data.nodes,             // Top-level nodes with embedded children
+        totalNodeCount: data.total,   // Total top-level nodes on server
+      };
+    },
+  });
+});
 ```
   </TabItem>
   <TabItem label="React">
 ```tsx
 import '@toolbox-web/grid-react/features/tree';
-import { DataGrid } from '@toolbox-web/grid-react';
+import '@toolbox-web/grid-react/features/server-side';
+import { DataGrid, useGrid } from '@toolbox-web/grid-react';
+import { useEffect } from 'react';
 
-const dataSource = {
-  async getRows(params) {
-    const res = await fetch(`/api/tree?start=${params.startNode}&count=${params.count}`);
-    return res.json();
-  },
-};
+function ServerTree() {
+  const { ref, element } = useGrid();
 
-function LazyTree() {
+  useEffect(() => {
+    if (!element) return;
+    element.ready().then(() => {
+      element.getPluginByName('serverSide')?.setDataSource({
+        async getRows(params) {
+          const res = await fetch(`/api/tree?start=${params.startNode}&end=${params.endNode}`);
+          return res.json();
+        },
+      });
+    });
+  }, [element]);
+
   return (
     <DataGrid
+      ref={ref}
       columns={[
         { field: 'name', header: 'Name' },
         { field: 'role', header: 'Role' },
       ]}
-      tree={{ childrenField: 'children', dataSource, pageSize: 50 }}
+      serverSide={{ pageSize: 50 }}
+      tree={{ childrenField: 'children' }}
     />
   );
 }
@@ -224,18 +237,26 @@ function LazyTree() {
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/tree';
+import '@toolbox-web/grid-vue/features/server-side';
 import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { ref, onMounted } from 'vue';
 
-const dataSource = {
-  async getRows(params) {
-    const res = await fetch(`/api/tree?start=${params.startNode}&count=${params.count}`);
-    return res.json();
-  },
-};
+const gridRef = ref(null);
+
+onMounted(async () => {
+  const grid = gridRef.value?.element;
+  await grid?.ready();
+  grid?.getPluginByName('serverSide')?.setDataSource({
+    async getRows(params) {
+      const res = await fetch(`/api/tree?start=${params.startNode}&end=${params.endNode}`);
+      return res.json();
+    },
+  });
+});
 </script>
 
 <template>
-  <TbwGrid :tree="{ childrenField: 'children', dataSource, pageSize: 50 }">
+  <TbwGrid ref="gridRef" :server-side="{ pageSize: 50 }" :tree="{ childrenField: 'children' }">
     <TbwGridColumn field="name" header="Name" />
     <TbwGridColumn field="role" header="Role" />
   </TbwGrid>
@@ -245,32 +266,42 @@ const dataSource = {
   <TabItem label="Angular">
 ```typescript
 import '@toolbox-web/grid-angular/features/tree';
-import { Component } from '@angular/core';
+import '@toolbox-web/grid-angular/features/server-side';
+import { Component, viewChild, ElementRef } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
 
 @Component({
-  selector: 'app-lazy-tree',
+  selector: 'app-server-tree',
   imports: [Grid],
   template: `
-    <tbw-grid [columns]="columns" [tree]="treeConfig" style="height: 400px; display: block;" />
+    <tbw-grid
+      #grid
+      [columns]="columns"
+      [serverSide]="{ pageSize: 50 }"
+      [tree]="{ childrenField: 'children' }"
+      style="height: 400px; display: block;">
+    </tbw-grid>
   `,
 })
-export class LazyTreeComponent {
-  columns = [
+export class ServerTreeComponent {
+  gridRef = viewChild<ElementRef<GridElement>>('grid');
+
+  columns: ColumnConfig[] = [
     { field: 'name', header: 'Name' },
     { field: 'role', header: 'Role' },
   ];
 
-  treeConfig = {
-    childrenField: 'children',
-    dataSource: {
-      async getRows(params: any) {
-        const res = await fetch(`/api/tree?start=${params.startNode}&count=${params.count}`);
-        return res.json();
-      },
-    },
-    pageSize: 50,
-  };
+  ngAfterViewInit() {
+    this.gridRef()?.nativeElement.ready().then(() => {
+      this.gridRef()?.nativeElement.getPluginByName('serverSide')?.setDataSource({
+        async getRows(params: any) {
+          const res = await fetch(`/api/tree?start=${params.startNode}&end=${params.endNode}`);
+          return res.json();
+        },
+      });
+    });
+  }
 }
 ```
   </TabItem>
@@ -279,6 +310,16 @@ export class LazyTreeComponent {
 <ShowSource file="demos/tree/TreeLazyLoadingDemo.astro">
   <TreeLazyLoadingDemo />
 </ShowSource>
+
+**Data flow:**
+1. ServerSide fetches a block of top-level nodes → broadcasts `datasource:data`
+2. TreePlugin claims the data and flattens it into the row model
+3. Expand/collapse works locally for nodes with embedded children
+4. For lazy children: TreePlugin queries `datasource:fetch-children` → ServerSide calls `getChildRows()` → broadcasts `datasource:children` → TreePlugin renders children
+
+:::note
+Child rows are fetched as a single batch — no pagination. If a tree node has many children, limit the response server-side.
+:::
 
 
 

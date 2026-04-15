@@ -697,7 +697,7 @@ export class GridAdapter implements FrameworkAdapter {
    * };
    * ```
    */
-  getTypeDefault<TRow = unknown>(type: string): BaseTypeDefault<TRow> | undefined {
+  getTypeDefault<TRow = unknown>(type: string, _gridEl?: HTMLElement): BaseTypeDefault<TRow> | undefined {
     if (!this.typeRegistry) {
       return undefined;
     }

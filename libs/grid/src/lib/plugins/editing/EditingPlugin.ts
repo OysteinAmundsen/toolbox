@@ -962,7 +962,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
       // Then check app-level (adapter) typeDefaults
       if (!typeEditorParams && adapter?.getTypeDefault) {
-        const appDefault = adapter.getTypeDefault<T>(col.type);
+        const appDefault = adapter.getTypeDefault<T>(col.type, internalGrid._hostElement);
         if (appDefault?.editorParams) {
           typeEditorParams = appDefault.editorParams;
         }

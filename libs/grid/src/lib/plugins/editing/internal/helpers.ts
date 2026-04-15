@@ -65,7 +65,7 @@ export function resolveEditor<TRow>(
   // 4. App-level registry (via framework adapter)
   const adapter = grid.__frameworkAdapter;
   if (adapter?.getTypeDefault) {
-    const appDefault = adapter.getTypeDefault<TRow>(col.type);
+    const appDefault = adapter.getTypeDefault<TRow>(col.type, grid._hostElement);
     if (appDefault?.editor) {
       return appDefault.editor as ColumnEditorSpec<TRow, unknown>;
     }

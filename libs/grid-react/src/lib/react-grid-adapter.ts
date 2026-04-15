@@ -243,6 +243,8 @@ export class GridAdapter implements FrameworkAdapter {
       return undefined;
     }
 
+    // Resolve grid once from the column element (stable in the DOM)
+    const gridEl = element.closest('tbw-grid') as HTMLElement | null;
     // Cell cache for this field - maps cell element to its portal key + container
     const cellCache = new WeakMap<HTMLElement, CellPortalCache>();
     return (ctx: CellRenderContext<TRow, TValue>) => {
@@ -263,7 +265,12 @@ export class GridAdapter implements FrameworkAdapter {
         container.className = 'react-cell-renderer';
         container.style.display = 'contents';
 
-        const portalKey = renderToContainer(container, renderFn(ctx as CellRenderContext<unknown, unknown>));
+        const portalKey = renderToContainer(
+          container,
+          renderFn(ctx as CellRenderContext<unknown, unknown>),
+          undefined,
+          gridEl ?? undefined,
+        );
 
         // Cache for reuse
         cellCache.set(cellEl, { portalKey, container });
@@ -277,7 +284,12 @@ export class GridAdapter implements FrameworkAdapter {
       container.className = 'react-cell-renderer';
       container.style.display = 'contents';
 
-      const portalKey = renderToContainer(container, renderFn(ctx as CellRenderContext<unknown, unknown>));
+      const portalKey = renderToContainer(
+        container,
+        renderFn(ctx as CellRenderContext<unknown, unknown>),
+        undefined,
+        gridEl ?? undefined,
+      );
       this.trackPortal(portalKey, container, false);
 
       return container;
@@ -295,13 +307,21 @@ export class GridAdapter implements FrameworkAdapter {
       return () => document.createElement('div');
     }
 
+    // Resolve grid once from the column element (stable in the DOM)
+    const gridEl = (element.closest('tbw-grid') as HTMLElement | null) ?? undefined;
+
     return (ctx: ColumnEditorContext<TRow, TValue>) => {
       // Create container for React
       const container = document.createElement('div');
       container.className = 'react-cell-editor';
       container.style.display = 'contents';
 
-      const portalKey = renderToContainer(container, editorFn(ctx as ColumnEditorContext<unknown, unknown>));
+      const portalKey = renderToContainer(
+        container,
+        editorFn(ctx as ColumnEditorContext<unknown, unknown>),
+        undefined,
+        gridEl,
+      );
 
       // Track for cleanup (editor-specific for per-cell cleanup via releaseCell)
       this.trackPortal(portalKey, container, true);
@@ -329,7 +349,12 @@ export class GridAdapter implements FrameworkAdapter {
 
       const ctx: DetailPanelContext<TRow> = { row, rowIndex };
 
-      const portalKey = renderToContainer(container, renderFn(ctx as DetailPanelContext<unknown>));
+      const portalKey = renderToContainer(
+        container,
+        renderFn(ctx as DetailPanelContext<unknown>),
+        undefined,
+        gridElement,
+      );
       this.trackPortal(portalKey, container, false);
 
       return container;
@@ -368,7 +393,12 @@ export class GridAdapter implements FrameworkAdapter {
 
       const ctx: ResponsiveCardContext<TRow> = { row, index: rowIndex };
 
-      const portalKey = renderToContainer(container, renderFn(ctx as ResponsiveCardContext<unknown>));
+      const portalKey = renderToContainer(
+        container,
+        renderFn(ctx as ResponsiveCardContext<unknown>),
+        undefined,
+        gridElement,
+      );
       this.trackPortal(portalKey, container, false);
 
       return container;
@@ -393,7 +423,7 @@ export class GridAdapter implements FrameworkAdapter {
         grid: gridElement ?? (container as DataGridElement),
       };
 
-      const portalKey = renderToContainer(container, renderFn(ctx));
+      const portalKey = renderToContainer(container, renderFn(ctx), undefined, gridElement ?? undefined);
       this.trackPortal(portalKey, container, false);
 
       // Return cleanup function
@@ -428,7 +458,7 @@ export class GridAdapter implements FrameworkAdapter {
    * // Any grid with type: 'country' columns will use these components
    * ```
    */
-  getTypeDefault<TRow = unknown>(type: string): TypeDefault<TRow> | undefined {
+  getTypeDefault<TRow = unknown>(type: string, gridEl?: HTMLElement): TypeDefault<TRow> | undefined {
     if (!this.typeDefaults) {
       return undefined;
     }
@@ -446,18 +476,18 @@ export class GridAdapter implements FrameworkAdapter {
 
     // Create renderer function that renders React component
     if (reactDefault.renderer) {
-      typeDefault.renderer = this.createTypeRenderer<TRow>(reactDefault.renderer);
+      typeDefault.renderer = this.createTypeRenderer<TRow>(reactDefault.renderer, gridEl);
     }
 
     // Create editor function that renders React component
     if (reactDefault.editor) {
       // Type assertion needed: adapter bridges TRow to core's unknown
-      typeDefault.editor = this.createTypeEditor<TRow>(reactDefault.editor) as TypeDefault['editor'];
+      typeDefault.editor = this.createTypeEditor<TRow>(reactDefault.editor, gridEl) as TypeDefault['editor'];
     }
 
     // Create filterPanelRenderer function that renders React component into filter panel
     if (reactDefault.filterPanelRenderer) {
-      typeDefault.filterPanelRenderer = this.createFilterPanelRenderer(reactDefault.filterPanelRenderer);
+      typeDefault.filterPanelRenderer = this.createFilterPanelRenderer(reactDefault.filterPanelRenderer, gridEl);
     }
 
     return typeDefault;
@@ -469,12 +499,15 @@ export class GridAdapter implements FrameworkAdapter {
    */
   private createTypeRenderer<TRow = unknown, TValue = unknown>(
     renderFn: (ctx: CellRenderContext<TRow, TValue>) => ReactNode,
+    gridEl?: HTMLElement,
   ): ColumnViewRenderer<TRow, TValue> {
     return (ctx: CellRenderContext<TRow, TValue>) => {
       const container = document.createElement('span');
       container.style.display = 'contents';
 
-      const portalKey = renderToContainer(container, renderFn(ctx) as React.ReactElement);
+      // Resolve grid from cellEl (in-DOM) first, then fall back to the gridEl captured at getTypeDefault time
+      const resolvedGrid = (ctx.cellEl?.closest('tbw-grid') as HTMLElement | null) ?? gridEl;
+      const portalKey = renderToContainer(container, renderFn(ctx) as React.ReactElement, undefined, resolvedGrid);
       this.trackPortal(portalKey, container, false);
 
       return container;
@@ -487,12 +520,14 @@ export class GridAdapter implements FrameworkAdapter {
    */
   private createTypeEditor<TRow = unknown, TValue = unknown>(
     renderFn: (ctx: ColumnEditorContext<TRow, TValue>) => ReactNode,
+    gridEl?: HTMLElement,
   ): ColumnEditorSpec<TRow, TValue> {
     return (ctx: ColumnEditorContext<TRow, TValue>) => {
       const container = document.createElement('span');
       container.style.display = 'contents';
 
-      const portalKey = renderToContainer(container, renderFn(ctx) as React.ReactElement);
+      // Editor context has no cellEl — use the gridEl captured at getTypeDefault time
+      const portalKey = renderToContainer(container, renderFn(ctx) as React.ReactElement, undefined, gridEl);
       // Track in editor-specific set for per-cell cleanup via releaseCell
       this.trackPortal(portalKey, container, true);
 
@@ -506,12 +541,15 @@ export class GridAdapter implements FrameworkAdapter {
    */
   private createFilterPanelRenderer(
     renderFn: (params: FilterPanelParams) => ReactNode,
+    gridEl?: HTMLElement,
   ): (container: HTMLElement, params: FilterPanelParams) => void {
     return (container: HTMLElement, params: FilterPanelParams) => {
       const wrapper = document.createElement('div');
       wrapper.style.display = 'contents';
 
-      const portalKey = renderToContainer(wrapper, renderFn(params) as React.ReactElement);
+      // Resolve grid from the filter panel container (in-DOM) first, then fall back to gridEl
+      const resolvedGrid = (container.closest('tbw-grid') as HTMLElement | null) ?? gridEl;
+      const portalKey = renderToContainer(wrapper, renderFn(params) as React.ReactElement, undefined, resolvedGrid);
       this.trackPortal(portalKey, wrapper, false);
 
       container.appendChild(wrapper);

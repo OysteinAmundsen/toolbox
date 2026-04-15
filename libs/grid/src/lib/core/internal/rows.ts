@@ -41,7 +41,7 @@ export function resolveRenderer<TRow>(
   // This is for framework adapters that register type defaults dynamically
   const adapter = grid.__frameworkAdapter;
   if (adapter?.getTypeDefault) {
-    const appDefault = adapter.getTypeDefault<TRow>(col.type);
+    const appDefault = adapter.getTypeDefault<TRow>(col.type, grid._hostElement);
     if (appDefault?.renderer) {
       return appDefault.renderer;
     }
@@ -75,7 +75,7 @@ export function resolveFormat<TRow>(
   // This is for framework adapters that register type defaults dynamically
   const adapter = grid.__frameworkAdapter;
   if (adapter?.getTypeDefault) {
-    const appDefault = adapter.getTypeDefault<TRow>(col.type);
+    const appDefault = adapter.getTypeDefault<TRow>(col.type, grid._hostElement);
     if (appDefault?.format) {
       return appDefault.format as (value: unknown, row: TRow) => string;
     }
@@ -454,8 +454,8 @@ function fastPatchRow(grid: GridHost, rowEl: HTMLElement, rowData: any, rowIndex
         col.type === 'date' ||
         col.type === 'boolean' ||
         // Check for adapter-level type defaults (framework adapters)
-        (col.type && adapter?.getTypeDefault?.(col.type)?.renderer) ||
-        (col.type && adapter?.getTypeDefault?.(col.type)?.format)
+        (col.type && adapter?.getTypeDefault?.(col.type, grid._hostElement)?.renderer) ||
+        (col.type && adapter?.getTypeDefault?.(col.type, grid._hostElement)?.format)
       ) {
         hasSpecialCols = true;
         break;

@@ -1504,9 +1504,11 @@ export interface FrameworkAdapter {
    * Used by Angular's `GridTypeRegistry` and React's `GridTypeProvider`.
    *
    * @param type - The column type (e.g., 'date', 'currency', 'country')
+   * @param gridEl - The owning `<tbw-grid>` element. Helps adapters resolve
+   *   the correct context provider in multi-grid scenarios.
    * @returns Type defaults for renderer/editor, or undefined if not registered
    */
-  getTypeDefault?<TRow = unknown>(type: string): TypeDefault<TRow> | undefined;
+  getTypeDefault?<TRow = unknown>(type: string, gridEl?: HTMLElement): TypeDefault<TRow> | undefined;
 
   /**
    * Pre-process a grid config before the grid core applies it.

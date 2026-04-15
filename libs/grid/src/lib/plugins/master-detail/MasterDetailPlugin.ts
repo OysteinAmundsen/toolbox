@@ -9,6 +9,7 @@ import { evalTemplateString, sanitizeHTML } from '../../core/internal/sanitize';
 import { BaseGridPlugin, CellClickEvent, GridElement, RowClickEvent } from '../../core/plugin/base-plugin';
 import { createExpanderColumnConfig, findExpanderColumn, isExpanderColumn } from '../../core/plugin/expander-column';
 import type { ColumnConfig, GridHost } from '../../core/types';
+import type { DataSourceChildrenDetail, FetchChildrenQuery } from '../server-side/datasource-types';
 import {
   collapseDetailRow,
   createDetailElement,
@@ -89,6 +90,14 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /** @internal */
   override readonly styles = styles;
 
+  /**
+   * Optional dependency on ServerSide for async detail data.
+   * When loaded, MasterDetail can fetch detail data via `datasource:fetch-children`.
+   */
+  static override readonly dependencies = [
+    { name: 'serverSide', required: false, reason: 'Fetches detail data via datasource:fetch-children on expand' },
+  ];
+
   /** Typed internal grid accessor. */
   get #internalGrid(): GridHost {
     return this.grid as unknown as GridHost;
@@ -117,6 +126,27 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   override attach(grid: GridElement): void {
     super.attach(grid);
     this.parseLightDomDetail();
+
+    // Listen for datasource:children — receive async detail data from ServerSide
+    this.on('datasource:children', (detail: unknown) => {
+      const d = detail as DataSourceChildrenDetail;
+      if (d.context?.source !== 'master-detail') return;
+      d.claimed = true;
+
+      const row = d.context.row;
+      if (row && this.expandedRows.has(row)) {
+        this.detailDataMap.set(row, d.rows);
+        this.loadingDetails.delete(row);
+        // Re-render: remove existing detail element so #syncDetailRows recreates it
+        const existingDetail = this.detailElements.get(row);
+        if (existingDetail) {
+          existingDetail.remove();
+          this.detailElements.delete(row);
+          this.measuredDetailHeights.delete(row);
+        }
+        this.requestRender();
+      }
+    });
   }
 
   /**
@@ -295,6 +325,10 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /** Rows that were just expanded by user action and should animate.
    * Prevents re-animation when rows scroll back into the virtual window. */
   private rowsToAnimate: Set<any> = new Set();
+  /** Rows currently waiting for datasource:children response. */
+  private loadingDetails: Set<any> = new Set();
+  /** Child rows received via datasource:children, keyed by parent row reference. */
+  private detailDataMap: Map<any, unknown[]> = new Map();
 
   /** Default height for detail rows when not configured */
   private static readonly DEFAULT_DETAIL_HEIGHT = 150;
@@ -344,6 +378,19 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     const expanded = this.expandedRows.has(row as object);
     if (expanded) {
       this.rowsToAnimate.add(row);
+
+      // Request detail data from ServerSide if available and not already cached
+      if (!this.detailDataMap.has(row)) {
+        const isServerSideActive = this.grid?.query?.('datasource:is-active', null);
+        if (isServerSideActive) {
+          this.loadingDetails.add(row);
+          this.grid.query('datasource:fetch-children', {
+            context: { source: 'master-detail', row, rowIndex },
+          } satisfies FetchChildrenQuery);
+        }
+      }
+    } else {
+      this.loadingDetails.delete(row);
     }
     this.emit<DetailExpandDetail>('detail-expand', {
       rowIndex,
@@ -362,6 +409,8 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     this.detailElements.clear();
     this.measuredDetailHeights.clear();
     this.rowsToAnimate.clear();
+    this.loadingDetails.clear();
+    this.detailDataMap.clear();
   }
   // #endregion
 
@@ -802,6 +851,31 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   getDetailElement(rowIndex: number): HTMLElement | undefined {
     const row = this.rows[rowIndex];
     return row ? this.detailElements.get(row) : undefined;
+  }
+
+  /**
+   * Get async detail data fetched via `ServerSidePlugin` for a specific row.
+   *
+   * Returns the child rows received from `datasource:children` after a
+   * `datasource:fetch-children` query was fired on expand. Returns `undefined`
+   * when ServerSide is not loaded or data has not arrived yet.
+   *
+   * @param rowIndex - Index of the row
+   * @returns Array of child rows or undefined
+   */
+  getDetailData(rowIndex: number): unknown[] | undefined {
+    const row = this.rows[rowIndex];
+    return row ? this.detailDataMap.get(row) : undefined;
+  }
+
+  /**
+   * Check if detail data is currently being loaded for a row.
+   * @param rowIndex - Index of the row
+   * @returns Whether the detail is loading
+   */
+  isDetailLoading(rowIndex: number): boolean {
+    const row = this.rows[rowIndex];
+    return row ? this.loadingDetails.has(row) : false;
   }
 
   /**

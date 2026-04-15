@@ -1266,4 +1266,157 @@ describe('masterDetail', () => {
     });
   });
   // #endregion
+
+  describe('MasterDetailPlugin datasource integration', () => {
+    function createMockGridWithEvents(rows: any[] = []) {
+      const eventListeners = new Map<string, (detail: unknown) => void>();
+      const queryCalls: Array<{ type: string; context: unknown }> = [];
+      const gridEl = document.createElement('div');
+
+      // Create minimal grid structure
+      const rowsContainer = document.createElement('div');
+      rowsContainer.className = 'rows';
+      gridEl.appendChild(rowsContainer);
+
+      Object.defineProperty(gridEl, 'rows', { get: () => rows, configurable: true });
+      Object.defineProperty(gridEl, 'columns', { get: () => [], configurable: true });
+      Object.defineProperty(gridEl, '_focusCol', { value: 0, configurable: true });
+      Object.defineProperty(gridEl, '_focusRow', { value: 0, configurable: true });
+      Object.defineProperty(gridEl, 'defaultRowHeight', { value: 28, configurable: true });
+      Object.defineProperty(gridEl, 'invalidateRowHeight', {
+        value: () => {
+          /* noop */
+        },
+        configurable: true,
+      });
+      Object.defineProperty(gridEl, 'query', {
+        value: (type: string, context: unknown) => {
+          queryCalls.push({ type, context });
+          if (type === 'datasource:is-active') return true;
+          return undefined;
+        },
+        configurable: true,
+      });
+      Object.defineProperty(gridEl, '_pluginManager', {
+        value: {
+          subscribe(_p: unknown, eventType: string, callback: (detail: unknown) => void) {
+            eventListeners.set(eventType, callback);
+          },
+          unsubscribe: () => {
+            /* noop */
+          },
+          emitPluginEvent: () => {
+            /* noop */
+          },
+        },
+        configurable: true,
+      });
+
+      return { gridEl, eventListeners, queryCalls };
+    }
+
+    it('should fire datasource:fetch-children on detail expand when ServerSide is active', () => {
+      const rows = [{ id: 1, name: 'Alice' }];
+      const { gridEl, queryCalls } = createMockGridWithEvents(rows);
+
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: () => '<div>Detail</div>',
+      });
+      plugin.attach(gridEl as any);
+
+      // Toggle expand
+      plugin['toggleAndEmit'](rows[0], 0);
+
+      const fetchQuery = queryCalls.find((q) => q.type === 'datasource:fetch-children');
+      expect(fetchQuery).toBeDefined();
+      expect((fetchQuery!.context as any).context.source).toBe('master-detail');
+      expect((fetchQuery!.context as any).context.row).toBe(rows[0]);
+    });
+
+    it('should claim and process datasource:children events for source=master-detail', () => {
+      const rows = [{ id: 1, name: 'Alice' }];
+      const { gridEl, eventListeners } = createMockGridWithEvents(rows);
+
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: () => '<div>Detail</div>',
+      });
+      plugin.attach(gridEl as any);
+
+      // Expand first
+      plugin['expandedRows'].add(rows[0]);
+
+      // Deliver children
+      const childDetail = {
+        rows: [{ id: 10, item: 'Widget' }],
+        context: { source: 'master-detail', row: rows[0], rowIndex: 0 },
+        claimed: false,
+      };
+      eventListeners.get('datasource:children')?.(childDetail);
+
+      expect(childDetail.claimed).toBe(true);
+      expect(plugin.getDetailData(0)).toEqual([{ id: 10, item: 'Widget' }]);
+    });
+
+    it('should ignore datasource:children events for other sources', () => {
+      const rows = [{ id: 1 }];
+      const { gridEl, eventListeners } = createMockGridWithEvents(rows);
+
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: () => '<div>Detail</div>',
+      });
+      plugin.attach(gridEl as any);
+
+      const detail = {
+        rows: [{ id: 10 }],
+        context: { source: 'tree', parentNode: {} },
+        claimed: false,
+      };
+      eventListeners.get('datasource:children')?.(detail);
+
+      expect(detail.claimed).toBe(false);
+    });
+
+    it('should track loading state while waiting for children', () => {
+      const rows = [{ id: 1 }];
+      const { gridEl } = createMockGridWithEvents(rows);
+
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: () => '<div>Detail</div>',
+      });
+      plugin.attach(gridEl as any);
+
+      // Toggle expand — should set loading
+      plugin['toggleAndEmit'](rows[0], 0);
+      expect(plugin.isDetailLoading(0)).toBe(true);
+
+      // Collapse — should clear loading
+      plugin['toggleAndEmit'](rows[0], 0);
+      expect(plugin.isDetailLoading(0)).toBe(false);
+    });
+
+    it('should not fire fetch-children when ServerSide is not active', () => {
+      const rows = [{ id: 1 }];
+      const { gridEl, queryCalls } = createMockGridWithEvents(rows);
+
+      // Override query to return false for datasource:is-active
+      Object.defineProperty(gridEl, 'query', {
+        value: (type: string, context: unknown) => {
+          queryCalls.push({ type, context });
+          if (type === 'datasource:is-active') return false;
+          return undefined;
+        },
+        configurable: true,
+      });
+
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: () => '<div>Detail</div>',
+      });
+      plugin.attach(gridEl as any);
+      plugin['toggleAndEmit'](rows[0], 0);
+
+      const fetchQuery = queryCalls.find((q) => q.type === 'datasource:fetch-children');
+      expect(fetchQuery).toBeUndefined();
+      expect(plugin.isDetailLoading(0)).toBe(false);
+    });
+  });
 });

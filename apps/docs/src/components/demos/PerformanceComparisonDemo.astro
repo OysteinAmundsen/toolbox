@@ -93,6 +93,16 @@ import '@toolbox-web/grid/features/filtering';
     return rows;
   }
 
+  /** Fisher-Yates shuffle (in-place). Used to randomize row order before sort
+   *  benchmarks so we measure real O(n log n), not O(n) reverse-of-sorted. */
+  function shuffleRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+    for (let i = rows.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [rows[i], rows[j]] = [rows[j], rows[i]];
+    }
+    return rows;
+  }
+
   function formatTime(ms: number): string {
     if (ms < 1) return `${(ms * 1000).toFixed(0)}µs`;
     if (ms < 1000) return `${ms.toFixed(1)}ms`;
@@ -160,15 +170,28 @@ import '@toolbox-web/grid/features/filtering';
     return samples.reduce((a, b) => a + b, 0) / samples.length;
   }
 
-  async function measureMemory(): Promise<number | null> {
+  async function measureMemoryBaseline(): Promise<number | null> {
     const mem = (performance as any).memory;
     if (!mem) return null;
-    // Trigger GC if available (Chrome with --expose-gc, or DevTools protocol)
     if (typeof (window as any).gc === 'function') {
       (window as any).gc();
-      await new Promise((r) => setTimeout(r, 50)); // let GC settle
+      await new Promise((r) => setTimeout(r, 100));
     }
     return mem.usedJSHeapSize;
+  }
+
+  /** Measure the delta in heap usage caused by a grid.
+   *  Takes a baseline before the grid exists and subtracts it. */
+  async function measureMemoryDelta(baseline: number | null): Promise<number | null> {
+    if (baseline === null) return null;
+    const mem = (performance as any).memory;
+    if (!mem) return null;
+    if (typeof (window as any).gc === 'function') {
+      (window as any).gc();
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const current = mem.usedJSHeapSize;
+    return Math.max(0, current - baseline);
   }
   // #endregion
 
@@ -218,6 +241,9 @@ import '@toolbox-web/grid/features/filtering';
     const columns = generateColumns(COL_COUNT);
     const rows = generateRows(rowCount, COL_COUNT);
 
+    // Memory baseline: measure heap BEFORE creating the grid
+    const memBaseline = await measureMemoryBaseline();
+
     gridArea.innerHTML = '<tbw-grid id="compare-tbw-grid" style="width:100%;height:100%;"></tbw-grid>';
     const grid = queryGrid('#compare-tbw-grid')!;
     await cooldown(100);
@@ -264,13 +290,15 @@ import '@toolbox-web/grid/features/filtering';
       }
     }
 
-    // Sort (programmatic via sort() API — synchronous, no rAF overhead)
-    const sortTime = await measureAvg(async () => {
-      await nextFrame();
-      const start = performance.now();
-      grid.sort?.('id', 'desc');
-      return performance.now() - start;
-    }, () => { grid.sort?.(null); });
+    // Sort — shuffle data first so we measure real O(n log n), not O(n) reverse
+    const sortTime = await measureAvg(
+      async () => {
+        grid.rows = shuffleRows([...rows]); // load shuffled data
+        await nextFrame(); await nextFrame(); // let re-render settle
+        return measureVisual(() => { grid.sort?.('id', 'desc'); });
+      },
+      () => { grid.sort?.(null); },
+    );
     results.set('Sort', sortTime);
     await cooldown(50);
 
@@ -365,9 +393,9 @@ import '@toolbox-web/grid/features/filtering';
       await cooldown(50);
     }
 
-    // Memory usage (Chrome only)
-    const mem = await measureMemory();
-    if (mem !== null) results.set('Memory usage', mem);
+    // Memory usage (Chrome only) — delta since baseline before grid creation
+    const memDelta = await measureMemoryDelta(memBaseline);
+    if (memDelta !== null) results.set('Memory usage', memDelta);
 
     // Cleanup
     grid.rows = [];
@@ -390,6 +418,9 @@ import '@toolbox-web/grid/features/filtering';
 
     const columns = generateColumns(COL_COUNT);
     const rows = generateRows(rowCount, COL_COUNT);
+
+    // Memory baseline: measure heap BEFORE creating the grid
+    const memBaseline = await measureMemoryBaseline();
 
     gridArea.innerHTML = '<div id="compare-ag-grid" class="ag-theme-quartz" style="width:100%;height:100%;"></div>';
     const container = document.getElementById('compare-ag-grid')!;
@@ -436,14 +467,19 @@ import '@toolbox-web/grid/features/filtering';
       }
     }
 
-    // Sort (synchronous — measure directly without rAF overhead)
+    // Sort — shuffle data first so we measure real O(n log n), not O(n) reverse
     if (gridApi) {
-      const sortTime = await measureAvg(async () => {
-        await nextFrame();
-        const start = performance.now();
-        gridApi.applyColumnState({ state: [{ colId: 'id', sort: 'desc' }] });
-        return performance.now() - start;
-      }, () => { gridApi.applyColumnState({ defaultState: { sort: null } }); });
+      const sortTime = await measureAvg(
+        async () => {
+          const shuffled = shuffleRows([...rows]);
+          gridApi.setGridOption('rowData', shuffled);
+          await nextFrame(); await nextFrame(); // let re-render settle
+          return measureVisual(() => {
+            gridApi.applyColumnState({ state: [{ colId: 'id', sort: 'desc' }] });
+          });
+        },
+        () => { gridApi.applyColumnState({ defaultState: { sort: null } }); },
+      );
       results.set('Sort', sortTime);
       await cooldown(50);
     }
@@ -539,9 +575,9 @@ import '@toolbox-web/grid/features/filtering';
       await cooldown(50);
     }
 
-    // Memory usage (Chrome only)
-    const mem = await measureMemory();
-    if (mem !== null) results.set('Memory usage', mem);
+    // Memory usage (Chrome only) — delta since baseline before grid creation
+    const memDelta = await measureMemoryDelta(memBaseline);
+    if (memDelta !== null) results.set('Memory usage', memDelta);
 
     // Cleanup
     if (gridApi) gridApi.destroy();
@@ -791,12 +827,13 @@ import '@toolbox-web/grid/features/filtering';
     }
     versionsEl.textContent = agGridVersion ? `AG Grid v${agGridVersion} (latest from CDN)` : '';
 
-    // Warmup: run both grids at a small scale to JIT-compile all code paths.
-    // This eliminates cold-start outliers at the first real scale point.
+    // Warmup: run both grids at the first real scale point to JIT-compile all
+    // code paths (virtualization, row-pool, sorting, filtering). 100 rows is
+    // too few — it skips many hot paths that only activate at scale.
     statusEl.textContent = 'Warming up...';
     gridArea.innerHTML = '<p style="text-align:center;opacity:0.4;padding:20px 0;">Warmup...</p>';
-    await runToolboxAtScale(gridArea, 100);
-    await runAgAtScale(gridArea, 100);
+    await runToolboxAtScale(gridArea, SCALE_POINTS[0]);
+    await runAgAtScale(gridArea, SCALE_POINTS[0]);
     await cooldown(500);
 
     const allResults: ScaleResult[] = SCALE_POINTS.map((rowCount) => ({
@@ -859,15 +896,28 @@ import '@toolbox-web/grid/features/filtering';
     progressBar.style.width = '100%';
     runBtn.disabled = false;
 
-    // Console log
-    for (const metric of ALL_METRICS) {
-      console.groupCollapsed(`📊 ${metric}`);
-      console.table(allResults.map((r) => ({
-        Rows: formatRowCount(r.rowCount),
-        Toolbox: r.tbw.get(metric),
-        'AG Grid': r.ag.get(metric),
-      })));
-      console.groupEnd();
+    // Console log — single copyable markdown table
+    {
+      const pad = (s: string, w: number) => s.padEnd(w);
+      const rpad = (s: string, w: number) => s.padStart(w);
+      const header = ['Metric', ...SCALE_POINTS.map((n) => `${formatRowCount(n)} TBW`), ...SCALE_POINTS.map((n) => `${formatRowCount(n)} AG`)];
+      const colW = header.map((h) => Math.max(h.length, 10));
+
+      const rows: string[][] = [];
+      for (const metric of ALL_METRICS) {
+        const row = [metric];
+        for (const r of allResults) row.push(formatMetric(metric, r.tbw.get(metric) ?? 0));
+        for (const r of allResults) row.push(formatMetric(metric, r.ag.get(metric) ?? 0));
+        rows.push(row);
+        // Update column widths
+        row.forEach((cell, ci) => { colW[ci] = Math.max(colW[ci], cell.length); });
+      }
+
+      const line = (cells: string[]) => '| ' + cells.map((c, i) => (i === 0 ? pad(c, colW[i]) : rpad(c, colW[i]))).join(' | ') + ' |';
+      const sep = '|' + colW.map((w) => '-'.repeat(w + 2)).join('|') + '|';
+
+      const table = [line(header), sep, ...rows.map((r) => line(r))].join('\n');
+      console.log(`\n📊 Benchmark Results (${agGridVersion ? `AG Grid v${agGridVersion}` : 'AG Grid latest'})\n\n${table}\n`);
     }
   });
   // #endregion

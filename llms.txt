@@ -2,21 +2,11 @@
 
 > A high-performance, framework-agnostic data grid built with pure TypeScript and native Web Components. Zero runtime dependencies. Works in vanilla JS, React, Angular, Vue, Svelte, and any JavaScript environment.
 
-## Key Capabilities
+This is a **Web Component** (`<tbw-grid>`) that works natively in all frameworks without wrappers (though optional adapter packages exist for React, Angular, and Vue to enable JSX/template/slot renderers). Use `features` (recommended) or `plugins` to enable capabilities — `features` uses declarative config with side-effect imports for tree-shaking; `plugins` uses manual class instantiation. Configuration uses a **single source of truth** pattern via `gridConfig` property. Editing requires the editing feature/plugin — calling `editable: true` without it will throw a helpful error. The grid uses **light DOM** (not Shadow DOM) for CSS cascade and accessibility.
 
 Built-in (no plugins): Row virtualization (100k+ rows at 60fps, infinite scroll), sorting, column resizing, auto-sizing, keyboard navigation, custom renderers/editors, footer aggregations, 6 themes, row animations.
 
-Via features (23 available, tree-shakeable via side-effect imports): Selection (cell/row/range/checkbox), inline editing (cell/row mode), filtering (text/number/date/set/boolean), multi-sort, row grouping with aggregations, column grouping (spanning headers), tree data (hierarchical/nested), master-detail (expandable rows), pinned/frozen/sticky columns & rows, column/row drag reorder, column visibility (show/hide), column virtualization, export (CSV/JSON/Excel/XLSX), print, context menus, clipboard (copy/paste), undo/redo, server-side/remote data (infinite scroll, lazy loading, SSRM-style), pivot tables (row/column fields, value aggregation), responsive/mobile card layout, popover tooltips (overflow detection, per-column overrides).
-
-## Important Notes
-
-- This is a **Web Component** (`<tbw-grid>`) that works natively in all frameworks without wrappers (though optional adapter packages exist for React, Angular, and Vue to enable JSX/template/slot renderers)
-- **Use `features` (recommended)** or `plugins` to enable capabilities — `features` uses declarative config with side-effect imports for tree-shaking; `plugins` uses manual class instantiation
-- Configuration uses a **single source of truth** pattern via `gridConfig` property
-- Editing requires the editing feature/plugin — calling `editable: true` without it will throw a helpful error
-- The grid uses **light DOM** (not Shadow DOM) for CSS cascade and accessibility
-
-## Enabling Features
+Via features (23 available, tree-shakeable via side-effect imports): Selection (cell/row/range/checkbox), inline editing (row/grid mode), filtering (text/number/date/set/boolean), multi-sort, row grouping with aggregations, column grouping (spanning headers), tree data (hierarchical/nested), master-detail (expandable rows), pinned/frozen/sticky columns & rows, column/row drag reorder, column visibility (show/hide), column virtualization, export (CSV/JSON/Excel/XLSX), print, context menus, clipboard (copy/paste), undo/redo, server-side/remote data (infinite scroll, lazy loading, SSRM-style), pivot tables (row/column fields, value aggregation), responsive/mobile card layout, popover tooltips (overflow detection, per-column overrides).
 
 Enable capabilities via side-effect imports and declarative `features` config (or framework-specific props). Each feature is tree-shakeable (~200-300 bytes). See [Full Implementation Guide](./llms-full.txt) for framework-specific examples and complete feature props reference.
 
@@ -64,11 +54,11 @@ Key TypeScript interfaces for configuration and events:
 
 - [Editing Plugin](https://toolboxjs.com/grid/plugins/editing/): Inline cell editing and full row editing mode with built-in editors (text, number, date, boolean/checkbox, select/dropdown), custom editors, conditional editing (`editable: boolean | (row) => boolean` per column, `rowEditable: (row) => boolean` on gridConfig), validation support, dirty tracking (`dirtyTracking: true` — baseline snapshots, isDirty/isPristine, revert, `dirty-change` event, `tbw-row-dirty`/`tbw-row-new` CSS classes)
 - [Selection Plugin](https://toolboxjs.com/grid/plugins/selection/): Cell selection, row selection, range selection (Excel-like), checkbox column, Shift/Ctrl multi-select, select all
-- [Filtering Plugin](https://toolboxjs.com/grid/plugins/filtering/): Column filters with text, number, date, set (multi-select), boolean types; custom filter functions, filter row, quick filter, silent mode (`{ silent: true }` option on `setFilter`/`setFilterModel`/`clearAllFilters` for batch updates); stale filter detection (`getStaleFilters()`); blank filter toggle (`getBlankMode`, `toggleBlankFilter`)
+- [Filtering Plugin](https://toolboxjs.com/grid/plugins/filtering/): Column filters with text, number, date, set (multi-select), boolean types; custom filter functions, quick filter, silent mode (`{ silent: true }` option on `setFilter`/`setFilterModel`/`clearAllFilters` for batch updates); stale filter detection (`getStaleFilters()`); blank filter toggle (`getBlankMode`, `toggleBlankFilter`)
 - [Multi-Sort Plugin](https://toolboxjs.com/grid/plugins/multi-sort/): Sort by multiple columns with priority
 - [Row Grouping Plugin](https://toolboxjs.com/grid/plugins/grouping-rows/): Group rows by field values, nested grouping, expand/collapse, group footer aggregations (sum, avg, count, min, max), pre-defined groups with lazy-loaded rows for server-side grouping
 - [Column Grouping Plugin](https://toolboxjs.com/grid/plugins/grouping-columns/): Group columns under shared headers, multi-level column spanning, header grouping
-- [Tree Plugin](https://toolboxjs.com/grid/plugins/tree/): Hierarchical/nested tree data, parent-child relationships, expand/collapse, lazy loading children, indentation, lazy tree data source (paginated top-level nodes with embedded children, scroll-triggered loading, sort/filter pass-through)
+- [Tree Plugin](https://toolboxjs.com/grid/plugins/tree/): Hierarchical/nested tree data, parent-child relationships, expand/collapse, lazy loading children, indentation, server-side tree data via ServerSidePlugin integration (consumes `datasource:data`/`datasource:children` events)
 - [Master-Detail Plugin](https://toolboxjs.com/grid/plugins/master-detail/): Expandable detail rows, nested grids, custom detail templates, row expansion
 - [Pinned Columns Plugin](https://toolboxjs.com/grid/plugins/pinned-columns/): Sticky/frozen/locked columns on left or right edge
 - [Pinned Rows Plugin](https://toolboxjs.com/grid/plugins/pinned-rows/): Sticky/frozen/locked rows at top or bottom, summary rows, totals row
@@ -86,7 +76,7 @@ Key TypeScript interfaces for configuration and events:
 - [Pivot Plugin](https://toolboxjs.com/grid/plugins/pivot/): Pivot table/pivot mode, cross-tabulation, row fields, column fields, value aggregation (sum, avg, count, min, max, first, last, custom), sorting, value formatting, events (pivot-toggle, pivot-state-change, pivot-config-change), dynamic pivot columns
 - [Tooltip Plugin](https://toolboxjs.com/grid/plugins/tooltip/): Popover tooltips for overflowing header/cell text, per-column static/dynamic overrides, CSS anchor positioning, Popover API
 
-**Incompatible combinations:** GroupingRows/Tree/Pivot are mutually incompatible (each transforms the full row model differently). ServerSide is incompatible with Pivot (requires full dataset). ServerSide + Tree coexist via the unified DataSource event bus (Tree claims `datasource:data` events and handles `datasource:children`). ServerSide + GroupingRows can coexist using pre-defined groups with lazy-loaded row data. A dev-mode warning is shown when conflicts are detected.
+**Incompatible combinations:** GroupingRows/Tree/Pivot are mutually incompatible (each transforms the full row model differently). ServerSide is incompatible with Pivot (requires full dataset). ServerSide + Tree coexist via the unified DataSource event bus (Tree claims `datasource:data` events and handles `datasource:children`). ServerSide + GroupingRows coexist via the same DataSource event bus (GroupingRows claims `datasource:data` as group definitions, receives group rows via `datasource:children`). A dev-mode warning is shown when conflicts are detected.
 
 ## Core Features (Built-in, No Plugin Required)
 
@@ -126,6 +116,7 @@ Key TypeScript interfaces for configuration and events:
 
 ## Optional
 
+- [Full Implementation Guide](./llms-full.txt): Complete AI context — framework recipes, all plugin configs, CSS variables, context types, events
 - [v1 → v2 Migration Guide](https://toolboxjs.com/grid/guides/migration/): Complete guide for upgrading from v1 to v2
 - [Accessibility Guide](https://toolboxjs.com/grid/guides/accessibility/): ARIA attributes and screen reader support
 - [Performance Guide](https://toolboxjs.com/grid/guides/performance/): Virtualization, optimization tips, and live head-to-head comparison benchmark vs AG Grid

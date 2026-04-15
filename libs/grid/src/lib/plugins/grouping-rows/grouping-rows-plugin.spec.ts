@@ -1157,185 +1157,176 @@ describe('GroupingRowsPlugin', () => {
       });
     });
 
-    describe('async groups callback', () => {
-      it('should detect groups function in config', () => {
-        const result = GroupingRowsPlugin.detect([], {
-          groups: () => Promise.resolve([{ key: 'A', value: 'A' }]),
-        });
-        expect(result).toBe(true);
-      });
+    describe('datasource integration', () => {
+      function createMockGridWithEvents() {
+        const eventListeners = new Map<string, (detail: unknown) => void>();
+        const renderCalls: unknown[] = [];
+        const queryCalls: Array<{ type: string; context: unknown }> = [];
+        const grid = document.createElement('div');
 
-      it('should return empty array while groups are loading', () => {
-        const plugin = new GroupingRowsPlugin({
-          groups: () =>
-            new Promise((_resolve) => {
-              /* never resolves */
-            }),
-        });
-        const grid = createMockGrid();
-        plugin.attach(grid);
-
-        const result = plugin.processRows([]);
-        expect(result).toEqual([]);
-        expect(plugin.isGroupingActive()).toBe(true);
-      });
-
-      it('should render groups after async fetch resolves', async () => {
-        let resolve!: (groups: any[]) => void;
-        const groupsPromise = new Promise<any[]>((r) => {
-          resolve = r;
-        });
-
-        const plugin = new GroupingRowsPlugin({
-          groups: () => groupsPromise,
-        });
-        const grid = createMockGrid();
-        plugin.attach(grid);
-        vi.spyOn(plugin, 'requestRender');
-
-        // First call triggers fetch
-        plugin.processRows([]);
-
-        // Resolve the promise
-        resolve([
-          { key: 'Engineering', value: 'Engineering', rowCount: 10 },
-          { key: 'Sales', value: 'Sales', rowCount: 5 },
-        ]);
-        await groupsPromise;
-
-        expect(plugin.requestRender).toHaveBeenCalled();
-
-        // After resolve, processRows should produce group rows
-        const result = plugin.processRows([]);
-        expect(result.length).toBe(2);
-        expect(result[0].__isGroupRow).toBe(true);
-        expect(result[0].__groupKey).toBe('Engineering');
-      });
-
-      it('should not fetch groups twice while in flight', () => {
-        let callCount = 0;
-        const plugin = new GroupingRowsPlugin({
-          groups: () => {
-            callCount++;
-            return new Promise((_resolve) => {
-              /* never resolves */
-            });
+        Object.defineProperty(grid, 'rows', { get: () => [], configurable: true });
+        Object.defineProperty(grid, 'columns', { get: () => [], configurable: true });
+        Object.defineProperty(grid, 'query', {
+          value: (type: string, context: unknown) => {
+            queryCalls.push({ type, context });
+            return undefined;
           },
+          configurable: true,
         });
-        const grid = createMockGrid();
-        plugin.attach(grid);
+        Object.defineProperty(grid, '_pluginManager', {
+          value: {
+            subscribe(_p: unknown, eventType: string, callback: (detail: unknown) => void) {
+              eventListeners.set(eventType, callback);
+            },
+            unsubscribe: () => {
+              /* noop */
+            },
+            emitPluginEvent: () => {
+              /* noop */
+            },
+          },
+          configurable: true,
+        });
 
-        plugin.processRows([]);
-        plugin.processRows([]);
+        return { grid, eventListeners, renderCalls, queryCalls };
+      }
 
-        expect(callCount).toBe(1);
+      it('should claim datasource:data events and store as group definitions', () => {
+        const plugin = new GroupingRowsPlugin({});
+        const { grid, eventListeners } = createMockGridWithEvents();
+        plugin.attach(grid as any);
+
+        const groups = [
+          { key: 'Eng', value: 'Engineering', rowCount: 10 },
+          { key: 'Sales', value: 'Sales', rowCount: 5 },
+        ];
+        const detail = { rows: groups, totalNodeCount: 2, startNode: 0, endNode: 2, claimed: false };
+        eventListeners.get('datasource:data')?.(detail);
+
+        expect(detail.claimed).toBe(true);
+        expect(plugin.getGroups()).toEqual(groups);
       });
 
-      it('should getGroups return empty while async fetch is in flight', () => {
-        const plugin = new GroupingRowsPlugin({
-          groups: () =>
-            new Promise((_resolve) => {
-              /* never resolves */
-            }),
-        });
-        const grid = createMockGrid();
-        plugin.attach(grid);
+      it('should claim and process datasource:children events for source=grouping-rows', () => {
+        const plugin = new GroupingRowsPlugin({});
+        const { grid, eventListeners } = createMockGridWithEvents();
+        plugin.attach(grid as any);
 
+        // First provide groups via datasource:data
+        const groups = [{ key: 'Eng', value: 'Engineering' }];
+        eventListeners.get('datasource:data')?.({
+          rows: groups,
+          totalNodeCount: 1,
+          startNode: 0,
+          endNode: 1,
+          claimed: false,
+        });
+
+        // Expand group
         plugin.processRows([]);
-        expect(plugin.getGroups()).toEqual([]);
-      });
-    });
+        plugin.toggle('Eng');
 
-    describe('rows callback', () => {
-      it('should auto-fetch rows when group is expanded', async () => {
-        let resolve!: (rows: any[]) => void;
-        const rowsPromise = new Promise<any[]>((r) => {
-          resolve = r;
-        });
+        // Deliver children via datasource:children
+        const childDetail = {
+          rows: [{ name: 'Alice' }, { name: 'Bob' }],
+          context: { source: 'grouping-rows', groupKey: 'Eng' },
+          claimed: false,
+        };
+        eventListeners.get('datasource:children')?.(childDetail);
 
-        const rowsFn = vi.fn().mockReturnValue(rowsPromise);
-        const plugin = new GroupingRowsPlugin({
-          groups: [{ key: 'Engineering', value: 'Engineering', rowCount: 2 }],
-          rows: rowsFn,
-        });
-        const grid = createMockGrid();
-        plugin.attach(grid);
-        plugin.processRows([]);
+        expect(childDetail.claimed).toBe(true);
 
-        vi.spyOn(plugin, 'requestRender');
-        plugin.toggle('Engineering');
-
-        // rows callback should be called with the group definition
-        expect(rowsFn).toHaveBeenCalledWith(expect.objectContaining({ key: 'Engineering', value: 'Engineering' }));
-
-        // Resolve the fetch
-        resolve([{ name: 'Alice' }, { name: 'Bob' }]);
-        await rowsPromise;
-
-        // After resolve, rows should be populated
+        // After children received, processRows should include them
         const result = plugin.processRows([]);
         expect(result.length).toBe(3); // 1 group + 2 data rows
         expect(result[1].name).toBe('Alice');
         expect(result[2].name).toBe('Bob');
       });
 
-      it('should show loading indicator while rows are being fetched', () => {
+      it('should ignore datasource:children events for other sources', () => {
+        const plugin = new GroupingRowsPlugin({});
+        const { grid, eventListeners } = createMockGridWithEvents();
+        plugin.attach(grid as any);
+
+        const detail = {
+          rows: [{ id: 10 }],
+          context: { source: 'tree', parentNode: {} },
+          claimed: false,
+        };
+        eventListeners.get('datasource:children')?.(detail);
+
+        expect(detail.claimed).toBe(false);
+      });
+
+      it('should fire datasource:fetch-children query on group expand', () => {
         const plugin = new GroupingRowsPlugin({
-          groups: [{ key: 'A', value: 'AGroup' }],
-          rows: () =>
-            new Promise((_resolve) => {
-              /* never resolves */
-            }),
+          groups: [{ key: 'Eng', value: 'Engineering', rowCount: 5 }],
         });
-        const grid = createMockGrid();
-        plugin.attach(grid);
+        const { grid, queryCalls } = createMockGridWithEvents();
+        plugin.attach(grid as any);
         plugin.processRows([]);
 
+        // Expand the group — should fire fetch-children query
+        plugin.toggle('Eng');
+
+        const fetchQuery = queryCalls.find((q) => q.type === 'datasource:fetch-children');
+        expect(fetchQuery).toBeDefined();
+        expect((fetchQuery!.context as any).context.source).toBe('grouping-rows');
+        expect((fetchQuery!.context as any).context.groupKey).toBe('Eng');
+      });
+
+      it('should respond to datasource:viewport-mapping queries in pre-defined mode', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: [
+            { key: 'A', value: 'Group A' },
+            { key: 'B', value: 'Group B' },
+            { key: 'C', value: 'Group C' },
+          ],
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid as any);
+        plugin.processRows([]);
+
+        const result = plugin.handleQuery({
+          type: 'datasource:viewport-mapping',
+          context: { viewportStart: 0, viewportEnd: 2 },
+        });
+
+        expect(result).toBeDefined();
+        expect((result as any).startNode).toBe(0);
+        expect((result as any).totalLoadedNodes).toBe(3);
+      });
+
+      it('should not respond to viewport-mapping in groupOn mode', () => {
+        const plugin = new GroupingRowsPlugin({
+          groupOn: (row: any) => row.dept,
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid as any);
+
+        const result = plugin.handleQuery({
+          type: 'datasource:viewport-mapping',
+          context: { viewportStart: 0, viewportEnd: 5 },
+        });
+
+        expect(result).toBeUndefined();
+      });
+
+      it('should show loading indicator while waiting for datasource:children', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: [{ key: 'A', value: 'Group A' }],
+        });
+        const { grid } = createMockGridWithEvents();
+        plugin.attach(grid as any);
+        plugin.processRows([]);
+
+        // Expand — adds to loadingGroups, fires query
         plugin.toggle('A');
 
         const result = plugin.processRows([]);
-        // 1 group + 1 loading placeholder
+        // 1 group + 1 loading placeholder (children not yet received)
         expect(result.length).toBe(2);
         expect(result[1].__loading).toBe(true);
-      });
-
-      it('should not re-fetch rows if already cached', () => {
-        const rowsFn = vi.fn().mockResolvedValue([{ id: 1 }]);
-        const plugin = new GroupingRowsPlugin({
-          groups: [{ key: 'A', value: 'A' }],
-          rows: rowsFn,
-        });
-        const grid = createMockGrid();
-        plugin.attach(grid);
-        plugin.processRows([]);
-
-        // Expand, then collapse, then expand again
-        plugin.toggle('A'); // expand
-        plugin.toggle('A'); // collapse
-        plugin.toggle('A'); // expand again
-
-        // rows callback should only be called once (first expand)
-        expect(rowsFn).toHaveBeenCalledTimes(1);
-      });
-
-      it('should re-fetch rows after clearGroupRows', async () => {
-        const rowsFn = vi.fn().mockResolvedValue([{ id: 1 }]);
-        const plugin = new GroupingRowsPlugin({
-          groups: [{ key: 'A', value: 'A' }],
-          rows: rowsFn,
-        });
-        const grid = createMockGrid();
-        plugin.attach(grid);
-        plugin.processRows([]);
-
-        plugin.toggle('A');
-        await vi.waitFor(() => expect(rowsFn).toHaveBeenCalledTimes(1));
-
-        plugin.clearGroupRows('A');
-        plugin.toggle('A'); // collapse
-        plugin.toggle('A'); // expand again — should re-fetch
-
-        expect(rowsFn).toHaveBeenCalledTimes(2);
       });
     });
   });
@@ -1456,9 +1447,7 @@ describe('GroupingRowsPlugin', () => {
         { name: 'Alice', dept: 'Engineering' },
         { name: 'Bob', dept: 'Sales' },
       ];
-      const columns: ColumnConfig[] = [
-        { field: 'dept', header: 'Department', sortable: true },
-      ];
+      const columns: ColumnConfig[] = [{ field: 'dept', header: 'Department', sortable: true }];
       const grid = createMockGrid({ rows, columns });
       plugin.attach(grid);
 

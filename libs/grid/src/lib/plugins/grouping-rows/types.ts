@@ -50,7 +50,7 @@ export interface GroupDefinition {
   aggregates?: Record<string, unknown>;
 }
 
-/** Detail payload for `group-expand` event. */
+/** Detail payload for `group-expand` event (pre-defined group mode). */
 export interface GroupExpandDetail {
   /** The key of the group being expanded. */
   groupKey: string;
@@ -58,7 +58,7 @@ export interface GroupExpandDetail {
   groupPath: string[];
 }
 
-/** Detail payload for `group-collapse` event. */
+/** Detail payload for `group-collapse` event (pre-defined group mode). */
 export interface GroupCollapseDetail {
   /** The key of the group being collapsed. */
   groupKey: string;
@@ -90,12 +90,8 @@ export interface GroupingRowsConfig {
    * When provided, the plugin renders these groups as collapsible headers
    * instead of analyzing row data with `groupOn`.
    *
-   * Accepts:
-   * - A static `GroupDefinition[]` array
-   * - An async callback `() => Promise<GroupDefinition[]>` that fetches groups on attach
-   *
-   * When combined with {@link GroupingRowsConfig.rows | rows}, the plugin handles
-   * the full lifecycle automatically — loading indicator, data fetch, and render.
+   * When combined with `ServerSidePlugin`, group definitions are delivered
+   * automatically via `datasource:data` events and this config is not needed.
    *
    * @example Static groups
    * ```typescript
@@ -106,34 +102,8 @@ export interface GroupingRowsConfig {
    *   ],
    * });
    * ```
-   *
-   * @example Async groups with lazy-loaded rows
-   * ```typescript
-   * new GroupingRowsPlugin({
-   *   groups: () => fetch('/api/groups').then(r => r.json()),
-   *   rows: (group) => fetch(`/api/groups/${group.key}/rows`).then(r => r.json()),
-   * });
-   * ```
    */
-  groups?: GroupDefinition[] | (() => Promise<GroupDefinition[]>);
-  /**
-   * Callback to lazily load rows for an expanded group.
-   *
-   * When a user expands a group, the plugin calls this callback with the
-   * group definition. The plugin manages the loading indicator automatically.
-   *
-   * If not provided, use the imperative {@link GroupingRowsPlugin.setGroupRows | setGroupRows()}
-   * API and listen for `group-expand` events instead.
-   *
-   * @example
-   * ```typescript
-   * new GroupingRowsPlugin({
-   *   groups: () => fetch('/api/groups').then(r => r.json()),
-   *   rows: (group) => fetch(`/api/groups/${group.key}/rows`).then(r => r.json()),
-   * });
-   * ```
-   */
-  rows?: (group: GroupDefinition) => Promise<unknown[]>;
+  groups?: GroupDefinition[];
   /**
    * Default expanded state for group rows.
    * - `true`: Expand all groups initially

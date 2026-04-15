@@ -20,14 +20,16 @@ Without this import, `<tbw-grid>` renders as an unknown HTML element.
 
 > **Note:** Framework adapters (`@toolbox-web/grid-react`, `@toolbox-web/grid-angular`, `@toolbox-web/grid-vue`) auto-import the grid, so this is only needed in vanilla JS or when using `<tbw-grid>` directly without an adapter.
 
-### 2. Height and Display Are Required
+### 2. Height Is Required
 
-The grid MUST have explicit height and `display: block`. Without it, the grid renders with zero height:
+The grid MUST have explicit height. Without it, the grid renders with zero height:
 
 ```css
-tbw-grid { height: 400px; display: block; }
-/* Or via inline style: style="height: 400px; display: block;" */
+tbw-grid { height: 400px; }
+/* Or via inline style: style="height: 400px;" */
 ```
+
+> **Note:** `display: block` is set automatically by the grid's built-in CSS (`@layer tbw-base`). You do NOT need to set it yourself.
 
 ### 3. Editing Is Opt-In via Feature or Plugin
 
@@ -66,7 +68,7 @@ These plugins **cannot** be used together. A development-mode warning is shown w
 | `TreePlugin` | `PivotPlugin` | Pivot replaces the data structure; tree hierarchy cannot coexist |
 | `ServerSidePlugin` | `PivotPlugin` | Pivot needs the full dataset for aggregation |
 
-> **Note:** `ServerSidePlugin` + `TreePlugin` can coexist — TreePlugin has its own `dataSource` for lazy-loading paginated tree data independently of ServerSidePlugin. `ServerSidePlugin` + `GroupingRowsPlugin` can also coexist. GroupingRowsPlugin has its own built-in server-side support (`groups`/`rows` callbacks, imperative `setGroups()`/`setGroupRows()`) that works independently of ServerSidePlugin. Similarly, FilteringPlugin has `filterHandler`/`valuesHandler` and GridConfig has `sortHandler` — these work without ServerSidePlugin. ServerSidePlugin is specifically for **block-based virtual scrolling** over large flat datasets.
+> **Note:** `ServerSidePlugin` + `TreePlugin` can coexist — TreePlugin consumes `datasource:data`/`datasource:children` events broadcast by ServerSidePlugin for lazy-loading paginated tree data. `ServerSidePlugin` + `GroupingRowsPlugin` can also coexist. GroupingRowsPlugin has its own built-in server-side support (`groups`/`rows` callbacks, imperative `setGroups()`/`setGroupRows()`) that works independently of ServerSidePlugin. Similarly, FilteringPlugin has `filterHandler`/`valuesHandler` and GridConfig has `sortHandler` — these work without ServerSidePlugin. ServerSidePlugin is specifically for **block-based virtual scrolling** over large flat datasets.
 
 ### 6. Correct Plugin Class Names
 
@@ -246,7 +248,7 @@ import { Grid } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid],
-  template: `<tbw-grid [rows]="employees" [columns]="columns" style="height: 400px; display: block;" />`,
+  template: `<tbw-grid [rows]="employees" [columns]="columns" style="height: 400px;" />`,
 })
 export class EmployeeGridComponent {
   employees = [{ id: 1, name: 'Alice', email: 'alice@co.com', department: 'Engineering' }];
@@ -423,7 +425,7 @@ import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
 @Component({
   imports: [Grid, TbwRenderer, TbwEditor],
   template: `
-    <tbw-grid [rows]="employees" [columns]="columns" [editing]="'dblclick'" style="height: 400px; display: block;">
+    <tbw-grid [rows]="employees" [columns]="columns" [editing]="'dblclick'" style="height: 400px;">
       <tbw-grid-column field="status" header="Status" [editable]="true">
         <span *tbwRenderer="let value" [class]="'badge badge-' + value">{{ value }}</span>
         <select *tbwEditor="let value; onCommit as onCommit" (change)="onCommit($event.target.value)">
@@ -583,9 +585,15 @@ gridConfig: {
   columns: [
     { field: 'department', header: 'Department' },
     { field: 'name', header: 'Name' },
-    { field: 'salary', header: 'Salary', type: 'number', aggregator: 'sum' },
+    { field: 'salary', header: 'Salary', type: 'number' },
   ],
-  features: { groupingRows: { groupOn: (row) => [row.department], defaultExpanded: true } },
+  features: {
+    groupingRows: {
+      groupOn: (row) => [row.department],
+      defaultExpanded: true,
+      aggregators: { salary: 'sum' },  // Aggregators are per-field on the plugin config, not per-column
+    },
+  },
 }
 ```
 
@@ -664,7 +672,6 @@ interface ColumnConfig<TRow = unknown> {
   };
   headerRenderer?: (ctx: HeaderCellContext) => HTMLElement | string;  // Full header control
   headerLabelRenderer?: (ctx: HeaderCellContext) => HTMLElement | string; // Label-only (sort icons auto-added)
-  aggregator?: 'sum' | 'avg' | 'count' | 'min' | 'max' | 'first' | 'last'; // Footer aggregation
 }
 ```
 
@@ -811,7 +818,7 @@ grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
 | `group-toggle` | `key`, `expanded`, `value`, `depth` |
 | `dirty-change` | `rowId`, `row`, `original`, `type` (`'modified'`\|`'new'`\|`'reverted'`\|`'pristine'`) (requires `dirtyTracking: true`) |
 
-**Plugin Events (via `PluginEvents` constant):**
+**Plugin Events (via `PluginEvents` constant unless noted):**
 
 | Event | Plugin | Detail Properties |
 |-------|--------|-------------------|
@@ -824,12 +831,12 @@ grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
 | `tree-load-error` | Tree | `{ error }` |
 | `detail-expand` | MasterDetail | `DetailExpandDetail` |
 | `group-expand` | GroupingRows | `GroupExpandDetail` (`groupKey`, `groupPath`) |
-| `group-collapse` | GroupingRows | `GroupCollapseDetail` (`groupKey`, `groupPath`) |
+| `group-collapse` \* | GroupingRows | `GroupCollapseDetail` (`groupKey`, `groupPath`) |
 | `export-start` | Export | `ExportStartDetail` |
 | `export-complete` | Export | `ExportCompleteDetail` |
-| `pivot-toggle` | Pivot | `PivotToggleDetail` (`key`, `expanded`, `label`, `depth`) |
-| `pivot-state-change` | Pivot | `PivotStateChangeDetail` (`active`) |
-| `pivot-config-change` | Pivot | `PivotConfigChangeDetail` (`property`, `field?`, `zone?`) |
+| `pivot-toggle` \* | Pivot | `PivotToggleDetail` (`key`, `expanded`, `label`, `depth`) |
+| `pivot-state-change` \* | Pivot | `PivotStateChangeDetail` (`active`) |
+| `pivot-config-change` \* | Pivot | `PivotConfigChangeDetail` (`property`, `field?`, `zone?`) |
 | `clipboard-copy` | Clipboard | `ClipboardCopyDetail` |
 | `clipboard-paste` | Clipboard | `ClipboardPasteDetail` |
 | `context-menu-open` | ContextMenu | `ContextMenuOpenDetail` |
@@ -839,6 +846,8 @@ grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
 | `server-error` | ServerSide | `Error` |
 | `column-visibility-change` | Visibility | `VisibilityChangeDetail` |
 | `column-reorder` | Reorder | `ReorderDetail` |
+
+\* Not in `PluginEvents` constant — listen via string literal (e.g., `grid.addEventListener('group-collapse', ...)`).
 
 **React event handling:** Use `on`-prefix props on `<DataGrid>` — the detail is unwrapped automatically:
 
@@ -886,9 +895,10 @@ function onCellClick(event: CustomEvent<CellClickDetail>) {
 new SelectionPlugin({
   mode: 'cell' | 'row' | 'range',  // Required
   multiSelect?: boolean,             // Allow multi-select (default: true)
-  checkbox?: boolean,                // Show checkbox column
-  checkboxPosition?: 'left' | 'right',
-  selectOnClick?: boolean,           // Select on click (default: true in row mode)
+  enabled?: boolean,                 // Whether selection is enabled (default: true)
+  triggerOn?: 'click' | 'dblclick',  // Mouse event that triggers selection (default: 'click')
+  checkbox?: boolean,                // Show checkbox column (row mode only, default: false)
+  isSelectable?: (row, context) => boolean, // Per-row/cell selectability callback
 })
 // Keyboard: Shift+Arrow/Page/Home/End extends selection in row and range modes.
 // Plugin queries (for inter-plugin communication via grid.query()):
@@ -902,11 +912,11 @@ new SelectionPlugin({
 
 ```typescript
 new EditingPlugin({
-  mode?: 'cell' | 'row',                         // Edit scope (default: 'cell')
-  editOn?: 'click' | 'dblclick' | 'manual' | false, // Edit trigger (default: 'dblclick')
+  mode?: 'row' | 'grid',                          // Edit scope: 'row' = one row at a time, 'grid' = all rows editable (default: 'row')
+  editOn?: 'click' | 'dblclick' | 'manual' | false, // Edit trigger (default: 'click')
   focusTrap?: boolean,                             // (default: false) — reclaim focus when it leaves during edit
   dirtyTracking?: boolean,                         // (default: false) — track row baselines for dirty/pristine state
-  onBeforeEditClose?: (params) => boolean | void,  // Intercept edit close (return false to prevent)
+  onBeforeEditClose?: (event) => boolean | void,   // Intercept edit close (return false to prevent)
 })
 // Conditional Editing:
 //   Column level: { field: 'price', editable: (row) => row.status === 'draft' }
@@ -935,10 +945,9 @@ Client-side and server-side filtering. Server-side support (`filterHandler`/`val
 ```typescript
 new FilteringPlugin({
   debounceMs?: number,          // Debounce input (default: 300)
-  showFilterRow?: boolean,      // Show inline filter row (default: false)
   caseSensitive?: boolean,      // Case-sensitive text matching (default: false)
-  trimInput?: boolean,          // Trim whitespace from filter input (default: true)
-  useWorker?: boolean,          // Offload filtering to a Web Worker (default: false)
+  trimInput?: boolean,          // Trim whitespace from filter input (default: true, reserved)
+  useWorker?: boolean,          // Offload filtering to Web Worker (default: true, reserved — not yet implemented)
   trackColumnState?: boolean,   // Include filters in column state persistence (default: false)
   filterHandler?: (rows, filters) => rows | Promise<rows>, // Custom/server-side filtering
   valuesHandler?: (field, column) => Promise<unknown[]>,    // Async unique-value provider for filter panels
@@ -971,6 +980,7 @@ new TreePlugin({
   defaultExpanded?: boolean,    // Start expanded (default: false)
   indentWidth?: number,         // Indent per level in px (default: 20)
   showExpandIcons?: boolean,    // Show expand/collapse icons (default: true)
+  treeColumn?: string,          // Field name of column that shows tree toggle/indentation
   animation?: false | 'slide' | 'fade', // Animation style (default: 'slide')
 })
 
@@ -1006,8 +1016,7 @@ new MasterDetailPlugin({
 ```typescript
 new GroupingRowsPlugin({
   groupOn?: (row) => any[] | any | null | false, // Group path callback
-  groups?: GroupDefinition[] | (() => Promise<GroupDefinition[]>), // Pre-defined groups (static or async)
-  rows?: (group: GroupDefinition) => Promise<unknown[]>,           // Lazy-load rows on expand
+  groups?: GroupDefinition[],   // Pre-defined group structure
   defaultExpanded?: boolean | number | string | string[], // Start expanded (default: false)
   groupRowRenderer?: (params) => HTMLElement | string | void, // Custom group row
   showRowCount?: boolean,       // Show row count in headers (default: true)
@@ -1017,11 +1026,22 @@ new GroupingRowsPlugin({
   animation?: false | 'slide' | 'fade', // Animation style (default: 'slide')
   accordion?: boolean,          // Only one group expanded at a time (default: false)
 })
-// Declarative server-side grouping (recommended):
-// { groups: () => fetch('/api/groups').then(r => r.json()), rows: (group) => fetch(`/api/${group.key}`).then(r => r.json()) }
-// Imperative API: groupingRows: true → grid.getPluginByName('groupingRows').setGroups(await fetch(…))
-// grid.on('group-expand', async ({ groupKey }) => { plugin.setGroupLoading(key, true); plugin.setGroupRows(key, await …); })
-// plugin.setGroupRows() auto-clears loading state
+
+// Server-side data: use with ServerSidePlugin for paginated grouped data.
+// GroupingRows claims datasource:data events (as group definitions) and
+// processes datasource:children events for expanded group rows.
+// On expand, fires datasource:fetch-children with { source: 'grouping-rows', groupKey }.
+// Viewport mapping (flat row → group index) is handled automatically.
+// See ServerSidePlugin docs for dataSource.getChildRows() configuration.
+
+// Core API:
+// grouping.expand(key) / grouping.collapse(key) / grouping.toggle(key)
+// grouping.expandAll() / grouping.collapseAll()
+// grouping.isExpanded(key) / grouping.getExpandedGroups()
+// grouping.getGroupState() / grouping.getFlattenedRows()
+// grouping.setGroups(groups) / grouping.getGroups() — imperative pre-defined groups
+// grouping.setGroupRows(key, rows) / grouping.clearGroupRows(key?)
+// Events: group-toggle, group-expand, group-collapse
 ```
 
 ### ServerSidePlugin
@@ -2058,7 +2078,7 @@ import { GridProvider, GridTypeProvider, GridIconProvider } from '@toolbox-web/g
 ### Colors
 
 | Variable | Description |
-m |----------|-------------|
+|----------|-------------|
 | `--tbw-color-bg` | Grid background (default: transparent) |
 | `--tbw-color-panel-bg` | Panel/popup background |
 | `--tbw-color-fg` | Foreground/text |
@@ -2224,7 +2244,7 @@ gridConfig: {
 ## Key Differences from Other Grids
 
 1. **Web Component First**: Works in any framework without wrappers. React/Angular/Vue adapters are optional enhancements.
-2. **Plugin Architecture**: Core bundle is lightweight (~42KB gzip). Add features via plugins for optimal tree-shaking.
+2. **Plugin Architecture**: Core bundle is lightweight (≤45KB gzip budget). Add features via plugins for optimal tree-shaking.
 3. **Single Source of Truth**: All configuration converges to `effectiveConfig`. No conflicting state.
 4. **Light DOM**: Uses light DOM for CSS cascade and accessibility. No Shadow DOM isolation issues.
 5. **Em-Based Sizing**: Change `font-size` to scale the entire grid proportionally.
@@ -2290,7 +2310,7 @@ import { DEFAULT_A11Y_MESSAGES } from '@toolbox-web/grid';
 | Problem | Solution |
 |---------|----------|
 | "Configuration error: EditingPlugin not loaded" | Add `EditingPlugin` to plugins array |
-| Grid not rendering / zero height | Add `height: 400px; display: block;` CSS |
+| Grid not rendering / zero height | Set explicit height (e.g., `height: 400px;`) — `display: block` is auto-set |
 | React renderers not working | Use `GridConfig` type from `@toolbox-web/grid-react` and `gridConfig` prop (not `columns` prop) |
 | Angular templates not rendering | Import `Grid` directive from `@toolbox-web/grid-angular` |
 | Angular component renderers not working | Call `adapter.processGridConfig(config)` before passing to grid |

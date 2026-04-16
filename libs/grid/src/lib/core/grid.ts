@@ -2134,6 +2134,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#updateShellHeaderInPlace();
     }
 
+    // If tool panel is open, re-render any expanded sections whose content was
+    // cleared during plugin re-initialization (cleanup removes rendered DOM).
+    // renderPanelContent is idempotent — it only renders sections with empty content.
+    if (this.#shellState.isPanelOpen) {
+      renderPanelContent(this.#renderRoot, this.#shellState, {
+        expand: this.#effectiveConfig?.icons?.expand,
+        collapse: this.#effectiveConfig?.icons?.collapse,
+      });
+    }
+
     this._rebuildRowIdMap();
     this.#scheduler.requestPhase(RenderPhase.COLUMNS, 'applyGridConfigUpdate');
   }

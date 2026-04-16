@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.0-rc.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.0.0-rc.3...grid-2.0.0-rc.4) (2026-04-16)
+
+
+### Bug Fixes
+
+* **grid:** pass grid reference in CellRenderContext for all render paths ([5b14123](https://github.com/OysteinAmundsen/toolbox/commit/5b141233b70d101aacfe4152d7d8d26be05991f0))
+* **grid:** prevent event emission when DataGridElement is not connected ([fd34e1e](https://github.com/OysteinAmundsen/toolbox/commit/fd34e1e9a53036304f51f3bd32da1ea6dce4ce0f))
+* **grid:** re-render tool panel content after plugin re-initialization ([4119cf3](https://github.com/OysteinAmundsen/toolbox/commit/4119cf31b2ac0fd0a524ee7a20072dcfe920cb5c))
+* **grid:** use filterValue extractor for all filter operators ([aaea1f0](https://github.com/OysteinAmundsen/toolbox/commit/aaea1f011396dde4fbfbdf802dac0d25e3fcba00))
+
 ## [2.0.0-rc.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.0.0-rc.2...grid-2.0.0-rc.3) (2026-04-15)
 
 

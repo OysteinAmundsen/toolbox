@@ -541,13 +541,13 @@ export function finalCellScrub(cell: HTMLElement): void {
 
 // #region Template Compilation
 export function compileTemplate(raw: string) {
-  const forceBlank = REFLECTIVE_RE.test(raw);
-  const fn = ((ctx: EvalContext) => {
-    if (forceBlank) return '';
-    const out = evalTemplateString(raw, ctx);
-    return out;
-  }) as CompiledViewFunction;
-  fn.__blocked = forceBlank;
+  if (REFLECTIVE_RE.test(raw)) {
+    const fn = (() => '') as CompiledViewFunction;
+    fn.__blocked = true;
+    return fn;
+  }
+  const fn = ((ctx: EvalContext) => evalTemplateString(raw, ctx)) as CompiledViewFunction;
+  fn.__blocked = false;
   return fn;
 }
 // #endregion

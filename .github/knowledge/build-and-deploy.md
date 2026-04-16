@@ -17,6 +17,7 @@ related: [grid-core]
 - DECIDED: ES only for plugins (not CJS) — lighter, modern
 - DECIDED: each entry is self-contained (manualChunks: undefined) — may duplicate shared code but simpler imports
 - DECIDED: all comments stripped from final bundle (code golf for CDN)
+- DECIDED: terser inlines constant property accesses (e.g. `GridClasses.CELL_FOCUS` → `"cell-focus"`) — using constants from `constants.ts` has zero bundle overhead vs raw strings; repeated string values are hoisted to single-letter variables
 - TENSION: bundle duplication vs shared chunks — larger total but simpler per-import
 
 ## bundle-budget (tools/vite-bundle-budget.ts)

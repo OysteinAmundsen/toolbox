@@ -216,7 +216,9 @@ Two separate options control large dataset behavior:
   letting users consent to a potentially slow print operation
 - **`maxRows`** - Hard-limits the printed rows to this number (excess rows are not rendered)
 
-<PrintRowLimitDemo />
+<ShowSource file="demos/print/PrintRowLimitDemo.astro">
+  <PrintRowLimitDemo />
+</ShowSource>
 
 ```typescript
 // Warn at 500+ rows, but print all if confirmed
@@ -238,7 +240,9 @@ The confirmation dialog shows:
 
 The plugin emits events during the print lifecycle:
 
-<PrintPrintEventsDemo />
+<ShowSource file="demos/print/PrintPrintEventsDemo.astro">
+  <PrintPrintEventsDemo />
+</ShowSource>
 
 ### `print-start`
 

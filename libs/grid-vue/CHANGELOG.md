@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.11.5...grid-vue-1.0.0) (2026-04-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* Remove ~106 deprecated APIs across grid core and all framework adapters.
+
+### Features
+
+* remove deprecated APIs for v2 ([#186](https://github.com/OysteinAmundsen/toolbox/issues/186)) ([c1b4a95](https://github.com/OysteinAmundsen/toolbox/commit/c1b4a95fbf74950d168ea0df706d31d0d813c930))
+
 ## [0.11.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.11.4...grid-vue-0.11.5) (2026-04-15)
 
 

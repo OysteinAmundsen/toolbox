@@ -1,5 +1,50 @@
 # Changelog
 
+## [2.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.31.3...grid-2.0.0) (2026-04-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* **grid:** Remove async `groups()` callback and `rows()` callback from GroupingRowsConfig. GroupingRows now uses ServerSidePlugin for server-side data via the datasource event bus.
+* **grid:** Remove standalone TreeDataSource, TreeGetRowsParams, TreeGetRowsResult types and dataSource/pageSize config options. Tree now uses ServerSidePlugin for server-side data via the datasource event bus (datasource:data, datasource:children, datasource:viewport-mapping).
+* **grid:** ServerSideDataSource params renamed: startRow→startNode, endRow→endNode, totalRowCount→totalNodeCount, lastRow→lastNode. getTotalRowCount()/isRowLoaded() deprecated in favor of getTotalNodeCount()/isNodeLoaded().
+* Remove ~106 deprecated APIs across grid core and all framework adapters.
+
+### Features
+
+* **grid:** accessibility hardening — axe-core, live announcements, A11yConfig ([#189](https://github.com/OysteinAmundsen/toolbox/issues/189)) ([d722e77](https://github.com/OysteinAmundsen/toolbox/commit/d722e77e2384f88a49c58ef21b3cc14c00187fd3))
+* **grid:** add datasource integration to MasterDetail plugin ([a3ad4f8](https://github.com/OysteinAmundsen/toolbox/commit/a3ad4f8c8b77e8474ec08328e9d1f4981770219d))
+* **grid:** add pre-defined group mode for server-side row grouping ([#187](https://github.com/OysteinAmundsen/toolbox/issues/187)) ([8ffe759](https://github.com/OysteinAmundsen/toolbox/commit/8ffe7596645833a4d24d0c965513a78dd2ced75c))
+* **grid:** integrate GroupingRows plugin with unified DataSource architecture ([7cebae0](https://github.com/OysteinAmundsen/toolbox/commit/7cebae0ef089717f7cb1b9462eae9dab8e0f6f36))
+* **grid:** integrate Tree plugin with unified DataSource architecture ([48c811a](https://github.com/OysteinAmundsen/toolbox/commit/48c811a0c34e9331a1fc03e74d9381afed68185c))
+* **grid:** styled Excel export with cell formatting ([#188](https://github.com/OysteinAmundsen/toolbox/issues/188)) ([e7b78db](https://github.com/OysteinAmundsen/toolbox/commit/e7b78dbd63b1917cd3546d8c84728a03ff158c72))
+* **grid:** support lazy-loading tree data via TreeDataSource ([#216](https://github.com/OysteinAmundsen/toolbox/issues/216)) ([61c46e5](https://github.com/OysteinAmundsen/toolbox/commit/61c46e54230f2a39e510b6f6c01887e830eb6ca4))
+* **grid:** tree lazy child loading + serverside infinite scroll (lastNode) ([78f4be3](https://github.com/OysteinAmundsen/toolbox/commit/78f4be306f35505f97fe4389bed7ee7f648fc031))
+* remove deprecated APIs for v2 ([#186](https://github.com/OysteinAmundsen/toolbox/issues/186)) ([c1b4a95](https://github.com/OysteinAmundsen/toolbox/commit/c1b4a95fbf74950d168ea0df706d31d0d813c930))
+
+
+### Bug Fixes
+
+* **grid:** pass grid reference in CellRenderContext for all render paths ([f8ec228](https://github.com/OysteinAmundsen/toolbox/commit/f8ec228fa57af12db1151b35d28c43243ac73acb))
+* **grid:** prevent event emission when DataGridElement is not connected ([88648b3](https://github.com/OysteinAmundsen/toolbox/commit/88648b30e2636c8ba1cdde889a92258c093eaec4))
+* **grid:** re-render tool panel content after plugin re-initialization ([3552c94](https://github.com/OysteinAmundsen/toolbox/commit/3552c943b53ce6c8e24e4efe070220bfb4debef2))
+* **grid:** sort group headers alphabetically instead of by data row encounter order ([4481072](https://github.com/OysteinAmundsen/toolbox/commit/44810720339a53e7d6672245e1511eb7cb644bfe))
+* **grid:** use filterValue extractor for all filter operators ([5e1ef3c](https://github.com/OysteinAmundsen/toolbox/commit/5e1ef3cc08153baa7e3928dd6f0eff76bc6f5ce0))
+
+
+### Performance Improvements
+
+* **grid:** add comprehensive benchmarks for plugins, pipelines, and E2E regression ([0850cd8](https://github.com/OysteinAmundsen/toolbox/commit/0850cd85614ca1ff1afd84044796e747aafd6d0f))
+* **grid:** compact internal constants and deduplicate keyboard helpers ([d236f94](https://github.com/OysteinAmundsen/toolbox/commit/d236f947a913a2f8cb12736f48ca81adafd789f6))
+* **grid:** eliminate redundant O(n) work in row update and sort hot paths ([4ccf6cb](https://github.com/OysteinAmundsen/toolbox/commit/4ccf6cb26ffe1db37cb21dfdcfb2b592ff21c813))
+* **grid:** optimize for better performance ([de3cb0e](https://github.com/OysteinAmundsen/toolbox/commit/de3cb0e6d46302e3602a9980468f2da32eaf53ad))
+* **grid:** optimize hot paths in master-detail, pivot, pinned-columns, and aggregators ([96cc014](https://github.com/OysteinAmundsen/toolbox/commit/96cc014c452c379e6e3616a3e20618f5f6e24fd7))
+
+
+### Code Refactoring
+
+* **grid:** unified datasource architecture for ServerSidePlugin (Phase 1) ([c49e492](https://github.com/OysteinAmundsen/toolbox/commit/c49e492b0fc058049fa36a965d1007643c691c8d))
+
 ## [1.31.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.31.2...grid-1.31.3) (2026-04-15)
 
 

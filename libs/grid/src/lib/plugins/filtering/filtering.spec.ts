@@ -555,14 +555,62 @@ describe('filter-model', () => {
       expect(matchesFilter(row as Record<string, unknown>, filter, false, singleExtractor)).toBe(true);
     });
 
-    it('should fall through to raw value for non-set operators even with extractor', () => {
-      // "contains" should use rawValue, not the extractor
-      const filter: FilterModel = { field: 'sellers', type: 'text', operator: 'contains', value: 'name' };
-      // rawValue is an array of objects → String([{name:'Apple'},...]) contains "name"
-      // The extractor should NOT be consulted for non-in/notIn operators
-      const result = matchesFilter(arrayRows[0] as Record<string, unknown>, filter, false, extractor);
-      // Just verify it doesn't throw — the exact result depends on String() of the array
-      expect(typeof result).toBe('boolean');
+    it('should use extractor for text operators when provided', () => {
+      // "contains" should use the extractor so virtual columns work correctly
+      const textExtractor = (_value: unknown, row: Record<string, unknown>) =>
+        ((row.sellers as { name: string }[] | null) ?? []).map((s) => s.name).join(', ');
+      const filter: FilterModel = { field: 'sellers', type: 'text', operator: 'contains', value: 'Apple' };
+      expect(matchesFilter(arrayRows[0] as Record<string, unknown>, filter, false, textExtractor)).toBe(true);
+      expect(matchesFilter(arrayRows[1] as Record<string, unknown>, filter, false, textExtractor)).toBe(false);
+    });
+
+    it('should use extractor for numeric operators (virtual columns)', () => {
+      // Simulates a virtual column like "qty-BBL" where the field doesn't exist on the row
+      const rows = [
+        { id: 1, items: [{ qty: 10 }, { qty: 20 }] },
+        { id: 2, items: [{ qty: 5 }] },
+        { id: 3, items: [] },
+      ];
+      const qtyExtractor = (_value: unknown, row: Record<string, unknown>) => {
+        const items = row.items as { qty: number }[];
+        return items.reduce((sum, i) => sum + i.qty, 0) || '';
+      };
+
+      // between: should match row 1 (30) but not row 2 (5) or row 3 ('')
+      const betweenFilter: FilterModel = {
+        field: 'totalQty',
+        type: 'number',
+        operator: 'between',
+        value: 20,
+        valueTo: 50,
+      };
+      expect(matchesFilter(rows[0] as Record<string, unknown>, betweenFilter, false, qtyExtractor)).toBe(true);
+      expect(matchesFilter(rows[1] as Record<string, unknown>, betweenFilter, false, qtyExtractor)).toBe(false);
+      expect(matchesFilter(rows[2] as Record<string, unknown>, betweenFilter, false, qtyExtractor)).toBe(false);
+
+      // greaterThan: should match row 1 (30) but not row 2 (5)
+      const gtFilter: FilterModel = { field: 'totalQty', type: 'number', operator: 'greaterThan', value: 10 };
+      expect(matchesFilter(rows[0] as Record<string, unknown>, gtFilter, false, qtyExtractor)).toBe(true);
+      expect(matchesFilter(rows[1] as Record<string, unknown>, gtFilter, false, qtyExtractor)).toBe(false);
+    });
+
+    it('should use extractor for blank/notBlank operators', () => {
+      const rows = [
+        { id: 1, items: [{ qty: 10 }] },
+        { id: 2, items: [] },
+      ];
+      const qtyExtractor = (_value: unknown, row: Record<string, unknown>) => {
+        const items = row.items as { qty: number }[];
+        return items.reduce((sum, i) => sum + i.qty, 0) || '';
+      };
+
+      const blankFilter: FilterModel = { field: 'totalQty', type: 'number', operator: 'blank', value: '' };
+      expect(matchesFilter(rows[0] as Record<string, unknown>, blankFilter, false, qtyExtractor)).toBe(false);
+      expect(matchesFilter(rows[1] as Record<string, unknown>, blankFilter, false, qtyExtractor)).toBe(true);
+
+      const notBlankFilter: FilterModel = { field: 'totalQty', type: 'number', operator: 'notBlank', value: '' };
+      expect(matchesFilter(rows[0] as Record<string, unknown>, notBlankFilter, false, qtyExtractor)).toBe(true);
+      expect(matchesFilter(rows[1] as Record<string, unknown>, notBlankFilter, false, qtyExtractor)).toBe(false);
     });
   });
 
@@ -641,6 +689,25 @@ describe('filter-model', () => {
       const result = filterRows(rows, filters, false, filterValues);
       expect(result).toHaveLength(1);
       expect(result[0].name).toBe('Bob');
+    });
+
+    it('should use filterValues for numeric operators on virtual columns', () => {
+      const rows = [
+        { id: 1, movements: [{ qty: 100 }, { qty: 200 }] },
+        { id: 2, movements: [{ qty: 50 }] },
+        { id: 3, movements: [] },
+      ];
+      const qtyExtractor = (_value: unknown, row: Record<string, unknown>) => {
+        const movements = row.movements as { qty: number }[];
+        return movements.reduce((sum, m) => sum + m.qty, 0) || '';
+      };
+      const filterValues = new Map([['totalQty', qtyExtractor]]);
+      const filters: FilterModel[] = [
+        { field: 'totalQty', type: 'number', operator: 'between', value: 100, valueTo: 500 },
+      ];
+      const result = filterRows(rows, filters, false, filterValues);
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(1); // 300 is between 100 and 500
     });
   });
 

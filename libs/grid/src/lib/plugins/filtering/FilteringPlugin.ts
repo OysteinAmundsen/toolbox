@@ -1121,7 +1121,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   }
 
   /**
-   * Apply a text/number/date filter
+   * Apply a text/number/date filter.
+   * Resolves the filter type from the column definition so that numeric and
+   * date operators use the correct type in the filter model.
    */
   private applyTextFilter(
     field: string,
@@ -1129,9 +1131,12 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     value: string | number,
     valueTo?: string | number,
   ): void {
+    const col = this.grid.effectiveConfig?.columns?.find((c) => c.field === field);
+    const type = col?.filterType ?? (col?.type as FilterModel['type']) ?? 'text';
+
     this.filters.set(field, {
       field,
-      type: 'text',
+      type,
       operator,
       value,
       valueTo,

@@ -61,15 +61,22 @@ function compileFilter(
   const field = filter.field;
   const op = filter.operator;
 
+  // When a filterValue extractor is provided, use it instead of direct row[field]
+  // access. This supports virtual/computed columns whose field doesn't exist on
+  // the row data object.
+  const getValue = filterValue
+    ? (row: Record<string, unknown>) => filterValue(row[field], row)
+    : (row: Record<string, unknown>) => row[field];
+
   // blank / notBlank — no value needed
   if (op === 'blank')
     return (row) => {
-      const v = row[field];
+      const v = getValue(row);
       return v == null || v === '';
     };
   if (op === 'notBlank')
     return (row) => {
-      const v = row[field];
+      const v = getValue(row);
       return v != null && v !== '';
     };
 
@@ -118,15 +125,17 @@ function compileFilter(
   }
 
   // Numeric / date operators — pre-resolve threshold(s) once.
-  // When the filter type is 'number', the row values are expected to already
-  // be JS numbers, so we emit a tighter predicate that skips toNumeric().
-  const isNumType = filter.type === 'number';
+  // When the filter type is 'number' and there's no custom extractor, row values
+  // are expected to already be JS numbers — emit a tighter predicate that skips
+  // toNumeric(). When a filterValue extractor is present, always use the cautious
+  // path since the extracted value may need conversion.
+  const isNumType = filter.type === 'number' && !filterValue;
   if (op === 'greaterThan') {
     const threshold = toNumeric(filter.value);
     return isNumType
       ? (row) => (row[field] as number) > threshold
       : (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && toNumeric(v) > threshold;
         };
   }
@@ -135,7 +144,7 @@ function compileFilter(
     return isNumType
       ? (row) => (row[field] as number) >= threshold
       : (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && toNumeric(v) >= threshold;
         };
   }
@@ -144,7 +153,7 @@ function compileFilter(
     return isNumType
       ? (row) => (row[field] as number) < threshold
       : (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && toNumeric(v) < threshold;
         };
   }
@@ -153,7 +162,7 @@ function compileFilter(
     return isNumType
       ? (row) => (row[field] as number) <= threshold
       : (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && toNumeric(v) <= threshold;
         };
   }
@@ -166,7 +175,7 @@ function compileFilter(
           return n >= lo && n <= hi;
         }
       : (row) => {
-          const v = row[field];
+          const v = getValue(row);
           if (v == null) return false;
           const n = toNumeric(v);
           return n >= lo && n <= hi;
@@ -178,66 +187,66 @@ function compileFilter(
   if (op === 'contains') {
     return caseSensitive
       ? (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && String(v).includes(compareFilterValue);
         }
       : (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && String(v).toLowerCase().includes(compareFilterValue);
         };
   }
   if (op === 'notContains') {
     return caseSensitive
       ? (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && !String(v).includes(compareFilterValue);
         }
       : (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && !String(v).toLowerCase().includes(compareFilterValue);
         };
   }
   if (op === 'equals') {
     return caseSensitive
       ? (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && String(v) === compareFilterValue;
         }
       : (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && String(v).toLowerCase() === compareFilterValue;
         };
   }
   if (op === 'notEquals') {
     return caseSensitive
       ? (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && String(v) !== compareFilterValue;
         }
       : (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && String(v).toLowerCase() !== compareFilterValue;
         };
   }
   if (op === 'startsWith') {
     return caseSensitive
       ? (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && String(v).startsWith(compareFilterValue);
         }
       : (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && String(v).toLowerCase().startsWith(compareFilterValue);
         };
   }
   if (op === 'endsWith') {
     return caseSensitive
       ? (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && String(v).endsWith(compareFilterValue);
         }
       : (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return v != null && String(v).toLowerCase().endsWith(compareFilterValue);
         };
   }

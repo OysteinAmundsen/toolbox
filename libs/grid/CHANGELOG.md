@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.0-rc.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.0.0-rc.4...grid-2.0.0-rc.5) (2026-04-16)
+
+
+### Features
+
+* **grid:** tree lazy child loading + serverside infinite scroll (lastNode) ([1358e87](https://github.com/OysteinAmundsen/toolbox/commit/1358e87962b05229ef4e519c5620bdceec6470b9))
+
+
+### Performance Improvements
+
+* **grid:** compact internal constants and deduplicate keyboard helpers ([15b2757](https://github.com/OysteinAmundsen/toolbox/commit/15b27579f867e90e94bc2fea590ae79dfc80ecc5))
+* **grid:** eliminate redundant O(n) work in row update and sort hot paths ([b9cab24](https://github.com/OysteinAmundsen/toolbox/commit/b9cab2404b5c2c7131e9f913879849bc79424837))
+
 ## [2.0.0-rc.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.0.0-rc.3...grid-2.0.0-rc.4) (2026-04-16)
 
 

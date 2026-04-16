@@ -19,8 +19,6 @@ import {
   MISSING_DEPENDENCY,
   MISSING_PLUGIN,
   MISSING_PLUGIN_CONFIG,
-  OPTIONAL_DEPENDENCY,
-  debugDiagnostic,
   throwDiagnostic,
   warnDiagnostic,
 } from './diagnostics';
@@ -360,13 +358,8 @@ export function validatePluginDependencies(
           gridId,
         );
       } else {
-        // Soft dependency - log info message but continue
-        debugDiagnostic(
-          OPTIONAL_DEPENDENCY,
-          `${capitalize(pluginName)}Plugin: Optional "${requiredPlugin}" plugin not found. ` +
-            `Some features may be unavailable.`,
-          gridId,
-        );
+        // Soft dependency - silently continue.
+        // Optional plugins enhance functionality but are not required.
       }
     }
   }

@@ -1945,6 +1945,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   #emit<D>(eventName: string, detail: D): void {
+    if (!this.#connected) return;
     this.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true, composed: true }));
   }
 

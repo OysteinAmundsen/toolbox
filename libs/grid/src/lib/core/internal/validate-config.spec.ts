@@ -419,14 +419,14 @@ describe('validatePluginDependencies', () => {
       consoleSpy.mockRestore();
     });
 
-    it('logs debug message for missing optional dependency', () => {
+    it('silently continues when optional dependency is missing (no log)', () => {
       const consoleSpy = vi.spyOn(console, 'debug').mockImplementation(() => {
         /* intentionally empty - suppress console output */
       });
 
       validatePluginDependencies(mockVisibilityPlugin, []);
 
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Optional "reorder" plugin not found'));
+      expect(consoleSpy).not.toHaveBeenCalled();
 
       consoleSpy.mockRestore();
     });

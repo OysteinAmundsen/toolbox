@@ -86,14 +86,11 @@ function MyGrid({ data, onDelete }) {
 <script setup>
 import '@toolbox-web/grid-vue/features/context-menu';
 import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
-import { ref } from 'vue';
 
 const data = [
   { name: 'Alice', email: 'alice@example.com', status: 'active' },
   { name: 'Bob', email: 'bob@example.com', status: 'inactive' },
 ];
-
-const gridRef = ref(null);
 
 const contextMenuConfig = {
   items: [
@@ -105,7 +102,7 @@ const contextMenuConfig = {
 </script>
 
 <template>
-  <TbwGrid ref="gridRef" :rows="data" :context-menu="contextMenuConfig">
+  <TbwGrid :rows="data" :context-menu="contextMenuConfig">
     <TbwGridColumn field="name" header="Name" />
     <TbwGridColumn field="email" header="Email" />
     <TbwGridColumn field="status" header="Status" />

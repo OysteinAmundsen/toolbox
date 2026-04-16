@@ -238,15 +238,14 @@ function ServerTree() {
 <script setup>
 import '@toolbox-web/grid-vue/features/tree';
 import '@toolbox-web/grid-vue/features/server-side';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
-import { ref, onMounted } from 'vue';
+import { TbwGrid, TbwGridColumn, useGrid } from '@toolbox-web/grid-vue';
+import { watch } from 'vue';
 
-const gridRef = ref(null);
+const { gridElement, isReady } = useGrid();
 
-onMounted(async () => {
-  const grid = gridRef.value?.element;
-  await grid?.ready();
-  grid?.getPluginByName('serverSide')?.setDataSource({
+watch(isReady, (ready) => {
+  if (!ready) return;
+  gridElement.value?.getPluginByName('serverSide')?.setDataSource({
     async getRows(params) {
       const res = await fetch(`/api/tree?start=${params.startNode}&end=${params.endNode}`);
       return res.json();
@@ -256,7 +255,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <TbwGrid ref="gridRef" :server-side="{ pageSize: 50 }" :tree="{ childrenField: 'children' }">
+  <TbwGrid :server-side="{ pageSize: 50 }" :tree="{ childrenField: 'children' }">
     <TbwGridColumn field="name" header="Name" />
     <TbwGridColumn field="role" header="Role" />
   </TbwGrid>
@@ -267,16 +266,15 @@ onMounted(async () => {
 ```typescript
 import '@toolbox-web/grid-angular/features/tree';
 import '@toolbox-web/grid-angular/features/server-side';
-import { Component, viewChild, ElementRef } from '@angular/core';
-import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
+import { Component, effect } from '@angular/core';
+import { Grid, injectGrid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-server-tree',
   imports: [Grid],
   template: `
     <tbw-grid
-      #grid
       [columns]="columns"
       [serverSide]="{ pageSize: 50 }"
       [tree]="{ childrenField: 'children' }"
@@ -285,16 +283,18 @@ import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
   `,
 })
 export class ServerTreeComponent {
-  gridRef = viewChild<ElementRef<GridElement>>('grid');
+  grid = injectGrid();
 
   columns: ColumnConfig[] = [
     { field: 'name', header: 'Name' },
     { field: 'role', header: 'Role' },
   ];
 
-  ngAfterViewInit() {
-    this.gridRef()?.nativeElement.ready().then(() => {
-      this.gridRef()?.nativeElement.getPluginByName('serverSide')?.setDataSource({
+  constructor() {
+    effect(() => {
+      const el = this.grid.element();
+      if (!el) return;
+      el.getPluginByName('serverSide')?.setDataSource({
         async getRows(params: any) {
           const res = await fetch(`/api/tree?start=${params.startNode}&end=${params.endNode}`);
           return res.json();

@@ -75,23 +75,16 @@ function MyGrid({ data }) {
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/reorder-columns';
-import { TbwGrid, TbwGridColumn, useGridEvent } from '@toolbox-web/grid-vue';
-import { ref } from 'vue';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
 const data = [
   { id: 1, name: 'Alice', email: 'alice@example.com', department: 'Engineering' },
   { id: 2, name: 'Bob', email: 'bob@example.com', department: 'Marketing' },
 ];
-
-const gridRef = ref(null);
-
-useGridEvent(gridRef, 'column-move', (e) => {
-  console.log('Column moved:', e.detail);
-});
 </script>
 
 <template>
-  <TbwGrid ref="gridRef" :rows="data" :reorder-columns="{ animation: 'flip' }">
+  <TbwGrid :rows="data" :reorder-columns="{ animation: 'flip' }" @column-move="(e) => console.log('Column moved:', e.detail)">
     <TbwGridColumn field="id" header="ID" />
     <TbwGridColumn field="name" header="Name" />
     <TbwGridColumn field="email" header="Email" />

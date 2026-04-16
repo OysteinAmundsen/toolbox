@@ -430,15 +430,14 @@ function ServerGroupedGrid() {
 <script setup>
 import '@toolbox-web/grid-vue/features/grouping-rows';
 import '@toolbox-web/grid-vue/features/server-side';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
-import { ref, onMounted } from 'vue';
+import { TbwGrid, TbwGridColumn, useGrid } from '@toolbox-web/grid-vue';
+import { watch } from 'vue';
 
-const gridRef = ref(null);
+const { gridElement, isReady } = useGrid();
 
-onMounted(async () => {
-  const grid = gridRef.value?.element;
-  await grid?.ready();
-  grid?.getPluginByName('serverSide')?.setDataSource({
+watch(isReady, (ready) => {
+  if (!ready) return;
+  gridElement.value?.getPluginByName('serverSide')?.setDataSource({
     async getRows(params) {
       const res = await fetch(`/api/groups?start=${params.startNode}&end=${params.endNode}`);
       return res.json();
@@ -453,7 +452,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <TbwGrid ref="gridRef" :server-side="{ pageSize: 50 }" grouping-rows>
+  <TbwGrid :server-side="{ pageSize: 50 }" grouping-rows>
     <TbwGridColumn field="name" header="Employee" />
     <TbwGridColumn field="department" header="Department" />
     <TbwGridColumn field="salary" header="Salary" type="currency" />
@@ -465,16 +464,15 @@ onMounted(async () => {
 ```typescript
 import '@toolbox-web/grid-angular/features/grouping-rows';
 import '@toolbox-web/grid-angular/features/server-side';
-import { Component, viewChild, ElementRef } from '@angular/core';
-import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
+import { Component, effect } from '@angular/core';
+import { Grid, injectGrid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-server-grouped-grid',
   imports: [Grid],
   template: `
     <tbw-grid
-      #grid
       [columns]="columns"
       [serverSide]="{ pageSize: 50 }"
       [groupingRows]="true"
@@ -483,7 +481,7 @@ import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
   `,
 })
 export class ServerGroupedGridComponent {
-  gridRef = viewChild<ElementRef<GridElement>>('grid');
+  grid = injectGrid();
 
   columns: ColumnConfig[] = [
     { field: 'name', header: 'Employee' },
@@ -491,9 +489,11 @@ export class ServerGroupedGridComponent {
     { field: 'salary', header: 'Salary', type: 'currency' },
   ];
 
-  ngAfterViewInit() {
-    this.gridRef()?.nativeElement.ready().then(() => {
-      this.gridRef()?.nativeElement.getPluginByName('serverSide')?.setDataSource({
+  constructor() {
+    effect(() => {
+      const el = this.grid.element();
+      if (!el) return;
+      el.getPluginByName('serverSide')?.setDataSource({
         async getRows(params: any) {
           const res = await fetch(`/api/groups?start=${params.startNode}&end=${params.endNode}`);
           return res.json();

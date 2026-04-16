@@ -84,26 +84,24 @@ function EmployeeGrid({ data }) {
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/export';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
-import { ref } from 'vue';
+import { TbwGrid, TbwGridColumn, useGrid } from '@toolbox-web/grid-vue';
 
 const data = [
   { name: 'Alice', email: 'alice@example.com', department: 'Engineering' },
   { name: 'Bob', email: 'bob@example.com', department: 'Marketing' },
 ];
 
-const gridRef = ref(null);
+const { gridElement } = useGrid();
 
 const handleExport = () => {
-  gridRef.value?.element?.getPluginByName('export')?.exportCsv();
+  gridElement.value?.getPluginByName('export')?.exportCsv();
 };
 </script>
 
 <template>
   <div>
     <button @click="handleExport">Export CSV</button>
-    <TbwGrid ref="gridRef" :rows="data" :export="{ fileName: 'employees', includeHeaders: true }">
-
+    <TbwGrid :rows="data" :export="{ fileName: 'employees', includeHeaders: true }">
       <TbwGridColumn field="name" header="Name" />
       <TbwGridColumn field="email" header="Email" />
       <TbwGridColumn field="department" header="Department" />
@@ -117,9 +115,9 @@ const handleExport = () => {
 // Feature import - enables the [exportFeature] input
 import '@toolbox-web/grid-angular/features/export';
 
-import { Component, viewChild, ElementRef } from '@angular/core';
-import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
+import { Component } from '@angular/core';
+import { Grid, injectGrid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-data-grid',
@@ -127,7 +125,6 @@ import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
   template: `
     <button (click)="handleExport()">Export CSV</button>
     <tbw-grid
-      #grid
       [rows]="rows"
       [columns]="columns"
       [exportFeature]="{ fileName: 'employees', includeHeaders: true }"
@@ -136,7 +133,7 @@ import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
   `,
 })
 export class DataGridComponent {
-  gridRef = viewChild<ElementRef<GridElement>>('grid');
+  grid = injectGrid();
   rows = [];
 
   columns: ColumnConfig[] = [
@@ -146,7 +143,7 @@ export class DataGridComponent {
   ];
 
   handleExport() {
-    const plugin = this.gridRef()?.nativeElement.getPluginByName('export');
+    const plugin = this.grid.element()?.getPluginByName('export');
     plugin?.exportCsv();
   }
 }

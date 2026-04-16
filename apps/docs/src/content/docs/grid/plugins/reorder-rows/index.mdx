@@ -75,22 +75,16 @@ function ReorderableTaskList({ tasks }) {
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/reorder-rows';
-import { TbwGrid, TbwGridColumn, useGridEvent } from '@toolbox-web/grid-vue';
-import { ref } from 'vue';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const gridRef = ref(null);
 const tasks = [
   { priority: 1, task: 'Review PR', status: 'Pending' },
   { priority: 2, task: 'Deploy staging', status: 'In Progress' },
 ];
-
-useGridEvent(gridRef, 'row-move', (e) => {
-  console.log('Row moved:', e.detail);
-});
 </script>
 
 <template>
-  <TbwGrid ref="gridRef" :rows="tasks" reorder-rows>
+  <TbwGrid :rows="tasks" reorder-rows @row-move="(e) => console.log('Row moved:', e.detail)">
     <TbwGridColumn field="priority" header="#" type="number" :width="50" />
     <TbwGridColumn field="task" header="Task" />
     <TbwGridColumn field="status" header="Status" />

@@ -292,44 +292,7 @@ Kebab-case bindings like `(cell-click)` also work (they listen to the native DOM
 
 ## Programmatic Grid Access
 
-### Using `viewChild`
-
-Access the underlying `<tbw-grid>` element via Angular's `viewChild`:
-
-```typescript
-import { Component, viewChild, ElementRef, effect } from '@angular/core';
-import { Grid } from '@toolbox-web/grid-angular';
-import type { DataGridElement } from '@toolbox-web/grid';
-
-@Component({
-  selector: 'app-employee-grid',
-  imports: [Grid],
-  template: `
-    <tbw-grid #grid [rows]="employees" [columns]="columns"></tbw-grid>
-  `,
-})
-export class EmployeeGridComponent {
-  private gridRef = viewChild<ElementRef<DataGridElement>>('grid');
-
-  constructor() {
-    effect(() => {
-      const grid = this.gridRef()?.nativeElement;
-      if (!grid) return;
-
-      grid.ready().then(() => {
-        console.log('Row count:', grid.sourceRows.length);
-
-        const selection = grid.getPluginByName('selection');
-        selection?.selectRow(0);
-      });
-    });
-  }
-}
-```
-
-### Using `injectGrid`
-
-For a more Angular-idiomatic approach, use [`injectGrid()`](/grid/angular/api/utilities/injectGrid/) which provides a reactive API via signals:
+Use [`injectGrid()`](/grid/angular/api/utilities/injectGrid/) for programmatic access to the grid. It provides a reactive API via signals:
 
 ```typescript
 import { Component, effect } from '@angular/core';

@@ -9,24 +9,23 @@ The grid's **server-side data architecture** lets you load data from remote APIs
 
 ## Architecture Overview
 
-```
-┌────────────────────────────────────────────────────────────────┐
-│  ServerSidePlugin (data layer)                                 │
-│  ┌──────────────────┐  ┌───────────────────┐                  │
-│  │ getRows()         │  │ getChildRows()     │                 │
-│  │ Block-based fetch │  │ On-demand children  │                │
-│  └──────┬───────────┘  └──────┬────────────┘                  │
-│         │ broadcasts           │ broadcasts                    │
-│    datasource:data       datasource:children                   │
-└────┬────────────────────────┬──────────────────────────────────┘
-     │                        │
-     ▼                        ▼
-┌────────────┐  ┌────────────────┐  ┌────────────────────┐
-│ TreePlugin │  │ GroupingRows   │  │ MasterDetailPlugin │
-│ claims     │  │ Plugin claims  │  │ claims children    │
-│ root data  │  │ root data      │  │ for detail panels  │
-│ + children │  │ + children     │  │                    │
-└────────────┘  └────────────────┘  └────────────────────┘
+```mermaid
+flowchart TB
+    subgraph SSP["ServerSidePlugin (data layer)"]
+        direction LR
+        GR["getRows()<br/>Block-based fetch"]
+        GCR["getChildRows()<br/>On-demand children"]
+    end
+
+    GR -- "broadcasts" --> E1["datasource:data"]
+    GCR -- "broadcasts" --> E2["datasource:children"]
+
+    E1 --> Tree & Group
+    E2 --> Tree & Group & MD
+
+    Tree["TreePlugin<br/>claims root data + children"]
+    Group["GroupingRowsPlugin<br/>claims root data + children"]
+    MD["MasterDetailPlugin<br/>claims children for detail panels"]
 ```
 
 **Key concepts:**

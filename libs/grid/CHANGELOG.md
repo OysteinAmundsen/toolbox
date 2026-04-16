@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.0.0...grid-2.1.0) (2026-04-16)
+
+
+### Features
+
+* **grid:** add config-driven dataSource to ServerSideConfig ([6fccbd2](https://github.com/OysteinAmundsen/toolbox/commit/6fccbd27e6bacb9bf03ae88bf5616519e359a8f3))
+
 ## [2.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.31.3...grid-2.0.0) (2026-04-16)
 
 

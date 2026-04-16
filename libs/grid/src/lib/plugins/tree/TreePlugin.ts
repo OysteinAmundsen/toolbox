@@ -7,18 +7,19 @@
 import { GridClasses } from '../../core/constants';
 import type { GridElement } from '../../core/plugin/base-plugin';
 import {
-  BaseGridPlugin,
-  CellClickEvent,
-  HeaderClickEvent,
-  type PluginManifest,
-  type PluginQuery,
+    BaseGridPlugin,
+    CellClickEvent,
+    HeaderClickEvent,
+    type PluginManifest,
+    type PluginQuery,
 } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ColumnViewRenderer, GridHost } from '../../core/types';
 import type {
-  DataSourceChildrenDetail,
-  DataSourceDataDetail,
-  ViewportMappingQuery,
-  ViewportMappingResponse,
+    DataSourceChildrenDetail,
+    DataSourceDataDetail,
+    FetchChildrenQuery,
+    ViewportMappingQuery,
+    ViewportMappingResponse,
 } from '../server-side/datasource-types';
 import { collapseAll, expandAll, expandToKey, toggleExpand } from './tree-data';
 import { countTopLevelNodes, getTopLevelNodeIndex } from './tree-datasource';
@@ -164,6 +165,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   private previousVisibleKeys = new Set<string>();
   private keysToAnimate = new Set<string>();
   private sortState: { field: string; direction: 1 | -1 } | null = null;
+  /** Keys of nodes that are currently loading lazy children via ServerSide. */
+  private loadingKeys = new Set<string>();
 
   /** Cached original (unwrapped) renderer to prevent re-wrapping on repeated processColumns calls. */
   private originalTreeColumnRenderer: ColumnViewRenderer | undefined;
@@ -179,6 +182,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     this.previousVisibleKeys.clear();
     this.keysToAnimate.clear();
     this.sortState = null;
+    this.loadingKeys.clear();
     this.originalTreeColumnRenderer = undefined;
     this.wrappedTreeColumnField = undefined;
   }
@@ -242,6 +246,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       if (parentRow) {
         const childrenField = this.config.childrenField ?? 'children';
         (parentRow as Record<string, unknown>)[childrenField] = d.rows;
+        const key = (parentRow.__stableKey as string | undefined) ?? String(parentRow.id ?? '?');
+        this.loadingKeys.delete(key);
         this.requestRender();
       }
     });
@@ -352,7 +358,11 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       const stableKey = row.__stableKey as string | undefined;
       const key = stableKey ?? String(row.id ?? '?');
       const children = row[childrenField];
-      const hasChildren = Array.isArray(children) && children.length > 0;
+      const embeddedChildren = Array.isArray(children) && children.length > 0;
+      // Lazy children: truthy non-array value (e.g. `children: true`) signals
+      // that children exist on the server but haven't been fetched yet.
+      const lazyChildren = children != null && !Array.isArray(children) && !!children;
+      const hasChildren = embeddedChildren || lazyChildren;
       const isExpanded = expanded.has(key);
 
       result.push({
@@ -364,11 +374,33 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
         parentKey: depth > 0 ? key.substring(0, key.lastIndexOf('-')) || null : null,
       });
 
-      if (hasChildren && isExpanded) {
+      if (embeddedChildren && isExpanded) {
         result.push(...this.flattenTree(children as TreeRow[], expanded, depth + 1));
       }
     }
     return result;
+  }
+
+  /**
+   * Request lazy children for a node via ServerSide's `datasource:fetch-children` query.
+   * Called when expanding a node whose children are not yet embedded (lazy indicator only).
+   * No-op if ServerSide is not active, children are already loading, or children are embedded.
+   */
+  private requestLazyChildren(flatRow: FlattenedTreeRow): void {
+    if (this.loadingKeys.has(flatRow.key)) return;
+
+    const childrenField = this.config.childrenField ?? 'children';
+    const children = flatRow.data[childrenField];
+    // Only fetch if children is a lazy indicator (truthy but not a non-empty array)
+    if (Array.isArray(children) && children.length > 0) return;
+
+    const isServerSideActive = this.grid?.query?.('datasource:is-active', null);
+    if (!isServerSideActive) return;
+
+    this.loadingKeys.add(flatRow.key);
+    this.grid.query('datasource:fetch-children', {
+      context: { source: 'tree', parentNode: flatRow.data, nodePath: [flatRow.key] },
+    } satisfies FetchChildrenQuery);
   }
 
   /**
@@ -508,6 +540,12 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     if (!flatRow) return false;
 
     this.expandedKeys = toggleExpand(this.expandedKeys, key);
+
+    // Request lazy children when expanding a node without embedded children
+    if (this.expandedKeys.has(key)) {
+      this.requestLazyChildren(flatRow);
+    }
+
     this.broadcast<TreeExpandDetail>('tree-expand', {
       key,
       row: flatRow.data,
@@ -530,6 +568,12 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
     event.preventDefault();
     this.expandedKeys = toggleExpand(this.expandedKeys, flatRow.key);
+
+    // Request lazy children when expanding a node without embedded children
+    if (this.expandedKeys.has(flatRow.key)) {
+      this.requestLazyChildren(flatRow);
+    }
+
     this.broadcast<TreeExpandDetail>('tree-expand', {
       key: flatRow.key,
       row: flatRow.data,
@@ -622,6 +666,10 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
    */
   expand(key: string): void {
     this.expandedKeys.add(key);
+    const flatRow = this.rowKeyMap.get(key);
+    if (flatRow) {
+      this.requestLazyChildren(flatRow);
+    }
     this.requestRender();
   }
 
@@ -662,6 +710,10 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     this.expandedKeys = toggleExpand(this.expandedKeys, key);
     const flatRow = this.rowKeyMap.get(key);
     if (flatRow) {
+      // Request lazy children when expanding a node without embedded children
+      if (this.expandedKeys.has(key)) {
+        this.requestLazyChildren(flatRow);
+      }
       this.broadcast<TreeExpandDetail>('tree-expand', {
         key,
         row: flatRow.data,

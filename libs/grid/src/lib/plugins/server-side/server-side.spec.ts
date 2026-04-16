@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BlockCache } from './cache';
 import {
-  getBlockNumber,
-  getBlockRange,
-  getRequiredBlocks,
-  getRowFromCache,
-  isBlockLoaded,
-  isBlockLoading,
-  loadBlock,
+    getBlockNumber,
+    getBlockRange,
+    getRequiredBlocks,
+    getRowFromCache,
+    isBlockLoaded,
+    isBlockLoading,
+    loadBlock,
 } from './datasource';
 import { ServerSidePlugin } from './ServerSidePlugin';
 import type { ServerSideDataSource } from './types';
@@ -521,11 +521,12 @@ describe('ServerSidePlugin', () => {
       plugin.setDataSource(mockDS);
       await vi.waitFor(() => expect(grid.requestRender).toHaveBeenCalled());
 
+      // undefined totalNodeCount is treated as 0 (not a valid number)
       expect(() => plugin.processRows([])).not.toThrow();
       expect(plugin.processRows([]).length).toBe(0);
     });
 
-    it('should not throw when totalNodeCount is negative', async () => {
+    it('should enter infinite scroll mode when totalNodeCount is -1', async () => {
       const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
@@ -536,8 +537,10 @@ describe('ServerSidePlugin', () => {
       plugin.setDataSource(mockDS);
       await vi.waitFor(() => expect(grid.requestRender).toHaveBeenCalled());
 
+      // -1 means infinite scroll — shows loaded data + one extra block of placeholders
       expect(() => plugin.processRows([])).not.toThrow();
-      expect(plugin.processRows([]).length).toBe(0);
+      // Short block (1 row < blockSize 5) auto-detects end → total = 1
+      expect(plugin.processRows([]).length).toBe(1);
     });
   });
 
@@ -693,6 +696,143 @@ describe('ServerSidePlugin', () => {
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
       expect(plugin.getLoadedBlockCount()).toBe(0);
+    });
+  });
+
+  describe('infinite scroll (lastNode)', () => {
+    it('should enter infinite scroll mode when totalNodeCount is -1', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({
+          rows: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }],
+          totalNodeCount: -1,
+        }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      // In infinite scroll mode, processRows should show loaded rows + one extra block of placeholders
+      const result = plugin.processRows([]);
+      expect(result.length).toBe(10); // 5 loaded + 5 placeholders
+      expect(result[0]).toEqual({ id: 0 });
+      expect(result[4]).toEqual({ id: 4 });
+      expect((result[5] as any).__loading).toBe(true);
+    });
+
+    it('should finalize total when lastNode is returned', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({
+          rows: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }],
+          totalNodeCount: -1,
+          lastNode: 7, // Total is 8 nodes (0-7)
+        }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      // lastNode should override infinite scroll and set exact total
+      expect(plugin.getTotalRowCount()).toBe(8);
+      const result = plugin.processRows([]);
+      expect(result.length).toBe(8);
+    });
+
+    it('should auto-detect end of data when a short block is returned', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      // First block returns fewer rows than blockSize → end of data
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({
+          rows: [{ id: 0 }, { id: 1 }, { id: 2 }],
+          totalNodeCount: -1,
+        }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      // Short block (3 rows < blockSize 10) → total is 3
+      expect(plugin.getTotalRowCount()).toBe(3);
+      const result = plugin.processRows([]);
+      expect(result.length).toBe(3);
+    });
+
+    it('should use exact totalNodeCount when provided (non -1)', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({
+          rows: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }],
+          totalNodeCount: 100,
+        }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      // Not in infinite scroll — exact total used
+      expect(plugin.getTotalRowCount()).toBe(100);
+      const result = plugin.processRows([]);
+      expect(result.length).toBe(100);
+    });
+
+    it('should reset infinite scroll mode on refresh', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockResolvedValueOnce({
+            rows: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }],
+            totalNodeCount: -1,
+          })
+          .mockResolvedValueOnce({
+            rows: [{ id: 0 }, { id: 1 }],
+            totalNodeCount: 2,
+          }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      // First: infinite scroll mode
+      let result = plugin.processRows([]);
+      expect(result.length).toBe(10); // 5 + 5 placeholders
+
+      // Refresh with finite response
+      plugin.refresh();
+      await vi.waitFor(() => expect(mockDS.getRows).toHaveBeenCalledTimes(2));
+      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(2));
+
+      result = plugin.processRows([]);
+      expect(result.length).toBe(2);
+    });
+
+    it('should prioritize lastNode over totalNodeCount when both are provided', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({
+          rows: [{ id: 0 }],
+          totalNodeCount: 1000, // Server says 1000 but also provides lastNode
+          lastNode: 49, // Actual last node is 49 → total = 50
+        }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      expect(plugin.getTotalRowCount()).toBe(50);
     });
   });
 });

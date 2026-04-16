@@ -735,5 +735,282 @@ describe('tree plugin integration', () => {
         totalLoadedNodes: 2,
       });
     });
+
+    it('should fire datasource:fetch-children on expand when children are lazy (truthy non-array)', () => {
+      const plugin = new TreePlugin({ childrenField: 'children', defaultExpanded: false });
+      const eventListeners = new Map<string, (detail: unknown) => void>();
+      const queryCalls: Array<{ type: string; context: unknown }> = [];
+      const mockGrid = {
+        dispatchEvent: () => {
+          /* noop */
+        },
+        requestRender: () => {
+          /* noop */
+        },
+        rows: [],
+        _columns: [],
+        query: (type: string, context: unknown) => {
+          queryCalls.push({ type, context });
+          if (type === 'datasource:is-active') return true;
+          return undefined;
+        },
+        _pluginManager: {
+          subscribe(_p: unknown, eventType: string, callback: (detail: unknown) => void) {
+            eventListeners.set(eventType, callback);
+          },
+          unsubscribe: () => {
+            /* noop */
+          },
+          emitPluginEvent: () => {
+            /* noop */
+          },
+        },
+      };
+      plugin.attach(mockGrid as any);
+
+      // Rows with lazy children: `children: true` signals "has children, not loaded"
+      const rows = [
+        { id: 1, name: 'Parent', children: true },
+        { id: 2, name: 'Leaf' },
+      ];
+      plugin.processRows(rows);
+
+      // Verify the lazy node is detected as having children
+      const processed = plugin.processRows(rows);
+      expect(processed[0].__treeHasChildren).toBe(true);
+      expect(processed[1].__treeHasChildren).toBe(false);
+
+      // Expand the lazy parent via toggle icon click
+      const toggle = document.createElement('span');
+      toggle.classList.add('tree-toggle');
+      toggle.setAttribute('data-tree-key', '1');
+
+      plugin.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        originalEvent: { target: toggle } as any,
+      });
+
+      // Should have queried datasource:is-active and then datasource:fetch-children
+      const isActiveQuery = queryCalls.find((q) => q.type === 'datasource:is-active');
+      expect(isActiveQuery).toBeDefined();
+
+      const fetchChildrenQuery = queryCalls.find((q) => q.type === 'datasource:fetch-children');
+      expect(fetchChildrenQuery).toBeDefined();
+      expect((fetchChildrenQuery?.context as any).context.source).toBe('tree');
+      expect((fetchChildrenQuery?.context as any).context.parentNode.id).toBe(1);
+    });
+
+    it('should NOT fire datasource:fetch-children when children are embedded (array)', () => {
+      const plugin = new TreePlugin({ childrenField: 'children', defaultExpanded: false });
+      const queryCalls: Array<{ type: string; context: unknown }> = [];
+      const mockGrid = {
+        dispatchEvent: () => {
+          /* noop */
+        },
+        requestRender: () => {
+          /* noop */
+        },
+        rows: [],
+        _columns: [],
+        query: (type: string, context: unknown) => {
+          queryCalls.push({ type, context });
+          if (type === 'datasource:is-active') return true;
+          return undefined;
+        },
+        _pluginManager: {
+          subscribe: () => {
+            /* noop */
+          },
+          unsubscribe: () => {
+            /* noop */
+          },
+          emitPluginEvent: () => {
+            /* noop */
+          },
+        },
+      };
+      plugin.attach(mockGrid as any);
+
+      // Rows with embedded children
+      const rows = [{ id: 1, name: 'Parent', children: [{ id: 10, name: 'Child' }] }];
+      plugin.processRows(rows);
+
+      // Expand the parent via toggle icon click
+      const toggle = document.createElement('span');
+      toggle.classList.add('tree-toggle');
+      toggle.setAttribute('data-tree-key', '1');
+
+      plugin.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        originalEvent: { target: toggle } as any,
+      });
+
+      // Should NOT fire fetch-children (children are already embedded)
+      const fetchChildrenQuery = queryCalls.find((q) => q.type === 'datasource:fetch-children');
+      expect(fetchChildrenQuery).toBeUndefined();
+    });
+
+    it('should NOT fire datasource:fetch-children when ServerSide is not active', () => {
+      const plugin = new TreePlugin({ childrenField: 'children' });
+      const queryCalls: Array<{ type: string; context: unknown }> = [];
+      const mockGrid = {
+        dispatchEvent: () => {
+          /* noop */
+        },
+        requestRender: () => {
+          /* noop */
+        },
+        rows: [],
+        _columns: [],
+        query: (type: string, context: unknown) => {
+          queryCalls.push({ type, context });
+          if (type === 'datasource:is-active') return false; // No ServerSide
+          return undefined;
+        },
+        _pluginManager: {
+          subscribe: () => {
+            /* noop */
+          },
+          unsubscribe: () => {
+            /* noop */
+          },
+          emitPluginEvent: () => {
+            /* noop */
+          },
+        },
+      };
+      plugin.attach(mockGrid as any);
+
+      const rows = [{ id: 1, name: 'Parent', children: true }];
+      plugin.processRows(rows);
+
+      const toggle = document.createElement('span');
+      toggle.classList.add('tree-toggle');
+      toggle.setAttribute('data-tree-key', '1');
+
+      plugin.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        originalEvent: { target: toggle } as any,
+      });
+
+      // Should query is-active but NOT fire fetch-children
+      expect(queryCalls.find((q) => q.type === 'datasource:is-active')).toBeDefined();
+      expect(queryCalls.find((q) => q.type === 'datasource:fetch-children')).toBeUndefined();
+    });
+
+    it('should clear loadingKeys when datasource:children arrives', () => {
+      const plugin = new TreePlugin({ childrenField: 'children' });
+      const eventListeners = new Map<string, (detail: unknown) => void>();
+      const queryCalls: Array<{ type: string }> = [];
+      const mockGrid = {
+        dispatchEvent: () => {
+          /* noop */
+        },
+        requestRender: () => {
+          /* noop */
+        },
+        rows: [],
+        _columns: [],
+        query: (type: string, context: unknown) => {
+          queryCalls.push({ type });
+          if (type === 'datasource:is-active') return true;
+          return undefined;
+        },
+        _pluginManager: {
+          subscribe(_p: unknown, eventType: string, callback: (detail: unknown) => void) {
+            eventListeners.set(eventType, callback);
+          },
+          unsubscribe: () => {
+            /* noop */
+          },
+          emitPluginEvent: () => {
+            /* noop */
+          },
+        },
+      };
+      plugin.attach(mockGrid as any);
+
+      const parentRow: Record<string, unknown> = { id: 1, name: 'Parent', children: true };
+      plugin.processRows([parentRow]);
+
+      // Expand to trigger fetch
+      const toggle = document.createElement('span');
+      toggle.classList.add('tree-toggle');
+      toggle.setAttribute('data-tree-key', '1');
+      plugin.onCellClick({ rowIndex: 0, colIndex: 0, originalEvent: { target: toggle } as any });
+
+      // First fetch fires
+      expect(queryCalls.filter((q) => q.type === 'datasource:fetch-children').length).toBe(1);
+
+      // Expanding again (e.g., collapse then expand) should fire again since children haven't arrived
+      // First collapse
+      plugin.onCellClick({ rowIndex: 0, colIndex: 0, originalEvent: { target: toggle } as any });
+      // Expand again — should NOT fire because loadingKeys still has the key
+      plugin.processRows([parentRow]); // Rebuild flattenedRows
+      plugin.onCellClick({ rowIndex: 0, colIndex: 0, originalEvent: { target: toggle } as any });
+      expect(queryCalls.filter((q) => q.type === 'datasource:fetch-children').length).toBe(1); // Still 1
+
+      // Simulate children arriving
+      const childDetail = {
+        rows: [{ id: 10, name: 'Child' }],
+        context: { source: 'tree', parentNode: parentRow },
+        claimed: false,
+      };
+      eventListeners.get('datasource:children')?.(childDetail);
+
+      // Now parent has embedded children — subsequent expand won't fire fetch
+      plugin.processRows([parentRow]);
+      const processed = plugin.processRows([parentRow]);
+      expect(processed[0].__treeHasChildren).toBe(true);
+      expect(Array.isArray(parentRow.children)).toBe(true);
+    });
+
+    it('should detect lazy children with truthy non-array children field values', () => {
+      const plugin = new TreePlugin({ childrenField: 'children' });
+      const mockGrid = {
+        dispatchEvent: () => {
+          /* noop */
+        },
+        requestRender: () => {
+          /* noop */
+        },
+        rows: [],
+        _columns: [],
+        query: () => undefined,
+        _pluginManager: {
+          subscribe: () => {
+            /* noop */
+          },
+          unsubscribe: () => {
+            /* noop */
+          },
+          emitPluginEvent: () => {
+            /* noop */
+          },
+        },
+      };
+      plugin.attach(mockGrid as any);
+
+      // Various lazy children indicators
+      const rows = [
+        { id: 1, name: 'Bool true', children: true },
+        { id: 2, name: 'Number', children: 5 },
+        { id: 3, name: 'Empty array', children: [] },
+        { id: 4, name: 'No children' },
+        { id: 5, name: 'False', children: false },
+        { id: 6, name: 'Null', children: null },
+      ];
+      const processed = plugin.processRows(rows);
+
+      expect(processed[0].__treeHasChildren).toBe(true); // true → lazy
+      expect(processed[1].__treeHasChildren).toBe(true); // 5 → lazy
+      expect(processed[2].__treeHasChildren).toBe(false); // [] → no children
+      expect(processed[3].__treeHasChildren).toBe(false); // undefined → no children
+      expect(processed[4].__treeHasChildren).toBe(false); // false → no children
+      expect(processed[5].__treeHasChildren).toBe(false); // null → no children
+    });
   });
 });

@@ -12,13 +12,14 @@ import type { TreeRow } from './types';
 export function detectTreeStructure(rows: readonly TreeRow[], childrenField = 'children'): boolean {
   if (!Array.isArray(rows) || rows.length === 0) return false;
 
-  // Check if any row has a non-empty children array
+  // Check if any row has children (embedded array or lazy indicator)
   for (const row of rows) {
     if (!row) continue;
     const children = row[childrenField];
-    if (Array.isArray(children) && children.length > 0) {
-      return true;
-    }
+    // Embedded children: non-empty array
+    if (Array.isArray(children) && children.length > 0) return true;
+    // Lazy children: truthy non-array value (e.g. `true`, number > 0)
+    if (children != null && !Array.isArray(children) && !!children) return true;
   }
 
   return false;

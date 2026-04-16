@@ -25,6 +25,7 @@ import type {
   DataSourceLoadingDetail,
   FetchChildrenQuery,
   GetRowsParams,
+  GetRowsResult,
   ServerSideDataSource,
   ViewportMappingQuery,
   ViewportMappingResponse,
@@ -130,6 +131,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   // #region Internal State
   private dataSource: ServerSideDataSource | null = null;
   private totalNodeCount = 0;
+  private infiniteScrollMode = false;
   private loadedBlocks = new Map<number, unknown[]>();
   private loadingBlocks = new Set<number>();
   private lastRequestId = 0;
@@ -153,6 +155,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   override detach(): void {
     this.dataSource = null;
     this.totalNodeCount = 0;
+    this.infiniteScrollMode = false;
     this.loadedBlocks.clear();
     this.loadingBlocks.clear();
     this.managedNodes = [];
@@ -210,7 +213,46 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.loadingBlocks.clear();
     this.managedNodes = [];
     this.totalNodeCount = 0;
+    this.infiniteScrollMode = false;
     this.requestRender();
+  }
+
+  /**
+   * Apply server response metadata: resolve totalNodeCount and infinite scroll mode.
+   * When `lastNode` is provided, it takes priority and finalizes the total.
+   * When `totalNodeCount` is -1, switch to infinite scroll (growing array).
+   * When a block returns fewer rows than blockSize, detect end-of-data.
+   */
+  private applyServerResult(result: GetRowsResult, blockNum: number, blockSize: number): void {
+    if (result.lastNode !== undefined) {
+      // Server declared the exact end
+      this.totalNodeCount = result.lastNode + 1;
+      this.infiniteScrollMode = false;
+    } else if (result.totalNodeCount === -1) {
+      this.infiniteScrollMode = true;
+    } else {
+      this.totalNodeCount = result.totalNodeCount;
+      this.infiniteScrollMode = false;
+    }
+
+    // Auto-detect end of data: short block means server has no more rows
+    if (this.infiniteScrollMode && result.rows.length < blockSize) {
+      this.totalNodeCount = blockNum * blockSize + result.rows.length;
+      this.infiniteScrollMode = false;
+    }
+  }
+
+  /**
+   * Estimate the row count for infinite scroll mode.
+   * Returns loaded rows + one extra block of placeholders to trigger next fetch.
+   */
+  private getInfiniteScrollEstimate(blockSize: number): number {
+    let maxLoadedEnd = 0;
+    for (const [block, rows] of this.loadedBlocks) {
+      const end = block * blockSize + rows.length;
+      if (end > maxLoadedEnd) maxLoadedEnd = end;
+    }
+    return maxLoadedEnd + blockSize;
   }
 
   /**
@@ -248,7 +290,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
       loadBlock(this.dataSource, blockNum, blockSize, enrichment)
         .then((result) => {
           this.loadedBlocks.set(blockNum, result.rows);
-          this.totalNodeCount = result.totalNodeCount;
+          this.applyServerResult(result, blockNum, blockSize);
           this.loadingBlocks.delete(blockNum);
 
           // Update managed nodes in place for this block (avoids full processRows rebuild)
@@ -304,9 +346,13 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
 
     const blockSize = this.config.cacheBlockSize ?? 100;
 
-    // Guard against invalid totalNodeCount (e.g. undefined from a malformed datasource response,
-    // or -1 for infinite scroll mode where the total is unknown).
-    const nodeCount = Number.isFinite(this.totalNodeCount) && this.totalNodeCount >= 0 ? this.totalNodeCount : 0;
+    // Guard against invalid totalNodeCount (e.g. undefined from a malformed datasource response).
+    // In infinite scroll mode, estimate the total from loaded data + one extra block.
+    const nodeCount = this.infiniteScrollMode
+      ? this.getInfiniteScrollEstimate(blockSize)
+      : Number.isFinite(this.totalNodeCount) && this.totalNodeCount >= 0
+        ? this.totalNodeCount
+        : 0;
 
     // Grow array with stable placeholder objects (created once, reused across renders)
     while (this.managedNodes.length < nodeCount) {
@@ -413,6 +459,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.loadingBlocks.clear();
     this.managedNodes = [];
     this.totalNodeCount = 0;
+    this.infiniteScrollMode = false;
 
     // Load first block with enrichment params
     const blockSize = this.config.cacheBlockSize ?? 100;
@@ -424,7 +471,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     loadBlock(dataSource, 0, blockSize, enrichment)
       .then((result) => {
         this.loadedBlocks.set(0, result.rows);
-        this.totalNodeCount = result.totalNodeCount;
+        this.applyServerResult(result, 0, blockSize);
 
         const detail: DataSourceDataDetail = {
           rows: result.rows,
@@ -456,6 +503,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.loadingBlocks.clear();
     this.managedNodes = [];
     this.totalNodeCount = 0;
+    this.infiniteScrollMode = false;
     // Re-trigger load via setDataSource which handles enrichment and broadcasting
     this.setDataSource(ds);
   }

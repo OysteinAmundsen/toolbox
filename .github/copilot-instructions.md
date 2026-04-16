@@ -22,32 +22,50 @@
 
 ## Knowledge Base Architecture
 
-This project's AI knowledge is organized in three tiers to minimize context window usage:
+This project's AI knowledge is organized in four tiers to minimize context window usage:
 
 1. **This file** (always loaded) — Project overview, navigation hub, core constraints
-2. **Instruction files** (auto-loaded by file path) — Conventions and rules for specific file types
-3. **Skill files** (loaded on demand) — Multi-step workflows and procedures
+2. **Instruction files** (auto-loaded by file path) — Conventions and rules for specific file types (prescriptive: _how to work_)
+3. **Skill files** (loaded on demand) — Multi-step workflows and procedures (procedural: _how to do X_)
+4. **Knowledge files** (loaded on demand at task start) — Living mental model of the system (descriptive: _how it works and why_)
 
-> **Continuous improvement:** After significant tasks, use the `retrospective` skill to capture lessons learned and update the knowledge base. See [Scoped Instructions](#scoped-instructions) and [Skills Reference](#skills-reference) below.
+> **Knowledge files:** Before starting any non-trivial task, read the relevant knowledge files from `.github/knowledge/` to rebuild the mental model. These describe system architecture, data flows, state ownership, design rationale, and known tensions — the understanding needed to make informed decisions rather than just follow rules.
+
+> **Continuous improvement:** After significant tasks, use the `retrospective` skill to capture lessons learned and update the knowledge base. See [Scoped Instructions](#scoped-instructions), [Knowledge Reference](#knowledge-reference), and [Skills Reference](#skills-reference) below.
 
 ### Scoped Instructions
 
 Auto-applied from `.github/instructions/` when working on matching files:
 
-| Instruction file         | Applies to                         | Content                                                                     |
-| ------------------------ | ---------------------------------- | --------------------------------------------------------------------------- |
-| `development-principles` | `{libs,apps,demos}/**/*.ts`        | Three pillars + troubleshooting: check pitfalls when stuck                  |
-| `delivery-workflow`      | `{libs,apps,demos}/**`             | 5-step delivery checklist, commit hygiene, feature workflow                 |
-| `nx-workflow`            | `{libs,apps,demos,e2e}/**`         | Nx commands, path mappings, Vite build, CI                                  |
-| `grid-architecture`      | `libs/grid/src/**`                 | Config precedence, render scheduler, virtualization, plugin DOM access      |
-| `grid-api`               | `libs/grid/**`                     | API stability, features vs plugins, plugin conventions, usage reference     |
-| `grid-pitfalls`          | `libs/grid/**`                     | Counterintuitive DOM/render/plugin gotchas (check when debugging)           |
-| `typescript-conventions` | `**/*.ts`                          | No `as unknown as`, region markers, naming/visibility                       |
-| `css-conventions`        | `**/*.css`                         | Color guidelines, `light-dark()`, hover/sticky rules                        |
-| `testing-patterns`       | `**/*.spec.ts`                     | Test co-location, `waitUpgrade()`, DOM cleanup                              |
-| `e2e-testing`            | `{e2e,apps/docs-e2e}/**`           | Playwright patterns, docs demo e2e, cross-framework e2e, utilities          |
-| `docs-site`              | `apps/docs/**`                     | Astro/Starlight docs, key components                                        |
-| `framework-adapters`     | `libs/grid-{angular,react,vue}/**` | Adapter conventions, key files                                              |
+| Instruction file         | Applies to                         | Content                                                                 |
+| ------------------------ | ---------------------------------- | ----------------------------------------------------------------------- |
+| `development-principles` | `{libs,apps,demos}/**/*.ts`        | Three pillars + troubleshooting: check pitfalls when stuck              |
+| `delivery-workflow`      | `{libs,apps,demos}/**`             | 5-step delivery checklist, commit hygiene, feature workflow             |
+| `nx-workflow`            | `{libs,apps,demos,e2e}/**`         | Nx commands, path mappings, Vite build, CI                              |
+| `grid-architecture`      | `libs/grid/src/**`                 | Config precedence, render scheduler, virtualization, plugin DOM access  |
+| `grid-api`               | `libs/grid/**`                     | API stability, features vs plugins, plugin conventions, usage reference |
+| `grid-pitfalls`          | `libs/grid/**`                     | Counterintuitive DOM/render/plugin gotchas (check when debugging)       |
+| `typescript-conventions` | `**/*.ts`                          | No `as unknown as`, region markers, naming/visibility                   |
+| `css-conventions`        | `**/*.css`                         | Color guidelines, `light-dark()`, hover/sticky rules                    |
+| `testing-patterns`       | `**/*.spec.ts`                     | Test co-location, `waitUpgrade()`, DOM cleanup                          |
+| `e2e-testing`            | `{e2e,apps/docs-e2e}/**`           | Playwright patterns, docs demo e2e, cross-framework e2e, utilities      |
+| `docs-site`              | `apps/docs/**`                     | Astro/Starlight docs, key components                                    |
+| `framework-adapters`     | `libs/grid-{angular,react,vue}/**` | Adapter conventions, key files                                          |
+
+### Knowledge Reference
+
+Loaded on demand from `.github/knowledge/` — read relevant files before starting work to rebuild the mental model:
+
+| Knowledge file     | Domain                    | Content                                                                          |
+| ------------------ | ------------------------- | -------------------------------------------------------------------------------- |
+| `grid-core`        | Grid internals            | Config-manager, render-scheduler, virtualization, DOM structure, state ownership |
+| `grid-plugins`     | Plugin system             | Plugin lifecycle, hooks, inter-plugin communication, all 24 plugins catalogued   |
+| `grid-features`    | Feature registry          | Feature vs plugin distinction, registry pattern, all 25 features                 |
+| `adapters`         | Framework adapters        | React/Vue/Angular bridging, portal/teleport patterns, event handling             |
+| `build-and-deploy` | Build, CSS, release       | Vite config, bundle budgets, CSS layers, themes, CI pipeline                     |
+| `data-flow-traces` | End-to-end operation maps | First render, property change, sort, scroll, edit, tree expand, config merge     |
+
+> **Schema:** Each entry uses structured notation — OWNS, READS FROM, WRITES TO, INVARIANT, FLOW, TENSION, DECIDED — optimized for fast scanning and mental model reconstruction.
 
 ### Skills Reference
 

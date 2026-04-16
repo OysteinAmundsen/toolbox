@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.0-rc.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.0.0-rc.2...grid-2.0.0-rc.3) (2026-04-15)
+
+
+### Features
+
+* **grid:** support lazy-loading tree data via TreeDataSource ([#216](https://github.com/OysteinAmundsen/toolbox/issues/216)) ([8d3dfc2](https://github.com/OysteinAmundsen/toolbox/commit/8d3dfc2699837b5883e7e9acfd3864af339eedba))
+
 ## [2.0.0-rc.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.0.0-rc.1...grid-2.0.0-rc.2) (2026-04-15)
 
 

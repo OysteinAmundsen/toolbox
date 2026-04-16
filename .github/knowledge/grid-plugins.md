@@ -97,10 +97,12 @@ modifiesRowStructure — affects render scheduler
 - Tree ↔ Pivot (same reason)
 - ServerSide ↔ Pivot (lazy-load vs full dataset)
 
-## compatibility-notes
+## coexistence-rules
 
-- MasterDetail + GroupingRows: COMPATIBLE (MasterDetail skips \_\_isGroupRow)
-- Responsive + GroupingRows: COMPATIBLE (Responsive skips \_\_isGroupRow)
+- ServerSide + GroupingRows: COMPATIBLE only in pre-defined groups mode (`setGroups()` / `setGroupRows()`)
+- ServerSide + Tree: COMPATIBLE — Tree has its own `dataSource` for lazy-loading paginated tree data
+- MasterDetail + GroupingRows: COMPATIBLE (MasterDetail skips `__isGroupRow`)
+- Responsive + GroupingRows: COMPATIBLE (Responsive skips `__isGroupRow`)
 - Pivot + MultiSort: COMPATIBLE (Pivot queries sort model, processRows at priority 100)
 
 ## all-plugins (24 total, categorized)
@@ -113,7 +115,7 @@ modifiesRowStructure — affects render scheduler
 
 **GroupingRows** — OWNS: grouped row model, expanded group keys, animation state. HOOKS: processRows(10), onHeaderClick(-1), renderRow. QUERIES: canMoveRow, grouping:get-grouped-fields, datasource:viewport-mapping. EVENTS: group-toggle/expand/collapse
 
-**Pivot** — OWNS: pivot result, flattened pivot rows, expanded keys, column totals, sort state. HOOKS: onHeaderClick(-10), processRows(100). QUERIES: sort:get-sort-config. EVENTS: pivot-toggle, pivot-config-change
+**Pivot** — OWNS: pivot result, flattened pivot rows, expanded keys, column totals, sort state. HOOKS: onHeaderClick(-10), processRows(100). QUERIES: sort:get-sort-config. EVENTS: pivot-toggle, pivot-config-change. INVARIANT: `PivotRow.isGroup` means "has sub-groups" (`remainingFields.length > 0`), NOT "is a group row" — single `rowGroupFields` produces `isGroup: false`; `getAllGroupKeys()` returns nothing for single-level pivots
 
 ### Column-Transforming
 
@@ -137,7 +139,7 @@ modifiesRowStructure — affects render scheduler
 
 ### Sorting & Filtering
 
-**MultiSort** — OWNS: sortModel[], cached sort result. HOOKS: processRows, onHeaderClick. QUERIES: sort:get-model, sort:set-model. EVENTS: sort-change. TENSION: caches sort during row edit to prevent edited row from jumping
+**MultiSort** — OWNS: sortModel[], cached sort result. HOOKS: processRows, onHeaderClick. QUERIES: sort:get-model, sort:set-model. EVENTS: sort-change. TENSION: caches sort during row edit to prevent edited row from jumping. INVARIANT: MultiSort is the authoritative sort source — Tree and GroupingRows must query `sort:get-model` when MultiSort is loaded, not maintain independent sort state (causes desync of sort indicators vs actual order)
 
 **Filtering** — OWNS: filterModels Map, cached unique values. HOOKS: processRows, afterRender, onHeaderClick, afterCellRender. EVENTS: filter-change
 

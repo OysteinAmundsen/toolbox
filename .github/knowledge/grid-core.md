@@ -60,12 +60,12 @@ related: [grid-plugins, grid-features, data-flow-traces]
 - WRITES TO: shadow DOM, CSS grid-template-columns, visible row elements (pooled), custom events (cell-click, row-click, header-click, cell-change, sort-change, data-change)
 - INVARIANT: \_rows always reflects #rows (input) after plugin processing
 - INVARIANT: \_columns contains ALL columns including hidden; \_visibleColumns is cached filter
-- INVARIANT: row ID map always in sync with \_rows (rebuilt on changes)
+- INVARIANT: row ID map always in sync with \_rows at read time (lazy: #applyRowsUpdate marks dirty, #ensureRowIdMap rebuilds on first read, #rebuildRowModel rebuilds unconditionally)
 - INVARIANT: every property change goes through batched #queueUpdate → queueMicrotask → #flushPendingUpdates
 - INVARIANT: ConfigManager.effective is THE source of truth for config
 - FLOW[property-change]: set prop → queueUpdate(flag) → microtask → flushPendingUpdates → apply\*Update → request scheduler phase
 - FLOW[render-cycle]: RAF fires → mergeConfig → processRows → processColumns → updateTemplate → renderHeader → refreshVirtualWindow → afterRender
-- INVARIANT: `_rebuildRowIdMap()` must run in `#applyRowsUpdate()` even though `#rebuildRowModel()` rebuilds again — map must be sync-available after rows setter so `getRow()` works before scheduler fires
+- INVARIANT: position cache rebuild in #rebuildRowModel is NOT needed — scheduler always calls refreshVirtualWindow(force=true) after \_schedulerProcessRows(), which rebuilds the cache
 - INVARIANT: core sort fast-path (in-place sort + refreshVirtualWindow) only safe when no row-structure plugins active — plugins declaring `modifiesRowStructure: true` require full `ROWS` phase pipeline (reapplyCoreSort on base rows → processRows rebuilds groups)
 - TENSION: batched updates add indirection (flags, queued handlers) but coalesce rapid framework updates
 - TENSION: \_baseColumns must be tracked separately from processed columns (plugins reorder/transform; need original to restore hidden)
@@ -100,17 +100,17 @@ related: [grid-plugins, grid-features, data-flow-traces]
 
 ## state-ownership-matrix
 
-| State                      | Owner                 | Mutators                                     | Notes                               |
-| -------------------------- | --------------------- | -------------------------------------------- | ----------------------------------- |
-| gridConfig/columns/fitMode | ConfigManager         | merge(), property setters                    | frozen original + mutable effective |
-| \_rows (processed)         | grid.ts               | rebuildRowModel, processRows hooks           | after plugin transforms             |
-| #rows (raw input)          | grid.ts               | property setter only                         | raw user input, copied to \_rows    |
-| \_sortState                | grid.ts               | sort API, rebuildRowModel                    | field + direction                   |
-| \_rowIdMap                 | grid.ts               | \_rebuildRowIdMap on row changes             | O(1): rowId → {row, index}          |
-| VirtualState               | VirtualizationManager | refreshVirtualWindow, init methods           | shared mutable object               |
-| positionCache/heightCache  | VirtualizationManager | initializePositionCache, invalidateRowHeight | variable height support             |
-| shell config + runtime     | grid.ts + ShellState  | registerToolPanel, light DOM parsing         | config maps vs runtime sets         |
-| plugin instances           | PluginManager         | Plugin.attach                                | registered in array order           |
+| State                      | Owner                 | Mutators                                     | Notes                                                        |
+| -------------------------- | --------------------- | -------------------------------------------- | ------------------------------------------------------------ |
+| gridConfig/columns/fitMode | ConfigManager         | merge(), property setters                    | frozen original + mutable effective                          |
+| \_rows (processed)         | grid.ts               | rebuildRowModel, processRows hooks           | after plugin transforms                                      |
+| #rows (raw input)          | grid.ts               | property setter only                         | raw user input, copied to \_rows                             |
+| \_sortState                | grid.ts               | sort API, rebuildRowModel                    | field + direction                                            |
+| \_rowIdMap                 | grid.ts               | \_rebuildRowIdMap on row changes             | O(1): rowId → {row, index}; lazy-rebuilt via #ensureRowIdMap |
+| VirtualState               | VirtualizationManager | refreshVirtualWindow, init methods           | shared mutable object                                        |
+| positionCache/heightCache  | VirtualizationManager | initializePositionCache, invalidateRowHeight | variable height support                                      |
+| shell config + runtime     | grid.ts + ShellState  | registerToolPanel, light DOM parsing         | config maps vs runtime sets                                  |
+| plugin instances           | PluginManager         | Plugin.attach                                | registered in array order                                    |
 
 ## type-interfaces
 

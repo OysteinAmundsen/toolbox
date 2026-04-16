@@ -325,6 +325,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // Row ID Map - O(1) lookup for rows by ID
   #rowIdMap = new Map<string, { row: T; index: number }>();
+  #rowIdMapDirty = false;
   // #endregion
 
   // #region Derived State
@@ -2036,13 +2037,25 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // Individual update applicators - these do the actual work
   #applyRowsUpdate(): void {
     this._rows = Array.isArray(this.#rows) ? [...this.#rows] : [];
-    // Rebuild row ID map synchronously — do NOT remove even though #rebuildRowModel
-    // rebuilds it again later. getRow() callers expect the map to be current immediately
-    // after the rows setter, before the scheduler fires.
-    this._rebuildRowIdMap();
+    // Mark row ID map dirty — defer the O(n) rebuild until a consumer actually
+    // needs it (getRow / _getRowEntry via #ensureRowIdMap). #rebuildRowModel
+    // will rebuild it unconditionally during the scheduler flush, so eager
+    // rebuild here only wastes cycles when no one calls getRow() between the
+    // setter and the RAF. The lazy pattern preserves the same invariant as the
+    // previous eager _rebuildRowIdMap() call: the map is always current at read time.
+    this.#rowIdMapDirty = true;
     // Request a ROWS phase render through the scheduler.
     // This batches with any other pending work (e.g., React adapter's refreshColumns).
     this.#scheduler.requestPhase(RenderPhase.ROWS, 'applyRowsUpdate');
+  }
+
+  /**
+   * Ensure the row ID map is current. Call before any map read.
+   */
+  #ensureRowIdMap(): void {
+    if (this.#rowIdMapDirty) {
+      this._rebuildRowIdMap();
+    }
   }
 
   /**
@@ -2050,6 +2063,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Called when rows array changes.
    */
   _rebuildRowIdMap(): void {
+    this.#rowIdMapDirty = false;
     this.#rowIdMap.clear();
     const getRowId = this.#effectiveConfig.getRowId;
 
@@ -2303,17 +2317,22 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       const { field, direction } = this.#effectiveConfig.initialSort;
       const col = (this._columns as ColumnConfig<T>[]).find((c) => c.field === field);
       if (col) {
-        this.__originalOrder = [...baseRows];
         this._sortState = { field, direction: direction === 'desc' ? -1 : 1 };
       }
     }
 
-    // Only copy when sort will mutate in-place; filter-only path avoids the O(n) spread
+    // When sort is active, reuse the existing _rows copy (from #applyRowsUpdate) as
+    // __originalOrder instead of creating another O(n) slice inside reapplyCoreSort.
+    // Then make a single fresh copy for in-place sorting.
+    if (this._sortState) {
+      this.__originalOrder = this._rows; // Already a safe copy
+    }
     const originalRows = this._sortState ? [...baseRows] : baseRows;
 
     // Re-apply core sort before plugins so sorted order is maintained on data refresh.
     // This runs BEFORE processRows so grouping/filtering work on sorted data.
-    const sortedRows = reapplyCoreSort(this, originalRows);
+    // skipOriginalOrderSave=true: we already saved __originalOrder above.
+    const sortedRows = reapplyCoreSort(this, originalRows, true);
 
     // Let plugins process rows (they may add, remove, transform rows)
     // Plugins can add markers for specialized rendering via the renderRow hook
@@ -2326,10 +2345,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Rebuild row ID map to keep indices in sync with the processed _rows.
     this._rebuildRowIdMap();
 
-    // Rebuild position cache for variable heights (rows may have changed)
-    if (this._virtualization.variableHeights) {
-      this.#virtManager.initializePositionCache();
-    }
+    // Position cache rebuild is NOT needed here — the scheduler always calls
+    // refreshVirtualWindow(force=true) after _schedulerProcessRows(), which
+    // rebuilds the position cache. Doing it here would double the O(n) work.
 
     this._emitDataChange();
   }
@@ -2581,6 +2599,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   #updateRowLoadingState(rowId: string, loading: boolean): void {
     // Find the row element by row ID
+    this.#ensureRowIdMap();
     const rowData = this.#rowIdMap.get(rowId);
     if (!rowData) return;
 
@@ -2598,6 +2617,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   #updateCellLoadingState(rowId: string, field: string, loading: boolean): void {
     // Find the row element by row ID
+    this.#ensureRowIdMap();
     const rowData = this.#rowIdMap.get(rowId);
     if (!rowData) return;
 
@@ -3075,6 +3095,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @internal
    */
   _getRowEntry(id: string): { row: T; index: number } | undefined {
+    this.#ensureRowIdMap();
     return this.#rowIdMap.get(id);
   }
 

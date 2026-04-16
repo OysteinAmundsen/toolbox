@@ -143,7 +143,15 @@ function finalizeSortResult<T>(grid: GridHost<T>, sortedRows: T[], col: ColumnCo
  */
 function emitSortChange<T>(grid: GridHost<T>, col: ColumnConfig<T>, dir: 1 | -1 | 0): void {
   grid.dispatchEvent(new CustomEvent('sort-change', { detail: { field: col.field, direction: dir } }));
-  announce(grid, getA11yMessage(grid, dir === 0 ? 'sortCleared' : 'sortApplied', col.header ?? col.field, dir === 1 ? 'ascending' : 'descending'));
+  announce(
+    grid,
+    getA11yMessage(
+      grid,
+      dir === 0 ? 'sortCleared' : 'sortApplied',
+      col.header ?? col.field,
+      dir === 1 ? 'ascending' : 'descending',
+    ),
+  );
   // Trigger state change after sort applied
   grid.requestStateChange?.();
 }
@@ -216,8 +224,11 @@ export function toggleSort(grid: GridHost, col: ColumnConfig<any>): void {
  * Re-apply the current core sort to rows during #rebuildRowModel.
  * Updates __originalOrder so "clear sort" restores the current dataset.
  * Returns rows unchanged if no core sort is active or handler is async.
+ *
+ * @param skipOriginalOrderSave - When true, caller already saved __originalOrder.
+ *   Avoids an O(n) `rows.slice()` in the hot path.
  */
-export function reapplyCoreSort<T>(grid: InternalGrid<T>, rows: T[]): T[] {
+export function reapplyCoreSort<T>(grid: InternalGrid<T>, rows: T[], skipOriginalOrderSave = false): T[] {
   if (!grid._sortState) return rows;
 
   const handler: SortHandler<any> = grid.effectiveConfig?.sortHandler ?? builtInSort;
@@ -227,8 +238,10 @@ export function reapplyCoreSort<T>(grid: InternalGrid<T>, rows: T[]): T[] {
   // Do NOT replace with duck-typing or string comparison — the identity check is intentional.
   if (handler === builtInSort) {
     // Fast path: caller (#rebuildRowModel) already passed a copy of #rows.
-    // Save a snapshot for "clear sort", then sort in-place — avoids a second allocation.
-    grid.__originalOrder = rows.slice();
+    // Save a snapshot for "clear sort" unless the caller already did.
+    if (!skipOriginalOrderSave) {
+      grid.__originalOrder = rows.slice();
+    }
     executeBuiltInSortInPlace(
       rows,
       grid._sortState!.field,
@@ -239,7 +252,9 @@ export function reapplyCoreSort<T>(grid: InternalGrid<T>, rows: T[]): T[] {
   }
 
   // Custom handler: preserve current behavior
-  grid.__originalOrder = rows;
+  if (!skipOriginalOrderSave) {
+    grid.__originalOrder = rows;
+  }
   const result = handler(rows, grid._sortState, grid._columns as ColumnConfig<any>[]);
   if (result && typeof (result as Promise<unknown[]>).then === 'function') return rows;
   return result as T[];

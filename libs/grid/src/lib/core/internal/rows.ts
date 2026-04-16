@@ -597,6 +597,7 @@ function fastPatchRow(grid: GridHost, rowEl: HTMLElement, rowData: any, rowIndex
         value: renderedValue,
         field: col.field,
         column: col,
+        grid: grid as any,
         cellEl: cell,
       });
       if (typeof produced === 'string') {
@@ -843,7 +844,7 @@ export function renderInlineRow(grid: GridHost, rowEl: HTMLElement, rowData: any
       placeholder.setAttribute('data-external-view', '');
       placeholder.setAttribute('data-field', col.field);
       cell.appendChild(placeholder);
-      const context = { row: rowData, value, field: col.field, column: col };
+      const context = { row: rowData, value, field: col.field, column: col, grid: grid as any };
       if (spec.mount) {
         try {
           spec.mount({ placeholder, context, spec });

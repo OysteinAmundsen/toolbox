@@ -26,13 +26,19 @@ function isOverflowing(el: HTMLElement): boolean {
  * Resolve the tooltip text for a cell.
  * Returns the text to show, or `null` to suppress.
  */
-function resolveCellTooltip(column: ColumnConfig, cell: HTMLElement, row: unknown, value: unknown): string | null {
+function resolveCellTooltip(
+  column: ColumnConfig,
+  cell: HTMLElement,
+  row: unknown,
+  value: unknown,
+  grid?: GridElement,
+): string | null {
   const spec = column.cellTooltip;
 
   if (spec === false) return null;
   if (typeof spec === 'string') return spec;
   if (typeof spec === 'function') {
-    const ctx: CellRenderContext = { value, row, column, field: column.field };
+    const ctx: CellRenderContext = { value, row, column, field: column.field, grid: grid as any };
     return spec(ctx);
   }
 
@@ -357,7 +363,7 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
     const row = this.rows[rowIndex];
     const value = row?.[column.field as keyof typeof row];
 
-    const text = resolveCellTooltip(column, cell, row, value);
+    const text = resolveCellTooltip(column, cell, row, value, this.grid);
     if (text) {
       this.#showTooltip(cell, text);
     }

@@ -295,6 +295,33 @@ describe('renderVisibleRows', () => {
     renderVisibleRows(g, 0, 1, 1);
     expect(capturedGrid).toBe(g);
   });
+
+  it('passes grid reference in CellRenderContext during fastPatchRow', () => {
+    const g = makeGrid();
+    const capturedGridRefs: unknown[] = [];
+    g._columns = [
+      {
+        field: 'name',
+        viewRenderer: (ctx: any) => {
+          capturedGridRefs.push(ctx.grid);
+          return document.createTextNode(ctx.value);
+        },
+      },
+    ];
+    g.__hasSpecialColumns = undefined;
+
+    // Initial render at epoch 1 (renderInlineRow path)
+    renderVisibleRows(g, 0, 1, 1);
+    expect(capturedGridRefs.length).toBe(1);
+    expect(capturedGridRefs[0]).toBe(g);
+
+    // Replace row data, same epoch — triggers fastPatchRow path
+    g._rows = [{ id: 1, name: 'Updated' }];
+    capturedGridRefs.length = 0;
+    renderVisibleRows(g, 0, 1, 1);
+    expect(capturedGridRefs.length).toBe(1);
+    expect(capturedGridRefs[0]).toBe(g);
+  });
 });
 
 describe('handleRowClick', () => {

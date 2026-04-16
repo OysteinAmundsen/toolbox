@@ -11,6 +11,7 @@ Tests are co-located with source files (`feature.ts` → `feature.spec.ts`). Int
 - **Wait for component upgrade**: Always call `await waitUpgrade(grid)` after creating a grid element in tests
 - **Test isolation**: Clean up DOM with `afterEach(() => { document.body.innerHTML = '' })`
 - **Use `nextFrame()`**: For assertions that depend on a render cycle completing
+- **Sync→async refactoring breaks assertions**: When a method is changed from synchronous to async (e.g., `refresh()` delegating to `setDataSource()`), tests that assert immediately after calling it will fail. Wrap in `await vi.waitFor(() => ...)` to poll until the async operation completes.
 - **Run via Nx**: `bun nx test grid` or `bun nx test grid --testFile=src/lib/.../file.spec.ts` — never invoke Vitest directly
 - **DOM environment**: Tests use `happy-dom` (configured in vitest workspace)
 - **Bun runtime**: This repo uses Bun; some Node-specific patterns may not work

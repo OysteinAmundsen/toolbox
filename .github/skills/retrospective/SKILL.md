@@ -186,6 +186,7 @@ Before adding content, consider the cost:
 2. **Update reference tables** in `copilot-instructions.md` if you added/renamed files
 3. **Verify consistency** — does the new content contradict anything existing?
 4. **Remove outdated content** — if the lesson replaces old advice, delete the old advice
+5. **No duplication** — each piece of information lives in exactly one place. If it's in a knowledge file, do not also add it to pitfalls/instructions. If moving information from one file to another, delete it from the source.
 
 ## Step 6: Summarize for the User
 

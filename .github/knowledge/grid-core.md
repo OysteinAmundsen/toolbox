@@ -49,6 +49,7 @@ related: [grid-plugins, grid-features, data-flow-traces]
 - TENSION: position cache O(n) rebuild on every row count change (expand/collapse, filter)
 - TENSION: variable heights must measure rendered rows; unmeasured use averageHeight estimate → visible scroll jumps until measured
 - TENSION: dual-cache pattern (position rebuilt frequently, height persists) reduces remeasure but adds complexity
+- TENSION: inconsistent row heights cause oscillation — `#measureRowHeight()` measures first visible row each frame; if rows have different heights (e.g., tree parent vs child), virtual window shifts on each measurement, exposing different row type, causing rowHeight to oscillate. Fix: ensure consistent rendered height across row types
 
 ## grid.ts (main component)
 
@@ -64,6 +65,8 @@ related: [grid-plugins, grid-features, data-flow-traces]
 - INVARIANT: ConfigManager.effective is THE source of truth for config
 - FLOW[property-change]: set prop → queueUpdate(flag) → microtask → flushPendingUpdates → apply\*Update → request scheduler phase
 - FLOW[render-cycle]: RAF fires → mergeConfig → processRows → processColumns → updateTemplate → renderHeader → refreshVirtualWindow → afterRender
+- INVARIANT: `_rebuildRowIdMap()` must run in `#applyRowsUpdate()` even though `#rebuildRowModel()` rebuilds again — map must be sync-available after rows setter so `getRow()` works before scheduler fires
+- INVARIANT: core sort fast-path (in-place sort + refreshVirtualWindow) only safe when no row-structure plugins active — plugins declaring `modifiesRowStructure: true` require full `ROWS` phase pipeline (reapplyCoreSort on base rows → processRows rebuilds groups)
 - TENSION: batched updates add indirection (flags, queued handlers) but coalesce rapid framework updates
 - TENSION: \_baseColumns must be tracked separately from processed columns (plugins reorder/transform; need original to restore hidden)
 - TENSION: \_\_rowRenderEpoch forces full row rebuild on column changes (avoids stale cell reuse) but adds cost when only data changed
@@ -108,6 +111,12 @@ related: [grid-plugins, grid-features, data-flow-traces]
 | positionCache/heightCache  | VirtualizationManager | initializePositionCache, invalidateRowHeight | variable height support             |
 | shell config + runtime     | grid.ts + ShellState  | registerToolPanel, light DOM parsing         | config maps vs runtime sets         |
 | plugin instances           | PluginManager         | Plugin.attach                                | registered in array order           |
+
+## type-interfaces
+
+- `GridHost` = `InternalGrid & HTMLElement` (from `core/types.ts`) — used by internal modules
+- `PluginGridApi` (from `plugin/types.ts`) — used by plugins
+- TENSION: both define `_pluginManager` with different shapes; if you need a plugin-manager property in internal code, ensure it's on `InternalGrid`'s definition too
 
 ## internal-modules (other files in core/internal/)
 

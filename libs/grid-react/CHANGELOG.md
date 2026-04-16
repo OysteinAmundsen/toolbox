@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.18.5...grid-react-1.0.0) (2026-04-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* Remove ~106 deprecated APIs across grid core and all framework adapters.
+
+### Features
+
+* **grid:** accessibility hardening — axe-core, live announcements, A11yConfig ([#189](https://github.com/OysteinAmundsen/toolbox/issues/189)) ([d722e77](https://github.com/OysteinAmundsen/toolbox/commit/d722e77e2384f88a49c58ef21b3cc14c00187fd3))
+* remove deprecated APIs for v2 ([#186](https://github.com/OysteinAmundsen/toolbox/issues/186)) ([c1b4a95](https://github.com/OysteinAmundsen/toolbox/commit/c1b4a95fbf74950d168ea0df706d31d0d813c930))
+
+
+### Bug Fixes
+
+* **grid:** remove unused import and correct type casting for type defaults ([fe9de65](https://github.com/OysteinAmundsen/toolbox/commit/fe9de656026439da486ea49012d30113448a1c17))
+
 ## [0.18.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.18.4...grid-react-0.18.5) (2026-04-15)
 
 

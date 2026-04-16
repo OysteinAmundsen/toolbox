@@ -1,6 +1,6 @@
 {
   "name": "@toolbox-web/grid-react",
-  "version": "0.18.5",
+  "version": "1.0.0",
   "description": "React adapter for @toolbox-web/grid data grid component",
   "type": "module",
   "main": "./index.js",

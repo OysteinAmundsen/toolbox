@@ -47,9 +47,10 @@ related: [grid-plugins, grid-features, data-flow-traces]
 - FLOW[scroll]: scroll → getRowIndexAtOffset(scrollTop) via binary search on positionCache → calculate start/end → renderVisibleRows(start, end) using row pool
 - FLOW[row-change]: initializePositionCache → rebuild from rows + heightCache → compute averageHeight → update spacer height
 - TENSION: position cache O(n) rebuild on every row count change (expand/collapse, filter)
+- OWNS: row height measurement lifecycle — configureVariableHeights, measureRowHeight, measureRowHeightForPlugins, resolveCssRowHeight, setupRowHeightObserver, disposeRowHeightObserver
 - TENSION: variable heights must measure rendered rows; unmeasured use averageHeight estimate → visible scroll jumps until measured
 - TENSION: dual-cache pattern (position rebuilt frequently, height persists) reduces remeasure but adds complexity
-- TENSION: inconsistent row heights cause oscillation — `#measureRowHeight()` measures first visible row each frame; if rows have different heights (e.g., tree parent vs child), virtual window shifts on each measurement, exposing different row type, causing rowHeight to oscillate. Fix: ensure consistent rendered height across row types
+- TENSION: inconsistent row heights cause oscillation — measureRowHeight measures first visible row each frame; if rows have different heights (e.g., tree parent vs child), virtual window shifts on each measurement, exposing different row type, causing rowHeight to oscillate. Fix: ensure consistent rendered height across row types
 
 ## grid.ts (main component)
 
@@ -120,23 +121,24 @@ related: [grid-plugins, grid-features, data-flow-traces]
 
 ## internal-modules (other files in core/internal/)
 
-| Module             | Responsibility                                                  |
-| ------------------ | --------------------------------------------------------------- |
-| rows               | row rendering, template cloning, pool management, row mutations |
-| dom-builder        | DOM construction helpers, template fragments                    |
-| shell              | header, tool panel state, rendering, light DOM parsing          |
-| event-delegation   | delegated mouse/keyboard handlers at grid level                 |
-| columns            | column definitions, merging, template updates                   |
-| header             | header row rendering, cell templates                            |
-| keyboard           | keyboard navigation, cell focus                                 |
-| sorting            | sort state, sort application, sort UI updates                   |
-| row-manager        | row CRUD (insertRow, removeRow, updateRow)                      |
-| focus-manager      | focus state, external focus containers                          |
-| row-animation      | row insertion/removal animations                                |
-| resize             | column resize, user resize tracking, width persistence          |
-| touch-scroll       | touch/momentum scrolling (mobile)                               |
-| idle-scheduler     | deferred work (requestIdleCallback pattern)                     |
-| sanitize           | HTML sanitization for user renderers                            |
-| style-injector     | CSS injection, plugin styles, custom styles                     |
-| aria / aria-labels | accessibility state, ARIA attributes, announcements             |
-| aggregators        | sum, avg, count for grouping                                    |
+| Module             | Responsibility                                                                 |
+| ------------------ | ------------------------------------------------------------------------------ |
+| rows               | row rendering, template cloning, pool management, row mutations                |
+| dom-builder        | DOM construction helpers, template fragments                                   |
+| shell              | header, tool panel state, rendering, light DOM parsing, DOM construction       |
+| shell-controller   | ShellController: tool panel orchestration, header/toolbar content registration |
+| event-delegation   | delegated mouse/keyboard handlers at grid level                                |
+| columns            | column definitions, merging, template updates                                  |
+| header             | header row rendering, cell templates                                           |
+| keyboard           | keyboard navigation, cell focus                                                |
+| sorting            | sort state, sort application, sort UI updates                                  |
+| row-manager        | row CRUD (insertRow, removeRow, updateRow)                                     |
+| focus-manager      | focus state, external focus containers                                         |
+| row-animation      | row insertion/removal animations                                               |
+| resize             | column resize, user resize tracking, width persistence                         |
+| touch-scroll       | touch/momentum scrolling (mobile)                                              |
+| idle-scheduler     | deferred work (requestIdleCallback pattern)                                    |
+| sanitize           | HTML sanitization for user renderers                                           |
+| style-injector     | CSS injection, plugin styles, custom styles                                    |
+| aria / aria-labels | accessibility state, ARIA attributes, announcements                            |
+| aggregators        | sum, avg, count for grouping                                                   |

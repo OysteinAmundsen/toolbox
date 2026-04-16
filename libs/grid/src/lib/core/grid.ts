@@ -23,7 +23,6 @@ import { invalidateCellCache, renderVisibleRows } from './internal/rows';
 import {
   buildGridDOMIntoElement,
   cleanupShellState,
-  createShellController,
   createShellState,
   parseLightDomShell,
   parseLightDomToolButtons,
@@ -40,10 +39,10 @@ import {
   shouldRenderShellHeader,
   updatePanelState,
   updateToolbarActiveStates,
-  type ShellController,
   type ShellState,
   type ToolPanelRendererFactory,
 } from './internal/shell';
+import { createShellController, type ShellController } from './internal/shell-controller';
 import { applySort, reapplyCoreSort, toggleSort } from './internal/sorting';
 import { addPluginStyles, injectStyles } from './internal/style-injector';
 import {

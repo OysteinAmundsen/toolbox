@@ -66,34 +66,19 @@ const KNOWN_COLUMN_PROPERTIES: InternalPropertyDefinition[] = [
     property: 'editable',
     pluginName: 'editing',
     level: 'column',
-    description: 'the "editable" column property',
+    description: '',
     isUsed: (v) => v === true || typeof v === 'function',
   },
-  {
-    property: 'editor',
-    pluginName: 'editing',
-    level: 'column',
-    description: 'the "editor" column property',
-  },
-  {
-    property: 'editorParams',
-    pluginName: 'editing',
-    level: 'column',
-    description: 'the "editorParams" column property',
-  },
+  { property: 'editor', pluginName: 'editing', level: 'column', description: '' },
+  { property: 'editorParams', pluginName: 'editing', level: 'column', description: '' },
   // GroupingColumnsPlugin
-  {
-    property: 'group',
-    pluginName: 'groupingColumns',
-    level: 'column',
-    description: 'the "group" column property',
-  },
+  { property: 'group', pluginName: 'groupingColumns', level: 'column', description: '' },
   // PinnedColumnsPlugin
   {
     property: 'pinned',
     pluginName: 'pinnedColumns',
     level: 'column',
-    description: 'the "pinned" column property',
+    description: '',
     isUsed: (v) => v === 'left' || v === 'right' || v === 'start' || v === 'end',
   },
 ];
@@ -107,7 +92,7 @@ const KNOWN_CONFIG_PROPERTIES: InternalPropertyDefinition[] = [
     property: 'rowEditable',
     pluginName: 'editing',
     level: 'config',
-    description: 'the "rowEditable" config property',
+    description: '',
     isUsed: (v) => typeof v === 'function',
   },
   // GroupingColumnsPlugin
@@ -115,7 +100,7 @@ const KNOWN_CONFIG_PROPERTIES: InternalPropertyDefinition[] = [
     property: 'columnGroups',
     pluginName: 'groupingColumns',
     level: 'config',
-    description: 'the "columnGroups" config property',
+    description: '',
     isUsed: (v) => Array.isArray(v) && v.length > 0,
   },
 ];
@@ -205,7 +190,8 @@ export function validatePluginProperties<T>(
     const isUsed = def.isUsed ? def.isUsed(value) : value !== undefined;
 
     if (isUsed && !hasPlugin(plugins, def.pluginName)) {
-      addError(def.pluginName, def.description, getImportHint(def.pluginName), def.property, true);
+      const desc = def.description || `the "${def.property}" ${def.level} property`;
+      addError(def.pluginName, desc, getImportHint(def.pluginName), def.property, true);
     }
   }
 
@@ -220,7 +206,8 @@ export function validatePluginProperties<T>(
 
         if (isUsed && !hasPlugin(plugins, def.pluginName)) {
           const field = (column as ColumnConfig).field || '<unknown>';
-          addError(def.pluginName, def.description, getImportHint(def.pluginName), field);
+          const desc = def.description || `the "${def.property}" ${def.level} property`;
+          addError(def.pluginName, desc, getImportHint(def.pluginName), field);
         }
       }
     }

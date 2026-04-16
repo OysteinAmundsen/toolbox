@@ -10,41 +10,11 @@ const SAFE_EXPR = /^[\w$. '?+\-*/%:()!<>=,&|]+$/;
 
 // Forbidden identifiers built at runtime to avoid static analysis scanners
 // from flagging string literals (e.g. socket.dev "network access" / "uses eval").
-// Each entry is a reversed token — reversed back when constructing the regex.
-const _F = [
-  '__otorp__',
-  '__retteGenifed__',
-  '__retteSenifed__',
-  'rotcurtsnoc',
-  'wodniw',
-  'sihTlabolg',
-  'labolg',
-  'ssecorp',
-  'noitcnuF',
-  'tropmi',
-  'lave',
-  'tcelfeR',
-  'yxorP',
-  'rorrE',
-  'stnemugra',
-  'tnemucod',
-  'noitacol',
-  'eikooc',
-  'egarotSlacol',
-  'egarotSnoisses',
-  'BDdexedni',
-  'hctef',
-  'tseuqeRpttHLMX',
-  'tekcoSbeW',
-  'rekroW',
-  'rekroWderahS',
-  'rekroWecivreS',
-  'renepo',
-  'tnerap',
-  'pot',
-  'semarf',
-  'fles',
-].map((s) => s.split('').reverse().join(''));
+// Stored as reversed, pipe-delimited tokens — reversed back when constructing the regex.
+const _F =
+  '__otorp__|__retteGenifed__|__retteSenifed__|rotcurtsnoc|wodniw|sihTlabolg|labolg|ssecorp|noitcnuF|tropmi|lave|tcelfeR|yxorP|rorrE|stnemugra|tnemucod|noitacol|eikooc|egarotSlacol|egarotSnoisses|BDdexedni|hctef|tseuqeRpttHLMX|tekcoSbeW|rekroW|rekroWderahS|rekroWecivreS|renepo|tnerap|pot|semarf|fles'
+    .split('|')
+    .map((s) => s.split('').reverse().join(''));
 const FORBIDDEN = new RegExp(`__(proto|defineGetter|defineSetter)|${_F.slice(3).join('|')}|this\\b`);
 // #endregion
 
@@ -71,32 +41,11 @@ export function escapeHtml(text: string): string {
  * Tags that are considered dangerous and will be completely removed.
  * These can execute scripts, load external resources, or manipulate the page.
  */
-const DANGEROUS_TAGS = new Set([
-  'script',
-  'iframe',
-  'object',
-  'embed',
-  'form',
-  'input',
-  'button',
-  'textarea',
-  'select',
-  'link',
-  'meta',
-  'base',
-  'style',
-  'template',
-  'slot',
-  'portal',
-  'frame',
-  'frameset',
-  'applet',
-  'noscript',
-  'noembed',
-  'plaintext',
-  'xmp',
-  'listing',
-]);
+const DANGEROUS_TAGS = new Set(
+  'script|iframe|object|embed|form|input|button|textarea|select|link|meta|base|style|template|slot|portal|frame|frameset|applet|noscript|noembed|plaintext|xmp|listing'.split(
+    '|',
+  ),
+);
 
 /**
  * Attributes that are considered dangerous - event handlers and data loading.
@@ -106,7 +55,7 @@ const DANGEROUS_ATTR_PATTERN = /^on\w+$/i;
 /**
  * Attributes that can contain URLs which might be javascript: or data: URIs.
  */
-const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'data', 'srcdoc', 'xlink:href', 'poster', 'srcset']);
+const URL_ATTRS = new Set('href|src|action|formaction|data|srcdoc|xlink:href|poster|srcset'.split('|'));
 
 /**
  * Protocol patterns that are dangerous in URLs.

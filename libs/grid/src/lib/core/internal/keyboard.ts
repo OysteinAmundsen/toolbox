@@ -7,6 +7,19 @@ import type { GridHost } from '../types';
 import { FOCUSABLE_EDITOR_SELECTOR } from './rows';
 import { clearCellFocus, isRTL } from './utils';
 
+/** Commit active row edit if the editing plugin provides this method. */
+function tryCommitEdit(grid: GridHost): void {
+  if (typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
+}
+
+function isFormField(el: HTMLElement | null): boolean {
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return true;
+  if (el.isContentEditable) return true;
+  return false;
+}
+
 // #region Keyboard Handler
 export function handleGridKeyDown(grid: GridHost, e: KeyboardEvent): void {
   // Dispatch to plugin system first - if any plugin handles it, stop here
@@ -21,13 +34,6 @@ export function handleGridKeyDown(grid: GridHost, e: KeyboardEvent): void {
   const colType = col?.type;
   const path = e.composedPath?.() ?? [];
   const target = (path.length ? path[0] : e.target) as HTMLElement | null;
-  const isFormField = (el: HTMLElement | null) => {
-    if (!el) return false;
-    const tag = el.tagName;
-    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return true;
-    if (el.isContentEditable) return true;
-    return false;
-  };
   if (isFormField(target) && (e.key === 'Home' || e.key === 'End')) return;
   if (isFormField(target) && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
     if ((target as HTMLInputElement).tagName === 'INPUT' && (target as HTMLInputElement).type === 'number') return;
@@ -44,7 +50,7 @@ export function handleGridKeyDown(grid: GridHost, e: KeyboardEvent): void {
       if (forward) {
         if (grid._focusCol < maxCol) grid._focusCol += 1;
         else {
-          if (typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
+          tryCommitEdit(grid);
           if (grid._focusRow < maxRow) {
             grid._focusRow += 1;
             grid._focusCol = 0;
@@ -53,8 +59,7 @@ export function handleGridKeyDown(grid: GridHost, e: KeyboardEvent): void {
       } else {
         if (grid._focusCol > 0) grid._focusCol -= 1;
         else if (grid._focusRow > 0) {
-          if (typeof grid.commitActiveRowEdit === 'function' && grid._activeEditRows === grid._focusRow)
-            grid.commitActiveRowEdit();
+          if (grid._activeEditRows === grid._focusRow) tryCommitEdit(grid);
           grid._focusRow -= 1;
           grid._focusCol = maxCol;
         }
@@ -63,12 +68,12 @@ export function handleGridKeyDown(grid: GridHost, e: KeyboardEvent): void {
       return;
     }
     case 'ArrowDown':
-      if (editing && typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
+      if (editing) tryCommitEdit(grid);
       grid._focusRow = Math.min(maxRow, grid._focusRow + 1);
       e.preventDefault();
       break;
     case 'ArrowUp':
-      if (editing && typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
+      if (editing) tryCommitEdit(grid);
       grid._focusRow = Math.max(0, grid._focusRow - 1);
       e.preventDefault();
       break;
@@ -97,7 +102,7 @@ export function handleGridKeyDown(grid: GridHost, e: KeyboardEvent): void {
     case 'Home':
       if (e.ctrlKey || e.metaKey) {
         // CTRL+Home: navigate to first row, first cell
-        if (editing && typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
+        if (editing) tryCommitEdit(grid);
         grid._focusRow = 0;
         grid._focusCol = 0;
       } else {
@@ -110,7 +115,7 @@ export function handleGridKeyDown(grid: GridHost, e: KeyboardEvent): void {
     case 'End':
       if (e.ctrlKey || e.metaKey) {
         // CTRL+End: navigate to last row, last cell
-        if (editing && typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
+        if (editing) tryCommitEdit(grid);
         grid._focusRow = maxRow;
         grid._focusCol = maxCol;
       } else {

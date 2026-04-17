@@ -1,4 +1,4 @@
-import { afterNextRender, computed, ElementRef, inject, type Signal, signal } from '@angular/core';
+import { afterNextRender, computed, DestroyRef, ElementRef, inject, type Signal, signal } from '@angular/core';
 import type { ColumnConfig, DataGridElement, GridConfig } from '@toolbox-web/grid';
 
 /**
@@ -67,11 +67,18 @@ export interface InjectGridReturn<TRow = unknown> {
  */
 export function injectGrid<TRow = unknown>(selector = 'tbw-grid'): InjectGridReturn<TRow> {
   const elementRef = inject(ElementRef);
+  const destroyRef = inject(DestroyRef);
 
   // Reactive signals
   const isReady = signal(false);
   const config = signal<GridConfig<TRow> | null>(null);
   const element = signal<DataGridElement<TRow> | null>(null);
+
+  // Track destruction so async work doesn't touch signals after teardown
+  let destroyed = false;
+  destroyRef.onDestroy(() => {
+    destroyed = true;
+  });
 
   // Initialize after render
   afterNextRender(() => {
@@ -83,14 +90,21 @@ export function injectGrid<TRow = unknown>(selector = 'tbw-grid'): InjectGridRet
 
     element.set(gridElement);
 
-    // Wait for grid to be ready
-    gridElement.ready?.().then(async () => {
-      isReady.set(true);
-      const effectiveConfig = await gridElement.getConfig?.();
-      if (effectiveConfig) {
-        config.set(effectiveConfig as GridConfig<TRow>);
-      }
-    });
+    // Wait for grid to be ready. Use Promise.resolve to guard against
+    // gridElement.ready being undefined (would otherwise throw on .then).
+    Promise.resolve(gridElement.ready?.())
+      .then(async () => {
+        if (destroyed) return;
+        isReady.set(true);
+        const effectiveConfig = await gridElement.getConfig?.();
+        if (destroyed) return;
+        if (effectiveConfig) {
+          config.set(effectiveConfig as GridConfig<TRow>);
+        }
+      })
+      .catch((err) => {
+        console.error('[injectGrid] Error waiting for grid to be ready:', err);
+      });
   });
 
   // Computed visible columns

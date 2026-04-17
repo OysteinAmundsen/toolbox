@@ -326,9 +326,19 @@ export function buildContext(
   selectionState?: { selected: Set<number> } | null,
   filterState?: { cachedResult: unknown[] | null } | null,
 ): PinnedRowsContext {
+  // Prefer live counts from the grid element so filteredRows reflects the
+  // actual processed row count regardless of which mechanism did the
+  // filtering (built-in filter plugin, column filters, custom pipeline, etc.).
+  // Fall back to the passed `rows` when the grid element does not expose
+  // these properties (e.g. in unit tests using a plain <div>).
+  const gridSourceRows = (grid as unknown as { sourceRows?: unknown[] })?.sourceRows;
+  const gridProcessedRows = (grid as unknown as { rows?: unknown[] })?.rows;
+  const totalRows = Array.isArray(gridSourceRows) ? gridSourceRows.length : rows.length;
+  const processedCount = Array.isArray(gridProcessedRows) ? gridProcessedRows.length : rows.length;
+
   return {
-    totalRows: rows.length,
-    filteredRows: filterState?.cachedResult?.length ?? rows.length,
+    totalRows,
+    filteredRows: filterState?.cachedResult?.length ?? processedCount,
     selectedRows: selectionState?.selected?.size ?? 0,
     columns: columns as PinnedRowsContext['columns'],
     rows,

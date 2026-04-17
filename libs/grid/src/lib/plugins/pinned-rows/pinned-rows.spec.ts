@@ -1,10 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  buildContext,
-  createAggregationContainer,
-  createInfoBarElement,
-  renderAggregationRows,
-} from './pinned-rows';
+import { buildContext, createAggregationContainer, createInfoBarElement, renderAggregationRows } from './pinned-rows';
 import type { AggregationRowConfig, PinnedRowsConfig, PinnedRowsContext, PinnedRowsPanel } from './types';
 
 describe('pinnedRows', () => {
@@ -285,6 +280,23 @@ describe('pinnedRows', () => {
 
       expect(context.totalRows).toBe(0);
       expect(context.filteredRows).toBe(0);
+    });
+
+    it('should derive filteredRows from grid.rows when no filter plugin state is available', () => {
+      // Simulates a host that does its own filtering (column filters, custom
+      // pipeline, etc.) where `grid.rows` is post-filter and `grid.sourceRows`
+      // is the untouched source. The filter plugin is not involved.
+      const sourceRows = Array.from({ length: 10 }, (_, i) => ({ id: i }));
+      const processedRows = sourceRows.slice(0, 3);
+      const columns = [{ field: 'id' }];
+      const grid = document.createElement('div');
+      Object.defineProperty(grid, 'rows', { get: () => processedRows, configurable: true });
+      Object.defineProperty(grid, 'sourceRows', { get: () => sourceRows, configurable: true });
+
+      const context = buildContext(sourceRows, columns, grid);
+
+      expect(context.totalRows).toBe(10);
+      expect(context.filteredRows).toBe(3);
     });
   });
 

@@ -216,6 +216,8 @@ The inline `group` property is strictly for declaring group membership. It does 
 
 Use `groupHeaderRenderer` to customize the content of group header cells. The renderer is called once per group, receives a `GroupHeaderRenderParams` object (including the group `id`), and can return an `HTMLElement`, an HTML string, or `void` to keep the default label.
 
+HTML strings returned from the renderer are automatically sanitized (scripts and event-handler attributes are stripped) — see [Production Checklist › Sanitize User-Supplied Data](/grid/guides/production-checklist/#sanitize-user-supplied-data).
+
 Since the renderer receives `params.id`, a single function can differentiate rendering per group:
 
 <Tabs syncKey="framework">

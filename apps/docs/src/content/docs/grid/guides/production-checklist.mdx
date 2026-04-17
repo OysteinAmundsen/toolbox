@@ -42,6 +42,10 @@ renderer: (ctx) => {
 
 **How to fix:** Replace `innerHTML` with `textContent`. If you genuinely need HTML, use a sanitization library (e.g., DOMPurify) before assigning to `innerHTML`.
 
+:::note[String-returning renderers are auto-sanitized]
+When a cell renderer or group header renderer returns an **HTML string**, the grid runs it through an internal sanitizer that strips `<script>` elements and event-handler attributes (`onclick`, `onerror`, etc.) before inserting it into the DOM. This is defense-in-depth — always validate your data upstream, but accidental injection through these renderer paths will not execute. Renderers that return `HTMLElement` / `Node` / framework components are inserted as-is and are not sanitized.
+:::
+
 ### Content Security Policy (CSP)
 
 The grid injects styles via `adoptedStyleSheets`. Your CSP must include:

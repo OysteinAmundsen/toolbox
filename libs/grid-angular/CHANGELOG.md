@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.0.0...grid-angular-1.0.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* **grid-angular:** guard injectGrid against destroyed components and missing ready() ([45c013c](https://github.com/OysteinAmundsen/toolbox/commit/45c013c6494a9b1df32c9f46295bb0a5b9388be5))
+
 ## [1.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.19.4...grid-angular-1.0.0) (2026-04-16)
 
 

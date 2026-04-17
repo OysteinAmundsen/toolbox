@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.1.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.1.0...grid-2.1.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* **grid:** pinned-rows filteredRows now reflects externally filtered data ([d9e6e04](https://github.com/OysteinAmundsen/toolbox/commit/d9e6e04f0c0c14962f8123c060295f98860645ad))
+* **grid:** sanitize renderer & light-DOM HTML to prevent XSS ([36e396f](https://github.com/OysteinAmundsen/toolbox/commit/36e396fc5ed9d99b2025720c1c3cf00a95245ca8))
+* **grid:** skip blank cells in numeric aggregators and number filter inputs ([abfe4bf](https://github.com/OysteinAmundsen/toolbox/commit/abfe4bfbdff883a03574402743d4602e0ace746d))
+
 ## [2.1.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.0.0...grid-2.1.0) (2026-04-16)
 
 

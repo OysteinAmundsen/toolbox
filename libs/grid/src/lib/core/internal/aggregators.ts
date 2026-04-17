@@ -16,37 +16,70 @@
 export type AggregatorFn = (rows: any[], field: string, column?: any) => any;
 export type AggregatorRef = string | AggregatorFn;
 
+/**
+ * Check whether a cell value should be treated as blank and skipped by numeric
+ * aggregators. Matches the semantics used by the filter engine:
+ * `null` / `undefined` / `''` / `NaN` are all considered absent values.
+ *
+ * Without this guard, `Number('')` coerces to `0` and `null` coerces to `0`,
+ * which silently pulls blank cells into sums, averages, and min/max comparisons
+ * (a blank cell would otherwise "win" a min/max against any positive/negative
+ * dataset). Skipping blanks mirrors how Excel treats empty cells in SUM/AVG/MIN/MAX.
+ */
+function isBlankCell(v: unknown): boolean {
+  return v == null || v === '' || (typeof v === 'number' && isNaN(v));
+}
+
 /** Built-in aggregator functions */
 const builtInAggregators: Record<string, AggregatorFn> = {
   sum: (rows, field) => {
     let sum = 0;
-    for (let i = 0; i < rows.length; i++) sum += Number(rows[i][field]) || 0;
+    for (let i = 0; i < rows.length; i++) {
+      const raw = rows[i][field];
+      if (isBlankCell(raw)) continue;
+      const n = Number(raw);
+      if (!isNaN(n)) sum += n;
+    }
     return sum;
   },
   avg: (rows, field) => {
     if (!rows.length) return 0;
     let sum = 0;
-    for (let i = 0; i < rows.length; i++) sum += Number(rows[i][field]) || 0;
-    return sum / rows.length;
+    let count = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const raw = rows[i][field];
+      if (isBlankCell(raw)) continue;
+      const n = Number(raw);
+      if (isNaN(n)) continue;
+      sum += n;
+      count++;
+    }
+    return count > 0 ? sum / count : 0;
   },
   count: (rows) => rows.length,
   min: (rows, field) => {
     if (!rows.length) return 0;
     let min = Infinity;
     for (let i = 0; i < rows.length; i++) {
-      const v = Number(rows[i][field]);
+      const raw = rows[i][field];
+      if (isBlankCell(raw)) continue;
+      const v = Number(raw);
+      if (isNaN(v)) continue;
       if (v < min) min = v;
     }
-    return min;
+    return min === Infinity ? 0 : min;
   },
   max: (rows, field) => {
     if (!rows.length) return 0;
     let max = -Infinity;
     for (let i = 0; i < rows.length; i++) {
-      const v = Number(rows[i][field]);
+      const raw = rows[i][field];
+      if (isBlankCell(raw)) continue;
+      const v = Number(raw);
+      if (isNaN(v)) continue;
       if (v > max) max = v;
     }
-    return max;
+    return max === -Infinity ? 0 : max;
   },
   first: (rows, field) => rows[0]?.[field],
   last: (rows, field) => rows[rows.length - 1]?.[field],

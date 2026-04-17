@@ -392,6 +392,72 @@ describe('renderNumberFilterPanel', () => {
 
       expect(params.applyTextFilter).toHaveBeenCalledWith('between', 20, 80);
     });
+
+    it('should clear the filter when Apply is clicked without moving min/max from defaults', () => {
+      // Regression: default min/max bounds mean the user has not constrained anything;
+      // applying `between` with the full data range would still exclude blank rows.
+      // Apply-with-defaults must be equivalent to clearing the filter instead.
+      const params = createParams();
+      renderNumberFilterPanel(panel, params, [0, 100], new Map());
+
+      const applyBtn = panel.querySelector('.tbw-filter-apply-btn') as HTMLButtonElement;
+      applyBtn.click();
+
+      expect(params.clearFilter).toHaveBeenCalled();
+      expect(params.applyTextFilter).not.toHaveBeenCalled();
+    });
+
+    it('should treat empty inputs as unchanged and clear the filter', () => {
+      // Regression: parseFloat('') is NaN; NaN fell through the `=== min` equality
+      // check and produced `between(NaN, NaN)` which matches zero rows.
+      const params = createParams();
+      renderNumberFilterPanel(panel, params, [0, 100], new Map());
+
+      const inputs = panel.querySelectorAll('input[type="number"]') as NodeListOf<HTMLInputElement>;
+      inputs[0].value = '';
+      inputs[1].value = '';
+
+      const applyBtn = panel.querySelector('.tbw-filter-apply-btn') as HTMLButtonElement;
+      applyBtn.click();
+
+      expect(params.clearFilter).toHaveBeenCalled();
+      expect(params.applyTextFilter).not.toHaveBeenCalled();
+    });
+  });
+
+  // #endregion
+
+  // #region Input sync guards
+
+  describe('input sync edge cases', () => {
+    it('should not reset slider when user types 0 into Min with a negative data range', () => {
+      // Regression: `parseFloat(value) || min` turned a valid `0` into the panel's
+      // lower bound (e.g. -100) because `0` is falsy.
+      const values = [-100, -50, 0, 50, 100];
+      renderNumberFilterPanel(panel, createParams(), values, new Map());
+
+      const minInput = panel.querySelectorAll('input[type="number"]')[0] as HTMLInputElement;
+      const minSlider = panel.querySelector('.tbw-filter-range-thumb-min') as HTMLInputElement;
+
+      minInput.value = '0';
+      minInput.dispatchEvent(new Event('input'));
+
+      expect(minSlider.value).toBe('0');
+    });
+
+    it('should fall back to panel min when the Min input is cleared', () => {
+      const values = [-100, 0, 100];
+      renderNumberFilterPanel(panel, createParams(), values, new Map());
+
+      const minInput = panel.querySelectorAll('input[type="number"]')[0] as HTMLInputElement;
+      const minSlider = panel.querySelector('.tbw-filter-range-thumb-min') as HTMLInputElement;
+
+      minInput.value = '';
+      minInput.dispatchEvent(new Event('input'));
+
+      // Cleared input means "no lower bound" — slider snaps back to panel min.
+      expect(minSlider.value).toBe('-100');
+    });
   });
 
   // #endregion

@@ -320,6 +320,77 @@ describe('filter-model', () => {
         };
         expect(matchesFilter(sampleRows[6], filter)).toBe(false); // null age
       });
+
+      it('should not match null values for "between" when lo is 0', () => {
+        // Regression: `null >= 0` is truthy in JS, so the fast path used to leak null
+        // values through the `between` filter when the min bound was 0.
+        const filter: FilterModel = {
+          field: 'age',
+          type: 'number',
+          operator: 'between',
+          value: 0,
+          valueTo: 100,
+        };
+        expect(matchesFilter(sampleRows[6], filter)).toBe(false); // null age
+      });
+
+      it('should not match undefined / empty / NaN values for "between"', () => {
+        const filter: FilterModel = {
+          field: 'qty',
+          type: 'number',
+          operator: 'between',
+          value: 0,
+          valueTo: 10,
+        };
+        expect(matchesFilter({ qty: undefined } as Record<string, unknown>, filter)).toBe(false);
+        expect(matchesFilter({ qty: '' } as Record<string, unknown>, filter)).toBe(false);
+        expect(matchesFilter({ qty: NaN } as Record<string, unknown>, filter)).toBe(false);
+        expect(matchesFilter({ qty: 5 } as Record<string, unknown>, filter)).toBe(true);
+      });
+
+      it('should not match null values for "greaterThanOrEqual" when threshold is 0', () => {
+        const filter: FilterModel = {
+          field: 'age',
+          type: 'number',
+          operator: 'greaterThanOrEqual',
+          value: 0,
+        };
+        expect(matchesFilter(sampleRows[6], filter)).toBe(false); // null age
+      });
+    });
+
+    describe('blank operator for numbers', () => {
+      it('should match NaN as blank', () => {
+        const filter: FilterModel = {
+          field: 'qty',
+          type: 'number',
+          operator: 'blank',
+          value: '',
+        };
+        expect(matchesFilter({ qty: NaN } as Record<string, unknown>, filter)).toBe(true);
+      });
+
+      it('should not match valid numbers (including 0) as blank', () => {
+        const filter: FilterModel = {
+          field: 'qty',
+          type: 'number',
+          operator: 'blank',
+          value: '',
+        };
+        expect(matchesFilter({ qty: 0 } as Record<string, unknown>, filter)).toBe(false);
+        expect(matchesFilter({ qty: 42 } as Record<string, unknown>, filter)).toBe(false);
+      });
+
+      it('"notBlank" should not match NaN', () => {
+        const filter: FilterModel = {
+          field: 'qty',
+          type: 'number',
+          operator: 'notBlank',
+          value: '',
+        };
+        expect(matchesFilter({ qty: NaN } as Record<string, unknown>, filter)).toBe(false);
+        expect(matchesFilter({ qty: 0 } as Record<string, unknown>, filter)).toBe(true);
+      });
     });
   });
 

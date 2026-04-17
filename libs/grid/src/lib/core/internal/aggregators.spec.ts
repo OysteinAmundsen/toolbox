@@ -16,19 +16,25 @@ describe('aggregators', () => {
   ];
 
   describe('built-in aggregators', () => {
-    it('sum aggregates numeric values', () => {
+    it('sum aggregates numeric values, skipping blank cells', () => {
       const result = runAggregator('sum', testRows, 'value');
-      expect(result).toBe(60); // 10 + 20 + 30 + 0 (null)
+      expect(result).toBe(60); // 10 + 20 + 30 (null skipped)
     });
 
-    it('avg calculates average of numeric values', () => {
+    it('avg calculates average across non-blank cells only', () => {
+      // Matches Excel AVG semantics: blanks are excluded from both numerator and denominator.
       const result = runAggregator('avg', testRows, 'value');
-      expect(result).toBe(15); // 60 / 4
+      expect(result).toBe(20); // 60 / 3 (null excluded)
     });
 
     it('avg returns 0 for empty array', () => {
       const result = runAggregator('avg', [], 'value');
       expect(result).toBe(0);
+    });
+
+    it('avg returns 0 when all cells are blank', () => {
+      const rows = [{ value: null }, { value: undefined }, { value: '' }, { value: NaN }];
+      expect(runAggregator('avg', rows, 'value')).toBe(0);
     });
 
     it('count returns row count', () => {
@@ -41,14 +47,31 @@ describe('aggregators', () => {
       expect(result).toBe(10);
     });
 
+    it('min skips blank cells (regression)', () => {
+      // Regression: Number('') coerced to 0, making `min` return 0 against positive data.
+      const rows = [{ value: 100 }, { value: 200 }, { value: '' }, { value: null }];
+      expect(runAggregator('min', rows, 'value')).toBe(100);
+    });
+
     it('min returns 0 for empty array', () => {
       const result = runAggregator('min', [], 'value');
       expect(result).toBe(0);
     });
 
+    it('min returns 0 when all cells are blank', () => {
+      const rows = [{ value: null }, { value: '' }, { value: NaN }];
+      expect(runAggregator('min', rows, 'value')).toBe(0);
+    });
+
     it('max returns maximum value', () => {
       const result = runAggregator('max', testRows.slice(0, 3), 'value');
       expect(result).toBe(30);
+    });
+
+    it('max skips blank cells (regression)', () => {
+      // Regression: with all-negative data plus a blank, `max` used to return 0 instead of the true max.
+      const rows = [{ value: -10 }, { value: -5 }, { value: '' }, { value: null }];
+      expect(runAggregator('max', rows, 'value')).toBe(-5);
     });
 
     it('max returns 0 for empty array', () => {

@@ -192,9 +192,14 @@ export function aggregateValues(
   if (columnFields.length === 0) {
     // No column grouping — all rows match every key
     for (const vf of valueFields) {
-      const nums: number[] = new Array(rows.length);
+      // Skip blanks (null / undefined / '' / NaN) instead of coercing to 0;
+      // a blank cell would otherwise drag `min` down or inflate `avg`'s denominator.
+      const nums: number[] = [];
       for (let i = 0; i < rows.length; i++) {
-        nums[i] = Number(rows[i][vf.field]) || 0;
+        const raw = rows[i][vf.field];
+        if (raw == null || raw === '') continue;
+        const n = Number(raw);
+        if (!isNaN(n)) nums.push(n);
       }
       const aggregator = getPivotAggregator(vf.aggFunc);
       const valueKey = createValueKey(['value'], vf.field);
@@ -230,12 +235,16 @@ export function aggregateValues(
     }
 
     for (const vf of valueFields) {
-      const nums: number[] = new Array(matchingRows.length);
+      // Skip blanks — see rationale above.
+      const nums: number[] = [];
       for (let i = 0; i < matchingRows.length; i++) {
-        nums[i] = Number(matchingRows[i][vf.field]) || 0;
+        const raw = matchingRows[i][vf.field];
+        if (raw == null || raw === '') continue;
+        const n = Number(raw);
+        if (!isNaN(n)) nums.push(n);
       }
       const aggregator = getPivotAggregator(vf.aggFunc);
-      values[createValueKey([colKey], vf.field)] = aggregator(nums);
+      values[createValueKey([colKey], vf.field)] = nums.length > 0 ? aggregator(nums) : null;
     }
   }
 

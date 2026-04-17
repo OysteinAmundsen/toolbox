@@ -142,3 +142,5 @@ related: [grid-plugins, grid-features, data-flow-traces]
 | style-injector     | CSS injection, plugin styles, custom styles                                    |
 | aria / aria-labels | accessibility state, ARIA attributes, announcements                            |
 | aggregators        | sum, avg, count for grouping                                                   |
+
+- INVARIANT: numeric aggregators (`sum`, `avg`, `min`, `max`) skip blank cells (`null` / `undefined` / `''` / `NaN`) — matches Excel SUM/AVG/MIN/MAX semantics. `Number('') || 0` would otherwise pull blanks in as zero, dragging `min` down against positive data, inflating `avg`'s denominator, and letting blanks beat all-negative data in `max`. `avg` divides by the count of non-blank cells (returns 0 if all blank or empty). Pivot's value extraction applies the same filter before calling value aggregators. DECIDED (Apr 2026): blank-skipping is the default — callers who need zero-substitution must provide a custom aggregator.

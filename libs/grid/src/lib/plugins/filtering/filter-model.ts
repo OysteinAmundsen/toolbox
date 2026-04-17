@@ -68,16 +68,18 @@ function compileFilter(
     ? (row: Record<string, unknown>) => filterValue(row[field], row)
     : (row: Record<string, unknown>) => row[field];
 
-  // blank / notBlank — no value needed
+  // blank / notBlank — no value needed.
+  // A value is considered blank when it is null, undefined, '', or NaN
+  // (NaN is strictly an error state but is treated as "no value" here).
   if (op === 'blank')
     return (row) => {
       const v = getValue(row);
-      return v == null || v === '';
+      return v == null || v === '' || (typeof v === 'number' && isNaN(v));
     };
   if (op === 'notBlank')
     return (row) => {
       const v = getValue(row);
-      return v != null && v !== '';
+      return v != null && v !== '' && !(typeof v === 'number' && isNaN(v));
     };
 
   // Set operators with filterValue extractor — pre-convert to Set for O(1) lookups
@@ -129,41 +131,69 @@ function compileFilter(
   // are expected to already be JS numbers — emit a tighter predicate that skips
   // toNumeric(). When a filterValue extractor is present, always use the cautious
   // path since the extracted value may need conversion.
+  //
+  // Numeric comparisons must always exclude blank values (null / undefined / '' / NaN),
+  // otherwise JS coercion leaks them through (e.g. `null >= 0` is `true`, `Number('') === 0`).
+  // Blank rows are only matched by the explicit `blank` operator.
   const isNumType = filter.type === 'number' && !filterValue;
+  // Reject blanks before coercion. Kept intentionally loose (doesn't force a
+  // number type) so numeric strings, Date objects, and ISO date strings keep
+  // flowing through the existing coercion in `>`/`<`/`toNumeric`.
+  const isBlank = (v: unknown): boolean => v == null || v === '' || (typeof v === 'number' && isNaN(v));
   if (op === 'greaterThan') {
     const threshold = toNumeric(filter.value);
     return isNumType
-      ? (row) => (row[field] as number) > threshold
+      ? (row) => {
+          const v = row[field];
+          return !isBlank(v) && (v as number) > threshold;
+        }
       : (row) => {
           const v = getValue(row);
-          return v != null && toNumeric(v) > threshold;
+          if (isBlank(v)) return false;
+          const n = toNumeric(v);
+          return !isNaN(n) && n > threshold;
         };
   }
   if (op === 'greaterThanOrEqual') {
     const threshold = toNumeric(filter.value);
     return isNumType
-      ? (row) => (row[field] as number) >= threshold
+      ? (row) => {
+          const v = row[field];
+          return !isBlank(v) && (v as number) >= threshold;
+        }
       : (row) => {
           const v = getValue(row);
-          return v != null && toNumeric(v) >= threshold;
+          if (isBlank(v)) return false;
+          const n = toNumeric(v);
+          return !isNaN(n) && n >= threshold;
         };
   }
   if (op === 'lessThan') {
     const threshold = toNumeric(filter.value);
     return isNumType
-      ? (row) => (row[field] as number) < threshold
+      ? (row) => {
+          const v = row[field];
+          return !isBlank(v) && (v as number) < threshold;
+        }
       : (row) => {
           const v = getValue(row);
-          return v != null && toNumeric(v) < threshold;
+          if (isBlank(v)) return false;
+          const n = toNumeric(v);
+          return !isNaN(n) && n < threshold;
         };
   }
   if (op === 'lessThanOrEqual') {
     const threshold = toNumeric(filter.value);
     return isNumType
-      ? (row) => (row[field] as number) <= threshold
+      ? (row) => {
+          const v = row[field];
+          return !isBlank(v) && (v as number) <= threshold;
+        }
       : (row) => {
           const v = getValue(row);
-          return v != null && toNumeric(v) <= threshold;
+          if (isBlank(v)) return false;
+          const n = toNumeric(v);
+          return !isNaN(n) && n <= threshold;
         };
   }
   if (op === 'between') {
@@ -171,14 +201,16 @@ function compileFilter(
     const hi = toNumeric(filter.valueTo);
     return isNumType
       ? (row) => {
-          const n = row[field] as number;
+          const v = row[field];
+          if (isBlank(v)) return false;
+          const n = v as number;
           return n >= lo && n <= hi;
         }
       : (row) => {
           const v = getValue(row);
-          if (v == null) return false;
+          if (isBlank(v)) return false;
           const n = toNumeric(v);
-          return n >= lo && n <= hi;
+          return !isNaN(n) && n >= lo && n <= hi;
         };
   }
 

@@ -211,16 +211,21 @@ export function renderNumberFilterPanel(
     updateFill();
   });
 
-  // Sync sliders with inputs
+  // Sync sliders with inputs.
+  // Use Number.isFinite(…) as the guard rather than `|| min` / `|| max` — the
+  // latter silently rewrites a legitimate `0` input to the panel's lower bound
+  // when the data range straddles zero (e.g. min=-100).
   minInput.addEventListener('input', () => {
-    let val = parseFloat(minInput.value) || min;
+    const parsed = parseFloat(minInput.value);
+    let val = Number.isFinite(parsed) ? parsed : min;
     val = Math.max(min, Math.min(val, parseFloat(maxInput.value)));
     minSlider.value = String(val);
     updateFill();
   });
 
   maxInput.addEventListener('input', () => {
-    let val = parseFloat(maxInput.value) || max;
+    const parsed = parseFloat(maxInput.value);
+    let val = Number.isFinite(parsed) ? parsed : max;
     val = Math.min(max, Math.max(val, parseFloat(minInput.value)));
     maxSlider.value = String(val);
     updateFill();
@@ -243,7 +248,17 @@ export function renderNumberFilterPanel(
     }
     const minVal = parseFloat(minInput.value);
     const maxVal = parseFloat(maxInput.value);
-    params.applyTextFilter('between', minVal, maxVal);
+    // An empty input parses to NaN; treat that as "not constrained" and fall
+    // back to the panel bound. Then, when neither side has actually been moved
+    // from the data-derived defaults, Apply means "no filter" — applying a
+    // `between` over the full range would silently drop blank rows.
+    const effectiveMin = Number.isFinite(minVal) ? minVal : min;
+    const effectiveMax = Number.isFinite(maxVal) ? maxVal : max;
+    if (effectiveMin === min && effectiveMax === max) {
+      params.clearFilter();
+      return;
+    }
+    params.applyTextFilter('between', effectiveMin, effectiveMax);
   });
   buttonRow.appendChild(applyBtn);
 

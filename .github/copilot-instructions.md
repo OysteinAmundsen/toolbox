@@ -29,7 +29,11 @@ This project's AI knowledge is organized in four tiers to minimize context windo
 3. **Skill files** (loaded on demand) — Multi-step workflows and procedures (procedural: _how to do X_)
 4. **Knowledge files** (loaded on demand at task start) — Living mental model of the system (descriptive: _how it works and why_)
 
-> **Knowledge files:** Before starting any non-trivial task, read the relevant knowledge files from `.github/knowledge/` to rebuild the mental model. These describe system architecture, data flows, state ownership, design rationale, and known tensions — the understanding needed to make informed decisions rather than just follow rules.
+> **Knowledge files — read before editing, write after learning:**
+>
+> - **Read gate:** Before editing any file under `libs/grid/**`, `libs/grid-{angular,react,vue}/**`, or making a non-trivial change anywhere else, you MUST first read the knowledge files that cover the affected domain (see [Knowledge Reference](#knowledge-reference)). This rebuilds the mental model — state ownership, invariants, design rationale — so you can spot when a proposed change contradicts an earlier `DECIDED` entry and push back rather than silently regress it. Trivial edits (typos, comments, formatting) are exempt.
+> - **Write gate:** During or after any task, if you discover a new invariant, state-ownership fact, data-flow edge, design decision, or tension that is not already in a knowledge file, you MUST add it to the correct file using the structured notation (`OWNS / READS FROM / WRITES TO / INVARIANT / FLOW / TENSION / DECIDED`). These files are your externalized mental model — if you don't write it down, the next session will rediscover it from scratch.
+> - **Rule of thumb:** If the user ever argues for a change that contradicts a `DECIDED` entry, cite the entry and ask them to justify overriding it before implementing. Past decisions have context; don't silently reverse them.
 
 > **Continuous improvement:** After significant tasks, use the `retrospective` skill to capture lessons learned and update the knowledge base. See [Scoped Instructions](#scoped-instructions), [Knowledge Reference](#knowledge-reference), and [Skills Reference](#skills-reference) below.
 
@@ -87,7 +91,10 @@ Loaded on demand from `.github/skills/` for task-specific workflows:
 
 ## Core Constraints
 
-- **Delivery workflow is mandatory:** Every change — no matter how small — must follow the 5-step delivery checklist in `delivery-workflow.instructions.md`: implement → test → build/lint → docs → retrospective. Do not consider work complete until all steps are finished. No exceptions.
+- **Delivery workflow is mandatory:** Every change — no matter how small — must follow the 7-step delivery checklist in `delivery-workflow.instructions.md`: read knowledge → implement → test → build/lint → docs → retrospective + knowledge update → commit suggestion. Do not consider work complete until all steps are finished. No exceptions.
+  - **Hard precondition:** Before calling any file-editing or code-running tool, you MUST first call `manage_todo_list` with the seven delivery steps. Read-only exploration does not require the list; the moment you intend to modify the workspace, it does.
+  - **Completion gate:** Do not output "done", "complete", or a wrap-up summary until every todo is marked completed. A step may be marked completed with "N/A" only in the specific cases listed in `delivery-workflow.instructions.md` — state the reason explicitly; never silently skip.
+  - **Self-audit:** Before the final message, state in one concrete sentence what was done for each completed step (e.g. "Read `grid-plugins.md`; ran `bun nx test grid` — 3225 passed; added `DECIDED` entry for pinned-rows count derivation"). End with `📦 **Good commit point:** type(scope): ...`.
 - **Bundle budget:** `index.js` ≤170 kB (≤45 kB gzipped), plugins ≤50 kB each, adapters: react ≤50 kB / vue ≤50 kB — enforced by `tools/vite-bundle-budget.ts` plugin (build fails on violation)
 - **Always use Nx:** `bun nx <target> <project>`, never invoke Vitest/Vite/ESLint directly
 - **Strict TypeScript:** `strict: true`, no implicit any

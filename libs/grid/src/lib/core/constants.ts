@@ -173,6 +173,27 @@ export const GridCSSVars = {
 // #endregion
 
 // Type helpers
+
+/**
+ * Union of all CSS class names used in the grid's DOM.
+ * Use `GridClasses` to access individual values by key.
+ *
+ * @category Plugin Development
+ */
 export type GridClassName = (typeof GridClasses)[keyof typeof GridClasses];
+
+/**
+ * Union of all `data-*` attribute names used on grid elements.
+ * Use `GridDataAttrs` to access individual values by key.
+ *
+ * @category Plugin Development
+ */
 export type GridDataAttr = (typeof GridDataAttrs)[keyof typeof GridDataAttrs];
+
+/**
+ * Union of all CSS custom property names (`--tbw-*`) available for theming.
+ * Use `GridCSSVars` to access individual values by key.
+ *
+ * @category Plugin Development
+ */
 export type GridCSSVar = (typeof GridCSSVars)[keyof typeof GridCSSVars];

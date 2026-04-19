@@ -1990,7 +1990,11 @@ export const FitModeEnum = {
   STRETCH: 'stretch',
   FIXED: 'fixed',
 } as const;
-export type FitMode = (typeof FitModeEnum)[keyof typeof FitModeEnum]; // evaluates to 'stretch' | 'fixed'
+/**
+ * Column sizing mode — determines how columns fill the available grid width.
+ * Use `FitModeEnum` to access individual values by key.
+ */
+export type FitMode = (typeof FitModeEnum)[keyof typeof FitModeEnum];
 // #endregion
 
 // #region Plugin Interface

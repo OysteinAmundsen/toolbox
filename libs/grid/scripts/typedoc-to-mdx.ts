@@ -292,9 +292,7 @@ function genPluginConfigTable(classNode: TypeDocNode): string {
   if (!props.length) return '';
 
   const configUrl = typeRegistry.get(configTypeName);
-  const heading = configUrl
-    ? `## [Configuration Options](${configUrl})\n\n`
-    : `## Configuration Options\n\n`;
+  const heading = configUrl ? `## [Configuration Options](${configUrl})\n\n` : `## Configuration Options\n\n`;
 
   let out = heading;
   out += `| Option | Type | Description |\n`;
@@ -528,7 +526,7 @@ function genPropertiesTableInner(props: TypeDocNode[]): string {
 
 function genTypeAlias(node: TypeDocNode, title: string): string {
   let out = mdxHeader(title);
-  const desc = getText(node.comment);
+  const desc = getTextWithLinks(node.comment, resolveTypeLink);
   if (desc) out += `${escape(desc)}\n\n`;
   out += `\`\`\`ts\ntype ${node.name} = ${formatType(node.type)}\n\`\`\`\n\n`;
 

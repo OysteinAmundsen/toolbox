@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.1.1...grid-2.2.0) (2026-04-20)
+
+
+### Features
+
+* **grid:** add column.valueAccessor as single source of truth for cell value resolution ([#230](https://github.com/OysteinAmundsen/toolbox/issues/230)) ([33c10e7](https://github.com/OysteinAmundsen/toolbox/commit/33c10e723fb8aefc01726a174953d8f2aaf5fc92))
+* **grid:** add loadThreshold for ServerSidePlugin prefetch ([d0f9135](https://github.com/OysteinAmundsen/toolbox/commit/d0f91355608ff18474c6eef624002e03c881ec70))
+* **grid:** add sortMode and filterMode for local sort/filter ([#231](https://github.com/OysteinAmundsen/toolbox/issues/231)) ([17af7b7](https://github.com/OysteinAmundsen/toolbox/commit/17af7b75ebe7a529569c27d5547352f69a74d362))
+* **grid:** expose tbw-scroll CustomEvent for scroll-driven consumer use cases ([#234](https://github.com/OysteinAmundsen/toolbox/issues/234)) ([259171e](https://github.com/OysteinAmundsen/toolbox/commit/259171ed2e0f1735f4d277f6ad223987ee616390))
+
+
+### Bug Fixes
+
+* **grid:** correct row count display for server-side data in pinned-rows ([afda185](https://github.com/OysteinAmundsen/toolbox/commit/afda1851c36ae9b8d89951f3e2aa9b1be7408f87))
+* **grid:** server-side sort/filter blanking + filter unique-value fallback ([8509857](https://github.com/OysteinAmundsen/toolbox/commit/85098577957e735000de192806a2d1f32a1a736d))
+* when sourceRows is empty, treat processed count as the total. Treat processed &lt; source as a custom-pipeline filter signal; otherwise default filteredRows to totalRows so the panel correctly hides when no filter is applied. ([afda185](https://github.com/OysteinAmundsen/toolbox/commit/afda1851c36ae9b8d89951f3e2aa9b1be7408f87))
+
 ## [2.1.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.1.0...grid-2.1.1) (2026-04-17)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.0.0...grid-vue-1.1.0) (2026-04-20)
+
+
+### Features
+
+* **grid:** expose tbw-scroll CustomEvent for scroll-driven consumer use cases ([#234](https://github.com/OysteinAmundsen/toolbox/issues/234)) ([259171e](https://github.com/OysteinAmundsen/toolbox/commit/259171ed2e0f1735f4d277f6ad223987ee616390))
+
 ## [1.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.11.5...grid-vue-1.0.0) (2026-04-16)
 
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.0.1...grid-angular-1.1.0) (2026-04-20)
+
+
+### Features
+
+* **grid:** expose tbw-scroll CustomEvent for scroll-driven consumer use cases ([#234](https://github.com/OysteinAmundsen/toolbox/issues/234)) ([259171e](https://github.com/OysteinAmundsen/toolbox/commit/259171ed2e0f1735f4d277f6ad223987ee616390))
+
+
+### Bug Fixes
+
+* **grid-angular:** close overlay editors on grid scroll ([4f5cebc](https://github.com/OysteinAmundsen/toolbox/commit/4f5cebc7dbc94b2251621379f84e8f33c6f34b6a))
+
 ## [1.0.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.0.0...grid-angular-1.0.1) (2026-04-17)
 
 

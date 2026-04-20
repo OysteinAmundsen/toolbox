@@ -15,8 +15,9 @@ import {
   errorDiagnostic,
   warnDiagnostic,
 } from '../../core/internal/diagnostics';
+import { builtInSort } from '../../core/internal/sorting';
 import { BaseGridPlugin, ScrollEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
-import type { GridHost } from '../../core/types';
+import type { ColumnConfig, GridHost } from '../../core/types';
 import { getBlockNumber, getRequiredBlocks, getRowFromCache, loadBlock } from './datasource';
 import type {
   DataSourceChildrenDetail,
@@ -146,9 +147,24 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   override attach(grid: import('../../core/plugin/base-plugin').GridElement): void {
     super.attach(grid);
 
-    // Invalidate cache and refetch on sort/filter changes
-    this.on('sort-change', () => this.onModelChange());
-    this.on('filter-change', () => this.onModelChange());
+    // Invalidate cache and refetch on sort/filter changes — gated by sortMode/filterMode.
+    // 'local' (opt-in): keep cache; sort/filter the loaded rows in place via a re-render.
+    // See getEnrichmentParams() — local-mode state is also omitted from block fetch params
+    // so scroll-triggered loadRequiredBlocks() doesn't leak local state to the backend.
+    this.on('sort-change', () => {
+      if (this.config.sortMode === 'local') {
+        this.requestRender();
+      } else {
+        this.onModelChange();
+      }
+    });
+    this.on('filter-change', () => {
+      if (this.config.filterMode === 'local') {
+        this.requestRender();
+      } else {
+        this.onModelChange();
+      }
+    });
 
     // Auto-initialize from config when dataSource is provided declaratively
     if (this.config.dataSource) {
@@ -176,15 +192,35 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
 
   /**
    * Build enrichment params by querying sort/filter models from loaded plugins.
+   *
+   * When `sortMode === 'local'` the `sortModel` is omitted so scroll-triggered
+   * block fetches don't ask the backend for an ordering it isn't applying.
+   * Same for `filterMode === 'local'` and `filterModel`.
    */
   private getEnrichmentParams(): Partial<GetRowsParams> {
-    const sortResults = this.grid?.query?.('sort:get-model', null) as
-      | Array<{ field: string; direction: 'asc' | 'desc' }>[]
-      | undefined;
-    const filterResults = this.grid?.query?.('filter:get-model', null) as Record<string, unknown>[] | undefined;
+    const sortLocal = this.config.sortMode === 'local';
+    const filterLocal = this.config.filterMode === 'local';
+    const sortResults = sortLocal
+      ? undefined
+      : (this.grid?.query?.('sort:get-model', null) as
+          | Array<{ field: string; direction: 'asc' | 'desc' }>[]
+          | undefined);
+    const filterResults = filterLocal
+      ? undefined
+      : (this.grid?.query?.('filter:get-model', null) as Record<string, unknown>[] | undefined);
+
+    // Fallback to core single-column sort state when no plugin answers the
+    // 'sort:get-model' query (e.g. MultiSortPlugin not loaded). Translate the
+    // numeric direction (1/-1) to the public 'asc'/'desc' string form.
+    let sortModel = sortResults?.[0];
+    const host = this.grid as unknown as GridHost | undefined;
+    if (!sortLocal && !sortModel && host?._sortState) {
+      const { field, direction } = host._sortState;
+      sortModel = [{ field, direction: direction === 1 ? 'asc' : 'desc' }];
+    }
 
     return {
-      sortModel: sortResults?.[0],
+      sortModel,
       filterModel: filterResults?.[0],
     };
   }
@@ -394,6 +430,18 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
       if (cached) {
         this.managedNodes[i] = cached;
       }
+    }
+
+    // Local-mode sort: when sortMode === 'local' the plugin owns ordering of
+    // the loaded rows itself (core sort ran on the input but we discarded it
+    // by returning managedNodes). Apply the current core sort state on top of
+    // managedNodes so the user sees in-place sorting without a refetch.
+    // Note: any plugin sort that runs after us (priority > -10, e.g. multi-sort)
+    // will further re-sort our output, which is the intended chain.
+    const host = this.grid as unknown as GridHost | undefined;
+    if (this.config.sortMode === 'local' && host?._sortState) {
+      const columns = (host._columns ?? []) as ColumnConfig[];
+      return builtInSort(this.managedNodes, host._sortState, columns);
     }
 
     return this.managedNodes;

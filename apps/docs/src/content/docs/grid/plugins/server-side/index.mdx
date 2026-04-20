@@ -204,6 +204,39 @@ Enable the **Server-side sorting** toggle in the demo above to see `sortHandler`
 For server-side filtering, use the FilteringPlugin's async handlers.
 See the [Filtering Plugin documentation](/grid/plugins/filtering/#async-filtering-server-side) for details on `valuesHandler` and `filterHandler`.
 
+### Local Sort / Filter Modes
+
+By default, the ServerSidePlugin treats every sort or filter change as a model change: it purges the cache and refetches all visible blocks. This is correct when the backend owns ordering and filtering, but if you want to sort or filter the **already-loaded** rows in the browser without a roundtrip, set the corresponding mode to `'local'`:
+
+```ts
+serverSide: {
+  dataSource,
+  sortMode: 'local',   // re-sort cached rows in place; no refetch
+  filterMode: 'local', // re-filter cached rows in place; no refetch
+}
+```
+
+When a mode is `'local'`:
+
+- The plugin no longer refetches on `sort-change` / `filter-change` — it just requests a re-render.
+- The corresponding `sortModel` / `filterModel` is **omitted** from `GetRowsParams` so scroll-triggered block fetches don't leak local state to the backend.
+- Already-loading placeholder rows are pinned to the end of the sort order so the in-progress fetch stays visually grouped.
+
+| Use case                                      | `sortMode` | `filterMode` |
+| --------------------------------------------- | ---------- | ------------ |
+| Backend owns sort + filter (default)          | `'server'` | `'server'`   |
+| Backend filters; user re-sorts on screen      | `'local'`  | `'server'`   |
+| Backend pre-sorts; user filters on screen     | `'server'` | `'local'`    |
+| All processing on already-loaded page         | `'local'`  | `'local'`    |
+
+:::caution
+Local filtering only filters rows currently in the cache. With virtual scrolling enabled, that's the visible window plus any prefetched blocks — not the full dataset. Use `'local'` filtering only when the loaded subset is meaningful on its own (for example, paged mode).
+:::
+
+:::note
+A column with a custom `sortComparator` is treated as user-owned: loading placeholder rows are **not** auto-pinned. Pin them yourself in your comparator if you want the same behaviour.
+:::
+
 ## Configuration Options
 
 See [`ServerSideConfig`](./Interfaces/ServerSideConfig/) for the full list of options and defaults.

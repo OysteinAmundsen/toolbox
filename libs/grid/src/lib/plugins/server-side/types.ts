@@ -75,6 +75,34 @@ export interface ServerSideConfig {
    * ```
    */
   dataSource?: ServerSideDataSource;
+  /**
+   * How sort changes affect the cache.
+   * - `'server'` (default): purge cache and refetch via `getRows({ sortModel })`.
+   *   Use when the backend supports the requested sort shape natively.
+   * - `'local'`: keep the loaded blocks; sort the loaded rows in-place via
+   *   the active sort plugin (MultiSort or core sort). `sortModel` is **not**
+   *   sent on subsequent block fetches. Placeholder rows (`__loading: true`)
+   *   are pinned to the end regardless of direction.
+   *
+   * Use `'local'` when the server cannot sort by every column the user can sort
+   * (e.g. APIs that only support a single sort field, or no sort at all).
+   *
+   * @default 'server'
+   */
+  sortMode?: 'server' | 'local';
+  /**
+   * How filter changes affect the cache.
+   * - `'server'` (default): purge cache and refetch via `getRows({ filterModel })`.
+   * - `'local'`: keep the loaded blocks; filter only the rows currently in cache
+   *   via FilteringPlugin's normal pipeline. `filterModel` is **not** sent on
+   *   subsequent block fetches.
+   *
+   * In `'local'` mode the user only filters the currently loaded subset —
+   * scrolling further loads more blocks which then re-enter the local filter.
+   *
+   * @default 'server'
+   */
+  filterMode?: 'server' | 'local';
 }
 
 export interface ServerSideState {

@@ -10,6 +10,8 @@ const controls: ControlDef[] = [
     min: 10, max: 100, step: 10, default: 50, description: 'Rows fetched per request' },
   { section: 'SORTING', name: 'serverSort', label: 'Server-side sorting', type: 'boolean',
     default: false, description: 'Sort on the server instead of client-side' },
+  { section: 'FILTERING', name: 'serverFilter', label: 'Server-side filtering', type: 'boolean',
+    default: false, description: 'Filter on the server instead of client-side' },
 ];
 ---
 <div class="grid-demo not-content" id="server-side-demo">
@@ -25,6 +27,7 @@ const controls: ControlDef[] = [
 <script>
 import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/filtering';
 import '@toolbox-web/grid/features/pinned-rows';
 import '@toolbox-web/grid/features/server-side';
 
@@ -37,7 +40,7 @@ if (container) {
   const pageInfo = pager.querySelector('.page-info') as HTMLSpanElement;
 
   const columns = [
-    { field: 'id', header: 'ID', type: 'number', sortable: true },
+    { field: 'id', header: 'ID', type: 'number', sortable: true, filterable: false },
     { field: 'name', header: 'Name', sortable: true },
     { field: 'department', header: 'Department', sortable: true },
     { field: 'salary', header: 'Salary', type: 'number', sortable: true },
@@ -55,43 +58,61 @@ if (container) {
 
   let currentPage = 0;
   let currentPageSize = 50;
+  let pageData = allData; // sorted/filtered view used by paging mode
+  let pageSortModel: { field: string; direction: 'asc' | 'desc' } | null = null;
+  let pageFilterModel: Record<string, any> | undefined;
 
-  function sortData(data: typeof allData, sortState: { field: string; direction: number }) {
+  function sortData(data: typeof allData, sort: { field: string; direction: 'asc' | 'desc' }) {
+    const dir = sort.direction === 'asc' ? 1 : -1;
     return [...data].sort((a, b) => {
-      const aVal = (a as Record<string, unknown>)[sortState.field];
-      const bVal = (b as Record<string, unknown>)[sortState.field];
+      const aVal = (a as Record<string, unknown>)[sort.field];
+      const bVal = (b as Record<string, unknown>)[sort.field];
       const cmp = aVal! < bVal! ? -1 : aVal! > bVal! ? 1 : 0;
-      return cmp * sortState.direction;
+      return cmp * dir;
     });
   }
 
-  function createSortHandler() {
-    return async (_rows: any, sortState: any) => {
-      grid.setAttribute('aria-busy', 'true');
-      try {
-        await new Promise((r) => setTimeout(r, 300));
-        return sortData(allData, sortState);
-      } finally {
-        grid.removeAttribute('aria-busy');
-      }
-    };
+  function applyFilters(data: typeof allData, filterModel: Record<string, any> | undefined) {
+    if (!filterModel) return data;
+    const fields = Object.keys(filterModel);
+    if (fields.length === 0) return data;
+    return data.filter((row) =>
+      fields.every((field) => {
+        const f = filterModel[field];
+        if (!f) return true;
+        const val = (row as Record<string, unknown>)[field];
+        // Set filter: { value: string[] } — keep rows whose value is in the set.
+        if (Array.isArray(f.value)) return f.value.includes(val);
+        // Text contains (default for strings)
+        if (typeof f.value === 'string') {
+          return String(val).toLowerCase().includes(f.value.toLowerCase());
+        }
+        return true;
+      }),
+    );
   }
 
-  function createDataSource(pageSz: number) {
+  function createDataSource() {
     return {
       async getRows(params: any) {
         await new Promise((r) => setTimeout(r, 200));
         let data = allData;
-        if (params.sortModel?.length) {
-          data = sortData(allData, params.sortModel[0]);
-        }
+        if (params.filterModel) data = applyFilters(data, params.filterModel);
+        if (params.sortModel?.length) data = sortData(data, params.sortModel[0]);
         return { rows: data.slice(params.startNode, params.endNode), totalNodeCount: data.length };
       },
     };
   }
 
+  function recomputePageData() {
+    let data = allData;
+    if (pageFilterModel) data = applyFilters(data, pageFilterModel);
+    if (pageSortModel) data = sortData(data, pageSortModel);
+    pageData = data;
+  }
+
   function updatePager() {
-    const totalPages = Math.ceil(allData.length / currentPageSize);
+    const totalPages = Math.ceil(pageData.length / currentPageSize);
     pageInfo.textContent = `Page ${currentPage + 1} of ${totalPages}`;
     prevBtn.disabled = currentPage === 0;
     nextBtn.disabled = currentPage >= totalPages - 1;
@@ -99,7 +120,7 @@ if (container) {
 
   function loadPage(page: number) {
     currentPage = page;
-    grid.rows = allData.slice(page * currentPageSize, (page + 1) * currentPageSize);
+    grid.rows = pageData.slice(page * currentPageSize, (page + 1) * currentPageSize);
     updatePager();
   }
 
@@ -107,6 +128,7 @@ if (container) {
     const mode = values.mode as string;
     const pageSize = values.pageSize as number;
     const serverSort = values.serverSort as boolean;
+    const serverFilter = values.serverFilter as boolean;
     currentPageSize = pageSize;
 
     const config: any = { columns };
@@ -114,7 +136,16 @@ if (container) {
     if (mode === 'virtual') {
       pager.style.display = 'none';
       config.features = {
-        serverSide: { pageSize, cacheBlockSize: pageSize },
+        // When the corresponding toggle is OFF, sort/filter the already-loaded
+        // rows locally (no refetch). When ON, the default 'server' mode triggers
+        // a refetch through getRows with sortModel/filterModel.
+        serverSide: {
+          pageSize,
+          cacheBlockSize: pageSize,
+          sortMode: serverSort ? 'server' : 'local',
+          filterMode: serverFilter ? 'server' : 'local',
+        },
+        filtering: true,
         pinnedRows: {
           position: 'bottom',
           showRowCount: true,
@@ -124,23 +155,52 @@ if (container) {
     } else {
       pager.style.display = 'flex';
       currentPage = 0;
-      config.features = { serverSide: { pageSize } };
-    }
-
-    if (serverSort) {
-      config.sortHandler = createSortHandler();
+      pageSortModel = null;
+      pageFilterModel = undefined;
+      recomputePageData();
+      // Paging mode is a custom code path: the serverSide plugin isn't used,
+      // so we wire sort-change/filter-change ourselves and rebuild the page
+      // from the full data set. Honors the serverSort/serverFilter toggles by
+      // simulating a server round-trip (the local-only branch would only sort
+      // the 50 rows already on screen).
+      config.features = { filtering: true };
     }
 
     grid.gridConfig = config;
 
     if (mode === 'virtual') {
-      grid.ready().then(() => grid.getPluginByName('serverSide')?.setDataSource(createDataSource(pageSize) as any));
+      grid.ready().then(() => grid.getPluginByName('serverSide')?.setDataSource(createDataSource() as any));
     } else {
-      loadPage(0);
+      // Paging mode wires sort/filter listeners itself. When the toggle is ON
+      // ("server"), reslice from the full dataset; when OFF ("local"), let the
+      // grid sort/filter just the current page in place (default behavior).
+      grid.ready().then(() => {
+        if (serverSort) {
+          grid.addEventListener('sort-change', ((e: CustomEvent) => {
+            const detail = e.detail as { field?: string; direction?: number } | undefined;
+            pageSortModel = detail?.field && (detail.direction === 1 || detail.direction === -1)
+              ? { field: detail.field, direction: detail.direction === 1 ? 'asc' : 'desc' }
+              : null;
+            recomputePageData();
+            loadPage(0);
+          }) as EventListener);
+        }
+        if (serverFilter) {
+          grid.addEventListener('filter-change', (() => {
+            const active = grid.getPluginByName('filtering')?.getActiveFilters?.() ?? [];
+            pageFilterModel = active.length
+              ? Object.fromEntries(active.map((f: any) => [f.field, f]))
+              : undefined;
+            recomputePageData();
+            loadPage(0);
+          }) as EventListener);
+        }
+        loadPage(0);
+      });
     }
   }
 
-  rebuild({ mode: 'virtual', pageSize: 50, serverSort: false });
+  rebuild({ mode: 'virtual', pageSize: 50, serverSort: false, serverFilter: false });
 
   container.addEventListener('control-change', ((e: CustomEvent) => {
     rebuild(e.detail.allValues);

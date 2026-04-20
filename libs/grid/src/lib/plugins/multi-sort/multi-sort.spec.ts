@@ -409,4 +409,76 @@ describe('multiSort', () => {
       expect(getSortDirection([], 'name')).toBeUndefined();
     });
   });
+
+  describe('placeholder pin (issue #231)', () => {
+    const cols = [{ field: 'name' }, { field: 'age' }] as any;
+
+    it('pins __loading rows to the end on ascending sort', () => {
+      const rows = [
+        { name: 'Alice', age: 30 },
+        { __loading: true, __index: 1 },
+        { name: 'Charlie', age: 25 },
+        { name: 'Bob', age: 40 },
+      ];
+      const sorted = applySorts(rows, [{ field: 'name', direction: 'asc' }], cols);
+      expect(sorted.map((r: any) => r.name ?? '__loading')).toEqual(['Alice', 'Bob', 'Charlie', '__loading']);
+    });
+
+    it('pins __loading rows to the end on descending sort', () => {
+      const rows = [
+        { name: 'Alice', age: 30 },
+        { __loading: true, __index: 1 },
+        { name: 'Charlie', age: 25 },
+        { name: 'Bob', age: 40 },
+      ];
+      const sorted = applySorts(rows, [{ field: 'name', direction: 'desc' }], cols);
+      expect(sorted.map((r: any) => r.name ?? '__loading')).toEqual(['Charlie', 'Bob', 'Alice', '__loading']);
+    });
+
+    it('pins __loading rows to the end with multi-column sort', () => {
+      const rows = [
+        { name: 'Alice', age: 30 },
+        { __loading: true, __index: 1 },
+        { name: 'Alice', age: 25 },
+        { name: 'Bob', age: 20 },
+      ];
+      const sorted = applySorts(
+        rows,
+        [
+          { field: 'name', direction: 'asc' },
+          { field: 'age', direction: 'asc' },
+        ],
+        cols,
+      );
+      expect(sorted.map((r: any) => (r.__loading ? '__loading' : `${r.name}-${r.age}`))).toEqual([
+        'Alice-25',
+        'Alice-30',
+        'Bob-20',
+        '__loading',
+      ]);
+    });
+
+    it('does NOT auto-pin when a custom column sortComparator is configured', () => {
+      // Custom comparator that strictly compares numbers — placeholders should
+      // be the user's responsibility under sortMode: 'local'. Verify the
+      // placeholder reaches the comparator (not pre-filtered by the framework).
+      const seenRows: any[] = [];
+      const customCols = [
+        {
+          field: 'value',
+          sortComparator: (_a: unknown, _b: unknown, rA: any, rB: any) => {
+            seenRows.push(rA, rB);
+            const av = (rA as any)?.__loading ? Infinity : (rA as any).value;
+            const bv = (rB as any)?.__loading ? Infinity : (rB as any).value;
+            return av - bv;
+          },
+        },
+      ] as any;
+      const rows = [{ value: 2 }, { __loading: true, __index: 99 }, { value: 1 }];
+      const sorted = applySorts(rows, [{ field: 'value', direction: 'asc' }], customCols);
+      expect(sorted.map((r: any) => (r.__loading ? '__loading' : r.value))).toEqual([1, 2, '__loading']);
+      // Custom comparator was reachable (received placeholders)
+      expect(seenRows.some((r) => r?.__loading === true)).toBe(true);
+    });
+  });
 });

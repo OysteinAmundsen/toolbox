@@ -377,6 +377,52 @@ describe('builtInSort', () => {
     const result = builtInSort(data, { field: 'fullName', direction: 1 }, cols as any);
     expect(result.map((r) => r.first)).toEqual(['Ada', 'Grace']);
   });
+
+  // Issue #231 — placeholder rows from ServerSidePlugin (sortMode: 'local') must
+  // remain at the end of the sorted array regardless of direction.
+  describe('placeholder pin (issue #231)', () => {
+    const cols = [{ field: 'name' }] as any;
+
+    it('pins __loading rows to the end on ascending sort', () => {
+      const rows = [{ name: 'Alice' }, { __loading: true, __index: 1 }, { name: 'Charlie' }, { name: 'Bob' }];
+      const result = builtInSort(rows, { field: 'name', direction: 1 }, cols);
+      expect(result.map((r: any) => r.name ?? '__loading')).toEqual(['Alice', 'Bob', 'Charlie', '__loading']);
+    });
+
+    it('pins __loading rows to the end on descending sort', () => {
+      const rows = [{ name: 'Alice' }, { __loading: true, __index: 1 }, { name: 'Charlie' }, { name: 'Bob' }];
+      const result = builtInSort(rows, { field: 'name', direction: -1 }, cols);
+      expect(result.map((r: any) => r.name ?? '__loading')).toEqual(['Charlie', 'Bob', 'Alice', '__loading']);
+    });
+
+    it('pins __loading rows to the end with valueAccessor path', () => {
+      const accessorCols = [{ field: 'computed', valueAccessor: ({ row }: any) => row.value * 10 }] as any;
+      const rows = [{ value: 3 }, { __loading: true, __index: 1 }, { value: 1 }, { value: 2 }];
+      const result = builtInSort(rows, { field: 'computed', direction: 1 }, accessorCols);
+      expect(result.map((r: any) => (r.__loading ? '__loading' : r.value))).toEqual([1, 2, 3, '__loading']);
+    });
+
+    it('does NOT auto-pin when a custom column sortComparator is configured', () => {
+      // Custom comparator owns placeholder handling — verify the placeholder row
+      // is reachable from the comparator (framework does not pre-filter it).
+      const seenRows: any[] = [];
+      const customCols = [
+        {
+          field: 'value',
+          sortComparator: (_a: unknown, _b: unknown, rA: any, rB: any) => {
+            seenRows.push(rA, rB);
+            const av = (rA as any)?.__loading ? Infinity : (rA as any).value;
+            const bv = (rB as any)?.__loading ? Infinity : (rB as any).value;
+            return av - bv;
+          },
+        },
+      ] as any;
+      const rows = [{ value: 2 }, { __loading: true, __index: 99 }, { value: 1 }];
+      const result = builtInSort(rows, { field: 'value', direction: 1 }, customCols);
+      expect(result.map((r: any) => (r.__loading ? '__loading' : r.value))).toEqual([1, 2, '__loading']);
+      expect(seenRows.some((r) => r?.__loading === true)).toBe(true);
+    });
+  });
 });
 
 describe('reapplyCoreSort', () => {

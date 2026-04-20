@@ -924,4 +924,215 @@ describe('ServerSidePlugin', () => {
       expect(plugin.getTotalRowCount()).toBe(50);
     });
   });
+
+  describe('sortMode / filterMode (issue #231)', () => {
+    function setupQueriesGrid() {
+      const grid = createServerSideMockGrid();
+      // Stub query() to return a sort + filter model so getEnrichmentParams has
+      // something to filter out under 'local' mode.
+      const sortModel = [{ field: 'name', direction: 'asc' as const }];
+      const filterModel = { status: 'active' };
+      Object.defineProperty(grid, 'query', {
+        value: (q: string) => {
+          if (q === 'sort:get-model') return [sortModel];
+          if (q === 'filter:get-model') return [filterModel];
+          return [];
+        },
+        configurable: true,
+      });
+      return { grid, sortModel, filterModel };
+    }
+
+    it('default (sortMode omitted) purges cache and refetches on sort-change', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const { grid } = setupQueriesGrid();
+      plugin.attach(grid as any);
+      const mockDS: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockResolvedValue({ rows: Array.from({ length: 5 }, (_, i) => ({ id: i })), totalNodeCount: 50 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+      (mockDS.getRows as any).mockClear();
+
+      grid._pluginManager.emitPluginEvent('sort-change', {});
+
+      // Cache cleared synchronously
+      expect(plugin.getLoadedBlockCount()).toBe(0);
+      // Eager refetch fires
+      await vi.waitFor(() => expect(mockDS.getRows).toHaveBeenCalled());
+    });
+
+    it('sortMode: "local" does NOT purge cache and does NOT refetch on sort-change', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, sortMode: 'local' });
+      const { grid } = setupQueriesGrid();
+      plugin.attach(grid as any);
+      const mockDS: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockResolvedValue({ rows: Array.from({ length: 5 }, (_, i) => ({ id: i })), totalNodeCount: 50 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+      (mockDS.getRows as any).mockClear();
+      grid.requestRender.mockClear();
+
+      grid._pluginManager.emitPluginEvent('sort-change', {});
+
+      // Cache preserved, no refetch, just a re-render
+      expect(plugin.getLoadedBlockCount()).toBe(1);
+      expect(mockDS.getRows).not.toHaveBeenCalled();
+      expect(grid.requestRender).toHaveBeenCalled();
+    });
+
+    it('filterMode: "local" does NOT purge cache and does NOT refetch on filter-change', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, filterMode: 'local' });
+      const { grid } = setupQueriesGrid();
+      plugin.attach(grid as any);
+      const mockDS: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockResolvedValue({ rows: Array.from({ length: 5 }, (_, i) => ({ id: i })), totalNodeCount: 50 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+      (mockDS.getRows as any).mockClear();
+      grid.requestRender.mockClear();
+
+      grid._pluginManager.emitPluginEvent('filter-change', {});
+
+      expect(plugin.getLoadedBlockCount()).toBe(1);
+      expect(mockDS.getRows).not.toHaveBeenCalled();
+      expect(grid.requestRender).toHaveBeenCalled();
+    });
+
+    it('mixed sortMode: "local", filterMode: "server" — only filter purges cache', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, sortMode: 'local', filterMode: 'server' });
+      const { grid } = setupQueriesGrid();
+      plugin.attach(grid as any);
+      const mockDS: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockResolvedValue({ rows: Array.from({ length: 5 }, (_, i) => ({ id: i })), totalNodeCount: 50 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+      (mockDS.getRows as any).mockClear();
+
+      // sort-change → re-render only, cache intact
+      grid._pluginManager.emitPluginEvent('sort-change', {});
+      expect(plugin.getLoadedBlockCount()).toBe(1);
+      expect(mockDS.getRows).not.toHaveBeenCalled();
+
+      // filter-change → cache purged + refetch
+      grid._pluginManager.emitPluginEvent('filter-change', {});
+      expect(plugin.getLoadedBlockCount()).toBe(0);
+      await vi.waitFor(() => expect(mockDS.getRows).toHaveBeenCalled());
+    });
+
+    it('block fetch params omit sortModel under sortMode: "local"', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, sortMode: 'local' });
+      const { grid } = setupQueriesGrid();
+      plugin.attach(grid as any);
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [], totalNodeCount: 0 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(mockDS.getRows).toHaveBeenCalled());
+
+      const call = (mockDS.getRows as any).mock.calls[0][0];
+      expect(call.sortModel).toBeUndefined();
+      // filter still flows through (default 'server')
+      expect(call.filterModel).toEqual({ status: 'active' });
+    });
+
+    it('block fetch params omit filterModel under filterMode: "local"', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, filterMode: 'local' });
+      const { grid } = setupQueriesGrid();
+      plugin.attach(grid as any);
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [], totalNodeCount: 0 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(mockDS.getRows).toHaveBeenCalled());
+
+      const call = (mockDS.getRows as any).mock.calls[0][0];
+      expect(call.filterModel).toBeUndefined();
+      expect(call.sortModel).toEqual([{ field: 'name', direction: 'asc' }]);
+    });
+
+    it('both modes "local" — neither sort nor filter is sent on block fetch', async () => {
+      const plugin = new ServerSidePlugin({
+        cacheBlockSize: 5,
+        sortMode: 'local',
+        filterMode: 'local',
+      });
+      const { grid } = setupQueriesGrid();
+      plugin.attach(grid as any);
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [], totalNodeCount: 0 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(mockDS.getRows).toHaveBeenCalled());
+
+      const call = (mockDS.getRows as any).mock.calls[0][0];
+      expect(call.sortModel).toBeUndefined();
+      expect(call.filterModel).toBeUndefined();
+    });
+
+    it('processRows applies core _sortState to managedNodes when sortMode === "local"', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, sortMode: 'local' });
+      const grid = createServerSideMockGrid();
+      // Provide columns and a sort state on the grid for the plugin to read.
+      Object.defineProperty(grid, '_columns', {
+        value: [{ field: 'name', sortable: true }],
+        writable: true,
+        configurable: true,
+      });
+      Object.defineProperty(grid, '_sortState', {
+        value: { field: 'name', direction: -1 as const },
+        writable: true,
+        configurable: true,
+      });
+      plugin.attach(grid as any);
+      const rows = [{ name: 'Alice' }, { name: 'Charlie' }, { name: 'Bob' }, { name: 'Eve' }, { name: 'Dave' }];
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows, totalNodeCount: 5 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      // processRows should return rows sorted by name desc.
+      const result = plugin.processRows([]) as { name: string }[];
+      expect(result.map((r) => r.name)).toEqual(['Eve', 'Dave', 'Charlie', 'Bob', 'Alice']);
+    });
+
+    it('processRows leaves managedNodes order untouched when sortMode is server (default)', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const grid = createServerSideMockGrid();
+      Object.defineProperty(grid, '_columns', {
+        value: [{ field: 'name', sortable: true }],
+        writable: true,
+        configurable: true,
+      });
+      Object.defineProperty(grid, '_sortState', {
+        value: { field: 'name', direction: -1 as const },
+        writable: true,
+        configurable: true,
+      });
+      plugin.attach(grid as any);
+      const rows = [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Charlie' }];
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows, totalNodeCount: 3 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      // Default 'server' mode: ordering owned by backend; processRows returns
+      // managedNodes in index order regardless of grid._sortState.
+      const result = plugin.processRows([]) as { name: string }[];
+      expect(result.map((r) => r.name)).toEqual(['Alice', 'Bob', 'Charlie']);
+    });
+  });
 });

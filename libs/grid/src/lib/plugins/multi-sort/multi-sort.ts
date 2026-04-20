@@ -37,10 +37,15 @@ export function sortRowsInPlace<TRow = unknown>(rows: TRow[], sorts: SortModel[]
   // Pre-resolve comparator chain — avoids columns.find() on every pair comparison
   const chain = sorts.map((sort) => {
     const col = columns.find((c) => c.field === sort.field);
+    const comparator = col?.sortComparator ?? defaultComparator;
     return {
       field: sort.field,
       asc: sort.direction === 'asc',
-      comparator: col?.sortComparator ?? defaultComparator,
+      comparator,
+      // Auto-pin `__loading` placeholder rows (e.g. ServerSidePlugin under `sortMode: 'local'`)
+      // to the end ONLY when no custom comparator is configured. Custom comparators receive
+      // the row pair as 3rd/4th args and own placeholder handling themselves.
+      pinPlaceholders: !col?.sortComparator,
       column: col,
     };
   });
@@ -55,11 +60,22 @@ export function sortRowsInPlace<TRow = unknown>(rows: TRow[], sorts: SortModel[]
     // Single-sort fast path — avoid loop overhead
     const link = chain[0];
     rows.sort((a: any, b: any) => {
+      if (link.pinPlaceholders) {
+        const pinned = pinLoadingRows(a, b);
+        if (pinned !== 0) return pinned;
+      }
       const result = link.comparator(getValue(a, link), getValue(b, link), a, b);
       return link.asc ? result : -result;
     });
   } else {
     rows.sort((a: any, b: any) => {
+      // Pin placeholders ahead of the chain — independent of every column's direction.
+      // We only need to check once per pair, using the most permissive flag in the chain.
+      const anyPin = chain.some((l) => l.pinPlaceholders);
+      if (anyPin) {
+        const pinned = pinLoadingRows(a, b);
+        if (pinned !== 0) return pinned;
+      }
       for (let i = 0; i < chain.length; i++) {
         const link = chain[i];
         const result = link.comparator(getValue(a, link), getValue(b, link), a, b);
@@ -68,6 +84,21 @@ export function sortRowsInPlace<TRow = unknown>(rows: TRow[], sorts: SortModel[]
       return 0;
     });
   }
+}
+
+/**
+ * Pin `__loading` placeholder rows (e.g. ServerSidePlugin under `sortMode: 'local'`)
+ * to the end of the sorted array regardless of sort direction.
+ *
+ * Returns 0 when neither row is a placeholder, +1 when `a` is, -1 when `b` is.
+ *
+ * @internal
+ */
+function pinLoadingRows(a: unknown, b: unknown): number {
+  const aLoading = (a as { __loading?: unknown } | null)?.__loading === true;
+  const bLoading = (b as { __loading?: unknown } | null)?.__loading === true;
+  if (aLoading === bLoading) return 0;
+  return aLoading ? 1 : -1;
 }
 
 /**

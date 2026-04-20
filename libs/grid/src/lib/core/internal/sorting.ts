@@ -106,9 +106,14 @@ export function builtInSort<T>(rows: T[], sortState: SortState, columns: ColumnC
  * Sort an array in-place using the default comparator with direction folded in.
  * Shared between the public `builtInSort` (which copies first) and the internal
  * fast paths in `applySort` / `reapplyCoreSort` (which skip the copy).
+ *
+ * Pins `__loading` placeholder rows (e.g. ServerSidePlugin under `sortMode: 'local'`)
+ * to the end regardless of direction.
  */
 function sortInPlace(rows: any[], field: string, direction: 1 | -1): void {
   rows.sort((rA: any, rB: any) => {
+    const pinned = pinLoadingRows(rA, rB);
+    if (pinned !== 0) return pinned;
     const a = rA[field];
     const b = rB[field];
     if (a == null && b == null) return 0;
@@ -122,9 +127,13 @@ function sortInPlace(rows: any[], field: string, direction: 1 | -1): void {
  * Sort an array in-place using `column.valueAccessor` to extract each cell value.
  * Mirrors {@link sortInPlace} but routes value reads through the accessor +
  * shared per-row cache. Used when no `sortComparator` is configured.
+ *
+ * Pins `__loading` placeholder rows to the end regardless of direction.
  */
 function sortInPlaceWithAccessor(rows: any[], column: ColumnConfig<any>, direction: 1 | -1): void {
   rows.sort((rA: any, rB: any) => {
+    const pinned = pinLoadingRows(rA, rB);
+    if (pinned !== 0) return pinned;
     const a = resolveCellValue(rA, column);
     const b = resolveCellValue(rB, column);
     if (a == null && b == null) return 0;
@@ -132,6 +141,22 @@ function sortInPlaceWithAccessor(rows: any[], column: ColumnConfig<any>, directi
     if (b == null) return direction;
     return a > b ? direction : a < b ? -direction : 0;
   });
+}
+
+/**
+ * Pin `__loading` placeholder rows to the end of the sorted array regardless
+ * of sort direction. Returns 0 when neither row is a placeholder.
+ *
+ * Applied only on the built-in default-comparator paths. Custom column
+ * `sortComparator` callbacks receive the row pair and own placeholder handling.
+ *
+ * @internal
+ */
+function pinLoadingRows(a: unknown, b: unknown): number {
+  const aLoading = (a as { __loading?: unknown } | null)?.__loading === true;
+  const bLoading = (b as { __loading?: unknown } | null)?.__loading === true;
+  if (aLoading === bLoading) return 0;
+  return aLoading ? 1 : -1;
 }
 
 /**

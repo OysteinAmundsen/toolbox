@@ -346,6 +346,14 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
    * @internal
    */
   override handleQuery(query: PluginQuery): unknown {
+    if (query.type === 'filter:get-model') {
+      // ServerSidePlugin enrichment: expose the active filter map keyed by field
+      // for inclusion in `GetRowsParams.filterModel`. Returning `undefined` lets
+      // the caller treat "no filter" identically to "plugin not loaded".
+      if (!this.filters.size) return undefined;
+      return Object.fromEntries(this.filters);
+    }
+
     if (query.type === 'getContextMenuItems') {
       const params = query.context as ContextMenuParams;
       if (!params.isHeader) return undefined;

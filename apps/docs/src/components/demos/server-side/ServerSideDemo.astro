@@ -61,6 +61,13 @@ if (container) {
   let pageData = allData; // sorted/filtered view used by paging mode
   let pageSortModel: { field: string; direction: 'asc' | 'desc' } | null = null;
   let pageFilterModel: Record<string, any> | undefined;
+  // In-flight getRows count. Used by the right-side custom panel to switch
+  // between "Scroll to load more rows..." and "Loading..." messages.
+  let loadingCount = 0;
+
+  function refreshPinnedRows() {
+    grid.getPluginByName('pinnedRows')?.refresh?.();
+  }
 
   function sortData(data: typeof allData, sort: { field: string; direction: 'asc' | 'desc' }) {
     const dir = sort.direction === 'asc' ? 1 : -1;
@@ -95,11 +102,18 @@ if (container) {
   function createDataSource() {
     return {
       async getRows(params: any) {
-        await new Promise((r) => setTimeout(r, 200));
-        let data = allData;
-        if (params.filterModel) data = applyFilters(data, params.filterModel);
-        if (params.sortModel?.length) data = sortData(data, params.sortModel[0]);
-        return { rows: data.slice(params.startNode, params.endNode), totalNodeCount: data.length };
+        loadingCount++;
+        refreshPinnedRows();
+        try {
+          await new Promise((r) => setTimeout(r, 200));
+          let data = allData;
+          if (params.filterModel) data = applyFilters(data, params.filterModel);
+          if (params.sortModel?.length) data = sortData(data, params.sortModel[0]);
+          return { rows: data.slice(params.startNode, params.endNode), totalNodeCount: data.length };
+        } finally {
+          loadingCount = Math.max(0, loadingCount - 1);
+          refreshPinnedRows();
+        }
       },
     };
   }
@@ -148,8 +162,35 @@ if (container) {
         filtering: true,
         pinnedRows: {
           position: 'bottom',
-          showRowCount: true,
-          customPanels: [{ id: 'scroll-info', position: 'right', render: () => '<em>Scroll to load more rows...</em>' }],
+          showRowCount: false,
+          customPanels: [
+            {
+              id: 'loaded-count',
+              position: 'left',
+              render: (ctx: any) => {
+                const total = ctx.totalRows;
+                const rows = (ctx.grid as any).rows as unknown[] | undefined;
+                const loaded = Array.isArray(rows)
+                  ? rows.filter((r) => !(r as any)?.__loading).length
+                  : 0;
+                return loaded >= total ? `Rows: ${total}` : `Rows: ${loaded}/${total}`;
+              },
+            },
+            {
+              id: 'scroll-info',
+              position: 'right',
+              render: (ctx: any) => {
+                if (loadingCount > 0) return '<em>Loading...</em>';
+                const total = ctx.totalRows;
+                const rows = (ctx.grid as any).rows as unknown[] | undefined;
+                const loaded = Array.isArray(rows)
+                  ? rows.filter((r) => !(r as any)?.__loading).length
+                  : 0;
+                if (loaded >= total) return '';
+                return '<em>Scroll to load more rows...</em>';
+              },
+            },
+          ],
         },
       };
     } else {

@@ -187,22 +187,32 @@ Toggle between virtual scrolling and paging mode, adjust the page size, and enab
   <ServerSideDemo />
 </ShowSource>
 
-### Server-Side Sorting
+### Server-Side Sorting & Filtering
 
-:::note
-`sortHandler` is a **core GridConfig property**, not a ServerSidePlugin feature. It works with or without the ServerSidePlugin. See the [Multi-Sort Plugin docs](/grid/plugins/multi-sort/#server-side-sorting) for full details.
+The plugin handles sorting and filtering natively: when the user clicks a sortable header or applies a column filter, the cache is purged and `getRows()` is called again with `sortModel` and `filterModel` populated. Your handler decides how to translate those into the request:
+
+```ts
+async getRows(params: GetRowsParams) {
+  const url = new URL('/api/data', location.origin);
+  url.searchParams.set('start', String(params.startNode));
+  url.searchParams.set('end', String(params.endNode));
+  if (params.sortModel?.length) {
+    url.searchParams.set('sort', params.sortModel[0].field);
+    url.searchParams.set('dir', params.sortModel[0].direction);
+  }
+  if (params.filterModel) {
+    url.searchParams.set('filter', JSON.stringify(params.filterModel));
+  }
+  const res = await fetch(url);
+  return res.json();
+}
+```
+
+Toggle **Server-side sorting** / **Server-side filtering** in the demo above to see the request parameters change. Toggling them off switches to [local mode](#local-sort--filter-modes) — the plugin keeps the loaded blocks and sorts/filters them in the browser without a refetch.
+
+:::note[Standalone handlers]
+The grid also exposes [`sortHandler`](/grid/plugins/multi-sort/#server-side-sorting) (core `GridConfig`) and [`filterHandler` / `valuesHandler`](/grid/plugins/filtering/#async-filtering-server-side) (FilteringPlugin config). These are **independent** of the ServerSidePlugin and let you offload sort/filter work to the server **without** opting into block-based virtual scrolling. Use them when you want async sort/filter against an already-loaded dataset; use ServerSidePlugin's native `sortModel`/`filterModel` when you want them combined with lazy block loading.
 :::
-
-Enable the **Server-side sorting** toggle in the demo above to see `sortHandler` in action. When a user clicks a sortable column header, your handler is called instead of the built-in sorting logic.
-
-### Server-Side Filtering
-
-:::note
-`filterHandler` and `valuesHandler` are **FilteringPlugin config properties**, not ServerSidePlugin features. They work with or without the ServerSidePlugin.
-:::
-
-For server-side filtering, use the FilteringPlugin's async handlers.
-See the [Filtering Plugin documentation](/grid/plugins/filtering/#async-filtering-server-side) for details on `valuesHandler` and `filterHandler`.
 
 ### Local Sort / Filter Modes
 
@@ -236,6 +246,22 @@ Local filtering only filters rows currently in the cache. With virtual scrolling
 :::note
 A column with a custom `sortComparator` is treated as user-owned: loading placeholder rows are **not** auto-pinned. Pin them yourself in your comparator if you want the same behaviour.
 :::
+
+### Prefetching with `loadThreshold`
+
+By default the plugin only fetches a block when the **visible viewport** enters it. On gentle scrolling this means users see placeholder rows for the duration of the network round-trip. Set `loadThreshold` to prefetch the next block(s) before the user scrolls into them:
+
+```ts
+serverSide: {
+  dataSource,
+  pageSize: 100,
+  loadThreshold: 50, // start fetching the next block when within 50 rows of it
+}
+```
+
+The threshold is applied symmetrically (the viewport is expanded by `loadThreshold` rows in both directions before block coverage is computed). The `maxConcurrentRequests` cap and per-block dedup still apply, so a large threshold during fast scrolling will not flood the server.
+
+A reasonable starting point is `pageSize / 2`. Values larger than `cacheBlockSize` will eagerly request 2+ blocks ahead, which can hurt perceived performance with slow backends.
 
 ## Configuration Options
 
@@ -605,15 +631,6 @@ source.addEventListener('delete', (e) => {
 ```
 
 ---
-
-## Combining with Server-Side Sorting and Filtering
-
-When loading data lazily via ServerSidePlugin, you'll typically want sorting and filtering to happen on the server too. These are **independent** async handlers — they don't require ServerSidePlugin, but they're commonly used alongside it.
-
-- **Server-side sorting** — Use the [`sortHandler`](/grid/plugins/multi-sort/#server-side-sorting) config option. When a user clicks a column header, your handler calls the server instead of sorting in-memory.
-- **Server-side filtering** — Use the [`filterHandler` and `valuesHandler`](/grid/plugins/filtering/#async-filtering-server-side) on the FilteringPlugin config. Your handler calls the server to apply filters and return matching rows.
-
-Both handlers work identically whether or not ServerSidePlugin is active. If you only need async sorting or filtering (without block-based lazy loading), just use the handlers directly — no ServerSidePlugin needed.
 
 ## Composing with Other Plugins
 

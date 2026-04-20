@@ -751,6 +751,97 @@ describe('ServerSidePlugin', () => {
     });
   });
 
+  describe('loadThreshold', () => {
+    it('should prefetch the next block when viewport is within threshold of an unloaded block', async () => {
+      vi.useFakeTimers();
+      // Viewport rows 0..10 normally only requires block 0 (size 10).
+      // With loadThreshold: 5 the expanded range becomes 0..15, pulling in block 1.
+      // Prefetch must fire on the initial fetch, not require a user scroll.
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10, loadThreshold: 5 });
+      const grid = createServerSideMockGrid({
+        _virtualization: { enabled: true, start: 0, end: 10 },
+      });
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockResolvedValue({ rows: Array.from({ length: 10 }, (_, i) => ({ id: i })), totalNodeCount: 100 }),
+      };
+      plugin.setDataSource(mockDS);
+
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(2));
+
+      // Block 0 (initial) + block 1 (prefetched via threshold) should both have been requested.
+      const calls = (mockDS.getRows as any).mock.calls.map((c: any[]) => c[0]);
+      expect(calls).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ startNode: 0, endNode: 10 }),
+          expect.objectContaining({ startNode: 10, endNode: 20 }),
+        ]),
+      );
+
+      vi.useRealTimers();
+    });
+
+    it('should not prefetch beyond totalNodeCount', async () => {
+      vi.useFakeTimers();
+      // Total of 15 rows means only blocks 0 and 1 exist (block 1 has rows 10..14).
+      // loadThreshold: 50 would otherwise request many blocks past the end.
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10, loadThreshold: 50 });
+      const grid = createServerSideMockGrid({
+        _virtualization: { enabled: true, start: 0, end: 5 },
+      });
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockImplementation((params) => {
+          const rows = Array.from({ length: Math.max(0, Math.min(15, params.endNode) - params.startNode) }, (_, i) => ({
+            id: params.startNode + i,
+          }));
+          return Promise.resolve({ rows, totalNodeCount: 15 });
+        }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(15));
+
+      plugin.onScroll({ scrollTop: 0, scrollLeft: 0, direction: 'vertical' } as any);
+      vi.advanceTimersByTime(200);
+      await vi.waitFor(() => expect((mockDS.getRows as any).mock.calls.length).toBeGreaterThanOrEqual(2));
+
+      // Only the 2 valid blocks should have been requested (no calls past row 15).
+      expect((mockDS.getRows as any).mock.calls.length).toBe(2);
+
+      vi.useRealTimers();
+    });
+
+    it('should default to 0 (no prefetch beyond visible viewport)', async () => {
+      vi.useFakeTimers();
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid({
+        _virtualization: { enabled: true, start: 0, end: 10 },
+      });
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockResolvedValue({ rows: Array.from({ length: 10 }, (_, i) => ({ id: i })), totalNodeCount: 100 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      plugin.onScroll({ scrollTop: 0, scrollLeft: 0, direction: 'vertical' } as any);
+      vi.advanceTimersByTime(200);
+
+      // Only block 0 should have been fetched — viewport ends exactly at row 10,
+      // and getRequiredBlocks(0, 10, 10) = [0] (endNode-1 = 9 falls in block 0).
+      expect((mockDS.getRows as any).mock.calls.length).toBe(1);
+
+      vi.useRealTimers();
+    });
+  });
+
   describe('detach', () => {
     it('should clean up all state', async () => {
       const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });

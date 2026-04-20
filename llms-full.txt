@@ -1068,6 +1068,9 @@ new ServerSidePlugin({
   pageSize?: number,             // Rows per API request (default: 100)
   cacheBlockSize?: number,       // Cache block size
   maxConcurrentRequests?: number, // Parallel request limit (default: 2)
+  loadThreshold?: number,        // Prefetch slack in rows; 0 = fetch only on viewport entry (default: 0)
+  sortMode?: 'server' | 'local', // 'local' re-sorts cache without refetch (default: 'server')
+  filterMode?: 'server' | 'local', // 'local' re-filters cache without refetch (default: 'server')
 })
 // Then: plugin.setDataSource({
 //   getRows: async (params) => ({ rows, totalNodeCount }),

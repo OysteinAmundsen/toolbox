@@ -56,6 +56,26 @@ export interface ServerSideConfig {
    */
   maxConcurrentRequests?: number;
   /**
+   * Prefetch slack in **node count** (rows). When `> 0`, blocks are loaded as
+   * soon as the user is within `loadThreshold` rows of an unloaded block,
+   * rather than only when the visible window enters it. This reduces the
+   * number of placeholder rows the user sees during gentle scrolling at the
+   * cost of slightly more eager fetching.
+   *
+   * The threshold is applied symmetrically: the viewport is expanded by
+   * `loadThreshold` rows in both directions before block coverage is
+   * computed. The `maxConcurrentRequests` cap and per-block dedup still
+   * apply, so a large threshold during fast scrolling will not flood the
+   * server with requests.
+   *
+   * A reasonable starting point is `pageSize / 2`. Values larger than
+   * `cacheBlockSize` will eagerly request 2+ blocks ahead, which can hurt
+   * perceived performance with slow backends.
+   *
+   * @default 0 (fetch only when the visible window enters an unloaded block)
+   */
+  loadThreshold?: number;
+  /**
    * Data source for server-side loading.
    * When provided, the plugin auto-initializes on attach — no need to call `setDataSource()`.
    *

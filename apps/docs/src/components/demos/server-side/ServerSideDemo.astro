@@ -8,6 +8,9 @@ const controls: ControlDef[] = [
     options: ['virtual', 'paging'], description: 'Virtual scroll loads rows on demand; Paging shows one page at a time' },
   { section: 'SERVER', name: 'pageSize', label: 'Page size', type: 'number',
     min: 10, max: 100, step: 10, default: 50, description: 'Rows fetched per request' },
+  { section: 'SERVER', name: 'loadThreshold', label: 'Prefetch threshold', type: 'number',
+    min: 0, max: 100, step: 5, default: 0,
+    description: 'Prefetch the next block when the user is within this many rows of an unloaded block (virtual mode only)' },
   { section: 'SORTING', name: 'serverSort', label: 'Server-side sorting', type: 'boolean',
     default: false, description: 'Sort on the server instead of client-side' },
   { section: 'FILTERING', name: 'serverFilter', label: 'Server-side filtering', type: 'boolean',
@@ -141,6 +144,7 @@ if (container) {
   function rebuild(values: Record<string, unknown>) {
     const mode = values.mode as string;
     const pageSize = values.pageSize as number;
+    const loadThreshold = values.loadThreshold as number;
     const serverSort = values.serverSort as boolean;
     const serverFilter = values.serverFilter as boolean;
     currentPageSize = pageSize;
@@ -156,6 +160,7 @@ if (container) {
         serverSide: {
           pageSize,
           cacheBlockSize: pageSize,
+          loadThreshold,
           sortMode: serverSort ? 'server' : 'local',
           filterMode: serverFilter ? 'server' : 'local',
         },
@@ -241,7 +246,7 @@ if (container) {
     }
   }
 
-  rebuild({ mode: 'virtual', pageSize: 50, serverSort: false, serverFilter: false });
+  rebuild({ mode: 'virtual', pageSize: 50, loadThreshold: 0, serverSort: false, serverFilter: false });
 
   container.addEventListener('control-change', ((e: CustomEvent) => {
     rebuild(e.detail.allValues);

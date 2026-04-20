@@ -312,8 +312,20 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     // Translate viewport to node space via structural plugins
     const viewport = this.getViewportMapping(gridRef._virtualization.start, gridRef._virtualization.end);
 
+    // Expand the viewport by loadThreshold in both directions to prefetch
+    // blocks the user is about to scroll into. The end is clamped to
+    // totalNodeCount when known so we don't request blocks past the end of
+    // data — but `totalNodeCount = 0` means "not yet loaded" (e.g. just after
+    // purgeCache or before the first fetch resolves), in which case we leave
+    // it unclamped so the initial block can be fetched.
+    const threshold = Math.max(0, this.config.loadThreshold ?? 0);
+    const expandedStart = Math.max(0, viewport.startNode - threshold);
+    const knownTotal = this.totalNodeCount > 0 ? this.totalNodeCount : Infinity;
+    const expandedEnd = Math.min(knownTotal, viewport.endNode + threshold);
+    if (expandedEnd <= expandedStart) return;
+
     // Determine which blocks are needed for current viewport (in node space)
-    const requiredBlocks = getRequiredBlocks(viewport.startNode, viewport.endNode, blockSize);
+    const requiredBlocks = getRequiredBlocks(expandedStart, expandedEnd, blockSize);
     const enrichment = this.getEnrichmentParams();
     const gridId = this.grid?.getAttribute?.('id') ?? undefined;
 
@@ -557,6 +569,14 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
         this.broadcast('datasource:data', detail);
         this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
         this.requestRender();
+
+        // When loadThreshold is configured, re-check the viewport so the
+        // prefetch can pull in additional blocks immediately rather than
+        // waiting for the user's first scroll. Gated on the threshold to
+        // preserve the historical "first fetch loads block 0 only" behavior.
+        if ((this.config.loadThreshold ?? 0) > 0) {
+          this.loadRequiredBlocks();
+        }
       })
       .catch((error: unknown) => {
         const err = error instanceof Error ? error : new Error(String(error));

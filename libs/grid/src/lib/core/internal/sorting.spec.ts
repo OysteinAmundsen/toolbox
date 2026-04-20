@@ -248,6 +248,25 @@ describe('applySort', () => {
     expect(asyncHandler).toHaveBeenCalled();
     expect(g._rows.map((r: any) => r.id)).toEqual([1, 2, 3]);
   });
+
+  it('emits sort-change to BOTH the DOM and the plugin event bus', () => {
+    // Regression: ServerSidePlugin (and other plugins) subscribe to sort-change via
+    // `this.on(...)`, which listens on the plugin event bus — not DOM events.
+    // If core sort only dispatches a DOM CustomEvent, plugins never see the change
+    // (e.g. ServerSide does not purge its block cache → grid appears not to sort).
+    const emitPluginEvent = vi.fn();
+    const g = makeGrid({ _pluginManager: { emitPluginEvent } });
+
+    applySort(g, g._columns[1], -1);
+
+    // DOM event still fires for external consumers
+    expect(g.__events).toHaveLength(1);
+    expect(g.__events[0].type).toBe('sort-change');
+    expect(g.__events[0].detail).toEqual({ field: 'name', direction: -1 });
+
+    // Plugin bus event also fires so plugins like ServerSide react
+    expect(emitPluginEvent).toHaveBeenCalledWith('sort-change', { field: 'name', direction: -1 });
+  });
 });
 
 describe('defaultComparator', () => {

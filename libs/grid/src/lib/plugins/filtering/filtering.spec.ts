@@ -1416,6 +1416,30 @@ describe('FilteringPlugin class', () => {
     grid._cleanup();
   });
 
+  it('getUniqueValues should fall back to processed rows when sourceRows is empty (ServerSide regression)', () => {
+    // ServerSidePlugin owns the data: sourceRows (`#rows`) is empty, processed `rows`
+    // contains the plugin's managedNodes (loaded blocks + `__loading` placeholders).
+    // getUniqueValues should fall back to processed rows minus placeholders so users
+    // see filter options for whatever has actually loaded.
+    const processed = [
+      { city: 'New York' },
+      { city: 'Boston' },
+      { city: 'New York' },
+      { __loading: true, __index: 3 } as Record<string, unknown>,
+      { __loading: true, __index: 4 } as Record<string, unknown>,
+    ];
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock([]); // sourceRows is empty
+    grid.rows = processed; // _rows / processed view contains loaded blocks + placeholders
+    plugin.attach(grid as any);
+
+    const values = plugin.getUniqueValues('city');
+    expect(values).toHaveLength(2);
+    expect(values).toContain('New York');
+    expect(values).toContain('Boston');
+    grid._cleanup();
+  });
+
   // #region Silent filter option tests
 
   it('setFilter with { silent: true } should not emit filter-change', () => {

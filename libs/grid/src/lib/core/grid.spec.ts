@@ -158,4 +158,31 @@ describe('DataGridElement', () => {
       expect(found).toBeNull();
     });
   });
+
+  describe('rows setter', () => {
+    it('should coerce undefined to empty array (regression: ServerSidePlugin crash)', async () => {
+      const grid = createGrid();
+      document.body.appendChild(grid);
+      await grid.ready();
+
+      // Frameworks may sync `grid.rows = undefined` when caller did not provide rows.
+      // This previously crashed in _emitDataChange (Cannot read properties of undefined).
+      expect(() => {
+        (grid as { rows: unknown }).rows = undefined;
+      }).not.toThrow();
+      expect(grid.rows).toEqual([]);
+      expect(grid.sourceRows).toEqual([]);
+    });
+
+    it('should coerce null to empty array', async () => {
+      const grid = createGrid();
+      document.body.appendChild(grid);
+      await grid.ready();
+
+      expect(() => {
+        (grid as { rows: unknown }).rows = null;
+      }).not.toThrow();
+      expect(grid.sourceRows).toEqual([]);
+    });
+  });
 });

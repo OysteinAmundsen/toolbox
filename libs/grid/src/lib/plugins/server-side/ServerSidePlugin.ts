@@ -220,6 +220,10 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.totalNodeCount = 0;
     this.infiniteScrollMode = false;
     this.requestRender();
+    // Eagerly fetch the current viewport with the new enrichment params.
+    // Without this, the table stays blank until the user scrolls (no other
+    // path triggers a fetch — processRows just rebuilds from cached blocks).
+    this.loadRequiredBlocks();
   }
 
   /**
@@ -295,6 +299,9 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
       loadBlock(this.dataSource, blockNum, blockSize, enrichment)
         .then((result) => {
           this.loadedBlocks.set(blockNum, result.rows);
+          // Capture pre-update length so we can detect whether processRows must
+          // re-run to grow the managedNodes array (e.g. after onModelChange reset).
+          const previousManagedLength = this.managedNodes.length;
           this.applyServerResult(result, blockNum, blockSize);
           this.loadingBlocks.delete(blockNum);
 
@@ -320,11 +327,25 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
             this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
           }
 
-          // Re-render visible rows without force geometry recalculation.
-          // requestVirtualRefresh() skips spacer height writes that cause oscillation
-          // with the scheduler's afterRender microtask. Node count hasn't changed —
-          // only cached data replaced placeholders — so geometry is stable.
-          this.requestVirtualRefresh();
+          // If managedNodes still hasn't been sized for the (possibly newly known)
+          // totalNodeCount — typically because onModelChange() reset it to 0 right
+          // before this fetch — we MUST run processRows to grow the array. The
+          // in-place writes above are no-ops in that case (length is 0).
+          // Without this, sort/filter changes leave the grid permanently blank
+          // until something else triggers a ROWS phase.
+          const needsRowModelRebuild =
+            previousManagedLength === 0 ||
+            this.managedNodes.length < (Number.isFinite(this.totalNodeCount) ? this.totalNodeCount : 0);
+
+          if (needsRowModelRebuild) {
+            this.requestRender();
+          } else {
+            // Re-render visible rows without force geometry recalculation.
+            // requestVirtualRefresh() skips spacer height writes that cause oscillation
+            // with the scheduler's afterRender microtask. Node count hasn't changed —
+            // only cached data replaced placeholders — so geometry is stable.
+            this.requestVirtualRefresh();
+          }
 
           // Re-check with fresh viewport: user may have scrolled further
           this.loadRequiredBlocks();

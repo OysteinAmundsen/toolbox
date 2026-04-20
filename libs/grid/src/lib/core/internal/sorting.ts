@@ -140,9 +140,18 @@ function finalizeSortResult<T>(grid: GridHost<T>, sortedRows: T[], col: ColumnCo
 /**
  * Emit sort-change event, aria announcement, and state change request.
  * Shared by both the direct sort path and the scheduler-delegated path.
+ *
+ * Emits to BOTH channels:
+ * - DOM CustomEvent — for external consumers (`grid.addEventListener('sort-change', …)`).
+ * - Plugin event bus — for plugins that subscribe via `this.on('sort-change', …)`
+ *   (e.g. ServerSidePlugin purges its block cache on sort change). Without the
+ *   plugin-bus emit, the core sort path silently bypasses every plugin listener
+ *   while MultiSortPlugin (which uses `broadcast()`) works correctly.
  */
 function emitSortChange<T>(grid: GridHost<T>, col: ColumnConfig<T>, dir: 1 | -1 | 0): void {
-  grid.dispatchEvent(new CustomEvent('sort-change', { detail: { field: col.field, direction: dir } }));
+  const detail = { field: col.field, direction: dir };
+  grid.dispatchEvent(new CustomEvent('sort-change', { detail }));
+  grid._pluginManager?.emitPluginEvent?.('sort-change', detail);
   announce(
     grid,
     getA11yMessage(

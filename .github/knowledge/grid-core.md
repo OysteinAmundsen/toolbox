@@ -60,6 +60,7 @@ related: [grid-plugins, grid-features, data-flow-traces]
 - READS FROM: user properties (rows, columns, gridConfig, fitMode), light DOM, plugin hooks, DOM events, ResizeObserver, MutationObserver
 - WRITES TO: shadow DOM, CSS grid-template-columns, visible row elements (pooled), custom events (cell-click, row-click, header-click, cell-change, sort-change, data-change)
 - INVARIANT: \_rows always reflects #rows (input) after plugin processing
+- INVARIANT: #rows is ALWAYS an array — the `rows` and `sourceRows` setters coerce nullish/non-array input to `[]`. Frameworks (React `useEffect`, Vue, Angular) may sync `grid.rows = undefined` when the caller did not pass a `rows` prop; without this coercion, `_emitDataChange` (and any `this.#rows.length` reader) crashes with "Cannot read properties of undefined". Common trigger: ServerSidePlugin (data owned by plugin, no `rows` prop required). DECIDED (Apr 2026): coerce at the setter rather than guarding every reader.
 - INVARIANT: \_columns contains ALL columns including hidden; \_visibleColumns is cached filter
 - INVARIANT: row ID map always in sync with \_rows at read time (lazy: #applyRowsUpdate marks dirty, #ensureRowIdMap rebuilds on first read, #rebuildRowModel rebuilds unconditionally)
 - INVARIANT: every property change goes through batched #queueUpdate → queueMicrotask → #flushPendingUpdates

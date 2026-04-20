@@ -459,9 +459,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return this._rows;
   }
   set rows(value: T[]) {
+    // Invariant: #rows is always an array. Coerce nullish/non-array to []
+    // (frameworks may sync `grid.rows = undefined` when no rows prop is provided).
+    const next = Array.isArray(value) ? value : [];
     const oldValue = this.#rows;
-    this.#rows = value;
-    if (oldValue !== value) {
+    this.#rows = next;
+    if (oldValue !== next) {
       this.#queueUpdate('rows');
     }
   }
@@ -489,7 +492,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /** @internal Used by RowManager for insertRow/removeRow mutations. */
   set sourceRows(rows: T[]) {
-    this.#rows = rows;
+    this.#rows = Array.isArray(rows) ? rows : [];
   }
 
   /**
@@ -3772,6 +3775,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       renderHeader(this);
       this.refreshVirtualWindow(true);
       this.dispatchEvent(new CustomEvent('sort-change', { detail: { field: prevField, direction: 0 } }));
+      this._pluginManager?.emitPluginEvent?.('sort-change', { field: prevField, direction: 0 });
       this.requestStateChange?.();
       return;
     }

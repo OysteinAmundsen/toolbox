@@ -171,6 +171,24 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   }
 
   /**
+   * Resolve the row set used to compute filter unique values.
+   *
+   * Default source is `sourceRows` (raw user input — `grid.#rows`). When a plugin
+   * owns the data instead (e.g. `ServerSidePlugin` returns its own `managedNodes`
+   * from `processRows`), `sourceRows` is empty and we fall back to the processed
+   * `grid.rows` with placeholder rows excluded. This lets users filter by values
+   * that have actually been loaded so far without having to wire a `valuesHandler`.
+   */
+  private getDataRows(): Record<string, unknown>[] {
+    const source = this.sourceRows as Record<string, unknown>[];
+    if (source.length > 0) return source;
+    const processed = this.rows as Record<string, unknown>[];
+    if (processed.length === 0) return processed;
+    // Skip placeholder rows (e.g. ServerSidePlugin's `{ __loading: true, __index }`).
+    return processed.filter((r) => r != null && (r as { __loading?: unknown }).__loading !== true);
+  }
+
+  /**
    * Build a map of field → filterValue extractor for columns that have one.
    * Used to pass array-aware value extraction to the pure filter functions.
    */
@@ -236,8 +254,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     }
 
     if (notInFields.length > 0) {
-      // Single pass through sourceRows for notIn fields only
-      const uniqueMap = getUniqueValuesBatch(this.sourceRows as Record<string, unknown>[], notInFields);
+      // Single pass through the resolved data rows for notIn fields only
+      const uniqueMap = getUniqueValuesBatch(this.getDataRows(), notInFields);
       for (const { field } of notInFields) {
         const excluded = this.excludedValues.get(field);
         const unique = uniqueMap.get(field) ?? [];
@@ -262,9 +280,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     } else if (filter.type === 'set' && filter.operator === 'in' && Array.isArray(filter.value)) {
       // For `in` filters we need the complement (excluded = allUnique - included)
       // so the filter panel can render correct checkbox states.
-      // This requires data to be loaded. If sourceRows is empty, defer — the
-      // complement will be computed lazily when the panel opens.
-      const sourceRows = this.sourceRows as Record<string, unknown>[];
+      // This requires data to be loaded. If no rows are available yet, defer —
+      // the complement will be computed lazily when the panel opens.
+      const sourceRows = this.getDataRows();
       if (!sourceRows || sourceRows.length === 0) {
         this.excludedValues.delete(field);
         return;
@@ -641,13 +659,18 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
   /**
    * Get unique values for a field (for set filter dropdowns).
-   * Uses sourceRows to include all values regardless of current filter.
+   *
+   * Prefers `sourceRows` (raw user input). When the user does not own the data
+   * (e.g. `ServerSidePlugin` is active and `sourceRows` is empty), falls back
+   * to the processed `rows` with placeholder/loading rows excluded so users get
+   * filter values for whatever has been loaded so far.
+   *
    * When a column has `filterValue`, individual extracted values are returned.
    */
   getUniqueValues(field: string): unknown[] {
     const col = this.grid.effectiveConfig?.columns?.find((c) => c.field === field);
     const getter = col?.filterValue;
-    return getUniqueValues(this.sourceRows as Record<string, unknown>[], field, getter);
+    return getUniqueValues(this.getDataRows(), field, getter);
   }
 
   // #region Stale Filter Detection (#166)
@@ -832,8 +855,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       return;
     }
 
-    // Sync path: get unique values from local rows
-    const uniqueValues = getUniqueValues(this.sourceRows as Record<string, unknown>[], field, column.filterValue);
+    // Sync path: get unique values from locally available rows (raw input or
+    // plugin-managed processed rows when a plugin owns the data, e.g. ServerSide).
+    const uniqueValues = getUniqueValues(this.getDataRows(), field, column.filterValue);
 
     // Position and append to body BEFORE rendering content
     // so getListItemHeight() can read CSS variables from computed styles

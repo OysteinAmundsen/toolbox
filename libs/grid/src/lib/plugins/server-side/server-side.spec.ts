@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BlockCache } from './cache';
 import {
-    getBlockNumber,
-    getBlockRange,
-    getRequiredBlocks,
-    getRowFromCache,
-    isBlockLoaded,
-    isBlockLoading,
-    loadBlock,
+  getBlockNumber,
+  getBlockRange,
+  getRequiredBlocks,
+  getRowFromCache,
+  isBlockLoaded,
+  isBlockLoading,
+  loadBlock,
 } from './datasource';
 import { ServerSidePlugin } from './ServerSidePlugin';
 import type { ServerSideDataSource } from './types';
@@ -646,6 +646,49 @@ describe('ServerSidePlugin', () => {
 
       plugin.refresh(); // should not throw
       expect(grid.requestRender).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('sort/filter cache invalidation (regression)', () => {
+    it('should refetch and requestRender after sort-change so the table is not left blank', async () => {
+      // Reproduces: clicking sort wipes caches (totalNodeCount=0, managedNodes=[]),
+      // the immediate processRows returns []. onModelChange must (a) trigger a fresh
+      // fetch with new enrichment params and (b) on resolve call requestRender() so
+      // processRows runs again and managedNodes regrows. Otherwise the grid stays blank.
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockResolvedValue({ rows: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }], totalNodeCount: 100 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+      // Initial processRows simulates the scheduler running after setDataSource
+      plugin.processRows([]);
+      grid.requestRender.mockClear();
+      (mockDS.getRows as any).mockClear();
+
+      // Simulate sort-change: should reset caches AND eagerly refetch
+      grid._pluginManager.emitPluginEvent('sort-change', {});
+
+      // Right after onModelChange synchronously: caches cleared, processRows returns []
+      expect(plugin.processRows([]).length).toBe(0);
+
+      // Wait for the refetch to actually resolve (synchronous requestRender from
+      // onModelChange would otherwise resolve waitFor too early).
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBeGreaterThan(0));
+      expect(mockDS.getRows).toHaveBeenCalled();
+      // The post-resolve path must call requestRender (full ROWS phase) — not just
+      // requestVirtualRefresh — so processRows runs again and managedNodes regrows.
+      expect(grid.requestRender).toHaveBeenCalled();
+
+      // After the fresh processRows runs, the table is no longer blank
+      const refreshed = plugin.processRows([]);
+      expect(refreshed.length).toBe(100);
+      expect(refreshed[0]).toEqual({ id: 0 });
     });
   });
 

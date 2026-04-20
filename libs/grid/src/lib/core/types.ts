@@ -496,6 +496,8 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   /** @internal Access the plugin manager's cached state. */
   _pluginManager?: {
     _hasRowStructurePlugins: boolean;
+    /** Emit an event on the plugin event bus (does not dispatch a DOM event). */
+    emitPluginEvent?: <D>(eventType: string, detail: D) => void;
   };
   _gridTemplate: string;
   _virtualization: VirtualState;

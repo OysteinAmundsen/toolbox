@@ -141,12 +141,16 @@ export function renderToContainer(
 
 /**
  * Remove a portal (or fallback root) by key.
+ *
+ * @param options.sync - When true, flush the removal synchronously so the
+ *   caller can safely clear the container DOM immediately after (e.g.,
+ *   tool panel accordion collapse sets `innerHTML = ''`).
  */
-export function removeFromContainer(key: string): void {
+export function removeFromContainer(key: string, options?: { sync?: boolean }): void {
   // Find the correct PortalManager via reverse lookup
   const grid = keyToGrid.get(key);
   const pm = grid ? portalManagers.get(grid) : undefined;
-  pm?.removePortal(key);
+  pm?.removePortal(key, options?.sync);
   keyToGrid.delete(key);
 
   cleanupFallbackRoot(key);

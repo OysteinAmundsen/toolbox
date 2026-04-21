@@ -201,7 +201,7 @@ describe('portal-bridge', () => {
       const key = renderToContainer(container, 'content', undefined, gridEl);
 
       removeFromContainer(key);
-      expect(mockManager.removePortal).toHaveBeenCalledWith(key);
+      expect(mockManager.removePortal).toHaveBeenCalledWith(key, undefined);
     });
 
     it('should unmount fallback root when no manager', () => {
@@ -217,6 +217,18 @@ describe('portal-bridge', () => {
 
     it('should handle removing non-existent key gracefully', () => {
       expect(() => removeFromContainer('non-existent')).not.toThrow();
+    });
+
+    it('should pass sync option to portalManager.removePortal', () => {
+      const gridEl = createMockGrid();
+      const mockManager = createMockManager();
+      setPortalManager(gridEl, mockManager);
+
+      const container = document.createElement('div');
+      const key = renderToContainer(container, 'content', undefined, gridEl);
+
+      removeFromContainer(key, { sync: true });
+      expect(mockManager.removePortal).toHaveBeenCalledWith(key, true);
     });
   });
 
@@ -257,7 +269,7 @@ describe('portal-bridge', () => {
       renderToContainer(document.createElement('div'), 'b', undefined, grid2);
 
       removeFromContainer(key1);
-      expect(pm1.removePortal).toHaveBeenCalledWith(key1);
+      expect(pm1.removePortal).toHaveBeenCalledWith(key1, undefined);
       expect(pm2.removePortal).not.toHaveBeenCalled();
     });
 

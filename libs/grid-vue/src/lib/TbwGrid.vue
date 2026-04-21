@@ -50,10 +50,12 @@ import type {
   UndoRedoDetail,
   VisibilityConfig,
 } from '@toolbox-web/grid/all';
-import { computed, onBeforeUnmount, onMounted, provide, ref, watch, type PropType } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch, type PropType } from 'vue';
 import { createPluginFromFeature, type FeatureName } from './feature-registry';
 import { useGridIcons } from './grid-icon-registry';
 import { useGridTypeDefaults } from './grid-type-registry';
+import { setTeleportManager } from './teleport-bridge';
+import { TeleportManager, type TeleportManagerHandle } from './teleport-manager';
 import { GRID_ELEMENT_KEY } from './use-grid';
 import { GridAdapter } from './vue-grid-adapter';
 
@@ -340,6 +342,11 @@ const emit = defineEmits<{
 // Template ref for the grid element
 const gridRef = ref<DataGridElement<TRow> | null>(null);
 
+// Template ref for the TeleportManager — exposes a TeleportManagerHandle
+// that the teleport-bridge uses to render Vue content into grid containers
+// while preserving the parent Vue context (provide/inject, Pinia, Router, i18n).
+const teleportManagerRef = ref<TeleportManagerHandle | null>(null);
+
 // Provide grid element to descendants (for useGrid composable)
 provide(GRID_ELEMENT_KEY, gridRef);
 
@@ -442,6 +449,15 @@ onMounted(() => {
   const adapter = ensureAdapterRegistered();
   (grid as any).__frameworkAdapter = adapter;
 
+  // Wire the TeleportManager to the bridge so non-Vue code (adapter, feature
+  // bridge files) can render Vue content while preserving the parent context
+  // tree. Without this, the bridge falls back to `createApp()` which mounts
+  // each cell renderer / editor / detail panel / tool panel in an isolated
+  // Vue tree that loses provide/inject, Pinia stores, Router, and i18n.
+  if (teleportManagerRef.value) {
+    setTeleportManager(grid, teleportManagerRef.value);
+  }
+
   // Pass type defaults to the adapter
   adapter.setTypeDefaults(typeDefaults ?? null);
 
@@ -473,11 +489,37 @@ onMounted(() => {
       }
     });
   }
+
+  // Refresh plugins after Vue children have mounted so that late-registered
+  // light DOM templates (TbwGridDetailPanel, TbwGridResponsiveCard,
+  // TbwGridToolPanel, TbwGridColumn slots) are picked up by the grid.
+  // Mirrors the React adapter's post-mount refresh in data-grid.tsx.
+  void nextTick(() => {
+    const g = gridRef.value as unknown as Record<string, unknown> | null;
+    if (!g) return;
+    // Refresh master-detail renderer if plugin already exists
+    const masterDetailPlugin = (g['getPluginByName'] as ((name: string) => unknown) | undefined)?.('masterDetail') as
+      | { refreshDetailRenderer?: () => void }
+      | undefined;
+    masterDetailPlugin?.refreshDetailRenderer?.();
+    // Refresh responsive plugin's card renderer
+    const responsivePlugin = (g['getPluginByName'] as ((name: string) => unknown) | undefined)?.('responsive') as
+      | { refreshCardRenderer?: () => void }
+      | undefined;
+    responsivePlugin?.refreshCardRenderer?.();
+    // Refresh columns to pick up Vue-rendered light DOM elements
+    (g['refreshColumns'] as (() => void) | undefined)?.();
+    // Refresh shell header to pick up tool panel templates
+    (g['refreshShellHeader'] as (() => void) | undefined)?.();
+  });
 });
 
 onBeforeUnmount(() => {
   const grid = gridRef.value as unknown as HTMLElement & DataGridElement<TRow>;
   if (!grid) return;
+
+  // Unregister TeleportManager from the bridge
+  setTeleportManager(grid, null);
 
   // Clean up custom styles
   if (props.customStyles) {
@@ -569,6 +611,13 @@ defineExpose({
 </script>
 
 <template>
+  <!--
+    TeleportManager renders portal-style Vue content into grid containers
+    (cells, editors, detail panels, tool panels) while preserving the parent
+    Vue context tree. Mounted as a sibling of the grid so it inherits the
+    surrounding component's provide/inject, Pinia, Router, and i18n setup.
+  -->
+  <TeleportManager ref="teleportManagerRef" />
   <tbw-grid ref="gridRef">
     <slot></slot>
   </tbw-grid>

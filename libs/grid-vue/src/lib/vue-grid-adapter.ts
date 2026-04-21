@@ -17,6 +17,7 @@ import { detailRegistry, type DetailPanelContext } from './detail-panel-registry
 import type { TypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { cardRegistry, type ResponsiveCardContext } from './responsive-card-registry';
 import { removeFromContainer, renderToContainer } from './teleport-bridge';
+import { getToolPanelRenderer, type ToolPanelContext } from './tool-panel-registry';
 import type { ColumnConfig, GridConfig } from './vue-column-config';
 export type { GridConfig };
 
@@ -459,10 +460,7 @@ export class GridAdapter implements FrameworkAdapter {
         let currentCtx = ctx as CellRenderContext<unknown, unknown>;
         const comp = component;
 
-        const teleportKey = renderToContainer(
-          container,
-          createVNode(comp, { ...currentCtx }),
-        );
+        const teleportKey = renderToContainer(container, createVNode(comp, { ...currentCtx }));
 
         cellCache.set(cellEl, {
           container,
@@ -481,10 +479,7 @@ export class GridAdapter implements FrameworkAdapter {
       container.style.display = 'contents';
 
       const comp = component;
-      const teleportKey = renderToContainer(
-        container,
-        createVNode(comp, { ...ctx }),
-      );
+      const teleportKey = renderToContainer(container, createVNode(comp, { ...ctx }));
       this.teleportKeys.push(teleportKey);
 
       return container;
@@ -517,21 +512,14 @@ export class GridAdapter implements FrameworkAdapter {
 
         let currentCtx = ctx as CellRenderContext<unknown, unknown>;
 
-        const teleportKey = renderToContainer(
-          container,
-          renderFn(currentCtx as CellRenderContext<TRow, TValue>),
-        );
+        const teleportKey = renderToContainer(container, renderFn(currentCtx as CellRenderContext<TRow, TValue>));
 
         cellCache.set(cellEl, {
           container,
           teleportKey,
           update: (newCtx) => {
             currentCtx = newCtx;
-            renderToContainer(
-              container,
-              renderFn(currentCtx as CellRenderContext<TRow, TValue>),
-              teleportKey,
-            );
+            renderToContainer(container, renderFn(currentCtx as CellRenderContext<TRow, TValue>), teleportKey);
           },
         });
 
@@ -910,6 +898,53 @@ export class GridAdapter implements FrameworkAdapter {
       }
 
       return container;
+    };
+  }
+
+  /**
+   * Framework adapter hook called by the grid core when a `<tbw-grid-tool-panel>`
+   * needs a renderer. Returns a function that renders Vue tool panel content
+   * into the shell's accordion container.
+   *
+   * Uses a wrapper-detach pattern for the cleanup callback: the cleanup
+   * synchronously removes a wrapper div from the container, so the shell's
+   * subsequent `contentArea.innerHTML = ''` (during accordion collapse) sees
+   * an empty container and cannot disturb Vue's still-attached teleport
+   * children. Vue then unmounts asynchronously on the next microtask
+   * against the orphaned wrapper without throwing `NotFoundError`.
+   */
+  createToolPanelRenderer(element: HTMLElement): ((container: HTMLElement) => void | (() => void)) | undefined {
+    const renderFn = getToolPanelRenderer(element);
+    if (!renderFn) return undefined;
+
+    const gridElement = element.closest('tbw-grid') as HTMLElement | null;
+
+    return (container: HTMLElement) => {
+      const ctx: ToolPanelContext = { grid: gridElement ?? container };
+      const vnodes = renderFn(ctx);
+      if (!vnodes || vnodes.length === 0) return;
+
+      // Wrapper indirection: render Vue content into a wrapper inside the
+      // container so we can sync-detach the wrapper before the shell clears
+      // the container's innerHTML during accordion collapse.
+      const wrapper = document.createElement('div');
+      wrapper.className = 'vue-tool-panel';
+      container.appendChild(wrapper);
+
+      const teleportKey = renderToContainer(wrapper, vnodes as unknown as VNode, undefined, gridElement ?? undefined);
+      this.teleportKeys.push(teleportKey);
+
+      // Cleanup function called by the shell before `contentArea.innerHTML = ''`.
+      return () => {
+        // Synchronously detach the wrapper so the shell's innerHTML clear
+        // sees an empty container. Vue's teleport children are still
+        // attached to the wrapper itself — just orphaned from the DOM tree.
+        wrapper.remove();
+        // Schedule the Vue unmount; safe because it operates on the wrapper.
+        removeFromContainer(teleportKey);
+        const i = this.teleportKeys.indexOf(teleportKey);
+        if (i !== -1) this.teleportKeys.splice(i, 1);
+      };
     };
   }
 

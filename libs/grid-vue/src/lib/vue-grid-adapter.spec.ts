@@ -1400,4 +1400,194 @@ describe('GridAdapter', () => {
   });
 
   // #endregion
+
+  // #region createToolPanelRenderer
+
+  describe('createToolPanelRenderer', () => {
+    let container: HTMLElement;
+
+    beforeEach(async () => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+      // Clean tool-panel registry between tests
+      const { toolPanelRegistry } = await import('./tool-panel-registry');
+      // WeakMap can't be iterated; rely on element identity uniqueness per test
+      void toolPanelRegistry;
+    });
+
+    afterEach(() => {
+      container.remove();
+    });
+
+    it('should return undefined when element has no registered renderer', () => {
+      const adapter = new GridAdapter();
+      const panelEl = document.createElement('tbw-grid-tool-panel');
+      container.appendChild(panelEl);
+
+      expect(adapter.createToolPanelRenderer(panelEl)).toBeUndefined();
+    });
+
+    it('should return a renderer function when element has a registered slot', async () => {
+      const { toolPanelRegistry } = await import('./tool-panel-registry');
+      const adapter = new GridAdapter();
+
+      const gridEl = document.createElement('tbw-grid');
+      const panelEl = document.createElement('tbw-grid-tool-panel');
+      gridEl.appendChild(panelEl);
+      container.appendChild(gridEl);
+
+      toolPanelRegistry.set(panelEl, () => [h('span', 'Panel content')]);
+
+      const render = adapter.createToolPanelRenderer(panelEl);
+      expect(render).toBeDefined();
+      expect(typeof render).toBe('function');
+    });
+
+    it('should return a cleanup function that detaches its wrapper synchronously', async () => {
+      const { toolPanelRegistry } = await import('./tool-panel-registry');
+      const adapter = new GridAdapter();
+
+      const gridEl = document.createElement('tbw-grid');
+      const panelEl = document.createElement('tbw-grid-tool-panel');
+      gridEl.appendChild(panelEl);
+      container.appendChild(gridEl);
+
+      toolPanelRegistry.set(panelEl, () => [h('span', 'Panel content')]);
+
+      const render = adapter.createToolPanelRenderer(panelEl)!;
+      const target = document.createElement('div');
+      gridEl.appendChild(target);
+
+      const cleanup = render(target);
+      expect(typeof cleanup).toBe('function');
+
+      // After render, a wrapper should have been appended to target
+      expect(target.querySelector('.vue-tool-panel')).toBeTruthy();
+
+      // Sync removal: wrapper must be gone immediately so target.innerHTML = ''
+      // (the shell's accordion-collapse pattern) cannot disturb Vue children.
+      cleanup!();
+      expect(target.querySelector('.vue-tool-panel')).toBeNull();
+      expect(() => {
+        target.innerHTML = '';
+      }).not.toThrow();
+    });
+
+    it('should not call cleanup or attach a wrapper when slot returns no vnodes', async () => {
+      const { toolPanelRegistry } = await import('./tool-panel-registry');
+      const adapter = new GridAdapter();
+
+      const gridEl = document.createElement('tbw-grid');
+      const panelEl = document.createElement('tbw-grid-tool-panel');
+      gridEl.appendChild(panelEl);
+      container.appendChild(gridEl);
+
+      toolPanelRegistry.set(panelEl, () => undefined);
+
+      const render = adapter.createToolPanelRenderer(panelEl)!;
+      const target = document.createElement('div');
+      gridEl.appendChild(target);
+
+      const cleanup = render(target);
+      expect(cleanup).toBeUndefined();
+      expect(target.children.length).toBe(0);
+    });
+  });
+
+  // #endregion
+
+  // #region createToolPanelRenderer
+
+  describe('createToolPanelRenderer', () => {
+    let container: HTMLElement;
+
+    beforeEach(async () => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+      // Clean tool-panel registry between tests
+      const { toolPanelRegistry } = await import('./tool-panel-registry');
+      // WeakMap can't be iterated; rely on element identity uniqueness per test
+      void toolPanelRegistry;
+    });
+
+    afterEach(() => {
+      container.remove();
+    });
+
+    it('should return undefined when element has no registered renderer', () => {
+      const adapter = new GridAdapter();
+      const panelEl = document.createElement('tbw-grid-tool-panel');
+      container.appendChild(panelEl);
+
+      expect(adapter.createToolPanelRenderer(panelEl)).toBeUndefined();
+    });
+
+    it('should return a renderer function when element has a registered slot', async () => {
+      const { toolPanelRegistry } = await import('./tool-panel-registry');
+      const adapter = new GridAdapter();
+
+      const gridEl = document.createElement('tbw-grid');
+      const panelEl = document.createElement('tbw-grid-tool-panel');
+      gridEl.appendChild(panelEl);
+      container.appendChild(gridEl);
+
+      toolPanelRegistry.set(panelEl, () => [h('span', 'Panel content')]);
+
+      const render = adapter.createToolPanelRenderer(panelEl);
+      expect(render).toBeDefined();
+      expect(typeof render).toBe('function');
+    });
+
+    it('should return a cleanup function that detaches its wrapper synchronously', async () => {
+      const { toolPanelRegistry } = await import('./tool-panel-registry');
+      const adapter = new GridAdapter();
+
+      const gridEl = document.createElement('tbw-grid');
+      const panelEl = document.createElement('tbw-grid-tool-panel');
+      gridEl.appendChild(panelEl);
+      container.appendChild(gridEl);
+
+      toolPanelRegistry.set(panelEl, () => [h('span', 'Panel content')]);
+
+      const render = adapter.createToolPanelRenderer(panelEl)!;
+      const target = document.createElement('div');
+      gridEl.appendChild(target);
+
+      const cleanup = render(target);
+      expect(typeof cleanup).toBe('function');
+
+      // After render, a wrapper should have been appended to target
+      expect(target.querySelector('.vue-tool-panel')).toBeTruthy();
+
+      // Sync removal: wrapper must be gone immediately so target.innerHTML = ''
+      // (the shell's accordion-collapse pattern) cannot disturb Vue children.
+      cleanup!();
+      expect(target.querySelector('.vue-tool-panel')).toBeNull();
+      expect(() => {
+        target.innerHTML = '';
+      }).not.toThrow();
+    });
+
+    it('should not call cleanup or attach a wrapper when slot returns no vnodes', async () => {
+      const { toolPanelRegistry } = await import('./tool-panel-registry');
+      const adapter = new GridAdapter();
+
+      const gridEl = document.createElement('tbw-grid');
+      const panelEl = document.createElement('tbw-grid-tool-panel');
+      gridEl.appendChild(panelEl);
+      container.appendChild(gridEl);
+
+      toolPanelRegistry.set(panelEl, () => undefined);
+
+      const render = adapter.createToolPanelRenderer(panelEl)!;
+      const target = document.createElement('div');
+      gridEl.appendChild(target);
+
+      const cleanup = render(target);
+      expect(cleanup).toBeUndefined();
+      expect(target.children.length).toBe(0);
+    });
+  });
+
+  // #endregion
 });

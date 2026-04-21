@@ -127,6 +127,33 @@ describe('PortalManager', () => {
     unmount();
   });
 
+  it('should remove a portal synchronously when sync=true', async () => {
+    const { handle, unmount } = mountPortalManager();
+
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+
+    await act(async () => {
+      handle.renderPortal('sync-key', target, React.createElement('span', null, 'Panel Content'));
+      await flushMicrotasks();
+    });
+    expect(target.textContent).toBe('Panel Content');
+
+    // Sync removal: React must fully unmount before innerHTML is cleared.
+    // This mirrors the tool panel accordion collapse flow where shell.ts
+    // calls cleanup() then contentArea.innerHTML = ''.
+    act(() => {
+      handle.removePortal('sync-key', true);
+    });
+    // Content is gone immediately (no microtask needed)
+    expect(target.textContent).toBe('');
+
+    // Clearing the container after sync removal must NOT throw
+    target.innerHTML = '';
+
+    unmount();
+  });
+
   it('should clear all portals', async () => {
     const { handle, unmount } = mountPortalManager();
 

@@ -36,8 +36,15 @@ export interface PortalManagerHandle {
    */
   renderPortal(key: string, container: HTMLElement, element: ReactNode): void;
 
-  /** Remove a portal by key. */
-  removePortal(key: string): void;
+  /**
+   * Remove a portal by key.
+   * @param key unique key of the portal to remove
+   * @param sync - When true, flush the removal synchronously via `flushSync`
+   *   so the caller can safely mutate the container DOM immediately after.
+   *   Use this in cleanup callbacks that precede external DOM clearing
+   *   (e.g., tool panel accordion collapse sets `innerHTML = ''`).
+   */
+  removePortal(key: string, sync?: boolean): void;
 
   /** Remove all portals. */
   clear(): void;
@@ -106,9 +113,16 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
         scheduleFlush();
       },
 
-      removePortal(key: string) {
+      removePortal(key: string, sync?: boolean) {
         if (portalsRef.current.delete(key)) {
-          scheduleFlush();
+          if (sync) {
+            // Synchronous removal — caller is about to clear the container
+            // DOM immediately (e.g., accordion collapse via innerHTML = '').
+            // React must fully unmount portal content before that happens.
+            flushSync(forceRender);
+          } else {
+            scheduleFlush();
+          }
         }
       },
 

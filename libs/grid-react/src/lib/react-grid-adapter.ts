@@ -426,9 +426,10 @@ export class GridAdapter implements FrameworkAdapter {
       const portalKey = renderToContainer(container, renderFn(ctx), undefined, gridElement ?? undefined);
       this.trackPortal(portalKey, container, false);
 
-      // Return cleanup function
+      // Return cleanup function — sync removal ensures React fully unmounts
+      // portal content before the shell clears the container (innerHTML = '').
       return () => {
-        removeFromContainer(portalKey);
+        removeFromContainer(portalKey, { sync: true });
         this.untrackPortal(portalKey);
       };
     };

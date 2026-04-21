@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.1.0...grid-react-1.1.1) (2026-04-21)
+
+
+### Bug Fixes
+
+* **grid-react:** synchronous portal removal in tool panel cleanup ([#235](https://github.com/OysteinAmundsen/toolbox/issues/235)) ([0eaa9d8](https://github.com/OysteinAmundsen/toolbox/commit/0eaa9d8828636f673bef6219c6f0abcd9a32481f))
+
 ## [1.1.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.0.0...grid-react-1.1.0) (2026-04-20)
 
 

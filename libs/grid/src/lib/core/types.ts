@@ -3318,11 +3318,11 @@ export interface GridIcons {
   print?: IconValue;
 }
 
-/** Default filter icon SVG */
-const DEFAULT_FILTER_ICON =
-  '<svg viewBox="0 0 16 16" width="12" height="12"><path fill="currentColor" d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg>';
-
-/** Default icons used when not overridden */
+/** Default icons used when not overridden. Most entries are short text/emoji;
+ * `filter` and `filterActive` are empty strings because the actual rendering
+ * is driven by the `--tbw-icon-filter[-active]-mask` CSS custom properties
+ * (see `core/styles/variables.css`). Userland that wants an HTML/SVG fallback
+ * via `gridConfig.icons.filter = '<svg…>'` is unaffected — that path overrides this default. */
 export const DEFAULT_GRID_ICONS: Required<GridIcons> = {
   expand: '▶',
   collapse: '▼',
@@ -3332,8 +3332,8 @@ export const DEFAULT_GRID_ICONS: Required<GridIcons> = {
   submenuArrow: '▶',
   dragHandle: '⋮⋮',
   toolPanel: '☰',
-  filter: DEFAULT_FILTER_ICON,
-  filterActive: DEFAULT_FILTER_ICON,
+  filter: '',
+  filterActive: '',
   print: '🖨️',
 };
 // #endregion

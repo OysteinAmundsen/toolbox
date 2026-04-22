@@ -132,6 +132,10 @@ modifiesRowStructure — affects render scheduler
 
 **PinnedColumns** — OWNS: pinned state per column. HOOKS: processColumns(-10), afterCellRender. TENSION: runs first to reorder before ColumnVirtualization
 
+- INVARIANT: Sticky cells (`.sticky-left`/`.sticky-right`) carry `background: var(--tbw-color-panel-bg)` in `core/styles/rows.css` AND `position: sticky; z-index: 25` in `core/styles/base.css`. Two consequences for any plugin painting row-level visuals across pinned columns:
+  1. **Background tints** on `.data-grid-row` (selection `.row-focus`, `:hover`, `:nth-child(even)` row-alt, etc.) are HIDDEN under sticky cells because the cells' `panel-bg` is opaque. Re-paint sticky cells with the same tint layered over panel-bg: `background: linear-gradient(<tint>, <tint>), var(--tbw-color-panel-bg)`.
+  2. **Pseudo-element border overlays** on the row (e.g. `.row-focus::after`) are covered when their `z-index` ≤ 25. Don't try to redraw the border on individual sticky cells (a cell-level `::after { inset: 0 + border-style }` is clipped by the cell's `overflow: hidden` and ends up 1px above the row-level border — the cell's own `border-bottom` row divider sits between the padding edge and the cell's outer bottom). Instead, just bump the row-level `::after` to `z-index: 26` (or any value > 25). The `::after` has `pointer-events: none` and `inset: 0` paints across the row's full width, so a single overlay covers both unpinned and pinned cells with perfect alignment. See `selection.css` `.data-grid-row.row-focus` for the canonical example (z-index: 26 on the border `::after` + gradient background on sticky cells for the tint).
+
 **ColumnVirtualization** — OWNS: visible column subset based on scroll. HOOKS: processColumns
 
 **Visibility** — OWNS: hidden column set. HOOKS: processColumns

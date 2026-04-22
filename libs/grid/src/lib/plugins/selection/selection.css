@@ -39,7 +39,11 @@
         border-color: var(--tbw-range-border-color, var(--tbw-color-accent));
         border-top-width: var(--tbw-selection-border-width, var(--tbw-border-width));
         border-bottom-width: var(--tbw-selection-border-width, var(--tbw-border-width));
-        z-index: 1;
+        /* Must paint above sticky cells (.sticky-left/.sticky-right have
+           z-index: 25 in core/styles/base.css) so the selection border is
+           continuous across pinned columns. The border ::after has
+           pointer-events: none, so it doesn't interfere with cell content. */
+        z-index: 26;
       }
 
       /* Collapse borders between adjacent selected rows */
@@ -48,6 +52,31 @@
       }
       &:has(+ .data-grid-row.row-focus)::after {
         border-bottom-width: 0;
+      }
+
+      /* Sticky cells (.sticky-left/.sticky-right) have an opaque
+         background-color to hide unpinned content scrolling beneath them
+         (see core/styles/rows.css). That opaque layer also hides the
+         row-focus background-color set above. Re-paint sticky cells with
+         the focus tint layered over panel-bg so the selection tint is
+         visible across pinned columns. The selection BORDER is handled by
+         the row's ::after with z-index above the sticky cells — no need
+         to redraw it here. */
+      > .cell.sticky-left,
+      > .cell.sticky-right {
+        background:
+          linear-gradient(var(--tbw-focus-background, rgba(from var(--tbw-color-accent) r g b / 12%)) 0 0),
+          var(--tbw-color-panel-bg);
+      }
+    }
+
+    /* Non-selectable selected rows use the row-alt background as the muted
+       indicator — keep sticky cells in sync so pinned columns don't flash
+       the accent tint on rows that aren't actually selectable. */
+    .data-grid-row.row-focus[data-selectable='false'] {
+      > .cell.sticky-left,
+      > .cell.sticky-right {
+        background: var(--tbw-color-row-alt);
       }
     }
 

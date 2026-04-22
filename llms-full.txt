@@ -659,6 +659,13 @@ interface ColumnConfig<TRow = unknown> {
   filterable?: boolean;       // Enable filtering (requires FilteringPlugin)
   hidden?: boolean;           // Initially hidden
   lockVisible?: boolean;      // Prevent hiding via UI
+  lockPosition?: boolean;     // Prevent reorder (header drag-drop and visibility-panel drag)
+  utility?: boolean;          // System / utility column — visible in grid but excluded from
+                              // visibility panel, reorder, print, clipboard, export, selection,
+                              // and filter UI. Use for row-action menus, status indicators, etc.
+                              // Convention: prefix field with `__` (e.g. `__actions`).
+  printHidden?: boolean;      // Hide column when printing (default: false; utility columns
+                              // default to true unless printHidden: false is set)
   pinned?: 'left' | 'right' | 'start' | 'end'; // Pin column (requires PinnedColumnsPlugin)
   group?: string | { id: string; label?: string }; // Column group (requires GroupingColumnsPlugin)
   format?: (value: any, row: TRow) => string;  // Display formatter
@@ -1376,6 +1383,8 @@ new PrintPlugin({
 })
 // Column config augmentation:
 //   printHidden?: boolean           // Hide column when printing (default: false)
+//   utility?: boolean               // System columns (utility: true) are hidden from print
+//                                   // by default. Set printHidden: false to opt back in.
 // Programmatic API:
 const printer = grid.getPluginByName('print');
 printer.isPrinting();                // Check if print is in progress

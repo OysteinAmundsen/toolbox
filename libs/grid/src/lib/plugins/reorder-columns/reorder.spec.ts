@@ -58,6 +58,16 @@ describe('column-drag', () => {
       expect(canMoveColumn(column)).toBe(false);
     });
 
+    it('should return false for a utility column', () => {
+      const column: ColumnConfig = { field: '__actions', utility: true };
+      expect(canMoveColumn(column)).toBe(false);
+    });
+
+    it('utility flag locks regardless of lockPosition value', () => {
+      const column: ColumnConfig = { field: '__select', utility: true, lockPosition: false };
+      expect(canMoveColumn(column)).toBe(false);
+    });
+
     // Note: sticky column checks are handled by PinnedColumnsPlugin via handleQuery('canMoveColumn')
     // and tested in pinned-columns.spec.ts
   });

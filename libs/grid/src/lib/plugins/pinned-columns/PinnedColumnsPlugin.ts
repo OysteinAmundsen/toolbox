@@ -44,7 +44,7 @@ const QUERY_CAN_MOVE_COLUMN = 'canMoveColumn';
  * | Property | Type | Description |
  * |----------|------|-------------|
  * | `pinned` | `'left' \| 'right' \| 'start' \| 'end'` | Pin column to edge (logical or physical) |
- * | `meta.lockPinning` | `boolean` | `false` | Prevent user from pin/unpin via context menu |
+ * | `lockPinning` | `boolean` | `false` | Prevent user from pin/unpin via context menu (legacy `meta.lockPinning` is honored) |
  *
  * ### RTL Support
  *

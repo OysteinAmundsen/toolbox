@@ -919,14 +919,46 @@ export interface BaseColumnConfig<TRow = any, TValue = any> {
    */
   format?: (value: TValue, row: TRow) => string;
   /**
-   * Marks this column as a utility column (drag handle, expander, selection checkbox, etc.).
-   * Utility columns are excluded from selection, clipboard copy, export, and visibility panels.
+   * Marks this column as a **system / utility column** — a column that exists to
+   * support grid behaviour rather than to display user data.
    *
-   * Set by plugins that synthesize their own columns (RowReorder, Selection, MasterDetail,
-   * Tree, GroupingRows). Application code should not set this — it has no effect on data
-   * columns and the semantics are reserved for the grid's internal column machinery.
+   * Built-in plugins set this on the columns they synthesize (selection checkbox,
+   * row-reorder drag handle, master-detail / tree / row-grouping expander). You can
+   * also set it on columns you author yourself when you want them to behave the same
+   * way — for example, a row-action menu column, a status indicator, or any
+   * developer-defined "system" column that should be visible in the grid only.
    *
-   * @internal Plugin API
+   * Setting `utility: true` excludes the column from:
+   *
+   * - **Visibility panel** — not listed in the show/hide UI
+   * - **Column reorder** — header drag-drop and visibility-panel drag treat it as locked
+   *   (equivalent to `lockPosition: true`)
+   * - **Print** — hidden by `PrintPlugin` during print
+   * - **Clipboard copy** — skipped by `ClipboardPlugin`
+   * - **Export** (CSV / JSON / Excel) — skipped by `ExportPlugin`
+   * - **Range / row selection** — clicks land on the column but selection ignores it
+   * - **Filter UI** — no filter button rendered, no filter model entry
+   *
+   * The column is still rendered in the grid and still receives `cellRenderer` /
+   * `viewRenderer` / `headerRenderer` callbacks — it is "hidden from the system,
+   * visible in the grid".
+   *
+   * Convention: name the field with a `__`-prefix (e.g. `__actions`) so it cannot
+   * collide with a real data field.
+   *
+   * @example A custom row-actions column
+   * ```ts
+   * {
+   *   field: '__actions',
+   *   header: '',
+   *   width: 80,
+   *   utility: true,         // excluded from print, export, reorder, visibility, etc.
+   *   resizable: false,
+   *   sortable: false,
+   *   filterable: false,
+   *   viewRenderer: ({ row }) => createActionsButton(row),
+   * }
+   * ```
    */
   utility?: boolean;
   /**

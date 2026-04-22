@@ -8,10 +8,11 @@ import type { ColumnConfig } from '../../core/types';
 
 /**
  * Check if a column can be moved based on its own metadata.
- * This checks column-level properties like lockPosition and suppressMovable.
+ * This checks column-level properties like lockPosition, utility, and suppressMovable.
  *
  * Both the top-level `lockPosition` (preferred) and legacy `meta.lockPosition` /
- * `meta.suppressMovable` are honored.
+ * `meta.suppressMovable` are honored. `utility: true` columns (system columns
+ * synthesized by plugins or authored by the app) are always treated as locked.
  *
  * Note: For full movability checks including plugin constraints (e.g., pinned columns),
  * use `grid.query<boolean>('canMoveColumn', column)` which queries all plugins that
@@ -20,8 +21,13 @@ import type { ColumnConfig } from '../../core/types';
  * @param column - The column configuration to check
  * @returns True if the column can be moved based on its metadata
  */
-export function canMoveColumn(column: { lockPosition?: boolean; meta?: Record<string, unknown> }): boolean {
+export function canMoveColumn(column: {
+  lockPosition?: boolean;
+  utility?: boolean;
+  meta?: Record<string, unknown>;
+}): boolean {
   if (column.lockPosition === true) return false;
+  if (column.utility === true) return false;
   const meta = column.meta ?? {};
   return meta.lockPosition !== true && meta.suppressMovable !== true;
 }

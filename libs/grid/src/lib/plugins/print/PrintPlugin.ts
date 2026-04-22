@@ -351,7 +351,11 @@ export class PrintPlugin extends BaseGridPlugin<PrintConfig> {
   }
 
   /**
-   * Hide columns marked with printHidden: true
+   * Hide columns marked with printHidden: true OR utility: true.
+   *
+   * Utility (system) columns — selection checkbox, expander, drag handle, custom
+   * action menus, etc. — are excluded from print by default. Set `printHidden: false`
+   * explicitly on a utility column if you need it to appear in the printout.
    */
   #hidePrintColumns(): void {
     const columns = this.columns;
@@ -361,12 +365,15 @@ export class PrintPlugin extends BaseGridPlugin<PrintConfig> {
     this.#savedHiddenColumns = new Map();
 
     for (const col of columns) {
-      if (col.printHidden && col.field) {
-        // Save current visibility state (true = visible, false = hidden)
-        this.#savedHiddenColumns.set(col.field, !col.hidden);
-        // Hide the column for printing
-        this.grid.setColumnVisible(col.field, false);
-      }
+      if (!col.field) continue;
+      // Default: hide if printHidden === true OR utility === true.
+      // Allow explicit opt-in for utility columns via `printHidden: false`.
+      const shouldHide = col.printHidden === true || (col.utility === true && col.printHidden !== false);
+      if (!shouldHide) continue;
+      // Save current visibility state (true = visible, false = hidden)
+      this.#savedHiddenColumns.set(col.field, !col.hidden);
+      // Hide the column for printing
+      this.grid.setColumnVisible(col.field, false);
     }
   }
 

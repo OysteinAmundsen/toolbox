@@ -204,6 +204,18 @@ The `printHidden` property:
 - Preserves the original hidden state (if a column was already hidden, it stays hidden)
 - Works independently of the VisibilityPlugin
 
+### Utility (system) columns
+
+Columns marked with [`utility: true`](/grid/guides/system-columns/) — including the
+selection checkbox, expander, drag handle, and any system column you author yourself —
+are hidden from print **by default**, no `printHidden` needed.
+
+To force a utility column to appear in the printout, set `printHidden: false` explicitly:
+
+```typescript
+{ field: '__id', header: '#', utility: true, printHidden: false }
+```
+
 <ShowSource file="demos/print/PrintHiddenColumnsDemo.astro">
   <PrintHiddenColumnsDemo />
 </ShowSource>

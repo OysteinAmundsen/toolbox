@@ -69,7 +69,7 @@ export interface ColumnReorderRequestDetail {
  * | Property | Type | Default | Description |
  * |----------|------|---------|-------------|
  * | `visible` | `boolean` | `true` | Initial visibility state |
- * | `meta.lockVisibility` | `boolean` | `false` | Prevent user from toggling |
+ * | `lockVisible` | `boolean` | `false` | Prevent user from toggling (legacy `meta.lockVisibility` is honored) |
  *
  * ## CSS Custom Properties
  *

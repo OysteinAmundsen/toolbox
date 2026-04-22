@@ -1,0 +1,97 @@
+---
+title: System columns
+description: Author developer-defined "system" columns that render in the grid but are hidden from chooser, reorder, print, export, clipboard, and selection.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Some columns exist to support grid behaviour rather than to display user data — a row-action menu, a status indicator, a row number, the selection checkbox the grid injects for you. These are **system columns** (also called **utility columns** in the API).
+
+Mark any column with `utility: true` and the grid will treat it as a system column:
+
+```ts
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    {
+      field: '__actions',
+      header: '',
+      width: 80,
+      utility: true,        // ← marks this as a system column
+      resizable: false,
+      sortable: false,
+      filterable: false,
+      viewRenderer: ({ row }) => createActionsButton(row),
+    },
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name' },
+  ],
+};
+```
+
+## What `utility: true` does
+
+The column **is** rendered in the grid (header + cells, with your `viewRenderer` /
+`headerRenderer` / `cellRenderer`). It is excluded from everything else:
+
+| Surface                | Behaviour for `utility: true`                                       |
+| ---------------------- | ------------------------------------------------------------------- |
+| Visibility panel       | Not listed — users cannot toggle it on/off                          |
+| Column reorder         | Locked in place (header drag-drop and visibility-panel drag both)   |
+| Print                  | Hidden by `PrintPlugin` during print                                |
+| Clipboard copy         | Skipped by `ClipboardPlugin`                                        |
+| Export (CSV/JSON/XLSX) | Skipped by `ExportPlugin`                                           |
+| Range / row selection  | Click does not extend a selection range                             |
+| Filter UI              | No filter button rendered, no filter model entry                    |
+| Cell rendering         | **Rendered normally** — your renderer runs, custom CSS applies      |
+
+In short: *visible in the grid, hidden from the system.*
+
+<Aside type="tip" title="Naming convention">
+  Prefix the field with `__` (e.g. `__actions`, `__status`) so it cannot collide with a
+  real data field, and so other tools recognise it as internal.
+</Aside>
+
+## When to use it
+
+- **Row action menu** — buttons for edit / delete / open-detail
+- **Status indicator** — a coloured dot or icon derived from row state
+- **Row number** — a 1-based index column that should never be sorted or exported
+- **Custom expander** — a developer-controlled toggle separate from MasterDetail / Tree
+- **Drag handle** — a visual handle for row reorder (the built-in `RowReorder` plugin already does this)
+
+## Built-in system columns
+
+The same flag is used internally for columns the grid synthesises:
+
+| Plugin            | Synthesised column                                       |
+| ----------------- | -------------------------------------------------------- |
+| `SelectionPlugin` | Checkbox column (`__tbw_checkbox`) when `checkbox: true` |
+| `MasterDetailPlugin` / `TreePlugin` / `GroupingRowsPlugin` | Expander column (`__tbw_expander`) |
+| `RowReorderPlugin` | Drag handle column                                      |
+
+You can therefore safely mix your own utility columns with built-in ones — they all play by the same rules.
+
+## Opting back into individual surfaces
+
+If you want a system column to appear in the print output, set `printHidden: false` explicitly:
+
+```ts
+{ field: '__rowNumber', header: '#', utility: true, printHidden: false }
+```
+
+There is no per-surface opt-out for the other behaviours yet — file an issue if you need one.
+
+## Comparison with related flags
+
+| Flag             | Effect                                                                |
+| ---------------- | --------------------------------------------------------------------- |
+| `utility`        | All-of-the-above system-column behaviour (the umbrella flag)          |
+| `lockPosition`   | Locks reorder only — column still appears in chooser, print, export   |
+| `lockVisible`    | Locks visibility toggle only — appears in chooser but cannot be hidden |
+| `printHidden`    | Hides during print only                                               |
+| `hidden`         | Hides the column entirely from the grid (and all its features)        |
+
+Use `utility` when you want **all** of those behaviours at once. Use the individual flags when you want finer control.

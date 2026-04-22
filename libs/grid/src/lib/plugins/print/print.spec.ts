@@ -480,6 +480,74 @@ describe('PrintPlugin', () => {
     });
   });
 
+  describe('utility column print exclusion', () => {
+    const stubPrint = () => {
+      Object.defineProperty(window, 'print', {
+        value: () => {
+          setTimeout(() => {
+            window.dispatchEvent(new Event('afterprint'));
+          }, 10);
+        },
+        writable: true,
+        configurable: true,
+      });
+    };
+
+    it('hides utility columns during print and restores after', async () => {
+      stubPrint();
+
+      const grid = document.createElement('tbw-grid') as any;
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      grid.columns = [
+        { field: '__actions', header: '', utility: true },
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name' },
+      ];
+      grid.gridConfig = { plugins: [new PrintPlugin()] };
+      document.body.appendChild(grid);
+      await grid.ready?.();
+      await nextFrame();
+
+      // Before print, utility column is visible (utility excludes from chooser, not from grid)
+      expect(grid.isColumnVisible('__actions')).toBe(true);
+
+      const plugin = grid.getPluginByName('print');
+      await plugin.print();
+
+      // After print, utility column is restored to visible
+      expect(grid.isColumnVisible('__actions')).toBe(true);
+    });
+
+    it('utility columns can opt back into print with printHidden: false', async () => {
+      stubPrint();
+
+      const grid = document.createElement('tbw-grid') as any;
+      grid.rows = [{ id: 1 }];
+      grid.columns = [
+        { field: '__keep', header: '', utility: true, printHidden: false },
+        { field: 'id', header: 'ID' },
+      ];
+      grid.gridConfig = { plugins: [new PrintPlugin()] };
+      document.body.appendChild(grid);
+      await grid.ready?.();
+      await nextFrame();
+
+      const plugin = grid.getPluginByName('print');
+      // Spy on setColumnVisible to verify __keep was NOT hidden during print
+      const calls: Array<[string, boolean]> = [];
+      const original = grid.setColumnVisible.bind(grid);
+      grid.setColumnVisible = (field: string, visible: boolean) => {
+        calls.push([field, visible]);
+        return original(field, visible);
+      };
+
+      await plugin.print();
+
+      const hideCalls = calls.filter(([f, v]) => f === '__keep' && v === false);
+      expect(hideCalls).toHaveLength(0);
+    });
+  });
+
   describe('grid ID generation for print isolation', () => {
     it('grid auto-generates unique ID when none is set', async () => {
       const grid = await createGrid({

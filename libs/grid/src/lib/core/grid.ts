@@ -3674,6 +3674,22 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
+   * Apply a previously saved column state. Equivalent to assigning the
+   * `columnState` setter — provided as a method for fluent / imperative
+   * call-sites and to mirror the documented public API.
+   *
+   * @group State Persistence
+   * @example
+   * ```typescript
+   * const saved = localStorage.getItem('myGridState');
+   * if (saved) grid.applyColumnState(JSON.parse(saved));
+   * ```
+   */
+  applyColumnState(state: GridColumnState | undefined): void {
+    this.columnState = state;
+  }
+
+  /**
    * Apply column state internally.
    * Uses a fast path when only column widths changed (O(m) CSS update instead
    * of O(n) full row re-render). Falls back to full #setup() for structural

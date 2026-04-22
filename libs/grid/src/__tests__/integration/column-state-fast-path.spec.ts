@@ -138,4 +138,28 @@ describe('columnState width-only fast path', () => {
     const emailCol = grid._visibleColumns.find((c: any) => c.field === 'email');
     expect(emailCol.width).toBe(300);
   }, 20000);
+
+  it('exposes applyColumnState() as a public method (mirrors columnState setter)', async () => {
+    const grid: any = document.createElement('tbw-grid');
+    document.body.appendChild(grid);
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', width: 80 },
+        { field: 'name', header: 'Name', width: 120 },
+      ],
+      fitMode: 'fixed',
+    };
+    grid.rows = [{ id: 1, name: 'Alice' }];
+    await waitUpgrade(grid);
+
+    expect(typeof grid.applyColumnState).toBe('function');
+
+    const state = grid.getColumnState();
+    state.columns[0].width = 250;
+    grid.applyColumnState(state);
+    await nextFrame();
+
+    const idCol = grid._visibleColumns.find((c: any) => c.field === 'id');
+    expect(idCol.width).toBe(250);
+  }, 20000);
 });

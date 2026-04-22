@@ -407,7 +407,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       const multiSelect = this.config.multiSelect !== false;
       const shiftKey = originalEvent.shiftKey && multiSelect;
       const ctrlKey = (originalEvent.ctrlKey || originalEvent.metaKey) && multiSelect;
-      const isCheckbox = column?.meta?.checkboxColumn === true;
+      const isCheckbox = column?.checkboxColumn === true;
 
       if (shiftKey && this.anchor !== null) {
         // Shift+Click: Range select from anchor to clicked row
@@ -799,12 +799,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       width: 32,
       resizable: false,
       sortable: false,
-      meta: {
-        lockPosition: true,
-        suppressMovable: true,
-        utility: true,
-        checkboxColumn: true,
-      },
+      lockPosition: true,
+      utility: true,
+      checkboxColumn: true,
       headerRenderer: () => {
         const container = document.createElement('div');
         container.className = 'tbw-checkbox-header';

@@ -383,7 +383,8 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         if (!column?.field) return undefined;
 
         // Don't offer pin/unpin for locked-pinning columns
-        if (column.meta?.lockPinning) return undefined;
+        // (top-level `lockPinning` preferred; legacy `meta.lockPinning` honored for back-compat)
+        if (column.lockPinning || column.meta?.lockPinning) return undefined;
 
         const pinned = getColumnPinned(column);
         const isPinned = pinned != null;

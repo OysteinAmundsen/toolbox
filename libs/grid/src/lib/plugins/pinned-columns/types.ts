@@ -59,6 +59,13 @@ declare module '../../core/types' {
      * Requires PinnedColumnsPlugin.
      */
     pinned?: PinnedPosition;
+    /**
+     * Prevent the user from unpinning or repinning this column via the header context menu.
+     * Programmatic changes are still allowed. Requires PinnedColumnsPlugin.
+     *
+     * @default false
+     */
+    lockPinning?: boolean;
   }
 
   interface PluginNameMap {

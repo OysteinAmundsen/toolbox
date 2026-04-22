@@ -19,8 +19,8 @@ function createGridMock(columns: any[] = []) {
       header: c.header ?? c.field,
       visible: !hiddenColumns.has(c.field) && c.visible !== false,
       lockVisible: c.lockVisible ?? c.meta?.lockVisibility ?? false,
-      lockPosition: c.lockPosition ?? false,
-      utility: c.utility ?? false,
+      lockPosition: c.lockPosition ?? c.meta?.lockPosition ?? false,
+      utility: c.utility ?? c.meta?.utility ?? false,
       meta: c.meta ?? {},
     }));
 

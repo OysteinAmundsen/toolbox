@@ -160,8 +160,9 @@ modifiesRowStructure — affects render scheduler
 
 **ReorderColumns** — OWNS: column order, drag state. HOOKS: onCellMouseDown/Move/Up, afterRender. QUERIES: canMoveColumn
 
-- DECIDED: Per-column drag lock is exposed as top-level `ColumnConfig.lockPosition` (sibling to `lockVisible`). Legacy `meta.lockPosition` / `meta.suppressMovable` are still honored for back-compat. Both header drag (`column-drag.ts#canMoveColumn`) and the visibility panel drag (`VisibilityPlugin.ts#canMoveColumn`) check the top-level prop first.
-- INVARIANT: `grid.getAllColumns()` projection includes `lockPosition` so the visibility panel can honor it without reaching back into the raw `ColumnConfig`. Add new column-level lock flags to this projection too.
+- DECIDED: Per-column drag lock is exposed as top-level `ColumnConfig.lockPosition` (sibling to `lockVisible`). Legacy `meta.lockPosition` / `meta.suppressMovable` are still honored for back-compat in `column-drag.ts#canMoveColumn` and `VisibilityPlugin.ts#canMoveColumn` (top-level checked first).
+- INVARIANT: `grid.getAllColumns()` projection includes `lockPosition` so the visibility panel can honor it without reaching back into the raw `ColumnConfig`. Add new column-level lock flags to this projection too — but **do not add `meta.*` fallbacks here**; the projection runs in core and back-compat reads belong in plugin code only (bundle budget is tight).
+- DECIDED: All column-level flags MUST be top-level properties on `ColumnConfig` via module augmentation, never `meta.<flag>`. `meta` is for application-defined arbitrary data only. Documented top-level flags: `lockVisible`, `lockPosition`, `lockPinning` (pinned-columns), `pinned` (pinned-columns), `utility` (`@internal`, set by plugins on synthetic columns), `checkboxColumn` (`@internal`, selection), `group` (grouping-columns). Legacy `meta.lockPosition` / `meta.suppressMovable` / `meta.lockVisibility` / `meta.lockPinning` / `meta.pinned` are deprecated and only kept as runtime fallbacks in plugin code (NOT in core). `meta.utility` and `meta.checkboxColumn` were never user-facing — no fallback. When adding a new column flag, augment `BaseColumnConfig` from the owning plugin's `types.ts` (see `pinned-columns/types.ts`, `selection/types.ts` for the pattern).
 
 **ReorderRows** — OWNS: row order, drag state. HOOKS: onCellMouseDown/Move/Up. QUERIES: canMoveRow
 

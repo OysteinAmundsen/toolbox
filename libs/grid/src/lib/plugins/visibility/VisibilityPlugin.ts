@@ -244,7 +244,8 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       if (!column?.field) return undefined;
 
       // Don't offer "Hide" for locked-visibility columns
-      if (column.meta?.lockVisibility) return undefined;
+      // (top-level `lockVisible` preferred; legacy `meta.lockVisibility` honored for back-compat)
+      if (column.lockVisible || column.meta?.lockVisibility) return undefined;
 
       const items: HeaderContextMenuItem[] = [
         {

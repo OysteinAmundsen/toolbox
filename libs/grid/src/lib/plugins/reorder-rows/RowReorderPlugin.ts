@@ -154,11 +154,8 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
       resizable: false,
       sortable: false,
       filterable: false,
-      meta: {
-        lockPosition: true,
-        suppressMovable: true,
-        utility: true,
-      },
+      lockPosition: true,
+      utility: true,
       viewRenderer: () => {
         const container = document.createElement('div');
         container.className = 'dg-row-drag-handle';

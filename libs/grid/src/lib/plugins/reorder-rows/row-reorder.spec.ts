@@ -101,9 +101,8 @@ describe('RowReorderPlugin', () => {
       const result = plugin.processColumns(columns);
 
       const dragCol = result.find((c) => c.field === ROW_DRAG_HANDLE_FIELD);
-      expect(dragCol?.meta?.utility).toBe(true);
-      expect(dragCol?.meta?.lockPosition).toBe(true);
-      expect(dragCol?.meta?.suppressMovable).toBe(true);
+      expect(dragCol?.utility).toBe(true);
+      expect(dragCol?.lockPosition).toBe(true);
     });
 
     it('should use custom dragHandleWidth', () => {

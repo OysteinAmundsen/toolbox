@@ -42,7 +42,7 @@ export function isExpanderColumn(column: ColumnConfig): boolean {
  * Utility columns are non-data columns like expander columns.
  */
 export function isUtilityColumn(column: ColumnConfig): boolean {
-  return column.meta?.utility === true;
+  return column.utility === true;
 }
 
 /**
@@ -67,12 +67,11 @@ export function createExpanderColumnConfig(pluginName: string): ColumnConfig {
     resizable: false,
     sortable: false,
     filterable: false, // No filter button for expander column
+    lockPosition: true,
+    utility: true, // Marks this as a utility column (excluded from selection, clipboard, etc.)
     meta: {
-      lockPosition: true,
-      suppressMovable: true,
       expanderColumn: true,
       expanderPlugin: pluginName,
-      utility: true, // Marks this as a utility column (excluded from selection, clipboard, etc.)
     },
   };
 }

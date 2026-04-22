@@ -76,7 +76,52 @@ Before your final message to the user, re-read the todo list. For each step mark
 
 The final message must end with the commit suggestion from the Commit Hygiene section. This is not optional — every completed task ends with `📦 **Good commit point:** ...`.
 
-## Commit Hygiene
+## Git Safety Rules — NEVER push, merge, or modify remote state
+
+**Agents MUST NOT execute any command that publishes, merges, or alters state on a remote (`origin`, GitHub, etc.) unless the user has explicitly asked for that specific operation in the current turn.** Local commits are fine; anything that touches the remote is not.
+
+### Forbidden without explicit per-request user consent
+
+The following commands are **forbidden** unless the user has, in the current turn, asked for that exact action by name:
+
+- `git push` (any form, including `git push origin <branch>`, `git push --force`, `git push -u`)
+- `git push --tags`
+- `gh pr create`, `gh pr merge`, `gh pr edit`, `gh pr review --approve`
+- `gh release create`, `gh repo edit`
+- Any `github-pull-request_*` tool that writes (e.g. `create_pull_request`, `resolveReviewThread`, merge actions)
+- `git branch --set-upstream-to=origin/<x>`, `git remote add/set-url`
+- Anything that mutates a tag, branch, or PR on the remote
+
+"Implicit consent" does not exist. A request like _"finish this work"_ or _"commit this"_ is **only** consent for local commits. It is **not** consent to push or open a PR. If you are unsure, **stop and ask** with a one-line confirmation prompt before running the command.
+
+### Always allowed (read-only)
+
+- `git status`, `git log`, `git diff`, `git show`, `git branch -v`
+- `git fetch` (read-only — updates local refs but does not modify remote)
+- `gh pr view`, `gh pr list`, `gh pr diff`, `gh pr status`
+- `gh repo view`
+- Any `github-pull-request_*` tool that only reads
+
+### Always allowed (local writes)
+
+- `git add`, `git commit`, `git restore`, `git stash`
+- `git checkout <existing-local-branch>`, `git switch -c <new-local-branch>`
+- `git merge` / `git rebase` between **local** branches when the user asked
+- `git branch -d <local-branch>` (only if the user asked for the cleanup)
+
+### Branch discipline
+
+- **Never commit directly to `main`.** If you find yourself on `main` and need to commit, first `git switch -c <topic-branch>` and inform the user. Direct commits to `main` are a violation of this rule even if no push happens.
+- **Never delete or overwrite a branch you did not create in the current turn.** A user-created or previously-existing topic branch is the user's working state — leave it alone.
+- If the user asks for a commit, the commit goes on whatever branch is currently checked out. If that branch is `main`, **stop and ask** which topic branch to use.
+
+### Recovery, not concealment
+
+If you accidentally execute a forbidden remote operation, **stop immediately, tell the user exactly what was pushed, and offer the revert command** (e.g. `git push --force-with-lease origin <sha>:<branch>` to reset, or `gh pr close` to close a PR). Do not paper over the mistake.
+
+### Why this rule exists
+
+Auto-pushing or auto-merging removes the user's review opportunity. The user is the only authority on what reaches `origin`. Agent-created branches are drafts; only the user decides when (and if) they become public history.
 
 Prompt the user to commit at logical stopping points. Small, focused commits are preferred.
 

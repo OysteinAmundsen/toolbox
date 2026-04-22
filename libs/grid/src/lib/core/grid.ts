@@ -3566,6 +3566,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     header: string;
     visible: boolean;
     lockVisible?: boolean;
+    lockPosition?: boolean;
     utility?: boolean;
   }> {
     return this.#configManager.getAllColumns();

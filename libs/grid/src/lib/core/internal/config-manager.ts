@@ -777,7 +777,7 @@ export class ConfigManager<T = unknown> {
       visible: !c.hidden,
       lockVisible: c.lockVisible,
       lockPosition: c.lockPosition,
-      utility: c.meta?.utility === true,
+      utility: c.utility === true,
     }));
   }
 

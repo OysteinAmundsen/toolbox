@@ -30,7 +30,7 @@ export function resolveColumns(
   let result = columns as ColumnConfig[];
 
   if (onlyVisible) {
-    result = result.filter((c) => !c.hidden && !c.field.startsWith('__') && c.meta?.utility !== true);
+    result = result.filter((c) => !c.hidden && !c.field.startsWith('__') && c.utility !== true);
   }
 
   if (fields?.length) {

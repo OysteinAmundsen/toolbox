@@ -918,7 +918,26 @@ export interface BaseColumnConfig<TRow = any, TValue = any> {
    * ```
    */
   format?: (value: TValue, row: TRow) => string;
-  /** Arbitrary extra metadata */
+  /**
+   * Marks this column as a utility column (drag handle, expander, selection checkbox, etc.).
+   * Utility columns are excluded from selection, clipboard copy, export, and visibility panels.
+   *
+   * Set by plugins that synthesize their own columns (RowReorder, Selection, MasterDetail,
+   * Tree, GroupingRows). Application code should not set this — it has no effect on data
+   * columns and the semantics are reserved for the grid's internal column machinery.
+   *
+   * @internal Plugin API
+   */
+  utility?: boolean;
+  /**
+   * Arbitrary extra metadata for application use.
+   *
+   * @remarks
+   * **Do not use `meta` for grid-recognized flags.** Properties like `lockPosition`,
+   * `lockVisible`, `lockPinning`, `pinned`, `utility`, and `checkboxColumn` are first-class
+   * augmented properties on `ColumnConfig` itself. Using `meta.<flag>` for any of them is
+   * deprecated and only kept as a runtime fallback for back-compat.
+   */
   meta?: Record<string, unknown>;
 }
 // #endregion
@@ -1009,6 +1028,17 @@ export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
   hidden?: boolean;
   /** Prevent this column from being hidden programmatically */
   lockVisible?: boolean;
+  /**
+   * Prevent this column from being reordered by the user. When `true`, the column
+   * cannot be dragged in the header row or rearranged via the visibility panel.
+   * Programmatic reordering (e.g. `setColumnOrder()`) is not affected.
+   *
+   * Equivalent to setting `meta.lockPosition: true` (kept for backward compatibility);
+   * the top-level property takes precedence.
+   *
+   * @default false
+   */
+  lockPosition?: boolean;
   /**
    * Dynamic CSS class(es) for cells in this column.
    * Called for each cell during rendering. Return class names to add to the cell element.

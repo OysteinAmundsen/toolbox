@@ -9,6 +9,15 @@ import type { ColumnConfig } from '../../core/types';
 // #region Module Augmentation
 // When this plugin is imported, GridConfig is augmented with selection-specific properties
 declare module '../../core/types' {
+  interface BaseColumnConfig<TRow, TValue> {
+    /**
+     * Marks this column as the selection checkbox column.
+     * Set automatically by SelectionPlugin on its synthesized utility column.
+     * @internal
+     */
+    checkboxColumn?: boolean;
+  }
+
   interface GridConfig {
     /**
      * Grid-wide selection toggle. Requires `SelectionPlugin` to be loaded.

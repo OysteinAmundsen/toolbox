@@ -309,13 +309,13 @@ describe('SelectionPlugin', () => {
 
       expect(result.length).toBe(3);
       expect(result[0].field).toBe('__tbw_checkbox');
-      expect(result[0].meta?.utility).toBe(true);
-      expect(result[0].meta?.checkboxColumn).toBe(true);
+      expect(result[0].utility).toBe(true);
+      expect(result[0].checkboxColumn).toBe(true);
     });
 
     it('should toggle row on checkbox column click', () => {
       const rows = [{ id: 1 }, { id: 2 }];
-      const columns = [{ field: 'name', meta: { checkboxColumn: true } }];
+      const columns = [{ field: 'name', checkboxColumn: true }];
       const mockGrid = createMockGrid(rows, columns);
       const plugin = new SelectionPlugin({ mode: 'row', checkbox: true });
       plugin.attach(mockGrid);
@@ -1670,7 +1670,7 @@ describe('SelectionPlugin', () => {
 
       it('should replace selection on checkbox click instead of toggle-adding', () => {
         const rows = [{ id: 1 }, { id: 2 }];
-        const columns = [{ field: 'name', meta: { checkboxColumn: true } }];
+        const columns = [{ field: 'name', checkboxColumn: true }];
         const mockGrid = createMockGrid(rows, columns);
         const plugin = new SelectionPlugin({ mode: 'row', multiSelect: false, checkbox: true });
         plugin.attach(mockGrid);

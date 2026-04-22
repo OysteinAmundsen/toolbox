@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.1.1...grid-react-1.2.0) (2026-04-22)
+
+
+### Features
+
+* **grid-vue:** column shorthand + columnDefaults + plugin dep validation; add adapter-conformance ([#237](https://github.com/OysteinAmundsen/toolbox/issues/237)) ([1f84ecc](https://github.com/OysteinAmundsen/toolbox/commit/1f84ecc5240f3d33cf78c70600d3cc465fcf9bf4))
+
 ## [1.1.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.1.0...grid-react-1.1.1) (2026-04-21)
 
 

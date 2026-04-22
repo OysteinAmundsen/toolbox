@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.1.0...grid-vue-1.2.0) (2026-04-22)
+
+
+### Features
+
+* **grid-vue:** column shorthand + columnDefaults + plugin dep validation; add adapter-conformance ([#237](https://github.com/OysteinAmundsen/toolbox/issues/237)) ([1f84ecc](https://github.com/OysteinAmundsen/toolbox/commit/1f84ecc5240f3d33cf78c70600d3cc465fcf9bf4))
+
+
+### Bug Fixes
+
+* **grid-vue:** mount TeleportManager + wire createToolPanelRenderer for context-preserving renderers ([#237](https://github.com/OysteinAmundsen/toolbox/issues/237)) ([84fe96d](https://github.com/OysteinAmundsen/toolbox/commit/84fe96d6f6d6c29c760ba310727003c169dd1e7b))
+
 ## [1.1.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.0.0...grid-vue-1.1.0) (2026-04-20)
 
 

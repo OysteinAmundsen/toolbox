@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.2.0...grid-2.3.0) (2026-04-22)
+
+
+### Features
+
+* **grid-vue:** column shorthand + columnDefaults + plugin dep validation; add adapter-conformance ([#237](https://github.com/OysteinAmundsen/toolbox/issues/237)) ([1f84ecc](https://github.com/OysteinAmundsen/toolbox/commit/1f84ecc5240f3d33cf78c70600d3cc465fcf9bf4))
+* **grid:** add ColumnConfig.lockPosition to lock per-column reordering ([b5bfe77](https://github.com/OysteinAmundsen/toolbox/commit/b5bfe779a6bb76125ad5ead7c9ffcd8b06242574))
+* **grid:** promote meta.* column flags to first-class ColumnConfig properties ([5f6fb95](https://github.com/OysteinAmundsen/toolbox/commit/5f6fb955a2c03854109a0284d9a091722c763ee8))
+* **grid:** promote utility column flag to public API, hide utility columns from print and reorder ([1b06458](https://github.com/OysteinAmundsen/toolbox/commit/1b0645803e12dc7453e9be8ef3acf4ebf9145945))
+
+
+### Bug Fixes
+
+* **grid:** expose applyColumnState() as public method ([133a8be](https://github.com/OysteinAmundsen/toolbox/commit/133a8be31dce835f897ea2def8b558e977dad69c)), closes [#237](https://github.com/OysteinAmundsen/toolbox/issues/237)
+* **grid:** trigger row re-render from MultiSortPlugin on sort-clear via applyColumnState ([4181fb7](https://github.com/OysteinAmundsen/toolbox/commit/4181fb782a1d25bf72c72a3003b3ab509c7e400c))
+
 ## [2.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.1.1...grid-2.2.0) (2026-04-20)
 
 

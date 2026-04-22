@@ -43,6 +43,21 @@ describe('column-drag', () => {
       expect(canMoveColumn(column)).toBe(true);
     });
 
+    it('should return false for a column with top-level lockPosition = true', () => {
+      const column: ColumnConfig = { field: 'id', lockPosition: true };
+      expect(canMoveColumn(column)).toBe(false);
+    });
+
+    it('should return true for a column with top-level lockPosition = false', () => {
+      const column: ColumnConfig = { field: 'name', lockPosition: false };
+      expect(canMoveColumn(column)).toBe(true);
+    });
+
+    it('top-level lockPosition takes precedence over meta', () => {
+      const column: ColumnConfig = { field: 'id', lockPosition: true, meta: { lockPosition: false } };
+      expect(canMoveColumn(column)).toBe(false);
+    });
+
     // Note: sticky column checks are handled by PinnedColumnsPlugin via handleQuery('canMoveColumn')
     // and tested in pinned-columns.spec.ts
   });

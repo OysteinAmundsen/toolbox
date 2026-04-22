@@ -26,7 +26,14 @@ import type { ColumnGroupInfo, VisibilityConfig } from './types';
 import styles from './visibility.css?inline';
 
 /** Column metadata shape returned by `grid.getAllColumns()`. */
-type ColumnEntry = { field: string; header: string; visible: boolean; lockVisible?: boolean; utility?: boolean };
+type ColumnEntry = {
+  field: string;
+  header: string;
+  visible: boolean;
+  lockVisible?: boolean;
+  lockPosition?: boolean;
+  utility?: boolean;
+};
 
 /**
  * Detail for column-reorder-request events emitted when users drag-drop in the visibility panel.
@@ -42,9 +49,12 @@ export interface ColumnReorderRequestDetail {
 
 /**
  * Check if a column can be moved (respects lockPosition/suppressMovable).
+ * Honors both the top-level `lockPosition` (preferred) and legacy
+ * `meta.lockPosition` / `meta.suppressMovable`.
  * Inlined to avoid importing from reorder plugin.
  */
 function canMoveColumn(column: ColumnConfig): boolean {
+  if (column.lockPosition === true) return false;
   const meta = column.meta ?? {};
   return meta.lockPosition !== true && meta.suppressMovable !== true;
 }

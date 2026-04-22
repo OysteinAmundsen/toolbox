@@ -160,6 +160,9 @@ modifiesRowStructure — affects render scheduler
 
 **ReorderColumns** — OWNS: column order, drag state. HOOKS: onCellMouseDown/Move/Up, afterRender. QUERIES: canMoveColumn
 
+- DECIDED: Per-column drag lock is exposed as top-level `ColumnConfig.lockPosition` (sibling to `lockVisible`). Legacy `meta.lockPosition` / `meta.suppressMovable` are still honored for back-compat. Both header drag (`column-drag.ts#canMoveColumn`) and the visibility panel drag (`VisibilityPlugin.ts#canMoveColumn`) check the top-level prop first.
+- INVARIANT: `grid.getAllColumns()` projection includes `lockPosition` so the visibility panel can honor it without reaching back into the raw `ColumnConfig`. Add new column-level lock flags to this projection too.
+
 **ReorderRows** — OWNS: row order, drag state. HOOKS: onCellMouseDown/Move/Up. QUERIES: canMoveRow
 
 ### Display

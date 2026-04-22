@@ -19,6 +19,7 @@ function createGridMock(columns: any[] = []) {
       header: c.header ?? c.field,
       visible: !hiddenColumns.has(c.field) && c.visible !== false,
       lockVisible: c.lockVisible ?? c.meta?.lockVisibility ?? false,
+      lockPosition: c.lockPosition ?? false,
       utility: c.utility ?? false,
       meta: c.meta ?? {},
     }));
@@ -701,6 +702,30 @@ describe('VisibilityPlugin', () => {
 
       const fixedRow = container.querySelector('[data-field="fixed"]') as HTMLElement;
       expect(fixedRow.draggable).not.toBe(true);
+    });
+
+    it('should not make top-level lockPosition columns draggable', () => {
+      const g = createGridMock([
+        { field: 'id', header: 'ID', lockPosition: true },
+        { field: 'name', header: 'Name' },
+      ]);
+      g.getPluginByName.mockImplementation((name: string) => {
+        if (name === 'reorder') return { moveColumn: vi.fn() };
+        return undefined;
+      });
+      const p = new VisibilityPlugin();
+      p.attach(g as any);
+
+      const panel = p.getToolPanel()!;
+      const container = document.createElement('div');
+      panel.render(container);
+
+      const idRow = container.querySelector('[data-field="id"]') as HTMLElement;
+      expect(idRow.draggable).not.toBe(true);
+      expect(idRow.classList.contains('reorderable')).toBe(false);
+
+      const nameRow = container.querySelector('[data-field="name"]') as HTMLElement;
+      expect(nameRow.draggable).toBe(true);
     });
   });
 

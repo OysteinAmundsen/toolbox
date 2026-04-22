@@ -148,7 +148,7 @@ Drag column headers to reorder them. Use the controls below to experiment with d
 
 ## Configuration Options
 
-See [`ReorderConfig`](./Interfaces/ReorderConfig/) for the full list of options and defaults.
+See [`ReorderConfig`](./interfaces/reorderconfig/) for the full list of options and defaults.
 
 ### Animation Examples
 
@@ -161,6 +161,20 @@ features: { reorderColumns: { animation: 'flip', animationDuration: 300 } }
 
 // View Transitions API fade effect
 features: { reorderColumns: { animation: 'fade' } }
+```
+
+### Locking Individual Columns
+
+Set `lockPosition: true` on any column to prevent users from dragging it — both in the
+header row and in the [Column Visibility](../visibility/) panel. Programmatic reorder
+via `grid.setColumnOrder()` still works.
+
+```ts
+columns: [
+  { field: 'id', header: 'ID', lockPosition: true }, // cannot be moved
+  { field: 'name', header: 'Name' },
+  { field: 'email', header: 'Email' },
+]
 ```
 
 ## Events

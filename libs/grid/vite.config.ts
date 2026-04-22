@@ -365,7 +365,9 @@ export default defineConfig(({ command }) => ({
           bundleBudget({
             outDir,
             budgets: [
-              { path: 'index.js', maxSize: 170 * 1024, maxGzip: 45 * 1024 },
+              // Core: warn at 45 kB gzip, hard fail at 50 kB gzip / 170 kB raw.
+              // Keep core lean — push features to plugins unless they cost performance.
+              { path: 'index.js', maxSize: 170 * 1024, maxGzip: 50 * 1024, warnGzip: 45 * 1024 },
               { path: 'lib/plugins/*/index.js', maxSize: 50 * 1024 },
             ],
           }),

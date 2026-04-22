@@ -241,4 +241,34 @@ describe('columnState width-only fast path', () => {
     expect(sortChangeEvents).toHaveLength(1);
     expect(sortChangeEvents[0].sortModel).toEqual([]);
   }, 20000);
+
+  it('reassigning columns after applyColumnState resets to defaults on the first attempt', async () => {
+    // Regression: after applyColumnState() on an initialized grid, the saved
+    // state was stored in #initialColumnState and re-applied by the next
+    // #setup() (triggered by `grid.columns = [...]`), making the first reset
+    // appear to be a no-op. The reset only worked on the second click because
+    // #setup() cleared the stale state during the first (silent) re-application.
+    const defaultColumns = [
+      { field: 'id', header: 'ID', width: 60 },
+      { field: 'name', header: 'Name', width: 160 },
+    ];
+
+    const grid: any = document.createElement('tbw-grid');
+    document.body.appendChild(grid);
+    grid.columns = defaultColumns;
+    grid.rows = [{ id: 1, name: 'Alice' }];
+    await waitUpgrade(grid);
+
+    // Capture initial state, then simulate user resize by applying a width-changed state.
+    const savedState = grid.getColumnState();
+    savedState.columns[0].width = 200;
+    grid.applyColumnState(savedState);
+    await nextFrame();
+    expect(grid._visibleColumns.find((c: any) => c.field === 'id').width).toBe(200);
+
+    // First reset — must restore the default 60px width.
+    grid.columns = [...defaultColumns];
+    await nextFrame();
+    expect(grid._visibleColumns.find((c: any) => c.field === 'id').width).toBe(60);
+  }, 20000);
 });

@@ -28,7 +28,7 @@ Avoid shortcuts and quick hacks. Prefer correct, maintainable solutions even whe
 
 ## Bundle Size
 
-- **Core budget**: `index.js` must stay ≤170 kB (≤45 kB gzipped)
+- **Core budget**: `index.js` must stay ≤170 kB raw and ≤50 kB gzipped (build fails); a warning fires at 45 kB gzipped — treat that as the design target, not the limit
 - **Plugin budget**: Each plugin ≤50 kB
 - **Adapter budgets**: `grid-react/index.js` ≤50 kB, `grid-vue/index.js` ≤50 kB
 - **Enforced automatically**: Vite `bundleBudget` plugin fails the build on violations (see `tools/vite-bundle-budget.ts`)

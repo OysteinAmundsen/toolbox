@@ -96,7 +96,7 @@ Loaded on demand from `.github/skills/` for task-specific workflows:
   - **Hard precondition:** Before calling any file-editing or code-running tool, you MUST first call `manage_todo_list` with the seven delivery steps. Read-only exploration does not require the list; the moment you intend to modify the workspace, it does.
   - **Completion gate:** Do not output "done", "complete", or a wrap-up summary until every todo is marked completed. A step may be marked completed with "N/A" only in the specific cases listed in `delivery-workflow.instructions.md` — state the reason explicitly; never silently skip.
   - **Self-audit:** Before the final message, state in one concrete sentence what was done for each completed step (e.g. "Read `grid-plugins.md`; ran `bun nx test grid` — 3225 passed; added `DECIDED` entry for pinned-rows count derivation"). End with `📦 **Good commit point:** type(scope): ...`.
-- **Bundle budget:** `index.js` ≤170 kB (≤45 kB gzipped), plugins ≤50 kB each, adapters: react ≤50 kB / vue ≤50 kB — enforced by `tools/vite-bundle-budget.ts` plugin (build fails on violation)
+- **Bundle budget:** `index.js` ≤170 kB raw and ≤50 kB gzipped (build fails) with a soft warning at 45 kB gzipped; plugins ≤50 kB each; adapters: react ≤50 kB / vue ≤50 kB — enforced by `tools/vite-bundle-budget.ts`. Keep core lean: any feature that can ship as a plugin without hurting performance MUST be a plugin.
 - **Always use Nx:** `bun nx <target> <project>`, never invoke Vitest/Vite/ESLint directly
 - **Strict TypeScript:** `strict: true`, no implicit any
 - **Code style:** ESLint flat config + Prettier defaults

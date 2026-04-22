@@ -1,6 +1,6 @@
 ---
 name: bundle-check
-description: Check that the @toolbox-web/grid build stays within bundle size budget (index.js ≤170 kB, gzip ≤45 kB). Run after any code change that could affect bundle size.
+description: Check that the @toolbox-web/grid build stays within bundle size budget (index.js ≤170 kB raw, ≤50 kB gzipped hard limit, ≤45 kB gzipped soft warning). Run after any code change that could affect bundle size.
 argument-hint: [library-name]
 ---
 
@@ -10,10 +10,10 @@ Verify that the grid library build stays within its budget constraints.
 
 ## Budget Limits
 
-| Metric              | Limit    |
-| ------------------- | -------- |
-| `index.js` raw size | ≤ 170 kB |
-| `index.js` gzipped  | ≤ 45 kB  |
+| Metric              | Limit                              |
+| ------------------- | ---------------------------------- |
+| `index.js` raw size | ≤ 170 kB (hard fail)               |
+| `index.js` gzipped  | ≤ 50 kB hard fail, ≤ 45 kB warning |
 
 ## Steps
 

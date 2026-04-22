@@ -6,10 +6,14 @@ import type { Plugin } from 'vite';
 export interface BudgetEntry {
   /** Path pattern relative to outDir. Use `*` for single-level directory wildcard. */
   path: string;
-  /** Maximum raw file size in bytes */
+  /** Maximum raw file size in bytes (hard fail) */
   maxSize?: number;
-  /** Maximum gzip compressed size in bytes */
+  /** Maximum gzip compressed size in bytes (hard fail) */
   maxGzip?: number;
+  /** Soft raw size threshold — emits a warning but does not fail the build */
+  warnSize?: number;
+  /** Soft gzip size threshold — emits a warning but does not fail the build */
+  warnGzip?: number;
 }
 
 export interface BundleBudgetOptions {
@@ -21,13 +25,21 @@ export interface BundleBudgetOptions {
   severity?: 'error' | 'warn';
 }
 
+export interface BudgetCheckResult {
+  /** Hard-fail messages (maxSize/maxGzip exceeded) */
+  violations: string[];
+  /** Soft-warn messages (warnSize/warnGzip exceeded but under hard limit) */
+  warnings: string[];
+}
+
 /**
  * Check bundle sizes against configured budgets.
- * Returns an array of violation messages (empty = all passed).
+ * Returns hard violations and soft warnings separately.
  */
-export function checkBudgets(options: BundleBudgetOptions): string[] {
+export function checkBudgets(options: BundleBudgetOptions): BudgetCheckResult {
   const { outDir, budgets } = options;
   const violations: string[] = [];
+  const warnings: string[] = [];
 
   for (const budget of budgets) {
     const files = resolveGlob(outDir, budget.path);
@@ -40,21 +52,24 @@ export function checkBudgets(options: BundleBudgetOptions): string[] {
       const rel = relative(outDir, filePath).replace(/\\/g, '/');
       const content = readFileSync(filePath);
       const rawSize = content.length;
+      const needsGzip = budget.maxGzip != null || budget.warnGzip != null;
+      const gz = needsGzip ? gzipSync(content).length : 0;
 
       if (budget.maxSize != null && rawSize > budget.maxSize) {
         violations.push(`${rel}: ${fmt(rawSize)} exceeds budget of ${fmt(budget.maxSize)}`);
+      } else if (budget.warnSize != null && rawSize > budget.warnSize) {
+        warnings.push(`${rel}: ${fmt(rawSize)} approaching budget (warn at ${fmt(budget.warnSize)})`);
       }
 
-      if (budget.maxGzip != null) {
-        const gz = gzipSync(content).length;
-        if (gz > budget.maxGzip) {
-          violations.push(`${rel}: ${fmt(gz)} gzipped exceeds budget of ${fmt(budget.maxGzip)}`);
-        }
+      if (budget.maxGzip != null && gz > budget.maxGzip) {
+        violations.push(`${rel}: ${fmt(gz)} gzipped exceeds budget of ${fmt(budget.maxGzip)}`);
+      } else if (budget.warnGzip != null && gz > budget.warnGzip) {
+        warnings.push(`${rel}: ${fmt(gz)} gzipped approaching budget (warn at ${fmt(budget.warnGzip)})`);
       }
     }
   }
 
-  return violations;
+  return { violations, warnings };
 }
 
 /**
@@ -66,8 +81,13 @@ export function bundleBudget(options: BundleBudgetOptions): Plugin {
     name: 'bundle-budget',
     apply: 'build',
     closeBundle() {
-      const violations = checkBudgets(options);
+      const { violations, warnings } = checkBudgets(options);
       const severity = options.severity ?? 'error';
+
+      if (warnings.length > 0) {
+        const msg = `\nBundle budget warnings:\n${warnings.map((w) => `  ⚠ ${w}`).join('\n')}\n`;
+        console.warn(`\x1b[33m${msg}\x1b[0m`);
+      }
 
       if (violations.length > 0) {
         const msg = `\nBundle budget exceeded:\n${violations.map((v) => `  ✗ ${v}`).join('\n')}\n`;
@@ -76,7 +96,7 @@ export function bundleBudget(options: BundleBudgetOptions): Plugin {
         } else {
           throw new Error(msg);
         }
-      } else {
+      } else if (warnings.length === 0) {
         console.log('\n\x1b[32m✓ All bundle budgets passed\x1b[0m');
       }
     },

@@ -3661,14 +3661,18 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   applyColumnState(state: GridColumnState | undefined): void {
     if (!state) return;
 
-    // Store for use after initialization if called before ready
-    this.#initialColumnState = state;
-    this.#configManager.initialColumnState = state;
-
-    // If already initialized, apply immediately
+    // If already initialized, apply immediately and do NOT store as initial
+    // state — the latter would be re-applied on the next #setup() (e.g. after
+    // a subsequent `grid.columns = […]` reset), making the reset appear to be
+    // a no-op until the user triggers it a second time.
     if (this.#initialized) {
       this.#applyColumnState(state);
+      return;
     }
+
+    // Store for use after initialization (called before ready)
+    this.#initialColumnState = state;
+    this.#configManager.initialColumnState = state;
   }
 
   /**

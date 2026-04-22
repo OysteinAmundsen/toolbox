@@ -74,6 +74,7 @@ related: [grid-plugins, grid-features, data-flow-traces]
 - TENSION: \_\_rowRenderEpoch forces full row rebuild on column changes (avoids stale cell reuse) but adds cost when only data changed
 - TENSION: two sources of sort — core sort (grid-based) vs plugin sort (tree); core sort re-applied before plugin processRows
 - DECIDED (Apr 2026): `#applyColumnState` width-only fast path must also check for sort entries in the incoming state. Plugins (e.g., MultiSortPlugin) null `_sortState` after restoring their own sort model, making `_sortState` before/after comparison blind to plugin-level sort changes. Without this check the fast path skips `#setup()` → `processRows()` never runs → sort icons render but data stays unsorted.
+- DECIDED (Apr 2026): `applyColumnState()` must NOT write to `#initialColumnState` when the grid is already initialized. `#initialColumnState` is a one-shot "apply on next #setup()" slot consumed and cleared by `#setup()`. If the public method stores the state on every call, a later `grid.columns = […]` (which queues `#applyColumnsUpdate` → `merge()` → `#setup()`) silently re-applies the stored state on top of the freshly merged defaults — making the first reset look like a no-op and only succeeding on the second attempt (because the first call cleared the slot). Branch on `#initialized`: apply immediately when true, store only when false.
 
 ## dom-structure (shadow DOM tree)
 

@@ -18,13 +18,19 @@ if (!outDir || !budgetJson) {
 }
 
 const budgets: BudgetEntry[] = JSON.parse(budgetJson);
-const violations = checkBudgets({ outDir: resolve(outDir), budgets });
+const { violations, warnings } = checkBudgets({ outDir: resolve(outDir), budgets });
+
+if (warnings.length > 0) {
+  console.warn(`\n\x1b[33mBundle budget warnings:\x1b[0m`);
+  for (const w of warnings) console.warn(`  \x1b[33m⚠\x1b[0m ${w}`);
+  console.warn();
+}
 
 if (violations.length > 0) {
   console.error(`\n\x1b[31mBundle budget exceeded:\x1b[0m`);
   for (const v of violations) console.error(`  \x1b[31m✗\x1b[0m ${v}`);
   console.error();
   process.exit(1);
-} else {
+} else if (warnings.length === 0) {
   console.log('\x1b[32m✓ All bundle budgets passed\x1b[0m');
 }

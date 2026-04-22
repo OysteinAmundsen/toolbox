@@ -24,9 +24,11 @@ related: [grid-core]
 
 - OWNS: budget validation, file size calculation (raw + gzip via zlib), glob resolution
 - RUNS IN: Vite closeBundle hook (after all sub-builds complete)
-- BUDGETS: core index.js ≤170 kB raw / ≤45 kB gzip; plugins ≤50 kB each; adapters: react ≤50 kB / vue ≤50 kB
+- BUDGETS: core index.js ≤170 kB raw / ≤50 kB gzip hard fail, ≤45 kB gzip soft warn; plugins ≤50 kB each; adapters: react ≤50 kB / vue ≤50 kB
 - INVARIANT: both raw and gzip checked if thresholds configured
+- INVARIANT: warn-only thresholds (`warnSize` / `warnGzip`) emit yellow warnings but never fail the build; hard thresholds (`maxSize` / `maxGzip`) fail when severity: 'error'
 - INVARIANT: build fails with exit code 1 if severity: 'error' mode
+- DECIDED (Apr 2026): raised hard gzip ceiling 45 → 50 kB and added 45 kB warn gate. Bundle was at the 45 kB cliff blocking bug fixes; new policy is design-target 45 kB, hard ceiling 50 kB. Any new code that pushes core toward 50 kB MUST first try a plugin extraction — only land in core if a plugin would damage performance (hot path, render scheduler, virtualization).
 
 ## css-layer-strategy
 

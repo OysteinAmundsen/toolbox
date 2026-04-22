@@ -319,18 +319,18 @@ After fixing, verify the improvement:
 1. **Playwright trace comparison** — Capture traces before/after the fix and compare with `node scripts/analyze-trace.mjs`
 2. **Run e2e performance tests** — `bun nx e2e e2e --grep="Performance"` (enforces budgets, catches regressions)
 3. **Run unit tests** to verify no regressions — `bun nx test grid`
-4. **Check bundle size** hasn't increased — `bun nx build grid` (core ≤ 170 kB, gzip ≤ 45 kB)
+4. **Check bundle size** hasn't increased — `bun nx build grid` (core ≤ 170 kB raw, ≤ 50 kB gzip with warning at 45 kB)
 5. **Add a performance test** if the fix addresses a new hot path not yet covered by `e2e/tests/performance-regression.spec.ts`
 
 ## Performance Budget Summary
 
-| Metric                      | Target                  |
-| --------------------------- | ----------------------- |
-| Scroll handler              | < 1ms per event         |
-| Initial render (1000 rows)  | < 50ms                  |
-| Cell render (single)        | < 0.1ms                 |
-| Bundle size (core)          | ≤ 170 kB (≤ 45 kB gzip) |
-| Row virtualization overscan | 8 rows default          |
+| Metric                      | Target                                     |
+| --------------------------- | ------------------------------------------ |
+| Scroll handler              | < 1ms per event                            |
+| Initial render (1000 rows)  | < 50ms                                     |
+| Cell render (single)        | < 0.1ms                                    |
+| Bundle size (core)          | ≤ 170 kB raw, ≤ 50 kB gzip (warn at 45 kB) |
+| Row virtualization overscan | 8 rows default                             |
 
 ## Key Files to Investigate
 

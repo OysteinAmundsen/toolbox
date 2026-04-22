@@ -38,8 +38,8 @@ Verify clean builds with no TypeScript errors.
 
 Verify `dist/libs/grid/index.js`:
 
-- Raw size ≤ 170 kB
-- Gzipped ≤ 45 kB
+- Raw size ≤ 170 kB (hard fail)
+- Gzipped ≤ 50 kB (hard fail), warning at 45 kB
 
 ```bash
 # Check raw size
@@ -94,14 +94,14 @@ git --no-pager log --oneline $(git describe --tags --abbrev=0)..HEAD
 
 Check if these files need updates:
 
-| File                                            | Update When                                   |
-| ----------------------------------------------- | --------------------------------------------- |
-| `libs/grid/README.md`                           | New features, API changes                     |
-| Plugin READMEs                                  | Plugin changes                                |
+| File                                       | Update When                                   |
+| ------------------------------------------ | --------------------------------------------- |
+| `libs/grid/README.md`                      | New features, API changes                     |
+| Plugin READMEs                             | Plugin changes                                |
 | `apps/docs/src/content/docs/grid/**/*.mdx` | Theming, API, getting started changes         |
-| `llms.txt`                                      | Public API, plugins, events, CSS vars changed |
-| `llms-full.txt`                                 | Full AI guide needs updating                  |
-| `.github/copilot-instructions.md`               | Workflow or conventions changed               |
+| `llms.txt`                                 | Public API, plugins, events, CSS vars changed |
+| `llms-full.txt`                            | Full AI guide needs updating                  |
+| `.github/copilot-instructions.md`          | Workflow or conventions changed               |
 
 ### 8. Verify Docs Site Builds
 

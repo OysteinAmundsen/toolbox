@@ -325,7 +325,9 @@ async function measureColumnResize(page: Page): Promise<number> {
   return page.evaluate(
     `(async () => {
       const grid = document.querySelector('tbw-grid');
-      if (!grid || !grid.getColumnState) return -1;
+      // applyColumnState is newer than getColumnState — feature-detect both so
+      // released-CDN runs (which may lack applyColumnState) skip cleanly.
+      if (!grid || !grid.getColumnState || typeof grid.applyColumnState !== 'function') return -1;
       const raf = () => new Promise(r => requestAnimationFrame(() => r()));
       let wide = true;
       const samples = [];

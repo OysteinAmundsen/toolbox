@@ -20,6 +20,13 @@ export interface UseGridReturn<TRow = unknown> {
   forceLayout: () => Promise<void>;
   /** Toggle a group row */
   toggleGroup: (key: string) => Promise<void>;
+  /** Get a plugin by its class */
+  getPlugin: <T>(pluginClass: new (...args: unknown[]) => T) => T | undefined;
+  /**
+   * Get a plugin by its registered name (preferred).
+   * Uses the type-safe PluginNameMap for auto-completion and return type narrowing.
+   */
+  getPluginByName: DataGridElement['getPluginByName'];
   /** Register custom styles */
   registerStyles: (id: string, css: string) => void;
   /** Unregister custom styles */
@@ -161,6 +168,22 @@ export function useGrid<TRow = unknown>(selector?: string): UseGridReturn<TRow> 
     [getGridElement],
   );
 
+  const getPlugin = useCallback(
+    <T>(pluginClass: new (...args: unknown[]) => T): T | undefined => {
+      const el = getGridElement();
+      return el?.getPlugin?.(pluginClass);
+    },
+    [getGridElement],
+  );
+
+  const getPluginByName = useCallback(
+    ((name: string) => {
+      const el = getGridElement();
+      return el?.getPluginByName?.(name);
+    }) as DataGridElement['getPluginByName'],
+    [getGridElement],
+  );
+
   const registerStyles = useCallback(
     (id: string, css: string) => {
       const el = getGridElement();
@@ -198,6 +221,8 @@ export function useGrid<TRow = unknown>(selector?: string): UseGridReturn<TRow> 
     getConfig,
     forceLayout,
     toggleGroup,
+    getPlugin,
+    getPluginByName,
     registerStyles,
     unregisterStyles,
     getVisibleColumns,

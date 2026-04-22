@@ -114,4 +114,52 @@ describe('TbwGrid integration', () => {
     app.unmount();
     expect(getTeleportManager(gridEl!)).toBeNull();
   });
+
+  it('normalizes column shorthand strings into ColumnConfig objects', async () => {
+    app = createApp({
+      setup() {
+        return () =>
+          h(TbwGrid, {
+            rows: [],
+            columns: ['id:number', 'firstName', 'email'] as unknown as never,
+          });
+      },
+    });
+    app.mount(mountEl);
+    await nextTick();
+    await nextTick();
+
+    const gridEl = mountEl.querySelector('tbw-grid') as HTMLElement & {
+      gridConfig?: { columns?: Array<{ field: string; header?: string; type?: string }> };
+    };
+    const cols = gridEl.gridConfig?.columns ?? [];
+    expect(cols.length).toBe(3);
+    expect(cols[0]).toMatchObject({ field: 'id', header: 'ID', type: 'number' });
+    expect(cols[1]).toMatchObject({ field: 'firstName', header: 'First Name' });
+    expect(cols[2]).toMatchObject({ field: 'email', header: 'Email' });
+  });
+
+  it('applies columnDefaults to every column; individual props override', async () => {
+    app = createApp({
+      setup() {
+        return () =>
+          h(TbwGrid, {
+            rows: [],
+            columns: [{ field: 'a' }, { field: 'b', sortable: false }] as unknown as never,
+            columnDefaults: { sortable: true, resizable: true } as unknown as never,
+          });
+      },
+    });
+    app.mount(mountEl);
+    await nextTick();
+    await nextTick();
+
+    const gridEl = mountEl.querySelector('tbw-grid') as HTMLElement & {
+      gridConfig?: { columns?: Array<{ field: string; sortable?: boolean; resizable?: boolean }> };
+    };
+    const cols = gridEl.gridConfig?.columns ?? [];
+    expect(cols[0]).toMatchObject({ field: 'a', sortable: true, resizable: true });
+    // Individual prop wins over default
+    expect(cols[1]).toMatchObject({ field: 'b', sortable: false, resizable: true });
+  });
 });

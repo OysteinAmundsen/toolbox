@@ -50,8 +50,10 @@ import type {
   UndoRedoDetail,
   VisibilityConfig,
 } from '@toolbox-web/grid/all';
+import { createPluginsFromFeatures } from '@toolbox-web/grid/features/registry';
 import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch, type PropType } from 'vue';
-import { createPluginFromFeature, type FeatureName } from './feature-registry';
+import { applyColumnDefaults, normalizeColumns, type ColumnShorthand } from './column-shorthand';
+import type { FeatureName } from './feature-registry';
 import { useGridIcons } from './grid-icon-registry';
 import { useGridTypeDefaults } from './grid-type-registry';
 import { setTeleportManager } from './teleport-bridge';
@@ -87,9 +89,34 @@ const props = defineProps({
     type: Array as PropType<TRow[]>,
     default: () => [],
   },
-  /** Column definitions (shorthand for gridConfig.columns) */
+  /**
+   * Column definitions. Accepts either full ColumnConfig objects or shorthand
+   * strings such as `'name'` or `'salary:number'`. Shorthands auto-generate
+   * human-readable headers from the field name.
+   *
+   * @example
+   * ```vue
+   * <TbwGrid :columns="['id:number', 'name', { field: 'status', editable: true }]" />
+   * ```
+   */
   columns: {
-    type: Array as PropType<ColumnConfig<TRow>[]>,
+    type: Array as PropType<ColumnShorthand<TRow>[]>,
+    default: undefined,
+  },
+  /**
+   * Default column properties applied to every column in `columns`.
+   * Individual column properties override these defaults.
+   *
+   * @example
+   * ```vue
+   * <TbwGrid
+   *   :column-defaults="{ sortable: true, resizable: true }"
+   *   :columns="[{ field: 'id', sortable: false }, { field: 'name' }]"
+   * />
+   * ```
+   */
+  columnDefaults: {
+    type: Object as PropType<Partial<ColumnConfig<TRow>>>,
     default: undefined,
   },
   /** Full grid configuration */
@@ -382,22 +409,20 @@ const FEATURE_PROPS: FeatureName[] = [
 ];
 
 /**
- * Create plugins from feature props.
+ * Create plugins from feature props. Delegates to the core registry's
+ * `createPluginsFromFeatures` so dependency validation (e.g. `undoRedo`
+ * requires `editing`, `clipboard` requires `selection`) and dependency
+ * ordering are shared with the React adapter and `gridConfig.features`.
  */
 function createFeaturePlugins(): BaseGridPlugin[] {
-  const plugins: BaseGridPlugin[] = [];
-
+  const featureProps: Record<string, unknown> = {};
   for (const feature of FEATURE_PROPS) {
     const propValue = props[feature as keyof typeof props];
     if (propValue !== undefined) {
-      const plugin = createPluginFromFeature(feature, propValue);
-      if (plugin) {
-        plugins.push(plugin as BaseGridPlugin);
-      }
+      featureProps[feature] = propValue;
     }
   }
-
-  return plugins;
+  return createPluginsFromFeatures(featureProps) as BaseGridPlugin[];
 }
 
 // Merged config with feature plugins
@@ -408,9 +433,6 @@ const mergedConfig = computed<GridConfig<TRow> | undefined>(() => {
 
   // Merge: feature plugins first, then config plugins
   const mergedPlugins = [...featurePlugins, ...configPlugins];
-
-  // Apply type defaults if provided
-  const typeDefaults$ = typeDefaults;
 
   // Apply icon overrides if provided
   const icons = iconOverrides ? { ...baseConfig.icons, ...iconOverrides } : baseConfig.icons;
@@ -427,10 +449,16 @@ const mergedConfig = computed<GridConfig<TRow> | undefined>(() => {
     coreConfigOverrides['selectable'] = props.selectable;
   }
 
+  // Normalize shorthand strings to ColumnConfig objects and apply column
+  // defaults. Individual column props override defaults.
+  const processedColumns = props.columns
+    ? applyColumnDefaults(normalizeColumns<TRow>(props.columns), props.columnDefaults)
+    : undefined;
+
   return {
     ...baseConfig,
     ...coreConfigOverrides,
-    ...(props.columns ? { columns: props.columns } : {}),
+    ...(processedColumns ? { columns: processedColumns } : {}),
     ...(mergedPlugins.length > 0 ? { plugins: mergedPlugins } : {}),
     ...(icons ? { icons } : {}),
   } as GridConfig<TRow>;

@@ -61,6 +61,10 @@ export { GridAdapter, isVueComponent } from './lib/vue-grid-adapter';
 export { GRID_ELEMENT_KEY, useGrid } from './lib/use-grid';
 export type { UseGridReturn } from './lib/use-grid';
 
+// Column shorthand utilities
+export { hasColumnShorthands, normalizeColumns, parseColumnShorthand } from './lib/column-shorthand';
+export type { ColumnShorthand } from './lib/column-shorthand';
+
 // Configuration types
 export type { CellEditor, CellRenderer, ColumnConfig, GridConfig } from './lib/vue-column-config';
 

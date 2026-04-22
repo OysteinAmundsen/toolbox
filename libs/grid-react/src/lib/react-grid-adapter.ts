@@ -406,6 +406,23 @@ export class GridAdapter implements FrameworkAdapter {
   }
 
   /**
+   * FrameworkAdapter hook called by ResponsivePlugin during attach().
+   * Parses the `<tbw-grid-responsive-card>` element and delegates to
+   * {@link createResponsiveCardRenderer}. Needed for parity with the Vue
+   * and Angular adapters so ResponsivePlugin's standard lookup path works
+   * for React users as well, not just via the imperative
+   * `refreshResponsiveCardRenderer` hook in DataGrid.
+   */
+  parseResponsiveCardElement<TRow = unknown>(
+    cardElement: Element,
+  ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined {
+    const gridElement = cardElement.closest('tbw-grid') as HTMLElement | null;
+    if (!gridElement) return undefined;
+
+    return this.createResponsiveCardRenderer<TRow>(gridElement);
+  }
+
+  /**
    * Creates a tool panel renderer from a light DOM element.
    * Renders React components into tool panel containers.
    */

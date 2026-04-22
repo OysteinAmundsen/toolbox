@@ -64,6 +64,8 @@ describe('use-grid', () => {
       expect(typeof hook.getConfig).toBe('function');
       expect(typeof hook.forceLayout).toBe('function');
       expect(typeof hook.toggleGroup).toBe('function');
+      expect(typeof hook.getPlugin).toBe('function');
+      expect(typeof hook.getPluginByName).toBe('function');
       expect(typeof hook.registerStyles).toBe('function');
       expect(typeof hook.unregisterStyles).toBe('function');
       expect(typeof hook.getVisibleColumns).toBe('function');

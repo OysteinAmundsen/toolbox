@@ -365,6 +365,11 @@ export { DEFAULT_A11Y_MESSAGES, DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS, Fi
 // Re-export sorting utilities for custom sort handlers
 export { builtInSort, defaultComparator } from './lib/core/internal/sorting';
 
+// Re-export adapter-conformance method list so every framework adapter spec
+// can assert its adapter implements every core-consumed FrameworkAdapter hook
+// against a single source of truth. (Helper functions stay internal.)
+export { CORE_CONSUMED_ADAPTER_METHODS } from './lib/core/adapter-conformance';
+
 // Re-export value-accessor utilities for custom plugins and manual cache invalidation
 export { invalidateAccessorCache, resolveCellValue } from './lib/core/internal/value-accessor';
 // #endregion

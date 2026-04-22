@@ -2418,7 +2418,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // --- Methods exposed for extracted managers ---
 
   /** @internal Request a render at the given phase through the scheduler. */
-  _requestSchedulerPhase(phase: number, source: string): void {
+  _requestSchedulerPhase(phase: RenderPhase, source: string): void {
     this.#scheduler.requestPhase(phase, source);
   }
 

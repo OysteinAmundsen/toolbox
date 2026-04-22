@@ -43,20 +43,21 @@ import type { InternalGrid } from '../types';
  *
  * @category Plugin Development
  */
-export enum RenderPhase {
+export const RenderPhase = {
   /** Lightweight style updates only (plugin afterRender hooks) */
-  STYLE = 1,
+  STYLE: 1,
   /** Virtual window recalculation (includes STYLE) */
-  VIRTUALIZATION = 2,
+  VIRTUALIZATION: 2,
   /** Header re-render (includes VIRTUALIZATION) */
-  HEADER = 3,
+  HEADER: 3,
   /** Row model rebuild (includes HEADER) */
-  ROWS = 4,
+  ROWS: 4,
   /** Column processing (includes ROWS) */
-  COLUMNS = 5,
+  COLUMNS: 5,
   /** Full render including config merge (includes COLUMNS) */
-  FULL = 6,
-}
+  FULL: 6,
+} as const;
+export type RenderPhase = (typeof RenderPhase)[keyof typeof RenderPhase];
 
 /**
  * @internal Scheduler now takes InternalGrid directly — no callback interface needed.

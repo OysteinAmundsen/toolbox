@@ -28,6 +28,29 @@ applyTo: '**/*.ts'
 
 **Acceptable casts:** `as T` (direct assertion) is fine when TypeScript's inference is genuinely too narrow (e.g., after a type guard, or when the DOM API returns a broader type). The key distinction: `as T` requires structural compatibility; `as unknown as T` bypasses it entirely.
 
+## No `enum` — Use `const` Objects
+
+**Never use TypeScript `enum`.** They emit verbose runtime IIFE code (numeric enums also emit reverse-mapping tables) and resist tree-shaking. Use a `const` object plus a derived type alias instead — same `Foo.MEMBER` call-site syntax, smaller bundle.
+
+```ts
+// ❌ Don't
+export enum RenderPhase {
+  STYLE = 1,
+  ROWS = 4,
+}
+
+// ✅ Do
+export const RenderPhase = {
+  STYLE: 1,
+  ROWS: 4,
+} as const;
+export type RenderPhase = (typeof RenderPhase)[keyof typeof RenderPhase];
+```
+
+The derived type is the union of literal values (`1 | 4` here), which is stricter than `number`. When converting an existing `enum`, you may need to tighten any `phase: number` parameter types to `phase: RenderPhase`. Numeric literals like `4` remain assignable to the union, so call sites don't need to change.
+
+To audit: `grep -rn "^\s*export\s\+enum" libs apps demos` — should return nothing.
+
 ## Code Organization with Region Markers
 
 Use `// #region Name` and `// #endregion` markers to organize code into collapsible sections in VS Code. This improves navigation and maintainability in large files.

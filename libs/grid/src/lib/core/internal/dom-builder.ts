@@ -14,24 +14,28 @@ import { sanitizeHTML } from './sanitize';
 
 // #region Element Factories
 /**
+ * Apply attributes to an element, skipping null/undefined values.
+ * Shared by createElement/div/button to keep the bundle small.
+ */
+function applyAttrs(el: Element, attrs: Record<string, string | undefined> | undefined): void {
+  if (!attrs) return;
+  for (const key in attrs) {
+    const value = attrs[key];
+    if (value != null) el.setAttribute(key, value);
+  }
+}
+
+/**
  * Create an element with attributes and optional children.
  * Optimized helper that avoids repeated function calls.
  */
-export function createElement<K extends keyof HTMLElementTagNameMap>(
+function createElement<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   attrs?: Record<string, string>,
   children?: (Node | string | null | undefined)[],
 ): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
-
-  if (attrs) {
-    for (const key in attrs) {
-      const value = attrs[key];
-      if (value !== undefined && value !== null) {
-        el.setAttribute(key, value);
-      }
-    }
-  }
+  applyAttrs(el, attrs);
 
   if (children) {
     for (const child of children) {
@@ -48,43 +52,22 @@ export function createElement<K extends keyof HTMLElementTagNameMap>(
 }
 
 /**
- * Create a text node (shorthand).
- */
-export function text(content: string): Text {
-  return document.createTextNode(content);
-}
-
-/**
  * Create an element with class (common pattern).
  */
-export function div(className?: string, attrs?: Record<string, string>): HTMLDivElement {
+function div(className?: string, attrs?: Record<string, string>): HTMLDivElement {
   const el = document.createElement('div');
   if (className) el.className = className;
-  if (attrs) {
-    for (const key in attrs) {
-      const value = attrs[key];
-      if (value !== undefined && value !== null) {
-        el.setAttribute(key, value);
-      }
-    }
-  }
+  applyAttrs(el, attrs);
   return el;
 }
 
 /**
  * Create a button element.
  */
-export function button(className?: string, attrs?: Record<string, string>, content?: string | Node): HTMLButtonElement {
+function button(className?: string, attrs?: Record<string, string>, content?: string | Node): HTMLButtonElement {
   const el = document.createElement('button');
   if (className) el.className = className;
-  if (attrs) {
-    for (const key in attrs) {
-      const value = attrs[key];
-      if (value !== undefined && value !== null) {
-        el.setAttribute(key, value);
-      }
-    }
-  }
+  applyAttrs(el, attrs);
   if (content) {
     if (typeof content === 'string') {
       el.textContent = content;
@@ -93,27 +76,6 @@ export function button(className?: string, attrs?: Record<string, string>, conte
     }
   }
   return el;
-}
-
-/**
- * Append multiple children to a parent element.
- */
-export function appendChildren(parent: Element, children: (Node | null | undefined)[]): void {
-  for (const child of children) {
-    if (child) parent.appendChild(child);
-  }
-}
-
-/**
- * Set multiple attributes on an element.
- */
-export function setAttrs(el: Element, attrs: Record<string, string | undefined>): void {
-  for (const key in attrs) {
-    const value = attrs[key];
-    if (value !== undefined && value !== null) {
-      el.setAttribute(key, value);
-    }
-  }
 }
 // #endregion
 

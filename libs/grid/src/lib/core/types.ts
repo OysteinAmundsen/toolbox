@@ -1,3 +1,4 @@
+import type { RenderPhase } from './internal/render-scheduler';
 import type { ShellState } from './internal/shell';
 import type { RowPosition } from './internal/virtualization';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } from './plugin/types';
@@ -587,7 +588,7 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   _invalidateVisibleColumnsCache(): void;
   /** @internal */ _renderVisibleRows(start: number, end: number, epoch?: number): void;
   /** @internal */ _updateAriaCounts(totalRows: number, totalCols: number): void;
-  /** @internal */ _requestSchedulerPhase(phase: number, source: string): void;
+  /** @internal */ _requestSchedulerPhase(phase: RenderPhase, source: string): void;
   /** @internal */ _rebuildRowIdMap(): void;
   /** @internal */ _emitDataChange(): void;
   /** @internal */ _getPluginRowHeight(row: T, index: number): number | undefined;

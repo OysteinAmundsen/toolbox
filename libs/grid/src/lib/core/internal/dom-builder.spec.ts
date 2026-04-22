@@ -1,133 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import {
-  appendChildren,
-  buildGridDOM,
-  buildShellBody,
-  buildShellHeader,
-  button,
-  cloneGridContent,
-  createElement,
-  div,
-  setAttrs,
-  text,
-} from './dom-builder';
+import { buildGridDOM, buildShellBody, buildShellHeader, cloneGridContent } from './dom-builder';
 
 describe('dom-builder', () => {
-  describe('createElement', () => {
-    it('should create an element with the specified tag', () => {
-      const el = createElement('div');
-      expect(el.tagName).toBe('DIV');
-    });
-
-    it('should set attributes on the element', () => {
-      const el = createElement('input', { type: 'text', name: 'test', 'data-id': '123' });
-      expect(el.getAttribute('type')).toBe('text');
-      expect(el.getAttribute('name')).toBe('test');
-      expect(el.getAttribute('data-id')).toBe('123');
-    });
-
-    it('should append text and node children', () => {
-      const child = document.createElement('span');
-      child.textContent = 'child';
-      const el = createElement('div', undefined, ['text node', child]);
-      expect(el.childNodes.length).toBe(2);
-      expect(el.childNodes[0].textContent).toBe('text node');
-      expect(el.childNodes[1]).toBe(child);
-    });
-
-    it('should skip null and undefined children', () => {
-      const el = createElement('div', undefined, ['valid', null, undefined, 'also valid']);
-      expect(el.childNodes.length).toBe(2);
-    });
-  });
-
-  describe('text', () => {
-    it('should create a text node', () => {
-      const node = text('hello world');
-      expect(node.nodeType).toBe(Node.TEXT_NODE);
-      expect(node.textContent).toBe('hello world');
-    });
-  });
-
-  describe('div', () => {
-    it('should create a div element', () => {
-      const el = div();
-      expect(el.tagName).toBe('DIV');
-    });
-
-    it('should set className', () => {
-      const el = div('my-class');
-      expect(el.className).toBe('my-class');
-    });
-
-    it('should set additional attributes', () => {
-      const el = div('my-class', { id: 'test', role: 'button' });
-      expect(el.className).toBe('my-class');
-      expect(el.id).toBe('test');
-      expect(el.getAttribute('role')).toBe('button');
-    });
-  });
-
-  describe('button', () => {
-    it('should create a button element', () => {
-      const el = button();
-      expect(el.tagName).toBe('BUTTON');
-    });
-
-    it('should set className and attributes', () => {
-      const el = button('btn-primary', { type: 'submit', disabled: '' });
-      expect(el.className).toBe('btn-primary');
-      expect(el.getAttribute('type')).toBe('submit');
-      expect(el.hasAttribute('disabled')).toBe(true);
-    });
-
-    it('should set string content', () => {
-      const el = button('btn', undefined, 'Click me');
-      expect(el.textContent).toBe('Click me');
-    });
-
-    it('should append node content', () => {
-      const icon = document.createElement('span');
-      icon.textContent = '★';
-      const el = button('btn', undefined, icon);
-      expect(el.firstChild).toBe(icon);
-    });
-  });
-
-  describe('appendChildren', () => {
-    it('should append multiple children to a parent', () => {
-      const parent = document.createElement('div');
-      const child1 = document.createElement('span');
-      const child2 = document.createElement('span');
-      appendChildren(parent, [child1, child2]);
-      expect(parent.children.length).toBe(2);
-    });
-
-    it('should skip null and undefined children', () => {
-      const parent = document.createElement('div');
-      const child = document.createElement('span');
-      appendChildren(parent, [child, null, undefined]);
-      expect(parent.children.length).toBe(1);
-    });
-  });
-
-  describe('setAttrs', () => {
-    it('should set multiple attributes on an element', () => {
-      const el = document.createElement('div');
-      setAttrs(el, { id: 'test', class: 'my-class', 'data-value': '123' });
-      expect(el.id).toBe('test');
-      expect(el.className).toBe('my-class');
-      expect(el.getAttribute('data-value')).toBe('123');
-    });
-
-    it('should skip undefined values', () => {
-      const el = document.createElement('div');
-      setAttrs(el, { id: 'test', class: undefined });
-      expect(el.id).toBe('test');
-      expect(el.hasAttribute('class')).toBe(false);
-    });
-  });
-
   describe('cloneGridContent', () => {
     it('should return a DocumentFragment', () => {
       const fragment = cloneGridContent();
@@ -136,8 +10,7 @@ describe('dom-builder', () => {
 
     it('should contain the scroll area structure', () => {
       const fragment = cloneGridContent();
-      const scrollArea = fragment.querySelector('.tbw-scroll-area');
-      expect(scrollArea).not.toBeNull();
+      expect(fragment.querySelector('.tbw-scroll-area')).not.toBeNull();
     });
 
     it('should contain header and rows elements', () => {
@@ -162,13 +35,11 @@ describe('dom-builder', () => {
     });
 
     it('should build a grid root with shell when hasShell is true', () => {
-      const shellHeader = div('tbw-shell-header');
-      const shellBody = div('tbw-shell-body');
-      const fragment = buildGridDOM({
-        hasShell: true,
-        shellHeader,
-        shellBody,
-      });
+      const shellHeader = document.createElement('div');
+      shellHeader.className = 'tbw-shell-header';
+      const shellBody = document.createElement('div');
+      shellBody.className = 'tbw-shell-body';
+      const fragment = buildGridDOM({ hasShell: true, shellHeader, shellBody });
       const root = fragment.querySelector('.tbw-grid-root');
       expect(root?.classList.contains('has-shell')).toBe(true);
     });
@@ -180,91 +51,59 @@ describe('dom-builder', () => {
   });
 
   describe('buildShellHeader', () => {
+    const baseOpts = {
+      title: 'Test',
+      hasPanels: false,
+      isPanelOpen: false,
+      toolPanelIcon: '\u2699',
+      configButtons: [],
+      apiButtons: [],
+    };
+
     it('should create a shell header element', () => {
-      const header = buildShellHeader({
-        title: 'Test Grid',
-        hasLightDomButtons: false,
-        hasPanels: false,
-        isPanelOpen: false,
-        toolPanelIcon: '⚙️',
-        configButtons: [],
-        apiButtons: [],
-      });
+      const header = buildShellHeader(baseOpts);
       expect(header.className).toBe('tbw-shell-header');
     });
 
     it('should include title when provided', () => {
-      const header = buildShellHeader({
-        title: 'My Grid',
-        hasLightDomButtons: false,
-        hasPanels: false,
-        isPanelOpen: false,
-        toolPanelIcon: '⚙️',
-        configButtons: [],
-        apiButtons: [],
-      });
-      const title = header.querySelector('.tbw-shell-title');
-      expect(title?.textContent).toBe('My Grid');
+      const header = buildShellHeader({ ...baseOpts, title: 'My Grid' });
+      expect(header.querySelector('.tbw-shell-title')?.textContent).toBe('My Grid');
     });
 
     it('should include panel toggle button when hasPanels is true', () => {
-      const header = buildShellHeader({
-        title: 'Test',
-        hasLightDomButtons: false,
-        hasPanels: true,
-        isPanelOpen: false,
-        toolPanelIcon: '⚙️',
-        configButtons: [],
-        apiButtons: [],
-      });
-      const toggleBtn = header.querySelector('[data-panel-toggle]');
-      expect(toggleBtn).not.toBeNull();
+      const header = buildShellHeader({ ...baseOpts, hasPanels: true });
+      expect(header.querySelector('[data-panel-toggle]')).not.toBeNull();
     });
 
     it('should mark toggle button as active when panel is open', () => {
-      const header = buildShellHeader({
-        title: 'Test',
-        hasLightDomButtons: false,
-        hasPanels: true,
-        isPanelOpen: true,
-        toolPanelIcon: '⚙️',
-        configButtons: [],
-        apiButtons: [],
-      });
-      const toggleBtn = header.querySelector('[data-panel-toggle]');
-      expect(toggleBtn?.classList.contains('active')).toBe(true);
+      const header = buildShellHeader({ ...baseOpts, hasPanels: true, isPanelOpen: true });
+      expect(header.querySelector('[data-panel-toggle]')?.classList.contains('active')).toBe(true);
     });
   });
 
   describe('buildShellBody', () => {
+    const baseOpts = {
+      position: 'right' as const,
+      isPanelOpen: false,
+      expandIcon: '+',
+      collapseIcon: '-',
+      panels: [],
+    };
+
     it('should create a shell body element', () => {
-      const body = buildShellBody({
-        position: 'right',
-        isPanelOpen: false,
-        expandIcon: '+',
-        collapseIcon: '-',
-        panels: [],
-      });
+      const body = buildShellBody(baseOpts);
       expect(body.className).toBe('tbw-shell-body');
     });
 
     it('should contain grid content', () => {
-      const body = buildShellBody({
-        position: 'right',
-        isPanelOpen: false,
-        expandIcon: '+',
-        collapseIcon: '-',
-        panels: [],
-      });
+      const body = buildShellBody(baseOpts);
       expect(body.querySelector('.tbw-grid-content')).not.toBeNull();
     });
 
     it('should include tool panel when panels are provided', () => {
       const body = buildShellBody({
-        position: 'right',
+        ...baseOpts,
         isPanelOpen: true,
-        expandIcon: '+',
-        collapseIcon: '-',
         panels: [{ id: 'test', title: 'Test Panel', isExpanded: true }],
       });
       expect(body.querySelector('.tbw-tool-panel')).not.toBeNull();
@@ -272,29 +111,21 @@ describe('dom-builder', () => {
 
     it('should position tool panel on left when position is left', () => {
       const body = buildShellBody({
+        ...baseOpts,
         position: 'left',
         isPanelOpen: true,
-        expandIcon: '+',
-        collapseIcon: '-',
         panels: [{ id: 'test', title: 'Test Panel', isExpanded: true }],
       });
-      const panel = body.querySelector('.tbw-tool-panel');
-      // Panel should be first child when on left
-      expect(body.firstElementChild).toBe(panel);
+      expect(body.firstElementChild).toBe(body.querySelector('.tbw-tool-panel'));
     });
 
     it('should position tool panel on right when position is right', () => {
       const body = buildShellBody({
-        position: 'right',
+        ...baseOpts,
         isPanelOpen: true,
-        expandIcon: '+',
-        collapseIcon: '-',
         panels: [{ id: 'test', title: 'Test Panel', isExpanded: true }],
       });
-      const panel = body.querySelector('.tbw-tool-panel');
-      const gridContent = body.querySelector('.tbw-grid-content');
-      // Grid content should be first when panel is on right
-      expect(body.firstElementChild).toBe(gridContent);
+      expect(body.firstElementChild).toBe(body.querySelector('.tbw-grid-content'));
     });
   });
 });

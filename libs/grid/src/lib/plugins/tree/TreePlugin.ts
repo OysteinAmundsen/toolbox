@@ -5,6 +5,7 @@
  */
 
 import { GridClasses } from '../../core/constants';
+import { builtInSort } from '../../core/internal/sorting';
 import type { GridElement } from '../../core/plugin/base-plugin';
 import {
   BaseGridPlugin,
@@ -13,7 +14,7 @@ import {
   type PluginManifest,
   type PluginQuery,
 } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, ColumnViewRenderer, GridHost } from '../../core/types';
+import type { ColumnConfig, ColumnViewRenderer, GridHost, SortHandler } from '../../core/types';
 import type {
   DataSourceChildrenDetail,
   DataSourceDataDetail,
@@ -433,17 +434,30 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   /**
    * Sort rows at a single level, returning a new array of the SAME row references
-   * in sorted order. Never clones row objects.
+   * in sorted order. Never clones row objects, and never mutates the input array
+   * (children arrays are user-owned for tree rows — we always pass a shallow copy
+   * to the handler so a custom in-place sortHandler can't corrupt user data).
+   *
+   * Delegates to the same handler chain core uses: `gridConfig.sortHandler` when
+   * provided, otherwise `builtInSort` (which honors per-column `sortComparator`
+   * and `valueAccessor`). Async handlers cannot be awaited inside the synchronous
+   * tree flatten — fall back to `builtInSort` when one is detected, and swallow
+   * any rejection so it doesn't surface as an unhandled promise rejection.
    */
   #sortLevel(rows: readonly TreeRow[], field: string, dir: 1 | -1): TreeRow[] {
-    return [...rows].sort((a, b) => {
-      const aVal = a[field],
-        bVal = b[field];
-      if (aVal == null && bVal == null) return 0;
-      if (aVal == null) return -1;
-      if (bVal == null) return 1;
-      return aVal > bVal ? dir : aVal < bVal ? -dir : 0;
-    });
+    const host = this.grid as unknown as GridHost<TreeRow> | undefined;
+    const columns = (host?._columns ?? []) as ColumnConfig<TreeRow>[];
+    const handler: SortHandler<TreeRow> = host?.effectiveConfig?.sortHandler ?? builtInSort;
+    const sortState = { field, direction: dir };
+    // Always pass a shallow copy: `rows` may be a user-owned `row.children`
+    // array, and a non-defensive sortHandler could otherwise mutate it.
+    const input = [...rows] as TreeRow[];
+    const result = handler(input, sortState, columns);
+    if (result && typeof (result as Promise<unknown[]>).then === 'function') {
+      void (result as Promise<unknown[]>).catch(() => undefined);
+      return builtInSort(input, sortState, columns);
+    }
+    return result as TreeRow[];
   }
 
   /**

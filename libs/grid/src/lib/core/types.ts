@@ -2510,32 +2510,46 @@ export interface GridConfig<TRow = any> {
   animation?: AnimationConfig;
 
   /**
-   * Custom sort handler for full control over sorting behavior.
+   * Custom sort handler for the entire grid.
    *
-   * When provided, this handler is called instead of the built-in sorting logic.
-   * Enables custom sorting algorithms, server-side sorting, or plugin-specific sorting.
+   * :::caution
+   * **Prefer {@link BaseColumnConfig.sortComparator} over `sortHandler`.**
+   *
+   * `sortHandler` is a low-level escape hatch with significant limitations:
+   * - Only consulted by the **single-column** sort path (core header click,
+   *   `TreePlugin` per-level sort, `ServerSidePlugin` `sortMode: 'local'`).
+   * - **Bypassed entirely** when `MultiSortPlugin` is loaded.
+   * - Owns ALL columns at once — your handler must implement field/direction
+   *   dispatch and null handling for every sortable column itself.
+   *
+   * For per-column custom sort logic, use {@link BaseColumnConfig.sortComparator}
+   * instead. It is honored by every sort code path in the grid (core, multi-sort,
+   * tree, server-side) and is composable across columns.
+   *
+   * For server-side sort, prefer {@link ServerSideConfig.dataSource} — the
+   * `sortModel` is shipped to your `getRows` handler so the backend can return
+   * pre-sorted blocks.
+   * :::
+   *
+   * Use `sortHandler` only when you need to replace the grid's sort engine
+   * wholesale (e.g. integrating a third-party sort library that operates on
+   * the full row array, or routing every sort through a single async pipeline).
    *
    * The handler receives:
    * - `rows`: Current row array to sort
    * - `sortState`: Sort field and direction (1 = asc, -1 = desc)
    * - `columns`: Column configurations (for accessing sortComparator)
    *
-   * Return the sorted array (sync) or a Promise that resolves to the sorted array (async).
-   * For server-side sorting, return a Promise that resolves when data is fetched.
+   * Return the sorted array (sync) or a Promise that resolves to it (async).
    *
    * @example
    * ```ts
-   * // Custom stable sort
-   * sortHandler: (rows, state, cols) => {
-   *   return stableSort(rows, (a, b) => compare(a[state.field], b[state.field]) * state.direction);
-   * }
-   *
-   * // Server-side sorting
-   * sortHandler: async (rows, state) => {
-   *   const response = await fetch(`/api/data?sort=${state.field}&dir=${state.direction}`);
-   *   return response.json();
-   * }
+   * // Replace the entire client-side sort engine with a custom stable sort
+   * sortHandler: (rows, state) => stableSort(rows, state.field, state.direction);
    * ```
+   *
+   * @see {@link BaseColumnConfig.sortComparator} — recommended per-column override
+   * @see {@link ServerSideConfig.dataSource} — recommended server-side sort path
    */
   sortHandler?: SortHandler<TRow>;
 
@@ -2732,8 +2746,17 @@ export interface SortState {
 /**
  * Custom sort handler function signature.
  *
- * Enables full control over sorting behavior including server-side sorting,
- * custom algorithms, or multi-column sorting.
+ * :::caution
+ * **Prefer {@link BaseColumnConfig.sortComparator} over `SortHandler`.**
+ * `sortHandler` is bypassed by `MultiSortPlugin` and only sees the single
+ * active sort field. For per-column custom sort logic that survives every
+ * sort code path (core, multi-sort, tree, server-side), set `sortComparator`
+ * on the relevant columns instead. For server-side sort, use
+ * {@link ServerSideConfig.dataSource}.
+ * :::
+ *
+ * Use `SortHandler` only when you need to replace the grid's sort engine
+ * wholesale.
  *
  * @param rows - Current row array to sort
  * @param sortState - Sort field and direction
@@ -2742,32 +2765,17 @@ export interface SortState {
  *
  * @example
  * ```typescript
- * // Custom client-side sort with locale awareness
- * const localeSortHandler: SortHandler<Employee> = (rows, state, cols) => {
- *   const col = cols.find(c => c.field === state.field);
- *   return [...rows].sort((a, b) => {
- *     const aVal = String(a[state.field] ?? '');
- *     const bVal = String(b[state.field] ?? '');
- *     return aVal.localeCompare(bVal) * state.direction;
- *   });
+ * // Replace the built-in sort with a third-party stable sort library
+ * const customSortHandler: SortHandler<Employee> = (rows, state) => {
+ *   return thirdPartyStableSort(rows, state.field, state.direction);
  * };
  *
- * // Server-side sorting
- * const serverSortHandler: SortHandler<Employee> = async (rows, state) => {
- *   const response = await fetch(
- *     `/api/employees?sortBy=${state.field}&dir=${state.direction}`
- *   );
- *   return response.json();
- * };
- *
- * grid.gridConfig = {
- *   sortHandler: localeSortHandler,
- * };
+ * grid.gridConfig = { sortHandler: customSortHandler };
  * ```
  *
  * @see {@link SortState} for the sort state object
- * @see {@link GridConfig.sortHandler} for configuring the handler
- * @see {@link BaseColumnConfig.sortComparator} for column-level comparators
+ * @see {@link GridConfig.sortHandler} for configuring the handler (and its caveats)
+ * @see {@link BaseColumnConfig.sortComparator} — recommended per-column comparator
  */
 export type SortHandler<TRow = any> = (
   rows: TRow[],

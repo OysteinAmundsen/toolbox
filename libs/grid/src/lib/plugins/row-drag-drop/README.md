@@ -15,7 +15,6 @@ grid.gridConfig = {
     rowDragDrop: {
       dropZone: 'employees',
       operation: 'move',
-      selection: 'multi',
     },
   },
 };
@@ -28,12 +27,15 @@ grid.gridConfig = {
   intra-grid reorder.
 - **Move / copy** — `operation: 'move'` removes rows from the source on a
   successful cross-grid drop, `'copy'` keeps them.
-- **Multi-row** — when the SelectionPlugin is loaded and `selection: 'multi'`
-  is set, all selected rows are dragged together.
+- **Multi-row** — when the SelectionPlugin is loaded and the dragged row is
+  part of a multi-row selection, all selected rows are dragged together.
+  This is automatic — there is no `selection` config option.
 - **Cross-window** — uses HTML5 `dataTransfer` so dragging into a different
   browser window works via JSON serialisation.
-- **`canDrop` / `canDrag`** — synchronous (or `Promise`-returning) hooks to
-  veto drops or drags.
+- **`canDrop` / `canDrag`** — synchronous hooks to veto drops or drags.
+  `canDrop` is invoked during `dragover` (so it must be sync) and again at
+  drop time; `canDrag` is invoked once at `dragstart` for the originating
+  row.
 - **TSV / plain-text** — every drag also exposes a tab-separated text payload
   on the clipboard MIME so rows can be pasted into spreadsheets.
 

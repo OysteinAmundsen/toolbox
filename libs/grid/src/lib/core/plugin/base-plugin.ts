@@ -558,8 +558,12 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
         throw new Error(code);
       }
     }
-    // Mutate userConfig in place so re-attach picks it up via attach()
-    (this as unknown as { userConfig: Partial<TConfig> }).userConfig = merged as Partial<TConfig>;
+    // Mutate userConfig in place so re-attach picks it up via attach().
+    // `userConfig` is declared `readonly` to prevent reassigning the binding,
+    // but the object's own properties are intentionally mutable for this
+    // alias-collapse pre-pass. A single cast to a record is enough — no
+    // `as unknown as` double-cast needed.
+    Object.assign(this.userConfig as Record<string, unknown>, merged);
   }
 
   /**

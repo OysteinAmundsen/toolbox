@@ -51,13 +51,13 @@
     left: -1000px;
     pointer-events: none;
     background: var(--tbw-row-reorder-indicator, var(--tbw-color-accent));
-    color: #fff;
+    color: var(--tbw-color-accent-fg);
     font:
       600 12px/1.4 system-ui,
       sans-serif;
     border-radius: 999px;
     padding: 2px 8px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 2px 6px var(--tbw-color-shadow);
     z-index: 9999;
   }
 
@@ -105,7 +105,7 @@
 
   /* Briefly applied when a drop attempt is rejected */
   .tbw-grid--drop-target-rejected {
-    outline: 2px dashed var(--tbw-color-danger, #d33);
+    outline: 2px dashed var(--tbw-color-danger);
     outline-offset: -2px;
   }
 

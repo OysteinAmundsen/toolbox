@@ -1,0 +1,39 @@
+---thread 0 id=PRRT_kwDOQtIN_859eedT resolved=false canResolve=true
+  file=libs/grid/src/lib/plugins/row-drag-drop/RowDragDropPlugin.ts line=undefined startLine=undefined
+  [github-advanced-security]: ## CodeQL / Insecure randomness |  | This uses a cryptographically insecure random number generated at [Math.random()](1) in a security context. |  | [Show more details](https://github.com/OysteinAmundsen/toolbox/security/code-scanning/31)
+---thread 1 id=PRRT_kwDOQtIN_859eiLr resolved=false canResolve=true
+  file=apps/docs/src/content/docs/grid/plugins/row-drag-drop/index.mdx line=undefined startLine=undefined
+  [copilot-pull-request-reviewer]: This page documents a `selection` option and async `canDrop`, but the exported `RowDragDropConfig` type does not include `selection`, and `canDrop` is called synchronously during `dragover`. Please update the docs/config table to match the shipped API, or update the plugin/types so these options actually exist and behave as described.
+---thread 2 id=PRRT_kwDOQtIN_859eiL- resolved=false canResolve=true
+  file=libs/grid/src/lib/plugins/row-drag-drop/README.md line=undefined startLine=undefined
+  [copilot-pull-request-reviewer]: README states `selection: 'multi'` and that `canDrop` may be Promise-returning, but `RowDragDropConfig` doesn't currently define `selection`, and `canDrop` is invoked synchronously (including during `dragover`). Please align the README with the actual exported types/behavior (or implement the missing config + async semantics).
+---thread 3 id=PRRT_kwDOQtIN_859eiMJ resolved=false canResolve=true
+  file=libs/grid/src/lib/core/plugin/base-plugin.ts line=undefined startLine=undefined
+  [copilot-pull-request-reviewer]: `mergeConfigsFrom()` uses an `as unknown as` cast to mutate `userConfig`. This violates the repo rule of avoiding `as unknown as` casts and also defeats the point of `userConfig` being `readonly`. Prefer making `userConfig` mutable (drop `readonly`) or store it in a private field with a dedicated mutation method so this merge can be done without the double-cast escape hatch. | ```suggestion |     // Update the existing config object in place so re-attach picks it up via attach() |     Object.assign(this.userConfig as Record<string, unknown>, merged); | ```
+---thread 4 id=PRRT_kwDOQtIN_859eiMe resolved=false canResolve=true
+  file=libs/grid/src/lib/plugins/row-drag-drop/types.ts line=undefined startLine=undefined
+  [copilot-pull-request-reviewer]: `RowDragDropConfig` is missing the `selection: 'single' | 'multi'` option that is documented (and used in demos), and `canDrag` is documented elsewhere as `(rows, indices) => boolean` but is typed here as `(row, index) => boolean`. Either add the missing config + align the `canDrag` signature, or update docs/demos to match the actual API and behavior.
+---thread 5 id=PRRT_kwDOQtIN_859eiMk resolved=false canResolve=true
+  file=libs/grid/src/lib/plugins/row-drag-drop/types.ts line=undefined startLine=undefined
+  [copilot-pull-request-reviewer]: The docs/README mention `canDrop` may return a `Promise<boolean>`, but the type here is synchronous and the implementation calls it during `dragover` (cannot await). Please either (a) keep it sync and remove the Promise wording from docs, or (b) broaden the type and handle async only at drop-time while treating async results during `dragover` deterministically (e.g. reject until resolved).
+---thread 6 id=PRRT_kwDOQtIN_859eiMy resolved=false canResolve=true
+  file=libs/grid/src/lib/plugins/row-drag-drop/row-drag-drop.css line=undefined startLine=undefined
+  [copilot-pull-request-reviewer]: This adds new hard-coded colors (`#fff`, `rgba(0,0,0,0.25)`) for the drag-count badge. The grid already defines theme-aware tokens like `--tbw-color-accent-fg` and `--tbw-color-shadow` in `core/styles/variables.css`; using them (or plugin-specific vars with `light-dark()`) keeps light/dark theming consistent and avoids contrast issues.
+---thread 7 id=PRRT_kwDOQtIN_859eiM- resolved=false canResolve=true
+  file=llms-full.txt line=undefined startLine=undefined
+  [copilot-pull-request-reviewer]: The public summary says `canDrop?: (payload, target) => boolean | Promise<boolean>`, but the exported `RowDragDropConfig` type and the plugin implementation are synchronous (and `dragover` cannot await). Please align this documentation with the actual API (either remove the Promise mention, or update code/types to truly support async with a clear behavior during `dragover`).
+---thread 8 id=PRRT_kwDOQtIN_859eiNF resolved=false canResolve=true
+  file=apps/docs/src/content/docs/grid/plugins/row-drag-drop/index.mdx line=undefined startLine=undefined
+  [copilot-pull-request-reviewer]: The "Notes" section claims the plugin uses `getRowId()` for row identification, but the implementation currently operates on visual indices (`data-row`) and payload `rowIndices` and never calls `grid.getRowId`. Please correct this note, or update the implementation to use stable IDs where appropriate. | ```suggestion | - **Row identification** — currently uses processed/visual row indices |   (`data-row` and event payload `rowIndices`), not `getRowId()`. | ```
+---thread 9 id=PRRT_kwDOQtIN_859eiNR resolved=false canResolve=true
+  file=libs/grid/src/lib/plugins/row-drag-drop/RowDragDropPlugin.ts line=undefined startLine=undefined
+  [copilot-pull-request-reviewer]: `internalGrid` relies on `this.grid as unknown as GridHost`, which is the prohibited double-cast pattern in this repo. Please replace with a structural type guard (e.g. `if ('_rows' in this.grid && typeof (this.grid as any).refreshVirtualWindow === 'function')`) and then a single `as GridHost` assertion after narrowing, or expose a typed internal-grid accessor from `BaseGridPlugin` to avoid repeating unsafe casts.
+---thread 10 id=PRRT_kwDOQtIN_859eiNb resolved=false canResolve=true
+  file=libs/grid/src/lib/core/internal/drag-drop-registry.ts line=undefined startLine=undefined
+  [copilot-pull-request-reviewer]: `registerDragSession()` inserts a `WeakRef({})` sentinel for primitive rows. `lookupDragSession()` will then return `{}` in place of the primitive, and `RowDragDropPlugin` prefers `liveRows` over `payload.rows`, so same-window drops will corrupt row values for non-object row types (which the grid supports via `valueAccessor`). Store primitives alongside refs (e.g. `{ kind: 'value', value }`) or have lookup return `undefined` when primitives are present so callers fall back to the JSON payload.
+---thread 11 id=PRRT_kwDOQtIN_859eiNl resolved=false canResolve=true
+  file=libs/grid/src/lib/plugins/row-drag-drop/RowDragDropPlugin.ts line=undefined startLine=undefined
+  [copilot-pull-request-reviewer]: On a canceled debounced keyboard move, the revert logic rebuilds from `sourceRows` and then splices by `currentIndex`/`originalIndex`. Since `sourceRows` was never mutated during the pending move, `currentIndex` does not refer to the moved row in that array, so the revert can restore the wrong order (and `detail.rows` is also not the post-move order). Revert should restore `grid._rows` back to the original snapshot (or simply `grid._rows = [...this.sourceRows]`), and event detail should report the actual reordered array.
+---thread 12 id=PRRT_kwDOQtIN_859eiNx resolved=false canResolve=true
+  file=libs/grid/src/lib/plugins/row-drag-drop/row-drag-drop.css line=undefined startLine=undefined
+  [copilot-pull-request-reviewer]: `var(--tbw-color-danger, #d33)` introduces a new hard-coded fallback color. Since `--tbw-color-danger` is a core token already (and is light/dark aware), prefer using it directly (or a theme-aware fallback via `light-dark()` if you really need a fallback) to stay consistent with the repo's CSS color conventions.

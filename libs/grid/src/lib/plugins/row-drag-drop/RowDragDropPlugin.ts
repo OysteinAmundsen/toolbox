@@ -709,20 +709,25 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     this.pendingMove = null;
     if (originalIndex === currentIndex) return;
 
+    const grid = this.internalGrid;
+    // `grid._rows` already reflects the post-move order (mutated incrementally
+    // by `handleKeyboardMove`); report it as `detail.rows` so consumers see
+    // the actual reordered array, not the original `sourceRows` snapshot.
+    const postMoveRows = (grid._rows ?? this.sourceRows) as T[];
     const detail: RowMoveDetail<T> = {
       row: movedRow as T,
       fromIndex: originalIndex,
       toIndex: currentIndex,
-      rows: [...this.sourceRows] as T[],
+      rows: [...postMoveRows],
       source: 'keyboard',
     };
     const cancelled = this.emitCancelable('row-move', detail);
     if (cancelled) {
-      const rows = [...this.sourceRows];
-      const [row] = rows.splice(currentIndex, 1);
-      rows.splice(originalIndex, 0, row);
-      const grid = this.internalGrid;
-      grid._rows = rows;
+      // Revert: restore the original snapshot. `sourceRows` was never mutated
+      // during the pending move (only `grid._rows` was), so resetting from it
+      // is the correct rollback regardless of how many incremental keyboard
+      // moves accumulated.
+      grid._rows = [...this.sourceRows];
       grid._focusRow = originalIndex;
       grid._focusCol = this.lastFocusCol;
       grid.refreshVirtualWindow(true);

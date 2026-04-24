@@ -17,8 +17,10 @@ between separate grids. It is a strict superset of the (now deprecated)
 - **Intra-grid** — drag a row up or down to reorder, or use `Ctrl + ↑/↓`.
 - **Cross-grid** — set a `dropZone` to allow dragging rows to another grid
   with the same `dropZone`. Supports `move` and `copy` operations.
-- **Multi-row** — when used with the Selection plugin, drags all selected
-  rows at once and shows a count badge on the drag image.
+- **Multi-row** — when the [Selection](../selection/) plugin is loaded and
+  the dragged row is part of a multi-row selection, all selected rows are
+  dragged together and a count badge appears on the drag image. There is
+  no `selection` config option — the behaviour is automatic.
 - **Cross-window** — when the live row reference cannot be recovered (for
   example a drop into a different browser window), the payload is decoded
   from JSON via `dataTransfer`.
@@ -187,9 +189,8 @@ of options and defaults. Key options:
 | ------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | `dropZone`          | `string`                                          | Opt-in identifier for cross-grid drops. Grids with the same value accept each other. |
 | `operation`         | `'move' \| 'copy'`                                | Whether the source grid keeps the rows after a successful cross-grid drop.           |
-| `selection`         | `'single' \| 'multi'`                             | Drag a single row or all currently selected rows.                                    |
-| `canDrop`           | `(payload, target) => boolean \| Promise<...>`    | Reject specific drops on the target grid.                                            |
-| `canDrag`           | `(rows, indices) => boolean`                      | Reject drags from the source.                                                        |
+| `canDrop`           | `(payload, targetIndex) => boolean`               | Reject specific drops on the target grid. Called synchronously during `dragover` and at drop time. |
+| `canDrag`           | `(row, index) => boolean`                         | Reject drags from the source. Called once at `dragstart` with the originating row.   |
 | `serializeRow`      | `(row) => unknown`                                | Override the JSON shape used in the cross-window fallback payload.                   |
 | `deserializeRow`    | `(serialized) => row`                             | Inverse of `serializeRow`.                                                           |
 | `enableKeyboard`    | `boolean`                                         | Keep keyboard reorder (`Ctrl + ↑/↓`) — defaults to `true`.                           |
@@ -197,7 +198,7 @@ of options and defaults. Key options:
 | `dragHandlePosition`| `'left' \| 'right'`                               | Pin the handle column to either side.                                                |
 | `dragHandleWidth`   | `number`                                          | Pixel width of the handle column.                                                    |
 | `animation`         | `'flip' \| false`                                 | FLIP animation on intra-grid reorder.                                                |
-| `autoScroll`        | `{ edgeSize?: number; maxSpeed?: number }`        | Tune the auto-scroll behaviour during drag.                                          |
+| `autoScroll`        | `boolean \| { edgeSize?: number; speed?: number; maxSpeed?: number }` | Tune the auto-scroll behaviour during drag.                          |
 
 ## Events
 
@@ -245,8 +246,11 @@ Override the default grip icon via CSS:
 
 ## Notes
 
-- **Row identification** — uses `getRowId()` from `GridConfig` if defined,
-  otherwise falls back to array index.
+- **Row identification** — currently uses processed/visual row indices
+  (`data-row` attribute and `payload.rowIndices`), not `getRowId()`.
+  Same-window cross-grid drops also recover live object references via the
+  internal `WeakRef` registry; primitive row values fall through to the
+  JSON payload.
 - **Data mutation** — the plugin reorders `grid.rows` in place. The
   `row-move` event provides the updated array.
 - **Virtualization** — works with virtualized grids; only visible rows are

@@ -19,6 +19,8 @@
 
 interface RegistryEntry {
   readonly refs: ReadonlyArray<WeakRef<object>>;
+  /** True when one or more registered rows were primitives (not objects). */
+  readonly hasPrimitives: boolean;
   readonly meta?: unknown;
 }
 
@@ -26,36 +28,44 @@ const registry = new Map<string, RegistryEntry>();
 
 /**
  * Register a drag session's live row references.
- * Rows that are not objects (primitives) are skipped — they survive the JSON
- * round-trip and don't need WeakRef recovery.
+ *
+ * Object rows are stored as `WeakRef<object>`; primitive rows cannot be held
+ * weakly and would either need a sentinel (which corrupts the row value on
+ * recovery) or be omitted (which misaligns indices). We instead flag the
+ * session as containing primitives — `lookupDragSession()` then returns
+ * `undefined` so callers fall back to the JSON payload, which round-trips
+ * primitives losslessly.
  *
  * @param sessionId - Unique drag session identifier (typically a UUID).
- * @param rows      - Rows being dragged. Object references are stored weakly.
+ * @param rows      - Rows being dragged.
  * @param meta      - Optional opaque metadata to associate with the session.
  */
 export function registerDragSession(sessionId: string, rows: readonly unknown[], meta?: unknown): void {
   const refs: WeakRef<object>[] = [];
+  let hasPrimitives = false;
   for (const row of rows) {
     if (row !== null && typeof row === 'object') {
       refs.push(new WeakRef(row as object));
     } else {
-      // Push a sentinel WeakRef that will always be empty so indices line up
-      // with primitive entries in the JSON payload during recovery.
-      refs.push(new WeakRef({}));
+      hasPrimitives = true;
     }
   }
-  registry.set(sessionId, { refs, meta });
+  registry.set(sessionId, { refs, hasPrimitives, meta });
 }
 
 /**
  * Look up the live row references for a drag session.
- * Returns `undefined` if the session is unknown OR if any registered reference
- * has been garbage-collected (in which case the caller MUST fall back to the
- * JSON payload — partial recovery would silently corrupt cross-grid moves).
+ *
+ * Returns `undefined` when the caller MUST fall back to the JSON payload:
+ *   - the session is unknown,
+ *   - any registered reference has been garbage-collected (partial recovery
+ *     would silently corrupt cross-grid moves), or
+ *   - the session contains primitive rows (which cannot be held weakly).
  */
 export function lookupDragSession<T = unknown>(sessionId: string): T[] | undefined {
   const entry = registry.get(sessionId);
   if (!entry) return undefined;
+  if (entry.hasPrimitives) return undefined; // primitives — caller falls back to JSON
   const result: unknown[] = [];
   for (const ref of entry.refs) {
     const obj = ref.deref();
@@ -89,11 +99,26 @@ export function _clearAllDragSessions(): void {
 
 /**
  * Generate a unique drag session identifier.
- * Uses `crypto.randomUUID()` when available, otherwise a timestamped fallback.
+ *
+ * Used as a Map key to recover live row references for in-process drags; this
+ * is **not** a security context. Uses `crypto.randomUUID()` when available
+ * (modern browsers in secure contexts, Node 19+, Bun) and falls back to
+ * `crypto.getRandomValues()` for older non-secure contexts. `Math.random()`
+ * is intentionally avoided to keep CodeQL clean.
  */
 export function newDragSessionId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
-  return `drag-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const buf = new Uint32Array(2);
+    crypto.getRandomValues(buf);
+    return `drag-${Date.now().toString(36)}-${buf[0].toString(36)}${buf[1].toString(36)}`;
+  }
+  // Final fallback: timestamp + monotonically incrementing counter (no PRNG).
+  // Sufficient because the registry is in-process and lives only for the
+  // duration of a single drag.
+  return `drag-${Date.now().toString(36)}-${(++fallbackCounter).toString(36)}`;
 }
+
+let fallbackCounter = 0;

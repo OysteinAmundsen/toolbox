@@ -184,7 +184,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   /**
    * Per-row tree metadata (depth, hasChildren, isExpanded, key) keyed by
    * row identity. Looked up by the column renderer via {@link getRowMeta}.
-   * Repopulated each `processRows` call.
+   * Reassigned to a fresh `WeakMap` at the start of each `processRows` call so
+   * collapsed/hidden rows don't return stale metadata from a prior pass.
    */
   #rowMeta = new WeakMap<object, FlattenedTreeRow>();
 
@@ -334,6 +335,11 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     // `data` on each FlattenedTreeRow stays === the user's source row.
     this.flattenedRows = this.#flattenWithSort(treeRows, this.expandedKeys, effectiveSortState, null, 0);
 
+    // Reset per-row metadata so rows that are no longer in the flattened
+    // output (e.g. children of a now-collapsed parent) don't keep returning
+    // stale entries via getRowMeta(). WeakMap reassignment is cheap and the
+    // old map becomes GC-eligible immediately.
+    this.#rowMeta = new WeakMap();
     this.rowKeyMap.clear();
     this.keysToAnimate.clear();
     const currentKeys = new Set<string>();
@@ -529,7 +535,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
       // Add expand/collapse icon or spacer
       if (showExpandIcons) {
-        if (meta?.hasChildren) {
+        if (meta && meta.hasChildren) {
           const icon = document.createElement('span');
           icon.className = `${GridClasses.TREE_TOGGLE}${meta.isExpanded ? ` ${GridClasses.EXPANDED}` : ''}`;
           setIconFn(icon, meta.isExpanded ? 'collapse' : 'expand');

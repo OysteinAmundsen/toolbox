@@ -85,7 +85,10 @@ describe('updateRows + TreePlugin', () => {
       // Fallback: reassign rows to force a rebuild
       grid.rows = [...rows];
     }
-    await grid.ready();
+    // `grid.ready()` resolves once after the initial render, so it does NOT
+    // await the post-filter rebuild. Wait for an animation frame so the
+    // scheduler can flush the ROWS-phase pass triggered above.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
     // Mutation survives the rebuild.
     expect((grid._rows[0] as TreeTestRow).status).toBe('shipped');

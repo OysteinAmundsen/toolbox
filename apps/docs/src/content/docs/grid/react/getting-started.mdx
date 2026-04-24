@@ -607,47 +607,53 @@ function App() {
 
 ## Server-Side Data Loading
 
+For backends that own paging / sorting / filtering, use `ServerSidePlugin`.
+Your `getRows` handler receives the current `sortModel`, `filterModel`, and
+block range — return rows and the total count.
+
 ```tsx
-import { useState, useEffect, useCallback } from 'react';
 import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
 
 function ServerSideGrid() {
-  const [loading, setLoading] = useState(true);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-
-  const fetchData = useCallback(async (sortField?: string, sortDir?: string) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (sortField) params.set('sortField', sortField);
-      if (sortDir) params.set('sortDir', sortDir);
-      const response = await fetch(`/api/employees?${params}`);
-      const { data } = await response.json();
-      setEmployees(data);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
   const config: GridConfig<Employee> = {
     columns,
-    sortHandler: async (rows, sortState) => {
-      const dir = sortState.direction === 1 ? 'asc' : 'desc';
-      const response = await fetch(
-        `/api/employees?sortField=${sortState.field}&sortDir=${dir}`
-      );
-      const { data } = await response.json();
-      return data;
-    },
+    plugins: [
+      new MultiSortPlugin(),
+      new ServerSidePlugin({
+        cacheBlockSize: 100,
+        dataSource: {
+          getRows: async ({ startRow, endRow, sortModel, filterModel }) => {
+            const params = new URLSearchParams({
+              from: String(startRow),
+              to: String(endRow),
+            });
+            if (sortModel?.length) {
+              params.set(
+                'sort',
+                sortModel.map((s) => `${s.field}:${s.direction}`).join(','),
+              );
+            }
+            if (filterModel) params.set('filter', JSON.stringify(filterModel));
+            const response = await fetch(`/api/employees?${params}`);
+            const { rows, totalNodeCount } = await response.json();
+            return { rows, totalNodeCount };
+          },
+        },
+      }),
+    ],
   };
 
-  return (
-    <DataGrid rows={employees} gridConfig={config} multiSort />
-  );
+  return <DataGrid gridConfig={config} />;
 }
 ```
+
+:::tip
+Avoid `gridConfig.sortHandler` for server-side sort — it's bypassed when
+`MultiSortPlugin` is loaded and only carries a single field. `ServerSidePlugin`
+is the supported path and works with both single- and multi-column sort.
+:::
 
 ### React Query Integration
 

@@ -251,36 +251,82 @@ WebSocket updates). In those cases just set `grid.rows = newData` and let
 multi-sort re-apply.
 :::
 
-## Server-Side Sorting
+## Custom Sort Logic
 
-For large datasets where sorting should happen on the backend, use the `sortHandler` property on `gridConfig`. When set, your handler is called instead of the built-in client-side sort whenever a user clicks a sortable column header.
+`MultiSortPlugin` owns the multi-column sort path and **does not consult**
+`gridConfig.sortHandler` — that property is only honored by the single-column
+sort path used when `MultiSortPlugin` is absent. To customize sort behavior
+when multi-sort is enabled, use **`column.sortComparator`** on the columns
+that need it. `sortComparator` is honored by every sort code path in the grid
+(core, multi-sort, tree, server-side `sortMode: 'local'`).
 
 ```ts
 grid.gridConfig = {
   columns: [
     { field: 'name', header: 'Name', sortable: true },
-    { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+    {
+      field: 'salary',
+      header: 'Salary',
+      type: 'number',
+      sortable: true,
+      // Custom comparator: pin negative values (debts) to the end regardless of direction
+      sortComparator: (a, b) => {
+        if (a < 0 && b >= 0) return 1;
+        if (b < 0 && a >= 0) return -1;
+        return a - b;
+      },
+    },
   ],
   features: { multiSort: true },
-  sortHandler: async (rows, sortState, columns) => {
-    // sortState: { field: 'name', direction: 1 } — 1 = asc, -1 = desc
-    const response = await fetch(
-      `/api/data?sort=${sortState.field}&dir=${sortState.direction === 1 ? 'asc' : 'desc'}`
-    );
-    return response.json();
-  },
 };
 ```
 
-**Handler signature:**
+**Comparator signature:** `(a, b, rowA, rowB) => number` — return `< 0` to put
+`a` first, `> 0` for `b`, `0` for equal. Direction (`asc`/`desc`) is applied
+automatically by the sort engine.
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `rows` | `TRow[]` | Current row array (useful for optimistic updates) |
-| `sortState` | `{ field: string, direction: 1 \| -1 }` | Which field and direction |
-| `columns` | `ColumnConfig[]` | Column configs (access `sortComparator` if needed) |
+## Server-Side Sorting
 
-Return the sorted array directly or a `Promise` that resolves to it.
+For backends that own sort ordering, use
+[`ServerSidePlugin`](../server-side/) — it ships the current `sortModel` (all
+columns, in priority order) to your `getRows` handler so the backend can
+return rows in the requested order. This is the right pattern for paginated /
+infinite-scroll datasets where client-side sort isn't viable.
+
+```ts
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', sortable: true },
+    { field: 'salary', header: 'Salary', sortable: true },
+  ],
+  plugins: [
+    new MultiSortPlugin(),
+    new ServerSidePlugin({
+      dataSource: {
+        getRows: async ({ startRow, endRow, sortModel }) => {
+          // sortModel: [{ field: 'name', direction: 'asc' }, { field: 'salary', direction: 'desc' }]
+          const sortQuery = sortModel
+            .map((s) => `${s.field}:${s.direction}`)
+            .join(',');
+          const response = await fetch(
+            `/api/data?from=${startRow}&to=${endRow}&sort=${sortQuery}`,
+          );
+          const { rows, totalNodeCount } = await response.json();
+          return { rows, totalNodeCount };
+        },
+      },
+    }),
+  ],
+};
+```
+
+When you only need to override sort for **one column** (e.g. a single field
+that should sort server-side, while the rest sort client-side), `sortComparator`
+can do that too — it can fire its own fetch and return a Promise-aware proxy.
+For most use cases though, `ServerSidePlugin` is the cleaner fit.
 
 ## See Also
 

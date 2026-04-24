@@ -6,18 +6,20 @@
  */
 export { ServerSidePlugin } from './ServerSidePlugin';
 export type {
-  DataRequestModel,
-  DataSourceChildrenDetail,
-  DataSourceDataDetail,
-  DataSourceErrorDetail,
-  DataSourceLoadingDetail,
-  FetchChildrenQuery,
-  GetChildRowsParams,
-  GetChildRowsResult,
-  GetRowsParams,
-  GetRowsResult,
-  ServerSideConfig,
-  ServerSideDataSource,
-  ViewportMappingQuery,
-  ViewportMappingResponse,
+    DataRequestModel,
+    DataSourceChildrenDetail,
+    DataSourceDataDetail,
+    DataSourceErrorDetail,
+    DataSourceLoadingDetail,
+    FetchChildrenQuery,
+    GetChildRowsParams,
+    GetChildRowsResult,
+    GetRowsParams,
+    GetRowsResult,
+    ServerSideConfig,
+    ServerSideDataSource,
+    Subscribable,
+    ViewportMappingQuery,
+    ViewportMappingResponse
 } from './types';
+

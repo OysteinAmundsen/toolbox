@@ -27,6 +27,17 @@ export interface GetRowsParams extends DataRequestModel {
   startNode: number;
   /** Zero-based index of the last node to fetch (exclusive). `endNode - startNode` equals the block size. */
   endNode: number;
+  /**
+   * Cancellation signal for the request. The grid aborts the signal when:
+   * - a newer request supersedes the same block (sort/filter change, refresh, purgeCache)
+   * - the plugin detaches or the grid disconnects
+   *
+   * Pass it to `fetch(url, { signal })` (native), an `AbortController.signal` consumer,
+   * or via the `fromObservable` helper in `@toolbox-web/grid-angular/features/server-side`
+   * to translate it to RxJS `takeUntil`. Data sources that ignore `signal` keep working
+   * — the only consequence is that superseded HTTP requests still complete on the wire.
+   */
+  signal: AbortSignal;
 }
 
 /**
@@ -98,11 +109,36 @@ export interface GetChildRowsResult<TRow = unknown> {
 // #region DataSource Interface
 
 /**
+ * Minimal Subscribable contract used by {@link ServerSideDataSource.getRows} when
+ * an Observable-based data source is preferred over a `Promise`. Matches the
+ * shape of RxJS `Observable` and the TC39 Observable proposal — any value that
+ * exposes a `.subscribe(observer)` method returning an unsubscribable handle
+ * works without a runtime dependency on RxJS.
+ *
+ * The plugin subscribes once, expects exactly one `next` (the result), and
+ * tears the subscription down on `complete`, `error`, or when the request is
+ * superseded (`AbortSignal` fires) — which is what causes Angular `HttpClient`
+ * to cancel the underlying XHR.
+ */
+export interface Subscribable<T> {
+  subscribe(observer: {
+    next?(value: T): void;
+    error?(err: unknown): void;
+    complete?(): void;
+  }): { unsubscribe(): void };
+}
+
+/**
  * Unified data source contract for server-side data loading.
  *
  * Implement `getRows` to supply root-level rows from a remote API, database,
  * or any asynchronous provider. The grid calls `getRows()` whenever it needs
  * a new block of rows (on initial load, scroll, sort change, or filter change).
+ *
+ * `getRows` may return either a `Promise` (e.g. `fetch(url, { signal }).then(...)`)
+ * or a {@link Subscribable} (e.g. an Angular `HttpClient` observable). With a
+ * Subscribable, the grid unsubscribes on supersede, which natively cancels the
+ * underlying request — no need to wire `params.signal` into anything.
  *
  * Optionally implement `getChildRows` for on-demand child data (tree children,
  * group rows, detail panels, etc.). If child data is already embedded in
@@ -111,17 +147,23 @@ export interface GetChildRowsResult<TRow = unknown> {
  *
  * @example
  * ```typescript
+ * // Promise / fetch
  * const dataSource: ServerSideDataSource = {
  *   async getRows(params) {
- *     const res = await fetch(`/api/data?start=${params.startNode}&end=${params.endNode}`);
+ *     const res = await fetch(`/api/data?start=${params.startNode}&end=${params.endNode}`, {
+ *       signal: params.signal,
+ *     });
  *     const data = await res.json();
  *     return { rows: data.items, totalNodeCount: data.total };
  *   },
- *   async getChildRows(params) {
- *     const { source, parentId } = params.context;
- *     const res = await fetch(`/api/data/${parentId}/children`);
- *     return { rows: await res.json() };
- *   }
+ * };
+ *
+ * // Angular HttpClient (Observable)
+ * const dataSource: ServerSideDataSource = {
+ *   getRows: (params) =>
+ *     this.http
+ *       .get<{ items: unknown[]; total: number }>('/api/data', { params: toHttpParams(params) })
+ *       .pipe(map((d) => ({ rows: d.items, totalNodeCount: d.total }))),
  * };
  * ```
  */
@@ -133,8 +175,12 @@ export interface ServerSideDataSource<TRow = unknown> {
    * Before calling this, ServerSide queries loaded plugins for their
    * current state (sort model, filter model, etc.) and passes it
    * through in the params.
+   *
+   * Return either a `Promise<GetRowsResult>` or a {@link Subscribable}
+   * (Observable). For Subscribables, unsubscription on supersede is what
+   * cancels the underlying request.
    */
-  getRows(params: GetRowsParams): Promise<GetRowsResult<TRow>>;
+  getRows(params: GetRowsParams): Promise<GetRowsResult<TRow>> | Subscribable<GetRowsResult<TRow>>;
 
   /**
    * Fetch child rows for a parent context.

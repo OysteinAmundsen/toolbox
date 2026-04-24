@@ -2,19 +2,20 @@ import type { ServerSideDataSource } from './datasource-types';
 
 // Re-export unified types for convenience
 export type {
-  DataRequestModel,
-  DataSourceChildrenDetail,
-  DataSourceDataDetail,
-  DataSourceErrorDetail,
-  DataSourceLoadingDetail,
-  FetchChildrenQuery,
-  GetChildRowsParams,
-  GetChildRowsResult,
-  GetRowsParams,
-  GetRowsResult,
-  ServerSideDataSource,
-  ViewportMappingQuery,
-  ViewportMappingResponse,
+    DataRequestModel,
+    DataSourceChildrenDetail,
+    DataSourceDataDetail,
+    DataSourceErrorDetail,
+    DataSourceLoadingDetail,
+    FetchChildrenQuery,
+    GetChildRowsParams,
+    GetChildRowsResult,
+    GetRowsParams,
+    GetRowsResult,
+    ServerSideDataSource,
+    Subscribable,
+    ViewportMappingQuery,
+    ViewportMappingResponse
 } from './datasource-types';
 
 /**

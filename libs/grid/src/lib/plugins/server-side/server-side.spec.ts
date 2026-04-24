@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BlockCache } from './cache';
 import {
-  getBlockNumber,
-  getBlockRange,
-  getRequiredBlocks,
-  getRowFromCache,
-  isBlockLoaded,
-  isBlockLoading,
-  loadBlock,
+    getBlockNumber,
+    getBlockRange,
+    getRequiredBlocks,
+    getRowFromCache,
+    isBlockLoaded,
+    isBlockLoading,
+    loadBlock,
 } from './datasource';
 import { ServerSidePlugin } from './ServerSidePlugin';
 import type { ServerSideDataSource } from './types';
@@ -167,16 +167,23 @@ describe('server-side plugin', () => {
         }),
       };
 
-      const result = await loadBlock(mockDataSource, 2, 100, {
-        sortModel: [{ field: 'name', direction: 'asc' }],
-        filterModel: { status: 'active' },
-      });
+      const result = await loadBlock(
+        mockDataSource,
+        2,
+        100,
+        {
+          sortModel: [{ field: 'name', direction: 'asc' }],
+          filterModel: { status: 'active' },
+        },
+        new AbortController().signal,
+      );
 
       expect(mockDataSource.getRows).toHaveBeenCalledWith({
         startNode: 200,
         endNode: 300,
         sortModel: [{ field: 'name', direction: 'asc' }],
         filterModel: { status: 'active' },
+        signal: expect.any(AbortSignal),
       });
 
       expect(result.rows).toEqual([{ id: 1 }, { id: 2 }]);
@@ -191,13 +198,14 @@ describe('server-side plugin', () => {
         }),
       };
 
-      await loadBlock(mockDataSource, 0, 50, {});
+      await loadBlock(mockDataSource, 0, 50, {}, new AbortController().signal);
 
       expect(mockDataSource.getRows).toHaveBeenCalledWith({
         startNode: 0,
         endNode: 50,
         sortModel: undefined,
         filterModel: undefined,
+        signal: expect.any(AbortSignal),
       });
     });
 
@@ -206,7 +214,9 @@ describe('server-side plugin', () => {
         getRows: vi.fn().mockRejectedValue(new Error('Network error')),
       };
 
-      await expect(loadBlock(mockDataSource, 0, 100, {})).rejects.toThrow('Network error');
+      await expect(loadBlock(mockDataSource, 0, 100, {}, new AbortController().signal)).rejects.toThrow(
+        'Network error',
+      );
     });
   });
 
@@ -520,6 +530,193 @@ describe('ServerSidePlugin', () => {
       // processRows should pass through when no dataSource is set
       const rows = [{ id: 1 }];
       expect(plugin.processRows(rows)).toEqual(rows);
+    });
+  });
+
+  describe('AbortSignal cancellation', () => {
+    it('passes a fresh, non-aborted AbortSignal to getRows', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalNodeCount: 1 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(1));
+
+      const params = (mockDS.getRows as any).mock.calls[0][0];
+      expect(params.signal).toBeInstanceOf(AbortSignal);
+      expect(params.signal.aborted).toBe(false);
+    });
+
+    it('aborts the in-flight signal when setDataSource is called again', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      let firstSignal: AbortSignal | undefined;
+      const ds1: ServerSideDataSource = {
+        getRows: vi.fn().mockImplementation((p) => {
+          firstSignal = p.signal;
+          // Never resolve — simulate slow request
+          return new Promise(() => undefined);
+        }),
+      };
+      plugin.setDataSource(ds1);
+      await vi.waitFor(() => expect(firstSignal).toBeDefined());
+      expect(firstSignal!.aborted).toBe(false);
+
+      const ds2: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 9 }], totalNodeCount: 1 }),
+      };
+      plugin.setDataSource(ds2);
+
+      expect(firstSignal!.aborted).toBe(true);
+    });
+
+    it('aborts the in-flight signal on detach', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      let signal: AbortSignal | undefined;
+      const ds: ServerSideDataSource = {
+        getRows: vi.fn().mockImplementation((p) => {
+          signal = p.signal;
+          return new Promise(() => undefined);
+        }),
+      };
+      plugin.setDataSource(ds);
+      await vi.waitFor(() => expect(signal).toBeDefined());
+
+      plugin.detach();
+
+      expect(signal!.aborted).toBe(true);
+    });
+
+    it('aborts the in-flight signal when refresh() is called', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      let firstSignal: AbortSignal | undefined;
+      const ds: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockImplementationOnce((p) => {
+            firstSignal = p.signal;
+            return new Promise(() => undefined);
+          })
+          .mockResolvedValue({ rows: [{ id: 2 }], totalNodeCount: 1 }),
+      };
+      plugin.setDataSource(ds);
+      await vi.waitFor(() => expect(firstSignal).toBeDefined());
+
+      plugin.refresh();
+
+      expect(firstSignal!.aborted).toBe(true);
+    });
+
+    it('drops the result when a superseded request resolves anyway', async () => {
+      // Simulates a data source that ignores params.signal — the plugin still
+      // protects the cache by checking signal.aborted before storing the result.
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      let resolveFirst!: (value: unknown) => void;
+      const firstPromise = new Promise((r) => {
+        resolveFirst = r;
+      });
+      const ds: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockImplementationOnce(() => firstPromise)
+          .mockResolvedValue({ rows: [{ id: 'second' }], totalNodeCount: 1 }),
+      };
+      plugin.setDataSource(ds);
+      // Supersede before the first resolves.
+      plugin.refresh();
+      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(1));
+
+      // Now resolve the stale first request — its result must NOT replace block 0.
+      resolveFirst({ rows: [{ id: 'stale' }], totalNodeCount: 999 });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(plugin.getTotalRowCount()).toBe(1);
+      expect(plugin.getLoadedBlockCount()).toBe(1);
+    });
+  });
+
+  describe('Subscribable getRows (RxJS / HttpClient)', () => {
+    it('accepts a Subscribable and resolves on next', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const ds: ServerSideDataSource = {
+        getRows: () => ({
+          subscribe(observer) {
+            queueMicrotask(() => observer.next?.({ rows: [{ id: 1 }, { id: 2 }], totalNodeCount: 2 }));
+            return { unsubscribe: () => undefined };
+          },
+        }),
+      };
+      plugin.setDataSource(ds);
+
+      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(2));
+      expect(plugin.getLoadedBlockCount()).toBe(1);
+    });
+
+    it('unsubscribes from the Subscribable when the request is superseded', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const unsubscribe = vi.fn();
+      let firstCalls = 0;
+      const ds: ServerSideDataSource = {
+        getRows: () => {
+          firstCalls += 1;
+          if (firstCalls === 1) {
+            // First request — never emits, just tracks unsubscribe.
+            return {
+              subscribe() {
+                return { unsubscribe };
+              },
+            };
+          }
+          // Second request — resolves immediately.
+          return Promise.resolve({ rows: [{ id: 9 }], totalNodeCount: 1 });
+        },
+      };
+      plugin.setDataSource(ds);
+      // Wait a tick so the Subscribable has been subscribed to.
+      await Promise.resolve();
+      plugin.refresh();
+      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(1));
+
+      expect(unsubscribe).toHaveBeenCalled();
+    });
+
+    it('rejects loadBlock with AbortError when the Subscribable is aborted before emitting', async () => {
+      const controller = new AbortController();
+      const teardown = vi.fn();
+      const ds: ServerSideDataSource = {
+        getRows: () => ({
+          subscribe() {
+            return { unsubscribe: teardown };
+          },
+        }),
+      };
+
+      const promise = loadBlock(ds, 0, 10, {}, controller.signal);
+      controller.abort();
+
+      await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
+      expect(teardown).toHaveBeenCalled();
     });
   });
 

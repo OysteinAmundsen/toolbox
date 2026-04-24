@@ -263,6 +263,33 @@ The threshold is applied symmetrically (the viewport is expanded by `loadThresho
 
 A reasonable starting point is `pageSize / 2`. Values larger than `cacheBlockSize` will eagerly request 2+ blocks ahead, which can hurt perceived performance with slow backends.
 
+### Request Cancellation
+
+`getRows()` may return either a `Promise` or an `Observable` (anything with a `.subscribe()` method — RxJS `Observable`, the TC39 Observable proposal shape, etc.). The plugin cancels superseded requests automatically:
+
+- **Promise / `fetch`** — call `getRows()` receives an `AbortSignal` on `params.signal`. Pass it to `fetch(url, { signal })` and the browser cancels the request:
+
+  ```ts
+  async getRows(params) {
+    const res = await fetch(`/api/data?start=${params.startNode}&end=${params.endNode}`, {
+      signal: params.signal,
+    });
+    const data = await res.json();
+    return { rows: data.items, totalNodeCount: data.total };
+  }
+  ```
+
+- **Observable / Angular `HttpClient`** — return the observable directly. The plugin subscribes once and calls `unsubscribe()` when the request is superseded; `HttpClient` cancels the underlying XHR in response to that. No `firstValueFrom`, no `takeUntil`, no signal plumbing:
+
+  ```ts
+  getRows: (params) =>
+    this.http
+      .get<EmployeesResponse>('/api/data', { params: toHttpParams(params) })
+      .pipe(map((d) => ({ rows: d.items, totalNodeCount: d.total }))),
+  ```
+
+A request is considered **superseded** when the sort/filter model changes mid-flight, when `refresh()` or `purgeCache()` is called, or when the plugin detaches. If a data source ignores cancellation entirely, the plugin still discards the late result so a stale block can't overwrite a freshly-loaded one.
+
 ## Configuration Options
 
 See [`ServerSideConfig`](./Interfaces/ServerSideConfig/) for the full list of options and defaults.
@@ -270,7 +297,7 @@ See [`ServerSideConfig`](./Interfaces/ServerSideConfig/) for the full list of op
 ## TypeScript Interfaces
 
 - [`ServerSideDataSource`](./Interfaces/ServerSideDataSource/) — Data source contract with `getRows()` and optional `getChildRows()`
-- [`GetRowsParams`](./Interfaces/GetRowsParams/) — Parameters passed to `getRows()` (startNode, endNode, sortModel, filterModel)
+- [`GetRowsParams`](./Interfaces/GetRowsParams/) — Parameters passed to `getRows()` (startNode, endNode, sortModel, filterModel, signal)
 - [`GetRowsResult`](./Interfaces/GetRowsResult/) — Return type with `rows` and `totalNodeCount`
 - [`GetChildRowsParams`](./Interfaces/GetChildRowsParams/) — Parameters for `getChildRows()` with plugin context
 - [`GetChildRowsResult`](./Interfaces/GetChildRowsResult/) — Return type with `rows`

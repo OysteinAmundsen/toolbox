@@ -385,12 +385,16 @@ export class EmployeeGridComponent {
 
 ## Server-Side Data Loading
 
-Angular-specific pattern using `inject(HttpClient)`:
+Angular-specific pattern using `inject(HttpClient)`. The grid's `getRows` callback
+accepts an RxJS `Observable` directly — no wrapper needed. The grid subscribes once
+and calls `unsubscribe()` when a request is superseded (sort change, fast scrolling),
+which is what triggers `HttpClient` to cancel the underlying XHR. No stale buffer,
+no manual `firstValueFrom`.
 
 ```typescript
 import { Component, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { Grid } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid-angular/features/server-side';
 import type { GridConfig } from '@toolbox-web/grid';
@@ -409,7 +413,7 @@ export class EmployeeGridComponent {
   private http = inject(HttpClient);
 
   private dataSource: ServerSideDataSource<Employee> = {
-    getRows: async (params) => {
+    getRows: (params) => {
       let httpParams = new HttpParams()
         .set('offset', params.startNode)
         .set('limit', params.endNode - params.startNode);
@@ -423,10 +427,9 @@ export class EmployeeGridComponent {
         httpParams = httpParams.set('filters', JSON.stringify(params.filterModel));
       }
 
-      const data = await firstValueFrom(
-        this.http.get<EmployeesResponse>('/api/employees', { params: httpParams }),
-      );
-      return { rows: data.items, totalNodeCount: data.total };
+      return this.http
+        .get<EmployeesResponse>('/api/employees', { params: httpParams })
+        .pipe(map((data) => ({ rows: data.items, totalNodeCount: data.total })));
     },
   };
 
@@ -440,6 +443,11 @@ export class EmployeeGridComponent {
   };
 }
 ```
+
+> **Cancellation matters.** If the user changes the sort or scrolls past the
+> in-flight range, the previous `HttpClient` subscription is torn down and the XHR
+> is aborted. With a plain `firstValueFrom(this.http.get(...))` the request would
+> keep running and could resolve *after* the new one — corrupting the buffer.
 
 The grid drives loading through the `getRows` callback, so the `[rows]` input is not needed — `ServerSidePlugin` owns the row buffer and requests blocks on demand as the user scrolls, sorts, or filters. See the [Server-Side plugin](/grid/plugins/server-side/) for the full `ServerSideDataSource` interface.
 

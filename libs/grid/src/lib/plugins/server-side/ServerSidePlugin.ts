@@ -135,6 +135,13 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   private infiniteScrollMode = false;
   private loadedBlocks = new Map<number, unknown[]>();
   private loadingBlocks = new Set<number>();
+  /**
+   * Per-block AbortControllers for in-flight requests. Aborted when a block
+   * is superseded (sort/filter change, refresh, purgeCache, detach) so data
+   * sources that honor `params.signal` (e.g. `fetch`, RxJS via `fromObservable`)
+   * can cancel the underlying network call.
+   */
+  private blockControllers = new Map<number, AbortController>();
   private lastRequestId = 0;
   private scrollDebounceTimer?: ReturnType<typeof setTimeout>;
   /** Persistent node array with stable placeholder references to avoid unnecessary DOM rebuilds. */
@@ -179,6 +186,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.infiniteScrollMode = false;
     this.loadedBlocks.clear();
     this.loadingBlocks.clear();
+    this.abortAllBlocks();
     this.managedNodes = [];
     this.lastRequestId = 0;
     if (this.scrollDebounceTimer) {
@@ -189,6 +197,18 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   // #endregion
 
   // #region Private Methods
+
+  /**
+   * Abort all in-flight block requests. Called when the plugin tears down,
+   * the data source is replaced, the cache is purged, or the sort/filter
+   * model changes (the previously loaded block coordinates no longer apply).
+   */
+  private abortAllBlocks(): void {
+    for (const controller of this.blockControllers.values()) {
+      controller.abort();
+    }
+    this.blockControllers.clear();
+  }
 
   /**
    * Build enrichment params by querying sort/filter models from loaded plugins.
@@ -250,6 +270,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
    */
   private onModelChange(): void {
     if (!this.dataSource) return;
+    this.abortAllBlocks();
     this.loadedBlocks.clear();
     this.loadingBlocks.clear();
     this.managedNodes = [];
@@ -342,10 +363,23 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
       }
 
       this.loadingBlocks.add(blockNum);
+      const controller = new AbortController();
+      this.blockControllers.set(blockNum, controller);
       this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: true });
 
-      loadBlock(this.dataSource, blockNum, blockSize, enrichment)
+      loadBlock(this.dataSource, blockNum, blockSize, enrichment, controller.signal)
         .then((result) => {
+          this.blockControllers.delete(blockNum);
+          // Drop results from a request that was superseded after the await
+          // resolved (data source ignored the abort signal). Without this guard
+          // a stale block would land in the cache after a sort/filter change.
+          if (controller.signal.aborted) {
+            this.loadingBlocks.delete(blockNum);
+            if (this.loadingBlocks.size === 0) {
+              this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
+            }
+            return;
+          }
           this.loadedBlocks.set(blockNum, result.rows);
           // Capture pre-update length so we can detect whether processRows must
           // re-run to grow the managedNodes array (e.g. after onModelChange reset).
@@ -399,7 +433,17 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
           this.loadRequiredBlocks();
         })
         .catch((error: unknown) => {
+          this.blockControllers.delete(blockNum);
           this.loadingBlocks.delete(blockNum);
+          // A superseded request may surface as either an AbortError or as a
+          // user-thrown error after the data source detected the abort —
+          // suppress diagnostics in both cases. Real failures still surface.
+          if (controller.signal.aborted) {
+            if (this.loadingBlocks.size === 0) {
+              this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
+            }
+            return;
+          }
           const err = error instanceof Error ? error : new Error(String(error));
           errorDiagnostic(DATASOURCE_FETCH_ERROR, `getRows() failed: ${err.message}`, gridId);
           this.broadcast<DataSourceErrorDetail>('datasource:error', { error: err });
@@ -552,6 +596,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
    * @param dataSource - Data source implementing the getRows method (and optionally getChildRows)
    */
   setDataSource(dataSource: ServerSideDataSource): void {
+    this.abortAllBlocks();
     this.dataSource = dataSource;
     this.loadedBlocks.clear();
     this.loadingBlocks.clear();
@@ -563,11 +608,20 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     const blockSize = this.config.cacheBlockSize ?? 100;
     const enrichment = this.getEnrichmentParams();
     const gridId = this.grid?.getAttribute?.('id') ?? undefined;
+    const controller = new AbortController();
+    this.blockControllers.set(0, controller);
+    this.loadingBlocks.add(0);
 
     this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: true });
 
-    loadBlock(dataSource, 0, blockSize, enrichment)
+    loadBlock(dataSource, 0, blockSize, enrichment, controller.signal)
       .then((result) => {
+        this.blockControllers.delete(0);
+        this.loadingBlocks.delete(0);
+        if (controller.signal.aborted) {
+          this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
+          return;
+        }
         this.loadedBlocks.set(0, result.rows);
         this.applyServerResult(result, 0, blockSize);
 
@@ -591,6 +645,12 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
         }
       })
       .catch((error: unknown) => {
+        this.blockControllers.delete(0);
+        this.loadingBlocks.delete(0);
+        if (controller.signal.aborted) {
+          this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
+          return;
+        }
         const err = error instanceof Error ? error : new Error(String(error));
         errorDiagnostic(DATASOURCE_FETCH_ERROR, `getRows() failed: ${err.message}`, gridId);
         this.broadcast<DataSourceErrorDetail>('datasource:error', { error: err });
@@ -605,6 +665,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   refresh(): void {
     if (!this.dataSource) return;
     const ds = this.dataSource;
+    this.abortAllBlocks();
     this.loadedBlocks.clear();
     this.loadingBlocks.clear();
     this.managedNodes = [];
@@ -618,6 +679,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
    * Clear all cached data without refreshing.
    */
   purgeCache(): void {
+    this.abortAllBlocks();
     this.loadedBlocks.clear();
     this.managedNodes = [];
   }

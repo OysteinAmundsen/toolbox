@@ -683,4 +683,81 @@ describe('TreePlugin sorting', () => {
       expect(parent.children[0]).toBe(child);
     });
   });
+
+  describe('processRows honors sortHandler / sortComparator', () => {
+    /**
+     * Like the top-level processSorted helper but lets the caller customize
+     * the mock grid's columns and effectiveConfig (where sortHandler lives).
+     */
+    function processWithConfig(
+      rows: any[],
+      field: string,
+      direction: 1 | -1,
+      opts: { columns?: any[]; sortHandler?: any } = {},
+    ): any[] {
+      const plugin = new TreePlugin({ defaultExpanded: true });
+      const columns = opts.columns ?? [];
+      const mockGrid: any = {
+        rows: [],
+        columns,
+        _columns: columns,
+        gridConfig: { sortHandler: opts.sortHandler },
+        effectiveConfig: { sortHandler: opts.sortHandler },
+        _focusRow: 0,
+        _focusCol: 0,
+        disconnectSignal: new AbortController().signal,
+        requestRender: () => undefined,
+        requestAfterRender: () => undefined,
+        forceLayout: async () => undefined,
+        getPlugin: () => undefined,
+        getPluginByName: () => undefined,
+        dispatchEvent: () => true,
+      };
+      plugin.attach(mockGrid);
+      (plugin as any).sortState = { field, direction };
+      return plugin.processRows(rows) as any[];
+    }
+
+    it('invokes gridConfig.sortHandler for every level of the tree', () => {
+      const rows = [{ name: 'B', children: [{ name: 'b2' }, { name: 'b1' }] }, { name: 'A' }];
+      const calls: Array<{ rowsCount: number; field: string; direction: 1 | -1 }> = [];
+      const sortHandler = (input: any[], state: { field: string; direction: 1 | -1 }) => {
+        calls.push({ rowsCount: input.length, field: state.field, direction: state.direction });
+        // Reverse order — distinct from default comparator so we can verify it ran.
+        return [...input].reverse();
+      };
+
+      const result = processWithConfig(rows, 'name', 1, { sortHandler });
+
+      // Both levels should have triggered the handler (root: 2 rows, children: 2 rows).
+      expect(calls.length).toBe(2);
+      expect(calls.some((c) => c.rowsCount === 2 && c.field === 'name')).toBe(true);
+      // Reverse of [B, A] = [A, B]; reverse of [b2, b1] = [b1, b2]; B's children print after B.
+      expect(result.map((r: any) => r.name)).toEqual(['A', 'B', 'b1', 'b2']);
+    });
+
+    it('honors per-column sortComparator when no sortHandler is configured', () => {
+      // Reverse-natural comparator: forces "Z" before "A" on ASC sorts.
+      const reverseCompare = (a: any, b: any) => (a > b ? -1 : a < b ? 1 : 0);
+      const columns = [{ field: 'name', sortComparator: reverseCompare }];
+      const rows = [{ name: 'A', children: [{ name: 'a-child' }] }, { name: 'M' }, { name: 'Z' }];
+
+      const result = processWithConfig(rows, 'name', 1, { columns });
+
+      // With reverse comparator + ASC direction, root order should be Z, M, A
+      // (and A's child still prints after A).
+      expect(result.map((r: any) => r.name)).toEqual(['Z', 'M', 'A', 'a-child']);
+    });
+
+    it('falls back to builtInSort when sortHandler returns a Promise', () => {
+      const rows = [{ name: 'B', children: [{ name: 'b1' }] }, { name: 'A' }];
+      const sortHandler = () => Promise.resolve([]);
+
+      const result = processWithConfig(rows, 'name', 1, { sortHandler });
+
+      // Async handler can't be awaited inside processRows — output must still
+      // be a sensible synchronous order (built-in default comparator).
+      expect(result.map((r: any) => r.name)).toEqual(['A', 'B', 'b1']);
+    });
+  });
 });

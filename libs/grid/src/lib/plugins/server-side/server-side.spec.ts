@@ -1225,5 +1225,69 @@ describe('ServerSidePlugin', () => {
       const result = plugin.processRows([]) as { name: string }[];
       expect(result.map((r) => r.name)).toEqual(['Alice', 'Bob', 'Charlie']);
     });
+
+    it('processRows under sortMode === "local" honors gridConfig.sortHandler', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, sortMode: 'local' });
+      // Custom sortHandler that always reverses input — distinct from default
+      // comparator so we can confirm it actually ran.
+      const sortHandler = vi.fn((input: any[]) => [...input].reverse());
+      const grid = createServerSideMockGrid({
+        effectiveConfig: { sortHandler },
+      });
+      Object.defineProperty(grid, '_columns', {
+        value: [{ field: 'name', sortable: true }],
+        writable: true,
+        configurable: true,
+      });
+      Object.defineProperty(grid, '_sortState', {
+        value: { field: 'name', direction: 1 as const },
+        writable: true,
+        configurable: true,
+      });
+      plugin.attach(grid as any);
+      const rows = [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Charlie' }];
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows, totalNodeCount: 3 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      const result = plugin.processRows([]) as { name: string }[];
+
+      expect(sortHandler).toHaveBeenCalledOnce();
+      expect(sortHandler.mock.calls[0][1]).toEqual({ field: 'name', direction: 1 });
+      // Reverse of [Alice, Bob, Charlie] = [Charlie, Bob, Alice]
+      expect(result.map((r) => r.name)).toEqual(['Charlie', 'Bob', 'Alice']);
+    });
+
+    it('processRows falls back to managedNodes order when sortHandler returns a Promise', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, sortMode: 'local' });
+      const sortHandler = vi.fn(() => Promise.resolve([]));
+      const grid = createServerSideMockGrid({
+        effectiveConfig: { sortHandler },
+      });
+      Object.defineProperty(grid, '_columns', {
+        value: [{ field: 'name', sortable: true }],
+        writable: true,
+        configurable: true,
+      });
+      Object.defineProperty(grid, '_sortState', {
+        value: { field: 'name', direction: 1 as const },
+        writable: true,
+        configurable: true,
+      });
+      plugin.attach(grid as any);
+      const rows = [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Charlie' }];
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows, totalNodeCount: 3 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      const result = plugin.processRows([]) as { name: string }[];
+
+      // Async handler can't be awaited inside processRows — managedNodes order is preserved.
+      expect(result.map((r) => r.name)).toEqual(['Alice', 'Bob', 'Charlie']);
+    });
   });
 });

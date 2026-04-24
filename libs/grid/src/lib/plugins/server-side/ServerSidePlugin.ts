@@ -453,7 +453,17 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     const host = this.grid as unknown as GridHost | undefined;
     if (this.config.sortMode === 'local' && host?._sortState) {
       const columns = (host._columns ?? []) as ColumnConfig[];
-      return builtInSort(this.managedNodes, host._sortState, columns);
+      // Honor user's gridConfig.sortHandler when provided — same resolution
+      // as core's reapplyCoreSort/applySort. Async handlers can't be awaited
+      // inside a synchronous processRows, so fall back to the in-memory
+      // managedNodes order on Promise (caller will get a re-render once the
+      // sortHandler eventually resolves via the normal applySort path).
+      const handler = host.effectiveConfig?.sortHandler ?? builtInSort;
+      const result = handler(this.managedNodes, host._sortState, columns);
+      if (result && typeof (result as Promise<unknown[]>).then === 'function') {
+        return this.managedNodes;
+      }
+      return result as unknown[];
     }
 
     return this.managedNodes;

@@ -19,6 +19,7 @@
 import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/row-drag-drop';
+import '@toolbox-web/grid/features/selection';
 
 const container = document.getElementById('row-drag-drop-cross-grid-demo');
 if (container) {
@@ -31,9 +32,16 @@ if (container) {
   const source = queryGrid('tbw-grid#rdd-source', container)!;
   const target = queryGrid('tbw-grid#rdd-target', container)!;
 
+  // Enable Selection on the source grid so multi-row drag is automatic when
+  // the dragged row is part of a multi-row selection. RowDragDrop has no
+  // `selection` config — the behaviour is driven entirely by the presence of
+  // a multi-row selection at dragstart.
   source.gridConfig = {
     columns,
-    features: { rowDragDrop: { dropZone: 'employees', operation: 'move', selection: 'multi' } as any },
+    features: {
+      rowDragDrop: { dropZone: 'employees', operation: 'move' },
+      selection: 'row',
+    },
   };
   source.rows = [
     { id: 1, name: 'Alice', department: 'Engineering' },
@@ -45,7 +53,7 @@ if (container) {
 
   target.gridConfig = {
     columns,
-    features: { rowDragDrop: { dropZone: 'employees', operation: 'move' } as any },
+    features: { rowDragDrop: { dropZone: 'employees', operation: 'move' } },
   };
   target.rows = [];
 }

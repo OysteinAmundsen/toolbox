@@ -257,7 +257,13 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
    * the target.
    */
   canMoveRow(fromIndex: number, toIndex: number): boolean {
-    const rows = this.sourceRows;
+    // During debounced keyboard moves, `grid._rows` diverges from
+    // `sourceRows` (the user-facing snapshot) because the plugin mutates
+    // `_rows` per keystroke and only commits on flush. `onKeyDown` resolves
+    // the focused row from `_rows ?? sourceRows`, so validation must read
+    // from the same array — otherwise we'd run `canDrag`/`canMove`/queries
+    // against the wrong row.
+    const rows = this.internalGrid._rows ?? this.sourceRows;
     if (fromIndex < 0 || fromIndex >= rows.length) return false;
     if (toIndex < 0 || toIndex >= rows.length) return false;
     if (fromIndex === toIndex) return false;

@@ -13,12 +13,21 @@ class FooPlugin extends BaseGridPlugin<{ a?: number; b?: number; cb?: () => void
   protected override get defaultConfig() {
     return {};
   }
+
+  /** Test-only accessor: surfaces the merged config so specs don't need to reach into the protected field. */
+  getMergedConfig(): { a?: number; b?: number; cb?: () => void } {
+    return this.config;
+  }
 }
 
 function makeGrid(): GridElement {
-  const el = document.createElement('div');
+  // Cast via `any` (single-cast escape hatch for tests) — the alias-collapse
+  // path only touches `id` and the plugin abort-controller plumbing, both of
+  // which a plain HTMLElement satisfies.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const el: any = document.createElement('div');
   el.id = 'g-test';
-  return el as unknown as GridElement;
+  return el as GridElement;
 }
 
 describe('PluginManager — alias collapse', () => {
@@ -50,8 +59,9 @@ describe('PluginManager — alias collapse', () => {
     expect(pm.getAll().length).toBe(1);
     expect(pm.getAll()[0]).toBe(a);
     // After merge, config should contain both keys
-    expect((a as unknown as { config: Record<string, number> }).config.a).toBe(1);
-    expect((a as unknown as { config: Record<string, number> }).config.b).toBe(2);
+    const merged = a.getMergedConfig();
+    expect(merged.a).toBe(1);
+    expect(merged.b).toBe(2);
     expect(warnSpy).toHaveBeenCalledTimes(1);
     expect(warnSpy.mock.calls[0][0]).toMatch(/TBW023/);
   });

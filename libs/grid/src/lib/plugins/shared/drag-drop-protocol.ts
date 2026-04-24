@@ -131,6 +131,12 @@ export function decodePayload<T = unknown>(raw: string): RowDragPayload<T> | nul
     ) {
       return null;
     }
+    // `rowIndices` is later used for sorting and splicing — reject anything
+    // that isn't a finite, non-negative integer to avoid JS coercion bugs
+    // (NaN ordering, float splice indices, string concatenation, etc.).
+    for (const idx of parsed.rowIndices) {
+      if (typeof idx !== 'number' || !Number.isInteger(idx) || idx < 0) return null;
+    }
     return parsed;
   } catch {
     return null;

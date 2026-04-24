@@ -108,6 +108,10 @@ jobs:
         with:
           bun-version: latest
 
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
       - name: Cache Bun dependencies
         uses: actions/cache@v5
         with:
@@ -186,6 +190,10 @@ jobs:
         with:
           bun-version: latest
 
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
       - name: Cache Bun dependencies
         uses: actions/cache@v5
         with:
@@ -232,6 +240,10 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
 
       - name: Cache Bun dependencies
         uses: actions/cache@v5

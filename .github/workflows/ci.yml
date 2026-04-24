@@ -14,7 +14,7 @@ on:
       - next
       - "release-please--*"
   release:
-    types: [published]
+    types: [ published ]
   workflow_dispatch:
     inputs:
       deploy_pages:
@@ -50,7 +50,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && 'release' || 'default' }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name ==
+    'workflow_dispatch' && 'release' || 'default' }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
@@ -123,13 +124,16 @@ jobs:
         id: nx-shas
 
       - name: Run linting (affected)
-        run: bun nx affected -t lint --quiet --base=${{ steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
+        run: bun nx affected -t lint --quiet --base=${{ steps.nx-shas.outputs.base }}
+          --head=${{ steps.nx-shas.outputs.head }}
 
       - name: Run tests with coverage (affected)
-        run: bun nx affected -t test --exclude='demo-*' --coverage --base=${{ steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
+        run: bun nx affected -t test --exclude='demo-*' --coverage --base=${{
+          steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
 
       - name: Coverage Report - Grid
-        if: always() && github.event_name == 'pull_request' && hashFiles('coverage/libs/grid/coverage-summary.json') != ''
+        if: always() && github.event_name == 'pull_request' &&
+          hashFiles('coverage/libs/grid/coverage-summary.json') != ''
         uses: davelosert/vitest-coverage-report-action@v2
         with:
           name: Grid
@@ -138,7 +142,9 @@ jobs:
         continue-on-error: true
 
       - name: Coverage Report - Grid Angular
-        if: always() && github.event_name == 'pull_request' && hashFiles('libs/grid-angular/test-output/vitest/coverage/coverage-summary.json') != ''
+        if: always() && github.event_name == 'pull_request' &&
+          hashFiles('libs/grid-angular/test-output/vitest/coverage/coverage-summary.json')
+          != ''
         uses: davelosert/vitest-coverage-report-action@v2
         with:
           name: Grid Angular
@@ -147,7 +153,9 @@ jobs:
         continue-on-error: true
 
       - name: Coverage Report - Grid React
-        if: always() && github.event_name == 'pull_request' && hashFiles('libs/grid-react/test-output/vitest/coverage/coverage-summary.json') != ''
+        if: always() && github.event_name == 'pull_request' &&
+          hashFiles('libs/grid-react/test-output/vitest/coverage/coverage-summary.json')
+          != ''
         uses: davelosert/vitest-coverage-report-action@v2
         with:
           name: Grid React
@@ -156,7 +164,8 @@ jobs:
         continue-on-error: true
 
       - name: Coverage Report - Grid Vue
-        if: always() && github.event_name == 'pull_request' && hashFiles('coverage/libs/grid-vue/coverage-summary.json') != ''
+        if: always() && github.event_name == 'pull_request' &&
+          hashFiles('coverage/libs/grid-vue/coverage-summary.json') != ''
         uses: davelosert/vitest-coverage-report-action@v2
         with:
           name: Grid Vue
@@ -193,7 +202,8 @@ jobs:
         id: nx-shas
 
       - name: Build affected libraries
-        run: bun nx affected -t build --base=${{ steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
+        run: bun nx affected -t build --base=${{ steps.nx-shas.outputs.base }}
+          --head=${{ steps.nx-shas.outputs.head }}
 
       - name: Build size report
         if: always() && hashFiles('dist/libs/grid/index.js') != ''
@@ -204,7 +214,7 @@ jobs:
   # Runs demos against BUILT packages (dist/) to validate releases
   # ============================================
   e2e:
-    needs: [setup]
+    needs: [ setup ]
     if: needs.setup.outputs.should_validate == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -268,7 +278,7 @@ jobs:
   # - Also runs on release events and workflow_dispatch
   # ============================================
   release-please:
-    needs: [setup, test, build, e2e]
+    needs: [ setup, test, build, e2e ]
     if: |
       always() && !cancelled() &&
       (github.event_name == 'release' || github.event_name == 'workflow_dispatch') ||
@@ -314,7 +324,7 @@ jobs:
         (needs.release-please.outputs.grid_release_created == 'true' && github.ref == 'refs/heads/main') ||
         (github.event_name == 'workflow_dispatch' && inputs.deploy_pages == true && github.ref == 'refs/heads/main')
       )
-    needs: [release-please]
+    needs: [ release-please ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -324,6 +334,10 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
 
       - name: Cache Bun dependencies
         uses: actions/cache@v5
@@ -358,7 +372,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: [release-please, build-docs]
+    needs: [ release-please, build-docs ]
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
@@ -371,7 +385,7 @@ jobs:
         needs.release-please.outputs.grid_release_created == 'true' ||
         (github.event_name == 'workflow_dispatch' && inputs.publish_grid == true)
       )
-    needs: [release-please]
+    needs: [ release-please ]
     runs-on: ubuntu-latest
     environment: NPM
     permissions:
@@ -429,7 +443,7 @@ jobs:
         needs.release-please.outputs.grid_angular_release_created == 'true' ||
         (github.event_name == 'workflow_dispatch' && inputs.publish_grid_angular == true)
       )
-    needs: [release-please]
+    needs: [ release-please ]
     runs-on: ubuntu-latest
     environment: NPM
     permissions:
@@ -484,7 +498,7 @@ jobs:
         needs.release-please.outputs.grid_react_release_created == 'true' ||
         (github.event_name == 'workflow_dispatch' && inputs.publish_grid_react == true)
       )
-    needs: [release-please]
+    needs: [ release-please ]
     runs-on: ubuntu-latest
     environment: NPM
     permissions:
@@ -539,7 +553,7 @@ jobs:
         needs.release-please.outputs.grid_vue_release_created == 'true' ||
         (github.event_name == 'workflow_dispatch' && inputs.publish_grid_vue == true)
       )
-    needs: [release-please]
+    needs: [ release-please ]
     runs-on: ubuntu-latest
     environment: NPM
     permissions:

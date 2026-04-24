@@ -1,14 +1,14 @@
 ---
-// RowReorderDefaultDemo.astro
+// RowDragDropDefaultDemo.astro
 import DemoControls from '@components/DemoControls.astro';
 ---
-<div class="grid-demo not-content" id="row-reorder-default-demo">
+<div class="grid-demo not-content" id="row-drag-drop-default-demo">
   <DemoControls controls={[
-    { section: 'ROW REORDER', name: 'dragHandlePosition', label: 'Handle position', type: 'select',
+    { section: 'ROW DRAG-DROP', name: 'dragHandlePosition', label: 'Handle position', type: 'select',
       options: ['left', 'right'], default: 'left', description: 'Position of drag handle column' },
-    { section: 'ROW REORDER', name: 'enableKeyboard', label: 'Keyboard enabled', type: 'boolean',
+    { section: 'ROW DRAG-DROP', name: 'enableKeyboard', label: 'Keyboard enabled', type: 'boolean',
       default: true, description: 'Allow reorder with keyboard shortcuts' },
-    { section: 'ROW REORDER', name: 'animation', label: 'Animation', type: 'select',
+    { section: 'ROW DRAG-DROP', name: 'animation', label: 'Animation', type: 'select',
       options: ['flip', 'false'], default: 'flip', description: 'Reorder animation style' },
   ]} />
   <tbw-grid style="height: 350px;"></tbw-grid>
@@ -17,9 +17,9 @@ import DemoControls from '@components/DemoControls.astro';
 <script>
 import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
-import '@toolbox-web/grid/features/reorder-rows';
+import '@toolbox-web/grid/features/row-drag-drop';
 
-const container = document.getElementById('row-reorder-default-demo');
+const container = document.getElementById('row-drag-drop-default-demo');
 if (container) {
   const sampleData = [
     { id: 1, name: 'Alice', department: 'Engineering', email: 'alice@example.com', priority: 1 },
@@ -40,7 +40,7 @@ if (container) {
   function rebuild(dragHandlePosition = 'left', enableKeyboard = true, animation = 'flip') {
     grid.gridConfig = {
       columns,
-      features: { reorderRows: { dragHandlePosition, enableKeyboard, animation: animation === 'false' ? false : animation } as any },
+      features: { rowDragDrop: { dragHandlePosition, enableKeyboard, animation: animation === 'false' ? false : animation } as any },
     };
     grid.rows = sampleData;
   }

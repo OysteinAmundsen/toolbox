@@ -1,8 +1,8 @@
 ---
-// RowReorderCancelableEventDemo.astro
+// RowDragDropCancelableEventDemo.astro
 ---
-<div class="grid-demo not-content" id="row-reorder-cancelable-event-demo">
-  <div id="row-reorder-cancelable-status" style="padding: 8px; margin-bottom: 8px; background: var(--tbw-color-bg-alt); border-radius: 4px;">Try moving "Bob" - it will be blocked!</div>
+<div class="grid-demo not-content" id="row-drag-drop-cancelable-event-demo">
+  <div id="row-drag-drop-cancelable-status" style="padding: 8px; margin-bottom: 8px; background: var(--tbw-color-bg-alt); border-radius: 4px;">Try moving "Bob" - it will be blocked!</div>
   <tbw-grid style="height: 350px;"></tbw-grid>
 </div>
 
@@ -10,11 +10,10 @@
 import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
 
-import '@toolbox-web/grid/features/reorder-rows';
+import '@toolbox-web/grid/features/row-drag-drop';
 
-const container = document.getElementById('row-reorder-cancelable-event-demo');
+const container = document.getElementById('row-drag-drop-cancelable-event-demo');
 if (container) {
-  // Sample data for row reorder demos
   const sampleData = [
     { id: 1, name: 'Alice', department: 'Engineering', email: 'alice@example.com', priority: 1 },
     { id: 2, name: 'Bob', department: 'Marketing', email: 'bob@example.com', priority: 2 },
@@ -29,13 +28,13 @@ if (container) {
     { field: 'email', header: 'Email' },
   ];
 
-  const status = document.getElementById('row-reorder-cancelable-status')!;
+  const status = document.getElementById('row-drag-drop-cancelable-status')!;
 
   const grid = queryGrid('tbw-grid', container);
 
   grid.gridConfig = {
     columns,
-    features: { reorderRows: true },
+    features: { rowDragDrop: true },
   };
   grid.rows = sampleData;
 

@@ -16,6 +16,27 @@ import { buildCsv, type CsvOptions, downloadBlob, downloadCsv } from './csv';
 import { buildExcelXml, downloadExcel } from './excel';
 import type { ExportCompleteDetail, ExportConfig, ExportFormat, ExportMode, ExportParams } from './types';
 
+/**
+ * Subset of {@link ExportParams} accepted by the pure formatters
+ * ({@link ExportPlugin.formatCsv} / {@link ExportPlugin.formatExcel}).
+ *
+ * The formatters operate on already-resolved data, so options that affect
+ * value resolution (`mode`, `rowIndices`, `format`, `fileName`,
+ * `fileExtension`) are intentionally excluded — if you need them, run them
+ * through {@link ExportPlugin.export} first or call the download/export
+ * methods.
+ *
+ * `processCell` **is** honoured: it runs once per cell on the values you pass
+ * in, just like the download methods.
+ */
+export type FormatCsvParams = Pick<ExportParams, 'columns' | 'includeHeaders' | 'processCell' | 'processHeader'>;
+
+/**
+ * Subset of {@link ExportParams} accepted by {@link ExportPlugin.formatExcel}.
+ * Same shape as {@link FormatCsvParams} plus `excelStyles`.
+ */
+export type FormatExcelParams = FormatCsvParams & Pick<ExportParams, 'excelStyles'>;
+
 /** Selection plugin state interface for type safety */
 interface SelectionPluginState {
   selected: Set<number>;
@@ -281,7 +302,7 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
     return rows.map((row) => {
       const obj: Record<string, unknown> = {};
       for (const col of columns) {
-        const raw = resolveCellValue(row, col as never);
+        const raw = resolveCellValue(row, col);
         obj[col.field] = this.resolveCellOutput(raw, col, row, mode, params.processCell);
       }
       return obj;
@@ -335,9 +356,13 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
    * and which fields to emit are taken from the plugin's resolved columns
    * (respecting `onlyVisible` and `params.columns`).
    *
-   * Values in `data` are written as-is (no further formatting). Pair with
-   * `export({ mode: 'formatted' })` for displayed values, or `export()` to
-   * keep underlying types.
+   * This is a **pure formatter** — it does not re-resolve values from the
+   * grid. Pass `data` produced by {@link ExportPlugin.export} (or any
+   * compatible row objects keyed by `column.field`).
+   *
+   * `params.processCell` is honoured: it runs once per cell on the values in
+   * `data`. `mode` is **not** accepted here — apply it upstream via
+   * `export({ mode: 'formatted' })`.
    *
    * @example
    * ```ts
@@ -345,18 +370,19 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
    * await navigator.clipboard.writeText(csv);
    * ```
    */
-  formatCsv(data: Record<string, unknown>[], params?: Partial<ExportParams>, options?: CsvOptions): string {
+  formatCsv(data: Record<string, unknown>[], params?: FormatCsvParams, options?: CsvOptions): string {
     const { columns, fullParams } = this.resolveExportData('csv', params);
-    return buildCsv(data, this.#stripAccessors(columns), { ...fullParams, processCell: undefined }, options);
+    return buildCsv(data, this.#stripAccessors(columns), fullParams, options);
   }
 
   /**
    * Format an array of row objects as an Excel XML Spreadsheet 2003 string.
-   * See {@link formatCsv} for the data-shape contract.
+   * See {@link formatCsv} for the data-shape contract — this method is also a
+   * pure formatter and `params.processCell` is honoured the same way.
    */
-  formatExcel(data: Record<string, unknown>[], params?: Partial<ExportParams>): string {
+  formatExcel(data: Record<string, unknown>[], params?: FormatExcelParams): string {
     const { columns, fullParams } = this.resolveExportData('excel', params);
-    return buildExcelXml(data, this.#stripAccessors(columns), { ...fullParams, processCell: undefined });
+    return buildExcelXml(data, this.#stripAccessors(columns), fullParams);
   }
 
   /** @internal Drop `valueAccessor` so downstream builders read pre-resolved fields. */
@@ -372,9 +398,13 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
   #resolveFormatFn(col: ColumnConfig): ((value: unknown, row: unknown) => string) | undefined {
     if (col.format) return col.format as (value: unknown, row: unknown) => string;
     if (!col.type) return undefined;
-    const grid = this.grid as unknown as InternalGrid<unknown> | undefined;
+    // The grid host carries optional `__frameworkAdapter` and `_hostElement` from
+    // InternalGrid. Narrow with a structural guard rather than an `as unknown as`
+    // cast — these keys are documented public-internal in core/types.ts.
+    const grid = this.grid as Partial<Pick<InternalGrid<unknown>, '__frameworkAdapter' | '_hostElement'>> | undefined;
     const adapter = grid?.__frameworkAdapter;
-    const appDefault = adapter?.getTypeDefault?.(col.type, grid?._hostElement);
+    if (!adapter?.getTypeDefault) return undefined;
+    const appDefault = adapter.getTypeDefault(col.type, grid?._hostElement);
     return appDefault?.format as ((value: unknown, row: unknown) => string) | undefined;
   }
 

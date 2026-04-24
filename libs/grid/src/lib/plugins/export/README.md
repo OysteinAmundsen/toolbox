@@ -125,7 +125,9 @@ The plugin exposes data accessors so you can drive the export pipeline from JS w
 | `formatExcel(data, params?)`         | `string`                    | Format already-resolved rows as Excel XML (no download)          |
 | `getResolvedColumns(params?)`        | `ColumnConfig[]`            | The columns (in order) that an export would include              |
 
-All accessors honour the same `mode`, `onlyVisible`, `onlySelected`, `columns`, `rowIndices`, and `processCell` semantics as the download methods.
+All accessors honour `onlyVisible`, `onlySelected`, `columns`, and `rowIndices` (which columns/rows are included), and `processCell` (per-cell transformation — applied once on the values that get written).
+
+`export()` additionally honours `mode` (it owns value resolution). `formatCsv()` / `formatExcel()` are pure formatters: they write whatever you pass in, after running `processCell`. They don't apply `mode` because the data is already resolved — use `export({ mode: 'formatted' })` upstream if you need displayed values.
 
 ```typescript
 import { queryGrid } from '@toolbox-web/grid';

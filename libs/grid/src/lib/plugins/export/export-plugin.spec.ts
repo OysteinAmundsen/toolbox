@@ -704,5 +704,39 @@ describe('ExportPlugin', () => {
       const csv = plugin.formatCsv(data);
       expect(csv).toContain('Ada Lovelace');
     });
+
+    it('formatCsv() honours processCell on the data passed in', () => {
+      const cols: ColumnConfig[] = [
+        { field: 'name', header: 'Name' },
+        { field: 'age', header: 'Age' },
+      ];
+      const rows = [{ name: 'Alice', age: 30 }];
+      const plugin = new ExportPlugin();
+      const grid = createGridMock(rows, cols);
+      plugin.attach(grid as any);
+
+      const csv = plugin.formatCsv(plugin.export(), {
+        processCell: (v, field) => (field === 'age' ? Number(v) * 2 : v),
+      });
+
+      expect(csv).toContain('Alice,60');
+    });
+
+    it('formatExcel() honours processCell on the data passed in', () => {
+      const cols: ColumnConfig[] = [
+        { field: 'name', header: 'Name' },
+        { field: 'age', header: 'Age' },
+      ];
+      const rows = [{ name: 'Alice', age: 30 }];
+      const plugin = new ExportPlugin();
+      const grid = createGridMock(rows, cols);
+      plugin.attach(grid as any);
+
+      const xml = plugin.formatExcel(plugin.export(), {
+        processCell: (v, field) => (field === 'age' ? Number(v) * 2 : v),
+      });
+
+      expect(xml).toContain('60');
+    });
   });
 });

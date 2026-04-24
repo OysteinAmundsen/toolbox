@@ -55,7 +55,7 @@ export function buildCsv(rows: any[], columns: ColumnConfig[], params: ExportPar
     const headerRow = columns.map((col) => {
       const header = col.header || col.field;
       const processed = params.processHeader ? params.processHeader(header, col.field) : header;
-      return formatCsvValue(processed);
+      return formatCsvValue(processed, options.quoteStrings);
     });
     lines.push(headerRow.join(delimiter));
   }
@@ -67,7 +67,7 @@ export function buildCsv(rows: any[], columns: ColumnConfig[], params: ExportPar
       if (params.processCell) {
         value = params.processCell(value, col.field, row);
       }
-      return formatCsvValue(value);
+      return formatCsvValue(value, options.quoteStrings);
     });
     lines.push(cells.join(delimiter));
   }

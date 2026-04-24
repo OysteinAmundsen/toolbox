@@ -5,7 +5,7 @@
  * @module Plugins/Export
  */
 export type { CsvOptions } from './csv';
-export { ExportPlugin } from './ExportPlugin';
+export { ExportPlugin, type FormatCsvParams, type FormatExcelParams } from './ExportPlugin';
 export type {
   ExcelBorder,
   ExcelCellStyle,

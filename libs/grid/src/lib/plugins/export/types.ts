@@ -15,6 +15,24 @@
  */
 export type ExportFormat = 'csv' | 'excel' | 'json';
 
+/**
+ * Controls how cell values are produced for export.
+ *
+ * - `'raw'` — underlying values straight from the row (i.e. what
+ *   `resolveCellValue` returns). No display formatting applied. Use when you
+ *   want underlying typed values (Dates stay Dates, numbers stay numbers) —
+ *   ideal for handing rows to a third-party serializer. **This matches the
+ *   behavior of today's `exportCsv` / `exportExcel` / `exportJson`.**
+ *
+ * - `'formatted'` — values exactly as displayed in the grid: raw value →
+ *   column-type default formatter → `column.format(value, row)` — the string
+ *   the user sees in the cell.
+ *
+ * Default: `'raw'` — preserves current export behavior exactly. Opt in to
+ * displayed values per call with `{ mode: 'formatted' }`.
+ */
+export type ExportMode = 'raw' | 'formatted';
+
 /** Configuration options for the export plugin */
 export interface ExportConfig {
   /** Default file name for exports (default: 'export') */
@@ -53,6 +71,14 @@ export interface ExportParams {
   processCell?: (value: any, field: string, row: any) => any;
   /** Custom header processor */
   processHeader?: (header: string, field: string) => string;
+  /**
+   * Controls how cell values are produced. See {@link ExportMode}.
+   *
+   * Default: `'raw'` — preserves current behaviour (passthrough + `processCell`).
+   * Use `'formatted'` to apply column-type defaults and `column.format` so the
+   * output mirrors what the grid displays.
+   */
+  mode?: ExportMode;
   /** Excel style configuration (only applies to Excel export) */
   excelStyles?: ExcelStyleConfig;
 }

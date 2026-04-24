@@ -227,8 +227,54 @@ exportPlugin.exportExcel({
 | `includeHeaders` | `boolean`                       | config value  | Include column headers in export    |
 | `processCell`    | `(value, field, row) => any`    | -             | Custom cell value processor         |
 | `processHeader`  | `(header, field) => string`     | -             | Custom header processor             |
+| `mode`           | `'raw' \| 'formatted'`          | `'raw'`       | `'raw'` = underlying typed values; `'formatted'` = what the grid displays (`column.format` + type defaults applied) |
 | `fileExtension`  | `string`                        | `'.xls'`      | Override file extension for Excel export (e.g. `'.xml'`) |
 | `excelStyles`    | `ExcelStyleConfig`              | -             | Excel style configuration (Excel only) |
+
+## Custom Output / `.xlsx` Hand-off
+
+The plugin exposes data accessors so you can drive the export pipeline without producing a download — useful for piping rows into a real OOXML writer (e.g. [ExcelJS](https://github.com/exceljs/exceljs)), copying CSV to the clipboard, sending data to a server, or pre-processing before download.
+
+| Method                                | Returns                       | Purpose                                                          |
+| ------------------------------------- | ----------------------------- | ---------------------------------------------------------------- |
+| `export(params?)`                     | `Record<string, unknown>[]`   | Resolve the rows that would be exported, keyed by `column.field` |
+| `formatCsv(data, params?, options?)`  | `string`                      | Format already-resolved rows as CSV (no download)                |
+| `formatExcel(data, params?)`          | `string`                      | Format already-resolved rows as Excel XML (no download)          |
+| `getResolvedColumns(params?)`         | `ColumnConfig[]`              | The columns (in order) an export would include                   |
+
+All accessors honour the same `mode`, `onlyVisible`, `onlySelected`, `columns`, `rowIndices`, and `processCell` semantics as the download methods.
+
+```ts
+import { queryGrid } from '@toolbox-web/grid';
+import type { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+
+const grid = queryGrid('tbw-grid');
+const exporter = grid.getPluginByName('export') as ExportPlugin;
+
+// 1. "Export what I see" — column.format applied
+exporter.exportCsv({ mode: 'formatted' });
+
+// 2. Get the rows without producing a file
+const rows = exporter.export();
+
+// 3. Compose: copy CSV to the clipboard
+const csv = exporter.formatCsv(exporter.export());
+await navigator.clipboard.writeText(csv);
+
+// 4. Hand off raw rows to a real .xlsx writer
+import ExcelJS from 'exceljs';
+const cols = exporter.getResolvedColumns();
+const workbook = new ExcelJS.Workbook();
+const sheet = workbook.addWorksheet('Sheet1');
+sheet.columns = cols.map((c) => ({ header: c.header ?? c.field, key: c.field }));
+sheet.addRows(exporter.export());
+const buffer = await workbook.xlsx.writeBuffer();
+```
+
+### `mode: 'raw' | 'formatted'`
+
+- `'raw'` (**default**) — values straight from the row (`Date` stays `Date`, numbers stay numbers). Identical to the pre-existing `exportCsv` / `exportExcel` / `exportJson` output, so opting into the new methods is non-breaking.
+- `'formatted'` — applies the column-type default formatter and `column.format(value, row)`, returning the same string the user sees in the cell. `processCell` runs last on the formatted value.
 
 ## Styled Excel Export
 

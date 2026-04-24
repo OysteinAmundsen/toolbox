@@ -196,7 +196,7 @@ DECIDED (Apr 2026, public sort customization guidance): `column.sortComparator` 
 
 **Clipboard** — OWNS: clipboard buffer. HOOKS: onKeyDown (Ctrl+C/V/X). DEPENDS: selection (optional)
 
-**Export** — OWNS: export format/state. Exposes export methods (CSV, JSON, Excel)
+**Export** — OWNS: export format/state. Exposes download methods (`exportCsv`/`exportExcel`/`exportJson`) AND data accessors (`export()`/`formatCsv()`/`formatExcel()`/`getResolvedColumns()`) for hand-off to real .xlsx writers (ExcelJS), clipboard, server upload, etc. Supports `mode: 'raw' | 'formatted'` (default `'raw'` — pre-existing behavior; `'formatted'` applies column-type defaults + `column.format`, returning what the user sees). DECIDED (#240): plugins MUST NOT import from `core/internal/rows.ts` at module scope — it has module-level `document.createElement('template')` which crashes Vitest happy-dom-less environments and pollutes plugin bundles. Inline small bits of logic (e.g. `resolveFormat`) instead. DECIDED (#240): when pre-resolving rows for downstream `buildCsv`/`buildExcelXml` (which re-call `resolveCellValue`), strip `column.valueAccessor` from the columns passed downstream — otherwise accessors mis-resolve against the synthetic `Record<string, unknown>` keyed by `field` and produce `undefined`/`NaN`.
 
 **Print** — OWNS: print styling. Exposes print methods
 

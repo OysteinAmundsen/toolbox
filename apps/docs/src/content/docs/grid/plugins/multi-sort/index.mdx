@@ -323,10 +323,10 @@ grid.gridConfig = {
 };
 ```
 
-When you only need to override sort for **one column** (e.g. a single field
-that should sort server-side, while the rest sort client-side), `sortComparator`
-can do that too — it can fire its own fetch and return a Promise-aware proxy.
-For most use cases though, `ServerSidePlugin` is the cleaner fit.
+`sortComparator` is synchronous, so use it only for custom **client-side**
+comparisons. If sorting needs to be owned by your backend, use
+`ServerSidePlugin`; if you only need custom single-column sort behavior, use
+`sortHandler` instead.
 
 ## See Also
 

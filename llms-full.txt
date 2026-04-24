@@ -86,6 +86,7 @@ These plugins **cannot** be used together. A development-mode warning is shown w
 | `PinnedRowsPlugin` | `@toolbox-web/grid/plugins/pinned-rows` |
 | `ReorderPlugin` | `@toolbox-web/grid/plugins/reorder-columns` |
 | `RowReorderPlugin` | `@toolbox-web/grid/plugins/reorder-rows` |
+| `RowDragDropPlugin` | `@toolbox-web/grid/plugins/row-drag-drop` |
 | `VisibilityPlugin` | `@toolbox-web/grid/plugins/visibility` |
 | `ColumnVirtualizationPlugin` | `@toolbox-web/grid/plugins/column-virtualization` |
 | `ResponsivePlugin` | `@toolbox-web/grid/plugins/responsive` |
@@ -189,6 +190,7 @@ Feature props enable declarative plugin loading with tree-shaking. Import the fe
 | `contextMenu` | `features/context-menu` | `true`, `{ items: [...] }` |
 | `reorderColumns` | `features/reorder-columns` | `true` |
 | `reorderRows` | `features/reorder-rows` | `true` |
+| `rowDragDrop` | `features/row-drag-drop` | `true` or `{ dropZone: 'employees' }` |
 | `visibility` | `features/visibility` | `true` |
 | `pinnedColumns` | `features/pinned-columns` | `true` |
 | `pinnedRows` | `features/pinned-rows` | `true`, `{ bottom: [...] }` |
@@ -1298,6 +1300,10 @@ reorder.resetColumnOrder();          // Reset to original config order
 
 ### RowReorderPlugin
 
+> Deprecated alias for `RowDragDropPlugin`. Existing imports keep working
+> until V3. Prefer `RowDragDropPlugin` from
+> `@toolbox-web/grid/plugins/row-drag-drop`.
+
 ```typescript
 new RowReorderPlugin({
   enableKeyboard?: boolean,          // Ctrl+Up/Down shortcuts (default: true)
@@ -1313,6 +1319,41 @@ new RowReorderPlugin({
 const rowReorder = grid.getPluginByName('reorderRows');
 rowReorder.moveRow(fromIndex, toIndex); // Move a row programmatically
 rowReorder.canMoveRow(fromIndex, toIndex); // Check if move is allowed
+```
+
+### RowDragDropPlugin
+
+```typescript
+new RowDragDropPlugin({
+  // Intra-grid options (parity with RowReorderPlugin)
+  enableKeyboard?: boolean,
+  showDragHandle?: boolean,
+  dragHandlePosition?: 'left' | 'right',
+  dragHandleWidth?: number,
+  debounceMs?: number,
+  animation?: false | 'flip',
+  // Cross-grid options
+  dropZone?: string,                 // Opt-in id for cross-grid drops
+  operation?: 'move' | 'copy',       // Source side keeps rows? Default: 'move'
+  canDrag?: (row, index) => boolean, // Veto at dragstart for the originating row
+  canDrop?: (payload, targetIndex) => boolean, // Sync — called during dragover and at drop time
+  serializeRow?: (row) => unknown,   // Cross-window JSON shape
+  deserializeRow?: (s) => row,
+  autoScroll?: boolean | { edgeSize?: number; speed?: number; maxSpeed?: number },
+  // NOTE: there is no `selection` option. Multi-row drag is automatic when
+  // the SelectionPlugin is loaded and the dragged row is part of a multi-row
+  // selection.
+})
+// Events:
+//   'row-move'        intra-grid reorder (back-compat, cancelable)
+//   'row-drag-start'  drag begins (cancelable)
+//   'row-drag-end'    drag ends regardless of outcome
+//   'row-drop'        rows dropped on this grid from another (cancelable)
+//   'row-transfer'    successful cross-grid transfer (fires on BOTH grids)
+// Programmatic API:
+const rdd = grid.getPluginByName('rowDragDrop');
+rdd.moveRow(fromIndex, toIndex);
+rdd.canMoveRow(fromIndex, toIndex);
 ```
 
 ### VisibilityPlugin

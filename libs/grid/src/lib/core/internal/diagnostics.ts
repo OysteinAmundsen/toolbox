@@ -80,8 +80,12 @@ export const MISSING_DEPENDENCY = 'TBW020' as const;
 export const OPTIONAL_DEPENDENCY = 'TBW021' as const;
 /** Two loaded plugins are incompatible. */
 export const INCOMPATIBLE_PLUGINS = 'TBW022' as const;
+/** Two plugin instances resolve to the same canonical name (alias collapse). */
+export const PLUGIN_ALIAS_COLLAPSE = 'TBW023' as const;
 /** Error thrown inside a plugin event handler. */
 export const PLUGIN_EVENT_ERROR = 'TBW024' as const;
+/** Conflicting config values found while merging alias-collapsed plugin instances. */
+export const PLUGIN_ALIAS_CONFIG_CONFLICT = 'TBW025' as const;
 
 // --- Feature registry (030–039) ---
 /** Feature was re-registered (overwritten). */
@@ -185,7 +189,9 @@ export type DiagnosticCode =
   | typeof MISSING_DEPENDENCY
   | typeof OPTIONAL_DEPENDENCY
   | typeof INCOMPATIBLE_PLUGINS
+  | typeof PLUGIN_ALIAS_COLLAPSE
   | typeof PLUGIN_EVENT_ERROR
+  | typeof PLUGIN_ALIAS_CONFIG_CONFLICT
   | typeof FEATURE_REREGISTERED
   | typeof FEATURE_NOT_IMPORTED
   | typeof FEATURE_MISSING_DEP

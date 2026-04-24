@@ -33,6 +33,7 @@ import type {
   PrintConfig,
   ReorderConfig,
   ResponsivePluginConfig,
+  RowDragDropConfig,
   RowReorderConfig,
   SelectionConfig,
   ServerSideConfig,
@@ -276,6 +277,8 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable row drag-to-reorder.
    *
+   * @deprecated Use `rowDragDrop` instead. `reorderRows` remains as an alias
+   *             until V3 and forwards to the same plugin.
    * @requires `import '@toolbox-web/grid-react/features/reorder-rows';`
    *
    * @example
@@ -284,6 +287,23 @@ export interface FeatureProps<TRow = unknown> {
    * ```
    */
   reorderRows?: boolean | RowReorderConfig;
+
+  /**
+   * Enable row drag-and-drop, both within a single grid (reorder) and
+   * across grids that share a `dropZone`.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/row-drag-drop';`
+   *
+   * @example
+   * ```tsx
+   * // Intra-grid reorder (parity with reorderRows)
+   * <DataGrid rowDragDrop />
+   *
+   * // Cross-grid transfer
+   * <DataGrid rowDragDrop={{ dropZone: 'employees', operation: 'move' }} />
+   * ```
+   */
+  rowDragDrop?: boolean | RowDragDropConfig<TRow>;
 
   /**
    * Enable row grouping by field values.

@@ -8,7 +8,12 @@
 // Injected by Vite at build time from package.json (same as grid.ts)
 declare const __GRID_VERSION__: string;
 
-import { type DiagnosticCode, formatDiagnostic, gridPrefix } from '../internal/diagnostics';
+import {
+  type DiagnosticCode,
+  PLUGIN_ALIAS_CONFIG_CONFLICT,
+  formatDiagnostic,
+  gridPrefix,
+} from '../internal/diagnostics';
 import { sanitizeHTML } from '../internal/sanitize';
 import type {
   ColumnConfig,
@@ -502,6 +507,63 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
 
   constructor(config: Partial<TConfig> = {}) {
     this.userConfig = config;
+  }
+
+  /**
+   * Merge user-supplied configuration from other plugin instances into this
+   * plugin's `userConfig`. Used by `PluginManager.attachAll()`'s alias-collapse
+   * pre-pass: when a consumer instantiates the same plugin under multiple
+   * names (e.g. `RowReorderPlugin` and `RowDragDropPlugin`, which are aliases
+   * after V2.x), only one instance is attached, and the other instances'
+   * configs are folded in via this method.
+   *
+   * Merge rules (shallow):
+   *
+   * - Same key, **same value** → silent.
+   * - Same key, **different values** (incl. function vs function) → throws
+   *   a diagnostic naming the conflicting key. Conflicting callbacks
+   *   (`canDrag`, `canDrop`, etc.) cannot be reconciled automatically.
+   * - **Disjoint keys** → merged cleanly.
+   *
+   * Subclasses may override to implement custom deep-merge logic, but should
+   * call `super.mergeConfigsFrom(others)` to inherit the conflict-detection.
+   *
+   * @internal Plugin infrastructure (used by `PluginManager.attachAll`).
+   * @throws Error with diagnostic code `TBW025` when configs conflict.
+   */
+  mergeConfigsFrom(others: readonly BaseGridPlugin<TConfig>[]): void {
+    if (others.length === 0) return;
+    const merged = { ...this.userConfig } as Record<string, unknown>;
+    const sources: Record<string, BaseGridPlugin<TConfig>> = {};
+    for (const key of Object.keys(merged)) sources[key] = this;
+    for (const other of others) {
+      const otherConfig = other.userConfig as Record<string, unknown>;
+      for (const [key, value] of Object.entries(otherConfig)) {
+        if (value === undefined) continue;
+        if (!(key in merged)) {
+          merged[key] = value;
+          sources[key] = other;
+          continue;
+        }
+        if (merged[key] === value) continue;
+        // Conflict
+        const ownerA = sources[key]?.constructor.name ?? this.constructor.name;
+        const ownerB = other.constructor.name;
+        const code = formatDiagnostic(
+          PLUGIN_ALIAS_CONFIG_CONFLICT,
+          `Cannot merge plugin configs for "${this.name}": conflicting value for "${key}" supplied by both ${ownerA} and ${ownerB}. Pass the option on a single instance, or remove the duplicate.`,
+          undefined,
+          this.name,
+        );
+        throw new Error(code);
+      }
+    }
+    // Mutate userConfig in place so re-attach picks it up via attach().
+    // `userConfig` is declared `readonly` to prevent reassigning the binding,
+    // but the object's own properties are intentionally mutable for this
+    // alias-collapse pre-pass. A single cast to a record is enough — no
+    // `as unknown as` double-cast needed.
+    Object.assign(this.userConfig as Record<string, unknown>, merged);
   }
 
   /**

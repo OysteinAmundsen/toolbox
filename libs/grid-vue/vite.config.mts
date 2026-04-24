@@ -82,6 +82,7 @@ export default defineConfig(() => ({
         'features/reorder-columns': 'src/features/reorder-columns.ts',
         'features/reorder-rows': 'src/features/reorder-rows.ts',
         'features/responsive': 'src/features/responsive.ts',
+        'features/row-drag-drop': 'src/features/row-drag-drop.ts',
         'features/selection': 'src/features/selection.ts',
         'features/server-side': 'src/features/server-side.ts',
         'features/tooltip': 'src/features/tooltip.ts',

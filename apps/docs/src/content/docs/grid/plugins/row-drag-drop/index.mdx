@@ -1,0 +1,286 @@
+---
+title: 'Row Drag-Drop Plugin'
+description: 'Drag rows within a single grid (reorder) and across grids that share a drop zone.'
+---
+
+import { TabItem, Tabs } from '@astrojs/starlight/components';
+import RowDragDropCancelableEventDemo from '@components/demos/row-drag-drop/RowDragDropCancelableEventDemo.astro';
+import RowDragDropCrossGridDemo from '@components/demos/row-drag-drop/RowDragDropCrossGridDemo.astro';
+import RowDragDropDefaultDemo from '@components/demos/row-drag-drop/RowDragDropDefaultDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
+
+The Row Drag-Drop plugin lets users rearrange rows by dragging a grip handle
+or using keyboard shortcuts, and — when opted in via `dropZone` — drag rows
+between separate grids. It is a strict superset of the (now deprecated)
+`RowReorderPlugin`: every existing intra-grid behaviour is preserved.
+
+- **Intra-grid** — drag a row up or down to reorder, or use `Ctrl + ↑/↓`.
+- **Cross-grid** — set a `dropZone` to allow dragging rows to another grid
+  with the same `dropZone`. Supports `move` and `copy` operations.
+- **Multi-row** — when the [Selection](../selection/) plugin is loaded and
+  the dragged row is part of a multi-row selection, all selected rows are
+  dragged together and a count badge appears on the drag image. There is
+  no `selection` config option — the behaviour is automatic.
+- **Cross-window** — when the live row reference cannot be recovered (for
+  example a drop into a different browser window), the payload is decoded
+  from JSON via `dataTransfer`.
+
+## Installation
+
+```ts
+import '@toolbox-web/grid/features/row-drag-drop';
+```
+
+The legacy `reorderRows` feature key continues to work and forwards to the
+same plugin instance.
+
+## Basic Usage
+
+Enable the feature and a drag handle column appears automatically. Users can
+drag rows to new positions or use `Ctrl + ↑/↓` to move the focused row.
+
+<Tabs syncKey="framework">
+  <TabItem label="TypeScript">
+```ts
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/row-drag-drop';
+
+const grid = queryGrid('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'priority', header: '#', type: 'number', width: 50 },
+    { field: 'task', header: 'Task' },
+    { field: 'status', header: 'Status' },
+  ],
+  features: {
+    rowDragDrop: {
+      dragHandlePosition: 'left',
+      enableKeyboard: true,
+      animation: 'flip',
+    },
+  },
+};
+
+// Listen for row moves (intra-grid)
+grid.on('row-move', ({ fromIndex, toIndex }) => {
+  console.log(`Moved row from ${fromIndex} to ${toIndex}`);
+});
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/row-drag-drop';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+function ReorderableTaskList({ tasks }) {
+  return (
+    <DataGrid
+      rows={tasks}
+      columns={[
+        { field: 'priority', header: '#', type: 'number', width: 50 },
+        { field: 'task', header: 'Task' },
+        { field: 'status', header: 'Status' },
+      ]}
+      rowDragDrop
+      onRowMove={(detail) => console.log('Row moved:', detail)}
+    />
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup>
+import '@toolbox-web/grid-vue/features/row-drag-drop';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+
+const tasks = [
+  { priority: 1, task: 'Review PR', status: 'Pending' },
+  { priority: 2, task: 'Deploy staging', status: 'In Progress' },
+];
+</script>
+
+<template>
+  <TbwGrid :rows="tasks" row-drag-drop @row-move="(e) => console.log('Row moved:', e.detail)">
+    <TbwGridColumn field="priority" header="#" type="number" :width="50" />
+    <TbwGridColumn field="task" header="Task" />
+    <TbwGridColumn field="status" header="Status" />
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+// Feature import - enables the [rowDragDrop] input
+import '@toolbox-web/grid-angular/features/row-drag-drop';
+
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-task-list',
+  imports: [Grid],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [columns]="columns"
+      [rowDragDrop]="true"
+      (rowMove)="onRowMove($event)"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class TaskListComponent {
+  rows = [
+    { priority: 1, task: 'Review PR', status: 'Pending' },
+    { priority: 2, task: 'Deploy staging', status: 'In Progress' },
+  ];
+
+  columns: ColumnConfig[] = [
+    { field: 'priority', header: '#', type: 'number', width: 50 },
+    { field: 'task', header: 'Task' },
+    { field: 'status', header: 'Status' },
+  ];
+
+  onRowMove(detail: any) {
+    console.log('Row moved:', detail);
+  }
+}
+```
+  </TabItem>
+</Tabs>
+
+## Demos
+
+### Default Drag-Drop
+
+<ShowSource file="demos/row-drag-drop/RowDragDropDefaultDemo.astro">
+  <RowDragDropDefaultDemo />
+</ShowSource>
+
+Drag the grip handle (☰) to reorder rows. Use `Ctrl + ↑/↓` to move the
+focused row with the keyboard.
+
+### Cancelable `row-move`
+
+<ShowSource file="demos/row-drag-drop/RowDragDropCancelableEventDemo.astro">
+  <RowDragDropCancelableEventDemo />
+</ShowSource>
+
+Cancel row moves by calling `event.preventDefault()` in the `row-move`
+handler.
+
+### Cross-grid transfer
+
+The grids below share `dropZone: 'employees'` with `operation: 'move'`.
+Drag any row from the left grid to the right grid (or back).
+
+<ShowSource file="demos/row-drag-drop/RowDragDropCrossGridDemo.astro">
+  <RowDragDropCrossGridDemo />
+</ShowSource>
+
+## Configuration
+
+See [`RowDragDropConfig`](./Interfaces/RowDragDropConfig/) for the full list
+of options and defaults. Key options:
+
+| Option              | Type                                              | Description                                                                          |
+| ------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `dropZone`          | `string`                                          | Opt-in identifier for cross-grid drops. Grids with the same value accept each other. |
+| `operation`         | `'move' \| 'copy'`                                | Whether the source grid keeps the rows after a successful cross-grid drop.           |
+| `canDrop`           | `(payload, targetIndex) => boolean`               | Reject specific drops on the target grid. Called synchronously during `dragover` and at drop time. |
+| `canDrag`           | `(row, index) => boolean`                         | Reject drags from the source. Called once at `dragstart` with the originating row.   |
+| `serializeRow`      | `(row) => unknown`                                | Override the JSON shape used in the cross-window fallback payload.                   |
+| `deserializeRow`    | `(serialized) => row`                             | Inverse of `serializeRow`.                                                           |
+| `enableKeyboard`    | `boolean`                                         | Keep keyboard reorder (`Ctrl + ↑/↓`) — defaults to `true`.                           |
+| `showDragHandle`    | `boolean`                                         | Render the drag-handle column.                                                       |
+| `dragHandlePosition`| `'left' \| 'right'`                               | Pin the handle column to either side.                                                |
+| `dragHandleWidth`   | `number`                                          | Pixel width of the handle column.                                                    |
+| `animation`         | `'flip' \| false`                                 | FLIP animation on intra-grid reorder.                                                |
+| `autoScroll`        | `boolean \| { edgeSize?: number; speed?: number; maxSpeed?: number }` | Tune the auto-scroll behaviour during drag.                          |
+
+## Events
+
+| Event             | Detail                                                              | Cancelable | When                                                          |
+| ----------------- | ------------------------------------------------------------------- | ---------- | ------------------------------------------------------------- |
+| `row-move`        | [`RowMoveDetail`](./Interfaces/RowMoveDetail/)                      | Yes        | Intra-grid reorder committed (back-compat).                   |
+| `row-drag-start`  | [`RowDragStartDetail`](./Interfaces/RowDragStartDetail/)            | Yes        | A drag begins.                                                |
+| `row-drag-end`    | [`RowDragEndDetail`](./Interfaces/RowDragEndDetail/)                | No         | The drag ends, regardless of whether a drop succeeded.        |
+| `row-drop`        | [`RowDropDetail`](./Interfaces/RowDropDetail/)                      | Yes        | Rows are dropped on this grid from another grid.              |
+| `row-transfer`    | [`RowTransferDetail`](./Interfaces/RowTransferDetail/)              | No         | Successful cross-grid transfer (fired on **both** grids).     |
+
+## Keyboard Shortcuts
+
+| Key          | Action                    |
+| ------------ | ------------------------- |
+| `Ctrl + ↑`   | Move focused row up       |
+| `Ctrl + ↓`   | Move focused row down     |
+
+## Styling
+
+The plugin adds these CSS classes you can customise:
+
+| Class                                  | Description                                         |
+| -------------------------------------- | --------------------------------------------------- |
+| `.dg-row-drag-handle`                  | The drag handle element                             |
+| `.dg-row-drag-handle:hover`            | Handle hover state                                  |
+| `.data-grid-row.dragging`              | Row currently being dragged                         |
+| `.data-grid-row.drop-target`           | Row being hovered as drop target                    |
+| `.data-grid-row.drop-before`           | Drop indicator showing insertion above              |
+| `.data-grid-row.drop-after`            | Drop indicator showing insertion below              |
+| `.tbw-grid--drag-source`               | The source grid during a drag (whole-grid state)    |
+| `.tbw-grid--drop-target-active`        | The target grid during a valid dragover             |
+| `.tbw-grid--drop-target-rejected`      | The target grid during a `canDrop`-rejected drag    |
+| `.tbw-grid--auto-scrolling`            | A grid currently auto-scrolling during a drag       |
+
+### Custom Handle Icon
+
+Override the default grip icon via CSS:
+
+```css
+.dg-row-drag-handle::before {
+  content: '⋮⋮'; /* Double vertical ellipsis */
+}
+```
+
+## Notes
+
+- **Row identification** — currently uses processed/visual row indices
+  (`data-row` attribute and `payload.rowIndices`), not `getRowId()`.
+  Same-window cross-grid drops also recover live object references via the
+  internal `WeakRef` registry; primitive row values fall through to the
+  JSON payload.
+- **Data mutation** — the plugin reorders `grid.rows` in place. The
+  `row-move` event provides the updated array.
+- **Virtualization** — works with virtualized grids; only visible rows are
+  rendered but logical indices are preserved.
+- **Keyboard debounce** — rapid keyboard moves are debounced (150 ms) to
+  prevent excessive rerenders.
+- **Cross-window fallback** — when the live row reference cannot be
+  recovered from the same-window registry (e.g. drop into a different
+  window), the row payload is decoded from `dataTransfer` JSON via
+  `serializeRow`/`deserializeRow`.
+
+## Migration from `RowReorderPlugin`
+
+`RowReorderPlugin` is now an alias for `RowDragDropPlugin`. Existing code
+keeps working until V3 — both `reorderRows` and `rowDragDrop` feature keys
+resolve to the same plugin instance, and merging conflicting configs across
+the two keys will throw at attach time. To migrate:
+
+```diff
+- import { RowReorderPlugin } from '@toolbox-web/grid/plugins/reorder-rows';
++ import { RowDragDropPlugin } from '@toolbox-web/grid/plugins/row-drag-drop';
+
+- new RowReorderPlugin(cfg);
++ new RowDragDropPlugin(cfg);
+```
+
+The legacy `canMove` callback continues to work — it is mapped internally to
+`canDrop` with a synthesised intra-grid payload.
+
+## See Also
+
+- **[Column Reorder](../reorder-columns/)** — Drag-to-reorder columns
+- **[Selection](../selection/)** — Row and cell selection (drives multi-row drag)

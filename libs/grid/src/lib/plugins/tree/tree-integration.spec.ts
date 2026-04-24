@@ -55,9 +55,9 @@ describe('tree plugin integration', () => {
 
     // Verify processRows worked
     expect(processedRows).toHaveLength(5); // 2 parents + 3 children
-    expect(processedRows[0].__treeDepth).toBe(0);
-    expect(processedRows[0].__treeHasChildren).toBe(true);
-    expect(processedRows[1].__treeDepth).toBe(1);
+    expect(plugin.getRowMeta(processedRows[0])?.depth).toBe(0);
+    expect(plugin.getRowMeta(processedRows[0])?.hasChildren).toBe(true);
+    expect(plugin.getRowMeta(processedRows[1])?.depth).toBe(1);
 
     // Run processColumns
     const cols = [{ field: 'name', header: 'Name' }];
@@ -223,17 +223,17 @@ describe('tree plugin integration', () => {
     // After expanding Documents, should have 6 rows
     expect(processedRows).toHaveLength(6);
     expect(processedRows[0].name).toBe('Documents');
-    expect(processedRows[0].__treeExpanded).toBe(true);
+    expect(plugin.getRowMeta(processedRows[0])?.isExpanded).toBe(true);
     expect(processedRows[1].name).toBe('Resume.pdf');
-    expect(processedRows[1].__treeDepth).toBe(1);
+    expect(plugin.getRowMeta(processedRows[1])?.depth).toBe(1);
     expect(processedRows[2].name).toBe('Cover Letter.docx');
-    expect(processedRows[2].__treeDepth).toBe(1);
+    expect(plugin.getRowMeta(processedRows[2])?.depth).toBe(1);
     expect(processedRows[3].name).toBe('Projects');
-    expect(processedRows[3].__treeDepth).toBe(1);
+    expect(plugin.getRowMeta(processedRows[3])?.depth).toBe(1);
     expect(processedRows[4].name).toBe('Pictures');
-    expect(processedRows[4].__treeDepth).toBe(0);
+    expect(plugin.getRowMeta(processedRows[4])?.depth).toBe(0);
     expect(processedRows[5].name).toBe('readme.md');
-    expect(processedRows[5].__treeDepth).toBe(0);
+    expect(plugin.getRowMeta(processedRows[5])?.depth).toBe(0);
   });
 
   it('should render correct rows in DOM after expansion', async () => {
@@ -777,8 +777,8 @@ describe('tree plugin integration', () => {
 
       // Verify the lazy node is detected as having children
       const processed = plugin.processRows(rows);
-      expect(processed[0].__treeHasChildren).toBe(true);
-      expect(processed[1].__treeHasChildren).toBe(false);
+      expect(plugin.getRowMeta(processed[0])?.hasChildren).toBe(true);
+      expect(plugin.getRowMeta(processed[1])?.hasChildren).toBe(false);
 
       // Expand the lazy parent via toggle icon click
       const toggle = document.createElement('span');
@@ -964,7 +964,7 @@ describe('tree plugin integration', () => {
       // Now parent has embedded children — subsequent expand won't fire fetch
       plugin.processRows([parentRow]);
       const processed = plugin.processRows([parentRow]);
-      expect(processed[0].__treeHasChildren).toBe(true);
+      expect(plugin.getRowMeta(processed[0])?.hasChildren).toBe(true);
       expect(Array.isArray(parentRow.children)).toBe(true);
     });
 
@@ -1005,12 +1005,12 @@ describe('tree plugin integration', () => {
       ];
       const processed = plugin.processRows(rows);
 
-      expect(processed[0].__treeHasChildren).toBe(true); // true → lazy
-      expect(processed[1].__treeHasChildren).toBe(true); // 5 → lazy
-      expect(processed[2].__treeHasChildren).toBe(false); // [] → no children
-      expect(processed[3].__treeHasChildren).toBe(false); // undefined → no children
-      expect(processed[4].__treeHasChildren).toBe(false); // false → no children
-      expect(processed[5].__treeHasChildren).toBe(false); // null → no children
+      expect(plugin.getRowMeta(processed[0])?.hasChildren).toBe(true); // true → lazy
+      expect(plugin.getRowMeta(processed[1])?.hasChildren).toBe(true); // 5 → lazy
+      expect(plugin.getRowMeta(processed[2])?.hasChildren).toBe(false); // [] → no children
+      expect(plugin.getRowMeta(processed[3])?.hasChildren).toBe(false); // undefined → no children
+      expect(plugin.getRowMeta(processed[4])?.hasChildren).toBe(false); // false → no children
+      expect(plugin.getRowMeta(processed[5])?.hasChildren).toBe(false); // null → no children
     });
   });
 });

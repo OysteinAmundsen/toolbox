@@ -515,12 +515,16 @@ describe('tree-detect', () => {
 
 describe('TreePlugin sorting', () => {
   /**
-   * Test helper to access the private sortTree method.
-   * We create a plugin instance and properly initialize it with a mock grid.
+   * Test helper: build a fully-expanded tree with a forced sort state and
+   * return the flat ordered list of row names produced by processRows.
+   *
+   * The plugin no longer exposes a separate `sortTree` step \u2014 sorting is
+   * woven into the single-pass flatten walk so that source rows are never
+   * cloned (`_rows[i]` stays === user's row reference). These tests assert
+   * the resulting flat order at every level instead of a cloned tree shape.
    */
-  function sortTree(rows: any[], field: string, direction: 1 | -1): any[] {
-    const plugin = new TreePlugin({});
-    // Mock grid to initialize plugin properly
+  function processSorted(rows: any[], field: string, direction: 1 | -1): any[] {
+    const plugin = new TreePlugin({ defaultExpanded: true });
     const mockGrid = {
       rows: [],
       columns: [],
@@ -542,25 +546,28 @@ describe('TreePlugin sorting', () => {
       dispatchEvent: () => true,
     };
     plugin.attach(mockGrid as any);
-    // Access private method via bracket notation for testing
-    return (plugin as any).sortTree(rows, field, direction);
+    (plugin as any).sortState = { field, direction };
+    return plugin.processRows(rows) as any[];
   }
 
-  describe('sortTree', () => {
+  describe('processRows with sort', () => {
+    // Note: Tree only engages when the input has a tree structure (at least one
+    // row with `children`). Pure flat data is delegated to MultiSort, so each
+    // root-level test below includes a marker child to trigger the tree path.
     it('should sort root level ascending', () => {
-      const rows = [{ name: 'Pictures' }, { name: 'Documents' }, { name: 'readme.md' }];
+      const rows = [{ name: 'Pictures', children: [{ name: 'a.png' }] }, { name: 'Documents' }, { name: 'readme.md' }];
 
-      const result = sortTree(rows, 'name', 1);
+      const result = processSorted(rows, 'name', 1);
 
-      expect(result.map((r: any) => r.name)).toEqual(['Documents', 'Pictures', 'readme.md']);
+      expect(result.map((r: any) => r.name)).toEqual(['Documents', 'Pictures', 'a.png', 'readme.md']);
     });
 
     it('should sort root level descending', () => {
-      const rows = [{ name: 'Documents' }, { name: 'Pictures' }, { name: 'readme.md' }];
+      const rows = [{ name: 'Documents' }, { name: 'Pictures', children: [{ name: 'a.png' }] }, { name: 'readme.md' }];
 
-      const result = sortTree(rows, 'name', -1);
+      const result = processSorted(rows, 'name', -1);
 
-      expect(result.map((r: any) => r.name)).toEqual(['readme.md', 'Pictures', 'Documents']);
+      expect(result.map((r: any) => r.name)).toEqual(['readme.md', 'Pictures', 'a.png', 'Documents']);
     });
 
     it('should sort children within their parent (ASC)', () => {
@@ -573,14 +580,17 @@ describe('TreePlugin sorting', () => {
         { name: 'readme.md' },
       ];
 
-      const result = sortTree(rows, 'name', 1);
+      const result = processSorted(rows, 'name', 1);
 
-      // Root level should be sorted
-      expect(result.map((r: any) => r.name)).toEqual(['Documents', 'Pictures', 'readme.md']);
-
-      // Children of Documents should be sorted
-      const docsChildren = result[0].children;
-      expect(docsChildren.map((r: any) => r.name)).toEqual(['Cover Letter.docx', 'Projects', 'Resume.pdf']);
+      // Flat order: parent + sorted children, then sorted siblings
+      expect(result.map((r: any) => r.name)).toEqual([
+        'Documents',
+        'Cover Letter.docx',
+        'Projects',
+        'Resume.pdf',
+        'Pictures',
+        'readme.md',
+      ]);
     });
 
     it('should sort children within their parent (DESC)', () => {
@@ -593,14 +603,17 @@ describe('TreePlugin sorting', () => {
         { name: 'readme.md' },
       ];
 
-      const result = sortTree(rows, 'name', -1);
+      const result = processSorted(rows, 'name', -1);
 
-      // Root level should be sorted descending
-      expect(result.map((r: any) => r.name)).toEqual(['readme.md', 'Pictures', 'Documents']);
-
-      // Children of Documents should be sorted descending
-      const docsChildren = result[2].children; // Documents is now last
-      expect(docsChildren.map((r: any) => r.name)).toEqual(['Resume.pdf', 'Projects', 'Cover Letter.docx']);
+      // Flat order: descending siblings; Documents (last) prints with its sorted children before next sibling
+      expect(result.map((r: any) => r.name)).toEqual([
+        'readme.md',
+        'Pictures',
+        'Documents',
+        'Resume.pdf',
+        'Projects',
+        'Cover Letter.docx',
+      ]);
     });
 
     it('should sort deeply nested children', () => {
@@ -617,54 +630,57 @@ describe('TreePlugin sorting', () => {
         },
       ];
 
-      const result = sortTree(rows, 'name', 1);
+      const result = processSorted(rows, 'name', 1);
 
-      expect(result[0].name).toBe('Root');
-      expect(result[0].children.map((r: any) => r.name)).toEqual(['Level1-A', 'Level1-B']);
-      expect(result[0].children[1].children.map((r: any) => r.name)).toEqual(['Level2-A', 'Level2-B', 'Level2-C']);
+      expect(result.map((r: any) => r.name)).toEqual([
+        'Root',
+        'Level1-A',
+        'Level1-B',
+        'Level2-A',
+        'Level2-B',
+        'Level2-C',
+      ]);
     });
 
     it('should handle null/undefined values in sort field', () => {
-      const rows = [{ name: 'B' }, { name: null }, { name: 'A' }, { name: undefined }];
+      const rows = [{ name: 'B' }, { name: null }, { name: 'A', children: [{ name: 'a-child' }] }, { name: undefined }];
 
-      const result = sortTree(rows, 'name', 1);
+      const result = processSorted(rows, 'name', 1);
 
-      // Null/undefined come first, then sorted values
+      // Null/undefined come first, then sorted values; A's child follows A.
       expect(result[0].name).toBeNull();
       expect(result[1].name).toBeUndefined();
       expect(result[2].name).toBe('A');
-      expect(result[3].name).toBe('B');
+      expect(result[3].name).toBe('a-child');
+      expect(result[4].name).toBe('B');
     });
 
     it('should sort by numeric field', () => {
       const rows = [
-        { name: 'Item', size: 100 },
+        { name: 'Item', size: 100, children: [{ name: 'leaf', size: 10 }] },
         { name: 'Item', size: 50 },
         { name: 'Item', size: 200 },
       ];
 
-      const result = sortTree(rows, 'size', 1);
+      const result = processSorted(rows, 'size', 1);
 
-      expect(result.map((r: any) => r.size)).toEqual([50, 100, 200]);
+      expect(result.map((r: any) => r.size)).toEqual([50, 100, 10, 200]);
     });
 
-    it('should preserve tree structure after sorting', () => {
-      const rows = [
-        {
-          name: 'Parent',
-          children: [{ name: 'Child' }],
-        },
-      ];
+    it('should preserve source row identity (not clone)', () => {
+      const child = { name: 'Child' };
+      const parent = { name: 'Parent', children: [child] };
+      const rows = [parent];
 
-      const result = sortTree(rows, 'name', 1);
+      const result = processSorted(rows, 'name', 1);
 
-      // Original should not be mutated
-      expect(rows[0]).not.toBe(result[0]);
-      expect(rows[0].children).not.toBe(result[0].children);
-
-      // Structure should be preserved
-      expect(result[0].children).toHaveLength(1);
-      expect(result[0].children[0].name).toBe('Child');
+      // INVARIANT: returned rows are the SAME references as the user's source rows.
+      // This is the property that makes grid.updateRow(s) survive the next reprocess.
+      expect(result[0]).toBe(parent);
+      expect(result[1]).toBe(child);
+      // Source array & child arrays must not have been mutated
+      expect(rows[0]).toBe(parent);
+      expect(parent.children[0]).toBe(child);
     });
   });
 });

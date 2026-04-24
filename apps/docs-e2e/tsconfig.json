@@ -11,7 +11,13 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noUnusedParameters": false,
-    "noUnusedLocals": false
+    "noUnusedLocals": false,
+    // Clear inherited tsconfig.base.json path mappings: those point to dist/.d.ts
+    // entries, which Astro/Vite now auto-resolves and then chokes on (e.g. dist
+    // index.d.ts re-exports `./public`, but only public.d.ts exists in dist).
+    // The Vite `resolve.alias` map in astro.config.mjs already points
+    // `@toolbox-web/grid*` at source for the demo modules we render.
+    "paths": {}
   },
   "include": ["tests/**/*.ts"],
   "exclude": ["node_modules", "test-results"]

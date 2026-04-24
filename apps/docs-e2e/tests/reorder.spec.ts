@@ -53,8 +53,8 @@ test.describe('Column Reorder Demos', () => {
 });
 
 test.describe('Row Reorder Demos', () => {
-  test('RowReorderDefaultDemo — drag handle to reorder rows', async ({ page }) => {
-    await openDemo(page, 'row-reorder/RowReorderDefaultDemo');
+  test('RowDragDropDefaultDemo — drag handle to reorder rows', async ({ page }) => {
+    await openDemo(page, 'row-drag-drop/RowDragDropDefaultDemo');
     await expect(grid(page)).toBeVisible();
 
     // The row reorder plugin adds .dg-row-drag-handle elements
@@ -77,12 +77,12 @@ test.describe('Row Reorder Demos', () => {
     }
   });
 
-  test('RowReorderCancelableEventDemo — blocked rows cannot be moved', async ({ page }) => {
-    await openDemo(page, 'row-reorder/RowReorderCancelableEventDemo');
+  test('RowDragDropCancelableEventDemo — blocked rows cannot be moved', async ({ page }) => {
+    await openDemo(page, 'row-drag-drop/RowDragDropCancelableEventDemo');
     await expect(grid(page)).toBeVisible();
 
     // Verify status element exists
-    const status = page.locator('#row-reorder-cancelable-status');
+    const status = page.locator('#row-drag-drop-cancelable-status');
     await expect(status).toBeVisible();
 
     // Try to drag Bob's row (row index 1) — should be blocked

@@ -58,8 +58,13 @@ import type {
   ResponsiveChangeDetail,
   ResponsivePlugin,
   ResponsivePluginConfig,
+  RowDragDropConfig,
+  RowDragEndDetail,
+  RowDragStartDetail,
+  RowDropDetail,
   RowMoveDetail,
   RowReorderConfig,
+  RowTransferDetail,
   SelectionChangeDetail,
   SelectionConfig,
   ServerSideConfig,
@@ -667,17 +672,30 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   /**
    * Enable row drag-to-reorder.
    *
+   * @deprecated Use `rowDragDrop` instead. `reorderRows` remains as an alias.
+   *
    * **Requires feature import:**
    * ```typescript
    * import '@toolbox-web/grid-angular/features/reorder-rows';
    * ```
+   */
+  reorderRows = input<boolean | RowReorderConfig>();
+
+  /**
+   * Enable row drag-and-drop within and across grids.
+   *
+   * **Requires feature import:**
+   * ```typescript
+   * import '@toolbox-web/grid-angular/features/row-drag-drop';
+   * ```
    *
    * @example
    * ```html
-   * <tbw-grid [reorderRows]="true" />
+   * <tbw-grid [rowDragDrop]="{ dropZone: 'employees', operation: 'move' }" />
    * ```
    */
-  reorderRows = input<boolean | RowReorderConfig>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rowDragDrop = input<boolean | RowDragDropConfig<any>>();
 
   /**
    * Enable row grouping by field values.
@@ -1009,6 +1027,37 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   rowMove = output<RowMoveDetail<any>>();
 
   /**
+   * Emitted when a row drag starts. Cancelable via `event.preventDefault()`.
+   *
+   * @example
+   * ```html
+   * <tbw-grid (rowDragStart)="onRowDragStart($event)">...</tbw-grid>
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rowDragStart = output<RowDragStartDetail<any>>();
+
+  /**
+   * Emitted when a row drag ends (after drop or cancel).
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rowDragEnd = output<RowDragEndDetail<any>>();
+
+  /**
+   * Emitted on the target grid when rows are dropped from another grid.
+   * Cancelable via `event.preventDefault()`.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rowDrop = output<RowDropDetail<any>>();
+
+  /**
+   * Emitted on BOTH source and target grids after a successful cross-grid
+   * row transfer.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rowTransfer = output<RowTransferDetail<any>>();
+
+  /**
    * Emitted when a group is expanded or collapsed.
    *
    * @example
@@ -1143,6 +1192,10 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     columnStateChange: 'column-state-change',
     selectionChange: 'selection-change',
     rowMove: 'row-move',
+    rowDragStart: 'row-drag-start',
+    rowDragEnd: 'row-drag-end',
+    rowDrop: 'row-drop',
+    rowTransfer: 'row-transfer',
     groupToggle: 'group-toggle',
     treeExpand: 'tree-expand',
     detailExpand: 'detail-expand',
@@ -1231,6 +1284,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
 
     addPlugin('columnVirtualization', this.columnVirtualization());
     addPlugin('reorderRows', this.reorderRows());
+    addPlugin('rowDragDrop', this.rowDragDrop());
     // Pre-process groupingRows config to bridge Angular component classes
     const grConfig = this.groupingRows();
     if (grConfig && typeof grConfig === 'object' && this.adapter) {

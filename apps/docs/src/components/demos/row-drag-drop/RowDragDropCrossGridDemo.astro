@@ -1,0 +1,52 @@
+---
+// RowDragDropCrossGridDemo.astro
+// Two-grid transfer-list demo: drag rows between Available and Selected.
+---
+<div class="grid-demo not-content" id="row-drag-drop-cross-grid-demo">
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; min-height: 320px;">
+    <div>
+      <h4 style="margin: 0 0 8px 0;">Available employees</h4>
+      <tbw-grid id="rdd-source" style="height: 320px; display: block;"></tbw-grid>
+    </div>
+    <div>
+      <h4 style="margin: 0 0 8px 0;">Selected employees</h4>
+      <tbw-grid id="rdd-target" style="height: 320px; display: block;"></tbw-grid>
+    </div>
+  </div>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/row-drag-drop';
+
+const container = document.getElementById('row-drag-drop-cross-grid-demo');
+if (container) {
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number', width: 60 },
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+  ];
+
+  const source = queryGrid('tbw-grid#rdd-source', container)!;
+  const target = queryGrid('tbw-grid#rdd-target', container)!;
+
+  source.gridConfig = {
+    columns,
+    features: { rowDragDrop: { dropZone: 'employees', operation: 'move', selection: 'multi' } as any },
+  };
+  source.rows = [
+    { id: 1, name: 'Alice', department: 'Engineering' },
+    { id: 2, name: 'Bob', department: 'Marketing' },
+    { id: 3, name: 'Carol', department: 'Engineering' },
+    { id: 4, name: 'David', department: 'Sales' },
+    { id: 5, name: 'Eve', department: 'Engineering' },
+  ];
+
+  target.gridConfig = {
+    columns,
+    features: { rowDragDrop: { dropZone: 'employees', operation: 'move' } as any },
+  };
+  target.rows = [];
+}
+</script>

@@ -42,7 +42,11 @@ import type {
   ResponsiveChangeDetail,
   RowClickDetail,
   RowCommitDetail,
+  RowDragEndDetail,
+  RowDragStartDetail,
+  RowDropDetail,
   RowMoveDetail,
+  RowTransferDetail,
   SelectionChangeDetail,
   SortChangeDetail,
   TbwScrollDetail,
@@ -278,6 +282,36 @@ export interface EventProps<TRow = unknown> {
    */
   onRowMove?: EventHandler<RowMoveDetail<TRow>>;
 
+  /**
+   * Fired when a row drag starts. Cancelable.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/row-drag-drop';`
+   */
+  onRowDragStart?: EventHandler<RowDragStartDetail<TRow>>;
+
+  /**
+   * Fired when a row drag ends (after drop or cancel).
+   *
+   * @requires `import '@toolbox-web/grid-react/features/row-drag-drop';`
+   */
+  onRowDragEnd?: EventHandler<RowDragEndDetail<TRow>>;
+
+  /**
+   * Fired on the target grid when rows are dropped from another grid.
+   * Cancelable.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/row-drag-drop';`
+   */
+  onRowDrop?: EventHandler<RowDropDetail<TRow>>;
+
+  /**
+   * Fired on BOTH source and target grids after a successful cross-grid
+   * row transfer.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/row-drag-drop';`
+   */
+  onRowTransfer?: EventHandler<RowTransferDetail<TRow>>;
+
   // ═══════════════════════════════════════════════════════════════════
   // GROUPING EVENTS
   // ═══════════════════════════════════════════════════════════════════
@@ -479,6 +513,10 @@ export const EVENT_PROP_MAP: Record<keyof EventProps, string> = {
   onColumnStateChange: 'column-state-change',
   onSelectionChange: 'selection-change',
   onRowMove: 'row-move',
+  onRowDragStart: 'row-drag-start',
+  onRowDragEnd: 'row-drag-end',
+  onRowDrop: 'row-drop',
+  onRowTransfer: 'row-transfer',
   onGroupToggle: 'group-toggle',
   onTreeExpand: 'tree-expand',
   onDetailExpand: 'detail-expand',

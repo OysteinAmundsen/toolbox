@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ROW_DRAG_HANDLE_FIELD, RowReorderPlugin } from './RowReorderPlugin';
+import { ROW_DRAG_HANDLE_FIELD, RowDragDropPlugin } from './RowDragDropPlugin';
 import type { RowMoveDetail } from './types';
 
 // Helper to create a minimal grid mock
@@ -33,26 +33,26 @@ function createGridMock(rows: any[] = []) {
   return mock;
 }
 
-describe('RowReorderPlugin', () => {
+describe('RowDragDropPlugin', () => {
   describe('constructor', () => {
     it('should create plugin with default config', () => {
-      const plugin = new RowReorderPlugin();
-      expect(plugin.name).toBe('reorderRows');
+      const plugin = new RowDragDropPlugin();
+      expect(plugin.name).toBe('rowDragDrop');
     });
 
     it('should accept custom config', () => {
-      const plugin = new RowReorderPlugin({
+      const plugin = new RowDragDropPlugin({
         enableKeyboard: false,
         showDragHandle: false,
         debounceMs: 500,
       });
-      expect(plugin.name).toBe('reorderRows');
+      expect(plugin.name).toBe('rowDragDrop');
     });
   });
 
   describe('processColumns', () => {
     it('should add drag handle column at the start by default', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const grid = createGridMock();
       plugin.attach(grid as any);
 
@@ -66,7 +66,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should add drag handle column at the end when position is right', () => {
-      const plugin = new RowReorderPlugin({ dragHandlePosition: 'right' });
+      const plugin = new RowDragDropPlugin({ dragHandlePosition: 'right' });
       const grid = createGridMock();
       plugin.attach(grid as any);
 
@@ -80,7 +80,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should not add drag handle column when showDragHandle is false', () => {
-      const plugin = new RowReorderPlugin({ showDragHandle: false });
+      const plugin = new RowDragDropPlugin({ showDragHandle: false });
       const grid = createGridMock();
       plugin.attach(grid as any);
 
@@ -93,7 +93,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should mark drag handle column as utility column', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const grid = createGridMock();
       plugin.attach(grid as any);
 
@@ -106,7 +106,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should use custom dragHandleWidth', () => {
-      const plugin = new RowReorderPlugin({ dragHandleWidth: 60 });
+      const plugin = new RowDragDropPlugin({ dragHandleWidth: 60 });
       const grid = createGridMock();
       plugin.attach(grid as any);
 
@@ -118,7 +118,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should create viewRenderer that returns drag handle element', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const grid = createGridMock();
       plugin.attach(grid as any);
 
@@ -136,7 +136,7 @@ describe('RowReorderPlugin', () => {
 
   describe('canMoveRow', () => {
     it('should return true for valid moves', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const grid = createGridMock([{ id: 1 }, { id: 2 }, { id: 3 }]);
       plugin.attach(grid as any);
 
@@ -145,7 +145,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should return false for out of bounds', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const grid = createGridMock([{ id: 1 }, { id: 2 }]);
       plugin.attach(grid as any);
 
@@ -155,7 +155,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should return false when moving to same position', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const grid = createGridMock([{ id: 1 }, { id: 2 }]);
       plugin.attach(grid as any);
 
@@ -164,7 +164,7 @@ describe('RowReorderPlugin', () => {
 
     it('should respect canMove callback', () => {
       const canMove = vi.fn().mockReturnValue(false);
-      const plugin = new RowReorderPlugin({ canMove });
+      const plugin = new RowDragDropPlugin({ canMove });
       const grid = createGridMock([{ id: 1 }, { id: 2 }]);
       plugin.attach(grid as any);
 
@@ -175,7 +175,7 @@ describe('RowReorderPlugin', () => {
 
   describe('moveRow', () => {
     it('should emit row-move event with correct detail', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
       const grid = createGridMock(rows);
       grid.dispatchEvent = vi.fn(() => true);
@@ -194,7 +194,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should update grid.rows when event is not cancelled', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
       const grid = createGridMock(rows);
       grid.dispatchEvent = vi.fn(() => true); // Not cancelled
@@ -206,7 +206,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should not update grid.rows when event is cancelled', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
       const grid = createGridMock(rows);
       // Simulate event cancellation by calling preventDefault
@@ -223,7 +223,7 @@ describe('RowReorderPlugin', () => {
 
     it('should not move when canMove returns false', () => {
       const canMove = vi.fn().mockReturnValue(false);
-      const plugin = new RowReorderPlugin({ canMove });
+      const plugin = new RowDragDropPlugin({ canMove });
       const rows = [{ id: 1 }, { id: 2 }];
       const grid = createGridMock(rows);
       plugin.attach(grid as any);
@@ -234,7 +234,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should not move for same index', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const grid = createGridMock([{ id: 1 }, { id: 2 }]);
       plugin.attach(grid as any);
 
@@ -245,11 +245,11 @@ describe('RowReorderPlugin', () => {
   });
 
   describe('onKeyDown', () => {
-    let plugin: RowReorderPlugin;
+    let plugin: RowDragDropPlugin;
     let grid: ReturnType<typeof createGridMock>;
 
     beforeEach(() => {
-      plugin = new RowReorderPlugin({ debounceMs: 0 }); // Disable debounce for testing
+      plugin = new RowDragDropPlugin({ debounceMs: 0 }); // Disable debounce for testing
       grid = createGridMock([{ id: 1 }, { id: 2 }, { id: 3 }]);
       grid.dispatchEvent = vi.fn(() => true);
       plugin.attach(grid as any);
@@ -344,7 +344,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should not handle when enableKeyboard is false', () => {
-      const disabledPlugin = new RowReorderPlugin({ enableKeyboard: false });
+      const disabledPlugin = new RowDragDropPlugin({ enableKeyboard: false });
       disabledPlugin.attach(grid as any);
       grid._focusRow = 1;
 
@@ -370,7 +370,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should debounce rapid keyboard moves', () => {
-      const plugin = new RowReorderPlugin({ debounceMs: 300 });
+      const plugin = new RowDragDropPlugin({ debounceMs: 300 });
       const rows = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
       const grid = createGridMock(rows);
       grid.dispatchEvent = vi.fn(() => true);
@@ -405,7 +405,7 @@ describe('RowReorderPlugin', () => {
 
   describe('detach', () => {
     it('should clear internal state on detach', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const grid = createGridMock([{ id: 1 }, { id: 2 }]);
       plugin.attach(grid as any);
 
@@ -417,7 +417,7 @@ describe('RowReorderPlugin', () => {
 
     it('should clear pending debounce timer on detach', () => {
       vi.useFakeTimers();
-      const plugin = new RowReorderPlugin({ debounceMs: 300 });
+      const plugin = new RowDragDropPlugin({ debounceMs: 300 });
       const grid = createGridMock([{ id: 1 }, { id: 2 }, { id: 3 }]);
       grid.dispatchEvent = vi.fn(() => true);
       plugin.attach(grid as any);
@@ -442,7 +442,7 @@ describe('RowReorderPlugin', () => {
 
   describe('moveRow edge cases', () => {
     it('should not move when fromIndex is out of bounds (negative)', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const grid = createGridMock([{ id: 1 }, { id: 2 }]);
       plugin.attach(grid as any);
 
@@ -452,7 +452,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should not move when fromIndex is out of bounds (too large)', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const grid = createGridMock([{ id: 1 }, { id: 2 }]);
       plugin.attach(grid as any);
 
@@ -462,7 +462,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should not move when toIndex is out of bounds', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const grid = createGridMock([{ id: 1 }, { id: 2 }]);
       plugin.attach(grid as any);
 
@@ -472,7 +472,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should produce correct row order when moving up', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
       const grid = createGridMock(rows);
       grid.dispatchEvent = vi.fn(() => true);
@@ -491,7 +491,7 @@ describe('RowReorderPlugin', () => {
   describe('onCellClick (flush pending)', () => {
     it('should flush pending keyboard move when cell is clicked', () => {
       vi.useFakeTimers();
-      const plugin = new RowReorderPlugin({ debounceMs: 300 });
+      const plugin = new RowDragDropPlugin({ debounceMs: 300 });
       const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
       const grid = createGridMock(rows);
       grid.dispatchEvent = vi.fn(() => true);
@@ -517,7 +517,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should not throw when no pending move exists', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const grid = createGridMock([{ id: 1 }]);
       plugin.attach(grid as any);
 
@@ -528,7 +528,7 @@ describe('RowReorderPlugin', () => {
   describe('canMove callback interactions', () => {
     it('should pass correct direction for upward move', () => {
       const canMove = vi.fn().mockReturnValue(true);
-      const plugin = new RowReorderPlugin({ canMove });
+      const plugin = new RowDragDropPlugin({ canMove });
       const grid = createGridMock([{ id: 1 }, { id: 2 }, { id: 3 }]);
       grid.dispatchEvent = vi.fn(() => true);
       plugin.attach(grid as any);
@@ -540,7 +540,7 @@ describe('RowReorderPlugin', () => {
 
     it('should pass correct direction for downward move', () => {
       const canMove = vi.fn().mockReturnValue(true);
-      const plugin = new RowReorderPlugin({ canMove });
+      const plugin = new RowDragDropPlugin({ canMove });
       const grid = createGridMock([{ id: 1 }, { id: 2 }, { id: 3 }]);
       grid.dispatchEvent = vi.fn(() => true);
       plugin.attach(grid as any);
@@ -552,7 +552,7 @@ describe('RowReorderPlugin', () => {
 
     it('should prevent keyboard moves when canMove returns false', () => {
       const canMove = vi.fn().mockReturnValue(false);
-      const plugin = new RowReorderPlugin({ canMove, debounceMs: 0 });
+      const plugin = new RowDragDropPlugin({ canMove, debounceMs: 0 });
       const rows = [{ id: 1, locked: true }, { id: 2 }];
       const grid = createGridMock(rows);
       grid.dispatchEvent = vi.fn(() => true);
@@ -569,7 +569,7 @@ describe('RowReorderPlugin', () => {
 
   describe('animation config', () => {
     it('should use flip animation by default', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const grid = createGridMock([{ id: 1 }, { id: 2 }]);
       grid.dispatchEvent = vi.fn(() => true);
       plugin.attach(grid as any);
@@ -581,7 +581,7 @@ describe('RowReorderPlugin', () => {
     });
 
     it('should work with animation disabled', () => {
-      const plugin = new RowReorderPlugin({ animation: false });
+      const plugin = new RowDragDropPlugin({ animation: false });
       const grid = createGridMock([{ id: 1 }, { id: 2 }]);
       grid.dispatchEvent = vi.fn(() => true);
       plugin.attach(grid as any);
@@ -595,7 +595,7 @@ describe('RowReorderPlugin', () => {
 
   describe('drag handle viewRenderer', () => {
     it('should create a draggable element', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       const grid = createGridMock([]);
       plugin.attach(grid as any);
 
@@ -611,19 +611,20 @@ describe('RowReorderPlugin', () => {
   });
 
   describe('aliases', () => {
-    it('should have alias "rowReorder"', () => {
-      const plugin = new RowReorderPlugin();
+    it('should expose legacy aliases for back-compat', () => {
+      const plugin = new RowDragDropPlugin();
       expect(plugin.aliases).toContain('rowReorder');
+      expect(plugin.aliases).toContain('reorderRows');
     });
   });
 
   describe('drag-and-drop events', () => {
-    let plugin: RowReorderPlugin;
+    let plugin: RowDragDropPlugin;
     let grid: ReturnType<typeof createGridMock>;
     let gridEl: HTMLElement;
 
     beforeEach(() => {
-      plugin = new RowReorderPlugin();
+      plugin = new RowDragDropPlugin();
       grid = createGridMock([{ id: 1 }, { id: 2 }, { id: 3 }]);
       grid.dispatchEvent = vi.fn(() => true);
 
@@ -724,7 +725,7 @@ describe('RowReorderPlugin', () => {
   describe('keyboard move revert on cancel', () => {
     it('should revert position when event is cancelled', () => {
       vi.useFakeTimers();
-      const plugin = new RowReorderPlugin({ debounceMs: 100 });
+      const plugin = new RowDragDropPlugin({ debounceMs: 100 });
       const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
       const grid = createGridMock(rows);
       // Cancel the event
@@ -757,7 +758,7 @@ describe('RowReorderPlugin', () => {
 
   describe('styles', () => {
     it('should have styles property', () => {
-      const plugin = new RowReorderPlugin();
+      const plugin = new RowDragDropPlugin();
       expect(typeof plugin.styles).toBe('string');
     });
   });

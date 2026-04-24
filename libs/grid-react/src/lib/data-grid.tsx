@@ -473,6 +473,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     'contextMenu',
     'reorderColumns',
     'reorderRows',
+    'rowDragDrop',
     'visibility',
     'undoRedo',
     'tree',

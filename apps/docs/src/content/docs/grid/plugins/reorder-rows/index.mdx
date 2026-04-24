@@ -8,6 +8,15 @@ import RowReorderCancelableEventDemo from '@components/demos/row-reorder/RowReor
 import RowReorderDefaultDemo from '@components/demos/row-reorder/RowReorderDefaultDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
+:::caution[Deprecated]
+`RowReorderPlugin` is now an alias for the new
+[`RowDragDropPlugin`](/grid/plugins/row-drag-drop/), which is a strict
+superset (intra-grid reorder + opt-in cross-grid drag). Existing imports
+keep working until V3 — see the
+[migration section](/grid/plugins/row-drag-drop/#migration-from-rowreorderplugin)
+when you're ready to switch.
+:::
+
 
 
 The Row Reorder plugin lets users rearrange rows by dragging a grip handle or using keyboard shortcuts. Ideal for priority lists, task ordering, or any data where sequence matters.

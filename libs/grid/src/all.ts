@@ -41,6 +41,7 @@ export * from './lib/plugins/print';
 export * from './lib/plugins/reorder-columns';
 export * from './lib/plugins/reorder-rows';
 export * from './lib/plugins/responsive';
+export * from './lib/plugins/row-drag-drop';
 export * from './lib/plugins/selection';
 export * from './lib/plugins/server-side';
 export * from './lib/plugins/tooltip';

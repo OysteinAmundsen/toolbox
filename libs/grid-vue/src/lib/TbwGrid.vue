@@ -36,8 +36,13 @@ import type {
   ResponsivePluginConfig,
   RowClickDetail,
   RowCommitDetail,
+  RowDragDropConfig,
+  RowDragEndDetail,
+  RowDragStartDetail,
+  RowDropDetail,
   RowMoveDetail,
   RowReorderConfig,
+  RowTransferDetail,
   SelectionChangeDetail,
   SelectionConfig,
   ServerSideConfig,
@@ -239,9 +244,14 @@ const props = defineProps({
     type: [Boolean, Object] as PropType<boolean | ColumnVirtualizationConfig>,
     default: undefined,
   },
-  /** Enable row drag-to-reorder */
+  /** Enable row drag-to-reorder (deprecated alias for `rowDragDrop`) */
   reorderRows: {
     type: [Boolean, Object] as PropType<boolean | RowReorderConfig>,
+    default: undefined,
+  },
+  /** Enable row drag-and-drop within and across grids */
+  rowDragDrop: {
+    type: [Boolean, Object] as PropType<boolean | RowDragDropConfig<TRow>>,
     default: undefined,
   },
   /** Enable row grouping by field values */
@@ -321,6 +331,10 @@ const EVENT_MAP = {
   'column-state-change': '' as unknown as GridColumnState,
   'selection-change': '' as unknown as SelectionChangeDetail,
   'row-move': '' as unknown as RowMoveDetail,
+  'row-drag-start': '' as unknown as RowDragStartDetail,
+  'row-drag-end': '' as unknown as RowDragEndDetail,
+  'row-drop': '' as unknown as RowDropDetail,
+  'row-transfer': '' as unknown as RowTransferDetail,
   'group-toggle': '' as unknown as GroupToggleDetail,
   'tree-expand': '' as unknown as TreeExpandDetail,
   'detail-expand': '' as unknown as DetailExpandDetail,
@@ -353,6 +367,10 @@ const emit = defineEmits<{
   (e: 'column-state-change', event: CustomEvent<GridColumnState>): void;
   (e: 'selection-change', event: CustomEvent<SelectionChangeDetail>): void;
   (e: 'row-move', event: CustomEvent<RowMoveDetail<TRow>>): void;
+  (e: 'row-drag-start', event: CustomEvent<RowDragStartDetail<TRow>>): void;
+  (e: 'row-drag-end', event: CustomEvent<RowDragEndDetail<TRow>>): void;
+  (e: 'row-drop', event: CustomEvent<RowDropDetail<TRow>>): void;
+  (e: 'row-transfer', event: CustomEvent<RowTransferDetail<TRow>>): void;
   (e: 'group-toggle', event: CustomEvent<GroupToggleDetail>): void;
   (e: 'tree-expand', event: CustomEvent<TreeExpandDetail<TRow>>): void;
   (e: 'detail-expand', event: CustomEvent<DetailExpandDetail>): void;

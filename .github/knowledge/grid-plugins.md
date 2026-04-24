@@ -184,6 +184,13 @@ DECIDED (Apr 2026, public sort customization guidance): `column.sortComparator` 
 
 **ReorderRows** — OWNS: row order, drag state. HOOKS: onCellMouseDown/Move/Up. QUERIES: canMoveRow
 
+**RowDragDrop** (#225) — OWNS: row order + cross-grid drag/drop session. ALIASES: `reorderRows`, `rowReorder` (legacy). HOOKS: processColumns (drag-handle col), onKeyDown (Ctrl+arrow), onCellClick, delegated dragstart/over/leave/drop/dragend. QUERIES: canMoveRow. EVENTS: row-move (back-compat), row-drag-start (cancelable), row-drag-end, row-drop (cancelable), row-transfer (fired on BOTH source + target). USES: `core/internal/drag-drop-registry.ts` (WeakRef session map shared across split bundles) + `plugins/shared/drag-drop-protocol.ts` (MIME constants, payload codec, drop-position math, auto-scroller, current-session tracker for synchronous canDrop).
+
+- DECIDED (#225): `reorder-rows/index.ts` MUST NOT re-export `ROW_DRAG_HANDLE_FIELD` or `RowMoveDetail` — both would collide in `all.ts` with the same exports from `row-drag-drop/index.ts`. Only `RowReorderPlugin` (alias) and `RowReorderConfig` (Pick subset) are re-exported. Same rule for any future deprecated alias plugin.
+- DECIDED (#225): The `reorder-rows` UMD/ESM bundle inlines the full `RowDragDropPlugin` (~16 kB / 5.4 kB gzip) because Vite's `externalizeCore` only externalizes `../../components/` and `../../../` paths, not sibling plugin paths. Acceptable trade-off for the V2.x deprecation period — both bundles are well under the 50 kB plugin budget. Revisit if budget pressure emerges.
+- DECIDED (#225): Plugin alias dedup is centralised in `PluginManager#collapseAliasDuplicates`. Constructor identity is the dedup key (NOT plugin name) — that lets the same class be registered under multiple feature keys without instance bloat. Configs merge via `BaseGridPlugin.mergeConfigsFrom`: silent on equal scalars/refs, warns TBW023 once on dedupe, throws TBW025 on conflicting non-equal values. The dedup warning is silenced under `import.meta.env.PROD`.
+- DECIDED (#225): Same-window cross-grid drag uses `currentSession` (module-level singleton in `shared/drag-drop-protocol.ts`) for synchronous `canDrop` resolution during `dragover` (where `dataTransfer.getData()` returns `''`). Cross-window drops fall back to JSON via `dataTransfer.getData(TBW_ROW_DRAG_MIME)` + `deserializeRow`. WeakRef registry only matters for live-object recovery on the **drop** event (so target gets the actual row reference, not a clone).
+
 ### Display
 
 **Responsive** — OWNS: breakpoint-based column visibility. HOOKS: processColumns, getRowHeight

@@ -1,0 +1,125 @@
+/**
+ * Row Drag-Drop Plugin CSS
+ *
+ * Styles for drag handle, drop indicators (intra- and cross-grid), grid-level
+ * drag/drop state classes, and FLIP animation on landing rows.
+ */
+
+@layer tbw-plugins {
+  /* ------------------------------------------------------------------ */
+  /* Drag handle column                                                 */
+  /* ------------------------------------------------------------------ */
+  [data-field='__tbw_row_drag'] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dg-row-drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1em;
+    min-height: 1em;
+    cursor: grab;
+    user-select: none;
+    color: var(--tbw-row-reorder-handle-color, var(--tbw-color-fg-muted));
+    transition: color var(--tbw-transition-duration, 120ms) var(--tbw-transition-ease, ease);
+    font-size: var(--tbw-font-size, 1em);
+    letter-spacing: -2px;
+
+    &:hover {
+      color: var(--tbw-row-reorder-handle-hover, var(--tbw-color-fg));
+    }
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Source row state                                                   */
+  /* ------------------------------------------------------------------ */
+  .data-grid-row.dragging {
+    opacity: 0.6;
+  }
+
+  /* Multi-row drag count badge */
+  .tbw-row-drag-count {
+    position: fixed;
+    top: -1000px; /* off-screen until the browser snapshots it */
+    left: -1000px;
+    pointer-events: none;
+    background: var(--tbw-row-reorder-indicator, var(--tbw-color-accent));
+    color: #fff;
+    font:
+      600 12px/1.4 system-ui,
+      sans-serif;
+    border-radius: 999px;
+    padding: 2px 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    z-index: 9999;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Drop position indicator (rows under cursor)                        */
+  /* ------------------------------------------------------------------ */
+  .data-grid-row.drop-target {
+    position: relative;
+
+    &.drop-before::before,
+    &.drop-after::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: var(--tbw-drop-indicator-width, 2px);
+      background-color: var(--tbw-drop-indicator-color, var(--tbw-row-reorder-indicator, var(--tbw-color-accent)));
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    &.drop-before::before {
+      top: 0;
+    }
+
+    &.drop-after::after {
+      bottom: 0;
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Grid-level state classes                                           */
+  /* ------------------------------------------------------------------ */
+
+  /* Source grid while a drag originating here is in progress */
+  .tbw-grid--drag-source {
+    /* Reserved hook for consumer styling. */
+  }
+
+  /* Target grid while a valid drag hovers (matching dropZone, canDrop ok) */
+  .tbw-grid--drop-target-active {
+    outline: 2px dashed var(--tbw-drop-indicator-color, var(--tbw-color-accent));
+    outline-offset: -2px;
+  }
+
+  /* Briefly applied when a drop attempt is rejected */
+  .tbw-grid--drop-target-rejected {
+    outline: 2px dashed var(--tbw-color-danger, #d33);
+    outline-offset: -2px;
+  }
+
+  /* Applied while the auto-scroll engine is actively scrolling this grid */
+  .tbw-grid--auto-scrolling {
+    cursor: ns-resize;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* FLIP animation on landing rows                                     */
+  /* ------------------------------------------------------------------ */
+  .data-grid-row.flip-animating {
+    transition: transform var(--tbw-animation-duration, 200ms) ease-out;
+    will-change: transform;
+    z-index: 1;
+  }
+}

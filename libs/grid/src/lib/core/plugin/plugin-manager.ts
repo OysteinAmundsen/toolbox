@@ -10,7 +10,7 @@
  * priority preserve their original array order.
  */
 
-import { PLUGIN_EVENT_ERROR, errorDiagnostic } from '../internal/diagnostics';
+import { PLUGIN_ALIAS_COLLAPSE, PLUGIN_EVENT_ERROR, errorDiagnostic, warnDiagnostic } from '../internal/diagnostics';
 import { validatePluginDependencies } from '../internal/validate-config';
 import type { ColumnConfig } from '../types';
 import type {
@@ -93,11 +93,68 @@ export class PluginManager {
 
   /**
    * Attach all plugins from the config.
+   *
+   * Runs an alias-collapse pre-pass before per-instance attach: when multiple
+   * plugin instances resolve to the same canonical constructor (e.g.
+   * `RowReorderPlugin` and `RowDragDropPlugin`, which point to the same class
+   * after V2.x), only the first instance is attached, and the others' user
+   * configs are folded into it via `BaseGridPlugin.mergeConfigsFrom()`.
+   *
+   * Skipped duplicates trigger a one-time `console.warn` with diagnostic code
+   * `TBW023` (suppressed in production builds via `import.meta.env.PROD`).
    */
   attachAll(plugins: BaseGridPlugin[]): void {
-    for (const plugin of plugins) {
+    const collapsed = this.#collapseAliasDuplicates(plugins);
+    for (const plugin of collapsed) {
       this.attach(plugin);
     }
+  }
+
+  /**
+   * Group plugin instances by canonical constructor. For each group with >1
+   * instance, merge the trailing instances' user configs into the leading
+   * instance and warn the developer once.
+   *
+   * Constructor identity is used as the canonical key — when a plugin is
+   * deprecated as an alias (e.g. `RowReorderPlugin = RowDragDropPlugin`),
+   * both class references point to the same constructor, so duplicate
+   * instances collapse cleanly without any name table.
+   */
+  #collapseAliasDuplicates(plugins: BaseGridPlugin[]): BaseGridPlugin[] {
+    if (plugins.length < 2) return plugins;
+    const seen = new Map<unknown, BaseGridPlugin>();
+    const seenDuplicates = new Map<BaseGridPlugin, BaseGridPlugin[]>();
+    const result: BaseGridPlugin[] = [];
+    for (const plugin of plugins) {
+      const key = plugin.constructor;
+      const existing = seen.get(key);
+      if (!existing) {
+        seen.set(key, plugin);
+        result.push(plugin);
+        continue;
+      }
+      // Duplicate — track for merge after the loop
+      const dupes = seenDuplicates.get(existing) ?? [];
+      dupes.push(plugin);
+      seenDuplicates.set(existing, dupes);
+    }
+    if (seenDuplicates.size === 0) return result;
+    for (const [first, dupes] of seenDuplicates) {
+      // Merge configs (may throw on conflict — propagate up to the caller)
+      first.mergeConfigsFrom(dupes);
+      // Dev-time deprecation hint (skipped in production)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const env = (import.meta as any).env;
+      if (env?.PROD) continue;
+      const aliases = dupes.map((d) => d.name);
+      warnDiagnostic(
+        PLUGIN_ALIAS_COLLAPSE,
+        `Multiple instances of plugin "${first.name}" detected (${[first.name, ...aliases].join(', ')}). They resolve to the same class — merging configs and attaching once. Remove the duplicate instantiation; this warning will become an error in V3.`,
+        this.grid.getAttribute('id') ?? undefined,
+        first.name,
+      );
+    }
+    return result;
   }
 
   /**

@@ -44,6 +44,7 @@ export type FeatureName =
   | 'groupingColumns'
   | 'columnVirtualization'
   | 'reorderRows'
+  | 'rowDragDrop'
   | 'groupingRows'
   | 'pinnedRows'
   | 'tree'

@@ -32,6 +32,7 @@ import './print';
 import './reorder-columns';
 import './reorder-rows';
 import './responsive';
+import './row-drag-drop';
 import './selection';
 import './server-side';
 import './tooltip';

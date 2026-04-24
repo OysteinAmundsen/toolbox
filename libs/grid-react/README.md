@@ -15,7 +15,7 @@ React adapter for `@toolbox-web/grid` data grid component. Provides components a
 - ✅ **Render props** - Clean `children` syntax for custom cells
 - ✅ **Type-level defaults** - App-wide renderers/editors via `GridTypeProvider`
 - ✅ **Icon configuration** - App-wide icon overrides via `GridProvider` or `GridIconProvider`
-- ✅ **Hooks API** - `useGrid` and `useGridEvent` for programmatic access
+- ✅ **Hooks API** - `useGrid` for programmatic access
 - ✅ **Ref forwarding** - Access grid instance via `DataGridRef`
 - ✅ **Master-detail** - `GridDetailPanel` for expandable rows
 - ✅ **Tool panels** - `GridToolPanel` for custom sidebar content
@@ -440,25 +440,6 @@ function MyComponent() {
 }
 ```
 
-### useGridEvent
-
-Type-safe event subscription with automatic cleanup:
-
-```tsx
-import { DataGrid, useGridEvent, DataGridRef } from '@toolbox-web/grid-react';
-import { useRef } from 'react';
-
-function MyComponent() {
-  const gridRef = useRef<DataGridRef>(null);
-
-  useGridEvent(gridRef, 'selection-change', (event) => {
-    console.log('Selected:', event.detail.selectedRows);
-  });
-
-  return <DataGrid ref={gridRef} rows={employees} />;
-}
-```
-
 ## Event Handling
 
 ### Via Props
@@ -471,10 +452,6 @@ function MyComponent() {
   onSortChange={(e) => console.log('Sort:', e.detail)}
 />
 ```
-
-### Via useGridEvent Hook
-
-See [useGridEvent](#usegridevent) above.
 
 ## Type-Level Defaults
 
@@ -676,13 +653,12 @@ Inject custom CSS into the grid:
 
 ### Exported Hooks
 
-| Hook                    | Description                               |
-| ----------------------- | ----------------------------------------- |
-| `useGrid`               | Grid ref with ready state and methods     |
-| `useGridEvent`          | Type-safe event subscription with cleanup |
-| `useGridTypeDefaults()` | Get all type defaults from context        |
-| `useTypeDefault(type)`  | Get defaults for a specific type          |
-| `useGridIcons()`        | Get icon overrides from context           |
+| Hook                    | Description                           |
+| ----------------------- | ------------------------------------- |
+| `useGrid`               | Grid ref with ready state and methods |
+| `useGridTypeDefaults()` | Get all type defaults from context    |
+| `useTypeDefault(type)`  | Get defaults for a specific type      |
+| `useGridIcons()`        | Get icon overrides from context       |
 
 ### Exported Types
 

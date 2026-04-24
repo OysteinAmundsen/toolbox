@@ -6,6 +6,10 @@ description: Install and configure @toolbox-web/grid-vue — feature props, slot
 
 The `@toolbox-web/grid-vue` package provides Vue 3 integration for the `<tbw-grid>` data grid component.
 
+:::note[Where to find feature docs]
+This page covers Vue-specific setup and APIs (feature props, composables, slot renderers). Core grid features and plugins — cell renderers, editors, events, master-detail, sorting, filtering, selection, etc. — are documented on the [Core](/grid/core/) and [Plugins](/grid/plugins/) pages, each with a Vue tab and runnable demos.
+:::
+
 ## Compatibility
 
 | Vue version | Support level |
@@ -151,182 +155,6 @@ Each feature prop enables a specific plugin with simplified configuration:
 | `filterable` | `boolean` | Grid-wide filtering toggle (default: true). Requires FilteringPlugin. |
 | `selectable` | `boolean` | Grid-wide selection toggle (default: true). Requires SelectionPlugin. |
 
-## Custom Cell Renderers
-
-Use the `TbwGridColumn` component with the `#cell` slot to customize how cell values are displayed:
-
-```html
-<script setup lang="ts">
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
-import { ref } from 'vue';
-import StatusBadge from './StatusBadge.vue';
-
-interface Employee {
-  id: number;
-  name: string;
-  status: 'active' | 'inactive' | 'pending';
-}
-
-const employees = ref<Employee[]>([
-  { id: 1, name: 'Alice', status: 'active' },
-  { id: 2, name: 'Bob', status: 'inactive' },
-  { id: 3, name: 'Charlie', status: 'pending' },
-]);
-
-const columns = [
-  { field: 'id', header: 'ID', width: 70 },
-  { field: 'name', header: 'Name' },
-  { field: 'status', header: 'Status' },
-];
-</script>
-
-<template>
-  <TbwGrid :rows="employees" :columns="columns" style="height: 400px; display: block">
-    <!-- Custom renderer for the status column -->
-    <TbwGridColumn field="status">
-      <template #cell="{ value, row }">
-        <StatusBadge :status="value" />
-      </template>
-    </TbwGridColumn>
-  </TbwGrid>
-</template>
-```
-
-**Slot Props:**
-
-| Prop | Type | Description |
-|------|------|-------------|
-| `value` | `TValue` | The cell value |
-| `row` | `TRow` | The full row data object |
-| `column` | [`ColumnConfig`](/grid/api/core/interfaces/columnconfig/) | Column configuration |
-
-## Custom Cell Editors
-
-Use the `#editor` slot for inline cell editing. The slot provides `commit` and `cancel` functions:
-
-```html
-<script setup lang="ts">
-import '@toolbox-web/grid-vue/features/editing';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
-import { ref } from 'vue';
-import StatusBadge from './StatusBadge.vue';
-import StatusSelectEditor from './StatusSelectEditor.vue';
-
-interface Employee {
-  id: number;
-  name: string;
-  status: 'active' | 'inactive' | 'pending';
-}
-
-const employees = ref<Employee[]>([/* ... */]);
-
-const columns = [
-  { field: 'id', header: 'ID', width: 70 },
-  { field: 'name', header: 'Name', editable: true },
-  { field: 'status', header: 'Status', editable: true },
-];
-</script>
-
-<template>
-  <TbwGrid
-    :rows="employees"
-    :columns="columns"
-    editing="dblclick"
-    style="height: 400px; display: block"
-  >
-    <TbwGridColumn field="status">
-      <template #cell="{ value }">
-        <StatusBadge :status="value" />
-      </template>
-      <template #editor="{ value, commit, cancel }">
-        <StatusSelectEditor
-          :value="value"
-          @commit="commit"
-          @cancel="cancel"
-        />
-      </template>
-    </TbwGridColumn>
-  </TbwGrid>
-</template>
-```
-
-**Editor Slot Props:**
-
-| Prop | Type | Description |
-|------|------|-------------|
-| `value` | `TValue` | The current cell value |
-| `row` | `TRow` | The full row data object |
-| `column` | [`ColumnConfig`](/grid/api/core/interfaces/columnconfig/) | Column configuration |
-| `commit` | `(value: TValue) => void` | Call to save the new value |
-| `cancel` | `() => void` | Call to cancel editing |
-
-Example editor component:
-
-```html
-<!-- StatusSelectEditor.vue -->
-<script setup lang="ts">
-defineProps<{
-  value: string;
-}>();
-
-const emit = defineEmits<{
-  commit: [value: string];
-  cancel: [];
-}>();
-
-function onChange(event: Event) {
-  const target = event.target as HTMLSelectElement;
-  emit('commit', target.value);
-}
-</script>
-
-<template>
-  <select :value="value" @change="onChange" @keydown.escape="emit('cancel')">
-    <option value="active">Active</option>
-    <option value="inactive">Inactive</option>
-    <option value="pending">Pending</option>
-  </select>
-</template>
-```
-
-## Handling Events
-
-Listen to grid events using standard Vue event binding. Events emit `CustomEvent` objects — access data via `event.detail`:
-
-```html
-<script setup lang="ts">
-import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { CellClickDetail, CellCommitDetail, SortChangeDetail } from '@toolbox-web/grid';
-
-function onCellClick(event: CustomEvent<CellClickDetail>) {
-  const { row, column, value } = event.detail;
-  console.log('Cell clicked:', { row, column, value });
-}
-
-function onCellCommit(event: CustomEvent<CellCommitDetail>) {
-  const { row, column, newValue, oldValue } = event.detail;
-  console.log('Cell edited:', { row, column, newValue, oldValue });
-}
-
-function onSortChange(event: CustomEvent<SortChangeDetail>) {
-  const { sortState } = event.detail;
-  console.log('Sort changed:', sortState);
-}
-</script>
-
-<template>
-  <TbwGrid
-    :rows="employees"
-    :columns="columns"
-    @cell-click="onCellClick"
-    @cell-commit="onCellCommit"
-    @sort-change="onSortChange"
-  />
-</template>
-```
-
-> **Note**: Unlike React (which unwraps `event.detail` as the first argument), the Vue adapter passes the full `CustomEvent` object to handlers. Access event data via `event.detail`.
-
 ## Programmatic Grid Access
 
 Use the `useGrid` composable for programmatic control:
@@ -362,41 +190,6 @@ async function exportCsv() {
     <button @click="refreshGrid">Refresh</button>
     <button @click="exportCsv">Export CSV</button>
     <TbwGrid :rows="employees" :columns="columns" />
-  </div>
-</template>
-```
-
-## The `useGridEvent` Composable
-
-:::caution[Deprecated]
-`useGridEvent` is deprecated and will be removed in v2. Prefer `@event` bindings directly on `<TbwGrid>` (shown above). Use `useGridEvent` only when you need to listen for events outside the template (e.g., in a composable with no template access).
-:::
-
-For programmatic event handling beyond template bindings, `useGridEvent` provides type-safe event subscription with automatic cleanup:
-
-```html
-<script setup lang="ts">
-import '@toolbox-web/grid-vue/features/editing';
-import { TbwGrid, useGrid, useGridEvent } from '@toolbox-web/grid-vue';
-import type { CellCommitDetail } from '@toolbox-web/grid';
-import { ref } from 'vue';
-
-const editHistory = ref<string[]>([]);
-const employees = ref<Employee[]>([/* ... */]);
-const { gridElement } = useGrid();
-
-useGridEvent('cell-commit', (event: CustomEvent<CellCommitDetail<Employee>>) => {
-  const detail = event.detail;
-  editHistory.value.push(
-    `${detail.column.field}: ${detail.oldValue} → ${detail.newValue}`
-  );
-}, gridElement);
-</script>
-
-<template>
-  <div>
-    <ul><li v-for="(entry, i) in editHistory" :key="i">{{ entry }}</li></ul>
-    <TbwGrid :rows="employees" :columns="columns" editing="dblclick" />
   </div>
 </template>
 ```
@@ -483,7 +276,12 @@ Feature props and manual plugins can be mixed — the grid merges them.
 
 ## Custom Icons
 
-Use `GridIconProvider` to override grid icons application-wide:
+The grid supports two complementary ways to customize icons — see the core [Icon Customization](/grid/api-reference/#icon-customization) reference and the [Theming Guide](/grid/guides/theming/#icon-customization) for the full picture:
+
+- **CSS variables** (`--tbw-icon-*`) — preferred for themes and static customization; no JavaScript needed.
+- **`gridConfig.icons`** — for dynamic icons, icon libraries, or `HTMLElement` instances; takes precedence over CSS.
+
+`GridIconProvider` is the Vue wrapper for the JS path — it injects `icons` into `gridConfig.icons` for every descendant `<TbwGrid>`:
 
 ```html
 <script setup lang="ts">
@@ -491,128 +289,140 @@ import { GridIconProvider, TbwGrid } from '@toolbox-web/grid-vue';
 </script>
 
 <template>
-  <GridIconProvider :icons="{ sortAsc: '▲', sortDesc: '▼' }">
+  <GridIconProvider :icons="{ sortAsc: '↑', sortDesc: '↓' }">
     <TbwGrid :rows="employees" :columns="columns" />
   </GridIconProvider>
 </template>
 ```
 
-## Responsive Card Layout
-
-Use `TbwGridResponsiveCard` for mobile-friendly card layouts:
-
-```html
-<script setup lang="ts">
-import '@toolbox-web/grid-vue/features/responsive';
-import { TbwGrid, TbwGridResponsiveCard } from '@toolbox-web/grid-vue';
-import { ref } from 'vue';
-
-const employees = ref<Employee[]>([/* ... */]);
-</script>
-
-<template>
-  <TbwGrid :rows="employees" :columns="columns" :responsive="{ breakpoint: 768, cardTitleField: 'name' }">
-    <TbwGridResponsiveCard v-slot="{ row }">
-      <div class="card">
-        <h3>{{ row.name }}</h3>
-        <p>{{ row.department }} · ${{ row.salary.toLocaleString() }}</p>
-      </div>
-    </TbwGridResponsiveCard>
-  </TbwGrid>
-</template>
-```
-
 ## Server-Side Data Loading
 
+For backends that own paging / sorting / filtering, use `ServerSidePlugin`.
+Your `getRows` handler receives the current `sortModel`, `filterModel`, and
+block range — return rows and the total count.
+
 ```html
 <script setup lang="ts">
-import '@toolbox-web/grid-vue/features/multi-sort';
-import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { SortState, SortChangeDetail } from '@toolbox-web/grid';
-import { ref, watch } from 'vue';
+import { TbwGrid, type GridConfig } from '@toolbox-web/grid-vue';
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import { markRaw } from 'vue';
 
-const loading = ref(true);
-const employees = ref<Employee[]>([]);
-const sortState = ref<SortState[]>([]);
-
-async function fetchData(sort: SortState[]) {
-  loading.value = true;
-  try {
-    const params = new URLSearchParams();
-    if (sort.length > 0) {
-      params.set('sortField', sort[0].field);
-      params.set('sortDir', sort[0].direction);
-    }
-    const response = await fetch(`/api/employees?${params}`);
-    const { data } = await response.json();
-    employees.value = data;
-  } finally {
-    loading.value = false;
-  }
-}
-
-watch(sortState, (newSort) => fetchData(newSort), { immediate: true });
-
-function handleSortChange(event: CustomEvent<SortChangeDetail>) {
-  sortState.value = event.detail.sortState;
-}
+const config: GridConfig<Employee> = markRaw({
+  columns,
+  plugins: [
+    new MultiSortPlugin(),
+    new ServerSidePlugin<Employee>({
+      cacheBlockSize: 100,
+      dataSource: {
+        getRows: async ({ startNode, endNode, sortModel, filterModel }) => {
+          const params = new URLSearchParams({
+            from: String(startNode),
+            to: String(endNode),
+          });
+          if (sortModel?.length) {
+            params.set(
+              'sort',
+              sortModel.map((s) => `${s.field}:${s.direction}`).join(','),
+            );
+          }
+          if (filterModel) params.set('filter', JSON.stringify(filterModel));
+          const response = await fetch(`/api/employees?${params}`);
+          const { rows, totalNodeCount } = await response.json();
+          return { rows, totalNodeCount };
+        },
+      },
+    }),
+  ],
+});
 </script>
 
 <template>
-  <TbwGrid
-    :rows="employees"
-    :columns="columns"
-    :multi-sort="{ mode: 'external', sortState: sortState }"
-    @sort-change="handleSortChange"
-  />
+  <TbwGrid :rows="[]" :grid-config="config" />
 </template>
 ```
+
+:::tip
+Avoid `gridConfig.sortHandler` for server-side sort — it's bypassed when
+`MultiSortPlugin` is loaded and only carries a single field. `ServerSidePlugin`
+is the supported path and works with both single- and multi-column sort.
+:::
 
 ### VueQuery (TanStack Query) Integration
 
+If your app already uses [TanStack Vue Query](https://tanstack.com/query/latest/docs/framework/vue/overview),
+one useful pairing is to back `ServerSidePlugin` with Vue Query's request cache.
+Each block the grid asks for becomes a query keyed by the request shape
+(`startNode`, `endNode`, `sortModel`, `filterModel`) — so scrolling back to a
+previously fetched range is served from cache instead of re-hitting the API,
+and you get retries, in-flight deduplication, and devtools for free.
+
+The pattern: keep `getRows` thin and delegate fetching to `queryClient.fetchQuery`
+with a stable key per block.
+
 ```html
 <script setup lang="ts">
-import '@toolbox-web/grid-vue/features/editing';
-import { TbwGrid } from '@toolbox-web/grid-vue';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query';
-import type { CellCommitDetail } from '@toolbox-web/grid';
+import { TbwGrid, type GridConfig } from '@toolbox-web/grid-vue';
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import type { GetRowsParams, GetRowsResult } from '@toolbox-web/grid/plugins/server-side';
+import { useQueryClient } from '@tanstack/vue-query';
+import { markRaw } from 'vue';
+
+async function fetchEmployeeBlock(
+  params: GetRowsParams,
+): Promise<GetRowsResult<Employee>> {
+  const search = new URLSearchParams({
+    from: String(params.startNode),
+    to: String(params.endNode),
+  });
+  if (params.sortModel?.length) {
+    search.set('sort', params.sortModel.map((s) => `${s.field}:${s.direction}`).join(','));
+  }
+  if (params.filterModel) search.set('filter', JSON.stringify(params.filterModel));
+  const response = await fetch(`/api/employees?${search}`);
+  return response.json();
+}
 
 const queryClient = useQueryClient();
 
-const { data: employees, isLoading } = useQuery({
-  queryKey: ['employees'],
-  queryFn: () => fetch('/api/employees').then(r => r.json()),
-});
-
-const updateMutation = useMutation({
-  mutationFn: (employee: Partial<Employee>) =>
-    fetch(`/api/employees/${employee.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(employee),
+const config: GridConfig<Employee> = markRaw({
+  columns,
+  plugins: [
+    new MultiSortPlugin(),
+    new ServerSidePlugin<Employee>({
+      cacheBlockSize: 100,
+      dataSource: {
+        // Each block becomes a cached query — Vue Query dedupes in-flight
+        // requests, retries failed ones, and serves repeated scrolls from cache.
+        getRows: (params) =>
+          queryClient.fetchQuery({
+            queryKey: [
+              'employees',
+              params.startNode,
+              params.endNode,
+              params.sortModel,
+              params.filterModel,
+            ],
+            queryFn: () => fetchEmployeeBlock(params),
+            staleTime: 60_000,
+          }),
+      },
     }),
-  onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
+  ],
 });
-
-function handleCellCommit(event: CustomEvent<CellCommitDetail<Employee>>) {
-  const detail = event.detail;
-  updateMutation.mutate({
-    id: detail.row.id,
-    [detail.column.field as keyof Employee]: detail.newValue,
-  });
-}
 </script>
 
 <template>
-  <div v-if="isLoading">Loading...</div>
-  <TbwGrid
-    v-else
-    :rows="employees ?? []"
-    :columns="columns"
-    editing="dblclick"
-    @cell-commit="handleCellCommit"
-  />
+  <TbwGrid :rows="[]" :grid-config="config" />
 </template>
 ```
+
+:::tip
+When the user mutates a row (commit, paste, etc.), invalidate the query to
+trigger a refresh: `queryClient.invalidateQueries({ queryKey: ['employees'] })`.
+The grid will re-request the affected blocks on next scroll.
+:::
 
 ## Dynamic Row Updates
 

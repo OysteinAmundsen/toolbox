@@ -15,7 +15,7 @@ Vue 3 adapter for `@toolbox-web/grid` data grid component. Provides components a
 - ✅ **Slot-based customization** - `#cell` and `#editor` slots for custom rendering
 - ✅ **Type-level defaults** - App-wide renderers/editors via `GridTypeProvider`
 - ✅ **Icon configuration** - App-wide icon overrides via `GridProvider` or `GridIconProvider`
-- ✅ **Composables** - `useGrid` and `useGridEvent` for programmatic access
+- ✅ **Composables** - `useGrid` for programmatic access
 - ✅ **Master-detail** - `TbwGridDetailPanel` for expandable rows
 - ✅ **Tool panels** - `TbwGridToolPanel` for custom sidebar content
 - ✅ **Responsive cards** - `TbwGridResponsiveCard` for mobile layouts
@@ -233,7 +233,7 @@ import '@toolbox-web/grid-vue/features/editing';
 
 ## Events
 
-Handle grid events using Vue's template syntax or the `useGridEvent` composable.
+Handle grid events using Vue's template syntax.
 
 ### Template Event Binding
 
@@ -352,24 +352,6 @@ const {
 | `registerStyles(id, css)` | `(id: string, css: string) => void`          | Register custom stylesheet                |
 | `unregisterStyles(id)`    | `(id: string) => void`                       | Remove custom stylesheet                  |
 | `getVisibleColumns()`     | `() => ColumnConfig[]`                       | Get non-hidden columns                    |
-
-### useGridEvent
-
-Subscribe to grid events with automatic cleanup:
-
-```vue
-<script setup lang="ts">
-import { useGridEvent } from '@toolbox-web/grid-vue';
-
-useGridEvent('cell-commit', (event) => {
-  console.log('Cell committed:', event.detail);
-});
-
-useGridEvent('selection-change', (event) => {
-  console.log('Selection:', event.detail.selectedRows);
-});
-</script>
-```
 
 ## Providers
 
@@ -567,10 +549,9 @@ const props = defineProps<{
 
 ### Composables
 
-| Composable     | Description              |
-| -------------- | ------------------------ |
-| `useGrid`      | Access grid methods      |
-| `useGridEvent` | Subscribe to grid events |
+| Composable | Description         |
+| ---------- | ------------------- |
+| `useGrid`  | Access grid methods |
 
 ### Types
 

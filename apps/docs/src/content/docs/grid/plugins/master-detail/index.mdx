@@ -119,18 +119,29 @@ const orders = [
 import '@toolbox-web/grid-angular/features/master-detail';
 
 import { Component } from '@angular/core';
-import { Grid } from '@toolbox-web/grid-angular';
+import { Grid, GridDetailView } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-order-grid',
-  imports: [Grid],
+  imports: [Grid, GridDetailView],
   template: `
     <tbw-grid
       [rows]="orders"
       [columns]="columns"
-      [masterDetail]="masterDetailConfig"
+      [masterDetail]="true"
       style="height: 400px; display: block;">
+      <ng-template tbwDetailView let-row let-toggle="toggle">
+        <div class="order-details">
+          <h4>Order Items</h4>
+          <ul>
+            <li *ngFor="let item of row.items">
+              {{ item.name }} - \${{ item.price }}
+            </li>
+          </ul>
+          <button (click)="toggle()">Close</button>
+        </div>
+      </ng-template>
     </tbw-grid>
   `,
 })
@@ -142,19 +153,14 @@ export class OrderGridComponent {
     { field: 'customer', header: 'Customer' },
     { field: 'total', header: 'Total', type: 'currency' }
   ];
-
-  masterDetailConfig = {
-    detailRenderer: (row: any) => `
-      <div class="order-details">
-        <h4>Order Items</h4>
-        <ul>
-          ${row.items.map((item: any) => `<li>${item.name} - $${item.price}</li>`).join('')}
-        </ul>
-      </div>
-    `,
-  };
 }
 ```
+
+Use the [`GridDetailView`](/grid/angular/api/directives/GridDetailView/) directive
+(`<ng-template tbwDetailView>`) for Angular-idiomatic detail panels with
+template context (`let-row`, `let-toggle="toggle"`). For non-Angular consumers
+of the same plugin, an inline `detailRenderer: (row) => HTMLElement | string`
+is also accepted in `gridConfig.masterDetail`.
   </TabItem>
 </Tabs>
 

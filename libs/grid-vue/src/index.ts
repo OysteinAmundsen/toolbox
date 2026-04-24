@@ -13,7 +13,7 @@
  * - GridTypeProvider for application-wide type defaults
  * - GridIconProvider for application-wide icon overrides
  * - Feature props: selection, editing, filtering, etc. (tree-shakeable)
- * - Composables: useGrid(), useGridEvent()
+ * - Composables: useGrid()
  * - TypeScript generics for row type safety
  *
  * @example

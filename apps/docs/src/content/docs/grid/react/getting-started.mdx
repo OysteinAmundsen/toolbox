@@ -6,6 +6,10 @@ description: Install and configure @toolbox-web/grid-react — feature props, JS
 
 The `@toolbox-web/grid-react` package provides React integration for the `<tbw-grid>` data grid component.
 
+:::note[Where to find feature docs]
+This page covers React-specific setup and APIs (feature props, hooks, providers). Core grid features and plugins — cell renderers, editors, events, master-detail, sorting, filtering, selection, etc. — are documented on the [Core](/grid/core/) and [Plugins](/grid/plugins/) pages, each with a React tab and runnable demos.
+:::
+
 ## Compatibility
 
 | React version | Support level |
@@ -167,178 +171,6 @@ import '@toolbox-web/grid-react/features';
 
 // Now all feature props work
 <DataGrid selection="range" multiSort filtering editing="dblclick" clipboard />
-```
-
-## Custom Cell Renderers
-
-Define custom renderers inline using the `renderer` property on columns:
-
-```tsx
-import '@toolbox-web/grid-react/features/editing';
-import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
-
-interface Employee {
-  id: number;
-  name: string;
-  status: 'active' | 'inactive' | 'pending';
-  salary: number;
-}
-
-// Status badge component
-function StatusBadge({ status }: { status: string }) {
-  const colors = {
-    active: '#22c55e',
-    inactive: '#94a3b8',
-    pending: '#f59e0b',
-  };
-  return (
-    <span
-      style={{
-        padding: '4px 8px',
-        borderRadius: '4px',
-        background: colors[status as keyof typeof colors],
-        color: status === 'pending' ? 'black' : 'white',
-      }}
-    >
-      {status}
-    </span>
-  );
-}
-
-function EmployeeGrid() {
-  const config: GridConfig<Employee> = {
-    columns: [
-      { field: 'id', header: 'ID', width: 70 },
-      { field: 'name', header: 'Name' },
-      {
-        field: 'status',
-        header: 'Status',
-        // Use React components as renderers!
-        renderer: ({ value }) => <StatusBadge status={value} />,
-      },
-      {
-        field: 'salary',
-        header: 'Salary',
-        type: 'number',
-        // Format with a simple function for non-JSX
-        format: (v) => '$' + v.toLocaleString(),
-      },
-    ],
-  };
-
-  return <DataGrid rows={employees} gridConfig={config} editing="dblclick" />;
-}
-```
-
-## Custom Cell Editors
-
-Define custom editors with the `editor` property. The editor receives `commit` and `cancel` callbacks:
-
-```tsx
-import '@toolbox-web/grid-react/features/editing';
-import { DataGrid, type GridConfig, type GridEditorContext } from '@toolbox-web/grid-react';
-
-// Custom select editor component
-function StatusEditor({ value, commit, cancel }: GridEditorContext<string, Employee>) {
-  return (
-    <select
-      defaultValue={value}
-      autoFocus
-      onChange={(e) => commit(e.target.value)}
-      onKeyDown={(e) => e.key === 'Escape' && cancel()}
-      onBlur={() => cancel()}
-    >
-      <option value="active">Active</option>
-      <option value="inactive">Inactive</option>
-      <option value="pending">Pending</option>
-    </select>
-  );
-}
-
-function EmployeeGrid() {
-  const config: GridConfig<Employee> = {
-    columns: [
-      { field: 'id', header: 'ID', width: 70 },
-      { field: 'name', header: 'Name', editable: true },
-      {
-        field: 'status',
-        header: 'Status',
-        editable: true,
-        renderer: ({ value }) => <StatusBadge status={value} />,
-        editor: (ctx) => <StatusEditor {...ctx} />,
-      },
-    ],
-  };
-
-  return <DataGrid rows={employees} gridConfig={config} editing="dblclick" />;
-}
-```
-
-## Handling Events
-
-Use event handler props for clean, declarative event handling with automatic cleanup:
-
-```tsx
-import { useCallback } from 'react';
-import '@toolbox-web/grid-react/features/selection';
-import '@toolbox-web/grid-react/features/editing';
-import '@toolbox-web/grid-react/features/multi-sort';
-import { DataGrid } from '@toolbox-web/grid-react';
-import type { CellClickDetail, CellCommitDetail, SortChangeDetail } from '@toolbox-web/grid';
-
-function EmployeeGrid() {
-  const handleCellClick = useCallback((detail: CellClickDetail<Employee>) => {
-    console.log('Cell clicked:', detail.row, detail.column.field);
-  }, []);
-
-  const handleCellCommit = useCallback((detail: CellCommitDetail<Employee>) => {
-    console.log('Cell edited:', detail.column.field, detail.oldValue, '→', detail.newValue);
-  }, []);
-
-  const handleSortChange = useCallback((detail: SortChangeDetail) => {
-    console.log('Sort changed:', detail.sortState);
-  }, []);
-
-  return (
-    <DataGrid
-      rows={employees}
-      columns={columns}
-      selection="range"
-      editing="dblclick"
-      multiSort
-      // Event props - automatically cleaned up on unmount
-      onCellClick={handleCellClick}
-      onCellCommit={handleCellCommit}
-      onSortChange={handleSortChange}
-    />
-  );
-}
-```
-
-## Master-Detail Panels
-
-Use `GridDetailPanel` for expandable row details:
-
-```tsx
-import '@toolbox-web/grid-react/features/master-detail';
-import { DataGrid, GridDetailPanel, type DetailPanelContext } from '@toolbox-web/grid-react';
-
-function EmployeeGrid() {
-  return (
-    <DataGrid rows={employees} columns={columns} masterDetail>
-      <GridDetailPanel>
-        {({ row }: DetailPanelContext<Employee>) => (
-          <div style={{ padding: 16 }}>
-            <h3>{row.name}</h3>
-            <p>Department: {row.department}</p>
-            <p>Email: {row.email}</p>
-            <p>Hire Date: {new Date(row.hireDate).toLocaleDateString()}</p>
-          </div>
-        )}
-      </GridDetailPanel>
-    </DataGrid>
-  );
-}
 ```
 
 ## Custom Tool Panels
@@ -527,39 +359,6 @@ See the **API Reference > Hooks** section for detailed method signatures, return
 | `useGridPrint()` | `features/print` | `print`, `isPrinting` |
 | `useGridUndoRedo()` | `features/undo-redo` | `undo`, `redo`, `canUndo`, `canRedo` |
 
-## The `useGridEvent` Hook
-
-:::caution[Deprecated]
-`useGridEvent` is deprecated and will be removed in v2. Prefer event props directly on `<DataGrid>` (shown above). Use `useGridEvent` only when you need to subscribe to events programmatically outside of JSX.
-:::
-
-For programmatic event handling outside of props, `useGridEvent` provides event subscription with automatic cleanup:
-
-```tsx
-import { useRef, useState } from 'react';
-import { DataGrid, useGridEvent } from '@toolbox-web/grid-react';
-import type { GridElement, CellCommitDetail } from '@toolbox-web/grid';
-
-function EmployeeGrid() {
-  const gridRef = useRef<GridElement>(null);
-  const [editHistory, setEditHistory] = useState<string[]>([]);
-
-  useGridEvent(gridRef, 'cell-commit', (detail: CellCommitDetail<Employee>) => {
-    setEditHistory(prev => [
-      ...prev,
-      `${detail.column.field}: ${detail.oldValue} → ${detail.newValue}`
-    ]);
-  });
-
-  return (
-    <div>
-      <ul>{editHistory.map((entry, i) => <li key={i}>{entry}</li>)}</ul>
-      <DataGrid ref={gridRef} rows={employees} columns={columns} editing="dblclick" />
-    </div>
-  );
-}
-```
-
 ## Manual Plugin Instantiation
 
 For custom configurations or third-party plugins, instantiate plugins manually:
@@ -591,14 +390,19 @@ Feature props and manual plugins can be mixed — the grid merges them.
 
 ## Custom Icons
 
-Use `GridIconProvider` to override grid icons application-wide:
+The grid supports two complementary ways to customize icons — see the core [Icon Customization](/grid/api-reference/#icon-customization) reference and the [Theming Guide](/grid/guides/theming/#icon-customization) for the full picture:
+
+- **CSS variables** (`--tbw-icon-*`) — preferred for themes and static customization; no JavaScript needed.
+- **`gridConfig.icons`** — for dynamic icons, icon libraries, or `HTMLElement` instances; takes precedence over CSS.
+
+`GridIconProvider` is the React wrapper for the JS path — it injects `icons` into `gridConfig.icons` for every descendant `<DataGrid>`:
 
 ```tsx
 import { GridIconProvider, DataGrid } from '@toolbox-web/grid-react';
 
 function App() {
   return (
-    <GridIconProvider icons={{ sortAsc: '▲', sortDesc: '▼' }}>
+    <GridIconProvider icons={{ sortAsc: '↑', sortDesc: '↓' }}>
       <DataGrid rows={employees} columns={columns} />
     </GridIconProvider>
   );
@@ -624,10 +428,10 @@ function ServerSideGrid() {
       new ServerSidePlugin({
         cacheBlockSize: 100,
         dataSource: {
-          getRows: async ({ startRow, endRow, sortModel, filterModel }) => {
+          getRows: async ({ startNode, endNode, sortModel, filterModel }) => {
             const params = new URLSearchParams({
-              from: String(startRow),
-              to: String(endRow),
+              from: String(startNode),
+              to: String(endNode),
             });
             if (sortModel?.length) {
               params.set(
@@ -657,41 +461,77 @@ is the supported path and works with both single- and multi-column sort.
 
 ### React Query Integration
 
-```tsx
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import '@toolbox-web/grid-react/features/editing';
-import { DataGrid } from '@toolbox-web/grid-react';
-import type { CellCommitDetail } from '@toolbox-web/grid';
+If your app already uses [TanStack Query](https://tanstack.com/query/latest), one
+useful pairing is to back `ServerSidePlugin` with React Query's request cache.
+Each block the grid asks for becomes a query keyed by the request shape
+(`startNode`, `endNode`, `sortModel`, `filterModel`) — so scrolling back to a
+previously fetched range is served from cache instead of re-hitting the API,
+and you get retries, in-flight deduplication, and devtools for free.
 
-function EmployeeGrid() {
+The pattern: keep `getRows` thin and delegate fetching to `queryClient.fetchQuery`
+with a stable key per block.
+
+```tsx
+import { useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import type { GetRowsParams, GetRowsResult } from '@toolbox-web/grid/plugins/server-side';
+
+async function fetchEmployeeBlock(
+  params: GetRowsParams,
+): Promise<GetRowsResult<Employee>> {
+  const search = new URLSearchParams({
+    from: String(params.startNode),
+    to: String(params.endNode),
+  });
+  if (params.sortModel?.length) {
+    search.set('sort', params.sortModel.map((s) => `${s.field}:${s.direction}`).join(','));
+  }
+  if (params.filterModel) search.set('filter', JSON.stringify(params.filterModel));
+  const response = await fetch(`/api/employees?${search}`);
+  return response.json();
+}
+
+function ServerSideGrid() {
   const queryClient = useQueryClient();
 
-  const { data: employees = [], isLoading } = useQuery({
-    queryKey: ['employees'],
-    queryFn: () => fetch('/api/employees').then(r => r.json()),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: (employee: Partial<Employee>) =>
-      fetch(`/api/employees/${employee.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(employee),
+  const config = useMemo<GridConfig<Employee>>(() => ({
+    columns,
+    plugins: [
+      new MultiSortPlugin(),
+      new ServerSidePlugin<Employee>({
+        cacheBlockSize: 100,
+        dataSource: {
+          // Each block becomes a cached query — React Query dedupes in-flight
+          // requests, retries failed ones, and serves repeated scrolls from cache.
+          getRows: (params) =>
+            queryClient.fetchQuery({
+              queryKey: [
+                'employees',
+                params.startNode,
+                params.endNode,
+                params.sortModel,
+                params.filterModel,
+              ],
+              queryFn: () => fetchEmployeeBlock(params),
+              staleTime: 60_000,
+            }),
+        },
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees'] }),
-  });
+    ],
+  }), [queryClient]);
 
-  const handleCellCommit = useCallback((detail: CellCommitDetail<Employee>) => {
-    updateMutation.mutate({
-      id: detail.row.id,
-      [detail.column.field]: detail.newValue,
-    });
-  }, [updateMutation]);
-
-  if (isLoading) return <div>Loading...</div>;
-
-  return <DataGrid rows={employees} columns={columns} editing="dblclick" onCellCommit={handleCellCommit} />;
+  return <DataGrid rows={[]} gridConfig={config} />;
 }
 ```
+
+:::tip
+When the user mutates a row (commit, paste, etc.), invalidate the query to
+trigger a refresh: `queryClient.invalidateQueries({ queryKey: ['employees'] })`.
+The grid will re-request the affected blocks on next scroll.
+:::
 
 ## Dynamic Row Updates
 

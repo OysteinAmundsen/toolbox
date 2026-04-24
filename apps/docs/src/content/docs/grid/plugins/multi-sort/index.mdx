@@ -52,18 +52,11 @@ grid.on('sort-change', ({ sortModel }) => {
   <TabItem label="React">
 ```tsx
 import '@toolbox-web/grid-react/features/multi-sort';
-import { DataGrid, useGrid, useGridEvent } from '@toolbox-web/grid-react';
+import { DataGrid } from '@toolbox-web/grid-react';
 
 function SortableGrid({ data }) {
-  const { ref } = useGrid();
-
-  useGridEvent(ref, 'sort-change', (e) => {
-    console.log('Sort changed:', e.detail.sortModel);
-  });
-
   return (
     <DataGrid
-      ref={ref}
       rows={data}
       columns={[
         { field: 'name', header: 'Name', sortable: true },
@@ -71,6 +64,7 @@ function SortableGrid({ data }) {
         { field: 'salary', header: 'Salary', type: 'number', sortable: true },
       ]}
       multiSort={{ maxSortColumns: 3 }}
+      onSortChange={(detail) => console.log('Sort changed:', detail.sortModel)}
     />
   );
 }
@@ -306,13 +300,13 @@ grid.gridConfig = {
     new MultiSortPlugin(),
     new ServerSidePlugin({
       dataSource: {
-        getRows: async ({ startRow, endRow, sortModel }) => {
+        getRows: async ({ startNode, endNode, sortModel }) => {
           // sortModel: [{ field: 'name', direction: 'asc' }, { field: 'salary', direction: 'desc' }]
           const sortQuery = sortModel
             .map((s) => `${s.field}:${s.direction}`)
             .join(',');
           const response = await fetch(
-            `/api/data?from=${startRow}&to=${endRow}&sort=${sortQuery}`,
+            `/api/data?from=${startNode}&to=${endNode}&sort=${sortQuery}`,
           );
           const { rows, totalNodeCount } = await response.json();
           return { rows, totalNodeCount };

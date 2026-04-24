@@ -5,7 +5,7 @@
  * ```typescript
  * import '@toolbox-web/grid/features/server-side';
  *
- * grid.gridConfig = { features: { serverSide: { fetchRows: async (params) => ... } } };
+ * grid.gridConfig = { features: { serverSide: { dataSource: { getRows: async (params) => ... } } } };
  * ```
  */
 

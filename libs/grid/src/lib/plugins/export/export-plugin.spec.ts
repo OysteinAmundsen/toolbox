@@ -649,6 +649,29 @@ describe('ExportPlugin', () => {
       expect(csv.split('\r\n').length).toBeGreaterThan(1);
     });
 
+    it('formatCsv() defaults to quoting strings with special characters when quoteStrings is omitted', () => {
+      const cols: ColumnConfig[] = [{ field: 'note', header: 'Note' }];
+      const rows = [{ note: 'has, comma' }];
+      const plugin = new ExportPlugin();
+      const grid = createGridMock(rows, cols);
+      plugin.attach(grid as any);
+
+      const csv = plugin.formatCsv(plugin.export());
+      expect(csv).toContain('"has, comma"');
+    });
+
+    it('formatCsv() disables quoting when quoteStrings is explicitly false', () => {
+      const cols: ColumnConfig[] = [{ field: 'note', header: 'Note' }];
+      const rows = [{ note: 'has, comma' }];
+      const plugin = new ExportPlugin();
+      const grid = createGridMock(rows, cols);
+      plugin.attach(grid as any);
+
+      const csv = plugin.formatCsv(plugin.export(), undefined, { quoteStrings: false });
+      expect(csv).toContain('has, comma');
+      expect(csv).not.toContain('"has, comma"');
+    });
+
     it('getResolvedColumns() returns the columns an export would include', () => {
       const cols = [
         { field: 'a', header: 'A' },

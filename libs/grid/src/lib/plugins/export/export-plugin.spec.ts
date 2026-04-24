@@ -483,4 +483,283 @@ describe('ExportPlugin', () => {
       expect(event.detail.fileName).toBe('export.csv');
     });
   });
+
+  describe('data accessors (export, formatCsv, formatExcel, getResolvedColumns)', () => {
+    const formattedColumns = [
+      { field: 'name', header: 'Name' },
+      {
+        field: 'salary',
+        header: 'Salary',
+        type: 'number' as const,
+        format: (v: unknown) => `$${(v as number).toFixed(2)}`,
+      },
+      { field: 'hired', header: 'Hired', type: 'date' as const },
+      { field: 'active', header: 'Active', type: 'boolean' as const },
+    ];
+
+    const hireDate = new Date('2023-04-01T00:00:00Z');
+    const formattedRows = [
+      { name: 'Alice', salary: 95000, hired: hireDate, active: true },
+      { name: 'Bob', salary: 75000, hired: hireDate, active: false },
+    ];
+
+    it('export() default mode "raw" returns underlying typed values', () => {
+      const plugin = new ExportPlugin();
+      const grid = createGridMock(formattedRows, formattedColumns);
+      plugin.attach(grid as any);
+
+      const data = plugin.export();
+
+      expect(data).toHaveLength(2);
+      expect(data[0]).toEqual({
+        name: 'Alice',
+        salary: 95000,
+        hired: hireDate,
+        active: true,
+      });
+      // Date stays Date, number stays number
+      expect(data[0]['hired']).toBeInstanceOf(Date);
+      expect(typeof data[0]['salary']).toBe('number');
+    });
+
+    it('export({ mode: "formatted" }) applies column.format and column-type defaults', () => {
+      const plugin = new ExportPlugin();
+      const grid = createGridMock(formattedRows, formattedColumns);
+      plugin.attach(grid as any);
+
+      const data = plugin.export({ mode: 'formatted' });
+
+      // column.format applied to salary
+      expect(data[0]['salary']).toBe('$95000.00');
+      // date column-type default formatter applied (formatDateValue → toLocaleDateString)
+      expect(typeof data[0]['hired']).toBe('string');
+      expect(data[0]['hired']).not.toBe('');
+      // boolean stays as boolean primitive
+      expect(data[0]['active']).toBe(true);
+      expect(data[1]['active']).toBe(false);
+    });
+
+    it('export() honours processCell after formatting', () => {
+      const plugin = new ExportPlugin();
+      const grid = createGridMock(formattedRows, formattedColumns);
+      plugin.attach(grid as any);
+
+      const data = plugin.export({
+        mode: 'formatted',
+        processCell: (v, field) => (field === 'name' ? `Mr. ${v}` : v),
+      });
+
+      expect(data[0]['name']).toBe('Mr. Alice');
+      expect(data[0]['salary']).toBe('$95000.00');
+    });
+
+    it('export() honours columns + rowIndices filters', () => {
+      const plugin = new ExportPlugin();
+      const grid = createGridMock(formattedRows, formattedColumns);
+      plugin.attach(grid as any);
+
+      const data = plugin.export({ columns: ['name'], rowIndices: [1] });
+
+      expect(data).toEqual([{ name: 'Bob' }]);
+    });
+
+    it('exportCsv() default behaviour matches the regression snapshot', async () => {
+      const { downloadCsv } = await import('./csv');
+      const plugin = new ExportPlugin({ fileName: 'snap' });
+      const grid = createGridMock(formattedRows, formattedColumns);
+      plugin.attach(grid as any);
+
+      plugin.exportCsv();
+
+      const csv = (downloadCsv as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0] as string;
+      // Strip BOM for assertions
+      const body = csv.replace(/^\uFEFF/, '');
+      // Headers + 2 data rows; raw values (numbers stay numbers, Date → ISO via formatCsvValue)
+      expect(body.split('\n')[0]).toBe('Name,Salary,Hired,Active');
+      expect(body).toContain('Alice,95000,');
+      expect(body).toContain('Bob,75000,');
+      expect(body).toContain(hireDate.toISOString());
+    });
+
+    it('exportCsv({ mode: "formatted" }) reflects column.format output', async () => {
+      const { downloadCsv } = await import('./csv');
+      const plugin = new ExportPlugin({ fileName: 'snap' });
+      const grid = createGridMock(formattedRows, formattedColumns);
+      plugin.attach(grid as any);
+
+      plugin.exportCsv({ mode: 'formatted' });
+
+      const csv = (downloadCsv as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0] as string;
+      const body = csv.replace(/^\uFEFF/, '');
+      // $95000.00 contains no special chars → unquoted
+      expect(body).toContain('Alice,$95000.00,');
+      expect(body).toContain('Bob,$75000.00,');
+    });
+
+    it('formatCsv() and exportCsv() produce the same output for the same data + params', async () => {
+      const { downloadCsv } = await import('./csv');
+      const plugin = new ExportPlugin({ fileName: 'snap' });
+      const grid = createGridMock(formattedRows, formattedColumns);
+      plugin.attach(grid as any);
+
+      plugin.exportCsv();
+      const downloadedCsv = ((downloadCsv as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0] as string).replace(
+        /^\uFEFF/,
+        '',
+      );
+
+      const data = plugin.export();
+      const composed = plugin.formatCsv(data);
+
+      expect(composed).toBe(downloadedCsv);
+    });
+
+    it('formatExcel() and exportExcel() produce identical XML for the same data + params', async () => {
+      const { downloadExcel } = await import('./excel');
+      const plugin = new ExportPlugin({ fileName: 'snap' });
+      const grid = createGridMock(formattedRows, formattedColumns);
+      plugin.attach(grid as any);
+
+      plugin.exportExcel();
+      const downloadedXml = (downloadExcel as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0] as string;
+
+      const data = plugin.export();
+      const composed = plugin.formatExcel(data);
+
+      expect(composed).toBe(downloadedXml);
+    });
+
+    it('formatCsv() respects the options argument (delimiter, newline, bom)', () => {
+      const plugin = new ExportPlugin();
+      const grid = createGridMock(formattedRows, formattedColumns);
+      plugin.attach(grid as any);
+
+      const csv = plugin.formatCsv(
+        plugin.export({ columns: ['name', 'salary'] }),
+        { columns: ['name', 'salary'] },
+        {
+          delimiter: ';',
+          newline: '\r\n',
+          bom: true,
+        },
+      );
+
+      expect(csv.startsWith('\uFEFF')).toBe(true);
+      expect(csv).toContain('Name;Salary');
+      expect(csv.split('\r\n').length).toBeGreaterThan(1);
+    });
+
+    it('formatCsv() defaults to quoting strings with special characters when quoteStrings is omitted', () => {
+      const cols: ColumnConfig[] = [{ field: 'note', header: 'Note' }];
+      const rows = [{ note: 'has, comma' }];
+      const plugin = new ExportPlugin();
+      const grid = createGridMock(rows, cols);
+      plugin.attach(grid as any);
+
+      const csv = plugin.formatCsv(plugin.export());
+      expect(csv).toContain('"has, comma"');
+    });
+
+    it('formatCsv() disables quoting when quoteStrings is explicitly false', () => {
+      const cols: ColumnConfig[] = [{ field: 'note', header: 'Note' }];
+      const rows = [{ note: 'has, comma' }];
+      const plugin = new ExportPlugin();
+      const grid = createGridMock(rows, cols);
+      plugin.attach(grid as any);
+
+      const csv = plugin.formatCsv(plugin.export(), undefined, { quoteStrings: false });
+      expect(csv).toContain('has, comma');
+      expect(csv).not.toContain('"has, comma"');
+    });
+
+    it('getResolvedColumns() returns the columns an export would include', () => {
+      const cols = [
+        { field: 'a', header: 'A' },
+        { field: 'b', header: 'B', hidden: true },
+        { field: 'c', header: 'C' },
+      ];
+      const plugin = new ExportPlugin();
+      const grid = createGridMock([], cols);
+      plugin.attach(grid as any);
+
+      // Default onlyVisible=true filters out hidden
+      const visible = plugin.getResolvedColumns();
+      expect(visible.map((c) => c.field)).toEqual(['a', 'c']);
+
+      // Explicit columns filter is honoured
+      const filtered = plugin.getResolvedColumns({ columns: ['c'] });
+      expect(filtered.map((c) => c.field)).toEqual(['c']);
+    });
+
+    it('exportJson() default raw output matches JSON.stringify(export())', async () => {
+      const { downloadBlob } = await import('./csv');
+      const plugin = new ExportPlugin({ fileName: 'snap' });
+      const grid = createGridMock(formattedRows, formattedColumns);
+      plugin.attach(grid as any);
+
+      plugin.exportJson();
+      const blob = (downloadBlob as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0] as Blob;
+      const text = await blob.text();
+
+      const expected = JSON.stringify(plugin.export(), null, 2);
+      expect(text).toBe(expected);
+    });
+
+    it('valueAccessor on a column is honoured during export() and not double-applied downstream', () => {
+      const cols = [
+        { field: 'name', header: 'Name' },
+        {
+          field: 'fullName',
+          header: 'Full',
+          valueAccessor: ({ row }: { row: Record<string, unknown> }) => `${row['first']} ${row['last']}`,
+        },
+      ];
+      const rows = [{ name: 'A', first: 'Ada', last: 'Lovelace' }];
+      const plugin = new ExportPlugin();
+      const grid = createGridMock(rows, cols);
+      plugin.attach(grid as any);
+
+      const data = plugin.export();
+
+      expect(data[0]).toEqual({ name: 'A', fullName: 'Ada Lovelace' });
+
+      // CSV path also resolves the accessor via #buildExportData (not re-applied to synthetic rows)
+      const csv = plugin.formatCsv(data);
+      expect(csv).toContain('Ada Lovelace');
+    });
+
+    it('formatCsv() honours processCell on the data passed in', () => {
+      const cols: ColumnConfig[] = [
+        { field: 'name', header: 'Name' },
+        { field: 'age', header: 'Age' },
+      ];
+      const rows = [{ name: 'Alice', age: 30 }];
+      const plugin = new ExportPlugin();
+      const grid = createGridMock(rows, cols);
+      plugin.attach(grid as any);
+
+      const csv = plugin.formatCsv(plugin.export(), {
+        processCell: (v, field) => (field === 'age' ? Number(v) * 2 : v),
+      });
+
+      expect(csv).toContain('Alice,60');
+    });
+
+    it('formatExcel() honours processCell on the data passed in', () => {
+      const cols: ColumnConfig[] = [
+        { field: 'name', header: 'Name' },
+        { field: 'age', header: 'Age' },
+      ];
+      const rows = [{ name: 'Alice', age: 30 }];
+      const plugin = new ExportPlugin();
+      const grid = createGridMock(rows, cols);
+      plugin.attach(grid as any);
+
+      const xml = plugin.formatExcel(plugin.export(), {
+        processCell: (v, field) => (field === 'age' ? Number(v) * 2 : v),
+      });
+
+      expect(xml).toContain('60');
+    });
+  });
 });

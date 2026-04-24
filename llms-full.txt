@@ -1133,8 +1133,15 @@ new ExportPlugin({
 const exporter = grid.getPluginByName('export');
 exporter.exportCsv();                                     // Export all visible data
 exporter.exportCsv({ columns: ['name', 'email'], rowIndices: [0, 3], fileName: 'contacts' });
+exporter.exportCsv({ mode: 'formatted' });                // Apply column.format / type defaults
 exporter.exportExcel({ fileName: 'report' });
 exporter.exportJson({ fileName: 'data' });
+
+// Data accessors (no download — for clipboard, ExcelJS, server upload, etc.):
+const rows = exporter.export();                            // Record<string, unknown>[]
+const csv = exporter.formatCsv(exporter.export());         // CSV string
+const xml = exporter.formatExcel(exporter.export());       // Excel XML string
+const cols = exporter.getResolvedColumns();                // ColumnConfig[]
 ```
 
 ### ContextMenuPlugin

@@ -4,7 +4,8 @@
  *
  * @module Plugins/Export
  */
-export { ExportPlugin } from './ExportPlugin';
+export type { CsvOptions } from './csv';
+export { ExportPlugin, type FormatCsvParams, type FormatExcelParams } from './ExportPlugin';
 export type {
   ExcelBorder,
   ExcelCellStyle,
@@ -12,5 +13,6 @@ export type {
   ExportCompleteDetail,
   ExportConfig,
   ExportFormat,
+  ExportMode,
   ExportParams,
 } from './types';

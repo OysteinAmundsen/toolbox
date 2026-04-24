@@ -45,6 +45,7 @@ export function formatCsvValue(value: any, quote = true): string {
 export function buildCsv(rows: any[], columns: ColumnConfig[], params: ExportParams, options: CsvOptions = {}): string {
   const delimiter = options.delimiter ?? ',';
   const newline = options.newline ?? '\n';
+  const quote = options.quoteStrings ?? true;
   const lines: string[] = [];
 
   // UTF-8 BOM for Excel compatibility
@@ -55,7 +56,7 @@ export function buildCsv(rows: any[], columns: ColumnConfig[], params: ExportPar
     const headerRow = columns.map((col) => {
       const header = col.header || col.field;
       const processed = params.processHeader ? params.processHeader(header, col.field) : header;
-      return formatCsvValue(processed);
+      return formatCsvValue(processed, quote);
     });
     lines.push(headerRow.join(delimiter));
   }
@@ -67,7 +68,7 @@ export function buildCsv(rows: any[], columns: ColumnConfig[], params: ExportPar
       if (params.processCell) {
         value = params.processCell(value, col.field, row);
       }
-      return formatCsvValue(value);
+      return formatCsvValue(value, quote);
     });
     lines.push(cells.join(delimiter));
   }

@@ -7,13 +7,35 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { formatDateValue } from '../../core/internal/utils';
 import { resolveCellValue } from '../../core/internal/value-accessor';
 import { BaseGridPlugin, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
-import type { ColumnConfig } from '../../core/types';
+import type { ColumnConfig, InternalGrid } from '../../core/types';
 import { resolveColumns, resolveRows } from '../shared/data-collection';
-import { buildCsv, downloadBlob, downloadCsv } from './csv';
+import { buildCsv, type CsvOptions, downloadBlob, downloadCsv } from './csv';
 import { buildExcelXml, downloadExcel } from './excel';
-import type { ExportCompleteDetail, ExportConfig, ExportFormat, ExportParams } from './types';
+import type { ExportCompleteDetail, ExportConfig, ExportFormat, ExportMode, ExportParams } from './types';
+
+/**
+ * Subset of {@link ExportParams} accepted by the pure formatters
+ * ({@link ExportPlugin.formatCsv} / {@link ExportPlugin.formatExcel}).
+ *
+ * The formatters operate on already-resolved data, so options that affect
+ * value resolution (`mode`, `rowIndices`, `format`, `fileName`,
+ * `fileExtension`) are intentionally excluded — if you need them, run them
+ * through {@link ExportPlugin.export} first or call the download/export
+ * methods.
+ *
+ * `processCell` **is** honoured: it runs once per cell on the values you pass
+ * in, just like the download methods.
+ */
+export type FormatCsvParams = Pick<ExportParams, 'columns' | 'includeHeaders' | 'processCell' | 'processHeader'>;
+
+/**
+ * Subset of {@link ExportParams} accepted by {@link ExportPlugin.formatExcel}.
+ * Same shape as {@link FormatCsvParams} plus `excelStyles`.
+ */
+export type FormatExcelParams = FormatCsvParams & Pick<ExportParams, 'excelStyles'>;
 
 /** Selection plugin state interface for type safety */
 interface SelectionPluginState {
@@ -120,26 +142,34 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
 
   // #region Private Methods
 
-  private performExport(format: ExportFormat, params?: Partial<ExportParams>): void {
+  /**
+   * Resolve the columns and rows that an export with these params would
+   * include, plus a fully-defaulted ExportParams for downstream consumers.
+   *
+   * Honours `config.onlyVisible`, `config.onlySelected`, `params.columns`, and
+   * `params.rowIndices`.
+   */
+  private resolveExportData(
+    format: ExportFormat,
+    params?: Partial<ExportParams>,
+  ): { columns: ColumnConfig[]; rows: Record<string, unknown>[]; fullParams: ExportParams } {
     const config = this.config;
 
-    // Build full params with defaults
     const fullParams: ExportParams = {
       format,
       fileName: params?.fileName ?? config.fileName ?? 'export',
       includeHeaders: params?.includeHeaders ?? config.includeHeaders,
       processCell: params?.processCell,
       processHeader: params?.processHeader,
+      mode: params?.mode ?? 'raw',
       columns: params?.columns,
       rowIndices: params?.rowIndices,
       excelStyles: params?.excelStyles,
       fileExtension: params?.fileExtension,
     };
 
-    // Get columns to export (shared utility handles hidden/utility filtering)
     const columns = resolveColumns(this.columns, params?.columns, config.onlyVisible) as ColumnConfig[];
 
-    // Get rows to export
     let rows: Record<string, unknown>[];
     if (params?.rowIndices) {
       rows = resolveRows(this.rows as Record<string, unknown>[], params.rowIndices);
@@ -154,20 +184,78 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
       rows = [...this.rows] as Record<string, unknown>[];
     }
 
+    return { columns, rows, fullParams };
+  }
+
+  /**
+   * Apply the configured export `mode` to a single cell value.
+   *
+   * - `'raw'`       : returns the underlying value (after optional `processCell`).
+   * - `'formatted'` : applies the column-type default formatter and `column.format`,
+   *                   returning the same string the grid displays. `processCell`
+   *                   runs last on the formatted value.
+   */
+  private resolveCellOutput(
+    value: unknown,
+    col: ColumnConfig,
+    row: Record<string, unknown>,
+    mode: ExportMode,
+    processCell?: (value: any, field: string, row: any) => any,
+  ): unknown {
+    let out: unknown = value;
+
+    if (mode === 'formatted') {
+      const formatFn = this.#resolveFormatFn(col);
+      if (formatFn) {
+        try {
+          const formatted = formatFn(value, row);
+          out = formatted == null ? '' : String(formatted);
+        } catch {
+          out = value == null ? '' : String(value);
+        }
+      } else if (col.type === 'date') {
+        out = formatDateValue(value);
+      } else if (col.type === 'boolean') {
+        out = !!value;
+      } else {
+        out = value;
+      }
+    }
+
+    if (processCell) {
+      out = processCell(out, col.field, row);
+    }
+
+    return out;
+  }
+
+  private performExport(format: ExportFormat, params?: Partial<ExportParams>): void {
+    const { columns, rows, fullParams } = this.resolveExportData(format, params);
+
     this.isExportingFlag = true;
-    let fileName = fullParams.fileName!;
+    let fileName = fullParams.fileName ?? 'export';
+
+    // buildCsv / buildExcelXml read each cell via `resolveCellValue(row, col)`.
+    // Our pre-resolved row objects are keyed by `column.field`, so any
+    // `valueAccessor` on the column would misfire on these synthetic rows.
+    // Strip accessors before delegating to keep the lookup as a plain field read.
+    const downstreamColumns = this.#stripAccessors(columns);
 
     try {
       switch (format) {
         case 'csv': {
-          const content = buildCsv(rows, columns, fullParams, { bom: true });
+          const data = this.#buildExportData(rows, columns, fullParams);
+          // processCell already applied during data resolution — strip it so buildCsv
+          // doesn't double-apply.
+          const content = buildCsv(data, downstreamColumns, { ...fullParams, processCell: undefined }, { bom: true });
           fileName = fileName.endsWith('.csv') ? fileName : `${fileName}.csv`;
           downloadCsv(content, fileName);
           break;
         }
 
         case 'excel': {
-          const content = buildExcelXml(rows, columns, fullParams);
+          const data = this.#buildExportData(rows, columns, fullParams);
+          const content = buildExcelXml(data, downstreamColumns, { ...fullParams, processCell: undefined });
           const ext = fullParams.fileExtension ?? '.xls';
           const normalizedExt = ext.startsWith('.') ? ext : `.${ext}`;
           fileName = fileName.endsWith(normalizedExt) ? fileName : `${fileName}${normalizedExt}`;
@@ -176,18 +264,8 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
         }
 
         case 'json': {
-          const jsonData = rows.map((row) => {
-            const obj: Record<string, any> = {};
-            for (const col of columns) {
-              let value = resolveCellValue(row, col);
-              if (fullParams.processCell) {
-                value = fullParams.processCell(value, col.field, row);
-              }
-              obj[col.field] = value;
-            }
-            return obj;
-          });
-          const content = JSON.stringify(jsonData, null, 2);
+          const data = this.#buildExportData(rows, columns, fullParams);
+          const content = JSON.stringify(data, null, 2);
           fileName = fileName.endsWith('.json') ? fileName : `${fileName}.json`;
           const blob = new Blob([content], { type: 'application/json' });
           downloadBlob(blob, fileName);
@@ -208,6 +286,29 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
     }
   }
 
+  /**
+   * Resolve every cell into a plain object keyed by `column.field`, applying
+   * the configured `mode` and `processCell` once. The result can be fed to
+   * `buildCsv` / `buildExcelXml` directly — they read values via
+   * `resolveCellValue`, which on plain key/value objects is a simple
+   * `row[field]` lookup, so no double-resolution occurs.
+   */
+  #buildExportData(
+    rows: Record<string, unknown>[],
+    columns: ColumnConfig[],
+    params: ExportParams,
+  ): Record<string, unknown>[] {
+    const mode = params.mode ?? 'raw';
+    return rows.map((row) => {
+      const obj: Record<string, unknown> = {};
+      for (const col of columns) {
+        const raw = resolveCellValue(row, col);
+        obj[col.field] = this.resolveCellOutput(raw, col, row, mode, params.processCell);
+      }
+      return obj;
+    });
+  }
+
   private getSelectionState(): SelectionPluginState | null {
     try {
       return (this.grid?.getPluginState?.('selection') as SelectionPluginState | null) ?? null;
@@ -218,6 +319,94 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
   // #endregion
 
   // #region Public API
+
+  /**
+   * Returns the row data that would be included in an export, without
+   * producing a file. Honours `mode`, `onlyVisible`, `onlySelected`,
+   * `columns`, `rowIndices`, `processCell`, and (for `mode: 'formatted'`)
+   * `column.format`.
+   *
+   * Each returned object is keyed by `column.field` in column order.
+   *
+   * @example
+   * ```ts
+   * // Underlying typed values (Date stays Date, number stays number)
+   * const raw = exporter.export();
+   *
+   * // What the user sees in each cell
+   * const display = exporter.export({ mode: 'formatted' });
+   * ```
+   */
+  export(params?: Partial<ExportParams>): Record<string, unknown>[] {
+    const { columns, rows, fullParams } = this.resolveExportData('json', params);
+    return this.#buildExportData(rows, columns, fullParams);
+  }
+
+  /**
+   * Returns the columns (in order) that an export with these params would
+   * include. Useful when handing rows to a third-party serializer that needs
+   * header labels, widths, or types alongside the data.
+   */
+  getResolvedColumns(params?: Partial<ExportParams>): ColumnConfig[] {
+    return resolveColumns(this.columns, params?.columns, this.config.onlyVisible) as ColumnConfig[];
+  }
+
+  /**
+   * Format an array of row objects as a CSV string. Column order, headers,
+   * and which fields to emit are taken from the plugin's resolved columns
+   * (respecting `onlyVisible` and `params.columns`).
+   *
+   * This is a **pure formatter** — it does not re-resolve values from the
+   * grid. Pass `data` produced by {@link ExportPlugin.export} (or any
+   * compatible row objects keyed by `column.field`).
+   *
+   * `params.processCell` is honoured: it runs once per cell on the values in
+   * `data`. `mode` is **not** accepted here — apply it upstream via
+   * `export({ mode: 'formatted' })`.
+   *
+   * @example
+   * ```ts
+   * const csv = exporter.formatCsv(exporter.export());
+   * await navigator.clipboard.writeText(csv);
+   * ```
+   */
+  formatCsv(data: Record<string, unknown>[], params?: FormatCsvParams, options?: CsvOptions): string {
+    const { columns, fullParams } = this.resolveExportData('csv', params);
+    return buildCsv(data, this.#stripAccessors(columns), fullParams, options);
+  }
+
+  /**
+   * Format an array of row objects as an Excel XML Spreadsheet 2003 string.
+   * See {@link formatCsv} for the data-shape contract — this method is also a
+   * pure formatter and `params.processCell` is honoured the same way.
+   */
+  formatExcel(data: Record<string, unknown>[], params?: FormatExcelParams): string {
+    const { columns, fullParams } = this.resolveExportData('excel', params);
+    return buildExcelXml(data, this.#stripAccessors(columns), fullParams);
+  }
+
+  /** @internal Drop `valueAccessor` so downstream builders read pre-resolved fields. */
+  #stripAccessors(columns: ColumnConfig[]): ColumnConfig[] {
+    return columns.map((c) => (c.valueAccessor ? ({ ...c, valueAccessor: undefined } as ColumnConfig) : c));
+  }
+
+  /**
+   * @internal Resolve the format function for a column for `mode: 'formatted'`.
+   * Mirrors the priority chain in core/internal/rows.ts (`column.format` → adapter
+   * type default), but inlined so this module stays free of browser-only imports.
+   */
+  #resolveFormatFn(col: ColumnConfig): ((value: unknown, row: unknown) => string) | undefined {
+    if (col.format) return col.format as (value: unknown, row: unknown) => string;
+    if (!col.type) return undefined;
+    // The grid host carries optional `__frameworkAdapter` and `_hostElement` from
+    // InternalGrid. Narrow with a structural guard rather than an `as unknown as`
+    // cast — these keys are documented public-internal in core/types.ts.
+    const grid = this.grid as Partial<Pick<InternalGrid<unknown>, '__frameworkAdapter' | '_hostElement'>> | undefined;
+    const adapter = grid?.__frameworkAdapter;
+    if (!adapter?.getTypeDefault) return undefined;
+    const appDefault = adapter.getTypeDefault(col.type, grid?._hostElement);
+    return appDefault?.format as ((value: unknown, row: unknown) => string) | undefined;
+  }
 
   /**
    * Export data to CSV format.

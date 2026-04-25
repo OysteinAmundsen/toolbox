@@ -160,23 +160,31 @@ This approach is ideal for:
 
 ### Configuration Reference
 
-The grid is configured through the `gridConfig` property (or individual shorthand properties). Here's a summary of the most common options:
+The grid is configured through the `gridConfig` property (or individual shorthand properties). The table below covers the most common options — see [`GridConfig`](/grid/api/core/interfaces/gridconfig/) for the full, type-checked reference.
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `columns` | [`ColumnConfig[]`](/grid/api/core/interfaces/columnconfig/) | Column definitions |
-| `rows` | `any[]` | Row data array |
-| `fitMode` | `'stretch' \| 'fixed'` | How columns fill available width |
-| `sortable` | `boolean` | Enable sorting on all columns |
-| `initialSort` | `{ field, direction }` | Sort on first render (`'asc'` or `'desc'`) |
-| `resizable` | `boolean` | Enable resizing on all columns |
-| `rowHeight` | `number \| Function` | Fixed or variable row heights |
-| `plugins` | [`BaseGridPlugin[]`](/grid/api/plugin-development/classes/basegridplugin/) | Plugin instances |
-| `rowClass` | `Function` | Dynamic row CSS classes |
-| `typeDefaults` | `Record<string, …>` | Default format/renderer per column type |
-| `shell` | [`ShellConfig`](/grid/api/core/interfaces/shellconfig/) | Shell layout (header, tool panels) |
-| `loadingRenderer` | [`LoadingRenderer`](/grid/api/core/types/loadingrenderer/) | Custom loading indicator |
+| `rows` | `any[]` | Row data array (top-level grid prop, not on `GridConfig`) |
+| `fitMode` | [`FitMode`](/grid/api/core/types/fitmode/) | How columns fill available width (`'stretch'` or `'fixed'`) |
+| `sortable` | `boolean` | Grid-wide sort toggle (default `true`) |
+| `resizable` | `boolean` | Grid-wide resize toggle (default `true`) |
+| `initialSort` | `{ field, direction }` | Sort applied on first render (`'asc'` or `'desc'`) |
+| `rowHeight` | `number \| (row, index) => number \| undefined` | Fixed or variable row heights |
 | `getRowId` | `(row) => string` | Unique row identity function |
+| `rowClass` | `(row) => string \| string[]` | Dynamic row CSS classes |
+| `typeDefaults` | `Record<string, `[`TypeDefault`](/grid/api/core/interfaces/typedefault/)`>` | Default format/renderer per column `type` |
+| `plugins` | [`GridPlugin[]`](/grid/api/plugin-development/interfaces/gridplugin/) | Plugin instances |
+| `features` | [`Partial<FeatureConfig>`](/grid/api/core/interfaces/featureconfig/) | Declarative feature config (alternative to `plugins`) |
+| `columnState` | [`GridColumnState`](/grid/api/core/interfaces/gridcolumnstate/) | Saved column state to restore on init |
+| `shell` | [`ShellConfig`](/grid/api/core/interfaces/shellconfig/) | Shell layout (header, tool panels) |
+| `icons` | [`GridIcons`](/grid/api/core/interfaces/gridicons/) | Grid-wide icon overrides |
+| `animation` | [`AnimationConfig`](/grid/api/core/interfaces/animationconfig/) | Animation defaults (expand/collapse, reorder, etc.) |
+| `loadingRenderer` | [`LoadingRenderer`](/grid/api/core/types/loadingrenderer/) | Custom loading indicator |
+| `sortHandler` | [`SortHandler`](/grid/api/core/types/sorthandler/) | Low-level sort engine override (prefer `sortComparator` per-column) |
+| `gridAriaLabel` | `string` | Accessible label for the grid (`aria-label`) |
+| `gridAriaDescribedBy` | `string` | ID of an element that describes the grid (`aria-describedby`) |
+| `a11y` | [`A11yConfig`](/grid/api/core/interfaces/a11yconfig/) | Screen reader announcement messages and toggle |
 
 **Precedence (low → high):**
 
@@ -504,14 +512,7 @@ export class EmployeeGridComponent {
   </TabItem>
 </Tabs>
 
-The renderer receives a [`CellRenderContext`](/grid/api/core/interfaces/cell-render-context) with these properties:
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `value` | `TValue` | The cell's current value |
-| `row` | `TRow` | The full row data object |
-| `field` | `string` | The column's field name |
-| `column` | `ColumnConfig` | The column configuration |
+The renderer receives a [`CellRenderContext`](/grid/api/core/interfaces/cellrendercontext/) — the cell value, the row object, the field name, and the column config.
 
 :::note[Why no `rowIndex`?]
 Renderer and editor contexts intentionally provide the **row object** instead of a row index. A `rowIndex` reflects the row's position in the grid's *current* sorted/filtered/grouped view — it silently becomes stale whenever the user sorts, filters, or reorders. The `row` object is a stable identity that remains valid regardless of view state.
@@ -582,7 +583,7 @@ tbw-grid {
 </ShowSource>
 
 :::note
-When using the **EditingPlugin**, rows are automatically animated with `'change'` after a successful edit commit.
+When using the [**EditingPlugin**](/grid/plugins/editing/), rows are automatically animated with `'change'` after a successful edit commit.
 :::
 
 ### Type-Level Defaults
@@ -897,16 +898,7 @@ export class EmailHeaderComponent {
   </TabItem>
 </Tabs>
 
-The `HeaderCellContext` provides:
-
-| Property / Method | Description |
-|-------------------|-------------|
-| `value` | The header label text |
-| `column` | Full `ColumnConfig` object |
-| `sortState` | Current sort direction: `'asc'`, `'desc'`, or `null` — use for custom JSX sort indicators |
-| `filterActive` | Whether this column has an active filter |
-| `renderSortIcon()` | Returns the built-in sort indicator DOM element (or `null`) |
-| `renderFilterButton()` | Returns the filter button element (when FilteringPlugin is active) |
+The [`HeaderCellContext`](/grid/api/core/interfaces/headercellcontext/) gives you the label text, the column config, the current sort/filter state, and helpers to render the built-in sort icon and filter button when you want to keep them.
 
 <ShowSource file="demos/HeaderRenderersDemo.astro">
   <HeaderRenderersDemo />
@@ -920,15 +912,7 @@ The grid tracks column state — widths, sort direction, order, and visibility. 
 
 ### What State Contains
 
-`getColumnState()` returns an array of `GridColumnState` objects, each containing:
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `field` | `string` | Column field identifier |
-| `width` | `number` | Current pixel width |
-| `sort` | `'asc' \| 'desc' \| null` | Sort direction |
-| `sortIndex` | `number \| null` | Multi-sort priority |
-| `hidden` | `boolean` | Visibility state |
+`getColumnState()` returns an array of [`GridColumnState`](/grid/api/core/interfaces/gridcolumnstate/) objects — one entry per column capturing its field, current width, sort direction and priority, and visibility.
 
 ### Listening for Changes
 

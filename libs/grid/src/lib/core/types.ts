@@ -2025,16 +2025,24 @@ export interface RowGroupRenderConfig {
  * - A built-in aggregator name: `'sum'`, `'avg'`, `'min'`, `'max'`, `'count'`
  * - A custom function that calculates the aggregate value
  *
+ * Aggregators are not declared on a column directly — they are configured per
+ * field on the consumer (e.g. {@link RowGroupRenderConfig.aggregators} for
+ * group rows, keyed by column field name).
+ *
  * @example
  * ```typescript
- * // Built-in aggregator
- * { field: 'amount', aggregator: 'sum' }
+ * // Built-in aggregator on a group row config
+ * { aggregators: { amount: 'sum' } }
  *
  * // Custom aggregator function
- * { field: 'price', aggregator: (rows, field) => {
- *   const values = rows.map(r => r[field]).filter(v => v != null);
- *   return values.length ? Math.max(...values) : null;
- * }}
+ * {
+ *   aggregators: {
+ *     price: (rows, field) => {
+ *       const values = rows.map((r) => (r as any)[field]).filter((v) => v != null);
+ *       return values.length ? Math.max(...values as number[]) : null;
+ *     },
+ *   },
+ * }
  * ```
  *
  * @see {@link RowGroupRenderConfig} for using aggregators in group rows

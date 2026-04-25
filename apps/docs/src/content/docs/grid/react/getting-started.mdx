@@ -141,13 +141,23 @@ function EmployeeGrid() {
 | `features/reorder-rows` | `reorderRows` | `reorderRows` |
 | `features/pivot` | `pivot` | `pivot={{ rowFields: ['category'], valueField: 'sales' }}` |
 | `features/server-side` | `serverSide` | `serverSide={{ pageSize: 50 }}` |
+| `features/row-drag-drop` | `rowDragDrop` | `rowDragDrop` (cross-grid / external row drag-and-drop) |
+| `features/tooltip` | `tooltip` | `tooltip` (cell / header tooltips) |
 
 ### Core Config Props (no import needed)
 
-These props control grid-wide behavior and don't require feature imports:
+These props control core grid behaviour and don't require feature imports. See [`DataGridProps`](/grid/react/api/types/DataGridProps/) for the full prop surface and [`AllFeatureProps`](/grid/react/api/types/AllFeatureProps/) for every typed feature prop.
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
+| `rows` | `T[]` | `[]` | Row data — omit when using `serverSide` |
+| `columns` | [`ColumnConfig`](/grid/api/core/interfaces/columnconfig/)`[]` | — | Column definitions (alternative to `gridConfig.columns`) |
+| `gridConfig` | [`GridConfig`](/grid/api/core/interfaces/gridconfig/) | — | Full configuration object — always wrap in `useMemo` |
+| `ref` | [`Ref<DataGridRef>`](/grid/react/api/types/DataGridRef/) | — | Imperative handle (also returned by `useGrid()`) |
+| `loading` | `boolean` | `false` | Show the grid's loading overlay |
+| `fitMode` | `FitMode` | `'auto'` | Column-fit strategy |
+| `customStyles` | `string` | — | CSS injected into the grid (renderer/editor styling) |
+| `ssr` | `boolean` | `false` | Server-side rendering hint — emits a static fallback |
 | `sortable` | `boolean` | `true` | Grid-wide sorting toggle. Set `false` to disable all sorting. |
 | `filterable` | `boolean` | `true` | Grid-wide filtering toggle. Requires FilteringPlugin. |
 | `selectable` | `boolean` | `true` | Grid-wide selection toggle. Requires SelectionPlugin. |
@@ -175,30 +185,26 @@ import '@toolbox-web/grid-react/features';
 
 ## Custom Tool Panels
 
-Add sidebar panels with `GridToolPanel`:
+Use [`GridToolPanel`](/grid/react/api/components/GridToolPanel/) to declare a sidebar panel inline. The component renders a `<tbw-grid-tool-panel>` element in the grid's light DOM — the shell picks it up automatically, so **no `gridConfig.shell.toolPanels` registration is needed**. The `children` prop is a render function that receives a [`ToolPanelContext`](/grid/react/api/types/ToolPanelContext/) (`{ grid }`).
 
 ```tsx
 import { DataGrid, GridToolPanel, type ToolPanelContext } from '@toolbox-web/grid-react';
 
 function EmployeeGrid() {
   return (
-    <DataGrid
-      rows={employees}
-      columns={columns}
-      gridConfig={{
-        shell: {
-          toolPanels: [{ id: 'filters', icon: '🔍', position: 'left' }],
-        },
-      }}
-    >
-      <GridToolPanel id="filters">
-        {({ closePanel }: ToolPanelContext) => (
+    <DataGrid rows={employees} columns={columns}>
+      <GridToolPanel
+        id="filters"
+        title="Quick Filters"
+        icon="🔍"
+        order={10}
+      >
+        {({ grid }: ToolPanelContext) => (
           <div style={{ padding: 16 }}>
             <h3>Quick Filters</h3>
             <label>
               <input type="checkbox" /> Active Only
             </label>
-            <button onClick={closePanel}>Close</button>
           </div>
         )}
       </GridToolPanel>
@@ -207,49 +213,63 @@ function EmployeeGrid() {
 }
 ```
 
+**Props:** `id` (required), `title` (required), `icon`, `tooltip`, `order` (default `100`, lower = first).
+
 ## Using the `useGrid` Hook
 
-The `useGrid` hook provides programmatic access to the grid:
+The [`useGrid()`](/grid/react/api/hooks/useGrid/) hook provides programmatic access to the grid — see [`UseGridReturn`](/grid/react/api/types/UseGridReturn/) for the full return shape. It exposes core grid operations only; **feature-specific operations (export, selection, filtering, etc.) live on the dedicated feature hooks** (`useGridSelection`, `useGridExport`, ...) listed below.
 
 ```tsx
-import '@toolbox-web/grid-react/features/selection';
-import '@toolbox-web/grid-react/features/export';
 import { DataGrid, useGrid } from '@toolbox-web/grid-react';
 
 function EmployeeGrid() {
   const {
-    ref,              // Ref to pass to DataGrid
-    element,          // Direct access to grid element
-    forceLayout,      // Force re-render
-    getConfig,        // Get current config
-    exportToCsv,      // Export helpers (when export feature loaded)
-    getSelectedRows,  // Selection helpers (when selection feature loaded)
-    selectAll,
-    clearSelection,
+    ref,                  // Pass to DataGrid
+    element,              // Direct grid element access
+    isReady,              // True once the grid has booted
+    config,               // Current effective GridConfig (snapshot)
+    getConfig,            // async: re-read effective config
+    forceLayout,          // async: force a layout pass
+    toggleGroup,          // async: toggle a group row by key
+    getPlugin,            // Get plugin instance by class
+    getPluginByName,      // Get plugin instance by registered name
+    registerStyles,       // Inject scoped CSS
+    unregisterStyles,
+    getVisibleColumns,    // Filtered list of non-hidden columns
   } = useGrid<Employee>();
-
-  const handleExport = async () => {
-    await exportToCsv({ filename: 'employees.csv' });
-  };
-
-  const handleSelectAll = () => {
-    selectAll();
-  };
 
   return (
     <div>
-      <div className="toolbar">
-        <button onClick={handleExport}>Export CSV</button>
-        <button onClick={handleSelectAll}>Select All</button>
-        <button onClick={() => console.log(getSelectedRows())}>Log Selection</button>
-      </div>
-      <DataGrid
-        ref={ref}
-        rows={employees}
-        columns={columns}
-        selection="range"
-        export
-      />
+      <button onClick={() => forceLayout()}>Force Layout</button>
+      <button disabled={!isReady} onClick={async () => console.log(await getConfig())}>
+        Log Config
+      </button>
+      <DataGrid ref={ref} rows={employees} columns={columns} />
+    </div>
+  );
+}
+```
+
+For selection, export, filtering, undo-redo, or print operations, use the feature hooks — they handle the per-plugin wiring:
+
+```tsx
+import '@toolbox-web/grid-react/features/selection';
+import '@toolbox-web/grid-react/features/export';
+import { useGridSelection } from '@toolbox-web/grid-react/features/selection';
+import { useGridExport } from '@toolbox-web/grid-react/features/export';
+
+function Toolbar() {
+  const { selectAll, clearSelection, getSelectedRows } = useGridSelection<Employee>();
+  const { exportToCsv, isExporting } = useGridExport();
+
+  return (
+    <div className="toolbar">
+      <button onClick={() => exportToCsv('employees.csv')} disabled={isExporting()}>
+        Export CSV
+      </button>
+      <button onClick={selectAll}>Select All</button>
+      <button onClick={() => console.log(getSelectedRows())}>Log Selection</button>
+      <button onClick={clearSelection}>Clear</button>
     </div>
   );
 }
@@ -279,7 +299,7 @@ function MultiGridPage() {
 
 ## Type-Level Defaults
 
-Register application-wide renderers for data types using `GridTypeProvider`:
+Register application-wide renderers for data types using `GridTypeProvider` (see [`GridTypeProviderProps`](/grid/react/api/types/GridTypeProviderProps/)) with a [`TypeDefaultsMap`](/grid/react/api/types/TypeDefaultsMap/):
 
 ```tsx
 import { GridTypeProvider, DataGrid, type TypeDefaultsMap } from '@toolbox-web/grid-react';
@@ -353,19 +373,21 @@ See the **API Reference > Hooks** section for detailed method signatures, return
 
 | Hook | Import | Key Methods |
 |------|--------|-------------|
-| `useGridSelection()` | `features/selection` | `selectAll`, `clearSelection`, `getSelection`, `getSelectedRows` |
-| `useGridFiltering()` | `features/filtering` | `setFilter`, `clearAllFilters`, `getFilters`, `getFilteredRowCount` |
-| `useGridExport()` | `features/export` | `exportToCsv`, `exportToExcel`, `exportToJson`, `isExporting` |
-| `useGridPrint()` | `features/print` | `print`, `isPrinting` |
-| `useGridUndoRedo()` | `features/undo-redo` | `undo`, `redo`, `canUndo`, `canRedo` |
+| [`useGridSelection()`](/grid/react/api/features/useGridSelection/) | `features/selection` | `selectAll`, `clearSelection`, `getSelection`, `getSelectedRows` |
+| [`useGridFiltering()`](/grid/react/api/features/useGridFiltering/) | `features/filtering` | `setFilter`, `clearAllFilters`, `getFilters`, `getFilteredRowCount` |
+| [`useGridExport()`](/grid/react/api/features/useGridExport/) | `features/export` | `exportToCsv`, `exportToExcel`, `exportToJson`, `isExporting` |
+| [`useGridPrint()`](/grid/react/api/features/useGridPrint/) | `features/print` | `print`, `isPrinting` |
+| [`useGridUndoRedo()`](/grid/react/api/features/useGridUndoRedo/) | `features/undo-redo` | `undo`, `redo`, `canUndo`, `canRedo` |
 
 ## Manual Plugin Instantiation
 
-For custom configurations or third-party plugins, instantiate plugins manually:
+Feature props are the recommended path. Use manual plugin instantiation only when you need a third-party plugin or a configuration the feature prop doesn't expose. Feature props and manual plugins can be mixed — the grid merges them.
 
 ```tsx
 import { useMemo } from 'react';
 import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { MyCustomPlugin } from './my-custom-plugin';
 
 function EmployeeGrid() {
   const config = useMemo<GridConfig<Employee>>(() => ({
@@ -373,11 +395,10 @@ function EmployeeGrid() {
       { field: 'id', header: 'ID' },
       { field: 'name', header: 'Name', editable: true },
     ],
-    features: {
-      selection: { mode: 'range', checkbox: true },
-      editing: { editOn: 'dblclick' },
-      clipboard: { includeHeaders: true },
-    },
+    plugins: [
+      new SelectionPlugin({ mode: 'range', checkbox: true }),
+      new MyCustomPlugin({ /* third-party config */ }),
+    ],
   }), []);
 
   return <DataGrid rows={employees} gridConfig={config} />;
@@ -385,8 +406,6 @@ function EmployeeGrid() {
 ```
 
 > **Important**: Always use `useMemo` for config objects to prevent re-creating them on every render.
-
-Feature props and manual plugins can be mixed — the grid merges them.
 
 ## Custom Icons
 
@@ -411,52 +430,47 @@ function App() {
 
 ## Server-Side Data Loading
 
-For backends that own paging / sorting / filtering, use `ServerSidePlugin`.
-Your `getRows` handler receives the current `sortModel`, `filterModel`, and
-block range — return rows and the total count.
+For backends that own paging / sorting / filtering, use the `serverSide` feature prop. Your `getRows` handler receives the current `sortModel`, `filterModel`, and block range — return rows and the total count. See [`ServerSideDataSource`](/grid/plugins/server-side/Interfaces/ServerSideDataSource/), [`GetRowsParams`](/grid/plugins/server-side/Interfaces/GetRowsParams/), and [`GetRowsResult`](/grid/plugins/server-side/Interfaces/GetRowsResult/) for the full contract — including the `params.signal` `AbortSignal` you can forward to `fetch()` for explicit cancellation.
 
 ```tsx
-import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
-import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
-import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import '@toolbox-web/grid-react/features/server-side';
+import '@toolbox-web/grid-react/features/multi-sort';
+import { useMemo } from 'react';
+import { DataGrid } from '@toolbox-web/grid-react';
+import type { ServerSideDataSource } from '@toolbox-web/grid/plugins/server-side';
 
 function ServerSideGrid() {
-  const config: GridConfig<Employee> = {
-    columns,
-    plugins: [
-      new MultiSortPlugin(),
-      new ServerSidePlugin({
-        cacheBlockSize: 100,
-        dataSource: {
-          getRows: async ({ startNode, endNode, sortModel, filterModel }) => {
-            const params = new URLSearchParams({
-              from: String(startNode),
-              to: String(endNode),
-            });
-            if (sortModel?.length) {
-              params.set(
-                'sort',
-                sortModel.map((s) => `${s.field}:${s.direction}`).join(','),
-              );
-            }
-            if (filterModel) params.set('filter', JSON.stringify(filterModel));
-            const response = await fetch(`/api/employees?${params}`);
-            const { rows, totalNodeCount } = await response.json();
-            return { rows, totalNodeCount };
-          },
-        },
-      }),
-    ],
-  };
+  const dataSource = useMemo<ServerSideDataSource<Employee>>(() => ({
+    getRows: async ({ startNode, endNode, sortModel, filterModel, signal }) => {
+      const params = new URLSearchParams({
+        from: String(startNode),
+        to: String(endNode),
+      });
+      if (sortModel?.length) {
+        params.set(
+          'sort',
+          sortModel.map((s) => `${s.field}:${s.direction}`).join(','),
+        );
+      }
+      if (filterModel) params.set('filter', JSON.stringify(filterModel));
+      const response = await fetch(`/api/employees?${params}`, { signal });
+      const { rows, totalNodeCount } = await response.json();
+      return { rows, totalNodeCount };
+    },
+  }), []);
 
-  return <DataGrid rows={[]} gridConfig={config} />;
+  return (
+    <DataGrid
+      columns={columns}
+      multiSort
+      serverSide={{ dataSource, cacheBlockSize: 100 }}
+    />
+  );
 }
 ```
 
 :::tip
-Avoid `gridConfig.sortHandler` for server-side sort — it's bypassed when
-`MultiSortPlugin` is loaded and only carries a single field. `ServerSidePlugin`
-is the supported path and works with both single- and multi-column sort.
+Avoid `gridConfig.sortHandler` for server-side sort — it's bypassed when the multi-sort feature is loaded and only carries a single field. The `serverSide` feature is the supported path and works with both single- and multi-column sort.
 :::
 
 ### React Query Integration
@@ -472,12 +486,16 @@ The pattern: keep `getRows` thin and delegate fetching to `queryClient.fetchQuer
 with a stable key per block.
 
 ```tsx
+import '@toolbox-web/grid-react/features/server-side';
+import '@toolbox-web/grid-react/features/multi-sort';
 import { useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
-import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
-import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
-import type { GetRowsParams, GetRowsResult } from '@toolbox-web/grid/plugins/server-side';
+import { DataGrid } from '@toolbox-web/grid-react';
+import type {
+  GetRowsParams,
+  GetRowsResult,
+  ServerSideDataSource,
+} from '@toolbox-web/grid/plugins/server-side';
 
 async function fetchEmployeeBlock(
   params: GetRowsParams,
@@ -490,40 +508,37 @@ async function fetchEmployeeBlock(
     search.set('sort', params.sortModel.map((s) => `${s.field}:${s.direction}`).join(','));
   }
   if (params.filterModel) search.set('filter', JSON.stringify(params.filterModel));
-  const response = await fetch(`/api/employees?${search}`);
+  const response = await fetch(`/api/employees?${search}`, { signal: params.signal });
   return response.json();
 }
 
 function ServerSideGrid() {
   const queryClient = useQueryClient();
 
-  const config = useMemo<GridConfig<Employee>>(() => ({
-    columns,
-    plugins: [
-      new MultiSortPlugin(),
-      new ServerSidePlugin<Employee>({
-        cacheBlockSize: 100,
-        dataSource: {
-          // Each block becomes a cached query — React Query dedupes in-flight
-          // requests, retries failed ones, and serves repeated scrolls from cache.
-          getRows: (params) =>
-            queryClient.fetchQuery({
-              queryKey: [
-                'employees',
-                params.startNode,
-                params.endNode,
-                params.sortModel,
-                params.filterModel,
-              ],
-              queryFn: () => fetchEmployeeBlock(params),
-              staleTime: 60_000,
-            }),
-        },
+  const dataSource = useMemo<ServerSideDataSource<Employee>>(() => ({
+    // Each block becomes a cached query — React Query dedupes in-flight
+    // requests, retries failed ones, and serves repeated scrolls from cache.
+    getRows: (params) =>
+      queryClient.fetchQuery({
+        queryKey: [
+          'employees',
+          params.startNode,
+          params.endNode,
+          params.sortModel,
+          params.filterModel,
+        ],
+        queryFn: ({ signal }) => fetchEmployeeBlock({ ...params, signal }),
+        staleTime: 60_000,
       }),
-    ],
   }), [queryClient]);
 
-  return <DataGrid rows={[]} gridConfig={config} />;
+  return (
+    <DataGrid
+      columns={columns}
+      multiSort
+      serverSide={{ dataSource, cacheBlockSize: 100 }}
+    />
+  );
 }
 ```
 

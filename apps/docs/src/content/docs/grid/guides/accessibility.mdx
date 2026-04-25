@@ -55,40 +55,15 @@ The grid implements full keyboard navigation following the WAI-ARIA grid pattern
 | <kbd>⇥ Tab</kbd> | Move to next cell (wraps to next row) |
 | <kbd>⇧ Shift</kbd> + <kbd>⇥ Tab</kbd> | Move to previous cell (wraps to previous row) |
 
-### Selection (with SelectionPlugin)
+### Plugin-Specific Shortcuts
 
-| Key | Action |
-|-----|--------|
-| <kbd>Space</kbd> | Toggle row selection |
-| <kbd>⇧ Shift</kbd> + <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> | Extend range selection |
-| <kbd>Ctrl</kbd> + <kbd>A</kbd> | Select all rows/cells |
-| <kbd>Esc</kbd> | Clear selection |
+Keyboard shortcuts that depend on a plugin being installed are documented on each plugin's own page — that's the source of truth and stays in sync with the implementation:
 
-### Editing (with EditingPlugin)
-
-| Key | Action |
-|-----|--------|
-| <kbd>↵ Enter</kbd> | Start editing focused cell |
-| <kbd>F2</kbd> | Start editing (alternative) |
-| <kbd>Esc</kbd> | Cancel editing |
-| <kbd>⇥ Tab</kbd> | Commit and move to next cell |
-| <kbd>⇧ Shift</kbd> + <kbd>⇥ Tab</kbd> | Commit and move to previous cell |
-| <kbd>↵ Enter</kbd> (while editing) | Commit value |
-
-### Row Grouping / Tree
-
-| Key | Action |
-|-----|--------|
-| <kbd>Space</kbd> | Toggle expand/collapse on group or tree node |
-
-### Context Menu (with ContextMenuPlugin)
-
-| Key | Action |
-|-----|--------|
-| <kbd>⇧ Shift</kbd> + <kbd>F10</kbd> / <kbd>☰ Menu</kbd> | Open context menu at focused cell |
-| <kbd>↑</kbd> / <kbd>↓</kbd> | Navigate menu items |
-| <kbd>↵ Enter</kbd> / <kbd>Space</kbd> | Activate menu item |
-| <kbd>Esc</kbd> | Close menu |
+- [**Selection**](/grid/plugins/selection/#keyboard-shortcuts) — <kbd>Space</kbd>, <kbd>Shift</kbd> + arrows / <kbd>PgUp</kbd> / <kbd>PgDn</kbd> / <kbd>Ctrl</kbd> + <kbd>Home</kbd>/<kbd>End</kbd>, <kbd>Ctrl</kbd> + <kbd>A</kbd>, <kbd>Esc</kbd>
+- [**Editing**](/grid/plugins/editing/#keyboard-shortcuts-row-mode) — <kbd>Enter</kbd> (start row edit / commit), <kbd>F2</kbd> (single-cell edit), <kbd>Tab</kbd> / <kbd>Shift</kbd> + <kbd>Tab</kbd>, <kbd>Esc</kbd> (cancel)
+- [**Clipboard**](/grid/plugins/clipboard/#keyboard-shortcuts) — <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>C</kbd> / <kbd>X</kbd> / <kbd>V</kbd>
+- [**Context Menu**](/grid/plugins/context-menu/) — <kbd>Shift</kbd> + <kbd>F10</kbd> or the dedicated <kbd>☰ Menu</kbd> key opens the menu at the focused cell; <kbd>↑</kbd>/<kbd>↓</kbd> navigates, <kbd>Enter</kbd>/<kbd>Space</kbd> activates, <kbd>Esc</kbd> closes
+- [**Row Grouping**](/grid/plugins/grouping-rows/) — <kbd>Space</kbd> toggles expand/collapse on a group or tree node
 
 ## Focus Management
 
@@ -144,7 +119,7 @@ The grid uses `aria-live` regions to announce dynamic changes to screen readers:
 
 ### Configuring Announcements
 
-You can disable or customize live region announcements via the `a11y` config:
+You can disable or customize live region announcements via the [`a11y`](/grid/api/core/interfaces/a11yconfig/) config — see [`A11yMessages`](/grid/api/core/interfaces/a11ymessages/) for the full list of overridable messages and their signatures:
 
 ```typescript
 // Disable all announcements

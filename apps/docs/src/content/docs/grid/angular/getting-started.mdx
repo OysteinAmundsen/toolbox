@@ -120,9 +120,11 @@ Each feature input enables a specific plugin with simplified configuration. See 
 | `[groupingRows]` | `features/grouping-rows` | Row grouping |
 | `[columnVirtualization]` | `features/column-virtualization` | Virtualize columns for wide grids |
 | `[reorderRows]` | `features/reorder-rows` | Row drag-to-reorder |
+| `[rowDragDrop]` | `features/row-drag-drop` | Cross-grid / external row drag-and-drop |
 | `[tree]` | `features/tree` | Hierarchical tree view |
 | `[masterDetail]` | `features/master-detail` | Expandable detail rows |
 | `[responsive]` | `features/responsive` | Card layout for narrow viewports |
+| `[tooltip]` | `features/tooltip` | Cell / header tooltips |
 | `[undoRedo]` | `features/undo-redo` | Edit undo/redo |
 | `[export]` | `features/export` | CSV/Excel export |
 | `[print]` | `features/print` | Print support |
@@ -133,13 +135,19 @@ Each feature input enables a specific plugin with simplified configuration. See 
 
 | Input | Type | Description |
 |-------|------|-------------|
+| `[rows]` | `T[]` | Row data — omit when using `[serverSide]` |
+| `[columns]` | [`ColumnConfig`](/grid/api/core/interfaces/columnconfig/)`[]` | Column definitions (alternative to `gridConfig.columns`) |
+| `[gridConfig]` | [`GridConfig`](/grid/api/core/interfaces/gridconfig/) | Full grid configuration object |
+| `[loading]` | `boolean` | Show the grid's loading overlay |
+| `[fitMode]` | `FitMode` | Column-fit strategy (`'auto'`, `'fill'`, `'fill-rest'`, etc.) |
+| `[customStyles]` | `string` | CSS injected into the grid — useful for custom renderer/editor styling |
 | `[sortable]` | `boolean` | Grid-wide sorting toggle (default: true) |
 | `[filterable]` | `boolean` | Grid-wide filtering toggle (default: true). Requires FilteringPlugin. |
 | `[selectable]` | `boolean` | Grid-wide selection toggle (default: true). Requires SelectionPlugin. |
 
 ## Programmatic Grid Access
 
-Use [`injectGrid()`](/grid/angular/api/utilities/injectGrid/) for programmatic access to the grid. It provides a reactive API via signals:
+Use [`injectGrid()`](/grid/angular/api/utilities/injectGrid/) for programmatic access to the grid. It provides a reactive API via signals — see [`InjectGridReturn`](/grid/angular/api/types/InjectGridReturn/) for the full return shape:
 
 ```typescript
 import { Component, effect } from '@angular/core';
@@ -219,11 +227,12 @@ gridExport = injectGridExport('#secondary-grid');
 
 | Function | Import | Key Methods |
 |----------|--------|-------------|
-| `injectGridSelection()` | `features/selection` | `selectAll`, `clearSelection`, `getSelection`, `selectedRowIndices` (Signal) |
-| `injectGridFiltering()` | `features/filtering` | `setFilter`, `clearAllFilters`, `getFilters`, `getFilteredRowCount` |
-| `injectGridExport()` | `features/export` | `exportToCsv`, `exportToExcel`, `exportToJson`, `isExporting` |
-| `injectGridPrint()` | `features/print` | `print`, `isPrinting` |
-| `injectGridUndoRedo()` | `features/undo-redo` | `undo`, `redo`, `canUndo` (Signal), `canRedo` (Signal) |
+| [`injectGrid()`](/grid/angular/api/utilities/injectGrid/) | `@toolbox-web/grid-angular` | `element`, `isReady`, `config`, `forceLayout`, `toggleGroup`, `registerStyles`, `visibleColumns` |
+| [`injectGridSelection()`](/grid/angular/api/features/injectGridSelection/) | `features/selection` | `selectAll`, `clearSelection`, `getSelection`, `selectedRowIndices` (Signal) |
+| [`injectGridFiltering()`](/grid/angular/api/features/injectGridFiltering/) | `features/filtering` | `setFilter`, `clearAllFilters`, `getFilters`, `getFilteredRowCount` |
+| [`injectGridExport()`](/grid/angular/api/features/injectGridExport/) | `features/export` | `exportToCsv`, `exportToExcel`, `exportToJson`, `isExporting` |
+| [`injectGridPrint()`](/grid/angular/api/features/injectGridPrint/) | `features/print` | `print`, `isPrinting` |
+| [`injectGridUndoRedo()`](/grid/angular/api/features/injectGridUndoRedo/) | `features/undo-redo` | `undo`, `redo`, `canUndo` (Signal), `canRedo` (Signal) |
 
 ### Signal-Based Selection Example
 
@@ -351,45 +360,53 @@ Feature inputs and manual plugins can be mixed — the grid merges them, with ma
 
 ### Custom Tool Panels
 
-Use [`GridToolPanel`](/grid/angular/api/directives/GridToolPanel/) for custom sidebar panels:
+Use the [`GridToolPanel`](/grid/angular/api/directives/GridToolPanel/) directive to declare a custom sidebar panel inline. Place a `<tbw-grid-tool-panel>` element inside the grid with an `<ng-template>` for its content — the template receives the grid element as its implicit context (and as `let-grid`):
 
 ```typescript
 import { Component } from '@angular/core';
 import { Grid, GridToolPanel } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   imports: [Grid, GridToolPanel],
   template: `
-    <tbw-grid [rows]="employees" [gridConfig]="gridConfig">
-      <ng-template tbwToolPanel="stats" let-rows>
-        <div class="stats-panel">
-          <h3>Statistics</h3>
-          <p>Total rows: {{ rows.length }}</p>
-        </div>
-      </ng-template>
+    <tbw-grid [rows]="employees" [columns]="columns">
+      <tbw-grid-tool-panel
+        id="stats"
+        title="Statistics"
+        icon="📊"
+        [order]="10"
+      >
+        <ng-template let-grid>
+          <div class="stats-panel">
+            <h3>Statistics</h3>
+            <p>Total rows: {{ employees.length }}</p>
+          </div>
+        </ng-template>
+      </tbw-grid-tool-panel>
     </tbw-grid>
   `,
 })
 export class EmployeeGridComponent {
   employees = [/* ... */];
-  gridConfig: GridConfig = {
-    columns: [/* ... */],
-    shell: {
-      header: { title: 'Employees' },
-      toolPanels: [{ id: 'stats', label: 'Stats', icon: '📊' }],
-    },
-  };
+  columns = [/* ... */];
 }
 ```
+
+**Inputs:** `id` (required), `title` (required), `icon`, `tooltip`, `order` (default `100`, lower = first).
 
 ## Server-Side Data Loading
 
 Angular-specific pattern using `inject(HttpClient)`. The grid's `getRows` callback
-accepts an RxJS `Observable` directly — no wrapper needed. The grid subscribes once
-and calls `unsubscribe()` when a request is superseded (sort change, fast scrolling),
-which is what triggers `HttpClient` to cancel the underlying XHR. No stale buffer,
-no manual `firstValueFrom`.
+accepts an RxJS `Observable` (any `Subscribable`) directly — no wrapper needed. The grid
+subscribes once and calls `unsubscribe()` when a request is superseded (sort change, fast
+scrolling), which is what triggers `HttpClient` to cancel the underlying XHR. No stale
+buffer, no manual `firstValueFrom`.
+
+See [`ServerSideDataSource`](/grid/plugins/server-side/Interfaces/ServerSideDataSource/),
+[`GetRowsParams`](/grid/plugins/server-side/Interfaces/GetRowsParams/), and
+[`GetRowsResult`](/grid/plugins/server-side/Interfaces/GetRowsResult/) for the full
+data-source contract — including the `params.signal` `AbortSignal` you can forward to
+`fetch()` or via RxJS `takeUntil` for explicit cancellation.
 
 ```typescript
 import { Component, inject } from '@angular/core';
@@ -449,7 +466,7 @@ export class EmployeeGridComponent {
 > is aborted. With a plain `firstValueFrom(this.http.get(...))` the request would
 > keep running and could resolve *after* the new one — corrupting the buffer.
 
-The grid drives loading through the `getRows` callback, so the `[rows]` input is not needed — `ServerSidePlugin` owns the row buffer and requests blocks on demand as the user scrolls, sorts, or filters. See the [Server-Side plugin](/grid/plugins/server-side/) for the full `ServerSideDataSource` interface.
+The grid drives loading through the `getRows` callback, so the `[rows]` input is not needed — the server-side feature owns the row buffer and requests blocks on demand as the user scrolls, sorts, or filters. See the [Server-Side plugin](/grid/plugins/server-side/) for the full `ServerSideDataSource` interface.
 
 > **Caching:** Angular has no built-in equivalent to TanStack Query's request cache. If you need cross-component caching, deduplication, or `staleTime`, wrap the `HttpClient` call in your own service (e.g. with `shareReplay`), or evaluate [`@tanstack/angular-query-experimental`](https://tanstack.com/query/latest/docs/framework/angular/overview) — note the `experimental` tag.
 

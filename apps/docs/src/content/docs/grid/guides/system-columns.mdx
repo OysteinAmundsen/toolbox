@@ -33,8 +33,8 @@ grid.gridConfig = {
 
 ## What `utility: true` does
 
-The column **is** rendered in the grid (header + cells, with your `viewRenderer` /
-`headerRenderer` / `cellRenderer`). It is excluded from everything else:
+The column **is** rendered in the grid (header + cells, with your `renderer` /
+`viewRenderer` / `headerRenderer`). It is excluded from everything else:
 
 | Surface                | Behaviour for `utility: true`                                       |
 | ---------------------- | ------------------------------------------------------------------- |
@@ -60,7 +60,7 @@ In short: *visible in the grid, hidden from the system.*
 - **Status indicator** — a coloured dot or icon derived from row state
 - **Row number** — a 1-based index column that should never be sorted or exported
 - **Custom expander** — a developer-controlled toggle separate from MasterDetail / Tree
-- **Drag handle** — a visual handle for row reorder (the built-in `RowReorder` plugin already does this)
+- **Drag handle** — a visual handle for row reorder (the built-in `RowDragDropPlugin` already does this)
 
 ## Built-in system columns
 
@@ -70,7 +70,7 @@ The same flag is used internally for columns the grid synthesises:
 | ----------------- | -------------------------------------------------------- |
 | `SelectionPlugin` | Checkbox column (`__tbw_checkbox`) when `checkbox: true` |
 | `MasterDetailPlugin` / `TreePlugin` / `GroupingRowsPlugin` | Expander column (`__tbw_expander`) |
-| `RowReorderPlugin` | Drag handle column                                      |
+| `RowDragDropPlugin` | Drag handle column                                      |
 
 You can therefore safely mix your own utility columns with built-in ones — they all play by the same rules.
 

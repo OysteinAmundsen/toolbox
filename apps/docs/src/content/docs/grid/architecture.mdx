@@ -144,7 +144,9 @@ The grid parses these light DOM elements on connection:
     <tbw-grid-header-content>
       <span>Custom content here</span>
     </tbw-grid-header-content>
-    <tbw-grid-tool-button label="Refresh" icon="🔄"></tbw-grid-tool-button>
+    <tbw-grid-tool-buttons>
+      <button class="tbw-toolbar-btn" title="Refresh">🔄</button>
+    </tbw-grid-tool-buttons>
   </tbw-grid-header>
 </tbw-grid>
 ```
@@ -306,14 +308,11 @@ Some operations intentionally bypass the scheduler for performance:
 
 ### Debugging Renders
 
-```typescript
-// In browser console
-grid._scheduler.setDebug(true);
+The scheduler is held on a private field (`#scheduler`), so direct introspection from the console is not part of the public API. To trace render activity:
 
-// After interactions, inspect:
-grid._scheduler.getRenderLog();
-// → [{ phase: 5, source: 'applyGridConfigUpdate', timestamp: 1234.56 }, ...]
-```
+- Use the browser **Performance** tab and record around the interaction — each `requestAnimationFrame` callback shows up with the phase work (`processRows`, `processColumns`, `renderHeader`, `renderVirtualWindow`, plugin `afterRender`).
+- Add `console.log` calls in your own plugin's hooks to confirm which phase fires after a given input.
+- The `source` argument passed to `requestPhase()` (e.g., `'applyGridConfigUpdate'`, `'resize-observer'`, `'plugin:requestRender'`) is preserved for future debug surfaces; the strings are visible in source files when grepping for `requestPhase(`.
 
 ---
 
@@ -445,13 +444,25 @@ const responses = this.grid.query<boolean>('canMoveColumn', column);
 Plugins declare owned config properties via a static `manifest`:
 
 ```typescript
-static override readonly manifest = {
-  ownedProperties: ['editable', 'editor', 'editOn'],
+import type { PluginManifest } from '@toolbox-web/grid';
+
+static override readonly manifest: PluginManifest<EditingConfig> = {
+  ownedProperties: [
+    { property: 'editable', level: 'column', description: 'the "editable" column property' },
+    { property: 'editor',   level: 'column', description: 'the "editor" column property' },
+  ],
   configRules: [
-    { property: 'editable', type: 'column', rule: 'requires-plugin' },
+    {
+      id: 'editing/invalid-edit-on',
+      severity: 'warn',
+      message: '"editOn: dblclick" has no effect when editable is false',
+      check: (config) => config.editOn === 'dblclick' && config.editable === false,
+    },
   ],
 };
 ```
+
+See the [Custom Plugins guide → Plugin Manifest](/grid/guides/custom-plugins/#plugin-manifest) for the full schema (queries, events, incompatibleWith, hookPriority).
 
 The grid validates at runtime that properties like `editable: true` are only used when the owning plugin is loaded, and provides helpful error messages with import hints.
 
@@ -724,7 +735,9 @@ Or declaratively:
     <tbw-grid-header-content>
       <span>Custom center content</span>
     </tbw-grid-header-content>
-    <tbw-grid-tool-button label="Export" icon="📥"></tbw-grid-tool-button>
+    <tbw-grid-tool-buttons>
+      <button class="tbw-toolbar-btn" title="Export">📥</button>
+    </tbw-grid-tool-buttons>
   </tbw-grid-header>
 </tbw-grid>
 ```
@@ -1013,13 +1026,13 @@ libs/grid/src/
    │  ├─ registry.ts          # registerFeature(), createPluginsFromFeatures()
    │  ├─ selection.ts         # Side-effect: registers selection feature
    │  ├─ editing.ts           # Side-effect: registers editing feature
-   │  └─ ...                 # 22 feature modules total
+   │  └─ ...                 # 25 feature modules total
    └─ plugins/               # Built-in plugins
       ├─ editing/             # Inline cell editing
       ├─ filtering/           # Column filters
       ├─ selection/           # Row/cell/range selection
       ├─ multi-sort/          # Multi-column sorting
-      └─ ...                 # 22 plugins total
+      └─ ...                 # 24 plugins total
 ```
 
 ## See Also

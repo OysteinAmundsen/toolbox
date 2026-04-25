@@ -107,7 +107,9 @@ grid.gridConfig = {
 Called when the plugin is attached to the grid. Use for initial setup.
 
 ```typescript
-override attach(grid: DataGridElement): void {
+import type { GridElement } from '@toolbox-web/grid';
+
+override attach(grid: GridElement): void {
   super.attach(grid); // Always call super first!
   this.state = new Map();
   console.log('Attached to grid with', grid.rows.length, 'rows');
@@ -226,7 +228,7 @@ override afterRowRender(context: AfterRowRenderContext): void {
 
 | Helper | Description |
 |--------|-------------|
-| `this.grid` | Typed `GridElementRef` with all plugin APIs |
+| `this.grid` | Typed [`GridElement`](/grid/api/plugin-development/interfaces/gridelement/) (extends `GridElementRef`) |
 | `this.gridElement` | Grid as `HTMLElement` for DOM queries |
 | `this.columns` | Current column configurations |
 | `this.visibleColumns` | Only visible columns |
@@ -238,10 +240,12 @@ override afterRowRender(context: AfterRowRenderContext): void {
 | `this.gridIcons` | Merged icon configuration |
 | `this.getPluginByName(name)` | Get another plugin by name (preferred) |
 | `this.getPlugin(PluginClass)` | Get another plugin by class (alternative) |
-| `this.emit(eventName, detail)` | Dispatch custom event from grid |
+| `this.emit(eventName, detail)` | Dispatch a DOM `CustomEvent` from the grid (external consumers) |
+| `this.broadcast(eventType, detail)` | Emit on the internal event bus + DOM (other plugins + external consumers) |
+| `this.on(eventType, callback)` | Subscribe to event-bus events (auto-cleaned on detach) |
 | `this.requestRender()` | Request full re-render |
 | `this.requestAfterRender()` | Request lightweight style update |
-| `this.resolveIcon(name)` | Get icon value by name (**deprecated** — use `setIcon`) |
+| `this.requestVirtualRefresh()` | Re-render visible rows without rebuilding the row model |
 | `this.setIcon(el, iconKey)` | Set icon on element using CSS-first hybrid approach |
 
 ## Event Hooks
@@ -251,8 +255,10 @@ override afterRowRender(context: AfterRowRenderContext): void {
 Handle cell click events. Return `true` to prevent default behavior.
 
 ```typescript
-override onCellClick(event: CustomEvent): boolean {
-  const { row, field, value, cellElement } = event.detail;
+import type { CellClickEvent } from '@toolbox-web/grid';
+
+override onCellClick(event: CellClickEvent): boolean | void {
+  const { row, field, value, cellEl } = event;
   if (field === 'delete') {
     this.handleDelete(row);
     return true; // Prevent default click handling
@@ -266,8 +272,10 @@ override onCellClick(event: CustomEvent): boolean {
 Handle mousedown for drag operations or selection.
 
 ```typescript
-override onCellMouseDown(event: CustomEvent): boolean {
-  const { row, field } = event.detail;
+import type { CellMouseEvent } from '@toolbox-web/grid';
+
+override onCellMouseDown(event: CellMouseEvent): boolean | void {
+  const { row, field } = event;
 
   if (field === 'drag-handle') {
     this.startDrag(row);
@@ -283,7 +291,7 @@ override onCellMouseDown(event: CustomEvent): boolean {
 Handle keyboard events. Return `true` to prevent default.
 
 ```typescript
-override onKeyDown(event: KeyboardEvent): boolean {
+override onKeyDown(event: KeyboardEvent): boolean | void {
   if (event.ctrlKey && event.key === 'd') {
     this.duplicateSelectedRow();
     return true;
@@ -297,9 +305,10 @@ override onKeyDown(event: KeyboardEvent): boolean {
 Respond to scroll events (use sparingly — can impact performance).
 
 ```typescript
-override onScroll(event: Event): void {
-  const scrollTop = (event.target as HTMLElement).scrollTop;
-  this.updateStickyElements(scrollTop);
+import type { ScrollEvent } from '@toolbox-web/grid';
+
+override onScroll(event: ScrollEvent): void {
+  this.updateStickyElements(event.scrollTop);
 }
 ```
 
@@ -308,7 +317,7 @@ override onScroll(event: Event): void {
 Custom row rendering. Return `true` to skip default rendering.
 
 ```typescript
-override renderRow(row: T, rowEl: HTMLElement, rowIndex: number): boolean {
+override renderRow(row: T, rowEl: HTMLElement, rowIndex: number): boolean | void {
   if (row.type === 'section-header') {
     rowEl.innerHTML = `<div class="section-header">${row.title}</div>`;
     return true;

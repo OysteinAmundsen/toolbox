@@ -4,6 +4,68 @@
 
 ---
 
+## RULE 0 (HIGHEST PRIORITY) — Prefer `gridConfig` Over Fragmented Feature Props
+
+When generating code for ANY framework (React, Angular, Vue, vanilla JS/TS, Svelte, etc.), **agents MUST default to a single `gridConfig` object** that contains columns, features, plugins, and all other grid configuration. Do NOT spread configuration across many individual props/inputs/attributes on the grid element unless explicitly asked.
+
+### Why
+
+- One readable object describes the entire grid; props are reserved for reactive data (`rows`) and the imperative `ref`.
+- Configuration is portable across frameworks (the same `GridConfig` works in vanilla, React, Angular, Vue).
+- Easy to extract, share, snapshot in tests, and lift into services / composables / hooks.
+- Multi-line feature config (callbacks like `groupOn`, `dataSource`, renderers) is far more readable inside an object than as JSX/template attributes.
+
+### Pattern (all frameworks)
+
+```ts
+const gridConfig: GridConfig<Employee> = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'salary', header: 'Salary', type: 'number' },
+  ],
+  features: {
+    selection: 'range',
+    editing: 'dblclick',
+    multiSort: true,
+    filtering: true,
+  },
+};
+```
+
+Then pass it as a single prop and keep `rows` separate (rows are reactive data, not config):
+
+- **React:**   `<DataGrid rows={data} gridConfig={gridConfig} />` (memoize with `useMemo`)
+- **Angular:** `<tbw-grid [rows]="data" [gridConfig]="gridConfig" />`
+- **Vue:**     `<TbwGrid :rows="data" :grid-config="gridConfig" />` (wrap with `markRaw()`)
+- **Vanilla:** `const grid = createGrid<Employee>(gridConfig); grid.rows = data;`
+
+### Side-Effect Imports Are STILL REQUIRED
+
+Using `gridConfig.features.X` does NOT remove the need to import the feature side-effect — the factory must be registered for the merge to produce a plugin:
+
+```ts
+import '@toolbox-web/grid/features/selection';      // vanilla / any framework
+// or, when using a framework adapter:
+import '@toolbox-web/grid-react/features/selection';
+import '@toolbox-web/grid-angular/features/selection';
+import '@toolbox-web/grid-vue/features/selection';
+```
+
+Adapter feature imports re-export the core feature, so importing from the adapter path is sufficient.
+
+### When To Use Individual Feature Props Instead
+
+Feature props (`<DataGrid selection="row" />`) are a valid shorthand and remain fully supported. Use them ONLY when:
+
+- The grid uses ≤ 2 features AND
+- Each feature config is a single boolean / short string / one-line object AND
+- The user explicitly asks for prop-style configuration.
+
+For everything else — including all generated examples, demos, and tutorials — default to `gridConfig`.
+
+---
+
 ## CRITICAL RULES — Read Before Generating Any Code
 
 These rules apply to ALL frameworks. Violating them produces broken code.
@@ -128,56 +190,122 @@ tbw-grid.large { font-size: 1.25em; }
 
 ## FRAMEWORK DECISION GUIDE
 
-Choose the right approach based on your framework:
+**Default approach for every framework: build one `gridConfig` object and pass it as a single prop. Reserve framework props for reactive data (`rows`) and imperative handles only.**
 
-### React → Use Feature Props (Recommended)
+### React (Recommended)
 
+```tsx
+import { useMemo } from 'react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
+import '@toolbox-web/grid-react/features/selection';
+import '@toolbox-web/grid-react/features/editing';
+
+function EmployeeGrid({ employees }: { employees: Employee[] }) {
+  const gridConfig = useMemo<GridConfig<Employee>>(() => ({
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name', editable: true },
+    ],
+    features: { selection: 'range', editing: 'dblclick' },
+  }), []);
+
+  return <DataGrid rows={employees} gridConfig={gridConfig} style={{ height: 400 }} />;
+}
 ```
-import '@toolbox-web/grid-react/features/selection'; // side-effect imports
-import { DataGrid } from '@toolbox-web/grid-react';
-<DataGrid rows={data} columns={columns} selection="range" editing />
-```
 
-Alternative: Use `gridConfig` prop with `GridConfig` type for React JSX renderers/editors.
+Use `gridConfig` whenever columns include React JSX renderers/editors. Memoize with `useMemo` to keep the reference stable.
 
-### Angular → Use Feature Props (Recommended)
+Alternative (small grids only): individual feature props — `<DataGrid rows={...} columns={...} selection="range" editing="dblclick" />`.
 
-```
-import '@toolbox-web/grid-angular/features/selection'; // side-effect imports
+### Angular (Recommended)
+
+```typescript
+import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-<tbw-grid [rows]="data" [columns]="columns" [selection]="'range'" [editing]="true" />
+import type { GridConfig } from '@toolbox-web/grid';
+import '@toolbox-web/grid-angular/features/selection';
+import '@toolbox-web/grid-angular/features/editing';
+
+@Component({
+  imports: [Grid],
+  template: `<tbw-grid [rows]="employees" [gridConfig]="gridConfig" style="height: 400px;" />`,
+})
+export class EmployeeGridComponent {
+  employees: Employee[] = [/* ... */];
+  gridConfig: GridConfig<Employee> = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name', editable: true },
+    ],
+    features: { selection: 'range', editing: 'dblclick' },
+  };
+}
 ```
 
-Alternative: Use `[gridConfig]` with `*tbwRenderer` / `*tbwEditor` structural directives for Angular template renderers.
+With Angular component-class renderers/editors, run `adapter.processGridConfig(this.gridConfig)` once before binding.
 
-### Vue → Use Feature Props (Recommended)
+Alternative (small grids only): individual inputs — `<tbw-grid [rows]="..." [columns]="..." selection="range" editing="dblclick" />`.
 
-```
-import '@toolbox-web/grid-vue/features/selection'; // side-effect imports
+### Vue (Recommended)
+
+```vue
+<script setup lang="ts">
+import { markRaw } from 'vue';
 import { TbwGrid } from '@toolbox-web/grid-vue';
-<TbwGrid :rows="data" :columns="columns" selection="range" editing />
+import type { GridConfig } from '@toolbox-web/grid';
+import '@toolbox-web/grid-vue/features/selection';
+import '@toolbox-web/grid-vue/features/editing';
+
+const employees: Employee[] = [/* ... */];
+const gridConfig = markRaw<GridConfig<Employee>>({
+  columns: [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name', editable: true },
+  ],
+  features: { selection: 'range', editing: 'dblclick' },
+});
+</script>
+
+<template>
+  <TbwGrid :rows="employees" :grid-config="gridConfig" style="height: 400px" />
+</template>
 ```
 
-Alternative: Use `gridConfig` prop, or `TbwGridColumn` with `#cell` / `#editor` slots for Vue template renderers.
+`markRaw()` is required — without it Vue makes plugin instances reactive and breaks them.
 
-### Vanilla JS / Other Frameworks → Use Feature Props (Recommended)
+Alternative (small grids only): individual props — `<TbwGrid :rows="..." :columns="..." selection="range" editing="dblclick" />`.
 
-```
+### Vanilla JS / TypeScript / Other Frameworks (Recommended)
+
+```typescript
 import '@toolbox-web/grid';
 import '@toolbox-web/grid/features/selection';
 import '@toolbox-web/grid/features/editing';
-import { createGrid } from '@toolbox-web/grid';
-const grid = createGrid({ columns: [...], features: { selection: 'row', editing: true } });
-grid.rows = data;
+import { createGrid, type GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig<Employee> = {
+  columns: [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name', editable: true },
+  ],
+  features: { selection: 'range', editing: 'dblclick' },
+};
+
+const grid = createGrid<Employee>(gridConfig);
+grid.rows = employees;
+grid.style.height = '400px';
+document.body.appendChild(grid);
 ```
 
-Alternative: Use `plugins: [new SelectionPlugin({ ... })]` for full control over plugin instances.
+Alternative (advanced control): manual plugin instantiation — `gridConfig.plugins = [new SelectionPlugin({ mode: 'range' })]`. Required only for third-party plugins or configurations the feature factory does not expose.
 
 ---
 
-## Feature Props Reference (All Frameworks)
+## Feature Props Reference (Alternative Style — see RULE 0)
 
-Feature props enable declarative plugin loading with tree-shaking. Import the feature once (side-effect), then use the prop.
+> **Reminder:** Default to `gridConfig.features = { ... }` (RULE 0). The table below is a quick reference for the equivalent prop-style API — use only for very small grids or when the user explicitly asks. The same side-effect imports register both styles, and the same value shapes are accepted under `gridConfig.features.<name>`.
+
+Feature props enable declarative plugin loading with tree-shaking. Import the feature once (side-effect), then use the prop or the matching `gridConfig.features.<name>` key.
 
 | Feature Prop | Side-Effect Import (React example) | Example Values |
 |--------------|------------------------------------|----------------|
@@ -198,11 +326,11 @@ Feature props enable declarative plugin loading with tree-shaking. Import the fe
 | `groupingRows` | `features/grouping-rows` | `{ groupOn: (row) => [row.department] }` |
 | `tree` | `features/tree` | `{ childrenField: 'children' }` |
 | `columnVirtualization` | `features/column-virtualization` | `true` |
-| `masterDetail` | `features/master-detail` | `{ renderer: (row) => ... }` |
+| `masterDetail` | `features/master-detail` | `{ detailRenderer: (row, rowIndex) => '<div>...</div>' }` |
 | `responsive` | `features/responsive` | `true`, `{ breakpoint: 768 }` |
-| `export` | `features/export` | `true`, `{ filename: 'data.csv' }` |
+| `export` | `features/export` | `true`, `{ fileName: 'data' }` |
 | `print` | `features/print` | `true` |
-| `pivot` | `features/pivot` | `{ rowFields: [...], columnFields: [...] }` |
+| `pivot` | `features/pivot` | `{ rowGroupFields: ['region'], columnGroupFields: ['quarter'], valueFields: [{ field: 'revenue', aggFunc: 'sum' }] }` |
 | `serverSide` | `features/server-side` | `{ dataSource: async (params) => ... }` |
 | `tooltip` | `features/tooltip` | `true`, `{ header: true, cell: false }` |
 
@@ -222,44 +350,51 @@ Complete, copy-pasteable examples for common tasks.
 **React:**
 
 ```tsx
-import '@toolbox-web/grid';
-import { DataGrid } from '@toolbox-web/grid-react';
+import { useMemo } from 'react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 
-function EmployeeGrid({ employees }) {
-  return (
-    <DataGrid
-      rows={employees}
-      columns={[
-        { field: 'id', header: 'ID', type: 'number', width: 60 },
-        { field: 'name', header: 'Name' },
-        { field: 'email', header: 'Email' },
-        { field: 'department', header: 'Department', sortable: true },
-      ]}
-      style={{ height: '400px' }}
-    />
-  );
+interface Employee {
+  id: number;
+  name: string;
+  email: string;
+  department: string;
+}
+
+function EmployeeGrid({ employees }: { employees: Employee[] }) {
+  const gridConfig = useMemo<GridConfig<Employee>>(() => ({
+    columns: [
+      { field: 'id', header: 'ID', type: 'number', width: 60 },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'department', header: 'Department', sortable: true },
+    ],
+  }), []);
+
+  return <DataGrid rows={employees} gridConfig={gridConfig} style={{ height: 400 }} />;
 }
 ```
 
 **Angular:**
 
 ```typescript
-import '@toolbox-web/grid';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   imports: [Grid],
-  template: `<tbw-grid [rows]="employees" [columns]="columns" style="height: 400px;" />`,
+  template: `<tbw-grid [rows]="employees" [gridConfig]="gridConfig" style="height: 400px;" />`,
 })
 export class EmployeeGridComponent {
   employees = [{ id: 1, name: 'Alice', email: 'alice@co.com', department: 'Engineering' }];
-  columns = [
-    { field: 'id', header: 'ID', type: 'number', width: 60 },
-    { field: 'name', header: 'Name' },
-    { field: 'email', header: 'Email' },
-    { field: 'department', header: 'Department', sortable: true },
-  ];
+  gridConfig: GridConfig<{ id: number; name: string; email: string; department: string }> = {
+    columns: [
+      { field: 'id', header: 'ID', type: 'number', width: 60 },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'department', header: 'Department', sortable: true },
+    ],
+  };
 }
 ```
 
@@ -267,30 +402,12 @@ export class EmployeeGridComponent {
 
 ```vue
 <script setup lang="ts">
-import '@toolbox-web/grid';
+import { markRaw } from 'vue';
 import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const employees = [{ id: 1, name: 'Alice', email: 'alice@co.com', department: 'Engineering' }];
-const columns = [
-  { field: 'id', header: 'ID', type: 'number', width: 60 },
-  { field: 'name', header: 'Name' },
-  { field: 'email', header: 'Email' },
-  { field: 'department', header: 'Department', sortable: true },
-];
-</script>
-
-<template>
-  <TbwGrid :rows="employees" :columns="columns" style="height: 400px" />
-</template>
-```
-
-**Vanilla:**
-
-```typescript
-import '@toolbox-web/grid';
-import { createGrid } from '@toolbox-web/grid';
-
-const grid = createGrid({
+const gridConfig = markRaw<GridConfig<typeof employees[number]>>({
   columns: [
     { field: 'id', header: 'ID', type: 'number', width: 60 },
     { field: 'name', header: 'Name' },
@@ -298,6 +415,29 @@ const grid = createGrid({
     { field: 'department', header: 'Department', sortable: true },
   ],
 });
+</script>
+
+<template>
+  <TbwGrid :rows="employees" :grid-config="gridConfig" style="height: 400px" />
+</template>
+```
+
+**Vanilla:**
+
+```typescript
+import '@toolbox-web/grid';
+import { createGrid, type GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig<Employee> = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number', width: 60 },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department', sortable: true },
+  ],
+};
+
+const grid = createGrid<Employee>(gridConfig);
 grid.rows = employees;
 grid.style.height = '400px';
 document.body.appendChild(grid);
@@ -305,50 +445,92 @@ document.body.appendChild(grid);
 
 ### Recipe 2: Sortable + Filterable + Editable Grid
 
-**React (feature props):**
+**React (gridConfig — recommended):**
 
 ```tsx
-import '@toolbox-web/grid';
+import { useMemo, useState } from 'react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 import '@toolbox-web/grid-react/features/selection';
 import '@toolbox-web/grid-react/features/editing';
 import '@toolbox-web/grid-react/features/filtering';
 import '@toolbox-web/grid-react/features/multi-sort';
-import { DataGrid } from '@toolbox-web/grid-react';
 
-function EmployeeGrid({ employees }) {
+function EmployeeGrid({ employees }: { employees: Employee[] }) {
   const [data, setData] = useState(employees);
+  const gridConfig = useMemo<GridConfig<Employee>>(() => ({
+    columns: [
+      { field: 'id', header: 'ID', type: 'number' },
+      { field: 'name', header: 'Name', editable: true, filterable: true },
+      { field: 'email', header: 'Email', filterable: true },
+      { field: 'salary', header: 'Salary', type: 'number', editable: true },
+    ],
+    features: {
+      selection: 'row',
+      editing: 'dblclick',
+      filtering: true,
+      multiSort: 'multi',
+    },
+  }), []);
 
   return (
     <DataGrid
       rows={data}
-      columns={[
-        { field: 'id', header: 'ID', type: 'number' },
-        { field: 'name', header: 'Name', editable: true, filterable: true },
-        { field: 'email', header: 'Email', filterable: true },
-        { field: 'salary', header: 'Salary', type: 'number', editable: true },
-      ]}
-      selection="row"
-      editing="dblclick"
-      filtering
-      multiSort
+      gridConfig={gridConfig}
       onRowsChange={setData}
-      style={{ height: '400px' }}
+      style={{ height: 400 }}
     />
   );
 }
 ```
 
-**Vanilla (feature props — recommended):**
+**Angular (gridConfig — recommended):**
 
 ```typescript
-import '@toolbox-web/grid';
-import '@toolbox-web/grid/features/selection';
-import '@toolbox-web/grid/features/editing';
-import '@toolbox-web/grid/features/filtering';
-import '@toolbox-web/grid/features/multi-sort';
-import { createGrid } from '@toolbox-web/grid';
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { GridConfig } from '@toolbox-web/grid';
+import '@toolbox-web/grid-angular/features/selection';
+import '@toolbox-web/grid-angular/features/editing';
+import '@toolbox-web/grid-angular/features/filtering';
+import '@toolbox-web/grid-angular/features/multi-sort';
 
-const grid = createGrid({
+@Component({
+  imports: [Grid],
+  template: `<tbw-grid [rows]="employees" [gridConfig]="gridConfig" style="height: 400px;" />`,
+})
+export class EmployeeGridComponent {
+  employees: Employee[] = [/* ... */];
+  gridConfig: GridConfig<Employee> = {
+    columns: [
+      { field: 'id', header: 'ID', type: 'number' },
+      { field: 'name', header: 'Name', editable: true, filterable: true },
+      { field: 'email', header: 'Email', filterable: true },
+      { field: 'salary', header: 'Salary', type: 'number', editable: true },
+    ],
+    features: {
+      selection: 'row',
+      editing: 'dblclick',
+      filtering: true,
+      multiSort: 'multi',
+    },
+  };
+}
+```
+
+**Vue (gridConfig — recommended):**
+
+```vue
+<script setup lang="ts">
+import { markRaw } from 'vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
+import '@toolbox-web/grid-vue/features/selection';
+import '@toolbox-web/grid-vue/features/editing';
+import '@toolbox-web/grid-vue/features/filtering';
+import '@toolbox-web/grid-vue/features/multi-sort';
+
+const employees: Employee[] = [/* ... */];
+const gridConfig = markRaw<GridConfig<Employee>>({
   columns: [
     { field: 'id', header: 'ID', type: 'number' },
     { field: 'name', header: 'Name', editable: true, filterable: true },
@@ -362,6 +544,39 @@ const grid = createGrid({
     multiSort: 'multi',
   },
 });
+</script>
+
+<template>
+  <TbwGrid :rows="employees" :grid-config="gridConfig" style="height: 400px" />
+</template>
+```
+
+**Vanilla (gridConfig — recommended):**
+
+```typescript
+import '@toolbox-web/grid';
+import '@toolbox-web/grid/features/selection';
+import '@toolbox-web/grid/features/editing';
+import '@toolbox-web/grid/features/filtering';
+import '@toolbox-web/grid/features/multi-sort';
+import { createGrid, type GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig<Employee> = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name', editable: true, filterable: true },
+    { field: 'email', header: 'Email', filterable: true },
+    { field: 'salary', header: 'Salary', type: 'number', editable: true },
+  ],
+  features: {
+    selection: 'row',
+    editing: 'dblclick',
+    filtering: true,
+    multiSort: 'multi',
+  },
+};
+
+const grid = createGrid<Employee>(gridConfig);
 grid.rows = employees;
 ```
 
@@ -537,19 +752,24 @@ gridConfig: {
   columns: [{ field: 'name' }, { field: 'department' }],
   features: {
     masterDetail: {
-      renderer: (row, container) => {
-        container.innerHTML = `<div style="padding: 16px;">
+      // Return HTMLElement OR an HTML string. Signature: (row, rowIndex) => HTMLElement | string
+      detailRenderer: (row, rowIndex) => `
+        <div style="padding: 16px;">
           <h4>${row.name}</h4>
           <p>Email: ${row.email}</p>
           <p>Phone: ${row.phone}</p>
-        </div>`;
-      },
+        </div>
+      `,
+      detailHeight: 'auto',
+      expandOnRowClick: false,
     },
   },
 }
 ```
 
-React: `<DataGrid masterDetail={{ renderer: (row, el) => { el.innerHTML = '...' } }} />`
+React: `<DataGrid masterDetail={{ detailRenderer: (row) => <DetailPanel row={row} /> }} />` (the React adapter accepts JSX renderers).
+Angular template: use `<tbw-grid-detail-panel>` light-DOM element + `*tbwDetailRenderer` directive instead of `detailRenderer`.
+Vue template: use `<TbwGridDetailPanel>` with `#default` slot.
 
 ### Recipe 6: Server-Side Data (Infinite Scroll)
 
@@ -613,8 +833,8 @@ gridConfig: {
   ],
   features: {
     pivot: {
-      rowFields: ['region'],
-      columnFields: ['quarter'],
+      rowGroupFields: ['region'],
+      columnGroupFields: ['quarter'],
       valueFields: [{ field: 'revenue', aggFunc: 'sum', header: 'Total Revenue' }],
     },
   },
@@ -1524,6 +1744,11 @@ const existing = queryGrid<Employee>('#my-grid');
 | `setRowLoading(id, loading)` | Row-level loading indicator |
 | `setCellLoading(rowId, field, loading)` | Cell-level loading indicator |
 | `clearAllLoading()` | Clear all loading states |
+| `getRowId(row)` | Resolve a row's stable id (uses `gridConfig.getRowId` if set) |
+| `getRow(id)` | Get the row object by id |
+| `updateRow(id, changes)` | Patch a row in place — single render pass |
+| `applyTransaction(tx, animate?)` | Apply `{ add, update, remove }` mutations atomically (Promise<TransactionResult>) |
+| `applyTransactionAsync(tx)` | Same as `applyTransaction`, but rapid calls within one frame are merged (animations disabled) |
 
 ### Loading States
 
@@ -1722,18 +1947,21 @@ import '@toolbox-web/grid-react/features/selection';    // Feature side-effect i
 
 ### `columns` Prop vs `gridConfig` Prop
 
-- **`columns` prop**: Accepts simple column configs. Does NOT support React JSX renderers/editors.
-- **`gridConfig` prop**: Accepts `GridConfig` type with `renderer`/`editor` returning JSX. Must be memoized with `useMemo()` if defined inside a component.
+Per **RULE 0**, default to `gridConfig`. Use the bare `columns` prop only for the simplest read-only grids that ship plain column configs and no features.
+
+- **`columns` prop**: Accepts simple column configs only. Does NOT support React JSX renderers/editors.
+- **`gridConfig` prop** (recommended): Accepts `GridConfig` with `renderer`/`editor` returning JSX, `features`, `plugins`, `typeDefaults`, etc. Memoize with `useMemo()` when defined inside a component.
 
 ```tsx
-// Simple columns — use columns prop
-<DataGrid rows={data} columns={[{ field: 'name' }, { field: 'email' }]} />
-
-// JSX renderers — use gridConfig prop
-const config: GridConfig<Employee> = {
+// Recommended: gridConfig (works for everything)
+const gridConfig = useMemo<GridConfig<Employee>>(() => ({
   columns: [{ field: 'status', renderer: (ctx) => <Badge>{ctx.value}</Badge> }],
-};
-<DataGrid rows={data} gridConfig={useMemo(() => config, [])} />
+  features: { selection: 'row', editing: 'dblclick' },
+}), []);
+<DataGrid rows={data} gridConfig={gridConfig} />
+
+// Acceptable for trivial read-only grids only
+<DataGrid rows={data} columns={[{ field: 'name' }, { field: 'email' }]} />
 ```
 
 ### Feature-Scoped Hooks

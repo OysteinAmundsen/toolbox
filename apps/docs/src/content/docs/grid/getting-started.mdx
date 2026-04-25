@@ -58,6 +58,8 @@ import { CardGrid, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/com
 
 :::caution[The grid needs a height]
 Set a height via CSS or inline style (e.g., `height: 400px`). Without it, the grid collapses to zero height and nothing will render. Use `height: auto` if you don't want virtual scrolling.
+
+**Tip:** A parent CSS Grid or Flexbox layout that stretches the grid (e.g., a flex child with `flex: 1` or a grid row sized with `1fr`) also counts as a height — you don't need to set one explicitly on `<tbw-grid>` itself.
 :::
 
 ### Declarative Columns (No JavaScript)

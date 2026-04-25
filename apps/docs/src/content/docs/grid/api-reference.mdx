@@ -37,7 +37,7 @@ The custom element is registered as `tbw-grid` (Toolbox Web Grid).
 
 | Property      | Type                        | Default | Description                                 |
 | ------------- | --------------------------- | ------- | ------------------------------------------- |
-| `loading`     | `boolean \| `[`LoadingContext`](/grid/api/core/interfaces/loadingcontext/)  | `false` | Grid-level loading state with optional renderer |
+| `loading`     | `boolean`                   | `false` | Grid-level loading state. Customise the indicator via [`gridConfig.loadingRenderer`](/grid/api/core/type-aliases/loadingrenderer/) |
 | `columnState` | [`GridColumnState[]`](/grid/api/core/interfaces/gridcolumnstate/)         | -       | Get/set column widths, order, visibility, sort |
 
 ### Read-only Properties
@@ -224,7 +224,7 @@ Define the detail panel template for master-detail rows. Requires the MasterDeta
 
 | Attribute                   | Type                              | Description                                    |
 | --------------------------- | --------------------------------- | ---------------------------------------------- |
-| `animation`                 | `'slide' \| 'fade' \| 'false'`   | Panel expand/collapse animation (default: `'slide'`) |
+| `animation`                 | `'slide' \| 'fade' \| false`     | Panel expand/collapse animation (default: `'slide'`) |
 | `show-expand-column`        | `boolean`                         | Show expand/collapse column (default: `true`)  |
 | `expand-on-row-click`       | `boolean`                         | Expand when row clicked (default: `false`)     |
 | `collapse-on-click-outside` | `boolean`                         | Collapse when clicking outside (default: `false`) |
@@ -523,8 +523,16 @@ await grid.animateRows([0, 1, 2], 'change');
 ```typescript
 // Grid-level loading
 grid.loading = true;
-grid.loading = { message: 'Loading data...' };
-grid.loading = { renderer: (container) => { container.textContent = 'Custom...'; } };
+grid.loading = false;
+
+// To customise the loading indicator, configure a renderer at config time:
+grid.gridConfig = {
+  loadingRenderer: (ctx) => {
+    const el = document.createElement('div');
+    el.textContent = ctx.size === 'large' ? 'Loading…' : '…';
+    return el;
+  },
+};
 
 // Row-level loading (by row ID, not index)
 grid.setRowLoading('emp-123', true);

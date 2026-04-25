@@ -54,7 +54,7 @@ The grid injects styles via `adoptedStyleSheets`. Your CSP must include:
 style-src 'self';
 ```
 
-If styles aren't applying in production, see [CSP Violations in Troubleshooting](/grid/guides/troubleshooting/#csp-content-security-policy-violations) for diagnosis steps.
+If styles aren't applying in production, see [Styles not applying (CSP) in Troubleshooting](/grid/guides/troubleshooting/#styles-not-applying-csp) for diagnosis steps.
 
 ---
 
@@ -73,7 +73,7 @@ import '@toolbox-web/grid/features/filtering';
 import '@toolbox-web/grid/all';
 ```
 
-**Target sizes:** Core is ≤170 kB (≤45 kB gzipped). Each plugin adds 2–15 kB.
+**Target sizes:** Core is ≤170 kB raw (≤50 kB gzipped, soft warning at 45 kB). Each plugin adds 2–15 kB.
 
 ### Use Fixed Row Heights
 
@@ -90,7 +90,7 @@ grid.gridConfig = {
 - **50+ columns** — Consider enabling the `columnVirtualization` feature to avoid rendering off-screen columns.
 - **Complex cell renderers** — Renderers run on every scroll frame for visible cells. Keep them fast — avoid network calls, heavy computation, or deep DOM trees.
 
-If you hit scroll stuttering or blank rows at runtime, see [Performance Issues](/grid/guides/troubleshooting/#performance-issues) and [Virtualization Issues](/grid/guides/troubleshooting/#virtualization-issues) in Troubleshooting.
+If you hit scroll stuttering or blank rows at runtime, see [Performance](/grid/guides/troubleshooting/#performance) and [Height & Virtualization](/grid/guides/troubleshooting/#height--virtualization) in Troubleshooting.
 
 ### Handle Data Loading
 
@@ -123,7 +123,7 @@ Column(s) [name, email] use the "editable" column property, but the required plu
   → import '@toolbox-web/grid/features/editing';
 ```
 
-**How to fix:** Follow the import suggestion in the error message. These errors should be caught during development — if they reach production, wrap grid setup in try/catch as a safety net. For more plugin debugging steps, see [Plugin Issues in Troubleshooting](/grid/guides/troubleshooting/#plugin-issues).
+**How to fix:** Follow the import suggestion in the error message. These errors should be caught during development — if they reach production, wrap grid setup in try/catch as a safety net. For more plugin debugging steps, see [Plugin dependency errors in Troubleshooting](/grid/guides/troubleshooting/#plugin-dependency-errors).
 
 ```typescript
 try {
@@ -192,12 +192,12 @@ describe('Employee Grid', () => {
 Track grid interactions for performance and usage analytics:
 
 ```typescript
-grid.on('sort-change', ({ column }) => {
-  analytics.track('grid_sort', { column });
+grid.on('sort-change', ({ field, direction }) => {
+  analytics.track('grid_sort', { field, direction });
 });
 
-grid.on('filter-change', ({ filterModel }) => {
-  analytics.track('grid_filter', { model: filterModel });
+grid.on('filter-change', ({ filters, filteredRowCount }) => {
+  analytics.track('grid_filter', { filters, filteredRowCount });
 });
 ```
 

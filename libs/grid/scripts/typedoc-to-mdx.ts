@@ -146,6 +146,135 @@ const getMemberGroup = (m: TypeDocNode): string | undefined => {
 };
 
 // ============================================================================
+// Enum-like Variable / TypeAlias merge
+// ============================================================================
+//
+// When a TypeAlias is derived from a `const X = { ... } as const` via the
+// pattern `type T = (typeof X)[keyof typeof X]`, TypeDoc emits two separate
+// nodes: the Variable (rich JSDoc + literal values) and the TypeAlias (terse).
+// Variables aren't currently rendered as MDX pages, so the rich docs would be
+// silently dropped. When the Variable is referenced ONLY by that one TypeAlias,
+// we merge the Variable's comment + value table into the TypeAlias page.
+//
+// The rule is intentionally conservative: if any other declaration references
+// the Variable directly (e.g. `typeof DEFAULT_ANIMATION_CONFIG` in another
+// signature), we skip the merge and leave the pages as-is.
+
+/** TypeDoc Variable kind (`= 32`). Not in the shared KIND constant since variables
+ * have no folder mapping today. */
+const VARIABLE_KIND = 32;
+
+/** Variable id → Variable node, populated by buildVariableMergeMap. */
+const variableNodeRegistry = new Map<number, TypeDocNode>();
+
+/** Variable id → TypeAlias id that should absorb its docs. */
+const variableMergeTargets = new Map<number, number>();
+
+/**
+ * If `typeAlias.type` is `(typeof X)[keyof typeof X]`, return X's id.
+ * Otherwise return null.
+ */
+function getEnumLikeVariableId(typeAlias: TypeDocNode): number | null {
+  const t = typeAlias.type;
+  if (!t || t.type !== 'indexedAccess') return null;
+  const obj = t.objectType;
+  const idx = t.indexType;
+  if (!obj || obj.type !== 'query') return null;
+  if (!idx || idx.type !== 'typeOperator' || idx.operator !== 'keyof') return null;
+  const idxQ = idx.target;
+  if (!idxQ || idxQ.type !== 'query') return null;
+  // `target` on a reference/query is a numeric id at runtime, despite the
+  // shared TypeDocType interface typing it loosely.
+  const objId = (obj.queryType as unknown as { target?: number })?.target;
+  const idxId = (idxQ.queryType as unknown as { target?: number })?.target;
+  if (typeof objId !== 'number' || objId !== idxId) return null;
+  return objId;
+}
+
+/** Recursively count direct references to `targetId` inside a type expression. */
+function countTargetRefsInType(type: TypeDocType | undefined, targetId: number): number {
+  if (!type) return 0;
+  let count = 0;
+  if (
+    (type.type === 'reference' || type.type === 'query') &&
+    (type as unknown as { target?: number }).target === targetId
+  ) {
+    count++;
+  }
+  for (const key of ['types', 'typeArguments'] as const) {
+    const arr = (type as unknown as Record<string, TypeDocType[] | undefined>)[key];
+    if (arr) for (const t of arr) count += countTargetRefsInType(t, targetId);
+  }
+  for (const key of ['elementType', 'objectType', 'indexType', 'target', 'queryType'] as const) {
+    count += countTargetRefsInType((type as unknown as Record<string, TypeDocType | undefined>)[key], targetId);
+  }
+  if (type.declaration?.signatures) {
+    for (const s of type.declaration.signatures) {
+      count += countTargetRefsInType(s.type, targetId);
+      if (s.parameters) for (const p of s.parameters) count += countTargetRefsInType(p.type, targetId);
+    }
+  }
+  if (type.declaration?.children) {
+    for (const c of type.declaration.children) count += countTargetRefsInType(c.type, targetId);
+  }
+  return count;
+}
+
+/** Recursively count references to `targetId` reachable from a declaration node. */
+function countTargetRefsInNode(node: TypeDocNode, targetId: number): number {
+  let count = countTargetRefsInType(node.type, targetId);
+  if (node.signatures) {
+    for (const s of node.signatures) {
+      count += countTargetRefsInType(s.type, targetId);
+      if (s.parameters) for (const p of s.parameters) count += countTargetRefsInType(p.type, targetId);
+    }
+  }
+  if (node.children) for (const c of node.children) count += countTargetRefsInNode(c, targetId);
+  return count;
+}
+
+/**
+ * Build the merge map: identify enum-like Variables that should fold into a
+ * single TypeAlias page. Must run before any genTypeAlias() call.
+ */
+function buildVariableMergeMap(json: TypeDocNode): void {
+  const allVariables: TypeDocNode[] = [];
+  const allTypeAliases: TypeDocNode[] = [];
+  const allDecls: TypeDocNode[] = [];
+
+  function walk(node: TypeDocNode): void {
+    if (node.kind === VARIABLE_KIND) allVariables.push(node);
+    if (node.kind === KIND.TypeAlias) allTypeAliases.push(node);
+    if (node.kind !== KIND.Module) allDecls.push(node);
+    if (node.children) for (const c of node.children) walk(c);
+  }
+  for (const child of json.children ?? []) walk(child);
+
+  for (const v of allVariables) variableNodeRegistry.set(v.id, v);
+
+  for (const typeAlias of allTypeAliases) {
+    const variableId = getEnumLikeVariableId(typeAlias);
+    if (variableId === null || !variableNodeRegistry.has(variableId)) continue;
+
+    let externalRefs = 0;
+    for (const d of allDecls) {
+      if (d.id === typeAlias.id || d.id === variableId) continue;
+      externalRefs += countTargetRefsInNode(d, variableId);
+      if (externalRefs > 0) break;
+    }
+    if (externalRefs === 0) variableMergeTargets.set(variableId, typeAlias.id);
+  }
+}
+
+/** Return the Variable node to merge into this TypeAlias page, if any. */
+function getMergedVariable(typeAlias: TypeDocNode): TypeDocNode | null {
+  const variableId = getEnumLikeVariableId(typeAlias);
+  if (variableId === null) return null;
+  if (variableMergeTargets.get(variableId) !== typeAlias.id) return null;
+  return variableNodeRegistry.get(variableId) ?? null;
+}
+
+// ============================================================================
 // MDX Generators
 // ============================================================================
 
@@ -525,17 +654,47 @@ function genPropertiesTableInner(props: TypeDocNode[]): string {
 }
 
 function genTypeAlias(node: TypeDocNode, title: string): string {
+  const mergedVar = getMergedVariable(node);
+
   let out = mdxHeader(title);
-  const desc = getTextWithLinks(node.comment, resolveTypeLink);
+
+  // Prefer the variable's richer description; fall back to the type alias's own.
+  const primaryComment = mergedVar?.comment ?? node.comment;
+  const desc = getTextWithLinks(primaryComment, resolveTypeLink);
   if (desc) out += `${escape(desc)}\n\n`;
+
+  // If both the variable and the alias carry distinct summaries, append the
+  // alias's note (typically the cross-reference back to the runtime const).
+  if (mergedVar) {
+    const aliasDesc = getTextWithLinks(node.comment, resolveTypeLink);
+    if (aliasDesc && aliasDesc !== desc) out += `${escape(aliasDesc)}\n\n`;
+  }
+
   out += `\`\`\`ts\ntype ${node.name} = ${formatType(node.type)}\n\`\`\`\n\n`;
 
-  // Add @example if present
-  const example = getTag(node.comment, '@example');
-  if (example) out += formatExample(example);
+  if (mergedVar) {
+    const members = mergedVar.type?.declaration?.children ?? [];
+    if (members.length) {
+      const fmtValue = (lit: unknown) => (typeof lit === 'string' ? `'${lit}'` : String(lit));
+      out += `## Runtime Values\n\n`;
+      out += `Use \`${mergedVar.name}\` to reference these values from runtime code:\n\n`;
+      out += `\`\`\`ts\nconst ${mergedVar.name} = {\n`;
+      for (const m of members) out += `  ${m.name}: ${fmtValue(m.type?.value)},\n`;
+      out += `} as const;\n\`\`\`\n\n`;
+      out += `| Key | Value |\n| --- | ----- |\n`;
+      for (const m of members) out += `| \`${m.name}\` | \`${fmtValue(m.type?.value)}\` |\n`;
+      out += `\n`;
+    }
+    // Prefer the variable's @example blocks (richer); fall back to the alias's.
+    const varExamples = formatAllExamples(mergedVar.comment);
+    out += varExamples || formatAllExamples(node.comment);
+  } else {
+    const example = getTag(node.comment, '@example');
+    if (example) out += formatExample(example);
+  }
 
-  // Add @see links if present
   out += formatSeeLinks(node.comment);
+  if (mergedVar) out += formatSeeLinks(mergedVar.comment);
 
   return out;
 }
@@ -1093,6 +1252,9 @@ async function main(): Promise<void> {
 
   // Build type registry first so @see/@link references can be resolved
   buildTypeRegistry(json);
+
+  // Identify enum-like Variable + TypeAlias pairs that should render as one page.
+  buildVariableMergeMap(json);
 
   // Clean output
   if (existsSync(OUTPUT_DIR)) rmSync(OUTPUT_DIR, { recursive: true });

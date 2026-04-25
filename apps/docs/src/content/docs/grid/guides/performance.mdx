@@ -76,7 +76,7 @@ import '@toolbox-web/grid/all';
 
 | Bundle | Raw | Gzipped |
 |--------|-----|---------|
-| Core (`index.js`) | ≤ 170 KB | ≤ 45 KB |
+| Core (`index.js`) | ≤ 170 KB | ≤ 50 KB (soft warning at 45 KB) |
 | Individual plugin | 2–15 KB | 1–5 KB |
 | All plugins (`all.js`) | ~300 KB | ~80 KB |
 
@@ -98,9 +98,11 @@ Row animations add visual polish but cost CPU cycles. Disable them for very larg
 
 ```typescript
 grid.gridConfig = {
-  animation: false,
+  animation: { mode: 'off' },
 };
 ```
+
+By default `mode` is `'reduced-motion'` — animations are already disabled when the user has `prefers-reduced-motion: reduce` set.
 
 ### Batch Data Updates
 
@@ -130,13 +132,14 @@ grid.gridConfig = {
 
 ### Custom Sort Comparators
 
-For fields with expensive comparisons, provide a pre-computed sort key:
+For fields with expensive comparisons, provide a custom `sortComparator`:
 
 ```typescript
 {
   field: 'name',
   sortable: true,
-  comparator: (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: 'base' }),
+  sortComparator: (a: string, b: string) =>
+    a.localeCompare(b, undefined, { sensitivity: 'base' }),
 }
 ```
 

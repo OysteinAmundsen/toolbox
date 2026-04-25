@@ -342,21 +342,21 @@ const columns = [
     field: 'salary',
     header: 'Salary',
     type: 'number',
-    aggregator: 'avg',
-    formatter: (ctx) => `$${ctx.value.toLocaleString()}`,
+    format: (value) => `$${value.toLocaleString()}`,
   },
-  {
-    field: 'id',
-    header: 'Count',
-    type: 'number',
-    aggregator: 'count',
-  },
+  { field: 'id', header: 'Count', type: 'number' },
 ];
 
 grid.gridConfig = {
   columns,
   features: {
-    groupingRows: { groupOn: (row) => [row.department], defaultExpanded: true },
+    groupingRows: {
+      groupOn: (row) => [row.department],
+      defaultExpanded: true,
+      // Aggregators live on the grouping config, keyed by field name.
+      // Built-ins: 'sum' | 'avg' | 'min' | 'max' | 'count' (or a custom function).
+      aggregators: { salary: 'avg', id: 'count' },
+    },
     selection: 'row',
   },
 };
@@ -372,7 +372,11 @@ function DepartmentGrid({ rows }) {
   return (
     <DataGrid
       rows={rows}
-      groupingRows={{ groupOn: (row) => [row.department], defaultExpanded: true }}
+      groupingRows={{
+        groupOn: (row) => [row.department],
+        defaultExpanded: true,
+        aggregators: { salary: 'avg', id: 'count' },
+      }}
       selection={{ mode: 'row' }}
     >
       <GridColumn field="department" header="Department" />
@@ -381,10 +385,9 @@ function DepartmentGrid({ rows }) {
         field="salary"
         header="Salary"
         type="number"
-        aggregator="avg"
-        formatter={(ctx) => `$${ctx.value.toLocaleString()}`}
+        format={(value) => `$${value.toLocaleString()}`}
       />
-      <GridColumn field="id" header="Count" type="number" aggregator="count" />
+      <GridColumn field="id" header="Count" type="number" />
     </DataGrid>
   );
 }
@@ -397,13 +400,18 @@ import '@toolbox-web/grid-vue/features/grouping-rows';
 import '@toolbox-web/grid-vue/features/selection';
 import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const formatSalary = (ctx) => `$${ctx.value.toLocaleString()}`;
+const formatSalary = (value) => `$${value.toLocaleString()}`;
+const groupingRows = {
+  groupOn: (row) => [row.department],
+  defaultExpanded: true,
+  aggregators: { salary: 'avg', id: 'count' },
+};
 </script>
 
 <template>
   <TbwGrid
     :rows="rows"
-    :grouping-rows="{ groupOn: (row) => [row.department], defaultExpanded: true }"
+    :grouping-rows="groupingRows"
     :selection="{ mode: 'row' }"
   >
     <TbwGridColumn field="department" header="Department" />
@@ -412,10 +420,9 @@ const formatSalary = (ctx) => `$${ctx.value.toLocaleString()}`;
       field="salary"
       header="Salary"
       type="number"
-      aggregator="avg"
-      :formatter="formatSalary"
+      :format="formatSalary"
     />
-    <TbwGridColumn field="id" header="Count" type="number" aggregator="count" />
+    <TbwGridColumn field="id" header="Count" type="number" />
   </TbwGrid>
 </template>
 ```
@@ -433,22 +440,25 @@ import { Grid } from '@toolbox-web/grid-angular';
     <tbw-grid
       [rows]="rows"
       [columns]="columns"
-      [groupingRows]="{ groupOn: groupByDept, defaultExpanded: true }"
+      [groupingRows]="groupingRows"
       [selection]="{ mode: 'row' }"
     />
   `,
 })
 export class DepartmentGridComponent {
-  groupByDept = (row: any) => [row.department];
+  groupingRows = {
+    groupOn: (row: any) => [row.department],
+    defaultExpanded: true,
+    aggregators: { salary: 'avg', id: 'count' },
+  };
   columns = [
     { field: 'department', header: 'Department' },
     { field: 'name', header: 'Name' },
     {
       field: 'salary', header: 'Salary', type: 'number',
-      aggregator: 'avg',
-      formatter: (ctx) => `$${ctx.value.toLocaleString()}`,
+      format: (value: number) => `$${value.toLocaleString()}`,
     },
-    { field: 'id', header: 'Count', type: 'number', aggregator: 'count' },
+    { field: 'id', header: 'Count', type: 'number' },
   ];
 }
 ```
@@ -475,14 +485,16 @@ grid.gridConfig = {
   features: {
     selection: { mode: 'row', multiSelect: true },
     filtering: true,
-    export: true,
+    // Always export only selected rows. Omit `onlySelected` (or pass `rowIndices`
+    // at call time) to export the full filtered/visible dataset instead.
+    export: { onlySelected: true },
   },
 };
 
-// Export button — exports only selected rows (or all if none selected)
+// Export button
 exportButton.addEventListener('click', () => {
   const exp = grid.getPluginByName('export');
-  exp?.exportCsv({ selectedOnly: true, fileName: 'employees.csv' });
+  exp?.exportCsv({ fileName: 'employees' }); // .csv extension is added automatically
 });
 ```
   </TabItem>
@@ -498,7 +510,7 @@ function ExportableGrid({ employees }) {
 
   const handleExport = () => {
     const exp = gridRef.current?.getPluginByName('export');
-    exp?.exportCsv({ selectedOnly: true, fileName: 'employees.csv' });
+    exp?.exportCsv({ fileName: 'employees' });
   };
 
   return (
@@ -525,7 +537,7 @@ import { TbwGrid, TbwGridColumn, useGrid } from '@toolbox-web/grid-vue';
 const gridRef = useGrid<Employee>();
 
 function handleExport() {
-  gridRef.value?.getPluginByName('export')?.exportCsv({ selectedOnly: true, fileName: 'employees.csv' });
+  gridRef.value?.getPluginByName('export')?.exportCsv({ fileName: 'employees' });
 }
 </script>
 
@@ -563,7 +575,7 @@ export class ExportableGridComponent {
   ];
 
   handleExport() {
-    this.gridEl.nativeElement.getPluginByName('export')?.exportCsv({ selectedOnly: true, fileName: 'employees.csv' });
+    this.gridEl.nativeElement.getPluginByName('export')?.exportCsv({ fileName: 'employees' });
   }
 }
 ```
@@ -587,10 +599,11 @@ grid.gridConfig = {
   ],
   features: {
     masterDetail: {
-      detailRenderer: (ctx) => {
+      // Vanilla signature: (row, rowIndex) => HTMLElement | string
+      detailRenderer: (row) => {
         const container = document.createElement('div');
         container.style.padding = '1rem';
-        container.innerHTML = `<strong>Order #${ctx.row.orderId}</strong>`;
+        container.innerHTML = `<strong>Order #${row.orderId}</strong>`;
 
         // Nested grid for order items
         const detail = document.createElement('tbw-grid') as any;
@@ -601,7 +614,7 @@ grid.gridConfig = {
           { field: 'qty', header: 'Qty', type: 'number' },
           { field: 'price', header: 'Price', type: 'number' },
         ];
-        detail.rows = ctx.row.items; // Nested data
+        detail.rows = row.items; // Nested data
         container.appendChild(detail);
         return container;
       },
@@ -732,7 +745,7 @@ grid.gridConfig = {
     multiSort: true,
     filtering: { debounceMs: 300 },
   },
-  fitMode: 'none', // Let columns use natural widths
+  fitMode: 'fixed', // Use natural column widths instead of stretching to fill
 };
 ```
   </TabItem>
@@ -752,7 +765,7 @@ function LargeDataGrid({ rows }) {
       columnVirtualization
       multiSort
       filtering={{ debounceMs: 300 }}
-      fitMode="none"
+      fitMode="fixed"
     >
       <GridColumn field="id" header="ID" type="number" pinned="left" width={80} />
       <GridColumn field="name" header="Name" pinned="left" width={180} />
@@ -779,7 +792,7 @@ import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
     column-virtualization
     multi-sort
     :filtering="{ debounceMs: 300 }"
-    fit-mode="none"
+    fit-mode="fixed"
   >
     <TbwGridColumn field="id" header="ID" type="number" pinned="left" :width="80" />
     <TbwGridColumn field="name" header="Name" pinned="left" :width="180" />
@@ -807,7 +820,7 @@ import { Grid } from '@toolbox-web/grid-angular';
       columnVirtualization
       multiSort
       [filtering]="{ debounceMs: 300 }"
-      fitMode="none"
+      fitMode="fixed"
     />
   `,
 })

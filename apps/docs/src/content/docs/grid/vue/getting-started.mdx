@@ -297,55 +297,46 @@ import { GridIconProvider, TbwGrid } from '@toolbox-web/grid-vue';
 
 ## Server-Side Data Loading
 
-For backends that own paging / sorting / filtering, use `ServerSidePlugin`.
-Your `getRows` handler receives the current `sortModel`, `filterModel`, and
-block range — return rows and the total count.
+For backends that own paging / sorting / filtering, use the `serverSide` feature prop. Your `getRows` handler receives the current `sortModel`, `filterModel`, and block range — return rows and the total count. See [`ServerSideDataSource`](/grid/plugins/server-side/Interfaces/ServerSideDataSource/), [`GetRowsParams`](/grid/plugins/server-side/Interfaces/GetRowsParams/), and [`GetRowsResult`](/grid/plugins/server-side/Interfaces/GetRowsResult/) for the full contract — including the `params.signal` `AbortSignal` you can forward to `fetch()` for explicit cancellation.
 
 ```html
 <script setup lang="ts">
-import { TbwGrid, type GridConfig } from '@toolbox-web/grid-vue';
-import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
-import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
-import { markRaw } from 'vue';
+import '@toolbox-web/grid-vue/features/server-side';
+import '@toolbox-web/grid-vue/features/multi-sort';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { ServerSideDataSource } from '@toolbox-web/grid/plugins/server-side';
 
-const config: GridConfig<Employee> = markRaw({
-  columns,
-  plugins: [
-    new MultiSortPlugin(),
-    new ServerSidePlugin<Employee>({
-      cacheBlockSize: 100,
-      dataSource: {
-        getRows: async ({ startNode, endNode, sortModel, filterModel }) => {
-          const params = new URLSearchParams({
-            from: String(startNode),
-            to: String(endNode),
-          });
-          if (sortModel?.length) {
-            params.set(
-              'sort',
-              sortModel.map((s) => `${s.field}:${s.direction}`).join(','),
-            );
-          }
-          if (filterModel) params.set('filter', JSON.stringify(filterModel));
-          const response = await fetch(`/api/employees?${params}`);
-          const { rows, totalNodeCount } = await response.json();
-          return { rows, totalNodeCount };
-        },
-      },
-    }),
-  ],
-});
+const dataSource: ServerSideDataSource<Employee> = {
+  getRows: async ({ startNode, endNode, sortModel, filterModel, signal }) => {
+    const params = new URLSearchParams({
+      from: String(startNode),
+      to: String(endNode),
+    });
+    if (sortModel?.length) {
+      params.set(
+        'sort',
+        sortModel.map((s) => `${s.field}:${s.direction}`).join(','),
+      );
+    }
+    if (filterModel) params.set('filter', JSON.stringify(filterModel));
+    const response = await fetch(`/api/employees?${params}`, { signal });
+    const { rows, totalNodeCount } = await response.json();
+    return { rows, totalNodeCount };
+  },
+};
 </script>
 
 <template>
-  <TbwGrid :rows="[]" :grid-config="config" />
+  <TbwGrid
+    :columns="columns"
+    multi-sort
+    :server-side="{ dataSource, cacheBlockSize: 100 }"
+  />
 </template>
 ```
 
 :::tip
-Avoid `gridConfig.sortHandler` for server-side sort — it's bypassed when
-`MultiSortPlugin` is loaded and only carries a single field. `ServerSidePlugin`
-is the supported path and works with both single- and multi-column sort.
+Avoid `gridConfig.sortHandler` for server-side sort — it's bypassed when the multi-sort feature is loaded and only carries a single field. The `serverSide` feature is the supported path and works with both single- and multi-column sort.
 :::
 
 ### VueQuery (TanStack Query) Integration
@@ -362,12 +353,15 @@ with a stable key per block.
 
 ```html
 <script setup lang="ts">
-import { TbwGrid, type GridConfig } from '@toolbox-web/grid-vue';
-import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
-import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
-import type { GetRowsParams, GetRowsResult } from '@toolbox-web/grid/plugins/server-side';
+import '@toolbox-web/grid-vue/features/server-side';
+import '@toolbox-web/grid-vue/features/multi-sort';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type {
+  GetRowsParams,
+  GetRowsResult,
+  ServerSideDataSource,
+} from '@toolbox-web/grid/plugins/server-side';
 import { useQueryClient } from '@tanstack/vue-query';
-import { markRaw } from 'vue';
 
 async function fetchEmployeeBlock(
   params: GetRowsParams,
@@ -380,41 +374,36 @@ async function fetchEmployeeBlock(
     search.set('sort', params.sortModel.map((s) => `${s.field}:${s.direction}`).join(','));
   }
   if (params.filterModel) search.set('filter', JSON.stringify(params.filterModel));
-  const response = await fetch(`/api/employees?${search}`);
+  const response = await fetch(`/api/employees?${search}`, { signal: params.signal });
   return response.json();
 }
 
 const queryClient = useQueryClient();
 
-const config: GridConfig<Employee> = markRaw({
-  columns,
-  plugins: [
-    new MultiSortPlugin(),
-    new ServerSidePlugin<Employee>({
-      cacheBlockSize: 100,
-      dataSource: {
-        // Each block becomes a cached query — Vue Query dedupes in-flight
-        // requests, retries failed ones, and serves repeated scrolls from cache.
-        getRows: (params) =>
-          queryClient.fetchQuery({
-            queryKey: [
-              'employees',
-              params.startNode,
-              params.endNode,
-              params.sortModel,
-              params.filterModel,
-            ],
-            queryFn: () => fetchEmployeeBlock(params),
-            staleTime: 60_000,
-          }),
-      },
+const dataSource: ServerSideDataSource<Employee> = {
+  // Each block becomes a cached query — Vue Query dedupes in-flight
+  // requests, retries failed ones, and serves repeated scrolls from cache.
+  getRows: (params) =>
+    queryClient.fetchQuery({
+      queryKey: [
+        'employees',
+        params.startNode,
+        params.endNode,
+        params.sortModel,
+        params.filterModel,
+      ],
+      queryFn: ({ signal }) => fetchEmployeeBlock({ ...params, signal }),
+      staleTime: 60_000,
     }),
-  ],
-});
+};
 </script>
 
 <template>
-  <TbwGrid :rows="[]" :grid-config="config" />
+  <TbwGrid
+    :columns="columns"
+    multi-sort
+    :server-side="{ dataSource, cacheBlockSize: 100 }"
+  />
 </template>
 ```
 

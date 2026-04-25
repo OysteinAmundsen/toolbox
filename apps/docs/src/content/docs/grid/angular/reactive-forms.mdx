@@ -17,7 +17,9 @@ You can bind a grid to a `FormArray` using the `[formArray]` directive. This ena
 
 ## Usage with FormArray
 
-Use a `FormArray` of `FormGroup`s for full validation support. This exposes cell-level `FormControl`s in the editor context:
+Use a `FormArray` of `FormGroup`s for full validation support. This exposes cell-level `FormControl`s in the editor context.
+
+> **Directive:** [`GridFormArray`](/grid/angular/api/directives/GridFormArray/) · binds via the `[formArray]` input on `<tbw-grid>`.
 
 ```typescript
 import { Component, inject, input, output } from '@angular/core';
@@ -141,7 +143,7 @@ Without `rowId`, each `getRawValue()` call creates new objects, causing all row 
 
 ## Row-Level Validation
 
-When using `FormArray` with `FormGroup`s, you can access row-level validation state:
+When using `FormArray` with `FormGroup`s, you can access row-level validation state via [`getFormArrayContext()`](/grid/angular/api/utilities/getFormArrayContext/). The returned [`FormArrayContext`](/grid/angular/api/types/FormArrayContext/) exposes:
 
 ```typescript
 import { getFormArrayContext } from '@toolbox-web/grid-angular';
@@ -150,32 +152,47 @@ import { getFormArrayContext } from '@toolbox-web/grid-angular';
 const context = getFormArrayContext(gridElement);
 
 if (context?.hasFormGroups) {
-  // Check row validation state
+  // Row-level state
   const isRowValid = context.isRowValid(0);      // All controls valid?
   const isRowTouched = context.isRowTouched(0);  // Any control touched?
   const isRowDirty = context.isRowDirty(0);      // Any control changed?
 
-  // Get aggregated errors for a row
+  // Aggregated errors for a row
   const errors = context.getRowErrors(0);
   // Returns: { name: { required: true }, age: { min: { min: 18, actual: 15 } } }
 
-  // Get the FormGroup for advanced use
-  const formGroup = context.getRowFormGroup(0);
+  // Direct control access
+  const rowGroup = context.getRowFormGroup(0);   // FormGroup for the row
+  const cellCtrl = context.getControl(0, 'name'); // FormControl for one cell
+
+  // Read-only data access
+  const row = context.getRow(0);                 // Row object
+  const allRows = context.getValue();            // Array of all row values
+
+  // Programmatic mutation
+  context.updateField(0, 'name', 'Alice');       // Patch one cell
 }
 ```
 
 ## Editor Context Properties
 
-When using `*tbwEditor`, the following context is available:
+When using `*tbwEditor`, the following context is available (see [`GridEditorContext`](/grid/angular/api/types/GridEditorContext/) for the typed interface):
 
-| Property   | Type              | Description |
-|------------|-------------------|-------------|
-| `value`    | `TValue`          | Current cell value |
-| `row`      | `TRow`            | Full row data object |
-| `column`   | `ColumnConfig`    | Column configuration |
-| `onCommit` | `Function`        | Commit callback |
-| `onCancel` | `Function`        | Cancel callback |
-| `control`  | `AbstractControl` | Cell's FormControl (FormArray+FormGroup only) |
+| Property        | Type                              | Description |
+|-----------------|-----------------------------------|-------------|
+| `$implicit`     | `TValue`                          | Cell value (bound by `*tbwEditor="let value"`) |
+| `value`         | `TValue`                          | Cell value (explicit alias) |
+| `row`           | `TRow`                            | Full row data object |
+| `field`         | `string`                          | Field name being edited |
+| `column`        | [`ColumnConfig`](/grid/api/core/interfaces/columnconfig/) | Column configuration |
+| `rowId`         | `string`                          | Stable row id from `getRowId` (empty string when none configured) |
+| `onCommit`      | `(value: TValue) => void`         | Commit callback (rarely needed — see auto-wiring note below) |
+| `onCancel`      | `() => void`                      | Cancel callback (rarely needed) |
+| `updateRow`     | `(changes: Partial<TRow>) => void` | Update other fields in the same row while editing |
+| `onValueChange` | `(cb) => void`                    | Subscribe to external value changes (e.g. from `updateRow` cascades) |
+| `control`       | [`AbstractControl`](https://angular.dev/api/forms/AbstractControl) \| `undefined` | Cell `FormControl` (only when bound to `FormArray` + `FormGroup`) |
+
+> **Auto-wiring:** the adapter listens for native `commit` / `cancel` `CustomEvent`s on the rendered component. If your editor dispatches them (or extends [`BaseGridEditor`](/grid/angular/base-classes/) which does), you can omit the `(commit)="onCommit($event)"` binding entirely.
 
 ## Automatic Validation Syncing
 
@@ -270,6 +287,8 @@ This integrates seamlessly with the EditingPlugin's validation system, meaning A
 For large datasets, `GridFormArray` can be slow because it creates **all FormGroups upfront**. With 200 rows and 22 fields, that's 4,400 FormControl instances!
 
 `GridLazyForm` solves this by creating FormGroups **on-demand** when editing starts—typically reducing control count by 100x.
+
+> **Directive:** [`GridLazyForm`](/grid/angular/api/directives/GridLazyForm/) · [`LazyFormFactory`](/grid/angular/api/types/LazyFormFactory/) · [`RowFormChangeEvent`](/grid/angular/api/types/RowFormChangeEvent/)
 
 ### When to Use Each Directive
 
@@ -397,6 +416,8 @@ By default, FormGroups are cleaned up when a row exits edit mode. Set `[keepForm
 ```
 
 ### Listening to Form Changes
+
+The `(rowFormChange)` output emits a [`RowFormChangeEvent`](/grid/angular/api/types/RowFormChangeEvent/) every time the row's `FormGroup` value or status changes. The event includes `rowIndex`, `rowId?`, `row`, `formGroup`, `values`, `valid`, and `dirty`.
 
 ```typescript
 @Component({

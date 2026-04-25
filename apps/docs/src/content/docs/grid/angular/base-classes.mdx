@@ -27,6 +27,8 @@ BaseGridEditor          ← common inputs/outputs, validation helpers
 
 The foundation class for all Angular cell editors. Provides common inputs, outputs, validation state, and automatic cleanup.
 
+> **Full API:** [`BaseGridEditor`](/grid/angular/api/utilities/BaseGridEditor/)
+
 ### API
 
 | Member | Type | Description |
@@ -35,15 +37,22 @@ The foundation class for all Angular cell editors. Provides common inputs, outpu
 | `row` | `input<TRow>()` | Row data object |
 | `column` | `input<`[`ColumnConfig`](/grid/api/core/interfaces/columnconfig/)`>()` | Column configuration |
 | `control` | `input<AbstractControl>()` | Cell's `FormControl` (when using `FormArray`) |
-| `commit` | `output<TValue>()` | Emitted when value is committed |
+| `commit` | `output<TValue \| null>()` | Emitted when value is committed (`null` clears the field) |
 | `cancel` | `output<void>()` | Emitted when edit is cancelled |
-| `currentValue()` | `Signal<TValue>` | Resolved value (prefers `control.value` over `value`) |
-| `isInvalid()` | `Signal<boolean>` | Whether control has validation errors |
-| `hasErrors()` | `Signal<boolean>` | Alias for `isInvalid()` |
-| `firstErrorMessage()` | `Signal<string>` | Human-readable first error message |
-| `commitValue(v)` | Method | Emit commit event + DOM `CustomEvent` |
-| `cancelEdit()` | Method | Emit cancel event + DOM `CustomEvent` |
+| `currentValue()` | `Signal<TValue \| undefined>` | Resolved value (prefers `control.value` over `value`) |
+| `isInvalid()` | `Signal<boolean>` | Mirrors `control.invalid` — `false` if no `control` is bound |
+| `isDirty()` | `Signal<boolean>` | Mirrors `control.dirty` — `false` if no `control` is bound |
+| `isTouched()` | `Signal<boolean>` | Mirrors `control.touched` — `false` if no `control` is bound |
+| `hasErrors()` | `Signal<boolean>` | True when `control.errors` has any keys — `false` if no `control` is bound |
+| `firstErrorMessage()` | `Signal<string>` | First validation error from `control.errors`, run through `getErrorMessage()` |
+| `allErrorMessages()` | `Signal<string[]>` | Every validation error from `control.errors`, each run through `getErrorMessage()` |
+| `commitValue(v)` | Method | Emit `commit` event + DOM `CustomEvent` (accepts `TValue \| null`) |
+| `cancelEdit()` | Method | Emit `cancel` event + DOM `CustomEvent` |
 | `isCellFocused()` | Method | Whether the parent cell has the `cell-focus` class |
+| `getErrorMessage(key, value?)` | Method (override) | Customise validation error messages |
+| `onBeforeEditClose()` | Hook (override) | Called before grid clears editing state — last chance to flush pending values |
+| `onEditClose()` | Hook (override) | Called after the editing session ends — cleanup overlays/dropdowns |
+| `onExternalValueChange(v)` | Hook (override) | Called when the cell value changes externally (cascade, undo/redo) |
 
 ### Example
 
@@ -73,11 +82,40 @@ export class TextEditorComponent extends BaseGridEditor<MyRow, string> {
 }
 ```
 
+### Validation State & Reactivity
+
+The validation signals — `isInvalid`, `isDirty`, `isTouched`, `hasErrors`,
+`firstErrorMessage`, `allErrorMessages` — are **derived from the `control` input**.
+They only carry meaning when the grid is bound to a `FormArray` and an
+`AbstractControl` has been passed in via `[control]="control"`. Without a control,
+they default to `false` / `''` / `[]`.
+
+Because they are Angular `computed()` signals:
+
+- They **don't run on a schedule** — they re-evaluate lazily, only when read.
+- They re-fire automatically whenever `control.errors`, `control.invalid`,
+  `control.dirty`, or `control.touched` changes — which Angular triggers on every
+  value update, blur, or programmatic call to `markAsTouched()` /
+  `updateValueAndValidity()`.
+- If your template never reads them, they never compute.
+
+**Error pipeline** — `firstErrorMessage()` and `allErrorMessages()` walk the
+`control.errors` map and pipe each `(key, value)` pair through your
+`getErrorMessage()` override. The first-vs-all distinction:
+
+- **`firstErrorMessage()`** — the most common case; show one inline message
+  (`{{ firstErrorMessage() }}` under the input).
+- **`allErrorMessages()`** — when a single field can have several simultaneous
+  errors you want to surface together (password complexity, multi-rule
+  validators) rendered as a list.
+
 ---
 
 ## BaseGridEditorCVA
 
 Combines `BaseGridEditor` with Angular's `ControlValueAccessor` interface. Use this when a single component needs to work both as a grid cell editor **and** as a standalone form control.
+
+> **Full API:** [`BaseGridEditorCVA`](/grid/angular/api/utilities/BaseGridEditorCVA/)
 
 ### Additional API (on top of BaseGridEditor)
 
@@ -139,6 +177,8 @@ is an Angular limitation.
 ## BaseOverlayEditor
 
 Base class for editors that display a **floating overlay panel** (date pickers, autocomplete dropdowns, color pickers, etc.). Handles all the positioning, focus gating, click-outside detection, and cleanup infrastructure.
+
+> **Full API:** [`BaseOverlayEditor`](/grid/angular/api/utilities/BaseOverlayEditor/) · [`OverlayPosition`](/grid/angular/api/types/OverlayPosition/)
 
 ### Features
 
@@ -251,6 +291,8 @@ The overlay panel uses CSS custom properties from the grid theme:
 
 Base class for custom column filter panels used with the `FilteringPlugin`. Provides the `params` input and lifecycle helpers so you only need to implement your filter logic.
 
+> **Full API:** [`BaseFilterPanel`](/grid/angular/api/utilities/BaseFilterPanel/) · [`FilterPanelParams`](/grid/plugins/filtering/Interfaces/FilterPanelParams/)
+
 ### API
 
 | Member | Type | Description |
@@ -262,7 +304,7 @@ Base class for custom column filter panels used with the `FilteringPlugin`. Prov
 
 ### FilterPanelParams
 
-The `params` input provides these members:
+The `params` input provides these members (see [`FilterPanelParams`](/grid/plugins/filtering/Interfaces/FilterPanelParams/) for the full type):
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -271,8 +313,9 @@ The `params` input provides these members:
 | `uniqueValues` | `unknown[]` | Distinct values in the column |
 | `excludedValues` | `Set<unknown>` | Currently excluded values (set filter) |
 | `searchText` | `string` | Current search text |
-| `applySetFilter(excluded)` | Method | Apply include/exclude filter |
-| `applyTextFilter(op, value, valueTo?)` | Method | Apply text/number filter |
+| `currentFilter?` | `FilterModel` | Currently active filter for this column, if any |
+| `applySetFilter(excludedValues, valueTo?)` | Method | Apply include/exclude filter (pass an **array** of excluded values) |
+| `applyTextFilter(operator, value, valueTo?)` | Method | Apply text/number filter |
 | `clearFilter()` | Method | Clear column filter |
 | `closePanel()` | Method | Close filter panel |
 
@@ -353,7 +396,8 @@ export class SetFilterComponent extends BaseFilterPanel {
   }
 
   applyFilter(): void {
-    this.params().applySetFilter(this.excluded());
+    // applySetFilter takes an array, not a Set
+    this.params().applySetFilter([...this.excluded()]);
   }
 }
 ```

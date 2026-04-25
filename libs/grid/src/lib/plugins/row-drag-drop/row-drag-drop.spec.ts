@@ -762,4 +762,287 @@ describe('RowDragDropPlugin', () => {
       expect(typeof plugin.styles).toBe('string');
     });
   });
+
+  describe('cross-window transfer (BroadcastChannel)', () => {
+    let originalBC: typeof BroadcastChannel | undefined;
+    let channels: FakeChannel[];
+
+    class FakeChannel {
+      readonly name: string;
+      listeners: Array<(e: MessageEvent) => void> = [];
+      closed = false;
+      constructor(name: string) {
+        this.name = name;
+        channels.push(this);
+      }
+      addEventListener(_t: string, fn: (e: MessageEvent) => void) {
+        this.listeners.push(fn);
+      }
+      removeEventListener(_t: string, fn: (e: MessageEvent) => void) {
+        this.listeners = this.listeners.filter((l) => l !== fn);
+      }
+      postMessage(data: unknown) {
+        // Spec behavior: the sender does NOT receive its own messages — but
+        // for the test we deliver to ALL channels with the same name (sender
+        // included or not is irrelevant since the listener filters by gridId).
+        for (const ch of channels) {
+          if (ch === this || ch.closed || ch.name !== this.name) continue;
+          for (const l of ch.listeners) l({ data } as MessageEvent);
+        }
+      }
+      close() {
+        this.closed = true;
+      }
+    }
+
+    beforeEach(() => {
+      channels = [];
+      originalBC = (globalThis as { BroadcastChannel?: typeof BroadcastChannel }).BroadcastChannel;
+      (globalThis as unknown as { BroadcastChannel: typeof BroadcastChannel }).BroadcastChannel =
+        FakeChannel as unknown as typeof BroadcastChannel;
+    });
+
+    afterEach(() => {
+      document.body.innerHTML = '';
+      if (originalBC === undefined) {
+        delete (globalThis as { BroadcastChannel?: typeof BroadcastChannel }).BroadcastChannel;
+      } else {
+        (globalThis as { BroadcastChannel?: typeof BroadcastChannel }).BroadcastChannel = originalBC;
+      }
+    });
+
+    it('source plugin removes rows and emits row-transfer when a remote target broadcasts', () => {
+      const sourceRows: { id: number; name: string }[] = [
+        { id: 1, name: 'Alice' },
+        { id: 2, name: 'Bob' },
+        { id: 3, name: 'Carol' },
+      ];
+      const sourcePlugin = new RowDragDropPlugin<{ id: number; name: string }>({
+        dropZone: 'employees',
+        operation: 'move',
+      });
+      const sourceGrid = createGridMock(sourceRows);
+      // Real DOM host so the plugin assigns a stable id and registers a listener.
+      const hostEl = document.createElement('div');
+      hostEl.id = 'src-grid';
+      document.body.appendChild(hostEl);
+      (sourceGrid as unknown as { _hostElement: HTMLElement })._hostElement = hostEl;
+      // Wire `rows` setter so the plugin's `this.grid.rows = newRows` actually mutates.
+      Object.defineProperty(sourceGrid, 'rows', {
+        get() {
+          return sourceRows;
+        },
+        set(v: typeof sourceRows) {
+          sourceRows.length = 0;
+          sourceRows.push(...v);
+        },
+        configurable: true,
+      });
+      sourcePlugin.attach(sourceGrid as never);
+
+      const transfers: unknown[] = [];
+      sourceGrid.dispatchEvent = vi.fn((event: Event) => {
+        if (event.type === 'row-transfer') transfers.push((event as CustomEvent).detail);
+        return true;
+      });
+
+      // Simulate a target window broadcasting a successful 'move' transfer of
+      // rows [0, 2] (Alice + Carol) into another grid at index 0.
+      const fake = channels[0];
+      fake.listeners.forEach((l) =>
+        l({
+          data: {
+            type: 'tbw-row-drag-drop:transfer',
+            sessionId: 'sess-1',
+            sourceGridId: 'src-grid',
+            toGridId: 'remote-grid',
+            dropZone: 'employees',
+            rowIndices: [0, 2],
+            toIndex: 0,
+            operation: 'move',
+            serializedRows: [
+              { id: 1, name: 'Alice' },
+              { id: 3, name: 'Carol' },
+            ],
+          },
+        } as MessageEvent),
+      );
+
+      // Source rows shrunk to just Bob.
+      expect(sourceRows.map((r) => r.id)).toEqual([2]);
+      // row-transfer was emitted on the source grid with the full detail.
+      expect(transfers).toHaveLength(1);
+      expect(transfers[0]).toMatchObject({
+        fromGridId: 'src-grid',
+        toGridId: 'remote-grid',
+        fromIndices: [0, 2],
+        toIndex: 0,
+        operation: 'move',
+      });
+      // dragAccepted flipped so a subsequent dragend reports accepted=true.
+      expect((sourcePlugin as unknown as { dragAccepted: boolean }).dragAccepted).toBe(true);
+
+      sourcePlugin.detach();
+    });
+
+    it('source plugin ignores broadcasts with mismatched gridId', () => {
+      const rows = [{ id: 1 }];
+      const plugin = new RowDragDropPlugin({ dropZone: 'employees', operation: 'move' });
+      const grid = createGridMock(rows);
+      const hostEl = document.createElement('div');
+      hostEl.id = 'grid-A';
+      document.body.appendChild(hostEl);
+      (grid as unknown as { _hostElement: HTMLElement })._hostElement = hostEl;
+      plugin.attach(grid as never);
+
+      const before = rows.length;
+      const fake = channels[0];
+      fake.listeners.forEach((l) =>
+        l({
+          data: {
+            type: 'tbw-row-drag-drop:transfer',
+            sessionId: 's',
+            sourceGridId: 'grid-B', // not us
+            toGridId: 't',
+            dropZone: 'employees',
+            rowIndices: [0],
+            toIndex: 0,
+            operation: 'move',
+            serializedRows: [{ id: 1 }],
+          },
+        } as MessageEvent),
+      );
+
+      expect(rows.length).toBe(before);
+      plugin.detach();
+    });
+
+    it('source plugin ignores broadcasts with mismatched dropZone', () => {
+      const rows = [{ id: 1 }, { id: 2 }];
+      const plugin = new RowDragDropPlugin({ dropZone: 'employees', operation: 'move' });
+      const grid = createGridMock(rows);
+      const hostEl = document.createElement('div');
+      hostEl.id = 'grid-Z';
+      document.body.appendChild(hostEl);
+      (grid as unknown as { _hostElement: HTMLElement })._hostElement = hostEl;
+      plugin.attach(grid as never);
+
+      const fake = channels[0];
+      fake.listeners.forEach((l) =>
+        l({
+          data: {
+            type: 'tbw-row-drag-drop:transfer',
+            sessionId: 's',
+            sourceGridId: 'grid-Z',
+            toGridId: 't',
+            dropZone: 'other-zone', // mismatch
+            rowIndices: [0],
+            toIndex: 0,
+            operation: 'move',
+            serializedRows: [{ id: 1 }],
+          },
+        } as MessageEvent),
+      );
+
+      expect(rows.length).toBe(2);
+      plugin.detach();
+    });
+
+    it('copy operation does not remove source rows but still emits row-transfer', () => {
+      const rows = [{ id: 1 }, { id: 2 }];
+      const plugin = new RowDragDropPlugin({ dropZone: 'employees', operation: 'copy' });
+      const grid = createGridMock(rows);
+      const hostEl = document.createElement('div');
+      hostEl.id = 'grid-C';
+      document.body.appendChild(hostEl);
+      (grid as unknown as { _hostElement: HTMLElement })._hostElement = hostEl;
+      plugin.attach(grid as never);
+
+      const transfers: unknown[] = [];
+      grid.dispatchEvent = vi.fn((event: Event) => {
+        if (event.type === 'row-transfer') transfers.push((event as CustomEvent).detail);
+        return true;
+      });
+
+      const fake = channels[0];
+      fake.listeners.forEach((l) =>
+        l({
+          data: {
+            type: 'tbw-row-drag-drop:transfer',
+            sessionId: 's',
+            sourceGridId: 'grid-C',
+            toGridId: 't',
+            dropZone: 'employees',
+            rowIndices: [0],
+            toIndex: 0,
+            operation: 'copy',
+            serializedRows: [{ id: 1 }],
+          },
+        } as MessageEvent),
+      );
+
+      expect(rows.length).toBe(2); // not removed
+      expect(transfers).toHaveLength(1);
+      expect(transfers[0]).toMatchObject({ operation: 'copy' });
+      plugin.detach();
+    });
+
+    it('detach removes the plugin listener and closes the channel when last instance detaches', () => {
+      const plugin = new RowDragDropPlugin({ dropZone: 'z' });
+      const hostEl = document.createElement('div');
+      hostEl.id = 'grid-D';
+      document.body.appendChild(hostEl);
+      const grid = createGridMock([]);
+      (grid as unknown as { _hostElement: HTMLElement })._hostElement = hostEl;
+      plugin.attach(grid as never);
+
+      expect(channels.length).toBe(1);
+      const fake = channels[0];
+      expect(fake.listeners.length).toBe(1);
+
+      plugin.detach();
+      expect(fake.closed).toBe(true);
+    });
+
+    it('uses deserializeRow for the row-transfer payload on the source side', () => {
+      const rows = [{ id: 1 }];
+      const plugin = new RowDragDropPlugin<{ id: number; computed: string }>({
+        dropZone: 'employees',
+        operation: 'move',
+        deserializeRow: (raw) => ({ ...(raw as { id: number }), computed: 'rehydrated' }),
+      });
+      const grid = createGridMock(rows);
+      const hostEl = document.createElement('div');
+      hostEl.id = 'grid-E';
+      document.body.appendChild(hostEl);
+      (grid as unknown as { _hostElement: HTMLElement })._hostElement = hostEl;
+      plugin.attach(grid as never);
+
+      const transfers: unknown[] = [];
+      grid.dispatchEvent = vi.fn((event: Event) => {
+        if (event.type === 'row-transfer') transfers.push((event as CustomEvent).detail);
+        return true;
+      });
+
+      channels[0].listeners.forEach((l) =>
+        l({
+          data: {
+            type: 'tbw-row-drag-drop:transfer',
+            sessionId: 's',
+            sourceGridId: 'grid-E',
+            toGridId: 't',
+            dropZone: 'employees',
+            rowIndices: [0],
+            toIndex: 0,
+            operation: 'move',
+            serializedRows: [{ id: 1 }],
+          },
+        } as MessageEvent),
+      );
+
+      expect(transfers).toHaveLength(1);
+      expect((transfers[0] as { rows: { computed: string }[] }).rows[0].computed).toBe('rehydrated');
+      plugin.detach();
+    });
+  });
 });

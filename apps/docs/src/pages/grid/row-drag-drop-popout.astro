@@ -1,0 +1,80 @@
+---
+// Standalone popout page for the cross-window row drag-drop demo.
+// Loaded via `window.open('/grid/row-drag-drop-popout/')` from the
+// row-drag-drop docs page. Hosts a single target grid that joins the
+// `cross-window-employees` drop zone.
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Drop target — Row Drag-Drop popout</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        margin: 0;
+        padding: 16px;
+        background: light-dark(#fff, #1a1a1a);
+        color: light-dark(#222, #eee);
+      }
+      h1 {
+        margin: 0 0 8px 0;
+        font-size: 1.1em;
+      }
+      p {
+        margin: 0 0 12px 0;
+        font-size: 0.85em;
+        opacity: 0.75;
+      }
+      tbw-grid {
+        height: 360px;
+        display: block;
+      }
+      #status {
+        margin-top: 8px;
+        font-size: 0.85em;
+        min-height: 1.2em;
+        opacity: 0.75;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Selected employees</h1>
+    <p>
+      Drop rows here from the opener window. This page is a standalone target grid joined to the
+      <code>cross-window-employees</code> drop zone.
+    </p>
+    <tbw-grid id="popout-target"></tbw-grid>
+    <p id="status"></p>
+
+    <script>
+      import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/row-drag-drop';
+
+      const target = queryGrid('tbw-grid#popout-target')!;
+      const status = document.getElementById('status') as HTMLElement;
+
+      target.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID', type: 'number', width: 60 },
+          { field: 'name', header: 'Name' },
+          { field: 'department', header: 'Department' },
+        ],
+        features: {
+          rowDragDrop: { dropZone: 'cross-window-employees', operation: 'move' },
+        },
+      };
+      target.rows = [];
+
+      target.addEventListener('row-transfer', ((e: Event) => {
+        const detail = (e as CustomEvent).detail as { rows: { name: string }[]; fromGridId: string };
+        status.textContent = `Received ${detail.rows.length} row(s) from ${detail.fromGridId}.`;
+      }) as EventListener);
+    </script>
+  </body>
+</html>

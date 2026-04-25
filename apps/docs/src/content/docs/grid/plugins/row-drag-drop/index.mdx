@@ -6,6 +6,7 @@ description: 'Drag rows within a single grid (reorder) and across grids that sha
 import { TabItem, Tabs } from '@astrojs/starlight/components';
 import RowDragDropCancelableEventDemo from '@components/demos/row-drag-drop/RowDragDropCancelableEventDemo.astro';
 import RowDragDropCrossGridDemo from '@components/demos/row-drag-drop/RowDragDropCrossGridDemo.astro';
+import RowDragDropCrossWindowDemo from '@components/demos/row-drag-drop/RowDragDropCrossWindowDemo.astro';
 import RowDragDropDefaultDemo from '@components/demos/row-drag-drop/RowDragDropDefaultDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
@@ -21,9 +22,10 @@ between separate grids. It is a strict superset of the (now deprecated)
   the dragged row is part of a multi-row selection, all selected rows are
   dragged together and a count badge appears on the drag image. There is
   no `selection` config option — the behaviour is automatic.
-- **Cross-window** — when the live row reference cannot be recovered (for
-  example a drop into a different browser window), the payload is decoded
-  from JSON via `dataTransfer`.
+- **Cross-window** — drag rows between separate browser windows or tabs
+  on the same origin. The payload travels via `dataTransfer`, and a
+  same-origin `BroadcastChannel` coordinates the source-side row removal
+  for `operation: 'move'` and the source-side `row-transfer` event.
 
 ## Installation
 
@@ -180,6 +182,53 @@ Drag any row from the left grid to the right grid (or back).
   <RowDragDropCrossGridDemo />
 </ShowSource>
 
+### Cross-window transfer
+
+Grids in different browser windows (or tabs) on the same origin can also
+exchange rows. The button in the demo below opens a popout window that
+hosts a target grid joined to the same `dropZone`. Drag any row from the
+left grid into the popout — the row is moved across windows, and the
+source grid's `row-transfer` event fires once the popout confirms the drop.
+
+<ShowSource file="demos/row-drag-drop/RowDragDropCrossWindowDemo.astro">
+  <RowDragDropCrossWindowDemo />
+</ShowSource>
+
+The popout page itself is a tiny standalone host that registers the same
+`dropZone` ([`pages/grid/row-drag-drop-popout.astro`](https://github.com/OysteinAmundsen/toolbox/blob/main/apps/docs/src/pages/grid/row-drag-drop-popout.astro)).
+
+Under the hood the plugin sets a custom MIME type on `dataTransfer` and
+opens a `BroadcastChannel('tbw-row-drag-drop')`. The target window decodes
+the payload from `dataTransfer` and broadcasts a confirmation; the source
+window's plugin instance listens on the same channel and — on `move` —
+removes the transferred rows and emits `row-transfer` locally.
+
+**Custom row shapes.** Rows are round-tripped through `JSON.parse(JSON.stringify(row))`
+by default. If your rows contain non-JSON values (functions, `Date`, `Map`,
+etc.), provide `serializeRow` / `deserializeRow` so the target reconstructs
+an equivalent object:
+
+```ts
+features: {
+  rowDragDrop: {
+    dropZone: 'employees',
+    serializeRow: (row) => ({ ...row, hiredAt: row.hiredAt.toISOString() }),
+    deserializeRow: (raw) => ({ ...raw, hiredAt: new Date(raw.hiredAt) }),
+  },
+}
+```
+
+**Caveats.**
+
+- Cross-window coordination requires `BroadcastChannel`; in environments
+  without it (very old browsers, sandboxed iframes), only the target
+  receives rows and the source is left untouched.
+- Both windows must be on the same origin — `BroadcastChannel` is
+  origin-scoped.
+- The source's `row-drag-end` may fire with `accepted: false` before the
+  remote confirmation arrives. Treat the `row-transfer` event as the
+  authoritative success signal for cross-window transfers.
+
 ## Configuration
 
 See [`RowDragDropConfig`](./Interfaces/RowDragDropConfig/) for the full list
@@ -260,7 +309,10 @@ Override the default grip icon via CSS:
 - **Cross-window fallback** — when the live row reference cannot be
   recovered from the same-window registry (e.g. drop into a different
   window), the row payload is decoded from `dataTransfer` JSON via
-  `serializeRow`/`deserializeRow`.
+  `serializeRow`/`deserializeRow`. The source window completes its half
+  of the transfer (row removal on `move`, `row-transfer` emit) when it
+  receives the confirmation message on the `tbw-row-drag-drop`
+  `BroadcastChannel`.
 
 ## Migration from `RowReorderPlugin`
 

@@ -60,6 +60,97 @@ import type {
 /** Field name for the drag handle column. */
 export const ROW_DRAG_HANDLE_FIELD = '__tbw_row_drag';
 
+// ---------------------------------------------------------------------------
+// Cross-window coordination via BroadcastChannel
+// ---------------------------------------------------------------------------
+//
+// Same-window cross-grid drops can locate the source grid and its plugin via
+// `document.getElementById(sourceGridId)` — the target plugin handles both
+// sides of the transfer in `onDrop` (insert into target + remove from source
+// + emit `row-transfer` on both grids).
+//
+// Cross-window drops can't reach the source DOM that way. The target window
+// broadcasts a `tbw-row-drag-drop:transfer` message; each window has a single
+// channel and fans the message out to every attached plugin instance, which
+// matches on `sourceGridId === this.gridId` and runs the source-side path
+// (row removal on `move`, `row-transfer` emit, `dragAccepted` flip).
+//
+// The channel is created lazily on the first plugin that needs it and shared
+// across all instances in the window. It's torn down when the last instance
+// detaches so we don't leak a handle in environments where the plugin is
+// repeatedly attached/detached.
+
+/** @internal */
+interface RemoteTransferMessage {
+  type: 'tbw-row-drag-drop:transfer';
+  sessionId: string;
+  sourceGridId: string;
+  toGridId: string;
+  dropZone: string;
+  rowIndices: number[];
+  toIndex: number;
+  operation: 'move' | 'copy';
+  /** Pre-serialized rows (the same shape `serializeRow` produced on dragstart). */
+  serializedRows: unknown[];
+}
+
+type RemoteTransferListener = (msg: RemoteTransferMessage) => void;
+
+const CROSS_WINDOW_CHANNEL_NAME = 'tbw-row-drag-drop';
+let sharedChannel: BroadcastChannel | null = null;
+const remoteListeners = new Set<RemoteTransferListener>();
+
+function ensureCrossWindowChannel(): BroadcastChannel | null {
+  if (typeof BroadcastChannel === 'undefined') return null;
+  if (sharedChannel) return sharedChannel;
+  try {
+    sharedChannel = new BroadcastChannel(CROSS_WINDOW_CHANNEL_NAME);
+    sharedChannel.addEventListener('message', (event: MessageEvent) => {
+      const data = event.data as RemoteTransferMessage | undefined;
+      if (!data || data.type !== 'tbw-row-drag-drop:transfer') return;
+      // Snapshot to tolerate listeners that detach during dispatch.
+      for (const listener of Array.from(remoteListeners)) {
+        try {
+          listener(data);
+        } catch {
+          /* listener errors must not break sibling listeners */
+        }
+      }
+    });
+  } catch {
+    sharedChannel = null;
+  }
+  return sharedChannel;
+}
+
+function registerRemoteTransferListener(listener: RemoteTransferListener): void {
+  remoteListeners.add(listener);
+  ensureCrossWindowChannel();
+}
+
+function unregisterRemoteTransferListener(listener: RemoteTransferListener): void {
+  remoteListeners.delete(listener);
+  if (remoteListeners.size === 0 && sharedChannel) {
+    try {
+      sharedChannel.close();
+    } catch {
+      /* noop */
+    }
+    sharedChannel = null;
+  }
+}
+
+function broadcastRemoteTransfer(msg: RemoteTransferMessage): void {
+  const channel = ensureCrossWindowChannel();
+  if (!channel) return;
+  try {
+    channel.postMessage(msg);
+  } catch {
+    /* postMessage may throw on uncloneable payloads — acceptable; user can
+     * supply `serializeRow` to provide a structured-cloneable shape. */
+  }
+}
+
 /**
  * Row Drag-Drop Plugin for `<tbw-grid>`.
  *
@@ -145,6 +236,9 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   /** Stable id for this grid instance (used as `sourceGridId` in payloads). */
   private gridId = '';
 
+  /** Bound listener so we can register/unregister the same reference. */
+  private readonly remoteTransferListener: RemoteTransferListener = (msg) => this.onRemoteTransfer(msg);
+
   /** Typed internal grid accessor. */
   private get internalGrid(): GridHost {
     return this.grid as unknown as GridHost;
@@ -160,6 +254,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
       this.gridId = host.id || `tbw-grid-${newDragSessionId().slice(0, 8)}`;
       if (!host.id) host.id = this.gridId;
       this.setupDelegatedDragListeners();
+      registerRemoteTransferListener(this.remoteTransferListener);
     }
   }
 
@@ -168,6 +263,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     this.clearDebounceTimer();
     this.autoScroller?.stop();
     this.autoScroller = null;
+    unregisterRemoteTransferListener(this.remoteTransferListener);
     if (this.dragSessionId) clearDragSession(this.dragSessionId);
     clearCurrentDragSession();
     this.resetDragState();
@@ -539,8 +635,13 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     targetRows.splice(targetIndex, 0, ...(incomingRows as unknown[]));
     this.grid.rows = targetRows;
 
-    // Remove from source grid's _rows when operation === 'move'
-    if (payload.operation === 'move') {
+    // Locate the source plugin in THIS window. If it's here we handle the
+    // source-side mutation directly; if it isn't, we broadcast a message and
+    // let the source-window plugin (if any) handle removal + transfer emit.
+    const sourcePlugin = this.findPeerOnGrid(payload.sourceGridId);
+
+    // Remove from source grid's _rows when operation === 'move' (same-window)
+    if (payload.operation === 'move' && sourcePlugin) {
       const sourceGrid = document.getElementById(payload.sourceGridId) as
         | (HTMLElement & { rows?: unknown[]; _rows?: unknown[] })
         | null;
@@ -555,11 +656,13 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
       }
     }
 
-    // Mark accepted on the source plugin so dragend knows
-    const sourcePlugin = this.findPeerOnGrid(payload.sourceGridId);
+    // Mark accepted on the source plugin so dragend knows (same-window only —
+    // cross-window source flips its own flag in `onRemoteTransfer`).
     if (sourcePlugin) sourcePlugin.dragAccepted = true;
 
-    // Emit row-transfer on BOTH grids
+    // Emit row-transfer on the target. The source's `row-transfer` is fired
+    // either here (same-window) or by the source plugin in `onRemoteTransfer`
+    // (cross-window).
     const transferDetail: RowTransferDetail<T> = {
       rows: incomingRows,
       fromGridId: payload.sourceGridId,
@@ -569,7 +672,67 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
       operation: payload.operation,
     };
     this.emit('row-transfer', transferDetail);
-    sourcePlugin?.emitTransfer(transferDetail);
+
+    if (sourcePlugin) {
+      sourcePlugin.emitTransfer(transferDetail);
+    } else {
+      // Cross-window: broadcast so the source window can finish its half of
+      // the transfer (row removal on `move`, `row-transfer` emit, accepted flip).
+      broadcastRemoteTransfer({
+        type: 'tbw-row-drag-drop:transfer',
+        sessionId: payload.sessionId,
+        sourceGridId: payload.sourceGridId,
+        toGridId: this.gridId,
+        dropZone,
+        rowIndices: payload.rowIndices,
+        toIndex: targetIndex,
+        operation: payload.operation,
+        // Re-use the payload's already-serialized rows so the source side can
+        // round-trip them through `deserializeRow` for its `row-transfer` event.
+        serializedRows: payload.rows as unknown[],
+      });
+    }
+  }
+
+  /**
+   * Source-window handler for a remote `row-transfer` broadcast from a target
+   * window. Only runs on the plugin instance whose grid id matches the message.
+   * @internal
+   */
+  private onRemoteTransfer(msg: RemoteTransferMessage): void {
+    if (msg.sourceGridId !== this.gridId) return;
+    // Defensive: only act when the message zone matches our zone. This prevents
+    // a stray message from a grid sharing the same id but a different zone
+    // (e.g. independent demos in different tabs) from mutating our rows.
+    const dropZone = this.config.dropZone ?? '';
+    if (!dropZone || msg.dropZone !== dropZone) return;
+
+    // Resolve incoming rows (for the `row-transfer` event payload).
+    const deserialize = this.config.deserializeRow ?? ((r: unknown) => r as T);
+    const incomingRows: T[] = msg.serializedRows.map((r) => deserialize(r));
+
+    if (msg.operation === 'move') {
+      const srcRows = (this.internalGrid._rows ?? this.sourceRows).slice();
+      const sortedIndices = [...msg.rowIndices].sort((a, b) => b - a);
+      for (const idx of sortedIndices) {
+        if (idx >= 0 && idx < srcRows.length) srcRows.splice(idx, 1);
+      }
+      this.grid.rows = srcRows as unknown[];
+    }
+
+    // Flip accepted before dragend (best-effort — the message may arrive after
+    // dragend has already fired with `accepted: false`; `row-transfer` is the
+    // authoritative success signal).
+    this.dragAccepted = true;
+
+    this.emit('row-transfer', {
+      rows: incomingRows,
+      fromGridId: msg.sourceGridId,
+      toGridId: msg.toGridId,
+      fromIndices: msg.rowIndices,
+      toIndex: msg.toIndex,
+      operation: msg.operation,
+    } as RowTransferDetail<T>);
   }
 
   private onDragEnd(): void {

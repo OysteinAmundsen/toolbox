@@ -1,0 +1,76 @@
+---
+// RowDragDropCrossWindowDemo.astro
+// Demonstrates cross-window drag using a popped-out target grid. The button
+// opens `/grid/row-drag-drop-popout/` in a new window; both grids share
+// `dropZone: 'cross-window-employees'` and coordinate over BroadcastChannel.
+---
+<div class="grid-demo not-content" id="row-drag-drop-cross-window-demo">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+    <h4 style="margin: 0;">Available employees</h4>
+    <button
+      type="button"
+      id="rdd-popout-btn"
+      style="font: inherit; padding: 6px 14px; cursor: pointer; border-radius: 4px; border: 1px solid var(--sl-color-gray-5); background: var(--sl-color-gray-6); color: inherit;"
+    >
+      Pop out target grid →
+    </button>
+  </div>
+  <p style="margin: 0 0 8px 0; font-size: 0.85em; color: var(--sl-color-gray-3);">
+    Click the button to open the target grid in a new browser window. Then drag rows from this grid into the popout.
+    Both grids must run on the same origin; popup blockers may interfere.
+  </p>
+  <tbw-grid id="rdd-cross-window-source" style="height: 320px; display: block;"></tbw-grid>
+  <p
+    id="rdd-cross-window-status"
+    style="margin: 8px 0 0 0; font-size: 0.85em; color: var(--sl-color-gray-3); min-height: 1.2em;"
+  ></p>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/row-drag-drop';
+
+const container = document.getElementById('row-drag-drop-cross-window-demo');
+if (container) {
+  const source = queryGrid('tbw-grid#rdd-cross-window-source', container)!;
+  const status = container.querySelector('#rdd-cross-window-status') as HTMLElement;
+  const btn = container.querySelector('#rdd-popout-btn') as HTMLButtonElement;
+
+  source.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID', type: 'number', width: 60 },
+      { field: 'name', header: 'Name' },
+      { field: 'department', header: 'Department' },
+    ],
+    features: {
+      rowDragDrop: { dropZone: 'cross-window-employees', operation: 'move' },
+    },
+  };
+  source.rows = [
+    { id: 1, name: 'Alice', department: 'Engineering' },
+    { id: 2, name: 'Bob', department: 'Marketing' },
+    { id: 3, name: 'Carol', department: 'Engineering' },
+    { id: 4, name: 'David', department: 'Sales' },
+    { id: 5, name: 'Eve', department: 'Engineering' },
+  ];
+
+  source.addEventListener('row-transfer', ((e: Event) => {
+    const detail = (e as CustomEvent).detail as { rows: { name: string }[]; toGridId: string };
+    status.textContent = `Sent ${detail.rows.length} row(s) to ${detail.toGridId}.`;
+  }) as EventListener);
+
+  btn.addEventListener('click', () => {
+    const w = window.open(
+      '/grid/row-drag-drop-popout/',
+      'tbw-rdd-popout',
+      'width=520,height=480,resizable=yes,scrollbars=yes',
+    );
+    if (!w) {
+      status.textContent = 'Popup blocked. Please allow popups for this site and try again.';
+    } else {
+      status.textContent = 'Popout opened. Drag rows from above into the new window.';
+    }
+  });
+}
+</script>

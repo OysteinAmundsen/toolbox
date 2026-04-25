@@ -4,6 +4,8 @@ import DemoControls from '@components/DemoControls.astro';
 ---
 <div class="grid-demo not-content" id="row-drag-drop-default-demo">
   <DemoControls controls={[
+    { section: 'ROW DRAG-DROP', name: 'dragFrom', label: 'Drag from', type: 'select',
+      options: ['handle', 'row', 'both'], default: 'handle', description: 'Where the drag can be initiated from' },
     { section: 'ROW DRAG-DROP', name: 'dragHandlePosition', label: 'Handle position', type: 'select',
       options: ['left', 'right'], default: 'left', description: 'Position of drag handle column' },
     { section: 'ROW DRAG-DROP', name: 'enableKeyboard', label: 'Keyboard enabled', type: 'boolean',
@@ -37,10 +39,10 @@ if (container) {
 
   const grid = queryGrid('tbw-grid', container)!;
 
-  function rebuild(dragHandlePosition = 'left', enableKeyboard = true, animation = 'flip') {
+  function rebuild(dragFrom = 'handle', dragHandlePosition = 'left', enableKeyboard = true, animation = 'flip') {
     grid.gridConfig = {
       columns,
-      features: { rowDragDrop: { dragHandlePosition, enableKeyboard, animation: animation === 'false' ? false : animation } as any },
+      features: { rowDragDrop: { dragFrom, dragHandlePosition, enableKeyboard, animation: animation === 'false' ? false : animation } as any },
     };
     grid.rows = sampleData;
   }
@@ -49,7 +51,7 @@ if (container) {
 
   container.addEventListener('control-change', ((e: CustomEvent) => {
     const v = e.detail.allValues;
-    rebuild(v.dragHandlePosition as string, v.enableKeyboard as boolean, v.animation as string);
+    rebuild(v.dragFrom as string, v.dragHandlePosition as string, v.enableKeyboard as boolean, v.animation as string);
   }) as EventListener);
 }
 </script>

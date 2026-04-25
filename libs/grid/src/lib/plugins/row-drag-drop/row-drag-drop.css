@@ -44,6 +44,27 @@
     opacity: 0.6;
   }
 
+  /* When the row itself is the drag handle, hint at the affordance.    */
+  .data-grid-row[draggable='true'] {
+    cursor: grab;
+  }
+
+  .data-grid-row[draggable='true'].dragging {
+    cursor: grabbing;
+  }
+
+  /* Off-screen full-row clone used as the HTML5 drag image.            */
+  /* The browser already applies its own translucency to the snapshot,  */
+  /* so this clone keeps full opacity and skips the box-shadow — both   */
+  /* would otherwise composite on top of the browser's effect and make  */
+  /* the drag image look washed-out / fade at the edges.                */
+  .tbw-row-drag-clone {
+    position: fixed;
+    top: -10000px;
+    left: -10000px;
+    pointer-events: none;
+  }
+
   /* Multi-row drag count badge */
   .tbw-row-drag-count {
     position: fixed;

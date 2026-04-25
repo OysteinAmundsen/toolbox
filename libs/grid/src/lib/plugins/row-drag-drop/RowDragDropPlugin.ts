@@ -204,14 +204,34 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   protected override get defaultConfig(): Partial<RowDragDropConfig<T>> {
     return {
       enableKeyboard: true,
-      showDragHandle: true,
+      // `showDragHandle` default depends on `dragFrom` — resolved by
+      // `shouldRenderDragHandle()` rather than here so a single `dragFrom`
+      // change reshapes both at once.
       dragHandlePosition: 'left',
       dragHandleWidth: 40,
       debounceMs: 150,
       animation: 'flip',
       operation: 'move',
       autoScroll: true,
+      dragFrom: 'handle',
     };
+  }
+
+  /**
+   * Resolve whether the grip column should be rendered. The handle is shown
+   * unless the user explicitly set `showDragHandle: false`, OR `dragFrom`
+   * is `'row'` and `showDragHandle` was not explicitly set to `true`.
+   */
+  private shouldRenderDragHandle(): boolean {
+    const explicit = this.config.showDragHandle;
+    if (explicit === false) return false;
+    if (explicit === true) return true;
+    return this.config.dragFrom !== 'row';
+  }
+
+  /** Whether the row element itself should accept native HTML5 drag. */
+  private get rowIsDraggable(): boolean {
+    return this.config.dragFrom === 'row' || this.config.dragFrom === 'both';
   }
 
   /** Resolve animation type from plugin config (respects grid-level reduced-motion). */
@@ -275,7 +295,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
   /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
-    if (!this.config.showDragHandle) return [...columns];
+    if (!this.shouldRenderDragHandle()) return [...columns];
 
     const dragHandleColumn: ColumnConfig = {
       field: ROW_DRAG_HANDLE_FIELD,
@@ -303,7 +323,32 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
   /** @internal */
   override afterRender(): void {
-    /* drag listeners are delegated; nothing to do per render */
+    this.applyRowDraggable();
+  }
+
+  /** @internal */
+  override onScrollRender(): void {
+    // Virtualization recycles row DOM elements during scroll; re-apply the
+    // `draggable` attribute so newly-shown rows still accept HTML5 drag.
+    this.applyRowDraggable();
+  }
+
+  /**
+   * Set or clear the `draggable` attribute on every visible row, depending on
+   * `config.dragFrom`. Idempotent and cheap (one attribute write per row).
+   */
+  private applyRowDraggable(): void {
+    const body = this.internalGrid._bodyEl;
+    if (!body) return;
+    const wantDraggable = this.rowIsDraggable;
+    const rows = body.querySelectorAll<HTMLElement>('.data-grid-row');
+    for (const row of rows) {
+      if (wantDraggable) {
+        if (row.getAttribute('draggable') !== 'true') row.setAttribute('draggable', 'true');
+      } else if (row.hasAttribute('draggable')) {
+        row.removeAttribute('draggable');
+      }
+    }
   }
 
   /** @internal */
@@ -410,9 +455,25 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   }
 
   private onDragStart(de: DragEvent): void {
-    const handle = (de.target as HTMLElement).closest('.dg-row-drag-handle') as HTMLElement | null;
-    if (!handle) return;
-    const rowEl = handle.closest('.data-grid-row') as HTMLElement | null;
+    const target = de.target as HTMLElement | null;
+    if (!target) return;
+
+    // Resolve the row element being picked up. Order matters: a click on the
+    // grip column inside a row-draggable grid should still go through the
+    // handle path so the cursor offset feels right.
+    const handle = target.closest('.dg-row-drag-handle') as HTMLElement | null;
+    let rowEl: HTMLElement | null = null;
+    let initiatedFromHandle = false;
+    if (handle) {
+      rowEl = handle.closest('.data-grid-row') as HTMLElement | null;
+      initiatedFromHandle = true;
+    } else if (this.rowIsDraggable) {
+      // Row-as-handle: any cell may start the drag, but interactive
+      // descendants (inputs, buttons, anchors, contenteditable, open
+      // editors, selection checkboxes) keep their native behaviour.
+      if (this.isInteractiveDragOrigin(target)) return;
+      rowEl = target.closest('.data-grid-row') as HTMLElement | null;
+    }
     if (!rowEl) return;
 
     const rowIndex = this.getRowIndex(rowEl);
@@ -469,7 +530,8 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
         /* JSDOM/happy-dom may throw on setData; harmless */
       }
 
-      // Multi-row drag count badge
+      // Drag image: full-row clone for single-row drags (more legible than
+      // the handle alone); count badge for multi-row drags.
       if (rows.length > 1) {
         const badge = document.createElement('div');
         badge.className = 'tbw-row-drag-count';
@@ -480,8 +542,9 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
         } catch {
           /* ignore */
         }
-        // Remove the badge after the browser has snapshotted it
         setTimeout(() => badge.remove(), 0);
+      } else {
+        this.attachRowCloneDragImage(de, rowEl, initiatedFromHandle ? handle : null);
       }
     }
 
@@ -491,6 +554,65 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
     rowEl.classList.add(GridClasses.DRAGGING);
     this.gridElement.classList.add('tbw-grid--drag-source');
+  }
+
+  /**
+   * Selectors whose dragstart should NOT initiate a row drag in `dragFrom: 'row'`
+   * mode. Keeps native interactions (text input, button clicks, link drag,
+   * cell editing, selection checkboxes) working unchanged.
+   */
+  private static readonly INTERACTIVE_DRAG_SELECTORS =
+    'input,textarea,select,button,a,[contenteditable=""],[contenteditable="true"],.dg-cell-editor,.tbw-checkbox-cell';
+
+  /** @internal */
+  private isInteractiveDragOrigin(target: HTMLElement): boolean {
+    return target.closest(RowDragDropPlugin.INTERACTIVE_DRAG_SELECTORS) !== null;
+  }
+
+  /**
+   * Build a full-row drag image by cloning `rowEl` so the user sees the
+   * actual row — not just the grip icon — while dragging.
+   *
+   * The clone is appended off-screen, snapshotted by the browser via
+   * `setDragImage`, then removed on the next tick (after the snapshot).
+   * The cursor offset is preserved relative to where the user pressed.
+   */
+  private attachRowCloneDragImage(de: DragEvent, rowEl: HTMLElement, handle: HTMLElement | null): void {
+    if (!de.dataTransfer) return;
+    const rect = rowEl.getBoundingClientRect();
+    const clone = rowEl.cloneNode(true) as HTMLElement;
+    clone.classList.add('tbw-row-drag-clone');
+    // Strip transient classes that would look wrong in the drag image.
+    clone.classList.remove('dragging', 'drop-target', 'drop-before', 'drop-after', 'flip-animating', 'row-focus');
+    clone.removeAttribute('aria-selected');
+    // Preserve the actual rendered width so cells don't reflow in the snapshot.
+    clone.style.width = `${rect.width}px`;
+    clone.style.height = `${rect.height}px`;
+    // The clone MUST stay inside the grid host: every core row/cell rule is
+    // scoped under `tbw-grid …` (see core/styles/*.css), and the
+    // `--tbw-column-template` custom property is set on the host. If the
+    // clone is moved to `document.body`, none of those rules match and the
+    // drag image collapses to an empty box. Off-screen positioning via
+    // `position: fixed` works the same regardless of the DOM parent.
+    this.gridElement.appendChild(clone);
+    // Cursor offset: where the user pressed inside the source row. Falls
+    // back to the centre of the handle when initiated from the grip.
+    let offsetX = de.clientX - rect.left;
+    let offsetY = de.clientY - rect.top;
+    if (handle) {
+      const handleRect = handle.getBoundingClientRect();
+      offsetX = handleRect.left - rect.left + handleRect.width / 2;
+      offsetY = handleRect.top - rect.top + handleRect.height / 2;
+    }
+    // Clamp into the row bounds so the cursor stays inside the drag image.
+    offsetX = Math.max(0, Math.min(rect.width, offsetX));
+    offsetY = Math.max(0, Math.min(rect.height, offsetY));
+    try {
+      de.dataTransfer.setDragImage(clone, offsetX, offsetY);
+    } catch {
+      /* JSDOM/happy-dom: harmless */
+    }
+    setTimeout(() => clone.remove(), 0);
   }
 
   private onDragOver(de: DragEvent): void {

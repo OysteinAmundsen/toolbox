@@ -16,6 +16,12 @@ between separate grids. It is a strict superset of the (now deprecated)
 `RowReorderPlugin`: every existing intra-grid behaviour is preserved.
 
 - **Intra-grid** — drag a row up or down to reorder, or use `Ctrl + ↑/↓`.
+- **Drag origin** — choose whether drags start from the dedicated handle
+  column (`dragFrom: 'handle'`, default), from anywhere on the row
+  (`dragFrom: 'row'` — handle column hidden), or from both
+  (`dragFrom: 'both'`). Interactive descendants (buttons, inputs, links,
+  `[contenteditable]`) inside the row are still respected and never start
+  a drag.
 - **Cross-grid** — set a `dropZone` to allow dragging rows to another grid
   with the same `dropZone`. Supports `move` and `copy` operations.
 - **Multi-row** — when the [Selection](../selection/) plugin is loaded and
@@ -243,7 +249,8 @@ of options and defaults. Key options:
 | `serializeRow`      | `(row) => unknown`                                | Override the JSON shape used in the cross-window fallback payload.                   |
 | `deserializeRow`    | `(serialized) => row`                             | Inverse of `serializeRow`.                                                           |
 | `enableKeyboard`    | `boolean`                                         | Keep keyboard reorder (`Ctrl + ↑/↓`) — defaults to `true`.                           |
-| `showDragHandle`    | `boolean`                                         | Render the drag-handle column.                                                       |
+| `dragFrom`          | `'handle' \| 'row' \| 'both'`                     | Where a drag can be initiated. `'handle'` (default) keeps the handle column; `'row'` hides the handle and lets users drag anywhere on the row; `'both'` allows either. Interactive descendants (`button`, `input`, `select`, `textarea`, `a[href]`, `[contenteditable]`) never start a drag. |
+| `showDragHandle`    | `boolean`                                         | Render the drag-handle column. Defaults to `true` for `dragFrom: 'handle' \| 'both'` and `false` for `dragFrom: 'row'`. Set explicitly to override.            |
 | `dragHandlePosition`| `'left' \| 'right'`                               | Pin the handle column to either side.                                                |
 | `dragHandleWidth`   | `number`                                          | Pixel width of the handle column.                                                    |
 | `animation`         | `'flip' \| false`                                 | FLIP animation on intra-grid reorder.                                                |
@@ -306,6 +313,11 @@ Override the default grip icon via CSS:
   rendered but logical indices are preserved.
 - **Keyboard debounce** — rapid keyboard moves are debounced (150 ms) to
   prevent excessive rerenders.
+- **Drag image** — when a drag starts the plugin clones the source row and
+  uses it as the HTML5 drag image so the user sees the full row content
+  follow the cursor (instead of just the handle cell). The browser applies
+  its standard translucency to the snapshot — this is a native effect that
+  cannot be disabled.
 - **Cross-window fallback** — when the live row reference cannot be
   recovered from the same-window registry (e.g. drop into a different
   window), the row payload is decoded from `dataTransfer` JSON via

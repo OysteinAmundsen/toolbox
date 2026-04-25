@@ -25,9 +25,31 @@ export interface RowDragDropConfig<T = unknown> {
 
   /**
    * Show a drag handle column.
-   * @default true
+   *
+   * Defaults to `true` when {@link RowDragDropConfig.dragFrom dragFrom} is
+   * `'handle'` (the default) or `'both'`, and to `false` when `dragFrom` is
+   * `'row'` — when the entire row is the drag handle, the dedicated grip
+   * column adds no value. Set explicitly to override.
+   * @default true (or false when `dragFrom: 'row'`)
    */
   showDragHandle?: boolean;
+
+  /**
+   * Where on a row a drag can be initiated.
+   *
+   * - `'handle'` (default): only the grip column starts a drag. Backwards
+   *   compatible with `RowReorderPlugin`.
+   * - `'row'`: any cell starts a drag, and the grip column is hidden by
+   *   default. Recommended for transfer-list / kanban-style UIs where a
+   *   dedicated handle adds visual noise.
+   * - `'both'`: either the grip OR any cell starts a drag.
+   *
+   * Drags initiated on interactive descendants (inputs, buttons, anchors,
+   * contenteditable, open cell editors, selection checkboxes) are always
+   * suppressed regardless of this setting so native interactions keep working.
+   * @default 'handle'
+   */
+  dragFrom?: 'handle' | 'row' | 'both';
 
   /**
    * Position of the drag handle column.

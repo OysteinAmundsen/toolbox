@@ -763,6 +763,327 @@ describe('RowDragDropPlugin', () => {
     });
   });
 
+  describe('dragFrom config', () => {
+    it("defaults to 'handle' and adds the grip column", () => {
+      const plugin = new RowDragDropPlugin();
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+      const result = plugin.processColumns([{ field: 'id' }]);
+      expect(result.find((c) => c.field === ROW_DRAG_HANDLE_FIELD)).toBeTruthy();
+    });
+
+    it("'row' suppresses the grip column by default", () => {
+      const plugin = new RowDragDropPlugin({ dragFrom: 'row' });
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+      const result = plugin.processColumns([{ field: 'id' }]);
+      expect(result.find((c) => c.field === ROW_DRAG_HANDLE_FIELD)).toBeUndefined();
+      expect(result).toHaveLength(1);
+    });
+
+    it("'row' + explicit showDragHandle: true still renders the grip", () => {
+      const plugin = new RowDragDropPlugin({ dragFrom: 'row', showDragHandle: true });
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+      const result = plugin.processColumns([{ field: 'id' }]);
+      expect(result.find((c) => c.field === ROW_DRAG_HANDLE_FIELD)).toBeTruthy();
+    });
+
+    it("'both' renders the grip column", () => {
+      const plugin = new RowDragDropPlugin({ dragFrom: 'both' });
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+      const result = plugin.processColumns([{ field: 'id' }]);
+      expect(result.find((c) => c.field === ROW_DRAG_HANDLE_FIELD)).toBeTruthy();
+    });
+
+    it('explicit showDragHandle: false hides the grip even with dragFrom: handle', () => {
+      const plugin = new RowDragDropPlugin({ dragFrom: 'handle', showDragHandle: false });
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+      const result = plugin.processColumns([{ field: 'id' }]);
+      expect(result.find((c) => c.field === ROW_DRAG_HANDLE_FIELD)).toBeUndefined();
+    });
+  });
+
+  describe('row-as-handle DOM wiring', () => {
+    let plugin: RowDragDropPlugin;
+    let grid: ReturnType<typeof createGridMock>;
+    let gridEl: HTMLElement;
+
+    function buildRows(): HTMLElement {
+      const el = document.createElement('div');
+      for (let i = 0; i < 3; i++) {
+        const row = document.createElement('div');
+        row.className = 'data-grid-row';
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.setAttribute('data-row', String(i));
+        cell.textContent = `Row ${i}`;
+        row.appendChild(cell);
+        el.appendChild(row);
+      }
+      return el;
+    }
+
+    beforeEach(() => {
+      gridEl = document.createElement('div');
+      const body = buildRows();
+      gridEl.appendChild(body);
+      document.body.appendChild(gridEl);
+      grid = createGridMock([{ id: 1 }, { id: 2 }, { id: 3 }]);
+      grid._bodyEl = body;
+      (grid as any)._hostElement = gridEl;
+      grid.dispatchEvent = vi.fn(() => true);
+    });
+
+    afterEach(() => {
+      plugin.detach();
+      document.body.innerHTML = '';
+    });
+
+    it('does NOT set draggable on rows when dragFrom is "handle" (default)', () => {
+      plugin = new RowDragDropPlugin();
+      plugin.attach(grid as any);
+      plugin.afterRender();
+      const rows = grid._bodyEl.querySelectorAll('.data-grid-row');
+      for (const row of rows) {
+        expect(row.hasAttribute('draggable')).toBe(false);
+      }
+    });
+
+    it('sets draggable="true" on every row when dragFrom is "row"', () => {
+      plugin = new RowDragDropPlugin({ dragFrom: 'row' });
+      plugin.attach(grid as any);
+      plugin.afterRender();
+      const rows = grid._bodyEl.querySelectorAll('.data-grid-row');
+      expect(rows.length).toBe(3);
+      for (const row of rows) {
+        expect(row.getAttribute('draggable')).toBe('true');
+      }
+    });
+
+    it('re-applies draggable after onScrollRender (virtualization recycle)', () => {
+      plugin = new RowDragDropPlugin({ dragFrom: 'row' });
+      plugin.attach(grid as any);
+      plugin.afterRender();
+      // Simulate virtualization swapping in a fresh row that lost the attribute
+      const fresh = document.createElement('div');
+      fresh.className = 'data-grid-row';
+      grid._bodyEl.appendChild(fresh);
+      expect(fresh.hasAttribute('draggable')).toBe(false);
+
+      plugin.onScrollRender();
+      expect(fresh.getAttribute('draggable')).toBe('true');
+    });
+  });
+
+  describe('row-as-handle dragstart behaviour', () => {
+    let plugin: RowDragDropPlugin;
+    let grid: ReturnType<typeof createGridMock>;
+    let gridEl: HTMLElement;
+
+    beforeEach(() => {
+      gridEl = document.createElement('div');
+      for (let i = 0; i < 3; i++) {
+        const row = document.createElement('div');
+        row.className = 'data-grid-row';
+        row.setAttribute('draggable', 'true');
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.setAttribute('data-row', String(i));
+        row.appendChild(cell);
+        gridEl.appendChild(row);
+      }
+      document.body.appendChild(gridEl);
+      grid = createGridMock([{ id: 1 }, { id: 2 }, { id: 3 }]);
+      (grid as any)._hostElement = gridEl;
+      grid.dispatchEvent = vi.fn(() => true);
+    });
+
+    afterEach(() => {
+      plugin.detach();
+      document.body.innerHTML = '';
+    });
+
+    function dispatchDragStartFrom(target: Element): { setData: ReturnType<typeof vi.fn> } {
+      const event = new Event('dragstart', { bubbles: true }) as any;
+      const setData = vi.fn();
+      Object.defineProperty(event, 'dataTransfer', {
+        value: { effectAllowed: '', setData, setDragImage: vi.fn() },
+        writable: true,
+      });
+      Object.defineProperty(event, 'clientX', { value: 0, configurable: true });
+      Object.defineProperty(event, 'clientY', { value: 0, configurable: true });
+      target.dispatchEvent(event);
+      return { setData };
+    }
+
+    it('starts a drag from any cell when dragFrom is "row"', () => {
+      plugin = new RowDragDropPlugin({ dragFrom: 'row' });
+      plugin.attach(grid as any);
+      const cell = gridEl.querySelectorAll('.data-grid-row')[1].querySelector('.cell')!;
+      dispatchDragStartFrom(cell);
+      const draggingRow = gridEl.querySelector('.data-grid-row.dragging');
+      expect(draggingRow).toBe(cell.closest('.data-grid-row'));
+    });
+
+    it('does NOT start a drag from a cell when dragFrom is "handle" (default)', () => {
+      plugin = new RowDragDropPlugin();
+      plugin.attach(grid as any);
+      const cell = gridEl.querySelectorAll('.data-grid-row')[1].querySelector('.cell')!;
+      dispatchDragStartFrom(cell);
+      expect(gridEl.querySelector('.data-grid-row.dragging')).toBeNull();
+    });
+
+    it('suppresses drag when origin is an interactive element (button)', () => {
+      plugin = new RowDragDropPlugin({ dragFrom: 'row' });
+      plugin.attach(grid as any);
+      const cell = gridEl.querySelectorAll('.data-grid-row')[0].querySelector('.cell')!;
+      const btn = document.createElement('button');
+      cell.appendChild(btn);
+      dispatchDragStartFrom(btn);
+      expect(gridEl.querySelector('.data-grid-row.dragging')).toBeNull();
+    });
+
+    it('suppresses drag when origin is an input', () => {
+      plugin = new RowDragDropPlugin({ dragFrom: 'row' });
+      plugin.attach(grid as any);
+      const cell = gridEl.querySelectorAll('.data-grid-row')[0].querySelector('.cell')!;
+      const input = document.createElement('input');
+      cell.appendChild(input);
+      dispatchDragStartFrom(input);
+      expect(gridEl.querySelector('.data-grid-row.dragging')).toBeNull();
+    });
+
+    it('suppresses drag when origin is inside an open cell editor', () => {
+      plugin = new RowDragDropPlugin({ dragFrom: 'row' });
+      plugin.attach(grid as any);
+      const cell = gridEl.querySelectorAll('.data-grid-row')[0].querySelector('.cell')!;
+      const editor = document.createElement('div');
+      editor.className = 'dg-cell-editor';
+      const inner = document.createElement('span');
+      editor.appendChild(inner);
+      cell.appendChild(editor);
+      dispatchDragStartFrom(inner);
+      expect(gridEl.querySelector('.data-grid-row.dragging')).toBeNull();
+    });
+
+    it('suppresses drag when origin is a selection checkbox cell', () => {
+      plugin = new RowDragDropPlugin({ dragFrom: 'row' });
+      plugin.attach(grid as any);
+      const cell = gridEl.querySelectorAll('.data-grid-row')[0].querySelector('.cell')!;
+      cell.classList.add('tbw-checkbox-cell');
+      dispatchDragStartFrom(cell);
+      expect(gridEl.querySelector('.data-grid-row.dragging')).toBeNull();
+    });
+
+    it('"both" mode allows drag from grip OR cell', () => {
+      plugin = new RowDragDropPlugin({ dragFrom: 'both' });
+      plugin.attach(grid as any);
+
+      // From cell:
+      const cell = gridEl.querySelectorAll('.data-grid-row')[1].querySelector('.cell')!;
+      dispatchDragStartFrom(cell);
+      expect(gridEl.querySelector('.data-grid-row.dragging')).toBeTruthy();
+
+      gridEl.dispatchEvent(new Event('dragend', { bubbles: true }));
+      expect(gridEl.querySelector('.data-grid-row.dragging')).toBeNull();
+
+      // From handle (added inside the row):
+      const row0 = gridEl.querySelectorAll('.data-grid-row')[0];
+      const handle = document.createElement('div');
+      handle.className = 'dg-row-drag-handle';
+      row0.appendChild(handle);
+      dispatchDragStartFrom(handle);
+      expect(row0.classList.contains('dragging')).toBe(true);
+    });
+  });
+
+  describe('drag image', () => {
+    let plugin: RowDragDropPlugin;
+    let grid: ReturnType<typeof createGridMock>;
+    let gridEl: HTMLElement;
+
+    beforeEach(() => {
+      gridEl = document.createElement('div');
+      for (let i = 0; i < 3; i++) {
+        const row = document.createElement('div');
+        row.className = 'data-grid-row';
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.setAttribute('data-row', String(i));
+        cell.textContent = `Row ${i} content`;
+        row.appendChild(cell);
+        const handle = document.createElement('div');
+        handle.className = 'dg-row-drag-handle';
+        row.appendChild(handle);
+        gridEl.appendChild(row);
+      }
+      document.body.appendChild(gridEl);
+      grid = createGridMock([{ id: 1 }, { id: 2 }, { id: 3 }]);
+      (grid as any)._hostElement = gridEl;
+      grid.dispatchEvent = vi.fn(() => true);
+    });
+
+    afterEach(() => {
+      plugin.detach();
+      document.body.innerHTML = '';
+    });
+
+    it('uses a full-row clone for single-row drag (setDragImage called with the clone)', () => {
+      plugin = new RowDragDropPlugin();
+      plugin.attach(grid as any);
+      const handle = gridEl.querySelectorAll('.data-grid-row')[1].querySelector('.dg-row-drag-handle')!;
+
+      const setDragImage = vi.fn();
+      const event = new Event('dragstart', { bubbles: true }) as any;
+      Object.defineProperty(event, 'dataTransfer', {
+        value: { effectAllowed: '', setData: vi.fn(), setDragImage },
+        writable: true,
+      });
+      Object.defineProperty(event, 'clientX', { value: 0, configurable: true });
+      Object.defineProperty(event, 'clientY', { value: 0, configurable: true });
+      handle.dispatchEvent(event);
+
+      expect(setDragImage).toHaveBeenCalledTimes(1);
+      const [dragImage] = setDragImage.mock.calls[0];
+      expect((dragImage as HTMLElement).classList.contains('tbw-row-drag-clone')).toBe(true);
+      // Clone should be in the DOM at dragstart time (removed on next tick).
+      expect(document.querySelector('.tbw-row-drag-clone')).toBeTruthy();
+    });
+
+    it('multi-row drag still uses the count badge, not a row clone', () => {
+      plugin = new RowDragDropPlugin();
+      // Stub a 2-row selection via the selection plugin contract.
+      grid.getPlugin = () => undefined;
+      (grid as any).getPluginByName = (name: string) =>
+        name === 'selection'
+          ? {
+              getSelectedRowIndices: () => [0, 1],
+              getSelectedRows: () => [{ id: 1 }, { id: 2 }],
+            }
+          : undefined;
+      plugin.attach(grid as any);
+
+      const handle = gridEl.querySelectorAll('.data-grid-row')[0].querySelector('.dg-row-drag-handle')!;
+      const setDragImage = vi.fn();
+      const event = new Event('dragstart', { bubbles: true }) as any;
+      Object.defineProperty(event, 'dataTransfer', {
+        value: { effectAllowed: '', setData: vi.fn(), setDragImage },
+        writable: true,
+      });
+      Object.defineProperty(event, 'clientX', { value: 0, configurable: true });
+      Object.defineProperty(event, 'clientY', { value: 0, configurable: true });
+      handle.dispatchEvent(event);
+
+      expect(setDragImage).toHaveBeenCalledTimes(1);
+      const [dragImage] = setDragImage.mock.calls[0];
+      expect((dragImage as HTMLElement).classList.contains('tbw-row-drag-count')).toBe(true);
+      expect((dragImage as HTMLElement).textContent).toBe('2 rows');
+    });
+  });
+
   describe('cross-window transfer (BroadcastChannel)', () => {
     let originalBC: typeof BroadcastChannel | undefined;
     let channels: FakeChannel[];

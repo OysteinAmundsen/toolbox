@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.2.0...grid-angular-1.3.0) (2026-04-25)
+
+
+### Features
+
+* **grid:** AbortSignal cancellation for ServerSide getRows + Angular fromObservable bridge ([#244](https://github.com/OysteinAmundsen/toolbox/issues/244)) ([d3a861a](https://github.com/OysteinAmundsen/toolbox/commit/d3a861a46cb81e65d1d311850cdd63f6b6d91512))
+* **grid:** RowDragDropPlugin — drag rows within and across grids ([#225](https://github.com/OysteinAmundsen/toolbox/issues/225)) ([#246](https://github.com/OysteinAmundsen/toolbox/issues/246)) ([4a22beb](https://github.com/OysteinAmundsen/toolbox/commit/4a22bebfcad0d26df2302290b73761b090f429d7))
+
 ## [1.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.1.0...grid-angular-1.2.0) (2026-04-22)
 
 

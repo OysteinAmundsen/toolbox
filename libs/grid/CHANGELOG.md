@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.4.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.4.0...grid-2.4.1) (2026-04-25)
+
+
+### Bug Fixes
+
+* **grid:** cross-window move coordination for row-drag-drop via BroadcastChannel ([927a4b6](https://github.com/OysteinAmundsen/toolbox/commit/927a4b6edbe9a671f7bd496625f0399f0da73bbe))
+
+
+### Enhancements
+
+* **grid:** add missing dragFrom config, row-clone drag image, and cross-window BroadcastChannel coordination ([2879631](https://github.com/OysteinAmundsen/toolbox/commit/2879631519491bbf69500201ee763902d1f01977))
+
 ## [2.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.3.0...grid-2.4.0) (2026-04-25)
 
 

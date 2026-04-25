@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.3.0...grid-2.4.0) (2026-04-25)
+
+
+### Features
+
+* **grid:** AbortSignal cancellation for ServerSide getRows + Angular fromObservable bridge ([#244](https://github.com/OysteinAmundsen/toolbox/issues/244)) ([d3a861a](https://github.com/OysteinAmundsen/toolbox/commit/d3a861a46cb81e65d1d311850cdd63f6b6d91512))
+* **grid:** add export plugin data accessors and ExportMode parameter ([#245](https://github.com/OysteinAmundsen/toolbox/issues/245)) ([dae9d76](https://github.com/OysteinAmundsen/toolbox/commit/dae9d76e2af780ade780cfac6c81d12ce1920856))
+* **grid:** RowDragDropPlugin — drag rows within and across grids ([#225](https://github.com/OysteinAmundsen/toolbox/issues/225)) ([#246](https://github.com/OysteinAmundsen/toolbox/issues/246)) ([4a22beb](https://github.com/OysteinAmundsen/toolbox/commit/4a22bebfcad0d26df2302290b73761b090f429d7))
+
+
+### Bug Fixes
+
+* **grid:** apply column state immediately when initialized to avoid silent re-apply on next reset ([8f9904a](https://github.com/OysteinAmundsen/toolbox/commit/8f9904ac08f4f36f5d1a6aa72edb5b0ff522811b))
+* **grid:** honor gridConfig.sortHandler in TreePlugin and ServerSidePlugin local sort ([73282b7](https://github.com/OysteinAmundsen/toolbox/commit/73282b700af16c54b36a3def28965b1717764820))
+* **grid:** paint row-selection border above pinned (sticky) cells via z-index ([5ac5dc8](https://github.com/OysteinAmundsen/toolbox/commit/5ac5dc883fbdaf9de105106e25a646245cee81ce))
+* **grid:** preserve source row identity in TreePlugin.processRows ([#241](https://github.com/OysteinAmundsen/toolbox/issues/241)) ([8f165bd](https://github.com/OysteinAmundsen/toolbox/commit/8f165bd2c34d7e1b80b86ea14b63973bef099fb1))
+
 ## [2.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.2.0...grid-2.3.0) (2026-04-22)
 
 

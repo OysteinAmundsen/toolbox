@@ -96,6 +96,23 @@ describe('React component rendering', () => {
     document.body.innerHTML = '';
   });
 
+  /**
+   * Polls the container until React 19 has committed the custom element to the
+   * DOM. A single `setTimeout(0)` is not reliable under happy-dom because
+   * React's concurrent renderer can defer the commit across multiple
+   * microtask/macrotask cycles, especially when `react`/`react-dom` are loaded
+   * via dynamic `import()` in `beforeEach`.
+   */
+  async function waitForCardEl(container: HTMLElement, timeoutMs = 1000): Promise<Element> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const el = container.querySelector('tbw-grid-responsive-card');
+      if (el) return el;
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    throw new Error(`tbw-grid-responsive-card was not rendered within ${timeoutMs}ms`);
+  }
+
   it('should render a tbw-grid-responsive-card element', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
@@ -103,9 +120,8 @@ describe('React component rendering', () => {
 
     const root = ReactDOM.createRoot(container);
     root.render(React.createElement(GridResponsiveCard, { children: renderFn }));
-    await new Promise((r) => setTimeout(r, 0));
 
-    const cardEl = container.querySelector('tbw-grid-responsive-card');
+    const cardEl = await waitForCardEl(container);
     expect(cardEl).toBeTruthy();
 
     root.unmount();
@@ -118,12 +134,11 @@ describe('React component rendering', () => {
 
     const root = ReactDOM.createRoot(container);
     root.render(React.createElement(GridResponsiveCard, { children: renderFn }));
-    await new Promise((r) => setTimeout(r, 0));
 
-    const cardEl = container.querySelector('tbw-grid-responsive-card');
+    const cardEl = await waitForCardEl(container);
     // React 19 sets properties on custom elements instead of attributes
     const height =
-      (cardEl as any)?.cardRowHeight ?? cardEl?.getAttribute('cardrowheight') ?? cardEl?.getAttribute('cardRowHeight');
+      (cardEl as any).cardRowHeight ?? cardEl.getAttribute('cardrowheight') ?? cardEl.getAttribute('cardRowHeight');
     expect(height).toBe('auto');
 
     root.unmount();
@@ -136,12 +151,11 @@ describe('React component rendering', () => {
 
     const root = ReactDOM.createRoot(container);
     root.render(React.createElement(GridResponsiveCard, { children: renderFn, cardRowHeight: 80 }));
-    await new Promise((r) => setTimeout(r, 0));
 
-    const cardEl = container.querySelector('tbw-grid-responsive-card');
+    const cardEl = await waitForCardEl(container);
     // React 19 sets properties on custom elements instead of attributes
     const height =
-      (cardEl as any)?.cardRowHeight ?? cardEl?.getAttribute('cardrowheight') ?? cardEl?.getAttribute('cardRowHeight');
+      (cardEl as any).cardRowHeight ?? cardEl.getAttribute('cardrowheight') ?? cardEl.getAttribute('cardRowHeight');
     expect(height).toBe('80');
 
     root.unmount();

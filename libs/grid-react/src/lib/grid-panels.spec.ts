@@ -177,6 +177,23 @@ describe('React component rendering', () => {
     document.body.innerHTML = '';
   });
 
+  /**
+   * Polls the container until React 19 has committed the given custom element
+   * to the DOM. A single `setTimeout(0)` is not reliable under happy-dom
+   * because React's concurrent renderer can defer the commit across multiple
+   * microtask/macrotask cycles, especially when `react`/`react-dom` are loaded
+   * via dynamic `import()` in `beforeEach`.
+   */
+  async function waitForEl(container: HTMLElement, selector: string, timeoutMs = 1000): Promise<Element> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const el = container.querySelector(selector);
+      if (el) return el;
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    throw new Error(`${selector} was not rendered within ${timeoutMs}ms`);
+  }
+
   describe('GridDetailPanel component', () => {
     it('should render a tbw-grid-detail element', async () => {
       const container = document.createElement('div');
@@ -185,9 +202,8 @@ describe('React component rendering', () => {
 
       const root = ReactDOM.createRoot(container);
       root.render(React.createElement(GridDetailPanel, { children: renderFn }));
-      await new Promise((r) => setTimeout(r, 0));
 
-      const detailEl = container.querySelector('tbw-grid-detail');
+      const detailEl = await waitForEl(container, 'tbw-grid-detail');
       expect(detailEl).toBeTruthy();
 
       root.unmount();
@@ -200,11 +216,10 @@ describe('React component rendering', () => {
 
       const root = ReactDOM.createRoot(container);
       root.render(React.createElement(GridDetailPanel, { children: renderFn, showExpandColumn: false }));
-      await new Promise((r) => setTimeout(r, 0));
 
-      const detailEl = container.querySelector('tbw-grid-detail');
+      const detailEl = await waitForEl(container, 'tbw-grid-detail');
       // React renders camelCase props as lowercase attributes on custom elements
-      const attr = detailEl?.getAttribute('showexpandcolumn') ?? detailEl?.getAttribute('showExpandColumn');
+      const attr = detailEl.getAttribute('showexpandcolumn') ?? detailEl.getAttribute('showExpandColumn');
       expect(attr).toBe('false');
 
       root.unmount();
@@ -219,9 +234,8 @@ describe('React component rendering', () => {
 
       const root = ReactDOM.createRoot(container);
       root.render(React.createElement(GridToolPanel, { id: 'test-panel', title: 'Test', children: renderFn }));
-      await new Promise((r) => setTimeout(r, 0));
 
-      const panelEl = container.querySelector('tbw-grid-tool-panel');
+      const panelEl = await waitForEl(container, 'tbw-grid-tool-panel');
       expect(panelEl).toBeTruthy();
 
       root.unmount();
@@ -234,11 +248,10 @@ describe('React component rendering', () => {
 
       const root = ReactDOM.createRoot(container);
       root.render(React.createElement(GridToolPanel, { id: 'my-panel', title: 'My Panel', children: renderFn }));
-      await new Promise((r) => setTimeout(r, 0));
 
-      const panelEl = container.querySelector('tbw-grid-tool-panel');
-      expect(panelEl?.getAttribute('id')).toBe('my-panel');
-      expect(panelEl?.getAttribute('title')).toBe('My Panel');
+      const panelEl = await waitForEl(container, 'tbw-grid-tool-panel');
+      expect(panelEl.getAttribute('id')).toBe('my-panel');
+      expect(panelEl.getAttribute('title')).toBe('My Panel');
 
       root.unmount();
     });
@@ -259,12 +272,11 @@ describe('React component rendering', () => {
           children: renderFn,
         }),
       );
-      await new Promise((r) => setTimeout(r, 0));
 
-      const panelEl = container.querySelector('tbw-grid-tool-panel');
-      expect(panelEl?.getAttribute('icon')).toBe('🔍');
-      expect(panelEl?.getAttribute('tooltip')).toBe('Search');
-      expect(panelEl?.getAttribute('order')).toBe('5');
+      const panelEl = await waitForEl(container, 'tbw-grid-tool-panel');
+      expect(panelEl.getAttribute('icon')).toBe('🔍');
+      expect(panelEl.getAttribute('tooltip')).toBe('Search');
+      expect(panelEl.getAttribute('order')).toBe('5');
 
       root.unmount();
     });

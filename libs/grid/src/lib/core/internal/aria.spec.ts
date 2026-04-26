@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { GridConfig } from '../types';
 import {
   announce,
+  announceDataLoaded,
   createAriaState,
   getA11yMessage,
   getEffectiveAriaLabel,
@@ -395,6 +396,68 @@ describe('ARIA Helpers', () => {
       expect(getA11yMessage(gridEl, 'editingStarted', 0)).toBe('Editing row 1');
       expect(getA11yMessage(gridEl, 'editingCommitted', 0)).toBe('Row 1 saved');
       expect(getA11yMessage(gridEl, 'dataLoaded', 100)).toBe('100 rows loaded');
+    });
+  });
+
+  // #endregion
+
+  // #region announceDataLoaded
+
+  describe('announceDataLoaded', () => {
+    let gridEl: HTMLElement;
+    let srOnly: HTMLElement;
+    let state: AriaState;
+
+    beforeEach(() => {
+      gridEl = document.createElement('div');
+      srOnly = document.createElement('div');
+      srOnly.className = 'tbw-sr-only';
+      gridEl.appendChild(srOnly);
+      state = createAriaState();
+    });
+
+    it('should announce when source row count changes', async () => {
+      announceDataLoaded(gridEl, state, 42);
+      await new Promise((r) => requestAnimationFrame(r));
+      expect(srOnly.textContent).toBe('42 rows loaded');
+      expect(state.lastAnnouncedSourceCount).toBe(42);
+    });
+
+    it('should not announce when source row count is unchanged', async () => {
+      announceDataLoaded(gridEl, state, 42);
+      await new Promise((r) => requestAnimationFrame(r));
+      srOnly.textContent = ''; // reset between calls
+
+      announceDataLoaded(gridEl, state, 42);
+      await new Promise((r) => requestAnimationFrame(r));
+      expect(srOnly.textContent).toBe('');
+    });
+
+    it('should announce again when source row count changes back', async () => {
+      announceDataLoaded(gridEl, state, 10);
+      await new Promise((r) => requestAnimationFrame(r));
+
+      announceDataLoaded(gridEl, state, 20);
+      await new Promise((r) => requestAnimationFrame(r));
+      expect(srOnly.textContent).toBe('20 rows loaded');
+    });
+
+    it('should suppress the initial empty-grid mount (count 0 from -1)', async () => {
+      announceDataLoaded(gridEl, state, 0);
+      await new Promise((r) => requestAnimationFrame(r));
+      expect(srOnly.textContent).toBe('');
+      // But state IS updated, so a later 0 is still treated as no-change
+      expect(state.lastAnnouncedSourceCount).toBe(0);
+    });
+
+    it('should respect a11y.announcements=false', async () => {
+      Object.defineProperty(gridEl, 'effectiveConfig', {
+        value: { a11y: { announcements: false } },
+        configurable: true,
+      });
+      announceDataLoaded(gridEl, state, 99);
+      await new Promise((r) => requestAnimationFrame(r));
+      expect(srOnly.textContent).toBe('');
     });
   });
 

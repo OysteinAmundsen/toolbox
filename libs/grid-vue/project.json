@@ -28,6 +28,13 @@
         }
       }
     },
+    "bundle-check": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "options": {
+        "command": "bun run tools/check-bundle-budget.ts dist/libs/grid-vue \"[{\\\"path\\\":\\\"index.js\\\",\\\"maxSize\\\":51200,\\\"maxGzip\\\":15360,\\\"warnGzip\\\":12288}]\""
+      }
+    },
     "typedoc": {
       "command": "bunx typedoc --options typedoc.json && bun run scripts/typedoc-to-mdx.ts",
       "dependsOn": ["grid:build"],

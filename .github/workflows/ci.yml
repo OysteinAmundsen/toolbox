@@ -213,6 +213,10 @@ jobs:
         run: bun nx affected -t build --base=${{ steps.nx-shas.outputs.base }}
           --head=${{ steps.nx-shas.outputs.head }}
 
+      - name: Enforce bundle budgets (affected)
+        run: bun nx affected -t bundle-check --base=${{ steps.nx-shas.outputs.base }}
+          --head=${{ steps.nx-shas.outputs.head }}
+
       - name: Build size report
         if: always() && hashFiles('dist/libs/grid/index.js') != ''
         run: bun run tools/build-size-report.ts --ci

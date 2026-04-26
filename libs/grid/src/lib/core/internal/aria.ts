@@ -230,9 +230,12 @@ export function getA11yMessage<K extends keyof A11yMessages>(
  */
 export function announceDataLoaded(gridEl: HTMLElement, state: AriaState, sourceRowCount: number): void {
   if (sourceRowCount === state.lastAnnouncedSourceCount) return;
+  const previousAnnouncedSourceCount = state.lastAnnouncedSourceCount;
   state.lastAnnouncedSourceCount = sourceRowCount;
-  // Skip the initial -1 → 0 transition (empty grid mount); only announce real loads.
-  if (sourceRowCount === 0) return;
+  // Skip only the initial sentinel → 0 transition (empty grid mount). A later
+  // transition to 0 (e.g. data cleared / reloaded to an empty result set) should
+  // still announce so screen-reader users hear that the grid is now empty.
+  if (sourceRowCount === 0 && previousAnnouncedSourceCount < 0) return;
   announce(gridEl, getA11yMessage(gridEl, 'dataLoaded', sourceRowCount));
 }
 

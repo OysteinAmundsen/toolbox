@@ -450,6 +450,18 @@ describe('ARIA Helpers', () => {
       expect(state.lastAnnouncedSourceCount).toBe(0);
     });
 
+    it('should announce when data is cleared to empty after a real load', async () => {
+      // First load — non-empty result set
+      announceDataLoaded(gridEl, state, 42);
+      await new Promise((r) => requestAnimationFrame(r));
+      srOnly.textContent = '';
+
+      // Reload with empty result — should still announce, not stay silent
+      announceDataLoaded(gridEl, state, 0);
+      await new Promise((r) => requestAnimationFrame(r));
+      expect(srOnly.textContent).toBe('0 rows loaded');
+    });
+
     it('should respect a11y.announcements=false', async () => {
       Object.defineProperty(gridEl, 'effectiveConfig', {
         value: { a11y: { announcements: false } },

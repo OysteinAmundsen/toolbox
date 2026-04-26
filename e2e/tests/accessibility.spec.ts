@@ -200,7 +200,8 @@ test.describe('Accessibility: axe-core scans', () => {
     // Replace dataSource with a fresh array — this should fire the dataLoaded
     // announcement guarded by the lastAnnouncedSourceCount throttle in aria.ts.
     await page.evaluate(() => {
-      const grid = document.querySelector('tbw-grid') as unknown as { dataSource: unknown[] };
+      const grid = document.querySelector<HTMLElement & { dataSource: unknown[] }>('tbw-grid');
+      if (!grid) throw new Error('tbw-grid element not found in demo page');
       // Use a clearly different row count so the throttle does not suppress.
       grid.dataSource = Array.from({ length: 7 }, (_, i) => ({
         id: `row-${i}`,

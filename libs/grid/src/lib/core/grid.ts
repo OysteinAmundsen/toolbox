@@ -1,4 +1,10 @@
-import { announceDataLoaded, createAriaState, updateAriaCounts, updateAriaLabels, type AriaState } from './internal/aria';
+import {
+  announceDataLoaded,
+  createAriaState,
+  updateAriaCounts,
+  updateAriaLabels,
+  type AriaState,
+} from './internal/aria';
 import { autoSizeColumns, updateTemplate } from './internal/columns';
 import { ConfigManager } from './internal/config-manager';
 import { INVALID_ATTRIBUTE_JSON, warnDiagnostic } from './internal/diagnostics';

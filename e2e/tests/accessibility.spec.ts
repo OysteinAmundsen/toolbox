@@ -176,6 +176,42 @@ test.describe('Accessibility: axe-core scans', () => {
     expect(text!.toLowerCase()).toContain('sorted');
   });
 
+  test('row selection populates aria-live region with "selected"', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+
+    const liveRegion = page.locator('tbw-grid .tbw-sr-only[aria-live="polite"]');
+
+    // Click a data cell (row mode selection toggles on row click).
+    // Skip internal checkbox/utility columns.
+    const cell = page.locator('[role="gridcell"]:not([data-field^="__tbw_"])').first();
+    await cell.click();
+
+    // Live region updates are rAF-batched; poll until the announcement shows.
+    await expect.poll(async () => (await liveRegion.textContent()) ?? '').toMatch(/selected/i);
+  });
+
+  test('data reload populates aria-live region with "loaded"', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+
+    const liveRegion = page.locator('tbw-grid .tbw-sr-only[aria-live="polite"]');
+
+    // Replace dataSource with a fresh array — this should fire the dataLoaded
+    // announcement guarded by the lastAnnouncedSourceCount throttle in aria.ts.
+    await page.evaluate(() => {
+      const grid = document.querySelector('tbw-grid') as unknown as { dataSource: unknown[] };
+      // Use a clearly different row count so the throttle does not suppress.
+      grid.dataSource = Array.from({ length: 7 }, (_, i) => ({
+        id: `row-${i}`,
+        firstName: `First${i}`,
+        lastName: `Last${i}`,
+      }));
+    });
+
+    await expect.poll(async () => (await liveRegion.textContent()) ?? '').toMatch(/\b7\b.*loaded|loaded/i);
+  });
+
   // #endregion
 
   // #region Focus Management

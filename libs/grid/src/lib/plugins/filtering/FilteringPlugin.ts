@@ -235,6 +235,34 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   private globalStylesInjected = false;
 
   /**
+   * Cache of `field -> ColumnConfig` lookups, built lazily on first use after
+   * the columns array reference changes. Replaces O(n) `.find((c) => c.field === field)`
+   * scans on every filter operation, panel render, and unique-value extraction — noticeable
+   * on grids with many columns (50+).
+   */
+  private columnLookup: Map<string, ColumnConfig> | null = null;
+  private columnLookupRef: readonly ColumnConfig[] | null = null;
+
+  /**
+   * O(1) column lookup by field name. Rebuilds the cache when the underlying
+   * `effectiveConfig.columns` array reference changes (the merge step always
+   * produces a new array, so reference identity is a sufficient invalidation
+   * signal — no need for explicit hooks).
+   */
+  private getColumnByField(field: string): ColumnConfig | undefined {
+    const cols = this.grid.effectiveConfig?.columns as readonly ColumnConfig[] | undefined;
+    if (!cols) return undefined;
+    if (cols !== this.columnLookupRef) {
+      this.columnLookupRef = cols;
+      this.columnLookup = new Map();
+      for (const c of cols) {
+        if (c.field) this.columnLookup.set(c.field, c);
+      }
+    }
+    return this.columnLookup!.get(field);
+  }
+
+  /**
    * Compute the inclusion (selected) map from the current filters and excluded values.
    * For `notIn` filters this is: uniqueValues \ excludedValues.
    * For `in` filters this is the filter's own value array (no data scan needed).
@@ -257,7 +285,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
         continue;
       }
       if (filter.operator === 'notIn') {
-        const col = this.grid.effectiveConfig?.columns?.find((c) => c.field === field);
+        const col = this.getColumnByField(field);
         const extractor =
           col?.filterValue ??
           (col?.valueAccessor ? (_v: unknown, row: Record<string, unknown>) => resolveCellValue(row, col) : undefined);
@@ -325,6 +353,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.cachedResult = null;
     this.cacheKey = null;
     this.cachedInputSpot = null;
+    this.columnLookup = null;
+    this.columnLookupRef = null;
     this.openPanelField = null;
     if (this.panelElement) {
       this.panelElement.remove();
@@ -561,7 +591,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       if (this.config.trackColumnState) {
         this.grid.requestStateChange?.();
       }
-      const header = this.grid.effectiveConfig?.columns?.find((c) => c.field === field)?.header ?? field;
+      const header = this.getColumnByField(field)?.header ?? field;
       announce(
         this.gridElement!,
         filter === null
@@ -651,7 +681,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
     this.applyFiltersInternal(options?.silent);
     if (!options?.silent) {
-      const header = this.grid.effectiveConfig?.columns?.find((c) => c.field === field)?.header ?? field;
+      const header = this.getColumnByField(field)?.header ?? field;
       announce(this.gridElement!, getA11yMessage(this.gridElement!, 'filterCleared', header));
     }
   }
@@ -688,7 +718,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
    * When a column has `filterValue`, individual extracted values are returned.
    */
   getUniqueValues(field: string): unknown[] {
-    const col = this.grid.effectiveConfig?.columns?.find((c) => c.field === field);
+    const col = this.getColumnByField(field);
     const getter = col?.filterValue;
     return getUniqueValues(this.getDataRows(), field, getter);
   }
@@ -1178,7 +1208,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     value: string | number,
     valueTo?: string | number,
   ): void {
-    const col = this.grid.effectiveConfig?.columns?.find((c) => c.field === field);
+    const col = this.getColumnByField(field);
     const type = col?.filterType ?? (col?.type as FilterModel['type']) ?? 'text';
 
     this.filters.set(field, {

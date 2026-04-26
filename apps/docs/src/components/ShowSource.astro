@@ -14,6 +14,7 @@
  * ```
  */
 import { Code } from 'astro-expressive-code/components';
+import ts from 'typescript';
 import FullscreenButton from './FullscreenButton.astro';
 
 interface Props {
@@ -37,65 +38,316 @@ const demoFiles = import.meta.glob<string>('./demos/**/*.astro', {
 const rawContent = demoFiles[`./${file}`] ?? '';
 
 // ---------------------------------------------------------------------------
-// 2. Extract and clean the <script> content
+// 2. Extract and clean the <script> content (AST-based)
 // ---------------------------------------------------------------------------
+//
+// Strategy: parse the script as TypeScript, identify boilerplate to strip
+// (the `const container = document.getElementById(...)` declaration, the
+// `if (container) { ... }` guard wrapper, negative null guards, and the
+// `container.addEventListener('control-change', ...)` blocks that wire up
+// the DemoControls panel). Apply text edits to the *original* script text
+// from end to start so we preserve the author's blank lines, comments, and
+// indentation rather than round-tripping through the TS printer.
+//
+// Token-level edits collected during the AST walk:
+//   - drop trailing `!` (NonNullExpression)
+//   - drop `as <Type>` and `<Type>x` assertions
+//   - normalize `queryGrid(selector, container)` calls — drop the container
+//     argument; collapse selector to `'tbw-grid'` only when the demo has a
+//     single grid (multi-grid demos keep their disambiguating selectors so
+//     the displayed code remains runnable as-is)
+//   - rewrite `container.querySelector(All)` to `document.querySelector(All)`
+
+interface TextEdit {
+  start: number;
+  end: number;
+  replacement: string;
+}
+
+function findContainerVar(sf: ts.SourceFile): string | null {
+  for (const stmt of sf.statements) {
+    if (!ts.isVariableStatement(stmt)) continue;
+    if (stmt.declarationList.declarations.length !== 1) continue;
+    const decl = stmt.declarationList.declarations[0];
+    if (
+      ts.isIdentifier(decl.name) &&
+      decl.initializer &&
+      ts.isCallExpression(decl.initializer) &&
+      ts.isPropertyAccessExpression(decl.initializer.expression) &&
+      ts.isIdentifier(decl.initializer.expression.expression) &&
+      decl.initializer.expression.expression.text === 'document' &&
+      decl.initializer.expression.name.text === 'getElementById'
+    ) {
+      return decl.name.text;
+    }
+  }
+  return null;
+}
+
+function countQueryGridCalls(sf: ts.SourceFile): number {
+  let count = 0;
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === 'queryGrid'
+    ) {
+      count++;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return count;
+}
+
+/** Statement-level skip predicates (consume the entire statement + trailing newline). */
+function shouldSkipStatement(stmt: ts.Statement, containerVar: string | null): boolean {
+  // Type-only imports
+  if (ts.isImportDeclaration(stmt) && stmt.importClause?.isTypeOnly) return true;
+
+  // `const containerVar = document.getElementById(...)`
+  if (
+    containerVar &&
+    ts.isVariableStatement(stmt) &&
+    stmt.declarationList.declarations.length === 1
+  ) {
+    const decl = stmt.declarationList.declarations[0];
+    if (
+      ts.isIdentifier(decl.name) &&
+      decl.name.text === containerVar &&
+      decl.initializer &&
+      ts.isCallExpression(decl.initializer) &&
+      ts.isPropertyAccessExpression(decl.initializer.expression) &&
+      ts.isIdentifier(decl.initializer.expression.expression) &&
+      decl.initializer.expression.expression.text === 'document'
+    ) {
+      return true;
+    }
+  }
+
+  // `if (!ident) ...` negative guard one-liner
+  if (
+    ts.isIfStatement(stmt) &&
+    ts.isPrefixUnaryExpression(stmt.expression) &&
+    stmt.expression.operator === ts.SyntaxKind.ExclamationToken &&
+    ts.isIdentifier(stmt.expression.operand)
+  ) {
+    return true;
+  }
+
+  // `containerVar.addEventListener('control-change', ...)`
+  if (
+    containerVar &&
+    ts.isExpressionStatement(stmt) &&
+    ts.isCallExpression(stmt.expression) &&
+    ts.isPropertyAccessExpression(stmt.expression.expression) &&
+    ts.isIdentifier(stmt.expression.expression.expression) &&
+    stmt.expression.expression.expression.text === containerVar &&
+    stmt.expression.expression.name.text === 'addEventListener' &&
+    stmt.expression.arguments.length >= 1 &&
+    ts.isStringLiteral(stmt.expression.arguments[0]) &&
+    stmt.expression.arguments[0].text === 'control-change'
+  ) {
+    return true;
+  }
+
+  return false;
+}
 
 /**
- * Unwrap a top-level `if (guardVar) { ... }` block by removing the if-line
- * and closing brace, then dedenting the inner lines to match surrounding code.
+ * Extend a node's range to swallow trailing whitespace + one newline so that
+ * removing the statement doesn't leave a blank gap behind.
  */
-function unwrapGuardBlock(lines: string[], guardVar: string): string[] {
+function eatTrailingLine(text: string, end: number): number {
+  let i = end;
+  while (i < text.length && (text[i] === ' ' || text[i] === '\t')) i++;
+  if (text[i] === '\r') i++;
+  if (text[i] === '\n') i++;
+  return i;
+}
+
+function eatLeadingIndent(text: string, start: number): number {
+  let i = start;
+  while (i > 0 && (text[i - 1] === ' ' || text[i - 1] === '\t')) i--;
+  return i;
+}
+
+function collectEdits(sf: ts.SourceFile, code: string): TextEdit[] {
+  const edits: TextEdit[] = [];
+  const containerVar = findContainerVar(sf);
+  const queryGridCount = countQueryGridCalls(sf);
+  const normalizeSelector = queryGridCount <= 1;
+
+  // ── Statement-level skips at the top level ──
+  for (const stmt of sf.statements) {
+    if (shouldSkipStatement(stmt, containerVar)) {
+      edits.push({
+        start: eatLeadingIndent(code, stmt.getStart(sf)),
+        end: eatTrailingLine(code, stmt.getEnd()),
+        replacement: '',
+      });
+    }
+  }
+
+  // ── Unwrap top-level `if (containerVar) { ... }` ──
+  // Remove the `if (...) {` line and the matching `}`. Inner content keeps
+  // its existing indentation; the global dedent at the end normalizes it.
+  if (containerVar) {
+    for (const stmt of sf.statements) {
+      if (
+        ts.isIfStatement(stmt) &&
+        ts.isIdentifier(stmt.expression) &&
+        stmt.expression.text === containerVar &&
+        ts.isBlock(stmt.thenStatement)
+      ) {
+        const block = stmt.thenStatement;
+        // Erase `if (container) {`
+        const blockOpen = block.getStart(sf);
+        edits.push({
+          start: eatLeadingIndent(code, stmt.getStart(sf)),
+          end: eatTrailingLine(code, blockOpen + 1),
+          replacement: '',
+        });
+        // Erase the trailing `}`
+        const blockEnd = block.getEnd();
+        edits.push({
+          start: eatLeadingIndent(code, blockEnd - 1),
+          end: eatTrailingLine(code, blockEnd),
+          replacement: '',
+        });
+        // Also drop statement-level skips that live INSIDE the block.
+        for (const inner of block.statements) {
+          if (shouldSkipStatement(inner, containerVar)) {
+            edits.push({
+              start: eatLeadingIndent(code, inner.getStart(sf)),
+              end: eatTrailingLine(code, inner.getEnd()),
+              replacement: '',
+            });
+          }
+        }
+        // Dedent each line inside the block by the indent introduced by the
+        // wrapper. Without this, the outer dedent would only match the
+        // imports' column-0 indent and leave the block body indented.
+        const ifIndentMatch = code.slice(0, stmt.getStart(sf)).match(/(?:^|\n)([ \t]*)$/);
+        const ifIndent = ifIndentMatch ? ifIndentMatch[1].length : 0;
+        let innerMinIndent = Infinity;
+        for (const inner of block.statements) {
+          if (shouldSkipStatement(inner, containerVar)) continue;
+          const innerStart = inner.getStart(sf);
+          const innerLineStart = code.lastIndexOf('\n', innerStart - 1) + 1;
+          const indent = innerStart - innerLineStart;
+          if (indent < innerMinIndent) innerMinIndent = indent;
+        }
+        const stepSize = innerMinIndent === Infinity ? 0 : innerMinIndent - ifIndent;
+        if (stepSize > 0) {
+          // Emit a dedent edit per line in the block range.
+          const blockBodyStart = blockOpen + 1;
+          const blockBodyEnd = blockEnd - 1;
+          let lineStart = blockBodyStart;
+          while (lineStart < blockBodyEnd) {
+            // Skip leading newline so lineStart points at the first column.
+            if (code[lineStart] === '\n') lineStart++;
+            else if (code[lineStart] === '\r' && code[lineStart + 1] === '\n') lineStart += 2;
+            // Find current line's whitespace prefix length.
+            let i = lineStart;
+            while (i < blockBodyEnd && (code[i] === ' ' || code[i] === '\t')) i++;
+            const stripEnd = Math.min(lineStart + stepSize, i);
+            if (stripEnd > lineStart) {
+              edits.push({ start: lineStart, end: stripEnd, replacement: '' });
+            }
+            // Advance to next line.
+            const nextNl = code.indexOf('\n', lineStart);
+            if (nextNl === -1 || nextNl >= blockBodyEnd) break;
+            lineStart = nextNl + 1;
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  // ── Token-level transforms (walk the whole tree) ──
+  const visit = (node: ts.Node): void => {
+    // Strip trailing `!`
+    if (ts.isNonNullExpression(node)) {
+      edits.push({ start: node.expression.getEnd(), end: node.getEnd(), replacement: '' });
+    }
+    // Strip `expr as Type`
+    if (ts.isAsExpression(node)) {
+      edits.push({ start: node.expression.getEnd(), end: node.getEnd(), replacement: '' });
+    }
+    // Strip `<Type>expr` (legacy type assertion)
+    if (ts.isTypeAssertionExpression(node)) {
+      edits.push({ start: node.getStart(sf), end: node.expression.getStart(sf), replacement: '' });
+    }
+    // Strip `expr satisfies Type`
+    if (ts.isSatisfiesExpression?.(node)) {
+      edits.push({ start: node.expression.getEnd(), end: node.getEnd(), replacement: '' });
+    }
+    // queryGrid(selector, container) → queryGrid('tbw-grid') | queryGrid(selector)
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === 'queryGrid' &&
+      node.arguments.length >= 1
+    ) {
+      const args = node.arguments;
+      const firstArg = args[0];
+      const lastArg = args[args.length - 1];
+      // Replace argument list contents (between the parens)
+      const argsStart = firstArg.getStart(sf);
+      const argsEnd = lastArg.getEnd();
+      const replacement =
+        normalizeSelector && ts.isStringLiteral(firstArg) ? `'tbw-grid'` : code.slice(argsStart, firstArg.getEnd());
+      edits.push({ start: argsStart, end: argsEnd, replacement });
+    }
+    // containerVar.querySelector(All) → document.querySelector(All)
+    if (
+      containerVar &&
+      ts.isPropertyAccessExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === containerVar &&
+      ts.isIdentifier(node.name) &&
+      (node.name.text === 'querySelector' || node.name.text === 'querySelectorAll')
+    ) {
+      edits.push({ start: node.expression.getStart(sf), end: node.expression.getEnd(), replacement: 'document' });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+
+  return edits;
+}
+
+function applyEdits(text: string, edits: TextEdit[]): string {
+  // Sort by start ascending; resolve overlaps by keeping the outermost (earliest start, latest end).
+  const sorted = [...edits].sort((a, b) => a.start - b.start || b.end - a.end);
+  const merged: TextEdit[] = [];
+  for (const e of sorted) {
+    const prev = merged[merged.length - 1];
+    if (prev && e.start < prev.end) {
+      // Overlap: skip inner edit; the outer already covers it.
+      if (e.end > prev.end) prev.end = e.end;
+      continue;
+    }
+    merged.push({ ...e });
+  }
+  // Apply from end to start so offsets stay valid.
+  let out = text;
+  for (let i = merged.length - 1; i >= 0; i--) {
+    const { start, end, replacement } = merged[i];
+    out = out.slice(0, start) + replacement + out.slice(end);
+  }
+  return out;
+}
+
+function dedentMinimum(text: string): string {
+  const lines = text.split('\n');
   const nonEmpty = lines.filter((l) => l.trim().length > 0);
-  if (nonEmpty.length === 0) return lines;
-  const baseIndent = Math.min(...nonEmpty.map((l) => l.search(/\S/)));
-
-  // Find a top-level if-guard (within 2 spaces of base indent)
-  let guardIndex = -1;
-  for (let i = 0; i < lines.length; i++) {
-    const indent = lines[i].search(/\S/);
-    if (indent < 0 || indent > baseIndent + 2) continue;
-    const trimmed = lines[i].trim();
-    if (new RegExp(`^if\\s*\\(\\s*${guardVar}\\b`).test(trimmed) && trimmed.endsWith('{')) {
-      guardIndex = i;
-      break;
-    }
-  }
-
-  if (guardIndex === -1) return lines;
-
-  // Find matching closing brace via brace-depth counting
-  let braceDepth = 0;
-  let closeIndex = -1;
-  for (let i = guardIndex; i < lines.length; i++) {
-    for (const ch of lines[i]) {
-      if (ch === '{') braceDepth++;
-      if (ch === '}') braceDepth--;
-    }
-    if (braceDepth === 0) {
-      closeIndex = i;
-      break;
-    }
-  }
-
-  if (closeIndex === -1) return lines; // Unbalanced — bail out
-
-  const before = lines.slice(0, guardIndex);
-  const inner = lines.slice(guardIndex + 1, closeIndex);
-  const after = lines.slice(closeIndex + 1);
-
-  // Dedent inner lines to align with the if-statement's indent level
-  const guardIndent = lines[guardIndex].search(/\S/);
-  const innerNonEmpty = inner.filter((l) => l.trim().length > 0);
-  if (innerNonEmpty.length === 0) return [...before, ...after];
-  const innerMinIndent = Math.min(...innerNonEmpty.map((l) => l.search(/\S/)));
-  const stripAmount = innerMinIndent - guardIndent;
-
-  const dedented = inner.map((line) => {
-    if (line.trim() === '') return '';
-    return stripAmount > 0 && line.length > stripAmount ? line.slice(stripAmount) : line;
-  });
-
-  return [...before, ...dedented, ...after];
+  if (nonEmpty.length === 0) return text;
+  const minIndent = Math.min(...nonEmpty.map((l) => l.search(/\S/)));
+  if (minIndent <= 0) return text;
+  return lines.map((l) => (l.trim() === '' ? '' : l.slice(minIndent))).join('\n');
 }
 
 function extractSource(content: string): string {
@@ -103,110 +355,18 @@ function extractSource(content: string): string {
   if (!scriptMatch) return '';
 
   const code = scriptMatch[2];
-  let lines = code.split('\n');
-
-  // ── Step 1: Identify boilerplate variables ──
-  // gridVar: the queryGrid result variable
-  let gridVar: string | null = null;
-  const gridMatch = code.match(/const\s+(\w+)\s*=\s*(?:await\s+)?queryGrid\b/);
-  if (gridMatch) gridVar = gridMatch[1];
-
-  // containerVar: the second arg to queryGrid (if it's a variable, not true/false/null)
-  let containerVar: string | null = null;
-  const containerMatch = code.match(/queryGrid\b[^(]*\(\s*(?:'[^']*'|"[^"]*")\s*,\s*([a-zA-Z_]\w*)/);
-  if (containerMatch && !['true', 'false', 'null', 'undefined'].includes(containerMatch[1])) {
-    containerVar = containerMatch[1];
+  let sf: ts.SourceFile;
+  try {
+    sf = ts.createSourceFile('demo.ts', code, ts.ScriptTarget.Latest, /*setParents*/ true, ts.ScriptKind.TS);
+  } catch {
+    return code;
   }
 
-  // ── Step 2: Unwrap if-guard block (if present) ──
-  const guardVar = containerVar || gridVar;
-  if (guardVar) {
-    lines = unwrapGuardBlock(lines, guardVar);
-  }
-
-  // ── Step 3: Filter and sanitize lines ──
-  const imports: string[] = [];
-  const body: string[] = [];
-  let skipParenDepth = 0;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Skip import type
-    if (trimmed.startsWith('import type')) continue;
-
-    // Collect imports
-    if (trimmed.startsWith('import ')) {
-      imports.push(trimmed);
-      continue;
-    }
-
-    // Skip container variable declaration
-    if (containerVar && new RegExp(`^const\\s+${containerVar}\\s*=`).test(trimmed)) continue;
-
-    // Skip negative guard one-liners: if (!grid) throw/return
-    if (gridVar && new RegExp(`^if\\s*\\(\\s*!\\s*${gridVar}\\s*\\)`).test(trimmed)) continue;
-
-    // Skip control-change addEventListener blocks (DemoControls wiring)
-    if (skipParenDepth > 0) {
-      for (const ch of trimmed) {
-        if (ch === '(') skipParenDepth++;
-        if (ch === ')') skipParenDepth--;
-      }
-      if (skipParenDepth <= 0) skipParenDepth = 0;
-      continue;
-    }
-    if (containerVar && new RegExp(`\\b${containerVar}\\.addEventListener\\s*\\(\\s*'control-change'`).test(trimmed)) {
-      skipParenDepth = 0;
-      for (const ch of trimmed) {
-        if (ch === '(') skipParenDepth++;
-        if (ch === ')') skipParenDepth--;
-      }
-      if (skipParenDepth <= 0) skipParenDepth = 0;
-      continue;
-    }
-
-    // Sanitize
-    let processed = line;
-
-    // Sanitize gridVar declaration: normalize queryGrid call to queryGrid('tbw-grid')
-    if (gridVar && new RegExp(`^\\s*const\\s+${gridVar}\\s*=\\s*(?:await\\s+)?queryGrid\\b`).test(processed)) {
-      const indent = processed.match(/^(\s*)/)?.[1] ?? '';
-      const hasAwait = /\bawait\b/.test(processed);
-      processed = `${indent}const ${gridVar} = ${hasAwait ? 'await ' : ''}queryGrid('tbw-grid');`;
-    } else {
-      // Sanitize any other inline queryGrid calls
-      processed = processed.replace(
-        /queryGrid(?:<[^>]+>)?\s*\(\s*(?:'[^']*'|"[^"]*")(?:\s*,\s*[^)]*?)?\)/g,
-        "queryGrid('tbw-grid')",
-      );
-    }
-
-    // container.querySelector(All) → document.querySelector(All)
-    if (containerVar) {
-      processed = processed.replace(new RegExp(`\\b${containerVar}\\.(querySelector(?:All)?)`, 'g'), 'document.$1');
-    }
-
-    // Strip TypeScript type assertions
-    processed = processed.replace(/\s+as\s+HTMLElement\s*&\s*\{[^}]*\}/g, '');
-    processed = processed.replace(/\s+as\s+(?:HTMLElement|Element|GridElement|EventListener|[A-Z]\w+)(?:<[^>]+>)?/g, '');
-
-    body.push(processed);
-  }
-
-  // ── Step 4: Strip common indent from body lines ──
-  const bodyNonEmpty = body.filter((l) => l.trim().length > 0);
-  if (bodyNonEmpty.length > 0) {
-    const minIndent = Math.min(...bodyNonEmpty.map((l) => l.search(/\S/)));
-    if (minIndent > 0) {
-      for (let i = 0; i < body.length; i++) {
-        body[i] = body[i].trim() === '' ? '' : body[i].slice(minIndent);
-      }
-    }
-  }
-
-  const result = [...imports, '', ...body].join('\n');
-  return result.replace(/^\n+/, '').replace(/\n{3,}/g, '\n\n').trim();
+  const edits = collectEdits(sf, code);
+  const edited = applyEdits(code, edits);
+  const dedented = dedentMinimum(edited);
+  // Collapse runs of 3+ blank lines and trim leading/trailing whitespace.
+  return dedented.replace(/\n{3,}/g, '\n\n').replace(/^\s*\n+/, '').trimEnd();
 }
 
 // ---------------------------------------------------------------------------

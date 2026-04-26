@@ -1432,6 +1432,30 @@ describe('tbw-grid integration: selection plugin', () => {
     document.body.innerHTML = '';
   });
 
+  it('sets aria-multiselectable on the role=grid element when SelectionPlugin is attached', async () => {
+    grid.gridConfig = { plugins: [new SelectionPlugin({ mode: 'row' })] };
+    grid.columns = [{ field: 'id', header: 'ID' }];
+    grid.rows = [{ id: 1 }, { id: 2 }];
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    const rowsBody = grid.querySelector('.rows-body') as HTMLElement | null;
+    expect(rowsBody).not.toBeNull();
+    expect(rowsBody?.getAttribute('role')).toBe('grid');
+    expect(rowsBody?.getAttribute('aria-multiselectable')).toBe('true');
+  });
+
+  it('sets aria-multiselectable="false" when multiSelect is disabled', async () => {
+    grid.gridConfig = { plugins: [new SelectionPlugin({ mode: 'row', multiSelect: false })] };
+    grid.columns = [{ field: 'id', header: 'ID' }];
+    grid.rows = [{ id: 1 }, { id: 2 }];
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    const rowsBody = grid.querySelector('.rows-body') as HTMLElement | null;
+    expect(rowsBody?.getAttribute('aria-multiselectable')).toBe('false');
+  });
+
   it('range selection classes update correctly during scroll', async () => {
     // Create many rows to enable virtualization
     const rows = Array.from({ length: 100 }, (_, i) => ({ id: i, name: `Row ${i}` }));

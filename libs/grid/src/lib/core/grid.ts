@@ -1,4 +1,4 @@
-import { createAriaState, updateAriaCounts, updateAriaLabels, type AriaState } from './internal/aria';
+import { announceDataLoaded, createAriaState, updateAriaCounts, updateAriaLabels, type AriaState } from './internal/aria';
 import { autoSizeColumns, updateTemplate } from './internal/columns';
 import { ConfigManager } from './internal/config-manager';
 import { INVALID_ATTRIBUTE_JSON, warnDiagnostic } from './internal/diagnostics';
@@ -640,8 +640,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Toggle attribute for CSS styling and external queries
     if (value) {
       this.setAttribute('loading', '');
+      this.setAttribute('aria-busy', 'true');
     } else {
       this.removeAttribute('loading');
+      this.removeAttribute('aria-busy');
     }
 
     // Only update overlay if state actually changed
@@ -1958,6 +1960,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       rowCount: this._rows.length,
       sourceRowCount: this.#rows.length,
     });
+    // Announce "N rows loaded" only when the source row count actually changed.
+    // Internal sort/filter/edit emits leave sourceRowCount unchanged, so this stays quiet
+    // and doesn't conflict with sortApplied/filterApplied announcements.
+    announceDataLoaded(this, this.#ariaState, this.#rows.length);
   }
 
   /** Update ARIA selection attributes on rendered rows/cells */

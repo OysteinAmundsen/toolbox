@@ -327,6 +327,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   /** @internal */
   override detach(): void {
+    // Clear aria-multiselectable that we set on the role=grid element.
+    // Other lifecycle teardown happens below.
+    const rowsBodyEl = this.gridElement?.querySelector('.rows-body');
+    rowsBodyEl?.removeAttribute('aria-multiselectable');
+
     this.selected.clear();
     this.ranges = [];
     this.activeRange = null;
@@ -939,6 +944,16 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
     const { mode } = this.config;
     const hasSelectableCallback = !!this.config.isSelectable;
+
+    // Reflect multi-select capability on the role=grid element so screen readers
+    // announce the grid as multi-selectable. WAI-ARIA requires aria-multiselectable
+    // on the element carrying role="grid" — that's `.rows-body` in our render tree,
+    // not the host. `multiSelect` defaults to true; only `false` opts out.
+    const rowsBodyEl = gridEl.querySelector('.rows-body');
+    if (rowsBodyEl) {
+      const multi = this.config.multiSelect !== false;
+      rowsBodyEl.setAttribute('aria-multiselectable', multi ? 'true' : 'false');
+    }
 
     // Clear all selection classes first
     const allCells = gridEl.querySelectorAll('.cell');

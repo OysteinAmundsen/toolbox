@@ -53,6 +53,16 @@ describe('Loading State', () => {
       expect(grid.hasAttribute('loading')).toBe(false);
     });
 
+    it('should toggle aria-busy on host when loading state changes', () => {
+      expect(grid.hasAttribute('aria-busy')).toBe(false);
+
+      grid.loading = true;
+      expect(grid.getAttribute('aria-busy')).toBe('true');
+
+      grid.loading = false;
+      expect(grid.hasAttribute('aria-busy')).toBe(false);
+    });
+
     it('should set loading via HTML attribute', async () => {
       grid.setAttribute('loading', '');
       await nextFrame();

@@ -25,6 +25,8 @@ export interface AriaState {
   ariaLabel: string | undefined;
   /** Last set aria-describedby */
   ariaDescribedBy: string | undefined;
+  /** Last source row count announced via `dataLoaded`; used to suppress duplicate announcements */
+  lastAnnouncedSourceCount: number;
 }
 
 /**
@@ -36,6 +38,7 @@ export function createAriaState(): AriaState {
     colCount: -1,
     ariaLabel: undefined,
     ariaDescribedBy: undefined,
+    lastAnnouncedSourceCount: -1,
   };
 }
 
@@ -213,6 +216,24 @@ export function getA11yMessage<K extends keyof A11yMessages>(
   const customFn = config?.a11y?.messages?.[key] as ((...a: Parameters<A11yMessages[K]>) => string) | undefined;
   if (customFn) return customFn(...args);
   return (DEFAULT_A11Y_MESSAGES[key] as (...a: Parameters<A11yMessages[K]>) => string)(...args);
+}
+
+/**
+ * Announce a `dataLoaded` message — but only when the source row count has
+ * actually changed since the last announcement. This prevents announcement
+ * spam from internal `data-change` emits triggered by sort/filter/edit, which
+ * have their own dedicated announcements.
+ *
+ * @param gridEl - The grid host element
+ * @param state - ARIA state (tracks last announced count)
+ * @param sourceRowCount - Current source row count
+ */
+export function announceDataLoaded(gridEl: HTMLElement, state: AriaState, sourceRowCount: number): void {
+  if (sourceRowCount === state.lastAnnouncedSourceCount) return;
+  state.lastAnnouncedSourceCount = sourceRowCount;
+  // Skip the initial -1 → 0 transition (empty grid mount); only announce real loads.
+  if (sourceRowCount === 0) return;
+  announce(gridEl, getA11yMessage(gridEl, 'dataLoaded', sourceRowCount));
 }
 
 // #endregion

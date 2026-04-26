@@ -211,6 +211,25 @@ test.describe('Accessibility: axe-core scans', () => {
     });
 
     await expect.poll(async () => (await liveRegion.textContent()) ?? '').toMatch(/\b7\b.*loaded|loaded/i);
+
+    // Throttle assertion: replacing with another 7-row array must NOT re-announce
+    // (lastAnnouncedSourceCount suppresses identical-count reloads).
+    await page.evaluate(() => {
+      const region = document.querySelector('tbw-grid .tbw-sr-only[aria-live="polite"]');
+      if (region) region.textContent = '';
+      const grid = document.querySelector<HTMLElement & { dataSource: unknown[] }>('tbw-grid');
+      if (!grid) throw new Error('tbw-grid element not found');
+      grid.dataSource = Array.from({ length: 7 }, (_, i) => ({
+        id: `row2-${i}`,
+        firstName: `Other${i}`,
+        lastName: `Person${i}`,
+      }));
+    });
+
+    // Give the rAF-batched announcer two frames to flush — if it were going to
+    // announce, it would by now. We expect the manually-cleared region to stay empty.
+    await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+    expect((await liveRegion.textContent()) ?? '').toBe('');
   });
 
   // #endregion

@@ -43,7 +43,12 @@ tbw-grid .data-grid-row:has(.cell-focus) > .cell.sticky-right {
    `.cell-focus` while the grid has focus; leaving it ON makes it easier
    for keyboard users to see which cell they're on inside the highlighted
    row. Only add this rule if you specifically want the row to be the sole
-   focus indicator (mimicking the Selection plugin's row mode). */
+   focus indicator (mimicking the Selection plugin's row mode).
+
+   The grid core sets the `data-has-focus` attribute on the host element
+   whenever focus is inside the grid (managed by the focus controller),
+   and removes it on blur — so this rule only suppresses the cell outline
+   while the grid is actively focused. */
 tbw-grid[data-has-focus] .cell-focus {
   outline: none;
 }

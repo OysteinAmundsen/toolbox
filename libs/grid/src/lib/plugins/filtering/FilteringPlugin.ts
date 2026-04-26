@@ -252,14 +252,16 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   private getColumnByField(field: string): ColumnConfig | undefined {
     const cols = this.grid.effectiveConfig?.columns as readonly ColumnConfig[] | undefined;
     if (!cols) return undefined;
-    if (cols !== this.columnLookupRef) {
-      this.columnLookupRef = cols;
-      this.columnLookup = new Map();
+    let lookup = this.columnLookup;
+    if (cols !== this.columnLookupRef || !lookup) {
+      lookup = new Map<string, ColumnConfig>();
       for (const c of cols) {
-        if (c.field) this.columnLookup.set(c.field, c);
+        if (c.field) lookup.set(c.field, c);
       }
+      this.columnLookup = lookup;
+      this.columnLookupRef = cols;
     }
-    return this.columnLookup!.get(field);
+    return lookup.get(field);
   }
 
   /**

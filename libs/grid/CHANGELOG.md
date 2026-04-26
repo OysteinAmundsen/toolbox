@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.4.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.4.0...grid-2.4.1) (2026-04-26)
+
+
+### Bug Fixes
+
+* **grid:** address PR [#248](https://github.com/OysteinAmundsen/toolbox/issues/248) second QA round ([2cade7c](https://github.com/OysteinAmundsen/toolbox/commit/2cade7c1a7d075df4289420024b93830df03deaa))
+* **grid:** address PR review on aria + e2e (PR [#248](https://github.com/OysteinAmundsen/toolbox/issues/248)) ([e268521](https://github.com/OysteinAmundsen/toolbox/commit/e2685212017d2057e6c8f94c5e2f59366819a2e9))
+* **grid:** close a11y docs/code drift ([7de5b0b](https://github.com/OysteinAmundsen/toolbox/commit/7de5b0b2f85436e46d7a7c9cec3f7ec7fdf9985f))
+* **grid:** cross-window move coordination for row-drag-drop via BroadcastChannel ([927a4b6](https://github.com/OysteinAmundsen/toolbox/commit/927a4b6edbe9a671f7bd496625f0399f0da73bbe))
+
+
+### Enhancements
+
+* **grid:** add missing dragFrom config, row-clone drag image, and cross-window BroadcastChannel coordination ([2879631](https://github.com/OysteinAmundsen/toolbox/commit/2879631519491bbf69500201ee763902d1f01977))
+
+
+### Performance Improvements
+
+* **filtering:** cache column-by-field lookup map ([ee52f1a](https://github.com/OysteinAmundsen/toolbox/commit/ee52f1a83eb5f1afb6e344c441f059221040a35b))
+
 ## [2.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.3.0...grid-2.4.0) (2026-04-25)
 
 

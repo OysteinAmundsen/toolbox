@@ -643,7 +643,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const wasLoading = this.#loading;
     this.#loading = value;
 
-    // Toggle attribute for CSS styling and external queries
+    // Only mutate attributes on an actual state transition. This keeps repeated
+    // `loading=true` calls (overlapping async work) idempotent, and prevents
+    // a no-op `loading=false` from clobbering an `aria-busy` value that another
+    // owner (e.g. FilteringPlugin's async filterHandler) has set on the host.
+    if (wasLoading === value) return;
+
     if (value) {
       this.setAttribute('loading', '');
       this.setAttribute('aria-busy', 'true');
@@ -652,10 +657,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.removeAttribute('aria-busy');
     }
 
-    // Only update overlay if state actually changed
-    if (wasLoading !== value) {
-      this.#updateLoadingOverlay();
-    }
+    this.#updateLoadingOverlay();
   }
 
   /**

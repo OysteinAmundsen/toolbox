@@ -63,6 +63,45 @@ describe('Loading State', () => {
       expect(grid.hasAttribute('aria-busy')).toBe(false);
     });
 
+    it('should keep aria-busy="true" across overlapping loading=true assignments', () => {
+      grid.loading = true;
+      expect(grid.getAttribute('aria-busy')).toBe('true');
+
+      // Second async caller starts while first is still in flight — aria-busy
+      // must stay set, not toggle off and on.
+      grid.loading = true;
+      expect(grid.getAttribute('aria-busy')).toBe('true');
+
+      // Only the final transition to false clears it.
+      grid.loading = false;
+      expect(grid.hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('should not clobber a plugin-driven aria-busy when grid loading is false', () => {
+      // Plugins (e.g. FilteringPlugin async filterHandler) set aria-busy directly
+      // on the grid host while the grid's own `loading` flag is unrelated. The
+      // grid's `loading=false` setter clears aria-busy by design — document and
+      // verify that the plugin owns the attribute lifecycle in that mode.
+      expect(grid.hasAttribute('aria-busy')).toBe(false);
+
+      // Plugin marks busy independently
+      grid.setAttribute('aria-busy', 'true');
+      expect(grid.getAttribute('aria-busy')).toBe('true');
+
+      // Grid loading flag transitioning false → false is a no-op (#updateLoadingOverlay
+      // is gated on wasLoading !== value) and must NOT remove the plugin's aria-busy.
+      grid.loading = false;
+      expect(grid.getAttribute('aria-busy')).toBe('true');
+
+      // But explicitly cycling through loading=true→false WILL clear it. This is
+      // expected: when the grid owns loading, it owns aria-busy. Plugins that set
+      // aria-busy independently should not also expect the grid to coexist with
+      // their value across grid.loading transitions.
+      grid.loading = true;
+      grid.loading = false;
+      expect(grid.hasAttribute('aria-busy')).toBe(false);
+    });
+
     it('should set loading via HTML attribute', async () => {
       grid.setAttribute('loading', '');
       await nextFrame();

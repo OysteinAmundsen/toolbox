@@ -3,22 +3,15 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "libs/grid-react/src",
   "projectType": "library",
-  "tags": [
-    "type:lib",
-    "scope:grid"
-  ],
+  "tags": ["type:lib", "scope:grid"],
   "targets": {
     "build": {
       "executor": "@nx/vite:build",
-      "outputs": [
-        "{options.outputPath}"
-      ],
+      "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
       "dependsOn": [
         {
-          "projects": [
-            "grid"
-          ],
+          "projects": ["grid"],
           "target": "build"
         }
       ],
@@ -44,9 +37,7 @@
     },
     "test": {
       "executor": "@nx/vitest:test",
-      "outputs": [
-        "{options.reportsDirectory}"
-      ],
+      "outputs": ["{options.reportsDirectory}"],
       "options": {
         "passWithNoTests": true,
         "reportsDirectory": "{projectRoot}/../../coverage/libs/grid-react"
@@ -54,21 +45,14 @@
     },
     "lint": {
       "executor": "@nx/eslint:lint",
-      "outputs": [
-        "{options.outputFile}"
-      ],
+      "outputs": ["{options.outputFile}"],
       "options": {
-        "lintFilePatterns": [
-          "libs/grid-react/**/*.ts",
-          "libs/grid-react/**/*.tsx"
-        ]
+        "lintFilePatterns": ["libs/grid-react/**/*.ts", "libs/grid-react/**/*.tsx"]
       }
     },
     "typedoc": {
       "command": "bunx typedoc --options typedoc.json && bun run scripts/typedoc-to-mdx.ts",
-      "dependsOn": [
-        "grid:build"
-      ],
+      "dependsOn": ["grid:build"],
       "options": {
         "cwd": "libs/grid-react"
       },
@@ -78,10 +62,7 @@
         "{projectRoot}/typedoc.json",
         "{projectRoot}/scripts/typedoc-to-mdx.ts"
       ],
-      "outputs": [
-        "{projectRoot}/docs/api-generated",
-        "{workspaceRoot}/apps/docs/src/content/docs/grid/react/api"
-      ]
+      "outputs": ["{projectRoot}/docs/api-generated", "{workspaceRoot}/apps/docs/src/content/docs/grid/react/api"]
     }
   }
 }

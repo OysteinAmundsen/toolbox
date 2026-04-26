@@ -12,6 +12,7 @@ Tests are co-located with source files (`feature.ts` → `feature.spec.ts`). Int
 - **Test isolation**: Clean up DOM with `afterEach(() => { document.body.innerHTML = '' })`
 - **Use `nextFrame()`**: For assertions that depend on a render cycle completing
 - **Sync→async refactoring breaks assertions**: When a method is changed from synchronous to async (e.g., `refresh()` delegating to `setDataSource()`), tests that assert immediately after calling it will fail. Wrap in `await vi.waitFor(() => ...)` to poll until the async operation completes.
+- **Never use `setTimeout(0)` to wait for React 19 commits under happy-dom**: React's concurrent renderer can defer the commit across multiple microtask/macrotask cycles, especially when `react`/`react-dom` are loaded via dynamic `import()` in `beforeEach`. A single fixed tick is flaky. Poll with `vi.waitFor(() => container.querySelector(sel))` or a small `waitForEl(container, selector)` helper that retries every ~5 ms with a deadline. The first DOM read failing cascades into all dependent assertions appearing broken.
 - **Run via Nx**: `bun nx test grid` or `bun nx test grid --testFile=src/lib/.../file.spec.ts` — never invoke Vitest directly
 - **DOM environment**: Tests use `happy-dom` (configured in vitest workspace)
 - **Bun runtime**: This repo uses Bun; some Node-specific patterns may not work

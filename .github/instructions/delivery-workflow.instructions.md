@@ -104,10 +104,14 @@ The following commands are **forbidden** unless the user has, in the current tur
 
 ### Always allowed (local writes)
 
-- `git add`, `git commit`, `git restore`, `git stash`
+- `git add`, `git restore`, `git stash`
 - `git checkout <existing-local-branch>`, `git switch -c <new-local-branch>`
 - `git merge` / `git rebase` between **local** branches when the user asked
 - `git branch -d <local-branch>` (only if the user asked for the cleanup)
+
+### Requires explicit user request
+
+- **`git commit`** — Do **not** run `git commit` on the user's behalf. The delivery checklist's final step is to **suggest** a commit message (`📦 **Good commit point:** ...`), not to execute it. The user runs the commit. Only run `git commit` yourself when the user has explicitly asked in the current turn (e.g. _"commit this"_, _"go ahead and commit"_). A user request to "finish the work" or "fix the failing test" is **not** consent to commit.
 
 ### Branch discipline
 

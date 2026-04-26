@@ -12,6 +12,45 @@ import SelectionEventsDemo from '@components/demos/selection/SelectionEventsDemo
 
 The Selection plugin adds cell, row, and range selection capabilities to the grid with full keyboard support. Whether you need simple cell highlighting or complex multi-range selections, this plugin has you covered.
 
+## Do you actually need this plugin?
+
+The Selection plugin exists to maintain a **selection state** — a set of cells, rows, or ranges — that other plugins can act on. It is the prerequisite for things like:
+
+- [ClipboardPlugin](/grid/plugins/clipboard/) — copy/paste the current selection
+- [ExportPlugin](/grid/plugins/export/) — when `onlySelected: true`, export only the rows the user has selected (without it, all rows are exported)
+- [ContextMenuPlugin](/grid/plugins/context-menu/) — when present, the context menu will operate on the **multi-row** selection instead of just the right-clicked row (the menu itself works fine without it)
+- Any custom logic that needs to know "which rows/cells did the user pick?"
+
+If all you want is to **visually highlight the row the user has navigated to** (the focused row), you do **not** need this plugin. The grid core already tracks keyboard focus on the active cell via the `.cell-focus` class — you can style the surrounding row with a small CSS snippet:
+
+```css
+/* Highlight the row containing the focused cell, no plugin required */
+tbw-grid .data-grid-row:has(.cell-focus) {
+  background-color: var(--tbw-focus-background, rgba(from var(--tbw-color-accent) r g b / 12%));
+}
+
+/* Optional: paint the focus tint over sticky/pinned cells too,
+   which otherwise have an opaque background to mask scrolling content */
+tbw-grid .data-grid-row:has(.cell-focus) > .cell.sticky-left,
+tbw-grid .data-grid-row:has(.cell-focus) > .cell.sticky-right {
+  background:
+    linear-gradient(var(--tbw-focus-background, rgba(from var(--tbw-color-accent) r g b / 12%)) 0 0),
+    var(--tbw-color-panel-bg);
+}
+
+/* Optional: suppress the per-cell focus outline if you want a row-only
+   indicator. The grid core paints `outline: var(--tbw-focus-outline)` on
+   `.cell-focus` while the grid has focus; leaving it ON makes it easier
+   for keyboard users to see which cell they're on inside the highlighted
+   row. Only add this rule if you specifically want the row to be the sole
+   focus indicator (mimicking the Selection plugin's row mode). */
+tbw-grid[data-has-focus] .cell-focus {
+  outline: none;
+}
+```
+
+This mirrors what the Selection plugin does for `row` mode focus — without shipping the plugin's selection-state machinery, keyboard range extension, or click handlers. Reach for the plugin only when something downstream needs to read or react to a selection.
+
 ## Installation
 
 ```ts
@@ -253,6 +292,10 @@ Use `getSelectedRows()` to retrieve actual row data objects rather than resolvin
 See [`SelectionChangeDetail`](./Interfaces/SelectionChangeDetail/) and [`CellRange`](./Interfaces/CellRange/) for the full event payload types.
 
 ## Styling
+
+:::tip
+If you only want a focused-row highlight and don't need the selection state, see [Do you actually need this plugin?](#do-you-actually-need-this-plugin) for a CSS-only recipe that mimics the row-focus look.
+:::
 
 ### CSS Custom Properties
 

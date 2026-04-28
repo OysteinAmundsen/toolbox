@@ -4,10 +4,9 @@
  *
  * @vitest-environment happy-dom
  */
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import React, { createContext, useContext, useRef } from 'react';
+import React, { act, createContext, useContext, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { act } from 'react';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { PortalManager, type PortalManagerHandle } from './portal-manager';
 
 beforeAll(() => {
@@ -283,11 +282,7 @@ describe('PortalManager', () => {
     document.body.appendChild(target);
 
     await act(async () => {
-      resolvedHandle!.renderPortal(
-        'context-test',
-        target,
-        React.createElement(ContextConsumer),
-      );
+      resolvedHandle!.renderPortal('context-test', target, React.createElement(ContextConsumer));
       await flushMicrotasks();
     });
 
@@ -334,6 +329,53 @@ describe('PortalManager', () => {
       await flushMicrotasks();
     });
     expect(replacement.textContent).toBe('New');
+
+    unmount();
+  });
+
+  it('should isolate a crashing portal so other portals keep working (#250)', async () => {
+    // A custom editor / renderer can throw during render or during a
+    // commit-phase effect (e.g., a useEffect cleanup that walks DOM the
+    // browser already mutated). Without per-portal isolation, that throw
+    // bubbles to the host app's error boundary and shows the
+    // "Unexpected Application Error" page. The PortalBoundary inside
+    // each portal subtree must absorb the throw so the rest of the grid
+    // — and the host app — keep working.
+    const { handle, unmount } = mountPortalManager();
+
+    const okTarget = document.createElement('div');
+    const badTarget = document.createElement('div');
+    document.body.appendChild(okTarget);
+    document.body.appendChild(badTarget);
+
+    function Boom(): React.ReactElement {
+      throw new Error('boom');
+    }
+
+    // Silence the expected error log from React + our own console.error
+    const originalError = console.error;
+    console.error = () => {
+      // intentionally empty — suppress expected error noise during this test
+    };
+
+    try {
+      await act(async () => {
+        handle.renderPortal('ok', okTarget, React.createElement('span', null, 'OK'));
+        handle.renderPortal('bad', badTarget, React.createElement(Boom));
+        await flushMicrotasks();
+      });
+
+      expect(okTarget.textContent).toBe('OK');
+      // The bad portal must not poison the manager — okTarget keeps rendering
+      // and a subsequent update still works.
+      await act(async () => {
+        handle.renderPortal('ok', okTarget, React.createElement('span', null, 'Updated'));
+        await flushMicrotasks();
+      });
+      expect(okTarget.textContent).toBe('Updated');
+    } finally {
+      console.error = originalError;
+    }
 
     unmount();
   });

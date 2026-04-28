@@ -109,8 +109,12 @@ export type GridConfig<TRow = unknown> = Omit<BaseGridConfig<TRow>, 'columns' | 
 // adapter.processConfig on an already-processed config.
 const REACT_PROCESSED = Symbol('reactProcessed');
 
-// Track portal keys for config-based editors (for cleanup via cleanupConfigRootsIn)
-const mountedPortals: { key: string; container: HTMLElement; unsub?: () => void }[] = [];
+// Track portal keys for config-based editors (for cleanup via cleanupConfigRootsIn).
+// Map keyed by container so `cleanupConfigRootsIn` can resolve only the
+// containers actually inside the released cell via DOM query — avoids an
+// O(total mounted portals) scan on every `releaseCell` call.
+type MountedEntry = { key: string; unsub?: () => void };
+const mountedPortals = new Map<HTMLElement, MountedEntry>();
 
 /**
  * Clean up config-based editor and renderer portals whose containers are
@@ -129,17 +133,15 @@ const mountedPortals: { key: string; container: HTMLElement; unsub?: () => void 
  * @internal
  */
 export function cleanupConfigRootsIn(parentEl: HTMLElement): void {
-  for (let i = mountedPortals.length - 1; i >= 0; i--) {
-    const entry = mountedPortals[i];
-    if (
-      parentEl.contains(entry.container) &&
-      (entry.container.classList.contains('react-cell-editor') ||
-        entry.container.classList.contains('react-cell-renderer'))
-    ) {
-      entry.unsub?.();
-      removeFromContainer(entry.key, { sync: true });
-      mountedPortals.splice(i, 1);
-    }
+  // Scoped DOM query keeps cost proportional to the cell's contents
+  // instead of the global mount count.
+  const containers = parentEl.querySelectorAll<HTMLElement>('.react-cell-editor, .react-cell-renderer');
+  for (const container of containers) {
+    const entry = mountedPortals.get(container);
+    if (!entry) continue;
+    entry.unsub?.();
+    removeFromContainer(entry.key, { sync: true });
+    mountedPortals.delete(container);
   }
 }
 
@@ -196,7 +198,7 @@ export function wrapReactRenderer<TRow>(
     if (cellEl) {
       cellCache.set(cellEl, { portalKey, container });
     }
-    mountedPortals.push({ key: portalKey, container });
+    mountedPortals.set(container, { key: portalKey });
 
     return container;
   };
@@ -215,11 +217,8 @@ export function wrapReactEditor<TRow>(
     container.style.display = 'contents';
 
     const portalKey = renderToContainer(container, editorFn(ctx));
-    const entry: { key: string; container: HTMLElement; unsub?: () => void } = {
-      key: portalKey,
-      container,
-    };
-    mountedPortals.push(entry);
+    const entry: MountedEntry = { key: portalKey };
+    mountedPortals.set(container, entry);
 
     // Bridge "Tab / programmatic row exit drops pending input" — mirror of
     // GridAdapter.createEditor's hook for the config-based editor path
@@ -271,7 +270,7 @@ export function wrapReactHeaderRenderer<TRow>(
     container.style.display = 'contents';
 
     const portalKey = renderToContainer(container, renderFn(ctx));
-    mountedPortals.push({ key: portalKey, container });
+    mountedPortals.set(container, { key: portalKey });
 
     return container;
   };
@@ -290,7 +289,7 @@ export function wrapReactHeaderLabelRenderer<TRow>(
     container.style.display = 'contents';
 
     const portalKey = renderToContainer(container, renderFn(ctx));
-    mountedPortals.push({ key: portalKey, container });
+    mountedPortals.set(container, { key: portalKey });
 
     return container;
   };
@@ -319,7 +318,7 @@ export function wrapReactLoadingRenderer(
     container.style.display = 'contents';
 
     const portalKey = renderToContainer(container, result);
-    mountedPortals.push({ key: portalKey, container });
+    mountedPortals.set(container, { key: portalKey });
 
     return container;
   };

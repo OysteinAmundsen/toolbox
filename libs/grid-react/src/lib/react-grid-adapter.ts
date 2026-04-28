@@ -179,6 +179,14 @@ export class GridAdapter implements FrameworkAdapter {
   /** Maps portal keys to their containers (for container-based lookups in releaseCell/unmount). */
   private keyToContainer = new Map<string, HTMLElement>();
   /**
+   * Reverse index: container element → portal key. Maintained alongside
+   * `keyToContainer` so `releaseCell` can resolve only the containers
+   * actually inside the released cell (via `cellEl.querySelectorAll`)
+   * instead of scanning every tracked portal — important for grids with
+   * many cells, where `releaseCell` runs on every cell teardown.
+   */
+  private containerToKey = new WeakMap<HTMLElement, string>();
+  /**
    * Per-editor `before-edit-close` listener teardown functions, keyed by portal key.
    *
    * The grid's editing plugin emits `before-edit-close` on the host `<tbw-grid>`
@@ -638,6 +646,7 @@ export class GridAdapter implements FrameworkAdapter {
   private trackPortal(key: string, container: HTMLElement, isEditor: boolean): void {
     this.allPortalKeys.add(key);
     this.keyToContainer.set(key, container);
+    this.containerToKey.set(container, key);
     if (isEditor) {
       this.editorPortalKeys.add(key);
     }
@@ -647,7 +656,9 @@ export class GridAdapter implements FrameworkAdapter {
   private untrackPortal(key: string): void {
     this.allPortalKeys.delete(key);
     this.editorPortalKeys.delete(key);
+    const container = this.keyToContainer.get(key);
     this.keyToContainer.delete(key);
+    if (container) this.containerToKey.delete(container);
     const unsub = this.editorBeforeCloseUnsubs.get(key);
     if (unsub) {
       unsub();
@@ -697,24 +708,16 @@ export class GridAdapter implements FrameworkAdapter {
    * bypass the adapter's own portal tracking.
    */
   releaseCell(cellEl: HTMLElement): void {
-    // Editor portals (per-cell, always torn down on cell release)
-    for (const key of this.editorPortalKeys) {
-      const container = this.keyToContainer.get(key);
-      if (container && cellEl.contains(container)) {
-        removeFromContainer(key, { sync: true });
-        this.untrackPortal(key);
-      }
-    }
-    // Renderer portals — tracked but not in editorPortalKeys. Walk all
-    // tracked portals and release any whose container is inside this cell.
-    // This prevents the orphan-fiber crash described in issue #250.
-    for (const key of this.allPortalKeys) {
-      if (this.editorPortalKeys.has(key)) continue;
-      const container = this.keyToContainer.get(key);
-      if (container && cellEl.contains(container)) {
-        removeFromContainer(key, { sync: true });
-        this.untrackPortal(key);
-      }
+    // Resolve only the portal containers actually inside this cell — avoids
+    // an O(total portals) scan per cell teardown, which the core can call
+    // many times during a render. Scoped DOM query is O(cell descendants),
+    // typically O(1) (a cell has 0–1 portal containers).
+    const containers = cellEl.querySelectorAll<HTMLElement>('.react-cell-renderer, .react-cell-editor');
+    for (const container of containers) {
+      const key = this.containerToKey.get(container);
+      if (!key) continue;
+      removeFromContainer(key, { sync: true });
+      this.untrackPortal(key);
     }
     // Clean up config-based editor + renderer roots (wrapReactEditor /
     // wrapReactRenderer in react-column-config.ts)
@@ -725,12 +728,10 @@ export class GridAdapter implements FrameworkAdapter {
    * Unmount a specific container (called when cell is recycled).
    */
   unmount(container: HTMLElement): void {
-    for (const [key, c] of this.keyToContainer) {
-      if (c === container) {
-        removeFromContainer(key);
-        this.untrackPortal(key);
-        return;
-      }
+    const key = this.containerToKey.get(container);
+    if (key) {
+      removeFromContainer(key);
+      this.untrackPortal(key);
     }
   }
 }

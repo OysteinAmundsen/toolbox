@@ -140,7 +140,10 @@ export function injectEditor<T>(
   // orphan DOM and throws `removeChild` on the next user-triggered commit
   // (issue #250). Calling `releaseCell` here unmounts cleanly while the
   // adapter's container is still attached to its remembered children.
-  grid.__frameworkAdapter?.releaseCell?.(cell);
+  // Guard with `firstElementChild` so default-rendered cells (no
+  // adapter-managed nodes) skip the no-op call — matches the wipe-guard
+  // pattern in `core/internal/rows.ts`.
+  if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
   cell.innerHTML = '';
   cell.appendChild(editorHost);
 

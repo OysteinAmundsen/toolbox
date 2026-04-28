@@ -2570,6 +2570,22 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /** @internal Clear the row pool and body element. */
   _clearRowPool(): void {
+    // Release adapter-managed cells BEFORE wiping the body. Without this,
+    // `innerHTML = ''` detaches portals/teleports without notifying the
+    // framework adapter, which then crashes on its next commit when it
+    // tries to remove now-orphan children (#250).
+    const adapter = this.__frameworkAdapter;
+    const release = adapter?.releaseCell;
+    if (release) {
+      for (let r = 0; r < this._rowPool.length; r++) {
+        const rowEl = this._rowPool[r];
+        const cells = rowEl.children;
+        for (let c = 0; c < cells.length; c++) {
+          const cell = cells[c] as HTMLElement;
+          if (cell.firstElementChild) release.call(adapter, cell);
+        }
+      }
+    }
     this._rowPool.length = 0;
     if (this._bodyEl) this._bodyEl.innerHTML = '';
     this.__rowRenderEpoch++;

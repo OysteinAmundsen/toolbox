@@ -863,6 +863,36 @@ describe('releaseCell lifecycle', () => {
     expect(() => renderVisibleRows(g, 0, 1, 2)).not.toThrow();
   });
 
+  it('releases cells when pool shrinks (excess rows removed) (#250)', () => {
+    const releaseSpy = vi.fn();
+    const g = makeGrid();
+    g.__frameworkAdapter = {
+      canHandle: () => false,
+      createRenderer: () => () => null,
+      createEditor: () => () => document.createElement('input'),
+      releaseCell: releaseSpy,
+    };
+
+    // Render 2 rows, populating the pool
+    renderVisibleRows(g, 0, 2, 1);
+    // Inject adapter-managed children into the cells of the row that will be evicted
+    const lastRow = g._rowPool[1] as HTMLElement;
+    for (const cell of Array.from(lastRow.children)) {
+      cell.innerHTML = '<div class="react-cell-renderer"></div>';
+    }
+    releaseSpy.mockClear();
+
+    // Shrink to 1 row — pool element[1] is detached
+    renderVisibleRows(g, 0, 1, 1);
+
+    expect(releaseSpy).toHaveBeenCalled();
+    const released = releaseSpy.mock.calls.map((c: any[]) => c[0] as HTMLElement);
+    // All released elements should be cells with adapter-managed children
+    for (const cell of released) {
+      expect(cell.classList.contains('cell')).toBe(true);
+    }
+  });
+
   it('releases cells when row is recycled for a different data row', () => {
     const releaseSpy = vi.fn();
     const g = makeGrid();

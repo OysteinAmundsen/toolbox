@@ -193,10 +193,23 @@ export function renderVisibleRows(
     grid._rowPool.push(rowEl);
   }
 
-  // Remove excess pool elements from DOM and shrink pool
+  // Remove excess pool elements from DOM and shrink pool.
+  // Release adapter-managed cells BEFORE detaching so framework adapters
+  // (React portals, Vue teleports, Angular EmbeddedViewRefs) can unmount
+  // cleanly. Skipping this leaves portals tracked against detached
+  // containers, causing `removeChild` crashes on the next commit (#250).
   if (grid._rowPool.length > needed) {
+    const adapter = grid.__frameworkAdapter;
+    const release = adapter?.releaseCell;
     for (let i = needed; i < grid._rowPool.length; i++) {
       const el = grid._rowPool[i];
+      if (release) {
+        const cells = el.children;
+        for (let c = 0; c < cells.length; c++) {
+          const cell = cells[c] as HTMLElement;
+          if (cell.firstElementChild) release.call(adapter, cell);
+        }
+      }
       if (el.parentNode === bodyEl) el.remove();
     }
     grid._rowPool.length = needed;

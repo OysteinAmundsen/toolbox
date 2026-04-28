@@ -15,7 +15,7 @@
  * @internal
  */
 
-import { useImperativeHandle, useReducer, useRef, forwardRef, type ReactNode } from 'react';
+import { forwardRef, useImperativeHandle, useReducer, useRef, type ReactNode } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 
 // #region Types
@@ -101,7 +101,21 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
           changed = true;
         }
       }
-      if (changed) flushSync(forceRender);
+      if (changed) {
+        // Defensive try/catch: between scheduling this rAF and running it,
+        // external code may have mutated DOM under a portal container in a
+        // way that confuses React's reconciler (e.g., grid core wiping a
+        // cell that the adapter hadn't yet released — see #250). Swallow
+        // the error so the next render reconciles from a clean slate
+        // instead of leaving the adapter in a broken state.
+        try {
+          flushSync(forceRender);
+        } catch {
+          // Schedule another pass; the subsequent commit will reconcile
+          // from the now-pruned portalsRef.
+          forceRender();
+        }
+      }
     });
   };
 

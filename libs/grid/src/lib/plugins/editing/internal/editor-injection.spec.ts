@@ -543,6 +543,22 @@ describe('editor-injection', () => {
 
       expect(deps.exitRowEdit).not.toHaveBeenCalled();
     });
+
+    it('should NOT exit on Enter when defaultPrevented (portal pickers, #250)', () => {
+      const deps = createDeps();
+      const { cell } = createCellInRow();
+
+      injectEditor(deps, { id: '1', name: 'Alice' }, 0, col('name'), 0, cell, true);
+
+      // Simulate a portal-based picker (combobox/autocomplete) that handles
+      // Enter to confirm a selection and calls preventDefault on the event
+      // before it bubbles up to the editor host.
+      const evt = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+      evt.preventDefault();
+      getEditorHost(cell).dispatchEvent(evt);
+
+      expect(deps.exitRowEdit).not.toHaveBeenCalled();
+    });
   });
 
   // #endregion

@@ -149,6 +149,11 @@ export function injectEditor<T>(
 
   // Keydown handler for Enter/Escape
   editorHost.addEventListener('keydown', (e: KeyboardEvent) => {
+    // Respect editor-level preventDefault: portal-based pickers (combobox,
+    // autocomplete, calendar) call preventDefault on Enter to confirm an
+    // option without exiting the row. Bubbling reaches editorHost with
+    // defaultPrevented=true; honor that and skip the row-exit logic (#250).
+    if (e.defaultPrevented) return;
     if (e.key === 'Enter') {
       // In grid mode, Enter just commits without exiting
       if (isGridMode) {

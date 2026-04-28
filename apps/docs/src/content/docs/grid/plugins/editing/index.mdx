@@ -298,7 +298,7 @@ The demo above uses `editOn: 'click'` — a single click enters edit mode.
 | **F2** | Start editing only the focused cell (single-cell edit) |
 | **Escape** | Cancel the current edit and revert changes |
 | **Tab** / **Shift+Tab** | Move to next/previous editable cell |
-| **Arrow Up/Down** | Commit current edit, exit edit mode, and move to adjacent row |
+| **Arrow Up/Down** | Handled by the focused editor (e.g. number stepper, select options, textarea caret). Press **Enter**, **Escape**, or **Tab** to leave edit mode before arrow keys resume cell navigation. |
 | **Space** | Toggle boolean cells (when not in edit mode) |
 
 :::tip

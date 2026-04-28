@@ -751,6 +751,156 @@ describe('EditingPlugin', () => {
     });
   });
 
+  describe('arrow keys while a row is in edit mode (row mode)', () => {
+    it('does not commit + navigate when ArrowUp/Down originates from a number input', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'dblclick' });
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'age', header: 'Age', type: 'number', editable: true },
+        ],
+        plugins: [editingPlugin],
+      };
+      grid.rows = [
+        { id: 1, age: 30 },
+        { id: 2, age: 25 },
+      ];
+      await waitUpgrade(grid);
+
+      // Enter row-edit mode on row 0
+      editingPlugin.beginBulkEdit(0);
+      await nextFrame();
+      await nextFrame();
+      expect(grid._activeEditRows).toBe(0);
+
+      const ageCell = grid.querySelector('.cell[data-row="0"][data-col="1"]') as HTMLElement;
+      const numberInput = ageCell?.querySelector('input') as HTMLInputElement;
+      expect(numberInput).toBeTruthy();
+      expect(numberInput.type).toBe('number');
+
+      // Dispatch ArrowDown from the number input — the editor should keep
+      // focus and the grid should NOT commit + jump to the next row.
+      // (happy-dom does not implement the native number-input spinner, so
+      // we only assert the grid stays out of the way; value mutation is the
+      // browser's job.)
+      const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true });
+      numberInput.dispatchEvent(event);
+      await nextFrame();
+
+      // Still editing the same row, focus row unchanged
+      expect(grid._activeEditRows).toBe(0);
+      expect(grid._focusRow).toBe(0);
+    });
+
+    it('does not commit + navigate when ArrowUp/Down originates from a text input', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'dblclick' });
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        plugins: [editingPlugin],
+      };
+      grid.rows = [
+        { id: 1, name: 'Alpha' },
+        { id: 2, name: 'Beta' },
+      ];
+      await waitUpgrade(grid);
+
+      editingPlugin.beginBulkEdit(0);
+      await nextFrame();
+      await nextFrame();
+      expect(grid._activeEditRows).toBe(0);
+
+      const nameCell = grid.querySelector('.cell[data-row="0"][data-col="1"]') as HTMLElement;
+      const textInput = nameCell?.querySelector('input') as HTMLInputElement;
+      expect(textInput).toBeTruthy();
+
+      const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true });
+      textInput.dispatchEvent(event);
+      await nextFrame();
+      await nextFrame();
+
+      // Still editing — user must close edit mode (Enter/Escape/Tab) before
+      // arrow keys resume cell navigation.
+      expect(grid._activeEditRows).toBe(0);
+      expect(grid._focusRow).toBe(0);
+    });
+
+    it('does not commit + navigate when ArrowUp originates from any editor', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'dblclick' });
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        plugins: [editingPlugin],
+      };
+      grid.rows = [
+        { id: 1, name: 'Alpha' },
+        { id: 2, name: 'Beta' },
+      ];
+      await waitUpgrade(grid);
+
+      editingPlugin.beginBulkEdit(1);
+      grid._focusRow = 1;
+      grid._focusCol = 1;
+      await nextFrame();
+      await nextFrame();
+      expect(grid._activeEditRows).toBe(1);
+
+      const nameCell = grid.querySelector('.cell[data-row="1"][data-col="1"]') as HTMLElement;
+      const input = nameCell?.querySelector('input') as HTMLInputElement;
+      expect(input).toBeTruthy();
+
+      const event = new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, composed: true });
+      input.dispatchEvent(event);
+      await nextFrame();
+      await nextFrame();
+
+      expect(grid._activeEditRows).toBe(1);
+      expect(grid._focusRow).toBe(1);
+    });
+
+    it('does not commit + navigate when ArrowUp/Down originates from a single-cell (F2) editor', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'dblclick' });
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        plugins: [editingPlugin],
+      };
+      grid.rows = [
+        { id: 1, name: 'Alpha' },
+        { id: 2, name: 'Beta' },
+      ];
+      await waitUpgrade(grid);
+
+      // F2 single-cell edit on row 0, column 1
+      grid._focusRow = 0;
+      grid._focusCol = 1;
+      editingPlugin.beginCellEdit(0, 'name');
+      await nextFrame();
+      await nextFrame();
+      expect(grid._activeEditRows).toBe(0);
+
+      const nameCell = grid.querySelector('.cell[data-row="0"][data-col="1"]') as HTMLElement;
+      const input = nameCell?.querySelector('input') as HTMLInputElement;
+      expect(input).toBeTruthy();
+
+      const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true });
+      input.dispatchEvent(event);
+      await nextFrame();
+      await nextFrame();
+
+      // Single-cell edit must obey the same rule: the editor owns the key,
+      // grid focus does not move until the user leaves edit mode.
+      expect(grid._activeEditRows).toBe(0);
+      expect(grid._focusRow).toBe(0);
+    });
+  });
+
   describe('focus restoration after exit', () => {
     it('keyboard navigation works after Escape exits edit mode', async () => {
       grid.gridConfig = {

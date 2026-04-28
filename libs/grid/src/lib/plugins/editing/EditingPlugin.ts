@@ -751,28 +751,21 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       return true; // Handled: block grid navigation, let event reach editor
     }
 
-    // Arrow Up/Down while editing: commit and exit edit mode, move to adjacent row (only in 'row' mode)
+    // Arrow Up/Down while a row is in edit mode (row mode): the editor owns
+    // the key. The grid does NOT commit + jump to an adjacent row — the user
+    // must explicitly leave edit mode (Enter / Escape / Tab / click) before
+    // arrow keys resume cell navigation. Rationale:
+    //   - <input type="number"> spinners must work natively
+    //   - <select> / native popups need ArrowUp/Down to traverse options
+    //   - <textarea> needs ArrowUp/Down to move the caret between lines
+    //   - Framework-adapter editors (Angular Material, MUI, etc.) commonly
+    //     bind ArrowUp/Down for autocomplete, datepicker, number-stepper,
+    //     and combobox interactions
+    // Returning `true` blocks the core keyboard handler from running its
+    // commit-and-navigate fallback (see `core/internal/keyboard.ts`'s
+    // ArrowUp/Down switch case). The native event still reaches the focused
+    // editor so it can consume it however it needs to.
     if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && this.#activeEditRow !== -1 && !this.#isGridMode) {
-      if (shouldPreventEditClose(this.config, event)) return true;
-
-      const maxRow = internalGrid._rows.length - 1;
-      const currentRow = this.#activeEditRow;
-
-      // Commit the current edit
-      this.#exitRowEdit(currentRow, false);
-
-      // Move focus to adjacent row (same column)
-      if (event.key === 'ArrowDown') {
-        internalGrid._focusRow = Math.min(maxRow, internalGrid._focusRow + 1);
-      } else {
-        internalGrid._focusRow = Math.max(0, internalGrid._focusRow - 1);
-      }
-
-      event.preventDefault();
-      // Ensure the focused cell is scrolled into view
-      ensureCellVisible(internalGrid);
-      // Request render to update focus styling
-      this.requestAfterRender();
       return true;
     }
 

@@ -672,6 +672,69 @@ describe('GridAdapter', () => {
       const ctx = { value: 'edit-me', row: {}, column: { field: 'editField' } };
       const container = (editor as (...args: unknown[]) => HTMLElement)(ctx);
     });
+
+    it('flushes the focused editor input via native .blur() on before-edit-close', () => {
+      const adapter = new GridAdapter();
+      const grid = document.createElement('tbw-grid');
+      document.body.appendChild(grid);
+      const element = document.createElement('tbw-grid-column');
+      element.setAttribute('field', 'beforeCloseFlush');
+      grid.appendChild(element);
+
+      registerColumnEditor(element, () => h('input', { type: 'text' }));
+
+      const editor = adapter.createEditor(element);
+      const ctx = { value: 'v', row: {}, column: { field: 'beforeCloseFlush' } };
+      const container = (editor as (...args: unknown[]) => HTMLElement)(ctx);
+
+      // Simulate the Vue-rendered editor mounting an <input> inside the container.
+      const input = document.createElement('input');
+      container.appendChild(input);
+      document.body.appendChild(container);
+      input.focus();
+      expect(document.activeElement).toBe(input);
+
+      // Watch BOTH `blur` (non-bubbling) and `focusout` (bubbling). Vue uses
+      // direct addEventListener for `@blur` so either would technically work,
+      // but `.blur()` is the consistent contract used across all adapters.
+      const blurSpy = vi.fn();
+      const focusoutSpy = vi.fn();
+      input.addEventListener('blur', blurSpy);
+      container.addEventListener('focusout', focusoutSpy);
+
+      grid.dispatchEvent(new CustomEvent('before-edit-close'));
+
+      expect(blurSpy).toHaveBeenCalledTimes(1);
+      expect(focusoutSpy).toHaveBeenCalledTimes(1);
+      expect(document.activeElement).not.toBe(input);
+    });
+
+    it('does not flush when focus is outside the editor container', () => {
+      const adapter = new GridAdapter();
+      const grid = document.createElement('tbw-grid');
+      document.body.appendChild(grid);
+      const element = document.createElement('tbw-grid-column');
+      element.setAttribute('field', 'beforeCloseOutside');
+      grid.appendChild(element);
+
+      registerColumnEditor(element, () => h('input', { type: 'text' }));
+
+      const editor = adapter.createEditor(element);
+      const ctx = { value: 'v', row: {}, column: { field: 'beforeCloseOutside' } };
+      (editor as (...args: unknown[]) => HTMLElement)(ctx);
+
+      const other = document.createElement('input');
+      document.body.appendChild(other);
+      other.focus();
+
+      const blurSpy = vi.fn();
+      other.addEventListener('blur', blurSpy);
+
+      grid.dispatchEvent(new CustomEvent('before-edit-close'));
+
+      expect(blurSpy).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(other);
+    });
   });
 
   // #endregion

@@ -69,6 +69,8 @@ releaseCell(element) → void      // cleanup when cell removed from DOM
 | Vue       | emits: `@cell-click="handler"`           | props → native addEventListener                    |
 | Angular   | outputs: `(cellClick)="handler($event)"` | directive wires native events to Angular outputs   |
 
+- DECIDED: editor `before-edit-close` → native `.blur()` on focused input. React adapter (`react-grid-adapter.ts`) and Vue adapter (`vue-grid-adapter.ts`) both attach a `before-edit-close` listener on the host `<tbw-grid>` from `createEditor`, and on fire call `focused.blur()` if the active element is an input/textarea/select inside the editor container. WHY: Tab and programmatic row exits rebuild the cell DOM synchronously, so editors written with `onBlur={commit}` / `@blur="commit"` would otherwise lose pending input. Native `.blur()` is required (not `dispatchEvent(new FocusEvent('blur'))`) because React 17+ delegates focus events at the root by listening to the bubbling `focusout`, not the non-bubbling `blur` — `.blur()` dispatches both. Angular's `BaseGridEditor.onBeforeEditClose()` hook is the parallel pattern (subclasses override to call `commitValue()`). Cleanup: per-container teardown in `releaseCell` + bulk teardown in `dispose()`/`cleanup()`.
+
 ## feature-prop-bridging (all three)
 
 - All adapters expose feature props that auto-load plugins

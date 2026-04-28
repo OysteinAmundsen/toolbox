@@ -245,6 +245,26 @@ export class GridAdapter implements FrameworkAdapter {
   private teleportKeys: string[] = [];
   /** Editor-specific teleport keys tracked separately for per-cell cleanup. */
   private editorTeleportKeys: Map<HTMLElement, string> = new Map();
+  /**
+   * Per-editor `before-edit-close` listener teardown functions, keyed by
+   * editor container.
+   *
+   * The grid's editing plugin emits `before-edit-close` on the host `<tbw-grid>`
+   * before tearing down a row's managed editors. Vue editors commonly write
+   * `@blur="commit"` to flush local state on click-away, but Tab / programmatic
+   * row exit rebuilds the cell DOM synchronously without giving the focused
+   * input a chance to fire `blur` first — so the `@blur` handler never runs
+   * and pending input is lost.
+   *
+   * To bridge that gap we call native `.blur()` on the focused input inside
+   * the editor container as soon as `before-edit-close` fires. `.blur()`
+   * dispatches the full focus-loss chain (`blur` + `focusout`) so any editor
+   * with `@blur="commit"` flushes before the cell DOM is torn down.
+   *
+   * Mirrors the React adapter's `editorBeforeCloseUnsubs` and the Angular
+   * adapter's `BaseGridEditor.onBeforeEditClose()` hook.
+   */
+  private editorBeforeCloseUnsubs: Map<HTMLElement, () => void> = new Map();
   private typeDefaults: TypeDefaultsMap | null = null;
 
   // #region Config Processing
@@ -819,6 +839,9 @@ export class GridAdapter implements FrameworkAdapter {
       return undefined;
     }
 
+    // Resolve grid once from the column element (stable in the DOM)
+    const gridEl = (element.closest('tbw-grid') as HTMLElement | null) ?? undefined;
+
     // Return a function that creates the editor element
     return (ctx: ColumnEditorContext<TRow, TValue>): HTMLElement => {
       const container = document.createElement('div');
@@ -828,6 +851,30 @@ export class GridAdapter implements FrameworkAdapter {
       const teleportKey = renderToContainer(container, editorFn(ctx as ColumnEditorContext<unknown, unknown>));
       // Track for per-cell cleanup via releaseCell
       this.editorTeleportKeys.set(container, teleportKey);
+
+      // Bridge "Tab / programmatic row exit drops pending input" — see
+      // editorBeforeCloseUnsubs doc comment. Calling native `.blur()` fires
+      // both `blur` (non-bubbling) and `focusout` (bubbling) so any editor
+      // with `@blur="commit"` flushes before the cell DOM is torn down.
+      if (gridEl) {
+        const flush = () => {
+          const doc = container.ownerDocument;
+          const focused = doc.activeElement as HTMLElement | null;
+          if (
+            focused &&
+            container.contains(focused) &&
+            (focused instanceof HTMLInputElement ||
+              focused instanceof HTMLTextAreaElement ||
+              focused instanceof HTMLSelectElement)
+          ) {
+            focused.blur();
+          }
+        };
+        gridEl.addEventListener('before-edit-close', flush);
+        this.editorBeforeCloseUnsubs.set(container, () => {
+          gridEl.removeEventListener('before-edit-close', flush);
+        });
+      }
 
       return container;
     };
@@ -1082,6 +1129,8 @@ export class GridAdapter implements FrameworkAdapter {
       removeFromContainer(key);
     }
     this.editorTeleportKeys.clear();
+    for (const unsub of this.editorBeforeCloseUnsubs.values()) unsub();
+    this.editorBeforeCloseUnsubs.clear();
 
     fieldRegistries.clear();
   }
@@ -1105,6 +1154,11 @@ export class GridAdapter implements FrameworkAdapter {
       if (cellEl.contains(editorContainer)) {
         removeFromContainer(key);
         this.editorTeleportKeys.delete(editorContainer);
+        const unsub = this.editorBeforeCloseUnsubs.get(editorContainer);
+        if (unsub) {
+          unsub();
+          this.editorBeforeCloseUnsubs.delete(editorContainer);
+        }
       }
     }
   }

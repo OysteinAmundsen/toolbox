@@ -178,6 +178,30 @@ export class GridAdapter implements FrameworkAdapter {
   private editorPortalKeys = new Set<string>();
   /** Maps portal keys to their containers (for container-based lookups in releaseCell/unmount). */
   private keyToContainer = new Map<string, HTMLElement>();
+  /**
+   * Per-editor `before-edit-close` listener teardown functions, keyed by portal key.
+   *
+   * The grid's editing plugin emits `before-edit-close` on the host `<tbw-grid>`
+   * before tearing down a row's managed editors. React editors commonly write
+   * `onBlur={commit}` to flush local state on click-away, but Tab / programmatic
+   * row exit rebuilds the cell DOM synchronously without giving the focused
+   * input a chance to fire `blur` first.
+   *
+   * To bridge that gap we call `.blur()` on the focused input inside the editor
+   * container as soon as `before-edit-close` fires. The native `.blur()` method
+   * is what React's event system actually observes — React 17+ delegates focus
+   * events at the root by listening to `focusout` (bubbling) and mapping it to
+   * `onBlur`. A bare `dispatchEvent(new FocusEvent('blur'))` would be ignored
+   * by React because `blur` does not bubble. Calling the native `.blur()`
+   * dispatches the full focus-loss chain (`blur` + `focusout`) and also moves
+   * focus off the input — both desirable here since the editor DOM is about to
+   * be torn down anyway.
+   *
+   * Mirrors the Angular adapter's `BaseGridEditor.onBeforeEditClose()` hook.
+   * Requires zero per-editor code: any editor with `onBlur={commit}` is
+   * automatically covered for Tab commits and programmatic row exit.
+   */
+  private editorBeforeCloseUnsubs = new Map<string, () => void>();
   private typeDefaults: TypeDefaultsMap | null = null;
 
   /**
@@ -325,6 +349,31 @@ export class GridAdapter implements FrameworkAdapter {
 
       // Track for cleanup (editor-specific for per-cell cleanup via releaseCell)
       this.trackPortal(portalKey, container, true);
+
+      // Bridge "Tab / programmatic row exit drops pending input" — see
+      // editorBeforeCloseUnsubs doc comment. Calling native `.blur()` fires
+      // both `blur` (non-bubbling) and `focusout` (bubbling) — React's event
+      // delegation listens to `focusout` and maps it to `onBlur`, so any editor
+      // with `onBlur={commit}` flushes before the cell DOM is torn down.
+      if (gridEl) {
+        const flush = () => {
+          const doc = container.ownerDocument;
+          const focused = doc.activeElement as HTMLElement | null;
+          if (
+            focused &&
+            container.contains(focused) &&
+            (focused instanceof HTMLInputElement ||
+              focused instanceof HTMLTextAreaElement ||
+              focused instanceof HTMLSelectElement)
+          ) {
+            focused.blur();
+          }
+        };
+        gridEl.addEventListener('before-edit-close', flush);
+        this.editorBeforeCloseUnsubs.set(portalKey, () => {
+          gridEl.removeEventListener('before-edit-close', flush);
+        });
+      }
 
       return container;
     };
@@ -590,6 +639,11 @@ export class GridAdapter implements FrameworkAdapter {
     this.allPortalKeys.delete(key);
     this.editorPortalKeys.delete(key);
     this.keyToContainer.delete(key);
+    const unsub = this.editorBeforeCloseUnsubs.get(key);
+    if (unsub) {
+      unsub();
+      this.editorBeforeCloseUnsubs.delete(key);
+    }
   }
 
   // #endregion
@@ -606,6 +660,8 @@ export class GridAdapter implements FrameworkAdapter {
     this.allPortalKeys.clear();
     this.editorPortalKeys.clear();
     this.keyToContainer.clear();
+    for (const unsub of this.editorBeforeCloseUnsubs.values()) unsub();
+    this.editorBeforeCloseUnsubs.clear();
     fieldRegistries.clear();
   }
 

@@ -290,6 +290,96 @@ describe('GridAdapter', () => {
         expect(result instanceof HTMLElement).toBe(true);
         expect(result.tagName).toBe('DIV');
       });
+
+      it('flushes the focused editor input via native .blur() on before-edit-close', () => {
+        // Set up: column inside a tbw-grid host
+        const grid = document.createElement('tbw-grid');
+        document.body.appendChild(grid);
+        const column = document.createElement('tbw-grid-column');
+        column.setAttribute('field', 'beforeCloseTest');
+        grid.appendChild(column);
+
+        registerColumnEditor(column, (ctx) => `Editing: ${ctx.value}`);
+
+        const editorSpec = adapter.createEditor(column);
+        const container = editorSpec({
+          row: { name: 'row' },
+          value: 'v',
+          field: 'beforeCloseTest',
+          column: {} as any,
+          commit: vi.fn(),
+          cancel: vi.fn(),
+        }) as HTMLElement;
+
+        // Simulate the React editor mounting an <input> inside the container
+        // (in a real editor this would happen via React render).
+        const input = document.createElement('input');
+        container.appendChild(input);
+        document.body.appendChild(container);
+        input.focus();
+        expect(document.activeElement).toBe(input);
+
+        // Watch BOTH `blur` (non-bubbling, for direct listeners) and `focusout`
+        // (bubbling, what React's event delegation actually listens to). Calling
+        // native `.blur()` must dispatch both — that is what makes any editor
+        // with `onBlur={commit}` flush before the cell DOM is torn down.
+        const blurSpy = vi.fn();
+        const focusoutSpy = vi.fn();
+        input.addEventListener('blur', blurSpy);
+        container.addEventListener('focusout', focusoutSpy);
+
+        // Grid fires the event before tearing down managed editors
+        grid.dispatchEvent(new CustomEvent('before-edit-close'));
+
+        expect(blurSpy).toHaveBeenCalledTimes(1);
+        expect(focusoutSpy).toHaveBeenCalledTimes(1);
+        // Native .blur() also moves focus off the input — the editor DOM is
+        // about to be torn down anyway, so this is desirable.
+        expect(document.activeElement).not.toBe(input);
+
+        // Cleanup
+        document.body.removeChild(container);
+        document.body.removeChild(grid);
+      });
+
+      it('does not flush when focus is outside the editor container', () => {
+        const grid = document.createElement('tbw-grid');
+        document.body.appendChild(grid);
+        const column = document.createElement('tbw-grid-column');
+        column.setAttribute('field', 'beforeCloseOutsideTest');
+        grid.appendChild(column);
+
+        registerColumnEditor(column, (ctx) => `Editing: ${ctx.value}`);
+
+        const editorSpec = adapter.createEditor(column);
+        const container = editorSpec({
+          row: {},
+          value: 'v',
+          field: 'beforeCloseOutsideTest',
+          column: {} as any,
+          commit: vi.fn(),
+          cancel: vi.fn(),
+        }) as HTMLElement;
+
+        document.body.appendChild(container);
+
+        // Focus an unrelated input
+        const other = document.createElement('input');
+        document.body.appendChild(other);
+        other.focus();
+
+        const blurSpy = vi.fn();
+        other.addEventListener('blur', blurSpy);
+
+        grid.dispatchEvent(new CustomEvent('before-edit-close'));
+
+        expect(blurSpy).not.toHaveBeenCalled();
+        expect(document.activeElement).toBe(other);
+
+        document.body.removeChild(container);
+        document.body.removeChild(other);
+        document.body.removeChild(grid);
+      });
     });
 
     describe('createToolPanelRenderer', () => {

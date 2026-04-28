@@ -735,6 +735,45 @@ describe('GridAdapter', () => {
       expect(blurSpy).not.toHaveBeenCalled();
       expect(document.activeElement).toBe(other);
     });
+
+    it('flushes the focused input on before-edit-close for config-based VNode editor', async () => {
+      // Mirror of the slot-path test, but goes through processGridConfig so
+      // the editor is created via createConfigVNodeEditor — ensures the new
+      // attachBeforeEditCloseFlush helper is wired into the config path.
+      const adapter = new GridAdapter();
+      const grid = document.createElement('tbw-grid');
+      const cell = document.createElement('div');
+      grid.appendChild(cell);
+      document.body.appendChild(grid);
+
+      const config = {
+        columns: [
+          {
+            field: 'name',
+            editor: (_ctx: any) => h('input', { type: 'text' }),
+          },
+        ],
+      };
+      const processed = adapter.processGridConfig(config);
+      const editorFn = processed.columns![0].editor as (ctx: any) => HTMLElement;
+      const container = editorFn({ value: 'v', row: {}, column: { field: 'name' } });
+      cell.appendChild(container);
+
+      const input = document.createElement('input');
+      container.appendChild(input);
+      input.focus();
+      expect(document.activeElement).toBe(input);
+
+      // Wait one microtask so attachBeforeEditCloseFlush resolves the grid.
+      await Promise.resolve();
+
+      const blurSpy = vi.fn();
+      input.addEventListener('blur', blurSpy);
+
+      grid.dispatchEvent(new CustomEvent('before-edit-close'));
+      expect(blurSpy).toHaveBeenCalledTimes(1);
+      expect(document.activeElement).not.toBe(input);
+    });
   });
 
   // #endregion

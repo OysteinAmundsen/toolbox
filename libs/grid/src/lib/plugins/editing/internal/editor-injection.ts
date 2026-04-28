@@ -133,6 +133,14 @@ export function injectEditor<T>(
 
   const editorHost = document.createElement('div');
   editorHost.className = 'tbw-editor-host';
+  // Let the framework adapter (React/Vue/Angular) tear down any renderer
+  // it mounted into this cell BEFORE we wipe the DOM. The `cell.innerHTML`
+  // assignment below removes adapter-managed nodes synchronously without
+  // notifying the framework — which leaves React's fiber tree pointing at
+  // orphan DOM and throws `removeChild` on the next user-triggered commit
+  // (issue #250). Calling `releaseCell` here unmounts cleanly while the
+  // adapter's container is still attached to its remembered children.
+  grid.__frameworkAdapter?.releaseCell?.(cell);
   cell.innerHTML = '';
   cell.appendChild(editorHost);
 

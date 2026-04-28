@@ -558,6 +558,42 @@ export class GridAdapter implements FrameworkAdapter {
   }
 
   /**
+   * Attaches a `before-edit-close` listener on the host grid that flushes
+   * the focused input inside `container` via native `.blur()` so editors
+   * written with `@blur="commit"` flush pending input before the cell DOM
+   * is torn down by Tab / programmatic row exit.
+   *
+   * The grid is resolved lazily via `queueMicrotask` because the container
+   * is appended to the cell *after* the editor wrapper returns.
+   *
+   * Mirror of the same bridge inline in `createEditor` (slot path) and the
+   * React adapter's `wrapReactEditor` / `createEditor`.
+   * @internal
+   */
+  private attachBeforeEditCloseFlush(container: HTMLElement): void {
+    queueMicrotask(() => {
+      const gridEl = container.closest('tbw-grid') as HTMLElement | null;
+      if (!gridEl) return;
+      const flush = () => {
+        const focused = container.ownerDocument.activeElement as HTMLElement | null;
+        if (
+          focused &&
+          container.contains(focused) &&
+          (focused instanceof HTMLInputElement ||
+            focused instanceof HTMLTextAreaElement ||
+            focused instanceof HTMLSelectElement)
+        ) {
+          focused.blur();
+        }
+      };
+      gridEl.addEventListener('before-edit-close', flush);
+      this.editorBeforeCloseUnsubs.set(container, () => {
+        gridEl.removeEventListener('before-edit-close', flush);
+      });
+    });
+  }
+
+  /**
    * Creates a DOM-returning editor from a Vue component class.
    * Used for config-based editors (not slot-based).
    * @internal
@@ -574,6 +610,7 @@ export class GridAdapter implements FrameworkAdapter {
       const teleportKey = renderToContainer(container, createVNode(comp, { ...ctx }));
       // Track for per-cell cleanup via releaseCell
       this.editorTeleportKeys.set(container, teleportKey);
+      this.attachBeforeEditCloseFlush(container);
 
       return container;
     };
@@ -595,6 +632,7 @@ export class GridAdapter implements FrameworkAdapter {
       const teleportKey = renderToContainer(container, renderFn(ctx));
       // Track for per-cell cleanup via releaseCell
       this.editorTeleportKeys.set(container, teleportKey);
+      this.attachBeforeEditCloseFlush(container);
 
       return container;
     };
@@ -1089,6 +1127,7 @@ export class GridAdapter implements FrameworkAdapter {
       const teleportKey = renderToContainer(container, renderFn(ctx));
       // Track for per-cell cleanup via releaseCell
       this.editorTeleportKeys.set(container, teleportKey);
+      this.attachBeforeEditCloseFlush(container);
 
       return container;
     };

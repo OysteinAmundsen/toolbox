@@ -158,6 +158,21 @@ export class GridAdapter implements FrameworkAdapter {
   private editorViewRefs: EmbeddedViewRef<unknown>[] = [];
   /** Editor-specific component refs tracked separately for per-cell cleanup via releaseCell. */
   private editorComponentRefs: ComponentRef<unknown>[] = [];
+  /**
+   * Per-editor `before-edit-close` listener teardown functions, keyed by
+   * editor host element.
+   *
+   * The grid's editing plugin emits `before-edit-close` on the host
+   * `<tbw-grid>` before tearing down a row's managed editors. Angular
+   * editors that commit on `(blur)` rely on the focused input firing `blur`
+   * naturally, but Tab / programmatic row exit rebuilds the cell DOM
+   * synchronously without giving the focused input a chance to blur first
+   * — pending input is silently discarded.
+   *
+   * Mirror of Vue's `editorBeforeCloseUnsubs` and React's
+   * `wrapReactEditor` queueMicrotask bridge.
+   */
+  private editorBeforeCloseUnsubs: Map<HTMLElement, () => void> = new Map();
   private typeRegistry: GridTypeRegistry | null = null;
 
   constructor(
@@ -482,6 +497,7 @@ export class GridAdapter implements FrameworkAdapter {
       const container = document.createElement('span');
       container.style.display = 'contents';
       syncRootNodes(viewRef, container);
+      this.attachBeforeEditCloseFlush(container);
 
       // Auto-wire: Listen for commit/cancel events on the rendered component.
       // This allows components to just emit (commit) and (cancel) without
@@ -840,6 +856,7 @@ export class GridAdapter implements FrameworkAdapter {
         (value) => ctx.commit(value),
         () => ctx.cancel(),
       );
+      this.attachBeforeEditCloseFlush(hostElement);
 
       // Auto-update editor when value changes externally (e.g., via updateRow cascade
       // or Escape-revert). Update the component input and run detectChanges() —
@@ -1210,6 +1227,13 @@ export class GridAdapter implements FrameworkAdapter {
         this.editorComponentRefs.splice(i, 1);
       }
     }
+    // Detach `before-edit-close` listeners for editor hosts inside this cell
+    for (const [hostEl, unsub] of this.editorBeforeCloseUnsubs) {
+      if (cellEl.contains(hostEl)) {
+        unsub();
+        this.editorBeforeCloseUnsubs.delete(hostEl);
+      }
+    }
   }
 
   /**
@@ -1249,5 +1273,42 @@ export class GridAdapter implements FrameworkAdapter {
     this.componentRefs = [];
     this.editorComponentRefs.forEach((ref) => ref.destroy());
     this.editorComponentRefs = [];
+    this.editorBeforeCloseUnsubs.forEach((unsub) => unsub());
+    this.editorBeforeCloseUnsubs.clear();
+  }
+
+  /**
+   * Attaches a `before-edit-close` listener on the host grid that flushes
+   * the focused input inside `host` via native `.blur()` so editors that
+   * commit on `(blur)` flush pending input before the cell DOM is torn
+   * down by Tab / programmatic row exit.
+   *
+   * The grid is resolved lazily via `queueMicrotask` because the host is
+   * appended to the cell *after* the editor wrapper returns. Mirror of
+   * Vue's `attachBeforeEditCloseFlush` and React's `wrapReactEditor`
+   * queueMicrotask bridge.
+   * @internal
+   */
+  private attachBeforeEditCloseFlush(host: HTMLElement): void {
+    queueMicrotask(() => {
+      const gridEl = host.closest('tbw-grid') as HTMLElement | null;
+      if (!gridEl) return;
+      const flush = () => {
+        const focused = host.ownerDocument.activeElement as HTMLElement | null;
+        if (
+          focused &&
+          host.contains(focused) &&
+          (focused instanceof HTMLInputElement ||
+            focused instanceof HTMLTextAreaElement ||
+            focused instanceof HTMLSelectElement)
+        ) {
+          focused.blur();
+        }
+      };
+      gridEl.addEventListener('before-edit-close', flush);
+      this.editorBeforeCloseUnsubs.set(host, () => {
+        gridEl.removeEventListener('before-edit-close', flush);
+      });
+    });
   }
 }

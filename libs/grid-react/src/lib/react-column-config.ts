@@ -110,23 +110,34 @@ export type GridConfig<TRow = unknown> = Omit<BaseGridConfig<TRow>, 'columns' | 
 const REACT_PROCESSED = Symbol('reactProcessed');
 
 // Track portal keys for config-based editors (for cleanup via cleanupConfigRootsIn)
-const mountedPortals: { key: string; container: HTMLElement }[] = [];
+const mountedPortals: { key: string; container: HTMLElement; unsub?: () => void }[] = [];
 
 /**
- * Clean up config-based editor portals whose containers are inside the given element.
- * Called by the React GridAdapter's releaseCell to properly unmount editor portals
- * that were created by `wrapReactEditor` (which bypasses the adapter's tracking).
+ * Clean up config-based editor and renderer portals whose containers are
+ * inside the given element. Called by the React GridAdapter's `releaseCell`
+ * to unmount portals created by `wrapReactEditor` / `wrapReactRenderer`
+ * (which bypass the adapter's per-cell portal tracking).
  *
- * Only targets editor containers (`.react-cell-editor`), not renderer containers,
- * since renderers use a WeakMap cache and must survive cell recycling.
+ * Targets both `.react-cell-editor` AND `.react-cell-renderer` containers:
+ * editors always tear down on cell release, and renderers MUST also tear
+ * down before the editing pipeline runs `cell.innerHTML = ''` (otherwise
+ * React's still-mounted fiber tree points at orphan DOM and throws on the
+ * next commit — see `wrapReactRenderer` doc and issue #250). The renderer
+ * cache will create a fresh container on the next render via its
+ * cellEl.contains() check.
  *
  * @internal
  */
 export function cleanupConfigRootsIn(parentEl: HTMLElement): void {
   for (let i = mountedPortals.length - 1; i >= 0; i--) {
     const entry = mountedPortals[i];
-    if (parentEl.contains(entry.container) && entry.container.classList.contains('react-cell-editor')) {
-      removeFromContainer(entry.key);
+    if (
+      parentEl.contains(entry.container) &&
+      (entry.container.classList.contains('react-cell-editor') ||
+        entry.container.classList.contains('react-cell-renderer'))
+    ) {
+      entry.unsub?.();
+      removeFromContainer(entry.key, { sync: true });
       mountedPortals.splice(i, 1);
     }
   }
@@ -135,6 +146,21 @@ export function cleanupConfigRootsIn(parentEl: HTMLElement): void {
 /**
  * Wraps a React renderer function into a DOM-returning viewRenderer.
  * Used internally by DataGrid to process reactRenderer properties.
+ *
+ * Cache invariant: a cached `{ portalKey, container }` is only safe to reuse
+ * while `container` is still attached to the original cell. The editing
+ * pipeline (`editor-injection.ts`) wipes a cell with `cell.innerHTML = ''`
+ * when an editor opens — this detaches the renderer container from the cell
+ * without React knowing, leaving React's fiber tree pointing at orphaned
+ * nodes. If we then reuse the cached entry on the next render, the user's
+ * `onCellCommit` → `setRows` triggers a React commit that tries to
+ * `removeChild` nodes that no longer exist in the DOM and throws
+ * `NotFoundError: Failed to execute 'removeChild' on 'Node'` (issue #250).
+ *
+ * Defense: before reusing a cached entry, verify the container is still
+ * inside the cell. If not, synchronously unmount the stale React root
+ * (`removeFromContainer(..., { sync: true })` so it tears down before any
+ * batched user setState runs against it) and create a fresh container.
  */
 export function wrapReactRenderer<TRow>(
   renderFn: (ctx: CellRenderContext<TRow>) => ReactNode,
@@ -148,8 +174,16 @@ export function wrapReactRenderer<TRow>(
     if (cellEl) {
       const cached = cellCache.get(cellEl);
       if (cached) {
-        renderToContainer(cached.container, renderFn(ctx), cached.portalKey);
-        return cached.container;
+        if (cellEl.contains(cached.container)) {
+          renderToContainer(cached.container, renderFn(ctx), cached.portalKey);
+          return cached.container;
+        }
+        // Cached container was detached (typically by editor-injection's
+        // cell.innerHTML = ''). Tear down the stale React root before
+        // creating a fresh one, otherwise the orphaned root will throw
+        // when the next React commit tries to reconcile its children.
+        removeFromContainer(cached.portalKey, { sync: true });
+        cellCache.delete(cellEl);
       }
     }
 
@@ -181,7 +215,44 @@ export function wrapReactEditor<TRow>(
     container.style.display = 'contents';
 
     const portalKey = renderToContainer(container, editorFn(ctx));
-    mountedPortals.push({ key: portalKey, container });
+    const entry: { key: string; container: HTMLElement; unsub?: () => void } = {
+      key: portalKey,
+      container,
+    };
+    mountedPortals.push(entry);
+
+    // Bridge "Tab / programmatic row exit drops pending input" — mirror of
+    // GridAdapter.createEditor's hook for the config-based editor path
+    // (`gridConfig.columns[].editor`). Core's EditingPlugin emits
+    // `before-edit-close` for managed-editor cells without reading their
+    // input values (those are committed by editor `onBlur` handlers). We
+    // synthesise a native `.blur()` on the focused input inside the dying
+    // row so React's `onBlur={commit}` runs before the cell DOM is torn
+    // down. Without this, pressing Tab from the last editable cell of a
+    // row silently discards the in-progress value.
+    //
+    // The grid element is resolved lazily via `queueMicrotask` because the
+    // container is appended to the cell *after* this function returns.
+    queueMicrotask(() => {
+      const gridEl = container.closest('tbw-grid') as HTMLElement | null;
+      if (!gridEl) return;
+      const flush = () => {
+        const focused = container.ownerDocument.activeElement as HTMLElement | null;
+        if (
+          focused &&
+          container.contains(focused) &&
+          (focused instanceof HTMLInputElement ||
+            focused instanceof HTMLTextAreaElement ||
+            focused instanceof HTMLSelectElement)
+        ) {
+          focused.blur();
+        }
+      };
+      gridEl.addEventListener('before-edit-close', flush);
+      entry.unsub = () => {
+        gridEl.removeEventListener('before-edit-close', flush);
+      };
+    });
 
     return container;
   };

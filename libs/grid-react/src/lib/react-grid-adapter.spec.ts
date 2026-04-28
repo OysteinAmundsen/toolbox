@@ -213,6 +213,9 @@ describe('GridAdapter', () => {
         expect(result1 instanceof HTMLElement).toBe(true);
         expect(renderCount).toBe(1);
 
+        // Grid attaches the returned container to the cell (production path).
+        cellEl.appendChild(result1 as HTMLElement);
+
         // Second render with same cellEl - should reuse root
         const result2 = renderer({
           row: {},
@@ -226,6 +229,44 @@ describe('GridAdapter', () => {
         // Should return same container
         expect(result2).toBe(result1);
         expect(renderCount).toBe(2);
+      });
+
+      it('evicts stale cache and creates fresh container when cached container was detached (issue #250)', () => {
+        const element = document.createElement('tbw-grid-column');
+        element.setAttribute('field', 'detachedRendererTest');
+        registerColumnRenderer(element, (ctx) => `V: ${ctx.value}`);
+        const renderer = adapter.createRenderer(element);
+
+        const cellEl = document.createElement('div');
+        cellEl.className = 'cell';
+        document.body.appendChild(cellEl);
+
+        const first = renderer({
+          row: {},
+          value: 'a',
+          field: 'detachedRendererTest',
+          column: {} as any,
+          cellEl,
+          rowIndex: 0,
+        } as any);
+        cellEl.appendChild(first as HTMLElement);
+
+        // Editing pipeline simulates wiping the cell when an editor opens.
+        cellEl.innerHTML = '';
+
+        const second = renderer({
+          row: {},
+          value: 'b',
+          field: 'detachedRendererTest',
+          column: {} as any,
+          cellEl,
+          rowIndex: 0,
+        } as any);
+
+        // Must create a fresh container — reusing the orphan would let
+        // React's still-mounted root throw `removeChild` on the next
+        // user-triggered commit.
+        expect(second).not.toBe(first);
       });
 
       it('should create new container when no cellEl in context', () => {
@@ -572,6 +613,46 @@ describe('GridAdapter', () => {
       it('should not throw when cell has no tracked editors', () => {
         const cellEl = document.createElement('td');
         expect(() => adapter.releaseCell(cellEl)).not.toThrow();
+      });
+
+      it('also unmounts renderer portals inside the cell (issue #250)', () => {
+        // When the editing pipeline calls releaseCell before wiping a cell,
+        // any React-managed renderer container in that cell must also be
+        // unmounted — otherwise React's fiber tree points at orphan DOM
+        // and the next user-triggered commit throws `removeChild`.
+        const element = document.createElement('tbw-grid-column');
+        element.setAttribute('field', 'rendererReleaseTest');
+        registerColumnRenderer(element, (ctx) => `V: ${ctx.value}`);
+        const renderer = adapter.createRenderer(element);
+
+        const cellEl = document.createElement('div');
+        cellEl.className = 'cell';
+        document.body.appendChild(cellEl);
+
+        const container = renderer({
+          row: {},
+          value: 'a',
+          field: 'rendererReleaseTest',
+          column: {} as any,
+          cellEl,
+          rowIndex: 0,
+        } as any) as HTMLElement;
+        cellEl.appendChild(container);
+
+        // releaseCell should clean up the renderer portal (no throw, and
+        // a subsequent renderer call should produce a fresh container).
+        expect(() => adapter.releaseCell(cellEl)).not.toThrow();
+
+        cellEl.innerHTML = '';
+        const fresh = renderer({
+          row: {},
+          value: 'b',
+          field: 'rendererReleaseTest',
+          column: {} as any,
+          cellEl,
+          rowIndex: 0,
+        } as any);
+        expect(fresh).not.toBe(container);
       });
     });
 

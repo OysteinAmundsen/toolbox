@@ -91,8 +91,8 @@ vi.mock('./directives/grid-form-array.directive', async () => {
 });
 
 // Import after mocks so the module under test sees the mocked getters
-import { GridAdapter } from './angular-grid-adapter';
 import type { GridConfig } from './angular-column-config';
+import { GridAdapter } from './angular-grid-adapter';
 import { GridTypeRegistry } from './grid-type-registry';
 
 /**
@@ -934,6 +934,94 @@ describe('GridAdapter', () => {
 
       adapter.destroy();
       expect(tracker.lastRef()!.destroy).toHaveBeenCalled();
+    });
+  });
+
+  describe('before-edit-close blur bridge', () => {
+    it('flushes the focused input on before-edit-close (template/createEditor path)', async () => {
+      const { adapter } = makeAdapter();
+      structuralEditorGetter.mockReturnValue(createMockTemplate());
+
+      const grid = document.createElement('tbw-grid');
+      const col = document.createElement('tbw-grid-column');
+      grid.appendChild(col);
+      const cell = document.createElement('div');
+      grid.appendChild(cell);
+      document.body.appendChild(grid);
+
+      const editor = adapter.createEditor(col)!;
+      const host = editor({ value: 'v', row: {}, field: 'x', column: {}, commit: vi.fn(), cancel: vi.fn() } as never);
+      cell.appendChild(host);
+
+      const input = document.createElement('input');
+      host.appendChild(input);
+      input.focus();
+      expect(document.activeElement).toBe(input);
+
+      // Wait one microtask so attachBeforeEditCloseFlush resolves the grid.
+      await Promise.resolve();
+
+      const blurSpy = vi.fn();
+      input.addEventListener('blur', blurSpy);
+      grid.dispatchEvent(new CustomEvent('before-edit-close'));
+      expect(blurSpy).toHaveBeenCalledTimes(1);
+      expect(document.activeElement).not.toBe(input);
+    });
+
+    it('flushes the focused input on before-edit-close (component/createComponentEditor path)', async () => {
+      const { adapter } = makeAdapter();
+      installDefaultCreateComponent();
+
+      const grid = document.createElement('tbw-grid');
+      const cell = document.createElement('div');
+      grid.appendChild(cell);
+      document.body.appendChild(grid);
+
+      const result = adapter.processColumn({ field: 'x', editor: FakeComponent });
+      const editor = result.editor as (ctx: unknown) => HTMLElement;
+      const host = editor({ value: 'v', row: {}, column: {}, field: 'x', commit: vi.fn(), cancel: vi.fn() });
+      cell.appendChild(host);
+
+      const input = document.createElement('input');
+      host.appendChild(input);
+      input.focus();
+      expect(document.activeElement).toBe(input);
+
+      await Promise.resolve();
+
+      const blurSpy = vi.fn();
+      input.addEventListener('blur', blurSpy);
+      grid.dispatchEvent(new CustomEvent('before-edit-close'));
+      expect(blurSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('releaseCell removes the before-edit-close listener (no flush after release)', async () => {
+      const { adapter } = makeAdapter();
+      installDefaultCreateComponent();
+
+      const grid = document.createElement('tbw-grid');
+      const cell = document.createElement('div');
+      grid.appendChild(cell);
+      document.body.appendChild(grid);
+
+      const result = adapter.processColumn({ field: 'x', editor: FakeComponent });
+      const editor = result.editor as (ctx: unknown) => HTMLElement;
+      const host = editor({ value: 'v', row: {}, column: {}, field: 'x', commit: vi.fn(), cancel: vi.fn() });
+      cell.appendChild(host);
+
+      const input = document.createElement('input');
+      host.appendChild(input);
+      input.focus();
+      await Promise.resolve();
+
+      adapter.releaseCell(cell);
+
+      // Re-focus the (now-detached) input and dispatch — the listener should be gone.
+      const blurSpy = vi.fn();
+      input.addEventListener('blur', blurSpy);
+      input.focus();
+      grid.dispatchEvent(new CustomEvent('before-edit-close'));
+      expect(blurSpy).not.toHaveBeenCalled();
     });
   });
 });

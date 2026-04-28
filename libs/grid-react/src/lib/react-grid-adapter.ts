@@ -279,9 +279,18 @@ export class GridAdapter implements FrameworkAdapter {
         // Check if we have a cached portal for this cell
         const cached = cellCache.get(cellEl);
         if (cached) {
-          // Reuse existing portal - update element synchronously
-          renderToContainer(cached.container, renderFn(ctx as CellRenderContext<unknown, unknown>), cached.portalKey);
-          return cached.container;
+          if (cellEl.contains(cached.container)) {
+            // Reuse existing portal - update element synchronously
+            renderToContainer(cached.container, renderFn(ctx as CellRenderContext<unknown, unknown>), cached.portalKey);
+            return cached.container;
+          }
+          // Container was detached (typically by editor-injection's cell wipe).
+          // Tear down the stale React root synchronously before creating a
+          // fresh one — otherwise the orphan throws `removeChild` on the
+          // next user-triggered React commit (issue #250).
+          removeFromContainer(cached.portalKey, { sync: true });
+          this.untrackPortal(cached.portalKey);
+          cellCache.delete(cellEl);
         }
 
         // Create new container and portal for this cell
@@ -667,19 +676,48 @@ export class GridAdapter implements FrameworkAdapter {
 
   /**
    * Called when a cell's content is about to be wiped.
-   * Destroys editor portals whose container is inside the cell.
-   * Also cleans up config-based editor roots (from processGridConfig/wrapReactEditor)
-   * that bypass the adapter's tracking.
+   *
+   * Destroys editor portals AND renderer portals whose container is inside
+   * the cell. Releasing renderers here is critical: the editing pipeline
+   * runs `cell.innerHTML = ''` immediately after this returns, which
+   * silently detaches React-managed renderer containers from the DOM.
+   * If we leave the React root mounted, its fiber tree still believes
+   * the now-orphaned children are present — a subsequent React commit
+   * (e.g. the user's `onCellCommit` → `setRows`) tries to `removeChild`
+   * those gone nodes and throws `NotFoundError` (issue #250).
+   *
+   * Calling this BEFORE the wipe lets React unmount cleanly while DOM
+   * still matches its fiber tree. The `wrapReactRenderer` cache will
+   * detect the missing entry on the next render and create a fresh
+   * container — see the cache-validation defense in `createRenderer`
+   * and `wrapReactRenderer` (`react-column-config.ts`).
+   *
+   * Also cleans up config-based editor and renderer roots
+   * (from processGridConfig/wrapReactEditor/wrapReactRenderer) that
+   * bypass the adapter's own portal tracking.
    */
   releaseCell(cellEl: HTMLElement): void {
+    // Editor portals (per-cell, always torn down on cell release)
     for (const key of this.editorPortalKeys) {
       const container = this.keyToContainer.get(key);
       if (container && cellEl.contains(container)) {
-        removeFromContainer(key);
+        removeFromContainer(key, { sync: true });
         this.untrackPortal(key);
       }
     }
-    // Clean up config-based editor roots created by wrapReactEditor
+    // Renderer portals — tracked but not in editorPortalKeys. Walk all
+    // tracked portals and release any whose container is inside this cell.
+    // This prevents the orphan-fiber crash described in issue #250.
+    for (const key of this.allPortalKeys) {
+      if (this.editorPortalKeys.has(key)) continue;
+      const container = this.keyToContainer.get(key);
+      if (container && cellEl.contains(container)) {
+        removeFromContainer(key, { sync: true });
+        this.untrackPortal(key);
+      }
+    }
+    // Clean up config-based editor + renderer roots (wrapReactEditor /
+    // wrapReactRenderer in react-column-config.ts)
     cleanupConfigRootsIn(cellEl);
   }
 

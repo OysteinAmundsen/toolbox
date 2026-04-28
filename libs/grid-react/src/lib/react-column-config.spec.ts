@@ -3,7 +3,7 @@
  *
  * @vitest-environment happy-dom
  */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GridConfig } from './react-column-config';
 import {
   cleanupConfigRootsIn,
@@ -42,10 +42,36 @@ describe('react-column-config', () => {
       const cellEl = document.createElement('div');
 
       const result1 = wrapped({ value: 'a', row: {}, column: {} as any, field: 'f', cellEl } as any);
+      // Grid attaches the returned container to the cell (production path).
+      cellEl.appendChild(result1);
       const result2 = wrapped({ value: 'b', row: {}, column: {} as any, field: 'f', cellEl } as any);
 
       // Same container returned (cached)
       expect(result2).toBe(result1);
+    });
+
+    it('evicts cache and creates fresh container when cached container was detached from cell (issue #250)', () => {
+      // Repro: a cell with a renderer is wiped via `cell.innerHTML = ''`
+      // (editor opens). The cached container is now detached. The next
+      // render call MUST create a fresh container instead of reusing the
+      // orphan — otherwise React's still-mounted root throws `removeChild`
+      // on the next user-triggered commit.
+      const wrapped = wrapReactRenderer((ctx) => `Val: ${ctx.value}`);
+      const cellEl = document.createElement('div');
+      document.body.appendChild(cellEl);
+
+      const first = wrapped({ value: 'a', row: {}, column: {} as any, field: 'f', cellEl } as any);
+      cellEl.appendChild(first);
+      expect(cellEl.contains(first)).toBe(true);
+
+      // Editor pipeline simulation: wipe the cell.
+      cellEl.innerHTML = '';
+      expect(cellEl.contains(first)).toBe(false);
+
+      const second = wrapped({ value: 'b', row: {}, column: {} as any, field: 'f', cellEl } as any);
+      // Must be a brand new container, not the orphan.
+      expect(second).not.toBe(first);
+      expect(second.className).toBe('react-cell-renderer');
     });
 
     it('should create new container without cellEl', () => {
@@ -76,12 +102,58 @@ describe('react-column-config', () => {
         row: {},
         column: {} as any,
         field: 'name',
-        commit: () => { /* noop */ },
-        cancel: () => { /* noop */ },
+        commit: () => {
+          /* noop */
+        },
+        cancel: () => {
+          /* noop */
+        },
       } as any);
 
       expect(result).toBeInstanceOf(HTMLElement);
       expect(result.className).toBe('react-cell-editor');
+    });
+
+    it('flushes the focused input on before-edit-close (issue #250 follow-up)', async () => {
+      // Mirror of the slot-path createEditor blur bridge — the config-path
+      // wrapReactEditor must attach the same `before-edit-close` listener so
+      // Tab/programmatic row exit still commits values for editors written
+      // with `onBlur={commit}`.
+      const grid = document.createElement('tbw-grid');
+      const cell = document.createElement('div');
+      grid.appendChild(cell);
+      document.body.appendChild(grid);
+
+      const wrapped = wrapReactEditor(() => 'editor');
+      const container = wrapped({
+        value: 'v',
+        row: {},
+        column: {} as any,
+        field: 'x',
+        commit: () => {
+          /* noop */
+        },
+        cancel: () => {
+          /* noop */
+        },
+      } as any);
+      cell.appendChild(container);
+
+      const input = document.createElement('input');
+      container.appendChild(input);
+      input.focus();
+      expect(document.activeElement).toBe(input);
+
+      // wrapReactEditor uses queueMicrotask to resolve the host grid.
+      await Promise.resolve();
+
+      const blurSpy = vi.fn();
+      input.addEventListener('blur', blurSpy);
+      grid.dispatchEvent(new CustomEvent('before-edit-close'));
+      expect(blurSpy).toHaveBeenCalledTimes(1);
+      expect(document.activeElement).not.toBe(input);
+
+      document.body.removeChild(grid);
     });
   });
 
@@ -191,8 +263,12 @@ describe('react-column-config', () => {
         row: {},
         column: {} as any,
         field: 'name',
-        commit: () => { /* noop */ },
-        cancel: () => { /* noop */ },
+        commit: () => {
+          /* noop */
+        },
+        cancel: () => {
+          /* noop */
+        },
       });
       expect(container).toBeInstanceOf(HTMLElement);
     });
@@ -267,8 +343,12 @@ describe('react-column-config', () => {
         row: {},
         column: {} as any,
         field: 'name',
-        commit: () => { /* noop */ },
-        cancel: () => { /* noop */ },
+        commit: () => {
+          /* noop */
+        },
+        cancel: () => {
+          /* noop */
+        },
       } as any);
 
       // Put the editor container inside a parent

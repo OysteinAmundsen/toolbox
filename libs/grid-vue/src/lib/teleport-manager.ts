@@ -15,7 +15,7 @@
  * @internal
  */
 
-import { defineComponent, h, onBeforeUnmount, ref, Teleport, type VNode } from 'vue';
+import { defineComponent, h, onBeforeUnmount, onErrorCaptured, ref, Teleport, type VNode } from 'vue';
 
 // #region Types
 
@@ -163,22 +163,21 @@ export const TeleportManager = defineComponent({
       props: {
         entryKey: { type: String, required: true },
       },
-      errorCaptured(err: unknown, _instance: unknown, info: string) {
-        const entryKey = (this as unknown as { entryKey: string }).entryKey;
-        // Drop the offending entry so the next render skips it.
-        const next = new Map(teleports.value);
-        if (next.delete(entryKey)) {
-          teleports.value = next;
-        }
-        // Best-effort surface for diagnostics; mirrors the React boundary
-        // (which also relies on console for the error tape).
-        // eslint-disable-next-line no-console
-        console.error(`[tbw-grid-vue] Teleport "${entryKey}" threw and was removed (${info}):`, err);
-        // Stop propagation so the host app's onErrorCaptured / errorHandler
-        // does not also receive it (matches React's boundary contract).
-        return false;
-      },
-      setup(_props, { slots }) {
+      setup(props, { slots }) {
+        onErrorCaptured((err, _instance, info) => {
+          // Drop the offending entry so the next render skips it.
+          const next = new Map(teleports.value);
+          if (next.delete(props.entryKey)) {
+            teleports.value = next;
+          }
+          // Best-effort surface for diagnostics; mirrors the React boundary
+          // (which also relies on console for the error tape).
+          // eslint-disable-next-line no-console
+          console.error(`[tbw-grid-vue] Teleport "${props.entryKey}" threw and was removed (${info}):`, err);
+          // Stop propagation so the host app's onErrorCaptured / errorHandler
+          // does not also receive it (matches React's boundary contract).
+          return false;
+        });
         return () => slots.default?.();
       },
     });

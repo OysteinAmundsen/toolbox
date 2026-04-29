@@ -159,13 +159,18 @@ export function injectEditor<T>(
     // Enter to the overlay so combobox confirmation does not close the
     // row edit. Covers libraries like Downshift / Headless UI / MUI
     // Autocomplete that do not call preventDefault on confirm.
-    const ariaTarget = e.target as HTMLElement | null;
-    if (
-      ariaTarget &&
-      ariaTarget.getAttribute?.('aria-expanded') === 'true' &&
-      ariaTarget.hasAttribute?.('aria-controls')
-    ) {
-      return;
+    // Only short-circuit Enter — Escape and other keys must still flow
+    // through the normal handlers (Escape closes the overlay first via
+    // its own listener, then dispatches up to cancel-edit if unhandled).
+    if (e.key === 'Enter') {
+      const ariaTarget = e.target as HTMLElement | null;
+      if (
+        ariaTarget &&
+        ariaTarget.getAttribute?.('aria-expanded') === 'true' &&
+        ariaTarget.hasAttribute?.('aria-controls')
+      ) {
+        return;
+      }
     }
     if (e.key === 'Enter') {
       // In grid mode, Enter just commits without exiting

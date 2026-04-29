@@ -3,8 +3,9 @@
  *
  * @vitest-environment happy-dom
  */
+import type { DataGridElement } from '@toolbox-web/grid';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createApp, defineComponent, h, nextTick, provide, ref } from 'vue';
+import { createApp, defineComponent, h, nextTick, provide, ref, type Ref } from 'vue';
 import { GRID_ELEMENT_KEY } from './use-grid';
 import { useGridOverlay } from './use-grid-overlay';
 
@@ -24,7 +25,6 @@ interface MountOptions {
   open?: boolean;
   withGridContext?: MockGrid | null;
   withGridElementOption?: MockGrid | null;
-  attachPanelToGridDOM?: boolean;
 }
 
 interface MountResult {
@@ -44,8 +44,11 @@ function mount(options: MountOptions = {}): MountResult {
     defineComponent({
       setup() {
         if (options.withGridContext !== undefined) {
-          // null is allowed and represents an absent grid in context
-          provide(GRID_ELEMENT_KEY, ref(options.withGridContext as unknown as null));
+          // null is allowed and represents an absent grid in context. The
+          // mock implements only the two methods the composable touches;
+          // cast the ref (single hop, no `as unknown as`) to satisfy the
+          // InjectionKey's `Ref<DataGridElement | null>` contract.
+          provide(GRID_ELEMENT_KEY, ref(options.withGridContext) as Ref<DataGridElement | null>);
         }
         const Child = defineComponent({
           setup() {
@@ -70,16 +73,6 @@ function mount(options: MountOptions = {}): MountResult {
       },
     }),
   );
-
-  // Optional: append a tbw-grid wrapper around the container so closest()
-  // resolves the right element.
-  if (options.attachPanelToGridDOM) {
-    const grid = document.createElement('tbw-grid');
-    Object.assign(grid, options.attachPanelToGridDOM); // not used here; scratch
-    document.body.removeChild(container);
-    grid.appendChild(container);
-    document.body.appendChild(grid);
-  }
 
   app.mount(container);
 

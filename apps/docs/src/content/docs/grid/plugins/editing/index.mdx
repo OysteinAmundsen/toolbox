@@ -1237,6 +1237,21 @@ Column(s) [name, price] use the "editable" column property, but the required plu
 
 This runtime validation helps catch misconfigurations early during development.
 
+### Opting out without removing column config
+
+If you want to keep `editor` / `editable` declarations on your columns but
+temporarily turn editing off (e.g. for a read-only mode), set
+`features.editing` to `false` explicitly. The validator treats this as an
+intentional opt-out and will not throw, so you can flip the feature back on
+without touching column definitions:
+
+```ts
+gridConfig = {
+  features: { editing: false }, // explicit off — no validation error
+  columns: [{ field: 'name', editor: 'text' }],
+};
+```
+
 ## Focus Management
 
 ### Focus Trap

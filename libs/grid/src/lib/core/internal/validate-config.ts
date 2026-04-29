@@ -184,12 +184,22 @@ export function validatePluginProperties<T>(
     }
   }
 
+  // Helper: explicit `features: { <name>: false }` is an intentional opt-out.
+  // When the user explicitly disables a feature, we suppress "missing plugin"
+  // diagnostics for that plugin's owned properties so column/config definitions
+  // (e.g. `editor`, `editable`) can remain in place while the feature is toggled
+  // off. The plugin can be re-enabled later without removing those properties.
+  const features = (config as { features?: Record<string, unknown> }).features;
+  function isExplicitlyDisabled(pluginName: string): boolean {
+    return !!features && features[pluginName] === false;
+  }
+
   // Validate grid config properties
   for (const def of configProps) {
     const value = (config as Record<string, unknown>)[def.property];
     const isUsed = def.isUsed ? def.isUsed(value) : value !== undefined;
 
-    if (isUsed && !hasPlugin(plugins, def.pluginName)) {
+    if (isUsed && !hasPlugin(plugins, def.pluginName) && !isExplicitlyDisabled(def.pluginName)) {
       const desc = def.description || `the "${def.property}" ${def.level} property`;
       addError(def.pluginName, desc, getImportHint(def.pluginName), def.property, true);
     }
@@ -204,7 +214,7 @@ export function validatePluginProperties<T>(
         // Use custom isUsed check if provided, otherwise check for defined value
         const isUsed = def.isUsed ? def.isUsed(value) : value !== undefined;
 
-        if (isUsed && !hasPlugin(plugins, def.pluginName)) {
+        if (isUsed && !hasPlugin(plugins, def.pluginName) && !isExplicitlyDisabled(def.pluginName)) {
           const field = (column as ColumnConfig).field || '<unknown>';
           const desc = def.description || `the "${def.property}" ${def.level} property`;
           addError(def.pluginName, desc, getImportHint(def.pluginName), field);

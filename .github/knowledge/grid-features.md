@@ -79,3 +79,10 @@ export type _Augmentation = true;
 | pivot                | PivotConfig                     | —            |
 | serverSide           | ServerSideConfig                | —            |
 | tooltip              | TooltipConfig                   | —            |
+
+## explicit-feature-opt-out (validator behavior)
+
+- DECIDED: when `gridConfig.features[name] === false` (explicit, not just absent), `validatePluginProperties` skips all "missing plugin" diagnostics for that plugin's owned properties (e.g. `editor`, `editable`, `editorParams` for `editing`; `group` for `groupingColumns`; `pinned` for `pinnedColumns`).
+- RATIONALE: lets users keep plugin-owned column properties in place while toggling the feature off (e.g. read-only mode), without rewriting column configs each time. Absent feature still throws — only explicit `false` is treated as informed opt-out.
+- INVARIANT: feature name in `features` matches plugin `name` 1:1 (relied upon by validator). When adding a new plugin-owned property to `KNOWN_COLUMN_PROPERTIES` / `KNOWN_CONFIG_PROPERTIES`, ensure its `pluginName` equals the registered feature key.
+- LOCATION: `libs/grid/src/lib/core/internal/validate-config.ts` → `validatePluginProperties` → `isExplicitlyDisabled()` helper.

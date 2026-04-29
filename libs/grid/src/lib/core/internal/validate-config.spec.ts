@@ -107,6 +107,72 @@ describe('validatePluginProperties', () => {
     });
   });
 
+  describe('explicit feature opt-out', () => {
+    it('does not throw when editor is used and features.editing is explicitly false', () => {
+      const config: GridConfig = {
+        columns: [{ field: 'name', editor: 'text' }],
+        features: { editing: false },
+      };
+
+      expect(() => {
+        validatePluginProperties(config, []);
+      }).not.toThrow();
+    });
+
+    it('does not throw when editable is true and features.editing is explicitly false', () => {
+      const config: GridConfig = {
+        columns: [{ field: 'name', editable: true }],
+        features: { editing: false },
+      };
+
+      expect(() => {
+        validatePluginProperties(config, []);
+      }).not.toThrow();
+    });
+
+    it('does not throw for config-level rowEditable when features.editing is explicitly false', () => {
+      const config: GridConfig = {
+        columns: [{ field: 'name' }],
+        features: { editing: false },
+        rowEditable: () => true,
+      } as GridConfig;
+
+      expect(() => {
+        validatePluginProperties(config, []);
+      }).not.toThrow();
+    });
+
+    it('still throws when editor is used and features.editing is undefined (no opt-out)', () => {
+      const config: GridConfig = {
+        columns: [{ field: 'name', editor: 'text' }],
+        features: {},
+      };
+
+      expect(() => {
+        validatePluginProperties(config, []);
+      }).toThrow(/EditingPlugin/);
+    });
+
+    it('only suppresses the explicitly-disabled plugin, others still validated', () => {
+      const config: GridConfig = {
+        columns: [
+          { field: 'name', editor: 'text' },
+          { field: 'email', group: 'contact' },
+        ],
+        features: { editing: false },
+      } as GridConfig;
+
+      // editing is opted out → no EditingPlugin error
+      expect(() => {
+        validatePluginProperties(config, []);
+      }).not.toThrow(/EditingPlugin/);
+      // groupingColumns is not opted out → still throws
+      expect(() => {
+        validatePluginProperties(config, []);
+      }).toThrow(/GroupingColumnsPlugin/);
+    });
+  });
+
   describe('error message formatting', () => {
     it('includes column field names in error message', () => {
       const config: GridConfig = {

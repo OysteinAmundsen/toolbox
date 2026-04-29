@@ -110,6 +110,15 @@ releaseCell(element) → void      // cleanup when cell removed from DOM
 - TENSION: anchor positioning uses CSS Anchor (`anchor-name`) when supported, else `_positionWithJs()` — JS fallback only runs on open, so scroll-while-open without dismissal would float the panel at a stale position. Scroll-dismissal sidesteps needing a live reposition loop.
 - DECIDED (Apr 2026, #234 follow-up): scroll → dismiss (call `onOverlayOutsideClick()`), not scroll → reposition. Rationale: (a) same semantics as click-outside preserves subclass commit/cancel contracts, (b) avoids coupling overlay to grid scroll cadence, (c) consumes the public `tbw-scroll` API — no shadow-DOM reach-arounds, validates the API dogfood-style.
 
+## react-overlay-editors (useGridOverlay)
+
+- OWNS: nothing (pure hook). DELEGATES to `grid.registerExternalFocusContainer(panel)` / `unregisterExternalFocusContainer(panel)`.
+- FLOW: effect runs when `(open && panelRef.current)` truthy → resolves grid via 1) explicit `gridElement` option, 2) `panelRef.current.closest('tbw-grid')`, 3) `GridElementContext` from `<DataGrid>` / `<GridProvider>` → registers panel → cleanup unregisters.
+- INVARIANT: portaled panels (e.g. `createPortal(..., document.body)`) cannot use path 2 — `closest()` walks DOM, not React tree. Path 3 (context) is the safety net; React preserves context across portals.
+- INVARIANT: hook is intentionally minimal — no synthetic Tab dispatch, no Escape handling, no outside-click. Consumers that need full Angular `BaseOverlayEditor` parity wire those themselves; the grid only needs the focus-container registration to keep the row in edit mode. Bundle cost ~0.1 kB gzipped (issue #251).
+- DECIDED (#251, Apr 2026): React adapter does NOT ship a `BaseOverlayEditor`-equivalent class because there is no React class-component idiom. A hook + `ColumnEditorContext.grid` cover the same use cases with less surface. Editors that prefer a class can subclass and call `grid.registerExternalFocusContainer` directly in `componentDidMount`.
+- DECIDED (#251, Apr 2026): The ARIA-expanded fallback in `EditingPlugin` (see `grid-plugins.md`) means most React combobox/autocomplete editors work WITHOUT calling `useGridOverlay` at all — provided the trigger sets `aria-expanded="true"` + `aria-controls="<panel-id>"` while open. Use the hook for editors whose overlay does not advertise the WAI-ARIA combobox pattern (color pickers, menus, custom popovers).
+
 ## angular-adapter-testing
 
 - INVARIANT: the angular adapter project deliberately avoids `TestBed`. Bootstrapping the platform-browser-dynamic compiler in unit tests adds 3-5s per spec file and is unnecessary for component-free logic. Spec files document this with a comment near the imports.

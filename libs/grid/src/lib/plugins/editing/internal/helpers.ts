@@ -171,6 +171,38 @@ export function shouldPreventEditClose(config: EditingConfig, event: MouseEvent 
 
 // #endregion
 
+// #region ARIA Overlay Detection
+
+/**
+ * Returns `true` when `target` is inside an overlay panel that is currently
+ * "owned" by an open combobox/listbox/menu inside `scopeEl`.
+ *
+ * Detection uses the WAI-ARIA pattern: a control with
+ * `aria-expanded="true"` and `aria-controls="<id>"` declares ownership of
+ * the panel with that id. Used by the editing plugin as a generic fallback
+ * so portal-rendered overlays from libraries like Downshift, Material UI,
+ * or Headless UI are recognised as part of the active editor without the
+ * consumer having to call `registerExternalFocusContainer` (#251).
+ *
+ * Cheap: only walks elements with `aria-expanded="true"` inside the
+ * editor scope (typically zero or one).
+ *
+ * @internal
+ */
+export function isInsideOpenAriaOverlay(target: Node | null | undefined, scopeEl: HTMLElement): boolean {
+  if (!target) return false;
+  const triggers = scopeEl.querySelectorAll<HTMLElement>('[aria-expanded="true"][aria-controls]');
+  for (let i = 0; i < triggers.length; i++) {
+    const id = triggers[i].getAttribute('aria-controls');
+    if (!id) continue;
+    const panel = scopeEl.ownerDocument?.getElementById(id);
+    if (panel && panel.contains(target as Node)) return true;
+  }
+  return false;
+}
+
+// #endregion
+
 // #region Row Comparison
 
 /**

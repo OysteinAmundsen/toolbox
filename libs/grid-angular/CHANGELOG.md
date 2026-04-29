@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.3.0...grid-angular-1.3.1) (2026-04-29)
+
+
+### Bug Fixes
+
+* **grid,grid-react,grid-vue,grid-angular:** release renderers and flush editors on cell teardown ([#250](https://github.com/OysteinAmundsen/toolbox/issues/250)) ([3121b5f](https://github.com/OysteinAmundsen/toolbox/commit/3121b5f091663514692b53bc59863836637915bb))
+
 ## [1.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.2.0...grid-angular-1.3.0) (2026-04-25)
 
 

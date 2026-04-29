@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.4.1...grid-2.5.0) (2026-04-29)
+
+
+### Features
+
+* **grid-vue:** overlay editor ([#253](https://github.com/OysteinAmundsen/toolbox/issues/253)) ([ca478ff](https://github.com/OysteinAmundsen/toolbox/commit/ca478ff162b8dd83b247ec28e8eaabeac7096127))
+
+
+### Bug Fixes
+
+* **grid-react,grid/editing:** scope releaseCell cleanup by DOM and dedupe knowledge entry (PR [#249](https://github.com/OysteinAmundsen/toolbox/issues/249) review) ([f3f784a](https://github.com/OysteinAmundsen/toolbox/commit/f3f784a031dbfd38c9b6afaf3dc675aa020bd892))
+* **grid,grid-react,grid-vue,grid-angular:** release renderers and flush editors on cell teardown ([#250](https://github.com/OysteinAmundsen/toolbox/issues/250)) ([3121b5f](https://github.com/OysteinAmundsen/toolbox/commit/3121b5f091663514692b53bc59863836637915bb))
+* **grid,grid-react:** release cells on pool shrink + clear, harden portal prune ([#250](https://github.com/OysteinAmundsen/toolbox/issues/250)) ([5c22293](https://github.com/OysteinAmundsen/toolbox/commit/5c22293d65fe39d79f50faa91c13f9b8a9bb3374))
+* **grid/editing:** keep arrow keys in editor while row is in edit mode ([fd0a9eb](https://github.com/OysteinAmundsen/toolbox/commit/fd0a9eb563e763a5948684f8bc4a4a13cc755091))
+
 ## [2.4.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.4.0...grid-2.4.1) (2026-04-26)
 
 

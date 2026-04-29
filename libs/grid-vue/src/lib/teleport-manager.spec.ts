@@ -4,7 +4,7 @@
  *
  * @vitest-environment happy-dom
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp, defineComponent, h, inject, provide, ref, type App } from 'vue';
 import { TeleportManager, type TeleportManagerHandle } from './teleport-manager';
 
@@ -218,6 +218,98 @@ describe('TeleportManager', () => {
 
       // The injected value should be available (context preserved via Teleport)
       expect(injectedValue.value).toBe('provided-value');
+    });
+  });
+
+  // #endregion
+
+  // #region Error boundary (#250 follow-up — Vue parity)
+
+  describe('error boundary', () => {
+    it('drops a teleport entry whose subtree throws during render', async () => {
+      const target = document.createElement('div');
+      document.body.appendChild(target);
+      const otherTarget = document.createElement('div');
+      document.body.appendChild(otherTarget);
+
+      const Throws = defineComponent({
+        setup() {
+          throw new Error('boom from cell renderer');
+        },
+      });
+
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      // Render a healthy entry alongside the throwing one.
+      handle.renderTeleport('healthy', otherTarget, h('span', 'still here'));
+      handle.renderTeleport('broken', target, h(Throws));
+
+      await new Promise((r) => queueMicrotask(r));
+      await new Promise((r) => setTimeout(r, 0));
+      // The boundary's reactive state-change schedules another flush.
+      await new Promise((r) => queueMicrotask(r));
+      await new Promise((r) => setTimeout(r, 0));
+
+      // Healthy teleport must still be visible.
+      expect(otherTarget.textContent).toContain('still here');
+      // Console got the diagnostic, including the entry key.
+      expect(consoleSpy).toHaveBeenCalled();
+      const message = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n');
+      expect(message).toMatch(/broken/);
+      // Removing the broken entry imperatively after the boundary already did
+      // it must be a safe no-op (matches the React boundary contract).
+      expect(() => handle.removeTeleport('broken')).not.toThrow();
+
+      consoleSpy.mockRestore();
+    });
+
+    it('does not bubble the captured error to the host app errorHandler', async () => {
+      // Tear down the default fixture so we control errorHandler ourselves.
+      app.unmount();
+
+      const target = document.createElement('div');
+      document.body.appendChild(target);
+      const Throws = defineComponent({
+        setup() {
+          throw new Error('isolated throw');
+        },
+      });
+
+      const hostHandler = vi.fn();
+      const localApp = createApp({
+        setup() {
+          return () =>
+            h(TeleportManager, {
+              ref: (el: unknown) => {
+                if (el && typeof el === 'object' && 'renderTeleport' in el) {
+                  handle = el as TeleportManagerHandle;
+                }
+              },
+            });
+        },
+      });
+      localApp.config.errorHandler = hostHandler;
+
+      const localMount = document.createElement('div');
+      document.body.appendChild(localMount);
+      localApp.mount(localMount);
+
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      handle.renderTeleport('broken-2', target, h(Throws));
+      await new Promise((r) => queueMicrotask(r));
+      await new Promise((r) => setTimeout(r, 0));
+
+      // The boundary returned false → host errorHandler must NOT be called.
+      expect(hostHandler).not.toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+      localApp.unmount();
+      // Recreate fixture for afterEach symmetry.
+      const recreated = mountTeleportManager();
+      app = recreated.app;
+      handle = recreated.handle;
+      mountEl = recreated.mountEl;
     });
   });
 

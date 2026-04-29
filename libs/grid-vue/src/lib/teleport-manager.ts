@@ -151,10 +151,42 @@ export const TeleportManager = defineComponent({
 
     expose(handle);
 
+    /**
+     * Per-entry error boundary. Mirrors React's `PortalBoundary` (#250
+     * follow-up): when a teleported subtree throws during render or
+     * lifecycle, swallow the error, drop the offending entry from the map,
+     * and let the rest of the grid keep rendering. Without this, a single
+     * misbehaving editor / cell renderer can take down the whole Vue tree.
+     */
+    const TeleportEntryBoundary = defineComponent({
+      name: 'TeleportEntryBoundary',
+      props: {
+        entryKey: { type: String, required: true },
+      },
+      errorCaptured(err: unknown, _instance: unknown, info: string) {
+        const entryKey = (this as unknown as { entryKey: string }).entryKey;
+        // Drop the offending entry so the next render skips it.
+        const next = new Map(teleports.value);
+        if (next.delete(entryKey)) {
+          teleports.value = next;
+        }
+        // Best-effort surface for diagnostics; mirrors the React boundary
+        // (which also relies on console for the error tape).
+        // eslint-disable-next-line no-console
+        console.error(`[tbw-grid-vue] Teleport "${entryKey}" threw and was removed (${info}):`, err);
+        // Stop propagation so the host app's onErrorCaptured / errorHandler
+        // does not also receive it (matches React's boundary contract).
+        return false;
+      },
+      setup(_props, { slots }) {
+        return () => slots.default?.();
+      },
+    });
+
     return () => {
       const nodes: VNode[] = [];
       for (const [key, { container, vnode }] of teleports.value) {
-        nodes.push(h(Teleport, { to: container, key }, [vnode]));
+        nodes.push(h(Teleport, { to: container, key }, [h(TeleportEntryBoundary, { entryKey: key }, () => [vnode])]));
       }
       return nodes;
     };

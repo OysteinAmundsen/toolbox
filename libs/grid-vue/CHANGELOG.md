@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.3.0...grid-vue-1.4.0) (2026-04-29)
+
+
+### Features
+
+* **grid-vue:** overlay editor ([#253](https://github.com/OysteinAmundsen/toolbox/issues/253)) ([ca478ff](https://github.com/OysteinAmundsen/toolbox/commit/ca478ff162b8dd83b247ec28e8eaabeac7096127))
+
+
+### Bug Fixes
+
+* **grid-react,grid-vue:** flush focused editor on before-edit-close so Tab commits pending input ([9cafde1](https://github.com/OysteinAmundsen/toolbox/commit/9cafde17303e832bf02ce6749922ac1980cb969b))
+* **grid,grid-react,grid-vue,grid-angular:** release renderers and flush editors on cell teardown ([#250](https://github.com/OysteinAmundsen/toolbox/issues/250)) ([3121b5f](https://github.com/OysteinAmundsen/toolbox/commit/3121b5f091663514692b53bc59863836637915bb))
+
 ## [1.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.2.0...grid-vue-1.3.0) (2026-04-25)
 
 

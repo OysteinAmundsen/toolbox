@@ -154,6 +154,24 @@ export function injectEditor<T>(
     // option without exiting the row. Bubbling reaches editorHost with
     // defaultPrevented=true; honor that and skip the row-exit logic (#250).
     if (e.defaultPrevented) return;
+    // ARIA-expanded fallback (#251): when the focused control declares
+    // an open overlay via aria-expanded="true" + aria-controls, defer
+    // Enter to the overlay so combobox confirmation does not close the
+    // row edit. Covers libraries like Downshift / Headless UI / MUI
+    // Autocomplete that do not call preventDefault on confirm.
+    // Only short-circuit Enter — Escape and other keys must still flow
+    // through the normal handlers (Escape closes the overlay first via
+    // its own listener, then dispatches up to cancel-edit if unhandled).
+    if (e.key === 'Enter') {
+      const ariaTarget = e.target as HTMLElement | null;
+      if (
+        ariaTarget &&
+        ariaTarget.getAttribute?.('aria-expanded') === 'true' &&
+        ariaTarget.hasAttribute?.('aria-controls')
+      ) {
+        return;
+      }
+    }
     if (e.key === 'Enter') {
       // In grid mode, Enter just commits without exiting
       if (isGridMode) {
@@ -254,6 +272,7 @@ export function injectEditor<T>(
       cancel,
       updateRow,
       onValueChange,
+      grid: deps.grid as ColumnEditorContext<T>['grid'],
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const produced = (editorSpec as any)(ctx);
@@ -321,6 +340,7 @@ export function injectEditor<T>(
       cancel,
       updateRow,
       onValueChange,
+      grid: deps.grid as ColumnEditorContext<T>['grid'],
     };
     if (editorSpec.mount) {
       try {

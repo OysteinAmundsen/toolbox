@@ -36,6 +36,7 @@ import {
   clearEditingState,
   FOCUSABLE_EDITOR_SELECTOR,
   hasRowChanged,
+  isInsideOpenAriaOverlay,
   isSafePropertyKey,
   noopUpdateRow,
   shouldPreventEditClose,
@@ -401,6 +402,16 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         const target = e.target as Node | null;
         if (target && !this.gridElement.contains(target) && this.grid.containsFocus?.(target)) {
           return;
+        }
+
+        // ARIA-expanded fallback (#251): when the click target lives inside
+        // an overlay declared by an open combobox/listbox in the active edit
+        // row (aria-expanded="true" + aria-controls=<id>), treat it as part
+        // of the editor. Covers Downshift / Headless UI / MUI Autocomplete
+        // panels that opt out of registerExternalFocusContainer.
+        if (target && !this.gridElement.contains(target)) {
+          const rowEl = internalGrid.findRenderedRowElement?.(this.#activeEditRow);
+          if (rowEl && isInsideOpenAriaOverlay(target, rowEl)) return;
         }
 
         if (shouldPreventEditClose(this.config, e)) return;
@@ -827,6 +838,19 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       }
 
       if (this.#activeEditRow !== -1) {
+        // ARIA-expanded fallback (#251): when the focused control declares
+        // an open overlay via aria-expanded="true" + aria-controls, defer
+        // Enter to the overlay so combobox confirmation does not exit the
+        // row. Mirrors the editor-injection.ts handler so the same guard
+        // applies whether the editor host or the grid receives the event.
+        const ariaTarget = event.target as HTMLElement | null;
+        if (
+          ariaTarget &&
+          ariaTarget.getAttribute?.('aria-expanded') === 'true' &&
+          ariaTarget.hasAttribute?.('aria-controls')
+        ) {
+          return false;
+        }
         if (shouldPreventEditClose(this.config, event)) return true;
         // Already editing - let cell handlers deal with it
         return false;

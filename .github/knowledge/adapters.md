@@ -110,6 +110,31 @@ releaseCell(element) → void      // cleanup when cell removed from DOM
 - TENSION: anchor positioning uses CSS Anchor (`anchor-name`) when supported, else `_positionWithJs()` — JS fallback only runs on open, so scroll-while-open without dismissal would float the panel at a stale position. Scroll-dismissal sidesteps needing a live reposition loop.
 - DECIDED (Apr 2026, #234 follow-up): scroll → dismiss (call `onOverlayOutsideClick()`), not scroll → reposition. Rationale: (a) same semantics as click-outside preserves subclass commit/cancel contracts, (b) avoids coupling overlay to grid scroll cadence, (c) consumes the public `tbw-scroll` API — no shadow-DOM reach-arounds, validates the API dogfood-style.
 
+## react-overlay-editors (useGridOverlay)
+
+- OWNS: nothing (pure hook). DELEGATES to `grid.registerExternalFocusContainer(panel)` / `unregisterExternalFocusContainer(panel)`.
+- FLOW: effect runs when `(open && panelRef.current)` truthy → resolves grid via 1) explicit `gridElement` option, 2) `panelRef.current.closest('tbw-grid')`, 3) `GridElementContext` from `<DataGrid>` / `<GridProvider>` → registers panel → cleanup unregisters.
+- INVARIANT: portaled panels (e.g. `createPortal(..., document.body)`) cannot use path 2 — `closest()` walks DOM, not React tree. Path 3 (context) is the safety net; React preserves context across portals.
+- INVARIANT: hook is intentionally minimal — no synthetic Tab dispatch, no Escape handling, no outside-click. Consumers that need full Angular `BaseOverlayEditor` parity wire those themselves; the grid only needs the focus-container registration to keep the row in edit mode. Bundle cost ~0.1 kB gzipped (issue #251).
+- DECIDED (#251, Apr 2026): React adapter does NOT ship a `BaseOverlayEditor`-equivalent class because there is no React class-component idiom. A hook + `ColumnEditorContext.grid` cover the same use cases with less surface. Editors that prefer a class can subclass and call `grid.registerExternalFocusContainer` directly in `componentDidMount`.
+- DECIDED (#251, Apr 2026): The ARIA-expanded fallback in `EditingPlugin` (see `grid-plugins.md`) means most React combobox/autocomplete editors work WITHOUT calling `useGridOverlay` at all — provided the trigger sets `aria-expanded="true"` + `aria-controls="<panel-id>"` while open. Use the hook for editors whose overlay does not advertise the WAI-ARIA combobox pattern (color pickers, menus, custom popovers).
+
+## vue-overlay-editors (useGridOverlay)
+
+- OWNS: nothing (pure composable). DELEGATES to `grid.registerExternalFocusContainer(panel)` / `unregisterExternalFocusContainer(panel)`.
+- FLOW: `watch({open, panel, grid, ctx}, …, {immediate: true, flush: 'post'})` — on every fire, unregisters previously-registered (panel, grid) pair, then if `(open && panel)` re-resolves grid via 1) explicit `gridElement` option (`MaybeRef<DataGridElement>`), 2) `panel.closest('tbw-grid')`, 3) `inject(GRID_ELEMENT_KEY)` ref populated by `<TbwGrid>` / `<GridProvider>` → registers the new pair. `onScopeDispose` runs the same unregister to cover unmount-while-open.
+- INVARIANT: teleported panels (e.g. `<Teleport to="body">`) cannot use path 2 — `closest()` walks DOM, not Vue tree. Path 3 (injection) is the safety net; Vue preserves provide/inject across teleports as long as the teleport is rendered inside a setup() function with the inject in scope.
+- INVARIANT: composable accepts `MaybeRef<boolean>` for `open` and `MaybeRef<DataGridElement | null | undefined>` for `gridElement` so callers can pass either reactive refs or plain values. The watch dependency object pattern is required because `unref(open)` inside a getter must be tracked by Vue's reactivity — wrapping in an object lets us include `panel`, `grid`, and (computed) `ctx` as siblings.
+- DECIDED (#251 follow-up, Apr 2026): Vue adapter mirrors React's `useGridOverlay` rather than offering a `BaseOverlayEditor`-style class — Vue idioms favour composables, and `ColumnEditorContext.grid` is enough for class-style editors that want to call `grid.registerExternalFocusContainer` directly from `mounted()`. ARIA fallback in `EditingPlugin` covers combobox/autocomplete editors regardless of whether they call the composable.
+
+## vue-teleport-manager (per-entry error boundary)
+
+- OWNS: `teleports: ShallowRef<Map<string, TeleportEntry>>` keyed by stable entry id. Each entry rendered as `<Teleport :to="entry.container" :key="key"><TeleportEntryBoundary :entryKey="key">{{ vnode }}</TeleportEntryBoundary></Teleport>`.
+- INVARIANT: `TeleportEntryBoundary` is an inner `defineComponent` with `errorCaptured(err, _instance, info) { …drop entry…; return false; }`. Returning `false` is REQUIRED — it stops the error from propagating to the host app's `app.config.errorHandler` and to ancestor `errorCaptured` hooks. Without it, a single misbehaving cell renderer would surface as a global Vue error.
+- INVARIANT: when dropping the entry, the handler MUST replace `teleports.value` with a new `Map` instance (`new Map(teleports.value); copy.delete(key); teleports.value = copy`). `ShallowRef` only fires on identity change; mutating the existing map in place would render the entry indefinitely on the next reactive flush.
+- FLOW: cell renderer throws during render → boundary's `errorCaptured` fires → entry dropped from map → console.error logged with entry key + Vue lifecycle info string → next render iteration omits the broken `<Teleport>` → subsequent `removeTeleport(key)` calls on the dropped key are safe no-ops (map.delete on missing key returns false).
+- DECIDED (#250/#251 follow-up, Apr 2026): mirrors React's `PortalBoundary` (see `react-overlay-editors` block & line 76 DECIDED entry). Vue's `errorCaptured` is the idiomatic equivalent of React's `componentDidCatch` — both are designed exactly for this "isolate one subtree's failure from siblings and from the host app" use case. Bundle cost ~30 lines / negligible gzipped.
+
 ## angular-adapter-testing
 
 - INVARIANT: the angular adapter project deliberately avoids `TestBed`. Bootstrapping the platform-browser-dynamic compiler in unit tests adds 3-5s per spec file and is unnecessary for component-free logic. Spec files document this with a comment near the imports.

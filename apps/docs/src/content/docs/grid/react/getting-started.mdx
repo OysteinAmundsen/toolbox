@@ -379,6 +379,58 @@ See the **API Reference > Hooks** section for detailed method signatures, return
 | [`useGridPrint()`](/grid/react/api/features/useGridPrint/) | `features/print` | `print`, `isPrinting` |
 | [`useGridUndoRedo()`](/grid/react/api/features/useGridUndoRedo/) | `features/undo-redo` | `undo`, `redo`, `canUndo`, `canRedo` |
 
+## Overlay Editors (`useGridOverlay`)
+
+Custom React editors that open a popover, listbox, calendar, or other floating panel typically render that panel into a portal so it can escape the cell's overflow clipping. Without help, the grid sees a click into the portal as a click _outside_ the editor and commits-and-exits the row before the user can pick an option.
+
+The `useGridOverlay` hook bridges that gap by registering the panel with the grid as an external focus container — the React equivalent of Angular's `BaseOverlayEditor.initOverlay()`. Pair it with `aria-expanded` / `aria-controls` on the trigger so even editors that forget to call the hook get correct keyboard / pointer behaviour out of the box (the editing plugin honours those attributes as a generic fallback — see [issue #251](https://github.com/datafabric/toolbox-web/issues/251)).
+
+```tsx
+import { createPortal } from 'react-dom';
+import { useId, useRef, useState } from 'react';
+import { useGridOverlay, type GridEditorContext } from '@toolbox-web/grid-react';
+
+function AutocompleteEditor({ value, commit, cancel }: GridEditorContext<MyRow>) {
+  const [open, setOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const listboxId = useId();
+
+  // Registers panelRef.current with the grid while open=true; unregisters
+  // automatically on close or unmount.
+  useGridOverlay(panelRef, { open });
+
+  return (
+    <>
+      <input
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={listboxId}
+        defaultValue={String(value ?? '')}
+        onClick={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') cancel();
+        }}
+      />
+      {open &&
+        createPortal(
+          <div ref={panelRef} id={listboxId} role="listbox" className="my-listbox">
+            {/* options that call commit(option) on click */}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+```
+
+`useGridOverlay(panelRef, options?)` resolves the owning `<tbw-grid>` in this order:
+
+1. `options.gridElement` if explicitly passed,
+2. `panelRef.current.closest('tbw-grid')` for inline (non-portaled) panels,
+3. The `GridElementContext` populated by `<DataGrid>` / `<GridProvider>`.
+
+The grid host is also exposed on `ColumnEditorContext.grid` for editors that need to call grid APIs directly without using the hook.
+
 ## Manual Plugin Instantiation
 
 Feature props are the recommended path. Use manual plugin instantiation only when you need a third-party plugin or a configuration the feature prop doesn't expose. Feature props and manual plugins can be mixed — the grid merges them.

@@ -61,6 +61,7 @@ export type { ColumnConfig, GridConfig } from './lib/react-column-config';
 
 // Hooks
 export { useGrid, type UseGridReturn } from './lib/use-grid';
+export { useGridOverlay, type UseGridOverlayOptions } from './lib/use-grid-overlay';
 
 // React adapter (for advanced manual registration - most users don't need this)
 export { GridAdapter } from './lib/react-grid-adapter';

@@ -60,6 +60,8 @@ export { GridAdapter, isVueComponent } from './lib/vue-grid-adapter';
 // Composables
 export { GRID_ELEMENT_KEY, useGrid } from './lib/use-grid';
 export type { UseGridReturn } from './lib/use-grid';
+export { useGridOverlay } from './lib/use-grid-overlay';
+export type { UseGridOverlayOptions } from './lib/use-grid-overlay';
 
 // Column shorthand utilities
 export { hasColumnShorthands, normalizeColumns, parseColumnShorthand } from './lib/column-shorthand';

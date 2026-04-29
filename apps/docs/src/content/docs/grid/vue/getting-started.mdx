@@ -240,6 +240,52 @@ const selection = useGridSelection('tbw-grid.primary');
 | `useGridPrint()` | `features/print` | `print`, `isPrinting` |
 | `useGridUndoRedo()` | `features/undo-redo` | `undo`, `redo`, `canUndo`, `canRedo` |
 
+## Overlay Editors (`useGridOverlay`)
+
+Custom Vue editors that open a popover, listbox, calendar, or other floating panel typically render that panel through `<Teleport>` so it can escape the cell's overflow clipping. Without help, the grid sees a click into the teleported panel as a click _outside_ the editor and commits-and-exits the row before the user can pick an option.
+
+The `useGridOverlay` composable bridges that gap by registering the panel with the grid as an external focus container — the Vue equivalent of Angular's `BaseOverlayEditor.initOverlay()` and React's `useGridOverlay`. Pair it with `aria-expanded` / `aria-controls` on the trigger so even editors that forget to call the composable get correct keyboard / pointer behaviour out of the box (the editing plugin honours those attributes as a generic fallback — see [issue #251](https://github.com/datafabric/toolbox-web/issues/251)).
+
+```html
+<script setup lang="ts">
+import { ref, useId } from 'vue';
+import { useGridOverlay, type GridEditorContext } from '@toolbox-web/grid-vue';
+
+const props = defineProps<{ ctx: GridEditorContext<MyRow> }>();
+const open = ref(false);
+const panel = ref<HTMLElement | null>(null);
+const listboxId = useId();
+
+// Registers panel.value with the grid while open.value === true; unregisters
+// automatically on close or unmount.
+useGridOverlay(panel, { open });
+</script>
+
+<template>
+  <input
+    role="combobox"
+    :aria-expanded="open"
+    :aria-controls="listboxId"
+    :value="ctx.value ?? ''"
+    @click="open = true"
+    @keydown.escape="ctx.cancel()"
+  />
+  <Teleport to="body" v-if="open">
+    <div ref="panel" :id="listboxId" role="listbox" class="my-listbox">
+      <!-- options that call ctx.commit(option) on click -->
+    </div>
+  </Teleport>
+</template>
+```
+
+`useGridOverlay(panelRef, options?)` resolves the owning `<tbw-grid>` in this order:
+
+1. `options.gridElement` if explicitly passed (accepts a `MaybeRef<DataGridElement>`),
+2. `panelRef.value.closest('tbw-grid')` for inline (non-teleported) panels,
+3. The `GRID_ELEMENT_KEY` injection populated by `<TbwGrid>` / `<GridProvider>`.
+
+`options.open` accepts a `MaybeRef<boolean>` so reactive refs and plain booleans both work. The grid host is also exposed on `ColumnEditorContext.grid` for editors that need to call grid APIs directly without using the composable.
+
 ## Manual Plugin Instantiation
 
 For custom configurations or third-party plugins, instantiate manually using `markRaw()`:

@@ -1306,6 +1306,32 @@ export interface ColumnEditorContext<TRow = any, TValue = any> {
    * ```
    */
   onValueChange?: (callback: (newValue: TValue) => void) => void;
+  /**
+   * The grid element that owns this editor.
+   *
+   * Use to access public grid API from custom editors — e.g.
+   * `grid.registerExternalFocusContainer(panel)` so the grid treats focus
+   * inside a portal-rendered overlay (Autocomplete, date picker, color
+   * picker) as "still inside the editor" and does not exit row edit on
+   * click. Mirrors {@link CellRenderContext.grid} for renderers.
+   *
+   * Always populated when the editor is mounted via the grid's editing
+   * pipeline. Optional in the type for backwards compatibility with
+   * factory functions written against the original signature.
+   *
+   * @example
+   * ```typescript
+   * const editor: ColumnEditorSpec = (ctx: ColumnEditorContext) => {
+   *   const panel = document.createElement('div');
+   *   document.body.appendChild(panel);
+   *   ctx.grid?.registerExternalFocusContainer(panel);
+   *   // ...
+   * };
+   * ```
+   *
+   * @see {@link CellRenderContext.grid}
+   */
+  grid?: DataGridElement;
 }
 // #endregion
 

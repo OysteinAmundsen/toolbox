@@ -58,6 +58,30 @@ describe('ConfigManager', () => {
       configManager.setFitMode('fit');
       expect(configManager.getFitMode()).toBe('fit');
     });
+
+    it('should preserve runtime column.hidden mutations when the same gridConfig reference is set again', () => {
+      // Regression: framework adapters (e.g. React's <DataGrid> ref callback) can re-assign
+      // the same memoized gridConfig reference on every render. setGridConfig must short-circuit
+      // on identity so the next merge() does not rebuild effectiveConfig.columns and wipe
+      // runtime state like col.hidden written by setColumnVisible() / applyColumnState().
+      const config: GridConfig<{ id: number; name: string }> = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+        ],
+      };
+      configManager.setGridConfig(config);
+      configManager.merge();
+      configManager.setColumnVisible('id', false);
+      expect(configManager.isColumnVisible('id')).toBe(false);
+
+      // Re-set the SAME reference (simulating React ref callback re-running).
+      configManager.setGridConfig(config);
+      configManager.merge();
+
+      // Hidden state must survive — sourcesChanged must NOT have been flipped.
+      expect(configManager.isColumnVisible('id')).toBe(false);
+    });
   });
 
   describe('Config Merge', () => {

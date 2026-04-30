@@ -452,6 +452,16 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
 
   const gridRef = useRef<ExtendedGridElement>(null);
   const customStylesIdRef = useRef<string | null>(null);
+  // Tracks whether the initial sync of gridConfig/rows/columns has been done.
+  // The <tbw-grid> ref callback writes these properties on first attach so the
+  // grid has its config before connectedCallback completes (useEffect runs after
+  // paint, which is too late). We must NOT re-run that on subsequent attaches:
+  // React detaches and reattaches inline refs on every render (calling the ref
+  // with `null` then with the element again), and rewriting `gridConfig` flips
+  // ConfigManager's sourcesChanged flag, which wipes runtime column state
+  // (visibility, width, sort) on the next merge. Ongoing prop changes are
+  // synced by the dedicated useEffects below.
+  const initialSyncDoneRef = useRef(false);
 
   // Get type defaults from context
   const typeDefaults = useContext(GridTypeContextInternal);
@@ -858,10 +868,10 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
         ref={(el) => {
           (gridRef as React.MutableRefObject<ExtendedGridElement | null>).current = el as ExtendedGridElement | null;
 
-          // Set initial config synchronously in ref callback
-          // This ensures gridConfig is available before connectedCallback completes its initial setup
-          // React's useEffect runs too late (after paint), causing the grid to initialize without config
-          if (el) {
+          // Initial sync ONCE on first attach. See `initialSyncDoneRef` declaration
+          // above for the rationale (React reattaches inline refs on every render).
+          if (el && !initialSyncDoneRef.current) {
+            initialSyncDoneRef.current = true;
             const grid = el as ExtendedGridElement;
             // Use processedGridConfig which has React renderers/editors wrapped as DOM functions
             // Cast through any because React renderers are not assignable to base DOM types

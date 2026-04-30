@@ -101,6 +101,7 @@ Loaded on demand from `.github/skills/` for task-specific workflows:
 - **Strict TypeScript:** `strict: true`, no implicit any
 - **Code style:** ESLint flat config + Prettier defaults
 - **Web components:** All libraries use standard custom elements, `tbw-` prefix
+- **Terminal command shape (Windows / Git Bash):** Do **not** pipe long-running or Nx commands through `| tail -n …`, `| head -n …`, or redirect with `2>&1` in this workspace. On the user's setup these constructs frequently cause the terminal integration to hang indefinitely (the command never returns control). Run the command plainly and let the tool's automatic output truncation handle large output. If you must filter, prefer `grep`/`awk` without an `2>&1` redirect, or write to a file with `> out.log` and read it with `read_file`.
 
 ## Common Pitfalls
 
@@ -108,6 +109,7 @@ Loaded on demand from `.github/skills/` for task-specific workflows:
 2. **TypeScript paths** — Use workspace paths (`@toolbox-web/*`) not relative paths between libs
 3. **Nx target names** — Use inferred targets from plugins (e.g., `test`, `build`, `lint`)
 4. **Bun vs Node** — This repo uses Bun; some Node-specific patterns may not work
+5. **Don't append `| tail`, `| head`, or `2>&1`** to terminal commands — they hang the terminal session on this machine. Run commands plainly.
 
 Grid-specific gotchas (DOM, rendering, plugin system) are in `grid-pitfalls.instructions.md` (auto-applied when editing grid files). **Check pitfalls first when something fails unexpectedly.**
 

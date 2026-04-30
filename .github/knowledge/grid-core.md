@@ -19,6 +19,7 @@ related: [grid-plugins, grid-features, data-flow-traces]
 - TENSION: light DOM observation deferred to idle (framework async content arrives late)
 - TENSION: debounced state-change events (100ms) to batch rapid attribute changes
 - TENSION: original is frozen but columns inside are mutable (needed for runtime state like hidden, width, sort)
+- INVARIANT: `setGridConfig(config)` short-circuits when `config === #gridConfig` (identity check, Apr 2026). WHY: framework adapters can re-assign the same memoized config reference on re-render (notably the React adapter's inline ref callback before it was gated — see `adapters.md` react-adapter DECIDED entry). Without the short-circuit, `sourcesChanged` flipped to `true` and the next `merge()` rebuilt `effectiveConfig.columns` from the original `gridConfig.columns`, discarding runtime column-level mutations (`hidden`, `width`, sort indicators) written by `setColumnVisible()` / `applyColumnState()`. The grid setter's own `oldValue !== value` guard only stops `#queueUpdate('gridConfig')` — it does NOT prevent `setGridConfig` from being called, so the defense must live in ConfigManager. Tests: `config-manager.spec.ts > should preserve runtime column.hidden mutations when the same gridConfig reference is set again`.
 
 ## render-scheduler
 

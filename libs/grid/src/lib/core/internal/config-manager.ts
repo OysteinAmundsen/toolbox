@@ -168,6 +168,13 @@ export class ConfigManager<T = unknown> {
   // #region Source Setters
   /** Set gridConfig source */
   setGridConfig(config: GridConfig<T> | undefined): void {
+    // Identity short-circuit: if the same reference is set again (common with
+    // memoized framework configs whose ref callback re-runs on every render),
+    // do nothing. Flipping #sourcesChanged here would cause the next merge()
+    // to rebuild #effectiveConfig.columns from the original config, wiping
+    // runtime mutations like col.hidden written by setColumnVisible() /
+    // applyColumnState().
+    if (this.#gridConfig === config) return;
     this.#gridConfig = config;
     this.#sourcesChanged = true;
     // Clear light DOM cache for framework async content

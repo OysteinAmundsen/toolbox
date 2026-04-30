@@ -40,15 +40,51 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option              | Type                     | Default    | Description                                     |
-| ------------------- | ------------------------ | ---------- | ----------------------------------------------- |
-| `position`          | `'top' \| 'bottom'`      | `'bottom'` | Position of the info bar                        |
-| `showRowCount`      | `boolean`                | `true`     | Show total row count                            |
-| `showSelectedCount` | `boolean`                | `true`     | Show selected row count                         |
-| `showFilteredCount` | `boolean`                | `true`     | Show filtered row count                         |
-| `fullWidth`         | `boolean`                | `false`    | Default fullWidth mode for all aggregation rows |
-| `aggregationRows`   | `AggregationRowConfig[]` | `[]`       | Aggregation rows with computed values           |
-| `customPanels`      | `PinnedRowsPanel[]`      | `[]`       | Custom status panels                            |
+| Option              | Type                     | Default    | Description                                                              |
+| ------------------- | ------------------------ | ---------- | ------------------------------------------------------------------------ |
+| `slots`             | `PinnedRowSlot[]`        | —          | **Recommended.** Unified ordered slot list (see [Slots API](#slots-api)) |
+| `position`          | `'top' \| 'bottom'`      | `'bottom'` | _Legacy._ Position of the info bar                                       |
+| `showRowCount`      | `boolean`                | `true`     | _Legacy._ Show total row count                                           |
+| `showSelectedCount` | `boolean`                | `true`     | _Legacy._ Show selected row count                                        |
+| `showFilteredCount` | `boolean`                | `true`     | _Legacy._ Show filtered row count                                        |
+| `fullWidth`         | `boolean`                | `false`    | Default fullWidth mode for all aggregation rows                          |
+| `aggregationRows`   | `AggregationRowConfig[]` | `[]`       | _Legacy._ Aggregation rows with computed values                          |
+| `customPanels`      | `PinnedRowsPanel[]`      | `[]`       | _Legacy._ Custom status panels                                           |
+
+> Legacy fields are still supported but ignored when `slots` is set. New code should prefer `slots`.
+
+## Slots API
+
+The unified `slots[]` array replaces both `aggregationRows[]` and
+`customPanels[]`. Each entry is either:
+
+- An **aggregation slot** — same shape as `AggregationRowConfig` (no `render`).
+- A **panel slot** — has a `render` field. `render` is either
+  `(ctx) => HTMLElement | null` (left zone) or an array of
+  `{ zone?: 'left' | 'center' | 'right', render }` entries.
+
+A `null` return from a panel render skips that contribution; a slot whose
+renderers all return `null` is dropped from the DOM. Built-in renderers
+`rowCountPanel()`, `selectedCountPanel()`, and `filteredCountPanel()` use
+this to self-hide when there is nothing to show.
+
+```typescript
+import {
+  PinnedRowsPlugin,
+  filteredCountPanel,
+  rowCountPanel,
+  selectedCountPanel,
+} from '@toolbox-web/grid/plugins/pinned-rows';
+
+new PinnedRowsPlugin({
+  slots: [
+    { position: 'top', aggregators: { price: 'sum' }, cells: { id: 'Totals:' } },
+    { position: 'bottom', render: rowCountPanel() },
+    { position: 'bottom', render: filteredCountPanel() },
+    { position: 'bottom', render: selectedCountPanel() },
+  ],
+});
+```
 
 ## Aggregation Rows
 

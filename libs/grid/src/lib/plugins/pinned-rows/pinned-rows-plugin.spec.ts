@@ -575,4 +575,334 @@ describe('PinnedRowsPlugin', () => {
       expect(typeof plugin.styles).toBe('string');
     });
   });
+
+  describe('slots[] API (issue #255)', () => {
+    it('renders slots in declared order within their position area', () => {
+      const plugin = new PinnedRowsPlugin({
+        slots: [
+          {
+            id: 'panel-a',
+            position: 'bottom',
+            render: () => {
+              const el = document.createElement('span');
+              el.textContent = 'A';
+              return el;
+            },
+          },
+          {
+            id: 'agg-b',
+            position: 'bottom',
+            aggregators: { qty: 'sum' },
+            cells: { product: 'B-totals' },
+          },
+          {
+            id: 'panel-c',
+            position: 'bottom',
+            render: () => {
+              const el = document.createElement('span');
+              el.textContent = 'C';
+              return el;
+            },
+          },
+        ],
+      });
+      const cols: ColumnConfig[] = [
+        { field: 'product', header: 'Product' },
+        { field: 'qty', header: 'Qty' },
+      ];
+      const grid = createMockGrid({ rows: [{ qty: 1 }, { qty: 2 }], columns: cols, visibleColumns: cols });
+
+      plugin.attach(grid);
+      plugin.afterRender();
+
+      const footer = grid.querySelector('.tbw-footer');
+      expect(footer).not.toBeNull();
+      const children = Array.from(footer!.children);
+      // Order: panel A, aggregation B, panel C
+      expect(children[0].getAttribute('data-pinned-row-id')).toBe('panel-a');
+      expect(children[1].classList.contains('tbw-aggregation-rows')).toBe(true);
+      expect(children[2].getAttribute('data-pinned-row-id')).toBe('panel-c');
+    });
+
+    it('places top slots in the .tbw-header-pinned wrapper between header and rows', () => {
+      const plugin = new PinnedRowsPlugin({
+        slots: [
+          {
+            id: 'top-panel',
+            position: 'top',
+            render: () => {
+              const el = document.createElement('span');
+              el.textContent = 'top';
+              return el;
+            },
+          },
+          {
+            id: 'bottom-panel',
+            position: 'bottom',
+            render: () => {
+              const el = document.createElement('span');
+              el.textContent = 'bot';
+              return el;
+            },
+          },
+        ],
+      });
+      const grid = createMockGrid({ rows: [{ id: 1 }] });
+
+      plugin.attach(grid);
+      plugin.afterRender();
+
+      const headerWrap = grid.querySelector('.tbw-header-pinned');
+      expect(headerWrap).not.toBeNull();
+      expect(headerWrap!.querySelector('[data-pinned-row-id="top-panel"]')).not.toBeNull();
+      // Header wrapper must come AFTER .header in the DOM
+      const scrollArea = grid.querySelector('.tbw-scroll-area')!;
+      const kids = Array.from(scrollArea.children);
+      const headerIdx = kids.indexOf(scrollArea.querySelector('.header')!);
+      const headerWrapIdx = kids.indexOf(headerWrap!);
+      expect(headerWrapIdx).toBeGreaterThan(headerIdx);
+
+      const footer = grid.querySelector('.tbw-footer');
+      expect(footer!.querySelector('[data-pinned-row-id="bottom-panel"]')).not.toBeNull();
+    });
+
+    it('distributes ZonedPanelRender entries across left/center/right zones', () => {
+      const plugin = new PinnedRowsPlugin({
+        slots: [
+          {
+            id: 'zoned',
+            position: 'bottom',
+            render: [
+              {
+                zone: 'left',
+                render: () => {
+                  const el = document.createElement('span');
+                  el.className = 'tbw-status-panel';
+                  el.textContent = 'L';
+                  return el;
+                },
+              },
+              {
+                zone: 'center',
+                render: () => {
+                  const el = document.createElement('span');
+                  el.className = 'tbw-status-panel';
+                  el.textContent = 'C';
+                  return el;
+                },
+              },
+              {
+                zone: 'right',
+                render: () => {
+                  const el = document.createElement('span');
+                  el.className = 'tbw-status-panel';
+                  el.textContent = 'R';
+                  return el;
+                },
+              },
+            ],
+          },
+        ],
+      });
+      const grid = createMockGrid({ rows: [{ id: 1 }] });
+
+      plugin.attach(grid);
+      plugin.afterRender();
+
+      const row = grid.querySelector('[data-pinned-row-id="zoned"]')!;
+      expect(row.querySelector('.tbw-pinned-rows-left')!.textContent).toBe('L');
+      expect(row.querySelector('.tbw-pinned-rows-center')!.textContent).toBe('C');
+      expect(row.querySelector('.tbw-pinned-rows-right')!.textContent).toBe('R');
+    });
+
+    it('skips a panel slot whose renderers all return null', () => {
+      const plugin = new PinnedRowsPlugin({
+        slots: [
+          { id: 'silent', position: 'bottom', render: () => null },
+          {
+            id: 'visible',
+            position: 'bottom',
+            render: () => {
+              const el = document.createElement('span');
+              el.textContent = 'hi';
+              return el;
+            },
+          },
+        ],
+      });
+      const grid = createMockGrid({ rows: [{ id: 1 }] });
+
+      plugin.attach(grid);
+      plugin.afterRender();
+
+      expect(grid.querySelector('[data-pinned-row-id="silent"]')).toBeNull();
+      expect(grid.querySelector('[data-pinned-row-id="visible"]')).not.toBeNull();
+    });
+
+    it('uses bottom position by default when slot.position is omitted', () => {
+      const plugin = new PinnedRowsPlugin({
+        slots: [
+          {
+            id: 'no-pos',
+            render: () => {
+              const el = document.createElement('span');
+              el.textContent = 'x';
+              return el;
+            },
+          },
+        ],
+      });
+      const grid = createMockGrid({ rows: [{ id: 1 }] });
+
+      plugin.attach(grid);
+      plugin.afterRender();
+
+      expect(grid.querySelector('.tbw-footer [data-pinned-row-id="no-pos"]')).not.toBeNull();
+      expect(grid.querySelector('.tbw-header-pinned')).toBeNull();
+    });
+
+    it('ignores legacy fields when slots[] is provided', () => {
+      const plugin = new PinnedRowsPlugin({
+        // Legacy fields should NOT contribute when slots[] is set.
+        showRowCount: true,
+        customPanels: [
+          {
+            id: 'legacy',
+            position: 'left',
+            render: () => {
+              const el = document.createElement('span');
+              el.textContent = 'legacy';
+              return el;
+            },
+          },
+        ],
+        slots: [
+          {
+            id: 'only-this',
+            position: 'bottom',
+            render: () => {
+              const el = document.createElement('span');
+              el.textContent = 'only';
+              return el;
+            },
+          },
+        ],
+      });
+      const grid = createMockGrid({ rows: [{ id: 1 }] });
+
+      plugin.attach(grid);
+      plugin.afterRender();
+
+      // Only the slot row should exist; legacy showRowCount and customPanels skipped.
+      expect(grid.querySelector('[data-pinned-row-id="only-this"]')).not.toBeNull();
+      expect(grid.querySelector('.tbw-status-panel-row-count')).toBeNull();
+      expect(grid.querySelector('#status-panel-legacy')).toBeNull();
+    });
+
+    it('switches cleanly between legacy mode and slot mode at runtime', () => {
+      const plugin = new PinnedRowsPlugin({ showRowCount: true });
+      const grid = createMockGrid({ rows: [{ id: 1 }] });
+
+      plugin.attach(grid);
+      plugin.afterRender();
+      expect(grid.querySelector('.tbw-status-panel-row-count')).not.toBeNull();
+
+      // Toggle into slot mode.
+      plugin.config.slots = [
+        {
+          id: 'slot-only',
+          position: 'bottom',
+          render: () => {
+            const el = document.createElement('span');
+            el.textContent = 'slot';
+            return el;
+          },
+        },
+      ];
+      plugin.afterRender();
+
+      // Legacy info bar should be gone, slot row present.
+      expect(grid.querySelector('.tbw-status-panel-row-count')).toBeNull();
+      expect(grid.querySelector('[data-pinned-row-id="slot-only"]')).not.toBeNull();
+
+      // Toggle back to legacy mode.
+      delete plugin.config.slots;
+      plugin.afterRender();
+      expect(grid.querySelector('[data-pinned-row-id="slot-only"]')).toBeNull();
+      expect(grid.querySelector('.tbw-status-panel-row-count')).not.toBeNull();
+    });
+  });
+
+  describe('built-in panel renderers', () => {
+    it('rowCountPanel always renders the total', async () => {
+      const { rowCountPanel } = await import('./pinned-rows');
+      const plugin = new PinnedRowsPlugin({
+        slots: [{ id: 'rc', position: 'bottom', render: rowCountPanel() }],
+      });
+      const grid = createMockGrid({ rows: [{ id: 1 }, { id: 2 }, { id: 3 }] });
+
+      plugin.attach(grid);
+      plugin.afterRender();
+
+      const el = grid.querySelector('[data-pinned-row-id="rc"] .tbw-status-panel-row-count');
+      expect(el?.textContent).toBe('Total: 3 rows');
+    });
+
+    it('selectedCountPanel returns null (slot skipped) when no selection', async () => {
+      const { selectedCountPanel } = await import('./pinned-rows');
+      const plugin = new PinnedRowsPlugin({
+        slots: [{ id: 'sc', position: 'bottom', render: selectedCountPanel() }],
+      });
+      const grid = createMockGrid({ rows: [{ id: 1 }], selectionState: { selected: new Set() } });
+
+      plugin.attach(grid);
+      plugin.afterRender();
+
+      expect(grid.querySelector('[data-pinned-row-id="sc"]')).toBeNull();
+    });
+
+    it('selectedCountPanel renders when rows are selected', async () => {
+      const { selectedCountPanel } = await import('./pinned-rows');
+      const plugin = new PinnedRowsPlugin({
+        slots: [{ id: 'sc', position: 'bottom', render: selectedCountPanel() }],
+      });
+      const grid = createMockGrid({ rows: [{ id: 1 }, { id: 2 }], selectionState: { selected: new Set([0, 1]) } });
+
+      plugin.attach(grid);
+      plugin.afterRender();
+
+      const el = grid.querySelector('[data-pinned-row-id="sc"] .tbw-status-panel-selected-count');
+      expect(el?.textContent).toBe('Selected: 2');
+    });
+
+    it('filteredCountPanel returns null when filtered === total', async () => {
+      const { filteredCountPanel } = await import('./pinned-rows');
+      const plugin = new PinnedRowsPlugin({
+        slots: [{ id: 'fc', position: 'bottom', render: filteredCountPanel() }],
+      });
+      const grid = createMockGrid({ rows: [{ id: 1 }, { id: 2 }] });
+
+      plugin.attach(grid);
+      plugin.afterRender();
+
+      expect(grid.querySelector('[data-pinned-row-id="fc"]')).toBeNull();
+    });
+
+    it('filteredCountPanel renders when filter is active', async () => {
+      const { filteredCountPanel } = await import('./pinned-rows');
+      const plugin = new PinnedRowsPlugin({
+        slots: [{ id: 'fc', position: 'bottom', render: filteredCountPanel() }],
+      });
+      const grid = createMockGrid({
+        rows: [{ id: 1 }, { id: 2 }, { id: 3 }],
+        filterState: { cachedResult: [{ id: 1 }] },
+      });
+
+      plugin.attach(grid);
+      plugin.afterRender();
+
+      const el = grid.querySelector('[data-pinned-row-id="fc"] .tbw-status-panel-filtered-count');
+      expect(el?.textContent).toBe('Filtered: 1');
+    });
+  });
 });

@@ -17,6 +17,17 @@
     min-width: fit-content;
   }
 
+  /* Top-side counterpart to .tbw-footer used by slot-mode (issue #255).
+   * Holds top pinned-row slots in declared order. Sits between the header
+   * and the rows area; same flex/width semantics as the footer so sticky
+   * children behave identically. */
+  .tbw-header-pinned {
+    flex-shrink: 0;
+    z-index: var(--tbw-z-layer-pinned-rows, 20);
+    background: var(--tbw-color-panel-bg);
+    min-width: fit-content;
+  }
+
   .tbw-pinned-rows {
     display: flex;
     align-items: center;
@@ -35,6 +46,14 @@
     left: 0;
     min-width: 0;
     width: 100cqi;
+  }
+  /* Slot-mode (issue #255) can stack multiple .tbw-pinned-rows rows inside the
+   * same wrapper. Suppress the duplicate border on adjacent siblings so we get
+   * one divider between rows instead of two. */
+  .tbw-pinned-rows + .tbw-pinned-rows,
+  .tbw-aggregation-rows + .tbw-pinned-rows,
+  .tbw-pinned-rows + .tbw-aggregation-rows {
+    border-top: 0;
   }
   .tbw-pinned-rows-left,
   .tbw-pinned-rows-center,

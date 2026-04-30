@@ -1,0 +1,112 @@
+---
+// PinnedRowsSlotsDemo.astro
+// Demonstrates the unified slots[] API (issue #255): mix aggregation rows
+// and panel rows in any order, top or bottom, with built-in panel renderers.
+import DemoControls from '@components/DemoControls.astro';
+---
+<div class="grid-demo not-content" id="pinned-rows-slots-demo">
+  <DemoControls controls={[
+    { section: 'OPTIONS', name: 'totalsAtTop', label: 'Totals row at top', type: 'boolean',
+      default: false, description: 'Move the aggregation slot above the data' },
+    { section: 'OPTIONS', name: 'showFiltered', label: 'Show "Filtered" panel', type: 'boolean',
+      default: true, description: 'Adds the built-in filteredCountPanel slot (only renders when filter is active)' },
+    { section: 'OPTIONS', name: 'showCustom', label: 'Show custom right-zone panel', type: 'boolean',
+      default: true, description: 'Adds a zoned panel with a custom message in the right zone' },
+  ]} />
+  <tbw-grid style="height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/pinned-rows';
+import {
+filteredCountPanel,
+rowCountPanel,
+selectedCountPanel,
+type PinnedRowSlot,
+} from '@toolbox-web/grid/plugins/pinned-rows';
+
+const container = document.getElementById('pinned-rows-slots-demo');
+if (container) {
+  const names = ['Widget', 'Gadget', 'Gizmo', 'Doohickey', 'Thingamabob'];
+  const data = Array.from({ length: 50 }, (_, i) => ({
+    id: i + 1,
+    name: names[i % names.length],
+    quantity: Math.floor(Math.random() * 100) + 10,
+    price: Math.round((Math.random() * 50 + 5) * 100) / 100,
+  }));
+
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'quantity', header: 'Qty', type: 'number' },
+    { field: 'price', header: 'Price', type: 'number' },
+  ];
+
+  const grid = queryGrid('tbw-grid', container)!;
+
+  function build(totalsAtTop: boolean, showFiltered: boolean, showCustom: boolean) {
+    const slots: PinnedRowSlot[] = [];
+
+    // Aggregation slot (one row)
+    slots.push({
+      id: 'totals',
+      position: totalsAtTop ? 'top' : 'bottom',
+      aggregators: {
+        quantity: 'sum',
+        price: { aggFunc: 'sum', formatter: (v: unknown) => `$${(v as number).toFixed(2)}` },
+      },
+      cells: { id: 'Totals:' },
+    });
+
+    // Built-in panel rows — each is its own DOM row, bottom by default
+    slots.push({ id: 'rc', position: 'bottom', render: rowCountPanel() });
+    slots.push({ id: 'sc', position: 'bottom', render: selectedCountPanel() });
+    if (showFiltered) {
+      slots.push({ id: 'fc', position: 'bottom', render: filteredCountPanel() });
+    }
+
+    // Custom zoned panel: row count on the left, a help message on the right
+    if (showCustom) {
+      slots.push({
+        id: 'help',
+        position: 'bottom',
+        render: [
+          {
+            zone: 'left',
+            render: (ctx) => {
+              const el = document.createElement('span');
+              el.className = 'tbw-status-panel';
+              el.textContent = `Showing ${ctx.rows.length} rows`;
+              return el;
+            },
+          },
+          {
+            zone: 'right',
+            render: () => {
+              const el = document.createElement('span');
+              el.className = 'tbw-status-panel';
+              el.textContent = 'Slot rows render in declared array order';
+              return el;
+            },
+          },
+        ],
+      });
+    }
+
+    grid.gridConfig = {
+      columns,
+      features: { pinnedRows: { slots } },
+    };
+    grid.rows = data;
+  }
+
+  build(false, true, true);
+
+  container.addEventListener('control-change', ((e: CustomEvent) => {
+    const v = e.detail.allValues;
+    build(v.totalsAtTop as boolean, v.showFiltered as boolean, v.showCustom as boolean);
+  }) as EventListener);
+}
+</script>

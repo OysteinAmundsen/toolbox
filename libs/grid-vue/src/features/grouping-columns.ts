@@ -38,18 +38,15 @@ import {
 } from '@toolbox-web/grid/plugins/grouping-columns';
 import type { VNode } from 'vue';
 import { registerFeature } from '../lib/feature-registry';
-import { renderToContainer } from '../lib/teleport-bridge';
+import { createNodeBridge } from '../lib/teleport-bridge';
 
 /** Bridge a Vue render function to a vanilla DOM render function. */
 function bridgeRenderer(
   vueFn: (params: GroupHeaderRenderParams) => VNode,
 ): (params: GroupHeaderRenderParams) => HTMLElement {
-  return (params: GroupHeaderRenderParams) => {
-    const wrapper = document.createElement('div');
-    wrapper.style.display = 'contents';
-    renderToContainer(wrapper, vueFn(params));
-    return wrapper;
-  };
+  const bridged = createNodeBridge<GroupHeaderRenderParams>(vueFn);
+  // Group headers always need an element; coerce null → empty wrapper.
+  return (params) => bridged(params) ?? document.createElement('div');
 }
 
 registerFeature('groupingColumns', (rawConfig) => {

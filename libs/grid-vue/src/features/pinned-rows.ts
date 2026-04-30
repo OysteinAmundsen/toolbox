@@ -59,7 +59,7 @@ import {
 } from '@toolbox-web/grid/plugins/pinned-rows';
 import type { VNode } from 'vue';
 import { registerFeature } from '../lib/feature-registry';
-import { renderToContainer } from '../lib/teleport-bridge';
+import { createNodeBridge } from '../lib/teleport-bridge';
 
 /** Vue-typed render function for a pinned-row panel slot. */
 type VuePanelRender = (ctx: PinnedRowsContext) => VNode | null | undefined;
@@ -81,16 +81,10 @@ type VuePinnedRowSlot = VuePanelSlot | AggregationSlot;
  * Wrap a Vue-returning render function in a vanilla `() => HTMLElement | null`.
  * `null` / `undefined` from the Vue function passes through so built-in
  * conditional panels (e.g. selectedCountPanel) can opt out.
+ * Thin alias around the shared `createNodeBridge` helper.
  */
 function bridgeVueRender(vueFn: VuePanelRender): (ctx: PinnedRowsContext) => HTMLElement | null {
-  return (ctx) => {
-    const vnode = vueFn(ctx);
-    if (vnode == null) return null;
-    const wrapper = document.createElement('div');
-    wrapper.style.display = 'contents';
-    renderToContainer(wrapper, vnode);
-    return wrapper;
-  };
+  return createNodeBridge<PinnedRowsContext>(vueFn);
 }
 
 /** Bridge a single slot. Aggregation slots pass through unchanged. */
@@ -139,15 +133,11 @@ registerFeature('pinnedRows', (rawConfig) => {
   if (Array.isArray(vueCustomPanels)) {
     options.customPanels = vueCustomPanels.map((panel) => {
       if (typeof panel.render !== 'function') return panel as never;
-      const vueFn = panel.render;
+      const bridged = createNodeBridge<PinnedRowsContext>(panel.render);
       return {
         ...panel,
-        render: (ctx: PinnedRowsContext) => {
-          const wrapper = document.createElement('div');
-          wrapper.style.display = 'contents';
-          renderToContainer(wrapper, vueFn(ctx));
-          return wrapper;
-        },
+        // customPanels expect HTMLElement (not nullable); coerce null → empty wrapper.
+        render: (ctx: PinnedRowsContext) => bridged(ctx) ?? document.createElement('div'),
       };
     });
   }

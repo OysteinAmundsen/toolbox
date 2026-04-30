@@ -216,6 +216,30 @@ export function clearAllContainers(): void {
 }
 
 /**
+ * Wrap a Vue-returning render function as a vanilla `(ctx) => HTMLElement | null`
+ * suitable for any grid renderer slot (cell renderer, group header, pinned-row
+ * panel, etc.). Returns `null` when the Vue function returns `null` /
+ * `undefined`, so built-in conditional renderers can opt out.
+ *
+ * The wrapper is a `<div style="display:contents">` so it imposes no layout.
+ * Each call mounts a fresh teleport entry — call sites that need to update the
+ * same container instead should use `renderToContainer` directly with
+ * `existingKey`.
+ */
+export function createNodeBridge<TCtx>(
+  vueFn: (ctx: TCtx) => VNode | null | undefined,
+): (ctx: TCtx) => HTMLElement | null {
+  return (ctx) => {
+    const vnode = vueFn(ctx);
+    if (vnode == null) return null;
+    const wrapper = document.createElement('div');
+    wrapper.style.display = 'contents';
+    renderToContainer(wrapper, vnode);
+    return wrapper;
+  };
+}
+
+/**
  * Reset the key counter. Only use in tests.
  * @internal
  */

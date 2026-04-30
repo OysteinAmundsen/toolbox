@@ -30,13 +30,13 @@
  */
 
 import {
-  GroupingRowsPlugin,
-  type GroupingRowsConfig,
-  type GroupRowRenderParams,
+    GroupingRowsPlugin,
+    type GroupingRowsConfig,
+    type GroupRowRenderParams,
 } from '@toolbox-web/grid/plugins/grouping-rows';
 import type { VNode } from 'vue';
 import { registerFeature } from '../lib/feature-registry';
-import { renderToContainer } from '../lib/teleport-bridge';
+import { createNodeBridge } from '../lib/teleport-bridge';
 
 registerFeature('groupingRows', (rawConfig) => {
   if (rawConfig === true) {
@@ -52,12 +52,9 @@ registerFeature('groupingRows', (rawConfig) => {
   // Bridge Vue groupRowRenderer (returns VNode) to vanilla (returns HTMLElement | string | void)
   if (typeof config.groupRowRenderer === 'function') {
     const vueFn = config.groupRowRenderer as unknown as (params: GroupRowRenderParams) => VNode;
-    options.groupRowRenderer = (params: GroupRowRenderParams) => {
-      const wrapper = document.createElement('div');
-      wrapper.style.display = 'contents';
-      renderToContainer(wrapper, vueFn(params));
-      return wrapper;
-    };
+    const bridged = createNodeBridge<GroupRowRenderParams>(vueFn);
+    // Group rows always need an element; coerce null → empty wrapper.
+    options.groupRowRenderer = (params) => bridged(params) ?? document.createElement('div');
   }
 
   return new GroupingRowsPlugin(options);

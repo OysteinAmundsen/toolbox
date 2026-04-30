@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearAllContainers,
   clearContainersForGrid,
+  createNodeBridge,
   getPortalManager,
   removeFromContainer,
   renderToContainer,
@@ -314,6 +315,35 @@ describe('portal-bridge', () => {
 
       renderToContainer(container, 'content');
       expect(() => clearAllContainers()).not.toThrow();
+    });
+  });
+
+  // #endregion
+
+  // #region createNodeBridge
+
+  describe('createNodeBridge', () => {
+    it('should return null when react fn returns null', () => {
+      const bridge = createNodeBridge<{ value: number }>(() => null);
+      expect(bridge({ value: 1 })).toBeNull();
+    });
+
+    it('should return null when react fn returns undefined', () => {
+      const bridge = createNodeBridge<{ value: number }>(() => undefined);
+      expect(bridge({ value: 1 })).toBeNull();
+    });
+
+    it('should return null when react fn returns false', () => {
+      const bridge = createNodeBridge<{ value: number }>(() => false);
+      expect(bridge({ value: 1 })).toBeNull();
+    });
+
+    it('should return a display:contents wrapper element when react fn returns a node', () => {
+      const bridge = createNodeBridge<{ label: string }>((ctx) => ctx.label);
+      const el = bridge({ label: 'hello' });
+      expect(el).not.toBeNull();
+      expect(el?.tagName).toBe('DIV');
+      expect(el?.style.display).toBe('contents');
     });
   });
 

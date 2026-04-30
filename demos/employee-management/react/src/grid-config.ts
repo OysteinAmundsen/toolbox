@@ -12,6 +12,7 @@
 
 import { DEPARTMENTS, type Employee } from '@demo/shared';
 import type { GridConfig } from '@toolbox-web/grid-react';
+import { filteredCountPanel, rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 import type { ReactNode } from 'react';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -177,10 +178,7 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
  * Pinned rows configuration for aggregation footer.
  */
 export const PINNED_ROWS_CONFIG = {
-  position: 'bottom' as const,
-  showRowCount: true,
-  showFilteredCount: true,
-  aggregationRows: [
+  slots: [
     {
       id: 'totals',
       position: 'bottom' as const,
@@ -200,6 +198,8 @@ export const PINNED_ROWS_CONFIG = {
         },
       },
     },
+    { id: 'count', position: 'bottom' as const, render: rowCountPanel() },
+    { id: 'filtered', position: 'bottom' as const, render: filteredCountPanel() },
   ],
 };
 

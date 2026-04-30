@@ -13,6 +13,7 @@
 import { DEPARTMENTS, type Employee } from '@demo/shared';
 // Import Vue-specific GridConfig that accepts VNode renderers/editors
 import type { GridConfig } from '@toolbox-web/grid-vue';
+import { filteredCountPanel, rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 import type { VNode } from 'vue';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -178,10 +179,7 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
  * Pinned rows configuration for aggregation footer.
  */
 export const PINNED_ROWS_CONFIG = {
-  position: 'bottom' as const,
-  showRowCount: true,
-  showFilteredCount: true,
-  aggregationRows: [
+  slots: [
     {
       id: 'totals',
       position: 'bottom' as const,
@@ -201,6 +199,8 @@ export const PINNED_ROWS_CONFIG = {
         },
       },
     },
+    { id: 'count', position: 'bottom' as const, render: rowCountPanel() },
+    { id: 'filtered', position: 'bottom' as const, render: filteredCountPanel() },
   ],
 };
 

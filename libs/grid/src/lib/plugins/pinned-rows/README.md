@@ -11,14 +11,12 @@ import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
 ## Usage
 
 ```typescript
-import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
+import { PinnedRowsPlugin, rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 
 grid.gridConfig = {
   plugins: [
     new PinnedRowsPlugin({
-      position: 'bottom',
-      showRowCount: true,
-      aggregationRows: [
+      slots: [
         {
           id: 'totals',
           position: 'bottom',
@@ -32,6 +30,7 @@ grid.gridConfig = {
           },
           cells: { id: 'Totals:' },
         },
+        { id: 'count', position: 'bottom', render: rowCountPanel() },
       ],
     }),
   ],
@@ -40,18 +39,15 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option              | Type                     | Default    | Description                                                              |
-| ------------------- | ------------------------ | ---------- | ------------------------------------------------------------------------ |
-| `slots`             | `PinnedRowSlot[]`        | —          | **Recommended.** Unified ordered slot list (see [Slots API](#slots-api)) |
-| `position`          | `'top' \| 'bottom'`      | `'bottom'` | _Legacy._ Position of the info bar                                       |
-| `showRowCount`      | `boolean`                | `true`     | _Legacy._ Show total row count                                           |
-| `showSelectedCount` | `boolean`                | `true`     | _Legacy._ Show selected row count                                        |
-| `showFilteredCount` | `boolean`                | `true`     | _Legacy._ Show filtered row count                                        |
-| `fullWidth`         | `boolean`                | `false`    | Default fullWidth mode for all aggregation rows                          |
-| `aggregationRows`   | `AggregationRowConfig[]` | `[]`       | _Legacy._ Aggregation rows with computed values                          |
-| `customPanels`      | `PinnedRowsPanel[]`      | `[]`       | _Legacy._ Custom status panels                                           |
+| Option      | Type              | Default | Description                                                    |
+| ----------- | ----------------- | ------- | -------------------------------------------------------------- |
+| `slots`     | `PinnedRowSlot[]` | `[]`    | Ordered list of pinned-row slots (see [Slots API](#slots-api)) |
+| `fullWidth` | `boolean`         | `false` | Default fullWidth mode applied to every aggregation slot       |
 
-> Legacy fields are still supported but ignored when `slots` is set. New code should prefer `slots`.
+> **Legacy fields** — `position`, `showRowCount`, `showSelectedCount`,
+> `showFilteredCount`, `aggregationRows`, `customPanels` — are still accepted
+> for backwards compatibility but are deprecated and ignored when `slots` is
+> set. New code should use `slots`.
 
 ## Slots API
 
@@ -115,13 +111,13 @@ Configure computed footer/header rows:
 
 When `fullWidth` is `true`, an aggregation row renders as a single spanning cell with the label and aggregated values displayed inline (similar to the row grouping plugin's full-width mode). When `false` (the default), each column gets its own cell aligned to the grid template.
 
-You can set `fullWidth` globally on `PinnedRowsConfig` or per-row on `AggregationRowConfig`. Per-row settings override the global default.
+You can set `fullWidth` globally on `PinnedRowsConfig` or per-slot on the aggregation slot. Per-slot settings override the global default.
 
 ```typescript
-// Global fullWidth: all aggregation rows span full width
+// Global fullWidth: all aggregation slots span full width
 new PinnedRowsPlugin({
   fullWidth: true,
-  aggregationRows: [
+  slots: [
     {
       id: 'totals',
       label: 'Totals',

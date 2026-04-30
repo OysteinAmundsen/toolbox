@@ -26,9 +26,10 @@ import '@toolbox-web/grid/features/selection';
 import '@toolbox-web/grid/features/undo-redo';
 import '@toolbox-web/grid/features/visibility';
 
-// PinnedRowsPlugin is imported directly to demonstrate the manual plugins approach
+// PinnedRowsPlugin is imported directly to demonstrate the manual plugins approach.
+// Built-in panel renderers are imported alongside it for the new slots[] API.
 import type { GridConfig } from '@toolbox-web/grid';
-import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
+import { filteredCountPanel, PinnedRowsPlugin, rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 
 import { DEPARTMENTS, type Employee } from '@demo/shared';
 
@@ -293,10 +294,7 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
     // that `features` and `plugins` can be mixed in the same config.
     plugins: [
       new PinnedRowsPlugin({
-        position: 'bottom',
-        showRowCount: true,
-        showFilteredCount: true,
-        aggregationRows: [
+        slots: [
           {
             id: 'totals',
             position: 'bottom',
@@ -316,6 +314,8 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
               },
             },
           },
+          { id: 'count', position: 'bottom', render: rowCountPanel() },
+          { id: 'filtered', position: 'bottom', render: filteredCountPanel() },
         ],
       }),
     ],

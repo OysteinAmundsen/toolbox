@@ -10,6 +10,10 @@ import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
 
 import '@toolbox-web/grid/features/pinned-rows';
+import {
+rowCountPanel,
+type PinnedRowSlot,
+} from '@toolbox-web/grid/plugins/pinned-rows';
 
 const container = document.getElementById('pinned-rows-custom-panels-demo');
 if (container) {
@@ -29,36 +33,50 @@ if (container) {
     { field: 'quantity', header: 'Qty', type: 'number' },
     { field: 'price', header: 'Price', type: 'number' },
   ];
-  // Currency formatter for price columns
-  const formatCurrency = (value: unknown) => `$${(value as number).toFixed(2)}`;
 
-  const grid = queryGrid('tbw-grid', container);
+  const grid = queryGrid('tbw-grid', container)!;
 
-      grid.gridConfig = {
-        columns,
-        features: {
-          pinnedRows: {
-            position: "bottom",
-            showRowCount: true,
-            customPanels: [
-              {
-                id: 'timestamp',
-                position: 'center',
-                render: () => `Last updated: ${new Date().toLocaleTimeString()}`,
-              },
-              {
-                id: 'total-value',
-                position: 'right',
-                render: (ctx) => {
-                  const rows = (ctx.grid).rows as Array<{ quantity: number; price: number }>;
-                  const total = rows.reduce((sum, row) => sum + (row.quantity || 0) * (row.price || 0), 0);
-                  return `<strong>Value: $${total.toFixed(2)}</strong>`;
-                },
-              },
-            ],
+  const slots: PinnedRowSlot[] = [
+    // Built-in: row count, left zone, always visible
+    { id: 'count', position: 'bottom', render: rowCountPanel() },
+    // Custom panel slot with two zones in the same row
+    {
+      id: 'info',
+      position: 'bottom',
+      render: [
+        {
+          zone: 'center',
+          render: () => {
+            const el = document.createElement('span');
+            el.className = 'tbw-status-panel';
+            el.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+            return el;
           },
         },
-      };
-      grid.rows = generateData(50);
+        {
+          zone: 'right',
+          render: (ctx) => {
+            const rows = ctx.rows as Array<{ quantity: number; price: number }>;
+            const total = rows.reduce(
+              (sum, row) => sum + (row.quantity || 0) * (row.price || 0),
+              0,
+            );
+            const el = document.createElement('strong');
+            el.className = 'tbw-status-panel';
+            el.textContent = `Value: $${total.toFixed(2)}`;
+            return el;
+          },
+        },
+      ],
+    },
+  ];
+
+  grid.gridConfig = {
+    columns,
+    features: {
+      pinnedRows: { slots },
+    },
+  };
+  grid.rows = generateData(50);
 }
 </script>

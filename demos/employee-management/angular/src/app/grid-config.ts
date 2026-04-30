@@ -22,12 +22,14 @@ import type { GridConfig } from '@toolbox-web/grid-angular';
 // Exceptions: GroupingColumnsPlugin (columnGroups config), ResponsivePlugin (<tbw-grid-responsive-card>)
 import {
   EditingPlugin,
+  filteredCountPanel,
   FilteringPlugin,
   GroupingColumnsPlugin,
   MasterDetailPlugin,
   MultiSortPlugin,
   PinnedRowsPlugin,
   ResponsivePlugin,
+  rowCountPanel,
   SelectionPlugin,
   UndoRedoPlugin,
 } from '@toolbox-web/grid/all';
@@ -222,12 +224,9 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
         : []),
       // UndoRedoPlugin always loaded since EditingPlugin is always loaded
       new UndoRedoPlugin({ maxHistorySize: 100 }),
-      // PinnedRowsPlugin has complex aggregation config, keeping as plugin
+      // PinnedRowsPlugin: aggregation row + built-in count panels via slots[]
       new PinnedRowsPlugin({
-        position: 'bottom',
-        showRowCount: true,
-        showFilteredCount: true,
-        aggregationRows: [
+        slots: [
           {
             id: 'totals',
             position: 'bottom',
@@ -257,6 +256,8 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
               },
             },
           },
+          { id: 'count', position: 'bottom', render: rowCountPanel() },
+          { id: 'filtered', position: 'bottom', render: filteredCountPanel() },
         ],
       }),
     ],

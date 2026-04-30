@@ -30,10 +30,20 @@ describe('PinnedRowsPlugin', () => {
     const scrollArea = document.createElement('div');
     scrollArea.className = 'tbw-scroll-area';
 
+    // Mirror the real grid DOM: `.header` lives inside `.rows-body`, which is
+    // wrapped by `.rows-body-wrapper` directly under `.tbw-scroll-area`.
+    // The plugin must NOT rely on `.header.nextSibling` being a child of
+    // `.tbw-scroll-area` — it isn't.
+    const rowsBodyWrapper = document.createElement('div');
+    rowsBodyWrapper.className = 'rows-body-wrapper';
+    const rowsBody = document.createElement('div');
+    rowsBody.className = 'rows-body';
     const header = document.createElement('div');
     header.className = 'header';
 
-    scrollArea.appendChild(header);
+    rowsBody.appendChild(header);
+    rowsBodyWrapper.appendChild(rowsBody);
+    scrollArea.appendChild(rowsBodyWrapper);
     container.appendChild(scrollArea);
     grid.appendChild(container);
 

@@ -9,16 +9,19 @@
  * ```vue
  * <script setup>
  * import '@toolbox-web/grid-vue/features/pinned-rows';
+ * import { rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
  * </script>
  *
  * <template>
  *   <TbwGrid :pinnedRows="{
- *     bottom: [{ type: 'aggregation', aggregator: 'sum' }],
+ *     slots: [
+ *       { id: 'count', position: 'bottom', render: rowCountPanel() },
+ *     ],
  *   }" />
  * </template>
  * ```
  *
- * @example Custom panel with Vue render function (legacy customPanels)
+ * @example Custom panel with Vue render function (legacy `customPanels` — deprecated)
  * ```vue
  * <TbwGrid :pinnedRows="{
  *   customPanels: [{

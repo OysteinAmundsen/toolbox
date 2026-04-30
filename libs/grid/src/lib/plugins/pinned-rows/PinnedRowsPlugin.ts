@@ -58,7 +58,10 @@ import type {
  * @example Status Bar with Aggregation
  * ```ts
  * import '@toolbox-web/grid';
- * import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
+ * import {
+ *   PinnedRowsPlugin,
+ *   rowCountPanel,
+ * } from '@toolbox-web/grid/plugins/pinned-rows';
  *
  * grid.gridConfig = {
  *   columns: [
@@ -68,14 +71,14 @@ import type {
  *   ],
  *   plugins: [
  *     new PinnedRowsPlugin({
- *       position: 'bottom',
- *       showRowCount: true,
- *       aggregationRows: [
+ *       slots: [
  *         {
  *           id: 'totals',
+ *           position: 'bottom',
  *           aggregators: { quantity: 'sum', price: 'sum' },
  *           cells: { product: 'Totals:' },
  *         },
+ *         { id: 'count', position: 'bottom', render: rowCountPanel() },
  *       ],
  *     }),
  *   ],
@@ -200,14 +203,13 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
       if (!this.headerWrapper) {
         this.headerWrapper = document.createElement('div');
         this.headerWrapper.className = 'tbw-header-pinned';
-        const header = gridEl.querySelector('.header');
-        if (header && header.nextSibling) {
-          container.insertBefore(this.headerWrapper, header.nextSibling);
-        } else if (header) {
-          container.appendChild(this.headerWrapper);
-        } else {
-          container.insertBefore(this.headerWrapper, container.firstChild);
-        }
+        // Insert at the top of the scroll area, before the rows body wrapper.
+        // We cannot use `header.nextSibling` as a reference because `.header`
+        // lives inside `.rows-body` (not directly in `container`), so passing
+        // its sibling to `insertBefore` would throw NotFoundError. The header
+        // is `position: sticky` within `.rows-body`, so it visually stays on
+        // top regardless of where this wrapper sits in `container`.
+        container.insertBefore(this.headerWrapper, container.firstChild);
       }
       this.populateSlotWrapper(this.headerWrapper, topSlots, 'top', context);
     } else if (this.headerWrapper) {
@@ -282,12 +284,10 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     if (topRows.length > 0) {
       if (!this.topAggregationContainer) {
         this.topAggregationContainer = createAggregationContainer('top');
-        const header = gridEl.querySelector('.header');
-        if (header && header.nextSibling) {
-          container.insertBefore(this.topAggregationContainer, header.nextSibling);
-        } else {
-          container.appendChild(this.topAggregationContainer);
-        }
+        // See note in renderSlotMode: `.header` is nested in `.rows-body`,
+        // not in `container`, so its `nextSibling` is not a valid reference
+        // for `container.insertBefore`. Insert at the top of `container`.
+        container.insertBefore(this.topAggregationContainer, container.firstChild);
       }
       renderAggregationRows(
         this.topAggregationContainer,

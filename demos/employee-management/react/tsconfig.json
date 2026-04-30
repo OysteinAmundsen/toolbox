@@ -18,6 +18,9 @@
   "exclude": ["node_modules"],
   "references": [
     {
+      "path": "../../../libs/grid"
+    },
+    {
       "path": "../../../libs/grid-react"
     }
   ]

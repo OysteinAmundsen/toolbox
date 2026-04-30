@@ -4,9 +4,7 @@ description: "Pin summary or custom rows to the top or bottom of the grid."
 ---
 
 import { TabItem, Tabs } from '@astrojs/starlight/components';
-import PinnedRowsCustomPanelsDemo from '@components/demos/pinned-rows/PinnedRowsCustomPanelsDemo.astro';
-import PinnedRowsDefaultDemo from '@components/demos/pinned-rows/PinnedRowsDefaultDemo.astro';
-import PinnedRowsSlotsDemo from '@components/demos/pinned-rows/PinnedRowsSlotsDemo.astro';
+import PinnedRowsDemo from '@components/demos/pinned-rows/PinnedRowsDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
 
@@ -21,12 +19,17 @@ import '@toolbox-web/grid/features/pinned-rows';
 
 ## Basic Usage
 
-Configure aggregation rows with built-in functions (`sum`, `avg`, `count`, `min`, `max`) or custom aggregators. Each aggregation row can have different calculations per column.
+Pinned rows are configured with a unified `slots[]` array. Each slot becomes
+its own DOM row at `position: 'top'` or `position: 'bottom'` (default
+`'bottom'`), in declared order. A slot is either an **aggregation row**
+(sum/avg/min/max/count/first/last or a custom function per column) or a
+**panel row** (a `render` function — built-in or custom).
 
 <Tabs syncKey="framework">
   <TabItem label="TypeScript">
 ```ts
 import { queryGrid } from '@toolbox-web/grid';
+import { rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 
 const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
@@ -37,17 +40,17 @@ grid.gridConfig = {
   ],
   features: {
     pinnedRows: {
-      position: 'bottom',
-      showRowCount: true,
-      aggregationRows: [
+      slots: [
         {
           id: 'totals',
+          position: 'bottom',
           aggregators: {
             quantity: 'sum',
             price: { aggFunc: 'sum', formatter: (v) => `$${v.toFixed(2)}` },
           },
           cells: { product: 'Totals:' },
         },
+        { id: 'count', position: 'bottom', render: rowCountPanel() },
       ],
     },
   },
@@ -58,6 +61,7 @@ grid.gridConfig = {
 ```tsx
 import '@toolbox-web/grid-react/features/pinned-rows';
 import { DataGrid } from '@toolbox-web/grid-react';
+import { rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 
 function OrderGrid({ orders }) {
   return (
@@ -69,14 +73,14 @@ function OrderGrid({ orders }) {
         { field: 'price', header: 'Price', type: 'currency' },
       ]}
       pinnedRows={{
-        position: 'bottom',
-        showRowCount: true,
-        aggregationRows: [
+        slots: [
           {
             id: 'totals',
+            position: 'bottom',
             aggregators: { quantity: 'sum', price: 'sum' },
             cells: { product: 'Totals:' },
           },
+          { id: 'count', position: 'bottom', render: rowCountPanel() },
         ],
       }}
     />
@@ -89,6 +93,7 @@ function OrderGrid({ orders }) {
 <script setup>
 import '@toolbox-web/grid-vue/features/pinned-rows';
 import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 
 const orders = [
   { product: 'Widget', quantity: 10, price: 99.99 },
@@ -96,13 +101,14 @@ const orders = [
 ];
 
 const pinnedRowsConfig = {
-  position: 'bottom',
-  aggregationRows: [
+  slots: [
     {
       id: 'totals',
+      position: 'bottom',
       aggregators: { quantity: 'sum', price: 'sum' },
       cells: { product: 'Totals:' },
     },
+    { id: 'count', position: 'bottom', render: rowCountPanel() },
   ],
 };
 </script>
@@ -124,6 +130,7 @@ import '@toolbox-web/grid-angular/features/pinned-rows';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
+import { rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 
 @Component({
   selector: 'app-order-grid',
@@ -147,14 +154,14 @@ export class OrderGridComponent {
   ];
 
   pinnedRowsConfig = {
-    position: 'bottom' as const,
-    showRowCount: true,
-    aggregationRows: [
+    slots: [
       {
         id: 'totals',
+        position: 'bottom' as const,
         aggregators: { quantity: 'sum', price: 'sum' },
         cells: { product: 'Totals:' },
       },
+      { id: 'count', position: 'bottom' as const, render: rowCountPanel() },
     ],
   };
 }
@@ -162,55 +169,33 @@ export class OrderGridComponent {
   </TabItem>
 </Tabs>
 
-## Demos
+## Demo
 
-### Aggregation Rows
+Use the controls to explore aggregation rows (top or bottom, single or
+stacked, full-width or per-column), the built-in row-count status panel
+and a custom right-zone panel. Every behaviour below is driven by the
+same `slots[]` array.
 
-Use the controls to change position, toggle row count, switch between single and multiple aggregation rows, or enable full-width mode.
-
-<ShowSource file="demos/pinned-rows/PinnedRowsDefaultDemo.astro">
-  <PinnedRowsDefaultDemo />
-</ShowSource>
-
-
-
-### Custom Panels
-
-<ShowSource file="demos/pinned-rows/PinnedRowsCustomPanelsDemo.astro">
-  <PinnedRowsCustomPanelsDemo />
-</ShowSource>
-
-### Slots API — stacked panels & ordered rows
-
-The unified `slots[]` API lets you stack multiple status-panel rows and mix
-them with aggregation rows in any order, top or bottom. Each slot becomes its
-own DOM row in declared order. Built-in panel renderers (`rowCountPanel`,
-`selectedCountPanel`, `filteredCountPanel`) self-hide when their count is
-zero or no filter is active.
-
-<ShowSource file="demos/pinned-rows/PinnedRowsSlotsDemo.astro">
-  <PinnedRowsSlotsDemo />
+<ShowSource file="demos/pinned-rows/PinnedRowsDemo.astro">
+  <PinnedRowsDemo />
 </ShowSource>
 
 
 
 ## Configuration Options
 
-| Option              | Type                     | Default    | Description                                     |
-| ------------------- | ------------------------ | ---------- | ----------------------------------------------- |
-| `slots`             | `PinnedRowSlot[]`        | —          | **Recommended.** Unified ordered slot list (see [Slots API](#slots-api-recommended)) |
-| `position`          | `'top' \| 'bottom'`      | `'bottom'` | _Legacy._ Status bar position                    |
-| `showRowCount`      | `boolean`                | `true`     | _Legacy._ Display row count                      |
-| `showSelectedCount` | `boolean`                | `true`     | _Legacy._ Display selected row count             |
-| `showFilteredCount` | `boolean`                | `true`     | _Legacy._ Display filtered row count             |
-| `fullWidth`         | `boolean`                | `false`    | Default fullWidth mode for all aggregation rows  |
-| `aggregationRows`   | `AggregationRowConfig[]` | `[]`       | _Legacy._ Aggregation footer rows                |
-| `customPanels`      | `PinnedRowsPanel[]`      | `[]`       | _Legacy._ Custom info bar panels                 |
+| Option      | Type                | Default    | Description                                                                  |
+| ----------- | ------------------- | ---------- | ---------------------------------------------------------------------------- |
+| `slots`     | `PinnedRowSlot[]`   | `[]`       | Unified ordered list of pinned-row slots (see [Slots API](#slots-api))       |
+| `fullWidth` | `boolean`           | `false`    | Default `fullWidth` mode applied to every aggregation slot                   |
 
-> **Legacy fields are still supported** and produce identical output. They are
-> ignored when `slots` is provided. New code should prefer `slots`.
+> **Legacy fields** — `position`, `showRowCount`, `showSelectedCount`,
+> `showFilteredCount`, `aggregationRows`, `customPanels` — are still accepted
+> for backwards compatibility but are deprecated and ignored when `slots` is
+> set. They will be removed in a future major release. New code should use
+> `slots`. See the [migration notes](#migrating-from-legacy-fields) below.
 
-## Slots API (recommended)
+## Slots API
 
 The `slots[]` array is a unified, ordered list of pinned-row entries. Each
 slot becomes its own DOM row inside its `position` area (`'top'` or
@@ -291,12 +276,13 @@ via the existing portal/teleport/component-rendering machinery:
 
 ## Aggregation Rows
 
-Configure computed footer/header rows with aggregators:
+An **aggregation slot** (any slot without a `render` field) computes values
+from the current rows on a per-column basis:
 
 ```ts
 features: {
   pinnedRows: {
-    aggregationRows: [
+    slots: [
       {
         id: 'totals',
         position: 'bottom',
@@ -330,17 +316,23 @@ features: {
 
 ## Full-Width Mode
 
-When `fullWidth` is `true`, aggregation rows render as a single spanning cell with the label and aggregated values displayed inline—similar to the row grouping plugin's full-width mode. When `false` (the default), each column gets its own cell aligned to the grid template.
+When `fullWidth` is `true`, an aggregation slot renders as a single spanning
+cell with the label and aggregated values displayed inline—similar to the
+row grouping plugin's full-width mode. When `false` (the default), each
+column gets its own cell aligned to the grid template.
 
-The `label` property works in both modes. In per-column mode it renders as an overlay at the left edge of the row, independent of column width—so the text won't truncate even if the first column is narrow.
+The `label` property works in both modes. In per-column mode it renders as
+an overlay at the left edge of the row, independent of column width—so the
+text won't truncate even if the first column is narrow.
 
-Set `fullWidth` globally on the plugin config or per-row on `AggregationRowConfig`. Per-row settings override the global default:
+Set `fullWidth` globally on the plugin config or per-slot on the aggregation
+slot. Per-slot settings override the global default:
 
 ```ts
 features: {
   pinnedRows: {
-    fullWidth: true,  // All aggregation rows span full width by default
-    aggregationRows: [
+    fullWidth: true,  // All aggregation slots span full width by default
+    slots: [
       {
         id: 'totals',
         label: 'Totals',
@@ -357,23 +349,98 @@ features: {
 },
 ```
 
-## Custom Panels
+## Custom Panel Slots
+
+Use a panel slot — any slot with a `render` field — to inject custom
+content. `render` is either a single function (rendered into the left zone)
+or an array of `{ zone, render }` entries to populate `'left'`, `'center'`,
+and/or `'right'` zones in one row:
 
 ```ts
 features: {
   pinnedRows: {
-    customPanels: [
+    slots: [
       {
         id: 'info',
-        position: 'right',
-        render: (ctx) => `<span>Rows: ${ctx.totalRows}</span>`,
+        position: 'bottom',
+        render: [
+          {
+            zone: 'right',
+            render: (ctx) => {
+              const el = document.createElement('span');
+              el.textContent = `Rows: ${ctx.totalRows}`;
+              return el;
+            },
+          },
+        ],
       },
     ],
   },
 },
 ```
 
+Return `null` from a render function to skip that contribution; if every
+contribution in a slot returns `null` the whole row is dropped. The built-in
+`selectedCountPanel()` and `filteredCountPanel()` use this to self-hide.
+
+### Stateful counter — combine totals, filter and selection
+
+Because everything you need is on the context object, a single render
+function can adapt its message to grid state without reading from any
+plugin directly. The example below shows one combined counter that:
+
+- shows `Total: N rows` when nothing is filtered or selected,
+- switches to `Filtered: M / N` when a filter is active,
+- switches to `Selected: S of N` when rows are selected,
+- and combines into `Selected: S of M / N` when both apply.
+
+```ts
+features: {
+  pinnedRows: {
+    slots: [
+      {
+        id: 'counter',
+        position: 'bottom',
+        render: (ctx) => {
+          const { totalRows, filteredRows, selectedRows } = ctx;
+          const isFiltered = filteredRows !== totalRows;
+          const visible = isFiltered ? `${filteredRows} / ${totalRows}` : `${totalRows}`;
+
+          let text: string;
+          if (selectedRows > 0) {
+            text = `Selected: ${selectedRows} of ${visible}`;
+          } else if (isFiltered) {
+            text = `Filtered: ${visible}`;
+          } else {
+            text = `Total: ${totalRows} rows`;
+          }
+
+          const el = document.createElement('span');
+          el.className = 'tbw-status-panel';
+          el.textContent = text;
+          return el;
+        },
+      },
+    ],
+  },
+},
+```
+
+## Migrating from Legacy Fields
+
+The legacy top-level fields are deprecated. Map them to `slots` as follows:
+
+| Legacy field                    | Slots equivalent                                                         |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| `position: 'top' \| 'bottom'`   | Per-slot `position` field                                                |
+| `showRowCount: true`            | `{ render: rowCountPanel() }`                                            |
+| `showSelectedCount: true`       | `{ render: selectedCountPanel() }`                                       |
+| `showFilteredCount: true`       | `{ render: filteredCountPanel() }`                                       |
+| `aggregationRows: [{ ... }]`    | Same shape — drop into `slots[]` (no `render` field)                     |
+| `customPanels: [{ render }]`    | Wrap as `{ render: [{ zone: panel.position, render: panel.render }] }`   |
+
 ## See Also
 
 - **[Pinned Columns](/grid/plugins/pinned-columns/)** — Sticky columns
 - **[Core Configuration](/grid/core/)** — Grid configuration overview
+

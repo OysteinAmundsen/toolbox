@@ -15,10 +15,6 @@ import DemoControls from '@components/DemoControls.astro';
       default: false, description: 'Render aggregation rows as a single spanning cell with inline label' },
     { section: 'STATUS PANELS', name: 'showRowCount', label: 'Row count panel', type: 'boolean',
       default: true, description: 'Built-in rowCountPanel() — always visible' },
-    { section: 'STATUS PANELS', name: 'showFiltered', label: 'Filtered count panel', type: 'boolean',
-      default: true, description: 'Built-in filteredCountPanel() — self-hides when no filter is active' },
-    { section: 'STATUS PANELS', name: 'showSelected', label: 'Selected count panel', type: 'boolean',
-      default: true, description: 'Built-in selectedCountPanel() — self-hides when no row is selected' },
     { section: 'STATUS PANELS', name: 'showCustom', label: 'Custom right-zone panel', type: 'boolean',
       default: true, description: 'A custom panel slot rendered in the right zone' },
   ]} />
@@ -29,12 +25,10 @@ import DemoControls from '@components/DemoControls.astro';
 import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/pinned-rows';
-import '@toolbox-web/grid/features/selection';
 import {
-filteredCountPanel,
 rowCountPanel,
-selectedCountPanel,
 type PinnedRowSlot,
+type ZonedPanelRender,
 } from '@toolbox-web/grid/plugins/pinned-rows';
 
 const container = document.getElementById('pinned-rows-demo');
@@ -62,8 +56,6 @@ if (container) {
     multipleRows: boolean;
     fullWidth: boolean;
     showRowCount: boolean;
-    showFiltered: boolean;
-    showSelected: boolean;
     showCustom: boolean;
   }) {
     const aggregationSlots: PinnedRowSlot[] = opts.multipleRows
@@ -108,43 +100,36 @@ if (container) {
           },
         ];
 
-    const slots: PinnedRowSlot[] = [...aggregationSlots];
-    if (opts.showRowCount) {
-      slots.push({ id: 'count', position: 'bottom', render: rowCountPanel() });
-    }
-    if (opts.showFiltered) {
-      slots.push({ id: 'filtered', position: 'bottom', render: filteredCountPanel() });
-    }
-    if (opts.showSelected) {
-      slots.push({ id: 'selected', position: 'bottom', render: selectedCountPanel() });
-    }
+    // All status panels share a SINGLE slot so they appear on one DOM row.
+    // Each entry in `render: [...]` is a zone contribution within that row;
+    // adding more slots would stack additional rows below.
+    const statusContribs: ZonedPanelRender[] = [];
+    if (opts.showRowCount) statusContribs.push({ zone: 'left', render: rowCountPanel() });
     if (opts.showCustom) {
-      slots.push({
-        id: 'custom',
-        position: 'bottom',
-        render: [
-          {
-            zone: 'right',
-            render: (ctx) => {
-              const rows = ctx.rows as Array<{ quantity: number; price: number }>;
-              const total = rows.reduce(
-                (sum, row) => sum + (row.quantity || 0) * (row.price || 0),
-                0,
-              );
-              const el = document.createElement('strong');
-              el.className = 'tbw-status-panel';
-              el.textContent = `Inventory value: ${formatCurrency(total)}`;
-              return el;
-            },
-          },
-        ],
+      statusContribs.push({
+        zone: 'right',
+        render: (ctx) => {
+          const rows = ctx.rows as Array<{ quantity: number; price: number }>;
+          const total = rows.reduce(
+            (sum, row) => sum + (row.quantity || 0) * (row.price || 0),
+            0,
+          );
+          const el = document.createElement('strong');
+          el.className = 'tbw-status-panel';
+          el.textContent = `Inventory value: ${formatCurrency(total)}`;
+          return el;
+        },
       });
+    }
+
+    const slots: PinnedRowSlot[] = [...aggregationSlots];
+    if (statusContribs.length > 0) {
+      slots.push({ id: 'status', position: 'bottom', render: statusContribs });
     }
 
     grid.gridConfig = {
       columns,
       features: {
-        selection: { mode: 'multiple' },
         pinnedRows: { fullWidth: opts.fullWidth, slots },
       },
     };
@@ -156,8 +141,6 @@ if (container) {
     multipleRows: false,
     fullWidth: false,
     showRowCount: true,
-    showFiltered: true,
-    showSelected: true,
     showCustom: true,
   });
 
@@ -168,8 +151,6 @@ if (container) {
       multipleRows: v.multipleRows as boolean,
       fullWidth: v.fullWidth as boolean,
       showRowCount: v.showRowCount as boolean,
-      showFiltered: v.showFiltered as boolean,
-      showSelected: v.showSelected as boolean,
       showCustom: v.showCustom as boolean,
     });
   }) as EventListener);

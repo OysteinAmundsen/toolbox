@@ -321,7 +321,7 @@ Feature props enable declarative plugin loading with tree-shaking. Import the fe
 | `rowDragDrop` | `features/row-drag-drop` | `true` or `{ dropZone: 'employees' }` |
 | `visibility` | `features/visibility` | `true` |
 | `pinnedColumns` | `features/pinned-columns` | `true` |
-| `pinnedRows` | `features/pinned-rows` | `true`, `{ bottom: [...] }` |
+| `pinnedRows` | `features/pinned-rows` | `true`, `{ slots: [{ position: 'bottom', aggregators: { ... } }] }` |
 | `groupingColumns` | `features/grouping-columns` | `true`, `{ columnGroups: [...] }` |
 | `groupingRows` | `features/grouping-rows` | `{ groupOn: (row) => [row.department] }` |
 | `tree` | `features/tree` | `{ childrenField: 'children' }` |
@@ -1482,16 +1482,19 @@ pinned.clearStickyPositions();          // Remove all sticky positioning
 
 ```typescript
 new PinnedRowsPlugin({
-  position?: 'top' | 'bottom',                // Info bar position (default: 'bottom')
-  showRowCount?: boolean,                      // Show total row count (default: true)
-  showSelectedCount?: boolean,                 // Show selected count (default: true)
-  showFilteredCount?: boolean,                 // Show filtered count (default: true)
-  customPanels?: PinnedRowsPanel[],            // Custom info bar panels
-  aggregationRows?: AggregationRowConfig[],    // Footer/header aggregation rows
-  fullWidth?: boolean,                         // Default fullWidth for all aggregation rows (default: false)
-  // AggregationRowConfig.label works in both modes:
+  slots?: PinnedRowSlot[],                     // Ordered list of pinned-row slots
+                                               //   Aggregation slot: { id?, position?, label?, fullWidth?, aggregators, cells? }
+                                               //   Panel slot:       { id?, position?, render: (ctx) => HTMLElement | null
+                                               //                                        | Array<{ zone?: 'left' | 'center' | 'right', render }> }
+                                               //   Built-in panel renderers exported alongside the plugin:
+                                               //     rowCountPanel(), selectedCountPanel(), filteredCountPanel()
+  fullWidth?: boolean,                         // Default fullWidth for all aggregation slots (default: false)
+  // AggregationSlot.label works in both modes:
   //   fullWidth: true  → inline before aggregated values
   //   fullWidth: false → overlay at left edge, independent of column width
+  //
+  // Legacy fields (deprecated, ignored when `slots` is set):
+  //   position, showRowCount, showSelectedCount, showFilteredCount, customPanels, aggregationRows
 })
 // Programmatic API:
 const rows = grid.getPluginByName('pinnedRows');

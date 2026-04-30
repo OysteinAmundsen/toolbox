@@ -8,11 +8,16 @@
  * @example
  * ```tsx
  * import '@toolbox-web/grid-react/features/pinned-rows';
+ * import { rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
  *
- * <DataGrid pinnedRows={{ position: 'bottom', showRowCount: true }} />
+ * <DataGrid pinnedRows={{
+ *   slots: [
+ *     { id: 'count', position: 'bottom', render: rowCountPanel() },
+ *   ],
+ * }} />
  * ```
  *
- * @example Custom panel with React component (legacy customPanels)
+ * @example Custom panel with React component (legacy `customPanels` — deprecated)
  * ```tsx
  * <DataGrid pinnedRows={{
  *   customPanels: [{

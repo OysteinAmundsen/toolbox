@@ -6,6 +6,7 @@ description: "Pin summary or custom rows to the top or bottom of the grid."
 import { TabItem, Tabs } from '@astrojs/starlight/components';
 import PinnedRowsCustomPanelsDemo from '@components/demos/pinned-rows/PinnedRowsCustomPanelsDemo.astro';
 import PinnedRowsDefaultDemo from '@components/demos/pinned-rows/PinnedRowsDefaultDemo.astro';
+import PinnedRowsSlotsDemo from '@components/demos/pinned-rows/PinnedRowsSlotsDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
 
@@ -179,19 +180,114 @@ Use the controls to change position, toggle row count, switch between single and
   <PinnedRowsCustomPanelsDemo />
 </ShowSource>
 
+### Slots API — stacked panels & ordered rows
+
+The unified `slots[]` API lets you stack multiple status-panel rows and mix
+them with aggregation rows in any order, top or bottom. Each slot becomes its
+own DOM row in declared order. Built-in panel renderers (`rowCountPanel`,
+`selectedCountPanel`, `filteredCountPanel`) self-hide when their count is
+zero or no filter is active.
+
+<ShowSource file="demos/pinned-rows/PinnedRowsSlotsDemo.astro">
+  <PinnedRowsSlotsDemo />
+</ShowSource>
+
 
 
 ## Configuration Options
 
 | Option              | Type                     | Default    | Description                                     |
 | ------------------- | ------------------------ | ---------- | ----------------------------------------------- |
-| `position`          | `'top' \| 'bottom'`      | `'bottom'` | Status bar position                              |
-| `showRowCount`      | `boolean`                | `true`     | Display row count                                |
-| `showSelectedCount` | `boolean`                | `true`     | Display selected row count                       |
-| `showFilteredCount` | `boolean`                | `true`     | Display filtered row count                       |
+| `slots`             | `PinnedRowSlot[]`        | —          | **Recommended.** Unified ordered slot list (see [Slots API](#slots-api-recommended)) |
+| `position`          | `'top' \| 'bottom'`      | `'bottom'` | _Legacy._ Status bar position                    |
+| `showRowCount`      | `boolean`                | `true`     | _Legacy._ Display row count                      |
+| `showSelectedCount` | `boolean`                | `true`     | _Legacy._ Display selected row count             |
+| `showFilteredCount` | `boolean`                | `true`     | _Legacy._ Display filtered row count             |
 | `fullWidth`         | `boolean`                | `false`    | Default fullWidth mode for all aggregation rows  |
-| `aggregationRows`   | `AggregationRowConfig[]` | `[]`       | Aggregation footer rows                          |
-| `customPanels`      | `PinnedRowsPanel[]`      | `[]`       | Custom info bar panels                           |
+| `aggregationRows`   | `AggregationRowConfig[]` | `[]`       | _Legacy._ Aggregation footer rows                |
+| `customPanels`      | `PinnedRowsPanel[]`      | `[]`       | _Legacy._ Custom info bar panels                 |
+
+> **Legacy fields are still supported** and produce identical output. They are
+> ignored when `slots` is provided. New code should prefer `slots`.
+
+## Slots API (recommended)
+
+The `slots[]` array is a unified, ordered list of pinned-row entries. Each
+slot becomes its own DOM row inside its `position` area (`'top'` or
+`'bottom'`, default `'bottom'`), in declared order. Two slot shapes coexist:
+
+- **Aggregation slot** — anything **without** a `render` field is treated as
+  an aggregation row (same shape as `AggregationRowConfig`: `aggregators`,
+  `cells`, `label`, `fullWidth`).
+- **Panel slot** — anything **with** a `render` field. `render` is either a
+  `(ctx) => HTMLElement | null` function (rendered into the left zone), or
+  an array of `{ zone?: 'left' | 'center' | 'right', render }` entries.
+
+A panel render that returns `null` skips that contribution; a slot whose
+renderers all return `null` is dropped from the DOM. This is how the built-in
+`selectedCountPanel` and `filteredCountPanel` self-hide when their count is
+zero / unfiltered.
+
+### Built-in panel renderers
+
+```ts
+import {
+  filteredCountPanel,
+  rowCountPanel,
+  selectedCountPanel,
+} from '@toolbox-web/grid/plugins/pinned-rows';
+```
+
+| Renderer                | Always renders?                         |
+| ----------------------- | --------------------------------------- |
+| `rowCountPanel()`       | Yes                                     |
+| `selectedCountPanel()`  | Only when `selectedRows > 0`            |
+| `filteredCountPanel()`  | Only when `filteredRows !== totalRows`  |
+
+### Example
+
+```ts
+import {
+  filteredCountPanel,
+  rowCountPanel,
+  selectedCountPanel,
+} from '@toolbox-web/grid/plugins/pinned-rows';
+
+features: {
+  pinnedRows: {
+    slots: [
+      // Aggregation row at the top
+      { position: 'top', aggregators: { price: 'sum' }, cells: { id: 'Totals:' } },
+
+      // Three stacked status-panel rows at the bottom (in this order)
+      { position: 'bottom', render: rowCountPanel() },
+      { position: 'bottom', render: filteredCountPanel() },
+      { position: 'bottom', render: selectedCountPanel() },
+
+      // Mixed-zone panel: left + right content in one row
+      {
+        position: 'bottom',
+        render: [
+          { zone: 'left',  render: (ctx) => myLeftBadge(ctx) },
+          { zone: 'right', render: (ctx) => myRightBadge(ctx) },
+        ],
+      },
+    ],
+  },
+},
+```
+
+### Framework adapters
+
+All three adapters bridge `slots[].render` automatically — return your
+framework's native node and the adapter wraps it in a vanilla DOM element
+via the existing portal/teleport/component-rendering machinery:
+
+| Adapter | `render` may return                        |
+| ------- | ------------------------------------------ |
+| React   | `ReactNode \| null` (e.g. `<span>...</span>`) |
+| Vue     | `VNode \| null` (e.g. `h('span', ...)`)    |
+| Angular | `Type<unknown> \| null` (a component class) |
 
 ## Aggregation Rows
 

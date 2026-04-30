@@ -182,6 +182,7 @@ tbw-grid:not([data-responsive]) .cell[data-responsive-value-only] {
 /* Hide pinned/aggregation rows in responsive mode - they don't make sense in card layout */
 tbw-grid[data-responsive] {
   .tbw-footer,
+  .tbw-header-pinned,
   .tbw-pinned-rows,
   .tbw-aggregation-rows {
     display: none !important;

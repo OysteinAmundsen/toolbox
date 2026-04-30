@@ -6,14 +6,19 @@
  */
 
 import { aggregatorRegistry } from '../../core/internal/aggregators';
+import { sanitizeHTML } from '../../core/internal/sanitize';
 import type { ColumnConfig } from '../../core/types';
 import type {
   AggregationRowConfig,
   AggregatorConfig,
   AggregatorDefinition,
+  PanelRender,
+  PanelSlot,
+  PanelZone,
   PinnedRowsConfig,
   PinnedRowsContext,
   PinnedRowsPanel,
+  ZonedPanelRender,
 } from './types';
 
 /**
@@ -301,7 +306,7 @@ function renderCustomPanel(panel: PinnedRowsPanel, context: PinnedRowsContext): 
   const content = panel.render(context);
 
   if (typeof content === 'string') {
-    panelEl.innerHTML = content;
+    panelEl.innerHTML = sanitizeHTML(content);
   } else {
     panelEl.appendChild(content);
   }
@@ -360,3 +365,129 @@ export function buildContext(
     grid,
   };
 }
+
+// #region Slot-aware (issue #255) renderers
+
+/**
+ * Built-in panel renderer: total row count.
+ * Always renders. Output: `<span class="tbw-status-panel tbw-status-panel-row-count">Total: N rows</span>`.
+ */
+export function rowCountPanel(): PanelRender {
+  return (ctx) => {
+    const el = document.createElement('span');
+    el.className = 'tbw-status-panel tbw-status-panel-row-count';
+    el.textContent = `Total: ${ctx.totalRows} rows`;
+    return el;
+  };
+}
+
+/**
+ * Built-in panel renderer: selected row count.
+ * Returns `null` (skipped) when no rows are selected.
+ */
+export function selectedCountPanel(): PanelRender {
+  return (ctx) => {
+    if (ctx.selectedRows <= 0) return null;
+    const el = document.createElement('span');
+    el.className = 'tbw-status-panel tbw-status-panel-selected-count';
+    el.textContent = `Selected: ${ctx.selectedRows}`;
+    return el;
+  };
+}
+
+/**
+ * Built-in panel renderer: filtered row count.
+ * Returns `null` (skipped) when the filtered count equals the total (no filter active).
+ */
+export function filteredCountPanel(): PanelRender {
+  return (ctx) => {
+    if (ctx.filteredRows === ctx.totalRows) return null;
+    const el = document.createElement('span');
+    el.className = 'tbw-status-panel tbw-status-panel-filtered-count';
+    el.textContent = `Filtered: ${ctx.filteredRows}`;
+    return el;
+  };
+}
+
+/**
+ * Wraps the user's panel HTMLElement in the standard `.tbw-status-panel` envelope.
+ * Mirrors the legacy custom-panel DOM shape so consumer CSS keeps working.
+ *
+ * Intentionally does NOT set an `id` — a panel slot may produce multiple
+ * wrappers (one per `ZonedPanelRender` entry) and duplicating the slot id
+ * across them would violate HTML id uniqueness. The owning row already
+ * carries `data-pinned-row-id={slot.id}` for identification.
+ */
+function wrapCustomPanelElement(element: HTMLElement): HTMLElement {
+  const panelEl = document.createElement('div');
+  panelEl.className = 'tbw-status-panel tbw-status-panel-custom';
+  panelEl.appendChild(element);
+  return panelEl;
+}
+
+/**
+ * Renders a single {@link PanelSlot} as a `.tbw-pinned-rows` row with three zones.
+ * Returns `null` if no panel content was produced (all renders returned null).
+ */
+export function renderPanelSlot(slot: PanelSlot, context: PinnedRowsContext): HTMLElement | null {
+  // Build the three zones up-front so we can drop the row entirely if everything is null.
+  const row = document.createElement('div');
+  row.className = 'tbw-pinned-rows';
+  row.setAttribute('role', 'presentation');
+  row.setAttribute('aria-live', 'polite');
+  if (slot.id) row.setAttribute('data-pinned-row-id', slot.id);
+
+  const left = document.createElement('div');
+  left.className = 'tbw-pinned-rows-left';
+  const center = document.createElement('div');
+  center.className = 'tbw-pinned-rows-center';
+  const right = document.createElement('div');
+  right.className = 'tbw-pinned-rows-right';
+
+  const zoneOf: Record<PanelZone, HTMLElement> = { left, center, right };
+
+  const renderers: ZonedPanelRender[] = Array.isArray(slot.render)
+    ? slot.render
+    : [{ zone: 'left', render: slot.render }];
+
+  for (const entry of renderers) {
+    const zone = entry.zone ?? 'left';
+    const out = entry.render(context);
+    if (out == null) continue;
+    // Built-in panels return their element ready-to-append; wrap others
+    // (user-supplied via render array) consistently in .tbw-status-panel only
+    // when not already a status panel, to preserve existing semantics.
+    const isAlreadyStatusPanel = out.classList?.contains('tbw-status-panel');
+    zoneOf[zone].appendChild(isAlreadyStatusPanel ? out : wrapCustomPanelElement(out));
+  }
+
+  if (left.children.length === 0 && center.children.length === 0 && right.children.length === 0) {
+    return null;
+  }
+
+  row.appendChild(left);
+  row.appendChild(center);
+  row.appendChild(right);
+  return row;
+}
+
+/**
+ * Renders a single {@link AggregationRowConfig} (slot variant) as one
+ * `.tbw-aggregation-rows` container holding one `.tbw-aggregation-row`.
+ *
+ * The container class includes `-top` or `-bottom` to preserve existing CSS
+ * (e.g. border-top vs border-bottom).
+ */
+export function renderAggregationSlot(
+  slot: AggregationRowConfig,
+  position: 'top' | 'bottom',
+  columns: ColumnConfig[],
+  dataRows: unknown[],
+  globalFullWidth = false,
+): HTMLElement {
+  const container = createAggregationContainer(position);
+  renderAggregationRows(container, [slot], columns, dataRows, globalFullWidth);
+  return container;
+}
+
+// #endregion

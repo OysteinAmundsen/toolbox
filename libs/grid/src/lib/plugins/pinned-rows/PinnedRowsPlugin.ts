@@ -8,9 +8,22 @@
 
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
-import { buildContext, createAggregationContainer, createInfoBarElement, renderAggregationRows } from './pinned-rows';
+import {
+  buildContext,
+  createAggregationContainer,
+  createInfoBarElement,
+  renderAggregationRows,
+  renderAggregationSlot,
+  renderPanelSlot,
+} from './pinned-rows';
 import styles from './pinned-rows.css?inline';
-import type { AggregationRowConfig, PinnedRowsConfig, PinnedRowsContext, PinnedRowsPanel } from './types';
+import type {
+  AggregationRowConfig,
+  PinnedRowSlot,
+  PinnedRowsConfig,
+  PinnedRowsContext,
+  PinnedRowsPanel,
+} from './types';
 
 /**
  * Pinned Rows (Status Bar) Plugin for tbw-grid
@@ -95,27 +108,17 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
   private topAggregationContainer: HTMLElement | null = null;
   private bottomAggregationContainer: HTMLElement | null = null;
   private footerWrapper: HTMLElement | null = null;
+  /** Slot-mode wrapper: holds top slot rows when `config.slots` is provided. */
+  private headerWrapper: HTMLElement | null = null;
+  /** Tracks whether the last render used slot mode, so we can clean up the
+   *  opposite mode's DOM if the user toggles between APIs at runtime. */
+  private lastModeWasSlots = false;
   // #endregion
 
   // #region Lifecycle
   /** @internal */
   override detach(): void {
-    if (this.infoBarElement) {
-      this.infoBarElement.remove();
-      this.infoBarElement = null;
-    }
-    if (this.topAggregationContainer) {
-      this.topAggregationContainer.remove();
-      this.topAggregationContainer = null;
-    }
-    if (this.bottomAggregationContainer) {
-      this.bottomAggregationContainer.remove();
-      this.bottomAggregationContainer = null;
-    }
-    if (this.footerWrapper) {
-      this.footerWrapper.remove();
-      this.footerWrapper = null;
-    }
+    this.cleanup();
   }
   // #endregion
 
@@ -134,9 +137,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     if (!container) return;
 
     // Clear orphaned element references if they were removed from the DOM
-    // (e.g., by buildGridDOMIntoShadow calling replaceChildren())
-    // We check if the element is still inside the container rather than isConnected,
-    // because in unit tests the mock grid may not be attached to document.body
+    // (e.g., by buildGridDOMIntoShadow calling replaceChildren()).
     if (this.footerWrapper && !container.contains(this.footerWrapper)) {
       this.footerWrapper = null;
       this.bottomAggregationContainer = null;
@@ -147,6 +148,9 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     }
     if (this.infoBarElement && !container.contains(this.infoBarElement)) {
       this.infoBarElement = null;
+    }
+    if (this.headerWrapper && !container.contains(this.headerWrapper)) {
+      this.headerWrapper = null;
     }
 
     // Build context with plugin states
@@ -160,6 +164,114 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
       selectionState,
       filterState,
     );
+
+    // Mode dispatch: explicit `slots[]` ⇒ slot-driven layout.
+    // Otherwise: legacy layout (preserves byte-identical DOM for existing consumers).
+    if (this.config.slots) {
+      this.renderSlotMode(container as HTMLElement, gridEl, context);
+    } else {
+      this.renderLegacyMode(container as HTMLElement, gridEl, context);
+    }
+  }
+  // #endregion
+
+  // #region Slot-mode rendering (issue #255)
+  /**
+   * Slot-driven render path: iterates `config.slots` in declared order and emits
+   * one DOM row per slot inside `.tbw-header-pinned` (top) or `.tbw-footer` (bottom).
+   * The slot order in the array is preserved as the visual top→bottom order
+   * within each area.
+   */
+  private renderSlotMode(container: HTMLElement, gridEl: HTMLElement, context: PinnedRowsContext): void {
+    // If we just switched into slot mode from legacy mode, tear down the
+    // legacy DOM elements so we don't end up with both rendered side-by-side.
+    if (!this.lastModeWasSlots) {
+      this.detachLegacyOnly();
+    }
+    this.lastModeWasSlots = true;
+
+    const slots = this.config.slots ?? [];
+    const topSlots = slots.filter((s) => s.position === 'top');
+    const bottomSlots = slots.filter((s) => s.position !== 'top');
+
+    // Top wrapper sits AFTER the header (mirrors the legacy top-aggregation
+    // insertion site); see the DECIDED entry in grid-plugins knowledge.
+    if (topSlots.length > 0) {
+      if (!this.headerWrapper) {
+        this.headerWrapper = document.createElement('div');
+        this.headerWrapper.className = 'tbw-header-pinned';
+        const header = gridEl.querySelector('.header');
+        if (header && header.nextSibling) {
+          container.insertBefore(this.headerWrapper, header.nextSibling);
+        } else if (header) {
+          container.appendChild(this.headerWrapper);
+        } else {
+          container.insertBefore(this.headerWrapper, container.firstChild);
+        }
+      }
+      this.populateSlotWrapper(this.headerWrapper, topSlots, 'top', context);
+    } else if (this.headerWrapper) {
+      this.headerWrapper.remove();
+      this.headerWrapper = null;
+    }
+
+    if (bottomSlots.length > 0) {
+      if (!this.footerWrapper) {
+        this.footerWrapper = document.createElement('div');
+        this.footerWrapper.className = 'tbw-footer';
+        container.appendChild(this.footerWrapper);
+      }
+      this.populateSlotWrapper(this.footerWrapper, bottomSlots, 'bottom', context);
+    } else if (this.footerWrapper) {
+      this.footerWrapper.remove();
+      this.footerWrapper = null;
+    }
+  }
+
+  /**
+   * Replaces the contents of a top/bottom wrapper with one DOM row per slot,
+   * in array order. Drops slots that emit nothing (panel slot whose renderers
+   * all returned null).
+   */
+  private populateSlotWrapper(
+    wrapper: HTMLElement,
+    slots: PinnedRowSlot[],
+    position: 'top' | 'bottom',
+    context: PinnedRowsContext,
+  ): void {
+    wrapper.innerHTML = '';
+    for (const slot of slots) {
+      const isPanel = 'render' in slot && (slot as { render?: unknown }).render != null;
+      const rowEl = isPanel
+        ? renderPanelSlot(slot as Parameters<typeof renderPanelSlot>[0], context)
+        : renderAggregationSlot(
+            slot as AggregationRowConfig,
+            position,
+            this.visibleColumns as ColumnConfig[],
+            this.sourceRows as unknown[],
+            this.config.fullWidth,
+          );
+      if (rowEl) wrapper.appendChild(rowEl);
+    }
+  }
+  // #endregion
+
+  // #region Legacy-mode rendering (DOM byte-identical to pre-#255 behavior)
+  private renderLegacyMode(container: HTMLElement, gridEl: HTMLElement, context: PinnedRowsContext): void {
+    if (this.lastModeWasSlots) {
+      // Switched out of slot mode — drop the slot-mode wrappers.
+      if (this.headerWrapper) {
+        this.headerWrapper.remove();
+        this.headerWrapper = null;
+      }
+      if (this.footerWrapper) {
+        this.footerWrapper.remove();
+        this.footerWrapper = null;
+      }
+      this.bottomAggregationContainer = null;
+      this.infoBarElement = null;
+    }
+    this.lastModeWasSlots = false;
 
     // #region Handle Aggregation Rows
     const aggregationRows = this.config.aggregationRows || [];
@@ -265,6 +377,30 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     if (this.footerWrapper) {
       this.footerWrapper.remove();
       this.footerWrapper = null;
+    }
+    if (this.headerWrapper) {
+      this.headerWrapper.remove();
+      this.headerWrapper = null;
+    }
+  }
+
+  /** Detach only the legacy-mode DOM (used when switching legacy → slot mode). */
+  private detachLegacyOnly(): void {
+    if (this.topAggregationContainer) {
+      this.topAggregationContainer.remove();
+      this.topAggregationContainer = null;
+    }
+    if (this.bottomAggregationContainer) {
+      this.bottomAggregationContainer.remove();
+      this.bottomAggregationContainer = null;
+    }
+    if (this.footerWrapper) {
+      this.footerWrapper.remove();
+      this.footerWrapper = null;
+    }
+    if (this.infoBarElement) {
+      this.infoBarElement.remove();
+      this.infoBarElement = null;
     }
   }
 

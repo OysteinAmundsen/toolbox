@@ -24,7 +24,12 @@ import type {
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import type { GroupHeaderRenderParams, GroupingColumnsConfig } from '@toolbox-web/grid/plugins/grouping-columns';
 import type { GroupingRowsConfig, GroupRowRenderParams } from '@toolbox-web/grid/plugins/grouping-rows';
-import type { PinnedRowsConfig, PinnedRowsContext } from '@toolbox-web/grid/plugins/pinned-rows';
+import type {
+  PinnedRowsConfig,
+  PinnedRowsContext,
+  PinnedRowSlot,
+  ZonedPanelRender,
+} from '@toolbox-web/grid/plugins/pinned-rows';
 import { isComponentClass, type ColumnConfig, type GridConfig, type TypeDefault } from './angular-column-config';
 import { getEditorTemplate, GridEditorContext } from './directives/grid-column-editor.directive';
 import { getViewTemplate, GridCellContext } from './directives/grid-column-view.directive';
@@ -1030,27 +1035,74 @@ export class GridAdapter implements FrameworkAdapter {
 
   /**
    * Processes a PinnedRowsConfig, converting component class references
-   * in `customPanels[].render` to actual renderer functions.
+   * in `customPanels[].render` AND in `slots[].render` (issue #255) to
+   * actual renderer functions.
    *
    * @param config - Angular pinned rows configuration with possible component class references
    * @returns Processed PinnedRowsConfig with actual renderer functions
    */
   processPinnedRowsConfig(config: PinnedRowsConfig): PinnedRowsConfig {
-    if (!Array.isArray(config.customPanels)) return config;
+    let next: PinnedRowsConfig = config;
 
-    const hasComponentRender = config.customPanels.some((panel) => isComponentClass(panel.render));
-    if (!hasComponentRender) return config;
-
-    return {
-      ...config,
-      customPanels: config.customPanels.map((panel) => {
-        if (!isComponentClass(panel.render)) return panel;
-        return {
-          ...panel,
-          render: this.createComponentPinnedRowsPanelRenderer(panel.render),
+    // Legacy customPanels bridging (unchanged behavior).
+    if (Array.isArray(config.customPanels)) {
+      const hasComponentRender = config.customPanels.some((panel) => isComponentClass(panel.render));
+      if (hasComponentRender) {
+        next = {
+          ...next,
+          customPanels: config.customPanels.map((panel) => {
+            if (!isComponentClass(panel.render)) return panel;
+            return {
+              ...panel,
+              render: this.createComponentPinnedRowsPanelRenderer(panel.render),
+            };
+          }),
         };
-      }),
-    };
+      }
+    }
+
+    // Slots[] bridging — each PanelSlot.render may be a component class,
+    // or an array of { zone?, render } where each render may be a component class.
+    if (Array.isArray(config.slots)) {
+      next = {
+        ...next,
+        slots: config.slots.map((slot) => this.bridgePinnedRowSlot(slot)),
+      };
+    }
+
+    return next;
+  }
+
+  /**
+   * Bridge a single pinned-row slot. Aggregation slots (no `render`) pass through.
+   * For panel slots, wrap any component-class `render` (or array entry's `render`)
+   * with the Angular component renderer.
+   * @internal
+   */
+  private bridgePinnedRowSlot(slot: PinnedRowSlot): PinnedRowSlot {
+    if (!('render' in slot) || slot.render == null) return slot;
+
+    if (Array.isArray(slot.render)) {
+      const zoned: ZonedPanelRender[] = slot.render.map((entry) => {
+        if (entry?.render == null) return entry;
+        if (isComponentClass(entry.render)) {
+          return {
+            zone: entry.zone,
+            render: this.createComponentPinnedRowsPanelRenderer(entry.render as Type<unknown>),
+          };
+        }
+        return entry;
+      });
+      return { ...slot, render: zoned };
+    }
+
+    if (isComponentClass(slot.render)) {
+      return {
+        ...slot,
+        render: this.createComponentPinnedRowsPanelRenderer(slot.render as Type<unknown>),
+      };
+    }
+    return slot;
   }
 
   /**

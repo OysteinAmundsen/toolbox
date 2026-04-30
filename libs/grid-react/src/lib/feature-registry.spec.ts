@@ -16,7 +16,7 @@ import {
   registerFeature,
   type FeatureName,
 } from './feature-registry';
-import { createPluginsFromFeatures, validateFeatureDependencies } from './use-sync-plugins';
+import { createPluginsFromFeatures, getUnregisteredFeatures, validateFeatureDependencies } from './use-sync-plugins';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FEATURE REGISTRY TESTS
@@ -206,6 +206,34 @@ describe('use-sync-plugins', () => {
 
       // Selection should be created before clipboard
       expect(order.indexOf('selection')).toBeLessThan(order.indexOf('clipboard'));
+    });
+  });
+
+  describe('getUnregisteredFeatures', () => {
+    it('should return empty array when no features enabled', () => {
+      expect(getUnregisteredFeatures({})).toEqual([]);
+    });
+
+    it('should skip features with undefined values', () => {
+      expect(getUnregisteredFeatures({ selection: undefined })).toEqual([]);
+    });
+
+    it('should skip features with false values', () => {
+      expect(getUnregisteredFeatures({ selection: false as any })).toEqual([]);
+    });
+
+    it('should report enabled features that are not registered', () => {
+      // Nothing registered
+      const unregistered = getUnregisteredFeatures({ selection: 'row', editing: true });
+      expect(unregistered).toContain('selection');
+      expect(unregistered).toContain('editing');
+    });
+
+    it('should not report registered features', () => {
+      registerFeature('selection' as FeatureName, () => ({ name: 'selection' }));
+      const unregistered = getUnregisteredFeatures({ selection: 'row', editing: true });
+      expect(unregistered).not.toContain('selection');
+      expect(unregistered).toContain('editing');
     });
   });
 });

@@ -295,6 +295,164 @@ describe('use-grid', () => {
       container.remove();
       mockGrid.remove();
     });
+
+    it('registerStyles/unregisterStyles delegate to element when selector resolves', () => {
+      const registerStyles = vi.fn();
+      const unregisterStyles = vi.fn();
+      const mockGrid = document.createElement('tbw-grid') as any;
+      mockGrid.id = 'styles-grid';
+      mockGrid.registerStyles = registerStyles;
+      mockGrid.unregisterStyles = unregisterStyles;
+      document.body.appendChild(mockGrid);
+
+      const result: { current: UseGridReturn | null } = { current: null };
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      function TestComponent() {
+        const hookReturn = useGrid('#styles-grid');
+        result.current = hookReturn;
+        return null;
+      }
+
+      const root = createRoot(container);
+      flushSync(() => root.render(createElement(TestComponent)));
+
+      result.current!.registerStyles('id-1', '.x{}');
+      result.current!.unregisterStyles('id-1');
+      expect(registerStyles).toHaveBeenCalledWith('id-1', '.x{}');
+      expect(unregisterStyles).toHaveBeenCalledWith('id-1');
+
+      flushSync(() => root.unmount());
+      container.remove();
+      mockGrid.remove();
+    });
+
+    it('getPlugin/getPluginByName delegate to element when selector resolves', () => {
+      const plugin = { name: 'fake' };
+      const getPlugin = vi.fn(() => plugin);
+      const getPluginByName = vi.fn(() => plugin);
+      const mockGrid = document.createElement('tbw-grid') as any;
+      mockGrid.id = 'plugin-grid';
+      mockGrid.getPlugin = getPlugin;
+      mockGrid.getPluginByName = getPluginByName;
+      document.body.appendChild(mockGrid);
+
+      const result: { current: UseGridReturn | null } = { current: null };
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      function TestComponent() {
+        const hookReturn = useGrid('#plugin-grid');
+        result.current = hookReturn;
+        return null;
+      }
+
+      const root = createRoot(container);
+      flushSync(() => root.render(createElement(TestComponent)));
+
+      class FakePlugin {}
+      expect(result.current!.getPlugin(FakePlugin as any)).toBe(plugin);
+      expect((result.current!.getPluginByName as any)('fake')).toBe(plugin);
+
+      flushSync(() => root.unmount());
+      container.remove();
+      mockGrid.remove();
+    });
+
+    it('toggleGroup delegates to element when selector resolves', async () => {
+      const toggleGroup = vi.fn().mockResolvedValue(undefined);
+      const mockGrid = document.createElement('tbw-grid') as any;
+      mockGrid.id = 'group-grid';
+      mockGrid.toggleGroup = toggleGroup;
+      document.body.appendChild(mockGrid);
+
+      const result: { current: UseGridReturn | null } = { current: null };
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      function TestComponent() {
+        const hookReturn = useGrid('#group-grid');
+        result.current = hookReturn;
+        return null;
+      }
+
+      const root = createRoot(container);
+      flushSync(() => root.render(createElement(TestComponent)));
+
+      await result.current!.toggleGroup('grp');
+      expect(toggleGroup).toHaveBeenCalledWith('grp');
+
+      flushSync(() => root.unmount());
+      container.remove();
+      mockGrid.remove();
+    });
+
+    it('getConfig delegates to element when selector resolves', async () => {
+      const cfg = { columns: [{ field: 'a' }] };
+      const getConfig = vi.fn().mockResolvedValue(cfg);
+      const mockGrid = document.createElement('tbw-grid') as any;
+      mockGrid.id = 'cfg-grid';
+      mockGrid.getConfig = getConfig;
+      document.body.appendChild(mockGrid);
+
+      const result: { current: UseGridReturn | null } = { current: null };
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      function TestComponent() {
+        const hookReturn = useGrid('#cfg-grid');
+        result.current = hookReturn;
+        return null;
+      }
+
+      const root = createRoot(container);
+      flushSync(() => root.render(createElement(TestComponent)));
+
+      const out = await result.current!.getConfig();
+      expect(out).toBe(cfg);
+
+      flushSync(() => root.unmount());
+      container.remove();
+      mockGrid.remove();
+    });
+
+    it('getVisibleColumns filters out hidden columns when config is populated', async () => {
+      const cfg = {
+        columns: [{ field: 'a' }, { field: 'b', hidden: true }, { field: 'c', hidden: false }],
+      };
+      const mockGrid = document.createElement('tbw-grid') as any;
+      mockGrid.id = 'visible-grid';
+      mockGrid.ready = vi.fn().mockResolvedValue(undefined);
+      mockGrid.getConfig = vi.fn().mockResolvedValue(cfg);
+      document.body.appendChild(mockGrid);
+
+      const result: { current: UseGridReturn | null } = { current: null };
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      function TestComponent() {
+        const hookReturn = useGrid('#visible-grid');
+        result.current = hookReturn;
+        return null;
+      }
+
+      const root = createRoot(container);
+      flushSync(() => root.render(createElement(TestComponent)));
+
+      // Wait for the ready→getConfig→setConfig chain to complete and re-render.
+      const deadline = Date.now() + 1000;
+      while (Date.now() < deadline && (!result.current!.config || !result.current!.config.columns)) {
+        await new Promise((r) => setTimeout(r, 5));
+      }
+
+      const visible = result.current!.getVisibleColumns();
+      expect(visible.map((c: any) => c.field)).toEqual(['a', 'c']);
+
+      flushSync(() => root.unmount());
+      container.remove();
+      mockGrid.remove();
+    });
   });
 
   // #endregion

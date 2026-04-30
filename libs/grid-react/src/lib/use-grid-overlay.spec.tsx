@@ -141,4 +141,45 @@ describe('useGridOverlay', () => {
     flushSync(() => root.unmount());
     container.remove();
   });
+
+  it('does nothing when panelRef.current is null', () => {
+    const grid = createFakeGrid();
+    document.body.appendChild(grid);
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+
+    function TestComponent() {
+      const panelRef = useRef<HTMLElement | null>(null);
+      useGridOverlay(panelRef, { open: true, gridElement: grid });
+      return null;
+    }
+
+    const root = createRoot(container);
+    flushSync(() => root.render(createElement(TestComponent)));
+
+    expect(grid.registerExternalFocusContainer).not.toHaveBeenCalled();
+
+    flushSync(() => root.unmount());
+    container.remove();
+  });
+
+  it('does nothing when no grid can be resolved', () => {
+    const panel = document.createElement('div');
+    document.body.appendChild(panel);
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+
+    function TestComponent() {
+      const panelRef = useRef<HTMLDivElement | null>(panel);
+      useGridOverlay(panelRef as RefObject<HTMLElement | null>, { open: true });
+      return null;
+    }
+
+    const root = createRoot(container);
+    // Should not throw even though there's no grid in the DOM tree.
+    expect(() => flushSync(() => root.render(createElement(TestComponent)))).not.toThrow();
+
+    flushSync(() => root.unmount());
+    container.remove();
+  });
 });

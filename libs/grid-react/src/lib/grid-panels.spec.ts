@@ -282,3 +282,127 @@ describe('React component rendering', () => {
     });
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Registration + cleanup branches (mounted inside a <tbw-grid> host)
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('Registration & cleanup branches', () => {
+  let React: typeof import('react');
+  let ReactDOM: typeof import('react-dom/client');
+  let GridDetailPanel: typeof import('./grid-detail-panel').GridDetailPanel;
+  let GridToolPanel: typeof import('./grid-tool-panel').GridToolPanel;
+  let GridResponsiveCard: typeof import('./grid-responsive-card').GridResponsiveCard;
+  let getDetailRenderer: typeof import('./grid-detail-panel').getDetailRenderer;
+  let getResponsiveCardRenderer: typeof import('./grid-responsive-card').getResponsiveCardRenderer;
+  let getToolPanelRenderer: typeof import('./grid-tool-panel').getToolPanelRenderer;
+
+  beforeEach(async () => {
+    React = await import('react');
+    ReactDOM = await import('react-dom/client');
+    const detailModule = await import('./grid-detail-panel');
+    const toolModule = await import('./grid-tool-panel');
+    const cardModule = await import('./grid-responsive-card');
+    GridDetailPanel = detailModule.GridDetailPanel;
+    GridToolPanel = toolModule.GridToolPanel;
+    GridResponsiveCard = cardModule.GridResponsiveCard;
+    getDetailRenderer = detailModule.getDetailRenderer;
+    getResponsiveCardRenderer = cardModule.getResponsiveCardRenderer;
+    getToolPanelRenderer = toolModule.getToolPanelRenderer;
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  async function waitFor<T>(fn: () => T | undefined, timeoutMs = 1000): Promise<T> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const v = fn();
+      if (v) return v;
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    throw new Error('waitFor timed out');
+  }
+
+  it('GridDetailPanel: registers by grid id when mounted inside a tbw-grid with id', async () => {
+    const gridEl = document.createElement('tbw-grid');
+    gridEl.id = 'detail-host-1';
+    document.body.appendChild(gridEl);
+
+    const renderFn = () => React.createElement('div', null, 'detail');
+    const root = ReactDOM.createRoot(gridEl);
+    root.render(React.createElement(GridDetailPanel, { children: renderFn }));
+
+    // Wait for the renderer to be registered against the host grid.
+    const renderer = await waitFor(() => getDetailRenderer(gridEl));
+    expect(typeof renderer).toBe('function');
+
+    root.unmount();
+    // Cleanup runs the gridDetailRegistry.delete(gridId) branch.
+  });
+
+  it('GridDetailPanel: registers by data-grid-id attribute fallback', async () => {
+    const gridEl = document.createElement('tbw-grid');
+    gridEl.setAttribute('data-grid-id', 'detail-host-2');
+    document.body.appendChild(gridEl);
+
+    const renderFn = () => React.createElement('div', null, 'detail');
+    const root = ReactDOM.createRoot(gridEl);
+    root.render(React.createElement(GridDetailPanel, { children: renderFn }));
+
+    const renderer = await waitFor(() => getDetailRenderer(gridEl));
+    expect(typeof renderer).toBe('function');
+
+    root.unmount();
+  });
+
+  it('GridResponsiveCard: registers by grid id when mounted inside a tbw-grid with id', async () => {
+    const gridEl = document.createElement('tbw-grid');
+    gridEl.id = 'card-host-1';
+    document.body.appendChild(gridEl);
+
+    const renderFn = () => React.createElement('div', null, 'card');
+    const root = ReactDOM.createRoot(gridEl);
+    root.render(React.createElement(GridResponsiveCard, { children: renderFn }));
+
+    const renderer = await waitFor(() => getResponsiveCardRenderer(gridEl));
+    expect(typeof renderer).toBe('function');
+
+    root.unmount();
+  });
+
+  it('GridResponsiveCard: registers by data-grid-id attribute fallback', async () => {
+    const gridEl = document.createElement('tbw-grid');
+    gridEl.setAttribute('data-grid-id', 'card-host-2');
+    document.body.appendChild(gridEl);
+
+    const renderFn = () => React.createElement('div', null, 'card');
+    const root = ReactDOM.createRoot(gridEl);
+    root.render(React.createElement(GridResponsiveCard, { children: renderFn }));
+
+    const renderer = await waitFor(() => getResponsiveCardRenderer(gridEl));
+    expect(typeof renderer).toBe('function');
+
+    root.unmount();
+  });
+
+  it('GridToolPanel: id-based registry lookup returns the registered renderer', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+
+    const renderFn = () => React.createElement('div', null, 'panel');
+    const root = ReactDOM.createRoot(container);
+    root.render(React.createElement(GridToolPanel, { id: 'tool-1', title: 'Tool 1', children: renderFn }));
+
+    await waitFor(() => container.querySelector('tbw-grid-tool-panel') as HTMLElement | null);
+
+    // Lookup via a fresh element with the same id — exercises the panelIdRegistry fallback path
+    // in `getToolPanelRenderer` (no WeakMap entry → ID lookup).
+    const detached = document.createElement('tbw-grid-tool-panel');
+    detached.id = 'tool-1';
+    expect(typeof getToolPanelRenderer(detached)).toBe('function');
+
+    root.unmount();
+  });
+});

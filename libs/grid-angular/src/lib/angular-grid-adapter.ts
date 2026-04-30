@@ -758,52 +758,54 @@ export class GridAdapter implements FrameworkAdapter {
   }
 
   /**
-   * Creates and mounts an Angular component dynamically.
-   * Shared logic between renderer and editor component creation.
+   * Generalized component-mount primitive. All `createComponent*Renderer` methods
+   * are thin wrappers around this. Returns a function `(ctx) => { hostElement, componentRef }`
+   * so callers that need the `componentRef` (editor wiring, value-change subscription)
+   * still have it; callers that only need the host element use `.hostElement`.
+   *
+   * @param componentClass Angular component class to instantiate per call.
+   * @param mapInputs Maps the renderer context to a `setInput()` bag.
+   * @param pool Which `componentRefs[]` array tracks the instance for cleanup.
+   *   `'render'` (default) is the long-lived pool cleared at `dispose()`.
+   *   `'editor'` is the per-cell pool swept by `releaseCell()`.
    * @internal
    */
-  private mountComponent<TRow, TValue>(
+  private mountComponentRenderer<TCtx>(
     componentClass: Type<unknown>,
-    inputs: { value: TValue; row: TRow; column: ColumnConfig<TRow> },
-    isEditor = false,
-  ): { hostElement: HTMLSpanElement; componentRef: ComponentRef<unknown> } {
-    // Create a host element for the component
-    const hostElement = document.createElement('span');
-    hostElement.style.display = 'contents';
-
-    // Create the component dynamically
-    const componentRef = createComponent(componentClass, {
-      environmentInjector: this.injector,
-      hostElement,
-    });
-
-    // Set inputs - components should have value, row, column inputs
-    this.setComponentInputs(componentRef, inputs);
-
-    // Attach to app for change detection
-    this.appRef.attachView(componentRef.hostView);
-    // Track in editor-specific array for per-cell cleanup, or general array for renderers
-    if (isEditor) {
-      this.editorComponentRefs.push(componentRef);
-    } else {
-      this.componentRefs.push(componentRef);
-    }
-
-    // Trigger change detection
-    componentRef.changeDetectorRef.detectChanges();
-
-    return { hostElement, componentRef };
+    mapInputs: (ctx: TCtx) => Record<string, unknown>,
+    pool: 'render' | 'editor' = 'render',
+  ): (ctx: TCtx) => { hostElement: HTMLSpanElement; componentRef: ComponentRef<unknown> } {
+    return (ctx: TCtx) => {
+      const hostElement = document.createElement('span');
+      hostElement.style.display = 'contents';
+      const componentRef = createComponent(componentClass, {
+        environmentInjector: this.injector,
+        hostElement,
+      });
+      this.setComponentInputs(componentRef, mapInputs(ctx));
+      this.appRef.attachView(componentRef.hostView);
+      (pool === 'editor' ? this.editorComponentRefs : this.componentRefs).push(componentRef);
+      componentRef.changeDetectorRef.detectChanges();
+      return { hostElement, componentRef };
+    };
   }
 
   /**
    * Creates a renderer function from an Angular component class.
+   * Wraps {@link mountComponentRenderer} with a per-cell `WeakMap` cache so
+   * scroll-recycled cells reuse the existing component (just refresh inputs)
+   * instead of mounting a fresh one.
    * @internal
    */
   private createComponentRenderer<TRow = unknown, TValue = unknown>(
     componentClass: Type<unknown>,
   ): ColumnViewRenderer<TRow, TValue> {
-    // Cell cache for component-based renderers - maps cell element to its component ref
     const cellCache = new WeakMap<HTMLElement, { componentRef: ComponentRef<unknown>; hostElement: HTMLSpanElement }>();
+    const mount = this.mountComponentRenderer<CellRenderContext<TRow, TValue>>(componentClass, (ctx) => ({
+      value: ctx.value,
+      row: ctx.row,
+      column: ctx.column,
+    }));
 
     return (ctx: CellRenderContext<TRow, TValue>) => {
       const cellEl = ctx.cellEl as HTMLElement | undefined;
@@ -811,7 +813,7 @@ export class GridAdapter implements FrameworkAdapter {
       if (cellEl) {
         const cached = cellCache.get(cellEl);
         if (cached) {
-          // Reuse existing component - just update inputs
+          // Reuse existing component - just update inputs.
           this.setComponentInputs(cached.componentRef, {
             value: ctx.value,
             row: ctx.row,
@@ -822,38 +824,30 @@ export class GridAdapter implements FrameworkAdapter {
         }
       }
 
-      const { hostElement, componentRef } = this.mountComponent<TRow, TValue>(componentClass, {
-        value: ctx.value,
-        row: ctx.row,
-        column: ctx.column,
-      });
-
-      // Cache for reuse on scroll recycles
-      if (cellEl) {
-        cellCache.set(cellEl, { componentRef, hostElement });
-      }
-
+      const { hostElement, componentRef } = mount(ctx);
+      if (cellEl) cellCache.set(cellEl, { componentRef, hostElement });
       return hostElement;
     };
   }
 
   /**
    * Creates an editor function from an Angular component class.
+   * Wraps {@link mountComponentRenderer} (using the `'editor'` pool for per-cell
+   * cleanup) plus editor-specific wiring: callback bridge, before-edit-close blur
+   * flush, and external value-change subscription.
    * @internal
    */
   private createComponentEditor<TRow = unknown, TValue = unknown>(
     componentClass: Type<unknown>,
   ): ColumnEditorSpec<TRow, TValue> {
+    const mount = this.mountComponentRenderer<ColumnEditorContext<TRow, TValue>>(
+      componentClass,
+      (ctx) => ({ value: ctx.value, row: ctx.row, column: ctx.column }),
+      'editor',
+    );
+
     return (ctx: ColumnEditorContext<TRow, TValue>) => {
-      const { hostElement, componentRef } = this.mountComponent<TRow, TValue>(
-        componentClass,
-        {
-          value: ctx.value,
-          row: ctx.row,
-          column: ctx.column,
-        },
-        true, // isEditor — tracked separately for per-cell cleanup
-      );
+      const { hostElement, componentRef } = mount(ctx);
 
       wireEditorCallbacks<TValue>(
         hostElement,
@@ -893,30 +887,15 @@ export class GridAdapter implements FrameworkAdapter {
   private createComponentHeaderRenderer<TRow = unknown>(
     componentClass: Type<unknown>,
   ): (ctx: HeaderCellContext<TRow>) => HTMLElement {
-    return (ctx: HeaderCellContext<TRow>) => {
-      const hostElement = document.createElement('span');
-      hostElement.style.display = 'contents';
-
-      const componentRef = createComponent(componentClass, {
-        environmentInjector: this.injector,
-        hostElement,
-      });
-
-      this.setComponentInputs(componentRef, {
-        column: ctx.column,
-        value: ctx.value,
-        sortState: ctx.sortState,
-        filterActive: ctx.filterActive,
-        renderSortIcon: ctx.renderSortIcon,
-        renderFilterButton: ctx.renderFilterButton,
-      });
-
-      this.appRef.attachView(componentRef.hostView);
-      this.componentRefs.push(componentRef);
-      componentRef.changeDetectorRef.detectChanges();
-
-      return hostElement;
-    };
+    const mount = this.mountComponentRenderer<HeaderCellContext<TRow>>(componentClass, (ctx) => ({
+      column: ctx.column,
+      value: ctx.value,
+      sortState: ctx.sortState,
+      filterActive: ctx.filterActive,
+      renderSortIcon: ctx.renderSortIcon,
+      renderFilterButton: ctx.renderFilterButton,
+    }));
+    return (ctx) => mount(ctx).hostElement;
   }
 
   /**
@@ -927,26 +906,11 @@ export class GridAdapter implements FrameworkAdapter {
   private createComponentHeaderLabelRenderer<TRow = unknown>(
     componentClass: Type<unknown>,
   ): (ctx: HeaderLabelContext<TRow>) => HTMLElement {
-    return (ctx: HeaderLabelContext<TRow>) => {
-      const hostElement = document.createElement('span');
-      hostElement.style.display = 'contents';
-
-      const componentRef = createComponent(componentClass, {
-        environmentInjector: this.injector,
-        hostElement,
-      });
-
-      this.setComponentInputs(componentRef, {
-        column: ctx.column,
-        value: ctx.value,
-      });
-
-      this.appRef.attachView(componentRef.hostView);
-      this.componentRefs.push(componentRef);
-      componentRef.changeDetectorRef.detectChanges();
-
-      return hostElement;
-    };
+    const mount = this.mountComponentRenderer<HeaderLabelContext<TRow>>(componentClass, (ctx) => ({
+      column: ctx.column,
+      value: ctx.value,
+    }));
+    return (ctx) => mount(ctx).hostElement;
   }
 
   /**
@@ -959,29 +923,14 @@ export class GridAdapter implements FrameworkAdapter {
   private createComponentGroupHeaderRenderer(
     componentClass: Type<unknown>,
   ): (params: GroupHeaderRenderParams) => HTMLElement {
-    return (params: GroupHeaderRenderParams) => {
-      const hostElement = document.createElement('span');
-      hostElement.style.display = 'contents';
-
-      const componentRef = createComponent(componentClass, {
-        environmentInjector: this.injector,
-        hostElement,
-      });
-
-      this.setComponentInputs(componentRef, {
-        id: params.id,
-        label: params.label,
-        columns: params.columns,
-        firstIndex: params.firstIndex,
-        isImplicit: params.isImplicit,
-      });
-
-      this.appRef.attachView(componentRef.hostView);
-      this.componentRefs.push(componentRef);
-      componentRef.changeDetectorRef.detectChanges();
-
-      return hostElement;
-    };
+    const mount = this.mountComponentRenderer<GroupHeaderRenderParams>(componentClass, (p) => ({
+      id: p.id,
+      label: p.label,
+      columns: p.columns,
+      firstIndex: p.firstIndex,
+      isImplicit: p.isImplicit,
+    }));
+    return (params) => mount(params).hostElement;
   }
 
   /**
@@ -1115,30 +1064,15 @@ export class GridAdapter implements FrameworkAdapter {
   private createComponentPinnedRowsPanelRenderer(
     componentClass: Type<unknown>,
   ): (ctx: PinnedRowsContext) => HTMLElement {
-    return (ctx: PinnedRowsContext) => {
-      const hostElement = document.createElement('span');
-      hostElement.style.display = 'contents';
-
-      const componentRef = createComponent(componentClass, {
-        environmentInjector: this.injector,
-        hostElement,
-      });
-
-      this.setComponentInputs(componentRef, {
-        totalRows: ctx.totalRows,
-        filteredRows: ctx.filteredRows,
-        selectedRows: ctx.selectedRows,
-        columns: ctx.columns,
-        rows: ctx.rows,
-        grid: ctx.grid,
-      });
-
-      this.appRef.attachView(componentRef.hostView);
-      this.componentRefs.push(componentRef);
-      componentRef.changeDetectorRef.detectChanges();
-
-      return hostElement;
-    };
+    const mount = this.mountComponentRenderer<PinnedRowsContext>(componentClass, (ctx) => ({
+      totalRows: ctx.totalRows,
+      filteredRows: ctx.filteredRows,
+      selectedRows: ctx.selectedRows,
+      columns: ctx.columns,
+      rows: ctx.rows,
+      grid: ctx.grid,
+    }));
+    return (ctx) => mount(ctx).hostElement;
   }
 
   /**
@@ -1148,25 +1082,8 @@ export class GridAdapter implements FrameworkAdapter {
    * @internal
    */
   private createComponentLoadingRenderer(componentClass: Type<unknown>): (ctx: LoadingContext) => HTMLElement {
-    return (ctx: LoadingContext) => {
-      const hostElement = document.createElement('span');
-      hostElement.style.display = 'contents';
-
-      const componentRef = createComponent(componentClass, {
-        environmentInjector: this.injector,
-        hostElement,
-      });
-
-      this.setComponentInputs(componentRef, {
-        size: ctx.size,
-      });
-
-      this.appRef.attachView(componentRef.hostView);
-      this.componentRefs.push(componentRef);
-      componentRef.changeDetectorRef.detectChanges();
-
-      return hostElement;
-    };
+    const mount = this.mountComponentRenderer<LoadingContext>(componentClass, (ctx) => ({ size: ctx.size }));
+    return (ctx) => mount(ctx).hostElement;
   }
 
   /**
@@ -1179,30 +1096,15 @@ export class GridAdapter implements FrameworkAdapter {
   private createComponentGroupRowRenderer(
     componentClass: Type<unknown>,
   ): (params: GroupRowRenderParams) => HTMLElement {
-    return (params: GroupRowRenderParams) => {
-      const hostElement = document.createElement('span');
-      hostElement.style.display = 'contents';
-
-      const componentRef = createComponent(componentClass, {
-        environmentInjector: this.injector,
-        hostElement,
-      });
-
-      this.setComponentInputs(componentRef, {
-        key: params.key,
-        value: params.value,
-        depth: params.depth,
-        rows: params.rows,
-        expanded: params.expanded,
-        toggleExpand: params.toggleExpand,
-      });
-
-      this.appRef.attachView(componentRef.hostView);
-      this.componentRefs.push(componentRef);
-      componentRef.changeDetectorRef.detectChanges();
-
-      return hostElement;
-    };
+    const mount = this.mountComponentRenderer<GroupRowRenderParams>(componentClass, (p) => ({
+      key: p.key,
+      value: p.value,
+      depth: p.depth,
+      rows: p.rows,
+      expanded: p.expanded,
+      toggleExpand: p.toggleExpand,
+    }));
+    return (params) => mount(params).hostElement;
   }
 
   /**
@@ -1215,27 +1117,11 @@ export class GridAdapter implements FrameworkAdapter {
   private createComponentFilterPanelRenderer(
     componentClass: Type<unknown>,
   ): (container: HTMLElement, params: FilterPanelParams) => void {
-    return (container: HTMLElement, params: FilterPanelParams) => {
-      const hostElement = document.createElement('span');
-      hostElement.style.display = 'contents';
-
-      const componentRef = createComponent(componentClass, {
-        environmentInjector: this.injector,
-        hostElement,
-      });
-
-      // Set params input
-      try {
-        componentRef.setInput('params', params);
-      } catch {
-        // Input doesn't exist on component — ignore
-      }
-
-      this.appRef.attachView(componentRef.hostView);
-      this.componentRefs.push(componentRef);
-      componentRef.changeDetectorRef.detectChanges();
-
-      container.appendChild(hostElement);
+    // FilterPanel renderers `appendChild` into the supplied container instead of
+    // returning the host element. The mount primitive still owns lifecycle.
+    const mount = this.mountComponentRenderer<FilterPanelParams>(componentClass, (params) => ({ params }));
+    return (container, params) => {
+      container.appendChild(mount(params).hostElement);
     };
   }
 

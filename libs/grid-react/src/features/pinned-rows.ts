@@ -51,9 +51,9 @@ import {
   type PinnedRowsContext,
   type ZonedPanelRender,
 } from '@toolbox-web/grid/plugins/pinned-rows';
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { registerFeature } from '../lib/feature-registry';
-import { renderToContainer } from '../lib/portal-bridge';
+import { createNodeBridge } from '../lib/portal-bridge';
 
 /** React-typed render function for a pinned-row panel slot. */
 type ReactPanelRender = (ctx: PinnedRowsContext) => ReactNode;
@@ -75,16 +75,10 @@ type ReactPinnedRowSlot = ReactPanelSlot | AggregationSlot;
  * Wrap a React-returning render function in a vanilla `() => HTMLElement | null`.
  * `null` / `undefined` / `false` from the React function passes through so
  * built-in conditional panels (e.g. selectedCountPanel) can opt out.
+ * Thin alias around the shared `createNodeBridge` helper.
  */
 function bridgeReactRender(reactFn: ReactPanelRender): (ctx: PinnedRowsContext) => HTMLElement | null {
-  return (ctx) => {
-    const node = reactFn(ctx);
-    if (node == null || node === false) return null;
-    const wrapper = document.createElement('div');
-    wrapper.style.display = 'contents';
-    renderToContainer(wrapper, node as ReactElement);
-    return wrapper;
-  };
+  return createNodeBridge<PinnedRowsContext>(reactFn);
 }
 
 /**
@@ -134,15 +128,11 @@ registerFeature('pinnedRows', (rawConfig) => {
   if (Array.isArray(reactCustomPanels)) {
     options.customPanels = reactCustomPanels.map((panel) => {
       if (typeof panel.render !== 'function') return panel as never;
-      const reactFn = panel.render;
+      const bridged = createNodeBridge<PinnedRowsContext>(panel.render);
       return {
         ...panel,
-        render: (ctx: PinnedRowsContext) => {
-          const wrapper = document.createElement('div');
-          wrapper.style.display = 'contents';
-          renderToContainer(wrapper, reactFn(ctx) as ReactElement);
-          return wrapper;
-        },
+        // customPanels expect HTMLElement (not nullable); coerce null → empty wrapper.
+        render: (ctx: PinnedRowsContext) => bridged(ctx) ?? document.createElement('div'),
       };
     });
   }

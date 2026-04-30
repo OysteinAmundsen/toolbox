@@ -194,6 +194,27 @@ export function clearAllContainers(): void {
 }
 
 /**
+ * Wrap a React-returning render function as a vanilla `(ctx) => HTMLElement | null`
+ * suitable for any grid renderer slot (cell renderer, group header, pinned-row
+ * panel, etc.). Returns `null` when the React function returns `null` /
+ * `undefined` / `false`, so built-in conditional renderers can opt out.
+ *
+ * The wrapper is a `<div style="display:contents">` so it imposes no layout.
+ * Each call mounts a fresh portal — call sites that need to update the same
+ * container instead should use `renderToContainer` directly with `existingKey`.
+ */
+export function createNodeBridge<TCtx>(reactFn: (ctx: TCtx) => ReactNode): (ctx: TCtx) => HTMLElement | null {
+  return (ctx) => {
+    const node = reactFn(ctx);
+    if (node == null || node === false) return null;
+    const wrapper = document.createElement('div');
+    wrapper.style.display = 'contents';
+    renderToContainer(wrapper, node);
+    return wrapper;
+  };
+}
+
+/**
  * Reset the key counter. Only use in tests.
  * @internal
  */

@@ -30,7 +30,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 // element and trigger jsdom-incompatible ResizeObserver wiring on the
 // `document.createElement('tbw-grid')` calls below.
 import { isComponentClass } from './angular-column-config';
-import type { GridAdapter } from './angular-grid-adapter';
+import { GridAdapter } from './angular-grid-adapter';
 import { makeFlushFocusedInput, registerEditorMountHook } from './editor-mount-hooks';
 import {
   registerDetailRendererBridge,

@@ -1,4 +1,4 @@
-import { contentChild, Directive, effect, ElementRef, inject, TemplateRef } from '@angular/core';
+import { contentChild, Directive, effect, ElementRef, inject, input, TemplateRef } from '@angular/core';
 
 /**
  * Context object passed to the responsive card template.
@@ -95,6 +95,16 @@ export class GridResponsiveCard<TRow = unknown> {
   private elementRef = inject(ElementRef<HTMLElement>);
 
   /**
+   * Card row height in pixels. Use `'auto'` for dynamic height based on content.
+   *
+   * Mirrors to the `card-row-height` attribute on the underlying
+   * `<tbw-grid-responsive-card>` element which the ResponsivePlugin reads.
+   *
+   * @default 'auto'
+   */
+  cardRowHeight = input<number | 'auto'>();
+
+  /**
    * The ng-template containing the card content.
    */
   template = contentChild(TemplateRef<GridResponsiveCardContext<TRow>>);
@@ -110,6 +120,20 @@ export class GridResponsiveCard<TRow = unknown> {
         template as TemplateRef<GridResponsiveCardContext>,
       );
     }
+  });
+
+  /**
+   * Effect that mirrors the `cardRowHeight` input to the kebab-cased attribute
+   * read by the ResponsivePlugin.
+   */
+  private onCardRowHeightChange = effect(() => {
+    const value = this.cardRowHeight();
+    const element = this.elementRef.nativeElement;
+    if (value === undefined) {
+      element.removeAttribute('card-row-height');
+      return;
+    }
+    element.setAttribute('card-row-height', value === 'auto' ? 'auto' : String(value));
   });
 
   /**

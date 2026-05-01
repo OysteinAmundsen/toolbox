@@ -23,6 +23,16 @@ export interface InjectGridReturn<TRow = unknown> {
   unregisterStyles: (id: string) => void;
   /** Get current visible columns */
   visibleColumns: Signal<ColumnConfig<TRow>[]>;
+  /**
+   * Look up a plugin instance by its class constructor.
+   * Returns `undefined` if the plugin is not registered or the grid is not yet ready.
+   */
+  getPlugin: <T>(pluginClass: new (...args: unknown[]) => T) => T | undefined;
+  /**
+   * Look up a plugin instance by its registered name (e.g. `'tooltip'`, `'undoRedo'`).
+   * Returns `undefined` if the plugin is not registered or the grid is not yet ready.
+   */
+  getPluginByName: DataGridElement<TRow>['getPluginByName'];
 }
 
 /**
@@ -146,6 +156,14 @@ export function injectGrid<TRow = unknown>(selector = 'tbw-grid'): InjectGridRet
     element()?.unregisterStyles?.(id);
   };
 
+  const getPlugin = <T>(pluginClass: new (...args: unknown[]) => T): T | undefined => {
+    return element()?.getPlugin?.(pluginClass);
+  };
+
+  const getPluginByName = ((name: string) => {
+    return element()?.getPluginByName?.(name);
+  }) as DataGridElement<TRow>['getPluginByName'];
+
   return {
     element,
     isReady,
@@ -156,5 +174,7 @@ export function injectGrid<TRow = unknown>(selector = 'tbw-grid'): InjectGridRet
     toggleGroup,
     registerStyles,
     unregisterStyles,
+    getPlugin,
+    getPluginByName,
   };
 }

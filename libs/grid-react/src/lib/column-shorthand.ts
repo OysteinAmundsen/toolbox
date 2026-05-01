@@ -10,7 +10,7 @@
  * If you change behavior here, mirror the change in `grid-vue` and
  * `grid-angular`. The three implementations are kept byte-equivalent.
  */
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from './react-column-config';
 
 /**
  * Type for column shorthand notation.

@@ -2,7 +2,12 @@
   "extends": "./tsconfig.lib.json",
   "compilerOptions": {
     "rootDir": ".",
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@toolbox-web/grid-angular": ["./src/index.ts"],
+      "@toolbox-web/grid-angular/features/*": ["./features/*/src/index.ts"]
+    }
   },
   "include": ["src/**/*.ts", "features/*/src/**/*.ts"],
   "exclude": ["src/**/*.spec.ts", "src/**/*.test.ts"]

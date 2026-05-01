@@ -21,7 +21,23 @@
  */
 import '@angular/compiler';
 import type { ApplicationRef, EnvironmentInjector, ViewContainerRef } from '@angular/core';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Install the same `before-edit-close` blur bridge that
+// `@toolbox-web/grid-angular/features/editing` installs. We do it inline here
+// (and import directly from the hook module) so the spec does not pull in
+// the package barrel — that would transitively define the `tbw-grid` custom
+// element and trigger jsdom-incompatible ResizeObserver wiring on the
+// `document.createElement('tbw-grid')` calls below.
+import { makeFlushFocusedInput, registerEditorMountHook } from './editor-mount-hooks';
+
+beforeAll(() => {
+  registerEditorMountHook(({ container, gridEl }) => {
+    const flush = makeFlushFocusedInput(container);
+    gridEl.addEventListener('before-edit-close', flush);
+    return () => gridEl.removeEventListener('before-edit-close', flush);
+  });
+});
 
 // --- Mock Angular's createComponent ----------------------------------------
 const createComponentSpy = vi.fn();

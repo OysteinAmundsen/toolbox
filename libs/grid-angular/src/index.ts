@@ -6,7 +6,8 @@
  */
 
 // Primary export
-export { GridAdapter } from './lib/angular-grid-adapter';
+export { GridAdapter, makeFlushFocusedInput, registerEditorMountHook } from './lib/angular-grid-adapter';
+export type { EditorMountHook } from './lib/angular-grid-adapter';
 
 // Configuration types
 export { isComponentClass } from './lib/angular-column-config';

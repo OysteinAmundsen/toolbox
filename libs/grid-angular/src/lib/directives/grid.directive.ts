@@ -34,9 +34,9 @@ import type {
   ClipboardConfig,
   ColumnMoveDetail,
   ColumnVirtualizationConfig,
-  ColumnVisibilityDetail,
   ContextMenuConfig,
   CopyDetail,
+  DataGridEventMap,
   DetailExpandDetail,
   ExportCompleteDetail,
   ExportConfig,
@@ -986,16 +986,6 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   columnMove = output<ColumnMoveDetail>();
 
   /**
-   * Emitted when column visibility changes.
-   *
-   * @example
-   * ```html
-   * <tbw-grid (columnVisibility)="onColumnVisibility($event)">...</tbw-grid>
-   * ```
-   */
-  columnVisibility = output<ColumnVisibilityDetail>();
-
-  /**
    * Emitted when column state changes (resize, reorder, visibility).
    *
    * @example
@@ -1119,14 +1109,24 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   paste = output<PasteDetail>();
 
   /**
-   * Emitted when undo/redo is performed.
+   * Emitted when an undo action is performed.
    *
    * @example
    * ```html
-   * <tbw-grid (undoRedoAction)="onUndoRedo($event)">...</tbw-grid>
+   * <tbw-grid (undo)="onUndo($event)">...</tbw-grid>
    * ```
    */
-  undoRedoAction = output<UndoRedoDetail>();
+  undo = output<UndoRedoDetail>();
+
+  /**
+   * Emitted when a redo action is performed.
+   *
+   * @example
+   * ```html
+   * <tbw-grid (redo)="onRedo($event)">...</tbw-grid>
+   * ```
+   */
+  redo = output<UndoRedoDetail>();
 
   /**
    * Emitted when export completes.
@@ -1175,7 +1175,13 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    */
   tbwScroll = output<TbwScrollDetail>();
 
-  // Map of output names to event names for automatic wiring
+  // Map of output names to event names for automatic wiring.
+  //
+  // The `satisfies` clause enforces compile-time sync against
+  // `DataGridEventMap`: every value must be a real event name (typos and
+  // stale entries pointing at non-existent events fail to compile).
+  // Plugin event augmentations of `DataGridEventMap` flow through
+  // automatically via the `/all` import.
   private readonly eventOutputMap = {
     cellClick: 'cell-click',
     rowClick: 'row-click',
@@ -1188,7 +1194,6 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     filterChange: 'filter-change',
     columnResize: 'column-resize',
     columnMove: 'column-move',
-    columnVisibility: 'column-visibility',
     columnStateChange: 'column-state-change',
     selectionChange: 'selection-change',
     rowMove: 'row-move',
@@ -1202,12 +1207,13 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     responsiveChange: 'responsive-change',
     copy: 'copy',
     paste: 'paste',
-    undoRedoAction: 'undo-redo',
+    undo: 'undo',
+    redo: 'redo',
     exportComplete: 'export-complete',
     printStart: 'print-start',
     printComplete: 'print-complete',
     tbwScroll: 'tbw-scroll',
-  } as const;
+  } as const satisfies Readonly<Record<string, keyof DataGridEventMap<unknown>>>;
 
   // Store event listeners for cleanup
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

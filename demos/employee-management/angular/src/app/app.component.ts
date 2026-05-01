@@ -30,7 +30,6 @@ import { shadowDomStyles } from '@demo/shared/styles';
 import {
   CellCommitEvent,
   Grid,
-  GridDetailView,
   GridLazyForm,
   GridResponsiveCard,
   GridToolPanel,
@@ -42,6 +41,7 @@ import {
   TbwRenderer,
 } from '@toolbox-web/grid-angular';
 import { injectGridExport } from '@toolbox-web/grid-angular/features/export';
+import { GridDetailView } from '@toolbox-web/grid-angular/features/master-detail';
 import { createGridConfig } from './grid-config';
 
 // Import components so they're available in templates

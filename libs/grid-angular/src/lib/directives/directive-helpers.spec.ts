@@ -10,7 +10,7 @@
  * @vitest-environment happy-dom
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { GridDetailView, getDetailConfig, getDetailTemplate } from './grid-detail-view.directive';
+import { GridDetailView, getDetailTemplate } from './grid-detail-view.directive';
 import {
   GridResponsiveCard,
   getResponsiveCardTemplate,
@@ -44,42 +44,6 @@ describe('GridDetailView', () => {
     const detail = document.createElement('tbw-grid-detail');
     grid.appendChild(detail);
     expect(getDetailTemplate(grid)).toBeUndefined();
-  });
-
-  it('getDetailConfig returns undefined when no detail child exists', () => {
-    const grid = document.createElement('tbw-grid');
-    expect(getDetailConfig(grid)).toBeUndefined();
-  });
-
-  it('getDetailConfig defaults animation to "slide" and showExpandColumn to true', () => {
-    const grid = document.createElement('tbw-grid');
-    const detail = document.createElement('tbw-grid-detail');
-    grid.appendChild(detail);
-    expect(getDetailConfig(grid)).toEqual({ showExpandColumn: true, animation: 'slide' });
-  });
-
-  it('getDetailConfig honours animation="fade"', () => {
-    const grid = document.createElement('tbw-grid');
-    const detail = document.createElement('tbw-grid-detail');
-    detail.setAttribute('animation', 'fade');
-    grid.appendChild(detail);
-    expect(getDetailConfig(grid)).toEqual({ showExpandColumn: true, animation: 'fade' });
-  });
-
-  it('getDetailConfig honours animation="false"', () => {
-    const grid = document.createElement('tbw-grid');
-    const detail = document.createElement('tbw-grid-detail');
-    detail.setAttribute('animation', 'false');
-    grid.appendChild(detail);
-    expect(getDetailConfig(grid)).toEqual({ showExpandColumn: true, animation: false });
-  });
-
-  it('getDetailConfig honours showExpandColumn="false"', () => {
-    const grid = document.createElement('tbw-grid');
-    const detail = document.createElement('tbw-grid-detail');
-    detail.setAttribute('showExpandColumn', 'false');
-    grid.appendChild(detail);
-    expect(getDetailConfig(grid)).toEqual({ showExpandColumn: false, animation: 'slide' });
   });
 });
 

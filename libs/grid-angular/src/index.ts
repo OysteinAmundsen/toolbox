@@ -60,7 +60,15 @@ export type { GridEditorContext } from './lib/directives/grid-column-editor.dire
 export { GridColumnView } from './lib/directives/grid-column-view.directive';
 export type { GridCellContext } from './lib/directives/grid-column-view.directive';
 export { TbwGridColumn } from './lib/directives/grid-column.directive';
+/**
+ * @deprecated Import from `@toolbox-web/grid-angular/features/master-detail` instead.
+ * Will be removed from the main entry in v2.0.0.
+ */
 export { GridDetailView, getDetailTemplate } from './lib/directives/grid-detail-view.directive';
+/**
+ * @deprecated Import from `@toolbox-web/grid-angular/features/master-detail` instead.
+ * Will be removed from the main entry in v2.0.0.
+ */
 export type { GridDetailContext } from './lib/directives/grid-detail-view.directive';
 export { GridFormArray, getFormArrayContext } from './lib/directives/grid-form-array.directive';
 export type { FormArrayContext } from './lib/directives/grid-form-array.directive';

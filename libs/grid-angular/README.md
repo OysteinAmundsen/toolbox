@@ -374,7 +374,8 @@ export class MyGridComponent {
 Use `GridDetailView` for expandable row details:
 
 ```typescript
-import { Grid, GridDetailView } from '@toolbox-web/grid-angular';
+import { Grid } from '@toolbox-web/grid-angular';
+import { GridDetailView } from '@toolbox-web/grid-angular/features/master-detail';
 import { MasterDetailPlugin } from '@toolbox-web/grid/all';
 
 @Component({

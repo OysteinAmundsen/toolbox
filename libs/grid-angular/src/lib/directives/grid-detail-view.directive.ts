@@ -29,29 +29,6 @@ export function getDetailTemplate(gridElement: HTMLElement): TemplateRef<GridDet
 }
 
 /**
- * Gets the configuration for the detail view.
- */
-export function getDetailConfig(
-  gridElement: HTMLElement,
-): { showExpandColumn?: boolean; animation?: ExpandCollapseAnimation } | undefined {
-  const detailElement = gridElement.querySelector('tbw-grid-detail');
-  if (detailElement) {
-    const animationAttr = detailElement.getAttribute('animation');
-    let animation: ExpandCollapseAnimation = 'slide';
-    if (animationAttr === 'false') {
-      animation = false;
-    } else if (animationAttr === 'fade') {
-      animation = 'fade';
-    }
-    return {
-      showExpandColumn: detailElement.getAttribute('showExpandColumn') !== 'false',
-      animation,
-    };
-  }
-  return undefined;
-}
-
-/**
  * Directive that captures an `<ng-template>` for use as a master-detail row renderer.
  *
  * This enables declarative Angular component usage for expandable detail rows
@@ -72,16 +49,20 @@ export function getDetailConfig(
  * The template context provides:
  * - `$implicit` / `row`: The full row data object
  *
- * Import the directive in your component:
+ * Import the directive from the master-detail feature entry:
  *
  * ```typescript
- * import { GridDetailView } from '@toolbox-web/grid-angular';
+ * import { GridDetailView } from '@toolbox-web/grid-angular/features/master-detail';
  *
  * @Component({
  *   imports: [GridDetailView],
  *   // ...
  * })
  * ```
+ *
+ * > Note: `GridDetailView` is also re-exported from `@toolbox-web/grid-angular`
+ * > for backwards compatibility, but that re-export is deprecated and will be
+ * > removed in v2.0.0. Always import from the feature entry.
  *
  * @example
  * ```html

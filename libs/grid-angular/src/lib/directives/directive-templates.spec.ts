@@ -11,7 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getEditorTemplate, GridColumnEditor } from './grid-column-editor.directive';
 import { getViewTemplate, GridColumnView } from './grid-column-view.directive';
-import { getDetailConfig, getDetailTemplate } from './grid-detail-view.directive';
+import { getDetailTemplate } from './grid-detail-view.directive';
 import { getToolPanelElements, getToolPanelTemplate, GridToolPanel } from './grid-tool-panel.directive';
 
 describe('directive template registries', () => {
@@ -111,73 +111,6 @@ describe('directive template registries', () => {
 
       const result = getDetailTemplate(gridElement);
       expect(result).toBeUndefined();
-    });
-  });
-
-  describe('getDetailConfig', () => {
-    it('should return undefined when grid has no tbw-grid-detail child', () => {
-      const gridElement = document.createElement('tbw-grid');
-      container.appendChild(gridElement);
-
-      const result = getDetailConfig(gridElement);
-      expect(result).toBeUndefined();
-    });
-
-    it('should return default config when detail element has no attributes', () => {
-      const gridElement = document.createElement('tbw-grid');
-      const detailElement = document.createElement('tbw-grid-detail');
-      gridElement.appendChild(detailElement);
-      container.appendChild(gridElement);
-
-      const result = getDetailConfig(gridElement);
-      expect(result).toEqual({
-        showExpandColumn: true,
-        animation: 'slide',
-      });
-    });
-
-    it('should parse showExpandColumn="false" attribute', () => {
-      const gridElement = document.createElement('tbw-grid');
-      const detailElement = document.createElement('tbw-grid-detail');
-      detailElement.setAttribute('showExpandColumn', 'false');
-      gridElement.appendChild(detailElement);
-      container.appendChild(gridElement);
-
-      const result = getDetailConfig(gridElement);
-      expect(result?.showExpandColumn).toBe(false);
-    });
-
-    it('should parse animation="false" attribute', () => {
-      const gridElement = document.createElement('tbw-grid');
-      const detailElement = document.createElement('tbw-grid-detail');
-      detailElement.setAttribute('animation', 'false');
-      gridElement.appendChild(detailElement);
-      container.appendChild(gridElement);
-
-      const result = getDetailConfig(gridElement);
-      expect(result?.animation).toBe(false);
-    });
-
-    it('should parse animation="fade" attribute', () => {
-      const gridElement = document.createElement('tbw-grid');
-      const detailElement = document.createElement('tbw-grid-detail');
-      detailElement.setAttribute('animation', 'fade');
-      gridElement.appendChild(detailElement);
-      container.appendChild(gridElement);
-
-      const result = getDetailConfig(gridElement);
-      expect(result?.animation).toBe('fade');
-    });
-
-    it('should default animation to "slide" for unknown values', () => {
-      const gridElement = document.createElement('tbw-grid');
-      const detailElement = document.createElement('tbw-grid-detail');
-      detailElement.setAttribute('animation', 'unknown');
-      gridElement.appendChild(detailElement);
-      container.appendChild(gridElement);
-
-      const result = getDetailConfig(gridElement);
-      expect(result?.animation).toBe('slide');
     });
   });
 

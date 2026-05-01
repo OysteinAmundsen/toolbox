@@ -33,6 +33,13 @@ import {
 import '@toolbox-web/grid/features/master-detail';
 export type { _Augmentation as _MasterDetailAugmentation } from '@toolbox-web/grid/features/master-detail';
 
+// Re-export the master-detail directive surface from this feature entry so
+// consumers can `import { GridDetailView } from '@toolbox-web/grid-angular/features/master-detail'`.
+// The same symbols are still exported from `@toolbox-web/grid-angular` but are
+// marked `@deprecated` there and will be removed from the main entry in v2.0.0.
+export { GridDetailView, getDetailTemplate } from '@toolbox-web/grid-angular';
+export type { GridDetailContext } from '@toolbox-web/grid-angular';
+
 /**
  * Subset of `MasterDetailPlugin` we touch from the bridge. Avoids importing
  * the plugin class itself (would defeat tree-shaking and re-introduce the

@@ -115,11 +115,11 @@ const orders = [
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-// Feature import - enables the [masterDetail] input
-import '@toolbox-web/grid-angular/features/master-detail';
+// Feature import - enables the [masterDetail] input AND provides GridDetailView
+import { GridDetailView } from '@toolbox-web/grid-angular/features/master-detail';
 
 import { Component } from '@angular/core';
-import { Grid, GridDetailView } from '@toolbox-web/grid-angular';
+import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({

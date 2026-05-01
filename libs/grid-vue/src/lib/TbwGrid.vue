@@ -2,7 +2,9 @@
 import type { BaseGridPlugin, ColumnConfig, DataGridElement, FitMode, GridConfig } from '@toolbox-web/grid';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import type {
+  BeforeEditCloseDetail,
   CellActivateDetail,
+  CellCancelDetail,
   CellChangeDetail,
   CellClickDetail,
   CellCommitDetail,
@@ -10,16 +12,24 @@ import type {
   ClipboardConfig,
   ColumnMoveDetail,
   ColumnResizeDetail,
+  ColumnResizeResetDetail,
   ColumnVirtualizationConfig,
   ColumnVisibilityDetail,
   ContextMenuConfig,
+  ContextMenuOpenDetail,
   CopyDetail,
+  DataChangeDetail,
   DetailExpandDetail,
+  DirtyChangeDetail,
+  EditCloseDetail,
+  EditOpenDetail,
   ExportCompleteDetail,
   ExportConfig,
   FilterChangeDetail,
   FilterConfig,
   GridColumnState,
+  GroupCollapseDetail,
+  GroupExpandDetail,
   GroupingColumnsConfig,
   GroupingRowsConfig,
   GroupToggleDetail,
@@ -321,11 +331,18 @@ const EVENT_MAP = {
   'cell-activate': '' as unknown as CellActivateDetail,
   'cell-change': '' as unknown as CellChangeDetail,
   'cell-commit': '' as unknown as CellCommitDetail,
+  'cell-cancel': '' as unknown as CellCancelDetail,
   'row-commit': '' as unknown as RowCommitDetail,
   'changed-rows-reset': '' as unknown as ChangedRowsResetDetail,
+  'edit-open': '' as unknown as EditOpenDetail,
+  'before-edit-close': '' as unknown as BeforeEditCloseDetail,
+  'edit-close': '' as unknown as EditCloseDetail,
+  'dirty-change': '' as unknown as DirtyChangeDetail,
+  'data-change': '' as unknown as DataChangeDetail,
   'sort-change': '' as unknown as SortChangeDetail,
   'filter-change': '' as unknown as FilterChangeDetail,
   'column-resize': '' as unknown as ColumnResizeDetail,
+  'column-resize-reset': '' as unknown as ColumnResizeResetDetail,
   'column-move': '' as unknown as ColumnMoveDetail,
   'column-visibility': '' as unknown as ColumnVisibilityDetail,
   'column-state-change': '' as unknown as GridColumnState,
@@ -336,12 +353,20 @@ const EVENT_MAP = {
   'row-drop': '' as unknown as RowDropDetail,
   'row-transfer': '' as unknown as RowTransferDetail,
   'group-toggle': '' as unknown as GroupToggleDetail,
+  'group-expand': '' as unknown as GroupExpandDetail,
+  'group-collapse': '' as unknown as GroupCollapseDetail,
   'tree-expand': '' as unknown as TreeExpandDetail,
   'detail-expand': '' as unknown as DetailExpandDetail,
   'responsive-change': '' as unknown as ResponsiveChangeDetail,
+  'context-menu-open': '' as unknown as ContextMenuOpenDetail,
   copy: '' as unknown as CopyDetail,
   paste: '' as unknown as PasteDetail,
-  'undo-redo': '' as unknown as UndoRedoDetail,
+  // The UndoRedoPlugin emits two distinct events: `undo` and `redo` (not the
+  // combined `undo-redo` name). Listening to `undo-redo` would silently never
+  // fire — keep these separate to mirror the React adapter and match the
+  // plugin's actual emit calls.
+  undo: '' as unknown as UndoRedoDetail,
+  redo: '' as unknown as UndoRedoDetail,
   'export-complete': '' as unknown as ExportCompleteDetail,
   'print-start': '' as unknown as PrintStartDetail,
   'print-complete': '' as unknown as PrintCompleteDetail,
@@ -357,11 +382,18 @@ const emit = defineEmits<{
   (e: 'cell-activate', event: CustomEvent<CellActivateDetail<TRow>>): void;
   (e: 'cell-change', event: CustomEvent<CellChangeDetail<TRow>>): void;
   (e: 'cell-commit', event: CustomEvent<CellCommitDetail<TRow>>): void;
+  (e: 'cell-cancel', event: CustomEvent<CellCancelDetail>): void;
   (e: 'row-commit', event: CustomEvent<RowCommitDetail<TRow>>): void;
   (e: 'changed-rows-reset', event: CustomEvent<ChangedRowsResetDetail<TRow>>): void;
+  (e: 'edit-open', event: CustomEvent<EditOpenDetail<TRow>>): void;
+  (e: 'before-edit-close', event: CustomEvent<BeforeEditCloseDetail<TRow>>): void;
+  (e: 'edit-close', event: CustomEvent<EditCloseDetail<TRow>>): void;
+  (e: 'dirty-change', event: CustomEvent<DirtyChangeDetail<TRow>>): void;
+  (e: 'data-change', event: CustomEvent<DataChangeDetail>): void;
   (e: 'sort-change', event: CustomEvent<SortChangeDetail>): void;
   (e: 'filter-change', event: CustomEvent<FilterChangeDetail>): void;
   (e: 'column-resize', event: CustomEvent<ColumnResizeDetail>): void;
+  (e: 'column-resize-reset', event: CustomEvent<ColumnResizeResetDetail>): void;
   (e: 'column-move', event: CustomEvent<ColumnMoveDetail>): void;
   (e: 'column-visibility', event: CustomEvent<ColumnVisibilityDetail>): void;
   (e: 'column-state-change', event: CustomEvent<GridColumnState>): void;
@@ -372,12 +404,16 @@ const emit = defineEmits<{
   (e: 'row-drop', event: CustomEvent<RowDropDetail<TRow>>): void;
   (e: 'row-transfer', event: CustomEvent<RowTransferDetail<TRow>>): void;
   (e: 'group-toggle', event: CustomEvent<GroupToggleDetail>): void;
+  (e: 'group-expand', event: CustomEvent<GroupExpandDetail>): void;
+  (e: 'group-collapse', event: CustomEvent<GroupCollapseDetail>): void;
   (e: 'tree-expand', event: CustomEvent<TreeExpandDetail<TRow>>): void;
   (e: 'detail-expand', event: CustomEvent<DetailExpandDetail>): void;
   (e: 'responsive-change', event: CustomEvent<ResponsiveChangeDetail>): void;
+  (e: 'context-menu-open', event: CustomEvent<ContextMenuOpenDetail>): void;
   (e: 'copy', event: CustomEvent<CopyDetail>): void;
   (e: 'paste', event: CustomEvent<PasteDetail>): void;
-  (e: 'undo-redo', event: CustomEvent<UndoRedoDetail>): void;
+  (e: 'undo', event: CustomEvent<UndoRedoDetail>): void;
+  (e: 'redo', event: CustomEvent<UndoRedoDetail>): void;
   (e: 'export-complete', event: CustomEvent<ExportCompleteDetail>): void;
   (e: 'print-start', event: CustomEvent<PrintStartDetail>): void;
   (e: 'print-complete', event: CustomEvent<PrintCompleteDetail>): void;

@@ -257,6 +257,7 @@ export type {
   // Column features
   ColumnEditorSpec,
   ColumnResizeDetail,
+  ColumnResizeResetDetail,
   // Column state types
   ColumnSortState,
   ColumnState,

@@ -137,7 +137,7 @@ Import from `@toolbox-web/grid-vue/features/<name>`:
 | `filtering`             | `filtering`             | `filtering` or `:filtering="{ debounceMs: 200 }"`                     |
 | `editing`               | `editing`               | `editing="dblclick"` or `editing="click"`                             |
 | `clipboard`             | `clipboard`             | `clipboard` (requires selection)                                      |
-| `undo-redo`             | `undo-redo`             | `undo-redo` (requires editing)                                        |
+| `undoRedo`              | `undoRedo`              | `undoRedo` (requires editing — emits separate `@undo`/`@redo` events) |
 | `context-menu`          | `context-menu`          | `context-menu`                                                        |
 | `reorder`               | `reorder`               | `reorder` (column drag-to-reorder)                                    |
 | `row-reorder`           | `row-reorder`           | `row-reorder` (row drag-to-reorder)                                   |
@@ -283,7 +283,8 @@ function onSortChange(e: CustomEvent<SortChangeDetail>) {
 | `@responsive-change`   | `ResponsiveChangeDetail` | Responsive layout mode changed    |
 | `@copy`                | `CopyDetail`             | Data copied to clipboard          |
 | `@paste`               | `PasteDetail`            | Data pasted from clipboard        |
-| `@undo-redo`           | `UndoRedoDetail`         | Undo/redo action performed        |
+| `@undo`                | `UndoRedoDetail`         | Undo action performed             |
+| `@redo`                | `UndoRedoDetail`         | Redo action performed             |
 | `@export-complete`     | `ExportCompleteDetail`   | Export operation completed        |
 | `@print-start`         | `PrintStartDetail`       | Print operation started           |
 | `@print-complete`      | `PrintCompleteDetail`    | Print operation completed         |

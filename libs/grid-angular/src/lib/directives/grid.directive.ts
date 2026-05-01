@@ -28,21 +28,34 @@ import type {
 } from '@toolbox-web/grid';
 import { DataGridElement as GridElementClass } from '@toolbox-web/grid';
 // Import editing event types from the editing plugin
-import type { ChangedRowsResetDetail, EditingConfig } from '@toolbox-web/grid/plugins/editing';
+import type {
+  BeforeEditCloseDetail,
+  CellCancelDetail,
+  ChangedRowsResetDetail,
+  DirtyChangeDetail,
+  EditCloseDetail,
+  EditingConfig,
+  EditOpenDetail,
+} from '@toolbox-web/grid/plugins/editing';
 // Import plugin types and the two plugins always needed for Angular template integration
 import type {
   ClipboardConfig,
   ColumnMoveDetail,
+  ColumnResizeResetDetail,
   ColumnVirtualizationConfig,
   ColumnVisibilityDetail,
   ContextMenuConfig,
+  ContextMenuOpenDetail,
   CopyDetail,
+  DataChangeDetail,
   DataGridEventMap,
   DetailExpandDetail,
   ExportCompleteDetail,
   ExportConfig,
   FilterChangeDetail,
   FilterConfig,
+  GroupCollapseDetail,
+  GroupExpandDetail,
   GroupingColumnsConfig,
   GroupingRowsConfig,
   GroupToggleDetail,
@@ -78,6 +91,7 @@ import type {
 } from '@toolbox-web/grid/all';
 import type { ColumnConfig, GridConfig } from '../angular-column-config';
 import { GridAdapter } from '../angular-grid-adapter';
+import { applyColumnDefaults, type ColumnShorthand, normalizeColumns } from '../column-shorthand';
 import { createPluginFromFeature, type FeatureName } from '../feature-registry';
 import { GridIconRegistry } from '../grid-icon-registry';
 
@@ -249,13 +263,26 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
       if (columnsValue === undefined) return;
 
       const grid = this.elementRef.nativeElement;
+      // First normalize any shorthand strings to ColumnConfig objects, then
+      // merge in any per-grid column defaults. Individual column props always win.
+      // Note: Angular ColumnConfig allows component classes for renderer/editor,
+      // which the adapter normalizes via processColumn below; we widen to `any`
+      // here so the shorthand helpers (typed against the core ColumnConfig) accept
+      // the Angular-flavoured payload unchanged.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const normalized = applyColumnDefaults<any>(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        normalizeColumns<any>(columnsValue as ColumnShorthand<any>[]),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        this.columnDefaults() as any,
+      );
       // Process columns through the adapter to convert Angular component classes
       // (renderer/editor) to functions — the grid's columns setter does NOT call
       // processConfig, unlike gridConfig. Without this, raw component classes
       // would be invoked without `new`, causing runtime errors.
       const processed = this.adapter
-        ? (columnsValue as ColumnConfig[]).map((col) => this.adapter!.processColumn(col))
-        : columnsValue;
+        ? (normalized as ColumnConfig[]).map((col) => this.adapter!.processColumn(col))
+        : normalized;
       grid.columns = processed as BaseColumnConfig[] | ColumnConfigMap;
     });
 
@@ -398,21 +425,36 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   /**
    * Column configuration array.
    *
+   * Accepts either full `ColumnConfig` objects or shorthand strings such as
+   * `'name'` or `'salary:number'`. Shorthands auto-generate human-readable
+   * headers from the field name.
+   *
    * Shorthand for setting columns without wrapping them in a full `gridConfig`.
    * If both `columns` and `gridConfig.columns` are set, `columns` takes precedence
    * (see configuration precedence system).
    *
    * @example
    * ```html
-   * <tbw-grid [rows]="data" [columns]="[
-   *   { field: 'id', header: 'ID', pinned: 'left', width: 80 },
-   *   { field: 'name', header: 'Name' },
-   *   { field: 'email', header: 'Email' }
-   * ]" />
+   * <tbw-grid [rows]="data" [columns]="['id:number', 'name', { field: 'status', editable: true }]" />
    * ```
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  columns = input<ColumnConfig<any>[]>();
+  columns = input<ColumnShorthand<any>[]>();
+
+  /**
+   * Default column properties applied to every column in `columns`.
+   * Individual column properties override these defaults.
+   *
+   * @example
+   * ```html
+   * <tbw-grid
+   *   [columnDefaults]="{ sortable: true, resizable: true }"
+   *   [columns]="[{ field: 'id', sortable: false }, { field: 'name' }]"
+   * />
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  columnDefaults = input<Partial<ColumnConfig<any>>>();
 
   /**
    * Column sizing strategy.
@@ -926,6 +968,71 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   cellCommit = output<CellCommitEvent>();
 
   /**
+   * Emitted when a cell edit is cancelled (Escape, click outside without
+   * commit, or `editor.cancel()`).
+   *
+   * @example
+   * ```html
+   * <tbw-grid (cellCancel)="onCellCancel($event)">...</tbw-grid>
+   * ```
+   */
+  cellCancel = output<CellCancelDetail>();
+
+  /**
+   * Emitted when a cell editor opens.
+   *
+   * @example
+   * ```html
+   * <tbw-grid (editOpen)="onEditOpen($event)">...</tbw-grid>
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  editOpen = output<EditOpenDetail<any>>();
+
+  /**
+   * Emitted before an editor closes. Useful for last-chance validation.
+   *
+   * @example
+   * ```html
+   * <tbw-grid (beforeEditClose)="onBeforeEditClose($event)">...</tbw-grid>
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  beforeEditClose = output<BeforeEditCloseDetail<any>>();
+
+  /**
+   * Emitted after an editor closes (whether committed or cancelled).
+   *
+   * @example
+   * ```html
+   * <tbw-grid (editClose)="onEditClose($event)">...</tbw-grid>
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  editClose = output<EditCloseDetail<any>>();
+
+  /**
+   * Emitted when the dirty / changed-rows state transitions.
+   *
+   * @example
+   * ```html
+   * <tbw-grid (dirtyChange)="onDirtyChange($event)">...</tbw-grid>
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dirtyChange = output<DirtyChangeDetail<any>>();
+
+  /**
+   * Emitted when row data is replaced (e.g. via the `rows` setter).
+   *
+   * @example
+   * ```html
+   * <tbw-grid (dataChange)="onDataChange($event)">...</tbw-grid>
+   * ```
+   */
+  dataChange = output<DataChangeDetail>();
+
+  /**
    * Emitted when a row's values are committed (bulk/row editing).
    * Provides the row data and change tracking information.
    *
@@ -975,6 +1082,16 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```
    */
   columnResize = output<ColumnResizeDetail>();
+
+  /**
+   * Emitted when a column's width is reset (double-click on the resize handle).
+   *
+   * @example
+   * ```html
+   * <tbw-grid (columnResizeReset)="onColumnResizeReset($event)">...</tbw-grid>
+   * ```
+   */
+  columnResizeReset = output<ColumnResizeResetDetail>();
 
   /**
    * Emitted when a column is moved via drag-and-drop.
@@ -1071,6 +1188,26 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   groupToggle = output<GroupToggleDetail>();
 
   /**
+   * Emitted when a group is expanded.
+   *
+   * @example
+   * ```html
+   * <tbw-grid (groupExpand)="onGroupExpand($event)">...</tbw-grid>
+   * ```
+   */
+  groupExpand = output<GroupExpandDetail>();
+
+  /**
+   * Emitted when a group is collapsed.
+   *
+   * @example
+   * ```html
+   * <tbw-grid (groupCollapse)="onGroupCollapse($event)">...</tbw-grid>
+   * ```
+   */
+  groupCollapse = output<GroupCollapseDetail>();
+
+  /**
    * Emitted when a tree node is expanded.
    *
    * @example
@@ -1100,6 +1237,16 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```
    */
   responsiveChange = output<ResponsiveChangeDetail>();
+
+  /**
+   * Emitted when the context menu opens.
+   *
+   * @example
+   * ```html
+   * <tbw-grid (contextMenuOpen)="onContextMenuOpen($event)">...</tbw-grid>
+   * ```
+   */
+  contextMenuOpen = output<ContextMenuOpenDetail>();
 
   /**
    * Emitted when cells are copied to clipboard.
@@ -1201,11 +1348,18 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     cellActivate: 'cell-activate',
     cellChange: 'cell-change',
     cellCommit: 'cell-commit',
+    cellCancel: 'cell-cancel',
     rowCommit: 'row-commit',
     changedRowsReset: 'changed-rows-reset',
+    editOpen: 'edit-open',
+    beforeEditClose: 'before-edit-close',
+    editClose: 'edit-close',
+    dirtyChange: 'dirty-change',
+    dataChange: 'data-change',
     sortChange: 'sort-change',
     filterChange: 'filter-change',
     columnResize: 'column-resize',
+    columnResizeReset: 'column-resize-reset',
     columnMove: 'column-move',
     columnVisibility: 'column-visibility',
     columnStateChange: 'column-state-change',
@@ -1216,9 +1370,12 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     rowDrop: 'row-drop',
     rowTransfer: 'row-transfer',
     groupToggle: 'group-toggle',
+    groupExpand: 'group-expand',
+    groupCollapse: 'group-collapse',
     treeExpand: 'tree-expand',
     detailExpand: 'detail-expand',
     responsiveChange: 'responsive-change',
+    contextMenuOpen: 'context-menu-open',
     copy: 'copy',
     paste: 'paste',
     undo: 'undo',
@@ -1228,6 +1385,40 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     printComplete: 'print-complete',
     tbwScroll: 'tbw-scroll',
   } as const satisfies Readonly<Record<string, keyof DataGridEventMap<unknown>>>;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Forward-only event coverage guard.
+  //
+  // Mirrors the React adapter's `_AssertFeaturePropsCoverCore` pattern. If a
+  // new event is added to core's `DataGridEventMap` (via plugin module
+  // augmentation in `/all`) but no `eventOutputMap` entry covers it, this
+  // type fails to evaluate to `true` and the build breaks. Adapter consumers
+  // never see a silently-dropped event.
+  //
+  // Reverse direction (extra `eventOutputMap` entries pointing at non-existent
+  // events) is already enforced by the `satisfies` clause above.
+  //
+  // To consciously omit an event from the Angular surface, add it to the
+  // `IntentionallyOmittedEvents` union below with a comment explaining why.
+  // ─────────────────────────────────────────────────────────────────────────
+  /** Events deliberately not exposed as Angular outputs. Keep empty unless documented. */
+  declare private _intentionallyOmittedEvents: never;
+  declare private _assertEventOutputMapCoversCore: [
+    Exclude<
+      keyof DataGridEventMap<unknown>,
+      | (typeof Grid.prototype.eventOutputMap)[keyof typeof Grid.prototype.eventOutputMap]
+      | Grid['_intentionallyOmittedEvents']
+    >,
+  ] extends [never]
+    ? true
+    : [
+        'Missing Angular outputs for core grid events:',
+        Exclude<
+          keyof DataGridEventMap<unknown>,
+          | (typeof Grid.prototype.eventOutputMap)[keyof typeof Grid.prototype.eventOutputMap]
+          | Grid['_intentionallyOmittedEvents']
+        >,
+      ];
 
   // Store event listeners for cleanup
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

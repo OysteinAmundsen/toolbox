@@ -442,7 +442,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     children,
     // Plugin props
     plugins: manualPlugins,
-    // SSR mode
+    // SSR mode (deprecated - see SSRProps)
     ssr,
     // Legacy event handlers
     onRowsChange,

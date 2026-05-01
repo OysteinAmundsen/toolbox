@@ -29,6 +29,7 @@ import type {
   ChangedRowsResetDetail,
   ColumnMoveDetail,
   ColumnResizeDetail,
+  ColumnVisibilityDetail,
   CopyDetail,
   DataGridEventMap,
   DetailExpandDetail,
@@ -266,6 +267,27 @@ export interface EventProps<TRow = unknown> {
    * ```
    */
   onColumnResizeReset?: EventHandler<DataGridEventMap<TRow>['column-resize-reset']>;
+
+  /**
+   * Fired when a column is shown or hidden — either via the visibility
+   * sidebar, `grid.toggleColumnVisibility(field)`, `grid.setColumnVisible(field, visible)`,
+   * or `grid.showAllColumns()`.
+   *
+   * `field` and `visible` are present for single-column toggles and
+   * `undefined` for bulk operations (`showAllColumns`). `visibleColumns`
+   * always lists the current set.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/visibility';`
+   *
+   * @example
+   * ```tsx
+   * onColumnVisibility={(detail) => {
+   *   console.log(detail.hidden ? 'Hidden:' : 'Shown:', detail.field);
+   *   localStorage.setItem('visibleColumns', JSON.stringify(detail.visibleColumns));
+   * }}
+   * ```
+   */
+  onColumnVisibility?: EventHandler<ColumnVisibilityDetail>;
 
   /**
    * Fired when column state changes (resize, reorder, visibility).
@@ -594,6 +616,7 @@ export const EVENT_PROP_MAP = {
   onColumnResize: 'column-resize',
   onColumnResizeReset: 'column-resize-reset',
   onColumnMove: 'column-move',
+  onColumnVisibility: 'column-visibility',
   onColumnStateChange: 'column-state-change',
   onSelectionChange: 'selection-change',
   onRowMove: 'row-move',

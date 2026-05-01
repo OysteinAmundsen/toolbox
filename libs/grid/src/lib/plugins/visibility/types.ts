@@ -99,6 +99,16 @@ declare module '../../core/types' {
      * @group Visibility Events
      */
     'column-reorder-request': ColumnReorderRequestDetail;
+
+    /**
+     * Fired when a column is shown or hidden — either via the visibility
+     * sidebar, `grid.toggleColumnVisibility(field)`, `grid.setColumnVisible(field, visible)`,
+     * or `grid.showAllColumns()`. The `field` and `visible` properties are
+     * present for single-column toggles and undefined for bulk operations
+     * (`showAllColumns`); `visibleColumns` always lists the current set.
+     * @group Visibility Events
+     */
+    'column-visibility': ColumnVisibilityDetail;
   }
 
   interface PluginNameMap {

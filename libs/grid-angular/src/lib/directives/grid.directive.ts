@@ -34,6 +34,7 @@ import type {
   ClipboardConfig,
   ColumnMoveDetail,
   ColumnVirtualizationConfig,
+  ColumnVisibilityDetail,
   ContextMenuConfig,
   CopyDetail,
   DataGridEventMap,
@@ -986,6 +987,18 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   columnMove = output<ColumnMoveDetail>();
 
   /**
+   * Emitted when a column is shown or hidden — either via the visibility
+   * sidebar, `grid.toggleColumnVisibility(field)`, `grid.setColumnVisible(field, visible)`,
+   * or `grid.showAllColumns()`.
+   *
+   * @example
+   * ```html
+   * <tbw-grid (columnVisibility)="onColumnVisibility($event)">...</tbw-grid>
+   * ```
+   */
+  columnVisibility = output<ColumnVisibilityDetail>();
+
+  /**
    * Emitted when column state changes (resize, reorder, visibility).
    *
    * @example
@@ -1194,6 +1207,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     filterChange: 'filter-change',
     columnResize: 'column-resize',
     columnMove: 'column-move',
+    columnVisibility: 'column-visibility',
     columnStateChange: 'column-state-change',
     selectionChange: 'selection-change',
     rowMove: 'row-move',

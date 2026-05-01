@@ -121,6 +121,119 @@ export function queryGrid<TRow = unknown>(
 }
 // #endregion
 
+// #region Deprecated event-name constants
+
+/**
+ * Event-name constants for DataGrid (public API).
+ *
+ * @deprecated Use string literals directly with the typed `DataGridEventMap`
+ * (or import a framework adapter that wires events declaratively, such as
+ * `EventProps` in `@toolbox-web/grid-react` or output bindings in
+ * `@toolbox-web/grid-angular`). This object is unmaintained — entries may
+ * reference events that no longer exist or miss new ones. It will be removed
+ * in a future major release.
+ *
+ * @see {@link DataGridEventMap} — the canonical, type-checked event registry
+ * @category Events
+ */
+export const DGEvents = {
+  /** Emitted by core after any data mutation */
+  CELL_CHANGE: 'cell-change',
+  CELL_COMMIT: 'cell-commit',
+  ROW_COMMIT: 'row-commit',
+  EDIT_OPEN: 'edit-open',
+  EDIT_CLOSE: 'edit-close',
+  CHANGED_ROWS_RESET: 'changed-rows-reset',
+  MOUNT_EXTERNAL_VIEW: 'mount-external-view',
+  MOUNT_EXTERNAL_EDITOR: 'mount-external-editor',
+  SORT_CHANGE: 'sort-change',
+  COLUMN_RESIZE: 'column-resize',
+  /** Unified cell activation event (keyboard or pointer) */
+  CELL_ACTIVATE: 'cell-activate',
+  GROUP_TOGGLE: 'group-toggle',
+  COLUMN_STATE_CHANGE: 'column-state-change',
+  /** Emitted when grid row data changes (set, insert, remove, update) */
+  DATA_CHANGE: 'data-change',
+  /** Emitted (rAF-batched) on vertical viewport scroll */
+  TBW_SCROLL: 'tbw-scroll',
+} as const;
+
+/**
+ * Union type of all DataGrid event names.
+ *
+ * @deprecated Use `keyof DataGridEventMap` for a maintained, type-checked
+ * union that includes plugin events. Will be removed in a future major
+ * release alongside {@link DGEvents}.
+ *
+ * @category Events
+ */
+export type DGEventName = (typeof DGEvents)[keyof typeof DGEvents];
+
+/**
+ * Plugin event-name constants (mirrors {@link DGEvents} pattern).
+ *
+ * @deprecated Use string literals directly with the typed `DataGridEventMap`,
+ * which is augmented automatically when plugin modules are imported. This
+ * object is unmaintained — several entries here (`TREE_LOAD_START`,
+ * `TREE_LOAD_END`, `TREE_LOAD_ERROR`, `SORT_MODEL_CHANGE`, `EXPORT_START`,
+ * `CLIPBOARD_COPY`, `CLIPBOARD_PASTE`, `CONTEXT_MENU_CLOSE`,
+ * `HISTORY_CHANGE`, `SERVER_LOADING`, `SERVER_ERROR`,
+ * `COLUMN_VISIBILITY_CHANGE`, `COLUMN_REORDER`) reference events that are
+ * not actually emitted by any plugin. Will be removed in a future major
+ * release.
+ *
+ * @see {@link DataGridEventMap}
+ * @category Events
+ */
+export const PluginEvents = {
+  // Selection plugin
+  SELECTION_CHANGE: 'selection-change',
+  // Tree plugin
+  TREE_EXPAND: 'tree-expand',
+  TREE_LOAD_START: 'tree-load-start',
+  TREE_LOAD_END: 'tree-load-end',
+  TREE_LOAD_ERROR: 'tree-load-error',
+  // Filtering plugin
+  FILTER_CHANGE: 'filter-change',
+  // Sorting plugin
+  SORT_MODEL_CHANGE: 'sort-model-change',
+  // Export plugin
+  EXPORT_START: 'export-start',
+  EXPORT_COMPLETE: 'export-complete',
+  // Clipboard plugin
+  CLIPBOARD_COPY: 'clipboard-copy',
+  CLIPBOARD_PASTE: 'clipboard-paste',
+  // Context menu plugin
+  CONTEXT_MENU_OPEN: 'context-menu-open',
+  CONTEXT_MENU_CLOSE: 'context-menu-close',
+  // Undo/Redo plugin
+  HISTORY_CHANGE: 'history-change',
+  // Server-side plugin
+  SERVER_LOADING: 'server-loading',
+  SERVER_ERROR: 'server-error',
+  // Visibility plugin
+  COLUMN_VISIBILITY_CHANGE: 'column-visibility-change',
+  // Reorder plugin
+  COLUMN_REORDER: 'column-reorder',
+  // Master-detail plugin
+  DETAIL_EXPAND: 'detail-expand',
+  // Grouping rows plugin
+  GROUP_EXPAND: 'group-expand',
+} as const;
+
+/**
+ * Union type of all plugin event names.
+ *
+ * @deprecated Use `keyof DataGridEventMap` (after importing plugin modules)
+ * instead. Will be removed alongside {@link PluginEvents} in a future major
+ * release.
+ *
+ * @category Events
+ */
+export type PluginEventName = (typeof PluginEvents)[keyof typeof PluginEvents];
+
+// #endregion
+
 // Public type exports
 export type {
   // Accessibility types

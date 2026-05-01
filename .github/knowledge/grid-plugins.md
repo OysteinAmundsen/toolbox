@@ -69,6 +69,14 @@ related: [grid-core, grid-features]
 - INVARIANT: events are one-way notifications; queries are synchronous state retrieval
 - PATTERN: use events for state broadcasts (sort-change, filter-change); use queries for state reads within a lifecycle phase
 
+## event-registry (DataGridEventMap)
+
+- OWNS: `DataGridEventMap<TRow>` in `libs/grid/src/lib/core/types.ts` is the single source of truth for all DOM-visible grid events. Core events live there directly; plugin events are added via `declare module '../../core/types' { interface DataGridEventMap { 'foo-bar': FooBarDetail; } }` in the plugin's own `types.ts`. The `keyof DataGridEventMap<TRow>` union is the canonical event-name list — no separate constant needed.
+- INVARIANT: emit-site and registry must agree. A plugin can call `this._emit('foo-bar', detail)` without ever registering `'foo-bar'` in the map — the emit succeeds at runtime but adapter satisfies-guards reject it as a "non-existent" event. Always pair an `_emit` call with the matching module augmentation in the same plugin's `types.ts`.
+- INVARIANT: NEVER add a synthetic event name to `DataGridEventMap` just to satisfy a stale adapter prop or to silence a satisfies-guard error. The map is the consumer-facing contract; lying in it would mislead `addEventListener` typing across all three adapters.
+- DECIDED (May 2026): `DGEvents` / `PluginEvents` constants in `libs/grid/src/public.ts` are `@deprecated`. They were hand-maintained string-literal mirrors of `DataGridEventMap` and drifted (7 stale entries in `PluginEvents` referenced events that were never emitted; `CLIPBOARD_COPY` should have been `COPY`, etc.). Kept as deprecated stubs for now to avoid a major-version breaking change; will be removed in a future major. Consumers should use `keyof DataGridEventMap` for unions and string literals for individual names — both autocomplete and fail compile on typos.
+- DECIDED (May 2026): the `'column-visibility'` event was emitted from `config-manager.ts` (`setColumnVisible` / `toggleColumnVisibility` / `showAllColumns`) but the visibility plugin's module augmentation only registered `'column-reorder-request'`. Adapter satisfies-guards rejected `onColumnVisibility` / `columnVisibility` props as "non-existent". Fix: registered `'column-visibility': ColumnVisibilityDetail` in `libs/grid/src/lib/plugins/visibility/types.ts`. Lesson: when registering a plugin event, register EVERY event the plugin or its core helpers emit — not just the ones the plugin's own code dispatches. Visibility-related state changes flow through `config-manager` (core), not through `VisibilityPlugin` directly, but the event still semantically belongs to the visibility domain — so its augmentation lives in the visibility plugin's `types.ts`.
+
 ## plugin-manifest-schema
 
 ```

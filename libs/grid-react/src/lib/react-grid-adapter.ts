@@ -15,7 +15,7 @@ import { getResponsiveCardRenderer, type ResponsiveCardContext } from './grid-re
 import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
 import type { TypeDefault as ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { removeFromContainer, renderToContainer } from './portal-bridge';
-import { cleanupConfigRootsIn, processGridConfig } from './react-column-config';
+import { cleanupConfigRootsIn, makeFlushFocusedInput, processGridConfig } from './react-column-config';
 
 /**
  * Registry mapping grid elements to their React render functions.
@@ -121,15 +121,6 @@ export function getColumnEditor(
  */
 export function getRegisteredFields(): string[] {
   return Array.from(fieldRegistries.keys());
-}
-
-/**
- * Clear the field registries.
- * Called during adapter cleanup and in tests.
- * @internal
- */
-export function clearFieldRegistries(): void {
-  fieldRegistries.clear();
 }
 
 /**
@@ -373,19 +364,7 @@ export class GridAdapter implements FrameworkAdapter {
       // delegation listens to `focusout` and maps it to `onBlur`, so any editor
       // with `onBlur={commit}` flushes before the cell DOM is torn down.
       if (gridEl) {
-        const flush = () => {
-          const doc = container.ownerDocument;
-          const focused = doc.activeElement as HTMLElement | null;
-          if (
-            focused &&
-            container.contains(focused) &&
-            (focused instanceof HTMLInputElement ||
-              focused instanceof HTMLTextAreaElement ||
-              focused instanceof HTMLSelectElement)
-          ) {
-            focused.blur();
-          }
-        };
+        const flush = makeFlushFocusedInput(container);
         gridEl.addEventListener('before-edit-close', flush);
         this.editorBeforeCloseUnsubs.set(portalKey, () => {
           gridEl.removeEventListener('before-edit-close', flush);

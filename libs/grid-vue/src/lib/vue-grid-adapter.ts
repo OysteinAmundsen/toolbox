@@ -200,6 +200,42 @@ function isVNodeRenderFunction(value: unknown): value is (...args: unknown[]) =>
  */
 const PROCESSED_MARKER = Symbol.for('tbw:vue-processed');
 
+/**
+ * Creates a teleport host `<div>` with the given class name and `display:contents`
+ * so it is layout-transparent inside the grid cell. Used by all `createConfig*`
+ * helpers and `createRenderer` / `createEditor` to avoid repeating the
+ * three-line boilerplate.
+ * @internal
+ */
+function createTeleportContainer(className: string): HTMLDivElement {
+  const container = document.createElement('div');
+  container.className = className;
+  container.style.display = 'contents';
+  return container;
+}
+
+/**
+ * Returns a function that, when invoked, blurs the focused input/textarea/select
+ * inside `container` (if any). Used by the `before-edit-close` bridge so editors
+ * with `@blur="commit"` flush their pending value before the cell DOM is torn
+ * down by Tab / programmatic row exit.
+ * @internal
+ */
+function makeFlushFocusedInput(container: HTMLElement): () => void {
+  return () => {
+    const focused = container.ownerDocument.activeElement as HTMLElement | null;
+    if (
+      focused &&
+      container.contains(focused) &&
+      (focused instanceof HTMLInputElement ||
+        focused instanceof HTMLTextAreaElement ||
+        focused instanceof HTMLSelectElement)
+    ) {
+      focused.blur();
+    }
+  };
+}
+
 // #endregion
 
 /**
@@ -473,9 +509,7 @@ export class GridAdapter implements FrameworkAdapter {
           return cached.container;
         }
 
-        const container = document.createElement('div');
-        container.className = 'vue-cell-renderer';
-        container.style.display = 'contents';
+        const container = createTeleportContainer('vue-cell-renderer');
 
         let currentCtx = ctx as CellRenderContext<unknown, unknown>;
         const comp = component;
@@ -494,9 +528,7 @@ export class GridAdapter implements FrameworkAdapter {
         return container;
       }
 
-      const container = document.createElement('div');
-      container.className = 'vue-cell-renderer';
-      container.style.display = 'contents';
+      const container = createTeleportContainer('vue-cell-renderer');
 
       const comp = component;
       const teleportKey = renderToContainer(container, createVNode(comp, { ...ctx }));
@@ -526,9 +558,7 @@ export class GridAdapter implements FrameworkAdapter {
           return cached.container;
         }
 
-        const container = document.createElement('div');
-        container.className = 'vue-cell-renderer';
-        container.style.display = 'contents';
+        const container = createTeleportContainer('vue-cell-renderer');
 
         let currentCtx = ctx as CellRenderContext<unknown, unknown>;
 
@@ -546,9 +576,7 @@ export class GridAdapter implements FrameworkAdapter {
         return container;
       }
 
-      const container = document.createElement('div');
-      container.className = 'vue-cell-renderer';
-      container.style.display = 'contents';
+      const container = createTeleportContainer('vue-cell-renderer');
 
       const teleportKey = renderToContainer(container, renderFn(ctx));
       this.teleportKeys.push(teleportKey);
@@ -574,18 +602,7 @@ export class GridAdapter implements FrameworkAdapter {
     queueMicrotask(() => {
       const gridEl = container.closest('tbw-grid') as HTMLElement | null;
       if (!gridEl) return;
-      const flush = () => {
-        const focused = container.ownerDocument.activeElement as HTMLElement | null;
-        if (
-          focused &&
-          container.contains(focused) &&
-          (focused instanceof HTMLInputElement ||
-            focused instanceof HTMLTextAreaElement ||
-            focused instanceof HTMLSelectElement)
-        ) {
-          focused.blur();
-        }
-      };
+      const flush = makeFlushFocusedInput(container);
       gridEl.addEventListener('before-edit-close', flush);
       this.editorBeforeCloseUnsubs.set(container, () => {
         gridEl.removeEventListener('before-edit-close', flush);
@@ -602,9 +619,7 @@ export class GridAdapter implements FrameworkAdapter {
     component: Component,
   ): ColumnEditorSpec<TRow, TValue> {
     return (ctx: ColumnEditorContext<TRow, TValue>): HTMLElement => {
-      const container = document.createElement('div');
-      container.className = 'vue-cell-editor';
-      container.style.display = 'contents';
+      const container = createTeleportContainer('vue-cell-editor');
 
       const comp = component;
       const teleportKey = renderToContainer(container, createVNode(comp, { ...ctx }));
@@ -625,9 +640,7 @@ export class GridAdapter implements FrameworkAdapter {
     renderFn: (ctx: ColumnEditorContext<TRow, TValue>) => VNode,
   ): ColumnEditorSpec<TRow, TValue> {
     return (ctx: ColumnEditorContext<TRow, TValue>): HTMLElement => {
-      const container = document.createElement('div');
-      container.className = 'vue-cell-editor';
-      container.style.display = 'contents';
+      const container = createTeleportContainer('vue-cell-editor');
 
       const teleportKey = renderToContainer(container, renderFn(ctx));
       // Track for per-cell cleanup via releaseCell
@@ -647,9 +660,7 @@ export class GridAdapter implements FrameworkAdapter {
     component: Component,
   ): (ctx: HeaderCellContext<TRow>) => HTMLElement {
     return (ctx: HeaderCellContext<TRow>) => {
-      const container = document.createElement('div');
-      container.className = 'vue-header-renderer';
-      container.style.display = 'contents';
+      const container = createTeleportContainer('vue-header-renderer');
 
       const comp = component;
       const teleportKey = renderToContainer(
@@ -678,9 +689,7 @@ export class GridAdapter implements FrameworkAdapter {
     renderFn: (ctx: HeaderCellContext<TRow>) => VNode,
   ): (ctx: HeaderCellContext<TRow>) => HTMLElement {
     return (ctx: HeaderCellContext<TRow>) => {
-      const container = document.createElement('div');
-      container.className = 'vue-header-renderer';
-      container.style.display = 'contents';
+      const container = createTeleportContainer('vue-header-renderer');
 
       const teleportKey = renderToContainer(container, renderFn(ctx));
       this.teleportKeys.push(teleportKey);
@@ -698,9 +707,7 @@ export class GridAdapter implements FrameworkAdapter {
     component: Component,
   ): (ctx: HeaderLabelContext<TRow>) => HTMLElement {
     return (ctx: HeaderLabelContext<TRow>) => {
-      const container = document.createElement('div');
-      container.className = 'vue-header-label-renderer';
-      container.style.display = 'contents';
+      const container = createTeleportContainer('vue-header-label-renderer');
 
       const comp = component;
       const teleportKey = renderToContainer(
@@ -725,9 +732,7 @@ export class GridAdapter implements FrameworkAdapter {
     renderFn: (ctx: HeaderLabelContext<TRow>) => VNode,
   ): (ctx: HeaderLabelContext<TRow>) => HTMLElement {
     return (ctx: HeaderLabelContext<TRow>) => {
-      const container = document.createElement('div');
-      container.className = 'vue-header-label-renderer';
-      container.style.display = 'contents';
+      const container = createTeleportContainer('vue-header-label-renderer');
 
       const teleportKey = renderToContainer(container, renderFn(ctx));
       this.teleportKeys.push(teleportKey);
@@ -742,9 +747,7 @@ export class GridAdapter implements FrameworkAdapter {
    */
   private createComponentLoadingRenderer(component: Component): (ctx: LoadingContext) => HTMLElement {
     return (ctx: LoadingContext) => {
-      const container = document.createElement('div');
-      container.className = 'vue-loading-renderer';
-      container.style.display = 'contents';
+      const container = createTeleportContainer('vue-loading-renderer');
 
       const comp = component;
       const teleportKey = renderToContainer(container, createVNode(comp, { size: ctx.size }));
@@ -760,9 +763,7 @@ export class GridAdapter implements FrameworkAdapter {
    */
   private createVNodeLoadingRenderer(renderFn: (ctx: LoadingContext) => VNode): (ctx: LoadingContext) => HTMLElement {
     return (ctx: LoadingContext) => {
-      const container = document.createElement('div');
-      container.className = 'vue-loading-renderer';
-      container.style.display = 'contents';
+      const container = createTeleportContainer('vue-loading-renderer');
 
       const teleportKey = renderToContainer(container, renderFn(ctx));
       this.teleportKeys.push(teleportKey);
@@ -832,9 +833,7 @@ export class GridAdapter implements FrameworkAdapter {
         }
 
         // Create new container and teleport for this cell
-        const container = document.createElement('div');
-        container.className = 'vue-cell-renderer';
-        container.style.display = 'contents';
+        const container = createTeleportContainer('vue-cell-renderer');
 
         // Create reactive context that can be updated
         let currentCtx = ctx as CellRenderContext<unknown, unknown>;
@@ -855,9 +854,7 @@ export class GridAdapter implements FrameworkAdapter {
       }
 
       // Fallback: create container without caching
-      const container = document.createElement('div');
-      container.className = 'vue-cell-renderer';
-      container.style.display = 'contents';
+      const container = createTeleportContainer('vue-cell-renderer');
 
       const teleportKey = renderToContainer(container, renderFn(ctx as CellRenderContext<unknown, unknown>));
       this.teleportKeys.push(teleportKey);
@@ -877,37 +874,27 @@ export class GridAdapter implements FrameworkAdapter {
       return undefined;
     }
 
-    // Resolve grid once from the column element (stable in the DOM)
+    // Resolve grid once from the column element (stable in the DOM, so
+    // `closest('tbw-grid')` returns synchronously at creation time — unlike
+    // the config-based path where the container is constructed before being
+    // attached). This lets us install the `before-edit-close` listener
+    // eagerly so synchronous dispatches (e.g. from tests or programmatic
+    // row-exit calls during the same task) are captured.
     const gridEl = (element.closest('tbw-grid') as HTMLElement | null) ?? undefined;
 
     // Return a function that creates the editor element
     return (ctx: ColumnEditorContext<TRow, TValue>): HTMLElement => {
-      const container = document.createElement('div');
-      container.className = 'vue-cell-editor';
-      container.style.display = 'contents';
+      const container = createTeleportContainer('vue-cell-editor');
 
       const teleportKey = renderToContainer(container, editorFn(ctx as ColumnEditorContext<unknown, unknown>));
       // Track for per-cell cleanup via releaseCell
       this.editorTeleportKeys.set(container, teleportKey);
 
       // Bridge "Tab / programmatic row exit drops pending input" — see
-      // editorBeforeCloseUnsubs doc comment. Calling native `.blur()` fires
-      // both `blur` (non-bubbling) and `focusout` (bubbling) so any editor
-      // with `@blur="commit"` flushes before the cell DOM is torn down.
+      // attachBeforeEditCloseFlush doc comment. Resolved eagerly here
+      // because we have synchronous access to the column element.
       if (gridEl) {
-        const flush = () => {
-          const doc = container.ownerDocument;
-          const focused = doc.activeElement as HTMLElement | null;
-          if (
-            focused &&
-            container.contains(focused) &&
-            (focused instanceof HTMLInputElement ||
-              focused instanceof HTMLTextAreaElement ||
-              focused instanceof HTMLSelectElement)
-          ) {
-            focused.blur();
-          }
-        };
+        const flush = makeFlushFocusedInput(container);
         gridEl.addEventListener('before-edit-close', flush);
         this.editorBeforeCloseUnsubs.set(container, () => {
           gridEl.removeEventListener('before-edit-close', flush);

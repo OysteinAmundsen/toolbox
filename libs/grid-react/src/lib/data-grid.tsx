@@ -38,6 +38,39 @@ let adapterRegistered = false;
 let globalAdapter: GridAdapter | null = null;
 
 /**
+ * Static list of all feature prop names recognised by `<DataGrid>`.
+ * Hoisted to module scope so the array is allocated once at module load,
+ * not on every render. Used to extract `FeatureProps` from `...rest` and
+ * to derive a stable change-detection key.
+ */
+const FEATURE_KEYS = [
+  'selection',
+  'editing',
+  'filtering',
+  'multiSort',
+  'clipboard',
+  'contextMenu',
+  'reorderColumns',
+  'reorderRows',
+  'rowDragDrop',
+  'visibility',
+  'undoRedo',
+  'tree',
+  'groupingRows',
+  'groupingColumns',
+  'pinnedColumns',
+  'pinnedRows',
+  'masterDetail',
+  'responsive',
+  'columnVirtualization',
+  'export',
+  'print',
+  'pivot',
+  'serverSide',
+  'tooltip',
+] as const;
+
+/**
  * Ensure the React adapter is registered globally.
  * Called synchronously to ensure adapter is available before grid parses light DOM.
  */
@@ -473,42 +506,13 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   // EXTRACT FEATURE PROPS AND EVENT PROPS
   // ═══════════════════════════════════════════════════════════════════
 
-  // Feature keys list (static - defined outside to avoid recreating)
-  const featureKeys = [
-    'selection',
-    'editing',
-    'filtering',
-    'multiSort',
-    'clipboard',
-    'contextMenu',
-    'reorderColumns',
-    'reorderRows',
-    'rowDragDrop',
-    'visibility',
-    'undoRedo',
-    'tree',
-    'groupingRows',
-    'groupingColumns',
-    'pinnedColumns',
-    'pinnedRows',
-    'masterDetail',
-    'responsive',
-    'columnVirtualization',
-    'export',
-    'print',
-    'pivot',
-    'serverSide',
-    'tooltip',
-  ] as const;
-
   // Create a stable key from feature prop values to detect actual changes
   // This avoids infinite loops from `rest` object reference changing each render
   const featurePropsKey = useMemo(() => {
-    return featureKeys
-      .map((key) => {
-        const value = (rest as Record<string, unknown>)[key];
-        return value !== undefined ? `${key}:${JSON.stringify(value)}` : '';
-      })
+    return FEATURE_KEYS.map((key) => {
+      const value = (rest as Record<string, unknown>)[key];
+      return value !== undefined ? `${key}:${JSON.stringify(value)}` : '';
+    })
       .filter(Boolean)
       .join('|');
   }, [rest]);
@@ -517,7 +521,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   const featureProps = useMemo(() => {
     const features: FeatureProps<TRow> = {};
 
-    for (const key of featureKeys) {
+    for (const key of FEATURE_KEYS) {
       if (key in rest && (rest as any)[key] !== undefined) {
         (features as any)[key] = (rest as any)[key];
       }

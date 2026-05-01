@@ -146,6 +146,43 @@ export function cleanupConfigRootsIn(parentEl: HTMLElement): void {
 }
 
 /**
+ * Creates a portal host `<div>` with the given class name and `display:contents`
+ * so it is layout-transparent inside the grid cell. Used by all `wrapReact*`
+ * helpers to avoid repeating the three-line boilerplate.
+ * @internal
+ */
+function createPortalContainer(className: string): HTMLDivElement {
+  const container = document.createElement('div');
+  container.className = className;
+  container.style.display = 'contents';
+  return container;
+}
+
+/**
+ * Returns a function that, when invoked, blurs the focused input/textarea/select
+ * inside `container` (if any). Used by the `before-edit-close` bridge so editors
+ * with `onBlur={commit}` flush their pending value before the cell DOM is torn
+ * down by Tab / programmatic row exit. The native `.blur()` method fires both
+ * `blur` (non-bubbling) and `focusout` (bubbling) — React's event delegation
+ * listens to `focusout` and maps it to `onBlur`.
+ * @internal
+ */
+export function makeFlushFocusedInput(container: HTMLElement): () => void {
+  return () => {
+    const focused = container.ownerDocument.activeElement as HTMLElement | null;
+    if (
+      focused &&
+      container.contains(focused) &&
+      (focused instanceof HTMLInputElement ||
+        focused instanceof HTMLTextAreaElement ||
+        focused instanceof HTMLSelectElement)
+    ) {
+      focused.blur();
+    }
+  };
+}
+
+/**
  * Wraps a React renderer function into a DOM-returning viewRenderer.
  * Used internally by DataGrid to process reactRenderer properties.
  *
@@ -189,9 +226,7 @@ export function wrapReactRenderer<TRow>(
       }
     }
 
-    const container = document.createElement('div');
-    container.className = 'react-cell-renderer';
-    container.style.display = 'contents';
+    const container = createPortalContainer('react-cell-renderer');
 
     const portalKey = renderToContainer(container, renderFn(ctx));
 
@@ -212,9 +247,7 @@ export function wrapReactEditor<TRow>(
   editorFn: (ctx: ColumnEditorContext<TRow>) => ReactNode,
 ): (ctx: ColumnEditorContext<TRow>) => HTMLElement {
   return (ctx: ColumnEditorContext<TRow>) => {
-    const container = document.createElement('div');
-    container.className = 'react-cell-editor';
-    container.style.display = 'contents';
+    const container = createPortalContainer('react-cell-editor');
 
     const portalKey = renderToContainer(container, editorFn(ctx));
     const entry: MountedEntry = { key: portalKey };
@@ -235,18 +268,7 @@ export function wrapReactEditor<TRow>(
     queueMicrotask(() => {
       const gridEl = container.closest('tbw-grid') as HTMLElement | null;
       if (!gridEl) return;
-      const flush = () => {
-        const focused = container.ownerDocument.activeElement as HTMLElement | null;
-        if (
-          focused &&
-          container.contains(focused) &&
-          (focused instanceof HTMLInputElement ||
-            focused instanceof HTMLTextAreaElement ||
-            focused instanceof HTMLSelectElement)
-        ) {
-          focused.blur();
-        }
-      };
+      const flush = makeFlushFocusedInput(container);
       gridEl.addEventListener('before-edit-close', flush);
       entry.unsub = () => {
         gridEl.removeEventListener('before-edit-close', flush);
@@ -265,9 +287,7 @@ export function wrapReactHeaderRenderer<TRow>(
   renderFn: (ctx: HeaderCellContext<TRow>) => ReactNode,
 ): (ctx: HeaderCellContext<TRow>) => HTMLElement {
   return (ctx: HeaderCellContext<TRow>) => {
-    const container = document.createElement('div');
-    container.className = 'react-header-renderer';
-    container.style.display = 'contents';
+    const container = createPortalContainer('react-header-renderer');
 
     const portalKey = renderToContainer(container, renderFn(ctx));
     mountedPortals.set(container, { key: portalKey });
@@ -284,9 +304,7 @@ export function wrapReactHeaderLabelRenderer<TRow>(
   renderFn: (ctx: HeaderLabelContext<TRow>) => ReactNode,
 ): (ctx: HeaderLabelContext<TRow>) => HTMLElement {
   return (ctx: HeaderLabelContext<TRow>) => {
-    const container = document.createElement('div');
-    container.className = 'react-header-label-renderer';
-    container.style.display = 'contents';
+    const container = createPortalContainer('react-header-label-renderer');
 
     const portalKey = renderToContainer(container, renderFn(ctx));
     mountedPortals.set(container, { key: portalKey });
@@ -313,9 +331,7 @@ export function wrapReactLoadingRenderer(
     }
 
     // Otherwise, mount as React JSX
-    const container = document.createElement('div');
-    container.className = 'react-loading-renderer';
-    container.style.display = 'contents';
+    const container = createPortalContainer('react-loading-renderer');
 
     const portalKey = renderToContainer(container, result);
     mountedPortals.set(container, { key: portalKey });

@@ -320,11 +320,23 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 | --------------- | -------------------- | ------------------------------------------ |
 | `activate-cell` | `ActivateCellDetail` | ⚠️ Deprecated. Use `cell-activate` instead |
 
-Import event names from the `DGEvents` constant:
+Use the typed `grid.on()` API (recommended) or `addEventListener` with the
+event name as a string literal — both are type-checked against
+`DataGridEventMap`, so typos fail at compile time and `event.detail` is
+correctly typed:
 
 ```typescript
-import { DGEvents } from '@toolbox-web/grid';
-grid.addEventListener(DGEvents.CELL_COMMIT, handler);
+import type { DataGridEventMap } from '@toolbox-web/grid';
+
+// Recommended: grid.on() returns an unsubscribe function
+const off = grid.on('cell-commit', ({ row, field, newValue }) => {
+  saveToServer(row, field, newValue);
+});
+
+// Equivalent with addEventListener
+grid.addEventListener('cell-commit', (e) => {
+  saveToServer(e.detail.row, e.detail.field, e.detail.newValue);
+});
 ```
 
 ### Insert & Remove Rows

@@ -3783,6 +3783,35 @@ export interface ColumnResizeDetail {
 }
 
 /**
+ * Column resize-reset event detail.
+ *
+ * Fired when a user-resized column is restored to its original configured width
+ * (e.g., via the column header context menu "Reset width" action). The `width`
+ * field reflects the column's `__originalWidth` and may be `undefined` if the
+ * column was originally auto-sized.
+ *
+ * @example
+ * ```typescript
+ * grid.on('column-resize-reset', ({ field, width }) => {
+ *   if (width === undefined) {
+ *     console.log(`Column ${field} restored to auto-size`);
+ *   } else {
+ *     console.log(`Column ${field} restored to ${width}px`);
+ *   }
+ * });
+ * ```
+ *
+ * @see {@link ColumnResizeDetail} for the resize-in-progress event
+ * @category Events
+ */
+export interface ColumnResizeResetDetail {
+  /** Reset column field key. */
+  field: string;
+  /** Original configured width in pixels, or `undefined` if auto-sized. */
+  width: number | undefined;
+}
+
+/**
  * Trigger type for cell activation.
  * - `'keyboard'`: Enter key pressed on focused cell
  * - `'pointer'`: Mouse/touch/pen click on cell
@@ -3919,7 +3948,6 @@ export interface ExternalMountEditorDetail<TRow = unknown> {
  *
  * @see {@link DataGridElement.on} for the recommended subscription API
  * @see {@link DataGridCustomEvent} for typed CustomEvent wrapper
- * @see {@link DGEvents} for event name constants
  * @category Events
  */
 export interface DataGridEventMap<TRow = unknown> {
@@ -4145,6 +4173,24 @@ export interface DataGridEventMap<TRow = unknown> {
    * @group Core Events
    */
   'column-resize': ColumnResizeDetail;
+
+  /**
+   * Fired when a user-resized column is reset to its original configured width.
+   * Triggered by the column header context menu "Reset width" action.
+   *
+   * @example
+   * ```typescript
+   * grid.on('column-resize-reset', ({ field, width }) => {
+   *   const widths = JSON.parse(localStorage.getItem('col-widths') ?? '{}');
+   *   delete widths[field];
+   *   localStorage.setItem('col-widths', JSON.stringify(widths));
+   * });
+   * ```
+   *
+   * @see {@link ColumnResizeResetDetail}
+   * @group Core Events
+   */
+  'column-resize-reset': ColumnResizeResetDetail;
 
   /**
    * Fired when column state changes — reordering, resizing, visibility toggle,

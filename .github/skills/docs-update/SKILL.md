@@ -103,6 +103,7 @@ Public methods and properties.
 ```
 
 > **Plugin JSDoc conventions for auto-generated API docs:**
+>
 > - `## Configuration Options` tables are **auto-generated** from the constructor's config interface — do not hand-write them in JSDoc
 > - `## Programmatic API` tables are redundant with auto-generated Methods — do not hand-write them in JSDoc
 > - Use `{@link TypeName}` in hand-written sections (Column Configuration, CSS Custom Properties, Events) to cross-link types
@@ -301,7 +302,7 @@ When updating `llms-full.txt`, verify these sections stay in sync with the codeb
 
 1. **Plugin list** — Cross-check the plugin table in "Correct Plugin Class Names" against the actual plugins in `libs/grid/src/lib/plugins/`. Any new plugin must be added with its class name and import path.
 2. **Feature props table** — Verify every plugin with a feature prop entry in `libs/grid-*/src/lib/features/` is listed.
-3. **Events table** — Check `DGEvents` enum in `libs/grid/src/lib/core/types.ts` for new/removed events.
+3. **Events table** — Check the `DataGridEventMap` interface in `libs/grid/src/lib/core/types.ts` (and plugin augmentations under `libs/grid/src/lib/plugins/*/types.ts`) for new/removed events. `DataGridEventMap` is the single source of truth — `keyof DataGridEventMap` is the complete event-name union.
 4. **CSS variables** — Scan `libs/grid/src/lib/core/grid.css` for new `--tbw-*` variables.
 5. **Framework recipes** — Ensure code examples compile against the current API (import paths, prop names, type names).
 

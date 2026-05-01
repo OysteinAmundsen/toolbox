@@ -22,7 +22,7 @@ import {
 } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ToolPanelDefinition } from '../../core/types';
 import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
-import type { ColumnGroupInfo, VisibilityConfig } from './types';
+import type { ColumnGroupInfo, ColumnReorderRequestDetail, VisibilityConfig } from './types';
 import styles from './visibility.css?inline';
 
 /** Column metadata shape returned by `grid.getAllColumns()`. */
@@ -33,18 +33,6 @@ type ColumnEntry = {
   lockVisible?: boolean;
   utility?: boolean;
 };
-
-/**
- * Detail for column-reorder-request events emitted when users drag-drop in the visibility panel.
- */
-export interface ColumnReorderRequestDetail {
-  /** The field name of the column to move */
-  field: string;
-  /** The source index (before move) */
-  fromIndex: number;
-  /** The target index (after move) */
-  toIndex: number;
-}
 
 /**
  * Column Visibility Plugin for tbw-grid

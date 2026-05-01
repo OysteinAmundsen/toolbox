@@ -778,10 +778,8 @@ describe('tbw-grid integration: public API & events', () => {
     document.body.innerHTML = '';
   });
 
-  it('exposes DGEvents and registers custom element', async () => {
-    const mod = await import('../../index');
-    expect(mod.DGEvents).toBeTruthy();
-    expect(Object.keys(mod.DGEvents)).toEqual(expect.arrayContaining(['CELL_COMMIT', 'ROW_COMMIT', 'SORT_CHANGE']));
+  it('registers the tbw-grid custom element', async () => {
+    await import('../../index');
     expect(customElements.get('tbw-grid')).toBeTruthy();
   });
 
@@ -2447,11 +2445,6 @@ describe('tbw-grid integration: data-change event', () => {
     expect(events.length).toBe(1);
     expect(events[0].rowCount).toBe(1);
     expect(events[0].sourceRowCount).toBe(1);
-  });
-
-  it('includes DATA_CHANGE in DGEvents', async () => {
-    const mod = await import('../../index');
-    expect(mod.DGEvents.DATA_CHANGE).toBe('data-change');
   });
 });
 

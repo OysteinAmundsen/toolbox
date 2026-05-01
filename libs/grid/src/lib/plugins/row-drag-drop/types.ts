@@ -268,6 +268,14 @@ export interface PendingMove {
 declare module '../../core/types' {
   interface DataGridEventMap<TRow = unknown> {
     /**
+     * Fired when a row is reordered within a single grid (drag or keyboard).
+     * Cancelable — call `preventDefault()` to revert the move.
+     * Cross-grid drops emit `row-transfer` / `row-drop` instead.
+     * @group Row Drag-Drop Events
+     */
+    'row-move': RowMoveDetail<TRow>;
+
+    /**
      * Fired on the **source** grid when a row drag begins.
      * Cancelable — call `preventDefault()` to abort the drag.
      * @group Row Drag-Drop Events

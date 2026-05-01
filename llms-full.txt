@@ -1006,20 +1006,27 @@ interface HeaderCellContext<TRow> {
 
 ## Events
 
-Listen to grid events via `addEventListener`:
+Listen to grid events with the typed `grid.on()` API (recommended) or
+`grid.addEventListener()`. Both are type-checked against `DataGridEventMap`,
+so event names autocomplete and `event.detail` is correctly typed:
 
 ```typescript
-import { DGEvents } from '@toolbox-web/grid';
-
-grid.addEventListener(DGEvents.CELL_COMMIT, (e) => {
-  console.log('Cell edited:', e.detail);
+const off = grid.on('cell-commit', (detail) => {
+  console.log('Cell edited:', detail);
   // { field, value, oldValue, row, rowId, rowIndex, changedRows, updateRow, setInvalid }
 });
 
-grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
-  console.log('Sort changed:', e.detail);
+grid.on('sort-change', (detail) => {
+  console.log('Sort changed:', detail);
 });
+
+// Equivalent with addEventListener (returns no unsubscribe handle)
+grid.addEventListener('cell-commit', (e) => console.log(e.detail));
 ```
+
+The complete event-name union is `keyof DataGridEventMap` — every plugin
+augments this map via `declare module`, so loading a plugin adds its events
+to the same registry.
 
 **Key Event Types:**
 
@@ -1031,6 +1038,7 @@ grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
 | `cell-activate` | `row`, `rowIndex`, `colIndex`, `field`, `value`, `cellEl`, `trigger`, `originalEvent` |
 | `sort-change` | `field`, `direction` (0=none, 1=asc, -1=desc) |
 | `column-resize` | `field`, `width` |
+| `column-resize-reset` | `field`, `width` (original width or `undefined` if auto-sized) |
 | `column-state-change` | `columns` array with field, order, width, visible, sort |
 | `data-change` | `rowCount`, `sourceRowCount` — fires when rows are set or modified |
 
@@ -1043,40 +1051,31 @@ grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
 | `edit-open` | `row`, `rowIndex`, `rowId` |
 | `before-edit-close` | `row`, `rowIndex`, `rowId` — fires before state cleared on commit (row mode); lets managed editors flush values |
 | `edit-close` | `row`, `rowIndex`, `rowId`, `reverted` |
+| `cell-cancel` | `rowId`, `field`, `value` |
 | `changed-rows-reset` | `rows`, `ids` |
 | `group-toggle` | `key`, `expanded`, `value`, `depth` |
 | `dirty-change` | `rowId`, `row`, `original`, `type` (`'modified'`\|`'new'`\|`'reverted'`\|`'pristine'`) (requires `dirtyTracking: true`) |
 
-**Plugin Events (via `PluginEvents` constant unless noted):**
+**Plugin Events:**
 
 | Event | Plugin | Detail Properties |
 |-------|--------|-------------------|
 | `selection-change` | Selection | `SelectionChangeDetail` |
 | `filter-change` | Filtering | `FilterChangeDetail` (`filters[]`, `filteredRowCount`, `selected?`) |
-| `sort-model-change` | MultiSort | `SortModel[]` |
 | `tree-expand` | Tree | `TreeExpandDetail` |
-| `tree-load-start` | Tree | — |
-| `tree-load-end` | Tree | `{ totalTopLevelCount, loadedCount }` |
-| `tree-load-error` | Tree | `{ error }` |
 | `detail-expand` | MasterDetail | `DetailExpandDetail` |
 | `group-expand` | GroupingRows | `GroupExpandDetail` (`groupKey`, `groupPath`) |
-| `group-collapse` \* | GroupingRows | `GroupCollapseDetail` (`groupKey`, `groupPath`) |
-| `export-start` | Export | `ExportStartDetail` |
+| `group-collapse` | GroupingRows | `GroupCollapseDetail` (`groupKey`, `groupPath`) |
 | `export-complete` | Export | `ExportCompleteDetail` |
-| `pivot-toggle` \* | Pivot | `PivotToggleDetail` (`key`, `expanded`, `label`, `depth`) |
-| `pivot-state-change` \* | Pivot | `PivotStateChangeDetail` (`active`) |
-| `pivot-config-change` \* | Pivot | `PivotConfigChangeDetail` (`property`, `field?`, `zone?`) |
-| `clipboard-copy` | Clipboard | `ClipboardCopyDetail` |
-| `clipboard-paste` | Clipboard | `ClipboardPasteDetail` |
+| `copy` | Clipboard | `CopyDetail` |
+| `paste` | Clipboard | `PasteDetail` |
 | `context-menu-open` | ContextMenu | `ContextMenuOpenDetail` |
-| `context-menu-close` | ContextMenu | — |
-| `history-change` | UndoRedo | `HistoryChangeDetail` |
-| `server-loading` | ServerSide | `boolean` |
-| `server-error` | ServerSide | `Error` |
-| `column-visibility-change` | Visibility | `VisibilityChangeDetail` |
-| `column-reorder` | Reorder | `ReorderDetail` |
-
-\* Not in `PluginEvents` constant — listen via string literal (e.g., `grid.addEventListener('group-collapse', ...)`).
+| `undo` / `redo` | UndoRedo | `UndoRedoDetail` |
+| `print-start` / `print-complete` | Print | `PrintStartDetail` / `PrintCompleteDetail` |
+| `responsive-change` | Responsive | `ResponsiveChangeDetail` |
+| `column-move` | Reorder | `ColumnMoveDetail` |
+| `row-move` | RowDragDrop | `RowMoveDetail` (intra-grid; cancelable) |
+| `row-drag-start` / `row-drag-end` / `row-drop` / `row-transfer` | RowDragDrop | drag-drop lifecycle |
 
 **React event handling:** Use `on`-prefix props on `<DataGrid>` — the detail is unwrapped automatically:
 

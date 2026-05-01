@@ -4,6 +4,5 @@
  *
  * @module Plugins/Visibility
  */
-export type { ColumnGroupInfo, ColumnVisibilityDetail, VisibilityConfig } from './types';
+export type { ColumnGroupInfo, ColumnReorderRequestDetail, ColumnVisibilityDetail, VisibilityConfig } from './types';
 export { VisibilityPlugin } from './VisibilityPlugin';
-export type { ColumnReorderRequestDetail } from './VisibilityPlugin';

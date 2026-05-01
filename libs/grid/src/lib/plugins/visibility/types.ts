@@ -74,8 +74,33 @@ export interface ColumnGroupInfo {
   fields: string[];
 }
 
-// Module Augmentation - Register plugin name for type-safe getPluginByName()
+/**
+ * Detail for `column-reorder-request` events emitted when users drag-drop
+ * columns in the visibility sidebar panel.
+ *
+ * This event is consumed by `ReorderPlugin` to actually perform the column
+ * move; if `ReorderPlugin` is not loaded, the event is informational only.
+ */
+export interface ColumnReorderRequestDetail {
+  /** The field name of the column to move. */
+  field: string;
+  /** The source index in the column order (before the move). */
+  fromIndex: number;
+  /** The target index in the column order (after the move). */
+  toIndex: number;
+}
+
+// Module Augmentation - Register events and plugin name for type-safe lookups.
 declare module '../../core/types' {
+  interface DataGridEventMap {
+    /**
+     * Fired when the user drag-reorders columns in the visibility sidebar panel.
+     * Consumed by `ReorderPlugin` to perform the actual column move.
+     * @group Visibility Events
+     */
+    'column-reorder-request': ColumnReorderRequestDetail;
+  }
+
   interface PluginNameMap {
     visibility: import('./VisibilityPlugin').VisibilityPlugin;
   }

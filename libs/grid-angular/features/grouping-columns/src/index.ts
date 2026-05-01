@@ -14,11 +14,7 @@
  */
 
 import type { Type } from '@angular/core';
-import {
-  isComponentClass,
-  registerFeatureConfigPreprocessor,
-  type GridAdapter,
-} from '@toolbox-web/grid-angular/internal';
+import { isComponentClass, registerFeatureConfigPreprocessor, type GridAdapter } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/grouping-columns';
 import type { GroupHeaderRenderParams, GroupingColumnsConfig } from '@toolbox-web/grid/plugins/grouping-columns';
 export type { _Augmentation as _GroupingColumnsAugmentation } from '@toolbox-web/grid/features/grouping-columns';

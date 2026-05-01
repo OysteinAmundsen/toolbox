@@ -29,7 +29,7 @@ import {
   registerTemplateBridge,
   type GridAdapter,
   type GridResponsiveCardContext,
-} from '@toolbox-web/grid-angular/internal';
+} from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/responsive';
 export type { _Augmentation as _ResponsiveAugmentation } from '@toolbox-web/grid/features/responsive';
 

@@ -13,7 +13,7 @@
  * @packageDocumentation
  */
 
-import { isComponentClass, registerFeatureConfigPreprocessor } from '@toolbox-web/grid-angular/internal';
+import { isComponentClass, registerFeatureConfigPreprocessor } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/grouping-rows';
 import type { GroupingRowsConfig, GroupRowRenderParams } from '@toolbox-web/grid/plugins/grouping-rows';
 export type { _Augmentation as _GroupingRowsAugmentation } from '@toolbox-web/grid/features/grouping-rows';

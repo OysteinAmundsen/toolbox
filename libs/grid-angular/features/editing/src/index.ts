@@ -19,7 +19,7 @@
  * @packageDocumentation
  */
 
-import { makeFlushFocusedInput, registerEditorMountHook } from '@toolbox-web/grid-angular/internal';
+import { makeFlushFocusedInput, registerEditorMountHook } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/editing';
 export type { _Augmentation as _EditingAugmentation } from '@toolbox-web/grid/features/editing';
 

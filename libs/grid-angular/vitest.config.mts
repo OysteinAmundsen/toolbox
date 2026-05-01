@@ -33,13 +33,6 @@ export default defineConfig({
         find: /^@toolbox-web\/grid-angular\/features\/(.+)$/,
         replacement: path.join(import.meta.dirname, 'features/$1/src/index.ts'),
       },
-      // Resolve the narrow internal entry consumed by feature secondary entries
-      // to a thin re-export module that does NOT pull the full package barrel.
-      // See `src/lib/feature-internal.ts` for the rationale (coverage scope).
-      {
-        find: '@toolbox-web/grid-angular/internal',
-        replacement: path.join(import.meta.dirname, 'src/lib/feature-internal.ts'),
-      },
       // Resolve @toolbox-web/grid-angular to local source
       {
         find: '@toolbox-web/grid-angular',

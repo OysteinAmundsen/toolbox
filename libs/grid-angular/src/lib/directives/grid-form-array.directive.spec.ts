@@ -1,404 +1,525 @@
 /**
- * GridFormArray Directive Tests
- *
- * Tests the FormArray binding directive for integrating
- * tbw-grid with Angular Reactive Forms.
- *
- * Note: We test the directive's behavior directly without Angular's DI
- * to avoid JIT compilation issues in Vitest. Full integration testing
- * would require Angular TestBed with proper AOT setup.
+ * Tests for `GridFormArray` directive — exercises the real directive class
+ * by mocking Angular's DI primitives. Complements
+ * `grid-form-array.directive.spec.ts` (which tests behaviour through a shadow
+ * implementation and therefore doesn't lift coverage on the real class).
  *
  * @vitest-environment happy-dom
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { FormArrayContext } from './grid-form-array.directive';
+import '@angular/compiler';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Subject } from 'rxjs';
+import { FormArray, FormControl, FormGroup, type AbstractControl } from '@angular/forms';
 
-/**
- * Create a mock FormArray-like object for testing.
- * This avoids importing Angular's forms module.
- */
-function createMockFormArray(initialRows: Record<string, unknown>[]) {
-  const controls = initialRows.map((row) => createMockFormGroup(row));
+// --- Mock Angular DI primitives --------------------------------------------
+// Capture the most-recently-installed `inject` resolver so each test can swap
+// it. `effect` is stubbed to a no-op (we exercise the post-init behaviour
+// directly via event dispatch). `input.required` / `input` return signal-like
+// getters whose value can be set per-test through the second argument.
+let mockInjectResolver: (token: unknown) => unknown = () => undefined;
 
-  const formArray = {
-    length: controls.length,
-    controls,
-    at: (index: number) => controls[index],
-    getRawValue: () => controls.map((c) => c.getRawValue()),
-    markAsTouched: vi.fn(),
-    markAsDirty: vi.fn(),
-  };
-
-  return formArray;
-}
-
-/**
- * Create a mock FormGroup-like object for testing.
- */
-function createMockFormGroup(values: Record<string, unknown>) {
-  const controls: Record<string, ReturnType<typeof createMockFormControl>> = {};
-
-  Object.entries(values).forEach(([key, value]) => {
-    controls[key] = createMockFormControl(value);
+vi.mock('@angular/core', async () => {
+  const actual = await vi.importActual<typeof import('@angular/core')>('@angular/core');
+  function inputFn(initial?: unknown): { (): unknown } & { __setValue: (v: unknown) => void } {
+    let value: unknown = initial;
+    const fn = (() => value) as { (): unknown } & { __setValue: (v: unknown) => void };
+    fn.__setValue = (v: unknown) => {
+      value = v;
+    };
+    return fn;
+  }
+  const input = Object.assign(inputFn, {
+    required: () => inputFn(),
   });
+  return {
+    ...actual,
+    inject: (token: unknown) => mockInjectResolver(token),
+    effect: () => ({ destroy: () => undefined }),
+    input,
+  };
+});
+
+vi.mock('@angular/core/rxjs-interop', async () => {
+  const actual = await vi.importActual<typeof import('@angular/core/rxjs-interop')>('@angular/core/rxjs-interop');
+  return {
+    ...actual,
+    // Identity: tests destroy subscriptions manually
+    takeUntilDestroyed:
+      () =>
+      <T>(source: T) =>
+        source,
+  };
+});
+
+// Import after mocks
+import { DestroyRef, ElementRef } from '@angular/core';
+import { GridFormArray, getFormArrayContext } from './grid-form-array.directive';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+interface MockGrid extends HTMLElement {
+  rows: unknown[];
+  on: ReturnType<typeof vi.fn>;
+  ready: ReturnType<typeof vi.fn>;
+  getRowId: (row: { id?: string }) => string | undefined;
+  getPluginByName: ReturnType<typeof vi.fn>;
+}
+
+function createMockGrid(initialRows: unknown[] = []): MockGrid {
+  const grid = document.createElement('tbw-grid') as unknown as MockGrid;
+  grid.rows = initialRows;
+  grid.on = vi.fn(() => () => undefined);
+  grid.ready = vi.fn(() => Promise.resolve());
+  grid.getRowId = (row) => row?.id;
+  grid.getPluginByName = vi.fn(() => undefined);
+  return grid;
+}
+
+interface BuiltDirective {
+  directive: GridFormArray;
+  grid: MockGrid;
+  formArray: FormArray;
+  setFormArray: (fa: FormArray) => void;
+  setSyncValidation: (v: boolean) => void;
+}
+
+function buildDirective(formArray: FormArray, syncValidation = true): BuiltDirective {
+  const grid = createMockGrid(formArray.getRawValue());
+  const elementRef = { nativeElement: grid as unknown as HTMLElement } as ElementRef<HTMLElement>;
+  const destroyRef = { onDestroy: () => () => undefined } as unknown as DestroyRef;
+
+  mockInjectResolver = (token: unknown) => {
+    if (token === DestroyRef) return destroyRef;
+    if (token === ElementRef) return elementRef;
+    return undefined;
+  };
+
+  const directive = new GridFormArray();
+  // The mocked `input.required` / `input` return a getter bound via `__setValue`
+  (directive.formArray as unknown as { __setValue: (v: FormArray) => void }).__setValue(formArray);
+  (directive.syncValidation as unknown as { __setValue: (v: boolean) => void }).__setValue(syncValidation);
 
   return {
-    controls,
-    value: values,
-    valid: true,
-    touched: false,
-    dirty: false,
-    errors: null as Record<string, unknown> | null,
-    get: (field: string) => controls[field],
-    getRawValue: () => {
-      const result: Record<string, unknown> = {};
-      Object.entries(controls).forEach(([key, control]) => {
-        result[key] = control.value;
-      });
-      return result;
-    },
+    directive,
+    grid,
+    formArray,
+    setFormArray: (fa) => (directive.formArray as unknown as { __setValue: (v: FormArray) => void }).__setValue(fa),
+    setSyncValidation: (v) =>
+      (directive.syncValidation as unknown as { __setValue: (v: boolean) => void }).__setValue(v),
   };
 }
 
-/**
- * Create a mock FormControl-like object for testing.
- */
-function createMockFormControl(initialValue: unknown) {
-  return {
-    value: initialValue,
-    errors: null as Record<string, unknown> | null,
-    setValue: vi.fn(function (this: { value: unknown }, newValue: unknown) {
-      this.value = newValue;
-    }),
-    markAsDirty: vi.fn(),
-    markAsTouched: vi.fn(),
-  };
+interface CapturedHandlers {
+  cellCommit?: (detail: unknown) => void;
+  cellCancel?: (detail: unknown) => void;
+  rowCommit?: (detail: unknown, event: Event) => void;
 }
 
-/**
- * Create a simplified instance of the directive for testing.
- * This avoids Angular DI and JIT compilation issues.
- */
-function createDirectiveInstance(element: HTMLElement, formArray: ReturnType<typeof createMockFormArray>) {
-  let abortController: AbortController | null = null;
-
-  return {
-    // Lifecycle hooks
-    ngOnInit(): void {
-      abortController = new AbortController();
-      const signal = abortController.signal;
-
-      // Sync FormArray value to grid
-      (element as HTMLElement & { rows: unknown[] }).rows = formArray.getRawValue();
-
-      // Listen for cell-commit events
-      element.addEventListener(
-        'cell-commit',
-        (event: Event) => {
-          const detail = (event as CustomEvent).detail as {
-            rowIndex: number;
-            field: string;
-            value: unknown;
-          };
-
-          const rowFormGroup = formArray.at(detail.rowIndex);
-          if (rowFormGroup) {
-            const control = rowFormGroup.get(detail.field);
-            if (control) {
-              control.setValue(detail.value);
-              control.markAsDirty();
-              control.markAsTouched();
-            }
-          }
-        },
-        { signal },
-      );
-
-      // Listen for click to mark as touched
-      element.addEventListener(
-        'click',
-        () => {
-          formArray.markAsTouched();
-        },
-        { signal, once: true },
-      );
-    },
-
-    ngOnDestroy(): void {
-      abortController?.abort();
-    },
-
-    // Sync method (simulates the effect)
-    syncToGrid(): void {
-      (element as HTMLElement & { rows: unknown[] }).rows = formArray.getRawValue();
-    },
-
-    get formArray() {
-      return formArray;
-    },
-  };
-}
-
-describe('GridFormArray', () => {
-  let mockGridElement: HTMLElement & { rows?: unknown[] };
-  let mockFormArray: ReturnType<typeof createMockFormArray>;
-  let directive: ReturnType<typeof createDirectiveInstance>;
-
-  beforeEach(() => {
-    // Create a mock grid element
-    mockGridElement = document.createElement('tbw-grid') as HTMLElement & { rows?: unknown[] };
-    document.body.appendChild(mockGridElement);
-
-    // Create mock FormArray
-    mockFormArray = createMockFormArray([
-      { name: 'Alice', age: 30 },
-      { name: 'Bob', age: 25 },
-    ]);
-
-    // Create directive instance
-    directive = createDirectiveInstance(mockGridElement, mockFormArray);
+function captureGridOnHandlers(grid: MockGrid): CapturedHandlers {
+  const captured: CapturedHandlers = {};
+  grid.on.mockImplementation((eventName: string, handler: (...args: unknown[]) => void) => {
+    if (eventName === 'cell-commit') captured.cellCommit = handler as never;
+    if (eventName === 'cell-cancel') captured.cellCancel = handler as never;
+    if (eventName === 'row-commit') captured.rowCommit = handler as never;
+    return () => undefined;
   });
+  return captured;
+}
 
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('GridFormArray (real directive)', () => {
   afterEach(() => {
-    directive.ngOnDestroy();
-    mockGridElement.remove();
+    document.body.innerHTML = '';
   });
 
-  describe('ngOnInit', () => {
-    it('should sync FormArray value to grid rows', () => {
-      directive.ngOnInit();
+  describe('lifecycle', () => {
+    it('ngOnInit registers cell-commit / cell-cancel / row-commit listeners', () => {
+      const fa = new FormArray([
+        new FormGroup({ name: new FormControl('Alice') }),
+        new FormGroup({ name: new FormControl('Bob') }),
+      ]);
+      const built = buildDirective(fa);
+      const captured = captureGridOnHandlers(built.grid);
 
-      expect(mockGridElement.rows).toEqual([
+      built.directive.ngOnInit();
+
+      expect(built.grid.on).toHaveBeenCalledWith('cell-commit', expect.any(Function));
+      expect(built.grid.on).toHaveBeenCalledWith('cell-cancel', expect.any(Function));
+      expect(built.grid.on).toHaveBeenCalledWith('row-commit', expect.any(Function));
+      expect(captured.cellCommit).toBeDefined();
+    });
+
+    it('ngOnInit installs a one-shot click listener that marks the FormArray touched', () => {
+      const fa = new FormArray([new FormGroup({ name: new FormControl('Alice') })]);
+      const built = buildDirective(fa);
+      const markTouchedSpy = vi.spyOn(fa, 'markAsTouched');
+
+      built.directive.ngOnInit();
+      built.grid.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      // Subsequent click should not re-trigger (one-shot)
+      built.grid.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      expect(markTouchedSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('ngOnInit stores a FormArrayContext on the grid element', () => {
+      const fa = new FormArray([new FormGroup({ name: new FormControl('A') })]);
+      const built = buildDirective(fa);
+      built.directive.ngOnInit();
+      const ctx = getFormArrayContext(built.grid);
+      expect(ctx).toBeDefined();
+      expect(ctx?.hasFormGroups).toBe(true);
+    });
+
+    it('ngOnDestroy clears the FormArrayContext from the grid element', () => {
+      const fa = new FormArray([new FormGroup({ name: new FormControl('A') })]);
+      const built = buildDirective(fa);
+      built.directive.ngOnInit();
+      built.directive.ngOnDestroy();
+      expect(getFormArrayContext(built.grid)).toBeUndefined();
+    });
+
+    it('ngOnDestroy is safe even when the grid is missing', () => {
+      const fa = new FormArray<AbstractControl>([]);
+      const built = buildDirective(fa);
+      // Replace the elementRef to simulate a missing grid
+      (built.directive as unknown as { elementRef: ElementRef<HTMLElement | null> }).elementRef = {
+        nativeElement: null,
+      } as ElementRef<HTMLElement | null>;
+      expect(() => built.directive.ngOnDestroy()).not.toThrow();
+    });
+  });
+
+  describe('FormArrayContext', () => {
+    function setup() {
+      const fa = new FormArray([
+        new FormGroup({ name: new FormControl('Alice'), age: new FormControl(30) }),
+        new FormGroup({ name: new FormControl('Bob'), age: new FormControl(25) }),
+      ]);
+      const built = buildDirective(fa);
+      built.directive.ngOnInit();
+      return { ctx: getFormArrayContext(built.grid)!, formArray: fa, built };
+    }
+
+    it('getRow returns the value at the given index', () => {
+      const { ctx } = setup();
+      expect(ctx.getRow(0)).toEqual({ name: 'Alice', age: 30 });
+      expect(ctx.getRow(99)).toBeNull();
+    });
+
+    it('updateField writes to the matching FormControl and marks it dirty', () => {
+      const { ctx, formArray } = setup();
+      ctx.updateField(0, 'name', 'Alicia');
+      const ctrl = (formArray.at(0) as FormGroup).get('name')!;
+      expect(ctrl.value).toBe('Alicia');
+      expect(ctrl.dirty).toBe(true);
+    });
+
+    it('updateField is a no-op for unknown rows or fields', () => {
+      const { ctx } = setup();
+      expect(() => ctx.updateField(99, 'name', 'X')).not.toThrow();
+      expect(() => ctx.updateField(0, 'unknown', 'X')).not.toThrow();
+    });
+
+    it('getValue returns the raw FormArray value', () => {
+      const { ctx } = setup();
+      expect(ctx.getValue()).toEqual([
         { name: 'Alice', age: 30 },
         { name: 'Bob', age: 25 },
       ]);
     });
+
+    it('getControl returns the matching FormControl, or undefined', () => {
+      const { ctx, formArray } = setup();
+      expect(ctx.getControl(0, 'name')).toBe((formArray.at(0) as FormGroup).get('name'));
+      expect(ctx.getControl(0, 'unknown')).toBeUndefined();
+      expect(ctx.getControl(99, 'name')).toBeUndefined();
+    });
+
+    it('getRowFormGroup returns the FormGroup at the row index', () => {
+      const { ctx, formArray } = setup();
+      expect(ctx.getRowFormGroup(0)).toBe(formArray.at(0));
+      expect(ctx.getRowFormGroup(99)).toBeUndefined();
+    });
+
+    it('isRowValid returns true for valid rows and unknown indices', () => {
+      const { ctx } = setup();
+      expect(ctx.isRowValid(0)).toBe(true);
+      expect(ctx.isRowValid(99)).toBe(true);
+    });
+
+    it('isRowTouched returns false for fresh rows', () => {
+      const { ctx, formArray } = setup();
+      expect(ctx.isRowTouched(0)).toBe(false);
+      (formArray.at(0) as FormGroup).markAsTouched();
+      expect(ctx.isRowTouched(0)).toBe(true);
+      expect(ctx.isRowTouched(99)).toBe(false);
+    });
+
+    it('isRowDirty mirrors FormGroup dirty state', () => {
+      const { ctx, formArray } = setup();
+      expect(ctx.isRowDirty(0)).toBe(false);
+      (formArray.at(0) as FormGroup).markAsDirty();
+      expect(ctx.isRowDirty(0)).toBe(true);
+      expect(ctx.isRowDirty(99)).toBe(false);
+    });
+
+    it('getRowErrors aggregates control errors and group-level errors', () => {
+      const fa = new FormArray([
+        new FormGroup({
+          name: new FormControl('', { nonNullable: true, validators: () => ({ required: true }) }),
+        }),
+      ]);
+      const built = buildDirective(fa);
+      built.directive.ngOnInit();
+      const ctx = getFormArrayContext(built.grid)!;
+      const errors = ctx.getRowErrors(0);
+      expect(errors).toEqual({ name: { required: true } });
+    });
+
+    it('getRowErrors returns null when there are no errors', () => {
+      const { ctx } = setup();
+      expect(ctx.getRowErrors(0)).toBeNull();
+    });
+
+    it('getRowErrors returns null for unknown rows', () => {
+      const { ctx } = setup();
+      expect(ctx.getRowErrors(99)).toBeNull();
+    });
   });
 
   describe('cell-commit handling', () => {
-    it('should update FormControl when cell-commit event is dispatched', () => {
-      directive.ngOnInit();
+    it('updates the FormControl, marks dirty + touched', () => {
+      const fa = new FormArray([new FormGroup({ name: new FormControl('Alice') })]);
+      const built = buildDirective(fa);
+      const captured = captureGridOnHandlers(built.grid);
+      built.directive.ngOnInit();
 
-      const event = new CustomEvent('cell-commit', {
-        detail: { rowIndex: 0, field: 'name', value: 'Alice Updated' },
-        bubbles: true,
+      captured.cellCommit!({ rowIndex: 0, field: 'name', value: 'Alicia', oldValue: 'Alice', rowId: 'r-0' });
+
+      const ctrl = (fa.at(0) as FormGroup).get('name')!;
+      expect(ctrl.value).toBe('Alicia');
+      expect(ctrl.dirty).toBe(true);
+      expect(ctrl.touched).toBe(true);
+    });
+
+    it('syncs invalid state to EditingPlugin via setInvalid when the control is invalid', () => {
+      const fa = new FormArray([
+        new FormGroup({
+          name: new FormControl('', { validators: () => ({ required: true }) }),
+        }),
+      ]);
+      const built = buildDirective(fa);
+      const setInvalid = vi.fn();
+      const clearInvalid = vi.fn();
+      built.grid.getPluginByName.mockReturnValue({
+        setInvalid,
+        clearInvalid,
+        clearRowInvalid: vi.fn(),
       });
-      mockGridElement.dispatchEvent(event);
+      const captured = captureGridOnHandlers(built.grid);
+      built.directive.ngOnInit();
 
-      const control = mockFormArray.at(0)?.get('name');
-      expect(control?.setValue).toHaveBeenCalledWith('Alice Updated');
-      expect(control?.markAsDirty).toHaveBeenCalled();
-      expect(control?.markAsTouched).toHaveBeenCalled();
+      captured.cellCommit!({ rowIndex: 0, field: 'name', value: '', oldValue: '', rowId: 'row-1' });
+
+      expect(setInvalid).toHaveBeenCalledWith('row-1', 'name', 'This field is required');
     });
 
-    it('should handle nested field updates', () => {
-      directive.ngOnInit();
+    it('syncs valid state via clearInvalid when the control is valid', () => {
+      const fa = new FormArray([new FormGroup({ name: new FormControl('Alice') })]);
+      const built = buildDirective(fa);
+      const setInvalid = vi.fn();
+      const clearInvalid = vi.fn();
+      built.grid.getPluginByName.mockReturnValue({ setInvalid, clearInvalid, clearRowInvalid: vi.fn() });
+      const captured = captureGridOnHandlers(built.grid);
+      built.directive.ngOnInit();
 
-      const event = new CustomEvent('cell-commit', {
-        detail: { rowIndex: 1, field: 'age', value: 26 },
-        bubbles: true,
-      });
-      mockGridElement.dispatchEvent(event);
+      captured.cellCommit!({ rowIndex: 0, field: 'name', value: 'Alicia', oldValue: 'Alice', rowId: 'row-1' });
 
-      const control = mockFormArray.at(1)?.get('age');
-      expect(control?.setValue).toHaveBeenCalledWith(26);
+      expect(clearInvalid).toHaveBeenCalledWith('row-1', 'name');
+    });
+
+    it('skips validation sync when syncValidation is false', () => {
+      const fa = new FormArray([
+        new FormGroup({
+          name: new FormControl('', { validators: () => ({ required: true }) }),
+        }),
+      ]);
+      const built = buildDirective(fa, false);
+      const setInvalid = vi.fn();
+      built.grid.getPluginByName.mockReturnValue({ setInvalid, clearInvalid: vi.fn(), clearRowInvalid: vi.fn() });
+      const captured = captureGridOnHandlers(built.grid);
+      built.directive.ngOnInit();
+
+      captured.cellCommit!({ rowIndex: 0, field: 'name', value: '', oldValue: '', rowId: 'row-1' });
+      expect(setInvalid).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op for unknown rows / fields', () => {
+      const fa = new FormArray([new FormGroup({ name: new FormControl('Alice') })]);
+      const built = buildDirective(fa);
+      const captured = captureGridOnHandlers(built.grid);
+      built.directive.ngOnInit();
+      expect(() =>
+        captured.cellCommit!({ rowIndex: 99, field: 'name', value: 'x', oldValue: 'y', rowId: 'r' }),
+      ).not.toThrow();
+      expect(() =>
+        captured.cellCommit!({ rowIndex: 0, field: 'unknown', value: 'x', oldValue: 'y', rowId: 'r' }),
+      ).not.toThrow();
     });
   });
 
-  describe('touched state', () => {
-    it('should mark FormArray as touched on first click', () => {
-      directive.ngOnInit();
+  describe('cell-cancel handling', () => {
+    it('reverts the FormControl to the previous value and marks pristine', () => {
+      const fa = new FormArray([new FormGroup({ name: new FormControl('Alice') })]);
+      const ctrl = (fa.at(0) as FormGroup).get('name')!;
+      ctrl.markAsDirty();
+      const built = buildDirective(fa);
+      const captured = captureGridOnHandlers(built.grid);
+      built.directive.ngOnInit();
 
-      mockGridElement.click();
+      captured.cellCancel!({ rowIndex: 0, field: 'name', previousValue: 'Original' });
 
-      expect(mockFormArray.markAsTouched).toHaveBeenCalledTimes(1);
+      expect(ctrl.value).toBe('Original');
+      expect(ctrl.pristine).toBe(true);
     });
 
-    it('should only mark as touched once', () => {
-      directive.ngOnInit();
-
-      mockGridElement.click();
-      mockGridElement.click();
-      mockGridElement.click();
-
-      expect(mockFormArray.markAsTouched).toHaveBeenCalledTimes(1);
+    it('is a no-op for unknown rows / fields', () => {
+      const fa = new FormArray([new FormGroup({ name: new FormControl('Alice') })]);
+      const built = buildDirective(fa);
+      const captured = captureGridOnHandlers(built.grid);
+      built.directive.ngOnInit();
+      expect(() => captured.cellCancel!({ rowIndex: 99, field: 'name', previousValue: 'X' })).not.toThrow();
+      expect(() => captured.cellCancel!({ rowIndex: 0, field: 'unknown', previousValue: 'X' })).not.toThrow();
     });
   });
 
-  describe('ngOnDestroy', () => {
-    it('should remove event listeners', () => {
-      directive.ngOnInit();
-      directive.ngOnDestroy();
+  describe('row-commit handling', () => {
+    it('preventDefault is called when the FormGroup is invalid', () => {
+      const fa = new FormArray([
+        new FormGroup({
+          name: new FormControl('', { validators: () => ({ required: true }) }),
+        }),
+      ]);
+      const built = buildDirective(fa);
+      const captured = captureGridOnHandlers(built.grid);
+      built.directive.ngOnInit();
 
-      // After destroy, events should not trigger callbacks
-      const control = mockFormArray.at(0)?.get('name');
-      const event = new CustomEvent('cell-commit', {
-        detail: { rowIndex: 0, field: 'name', value: 'No Update' },
-        bubbles: true,
-      });
-      mockGridElement.dispatchEvent(event);
+      const event = new CustomEvent('row-commit', { cancelable: true });
+      const preventSpy = vi.spyOn(event, 'preventDefault');
+      captured.rowCommit!({ rowIndex: 0, rowId: 'r1', changed: true }, event);
+      expect(preventSpy).toHaveBeenCalled();
+    });
 
-      expect(control?.setValue).not.toHaveBeenCalled();
+    it('preventDefault is NOT called when the FormGroup is valid', () => {
+      const fa = new FormArray([new FormGroup({ name: new FormControl('Alice') })]);
+      const built = buildDirective(fa);
+      const captured = captureGridOnHandlers(built.grid);
+      built.directive.ngOnInit();
+
+      const event = new CustomEvent('row-commit', { cancelable: true });
+      const preventSpy = vi.spyOn(event, 'preventDefault');
+      captured.rowCommit!({ rowIndex: 0, rowId: 'r1', changed: true }, event);
+      expect(preventSpy).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when syncValidation is false', () => {
+      const fa = new FormArray([
+        new FormGroup({
+          name: new FormControl('', { validators: () => ({ required: true }) }),
+        }),
+      ]);
+      const built = buildDirective(fa, false);
+      const captured = captureGridOnHandlers(built.grid);
+      built.directive.ngOnInit();
+
+      const event = new CustomEvent('row-commit', { cancelable: true });
+      const preventSpy = vi.spyOn(event, 'preventDefault');
+      captured.rowCommit!({ rowIndex: 0, rowId: 'r1', changed: true }, event);
+      expect(preventSpy).not.toHaveBeenCalled();
     });
   });
-});
 
-describe('FormArrayContext interface', () => {
-  it('should define getControl method for cell-level form control access', () => {
-    // This is a compile-time check that the interface has the expected shape
-    const mockContext: FormArrayContext = {
-      getRow: () => null,
-      updateField: () => {
-        /* noop */
-      },
-      getValue: () => [],
-      hasFormGroups: true,
-      getControl: () => undefined,
-      getRowFormGroup: () => undefined,
-      isRowValid: () => true,
-      isRowTouched: () => false,
-      isRowDirty: () => false,
-      getRowErrors: () => null,
-    };
-
-    expect(mockContext.getControl).toBeDefined();
-    expect(typeof mockContext.getControl).toBe('function');
-    expect(mockContext.hasFormGroups).toBe(true);
-  });
-
-  it('should define row-level validation methods', () => {
-    // Verify the interface shape for row-level validation
-    const mockContext: FormArrayContext = {
-      getRow: () => null,
-      updateField: () => {
-        /* noop */
-      },
-      getValue: () => [],
-      hasFormGroups: true,
-      getControl: () => undefined,
-      getRowFormGroup: () => undefined,
-      isRowValid: (rowIndex: number) => rowIndex === 0, // Row 0 is valid
-      isRowTouched: (rowIndex: number) => rowIndex > 0, // Rows after 0 are touched
-      isRowDirty: () => true,
-      getRowErrors: (rowIndex: number) => (rowIndex === 1 ? { name: { required: true } } : null),
-    };
-
-    expect(mockContext.isRowValid(0)).toBe(true);
-    expect(mockContext.isRowValid(1)).toBe(false);
-    expect(mockContext.isRowTouched(0)).toBe(false);
-    expect(mockContext.isRowTouched(1)).toBe(true);
-    expect(mockContext.isRowDirty(0)).toBe(true);
-    expect(mockContext.getRowErrors(0)).toBeNull();
-    expect(mockContext.getRowErrors(1)).toEqual({ name: { required: true } });
-  });
-});
-
-describe('validation syncing', () => {
-  let mockGridElement: HTMLElement & {
-    rows?: unknown[];
-    getPluginByName?: (name: string) => unknown;
-  };
-  let mockFormArray: ReturnType<typeof createMockFormArray>;
-  let mockEditingPlugin: {
-    setInvalid: ReturnType<typeof vi.fn>;
-    clearInvalid: ReturnType<typeof vi.fn>;
-    clearRowInvalid: ReturnType<typeof vi.fn>;
-  };
-
-  beforeEach(() => {
-    // Create mock editing plugin
-    mockEditingPlugin = {
-      setInvalid: vi.fn(),
-      clearInvalid: vi.fn(),
-      clearRowInvalid: vi.fn(),
-    };
-
-    // Create a mock grid element with getPluginByName
-    mockGridElement = document.createElement('tbw-grid') as HTMLElement & {
-      rows?: unknown[];
-      getPluginByName?: (name: string) => unknown;
-    };
-    mockGridElement.getPluginByName = (name: string) => {
-      if (name === 'editing') return mockEditingPlugin;
-      return undefined;
-    };
-    document.body.appendChild(mockGridElement);
-
-    // Create mock FormArray
-    mockFormArray = createMockFormArray([
-      { name: 'Alice', email: 'alice@example.com' },
-      { name: 'Bob', email: 'bob@example.com' },
-    ]);
-  });
-
-  afterEach(() => {
-    mockGridElement.remove();
-  });
-
-  it('should call setInvalid when FormControl becomes invalid after commit', () => {
-    // Set up the control to be invalid
-    const control = mockFormArray.at(0)?.get('email');
-    if (control) {
-      control.errors = { email: true };
-      Object.defineProperty(control, 'invalid', { value: true, configurable: true });
+  describe('error message formatting', () => {
+    function emit(fa: FormArray) {
+      const built = buildDirective(fa);
+      const setInvalid = vi.fn();
+      built.grid.getPluginByName.mockReturnValue({ setInvalid, clearInvalid: vi.fn(), clearRowInvalid: vi.fn() });
+      const captured = captureGridOnHandlers(built.grid);
+      built.directive.ngOnInit();
+      captured.cellCommit!({ rowIndex: 0, field: 'f', value: '', oldValue: '', rowId: 'r' });
+      return setInvalid;
     }
 
-    // Simulate directive behavior for validation sync
-    const event = new CustomEvent('cell-commit', {
-      detail: { rowIndex: 0, field: 'email', value: 'invalid-email', rowId: 'row-0' },
-      bubbles: true,
+    it.each([
+      ['required', { required: true }, 'This field is required'],
+      ['minlength', { minlength: { requiredLength: 3 } }, 'Minimum length is 3'],
+      ['maxlength', { maxlength: { requiredLength: 10 } }, 'Maximum length is 10'],
+      ['min', { min: { min: 1 } }, 'Minimum value is 1'],
+      ['max', { max: { max: 99 } }, 'Maximum value is 99'],
+      ['email', { email: true }, 'Invalid email address'],
+      ['pattern', { pattern: 'abc' }, 'Invalid format'],
+    ])('formats %s validator errors', (_name, errors, expected) => {
+      const fa = new FormArray([new FormGroup({ f: new FormControl('', { validators: () => errors }) })]);
+      const setInvalid = emit(fa);
+      expect(setInvalid).toHaveBeenCalledWith('r', 'f', expected);
     });
 
-    // Simulate the handler calling setInvalid
-    const rowFormGroup = mockFormArray.at(0);
-    if (rowFormGroup && control) {
-      control.setValue('invalid-email');
-      // If control is invalid, call setInvalid
-      if (control.errors) {
-        mockEditingPlugin.setInvalid('row-0', 'email', 'Invalid email address');
-      }
-    }
+    it('uses a string error value verbatim', () => {
+      const fa = new FormArray([
+        new FormGroup({ f: new FormControl('', { validators: () => ({ custom: 'Custom error text' }) }) }),
+      ]);
+      const setInvalid = emit(fa);
+      expect(setInvalid).toHaveBeenCalledWith('r', 'f', 'Custom error text');
+    });
 
-    expect(mockEditingPlugin.setInvalid).toHaveBeenCalledWith('row-0', 'email', 'Invalid email address');
+    it('uses an object.message error value', () => {
+      const fa = new FormArray([
+        new FormGroup({
+          f: new FormControl('', { validators: () => ({ custom: { message: 'Bad thing' } }) }),
+        }),
+      ]);
+      const setInvalid = emit(fa);
+      expect(setInvalid).toHaveBeenCalledWith('r', 'f', 'Bad thing');
+    });
+
+    it('falls back to a generic message for unknown error shapes', () => {
+      const fa = new FormArray([
+        new FormGroup({ f: new FormControl('', { validators: () => ({ custom: { other: 'thing' } }) }) }),
+      ]);
+      const setInvalid = emit(fa);
+      expect(setInvalid).toHaveBeenCalledWith('r', 'f', 'Validation error: custom');
+    });
   });
 
-  it('should call clearInvalid when FormControl becomes valid after commit', () => {
-    const control = mockFormArray.at(0)?.get('email');
-    if (control) {
-      control.errors = null;
-      Object.defineProperty(control, 'invalid', { value: false, configurable: true });
-    }
+  describe('FormArray of plain FormControls (no FormGroups)', () => {
+    it('hasFormGroups is false', () => {
+      const fa = new FormArray([new FormControl('A'), new FormControl('B')]);
+      const built = buildDirective(fa);
+      built.directive.ngOnInit();
+      const ctx = getFormArrayContext(built.grid)!;
+      expect(ctx.hasFormGroups).toBe(false);
+      expect(ctx.getControl(0, 'name')).toBeUndefined();
+      expect(ctx.getRowFormGroup(0)).toBeUndefined();
+      expect(ctx.isRowValid(0)).toBe(true);
+      expect(ctx.isRowTouched(0)).toBe(false);
+      expect(ctx.isRowDirty(0)).toBe(false);
+      expect(ctx.getRowErrors(0)).toBeNull();
+    });
 
-    // Simulate the handler calling clearInvalid for valid control
-    mockEditingPlugin.clearInvalid('row-0', 'email');
-
-    expect(mockEditingPlugin.clearInvalid).toHaveBeenCalledWith('row-0', 'email');
+    it('hasFormGroups is false for an empty FormArray', () => {
+      const built = buildDirective(new FormArray<AbstractControl>([]));
+      built.directive.ngOnInit();
+      expect(getFormArrayContext(built.grid)!.hasFormGroups).toBe(false);
+    });
   });
 
-  it('should generate correct error message for required validator', () => {
-    // Test error message generation
-    const getFirstErrorMessage = (errors: Record<string, unknown> | null): string => {
-      if (!errors) return '';
-      const firstKey = Object.keys(errors)[0];
-      const error = errors[firstKey];
-
-      switch (firstKey) {
-        case 'required':
-          return 'This field is required';
-        case 'minlength':
-          return `Minimum length is ${(error as { requiredLength: number }).requiredLength}`;
-        case 'min':
-          return `Minimum value is ${(error as { min: number }).min}`;
-        case 'email':
-          return 'Invalid email address';
-        default:
-          return typeof error === 'string' ? error : `Validation error: ${firstKey}`;
-      }
-    };
-
-    expect(getFirstErrorMessage({ required: true })).toBe('This field is required');
-    expect(getFirstErrorMessage({ minlength: { requiredLength: 5 } })).toBe('Minimum length is 5');
-    expect(getFirstErrorMessage({ min: { min: 18 } })).toBe('Minimum value is 18');
-    expect(getFirstErrorMessage({ email: true })).toBe('Invalid email address');
-  });
+  // Touch-up to silence the unused import warning while keeping the import for
+  // type completeness.
+  void Subject;
 });

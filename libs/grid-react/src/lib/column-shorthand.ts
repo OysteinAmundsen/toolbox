@@ -124,6 +124,34 @@ export function normalizeColumns<TRow = unknown>(columns: ColumnShorthand<TRow>[
 }
 
 /**
+ * Apply column defaults to a list of columns. Individual column properties
+ * override defaults — the per-column value always wins over the default.
+ *
+ * @param columns - Normalized columns to merge defaults into
+ * @param defaults - Partial column config applied as a baseline; pass `undefined` to no-op
+ * @returns A new array with the defaults merged in (input is not mutated)
+ *
+ * @example
+ * ```tsx
+ * applyColumnDefaults(
+ *   [{ field: 'id' }, { field: 'name', sortable: false }],
+ *   { sortable: true, resizable: true },
+ * );
+ * // [
+ * //   { field: 'id',   sortable: true,  resizable: true },
+ * //   { field: 'name', sortable: false, resizable: true },
+ * // ]
+ * ```
+ */
+export function applyColumnDefaults<TRow = unknown>(
+  columns: ColumnConfig<TRow>[],
+  defaults: Partial<ColumnConfig<TRow>> | undefined,
+): ColumnConfig<TRow>[] {
+  if (!defaults) return columns;
+  return columns.map((col) => ({ ...defaults, ...col }));
+}
+
+/**
  * Check if an array of columns contains any shorthand strings.
  *
  * @param columns - Array to check

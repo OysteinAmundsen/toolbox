@@ -51,7 +51,7 @@ export { default as TbwGridToolPanel } from './lib/TbwGridToolPanel.vue';
 // Context types for slots
 export type { DetailPanelContext } from './lib/detail-panel-registry';
 export type { ResponsiveCardContext } from './lib/responsive-card-registry';
-export type { CellSlotProps, EditorSlotProps } from './lib/slot-types';
+export type { CellSlotProps, EditorSlotProps, GridCellContext, GridEditorContext } from './lib/slot-types';
 export type { ToolPanelContext } from './lib/tool-panel-registry';
 
 // Vue grid adapter
@@ -64,14 +64,19 @@ export { useGridOverlay } from './lib/use-grid-overlay';
 export type { UseGridOverlayOptions } from './lib/use-grid-overlay';
 
 // Column shorthand utilities
-export { hasColumnShorthands, normalizeColumns, parseColumnShorthand } from './lib/column-shorthand';
+export {
+  applyColumnDefaults,
+  hasColumnShorthands,
+  normalizeColumns,
+  parseColumnShorthand,
+} from './lib/column-shorthand';
 export type { ColumnShorthand } from './lib/column-shorthand';
 
 // Configuration types
 export type { CellEditor, CellRenderer, ColumnConfig, GridConfig } from './lib/vue-column-config';
 
 // Feature props types for declarative plugin configuration
-export type { AllFeatureProps, FeatureProps } from './lib/feature-props';
+export type { AllFeatureProps, FeatureProps, SSRProps } from './lib/feature-props';
 
 // Feature registry for tree-shakeable plugin registration
 export {

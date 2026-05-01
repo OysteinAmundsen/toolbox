@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from 'react';
 import '../jsx.d.ts';
-import { normalizeColumns, type ColumnShorthand } from './column-shorthand';
+import { applyColumnDefaults, normalizeColumns, type ColumnShorthand } from './column-shorthand';
 import { EVENT_PROP_MAP, type EventProps } from './event-props';
 import { type AllFeatureProps, type FeatureProps } from './feature-props';
 import { type GridDetailPanelProps } from './grid-detail-panel';
@@ -567,17 +567,9 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   // Normalize column shorthands and apply column defaults
   const processedColumns = useMemo(() => {
     if (!columns) return columns;
-
-    // First, normalize any shorthand strings to ColumnConfig objects
-    const normalizedColumns = normalizeColumns(columns);
-
-    // Then apply column defaults if provided
-    if (!columnDefaults) return normalizedColumns;
-
-    return normalizedColumns.map((col) => ({
-      ...columnDefaults,
-      ...col, // Individual column props override defaults
-    }));
+    // First, normalize any shorthand strings to ColumnConfig objects, then
+    // merge in any per-grid column defaults. Individual column props always win.
+    return applyColumnDefaults(normalizeColumns(columns), columnDefaults);
   }, [columns, columnDefaults]);
 
   // Process gridConfig to convert React renderers/editors to DOM functions

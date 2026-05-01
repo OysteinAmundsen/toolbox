@@ -34,7 +34,13 @@ export { GridToolPanel, type GridToolPanelProps, type ToolPanelContext } from '.
 // Feature props types for declarative plugin configuration
 export type { AllFeatureProps, FeatureProps, SSRProps } from './lib/feature-props';
 
-// Column shorthand type (for typing column arrays with shorthand syntax)
+// Column shorthand type & helpers (for typing column arrays with shorthand syntax)
+export {
+  applyColumnDefaults,
+  hasColumnShorthands,
+  normalizeColumns,
+  parseColumnShorthand,
+} from './lib/column-shorthand';
 export type { ColumnShorthand } from './lib/column-shorthand';
 
 // Event handler props types

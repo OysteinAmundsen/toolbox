@@ -63,3 +63,26 @@ export interface EditorSlotProps<TRow = unknown, TValue = unknown> {
    */
   onValueChange?: (callback: (newValue: TValue) => void) => void;
 }
+
+/**
+ * Context object passed to a cell renderer function.
+ *
+ * Re-export of {@link CellSlotProps} with the `<TValue, TRow>` generic order
+ * used by `@toolbox-web/grid-react`'s `GridCellContext`. Provided so that
+ * users typing render-prop-style helpers can share a single signature across
+ * adapters (e.g. when migrating from React to Vue or vice versa). Inside Vue
+ * SFCs prefer `CellSlotProps` directly — Vue's `defineSlots` already infers
+ * the right shape from it.
+ */
+export type GridCellContext<TValue = unknown, TRow = unknown> = CellSlotProps<TRow, TValue>;
+
+/**
+ * Context object passed to a cell editor function.
+ *
+ * Re-export of {@link EditorSlotProps} with the `<TValue, TRow>` generic order
+ * used by `@toolbox-web/grid-react`'s `GridEditorContext`. Provided so that
+ * users typing editor functions can share a single signature across adapters.
+ * Inside Vue SFCs prefer `EditorSlotProps` directly — Vue's `defineSlots`
+ * already infers the right shape from it.
+ */
+export type GridEditorContext<TValue = unknown, TRow = unknown> = EditorSlotProps<TRow, TValue>;

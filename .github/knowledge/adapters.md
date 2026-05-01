@@ -160,6 +160,18 @@ releaseCell(element) → void      // cleanup when cell removed from DOM
 - TENSION (Angular parity gap, May 2026): React adapter exposes `onColumnResizeReset`, `onDataChange`, `onCellCancel`, `onEditOpen`, `onBeforeEditClose`, `onEditClose`, `onDirtyChange`, `onGroupExpand`, `onGroupCollapse`, `onContextMenuOpen` that Angular does NOT yet expose as outputs. Add as parity follow-up.
 - TENSION (Vue): not yet audited for the same drift-safety pattern. Vue users typically use `@event-name` syntax directly (which goes through the typed `addEventListener` overload), so the gap is smaller — but worth a follow-up audit.
 
+## react-vue-parity (May 2026 audit)
+
+- DECIDED (May 2026, parity sweep): React and Vue adapters audited for surface-area parity. Verified identical: 26 feature props, 28 grid events, hooks/composables (`useGrid` / `useGridOverlay`), provider components, tree-shakeable feature registration, portal/teleport bridges, registry types. Adjustments made to bring divergent surfaces in line:
+  - **`applyColumnDefaults`**: added to `libs/grid-react/src/lib/column-shorthand.ts` (Vue already had it) and exported from both adapter index files alongside `normalizeColumns` / `parseColumnShorthand` / `hasColumnShorthands`. React's `data-grid.tsx` now calls the helper instead of the inlined merge for consistency.
+  - **`cardRowHeight`**: exposed as a prop on `TbwGridResponsiveCard.vue` (React `GridResponsiveCard` already had it). Bound to the underlying `<tbw-grid-responsive-card>` via the kebab-case `card-row-height` attribute that `ResponsivePlugin.parseLightDOM` reads.
+  - **`SSRProps`**: re-introduced as a deprecated type in `libs/grid-vue/src/lib/feature-props.ts` and union'd into `AllFeatureProps` so `AllFeatureProps<TRow>` has the same shape on both adapters. The flag itself remains a no-op on both sides — see line 472 React `SSRProps` JSDoc / Vue mirror for the canonical reasoning.
+  - **`GridCellContext` / `GridEditorContext`**: exported from `@toolbox-web/grid-vue` as type aliases over `CellSlotProps` / `EditorSlotProps` with React's `<TValue, TRow>` generic order. Inside Vue SFCs `defineSlots` still infers from `*SlotProps`; the new aliases exist for users typing render-prop-style helpers shared across adapters.
+  - **`tool-panel-registry.spec.ts`**: created in `libs/grid-vue/src/lib/` to bring registry test coverage in line with `detail-panel-registry.spec.ts` and `responsive-card-registry.spec.ts`.
+- INVARIANT: when adding a new public export to one adapter, add the equivalent to the other in the same PR. The two `index.ts` files are the canonical surface; if a consumer can `import { X } from '@toolbox-web/grid-react'`, they should be able to `import { X } from '@toolbox-web/grid-vue'` (modulo idiomatic naming like `DataGrid` ↔ `TbwGrid`).
+- INVARIANT: `AllFeatureProps<TRow>` shape MUST be identical across React and Vue. If a feature is added to one side's `FeatureProps`, mirror it to the other; if SSRProps is ever truly removed, remove from both atomically.
+- TENSION: idiomatic naming differences are NOT parity gaps — `<DataGrid>` vs `<TbwGrid>`, `children` render props vs `#cell`/`#editor` slots, `GridElementContext` vs `GRID_ELEMENT_KEY`, `PortalManager` vs `TeleportManager` are all framework-natural and stay as-is.
+
 ## adapter-feature-props (forward-only drift guard)
 
 - OWNS: `FeatureConfig` (in `@toolbox-web/grid/all`) is augmented by every side-effect feature import (each plugin's `types.ts` augments `FeatureConfig`). It's the canonical core feature registry.

@@ -22,7 +22,14 @@
  * @packageDocumentation
  */
 
-import { registerTemplateBridge } from '@toolbox-web/grid-angular';
+import type { TemplateRef } from '@angular/core';
+import {
+  getResponsiveCardTemplate,
+  registerResponsiveCardRendererBridge,
+  registerTemplateBridge,
+  type GridAdapter,
+  type GridResponsiveCardContext,
+} from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/responsive';
 export type { _Augmentation as _ResponsiveAugmentation } from '@toolbox-web/grid/features/responsive';
 
@@ -33,6 +40,23 @@ export type { _Augmentation as _ResponsiveAugmentation } from '@toolbox-web/grid
 interface ResponsivePluginLike {
   setCardRenderer?: (renderer: (row: unknown, rowIndex: number) => HTMLElement) => void;
 }
+
+// Install the row renderer bridge on the adapter. This is what
+// `adapter.createResponsiveCardRenderer(grid)` and
+// `adapter.parseResponsiveCardElement(el)` delegate to. Without this import,
+// both methods return undefined.
+registerResponsiveCardRendererBridge(<TRow = unknown>(gridElement: HTMLElement, adapter: GridAdapter) => {
+  const template = getResponsiveCardTemplate(gridElement) as TemplateRef<GridResponsiveCardContext<TRow>> | undefined;
+  if (!template) return undefined;
+
+  return (row: TRow, rowIndex: number) => {
+    const context: GridResponsiveCardContext<TRow> = { $implicit: row, row, index: rowIndex };
+    const viewRef = adapter.createTrackedEmbeddedView(template, context);
+    const container = document.createElement('div');
+    viewRef.rootNodes.forEach((node: Node) => container.appendChild(node));
+    return container;
+  };
+});
 
 // Wire <tbw-grid-responsive-card> Angular templates into the ResponsivePlugin
 // once content templates are registered. Runs from `Grid.ngAfterContentInit`

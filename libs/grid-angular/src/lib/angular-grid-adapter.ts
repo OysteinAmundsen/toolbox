@@ -21,31 +21,39 @@ import type {
   HeaderLabelContext,
   LoadingContext,
 } from '@toolbox-web/grid';
-import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
-import type { GroupHeaderRenderParams, GroupingColumnsConfig } from '@toolbox-web/grid/plugins/grouping-columns';
-import type { GroupingRowsConfig, GroupRowRenderParams } from '@toolbox-web/grid/plugins/grouping-rows';
-import type {
-  PinnedRowsConfig,
-  PinnedRowsContext,
-  PinnedRowSlot,
-  ZonedPanelRender,
-} from '@toolbox-web/grid/plugins/pinned-rows';
 import { isComponentClass, type ColumnConfig, type GridConfig, type TypeDefault } from './angular-column-config';
 import { getEditorTemplate, GridEditorContext } from './directives/grid-column-editor.directive';
 import { getViewTemplate, GridCellContext } from './directives/grid-column-view.directive';
-import { getDetailTemplate, GridDetailContext } from './directives/grid-detail-view.directive';
 import { getFormArrayContext } from './directives/grid-form-array.directive';
-import { getResponsiveCardTemplate, GridResponsiveCardContext } from './directives/grid-responsive-card.directive';
 import { getToolPanelTemplate, GridToolPanelContext } from './directives/grid-tool-panel.directive';
 import { getStructuralEditorTemplate, getStructuralViewTemplate } from './directives/structural-directives';
 import { notifyEditorMounted, registerEditorMountHook, type EditorMountHook } from './editor-mount-hooks';
 import { wireEditorCallbacks } from './editor-wiring';
+import type { FeatureName } from './feature-registry';
 import { GridTypeRegistry } from './grid-type-registry';
+import {
+  getDetailRendererBridge,
+  getFilterPanelTypeDefaultBridge,
+  getResponsiveCardRendererBridge,
+} from './internal/feature-bridges';
+import { getFeatureConfigPreprocessor } from './internal/feature-extensions';
 
 // Re-export so feature secondary entries can install editor-mount hooks via
 // `import { registerEditorMountHook } from '@toolbox-web/grid-angular'`.
-export { registerEditorMountHook, type EditorMountHook };
 export { makeFlushFocusedInput } from './editor-mount-hooks';
+export {
+  registerDetailRendererBridge,
+  registerFilterPanelTypeDefaultBridge,
+  registerResponsiveCardRendererBridge,
+} from './internal/feature-bridges';
+export type { FilterPanelTypeDefaultBridge, RowRendererBridge } from './internal/feature-bridges';
+export { registerEditorMountHook, type EditorMountHook };
+
+// #region Feature bridge registries
+// (Storage lives in `./internal/feature-bridges` so feature subpaths can
+// install bridges without pulling Angular runtime into specs that mock
+// `@angular/core` — see filtering feature spec.)
+// #endregion
 
 /**
  * Helper to get view template from either structural directive or nested directive.
@@ -284,9 +292,12 @@ export class GridAdapter implements FrameworkAdapter {
         (processedConfig as any).editor = this.createComponentEditor(config.editor);
       }
 
-      // Convert filterPanelRenderer component class to function
+      // Convert filterPanelRenderer component class to function via the
+      // filtering feature bridge. Without `@toolbox-web/grid-angular/features/filtering`
+      // imported, component-class filterPanelRenderers are dropped silently.
       if (config.filterPanelRenderer && isComponentClass(config.filterPanelRenderer)) {
-        processedConfig.filterPanelRenderer = this.createComponentFilterPanelRenderer(config.filterPanelRenderer);
+        const wrapped = getFilterPanelTypeDefaultBridge()?.(config.filterPanelRenderer, this);
+        if (wrapped) processedConfig.filterPanelRenderer = wrapped;
       }
 
       processed[type] = processedConfig;
@@ -534,125 +545,47 @@ export class GridAdapter implements FrameworkAdapter {
   }
 
   /**
-   * Creates a detail renderer function for MasterDetailPlugin.
-   * Renders Angular templates for expandable detail rows.
+   * Creates a detail renderer function for MasterDetailPlugin. Delegates to
+   * the bridge installed by `@toolbox-web/grid-angular/features/master-detail`.
+   * Returns undefined if the feature is not imported or no `<tbw-grid-detail>`
+   * template is registered for this grid.
    */
   createDetailRenderer<TRow = unknown>(gridElement: HTMLElement): ((row: TRow) => HTMLElement) | undefined {
-    const template = getDetailTemplate(gridElement) as TemplateRef<GridDetailContext<TRow>> | undefined;
-
-    if (!template) {
-      return undefined;
-    }
-
-    return (row: TRow) => {
-      // Create the context for the template
-      const context: GridDetailContext<TRow> = {
-        $implicit: row,
-        row: row,
-      };
-
-      // Create embedded view from template
-      const viewRef = this.viewContainerRef.createEmbeddedView(template, context);
-      this.viewRefs.push(viewRef);
-
-      // Trigger change detection
-      viewRef.detectChanges();
-
-      // Create a container for the root nodes
-      const container = document.createElement('div');
-      viewRef.rootNodes.forEach((node) => container.appendChild(node));
-      return container;
-    };
+    return getDetailRendererBridge()?.<TRow>(gridElement, this) as ((row: TRow) => HTMLElement) | undefined;
   }
 
   /**
-   * Framework adapter hook called by MasterDetailPlugin during attach().
-   * Parses the <tbw-grid-detail> element and returns an Angular template-based renderer.
-   *
-   * This enables MasterDetailPlugin to automatically use Angular templates
-   * without manual configuration in the Grid directive.
+   * FrameworkAdapter hook called by MasterDetailPlugin during attach(). Delegates
+   * to {@link createDetailRenderer} (bridge installed by master-detail feature).
    */
   parseDetailElement<TRow = unknown>(
     detailElement: Element,
   ): ((row: TRow, rowIndex: number) => HTMLElement | string) | undefined {
-    // Get the template from the registry for this detail element
-    const template = getDetailTemplate(detailElement.closest('tbw-grid') as HTMLElement) as
-      | TemplateRef<GridDetailContext<TRow>>
-      | undefined;
-
-    if (!template) {
-      return undefined;
-    }
-
-    // Return a renderer function that creates embedded views
-    // Note: rowIndex is part of the MasterDetailPlugin detailRenderer signature but not needed here
-    return (row: TRow) => {
-      const context: GridDetailContext<TRow> = {
-        $implicit: row,
-        row: row,
-      };
-
-      const viewRef = this.viewContainerRef.createEmbeddedView(template, context);
-      this.viewRefs.push(viewRef);
-      viewRef.detectChanges();
-
-      const container = document.createElement('div');
-      viewRef.rootNodes.forEach((node) => container.appendChild(node));
-      return container;
-    };
+    const gridElement = detailElement.closest('tbw-grid') as HTMLElement | null;
+    if (!gridElement) return undefined;
+    return getDetailRendererBridge()?.<TRow>(gridElement, this);
   }
 
   /**
-   * Creates a responsive card renderer function for ResponsivePlugin.
-   * Renders Angular templates for card layout in responsive mode.
-   *
-   * @param gridElement - The grid element to look up the template for
-   * @returns A card renderer function or undefined if no template is found
+   * Creates a responsive card renderer function for ResponsivePlugin. Delegates
+   * to the bridge installed by `@toolbox-web/grid-angular/features/responsive`.
    */
   createResponsiveCardRenderer<TRow = unknown>(
     gridElement: HTMLElement,
   ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined {
-    const template = getResponsiveCardTemplate(gridElement) as TemplateRef<GridResponsiveCardContext<TRow>> | undefined;
-
-    if (!template) {
-      return undefined;
-    }
-
-    return (row: TRow, rowIndex: number) => {
-      // Create the context for the template
-      const context: GridResponsiveCardContext<TRow> = {
-        $implicit: row,
-        row: row,
-        index: rowIndex,
-      };
-
-      // Create embedded view from template
-      const viewRef = this.viewContainerRef.createEmbeddedView(template, context);
-      this.viewRefs.push(viewRef);
-
-      // Trigger change detection
-      viewRef.detectChanges();
-
-      // Create a container for the root nodes
-      const container = document.createElement('div');
-      viewRef.rootNodes.forEach((node) => container.appendChild(node));
-      return container;
-    };
+    return getResponsiveCardRendererBridge()?.<TRow>(gridElement, this);
   }
 
   /**
-   * FrameworkAdapter hook called by ResponsivePlugin during attach().
-   * Parses the `<tbw-grid-responsive-card>` element and delegates to
-   * {@link createResponsiveCardRenderer}. Required for parity with the Vue
-   * adapter so ResponsivePlugin's standard lookup path works for Angular
-   * users without relying on imperative `refreshCardRenderer` calls.
+   * FrameworkAdapter hook called by ResponsivePlugin during attach(). Delegates
+   * to {@link createResponsiveCardRenderer} (bridge installed by responsive feature).
    */
   parseResponsiveCardElement<TRow = unknown>(
     cardElement: Element,
   ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined {
     const gridElement = cardElement.closest('tbw-grid') as HTMLElement | null;
     if (!gridElement) return undefined;
-    return this.createResponsiveCardRenderer<TRow>(gridElement);
+    return getResponsiveCardRendererBridge()?.<TRow>(gridElement, this);
   }
 
   /**
@@ -750,8 +683,10 @@ export class GridAdapter implements FrameworkAdapter {
     }
 
     // Create filterPanelRenderer function that instantiates the Angular component
+    // via the filtering feature bridge. Drop silently if the feature is not imported.
     if (config.filterPanelRenderer && isComponentClass(config.filterPanelRenderer)) {
-      typeDefault.filterPanelRenderer = this.createComponentFilterPanelRenderer(config.filterPanelRenderer);
+      const wrapped = getFilterPanelTypeDefaultBridge()?.(config.filterPanelRenderer, this);
+      if (wrapped) typeDefault.filterPanelRenderer = wrapped;
     } else if (config.filterPanelRenderer) {
       typeDefault.filterPanelRenderer = config.filterPanelRenderer as BaseTypeDefault['filterPanelRenderer'];
     }
@@ -765,6 +700,9 @@ export class GridAdapter implements FrameworkAdapter {
    * so callers that need the `componentRef` (editor wiring, value-change subscription)
    * still have it; callers that only need the host element use `.hostElement`.
    *
+   * Public so feature secondary entries can compose their own component renderers
+   * without re-implementing the mount/track plumbing.
+   *
    * @param componentClass Angular component class to instantiate per call.
    * @param mapInputs Maps the renderer context to a `setInput()` bag.
    * @param pool Which `componentRefs[]` array tracks the instance for cleanup.
@@ -772,7 +710,7 @@ export class GridAdapter implements FrameworkAdapter {
    *   `'editor'` is the per-cell pool swept by `releaseCell()`.
    * @internal
    */
-  private mountComponentRenderer<TCtx>(
+  mountComponentRenderer<TCtx>(
     componentClass: Type<unknown>,
     mapInputs: (ctx: TCtx) => Record<string, unknown>,
     pool: 'render' | 'editor' = 'render',
@@ -916,168 +854,6 @@ export class GridAdapter implements FrameworkAdapter {
   }
 
   /**
-   * Creates a group header renderer function from an Angular component class.
-   *
-   * The component should accept group header inputs (id, label, columns, firstIndex, isImplicit).
-   * Returns the host element directly (groupHeaderRenderer returns an element, not void).
-   * @internal
-   */
-  private createComponentGroupHeaderRenderer(
-    componentClass: Type<unknown>,
-  ): (params: GroupHeaderRenderParams) => HTMLElement {
-    const mount = this.mountComponentRenderer<GroupHeaderRenderParams>(componentClass, (p) => ({
-      id: p.id,
-      label: p.label,
-      columns: p.columns,
-      firstIndex: p.firstIndex,
-      isImplicit: p.isImplicit,
-    }));
-    return (params) => mount(params).hostElement;
-  }
-
-  /**
-   * Processes a GroupingColumnsConfig, converting component class references
-   * to actual renderer functions.
-   *
-   * @param config - Angular grouping columns configuration with possible component class references
-   * @returns Processed GroupingColumnsConfig with actual renderer functions
-   */
-  processGroupingColumnsConfig(config: GroupingColumnsConfig): GroupingColumnsConfig {
-    const processed = { ...config };
-    let changed = false;
-
-    // Bridge top-level groupHeaderRenderer component class
-    if (config.groupHeaderRenderer && isComponentClass(config.groupHeaderRenderer)) {
-      processed.groupHeaderRenderer = this.createComponentGroupHeaderRenderer(config.groupHeaderRenderer);
-      changed = true;
-    }
-
-    // Bridge per-group renderer component classes inside columnGroups
-    if (Array.isArray(config.columnGroups)) {
-      const mappedGroups = config.columnGroups.map((def) => {
-        if (def.renderer && isComponentClass(def.renderer)) {
-          changed = true;
-          return { ...def, renderer: this.createComponentGroupHeaderRenderer(def.renderer) };
-        }
-        return def;
-      });
-      if (changed) processed.columnGroups = mappedGroups;
-    }
-
-    return changed ? processed : config;
-  }
-
-  /**
-   * Processes a GroupingRowsConfig, converting component class references
-   * to actual renderer functions.
-   *
-   * @param config - Angular grouping rows configuration with possible component class references
-   * @returns Processed GroupingRowsConfig with actual renderer functions
-   */
-  processGroupingRowsConfig(config: GroupingRowsConfig): GroupingRowsConfig {
-    if (config.groupRowRenderer && isComponentClass(config.groupRowRenderer)) {
-      return {
-        ...config,
-        groupRowRenderer: this.createComponentGroupRowRenderer(config.groupRowRenderer),
-      };
-    }
-    return config;
-  }
-
-  /**
-   * Processes a PinnedRowsConfig, converting component class references
-   * in `customPanels[].render` AND in `slots[].render` (issue #255) to
-   * actual renderer functions.
-   *
-   * @param config - Angular pinned rows configuration with possible component class references
-   * @returns Processed PinnedRowsConfig with actual renderer functions
-   */
-  processPinnedRowsConfig(config: PinnedRowsConfig): PinnedRowsConfig {
-    let next: PinnedRowsConfig = config;
-
-    // Legacy customPanels bridging (unchanged behavior).
-    if (Array.isArray(config.customPanels)) {
-      const hasComponentRender = config.customPanels.some((panel) => isComponentClass(panel.render));
-      if (hasComponentRender) {
-        next = {
-          ...next,
-          customPanels: config.customPanels.map((panel) => {
-            if (!isComponentClass(panel.render)) return panel;
-            return {
-              ...panel,
-              render: this.createComponentPinnedRowsPanelRenderer(panel.render),
-            };
-          }),
-        };
-      }
-    }
-
-    // Slots[] bridging — each PanelSlot.render may be a component class,
-    // or an array of { zone?, render } where each render may be a component class.
-    if (Array.isArray(config.slots)) {
-      next = {
-        ...next,
-        slots: config.slots.map((slot) => this.bridgePinnedRowSlot(slot)),
-      };
-    }
-
-    return next;
-  }
-
-  /**
-   * Bridge a single pinned-row slot. Aggregation slots (no `render`) pass through.
-   * For panel slots, wrap any component-class `render` (or array entry's `render`)
-   * with the Angular component renderer.
-   * @internal
-   */
-  private bridgePinnedRowSlot(slot: PinnedRowSlot): PinnedRowSlot {
-    if (!('render' in slot) || slot.render == null) return slot;
-
-    if (Array.isArray(slot.render)) {
-      const zoned: ZonedPanelRender[] = slot.render.map((entry) => {
-        if (entry?.render == null) return entry;
-        if (isComponentClass(entry.render)) {
-          return {
-            zone: entry.zone,
-            render: this.createComponentPinnedRowsPanelRenderer(entry.render as Type<unknown>),
-          };
-        }
-        return entry;
-      });
-      return { ...slot, render: zoned };
-    }
-
-    if (isComponentClass(slot.render)) {
-      return {
-        ...slot,
-        render: this.createComponentPinnedRowsPanelRenderer(slot.render as Type<unknown>),
-      };
-    }
-    return slot;
-  }
-
-  /**
-   * Creates a pinned rows panel renderer function from an Angular component class.
-   *
-   * The component should accept inputs from PinnedRowsContext (totalRows, filteredRows,
-   * selectedRows, columns, rows, grid).
-   * @internal
-   */
-  private createComponentPinnedRowsPanelRenderer(
-    componentClass: Type<unknown>,
-  ): (ctx: PinnedRowsContext) => HTMLElement {
-    const mount = this.mountComponentRenderer<PinnedRowsContext>(componentClass, (ctx) => ({
-      totalRows: ctx.totalRows,
-      filteredRows: ctx.filteredRows,
-      selectedRows: ctx.selectedRows,
-      columns: ctx.columns,
-      rows: ctx.rows,
-      grid: ctx.grid,
-    }));
-    return (ctx) => mount(ctx).hostElement;
-  }
-
-  /**
    * Creates a loading renderer function from an Angular component class.
    *
    * The component should accept a `size` input ('large' | 'small').
@@ -1089,42 +865,57 @@ export class GridAdapter implements FrameworkAdapter {
   }
 
   /**
-   * Creates a group row renderer function from an Angular component class.
-   *
-   * The component should accept group row inputs (key, value, depth, rows, expanded, toggleExpand).
-   * Returns the host element directly (groupRowRenderer returns an element, not void).
+   * Create an embedded view from a `TemplateRef` and append-track it on the
+   * adapter's view-ref pool so it is cleaned up on `destroy()` / `unmount()`.
+   * Public so feature secondary entries can mount Angular templates (e.g.
+   * master-detail rows, responsive cards) without reaching into the adapter's
+   * private `viewContainerRef` / `viewRefs`.
    * @internal
    */
-  private createComponentGroupRowRenderer(
-    componentClass: Type<unknown>,
-  ): (params: GroupRowRenderParams) => HTMLElement {
-    const mount = this.mountComponentRenderer<GroupRowRenderParams>(componentClass, (p) => ({
-      key: p.key,
-      value: p.value,
-      depth: p.depth,
-      rows: p.rows,
-      expanded: p.expanded,
-      toggleExpand: p.toggleExpand,
-    }));
-    return (params) => mount(params).hostElement;
+  createTrackedEmbeddedView<TCtx>(template: TemplateRef<TCtx>, context: TCtx): EmbeddedViewRef<TCtx> {
+    const viewRef = this.viewContainerRef.createEmbeddedView(template, context);
+    this.viewRefs.push(viewRef);
+    viewRef.detectChanges();
+    return viewRef;
   }
 
   /**
-   * Creates a filter panel renderer function from an Angular component class.
-   *
-   * The component must implement `FilterPanel` (i.e., have a `params` input).
-   * The component is mounted into the filter panel container element.
+   * Processes a GroupingColumnsConfig. Delegates to the feature config
+   * preprocessor installed by `@toolbox-web/grid-angular/features/grouping-columns`,
+   * which handles converting Angular component class references to actual
+   * renderer functions. Returns the input config unchanged if the feature
+   * is not imported.
+   */
+  processGroupingColumnsConfig<TConfig>(config: TConfig): TConfig {
+    return this.applyFeatureConfigPreprocessor('groupingColumns', config);
+  }
+
+  /**
+   * Processes a GroupingRowsConfig. Delegates to the feature config preprocessor
+   * installed by `@toolbox-web/grid-angular/features/grouping-rows`.
+   */
+  processGroupingRowsConfig<TConfig>(config: TConfig): TConfig {
+    return this.applyFeatureConfigPreprocessor('groupingRows', config);
+  }
+
+  /**
+   * Processes a PinnedRowsConfig. Delegates to the feature config preprocessor
+   * installed by `@toolbox-web/grid-angular/features/pinned-rows`.
+   */
+  processPinnedRowsConfig<TConfig>(config: TConfig): TConfig {
+    return this.applyFeatureConfigPreprocessor('pinnedRows', config);
+  }
+
+  /**
+   * Run a registered feature-config preprocessor against `config`, returning
+   * the original config unchanged when the feature is not imported.
    * @internal
    */
-  private createComponentFilterPanelRenderer(
-    componentClass: Type<unknown>,
-  ): (container: HTMLElement, params: FilterPanelParams) => void {
-    // FilterPanel renderers `appendChild` into the supplied container instead of
-    // returning the host element. The mount primitive still owns lifecycle.
-    const mount = this.mountComponentRenderer<FilterPanelParams>(componentClass, (params) => ({ params }));
-    return (container, params) => {
-      container.appendChild(mount(params).hostElement);
-    };
+  private applyFeatureConfigPreprocessor<TConfig>(name: FeatureName, config: TConfig): TConfig {
+    if (!config || typeof config !== 'object') return config;
+    const preprocessor = getFeatureConfigPreprocessor(name);
+    if (!preprocessor) return config;
+    return preprocessor(config, this) as TConfig;
   }
 
   /**

@@ -29,11 +29,30 @@
  * @packageDocumentation
  */
 
-import { afterNextRender, DestroyRef, ElementRef, inject, signal, type Signal } from '@angular/core';
+import { afterNextRender, DestroyRef, ElementRef, inject, signal, type Signal, type Type } from '@angular/core';
 import type { DataGridElement } from '@toolbox-web/grid';
+import { registerFilterPanelTypeDefaultBridge, type GridAdapter } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/filtering';
-import { FilteringPlugin, type BlankMode, type FilterModel } from '@toolbox-web/grid/plugins/filtering';
+import {
+  FilteringPlugin,
+  type BlankMode,
+  type FilterModel,
+  type FilterPanelParams,
+} from '@toolbox-web/grid/plugins/filtering';
 export type { _Augmentation as _FilteringAugmentation } from '@toolbox-web/grid/features/filtering';
+
+// Bridge any Angular component classes used as `filterPanelRenderer` (in
+// `gridConfig.typeDefaults` or via `provideGridTypeDefaults`) to the
+// `(container, params) => void` form required by FilteringPlugin. Without
+// this import, component-class filterPanelRenderers are silently dropped \u2014
+// the same precondition as the FilteringPlugin itself (TBW031).
+registerFilterPanelTypeDefaultBridge((rendererValue: unknown, adapter: GridAdapter) => {
+  const componentClass = rendererValue as Type<unknown>;
+  const mount = adapter.mountComponentRenderer<FilterPanelParams>(componentClass, (params) => ({ params }));
+  return (container: HTMLElement, params: FilterPanelParams) => {
+    container.appendChild(mount(params).hostElement);
+  };
+});
 
 /**
  * Filtering methods returned from injectGridFiltering.

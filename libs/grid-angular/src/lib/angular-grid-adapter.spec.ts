@@ -20,7 +20,7 @@
  * @vitest-environment jsdom
  */
 import '@angular/compiler';
-import type { ApplicationRef, EnvironmentInjector, ViewContainerRef } from '@angular/core';
+import type { ApplicationRef, EnvironmentInjector, TemplateRef, Type, ViewContainerRef } from '@angular/core';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Install the same `before-edit-close` blur bridge that
@@ -29,13 +29,119 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 // the package barrel — that would transitively define the `tbw-grid` custom
 // element and trigger jsdom-incompatible ResizeObserver wiring on the
 // `document.createElement('tbw-grid')` calls below.
+import { isComponentClass } from './angular-column-config';
+import type { GridAdapter } from './angular-grid-adapter';
 import { makeFlushFocusedInput, registerEditorMountHook } from './editor-mount-hooks';
+import {
+  registerDetailRendererBridge,
+  registerFilterPanelTypeDefaultBridge,
+  registerResponsiveCardRendererBridge,
+} from './internal/feature-bridges';
+import { registerFeatureConfigPreprocessor } from './internal/feature-extensions';
 
 beforeAll(() => {
   registerEditorMountHook(({ container, gridEl }) => {
     const flush = makeFlushFocusedInput(container);
     gridEl.addEventListener('before-edit-close', flush);
     return () => gridEl.removeEventListener('before-edit-close', flush);
+  });
+
+  // Mirror `features/master-detail` (without importing it — that would define
+  // `tbw-grid` and trip ResizeObserver in jsdom). Uses the mocked
+  // `getDetailTemplate` set up below.
+  registerDetailRendererBridge(<TRow>(gridElement: HTMLElement, adapter: GridAdapter) => {
+    type Ctx = { $implicit: TRow; row: TRow };
+    const template = detailTemplateGetter(gridElement) as TemplateRef<Ctx> | undefined;
+    if (!template) return undefined;
+    return (row: TRow) => {
+      const viewRef = adapter.createTrackedEmbeddedView(template, { $implicit: row, row });
+      const container = document.createElement('div');
+      viewRef.rootNodes.forEach((node: Node) => container.appendChild(node));
+      return container;
+    };
+  });
+
+  // Mirror `features/responsive`.
+  registerResponsiveCardRendererBridge(<TRow>(gridElement: HTMLElement, adapter: GridAdapter) => {
+    type Ctx = { $implicit: TRow; row: TRow; index: number };
+    const template = responsiveCardGetter(gridElement) as TemplateRef<Ctx> | undefined;
+    if (!template) return undefined;
+    return (row: TRow, rowIndex: number) => {
+      const viewRef = adapter.createTrackedEmbeddedView(template, { $implicit: row, row, index: rowIndex });
+      const container = document.createElement('div');
+      viewRef.rootNodes.forEach((node: Node) => container.appendChild(node));
+      return container;
+    };
+  });
+
+  // Mirror `features/filtering`.
+  registerFilterPanelTypeDefaultBridge((rendererValue, adapter) => {
+    const componentClass = rendererValue as Type<unknown>;
+    const mount = adapter.mountComponentRenderer<{ params: unknown }>(componentClass, (params) => ({ params }));
+    return (container: HTMLElement, params: unknown) => {
+      container.appendChild(mount({ params }).hostElement);
+    };
+  });
+
+  // Mirror the three feature config preprocessors (grouping-columns,
+  // grouping-rows, pinned-rows). Bodies are simplified — only the bits
+  // exercised by the spec.
+  registerFeatureConfigPreprocessor('groupingColumns', (config, adapter) => {
+    if (!config || typeof config !== 'object') return config;
+    const cfg = config as { groupHeaderRenderer?: unknown; columnGroups?: Array<{ renderer?: unknown }> };
+    let changed = false;
+    const processed: typeof cfg = { ...cfg };
+    if (cfg.groupHeaderRenderer && isComponentClass(cfg.groupHeaderRenderer)) {
+      const mount = adapter.mountComponentRenderer<unknown>(cfg.groupHeaderRenderer as Type<unknown>, () => ({}));
+      processed.groupHeaderRenderer = (p: unknown) => mount(p).hostElement;
+      changed = true;
+    }
+    if (Array.isArray(cfg.columnGroups)) {
+      let groupChanged = false;
+      const mapped = cfg.columnGroups.map((def) => {
+        if (def.renderer && isComponentClass(def.renderer)) {
+          groupChanged = true;
+          const mount = adapter.mountComponentRenderer<unknown>(def.renderer as Type<unknown>, () => ({}));
+          return { ...def, renderer: (p: unknown) => mount(p).hostElement };
+        }
+        return def;
+      });
+      if (groupChanged) {
+        processed.columnGroups = mapped;
+        changed = true;
+      }
+    }
+    return changed ? processed : cfg;
+  });
+
+  registerFeatureConfigPreprocessor('groupingRows', (config, adapter) => {
+    if (!config || typeof config !== 'object') return config;
+    const cfg = config as { groupRowRenderer?: unknown };
+    if (cfg.groupRowRenderer && isComponentClass(cfg.groupRowRenderer)) {
+      const mount = adapter.mountComponentRenderer<unknown>(cfg.groupRowRenderer as Type<unknown>, () => ({}));
+      return { ...cfg, groupRowRenderer: (p: unknown) => mount(p).hostElement };
+    }
+    return cfg;
+  });
+
+  registerFeatureConfigPreprocessor('pinnedRows', (config, adapter) => {
+    if (!config || typeof config !== 'object') return config;
+    const cfg = config as { customPanels?: Array<{ render?: unknown }>; slots?: unknown[] };
+    let next = cfg;
+    if (Array.isArray(cfg.customPanels)) {
+      const hasComponent = cfg.customPanels.some((panel) => isComponentClass(panel.render));
+      if (hasComponent) {
+        next = {
+          ...next,
+          customPanels: cfg.customPanels.map((panel) => {
+            if (!isComponentClass(panel.render)) return panel;
+            const mount = adapter.mountComponentRenderer<unknown>(panel.render as Type<unknown>, () => ({}));
+            return { ...panel, render: (p: unknown) => mount(p).hostElement };
+          }),
+        };
+      }
+    }
+    return next;
   });
 });
 
@@ -108,7 +214,6 @@ vi.mock('./directives/grid-form-array.directive', async () => {
 
 // Import after mocks so the module under test sees the mocked getters
 import type { GridConfig } from './angular-column-config';
-import { GridAdapter } from './angular-grid-adapter';
 import { GridTypeRegistry } from './grid-type-registry';
 
 /**

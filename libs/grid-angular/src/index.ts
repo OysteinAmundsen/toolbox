@@ -6,8 +6,15 @@
  */
 
 // Primary export
-export { GridAdapter, makeFlushFocusedInput, registerEditorMountHook } from './lib/angular-grid-adapter';
-export type { EditorMountHook } from './lib/angular-grid-adapter';
+export {
+  GridAdapter,
+  makeFlushFocusedInput,
+  registerDetailRendererBridge,
+  registerEditorMountHook,
+  registerFilterPanelTypeDefaultBridge,
+  registerResponsiveCardRendererBridge,
+} from './lib/angular-grid-adapter';
+export type { EditorMountHook, FilterPanelTypeDefaultBridge, RowRendererBridge } from './lib/angular-grid-adapter';
 
 // Configuration types
 export { isComponentClass } from './lib/angular-column-config';
@@ -53,14 +60,14 @@ export type { GridEditorContext } from './lib/directives/grid-column-editor.dire
 export { GridColumnView } from './lib/directives/grid-column-view.directive';
 export type { GridCellContext } from './lib/directives/grid-column-view.directive';
 export { TbwGridColumn } from './lib/directives/grid-column.directive';
-export { GridDetailView } from './lib/directives/grid-detail-view.directive';
+export { GridDetailView, getDetailTemplate } from './lib/directives/grid-detail-view.directive';
 export type { GridDetailContext } from './lib/directives/grid-detail-view.directive';
 export { GridFormArray, getFormArrayContext } from './lib/directives/grid-form-array.directive';
 export type { FormArrayContext } from './lib/directives/grid-form-array.directive';
 export { TbwGridHeader } from './lib/directives/grid-header.directive';
 export { GridLazyForm, getLazyFormContext } from './lib/directives/grid-lazy-form.directive';
 export type { LazyFormFactory, RowFormChangeEvent } from './lib/directives/grid-lazy-form.directive';
-export { GridResponsiveCard } from './lib/directives/grid-responsive-card.directive';
+export { GridResponsiveCard, getResponsiveCardTemplate } from './lib/directives/grid-responsive-card.directive';
 export type { GridResponsiveCardContext } from './lib/directives/grid-responsive-card.directive';
 export { TbwGridToolButtons } from './lib/directives/grid-tool-buttons.directive';
 export { GridToolPanel } from './lib/directives/grid-tool-panel.directive';

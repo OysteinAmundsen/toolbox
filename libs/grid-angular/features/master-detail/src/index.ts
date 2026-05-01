@@ -22,7 +22,14 @@
  * @packageDocumentation
  */
 
-import { registerTemplateBridge } from '@toolbox-web/grid-angular';
+import type { TemplateRef } from '@angular/core';
+import {
+  getDetailTemplate,
+  registerDetailRendererBridge,
+  registerTemplateBridge,
+  type GridAdapter,
+  type GridDetailContext,
+} from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/master-detail';
 export type { _Augmentation as _MasterDetailAugmentation } from '@toolbox-web/grid/features/master-detail';
 
@@ -34,6 +41,22 @@ export type { _Augmentation as _MasterDetailAugmentation } from '@toolbox-web/gr
 interface MasterDetailPluginLike {
   refreshDetailRenderer?: () => void;
 }
+
+// Install the row renderer bridge on the adapter. This is what
+// `adapter.createDetailRenderer(grid)` and `adapter.parseDetailElement(el)`
+// delegate to. Without this import, both methods return undefined.
+registerDetailRendererBridge(<TRow = unknown>(gridElement: HTMLElement, adapter: GridAdapter) => {
+  const template = getDetailTemplate(gridElement) as TemplateRef<GridDetailContext<TRow>> | undefined;
+  if (!template) return undefined;
+
+  return (row: TRow) => {
+    const context: GridDetailContext<TRow> = { $implicit: row, row };
+    const viewRef = adapter.createTrackedEmbeddedView(template, context);
+    const container = document.createElement('div');
+    viewRef.rootNodes.forEach((node: Node) => container.appendChild(node));
+    return container;
+  };
+});
 
 // Wire <tbw-grid-detail> Angular templates into the MasterDetailPlugin once
 // content templates are registered. The plugin's `parseLightDomDetail()`

@@ -25,25 +25,102 @@ const mockElementRef = { nativeElement: document.createElement('div') };
 const mockDestroyRef = { onDestroy: vi.fn() };
 let afterNextRenderCallback: (() => void) | null = null;
 
-vi.mock('@angular/core', () => ({
-  inject: vi.fn((token: unknown) => {
-    // ElementRef
-    if ((token as any)?.name === 'ElementRef' || token === 'ElementRef') return mockElementRef;
-    // DestroyRef
-    return mockDestroyRef;
-  }),
-  ElementRef: { name: 'ElementRef' },
-  DestroyRef: { name: 'DestroyRef' },
-  signal: mockSignal,
-  afterNextRender: vi.fn((cb: () => void) => {
-    afterNextRenderCallback = cb;
-  }),
-}));
+vi.mock('@angular/core', () => {
+  // Decorator factories used at module-load by directives reachable via the
+  // `@toolbox-web/grid-angular` barrel. They must be callable; their return
+  // value (a class decorator) is invoked immediately and may receive the
+  // decorated class as argument — return a no-op in that case.
+  const decoratorFactory =
+    (..._args: unknown[]) =>
+    (target?: unknown) =>
+      target;
+  return {
+    inject: vi.fn((token: unknown) => {
+      if ((token as any)?.name === 'ElementRef' || token === 'ElementRef') return mockElementRef;
+      return mockDestroyRef;
+    }),
+    ElementRef: { name: 'ElementRef' },
+    DestroyRef: { name: 'DestroyRef' },
+    signal: mockSignal,
+    afterNextRender: vi.fn((cb: () => void) => {
+      afterNextRenderCallback = cb;
+    }),
+    // Surface needed by adapter + directive modules that the barrel pulls in.
+    Component: decoratorFactory,
+    Directive: decoratorFactory,
+    Injectable: decoratorFactory,
+    Pipe: decoratorFactory,
+    NgModule: decoratorFactory,
+    Input: decoratorFactory,
+    Output: decoratorFactory,
+    HostBinding: decoratorFactory,
+    HostListener: decoratorFactory,
+    ViewChild: decoratorFactory,
+    ContentChild: decoratorFactory,
+    ContentChildren: decoratorFactory,
+    ViewChildren: decoratorFactory,
+    input: vi.fn(() => () => undefined),
+    output: vi.fn(() => ({ emit: vi.fn() })),
+    contentChild: vi.fn(() => () => undefined),
+    contentChildren: vi.fn(() => () => []),
+    viewChild: vi.fn(() => () => undefined),
+    viewChildren: vi.fn(() => () => []),
+    effect: vi.fn(),
+    computed: vi.fn((fn: () => unknown) => fn),
+    EventEmitter: class EventEmitter {
+      emit(): void {
+        /* no-op */
+      }
+      subscribe(): { unsubscribe(): void } {
+        return {
+          unsubscribe(): void {
+            /* no-op */
+          },
+        };
+      }
+    },
+    InjectionToken: class InjectionToken {
+      constructor(public _desc: string) {}
+    },
+    TemplateRef: class TemplateRef {},
+    ViewContainerRef: class ViewContainerRef {},
+    ApplicationRef: class ApplicationRef {},
+    EnvironmentInjector: class EnvironmentInjector {},
+    EmbeddedViewRef: class EmbeddedViewRef {},
+    ComponentRef: class ComponentRef {},
+    createComponent: vi.fn(),
+    makeEnvironmentProviders: (providers: unknown[]) => providers,
+  };
+});
 
 // Mock the grid features/plugins imports (they are side-effect only or type imports)
 vi.mock('@toolbox-web/grid/features/filtering', () => ({}));
 vi.mock('@toolbox-web/grid/plugins/filtering', () => ({
   FilteringPlugin: class FilteringPlugin {},
+}));
+
+// Importing the feature module pulls the `@toolbox-web/grid-angular` barrel
+// (for `registerFilterPanelTypeDefaultBridge` etc), which transitively loads
+// all directives; stub the Angular peer modules they reach for at module-load.
+vi.mock('@angular/forms', () => ({
+  AbstractControl: class AbstractControl {},
+  FormArray: class FormArray {},
+  FormGroup: class FormGroup {},
+  FormControl: class FormControl {},
+  ReactiveFormsModule: class ReactiveFormsModule {},
+  NG_VALUE_ACCESSOR: { name: 'NG_VALUE_ACCESSOR' },
+  Validators: { required: vi.fn(), nullValidator: vi.fn() },
+}));
+vi.mock('@angular/common', () => ({
+  CommonModule: class CommonModule {},
+  NgIf: class NgIf {},
+  NgForOf: class NgForOf {},
+  AsyncPipe: class AsyncPipe {},
+}));
+vi.mock('@angular/core/rxjs-interop', () => ({
+  takeUntilDestroyed: () => (source: unknown) => source,
+  toSignal: vi.fn(),
+  toObservable: vi.fn(),
 }));
 
 // Import after mocks are set up

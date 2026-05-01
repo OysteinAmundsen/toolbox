@@ -41,7 +41,9 @@ import {
 } from '@toolbox-web/grid/plugins/filtering';
 import { createApp, inject, ref, type VNode } from 'vue';
 import { registerFeature } from '../lib/feature-registry';
+import { renderToContainer } from '../lib/teleport-bridge';
 import { GRID_ELEMENT_KEY } from '../lib/use-grid';
+import { registerFilterPanelTypeDefaultBridge } from '../lib/vue-grid-adapter';
 
 registerFeature('filtering', (rawConfig) => {
   if (rawConfig === true) {
@@ -73,6 +75,25 @@ registerFeature('filtering', (rawConfig) => {
   }
 
   return new FilteringPlugin(options);
+});
+
+// Install the type-default `filterPanelRenderer` bridge on the Vue adapter.
+// Augments the adapter so the filtering-specific wrapping logic for
+// `GridTypeProvider`-supplied filter panels (and grid-config-level
+// type-defaults processed in `processConfig`) lives with the filtering
+// feature, not in the central adapter file. Without this import,
+// type-default filterPanelRenderer entries are dropped silently —
+// filtering itself also requires this feature import (same precondition).
+registerFilterPanelTypeDefaultBridge((rawRenderFn, _gridEl, { trackTeleportKey }) => {
+  const vueFn = rawRenderFn as (params: FilterPanelParams) => VNode;
+  return (container: HTMLElement, params: FilterPanelParams) => {
+    const wrapper = document.createElement('div');
+    wrapper.style.display = 'contents';
+
+    const teleportKey = renderToContainer(wrapper, vueFn(params));
+    trackTeleportKey(teleportKey);
+    container.appendChild(wrapper);
+  };
 });
 
 /**

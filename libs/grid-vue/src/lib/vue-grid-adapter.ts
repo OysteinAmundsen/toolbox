@@ -11,13 +11,17 @@ import type {
   HeaderLabelContext,
   LoadingContext,
 } from '@toolbox-web/grid';
-import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import { createVNode, type Component, type VNode } from 'vue';
+import { notifyEditorMounted, registerEditorMountHook, type EditorMountHook } from './editor-mount-hooks';
 import type { TypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { removeFromContainer, renderToContainer } from './teleport-bridge';
 import { getToolPanelRenderer, type ToolPanelContext } from './tool-panel-registry';
 import type { ColumnConfig, GridConfig } from './vue-column-config';
 export type { GridConfig };
+
+// Re-export so feature secondary entries can install editor-mount hooks
+// via `import { registerEditorMountHook } from '@toolbox-web/grid-vue'`.
+export { registerEditorMountHook, type EditorMountHook };
 
 // #region Feature bridge registries
 
@@ -42,8 +46,22 @@ export type RowRendererBridge = <TRow = unknown>(
   ctx: FeatureBridgeContext,
 ) => ((row: TRow, rowIndex: number) => HTMLElement) | undefined;
 
+/**
+ * Installer signature for the type-default `filterPanelRenderer` wrapper.
+ * Receives the user's Vue render function (typed loosely as `unknown` so
+ * the adapter does not depend on filtering types) and returns the imperative
+ * `(container, params) => void` form required by the core grid.
+ * @internal
+ */
+export type FilterPanelTypeDefaultBridge = (
+  renderFn: unknown,
+  gridEl: HTMLElement | undefined,
+  ctx: FeatureBridgeContext,
+) => NonNullable<BaseTypeDefault['filterPanelRenderer']>;
+
 let detailRendererBridge: RowRendererBridge | null = null;
 let responsiveCardRendererBridge: RowRendererBridge | null = null;
+let filterPanelTypeDefaultBridge: FilterPanelTypeDefaultBridge | null = null;
 
 /**
  * Install the master-detail row-renderer bridge on the Vue adapter. Called
@@ -62,6 +80,19 @@ export function registerDetailRendererBridge(bridge: RowRendererBridge): void {
  */
 export function registerResponsiveCardRendererBridge(bridge: RowRendererBridge): void {
   responsiveCardRendererBridge = bridge;
+}
+
+/**
+ * Install the type-default `filterPanelRenderer` wrapper. Called once on
+ * import by `@toolbox-web/grid-vue/features/filtering`. Without this bridge,
+ * type-default and grid-config-level filterPanelRenderer entries are dropped
+ * silently — filter panels only work if the filtering feature is also
+ * imported, which is the same precondition as the FilteringPlugin itself
+ * (TBW031).
+ * @internal Plugin API
+ */
+export function registerFilterPanelTypeDefaultBridge(bridge: FilterPanelTypeDefaultBridge): void {
+  filterPanelTypeDefaultBridge = bridge;
 }
 
 // #endregion
@@ -261,25 +292,17 @@ function createTeleportContainer(className: string): HTMLDivElement {
 
 /**
  * Returns a function that, when invoked, blurs the focused input/textarea/select
- * inside `container` (if any). Used by the `before-edit-close` bridge so editors
- * with `@blur="commit"` flush their pending value before the cell DOM is torn
- * down by Tab / programmatic row exit.
+ * inside `container` (if any).
+ *
+ * Re-exported here for backwards compatibility with consumers that imported
+ * `makeFlushFocusedInput` from this module before it moved to
+ * `./editor-mount-hooks`.
  * @internal
+ * @deprecated Import from `./editor-mount-hooks` instead. Kept as a
+ * private re-export to avoid breaking internal callers; will be removed in
+ * a future refactor.
  */
-function makeFlushFocusedInput(container: HTMLElement): () => void {
-  return () => {
-    const focused = container.ownerDocument.activeElement as HTMLElement | null;
-    if (
-      focused &&
-      container.contains(focused) &&
-      (focused instanceof HTMLInputElement ||
-        focused instanceof HTMLTextAreaElement ||
-        focused instanceof HTMLSelectElement)
-    ) {
-      focused.blur();
-    }
-  };
-}
+export { makeFlushFocusedInput } from './editor-mount-hooks';
 
 // #endregion
 
@@ -466,8 +489,12 @@ export class GridAdapter implements FrameworkAdapter {
         }
       }
 
-      if (config.filterPanelRenderer) {
-        processedConfig.filterPanelRenderer = this.createFilterPanelRenderer(config.filterPanelRenderer);
+      if (config.filterPanelRenderer && filterPanelTypeDefaultBridge) {
+        processedConfig.filterPanelRenderer = filterPanelTypeDefaultBridge(
+          config.filterPanelRenderer,
+          undefined,
+          this.bridgeContext,
+        );
       }
 
       processed[type] = processedConfig;
@@ -641,27 +668,23 @@ export class GridAdapter implements FrameworkAdapter {
   }
 
   /**
-   * Attaches a `before-edit-close` listener on the host grid that flushes
-   * the focused input inside `container` via native `.blur()` so editors
-   * written with `@blur="commit"` flush pending input before the cell DOM
-   * is torn down by Tab / programmatic row exit.
+   * Schedules a microtask that runs all registered editor-mount hooks for
+   * `container` once it's been appended to the cell DOM (so `closest('tbw-grid')`
+   * resolves). Mirror of the same bridge inline in `createEditor` (slot path)
+   * and the React adapter's `wrapReactEditor` / `createEditor`.
    *
-   * The grid is resolved lazily via `queueMicrotask` because the container
-   * is appended to the cell *after* the editor wrapper returns.
-   *
-   * Mirror of the same bridge inline in `createEditor` (slot path) and the
-   * React adapter's `wrapReactEditor` / `createEditor`.
+   * Hooks are installed by feature secondary entries (e.g.
+   * `@toolbox-web/grid-vue/features/editing` installs the `before-edit-close`
+   * blur bridge). If no feature is imported, no hooks run — which matches
+   * the corresponding plugin precondition (e.g. EditingPlugin requires the
+   * editing feature import to even exist).
    * @internal
    */
   private attachBeforeEditCloseFlush(container: HTMLElement): void {
     queueMicrotask(() => {
       const gridEl = container.closest('tbw-grid') as HTMLElement | null;
       if (!gridEl) return;
-      const flush = makeFlushFocusedInput(container);
-      gridEl.addEventListener('before-edit-close', flush);
-      this.editorBeforeCloseUnsubs.set(container, () => {
-        gridEl.removeEventListener('before-edit-close', flush);
-      });
+      this.editorBeforeCloseUnsubs.set(container, notifyEditorMounted(container, gridEl));
     });
   }
 
@@ -945,15 +968,11 @@ export class GridAdapter implements FrameworkAdapter {
       // Track for per-cell cleanup via releaseCell
       this.editorTeleportKeys.set(container, teleportKey);
 
-      // Bridge "Tab / programmatic row exit drops pending input" — see
-      // attachBeforeEditCloseFlush doc comment. Resolved eagerly here
-      // because we have synchronous access to the column element.
+      // Run editor-mount hooks (e.g. `before-edit-close` blur bridge installed
+      // by `@toolbox-web/grid-vue/features/editing`). Resolved eagerly because
+      // we have synchronous access to the column element.
       if (gridEl) {
-        const flush = makeFlushFocusedInput(container);
-        gridEl.addEventListener('before-edit-close', flush);
-        this.editorBeforeCloseUnsubs.set(container, () => {
-          gridEl.removeEventListener('before-edit-close', flush);
-        });
+        this.editorBeforeCloseUnsubs.set(container, notifyEditorMounted(container, gridEl));
       }
 
       return container;
@@ -1093,9 +1112,17 @@ export class GridAdapter implements FrameworkAdapter {
       typeDefault.editor = this.createTypeEditor<TRow>(vueDefault.editor) as BaseTypeDefault['editor'];
     }
 
-    // Create filterPanelRenderer function that renders Vue component
-    if (vueDefault.filterPanelRenderer) {
-      typeDefault.filterPanelRenderer = this.createFilterPanelRenderer(vueDefault.filterPanelRenderer);
+    // Create filterPanelRenderer function that renders Vue component.
+    // Implementation is installed by `@toolbox-web/grid-vue/features/filtering`
+    // via {@link registerFilterPanelTypeDefaultBridge}. Without that import,
+    // type-default filter panels are dropped silently (filtering itself also
+    // requires the feature import, so this is not a new precondition).
+    if (vueDefault.filterPanelRenderer && filterPanelTypeDefaultBridge) {
+      typeDefault.filterPanelRenderer = filterPanelTypeDefaultBridge(
+        vueDefault.filterPanelRenderer,
+        _gridEl,
+        this.bridgeContext,
+      );
     }
 
     return typeDefault;
@@ -1136,26 +1163,6 @@ export class GridAdapter implements FrameworkAdapter {
       this.attachBeforeEditCloseFlush(container);
 
       return container;
-    };
-  }
-
-  /**
-   * Creates a filter panel renderer function from a Vue render function.
-   *
-   * Wraps a Vue `(params: FilterPanelParams) => VNode` function into the
-   * imperative `(container, params) => void` signature expected by the core grid.
-   * @internal
-   */
-  private createFilterPanelRenderer(
-    renderFn: (params: FilterPanelParams) => VNode,
-  ): (container: HTMLElement, params: FilterPanelParams) => void {
-    return (container: HTMLElement, params: FilterPanelParams) => {
-      const wrapper = document.createElement('div');
-      wrapper.style.display = 'contents';
-
-      const teleportKey = renderToContainer(wrapper, renderFn(params));
-      this.teleportKeys.push(teleportKey);
-      container.appendChild(wrapper);
     };
   }
 

@@ -41,9 +41,10 @@ import {
 } from '@toolbox-web/grid/plugins/filtering';
 import type { ReactNode } from 'react';
 import { useCallback, useContext } from 'react';
-import { removeFromContainer, renderToContainer } from '../lib/portal-bridge';
 import { registerFeature } from '../lib/feature-registry';
 import { GridElementContext } from '../lib/grid-element-context';
+import { removeFromContainer, renderToContainer } from '../lib/portal-bridge';
+import { registerFilterPanelTypeDefaultBridge } from '../lib/react-grid-adapter';
 
 registerFeature('filtering', (rawConfig) => {
   if (typeof rawConfig === 'boolean') return new FilteringPlugin();
@@ -71,6 +72,27 @@ registerFeature('filtering', (rawConfig) => {
   }
 
   return new FilteringPlugin(options);
+});
+
+// Install the type-default `filterPanelRenderer` bridge on the React adapter.
+// Augments the adapter so the filtering-specific wrapping logic for
+// `GridTypeProvider`-supplied filter panels lives with the filtering feature,
+// not in the central adapter file. Without this import, type-default
+// filterPanelRenderer entries are dropped silently (filtering itself also
+// requires this feature import — same precondition).
+registerFilterPanelTypeDefaultBridge((rawRenderFn, gridEl, { trackPortal }) => {
+  const renderFn = rawRenderFn as (params: FilterPanelParams) => ReactNode;
+  return (container: HTMLElement, params: FilterPanelParams) => {
+    const wrapper = document.createElement('div');
+    wrapper.style.display = 'contents';
+
+    // Resolve grid from the filter panel container (in-DOM) first, then fall back to gridEl
+    const resolvedGrid = (container.closest('tbw-grid') as HTMLElement | null) ?? gridEl;
+    const portalKey = renderToContainer(wrapper, renderFn(params) as React.ReactElement, undefined, resolvedGrid);
+    trackPortal(portalKey, wrapper, false);
+
+    container.appendChild(wrapper);
+  };
 });
 
 /**

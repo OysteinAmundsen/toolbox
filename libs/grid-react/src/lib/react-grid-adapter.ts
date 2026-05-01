@@ -8,12 +8,16 @@ import type {
   FrameworkAdapter,
   TypeDefault,
 } from '@toolbox-web/grid';
-import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import type { ReactNode } from 'react';
+import { notifyEditorMounted, registerEditorMountHook, type EditorMountHook } from './editor-mount-hooks';
 import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
 import type { TypeDefault as ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { removeFromContainer, renderToContainer } from './portal-bridge';
-import { cleanupConfigRootsIn, makeFlushFocusedInput, processGridConfig } from './react-column-config';
+import { cleanupConfigRootsIn, processGridConfig } from './react-column-config';
+
+// Re-export so feature secondary entries can install editor-mount hooks
+// via `import { registerEditorMountHook } from '@toolbox-web/grid-react'`.
+export { registerEditorMountHook, type EditorMountHook };
 
 // #region Feature bridge registries
 
@@ -38,8 +42,22 @@ export type RowRendererBridge = <TRow = unknown>(
   ctx: FeatureBridgeContext,
 ) => ((row: TRow, rowIndex: number) => HTMLElement) | undefined;
 
+/**
+ * Installer signature for the type-default `filterPanelRenderer` wrapper.
+ * Receives the user's React render function (typed loosely as `unknown` so
+ * the adapter does not depend on filtering types) and returns the imperative
+ * `(container, params) => void` form required by the core grid.
+ * @internal
+ */
+export type FilterPanelTypeDefaultBridge = (
+  renderFn: unknown,
+  gridEl: HTMLElement | undefined,
+  ctx: FeatureBridgeContext,
+) => NonNullable<TypeDefault['filterPanelRenderer']>;
+
 let detailRendererBridge: RowRendererBridge | null = null;
 let responsiveCardRendererBridge: RowRendererBridge | null = null;
+let filterPanelTypeDefaultBridge: FilterPanelTypeDefaultBridge | null = null;
 
 /**
  * Install the master-detail row-renderer bridge. Called once on import by
@@ -58,6 +76,18 @@ export function registerDetailRendererBridge(bridge: RowRendererBridge): void {
  */
 export function registerResponsiveCardRendererBridge(bridge: RowRendererBridge): void {
   responsiveCardRendererBridge = bridge;
+}
+
+/**
+ * Install the type-default `filterPanelRenderer` wrapper. Called once on
+ * import by `@toolbox-web/grid-react/features/filtering`. Without this
+ * bridge, type-default filterPanelRenderer entries are dropped silently —
+ * filter panels only work if the filtering feature is also imported, which
+ * is the same precondition as the FilteringPlugin itself (TBW031).
+ * @internal Plugin API
+ */
+export function registerFilterPanelTypeDefaultBridge(bridge: FilterPanelTypeDefaultBridge): void {
+  filterPanelTypeDefaultBridge = bridge;
 }
 
 // #endregion
@@ -403,17 +433,12 @@ export class GridAdapter implements FrameworkAdapter {
       // Track for cleanup (editor-specific for per-cell cleanup via releaseCell)
       this.trackPortal(portalKey, container, true);
 
-      // Bridge "Tab / programmatic row exit drops pending input" — see
-      // editorBeforeCloseUnsubs doc comment. Calling native `.blur()` fires
-      // both `blur` (non-bubbling) and `focusout` (bubbling) — React's event
-      // delegation listens to `focusout` and maps it to `onBlur`, so any editor
-      // with `onBlur={commit}` flushes before the cell DOM is torn down.
+      // Run editor-mount hooks (e.g. `before-edit-close` blur bridge installed
+      // by `@toolbox-web/grid-react/features/editing`). Each hook's teardown
+      // is bundled into a single function stored alongside the portal key so
+      // `untrackPortal` releases all editor lifecycle work at once.
       if (gridEl) {
-        const flush = makeFlushFocusedInput(container);
-        gridEl.addEventListener('before-edit-close', flush);
-        this.editorBeforeCloseUnsubs.set(portalKey, () => {
-          gridEl.removeEventListener('before-edit-close', flush);
-        });
+        this.editorBeforeCloseUnsubs.set(portalKey, notifyEditorMounted(container, gridEl));
       }
 
       return container;
@@ -557,9 +582,17 @@ export class GridAdapter implements FrameworkAdapter {
       typeDefault.editor = this.createTypeEditor<TRow>(reactDefault.editor, gridEl) as TypeDefault['editor'];
     }
 
-    // Create filterPanelRenderer function that renders React component into filter panel
-    if (reactDefault.filterPanelRenderer) {
-      typeDefault.filterPanelRenderer = this.createFilterPanelRenderer(reactDefault.filterPanelRenderer, gridEl);
+    // Create filterPanelRenderer function that renders React component into filter panel.
+    // Implementation is installed by `@toolbox-web/grid-react/features/filtering`
+    // via {@link registerFilterPanelTypeDefaultBridge}. Without that import,
+    // type-default filter panels are dropped silently (filtering itself also
+    // requires the feature import, so this is not a new precondition).
+    if (reactDefault.filterPanelRenderer && filterPanelTypeDefaultBridge) {
+      typeDefault.filterPanelRenderer = filterPanelTypeDefaultBridge(
+        reactDefault.filterPanelRenderer,
+        gridEl,
+        this.bridgeContext,
+      );
     }
 
     return typeDefault;
@@ -604,27 +637,6 @@ export class GridAdapter implements FrameworkAdapter {
       this.trackPortal(portalKey, container, true);
 
       return container;
-    };
-  }
-
-  /**
-   * Creates a filter panel renderer that mounts React content into the filter panel container.
-   * @internal
-   */
-  private createFilterPanelRenderer(
-    renderFn: (params: FilterPanelParams) => ReactNode,
-    gridEl?: HTMLElement,
-  ): (container: HTMLElement, params: FilterPanelParams) => void {
-    return (container: HTMLElement, params: FilterPanelParams) => {
-      const wrapper = document.createElement('div');
-      wrapper.style.display = 'contents';
-
-      // Resolve grid from the filter panel container (in-DOM) first, then fall back to gridEl
-      const resolvedGrid = (container.closest('tbw-grid') as HTMLElement | null) ?? gridEl;
-      const portalKey = renderToContainer(wrapper, renderFn(params) as React.ReactElement, undefined, resolvedGrid);
-      this.trackPortal(portalKey, wrapper, false);
-
-      container.appendChild(wrapper);
     };
   }
 

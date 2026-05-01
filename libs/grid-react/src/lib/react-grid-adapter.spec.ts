@@ -6,6 +6,13 @@
 import type { CellRenderContext, ColumnEditorContext } from '@toolbox-web/grid';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Side-effect imports: install editor + filter-panel feature bridges on the
+// adapter so the `before-edit-close` listener and type-default
+// `filterPanelRenderer` wrapping run. Real consumers achieve the same by
+// importing the feature subpath in their app.
+import '../features/editing';
+import '../features/filtering';
+
 // Import the registration functions directly
 import {
   getColumnEditor,

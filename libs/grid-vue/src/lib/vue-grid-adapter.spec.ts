@@ -4,9 +4,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { defineComponent, h, type VNode } from 'vue';
 
-// Side-effect imports: install detail / responsive bridges on the adapter so
-// `parseDetailElement` / `parseResponsiveCardElement` produce real renderers.
-// Real consumers achieve the same by importing the feature subpath in their app.
+// Side-effect imports: install detail / responsive / editing / filtering
+// bridges on the adapter so `parseDetailElement` / `parseResponsiveCardElement`
+// produce real renderers, the `before-edit-close` blur bridge runs on
+// editors, and type-default `filterPanelRenderer` wrapping happens. Real
+// consumers achieve the same by importing the feature subpath in their app.
+import '../features/editing';
+import '../features/filtering';
 import '../features/master-detail';
 import '../features/responsive';
 

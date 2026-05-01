@@ -4,6 +4,12 @@
  * @vitest-environment happy-dom
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// Side-effect import: install editor-mount hooks on the adapter so the
+// `before-edit-close` blur bridge runs in `wrapReactEditor`. Real consumers
+// achieve the same by importing `@toolbox-web/grid-react/features/editing`.
+import '../features/editing';
+
 import type { GridConfig } from './react-column-config';
 import {
   cleanupConfigRootsIn,

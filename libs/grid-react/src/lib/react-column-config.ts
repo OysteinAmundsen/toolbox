@@ -8,6 +8,7 @@ import type {
   LoadingContext,
 } from '@toolbox-web/grid';
 import type { ReactNode } from 'react';
+import { notifyEditorMounted } from './editor-mount-hooks';
 import { removeFromContainer, renderToContainer } from './portal-bridge';
 
 // #region ColumnConfig Interface
@@ -253,26 +254,17 @@ export function wrapReactEditor<TRow>(
     const entry: MountedEntry = { key: portalKey };
     mountedPortals.set(container, entry);
 
-    // Bridge "Tab / programmatic row exit drops pending input" — mirror of
-    // GridAdapter.createEditor's hook for the config-based editor path
-    // (`gridConfig.columns[].editor`). Core's EditingPlugin emits
-    // `before-edit-close` for managed-editor cells without reading their
-    // input values (those are committed by editor `onBlur` handlers). We
-    // synthesise a native `.blur()` on the focused input inside the dying
-    // row so React's `onBlur={commit}` runs before the cell DOM is torn
-    // down. Without this, pressing Tab from the last editable cell of a
-    // row silently discards the in-progress value.
-    //
-    // The grid element is resolved lazily via `queueMicrotask` because the
-    // container is appended to the cell *after* this function returns.
+    // Run editor-mount hooks (e.g. `before-edit-close` blur bridge installed
+    // by `@toolbox-web/grid-react/features/editing`). The grid element is
+    // resolved lazily via `queueMicrotask` because the container is appended
+    // to the cell *after* this function returns. If editing isn't imported,
+    // no hooks run and editors lose the Tab-flush bridge — which matches the
+    // editing precondition (the EditingPlugin needs the same import to
+    // exist at all).
     queueMicrotask(() => {
       const gridEl = container.closest('tbw-grid') as HTMLElement | null;
       if (!gridEl) return;
-      const flush = makeFlushFocusedInput(container);
-      gridEl.addEventListener('before-edit-close', flush);
-      entry.unsub = () => {
-        gridEl.removeEventListener('before-edit-close', flush);
-      };
+      entry.unsub = notifyEditorMounted(container, gridEl);
     });
 
     return container;

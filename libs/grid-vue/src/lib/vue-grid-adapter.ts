@@ -13,13 +13,58 @@ import type {
 } from '@toolbox-web/grid';
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import { createVNode, type Component, type VNode } from 'vue';
-import { detailRegistry, type DetailPanelContext } from './detail-panel-registry';
 import type { TypeDefault, TypeDefaultsMap } from './grid-type-registry';
-import { cardRegistry, type ResponsiveCardContext } from './responsive-card-registry';
 import { removeFromContainer, renderToContainer } from './teleport-bridge';
 import { getToolPanelRenderer, type ToolPanelContext } from './tool-panel-registry';
 import type { ColumnConfig, GridConfig } from './vue-column-config';
 export type { GridConfig };
+
+// #region Feature bridge registries
+
+/**
+ * Context handed to feature bridge installers so they can hook the adapter's
+ * teleport lifecycle without depending on its private fields.
+ * @internal
+ */
+export interface FeatureBridgeContext {
+  /** Track a teleport key for cleanup on adapter cleanup(). */
+  trackTeleportKey(key: string): void;
+}
+
+/**
+ * Installer signature: given a grid element + bridge context, returns the
+ * row-renderer the adapter should expose, or undefined if no Vue template
+ * is registered for that grid.
+ * @internal
+ */
+export type RowRendererBridge = <TRow = unknown>(
+  gridEl: HTMLElement,
+  ctx: FeatureBridgeContext,
+) => ((row: TRow, rowIndex: number) => HTMLElement) | undefined;
+
+let detailRendererBridge: RowRendererBridge | null = null;
+let responsiveCardRendererBridge: RowRendererBridge | null = null;
+
+/**
+ * Install the master-detail row-renderer bridge on the Vue adapter. Called
+ * once on import by `@toolbox-web/grid-vue/features/master-detail`. Mirrors
+ * how core grid plugins augment the grid via `registerPlugin()`.
+ * @internal Plugin API
+ */
+export function registerDetailRendererBridge(bridge: RowRendererBridge): void {
+  detailRendererBridge = bridge;
+}
+
+/**
+ * Install the responsive card row-renderer bridge on the Vue adapter. Called
+ * once on import by `@toolbox-web/grid-vue/features/responsive`.
+ * @internal Plugin API
+ */
+export function registerResponsiveCardRendererBridge(bridge: RowRendererBridge): void {
+  responsiveCardRendererBridge = bridge;
+}
+
+// #endregion
 
 /**
  * Registry mapping column elements to their Vue render functions.
@@ -281,6 +326,16 @@ export class GridAdapter implements FrameworkAdapter {
   private teleportKeys: string[] = [];
   /** Editor-specific teleport keys tracked separately for per-cell cleanup. */
   private editorTeleportKeys: Map<HTMLElement, string> = new Map();
+  /**
+   * Stable bridge context handed to feature installers. Bound once per
+   * adapter so feature bridges can call `trackTeleportKey` without each
+   * invocation creating a fresh closure.
+   */
+  private readonly bridgeContext: FeatureBridgeContext = {
+    trackTeleportKey: (key) => {
+      this.teleportKeys.push(key);
+    },
+  };
   /**
    * Per-editor `before-edit-close` listener teardown functions, keyed by
    * editor container.
@@ -907,70 +962,34 @@ export class GridAdapter implements FrameworkAdapter {
 
   /**
    * Framework adapter hook called by MasterDetailPlugin during attach().
-   * Parses the <tbw-grid-detail> element and returns a Vue-based renderer.
+   * Implementation is installed by `@toolbox-web/grid-vue/features/master-detail`
+   * via {@link registerDetailRendererBridge}. Returns undefined if the
+   * master-detail feature has not been imported, or if no TbwGridDetailPanel
+   * was registered for this grid.
    */
   parseDetailElement<TRow = unknown>(
     detailElement: Element,
   ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined {
+    if (!detailRendererBridge) return undefined;
     const gridElement = detailElement.closest('tbw-grid') as HTMLElement | null;
     if (!gridElement) return undefined;
-
-    // Get renderer from registry (registered by TbwGridDetailPanel)
-    const detailEl = gridElement.querySelector('tbw-grid-detail') as HTMLElement | null;
-    if (!detailEl) return undefined;
-
-    const renderFn = detailRegistry.get(detailEl);
-    if (!renderFn) return undefined;
-
-    return (row: TRow, rowIndex: number): HTMLElement => {
-      const container = document.createElement('div');
-      container.className = 'vue-detail-panel';
-
-      const ctx: DetailPanelContext<TRow> = { row, rowIndex };
-      const vnodes = renderFn(ctx as DetailPanelContext<unknown>);
-
-      if (vnodes && vnodes.length > 0) {
-        // Render VNodes into container via teleport bridge
-        const teleportKey = renderToContainer(container, vnodes as unknown as VNode);
-        this.teleportKeys.push(teleportKey);
-      }
-
-      return container;
-    };
+    return detailRendererBridge<TRow>(gridElement, this.bridgeContext);
   }
 
   /**
    * Framework adapter hook called by ResponsivePlugin during attach().
-   * Parses the <tbw-grid-responsive-card> element and returns a Vue-based renderer.
+   * Implementation is installed by `@toolbox-web/grid-vue/features/responsive`
+   * via {@link registerResponsiveCardRendererBridge}. Returns undefined if
+   * the responsive feature has not been imported, or if no TbwGridResponsiveCard
+   * was registered for this grid.
    */
   parseResponsiveCardElement<TRow = unknown>(
     cardElement: Element,
   ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined {
+    if (!responsiveCardRendererBridge) return undefined;
     const gridElement = cardElement.closest('tbw-grid') as HTMLElement | null;
     if (!gridElement) return undefined;
-
-    // Get renderer from registry (registered by TbwGridResponsiveCard)
-    const cardEl = gridElement.querySelector('tbw-grid-responsive-card') as HTMLElement | null;
-    if (!cardEl) return undefined;
-
-    const renderFn = cardRegistry.get(cardEl);
-    if (!renderFn) return undefined;
-
-    return (row: TRow, rowIndex: number): HTMLElement => {
-      const container = document.createElement('div');
-      container.className = 'vue-responsive-card';
-
-      const ctx: ResponsiveCardContext<TRow> = { row, rowIndex };
-      const vnodes = renderFn(ctx as ResponsiveCardContext<unknown>);
-
-      if (vnodes && vnodes.length > 0) {
-        // Render VNodes into container via teleport bridge
-        const teleportKey = renderToContainer(container, vnodes as unknown as VNode);
-        this.teleportKeys.push(teleportKey);
-      }
-
-      return container;
-    };
+    return responsiveCardRendererBridge<TRow>(gridElement, this.bridgeContext);
   }
 
   /**

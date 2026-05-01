@@ -4,6 +4,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { defineComponent, h, type VNode } from 'vue';
 
+// Side-effect imports: install detail / responsive bridges on the adapter so
+// `parseDetailElement` / `parseResponsiveCardElement` produce real renderers.
+// Real consumers achieve the same by importing the feature subpath in their app.
+import '../features/master-detail';
+import '../features/responsive';
+
 import { detailRegistry } from './detail-panel-registry';
 import { cardRegistry } from './responsive-card-registry';
 import {

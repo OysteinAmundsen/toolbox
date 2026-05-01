@@ -10,12 +10,57 @@ import type {
 } from '@toolbox-web/grid';
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import type { ReactNode } from 'react';
-import { getDetailRenderer, type DetailPanelContext } from './grid-detail-panel';
-import { getResponsiveCardRenderer, type ResponsiveCardContext } from './grid-responsive-card';
 import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
 import type { TypeDefault as ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { removeFromContainer, renderToContainer } from './portal-bridge';
 import { cleanupConfigRootsIn, makeFlushFocusedInput, processGridConfig } from './react-column-config';
+
+// #region Feature bridge registries
+
+/**
+ * Context handed to feature bridge installers so they can hook the adapter's
+ * portal lifecycle without depending on its private fields.
+ * @internal
+ */
+export interface FeatureBridgeContext {
+  /** Track a portal key + container for cleanup on releaseCell / destroy. */
+  trackPortal(key: string, container: HTMLElement, isEditor: boolean): void;
+}
+
+/**
+ * Installer signature: given a grid element + bridge context, returns the
+ * row-renderer the adapter should expose, or undefined if no React template
+ * is registered for that grid.
+ * @internal
+ */
+export type RowRendererBridge = <TRow = unknown>(
+  gridEl: HTMLElement,
+  ctx: FeatureBridgeContext,
+) => ((row: TRow, rowIndex: number) => HTMLElement) | undefined;
+
+let detailRendererBridge: RowRendererBridge | null = null;
+let responsiveCardRendererBridge: RowRendererBridge | null = null;
+
+/**
+ * Install the master-detail row-renderer bridge. Called once on import by
+ * `@toolbox-web/grid-react/features/master-detail`. Mirrors how core grid
+ * plugins augment the grid via `registerPlugin()`.
+ * @internal Plugin API
+ */
+export function registerDetailRendererBridge(bridge: RowRendererBridge): void {
+  detailRendererBridge = bridge;
+}
+
+/**
+ * Install the responsive card row-renderer bridge. Called once on import by
+ * `@toolbox-web/grid-react/features/responsive`.
+ * @internal Plugin API
+ */
+export function registerResponsiveCardRendererBridge(bridge: RowRendererBridge): void {
+  responsiveCardRendererBridge = bridge;
+}
+
+// #endregion
 
 /**
  * Registry mapping grid elements to their React render functions.
@@ -377,33 +422,15 @@ export class GridAdapter implements FrameworkAdapter {
 
   /**
    * Creates a detail renderer function for MasterDetailPlugin.
-   * Renders React components for expandable detail rows.
+   * Implementation is installed by `@toolbox-web/grid-react/features/master-detail`
+   * via {@link registerDetailRendererBridge}. Returns undefined if the
+   * master-detail feature has not been imported, or if no GridDetailPanel
+   * was registered for this grid.
    */
   createDetailRenderer<TRow = unknown>(
     gridElement: HTMLElement,
   ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined {
-    const renderFn = getDetailRenderer(gridElement);
-
-    if (!renderFn) {
-      return undefined;
-    }
-
-    return (row: TRow, rowIndex: number) => {
-      const container = document.createElement('div');
-      container.className = 'react-detail-panel';
-
-      const ctx: DetailPanelContext<TRow> = { row, rowIndex };
-
-      const portalKey = renderToContainer(
-        container,
-        renderFn(ctx as DetailPanelContext<unknown>),
-        undefined,
-        gridElement,
-      );
-      this.trackPortal(portalKey, container, false);
-
-      return container;
-    };
+    return detailRendererBridge?.<TRow>(gridElement, this.bridgeContext);
   }
 
   /**
@@ -421,33 +448,15 @@ export class GridAdapter implements FrameworkAdapter {
 
   /**
    * Creates a responsive card renderer function for ResponsivePlugin.
-   * Renders React components for card layout in responsive mode.
+   * Implementation is installed by `@toolbox-web/grid-react/features/responsive`
+   * via {@link registerResponsiveCardRendererBridge}. Returns undefined if
+   * the responsive feature has not been imported, or if no GridResponsiveCard
+   * was registered for this grid.
    */
   createResponsiveCardRenderer<TRow = unknown>(
     gridElement: HTMLElement,
   ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined {
-    const renderFn = getResponsiveCardRenderer(gridElement);
-
-    if (!renderFn) {
-      return undefined;
-    }
-
-    return (row: TRow, rowIndex: number) => {
-      const container = document.createElement('div');
-      container.className = 'react-responsive-card';
-
-      const ctx: ResponsiveCardContext<TRow> = { row, index: rowIndex };
-
-      const portalKey = renderToContainer(
-        container,
-        renderFn(ctx as ResponsiveCardContext<unknown>),
-        undefined,
-        gridElement,
-      );
-      this.trackPortal(portalKey, container, false);
-
-      return container;
-    };
+    return responsiveCardRendererBridge?.<TRow>(gridElement, this.bridgeContext);
   }
 
   /**
@@ -620,6 +629,15 @@ export class GridAdapter implements FrameworkAdapter {
   }
 
   // #region Portal tracking helpers
+
+  /**
+   * Stable bridge context handed to feature installers. Bound once per adapter
+   * so feature bridges can call `trackPortal` without each invocation creating
+   * a fresh closure.
+   */
+  private readonly bridgeContext: FeatureBridgeContext = {
+    trackPortal: (key, container, isEditor) => this.trackPortal(key, container, isEditor),
+  };
 
   /** Register a portal key for lifecycle tracking. */
   private trackPortal(key: string, container: HTMLElement, isEditor: boolean): void {

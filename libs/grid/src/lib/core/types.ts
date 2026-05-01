@@ -14,36 +14,6 @@ import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } fr
  */
 export type RowPositionEntry = RowPosition;
 
-// #region DataGridElement Interface
-/**
- * The compiled web component interface for DataGrid.
- *
- * This interface represents the `<tbw-grid>` custom element, combining
- * the public grid API with standard HTMLElement functionality.
- *
- * @example
- * ```typescript
- * // Query existing grid with type safety
- * import { queryGrid } from '@toolbox-web/grid';
- * const grid = queryGrid<Employee>('tbw-grid');
- * grid.rows = employees;
- * grid.on('cell-click', (detail) => console.log(detail));
- *
- * // Create grid programmatically
- * import { createGrid } from '@toolbox-web/grid';
- * const grid = createGrid<Employee>({
- *   columns: [{ field: 'name' }, { field: 'email' }],
- * });
- * document.body.appendChild(grid);
- * ```
- *
- * @see {@link PublicGrid} for the public API methods and properties
- * @see {@link createGrid} for typed grid creation
- * @see {@link queryGrid} for typed grid querying
- */
-export interface DataGridElement extends PublicGrid, HTMLElement {}
-// #endregion
-
 // #region ScrollToRowOptions
 /**
  * Options for the {@link PublicGrid.scrollToRow} method.
@@ -1331,7 +1301,7 @@ export interface ColumnEditorContext<TRow = any, TValue = any> {
    *
    * @see {@link CellRenderContext.grid}
    */
-  grid?: DataGridElement;
+  grid?: PublicGrid<TRow> & HTMLElement;
 }
 // #endregion
 
@@ -1390,7 +1360,7 @@ export interface CellRenderContext<TRow = any, TValue = any> {
    * };
    * ```
    */
-  grid?: DataGridElement;
+  grid?: PublicGrid<TRow> & HTMLElement;
   /**
    * The cell DOM element being rendered into.
    * Framework adapters can use this to cache per-cell state (e.g., React roots).

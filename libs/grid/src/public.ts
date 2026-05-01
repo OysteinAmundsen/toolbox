@@ -300,7 +300,6 @@ export type {
   ColumnViewRenderer,
   DataChangeDetail,
   DataGridCustomEvent,
-  DataGridElement as DataGridElementInterface,
   DataGridEventMap,
   ExpandCollapseAnimation,
   ExternalMountEditorDetail,

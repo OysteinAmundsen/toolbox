@@ -29,8 +29,8 @@ import type {
   ChangedRowsResetDetail,
   ColumnMoveDetail,
   ColumnResizeDetail,
-  ColumnVisibilityDetail,
   CopyDetail,
+  DataGridEventMap,
   DetailExpandDetail,
   ExportCompleteDetail,
   FilterChangeDetail,
@@ -158,6 +158,46 @@ export interface EventProps<TRow = unknown> {
    */
   onChangedRowsReset?: EventHandler<ChangedRowsResetDetail<TRow>>;
 
+  /**
+   * Fired when an editor opens for a cell.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/editing';`
+   */
+  onEditOpen?: EventHandler<DataGridEventMap<TRow>['edit-open']>;
+
+  /**
+   * Fired before an editor closes (commit or cancel). Cancelable.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/editing';`
+   */
+  onBeforeEditClose?: EventHandler<DataGridEventMap<TRow>['before-edit-close']>;
+
+  /**
+   * Fired after an editor closes (commit or cancel).
+   *
+   * @requires `import '@toolbox-web/grid-react/features/editing';`
+   */
+  onEditClose?: EventHandler<DataGridEventMap<TRow>['edit-close']>;
+
+  /**
+   * Fired when a cell edit is canceled (e.g. Escape key).
+   *
+   * @requires `import '@toolbox-web/grid-react/features/editing';`
+   */
+  onCellCancel?: EventHandler<DataGridEventMap<TRow>['cell-cancel']>;
+
+  /**
+   * Fired when the dirty/changed-rows state transitions.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/editing';`
+   */
+  onDirtyChange?: EventHandler<DataGridEventMap<TRow>['dirty-change']>;
+
+  /**
+   * Fired when the row data is replaced (e.g. via the `data` property setter).
+   */
+  onDataChange?: EventHandler<DataGridEventMap<TRow>['data-change']>;
+
   // ═══════════════════════════════════════════════════════════════════
   // SORTING & FILTERING EVENTS
   // ═══════════════════════════════════════════════════════════════════
@@ -218,18 +258,14 @@ export interface EventProps<TRow = unknown> {
   onColumnMove?: EventHandler<ColumnMoveDetail>;
 
   /**
-   * Fired when column visibility changes.
-   *
-   * @requires `import '@toolbox-web/grid-react/features/visibility';`
+   * Fired when a column resize is reset (e.g. via double-click on the resize handle).
    *
    * @example
    * ```tsx
-   * onColumnVisibility={(detail) => {
-   *   console.log(detail.hidden ? 'Hidden:' : 'Shown:', detail.field);
-   * }}
+   * onColumnResizeReset={(detail) => console.log('Reset width for:', detail.field)}
    * ```
    */
-  onColumnVisibility?: EventHandler<ColumnVisibilityDetail>;
+  onColumnResizeReset?: EventHandler<DataGridEventMap<TRow>['column-resize-reset']>;
 
   /**
    * Fired when column state changes (resize, reorder, visibility).
@@ -330,6 +366,31 @@ export interface EventProps<TRow = unknown> {
    */
   onGroupToggle?: EventHandler<GroupToggleDetail>;
 
+  /**
+   * Fired when a group is expanded.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/grouping-rows';`
+   */
+  onGroupExpand?: EventHandler<DataGridEventMap<TRow>['group-expand']>;
+
+  /**
+   * Fired when a group is collapsed.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/grouping-rows';`
+   */
+  onGroupCollapse?: EventHandler<DataGridEventMap<TRow>['group-collapse']>;
+
+  // ═══════════════════════════════════════════════════════════════════
+  // CONTEXT MENU EVENTS
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Fired when the context menu opens.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/context-menu';`
+   */
+  onContextMenuOpen?: EventHandler<DataGridEventMap<TRow>['context-menu-open']>;
+
   // ═══════════════════════════════════════════════════════════════════
   // TREE EVENTS
   // ═══════════════════════════════════════════════════════════════════
@@ -415,16 +476,28 @@ export interface EventProps<TRow = unknown> {
   // ═══════════════════════════════════════════════════════════════════
 
   /**
-   * Fired when undo/redo is performed.
+   * Fired when an undo action is performed.
    *
    * @requires `import '@toolbox-web/grid-react/features/undo-redo';`
    *
    * @example
    * ```tsx
-   * onUndoRedo={(detail) => console.log(detail.type, '- Can undo:', detail.canUndo)}
+   * onUndo={(detail) => console.log('Undid:', detail.action.type, '- Can undo:', detail.canUndo)}
    * ```
    */
-  onUndoRedo?: EventHandler<UndoRedoDetail>;
+  onUndo?: EventHandler<UndoRedoDetail>;
+
+  /**
+   * Fired when a redo action is performed.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/undo-redo';`
+   *
+   * @example
+   * ```tsx
+   * onRedo={(detail) => console.log('Redid:', detail.action.type, '- Can redo:', detail.canRedo)}
+   * ```
+   */
+  onRedo?: EventHandler<UndoRedoDetail>;
 
   // ═══════════════════════════════════════════════════════════════════
   // EXPORT EVENTS
@@ -496,20 +569,31 @@ export interface EventProps<TRow = unknown> {
 /**
  * Map of event handler prop names to their corresponding event names.
  * Used internally to wire up event listeners.
+ *
+ * The `satisfies` clause enforces bidirectional sync:
+ * - Every key must be a valid `keyof EventProps` (interface drift fails)
+ * - Every value must be a valid `keyof DataGridEventMap` (event-name typos
+ *   and stale entries pointing at non-existent events fail at compile time)
  */
-export const EVENT_PROP_MAP: Record<keyof EventProps, string> = {
+export const EVENT_PROP_MAP = {
   onCellClick: 'cell-click',
   onRowClick: 'row-click',
   onCellActivate: 'cell-activate',
   onCellChange: 'cell-change',
   onCellCommit: 'cell-commit',
+  onCellCancel: 'cell-cancel',
   onRowCommit: 'row-commit',
   onChangedRowsReset: 'changed-rows-reset',
+  onEditOpen: 'edit-open',
+  onBeforeEditClose: 'before-edit-close',
+  onEditClose: 'edit-close',
+  onDirtyChange: 'dirty-change',
+  onDataChange: 'data-change',
   onSortChange: 'sort-change',
   onFilterChange: 'filter-change',
   onColumnResize: 'column-resize',
+  onColumnResizeReset: 'column-resize-reset',
   onColumnMove: 'column-move',
-  onColumnVisibility: 'column-visibility',
   onColumnStateChange: 'column-state-change',
   onSelectionChange: 'selection-change',
   onRowMove: 'row-move',
@@ -518,17 +602,21 @@ export const EVENT_PROP_MAP: Record<keyof EventProps, string> = {
   onRowDrop: 'row-drop',
   onRowTransfer: 'row-transfer',
   onGroupToggle: 'group-toggle',
+  onGroupExpand: 'group-expand',
+  onGroupCollapse: 'group-collapse',
   onTreeExpand: 'tree-expand',
   onDetailExpand: 'detail-expand',
   onResponsiveChange: 'responsive-change',
+  onContextMenuOpen: 'context-menu-open',
   onCopy: 'copy',
   onPaste: 'paste',
-  onUndoRedo: 'undo-redo',
+  onUndo: 'undo',
+  onRedo: 'redo',
   onExportComplete: 'export-complete',
   onPrintStart: 'print-start',
   onPrintComplete: 'print-complete',
   onTbwScroll: 'tbw-scroll',
-};
+} as const satisfies Readonly<Record<keyof EventProps, keyof DataGridEventMap<unknown>>>;
 
 /**
  * Gets all event prop names.

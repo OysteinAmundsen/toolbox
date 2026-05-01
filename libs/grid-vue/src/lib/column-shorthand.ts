@@ -1,3 +1,15 @@
+/**
+ * Column shorthand parsing for `@toolbox-web/grid-vue`.
+ *
+ * Intentionally duplicated across the React, Vue, and Angular adapters so each
+ * adapter has zero shared-runtime dependency. Do not extract into a shared
+ * package: the helpers are tiny (~100 lines), the duplication keeps each
+ * adapter independently tree-shakeable, and a shared package would force
+ * consumers to install an extra dep just to import shorthand support.
+ *
+ * If you change behavior here, mirror the change in `grid-react` and
+ * `grid-angular`. The three implementations are kept byte-equivalent.
+ */
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 /**

@@ -13,5 +13,15 @@
  * @packageDocumentation
  */
 
+import { registerFeatureConfigPreprocessor } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/pinned-rows';
+import type { PinnedRowsConfig } from '@toolbox-web/grid/plugins/pinned-rows';
 export type { _Augmentation as _PinnedRowsAugmentation } from '@toolbox-web/grid/features/pinned-rows';
+
+// Bridge any Angular component classes embedded in `customPanels` (and any
+// other component-shaped fields) to plain renderer functions before the core
+// plugin factory consumes the config.
+registerFeatureConfigPreprocessor('pinnedRows', (config, adapter) => {
+  if (!config || typeof config !== 'object') return config;
+  return adapter.processPinnedRowsConfig(config as PinnedRowsConfig);
+});

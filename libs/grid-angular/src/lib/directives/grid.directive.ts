@@ -37,7 +37,9 @@ import type {
   EditingConfig,
   EditOpenDetail,
 } from '@toolbox-web/grid/plugins/editing';
-// Import plugin types and the two plugins always needed for Angular template integration
+// Import plugin config types only. Specific plugin classes are intentionally
+// not imported here — feature-specific bridging lives in the feature secondary
+// entries (see `internal/feature-extensions.ts`).
 import type {
   ClipboardConfig,
   ColumnMoveDetail,
@@ -60,7 +62,6 @@ import type {
   GroupingRowsConfig,
   GroupToggleDetail,
   MasterDetailConfig,
-  MasterDetailPlugin,
   MultiSortConfig,
   PasteDetail,
   PinnedRowsConfig,
@@ -70,7 +71,6 @@ import type {
   PrintStartDetail,
   ReorderConfig,
   ResponsiveChangeDetail,
-  ResponsivePlugin,
   ResponsivePluginConfig,
   RowDragDropConfig,
   RowDragEndDetail,
@@ -94,6 +94,7 @@ import { GridAdapter } from '../angular-grid-adapter';
 import { applyColumnDefaults, type ColumnShorthand, normalizeColumns } from '../column-shorthand';
 import { createPluginFromFeature, type FeatureName } from '../feature-registry';
 import { GridIconRegistry } from '../grid-icon-registry';
+import { getFeatureConfigPreprocessor, runTemplateBridges } from '../internal/feature-extensions';
 
 /**
  * Event detail for cell commit events.
@@ -1460,56 +1461,45 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   /**
    * Creates plugins from feature inputs.
    * Uses the feature registry to allow tree-shaking - only imported features are bundled.
+   * Per-feature config bridging (e.g. converting Angular component classes inside
+   * `groupingColumns` / `groupingRows` / `pinnedRows` configs to renderer functions)
+   * runs via `getFeatureConfigPreprocessor`, populated by feature secondary entries.
    * Returns the array of created plugins (doesn't modify grid).
    */
   private createFeaturePlugins(): unknown[] {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const plugins: unknown[] = [];
+    const adapter = this.adapter;
 
     // Helper to add plugin if feature is registered
     const addPlugin = (name: FeatureName, config: unknown) => {
       if (config === undefined || config === null || config === false) return;
-      const plugin = createPluginFromFeature(name, config);
+      // Apply per-feature config preprocessor (registered by feature secondary entries)
+      // to bridge Angular component classes embedded in the config before instantiation.
+      let finalConfig: unknown = config;
+      if (adapter && config !== true && typeof config === 'object') {
+        const preprocess = getFeatureConfigPreprocessor(name);
+        if (preprocess) finalConfig = preprocess(config, adapter);
+      }
+      const plugin = createPluginFromFeature(name, finalConfig);
       if (plugin) plugins.push(plugin);
     };
 
-    // Add plugins for each feature input
     addPlugin('selection', this.selection());
     addPlugin('editing', this.editing());
     addPlugin('clipboard', this.clipboard());
     addPlugin('contextMenu', this.contextMenu());
-    // multiSort is the primary input
     addPlugin('multiSort', this.multiSort());
     addPlugin('filtering', this.filtering());
     addPlugin('reorderColumns', this.reorderColumns());
     addPlugin('visibility', this.visibility());
     addPlugin('pinnedColumns', this.pinnedColumns());
-
-    // Pre-process groupingColumns config to bridge Angular component classes
-    const gcConfig = this.groupingColumns();
-    if (gcConfig && typeof gcConfig === 'object' && this.adapter) {
-      addPlugin('groupingColumns', this.adapter.processGroupingColumnsConfig(gcConfig as GroupingColumnsConfig));
-    } else {
-      addPlugin('groupingColumns', gcConfig);
-    }
-
+    addPlugin('groupingColumns', this.groupingColumns());
     addPlugin('columnVirtualization', this.columnVirtualization());
     addPlugin('reorderRows', this.reorderRows());
     addPlugin('rowDragDrop', this.rowDragDrop());
-    // Pre-process groupingRows config to bridge Angular component classes
-    const grConfig = this.groupingRows();
-    if (grConfig && typeof grConfig === 'object' && this.adapter) {
-      addPlugin('groupingRows', this.adapter.processGroupingRowsConfig(grConfig as GroupingRowsConfig));
-    } else {
-      addPlugin('groupingRows', grConfig);
-    }
-    // Pre-process pinnedRows config to bridge Angular component classes in customPanels
-    const prConfig = this.pinnedRows();
-    if (prConfig && typeof prConfig === 'object' && this.adapter) {
-      addPlugin('pinnedRows', this.adapter.processPinnedRowsConfig(prConfig as PinnedRowsConfig));
-    } else {
-      addPlugin('pinnedRows', prConfig);
-    }
+    addPlugin('groupingRows', this.groupingRows());
+    addPlugin('pinnedRows', this.pinnedRows());
     addPlugin('tree', this.tree());
     addPlugin('masterDetail', this.masterDetail());
     addPlugin('responsive', this.responsive());
@@ -1532,11 +1522,13 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
       setTimeout(() => {
         (grid as any).refreshColumns();
 
-        // Configure MasterDetailPlugin after Angular templates are registered
-        this.configureMasterDetail(grid);
-
-        // Configure ResponsivePlugin card renderer if template is present
-        this.configureResponsiveCard(grid);
+        // Run feature-registered template bridges. Each bridge wires a specific
+        // light-DOM slot element (<tbw-grid-detail>, <tbw-grid-responsive-card>, ...)
+        // to its plugin. Bridges are registered by feature secondary entries
+        // (e.g. `import '@toolbox-web/grid-angular/features/master-detail';`).
+        if (this.adapter) {
+          runTemplateBridges({ grid, adapter: this.adapter });
+        }
 
         // Refresh shell header to pick up tool panel templates
         // This allows Angular templates to be used in tool panels
@@ -1562,100 +1554,6 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     grid.ready?.().then(() => {
       grid.registerStyles?.('angular-custom-styles', styles);
     });
-  }
-
-  /**
-   * Configures the MasterDetailPlugin after Angular templates are registered.
-   * - If plugin exists: refresh its detail renderer
-   * - If plugin doesn't exist but <tbw-grid-detail> is present: dynamically import and add the plugin
-   */
-  private async configureMasterDetail(grid: GridElement): Promise<void> {
-    if (!this.adapter) return;
-
-    // Check for existing plugin by name to avoid importing the class
-    const existingPlugin = grid.gridConfig?.plugins?.find((p) => (p as { name?: string }).name === 'masterDetail') as
-      | MasterDetailPlugin
-      | undefined;
-
-    if (existingPlugin && typeof existingPlugin.refreshDetailRenderer === 'function') {
-      // Plugin exists - just refresh the renderer to pick up Angular templates
-      existingPlugin.refreshDetailRenderer();
-      return;
-    }
-
-    // Check if <tbw-grid-detail> is present in light DOM
-    const detailElement = grid.querySelector('tbw-grid-detail');
-    if (!detailElement) return;
-
-    // Create detail renderer from Angular template
-    const detailRenderer = this.adapter.createDetailRenderer(grid);
-    if (!detailRenderer) return;
-
-    // Parse configuration from attributes
-    const animationAttr = detailElement.getAttribute('animation');
-    let animation: 'slide' | 'fade' | false = 'slide';
-    if (animationAttr === 'false') {
-      animation = false;
-    } else if (animationAttr === 'fade') {
-      animation = 'fade';
-    }
-
-    const showExpandColumn = detailElement.getAttribute('showExpandColumn') !== 'false';
-
-    // Dynamically import the plugin to avoid bundling it when not used
-    const { MasterDetailPlugin } = await import('@toolbox-web/grid/plugins/master-detail');
-
-    // Create and add the plugin
-    const plugin = new MasterDetailPlugin({
-      detailRenderer: detailRenderer,
-      showExpandColumn,
-      animation,
-    });
-
-    const currentConfig = grid.gridConfig || {};
-    const existingPlugins = currentConfig.plugins || [];
-    grid.gridConfig = {
-      ...currentConfig,
-      plugins: [...existingPlugins, plugin],
-    };
-  }
-
-  /**
-   * Configures the ResponsivePlugin with Angular template-based card renderer.
-   * - If plugin exists: updates its cardRenderer configuration
-   * - If plugin doesn't exist but <tbw-grid-responsive-card> is present: logs a warning
-   */
-  private configureResponsiveCard(grid: GridElement): void {
-    if (!this.adapter) return;
-
-    // Check if <tbw-grid-responsive-card> is present in light DOM
-    const cardElement = grid.querySelector('tbw-grid-responsive-card');
-    if (!cardElement) return;
-
-    // Create card renderer from Angular template
-    const cardRenderer = this.adapter.createResponsiveCardRenderer(grid);
-    if (!cardRenderer) return;
-
-    // Find existing plugin by name to avoid importing the class
-    const existingPlugin = grid.gridConfig?.plugins?.find((p) => (p as { name?: string }).name === 'responsive') as
-      | ResponsivePlugin
-      | undefined;
-
-    if (existingPlugin && typeof existingPlugin.setCardRenderer === 'function') {
-      // Plugin exists - update its cardRenderer
-      existingPlugin.setCardRenderer(cardRenderer);
-      return;
-    }
-
-    // Plugin doesn't exist - log a warning
-    console.warn(
-      '[tbw-grid-angular] <tbw-grid-responsive-card> found but ResponsivePlugin is not configured.\n' +
-        'Add ResponsivePlugin to your gridConfig.plugins array:\n\n' +
-        '  import { ResponsivePlugin } from "@toolbox-web/grid/plugins/responsive";\n' +
-        '  gridConfig = {\n' +
-        '    plugins: [new ResponsivePlugin({ breakpoint: 600 })]\n' +
-        '  };',
-    );
   }
 
   ngOnDestroy(): void {

@@ -83,3 +83,18 @@ export type { ColumnShorthand } from './lib/column-shorthand';
 // Combined provider helper (parity with grid-vue's GridProvider component)
 export { provideGrid } from './lib/grid-provider';
 export type { ProvideGridOptions } from './lib/grid-provider';
+
+// Internal extension points used by feature secondary entries to plug into the
+// core Grid directive (template bridges + per-feature config preprocessors).
+// These are public for cross-entry-point use; not part of the supported API.
+export {
+  getFeatureConfigPreprocessor,
+  registerFeatureConfigPreprocessor,
+  registerTemplateBridge,
+  runTemplateBridges,
+} from './lib/internal/feature-extensions';
+export type {
+  FeatureConfigPreprocessor,
+  TemplateBridge,
+  TemplateBridgeContext,
+} from './lib/internal/feature-extensions';

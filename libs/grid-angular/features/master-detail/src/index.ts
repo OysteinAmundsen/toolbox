@@ -29,7 +29,7 @@ import {
   registerTemplateBridge,
   type GridAdapter,
   type GridDetailContext,
-} from '@toolbox-web/grid-angular';
+} from '@toolbox-web/grid-angular/internal';
 import '@toolbox-web/grid/features/master-detail';
 export type { _Augmentation as _MasterDetailAugmentation } from '@toolbox-web/grid/features/master-detail';
 

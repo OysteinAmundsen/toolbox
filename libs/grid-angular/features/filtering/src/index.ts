@@ -31,7 +31,7 @@
 
 import { afterNextRender, DestroyRef, ElementRef, inject, signal, type Signal, type Type } from '@angular/core';
 import type { DataGridElement } from '@toolbox-web/grid';
-import { registerFilterPanelTypeDefaultBridge, type GridAdapter } from '@toolbox-web/grid-angular';
+import { registerFilterPanelTypeDefaultBridge, type GridAdapter } from '@toolbox-web/grid-angular/internal';
 import '@toolbox-web/grid/features/filtering';
 import {
   FilteringPlugin,

@@ -14,7 +14,11 @@
  */
 
 import type { Type } from '@angular/core';
-import { isComponentClass, registerFeatureConfigPreprocessor, type GridAdapter } from '@toolbox-web/grid-angular';
+import {
+  isComponentClass,
+  registerFeatureConfigPreprocessor,
+  type GridAdapter,
+} from '@toolbox-web/grid-angular/internal';
 import '@toolbox-web/grid/features/pinned-rows';
 import type {
   PinnedRowsConfig,

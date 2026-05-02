@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.4.0...grid-react-1.5.0) (2026-05-02)
+
+
+### Features
+
+* **adapters:** bring grid-react and grid-vue to full surface-area parity ([8a7314d](https://github.com/OysteinAmundsen/toolbox/commit/8a7314d61d424ffadabe803db1ed13c67897bd5f))
+* **grid/pinned-rows:** unified slots[] API (issue [#255](https://github.com/OysteinAmundsen/toolbox/issues/255)) ([#257](https://github.com/OysteinAmundsen/toolbox/issues/257)) ([8a84f0d](https://github.com/OysteinAmundsen/toolbox/commit/8a84f0dc27c64a68645a72ee6c1cda8ce59a6929))
+
+
+### Bug Fixes
+
+* **grid-angular,grid-react:** repair typedoc paths and React column-shorthand types ([3d22efe](https://github.com/OysteinAmundsen/toolbox/commit/3d22efe70566be8eb5ff48aa5b05e33cdca59aad))
+* **grid/pinned-rows:** render top slot wrappers when .header is nested in .rows-body ([d781366](https://github.com/OysteinAmundsen/toolbox/commit/d781366bf72bd52dc35dec74bacf56ac2692c9f8))
+* **grid:** preserve runtime column state when same gridConfig reference is re-assigned ([9652cd5](https://github.com/OysteinAmundsen/toolbox/commit/9652cd5b0828d0092d9a0a16296eca1bf3d571de))
+* **grid:** register column-visibility event; restore adapter props ([30dd280](https://github.com/OysteinAmundsen/toolbox/commit/30dd280ed8a0153eab030969d9a57ca6b681ccd5))
+
 ## [1.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.3.0...grid-react-1.4.0) (2026-04-29)
 
 

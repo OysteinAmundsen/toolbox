@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.4.0...grid-vue-1.5.0) (2026-05-02)
+
+
+### Features
+
+* **adapters:** add 10 missing grid events to vue & angular + drift guard ([c524fbf](https://github.com/OysteinAmundsen/toolbox/commit/c524fbf809bbdd1450e38bd165ff40eb30a643de))
+* **adapters:** bring grid-react and grid-vue to full surface-area parity ([8a7314d](https://github.com/OysteinAmundsen/toolbox/commit/8a7314d61d424ffadabe803db1ed13c67897bd5f))
+* **grid/pinned-rows:** unified slots[] API (issue [#255](https://github.com/OysteinAmundsen/toolbox/issues/255)) ([#257](https://github.com/OysteinAmundsen/toolbox/issues/257)) ([8a84f0d](https://github.com/OysteinAmundsen/toolbox/commit/8a84f0dc27c64a68645a72ee6c1cda8ce59a6929))
+
+
+### Bug Fixes
+
+* **grid/pinned-rows:** render top slot wrappers when .header is nested in .rows-body ([d781366](https://github.com/OysteinAmundsen/toolbox/commit/d781366bf72bd52dc35dec74bacf56ac2692c9f8))
+
 ## [1.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.3.0...grid-vue-1.4.0) (2026-04-29)
 
 

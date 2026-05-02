@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.3.1...grid-angular-1.4.0) (2026-05-02)
+
+
+### Features
+
+* **adapters:** add 10 missing grid events to vue & angular + drift guard ([c524fbf](https://github.com/OysteinAmundsen/toolbox/commit/c524fbf809bbdd1450e38bd165ff40eb30a643de))
+* **grid-angular:** bring angular adapter to surface-area parity with react/vue ([96de757](https://github.com/OysteinAmundsen/toolbox/commit/96de75740411249553026085ef303008d4a6d50f))
+* **grid/pinned-rows:** unified slots[] API (issue [#255](https://github.com/OysteinAmundsen/toolbox/issues/255)) ([#257](https://github.com/OysteinAmundsen/toolbox/issues/257)) ([8a84f0d](https://github.com/OysteinAmundsen/toolbox/commit/8a84f0dc27c64a68645a72ee6c1cda8ce59a6929))
+
+
+### Bug Fixes
+
+* **grid-angular,grid-react:** repair typedoc paths and React column-shorthand types ([3d22efe](https://github.com/OysteinAmundsen/toolbox/commit/3d22efe70566be8eb5ff48aa5b05e33cdca59aad))
+* **grid-angular:** restore GridAdapter value import in spec (CI ReferenceError) ([76c4e0f](https://github.com/OysteinAmundsen/toolbox/commit/76c4e0fb28beb494fa84fe08e1bb330c2054c007))
+* **grid:** register column-visibility event; restore adapter props ([30dd280](https://github.com/OysteinAmundsen/toolbox/commit/30dd280ed8a0153eab030969d9a57ca6b681ccd5))
+
 ## [1.3.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.3.0...grid-angular-1.3.1) (2026-04-29)
 
 

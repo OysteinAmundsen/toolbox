@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.5.0...grid-2.6.0) (2026-05-02)
+
+
+### Features
+
+* **adapters:** add 10 missing grid events to vue & angular + drift guard ([c524fbf](https://github.com/OysteinAmundsen/toolbox/commit/c524fbf809bbdd1450e38bd165ff40eb30a643de))
+* **grid/pinned-rows:** unified slots[] API (issue [#255](https://github.com/OysteinAmundsen/toolbox/issues/255)) ([#257](https://github.com/OysteinAmundsen/toolbox/issues/257)) ([8a84f0d](https://github.com/OysteinAmundsen/toolbox/commit/8a84f0dc27c64a68645a72ee6c1cda8ce59a6929))
+
+
+### Bug Fixes
+
+* **grid/pinned-rows:** render top slot wrappers when .header is nested in .rows-body ([d781366](https://github.com/OysteinAmundsen/toolbox/commit/d781366bf72bd52dc35dec74bacf56ac2692c9f8))
+* **grid:** allow features.editing=false to suppress missing-plugin validation ([1025e66](https://github.com/OysteinAmundsen/toolbox/commit/1025e666974f179fadd0ca975b314704ea204107))
+* **grid:** preserve runtime column state when same gridConfig reference is re-assigned ([9652cd5](https://github.com/OysteinAmundsen/toolbox/commit/9652cd5b0828d0092d9a0a16296eca1bf3d571de))
+* **grid:** register column-visibility event; restore adapter props ([30dd280](https://github.com/OysteinAmundsen/toolbox/commit/30dd280ed8a0153eab030969d9a57ca6b681ccd5))
+
 ## [2.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.4.1...grid-2.5.0) (2026-04-29)
 
 

@@ -31,6 +31,11 @@ import type {
   EditOpenDetail,
 } from '@toolbox-web/grid/plugins/editing';
 
+/**
+ * Owns the binding(s) `[editing], [cellCommit], [cellCancel], [rowCommit], [changedRowsReset], [editOpen], [beforeEditClose], [editClose], [dirtyChange]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector:
     'tbw-grid[editing], tbw-grid[cellCommit], tbw-grid[cellCancel], tbw-grid[rowCommit], tbw-grid[changedRowsReset], tbw-grid[editOpen], tbw-grid[beforeEditClose], tbw-grid[editClose], tbw-grid[dirtyChange]',

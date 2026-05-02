@@ -10,6 +10,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type { SelectionChangeDetail, SelectionConfig } from '@toolbox-web/grid/plugins/selection';
 
+/**
+ * Owns the binding(s) `[selection], [selectionChange]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[selection], tbw-grid[selectionChange]',
   standalone: true,

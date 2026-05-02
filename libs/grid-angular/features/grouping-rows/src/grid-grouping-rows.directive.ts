@@ -15,6 +15,11 @@ import type {
   GroupToggleDetail,
 } from '@toolbox-web/grid/plugins/grouping-rows';
 
+/**
+ * Owns the binding(s) `[groupingRows], [groupToggle], [groupExpand], [groupCollapse]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[groupingRows], tbw-grid[groupToggle], tbw-grid[groupExpand], tbw-grid[groupCollapse]',
   standalone: true,

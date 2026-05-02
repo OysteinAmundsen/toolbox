@@ -11,6 +11,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type { ColumnVisibilityDetail, VisibilityConfig } from '@toolbox-web/grid/plugins/visibility';
 
+/**
+ * Owns the binding(s) `[visibility], [columnVisibility]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[visibility], tbw-grid[columnVisibility]',
   standalone: true,

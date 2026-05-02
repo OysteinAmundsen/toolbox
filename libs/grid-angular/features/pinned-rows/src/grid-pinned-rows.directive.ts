@@ -9,6 +9,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { registerFeatureClaim, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type { PinnedRowsConfig } from '@toolbox-web/grid/plugins/pinned-rows';
 
+/**
+ * Owns the binding(s) `[pinnedRows]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[pinnedRows]',
   standalone: true,

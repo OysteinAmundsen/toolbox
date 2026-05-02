@@ -9,6 +9,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type { ClipboardConfig, CopyDetail, PasteDetail } from '@toolbox-web/grid/plugins/clipboard';
 
+/**
+ * Owns the binding(s) `[clipboard], [copy], [paste]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[clipboard], tbw-grid[copy], tbw-grid[paste]',
   standalone: true,

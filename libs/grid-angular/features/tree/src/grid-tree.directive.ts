@@ -9,6 +9,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type { TreeConfig, TreeExpandDetail } from '@toolbox-web/grid/plugins/tree';
 
+/**
+ * Owns the binding(s) `[tree], [treeExpand]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[tree], tbw-grid[treeExpand]',
   standalone: true,

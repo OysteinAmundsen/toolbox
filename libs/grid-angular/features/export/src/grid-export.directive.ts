@@ -14,6 +14,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type { ExportCompleteDetail, ExportConfig } from '@toolbox-web/grid/plugins/export';
 
+/**
+ * Owns the binding(s) `[export], [exportComplete]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[export], tbw-grid[exportComplete]',
   standalone: true,

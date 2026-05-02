@@ -9,6 +9,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { registerFeatureClaim, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type { TooltipConfig } from '@toolbox-web/grid/plugins/tooltip';
 
+/**
+ * Owns the binding(s) `[tooltip]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[tooltip]',
   standalone: true,

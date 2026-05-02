@@ -113,8 +113,7 @@ const contextMenuConfig = {
   <TabItem label="Angular">
 ```typescript
 // Feature import - enables the [contextMenu] input
-import '@toolbox-web/grid-angular/features/context-menu';
-
+import { GridContextMenuDirective } from '@toolbox-web/grid-angular/features/context-menu';
 import { Component, output } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
@@ -122,7 +121,7 @@ import type { ContextMenuItem } from '@toolbox-web/grid/plugins/context-menu';
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid],
+  imports: [Grid, GridContextMenuDirective],
   template: `
     <tbw-grid
       #grid

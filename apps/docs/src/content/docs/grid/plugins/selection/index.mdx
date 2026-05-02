@@ -127,14 +127,14 @@ import '@toolbox-web/grid/features/selection';
   </TabItem>
   <TabItem label="Angular">
   ```typescript
-  import '@toolbox-web/grid-angular/features/selection';
+  import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
   import { Component } from '@angular/core';
   import { Grid } from '@toolbox-web/grid-angular';
   import type { ColumnConfig } from '@toolbox-web/grid';
 
   @Component({
     selector: 'app-my-grid',
-    imports: [Grid],
+    imports: [Grid, GridSelectionDirective],
     template: `
       <tbw-grid
         [rows]="rows"

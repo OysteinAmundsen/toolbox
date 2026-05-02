@@ -77,28 +77,108 @@ export class MyGridComponent {
 
 ## Enabling Features
 
-Features are enabled using **declarative inputs** with **side-effect imports**. This gives you the best of both worlds: clean Angular templates and tree-shakeable bundles.
+`<tbw-grid>` supports three patterns for turning on plugins. Pick whichever fits the
+component — they can be mixed.
 
-### How It Works
+| Pattern                                                   | Best for                                                                         | v2 status                                                                              |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `gridConfig.features` (object literal)                    | Configuration-driven apps that prefer a single setup object                      | ✅ Unchanged — fully supported                                                         |
+| **Per-feature directive** (e.g. `GridFilteringDirective`) | Template-driven apps that want signal inputs/outputs **and** the smallest bundle | ✅ **Recommended** — the future-proof path                                             |
+| Inputs/outputs on `Grid` (e.g. `[filtering]`)             | v1.x apps already on this style                                                  | ⚠️ **Deprecated** — bindings remain for v1.x compatibility but will be removed in v2.0 |
 
-1. **Import the feature** — A side-effect import registers the feature factory
-2. **Use the input** — The `Grid` directive detects the input and creates the plugin instance
+> Apps that only use `gridConfig` are **not affected** by the v2 cleanup — only consumers
+> binding feature inputs directly on `<tbw-grid>` need to add the matching per-feature
+> directive to their component's `imports` before v2.
+
+### Recommended: Per-Feature Directives
+
+Each feature ships its own attribute-selector directive (`GridFilteringDirective`,
+`GridSelectionDirective`, …) from its secondary entry. Add the directive to the
+component's `imports` and bind exactly the same `[input]` / `(output)` you used before:
 
 ```typescript
-// 1. Import features you need (once, typically in the component file)
-import '@toolbox-web/grid-angular/features/selection';
-import '@toolbox-web/grid-angular/features/multi-sort';
-import '@toolbox-web/grid-angular/features/filtering';
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
+import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
+import { GridMultiSortDirective } from '@toolbox-web/grid-angular/features/multi-sort';
 
-// 2. Use declarative inputs — no manual plugin instantiation!
 @Component({
-  imports: [Grid],
+  imports: [Grid, GridFilteringDirective, GridSelectionDirective, GridMultiSortDirective],
   template: `
     <tbw-grid
       [rows]="rows"
       [columns]="columns"
       [selection]="'range'"
-      [sorting]="'multi'"
+      [multiSort]="true"
+      [filtering]="true"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+```
+
+**Why this is the preferred path:**
+
+- **Tree-shakeable typed surface** — the feature's `input()` / `output()` definitions ship
+  inside the feature's own bundle. Apps that don't import the directive don't pay for its
+  compiled metadata in the core grid-angular bundle.
+- **Compile-time safety** — Angular errors with `Can't bind to 'filtering' since it isn't
+a known property of 'tbw-grid'` if you forget the directive (stronger than React/Vue,
+  which silently drop unknown props, and stronger than the runtime guard on the WC core).
+- **Same bindings, same demos** — the directive's selector matches the existing
+  attributes (`tbw-grid[filtering], tbw-grid[filterChange]`), so migrating from the
+  legacy style is a one-line `imports` addition per feature with **zero template
+  changes**.
+
+### Legacy: Inputs/Outputs on `Grid` (deprecated)
+
+The v1.x style — declaring `[filtering]`, `(filterChange)`, etc. directly on the
+`Grid` directive without importing a per-feature directive — still works for the entire
+v1.x line and is mediated by a per-element claims registry so the two styles can coexist
+on the same grid without duplicate plugins or double-emitted events. The bindings are
+marked `@deprecated` in JSDoc; v2.0 will remove them, at which point a one-line directive
+import per feature is the migration.
+
+### How the side-effect import works
+
+1. **Import the feature** — A side-effect import registers the feature factory with the
+   core grid (`@toolbox-web/grid/features/<name>`).
+2. **Bind the input** — The per-feature directive (or, in legacy code, the input on
+   `Grid`) instantiates the plugin with the input value.
+
+```typescript
+// 1. Side-effect import — required for either pattern
+import '@toolbox-web/grid-angular/features/selection';
+import '@toolbox-web/grid-angular/features/multi-sort';
+import '@toolbox-web/grid-angular/features/filtering';
+
+// 2a. Recommended — per-feature directives in `imports`
+import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
+import { GridMultiSortDirective } from '@toolbox-web/grid-angular/features/multi-sort';
+import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
+
+@Component({
+  imports: [Grid, GridSelectionDirective, GridMultiSortDirective, GridFilteringDirective],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [selection]="'range'"
+      [multiSort]="true"
+      [filtering]="true"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+
+// 2b. Legacy / deprecated — same bindings on Grid alone (works in v1.x)
+@Component({
+  imports: [Grid],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [selection]="'range'"
+      [multiSort]="true"
       [filtering]="true"
       style="height: 400px; display: block;">
     </tbw-grid>
@@ -115,32 +195,36 @@ import '@toolbox-web/grid-angular/features/filtering';
 
 ### Available Features
 
-Import from `@toolbox-web/grid-angular/features/<name>`:
+Import the **directive** from `@toolbox-web/grid-angular/features/<name>` and add it
+alongside `Grid` in your component's `imports` (recommended). The same `[input]` /
+`(output)` bindings on the `Grid` directive itself are still accepted in v1.x but are
+`@deprecated`.
 
-| Feature                 | Input                    | Example                                                                    |
-| ----------------------- | ------------------------ | -------------------------------------------------------------------------- |
-| `selection`             | `[selection]`            | `[selection]="'range'"` or `[selection]="{ mode: 'row', checkbox: true }"` |
-| `multi-sort`            | `[sorting]`              | `[sorting]="'multi'"` or `[sorting]="{ maxSortLevels: 3 }"`                |
-| `filtering`             | `[filtering]`            | `[filtering]="true"` or `[filtering]="{ debounceMs: 200 }"`                |
-| `editing`               | `[editing]`              | `[editing]="true"` or `[editing]="'dblclick'"`                             |
-| `clipboard`             | `[clipboard]`            | `[clipboard]="true"` (requires selection)                                  |
-| `undo-redo`             | `[undoRedo]`             | `[undoRedo]="true"` (requires editing)                                     |
-| `context-menu`          | `[contextMenu]`          | `[contextMenu]="true"`                                                     |
-| `reorder-columns`       | `[reorder]`              | `[reorder]="true"` (column drag-to-reorder)                                |
-| `reorder-rows`          | `[rowReorder]`           | `[rowReorder]="true"` (row drag-to-reorder)                                |
-| `visibility`            | `[visibility]`           | `[visibility]="true"` (column visibility panel)                            |
-| `pinned-columns`        | `[pinnedColumns]`        | `[pinnedColumns]="true"`                                                   |
-| `pinned-rows`           | `[pinnedRows]`           | `[pinnedRows]="true"`                                                      |
-| `grouping-columns`      | `[groupingColumns]`      | `[groupingColumns]="true"`                                                 |
-| `grouping-rows`         | `[groupingRows]`         | `[groupingRows]="{ groupBy: 'department' }"`                               |
-| `tree`                  | `[tree]`                 | `[tree]="{ childrenField: 'children' }"`                                   |
-| `column-virtualization` | `[columnVirtualization]` | `[columnVirtualization]="true"`                                            |
-| `export`                | `[export]`               | `[export]="true"`                                                          |
-| `print`                 | `[print]`                | `[print]="true"`                                                           |
-| `responsive`            | `[responsive]`           | `[responsive]="true"` (card layout on mobile)                              |
-| `master-detail`         | `[masterDetail]`         | `[masterDetail]="true"` (use with `<tbw-grid-detail>`)                     |
-| `pivot`                 | `[pivot]`                | `[pivot]="{ rowFields: [...], columnFields: [...] }"`                      |
-| `server-side`           | `[serverSide]`           | `[serverSide]="{ ... }"`                                                   |
+| Per-Feature Directive (recommended)                                                                                         | Input                             | Example                                                                    |
+| --------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------- |
+| [`GridSelectionDirective`](https://toolboxjs.com/grid/angular/api/directives/GridSelectionDirective/)                       | `[selection]`                     | `[selection]="'range'"` or `[selection]="{ mode: 'row', checkbox: true }"` |
+| [`GridMultiSortDirective`](https://toolboxjs.com/grid/angular/api/directives/GridMultiSortDirective/)                       | `[multiSort]`                     | `[multiSort]="true"` or `[multiSort]="{ maxSortLevels: 3 }"`               |
+| [`GridFilteringDirective`](https://toolboxjs.com/grid/angular/api/directives/GridFilteringDirective/)                       | `[filtering]`                     | `[filtering]="true"` or `[filtering]="{ debounceMs: 200 }"`                |
+| [`GridEditingDirective`](https://toolboxjs.com/grid/angular/api/directives/GridEditingDirective/)                           | `[editing]`                       | `[editing]="true"` or `[editing]="'dblclick'"`                             |
+| [`GridClipboardDirective`](https://toolboxjs.com/grid/angular/api/directives/GridClipboardDirective/)                       | `[clipboard]`                     | `[clipboard]="true"` (requires selection)                                  |
+| [`GridUndoRedoDirective`](https://toolboxjs.com/grid/angular/api/directives/GridUndoRedoDirective/)                         | `[undoRedo]`                      | `[undoRedo]="true"` (requires editing)                                     |
+| [`GridContextMenuDirective`](https://toolboxjs.com/grid/angular/api/directives/GridContextMenuDirective/)                   | `[contextMenu]`                   | `[contextMenu]="true"`                                                     |
+| [`GridReorderColumnsDirective`](https://toolboxjs.com/grid/angular/api/directives/GridReorderColumnsDirective/)             | `[reorderColumns]`                | `[reorderColumns]="true"`                                                  |
+| [`GridRowDragDropDirective`](https://toolboxjs.com/grid/angular/api/directives/GridRowDragDropDirective/)                   | `[rowDragDrop]` / `[reorderRows]` | `[rowDragDrop]="true"` (within and across grids)                           |
+| [`GridVisibilityDirective`](https://toolboxjs.com/grid/angular/api/directives/GridVisibilityDirective/)                     | `[visibility]`                    | `[visibility]="true"` (column visibility panel)                            |
+| [`GridPinnedColumnsDirective`](https://toolboxjs.com/grid/angular/api/directives/GridPinnedColumnsDirective/)               | `[pinnedColumns]`                 | `[pinnedColumns]="true"`                                                   |
+| [`GridPinnedRowsDirective`](https://toolboxjs.com/grid/angular/api/directives/GridPinnedRowsDirective/)                     | `[pinnedRows]`                    | `[pinnedRows]="true"`                                                      |
+| [`GridGroupingColumnsDirective`](https://toolboxjs.com/grid/angular/api/directives/GridGroupingColumnsDirective/)           | `[groupingColumns]`               | `[groupingColumns]="true"`                                                 |
+| [`GridGroupingRowsDirective`](https://toolboxjs.com/grid/angular/api/directives/GridGroupingRowsDirective/)                 | `[groupingRows]`                  | `[groupingRows]="{ groupBy: 'department' }"`                               |
+| [`GridTreeDirective`](https://toolboxjs.com/grid/angular/api/directives/GridTreeDirective/)                                 | `[tree]`                          | `[tree]="{ childrenField: 'children' }"`                                   |
+| [`GridColumnVirtualizationDirective`](https://toolboxjs.com/grid/angular/api/directives/GridColumnVirtualizationDirective/) | `[columnVirtualization]`          | `[columnVirtualization]="true"`                                            |
+| [`GridExportDirective`](https://toolboxjs.com/grid/angular/api/directives/GridExportDirective/)                             | `[export]`                        | `[export]="true"`                                                          |
+| [`GridPrintDirective`](https://toolboxjs.com/grid/angular/api/directives/GridPrintDirective/)                               | `[print]`                         | `[print]="true"`                                                           |
+| [`GridResponsiveDirective`](https://toolboxjs.com/grid/angular/api/directives/GridResponsiveDirective/)                     | `[responsive]`                    | `[responsive]="true"` (card layout on mobile)                              |
+| [`GridMasterDetailDirective`](https://toolboxjs.com/grid/angular/api/directives/GridMasterDetailDirective/)                 | `[masterDetail]`                  | `[masterDetail]="true"` (use with `<tbw-grid-detail>`)                     |
+| [`GridTooltipDirective`](https://toolboxjs.com/grid/angular/api/directives/GridTooltipDirective/)                           | `[tooltip]`                       | `[tooltip]="true"`                                                         |
+| [`GridPivotDirective`](https://toolboxjs.com/grid/angular/api/directives/GridPivotDirective/)                               | `[pivot]`                         | `[pivot]="{ rowFields: [...], columnFields: [...] }"`                      |
+| [`GridServerSideDirective`](https://toolboxjs.com/grid/angular/api/directives/GridServerSideDirective/)                     | `[serverSide]`                    | `[serverSide]="{ ... }"`                                                   |
 
 ### Import All Features
 

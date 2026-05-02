@@ -113,15 +113,14 @@ const handleExport = () => {
   <TabItem label="Angular">
 ```typescript
 // Feature import - enables the [exportFeature] input
-import '@toolbox-web/grid-angular/features/export';
-
+import { GridExportDirective } from '@toolbox-web/grid-angular/features/export';
 import { Component } from '@angular/core';
 import { Grid, injectGrid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-data-grid',
-  imports: [Grid],
+  imports: [Grid, GridExportDirective],
   template: `
     <button (click)="handleExport()">Export CSV</button>
     <tbw-grid

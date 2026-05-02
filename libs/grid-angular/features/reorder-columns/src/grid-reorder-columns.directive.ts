@@ -10,6 +10,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type { ColumnMoveDetail, ReorderConfig } from '@toolbox-web/grid/plugins/reorder-columns';
 
+/**
+ * Owns the binding(s) `[reorderColumns], [columnMove]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[reorderColumns], tbw-grid[columnMove]',
   standalone: true,

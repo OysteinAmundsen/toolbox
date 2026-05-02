@@ -6,6 +6,8 @@ description: Bind @toolbox-web/grid to Angular FormArray — cell-level validati
 
 The `@toolbox-web/grid-angular` package provides seamless integration with Angular Reactive Forms, allowing the grid to act as a form-bound component with cell-level validation.
 
+> **Pair with the editing directive.** [`GridFormArray`](/grid/angular/api/directives/GridFormArray/) and [`GridLazyForm`](/grid/angular/api/directives/GridLazyForm/) are themselves form-binding directives — they do **not** turn editing on. To allow cell edits, also add [`GridEditingDirective`](/grid/angular/api/directives/GridEditingDirective/) (from `@toolbox-web/grid-angular/features/editing`) to the component's `imports`, **or** configure editing through `[gridConfig]="{ features: { editing: … } }"`. The legacy `[editing]` binding on `Grid` itself is `@deprecated` and will be removed in v2.0.
+
 ## Overview
 
 You can bind a grid to a `FormArray` using the `[formArray]` directive. This enables:
@@ -28,13 +30,12 @@ import {
   ReactiveFormsModule, Validators, AbstractControl
 } from '@angular/forms';
 import { Grid, GridFormArray, TbwEditor, TbwRenderer } from '@toolbox-web/grid-angular';
-import '@toolbox-web/grid-angular/features/editing';
-
+import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
 // Custom validated input editor
 @Component({
   selector: 'app-validated-input',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, GridEditingDirective],
   template: `
     @if (control()) {
       <input
@@ -65,7 +66,7 @@ export class ValidatedInputComponent {
 
 @Component({
   imports: [
-    Grid, GridFormArray, TbwRenderer, TbwEditor,
+    Grid, GridFormArray, GridEditingDirective, TbwRenderer, TbwEditor,
     ReactiveFormsModule, ValidatedInputComponent
   ],
   template: `
@@ -311,8 +312,7 @@ For large datasets, `GridFormArray` can be slow because it creates **all FormGro
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Grid, GridLazyForm, TbwEditor } from '@toolbox-web/grid-angular';
-import '@toolbox-web/grid-angular/features/editing';
-
+import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
 interface Employee {
   id: number;
   firstName: string;
@@ -321,7 +321,7 @@ interface Employee {
 }
 
 @Component({
-  imports: [Grid, GridLazyForm, TbwEditor, ReactiveFormsModule],
+  imports: [Grid, GridLazyForm, GridEditingDirective, TbwEditor, ReactiveFormsModule],
   template: `
     <tbw-grid
       [rows]="employees()"
@@ -518,7 +518,7 @@ When `syncValidation` is enabled (the default) and the `EditingPlugin` is in `mo
 
 ```typescript
 @Component({
-  imports: [Grid, GridFormArray, TbwEditor, ReactiveFormsModule],
+  imports: [Grid, GridFormArray, GridEditingDirective, TbwEditor, ReactiveFormsModule],
   template: `
     <form [formGroup]="form">
       <tbw-grid

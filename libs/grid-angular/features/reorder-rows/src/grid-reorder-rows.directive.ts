@@ -14,6 +14,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { registerFeatureClaim, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type { RowReorderConfig } from '@toolbox-web/grid/plugins/reorder-rows';
 
+/**
+ * Owns the binding(s) `[reorderRows]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[reorderRows]',
   standalone: true,

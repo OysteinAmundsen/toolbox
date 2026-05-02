@@ -75,14 +75,13 @@ import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-import '@toolbox-web/grid-angular/features/tooltip';
-
+import { GridTooltipDirective } from '@toolbox-web/grid-angular/features/tooltip';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 
 @Component({
   selector: 'app-grid',
-  imports: [Grid],
+  imports: [Grid, GridTooltipDirective],
   template: `
     <tbw-grid
       [rows]="rows"

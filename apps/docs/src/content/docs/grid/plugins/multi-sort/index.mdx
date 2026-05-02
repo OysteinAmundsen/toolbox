@@ -102,15 +102,14 @@ const onSortChange = (e) => {
   <TabItem label="Angular">
 ```typescript
 // Feature import - enables the [multiSort] input
-import '@toolbox-web/grid-angular/features/multi-sort';
-
+import { GridMultiSortDirective } from '@toolbox-web/grid-angular/features/multi-sort';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-sortable-grid',
-  imports: [Grid],
+  imports: [Grid, GridMultiSortDirective],
   template: `
     <tbw-grid
       [rows]="rows"

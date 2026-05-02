@@ -17,6 +17,11 @@ import type {
   RowTransferDetail,
 } from '@toolbox-web/grid/plugins/row-drag-drop';
 
+/**
+ * Owns the binding(s) `[rowDragDrop], [rowMove], [rowDragStart], [rowDragEnd], [rowDrop], [rowTransfer]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector:
     'tbw-grid[rowDragDrop], tbw-grid[rowMove], tbw-grid[rowDragStart], tbw-grid[rowDragEnd], tbw-grid[rowDrop], tbw-grid[rowTransfer]',

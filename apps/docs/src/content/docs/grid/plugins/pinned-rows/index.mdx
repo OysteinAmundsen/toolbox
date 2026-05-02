@@ -125,8 +125,7 @@ const pinnedRowsConfig = {
   <TabItem label="Angular">
 ```typescript
 // Feature import - enables the [pinnedRows] input
-import '@toolbox-web/grid-angular/features/pinned-rows';
-
+import { GridPinnedRowsDirective } from '@toolbox-web/grid-angular/features/pinned-rows';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
@@ -134,7 +133,7 @@ import { rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 
 @Component({
   selector: 'app-order-grid',
-  imports: [Grid],
+  imports: [Grid, GridPinnedRowsDirective],
   template: `
     <tbw-grid
       [rows]="rows"

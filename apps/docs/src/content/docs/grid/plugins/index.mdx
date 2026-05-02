@@ -16,6 +16,10 @@ The `@toolbox-web/grid` plugin architecture allows you to extend the grid with p
 **If you're getting started, use features.** You can always switch to the plugin API later if you need more control — they're fully interchangeable.
 :::
 
+:::note[Angular: pair feature inputs with the per-feature directive]
+The Angular tabs in plugin docs often show the shorthand `[selection]`, `[filtering]`, `[editing]`, etc. on `<tbw-grid>`. In **v1.4+** the recommended way to use those bindings is to import the matching per-feature directive (e.g. [`GridSelectionDirective`](/grid/angular/api/directives/GridSelectionDirective/) from `@toolbox-web/grid-angular/features/selection`) alongside `Grid` in the component's `imports`. The same bindings on the central `Grid` directive are still accepted for v1.x backward compatibility but are `@deprecated` and will be removed in v2.0. Apps that configure plugins through `[gridConfig]="{ features: { … } }"` are unaffected — see the [Angular getting-started guide](/grid/angular/getting-started/#three-ways-to-configure-features) for the full breakdown.
+:::
+
 ## Available Plugins
 
 ### Editing & Data Entry
@@ -185,10 +189,9 @@ import '@toolbox-web/grid-vue/features/editing';
   <TabItem label="Angular">
 
 ```typescript
-import '@toolbox-web/grid-angular/features/selection';
-import '@toolbox-web/grid-angular/features/filtering';
-import '@toolbox-web/grid-angular/features/editing';
-
+import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
+import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
+import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
 // In template:
 // <tbw-grid [rows]="rows" [columns]="columns"
 //   [selection]="'row'" [filtering]="{ debounceMs: 300 }" [editing]="'dblclick'" />

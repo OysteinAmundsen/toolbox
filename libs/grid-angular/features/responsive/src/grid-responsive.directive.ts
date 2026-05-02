@@ -9,6 +9,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type { ResponsiveChangeDetail, ResponsivePluginConfig } from '@toolbox-web/grid/plugins/responsive';
 
+/**
+ * Owns the binding(s) `[responsive], [responsiveChange]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[responsive], tbw-grid[responsiveChange]',
   standalone: true,

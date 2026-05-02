@@ -33,33 +33,71 @@ bun add @toolbox-web/grid @toolbox-web/grid-angular
 
 ## Setup
 
-Register the grid web component and enable the features you need:
+No bootstrap step is required. Importing `@toolbox-web/grid-angular` (or any of its `features/*` entries) registers the `<tbw-grid>` custom element as a side effect. Each feature is enabled per-component by importing its directive — see [Three Ways to Configure Features](#three-ways-to-configure-features) below.
 
 ```typescript
-// main.ts - Import grid and enable features
+// Optional: if you also want to use <tbw-grid> in plain HTML templates
+// outside an Angular component (rare), add this once in main.ts:
 import '@toolbox-web/grid';
-
-// Enable features via side-effect imports
-// Only import the features you use - this keeps your bundle small!
-import '@toolbox-web/grid-angular/features/selection';
-import '@toolbox-web/grid-angular/features/editing';
-import '@toolbox-web/grid-angular/features/multi-sort';
-import '@toolbox-web/grid-angular/features/filtering';
 ```
+
+## Three Ways to Configure Features
+
+You can enable plugins on `<tbw-grid>` with one of three patterns. Pick whichever fits the component — they can be mixed.
+
+| Pattern | Best for | v2 status |
+|---------|----------|-----------|
+| **`gridConfig.features`** (object literal) | Configuration-driven apps; the entire grid setup lives in one object | ✅ Unchanged — fully supported |
+| **Per-feature directive** (e.g. `GridFilteringDirective`) | Template-driven apps that want signal inputs/outputs **and** the smallest bundle | ✅ **Recommended** — the future-proof path |
+| **Inputs/outputs on `Grid`** (e.g. `[filtering]`, `(filterChange)`) | v1.x apps already on this style | ⚠️ **Deprecated** — bindings remain in v1.x for compatibility but will be removed in v2.0 |
+
+> **`gridConfig` users are not affected by the v2 cleanup** — only consumers binding feature inputs directly on `<tbw-grid>` need to switch to per-feature directives before v2.
+
+### Recommended: Per-Feature Directives
+
+Each feature ships its own attribute-selector directive (`GridFilteringDirective`, `GridSelectionDirective`, …) from its secondary entry. Add the directive to the component's `imports` and bind exactly the same `[input]` / `(output)` you used before:
+
+```typescript
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
+import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
+
+@Component({
+  imports: [Grid, GridFilteringDirective, GridSelectionDirective],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [filtering]="true"
+      (filterChange)="onFilter($event)"
+      [selection]="'range'"
+    />
+  `,
+})
+export class MyGrid {/* … */}
+```
+
+**Why this is the preferred path:**
+
+- **Tree-shakeable typed surface** — the feature's `input()` / `output()` definitions ship inside the feature's own bundle. Apps that don't import the directive don't pay for its compiled metadata in the core bundle.
+- **Compile-time safety** — Angular errors with `Can't bind to 'filtering' since it isn't a known property of 'tbw-grid'` if you forget the directive (stronger than React/Vue, which silently drop unknown props).
+- **Same bindings, same demos** — the directive's selector matches the existing attributes (`tbw-grid[filtering], tbw-grid[filterChange]`), so migrating from the deprecated style is a one-line `imports` addition per feature with **zero template changes**.
+
+### Legacy: Inputs/Outputs on `Grid` (deprecated)
+
+The v1.x style — declaring `[filtering]`, `(filterChange)`, etc. directly on the `Grid` directive without importing a per-feature directive — still works for the entire v1.x line but is `@deprecated` in JSDoc. v2.0 will remove these bindings from `Grid`, at which point a one-line directive import per feature is the migration.
 
 ## Basic Usage
 
-The simplest way to use the grid is with the `Grid` directive and feature inputs:
+The simplest way to use the grid is with the `Grid` directive and per-feature directives:
 
 ```typescript
-// Enable features you use
-import '@toolbox-web/grid-angular/features/selection';
-import '@toolbox-web/grid-angular/features/editing';
-import '@toolbox-web/grid-angular/features/multi-sort';
-import '@toolbox-web/grid-angular/features/filtering';
-
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
+import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
+import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
+import { GridMultiSortDirective } from '@toolbox-web/grid-angular/features/multi-sort';
+import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 interface Employee {
@@ -71,7 +109,7 @@ interface Employee {
 
 @Component({
   selector: 'app-employee-grid',
-  imports: [Grid],
+  imports: [Grid, GridSelectionDirective, GridEditingDirective, GridMultiSortDirective, GridFilteringDirective],
   template: `
     <tbw-grid
       [rows]="employees"
@@ -102,34 +140,33 @@ export class EmployeeGridComponent {
 
 ## Feature Input Reference
 
-Each feature input enables a specific plugin with simplified configuration. See the [Grid directive API](/grid/angular/api/directives/Grid/) for the full input/output reference.
+Each feature exposes an input + (optional) output. The recommended way to use them is to import the matching **per-feature directive** alongside `Grid` (left column). The same `[input]` / `(output)` bindings are also accepted directly on `Grid` in v1.x for backward compatibility, but those bindings on `Grid` are `@deprecated` and will be removed in v2.0 — see the [Grid directive API](/grid/angular/api/directives/Grid/).
 
-| Feature Input | Feature Import | Description |
-|---------------|----------------|-------------|
-| `[selection]` | `features/selection` | Cell, row, or range selection |
-| `[editing]` | `features/editing` | Inline cell editing |
-| `[multiSort]` | `features/multi-sort` | Multi-column sorting |
-| `[filtering]` | `features/filtering` | Column filtering |
-| `[clipboard]` | `features/clipboard` | Copy/paste support |
-| `[contextMenu]` | `features/context-menu` | Right-click context menu |
-| `[reorderColumns]` | `features/reorder-columns` | Column drag-to-reorder |
-| `[visibility]` | `features/visibility` | Column visibility panel |
-| `[pinnedColumns]` | `features/pinned-columns` | Sticky left/right columns |
-| `[pinnedRows]` | `features/pinned-rows` | Sticky top/bottom rows |
-| `[groupingColumns]` | `features/grouping-columns` | Multi-level column headers |
-| `[groupingRows]` | `features/grouping-rows` | Row grouping |
-| `[columnVirtualization]` | `features/column-virtualization` | Virtualize columns for wide grids |
-| `[reorderRows]` | `features/reorder-rows` | Row drag-to-reorder |
-| `[rowDragDrop]` | `features/row-drag-drop` | Cross-grid / external row drag-and-drop |
-| `[tree]` | `features/tree` | Hierarchical tree view |
-| `[masterDetail]` | `features/master-detail` | Expandable detail rows |
-| `[responsive]` | `features/responsive` | Card layout for narrow viewports |
-| `[tooltip]` | `features/tooltip` | Cell / header tooltips |
-| `[undoRedo]` | `features/undo-redo` | Edit undo/redo |
-| `[export]` | `features/export` | CSV/Excel export |
-| `[print]` | `features/print` | Print support |
-| `[pivot]` | `features/pivot` | Pivot table functionality |
-| `[serverSide]` | `features/server-side` | Server-side data loading |
+| Per-Feature Directive (recommended) | Input | Feature Import | Description |
+|-------------------------------------|-------|----------------|-------------|
+| [`GridSelectionDirective`](/grid/angular/api/directives/GridSelectionDirective/) | `[selection]` | `features/selection` | Cell, row, or range selection |
+| [`GridEditingDirective`](/grid/angular/api/directives/GridEditingDirective/) | `[editing]` | `features/editing` | Inline cell editing |
+| [`GridMultiSortDirective`](/grid/angular/api/directives/GridMultiSortDirective/) | `[multiSort]` | `features/multi-sort` | Multi-column sorting |
+| [`GridFilteringDirective`](/grid/angular/api/directives/GridFilteringDirective/) | `[filtering]` | `features/filtering` | Column filtering |
+| [`GridClipboardDirective`](/grid/angular/api/directives/GridClipboardDirective/) | `[clipboard]` | `features/clipboard` | Copy/paste support |
+| [`GridContextMenuDirective`](/grid/angular/api/directives/GridContextMenuDirective/) | `[contextMenu]` | `features/context-menu` | Right-click context menu |
+| [`GridReorderColumnsDirective`](/grid/angular/api/directives/GridReorderColumnsDirective/) | `[reorderColumns]` | `features/reorder-columns` | Column drag-to-reorder |
+| [`GridVisibilityDirective`](/grid/angular/api/directives/GridVisibilityDirective/) | `[visibility]` | `features/visibility` | Column visibility panel |
+| [`GridPinnedColumnsDirective`](/grid/angular/api/directives/GridPinnedColumnsDirective/) | `[pinnedColumns]` | `features/pinned-columns` | Sticky left/right columns |
+| [`GridPinnedRowsDirective`](/grid/angular/api/directives/GridPinnedRowsDirective/) | `[pinnedRows]` | `features/pinned-rows` | Sticky top/bottom rows |
+| [`GridGroupingColumnsDirective`](/grid/angular/api/directives/GridGroupingColumnsDirective/) | `[groupingColumns]` | `features/grouping-columns` | Multi-level column headers |
+| [`GridGroupingRowsDirective`](/grid/angular/api/directives/GridGroupingRowsDirective/) | `[groupingRows]` | `features/grouping-rows` | Row grouping |
+| [`GridColumnVirtualizationDirective`](/grid/angular/api/directives/GridColumnVirtualizationDirective/) | `[columnVirtualization]` | `features/column-virtualization` | Virtualize columns for wide grids |
+| [`GridRowDragDropDirective`](/grid/angular/api/directives/GridRowDragDropDirective/) | `[rowDragDrop]` / `[reorderRows]` | `features/row-drag-drop` | Row drag-and-drop (within and across grids) |
+| [`GridTreeDirective`](/grid/angular/api/directives/GridTreeDirective/) | `[tree]` | `features/tree` | Hierarchical tree view |
+| [`GridMasterDetailDirective`](/grid/angular/api/directives/GridMasterDetailDirective/) | `[masterDetail]` | `features/master-detail` | Expandable detail rows |
+| [`GridResponsiveDirective`](/grid/angular/api/directives/GridResponsiveDirective/) | `[responsive]` | `features/responsive` | Card layout for narrow viewports |
+| [`GridTooltipDirective`](/grid/angular/api/directives/GridTooltipDirective/) | `[tooltip]` | `features/tooltip` | Cell / header tooltips |
+| [`GridUndoRedoDirective`](/grid/angular/api/directives/GridUndoRedoDirective/) | `[undoRedo]` | `features/undo-redo` | Edit undo/redo |
+| [`GridExportDirective`](/grid/angular/api/directives/GridExportDirective/) | `[export]` | `features/export` | CSV/Excel export |
+| [`GridPrintDirective`](/grid/angular/api/directives/GridPrintDirective/) | `[print]` | `features/print` | Print support |
+| [`GridPivotDirective`](/grid/angular/api/directives/GridPivotDirective/) | `[pivot]` | `features/pivot` | Pivot table functionality |
+| [`GridServerSideDirective`](/grid/angular/api/directives/GridServerSideDirective/) | `[serverSide]` | `features/server-side` | Server-side data loading |
 
 **Core Config Inputs (no feature import needed):**
 
@@ -188,13 +225,13 @@ export class EmployeeGridComponent {
 Feature imports export **scoped inject functions** for type-safe programmatic access to plugin functionality — no direct plugin references needed.
 
 ```typescript
-import '@toolbox-web/grid-angular/features/export';
+import { GridExportDirective } from '@toolbox-web/grid-angular/features/export';
 import { injectGridExport } from '@toolbox-web/grid-angular/features/export';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 
 @Component({
-  imports: [Grid],
+  imports: [Grid, GridExportDirective],
   template: `
     <div class="toolbar">
       <button (click)="exportCsv()" [disabled]="gridExport.isExporting()">Export CSV</button>
@@ -396,79 +433,38 @@ export class EmployeeGridComponent {
 
 ## Server-Side Data Loading
 
-Angular-specific pattern using `inject(HttpClient)`. The grid's `getRows` callback
-accepts an RxJS `Observable` (any `Subscribable`) directly — no wrapper needed. The grid
-subscribes once and calls `unsubscribe()` when a request is superseded (sort change, fast
-scrolling), which is what triggers `HttpClient` to cancel the underlying XHR. No stale
-buffer, no manual `firstValueFrom`.
+The full data-source contract, sort/filter modes, prefetching, cancellation and live-update patterns are documented on the [Server-Side plugin](/grid/plugins/server-side/) page (it has runnable demos and an Angular tab in every example). The two Angular-specific points worth calling out here:
 
-See [`ServerSideDataSource`](/grid/plugins/server-side/Interfaces/ServerSideDataSource/),
-[`GetRowsParams`](/grid/plugins/server-side/Interfaces/GetRowsParams/), and
-[`GetRowsResult`](/grid/plugins/server-side/Interfaces/GetRowsResult/) for the full
-data-source contract — including the `params.signal` `AbortSignal` you can forward to
-`fetch()` or via RxJS `takeUntil` for explicit cancellation.
+1. **Use the per-feature directive (recommended).** Add [`GridServerSideDirective`](/grid/angular/api/directives/GridServerSideDirective/) to your component's `imports` if you want to bind via `[serverSide]="…"` on `<tbw-grid>`. If you configure server-side through `[gridConfig]="{ features: { serverSide: … } }"` instead, no extra directive is needed — the deprecated `[serverSide]` binding on `Grid` itself still works in v1.x but will be removed in v2.0.
+2. **Return the `HttpClient` `Observable` directly from `getRows`.** No `firstValueFrom`, no manual `takeUntil`. The grid subscribes once and calls `unsubscribe()` when the request is superseded (sort change, fast scrolling, `refresh()`); `HttpClient` cancels the underlying XHR in response, which is the only correct way to avoid stale-buffer races.
 
 ```typescript
-import { Component, inject } from '@angular/core';
+import { inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { map } from 'rxjs/operators';
-import { Grid } from '@toolbox-web/grid-angular';
-import '@toolbox-web/grid-angular/features/server-side';
 import type { GridConfig } from '@toolbox-web/grid';
 import type { ServerSideDataSource } from '@toolbox-web/grid/plugins/server-side';
+import { GridServerSideDirective } from '@toolbox-web/grid-angular/features/server-side';
+private http = inject(HttpClient);
 
-interface EmployeesResponse {
-  items: Employee[];
-  total: number;
-}
+private dataSource: ServerSideDataSource<Employee> = {
+  getRows: (params) => {
+    const httpParams = new HttpParams()
+      .set('offset', params.startNode)
+      .set('limit', params.endNode - params.startNode);
+    return this.http
+      .get<{ items: Employee[]; total: number }>('/api/employees', { params: httpParams })
+      .pipe(map((data) => ({ rows: data.items, totalNodeCount: data.total })));
+  },
+};
 
-@Component({
-  imports: [Grid],
-  template: `<tbw-grid [gridConfig]="gridConfig"></tbw-grid>`,
-})
-export class EmployeeGridComponent {
-  private http = inject(HttpClient);
-
-  private dataSource: ServerSideDataSource<Employee> = {
-    getRows: (params) => {
-      let httpParams = new HttpParams()
-        .set('offset', params.startNode)
-        .set('limit', params.endNode - params.startNode);
-
-      if (params.sortModel?.length) {
-        httpParams = httpParams
-          .set('sort', params.sortModel[0].field)
-          .set('order', params.sortModel[0].direction);
-      }
-      if (params.filterModel) {
-        httpParams = httpParams.set('filters', JSON.stringify(params.filterModel));
-      }
-
-      return this.http
-        .get<EmployeesResponse>('/api/employees', { params: httpParams })
-        .pipe(map((data) => ({ rows: data.items, totalNodeCount: data.total })));
-    },
-  };
-
-  gridConfig: GridConfig<Employee> = {
-    columns: [
-      { field: 'id', header: 'ID', sortable: true },
-      { field: 'name', header: 'Name', sortable: true },
-      { field: 'department', header: 'Department' },
-    ],
-    features: { serverSide: { dataSource: this.dataSource } },
-  };
-}
+gridConfig: GridConfig<Employee> = {
+  columns: [/* … */],
+  features: { serverSide: { dataSource: this.dataSource } },
+};
 ```
 
-> **Cancellation matters.** If the user changes the sort or scrolls past the
-> in-flight range, the previous `HttpClient` subscription is torn down and the XHR
-> is aborted. With a plain `firstValueFrom(this.http.get(...))` the request would
-> keep running and could resolve *after* the new one — corrupting the buffer.
-
-The grid drives loading through the `getRows` callback, so the `[rows]` input is not needed — the server-side feature owns the row buffer and requests blocks on demand as the user scrolls, sorts, or filters. See the [Server-Side plugin](/grid/plugins/server-side/) for the full `ServerSideDataSource` interface.
-
-> **Caching:** Angular has no built-in equivalent to TanStack Query's request cache. If you need cross-component caching, deduplication, or `staleTime`, wrap the `HttpClient` call in your own service (e.g. with `shareReplay`), or evaluate [`@tanstack/angular-query-experimental`](https://tanstack.com/query/latest/docs/framework/angular/overview) — note the `experimental` tag.
+> **Caching:** Angular has no built-in equivalent to TanStack Query's request cache. If you need cross-component caching, deduplication or `staleTime`, wrap the `HttpClient` call in your own service (e.g. with `shareReplay`), or evaluate [`@tanstack/angular-query-experimental`](https://tanstack.com/query/latest/docs/framework/angular/overview) — note the `experimental` tag.
 
 ## Dynamic Row Updates
 
@@ -548,7 +544,7 @@ Ensure you imported the feature side-effect in your `main.ts`:
 
 ```typescript
 // main.ts — must be imported before bootstrap
-import '@toolbox-web/grid-angular/features/selection';
+import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
 ```
 
 ### "is not a known element" errors

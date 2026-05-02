@@ -53,6 +53,7 @@ import type { FilterChangeDetail, FilterConfig } from '@toolbox-web/grid/plugins
  * Selector matches when *either* binding is present so users can pick the
  * style that suits their template — both go through the same claim and the
  * same wiring.
+ * @category Directive
  */
 @Directive({
   selector: 'tbw-grid[filtering], tbw-grid[filterChange]',

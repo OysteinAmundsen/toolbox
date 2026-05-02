@@ -10,6 +10,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { registerFeatureClaim, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type { GroupingColumnsConfig } from '@toolbox-web/grid/plugins/grouping-columns';
 
+/**
+ * Owns the binding(s) `[groupingColumns]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[groupingColumns]',
   standalone: true,

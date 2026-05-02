@@ -9,6 +9,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { registerFeatureClaim, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type { ServerSideConfig } from '@toolbox-web/grid/plugins/server-side';
 
+/**
+ * Owns the binding(s) `[serverSide]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[serverSide]',
   standalone: true,

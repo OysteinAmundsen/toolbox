@@ -105,15 +105,14 @@ const pivotConfig = {
   <TabItem label="Angular">
 ```typescript
 // Feature import - enables the [pivot] input
-import '@toolbox-web/grid-angular/features/pivot';
-
+import { GridPivotDirective } from '@toolbox-web/grid-angular/features/pivot';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-sales-pivot',
-  imports: [Grid],
+  imports: [Grid, GridPivotDirective],
   template: `
     <tbw-grid
       [rows]="rows"

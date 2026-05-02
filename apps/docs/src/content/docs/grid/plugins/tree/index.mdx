@@ -110,15 +110,14 @@ const files = [
   <TabItem label="Angular">
 ```typescript
 // Feature import - enables the [tree] input
-import '@toolbox-web/grid-angular/features/tree';
-
+import { GridTreeDirective } from '@toolbox-web/grid-angular/features/tree';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-file-explorer',
-  imports: [Grid],
+  imports: [Grid, GridTreeDirective],
   template: `
     <tbw-grid
       [rows]="files"
@@ -251,15 +250,15 @@ const serverSideConfig = {
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-import '@toolbox-web/grid-angular/features/tree';
-import '@toolbox-web/grid-angular/features/server-side';
+import { GridTreeDirective } from '@toolbox-web/grid-angular/features/tree';
+import { GridServerSideDirective } from '@toolbox-web/grid-angular/features/server-side';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-server-tree',
-  imports: [Grid],
+  imports: [Grid, GridTreeDirective, GridServerSideDirective],
   template: `
     <tbw-grid
       [columns]="columns"

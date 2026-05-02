@@ -96,15 +96,14 @@ const data = [
   <TabItem label="Angular">
 ```typescript
 // Feature import - enables the [reorder] input
-import '@toolbox-web/grid-angular/features/reorder-columns';
-
+import { GridReorderColumnsDirective } from '@toolbox-web/grid-angular/features/reorder-columns';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid],
+  imports: [Grid, GridReorderColumnsDirective],
   template: `
     <tbw-grid
       [rows]="rows"

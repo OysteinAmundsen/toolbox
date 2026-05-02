@@ -103,14 +103,14 @@ function onSelectionChange() {
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-import '@toolbox-web/grid-angular/features/selection';
-import '@toolbox-web/grid-angular/features/filtering';
-import '@toolbox-web/grid-angular/features/multi-sort';
+import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
+import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
+import { GridMultiSortDirective } from '@toolbox-web/grid-angular/features/multi-sort';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 
 @Component({
-  imports: [Grid],
+  imports: [Grid, GridSelectionDirective, GridFilteringDirective, GridMultiSortDirective],
   template: `
     <tbw-grid
       [rows]="employees"
@@ -274,14 +274,14 @@ function onDirtyChange() {
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-import '@toolbox-web/grid-angular/features/editing';
-import '@toolbox-web/grid-angular/features/undo-redo';
-import '@toolbox-web/grid-angular/features/selection';
+import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
+import { GridUndoRedoDirective } from '@toolbox-web/grid-angular/features/undo-redo';
+import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 
 @Component({
-  imports: [Grid],
+  imports: [Grid, GridEditingDirective, GridUndoRedoDirective, GridSelectionDirective],
   template: `
     <tbw-grid
       [rows]="employees"
@@ -429,13 +429,13 @@ const groupingRows = {
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-import '@toolbox-web/grid-angular/features/grouping-rows';
-import '@toolbox-web/grid-angular/features/selection';
+import { GridGroupingRowsDirective } from '@toolbox-web/grid-angular/features/grouping-rows';
+import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 
 @Component({
-  imports: [Grid],
+  imports: [Grid, GridGroupingRowsDirective, GridSelectionDirective],
   template: `
     <tbw-grid
       [rows]="rows"
@@ -553,14 +553,14 @@ function handleExport() {
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-import '@toolbox-web/grid-angular/features/export';
-import '@toolbox-web/grid-angular/features/selection';
-import '@toolbox-web/grid-angular/features/filtering';
+import { GridExportDirective } from '@toolbox-web/grid-angular/features/export';
+import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
+import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
 import { Component, ViewChild, ElementRef } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 
 @Component({
-  imports: [Grid],
+  imports: [Grid, GridExportDirective, GridSelectionDirective, GridFilteringDirective],
   template: `
     <button (click)="handleExport()">Export CSV</button>
     <tbw-grid #grid [rows]="employees" [columns]="columns" selection="row" filtering export />
@@ -803,15 +803,15 @@ import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-import '@toolbox-web/grid-angular/features/pinned-columns';
-import '@toolbox-web/grid-angular/features/column-virtualization';
-import '@toolbox-web/grid-angular/features/multi-sort';
-import '@toolbox-web/grid-angular/features/filtering';
+import { GridPinnedColumnsDirective } from '@toolbox-web/grid-angular/features/pinned-columns';
+import { GridColumnVirtualizationDirective } from '@toolbox-web/grid-angular/features/column-virtualization';
+import { GridMultiSortDirective } from '@toolbox-web/grid-angular/features/multi-sort';
+import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 
 @Component({
-  imports: [Grid],
+  imports: [Grid, GridPinnedColumnsDirective, GridColumnVirtualizationDirective, GridMultiSortDirective, GridFilteringDirective],
   template: `
     <tbw-grid
       [rows]="rows"

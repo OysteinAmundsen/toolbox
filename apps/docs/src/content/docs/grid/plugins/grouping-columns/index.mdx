@@ -114,15 +114,14 @@ const data = [...];
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-import '@toolbox-web/grid-angular/features/grouping-columns';
-
+import { GridGroupingColumnsDirective } from '@toolbox-web/grid-angular/features/grouping-columns';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid],
+  imports: [Grid, GridGroupingColumnsDirective],
   template: `
     <tbw-grid
       [rows]="rows"
@@ -308,8 +307,7 @@ const groupingConfig = {
 You can pass a component class as the renderer. The adapter bridges it automatically.
 
 ```typescript
-import '@toolbox-web/grid-angular/features/grouping-columns';
-
+import { GridGroupingColumnsDirective } from '@toolbox-web/grid-angular/features/grouping-columns';
 import { Component, input } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
@@ -336,7 +334,7 @@ export class GroupHeaderComponent {
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid],
+  imports: [Grid, GridGroupingColumnsDirective],
   template: `
     <tbw-grid
       [rows]="rows"
@@ -443,8 +441,7 @@ const groupingConfig = {
 Per-group renderers can also be component classes:
 
 ```typescript
-import '@toolbox-web/grid-angular/features/grouping-columns';
-
+import { GridGroupingColumnsDirective } from '@toolbox-web/grid-angular/features/grouping-columns';
 import { Component, input } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
@@ -475,7 +472,7 @@ export class DefaultGroupHeaderComponent {
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid],
+  imports: [Grid, GridGroupingColumnsDirective],
   template: `
     <tbw-grid
       [rows]="rows"

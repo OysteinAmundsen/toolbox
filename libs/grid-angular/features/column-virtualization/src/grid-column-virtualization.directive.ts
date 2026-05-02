@@ -10,6 +10,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { registerFeatureClaim, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type { ColumnVirtualizationConfig } from '@toolbox-web/grid/plugins/column-virtualization';
 
+/**
+ * Owns the binding(s) `[columnVirtualization]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[columnVirtualization]',
   standalone: true,

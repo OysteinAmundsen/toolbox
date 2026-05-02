@@ -98,15 +98,14 @@ const data = [
 
 ```typescript
 // Feature import - enables the [responsive] input
-import '@toolbox-web/grid-angular/features/responsive';
-
+import { GridResponsiveDirective } from '@toolbox-web/grid-angular/features/responsive';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid],
+  imports: [Grid, GridResponsiveDirective],
   template: `
     <tbw-grid
       [rows]="rows"

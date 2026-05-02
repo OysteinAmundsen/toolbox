@@ -39,7 +39,8 @@ Key TypeScript interfaces for configuration and events:
 ## Framework Adapters
 
 - [@toolbox-web/grid-angular](https://www.npmjs.com/package/@toolbox-web/grid-angular): Angular adapter with structural directives (`*tbwRenderer`, `*tbwEditor`)
-  - **Feature Props**: Declarative inputs with side-effect imports for tree-shakeable plugin loading (e.g., `[selection]="'range'"`, `[editing]="true"`, `[filtering]="true"`)
+  - **Per-Feature Directives** (recommended for v1.4+): Each plugin ships its own attribute-selector directive (`GridFilteringDirective`, `GridSelectionDirective`, …) from `@toolbox-web/grid-angular/features/<name>`. Add to a component's `imports` to opt into the feature's `[input]` / `(output)` bindings with full tree-shaking. The matching bindings on the central `Grid` directive are `@deprecated` and will be removed in v2.0.
+  - **`gridConfig.features`** (object literal): Configure plugins via the `[gridConfig]` input — unchanged, fully supported in v2.
   - [Feature Functions](https://toolboxjs.com/grid/angular/feature-functions/): Typed inject functions for programmatic plugin access — `injectGridSelection()`, `injectGridFiltering()`, `injectGridExport()`, `injectGridPrint()`, `injectGridUndoRedo()`
   - [Reactive Forms Integration](https://toolboxjs.com/grid/angular/reactive-forms/): Bind FormArray to grid with cell-level validation
   - [Base Classes](https://toolboxjs.com/grid/angular/base-classes/): `BaseGridEditor`, `BaseGridEditorCVA` (dual grid/form), `BaseOverlayEditor` (floating panels), `BaseFilterPanel` (custom filter UIs)

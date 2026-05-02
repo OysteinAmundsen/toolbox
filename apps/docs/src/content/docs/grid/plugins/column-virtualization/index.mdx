@@ -76,15 +76,14 @@ const columns = Array.from({ length: 100 }, (_, i) => ({
   <TabItem label="Angular">
 ```typescript
 // Feature import - enables the [columnVirtualization] input
-import '@toolbox-web/grid-angular/features/column-virtualization';
-
+import { GridColumnVirtualizationDirective } from '@toolbox-web/grid-angular/features/column-virtualization';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-wide-grid',
-  imports: [Grid],
+  imports: [Grid, GridColumnVirtualizationDirective],
   template: `
     <tbw-grid
       [rows]="rows"

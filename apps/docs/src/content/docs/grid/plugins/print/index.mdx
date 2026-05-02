@@ -134,15 +134,14 @@ const handlePrint = async () => {
   <TabItem label="Angular">
 ```typescript
 // Feature import - enables the [print] input
-import '@toolbox-web/grid-angular/features/print';
-
+import { GridPrintDirective } from '@toolbox-web/grid-angular/features/print';
 import { Component } from '@angular/core';
 import { Grid, injectGrid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-employee-grid',
-  imports: [Grid],
+  imports: [Grid, GridPrintDirective],
   template: `
     <button (click)="handlePrint()">Print Report</button>
     <tbw-grid

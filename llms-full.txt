@@ -244,7 +244,7 @@ export class EmployeeGridComponent {
 
 With Angular component-class renderers/editors, run `adapter.processGridConfig(this.gridConfig)` once before binding.
 
-Alternative (small grids only): individual inputs — `<tbw-grid [rows]="..." [columns]="..." selection="range" editing="dblclick" />`.
+Alternative (small grids only): bind individual inputs on `<tbw-grid>`. In v1.4+ the **recommended** way is to import the matching per-feature directive (e.g. `GridSelectionDirective` from `@toolbox-web/grid-angular/features/selection`) alongside `Grid` and use the existing `[selection]` / `(selectionChange)` bindings — this keeps each feature's typed surface tree-shakeable. The same bindings on the `Grid` directive itself still work in v1.x but are `@deprecated` and will be removed in v2.0.
 
 ### Vue (Recommended)
 
@@ -638,9 +638,10 @@ import '@toolbox-web/grid';
 import '@toolbox-web/grid-angular/features/editing';
 import { Component } from '@angular/core';
 import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
+import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
 
 @Component({
-  imports: [Grid, TbwRenderer, TbwEditor],
+  imports: [Grid, GridEditingDirective, TbwRenderer, TbwEditor],
   template: `
     <tbw-grid [rows]="employees" [columns]="columns" [editing]="'dblclick'" style="height: 400px;">
       <tbw-grid-column field="status" header="Status" [editable]="true">
@@ -661,6 +662,8 @@ export class EmployeeGridComponent {
   ];
 }
 ```
+
+> **Per-feature directives (recommended in v1.4+):** when you bind a feature input/output directly on `<tbw-grid>` (e.g. `[editing]`, `(cellCommit)`), import the matching `Grid<Name>Directive` from the feature secondary entry alongside `Grid` in the component's `imports`. The directive's selector matches the existing attributes so templates do not change. The same bindings on `Grid` itself are still accepted in v1.x but are `@deprecated` and will be removed in v2.0. Apps that configure features via `[gridConfig]="{ features: { … } }"` are unaffected.
 
 **Vue (slots):**
 
@@ -2022,7 +2025,18 @@ import { GridProvider, GridTypeProvider, GridIconProvider } from '@toolbox-web/g
 // Note: @toolbox-web/grid-angular auto-imports the grid — no separate import needed
 import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid-angular/features/selection';   // Feature side-effect imports
+import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
 ```
+
+### Three Ways to Configure Features
+
+| Pattern | When to use | v2 status |
+|---------|-------------|-----------|
+| `[gridConfig]` (object literal with `features`) | Configuration-driven apps | ✅ Unchanged |
+| **Per-feature directive** in `imports` (e.g. `GridSelectionDirective`) — binds via `[selection]` / `(selectionChange)` on `<tbw-grid>` | Template-driven apps that want signal inputs/outputs **and** the smallest bundle | ✅ **Recommended** |
+| Same `[selection]` / `(selectionChange)` bindings without importing the directive | v1.x apps already on this style | ⚠️ **Deprecated** — bindings on the central `Grid` directive are removed in v2.0 |
+
+> **`gridConfig` users are not affected by the v2 cleanup** — only consumers binding feature inputs directly on `<tbw-grid>` need to add the matching per-feature directive to their component's `imports` before v2.
 
 ### No CUSTOM_ELEMENTS_SCHEMA Needed
 

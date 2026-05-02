@@ -9,6 +9,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type { ContextMenuConfig, ContextMenuOpenDetail } from '@toolbox-web/grid/plugins/context-menu';
 
+/**
+ * Owns the binding(s) `[contextMenu], [contextMenuOpen]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[contextMenu], tbw-grid[contextMenuOpen]',
   standalone: true,

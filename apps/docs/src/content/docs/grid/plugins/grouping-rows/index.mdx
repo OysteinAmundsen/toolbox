@@ -93,15 +93,14 @@ const employees = [
   <TabItem label="Angular">
 ```typescript
 // Feature import - enables the [groupingRows] input
-import '@toolbox-web/grid-angular/features/grouping-rows';
-
+import { GridGroupingRowsDirective } from '@toolbox-web/grid-angular/features/grouping-rows';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-employee-grid',
-  imports: [Grid],
+  imports: [Grid, GridGroupingRowsDirective],
   template: `
     <tbw-grid
       [rows]="employees"
@@ -449,15 +448,15 @@ const serverSideConfig = {
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-import '@toolbox-web/grid-angular/features/grouping-rows';
-import '@toolbox-web/grid-angular/features/server-side';
+import { GridGroupingRowsDirective } from '@toolbox-web/grid-angular/features/grouping-rows';
+import { GridServerSideDirective } from '@toolbox-web/grid-angular/features/server-side';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-server-grouped-grid',
-  imports: [Grid],
+  imports: [Grid, GridGroupingRowsDirective, GridServerSideDirective],
   template: `
     <tbw-grid
       [columns]="columns"

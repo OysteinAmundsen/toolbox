@@ -359,10 +359,9 @@ export class EmployeeGridComponent {
 That's a working grid. From here, add features as you need them — each is a one-line import plus an input binding:
 
 ```typescript title="grid.component.ts (with features)"
-import '@toolbox-web/grid-angular/features/editing';
-import '@toolbox-web/grid-angular/features/selection';
-import '@toolbox-web/grid-angular/features/filtering';
-
+import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
+import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
+import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
 import '@toolbox-web/grid';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
@@ -370,7 +369,7 @@ import type { ColumnConfig, CellCommitDetail } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-employee-grid',
-  imports: [Grid],
+  imports: [Grid, GridEditingDirective, GridSelectionDirective, GridFilteringDirective],
   template: `
     <tbw-grid
       [rows]="employees"

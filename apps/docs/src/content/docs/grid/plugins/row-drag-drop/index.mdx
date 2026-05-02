@@ -120,15 +120,14 @@ const tasks = [
   <TabItem label="Angular">
 ```typescript
 // Feature import - enables the [rowDragDrop] input
-import '@toolbox-web/grid-angular/features/row-drag-drop';
-
+import { GridRowDragDropDirective } from '@toolbox-web/grid-angular/features/row-drag-drop';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-task-list',
-  imports: [Grid],
+  imports: [Grid, GridRowDragDropDirective],
   template: `
     <tbw-grid
       [rows]="rows"

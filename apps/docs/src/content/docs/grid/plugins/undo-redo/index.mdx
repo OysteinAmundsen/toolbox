@@ -95,16 +95,15 @@ const data = [
   <TabItem label="Angular">
 ```typescript
 // Feature imports - enable the [editing] and [undoRedo] inputs
-import '@toolbox-web/grid-angular/features/editing';
-import '@toolbox-web/grid-angular/features/undo-redo';
-
+import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
+import { GridUndoRedoDirective } from '@toolbox-web/grid-angular/features/undo-redo';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid],
+  imports: [Grid, GridEditingDirective, GridUndoRedoDirective],
   template: `
     <tbw-grid
       [rows]="rows"

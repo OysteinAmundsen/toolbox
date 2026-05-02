@@ -137,8 +137,7 @@ const serverSideConfig = {
   <TabItem label="Angular">
 ```typescript
 // Feature import - enables the [serverSide] input
-import '@toolbox-web/grid-angular/features/server-side';
-
+import { GridServerSideDirective } from '@toolbox-web/grid-angular/features/server-side';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
@@ -146,7 +145,7 @@ import type { GetRowsParams, ServerSideDataSource } from '@toolbox-web/grid/plug
 
 @Component({
   selector: 'app-server-side-grid',
-  imports: [Grid],
+  imports: [Grid, GridServerSideDirective],
   template: `
     <tbw-grid
       [columns]="columns"
@@ -539,7 +538,7 @@ onUnmounted(() => ws?.close());
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-import '@toolbox-web/grid-angular/features/server-side';
+import { GridServerSideDirective } from '@toolbox-web/grid-angular/features/server-side';
 import { Component, effect, OnDestroy } from '@angular/core';
 import { Grid, injectGrid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig, RowTransaction } from '@toolbox-web/grid';
@@ -553,7 +552,7 @@ interface Employee {
 
 @Component({
   selector: 'app-live-grid',
-  imports: [Grid],
+  imports: [Grid, GridServerSideDirective],
   template: `
     <tbw-grid
       [columns]="columns"

@@ -10,6 +10,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type { PrintCompleteDetail, PrintConfig, PrintStartDetail } from '@toolbox-web/grid/plugins/print';
 
+/**
+ * Owns the binding(s) `[print], [printStart], [printComplete]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ *
+ * @category Directive
+ */
 @Directive({
   selector: 'tbw-grid[print], tbw-grid[printStart], tbw-grid[printComplete]',
   standalone: true,

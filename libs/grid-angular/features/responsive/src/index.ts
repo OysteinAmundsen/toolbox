@@ -31,6 +31,7 @@ import {
   type GridResponsiveCardContext,
 } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/responsive';
+export { GridResponsiveDirective } from './grid-responsive.directive';
 export type { _Augmentation as _ResponsiveAugmentation } from '@toolbox-web/grid/features/responsive';
 
 /**

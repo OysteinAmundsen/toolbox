@@ -21,6 +21,7 @@
 
 import { makeFlushFocusedInput, registerEditorMountHook } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/editing';
+export { GridEditingDirective } from './grid-editing.directive';
 export type { _Augmentation as _EditingAugmentation } from '@toolbox-web/grid/features/editing';
 
 // Bridge the editing plugin's `before-edit-close` event to a synchronous

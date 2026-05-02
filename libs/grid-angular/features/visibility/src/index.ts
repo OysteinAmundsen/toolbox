@@ -14,4 +14,5 @@
  */
 
 import '@toolbox-web/grid/features/visibility';
+export { GridVisibilityDirective } from './grid-visibility.directive';
 export type { _Augmentation as _VisibilityAugmentation } from '@toolbox-web/grid/features/visibility';

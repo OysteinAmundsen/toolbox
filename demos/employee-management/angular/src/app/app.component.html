@@ -47,6 +47,8 @@
         [pinnedColumns]="true"
         [columnVirtualization]="true"
         [export]="true"
+        [filtering]="enableFiltering() ? { debounceMs: 200 } : false"
+        (filterChange)="onFilterChange($event)"
       >
         <!-- Shell configuration with title -->
         <tbw-grid-header title="Employee Management System (Angular)"></tbw-grid-header>

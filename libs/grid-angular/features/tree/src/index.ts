@@ -14,4 +14,5 @@
  */
 
 import '@toolbox-web/grid/features/tree';
+export { GridTreeDirective } from './grid-tree.directive';
 export type { _Augmentation as _TreeAugmentation } from '@toolbox-web/grid/features/tree';

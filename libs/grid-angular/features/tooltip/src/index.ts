@@ -14,4 +14,5 @@
  */
 
 import '@toolbox-web/grid/features/tooltip';
+export { GridTooltipDirective } from './grid-tooltip.directive';
 export type { _Augmentation as _TooltipAugmentation } from '@toolbox-web/grid/features/tooltip';

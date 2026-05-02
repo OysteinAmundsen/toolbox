@@ -17,4 +17,5 @@
  */
 
 import '@toolbox-web/grid/features/row-drag-drop';
+export { GridRowDragDropDirective } from './grid-row-drag-drop.directive';
 export type { _Augmentation as _RowDragDropAugmentation } from '@toolbox-web/grid/features/row-drag-drop';

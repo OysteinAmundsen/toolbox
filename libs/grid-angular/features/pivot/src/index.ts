@@ -14,4 +14,5 @@
  */
 
 import '@toolbox-web/grid/features/pivot';
+export { GridPivotDirective } from './grid-pivot.directive';
 export type { _Augmentation as _PivotAugmentation } from '@toolbox-web/grid/features/pivot';

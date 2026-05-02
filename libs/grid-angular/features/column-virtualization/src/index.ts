@@ -14,4 +14,5 @@
  */
 
 import '@toolbox-web/grid/features/column-virtualization';
+export { GridColumnVirtualizationDirective } from './grid-column-virtualization.directive';
 export type { _Augmentation as _ColumnVirtualizationAugmentation } from '@toolbox-web/grid/features/column-virtualization';

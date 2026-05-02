@@ -114,3 +114,17 @@ export type {
   TemplateBridge,
   TemplateBridgeContext,
 } from './lib/internal/feature-extensions';
+
+// Per-grid claims registry used by feature-attribute directives to take
+// ownership of inputs/outputs that are otherwise handled by the central
+// `Grid` directive. Public for cross-entry-point use; not part of the
+// supported API. See `internal/feature-claims.ts` for the design rationale.
+export {
+  claimEvent,
+  getFeatureClaim,
+  isEventClaimed,
+  registerFeatureClaim,
+  unclaimEvent,
+  unregisterFeatureClaim,
+} from './lib/internal/feature-claims';
+export type { FeatureConfigGetter } from './lib/internal/feature-claims';

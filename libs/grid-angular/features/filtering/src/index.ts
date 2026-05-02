@@ -1,10 +1,31 @@
 /**
  * Filtering feature for @toolbox-web/grid-angular
  *
- * Import this module to enable the `filtering` input on Grid directive.
- * Also exports `injectGridFiltering()` for programmatic filter control.
+ * Two ways to use:
  *
- * @example
+ * 1. **Recommended (tree-shakeable surface):** add `GridFilteringDirective`
+ *    to your component's `imports`. The directive owns the `[filtering]`
+ *    input and `(filterChange)` output, so the typed surface tree-shakes
+ *    away when the feature is not imported.
+ * 2. **Legacy (non-breaking, deprecated):** side-effect import the feature
+ *    entry; the matching `[filtering]` / `(filterChange)` bindings on the
+ *    central `Grid` directive will work as in v1.x. These bindings on `Grid`
+ *    are marked `@deprecated` and will be removed in v2.0.0.
+ *
+ * Either way `injectGridFiltering()` is available for programmatic control.
+ *
+ * @example Recommended (directive-owned binding)
+ * ```typescript
+ * import { Grid } from '@toolbox-web/grid-angular';
+ * import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
+ *
+ * @Component({
+ *   imports: [Grid, GridFilteringDirective],
+ *   template: `<tbw-grid [filtering]="true" (filterChange)="onChange($event)" />`,
+ * })
+ * ```
+ *
+ * @example Legacy (deprecated; works without importing the directive)
  * ```typescript
  * import '@toolbox-web/grid-angular/features/filtering';
  *
@@ -40,6 +61,13 @@ import {
   type FilterPanelParams,
 } from '@toolbox-web/grid/plugins/filtering';
 export type { _Augmentation as _FilteringAugmentation } from '@toolbox-web/grid/features/filtering';
+
+// Attribute-selector directive that owns the `[filtering]` input and
+// `(filterChange)` output on `<tbw-grid>`. Add to your component's `imports`
+// alongside `Grid` to opt into the feature directly via the binding. The
+// matching deprecated bindings on `Grid` remain as a v1.x compatibility
+// shim and will be removed in v2.0.0.
+export { GridFilteringDirective } from './grid-filtering.directive';
 
 // Bridge any Angular component classes used as `filterPanelRenderer` (in
 // `gridConfig.typeDefaults` or via `provideGridTypeDefaults`) to the

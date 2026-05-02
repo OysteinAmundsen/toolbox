@@ -94,6 +94,7 @@ import { GridAdapter } from '../angular-grid-adapter';
 import { applyColumnDefaults, type ColumnShorthand, normalizeColumns } from '../column-shorthand';
 import { createPluginFromFeature, type FeatureName } from '../feature-registry';
 import { GridIconRegistry } from '../grid-icon-registry';
+import { getFeatureClaim, isEventClaimed } from '../internal/feature-claims';
 import { getFeatureConfigPreprocessor, runTemplateBridges } from '../internal/feature-extensions';
 
 /**
@@ -533,6 +534,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * <!-- Full config object -->
    * <tbw-grid [selection]="{ mode: 'range', checkbox: true }" />
    * ```
+   *
+   * @deprecated Use `GridSelectionDirective` from
+   * `@toolbox-web/grid-angular/features/selection`. Will be removed in v2.0.0.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   selection = input<'cell' | 'row' | 'range' | SelectionConfig<any>>();
@@ -558,6 +562,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * <!-- Full config with callbacks -->
    * <tbw-grid [editing]="{ editOn: 'dblclick', onBeforeEditClose: myCallback }" />
    * ```
+   *
+   * @deprecated Use `GridEditingDirective` from
+   * `@toolbox-web/grid-angular/features/editing`. Will be removed in v2.0.0.
    */
   editing = input<boolean | 'click' | 'dblclick' | 'manual' | EditingConfig>();
 
@@ -573,6 +580,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [selection]="'range'" [clipboard]="true" />
    * ```
+   *
+   * @deprecated Use `GridClipboardDirective` from
+   * `@toolbox-web/grid-angular/features/clipboard`. Will be removed in v2.0.0.
    */
   clipboard = input<boolean | ClipboardConfig>();
 
@@ -588,6 +598,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [contextMenu]="true" />
    * ```
+   *
+   * @deprecated Use `GridContextMenuDirective` from
+   * `@toolbox-web/grid-angular/features/context-menu`. Will be removed in v2.0.0.
    */
   contextMenu = input<boolean | ContextMenuConfig>();
 
@@ -613,6 +626,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * <!-- Full config -->
    * <tbw-grid [multiSort]="{ maxSortColumns: 3 }" />
    * ```
+   *
+   * @deprecated Use `GridMultiSortDirective` from
+   * `@toolbox-web/grid-angular/features/multi-sort`. Will be removed in v2.0.0.
    */
   multiSort = input<boolean | 'single' | 'multi' | MultiSortConfig>();
 
@@ -629,6 +645,13 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * <tbw-grid [filtering]="true" />
    * <tbw-grid [filtering]="{ debounceMs: 200 }" />
    * ```
+   *
+   * @deprecated Use `GridFilteringDirective` from
+   * `@toolbox-web/grid-angular/features/filtering` and add it to your
+   * component's `imports`. The directive owns the `filtering` input + the
+   * `filterChange` output and lets the typed surface tree-shake away when
+   * the feature is not imported. This input remains as a non-breaking shim
+   * and will be removed in v2.0.0.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   filtering = input<boolean | FilterConfig<any>>();
@@ -645,6 +668,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [reorderColumns]="true" />
    * ```
+   *
+   * @deprecated Use `GridReorderColumnsDirective` from
+   * `@toolbox-web/grid-angular/features/reorder-columns`. Will be removed in v2.0.0.
    */
   reorderColumns = input<boolean | ReorderConfig>();
 
@@ -660,6 +686,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [visibility]="true" />
    * ```
+   *
+   * @deprecated Use `GridVisibilityDirective` from
+   * `@toolbox-web/grid-angular/features/visibility`. Will be removed in v2.0.0.
    */
   visibility = input<boolean | VisibilityConfig>();
 
@@ -680,6 +709,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    *   { field: 'actions', pinned: 'right' }
    * ]" />
    * ```
+   *
+   * @deprecated Use `GridPinnedColumnsDirective` from
+   * `@toolbox-web/grid-angular/features/pinned-columns`. Will be removed in v2.0.0.
    */
   pinnedColumns = input<boolean>();
 
@@ -695,6 +727,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [groupingColumns]="true" />
    * ```
+   *
+   * @deprecated Use `GridGroupingColumnsDirective` from
+   * `@toolbox-web/grid-angular/features/grouping-columns`. Will be removed in v2.0.0.
    */
   groupingColumns = input<boolean | GroupingColumnsConfig>();
 
@@ -710,6 +745,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [columnVirtualization]="true" />
    * ```
+   *
+   * @deprecated Use `GridColumnVirtualizationDirective` from
+   * `@toolbox-web/grid-angular/features/column-virtualization`. Will be removed in v2.0.0.
    */
   columnVirtualization = input<boolean | ColumnVirtualizationConfig>();
 
@@ -737,6 +775,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [rowDragDrop]="{ dropZone: 'employees', operation: 'move' }" />
    * ```
+   *
+   * @deprecated Use `GridRowDragDropDirective` from
+   * `@toolbox-web/grid-angular/features/row-drag-drop`. Will be removed in v2.0.0.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rowDragDrop = input<boolean | RowDragDropConfig<any>>();
@@ -753,6 +794,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [groupingRows]="{ groupBy: ['department'] }" />
    * ```
+   *
+   * @deprecated Use `GridGroupingRowsDirective` from
+   * `@toolbox-web/grid-angular/features/grouping-rows`. Will be removed in v2.0.0.
    */
   groupingRows = input<GroupingRowsConfig>();
 
@@ -768,6 +812,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [pinnedRows]="{ bottom: [{ type: 'aggregation' }] }" />
    * ```
+   *
+   * @deprecated Use `GridPinnedRowsDirective` from
+   * `@toolbox-web/grid-angular/features/pinned-rows`. Will be removed in v2.0.0.
    */
   pinnedRows = input<boolean | PinnedRowsConfig>();
 
@@ -783,6 +830,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [tree]="{ childrenField: 'children' }" />
    * ```
+   *
+   * @deprecated Use `GridTreeDirective` from
+   * `@toolbox-web/grid-angular/features/tree`. Will be removed in v2.0.0.
    */
   tree = input<boolean | TreeConfig>();
 
@@ -798,6 +848,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [masterDetail]="{ detailRenderer: detailFn }" />
    * ```
+   *
+   * @deprecated Use `GridMasterDetailDirective` from
+   * `@toolbox-web/grid-angular/features/master-detail`. Will be removed in v2.0.0.
    */
   masterDetail = input<MasterDetailConfig>();
 
@@ -813,6 +866,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [responsive]="{ breakpoint: 768 }" />
    * ```
+   *
+   * @deprecated Use `GridResponsiveDirective` from
+   * `@toolbox-web/grid-angular/features/responsive`. Will be removed in v2.0.0.
    */
   responsive = input<boolean | ResponsivePluginConfig>();
 
@@ -828,6 +884,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [editing]="'dblclick'" [undoRedo]="true" />
    * ```
+   *
+   * @deprecated Use `GridUndoRedoDirective` from
+   * `@toolbox-web/grid-angular/features/undo-redo`. Will be removed in v2.0.0.
    */
   undoRedo = input<boolean | UndoRedoConfig>();
 
@@ -844,6 +903,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * <tbw-grid [export]="true" />
    * <tbw-grid [export]="{ filename: 'data.csv' }" />
    * ```
+   *
+   * @deprecated Use `GridExportDirective` from
+   * `@toolbox-web/grid-angular/features/export`. Will be removed in v2.0.0.
    */
   exportFeature = input<boolean | ExportConfig>(undefined, { alias: 'export' });
 
@@ -859,6 +921,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [print]="true" />
    * ```
+   *
+   * @deprecated Use `GridPrintDirective` from
+   * `@toolbox-web/grid-angular/features/print`. Will be removed in v2.0.0.
    */
   print = input<boolean | PrintConfig>();
 
@@ -874,6 +939,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [pivot]="{ rowFields: ['category'], valueField: 'sales' }" />
    * ```
+   *
+   * @deprecated Use `GridPivotDirective` from
+   * `@toolbox-web/grid-angular/features/pivot`. Will be removed in v2.0.0.
    */
   pivot = input<PivotConfig>();
 
@@ -889,6 +957,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid [serverSide]="{ dataSource: fetchDataFn }" />
    * ```
+   *
+   * @deprecated Use `GridServerSideDirective` from
+   * `@toolbox-web/grid-angular/features/server-side`. Will be removed in v2.0.0.
    */
   serverSide = input<ServerSideConfig>();
 
@@ -900,6 +971,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * <tbw-grid [tooltip]="true" />
    * <tbw-grid [tooltip]="{ header: true, cell: false }" />
    * ```
+   *
+   * @deprecated Use `GridTooltipDirective` from
+   * `@toolbox-web/grid-angular/features/tooltip`. Will be removed in v2.0.0.
    */
   tooltip = input<boolean | TooltipConfig>();
 
@@ -965,6 +1039,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    *   console.log(`Changed ${event.field} to ${event.value} in row ${event.rowIndex}`);
    * }
    * ```
+   *
+   * @deprecated Use `GridEditingDirective` from
+   * `@toolbox-web/grid-angular/features/editing`. Will be removed in v2.0.0.
    */
   cellCommit = output<CellCommitEvent>();
 
@@ -976,6 +1053,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (cellCancel)="onCellCancel($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridEditingDirective` from
+   * `@toolbox-web/grid-angular/features/editing`. Will be removed in v2.0.0.
    */
   cellCancel = output<CellCancelDetail>();
 
@@ -986,6 +1066,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (editOpen)="onEditOpen($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridEditingDirective` from
+   * `@toolbox-web/grid-angular/features/editing`. Will be removed in v2.0.0.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   editOpen = output<EditOpenDetail<any>>();
@@ -997,6 +1080,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (beforeEditClose)="onBeforeEditClose($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridEditingDirective` from
+   * `@toolbox-web/grid-angular/features/editing`. Will be removed in v2.0.0.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   beforeEditClose = output<BeforeEditCloseDetail<any>>();
@@ -1008,6 +1094,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (editClose)="onEditClose($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridEditingDirective` from
+   * `@toolbox-web/grid-angular/features/editing`. Will be removed in v2.0.0.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   editClose = output<EditCloseDetail<any>>();
@@ -1019,6 +1108,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (dirtyChange)="onDirtyChange($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridEditingDirective` from
+   * `@toolbox-web/grid-angular/features/editing`. Will be removed in v2.0.0.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   dirtyChange = output<DirtyChangeDetail<any>>();
@@ -1041,6 +1133,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (rowCommit)="onRowCommit($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridEditingDirective` from
+   * `@toolbox-web/grid-angular/features/editing`. Will be removed in v2.0.0.
    */
   rowCommit = output<RowCommitEvent>();
 
@@ -1051,6 +1146,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (changedRowsReset)="onChangedRowsReset($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridEditingDirective` from
+   * `@toolbox-web/grid-angular/features/editing`. Will be removed in v2.0.0.
    */
   changedRowsReset = output<ChangedRowsResetDetail>();
 
@@ -1071,6 +1169,11 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (filterChange)="onFilterChange($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridFilteringDirective` from
+   * `@toolbox-web/grid-angular/features/filtering` (the directive
+   * declares the `(filterChange)` output). This output remains as a
+   * non-breaking shim and will be removed in v2.0.0.
    */
   filterChange = output<FilterChangeDetail>();
 
@@ -1101,6 +1204,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (columnMove)="onColumnMove($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridReorderColumnsDirective` from
+   * `@toolbox-web/grid-angular/features/reorder-columns`. Will be removed in v2.0.0.
    */
   columnMove = output<ColumnMoveDetail>();
 
@@ -1113,6 +1219,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (columnVisibility)="onColumnVisibility($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridVisibilityDirective` from
+   * `@toolbox-web/grid-angular/features/visibility`. Will be removed in v2.0.0.
    */
   columnVisibility = output<ColumnVisibilityDetail>();
 
@@ -1133,6 +1242,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (selectionChange)="onSelectionChange($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridSelectionDirective` from
+   * `@toolbox-web/grid-angular/features/selection`. Will be removed in v2.0.0.
    */
   selectionChange = output<SelectionChangeDetail>();
 
@@ -1143,6 +1255,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (rowMove)="onRowMove($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridRowDragDropDirective` from
+   * `@toolbox-web/grid-angular/features/row-drag-drop`. Will be removed in v2.0.0.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rowMove = output<RowMoveDetail<any>>();
@@ -1154,12 +1269,18 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (rowDragStart)="onRowDragStart($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridRowDragDropDirective` from
+   * `@toolbox-web/grid-angular/features/row-drag-drop`. Will be removed in v2.0.0.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rowDragStart = output<RowDragStartDetail<any>>();
 
   /**
    * Emitted when a row drag ends (after drop or cancel).
+   *
+   * @deprecated Use `GridRowDragDropDirective` from
+   * `@toolbox-web/grid-angular/features/row-drag-drop`. Will be removed in v2.0.0.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rowDragEnd = output<RowDragEndDetail<any>>();
@@ -1167,6 +1288,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   /**
    * Emitted on the target grid when rows are dropped from another grid.
    * Cancelable via `event.preventDefault()`.
+   *
+   * @deprecated Use `GridRowDragDropDirective` from
+   * `@toolbox-web/grid-angular/features/row-drag-drop`. Will be removed in v2.0.0.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rowDrop = output<RowDropDetail<any>>();
@@ -1174,6 +1298,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   /**
    * Emitted on BOTH source and target grids after a successful cross-grid
    * row transfer.
+   *
+   * @deprecated Use `GridRowDragDropDirective` from
+   * `@toolbox-web/grid-angular/features/row-drag-drop`. Will be removed in v2.0.0.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rowTransfer = output<RowTransferDetail<any>>();
@@ -1185,6 +1312,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (groupToggle)="onGroupToggle($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridGroupingRowsDirective` from
+   * `@toolbox-web/grid-angular/features/grouping-rows`. Will be removed in v2.0.0.
    */
   groupToggle = output<GroupToggleDetail>();
 
@@ -1195,6 +1325,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (groupExpand)="onGroupExpand($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridGroupingRowsDirective` from
+   * `@toolbox-web/grid-angular/features/grouping-rows`. Will be removed in v2.0.0.
    */
   groupExpand = output<GroupExpandDetail>();
 
@@ -1205,6 +1338,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (groupCollapse)="onGroupCollapse($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridGroupingRowsDirective` from
+   * `@toolbox-web/grid-angular/features/grouping-rows`. Will be removed in v2.0.0.
    */
   groupCollapse = output<GroupCollapseDetail>();
 
@@ -1215,6 +1351,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (treeExpand)="onTreeExpand($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridTreeDirective` from
+   * `@toolbox-web/grid-angular/features/tree`. Will be removed in v2.0.0.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   treeExpand = output<TreeExpandDetail<any>>();
@@ -1226,6 +1365,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (detailExpand)="onDetailExpand($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridMasterDetailDirective` from
+   * `@toolbox-web/grid-angular/features/master-detail`. Will be removed in v2.0.0.
    */
   detailExpand = output<DetailExpandDetail>();
 
@@ -1236,6 +1378,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (responsiveChange)="onResponsiveChange($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridResponsiveDirective` from
+   * `@toolbox-web/grid-angular/features/responsive`. Will be removed in v2.0.0.
    */
   responsiveChange = output<ResponsiveChangeDetail>();
 
@@ -1246,6 +1391,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (contextMenuOpen)="onContextMenuOpen($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridContextMenuDirective` from
+   * `@toolbox-web/grid-angular/features/context-menu`. Will be removed in v2.0.0.
    */
   contextMenuOpen = output<ContextMenuOpenDetail>();
 
@@ -1256,6 +1404,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (copy)="onCopy($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridClipboardDirective` from
+   * `@toolbox-web/grid-angular/features/clipboard`. Will be removed in v2.0.0.
    */
   copy = output<CopyDetail>();
 
@@ -1266,6 +1417,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (paste)="onPaste($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridClipboardDirective` from
+   * `@toolbox-web/grid-angular/features/clipboard`. Will be removed in v2.0.0.
    */
   paste = output<PasteDetail>();
 
@@ -1276,6 +1430,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (undo)="onUndo($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridUndoRedoDirective` from
+   * `@toolbox-web/grid-angular/features/undo-redo`. Will be removed in v2.0.0.
    */
   undo = output<UndoRedoDetail>();
 
@@ -1286,6 +1443,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (redo)="onRedo($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridUndoRedoDirective` from
+   * `@toolbox-web/grid-angular/features/undo-redo`. Will be removed in v2.0.0.
    */
   redo = output<UndoRedoDetail>();
 
@@ -1296,6 +1456,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (exportComplete)="onExportComplete($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridExportDirective` from
+   * `@toolbox-web/grid-angular/features/export`. Will be removed in v2.0.0.
    */
   exportComplete = output<ExportCompleteDetail>();
 
@@ -1306,6 +1469,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (printStart)="onPrintStart($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridPrintDirective` from
+   * `@toolbox-web/grid-angular/features/print`. Will be removed in v2.0.0.
    */
   printStart = output<PrintStartDetail>();
 
@@ -1316,6 +1482,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (printComplete)="onPrintComplete($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridPrintDirective` from
+   * `@toolbox-web/grid-angular/features/print`. Will be removed in v2.0.0.
    */
   printComplete = output<PrintCompleteDetail>();
 
@@ -1444,10 +1613,17 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
 
   /**
    * Sets up event listeners for all outputs using the eventOutputMap.
+   *
+   * Hybrid v1.x / v2 ownership: events claimed by an attribute-selector
+   * feature directive (via `claimEvent` in `feature-claims.ts`) are skipped
+   * here so the directive's own `output()` is the sole emitter. Without
+   * this skip both this directive's deprecated output and the directive's
+   * new output would fire for the same DOM event.
    */
   private setupEventListeners(grid: GridElement): void {
     // Wire up all event listeners
     for (const [outputName, eventName] of Object.entries(this.eventOutputMap)) {
+      if (isEventClaimed(grid, eventName)) continue;
       const listener = (e: Event) => {
         const detail = (e as CustomEvent).detail;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1464,15 +1640,31 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * Per-feature config bridging (e.g. converting Angular component classes inside
    * `groupingColumns` / `groupingRows` / `pinnedRows` configs to renderer functions)
    * runs via `getFeatureConfigPreprocessor`, populated by feature secondary entries.
+   *
+   * Hybrid v1.x / v2 ownership: when an attribute-selector feature directive
+   * (e.g. `GridFilteringDirective`) is present on the same `<tbw-grid>`
+   * element it claims its feature in `feature-claims.ts`. We then read the
+   * claim's config getter — which transitively reads the directive's input
+   * signal, establishing reactive dependency tracking — instead of the
+   * deprecated input on this directive. This keeps the existing `[filtering]`
+   * binding working when used directly on `<tbw-grid>` (no directive, no
+   * claim) while letting the directive own the binding when imported.
+   *
    * Returns the array of created plugins (doesn't modify grid).
    */
   private createFeaturePlugins(): unknown[] {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const plugins: unknown[] = [];
     const adapter = this.adapter;
+    const grid = this.elementRef.nativeElement;
 
     // Helper to add plugin if feature is registered
-    const addPlugin = (name: FeatureName, config: unknown) => {
+    const addPlugin = (name: FeatureName, ownInput: unknown) => {
+      // Directive-owned config wins. Reading the claim's getter inside this
+      // effect registers the directive's input signal as a dependency, so
+      // changes to e.g. `[filtering]` on the directive re-trigger this effect.
+      const claim = getFeatureClaim(grid, name);
+      const config = claim ? claim() : ownInput;
       if (config === undefined || config === null || config === false) return;
       // Apply per-feature config preprocessor (registered by feature secondary entries)
       // to bridge Angular component classes embedded in the config before instantiation.

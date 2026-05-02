@@ -22,6 +22,7 @@ import type {
   PinnedRowSlot,
   ZonedPanelRender,
 } from '@toolbox-web/grid/plugins/pinned-rows';
+export { GridPinnedRowsDirective } from './grid-pinned-rows.directive';
 export type { _Augmentation as _PinnedRowsAugmentation } from '@toolbox-web/grid/features/pinned-rows';
 
 /**

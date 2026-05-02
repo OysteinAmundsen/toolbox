@@ -23,7 +23,6 @@ import type { GridConfig } from '@toolbox-web/grid-angular';
 import {
   EditingPlugin,
   filteredCountPanel,
-  FilteringPlugin,
   GroupingColumnsPlugin,
   MasterDetailPlugin,
   MultiSortPlugin,
@@ -207,10 +206,12 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
           'location',
         ],
       }),
-      // Core interaction plugins - always loaded, controlled via config flags above
+      // Core interaction plugins - always loaded, controlled via config flags above.
+      // FilteringPlugin is NOT instantiated here — it is contributed via the
+      // top-level `[filtering]` binding on <tbw-grid> in the template, owned by
+      // `GridFilteringDirective` from `@toolbox-web/grid-angular/features/filtering`.
       new SelectionPlugin({ mode: 'range' }),
       new MultiSortPlugin(),
-      new FilteringPlugin({ debounceMs: 200 }),
       // EditingPlugin always loaded; toggle via editOn to avoid validation errors
       new EditingPlugin({ editOn: enableEditing ? 'dblclick' : false }),
       // MasterDetailPlugin - detail renderer comes from <tbw-grid-detail> in Angular component

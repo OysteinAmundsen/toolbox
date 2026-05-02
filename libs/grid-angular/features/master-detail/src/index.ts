@@ -31,13 +31,14 @@ import {
   type GridDetailContext,
 } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/master-detail';
+export { GridMasterDetailDirective } from './grid-master-detail.directive';
 export type { _Augmentation as _MasterDetailAugmentation } from '@toolbox-web/grid/features/master-detail';
 
 // Re-export the master-detail directive surface from this feature entry so
 // consumers can `import { GridDetailView } from '@toolbox-web/grid-angular/features/master-detail'`.
 // The same symbols are still exported from `@toolbox-web/grid-angular` but are
 // marked `@deprecated` there and will be removed from the main entry in v2.0.0.
-export { GridDetailView, getDetailTemplate } from '@toolbox-web/grid-angular';
+export { getDetailTemplate, GridDetailView } from '@toolbox-web/grid-angular';
 export type { GridDetailContext } from '@toolbox-web/grid-angular';
 
 /**

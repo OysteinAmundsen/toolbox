@@ -40,9 +40,16 @@ import {
   TbwGridToolButtons,
   TbwRenderer,
 } from '@toolbox-web/grid-angular';
-import { injectGridExport } from '@toolbox-web/grid-angular/features/export';
+import { GridClipboardDirective } from '@toolbox-web/grid-angular/features/clipboard';
+import { GridColumnVirtualizationDirective } from '@toolbox-web/grid-angular/features/column-virtualization';
+import { GridContextMenuDirective } from '@toolbox-web/grid-angular/features/context-menu';
+import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
+import { GridExportDirective, injectGridExport } from '@toolbox-web/grid-angular/features/export';
 import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
 import { GridDetailView } from '@toolbox-web/grid-angular/features/master-detail';
+import { GridPinnedColumnsDirective } from '@toolbox-web/grid-angular/features/pinned-columns';
+import { GridReorderColumnsDirective } from '@toolbox-web/grid-angular/features/reorder-columns';
+import { GridVisibilityDirective } from '@toolbox-web/grid-angular/features/visibility';
 import { createGridConfig } from './grid-config';
 
 // Import components so they're available in templates
@@ -65,6 +72,14 @@ import { AnalyticsPanelComponent, QuickFiltersPanelComponent } from './tool-pane
     Grid,
     GridDetailView,
     GridFilteringDirective,
+    GridClipboardDirective,
+    GridContextMenuDirective,
+    GridReorderColumnsDirective,
+    GridVisibilityDirective,
+    GridPinnedColumnsDirective,
+    GridColumnVirtualizationDirective,
+    GridExportDirective,
+    GridEditingDirective,
     GridLazyForm,
     GridResponsiveCard,
     GridToolPanel,

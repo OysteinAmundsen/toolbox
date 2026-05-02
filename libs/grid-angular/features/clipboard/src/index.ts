@@ -16,4 +16,5 @@
  */
 
 import '@toolbox-web/grid/features/clipboard';
+export { GridClipboardDirective } from './grid-clipboard.directive';
 export type { _Augmentation as _ClipboardAugmentation } from '@toolbox-web/grid/features/clipboard';

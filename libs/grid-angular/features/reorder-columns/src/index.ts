@@ -14,4 +14,5 @@
  */
 
 import '@toolbox-web/grid/features/reorder-columns';
+export { GridReorderColumnsDirective } from './grid-reorder-columns.directive';
 export type { _Augmentation as _ReorderColumnsAugmentation } from '@toolbox-web/grid/features/reorder-columns';

@@ -32,6 +32,7 @@ import { afterNextRender, DestroyRef, ElementRef, inject, signal, type Signal } 
 import type { DataGridElement } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/print';
 import { PrintPlugin, type PrintParams } from '@toolbox-web/grid/plugins/print';
+export { GridPrintDirective } from './grid-print.directive';
 export type { _Augmentation as _PrintAugmentation } from '@toolbox-web/grid/features/print';
 
 /**

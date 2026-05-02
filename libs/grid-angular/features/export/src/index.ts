@@ -33,6 +33,7 @@ import { afterNextRender, DestroyRef, ElementRef, inject, signal, type Signal } 
 import type { DataGridElement } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/export';
 import { ExportPlugin, type ExportFormat, type ExportParams } from '@toolbox-web/grid/plugins/export';
+export { GridExportDirective } from './grid-export.directive';
 export type { _Augmentation as _ExportAugmentation } from '@toolbox-web/grid/features/export';
 
 /**

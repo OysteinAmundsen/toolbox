@@ -20,4 +20,5 @@
  */
 
 import '@toolbox-web/grid/features/multi-sort';
+export { GridMultiSortDirective } from './grid-multi-sort.directive';
 export type { _Augmentation as _MultiSortAugmentation } from '@toolbox-web/grid/features/multi-sort';

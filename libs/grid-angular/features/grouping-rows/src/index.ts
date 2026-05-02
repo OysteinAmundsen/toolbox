@@ -16,6 +16,7 @@
 import { isComponentClass, registerFeatureConfigPreprocessor } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/grouping-rows';
 import type { GroupingRowsConfig, GroupRowRenderParams } from '@toolbox-web/grid/plugins/grouping-rows';
+export { GridGroupingRowsDirective } from './grid-grouping-rows.directive';
 export type { _Augmentation as _GroupingRowsAugmentation } from '@toolbox-web/grid/features/grouping-rows';
 
 // Bridge any Angular component classes embedded in the user-supplied config

@@ -37,4 +37,5 @@
  */
 
 import '@toolbox-web/grid/features/server-side';
+export { GridServerSideDirective } from './grid-server-side.directive';
 export type { _Augmentation as _ServerSideAugmentation } from '@toolbox-web/grid/features/server-side';

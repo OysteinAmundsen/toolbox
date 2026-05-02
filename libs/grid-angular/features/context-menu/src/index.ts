@@ -14,4 +14,5 @@
  */
 
 import '@toolbox-web/grid/features/context-menu';
+export { GridContextMenuDirective } from './grid-context-menu.directive';
 export type { _Augmentation as _ContextMenuAugmentation } from '@toolbox-web/grid/features/context-menu';

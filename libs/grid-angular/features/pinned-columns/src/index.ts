@@ -17,4 +17,5 @@
  */
 
 import '@toolbox-web/grid/features/pinned-columns';
+export { GridPinnedColumnsDirective } from './grid-pinned-columns.directive';
 export type { _Augmentation as _PinnedColumnsAugmentation } from '@toolbox-web/grid/features/pinned-columns';

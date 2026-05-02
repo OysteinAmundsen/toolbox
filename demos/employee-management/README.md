@@ -195,7 +195,8 @@ document.body.appendChild(grid);
 ### Angular
 
 ```typescript
-import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
+import { Grid, TbwRenderer } from '@toolbox-web/grid-angular';
+import { TbwEditor } from '@toolbox-web/grid-angular/features/editing';
 
 @Component({
   imports: [Grid, TbwRenderer, TbwEditor],

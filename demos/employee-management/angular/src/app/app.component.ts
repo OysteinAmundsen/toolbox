@@ -30,11 +30,9 @@ import { shadowDomStyles } from '@demo/shared/styles';
 import {
   CellCommitEvent,
   Grid,
-  GridLazyForm,
   GridResponsiveCard,
   GridToolPanel,
   injectGrid,
-  TbwEditor,
   TbwGridColumn,
   TbwGridHeader,
   TbwGridToolButtons,
@@ -43,7 +41,11 @@ import {
 import { GridClipboardDirective } from '@toolbox-web/grid-angular/features/clipboard';
 import { GridColumnVirtualizationDirective } from '@toolbox-web/grid-angular/features/column-virtualization';
 import { GridContextMenuDirective } from '@toolbox-web/grid-angular/features/context-menu';
-import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
+import {
+  GridEditingDirective,
+  GridLazyForm,
+  TbwEditor,
+} from '@toolbox-web/grid-angular/features/editing';
 import { GridExportDirective, injectGridExport } from '@toolbox-web/grid-angular/features/export';
 import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
 import { GridDetailView } from '@toolbox-web/grid-angular/features/master-detail';

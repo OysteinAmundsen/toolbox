@@ -24,6 +24,39 @@ import '@toolbox-web/grid/features/editing';
 export { GridEditingDirective } from './grid-editing.directive';
 export type { _Augmentation as _EditingAugmentation } from '@toolbox-web/grid/features/editing';
 
+// ---------------------------------------------------------------------------
+// Re-exports from `@toolbox-web/grid-angular` (main entry).
+//
+// These symbols still physically live in the main `@toolbox-web/grid-angular`
+// package today, but they are editing-specific and are re-exported here so
+// consumers can import them from the feature entry that owns the runtime
+// behaviour. The same symbols are marked `@deprecated` on the main entry.
+//
+// In v2.0.0 the source files will physically move into this secondary entry
+// and the deprecated re-exports on the main entry will be removed. Searching
+// for `@deprecated` in `libs/grid-angular/src/` enumerates everything that
+// needs to move at that point.
+// ---------------------------------------------------------------------------
+export {
+  BaseGridEditor,
+  BaseGridEditorCVA,
+  BaseOverlayEditor,
+  getFormArrayContext,
+  getLazyFormContext,
+  GridColumnEditor,
+  GridFormArray,
+  GridLazyForm,
+  TbwEditor,
+} from '@toolbox-web/grid-angular';
+export type {
+  FormArrayContext,
+  GridEditorContext,
+  LazyFormFactory,
+  OverlayPosition,
+  RowFormChangeEvent,
+  StructuralEditorContext,
+} from '@toolbox-web/grid-angular';
+
 // Bridge the editing plugin's `before-edit-close` event to a synchronous
 // `.blur()` on the focused input/textarea/select inside the editor host.
 // Angular editors that commit on `(blur)` rely on the focused control firing

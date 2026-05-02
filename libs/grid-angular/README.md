@@ -325,7 +325,8 @@ Use `*tbwEditor` for custom cell editors. The adapter automatically listens for 
 
 ```typescript
 import { Component, output } from '@angular/core';
-import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
+import { Grid, TbwRenderer } from '@toolbox-web/grid-angular';
+import { TbwEditor } from '@toolbox-web/grid-angular/features/editing';
 
 // Your editor component just needs to emit 'commit' and 'cancel' events
 @Component({
@@ -398,7 +399,8 @@ import { Grid, GridColumnView } from '@toolbox-web/grid-angular';
 ### GridColumnEditor
 
 ```typescript
-import { Grid, GridColumnView, GridColumnEditor } from '@toolbox-web/grid-angular';
+import { Grid, GridColumnView } from '@toolbox-web/grid-angular';
+import { GridColumnEditor } from '@toolbox-web/grid-angular/features/editing';
 
 @Component({
   imports: [Grid, GridColumnView, GridColumnEditor],
@@ -765,9 +767,10 @@ The grid can be used as an Angular form control with `formControlName` or `formC
 ```typescript
 import { Component } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { Grid, GridFormArray } from '@toolbox-web/grid-angular';
+import { Grid } from '@toolbox-web/grid-angular';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import type { GridConfig } from '@toolbox-web/grid';
+import { GridFormArray } from '@toolbox-web/grid-angular/features/editing';
 
 interface Employee {
   name: string;
@@ -807,8 +810,9 @@ export class MyComponent {
 ```typescript
 import { Component } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { Grid, GridFormArray } from '@toolbox-web/grid-angular';
+import { Grid } from '@toolbox-web/grid-angular';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import { GridFormArray } from '@toolbox-web/grid-angular/features/editing';
 
 @Component({
   imports: [Grid, GridFormArray, ReactiveFormsModule],
@@ -896,8 +900,9 @@ For fine-grained control over validation and form state at the cell level, use a
 ```typescript
 import { Component, input, output } from '@angular/core';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Grid, GridFormArray, TbwEditor, TbwRenderer } from '@toolbox-web/grid-angular';
+import { Grid, TbwRenderer } from '@toolbox-web/grid-angular';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import { GridFormArray, TbwEditor } from '@toolbox-web/grid-angular/features/editing';
 
 // Custom editor that uses the FormControl directly
 @Component({
@@ -990,7 +995,7 @@ export class MyComponent {
 When using `FormArray` with `FormGroup`s, you can also access row-level validation state through the `FormArrayContext`. This is useful for styling entire rows based on their validation state or displaying row-level error summaries.
 
 ```typescript
-import { getFormArrayContext, type FormArrayContext } from '@toolbox-web/grid-angular';
+import { type FormArrayContext, getFormArrayContext } from '@toolbox-web/grid-angular/features/editing';
 
 // Get the context from a grid element
 const context = getFormArrayContext(gridElement);
@@ -1040,7 +1045,7 @@ The adapter provides base classes that eliminate boilerplate when building custo
 
 ```typescript
 import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
-import { BaseOverlayEditor } from '@toolbox-web/grid-angular';
+import { BaseOverlayEditor } from '@toolbox-web/grid-angular/features/editing';
 
 @Component({
   selector: 'app-date-editor',
@@ -1087,7 +1092,7 @@ export class DateEditorComponent extends BaseOverlayEditor<MyRow, string> implem
 
 ```typescript
 import { Component, ViewChild, ElementRef } from '@angular/core';
-import { BaseFilterPanel } from '@toolbox-web/grid-angular';
+import { BaseFilterPanel } from '@toolbox-web/grid-angular/features/filtering';
 
 @Component({
   selector: 'app-text-filter',
@@ -1205,11 +1210,8 @@ export class TextFilterComponent extends BaseFilterPanel {
 import type {
   // Template contexts
   GridCellContext,
-  GridEditorContext,
-  GridDetailContext,
   GridToolPanelContext,
   StructuralCellContext,
-  StructuralEditorContext,
   // Events
   CellCommitEvent,
   RowCommitEvent,
@@ -1225,20 +1227,25 @@ import type {
   AngularCellRenderer,
   AngularCellEditor,
   AngularTypeDefault,
-  // Reactive Forms
-  FormArrayContext,
-  // Overlay position type
-  OverlayPosition,
 } from '@toolbox-web/grid-angular';
 
-// Base classes for custom editors and filter panels
-import { BaseGridEditor, BaseGridEditorCVA, BaseOverlayEditor, BaseFilterPanel } from '@toolbox-web/grid-angular';
+// Reactive Forms types live with the editing feature
+import type { FormArrayContext, OverlayPosition } from '@toolbox-web/grid-angular/features/editing';
 
 // Type guard for component class detection
 import { isComponentClass } from '@toolbox-web/grid-angular';
 
-// Helper to access form context from grid element
-import { getFormArrayContext } from '@toolbox-web/grid-angular';
+// Base classes for custom editors and filter panels
+import {
+  BaseGridEditor,
+  BaseGridEditorCVA,
+  BaseOverlayEditor,
+  getFormArrayContext,
+  type GridEditorContext,
+  type StructuralEditorContext,
+} from '@toolbox-web/grid-angular/features/editing';
+import { type GridDetailContext } from '@toolbox-web/grid-angular/features/master-detail';
+import { BaseFilterPanel } from '@toolbox-web/grid-angular/features/filtering';
 ```
 
 ### AngularGridAdapter

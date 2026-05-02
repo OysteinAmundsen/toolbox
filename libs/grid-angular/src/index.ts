@@ -50,12 +50,29 @@ export {
 export type { FeatureName, PluginFactory } from './lib/feature-registry';
 
 // Base classes for editors and filter panels
+//
+// NOTE: All re-exports below for editing/filtering/master-detail directives are
+// `@deprecated` from the main `@toolbox-web/grid-angular` entry. Importing the
+// same symbol from `@toolbox-web/grid-angular/features/<feature>` does NOT
+// trigger the deprecation warning \u2014 only this main-entry path does. The source
+// will physically move into the matching `features/<feature>` secondary entry
+// in v2.0.0, and these re-exports will be removed at the same time. Search the
+// `libs/grid-angular/src/` tree for `MOVE-IN-V2` to enumerate everything that
+// needs to move at that point.
+
+/** @deprecated Import from `@toolbox-web/grid-angular/features/filtering` instead. Will be removed from the main entry in v2.0.0. */
 export { BaseFilterPanel } from './lib/base-filter-panel';
+/** @deprecated Import from `@toolbox-web/grid-angular/features/editing` instead. Will be removed from the main entry in v2.0.0. */
 export { BaseGridEditor } from './lib/base-grid-editor';
+/** @deprecated Import from `@toolbox-web/grid-angular/features/editing` instead. Will be removed from the main entry in v2.0.0. */
 export { BaseGridEditorCVA } from './lib/base-grid-editor-cva';
+/** @deprecated Import from `@toolbox-web/grid-angular/features/editing` instead. Will be removed from the main entry in v2.0.0. */
 export { BaseOverlayEditor } from './lib/base-overlay-editor';
+/** @deprecated Import from `@toolbox-web/grid-angular/features/editing` instead. Will be removed from the main entry in v2.0.0. */
 export type { OverlayPosition } from './lib/base-overlay-editor';
+/** @deprecated Import from `@toolbox-web/grid-angular/features/editing` instead. Will be removed from the main entry in v2.0.0. */
 export { GridColumnEditor } from './lib/directives/grid-column-editor.directive';
+/** @deprecated Import from `@toolbox-web/grid-angular/features/editing` instead. Will be removed from the main entry in v2.0.0. */
 export type { GridEditorContext } from './lib/directives/grid-column-editor.directive';
 export { GridColumnView } from './lib/directives/grid-column-view.directive';
 export type { GridCellContext } from './lib/directives/grid-column-view.directive';
@@ -70,10 +87,14 @@ export { GridDetailView, getDetailTemplate } from './lib/directives/grid-detail-
  * Will be removed from the main entry in v2.0.0.
  */
 export type { GridDetailContext } from './lib/directives/grid-detail-view.directive';
+/** @deprecated Import from `@toolbox-web/grid-angular/features/editing` instead. Will be removed from the main entry in v2.0.0. */
 export { GridFormArray, getFormArrayContext } from './lib/directives/grid-form-array.directive';
+/** @deprecated Import from `@toolbox-web/grid-angular/features/editing` instead. Will be removed from the main entry in v2.0.0. */
 export type { FormArrayContext } from './lib/directives/grid-form-array.directive';
 export { TbwGridHeader } from './lib/directives/grid-header.directive';
+/** @deprecated Import from `@toolbox-web/grid-angular/features/editing` instead. Will be removed from the main entry in v2.0.0. */
 export { GridLazyForm, getLazyFormContext } from './lib/directives/grid-lazy-form.directive';
+/** @deprecated Import from `@toolbox-web/grid-angular/features/editing` instead. Will be removed from the main entry in v2.0.0. */
 export type { LazyFormFactory, RowFormChangeEvent } from './lib/directives/grid-lazy-form.directive';
 export { GridResponsiveCard, getResponsiveCardTemplate } from './lib/directives/grid-responsive-card.directive';
 export type { GridResponsiveCardContext } from './lib/directives/grid-responsive-card.directive';
@@ -83,9 +104,15 @@ export type { GridToolPanelContext } from './lib/directives/grid-tool-panel.dire
 export { Grid } from './lib/directives/grid.directive';
 export type { CellCommitEvent, RowCommitEvent } from './lib/directives/grid.directive';
 
-// Structural directives for cleaner template syntax
-export { TbwEditor, TbwRenderer } from './lib/directives/structural-directives';
-export type { StructuralCellContext, StructuralEditorContext } from './lib/directives/structural-directives';
+// Structural directives for cleaner template syntax. `TbwRenderer` stays in the
+// main entry (editor-agnostic). `TbwEditor` is deprecated here \u2014 use the
+// `features/editing` re-export instead.
+export { TbwRenderer } from './lib/directives/structural-directives';
+export type { StructuralCellContext } from './lib/directives/structural-directives';
+/** @deprecated Import from `@toolbox-web/grid-angular/features/editing` instead. Will be removed from the main entry in v2.0.0. */
+export { TbwEditor } from './lib/directives/structural-directives';
+/** @deprecated Import from `@toolbox-web/grid-angular/features/editing` instead. Will be removed from the main entry in v2.0.0. */
+export type { StructuralEditorContext } from './lib/directives/structural-directives';
 
 // Column shorthand utilities (parity with grid-react / grid-vue)
 export {

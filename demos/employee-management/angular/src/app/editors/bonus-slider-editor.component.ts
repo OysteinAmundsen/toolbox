@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import type { Employee } from '@demo/shared';
-import { BaseGridEditor } from '@toolbox-web/grid-angular';
+import { BaseGridEditor } from '@toolbox-web/grid-angular/features/editing';
 
 /**
  * Bonus slider editor extending BaseGridEditor.

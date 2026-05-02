@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, effect, ElementRef, signal, viewChild } from '@angular/core';
 import type { Employee } from '@demo/shared';
-import { BaseGridEditor } from '@toolbox-web/grid-angular';
+import { BaseGridEditor } from '@toolbox-web/grid-angular/features/editing';
 
 /**
  * Star rating editor extending BaseGridEditor.

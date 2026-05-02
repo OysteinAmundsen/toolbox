@@ -29,8 +29,8 @@ import {
   FormArray, FormBuilder, FormControl, FormGroup,
   ReactiveFormsModule, Validators, AbstractControl
 } from '@angular/forms';
-import { Grid, GridFormArray, TbwEditor, TbwRenderer } from '@toolbox-web/grid-angular';
-import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
+import { Grid, TbwRenderer } from '@toolbox-web/grid-angular';
+import { GridEditingDirective, GridFormArray, TbwEditor } from '@toolbox-web/grid-angular/features/editing';
 // Custom validated input editor
 @Component({
   selector: 'app-validated-input',
@@ -147,7 +147,8 @@ Without `rowId`, each `getRawValue()` call creates new objects, causing all row 
 When using `FormArray` with `FormGroup`s, you can access row-level validation state via [`getFormArrayContext()`](/grid/angular/api/utilities/getFormArrayContext/). The returned [`FormArrayContext`](/grid/angular/api/types/FormArrayContext/) exposes:
 
 ```typescript
-import { getFormArrayContext } from '@toolbox-web/grid-angular';
+import { getFormArrayContext } from '@toolbox-web/grid-angular/features/editing';
+
 
 // Get validation context from grid element
 const context = getFormArrayContext(gridElement);
@@ -311,8 +312,8 @@ For large datasets, `GridFormArray` can be slow because it creates **all FormGro
 ```typescript
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Grid, GridLazyForm, TbwEditor } from '@toolbox-web/grid-angular';
-import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
+import { Grid } from '@toolbox-web/grid-angular';
+import { GridEditingDirective, GridLazyForm, TbwEditor } from '@toolbox-web/grid-angular/features/editing';
 interface Employee {
   id: number;
   firstName: string;
@@ -455,7 +456,8 @@ export class FormChangeExample {
 
 ```typescript
 import { viewChild } from '@angular/core';
-import { GridLazyForm } from '@toolbox-web/grid-angular';
+import { GridLazyForm } from '@toolbox-web/grid-angular/features/editing';
+
 
 @Component({ /* ... */ })
 export class MyComponent {

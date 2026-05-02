@@ -61,6 +61,11 @@ import type { ColumnConfig } from '@toolbox-web/grid';
  *
  * @typeParam TRow - The row data type
  * @typeParam TValue - The cell value type
+ *
+ * MOVE-IN-V2: this class will physically move into
+ * `@toolbox-web/grid-angular/features/editing` in v2.0.0; the deprecated
+ * re-export from the main `@toolbox-web/grid-angular` entry will be removed at
+ * the same time. Consumers should already be importing from the feature entry.
  */
 @Directive()
 export abstract class BaseGridEditor<TRow = unknown, TValue = unknown> {

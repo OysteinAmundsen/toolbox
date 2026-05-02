@@ -114,9 +114,9 @@ const onCellCommit = (e) => {
   <TabItem label="Angular">
 ```typescript
 // Feature import - enables the [editing] input
-import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
+import { GridEditingDirective, TbwEditor } from '@toolbox-web/grid-angular/features/editing';
 import { Component } from '@angular/core';
-import { Grid, TbwEditor } from '@toolbox-web/grid-angular';
+import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
@@ -1060,7 +1060,8 @@ onMounted(() => {
 // For manual editors, subscribe in your component:
 
 import { Component, OnInit } from '@angular/core';
-import { BaseGridEditor } from '@toolbox-web/grid-angular';
+import { BaseGridEditor } from '@toolbox-web/grid-angular/features/editing';
+
 
 @Component({
   template: `<input type="number" [value]="total" (change)="onInput($event)" />`

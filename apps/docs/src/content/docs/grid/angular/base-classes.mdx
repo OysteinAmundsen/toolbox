@@ -58,7 +58,8 @@ The foundation class for all Angular cell editors. Provides common inputs, outpu
 
 ```typescript
 import { Component } from '@angular/core';
-import { BaseGridEditor } from '@toolbox-web/grid-angular';
+import { BaseGridEditor } from '@toolbox-web/grid-angular/features/editing';
+
 
 @Component({
   selector: 'app-text-editor',
@@ -132,7 +133,8 @@ Combines `BaseGridEditor` with Angular's `ControlValueAccessor` interface. Use t
 ```typescript
 import { Component, forwardRef } from '@angular/core';
 import { NG_VALUE_ACCESSOR } from '@angular/forms';
-import { BaseGridEditorCVA } from '@toolbox-web/grid-angular';
+import { BaseGridEditorCVA } from '@toolbox-web/grid-angular/features/editing';
+
 
 @Component({
   selector: 'app-date-picker',
@@ -210,7 +212,8 @@ Base class for editors that display a **floating overlay panel** (date pickers, 
 
 ```typescript
 import { Component, viewChild, ElementRef, effect } from '@angular/core';
-import { BaseOverlayEditor } from '@toolbox-web/grid-angular';
+import { BaseOverlayEditor } from '@toolbox-web/grid-angular/features/editing';
+
 
 @Component({
   selector: 'app-date-editor',
@@ -323,7 +326,8 @@ The `params` input provides these members (see [`FilterPanelParams`](/grid/plugi
 
 ```typescript
 import { Component, viewChild, ElementRef, afterNextRender } from '@angular/core';
-import { BaseFilterPanel } from '@toolbox-web/grid-angular';
+import { BaseFilterPanel } from '@toolbox-web/grid-angular/features/filtering';
+
 
 @Component({
   selector: 'app-text-filter',
@@ -361,7 +365,8 @@ export class TextFilterComponent extends BaseFilterPanel {
 
 ```typescript
 import { Component, signal } from '@angular/core';
-import { BaseFilterPanel } from '@toolbox-web/grid-angular';
+import { BaseFilterPanel } from '@toolbox-web/grid-angular/features/filtering';
+
 
 @Component({
   selector: 'app-set-filter',
@@ -436,11 +441,7 @@ const gridConfig: GridConfig = {
 All base classes are exported from the main package:
 
 ```typescript
-import {
-  BaseGridEditor,
-  BaseGridEditorCVA,
-  BaseOverlayEditor,
-  BaseFilterPanel,
-  type OverlayPosition,
-} from '@toolbox-web/grid-angular';
+import { BaseGridEditor, BaseGridEditorCVA, BaseOverlayEditor, type OverlayPosition } from '@toolbox-web/grid-angular/features/editing';
+import { BaseFilterPanel } from '@toolbox-web/grid-angular/features/filtering';
+
 ```

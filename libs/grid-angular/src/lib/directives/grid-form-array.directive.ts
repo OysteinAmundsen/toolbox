@@ -159,6 +159,13 @@ export function getFormArrayContext(gridElement: HTMLElement): FormArrayContext 
  * ```
  *
  * @category Directive
+ *
+ * MOVE-IN-V2: this directive (and its `FormArrayContext` type and
+ * `getFormArrayContext` helper) will physically move into
+ * `@toolbox-web/grid-angular/features/editing` in v2.0.0; the deprecated
+ * re-exports from the main `@toolbox-web/grid-angular` entry will be removed
+ * at the same time. Consumers should already be importing from the feature
+ * entry.
  */
 @Directive({
   selector: 'tbw-grid[formArray]',

@@ -245,6 +245,13 @@ export class TbwRenderer implements OnDestroy {
  * ```
  *
  * @category Directive
+ *
+ * MOVE-IN-V2: this directive (and its `StructuralEditorContext` type) will
+ * physically move into `@toolbox-web/grid-angular/features/editing` in v2.0.0;
+ * the deprecated re-export from the main `@toolbox-web/grid-angular` entry
+ * will be removed at the same time. Consumers should already be importing
+ * from the feature entry. (`TbwRenderer` stays in the main entry — it is
+ * editor-agnostic.)
  */
 @Directive({ selector: '[tbwEditor]' })
 export class TbwEditor implements OnDestroy {

@@ -39,13 +39,7 @@ export class GridRowDragDropDirective implements OnInit, OnDestroy {
   readonly rowTransfer = output<RowTransferDetail<any>>();
 
   private readonly listeners = new Map<string, (e: Event) => void>();
-  private static readonly EVENTS: readonly string[] = [
-    'row-move',
-    'row-drag-start',
-    'row-drag-end',
-    'row-drop',
-    'row-transfer',
-  ];
+  private static readonly EVENTS = ['row-move', 'row-drag-start', 'row-drag-end', 'row-drop', 'row-transfer'] as const;
 
   constructor() {
     const grid = this.elementRef.nativeElement;

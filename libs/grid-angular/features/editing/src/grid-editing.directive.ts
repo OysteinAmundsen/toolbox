@@ -55,7 +55,7 @@ export class GridEditingDirective implements OnInit, OnDestroy {
   readonly dirtyChange = output<DirtyChangeDetail<any>>();
 
   private readonly listeners = new Map<string, (e: Event) => void>();
-  private static readonly EVENTS: readonly string[] = [
+  private static readonly EVENTS = [
     'cell-commit',
     'cell-cancel',
     'row-commit',
@@ -64,7 +64,7 @@ export class GridEditingDirective implements OnInit, OnDestroy {
     'before-edit-close',
     'edit-close',
     'dirty-change',
-  ];
+  ] as const;
 
   constructor() {
     const grid = this.elementRef.nativeElement;

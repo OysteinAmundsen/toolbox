@@ -28,7 +28,7 @@ export class GridGroupingRowsDirective implements OnInit, OnDestroy {
   readonly groupCollapse = output<GroupCollapseDetail>();
 
   private readonly listeners = new Map<string, (e: Event) => void>();
-  private static readonly EVENTS: readonly string[] = ['group-toggle', 'group-expand', 'group-collapse'];
+  private static readonly EVENTS = ['group-toggle', 'group-expand', 'group-collapse'] as const;
 
   constructor() {
     const grid = this.elementRef.nativeElement;

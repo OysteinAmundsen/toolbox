@@ -94,6 +94,7 @@ import { GridAdapter } from '../angular-grid-adapter';
 import { applyColumnDefaults, type ColumnShorthand, normalizeColumns } from '../column-shorthand';
 import { createPluginFromFeature, type FeatureName } from '../feature-registry';
 import { GridIconRegistry } from '../grid-icon-registry';
+import { getFeatureClaim, isEventClaimed } from '../internal/feature-claims';
 import { getFeatureConfigPreprocessor, runTemplateBridges } from '../internal/feature-extensions';
 
 /**
@@ -629,6 +630,13 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * <tbw-grid [filtering]="true" />
    * <tbw-grid [filtering]="{ debounceMs: 200 }" />
    * ```
+   *
+   * @deprecated Use `GridFilteringDirective` from
+   * `@toolbox-web/grid-angular/features/filtering` and add it to your
+   * component's `imports`. The directive owns the `filtering` input + the
+   * `filterChange` output and lets the typed surface tree-shake away when
+   * the feature is not imported. This input remains as a non-breaking shim
+   * and will be removed in v2.0.0.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   filtering = input<boolean | FilterConfig<any>>();
@@ -1071,6 +1079,11 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```html
    * <tbw-grid (filterChange)="onFilterChange($event)">...</tbw-grid>
    * ```
+   *
+   * @deprecated Use `GridFilteringDirective` from
+   * `@toolbox-web/grid-angular/features/filtering` (the directive
+   * declares the `(filterChange)` output). This output remains as a
+   * non-breaking shim and will be removed in v2.0.0.
    */
   filterChange = output<FilterChangeDetail>();
 
@@ -1444,10 +1457,17 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
 
   /**
    * Sets up event listeners for all outputs using the eventOutputMap.
+   *
+   * Hybrid v1.x / v2 ownership: events claimed by an attribute-selector
+   * feature directive (via `claimEvent` in `feature-claims.ts`) are skipped
+   * here so the directive's own `output()` is the sole emitter. Without
+   * this skip both this directive's deprecated output and the directive's
+   * new output would fire for the same DOM event.
    */
   private setupEventListeners(grid: GridElement): void {
     // Wire up all event listeners
     for (const [outputName, eventName] of Object.entries(this.eventOutputMap)) {
+      if (isEventClaimed(grid, eventName)) continue;
       const listener = (e: Event) => {
         const detail = (e as CustomEvent).detail;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1464,15 +1484,31 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * Per-feature config bridging (e.g. converting Angular component classes inside
    * `groupingColumns` / `groupingRows` / `pinnedRows` configs to renderer functions)
    * runs via `getFeatureConfigPreprocessor`, populated by feature secondary entries.
+   *
+   * Hybrid v1.x / v2 ownership: when an attribute-selector feature directive
+   * (e.g. `GridFilteringDirective`) is present on the same `<tbw-grid>`
+   * element it claims its feature in `feature-claims.ts`. We then read the
+   * claim's config getter — which transitively reads the directive's input
+   * signal, establishing reactive dependency tracking — instead of the
+   * deprecated input on this directive. This keeps the existing `[filtering]`
+   * binding working when used directly on `<tbw-grid>` (no directive, no
+   * claim) while letting the directive own the binding when imported.
+   *
    * Returns the array of created plugins (doesn't modify grid).
    */
   private createFeaturePlugins(): unknown[] {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const plugins: unknown[] = [];
     const adapter = this.adapter;
+    const grid = this.elementRef.nativeElement;
 
     // Helper to add plugin if feature is registered
-    const addPlugin = (name: FeatureName, config: unknown) => {
+    const addPlugin = (name: FeatureName, ownInput: unknown) => {
+      // Directive-owned config wins. Reading the claim's getter inside this
+      // effect registers the directive's input signal as a dependency, so
+      // changes to e.g. `[filtering]` on the directive re-trigger this effect.
+      const claim = getFeatureClaim(grid, name);
+      const config = claim ? claim() : ownInput;
       if (config === undefined || config === null || config === false) return;
       // Apply per-feature config preprocessor (registered by feature secondary entries)
       // to bridge Angular component classes embedded in the config before instantiation.

@@ -82,6 +82,12 @@ related: [grid-core]
 - MODE: prerelease (all versions tagged -rc.X)
 - PATTERN: single PR for all package bumps, component in tag (grid-v2.0.0-rc.4)
 - COMMIT TYPES: feat/fix/enhance/perf visible in changelog; docs/style/chore/refactor/test/build/ci hidden
+- INVARIANT: each library is an independent release-please component; major bumps are per-scope. A `feat(<scope>)!:` (or `BREAKING CHANGE:` footer) on one scope triggers a major for **only** that scope.
+- INVARIANT: `separate-pull-requests: false` ⇒ all pending bumps land in a single coordinated release PR.
+- INVARIANT (peer-dep cascade): release-please does NOT bump `peerDependencies` automatically. When `grid` jumps a major, every adapter's `peerDependencies."@toolbox-web/grid"` range must be widened **manually** in the same PR. That peer change is itself a breaking change, so adapters get a major even when they have no own deprecation removals.
+- DECIDED: publish order on a coordinated multi-major is `grid` first, then `grid-angular` / `grid-react` / `grid-vue` (peer-range satisfied at install time).
+- DECIDED: v1.x deprecation commits intentionally do NOT use `!`; the `!` is reserved for the major-bump PR itself.
+- DECIDED (cadence): aim for ~1 major / quarter (v1 → v2 was 22 Jan → 16 Apr 2026). Long-lived release branches are NOT used; branch from `main` ~1 week before the cut, run the cleanup as 4 `feat(<scope>)!:` commits + peer-dep bumps in one PR, let release-please publish, delete branch.
 
 ## ci-pipeline (.github/workflows/ci.yml)
 
@@ -103,3 +109,49 @@ related: [grid-core]
 - @toolbox-web/grid/plugins/_ → dist/libs/grid/lib/plugins/_/index.d.ts
 - @toolbox-web/grid/features/_ → dist/libs/grid/lib/features/_.d.ts
 - @toolbox/themes/_ → libs/themes/_ (source, not built)
+- INVARIANT: TypeScript `compilerOptions.paths` does **NOT merge** across `extends`. A child tsconfig that declares its own `paths` block fully **replaces** the parent's. Same applies to `compilerOptions.types` and `compilerOptions.lib`.
+- DECIDED: when a child tsconfig must override one mapping (e.g. `tsconfig.typedoc.json` pointing `@toolbox-web/grid-angular` at source instead of dist), it MUST repeat every `@toolbox-web/grid*` parent mapping it still needs, using wildcard forms (`plugins/*`, `features/*`) for compactness. Detection signal: a sudden burst of `TS2307: Cannot find module '@toolbox-web/...'` from a child config that has its own `paths` block — suspect path-shadowing first.
+
+## v3.0.0 cleanup plan (deprecation removal)
+
+Tracked in milestone `v3.0.0` and epic issue #263. Sub-issues: #259 (grid), #260 (grid-angular), #261 (grid-react), #262 (grid-vue) and #228 (touch DnD). Use `grep -rn '@deprecated\|MOVE-IN-V2' libs/` to enumerate at cut time.
+
+### grid → 3.0.0
+
+- Remove `DGEvents`, `DGEventName`, `PluginEvents`, `PluginEventName` from `libs/grid/src/public.ts`. Replacement: `keyof DataGridEventMap`.
+- Delete `libs/grid/src/lib/plugins/reorder-rows/**` and `libs/grid/src/lib/features/reorder-rows.ts`. Superseded by `row-drag-drop`.
+- Prune legacy `PinnedRowsConfig` fields (`top`, `bottom`, `showRowCount`, `showSelectedCount`, `showFilteredCount`, `panels`, `aggregations`) and the legacy `PinnedRowSlot` type. Keep only the unified `slots[]` API.
+- Drop `RowDragDropConfig.canDragRow` (use `canDrag`).
+- Drop `ServerSidePlugin.getNodeCount` / `isLoaded` aliases (use `getTotalNodeCount` / `isNodeLoaded`).
+
+### grid-angular → 2.0.0
+
+ng-packagr forbids primary→secondary imports, so the source must be **written in** the feature secondary entry and the primary-entry copy deleted in the **same commit**. Source files currently carry `MOVE-IN-V2:` markers (NOT `@deprecated`, because that would leak warnings to consumers importing from the correct feature entry).
+
+- Move `base-filter-panel.ts` → `features/filtering/`.
+- Move `base-grid-editor.ts`, `base-grid-editor-cva.ts`, `base-overlay-editor.ts` → `features/editing/`.
+- Move `directives/grid-column-editor.directive.ts`, `grid-form-array.directive.ts`, `grid-lazy-form.directive.ts` → `features/editing/`.
+- Split `directives/structural-directives.ts`: `TbwEditor` → `features/editing/`. **`TbwRenderer` STAYS in core** (editor-agnostic).
+- Master-detail: `GridDetailView`, `GridDetailContext`, `getDetailTemplate` → `features/master-detail/`.
+- Strip every `@deprecated` re-export from `src/index.ts`.
+- Strip every `@deprecated` per-feature input/output shim prop from `directives/grid.directive.ts` (~lines 538–1098 in current file).
+- Bump `peerDependencies."@toolbox-web/grid"` to `^3.0.0`.
+
+### grid-react → 2.0.0
+
+- Drop `reorderRows` alias (use `rowDragDrop`) and `SSRProps` + `ssr` prop entirely from `feature-props.ts`.
+- Bump `peerDependencies."@toolbox-web/grid"` to `^3.0.0`.
+
+### grid-vue → 2.0.0
+
+- Drop `reorderRows` alias and `SSRProps` + `ssr` prop from `feature-props.ts`.
+- Remove the deprecated re-export in `vue-grid-adapter.ts` (consumers import from `./editor-mount-hooks`).
+- Bump `peerDependencies."@toolbox-web/grid"` to `^3.0.0`.
+
+### Verification before tagging
+
+- `bun nx run-many -t build lint test -p grid grid-angular grid-react grid-vue`
+- `bun nx build demo-angular` / `demo-react` / `demo-vue` (catches dangling main-entry imports)
+- `bun nx build docs` (catches stale code blocks)
+- `bun nx run grid-angular:typedoc` (regen MDX matches new file layout)
+- `bun nx run e2e:e2e` and `bun nx run docs-e2e:e2e`

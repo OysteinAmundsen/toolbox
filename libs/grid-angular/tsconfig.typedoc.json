@@ -6,7 +6,13 @@
     "baseUrl": ".",
     "paths": {
       "@toolbox-web/grid-angular": ["./src/index.ts"],
-      "@toolbox-web/grid-angular/features/*": ["./features/*/src/index.ts"]
+      "@toolbox-web/grid-angular/features/*": ["./features/*/src/index.ts"],
+      "@toolbox-web/grid": ["../../dist/libs/grid/index.d.ts"],
+      "@toolbox-web/grid/all": ["../../dist/libs/grid/all.d.ts"],
+      "@toolbox-web/grid/plugins/*": ["../../dist/libs/grid/lib/plugins/*/index.d.ts"],
+      "@toolbox-web/grid/features/registry": ["../../dist/libs/grid/lib/features/registry.d.ts"],
+      "@toolbox-web/grid/features/*": ["../../dist/libs/grid/lib/features/*.d.ts"],
+      "@toolbox-web/grid/*": ["../../dist/libs/grid/*"]
     }
   },
   "include": ["src/**/*.ts", "features/*/src/**/*.ts"],

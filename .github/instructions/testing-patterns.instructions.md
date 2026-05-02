@@ -39,6 +39,22 @@ Tests are co-located with source files (`feature.ts` → `feature.spec.ts`). Int
 - **React lowercases custom element attributes**: React renders camelCase props as lowercase DOM attributes (e.g., `cardRowHeight` → `cardrowheight`). Use `getAttribute('cardrowheight')` in assertions.
 - **No `@testing-library/react`**: The grid-react project uses `react-dom/client` `createRoot` directly for component rendering tests. See the `test-coverage` skill for patterns.
 
+## Angular Directive Real-Class Spec Pattern
+
+Directives that depend on Angular DI primitives (`inject`, `effect`, `input`, `input.required`, `output`, `afterNextRender`) are unit-tested by mocking those primitives via `vi.mock('@angular/core', …)` and instantiating the class with `new` — **no TestBed**. Reference implementations: `directives/grid-form-array.directive.spec.ts`, `directives/grid-lazy-form.directive.spec.ts`.
+
+Recipe:
+
+- Mock `inject` with a per-test `mockInjectResolver` swap.
+- Mock `input` / `input.required` with a `(initial?) => () => value` factory exposing `__setValue`.
+- Mock `output` with `() => ({ emit, emissions: [] })` so tests can assert emissions.
+- Mock `afterNextRender` with `(cb) => { pending = cb; }` and trigger `pending()` manually.
+- Mock `effect` with a no-op when the directive uses effects only for side-effect plumbing.
+- ALWAYS spread `await vi.importActual('@angular/core')` first and override only the primitives the directive uses. Without actuals, `@angular/forms` (used by spec helpers) breaks because `EventEmitter`, `InjectionToken`, etc. are missing.
+- ALWAYS `import '@angular/compiler';` at the top of the spec, before any other Angular import. Without it, vitest fails with "JIT compilation failed" on first directive instantiation.
+- For `getOrCreate*` lazy patterns: call a public method that materialises (`ctx.getRowFormGroup(0)`), then assert cache via `directive.getAllFormGroups().size` or re-call to verify the factory ran once.
+- DO NOT use `coverage.exclude` to prop up the 70% threshold. Write real specs instead — a refactor that expands V8's measurement scope is exposing a real coverage gap, not a config problem.
+
 ## Vitest Benchmarks
 
 Co-located benchmark files (`feature.ts` → `feature.bench.ts`) measure pure computational hot paths using `vitest bench` (tinybench). Run via `bun nx bench grid`.

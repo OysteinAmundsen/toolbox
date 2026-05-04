@@ -16,12 +16,12 @@ The grid applies the following ARIA roles and attributes automatically:
 
 | Element | Role | Attributes |
 |---------|------|-----------|
-| `<tbw-grid>` | `grid` | `aria-rowcount`, `aria-colcount`, `aria-multiselectable` |
+| `<tbw-grid>` | `grid` (or `treegrid` when [Tree](/grid/plugins/tree/) or [Row Grouping](/grid/plugins/grouping-rows/) is active) | `aria-rowcount`, `aria-colcount`, `aria-multiselectable` |
 | Header container | `rowgroup` | — |
 | Header row | `row` | `aria-rowindex="1"` |
 | Header cell | `columnheader` | `aria-sort`, `aria-colindex` |
 | Body container | `rowgroup` | — |
-| Data row | `row` | `aria-rowindex`, `aria-selected`, `aria-expanded` |
+| Data row | `row` | `aria-rowindex`, `aria-selected`, `aria-expanded`, `aria-level` / `aria-setsize` / `aria-posinset` (under `treegrid`) |
 | Data cell | `gridcell` | `aria-colindex`, `aria-selected`, `aria-readonly` |
 
 ### Dynamic Attributes
@@ -36,6 +36,9 @@ The grid applies the following ARIA roles and attributes automatically:
 | `aria-labelledby` | `gridAriaLabelledBy` is set | id-ref |
 | `aria-describedby` | `gridAriaDescribedBy` is set | id-ref |
 | `aria-roledescription` | `gridAriaRoleDescription` is set (overrides the AT-announced role name; use sparingly — value should still describe a grid widget) | string |
+| `aria-level` | [Tree](/grid/plugins/tree/) or [Row Grouping](/grid/plugins/grouping-rows/) plugin is active (1-based hierarchical depth) | `1`, `2`, … |
+| `aria-setsize` | [Tree](/grid/plugins/tree/) or [Row Grouping](/grid/plugins/grouping-rows/) plugin is active (sibling count at this level) | integer |
+| `aria-posinset` | [Tree](/grid/plugins/tree/) or [Row Grouping](/grid/plugins/grouping-rows/) plugin is active (1-based position among siblings) | integer |
 | `aria-multiselectable` | Selection plugin allows multi-select | `true` |
 | `aria-readonly` | Cell is not editable | `true` |
 | `aria-rowindex` | Always (1-based) | Row position in full dataset |
@@ -210,7 +213,7 @@ The grid ships with a built-in `@media (forced-colors: active)` block that remap
 
 The grid handles most accessibility concerns out of the box:
 
-- **ARIA roles & attributes** — `role="grid"`, `role="row"`, `role="gridcell"`, `aria-rowcount`, `aria-colcount`, `aria-rowindex`, `aria-colindex` are always set
+- **ARIA roles & attributes** — `role="grid"`, `role="row"`, `role="gridcell"`, `aria-rowcount`, `aria-colcount`, `aria-rowindex`, `aria-colindex` are always set. When the [Tree](/grid/plugins/tree/) or [Row Grouping](/grid/plugins/grouping-rows/) plugin is active, the rows-body upgrades to `role="treegrid"` and every row carries `aria-level` / `aria-setsize` / `aria-posinset` per the [WAI-ARIA Treegrid pattern](https://www.w3.org/WAI/ARIA/apg/patterns/treegrid/) so screen readers can announce hierarchical position.
 - **Keyboard navigation** — Arrow keys, Tab, Enter, Home/End, PgUp/PgDn all work by default (core feature, not a plugin)
 - **Column headers** — Always rendered with `role="columnheader"`; cannot be hidden
 - **Column type inference** — Types (`number`, `date`, `boolean`) are auto-detected from the first data row

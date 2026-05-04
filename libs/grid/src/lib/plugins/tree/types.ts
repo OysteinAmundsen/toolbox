@@ -79,6 +79,10 @@ export interface FlattenedTreeRow<T = TreeRow> {
   isExpanded: boolean;
   /** Key of the parent row, or null for root level */
   parentKey: string | null;
+  /** 1-based position among siblings at the same level (for `aria-posinset`). */
+  posInSet: number;
+  /** Total number of siblings at this level under the same parent (for `aria-setsize`). */
+  setSize: number;
 }
 
 /** Event detail emitted when a tree node is expanded or collapsed */

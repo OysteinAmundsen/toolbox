@@ -43,6 +43,8 @@ export function flattenTree(
       hasChildren,
       isExpanded,
       parentKey,
+      posInSet: i + 1,
+      setSize: rows.length,
     });
 
     // Recursively add children if expanded

@@ -1013,4 +1013,79 @@ describe('tree plugin integration', () => {
       expect(plugin.getRowMeta(processed[5])?.hasChildren).toBe(false); // null → no children
     });
   });
+
+  describe('WAI-ARIA Treegrid roles (#264)', () => {
+    it('switches rows-body role to treegrid and emits aria-level/setsize/posinset on each row', async () => {
+      const grid = document.createElement('tbw-grid') as GridElement;
+      document.body.appendChild(grid);
+
+      const treePlugin = new TreePlugin({
+        defaultExpanded: true,
+        childrenField: 'children',
+      });
+
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name' }],
+        plugins: [treePlugin],
+      };
+
+      grid.rows = [
+        {
+          id: 'p1',
+          name: 'Parent 1',
+          children: [
+            { id: 'c1', name: 'Child 1' },
+            { id: 'c2', name: 'Child 2' },
+          ],
+        },
+        { id: 'p2', name: 'Parent 2' },
+      ];
+
+      await waitUpgrade(grid);
+
+      // Role switched to treegrid
+      const rowsBody = grid.querySelector('.rows-body');
+      expect(rowsBody?.getAttribute('role')).toBe('treegrid');
+
+      // Per-row aria attrs: parent 1 (1/2 at level 1), child 1 (1/2 at level 2), child 2 (2/2 at level 2), parent 2 (2/2 at level 1)
+      const dataRows = Array.from(grid.querySelectorAll('.data-grid-row'));
+      expect(dataRows[0].getAttribute('aria-level')).toBe('1');
+      expect(dataRows[0].getAttribute('aria-posinset')).toBe('1');
+      expect(dataRows[0].getAttribute('aria-setsize')).toBe('2');
+      expect(dataRows[0].getAttribute('aria-expanded')).toBe('true');
+
+      expect(dataRows[1].getAttribute('aria-level')).toBe('2');
+      expect(dataRows[1].getAttribute('aria-posinset')).toBe('1');
+      expect(dataRows[1].getAttribute('aria-setsize')).toBe('2');
+
+      expect(dataRows[2].getAttribute('aria-level')).toBe('2');
+      expect(dataRows[2].getAttribute('aria-posinset')).toBe('2');
+
+      expect(dataRows[3].getAttribute('aria-level')).toBe('1');
+      expect(dataRows[3].getAttribute('aria-posinset')).toBe('2');
+      // Leaf parent has no children → no aria-expanded
+      expect(dataRows[3].hasAttribute('aria-expanded')).toBe(false);
+    });
+
+    it('restores rows-body role to grid on detach()', async () => {
+      const grid = document.createElement('tbw-grid') as GridElement;
+      document.body.appendChild(grid);
+
+      const treePlugin = new TreePlugin({ defaultExpanded: false, childrenField: 'children' });
+
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name' }],
+        plugins: [treePlugin],
+      };
+      grid.rows = [{ id: 'r1', name: 'Root' }];
+
+      await waitUpgrade(grid);
+
+      expect(grid.querySelector('.rows-body')?.getAttribute('role')).toBe('treegrid');
+
+      treePlugin.detach();
+
+      expect(grid.querySelector('.rows-body')?.getAttribute('role')).toBe('grid');
+    });
+  });
 });

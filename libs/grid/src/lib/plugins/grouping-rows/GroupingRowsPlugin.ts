@@ -245,6 +245,13 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
   /** User-specified sort directions per group depth level. Toggled via
    *  header clicks on grouped columns. */
   private userGroupSortDirections = new Map<number, 1 | -1>();
+  /**
+   * Per-flatten-index ARIA position metadata for `aria-level` /
+   * `aria-setsize` / `aria-posinset` (WAI-ARIA Treegrid pattern). Computed
+   * once per `flattenedRows` rebuild by {@link computeFlatMeta}; consumed
+   * by {@link afterRender} on every visible row.
+   */
+  private flatMeta: Array<{ level: number; setSize: number; posInSet: number }> = [];
   // #endregion
 
   // #region Animation
@@ -264,8 +271,15 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   /** @internal */
   override detach(): void {
+    // Restore default `role="grid"` on the rows-body so the grid stays
+    // ARIA-valid after the plugin is removed (template default lives in
+    // `core/internal/dom-builder.ts`). See WAI-ARIA Treegrid pattern.
+    const rowsBody = this.gridElement?.querySelector('.rows-body');
+    rowsBody?.setAttribute('role', 'grid');
+
     this.expandedKeys.clear();
     this.flattenedRows = [];
+    this.flatMeta = [];
     this.isActive = false;
     this.previousVisibleKeys.clear();
     this.keysToAnimate.clear();
@@ -552,6 +566,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
     this.isActive = true;
     this.flattenedRows = grouped;
+    this.computeFlatMeta();
 
     // Track which data rows are newly visible (for animation)
     this.keysToAnimate.clear();
@@ -688,6 +703,13 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     rowEl.setAttribute('data-group-depth', String(row.__groupDepth));
     rowEl.setAttribute('role', 'row');
     rowEl.setAttribute('aria-expanded', String(row.__groupExpanded));
+    // WAI-ARIA Treegrid: group rows announce their hierarchical position.
+    const groupMeta = this.flatMeta[_rowIndex];
+    if (groupMeta) {
+      rowEl.setAttribute('aria-level', String(groupMeta.level));
+      rowEl.setAttribute('aria-setsize', String(groupMeta.setSize));
+      rowEl.setAttribute('aria-posinset', String(groupMeta.posInSet));
+    }
     // Use CSS variable for depth-based indentation
     rowEl.style.setProperty('--tbw-group-depth', String(row.__groupDepth || 0));
     if (config.indentWidth !== undefined) {
@@ -711,11 +733,32 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   /** @internal */
   override afterRender(): void {
-    const style = this.animationStyle;
-    if (style === false || this.keysToAnimate.size === 0) return;
-
     const body = this.gridElement?.querySelector('.rows');
     if (!body) return;
+
+    // Hierarchy is now in play \u2192 swap the rows-body role from `grid` to
+    // `treegrid` per WAI-ARIA so per-row level/setsize/posinset are valid
+    // in context. Idempotent on the hot path.
+    const rowsBody = this.gridElement?.querySelector('.rows-body');
+    if (rowsBody && rowsBody.getAttribute('role') !== 'treegrid') {
+      rowsBody.setAttribute('role', 'treegrid');
+    }
+
+    // Apply ARIA position metadata to every visible DATA row (group rows are
+    // populated by `renderRow` directly since they bypass the default cell
+    // template that exposes `data-row`).
+    for (const rowEl of body.querySelectorAll('.data-grid-row:not(.group-row)')) {
+      const cell = rowEl.querySelector('.cell[data-row]');
+      const idx = cell ? parseInt(cell.getAttribute('data-row') ?? '-1', 10) : -1;
+      const meta = this.flatMeta[idx];
+      if (!meta) continue;
+      rowEl.setAttribute('aria-level', String(meta.level));
+      rowEl.setAttribute('aria-setsize', String(meta.setSize));
+      rowEl.setAttribute('aria-posinset', String(meta.posInSet));
+    }
+
+    const style = this.animationStyle;
+    if (style === false || this.keysToAnimate.size === 0) return;
 
     const animClass = style === 'fade' ? 'tbw-group-fade-in' : 'tbw-group-slide-in';
     for (const rowEl of body.querySelectorAll('.data-grid-row:not(.group-row)')) {
@@ -730,6 +773,64 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       }
     }
     this.keysToAnimate.clear();
+  }
+
+  /**
+   * Compute per-row ARIA hierarchy metadata (`aria-level` / `aria-setsize` /
+   * `aria-posinset`) from `flattenedRows`. Two-pass over the flat list:
+   * first pass tallies group siblings per (parent-prefix, depth) and counts
+   * the data rows that follow each group header; second pass assigns per-row
+   * meta. Called once per `flattenedRows` rebuild (not per render).
+   */
+  private computeFlatMeta(): void {
+    const flat = this.flattenedRows;
+    const meta: Array<{ level: number; setSize: number; posInSet: number }> = new Array(flat.length);
+
+    // Pass 1: count group siblings per (parent-prefix, depth) and direct
+    // data-row children per group (used as `setSize` for data rows).
+    const groupSiblingCount = new Map<string, number>();
+    const groupDataCount = new Map<string, number>();
+    let activeGroup: GroupRowModelItem | null = null;
+    let activeDataCount = 0;
+    for (const item of flat) {
+      if (item.kind === 'group') {
+        if (activeGroup) groupDataCount.set(activeGroup.key, activeDataCount);
+        activeGroup = item;
+        activeDataCount = 0;
+        const parts = item.key.split('||');
+        const parent = parts.slice(0, -1).join('||');
+        const k = `${parent}@${item.depth}`;
+        groupSiblingCount.set(k, (groupSiblingCount.get(k) ?? 0) + 1);
+      } else {
+        activeDataCount++;
+      }
+    }
+    if (activeGroup) groupDataCount.set(activeGroup.key, activeDataCount);
+
+    // Pass 2: assign per-row level/setsize/posinset.
+    const groupSiblingPos = new Map<string, number>();
+    let currentGroup: GroupRowModelItem | null = null;
+    let dataPos = 0;
+    for (let i = 0; i < flat.length; i++) {
+      const item = flat[i];
+      if (item.kind === 'group') {
+        const parts = item.key.split('||');
+        const parent = parts.slice(0, -1).join('||');
+        const k = `${parent}@${item.depth}`;
+        const pos = (groupSiblingPos.get(k) ?? 0) + 1;
+        groupSiblingPos.set(k, pos);
+        meta[i] = { level: item.depth + 1, setSize: groupSiblingCount.get(k) ?? 1, posInSet: pos };
+        currentGroup = item;
+        dataPos = 0;
+      } else {
+        dataPos++;
+        const baseDepth = currentGroup?.depth ?? -1;
+        const setSize = currentGroup ? (groupDataCount.get(currentGroup.key) ?? 1) : flat.length;
+        meta[i] = { level: baseDepth + 2, setSize, posInSet: dataPos };
+      }
+    }
+
+    this.flatMeta = meta;
   }
   // #endregion
 
@@ -772,6 +873,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
     this.isActive = true;
     this.flattenedRows = grouped;
+    this.computeFlatMeta();
 
     // Track visible data rows for animation
     this.keysToAnimate.clear();

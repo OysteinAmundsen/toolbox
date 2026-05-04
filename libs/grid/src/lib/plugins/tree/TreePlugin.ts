@@ -197,6 +197,12 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   /** @internal */
   override detach(): void {
+    // Restore default `role="grid"` on the rows-body so the grid stays
+    // ARIA-valid after the plugin is removed (template default lives in
+    // `core/internal/dom-builder.ts`). See WAI-ARIA Treegrid pattern.
+    const rowsBody = this.gridElement?.querySelector('.rows-body');
+    rowsBody?.setAttribute('role', 'grid');
+
     this.expandedKeys.clear();
     this.initialExpansionDone = false;
     this.flattenedRows = [];
@@ -423,6 +429,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
         hasChildren,
         isExpanded,
         parentKey,
+        posInSet: i + 1,
+        setSize: ordered.length,
       });
 
       if (embeddedChildren && isExpanded) {
@@ -680,6 +688,15 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   /** @internal */
   override afterRender(): void {
+    // Tree introduces hierarchy → switch the rows-body role from `grid` to
+    // `treegrid` per WAI-ARIA so `aria-expanded` / `aria-level` /
+    // `aria-setsize` / `aria-posinset` are valid in context. Idempotent
+    // setAttribute call; cheap on the hot path.
+    const rowsBody = this.gridElement?.querySelector('.rows-body');
+    if (rowsBody && rowsBody.getAttribute('role') !== 'treegrid') {
+      rowsBody.setAttribute('role', 'treegrid');
+    }
+
     const body = this.gridElement?.querySelector('.rows');
     if (!body) return;
 
@@ -691,13 +708,20 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       const cell = rowEl.querySelector('.cell[data-row]');
       const idx = cell ? parseInt(cell.getAttribute('data-row') ?? '-1', 10) : -1;
       const treeRow = this.flattenedRows[idx];
+      if (!treeRow) continue;
+
+      // WAI-ARIA Treegrid: every row carries level/setsize/posinset so screen
+      // readers can announce "level 2, item 3 of 5" while navigating.
+      rowEl.setAttribute('aria-level', String(treeRow.depth + 1));
+      rowEl.setAttribute('aria-setsize', String(treeRow.setSize));
+      rowEl.setAttribute('aria-posinset', String(treeRow.posInSet));
 
       // Set aria-expanded on parent rows for screen readers
-      if (treeRow?.hasChildren) {
+      if (treeRow.hasChildren) {
         rowEl.setAttribute('aria-expanded', String(treeRow.isExpanded));
       }
 
-      if (shouldAnimate && treeRow?.key && this.keysToAnimate.has(treeRow.key)) {
+      if (shouldAnimate && treeRow.key && this.keysToAnimate.has(treeRow.key)) {
         rowEl.classList.add(animClass);
         rowEl.addEventListener('animationend', () => rowEl.classList.remove(animClass), { once: true });
       }

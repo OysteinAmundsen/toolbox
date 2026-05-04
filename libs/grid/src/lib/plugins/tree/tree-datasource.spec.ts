@@ -10,6 +10,8 @@ function makeFlatRow(key: string, depth: number): FlattenedTreeRow {
     hasChildren: depth === 0,
     isExpanded: depth === 0,
     parentKey: depth > 0 ? 'parent' : null,
+    posInSet: 1,
+    setSize: 1,
   };
 }
 

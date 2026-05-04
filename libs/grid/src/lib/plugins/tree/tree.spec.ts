@@ -161,6 +161,26 @@ describe('tree-data', () => {
 
       expect(result).toHaveLength(2);
     });
+
+    it('should populate posInSet/setSize per sibling level (WAI-ARIA Treegrid)', () => {
+      const rows = [
+        {
+          id: 'p1',
+          children: [{ id: 'c1' }, { id: 'c2' }, { id: 'c3' }],
+        },
+        { id: 'p2' },
+      ];
+
+      const result = flattenTree(rows, defaultConfig, new Set(['p1']));
+
+      // Roots: p1 (1/2), p2 (2/2)
+      expect(result[0]).toMatchObject({ key: 'p1', posInSet: 1, setSize: 2 });
+      expect(result[4]).toMatchObject({ key: 'p2', posInSet: 2, setSize: 2 });
+      // Children of p1: 1/3, 2/3, 3/3
+      expect(result[1]).toMatchObject({ posInSet: 1, setSize: 3, depth: 1 });
+      expect(result[2]).toMatchObject({ posInSet: 2, setSize: 3, depth: 1 });
+      expect(result[3]).toMatchObject({ posInSet: 3, setSize: 3, depth: 1 });
+    });
   });
 
   describe('toggleExpand', () => {

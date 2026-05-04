@@ -23,6 +23,8 @@ export interface AriaState {
   colCount: number;
   /** Last set aria-label */
   ariaLabel: string | undefined;
+  /** Last set aria-labelledby */
+  ariaLabelledBy: string | undefined;
   /** Last set aria-describedby */
   ariaDescribedBy: string | undefined;
   /** Last source row count announced via `dataLoaded`; used to suppress duplicate announcements */
@@ -37,6 +39,7 @@ export function createAriaState(): AriaState {
     rowCount: -1,
     colCount: -1,
     ariaLabel: undefined,
+    ariaLabelledBy: undefined,
     ariaDescribedBy: undefined,
     lastAnnouncedSourceCount: -1,
   };
@@ -134,14 +137,28 @@ export function updateAriaLabels<T>(
 
   let updated = false;
 
-  // Determine aria-label: explicit config > shell title > nothing
-  const ariaLabel = getEffectiveAriaLabel(config, shellState);
+  // aria-labelledby wins per WAI-ARIA accessible-name precedence — when set,
+  // `aria-label` is suppressed even if explicitly configured to avoid two
+  // competing names being computed by AT.
+  const ariaLabelledBy = config?.gridAriaLabelledBy;
+  const effectiveLabel = ariaLabelledBy ? undefined : getEffectiveAriaLabel(config, shellState);
+
+  // Update aria-labelledby only if changed
+  if (ariaLabelledBy !== state.ariaLabelledBy) {
+    state.ariaLabelledBy = ariaLabelledBy;
+    if (ariaLabelledBy) {
+      rowsBodyEl.setAttribute('aria-labelledby', ariaLabelledBy);
+    } else {
+      rowsBodyEl.removeAttribute('aria-labelledby');
+    }
+    updated = true;
+  }
 
   // Update aria-label only if changed
-  if (ariaLabel !== state.ariaLabel) {
-    state.ariaLabel = ariaLabel;
-    if (ariaLabel) {
-      rowsBodyEl.setAttribute('aria-label', ariaLabel);
+  if (effectiveLabel !== state.ariaLabel) {
+    state.ariaLabel = effectiveLabel;
+    if (effectiveLabel) {
+      rowsBodyEl.setAttribute('aria-label', effectiveLabel);
     } else {
       rowsBodyEl.removeAttribute('aria-label');
     }

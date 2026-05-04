@@ -32,6 +32,9 @@ The grid applies the following ARIA roles and attributes automatically:
 | `aria-selected` | Row or cell is selected | `true`, `false` |
 | `aria-expanded` | Row grouping/tree is active, **or** Context Menu plugin is loaded (advertises popup state on the grid root) | `true`, `false` |
 | `aria-haspopup` | Context Menu plugin is loaded (set on the grid root that handles right-click / Shift+F10) | `menu` |
+| `aria-label` | `gridAriaLabel` is set, or `shell.header.title` provides a fallback (suppressed when `gridAriaLabelledBy` is set) | string |
+| `aria-labelledby` | `gridAriaLabelledBy` is set | id-ref |
+| `aria-describedby` | `gridAriaDescribedBy` is set | id-ref |
 | `aria-multiselectable` | Selection plugin allows multi-select | `true` |
 | `aria-readonly` | Cell is not editable | `true` |
 | `aria-rowindex` | Always (1-based) | Row position in full dataset |
@@ -219,7 +222,7 @@ The grid handles most accessibility concerns out of the box:
 
 These require explicit action:
 
-1. **Provide a grid label when not using a shell** — Without `<tbw-grid-header title="...">`, set `gridAriaLabel` in config or add `aria-label` on the element
+1. **Provide a grid label when not using a shell** — Without `<tbw-grid-header title="...">`, set `gridAriaLabel` in config, or set `gridAriaLabelledBy` to the `id` of an existing heading next to the grid (`aria-labelledby` wins per WAI-ARIA precedence and suppresses `aria-label` to avoid conflicting names), or add `aria-label` directly on the element
 2. **Test with screen readers** — NVDA (Windows), VoiceOver (macOS), Orca (Linux)
 3. **Don't override keyboard handling** — The grid follows WAI-ARIA patterns; custom key listeners may conflict
 4. **Use the contrast theme for additional a11y** — Import `dg-theme-contrast.css` for higher contrast beyond the built-in forced-colors support

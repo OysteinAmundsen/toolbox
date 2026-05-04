@@ -2636,12 +2636,37 @@ export interface GridConfig<TRow = any> {
    *
    * If not provided and `shell.header.title` is set, the title is used automatically.
    *
+   * If [`gridAriaLabelledBy`](#gridarialabelledby) is also set, `aria-labelledby`
+   * takes precedence per WAI-ARIA accessible-name computation and `aria-label`
+   * is omitted.
+   *
    * @example
    * ```ts
    * gridConfig = { gridAriaLabel: 'Employee data' };
    * ```
    */
   gridAriaLabel?: string;
+
+  /**
+   * ID of an element that labels the grid.
+   * Sets `aria-labelledby` on the grid's internal table element so screen
+   * readers can use the referenced element's text as the accessible name —
+   * useful when the grid already sits next to a heading.
+   *
+   * Per WAI-ARIA accessible-name precedence, `aria-labelledby` takes priority
+   * over `aria-label` and over the auto-derived shell title. When this option
+   * is set, the grid omits `aria-label` to avoid conflicting names.
+   *
+   * @example
+   * ```html
+   * <h2 id="grid-heading">Employees</h2>
+   * <tbw-grid></tbw-grid>
+   * ```
+   * ```ts
+   * gridConfig = { gridAriaLabelledBy: 'grid-heading' };
+   * ```
+   */
+  gridAriaLabelledBy?: string;
 
   /**
    * ID of an element that describes the grid.

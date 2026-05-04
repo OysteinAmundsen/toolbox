@@ -265,6 +265,62 @@ describe('ARIA Helpers', () => {
       expect(rowsBodyEl.getAttribute('aria-label')).toBe('Employees');
       expect(rowsBodyEl.getAttribute('aria-describedby')).toBe('description');
     });
+
+    it('should set aria-labelledby from config', () => {
+      const config: GridConfig = { gridAriaLabelledBy: 'grid-heading' };
+
+      const updated = updateAriaLabels(state, rowsBodyEl, config, undefined);
+
+      expect(updated).toBe(true);
+      expect(rowsBodyEl.getAttribute('aria-labelledby')).toBe('grid-heading');
+    });
+
+    it('should suppress aria-label when aria-labelledby is set (precedence)', () => {
+      const config: GridConfig = {
+        gridAriaLabel: 'Employees',
+        gridAriaLabelledBy: 'grid-heading',
+      };
+
+      updateAriaLabels(state, rowsBodyEl, config, undefined);
+
+      expect(rowsBodyEl.getAttribute('aria-labelledby')).toBe('grid-heading');
+      expect(rowsBodyEl.getAttribute('aria-label')).toBeNull();
+    });
+
+    it('should restore aria-label when aria-labelledby is later removed', () => {
+      const withBoth: GridConfig = {
+        gridAriaLabel: 'Employees',
+        gridAriaLabelledBy: 'grid-heading',
+      };
+      const labelOnly: GridConfig = { gridAriaLabel: 'Employees' };
+
+      updateAriaLabels(state, rowsBodyEl, withBoth, undefined);
+      expect(rowsBodyEl.getAttribute('aria-label')).toBeNull();
+
+      updateAriaLabels(state, rowsBodyEl, labelOnly, undefined);
+      expect(rowsBodyEl.hasAttribute('aria-labelledby')).toBe(false);
+      expect(rowsBodyEl.getAttribute('aria-label')).toBe('Employees');
+    });
+
+    it('should remove aria-labelledby when value becomes undefined', () => {
+      const withLabelledBy: GridConfig = { gridAriaLabelledBy: 'grid-heading' };
+
+      updateAriaLabels(state, rowsBodyEl, withLabelledBy, undefined);
+      expect(rowsBodyEl.getAttribute('aria-labelledby')).toBe('grid-heading');
+
+      updateAriaLabels(state, rowsBodyEl, {}, undefined);
+      expect(rowsBodyEl.hasAttribute('aria-labelledby')).toBe(false);
+    });
+
+    it('should cache and skip redundant aria-labelledby updates', () => {
+      const config: GridConfig = { gridAriaLabelledBy: 'grid-heading' };
+
+      updateAriaLabels(state, rowsBodyEl, config, undefined);
+      const updated = updateAriaLabels(state, rowsBodyEl, config, undefined);
+
+      expect(updated).toBe(false);
+      expect(state.ariaLabelledBy).toBe('grid-heading');
+    });
   });
 
   // #endregion

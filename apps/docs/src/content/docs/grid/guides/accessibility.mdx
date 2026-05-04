@@ -30,8 +30,7 @@ The grid applies the following ARIA roles and attributes automatically:
 |-----------|-------------|--------|
 | `aria-sort` | Column is sorted | `ascending`, `descending`, `none` |
 | `aria-selected` | Row or cell is selected | `true`, `false` |
-| `aria-expanded` | Row grouping/tree is active, **or** Context Menu plugin is loaded (advertises popup state on the grid root) | `true`, `false` |
-| `aria-haspopup` | Context Menu plugin is loaded (set on the grid root that handles right-click / Shift+F10) | `menu` |
+| `aria-expanded` | Row grouping/tree is active (rows with children) | `true`, `false` |
 | `aria-label` | `gridAriaLabel` is set, or `shell.header.title` provides a fallback (suppressed when `gridAriaLabelledBy` is set) | string |
 | `aria-labelledby` | `gridAriaLabelledBy` is set | id-ref |
 | `aria-describedby` | `gridAriaDescribedBy` is set | id-ref |

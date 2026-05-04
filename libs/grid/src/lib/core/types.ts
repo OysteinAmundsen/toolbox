@@ -2684,6 +2684,26 @@ export interface GridConfig<TRow = any> {
   gridAriaDescribedBy?: string;
 
   /**
+   * Override the screen-reader-announced role name for the grid via
+   * `aria-roledescription`. Useful for localization (e.g. `"Tabell"` in
+   * Norwegian) or domain-specific naming (e.g. `"Employee table"`).
+   *
+   * :::caution
+   * Per [WAI-ARIA 1.2](https://www.w3.org/TR/wai-aria-1.2/#aria-roledescription),
+   * the value should still describe a grid-like widget. Overriding with an
+   * unrelated label confuses assistive-technology users about the available
+   * interactions (cell navigation, sort, etc.). Leave unset to use the
+   * default role name announced by the AT.
+   * :::
+   *
+   * @example
+   * ```ts
+   * gridConfig = { gridAriaRoleDescription: 'Employee table' };
+   * ```
+   */
+  gridAriaRoleDescription?: string;
+
+  /**
    * Accessibility configuration for screen reader announcements.
    *
    * The grid automatically announces state changes (sort, filter, selection, etc.)

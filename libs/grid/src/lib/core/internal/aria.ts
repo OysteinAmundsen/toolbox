@@ -27,6 +27,8 @@ export interface AriaState {
   ariaLabelledBy: string | undefined;
   /** Last set aria-describedby */
   ariaDescribedBy: string | undefined;
+  /** Last set aria-roledescription */
+  ariaRoleDescription: string | undefined;
   /** Last source row count announced via `dataLoaded`; used to suppress duplicate announcements */
   lastAnnouncedSourceCount: number;
 }
@@ -41,6 +43,7 @@ export function createAriaState(): AriaState {
     ariaLabel: undefined,
     ariaLabelledBy: undefined,
     ariaDescribedBy: undefined,
+    ariaRoleDescription: undefined,
     lastAnnouncedSourceCount: -1,
   };
 }
@@ -173,6 +176,19 @@ export function updateAriaLabels<T>(
       rowsBodyEl.setAttribute('aria-describedby', ariaDescribedBy);
     } else {
       rowsBodyEl.removeAttribute('aria-describedby');
+    }
+    updated = true;
+  }
+
+  // Update aria-roledescription only if changed. Apps can override the
+  // announced role name (e.g. localized "Tabell" instead of generic "grid").
+  const ariaRoleDescription = config?.gridAriaRoleDescription;
+  if (ariaRoleDescription !== state.ariaRoleDescription) {
+    state.ariaRoleDescription = ariaRoleDescription;
+    if (ariaRoleDescription) {
+      rowsBodyEl.setAttribute('aria-roledescription', ariaRoleDescription);
+    } else {
+      rowsBodyEl.removeAttribute('aria-roledescription');
     }
     updated = true;
   }

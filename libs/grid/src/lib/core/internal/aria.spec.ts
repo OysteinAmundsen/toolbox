@@ -31,7 +31,9 @@ describe('ARIA Helpers', () => {
     it('should create initial state with undefined labels', () => {
       const state = createAriaState();
       expect(state.ariaLabel).toBeUndefined();
+      expect(state.ariaLabelledBy).toBeUndefined();
       expect(state.ariaDescribedBy).toBeUndefined();
+      expect(state.ariaRoleDescription).toBeUndefined();
     });
   });
 
@@ -320,6 +322,43 @@ describe('ARIA Helpers', () => {
 
       expect(updated).toBe(false);
       expect(state.ariaLabelledBy).toBe('grid-heading');
+    });
+
+    it('should set aria-roledescription from config', () => {
+      const config: GridConfig = { gridAriaRoleDescription: 'Employee table' };
+
+      const updated = updateAriaLabels(state, rowsBodyEl, config, undefined);
+
+      expect(updated).toBe(true);
+      expect(rowsBodyEl.getAttribute('aria-roledescription')).toBe('Employee table');
+    });
+
+    it('should remove aria-roledescription when value becomes undefined', () => {
+      const withRole: GridConfig = { gridAriaRoleDescription: 'Employee table' };
+
+      updateAriaLabels(state, rowsBodyEl, withRole, undefined);
+      expect(rowsBodyEl.getAttribute('aria-roledescription')).toBe('Employee table');
+
+      updateAriaLabels(state, rowsBodyEl, {}, undefined);
+      expect(rowsBodyEl.hasAttribute('aria-roledescription')).toBe(false);
+    });
+
+    it('should cache and skip redundant aria-roledescription updates', () => {
+      const config: GridConfig = { gridAriaRoleDescription: 'Employee table' };
+
+      updateAriaLabels(state, rowsBodyEl, config, undefined);
+      const updated = updateAriaLabels(state, rowsBodyEl, config, undefined);
+
+      expect(updated).toBe(false);
+      expect(state.ariaRoleDescription).toBe('Employee table');
+    });
+
+    it('should not set aria-roledescription when not configured', () => {
+      const config: GridConfig = { gridAriaLabel: 'Employees' };
+
+      updateAriaLabels(state, rowsBodyEl, config, undefined);
+
+      expect(rowsBodyEl.hasAttribute('aria-roledescription')).toBe(false);
     });
   });
 

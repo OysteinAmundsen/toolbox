@@ -35,6 +35,7 @@ The grid applies the following ARIA roles and attributes automatically:
 | `aria-label` | `gridAriaLabel` is set, or `shell.header.title` provides a fallback (suppressed when `gridAriaLabelledBy` is set) | string |
 | `aria-labelledby` | `gridAriaLabelledBy` is set | id-ref |
 | `aria-describedby` | `gridAriaDescribedBy` is set | id-ref |
+| `aria-roledescription` | `gridAriaRoleDescription` is set (overrides the AT-announced role name; use sparingly — value should still describe a grid widget) | string |
 | `aria-multiselectable` | Selection plugin allows multi-select | `true` |
 | `aria-readonly` | Cell is not editable | `true` |
 | `aria-rowindex` | Always (1-based) | Row position in full dataset |

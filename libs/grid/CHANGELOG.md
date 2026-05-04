@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.7.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.6.0...grid-2.7.0) (2026-05-04)
+
+
+### Features
+
+* **context-menu:** aria-haspopup/aria-expanded on ContextMenu trigger ([#265](https://github.com/OysteinAmundsen/toolbox/issues/265)) ([64132cb](https://github.com/OysteinAmundsen/toolbox/commit/64132cb0a60854828343b1aab93d7f7bc886e1f0))
+* **grid:** add gridAriaLabelledBy config ([#266](https://github.com/OysteinAmundsen/toolbox/issues/266)) ([12421d5](https://github.com/OysteinAmundsen/toolbox/commit/12421d5d06e999ef2131d82de94e4ec8768bddb3))
+* **grid:** add gridAriaRoleDescription config ([#268](https://github.com/OysteinAmundsen/toolbox/issues/268)) ([448a6e1](https://github.com/OysteinAmundsen/toolbox/commit/448a6e11f3cd1228ef10d1447203e0da86c323fe))
+* **grid:** sticky-rows plugin ([#279](https://github.com/OysteinAmundsen/toolbox/issues/279)) ([fb00a1e](https://github.com/OysteinAmundsen/toolbox/commit/fb00a1e40fd8dbb26f8ca6b5f6aec55c06ca5977))
+* **grouping-rows/tree:** add gridAriaRoleDescription config ([#268](https://github.com/OysteinAmundsen/toolbox/issues/268)) ([4da8afb](https://github.com/OysteinAmundsen/toolbox/commit/4da8afb9efeab3637a949a848ae214e3f15fcbea))
+
 ## [2.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.5.0...grid-2.6.0) (2026-05-02)
 
 

@@ -13,3 +13,7 @@ Documentation lives in `apps/docs/` using Astro + Starlight. MDX content pages a
 - `FrameworkTabs.astro` — Framework code tab switcher (Vanilla/React/Vue/Angular)
 - `ThemeBuilder.astro` — Interactive CSS variable editor
 - `CSSVariableReference.astro` — CSS variable reference table
+
+## Demo CSS Gotcha — Use `<style is:global>` for grid-internal selectors
+
+Astro scopes `<style>` blocks by appending `:where(.astro-<hash>)` to every selector. This means `#my-demo tbw-grid .row-section .cell` becomes `#my-demo:where(.astro-X) tbw-grid:where(.astro-X) .row-section:where(.astro-X) .cell:where(.astro-X)` — and since the grid's rows are dynamically rendered web-component DOM that does NOT carry the Astro hash class, **none of those selectors will match**. Demos that style elements rendered by `tbw-grid` (rows, cells, plugin clones) MUST use `<style is:global>` so the selectors stay un-scoped. Symptom: the rule shows up in DevTools but never matches anything; rowClass-tagged rows render unstyled.

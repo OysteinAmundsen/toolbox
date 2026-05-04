@@ -1,0 +1,235 @@
+---
+title: 'Sticky Rows Plugin'
+description: 'Pin selected data rows below the header as the user scrolls past them.'
+---
+
+import { TabItem, Tabs } from '@astrojs/starlight/components';
+import StickyRowsDemo from '@components/demos/sticky-rows/StickyRowsDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
+
+The **Sticky Rows** plugin keeps selected data rows pinned just under the
+header while the user scrolls past them. Useful for section markers, group
+headers in flat lists, "you are here" anchors, and any scenario where you
+want a row to remain visible after it would naturally scroll out of view.
+
+Stuck rows are **clones** of the real rows — the originals stay in the data
+flow, remain interactive, and continue to participate in keyboard navigation.
+Clones are decorative, marked `aria-hidden="true"`, and inherit the row's
+column-template alignment so they line up perfectly with the data below.
+
+## Demo
+
+Scroll the grid below. Section-marker rows (`— A —`, `— B —`, …) pin under
+the header as they scroll past. Switch between **push** and **stack** mode
+in the controls to compare behaviors, and increase _Rows per section_ to
+see longer scroll runs between markers.
+
+<ShowSource component="sticky-rows/StickyRowsDemo">
+  <StickyRowsDemo />
+</ShowSource>
+
+## Installation
+
+```ts
+import '@toolbox-web/grid/features/sticky-rows';
+```
+
+Or use the plugin directly:
+
+```ts
+import { StickyRowsPlugin } from '@toolbox-web/grid/plugins/sticky-rows';
+```
+
+## Basic Usage
+
+Provide an `isSticky` predicate — either the **name of a boolean field** on
+your row data, or a **function** receiving `(row, index)` and returning a
+truthy value when the row should be sticky.
+
+<Tabs syncKey="framework">
+  <TabItem label="TypeScript">
+```ts
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/sticky-rows';
+
+const grid = queryGrid('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'label', header: 'Label' },
+    { field: 'value', header: 'Value' },
+  ],
+  features: {
+    // Field-name shorthand: any row whose `isSection` is truthy is sticky.
+    stickyRows: { isSticky: 'isSection' },
+  },
+};
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import { DataGrid } from '@toolbox-web/grid-react';
+import '@toolbox-web/grid-react/features/sticky-rows';
+
+function MyGrid({ rows }) {
+  return (
+    <DataGrid
+      rows={rows}
+      columns={[
+        { field: 'label', header: 'Label' },
+        { field: 'value', header: 'Value' },
+      ]}
+      stickyRows={{ isSticky: 'isSection' }}
+    />
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup>
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import '@toolbox-web/grid-vue/features/sticky-rows';
+
+const stickyConfig = { isSticky: 'isSection' };
+</script>
+
+<template>
+  <TbwGrid :rows="rows" :sticky-rows="stickyConfig">
+    <TbwGridColumn field="label" header="Label" />
+    <TbwGridColumn field="value" header="Value" />
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+// Feature import - enables the [stickyRows] input
+import { GridStickyRowsDirective } from '@toolbox-web/grid-angular/features/sticky-rows';
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-my-grid',
+  imports: [Grid, GridStickyRowsDirective],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [columns]="columns"
+      [stickyRows]="stickyConfig"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class MyGridComponent {
+  rows = [/* ... */];
+
+  columns: ColumnConfig[] = [
+    { field: 'label', header: 'Label' },
+    { field: 'value', header: 'Value' },
+  ];
+
+  // Field-name shorthand: any row whose `isSection` is truthy is sticky.
+  stickyConfig = { isSticky: 'isSection' };
+}
+```
+  </TabItem>
+</Tabs>
+
+## Modes
+
+### `'push'` (default)
+
+Only one sticky row is shown at a time. As the next sticky row approaches
+from below, it slides the previous one upward and out of view (iOS
+section-header behavior).
+
+```ts
+features: { stickyRows: { isSticky: 'isSection', mode: 'push' } }
+```
+
+Best for: long flat lists where each section anchor should be transient.
+
+### `'stack'`
+
+Sticky rows accumulate below the header up to `maxStacked`. When the cap is
+reached, the oldest (lowest-index) entry is evicted from the top so the
+most recently passed marker is always visible.
+
+```ts
+features: {
+  stickyRows: {
+    isSticky: 'isSection',
+    mode: 'stack',
+    maxStacked: 3,
+  },
+}
+```
+
+Best for: hierarchical breadcrumbs where multiple levels of context should
+remain visible.
+
+## Predicate Function
+
+For more nuanced selection (computed flags, derived fields, every Nth row,
+etc.), pass a function:
+
+```ts
+features: {
+  stickyRows: {
+    isSticky: (row, index) => row.priority === 'critical' || index % 50 === 0,
+  },
+}
+```
+
+The predicate runs once per row whenever the row set changes (via
+`afterRender`), so keep it cheap.
+
+## Configuration Reference
+
+| Option       | Type                                              | Default      | Description                                                  |
+| ------------ | ------------------------------------------------- | ------------ | ------------------------------------------------------------ |
+| `isSticky`   | `string \| (row, index) => unknown`               | _required_   | Field name shorthand or predicate function.                  |
+| `mode`       | `'push' \| 'stack'`                               | `'push'`     | How concurrent sticky rows are presented.                    |
+| `maxStacked` | `number`                                          | `Infinity`   | Cap on stacked clones (only applies when `mode: 'stack'`).   |
+| `className`  | `string`                                          | _(none)_     | Optional class applied to the container and every clone.     |
+
+## Styling
+
+The plugin renders a single `<div class="tbw-sticky-rows">` between the
+header and the rows region. Each clone carries `class="tbw-sticky-row"` and
+the data attribute `data-sticky-row="<rowIndex>"`.
+
+The container reads three CSS custom properties from the active theme:
+
+- `--tbw-z-layer-sticky-rows` — z-index (defaults to `22`)
+- `--tbw-color-bg` / `--tbw-color-panel-bg` — background fill
+- `--tbw-color-border` — bottom-shadow color separating clones from data
+
+Override with your own scoped rules:
+
+```css
+tbw-grid .tbw-sticky-row {
+  background: var(--my-section-bg);
+  font-weight: 600;
+}
+```
+
+## Accessibility
+
+- Clones are marked `aria-hidden="true"` so screen readers don't double-read.
+- Focus styles and `tabindex` are stripped from clones — keyboard navigation
+  goes through the underlying rows only.
+- The originals retain their `aria-rowindex`, `role="row"`, and full cell
+  semantics, so screen readers describe row position relative to the dataset.
+
+## Bundle Size
+
+The plugin is **≈4 kB gzipped** (ESM) / **≈2 kB gzipped** (UMD). It does
+not pull in any other plugins or core internals.
+
+## See Also
+
+- [Pinned Rows](/grid/plugins/pinned-rows) — for non-data totals/aggregation rows
+- [Master / Detail](/grid/plugins/master-detail) — for expanded child rows
+- [Tree](/grid/plugins/tree) — for hierarchical data

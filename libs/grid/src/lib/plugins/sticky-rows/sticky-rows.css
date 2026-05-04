@@ -1,0 +1,41 @@
+@layer tbw-plugins {
+  /* Container for stuck-row clones. OVERLAYS the top of the rows-viewport
+   * (not a flex child of rows-body) so it does not push the live rows
+   * down. The rows-viewport's `overflow: clip` hides the live row
+   * underneath the overlay. See StickyRowsPlugin.ensureContainer().
+   *
+   * Width matches `min-width: fit-content` so clones inherit the
+   * grid-template-columns and scroll horizontally with the body. */
+  .tbw-sticky-rows {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+    z-index: var(--tbw-z-layer-sticky-rows, 22);
+    background: var(--tbw-color-bg, var(--tbw-color-panel-bg));
+    min-width: 100%;
+    width: fit-content;
+    /* Allow translateY on push-mode clones to render above the wrapper edge. */
+    overflow: visible;
+  }
+
+  .tbw-sticky-rows:empty {
+    display: none;
+  }
+
+  /* The cloned row. We reuse `.data-grid-row` class so existing row CSS applies
+   * without duplication. Only the sticky-specific overrides live here. */
+  .tbw-sticky-rows .tbw-sticky-row {
+    /* Shadow under the bottom edge to separate from scrolling rows below. */
+    box-shadow: 0 1px 0 var(--tbw-color-border);
+    /* Clones never participate in row striping or focus highlight; force a
+     * solid background so they read as a distinct, opaque layer. */
+    background: var(--tbw-color-bg, var(--tbw-color-panel-bg));
+  }
+
+  /* Push-mode: the bottom-most stuck clone may translate up when displaced
+   * by the next incoming sticky row. */
+  .tbw-sticky-rows[data-mode='push'] .tbw-sticky-row {
+    will-change: transform;
+  }
+}

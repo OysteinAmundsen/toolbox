@@ -1,0 +1,162 @@
+---
+// StickyRowsDemo.astro
+// Interactive demo for the sticky-rows plugin — shows section-marker rows
+// pinned below the header in either 'push' or 'stack' mode. The dataset is
+// a synthetic contact list grouped by first-letter, with one bold "section"
+// row inserted before each letter group.
+import DemoControls from '@components/DemoControls.astro';
+---
+
+<div class="grid-demo not-content" id="sticky-rows-demo">
+  <DemoControls
+    controls={[
+      {
+        name: 'mode',
+        label: 'Mode',
+        type: 'radio',
+        options: ['push', 'stack'],
+        default: 'push',
+        description:
+          "'push' keeps one stuck row at a time (iOS section-header behavior); 'stack' accumulates them below the header.",
+      },
+      {
+        name: 'maxStacked',
+        label: 'Max stacked',
+        type: 'number',
+        default: 3,
+        min: 1,
+        max: 10,
+        step: 1,
+        description: "Cap on stacked clones (only meaningful when mode = 'stack').",
+      },
+      {
+        name: 'sections',
+        label: 'Section count',
+        type: 'number',
+        default: 8,
+        min: 2,
+        max: 12,
+        step: 1,
+        description: 'How many letter-group sections to generate.',
+      },
+      {
+        name: 'rowsPerSection',
+        label: 'Rows per section',
+        type: 'number',
+        default: 12,
+        min: 3,
+        max: 30,
+        step: 1,
+        description: 'Rows in each section.',
+      },
+    ]}
+  />
+  <tbw-grid style="height: 420px;"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+import { queryGrid, type ColumnConfig } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/sticky-rows';
+
+  interface ContactRow {
+    id: string;
+    name: string;
+    role: string;
+    email: string;
+    /** Truthy → row is treated as a sticky section marker. */
+    isSection?: boolean;
+  }
+
+  const NAME_STEMS = [
+    'lice', 'jorn', 'harlie', 'ora', 'van', 'reya', 'unnar', 'elga',
+    'dris', 'uno', 'ai', 'innea', 'ads', 'ova', 'lav', 'etra',
+  ];
+  const ROLES = ['Engineer', 'Designer', 'PM', 'Analyst', 'QA', 'Lead', 'Architect'];
+
+  function buildData(sectionCount: number, rowsPerSection: number): ContactRow[] {
+    const rows: ContactRow[] = [];
+    let id = 0;
+    for (let s = 0; s < sectionCount; s++) {
+      const letter = String.fromCharCode('A'.charCodeAt(0) + s);
+      rows.push({
+        id: `section-${letter}`,
+        name: `— ${letter} —`,
+        role: '',
+        email: '',
+        isSection: true,
+      });
+      for (let i = 0; i < rowsPerSection; i++) {
+        const first = `${letter}${NAME_STEMS[i % NAME_STEMS.length]}`;
+        rows.push({
+          id: `c-${id++}`,
+          name: `${first} ${letter}son`,
+          role: ROLES[id % ROLES.length],
+          email: `${first.toLowerCase()}@example.com`,
+        });
+      }
+    }
+    return rows;
+  }
+
+  const container = document.getElementById('sticky-rows-demo');
+  if (container) {
+    const grid = queryGrid('tbw-grid', container)!;
+
+    const columns: ColumnConfig[] = [
+      { field: 'name', header: 'Name', width: 220 },
+      { field: 'role', header: 'Role', width: 140 },
+      { field: 'email', header: 'Email' },
+    ];
+
+    function build(opts: {
+      mode: 'push' | 'stack';
+      maxStacked: number;
+      sections: number;
+      rowsPerSection: number;
+    }) {
+      grid.gridConfig = {
+        columns,
+        // Tag section rows so we (and the user) can style them. The class
+        // carries through to the stuck clone because cloneNode preserves it.
+        rowClass: (row) => ((row as ContactRow).isSection ? 'row-section' : ''),
+        features: {
+          stickyRows: {
+            isSticky: 'isSection',
+            mode: opts.mode,
+            maxStacked: opts.maxStacked,
+          },
+        },
+      };
+      grid.rows = buildData(opts.sections, opts.rowsPerSection);
+    }
+
+    build({ mode: 'push', maxStacked: 3, sections: 8, rowsPerSection: 12 });
+
+    container.addEventListener('control-change', ((e: CustomEvent) => {
+      const v = e.detail.allValues;
+      build({
+        mode: v.mode as 'push' | 'stack',
+        maxStacked: v.maxStacked as number,
+        sections: v.sections as number,
+        rowsPerSection: v.rowsPerSection as number,
+      });
+    }) as EventListener);
+  }
+</script>
+
+<style is:global>
+  /* Section rows are visually distinct so it's obvious which rows pin. The
+     plugin clones the live row so this styling carries through to the clone. */
+  #sticky-rows-demo tbw-grid .row-section .cell {
+    background: var(--tbw-color-panel-bg, var(--tbw-color-bg));
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--tbw-color-text);
+  }
+  /* Visual separator under the stuck clone — makes it pop off the scrolling
+     rows below. */
+  #sticky-rows-demo tbw-grid .tbw-sticky-row {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+  }
+</style>

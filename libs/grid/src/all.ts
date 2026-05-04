@@ -44,6 +44,7 @@ export * from './lib/plugins/responsive';
 export * from './lib/plugins/row-drag-drop';
 export * from './lib/plugins/selection';
 export * from './lib/plugins/server-side';
+export * from './lib/plugins/sticky-rows';
 export * from './lib/plugins/tooltip';
 export * from './lib/plugins/tree';
 export * from './lib/plugins/undo-redo';

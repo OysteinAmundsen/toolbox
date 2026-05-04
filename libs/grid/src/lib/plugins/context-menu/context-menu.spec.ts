@@ -1619,6 +1619,62 @@ describe('contextMenu', () => {
 
       plugin.detach();
     });
+
+    it('should set aria-haspopup="menu" and aria-expanded="false" on the trigger after binding', () => {
+      const { container, plugin } = createMockGrid();
+      plugin.afterRender();
+
+      expect(container.getAttribute('aria-haspopup')).toBe('menu');
+      expect(container.getAttribute('aria-expanded')).toBe('false');
+
+      plugin.detach();
+    });
+
+    it('should toggle aria-expanded to "true" while the menu is open and back to "false" when closed', () => {
+      const { container, plugin } = createMockGrid();
+      plugin.afterRender();
+
+      const cell = container.querySelector('[data-row="0"][data-col="0"]')!;
+      cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+      expect(plugin.isMenuOpen()).toBe(true);
+      expect(container.getAttribute('aria-expanded')).toBe('true');
+
+      plugin.hideMenu();
+
+      expect(plugin.isMenuOpen()).toBe(false);
+      expect(container.getAttribute('aria-expanded')).toBe('false');
+
+      plugin.detach();
+    });
+
+    it('should reset aria-expanded to "false" when the menu is closed via Escape', () => {
+      const { container, plugin } = createMockGrid();
+      plugin.afterRender();
+
+      const cell = container.querySelector('[data-row="0"][data-col="0"]')!;
+      cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+      expect(container.getAttribute('aria-expanded')).toBe('true');
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+      expect(plugin.isMenuOpen()).toBe(false);
+      expect(container.getAttribute('aria-expanded')).toBe('false');
+
+      plugin.detach();
+    });
+
+    it('should remove aria-haspopup and aria-expanded on detach', () => {
+      const { container, plugin } = createMockGrid();
+      plugin.afterRender();
+      expect(container.getAttribute('aria-haspopup')).toBe('menu');
+
+      plugin.detach();
+
+      expect(container.hasAttribute('aria-haspopup')).toBe(false);
+      expect(container.hasAttribute('aria-expanded')).toBe(false);
+    });
   });
 
   describe('hideMenu / isMenuOpen', () => {

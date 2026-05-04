@@ -301,6 +301,24 @@ The menu uses these class names for advanced customization:
 | `.tbw-context-menu-shortcut` | Keyboard shortcut |
 | `.tbw-context-menu-separator` | Divider line |
 
+## Accessibility
+
+When the plugin is loaded, the grid's right-click target advertises the popup
+trigger to assistive technologies following the
+[WAI-ARIA Menu Button pattern](https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/):
+
+- `aria-haspopup="menu"` is set on the grid root once the plugin is attached.
+- `aria-expanded` is toggled between `"false"` and `"true"` to reflect the
+  menu's open state — including when it closes via <kbd>Esc</kbd>, click
+  outside, or a scroll event.
+- Menu items inside the popup use `role="menuitem"` and are reachable with
+  the arrow keys; <kbd>Enter</kbd> / <kbd>Space</kbd> activates and
+  <kbd>Esc</kbd> closes (see [Accessibility guide](/grid/guides/accessibility/)).
+
+The plugin also respects the keyboard-open path: <kbd>Shift</kbd> +
+<kbd>F10</kbd> and the dedicated <kbd>☰ Menu</kbd> key open the menu at the
+focused cell with focus moved to the first item.
+
 ## See Also
 
 - **[Selection](/grid/plugins/selection/)** — Row and cell selection

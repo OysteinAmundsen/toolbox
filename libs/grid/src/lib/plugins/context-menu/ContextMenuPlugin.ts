@@ -27,6 +27,13 @@ let globalAbortController: AbortController | null = null;
 let globalStyleSheet: HTMLStyleElement | null = null;
 /** Reference count for instances using global handlers */
 let globalHandlerRefCount = 0;
+/**
+ * Active plugin instances. The shared global close handlers (Escape / scroll /
+ * click outside) iterate this set and call `hideMenu()` on each instance so
+ * per-instance state (`isOpen`, trigger `aria-expanded`) stays in sync when a
+ * menu is closed without going through the owning plugin's API.
+ */
+const activeInstances = new Set<ContextMenuPlugin>();
 
 /** Default menu items when none are configured */
 const defaultItems: ContextMenuItem[] = [
@@ -161,6 +168,8 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
   private position = { x: 0, y: 0 };
   private params: ContextMenuParams | null = null;
   private menuElement: HTMLElement | null = null;
+  /** Element bound as the right-click / Shift+F10 trigger; receives `aria-haspopup` and `aria-expanded`. */
+  private triggerElement: HTMLElement | null = null;
   // #endregion
 
   // #region Lifecycle
@@ -170,6 +179,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     super.attach(grid);
     this.installGlobalHandlers();
     globalHandlerRefCount++;
+    activeInstances.add(this);
   }
 
   /** @internal */
@@ -178,8 +188,14 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
       this.menuElement.remove();
       this.menuElement = null;
     }
+    if (this.triggerElement) {
+      this.triggerElement.removeAttribute('aria-haspopup');
+      this.triggerElement.removeAttribute('aria-expanded');
+      this.triggerElement = null;
+    }
     this.isOpen = false;
     this.params = null;
+    activeInstances.delete(this);
     this.uninstallGlobalHandlers();
   }
   // #endregion
@@ -310,8 +326,13 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
       const signal = globalAbortController.signal;
 
       const closeAllMenus = () => {
-        const menus = document.querySelectorAll('.tbw-context-menu');
-        menus.forEach((menu) => menu.remove());
+        // Route through each plugin instance so per-instance state
+        // (`isOpen`, trigger `aria-expanded`) stays consistent. Falls back to
+        // a DOM sweep for any orphaned menus (e.g. plugin already detached).
+        for (const instance of activeInstances) {
+          if (instance.isMenuOpen()) instance.hideMenu();
+        }
+        document.querySelectorAll('.tbw-context-menu').forEach((menu) => menu.remove());
       };
 
       // Close menu on click outside
@@ -470,9 +491,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
         if (item.action) {
           item.action(params);
         }
-        this.menuElement?.remove();
-        this.menuElement = null;
-        this.isOpen = false;
+        this.hideMenu();
       },
       this.grid?.gridConfig?.icons?.submenuArrow,
     );
@@ -484,6 +503,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     this.copyGridStyles(this.menuElement);
     positionMenu(this.menuElement, x, y);
     this.isOpen = true;
+    this.triggerElement?.setAttribute('aria-expanded', 'true');
 
     if (focusFirst) {
       focusFirstMenuItem(this.menuElement);
@@ -506,6 +526,12 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     // Check if handler already attached
     if (container.getAttribute('data-context-menu-bound') === 'true') return;
     container.setAttribute('data-context-menu-bound', 'true');
+
+    // Advertise the popup-menu trigger to assistive tech (WAI-ARIA Menu Button).
+    // Bound to the same element that listens for `contextmenu` / Shift+F10.
+    this.triggerElement = container as HTMLElement;
+    this.triggerElement.setAttribute('aria-haspopup', 'menu');
+    this.triggerElement.setAttribute('aria-expanded', this.isOpen ? 'true' : 'false');
 
     container.addEventListener('contextmenu', (e: Event) => {
       const event = e as MouseEvent;
@@ -663,7 +689,10 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     if (this.menuElement) {
       this.menuElement.remove();
       this.menuElement = null;
+    }
+    if (this.isOpen) {
       this.isOpen = false;
+      this.triggerElement?.setAttribute('aria-expanded', 'false');
     }
   }
 

@@ -131,6 +131,11 @@ describe('Selection × Editing × external row replacement (#284)', () => {
       const selection = grid.getPluginByName('selection') as SelectionPlugin;
       const editing = grid.getPluginByName('editing') as EditingPlugin;
 
+      let selectionChangeCount = 0;
+      grid.addEventListener('selection-change', () => {
+        selectionChangeCount++;
+      });
+
       editing.beginBulkEdit(2);
       await nextFrame();
 
@@ -140,6 +145,8 @@ describe('Selection × Editing × external row replacement (#284)', () => {
       // and getSelectedRows() includes the actual row reference.
       expect(selection.getSelectedRowIndices()).toContain(2);
       expect(selection.getSelectedRows()).toContain(grid.rows[2]);
+      // The auto-select handler must emit exactly one selection-change.
+      expect(selectionChangeCount).toBe(1);
     });
 
     it('broadcasts edit-open and edit-close on the DOM (consumer-visible)', async () => {

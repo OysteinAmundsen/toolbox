@@ -312,6 +312,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // EditingPlugin) — `edit-close` is intentionally ignored so existing
     // selections are preserved when the user finishes editing.
     this.on<{ rowIndex: number; row: unknown }>('edit-open', ({ rowIndex, row }) => {
+      if (!this.isSelectionEnabled()) return;
       if (row == null || rowIndex < 0) return;
       if (this.config.mode !== 'row') return;
       if (!this.isRowSelectable(rowIndex)) return;

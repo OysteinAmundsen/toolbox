@@ -68,6 +68,7 @@ related: [grid-core, grid-features]
 - DIRECT ACCESS: `this.grid.getPluginByName('multiSort')` or `this.getPlugin(MultiSortPlugin)`
 - INVARIANT: events are one-way notifications; queries are synchronous state retrieval
 - PATTERN: use events for state broadcasts (sort-change, filter-change); use queries for state reads within a lifecycle phase
+- DECIDED (May 2026, #284): when an existing `emit()`-only event needs to also drive other plugins, **promote it to `broadcast()`** rather than inventing a parallel plugin-bus event. EditingPlugin's `edit-open` / `edit-close` were `emit()` (DOM only); SelectionPlugin needs to know the actively edited row in `mode: 'row'` so `getSelectedRows()` reflects what the user is visibly editing. Wrong fix: add a new `'editing-row-change'` event for plugin-bus consumers — doubles the event surface, requires a new type, and consumer-facing `addEventListener('editing-row-change')` would compete with `addEventListener('edit-open')`. Right fix: change `this.emit(...)` → `this.broadcast(...)` in EditingPlugin's `#startRowEdit` / `#exitRowEdit`. `broadcast` reaches DOM AND the plugin bus, so existing consumers see no behavior change while plugins like SelectionPlugin can subscribe via `this.on('edit-open', ...)`. WHY: minimal API surface, single event name across both audiences, zero bundle cost. RULE: before adding a new event for inter-plugin coordination, check whether an existing `emit()` event covers the same semantic moment — if so, promote it.
 
 ## event-registry (DataGridEventMap)
 
@@ -174,6 +175,9 @@ DECIDED (May 2026, #264 WAI-ARIA Treegrid roles for Tree + GroupingRows): when e
 ### Selection & Navigation
 
 **Selection** — OWNS: selected rows/cells, ranges, mode. HOOKS: onCellClick, onRowClick, onKeyDown, afterCellRender, processColumns (checkbox column). EVENTS: selection-change. MODES: cell, row, range
+
+- DECIDED (May 2026, #284): SelectionPlugin clears selection when the host swaps the source `rows` array to a different size, gated on `data-change` with a changed `sourceRowCount`. WHY: stored row indices resolve against the post-processRows `_rows` array; replacing the source collection invalidates them and `getSelectedRows()` would silently return the wrong objects (or out-of-bounds nothing). Implementation: `attach()` keeps a `lastSourceRowCount = -1` closure, listens for `data-change`, and calls `clearSelectionSilent()` only when count changed AND there is an active selection. In-place cell edits (same count, same array length even if reference changes) preserve selection. RULED OUT: clearing on every `data-change` — would wipe selection on every cell edit. RULED OUT: deep-equality check against previous rows — too expensive in hot path.
+- DECIDED (May 2026, #284): SelectionPlugin auto-selects the row entering edit mode in `mode: 'row'` so `getSelectedRows()` always reflects what the user is visibly editing. Listens to `edit-open` (which EditingPlugin now `broadcast()`s — see inter-plugin-communication DECIDED). Gating: skip if `mode !== 'row'`, skip if `isRowSelectable(rowIndex)` returns false, skip if already selected. With `multiSelect: false` the existing selection is replaced; otherwise the edited row is added to the set so multi-select state survives entering edit on a third row. Intentionally NO listener on `edit-close` — selection persists after edit ends so the user can act on the just-edited row. Tests: `selection-editing-integration.spec.ts`.
 
 ### Editing & Undo
 

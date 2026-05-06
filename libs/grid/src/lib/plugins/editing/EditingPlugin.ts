@@ -1930,9 +1930,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
       this.#syncGridEditState();
 
-      // Emit edit-open event (row mode only)
+      // Broadcast edit-open so consumers (DOM listeners) AND other plugins
+      // (notably SelectionPlugin via the plugin event bus) stay in sync with
+      // the row currently being edited. Issue #284.
+      // Row mode only — in grid mode every row is perpetually editable.
       if (!this.#isGridMode) {
-        this.emit<EditOpenDetail<T>>('edit-open', {
+        this.broadcast<EditOpenDetail<T>>('edit-open', {
           rowIndex,
           rowId: this.#activeEditRowId ?? '',
           row: rowData,
@@ -2135,9 +2138,10 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       this.#pendingFocusRestore = false;
     }
 
-    // Emit edit-close event (row mode only, fires for both commit and revert)
+    // Broadcast edit-close (row mode only, fires for both commit and revert)
+    // so consumers AND other plugins receive it. Issue #284.
     if (!this.#isGridMode && current) {
-      this.emit<EditCloseDetail<T>>('edit-close', {
+      this.broadcast<EditCloseDetail<T>>('edit-close', {
         rowIndex,
         rowId: rowId ?? '',
         row: current,

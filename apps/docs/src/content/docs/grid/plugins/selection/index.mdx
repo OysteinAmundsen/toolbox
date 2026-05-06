@@ -333,7 +333,7 @@ tbw-grid {
 
 | Plugin | Integration |
 |--------|-------------|
-| [EditingPlugin](/grid/plugins/editing/) | Click-to-select + double-click-to-edit |
+| [EditingPlugin](/grid/plugins/editing/) | Click-to-select + double-click-to-edit. In `mode: 'row'` the row entering edit is auto-added to the selection so `getSelectedRows()` always reflects the row the user is visibly editing. With `multiSelect: false` the selection is replaced; otherwise the edited row is added to the existing set. Selection is also automatically cleared when the host replaces the `rows` array with a different number of source rows, preventing stale indices from pointing at the wrong rows. |
 | [ClipboardPlugin](/grid/plugins/clipboard/) | Copy/paste selected cells (requires SelectionPlugin) |
 | [FilteringPlugin](/grid/plugins/filtering/) | Filter data, then select from results |
 | [ContextMenuPlugin](/grid/plugins/context-menu/) | Right-click selected rows for actions |

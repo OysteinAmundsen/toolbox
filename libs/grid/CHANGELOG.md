@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.7.1...grid-2.7.2) (2026-05-06)
+
+
+### Bug Fixes
+
+* **selection,editing:** clear stale selection on rows replacement; auto-select edited row ([#284](https://github.com/OysteinAmundsen/toolbox/issues/284)) ([#285](https://github.com/OysteinAmundsen/toolbox/issues/285)) ([4c64ddd](https://github.com/OysteinAmundsen/toolbox/commit/4c64ddd4000d76db2b4d08632c6dc9487e7198f4))
+
 ## [2.7.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.7.0...grid-2.7.1) (2026-05-06)
 
 

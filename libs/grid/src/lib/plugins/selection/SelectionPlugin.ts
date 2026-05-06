@@ -302,6 +302,52 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.on('group-toggle', () => this.clearSelectionSilent());
     this.on('tree-expand', () => this.clearSelectionSilent());
     this.on('sort-change', () => this.clearSelectionSilent());
+
+    // Auto-select the row currently being edited so consumers of getSelectedRows()
+    // / selectedRows() always see the row the user is actually working with.
+    // Issue #284: editing and selection were independent, so a row could be in
+    // edit mode while selectedRows() returned a stale (or different) row.
+    // Only meaningful in row mode — cell mode tracks single-cell focus, range
+    // mode is for bulk selection. We listen to `edit-open` (broadcast by
+    // EditingPlugin) — `edit-close` is intentionally ignored so existing
+    // selections are preserved when the user finishes editing.
+    this.on<{ rowIndex: number; row: unknown }>('edit-open', ({ rowIndex, row }) => {
+      if (!this.isSelectionEnabled()) return;
+      if (row == null || rowIndex < 0) return;
+      if (this.config.mode !== 'row') return;
+      if (!this.isRowSelectable(rowIndex)) return;
+      if (this.selected.has(rowIndex)) return;
+      // multiSelect: false → replace; otherwise add to existing set so
+      // multi-selection is preserved when the user enters edit on one row.
+      if (this.config.multiSelect === false) {
+        this.selected.clear();
+      }
+      this.selected.add(rowIndex);
+      this.lastSelected = rowIndex;
+      this.anchor = rowIndex;
+      this.explicitSelection = true;
+      this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+      this.requestAfterRender();
+    });
+
+    // Source-row collection replaced from outside (host swapped `[rows]`).
+    // `data-change` also fires for in-place cell edits, so gate on sourceRowCount
+    // changing — the only signal that the source collection actually grew/shrank.
+    // Without this, stored row indices resolve against a different array and
+    // getSelectedRows() silently returns the wrong rows.
+    let lastSourceRowCount = -1;
+    grid.addEventListener(
+      'data-change',
+      ((event: CustomEvent<{ sourceRowCount: number }>) => {
+        const { sourceRowCount } = event.detail;
+        const hasSelection = this.selected.size > 0 || this.ranges.length > 0 || this.selectedCell !== null;
+        if (lastSourceRowCount !== -1 && sourceRowCount !== lastSourceRowCount && hasSelection) {
+          this.clearSelectionSilent();
+        }
+        lastSourceRowCount = sourceRowCount;
+      }) as EventListener,
+      { signal: this.disconnectSignal },
+    );
   }
 
   /**

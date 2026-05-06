@@ -147,8 +147,14 @@ Plugins inject their own CSS via `adoptedStyleSheets` in the `tbw-plugins` casca
 | **Selection** | `.tbw-cell-selected`, `.tbw-row-selected` | Selected cells and rows highlight |
 | **Editing** | `.tbw-cell-editing`, `.tbw-row-dirty`, `.tbw-row-new` | Active editor and dirty tracking indicators |
 | **Filtering** | `.tbw-filter-active` | Filter icon active state |
-| **Grouping** | `.tbw-group-row`, `.tbw-group-toggle` | Group header rows and expand/collapse icons |
+| **Grouping** | `.tbw-group-row`, `.tbw-group-toggle`, `.tbw-row-expanded` | Group header rows, expand/collapse icons, expanded group |
+| **Tree** | `.tbw-row-expanded` | Parent rows whose children are visible |
+| **Master/Detail** | `.tbw-row-expanded` | Master rows whose detail panel is showing |
 | **Responsive** | `.tbw-card-view`, `.tbw-card-row` | Card layout mode styling |
+
+:::tip[Style expanded rows with `.tbw-row-expanded`, not `[aria-expanded]`]
+Tree, GroupingRows, and MasterDetail all toggle `.tbw-row-expanded` on the row element when it is in an expanded state. Use this class for theming. The `aria-expanded` attribute is reserved for assistive technology and may move (MasterDetail puts it on the toggle button, not the row), so styling against `[aria-expanded="true"]` is fragile and framework-specific.
+:::
 
 Override in your theme:
 
@@ -159,6 +165,9 @@ Override in your theme:
   }
   tbw-grid .tbw-row-dirty {
     border-left: 3px solid orange;
+  }
+  tbw-grid .tbw-row-expanded {
+    background: rgba(25, 118, 210, 0.05);
   }
 }
 ```

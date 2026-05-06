@@ -625,10 +625,18 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       }
     }
 
-    // Insert detail rows for expanded rows that are visible
+    // Insert detail rows for expanded rows that are visible. We also toggle
+    // `.tbw-row-expanded` on every visible master row (matches Tree /
+    // GroupingRows) so devs can style expanded rows via CSS instead of
+    // depending on `[aria-expanded="true"]` (which lives on the toggle
+    // button, not the row). MUST clear on the negative branch \u2014 the row
+    // pool recycles elements as the virtual window slides.
     for (const [rowIndex, rowEl] of visibleRowMap) {
       const row = this.rows[rowIndex];
-      if (!row || !this.expandedRows.has(row)) continue;
+      if (!row) continue;
+      const isExpanded = this.expandedRows.has(row);
+      rowEl.classList.toggle('tbw-row-expanded', isExpanded);
+      if (!isExpanded) continue;
 
       // Check if detail already exists for this row
       const existingDetail = this.detailElements.get(row);

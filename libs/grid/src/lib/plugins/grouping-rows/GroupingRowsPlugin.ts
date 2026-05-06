@@ -703,6 +703,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     rowEl.setAttribute('data-group-depth', String(row.__groupDepth));
     rowEl.setAttribute('role', 'row');
     rowEl.setAttribute('aria-expanded', String(row.__groupExpanded));
+    // Public theming hook — see also TreePlugin / MasterDetailPlugin.
+    rowEl.classList.toggle('tbw-row-expanded', !!row.__groupExpanded);
     // WAI-ARIA Treegrid: group rows announce their hierarchical position.
     const groupMeta = this.flatMeta[_rowIndex];
     if (groupMeta) {

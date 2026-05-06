@@ -1067,6 +1067,58 @@ describe('tree plugin integration', () => {
       expect(dataRows[3].hasAttribute('aria-expanded')).toBe(false);
     });
 
+    it('clears stale aria-expanded on leaf rows when DOM elements are recycled (#282)', async () => {
+      const grid = document.createElement('tbw-grid') as GridElement;
+      document.body.appendChild(grid);
+
+      const treePlugin = new TreePlugin({
+        defaultExpanded: false,
+        childrenField: 'children',
+      });
+
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name' }],
+        plugins: [treePlugin],
+      };
+
+      grid.rows = [
+        { id: 'p1', name: 'Parent 1', children: [{ id: 'c1a', name: 'Child 1a' }] },
+        { id: 'p2', name: 'Parent 2', children: [{ id: 'c2a', name: 'Child 2a' }] },
+        { id: 'p3', name: 'Parent 3', children: [{ id: 'c3a', name: 'Child 3a' }] },
+      ];
+
+      await waitUpgrade(grid);
+
+      // Expand bottom-up: P3 first, then P2, then P1. Reproduces the issue's
+      // "expand row 3 -> 2 -> 1" sequence — DOM rows below the newly-expanded
+      // parent get recycled into newly-revealed child rows.
+      treePlugin.expand('p3');
+      await new Promise((r) => requestAnimationFrame(r));
+      treePlugin.expand('p2');
+      await new Promise((r) => requestAnimationFrame(r));
+      treePlugin.expand('p1');
+      await new Promise((r) => requestAnimationFrame(r));
+
+      // Flattened order: P1, c1a, P2, c2a, P3, c3a — only the parents may
+      // carry aria-expanded; every child row must be free of it. The
+      // `tbw-row-expanded` class is the public theming hook and must follow
+      // the same rule.
+      const dataRows = Array.from(grid.querySelectorAll('.data-grid-row'));
+      expect(dataRows).toHaveLength(6);
+      expect(dataRows[0].getAttribute('aria-expanded')).toBe('true'); // P1
+      expect(dataRows[0].classList.contains('tbw-row-expanded')).toBe(true);
+      expect(dataRows[1].hasAttribute('aria-expanded')).toBe(false); // c1a
+      expect(dataRows[1].classList.contains('tbw-row-expanded')).toBe(false);
+      expect(dataRows[2].getAttribute('aria-expanded')).toBe('true'); // P2
+      expect(dataRows[2].classList.contains('tbw-row-expanded')).toBe(true);
+      expect(dataRows[3].hasAttribute('aria-expanded')).toBe(false); // c2a
+      expect(dataRows[3].classList.contains('tbw-row-expanded')).toBe(false);
+      expect(dataRows[4].getAttribute('aria-expanded')).toBe('true'); // P3
+      expect(dataRows[4].classList.contains('tbw-row-expanded')).toBe(true);
+      expect(dataRows[5].hasAttribute('aria-expanded')).toBe(false); // c3a
+      expect(dataRows[5].classList.contains('tbw-row-expanded')).toBe(false);
+    });
+
     it('restores rows-body role to grid on detach()', async () => {
       const grid = document.createElement('tbw-grid') as GridElement;
       document.body.appendChild(grid);

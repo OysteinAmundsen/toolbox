@@ -716,10 +716,18 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       rowEl.setAttribute('aria-setsize', String(treeRow.setSize));
       rowEl.setAttribute('aria-posinset', String(treeRow.posInSet));
 
-      // Set aria-expanded on parent rows for screen readers
+      // Set aria-expanded on parent rows for screen readers. MUST clear it
+      // on leaf rows: virtualization recycles row DOM elements, so a leaf
+      // row reusing a previously-expanded parent's element would otherwise
+      // inherit a stale `aria-expanded="true"` (issue #282). The matching
+      // `.tbw-row-expanded` class is the public hook for theming expanded
+      // rows — devs should style against the class, not the ARIA attribute.
       if (treeRow.hasChildren) {
         rowEl.setAttribute('aria-expanded', String(treeRow.isExpanded));
+      } else if (rowEl.hasAttribute('aria-expanded')) {
+        rowEl.removeAttribute('aria-expanded');
       }
+      rowEl.classList.toggle('tbw-row-expanded', treeRow.hasChildren && treeRow.isExpanded);
 
       if (shouldAnimate && treeRow.key && this.keysToAnimate.has(treeRow.key)) {
         rowEl.classList.add(animClass);

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.7.0...grid-2.7.1) (2026-05-06)
+
+
+### Bug Fixes
+
+* **grid:** clear stale aria-expanded on recycled rows; add .tbw-row-expanded theming hook ([#282](https://github.com/OysteinAmundsen/toolbox/issues/282)) ([a3fb5b1](https://github.com/OysteinAmundsen/toolbox/commit/a3fb5b1ab873b785b283b06b8b918d7e7703ef4b))
+
 ## [2.7.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.6.0...grid-2.7.0) (2026-05-04)
 
 

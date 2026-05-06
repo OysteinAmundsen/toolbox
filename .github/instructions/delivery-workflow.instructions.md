@@ -149,9 +149,58 @@ type(scope): short description
 ```
 
 **Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `build`, `chore`, `perf`
-**Scopes:** `grid`, `grid-angular`, `grid-react`, `themes`, `docs`, `demo`
 
-**Documentation-only commits must use `docs` type** — e.g. `docs(grid): clarify event naming in Angular examples`. Never use `feat` or `fix` for changes that only touch documentation files (MDX, README, llms.txt, llms-full.txt). Using `feat`/`fix` with a library scope triggers release-please to create a release for that library even though no code changed.
+### Scopes — name the affected part of the system
+
+The scope must identify **what part of the system** the change touches, not just the package. Plugins and features are first-class scopes — a fix in `libs/grid/src/lib/plugins/sort/` is `fix(sort): ...`, not `fix(grid): ...`. This produces a clean, navigable changelog.
+
+**Single-system scopes:**
+
+| Where the change lives                                          | Scope                          | Example                                          |
+| --------------------------------------------------------------- | ------------------------------ | ------------------------------------------------ |
+| `libs/grid/src/lib/core/**` (anything outside plugins/features) | `grid`                         | `fix(grid): correct viewport height calculation` |
+| `libs/grid/src/lib/plugins/<name>/**`                           | `<name>` (plugin folder name)  | `feat(context-menu): add aria-haspopup`          |
+| `libs/grid/src/lib/features/<name>/**`                          | `<name>` (feature folder name) | `fix(virtualization): fix overscan off-by-one`   |
+| `libs/grid-angular/**`                                          | `grid-angular`                 | `feat(grid-angular): expose onCellEdit output`   |
+| `libs/grid-react/**`                                            | `grid-react`                   | `fix(grid-react): forward ref to host element`   |
+| `libs/grid-vue/**`                                              | `grid-vue`                     | `fix(grid-vue): emit camelCase event names`      |
+| `libs/themes/**`                                                | `themes`                       | `feat(themes): add high-contrast variant`        |
+| `apps/docs/**`                                                  | `docs`                         | `docs(docs): fix broken theming guide link`      |
+| `apps/docs-e2e/**`                                              | `docs-e2e`                     | `test(docs-e2e): cover sort demo keyboard nav`   |
+| `e2e/**`                                                        | `e2e`                          | `test(e2e): add cross-framework filter spec`     |
+| `demos/**`                                                      | `demo`                         | `chore(demo): bump employee-management deps`     |
+| `tools/`, `scripts/`, root configs, `.github/workflows/`        | `tooling`                      | `build(tooling): tighten bundle budget warning`  |
+
+**When the affected system is unclear or cross-cutting** (e.g. changes to `.github/instructions/`, `.github/knowledge/`, `.github/skills/`, `AGENTS.md`, `copilot-instructions.md`, `llms.txt`, `llms-full.txt`, or any meta-change that doesn't map cleanly to one system), **omit the scope entirely** or use `grid` if the convention/decision primarily governs grid work:
+
+- `docs: define commit scope convention` — preferred when the change is workspace-wide meta
+- `docs(grid): define commit scope convention` — acceptable when the convention is grid-centric
+
+Do **not** invent catch-all scopes like `repo`, `meta`, or `workspace`. If you can't pick a real system, no scope is the right answer.
+
+> **Plugin/feature scope = folder name, exactly.** Lowercase, kebab-case, as it appears under `libs/grid/src/lib/plugins/<name>/` or `libs/grid/src/lib/features/<name>/`. Plugins and features follow the same rule — they are two sides of the same coin. Do **not** scope a plugin change as `grid` just because it lives inside the grid package; that loses the signal in the changelog.
+
+**Chained (multi-system) scopes:**
+
+When a single commit legitimately spans multiple parts of the system, chain them with commas (Conventional Commits doesn't define multi-scope, but comma is the de-facto convention and `release-please` handles it). Order alphabetically when listing peer plugins/features so the form is deterministic; when mixing core with plugins/features, list `grid` first to read as "core plus these plugins":
+
+- `fix(grid,sort): handle sort reset when columns array changes`
+- `feat(filter,sort): unify operator metadata shape`
+- `refactor(grid-react,grid-vue): share event-name normalizer`
+
+Prefer splitting commits over long chains. If a commit needs more than ~3 scopes, it is probably doing too much — break it up.
+
+**Documentation-only commits must use `docs` type** — but the scope still names the **system being documented**, not `docs`. The `docs` _scope_ is reserved for changes to the docs site infrastructure itself (`apps/docs/`).
+
+| Change                                      | Correct                                           | Wrong                                 |
+| ------------------------------------------- | ------------------------------------------------- | ------------------------------------- |
+| MDX page about the sort plugin              | `docs(sort): clarify multi-sort behavior`         | `docs(docs): ...` / `feat(sort): ...` |
+| README for `@toolbox-web/grid-angular`      | `docs(grid-angular): document signal API`         | `docs(docs): ...`                     |
+| New knowledge file in `.github/knowledge/`  | `docs: add data-flow-traces` or `docs(grid): ...` | `docs(repo): ...`                     |
+| Update to llms.txt summarizing core changes | `docs(grid): refresh API summary`                 | `docs(repo): ...`                     |
+| Astro/Starlight config in `apps/docs/`      | `docs(docs): upgrade Starlight to 0.38`           | `docs(grid): ...`                     |
+
+Never use `feat` or `fix` for changes that only touch documentation files (MDX, README, llms.txt, llms-full.txt, knowledge files). Using `feat`/`fix` with a library scope triggers release-please to create a release for that library even though no code changed.
 
 **Prompt format:** After completing a logical unit of work, suggest:
 

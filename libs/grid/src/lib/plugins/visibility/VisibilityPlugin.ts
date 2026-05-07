@@ -103,6 +103,7 @@ type ColumnEntry = {
  * @see ReorderPlugin for drag-to-reorder integration
  *
  * @internal Extends BaseGridPlugin
+ * @since 0.1.1
  */
 export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   /**

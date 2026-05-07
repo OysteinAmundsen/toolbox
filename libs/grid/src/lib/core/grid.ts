@@ -161,6 +161,7 @@ import { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS } from './types';
 // Injected by Vite at build time from package.json
 declare const __GRID_VERSION__: string;
 
+/** @since 0.1.1 */
 export class DataGridElement<T = any> extends HTMLElement implements InternalGrid<T> {
   // TODO: Rename to 'data-grid' when migration is complete
   static readonly tagName = 'tbw-grid';

@@ -8,6 +8,7 @@
  * Predicate that decides whether a given row should be sticky.
  * Receives the row data and its current index in the post-processed row list.
  * Return any truthy value to mark the row as sticky.
+ * @since 2.7.0
  */
 export type StickyPredicate = (row: unknown, index: number) => unknown;
 
@@ -19,6 +20,7 @@ export type StickyPredicate = (row: unknown, index: number) => unknown;
  *   so the new one slides in (iOS section-header behavior).
  * - `'stack'` — sticky rows accumulate below the header as they scroll past,
  *   building a column of pinned rows. Capped by {@link StickyRowsConfig.maxStacked}.
+ * @since 2.7.0
  */
 export type StickyRowsMode = 'push' | 'stack';
 
@@ -43,6 +45,7 @@ export type StickyRowsMode = 'push' | 'stack';
  *   },
  * };
  * ```
+ * @since 2.7.0
  */
 export interface StickyRowsConfig {
   /**

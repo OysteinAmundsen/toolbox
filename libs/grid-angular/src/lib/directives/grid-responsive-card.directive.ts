@@ -16,6 +16,7 @@ import { contentChild, Directive, effect, ElementRef, inject, input, TemplateRef
  *   </ng-template>
  * </tbw-grid-responsive-card>
  * ```
+ * @since 0.4.0
  */
 export interface GridResponsiveCardContext<TRow = unknown> {
   /**
@@ -45,6 +46,7 @@ export const responsiveCardTemplateRegistry = new Map<HTMLElement, TemplateRef<G
  *
  * @param gridElement - The grid element to look up
  * @returns The template reference or undefined if not found
+ * @since 0.4.0
  */
 export function getResponsiveCardTemplate(
   gridElement: HTMLElement,
@@ -87,6 +89,7 @@ export function getResponsiveCardTemplate(
  *
  * @see ResponsivePlugin
  * @category Directive
+ * @since 0.4.0
  */
 @Directive({
   selector: 'tbw-grid-responsive-card',

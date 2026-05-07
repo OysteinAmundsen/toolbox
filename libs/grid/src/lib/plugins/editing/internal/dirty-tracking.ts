@@ -11,6 +11,7 @@
 
 /**
  * Detail for `dirty-change` custom events.
+ * @since 1.23.0
  */
 export interface DirtyChangeDetail<T = unknown> {
   /** Row ID (from getRowId) */
@@ -32,6 +33,7 @@ export interface DirtyChangeDetail<T = unknown> {
 /**
  * Result of getDirtyRows(): each entry has the row ID, original (baseline),
  * and current data.
+ * @since 1.23.0
  */
 export interface DirtyRowEntry<T = unknown> {
   id: string;
@@ -45,6 +47,7 @@ export interface DirtyRowEntry<T = unknown> {
  *
  * Emitted after the render pipeline completes when new baseline snapshots
  * were captured during `processRows`.
+ * @since 1.23.0
  */
 export interface BaselinesCapturedDetail {
   /** Total number of tracked baselines (not just newly captured). */

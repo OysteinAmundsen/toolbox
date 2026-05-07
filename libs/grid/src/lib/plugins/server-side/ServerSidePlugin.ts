@@ -86,6 +86,7 @@ const SCROLL_DEBOUNCE_MS = 100;
  * @see {@link ServerSideDataSource} for data source interface
  *
  * @internal Extends BaseGridPlugin
+ * @since 0.1.1
  */
 export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   /**

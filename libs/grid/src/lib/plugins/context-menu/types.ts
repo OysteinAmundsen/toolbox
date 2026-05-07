@@ -7,6 +7,7 @@
 /**
  * Context menu item definition.
  * Supports icons, shortcuts, submenus, separators, and dynamic disabled/hidden states.
+ * @since 0.1.1
  */
 export interface ContextMenuItem {
   /** Unique identifier for the menu item */
@@ -34,6 +35,7 @@ export interface ContextMenuItem {
 /**
  * Parameters passed to context menu callbacks.
  * Provides context about what element triggered the menu.
+ * @since 0.1.1
  */
 export interface ContextMenuParams {
   /** The row data object (null for header clicks) */
@@ -63,6 +65,7 @@ export interface ContextMenuParams {
 
 /**
  * Configuration options for the context menu plugin.
+ * @since 0.1.1
  */
 export interface ContextMenuConfig {
   /** Menu items - static array or function returning items */
@@ -90,6 +93,7 @@ export interface ContextMenuConfig {
  * ```
  *
  * @category Plugin Development
+ * @since 0.1.1
  */
 export interface HeaderContextMenuItem {
   /** Unique identifier for the menu item */
@@ -130,7 +134,8 @@ export interface ContextMenuState {
   menuElement: HTMLElement | null;
 }
 
-/** Event detail for the `context-menu-open` event. */
+/** Event detail for the `context-menu-open` event. * @since 0.1.1
+ */
 export interface ContextMenuOpenDetail {
   /** Context about what element triggered the menu */
   params: ContextMenuParams;

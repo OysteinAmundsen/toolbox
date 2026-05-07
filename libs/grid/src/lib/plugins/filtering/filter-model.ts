@@ -10,6 +10,7 @@ import type { FilterModel } from './types';
  * Sentinel value used in set-filter unique values to represent rows with
  * no value (null, undefined, empty array via filterValue extractor).
  * Exported so server-side implementations can use the same constant.
+ * @since 0.1.1
  */
 export const BLANK_FILTER_VALUE = '(Blank)';
 

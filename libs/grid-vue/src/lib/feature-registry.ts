@@ -30,6 +30,7 @@ export type { PluginFactory } from '@toolbox-web/grid/features/registry';
 
 /**
  * Feature names supported by the TbwGrid component.
+ * @since 0.1.0
  */
 export type FeatureName =
   | 'selection'

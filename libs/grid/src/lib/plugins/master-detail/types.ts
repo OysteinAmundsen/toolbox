@@ -26,6 +26,7 @@ export type { ExpandCollapseAnimation } from '../../core/types';
  *   }),
  * ];
  * ```
+ * @since 0.1.1
  */
 export interface MasterDetailConfig {
   /** Renderer function that returns detail content for a row */
@@ -56,7 +57,8 @@ export interface MasterDetailState {
   detailElements: Map<object, HTMLElement>;
 }
 
-/** Event detail for detail-expand event */
+/** Event detail for detail-expand event * @since 0.1.1
+ */
 export interface DetailExpandDetail {
   /** The row index that was expanded/collapsed */
   rowIndex: number;

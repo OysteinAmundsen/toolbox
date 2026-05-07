@@ -274,3 +274,18 @@ kbd {
   width: 100%;
   height: 100%;
 }
+
+/* "Since vX.Y.Z" badges in TypeDoc-generated MDX */
+.since-badge {
+  display: inline-block;
+  margin-inline-start: 0.4em;
+  padding: 0.05em 0.45em;
+  font-size: 0.72em;
+  font-weight: 600;
+  font-family: var(--sl-font-mono, ui-monospace, monospace);
+  color: var(--sl-color-text-accent, var(--sl-color-accent));
+  background: color-mix(in srgb, var(--sl-color-accent, currentColor) 12%, transparent);
+  border-radius: 999px;
+  vertical-align: 0.15em;
+  white-space: nowrap;
+}

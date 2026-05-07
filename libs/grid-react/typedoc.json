@@ -30,6 +30,7 @@
     "@remarks",
     "@returns",
     "@see",
+    "@since",
     "@throws"
   ]
 }

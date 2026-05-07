@@ -12,6 +12,7 @@ export type { ExpandCollapseAnimation } from '../../core/types';
  *   return total / values.length;
  * };
  * ```
+ * @since 0.1.1
  */
 export type CustomAggFunc = (values: number[]) => number;
 
@@ -37,13 +38,16 @@ export type CustomAggFunc = (values: number[]) => number;
  *   { field: 'margin', aggFunc: (values) => values.reduce((a, b) => a + b, 0) / values.length },
  * ];
  * ```
+ * @since 0.1.1
  */
 export type AggFunc = 'sum' | 'avg' | 'count' | 'min' | 'max' | 'first' | 'last' | CustomAggFunc;
 
-/** Sort direction for pivot rows or columns. */
+/** Sort direction for pivot rows or columns. * @since 0.1.1
+ */
 export type PivotSortDir = 'asc' | 'desc';
 
-/** Configuration for sorting pivot row groups. */
+/** Configuration for sorting pivot row groups. * @since 0.1.1
+ */
 export interface PivotSortConfig {
   /** Sort by `'label'` (group name) or `'value'` (aggregate value). Default: `'label'` */
   by?: 'label' | 'value';
@@ -59,6 +63,7 @@ export interface PivotSortConfig {
  * - `'percentOfRow'` — Show as percentage of row total
  * - `'percentOfColumn'` — Show as percentage of column total
  * - `'percentOfGrandTotal'` — Show as percentage of grand total
+ * @since 0.1.1
  */
 export type PivotValueDisplayMode = 'raw' | 'percentOfRow' | 'percentOfColumn' | 'percentOfGrandTotal';
 
@@ -69,6 +74,7 @@ export type PivotValueDisplayMode = 'raw' | 'percentOfRow' | 'percentOfColumn' |
  * - `number` — Expand group at this index
  * - `string` — Expand group with this key
  * - `string[]` — Expand groups matching these keys
+ * @since 0.1.1
  */
 export type PivotDefaultExpandedValue = boolean | number | string | string[];
 
@@ -90,6 +96,7 @@ export type PivotDefaultExpandedValue = boolean | number | string | string[];
  *   showGrandTotal: true,
  * })
  * ```
+ * @since 0.1.1
  */
 export interface PivotConfig {
   /** Whether pivot view is active on load (default: true when fields are configured) */
@@ -157,6 +164,7 @@ export interface PivotConfig {
  *
  * Multiple `PivotValueField` entries on the same `field` with different `aggFunc`
  * values create separate columns (e.g. "Revenue (Sum)" and "Revenue (Avg)").
+ * @since 0.1.1
  */
 export interface PivotValueField {
   /** The row data field to aggregate (must exist on the source row objects). */
@@ -188,6 +196,7 @@ export interface PivotState {
  *
  * Produced internally by the pivot engine after processing source rows
  * through the configured `rowGroupFields`, `columnGroupFields`, and `valueFields`.
+ * @since 0.1.1
  */
 export interface PivotResult {
   /** Hierarchical pivot rows (group headers + leaf rows). */
@@ -200,6 +209,7 @@ export interface PivotResult {
   grandTotal: number;
 }
 
+/** @since 0.1.1 */
 export interface PivotRow {
   /** Unique key for this row (hierarchical path) */
   rowKey: string;
@@ -226,7 +236,8 @@ export interface PivotRow {
 
 // #region Event Detail Types
 
-/** Detail for `pivot-toggle` event. Fired when a group is expanded/collapsed. */
+/** Detail for `pivot-toggle` event. Fired when a group is expanded/collapsed. * @since 0.1.1
+ */
 export interface PivotToggleDetail {
   /** The pivot row key that was toggled. */
   key: string;
@@ -238,13 +249,15 @@ export interface PivotToggleDetail {
   depth: number;
 }
 
-/** Detail for `pivot-state-change` event. Fired when pivot is enabled or disabled. */
+/** Detail for `pivot-state-change` event. Fired when pivot is enabled or disabled. * @since 0.1.1
+ */
 export interface PivotStateChangeDetail {
   /** Whether pivot is now active. */
   active: boolean;
 }
 
-/** Detail for `pivot-config-change` event. Fired when pivot configuration changes via the panel. */
+/** Detail for `pivot-config-change` event. Fired when pivot configuration changes via the panel. * @since 0.1.1
+ */
 export interface PivotConfigChangeDetail {
   /** The configuration property that changed. */
   property: string;

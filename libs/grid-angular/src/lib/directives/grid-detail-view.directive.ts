@@ -4,6 +4,7 @@ import type { ExpandCollapseAnimation } from '@toolbox-web/grid';
 /**
  * Context object passed to the detail renderer template.
  * Contains the row data for the expanded detail view.
+ * @since 0.1.0
  */
 export interface GridDetailContext<TRow = unknown> {
   /** The row data (implicit binding for let-row) */
@@ -18,6 +19,7 @@ const detailTemplateRegistry = new Map<HTMLElement, TemplateRef<GridDetailContex
 /**
  * Gets the detail template registered for a given grid element.
  * Used by AngularGridAdapter to retrieve templates at render time.
+ * @since 0.1.0
  */
 export function getDetailTemplate(gridElement: HTMLElement): TemplateRef<GridDetailContext> | undefined {
   // Look for tbw-grid-detail child and get its template
@@ -76,6 +78,7 @@ export function getDetailTemplate(gridElement: HTMLElement): TemplateRef<GridDet
  * ```
  *
  * @category Directive
+ * @since 0.1.0
  */
 @Directive({ selector: 'tbw-grid-detail' })
 export class GridDetailView {

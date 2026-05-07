@@ -47,6 +47,7 @@ import type { GridConfig } from './lib/core/types';
  *
  * @param config - Optional initial grid configuration
  * @returns A typed DataGridElement instance
+ * @since 0.1.1
  */
 export function createGrid<TRow = unknown>(config?: Partial<GridConfig<TRow>>): DataGridElement<TRow> {
   const grid = document.createElement('tbw-grid') as DataGridElement<TRow>;
@@ -87,6 +88,7 @@ export function createGrid<TRow = unknown>(config?: Partial<GridConfig<TRow>>): 
  *
  * @param selector - CSS selector to find the grid element
  * @returns The typed grid element (or null), either synchronously or as a Promise
+ * @since 0.1.1
  */
 export function queryGrid<TRow = unknown>(selector: string): DataGridElement<TRow> | null;
 export function queryGrid<TRow = unknown>(selector: string, parent: ParentNode): DataGridElement<TRow> | null;
@@ -135,6 +137,7 @@ export function queryGrid<TRow = unknown>(
  *
  * @see {@link DataGridEventMap} — the canonical, type-checked event registry
  * @category Events
+ * @since 0.1.1
  */
 export const DGEvents = {
   /** Emitted by core after any data mutation */
@@ -166,6 +169,7 @@ export const DGEvents = {
  * release alongside {@link DGEvents}.
  *
  * @category Events
+ * @since 0.1.1
  */
 export type DGEventName = (typeof DGEvents)[keyof typeof DGEvents];
 
@@ -184,6 +188,7 @@ export type DGEventName = (typeof DGEvents)[keyof typeof DGEvents];
  *
  * @see {@link DataGridEventMap}
  * @category Events
+ * @since 0.1.1
  */
 export const PluginEvents = {
   // Selection plugin
@@ -229,6 +234,7 @@ export const PluginEvents = {
  * release.
  *
  * @category Events
+ * @since 0.1.1
  */
 export type PluginEventName = (typeof PluginEvents)[keyof typeof PluginEvents];
 
@@ -481,6 +487,7 @@ export type { InputLikeElement } from './lib/core/types';
  * ```
  * @category Plugin Development
  * @internal
+ * @since 0.1.1
  */
 export type AsInternalGrid<T = unknown> = import('./lib/core/types').InternalGrid<T>;
 

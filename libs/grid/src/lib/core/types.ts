@@ -24,6 +24,7 @@ export type RowPositionEntry = RowPosition;
  * ```typescript
  * grid.scrollToRow(42, { align: 'center', behavior: 'smooth' });
  * ```
+ * @since 0.1.1
  */
 export interface ScrollToRowOptions {
   /**
@@ -65,6 +66,7 @@ export interface ScrollToRowOptions {
  * - `grid.fitMode` returns the resolved fitMode (e.g., 'stretch' even if you set undefined)
  * - `grid.columns` returns the effective columns after merging
  * - `grid.gridConfig` returns the full effective config
+ * @since 0.1.1
  */
 export interface PublicGrid<T = any> {
   /**
@@ -434,6 +436,7 @@ export interface PublicGrid<T = any> {
  * - `__doubleUnderscore` = deeply internal members - private outside core, only for internal functions.
  *
  * @category Plugin Development
+ * @since 0.1.1
  */
 export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   // Element methods available because DataGridElement extends HTMLElement
@@ -626,6 +629,7 @@ export type GridHost<T = any> = InternalGrid<T> & HTMLElement;
  *
  * @see {@link ColumnType} for custom type support
  * @see {@link TypeDefault} for type-level defaults
+ * @since 0.1.1
  */
 export type PrimitiveColumnType = 'number' | 'string' | 'date' | 'boolean' | 'select';
 
@@ -660,6 +664,7 @@ export type PrimitiveColumnType = 'number' | 'string' | 'date' | 'boolean' | 'se
  *
  * @see {@link PrimitiveColumnType} for built-in types
  * @see {@link TypeDefault} for defining custom type defaults
+ * @since 0.1.1
  */
 export type ColumnType = PrimitiveColumnType | (string & {});
 // #endregion
@@ -694,6 +699,7 @@ export type ColumnType = PrimitiveColumnType | (string & {});
  * @see {@link ColumnViewRenderer} for custom renderer function signature
  * @see {@link ColumnType} for type strings that can have defaults
  * @see {@link GridConfig.typeDefaults} for registering type defaults
+ * @since 0.1.1
  */
 export interface TypeDefault<TRow = unknown> {
   /**
@@ -792,6 +798,7 @@ export interface TypeDefault<TRow = unknown> {
  *
  * @see {@link ColumnConfig} for full column configuration with renderers
  * @see {@link ColumnType} for type options
+ * @since 0.1.1
  */
 export interface BaseColumnConfig<TRow = any, TValue = any> {
   /** Unique field key referencing property in row objects */
@@ -995,6 +1002,7 @@ export interface BaseColumnConfig<TRow = any, TValue = any> {
  * @see {@link ColumnViewRenderer} for custom cell renderers
  * @see {@link ColumnEditorSpec} for custom cell editors
  * @see {@link HeaderRenderer} for custom header renderers
+ * @since 0.1.1
  */
 export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
   /**
@@ -1114,6 +1122,7 @@ export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
  *
  * @see {@link ColumnConfig} for individual column options
  * @see {@link GridConfig.columns} for setting columns on the grid
+ * @since 0.1.1
  */
 export type ColumnConfigMap<TRow = any> = ColumnConfig<TRow>[];
 // #endregion
@@ -1168,6 +1177,7 @@ export type ColumnConfigMap<TRow = any> = ColumnConfig<TRow>[];
  * ```
  *
  * @see {@link ColumnEditorContext} for the context passed to factory functions
+ * @since 0.1.1
  */
 export type ColumnEditorSpec<TRow = unknown, TValue = unknown> =
   | string // custom element tag name
@@ -1218,6 +1228,7 @@ export type ColumnEditorSpec<TRow = unknown, TValue = unknown> =
  * ```
  *
  * @see {@link ColumnEditorSpec} for editor specification options
+ * @since 0.1.1
  */
 export interface ColumnEditorContext<TRow = any, TValue = any> {
   /** Underlying full row object for the active edit. */
@@ -1338,6 +1349,7 @@ export interface ColumnEditorContext<TRow = any, TValue = any> {
  * ```
  *
  * @see {@link ColumnViewRenderer} for the renderer function signature
+ * @since 0.1.1
  */
 export interface CellRenderContext<TRow = any, TValue = any> {
   /** Row object for the cell being rendered. */
@@ -1401,6 +1413,7 @@ export interface CellRenderContext<TRow = any, TValue = any> {
  * ```
  *
  * @see {@link CellRenderContext} for available context properties
+ * @since 0.1.1
  */
 export type ColumnViewRenderer<TRow = unknown, TValue = unknown> = (
   ctx: CellRenderContext<TRow, TValue>,
@@ -1420,6 +1433,7 @@ export type ColumnViewRenderer<TRow = unknown, TValue = unknown> = (
  *   return span;
  * }
  * ```
+ * @since 0.1.1
  */
 export interface HeaderLabelContext<TRow = unknown> {
   /** Column configuration reference. */
@@ -1445,6 +1459,7 @@ export interface HeaderLabelContext<TRow = unknown> {
  *   return div;
  * }
  * ```
+ * @since 0.1.1
  */
 export interface HeaderCellContext<TRow = unknown> {
   /** Column configuration reference. */
@@ -1500,6 +1515,7 @@ export interface HeaderCellContext<TRow = unknown> {
  *
  * @see {@link HeaderLabelContext} for context properties
  * @see {@link HeaderRenderer} for full header control
+ * @since 0.1.1
  */
 export type HeaderLabelRenderer<TRow = unknown> = (ctx: HeaderLabelContext<TRow>) => Node | string | void | null;
 
@@ -1543,6 +1559,7 @@ export type HeaderLabelRenderer<TRow = unknown> = (ctx: HeaderLabelContext<TRow>
  *
  * @see {@link HeaderCellContext} for context properties and helper functions
  * @see {@link HeaderLabelRenderer} for simpler label-only customization
+ * @since 0.1.1
  */
 export type HeaderRenderer<TRow = unknown> = (ctx: HeaderCellContext<TRow>) => Node | string | void | null;
 // #endregion
@@ -1583,6 +1600,7 @@ export type HeaderRenderer<TRow = unknown> = (ctx: HeaderCellContext<TRow>) => N
  * GridElement.registerAdapter(new AngularGridAdapter(injector, appRef));
  * ```
  * @category Framework Adapters
+ * @since 0.1.1
  */
 export interface FrameworkAdapter {
   /**
@@ -1722,6 +1740,7 @@ export interface ColumnParsedAttributes {
  * @see {@link ColumnConfig} for public column properties
  * @category Plugin Development
  * @internal
+ * @since 0.1.1
  */
 export interface ColumnInternal<T = any> extends ColumnConfig<T>, ColumnParsedAttributes {
   __autoSized?: boolean;
@@ -1742,6 +1761,7 @@ export interface ColumnInternal<T = any> extends ColumnConfig<T>, ColumnParsedAt
  *
  * @category Plugin Development
  * @internal
+ * @since 0.1.1
  */
 export interface RowElementInternal extends HTMLElement {
   /** Epoch marker for row render invalidation */
@@ -1769,6 +1789,7 @@ export interface ElementWithPart {
  *
  * @category Plugin Development
  * @internal
+ * @since 0.1.1
  */
 export interface CompiledViewFunction<T = any> {
   (ctx: CellContext<T>): string;
@@ -1795,6 +1816,7 @@ export interface CompiledViewFunction<T = any> {
  * @see {@link CellRenderContext} for public cell render context
  * @see {@link EditorExecContext} for editor context with commit/cancel
  * @category Plugin Development
+ * @since 0.1.1
  */
 export interface CellContext<T = any> {
   row: T;
@@ -1828,6 +1850,7 @@ export interface CellContext<T = any> {
  * @see {@link ColumnEditorContext} for public editor context
  * @see {@link CellContext} for base cell context
  * @category Plugin Development
+ * @since 0.1.1
  */
 export interface EditorExecContext<T = any> extends CellContext<T> {
   commit: (newValue: unknown) => void;
@@ -1861,6 +1884,7 @@ export interface EditorExecContext<T = any> extends CellContext<T> {
  *
  * @see {@link ColumnResizeDetail} for resize event details
  * @category Plugin Development
+ * @since 0.1.1
  */
 export interface ResizeController {
   start: (e: MouseEvent, colIndex: number, cell: HTMLElement) => void;
@@ -1895,6 +1919,7 @@ export interface ResizeController {
  *
  * @see {@link GridConfig.rowHeight} for configuring row height
  * @category Plugin Development
+ * @since 0.1.1
  */
 export interface VirtualState {
   enabled: boolean;
@@ -1964,6 +1989,7 @@ export interface VirtualState {
  *
  * @category Plugin Development
  * @internal
+ * @since 0.1.1
  */
 export type InputLikeElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | { value: unknown };
 // #endregion
@@ -2002,6 +2028,7 @@ export type InputLikeElement = HTMLInputElement | HTMLTextAreaElement | HTMLSele
  * ```
  *
  * @see {@link AggregatorRef} for aggregation options
+ * @since 0.1.1
  */
 export interface RowGroupRenderConfig {
   /** If true, group rows span all columns (single full-width cell). Default false. */
@@ -2042,6 +2069,7 @@ export interface RowGroupRenderConfig {
  * ```
  *
  * @see {@link RowGroupRenderConfig} for using aggregators in group rows
+ * @since 0.1.1
  */
 export type AggregatorRef = string | ((rows: unknown[], field: string, column?: unknown) => unknown);
 
@@ -2070,6 +2098,7 @@ export type AggregatorRef = string | ((rows: unknown[], field: string, column?: 
  *
  * @see {@link ColumnConfig} for column configuration options
  * @see {@link ColumnType} for type inference rules
+ * @since 0.1.1
  */
 export interface InferredColumnResult<TRow = unknown> {
   /** Generated column configurations based on data analysis */
@@ -2095,6 +2124,7 @@ export interface InferredColumnResult<TRow = unknown> {
  * // Via gridConfig
  * grid.gridConfig = { fitMode: 'stretch' };
  * ```
+ * @since 0.1.1
  */
 export const FitModeEnum = {
   STRETCH: 'stretch',
@@ -2103,6 +2133,7 @@ export const FitModeEnum = {
 /**
  * Column sizing mode — determines how columns fill the available grid width.
  * Use `FitModeEnum` to access individual values by key.
+ * @since 0.1.1
  */
 export type FitMode = (typeof FitModeEnum)[keyof typeof FitModeEnum];
 // #endregion
@@ -2133,6 +2164,7 @@ export type FitMode = (typeof FitModeEnum)[keyof typeof FitModeEnum];
  * ```
  *
  * @category Plugin Development
+ * @since 0.1.1
  */
 export interface GridPlugin {
   /** Unique plugin identifier */
@@ -2200,6 +2232,7 @@ export interface PluginNameMap {}
  *   }
  * }
  * ```
+ * @since 0.1.1
  */
 export interface FeatureConfig<TRow = unknown> {
   /**
@@ -2219,6 +2252,7 @@ export interface FeatureConfig<TRow = unknown> {
  * Override individual messages via {@link A11yConfig.messages} for i18n.
  *
  * @group Accessibility
+ * @since 0.1.1
  */
 export interface A11yMessages {
   /** Announced when sorting is applied. */
@@ -2263,6 +2297,7 @@ export interface A11yMessages {
  *   },
  * }
  * ```
+ * @since 0.1.1
  */
 export interface A11yConfig {
   /**
@@ -2281,6 +2316,7 @@ export interface A11yConfig {
 /**
  * Default English announcement messages.
  * Used when no custom messages are provided via {@link A11yConfig.messages}.
+ * @since 0.1.1
  */
 export const DEFAULT_A11Y_MESSAGES: A11yMessages = {
   sortApplied: (column, direction) => `Sorted by ${column}, ${direction}`,
@@ -2329,6 +2365,7 @@ export const DEFAULT_A11Y_MESSAGES: A11yMessages = {
  * grid.columns = [{ field: 'name' }, { field: 'age' }];
  * grid.fitMode = 'stretch';
  * ```
+ * @since 0.1.1
  */
 export interface GridConfig<TRow = any> {
   /**
@@ -2784,6 +2821,7 @@ export interface GridConfig<TRow = any> {
  *
  * @see {@link SortHandler} for custom sort handler signature
  * @see {@link SortChangeDetail} for sort change events
+ * @since 0.1.1
  */
 export interface SortState {
   /** Field to sort by */
@@ -2825,6 +2863,7 @@ export interface SortState {
  * @see {@link SortState} for the sort state object
  * @see {@link GridConfig.sortHandler} for configuring the handler (and its caveats)
  * @see {@link BaseColumnConfig.sortComparator} — recommended per-column comparator
+ * @since 0.1.1
  */
 export type SortHandler<TRow = any> = (
   rows: TRow[],
@@ -2855,6 +2894,7 @@ export type SortHandler<TRow = any> = (
  *
  * @see {@link LoadingRenderer} for custom loading renderer
  * @see {@link LoadingContext} for context passed to renderers
+ * @since 0.1.1
  */
 export type LoadingSize = 'large' | 'small';
 
@@ -2879,6 +2919,7 @@ export type LoadingSize = 'large' | 'small';
  *
  * @see {@link LoadingRenderer} for the renderer function signature
  * @see {@link LoadingSize} for available size variants
+ * @since 0.1.1
  */
 export interface LoadingContext {
   /** The size variant being rendered: 'large' for grid-level, 'small' for row/cell */
@@ -2926,6 +2967,7 @@ export interface LoadingContext {
  *
  * @see {@link LoadingContext} for the context object passed to the renderer
  * @see {@link LoadingSize} for size variants ('large' | 'small')
+ * @since 0.1.1
  */
 export type LoadingRenderer = (context: LoadingContext) => HTMLElement | string;
 
@@ -2951,6 +2993,7 @@ export type LoadingRenderer = (context: LoadingContext) => HTMLElement | string;
  *
  * @see {@link DataGridEventMap} for all event types
  * @category Events
+ * @since 0.1.1
  */
 export interface DataChangeDetail {
   /** Number of visible (processed) rows */
@@ -2980,6 +3023,7 @@ export interface DataChangeDetail {
  *
  * @see {@link DataGridEventMap} for all event types
  * @category Events
+ * @since 0.1.1
  */
 export interface TbwScrollDetail {
   /** Current vertical scroll offset in pixels (faux scrollbar). */
@@ -3028,6 +3072,7 @@ export interface TbwScrollDetail {
  *
  * @see {@link CellChangeDetail} for the event detail containing source
  * @category Data Management
+ * @since 0.1.1
  */
 export type UpdateSource = 'user' | 'cascade' | 'api';
 
@@ -3056,6 +3101,7 @@ export type UpdateSource = 'user' | 'cascade' | 'api';
  * @see {@link UpdateSource} for understanding change origins
  * @see CellCommitDetail for the commit event (editing lifecycle)
  * @category Events
+ * @since 0.1.1
  */
 export interface CellChangeDetail<TRow = unknown> {
   /** The row object (after mutation) */
@@ -3097,6 +3143,7 @@ export interface CellChangeDetail<TRow = unknown> {
  * @see {@link CellChangeDetail} for individual change events
  * @see {@link GridConfig.getRowId} for row identification
  * @category Data Management
+ * @since 0.1.1
  */
 export interface RowUpdate<TRow = unknown> {
   /** Row identifier (from getRowId) */
@@ -3129,6 +3176,7 @@ export interface RowUpdate<TRow = unknown> {
  *
  * @see {@link TransactionResult} for the result structure
  * @category Data Management
+ * @since 0.1.1
  */
 export interface RowTransaction<TRow = unknown> {
   /** Rows to insert. Appended at the end of the current view. */
@@ -3147,6 +3195,7 @@ export interface RowTransaction<TRow = unknown> {
  *
  * @see {@link RowTransaction} for the input structure
  * @category Data Management
+ * @since 0.1.1
  */
 export interface TransactionResult<TRow = unknown> {
   /** Rows that were successfully added. */
@@ -3178,6 +3227,7 @@ export interface TransactionResult<TRow = unknown> {
  * ```
  *
  * @see {@link AnimationConfig} for full animation configuration
+ * @since 0.1.1
  */
 export type AnimationMode = boolean | 'on' | 'off' | 'reduced-motion';
 
@@ -3202,6 +3252,7 @@ export type AnimationMode = boolean | 'on' | 'off' | 'reduced-motion';
  *
  * @see {@link AnimationConfig} for grid-wide animation settings
  * @see {@link ExpandCollapseAnimation} for expand/collapse-specific styles
+ * @since 0.1.1
  */
 export type AnimationStyle = 'slide' | 'fade' | 'flip' | false;
 
@@ -3226,6 +3277,7 @@ export type AnimationStyle = 'slide' | 'fade' | 'flip' | false;
  *
  * @see {@link AnimationStyle} for all animation styles
  * @see {@link AnimationConfig} for grid-wide settings
+ * @since 0.1.1
  */
 export type ExpandCollapseAnimation = 'slide' | 'fade' | false;
 
@@ -3249,6 +3301,7 @@ export type ExpandCollapseAnimation = 'slide' | 'fade' | false;
  * ```
  *
  * @see {@link AnimationConfig} for animation configuration
+ * @since 0.1.1
  */
 export type RowAnimationType = 'change' | 'insert' | 'remove';
 
@@ -3280,6 +3333,7 @@ export type RowAnimationType = 'change' | 'insert' | 'remove';
  * ```
  *
  * @see {@link AnimationMode} for mode options
+ * @since 0.1.1
  */
 export interface AnimationConfig {
   /**
@@ -3303,7 +3357,8 @@ export interface AnimationConfig {
   easing?: string;
 }
 
-/** Default animation configuration */
+/** Default animation configuration * @since 0.1.1
+ */
 export const DEFAULT_ANIMATION_CONFIG: Required<Omit<AnimationConfig, 'sort'>> = {
   mode: 'reduced-motion',
   duration: 200,
@@ -3314,7 +3369,8 @@ export const DEFAULT_ANIMATION_CONFIG: Required<Omit<AnimationConfig, 'sort'>> =
 
 // #region Grid Icons
 
-/** Icon value - can be a string (text/HTML) or HTMLElement */
+/** Icon value - can be a string (text/HTML) or HTMLElement * @since 0.1.1
+ */
 export type IconValue = string | HTMLElement;
 
 /**
@@ -3349,6 +3405,7 @@ export type IconValue = string | HTMLElement;
  * ```
  *
  * @see {@link IconValue} for allowed icon formats
+ * @since 0.1.1
  */
 export interface GridIcons {
   /** Expand icon for collapsed items (trees, groups, details). Default: '▶' */
@@ -3379,7 +3436,8 @@ export interface GridIcons {
  * `filter` and `filterActive` are empty strings because the actual rendering
  * is driven by the `--tbw-icon-filter[-active]-mask` CSS custom properties
  * (see `core/styles/variables.css`). Userland that wants an HTML/SVG fallback
- * via `gridConfig.icons.filter = '<svg…>'` is unaffected — that path overrides this default. */
+ * via `gridConfig.icons.filter = '<svg…>'` is unaffected — that path overrides this default. * @since 0.1.1
+ */
 export const DEFAULT_GRID_ICONS: Required<GridIcons> = {
   expand: '▶',
   collapse: '▼',
@@ -3432,6 +3490,7 @@ export const DEFAULT_GRID_ICONS: Required<GridIcons> = {
  *
  * @see {@link ShellHeaderConfig} for header options
  * @see {@link ToolPanelConfig} for tool panel options
+ * @since 0.1.1
  */
 export interface ShellConfig {
   /** Shell header bar configuration */
@@ -3454,6 +3513,7 @@ export interface ShellConfig {
 
 /**
  * Shell header bar configuration
+ * @since 0.1.1
  */
 export interface ShellHeaderConfig {
   /** Grid title displayed on the left (optional) */
@@ -3474,6 +3534,7 @@ export interface ShellHeaderConfig {
 
 /**
  * Tool panel configuration
+ * @since 0.1.1
  */
 export interface ToolPanelConfig {
   /** Panel position: 'left' | 'right' (default: 'right') */
@@ -3511,6 +3572,7 @@ export interface ToolPanelConfig {
  *   },
  * });
  * ```
+ * @since 0.1.1
  */
 export interface ToolbarContentDefinition {
   /** Unique content ID */
@@ -3553,6 +3615,7 @@ export interface ToolbarContentDefinition {
  * ```
  *
  * @see {@link ShellConfig} for shell configuration
+ * @since 0.1.1
  */
 export interface ToolPanelDefinition {
   /** Unique panel ID */
@@ -3601,6 +3664,7 @@ export interface ToolPanelDefinition {
  * ```
  *
  * @see {@link ShellConfig} for shell configuration
+ * @since 0.1.1
  */
 export interface HeaderContentDefinition {
   /** Unique content ID */
@@ -3655,6 +3719,7 @@ export interface HeaderContentDefinition {
  * ```
  *
  * @see {@link GridColumnState} for the full state object
+ * @since 0.1.1
  */
 export interface ColumnState {
   /** Column field identifier */
@@ -3675,6 +3740,7 @@ export interface ColumnState {
  *
  * @see {@link ColumnState} for column state persistence
  * @see {@link SortChangeDetail} for sort change events
+ * @since 0.1.1
  */
 export interface ColumnSortState {
   /** Sort direction */
@@ -3699,6 +3765,7 @@ export interface ColumnSortState {
  *
  * @see {@link ColumnState} for individual column state
  * @see {@link PublicGrid.getColumnState} for retrieving state
+ * @since 0.1.1
  */
 export interface GridColumnState {
   /** Array of column states. */
@@ -3724,6 +3791,7 @@ export interface GridColumnState {
  * ```
  *
  * @category Events
+ * @since 0.1.1
  */
 export interface CellClickDetail<TRow = unknown> {
   /** Zero-based row index of the clicked cell. */
@@ -3762,6 +3830,7 @@ export interface CellClickDetail<TRow = unknown> {
  * ```
  *
  * @category Events
+ * @since 0.1.1
  */
 export interface RowClickDetail<TRow = unknown> {
   /** Zero-based row index of the clicked row. */
@@ -3795,6 +3864,7 @@ export interface RowClickDetail<TRow = unknown> {
  * @see {@link SortState} for the sort state object
  * @see {@link SortHandler} for custom sort handlers
  * @category Events
+ * @since 0.1.1
  */
 export interface SortChangeDetail {
   /** Sorted field key. */
@@ -3819,6 +3889,7 @@ export interface SortChangeDetail {
  * @see {@link ColumnState} for persisting column state
  * @see {@link ResizeController} for resize implementation
  * @category Events
+ * @since 0.1.1
  */
 export interface ColumnResizeDetail {
   /** Resized column field key. */
@@ -3848,6 +3919,7 @@ export interface ColumnResizeDetail {
  *
  * @see {@link ColumnResizeDetail} for the resize-in-progress event
  * @category Events
+ * @since 0.1.1
  */
 export interface ColumnResizeResetDetail {
   /** Reset column field key. */
@@ -3863,6 +3935,7 @@ export interface ColumnResizeResetDetail {
  *
  * @see {@link CellActivateDetail} for the activation event detail
  * @category Events
+ * @since 0.1.1
  */
 export type CellActivateTrigger = 'keyboard' | 'pointer';
 
@@ -3890,6 +3963,7 @@ export type CellActivateTrigger = 'keyboard' | 'pointer';
  * @see {@link CellClickDetail} for click-only events
  * @see {@link CellActivateTrigger} for trigger types
  * @category Events
+ * @since 0.1.1
  */
 export interface CellActivateDetail<TRow = unknown> {
   /** Zero-based row index of the activated cell. */
@@ -3928,6 +4002,7 @@ export interface CellActivateDetail<TRow = unknown> {
  * @see {@link ColumnConfig.externalView} for external view spec
  * @see {@link FrameworkAdapter} for adapter interface
  * @category Framework Adapters
+ * @since 0.1.1
  */
 export interface ExternalMountViewDetail<TRow = unknown> {
   placeholder: HTMLElement;
@@ -3957,6 +4032,7 @@ export interface ExternalMountViewDetail<TRow = unknown> {
  * @see {@link ColumnEditorSpec} for external editor spec
  * @see {@link FrameworkAdapter} for adapter interface
  * @category Framework Adapters
+ * @since 0.1.1
  */
 export interface ExternalMountEditorDetail<TRow = unknown> {
   placeholder: HTMLElement;
@@ -3994,6 +4070,7 @@ export interface ExternalMountEditorDetail<TRow = unknown> {
  * @see {@link DataGridElement.on} for the recommended subscription API
  * @see {@link DataGridCustomEvent} for typed CustomEvent wrapper
  * @category Events
+ * @since 0.1.1
  */
 export interface DataGridEventMap<TRow = unknown> {
   /**
@@ -4315,6 +4392,7 @@ export type DataGridEventDetail<K extends keyof DataGridEventMap<unknown>, TRow 
  * @see {@link DataGridEventMap} for all event types
  * @see `DataGridEventDetail` for extracting detail type only
  * @category Events
+ * @since 0.1.1
  */
 export type DataGridCustomEvent<K extends keyof DataGridEventMap<unknown>, TRow = unknown> = CustomEvent<
   DataGridEventMap<TRow>[K]
@@ -4324,6 +4402,7 @@ export type DataGridCustomEvent<K extends keyof DataGridEventMap<unknown>, TRow 
  * Template evaluation context for dynamic templates.
  *
  * @category Plugin Development
+ * @since 0.1.1
  */
 export interface EvalContext {
   value: unknown;

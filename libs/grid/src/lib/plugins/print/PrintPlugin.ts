@@ -78,6 +78,7 @@ const DEFAULT_CONFIG: Required<PrintConfig> = {
  * ```
  *
  * @see {@link PrintConfig} for all configuration options
+ * @since 1.4.0
  */
 export class PrintPlugin extends BaseGridPlugin<PrintConfig> {
   /** @internal */

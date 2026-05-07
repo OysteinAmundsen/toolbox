@@ -29,6 +29,7 @@ import { Directive } from '@angular/core';
  * ```
  *
  * @category Directive
+ * @since 0.13.0
  */
 @Directive({
   selector: 'tbw-grid-column',

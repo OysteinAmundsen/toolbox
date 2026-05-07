@@ -19,7 +19,8 @@ export type FeatureResolverFn = (features: Record<string, unknown>) => GridPlugi
 /** Resolver set by the feature registry when loaded. undefined until first feature import. */
 export let resolveFeatures: FeatureResolverFn | undefined;
 
-/** Called by `features/registry.ts` at module evaluation time. @internal */
+/** Called by `features/registry.ts` at module evaluation time. @internal * @since 1.24.0
+ */
 export function setFeatureResolver(fn: FeatureResolverFn): void {
   resolveFeatures = fn;
 }

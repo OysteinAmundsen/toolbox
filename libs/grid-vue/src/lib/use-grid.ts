@@ -3,11 +3,13 @@ import { inject, onMounted, ref, type InjectionKey, type Ref } from 'vue';
 
 /**
  * Injection key for the grid element.
+ * @since 0.1.0
  */
 export const GRID_ELEMENT_KEY: InjectionKey<Ref<DataGridElement | null>> = Symbol('tbw-grid');
 
 /**
  * Return type for useGrid composable.
+ * @since 0.1.0
  */
 export interface UseGridReturn<TRow = unknown> {
   /** The grid element reference */
@@ -57,6 +59,7 @@ export interface UseGridReturn<TRow = unknown> {
  * @param selector - Optional CSS selector to target a specific grid element via
  *   DOM query instead of using Vue's provide/inject. Use when the component
  *   contains multiple grids, e.g. `'tbw-grid.primary'` or `'#my-grid'`.
+ * @since 0.1.0
  */
 export function useGrid<TRow = unknown>(selector?: string): UseGridReturn<TRow> {
   const gridElement = selector

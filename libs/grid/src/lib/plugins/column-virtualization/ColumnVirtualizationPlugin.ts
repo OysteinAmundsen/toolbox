@@ -55,6 +55,7 @@ import type { ColumnVirtualizationConfig } from './types';
  * @see {@link ColumnVirtualizationConfig} for configuration options
  *
  * @internal Extends BaseGridPlugin
+ * @since 0.1.1
  */
 export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizationConfig> {
   /** @internal */

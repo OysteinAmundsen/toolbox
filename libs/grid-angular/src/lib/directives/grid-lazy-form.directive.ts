@@ -19,6 +19,7 @@ const FORM_ARRAY_CONTEXT = Symbol('formArrayContext');
 /**
  * Gets the FormArrayContext from a grid element, if present.
  * @internal
+ * @since 0.11.0
  */
 export function getLazyFormContext(gridElement: HTMLElement): FormArrayContext | undefined {
   return (gridElement as unknown as Record<symbol, FormArrayContext>)[FORM_ARRAY_CONTEXT];
@@ -32,11 +33,13 @@ export function getLazyFormContext(gridElement: HTMLElement): FormArrayContext |
  * @param row The row data object
  * @param rowIndex The row index in the grid
  * @returns A FormGroup for the row (only include editable fields)
+ * @since 0.11.0
  */
 export type LazyFormFactory<TRow = unknown> = (row: TRow, rowIndex: number) => FormGroup;
 
 /**
  * Event emitted when a row's form values have changed.
+ * @since 0.11.0
  */
 export interface RowFormChangeEvent<TRow = unknown> {
   /** The row index */
@@ -137,6 +140,7 @@ export interface RowFormChangeEvent<TRow = unknown> {
  * re-exports from the main `@toolbox-web/grid-angular` entry will be removed
  * at the same time. Consumers should already be importing from the feature
  * entry.
+ * @since 0.11.0
  */
 @Directive({
   selector: 'tbw-grid[lazyForm]',

@@ -50,6 +50,7 @@
     "@remarks",
     "@returns",
     "@see",
+    "@since",
     "@template",
     "@throws",
     "@typeParam"

@@ -9,6 +9,7 @@ import type { GridIcons } from '@toolbox-web/grid';
 
 /**
  * Injection token for providing icon overrides at app level.
+ * @since 0.8.0
  */
 export const GRID_ICONS = new InjectionToken<Partial<GridIcons>>('GRID_ICONS');
 
@@ -42,6 +43,7 @@ export const GRID_ICONS = new InjectionToken<Partial<GridIcons>>('GRID_ICONS');
  *   }
  * }
  * ```
+ * @since 0.8.0
  */
 @Injectable({ providedIn: 'root' })
 export class GridIconRegistry {
@@ -143,6 +145,7 @@ export class GridIconRegistry {
  *   ]
  * };
  * ```
+ * @since 0.8.0
  */
 export function provideGridIcons(icons: Partial<GridIcons>): EnvironmentProviders {
   return makeEnvironmentProviders([{ provide: GRID_ICONS, useValue: icons }]);

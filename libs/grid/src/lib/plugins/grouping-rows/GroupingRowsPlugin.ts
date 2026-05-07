@@ -51,6 +51,7 @@ import type {
 
 /**
  * Group state information returned by getGroupState()
+ * @since 0.1.1
  */
 export interface GroupState {
   /** Whether grouping is currently active */
@@ -120,6 +121,7 @@ export interface GroupState {
  * @see {@link GroupState} for the group state structure
  *
  * @internal Extends BaseGridPlugin
+ * @since 0.1.1
  */
 export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
   /**

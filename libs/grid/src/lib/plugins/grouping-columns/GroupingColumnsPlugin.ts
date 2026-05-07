@@ -84,6 +84,7 @@ import type { ColumnGroup, ColumnGroupDefinition, GroupingColumnsConfig } from '
  * @see ReorderPlugin for drag-to-reorder within groups
  *
  * @internal Extends BaseGridPlugin
+ * @since 0.1.1
  */
 export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig> {
   /**

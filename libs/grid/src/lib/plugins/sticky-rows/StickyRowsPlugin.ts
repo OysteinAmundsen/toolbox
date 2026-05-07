@@ -52,6 +52,7 @@ interface VirtualStateLike {
  * @see {@link StickyRowsConfig} for all configuration options.
  *
  * @internal Extends BaseGridPlugin.
+ * @since 2.7.0
  */
 export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
   /** @internal */

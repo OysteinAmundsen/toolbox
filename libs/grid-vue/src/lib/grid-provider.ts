@@ -30,6 +30,7 @@ import { GridTypeProvider, type TypeDefaultsMap } from './grid-type-registry';
  *   </GridProvider>
  * </template>
  * ```
+ * @since 0.1.0
  */
 export const GridProvider = defineComponent({
   name: 'GridProvider',
@@ -70,4 +71,5 @@ export const GridProvider = defineComponent({
   },
 });
 
+/** @since 0.1.0 */
 export type GridProviderProps = InstanceType<typeof GridProvider>['$props'];

@@ -16,6 +16,7 @@
 /**
  * Hook called when an editor host is mounted. Returning a function
  * registers a teardown that runs when the editor is released.
+ * @since 1.4.0
  */
 export type EditorMountHook = (ctx: { container: HTMLElement; gridEl: HTMLElement }) => (() => void) | void;
 
@@ -26,6 +27,7 @@ const editorMountHooks: EditorMountHook[] = [];
  * (e.g. `features/editing`) on import.
  *
  * @internal Plugin API
+ * @since 1.4.0
  */
 export function registerEditorMountHook(hook: EditorMountHook): void {
   editorMountHooks.push(hook);
@@ -56,6 +58,7 @@ export function notifyEditorMounted(container: HTMLElement, gridEl: HTMLElement)
  * `(blur)` flush their pending value before the cell DOM is torn down by Tab /
  * programmatic row exit.
  * @internal
+ * @since 1.4.0
  */
 export function makeFlushFocusedInput(host: HTMLElement): () => void {
   return () => {

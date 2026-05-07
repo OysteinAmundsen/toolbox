@@ -79,6 +79,7 @@ const QUERY_CAN_MOVE_COLUMN = 'canMoveColumn';
  * @see GroupingColumnsPlugin for column group integration
  *
  * @internal Extends BaseGridPlugin
+ * @since 1.24.0
  */
 export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   /** @internal */

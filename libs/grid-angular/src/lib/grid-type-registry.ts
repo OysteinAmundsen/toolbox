@@ -28,6 +28,7 @@ import type { FilterPanelRenderer } from '@toolbox-web/grid/plugins/filtering';
  *   },
  * };
  * ```
+ * @since 0.3.0
  */
 export interface TypeDefaultRegistration<TRow = unknown> {
   /** Angular component class for rendering cells of this type */
@@ -48,6 +49,7 @@ export interface TypeDefaultRegistration<TRow = unknown> {
 
 /**
  * Injection token for providing type defaults at app level.
+ * @since 0.3.0
  */
 export const GRID_TYPE_DEFAULTS = new InjectionToken<Record<string, TypeDefaultRegistration>>('GRID_TYPE_DEFAULTS');
 
@@ -86,6 +88,7 @@ export const GRID_TYPE_DEFAULTS = new InjectionToken<Record<string, TypeDefaultR
  *   }
  * }
  * ```
+ * @since 0.3.0
  */
 @Injectable({ providedIn: 'root' })
 export class GridTypeRegistry {
@@ -178,6 +181,7 @@ export class GridTypeRegistry {
  *   ]
  * };
  * ```
+ * @since 0.3.0
  */
 export function provideGridTypeDefaults(defaults: Record<string, TypeDefaultRegistration>): EnvironmentProviders {
   return makeEnvironmentProviders([{ provide: GRID_TYPE_DEFAULTS, useValue: defaults }]);

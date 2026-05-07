@@ -38,6 +38,7 @@ import { removeFromContainer, renderToContainer } from './portal-bridge';
  *   },
  * ];
  * ```
+ * @since 0.0.1
  */
 export interface ColumnConfig<TRow = unknown> extends Omit<
   BaseColumnConfig<TRow>,
@@ -94,6 +95,7 @@ export interface ColumnConfig<TRow = unknown> extends Omit<
  *   ],
  * };
  * ```
+ * @since 0.0.1
  */
 export type GridConfig<TRow = unknown> = Omit<BaseGridConfig<TRow>, 'columns' | 'loadingRenderer'> & {
   columns?: ColumnConfig<TRow>[];

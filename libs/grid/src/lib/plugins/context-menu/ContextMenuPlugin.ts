@@ -138,6 +138,7 @@ const defaultItems: ContextMenuItem[] = [
  * @see {@link ContextMenuParams} for action callback parameters
  *
  * @internal Extends BaseGridPlugin
+ * @since 0.1.1
  */
 export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
   /**

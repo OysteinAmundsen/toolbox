@@ -23,6 +23,7 @@ import type { FrameworkAdapter } from './types';
  * Method names that are technically optional on {@link FrameworkAdapter}
  * but are actually consumed by the grid core. An adapter that skips any
  * of these silently drops the matching feature for its framework users.
+ * @since 2.3.0
  */
 export const CORE_CONSUMED_ADAPTER_METHODS: ReadonlyArray<keyof FrameworkAdapter> = [
   'canHandle',

@@ -33,6 +33,7 @@ export type {
  *   maxConcurrentRequests: 2,
  * })
  * ```
+ * @since 0.1.1
  */
 export interface ServerSideConfig {
   /**

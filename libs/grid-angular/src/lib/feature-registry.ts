@@ -30,6 +30,7 @@ export type { PluginFactory } from '@toolbox-web/grid/features/registry';
 
 /**
  * Feature names supported by the Grid directive.
+ * @since 0.6.0
  */
 export type FeatureName =
   | 'selection'

@@ -77,6 +77,7 @@ export interface ScrollEvent {
 /**
  * Cell mouse event (for drag operations, selection, etc.)
  * @category Plugin Development
+ * @since 0.2.9
  */
 export interface CellMouseEvent {
   /** Event type: mousedown, mousemove, or mouseup */
@@ -125,6 +126,7 @@ export interface CellMouseEvent {
  *   }
  * }
  * ```
+ * @since 0.2.9
  */
 export interface AfterCellRenderContext<TRow = unknown> {
   /** The row data object */
@@ -161,6 +163,7 @@ export interface AfterCellRenderContext<TRow = unknown> {
  *   }
  * }
  * ```
+ * @since 0.2.9
  */
 export interface AfterRowRenderContext<TRow = unknown> {
   /** The row data object */
@@ -209,6 +212,7 @@ export interface ContextMenuItem {
  * and respond to queries from other plugins.
  *
  * @category Plugin Development
+ * @since 0.2.9
  */
 export interface PluginQuery<T = unknown> {
   /** Query type identifier (e.g., 'canMoveColumn', 'getContextMenuItems') */

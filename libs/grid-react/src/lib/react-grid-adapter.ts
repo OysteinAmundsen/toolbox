@@ -236,6 +236,7 @@ interface CellPortalCache {
  *   )} />
  * </DataGrid>
  * ```
+ * @since 0.0.1
  */
 export class GridAdapter implements FrameworkAdapter {
   /** Portal keys for all managed portals (for cleanup on destroy). */

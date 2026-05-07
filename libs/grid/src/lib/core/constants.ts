@@ -23,6 +23,7 @@
  * - Shared: Used by multiple features/plugins, styled by core CSS
  *
  * @category Plugin Development
+ * @since 0.1.1
  */
 export const GridClasses = {
   // ─── Core Structure ───────────────────────────────────────────────
@@ -95,6 +96,7 @@ export const GridClasses = {
  * Use these when getting/setting data attributes.
  *
  * @category Plugin Development
+ * @since 0.1.1
  */
 export const GridDataAttrs = {
   // ─── Core Attributes ──────────────────────────────────────────────
@@ -113,6 +115,7 @@ export const GridDataAttrs = {
  * Built from the class constants for consistency.
  *
  * @category Plugin Development
+ * @since 0.1.1
  */
 export const GridSelectors = {
   ROOT: `.${GridClasses.ROOT}`,
@@ -142,6 +145,7 @@ export const GridSelectors = {
  * Use these when programmatically setting styles.
  *
  * @category Plugin Development
+ * @since 0.1.1
  */
 export const GridCSSVars = {
   // Colors
@@ -179,6 +183,7 @@ export const GridCSSVars = {
  * Use `GridClasses` to access individual values by key.
  *
  * @category Plugin Development
+ * @since 0.1.1
  */
 export type GridClassName = (typeof GridClasses)[keyof typeof GridClasses];
 
@@ -187,6 +192,7 @@ export type GridClassName = (typeof GridClasses)[keyof typeof GridClasses];
  * Use `GridDataAttrs` to access individual values by key.
  *
  * @category Plugin Development
+ * @since 0.1.1
  */
 export type GridDataAttr = (typeof GridDataAttrs)[keyof typeof GridDataAttrs];
 
@@ -195,5 +201,6 @@ export type GridDataAttr = (typeof GridDataAttrs)[keyof typeof GridDataAttrs];
  * Use `GridCSSVars` to access individual values by key.
  *
  * @category Plugin Development
+ * @since 0.1.1
  */
 export type GridCSSVar = (typeof GridCSSVars)[keyof typeof GridCSSVars];

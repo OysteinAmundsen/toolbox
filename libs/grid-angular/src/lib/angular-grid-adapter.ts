@@ -170,6 +170,7 @@ function syncRootNodes(viewRef: EmbeddedViewRef<unknown>, container: HTMLElement
   }
 }
 
+/** @since 0.1.0 */
 export class GridAdapter implements FrameworkAdapter {
   private viewRefs: EmbeddedViewRef<unknown>[] = [];
   private componentRefs: ComponentRef<unknown>[] = [];

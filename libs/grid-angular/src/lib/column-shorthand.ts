@@ -27,6 +27,7 @@ import type { ColumnConfig } from '@toolbox-web/grid';
  * const cols2 = ['id:number', 'name:string', 'email'];
  * const cols3 = [{ field: 'id' }, { field: 'name' }, { field: 'email' }];
  * ```
+ * @since 1.4.0
  */
 export type ColumnShorthand<TRow = unknown> = string | ColumnConfig<TRow>;
 
@@ -70,6 +71,7 @@ const VALID_TYPES = new Set(['string', 'number', 'boolean', 'date', 'datetime', 
  *
  * @param shorthand - The shorthand string (e.g., 'name', 'salary:number')
  * @returns A ColumnConfig object
+ * @since 1.4.0
  */
 export function parseColumnShorthand<TRow = unknown>(shorthand: string): ColumnConfig<TRow> {
   const colonIndex = shorthand.lastIndexOf(':');
@@ -98,6 +100,7 @@ export function parseColumnShorthand<TRow = unknown>(shorthand: string): ColumnC
  *
  * @param columns - Array of column shorthands (strings or ColumnConfig objects)
  * @returns Array of ColumnConfig objects
+ * @since 1.4.0
  */
 export function normalizeColumns<TRow = unknown>(columns: ColumnShorthand<TRow>[]): ColumnConfig<TRow>[] {
   return columns.map((col) => (typeof col === 'string' ? parseColumnShorthand<TRow>(col) : col));
@@ -106,6 +109,7 @@ export function normalizeColumns<TRow = unknown>(columns: ColumnShorthand<TRow>[
 /**
  * Apply column defaults to a list of columns. Individual column properties
  * override defaults.
+ * @since 1.4.0
  */
 export function applyColumnDefaults<TRow = unknown>(
   columns: ColumnConfig<TRow>[],
@@ -115,7 +119,8 @@ export function applyColumnDefaults<TRow = unknown>(
   return columns.map((col) => ({ ...defaults, ...col }));
 }
 
-/** Check if an array of columns contains any shorthand strings. */
+/** Check if an array of columns contains any shorthand strings. * @since 1.4.0
+ */
 export function hasColumnShorthands<TRow>(columns: ColumnShorthand<TRow>[]): boolean {
   return columns.some((col) => typeof col === 'string');
 }

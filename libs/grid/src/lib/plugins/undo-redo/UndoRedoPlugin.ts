@@ -69,6 +69,7 @@ import type { EditAction, UndoRedoAction, UndoRedoConfig, UndoRedoDetail } from 
  * @see EditingPlugin for the required dependency
  *
  * @internal Extends BaseGridPlugin
+ * @since 0.1.1
  */
 export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   /**

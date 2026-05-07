@@ -36,6 +36,7 @@ import { resolveCellValue } from './value-accessor';
  * @see {@link BaseColumnConfig.sortComparator} for column-level comparators
  * @see {@link builtInSort} for the full sort handler that uses this comparator
  * @category Factory Functions
+ * @since 0.1.1
  */
 export function defaultComparator(a: unknown, b: unknown): number {
   if (a == null && b == null) return 0;
@@ -72,6 +73,7 @@ export function defaultComparator(a: unknown, b: unknown): number {
  * @see {@link GridConfig.sortHandler} for configuring the handler
  * @see {@link defaultComparator} for the comparator used per column
  * @category Factory Functions
+ * @since 0.1.1
  */
 export function builtInSort<T>(rows: T[], sortState: SortState, columns: ColumnConfig<T>[]): T[] {
   const col = columns.find((c) => c.field === sortState.field);

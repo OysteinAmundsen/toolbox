@@ -47,7 +47,8 @@ declare module '../../core/types' {
 // Plugin Configuration Types
 // ============================================================================
 
-/** Configuration options for the column groups plugin */
+/** Configuration options for the column groups plugin * @since 0.1.1
+ */
 export interface GroupingColumnsConfig {
   /**
    * Declarative column group definitions.
@@ -148,6 +149,7 @@ export interface GroupingColumnsConfig {
  *   return `<em>${params.label}</em>`;
  * }
  * ```
+ * @since 0.1.1
  */
 export interface GroupHeaderRenderParams {
   /** The group ID (e.g. `'personal'`, `'work'`). */
@@ -188,6 +190,7 @@ export interface GroupingColumnsState {
  *   renderer: (params) => `<strong>${params.label}</strong>`,
  * }
  * ```
+ * @since 0.1.1
  */
 export interface ColumnGroupDefinition {
   /**
@@ -209,7 +212,8 @@ export interface ColumnGroupDefinition {
   renderer?: (params: GroupHeaderRenderParams) => HTMLElement | string | void;
 }
 
-/** Column group definition (computed at runtime) */
+/** Column group definition (computed at runtime) * @since 0.1.1
+ */
 export interface ColumnGroup<T = any> {
   /** Unique group identifier */
   id: string;

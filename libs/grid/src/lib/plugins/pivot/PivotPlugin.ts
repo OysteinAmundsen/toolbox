@@ -91,6 +91,7 @@ import styles from './pivot.css?inline';
  * @see {@link PivotValueField} for value field structure
  *
  * @internal Extends BaseGridPlugin
+ * @since 0.1.1
  */
 export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   /**

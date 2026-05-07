@@ -12,6 +12,7 @@
  * | `'csv'`  | Comma-separated values (`.csv`) | Plain text, universally supported. Large datasets export fast. |
  * | `'excel'`| Excel workbook (`.xlsx`) | Preserves column types and headers. Requires a serializer that can produce OOXML. |
  * | `'json'` | JSON array (`.json`) | Exports row objects as-is; useful for programmatic consumption or re-import. |
+ * @since 0.1.1
  */
 export type ExportFormat = 'csv' | 'excel' | 'json';
 
@@ -35,10 +36,12 @@ export type ExportFormat = 'csv' | 'excel' | 'json';
  *
  * Default: `'raw'` — preserves current export behavior exactly. Opt in to
  * displayed values per call with `{ mode: 'formatted' }`.
+ * @since 0.1.1
  */
 export type ExportMode = 'raw' | 'formatted';
 
-/** Configuration options for the export plugin */
+/** Configuration options for the export plugin * @since 0.1.1
+ */
 export interface ExportConfig {
   /** Default file name for exports (default: 'export') */
   fileName?: string;
@@ -50,7 +53,8 @@ export interface ExportConfig {
   onlySelected?: boolean;
 }
 
-/** Parameters for a specific export operation */
+/** Parameters for a specific export operation * @since 0.1.1
+ */
 export interface ExportParams {
   /** Export format */
   format: ExportFormat;
@@ -95,6 +99,7 @@ export interface ExportParams {
  *
  * Controls header styles, per-column and per-cell formatting,
  * column widths, and auto-fit behavior in Excel XML output.
+ * @since 0.1.1
  */
 export interface ExcelStyleConfig {
   /** Style applied to all header cells */
@@ -111,7 +116,8 @@ export interface ExcelStyleConfig {
   autoFitColumns?: boolean;
 }
 
-/** Style definition for an Excel cell. */
+/** Style definition for an Excel cell. * @since 0.1.1
+ */
 export interface ExcelCellStyle {
   /** Font configuration */
   font?: {
@@ -143,7 +149,8 @@ export interface ExcelCellStyle {
   };
 }
 
-/** Border definition for an Excel cell edge. */
+/** Border definition for an Excel cell edge. * @since 0.1.1
+ */
 export interface ExcelBorder {
   style: 'Thin' | 'Medium' | 'Thick';
   color?: string;
@@ -159,7 +166,8 @@ export interface ExportState {
   lastExport: { format: ExportFormat; timestamp: Date } | null;
 }
 
-/** Event detail emitted when export completes */
+/** Event detail emitted when export completes * @since 0.1.1
+ */
 export interface ExportCompleteDetail {
   /** Format of the export */
   format: ExportFormat;

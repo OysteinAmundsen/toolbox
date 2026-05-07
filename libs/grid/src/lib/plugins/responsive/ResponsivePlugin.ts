@@ -79,6 +79,7 @@ import type { BreakpointConfig, HiddenColumnConfig, ResponsiveChangeDetail, Resp
  *   ],
  * };
  * ```
+ * @since 1.1.0
  */
 export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePluginConfig<T>> {
   readonly name = 'responsive';

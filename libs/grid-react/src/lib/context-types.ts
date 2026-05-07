@@ -2,6 +2,7 @@ import type { ColumnConfig } from '@toolbox-web/grid';
 
 /**
  * Context object passed to cell renderer components.
+ * @since 0.0.1
  */
 export interface GridCellContext<TValue = unknown, TRow = unknown> {
   /** The cell value for this column */
@@ -16,6 +17,7 @@ export interface GridCellContext<TValue = unknown, TRow = unknown> {
 
 /**
  * Context object passed to cell editor components.
+ * @since 0.0.1
  */
 export interface GridEditorContext<TValue = unknown, TRow = unknown> {
   /** The cell value for this column */
@@ -49,6 +51,7 @@ export interface GridEditorContext<TValue = unknown, TRow = unknown> {
 
 /**
  * Context object passed to detail panel components.
+ * @since 0.0.1
  */
 export interface GridDetailContext<TRow = unknown> {
   /** The row data object */
@@ -59,6 +62,7 @@ export interface GridDetailContext<TRow = unknown> {
 
 /**
  * Context object passed to tool panel components.
+ * @since 0.0.1
  */
 export interface GridToolPanelContext {
   /** Reference to the grid element */

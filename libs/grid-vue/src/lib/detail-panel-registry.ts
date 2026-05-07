@@ -6,6 +6,7 @@ import type { VNode } from 'vue';
 
 /**
  * Context object passed to the detail panel slot.
+ * @since 0.1.0
  */
 export interface DetailPanelContext<T = unknown> {
   /** The row data for this detail panel */

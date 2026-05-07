@@ -6,6 +6,7 @@ import type { VNode } from 'vue';
 
 /**
  * Context object passed to the responsive card slot.
+ * @since 0.1.0
  */
 export interface ResponsiveCardContext<T = unknown> {
   /** The row data */

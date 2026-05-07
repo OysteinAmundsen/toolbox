@@ -8,6 +8,7 @@
 import { PRINT_DUPLICATE_ID, warnDiagnostic } from '../../core/internal/diagnostics';
 import type { PrintOrientation } from './types';
 
+/** @since 1.4.0 */
 export interface PrintIsolatedOptions {
   /** Page orientation hint */
   orientation?: PrintOrientation;
@@ -116,6 +117,7 @@ function createIsolationStylesheet(gridId: string, orientation: PrintOrientation
  * const grid = queryGrid('tbw-grid');
  * await printGridIsolated(grid, { orientation: 'landscape' });
  * ```
+ * @since 1.4.0
  */
 export async function printGridIsolated(gridElement: HTMLElement, options: PrintIsolatedOptions = {}): Promise<void> {
   const { orientation = 'landscape' } = options;

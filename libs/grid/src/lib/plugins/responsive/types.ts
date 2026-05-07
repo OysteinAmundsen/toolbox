@@ -9,6 +9,7 @@ import type { ColumnConfig } from '../../core/types';
 /**
  * Enhanced hidden column configuration.
  * Either a field name (hides entire cell) or an object that controls visibility.
+ * @since 1.1.0
  */
 export type HiddenColumnConfig =
   | string
@@ -24,6 +25,7 @@ export type HiddenColumnConfig =
 
 /**
  * Configuration for a single breakpoint in progressive degradation.
+ * @since 1.1.0
  */
 export interface BreakpointConfig {
   /**
@@ -48,6 +50,7 @@ export interface BreakpointConfig {
 
 /**
  * Configuration options for the responsive plugin.
+ * @since 1.1.0
  */
 export interface ResponsivePluginConfig<T = unknown> {
   /**
@@ -143,6 +146,7 @@ export interface ResponsivePluginConfig<T = unknown> {
 
 /**
  * Event detail for the responsive-change event.
+ * @since 1.1.0
  */
 export interface ResponsiveChangeDetail {
   /** Whether the grid is currently in responsive mode */

@@ -259,6 +259,7 @@ function createTextEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HTML
  * Each editor handles commit on blur/Enter, and cancel on Escape.
  *
  * Note: Focus is NOT called here - the calling code handles focusing after DOM insertion.
+ * @since 0.4.0
  */
 export function defaultEditorFor(column: AnyColumn): (ctx: ColumnEditorContext) => HTMLElement | string {
   switch (column.type) {

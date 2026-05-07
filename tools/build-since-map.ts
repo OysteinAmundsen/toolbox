@@ -20,7 +20,7 @@
  * to the relevant tag prefix.
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import * as ts from 'typescript';
@@ -74,12 +74,16 @@ const libs: LibConfig[] = [
 ];
 
 function git(...args: string[]): string {
+  // Use execFileSync with an args array (no shell) so that paths and
+  // user-supplied identifiers cannot be reinterpreted as shell syntax.
+  // Addresses CodeQL "Shell command built from environment values".
   try {
-    return execSync(`git ${args.map((a) => (a.includes(' ') ? JSON.stringify(a) : a)).join(' ')}`, {
+    return execFileSync('git', args, {
       cwd: repoRoot,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'ignore'],
       maxBuffer: 32 * 1024 * 1024,
+      shell: false,
     }).trim();
   } catch {
     return '';

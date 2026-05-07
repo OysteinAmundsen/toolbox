@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.7.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.7.2...grid-2.7.3) (2026-05-07)
+
+
+### Bug Fixes
+
+* **grid:** defer undo/redo to browser native history when target is editable ([465acdc](https://github.com/OysteinAmundsen/toolbox/commit/465acdca1485c31a83d78203162a3a232c0f4b55))
+* **grid:** let clipboard plugin skip paste events targeting editor inputs ([592889e](https://github.com/OysteinAmundsen/toolbox/commit/592889ee0825d474d310233854fe7187ff689cec))
+
+
+### Performance Improvements
+
+* **grid:** apply Schwartzian transform to multi-sort — cache keys once per row ([0cf2567](https://github.com/OysteinAmundsen/toolbox/commit/0cf25671c2c6857e6f015976d0e09355d3ce491b))
+* **grid:** hoist pinPlaceholders check out of multi-sort comparator hot path ([ab3a437](https://github.com/OysteinAmundsen/toolbox/commit/ab3a437a8bd7ea80750eb102cfbe52fff46e1734))
+* **grid:** pre-bind value getter per multi-sort chain link to remove valueAccessor branch from comparator hot path ([5ba2ed2](https://github.com/OysteinAmundsen/toolbox/commit/5ba2ed27e6aae06267589e052dc00382bf8d4ae8))
+* **grid:** skip pin-loading checks when dataset has no placeholders, cache Intl.Collator for string sorts ([cdb8f7a](https://github.com/OysteinAmundsen/toolbox/commit/cdb8f7a0649a13076a567ff9385aa718b11d431e))
+
 ## [2.7.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.7.1...grid-2.7.2) (2026-05-06)
 
 

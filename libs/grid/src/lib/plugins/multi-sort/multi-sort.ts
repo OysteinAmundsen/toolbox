@@ -68,10 +68,10 @@ export function sortRowsInPlace<TRow = unknown>(rows: TRow[], sorts: SortModel[]
       return link.asc ? result : -result;
     });
   } else {
+    // Hoist out of the comparator — invariant for the whole sort, not per-pair.
+    const anyPin = chain.some((l) => l.pinPlaceholders);
     rows.sort((a: any, b: any) => {
       // Pin placeholders ahead of the chain — independent of every column's direction.
-      // We only need to check once per pair, using the most permissive flag in the chain.
-      const anyPin = chain.some((l) => l.pinPlaceholders);
       if (anyPin) {
         const pinned = pinLoadingRows(a, b);
         if (pinned !== 0) return pinned;

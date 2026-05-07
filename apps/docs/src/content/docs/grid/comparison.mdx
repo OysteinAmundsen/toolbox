@@ -3,6 +3,7 @@ title: Feature Comparison
 description: Compare @toolbox-web/grid features with AG Grid and other data grid libraries. Many AG Grid Enterprise features are free in Toolbox Grid.
 ---
 
+import { TabItem, Tabs } from '@astrojs/starlight/components';
 import PerformanceComparisonDemo from '@components/demos/PerformanceComparisonDemo.astro';
 
 
@@ -138,8 +139,8 @@ Many AG Grid concepts map directly to Toolbox Grid:
 |---------|-------------|
 | `columnDefs` | `columns` or `gridConfig.columns` |
 | `rowData` | `rows` |
-| `defaultColDef` | Column defaults via `columnDefaults` |
-| `getRowId` | `rowIdField` in config |
+| `defaultColDef` | Per-type defaults via `typeDefaults` (keyed by `column.type`) |
+| `getRowId` | `getRowId: (row) => string` (same shape) |
 | `onCellValueChanged` | `cell-commit` event |
 | `onSelectionChanged` | `selection-change` event |
 | `serverSideRowModel` | `ServerSidePlugin` |
@@ -148,41 +149,146 @@ Many AG Grid concepts map directly to Toolbox Grid:
 
 ### Code Examples
 
-#### Angular
+Side-by-side AG Grid → Toolbox Grid for the same minimal setup: data, columns, and row selection.
+
+<Tabs syncKey="framework">
+  <TabItem label="TypeScript">
 
 ```html
-<!-- AG Grid -->
-<ag-grid-angular
-  [rowData]="rows"
-  [columnDefs]="columns"
-  rowSelection="multiple"
-/>
+<!-- AG Grid (vanilla) -->
+<div id="myGrid" class="ag-theme-quartz" style="height: 400px;"></div>
 
-<!-- Toolbox Grid -->
-<tbw-grid
-  [rows]="rows"
-  [columns]="columns"
-  selection="row"
-/>
+<script type="module">
+  import { createGrid } from 'ag-grid-community';
+
+  createGrid(document.querySelector('#myGrid'), {
+    rowData: rows,
+    columnDefs: columns,
+    rowSelection: 'multiple',
+  });
+</script>
 ```
 
-#### React
+```html
+<!-- Toolbox Grid (vanilla) -->
+<tbw-grid style="height: 400px;"></tbw-grid>
+
+<script type="module">
+  import '@toolbox-web/grid';
+  import '@toolbox-web/grid/features/selection';
+  import { queryGrid } from '@toolbox-web/grid';
+
+  const grid = queryGrid('tbw-grid');
+  grid.gridConfig = {
+    columns,
+    features: { selection: 'row' },
+  };
+  grid.rows = rows;
+</script>
+```
+
+  </TabItem>
+  <TabItem label="React">
 
 ```tsx
 // AG Grid
+import { AgGridReact } from 'ag-grid-react';
+
 <AgGridReact
   rowData={rows}
   columnDefs={columns}
   rowSelection="multiple"
 />
+```
 
+```tsx
 // Toolbox Grid
+import '@toolbox-web/grid-react/features/selection';
+import { DataGrid } from '@toolbox-web/grid-react';
+
 <DataGrid
   rows={rows}
   columns={columns}
   selection="row"
 />
 ```
+
+  </TabItem>
+  <TabItem label="Vue">
+
+```html
+<!-- AG Grid -->
+<script setup>
+import { AgGridVue } from 'ag-grid-vue3';
+</script>
+
+<template>
+  <AgGridVue
+    :rowData="rows"
+    :columnDefs="columns"
+    rowSelection="multiple"
+  />
+</template>
+```
+
+```html
+<!-- Toolbox Grid -->
+<script setup>
+import '@toolbox-web/grid-vue/features/selection';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+</script>
+
+<template>
+  <TbwGrid
+    :rows="rows"
+    :columns="columns"
+    selection="row"
+  />
+</template>
+```
+
+  </TabItem>
+  <TabItem label="Angular">
+
+```typescript
+// AG Grid
+import { Component } from '@angular/core';
+import { AgGridAngular } from 'ag-grid-angular';
+
+@Component({
+  imports: [AgGridAngular],
+  template: `
+    <ag-grid-angular
+      [rowData]="rows"
+      [columnDefs]="columns"
+      rowSelection="multiple">
+    </ag-grid-angular>
+  `,
+})
+export class MyGridComponent {}
+```
+
+```typescript
+// Toolbox Grid
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
+
+@Component({
+  imports: [Grid, GridSelectionDirective],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [columns]="columns"
+      [selection]="'row'">
+    </tbw-grid>
+  `,
+})
+export class MyGridComponent {}
+```
+
+  </TabItem>
+</Tabs>
 
 ## Get Started
 

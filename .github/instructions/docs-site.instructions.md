@@ -10,7 +10,7 @@ Documentation lives in `apps/docs/` using Astro + Starlight. MDX content pages a
 
 - `DemoControls.astro` — Reusable Storybook-like interactive controls panel (number/boolean/radio/select/check-group)
 - `ShowSource.astro` — Source code viewer wrapper for demos. Uses an AST-based extractor (TypeScript compiler API + text edits) to strip boilerplate (`document.getElementById` container, `if (container) {}` guard, `control-change` listeners, type assertions, `!` operators) without regex pitfalls. **Multi-grid demos:** when 2+ `queryGrid()` calls are present, original selectors are preserved (so the displayed snippet is still runnable). Single-grid demos collapse the selector to `'tbw-grid'`.
-- `FrameworkTabs.astro` — Framework code tab switcher (Vanilla/React/Vue/Angular)
+- For per-framework code examples, use Starlight's `<Tabs syncKey="framework">` / `<TabItem>` from `@astrojs/starlight/components` (page-wide synced selection). See [getting-started.mdx](apps/docs/src/content/docs/grid/getting-started.mdx) for the canonical pattern.
 - `ThemeBuilder.astro` — Interactive CSS variable editor
 - `CSSVariableReference.astro` — CSS variable reference table
 

@@ -14,7 +14,8 @@ Scaffold an Astro demo component (`.astro`) for a grid feature or plugin, and wi
 - **Core feature demos**: `apps/docs/src/components/demos/<feature-name>/<FeatureNameDemo>.astro`
 - **MDX content pages**: `apps/docs/src/content/docs/grid/plugins/<plugin-name>.mdx`
 - **Core MDX pages**: `apps/docs/src/content/docs/grid/<page-name>.mdx`
-- **Reusable components**: `apps/docs/src/components/` (DemoControls, ShowSource, FrameworkTabs, etc.)
+- **Reusable components**: `apps/docs/src/components/` (DemoControls, ShowSource, etc.)
+- **Framework code tabs**: use Starlight's `<Tabs syncKey="framework">` + `<TabItem>` from `@astrojs/starlight/components` (page-wide synced selection)
 
 ## Demo Component Template (`.astro`)
 

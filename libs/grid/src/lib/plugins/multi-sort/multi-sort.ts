@@ -38,34 +38,37 @@ export function sortRowsInPlace<TRow = unknown>(rows: TRow[], sorts: SortModel[]
   const chain = sorts.map((sort) => {
     const col = columns.find((c) => c.field === sort.field);
     const comparator = col?.sortComparator ?? defaultComparator;
+    // Pre-bind the value getter per link so the hot comparator path doesn't
+    // re-evaluate `column?.valueAccessor` on every pair comparison. For the
+    // common case (no valueAccessor) this collapses to a single property read.
+    // Documented precedence: sortComparator → valueAccessor → field.
+    const field = sort.field;
+    const getValue: (row: any) => unknown = col?.valueAccessor
+      ? (row: any) => resolveCellValue(row, col)
+      : (row: any) => row[field];
     return {
-      field: sort.field,
+      field,
       asc: sort.direction === 'asc',
       comparator,
+      getValue,
       // Auto-pin `__loading` placeholder rows (e.g. ServerSidePlugin under `sortMode: 'local'`)
       // to the end ONLY when no custom comparator is configured. Custom comparators receive
       // the row pair as 3rd/4th args and own placeholder handling themselves.
       pinPlaceholders: !col?.sortComparator,
-      column: col,
     };
   });
-
-  // sortComparator (when present) takes precedence over valueAccessor; both still
-  // receive the accessor-resolved value when no comparator is given. Documented
-  // precedence: sortComparator → valueAccessor → field.
-  const getValue = (row: any, link: (typeof chain)[number]) =>
-    link.column?.valueAccessor ? resolveCellValue(row, link.column) : row[link.field];
 
   if (chain.length === 1) {
     // Single-sort fast path — avoid loop overhead
     const link = chain[0];
+    const { asc, comparator, getValue, pinPlaceholders } = link;
     rows.sort((a: any, b: any) => {
-      if (link.pinPlaceholders) {
+      if (pinPlaceholders) {
         const pinned = pinLoadingRows(a, b);
         if (pinned !== 0) return pinned;
       }
-      const result = link.comparator(getValue(a, link), getValue(b, link), a, b);
-      return link.asc ? result : -result;
+      const result = comparator(getValue(a), getValue(b), a, b);
+      return asc ? result : -result;
     });
   } else {
     // Hoist out of the comparator — invariant for the whole sort, not per-pair.
@@ -78,7 +81,7 @@ export function sortRowsInPlace<TRow = unknown>(rows: TRow[], sorts: SortModel[]
       }
       for (let i = 0; i < chain.length; i++) {
         const link = chain[i];
-        const result = link.comparator(getValue(a, link), getValue(b, link), a, b);
+        const result = link.comparator(link.getValue(a), link.getValue(b), a, b);
         if (result !== 0) return link.asc ? result : -result;
       }
       return 0;

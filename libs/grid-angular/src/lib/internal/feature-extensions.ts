@@ -28,6 +28,7 @@ import type { FeatureName } from '../feature-registry';
  * Context passed to template bridges.
  *
  * @internal
+ * @since 1.4.0
  */
 export interface TemplateBridgeContext {
   /** The `<tbw-grid>` element this directive is attached to. */
@@ -43,6 +44,7 @@ export interface TemplateBridgeContext {
  * sequentially — they run concurrently.
  *
  * @internal
+ * @since 1.4.0
  */
 export type TemplateBridge = (ctx: TemplateBridgeContext) => void | Promise<void>;
 
@@ -57,6 +59,7 @@ const templateBridges: TemplateBridge[] = [];
  * by the JS loader.
  *
  * @internal
+ * @since 1.4.0
  */
 export function registerTemplateBridge(bridge: TemplateBridge): void {
   templateBridges.push(bridge);
@@ -68,6 +71,7 @@ export function registerTemplateBridge(bridge: TemplateBridge): void {
  * errors thrown by one bridge do not stop the others.
  *
  * @internal
+ * @since 1.4.0
  */
 export function runTemplateBridges(ctx: TemplateBridgeContext): void {
   for (const bridge of templateBridges) {
@@ -97,6 +101,7 @@ export function runTemplateBridges(ctx: TemplateBridgeContext): void {
  * reference is fine — preprocessors typically clone-and-augment.
  *
  * @internal
+ * @since 1.4.0
  */
 export type FeatureConfigPreprocessor = (config: unknown, adapter: GridAdapter) => unknown;
 
@@ -108,6 +113,7 @@ const featureConfigPreprocessors = new Map<FeatureName, FeatureConfigPreprocesso
  * a no-op).
  *
  * @internal
+ * @since 1.4.0
  */
 export function registerFeatureConfigPreprocessor(name: FeatureName, fn: FeatureConfigPreprocessor): void {
   featureConfigPreprocessors.set(name, fn);
@@ -117,6 +123,7 @@ export function registerFeatureConfigPreprocessor(name: FeatureName, fn: Feature
  * Look up the preprocessor for a feature, if any.
  *
  * @internal
+ * @since 1.4.0
  */
 export function getFeatureConfigPreprocessor(name: FeatureName): FeatureConfigPreprocessor | undefined {
   return featureConfigPreprocessors.get(name);

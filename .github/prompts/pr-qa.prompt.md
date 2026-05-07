@@ -17,6 +17,11 @@ For each unresolved review comment / thread:
 
 Constraints:
 
+- **Use the `gh` CLI** (run via the terminal) for all PR interactions: fetching threads, posting inline replies on a specific review comment, posting summary comments, and resolving threads. Do NOT use the GitKraken MCP tools — they only support PR-level comments and approvals, not inline thread replies, so per-thread responses get lost.
+  - Read threads: `gh api repos/{owner}/{repo}/pulls/{pr}/comments` (inline review comments) and `gh api graphql` for resolution state / thread IDs (`pullRequest.reviewThreads`).
+  - Reply inline on a review thread: `gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies -f body='...'`.
+  - Resolve a thread: `gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' -f id='<threadId>'`.
+  - Summary comment on the PR: `gh pr comment <pr> --body '...'` (or `gh issue comment` for non-PR issues).
 - Follow `.github/instructions/delivery-workflow.instructions.md` for any code change — including the 7-step checklist and commit-message conventions.
 - If a comment contradicts an existing `DECIDED` entry in `.github/knowledge/`, cite the entry verbatim in your reply rather than silently regressing the decision.
 - If a comment reveals a genuinely new constraint or invariant, capture it in the appropriate knowledge file as part of the fix.

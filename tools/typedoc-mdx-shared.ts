@@ -189,6 +189,27 @@ export const isDeprecated = (c?: TypeDocComment): boolean =>
 /** Check if comment has @internal modifier */
 export const isInternal = (c?: TypeDocComment): boolean => c?.modifierTags?.includes('@internal') ?? false;
 
+/**
+ * Render an inline "Since vX.Y.Z" badge from an `@since` tag if present.
+ * Empty string when the tag is missing — safe to concatenate unconditionally.
+ *
+ * Returns a leading space so callers can append directly after a heading
+ * without worrying about whitespace.
+ */
+export const sinceBadge = (comment?: TypeDocComment): string => {
+  const v = getTag(comment, '@since').trim();
+  return v ? ` <span class="since-badge" title="Introduced in v${v}">v${v}+</span>` : '';
+};
+
+/**
+ * Block-form "Since vX.Y.Z" notice for use under headings (classes,
+ * interfaces, functions, etc.). Renders nothing if no `@since` tag.
+ */
+export const sinceBlock = (comment?: TypeDocComment): string => {
+  const v = getTag(comment, '@since').trim();
+  return v ? `> _Since v${v}_\n\n` : '';
+};
+
 /** Check if node or its signatures are marked @internal (works for methods and accessors) */
 export const isNodeInternal = (node: TypeDocNode): boolean =>
   isInternal(node.comment) ||
@@ -543,6 +564,7 @@ export interface GeneratorOptions {
 export function genInterface(node: TypeDocNode, title: string, options: GeneratorOptions = {}): string {
   const { regenerateCommand, typeRegistry } = options;
   let out = mdxHeader(title, regenerateCommand);
+  out += sinceBlock(node.comment);
   const desc = getText(node.comment);
   if (desc) out += `${escape(desc)}\n\n`;
 
@@ -556,7 +578,7 @@ export function genInterface(node: TypeDocNode, title: string, options: Generato
       const propDesc = getFirstParagraph(p.comment);
       const opt = p.flags?.isOptional ? '?' : '';
       const dep = isDeprecated(p.comment) ? '⚠️ ' : '';
-      out += `| \`${p.name}${opt}\` | ${fmtType(p.type, typeRegistry)} | ${dep}${escape(propDesc)} |\n`;
+      out += `| \`${p.name}${opt}\` | ${fmtType(p.type, typeRegistry)} | ${dep}${escape(propDesc)}${sinceBadge(p.comment)} |\n`;
     }
     out += '\n';
     out += genPropertyDetailsSections(props);
@@ -569,6 +591,7 @@ export function genInterface(node: TypeDocNode, title: string, options: Generato
 export function genClass(node: TypeDocNode, title: string, options: GeneratorOptions = {}): string {
   const { regenerateCommand, typeRegistry } = options;
   let out = mdxHeader(title, regenerateCommand);
+  out += sinceBlock(node.comment);
   const desc = getText(node.comment);
   if (desc) out += `${escape(desc)}\n\n`;
 
@@ -585,7 +608,7 @@ export function genClass(node: TypeDocNode, title: string, options: GeneratorOpt
     for (const p of props) {
       const propDesc = getFirstParagraph(p.comment);
       const opt = p.flags?.isOptional ? '?' : '';
-      out += `| \`${p.name}${opt}\` | ${fmtType(p.type, typeRegistry)} | ${escape(propDesc)} |\n`;
+      out += `| \`${p.name}${opt}\` | ${fmtType(p.type, typeRegistry)} | ${escape(propDesc)}${sinceBadge(p.comment)} |\n`;
     }
     out += '\n';
     out += genPropertyDetailsSections(props);
@@ -600,7 +623,7 @@ export function genClass(node: TypeDocNode, title: string, options: GeneratorOpt
       if (!sig) continue;
       const params = sig.parameters?.map((p) => `${p.name}: ${formatType(p.type)}`).join(', ') ?? '';
       const returnType = formatType(sig.type);
-      out += `### ${m.name}()\n\n`;
+      out += `### ${m.name}()${sinceBadge(sig.comment ?? m.comment)}\n\n`;
       const methodDesc = getText(sig.comment);
       if (methodDesc) out += `${escape(methodDesc)}\n\n`;
       out += `\`\`\`ts\n${m.name}(${params}): ${returnType}\n\`\`\`\n\n`;
@@ -627,6 +650,7 @@ export function genFunction(node: TypeDocNode, title: string, options: Generator
   if (!sig) return '';
 
   let out = mdxHeader(title, regenerateCommand);
+  out += sinceBlock(sig.comment ?? node.comment);
   const desc = getText(sig.comment);
   if (desc) out += `${escape(desc)}\n\n`;
 
@@ -663,6 +687,7 @@ export function genTypeAlias(node: TypeDocNode, title: string, options: Generato
     out += `> ⚠️ **Deprecated**${deprecationNote ? `: ${deprecationNote.trim()}` : ''}\n\n`;
   }
 
+  out += sinceBlock(node.comment);
   const desc = getText(node.comment);
   if (desc) out += `${escape(desc)}\n\n`;
 
@@ -678,6 +703,7 @@ export function genTypeAlias(node: TypeDocNode, title: string, options: Generato
 export function genEnum(node: TypeDocNode, title: string, options: GeneratorOptions = {}): string {
   const { regenerateCommand } = options;
   let out = mdxHeader(title, regenerateCommand);
+  out += sinceBlock(node.comment);
   const desc = getText(node.comment);
   if (desc) out += `${escape(desc)}\n\n`;
 
@@ -687,7 +713,7 @@ export function genEnum(node: TypeDocNode, title: string, options: GeneratorOpti
     for (const m of members) {
       const value = m.type?.value ?? '';
       const memberDesc = getText(m.comment);
-      out += `| \`${m.name}\` | \`${value}\` | ${escape(memberDesc)} |\n`;
+      out += `| \`${m.name}\` | \`${value}\` | ${escape(memberDesc)}${sinceBadge(m.comment)} |\n`;
     }
     out += '\n';
   }

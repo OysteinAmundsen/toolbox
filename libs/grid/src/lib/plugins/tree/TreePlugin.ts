@@ -90,6 +90,7 @@ import type { ExpandCollapseAnimation, FlattenedTreeRow, TreeConfig, TreeExpandD
  * @see {@link FlattenedTreeRow} for the flattened row structure
  *
  * @internal Extends BaseGridPlugin
+ * @since 0.1.1
  */
 export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   static override readonly manifest: PluginManifest = {

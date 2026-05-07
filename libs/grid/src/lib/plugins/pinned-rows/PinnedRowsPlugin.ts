@@ -89,6 +89,7 @@ import type {
  * @see {@link AggregationRowConfig} for aggregation row structure
  *
  * @internal Extends BaseGridPlugin
+ * @since 0.1.1
  */
 export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
   /** @internal */

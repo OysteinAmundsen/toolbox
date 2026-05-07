@@ -3,6 +3,7 @@ import { contentChild, Directive, effect, ElementRef, inject, TemplateRef } from
 /**
  * Context object passed to the cell renderer template.
  * Contains the cell value, row data, and column configuration.
+ * @since 0.1.0
  */
 export interface GridCellContext<TValue = unknown, TRow = unknown> {
   /** The cell value for this column */
@@ -61,6 +62,7 @@ export function getViewTemplate(element: HTMLElement): TemplateRef<GridCellConte
  * ```
  *
  * @category Directive
+ * @since 0.1.0
  */
 @Directive({ selector: 'tbw-grid-column-view' })
 export class GridColumnView {

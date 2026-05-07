@@ -8,6 +8,7 @@ import { getViewTemplate } from './grid-column-view.directive';
  * This provides better ergonomics in templates without requiring explicit type annotations.
  *
  * @internal Use `GridCellContext` in application code for stricter typing.
+ * @since 0.1.1
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface StructuralCellContext<TValue = any, TRow = any> {
@@ -27,6 +28,7 @@ export interface StructuralCellContext<TValue = any, TRow = any> {
  * This provides better ergonomics in templates without requiring explicit type annotations.
  *
  * @internal Use `GridEditorContext` in application code for stricter typing.
+ * @since 0.1.1
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface StructuralEditorContext<TValue = any, TRow = any> {
@@ -148,6 +150,7 @@ export function getStructuralEditorTemplate(
  * ```
  *
  * @category Directive
+ * @since 0.1.1
  */
 @Directive({ selector: '[tbwRenderer]' })
 export class TbwRenderer implements OnDestroy {
@@ -252,6 +255,7 @@ export class TbwRenderer implements OnDestroy {
  * will be removed at the same time. Consumers should already be importing
  * from the feature entry. (`TbwRenderer` stays in the main entry — it is
  * editor-agnostic.)
+ * @since 0.1.1
  */
 @Directive({ selector: '[tbwEditor]' })
 export class TbwEditor implements OnDestroy {

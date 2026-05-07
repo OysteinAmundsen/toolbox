@@ -11,6 +11,7 @@ import type { ColumnConfig } from '@toolbox-web/grid';
  *   </template>
  * </TbwGridColumn>
  * ```
+ * @since 0.1.0
  */
 export interface CellSlotProps<TRow = unknown, TValue = unknown> {
   /** The cell value */
@@ -36,6 +37,7 @@ export interface CellSlotProps<TRow = unknown, TValue = unknown> {
  *   </template>
  * </TbwGridColumn>
  * ```
+ * @since 0.1.0
  */
 export interface EditorSlotProps<TRow = unknown, TValue = unknown> {
   /** The current cell value */
@@ -73,6 +75,7 @@ export interface EditorSlotProps<TRow = unknown, TValue = unknown> {
  * adapters (e.g. when migrating from React to Vue or vice versa). Inside Vue
  * SFCs prefer `CellSlotProps` directly — Vue's `defineSlots` already infers
  * the right shape from it.
+ * @since 0.1.0
  */
 export type GridCellContext<TValue = unknown, TRow = unknown> = CellSlotProps<TRow, TValue>;
 
@@ -84,5 +87,6 @@ export type GridCellContext<TValue = unknown, TRow = unknown> = CellSlotProps<TR
  * users typing editor functions can share a single signature across adapters.
  * Inside Vue SFCs prefer `EditorSlotProps` directly — Vue's `defineSlots`
  * already infers the right shape from it.
+ * @since 0.1.0
  */
 export type GridEditorContext<TValue = unknown, TRow = unknown> = EditorSlotProps<TRow, TValue>;

@@ -48,10 +48,12 @@ declare module '../../core/types' {
  *
  * Applied via a `@page { size }` CSS rule in the print stylesheet.
  * @default 'portrait'
+ * @since 1.4.0
  */
 export type PrintOrientation = 'portrait' | 'landscape';
 
-/** Configuration options for the print plugin */
+/** Configuration options for the print plugin * @since 1.4.0
+ */
 export interface PrintConfig {
   /**
    * Show print button in toolbar (default: false)
@@ -132,7 +134,8 @@ export interface PrintConfig {
   isolate?: boolean;
 }
 
-/** Parameters for a specific print operation */
+/** Parameters for a specific print operation * @since 1.4.0
+ */
 export interface PrintParams {
   /** Override page orientation for this print */
   orientation?: PrintOrientation;
@@ -158,7 +161,8 @@ export interface PrintParams {
   isolate?: boolean;
 }
 
-/** Detail for print-start event */
+/** Detail for print-start event * @since 1.4.0
+ */
 export interface PrintStartDetail {
   /** Total rows being printed */
   rowCount: number;
@@ -170,7 +174,8 @@ export interface PrintStartDetail {
   originalRowCount: number;
 }
 
-/** Detail for print-complete event */
+/** Detail for print-complete event * @since 1.4.0
+ */
 export interface PrintCompleteDetail {
   /**
    * Whether the print operation completed without errors.

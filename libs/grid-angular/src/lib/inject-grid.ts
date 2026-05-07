@@ -3,6 +3,7 @@ import type { ColumnConfig, DataGridElement, GridConfig } from '@toolbox-web/gri
 
 /**
  * Return type for injectGrid function.
+ * @since 0.6.0
  */
 export interface InjectGridReturn<TRow = unknown> {
   /** Direct access to the typed grid element */
@@ -74,6 +75,7 @@ export interface InjectGridReturn<TRow = unknown> {
  *   Defaults to `'tbw-grid'` (first grid in the component). Use when the
  *   component contains multiple grids, e.g. `'tbw-grid.primary'` or `'#my-grid'`.
  * @returns Object with grid access methods and state signals
+ * @since 0.6.0
  */
 export function injectGrid<TRow = unknown>(selector = 'tbw-grid'): InjectGridReturn<TRow> {
   const elementRef = inject(ElementRef);

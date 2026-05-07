@@ -99,6 +99,7 @@ import { getFeatureConfigPreprocessor, runTemplateBridges } from '../internal/fe
 
 /**
  * Event detail for cell commit events.
+ * @since 0.1.0
  */
 export interface CellCommitEvent<TRow = unknown, TValue = unknown> {
   /** The row data object */
@@ -119,6 +120,7 @@ export interface CellCommitEvent<TRow = unknown, TValue = unknown> {
 
 /**
  * Event detail for row commit events (bulk editing).
+ * @since 0.1.0
  */
 export interface RowCommitEvent<TRow = unknown> {
   /** The row data object */
@@ -168,6 +170,7 @@ export interface RowCommitEvent<TRow = unknown> {
  * - Handles cleanup on destruction
  *
  * @category Directive
+ * @since 0.1.0
  */
 @Directive({ selector: 'tbw-grid' })
 export class Grid implements OnInit, AfterContentInit, OnDestroy {

@@ -32,6 +32,7 @@ import { provideGridTypeDefaults, type TypeDefaultRegistration } from './grid-ty
 
 /**
  * Options for {@link provideGrid}.
+ * @since 1.4.0
  */
 export interface ProvideGridOptions {
   /** Type defaults to register globally. Equivalent to `provideGridTypeDefaults`. */
@@ -49,6 +50,7 @@ export interface ProvideGridOptions {
  *
  * Equivalent to calling `provideGridTypeDefaults(options.typeDefaults)` and
  * `provideGridIcons(options.icons)` separately.
+ * @since 1.4.0
  */
 export function provideGrid(options: ProvideGridOptions = {}): EnvironmentProviders {
   const providers: EnvironmentProviders[] = [];

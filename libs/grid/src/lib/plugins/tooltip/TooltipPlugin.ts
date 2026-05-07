@@ -130,6 +130,7 @@ function supportsAnchor(): boolean {
  * ```
  *
  * @category Plugins
+ * @since 1.28.0
  */
 export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
   readonly name = 'tooltip';

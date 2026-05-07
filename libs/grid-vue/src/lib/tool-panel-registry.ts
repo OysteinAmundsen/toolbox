@@ -6,6 +6,7 @@ import type { VNode } from 'vue';
 
 /**
  * Context object passed to the tool panel slot.
+ * @since 0.1.0
  */
 export interface ToolPanelContext {
   /** The grid element */

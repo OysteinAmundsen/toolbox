@@ -9,6 +9,7 @@ import { defineComponent, inject, provide, type InjectionKey, type PropType } fr
 
 /**
  * Injection key for grid icons.
+ * @since 0.1.0
  */
 export const GRID_ICONS: InjectionKey<Partial<GridIcons>> = Symbol('grid-icons');
 
@@ -23,6 +24,7 @@ export const GRID_ICONS: InjectionKey<Partial<GridIcons>> = Symbol('grid-icons')
  * const icons = useGridIcons();
  * </script>
  * ```
+ * @since 0.1.0
  */
 export function useGridIcons(): Partial<GridIcons> | undefined {
   return inject(GRID_ICONS, undefined);
@@ -53,6 +55,7 @@ export function useGridIcons(): Partial<GridIcons> | undefined {
  *   </GridIconProvider>
  * </template>
  * ```
+ * @since 0.1.0
  */
 export const GridIconProvider = defineComponent({
   name: 'GridIconProvider',
@@ -74,4 +77,5 @@ export const GridIconProvider = defineComponent({
   },
 });
 
+/** @since 0.1.0 */
 export type GridIconProviderProps = InstanceType<typeof GridIconProvider>['$props'];

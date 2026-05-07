@@ -15,10 +15,12 @@
  *   reorder in browsers without View Transitions support.
  *
  * @default 'flip'
+ * @since 1.24.0
  */
 export type ReorderAnimation = false | 'flip' | 'fade';
 
-/** Configuration options for the reorder plugin */
+/** Configuration options for the reorder plugin * @since 1.24.0
+ */
 export interface ReorderConfig {
   /**
    * Animation type for column movement.
@@ -51,7 +53,8 @@ export interface ReorderState {
   columnOrder: string[];
 }
 
-/** Event detail emitted when a column is moved */
+/** Event detail emitted when a column is moved * @since 1.24.0
+ */
 export interface ColumnMoveDetail {
   /** The field name of the moved column */
   field: string;

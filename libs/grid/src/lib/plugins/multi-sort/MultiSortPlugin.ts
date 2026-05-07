@@ -73,6 +73,7 @@ import type { MultiSortConfig, SortModel } from './types';
  * @see {@link SortModel} for the sort model structure
  *
  * @internal Extends BaseGridPlugin
+ * @since 0.1.1
  */
 export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
   /**

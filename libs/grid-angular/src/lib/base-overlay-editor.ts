@@ -11,6 +11,7 @@ import { BaseGridEditor } from './base-grid-editor';
  * - `'below-right'` — panel appears below the cell, right-aligned
  * - `'over-top-left'` — panel top-left corner aligns with cell top-left corner (opens downward)
  * - `'over-bottom-left'` — panel bottom-left corner aligns with cell bottom-left corner (opens upward)
+ * @since 0.13.0
  */
 export type OverlayPosition = 'below' | 'above' | 'below-right' | 'over-top-left' | 'over-bottom-left';
 
@@ -200,6 +201,7 @@ let anchorCounter = 0;
  * the deprecated re-export from the main `@toolbox-web/grid-angular` entry
  * will be removed at the same time. Consumers should already be importing
  * from the feature entry.
+ * @since 0.13.0
  */
 @Directive()
 export abstract class BaseOverlayEditor<TRow = unknown, TValue = unknown> extends BaseGridEditor<TRow, TValue> {

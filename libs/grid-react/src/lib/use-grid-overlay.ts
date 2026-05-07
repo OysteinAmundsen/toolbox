@@ -7,6 +7,7 @@ import { GridElementContext } from './grid-element-context';
  * Options for {@link useGridOverlay}.
  *
  * @public
+ * @since 1.4.0
  */
 export interface UseGridOverlayOptions {
   /**
@@ -73,6 +74,7 @@ export interface UseGridOverlayOptions {
  * @param options - {@link UseGridOverlayOptions}.
  *
  * @public
+ * @since 1.4.0
  */
 export function useGridOverlay(panelRef: RefObject<HTMLElement | null>, options: UseGridOverlayOptions = {}): void {
   const { open = true, gridElement } = options;

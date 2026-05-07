@@ -57,7 +57,8 @@ import type {
   RowTransferDetail,
 } from './types';
 
-/** Field name for the drag handle column. */
+/** Field name for the drag handle column. * @since 2.4.0
+ */
 export const ROW_DRAG_HANDLE_FIELD = '__tbw_row_drag';
 
 // ---------------------------------------------------------------------------

@@ -1,8 +1,11 @@
 ---
 import Default from '@astrojs/starlight/components/Footer.astro';
+import VersionBadges from './VersionBadges.astro';
 ---
 
 <Default {...Astro.props}><slot /></Default>
+
+<VersionBadges />
 
 <!-- Present in DOM for AI agents that fetch this page, colored to match background -->
 <div class="llm-context">

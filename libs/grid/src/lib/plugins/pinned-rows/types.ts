@@ -12,6 +12,7 @@ import type { ColumnConfig } from '../../core/types';
  *
  * - `'top'` — Renders above the grid header. Useful for summary toolbars.
  * - `'bottom'` — Renders below the grid body (default). Standard placement for status information.
+ * @since 0.1.1
  */
 export type PinnedRowsPosition = 'top' | 'bottom';
 
@@ -44,6 +45,7 @@ export type AggregatorFn = (rows: unknown[], field: string, column?: ColumnConfi
  * const currencyFormatter: AggregatorFormatter = (value) =>
  *   `$${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
  * ```
+ * @since 0.1.1
  */
 export type AggregatorFormatter = (value: unknown, field: string, column?: ColumnConfig) => string;
 
@@ -57,7 +59,8 @@ export type AggregatorFormatter = (value: unknown, field: string, column?: Colum
  */
 export type AggregatorRef = string | AggregatorFn;
 
-/** Full aggregator config with optional formatter */
+/** Full aggregator config with optional formatter * @since 0.1.1
+ */
 export interface AggregatorConfig {
   /** The aggregator function or built-in key ('sum', 'avg', 'min', 'max', 'count', 'first', 'last') */
   aggFunc: AggregatorRef;
@@ -65,12 +68,14 @@ export interface AggregatorConfig {
   formatter?: AggregatorFormatter;
 }
 
-/** Aggregator definition - simple string/function or full config object */
+/** Aggregator definition - simple string/function or full config object * @since 0.1.1
+ */
 export type AggregatorDefinition = AggregatorRef | AggregatorConfig;
 
 /**
  * Configuration for an aggregation row (footer/header row with computed values).
  * Replaces the core FooterRowConfig functionality.
+ * @since 0.1.1
  */
 export interface AggregationRowConfig {
   /** Optional identifier (useful for diffing or targeted updates) */
@@ -115,7 +120,8 @@ export interface AggregationRowConfig {
   aggregators?: Record<string, AggregatorDefinition>;
 }
 
-/** Configuration options for the status bar plugin */
+/** Configuration options for the status bar plugin * @since 0.1.1
+ */
 export interface PinnedRowsConfig {
   /**
    * Unified ordered list of pinned-row slots. When provided, `aggregationRows`,
@@ -188,20 +194,24 @@ export interface PinnedRowsConfig {
  * - Without `render` ⇒ {@link AggregationSlot} (an aggregation row)
  *
  * Each slot occupies one DOM row inside its `position` area, in declared order.
+ * @since 0.1.1
  */
 export type PinnedRowSlot = PanelSlot | AggregationSlot;
 
-/** Horizontal zone within a panel slot row. */
+/** Horizontal zone within a panel slot row. * @since 0.1.1
+ */
 export type PanelZone = 'left' | 'center' | 'right';
 
 /**
  * Render function for a panel slot.
  * Return `null` to skip rendering (used by the built-in count panels for
  * conditional display, e.g. only show "Selected: N" when N > 0).
+ * @since 0.1.1
  */
 export type PanelRender = (context: PinnedRowsContext) => HTMLElement | null;
 
-/** Render function plus optional zone within the panel row. */
+/** Render function plus optional zone within the panel row. * @since 0.1.1
+ */
 export interface ZonedPanelRender {
   /** Horizontal zone within the row (default: 'left') */
   zone?: PanelZone;
@@ -209,7 +219,8 @@ export interface ZonedPanelRender {
   render: PanelRender;
 }
 
-/** A status-panel slot. Each slot becomes its own `.tbw-pinned-rows` row. */
+/** A status-panel slot. Each slot becomes its own `.tbw-pinned-rows` row. * @since 0.1.1
+ */
 export interface PanelSlot {
   /** Optional identifier for diffing/targeted updates */
   id?: string;
@@ -226,12 +237,14 @@ export interface PanelSlot {
 /**
  * An aggregation slot (row of computed values). Equivalent to {@link AggregationRowConfig}
  * but lives in the unified `slots[]` ordering.
+ * @since 0.1.1
  */
 export type AggregationSlot = AggregationRowConfig;
 
 /**
  * Custom panel definition for the legacy info bar.
  * @deprecated Use {@link PinnedRowSlot} via {@link PinnedRowsConfig.slots}.
+ * @since 0.1.1
  */
 export interface PinnedRowsPanel {
   /** Unique identifier for the panel */
@@ -242,7 +255,8 @@ export interface PinnedRowsPanel {
   render: (context: PinnedRowsContext) => HTMLElement | string;
 }
 
-/** Context provided to panel renderers */
+/** Context provided to panel renderers * @since 0.1.1
+ */
 export interface PinnedRowsContext {
   /** Total number of rows in the grid */
   totalRows: number;

@@ -27,6 +27,7 @@ import type { ColumnConfig } from './react-column-config';
  * columns={['id:number', 'name:string', 'email']}
  * columns={[{ field: 'id' }, { field: 'name' }, { field: 'email' }]}
  * ```
+ * @since 0.7.0
  */
 export type ColumnShorthand<TRow = unknown> = string | ColumnConfig<TRow>;
 
@@ -84,6 +85,7 @@ const VALID_TYPES = new Set(['string', 'number', 'boolean', 'date', 'datetime', 
  * @example
  * parseColumnShorthand('name') → { field: 'name', header: 'Name' }
  * parseColumnShorthand('salary:number') → { field: 'salary', header: 'Salary', type: 'number' }
+ * @since 0.7.0
  */
 export function parseColumnShorthand<TRow = unknown>(shorthand: string): ColumnConfig<TRow> {
   const colonIndex = shorthand.lastIndexOf(':');
@@ -125,6 +127,7 @@ export function parseColumnShorthand<TRow = unknown>(shorthand: string): ColumnC
  * //   { field: 'email', width: 200 }
  * // ]
  * ```
+ * @since 0.7.0
  */
 export function normalizeColumns<TRow = unknown>(columns: ColumnShorthand<TRow>[]): ColumnConfig<TRow>[] {
   return columns.map((col) => {
@@ -154,6 +157,7 @@ export function normalizeColumns<TRow = unknown>(columns: ColumnShorthand<TRow>[
  * //   { field: 'name', sortable: false, resizable: true },
  * // ]
  * ```
+ * @since 0.7.0
  */
 export function applyColumnDefaults<TRow = unknown>(
   columns: ColumnConfig<TRow>[],
@@ -168,6 +172,7 @@ export function applyColumnDefaults<TRow = unknown>(
  *
  * @param columns - Array to check
  * @returns True if any element is a string shorthand
+ * @since 0.7.0
  */
 export function hasColumnShorthands<TRow>(columns: ColumnShorthand<TRow>[]): boolean {
   return columns.some((col) => typeof col === 'string');

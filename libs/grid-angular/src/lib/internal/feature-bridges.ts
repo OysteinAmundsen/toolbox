@@ -23,6 +23,7 @@ import type { GridAdapter } from '../angular-grid-adapter';
  * the adapter should expose, or undefined if no Angular template is registered
  * for that grid. Used by `features/master-detail` and `features/responsive`.
  * @internal
+ * @since 1.4.0
  */
 export type RowRendererBridge = <TRow = unknown>(
   gridElement: HTMLElement,
@@ -35,6 +36,7 @@ export type RowRendererBridge = <TRow = unknown>(
  * (so the adapter does not depend on filtering types) and returns the
  * imperative `(container, params) => void` form required by core.
  * @internal
+ * @since 1.4.0
  */
 export type FilterPanelTypeDefaultBridge = (
   rendererValue: unknown,
@@ -49,6 +51,7 @@ let filterPanelTypeDefaultBridge: FilterPanelTypeDefaultBridge | null = null;
  * Install the master-detail row-renderer bridge. Called once on import by
  * `@toolbox-web/grid-angular/features/master-detail`.
  * @internal Plugin API
+ * @since 1.4.0
  */
 export function registerDetailRendererBridge(bridge: RowRendererBridge): void {
   detailRendererBridge = bridge;
@@ -58,6 +61,7 @@ export function registerDetailRendererBridge(bridge: RowRendererBridge): void {
  * Install the responsive-card row-renderer bridge. Called once on import by
  * `@toolbox-web/grid-angular/features/responsive`.
  * @internal Plugin API
+ * @since 1.4.0
  */
 export function registerResponsiveCardRendererBridge(bridge: RowRendererBridge): void {
   responsiveCardRendererBridge = bridge;
@@ -69,6 +73,7 @@ export function registerResponsiveCardRendererBridge(bridge: RowRendererBridge):
  * type-default and grid-config-level component-class filterPanelRenderers are
  * silently dropped — same precondition as the FilteringPlugin (TBW031).
  * @internal Plugin API
+ * @since 1.4.0
  */
 export function registerFilterPanelTypeDefaultBridge(bridge: FilterPanelTypeDefaultBridge): void {
   filterPanelTypeDefaultBridge = bridge;

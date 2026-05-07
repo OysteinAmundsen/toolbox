@@ -31,6 +31,7 @@ import type { Component, VNode } from 'vue';
  *   { field: 'status', renderer: StatusBadge },
  * ];
  * ```
+ * @since 0.1.0
  */
 export type CellRenderer<TRow = unknown, TValue = unknown> =
   | ((ctx: CellRenderContext<TRow, TValue>) => VNode)
@@ -56,6 +57,7 @@ export type CellRenderer<TRow = unknown, TValue = unknown> =
  *     'onUpdate:modelValue': ctx.commit,
  *   });
  * ```
+ * @since 0.1.0
  */
 export type CellEditor<TRow = unknown, TValue = unknown> =
   | ((ctx: ColumnEditorContext<TRow, TValue>) => VNode)
@@ -88,6 +90,7 @@ export type CellEditor<TRow = unknown, TValue = unknown> =
  *   },
  * ];
  * ```
+ * @since 0.1.0
  */
 export interface ColumnConfig<TRow = unknown, TValue = unknown> extends Omit<
   BaseColumnConfig<TRow>,
@@ -143,6 +146,7 @@ export interface ColumnConfig<TRow = unknown, TValue = unknown> extends Omit<
  *   plugins: [new SelectionPlugin({ mode: 'row' })],
  * };
  * ```
+ * @since 0.1.0
  */
 export interface GridConfig<TRow = unknown> extends Omit<BaseGridConfig<TRow>, 'columns' | 'loadingRenderer'> {
   /**

@@ -18,6 +18,7 @@
  *   { field: 'salary', direction: 'desc' },
  * ];
  * ```
+ * @since 0.1.1
  */
 export interface SortModel {
   /** The column field key to sort by. Must match a `field` in the grid's column configuration. */
@@ -37,6 +38,7 @@ export interface SortModel {
  * ```typescript
  * new MultiSortPlugin({ maxSortColumns: 5, showSortIndex: true })
  * ```
+ * @since 0.1.1
  */
 export interface MultiSortConfig {
   /**
@@ -60,7 +62,8 @@ export interface MultiSortState {
   sortModel: SortModel[];
 }
 
-/** Event detail emitted by multi-sort's `sort-change` event. Replaces the core `SortChangeDetail` with the full sort model. */
+/** Event detail emitted by multi-sort's `sort-change` event. Replaces the core `SortChangeDetail` with the full sort model. * @since 0.1.1
+ */
 export interface MultiSortChangeDetail {
   /** The complete sort model — ordered list of sort columns by precedence. */
   sortModel: SortModel[];

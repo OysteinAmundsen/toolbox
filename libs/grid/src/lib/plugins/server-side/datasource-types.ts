@@ -1,6 +1,7 @@
 // #region Sort/Filter Model
 
-/** Sort/filter state passed through to the server. */
+/** Sort/filter state passed through to the server. * @since 2.0.0
+ */
 export interface DataRequestModel {
   /** Active sort columns, in priority order. Empty array when unsorted. */
   sortModel?: Array<{ field: string; direction: 'asc' | 'desc' }>;
@@ -21,6 +22,7 @@ export interface DataRequestModel {
  *
  * The grid enriches these params with the current sort/filter state from loaded plugins
  * (MultiSort, Filtering) so the server can apply them remotely.
+ * @since 2.0.0
  */
 export interface GetRowsParams extends DataRequestModel {
   /** Zero-based index of the first node to fetch (inclusive). */
@@ -51,6 +53,7 @@ export interface GetRowsParams extends DataRequestModel {
  * // Infinite scroll — set lastNode when the final page is reached
  * return { rows: pageData, totalNodeCount: -1, lastNode: absoluteLastIndex };
  * ```
+ * @since 2.0.0
  */
 export interface GetRowsResult<TRow = unknown> {
   /** The fetched top-level node objects for the requested range. */
@@ -86,6 +89,7 @@ export interface GetRowsResult<TRow = unknown> {
  * - MasterDetail: `{ source: 'master-detail', row: TRow, rowIndex: number }`
  *
  * Child rows are fetched as a single batch — no pagination.
+ * @since 2.0.0
  */
 export interface GetChildRowsParams extends DataRequestModel {
   /**
@@ -99,6 +103,7 @@ export interface GetChildRowsParams extends DataRequestModel {
 /**
  * Result returned from {@link ServerSideDataSource.getChildRows}.
  * All children are returned in a single batch (no pagination).
+ * @since 2.0.0
  */
 export interface GetChildRowsResult<TRow = unknown> {
   rows: TRow[];
@@ -119,6 +124,7 @@ export interface GetChildRowsResult<TRow = unknown> {
  * tears the subscription down on `complete`, `error`, or when the request is
  * superseded (`AbortSignal` fires) — which is what causes Angular `HttpClient`
  * to cancel the underlying XHR.
+ * @since 2.0.0
  */
 export interface Subscribable<T> {
   subscribe(observer: {
@@ -166,6 +172,7 @@ export interface Subscribable<T> {
  *       .pipe(map((d) => ({ rows: d.items, totalNodeCount: d.total }))),
  * };
  * ```
+ * @since 2.0.0
  */
 export interface ServerSideDataSource<TRow = unknown> {
   /**
@@ -199,7 +206,8 @@ export interface ServerSideDataSource<TRow = unknown> {
 
 // #region Event Detail Types
 
-/** Detail for `datasource:data` broadcast events. */
+/** Detail for `datasource:data` broadcast events. * @since 2.0.0
+ */
 export interface DataSourceDataDetail<TRow = unknown> {
   rows: TRow[];
   totalNodeCount: number;
@@ -209,7 +217,8 @@ export interface DataSourceDataDetail<TRow = unknown> {
   claimed: boolean;
 }
 
-/** Detail for `datasource:children` broadcast events. */
+/** Detail for `datasource:children` broadcast events. * @since 2.0.0
+ */
 export interface DataSourceChildrenDetail<TRow = unknown> {
   rows: TRow[];
   context: { source: string; [key: string]: unknown };
@@ -217,13 +226,15 @@ export interface DataSourceChildrenDetail<TRow = unknown> {
   claimed: boolean;
 }
 
-/** Detail for `datasource:loading` broadcast events. */
+/** Detail for `datasource:loading` broadcast events. * @since 2.0.0
+ */
 export interface DataSourceLoadingDetail {
   loading: boolean;
   context?: { source: string; [key: string]: unknown };
 }
 
-/** Detail for `datasource:error` broadcast events. */
+/** Detail for `datasource:error` broadcast events. * @since 2.0.0
+ */
 export interface DataSourceErrorDetail {
   error: Error;
   context?: { source: string; [key: string]: unknown };
@@ -233,20 +244,23 @@ export interface DataSourceErrorDetail {
 
 // #region Query Types
 
-/** Context for `datasource:viewport-mapping` query. */
+/** Context for `datasource:viewport-mapping` query. * @since 2.0.0
+ */
 export interface ViewportMappingQuery {
   viewportStart: number;
   viewportEnd: number;
 }
 
-/** Response from `datasource:viewport-mapping` query. */
+/** Response from `datasource:viewport-mapping` query. * @since 2.0.0
+ */
 export interface ViewportMappingResponse {
   startNode: number;
   endNode: number;
   totalLoadedNodes: number;
 }
 
-/** Context for `datasource:fetch-children` query. */
+/** Context for `datasource:fetch-children` query. * @since 2.0.0
+ */
 export interface FetchChildrenQuery {
   context: { source: string; [key: string]: unknown };
 }

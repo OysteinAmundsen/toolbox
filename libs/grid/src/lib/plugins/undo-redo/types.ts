@@ -17,13 +17,15 @@
  *   new UndoRedoPlugin({ maxHistorySize: 50 }),
  * ];
  * ```
+ * @since 0.1.1
  */
 export interface UndoRedoConfig {
   /** Maximum number of actions to keep in history. Default: 100 */
   maxHistorySize?: number;
 }
 
-/** Represents a single edit action that can be undone/redone */
+/** Represents a single edit action that can be undone/redone * @since 0.1.1
+ */
 export interface EditAction {
   /** Type of action - currently only 'cell-edit' is supported */
   type: 'cell-edit';
@@ -45,6 +47,7 @@ export interface EditAction {
  * Created via `beginTransaction()` / `endTransaction()` when multiple
  * field edits should be treated as one logical operation (e.g., a user
  * edit that cascades changes to other fields).
+ * @since 0.1.1
  */
 export interface CompoundEditAction {
   /** Discriminant for compound actions */
@@ -55,7 +58,8 @@ export interface CompoundEditAction {
   timestamp: number;
 }
 
-/** A single edit or a compound group of edits on the undo/redo stack */
+/** A single edit or a compound group of edits on the undo/redo stack * @since 0.1.1
+ */
 export type UndoRedoAction = EditAction | CompoundEditAction;
 
 /** Internal state maintained by the undo/redo plugin */
@@ -66,7 +70,8 @@ export interface UndoRedoState {
   redoStack: UndoRedoAction[];
 }
 
-/** Event detail emitted when an undo or redo operation is performed */
+/** Event detail emitted when an undo or redo operation is performed * @since 0.1.1
+ */
 export interface UndoRedoDetail {
   /** The action that was undone or redone */
   action: UndoRedoAction;

@@ -116,6 +116,7 @@ export interface PluginHeaderRenderContext {
  *   ];
  * }
  * ```
+ * @since 0.1.1
  */
 export interface PluginDependency {
   /**
@@ -187,6 +188,7 @@ export interface PluginIncompatibility {
  *   }
  * }
  * ```
+ * @since 0.1.1
  */
 export interface QueryDefinition {
   /**
@@ -223,6 +225,7 @@ export interface QueryDefinition {
  * // In another plugin - subscribe
  * this.on('filter-change', (detail) => console.log('Filter changed:', detail));
  * ```
+ * @since 0.1.1
  */
 export interface EventDefinition {
   /**
@@ -326,6 +329,7 @@ export type HookName =
  *   readonly name = 'myPlugin';
  * }
  * ```
+ * @since 0.1.1
  */
 export interface PluginManifest<TConfig = unknown> {
   /**
@@ -410,6 +414,7 @@ export function toIconAttr(key: string): string {
  *
  * @category Plugin Development
  * @template TConfig - Configuration type for the plugin
+ * @since 0.1.1
  */
 export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   /**

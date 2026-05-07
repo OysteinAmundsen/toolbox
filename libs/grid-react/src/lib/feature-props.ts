@@ -89,6 +89,7 @@ type ReactGroupingColumnsConfig = Omit<GroupingColumnsConfig, 'groupHeaderRender
  * Each prop lazily loads its corresponding plugin when used.
  *
  * @template TRow - The row data type
+ * @since 0.7.0
  */
 export interface FeatureProps<TRow = unknown> {
   // ═══════════════════════════════════════════════════════════════════
@@ -500,6 +501,7 @@ export interface FeatureProps<TRow = unknown> {
  * this flag. If you need real SSR support (Next.js / Remix / Astro), open an
  * issue describing your hydration requirements so we can design a proper
  * cross-adapter story rather than relying on this flag.
+ * @since 0.7.0
  */
 export interface SSRProps {
   /**
@@ -514,6 +516,7 @@ export interface SSRProps {
 
 /**
  * All feature-related props combined.
+ * @since 0.7.0
  */
 export type AllFeatureProps<TRow = unknown> = FeatureProps<TRow> & SSRProps;
 

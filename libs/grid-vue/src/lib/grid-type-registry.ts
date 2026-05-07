@@ -29,6 +29,7 @@ import { defineComponent, inject, provide, type InjectionKey, type PropType, typ
  *   }),
  * };
  * ```
+ * @since 0.1.0
  */
 export interface TypeDefault<TRow = unknown, TValue = unknown> {
   /** Vue render function for rendering cells of this type */
@@ -65,11 +66,13 @@ export interface TypeDefault<TRow = unknown, TValue = unknown> {
 
 /**
  * Type defaults registry - a map of type names to their defaults.
+ * @since 0.1.0
  */
 export type TypeDefaultsMap = Record<string, TypeDefault>;
 
 /**
  * Injection key for type defaults.
+ * @since 0.1.0
  */
 export const GRID_TYPE_DEFAULTS: InjectionKey<TypeDefaultsMap> = Symbol('grid-type-defaults');
 
@@ -84,6 +87,7 @@ export const GRID_TYPE_DEFAULTS: InjectionKey<TypeDefaultsMap> = Symbol('grid-ty
  * const typeDefaults = useGridTypeDefaults();
  * </script>
  * ```
+ * @since 0.1.0
  */
 export function useGridTypeDefaults(): TypeDefaultsMap | undefined {
   return inject(GRID_TYPE_DEFAULTS, undefined);
@@ -102,6 +106,7 @@ export function useGridTypeDefaults(): TypeDefaultsMap | undefined {
  * const countryDefault = useTypeDefault('country');
  * </script>
  * ```
+ * @since 0.1.0
  */
 export function useTypeDefault<TRow = unknown, TValue = unknown>(
   typeName: string,
@@ -136,6 +141,7 @@ export function useTypeDefault<TRow = unknown, TValue = unknown>(
  *   </GridTypeProvider>
  * </template>
  * ```
+ * @since 0.1.0
  */
 export const GridTypeProvider = defineComponent({
   name: 'GridTypeProvider',
@@ -157,4 +163,5 @@ export const GridTypeProvider = defineComponent({
   },
 });
 
+/** @since 0.1.0 */
 export type GridTypeProviderProps = InstanceType<typeof GridTypeProvider>['$props'];

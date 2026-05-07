@@ -166,6 +166,7 @@ function buildSelectionEvent(
  * @see {@link SelectionConfig} for configuration options
  * @see {@link SelectionResult} for the selection result structure
  * @see {@link SelectionConfig} for interactive examples in the docs site
+ * @since 0.1.1
  */
 export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   /**

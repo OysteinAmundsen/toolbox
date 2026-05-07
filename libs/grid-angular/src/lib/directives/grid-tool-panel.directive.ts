@@ -3,6 +3,7 @@ import { contentChild, Directive, effect, ElementRef, inject, input, TemplateRef
 /**
  * Context object passed to the tool panel template.
  * Provides access to grid-related information for the panel content.
+ * @since 0.1.0
  */
 export interface GridToolPanelContext {
   /** The grid element (implicit binding) */
@@ -88,6 +89,7 @@ export function getToolPanelElements(gridElement: HTMLElement): HTMLElement[] {
  * ```
  *
  * @category Directive
+ * @since 0.1.0
  */
 @Directive({ selector: 'tbw-grid-tool-panel' })
 export class GridToolPanel {

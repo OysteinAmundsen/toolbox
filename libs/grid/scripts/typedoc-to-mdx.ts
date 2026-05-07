@@ -33,6 +33,8 @@ import {
   KIND,
   KIND_FOLDER_MAP,
   mdxHeader as mdxHeaderBase,
+  sinceBadge,
+  sinceBlock,
   writeMdx as writeMdxBase,
   type TypeDocComment,
   type TypeDocNode,
@@ -293,7 +295,7 @@ function genPropertiesTable(props: TypeDocNode[]): string {
     const desc = getFirstParagraph(p.comment);
     const opt = p.flags?.isOptional ? '?' : '';
     const dep = isDeprecated(p.comment) ? '⚠️ ' : '';
-    out += `| \`${p.name}${opt}\` | ${type} | ${dep}${escape(desc)} |\n`;
+    out += `| \`${p.name}${opt}\` | ${type} | ${dep}${escape(desc)}${sinceBadge(p.comment)} |\n`;
   }
   out += '\n';
   out += genPropertyDetailsSections(props, resolveSeeLink);
@@ -306,7 +308,7 @@ function genAccessor(node: TypeDocNode): string {
   const readonly = !node.setSignature ? 'readonly ' : '';
   const isStatic = node.flags?.isStatic ? 'static ' : '';
 
-  let out = `### ${node.name}\n\n`;
+  let out = `### ${node.name}${sinceBadge(comment)}\n\n`;
   if (isDeprecated(comment)) out += `> ⚠️ **Deprecated**: ${getTag(comment, '@deprecated')}\n\n`;
 
   const desc = getText(comment);
@@ -329,7 +331,7 @@ function genMethod(node: TypeDocNode, showOverride = false): string {
   const isStatic = node.flags?.isStatic ? 'static ' : '';
   const isOverride = showOverride && node.overwrites;
 
-  let out = `### ${node.name}()\n\n`;
+  let out = `### ${node.name}()${sinceBadge(sig.comment)}\n\n`;
   if (isDeprecated(sig.comment)) out += `> ⚠️ **Deprecated**: ${getTag(sig.comment, '@deprecated')}\n\n`;
 
   const desc = getText(sig.comment);
@@ -364,6 +366,7 @@ function genMethod(node: TypeDocNode, showOverride = false): string {
 
 function genClass(node: TypeDocNode, title: string, filter?: (m: TypeDocNode) => boolean): string {
   let out = mdxHeader(title);
+  out += sinceBlock(node.comment);
   const desc = getText(node.comment);
   if (desc) out += `${escape(desc)}\n\n`;
 
@@ -377,6 +380,7 @@ function genClass(node: TypeDocNode, title: string, filter?: (m: TypeDocNode) =>
  */
 function genPluginClass(node: TypeDocNode, title: string): string {
   let out = mdxHeader(title);
+  out += sinceBlock(node.comment);
   let desc = getTextWithLinks(node.comment, resolveTypeLink);
   // Remove "Extends BaseGridPlugin" text that comes from @internal marker
   desc = desc.replace(/\s*Extends BaseGridPlugin\s*/g, '').trim();
@@ -573,6 +577,7 @@ function genClassBody(
 
 function genInterface(node: TypeDocNode, title: string): string {
   let out = mdxHeader(title);
+  out += sinceBlock(node.comment);
   const desc = getText(node.comment);
   if (desc) out += `${escape(desc)}\n\n`;
 
@@ -648,7 +653,7 @@ function genPropertiesTableInner(props: TypeDocNode[]): string {
     const desc = getFirstParagraph(p.comment);
     const opt = p.flags?.isOptional ? '?' : '';
     const dep = isDeprecated(p.comment) ? '⚠️ ' : '';
-    out += `| \`${p.name}${opt}\` | ${type} | ${dep}${escape(desc)} |\n`;
+    out += `| \`${p.name}${opt}\` | ${type} | ${dep}${escape(desc)}${sinceBadge(p.comment)} |\n`;
   }
   return out + '\n';
 }
@@ -657,6 +662,7 @@ function genTypeAlias(node: TypeDocNode, title: string): string {
   const mergedVar = getMergedVariable(node);
 
   let out = mdxHeader(title);
+  out += sinceBlock(mergedVar?.comment ?? node.comment);
 
   // Prefer the variable's richer description; fall back to the type alias's own.
   const primaryComment = mergedVar?.comment ?? node.comment;
@@ -707,6 +713,7 @@ function genFunction(node: TypeDocNode, title: string): string {
   const primarySig = sigs[0];
 
   let out = mdxHeader(title);
+  out += sinceBlock(primarySig.comment ?? node.comment);
   const desc = getText(primarySig.comment);
   if (desc) out += `${escape(desc)}\n\n`;
 
@@ -749,6 +756,7 @@ function genFunction(node: TypeDocNode, title: string): string {
 
 function genEnum(node: TypeDocNode, title: string): string {
   let out = mdxHeader(title);
+  out += sinceBlock(node.comment);
   const desc = getText(node.comment);
   if (desc) out += `${escape(desc)}\n\n`;
 
@@ -756,7 +764,7 @@ function genEnum(node: TypeDocNode, title: string): string {
   if (members.length) {
     out += `## Members\n\n| Member | Value | Description |\n| ------ | ----- | ----------- |\n`;
     for (const m of members) {
-      out += `| \`${m.name}\` | \`${m.type?.value ?? ''}\` | ${escape(getText(m.comment))} |\n`;
+      out += `| \`${m.name}\` | \`${m.type?.value ?? ''}\` | ${escape(getText(m.comment))}${sinceBadge(m.comment)} |\n`;
     }
     out += '\n';
   }
@@ -948,6 +956,7 @@ const CORE_INTERNAL_EVENTS: { event: string; description: string }[] = [
 function genDataGridSplit(node: TypeDocNode, outDir: string): void {
   // Public API
   let publicMdx = mdxHeader('DataGridElement');
+  publicMdx += sinceBlock(node.comment);
   publicMdx += `
 High-performance data grid web component (\`<tbw-grid>\`).
 

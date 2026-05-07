@@ -12,6 +12,7 @@
  * All keys not annotated as "cross-grid" are identical in name and default to
  * `RowReorderConfig`, so migration is `new RowReorderPlugin(cfg)` →
  * `new RowDragDropPlugin(cfg)` with zero changes.
+ * @since 2.4.0
  */
 export interface RowDragDropConfig<T = unknown> {
   // === Parity with RowReorderConfig ===
@@ -165,6 +166,7 @@ export interface RowDragDropConfig<T = unknown> {
 /**
  * Cross-grid drag payload, carried on `dataTransfer` and (for same-window
  * recovery) keyed in the WeakRef registry by `sessionId`.
+ * @since 2.4.0
  */
 export interface RowDragPayload<T = unknown> {
   /** Drag session id (matches the WeakRef registry key). */
@@ -187,6 +189,7 @@ export interface RowDragPayload<T = unknown> {
  * For backward compatibility this type matches `RowReorderPlugin`'s
  * `RowMoveDetail` exactly; the `row-move` event continues to fire only for
  * intra-grid moves. Cross-grid moves emit `row-transfer` instead.
+ * @since 2.4.0
  */
 export interface RowMoveDetail<T = unknown> {
   /** The row that was moved. */
@@ -201,7 +204,8 @@ export interface RowMoveDetail<T = unknown> {
   source: 'keyboard' | 'drag';
 }
 
-/** Detail for the `row-drag-start` event (source grid). */
+/** Detail for the `row-drag-start` event (source grid). * @since 2.4.0
+ */
 export interface RowDragStartDetail<T = unknown> {
   /** Rows being dragged (single row, or whole selection if dragged row is selected). */
   rows: T[];
@@ -213,7 +217,8 @@ export interface RowDragStartDetail<T = unknown> {
   dropZone: string;
 }
 
-/** Detail for the `row-drag-end` event (source grid). */
+/** Detail for the `row-drag-end` event (source grid). * @since 2.4.0
+ */
 export interface RowDragEndDetail<T = unknown> {
   /** Rows that were being dragged. */
   rows: T[];
@@ -223,7 +228,8 @@ export interface RowDragEndDetail<T = unknown> {
   accepted: boolean;
 }
 
-/** Detail for the `row-drop` event (target grid, cancelable). */
+/** Detail for the `row-drop` event (target grid, cancelable). * @since 2.4.0
+ */
 export interface RowDropDetail<T = unknown> {
   /** Decoded payload from the source grid. */
   payload: RowDragPayload<T>;
@@ -235,7 +241,8 @@ export interface RowDropDetail<T = unknown> {
   operation: 'move' | 'copy';
 }
 
-/** Detail for the `row-transfer` event (fired on BOTH grids after success). */
+/** Detail for the `row-transfer` event (fired on BOTH grids after success). * @since 2.4.0
+ */
 export interface RowTransferDetail<T = unknown> {
   /** Rows that were transferred. */
   rows: T[];

@@ -1,0 +1,86 @@
+---
+/**
+ * VersionBadges — small footer badges showing the latest published version of
+ * each library in the workspace. Versions are read from each library's
+ * package.json at build time, so they stay in sync with whatever release-please
+ * publishes without any manual update.
+ */
+// Import each lib's package.json at build time so versions are baked into
+// the static bundle (works in both `astro dev` and `astro build` without
+// any cwd assumptions).
+import gridAngularPkg from '../../../../libs/grid-angular/package.json';
+import gridReactPkg from '../../../../libs/grid-react/package.json';
+import gridVuePkg from '../../../../libs/grid-vue/package.json';
+import gridPkg from '../../../../libs/grid/package.json';
+
+const versions: { label: string; version: string; changelogHref: string }[] = [
+  { label: 'grid', version: gridPkg.version, changelogHref: '/grid/changelog/' },
+  { label: 'grid-angular', version: gridAngularPkg.version, changelogHref: '/grid/angular/changelog/' },
+  { label: 'grid-react', version: gridReactPkg.version, changelogHref: '/grid/react/changelog/' },
+  { label: 'grid-vue', version: gridVuePkg.version, changelogHref: '/grid/vue/changelog/' },
+];
+---
+
+<aside class="tbw-versions" aria-label="Library versions">
+  <span class="tbw-versions__heading">Latest:</span>
+  <ul>
+    {versions.map((v) => (
+      <li>
+        <a href={v.changelogHref}>
+          <span class="tbw-versions__name">{v.label}</span>
+          <span class="tbw-versions__sep">@</span>
+          <span class="tbw-versions__version">{v.version}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+</aside>
+
+<style>
+  .tbw-versions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--sl-color-hairline-light, var(--sl-color-gray-5));
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .tbw-versions__heading {
+    font-weight: 600;
+    color: var(--sl-color-gray-2);
+  }
+  .tbw-versions ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .tbw-versions a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.125rem 0.5rem;
+    border: 1px solid var(--sl-color-hairline, var(--sl-color-gray-5));
+    border-radius: 999px;
+    text-decoration: none;
+    color: inherit;
+    font-family: var(--sl-font-mono, ui-monospace, monospace);
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .tbw-versions a:hover,
+  .tbw-versions a:focus-visible {
+    border-color: var(--sl-color-accent, currentColor);
+    color: var(--sl-color-text-accent, currentColor);
+  }
+  .tbw-versions__sep {
+    opacity: 0.6;
+  }
+  .tbw-versions__version {
+    font-weight: 600;
+  }
+</style>

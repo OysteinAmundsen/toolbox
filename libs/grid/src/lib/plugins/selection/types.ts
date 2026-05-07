@@ -81,6 +81,7 @@ declare module '../../core/types' {
  * @see Cell Mode Demo — Click cells to select
  * @see Row Mode Demo — Full row selection
  * @see Range Mode Demo — Drag to select ranges
+ * @since 0.1.1
  */
 export type SelectionMode = 'cell' | 'row' | 'range';
 
@@ -98,6 +99,7 @@ export type SelectionMode = 'cell' | 'row' | 'range';
  * // Double-click to select - useful for data entry grids
  * new SelectionPlugin({ mode: 'cell', triggerOn: 'dblclick' })
  * ```
+ * @since 0.1.1
  */
 export type SelectionTrigger = 'click' | 'dblclick';
 
@@ -122,6 +124,7 @@ export type SelectionTrigger = 'click' | 'dblclick';
  * // Permission-based selection
  * isSelectable: (row) => userPermissions.canSelect(row)
  * ```
+ * @since 0.1.1
  */
 export type SelectableCallback<T = unknown> = (
   row: T,
@@ -130,7 +133,8 @@ export type SelectableCallback<T = unknown> = (
   colIndex?: number,
 ) => boolean;
 
-/** Configuration options for the selection plugin */
+/** Configuration options for the selection plugin * @since 0.1.1
+ */
 export interface SelectionConfig<T = unknown> {
   /** Selection mode (default: 'cell') */
   mode: SelectionMode;
@@ -262,7 +266,8 @@ export interface InternalCellRange {
   endCol: number;
 }
 
-/** Public representation of a cell range (for events) */
+/** Public representation of a cell range (for events) * @since 0.1.1
+ */
 export interface CellRange {
   /** Starting cell coordinates */
   from: { row: number; col: number };
@@ -273,6 +278,7 @@ export interface CellRange {
 /**
  * Unified event detail emitted when selection changes (all modes).
  * Provides a consistent structure for consumers to handle selection state.
+ * @since 0.1.1
  */
 export interface SelectionChangeDetail {
   /** The selection mode that triggered this event */
@@ -293,6 +299,7 @@ export interface SelectionChangeDetail {
  *   console.log(`Selected from (${firstRange.from.row}, ${firstRange.from.col}) to (${firstRange.to.row}, ${firstRange.to.col})`);
  * }
  * ```
+ * @since 0.1.1
  */
 export interface SelectionResult {
   /** The current selection mode */

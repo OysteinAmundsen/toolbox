@@ -37,6 +37,7 @@ type ClaimableEventName = keyof DataGridEventMap<unknown>;
  * signal inside it establishes reactive dependency tracking — the effect
  * re-runs when the directive's input changes.
  * @internal
+ * @since 1.4.0
  */
 export type FeatureConfigGetter = () => unknown;
 
@@ -51,6 +52,7 @@ const eventClaims = new WeakMap<HTMLElement, Set<ClaimableEventName>>();
  * the {@link Grid} directive will then use {@link getFeatureClaim} during
  * plugin creation instead of reading its own deprecated input.
  * @internal
+ * @since 1.4.0
  */
 export function registerFeatureClaim(grid: HTMLElement, name: FeatureName, getConfig: FeatureConfigGetter): void {
   let map = featureClaims.get(grid);
@@ -65,6 +67,7 @@ export function registerFeatureClaim(grid: HTMLElement, name: FeatureName, getCo
  * Look up a feature claim. Returns the registered config getter, or
  * `undefined` if no directive owns this feature on this element.
  * @internal
+ * @since 1.4.0
  */
 export function getFeatureClaim(grid: HTMLElement, name: FeatureName): FeatureConfigGetter | undefined {
   return featureClaims.get(grid)?.get(name);
@@ -75,6 +78,7 @@ export function getFeatureClaim(grid: HTMLElement, name: FeatureName): FeatureCo
  * that, if the directive is removed (e.g. via `*ngIf`) but the host
  * `<tbw-grid>` survives, {@link Grid}'s deprecated input takes back over.
  * @internal
+ * @since 1.4.0
  */
 export function unregisterFeatureClaim(grid: HTMLElement, name: FeatureName): void {
   featureClaims.get(grid)?.delete(name);
@@ -85,6 +89,7 @@ export function unregisterFeatureClaim(grid: HTMLElement, name: FeatureName): vo
  * `setupEventListeners` skips wiring its own deprecated `output()` for any
  * claimed event — the directive owns the listener and the emit.
  * @internal
+ * @since 1.4.0
  */
 export function claimEvent(grid: HTMLElement, eventName: ClaimableEventName): void {
   let set = eventClaims.get(grid);
@@ -98,6 +103,7 @@ export function claimEvent(grid: HTMLElement, eventName: ClaimableEventName): vo
 /**
  * Returns true if a directive has claimed this event on this grid element.
  * @internal
+ * @since 1.4.0
  */
 export function isEventClaimed(grid: HTMLElement, eventName: ClaimableEventName): boolean {
   return eventClaims.get(grid)?.has(eventName) ?? false;
@@ -107,6 +113,7 @@ export function isEventClaimed(grid: HTMLElement, eventName: ClaimableEventName)
  * Drop an event claim. Pair with {@link claimEvent} in a directive's
  * `ngOnDestroy`.
  * @internal
+ * @since 1.4.0
  */
 export function unclaimEvent(grid: HTMLElement, eventName: ClaimableEventName): void {
   eventClaims.get(grid)?.delete(eventName);

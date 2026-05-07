@@ -7,6 +7,7 @@ import { GRID_ELEMENT_KEY } from './use-grid';
  * Options for {@link useGridOverlay}.
  *
  * @public
+ * @since 1.4.0
  */
 export interface UseGridOverlayOptions {
   /**
@@ -78,6 +79,7 @@ export interface UseGridOverlayOptions {
  * @param options - {@link UseGridOverlayOptions}.
  *
  * @public
+ * @since 1.4.0
  */
 export function useGridOverlay(
   panelRef: Ref<HTMLElement | null | undefined>,

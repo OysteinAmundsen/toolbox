@@ -93,6 +93,7 @@ const QUERY_CAN_MOVE_COLUMN = 'canMoveColumn';
  * @see {@link PinnedColumnsConfig} for configuration options
  *
  * @internal Extends BaseGridPlugin
+ * @since 0.1.1
  */
 export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   /**

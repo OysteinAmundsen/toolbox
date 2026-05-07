@@ -25,6 +25,7 @@ interface EditingPluginConfig {
 /**
  * Context provided to the grid containing form-related information.
  * This can be accessed by other directives to get form controls.
+ * @since 0.5.0
  */
 export interface FormArrayContext {
   /** Get the row data at a specific index */
@@ -95,6 +96,7 @@ const FORM_ARRAY_CONTEXT = Symbol('formArrayContext');
 /**
  * Gets the FormArrayContext from a grid element, if present.
  * @internal
+ * @since 0.5.0
  */
 export function getFormArrayContext(gridElement: HTMLElement): FormArrayContext | undefined {
   return (gridElement as unknown as Record<symbol, FormArrayContext>)[FORM_ARRAY_CONTEXT];
@@ -166,6 +168,7 @@ export function getFormArrayContext(gridElement: HTMLElement): FormArrayContext 
  * re-exports from the main `@toolbox-web/grid-angular` entry will be removed
  * at the same time. Consumers should already be importing from the feature
  * entry.
+ * @since 0.5.0
  */
 @Directive({
   selector: 'tbw-grid[formArray]',

@@ -8,7 +8,8 @@ import { resolveCellValue } from '../../core/internal/value-accessor';
 import type { ColumnConfig } from '../../core/types';
 import type { ExportParams } from './types';
 
-/** CSV export options */
+/** CSV export options * @since 0.1.1
+ */
 export interface CsvOptions {
   /** Field delimiter (default: ',') */
   delimiter?: string;

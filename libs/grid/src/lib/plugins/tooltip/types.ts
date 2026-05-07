@@ -75,6 +75,7 @@ declare module '../../core/types' {
  * // Disable all tooltips temporarily
  * new TooltipPlugin({ header: false, cell: false })
  * ```
+ * @since 1.28.0
  */
 export interface TooltipConfig {
   /**

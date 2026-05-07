@@ -58,6 +58,7 @@ import type {
 /**
  * Event handler type with unwrapped detail.
  * Pattern: `(detail: T, event?: CustomEvent) => void`
+ * @since 0.7.0
  */
 export type EventHandler<T> = (detail: T, event?: CustomEvent<T>) => void;
 
@@ -67,6 +68,7 @@ export type EventHandler<T> = (detail: T, event?: CustomEvent<T>) => void;
  * with optional access to the full CustomEvent for preventDefault().
  *
  * @template TRow - The row data type
+ * @since 0.7.0
  */
 export interface EventProps<TRow = unknown> {
   // ═══════════════════════════════════════════════════════════════════

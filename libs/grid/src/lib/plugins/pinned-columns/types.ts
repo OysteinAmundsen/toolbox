@@ -26,6 +26,7 @@
  * // Logical - pins to visual start (left in LTR, right in RTL)
  * { field: 'id', pinned: 'start' }
  * ```
+ * @since 0.1.1
  */
 export type PinnedPosition = 'left' | 'right' | 'start' | 'end';
 
@@ -73,7 +74,8 @@ declare module '../../core/types' {
   }
 }
 
-/** Configuration options for the pinned columns plugin */
+/** Configuration options for the pinned columns plugin * @since 0.1.1
+ */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/no-empty-interface
 export interface PinnedColumnsConfig {
   // Currently no configuration options - plugin is active when columns have sticky position

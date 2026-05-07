@@ -7,7 +7,8 @@
 import type { ExpandCollapseAnimation } from '../../core/types';
 export type { ExpandCollapseAnimation } from '../../core/types';
 
-/** Generic tree row with dynamic property access */
+/** Generic tree row with dynamic property access * @since 0.1.1
+ */
 export type TreeRow = Record<string, unknown>;
 
 /**
@@ -25,6 +26,7 @@ export type TreeRow = Record<string, unknown>;
  *   }),
  * ];
  * ```
+ * @since 0.1.1
  */
 export interface TreeConfig {
   /** Field name containing child rows (default: 'children') */
@@ -65,7 +67,8 @@ export interface TreeState {
   rowKeyMap: Map<string, FlattenedTreeRow>;
 }
 
-/** A flattened tree row with hierarchy metadata */
+/** A flattened tree row with hierarchy metadata * @since 0.1.1
+ */
 export interface FlattenedTreeRow<T = TreeRow> {
   /** Unique key identifying this row */
   key: string;
@@ -85,7 +88,8 @@ export interface FlattenedTreeRow<T = TreeRow> {
   setSize: number;
 }
 
-/** Event detail emitted when a tree node is expanded or collapsed */
+/** Event detail emitted when a tree node is expanded or collapsed * @since 0.1.1
+ */
 export interface TreeExpandDetail<T = TreeRow> {
   /** The row key that was toggled */
   key: string;

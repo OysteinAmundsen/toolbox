@@ -25,6 +25,7 @@ import type { GridElement } from '../../core/plugin/base-plugin';
  *   }
  * })
  * ```
+ * @since 0.1.1
  */
 export type PasteHandler = (detail: PasteDetail, grid: GridElement) => boolean | void;
 
@@ -44,6 +45,7 @@ export type PasteHandler = (detail: PasteDetail, grid: GridElement) => boolean |
  *   includeHeaders: true,
  * });
  * ```
+ * @since 0.1.1
  */
 export interface CopyOptions {
   /** Specific column fields to include. If omitted, uses current selection or all visible columns. */
@@ -60,7 +62,8 @@ export interface CopyOptions {
   processCell?: (value: unknown, field: string, row: unknown) => string;
 }
 
-/** Configuration options for the clipboard plugin */
+/** Configuration options for the clipboard plugin * @since 0.1.1
+ */
 export interface ClipboardConfig {
   /** Include column headers in copied text (default: false) */
   includeHeaders?: boolean;
@@ -91,7 +94,8 @@ export interface ClipboardState {
   lastCopied: string | null;
 }
 
-/** Event detail emitted after a successful copy operation */
+/** Event detail emitted after a successful copy operation * @since 0.1.1
+ */
 export interface CopyDetail {
   /** The text that was copied to clipboard */
   text: string;
@@ -101,7 +105,8 @@ export interface CopyDetail {
   columnCount: number;
 }
 
-/** Target cell coordinates and bounds for paste operations */
+/** Target cell coordinates and bounds for paste operations * @since 0.1.1
+ */
 export interface PasteTarget {
   /** Target row index (top-left of paste area) */
   row: number;
@@ -122,7 +127,8 @@ export interface PasteTarget {
   } | null;
 }
 
-/** Event detail emitted after a paste operation */
+/** Event detail emitted after a paste operation * @since 0.1.1
+ */
 export interface PasteDetail {
   /** Parsed rows from clipboard (2D array of cell values) */
   rows: string[][];
@@ -151,6 +157,7 @@ export interface PasteDetail {
  *
  * @param detail - The parsed paste data from clipboard
  * @param grid - The grid element to update
+ * @since 0.1.1
  */
 export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): void {
   const { rows: pastedRows, target, fields } = detail;

@@ -14,6 +14,7 @@
  * ```typescript
  * new VisibilityPlugin({ allowHideAll: false })
  * ```
+ * @since 0.1.1
  */
 export interface VisibilityConfig {
   /**
@@ -38,7 +39,8 @@ export interface VisibilityState {
   columnList: HTMLElement | null;
 }
 
-/** Event detail emitted when column visibility changes */
+/** Event detail emitted when column visibility changes * @since 0.1.1
+ */
 export interface ColumnVisibilityDetail {
   /** The field that changed visibility (undefined for bulk operations) */
   field?: string;
@@ -57,6 +59,7 @@ export interface ColumnVisibilityDetail {
  * to which group. For authoritative display order, use `grid.getAllColumns()`
  * or `grid.getColumnOrder()` from the ConfigManager, which reflects the
  * current column positions after any reordering.
+ * @since 0.1.1
  */
 export interface ColumnGroupInfo {
   /** Unique group identifier */
@@ -80,6 +83,7 @@ export interface ColumnGroupInfo {
  *
  * This event is consumed by `ReorderPlugin` to actually perform the column
  * move; if `ReorderPlugin` is not loaded, the event is informational only.
+ * @since 0.1.1
  */
 export interface ColumnReorderRequestDetail {
   /** The field name of the column to move. */

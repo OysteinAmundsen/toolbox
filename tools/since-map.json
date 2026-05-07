@@ -1,0 +1,2235 @@
+{
+  "grid": {
+    "createGrid": {
+      "version": "0.6.0",
+      "file": "libs/grid/src/public.ts",
+      "sha": "c00fba0b306f"
+    },
+    "queryGrid": {
+      "version": "0.6.0",
+      "file": "libs/grid/src/public.ts",
+      "sha": "c00fba0b306f"
+    },
+    "DataGridElement": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/grid.ts",
+      "sha": "22d575f73929"
+    },
+    "DGEvents": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/public.ts",
+      "sha": "22d575f73929"
+    },
+    "DGEventName": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/public.ts",
+      "sha": "22d575f73929"
+    },
+    "PluginEvents": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/public.ts",
+      "sha": "22d575f73929"
+    },
+    "PluginEventName": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/public.ts",
+      "sha": "22d575f73929"
+    },
+    "A11yConfig": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "d722e77e2384"
+    },
+    "A11yMessages": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "d722e77e2384"
+    },
+    "AggregatorRef": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "AnimationConfig": {
+      "version": "0.2.7",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "66e056a7929c"
+    },
+    "AnimationMode": {
+      "version": "0.2.7",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "66e056a7929c"
+    },
+    "AnimationStyle": {
+      "version": "0.2.7",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "66e056a7929c"
+    },
+    "BaseColumnConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "CellActivateDetail": {
+      "version": "1.0.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "723eaf63c004"
+    },
+    "CellActivateTrigger": {
+      "version": "1.0.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "723eaf63c004"
+    },
+    "CellChangeDetail": {
+      "version": "1.0.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "c75010c2128d"
+    },
+    "CellClickDetail": {
+      "version": "1.0.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "0e8366f0b603"
+    },
+    "CellRenderContext": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ColumnConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ColumnConfigMap": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ColumnEditorContext": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ColumnEditorSpec": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ColumnResizeDetail": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ColumnResizeResetDetail": {
+      "version": "2.6.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "f721116f2afc"
+    },
+    "ColumnSortState": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ColumnState": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ColumnType": {
+      "version": "1.0.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "b13421d8abad"
+    },
+    "ColumnViewRenderer": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "DataChangeDetail": {
+      "version": "1.25.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "b94c4bc97109"
+    },
+    "DataGridCustomEvent": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "DataGridEventMap": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ExpandCollapseAnimation": {
+      "version": "0.2.9",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "baaa1ee65cef"
+    },
+    "ExternalMountEditorDetail": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ExternalMountViewDetail": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "FeatureConfig": {
+      "version": "1.24.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "94fa3b4fcfaf"
+    },
+    "FitMode": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "FrameworkAdapter": {
+      "version": "0.2.9",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "baaa1ee65cef"
+    },
+    "GridColumnState": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "GridConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "GridIcons": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "69c7501ac67a"
+    },
+    "GridPlugin": {
+      "version": "0.2.3",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "dedbd670ea18"
+    },
+    "HeaderCellContext": {
+      "version": "1.4.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "7b713bd1a199"
+    },
+    "HeaderContentDefinition": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "HeaderLabelContext": {
+      "version": "1.4.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "7b713bd1a199"
+    },
+    "HeaderLabelRenderer": {
+      "version": "1.4.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "7b713bd1a199"
+    },
+    "HeaderRenderer": {
+      "version": "1.4.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "7b713bd1a199"
+    },
+    "IconValue": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "69c7501ac67a"
+    },
+    "InferredColumnResult": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "LoadingContext": {
+      "version": "1.7.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "dde43857e2d5"
+    },
+    "LoadingRenderer": {
+      "version": "1.7.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "dde43857e2d5"
+    },
+    "LoadingSize": {
+      "version": "1.7.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "dde43857e2d5"
+    },
+    "PrimitiveColumnType": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "PublicGrid": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "RowAnimationType": {
+      "version": "1.3.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "bda69f611cc0"
+    },
+    "RowClickDetail": {
+      "version": "1.0.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "0e8366f0b603"
+    },
+    "RowGroupRenderConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "RowTransaction": {
+      "version": "1.27.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "5bc7bc4d0d60"
+    },
+    "RowUpdate": {
+      "version": "1.0.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "c75010c2128d"
+    },
+    "ScrollToRowOptions": {
+      "version": "1.23.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "ccb77568f6e6"
+    },
+    "ShellConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ShellHeaderConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "SortChangeDetail": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "SortHandler": {
+      "version": "0.2.7",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "530a9b65090c"
+    },
+    "SortState": {
+      "version": "0.2.7",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "530a9b65090c"
+    },
+    "TbwScrollDetail": {
+      "version": "2.2.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "259171ed2e0f"
+    },
+    "ToolbarContentDefinition": {
+      "version": "1.0.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "d574264e8b51"
+    },
+    "ToolPanelConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ToolPanelDefinition": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "TransactionResult": {
+      "version": "1.27.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "5bc7bc4d0d60"
+    },
+    "TypeDefault": {
+      "version": "1.0.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "b13421d8abad"
+    },
+    "UpdateSource": {
+      "version": "1.0.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "c75010c2128d"
+    },
+    "DEFAULT_A11Y_MESSAGES": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "d722e77e2384"
+    },
+    "DEFAULT_ANIMATION_CONFIG": {
+      "version": "0.2.7",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "66e056a7929c"
+    },
+    "DEFAULT_GRID_ICONS": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "69c7501ac67a"
+    },
+    "FitModeEnum": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "builtInSort": {
+      "version": "0.2.7",
+      "file": "libs/grid/src/lib/core/internal/sorting.ts",
+      "sha": "530a9b65090c"
+    },
+    "defaultComparator": {
+      "version": "0.2.7",
+      "file": "libs/grid/src/lib/core/internal/sorting.ts",
+      "sha": "530a9b65090c"
+    },
+    "CORE_CONSUMED_ADAPTER_METHODS": {
+      "version": "2.3.0",
+      "file": "libs/grid/src/lib/core/adapter-conformance.ts",
+      "sha": "1f84ecc5240f"
+    },
+    "invalidateAccessorCache": {
+      "version": "2.2.0",
+      "file": "libs/grid/src/lib/core/internal/value-accessor.ts",
+      "sha": "33c10e723fb8"
+    },
+    "resolveCellValue": {
+      "version": "2.2.0",
+      "file": "libs/grid/src/lib/core/internal/value-accessor.ts",
+      "sha": "33c10e723fb8"
+    },
+    "BaseGridPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/plugin/base-plugin.ts",
+      "sha": "22d575f73929"
+    },
+    "AfterCellRenderContext": {
+      "version": "1.2.0",
+      "file": "libs/grid/src/lib/core/plugin/types.ts",
+      "sha": "48c0b6263070"
+    },
+    "AfterRowRenderContext": {
+      "version": "1.2.0",
+      "file": "libs/grid/src/lib/core/plugin/types.ts",
+      "sha": "0dc27aaec573"
+    },
+    "CellMouseEvent": {
+      "version": "0.2.9",
+      "file": "libs/grid/src/lib/core/plugin/types.ts",
+      "sha": "baaa1ee65cef"
+    },
+    "EventDefinition": {
+      "version": "1.8.0",
+      "file": "libs/grid/src/lib/core/plugin/base-plugin.ts",
+      "sha": "881c296809a7"
+    },
+    "PluginDependency": {
+      "version": "0.4.1",
+      "file": "libs/grid/src/lib/core/plugin/base-plugin.ts",
+      "sha": "05f9f8e2bc39"
+    },
+    "PluginManifest": {
+      "version": "1.1.0",
+      "file": "libs/grid/src/lib/core/plugin/base-plugin.ts",
+      "sha": "31874eeeea57"
+    },
+    "PluginQuery": {
+      "version": "0.2.9",
+      "file": "libs/grid/src/lib/core/plugin/types.ts",
+      "sha": "baaa1ee65cef"
+    },
+    "QueryDefinition": {
+      "version": "1.8.0",
+      "file": "libs/grid/src/lib/core/plugin/base-plugin.ts",
+      "sha": "881c296809a7"
+    },
+    "GridClasses": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/constants.ts",
+      "sha": "22d575f73929"
+    },
+    "GridCSSVars": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/constants.ts",
+      "sha": "22d575f73929"
+    },
+    "GridDataAttrs": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/constants.ts",
+      "sha": "22d575f73929"
+    },
+    "GridSelectors": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/constants.ts",
+      "sha": "22d575f73929"
+    },
+    "GridClassName": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/constants.ts",
+      "sha": "22d575f73929"
+    },
+    "GridCSSVar": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/constants.ts",
+      "sha": "22d575f73929"
+    },
+    "GridDataAttr": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/constants.ts",
+      "sha": "22d575f73929"
+    },
+    "ColumnInternal": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "CompiledViewFunction": {
+      "version": "0.4.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "bd630784ecf3"
+    },
+    "InternalGrid": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "CellContext": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "EditorExecContext": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "EvalContext": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ResizeController": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "VirtualState": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "22d575f73929"
+    },
+    "RowElementInternal": {
+      "version": "0.4.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "bd630784ecf3"
+    },
+    "InputLikeElement": {
+      "version": "0.4.0",
+      "file": "libs/grid/src/lib/core/types.ts",
+      "sha": "bd630784ecf3"
+    },
+    "AsInternalGrid": {
+      "version": "0.4.0",
+      "file": "libs/grid/src/public.ts",
+      "sha": "bd630784ecf3"
+    },
+    "RenderPhase": {
+      "version": "0.4.0",
+      "file": "libs/grid/src/lib/core/internal/render-scheduler.ts",
+      "sha": "898199873bd5"
+    },
+    "setFeatureResolver": {
+      "version": "1.24.0",
+      "file": "libs/grid/src/lib/core/internal/feature-hook.ts",
+      "sha": "94fa3b4fcfaf"
+    },
+    "ClipboardPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/clipboard/ClipboardPlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "defaultPasteHandler": {
+      "version": "0.4.2",
+      "file": "libs/grid/src/lib/plugins/clipboard/types.ts",
+      "sha": "f69dd4d48d0f"
+    },
+    "ClipboardConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/clipboard/types.ts",
+      "sha": "22d575f73929"
+    },
+    "CopyDetail": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/clipboard/types.ts",
+      "sha": "22d575f73929"
+    },
+    "CopyOptions": {
+      "version": "1.14.0",
+      "file": "libs/grid/src/lib/plugins/clipboard/types.ts",
+      "sha": "b447d56f4080"
+    },
+    "PasteDetail": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/clipboard/types.ts",
+      "sha": "22d575f73929"
+    },
+    "PasteHandler": {
+      "version": "0.4.2",
+      "file": "libs/grid/src/lib/plugins/clipboard/types.ts",
+      "sha": "f69dd4d48d0f"
+    },
+    "PasteTarget": {
+      "version": "0.4.2",
+      "file": "libs/grid/src/lib/plugins/clipboard/types.ts",
+      "sha": "f69dd4d48d0f"
+    },
+    "ColumnVirtualizationPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/column-virtualization/ColumnVirtualizationPlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "ColumnVirtualizationConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/column-virtualization/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ContextMenuPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/context-menu/ContextMenuPlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "ContextMenuConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/context-menu/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ContextMenuItem": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/context-menu/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ContextMenuOpenDetail": {
+      "version": "1.25.0",
+      "file": "libs/grid/src/lib/plugins/context-menu/types.ts",
+      "sha": "3edc2aa15ce3"
+    },
+    "ContextMenuParams": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/context-menu/types.ts",
+      "sha": "22d575f73929"
+    },
+    "HeaderContextMenuItem": {
+      "version": "1.15.0",
+      "file": "libs/grid/src/lib/plugins/context-menu/types.ts",
+      "sha": "229d7d84bb9a"
+    },
+    "EditingPlugin": {
+      "version": "0.4.0",
+      "file": "libs/grid/src/lib/plugins/editing/EditingPlugin.ts",
+      "sha": "4e1ee94faee5"
+    },
+    "defaultEditorFor": {
+      "version": "0.4.0",
+      "file": "libs/grid/src/lib/plugins/editing/editors.ts",
+      "sha": "4e1ee94faee5"
+    },
+    "BaselinesCapturedDetail": {
+      "version": "1.23.0",
+      "file": "libs/grid/src/lib/plugins/editing/internal/dirty-tracking.ts",
+      "sha": "d91a59f3be8f"
+    },
+    "DirtyChangeDetail": {
+      "version": "1.23.0",
+      "file": "libs/grid/src/lib/plugins/editing/internal/dirty-tracking.ts",
+      "sha": "ccb77568f6e6"
+    },
+    "DirtyRowEntry": {
+      "version": "1.23.0",
+      "file": "libs/grid/src/lib/plugins/editing/internal/dirty-tracking.ts",
+      "sha": "ccb77568f6e6"
+    },
+    "BeforeEditCloseDetail": {
+      "version": "1.21.2",
+      "file": "libs/grid/src/lib/plugins/editing/types.ts",
+      "sha": "52b74e6700a2"
+    },
+    "CellCancelDetail": {
+      "version": "1.23.2",
+      "file": "libs/grid/src/lib/plugins/editing/types.ts",
+      "sha": "ce1fc3c6ba35"
+    },
+    "CellCommitDetail": {
+      "version": "0.4.0",
+      "file": "libs/grid/src/lib/plugins/editing/types.ts",
+      "sha": "4e1ee94faee5"
+    },
+    "ChangedRowsResetDetail": {
+      "version": "0.4.0",
+      "file": "libs/grid/src/lib/plugins/editing/types.ts",
+      "sha": "4e1ee94faee5"
+    },
+    "DateEditorParams": {
+      "version": "1.0.0",
+      "file": "libs/grid/src/lib/plugins/editing/types.ts",
+      "sha": "ef73c164c8d8"
+    },
+    "EditCloseDetail": {
+      "version": "1.13.0",
+      "file": "libs/grid/src/lib/plugins/editing/types.ts",
+      "sha": "00e1ec48706c"
+    },
+    "EditingConfig": {
+      "version": "0.4.0",
+      "file": "libs/grid/src/lib/plugins/editing/types.ts",
+      "sha": "4e1ee94faee5"
+    },
+    "EditOpenDetail": {
+      "version": "1.13.0",
+      "file": "libs/grid/src/lib/plugins/editing/types.ts",
+      "sha": "00e1ec48706c"
+    },
+    "EditorParams": {
+      "version": "1.0.0",
+      "file": "libs/grid/src/lib/plugins/editing/types.ts",
+      "sha": "ef73c164c8d8"
+    },
+    "NumberEditorParams": {
+      "version": "1.0.0",
+      "file": "libs/grid/src/lib/plugins/editing/types.ts",
+      "sha": "ef73c164c8d8"
+    },
+    "RowCommitDetail": {
+      "version": "0.4.0",
+      "file": "libs/grid/src/lib/plugins/editing/types.ts",
+      "sha": "4e1ee94faee5"
+    },
+    "SelectEditorParams": {
+      "version": "1.0.0",
+      "file": "libs/grid/src/lib/plugins/editing/types.ts",
+      "sha": "ef73c164c8d8"
+    },
+    "TextEditorParams": {
+      "version": "1.0.0",
+      "file": "libs/grid/src/lib/plugins/editing/types.ts",
+      "sha": "ef73c164c8d8"
+    },
+    "CsvOptions": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/export/csv.ts",
+      "sha": "22d575f73929"
+    },
+    "ExportPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/export/ExportPlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "FormatCsvParams": {
+      "version": "2.4.0",
+      "file": "libs/grid/src/lib/plugins/export/ExportPlugin.ts",
+      "sha": "dae9d76e2af7"
+    },
+    "FormatExcelParams": {
+      "version": "2.4.0",
+      "file": "libs/grid/src/lib/plugins/export/ExportPlugin.ts",
+      "sha": "dae9d76e2af7"
+    },
+    "ExcelBorder": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/export/types.ts",
+      "sha": "e7b78dbd63b1"
+    },
+    "ExcelCellStyle": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/export/types.ts",
+      "sha": "e7b78dbd63b1"
+    },
+    "ExcelStyleConfig": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/export/types.ts",
+      "sha": "e7b78dbd63b1"
+    },
+    "ExportCompleteDetail": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/export/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ExportConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/export/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ExportFormat": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/export/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ExportMode": {
+      "version": "2.4.0",
+      "file": "libs/grid/src/lib/plugins/export/types.ts",
+      "sha": "dae9d76e2af7"
+    },
+    "ExportParams": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/export/types.ts",
+      "sha": "22d575f73929"
+    },
+    "BLANK_FILTER_VALUE": {
+      "version": "1.18.0",
+      "file": "libs/grid/src/lib/plugins/filtering/filter-model.ts",
+      "sha": "1a40c056bf4e"
+    },
+    "FilteringPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/filtering/FilteringPlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "BlankMode": {
+      "version": "1.27.2",
+      "file": "libs/grid/src/lib/plugins/filtering/types.ts",
+      "sha": "b5452a8d04eb"
+    },
+    "FilterChangeDetail": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/filtering/types.ts",
+      "sha": "22d575f73929"
+    },
+    "FilterConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/filtering/types.ts",
+      "sha": "22d575f73929"
+    },
+    "FilterHandler": {
+      "version": "0.2.7",
+      "file": "libs/grid/src/lib/plugins/filtering/types.ts",
+      "sha": "530a9b65090c"
+    },
+    "FilterModel": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/filtering/types.ts",
+      "sha": "22d575f73929"
+    },
+    "FilterOperator": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/filtering/types.ts",
+      "sha": "22d575f73929"
+    },
+    "FilterPanelParams": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/filtering/types.ts",
+      "sha": "22d575f73929"
+    },
+    "FilterPanelRenderer": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/filtering/types.ts",
+      "sha": "22d575f73929"
+    },
+    "FilterParams": {
+      "version": "1.6.0",
+      "file": "libs/grid/src/lib/plugins/filtering/types.ts",
+      "sha": "2f4f17459579"
+    },
+    "FilterType": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/filtering/types.ts",
+      "sha": "22d575f73929"
+    },
+    "FilterValuesHandler": {
+      "version": "0.2.7",
+      "file": "libs/grid/src/lib/plugins/filtering/types.ts",
+      "sha": "530a9b65090c"
+    },
+    "GroupingColumnsPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/grouping-columns/GroupingColumnsPlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "ColumnGroup": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/grouping-columns/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ColumnGroupDefinition": {
+      "version": "0.2.9",
+      "file": "libs/grid/src/lib/plugins/grouping-columns/types.ts",
+      "sha": "e88d44eea25e"
+    },
+    "GroupHeaderRenderParams": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/grouping-columns/types.ts",
+      "sha": "22d575f73929"
+    },
+    "GroupingColumnsConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/grouping-columns/types.ts",
+      "sha": "22d575f73929"
+    },
+    "GroupingRowsPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/grouping-rows/GroupingRowsPlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "GroupState": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/grouping-rows/GroupingRowsPlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "AggregatorMap": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/grouping-rows/types.ts",
+      "sha": "22d575f73929"
+    },
+    "DataRowModelItem": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/grouping-rows/types.ts",
+      "sha": "22d575f73929"
+    },
+    "DefaultExpandedValue": {
+      "version": "1.5.0",
+      "file": "libs/grid/src/lib/plugins/grouping-rows/types.ts",
+      "sha": "bb37d214035d"
+    },
+    "GroupCollapseDetail": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/grouping-rows/types.ts",
+      "sha": "8ffe75966458"
+    },
+    "GroupDefinition": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/grouping-rows/types.ts",
+      "sha": "8ffe75966458"
+    },
+    "GroupExpandDetail": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/grouping-rows/types.ts",
+      "sha": "8ffe75966458"
+    },
+    "GroupingRowsConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/grouping-rows/types.ts",
+      "sha": "22d575f73929"
+    },
+    "GroupRowModelItem": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/grouping-rows/types.ts",
+      "sha": "22d575f73929"
+    },
+    "GroupRowRenderParams": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/grouping-rows/types.ts",
+      "sha": "22d575f73929"
+    },
+    "GroupToggleDetail": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/grouping-rows/types.ts",
+      "sha": "22d575f73929"
+    },
+    "RenderRow": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/grouping-rows/types.ts",
+      "sha": "22d575f73929"
+    },
+    "MasterDetailPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/master-detail/MasterDetailPlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "DetailExpandDetail": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/master-detail/types.ts",
+      "sha": "22d575f73929"
+    },
+    "MasterDetailConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/master-detail/types.ts",
+      "sha": "22d575f73929"
+    },
+    "MultiSortPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/multi-sort/MultiSortPlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "MultiSortChangeDetail": {
+      "version": "1.25.0",
+      "file": "libs/grid/src/lib/plugins/multi-sort/types.ts",
+      "sha": "3edc2aa15ce3"
+    },
+    "MultiSortConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/multi-sort/types.ts",
+      "sha": "22d575f73929"
+    },
+    "SortModel": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/multi-sort/types.ts",
+      "sha": "22d575f73929"
+    },
+    "PinnedColumnsPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/pinned-columns/PinnedColumnsPlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "PinnedColumnsConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/pinned-columns/types.ts",
+      "sha": "22d575f73929"
+    },
+    "PinnedPosition": {
+      "version": "1.15.0",
+      "file": "libs/grid/src/lib/plugins/pinned-columns/types.ts",
+      "sha": "295a6c8dc034"
+    },
+    "filteredCountPanel": {
+      "version": "2.6.0",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/pinned-rows.ts",
+      "sha": "8a84f0dc27c6"
+    },
+    "rowCountPanel": {
+      "version": "2.6.0",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/pinned-rows.ts",
+      "sha": "8a84f0dc27c6"
+    },
+    "selectedCountPanel": {
+      "version": "2.6.0",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/pinned-rows.ts",
+      "sha": "8a84f0dc27c6"
+    },
+    "PinnedRowsPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/PinnedRowsPlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "AggregationRowConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/types.ts",
+      "sha": "22d575f73929"
+    },
+    "AggregationSlot": {
+      "version": "2.6.0",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/types.ts",
+      "sha": "8a84f0dc27c6"
+    },
+    "AggregatorConfig": {
+      "version": "0.2.6",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/types.ts",
+      "sha": "cb9ced086f18"
+    },
+    "AggregatorDefinition": {
+      "version": "0.2.6",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/types.ts",
+      "sha": "cb9ced086f18"
+    },
+    "AggregatorFormatter": {
+      "version": "0.2.6",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/types.ts",
+      "sha": "cb9ced086f18"
+    },
+    "PanelRender": {
+      "version": "2.6.0",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/types.ts",
+      "sha": "8a84f0dc27c6"
+    },
+    "PanelSlot": {
+      "version": "2.6.0",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/types.ts",
+      "sha": "8a84f0dc27c6"
+    },
+    "PanelZone": {
+      "version": "2.6.0",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/types.ts",
+      "sha": "8a84f0dc27c6"
+    },
+    "PinnedRowSlot": {
+      "version": "2.6.0",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/types.ts",
+      "sha": "8a84f0dc27c6"
+    },
+    "PinnedRowsConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/types.ts",
+      "sha": "22d575f73929"
+    },
+    "PinnedRowsContext": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/types.ts",
+      "sha": "22d575f73929"
+    },
+    "PinnedRowsPanel": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/types.ts",
+      "sha": "22d575f73929"
+    },
+    "PinnedRowsPosition": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ZonedPanelRender": {
+      "version": "2.6.0",
+      "file": "libs/grid/src/lib/plugins/pinned-rows/types.ts",
+      "sha": "8a84f0dc27c6"
+    },
+    "PivotDataRow": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/pivot/pivot-engine.ts",
+      "sha": "22d575f73929"
+    },
+    "PivotPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/pivot/PivotPlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "AggFunc": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/pivot/types.ts",
+      "sha": "44e13b79e79c"
+    },
+    "CustomAggFunc": {
+      "version": "1.31.0",
+      "file": "libs/grid/src/lib/plugins/pivot/types.ts",
+      "sha": "a70304b4ecda"
+    },
+    "PivotConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/pivot/types.ts",
+      "sha": "22d575f73929"
+    },
+    "PivotConfigChangeDetail": {
+      "version": "1.31.0",
+      "file": "libs/grid/src/lib/plugins/pivot/types.ts",
+      "sha": "a70304b4ecda"
+    },
+    "PivotDefaultExpandedValue": {
+      "version": "1.31.0",
+      "file": "libs/grid/src/lib/plugins/pivot/types.ts",
+      "sha": "a70304b4ecda"
+    },
+    "PivotResult": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/pivot/types.ts",
+      "sha": "22d575f73929"
+    },
+    "PivotRow": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/pivot/types.ts",
+      "sha": "22d575f73929"
+    },
+    "PivotSortConfig": {
+      "version": "1.31.0",
+      "file": "libs/grid/src/lib/plugins/pivot/types.ts",
+      "sha": "a70304b4ecda"
+    },
+    "PivotSortDir": {
+      "version": "1.31.0",
+      "file": "libs/grid/src/lib/plugins/pivot/types.ts",
+      "sha": "a70304b4ecda"
+    },
+    "PivotStateChangeDetail": {
+      "version": "1.31.0",
+      "file": "libs/grid/src/lib/plugins/pivot/types.ts",
+      "sha": "a70304b4ecda"
+    },
+    "PivotToggleDetail": {
+      "version": "1.31.0",
+      "file": "libs/grid/src/lib/plugins/pivot/types.ts",
+      "sha": "a70304b4ecda"
+    },
+    "PivotValueDisplayMode": {
+      "version": "1.31.0",
+      "file": "libs/grid/src/lib/plugins/pivot/types.ts",
+      "sha": "a70304b4ecda"
+    },
+    "PivotValueField": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/pivot/types.ts",
+      "sha": "22d575f73929"
+    },
+    "printGridIsolated": {
+      "version": "1.4.0",
+      "file": "libs/grid/src/lib/plugins/print/print-isolated.ts",
+      "sha": "963b69977dd8"
+    },
+    "PrintIsolatedOptions": {
+      "version": "1.4.0",
+      "file": "libs/grid/src/lib/plugins/print/print-isolated.ts",
+      "sha": "963b69977dd8"
+    },
+    "PrintPlugin": {
+      "version": "1.4.0",
+      "file": "libs/grid/src/lib/plugins/print/PrintPlugin.ts",
+      "sha": "963b69977dd8"
+    },
+    "PrintCompleteDetail": {
+      "version": "1.4.0",
+      "file": "libs/grid/src/lib/plugins/print/types.ts",
+      "sha": "963b69977dd8"
+    },
+    "PrintConfig": {
+      "version": "1.4.0",
+      "file": "libs/grid/src/lib/plugins/print/types.ts",
+      "sha": "963b69977dd8"
+    },
+    "PrintOrientation": {
+      "version": "1.4.0",
+      "file": "libs/grid/src/lib/plugins/print/types.ts",
+      "sha": "963b69977dd8"
+    },
+    "PrintParams": {
+      "version": "1.4.0",
+      "file": "libs/grid/src/lib/plugins/print/types.ts",
+      "sha": "963b69977dd8"
+    },
+    "PrintStartDetail": {
+      "version": "1.4.0",
+      "file": "libs/grid/src/lib/plugins/print/types.ts",
+      "sha": "963b69977dd8"
+    },
+    "ReorderPlugin": {
+      "version": "1.24.0",
+      "file": "libs/grid/src/lib/plugins/reorder-columns/ReorderPlugin.ts",
+      "sha": "45baa6fdb880"
+    },
+    "ColumnMoveDetail": {
+      "version": "1.24.0",
+      "file": "libs/grid/src/lib/plugins/reorder-columns/types.ts",
+      "sha": "45baa6fdb880"
+    },
+    "ReorderAnimation": {
+      "version": "1.24.0",
+      "file": "libs/grid/src/lib/plugins/reorder-columns/types.ts",
+      "sha": "45baa6fdb880"
+    },
+    "ReorderConfig": {
+      "version": "1.24.0",
+      "file": "libs/grid/src/lib/plugins/reorder-columns/types.ts",
+      "sha": "45baa6fdb880"
+    },
+    "RowReorderPlugin": {
+      "version": "2.4.0",
+      "file": "libs/grid/src/lib/plugins/row-drag-drop/RowDragDropPlugin.ts",
+      "sha": "4a22bebfcad0"
+    },
+    "RowReorderConfig": {
+      "version": "1.24.0",
+      "file": "libs/grid/src/lib/plugins/reorder-rows/types.ts",
+      "sha": "45baa6fdb880"
+    },
+    "ResponsivePlugin": {
+      "version": "1.1.0",
+      "file": "libs/grid/src/lib/plugins/responsive/ResponsivePlugin.ts",
+      "sha": "98d8057fffd0"
+    },
+    "BreakpointConfig": {
+      "version": "1.1.0",
+      "file": "libs/grid/src/lib/plugins/responsive/types.ts",
+      "sha": "98d8057fffd0"
+    },
+    "HiddenColumnConfig": {
+      "version": "1.1.0",
+      "file": "libs/grid/src/lib/plugins/responsive/types.ts",
+      "sha": "98d8057fffd0"
+    },
+    "ResponsiveChangeDetail": {
+      "version": "1.1.0",
+      "file": "libs/grid/src/lib/plugins/responsive/types.ts",
+      "sha": "98d8057fffd0"
+    },
+    "ResponsivePluginConfig": {
+      "version": "1.1.0",
+      "file": "libs/grid/src/lib/plugins/responsive/types.ts",
+      "sha": "98d8057fffd0"
+    },
+    "ROW_DRAG_HANDLE_FIELD": {
+      "version": "2.4.0",
+      "file": "libs/grid/src/lib/plugins/row-drag-drop/RowDragDropPlugin.ts",
+      "sha": "4a22bebfcad0"
+    },
+    "RowDragDropConfig": {
+      "version": "2.4.0",
+      "file": "libs/grid/src/lib/plugins/row-drag-drop/types.ts",
+      "sha": "4a22bebfcad0"
+    },
+    "RowDragEndDetail": {
+      "version": "2.4.0",
+      "file": "libs/grid/src/lib/plugins/row-drag-drop/types.ts",
+      "sha": "4a22bebfcad0"
+    },
+    "RowDragPayload": {
+      "version": "2.4.0",
+      "file": "libs/grid/src/lib/plugins/row-drag-drop/types.ts",
+      "sha": "4a22bebfcad0"
+    },
+    "RowDragStartDetail": {
+      "version": "2.4.0",
+      "file": "libs/grid/src/lib/plugins/row-drag-drop/types.ts",
+      "sha": "4a22bebfcad0"
+    },
+    "RowDropDetail": {
+      "version": "2.4.0",
+      "file": "libs/grid/src/lib/plugins/row-drag-drop/types.ts",
+      "sha": "4a22bebfcad0"
+    },
+    "RowMoveDetail": {
+      "version": "2.4.0",
+      "file": "libs/grid/src/lib/plugins/row-drag-drop/types.ts",
+      "sha": "4a22bebfcad0"
+    },
+    "RowTransferDetail": {
+      "version": "2.4.0",
+      "file": "libs/grid/src/lib/plugins/row-drag-drop/types.ts",
+      "sha": "4a22bebfcad0"
+    },
+    "SelectionPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/selection/SelectionPlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "CellRange": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/selection/types.ts",
+      "sha": "22d575f73929"
+    },
+    "SelectableCallback": {
+      "version": "1.3.0",
+      "file": "libs/grid/src/lib/plugins/selection/types.ts",
+      "sha": "4f5a3816d67b"
+    },
+    "SelectionChangeDetail": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/selection/types.ts",
+      "sha": "22d575f73929"
+    },
+    "SelectionConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/selection/types.ts",
+      "sha": "22d575f73929"
+    },
+    "SelectionMode": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/selection/types.ts",
+      "sha": "22d575f73929"
+    },
+    "SelectionResult": {
+      "version": "0.4.2",
+      "file": "libs/grid/src/lib/plugins/selection/types.ts",
+      "sha": "f69dd4d48d0f"
+    },
+    "SelectionTrigger": {
+      "version": "1.1.0",
+      "file": "libs/grid/src/lib/plugins/selection/types.ts",
+      "sha": "31874eeeea57"
+    },
+    "ServerSidePlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/server-side/ServerSidePlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "DataRequestModel": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/server-side/datasource-types.ts",
+      "sha": "c49e492b0fc0"
+    },
+    "DataSourceChildrenDetail": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/server-side/datasource-types.ts",
+      "sha": "c49e492b0fc0"
+    },
+    "DataSourceDataDetail": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/server-side/datasource-types.ts",
+      "sha": "c49e492b0fc0"
+    },
+    "DataSourceErrorDetail": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/server-side/datasource-types.ts",
+      "sha": "c49e492b0fc0"
+    },
+    "DataSourceLoadingDetail": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/server-side/datasource-types.ts",
+      "sha": "c49e492b0fc0"
+    },
+    "FetchChildrenQuery": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/server-side/datasource-types.ts",
+      "sha": "c49e492b0fc0"
+    },
+    "GetChildRowsParams": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/server-side/datasource-types.ts",
+      "sha": "c49e492b0fc0"
+    },
+    "GetChildRowsResult": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/server-side/datasource-types.ts",
+      "sha": "c49e492b0fc0"
+    },
+    "GetRowsParams": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/server-side/datasource-types.ts",
+      "sha": "c49e492b0fc0"
+    },
+    "GetRowsResult": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/server-side/datasource-types.ts",
+      "sha": "c49e492b0fc0"
+    },
+    "ServerSideConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/server-side/types.ts",
+      "sha": "22d575f73929"
+    },
+    "ServerSideDataSource": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/server-side/datasource-types.ts",
+      "sha": "c49e492b0fc0"
+    },
+    "Subscribable": {
+      "version": "2.4.0",
+      "file": "libs/grid/src/lib/plugins/server-side/datasource-types.ts",
+      "sha": "d3a861a46cb8"
+    },
+    "ViewportMappingQuery": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/server-side/datasource-types.ts",
+      "sha": "c49e492b0fc0"
+    },
+    "ViewportMappingResponse": {
+      "version": "2.0.0",
+      "file": "libs/grid/src/lib/plugins/server-side/datasource-types.ts",
+      "sha": "c49e492b0fc0"
+    },
+    "StickyRowsPlugin": {
+      "version": "2.7.0",
+      "file": "libs/grid/src/lib/plugins/sticky-rows/StickyRowsPlugin.ts",
+      "sha": "fb00a1e40fd8"
+    },
+    "StickyPredicate": {
+      "version": "2.7.0",
+      "file": "libs/grid/src/lib/plugins/sticky-rows/types.ts",
+      "sha": "fb00a1e40fd8"
+    },
+    "StickyRowsConfig": {
+      "version": "2.7.0",
+      "file": "libs/grid/src/lib/plugins/sticky-rows/types.ts",
+      "sha": "fb00a1e40fd8"
+    },
+    "StickyRowsMode": {
+      "version": "2.7.0",
+      "file": "libs/grid/src/lib/plugins/sticky-rows/types.ts",
+      "sha": "fb00a1e40fd8"
+    },
+    "TooltipPlugin": {
+      "version": "1.28.0",
+      "file": "libs/grid/src/lib/plugins/tooltip/TooltipPlugin.ts",
+      "sha": "61fc11c1b755"
+    },
+    "TooltipConfig": {
+      "version": "1.28.0",
+      "file": "libs/grid/src/lib/plugins/tooltip/types.ts",
+      "sha": "61fc11c1b755"
+    },
+    "TreePlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/tree/TreePlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "FlattenedTreeRow": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/tree/types.ts",
+      "sha": "22d575f73929"
+    },
+    "TreeConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/tree/types.ts",
+      "sha": "22d575f73929"
+    },
+    "TreeExpandDetail": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/tree/types.ts",
+      "sha": "22d575f73929"
+    },
+    "TreeRow": {
+      "version": "0.4.0",
+      "file": "libs/grid/src/lib/plugins/tree/types.ts",
+      "sha": "bd630784ecf3"
+    },
+    "CompoundEditAction": {
+      "version": "1.23.0",
+      "file": "libs/grid/src/lib/plugins/undo-redo/types.ts",
+      "sha": "b9d413263449"
+    },
+    "EditAction": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/undo-redo/types.ts",
+      "sha": "22d575f73929"
+    },
+    "UndoRedoAction": {
+      "version": "1.23.0",
+      "file": "libs/grid/src/lib/plugins/undo-redo/types.ts",
+      "sha": "b9d413263449"
+    },
+    "UndoRedoConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/undo-redo/types.ts",
+      "sha": "22d575f73929"
+    },
+    "UndoRedoDetail": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/undo-redo/types.ts",
+      "sha": "22d575f73929"
+    },
+    "UndoRedoPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/undo-redo/UndoRedoPlugin.ts",
+      "sha": "22d575f73929"
+    },
+    "ColumnGroupInfo": {
+      "version": "1.15.0",
+      "file": "libs/grid/src/lib/plugins/visibility/types.ts",
+      "sha": "a13290b04d0c"
+    },
+    "ColumnReorderRequestDetail": {
+      "version": "2.6.0",
+      "file": "libs/grid/src/lib/plugins/visibility/types.ts",
+      "sha": "f721116f2afc"
+    },
+    "ColumnVisibilityDetail": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/visibility/types.ts",
+      "sha": "22d575f73929"
+    },
+    "VisibilityConfig": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/visibility/types.ts",
+      "sha": "22d575f73929"
+    },
+    "VisibilityPlugin": {
+      "version": "0.1.1",
+      "file": "libs/grid/src/lib/plugins/visibility/VisibilityPlugin.ts",
+      "sha": "22d575f73929"
+    }
+  },
+  "grid-angular": {
+    "GridAdapter": {
+      "version": "0.11.0",
+      "file": "libs/grid-angular/src/lib/angular-grid-adapter.ts",
+      "sha": "68505cfcdb35"
+    },
+    "makeFlushFocusedInput": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/editor-mount-hooks.ts",
+      "sha": "9f051f48e110"
+    },
+    "registerDetailRendererBridge": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-bridges.ts",
+      "sha": "9258c5bcc0ac"
+    },
+    "registerEditorMountHook": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/editor-mount-hooks.ts",
+      "sha": "9f051f48e110"
+    },
+    "registerFilterPanelTypeDefaultBridge": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-bridges.ts",
+      "sha": "9258c5bcc0ac"
+    },
+    "registerResponsiveCardRendererBridge": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-bridges.ts",
+      "sha": "9258c5bcc0ac"
+    },
+    "EditorMountHook": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/editor-mount-hooks.ts",
+      "sha": "9f051f48e110"
+    },
+    "FilterPanelTypeDefaultBridge": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-bridges.ts",
+      "sha": "9258c5bcc0ac"
+    },
+    "RowRendererBridge": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-bridges.ts",
+      "sha": "9258c5bcc0ac"
+    },
+    "isComponentClass": {
+      "version": "0.3.0",
+      "file": "libs/grid-angular/src/lib/angular-column-config.ts",
+      "sha": "9c0bb3b7fce8"
+    },
+    "CellEditor": {
+      "version": "0.11.0",
+      "file": "libs/grid-angular/src/lib/angular-column-config.ts",
+      "sha": "68505cfcdb35"
+    },
+    "CellRenderer": {
+      "version": "0.11.0",
+      "file": "libs/grid-angular/src/lib/angular-column-config.ts",
+      "sha": "68505cfcdb35"
+    },
+    "ColumnConfig": {
+      "version": "0.3.0",
+      "file": "libs/grid-angular/src/lib/angular-column-config.ts",
+      "sha": "9c0bb3b7fce8"
+    },
+    "FilterPanel": {
+      "version": "0.12.0",
+      "file": "libs/grid-angular/src/lib/angular-column-config.ts",
+      "sha": "8142ed932113"
+    },
+    "GridConfig": {
+      "version": "0.3.0",
+      "file": "libs/grid-angular/src/lib/angular-column-config.ts",
+      "sha": "9c0bb3b7fce8"
+    },
+    "TypeDefault": {
+      "version": "0.10.0",
+      "file": "libs/grid-angular/src/lib/angular-column-config.ts",
+      "sha": "431e02d5899c"
+    },
+    "GRID_TYPE_DEFAULTS": {
+      "version": "0.3.0",
+      "file": "libs/grid-angular/src/lib/grid-type-registry.ts",
+      "sha": "b13421d8abad"
+    },
+    "GridTypeRegistry": {
+      "version": "0.3.0",
+      "file": "libs/grid-angular/src/lib/grid-type-registry.ts",
+      "sha": "b13421d8abad"
+    },
+    "provideGridTypeDefaults": {
+      "version": "0.3.0",
+      "file": "libs/grid-angular/src/lib/grid-type-registry.ts",
+      "sha": "b13421d8abad"
+    },
+    "TypeDefaultRegistration": {
+      "version": "0.11.0",
+      "file": "libs/grid-angular/src/lib/grid-type-registry.ts",
+      "sha": "68505cfcdb35"
+    },
+    "GRID_ICONS": {
+      "version": "0.8.0",
+      "file": "libs/grid-angular/src/lib/grid-icon-registry.ts",
+      "sha": "731837bd1a30"
+    },
+    "GridIconRegistry": {
+      "version": "0.8.0",
+      "file": "libs/grid-angular/src/lib/grid-icon-registry.ts",
+      "sha": "731837bd1a30"
+    },
+    "provideGridIcons": {
+      "version": "0.8.0",
+      "file": "libs/grid-angular/src/lib/grid-icon-registry.ts",
+      "sha": "731837bd1a30"
+    },
+    "injectGrid": {
+      "version": "0.6.0",
+      "file": "libs/grid-angular/src/lib/inject-grid.ts",
+      "sha": "757f8deafd34"
+    },
+    "InjectGridReturn": {
+      "version": "0.6.0",
+      "file": "libs/grid-angular/src/lib/inject-grid.ts",
+      "sha": "757f8deafd34"
+    },
+    "FeatureName": {
+      "version": "0.6.0",
+      "file": "libs/grid-angular/src/lib/feature-registry.ts",
+      "sha": "757f8deafd34"
+    },
+    "BaseFilterPanel": {
+      "version": "0.13.0",
+      "file": "libs/grid-angular/src/lib/base-filter-panel.ts",
+      "sha": "34d4cf627184"
+    },
+    "BaseGridEditor": {
+      "version": "0.5.0",
+      "file": "libs/grid-angular/src/lib/base-grid-editor.ts",
+      "sha": "487118fc6fcc"
+    },
+    "BaseGridEditorCVA": {
+      "version": "0.13.0",
+      "file": "libs/grid-angular/src/lib/base-grid-editor-cva.ts",
+      "sha": "34d4cf627184"
+    },
+    "BaseOverlayEditor": {
+      "version": "0.13.0",
+      "file": "libs/grid-angular/src/lib/base-overlay-editor.ts",
+      "sha": "34d4cf627184"
+    },
+    "OverlayPosition": {
+      "version": "0.13.0",
+      "file": "libs/grid-angular/src/lib/base-overlay-editor.ts",
+      "sha": "34d4cf627184"
+    },
+    "GridColumnEditor": {
+      "version": "0.1.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-column-editor.directive.ts",
+      "sha": "baaa1ee65cef"
+    },
+    "GridEditorContext": {
+      "version": "0.1.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-column-editor.directive.ts",
+      "sha": "baaa1ee65cef"
+    },
+    "GridColumnView": {
+      "version": "0.1.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-column-view.directive.ts",
+      "sha": "baaa1ee65cef"
+    },
+    "GridCellContext": {
+      "version": "0.1.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-column-view.directive.ts",
+      "sha": "baaa1ee65cef"
+    },
+    "TbwGridColumn": {
+      "version": "0.13.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-column.directive.ts",
+      "sha": "1f097c3c89d9"
+    },
+    "GridDetailView": {
+      "version": "0.1.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-detail-view.directive.ts",
+      "sha": "baaa1ee65cef"
+    },
+    "getDetailTemplate": {
+      "version": "0.1.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-detail-view.directive.ts",
+      "sha": "baaa1ee65cef"
+    },
+    "GridDetailContext": {
+      "version": "0.1.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-detail-view.directive.ts",
+      "sha": "baaa1ee65cef"
+    },
+    "GridFormArray": {
+      "version": "0.5.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-form-array.directive.ts",
+      "sha": "487118fc6fcc"
+    },
+    "getFormArrayContext": {
+      "version": "0.5.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-form-array.directive.ts",
+      "sha": "487118fc6fcc"
+    },
+    "FormArrayContext": {
+      "version": "0.5.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-form-array.directive.ts",
+      "sha": "487118fc6fcc"
+    },
+    "TbwGridHeader": {
+      "version": "0.13.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-header.directive.ts",
+      "sha": "1f097c3c89d9"
+    },
+    "GridLazyForm": {
+      "version": "0.11.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-lazy-form.directive.ts",
+      "sha": "71584bbe1cd5"
+    },
+    "getLazyFormContext": {
+      "version": "0.11.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-lazy-form.directive.ts",
+      "sha": "71584bbe1cd5"
+    },
+    "LazyFormFactory": {
+      "version": "0.11.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-lazy-form.directive.ts",
+      "sha": "71584bbe1cd5"
+    },
+    "RowFormChangeEvent": {
+      "version": "0.11.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-lazy-form.directive.ts",
+      "sha": "71584bbe1cd5"
+    },
+    "GridResponsiveCard": {
+      "version": "0.4.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-responsive-card.directive.ts",
+      "sha": "98d8057fffd0"
+    },
+    "getResponsiveCardTemplate": {
+      "version": "0.4.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-responsive-card.directive.ts",
+      "sha": "98d8057fffd0"
+    },
+    "GridResponsiveCardContext": {
+      "version": "0.4.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-responsive-card.directive.ts",
+      "sha": "98d8057fffd0"
+    },
+    "TbwGridToolButtons": {
+      "version": "0.13.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-tool-buttons.directive.ts",
+      "sha": "1f097c3c89d9"
+    },
+    "GridToolPanel": {
+      "version": "0.1.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-tool-panel.directive.ts",
+      "sha": "baaa1ee65cef"
+    },
+    "GridToolPanelContext": {
+      "version": "0.1.0",
+      "file": "libs/grid-angular/src/lib/directives/grid-tool-panel.directive.ts",
+      "sha": "baaa1ee65cef"
+    },
+    "Grid": {
+      "version": "0.1.0",
+      "file": "libs/grid-angular/src/lib/directives/grid.directive.ts",
+      "sha": "baaa1ee65cef"
+    },
+    "CellCommitEvent": {
+      "version": "0.1.1",
+      "file": "libs/grid-angular/src/lib/directives/grid.directive.ts",
+      "sha": "2d77f071de68"
+    },
+    "RowCommitEvent": {
+      "version": "0.1.1",
+      "file": "libs/grid-angular/src/lib/directives/grid.directive.ts",
+      "sha": "2d77f071de68"
+    },
+    "TbwRenderer": {
+      "version": "0.1.1",
+      "file": "libs/grid-angular/src/lib/directives/structural-directives.ts",
+      "sha": "2d77f071de68"
+    },
+    "StructuralCellContext": {
+      "version": "0.1.1",
+      "file": "libs/grid-angular/src/lib/directives/structural-directives.ts",
+      "sha": "2d77f071de68"
+    },
+    "TbwEditor": {
+      "version": "0.1.1",
+      "file": "libs/grid-angular/src/lib/directives/structural-directives.ts",
+      "sha": "2d77f071de68"
+    },
+    "StructuralEditorContext": {
+      "version": "0.1.1",
+      "file": "libs/grid-angular/src/lib/directives/structural-directives.ts",
+      "sha": "2d77f071de68"
+    },
+    "applyColumnDefaults": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/column-shorthand.ts",
+      "sha": "96de75740411"
+    },
+    "hasColumnShorthands": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/column-shorthand.ts",
+      "sha": "96de75740411"
+    },
+    "normalizeColumns": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/column-shorthand.ts",
+      "sha": "96de75740411"
+    },
+    "parseColumnShorthand": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/column-shorthand.ts",
+      "sha": "96de75740411"
+    },
+    "ColumnShorthand": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/column-shorthand.ts",
+      "sha": "96de75740411"
+    },
+    "provideGrid": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/grid-provider.ts",
+      "sha": "96de75740411"
+    },
+    "ProvideGridOptions": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/grid-provider.ts",
+      "sha": "96de75740411"
+    },
+    "getFeatureConfigPreprocessor": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-extensions.ts",
+      "sha": "3ceecc86ee53"
+    },
+    "registerFeatureConfigPreprocessor": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-extensions.ts",
+      "sha": "3ceecc86ee53"
+    },
+    "registerTemplateBridge": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-extensions.ts",
+      "sha": "3ceecc86ee53"
+    },
+    "runTemplateBridges": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-extensions.ts",
+      "sha": "3ceecc86ee53"
+    },
+    "FeatureConfigPreprocessor": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-extensions.ts",
+      "sha": "3ceecc86ee53"
+    },
+    "TemplateBridge": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-extensions.ts",
+      "sha": "3ceecc86ee53"
+    },
+    "TemplateBridgeContext": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-extensions.ts",
+      "sha": "3ceecc86ee53"
+    },
+    "claimEvent": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-claims.ts",
+      "sha": "b5c70f778ea6"
+    },
+    "getFeatureClaim": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-claims.ts",
+      "sha": "b5c70f778ea6"
+    },
+    "isEventClaimed": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-claims.ts",
+      "sha": "b5c70f778ea6"
+    },
+    "registerFeatureClaim": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-claims.ts",
+      "sha": "b5c70f778ea6"
+    },
+    "unclaimEvent": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-claims.ts",
+      "sha": "b5c70f778ea6"
+    },
+    "unregisterFeatureClaim": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-claims.ts",
+      "sha": "b5c70f778ea6"
+    },
+    "FeatureConfigGetter": {
+      "version": "1.4.0",
+      "file": "libs/grid-angular/src/lib/internal/feature-claims.ts",
+      "sha": "b5c70f778ea6"
+    }
+  },
+  "grid-react": {
+    "AllFeatureProps": {
+      "version": "0.7.0",
+      "file": "libs/grid-react/src/lib/feature-props.ts",
+      "sha": "19ab6ae0816a"
+    },
+    "FeatureProps": {
+      "version": "0.7.0",
+      "file": "libs/grid-react/src/lib/feature-props.ts",
+      "sha": "19ab6ae0816a"
+    },
+    "SSRProps": {
+      "version": "0.7.0",
+      "file": "libs/grid-react/src/lib/feature-props.ts",
+      "sha": "19ab6ae0816a"
+    },
+    "applyColumnDefaults": {
+      "version": "1.5.0",
+      "file": "libs/grid-react/src/lib/column-shorthand.ts",
+      "sha": "8a7314d61d42"
+    },
+    "hasColumnShorthands": {
+      "version": "0.7.0",
+      "file": "libs/grid-react/src/lib/column-shorthand.ts",
+      "sha": "19ab6ae0816a"
+    },
+    "normalizeColumns": {
+      "version": "0.7.0",
+      "file": "libs/grid-react/src/lib/column-shorthand.ts",
+      "sha": "19ab6ae0816a"
+    },
+    "parseColumnShorthand": {
+      "version": "0.7.0",
+      "file": "libs/grid-react/src/lib/column-shorthand.ts",
+      "sha": "19ab6ae0816a"
+    },
+    "ColumnShorthand": {
+      "version": "0.7.0",
+      "file": "libs/grid-react/src/lib/column-shorthand.ts",
+      "sha": "19ab6ae0816a"
+    },
+    "EventHandler": {
+      "version": "0.7.0",
+      "file": "libs/grid-react/src/lib/event-props.ts",
+      "sha": "19ab6ae0816a"
+    },
+    "EventProps": {
+      "version": "0.7.0",
+      "file": "libs/grid-react/src/lib/event-props.ts",
+      "sha": "19ab6ae0816a"
+    },
+    "ColumnConfig": {
+      "version": "0.0.1",
+      "file": "libs/grid-react/src/lib/react-column-config.ts",
+      "sha": "7681ef2b1016"
+    },
+    "GridConfig": {
+      "version": "0.0.1",
+      "file": "libs/grid-react/src/lib/react-column-config.ts",
+      "sha": "7681ef2b1016"
+    },
+    "useGrid": {
+      "version": "0.0.1",
+      "file": "libs/grid-react/src/lib/use-grid.ts",
+      "sha": "7681ef2b1016"
+    },
+    "UseGridReturn": {
+      "version": "0.0.1",
+      "file": "libs/grid-react/src/lib/use-grid.ts",
+      "sha": "7681ef2b1016"
+    },
+    "useGridOverlay": {
+      "version": "1.4.0",
+      "file": "libs/grid-react/src/lib/use-grid-overlay.ts",
+      "sha": "ca478ff162b8"
+    },
+    "UseGridOverlayOptions": {
+      "version": "1.4.0",
+      "file": "libs/grid-react/src/lib/use-grid-overlay.ts",
+      "sha": "ca478ff162b8"
+    },
+    "GridAdapter": {
+      "version": "0.11.0",
+      "file": "libs/grid-react/src/lib/react-grid-adapter.ts",
+      "sha": "68505cfcdb35"
+    },
+    "GridCellContext": {
+      "version": "0.0.1",
+      "file": "libs/grid-react/src/lib/context-types.ts",
+      "sha": "7681ef2b1016"
+    },
+    "GridDetailContext": {
+      "version": "0.0.1",
+      "file": "libs/grid-react/src/lib/context-types.ts",
+      "sha": "7681ef2b1016"
+    },
+    "GridEditorContext": {
+      "version": "0.0.1",
+      "file": "libs/grid-react/src/lib/context-types.ts",
+      "sha": "7681ef2b1016"
+    },
+    "GridToolPanelContext": {
+      "version": "0.0.1",
+      "file": "libs/grid-react/src/lib/context-types.ts",
+      "sha": "7681ef2b1016"
+    }
+  },
+  "grid-vue": {
+    "DetailPanelContext": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/detail-panel-registry.ts",
+      "sha": "d00232910d84"
+    },
+    "ResponsiveCardContext": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/responsive-card-registry.ts",
+      "sha": "d00232910d84"
+    },
+    "CellSlotProps": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/slot-types.ts",
+      "sha": "d00232910d84"
+    },
+    "EditorSlotProps": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/slot-types.ts",
+      "sha": "d00232910d84"
+    },
+    "GridCellContext": {
+      "version": "1.5.0",
+      "file": "libs/grid-vue/src/lib/slot-types.ts",
+      "sha": "8a7314d61d42"
+    },
+    "GridEditorContext": {
+      "version": "1.5.0",
+      "file": "libs/grid-vue/src/lib/slot-types.ts",
+      "sha": "8a7314d61d42"
+    },
+    "ToolPanelContext": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/tool-panel-registry.ts",
+      "sha": "d00232910d84"
+    },
+    "GridAdapter": {
+      "version": "0.3.0",
+      "file": "libs/grid-vue/src/lib/vue-grid-adapter.ts",
+      "sha": "68505cfcdb35"
+    },
+    "isVueComponent": {
+      "version": "0.3.1",
+      "file": "libs/grid-vue/src/lib/vue-grid-adapter.ts",
+      "sha": "b7217db3ab1f"
+    },
+    "GRID_ELEMENT_KEY": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/use-grid.ts",
+      "sha": "d00232910d84"
+    },
+    "useGrid": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/use-grid.ts",
+      "sha": "d00232910d84"
+    },
+    "UseGridReturn": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/use-grid.ts",
+      "sha": "d00232910d84"
+    },
+    "useGridOverlay": {
+      "version": "1.4.0",
+      "file": "libs/grid-vue/src/lib/use-grid-overlay.ts",
+      "sha": "ca478ff162b8"
+    },
+    "UseGridOverlayOptions": {
+      "version": "1.4.0",
+      "file": "libs/grid-vue/src/lib/use-grid-overlay.ts",
+      "sha": "ca478ff162b8"
+    },
+    "applyColumnDefaults": {
+      "version": "1.2.0",
+      "file": "libs/grid-vue/src/lib/column-shorthand.ts",
+      "sha": "1f84ecc5240f"
+    },
+    "hasColumnShorthands": {
+      "version": "1.2.0",
+      "file": "libs/grid-vue/src/lib/column-shorthand.ts",
+      "sha": "1f84ecc5240f"
+    },
+    "normalizeColumns": {
+      "version": "1.2.0",
+      "file": "libs/grid-vue/src/lib/column-shorthand.ts",
+      "sha": "1f84ecc5240f"
+    },
+    "parseColumnShorthand": {
+      "version": "1.2.0",
+      "file": "libs/grid-vue/src/lib/column-shorthand.ts",
+      "sha": "1f84ecc5240f"
+    },
+    "ColumnShorthand": {
+      "version": "1.2.0",
+      "file": "libs/grid-vue/src/lib/column-shorthand.ts",
+      "sha": "1f84ecc5240f"
+    },
+    "CellEditor": {
+      "version": "0.3.0",
+      "file": "libs/grid-vue/src/lib/vue-column-config.ts",
+      "sha": "68505cfcdb35"
+    },
+    "CellRenderer": {
+      "version": "0.3.0",
+      "file": "libs/grid-vue/src/lib/vue-column-config.ts",
+      "sha": "68505cfcdb35"
+    },
+    "ColumnConfig": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/vue-column-config.ts",
+      "sha": "d00232910d84"
+    },
+    "GridConfig": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/vue-column-config.ts",
+      "sha": "d00232910d84"
+    },
+    "AllFeatureProps": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/feature-props.ts",
+      "sha": "d00232910d84"
+    },
+    "FeatureProps": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/feature-props.ts",
+      "sha": "d00232910d84"
+    },
+    "SSRProps": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/feature-props.ts",
+      "sha": "d00232910d84"
+    },
+    "FeatureName": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/feature-registry.ts",
+      "sha": "d00232910d84"
+    },
+    "GRID_TYPE_DEFAULTS": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/grid-type-registry.ts",
+      "sha": "d00232910d84"
+    },
+    "GridTypeProvider": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/grid-type-registry.ts",
+      "sha": "d00232910d84"
+    },
+    "useGridTypeDefaults": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/grid-type-registry.ts",
+      "sha": "d00232910d84"
+    },
+    "useTypeDefault": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/grid-type-registry.ts",
+      "sha": "d00232910d84"
+    },
+    "GridTypeProviderProps": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/grid-type-registry.ts",
+      "sha": "d00232910d84"
+    },
+    "TypeDefault": {
+      "version": "0.3.0",
+      "file": "libs/grid-vue/src/lib/grid-type-registry.ts",
+      "sha": "68505cfcdb35"
+    },
+    "TypeDefaultsMap": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/grid-type-registry.ts",
+      "sha": "d00232910d84"
+    },
+    "GRID_ICONS": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/grid-icon-registry.ts",
+      "sha": "d00232910d84"
+    },
+    "GridIconProvider": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/grid-icon-registry.ts",
+      "sha": "d00232910d84"
+    },
+    "useGridIcons": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/grid-icon-registry.ts",
+      "sha": "d00232910d84"
+    },
+    "GridIconProviderProps": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/grid-icon-registry.ts",
+      "sha": "d00232910d84"
+    },
+    "GridProvider": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/grid-provider.ts",
+      "sha": "d00232910d84"
+    },
+    "GridProviderProps": {
+      "version": "0.1.0",
+      "file": "libs/grid-vue/src/lib/grid-provider.ts",
+      "sha": "d00232910d84"
+    }
+  }
+}

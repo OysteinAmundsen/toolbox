@@ -117,6 +117,7 @@ import type { BlankMode, FilterChangeDetail, FilterConfig, FilterModel, FilterPa
  * @see {@link FilterPanelParams} for custom panel renderer parameters
  *
  * @internal Extends BaseGridPlugin
+ * @since 0.1.1
  */
 export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   /**

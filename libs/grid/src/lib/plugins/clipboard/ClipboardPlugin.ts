@@ -98,6 +98,7 @@ import {
  * @see SelectionPlugin for enhanced copy/paste with selection
  *
  * @internal Extends BaseGridPlugin
+ * @since 0.1.1
  */
 export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
   /**

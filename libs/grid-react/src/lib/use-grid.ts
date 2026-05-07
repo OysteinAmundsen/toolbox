@@ -4,6 +4,7 @@ import type { DataGridRef } from './data-grid';
 
 /**
  * Return type for useGrid hook.
+ * @since 0.0.1
  */
 export interface UseGridReturn<TRow = unknown> {
   /** Ref to attach to the DataGrid component (returns DataGridRef handle) */
@@ -68,6 +69,7 @@ export interface UseGridReturn<TRow = unknown> {
  * @param selector - Optional CSS selector to target a specific grid element via
  *   DOM query instead of using `ref`. Use when the component contains multiple
  *   grids, e.g. `'tbw-grid.primary'` or `'#my-grid'`.
+ * @since 0.0.1
  */
 export function useGrid<TRow = unknown>(selector?: string): UseGridReturn<TRow> {
   const ref = useRef<DataGridRef<TRow>>(null);

@@ -4,6 +4,7 @@ import type { AbstractControl } from '@angular/forms';
 /**
  * Context object passed to the cell editor template.
  * Contains the cell value, row data, column configuration, and commit/cancel functions.
+ * @since 0.1.0
  */
 export interface GridEditorContext<TValue = unknown, TRow = unknown> {
   /** The cell value for this column */
@@ -119,6 +120,7 @@ export function getEditorTemplate(element: HTMLElement): TemplateRef<GridEditorC
  * re-exports from the main `@toolbox-web/grid-angular` entry will be removed
  * at the same time. Consumers should already be importing from the feature
  * entry.
+ * @since 0.1.0
  */
 @Directive({ selector: 'tbw-grid-column-editor' })
 export class GridColumnEditor {

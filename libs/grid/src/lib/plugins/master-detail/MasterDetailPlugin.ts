@@ -83,6 +83,7 @@ import type { DetailExpandDetail, ExpandCollapseAnimation, MasterDetailConfig } 
  * @see {@link DetailExpandDetail} for expand/collapse event details
  *
  * @internal Extends BaseGridPlugin
+ * @since 0.1.1
  */
 export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /** @internal */

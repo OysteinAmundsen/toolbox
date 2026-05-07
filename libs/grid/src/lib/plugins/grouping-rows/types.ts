@@ -12,7 +12,8 @@ export type { ExpandCollapseAnimation } from '../../core/types';
 
 import type { ExpandCollapseAnimation } from '../../core/types';
 
-/** Map of field names to aggregator references */
+/** Map of field names to aggregator references * @since 0.1.1
+ */
 export type AggregatorMap = Record<string, import('../../core/internal/aggregators').AggregatorRef>;
 
 /**
@@ -36,6 +37,7 @@ export type AggregatorMap = Record<string, import('../../core/internal/aggregato
  *   },
  * ];
  * ```
+ * @since 0.1.1
  */
 export interface GroupDefinition {
   /** Unique group identifier. */
@@ -50,7 +52,8 @@ export interface GroupDefinition {
   aggregates?: Record<string, unknown>;
 }
 
-/** Detail payload for `group-expand` event (pre-defined group mode). */
+/** Detail payload for `group-expand` event (pre-defined group mode). * @since 0.1.1
+ */
 export interface GroupExpandDetail {
   /** The key of the group being expanded. */
   groupKey: string;
@@ -58,7 +61,8 @@ export interface GroupExpandDetail {
   groupPath: string[];
 }
 
-/** Detail payload for `group-collapse` event (pre-defined group mode). */
+/** Detail payload for `group-collapse` event (pre-defined group mode). * @since 0.1.1
+ */
 export interface GroupCollapseDetail {
   /** The key of the group being collapsed. */
   groupKey: string;
@@ -72,10 +76,12 @@ export interface GroupCollapseDetail {
  * - `number`: expand group at this index (0-based)
  * - `string`: expand group with this key
  * - `string[]`: expand groups with these keys
+ * @since 0.1.1
  */
 export type DefaultExpandedValue = boolean | number | string | string[];
 
-/** Configuration options for the row grouping plugin */
+/** Configuration options for the row grouping plugin * @since 0.1.1
+ */
 export interface GroupingRowsConfig {
   /**
    * Callback to determine group path for a row.
@@ -159,7 +165,8 @@ export interface GroupingRowsConfig {
   groupRowHeight?: number;
 }
 
-/** Parameters passed to custom group row renderer */
+/** Parameters passed to custom group row renderer * @since 0.1.1
+ */
 export interface GroupRowRenderParams {
   /** The group key */
   key: string;
@@ -198,6 +205,7 @@ export interface GroupingRowsState {
  *   return row.kind === 'group';
  * }
  * ```
+ * @since 0.1.1
  */
 export interface GroupRowModelItem {
   /** Discriminant — always `'group'` for group header rows. */
@@ -220,6 +228,7 @@ export interface GroupRowModelItem {
  * Part of the {@link RenderRow} discriminated union (discriminant: `kind === 'data'`).
  * Data rows represent actual row objects from the grid's data source.
  * Only visible when their parent group(s) are expanded.
+ * @since 0.1.1
  */
 export interface DataRowModelItem {
   /** Discriminant — always `'data'` for leaf data rows. */
@@ -247,10 +256,12 @@ export interface DataRowModelItem {
  *   }
  * }
  * ```
+ * @since 0.1.1
  */
 export type RenderRow = GroupRowModelItem | DataRowModelItem;
 
-/** Event detail for group toggle */
+/** Event detail for group toggle * @since 0.1.1
+ */
 export interface GroupToggleDetail {
   /** The group key that was toggled */
   key: string;

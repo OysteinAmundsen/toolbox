@@ -42,6 +42,7 @@ import type { InternalGrid } from '../types';
  * Higher phases include all lower phase work.
  *
  * @category Plugin Development
+ * @since 0.4.0
  */
 export const RenderPhase = {
   /** Lightweight style updates only (plugin afterRender hooks) */

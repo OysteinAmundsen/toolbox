@@ -21,6 +21,7 @@
  *   overscan: 5,     // render 5 extra columns on each side
  * })
  * ```
+ * @since 0.1.1
  */
 export interface ColumnVirtualizationConfig {
   /** Auto-enable when column count exceeds threshold (default: true) */

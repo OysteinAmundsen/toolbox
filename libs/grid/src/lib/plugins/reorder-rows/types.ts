@@ -14,6 +14,7 @@ import type { RowDragDropConfig } from '../row-drag-drop/types';
  * is available on `RowDragDropConfig` directly.
  *
  * @deprecated Use `RowDragDropConfig` from `@toolbox-web/grid/plugins/row-drag-drop`.
+ * @since 1.24.0
  */
 export type RowReorderConfig<T = unknown> = Pick<
   RowDragDropConfig<T>,

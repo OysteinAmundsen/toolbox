@@ -156,6 +156,7 @@ declare module '../../core/types' {
 /**
  * Filter parameters for configuring the filter panel UI.
  * These settings control the filter input constraints.
+ * @since 0.1.1
  */
 export interface FilterParams {
   /** Minimum value for number/date filters */
@@ -183,6 +184,7 @@ export interface FilterParams {
  *
  * The grid auto-detects the filter type from the column's `type` property.
  * Override by setting `filter.type` explicitly in the {@link FilterModel}.
+ * @since 0.1.1
  */
 export type FilterType = 'text' | 'number' | 'date' | 'set' | 'boolean';
 
@@ -328,6 +330,7 @@ export type FilterType = 'text' | 'number' | 'date' | 'set' | 'boolean';
  * // Blank: find rows missing an email
  * { field: 'email', type: 'text', operator: 'blank', value: '' }
  * ```
+ * @since 0.1.1
  */
 export type FilterOperator =
   // Text operators
@@ -350,7 +353,8 @@ export type FilterOperator =
   | 'in'
   | 'notIn';
 
-/** Filter model representing a single filter condition */
+/** Filter model representing a single filter condition * @since 0.1.1
+ */
 export interface FilterModel {
   /** The field/column to filter on */
   field: string;
@@ -432,6 +436,7 @@ export interface FilterModel {
  *   }}
  * />
  * ```
+ * @since 0.1.1
  */
 export interface FilterPanelParams {
   /**
@@ -561,7 +566,8 @@ export interface FilterPanelParams {
   closePanel: () => void;
 }
 
-/** Custom filter panel renderer function. Return undefined to use default panel for this column. */
+/** Custom filter panel renderer function. Return undefined to use default panel for this column. * @since 0.1.1
+ */
 export type FilterPanelRenderer = (container: HTMLElement, params: FilterPanelParams) => void | undefined;
 
 /**
@@ -582,6 +588,7 @@ export type FilterPanelRenderer = (container: HTMLElement, params: FilterPanelPa
  *   return response.json(); // ['Engineering', 'Marketing', 'Sales', ...]
  * }
  * ```
+ * @since 0.1.1
  */
 export type FilterValuesHandler = (field: string, column: ColumnConfig) => Promise<unknown[]>;
 
@@ -605,6 +612,7 @@ export type FilterValuesHandler = (field: string, column: ColumnConfig) => Promi
  *   return response.json();
  * }
  * ```
+ * @since 0.1.1
  */
 export type FilterHandler<TRow = unknown> = (filters: FilterModel[], currentRows: TRow[]) => TRow[] | Promise<TRow[]>;
 
@@ -642,6 +650,7 @@ export type FilterHandler<TRow = unknown> = (filters: FilterModel[], currentRows
  *   },
  * })
  * ```
+ * @since 0.1.1
  */
 export interface FilterConfig<TRow = unknown> {
   /**
@@ -914,7 +923,8 @@ export interface FilterState {
   excludedValues: Map<string, Set<unknown>>;
 }
 
-/** Event detail emitted when filters change */
+/** Event detail emitted when filters change * @since 0.1.1
+ */
 export interface FilterChangeDetail {
   /** Current active filters */
   filters: FilterModel[];
@@ -934,5 +944,6 @@ export interface FilterChangeDetail {
  * - `'all'` — no blank filter applied, all rows shown
  * - `'blanksOnly'` — only blank/empty rows shown (`blank` operator)
  * - `'nonBlanksOnly'` — only non-blank rows shown (`notBlank` operator)
+ * @since 0.1.1
  */
 export type BlankMode = 'all' | 'blanksOnly' | 'nonBlanksOnly';

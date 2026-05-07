@@ -20,6 +20,7 @@ import type { BaselinesCapturedDetail, DirtyChangeDetail } from './internal/dirt
  * so framework adapters (e.g., GridFormArray) can revert FormControls.
  *
  * @category Events
+ * @since 0.4.0
  */
 export interface CellCancelDetail {
   /** Index of the row whose cell was reverted. */
@@ -42,6 +43,7 @@ export interface CellCancelDetail {
  * Invalid cells can be styled via `cellClass` and will be highlighted.
  *
  * @category Events
+ * @since 0.4.0
  */
 export interface CellCommitDetail<TRow = unknown> {
   /** The row object (not yet mutated if event is cancelable). */
@@ -110,6 +112,7 @@ export interface CellCommitDetail<TRow = unknown> {
  * ```
  *
  * @category Events
+ * @since 0.4.0
  */
 export interface RowCommitDetail<TRow = unknown> {
   /** Row index that lost edit focus. */
@@ -136,6 +139,7 @@ export interface RowCommitDetail<TRow = unknown> {
  * Fired when `resetChangedRows()` is called.
  *
  * @category Events
+ * @since 0.4.0
  */
 export interface ChangedRowsResetDetail<TRow = unknown> {
   /** New (empty) changed rows array after reset. */
@@ -152,6 +156,7 @@ export interface ChangedRowsResetDetail<TRow = unknown> {
  * are perpetually editable.
  *
  * @category Events
+ * @since 0.4.0
  */
 export interface EditOpenDetail<TRow = unknown> {
   /** Index of the row entering edit mode. */
@@ -174,6 +179,7 @@ export interface EditOpenDetail<TRow = unknown> {
  * `mode: 'row'` — never in `mode: 'grid'`.
  *
  * @category Events
+ * @since 0.4.0
  */
 export interface BeforeEditCloseDetail<TRow = unknown> {
   /** Index of the row about to leave edit mode. */
@@ -196,6 +202,7 @@ export interface BeforeEditCloseDetail<TRow = unknown> {
  * closing overlays or resetting state.
  *
  * @category Events
+ * @since 0.4.0
  */
 export interface EditCloseDetail<TRow = unknown> {
   /** Index of the row that left edit mode. */
@@ -427,6 +434,7 @@ declare module '../../core/types' {
 
 /**
  * Configuration options for EditingPlugin.
+ * @since 0.4.0
  */
 export interface EditingConfig {
   /**
@@ -561,6 +569,7 @@ export interface EditingConfig {
  * ```typescript
  * { field: 'price', type: 'number', editable: true, editorParams: { min: 0, max: 1000, step: 0.01 } }
  * ```
+ * @since 0.4.0
  */
 export interface NumberEditorParams {
   /** Minimum allowed value */
@@ -580,6 +589,7 @@ export interface NumberEditorParams {
  * ```typescript
  * { field: 'name', editable: true, editorParams: { maxLength: 50, placeholder: 'Enter name...' } }
  * ```
+ * @since 0.4.0
  */
 export interface TextEditorParams {
   /** Maximum character length */
@@ -597,6 +607,7 @@ export interface TextEditorParams {
  * ```typescript
  * { field: 'startDate', type: 'date', editable: true, editorParams: { min: '2024-01-01' } }
  * ```
+ * @since 0.4.0
  */
 export interface DateEditorParams {
   /** Minimum date (ISO string: 'YYYY-MM-DD') */
@@ -620,6 +631,7 @@ export interface DateEditorParams {
  * ```typescript
  * { field: 'status', type: 'select', editable: true, editorParams: { includeEmpty: true, emptyLabel: '-- Select --' } }
  * ```
+ * @since 0.4.0
  */
 export interface SelectEditorParams {
   /** Include an empty option at the start */
@@ -635,6 +647,7 @@ export interface SelectEditorParams {
  * Custom editors can use any Record<string, unknown> for their params.
  *
  * The applicable shape depends on the column type and editor.
+ * @since 0.4.0
  */
 export type EditorParams =
   | NumberEditorParams

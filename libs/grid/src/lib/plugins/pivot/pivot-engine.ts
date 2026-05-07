@@ -1,6 +1,7 @@
 import { createValueKey, getPivotAggregator } from './pivot-model';
 import type { PivotConfig, PivotResult, PivotRow, PivotSortConfig, PivotSortDir, PivotValueField } from './types';
 
+/** @since 0.1.1 */
 export type PivotDataRow = Record<string, unknown>;
 
 /**

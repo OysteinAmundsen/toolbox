@@ -33,6 +33,7 @@ const accessorCache = new WeakMap<object, Map<string, unknown>>();
  * ```typescript
  * const value = resolveCellValue(row, column);
  * ```
+ * @since 2.2.0
  */
 export function resolveCellValue<TRow>(row: TRow, column: ColumnConfig<TRow>, rowIndex = -1): unknown {
   if (!column.valueAccessor) {
@@ -61,6 +62,7 @@ export function resolveCellValue<TRow>(row: TRow, column: ColumnConfig<TRow>, ro
  * the entire cache. Immutable updates auto-invalidate via row identity.
  *
  * Edit/transaction paths that mutate row objects in-place must call this.
+ * @since 2.2.0
  */
 export function invalidateAccessorCache(row?: object, field?: string): void {
   if (!row) {

@@ -905,6 +905,57 @@ describe('clipboard', () => {
       expect(text).toBe('');
     });
 
+    // #region Native paste guard — must not swallow paste into editor inputs
+    it('should NOT preventDefault when paste targets a form control inside the grid', () => {
+      // Regression: when EditingPlugin was active and a cell editor was open,
+      // the user's Ctrl+V was eaten by ClipboardPlugin's grid-level paste
+      // listener — the input never received the pasted text.
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin([{ name: 'Alice' }], [{ field: 'name', header: 'Name' }]);
+      plugin.attach(grid as any);
+
+      const handler = grid.addEventListener.mock.calls.find((c: unknown[]) => c[0] === 'paste')?.[1] as
+        | ((e: ClipboardEvent) => void)
+        | undefined;
+      expect(handler).toBeDefined();
+
+      const input = document.createElement('input');
+      const dt = new DataTransfer();
+      dt.setData('text/plain', 'pasted text');
+      const event = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'target', { value: input });
+      const preventSpy = vi.spyOn(event, 'preventDefault');
+
+      handler!(event);
+
+      expect(preventSpy).not.toHaveBeenCalled();
+      expect(grid.dispatchEvent).not.toHaveBeenCalled();
+    });
+
+    it('should preventDefault and handle paste when target is a non-editable cell', () => {
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin([{ name: 'Alice' }], [{ field: 'name', header: 'Name' }]);
+      plugin.attach(grid as any);
+
+      const handler = grid.addEventListener.mock.calls.find((c: unknown[]) => c[0] === 'paste')?.[1] as
+        | ((e: ClipboardEvent) => void)
+        | undefined;
+      expect(handler).toBeDefined();
+
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      const dt = new DataTransfer();
+      dt.setData('text/plain', 'pasted text');
+      const event = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'target', { value: cell });
+      const preventSpy = vi.spyOn(event, 'preventDefault');
+
+      handler!(event);
+
+      expect(preventSpy).toHaveBeenCalled();
+    });
+    // #endregion
+
     it('should copy specific rows via copyRows', async () => {
       Object.defineProperty(navigator, 'clipboard', {
         value: { writeText: vi.fn().mockResolvedValue(undefined) },

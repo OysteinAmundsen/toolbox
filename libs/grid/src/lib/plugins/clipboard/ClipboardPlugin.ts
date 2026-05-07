@@ -226,6 +226,13 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    * - No selection: paste starts at row 0, col 0
    */
   #handleNativePaste(event: ClipboardEvent): void {
+    // If the paste target is an editable form control or contenteditable element
+    // (e.g. an active cell editor injected by EditingPlugin, a filter input, a
+    // header search box), let the browser deliver the paste to that control
+    // natively. Without this guard `event.preventDefault()` below would swallow
+    // the user's keystroke and the editor input would never receive the text.
+    if (this.#isEditablePasteTarget(event.target)) return;
+
     const text = event.clipboardData?.getData('text/plain');
     if (!text) return;
 
@@ -292,6 +299,21 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     // Use custom handler or default
     const handler = pasteHandler ?? defaultPasteHandler;
     handler(detail, this.grid);
+  }
+
+  /**
+   * True when the paste event originated from a focusable form control or
+   * contenteditable element — i.e. somewhere the user expects the browser's
+   * native paste behavior (typing into an editor input). Lets EditingPlugin
+   * editors, filter inputs, and other text fields receive paste normally
+   * instead of having ClipboardPlugin swallow the event.
+   */
+  #isEditablePasteTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof Element)) return false;
+    if (target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) {
+      return true;
+    }
+    return false;
   }
 
   /**

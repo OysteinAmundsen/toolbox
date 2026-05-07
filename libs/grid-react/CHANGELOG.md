@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.5.0...grid-react-1.5.1) (2026-05-07)
+
+
+### Bug Fixes
+
+* **grid-vue,grid-react:** default cell/editor TValue generic to any ([#289](https://github.com/OysteinAmundsen/toolbox/issues/289)) ([#290](https://github.com/OysteinAmundsen/toolbox/issues/290)) ([66ec863](https://github.com/OysteinAmundsen/toolbox/commit/66ec8635c9591244952b217a6a7ad2b5ff0f37f4))
+
 ## [1.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.4.0...grid-react-1.5.0) (2026-05-02)
 
 

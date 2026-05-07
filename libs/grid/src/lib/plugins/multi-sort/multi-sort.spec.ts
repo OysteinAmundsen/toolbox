@@ -226,12 +226,23 @@ describe('multiSort', () => {
           { field: 'name', direction: 'asc' },
         ];
 
-        const start = performance.now();
+        // Warm up JIT so the first run's compilation cost doesn't pollute the sample.
         applySorts(largeDataset, sorts, testColumns);
-        const duration = performance.now() - start;
 
-        // Allow 100ms for CI environments (typically ~30-50ms locally)
-        expect(duration).toBeLessThan(100);
+        // Take the minimum of N samples — a single wall-clock sample on a shared
+        // dev/CI machine is dominated by noise (GC pauses, background processes,
+        // OS scheduling). The minimum represents the actual hot-path performance;
+        // noise can only ever inflate a sample, never deflate it. This keeps the
+        // 50 ms regression target meaningful without flaking under load.
+        let best = Infinity;
+        for (let i = 0; i < 5; i++) {
+          const start = performance.now();
+          applySorts(largeDataset, sorts, testColumns);
+          const duration = performance.now() - start;
+          if (duration < best) best = duration;
+        }
+
+        expect(best).toBeLessThan(50);
       });
     });
   });

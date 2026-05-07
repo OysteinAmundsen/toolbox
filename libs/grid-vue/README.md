@@ -237,6 +237,10 @@ import '@toolbox-web/grid-vue/features/editing';
 | `commit` | `(value: any) => void` | Save the new value |
 | `cancel` | `() => void`           | Cancel editing     |
 
+> **Generic defaults:** `EditorSlotProps<TRow = unknown, TValue = any>` — same
+> rationale as `CellSlotProps` above. Specify `TRow` for row-shape safety;
+> pass `TValue` when you know the column's value type.
+
 ## Events
 
 Handle grid events using Vue's template syntax.

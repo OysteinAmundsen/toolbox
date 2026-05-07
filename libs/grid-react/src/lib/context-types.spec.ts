@@ -7,7 +7,7 @@ interface Row {
 }
 
 describe('GridCellContext generic defaults (issue #289 parity)', () => {
-  it('defaults TValue to any so single-generic usage compiles', () => {
+  it('defaults TValue to any so the value field needs no cast', () => {
     const ctx = {} as GridCellContext<any, Row>;
     const asString: string = ctx.value;
     const asNumber: number = ctx.value;
@@ -29,7 +29,7 @@ describe('GridCellContext generic defaults (issue #289 parity)', () => {
 });
 
 describe('GridEditorContext generic defaults (issue #289 parity)', () => {
-  it('defaults TValue to any so single-generic usage compiles', () => {
+  it('defaults TValue to any so the value field needs no cast', () => {
     const ctx = {} as GridEditorContext<any, Row>;
     const asString: string = ctx.value;
     void asString;

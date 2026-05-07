@@ -49,9 +49,9 @@ export function sortRowsInPlace<TRow = unknown>(rows: TRow[], sorts: SortModel[]
     // common case (no valueAccessor) this collapses to a single property read.
     // Documented precedence: sortComparator → valueAccessor → field.
     const field = sort.field;
-    const getValue: (row: any) => unknown = col?.valueAccessor
-      ? (row: any) => resolveCellValue(row, col)
-      : (row: any) => row[field];
+    const getValue: (row: TRow) => unknown = col?.valueAccessor
+      ? (row: TRow) => resolveCellValue(row, col)
+      : (row: TRow) => (row as Record<string, unknown>)[field];
     return {
       field,
       asc: sort.direction === 'asc',
@@ -70,44 +70,57 @@ export function sortRowsInPlace<TRow = unknown>(rows: TRow[], sorts: SortModel[]
   const chainNeedsPin = chain.some((l) => l.pinPlaceholders);
   const needsPinScan = chainNeedsPin && hasLoadingRow(rows);
 
-  if (chain.length === 1) {
-    // Single-sort fast path — avoid loop overhead
-    const { asc, comparator, getValue } = chain[0];
-    if (needsPinScan) {
-      rows.sort((a: any, b: any) => {
-        const pinned = pinLoadingRows(a, b);
-        if (pinned !== 0) return pinned;
-        const result = comparator(getValue(a), getValue(b), a, b);
-        return asc ? result : -result;
-      });
-    } else {
-      rows.sort((a: any, b: any) => {
-        const result = comparator(getValue(a), getValue(b), a, b);
-        return asc ? result : -result;
-      });
+  // Schwartzian transform: extract sort keys ONCE per row up front, then sort
+  // indices by the cached keys. `Array.prototype.sort` calls the comparator
+  // ~n·log·n times; without caching, each call would re-extract every key
+  // (2 sides × k columns = 2·k property reads / accessor invocations per
+  // compare). Caching collapses ~2·k·n·log·n extractions to k·n. For 10K
+  // rows × 2 keys that's 20K extractions instead of ~260K, and the comparator
+  // body becomes a pure key-vs-key comparison the JIT can optimize tightly.
+  const n = rows.length;
+  const k = chain.length;
+  const keys: unknown[] = new Array(n * k);
+  for (let i = 0; i < n; i++) {
+    const row = rows[i];
+    const base = i * k;
+    for (let j = 0; j < k; j++) {
+      keys[base + j] = chain[j].getValue(row);
     }
+  }
+
+  // Index array — sort this and then permute `rows` in one pass at the end.
+  // Typed array when it fits; falls back to plain Array for very large datasets.
+  const indices: Uint32Array | number[] = n <= 0xffffffff ? new Uint32Array(n) : new Array(n);
+  for (let i = 0; i < n; i++) indices[i] = i;
+
+  const compareIndices = (ia: number, ib: number): number => {
+    if (needsPinScan) {
+      const pinned = pinLoadingRows(rows[ia], rows[ib]);
+      if (pinned !== 0) return pinned;
+    }
+    const baseA = ia * k;
+    const baseB = ib * k;
+    for (let j = 0; j < k; j++) {
+      const link = chain[j];
+      // Custom comparators receive the row pair as 3rd/4th args; defaultComparator
+      // ignores them. Keys are already cached so no extraction happens here.
+      const result = link.comparator(keys[baseA + j], keys[baseB + j], rows[ia], rows[ib]);
+      if (result !== 0) return link.asc ? result : -result;
+    }
+    return 0;
+  };
+
+  if (indices instanceof Uint32Array) {
+    indices.sort(compareIndices);
   } else {
-    if (needsPinScan) {
-      rows.sort((a: any, b: any) => {
-        const pinned = pinLoadingRows(a, b);
-        if (pinned !== 0) return pinned;
-        for (let i = 0; i < chain.length; i++) {
-          const link = chain[i];
-          const result = link.comparator(link.getValue(a), link.getValue(b), a, b);
-          if (result !== 0) return link.asc ? result : -result;
-        }
-        return 0;
-      });
-    } else {
-      rows.sort((a: any, b: any) => {
-        for (let i = 0; i < chain.length; i++) {
-          const link = chain[i];
-          const result = link.comparator(link.getValue(a), link.getValue(b), a, b);
-          if (result !== 0) return link.asc ? result : -result;
-        }
-        return 0;
-      });
-    }
+    (indices as number[]).sort(compareIndices);
+  }
+
+  // Permute rows in-place using the sorted index array. Single allocation of
+  // a snapshot; then write back. Done in two passes to avoid clobbering.
+  const snapshot = rows.slice();
+  for (let i = 0; i < n; i++) {
+    rows[i] = snapshot[indices[i]];
   }
 }
 

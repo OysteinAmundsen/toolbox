@@ -198,6 +198,12 @@ The `#cell` slot receives:
 | `rowIndex` | `number` | Row index            |
 | `colIndex` | `number` | Column index         |
 
+> **Generic defaults:** `CellSlotProps<TRow = unknown, TValue = any>`. Specify
+> `TRow` (e.g. `CellSlotProps<Employee>`) to get full row-shape safety; `TValue`
+> defaults to `any` because the value type is per-column and awkward to narrow
+> inside template expressions. Pass it explicitly when known, e.g.
+> `CellSlotProps<Employee, string>`.
+
 ## Custom Cell Editors
 
 Use the `#editor` slot for inline editing:

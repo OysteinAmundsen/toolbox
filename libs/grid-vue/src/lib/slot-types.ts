@@ -11,9 +11,14 @@ import type { ColumnConfig } from '@toolbox-web/grid';
  *   </template>
  * </TbwGridColumn>
  * ```
+ * @typeParam TRow - Row data shape. Defaults to `unknown` so users are
+ *   prompted to specify their row type explicitly for type safety.
+ * @typeParam TValue - Cell value type. Defaults to `any` because the value
+ *   shape is per-column and awkward to narrow inside template expressions;
+ *   specify it (e.g. `CellSlotProps<MyRow, string>`) when known.
  * @since 0.1.0
  */
-export interface CellSlotProps<TRow = unknown, TValue = unknown> {
+export interface CellSlotProps<TRow = unknown, TValue = any> {
   /** The cell value */
   value: TValue;
   /** The entire row data */
@@ -37,9 +42,13 @@ export interface CellSlotProps<TRow = unknown, TValue = unknown> {
  *   </template>
  * </TbwGridColumn>
  * ```
+ * @typeParam TRow - Row data shape. Defaults to `unknown` so users are
+ *   prompted to specify their row type explicitly for type safety.
+ * @typeParam TValue - Cell value type. Defaults to `any` because the value
+ *   shape is per-column and awkward to narrow inside template expressions.
  * @since 0.1.0
  */
-export interface EditorSlotProps<TRow = unknown, TValue = unknown> {
+export interface EditorSlotProps<TRow = unknown, TValue = any> {
   /** The current cell value */
   value: TValue;
   /** The entire row data */
@@ -77,7 +86,7 @@ export interface EditorSlotProps<TRow = unknown, TValue = unknown> {
  * the right shape from it.
  * @since 0.1.0
  */
-export type GridCellContext<TValue = unknown, TRow = unknown> = CellSlotProps<TRow, TValue>;
+export type GridCellContext<TValue = any, TRow = unknown> = CellSlotProps<TRow, TValue>;
 
 /**
  * Context object passed to a cell editor function.
@@ -89,4 +98,4 @@ export type GridCellContext<TValue = unknown, TRow = unknown> = CellSlotProps<TR
  * already infers the right shape from it.
  * @since 0.1.0
  */
-export type GridEditorContext<TValue = unknown, TRow = unknown> = EditorSlotProps<TRow, TValue>;
+export type GridEditorContext<TValue = any, TRow = unknown> = EditorSlotProps<TRow, TValue>;

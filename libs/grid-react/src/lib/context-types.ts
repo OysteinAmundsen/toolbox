@@ -2,9 +2,15 @@ import type { ColumnConfig } from '@toolbox-web/grid';
 
 /**
  * Context object passed to cell renderer components.
+ *
+ * @typeParam TValue - Cell value type. Defaults to `any` because the value
+ *   shape is per-column and awkward to narrow inside JSX expressions;
+ *   specify it (e.g. `GridCellContext<string, MyRow>`) when known.
+ * @typeParam TRow - Row data shape. Defaults to `unknown` so users are
+ *   prompted to specify their row type explicitly for type safety.
  * @since 0.0.1
  */
-export interface GridCellContext<TValue = unknown, TRow = unknown> {
+export interface GridCellContext<TValue = any, TRow = unknown> {
   /** The cell value for this column */
   value: TValue;
   /** The full row data object */
@@ -17,9 +23,14 @@ export interface GridCellContext<TValue = unknown, TRow = unknown> {
 
 /**
  * Context object passed to cell editor components.
+ *
+ * @typeParam TValue - Cell value type. Defaults to `any` because the value
+ *   shape is per-column and awkward to narrow inside JSX expressions.
+ * @typeParam TRow - Row data shape. Defaults to `unknown` so users are
+ *   prompted to specify their row type explicitly for type safety.
  * @since 0.0.1
  */
-export interface GridEditorContext<TValue = unknown, TRow = unknown> {
+export interface GridEditorContext<TValue = any, TRow = unknown> {
   /** The cell value for this column */
   value: TValue;
   /** The full row data object */

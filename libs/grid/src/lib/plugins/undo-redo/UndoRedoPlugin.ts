@@ -222,61 +222,87 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
    * Handle keyboard shortcuts for undo/redo.
    * - Ctrl+Z / Cmd+Z: Undo
    * - Ctrl+Y / Cmd+Y / Ctrl+Shift+Z / Cmd+Shift+Z: Redo
+   *
+   * When the keystroke originates from a focusable form control (e.g. an
+   * active cell editor input, a filter text box) we defer to the browser's
+   * native undo/redo first. We watch for a `beforeinput` event with
+   * `inputType === 'historyUndo'` / `'historyRedo'` on the target — if the
+   * browser had something to undo, it consumes the keystroke and we do
+   * nothing; if it didn't (history depleted), we fall back to the grid's
+   * own undo/redo. This lets users undo their typing/paste inside an open
+   * editor, then continue undoing committed cell edits with the same key.
    * @internal
    */
   override onKeyDown(event: KeyboardEvent): boolean {
     const isUndo = (event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey;
     const isRedo = (event.ctrlKey || event.metaKey) && (event.key === 'y' || (event.key === 'z' && event.shiftKey));
 
-    if (isUndo) {
-      // Prevent browser native undo on text inputs — it would conflict
-      // with the grid's undo by mutating the input text independently,
-      // triggering re-commits that cancel the grid undo.
-      event.preventDefault();
+    if (!isUndo && !isRedo) return false;
 
-      const result = undo({ undoStack: this.undoStack, redoStack: this.redoStack });
-      if (result.action) {
-        this.#applyUndoRedoAction(result.action, 'undo');
+    const kind: 'undo' | 'redo' = isUndo ? 'undo' : 'redo';
 
-        // Update state from result
-        this.undoStack = result.newState.undoStack;
-        this.redoStack = result.newState.redoStack;
-
-        this.emit<UndoRedoDetail>('undo', {
-          action: result.action,
-          type: 'undo',
-        });
-
-        this.#focusUndoRedoAction(result.action);
-        this.requestRenderWithFocus();
-      }
+    if (this.#isNativeHistoryTarget(event.target)) {
+      // Let the browser try its native undo/redo first. Only run ours if
+      // the browser had nothing left in its own history.
+      this.#deferToNativeHistory(event.target as HTMLElement, kind);
       return true;
     }
 
-    if (isRedo) {
-      // Prevent browser native redo — same reason as undo above
-      event.preventDefault();
+    // Prevent browser native undo on text inputs — it would conflict with
+    // the grid's undo by mutating the input text independently, triggering
+    // re-commits that cancel the grid undo.
+    event.preventDefault();
+    this.#performHistory(kind);
+    return true;
+  }
 
-      const result = redo({ undoStack: this.undoStack, redoStack: this.redoStack });
-      if (result.action) {
-        this.#applyUndoRedoAction(result.action, 'redo');
+  /**
+   * Apply an undo or redo against the grid's own history stack.
+   */
+  #performHistory(kind: 'undo' | 'redo'): void {
+    const state = { undoStack: this.undoStack, redoStack: this.redoStack };
+    const result = kind === 'undo' ? undo(state) : redo(state);
+    if (!result.action) return;
 
-        // Update state from result
-        this.undoStack = result.newState.undoStack;
-        this.redoStack = result.newState.redoStack;
+    this.#applyUndoRedoAction(result.action, kind);
+    this.undoStack = result.newState.undoStack;
+    this.redoStack = result.newState.redoStack;
 
-        this.emit<UndoRedoDetail>('redo', {
-          action: result.action,
-          type: 'redo',
-        });
+    this.emit<UndoRedoDetail>(kind, { action: result.action, type: kind });
+    this.#focusUndoRedoAction(result.action);
+    this.requestRenderWithFocus();
+  }
 
-        this.#focusUndoRedoAction(result.action);
-        this.requestRenderWithFocus();
-      }
-      return true;
-    }
+  /**
+   * True when the keystroke target is a form control with its own native
+   * undo history (text inputs, textareas, contenteditable). `<select>` is
+   * intentionally excluded — it has no undo history.
+   */
+  #isNativeHistoryTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof Element)) return false;
+    return !!target.closest('input, textarea, [contenteditable=""], [contenteditable="true"]');
+  }
 
-    return false;
+  /**
+   * Watch for the browser's native undo/redo on `target`. The browser fires
+   * `beforeinput` with `inputType: 'historyUndo' | 'historyRedo'` when it
+   * actually has something to undo/redo. If we don't observe that within a
+   * microtask of the keydown returning, the native history is depleted and
+   * we run the grid's own undo/redo to extend the chain.
+   */
+  #deferToNativeHistory(target: HTMLElement, kind: 'undo' | 'redo'): void {
+    const wantedInputType = kind === 'undo' ? 'historyUndo' : 'historyRedo';
+    let nativeHandled = false;
+
+    const onBeforeInput = (e: Event) => {
+      if ((e as InputEvent).inputType === wantedInputType) nativeHandled = true;
+    };
+    target.addEventListener('beforeinput', onBeforeInput, { capture: true });
+
+    queueMicrotask(() => {
+      target.removeEventListener('beforeinput', onBeforeInput, { capture: true } as EventListenerOptions);
+      if (!nativeHandled) this.#performHistory(kind);
+    });
   }
 
   // #region Public API Methods

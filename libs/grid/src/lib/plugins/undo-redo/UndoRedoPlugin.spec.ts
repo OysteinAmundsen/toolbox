@@ -351,6 +351,117 @@ describe('UndoRedoPlugin', () => {
 
   // #endregion
 
+  // #region Defer to native browser undo/redo when target is editable
+
+  describe('defer to native browser history (#287)', () => {
+    function dispatchOn(target: EventTarget, key: 'z' | 'y', shiftKey = false): KeyboardEvent {
+      const event = new KeyboardEvent('keydown', { key, ctrlKey: true, shiftKey, bubbles: true });
+      Object.defineProperty(event, 'target', { value: target });
+      return event;
+    }
+
+    it('should NOT preventDefault when Ctrl+Z fires on an input element', () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      const input = document.createElement('input');
+      const event = dispatchOn(input, 'z');
+      const spy = vi.spyOn(event, 'preventDefault');
+
+      const result = plugin.onKeyDown(event);
+
+      expect(result).toBe(true); // consumed (other plugins shouldn't run)
+      expect(spy).not.toHaveBeenCalled(); // browser default may proceed
+    });
+
+    it('should NOT run grid undo when browser fires beforeinput historyUndo', async () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      rows[0]['name'] = 'Changed';
+      grid.updateRow.mockClear();
+
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+      try {
+        const event = dispatchOn(input, 'z');
+        plugin.onKeyDown(event);
+
+        // Simulate the browser's native undo firing beforeinput
+        const beforeInput = new Event('beforeinput', { bubbles: true });
+        Object.defineProperty(beforeInput, 'inputType', { value: 'historyUndo' });
+        input.dispatchEvent(beforeInput);
+
+        await Promise.resolve(); // flush microtask
+
+        expect(grid.updateRow).not.toHaveBeenCalled();
+      } finally {
+        input.remove();
+      }
+    });
+
+    it('should run grid undo when browser does NOT fire beforeinput (history depleted)', async () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      rows[0]['name'] = 'Changed';
+      grid.updateRow.mockClear();
+
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+      try {
+        plugin.onKeyDown(dispatchOn(input, 'z'));
+
+        // No beforeinput dispatched — browser had nothing to undo
+        await Promise.resolve(); // flush microtask
+
+        expect(grid.updateRow).toHaveBeenCalledWith('1', { name: 'Alpha' });
+      } finally {
+        input.remove();
+      }
+    });
+
+    it('should run grid redo when browser fires no beforeinput historyRedo', async () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      rows[0]['name'] = 'Changed';
+      plugin.undo();
+      grid.updateRow.mockClear();
+
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+      try {
+        plugin.onKeyDown(dispatchOn(input, 'y'));
+        await Promise.resolve();
+        expect(grid.updateRow).toHaveBeenCalledWith('1', { name: 'Changed' });
+      } finally {
+        input.remove();
+      }
+    });
+
+    it('should defer for textarea targets', () => {
+      const textarea = document.createElement('textarea');
+      const event = dispatchOn(textarea, 'z');
+      const spy = vi.spyOn(event, 'preventDefault');
+      plugin.onKeyDown(event);
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('should defer for contenteditable targets', () => {
+      const div = document.createElement('div');
+      div.setAttribute('contenteditable', 'true');
+      const event = dispatchOn(div, 'z');
+      const spy = vi.spyOn(event, 'preventDefault');
+      plugin.onKeyDown(event);
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('should NOT defer for select targets (no native undo)', () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      rows[0]['name'] = 'Changed';
+      const select = document.createElement('select');
+      const event = dispatchOn(select, 'z');
+      const spy = vi.spyOn(event, 'preventDefault');
+      plugin.onKeyDown(event);
+      expect(spy).toHaveBeenCalled();
+    });
+  });
+
+  // #endregion
+
   // #region suppressRecording (feedback loop prevention)
 
   describe('suppressRecording during undo/redo', () => {

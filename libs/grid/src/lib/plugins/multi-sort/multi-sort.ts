@@ -8,6 +8,12 @@ import { resolveCellValue } from '../../core/internal/value-accessor';
 import type { ColumnConfig } from '../../core/types';
 import type { SortModel } from './types';
 
+// Module-level cached collator. `String.prototype.localeCompare(b)` (no args)
+// lazily allocates a fresh Intl.Collator on every call in V8 — measurable on
+// large datasets where string comparisons dominate the secondary sort key.
+// A single cached `Intl.Collator` reused via `.compare(a, b)` is ~3-5x faster.
+const stringCollator = new Intl.Collator(undefined, { sensitivity: 'variant' });
+
 /**
  * Apply multiple sort columns to a row array.
  * Sorts are applied in order - first sort has highest priority.
@@ -58,35 +64,64 @@ export function sortRowsInPlace<TRow = unknown>(rows: TRow[], sorts: SortModel[]
     };
   });
 
+  // Only enable per-pair pin checks if the dataset *actually* contains loading
+  // placeholders — for the common case (no `__loading` rows) we skip ~n·log·n
+  // property reads + branch on the hot path. Single O(n) scan up front.
+  const chainNeedsPin = chain.some((l) => l.pinPlaceholders);
+  const needsPinScan = chainNeedsPin && hasLoadingRow(rows);
+
   if (chain.length === 1) {
     // Single-sort fast path — avoid loop overhead
-    const link = chain[0];
-    const { asc, comparator, getValue, pinPlaceholders } = link;
-    rows.sort((a: any, b: any) => {
-      if (pinPlaceholders) {
+    const { asc, comparator, getValue } = chain[0];
+    if (needsPinScan) {
+      rows.sort((a: any, b: any) => {
         const pinned = pinLoadingRows(a, b);
         if (pinned !== 0) return pinned;
-      }
-      const result = comparator(getValue(a), getValue(b), a, b);
-      return asc ? result : -result;
-    });
+        const result = comparator(getValue(a), getValue(b), a, b);
+        return asc ? result : -result;
+      });
+    } else {
+      rows.sort((a: any, b: any) => {
+        const result = comparator(getValue(a), getValue(b), a, b);
+        return asc ? result : -result;
+      });
+    }
   } else {
-    // Hoist out of the comparator — invariant for the whole sort, not per-pair.
-    const anyPin = chain.some((l) => l.pinPlaceholders);
-    rows.sort((a: any, b: any) => {
-      // Pin placeholders ahead of the chain — independent of every column's direction.
-      if (anyPin) {
+    if (needsPinScan) {
+      rows.sort((a: any, b: any) => {
         const pinned = pinLoadingRows(a, b);
         if (pinned !== 0) return pinned;
-      }
-      for (let i = 0; i < chain.length; i++) {
-        const link = chain[i];
-        const result = link.comparator(link.getValue(a), link.getValue(b), a, b);
-        if (result !== 0) return link.asc ? result : -result;
-      }
-      return 0;
-    });
+        for (let i = 0; i < chain.length; i++) {
+          const link = chain[i];
+          const result = link.comparator(link.getValue(a), link.getValue(b), a, b);
+          if (result !== 0) return link.asc ? result : -result;
+        }
+        return 0;
+      });
+    } else {
+      rows.sort((a: any, b: any) => {
+        for (let i = 0; i < chain.length; i++) {
+          const link = chain[i];
+          const result = link.comparator(link.getValue(a), link.getValue(b), a, b);
+          if (result !== 0) return link.asc ? result : -result;
+        }
+        return 0;
+      });
+    }
   }
+}
+
+/**
+ * O(n) scan checking whether any row has the `__loading` placeholder marker.
+ * Cheap relative to the O(n·log·n) sort, and lets us elide per-pair pin checks
+ * when the dataset has no placeholders (the overwhelmingly common case).
+ * @internal
+ */
+function hasLoadingRow(rows: readonly unknown[]): boolean {
+  for (let i = 0; i < rows.length; i++) {
+    if ((rows[i] as { __loading?: unknown } | null)?.__loading === true) return true;
+  }
+  return false;
 }
 
 /**
@@ -132,8 +167,9 @@ export function defaultComparator(a: unknown, b: unknown): number {
     return a === b ? 0 : a ? -1 : 1;
   }
 
-  // String comparison (fallback)
-  return String(a).localeCompare(String(b));
+  // String comparison (fallback). Uses a module-level cached Intl.Collator
+  // — see `stringCollator` declaration for rationale.
+  return stringCollator.compare(typeof a === 'string' ? a : String(a), typeof b === 'string' ? b : String(b));
 }
 
 /**

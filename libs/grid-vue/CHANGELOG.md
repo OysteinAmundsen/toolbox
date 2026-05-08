@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.5.1...grid-vue-1.6.0) (2026-05-08)
+
+
+### Features
+
+* **grid-vue:** make TbwGridColumn generic over TRow/TValue ([#289](https://github.com/OysteinAmundsen/toolbox/issues/289)) ([4a00688](https://github.com/OysteinAmundsen/toolbox/commit/4a00688ed1ef06d1ae49f4104890519dbd89cf1d))
+
 ## [1.5.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.5.0...grid-vue-1.5.1) (2026-05-07)
 
 

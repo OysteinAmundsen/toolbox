@@ -59,6 +59,22 @@
         flex-shrink: 0;
         box-shadow: none;
         z-index: auto;
+        /* In overlay mode the 1px side border is harmless because the panel
+           floats above the grid. In push mode the panel is a flex sibling,
+           so a non-zero border on a width:0 panel still reserves 1px of
+           horizontal space and shows as a stray divider. Drop the border
+           by default and only re-apply it on the open state. */
+        border-left: none;
+        border-right: none;
+
+        &.open {
+          border-left: 1px solid var(--tbw-tool-panel-border);
+        }
+
+        &[data-position='left'].open {
+          border-left: none;
+          border-right: 1px solid var(--tbw-tool-panel-border);
+        }
       }
 
       .tbw-tool-panel-resize {

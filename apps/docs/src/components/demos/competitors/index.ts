@@ -1,6 +1,7 @@
 // Competitor adapter registry. Order here defines dropdown order.
 
 import { agGridAdapter } from './agGrid.js';
+import { slickGridAdapter } from './slickGrid.js';
 import { tabulatorAdapter } from './tabulator.js';
 import { toolboxAdapter } from './toolbox.js';
 import type { CompetitorAdapter } from './types.js';
@@ -9,7 +10,7 @@ import type { CompetitorAdapter } from './types.js';
 export const baselineAdapter: CompetitorAdapter = toolboxAdapter;
 
 /** Selectable competitors shown in the dropdown. */
-export const competitors: readonly CompetitorAdapter[] = [agGridAdapter, tabulatorAdapter];
+export const competitors: readonly CompetitorAdapter[] = [agGridAdapter, tabulatorAdapter, slickGridAdapter];
 
 export function getCompetitor(id: string): CompetitorAdapter {
   const found = competitors.find((c) => c.id === id);
@@ -17,5 +18,5 @@ export function getCompetitor(id: string): CompetitorAdapter {
   return found;
 }
 
-export type { CompetitorAdapter, MetricName, ScaleResult, BenchmarkRow, BenchmarkColumn } from './types.js';
 export { ALL_METRICS, MEMORY_METRIC, TIME_METRICS } from './types.js';
+export type { BenchmarkColumn, BenchmarkRow, CompetitorAdapter, MetricName, ScaleResult } from './types.js';

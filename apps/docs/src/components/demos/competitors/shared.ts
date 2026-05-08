@@ -146,8 +146,13 @@ export function injectCss(href: string): void {
   document.head.appendChild(link);
 }
 
-/** Inject a script tag and resolve when loaded. Idempotent on URL. */
-export function injectScript(src: string): Promise<void> {
+/**
+ * Inject a script tag and resolve when loaded. Idempotent on URL.
+ * Pass `module: true` for ESM bundles (e.g. Stencil's `*.esm.js` loaders) —
+ * those *must* be loaded as module scripts or the browser throws
+ * `Cannot use import statement outside a module`.
+ */
+export function injectScript(src: string, opts?: { module?: boolean }): Promise<void> {
   return new Promise((resolve, reject) => {
     if (document.head.querySelector(`script[src="${src}"]`)) {
       resolve();
@@ -155,6 +160,7 @@ export function injectScript(src: string): Promise<void> {
     }
     const script = document.createElement('script');
     script.src = src;
+    if (opts?.module) script.type = 'module';
     script.onload = () => resolve();
     script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
     document.head.appendChild(script);

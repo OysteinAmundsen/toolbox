@@ -67,6 +67,12 @@ export interface CompetitorAdapter {
    * Mutable so the loader can fill it in.
    */
   version: string;
+  /**
+   * Optional cap on row count. The orchestrator will skip any scale point
+   * larger than this and show no bars for the competitor at that scale,
+   * avoiding browser hangs on non-virtualized grids (e.g. Grid.js).
+   */
+  readonly maxRowCount?: number;
   /** Load any CDN assets the adapter needs. Idempotent. */
   load(): Promise<void>;
   /**

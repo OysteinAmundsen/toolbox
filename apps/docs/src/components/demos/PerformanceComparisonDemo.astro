@@ -49,24 +49,24 @@
 </div>
 
 <script>
-  import {
-    ALL_METRICS,
-    MEMORY_METRIC,
-    baselineAdapter,
-    competitors,
-    getCompetitor,
-  } from './competitors/index.js';
   import type { CompetitorAdapter, MetricName, ScaleResult } from './competitors/index.js';
-  import {
-    COL_COUNT,
-    ITERATIONS,
-    NOISE_FLOOR_MS,
-    SCALE_POINTS,
-    cooldown,
-    formatMetric,
-    formatRowCount,
-    hasMemoryApi,
-  } from './competitors/shared.js';
+import {
+ALL_METRICS,
+MEMORY_METRIC,
+baselineAdapter,
+competitors,
+getCompetitor,
+} from './competitors/index.js';
+import {
+COL_COUNT,
+ITERATIONS,
+NOISE_FLOOR_MS,
+SCALE_POINTS,
+cooldown,
+formatMetric,
+formatRowCount,
+hasMemoryApi,
+} from './competitors/shared.js';
 
   // #region Config + Cache
   const COLOR_BASELINE = baselineAdapter.color;
@@ -323,11 +323,14 @@
       : '';
 
     // Warmup: run both grids at the smallest scale point to JIT-compile
-    // virtualization and row-pool code paths.
+    // virtualization and row-pool code paths. Skipped for the competitor if
+    // even the smallest scale exceeds its `maxRowCount`.
     statusEl.textContent = 'Warming up...';
     gridArea.innerHTML = '<p style="text-align:center;opacity:0.4;padding:20px 0;">Warmup...</p>';
     await baselineAdapter.runAtScale(gridArea, SCALE_POINTS[0]);
-    await competitor.runAtScale(gridArea, SCALE_POINTS[0]);
+    if (competitor.maxRowCount === undefined || SCALE_POINTS[0] <= competitor.maxRowCount) {
+      await competitor.runAtScale(gridArea, SCALE_POINTS[0]);
+    }
     await cooldown(500);
 
     const allResults: ScaleResult[] = SCALE_POINTS.map((rowCount) => ({
@@ -360,11 +363,18 @@
       gridArea.innerHTML = '<p style="text-align:center;opacity:0.4;padding:20px 0;">Cooldown...</p>';
       await cooldown(1000);
 
-      // Phase 2: competitor at this scale point
-      statusEl.textContent = `${competitor.name} — ${label} rows (${i + 1}/${SCALE_POINTS.length})`;
-      gridArea.innerHTML = `<p style="text-align:center;opacity:0.6;padding:20px 0;">⏱ ${competitor.name} — ${label} rows...</p>`;
-      await cooldown(200);
-      allResults[i].competitor = await competitor.runAtScale(gridArea, rowCount);
+      // Phase 2: competitor at this scale point (skip if too large)
+      const tooLarge = competitor.maxRowCount !== undefined && rowCount > competitor.maxRowCount;
+      if (tooLarge) {
+        statusEl.textContent = `${competitor.name} skipped at ${label} rows (cap: ${formatRowCount(competitor.maxRowCount!)})`;
+        gridArea.innerHTML = `<p style="text-align:center;opacity:0.5;padding:20px 0;">${competitor.name} skipped — exceeds its ${formatRowCount(competitor.maxRowCount!)}-row cap</p>`;
+        await cooldown(300);
+      } else {
+        statusEl.textContent = `${competitor.name} — ${label} rows (${i + 1}/${SCALE_POINTS.length})`;
+        gridArea.innerHTML = `<p style="text-align:center;opacity:0.6;padding:20px 0;">⏱ ${competitor.name} — ${label} rows...</p>`;
+        await cooldown(200);
+        allResults[i].competitor = await competitor.runAtScale(gridArea, rowCount);
+      }
       completedSteps++;
       updateProgress();
       resultsEl.innerHTML = renderScaleTable(allResults, competitor, false);

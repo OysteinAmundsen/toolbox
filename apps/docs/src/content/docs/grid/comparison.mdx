@@ -9,66 +9,68 @@ import PerformanceComparisonDemo from '@components/demos/PerformanceComparisonDe
 
 Looking for a **free alternative to AG Grid**? `@toolbox-web/grid` is a high-performance, open-source data grid with many of the same features—no license fees, no enterprise tiers, no feature gates.
 
-> *Disclaimer: Feature availability based on publicly available AG Grid documentation as of January 2026. AG Grid is a trademark of AG Grid Ltd. This is an independent comparison and is not affiliated with, endorsed by, or sponsored by AG Grid Ltd. We encourage you to verify current feature availability on [ag-grid.com](https://www.ag-grid.com/).*
+> *Disclaimer: Feature availability based on publicly available documentation as of January 2026 for AG Grid, Tabulator, and SlickGrid (6pac fork v2.x). AG Grid is a trademark of AG Grid Ltd. This is an independent comparison and is not affiliated with, endorsed by, or sponsored by any of the listed projects. We encourage you to verify current feature availability on each project's site.*
 
 ## Quick Summary
 
-| Aspect | @toolbox-web/grid | AG Grid Community | AG Grid Enterprise |
-|--------|-------------------|-------------------|-------------------|
-| **License** | MIT (free forever) | MIT | Commercial ($$$) |
-| **Cost** | Free | Free | $999+/developer/year |
-| **Bundle Size** | ~45KB gzipped | ~200KB+ gzipped | ~300KB+ gzipped |
-| **Dependencies** | Zero | Zero | Zero |
-| **Framework Support** | All (Web Component) | All (wrappers) | All (wrappers) |
+| Aspect | @toolbox-web/grid | AG Grid | Tabulator | SlickGrid |
+|--------|:-----------------:|:------:|:---------:|:---------:|
+| **License** | MIT | MIT (Community) / Commercial (Enterprise) | MIT | MIT (6pac fork) |
+| **Cost** | Free | Free / $999+/dev/year | Free | Free |
+| **Bundle Size (gzipped)** | ~45 KB | ~200 KB+ (Community) · ~300 KB+ (Enterprise) | ~90 KB | ~30 KB + jQuery |
+| **Dependencies** | Zero | Zero | Zero | jQuery (v2 fork) |
+| **Framework Support** | All (Web Component) | All (wrappers) | All (wrappers) | Vanilla / jQuery |
+| **TypeScript** | ✅ Bundled | ✅ Bundled | ✅ Bundled | Community types |
 
 ## Feature Comparison
 
-| Feature | @toolbox-web/grid | AG Grid Community | AG Grid Enterprise |
-|---------|:-----------------:|:-----------------:|:-----------------:|
-| **Row Virtualization** | ✅ | ✅ | ✅ |
-| **Column Virtualization** | ✅ | ✅ | ✅ |
-| **Sorting (Single & Multi)** | ✅ | ✅ | ✅ |
-| **Column Resizing** | ✅ | ✅ | ✅ |
-| **Column Reordering** | ✅ | ✅ | ✅ |
-| **Column Pinning/Freezing** | ✅ | ✅ | ✅ |
-| **Row Pinning** | ✅ | ✅ | ✅ |
-| **Cell Selection** | ✅ | ✅ | ✅ |
-| **Row Selection** | ✅ | ✅ | ✅ |
-| **Checkbox Selection** | ✅ | ✅ | ✅ |
-| **Custom Cell Renderers** | ✅ | ✅ | ✅ |
-| **Cell Editing** | ✅ | ✅ | ✅ |
-| **Custom Editors** | ✅ | ✅ | ✅ |
-| **Keyboard Navigation** | ✅ | ✅ | ✅ |
-| **Themes/Styling** | ✅ (6 built-in) | ✅ | ✅ |
-| **CSV Export** | ✅ | ✅ | ✅ |
-| **Filtering** | ✅ | ✅ | ✅ |
-| **Pagination** | ✅ | ✅ | ✅ |
-| **Column Visibility** | ✅ | ✅ | ✅ |
-| **Row Animations** | ✅ | ✅ | ✅ |
-| **TypeScript Types** | ✅ Bundled | ✅ Bundled | ✅ Bundled |
-| **Range Selection** | ✅ Free | ❌ | ✅ Paid |
-| **Clipboard (Copy/Paste)** | ✅ Free | ❌ | ✅ Paid |
-| **Excel Export** | ✅ Free | ❌ | ✅ Paid |
-| **Row Grouping** | ✅ Free | ❌ | ✅ Paid |
-| **Aggregation/Footers** | ✅ Free | ❌ | ✅ Paid |
-| **Pivot Table** | ✅ Free | ❌ | ✅ Paid |
-| **Tree Data** | ✅ Free | ❌ | ✅ Paid |
-| **Master-Detail** | ✅ Free | ❌ | ✅ Paid |
-| **Server-Side Row Model** | ✅ Free | ❌ | ✅ Paid |
-| **Infinite Scrolling** | ✅ Free | ❌ | ✅ Paid |
-| **Context Menu** | ✅ Free | ❌ | ✅ Paid |
-| **Column Groups (Spanning)** | ✅ Free | ❌ | ✅ Paid |
-| **Row Drag & Drop** | ✅ Free | ❌ | ✅ Paid |
-| **Print** | ✅ Free | ❌ | ✅ Paid |
-| **Undo/Redo** | ✅ Free | ❌ | ✅ Paid |
-| **Responsive/Mobile Layout** | ✅ (card layout) | Manual | Manual |
-| **Framework Agnostic** | ✅ Native Web Component | Wrapper-based | Wrapper-based |
-| **Tree-Shakeable Plugins** | ✅ | Partial | Partial |
-| **Integrated Charts** | ❌ | ❌ | ✅ Paid |
-| **Built-in Sparklines** | ❌ (via custom renderer) | ❌ | ✅ Paid |
-| **Excel-like Cell Formulas** | ❌ | ❌ | ✅ Paid |
-| **Advanced Excel Export** | ❌ (basic) | ❌ | ✅ Paid (with styles & formulas) |
-| **Dedicated Support with SLAs** | ❌ | ❌ | ✅ Paid |
+Legend: ✅ first-party support (built-in or official plugin/module) · ⚙️ requires third-party extension or manual wiring · ❌ not available · For AG Grid, values are shown as **Community / Enterprise** when they differ.
+
+| Feature | @toolbox-web/grid | AG Grid (CE / Ent) | Tabulator | SlickGrid |
+|---------|:-----------------:|:------------------:|:---------:|:---------:|
+| **Row Virtualization** | ✅ | ✅ | ✅ | ✅ |
+| **Column Virtualization** | ✅ | ✅ | ✅ | ✅ |
+| **Sorting (Single & Multi)** | ✅ | ✅ | ✅ | ✅ |
+| **Column Resizing** | ✅ | ✅ | ✅ | ✅ |
+| **Column Reordering** | ✅ | ✅ | ✅ | ✅ |
+| **Column Pinning/Freezing** | ✅ | ✅ | ✅ | ✅ |
+| **Row Pinning** | ✅ | ✅ | ✅ | ✅ |
+| **Cell Selection** | ✅ | ✅ | ✅ | ✅ |
+| **Row Selection** | ✅ | ✅ | ✅ | ✅ |
+| **Checkbox Selection** | ✅ | ✅ | ✅ | ✅ |
+| **Custom Cell Renderers** | ✅ | ✅ | ✅ | ✅ |
+| **Cell Editing** | ✅ | ✅ | ✅ | ✅ |
+| **Custom Editors** | ✅ | ✅ | ✅ | ✅ |
+| **Keyboard Navigation** | ✅ | ✅ | ✅ | ✅ |
+| **Themes/Styling** | ✅ (6 built-in) | ✅ | ✅ (5 built-in) | Minimal |
+| **CSV Export** | ✅ | ✅ | ✅ | ✅ |
+| **Filtering** | ✅ | ✅ | ✅ | ✅ |
+| **Pagination** | ✅ | ✅ | ✅ | ⚙️ |
+| **Column Visibility** | ✅ | ✅ | ✅ | ✅ |
+| **Row Animations** | ✅ | ✅ | Limited | ❌ |
+| **Range Selection** | ✅ | ❌ / ✅ Paid | ✅ | ⚙️ |
+| **Clipboard (Copy/Paste)** | ✅ | ❌ / ✅ Paid | ✅ | ⚙️ |
+| **Excel Export** | ✅ | ❌ / ✅ Paid | ✅ (basic) | ⚙️ |
+| **Row Grouping** | ✅ | ❌ / ✅ Paid | ✅ | ✅ |
+| **Aggregation/Footers** | ✅ | ❌ / ✅ Paid | ✅ | ✅ |
+| **Pivot Table** | ✅ | ❌ / ✅ Paid | ❌ | ❌ |
+| **Tree Data** | ✅ | ❌ / ✅ Paid | ✅ | ✅ |
+| **Master-Detail** | ✅ | ❌ / ✅ Paid | ✅ | ⚙️ |
+| **Server-Side Row Model** | ✅ | ❌ / ✅ Paid | ✅ (progressive) | Manual |
+| **Infinite Scrolling** | ✅ | ❌ / ✅ Paid | ✅ | Manual |
+| **Context Menu** | ✅ | ❌ / ✅ Paid | ⚙️ | ⚙️ |
+| **Column Groups (Spanning)** | ✅ | ❌ / ✅ Paid | ✅ | ✅ |
+| **Row Drag & Drop** | ✅ | ❌ / ✅ Paid | ✅ | ⚙️ |
+| **Print** | ✅ | ❌ / ✅ Paid | ✅ | ❌ |
+| **Undo/Redo** | ✅ | ❌ / ✅ Paid | ✅ (history) | ❌ |
+| **Responsive/Mobile Layout** | ✅ (card layout) | Manual | ✅ (collapse) | Manual |
+| **Framework Agnostic** | ✅ Native Web Component | Wrapper-based | Wrapper-based | jQuery-based |
+| **Tree-Shakeable Plugins** | ✅ | Partial | Partial (modules) | ❌ |
+| **Integrated Charts** | ❌ | ❌ / ✅ Paid | ❌ | ❌ |
+| **Built-in Sparklines** | ❌ (via custom renderer) | ❌ / ✅ Paid | ❌ | ❌ |
+| **Excel-like Cell Formulas** | ❌ | ❌ / ✅ Paid | ❌ | ❌ |
+| **Advanced Excel Export** | ❌ (basic) | ❌ / ✅ Paid (styles & formulas) | ❌ | ❌ |
+| **Dedicated Support with SLAs** | ❌ | ❌ / ✅ Paid | ❌ | ❌ |
 
 ## Why Choose Toolbox Grid?
 
@@ -86,7 +88,7 @@ Looking for a **free alternative to AG Grid**? `@toolbox-web/grid` is a high-per
 - **Zero dependencies** — Nothing to conflict or update
 - **DOM recycling** — Minimal garbage collection pressure
 
-Don't take our word for it — run the live benchmark below. Pick a competitor (AG Grid Community or Tabulator) from the dropdown, then click **Run Comparison**. It iterates through increasing data sizes (5K → 1M rows), testing Toolbox Grid and the chosen competitor sequentially in your browser with equivalent data and configuration. Results are cached per competitor for the lifetime of the page, so you can switch back without re-running.
+Don't take our word for it — run the live benchmark below. Pick a competitor from the dropdown — AG Grid Community, Tabulator, or SlickGrid — then click **Run Comparison**. It iterates through increasing data sizes (5K → 1M rows), testing Toolbox Grid and the chosen competitor sequentially in your browser with equivalent data and configuration. Results are cached per competitor for the lifetime of the page, so you can switch back without re-running.
 
 <PerformanceComparisonDemo />
 
@@ -100,6 +102,10 @@ Don't take our word for it — run the live benchmark below. Pick a competitor (
 5. Results build up progressively, showing the scaling curve. Switching the dropdown shows cached results instantly; you only re-run when you click the button again.
 
 Expand **Show Grid Configurations** in the benchmark to verify both grids use equivalent settings. Each competitor has its own adapter under `apps/docs/src/components/demos/competitors/` so the benchmark sequence is identical and only the per-grid API calls differ.
+
+A few caveats per competitor:
+
+- **SlickGrid** is pinned to v2.4.x (the last release with the global `Slick` namespace) and pulls jQuery from CDN. Column reorder and drag are disabled to keep the dependency surface minimal.
 
 </details>
 

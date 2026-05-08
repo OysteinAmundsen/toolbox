@@ -44,7 +44,7 @@
 
   <div id="compare-results" class="perf-compare-results">
     <p>Pick a competitor and click <strong>Run Comparison</strong> to benchmark both grids at increasing data sizes.</p>
-    <p style="opacity:0.7;font-size:12px;">Scale points: 5K → 100K → 500K → 1M rows × 10 columns. Tests: init render, scroll, sort, filter, data replacement, single-row update, column resize, scroll-to-end, memory. Each metric runs 5× per scale point (trimmed mean). Each grid runs alone with a cooldown between them.</p>
+    <p style="opacity:0.7;font-size:12px;">Scale points: 5K → 100K → 500K → 1M rows × 10 columns. <strong>Macro</strong> ops (real scaling work): time-to-first-paint, sort, filter, data replacement — these drive the headline speedup. <strong>Round-trip</strong> sums the macro times. <strong>Micro</strong> ops (within-frame interactions): single-row update, column resize, scroll-to-end, destroy — reported separately because most ties cluster at the ~16 ms vsync floor on every virtualized grid. <strong>Viewport overhead</strong>: DOM node count after first paint. Each metric runs 5× per scale point (trimmed mean).</p>
   </div>
 </div>
 
@@ -52,7 +52,10 @@
   import type { CompetitorAdapter, MetricName, ScaleResult } from './competitors/index.js';
 import {
 ALL_METRICS,
-MEMORY_METRIC,
+DOM_METRIC,
+MACRO_METRICS,
+MICRO_METRICS,
+ROUND_TRIP_METRIC,
 baselineAdapter,
 competitors,
 getCompetitor,
@@ -63,9 +66,9 @@ ITERATIONS,
 NOISE_FLOOR_MS,
 SCALE_POINTS,
 cooldown,
+formatCount,
 formatMetric,
 formatRowCount,
-hasMemoryApi,
 } from './competitors/shared.js';
 
   // #region Config + Cache
@@ -141,138 +144,237 @@ hasMemoryApi,
     return `${ratio.toFixed(1)}×`;
   }
 
+  /**
+   * Render a single metric card (one card = one metric, N scale rows).
+   * Used for both macro and micro groups so the visual format stays
+   * identical; only the placement and the headline-speedup contribution
+   * differ between groups.
+   */
+  function renderMetricCard(
+    metric: MetricName,
+    allResults: ScaleResult[],
+    valueGetter: (r: ScaleResult) => { tbw: number | undefined; other: number | undefined },
+    competitor: CompetitorAdapter,
+    done: boolean,
+    options: { contributesToHeadline: boolean; isCount?: boolean },
+  ): string {
+    const competitorColor = competitor.color;
+    const isCount = options.isCount === true;
+
+    let maxVal = 0;
+    for (const r of allResults) {
+      const v = valueGetter(r);
+      maxVal = Math.max(maxVal, v.tbw ?? 0, v.other ?? 0);
+    }
+    if (maxVal === 0) maxVal = 1;
+
+    const cardRatios: number[] = [];
+    for (const r of allResults) {
+      const v = valueGetter(r);
+      if (v.tbw !== undefined && v.other !== undefined && v.tbw > 0 && v.other > 0) {
+        const isTieCheck = !isCount && v.tbw < NOISE_FLOOR_MS && v.other < NOISE_FLOOR_MS;
+        if (!isTieCheck) cardRatios.push(v.other / v.tbw);
+      }
+    }
+    const cardGeoMean = cardRatios.length > 0
+      ? Math.pow(cardRatios.reduce((p, r) => p * r, 1), 1 / cardRatios.length)
+      : 1;
+    const cardWinner = cardGeoMean >= 1 ? 'BASE' : 'OTHER';
+    const cardSpeedup = cardGeoMean >= 1 ? cardGeoMean : 1 / cardGeoMean;
+    const winnerName = cardWinner === 'BASE' ? baselineAdapter.shortLabel : competitor.shortLabel;
+    const winnerColor = cardWinner === 'BASE' ? COLOR_BASELINE : competitorColor;
+    const cardLabel = isCount ? `${cardSpeedup.toFixed(1)}× fewer` : `${cardSpeedup.toFixed(1)}× faster`;
+    const cardSubtitle = done && cardRatios.length > 0 && cardSpeedup >= 1.05
+      ? `<span class="perf-card-subtitle" style="color:${winnerColor}">${winnerName} ${cardLabel}</span>`
+      : '';
+    const headlineHint = options.contributesToHeadline ? '' : ' <span class="perf-card-tag">excluded from headline</span>';
+
+    let html = `<div class="perf-card">
+      <div class="perf-card-title">${metric}${cardSubtitle}${headlineHint}</div>`;
+
+    for (const r of allResults) {
+      const v = valueGetter(r);
+      const tbw = v.tbw;
+      const other = v.other;
+      const tbwDone = tbw !== undefined;
+      const otherDone = other !== undefined;
+      const bothDone = tbwDone && otherDone;
+
+      const isTie = !isCount && bothDone && (tbw!) < NOISE_FLOOR_MS && (other!) < NOISE_FLOOR_MS;
+      const tbwWins = !isTie && bothDone && (tbw!) <= (other!);
+      const otherWins = !isTie && bothDone && (other!) < (tbw!);
+
+      const tbwPct = tbwDone ? Math.max(3, ((tbw!) / maxVal) * 100) : 0;
+      const otherPct = otherDone ? Math.max(3, ((other!) / maxVal) * 100) : 0;
+      const tbwLabel = tbwDone ? (isCount ? formatCount(tbw!) : formatMetric(metric, tbw!)) : '…';
+      const otherLabel = otherDone ? (isCount ? formatCount(other!) : formatMetric(metric, other!)) : '…';
+
+      const tbwValColor = !bothDone ? '#888' : isTie ? COLOR_TIE : tbwWins ? COLOR_WIN : COLOR_LOSE;
+      const otherValColor = !bothDone ? '#888' : isTie ? COLOR_TIE : otherWins ? COLOR_WIN : COLOR_LOSE;
+
+      const tbwDelta = tbwWins ? formatDelta(tbw!, other!) : '';
+      const otherDelta = otherWins ? formatDelta(other!, tbw!) : '';
+      const rowClass = tbwWins
+        ? 'perf-row perf-row-baseline-wins'
+        : otherWins
+          ? 'perf-row perf-row-other-wins'
+          : 'perf-row';
+
+      html += `
+        <div class="${rowClass}">
+          <div class="perf-row-label">${formatRowCount(r.rowCount)}</div>
+          <div class="perf-row-bars">
+            <div class="perf-bar-row perf-bar-row-top">
+              <span class="perf-bar-name" style="color:${COLOR_BASELINE}">${baselineAdapter.shortLabel}</span>
+              <div class="perf-bar-track">
+                <div class="perf-bar-fill" style="width:${tbwPct}%;background:${COLOR_BASELINE};"></div>
+              </div>
+              <span class="perf-bar-value" style="color:${tbwValColor}">${tbwLabel}${tbwDelta ? ` <span class="perf-delta">${tbwDelta}</span>` : ''}</span>
+            </div>
+            <div class="perf-bar-row perf-bar-row-bottom">
+              <span class="perf-bar-name" style="color:${competitorColor}">${competitor.shortLabel}</span>
+              <div class="perf-bar-track">
+                <div class="perf-bar-fill" style="width:${otherPct}%;background:${competitorColor};"></div>
+              </div>
+              <span class="perf-bar-value" style="color:${otherValColor}">${otherLabel}${otherDelta ? ` <span class="perf-delta">${otherDelta}</span>` : ''}</span>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  /**
+   * Sum the macro-metric times at one scale point. Returns `undefined`
+   * unless every macro metric for that side has a value; partial sums
+   * would be misleading (a missing 1M sort would make the round-trip
+   * look artificially fast).
+   */
+  function macroSum(side: Map<MetricName, number>): number | undefined {
+    let total = 0;
+    for (const m of MACRO_METRICS) {
+      const v = side.get(m);
+      if (v === undefined) return undefined;
+      total += v;
+    }
+    return total;
+  }
+
   function renderScaleTable(
     allResults: ScaleResult[],
     competitor: CompetitorAdapter,
     done: boolean,
   ): string {
-    const activeMetrics = ALL_METRICS.filter((metric) =>
-      allResults.some((r) => r.tbw.has(metric) || r.competitor.has(metric)),
+    const competitorColor = competitor.color;
+
+    const activeMacro = MACRO_METRICS.filter((m) =>
+      allResults.some((r) => r.tbw.has(m) || r.competitor.has(m)),
+    );
+    const activeMicro = MICRO_METRICS.filter((m) =>
+      allResults.some((r) => r.tbw.has(m) || r.competitor.has(m)),
     );
 
-    const competitorColor = competitor.color;
+    // Viewport overhead: DOM_METRIC is constant across scales for any
+    // virtualized grid; render once, not per-scale. Pull the latest
+    // available value from each side.
+    let tbwDom: number | undefined;
+    let otherDom: number | undefined;
+    for (const r of allResults) {
+      const t = r.tbw.get(DOM_METRIC);
+      const c = r.competitor.get(DOM_METRIC);
+      if (t !== undefined) tbwDom = t;
+      if (c !== undefined) otherDom = c;
+    }
 
     let html = `<div class="perf-legend">
       <span class="perf-legend-item"><span class="perf-legend-swatch" style="background:${COLOR_BASELINE}"></span> ${baselineAdapter.name}</span>
       <span class="perf-legend-item"><span class="perf-legend-swatch" style="background:${competitorColor}"></span> ${competitor.name}</span>
       <span class="perf-legend-hint">Lower is better · <span style="color:${COLOR_WIN}">green</span> = winner · <span style="color:${COLOR_TIE}">gray</span> = within noise</span>
     </div>`;
-    html += '<div class="perf-card-grid">';
 
-    for (const metric of activeMetrics) {
-      let maxVal = 0;
-      for (const r of allResults) {
-        maxVal = Math.max(maxVal, r.tbw.get(metric) ?? 0, r.competitor.get(metric) ?? 0);
-      }
-      if (maxVal === 0) maxVal = 1;
-
-      const isMemory = metric === MEMORY_METRIC;
-
-      // Per-card geometric mean across scale points.
-      const cardRatios: number[] = [];
-      for (const r of allResults) {
-        const t = r.tbw.get(metric);
-        const c = r.competitor.get(metric);
-        if (t !== undefined && c !== undefined && t > 0 && c > 0) {
-          const isTieCheck = !isMemory && t < NOISE_FLOOR_MS && c < NOISE_FLOOR_MS;
-          if (!isTieCheck) cardRatios.push(c / t);
-        }
-      }
-      const cardGeoMean = cardRatios.length > 0
-        ? Math.pow(cardRatios.reduce((p, r) => p * r, 1), 1 / cardRatios.length)
-        : 1;
-      const cardWinner = cardGeoMean >= 1 ? 'BASE' : 'OTHER';
-      const cardSpeedup = cardGeoMean >= 1 ? cardGeoMean : 1 / cardGeoMean;
-      const winnerName = cardWinner === 'BASE' ? baselineAdapter.shortLabel : competitor.shortLabel;
-      const winnerColor = cardWinner === 'BASE' ? COLOR_BASELINE : competitorColor;
-      const cardLabel = isMemory ? `${cardSpeedup.toFixed(1)}× smaller` : `${cardSpeedup.toFixed(1)}× faster`;
-      const cardSubtitle = done && cardRatios.length > 0 && cardSpeedup >= 1.05
-        ? `<span class="perf-card-subtitle" style="color:${winnerColor}">${winnerName} ${cardLabel}</span>`
+    // Viewport overhead row
+    if (tbwDom !== undefined || otherDom !== undefined) {
+      const ratio = tbwDom && otherDom ? Math.max(tbwDom, otherDom) / Math.min(tbwDom, otherDom) : 1;
+      const lighterIsBase = tbwDom !== undefined && otherDom !== undefined && tbwDom <= otherDom;
+      const ratioStr = ratio >= 1.05
+        ? ` — <strong style="color:${lighterIsBase ? COLOR_BASELINE : competitorColor}">${ratio.toFixed(1)}× lighter</strong>`
         : '';
+      html += `<div class="perf-overhead">
+        <strong>Viewport overhead</strong> (DOM nodes after first paint, constant across scales because both grids are virtualized):
+        <span style="color:${COLOR_BASELINE}">${baselineAdapter.shortLabel} ${tbwDom !== undefined ? formatCount(tbwDom) : '…'}</span> ·
+        <span style="color:${competitorColor}">${competitor.shortLabel} ${otherDom !== undefined ? formatCount(otherDom) : '…'}</span>${ratioStr}
+      </div>`;
+    }
 
-      html += `<div class="perf-card">
-        <div class="perf-card-title">${metric}${cardSubtitle}</div>`;
-
-      for (const r of allResults) {
-        const tbw = r.tbw.get(metric);
-        const other = r.competitor.get(metric);
-        const tbwDone = tbw !== undefined;
-        const otherDone = other !== undefined;
-        const bothDone = tbwDone && otherDone;
-
-        const isTie = !isMemory && bothDone && (tbw!) < NOISE_FLOOR_MS && (other!) < NOISE_FLOOR_MS;
-        const tbwWins = !isTie && bothDone && (tbw!) <= (other!);
-        const otherWins = !isTie && bothDone && (other!) < (tbw!);
-
-        const tbwPct = tbwDone ? Math.max(3, ((tbw!) / maxVal) * 100) : 0;
-        const otherPct = otherDone ? Math.max(3, ((other!) / maxVal) * 100) : 0;
-        const tbwLabel = tbwDone ? formatMetric(metric, tbw!) : '…';
-        const otherLabel = otherDone ? formatMetric(metric, other!) : '…';
-
-        const tbwValColor = !bothDone ? '#888' : isTie ? COLOR_TIE : tbwWins ? COLOR_WIN : COLOR_LOSE;
-        const otherValColor = !bothDone ? '#888' : isTie ? COLOR_TIE : otherWins ? COLOR_WIN : COLOR_LOSE;
-
-        const tbwDelta = tbwWins ? formatDelta(tbw!, other!) : '';
-        const otherDelta = otherWins ? formatDelta(other!, tbw!) : '';
-        const rowClass = tbwWins
-          ? 'perf-row perf-row-baseline-wins'
-          : otherWins
-            ? 'perf-row perf-row-other-wins'
-            : 'perf-row';
-
-        html += `
-          <div class="${rowClass}">
-            <div class="perf-row-label">${formatRowCount(r.rowCount)}</div>
-            <div class="perf-row-bars">
-              <div class="perf-bar-row perf-bar-row-top">
-                <span class="perf-bar-name" style="color:${COLOR_BASELINE}">${baselineAdapter.shortLabel}</span>
-                <div class="perf-bar-track">
-                  <div class="perf-bar-fill" style="width:${tbwPct}%;background:${COLOR_BASELINE};"></div>
-                </div>
-                <span class="perf-bar-value" style="color:${tbwValColor}">${tbwLabel}${tbwDelta ? ` <span class="perf-delta">${tbwDelta}</span>` : ''}</span>
-              </div>
-              <div class="perf-bar-row perf-bar-row-bottom">
-                <span class="perf-bar-name" style="color:${competitorColor}">${competitor.shortLabel}</span>
-                <div class="perf-bar-track">
-                  <div class="perf-bar-fill" style="width:${otherPct}%;background:${competitorColor};"></div>
-                </div>
-                <span class="perf-bar-value" style="color:${otherValColor}">${otherLabel}${otherDelta ? ` <span class="perf-delta">${otherDelta}</span>` : ''}</span>
-              </div>
-            </div>
-          </div>`;
+    // Macro card grid — these drive the headline
+    if (activeMacro.length > 0) {
+      html += `<h3 class="perf-section-title">Macro operations <span class="perf-section-hint">scaling work · drives headline speedup</span></h3>`;
+      html += '<div class="perf-card-grid">';
+      for (const metric of activeMacro) {
+        html += renderMetricCard(
+          metric,
+          allResults,
+          (r) => ({ tbw: r.tbw.get(metric), other: r.competitor.get(metric) }),
+          competitor,
+          done,
+          { contributesToHeadline: true },
+        );
       }
-
       html += '</div>';
     }
 
-    html += '</div>';
+    // Round-trip card — derived sum of macro times
+    const hasRoundTrip = allResults.some((r) => macroSum(r.tbw) !== undefined || macroSum(r.competitor) !== undefined);
+    if (hasRoundTrip && activeMacro.length === MACRO_METRICS.length) {
+      html += `<h3 class="perf-section-title">Round-trip <span class="perf-section-hint">paint + sort + filter + replace, summed</span></h3>`;
+      html += '<div class="perf-card-grid">';
+      html += renderMetricCard(
+        ROUND_TRIP_METRIC,
+        allResults,
+        (r) => ({ tbw: macroSum(r.tbw), other: macroSum(r.competitor) }),
+        competitor,
+        done,
+        { contributesToHeadline: false },
+      );
+      html += '</div>';
+    }
+
+    // Micro card grid — reported but excluded from headline
+    if (activeMicro.length > 0) {
+      html += `<h3 class="perf-section-title">Micro operations <span class="perf-section-hint">within-frame interactions · ties at the ~16 ms vsync floor are expected</span></h3>`;
+      html += '<div class="perf-card-grid">';
+      for (const metric of activeMicro) {
+        html += renderMetricCard(
+          metric,
+          allResults,
+          (r) => ({ tbw: r.tbw.get(metric), other: r.competitor.get(metric) }),
+          competitor,
+          done,
+          { contributesToHeadline: false },
+        );
+      }
+      html += '</div>';
+    }
 
     if (done) {
+      // Headline: count wins and compute geo-mean speedup using MACRO only.
       let baseWins = 0;
       let otherWins = 0;
       let ties = 0;
+      const overallRatios: number[] = [];
       for (const r of allResults) {
-        for (const metric of activeMetrics) {
+        for (const metric of activeMacro) {
           const t = r.tbw.get(metric);
           const c = r.competitor.get(metric);
-          if (t !== undefined && c !== undefined) {
-            const isMem = metric === MEMORY_METRIC;
-            const isTieResult = !isMem && t < NOISE_FLOOR_MS && c < NOISE_FLOOR_MS;
+          if (t !== undefined && c !== undefined && t > 0 && c > 0) {
+            const isTieResult = t < NOISE_FLOOR_MS && c < NOISE_FLOOR_MS;
             if (isTieResult) ties++;
             else if (t < c) baseWins++;
             else if (c < t) otherWins++;
             else ties++;
-          }
-        }
-      }
-      const overallRatios: number[] = [];
-      for (const r of allResults) {
-        for (const metric of activeMetrics) {
-          if (metric === MEMORY_METRIC) continue;
-          const t = r.tbw.get(metric);
-          const c = r.competitor.get(metric);
-          if (t !== undefined && c !== undefined && t > 0 && c > 0) {
-            if (!(t < NOISE_FLOOR_MS && c < NOISE_FLOOR_MS)) overallRatios.push(c / t);
+            if (!isTieResult) overallRatios.push(c / t);
           }
         }
       }
@@ -281,15 +383,16 @@ hasMemoryApi,
         : 1;
       const overallWinnerIsBase = baseWins >= otherWins;
       const overallSpeedup = overallGeoMean >= 1 ? overallGeoMean : 1 / overallGeoMean;
-      const speedupLabel = overallSpeedup >= 1.05 ? ` — <strong>${overallSpeedup.toFixed(1)}× faster</strong>` : '';
+      const speedupLabel = overallSpeedup >= 1.05 ? ` — <strong>${overallSpeedup.toFixed(1)}× faster on macro ops</strong>` : '';
       const winnerName = overallWinnerIsBase ? baselineAdapter.name : competitor.name;
       const winnerColor = overallWinnerIsBase ? COLOR_BASELINE : competitorColor;
 
       html += `
         <div class="perf-summary">
-          <span style="color:${winnerColor}">▎${winnerName}</span> wins <strong>${Math.max(baseWins, otherWins)}/${baseWins + otherWins + ties}</strong> data points${ties > 0 ? ` · ${ties} ties` : ''}${speedupLabel}
-          <div style="color:#888;font-size:12px;margin-top:4px;">
-            Tested at ${SCALE_POINTS.map(formatRowCount).join(', ')} rows × ${COL_COUNT} columns · ${ITERATIONS}× iterations (trimmed mean)${hasMemoryApi ? ' — memory via Chrome performance.memory' : ''}
+          <span style="color:${winnerColor}">▎${winnerName}</span> wins <strong>${Math.max(baseWins, otherWins)}/${baseWins + otherWins + ties}</strong> macro data points${ties > 0 ? ` · ${ties} noise-floor ties` : ''}${speedupLabel}
+          <div style="color:#888;font-size:12px;margin-top:6px;line-height:1.5;">
+            Tested at ${SCALE_POINTS.map(formatRowCount).join(', ')} rows × ${COL_COUNT} columns · ${ITERATIONS}× iterations per metric (trimmed mean).
+            <br/><strong>Honest framing:</strong> Toolbox materializes per-row internals lazily; AG Grid and Tabulator build their full row model up front. The “Time to first paint” gap therefore reflects deferred work as much as render speed — but the “Sort” metric forces every grid to touch every row, and the speedup there is the most defensible single number. Micro-operation ties at ~16 ms are a vsync floor effect, not a bug in either grid.
           </div>
         </div>
       `;
@@ -605,6 +708,42 @@ hasMemoryApi,
 
   @media (max-width: 700px) {
     .perf-card-grid { grid-template-columns: 1fr; }
+  }
+
+  .perf-section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sl-color-white, #e5e5e5);
+    margin: 14px 0 6px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .perf-section-hint {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--sl-color-gray-3, #999);
+  }
+
+  .perf-overhead {
+    background: var(--sl-color-gray-6, #1e1e1e);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 6px 0 4px;
+    font-size: 12px;
+    color: var(--sl-color-gray-2);
+    line-height: 1.5;
+  }
+
+  .perf-card-tag {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--sl-color-gray-3, #999);
+    background: var(--sl-color-gray-7, #111);
+    padding: 1px 6px;
+    border-radius: 3px;
+    flex-shrink: 0;
   }
 
   .perf-card {

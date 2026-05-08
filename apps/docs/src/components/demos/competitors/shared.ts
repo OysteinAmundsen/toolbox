@@ -2,7 +2,7 @@
 // Pure functions only — no DOM mutation or grid-specific code.
 
 import type { BenchmarkColumn, BenchmarkRow, MetricName } from './types.js';
-import { MEMORY_METRIC } from './types.js';
+import { DOM_METRIC } from './types.js';
 
 export const SCALE_POINTS = [5_000, 100_000, 500_000, 1_000_000];
 export const COL_COUNT = 10;
@@ -10,14 +10,6 @@ export const COL_COUNT = 10;
 export const ITERATIONS = 5;
 /** Single frame @ 60fps. Below this threshold, results are within measurement noise. */
 export const NOISE_FLOOR_MS = 17;
-
-interface ChromePerformance {
-  memory?: { usedJSHeapSize: number };
-}
-interface WindowWithGc {
-  gc?: () => void;
-}
-export const hasMemoryApi = !!(performance as unknown as ChromePerformance).memory;
 
 export function generateColumns(count: number): BenchmarkColumn[] {
   const columns: BenchmarkColumn[] = [{ field: 'id', header: 'ID', width: 80 }];
@@ -55,14 +47,15 @@ export function formatTime(ms: number): string {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+export function formatCount(n: number): string {
+  if (n < 1000) return String(n);
+  if (n < 10_000) return n.toLocaleString();
+  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}K`;
+  return `${(n / 1_000_000).toFixed(2)}M`;
 }
 
 export function formatMetric(metric: MetricName, value: number): string {
-  return metric === MEMORY_METRIC ? formatBytes(value) : formatTime(value);
+  return metric === DOM_METRIC ? formatCount(value) : formatTime(value);
 }
 
 export function formatRowCount(n: number): string {
@@ -113,28 +106,23 @@ export async function measureAvg(measure: () => Promise<number>, reset?: () => v
   return samples.reduce((a, b) => a + b, 0) / samples.length;
 }
 
-export async function measureMemoryBaseline(): Promise<number | null> {
-  const mem = (performance as unknown as ChromePerformance).memory;
-  if (!mem) return null;
-  const w = window as unknown as WindowWithGc;
-  if (typeof w.gc === 'function') {
-    w.gc();
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  return mem.usedJSHeapSize;
-}
-
-/** Heap delta caused by a grid. Subtracts the pre-grid baseline. */
-export async function measureMemoryDelta(baseline: number | null): Promise<number | null> {
-  if (baseline === null) return null;
-  const mem = (performance as unknown as ChromePerformance).memory;
-  if (!mem) return null;
-  const w = window as unknown as WindowWithGc;
-  if (typeof w.gc === 'function') {
-    w.gc();
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  return Math.max(0, mem.usedJSHeapSize - baseline);
+/**
+ * Count every element under `root`, recursing into open shadow roots.
+ * Used as the "DOM nodes" benchmark metric — a deterministic, exact,
+ * architecturally meaningful proxy for grid memory & render cost. Unlike
+ * `performance.memory.usedJSHeapSize` (browser-quantized, unreliable
+ * below ~1 MB), this is identical across runs and directly reflects what
+ * each grid actually puts on the page.
+ *
+ * Closed shadow roots cannot be traversed from script; this is fine —
+ * none of the benchmarked grids use closed shadow DOM for row content.
+ */
+export function countDomNodes(root: Element): number {
+  let n = 1;
+  const sr = (root as Element & { shadowRoot?: ShadowRoot | null }).shadowRoot;
+  if (sr) for (const child of sr.children) n += countDomNodes(child);
+  for (const child of root.children) n += countDomNodes(child);
+  return n;
 }
 
 /** Inject a CSS link tag (idempotent on URL). */

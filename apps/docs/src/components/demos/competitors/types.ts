@@ -2,20 +2,44 @@
 // One adapter per third-party grid; Toolbox Grid is also implemented as an
 // adapter so the orchestrator stays symmetric.
 
-export const TIME_METRICS = [
-  'Initial render',
-  'Scroll avg frame',
-  'Sort',
-  'Filter',
-  'Data replacement',
-  'Update single row',
-  'Column resize',
-  'Scroll to end',
-  'Grid destroy',
-] as const;
-export const MEMORY_METRIC = 'Memory usage' as const;
-export const ALL_METRICS = [...TIME_METRICS, MEMORY_METRIC] as const;
-export type MetricName = (typeof ALL_METRICS)[number];
+/**
+ * "Macro" metrics: operations that do real, scaling work (touch every row
+ * or rebuild large internal structures). The headline speedup is computed
+ * as the geometric mean of these ratios only — mixing in noise-floor
+ * micro-ops would dilute the comparison and exaggerate the win.
+ */
+export const MACRO_METRICS = ['Time to first paint', 'Sort', 'Filter', 'Data replacement'] as const;
+
+/**
+ * "Micro" metrics: per-interaction operations whose cost is bounded by one
+ * frame on a virtualized grid. Reported separately and excluded from the
+ * headline speedup because most numbers cluster around the ~16 ms vsync
+ * floor regardless of grid quality. They still show up clearly when a
+ * competitor regresses (e.g. AG Grid column resize at scale).
+ */
+export const MICRO_METRICS = ['Update single row', 'Column resize', 'Scroll to end', 'Grid destroy'] as const;
+
+export const TIME_METRICS = [...MACRO_METRICS, ...MICRO_METRICS] as const;
+
+/**
+ * Count of DOM nodes attached to the grid host after initial render. Shown
+ * once as a "viewport overhead" stat — not per-scale, because every
+ * benchmarked grid is virtualized and the count is constant across row
+ * counts. Replaces the old byte-based "Memory usage" metric, which used
+ * `performance.memory.usedJSHeapSize` (browser-quantized, returned 0 B
+ * for sub-megabyte allocations, indefensible cross-grid).
+ */
+export const DOM_METRIC = 'DOM nodes' as const;
+
+/**
+ * Derived metric: the sum of all macro times at one scale point. Gives a
+ * single "end-to-end responsiveness" number that is hard to game with
+ * individual fast paths. Computed in the renderer; adapters never set it.
+ */
+export const ROUND_TRIP_METRIC = 'Round-trip (sum of macro)' as const;
+
+export const ALL_METRICS = [...TIME_METRICS, DOM_METRIC] as const;
+export type MetricName = (typeof ALL_METRICS)[number] | typeof ROUND_TRIP_METRIC;
 
 /** A single benchmark run at one row-count scale point. */
 export interface ScaleResult {

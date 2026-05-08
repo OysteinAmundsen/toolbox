@@ -7,14 +7,13 @@
 import {
   COL_COUNT,
   cooldown,
+  countDomNodes,
   fetchPackageVersion,
   generateColumns,
   generateRows,
   injectCss,
   injectScript,
   measureAvg,
-  measureMemoryBaseline,
-  measureMemoryDelta,
   measureVisual,
   nextFrame,
   shuffleRows,
@@ -129,7 +128,7 @@ export const slickGridAdapter: CompetitorAdapter = {
     const columns = generateColumns(COL_COUNT);
     const rows = generateRows(rowCount, COL_COUNT);
 
-    const memBaseline = await measureMemoryBaseline();
+    // DOM node count after first paint. See toolbox.ts for rationale.
 
     gridArea.innerHTML = '<div id="compare-slick-host" style="width:100%;height:100%;"></div>';
     const host = document.getElementById('compare-slick-host')!;
@@ -181,13 +180,14 @@ export const slickGridAdapter: CompetitorAdapter = {
       grid.invalidateAllRows();
       grid.render();
     });
-    results.set('Initial render', renderTime);
+    results.set('Time to first paint', renderTime);
     await cooldown(200);
+    results.set('DOM nodes', countDomNodes(gridArea));
     if (!grid || !dataView) throw new Error('SlickGrid did not initialize');
     const g = grid as SlickGridInstance;
     const dv = dataView as SlickDataView;
 
-    // Scroll — SlickGrid renders into `.slick-viewport` which is scrollable.
+    // Warmup scroll — timed per-frame metric removed (vsync floor).
     const slickScrollViewport = host.querySelector('.slick-viewport') as HTMLElement | null;
     if (slickScrollViewport) {
       const totalHeight = slickScrollViewport.scrollHeight;
@@ -199,16 +199,6 @@ export const slickGridAdapter: CompetitorAdapter = {
           slickScrollViewport.scrollTop = i * stepSize;
           await nextFrame();
         }
-        slickScrollViewport.scrollTop = 0;
-        await cooldown(50);
-        const frameTimes: number[] = [];
-        for (let i = 0; i <= steps; i++) {
-          const start = performance.now();
-          slickScrollViewport.scrollTop = i * stepSize;
-          await nextFrame();
-          frameTimes.push(performance.now() - start);
-        }
-        results.set('Scroll avg frame', frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length);
         slickScrollViewport.scrollTop = 0;
         await cooldown(50);
       }
@@ -343,8 +333,7 @@ export const slickGridAdapter: CompetitorAdapter = {
       await cooldown(50);
     }
 
-    const memDelta = await measureMemoryDelta(memBaseline);
-    if (memDelta !== null) results.set('Memory usage', memDelta);
+    // Memory was measured around the initial render (see above).
 
     g.destroy();
     gridArea.innerHTML = '';

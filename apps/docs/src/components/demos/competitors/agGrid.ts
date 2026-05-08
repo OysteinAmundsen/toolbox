@@ -3,14 +3,13 @@
 import {
   COL_COUNT,
   cooldown,
+  countDomNodes,
   fetchPackageVersion,
   generateColumns,
   generateRows,
   injectCss,
   injectScript,
   measureAvg,
-  measureMemoryBaseline,
-  measureMemoryDelta,
   measureVisual,
   nextFrame,
   shuffleRows,
@@ -76,7 +75,8 @@ export const agGridAdapter: CompetitorAdapter = {
     const columns = generateColumns(COL_COUNT);
     const rows = generateRows(rowCount, COL_COUNT);
 
-    const memBaseline = await measureMemoryBaseline();
+    // DOM node count after first paint. See toolbox.ts / `countDomNodes`
+    // for rationale (replaces the old `performance.memory` byte metric).
 
     gridArea.innerHTML = '<div id="compare-ag-grid" class="ag-theme-quartz" style="width:100%;height:100%;"></div>';
     const container = document.getElementById('compare-ag-grid')!;
@@ -100,12 +100,13 @@ export const agGridAdapter: CompetitorAdapter = {
         getRowId: (params: { data: { id: number } }) => String(params.data.id),
       });
     });
-    results.set('Initial render', renderTime);
+    results.set('Time to first paint', renderTime);
     await cooldown(200);
+    results.set('DOM nodes', countDomNodes(gridArea));
     if (!gridApi) throw new Error('AG Grid createGrid did not return an api');
     const api = gridApi;
 
-    // Scroll
+    // Warmup scroll — timed per-frame metric removed (vsync floor).
     const agScrollViewport = container.querySelector('.ag-body-viewport');
     if (agScrollViewport) {
       const totalHeight = agScrollViewport.scrollHeight;
@@ -117,16 +118,6 @@ export const agGridAdapter: CompetitorAdapter = {
           agScrollViewport.scrollTop = i * stepSize;
           await nextFrame();
         }
-        agScrollViewport.scrollTop = 0;
-        await cooldown(50);
-        const frameTimes: number[] = [];
-        for (let i = 0; i <= steps; i++) {
-          const start = performance.now();
-          agScrollViewport.scrollTop = i * stepSize;
-          await nextFrame();
-          frameTimes.push(performance.now() - start);
-        }
-        results.set('Scroll avg frame', frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length);
         agScrollViewport.scrollTop = 0;
         await cooldown(50);
       }
@@ -247,8 +238,7 @@ export const agGridAdapter: CompetitorAdapter = {
       await cooldown(50);
     }
 
-    const memDelta = await measureMemoryDelta(memBaseline);
-    if (memDelta !== null) results.set('Memory usage', memDelta);
+    // Memory was measured around the initial render (see above).
 
     api.destroy();
     gridArea.innerHTML = '';

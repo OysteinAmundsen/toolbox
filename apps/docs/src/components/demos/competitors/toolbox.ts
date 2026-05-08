@@ -9,11 +9,10 @@ import '@toolbox-web/grid/features/filtering';
 import {
   COL_COUNT,
   cooldown,
+  countDomNodes,
   generateColumns,
   generateRows,
   measureAvg,
-  measureMemoryBaseline,
-  measureMemoryDelta,
   measureVisual,
   nextFrame,
   shuffleRows,
@@ -52,7 +51,10 @@ export const toolboxAdapter: CompetitorAdapter = {
     const columns = generateColumns(COL_COUNT);
     const rows = generateRows(rowCount, COL_COUNT);
 
-    const memBaseline = await measureMemoryBaseline();
+    // DOM node count after first paint settles. Deterministic, exact —
+    // DOM node count after first paint settles. Deterministic, exact —
+    // see `countDomNodes` doc for why this replaces the old
+    // `performance.memory` byte metric.
 
     gridArea.innerHTML = '<tbw-grid id="compare-tbw-grid" style="width:100%;height:100%;"></tbw-grid>';
     const grid = queryGrid('#compare-tbw-grid')!;
@@ -76,10 +78,13 @@ export const toolboxAdapter: CompetitorAdapter = {
       };
       grid.rows = rows;
     });
-    results.set('Initial render', renderTime);
+    results.set('Time to first paint', renderTime);
     await cooldown(200);
+    results.set('DOM nodes', countDomNodes(gridArea));
 
-    // Scroll
+    // Warmup scroll once so later operations start from a consistent
+    // state. The per-frame timing was removed — it always pinned to the
+    // ~16 ms vsync floor on every grid and produced no comparison signal.
     const scrollContainer = grid.querySelector('.faux-vscroll');
     if (scrollContainer) {
       const totalHeight = scrollContainer.scrollHeight;
@@ -91,16 +96,6 @@ export const toolboxAdapter: CompetitorAdapter = {
           scrollContainer.scrollTop = i * stepSize;
           await nextFrame();
         }
-        scrollContainer.scrollTop = 0;
-        await cooldown(50);
-        const frameTimes: number[] = [];
-        for (let i = 0; i <= steps; i++) {
-          const start = performance.now();
-          scrollContainer.scrollTop = i * stepSize;
-          await nextFrame();
-          frameTimes.push(performance.now() - start);
-        }
-        results.set('Scroll avg frame', frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length);
         scrollContainer.scrollTop = 0;
         await cooldown(50);
       }
@@ -221,9 +216,7 @@ export const toolboxAdapter: CompetitorAdapter = {
       await cooldown(50);
     }
 
-    // Memory delta
-    const memDelta = await measureMemoryDelta(memBaseline);
-    if (memDelta !== null) results.set('Memory usage', memDelta);
+    // Memory was measured around the initial render (see above).
 
     // Cleanup
     grid.rows = [];

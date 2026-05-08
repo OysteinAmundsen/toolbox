@@ -18,5 +18,5 @@ export function getCompetitor(id: string): CompetitorAdapter {
   return found;
 }
 
-export { ALL_METRICS, MEMORY_METRIC, TIME_METRICS } from './types.js';
+export { ALL_METRICS, DOM_METRIC, MACRO_METRICS, MICRO_METRICS, ROUND_TRIP_METRIC, TIME_METRICS } from './types.js';
 export type { BenchmarkColumn, BenchmarkRow, CompetitorAdapter, MetricName, ScaleResult } from './types.js';

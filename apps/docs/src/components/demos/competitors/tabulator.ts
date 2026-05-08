@@ -4,14 +4,13 @@
 import {
   COL_COUNT,
   cooldown,
+  countDomNodes,
   fetchPackageVersion,
   generateColumns,
   generateRows,
   injectCss,
   injectScript,
   measureAvg,
-  measureMemoryBaseline,
-  measureMemoryDelta,
   measureVisual,
   nextFrame,
   shuffleRows,
@@ -82,7 +81,7 @@ export const tabulatorAdapter: CompetitorAdapter = {
     const columns = generateColumns(COL_COUNT);
     const rows = generateRows(rowCount, COL_COUNT);
 
-    const memBaseline = await measureMemoryBaseline();
+    // DOM node count after first paint. See toolbox.ts for rationale.
 
     gridArea.innerHTML = '<div id="compare-tbl-grid" style="width:100%;height:100%;"></div>';
     const container = document.getElementById('compare-tbl-grid')!;
@@ -125,12 +124,13 @@ export const tabulatorAdapter: CompetitorAdapter = {
           setTimeout(built, 30_000);
         }),
     );
-    results.set('Initial render', renderTime);
+    results.set('Time to first paint', renderTime);
     await cooldown(200);
+    results.set('DOM nodes', countDomNodes(gridArea));
     if (!table) throw new Error('Tabulator did not initialize');
     const t = table as TabulatorInstance;
 
-    // Scroll
+    // Warmup scroll — timed per-frame metric removed (vsync floor).
     const tblScrollViewport = container.querySelector('.tabulator-tableholder');
     if (tblScrollViewport) {
       const totalHeight = tblScrollViewport.scrollHeight;
@@ -142,16 +142,6 @@ export const tabulatorAdapter: CompetitorAdapter = {
           tblScrollViewport.scrollTop = i * stepSize;
           await nextFrame();
         }
-        tblScrollViewport.scrollTop = 0;
-        await cooldown(50);
-        const frameTimes: number[] = [];
-        for (let i = 0; i <= steps; i++) {
-          const start = performance.now();
-          tblScrollViewport.scrollTop = i * stepSize;
-          await nextFrame();
-          frameTimes.push(performance.now() - start);
-        }
-        results.set('Scroll avg frame', frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length);
         tblScrollViewport.scrollTop = 0;
         await cooldown(50);
       }
@@ -278,8 +268,7 @@ export const tabulatorAdapter: CompetitorAdapter = {
       await cooldown(50);
     }
 
-    const memDelta = await measureMemoryDelta(memBaseline);
-    if (memDelta !== null) results.set('Memory usage', memDelta);
+    // Memory was measured around the initial render (see above).
 
     t.destroy();
     gridArea.innerHTML = '';

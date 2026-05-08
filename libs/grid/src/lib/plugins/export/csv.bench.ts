@@ -38,7 +38,7 @@ const COLUMNS: ColumnConfig[] = [
   { field: 'notes', header: 'Notes' },
 ];
 
-const PARAMS: ExportParams = { fileName: 'export.csv', includeHeaders: true };
+const PARAMS: ExportParams = { format: 'csv', fileName: 'export.csv', includeHeaders: true };
 
 // #endregion
 

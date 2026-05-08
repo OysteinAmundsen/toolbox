@@ -22,7 +22,6 @@
  * @packageDocumentation
  */
 
-import type { TemplateRef } from '@angular/core';
 import {
   getDetailTemplate,
   registerDetailRendererBridge,
@@ -61,7 +60,11 @@ interface MasterDetailPluginLike {
 // `adapter.createDetailRenderer(grid)` and `adapter.parseDetailElement(el)`
 // delegate to. Without this import, both methods return undefined.
 registerDetailRendererBridge(<TRow = unknown>(gridElement: HTMLElement, adapter: GridAdapter) => {
-  const template = getDetailTemplate(gridElement) as TemplateRef<GridDetailContext<TRow>> | undefined;
+  // Type inferred from `getDetailTemplate` (same package instance as `adapter`),
+  // not from a local `import type { TemplateRef } from '@angular/core'` — the
+  // latter resolves through Bun's `.bun/` cache during ng-packagr build and
+  // produces a brand-incompatible TemplateRef vs the built adapter `.d.ts`.
+  const template = getDetailTemplate(gridElement);
   if (!template) return undefined;
 
   return (row: TRow) => {

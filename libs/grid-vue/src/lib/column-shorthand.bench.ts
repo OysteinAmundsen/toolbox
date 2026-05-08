@@ -17,11 +17,13 @@ import {
 
 // #region Fixtures
 
+type Row = Record<string, unknown>;
+
 const SHORT_FIELDS = ['id', 'name', 'email', 'phone', 'department', 'team', 'salary', 'hired'];
 const TYPED_FIELDS = ['id:number', 'name', 'salary:currency', 'hired:date', 'active:boolean'];
-const FULL_OBJECTS = SHORT_FIELDS.map((f) => ({ field: f, header: f, width: 120 }));
+const FULL_OBJECTS: ColumnShorthand<Row>[] = SHORT_FIELDS.map((f) => ({ field: f, header: f, width: 120 }));
 
-const MIXED_10: ColumnShorthand[] = [
+const MIXED_10: ColumnShorthand<Row>[] = [
   'id:number',
   'name',
   { field: 'email', width: 200 },
@@ -34,7 +36,7 @@ const MIXED_10: ColumnShorthand[] = [
   { field: 'notes', width: 300 },
 ];
 
-const MIXED_50: ColumnShorthand[] = Array.from({ length: 50 }, (_, i) =>
+const MIXED_50: ColumnShorthand<Row>[] = Array.from({ length: 50 }, (_, i) =>
   i % 3 === 0 ? `field${i}` : i % 3 === 1 ? `field${i}:number` : { field: `field${i}`, header: `Col ${i}`, width: 100 },
 );
 

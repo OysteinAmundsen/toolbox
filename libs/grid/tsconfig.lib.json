@@ -5,5 +5,5 @@
     "types": ["node", "vite/client"]
   },
   "include": ["src/**/*.ts", "src/vite-env.d.ts"],
-  "exclude": ["src/**/*.spec.ts", "src/**/__tests__/**"]
+  "exclude": ["src/**/*.spec.ts", "src/**/*.bench.ts", "src/**/__tests__/**"]
 }

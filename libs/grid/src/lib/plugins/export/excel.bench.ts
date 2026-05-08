@@ -39,7 +39,7 @@ const COLUMNS: ColumnConfig[] = [
   { field: 'active', header: 'Active' },
 ];
 
-const PARAMS: ExportParams = { fileName: 'export.xls', includeHeaders: true };
+const PARAMS: ExportParams = { format: 'excel', fileName: 'export.xls', includeHeaders: true };
 
 // #endregion
 

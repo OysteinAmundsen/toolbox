@@ -52,9 +52,7 @@ export const toolboxAdapter: CompetitorAdapter = {
     const rows = generateRows(rowCount, COL_COUNT);
 
     // DOM node count after first paint settles. Deterministic, exact —
-    // DOM node count after first paint settles. Deterministic, exact —
-    // see `countDomNodes` doc for why this replaces the old
-    // `performance.memory` byte metric.
+    // see `countDomNodes` doc for rationale.
 
     gridArea.innerHTML = '<tbw-grid id="compare-tbw-grid" style="width:100%;height:100%;"></tbw-grid>';
     const grid = queryGrid('#compare-tbw-grid')!;
@@ -215,8 +213,6 @@ export const toolboxAdapter: CompetitorAdapter = {
       gridArea.innerHTML = '';
       await cooldown(50);
     }
-
-    // Memory was measured around the initial render (see above).
 
     // Cleanup
     grid.rows = [];

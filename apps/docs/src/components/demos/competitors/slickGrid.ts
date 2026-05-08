@@ -63,7 +63,7 @@ interface SlickNamespace {
   Data: { DataView: new (options?: Record<string, unknown>) => SlickDataView };
 }
 function getSlick(): SlickNamespace {
-  const s = (window as unknown as { Slick?: SlickNamespace }).Slick;
+  const s = (window as Window & { Slick?: SlickNamespace }).Slick;
   if (!s) throw new Error('SlickGrid not loaded');
   return s;
 }
@@ -256,12 +256,15 @@ export const slickGridAdapter: CompetitorAdapter = {
     // Update single row
     {
       const midId = Math.floor(rowCount / 2) + 1;
+      // Generated rows have sequential ids 1..rowCount, so the row with id=midId
+      // sits at index midId - 1. Avoids an O(n) `findIndex` across 1M rows on
+      // every benchmark iteration.
+      const items = dv.getItems();
       let updateCounter = 0;
       const updateTime = await measureAvg(() =>
         measureVisual(() => {
-          const items = dv.getItems();
-          const idx = items.findIndex((r) => r.id === midId);
-          if (idx >= 0) {
+          const idx = midId - 1;
+          if (items[idx]?.id === midId) {
             const item = { ...items[idx], col1: `UPDATED${++updateCounter}` };
             dv.updateItem(midId, item);
           }
@@ -332,8 +335,6 @@ export const slickGridAdapter: CompetitorAdapter = {
       destroyContainer.remove();
       await cooldown(50);
     }
-
-    // Memory was measured around the initial render (see above).
 
     g.destroy();
     gridArea.innerHTML = '';

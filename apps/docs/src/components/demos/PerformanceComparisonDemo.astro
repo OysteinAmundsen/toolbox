@@ -115,6 +115,9 @@ formatRowCount,
     otherConfigTitleEl.textContent = competitor.name;
     otherConfigTitleEl.style.color = competitor.color;
     otherConfigEl.textContent = competitor.configCode;
+    // Track the competitor's brand color for the row-win highlight so the
+    // background tints with the actual competitor (not just AG Grid orange).
+    resultsEl.style.setProperty('--perf-other-wins-bg', hexToRgba(competitor.color, 0.06));
     versionsEl.textContent = competitor.version
       ? `${competitor.name} v${competitor.version}`
       : competitor.description ?? '';
@@ -142,6 +145,14 @@ formatRowCount,
     const ratio = loser / winner;
     if (ratio < 1.05) return '';
     return `${ratio.toFixed(1)}×`;
+  }
+
+  /** Convert `#rrggbb` to an `rgba(r, g, b, a)` string. Falls back to the input on parse failure. */
+  function hexToRgba(hex: string, alpha: number): string {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+    if (!m) return hex;
+    const n = parseInt(m[1], 16);
+    return `rgba(${(n >> 16) & 0xff}, ${(n >> 8) & 0xff}, ${n & 0xff}, ${alpha})`;
   }
 
   /**
@@ -201,7 +212,7 @@ formatRowCount,
       const bothDone = tbwDone && otherDone;
 
       const isTie = !isCount && bothDone && (tbw!) < NOISE_FLOOR_MS && (other!) < NOISE_FLOOR_MS;
-      const tbwWins = !isTie && bothDone && (tbw!) <= (other!);
+      const tbwWins = !isTie && bothDone && (tbw!) < (other!);
       const otherWins = !isTie && bothDone && (other!) < (tbw!);
 
       const tbwPct = tbwDone ? Math.max(3, ((tbw!) / maxVal) * 100) : 0;
@@ -859,7 +870,7 @@ formatRowCount,
   }
 
   .perf-row-other-wins {
-    background: rgba(251, 146, 60, 0.06);
+    background: var(--perf-other-wins-bg, rgba(251, 146, 60, 0.06));
     border-radius: 4px;
   }
 

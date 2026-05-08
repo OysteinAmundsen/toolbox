@@ -28,7 +28,7 @@ interface AgGridGlobal {
   createGrid(container: HTMLElement, options: unknown): AgGridApi;
 }
 function getAgGrid(): AgGridGlobal {
-  const ag = (window as unknown as { agGrid?: AgGridGlobal }).agGrid;
+  const ag = (window as Window & { agGrid?: AgGridGlobal }).agGrid;
   if (!ag) throw new Error('AG Grid not loaded');
   return ag;
 }
@@ -76,7 +76,7 @@ export const agGridAdapter: CompetitorAdapter = {
     const rows = generateRows(rowCount, COL_COUNT);
 
     // DOM node count after first paint. See toolbox.ts / `countDomNodes`
-    // for rationale (replaces the old `performance.memory` byte metric).
+    // for rationale.
 
     gridArea.innerHTML = '<div id="compare-ag-grid" class="ag-theme-quartz" style="width:100%;height:100%;"></div>';
     const container = document.getElementById('compare-ag-grid')!;
@@ -237,8 +237,6 @@ export const agGridAdapter: CompetitorAdapter = {
       destroyContainer.remove();
       await cooldown(50);
     }
-
-    // Memory was measured around the initial render (see above).
 
     api.destroy();
     gridArea.innerHTML = '';

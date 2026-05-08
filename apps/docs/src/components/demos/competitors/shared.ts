@@ -1,5 +1,6 @@
 // Shared helpers and constants for benchmark adapters.
-// Pure functions only — no DOM mutation or grid-specific code.
+// Mostly pure functions; a small set of helpers (`injectCss`, `injectScript`)
+// mutate `document.head` to load CDN dependencies. No grid-specific code.
 
 import type { BenchmarkColumn, BenchmarkRow, MetricName } from './types.js';
 import { DOM_METRIC } from './types.js';
@@ -135,24 +136,37 @@ export function injectCss(href: string): void {
 }
 
 /**
- * Inject a script tag and resolve when loaded. Idempotent on URL.
+ * Inject a script tag and resolve when loaded. Idempotent on URL — concurrent
+ * callers for the same `src` await the same in-flight load promise rather
+ * than racing past a still-loading <script> tag.
  * Pass `module: true` for ESM bundles (e.g. Stencil's `*.esm.js` loaders) —
  * those *must* be loaded as module scripts or the browser throws
  * `Cannot use import statement outside a module`.
  */
+const scriptLoadPromises = new Map<string, Promise<void>>();
 export function injectScript(src: string, opts?: { module?: boolean }): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.head.querySelector(`script[src="${src}"]`)) {
+  const existing = scriptLoadPromises.get(src);
+  if (existing) return existing;
+  const promise = new Promise<void>((resolve, reject) => {
+    const existingTag = document.head.querySelector(`script[src="${src}"]`) as HTMLScriptElement | null;
+    if (existingTag && existingTag.dataset.loaded === 'true') {
       resolve();
       return;
     }
-    const script = document.createElement('script');
-    script.src = src;
-    if (opts?.module) script.type = 'module';
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
-    document.head.appendChild(script);
+    const script = existingTag ?? document.createElement('script');
+    if (!existingTag) {
+      script.src = src;
+      if (opts?.module) script.type = 'module';
+      document.head.appendChild(script);
+    }
+    script.addEventListener('load', () => {
+      script.dataset.loaded = 'true';
+      resolve();
+    });
+    script.addEventListener('error', () => reject(new Error(`Failed to load script: ${src}`)));
   });
+  scriptLoadPromises.set(src, promise);
+  return promise;
 }
 
 /** Best-effort fetch of a package.json `version` field from jsDelivr. */

@@ -34,7 +34,7 @@ interface TabulatorInstance {
 type TabulatorCtor = new (selector: HTMLElement | string, options: Record<string, unknown>) => TabulatorInstance;
 
 function getTabulator(): TabulatorCtor {
-  const T = (window as unknown as { Tabulator?: TabulatorCtor }).Tabulator;
+  const T = (window as Window & { Tabulator?: TabulatorCtor }).Tabulator;
   if (!T) throw new Error('Tabulator not loaded');
   return T;
 }
@@ -267,8 +267,6 @@ export const tabulatorAdapter: CompetitorAdapter = {
       destroyContainer.remove();
       await cooldown(50);
     }
-
-    // Memory was measured around the initial render (see above).
 
     t.destroy();
     gridArea.innerHTML = '';

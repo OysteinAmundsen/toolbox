@@ -514,7 +514,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       const hasFilter = this.filters.has(field);
 
       // Check if button already exists
-      let filterBtn = cell.querySelector('.tbw-filter-btn') as HTMLElement | null;
+      let filterBtn = cell.querySelector('.tbw-filter-btn') as HTMLButtonElement | null;
 
       if (filterBtn) {
         // Update active state and icon of existing button
@@ -536,6 +536,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
       // Create filter button
       filterBtn = document.createElement('button');
+      filterBtn.type = 'button';
       filterBtn.className = 'tbw-filter-btn';
       filterBtn.setAttribute('aria-label', `Filter ${col.header ?? field}`);
       // Use grid icons configuration

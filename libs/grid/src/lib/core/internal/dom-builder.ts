@@ -62,10 +62,13 @@ function div(className?: string, attrs?: Record<string, string>): HTMLDivElement
 }
 
 /**
- * Create a button element.
+ * Create a button element. Always sets `type="button"` (callers can override
+ * via `attrs`) so internal grid buttons inside a <form> never default to
+ * type="submit". See issue #296.
  */
 function button(className?: string, attrs?: Record<string, string>, content?: string | Node): HTMLButtonElement {
   const el = document.createElement('button');
+  el.type = 'button';
   if (className) el.className = className;
   applyAttrs(el, attrs);
   if (content) {

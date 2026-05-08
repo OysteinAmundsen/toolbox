@@ -149,6 +149,9 @@ describe('shell module', () => {
       expect(html).toContain('data-panel-toggle');
       expect(html).toContain('data-icon="tool-panel"');
       expect(html).toContain('title="Settings"');
+      // Regression: issue #296 — panel toggle MUST have type="button" so it
+      // doesn't default to type="submit" inside a <form>.
+      expect(html).toContain('type="button"');
     });
 
     it('marks panel toggle button as active when panel is open', () => {

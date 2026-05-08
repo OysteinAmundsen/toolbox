@@ -263,16 +263,17 @@ describe('multiSort', () => {
         // runner without budget tuning.
         //
         // Observed ratio is ~1.5–3x (Schwartzian key cache + per-comparator
-        // dispatch + null-safe compare vs. native's inlined `<`/`-`). 6x leaves
-        // comfortable headroom for jitter on the smaller absolute timings while
-        // still tripping on real algorithmic regressions: dropping the key
-        // cache would push this to ~10–20x; reintroducing `columns.find()`
+        // dispatch + null-safe compare vs. native's inlined `<`/`-`). 8x leaves
+        // comfortable headroom for jitter on the smaller absolute timings (best-
+        // of-5 still occasionally lands at ~6x on a loaded shared CI runner)
+        // while still tripping on real algorithmic regressions: dropping the
+        // key cache would push this to ~10–20x; reintroducing `columns.find()`
         // inside the comparator would push it to ~50x+.
         const ratio = bestApply / bestNative;
         expect(
           ratio,
           `applySorts=${bestApply.toFixed(2)}ms, native=${bestNative.toFixed(2)}ms, ratio=${ratio.toFixed(2)}x`,
-        ).toBeLessThan(6);
+        ).toBeLessThan(8);
       });
     });
   });

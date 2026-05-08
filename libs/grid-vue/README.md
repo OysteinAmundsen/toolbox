@@ -166,25 +166,38 @@ import '@toolbox-web/grid-vue/features';
 
 ## Custom Cell Renderers
 
-Use the `#cell` slot on `TbwGridColumn` for custom rendering:
+Use the `#cell` slot on `TbwGridColumn` for custom rendering. Type the column
+with your row shape via the generic `<TbwGridColumn<Employee>>` syntax — slot
+props (`row`, `value`) then narrow automatically with no per-template
+annotation needed:
 
 ```vue
 <script setup lang="ts">
-import { TbwGrid, TbwGridColumn, type CellSlotProps } from '@toolbox-web/grid-vue';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 import StatusBadge from './StatusBadge.vue';
+interface Employee {
+  id: string;
+  name: string;
+  status: 'active' | 'inactive';
+}
 </script>
 
 <template>
-  <TbwGrid :rows="employees">
-    <TbwGridColumn field="name" header="Name" />
-    <TbwGridColumn field="status" header="Status">
-      <template #cell="{ value, row }: CellSlotProps<Employee, string>">
+  <TbwGrid<Employee> :rows="employees">
+    <TbwGridColumn<Employee> field="name" header="Name" />
+    <TbwGridColumn<Employee> field="status" header="Status">
+      <template #cell="{ value, row }">
+        <!-- row: Employee, value: any (per-column) -->
         <StatusBadge :status="value" :employee="row" />
       </template>
     </TbwGridColumn>
   </TbwGrid>
 </template>
 ```
+
+If you also know the value type, pass both generics:
+`<TbwGridColumn<Employee, string>>` (or annotate the slot prop with
+`CellSlotProps<Employee, string>`).
 
 ### Slot Props
 
@@ -198,26 +211,28 @@ The `#cell` slot receives:
 | `rowIndex` | `number` | Row index            |
 | `colIndex` | `number` | Column index         |
 
-> **Generic defaults:** `CellSlotProps<TRow = unknown, TValue = any>`. Specify
-> `TRow` (e.g. `CellSlotProps<Employee>`) to get full row-shape safety; `TValue`
-> defaults to `any` because the value type is per-column and awkward to narrow
-> inside template expressions. Pass it explicitly when known, e.g.
-> `CellSlotProps<Employee, string>`.
+> **Generic defaults:** `CellSlotProps<TRow = unknown, TValue = any>` and
+> `TbwGridColumn<TRow = unknown, TValue = any>`. Specify `TRow` on the column
+> (e.g. `<TbwGridColumn<Employee>>`) and slot props inherit it automatically;
+> `TValue` defaults to `any` because the value shape is per-column and awkward
+> to narrow inside template expressions.
 
 ## Custom Cell Editors
 
-Use the `#editor` slot for inline editing:
+Use the `#editor` slot for inline editing. Same generic-typing pattern as
+`#cell`:
 
 ```vue
 <script setup lang="ts">
-import { TbwGrid, TbwGridColumn, type EditorSlotProps } from '@toolbox-web/grid-vue';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 import '@toolbox-web/grid-vue/features/editing';
 </script>
 
 <template>
-  <TbwGrid :rows="employees" editing="dblclick">
-    <TbwGridColumn field="status" header="Status" :editable="true">
-      <template #editor="{ value, commit, cancel }: EditorSlotProps<Employee, string>">
+  <TbwGrid<Employee> :rows="employees" editing="dblclick">
+    <TbwGridColumn<Employee> field="status" header="Status" :editable="true">
+      <template #editor="{ value, commit, cancel }">
+        <!-- value: any, commit: (newValue: any) => void -->
         <select :value="value" @change="(e) => commit((e.target as HTMLSelectElement).value)">
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>

@@ -1,11 +1,17 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="TRow = unknown, TValue = any">
 import type { CellRenderContext, ColumnEditorContext } from '@toolbox-web/grid';
 import { h, onMounted, ref, type VNode } from 'vue';
 import type { CellSlotProps, EditorSlotProps } from './slot-types';
 import { registerColumnEditor, registerColumnRenderer } from './vue-grid-adapter';
 
 /**
- * Props for TbwGridColumn
+ * Props for TbwGridColumn.
+ *
+ * @typeParam TRow - Row data shape. Defaults to `unknown`. Specify it
+ *   (e.g. `<TbwGridColumn<Employee> ...>`) to get fully-typed `#cell` and
+ *   `#editor` slot props (`row: Employee` instead of `row: unknown`).
+ * @typeParam TValue - Cell value type. Defaults to `any` because the value
+ *   shape is per-column and awkward to narrow inside template expressions.
  */
 const props = defineProps<{
   /** Field path in the row object */
@@ -35,9 +41,9 @@ const props = defineProps<{
 // Define slots with proper typing and get the slots object
 const slots = defineSlots<{
   /** Custom cell renderer slot */
-  cell?: (props: CellSlotProps) => VNode[];
+  cell?: (props: CellSlotProps<TRow, TValue>) => VNode[];
   /** Custom cell editor slot */
-  editor?: (props: EditorSlotProps) => VNode[];
+  editor?: (props: EditorSlotProps<TRow, TValue>) => VNode[];
 }>();
 
 // Template ref for the column element
@@ -56,11 +62,13 @@ onMounted(() => {
     registerColumnRenderer(element, (ctx: CellRenderContext<unknown, unknown>) => {
       const slotFn = slots.cell;
       if (!slotFn) return h('span');
+      // Runtime row matches the consumer's TRow at call time; the cast bridges
+      // the erased generic so the slot signature stays accurate to consumers.
       const slotContent = slotFn({
         value: ctx.value,
         row: ctx.row,
         column: ctx.column,
-      });
+      } as CellSlotProps<TRow, TValue>);
       // Return the VNode array wrapped in a div
       return h('div', { style: 'display: contents' }, slotContent);
     });
@@ -81,7 +89,7 @@ onMounted(() => {
         cancel: ctx.cancel,
         updateRow: ctx.updateRow,
         onValueChange: ctx.onValueChange,
-      });
+      } as EditorSlotProps<TRow, TValue>);
       return h('div', { style: 'display: contents' }, slotContent);
     });
   }

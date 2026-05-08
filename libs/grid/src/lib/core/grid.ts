@@ -2372,8 +2372,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Note: processedRows may contain group markers that plugins handle via renderRow hook
     this._rows = processedRows as T[];
 
-    // Rebuild row ID map to keep indices in sync with the processed _rows.
-    this._rebuildRowIdMap();
+    // Mark row ID map dirty rather than rebuilding eagerly. The map is O(n) to build
+    // (≈130ms at 1M rows) and is only consumed by getRow / _getRowEntry / plugin
+    // afterRender hooks via #ensureRowIdMap. Most renders never read it, so the lazy
+    // rebuild eliminates the cost from the initial-render hot path while preserving
+    // the invariant that the map is current at read time.
+    this.#rowIdMapDirty = true;
 
     // Position cache rebuild is NOT needed here — the scheduler always calls
     // refreshVirtualWindow(force=true) after _schedulerProcessRows(), which

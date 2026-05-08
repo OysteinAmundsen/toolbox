@@ -1166,6 +1166,37 @@ import { TbwGrid, TbwGridToolButtons } from '@toolbox-web/grid-vue';
 | `shell.toolPanel.persistState` | `boolean` | `false` | Remember open/closed state |
 | `shell.toolPanel.closeOnClickOutside` | `boolean` | `false` | Close on outside click |
 
+### Styling the Shell
+
+`<tbw-grid>` renders into the **light DOM**, so the shell's internals are reachable from any outer stylesheet — no `::part()` needed. Theme-level overrides applied to a top-level CSS file affect every grid in the application uniformly.
+
+**Stable selectors:**
+
+| Selector | Element |
+|----------|---------|
+| `tbw-grid .tbw-shell-header` | Header bar (title + content + toolbar) |
+| `tbw-grid .tbw-shell-title` | Title element |
+| `tbw-grid .tbw-shell-toolbar` | Toolbar (flex container; custom content + toggle) |
+| `tbw-grid .tbw-toolbar-btn` | Buttons inside the toolbar (incl. panel toggle) |
+| `tbw-grid [data-panel-toggle]` | The single panel toggle button |
+| `tbw-grid .tbw-toolbar-separator` | Separator between custom content and the toggle |
+| `tbw-grid .tbw-tool-panel` | Tool-panel sidebar |
+| `tbw-grid .tbw-accordion-header` | Tool-panel section header (one per registered panel) |
+
+**Recipe — move the panel toggle to the start of the toolbar (left in LTR):**
+
+The toolbar is a flex row, so reordering is purely a CSS concern — use `order` on both the toggle and its separator so they stay grouped together:
+
+```css
+/* App-level theme — affects every <tbw-grid> uniformly */
+tbw-grid [data-panel-toggle],
+tbw-grid .tbw-toolbar-separator {
+  order: -1;
+}
+```
+
+No grid configuration is required; this is the recommended way to standardize toolbar layout across an application's grids.
+
 ---
 
 ## Loading States

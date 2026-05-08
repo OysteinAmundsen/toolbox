@@ -122,7 +122,8 @@ related: [grid-core]
 - DECIDED: `actions/cache` chosen over GitHub artifacts (per-branch lookup awkward) and Nx Cloud (adds dependency for a feature GitHub-native primitives cover).
 - DECIDED: pinned to `ubuntu-latest` — same runner class as `test`/`build` so baseline and PR are measured on consistent hardware.
 - DECIDED: bench JSON always uploaded as workflow artifact (`bench-results`, 30 day retention) for manual inspection regardless of pass/fail.
-- FLOW (PR): restore latest `main` baseline → `bunx vitest bench --outputJson` → `bun tools/compare-benches.ts --current ... --baseline ... --threshold 0.25 --summary "$GITHUB_STEP_SUMMARY"`.
+- DECIDED: bench coverage spans `grid` + `grid-react` + `grid-vue`. Each project has its own Nx `bench` target; CI runs all three (`vitest bench --config libs/<project>/vite.config.{ts,mts}` per project) and merges JSON before comparison. `compare-benches.ts` accepts repeated `--current` for the same purpose locally. `grid-angular` is excluded — directive-based, no equivalent pure-function hot path. Bench files MUST be co-located next to the code they test (e.g. `multi-sort.bench.ts` next to `multi-sort.ts`); group fullName already includes the file path so merging is a flat array concat.
+- FLOW (PR): restore latest `main` baseline → `bunx vitest bench --outputJson` per project → merge JSON → `bun tools/compare-benches.ts --current ... --baseline ... --threshold 0.25 --summary "$GITHUB_STEP_SUMMARY"`.
 - FLOW (push to main/next, non-release-merge): same as PR + cp current→baseline + `actions/cache/save@v4` under SHA-pinned key.
 
 ## nx-config (nx.json)

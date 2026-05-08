@@ -3,10 +3,14 @@
  *
  * Usage:
  *   bun tools/compare-benches.ts \
- *     --current <path> \
+ *     --current <path> [--current <path> ...] \
  *     [--baseline <path>] \
  *     [--threshold <fraction, default 0.25>] \
  *     [--summary <github-step-summary-path>]
+ *
+ * `--current` may be passed multiple times; the resulting bench sets are
+ * merged before comparison. This lets CI bench multiple Nx projects in one
+ * step (each project produces its own JSON via `--outputJson`).
  *
  * Behaviour:
  *   - Joins benchmarks by `${file}::${group} > ${name}`.
@@ -58,7 +62,7 @@ interface BenchReport {
 // #region CLI args
 
 interface Args {
-  current: string;
+  current: string[];
   baseline?: string;
   threshold: number;
   summary?: string;
@@ -66,10 +70,10 @@ interface Args {
 }
 
 function parseArgs(argv: string[]): Args {
-  const out: Args = { current: '', threshold: 0.25, failOnRegression: false };
+  const out: Args = { current: [], threshold: 0.25, failOnRegression: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--current') out.current = argv[++i];
+    if (a === '--current') out.current.push(argv[++i]);
     else if (a === '--baseline') out.baseline = argv[++i];
     else if (a === '--threshold') out.threshold = Number(argv[++i]);
     else if (a === '--summary') out.summary = argv[++i];
@@ -283,9 +287,15 @@ function renderMarkdown(rows: ComparisonRow[], threshold: number): string {
 function main() {
   const args = parseArgs(process.argv.slice(2));
 
-  if (!existsSync(args.current)) {
-    console.error(`Current bench file not found: ${args.current}`);
+  if (args.current.length === 0) {
+    console.error('Missing required --current <path> (may be repeated)');
     process.exit(2);
+  }
+  for (const p of args.current) {
+    if (!existsSync(p)) {
+      console.error(`Current bench file not found: ${p}`);
+      process.exit(2);
+    }
   }
 
   if (!args.baseline || !existsSync(args.baseline)) {
@@ -297,7 +307,11 @@ function main() {
   }
 
   const baseline = flatten(loadReport(args.baseline));
-  const current = flatten(loadReport(args.current));
+  // Merge multiple current reports (one per Vitest config / Nx project).
+  const current = new Map<string, FlatBench>();
+  for (const p of args.current) {
+    for (const [k, v] of flatten(loadReport(p))) current.set(k, v);
+  }
   const rows = compareReports(baseline, current, args.threshold);
   // Sort: regressions first, then improvements, then new, removed, unchanged.
   const order: Status[] = ['regression', 'improvement', 'new', 'removed', 'unchanged'];

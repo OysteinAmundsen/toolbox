@@ -291,7 +291,7 @@ jobs:
 
   # ============================================
   # BENCH: Vitest microbenchmarks (regression detection)
-  # - Runs `vitest bench` for the grid lib, persists JSON output.
+  # - Runs `vitest bench` for grid + grid-react + grid-vue, merges JSON.
   # - Restores the most recent baseline cached on a push to `main` (or `next`).
   # - On push to `main`/`next`: saves the new baseline under a SHA-pinned key.
   # - On PR: compares current run vs. baseline using tools/compare-benches.ts
@@ -344,7 +344,13 @@ jobs:
       - name: Run benchmarks
         run: |
           mkdir -p tmp
-          bunx vitest bench --config libs/grid/vite.config.ts --run --outputJson=tmp/bench-current.json
+          bunx vitest bench --config libs/grid/vite.config.ts --run --outputJson=tmp/bench-current-grid.json
+          bunx vitest bench --config libs/grid-react/vite.config.mts --run --outputJson=tmp/bench-current-grid-react.json
+          bunx vitest bench --config libs/grid-vue/vite.config.mts --run --outputJson=tmp/bench-current-grid-vue.json
+          # Merge into a single file for the cached baseline (compare-benches
+          # also accepts multiple --current flags, but the cache stores one
+          # file so we collapse here).
+          bun -e "import {readFileSync,writeFileSync} from 'node:fs'; const files=['tmp/bench-current-grid.json','tmp/bench-current-grid-react.json','tmp/bench-current-grid-vue.json'].map(p=>JSON.parse(readFileSync(p,'utf8'))); writeFileSync('tmp/bench-current.json', JSON.stringify({files: files.flatMap(r=>r.files??[])}));"
 
       - name: Compare against baseline
         run: |

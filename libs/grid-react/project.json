@@ -43,6 +43,12 @@
         "reportsDirectory": "{projectRoot}/../../coverage/libs/grid-react"
       }
     },
+    "bench": {
+      "command": "vitest bench --config libs/grid-react/vite.config.mts --run",
+      "options": {
+        "cwd": "{workspaceRoot}"
+      }
+    },
     "lint": {
       "executor": "@nx/eslint:lint",
       "outputs": ["{options.outputFile}"],

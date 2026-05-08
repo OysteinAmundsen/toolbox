@@ -13,7 +13,7 @@ Enable capabilities via side-effect imports and declarative `features` config (o
 ## Core Documentation
 
 - [Getting Started Guide](https://toolboxjs.com/grid/getting-started/): Installation, basic setup, and framework integration patterns
-- [Toolbox Grid vs AG Grid: Feature Comparison](https://toolboxjs.com/grid/comparison/): Free alternative to AG Grid with feature-by-feature comparison, includes features that are Enterprise-only in AG Grid but free in Toolbox Grid
+- [Compared to Other Grids](https://toolboxjs.com/grid/comparison/): Side-by-side comparison of @toolbox-web/grid against AG Grid, Tabulator, and SlickGrid — features, bundle size, and a live in-browser performance benchmark
 - [API Reference](https://toolboxjs.com/grid/api-reference/): Complete properties, methods, events, and types
 - [Theming Guide](https://toolboxjs.com/grid/guides/theming/): CSS custom properties for styling and built-in themes
 - [CSS Variable Reference](./llms-full.txt): Complete list of all `--tbw-*` CSS custom properties including plugin-specific variables and `--tbw-icon-*` icon variables

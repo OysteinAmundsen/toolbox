@@ -1,15 +1,25 @@
 ---
-title: Feature Comparison
-description: Compare @toolbox-web/grid features with AG Grid and other data grid libraries. Many AG Grid Enterprise features are free in Toolbox Grid.
+title: Compared to Other Grids
+description: How @toolbox-web/grid stacks up against AG Grid, Tabulator, and SlickGrid — features, bundle size, and a live performance benchmark you can run in your browser.
 ---
 
 import { TabItem, Tabs } from '@astrojs/starlight/components';
 import PerformanceComparisonDemo from '@components/demos/PerformanceComparisonDemo.astro';
 
 
-Looking for a **free alternative to AG Grid**? `@toolbox-web/grid` is a high-performance, open-source data grid with many of the same features—no license fees, no enterprise tiers, no feature gates.
+This page compares `@toolbox-web/grid` against three widely-used JavaScript data grids: **AG Grid**, **Tabulator**, and **SlickGrid**. The goal is an honest side-by-side on features, bundle size, and — below — measured performance in your own browser.
 
-> *Disclaimer: Feature availability based on publicly available documentation as of January 2026 for AG Grid, Tabulator, and SlickGrid (6pac fork v2.x). AG Grid is a trademark of AG Grid Ltd. This is an independent comparison and is not affiliated with, endorsed by, or sponsored by any of the listed projects. We encourage you to verify current feature availability on each project's site.*
+### Why these three?
+
+We picked grids that bracket the realistic alternatives a team evaluates today, rather than a long tail of niche libraries:
+
+- **AG Grid** is the de-facto enterprise data grid and the one most often raised as the benchmark to beat. Including it sets the upper bound on feature breadth (especially with the paid Enterprise tier) and the upper bound on bundle size.
+- **Tabulator** is the most popular MIT-licensed, framework-agnostic option with broad feature coverage. It's the natural mid-point: free, full-featured, but built on a more traditional rendering model.
+- **SlickGrid** (the maintained 6pac fork) represents the lightweight, virtualization-first lineage that many "fast" grids descend from. It anchors the lower bound on bundle size and shows what a minimal, performance-focused grid looks like.
+
+Together they span the realistic spectrum — enterprise, mainstream MIT, and minimalist — so the numbers below are meaningful regardless of which corner of the market you're shopping in. Grids that are tied to a single framework (e.g. MUI DataGrid, PrimeNG Table, Vuetify DataTable) are intentionally out of scope: `@toolbox-web/grid` is framework-agnostic, and comparing it only against framework-locked grids would skew the picture.
+
+> *Disclaimer: Feature availability based on publicly available documentation as of May 2026 for AG Grid, Tabulator, and SlickGrid (6pac fork v2.x). AG Grid is a trademark of AG Grid Ltd. This is an independent comparison and is not affiliated with, endorsed by, or sponsored by any of the listed projects. We encourage you to verify current feature availability on each project's site.*
 
 ## Quick Summary
 
@@ -128,19 +138,22 @@ One component, same API, everywhere.
 - **Plugin validation** — Dependencies checked at runtime with actionable guidance
 - **Type-safe configuration** — Full TypeScript support with IntelliSense
 
-## When to Choose AG Grid Instead
+## When another grid is the better choice
 
-Be fair—AG Grid is excellent software. Consider AG Grid if you need:
+Be fair — each of the compared grids is excellent in its own niche. Pick another grid if you need:
 
 - **Integrated charting** — AG Grid Enterprise includes deep AG Charts integration with chart-from-grid workflows
 - **Built-in sparklines** — Pre-built mini-chart cell renderers (Toolbox supports this via custom renderers)
-- **Excel-like formulas** — Spreadsheet-style cell formulas like `=SUM(A1:A10)`
-- **Dedicated support** — Paid support contracts with SLAs and guaranteed response times
-- **Long-term commercial backing** — VC-funded company with enterprise support infrastructure
+- **Excel-like formulas** — Spreadsheet-style cell formulas like `=SUM(A1:A10)` (AG Grid Enterprise)
+- **Dedicated support** — Paid support contracts with SLAs and guaranteed response times (AG Grid Enterprise)
+- **A jQuery-native stack** — SlickGrid (6pac fork) is still a great fit if your app already lives in that world and you want minimum surface area
+- **Long-term commercial backing** — VC-funded company with enterprise support infrastructure (AG Grid)
 
-## Migration from AG Grid
+## Migrating to Toolbox Grid
 
-Many AG Grid concepts map directly to Toolbox Grid:
+Most concepts in the other grids map cleanly to Toolbox Grid. Pick the section for your current grid below.
+
+### From AG Grid
 
 | AG Grid | Toolbox Grid |
 |---------|-------------|
@@ -153,8 +166,6 @@ Many AG Grid concepts map directly to Toolbox Grid:
 | `serverSideRowModel` | `ServerSidePlugin` |
 | `rowGrouping` | `GroupingRowsPlugin` |
 | `masterDetail` | `MasterDetailPlugin` |
-
-### Code Examples
 
 Side-by-side AG Grid → Toolbox Grid for the same minimal setup: data, columns, and row selection.
 
@@ -296,6 +307,120 @@ export class MyGridComponent {}
 
   </TabItem>
 </Tabs>
+
+### From Tabulator
+
+| Tabulator | Toolbox Grid |
+|-----------|--------------|
+| `new Tabulator(el, options)` | `<tbw-grid>` element + `grid.gridConfig = { ... }` |
+| `columns: [{ field, title, ... }]` | `columns: [{ field, header, ... }]` (rename `title` → `header`) |
+| `data` option / `setData(rows)` | `grid.rows = rows` |
+| `index: 'id'` | `getRowId: (row) => String(row.id)` |
+| `layout: 'fitColumns'` / `'fitDataFill'` | `fitMode: 'auto'` / `'fixed'` |
+| `setSort([{ column, dir }])` | `grid.sort(field, 'asc' \| 'desc')` |
+| `setFilter(field, type, value)` | `FilteringPlugin` + `filterPlugin.setFilterModel([...])` |
+| `cellEdited` callback | `cell-commit` event |
+| `rowSelected` callback | `selection-change` event |
+| `dataTree: true` | `TreeDataPlugin` |
+| `pagination: 'local'` | `PaginationPlugin` |
+
+```html
+<!-- Tabulator -->
+<div id="myGrid" style="height: 400px;"></div>
+
+<script type="module">
+  import { Tabulator } from 'tabulator-tables';
+
+  new Tabulator('#myGrid', {
+    data: rows,
+    columns: [
+      { title: 'Name', field: 'name', headerSort: true },
+      { title: 'Email', field: 'email' },
+    ],
+    selectableRows: true,
+  });
+</script>
+```
+
+```html
+<!-- Toolbox Grid -->
+<tbw-grid style="height: 400px;"></tbw-grid>
+
+<script type="module">
+  import '@toolbox-web/grid';
+  import '@toolbox-web/grid/features/selection';
+  import { queryGrid } from '@toolbox-web/grid';
+
+  const grid = queryGrid('tbw-grid');
+  grid.gridConfig = {
+    columns: [
+      { field: 'name', header: 'Name', sortable: true },
+      { field: 'email', header: 'Email' },
+    ],
+    features: { selection: 'row' },
+  };
+  grid.rows = rows;
+</script>
+```
+
+### From SlickGrid
+
+SlickGrid's API is lower-level than the others — most behavior is composed from `Slick.Grid` + `Slick.Data.DataView` + plugin instances. Toolbox Grid bundles the equivalents into config and built-in plugins.
+
+| SlickGrid | Toolbox Grid |
+|-----------|--------------|
+| `new Slick.Grid(el, dataView, columns, options)` | `<tbw-grid>` + `grid.gridConfig = { columns, ... }` |
+| `Slick.Data.DataView` | Built into the grid; pass plain arrays to `grid.rows` |
+| `columns: [{ id, name, field }]` | `columns: [{ field, header }]` (drop separate `id`; `field` is the key) |
+| `dataView.setItems(rows, 'id')` | `grid.rows = rows` + `getRowId: (row) => String(row.id)` |
+| `dataView.sort(comparer, asc)` | `grid.sort(field, 'asc' \| 'desc')` |
+| `dataView.setFilter(fn)` | `FilteringPlugin` (declarative filter model) |
+| `Slick.Plugins.RowSelectionModel` | `features: { selection: 'row' }` |
+| `Slick.CheckboxSelectColumn` | `features: { selection: 'checkbox' }` |
+| `Slick.CellRangeSelector` + `CellSelectionModel` | `RangeSelectionPlugin` |
+| `onCellChange` | `cell-commit` event |
+| `onSelectedRowsChanged` | `selection-change` event |
+| Manual jQuery resize handler | Built-in column resize feature |
+
+```html
+<!-- SlickGrid -->
+<div id="myGrid" style="height: 400px;"></div>
+
+<script type="module">
+  // SlickGrid 6pac fork v2.4.x — global Slick namespace
+  const dataView = new Slick.Data.DataView();
+  dataView.setItems(rows, 'id');
+
+  const grid = new Slick.Grid('#myGrid', dataView, [
+    { id: 'name', name: 'Name', field: 'name', sortable: true },
+    { id: 'email', name: 'Email', field: 'email' },
+  ], { enableCellNavigation: true });
+
+  grid.setSelectionModel(new Slick.RowSelectionModel());
+</script>
+```
+
+```html
+<!-- Toolbox Grid -->
+<tbw-grid style="height: 400px;"></tbw-grid>
+
+<script type="module">
+  import '@toolbox-web/grid';
+  import '@toolbox-web/grid/features/selection';
+  import { queryGrid } from '@toolbox-web/grid';
+
+  const grid = queryGrid('tbw-grid');
+  grid.gridConfig = {
+    columns: [
+      { field: 'name', header: 'Name', sortable: true },
+      { field: 'email', header: 'Email' },
+    ],
+    getRowId: (row) => String(row.id),
+    features: { selection: 'row' },
+  };
+  grid.rows = rows;
+</script>
+```
 
 ## Get Started
 

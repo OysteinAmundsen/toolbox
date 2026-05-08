@@ -49,14 +49,18 @@ export function resolveCellValue<TRow>(row: TRow, column: ColumnConfig<TRow>, ro
   if (typeof row !== 'object' || row === null) {
     return column.valueAccessor({ row, column, rowIndex });
   }
+  // After the guard above, `row` is provably a non-null object. Single
+  // assertion (no `as unknown as`) bridges the generic `TRow` to the WeakMap
+  // key type; see `.github/instructions/typescript-conventions.instructions.md`.
+  const rowKey = row as object;
   const key = column.field;
-  let cellMap = accessorCache.get(row as unknown as object);
+  let cellMap = accessorCache.get(rowKey);
   if (cellMap) {
     const box = cellMap.get(key);
     if (box !== undefined) return box.v;
   } else {
     cellMap = new Map();
-    accessorCache.set(row as unknown as object, cellMap);
+    accessorCache.set(rowKey, cellMap);
   }
   const value = column.valueAccessor({ row, column, rowIndex });
   cellMap.set(key, { v: value });

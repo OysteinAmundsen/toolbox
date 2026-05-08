@@ -329,17 +329,19 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      # Restore the most recent baseline from main (or next) for comparison.
-      # Restore-key prefix matches the latest cache regardless of SHA.
-      # On a push to main/next we save a fresh SHA-pinned key in the final step.
+      # Restore the most recent baseline for the PR target branch (or the
+      # branch we just pushed to). `github.base_ref` is set on pull_request
+      # events to the target branch (main/next); on push it is empty so we
+      # fall back to `github.ref_name` (which is `main` or `next`). This
+      # keeps `main` and `next` baselines in separate cache namespaces.
       - name: Restore bench baseline
         id: bench-cache
         uses: actions/cache/restore@v4
         with:
           path: tmp/bench-baseline.json
-          key: bench-baseline-${{ runner.os }}-main-${{ github.sha }}
+          key: bench-baseline-${{ runner.os }}-${{ github.base_ref || github.ref_name }}-${{ github.sha }}
           restore-keys: |
-            bench-baseline-${{ runner.os }}-main-
+            bench-baseline-${{ runner.os }}-${{ github.base_ref || github.ref_name }}-
 
       - name: Run benchmarks
         run: |
@@ -385,7 +387,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: tmp/bench-baseline.json
-          key: bench-baseline-${{ runner.os }}-main-${{ github.sha }}
+          key: bench-baseline-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
 
   # ============================================
   # RELEASE PLEASE

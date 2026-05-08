@@ -79,7 +79,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--summary') out.summary = argv[++i];
     else if (a === '--fail-on-regression') out.failOnRegression = true;
   }
-  if (!out.current) {
+  if (out.current.length === 0) {
     console.error('Missing required --current <path>');
     process.exit(2);
   }
@@ -146,25 +146,39 @@ interface ComparisonRow {
 /**
  * Confidence-interval test for hz (ops/sec, higher is better).
  *
- * `hz = 1 / mean`. We have moe (margin of error) on `mean`. Convert to bounds
- * on `hz` and check whether the upper bound of `current.hz` is below the
- * lower bound of `baseline.hz` (statistically slower) AND the relative
- * slowdown exceeds `threshold` (large enough to care about).
+ * Vitest's bench JSON reports `mean` in **milliseconds** and `hz` in
+ * **ops/sec** — they are NOT exact reciprocals (`hz ≈ 1000 / mean`). Since
+ * we compare bounds derived consistently from the same units (both
+ * `1 / mean` here, expressed in ops/ms), the 1000× factor cancels in
+ * relative comparisons — but if you ever convert to absolute hz, multiply
+ * by 1000.
+ *
+ * We have moe (margin of error) on `mean`. Convert to bounds on `hz` and
+ * test (a) statistical disjointness in the relevant direction AND (b)
+ * relative delta exceeds `threshold`.
  */
 function compareOne(baseline: FlatBench, current: FlatBench, threshold: number): ComparisonRow {
   const deltaPct = (current.hz - baseline.hz) / baseline.hz;
 
   // Convert mean ± moe to hz bounds. Lower mean = higher hz.
   const baselineHzLow = 1 / (baseline.mean + baseline.moe);
+  const baselineHzHigh = 1 / Math.max(baseline.mean - baseline.moe, Number.EPSILON);
+  const currentHzLow = 1 / (current.mean + current.moe);
   const currentHzHigh = 1 / Math.max(current.mean - current.moe, Number.EPSILON);
 
   // Combined relative noise — used purely for reporting; the gating decision
   // uses the CI overlap above.
   const noiseBand = baseline.rme / 100 + current.rme / 100;
 
+  // Statistical disjointness in each direction. Regression: current's upper
+  // hz bound is below baseline's lower bound. Improvement: current's lower
+  // hz bound is above baseline's upper bound. Both signs are gated
+  // independently — a single "intervals disjoint" flag would only catch one
+  // direction (the regression one) and silently misclassify improvements.
   const intervalsDisjointSlower = currentHzHigh < baselineHzLow;
+  const intervalsDisjointFaster = currentHzLow > baselineHzHigh;
   const isRegression = deltaPct < -threshold && intervalsDisjointSlower;
-  const isImprovement = deltaPct > threshold && intervalsDisjointSlower;
+  const isImprovement = deltaPct > threshold && intervalsDisjointFaster;
 
   return {
     key: current.key,

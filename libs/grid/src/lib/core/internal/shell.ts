@@ -230,7 +230,11 @@ export function renderShellHeader(
   if (hasPanels) {
     const isOpen = state.isPanelOpen;
     const toggleClass = isOpen ? 'tbw-toolbar-btn active' : 'tbw-toolbar-btn';
-    toolbarHtml += `<button class="${toggleClass}" data-panel-toggle data-icon="tool-panel" title="Settings" aria-label="Toggle settings panel" aria-pressed="${isOpen}" aria-controls="tbw-tool-panel">${toolPanelBtnContent}</button>`;
+    // type="button" is required: without it a <button> inside a <form>
+    // defaults to type="submit" and clicking the toggle would submit the
+    // surrounding form. Internal grid buttons must never trigger form
+    // submission. See issue #296.
+    toolbarHtml += `<button type="button" class="${toggleClass}" data-panel-toggle data-icon="tool-panel" title="Settings" aria-label="Toggle settings panel" aria-pressed="${isOpen}" aria-controls="tbw-tool-panel">${toolPanelBtnContent}</button>`;
   }
 
   return `
@@ -278,7 +282,7 @@ export function renderShellBody(
     const sectionClasses = `tbw-accordion-section${isExpanded ? ' expanded' : ''}${isSinglePanel ? ' single' : ''}`;
     accordionHtml += `
       <div class="${sectionClasses}" data-section="${panel.id}">
-        <button class="tbw-accordion-header" aria-expanded="${isExpanded}" aria-controls="tbw-section-${panel.id}"${isSinglePanel ? ' aria-disabled="true"' : ''}>
+        <button type="button" class="tbw-accordion-header" aria-expanded="${isExpanded}" aria-controls="tbw-section-${panel.id}"${isSinglePanel ? ' aria-disabled="true"' : ''}>
           ${iconHtml}
           <span class="tbw-accordion-title">${panel.title}</span>
           ${chevronHtml}

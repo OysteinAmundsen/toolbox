@@ -200,6 +200,7 @@ function createFieldChip(field: string, zoneType: 'rowGroups' | 'columnGroups', 
   label.textContent = fieldInfo?.header ?? field;
 
   const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
   removeBtn.className = 'tbw-pivot-chip-remove';
   removeBtn.innerHTML = '×';
   removeBtn.title = 'Remove field';
@@ -342,6 +343,7 @@ function createValueChip(valueField: PivotValueField, ctx: RenderContext): HTMLE
   );
 
   const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
   removeBtn.className = 'tbw-pivot-chip-remove';
   removeBtn.innerHTML = '×';
   removeBtn.title = 'Remove value field';

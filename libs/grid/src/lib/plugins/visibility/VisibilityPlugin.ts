@@ -408,6 +408,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
 
     // Show all button
     const showAllBtn = document.createElement('button');
+    showAllBtn.type = 'button';
     showAllBtn.className = 'tbw-visibility-show-all';
     showAllBtn.textContent = 'Show All';
     showAllBtn.addEventListener('click', () => {

@@ -239,6 +239,7 @@ export function renderNumberFilterPanel(
   buttonRow.className = 'tbw-filter-buttons';
 
   const applyBtn = document.createElement('button');
+  applyBtn.type = 'button';
   applyBtn.className = 'tbw-filter-apply-btn';
   applyBtn.textContent = 'Apply';
   applyBtn.addEventListener('click', () => {
@@ -263,6 +264,7 @@ export function renderNumberFilterPanel(
   buttonRow.appendChild(applyBtn);
 
   const clearBtn = document.createElement('button');
+  clearBtn.type = 'button';
   clearBtn.className = 'tbw-filter-clear-btn';
   clearBtn.textContent = 'Clear Filter';
   clearBtn.addEventListener('click', () => {

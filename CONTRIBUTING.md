@@ -135,6 +135,14 @@ chore: update dependencies
 - Aim for meaningful coverage, not 100%
 - Coverage thresholds are enforced per project in CI — run `bun nx test <project> --coverage` to check locally
 
+### Benchmarks
+
+- **Microbenchmarks**: Co-locate with source files (`feature.ts` → `feature.bench.ts`) using Vitest's `bench()` API.
+- Run locally with `bun nx bench grid`.
+- CI runs benchmarks on every PR and on every push to `main`/`next`. Each push to `main`/`next` caches its results as the new baseline; PRs compare against the most recent cached baseline using `tools/compare-benches.ts` (CI-overlap gated, ±25% threshold).
+- Benches present on only one side (added or removed in a PR) are reported as informational and never fail the build. Only confirmed regressions on benches that exist on both sides count.
+- The job is currently **soft-warn** (does not fail CI). When we have enough data to calibrate the noise floor, add `--fail-on-regression` to the CI step.
+
 ### Components
 
 - Use Light DOM with CSS nesting for style scoping

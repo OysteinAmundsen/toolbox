@@ -214,7 +214,7 @@ describe('multiSort', () => {
     });
 
     describe('performance', () => {
-      it('should sort 10K rows under regression budget', () => {
+      it('should sort 10K rows within a constant factor of native multi-key sort', () => {
         const largeDataset = Array.from({ length: 10000 }, (_, i) => ({
           name: `Person ${i}`,
           age: Math.floor(Math.random() * 80),
@@ -226,27 +226,53 @@ describe('multiSort', () => {
           { field: 'name', direction: 'asc' },
         ];
 
-        // Warm up JIT so the first run's compilation cost doesn't pollute the sample.
-        applySorts(largeDataset, sorts, testColumns);
+        // Baseline: a hand-written native multi-key sort doing the same logical
+        // work (sort by age asc, then name asc). This is the theoretical floor
+        // for what `applySorts` can possibly cost — it has no column lookups,
+        // no null-coalescing, no direction multiplier, no Schwartzian setup.
+        const nativeSort = (data: typeof largeDataset) =>
+          [...data].sort((a, b) => {
+            if (a.age !== b.age) return a.age - b.age;
+            return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+          });
 
-        // Take the minimum of N samples — a single wall-clock sample on a shared
-        // dev/CI machine is dominated by noise (GC pauses, background processes,
-        // OS scheduling). The minimum represents the actual hot-path performance;
-        // noise can only ever inflate a sample, never deflate it.
-        let best = Infinity;
-        for (let i = 0; i < 5; i++) {
-          const start = performance.now();
+        // Warm up JIT for both sides so compilation cost doesn't pollute samples.
+        applySorts(largeDataset, sorts, testColumns);
+        nativeSort(largeDataset);
+
+        // Best-of-N sampling — noise can only inflate a sample, never deflate it,
+        // so the minimum is the closest estimate of true hot-path cost. Sampling
+        // both sides in the same loop keeps GC / scheduling pressure symmetrical.
+        const SAMPLES = 5;
+        let bestApply = Infinity;
+        let bestNative = Infinity;
+        for (let i = 0; i < SAMPLES; i++) {
+          const t0 = performance.now();
           applySorts(largeDataset, sorts, testColumns);
-          const duration = performance.now() - start;
-          if (duration < best) best = duration;
+          const t1 = performance.now();
+          nativeSort(largeDataset);
+          const t2 = performance.now();
+          if (t1 - t0 < bestApply) bestApply = t1 - t0;
+          if (t2 - t1 < bestNative) bestNative = t2 - t1;
         }
 
-        // Regression budget — locally this runs in ~10-15 ms; hosted CI runners
-        // (GitHub Actions ubuntu-24.04, shared with other jobs) have been
-        // observed up to ~54 ms even with best-of-N sampling. 60 ms keeps the
-        // regression signal tight (any real algorithmic regression pushes this
-        // into hundreds of ms) while absorbing the worst observed jitter.
-        expect(best).toBeLessThan(60);
+        // Relative budget: `applySorts` must stay within a constant factor of
+        // native multi-key sort. This ratio is machine-independent — both
+        // implementations move together with CPU speed, GC pressure, and runner
+        // load — so the test is meaningful on a fast laptop AND a shared CI
+        // runner without budget tuning.
+        //
+        // Observed ratio is ~1.5–3x (Schwartzian key cache + per-comparator
+        // dispatch + null-safe compare vs. native's inlined `<`/`-`). 6x leaves
+        // comfortable headroom for jitter on the smaller absolute timings while
+        // still tripping on real algorithmic regressions: dropping the key
+        // cache would push this to ~10–20x; reintroducing `columns.find()`
+        // inside the comparator would push it to ~50x+.
+        const ratio = bestApply / bestNative;
+        expect(
+          ratio,
+          `applySorts=${bestApply.toFixed(2)}ms, native=${bestNative.toFixed(2)}ms, ratio=${ratio.toFixed(2)}x`,
+        ).toBeLessThan(6);
       });
     });
   });

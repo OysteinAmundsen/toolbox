@@ -104,10 +104,26 @@ related: [grid-core]
 
 ## ci-pipeline (.github/workflows/ci.yml)
 
-- FLOW: setup (detect release merge) → validation (lint + test + build, parallel) → e2e (build all → start 4 demo servers with USE_DIST=true → Playwright) → release-please → build-docs → deploy-pages
+- FLOW: setup (detect release merge) → validation (lint + test + build + bench, parallel) → e2e (build all → start 4 demo servers with USE_DIST=true → Playwright) → release-please → build-docs → deploy-pages
 - INVARIANT: e2e runs against dist/ (validates release packaging)
 - INVARIANT: release-please merge commits skip validation (already passed on feature branch)
 - INVARIANT: docs deploy only triggers on grid release
+- INVARIANT: `bench` job is parallel to `test`/`build`/`e2e` and gated only on `setup`. **NOT** in `release-please.needs` — bench is informational and must never block a release merge.
+
+## bench-regression (tools/compare-benches.ts + CI bench job)
+
+- OWNS: per-PR perf-regression detection by comparing Vitest `bench()` output (`hz`, `mean`, `moe`, `rme`) against a cached baseline from the most recent `main`/`next` push.
+- STORAGE: `actions/cache` keyed `bench-baseline-${{ runner.os }}-main-<sha>` with restore-key prefix `bench-baseline-${{ runner.os }}-main-`. **No commits, no artifacts-as-baseline, no Nx Cloud dependency.** Path saved/restored is `tmp/bench-baseline.json`; on main/next push the job copies `tmp/bench-current.json` → baseline path before saving so the next restore lands at the path the comparison expects.
+- INVARIANT: comparison is CI-overlap gated AND threshold-gated (default ±25%). A bench is flagged as regression only if `current.hz < baseline.hz * (1 - threshold)` AND `current.mean ± moe` does NOT overlap `baseline.mean ± moe`. Both conditions must hold — filters runner noise without hiding real algorithmic regressions.
+- INVARIANT: benches present on only one side (added or removed in a PR) are reported as `🆕 new` / `🗑️ removed` and NEVER cause a non-zero exit. Cold-start, cache-expiry, and bench file additions/removals must not break the build.
+- INVARIANT: missing baseline file → exit 0 with informational message. The very first run after enabling this job has no baseline.
+- INVARIANT: Vitest bench JSON has `mean` in milliseconds and `hz` in ops/sec; they are NOT reciprocals (`hz ≈ 1000 / mean`). When fabricating test fixtures, change both consistently or the CI-overlap check disagrees with the hz delta.
+- DECIDED (May 2026): soft-warn mode — script computes regressions but CI step omits `--fail-on-regression`. Flip to hard-fail once we have a few weeks of data to calibrate the GitHub-runner noise floor (~10-15% jitter on shared `ubuntu-latest`).
+- DECIDED: `actions/cache` chosen over GitHub artifacts (per-branch lookup awkward) and Nx Cloud (adds dependency for a feature GitHub-native primitives cover).
+- DECIDED: pinned to `ubuntu-latest` — same runner class as `test`/`build` so baseline and PR are measured on consistent hardware.
+- DECIDED: bench JSON always uploaded as workflow artifact (`bench-results`, 30 day retention) for manual inspection regardless of pass/fail.
+- FLOW (PR): restore latest `main` baseline → `bunx vitest bench --outputJson` → `bun tools/compare-benches.ts --current ... --baseline ... --threshold 0.25 --summary "$GITHUB_STEP_SUMMARY"`.
+- FLOW (push to main/next, non-release-merge): same as PR + cp current→baseline + `actions/cache/save@v4` under SHA-pinned key.
 
 ## nx-config (nx.json)
 

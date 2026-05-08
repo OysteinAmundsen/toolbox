@@ -14,6 +14,24 @@ Apply rules in this order when they conflict. Higher-priority rules override low
 | 2        | No `enum` — use `const` objects (bundle size)        | "No `enum` — Use `const` Objects"       |
 | 3        | Naming & visibility prefixes (API surface clarity)   | "Naming & Visibility"                   |
 | 4        | Region markers in files >200 lines (code navigation) | "Code Organization with Region Markers" |
+| 5        | `@since` tags reflect the next release version       | "`@since` Tag Versioning"               |
+
+## `@since` Tag Versioning
+
+Whenever you add a new public type, interface, method, property, exported constant, or event detail, add a `@since` JSDoc tag with the **next release version** of the affected library — never copy a `@since` value from a neighboring symbol.
+
+**Determining the next version:**
+
+1. Read the affected library's `package.json` `version` field (e.g. `libs/grid/package.json`, `libs/grid-react/package.json`). This is the **last released** version.
+2. The next version depends on the change type and release-please's Conventional Commits mapping (see `release-please-config.json`):
+   - `feat:` → next **minor** (e.g. `2.7.3` → `2.8.0`)
+   - `fix:`, `perf:`, `refactor:` → next **patch** (e.g. `2.7.3` → `2.7.4`)
+   - `feat!:` / `BREAKING CHANGE` → next **major** (e.g. `2.7.3` → `3.0.0`)
+3. Use the resolved version (`@since 2.8.0`, not `@since 0.1.1`).
+
+**Why this matters:** TypeDoc and the docs site surface `@since` directly in the API reference. Wrong values mislead users about when an API was added and which versions support it. Many existing `@since 0.1.1` tags in the codebase are inherited via copy-paste and are known to be wrong; do not propagate the mistake to new symbols.
+
+When unsure between a feat and a fix bump, ask the user before guessing.
 
 ## No `as unknown as` Casts
 

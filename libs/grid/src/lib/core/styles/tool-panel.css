@@ -37,6 +37,51 @@
       }
     }
 
+    /* ========== Push mode ========== */
+
+    /* In push mode the panel becomes a flex sibling of the grid content
+       instead of overlaying it. Opening the panel shrinks the grid's
+       available width; the grid's ResizeObserver re-runs column
+       virtualization, so cells that would be hidden by an overlay panel
+       remain reachable.
+
+       The overlay shadow is dropped (nothing to lift off) and the resize
+       handle is suppressed: the panel's width is part of the layout, so
+       drag-to-resize would fight the flex container instead of cooperating
+       with it. */
+    .tbw-shell-body[data-mode='push'] {
+      .tbw-tool-panel {
+        position: relative;
+        top: auto;
+        bottom: auto;
+        right: auto;
+        left: auto;
+        flex-shrink: 0;
+        box-shadow: none;
+        z-index: auto;
+        /* In overlay mode the 1px side border is harmless because the panel
+           floats above the grid. In push mode the panel is a flex sibling,
+           so a non-zero border on a width:0 panel still reserves 1px of
+           horizontal space and shows as a stray divider. Drop the border
+           by default and only re-apply it on the open state. */
+        border-left: none;
+        border-right: none;
+
+        &.open {
+          border-left: 1px solid var(--tbw-tool-panel-border);
+        }
+
+        &[data-position='left'].open {
+          border-left: none;
+          border-right: 1px solid var(--tbw-tool-panel-border);
+        }
+      }
+
+      .tbw-tool-panel-resize {
+        display: none;
+      }
+    }
+
     .tbw-tool-panel-resize {
       position: absolute;
       top: 0;

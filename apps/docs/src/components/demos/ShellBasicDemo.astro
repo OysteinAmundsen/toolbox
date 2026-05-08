@@ -13,6 +13,7 @@ import DemoControls from '@components/DemoControls.astro';
     { section: 'PLUGINS', name: 'showVisibilityPlugin', label: 'Visibility plugin', type: 'boolean', default: true, description: 'Include VisibilityPlugin (column chooser)' },
     { section: 'PANELS', name: 'showCustomPanel', label: 'Custom tool panel', type: 'boolean', default: false, description: 'Show custom tool panel via API' },
     { section: 'PANELS', name: 'panelPosition', label: 'Panel position', type: 'radio', options: ['left', 'right'], default: 'right', description: 'Tool panel position' },
+    { section: 'PANELS', name: 'panelMode', label: 'Panel mode', type: 'radio', options: ['overlay', 'push'], default: 'overlay', description: 'Overlay floats over the grid; push reflows the grid' },
   ]} />
   <tbw-grid id="demo-shell-basic" style="height: 420px;"></tbw-grid>
 </div>
@@ -55,13 +56,17 @@ import '@toolbox-web/grid/features/visibility';
       showVisibilityPlugin: boolean;
       showCustomPanel: boolean;
       panelPosition: string;
+      panelMode: string;
     }
 
 
     function rebuild(v: ShellValues) {
       const shellConfig: ShellConfig = {
         header: v.showTitle ? { title: 'Employee Data' } : {},
-        toolPanel: { position: v.panelPosition as 'left' | 'right' },
+        toolPanel: {
+          position: v.panelPosition as 'left' | 'right',
+          mode: v.panelMode as 'overlay' | 'push',
+        },
       };
       grid.gridConfig = {
         shell: shellConfig,
@@ -132,6 +137,7 @@ import '@toolbox-web/grid/features/visibility';
       showVisibilityPlugin: true,
       showCustomPanel: false,
       panelPosition: 'right',
+      panelMode: 'overlay',
     });
 
     container.addEventListener('control-change', ((e: CustomEvent) => {

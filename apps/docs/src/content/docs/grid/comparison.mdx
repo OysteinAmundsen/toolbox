@@ -86,19 +86,20 @@ Looking for a **free alternative to AG Grid**? `@toolbox-web/grid` is a high-per
 - **Zero dependencies** — Nothing to conflict or update
 - **DOM recycling** — Minimal garbage collection pressure
 
-Don't take our word for it — run the live benchmark below. It iterates through increasing data sizes (1K → 1M rows), testing both grids sequentially in your browser with identical data and configuration.
+Don't take our word for it — run the live benchmark below. Pick a competitor (AG Grid Community or Tabulator) from the dropdown, then click **Run Comparison**. It iterates through increasing data sizes (5K → 1M rows), testing Toolbox Grid and the chosen competitor sequentially in your browser with equivalent data and configuration. Results are cached per competitor for the lifetime of the page, so you can switch back without re-running.
 
 <PerformanceComparisonDemo />
 
 <details>
 <summary>How this benchmark works</summary>
 
-1. At each scale point, Toolbox Grid benchmarks run first, then the grid is destroyed
-2. A cooldown period allows garbage collection
-3. AG Grid Community (loaded from CDN, always latest version) runs the same tests on the same data
-4. Results build up progressively, showing the scaling curve
+1. The selected competitor (and its CSS theme) is loaded once from a CDN — always the latest published version
+2. At each scale point, Toolbox Grid benchmarks run first, then the grid is destroyed
+3. A cooldown period allows garbage collection
+4. The competitor runs the same tests on the same data
+5. Results build up progressively, showing the scaling curve. Switching the dropdown shows cached results instantly; you only re-run when you click the button again.
 
-Expand **Show Grid Configurations** in the benchmark to verify both grids use equivalent settings.
+Expand **Show Grid Configurations** in the benchmark to verify both grids use equivalent settings. Each competitor has its own adapter under `apps/docs/src/components/demos/competitors/` so the benchmark sequence is identical and only the per-grid API calls differ.
 
 </details>
 

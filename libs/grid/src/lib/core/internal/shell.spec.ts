@@ -149,9 +149,13 @@ describe('shell module', () => {
       expect(html).toContain('data-panel-toggle');
       expect(html).toContain('data-icon="tool-panel"');
       expect(html).toContain('title="Settings"');
-      // Regression: issue #296 — panel toggle MUST have type="button" so it
-      // doesn't default to type="submit" inside a <form>.
-      expect(html).toContain('type="button"');
+      // Regression: issue #296 — the data-panel-toggle button specifically
+      // MUST have type="button" so it doesn't default to type="submit"
+      // inside a <form>. Match the button tag directly so this can't be
+      // satisfied by a `type="button"` appearing elsewhere in the header.
+      const toggleMatch = html.match(/<button\b[^>]*\bdata-panel-toggle\b[^>]*>/);
+      expect(toggleMatch, 'expected a <button data-panel-toggle ...> in the header HTML').not.toBeNull();
+      expect(toggleMatch![0]).toContain('type="button"');
     });
 
     it('marks panel toggle button as active when panel is open', () => {

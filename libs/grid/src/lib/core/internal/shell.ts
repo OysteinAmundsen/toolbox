@@ -282,7 +282,7 @@ export function renderShellBody(
     const sectionClasses = `tbw-accordion-section${isExpanded ? ' expanded' : ''}${isSinglePanel ? ' single' : ''}`;
     accordionHtml += `
       <div class="${sectionClasses}" data-section="${panel.id}">
-        <button class="tbw-accordion-header" aria-expanded="${isExpanded}" aria-controls="tbw-section-${panel.id}"${isSinglePanel ? ' aria-disabled="true"' : ''}>
+        <button type="button" class="tbw-accordion-header" aria-expanded="${isExpanded}" aria-controls="tbw-section-${panel.id}"${isSinglePanel ? ' aria-disabled="true"' : ''}>
           ${iconHtml}
           <span class="tbw-accordion-title">${panel.title}</span>
           ${chevronHtml}

@@ -1,7 +1,7 @@
 ---
 name: docs-update
 description: Keep documentation up-to-date after code changes. Covers which docs to check, how to write them, and how to regenerate API docs. Use after any feature, fix, or refactor.
-argument-hint: [what-changed]
+argument-hint: optional what-changed description
 ---
 
 # Documentation Update Guide
@@ -10,17 +10,41 @@ After any code change, use this checklist to identify which documentation needs 
 
 ## Quick Decision Matrix
 
-| What Changed               | Update These Docs                                                          |
-| -------------------------- | -------------------------------------------------------------------------- |
-| New plugin                 | Plugin README, plugin `.mdx`, `llms.txt`, `llms-full.txt`, `Plugins.mdx`   |
-| New public API             | `API.mdx`, `llms.txt`, `llms-full.txt`, regenerate TypeDoc                 |
-| New CSS variable           | `Theming.mdx`, `llms-full.txt`, `grid.css` registry comment                |
-| New event                  | `API.mdx`, `events.mdx`, `llms-full.txt`, plugin `.mdx` if plugin-specific |
-| Plugin config change       | Plugin `.mdx`, plugin README, `llms-full.txt`                              |
-| Breaking change            | CHANGELOG (migration guide), `llms.txt`, `llms-full.txt`                   |
-| New adapter feature        | Adapter README, adapter MDX docs, `llms-full.txt`                          |
-| Workflow/convention change | `.github/copilot-instructions.md`, `AGENTS.md`                             |
-| New skill or tooling       | `.github/skills/`, `AGENTS.md` if Nx-related                               |
+The matrix is grouped by change category. If your change spans multiple categories, apply each matching row — there is no precedence ordering between groups (you update **all** matching surfaces).
+
+### Code / API changes
+
+| What Changed    | Update These Docs                                                          |
+| --------------- | -------------------------------------------------------------------------- |
+| New public API  | `API.mdx`, `llms.txt`, `llms-full.txt`, regenerate TypeDoc                 |
+| New event       | `API.mdx`, `events.mdx`, `llms-full.txt`, plugin `.mdx` if plugin-specific |
+| Breaking change | CHANGELOG (migration guide), `llms.txt`, `llms-full.txt`                   |
+
+### Plugin changes
+
+| What Changed         | Update These Docs                                                        |
+| -------------------- | ------------------------------------------------------------------------ |
+| New plugin           | Plugin README, plugin `.mdx`, `llms.txt`, `llms-full.txt`, `Plugins.mdx` |
+| Plugin config change | Plugin `.mdx`, plugin README, `llms-full.txt`                            |
+
+### Adapter changes
+
+| What Changed        | Update These Docs                                 |
+| ------------------- | ------------------------------------------------- |
+| New adapter feature | Adapter README, adapter MDX docs, `llms-full.txt` |
+
+### Theming / styling changes
+
+| What Changed     | Update These Docs                                           |
+| ---------------- | ----------------------------------------------------------- |
+| New CSS variable | `Theming.mdx`, `llms-full.txt`, `grid.css` registry comment |
+
+### Workspace / tooling changes
+
+| What Changed               | Update These Docs                              |
+| -------------------------- | ---------------------------------------------- |
+| Workflow/convention change | `.github/copilot-instructions.md`, `AGENTS.md` |
+| New skill or tooling       | `.github/skills/`, `AGENTS.md` if Nx-related   |
 
 ## Documentation Inventory
 
@@ -54,12 +78,14 @@ After any code change, use this checklist to identify which documentation needs 
 
 ### Multi-Path Features
 
-When a feature has multiple configuration paths (e.g., CSS vs JS, declarative vs programmatic), **every documentation surface that covers the feature must:**
+When a feature has multiple configuration paths (e.g., CSS vs JS, declarative vs programmatic), apply this checklist to **every documentation file that already covers, references, or links to that feature** (i.e. the feature's plugin/core MDX page, its README, the relevant section of `llms-full.txt`, and any adapter MDX page that mentions it). You do **not** need to touch unrelated documentation files.
 
-1. **State that both paths exist** — even if it only covers one in detail
-2. **Explain when to use which** — include a comparison table with trade-offs
-3. **Cross-reference** — link to the other doc surface that covers the other path in detail
-4. **Identify the recommended default** — guide developers toward the simpler path unless they have specific needs
+For each such file, complete all four steps in order:
+
+1. [ ] **State that both paths exist** — even if the file only covers one in detail.
+2. [ ] **Explain when to use which** — include a comparison table with trade-offs.
+3. [ ] **Cross-reference** — link to the other doc surface that covers the other path in detail.
+4. [ ] **Identify the recommended default** — guide developers toward the simpler path unless they have specific needs.
 
 Apply this to: icons (CSS vars vs `gridConfig.icons`), column config (declarative `<tbw-grid-column>` vs JS `columns`), features (declarative `features` vs manual `plugins`), styling (CSS custom properties vs `registerStyles()` vs `cellClass`/`rowClass`), etc.
 

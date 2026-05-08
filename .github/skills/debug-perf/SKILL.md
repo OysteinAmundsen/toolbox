@@ -229,14 +229,18 @@ The grid has known hot paths that must be kept fast:
 ### Render Scheduler
 
 - Location: `libs/grid/src/lib/core/internal/render-scheduler.ts`
-- All rendering goes through a **single RenderScheduler** — single RAF per frame
-- Rules:
-  - Single RAF per frame (batched)
-  - Highest phase wins (merges multiple requests)
-  - Use `this.#scheduler.requestPhase(RenderPhase.X, 'source')` to request renders
-  - Never call `requestAnimationFrame` directly for rendering (exception: scroll hot path)
+- All rendering goes through a **single RenderScheduler** — single RAF per frame.
 
-**Render Phases (deterministic execution order):**
+#### Rules at a glance
+
+| Rule                                                      | Why it matters                                                                                | Example                                                                       |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Single RAF per frame (batched)                            | Prevents multiple layout/paint passes per frame.                                              | Scheduler coalesces all requests into one RAF callback.                       |
+| Highest phase wins                                        | A `FULL` request supersedes a `STYLE` request in the same frame, so work is never duplicated. | If `STYLE` and `ROWS` are requested, the scheduler runs from `ROWS` downward. |
+| Always go through the scheduler                           | Guarantees deterministic phase order and merging.                                             | `this.#scheduler.requestPhase(RenderPhase.ROWS, 'source')`.                   |
+| Never call `requestAnimationFrame` directly for rendering | Bypasses batching and breaks phase ordering.                                                  | Exception: the scroll hot path, which is documented in `render-scheduler.ts`. |
+
+#### Render phases (deterministic execution order)
 
 | Phase            | Value | Work Performed                            |
 | ---------------- | ----- | ----------------------------------------- |
@@ -247,7 +251,9 @@ The grid has known hot paths that must be kept fast:
 | `COLUMNS`        | 5     | Process columns, update CSS template      |
 | `FULL`           | 6     | Merge effective config + all lower phases |
 
-**Pipeline order**: `mergeConfig → processRows → processColumns → renderHeader → virtualWindow → afterRender`
+#### Pipeline order
+
+`mergeConfig → processRows → processColumns → renderHeader → virtualWindow → afterRender`
 
 ## Step 4: Common Fixes
 

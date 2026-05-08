@@ -21,6 +21,13 @@ related: [grid-plugins, grid-features, data-flow-traces]
 - TENSION: original is frozen but columns inside are mutable (needed for runtime state like hidden, width, sort)
 - INVARIANT: `setGridConfig(config)` short-circuits when `config === #gridConfig` (Apr 2026). WHY: framework adapters can re-assign the same memoized config reference on re-render (notably React's inline ref callback before it was gated — see `adapters.md` react-adapter). Without short-circuit, `sourcesChanged` flipped `true`, next `merge()` rebuilt `effectiveConfig.columns` from `gridConfig.columns`, discarding runtime mutations (`hidden`, `width`, sort indicators) written by `setColumnVisible()`/`applyColumnState()`. The grid setter's `oldValue !== value` guard only stops `#queueUpdate('gridConfig')` — does NOT prevent `setGridConfig` being called. Tests: `config-manager.spec.ts > should preserve runtime column.hidden mutations when the same gridConfig reference is set again`.
 
+## column-groups (computeColumnGroups in `core/internal/columns.ts`)
+
+- OWNS: per-render computation of header group structure from `column.group` strings
+- INVARIANT: groups are **fragmented, not merged** — one entry per contiguous run of same-group columns. A group whose columns are split across the grid (e.g. by Visibility/PinnedColumns reordering) produces multiple fragments. WHY: lets each fragment carry its own pin / sticky / border state without the renderer having to split a single group cell mid-render.
+- INVARIANT: when a renderer needs the merged view (e.g. for a single header label spanning the visual width), call `mergeAdjacentSameIdGroups()` once — do NOT call `findEmbeddedImplicitGroups()` + `mergeAdjacentSameIdGroups()` separately in each function (allocates twice). Pre-compute via `mergeGroups()` per render.
+- TENSION (pinned + implicit groups): `splitMixedPinImplicitGroup()` replaces a single group header cell with separate fragments at pin boundaries when an implicit (unlabelled) group straddles a pin. The pinned fragment gets `sticky` positioning; the non-pinned utility-only remnant has its `border-right` suppressed so it visually merges with the adjacent explicit group.
+
 ## render-scheduler
 
 - OWNS: single RAF orchestration, phase system, ready promise, initial ready resolver
@@ -106,6 +113,15 @@ related: [grid-plugins, grid-features, data-flow-traces]
       │     │  └─ .faux-vscroll-spacer [style=height]
       │     └─ .tbw-sr-only (screen reader announcements)
 ```
+
+## scroll-driven-dom-state (cross-cutting INVARIANT for plugins)
+
+- INVARIANT: any plugin that maintains scroll-driven DOM state (e.g. `translateX`, toggled classes derived from `scrollLeft`/`scrollTop`, sticky offsets) MUST apply that state from **three** call sites:
+  1. `onScroll` — fires during scroll but `afterRender` does not.
+  2. `afterRender` — fires after re-renders that rebuild the DOM (re-renders do NOT replay scroll state).
+  3. `afterCellRender` — virtualization recycles row pool elements; per-cell visual state (`position: sticky`, offsets, etc.) does not survive recycling unless re-applied per cell.
+- WHY: the three triggers are independent. A plugin that only listens on `onScroll` loses state after any re-render; one that only writes in `afterRender` loses state during scroll; one that writes only at row level loses per-cell visual state when virtualization recycles a row into a different position. Symptom: visual state is right at first paint, then disappears after sort/filter/scroll.
+- DECIDED: this is a render-cycle invariant, not a per-plugin gotcha — apply it whenever a plugin's visual contract depends on `scrollLeft` / `scrollTop` / row position.
 
 ## state-ownership-matrix
 

@@ -1,14 +1,14 @@
 ---
 name: retrospective
 description: Post-task "lessons learned" review. Evaluates what worked, what didn't, and proposes updates to instruction and skill files to continuously improve AI-assisted development workflows.
-argument-hint: [task-summary]
+argument-hint: 'optional task summary'
 ---
 
 # Retrospective — Continuous Improvement of Instructions & Skills
 
 After completing a significant task (feature, bugfix, refactor, investigation), run this retrospective to capture lessons learned and improve the knowledge base for future tasks.
 
-> **When to trigger:** After any task that involved non-trivial problem-solving, debugging, or where the agent had to course-correct. Not needed for trivial one-line fixes.
+> **When to trigger:** After any task that involved non-trivial problem-solving, debugging, or where the agent had to course-correct. Skip the retrospective only when **all** of these apply: the change touched a single file, was a single logical edit (typo, comment, formatting, or a one-line code change), required no debugging, introduced no new convention, and the agent never needed to course-correct.
 
 ## Step 1: Reflect on the Task
 
@@ -25,7 +25,21 @@ Review the conversation and task execution. Answer these questions:
 
 ## Step 2: Classify the Lesson
 
-Before routing a lesson to a file, walk through this decision tree **in order**:
+### Quick routing summary
+
+Use this table first. If the lesson clearly matches one row, skip straight to the listed substep. Use the detailed substeps (2a–2e) only when the answer is not obvious.
+
+| If the lesson is…                                                          | Route to…                                                | Substep |
+| -------------------------------------------------------------------------- | -------------------------------------------------------- | ------- |
+| An accidental sharp edge that could be fixed in code                       | A new GitHub issue (do not just document the workaround) | 2a      |
+| Tied to a specific function, type, or block                                | Inline comment or JSDoc at that location                 | 2b      |
+| About _how the system works_ (data flow, invariants, design rationale)     | `.github/knowledge/<file>.md` using structured notation  | 2c      |
+| A cross-cutting rule for a file glob (TS, CSS, tests, grid src, adapters…) | `.github/instructions/<topic>.instructions.md`           | 2d      |
+| A repeatable multi-step procedure                                          | `.github/skills/<name>/SKILL.md`                         | 2d      |
+| Project-level orientation (toolchain, structure, top-level constraints)    | `.github/copilot-instructions.md`                        | 2d      |
+| Too niche or one-off to recur                                              | Skip — do not document                                   | 2e      |
+
+Then walk through the substeps below **in order** to confirm the routing and pick the exact target file.
 
 ### 2a. Should we fix this instead of documenting it?
 
@@ -47,7 +61,17 @@ The most discoverable place for knowledge is **right where someone will be readi
 | **JSDoc**          | Public API contract, non-obvious parameter semantics, or behavior consumers must know about    | `@remarks With a single rowGroupField, isGroup is always false`     |
 | **Type-level doc** | Property or type whose name alone is misleading or ambiguous                                   | JSDoc on `PivotRow.isGroup` explaining what "group" really means    |
 
-**Rule of thumb:** If someone would need to leave the file to understand the code, the comment is missing. If the information is useful to _consumers_ (not just maintainers), make it JSDoc so it appears in generated API docs and IDE tooltips.
+**Rule of thumb by file type:**
+
+| File type                 | Belongs here when…                                                                           |
+| ------------------------- | -------------------------------------------------------------------------------------------- |
+| **Inline comment** (`//`) | Lesson is only relevant to a maintainer reading _this_ line or block.                        |
+| **JSDoc** (`/** ... */`)  | Lesson affects _consumers_ of a public API — must appear in IDE tooltips and generated docs. |
+| **Knowledge file**        | Lesson describes how the system works (mental model), not a single line.                     |
+| **Instruction file**      | Lesson is a cross-cutting rule auto-applied to a file glob.                                  |
+| **Skill file**            | Lesson is a repeatable multi-step procedure.                                                 |
+
+If someone would need to leave the file to understand the code, the comment is missing. If the information is useful to consumers (not just maintainers), make it JSDoc.
 
 ### 2c. Does this update the mental model (knowledge files)?
 

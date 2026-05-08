@@ -50,6 +50,12 @@ export function defaultComparator(a: unknown, b: unknown): number {
  * Reads each column's `sortComparator` (falling back to {@link defaultComparator})
  * and returns a sorted copy of the rows array.
  *
+ * **Contract:** This function is non-mutating — it copies the input array
+ * (`[...rows].sort()`) before sorting and returns the new array. Public callers
+ * may pass any array safely; internal callers that already own a mutable copy
+ * should bypass this function and sort in place to avoid the extra allocation.
+ * The non-mutation guarantee is part of the public API and must be preserved.
+ *
  * Use this as a fallback inside a custom `sortHandler` when you only need to
  * intercept sorting for specific columns or add pre/post-processing:
  *

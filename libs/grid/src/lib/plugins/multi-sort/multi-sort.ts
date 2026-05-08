@@ -18,6 +18,12 @@ const stringCollator = new Intl.Collator(undefined, { sensitivity: 'variant' });
  * Apply multiple sort columns to a row array.
  * Sorts are applied in order - first sort has highest priority.
  *
+ * **Non-mutating:** This function copies the input array before sorting and
+ * returns the new array. Internal callers that already own a mutable copy
+ * (e.g. inside `MultiSortPlugin.processRows`, where `plugin-manager` has already
+ * cloned the row pipeline input) should call {@link sortRowsInPlace} directly
+ * to avoid a redundant allocation in the hot path.
+ *
  * @param rows - Array of row objects to sort
  * @param sorts - Ordered array of sort configurations
  * @param columns - Column configurations (for custom comparators)

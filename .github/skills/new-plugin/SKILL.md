@@ -90,9 +90,89 @@ export type { <PluginName>Config } from './types';
 
 ## 5. Register the Plugin Entry Point
 
-Add to `libs/grid/vite.config.ts` in the `entry` map and to `libs/grid/src/all.ts`.
+Make the plugin discoverable as both an individual entry point and via the all-plugins barrel:
 
-## 6. Write Unit Tests (`<plugin-name>.spec.ts`)
+1. **`libs/grid/vite.config.ts`** — Add a new key to the `entry` map of the form `'plugins/<plugin-name>': resolve(__dirname, 'src/lib/plugins/<plugin-name>/index.ts')`. This produces a tree-shakeable subpath import (`@toolbox-web/grid/plugins/<plugin-name>`).
+2. **`libs/grid/src/all.ts`** — Add `export * from './lib/plugins/<plugin-name>';` so consumers who import from `@toolbox-web/grid/all` receive the new plugin alongside every other built-in plugin.
+
+## 6. Register the Feature Module (mandatory)
+
+A plugin is **not complete without a corresponding feature module**. Features are the high-level, declarative API surface (`gridConfig.features.<name>`) that lets consumers enable a plugin with a single config line and a side-effect import, instead of constructing the plugin class manually.
+
+### 6.1 Core feature module
+
+Create `libs/grid/src/lib/features/<plugin-name>.ts`:
+
+````typescript
+/**
+ * <PluginName> feature for @toolbox-web/grid
+ *
+ * @example
+ * ```typescript
+ * import '@toolbox-web/grid/features/<plugin-name>';
+ *
+ * grid.gridConfig = { features: { <pluginName>: true } };
+ * ```
+ */
+
+import { <PluginName>Plugin, type <PluginName>Config } from '../plugins/<plugin-name>';
+import { registerFeature } from './registry';
+
+declare module '../core/types' {
+  interface FeatureConfig<TRow> {
+    /** One-line description of what enabling this feature does. */
+    <pluginName>?: boolean | <PluginName>Config;
+  }
+}
+
+registerFeature('<pluginName>', (config) => {
+  if (config === true) return new <PluginName>Plugin();
+  return new <PluginName>Plugin(typeof config === 'object' ? config : undefined);
+});
+
+/** @internal Type anchor — forces bundlers to preserve this module's FeatureConfig augmentation when re-exported. */
+export type _Augmentation = true;
+````
+
+Then wire it up:
+
+1. **`libs/grid/vite.config.ts`** — Add `'features/<plugin-name>': resolve(__dirname, 'src/lib/features/<plugin-name>.ts')` to the `entry` map.
+2. **`libs/grid/src/lib/features/index.ts`** (if a barrel exists) — Re-export the new feature module so `@toolbox-web/grid/features` pulls it in alongside the others.
+3. **`libs/grid/src/lib/features/registry.spec.ts`** — Add a test confirming the feature factory returns a `<PluginName>Plugin` instance for both the boolean and object config shapes.
+
+### 6.2 Adapter feature modules (Angular / React / Vue)
+
+For each adapter, create a thin re-export module so consumers get the same declarative surface from the framework package:
+
+- `libs/grid-react/src/features/<plugin-name>.ts`
+- `libs/grid-vue/src/features/<plugin-name>.ts`
+- `libs/grid-angular/src/features/<plugin-name>.ts`
+
+Each file should:
+
+1. Import the core feature module for its side effect: `import '@toolbox-web/grid/features/<plugin-name>';`
+2. Optionally export a framework-idiomatic helper (React hook `use<PluginName>()`, Vue composable `use<PluginName>()`, Angular service/directive) if the plugin exposes a programmatic API worth surfacing.
+3. Be added to the adapter's `vite.config.mts` `entry` map at `'features/<plugin-name>'`, the adapter's `package.json` `exports` map (already covered by the wildcard `./features/*` entry in existing adapters), and the `features/index.ts` barrel.
+
+Use `libs/grid-react/src/features/selection.ts` (and the matching Vue / Angular files) as the reference shape.
+
+## 7. Framework Adapter Integration for DOM Template Inputs (conditional)
+
+**This step is mandatory if** the plugin accepts any kind of user-supplied DOM template, renderer function, HTML string, or element factory — e.g. a custom cell/header/filter renderer, a custom editor, a tool-panel body, a master-detail panel, a tooltip body, a context-menu item template, an empty-state template, etc. Skip this step only if the plugin is purely behavioral (no template inputs).
+
+Why this is required: vanilla `<tbw-grid>` consumers pass DOM strings or callbacks that produce raw `HTMLElement`s. Angular / React / Vue users expect to pass `TemplateRef`, JSX, or `<template #slot>` instead. Each adapter must translate the framework idiom into a plain DOM callback before forwarding to the plugin.
+
+For each adapter (`libs/grid-{angular,react,vue}/`):
+
+1. **Extend the adapter's column / config types** so the new template input accepts the framework primitive (e.g. add `<pluginName>Template?: TemplateRef<...>` to `AngularColumnConfig`, `<pluginName>Renderer?: (ctx) => ReactNode` to `ReactColumnConfig`, or a slot name to `VueColumnConfig`).
+2. **Update the adapter implementation** (`{framework}-grid-adapter.ts`) so its `createRenderer` / `createEditor` / `createToolPanelRenderer` / equivalent factory recognizes the new template input and mounts/unmounts the framework component into the DOM element the plugin hands it.
+3. **Update the wrapper component / declarative children** (`DataGrid.{tsx,vue}`, `Grid` directive, `<GridColumn>` etc.) so users can declare the template inline using framework-native syntax (JSX, `<template #slotname>`, `*tbwXxx` structural directive).
+4. **Add adapter tests** mirroring the core plugin's behavior tests but using framework components as the template input.
+5. **Update the adapter MDX docs and adapter README** with a usage example for the new template input.
+
+See the `new-adapter-feature` skill for the full per-framework pattern, including which files to touch and the canonical examples to copy.
+
+## 8. Write Unit Tests (`<plugin-name>.spec.ts`)
 
 Follow the mock grid pattern used by other plugins:
 
@@ -137,11 +217,11 @@ describe('<PluginName>Plugin', () => {
 });
 ```
 
-## 7. Create Styles (`<plugin-name>.css`)
+## 9. Create Styles (`<plugin-name>.css`)
 
 Use `.dg-` prefixed class names for grid internals, or plugin-specific class names.
 
-## 8. Add Accessibility Announcements
+## 10. Add Accessibility Announcements
 
 If the plugin changes user-visible state (sorting, filtering, selection, editing, expanding/collapsing), announce it via the aria live region:
 
@@ -158,15 +238,15 @@ announce(this.gridElement, getA11yMessage(this.gridElement, 'messageKey', ...arg
 - For high-frequency events (e.g., selection changes), debounce the announcement with `setTimeout` (~150ms)
 - Guard for `this.gridElement` being `undefined` in tests — `announce()` handles this with a null guard
 
-## 9. Create Demo Component (`<PluginName>DefaultDemo.astro`)
+## 11. Create Demo Component (`<PluginName>DefaultDemo.astro`)
 
 Create an interactive Astro demo in `apps/docs/src/components/demos/<plugin-name>/`. See the `astro-demo` skill for full templates.
 
-## 10. Create Documentation (`<plugin-name>.mdx`)
+## 12. Create Documentation (`<plugin-name>.mdx`)
 
 Create a plugin MDX page at `apps/docs/src/content/docs/grid/plugins/<plugin-name>.mdx`. Import the demo component and wrap it in `<ShowSource>`. See the `docs-update` skill for templates.
 
-## 11. Verify Documentation Build
+## 13. Verify Documentation Build
 
 Build the docs site to verify the new plugin page renders correctly:
 
@@ -179,6 +259,18 @@ Navigate to `http://localhost:4401/grid/plugins/<plugin-name>/` after running `b
 ---
 
 ## Plugin API Reference
+
+> **Use this section as a lookup, not a checklist.** The 13 numbered steps above are the actual workflow for creating a plugin. The subsections below catalogue every helper, hook, event-bus method, query-system primitive, dependency rule, manifest field, and styling convention. Jump to the subsection that matches the question you have right now (e.g. "which `emit*` method should I use?" → **Event Bus & Communication Channels**); do not try to memorize the whole reference before writing code.
+>
+> Subsection map:
+>
+> - **Built-in Plugin Helpers** \u2014 Properties and helper methods exposed by `BaseGridPlugin`.
+> - **Plugin Hooks (Class Methods)** \u2014 Lifecycle and event hooks you can override.
+> - **Event Bus & Communication Channels** \u2014 `emit` vs `emitPluginEvent` vs `broadcast` and the subscription API.
+> - **Query System (Synchronous State Retrieval)** \u2014 Declaring and handling `query` requests between plugins.
+> - **Plugin Dependencies** \u2014 Required vs optional dependencies and how to handle missing ones.
+> - **Plugin Incompatibilities** \u2014 Declaring `incompatibleWith` in the manifest.
+> - **Plugin Manifest System** \u2014 The full `manifest` schema (events, queries, options, conflicts).
 
 ### Built-in Plugin Helpers
 
@@ -295,6 +387,13 @@ static override readonly dependencies: PluginDependency[] = [
 ```
 
 Dependencies must be loaded **before** the dependent plugin in the `plugins` array.
+
+**Handling missing or failed dependencies:**
+
+- A `required: true` dependency that is absent at attach time is a **hard failure**: throw an `Error` from `attach()` (after `super.attach(grid)`) with a message naming both the dependent plugin and the missing dependency, e.g. `throw new Error('UndoRedoPlugin requires EditingPlugin to be registered before it.');`. Do not register hooks or event listeners before the throw — the plugin must abort cleanly so PluginManager can surface the error.
+- A `required: false` dependency that is absent is a **soft degradation**: skip the optional integration code path, log a single `console.warn` from `attach()` describing which capability is disabled, and continue attaching normally. Never throw for an optional dependency.
+- Use `this.getPluginByName(name)` (preferred) or `this.getPlugin(PluginClass)` to look up a dependency. Both return `undefined` when the dependency is not present — always null-check the result before calling methods on it.
+- Do **not** attempt to lazy-load or re-attach a missing dependency; PluginManager owns the lifecycle and ordering.
 
 **Built-in dependencies:**
 

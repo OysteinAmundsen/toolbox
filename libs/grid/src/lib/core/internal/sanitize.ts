@@ -66,6 +66,15 @@ const DANGEROUS_URL_PROTOCOL = /^\s*(javascript|vbscript|data|blob):/i;
  * Sanitize an HTML string by removing dangerous tags and attributes.
  * This is a defense-in-depth measure for content rendered via innerHTML.
  *
+ * **When to use:** ANY path that writes a user-supplied string to `innerHTML`
+ * MUST pass through this function — `gridConfig.icons.*` (icon strings can be
+ * SVG markup), cell renderer string returns, group-header renderer string
+ * returns, light-DOM tool panel fallback content, plugin wrappers, and any new
+ * extension point that turns a user string into markup. Using `textContent` is
+ * wrong here (it renders HTML/SVG icon strings as literal text); using raw
+ * `innerHTML` is wrong (it is an XSS sink). The canonical reference
+ * implementation is `core/internal/rows.ts` (cell renderer path) — mirror it.
+ *
  * @param html - Raw HTML string to sanitize
  * @returns Sanitized HTML string safe for innerHTML
  */

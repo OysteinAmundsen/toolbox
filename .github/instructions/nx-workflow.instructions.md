@@ -6,7 +6,12 @@ applyTo: '{libs,apps,demos,e2e}/**'
 
 ## Development Commands
 
-> **Important**: Always run tasks through **Nx**, never invoke Vitest, Vite, or ESLint directly.
+> **Important — task execution rules**:
+>
+> 1. **Always invoke tasks through Nx** (`bun nx <target> <project>` or `bun run <script>`). Nx applies the workspace's project graph, caching, and inferred target configuration; bypassing it skips those layers.
+> 2. **Never call Vitest directly** (`npx vitest`, `bunx vitest`). Vitest is configured per-project via Nx-inferred targets — direct invocation loads the wrong config and the run will fail.
+> 3. **Never call Vite directly** for builds or dev servers. The Nx target wires plugin discovery, output paths, and bundle-budget checks that a bare `vite build` skips.
+> 4. **Never call ESLint directly** (`npx eslint`). Use `bun nx lint <project>` so the flat config is resolved against the project's tsconfig and Nx's lint configuration.
 
 ```bash
 bun nx serve docs          # Start docs site (port 4401)
@@ -38,7 +43,7 @@ TypeScript paths defined in `tsconfig.base.json` for all libraries:
 "@toolbox/themes/*": ["libs/themes/*"]
 ```
 
-**Note**: Grid paths point to `dist/` for type resolution after build. Use workspace paths, not relative paths across libs.
+**Note**: Grid paths point to `dist/` for type resolution after build. Use the TypeScript path aliases defined in `tsconfig.base.json` (e.g. `@toolbox-web/grid`), not relative file paths (e.g. `../../grid/src/...`) when importing across libraries.
 
 ## Vite Build Outputs
 

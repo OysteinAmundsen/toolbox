@@ -1,12 +1,36 @@
 ---
 name: release-prep
 description: Prepare a @toolbox-web library for release. Runs the full pre-release checklist including lint, test, build, bundle size check, CHANGELOG review, and documentation updates.
-argument-hint: [library-name]
+argument-hint: optional library name
 ---
 
 # Release Preparation
 
 Run the full pre-release checklist for a @toolbox-web library.
+
+## How to Use This Checklist
+
+The checklist has 10 steps grouped into four phases. Complete each phase fully before starting the next; **do not interleave phases**. Within a phase, run the steps in order.
+
+| Phase                  | Steps | Goal                                              |
+| ---------------------- | ----- | ------------------------------------------------- |
+| **Quality gates**      | 1–3   | Lint, test, and build the workspace cleanly.      |
+| **Release validation** | 4–6   | Bundle budget, CHANGELOG, breaking-change review. |
+| **Documentation**      | 7–9   | Docs updates, docs-site build, demo smoke test.   |
+| **Commit hygiene**     | 10    | Final commit polish before merging.               |
+
+## Handling Failures During the Checklist
+
+If any command in steps 1–9 fails (lint error, failing test, type error, build break, bundle over budget, broken docs build, broken demo):
+
+1. **Stop the checklist immediately** — do not move to the next step. The release is not ready.
+2. **Diagnose the failure** by reading the actual command output. Do not retry the same command unchanged hoping for a different result.
+3. **Fix the underlying cause** in code, tests, or docs (per the standard delivery workflow). For bundle-budget failures, follow the `bundle-check` skill's investigation checklist.
+4. **Re-run only the failing command** to confirm it now passes.
+5. **Restart the checklist from step 1** so any fix that could have ripple effects (e.g. a code change that affects bundle size, or a doc change that breaks the docs build) is re-validated end-to-end.
+6. If the failure is a known intermittent or environmental issue (e.g. flaky test, transient network failure on docs build), document the cause and the rerun outcome in the release PR description rather than silently re-running.
+
+Do not proceed to the **Release Process** section until every checklist step has passed cleanly in a single uninterrupted run.
 
 ## Pre-Release Checklist
 
@@ -16,7 +40,7 @@ Run the full pre-release checklist for a @toolbox-web library.
 bun run lint
 ```
 
-Fix any lint errors before proceeding. Do not skip warnings either — address or suppress with justification.
+Fix any lint errors before proceeding. Do not skip warnings either — either fix them, or **suppress with justification**, which means add a single-line ESLint disable directive on the offending line that includes the rule name **and** a brief reason, e.g. `// eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party API returns `any``. Bare `eslint-disable`directives without a`--` reason are not acceptable.
 
 ### 2. Run All Tests
 

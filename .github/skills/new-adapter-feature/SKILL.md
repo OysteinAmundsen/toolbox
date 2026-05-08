@@ -18,16 +18,31 @@ When adding a new grid feature that needs framework adapter support (Angular, Re
 
 All adapters register a framework-specific `GridAdapter` that handles rendering cells/editors/panels using the framework's template system.
 
+## How to Use This Skill
+
+This skill covers three frameworks. To keep the work tractable, treat each framework section as an **independent sub-task** that you complete end-to-end before starting the next:
+
+1. Complete **Step 1** (core understanding) once — it is shared input for all three adapters.
+2. Then for each of Step 2 (Angular), Step 3 (React), and Step 4 (Vue), do the **full sub-task** in order: read the section's _Key Files_, apply the _Pattern_, write _Testing_, and stop. Do **not** interleave changes across adapters — finish one adapter, run its tests, commit mentally, then start the next.
+3. Finally, do **Step 5** (parity check), **Step 6** (full test run), and the **Checklist** — these are cross-adapter and run only once.
+
+The ordering between Angular, React, and Vue does not matter; pick whichever is most familiar first. The Checklist at the end is the single source of truth for completion.
+
 ## Step 1: Understand the Core Feature
 
 Before touching adapters, understand how the feature works in the vanilla grid:
 
 1. Read the relevant core code in `libs/grid/src/lib/`
-2. Check if the feature uses:
-   - **Custom renderers** (cell, header, filter) → Adapters need to wrap framework components
-   - **Events** → Adapters need to expose framework-idiomatic event binding
-   - **Configuration** → Adapters may extend config types
-   - **DOM manipulation** → Adapters might need lifecycle management
+2. Check if the feature uses any of the items in the table below. **You only need to handle the renderer subtypes the feature actually uses** (e.g. a sorting feature with no custom UI may use no renderers at all; a filter feature may only need a filter renderer). Implement support in each adapter for exactly the subtypes the core feature surfaces — do not add wrappers for renderer kinds the feature does not use.
+
+   | Surface used by core feature     | What each adapter must add                       |
+   | -------------------------------- | ------------------------------------------------ |
+   | **Custom cell renderer**         | Wrap framework component for the cell body       |
+   | **Custom header renderer**       | Wrap framework component for the column header   |
+   | **Custom filter renderer**       | Wrap framework component for the filter UI       |
+   | **Events**                       | Expose framework-idiomatic event binding         |
+   | **Configuration**                | Extend the framework's grid/column config types  |
+   | **DOM manipulation / lifecycle** | Add lifecycle management (mount/unmount/cleanup) |
 
 ## Step 2: Angular Adapter (`libs/grid-angular/`)
 

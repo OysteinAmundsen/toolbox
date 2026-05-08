@@ -9,7 +9,10 @@
 
 /**
  * Toggle the expansion state of a detail row.
- * Mutates the Set in-place and returns it (avoids O(n) copy per toggle).
+ *
+ * **Mutates the input `Set` in place and returns the same reference** (avoids
+ * O(n) copy per toggle). Do NOT rely on reference inequality (`result !== input`)
+ * to detect change — inspect the returned set's contents instead.
  */
 export function toggleDetailRow(expandedRows: Set<object>, row: object): Set<object> {
   if (expandedRows.has(row)) {
@@ -22,7 +25,9 @@ export function toggleDetailRow(expandedRows: Set<object>, row: object): Set<obj
 
 /**
  * Expand a detail row.
- * Mutates the Set in-place and returns it (avoids O(n) copy).
+ *
+ * **Mutates the input `Set` in place and returns the same reference** (avoids
+ * O(n) copy). Reference identity is preserved across calls.
  */
 export function expandDetailRow(expandedRows: Set<object>, row: object): Set<object> {
   expandedRows.add(row);
@@ -31,7 +36,9 @@ export function expandDetailRow(expandedRows: Set<object>, row: object): Set<obj
 
 /**
  * Collapse a detail row.
- * Mutates the Set in-place and returns it (avoids O(n) copy).
+ *
+ * **Mutates the input `Set` in place and returns the same reference** (avoids
+ * O(n) copy). Reference identity is preserved across calls.
  */
 export function collapseDetailRow(expandedRows: Set<object>, row: object): Set<object> {
   expandedRows.delete(row);

@@ -1,7 +1,7 @@
 ---
 name: bundle-check
 description: Check that the @toolbox-web/grid build stays within bundle size budget (index.js ≤170 kB raw, ≤50 kB gzipped hard limit, ≤45 kB gzipped soft warning). Run after any code change that could affect bundle size.
-argument-hint: [library-name]
+argument-hint: library-name (optional)
 ---
 
 # Bundle Size Check
@@ -10,10 +10,12 @@ Verify that the grid library build stays within its budget constraints.
 
 ## Budget Limits
 
-| Metric              | Limit                              |
-| ------------------- | ---------------------------------- |
-| `index.js` raw size | ≤ 170 kB (hard fail)               |
-| `index.js` gzipped  | ≤ 50 kB hard fail, ≤ 45 kB warning |
+| Metric              | Threshold        | Action                                                                                                                  |
+| ------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `index.js` raw size | > 170 kB         | **Hard fail** — the build exits non-zero; you must reduce size before merging.                                          |
+| `index.js` gzipped  | > 50 kB          | **Hard fail** — the build exits non-zero; you must reduce size before merging.                                          |
+| `index.js` gzipped  | > 45 kB, ≤ 50 kB | **Soft warning** — the build succeeds; investigate the cause and reduce size if reasonable, but a merge is not blocked. |
+| `index.js` gzipped  | ≤ 45 kB          | **Pass** — no action required.                                                                                          |
 
 ## Steps
 
@@ -41,13 +43,30 @@ gzip -c dist/libs/grid/index.js | wc -c
 
 ### 3. Evaluate Results
 
-- If **under budget**: Report sizes and confirm the build is good.
-- If **over budget**: Investigate what's causing the size increase:
-  1. Check for new dependencies or imports pulled into the core bundle
-  2. Verify plugins are separate entry points (not bundled into `index.js`)
-  3. Look for dead code that should be tree-shaken
-  4. Consider if large functions could be moved to a plugin
-  5. Run `bun nx build grid` and review the Vite output summary
+Use this checklist in order. Stop at the first matching outcome.
+
+#### 3a. Under budget (gzipped ≤ 45 kB and raw ≤ 170 kB)
+
+- [ ] Report the raw and gzipped sizes.
+- [ ] Confirm the build is good. No further investigation required.
+
+#### 3b. Soft warning (gzipped > 45 kB and ≤ 50 kB, raw ≤ 170 kB)
+
+- [ ] Report the sizes and flag the warning explicitly.
+- [ ] Briefly investigate using the **Over-budget investigation checklist** below.
+- [ ] Document any size increase in the commit message; merging is allowed.
+
+#### 3c. Over budget (gzipped > 50 kB **or** raw > 170 kB)
+
+The build will hard-fail. Work through the **Over-budget investigation checklist** below until the size is back under the hard limit.
+
+#### Over-budget investigation checklist
+
+- [ ] Check for new dependencies or imports pulled into the core bundle.
+- [ ] Verify plugins are separate entry points (not bundled into `index.js`).
+- [ ] Look for dead code that should be tree-shaken.
+- [ ] Consider if large functions could be moved to a plugin.
+- [ ] Re-run `bun nx build grid` and review the Vite output summary.
 
 ### 4. Common Causes of Size Increase
 

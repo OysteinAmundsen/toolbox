@@ -6,7 +6,23 @@ argument-hint: <feature-or-plugin-name>
 
 # Create an Astro Demo Component
 
-Scaffold an Astro demo component (`.astro`) for a grid feature or plugin, and wire it into an MDX documentation page.
+Scaffold an Astro demo component (`.astro`) for either a grid core feature or a grid plugin, and wire it into an MDX documentation page. The same scaffolding steps, templates, e2e test structure, and naming rules apply to both — the only differences are the target file paths (see the **File Locations** section below: `demos/<feature-name>/` vs `demos/<plugin-name>/`, and `content/docs/grid/<page>.mdx` vs `content/docs/grid/plugins/<plugin>.mdx`).
+
+## Quick Reference
+
+This skill is organized into the following sections — jump to the one you need rather than reading top to bottom:
+
+| Section                             | When you need it                                            |
+| ----------------------------------- | ----------------------------------------------------------- |
+| **File Locations**                  | Where to put the `.astro` and `.mdx` files                  |
+| **Demo Component Template**         | Minimal demo without controls                               |
+| **Demo with DemoControls Template** | Interactive demo with toggleable options                    |
+| **Wiring Demo into MDX Page**       | Hooking the `.astro` into an MDX page                       |
+| **DemoControls API**                | Control types, `ControlDef` shape, event payload            |
+| **Key Conventions**                 | Per-demo rules (unique IDs, scoped scripts/styles, imports) |
+| **Naming Conventions**              | File, container ID, and directory naming rules              |
+| **E2E Test for the Demo**           | Required Playwright test scaffold and checklist             |
+| **Verifying**                       | Build, serve, and e2e commands                              |
 
 ## File Locations
 
@@ -233,13 +249,13 @@ Every demo **must** have a corresponding e2e test in `apps/docs-e2e/tests/`. The
 
 ### What to test
 
-Go beyond "it renders". Test the **behavior the demo demonstrates**:
+Go beyond "it renders". Test the **behavior the demo demonstrates**. Work through this checklist in order; skip a step only when it does not apply to the demo:
 
-1. **Rendering** — grid is visible, correct number of rows/headers
-2. **Core interaction** — simulate the user action the demo advertises (click, drag, type, sort, filter)
-3. **Outcome** — verify the visible result (selected cells, sorted order, filtered rows, edited values)
-4. **Events** — if the demo shows event output (`[data-event-log]`, `[data-output-id]`), verify it updates
-5. **Controls** — if the demo has `DemoControls`, test switching options and verify the grid responds
+- [ ] **Step 1 — Rendering** (always required): grid is visible, correct number of rows/headers.
+- [ ] **Step 2 — Core interaction** (always required): simulate the user action the demo advertises (click, drag, type, sort, filter).
+- [ ] **Step 3 — Outcome** (always required): verify the visible result (selected cells, sorted order, filtered rows, edited values).
+- [ ] **Step 4 — Events** (only if demo exposes `[data-event-log]` or `[data-output-id]`): verify the output element updates.
+- [ ] **Step 5 — Controls** (only if demo uses `DemoControls`): switch options and verify the grid responds.
 
 ### Template
 

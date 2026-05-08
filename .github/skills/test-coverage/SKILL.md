@@ -6,7 +6,22 @@ argument-hint: <file-or-project-path>
 
 # Improve Test Coverage
 
-Analyze test coverage for the specified file or project and write **unit/integration tests** to improve it.
+Analyze test coverage for the specified file or project and write **Vitest tests** to improve it.
+
+**Scope:** Both unit tests and integration tests are in scope, with **unit tests as the primary focus**. Prefer writing a focused unit test against the smallest testable surface (a function, method, or class in isolation with mocked collaborators). Add an integration test only when the behaviour under test crosses module boundaries (e.g. full grid lifecycle, plugin + render scheduler interaction) and a unit test cannot meaningfully exercise it. End-to-end (Playwright) tests are out of scope — see the note below.
+
+## Critical Rules at a Glance
+
+Follow these in priority order. Later rules never override earlier ones.
+
+| Priority | Rule                                                                                                                                              | Why it matters                                          |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| **P1**   | Use **Vitest** with the **happy-dom** environment. Never introduce Jest, Mocha, or jsdom.                                                         | Toolchain consistency; CI runs Vitest only.             |
+| **P2**   | Tests are **co-located** with the source file (`foo.ts` → `foo.spec.ts`, same directory).                                                         | Discoverability; matches `vitest.workspace.ts` globs.   |
+| **P3**   | Run via Nx (`bun nx test <project>`), never Vitest directly. Add `--coverage` to measure.                                                         | Honours project config, caching, and CI parity.         |
+| **P4**   | Prefer **unit tests** with mocked collaborators. Add an integration test only when crossing module boundaries.                                    | Fast, focused failures; lower maintenance burden.       |
+| **P5**   | Project coverage thresholds (statements, branches, functions, lines) **must still pass** after your changes.                                      | CI fails the build otherwise.                           |
+| **P6**   | Follow the per-library patterns in **Step 3** (mock grid for plugins, `waitUpgrade` for integration, `Object.create` for Angular services, etc.). | Consistency with existing tests; avoids known footguns. |
 
 > **E2E tests** are covered separately by the `e2e-testing` instruction file (auto-applied when editing `e2e/` or `apps/docs-e2e/` files). This skill focuses on Vitest-based unit and integration tests only.
 

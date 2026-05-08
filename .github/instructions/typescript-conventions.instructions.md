@@ -4,6 +4,17 @@ applyTo: '**/*.ts'
 
 # TypeScript Conventions
 
+## Rule Priority
+
+Apply rules in this order when they conflict. Higher-priority rules override lower-priority ones.
+
+| Priority | Rule                                                 | Section                                 |
+| -------- | ---------------------------------------------------- | --------------------------------------- |
+| 1        | No `as unknown as` casts (type-safety integrity)     | "No `as unknown as` Casts"              |
+| 2        | No `enum` — use `const` objects (bundle size)        | "No `enum` — Use `const` Objects"       |
+| 3        | Naming & visibility prefixes (API surface clarity)   | "Naming & Visibility"                   |
+| 4        | Region markers in files >200 lines (code navigation) | "Code Organization with Region Markers" |
+
 ## No `as unknown as` Casts
 
 **Never use `as unknown as T` anywhere in the codebase.** This is a type-safety escape hatch that hides real type problems. When you encounter existing `as unknown as` casts, refactor them to use proper typing instead.
@@ -24,7 +35,13 @@ applyTo: '**/*.ts'
 - It hides structural mismatches that should be fixed at the type level
 - It makes refactoring dangerous (rename a property and the cast still compiles)
 
-**When you see `as unknown as` in existing code:** Refactor it immediately if the fix is small and localized. For larger refactors, note it as tech debt but don't leave new instances.
+**When you see `as unknown as` in existing code, refactor immediately if ALL of these hold:**
+
+- The change touches a single file.
+- The change is under ~20 lines of diff.
+- No public API signature in `libs/grid/src/public.ts` (or any `index.ts` barrel) changes.
+
+**Otherwise** (multi-file refactor, public-API signature change, or >~20 lines): open a follow-up issue and link it from the cast site with a `// TODO(#<issue>): remove as-unknown-as` comment. Do **not** add new `as unknown as` instances in either case.
 
 **Acceptable casts:** `as T` (direct assertion) is fine when TypeScript's inference is genuinely too narrow (e.g., after a type guard, or when the DOM API returns a broader type). The key distinction: `as T` requires structural compatibility; `as unknown as T` bypasses it entirely.
 

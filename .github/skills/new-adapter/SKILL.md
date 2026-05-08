@@ -11,6 +11,21 @@ This skill guides you through creating a **complete framework adapter** for `@to
 
 > **Prerequisite**: Read the `new-adapter-feature` skill to understand how features work *within* existing adapters. This skill covers creating an adapter from scratch.
 
+## How to Use This Skill
+
+The skill is long because an adapter has many moving parts. To keep cognitive load manageable, work through the **six numbered steps below in order**. Do not jump ahead — each step depends on artifacts produced by the previous one.
+
+| Step | Section                       | Mandatory? | Output                                            |
+| ---- | ----------------------------- | ---------- | ------------------------------------------------- |
+| 1    | Scaffold the Library          | Mandatory  | `libs/grid-{framework}/` skeleton + config files  |
+| 2    | Implement the Adapter         | Mandatory  | Working `FrameworkAdapter` + wrapper component    |
+| 3    | Scaffold the Demo App         | Mandatory  | `demos/employee-management/{framework}/`          |
+| 4    | Workspace Wiring              | Mandatory  | tsconfig paths, resolve aliases, e2e DEMOS map    |
+| 5    | Testing                       | Mandatory  | Library unit tests + e2e parity tests passing     |
+| 6    | Documentation                 | Optional (recommended) | READMEs, TypeDoc, `llms.txt` updates    |
+
+Use the **Checklist at the end of the file** as the single source of truth for completion. The reference sections below the checklist (`Architecture Reference`, etc.) are background material — read them once before starting Step 1, then refer back as needed.
+
 ## What You're Building
 
 An adapter bridges the gap between the vanilla `<tbw-grid>` web component and a specific framework's component model. It provides:
@@ -234,7 +249,14 @@ libs/grid-{framework}/
 
 ### vite.config.mts
 
-Follow the React/Vue pattern. Key points:
+Copy `libs/grid-react/vite.config.mts` (or `libs/grid-vue/vite.config.mts`) and adapt the framework-specific bits. The required structural elements you must keep are listed below; everything else (plugin choice, framework externals, JSX/SFC handling) is framework-specific.
+
+- **Plugins**: a framework-specific Vite plugin (e.g. `@vitejs/plugin-react`, `@vitejs/plugin-vue`) plus `vite-plugin-dts` configured with `pathsToAliases: false`.
+- **Library entry map**: one entry per public surface — `index`, `features/index`, and one entry per feature module (24 total).
+- **Rollup externals**: the framework runtime package(s) and every `@toolbox-web/grid` subpath.
+- **Test config**: self-referencing aliases for `@toolbox-web/grid-{framework}/features/*` and grid dist aliases for `@toolbox-web/grid` / `@toolbox-web/grid/all` / `@toolbox-web/grid/plugins/*`.
+
+Reference shape:
 
 ```typescript
 import { defineConfig } from 'vite';

@@ -10,7 +10,7 @@ related: [grid-core, grid-features]
 - OWNS: plugin instances (array order), hook caches (sorted by priority), renderer/editor registries, event bus, query handlers
 - READS FROM: plugin manifests (dependencies, incompatibilities, hookPriority, queries)
 - WRITES TO: cached hook presence flags, cellRenderers/headerRenderers/cellEditors maps
-- INVARIANT: plugins execute in array order by default; hookPriority overrides (lower = earlier)
+- INVARIANT: plugins execute in array order by default; `manifest.hookPriority` overrides (lower = earlier). When a plugin's `afterRender` (or any hook) needs DOM produced by another plugin's same hook, set a higher `hookPriority` value on the dependent plugin so it runs later, OR defer the work with `queueMicrotask()` so it runs after the entire hook pass completes. The same applies to `processColumns` — PinnedColumnsPlugin uses `hookPriority: { processColumns: -10 }` so reordering happens before plugins (e.g. TreePlugin) wrap specific columns.
 - INVARIANT: dependencies validated on attach; incompatibilities warned at runtime (dev only)
 - PATTERN: one PluginManager per grid instance; plugins are stateful singletons
 
@@ -53,6 +53,8 @@ related: [grid-core, grid-features]
 | adjustVirtualStart         | render extra rows above viewport                  |
 | renderRow                  | custom row DOM (bypasses default renderer)        |
 | getHorizontalScrollOffsets | pinned column spacing for keyboard                |
+
+- INVARIANT (`renderRow` contract): when a plugin's `renderRow` hook takes over cell creation (Pivot, GroupingRows, Tree custom rows, MasterDetail panels), the grid's normal cell rendering pipeline is **skipped entirely**. Column-level features — `format`, `cellRenderer`, `cellClass`, value-accessor caching, sanitize wrapping — must be applied **manually** in the custom render code. Forgetting this silently loses formatting and is the canonical cause of "my column formatter doesn't run inside grouped/pivot rows". Reference for the canonical re-application pattern: `core/internal/rows.ts` cell render path.
 
 ### State Persistence Hooks
 

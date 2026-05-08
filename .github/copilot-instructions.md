@@ -31,7 +31,7 @@ This project's AI knowledge is organized in four tiers to minimize context windo
 
 > **Knowledge files — read before editing, write after learning:**
 >
-> - **Read gate:** Before editing any file under `libs/grid/**`, `libs/grid-{angular,react,vue}/**`, or making a non-trivial change anywhere else, you MUST first read the knowledge files that cover the affected domain (see [Knowledge Reference](#knowledge-reference)). This rebuilds the mental model — state ownership, invariants, design rationale — so you can spot when a proposed change contradicts an earlier `DECIDED` entry and push back rather than silently regress it. Trivial edits (typos, comments, formatting) are exempt.
+> - **Read gate:** Before editing any file under `libs/grid/**`, `libs/grid-{angular,react,vue}/**`, or making a non-trivial change anywhere else, you MUST first read the knowledge files that cover the affected domain (see the "Knowledge Reference" section below). This rebuilds the mental model — state ownership, invariants, design rationale — so you can spot when a proposed change contradicts an earlier `DECIDED` entry and push back rather than silently regress it. Trivial edits (typos, comments, formatting) are exempt.
 > - **Write gate:** During or after any task, if you discover a new invariant, state-ownership fact, data-flow edge, design decision, or tension that is not already in a knowledge file, you MUST add it to the correct file in `.github/knowledge/` using the structured notation (`OWNS / READS FROM / WRITES TO / INVARIANT / FLOW / TENSION / DECIDED`). These files are your externalized mental model — if you don't write it down, the next session will rediscover it from scratch.
 > - **Knowledge vs. memory — do not confuse them:** Anything that is true _about this repository_ (architecture facts, design decisions, gotchas, build/test recipes, release plans, deprecation inventories) belongs in `.github/knowledge/*.md` (or, for prescriptive rules, `.github/instructions/*.md`) so it is **committable, reviewable, and shared with every contributor and future agent session**. The `/memories/repo/` scope is for **agent-private, machine-local scratch only** — e.g. notes about an in-flight investigation that the user has not yet decided to formalize. If the fact would help a human contributor or another agent on a different machine, it goes in the knowledge base, not in repo memory. When in doubt, choose the knowledge base.
 > - **Rule of thumb:** If the user ever argues for a change that contradicts a `DECIDED` entry, cite the entry and ask them to justify overriding it before implementing. Past decisions have context; don't silently reverse them.
@@ -49,7 +49,7 @@ This project's AI knowledge is organized in four tiers to minimize context windo
 > - **Soft size budget per knowledge file: ≤200 lines.** Hard ceiling: 250. If you're past 200, condense before adding. If a single domain genuinely needs more, split (e.g. `adapters-react.md` / `adapters-vue.md` / `adapters-angular.md`) — but try condensing first.
 > - **Write for yourself, not the user.** No "in this section we will...", no narrative tone, no marketing language. Bullets, tables, code fences, structured markers (`OWNS:`, `INVARIANT:`, `DECIDED:`).
 
-> **Continuous improvement:** After significant tasks, use the `retrospective` skill to capture lessons learned and update the knowledge base. See [Scoped Instructions](#scoped-instructions), [Knowledge Reference](#knowledge-reference), and [Skills Reference](#skills-reference) below.
+> **Continuous improvement:** After significant tasks, use the `retrospective` skill to capture lessons learned and update the knowledge base. See the "Scoped Instructions", "Knowledge Reference", and "Skills Reference" sections below.
 
 ### Scoped Instructions
 
@@ -104,6 +104,14 @@ Loaded on demand from `.github/skills/` for task-specific workflows:
 | `retrospective`       | Post-task lessons learned; update instructions & skills |
 
 ## Core Constraints
+
+Constraints fall into three categories. Read the category summary first; the bullets below give the full rules.
+
+| Category               | Where it bites                           | Key rules (full text below)                                                                                                |
+| ---------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Workflow & safety**  | Git, delivery checklist, completion gate | No remote pushes without consent; mandatory 7-step delivery; todo-list precondition; self-audit before final message       |
+| **Technical limits**   | Bundle size, TypeScript strictness, Nx   | `index.js` ≤170 kB raw / ≤50 kB gz; strict TS; always use Nx                                                               |
+| **Environment quirks** | Code style, web components, terminal     | ESLint+Prettier; `tbw-` prefix custom elements; do not pipe Nx commands through `tail`/`head`/`2>&1` on Windows / Git Bash |
 
 - **Never push or merge to a remote without explicit per-request user consent.** Local commits are fine; `git push`, `gh pr create`, `gh pr merge`, force-pushes, tag pushes, and any GitHub-mutating tool call are **forbidden** unless the user asked for that exact action in the current turn. Never commit directly to `main` — switch to a topic branch first. See the "Git Safety Rules" section in `delivery-workflow.instructions.md` for the full list and recovery procedure if you slip.
 - **Delivery workflow is mandatory:** Every change — no matter how small — must follow the 7-step delivery checklist in `delivery-workflow.instructions.md`: read knowledge → implement → test → build/lint → docs → retrospective + knowledge update → commit suggestion. Do not consider work complete until all steps are finished. No exceptions.

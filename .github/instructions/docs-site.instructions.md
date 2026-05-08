@@ -9,8 +9,12 @@ Documentation lives in `apps/docs/` using Astro + Starlight. MDX content pages a
 ## Key Components
 
 - `DemoControls.astro` — Reusable Storybook-like interactive controls panel (number/boolean/radio/select/check-group)
-- `ShowSource.astro` — Source code viewer wrapper for demos. Uses an AST-based extractor (TypeScript compiler API + text edits) to strip boilerplate (`document.getElementById` container, `if (container) {}` guard, `control-change` listeners, type assertions, `!` operators) without regex pitfalls. **Multi-grid demos:** when 2+ `queryGrid()` calls are present, original selectors are preserved (so the displayed snippet is still runnable). Single-grid demos collapse the selector to `'tbw-grid'`.
-- For per-framework code examples, use Starlight's `<Tabs syncKey="framework">` / `<TabItem>` from `@astrojs/starlight/components` (page-wide synced selection). See [getting-started.mdx](apps/docs/src/content/docs/grid/getting-started.mdx) for the canonical pattern.
+- `ShowSource.astro` — Source code viewer wrapper for demos. Behaviour:
+  - **Extractor**: AST-based, using the TypeScript compiler API plus targeted text edits (no regex pitfalls).
+  - **Boilerplate stripped from the displayed snippet**: the `document.getElementById` container lookup, the `if (container) {}` guard, `control-change` listeners, type assertions, and `!` non-null operators.
+  - **Single-grid demos**: the original selector is collapsed to `'tbw-grid'` so the snippet reads like idiomatic standalone usage.
+  - **Multi-grid demos** (2 or more `queryGrid()` calls present): original selectors are preserved verbatim, so the displayed snippet is still runnable.
+- For per-framework code examples, use Starlight's `<Tabs syncKey="framework">` / `<TabItem>` from `@astrojs/starlight/components` (page-wide synced selection). See `apps/docs/src/content/docs/grid/getting-started.mdx` for the canonical pattern.
 - `ThemeBuilder.astro` — Interactive CSS variable editor
 - `CSSVariableReference.astro` — CSS variable reference table
 

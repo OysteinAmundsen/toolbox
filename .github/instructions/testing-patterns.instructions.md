@@ -12,7 +12,7 @@ Tests are co-located with source files (`feature.ts` → `feature.spec.ts`). Int
 - **Test isolation**: Clean up DOM with `afterEach(() => { document.body.innerHTML = '' })`
 - **Use `nextFrame()`**: For assertions that depend on a render cycle completing
 - **Sync→async refactoring breaks assertions**: When a method is changed from synchronous to async (e.g., `refresh()` delegating to `setDataSource()`), tests that assert immediately after calling it will fail. Wrap in `await vi.waitFor(() => ...)` to poll until the async operation completes.
-- **Never use `setTimeout(0)` to wait for React 19 commits under happy-dom**: React's concurrent renderer can defer the commit across multiple microtask/macrotask cycles, especially when `react`/`react-dom` are loaded via dynamic `import()` in `beforeEach`. A single fixed tick is flaky. Poll with `vi.waitFor(() => container.querySelector(sel))` or a small `waitForEl(container, selector)` helper that retries every ~5 ms with a deadline. The first DOM read failing cascades into all dependent assertions appearing broken.
+- **Never use `setTimeout(0)` to wait for React 19 commits under happy-dom**: React's concurrent renderer can defer the commit across multiple microtask/macrotask cycles, especially when `react`/`react-dom` are loaded via dynamic `import()` in `beforeEach`. A single fixed tick is flaky. Poll with `vi.waitFor(() => container.querySelector(sel))` or a small `waitForEl(container, selector)` helper that retries every ~5 ms for up to 2 seconds (or 1 second — match `vi.waitFor`'s default timeout). The first DOM read failing cascades into all dependent assertions appearing broken.
 - **Mock grid DOM must mirror real hierarchy** — When a plugin spec creates a fake grid element to test DOM-mutation logic, replicate the real nesting (`.tbw-scroll-area > .rows-body-wrapper > .rows-body > .header`) rather than flattening it. A flat mock will let `querySelector('.header')` succeed but mask `insertBefore`/`appendChild` bugs that depend on the parent-of-reference-node relationship. Verified the PinnedRowsPlugin top-position regression — the bug shipped because the spec placed `.header` directly inside `.tbw-scroll-area`.
 - **Run via Nx**: `bun nx test grid` or `bun nx test grid --testFile=src/lib/.../file.spec.ts` — never invoke Vitest directly
 - **DOM environment**: Tests use `happy-dom` (configured in vitest workspace)
@@ -23,14 +23,21 @@ Tests are co-located with source files (`feature.ts` → `feature.spec.ts`). Int
 - **`createGrid(config?)`** — Creates a `<tbw-grid>` element, appends it to `document.body`, and returns it. Use for setting up test fixtures.
 - **`rafDebounce(fn)`** — RAF-based debounce wrapper with `.cancel()` support. Ensures callback runs at most once per animation frame.
 
-## CSS & Style Testing
+## DOM Testing Guidelines
+
+All DOM-, CSS-, and happy-dom-environment quirks are grouped here. Check this section first when an assertion against the DOM fails unexpectedly.
+
+### CSS & inline-import quirks
 
 - **`?inline` CSS imports return empty strings** in Vitest/happy-dom. Test that `plugin.styles` is a defined string (`typeof plugin.styles === 'string'`), not its content.
 - **New CSS properties** (e.g. `anchor-name`) are not in TypeScript's `CSSStyleDeclaration`. Use `style.setProperty('anchor-name', value)` / `style.removeProperty('anchor-name')` in source, and `style.getPropertyValue('anchor-name')` in assertions.
+
+### Missing browser APIs in happy-dom
+
 - **Popover API** (`showPopover`/`hidePopover`) is not available in happy-dom. Use `supportsPopover()` guards in the plugin and test `popover.textContent` rather than popover visibility state.
 - **`KeyboardEvent` constructor** is not available in happy-dom. Use object literals cast to `KeyboardEvent` instead: `{ key: 'Enter' } as KeyboardEvent`.
 
-## happy-dom Quirks
+### Event-dispatch quirks
 
 - **`dispatchEvent` fires extra events**: Spying on `dispatchEvent` may show more calls than expected (e.g., 3 instead of 1) because happy-dom dispatches additional internal events. Use `addEventListener` on the specific event type instead of spying on `dispatchEvent`.
 

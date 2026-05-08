@@ -29,7 +29,19 @@ If the answer to all three is **no**, the method/feature likely belongs in consu
 
 **This checklist applies to every change — no matter how small.** A one-line bug fix, a CSS tweak, and a multi-file feature all follow the same process. There are no exemptions based on request size, perceived simplicity, or urgency.
 
-Every feature, fix, or refactor must complete **all six steps** before it is considered done:
+### Quick reference
+
+| #   | Step                                  | Default action                                                                                        | Skip allowed only when…                                                |
+| --- | ------------------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 1   | Read knowledge files                  | Load relevant `.github/knowledge/*.md` files for the affected domain.                                 | Pure typo / comment / formatting edit.                                 |
+| 2   | Implement                             | Write the code change.                                                                                | Never.                                                                 |
+| 3   | Test                                  | Add/update co-located unit and integration tests; rerun the suite.                                    | Change is purely non-functional (comment-only, formatting, docs-only). |
+| 4   | Build & lint                          | `bun nx build <project>`, `bun nx test <project>`, `bun nx lint <project>`.                           | Never.                                                                 |
+| 5   | Docs update                           | Apply the `docs-update` skill (MDX, READMEs, llms.txt, llms-full.txt, copilot-instructions, TypeDoc). | Change has zero user-visible impact.                                   |
+| 6   | Retrospective + knowledge-base update | Apply the `retrospective` skill; record any new INVARIANT/DECIDED/etc.                                | No new lesson emerged — state "no new knowledge" explicitly.           |
+| 7   | Suggest commit                        | End the final message with `📦 **Good commit point:** type(scope): …`.                                | Never.                                                                 |
+
+Every feature, fix, or refactor must complete **all seven steps** before it is considered done. The detailed expectations for each step follow.
 
 1. **Read knowledge files** — Before editing grid or adapter code, read the relevant `.github/knowledge/*.md` files (`grid-core`, `grid-plugins`, `grid-features`, `adapters`, `build-and-deploy`, `data-flow-traces`). Rebuild the mental model and check for `DECIDED` entries that might be contradicted by the proposed change. Exempt only for typo/comment/formatting edits.
 2. **Implement the code** — Write the feature or fix following the project's architecture and conventions.
@@ -37,10 +49,13 @@ Every feature, fix, or refactor must complete **all six steps** before it is con
 4. **Verify the build** — Run `bun nx build grid` (check bundle budget), `bun nx test grid`, and `bun nx lint grid`; fix any failures.
 5. **Update documentation** — If the change affects behavior, API surface, CSS variables, defaults, or user-visible functionality, documentation **must** be updated. Use the `docs-update` skill for the full checklist (MDX pages, READMEs, llms.txt, llms-full.txt, copilot-instructions, TypeDoc regeneration). The only valid reason to skip docs is when the change has zero user-visible impact (e.g., internal refactor with no behavior change).
 6. **Retrospective + knowledge-base update** — Use the `retrospective` skill. If the task revealed a new invariant, state-ownership fact, data-flow edge, design decision, or tension, add it to the matching `.github/knowledge/*.md` file using the structured notation (`OWNS / READS FROM / WRITES TO / INVARIANT / FLOW / TENSION / DECIDED`). Cross-cutting lessons (conventions, workflows, tool tricks) go to the most appropriate instruction or skill file. Explicitly state "no new knowledge" if nothing emerged — never silently skip.
+7. **Suggest a commit** — End the final message with the `📦 **Good commit point:** ...` line described in the Commit Hygiene section. Do not run `git commit` yourself unless the user explicitly asked in the current turn.
 
-Do **not** consider work complete until all six steps are finished. Skipping steps is not acceptable. When in doubt about whether tests or docs are needed, **default to including them**.
+Do **not** consider work complete until all seven steps are finished. Skipping steps is not acceptable. When in doubt about whether tests or docs are needed, **default to including them**.
 
 ### Enforcement
+
+> **Precedence:** Enforcement rules in this section take priority over task execution. If completing the user's task quickly would require skipping an enforcement rule (e.g. editing a file before creating the todo list, or declaring "done" with steps still open), the enforcement rule wins — stop, satisfy the rule, then continue. Enforcement is not in tension with delivery; it is the way delivery is performed correctly.
 
 #### Rule 1 — Todo list is a hard precondition
 

@@ -30,6 +30,16 @@ The MCP server launches its own Chromium instance. This is **separate** from any
 - **MCP browser**: For AI-driven inspection, script evaluation, screenshots
 - **VS Code debugger**: For breakpoints, step-through, variable inspection
 
+### Troubleshooting MCP server launch / connection failures
+
+If an MCP tool call returns an error such as "server not running", "failed to launch", or "connection refused", work through this checklist before continuing:
+
+- [ ] Confirm `.vscode/mcp.json` matches the configuration block above (correct `command`, `args`, no typos in the server name `chrome-devtools`).
+- [ ] Open the **MCP: List Servers** command from the VS Code command palette and verify `chrome-devtools` is listed and shows status "Started". Use **MCP: Restart Server** if it is in an error state.
+- [ ] Open the server's output log via **MCP: Show Output** for `chrome-devtools` and read the most recent error — common causes are missing `npx`/Node, a corporate proxy blocking the `chrome-devtools-mcp@latest` download, or a previous Chromium process still holding the debug port.
+- [ ] If a stale Chromium is suspected, kill any running `chrome-devtools-mcp` / orphan Chromium processes and retry.
+- [ ] As a last resort, manually run `npx -y chrome-devtools-mcp@latest` in a terminal and report the exact stderr output back to the user; do not silently retry the tool call.
+
 ## Step 1: Start a Dev Server
 
 Before navigating, ensure a dev server is running. Use one of:
@@ -376,31 +386,86 @@ For operations that need to wait for render cycles:
 
 ## MCP Tool Reference
 
+Tools are grouped by category. Pick a category first based on what you are trying to learn, then choose a tool within it.
+
+### Navigation & tab management
+
+_Use when you need to load a URL, switch between tabs, or open/close pages._
+
+| Tool            | Purpose                            |
+| --------------- | ---------------------------------- |
+| `navigate_page` | Go to URL, reload, go back/forward |
+| `list_pages`    | List all open browser tabs         |
+| `select_page`   | Switch to a different tab          |
+| `new_page`      | Open a new tab                     |
+| `close_page`    | Close a tab                        |
+
+### Visual debugging (screenshots & DOM snapshots)
+
+_Use when you need to see what the page looks like or what its DOM structure is._
+
+| Tool              | Purpose                                 |
+| ----------------- | --------------------------------------- |
+| `take_screenshot` | Capture full page or element screenshot |
+| `take_snapshot`   | Get DOM tree structure                  |
+
+### Script evaluation
+
+_Use when you need to read internal state, monkey-patch a method, or run arbitrary JS in the page context._
+
+| Tool              | Purpose                        |
+| ----------------- | ------------------------------ |
+| `evaluate_script` | Run JavaScript in page context |
+
+### User interaction simulation
+
+_Use when you need to simulate a user action (click, type, drag, key press) to reproduce or trigger a bug._
+
+| Tool            | Purpose                           |
+| --------------- | --------------------------------- |
+| `click`         | Click an element by selector      |
+| `fill`          | Type text into an input           |
+| `fill_form`     | Fill multiple form fields at once |
+| `press_key`     | Send keyboard events              |
+| `hover`         | Hover over an element             |
+| `drag`          | Drag from one element to another  |
+| `upload_file`   | Upload a file to a file input     |
+| `handle_dialog` | Accept/dismiss browser dialogs    |
+
+### Synchronization & viewport
+
+_Use when you need to wait for the page to settle, or to change the viewport / device emulation._
+
+| Tool          | Purpose                                    |
+| ------------- | ------------------------------------------ |
+| `wait_for`    | Wait for element, URL, timeout, or network |
+| `emulate`     | Set viewport size or device emulation      |
+| `resize_page` | Resize the browser viewport                |
+
+### Console monitoring
+
+_Use when you need to catch warnings, errors, or `console.log` output emitted by the page._
+
+| Tool                    | Purpose                              |
+| ----------------------- | ------------------------------------ |
+| `list_console_messages` | Get all console messages             |
+| `get_console_message`   | Get specific console message details |
+
+### Network monitoring
+
+_Use when you need to debug API calls, asset loading, or response payloads._
+
+| Tool                    | Purpose                               |
+| ----------------------- | ------------------------------------- |
+| `list_network_requests` | List all network requests             |
+| `get_network_request`   | Get specific request/response details |
+
+### Performance tracing
+
+_Use when you need to profile rendering, scripting, or layout work. See the `debug-perf` skill for full workflow._
+
 | Tool                          | Purpose                                      |
 | ----------------------------- | -------------------------------------------- |
-| `navigate_page`               | Go to URL, reload, go back/forward           |
-| `list_pages`                  | List all open browser tabs                   |
-| `select_page`                 | Switch to a different tab                    |
-| `new_page`                    | Open a new tab                               |
-| `close_page`                  | Close a tab                                  |
-| `take_screenshot`             | Capture full page or element screenshot      |
-| `take_snapshot`               | Get DOM tree structure                       |
-| `evaluate_script`             | Run JavaScript in page context               |
-| `click`                       | Click an element by selector                 |
-| `fill`                        | Type text into an input                      |
-| `fill_form`                   | Fill multiple form fields at once            |
-| `press_key`                   | Send keyboard events                         |
-| `hover`                       | Hover over an element                        |
-| `drag`                        | Drag from one element to another             |
-| `upload_file`                 | Upload a file to a file input                |
-| `handle_dialog`               | Accept/dismiss browser dialogs               |
-| `wait_for`                    | Wait for element, URL, timeout, or network   |
-| `emulate`                     | Set viewport size or device emulation        |
-| `resize_page`                 | Resize the browser viewport                  |
-| `list_console_messages`       | Get all console messages                     |
-| `get_console_message`         | Get specific console message details         |
-| `list_network_requests`       | List all network requests                    |
-| `get_network_request`         | Get specific request/response details        |
 | `performance_start_trace`     | Start a performance trace (see `debug-perf`) |
 | `performance_stop_trace`      | Stop trace and get results                   |
 | `performance_analyze_insight` | Get AI-analyzed performance insights         |

@@ -887,6 +887,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Request a full re-render of the grid.
    * Called by plugins when they need the grid to update.
    * Note: This does NOT reset plugin state - just re-processes rows/columns and renders.
+   *
+   * **Use this for row-data updates** (lazy page loads, model changes). Triggers
+   * `RenderPhase.ROWS` (processRows + virtualization). Prefer this over
+   * {@link requestColumnsRender} unless column **definitions** actually change —
+   * `requestColumnsRender` runs the full pipeline (header rebuild + processColumns)
+   * which can change scroll height and create scroll → render feedback loops if
+   * used for incremental data updates.
    * @group Rendering
    * @internal Plugin API
    */
@@ -899,6 +906,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Called by plugins when they need to trigger processColumns hooks.
    * This uses a higher render phase than requestRender() to ensure
    * column processing occurs.
+   *
+   * **Only call this when column definitions change** (visibility, pin, group,
+   * width, order). For row-data updates use {@link requestRender} — this phase
+   * adds processColumns + header rebuild and rebuilds the full pipeline,
+   * which is wasted work for row-only changes and can perturb scroll height.
    * @group Rendering
    * @internal Plugin API
    */

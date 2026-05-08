@@ -4,7 +4,28 @@ applyTo: '{libs,apps,demos}/**/*.ts'
 
 # Core Development Principles
 
-Every change must consider these three pillars:
+Every change must consider these three pillars.
+
+## Priority Hierarchy
+
+When the constraints below conflict, resolve them in this order. A higher-priority concern wins over a lower-priority one.
+
+| Rank  | Concern                      | Why it sits here                                                                                 |
+| ----- | ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| **1** | Correctness                  | A wrong answer faster, smaller, or cleaner is still wrong. Never trade correctness for anything. |
+| **2** | Bundle size (hard budgets)   | Hard budgets in `tools/vite-bundle-budget.ts` fail the build. Non-negotiable.                    |
+| **3** | Hot-path runtime performance | Scroll, cell rendering, and virtualization paths gate the library's value proposition.           |
+| **4** | Maintainability              | Default tiebreaker for everything not on a hot path or near a budget ceiling.                    |
+| **5** | Developer convenience        | Last. Never justification for shortcuts that hurt 1–4.                                           |
+
+**Trade-off rules:**
+
+- **Performance vs. maintainability** — prefer maintainability **unless** the code is on a documented hot path (scroll, cell render, virtualization, render scheduler tick) **or** the perf gap is measurable and material in a benchmark.
+- **Bundle size vs. maintainability** — if a change pushes `index.js` over the 45 kB gzipped soft warning, prefer the smaller implementation; if it would breach 50 kB gzipped, the smaller implementation is mandatory.
+- **Bundle size vs. performance** — ship the perf optimisation only if it fits the budget. If it doesn't, find a smaller form (lazy-load, plugin entry point, simpler algorithm).
+- **Speed of delivery vs. anything above** — never. "It was faster to write" is not a valid justification.
+
+The sections below detail the constraints feeding into each rank.
 
 ## Troubleshooting
 
@@ -16,7 +37,7 @@ Write the least code that correctly solves the problem. Avoid over-engineering, 
 
 ## Do It Right, Not Easy
 
-Avoid shortcuts and quick hacks. Prefer correct, maintainable solutions even when they take longer.
+Avoid shortcuts and quick hacks. Prefer correct, maintainable solutions even when they take longer **to develop** — a slower implementation that produces a smaller bundle, faster runtime, and clearer code at the call site is the right trade. Do not trade runtime performance, bundle size, or correctness for development speed.
 
 ## Maintainability
 
@@ -53,4 +74,4 @@ Avoid shortcuts and quick hacks. Prefer correct, maintainable solutions even whe
 - **When adding a compiled fast-path, delegate the interpreted version** — Make `matchFoo` delegate to `compileFoo` (i.e. `return compileFoo(filter)(row)`) instead of maintaining parallel logic
 - **Avoid literal security-sensitive tokens in source** — Static analysis scanners flag `fetch`, `eval`, `new Function`, `globalThis` regardless of context. Build blocklist regexes at runtime from encoded arrays (see `sanitize.ts`)
 
-**When in doubt:** Smaller is better. Simpler is better. Faster is better.
+**When in doubt:** Smaller is better. Simpler is better. Faster is better. When two of those pull in opposite directions, fall back to the **Priority Hierarchy** at the top of this file: correctness > bundle size > hot-path performance > maintainability > developer convenience.

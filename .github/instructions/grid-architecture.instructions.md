@@ -47,6 +47,13 @@ Users can configure via:
 4. Inferred columns (auto-detected from first row)
 5. Individual props (`fitMode`) - highest
 
+**Handling invalid or conflicting inputs:**
+
+- **Conflicting inputs across sources** — not an error. The higher-precedence source silently wins per the table above; this is the canonical merge behaviour and `#mergeEffectiveConfig()` does not log when it overrides a lower tier. Tests in `config-precedence.spec.ts` lock this in.
+- **Conflicting inputs within the same tier** (e.g. two `<tbw-grid-column>` elements declaring the same `field`, or duplicate column entries in the `columns` array) — the **last** entry in document/array order wins. Emit a single `console.warn` from `config-manager.ts` naming the conflicting field and the resolution; do not throw.
+- **Structurally invalid config** (wrong type, unknown enum value, missing required field on a column) — `console.warn` with the offending path, then **drop only that piece** of config and continue with the rest. Never throw from `#mergeEffectiveConfig()` — a single bad column must not take down the grid.
+- **Unknown plugin / feature names** in `gridConfig.plugins` or `gridConfig.features` — `console.warn` and skip; the grid renders without that capability.
+
 **Internal State Categories:**
 
 - **Input Properties** (`#rows`, `#columns`, `#gridConfig`, `#fitMode`) - raw user input
@@ -64,9 +71,10 @@ All grid rendering is orchestrated through a **single RenderScheduler** (`intern
 
 **Key rules:**
 
-- Use `this.#scheduler.requestPhase(RenderPhase.X, 'source')` to request renders
+- Use `this.#scheduler.requestPhase(RenderPhase.X, source)` to request renders. The `source` argument is a **short string identifier of the call site** — by convention, the plugin or method requesting the render (e.g. `'sort-change'`, `'FilteringPlugin.applyFilter'`, `'connectedCallback'`). It is used purely for debug logging and DevTools attribution; it does not affect scheduling, batching, or phase priority. Pass any human-readable label that helps a maintainer trace where the render came from.
 - Never call `requestAnimationFrame` directly for rendering (exception: scroll hot path)
 - Phases: STYLE(1) → VIRTUALIZATION(2) → HEADER(3) → ROWS(4) → COLUMNS(5) → FULL(6); highest wins
+- **Use the minimal phase that actually expresses the change.** `requestRender()` triggers `RenderPhase.ROWS` (processRows + virtualization) and is the right call for row-data updates such as lazy page loads. `requestColumnsRender()` triggers `RenderPhase.COLUMNS`, which adds processColumns + header rebuild and runs the full pipeline; using it for incremental data updates can change scroll height and create scroll → render feedback loops. Only use `requestColumnsRender()` when column **definitions** actually change. For row data, `requestRender()` suffices — but ensure `processColumns` wrapped the column during initial setup.
 
 ## CSS Layer Architecture
 
@@ -135,16 +143,30 @@ Plugins communicate via three distinct channels. **Choosing the wrong channel is
 | **Broadcast (both)** | `this.broadcast(type, detail)`       | Consumers AND plugins | Events that both consumers AND plugins need: `sort-change`, `filter-change`, `tree-expand`, `group-toggle` |
 | **Query System**     | `this.grid.query(type, context)`     | Sync request/response | State retrieval: `sort:get-model`, `canMoveRow`, `clipboard:copy`                                          |
 
-### Decision Tree
+### Decision Table
 
-1. **Does this event need to reach external `addEventListener` consumers?**
-   - No → `emitPluginEvent()` (plugin bus only)
-   - Yes → continue to Q2
-2. **Does this event also need to reach other plugins** (e.g., Selection clearing on sort)?
-   - No → `emit()` (DOM only)
-   - Yes → `broadcast()` (both channels)
-3. **Is this a synchronous state request** (not a notification)?
-   - → `this.grid.query(type, context)` — declare query in manifest, handle in `handleQuery()`
+Use this table first. The narrative steps that follow are only for cases the table does not resolve.
+
+| External consumers need it? | Other plugins need it? | Synchronous response needed? | Use                              |
+| --------------------------- | ---------------------- | ---------------------------- | -------------------------------- |
+| No                          | Yes                    | No                           | `emitPluginEvent(type, detail)`  |
+| Yes                         | No                     | No                           | `emit(type, detail)`             |
+| Yes                         | Yes                    | No                           | `broadcast(type, detail)`        |
+| n/a                         | n/a                    | Yes                          | `this.grid.query(type, context)` |
+
+If you are still unsure after the table, walk through the decision steps below.
+
+### Decision Steps
+
+1. **Is this a synchronous state request** (you need a value back, not a notification)?
+   - Yes → `this.grid.query(type, context)` — declare the query in `manifest.queries` and handle in `handleQuery()`. Stop.
+   - No → continue.
+2. **Does this event need to reach external `addEventListener` consumers?**
+   - No → `emitPluginEvent()` (plugin bus only). Stop.
+   - Yes → continue.
+3. **Does this event also need to reach other plugins** (e.g., Selection clearing on sort)?
+   - No → `emit()` (DOM only).
+   - Yes → `broadcast()` (both channels).
 
 ### Sorting Ownership Protocol
 

@@ -1,13 +1,18 @@
 ---
-// PerformanceComparisonDemo.astro — Head-to-head benchmark: Toolbox Grid vs AG Grid
-// Loads AG Grid Community from CDN (always latest). Iterates through increasing
-// data sizes (1K → 1M rows), testing each grid sequentially at every scale point
-// with a cooldown between them for a fair comparison.
+// PerformanceComparisonDemo.astro — Head-to-head benchmark: Toolbox Grid vs
+// a selectable competitor (AG Grid Community, Tabulator, …).
+// Each competitor is a small adapter under ./competitors/. Results are cached
+// per competitor for the lifetime of the page so switching the dropdown does
+// not throw away a previous run.
 ---
 <div class="perf-compare-wrapper not-content">
   <div class="perf-compare-bar">
     <div class="perf-compare-bar-left">
       <button id="compare-run" class="perf-compare-btn">Run Comparison</button>
+      <label class="perf-compare-select-wrap">
+        Compare against
+        <select id="compare-competitor" class="perf-compare-select"></select>
+      </label>
       <span id="compare-status">Ready</span>
     </div>
     <div class="perf-compare-bar-right">
@@ -23,12 +28,12 @@
     <summary>Show Grid Configurations</summary>
     <div class="perf-compare-config-panels">
       <div class="perf-compare-config-panel">
-        <h4>Toolbox Grid</h4>
+        <h4 id="compare-config-tbw-title">Toolbox Grid</h4>
         <pre id="compare-config-tbw"><code>// Configuration displayed here</code></pre>
       </div>
       <div class="perf-compare-config-panel">
-        <h4>AG Grid Community <span id="ag-version" style="font-weight:normal;opacity:0.7;font-size:12px;"></span></h4>
-        <pre id="compare-config-ag"><code>// Configuration displayed here</code></pre>
+        <h4 id="compare-config-other-title">Competitor</h4>
+        <pre id="compare-config-other"><code>// Configuration displayed here</code></pre>
       </div>
     </div>
   </details>
@@ -38,564 +43,103 @@
   </div>
 
   <div id="compare-results" class="perf-compare-results">
-    <p>Click <strong>Run Comparison</strong> to benchmark both grids at increasing data sizes.</p>
-    <p style="opacity:0.7;font-size:12px;">Scale points: 5K → 100K → 500K → 1M rows × 10 columns. Tests: init render, scroll, sort, filter, data replacement, single-row update, column resize, scroll-to-end, memory. Each metric runs 5× per scale point (trimmed mean). Each grid runs alone with a cooldown between them.</p>
+    <p>Pick a competitor and click <strong>Run Comparison</strong> to benchmark both grids at increasing data sizes.</p>
+    <p style="opacity:0.7;font-size:12px;">Scale points: 5K → 100K → 500K → 1M rows × 10 columns. <strong>Macro</strong> ops (real scaling work): time-to-first-paint, sort, filter, data replacement — these drive the headline speedup. <strong>Round-trip</strong> sums the macro times. <strong>Micro</strong> ops (within-frame interactions): single-row update, column resize, scroll-to-end, destroy — reported separately because most ties cluster at the ~16 ms vsync floor on every virtualized grid. <strong>Viewport overhead</strong>: DOM node count after first paint. Each metric runs 5× per scale point (trimmed mean).</p>
   </div>
 </div>
 
 <script>
-  import '@toolbox-web/grid';
-import type { ColumnConfig } from '@toolbox-web/grid';
-import { queryGrid } from '@toolbox-web/grid';
-import '@toolbox-web/grid/features/column-virtualization';
-import '@toolbox-web/grid/features/filtering';
+  import type { CompetitorAdapter, MetricName, ScaleResult } from './competitors/index.js';
+import {
+ALL_METRICS,
+DOM_METRIC,
+MACRO_METRICS,
+MICRO_METRICS,
+ROUND_TRIP_METRIC,
+baselineAdapter,
+competitors,
+getCompetitor,
+} from './competitors/index.js';
+import {
+COL_COUNT,
+ITERATIONS,
+NOISE_FLOOR_MS,
+SCALE_POINTS,
+cooldown,
+formatCount,
+formatMetric,
+formatRowCount,
+} from './competitors/shared.js';
 
-  // #region Constants
-  const SCALE_POINTS = [5_000, 100_000, 500_000, 1_000_000];
-  const COL_COUNT = 10;
-  const ITERATIONS = 5; // Repeat each metric this many times and report trimmed mean
-  const TIME_METRICS = [
-    'Initial render', 'Scroll avg frame', 'Sort', 'Filter', 'Data replacement',
-    'Update single row', 'Column resize', 'Scroll to end', 'Grid destroy',
-  ] as const;
-  const MEMORY_METRIC = 'Memory usage' as const;
-  const ALL_METRICS = [...TIME_METRICS, MEMORY_METRIC] as const;
-  type MetricName = typeof ALL_METRICS[number];
-  const hasMemoryApi = !!(performance as any).memory;
+  // #region Config + Cache
+  const COLOR_BASELINE = baselineAdapter.color;
+  const COLOR_WIN = '#4ade80';
+  const COLOR_LOSE = '#f87171';
+  const COLOR_TIE = '#94a3b8';
+
+  /** Cached benchmark runs keyed by `competitor.id`. */
+  const cache = new Map<string, ScaleResult[]>();
+
+  let currentCompetitor: CompetitorAdapter = competitors[0];
   // #endregion
 
-  // #region Types & Helpers
-  interface ScaleResult {
-    rowCount: number;
-    tbw: Map<string, number>;
-    ag: Map<string, number>;
-  }
-
-  function generateColumns(count: number): { field: string; header: string; width: number }[] {
-    const columns: { field: string; header: string; width: number }[] = [
-      { field: 'id', header: 'ID', width: 80 },
-    ];
-    for (let i = 1; i < count; i++) {
-      columns.push({ field: `col${i}`, header: `Column ${i}`, width: 120 });
-    }
-    return columns;
-  }
-
-  function generateRows(rowCount: number, columnCount: number): Record<string, unknown>[] {
-    const rows: Record<string, unknown>[] = [];
-    for (let i = 0; i < rowCount; i++) {
-      const row: Record<string, unknown> = { id: i + 1 };
-      for (let j = 1; j < columnCount; j++) {
-        row[`col${j}`] = `R${i + 1}C${j}`;
-      }
-      rows.push(row);
-    }
-    return rows;
-  }
-
-  /** Fisher-Yates shuffle (in-place). Used to randomize row order before sort
-   *  benchmarks so we measure real O(n log n), not O(n) reverse-of-sorted. */
-  function shuffleRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
-    for (let i = rows.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [rows[i], rows[j]] = [rows[j], rows[i]];
-    }
-    return rows;
-  }
-
-  function formatTime(ms: number): string {
-    if (ms < 1) return `${(ms * 1000).toFixed(0)}µs`;
-    if (ms < 1000) return `${ms.toFixed(1)}ms`;
-    return `${(ms / 1000).toFixed(2)}s`;
-  }
-
-  function formatBytes(bytes: number): string {
-    if (bytes < 1024) return `${bytes}B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-  }
-
-  function formatMetric(metric: string, value: number): string {
-    return metric === MEMORY_METRIC ? formatBytes(value) : formatTime(value);
-  }
-
-  function formatRowCount(n: number): string {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(0)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-    return String(n);
-  }
-
-  const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
-
-  const cooldown = (ms = 500) => new Promise<void>((r) => setTimeout(r, ms));
-
-  /**
-   * Measure the full visual update cycle: API call + one rAF for deferred
-   * rendering to complete. Uses identical methodology for both grids so
-   * the ~16ms frame cost applies equally. This ensures we always measure
-   * "time until the DOM reflects the change", not "time to schedule work".
-   */
-  const measureVisual = async (fn: () => void | Promise<void>): Promise<number> => {
-    await nextFrame(); // settle before measuring
-    const start = performance.now();
-    await fn();
-    await new Promise<void>((r) => requestAnimationFrame(() => r())); // one frame to complete any deferred work
-    return performance.now() - start;
-  };
-
-  /**
-   * Run a measurement ITERATIONS times and return the trimmed mean (drop min & max).
-   * `measure` performs the operation and returns the time.
-   * `reset` is called between iterations to restore state (e.g. clear filter).
-   */
-  async function measureAvg(
-    measure: () => Promise<number>,
-    reset?: () => void | Promise<void>,
-  ): Promise<number> {
-    const samples: number[] = [];
-    for (let i = 0; i < ITERATIONS; i++) {
-      samples.push(await measure());
-      if (reset) {
-        await reset();
-        await nextFrame();
-        await cooldown(30);
-      }
-    }
-    // Trimmed mean: drop highest and lowest if we have enough samples
-    if (samples.length >= 4) {
-      samples.sort((a, b) => a - b);
-      const trimmed = samples.slice(1, -1);
-      return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
-    }
-    return samples.reduce((a, b) => a + b, 0) / samples.length;
-  }
-
-  async function measureMemoryBaseline(): Promise<number | null> {
-    const mem = (performance as any).memory;
-    if (!mem) return null;
-    if (typeof (window as any).gc === 'function') {
-      (window as any).gc();
-      await new Promise((r) => setTimeout(r, 100));
-    }
-    return mem.usedJSHeapSize;
-  }
-
-  /** Measure the delta in heap usage caused by a grid.
-   *  Takes a baseline before the grid exists and subtracts it. */
-  async function measureMemoryDelta(baseline: number | null): Promise<number | null> {
-    if (baseline === null) return null;
-    const mem = (performance as any).memory;
-    if (!mem) return null;
-    if (typeof (window as any).gc === 'function') {
-      (window as any).gc();
-      await new Promise((r) => setTimeout(r, 100));
-    }
-    const current = mem.usedJSHeapSize;
-    return Math.max(0, current - baseline);
-  }
+  // #region DOM References
+  const runBtn = document.getElementById('compare-run') as HTMLButtonElement;
+  const competitorSelect = document.getElementById('compare-competitor') as HTMLSelectElement;
+  const statusEl = document.getElementById('compare-status')!;
+  const resultsEl = document.getElementById('compare-results')!;
+  const gridArea = document.getElementById('compare-grid-area')!;
+  const progressContainer = document.getElementById('compare-progress')!;
+  const progressBar = document.getElementById('compare-progress-bar')!;
+  const versionsEl = document.getElementById('compare-versions')!;
+  const tbwConfigEl = document.getElementById('compare-config-tbw')!;
+  const tbwConfigTitleEl = document.getElementById('compare-config-tbw-title')!;
+  const otherConfigEl = document.getElementById('compare-config-other')!;
+  const otherConfigTitleEl = document.getElementById('compare-config-other-title')!;
   // #endregion
 
-  // #region AG Grid Loader
-  let agGridLoaded = false;
-  let agGridVersion = '';
-
-  async function loadAgGrid(): Promise<void> {
-    if (agGridLoaded) return;
-
-    try {
-      const res = await fetch('https://cdn.jsdelivr.net/npm/ag-grid-community/package.json');
-      if (res.ok) {
-        const pkg = await res.json();
-        agGridVersion = pkg.version || '';
-        const versionEl = document.getElementById('ag-version');
-        if (versionEl) versionEl.textContent = `v${agGridVersion}`;
-      }
-    } catch { /* version display is optional */ }
-
-    return new Promise((resolve, reject) => {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-grid.min.css';
-      document.head.appendChild(link);
-
-      const themeLink = document.createElement('link');
-      themeLink.rel = 'stylesheet';
-      themeLink.href = 'https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-theme-quartz.min.css';
-      document.head.appendChild(themeLink);
-
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js';
-      script.onload = () => { agGridLoaded = true; resolve(); };
-      script.onerror = () => reject(new Error('Failed to load AG Grid from CDN'));
-      document.head.appendChild(script);
-    });
+  // #region Initial UI Population
+  for (const c of competitors) {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = c.name;
+    competitorSelect.appendChild(opt);
   }
+  competitorSelect.value = currentCompetitor.id;
+
+  tbwConfigTitleEl.textContent = baselineAdapter.name;
+  tbwConfigTitleEl.style.color = baselineAdapter.color;
+  tbwConfigEl.textContent = baselineAdapter.configCode;
+
+  function applyCompetitorToUi(competitor: CompetitorAdapter) {
+    otherConfigTitleEl.textContent = competitor.name;
+    otherConfigTitleEl.style.color = competitor.color;
+    otherConfigEl.textContent = competitor.configCode;
+    // Track the competitor's brand color for the row-win highlight so the
+    // background tints with the actual competitor (not just AG Grid orange).
+    resultsEl.style.setProperty('--perf-other-wins-bg', hexToRgba(competitor.color, 0.06));
+    versionsEl.textContent = competitor.version
+      ? `${competitor.name} v${competitor.version}`
+      : competitor.description ?? '';
+    const cached = cache.get(competitor.id);
+    if (cached) {
+      resultsEl.innerHTML = renderScaleTable(cached, competitor, true);
+      statusEl.textContent = `Cached — ${competitor.name}`;
+    } else {
+      resultsEl.innerHTML = `<p>Click <strong>Run Comparison</strong> to benchmark <strong style="color:${competitor.color}">${competitor.name}</strong> against ${baselineAdapter.name}.</p>
+        <p style="opacity:0.7;font-size:12px;">Scale points: ${SCALE_POINTS.map(formatRowCount).join(' → ')} rows × ${COL_COUNT} columns. Each grid is loaded from CDN on first run. Cached results survive switching the dropdown.</p>`;
+      statusEl.textContent = 'Ready';
+    }
+  }
+  applyCompetitorToUi(currentCompetitor);
+
+  competitorSelect.addEventListener('change', () => {
+    currentCompetitor = getCompetitor(competitorSelect.value);
+    applyCompetitorToUi(currentCompetitor);
+  });
   // #endregion
 
-  // #region Toolbox Grid Benchmarks (single scale point)
-  async function runToolboxAtScale(
-    gridArea: HTMLElement,
-    rowCount: number,
-  ): Promise<Map<string, number>> {
-    const results = new Map<string, number>();
-    const columns = generateColumns(COL_COUNT);
-    const rows = generateRows(rowCount, COL_COUNT);
-
-    // Memory baseline: measure heap BEFORE creating the grid
-    const memBaseline = await measureMemoryBaseline();
-
-    gridArea.innerHTML = '<tbw-grid id="compare-tbw-grid" style="width:100%;height:100%;"></tbw-grid>';
-    const grid = queryGrid('#compare-tbw-grid')!;
-    await cooldown(100);
-
-    const tbwColumns: ColumnConfig[] = columns.map((c) => ({
-      field: c.field, header: c.header, width: c.width,
-      type: c.field === 'id' ? 'number' : 'string', sortable: true,
-    }));
-
-    // Initial render
-    const renderTime = await measureVisual(() => {
-      grid.gridConfig = {
-        columns: tbwColumns,
-        fitMode: 'fixed',
-        getRowId: (row: any) => String(row.id),
-        features: { filtering: true },
-      };
-      grid.rows = rows;
-    });
-    results.set('Initial render', renderTime);
-    await cooldown(200);
-
-    // Scroll
-    const scrollContainer = grid.querySelector('.faux-vscroll');
-    if (scrollContainer) {
-      const totalHeight = scrollContainer.scrollHeight;
-      const viewportHeight = scrollContainer.clientHeight;
-      const steps = 30;
-      const stepSize = (totalHeight - viewportHeight) / steps;
-      if (stepSize > 0) {
-        for (let i = 0; i <= steps; i++) { scrollContainer.scrollTop = i * stepSize; await nextFrame(); }
-        scrollContainer.scrollTop = 0;
-        await cooldown(50);
-        const frameTimes: number[] = [];
-        for (let i = 0; i <= steps; i++) {
-          const start = performance.now();
-          scrollContainer.scrollTop = i * stepSize;
-          await nextFrame();
-          frameTimes.push(performance.now() - start);
-        }
-        results.set('Scroll avg frame', frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length);
-        scrollContainer.scrollTop = 0;
-        await cooldown(50);
-      }
-    }
-
-    // Sort — shuffle data first so we measure real O(n log n), not O(n) reverse
-    const sortTime = await measureAvg(
-      async () => {
-        grid.rows = shuffleRows([...rows]); // load shuffled data
-        await nextFrame(); await nextFrame(); // let re-render settle
-        return measureVisual(() => { grid.sort?.('id', 'desc'); });
-      },
-      () => { grid.sort?.(null); },
-    );
-    results.set('Sort', sortTime);
-    await cooldown(50);
-
-    // Filter (number filter on id column — keeps rows with id > rowCount/2)
-    const filterPlugin = grid.getPluginByName?.('filtering');
-    if (filterPlugin) {
-      const threshold = Math.floor(rowCount / 2);
-      const filterTime = await measureAvg(
-        () => measureVisual(() => {
-          filterPlugin.setFilterModel([
-            { field: 'id', type: 'number', operator: 'greaterThan', value: threshold },
-          ]);
-        }),
-        async () => {
-          filterPlugin.clearAllFilters();
-          await grid.forceLayout?.();
-        },
-      );
-      results.set('Filter', filterTime);
-      filterPlugin.clearAllFilters();
-      await grid.forceLayout?.();
-      await cooldown(50);
-    }
-
-    // Data replacement
-    const replaceTime = await measureAvg(
-      () => {
-        const fresh = generateRows(rowCount, COL_COUNT);
-        return measureVisual(() => { grid.rows = fresh; });
-      },
-    );
-    results.set('Data replacement', replaceTime);
-    await cooldown(50);
-
-    // Update single row
-    if (grid.updateRow) {
-      let updateCounter = 0;
-      const updateTime = await measureAvg(
-        () => measureVisual(() => {
-          grid.updateRow!(String(Math.floor(rowCount / 2) + 1), { col1: `UPDATED${++updateCounter}` });
-        }),
-      );
-      results.set('Update single row', updateTime);
-      await cooldown(50);
-    }
-
-    // Column resize
-    {
-      let wide = true;
-      const resizeTime = await measureAvg(
-        () => measureVisual(() => {
-          const state = grid.getColumnState?.();
-          if (state?.columns?.[0]) {
-            state.columns[0].width = wide ? 200 : 80;
-            wide = !wide;
-            grid.applyColumnState(state);
-          }
-        }),
-      );
-      results.set('Column resize', resizeTime);
-      await cooldown(50);
-    }
-
-    // Scroll to end
-    {
-      const scrollEndTime = await measureAvg(
-        () => measureVisual(() => {
-          grid.scrollToRow?.(rowCount - 1, { align: 'end' });
-        }),
-        () => { grid.scrollToRow?.(0, { align: 'start' }); },
-      );
-      results.set('Scroll to end', scrollEndTime);
-      await cooldown(50);
-    }
-
-    // Grid destroy
-    {
-      // Measure the cost of removing the grid (disconnect + cleanup)
-      // Re-create a fresh grid just for this measurement
-      gridArea.innerHTML = '<tbw-grid id="compare-tbw-destroy" style="width:100%;height:100%;"></tbw-grid>';
-      const destroyGrid = queryGrid('#compare-tbw-destroy')!;
-      destroyGrid.gridConfig = { columns: tbwColumns, fitMode: 'fixed', getRowId: (row: any) => String(row.id) };
-      destroyGrid.rows = rows;
-      await nextFrame(); await nextFrame();
-      await cooldown(100);
-
-      const destroyTime = await measureVisual(() => {
-        destroyGrid.remove();
-      });
-      results.set('Grid destroy', destroyTime);
-      gridArea.innerHTML = '';
-      await cooldown(50);
-    }
-
-    // Memory usage (Chrome only) — delta since baseline before grid creation
-    const memDelta = await measureMemoryDelta(memBaseline);
-    if (memDelta !== null) results.set('Memory usage', memDelta);
-
-    // Cleanup
-    grid.rows = [];
-    grid.gridConfig = { columns: [] };
-    gridArea.innerHTML = '';
-    await cooldown(300);
-
-    return results;
-  }
-  // #endregion
-
-  // #region AG Grid Benchmarks (single scale point)
-  async function runAgAtScale(
-    gridArea: HTMLElement,
-    rowCount: number,
-  ): Promise<Map<string, number>> {
-    const results = new Map<string, number>();
-    const agGrid = (window as any).agGrid;
-    if (!agGrid) throw new Error('AG Grid not loaded');
-
-    const columns = generateColumns(COL_COUNT);
-    const rows = generateRows(rowCount, COL_COUNT);
-
-    // Memory baseline: measure heap BEFORE creating the grid
-    const memBaseline = await measureMemoryBaseline();
-
-    gridArea.innerHTML = '<div id="compare-ag-grid" class="ag-theme-quartz" style="width:100%;height:100%;"></div>';
-    const container = document.getElementById('compare-ag-grid')!;
-    await cooldown(100);
-
-    const agColumnDefs = columns.map((c) => ({
-      field: c.field, headerName: c.header, width: c.width, sortable: true,
-      filter: c.field === 'id' ? 'agNumberColumnFilter' : true,
-    }));
-
-    // Initial render
-    let gridApi: any;
-    const renderTime = await measureVisual(() => {
-      gridApi = agGrid.createGrid(container, {
-        columnDefs: agColumnDefs, rowData: rows,
-        suppressColumnVirtualisation: false, animateRows: false,
-        getRowId: (params: any) => String(params.data.id),
-      });
-    });
-    results.set('Initial render', renderTime);
-    await cooldown(200);
-
-    // Scroll
-    const agScrollViewport = container.querySelector('.ag-body-viewport');
-    if (agScrollViewport) {
-      const totalHeight = agScrollViewport.scrollHeight;
-      const viewportHeight = agScrollViewport.clientHeight;
-      const steps = 30;
-      const stepSize = (totalHeight - viewportHeight) / steps;
-      if (stepSize > 0) {
-        for (let i = 0; i <= steps; i++) { agScrollViewport.scrollTop = i * stepSize; await nextFrame(); }
-        agScrollViewport.scrollTop = 0;
-        await cooldown(50);
-        const frameTimes: number[] = [];
-        for (let i = 0; i <= steps; i++) {
-          const start = performance.now();
-          agScrollViewport.scrollTop = i * stepSize;
-          await nextFrame();
-          frameTimes.push(performance.now() - start);
-        }
-        results.set('Scroll avg frame', frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length);
-        agScrollViewport.scrollTop = 0;
-        await cooldown(50);
-      }
-    }
-
-    // Sort — shuffle data first so we measure real O(n log n), not O(n) reverse
-    if (gridApi) {
-      const sortTime = await measureAvg(
-        async () => {
-          const shuffled = shuffleRows([...rows]);
-          gridApi.setGridOption('rowData', shuffled);
-          await nextFrame(); await nextFrame(); // let re-render settle
-          return measureVisual(() => {
-            gridApi.applyColumnState({ state: [{ colId: 'id', sort: 'desc' }] });
-          });
-        },
-        () => { gridApi.applyColumnState({ defaultState: { sort: null } }); },
-      );
-      results.set('Sort', sortTime);
-      await cooldown(50);
-    }
-
-    // Filter (number filter on id column — keeps rows with id > rowCount/2)
-    if (gridApi) {
-      const threshold = Math.floor(rowCount / 2);
-      const filterTime = await measureAvg(
-        () => measureVisual(() => {
-          gridApi.setFilterModel({
-            id: { filterType: 'number', type: 'greaterThan', filter: threshold },
-          });
-        }),
-        async () => {
-          gridApi.setFilterModel(null);
-          await nextFrame();
-        },
-      );
-      results.set('Filter', filterTime);
-      gridApi.setFilterModel(null);
-      await nextFrame();
-      await cooldown(50);
-    }
-
-    // Data replacement
-    const replaceTime = await measureAvg(
-      () => {
-        const fresh = generateRows(rowCount, COL_COUNT);
-        return measureVisual(() => { gridApi.setGridOption('rowData', fresh); });
-      },
-    );
-    results.set('Data replacement', replaceTime);
-    await cooldown(50);
-
-    // Update single row
-    if (gridApi) {
-      const midId = Math.floor(rowCount / 2) + 1;
-      let updateCounter = 0;
-      const updateTime = await measureAvg(
-        () => measureVisual(() => {
-          gridApi.applyTransaction({ update: [{ id: midId, col1: `UPDATED${++updateCounter}` }] });
-        }),
-      );
-      results.set('Update single row', updateTime);
-      await cooldown(50);
-    }
-
-    // Column resize
-    if (gridApi) {
-      let wide = true;
-      const resizeTime = await measureAvg(
-        () => measureVisual(() => {
-          gridApi.applyColumnState({ state: [{ colId: 'id', width: wide ? 200 : 80 }] });
-          wide = !wide;
-        }),
-      );
-      results.set('Column resize', resizeTime);
-      await cooldown(50);
-    }
-
-    // Scroll to end
-    if (gridApi) {
-      const scrollEndTime = await measureAvg(
-        () => measureVisual(() => {
-          gridApi.ensureIndexVisible(rowCount - 1, 'bottom');
-        }),
-        () => { gridApi.ensureIndexVisible(0, 'top'); },
-      );
-      results.set('Scroll to end', scrollEndTime);
-      await cooldown(50);
-    }
-
-    // Grid destroy
-    if (gridApi) {
-      // Create a fresh grid just for destroy measurement
-      gridArea.innerHTML += '<div id="compare-ag-destroy" class="ag-theme-quartz" style="width:100%;height:100%;position:absolute;top:0;left:0;right:0;bottom:0;"></div>';
-      const destroyContainer = document.getElementById('compare-ag-destroy')!;
-      const freshRows = generateRows(rowCount, COL_COUNT);
-      let destroyApi: any;
-      destroyApi = agGrid.createGrid(destroyContainer, {
-        columnDefs: agColumnDefs, rowData: freshRows,
-        suppressColumnVirtualisation: false, animateRows: false,
-        getRowId: (params: any) => String(params.data.id),
-      });
-      await nextFrame(); await nextFrame();
-      await cooldown(100);
-
-      const destroyTime = await measureVisual(() => {
-        destroyApi.destroy();
-      });
-      results.set('Grid destroy', destroyTime);
-      destroyContainer.remove();
-      await cooldown(50);
-    }
-
-    // Memory usage (Chrome only) — delta since baseline before grid creation
-    const memDelta = await measureMemoryDelta(memBaseline);
-    if (memDelta !== null) results.set('Memory usage', memDelta);
-
-    // Cleanup
-    if (gridApi) gridApi.destroy();
-    gridArea.innerHTML = '';
-    await cooldown(300);
-
-    return results;
-  }
-  // #endregion
-
-  // #region Results Rendering
-  const COLOR_TBW = '#38bdf8'; // cyan — Toolbox brand
-  const COLOR_AG = '#fb923c';  // orange — AG Grid brand
-  const COLOR_WIN = '#4ade80'; // green — winner value
-  const COLOR_LOSE = '#f87171'; // red — loser value
-  const COLOR_TIE = '#94a3b8'; // slate — within noise floor
-  const NOISE_FLOOR_MS = 17; // single frame @ 60fps — below this, results are within measurement noise
-
+  // #region Result Rendering
   function formatDelta(winner: number, loser: number): string {
     if (loser === 0 || winner === 0) return '';
     const ratio = loser / winner;
@@ -603,159 +147,263 @@ import '@toolbox-web/grid/features/filtering';
     return `${ratio.toFixed(1)}×`;
   }
 
-  function renderScaleTable(allResults: ScaleResult[], done: boolean): string {
-    // Determine which metrics have data
-    const activeMetrics = ALL_METRICS.filter((metric) =>
-      allResults.some((r) => r.tbw.has(metric) || r.ag.has(metric))
-    );
+  /** Convert `#rrggbb` to an `rgba(r, g, b, a)` string. Falls back to the input on parse failure. */
+  function hexToRgba(hex: string, alpha: number): string {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+    if (!m) return hex;
+    const n = parseInt(m[1], 16);
+    return `rgba(${(n >> 16) & 0xff}, ${(n >> 8) & 0xff}, ${n & 0xff}, ${alpha})`;
+  }
 
-    // Legend + card grid
-    let html = `<div class="perf-legend">
-      <span class="perf-legend-item"><span class="perf-legend-swatch" style="background:${COLOR_TBW}"></span> Toolbox Grid</span>
-      <span class="perf-legend-item"><span class="perf-legend-swatch" style="background:${COLOR_AG}"></span> AG Grid</span>
-      <span class="perf-legend-hint">Lower is better · <span style="color:${COLOR_WIN}">green</span> = winner · <span style="color:${COLOR_TIE}">gray</span> = within noise</span>
-    </div>`;
-    html += '<div class="perf-card-grid">';
+  /**
+   * Render a single metric card (one card = one metric, N scale rows).
+   * Used for both macro and micro groups so the visual format stays
+   * identical; only the placement and the headline-speedup contribution
+   * differ between groups.
+   */
+  function renderMetricCard(
+    metric: MetricName,
+    allResults: ScaleResult[],
+    valueGetter: (r: ScaleResult) => { tbw: number | undefined; other: number | undefined },
+    competitor: CompetitorAdapter,
+    done: boolean,
+    options: { contributesToHeadline: boolean; isCount?: boolean },
+  ): string {
+    const competitorColor = competitor.color;
+    const isCount = options.isCount === true;
 
-    for (const metric of activeMetrics) {
-      // Find max value for bar scaling
-      let maxVal = 0;
-      for (const r of allResults) {
-        maxVal = Math.max(maxVal, r.tbw.get(metric) ?? 0, r.ag.get(metric) ?? 0);
+    let maxVal = 0;
+    for (const r of allResults) {
+      const v = valueGetter(r);
+      maxVal = Math.max(maxVal, v.tbw ?? 0, v.other ?? 0);
+    }
+    if (maxVal === 0) maxVal = 1;
+
+    const cardRatios: number[] = [];
+    for (const r of allResults) {
+      const v = valueGetter(r);
+      if (v.tbw !== undefined && v.other !== undefined && v.tbw > 0 && v.other > 0) {
+        const isTieCheck = !isCount && v.tbw < NOISE_FLOOR_MS && v.other < NOISE_FLOOR_MS;
+        if (!isTieCheck) cardRatios.push(v.other / v.tbw);
       }
-      if (maxVal === 0) maxVal = 1;
+    }
+    const cardGeoMean = cardRatios.length > 0
+      ? Math.pow(cardRatios.reduce((p, r) => p * r, 1), 1 / cardRatios.length)
+      : 1;
+    const cardWinner = cardGeoMean >= 1 ? 'BASE' : 'OTHER';
+    const cardSpeedup = cardGeoMean >= 1 ? cardGeoMean : 1 / cardGeoMean;
+    const winnerName = cardWinner === 'BASE' ? baselineAdapter.shortLabel : competitor.shortLabel;
+    const winnerColor = cardWinner === 'BASE' ? COLOR_BASELINE : competitorColor;
+    const cardLabel = isCount ? `${cardSpeedup.toFixed(1)}× fewer` : `${cardSpeedup.toFixed(1)}× faster`;
+    const cardSubtitle = done && cardRatios.length > 0 && cardSpeedup >= 1.05
+      ? `<span class="perf-card-subtitle" style="color:${winnerColor}">${winnerName} ${cardLabel}</span>`
+      : '';
+    const headlineHint = options.contributesToHeadline ? '' : ' <span class="perf-card-tag">excluded from headline</span>';
 
-      const isMemory = metric === MEMORY_METRIC;
+    let html = `<div class="perf-card">
+      <div class="perf-card-title">${metric}${cardSubtitle}${headlineHint}</div>`;
 
-      // Compute per-card average speedup (geometric mean of ratios where both have data)
-      const cardRatios: number[] = [];
-      let cardTbwWins = 0;
-      let cardAgWins = 0;
-      for (const r of allResults) {
-        const t = r.tbw.get(metric);
-        const a = r.ag.get(metric);
-        if (t !== undefined && a !== undefined && t > 0 && a > 0) {
-          const isTieCheck = !isMemory && t < NOISE_FLOOR_MS && a < NOISE_FLOOR_MS;
-          if (!isTieCheck) {
-            cardRatios.push(a / t); // >1 means TBW wins
-            if (t <= a) cardTbwWins++; else cardAgWins++;
-          }
-        }
-      }
-      const cardGeoMean = cardRatios.length > 0
-        ? Math.pow(cardRatios.reduce((p, r) => p * r, 1), 1 / cardRatios.length)
-        : 1;
-      // Winner determined by geometric mean: >1 means TBW wins (lower is better for all metrics)
-      const cardWinner = cardGeoMean >= 1 ? 'TBW' : 'AG';
-      const cardSpeedup = cardGeoMean >= 1 ? cardGeoMean : 1 / cardGeoMean;
-      const cardLabel = isMemory ? `${cardSpeedup.toFixed(1)}× smaller` : `${cardSpeedup.toFixed(1)}× faster`;
-      const cardSubtitle = done && cardRatios.length > 0 && cardSpeedup >= 1.05
-        ? `<span class="perf-card-subtitle" style="color:${cardWinner === 'TBW' ? COLOR_TBW : COLOR_AG}">${cardWinner} ${cardLabel}</span>`
-        : '';
+    for (const r of allResults) {
+      const v = valueGetter(r);
+      const tbw = v.tbw;
+      const other = v.other;
+      const tbwDone = tbw !== undefined;
+      const otherDone = other !== undefined;
+      const bothDone = tbwDone && otherDone;
 
-      html += `<div class="perf-card">
-        <div class="perf-card-title">${metric}${cardSubtitle}</div>`;
+      const isTie = !isCount && bothDone && (tbw!) < NOISE_FLOOR_MS && (other!) < NOISE_FLOOR_MS;
+      const tbwWins = !isTie && bothDone && (tbw!) < (other!);
+      const otherWins = !isTie && bothDone && (other!) < (tbw!);
 
-      for (const r of allResults) {
-        const tbw = r.tbw.get(metric);
-        const ag = r.ag.get(metric);
-        const tbwDone = tbw !== undefined;
-        const agDone = ag !== undefined;
-        const bothDone = tbwDone && agDone;
+      const tbwPct = tbwDone ? Math.max(3, ((tbw!) / maxVal) * 100) : 0;
+      const otherPct = otherDone ? Math.max(3, ((other!) / maxVal) * 100) : 0;
+      const tbwLabel = tbwDone ? (isCount ? formatCount(tbw!) : formatMetric(metric, tbw!)) : '…';
+      const otherLabel = otherDone ? (isCount ? formatCount(other!) : formatMetric(metric, other!)) : '…';
 
-        // Noise detection: for time metrics, if both are under one frame, it's a tie
-        const isTie = !isMemory && bothDone && (tbw!) < NOISE_FLOOR_MS && (ag!) < NOISE_FLOOR_MS;
+      const tbwValColor = !bothDone ? '#888' : isTie ? COLOR_TIE : tbwWins ? COLOR_WIN : COLOR_LOSE;
+      const otherValColor = !bothDone ? '#888' : isTie ? COLOR_TIE : otherWins ? COLOR_WIN : COLOR_LOSE;
 
-        const tbwWins = !isTie && bothDone && (tbw!) <= (ag!);
-        const agWins = !isTie && bothDone && (ag!) < (tbw!);
+      const tbwDelta = tbwWins ? formatDelta(tbw!, other!) : '';
+      const otherDelta = otherWins ? formatDelta(other!, tbw!) : '';
+      const rowClass = tbwWins
+        ? 'perf-row perf-row-baseline-wins'
+        : otherWins
+          ? 'perf-row perf-row-other-wins'
+          : 'perf-row';
 
-        const tbwPct = tbwDone ? Math.max(3, ((tbw!) / maxVal) * 100) : 0;
-        const agPct = agDone ? Math.max(3, ((ag!) / maxVal) * 100) : 0;
-
-        const tbwLabel = tbwDone ? formatMetric(metric, tbw!) : '…';
-        const agLabel = agDone ? formatMetric(metric, ag!) : '…';
-
-        // Value coloring: green = winner, red = loser, slate = tie/noise
-        const tbwValColor = !bothDone ? '#888' : isTie ? COLOR_TIE : tbwWins ? COLOR_WIN : COLOR_LOSE;
-        const agValColor = !bothDone ? '#888' : isTie ? COLOR_TIE : agWins ? COLOR_WIN : COLOR_LOSE;
-
-        const tbwDelta = tbwWins ? formatDelta(tbw!, ag!) : '';
-        const agDelta = agWins ? formatDelta(ag!, tbw!) : '';
-
-        // Winner gets a subtle background highlight
-        const rowClass = tbwWins ? 'perf-row perf-row-tbw-wins' : agWins ? 'perf-row perf-row-ag-wins' : 'perf-row';
-
-        html += `
-          <div class="${rowClass}">
-            <div class="perf-row-label">${formatRowCount(r.rowCount)}</div>
-            <div class="perf-row-bars">
-              <div class="perf-bar-row perf-bar-row-top">
-                <span class="perf-bar-name" style="color:${COLOR_TBW}">TBW</span>
-                <div class="perf-bar-track">
-                  <div class="perf-bar-fill" style="width:${tbwPct}%;background:${COLOR_TBW};"></div>
-                </div>
-                <span class="perf-bar-value" style="color:${tbwValColor}">${tbwLabel}${tbwDelta ? ` <span class="perf-delta">${tbwDelta}</span>` : ''}</span>
+      html += `
+        <div class="${rowClass}">
+          <div class="perf-row-label">${formatRowCount(r.rowCount)}</div>
+          <div class="perf-row-bars">
+            <div class="perf-bar-row perf-bar-row-top">
+              <span class="perf-bar-name" style="color:${COLOR_BASELINE}">${baselineAdapter.shortLabel}</span>
+              <div class="perf-bar-track">
+                <div class="perf-bar-fill" style="width:${tbwPct}%;background:${COLOR_BASELINE};"></div>
               </div>
-              <div class="perf-bar-row perf-bar-row-bottom">
-                <span class="perf-bar-name" style="color:${COLOR_AG}">AG</span>
-                <div class="perf-bar-track">
-                  <div class="perf-bar-fill" style="width:${agPct}%;background:${COLOR_AG};"></div>
-                </div>
-                <span class="perf-bar-value" style="color:${agValColor}">${agLabel}${agDelta ? ` <span class="perf-delta">${agDelta}</span>` : ''}</span>
-              </div>
+              <span class="perf-bar-value" style="color:${tbwValColor}">${tbwLabel}${tbwDelta ? ` <span class="perf-delta">${tbwDelta}</span>` : ''}</span>
             </div>
-          </div>`;
-      }
-
-      html += '</div>';
+            <div class="perf-bar-row perf-bar-row-bottom">
+              <span class="perf-bar-name" style="color:${competitorColor}">${competitor.shortLabel}</span>
+              <div class="perf-bar-track">
+                <div class="perf-bar-fill" style="width:${otherPct}%;background:${competitorColor};"></div>
+              </div>
+              <span class="perf-bar-value" style="color:${otherValColor}">${otherLabel}${otherDelta ? ` <span class="perf-delta">${otherDelta}</span>` : ''}</span>
+            </div>
+          </div>
+        </div>`;
     }
 
     html += '</div>';
+    return html;
+  }
+
+  /**
+   * Sum the macro-metric times at one scale point. Returns `undefined`
+   * unless every macro metric for that side has a value; partial sums
+   * would be misleading (a missing 1M sort would make the round-trip
+   * look artificially fast).
+   */
+  function macroSum(side: Map<MetricName, number>): number | undefined {
+    let total = 0;
+    for (const m of MACRO_METRICS) {
+      const v = side.get(m);
+      if (v === undefined) return undefined;
+      total += v;
+    }
+    return total;
+  }
+
+  function renderScaleTable(
+    allResults: ScaleResult[],
+    competitor: CompetitorAdapter,
+    done: boolean,
+  ): string {
+    const competitorColor = competitor.color;
+
+    const activeMacro = MACRO_METRICS.filter((m) =>
+      allResults.some((r) => r.tbw.has(m) || r.competitor.has(m)),
+    );
+    const activeMicro = MICRO_METRICS.filter((m) =>
+      allResults.some((r) => r.tbw.has(m) || r.competitor.has(m)),
+    );
+
+    // Viewport overhead: DOM_METRIC is constant across scales for any
+    // virtualized grid; render once, not per-scale. Pull the latest
+    // available value from each side.
+    let tbwDom: number | undefined;
+    let otherDom: number | undefined;
+    for (const r of allResults) {
+      const t = r.tbw.get(DOM_METRIC);
+      const c = r.competitor.get(DOM_METRIC);
+      if (t !== undefined) tbwDom = t;
+      if (c !== undefined) otherDom = c;
+    }
+
+    let html = `<div class="perf-legend">
+      <span class="perf-legend-item"><span class="perf-legend-swatch" style="background:${COLOR_BASELINE}"></span> ${baselineAdapter.name}</span>
+      <span class="perf-legend-item"><span class="perf-legend-swatch" style="background:${competitorColor}"></span> ${competitor.name}</span>
+      <span class="perf-legend-hint">Lower is better · <span style="color:${COLOR_WIN}">green</span> = winner · <span style="color:${COLOR_TIE}">gray</span> = within noise</span>
+    </div>`;
+
+    // Viewport overhead row
+    if (tbwDom !== undefined || otherDom !== undefined) {
+      const ratio = tbwDom && otherDom ? Math.max(tbwDom, otherDom) / Math.min(tbwDom, otherDom) : 1;
+      const lighterIsBase = tbwDom !== undefined && otherDom !== undefined && tbwDom <= otherDom;
+      const ratioStr = ratio >= 1.05
+        ? ` — <strong style="color:${lighterIsBase ? COLOR_BASELINE : competitorColor}">${ratio.toFixed(1)}× lighter</strong>`
+        : '';
+      html += `<div class="perf-overhead">
+        <strong>Viewport overhead</strong> (DOM nodes after first paint, constant across scales because both grids are virtualized):
+        <span style="color:${COLOR_BASELINE}">${baselineAdapter.shortLabel} ${tbwDom !== undefined ? formatCount(tbwDom) : '…'}</span> ·
+        <span style="color:${competitorColor}">${competitor.shortLabel} ${otherDom !== undefined ? formatCount(otherDom) : '…'}</span>${ratioStr}
+      </div>`;
+    }
+
+    // Macro card grid — these drive the headline
+    if (activeMacro.length > 0) {
+      html += `<h3 class="perf-section-title">Macro operations <span class="perf-section-hint">scaling work · drives headline speedup</span></h3>`;
+      html += '<div class="perf-card-grid">';
+      for (const metric of activeMacro) {
+        html += renderMetricCard(
+          metric,
+          allResults,
+          (r) => ({ tbw: r.tbw.get(metric), other: r.competitor.get(metric) }),
+          competitor,
+          done,
+          { contributesToHeadline: true },
+        );
+      }
+      html += '</div>';
+    }
+
+    // Round-trip card — derived sum of macro times
+    const hasRoundTrip = allResults.some((r) => macroSum(r.tbw) !== undefined || macroSum(r.competitor) !== undefined);
+    if (hasRoundTrip && activeMacro.length === MACRO_METRICS.length) {
+      html += `<h3 class="perf-section-title">Round-trip <span class="perf-section-hint">paint + sort + filter + replace, summed</span></h3>`;
+      html += '<div class="perf-card-grid">';
+      html += renderMetricCard(
+        ROUND_TRIP_METRIC,
+        allResults,
+        (r) => ({ tbw: macroSum(r.tbw), other: macroSum(r.competitor) }),
+        competitor,
+        done,
+        { contributesToHeadline: false },
+      );
+      html += '</div>';
+    }
+
+    // Micro card grid — reported but excluded from headline
+    if (activeMicro.length > 0) {
+      html += `<h3 class="perf-section-title">Micro operations <span class="perf-section-hint">within-frame interactions · ties at the ~16 ms vsync floor are expected</span></h3>`;
+      html += '<div class="perf-card-grid">';
+      for (const metric of activeMicro) {
+        html += renderMetricCard(
+          metric,
+          allResults,
+          (r) => ({ tbw: r.tbw.get(metric), other: r.competitor.get(metric) }),
+          competitor,
+          done,
+          { contributesToHeadline: false },
+        );
+      }
+      html += '</div>';
+    }
 
     if (done) {
-      // Summary: count wins across all scale points and metrics (ties don't count)
-      let tbwWins = 0;
-      let agWins = 0;
+      // Headline: count wins and compute geo-mean speedup using MACRO only.
+      let baseWins = 0;
+      let otherWins = 0;
       let ties = 0;
-      for (const r of allResults) {
-        for (const metric of activeMetrics) {
-          const tbw = r.tbw.get(metric);
-          const ag = r.ag.get(metric);
-          if (tbw !== undefined && ag !== undefined) {
-            const isMemoryMetric = metric === MEMORY_METRIC;
-            const isTieResult = !isMemoryMetric && tbw < NOISE_FLOOR_MS && ag < NOISE_FLOOR_MS;
-            if (isTieResult) ties++;
-            else if (tbw < ag) tbwWins++;
-            else if (ag < tbw) agWins++;
-            else ties++;
-          }
-        }
-      }
-      // Overall geometric mean speedup across non-tie TIME metrics only (memory is a separate dimension)
       const overallRatios: number[] = [];
       for (const r of allResults) {
-        for (const metric of activeMetrics) {
-          if (metric === MEMORY_METRIC) continue;
+        for (const metric of activeMacro) {
           const t = r.tbw.get(metric);
-          const a = r.ag.get(metric);
-          if (t !== undefined && a !== undefined && t > 0 && a > 0) {
-            const isTie2 = t < NOISE_FLOOR_MS && a < NOISE_FLOOR_MS;
-            if (!isTie2) overallRatios.push(a / t);
+          const c = r.competitor.get(metric);
+          if (t !== undefined && c !== undefined && t > 0 && c > 0) {
+            const isTieResult = t < NOISE_FLOOR_MS && c < NOISE_FLOOR_MS;
+            if (isTieResult) ties++;
+            else if (t < c) baseWins++;
+            else if (c < t) otherWins++;
+            else ties++;
+            if (!isTieResult) overallRatios.push(c / t);
           }
         }
       }
       const overallGeoMean = overallRatios.length > 0
         ? Math.pow(overallRatios.reduce((p, r) => p * r, 1), 1 / overallRatios.length)
         : 1;
-      const overallWinner = tbwWins >= agWins;
+      const overallWinnerIsBase = baseWins >= otherWins;
       const overallSpeedup = overallGeoMean >= 1 ? overallGeoMean : 1 / overallGeoMean;
-      const speedupLabel = overallSpeedup >= 1.05 ? ` — <strong>${overallSpeedup.toFixed(1)}× faster</strong>` : '';
+      const speedupLabel = overallSpeedup >= 1.05 ? ` — <strong>${overallSpeedup.toFixed(1)}× faster on macro ops</strong>` : '';
+      const winnerName = overallWinnerIsBase ? baselineAdapter.name : competitor.name;
+      const winnerColor = overallWinnerIsBase ? COLOR_BASELINE : competitorColor;
 
       html += `
         <div class="perf-summary">
-          <span style="color:${overallWinner ? COLOR_TBW : COLOR_AG}">▎${overallWinner ? 'Toolbox Grid' : 'AG Grid'}</span> wins <strong>${Math.max(tbwWins, agWins)}/${tbwWins + agWins + ties}</strong> data points${ties > 0 ? ` · ${ties} ties` : ''}${speedupLabel}
-          <div style="color:#888;font-size:12px;margin-top:4px;">
-            Tested at ${SCALE_POINTS.map(formatRowCount).join(', ')} rows × ${COL_COUNT} columns · ${ITERATIONS}× iterations (trimmed mean)${hasMemoryApi ? ' — memory via Chrome performance.memory' : ''}
+          <span style="color:${winnerColor}">▎${winnerName}</span> wins <strong>${Math.max(baseWins, otherWins)}/${baseWins + otherWins + ties}</strong> macro data points${ties > 0 ? ` · ${ties} noise-floor ties` : ''}${speedupLabel}
+          <div style="color:#888;font-size:12px;margin-top:6px;line-height:1.5;">
+            Tested at ${SCALE_POINTS.map(formatRowCount).join(', ')} rows × ${COL_COUNT} columns · ${ITERATIONS}× iterations per metric (trimmed mean).
+            <br/><strong>Honest framing:</strong> Toolbox materializes per-row internals lazily; AG Grid and Tabulator build their full row model up front. The “Time to first paint” gap therefore reflects deferred work as much as render speed — but the “Sort” metric forces every grid to touch every row, and the speedup there is the most defensible single number. Micro-operation ties at ~16 ms are a vsync floor effect, not a bug in either grid.
           </div>
         </div>
       `;
@@ -765,86 +413,48 @@ import '@toolbox-web/grid/features/filtering';
   }
   // #endregion
 
-  // #region DOM References
-  const runBtn = document.getElementById('compare-run') as HTMLButtonElement;
-  const statusEl = document.getElementById('compare-status')!;
-  const resultsEl = document.getElementById('compare-results')!;
-  const gridArea = document.getElementById('compare-grid-area')!;
-  const progressContainer = document.getElementById('compare-progress')!;
-  const progressBar = document.getElementById('compare-progress-bar')!;
-  const versionsEl = document.getElementById('compare-versions')!;
-
-  // Populate config panels (set via JS to avoid Astro template parsing of curly braces)
-  const tbwConfigEl = document.getElementById('compare-config-tbw')!;
-  const agConfigEl = document.getElementById('compare-config-ag')!;
-  tbwConfigEl.textContent = [
-    'grid.gridConfig = {',
-    '  columns: [',
-    "    { field: 'id', header: 'ID', width: 80, type: 'number', sortable: true },",
-    '    // ... 9 more columns, width: 120, sortable: true',
-    '  ],',
-    "  fitMode: 'fixed',",
-    '  getRowId: (row) => String(row.id),',
-    '  features: { filtering: true },',
-    '};',
-    'grid.rows = data; // 100K → 1M rows',
-    '',
-    "grid.sort('id', 'desc');  // programmatic sort",
-    'grid.sort(null);          // clear sort',
-  ].join('\n');
-  agConfigEl.textContent = [
-    'agGrid.createGrid(container, {',
-    '  columnDefs: [',
-    "    { field: 'id', headerName: 'ID', width: 80, sortable: true,",
-    "      filter: 'agNumberColumnFilter' },",
-    '    // ... 9 more columns, width: 120, sortable: true, filter: true',
-    '  ],',
-    '  rowData: data, // 100K → 1M rows',
-    '  getRowId: (params) => String(params.data.id),',
-    '  suppressColumnVirtualisation: false,',
-    '  animateRows: false,',
-    '});',
-    '',
-    "api.applyColumnState({ state: [{ colId: 'id', sort: 'desc' }] });",
-    'api.setFilterModel({ id: { filterType: "number", type: "greaterThan", filter: N } });',
-  ].join('\n');
-  // #endregion
-
   // #region Benchmark Orchestrator
   runBtn.addEventListener('click', async () => {
     runBtn.disabled = true;
+    competitorSelect.disabled = true;
     progressContainer.style.display = 'block';
 
-    // Load AG Grid from CDN
-    statusEl.textContent = 'Loading AG Grid from CDN...';
+    const competitor = currentCompetitor;
+
+    statusEl.textContent = `Loading ${competitor.name}...`;
     try {
-      await loadAgGrid();
-    } catch {
-      statusEl.textContent = 'Failed to load AG Grid from CDN';
+      await Promise.all([baselineAdapter.load(), competitor.load()]);
+    } catch (err) {
+      statusEl.textContent = `Failed to load ${competitor.name}`;
+      console.error(err);
       runBtn.disabled = false;
+      competitorSelect.disabled = false;
       progressContainer.style.display = 'none';
       return;
     }
-    versionsEl.textContent = agGridVersion ? `AG Grid v${agGridVersion} (latest from CDN)` : '';
+    versionsEl.textContent = competitor.version
+      ? `${competitor.name} v${competitor.version} (latest from CDN)`
+      : '';
 
-    // Warmup: run both grids at the first real scale point to JIT-compile all
-    // code paths (virtualization, row-pool, sorting, filtering). 100 rows is
-    // too few — it skips many hot paths that only activate at scale.
+    // Warmup: run both grids at the smallest scale point to JIT-compile
+    // virtualization and row-pool code paths. Skipped for the competitor if
+    // even the smallest scale exceeds its `maxRowCount`.
     statusEl.textContent = 'Warming up...';
     gridArea.innerHTML = '<p style="text-align:center;opacity:0.4;padding:20px 0;">Warmup...</p>';
-    await runToolboxAtScale(gridArea, SCALE_POINTS[0]);
-    await runAgAtScale(gridArea, SCALE_POINTS[0]);
+    await baselineAdapter.runAtScale(gridArea, SCALE_POINTS[0]);
+    if (competitor.maxRowCount === undefined || SCALE_POINTS[0] <= competitor.maxRowCount) {
+      await competitor.runAtScale(gridArea, SCALE_POINTS[0]);
+    }
     await cooldown(500);
 
     const allResults: ScaleResult[] = SCALE_POINTS.map((rowCount) => ({
       rowCount,
-      tbw: new Map(),
-      ag: new Map(),
+      tbw: new Map<MetricName, number>(),
+      competitor: new Map<MetricName, number>(),
     }));
 
-    const totalSteps = SCALE_POINTS.length * 2; // tbw + ag per scale point
+    const totalSteps = SCALE_POINTS.length * 2;
     let completedSteps = 0;
-
     const updateProgress = () => {
       const pct = Math.round((completedSteps / totalSteps) * 100);
       progressBar.style.width = `${pct}%`;
@@ -854,34 +464,35 @@ import '@toolbox-web/grid/features/filtering';
       const rowCount = SCALE_POINTS[i];
       const label = formatRowCount(rowCount);
 
-      // Phase 1: Toolbox Grid at this scale point
-      statusEl.textContent = `Toolbox Grid — ${label} rows (${i + 1}/${SCALE_POINTS.length})`;
-      gridArea.innerHTML = `<p style="text-align:center;opacity:0.6;padding:20px 0;">⏱ Toolbox Grid — ${label} rows...</p>`;
+      // Phase 1: baseline at this scale point
+      statusEl.textContent = `${baselineAdapter.name} — ${label} rows (${i + 1}/${SCALE_POINTS.length})`;
+      gridArea.innerHTML = `<p style="text-align:center;opacity:0.6;padding:20px 0;">⏱ ${baselineAdapter.name} — ${label} rows...</p>`;
       await cooldown(200);
-
-      const tbwResults = await runToolboxAtScale(gridArea, rowCount);
-      allResults[i].tbw = tbwResults;
+      allResults[i].tbw = await baselineAdapter.runAtScale(gridArea, rowCount);
       completedSteps++;
       updateProgress();
-      resultsEl.innerHTML = renderScaleTable(allResults, false);
+      resultsEl.innerHTML = renderScaleTable(allResults, competitor, false);
 
-      // Cooldown between grids
-      statusEl.textContent = `Cooldown before AG Grid — ${label} rows...`;
+      statusEl.textContent = `Cooldown before ${competitor.name} — ${label} rows...`;
       gridArea.innerHTML = '<p style="text-align:center;opacity:0.4;padding:20px 0;">Cooldown...</p>';
       await cooldown(1000);
 
-      // Phase 2: AG Grid at this scale point
-      statusEl.textContent = `AG Grid — ${label} rows (${i + 1}/${SCALE_POINTS.length})`;
-      gridArea.innerHTML = `<p style="text-align:center;opacity:0.6;padding:20px 0;">⏱ AG Grid — ${label} rows...</p>`;
-      await cooldown(200);
-
-      const agResults = await runAgAtScale(gridArea, rowCount);
-      allResults[i].ag = agResults;
+      // Phase 2: competitor at this scale point (skip if too large)
+      const tooLarge = competitor.maxRowCount !== undefined && rowCount > competitor.maxRowCount;
+      if (tooLarge) {
+        statusEl.textContent = `${competitor.name} skipped at ${label} rows (cap: ${formatRowCount(competitor.maxRowCount!)})`;
+        gridArea.innerHTML = `<p style="text-align:center;opacity:0.5;padding:20px 0;">${competitor.name} skipped — exceeds its ${formatRowCount(competitor.maxRowCount!)}-row cap</p>`;
+        await cooldown(300);
+      } else {
+        statusEl.textContent = `${competitor.name} — ${label} rows (${i + 1}/${SCALE_POINTS.length})`;
+        gridArea.innerHTML = `<p style="text-align:center;opacity:0.6;padding:20px 0;">⏱ ${competitor.name} — ${label} rows...</p>`;
+        await cooldown(200);
+        allResults[i].competitor = await competitor.runAtScale(gridArea, rowCount);
+      }
       completedSteps++;
       updateProgress();
-      resultsEl.innerHTML = renderScaleTable(allResults, false);
+      resultsEl.innerHTML = renderScaleTable(allResults, competitor, false);
 
-      // Cooldown before next scale point
       if (i < SCALE_POINTS.length - 1) {
         statusEl.textContent = `Cooldown before ${formatRowCount(SCALE_POINTS[i + 1])} rows...`;
         gridArea.innerHTML = '<p style="text-align:center;opacity:0.4;padding:20px 0;">Cooldown...</p>';
@@ -889,26 +500,30 @@ import '@toolbox-web/grid/features/filtering';
       }
     }
 
-    // Final results
+    // Cache + final render
+    cache.set(competitor.id, allResults);
     gridArea.innerHTML = '<p style="text-align:center;opacity:0.6;padding:20px 0;">Benchmark complete</p>';
-    statusEl.textContent = `Complete — ${SCALE_POINTS.map(formatRowCount).join(' → ')} rows` + (agGridVersion ? ` — AG Grid v${agGridVersion}` : '');
-    resultsEl.innerHTML = renderScaleTable(allResults, true);
+    statusEl.textContent =
+      `Complete — ${SCALE_POINTS.map(formatRowCount).join(' → ')} rows` +
+      (competitor.version ? ` — ${competitor.name} v${competitor.version}` : '');
+    resultsEl.innerHTML = renderScaleTable(allResults, competitor, true);
     progressBar.style.width = '100%';
     runBtn.disabled = false;
+    competitorSelect.disabled = false;
 
-    // Console log — single console.table with all metrics × scale points
+    // Console summary
     {
       const tableData: Record<string, Record<string, string>> = {};
       for (const metric of ALL_METRICS) {
         const row: Record<string, string> = {};
         for (const r of allResults) {
           const label = formatRowCount(r.rowCount);
-          row[`${label} TBW`] = formatMetric(metric, r.tbw.get(metric) ?? 0);
-          row[`${label} AG`] = formatMetric(metric, r.ag.get(metric) ?? 0);
+          row[`${label} ${baselineAdapter.shortLabel}`] = formatMetric(metric, r.tbw.get(metric) ?? 0);
+          row[`${label} ${competitor.shortLabel}`] = formatMetric(metric, r.competitor.get(metric) ?? 0);
         }
         tableData[metric] = row;
       }
-      console.log(`📊 Benchmark Results (${agGridVersion ? `AG Grid v${agGridVersion}` : 'AG Grid latest'})`);
+      console.log(`📊 Benchmark Results — ${baselineAdapter.name} vs ${competitor.name}` + (competitor.version ? ` v${competitor.version}` : ''));
       console.table(tableData);
     }
   });
@@ -942,6 +557,7 @@ import '@toolbox-web/grid/features/filtering';
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-wrap: wrap;
   }
 
   .perf-compare-btn {
@@ -957,6 +573,29 @@ import '@toolbox-web/grid/features/filtering';
 
   .perf-compare-btn:hover { opacity: 0.9; }
   .perf-compare-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .perf-compare-select-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--sl-color-gray-2);
+  }
+
+  .perf-compare-select {
+    background: var(--sl-color-gray-7, #111);
+    color: var(--sl-color-white, #e5e5e5);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .perf-compare-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 
   #compare-status {
     font-size: 13px;
@@ -1025,6 +664,7 @@ import '@toolbox-web/grid/features/filtering';
     height: 300px;
     padding: 8px;
     overflow: hidden;
+    position: relative;
   }
 
   .perf-compare-results {
@@ -1040,7 +680,6 @@ import '@toolbox-web/grid/features/filtering';
     margin: 0 0 8px 0;
   }
 
-  /* Legend */
   .perf-legend {
     display: flex;
     align-items: center;
@@ -1072,7 +711,6 @@ import '@toolbox-web/grid/features/filtering';
     margin-left: auto;
   }
 
-  /* Card grid layout */
   .perf-card-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1081,6 +719,42 @@ import '@toolbox-web/grid/features/filtering';
 
   @media (max-width: 700px) {
     .perf-card-grid { grid-template-columns: 1fr; }
+  }
+
+  .perf-section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sl-color-white, #e5e5e5);
+    margin: 14px 0 6px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .perf-section-hint {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--sl-color-gray-3, #999);
+  }
+
+  .perf-overhead {
+    background: var(--sl-color-gray-6, #1e1e1e);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 6px 0 4px;
+    font-size: 12px;
+    color: var(--sl-color-gray-2);
+    line-height: 1.5;
+  }
+
+  .perf-card-tag {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--sl-color-gray-3, #999);
+    background: var(--sl-color-gray-7, #111);
+    padding: 1px 6px;
+    border-radius: 3px;
+    flex-shrink: 0;
   }
 
   .perf-card {
@@ -1147,19 +821,11 @@ import '@toolbox-web/grid/features/filtering';
     height: 16px;
   }
 
-  .perf-bar-row-top {
-    /* flush against bottom bar */
-  }
-
-  .perf-bar-row-bottom {
-    /* flush against top bar */
-  }
-
   .perf-bar-name {
     font-size: 9px;
     font-weight: 700;
     font-family: monospace;
-    min-width: 22px;
+    min-width: 28px;
     text-align: right;
   }
 
@@ -1171,13 +837,8 @@ import '@toolbox-web/grid/features/filtering';
     overflow: hidden;
   }
 
-  .perf-bar-row-top .perf-bar-track {
-    border-radius: 2px 2px 0 0;
-  }
-
-  .perf-bar-row-bottom .perf-bar-track {
-    border-radius: 0 0 2px 2px;
-  }
+  .perf-bar-row-top .perf-bar-track { border-radius: 2px 2px 0 0; }
+  .perf-bar-row-bottom .perf-bar-track { border-radius: 0 0 2px 2px; }
 
   .perf-bar-fill {
     height: 100%;
@@ -1203,13 +864,13 @@ import '@toolbox-web/grid/features/filtering';
     margin-left: 2px;
   }
 
-  .perf-row-tbw-wins {
+  .perf-row-baseline-wins {
     background: rgba(56, 189, 248, 0.06);
     border-radius: 4px;
   }
 
-  .perf-row-ag-wins {
-    background: rgba(251, 146, 60, 0.06);
+  .perf-row-other-wins {
+    background: var(--perf-other-wins-bg, rgba(251, 146, 60, 0.06));
     border-radius: 4px;
   }
 

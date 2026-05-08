@@ -223,7 +223,7 @@ export default defineConfig({
                 },
               ],
             },
-            { label: 'Toolbox Grid vs AG Grid', slug: 'grid/comparison' },
+            { label: 'Compared to other grids', slug: 'grid/comparison' },
           ],
         },
       ],

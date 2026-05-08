@@ -403,6 +403,17 @@ describe('shell module', () => {
       expect(html).not.toContain('tbw-tool-panel');
     });
 
+    it('defaults shell body to overlay mode', () => {
+      const html = renderShellBody(undefined, state, gridContentHtml);
+      expect(html).toContain('data-mode="overlay"');
+    });
+
+    it('emits data-mode="push" on shell body when configured', () => {
+      const config: ShellConfig = { toolPanel: { mode: 'push' } };
+      const html = renderShellBody(config, state, gridContentHtml);
+      expect(html).toContain('data-mode="push"');
+    });
+
     it('renders ARIA attributes for accordion sections', () => {
       const panel: ToolPanelDefinition = {
         id: 'columns',
@@ -768,6 +779,21 @@ describe('shell module', () => {
       // Click after cleanup — should NOT close
       gridEl.querySelector('.grid-body')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
       expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op in push mode (no overlay = no meaningful "outside")', () => {
+      const config: ShellConfig = {
+        toolPanel: { closeOnClickOutside: true, mode: 'push' },
+      };
+      state.isPanelOpen = true;
+
+      const cleanup = setupClickOutsideDismiss(gridEl, config, state, onClose);
+
+      // Click anywhere outside the panel — should NOT close in push mode.
+      gridEl.querySelector('.grid-body')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(onClose).not.toHaveBeenCalled();
+
+      cleanup();
     });
   });
 });

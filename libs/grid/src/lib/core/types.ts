@@ -3549,9 +3549,28 @@ export interface ToolPanelConfig {
    * Close the tool panel when clicking outside of it.
    * When `true`, clicking anywhere outside the tool panel (but inside the grid)
    * will close the panel automatically.
+   *
+   * Ignored in `mode: 'push'` (the panel does not overlap grid content,
+   * so there is no meaningful "outside" to dismiss against).
    * @default false
    */
   closeOnClickOutside?: boolean;
+  /**
+   * Layout mode for the tool panel.
+   *
+   * - `'overlay'` (default) — panel is positioned over the grid content;
+   *   opening/closing the panel does not change the grid's available width.
+   *   Best for narrow viewports.
+   * - `'push'` — panel participates in the shell's flex layout as a sibling
+   *   of the grid content; opening the panel shrinks the grid's available
+   *   width and triggers a normal column-virtualization re-layout via
+   *   ResizeObserver. Best for desktop layouts where users want to keep
+   *   all cells visible while the panel is open.
+   *
+   * @default 'overlay'
+   * @since 2.8.0
+   */
+  mode?: 'overlay' | 'push';
 }
 
 /**

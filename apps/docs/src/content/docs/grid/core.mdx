@@ -1164,7 +1164,28 @@ import { TbwGrid, TbwGridToolButtons } from '@toolbox-web/grid-vue';
 | `shell.toolPanel.width` | `number` | `280` | Sidebar width in pixels |
 | `shell.toolPanel.defaultOpen` | `string` | — | Panel ID to open on load |
 | `shell.toolPanel.persistState` | `boolean` | `false` | Remember open/closed state |
-| `shell.toolPanel.closeOnClickOutside` | `boolean` | `false` | Close on outside click |
+| `shell.toolPanel.closeOnClickOutside` | `boolean` | `false` | Close on outside click (ignored in `mode: 'push'`) |
+| `shell.toolPanel.mode` | `'overlay' \| 'push'` | `'overlay'` | `'overlay'` floats over the grid; `'push'` reflows the grid sideways so all cells stay visible |
+
+### Tool-panel layout modes
+
+The tool panel supports two layout modes — pick whichever fits the viewport you're targeting.
+
+- **`'overlay'`** (default): the panel is positioned **over** the grid content. Opening it does not change the grid's available width. Best for narrow viewports where shrinking the grid would leave too little room for the data.
+- **`'push'`**: the panel is laid out as a **sibling** of the grid content in a flex row. Opening it shrinks the grid's available width; the grid's `ResizeObserver` re-runs column virtualization, so cells that an overlay panel would hide remain reachable. Best for desktop layouts.
+
+```typescript
+grid.gridConfig = {
+  shell: {
+    toolPanel: {
+      position: 'right',
+      mode: 'push', // grid reflows when the panel opens/closes
+    },
+  },
+};
+```
+
+In `'push'` mode the user-facing resize handle is hidden (the panel's width is part of the layout, so drag-to-resize would fight the flex container) and `closeOnClickOutside` is treated as a no-op (there is no overlap to dismiss against). Drive the width via the `--tbw-tool-panel-width` CSS variable instead.
 
 ### Styling the Shell
 

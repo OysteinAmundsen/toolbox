@@ -259,6 +259,7 @@ export function renderShellBody(
   icons?: { expand?: IconValue; collapse?: IconValue },
 ): string {
   const position = config?.toolPanel?.position ?? 'right';
+  const mode = config?.toolPanel?.mode ?? 'overlay';
   const hasPanel = state.toolPanels.size > 0;
   const isOpen = state.isPanelOpen;
   const hasJsExpandIcon = icons?.expand !== undefined;
@@ -311,7 +312,7 @@ export function renderShellBody(
   // For left position, panel comes before content in DOM order
   if (position === 'left') {
     return `
-      <div class="tbw-shell-body">
+      <div class="tbw-shell-body" data-mode="${mode}">
         ${panelHtml}
         <div class="tbw-grid-content">
           ${gridContentHtml}
@@ -321,7 +322,7 @@ export function renderShellBody(
   }
 
   return `
-    <div class="tbw-shell-body">
+    <div class="tbw-shell-body" data-mode="${mode}">
       <div class="tbw-grid-content">
         ${gridContentHtml}
       </div>
@@ -614,6 +615,13 @@ export function setupClickOutsideDismiss(
   onClose: () => void,
 ): () => void {
   if (!config?.toolPanel?.closeOnClickOutside) {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    return () => {};
+  }
+
+  // In push mode the panel does not overlap grid content, so there is
+  // no meaningful "outside" to click against. Treat the option as a no-op.
+  if (config.toolPanel.mode === 'push') {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     return () => {};
   }
@@ -1028,6 +1036,7 @@ function buildShellOptions(
     },
     bodyOptions: {
       position: shellConfig.toolPanel?.position ?? 'right',
+      mode: shellConfig.toolPanel?.mode ?? 'overlay',
       isPanelOpen: runtimeState.isPanelOpen,
       expandIcon,
       collapseIcon,

@@ -253,6 +253,12 @@ export function buildShellHeader(options: ShellHeaderOptions): HTMLDivElement {
  */
 export interface ShellBodyOptions {
   position: 'left' | 'right';
+  /**
+   * Layout mode for the tool panel.
+   * - `'overlay'` (default): panel is absolutely positioned over the grid.
+   * - `'push'`: panel participates in flex layout, shrinking the grid sibling.
+   */
+  mode?: 'overlay' | 'push';
   isPanelOpen: boolean;
   expandIcon?: string;
   collapseIcon?: string;
@@ -269,7 +275,8 @@ export interface ShellBodyOptions {
  * Build shell body element directly without innerHTML.
  */
 export function buildShellBody(options: ShellBodyOptions): HTMLDivElement {
-  const body = div('tbw-shell-body');
+  const mode = options.mode ?? 'overlay';
+  const body = div('tbw-shell-body', { 'data-mode': mode });
   const hasPanel = options.panels.length > 0;
   const isSinglePanel = options.panels.length === 1;
 

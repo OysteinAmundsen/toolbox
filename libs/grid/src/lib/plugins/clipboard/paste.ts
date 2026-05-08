@@ -15,6 +15,13 @@ import type { ClipboardConfig } from './types';
  * - Custom delimiters and newlines
  * - Empty lines (filtered out only if they contain no data)
  *
+ * Implementation: char-by-char state machine for delimiter/newline/quote
+ * detection, but cell values are extracted via `slice(start, end)` rather
+ * than `+= char` accumulation. The vast majority of cells have no quotes,
+ * so the hot path is a single substring slice per cell. Cells that did
+ * contain quotes fall back to {@link unquoteCell} for the strip + escape
+ * pass.
+ *
  * @param text - Raw clipboard text
  * @param config - Clipboard configuration
  * @returns 2D array where each sub-array is a row of cell values
@@ -23,55 +30,86 @@ export function parseClipboardText(text: string, config: ClipboardConfig): strin
   const delimiter = config.delimiter ?? '\t';
   const newline = config.newline ?? '\n';
 
-  // Handle Windows CRLF line endings
-  const normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  // Normalize Windows / old-Mac line endings.
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const len = normalized.length;
 
-  // Parse the entire text handling quoted fields that may span multiple lines
   const rows: string[][] = [];
   let currentRow: string[] = [];
-  let currentCell = '';
+  let cellStart = 0;
   let inQuotes = false;
+  let cellHasQuotes = false;
 
-  for (let i = 0; i < normalizedText.length; i++) {
-    const char = normalizedText[i];
+  const finalizeCell = (endIdx: number): string => {
+    const raw = normalized.slice(cellStart, endIdx);
+    return cellHasQuotes ? unquoteCell(raw) : raw;
+  };
 
-    if (char === '"' && !inQuotes) {
-      // Start of quoted field
-      inQuotes = true;
-    } else if (char === '"' && inQuotes) {
-      // Check for escaped quote ("")
-      if (normalizedText[i + 1] === '"') {
-        currentCell += '"';
-        i++; // Skip the second quote
+  const pushRow = () => {
+    // Filter purely-empty rows (single empty cell or all-whitespace cells),
+    // matching the original char-by-char implementation's contract.
+    if (currentRow.length > 1 || currentRow.some((c) => c.trim() !== '')) {
+      rows.push(currentRow);
+    }
+    currentRow = [];
+  };
+
+  for (let i = 0; i < len; i++) {
+    const char = normalized[i];
+
+    if (char === '"') {
+      cellHasQuotes = true;
+      if (!inQuotes) {
+        inQuotes = true;
+      } else if (normalized[i + 1] === '"') {
+        // Escaped quote ("") — skip the second quote, stay inside the quoted run.
+        i++;
       } else {
-        // End of quoted field
         inQuotes = false;
       }
     } else if (char === delimiter && !inQuotes) {
-      // Field separator
-      currentRow.push(currentCell);
-      currentCell = '';
+      currentRow.push(finalizeCell(i));
+      cellStart = i + 1;
+      cellHasQuotes = false;
     } else if (char === newline && !inQuotes) {
-      // Row separator (only if not inside quotes)
-      currentRow.push(currentCell);
-      currentCell = '';
-      // Only add non-empty rows (at least one non-empty cell or multiple cells)
-      if (currentRow.length > 1 || currentRow.some((c) => c.trim() !== '')) {
-        rows.push(currentRow);
-      }
-      currentRow = [];
-    } else {
-      currentCell += char;
+      currentRow.push(finalizeCell(i));
+      cellStart = i + 1;
+      cellHasQuotes = false;
+      pushRow();
     }
   }
 
-  // Handle the last cell and row
-  currentRow.push(currentCell);
-  if (currentRow.length > 1 || currentRow.some((c) => c.trim() !== '')) {
-    rows.push(currentRow);
-  }
+  // Final cell + row.
+  currentRow.push(finalizeCell(len));
+  pushRow();
 
   return rows;
+}
+
+/**
+ * Strip surrounding quotes and unescape `""` → `"` from a cell value that
+ * contained at least one quote character. Only invoked from the slow path
+ * of {@link parseClipboardText}.
+ */
+function unquoteCell(raw: string): string {
+  let out = '';
+  let inQuotes = false;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (c === '"') {
+      if (!inQuotes) {
+        inQuotes = true;
+      } else if (raw[i + 1] === '"') {
+        out += '"';
+        i++;
+      } else {
+        inQuotes = false;
+      }
+    } else {
+      out += c;
+    }
+  }
+  return out;
 }
 
 /**

@@ -18,7 +18,13 @@
 
 import type { ColumnConfig } from '../types';
 
-const accessorCache = new WeakMap<object, Map<string, unknown>>();
+// Box-wrapped values let the cache-hit path do a SINGLE `Map.get` instead of
+// `has()` + `get()`. A truthy box means cache hit (even when the cached value
+// itself is `undefined` / `null` / `0` / `''`).
+interface CacheBox {
+  v: unknown;
+}
+const accessorCache = new WeakMap<object, Map<string, CacheBox>>();
 
 /**
  * Resolve the cell value for a column, honoring `valueAccessor` if defined,
@@ -45,14 +51,15 @@ export function resolveCellValue<TRow>(row: TRow, column: ColumnConfig<TRow>, ro
   }
   const key = column.field;
   let cellMap = accessorCache.get(row as unknown as object);
-  if (!cellMap) {
+  if (cellMap) {
+    const box = cellMap.get(key);
+    if (box !== undefined) return box.v;
+  } else {
     cellMap = new Map();
     accessorCache.set(row as unknown as object, cellMap);
-  } else if (cellMap.has(key)) {
-    return cellMap.get(key);
   }
   const value = column.valueAccessor({ row, column, rowIndex });
-  cellMap.set(key, value);
+  cellMap.set(key, { v: value });
   return value;
 }
 

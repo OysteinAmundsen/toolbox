@@ -24,20 +24,26 @@ export interface CsvOptions {
 /**
  * Format a value for CSV output.
  * Handles null, Date, objects, and strings with special characters.
+ *
+ * Dispatch order is `typeof`-first because string + number cover the vast
+ * majority of cell values; the cheap typeof check skips an `instanceof Date`
+ * probe (which V8 cannot fold into a fast path) for every plain string cell.
  */
 export function formatCsvValue(value: any, quote = true): string {
+  // Hot path: strings (most CSV cells).
+  if (typeof value === 'string') {
+    if (quote && (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r'))) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
+  }
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
   if (value == null) return '';
   if (value instanceof Date) return value.toISOString();
   if (typeof value === 'object') return JSON.stringify(value);
-
-  const str = String(value);
-
-  // Quote if contains special characters (comma, quote, newline)
-  if (quote && (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r'))) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-
-  return str;
+  // Symbols, bigints, etc.
+  return String(value);
 }
 
 /**

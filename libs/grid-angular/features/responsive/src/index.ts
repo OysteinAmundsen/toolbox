@@ -22,7 +22,6 @@
  * @packageDocumentation
  */
 
-import type { TemplateRef } from '@angular/core';
 import {
   getResponsiveCardTemplate,
   registerResponsiveCardRendererBridge,
@@ -47,7 +46,11 @@ interface ResponsivePluginLike {
 // `adapter.parseResponsiveCardElement(el)` delegate to. Without this import,
 // both methods return undefined.
 registerResponsiveCardRendererBridge(<TRow = unknown>(gridElement: HTMLElement, adapter: GridAdapter) => {
-  const template = getResponsiveCardTemplate(gridElement) as TemplateRef<GridResponsiveCardContext<TRow>> | undefined;
+  // Type inferred from `getResponsiveCardTemplate` (same package instance as
+  // `adapter`), not from a local `import type { TemplateRef } from '@angular/core'`
+  // — the latter resolves through Bun's `.bun/` cache during ng-packagr build
+  // and produces a brand-incompatible TemplateRef vs the built adapter `.d.ts`.
+  const template = getResponsiveCardTemplate(gridElement);
   if (!template) return undefined;
 
   return (row: TRow, rowIndex: number) => {

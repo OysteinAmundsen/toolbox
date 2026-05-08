@@ -30,7 +30,10 @@ const cardRef = ref<HTMLElement | null>(null);
 const slots = useSlots();
 
 // Mirror cardRowHeight to the kebab-cased attribute the ResponsivePlugin reads.
-const cardRowHeightAttr = computed(() => (props.cardRowHeight === 'auto' ? 'auto' : String(props.cardRowHeight)));
+// Vue's `:card-row-height` binding sets the property on the custom element, whose
+// type is `number | 'auto'` (see TbwGridResponsiveCardElement); pass the union
+// through unchanged.
+const cardRowHeightAttr = computed<number | 'auto'>(() => props.cardRowHeight);
 
 onMounted(() => {
   const element = cardRef.value;

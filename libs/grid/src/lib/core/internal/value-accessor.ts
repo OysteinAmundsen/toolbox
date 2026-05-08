@@ -18,7 +18,13 @@
 
 import type { ColumnConfig } from '../types';
 
-const accessorCache = new WeakMap<object, Map<string, unknown>>();
+// Box-wrapped values let the cache-hit path do a SINGLE `Map.get` instead of
+// `has()` + `get()`. A truthy box means cache hit (even when the cached value
+// itself is `undefined` / `null` / `0` / `''`).
+interface CacheBox {
+  v: unknown;
+}
+const accessorCache = new WeakMap<object, Map<string, CacheBox>>();
 
 /**
  * Resolve the cell value for a column, honoring `valueAccessor` if defined,
@@ -43,16 +49,21 @@ export function resolveCellValue<TRow>(row: TRow, column: ColumnConfig<TRow>, ro
   if (typeof row !== 'object' || row === null) {
     return column.valueAccessor({ row, column, rowIndex });
   }
+  // After the guard above, `row` is provably a non-null object. Single
+  // assertion (no `as unknown as`) bridges the generic `TRow` to the WeakMap
+  // key type; see `.github/instructions/typescript-conventions.instructions.md`.
+  const rowKey = row as object;
   const key = column.field;
-  let cellMap = accessorCache.get(row as unknown as object);
-  if (!cellMap) {
+  let cellMap = accessorCache.get(rowKey);
+  if (cellMap) {
+    const box = cellMap.get(key);
+    if (box !== undefined) return box.v;
+  } else {
     cellMap = new Map();
-    accessorCache.set(row as unknown as object, cellMap);
-  } else if (cellMap.has(key)) {
-    return cellMap.get(key);
+    accessorCache.set(rowKey, cellMap);
   }
   const value = column.valueAccessor({ row, column, rowIndex });
-  cellMap.set(key, value);
+  cellMap.set(key, { v: value });
   return value;
 }
 

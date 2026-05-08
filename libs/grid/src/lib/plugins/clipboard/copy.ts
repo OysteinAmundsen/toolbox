@@ -30,6 +30,10 @@ export interface CopyParams {
  * - Object → JSON string
  * - Other → String conversion with optional quoting
  *
+ * Dispatch order is `typeof`-first: string + number cover the vast majority
+ * of cell values, so the cheap typeof check short-circuits before the
+ * `instanceof Date` probe (which V8 can't fold into a fast path).
+ *
  * @param value - The cell value to format
  * @param field - The field name
  * @param row - The full row object
@@ -41,20 +45,22 @@ export function formatCellValue(value: unknown, field: string, row: unknown, con
     return config.processCell(value, field, row);
   }
 
-  if (value == null) return '';
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'object') return JSON.stringify(value);
-
-  const str = String(value);
   const delimiter = config.delimiter ?? '\t';
   const newline = config.newline ?? '\n';
 
-  // Quote if contains delimiter, newline, or quotes (or if quoteStrings is enabled)
-  if (config.quoteStrings || str.includes(delimiter) || str.includes(newline) || str.includes('"')) {
-    return `"${str.replace(/"/g, '""')}"`;
+  // Hot path: strings.
+  if (typeof value === 'string') {
+    if (config.quoteStrings || value.includes(delimiter) || value.includes(newline) || value.includes('"')) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
   }
-
-  return str;
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (value == null) return '';
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
 }
 
 /**

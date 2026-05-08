@@ -124,7 +124,7 @@ export interface GetChildRowsResult<TRow = unknown> {
  * tears the subscription down on `complete`, `error`, or when the request is
  * superseded (`AbortSignal` fires) — which is what causes Angular `HttpClient`
  * to cancel the underlying XHR.
- * @since 2.0.0
+ * @since 2.4.0
  */
 export interface Subscribable<T> {
   subscribe(observer: {

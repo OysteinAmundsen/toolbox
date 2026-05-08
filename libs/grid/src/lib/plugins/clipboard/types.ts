@@ -25,7 +25,7 @@ import type { GridElement } from '../../core/plugin/base-plugin';
  *   }
  * })
  * ```
- * @since 0.1.1
+ * @since 0.4.2
  */
 export type PasteHandler = (detail: PasteDetail, grid: GridElement) => boolean | void;
 
@@ -45,7 +45,7 @@ export type PasteHandler = (detail: PasteDetail, grid: GridElement) => boolean |
  *   includeHeaders: true,
  * });
  * ```
- * @since 0.1.1
+ * @since 1.14.0
  */
 export interface CopyOptions {
   /** Specific column fields to include. If omitted, uses current selection or all visible columns. */
@@ -105,7 +105,7 @@ export interface CopyDetail {
   columnCount: number;
 }
 
-/** Target cell coordinates and bounds for paste operations * @since 0.1.1
+/** Target cell coordinates and bounds for paste operations * @since 0.4.2
  */
 export interface PasteTarget {
   /** Target row index (top-left of paste area) */
@@ -157,7 +157,7 @@ export interface PasteDetail {
  *
  * @param detail - The parsed paste data from clipboard
  * @param grid - The grid element to update
- * @since 0.1.1
+ * @since 0.4.2
  */
 export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): void {
   const { rows: pastedRows, target, fields } = detail;

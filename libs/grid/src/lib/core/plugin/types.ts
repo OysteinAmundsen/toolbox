@@ -126,7 +126,7 @@ export interface CellMouseEvent {
  *   }
  * }
  * ```
- * @since 0.2.9
+ * @since 1.2.0
  */
 export interface AfterCellRenderContext<TRow = unknown> {
   /** The row data object */
@@ -163,7 +163,7 @@ export interface AfterCellRenderContext<TRow = unknown> {
  *   }
  * }
  * ```
- * @since 0.2.9
+ * @since 1.2.0
  */
 export interface AfterRowRenderContext<TRow = unknown> {
   /** The row data object */

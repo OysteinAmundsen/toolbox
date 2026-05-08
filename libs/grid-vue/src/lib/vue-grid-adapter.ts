@@ -224,7 +224,7 @@ export function clearFieldRegistries(): void {
  *
  * Regular functions `(ctx) => HTMLElement` that are already processed
  * will not match these checks, making this idempotent.
- * @since 0.1.0
+ * @since 0.3.1
  */
 export function isVueComponent(value: unknown): value is Component {
   if (value == null) return false;
@@ -344,7 +344,7 @@ interface CellTeleportCache {
  *   </TbwGridColumn>
  * </TbwGrid>
  * ```
- * @since 0.1.0
+ * @since 0.3.0
  */
 export class GridAdapter implements FrameworkAdapter {
   /** Teleport keys tracked for cleanup. */

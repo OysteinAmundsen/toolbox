@@ -93,7 +93,7 @@ export interface ContextMenuConfig {
  * ```
  *
  * @category Plugin Development
- * @since 0.1.1
+ * @since 1.15.0
  */
 export interface HeaderContextMenuItem {
   /** Unique identifier for the menu item */
@@ -134,7 +134,7 @@ export interface ContextMenuState {
   menuElement: HTMLElement | null;
 }
 
-/** Event detail for the `context-menu-open` event. * @since 0.1.1
+/** Event detail for the `context-menu-open` event. * @since 1.25.0
  */
 export interface ContextMenuOpenDetail {
   /** Context about what element triggered the menu */

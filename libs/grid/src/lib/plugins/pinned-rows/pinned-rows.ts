@@ -371,7 +371,7 @@ export function buildContext(
 /**
  * Built-in panel renderer: total row count.
  * Always renders. Output: `<span class="tbw-status-panel tbw-status-panel-row-count">Total: N rows</span>`.
- * @since 0.1.1
+ * @since 2.6.0
  */
 export function rowCountPanel(): PanelRender {
   return (ctx) => {
@@ -385,7 +385,7 @@ export function rowCountPanel(): PanelRender {
 /**
  * Built-in panel renderer: selected row count.
  * Returns `null` (skipped) when no rows are selected.
- * @since 0.1.1
+ * @since 2.6.0
  */
 export function selectedCountPanel(): PanelRender {
   return (ctx) => {
@@ -400,7 +400,7 @@ export function selectedCountPanel(): PanelRender {
 /**
  * Built-in panel renderer: filtered row count.
  * Returns `null` (skipped) when the filtered count equals the total (no filter active).
- * @since 0.1.1
+ * @since 2.6.0
  */
 export function filteredCountPanel(): PanelRender {
   return (ctx) => {

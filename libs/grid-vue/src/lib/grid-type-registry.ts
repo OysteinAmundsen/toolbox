@@ -29,7 +29,7 @@ import { defineComponent, inject, provide, type InjectionKey, type PropType, typ
  *   }),
  * };
  * ```
- * @since 0.1.0
+ * @since 0.3.0
  */
 export interface TypeDefault<TRow = unknown, TValue = unknown> {
   /** Vue render function for rendering cells of this type */

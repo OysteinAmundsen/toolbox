@@ -47,7 +47,7 @@ export interface EditAction {
  * Created via `beginTransaction()` / `endTransaction()` when multiple
  * field edits should be treated as one logical operation (e.g., a user
  * edit that cascades changes to other fields).
- * @since 0.1.1
+ * @since 1.23.0
  */
 export interface CompoundEditAction {
   /** Discriminant for compound actions */
@@ -58,7 +58,7 @@ export interface CompoundEditAction {
   timestamp: number;
 }
 
-/** A single edit or a compound group of edits on the undo/redo stack * @since 0.1.1
+/** A single edit or a compound group of edits on the undo/redo stack * @since 1.23.0
  */
 export type UndoRedoAction = EditAction | CompoundEditAction;
 

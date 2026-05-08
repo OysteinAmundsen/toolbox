@@ -59,7 +59,7 @@ export interface ColumnVisibilityDetail {
  * to which group. For authoritative display order, use `grid.getAllColumns()`
  * or `grid.getColumnOrder()` from the ConfigManager, which reflects the
  * current column positions after any reordering.
- * @since 0.1.1
+ * @since 1.15.0
  */
 export interface ColumnGroupInfo {
   /** Unique group identifier */
@@ -83,7 +83,7 @@ export interface ColumnGroupInfo {
  *
  * This event is consumed by `ReorderPlugin` to actually perform the column
  * move; if `ReorderPlugin` is not loaded, the event is informational only.
- * @since 0.1.1
+ * @since 2.6.0
  */
 export interface ColumnReorderRequestDetail {
   /** The field name of the column to move. */

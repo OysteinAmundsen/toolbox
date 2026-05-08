@@ -22,6 +22,14 @@ import * as ts from 'typescript';
 const repoRoot = resolve(import.meta.dirname, '..');
 const mapPath = resolve(import.meta.dirname, 'since-map.json');
 
+/**
+ * `--force` rewrites existing `@since X.Y.Z` tags to match the regenerated
+ * map. Without it, declarations that already have any `@since` tag are
+ * skipped (the historical default). Use --force after regenerating
+ * `since-map.json` to clean up stale tags inherited from earlier runs.
+ */
+const force = process.argv.includes('--force');
+
 interface SinceEntry {
   version: string;
   file: string;
@@ -96,6 +104,8 @@ for (const { file, symbols } of byFile.values()) {
 
   interface Insertion {
     pos: number;
+    /** when `end > pos`, replace [pos, end); when `end === pos`, pure insert */
+    end: number;
     text: string;
   }
   const insertions: Insertion[] = [];
@@ -111,8 +121,21 @@ for (const { file, symbols } of byFile.values()) {
 
     if (lastJsDoc) {
       const text = lastJsDoc.getText(sf);
-      if (/@since\b/.test(text)) {
-        alreadyTagged++;
+      const sinceMatch = /@since\s+\S+/.exec(text);
+      if (sinceMatch) {
+        if (!force) {
+          alreadyTagged++;
+          continue;
+        }
+        // --force: rewrite the existing tag in place.
+        const replacement = `@since ${version}`;
+        if (sinceMatch[0] === replacement) {
+          alreadyTagged++;
+          continue;
+        }
+        const absPos = lastJsDoc.getStart(sf) + sinceMatch.index;
+        insertions.push({ pos: absPos, end: absPos + sinceMatch[0].length, text: replacement });
+        applied++;
         continue;
       }
       // Insert ` * @since X.Y.Z\n ` before the trailing `*\/`. Find the
@@ -123,7 +146,7 @@ for (const { file, symbols } of byFile.values()) {
         lastJsDoc.pos === lastJsDoc.getStart(sf) ? lastJsDoc.pos : lastJsDoc.getStart(sf),
       );
       const indent = ' '.repeat(startLineCol.character);
-      insertions.push({ pos: end - 2, text: `* @since ${version}\n${indent} ` });
+      insertions.push({ pos: end - 2, end: end - 2, text: `* @since ${version}\n${indent} ` });
       applied++;
     } else {
       // No JSDoc — insert a one-liner immediately before the node's
@@ -136,6 +159,7 @@ for (const { file, symbols } of byFile.values()) {
       const lineStart = start - character;
       insertions.push({
         pos: lineStart,
+        end: lineStart,
         text: `${indent}/** @since ${version} */\n`,
       });
       applied++;
@@ -147,11 +171,11 @@ for (const { file, symbols } of byFile.values()) {
   insertions.sort((a, b) => b.pos - a.pos);
   let updated = original;
   for (const ins of insertions) {
-    updated = updated.slice(0, ins.pos) + ins.text + updated.slice(ins.pos);
+    updated = updated.slice(0, ins.pos) + ins.text + updated.slice(ins.end);
   }
   writeFileSync(file, updated, 'utf-8');
 }
 
-console.log(`Applied @since to ${applied} declarations`);
-console.log(`Skipped (already tagged): ${alreadyTagged}`);
+console.log(`Applied @since to ${applied} declarations${force ? ' (force mode: stale tags rewritten)' : ''}`);
+console.log(`Skipped (already correct): ${alreadyTagged}`);
 console.log(`Skipped (declaration not found): ${notFound}`);

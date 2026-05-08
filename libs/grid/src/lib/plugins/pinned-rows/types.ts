@@ -45,7 +45,7 @@ export type AggregatorFn = (rows: unknown[], field: string, column?: ColumnConfi
  * const currencyFormatter: AggregatorFormatter = (value) =>
  *   `$${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
  * ```
- * @since 0.1.1
+ * @since 0.2.6
  */
 export type AggregatorFormatter = (value: unknown, field: string, column?: ColumnConfig) => string;
 
@@ -59,7 +59,7 @@ export type AggregatorFormatter = (value: unknown, field: string, column?: Colum
  */
 export type AggregatorRef = string | AggregatorFn;
 
-/** Full aggregator config with optional formatter * @since 0.1.1
+/** Full aggregator config with optional formatter * @since 0.2.6
  */
 export interface AggregatorConfig {
   /** The aggregator function or built-in key ('sum', 'avg', 'min', 'max', 'count', 'first', 'last') */
@@ -68,7 +68,7 @@ export interface AggregatorConfig {
   formatter?: AggregatorFormatter;
 }
 
-/** Aggregator definition - simple string/function or full config object * @since 0.1.1
+/** Aggregator definition - simple string/function or full config object * @since 0.2.6
  */
 export type AggregatorDefinition = AggregatorRef | AggregatorConfig;
 
@@ -194,11 +194,11 @@ export interface PinnedRowsConfig {
  * - Without `render` ⇒ {@link AggregationSlot} (an aggregation row)
  *
  * Each slot occupies one DOM row inside its `position` area, in declared order.
- * @since 0.1.1
+ * @since 2.6.0
  */
 export type PinnedRowSlot = PanelSlot | AggregationSlot;
 
-/** Horizontal zone within a panel slot row. * @since 0.1.1
+/** Horizontal zone within a panel slot row. * @since 2.6.0
  */
 export type PanelZone = 'left' | 'center' | 'right';
 
@@ -206,11 +206,11 @@ export type PanelZone = 'left' | 'center' | 'right';
  * Render function for a panel slot.
  * Return `null` to skip rendering (used by the built-in count panels for
  * conditional display, e.g. only show "Selected: N" when N > 0).
- * @since 0.1.1
+ * @since 2.6.0
  */
 export type PanelRender = (context: PinnedRowsContext) => HTMLElement | null;
 
-/** Render function plus optional zone within the panel row. * @since 0.1.1
+/** Render function plus optional zone within the panel row. * @since 2.6.0
  */
 export interface ZonedPanelRender {
   /** Horizontal zone within the row (default: 'left') */
@@ -219,7 +219,7 @@ export interface ZonedPanelRender {
   render: PanelRender;
 }
 
-/** A status-panel slot. Each slot becomes its own `.tbw-pinned-rows` row. * @since 0.1.1
+/** A status-panel slot. Each slot becomes its own `.tbw-pinned-rows` row. * @since 2.6.0
  */
 export interface PanelSlot {
   /** Optional identifier for diffing/targeted updates */
@@ -237,7 +237,7 @@ export interface PanelSlot {
 /**
  * An aggregation slot (row of computed values). Equivalent to {@link AggregationRowConfig}
  * but lives in the unified `slots[]` ordering.
- * @since 0.1.1
+ * @since 2.6.0
  */
 export type AggregationSlot = AggregationRowConfig;
 

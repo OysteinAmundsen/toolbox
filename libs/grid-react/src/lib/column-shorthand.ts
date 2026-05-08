@@ -157,7 +157,7 @@ export function normalizeColumns<TRow = unknown>(columns: ColumnShorthand<TRow>[
  * //   { field: 'name', sortable: false, resizable: true },
  * // ]
  * ```
- * @since 0.7.0
+ * @since 1.5.0
  */
 export function applyColumnDefaults<TRow = unknown>(
   columns: ColumnConfig<TRow>[],

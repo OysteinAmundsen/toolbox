@@ -26,7 +26,7 @@
  * // Logical - pins to visual start (left in LTR, right in RTL)
  * { field: 'id', pinned: 'start' }
  * ```
- * @since 0.1.1
+ * @since 1.15.0
  */
 export type PinnedPosition = 'left' | 'right' | 'start' | 'end';
 

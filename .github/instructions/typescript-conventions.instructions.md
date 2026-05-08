@@ -29,7 +29,9 @@ Whenever you add a new public type, interface, method, property, exported consta
    - `feat!:` / `BREAKING CHANGE` → next **major** (e.g. `2.7.3` → `3.0.0`)
 3. Use the resolved version (`@since 2.8.0`, not `@since 0.1.1`).
 
-**Why this matters:** TypeDoc and the docs site surface `@since` directly in the API reference. Wrong values mislead users about when an API was added and which versions support it. Many existing `@since 0.1.1` tags in the codebase are inherited via copy-paste and are known to be wrong; do not propagate the mistake to new symbols.
+**Why this matters:** TypeDoc and the docs site surface `@since` directly in the API reference. Wrong values mislead users about when an API was added and which versions support it.
+
+**Bulk refresh from git history:** `tools/build-since-map.ts` resolves the introducing commit & earliest release tag for every public export and writes `tools/since-map.json`. `tools/apply-since-tags.ts` applies that map to source. The applier is idempotent by default (skips declarations that already have any `@since`); pass `--force` to rewrite stale tags to match the regenerated map. Canonical refresh: `bun tools/build-since-map.ts && bun tools/apply-since-tags.ts --force`.
 
 When unsure between a feat and a fix bump, ask the user before guessing.
 

@@ -84,7 +84,7 @@ export interface EditorSlotProps<TRow = unknown, TValue = any> {
  * adapters (e.g. when migrating from React to Vue or vice versa). Inside Vue
  * SFCs prefer `CellSlotProps` directly — Vue's `defineSlots` already infers
  * the right shape from it.
- * @since 0.1.0
+ * @since 1.5.0
  */
 export type GridCellContext<TValue = any, TRow = unknown> = CellSlotProps<TRow, TValue>;
 
@@ -96,6 +96,6 @@ export type GridCellContext<TValue = any, TRow = unknown> = CellSlotProps<TRow, 
  * users typing editor functions can share a single signature across adapters.
  * Inside Vue SFCs prefer `EditorSlotProps` directly — Vue's `defineSlots`
  * already infers the right shape from it.
- * @since 0.1.0
+ * @since 1.5.0
  */
 export type GridEditorContext<TValue = any, TRow = unknown> = EditorSlotProps<TRow, TValue>;

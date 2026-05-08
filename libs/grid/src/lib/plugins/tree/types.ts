@@ -7,7 +7,7 @@
 import type { ExpandCollapseAnimation } from '../../core/types';
 export type { ExpandCollapseAnimation } from '../../core/types';
 
-/** Generic tree row with dynamic property access * @since 0.1.1
+/** Generic tree row with dynamic property access * @since 0.4.0
  */
 export type TreeRow = Record<string, unknown>;
 

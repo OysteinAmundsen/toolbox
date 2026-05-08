@@ -30,7 +30,7 @@ import type { FilterPanelParams, FilterPanelRenderer } from '@toolbox-web/grid/p
  *   column = input<unknown>();
  * }
  * ```
- * @since 0.3.0
+ * @since 0.11.0
  */
 export interface CellRenderer<TRow = unknown, TValue = unknown> {
   /** The cell value - use `input<TValue>()` or `input.required<TValue>()` */
@@ -72,7 +72,7 @@ export interface CellRenderer<TRow = unknown, TValue = unknown> {
  *   cancel = output<void>();
  * }
  * ```
- * @since 0.3.0
+ * @since 0.11.0
  */
 export interface CellEditor<TRow = unknown, TValue = unknown> extends CellRenderer<TRow, TValue> {
   /** Emit to commit the new value - use `output<TValue>()` */
@@ -109,7 +109,7 @@ export interface CellEditor<TRow = unknown, TValue = unknown> extends CellRender
  *   params = input.required<FilterPanelParams>();
  * }
  * ```
- * @since 0.3.0
+ * @since 0.12.0
  */
 export interface FilterPanel {
   /** The filter panel parameters — use `input.required<FilterPanelParams>()` */
@@ -139,7 +139,7 @@ export interface FilterPanel {
  *   }
  * };
  * ```
- * @since 0.3.0
+ * @since 0.10.0
  */
 export interface TypeDefault<TRow = unknown> {
   /** Format function for cell display */

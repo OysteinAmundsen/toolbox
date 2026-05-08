@@ -99,7 +99,7 @@ export type SelectionMode = 'cell' | 'row' | 'range';
  * // Double-click to select - useful for data entry grids
  * new SelectionPlugin({ mode: 'cell', triggerOn: 'dblclick' })
  * ```
- * @since 0.1.1
+ * @since 1.1.0
  */
 export type SelectionTrigger = 'click' | 'dblclick';
 
@@ -124,7 +124,7 @@ export type SelectionTrigger = 'click' | 'dblclick';
  * // Permission-based selection
  * isSelectable: (row) => userPermissions.canSelect(row)
  * ```
- * @since 0.1.1
+ * @since 1.3.0
  */
 export type SelectableCallback<T = unknown> = (
   row: T,
@@ -299,7 +299,7 @@ export interface SelectionChangeDetail {
  *   console.log(`Selected from (${firstRange.from.row}, ${firstRange.from.col}) to (${firstRange.to.row}, ${firstRange.to.col})`);
  * }
  * ```
- * @since 0.1.1
+ * @since 0.4.2
  */
 export interface SelectionResult {
   /** The current selection mode */

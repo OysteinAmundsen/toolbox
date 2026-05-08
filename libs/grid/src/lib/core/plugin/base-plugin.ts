@@ -116,7 +116,7 @@ export interface PluginHeaderRenderContext {
  *   ];
  * }
  * ```
- * @since 0.1.1
+ * @since 0.4.1
  */
 export interface PluginDependency {
   /**
@@ -188,7 +188,7 @@ export interface PluginIncompatibility {
  *   }
  * }
  * ```
- * @since 0.1.1
+ * @since 1.8.0
  */
 export interface QueryDefinition {
   /**
@@ -225,7 +225,7 @@ export interface QueryDefinition {
  * // In another plugin - subscribe
  * this.on('filter-change', (detail) => console.log('Filter changed:', detail));
  * ```
- * @since 0.1.1
+ * @since 1.8.0
  */
 export interface EventDefinition {
   /**
@@ -329,7 +329,7 @@ export type HookName =
  *   readonly name = 'myPlugin';
  * }
  * ```
- * @since 0.1.1
+ * @since 1.1.0
  */
 export interface PluginManifest<TConfig = unknown> {
   /**

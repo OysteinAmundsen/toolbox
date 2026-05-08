@@ -31,7 +31,7 @@ import type { Component, VNode } from 'vue';
  *   { field: 'status', renderer: StatusBadge },
  * ];
  * ```
- * @since 0.1.0
+ * @since 0.3.0
  */
 export type CellRenderer<TRow = unknown, TValue = unknown> =
   | ((ctx: CellRenderContext<TRow, TValue>) => VNode)
@@ -57,7 +57,7 @@ export type CellRenderer<TRow = unknown, TValue = unknown> =
  *     'onUpdate:modelValue': ctx.commit,
  *   });
  * ```
- * @since 0.1.0
+ * @since 0.3.0
  */
 export type CellEditor<TRow = unknown, TValue = unknown> =
   | ((ctx: ColumnEditorContext<TRow, TValue>) => VNode)

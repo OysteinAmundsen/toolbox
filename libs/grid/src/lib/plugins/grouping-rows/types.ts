@@ -37,7 +37,7 @@ export type AggregatorMap = Record<string, import('../../core/internal/aggregato
  *   },
  * ];
  * ```
- * @since 0.1.1
+ * @since 2.0.0
  */
 export interface GroupDefinition {
   /** Unique group identifier. */
@@ -52,7 +52,7 @@ export interface GroupDefinition {
   aggregates?: Record<string, unknown>;
 }
 
-/** Detail payload for `group-expand` event (pre-defined group mode). * @since 0.1.1
+/** Detail payload for `group-expand` event (pre-defined group mode). * @since 2.0.0
  */
 export interface GroupExpandDetail {
   /** The key of the group being expanded. */
@@ -61,7 +61,7 @@ export interface GroupExpandDetail {
   groupPath: string[];
 }
 
-/** Detail payload for `group-collapse` event (pre-defined group mode). * @since 0.1.1
+/** Detail payload for `group-collapse` event (pre-defined group mode). * @since 2.0.0
  */
 export interface GroupCollapseDetail {
   /** The key of the group being collapsed. */
@@ -76,7 +76,7 @@ export interface GroupCollapseDetail {
  * - `number`: expand group at this index (0-based)
  * - `string`: expand group with this key
  * - `string[]`: expand groups with these keys
- * @since 0.1.1
+ * @since 1.5.0
  */
 export type DefaultExpandedValue = boolean | number | string | string[];
 

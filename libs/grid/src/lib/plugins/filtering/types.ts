@@ -156,7 +156,7 @@ declare module '../../core/types' {
 /**
  * Filter parameters for configuring the filter panel UI.
  * These settings control the filter input constraints.
- * @since 0.1.1
+ * @since 1.6.0
  */
 export interface FilterParams {
   /** Minimum value for number/date filters */
@@ -588,7 +588,7 @@ export type FilterPanelRenderer = (container: HTMLElement, params: FilterPanelPa
  *   return response.json(); // ['Engineering', 'Marketing', 'Sales', ...]
  * }
  * ```
- * @since 0.1.1
+ * @since 0.2.7
  */
 export type FilterValuesHandler = (field: string, column: ColumnConfig) => Promise<unknown[]>;
 
@@ -612,7 +612,7 @@ export type FilterValuesHandler = (field: string, column: ColumnConfig) => Promi
  *   return response.json();
  * }
  * ```
- * @since 0.1.1
+ * @since 0.2.7
  */
 export type FilterHandler<TRow = unknown> = (filters: FilterModel[], currentRows: TRow[]) => TRow[] | Promise<TRow[]>;
 
@@ -944,6 +944,6 @@ export interface FilterChangeDetail {
  * - `'all'` — no blank filter applied, all rows shown
  * - `'blanksOnly'` — only blank/empty rows shown (`blank` operator)
  * - `'nonBlanksOnly'` — only non-blank rows shown (`notBlank` operator)
- * @since 0.1.1
+ * @since 1.27.2
  */
 export type BlankMode = 'all' | 'blanksOnly' | 'nonBlanksOnly';

@@ -28,7 +28,7 @@ import type { FilterPanelRenderer } from '@toolbox-web/grid/plugins/filtering';
  *   },
  * };
  * ```
- * @since 0.3.0
+ * @since 0.11.0
  */
 export interface TypeDefaultRegistration<TRow = unknown> {
   /** Angular component class for rendering cells of this type */

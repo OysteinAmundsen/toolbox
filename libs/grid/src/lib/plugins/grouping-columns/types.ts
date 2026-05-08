@@ -190,7 +190,7 @@ export interface GroupingColumnsState {
  *   renderer: (params) => `<strong>${params.label}</strong>`,
  * }
  * ```
- * @since 0.1.1
+ * @since 0.2.9
  */
 export interface ColumnGroupDefinition {
   /**

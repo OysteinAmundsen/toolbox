@@ -36,7 +36,7 @@ export type ExportFormat = 'csv' | 'excel' | 'json';
  *
  * Default: `'raw'` — preserves current export behavior exactly. Opt in to
  * displayed values per call with `{ mode: 'formatted' }`.
- * @since 0.1.1
+ * @since 2.4.0
  */
 export type ExportMode = 'raw' | 'formatted';
 
@@ -99,7 +99,7 @@ export interface ExportParams {
  *
  * Controls header styles, per-column and per-cell formatting,
  * column widths, and auto-fit behavior in Excel XML output.
- * @since 0.1.1
+ * @since 2.0.0
  */
 export interface ExcelStyleConfig {
   /** Style applied to all header cells */
@@ -116,7 +116,7 @@ export interface ExcelStyleConfig {
   autoFitColumns?: boolean;
 }
 
-/** Style definition for an Excel cell. * @since 0.1.1
+/** Style definition for an Excel cell. * @since 2.0.0
  */
 export interface ExcelCellStyle {
   /** Font configuration */
@@ -149,7 +149,7 @@ export interface ExcelCellStyle {
   };
 }
 
-/** Border definition for an Excel cell edge. * @since 0.1.1
+/** Border definition for an Excel cell edge. * @since 2.0.0
  */
 export interface ExcelBorder {
   style: 'Thin' | 'Medium' | 'Thick';

@@ -28,14 +28,14 @@ import type { ExportCompleteDetail, ExportConfig, ExportFormat, ExportMode, Expo
  *
  * `processCell` **is** honoured: it runs once per cell on the values you pass
  * in, just like the download methods.
- * @since 0.1.1
+ * @since 2.4.0
  */
 export type FormatCsvParams = Pick<ExportParams, 'columns' | 'includeHeaders' | 'processCell' | 'processHeader'>;
 
 /**
  * Subset of {@link ExportParams} accepted by {@link ExportPlugin.formatExcel}.
  * Same shape as {@link FormatCsvParams} plus `excelStyles`.
- * @since 0.1.1
+ * @since 2.4.0
  */
 export type FormatExcelParams = FormatCsvParams & Pick<ExportParams, 'excelStyles'>;
 

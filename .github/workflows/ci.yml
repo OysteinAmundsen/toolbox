@@ -344,9 +344,12 @@ jobs:
       - name: Run benchmarks
         run: |
           mkdir -p tmp
-          bunx vitest bench --config libs/grid/vite.config.ts --run --outputJson=tmp/bench-current-grid.json
-          bunx vitest bench --config libs/grid-react/vite.config.mts --run --outputJson=tmp/bench-current-grid-react.json
-          bunx vitest bench --config libs/grid-vue/vite.config.mts --run --outputJson=tmp/bench-current-grid-vue.json
+          # Vitest resolves --outputJson relative to the config's project root
+          # (libs/<project>/), not the workspace cwd. Anchor with $PWD so all
+          # three runs land in the same workspace-level tmp/ directory.
+          bunx vitest bench --config libs/grid/vite.config.ts --run --outputJson="$PWD/tmp/bench-current-grid.json"
+          bunx vitest bench --config libs/grid-react/vite.config.mts --run --outputJson="$PWD/tmp/bench-current-grid-react.json"
+          bunx vitest bench --config libs/grid-vue/vite.config.mts --run --outputJson="$PWD/tmp/bench-current-grid-vue.json"
           # Merge into a single file for the cached baseline (compare-benches
           # also accepts multiple --current flags, but the cache stores one
           # file so we collapse here).

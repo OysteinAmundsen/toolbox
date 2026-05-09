@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.7.3...grid-2.8.0) (2026-05-09)
+
+
+### Features
+
+* **grid/selection:** add column selection mode (closes [#269](https://github.com/OysteinAmundsen/toolbox/issues/269)) ([#308](https://github.com/OysteinAmundsen/toolbox/issues/308)) ([cffadcb](https://github.com/OysteinAmundsen/toolbox/commit/cffadcbf10cb185b46f4c33c9af6e92c225b0719))
+* **grid:** add push mode for tool panel ([#295](https://github.com/OysteinAmundsen/toolbox/issues/295)) ([#299](https://github.com/OysteinAmundsen/toolbox/issues/299)) ([1907c7a](https://github.com/OysteinAmundsen/toolbox/commit/1907c7a77add24256d11e363acbadb3a9bc815cb))
+
+
+### Bug Fixes
+
+* **grid:** add type="button" to all internal buttons ([#296](https://github.com/OysteinAmundsen/toolbox/issues/296)) ([#297](https://github.com/OysteinAmundsen/toolbox/issues/297)) ([8fee9a3](https://github.com/OysteinAmundsen/toolbox/commit/8fee9a3df6a9765f70c6222b35bca409322b9a0e))
+
+
+### Performance Improvements
+
+* **grid:** defer rowIdMap rebuild from #rebuildRowModel to first read ([5b680d1](https://github.com/OysteinAmundsen/toolbox/commit/5b680d1f803ddf33249c40381a72a846717fb12c))
+
 ## [2.7.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.7.2...grid-2.7.3) (2026-05-07)
 
 

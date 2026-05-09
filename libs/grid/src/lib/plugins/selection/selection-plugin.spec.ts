@@ -1804,4 +1804,151 @@ describe('SelectionPlugin', () => {
       expect(plugin['config'].multiSelect).toBe(true);
     });
   });
+
+  describe('column mode', () => {
+    const cols = [
+      { field: 'a', headerName: 'A' },
+      { field: 'b', headerName: 'B' },
+      { field: 'c', headerName: 'C' },
+      { field: 'd', headerName: 'D' },
+    ];
+
+    it('throws on invalid mode array combinations during attach', () => {
+      // cell+row, row+range etc. don't compose
+      const plugin = new SelectionPlugin({ mode: ['cell', 'row'] as any });
+      expect(() => plugin.attach(createMockGrid([], cols))).toThrow();
+    });
+
+    it('selectColumn adds, deselectColumn removes', () => {
+      const plugin = new SelectionPlugin({ mode: 'column' });
+      plugin.attach(createMockGrid([], cols));
+
+      plugin.selectColumn('b');
+      expect(plugin.getSelectedColumns()).toEqual(['b']);
+      expect(plugin.getSelection().activeAxis).toBe('column');
+
+      plugin.selectColumn('d', { toggle: true });
+      expect(plugin.getSelectedColumns()).toEqual(['b', 'd']);
+
+      plugin.deselectColumn('b');
+      expect(plugin.getSelectedColumns()).toEqual(['d']);
+
+      plugin.clearColumnSelection();
+      expect(plugin.getSelectedColumns()).toEqual([]);
+      expect(plugin.getSelection().activeAxis).toBe('none');
+    });
+
+    it('toggle option removes already-selected fields', () => {
+      const plugin = new SelectionPlugin({ mode: 'column' });
+      plugin.attach(createMockGrid([], cols));
+      plugin.selectColumn('a', { toggle: true });
+      plugin.selectColumn('a', { toggle: true });
+      expect(plugin.getSelectedColumns()).toEqual([]);
+    });
+
+    it('range option fills between anchor and target', () => {
+      const plugin = new SelectionPlugin({ mode: 'column' });
+      plugin.attach(createMockGrid([], cols));
+      plugin.selectColumn('a'); // sets anchor
+      plugin.selectColumn('d', { range: true });
+      expect(plugin.getSelectedColumns()).toEqual(['a', 'b', 'c', 'd']);
+    });
+
+    it('selectAllColumns selects every selectable column', () => {
+      const plugin = new SelectionPlugin({ mode: 'column' });
+      plugin.attach(createMockGrid([], cols));
+      plugin.selectAllColumns();
+      expect(plugin.getSelectedColumns()).toEqual(['a', 'b', 'c', 'd']);
+    });
+
+    it('selectAllColumns is a no-op with multiSelect: false', () => {
+      const plugin = new SelectionPlugin({ mode: 'column', multiSelect: false });
+      plugin.attach(createMockGrid([], cols));
+      plugin.selectAllColumns();
+      expect(plugin.getSelectedColumns()).toEqual([]);
+    });
+
+    it('selectColumn replaces selection when multiSelect: false', () => {
+      const plugin = new SelectionPlugin({ mode: 'column', multiSelect: false });
+      plugin.attach(createMockGrid([], cols));
+      plugin.selectColumn('a', { toggle: true });
+      plugin.selectColumn('b', { toggle: true });
+      expect(plugin.getSelectedColumns()).toEqual(['b']);
+    });
+
+    it('selectColumn ignores unknown fields', () => {
+      const plugin = new SelectionPlugin({ mode: 'column' });
+      plugin.attach(createMockGrid([], cols));
+      plugin.selectColumn('zzz');
+      expect(plugin.getSelectedColumns()).toEqual([]);
+    });
+
+    it('utility columns are not selectable', () => {
+      const plugin = new SelectionPlugin({ mode: 'column' });
+      plugin.attach(createMockGrid([], [{ field: 'util', utility: true }, ...cols]));
+      plugin.selectColumn('util');
+      expect(plugin.getSelectedColumns()).toEqual([]);
+      plugin.selectAllColumns();
+      expect(plugin.getSelectedColumns()).toEqual(['a', 'b', 'c', 'd']);
+    });
+
+    it('column-only mode disables in-row selection paths', () => {
+      const rows = [{ a: 1 }, { a: 2 }];
+      const mockGrid = createMockGrid(rows, cols);
+      const plugin = new SelectionPlugin({ mode: 'column' });
+      plugin.attach(mockGrid);
+      // selectRows is a row-mode API; should be a no-op when primary !== 'row'
+      plugin.selectRows([0]);
+      expect(plugin['selected'].size).toBe(0);
+    });
+
+    it('clearSelection wipes column axis too', () => {
+      const plugin = new SelectionPlugin({ mode: 'column' });
+      plugin.attach(createMockGrid([], cols));
+      plugin.selectColumn('a');
+      plugin.clearSelection();
+      expect(plugin.getSelectedColumns()).toEqual([]);
+      expect(plugin.getSelection().activeAxis).toBe('none');
+    });
+
+    describe('mutual exclusion (row + column)', () => {
+      const rows = [{ a: 1 }, { a: 2 }, { a: 3 }];
+
+      it('selecting a column clears any row selection', () => {
+        const mockGrid = createMockGrid(rows, cols);
+        const plugin = new SelectionPlugin({ mode: ['row', 'column'] });
+        plugin.attach(mockGrid);
+
+        plugin.selectRows([0, 1]);
+        expect(plugin['selected'].size).toBe(2);
+        expect(plugin.getSelection().activeAxis).toBe('row');
+
+        plugin.selectColumn('a');
+        expect(plugin['selected'].size).toBe(0);
+        expect(plugin.getSelectedColumns()).toEqual(['a']);
+        expect(plugin.getSelection().activeAxis).toBe('column');
+      });
+
+      it('selecting rows after columns clears the column axis', () => {
+        const mockGrid = createMockGrid(rows, cols);
+        const plugin = new SelectionPlugin({ mode: ['row', 'column'] });
+        plugin.attach(mockGrid);
+
+        plugin.selectColumn('a');
+        expect(plugin.getSelectedColumns()).toEqual(['a']);
+
+        plugin.selectRows([0, 1]);
+        expect(plugin.getSelectedColumns()).toEqual([]);
+        expect(plugin.getSelection().activeAxis).toBe('row');
+      });
+    });
+
+    it('handleQuery exposes selectColumns / getSelectedColumns', () => {
+      const plugin = new SelectionPlugin({ mode: 'column' });
+      plugin.attach(createMockGrid([], cols));
+
+      plugin.handleQuery({ type: 'selectColumns', context: ['a', 'c'] } as any);
+      expect(plugin.handleQuery({ type: 'getSelectedColumns' } as any)).toEqual(['a', 'c']);
+    });
+  });
 });

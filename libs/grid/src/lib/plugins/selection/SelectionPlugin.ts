@@ -11,10 +11,17 @@
 import { GridClasses } from '../../core/constants';
 import { announce, getA11yMessage } from '../../core/internal/aria';
 import { clearCellFocus, getRowIndexFromCell } from '../../core/internal/utils';
-import type { GridElement, PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
+import type { GridElement, HeaderClickEvent, PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, CellClickEvent, CellMouseEvent } from '../../core/plugin/base-plugin';
 import { isExpanderColumn, isUtilityColumn } from '../../core/plugin/expander-column';
 import type { ColumnConfig } from '../../core/types';
+import {
+  computeKeyboardExtension,
+  fieldsBetween,
+  type NormalizedModeConfig,
+  normalizeMode,
+  selectableColumnFields,
+} from './column-selection';
 import {
   createRangeFromAnchor,
   getAllCellsInRanges,
@@ -27,40 +34,76 @@ import styles from './selection.css?inline';
 import type {
   CellRange,
   InternalCellRange,
+  SelectionAxis,
   SelectionChangeDetail,
   SelectionConfig,
   SelectionMode,
   SelectionResult,
 } from './types';
 
+/**
+ * Resolve the primary in-row mode from a config that may be a single string
+ * or an array. Used by `configRules` (which run before `attach()` populates
+ * the cached normalized mode). Falls back to `'cell'` on invalid input —
+ * `attach()` will throw the proper error message later.
+ */
+function primaryModeOf(mode: SelectionMode | SelectionMode[] | undefined): SelectionMode {
+  if (typeof mode === 'string') return mode;
+  if (Array.isArray(mode)) {
+    const other = mode.find((m) => m !== 'column');
+    if (other) return other;
+    if (mode.includes('column')) return 'column';
+  }
+  return 'cell';
+}
+
 /** Special field name for the selection checkbox column */
 const CHECKBOX_COLUMN_FIELD = '__tbw_checkbox';
 
 /**
  * Build the selection change event detail for the current state.
+ *
+ * `axis` decides which axis "won" — when both row and column are populated
+ * (which can only happen in transient states inside mutual-exclusion handling),
+ * `axis` is the source of truth for which one to report.
  */
 function buildSelectionEvent(
-  mode: SelectionMode,
+  configuredMode: SelectionMode | SelectionMode[],
+  axis: SelectionAxis,
+  primary: SelectionMode,
   state: {
     selectedCell: { row: number; col: number } | null;
     selected: Set<number>;
     ranges: InternalCellRange[];
+    selectedColumns: Set<string>;
   },
   colCount: number,
 ): SelectionChangeDetail {
-  if (mode === 'cell' && state.selectedCell) {
+  // Column axis active → ignore in-row state, report column field names.
+  if (axis === 'column' && state.selectedColumns.size > 0) {
     return {
-      mode,
+      mode: configuredMode,
+      activeAxis: 'column',
+      ranges: [],
+      selectedColumns: [...state.selectedColumns],
+    };
+  }
+
+  if (primary === 'cell' && state.selectedCell) {
+    return {
+      mode: configuredMode,
+      activeAxis: 'cell',
       ranges: [
         {
           from: { row: state.selectedCell.row, col: state.selectedCell.col },
           to: { row: state.selectedCell.row, col: state.selectedCell.col },
         },
       ],
+      selectedColumns: [],
     };
   }
 
-  if (mode === 'row' && state.selected.size > 0) {
+  if (primary === 'row' && state.selected.size > 0) {
     // Sort rows and merge contiguous indices into minimal ranges
     const sorted = [...state.selected].sort((a, b) => a - b);
     const ranges: CellRange[] = [];
@@ -76,14 +119,19 @@ function buildSelectionEvent(
       }
     }
     ranges.push({ from: { row: start, col: 0 }, to: { row: end, col: colCount - 1 } });
-    return { mode, ranges };
+    return { mode: configuredMode, activeAxis: 'row', ranges, selectedColumns: [] };
   }
 
-  if (mode === 'range' && state.ranges.length > 0) {
-    return { mode, ranges: toPublicRanges(state.ranges) };
+  if (primary === 'range' && state.ranges.length > 0) {
+    return {
+      mode: configuredMode,
+      activeAxis: 'range',
+      ranges: toPublicRanges(state.ranges),
+      selectedColumns: [],
+    };
   }
 
-  return { mode, ranges: [] };
+  return { mode: configuredMode, activeAxis: 'none', ranges: [], selectedColumns: [] };
 }
 
 /**
@@ -179,6 +227,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       { type: 'selectRows', description: 'Select specific rows by index (row mode only)' },
       { type: 'getSelectedRowIndices', description: 'Get sorted array of selected row indices' },
       { type: 'getSelectedRows', description: 'Get actual row objects for the current selection (works in all modes)' },
+      { type: 'getSelectedColumns', description: 'Get field names of selected columns (column mode only)' },
+      { type: 'selectColumns', description: 'Select specific columns by field name (column mode only)' },
     ],
     configRules: [
       {
@@ -188,7 +238,15 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
           `"triggerOn: 'dblclick'" has no effect when mode is "range".\n` +
           `  → Range selection uses drag interaction (mousedown → mousemove), not click events.\n` +
           `  → The "triggerOn" option only affects "cell" and "row" selection modes.`,
-        check: (config) => config.mode === 'range' && config.triggerOn === 'dblclick',
+        check: (config) => primaryModeOf(config.mode) === 'range' && config.triggerOn === 'dblclick',
+      },
+      {
+        id: 'selection/column-checkbox',
+        severity: 'warn',
+        message:
+          `"checkbox: true" only renders in row mode.\n` +
+          `  → Column selection has no checkbox UI; activate columns via Ctrl+Click on a header or Ctrl+Space on a focused cell.`,
+        check: (config) => !!config.checkbox && primaryModeOf(config.mode) !== 'row',
       },
     ],
   };
@@ -228,6 +286,26 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   /** Cell selection state (cell mode) */
   private selectedCell: { row: number; col: number } | null = null;
+
+  /**
+   * Column selection state (column mode / `['row','column']` array mode).
+   * Stored as field-name strings so selection survives column pinning,
+   * reordering, and virtualization recycling.
+   */
+  private selectedColumns = new Set<string>();
+  /** Anchor column for Ctrl+Shift+click range extension. */
+  private columnAnchor: string | null = null;
+  /** Head column for Ctrl+Shift+Arrow keyboard extension. */
+  private columnHead: string | null = null;
+  /** Which axis last won. Drives `SelectionChangeDetail.activeAxis` and mutual exclusion. */
+  private activeAxis: SelectionAxis = 'none';
+
+  /**
+   * Normalized mode config, computed once in `attach()`. All mode checks in this
+   * plugin go through `this.#mode` rather than `this.config.mode` so the
+   * single-string vs. array distinction is resolved in exactly one place.
+   */
+  #mode: NormalizedModeConfig = { primary: 'cell', columnEnabled: false, bothAxes: false };
 
   /** Last synced focus row — used to detect when grid focus moves so selection follows */
   private lastSyncedFocusRow = -1;
@@ -297,6 +375,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   override attach(grid: GridElement): void {
     super.attach(grid);
 
+    // Resolve the user-supplied mode (string OR array) into a single normalized
+    // shape. Throws on invalid combinations (e.g. ['row', 'cell']).
+    this.#mode = normalizeMode(this.config.mode);
+
     // Subscribe to events that invalidate selection
     // When rows change due to filtering/grouping/tree/sort operations, selection indices become invalid
     this.on('filter-change', () => this.clearSelectionSilent());
@@ -315,7 +397,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.on<{ rowIndex: number; row: unknown }>('edit-open', ({ rowIndex, row }) => {
       if (!this.isSelectionEnabled()) return;
       if (row == null || rowIndex < 0) return;
-      if (this.config.mode !== 'row') return;
+      if (this.#mode.primary !== 'row') return;
       if (!this.isRowSelectable(rowIndex)) return;
       if (this.selected.has(rowIndex)) return;
       // multiSelect: false → replace; otherwise add to existing set so
@@ -369,6 +451,15 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       this.selectRows(query.context as number[]);
       return true;
     }
+    if (query.type === 'getSelectedColumns') {
+      return this.getSelectedColumns();
+    }
+    if (query.type === 'selectColumns') {
+      const fields = query.context as string[];
+      this.clearColumnSelection();
+      for (const f of fields) this.selectColumn(f, { toggle: true });
+      return true;
+    }
     return undefined;
   }
 
@@ -385,6 +476,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.cellAnchor = null;
     this.isDragging = false;
     this.selectedCell = null;
+    this.selectedColumns.clear();
+    this.columnAnchor = null;
+    this.columnHead = null;
+    this.activeAxis = 'none';
     this.pendingKeyboardUpdate = null;
     this.pendingRowKeyUpdate = null;
     this.lastSyncedFocusRow = -1;
@@ -394,6 +489,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   /**
    * Clear selection without emitting an event.
    * Used when selection is invalidated by external changes (filtering, grouping, etc.)
+   *
+   * Column selection is intentionally PRESERVED here — it tracks field names,
+   * not row indices, so it stays valid across filter/sort/group changes. Use
+   * {@link clearSelection} (public) or {@link #clearAllAxesSilent} for a full wipe.
    */
   private clearSelectionSilent(): void {
     this.selected.clear();
@@ -405,6 +504,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.anchor = null;
     this.lastSyncedFocusRow = -1;
     this.lastSyncedFocusCol = -1;
+    if (this.activeAxis !== 'column') {
+      this.activeAxis = 'none';
+    }
     this.requestAfterRender();
   }
 
@@ -418,7 +520,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (!this.isSelectionEnabled()) return false;
 
     const { rowIndex, colIndex, originalEvent } = event;
-    const { mode, triggerOn = 'click' } = this.config;
+    const { triggerOn = 'click' } = this.config;
+    const mode = this.#mode.primary;
 
     // Skip if event type doesn't match configured trigger
     // This allows dblclick mode to only select on double-click
@@ -576,9 +679,44 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // Skip all selection if disabled at grid level or plugin level
     if (!this.isSelectionEnabled()) return false;
 
-    const { mode } = this.config;
+    const mode = this.#mode.primary;
+    const columnEnabled = this.#mode.columnEnabled;
     const navKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End', 'PageUp', 'PageDown'];
     const isNavKey = navKeys.includes(event.key);
+
+    // Ctrl+Space — WAI-ARIA Grid: toggle column selection for the focused column.
+    // Per-spec uses ' ' (Space). Some browsers report `key === 'Spacebar'` on
+    // older hosts; cover both.
+    if (columnEnabled && (event.ctrlKey || event.metaKey) && (event.key === ' ' || event.key === 'Spacebar')) {
+      const colIndex = this.grid._focusCol;
+      const column = this.visibleColumns[colIndex];
+      if (column && !isUtilityColumn(column) && typeof column.field === 'string') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.selectColumn(column.field, { toggle: true });
+        return true;
+      }
+    }
+
+    // Ctrl+Shift+ArrowLeft / ArrowRight — extend column selection along visible columns.
+    if (
+      columnEnabled &&
+      this.activeAxis === 'column' &&
+      this.config.multiSelect !== false &&
+      (event.ctrlKey || event.metaKey) &&
+      event.shiftKey &&
+      (event.key === 'ArrowLeft' || event.key === 'ArrowRight')
+    ) {
+      const fields = selectableColumnFields(this.visibleColumns);
+      const direction = event.key === 'ArrowLeft' ? 'left' : 'right';
+      const newHead = computeKeyboardExtension(this.columnHead, fields, direction);
+      if (newHead !== null && this.columnAnchor !== null) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.selectColumn(newHead, { range: true });
+        return true;
+      }
+    }
 
     // Escape clears selection in all modes
     // But if editing is active, let the EditingPlugin handle Escape first
@@ -586,6 +724,18 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       const isEditing = this.grid.query<boolean>('isEditing');
       if (isEditing.some(Boolean)) {
         return false; // Defer to EditingPlugin to cancel the active edit
+      }
+
+      // Column axis — clear it; falls through to clear in-row when both axes
+      // are configured but we want a single Escape to clear the active axis only.
+      if (this.activeAxis === 'column') {
+        this.selectedColumns.clear();
+        this.columnAnchor = null;
+        this.columnHead = null;
+        this.activeAxis = 'none';
+        this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+        this.requestAfterRender();
+        return true;
       }
 
       if (mode === 'cell') {
@@ -710,7 +860,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // Skip all selection if disabled at grid level or plugin level
     if (!this.isSelectionEnabled()) return;
 
-    if (this.config.mode !== 'range') return;
+    if (this.#mode.primary !== 'range') return;
     if (event.rowIndex === undefined || event.colIndex === undefined) return;
     if (event.rowIndex < 0) return; // Header
 
@@ -771,7 +921,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // Skip all selection if disabled at grid level or plugin level
     if (!this.isSelectionEnabled()) return;
 
-    if (this.config.mode !== 'range') return;
+    if (this.#mode.primary !== 'range') return;
     if (!this.isDragging || !this.cellAnchor) return;
     if (event.rowIndex === undefined || event.colIndex === undefined) return;
     if (event.rowIndex < 0) return;
@@ -813,11 +963,45 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // Skip all selection if disabled at grid level or plugin level
     if (!this.isSelectionEnabled()) return;
 
-    if (this.config.mode !== 'range') return;
+    if (this.#mode.primary !== 'range') return;
     if (this.isDragging) {
       this.isDragging = false;
       return true;
     }
+  }
+
+  /**
+   * Header click handler — drives column-axis selection.
+   *
+   * - Plain click (and plain Shift+click): defer to MultiSort / core sort by
+   *   returning `false`. Header-click sort behavior is unchanged.
+   * - **Ctrl/Cmd+click**: toggle selection of the clicked column (or replace,
+   *   when `multiSelect: false`).
+   * - **Ctrl/Cmd+Shift+click**: extend selection from the column anchor to the
+   *   clicked column. Avoids the plain `Shift+click` chord owned by MultiSort.
+   *
+   * No-ops when column selection isn't enabled or when the clicked column is
+   * a utility column (`utility: true`).
+   * @internal
+   */
+  override onHeaderClick(event: HeaderClickEvent): boolean | void {
+    if (!this.isSelectionEnabled()) return false;
+    if (!this.#mode.columnEnabled) return false;
+    if (event.column && isUtilityColumn(event.column)) return false;
+
+    const e = event.originalEvent;
+    const ctrlKey = e.ctrlKey || e.metaKey;
+    if (!ctrlKey) return false; // Plain / Shift click → sort path
+
+    const field = event.field;
+    if (!field) return false;
+
+    e.preventDefault();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+
+    const range = e.shiftKey === true && this.config.multiSelect !== false && this.columnAnchor !== null;
+    this.selectColumn(field, range ? { range: true } : { toggle: true });
+    return true; // Handled — suppress sort
   }
 
   // #region Checkbox Column
@@ -827,7 +1011,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * @internal
    */
   override processColumns(columns: ColumnConfig[]): ColumnConfig[] {
-    if (this.config.checkbox && this.config.mode === 'row') {
+    if (this.config.checkbox && this.#mode.primary === 'row') {
       // Check if checkbox column already exists
       if (columns.some((col) => col.field === CHECKBOX_COLUMN_FIELD)) {
         return columns;
@@ -989,7 +1173,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     const gridEl = this.gridElement;
     if (!gridEl) return;
 
-    const { mode } = this.config;
+    const mode = this.#mode.primary;
+    const columnEnabled = this.#mode.columnEnabled;
     const hasSelectableCallback = !!this.config.isSelectable;
 
     // Reflect multi-select capability on the role=grid element so screen readers
@@ -1002,10 +1187,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       rowsBodyEl.setAttribute('aria-multiselectable', multi ? 'true' : 'false');
     }
 
-    // Clear all selection classes first
+    // Clear all selection classes first (including column-selected)
     const allCells = gridEl.querySelectorAll('.cell');
     allCells.forEach((cell) => {
-      cell.classList.remove(GridClasses.SELECTED, 'top', 'bottom', 'first', 'last');
+      cell.classList.remove(GridClasses.SELECTED, 'top', 'bottom', 'first', 'last', 'column-selected');
       // Clear selectable attribute - will be re-applied below
       if (hasSelectableCallback) {
         cell.removeAttribute('data-selectable');
@@ -1021,6 +1206,15 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         row.removeAttribute('data-selectable');
       }
     });
+
+    // Clear column-selected from header cells too
+    if (columnEnabled) {
+      const headerCells = gridEl.querySelectorAll('.header-row > .cell');
+      headerCells.forEach((cell) => {
+        cell.classList.remove('column-selected');
+        cell.removeAttribute('aria-selected');
+      });
+    }
 
     // ROW MODE: Add row-focus class to selected rows, disable cell-focus, update checkboxes
     if (mode === 'row') {
@@ -1110,6 +1304,45 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
     // CELL MODE: Let the grid's native .cell-focus styling handle cell highlighting
     // No additional action needed - the grid already manages focus styling
+
+    // COLUMN AXIS: Apply column-selected class + aria-selected to the header cell
+    // and every data cell in the matching column. Identifies columns by their
+    // visible-index (data-col matches the visibleColumns position) so it works
+    // regardless of pinning / reordering — selectedColumns stores fields, not
+    // indices, so the rendering layer resolves them per-render.
+    if (columnEnabled && this.selectedColumns.size > 0) {
+      // Build visible-index → field map once for O(1) lookups.
+      const colFieldByIndex: (string | undefined)[] = this.visibleColumns.map((c) =>
+        typeof c.field === 'string' ? c.field : undefined,
+      );
+
+      // Header cells — the grid renders header cells with data-col attributes.
+      const headerCells = gridEl.querySelectorAll<HTMLElement>('.header-row > .cell[data-col]');
+      headerCells.forEach((cell) => {
+        const colIndex = parseInt(cell.getAttribute('data-col') ?? '-1', 10);
+        const field = colIndex >= 0 ? colFieldByIndex[colIndex] : undefined;
+        if (field && this.selectedColumns.has(field)) {
+          cell.classList.add('column-selected');
+          cell.setAttribute('aria-selected', 'true');
+        }
+      });
+
+      // Data cells.
+      const cells = gridEl.querySelectorAll<HTMLElement>('.cell[data-col]:not(.header-row .cell)');
+      cells.forEach((cell) => {
+        // Skip header cells (filter above isn't reliable for nested .header-row scoping)
+        if (cell.closest('.header-row')) return;
+        const colIndex = parseInt(cell.getAttribute('data-col') ?? '-1', 10);
+        if (colIndex < 0) return;
+        const column = this.visibleColumns[colIndex];
+        if (!column || isUtilityColumn(column)) return;
+        const field = colFieldByIndex[colIndex];
+        if (field && this.selectedColumns.has(field)) {
+          cell.classList.add('column-selected');
+          cell.setAttribute('aria-selected', 'true');
+        }
+      });
+    }
   }
 
   /** @internal */
@@ -1121,7 +1354,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (!gridEl) return;
 
     const container = gridEl.querySelector('.tbw-grid-root');
-    const { mode } = this.config;
+    const mode = this.#mode.primary;
 
     // Process pending row keyboard navigation update (row mode)
     // This runs AFTER the grid has updated focusRow
@@ -1228,9 +1461,12 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * ```
    */
   getSelection(): SelectionResult {
+    const event = this.#buildEvent();
     return {
       mode: this.config.mode,
-      ranges: this.#buildEvent().ranges,
+      activeAxis: event.activeAxis,
+      ranges: event.ranges,
+      selectedColumns: event.selectedColumns,
       anchor: this.cellAnchor,
     };
   }
@@ -1310,7 +1546,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * ```
    */
   selectRows(indices: number[]): void {
-    if (this.config.mode !== 'row') return;
+    if (this.#mode.primary !== 'row') return;
     // In single-select mode, only use the last index
     const effectiveIndices =
       this.config.multiSelect === false && indices.length > 1 ? [indices[indices.length - 1]] : indices;
@@ -1358,7 +1594,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * ```
    */
   getSelectedRows<T = unknown>(): T[] {
-    const { mode } = this.config;
+    const mode = this.#mode.primary;
     const rows = this.rows;
 
     if (mode === 'row') {
@@ -1389,7 +1625,124 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   }
 
   /**
-   * Clear all selection.
+   * Toggle, add, or replace a column in the column-axis selection.
+   *
+   * Column selection is identified by **field name**, so it survives column
+   * pinning, reordering, and virtualization recycling. The column must be
+   * present in the grid's visible columns and must not be a utility column.
+   *
+   * Only available when `mode` includes `'column'`. With `multiSelect: false`,
+   * `range`/`toggle` options are ignored and the call always replaces the
+   * current selection with the single column.
+   *
+   * @param field - The column field name to select.
+   * @param options.range - When true and a {@link columnAnchor} exists, selects
+   *   every column from anchor to `field` inclusive (Ctrl+Shift+Click semantics).
+   * @param options.toggle - When true, removes `field` if already selected;
+   *   otherwise adds it. Without `toggle`, plain calls replace the selection.
+   * @since 2.8.0
+   */
+  selectColumn(field: string, options: { range?: boolean; toggle?: boolean } = {}): void {
+    if (!this.#mode.columnEnabled) return;
+    const fields = selectableColumnFields(this.visibleColumns);
+    if (!fields.includes(field)) return;
+
+    this.#enforceMutualExclusion('column');
+
+    const multiSelect = this.config.multiSelect !== false;
+    if (!multiSelect) {
+      this.selectedColumns.clear();
+      this.selectedColumns.add(field);
+      this.columnAnchor = field;
+      this.columnHead = field;
+    } else if (options.range && this.columnAnchor) {
+      const range = fieldsBetween(this.columnAnchor, field, fields);
+      this.selectedColumns.clear();
+      for (const f of range) this.selectedColumns.add(f);
+      this.columnHead = field;
+    } else if (options.toggle) {
+      if (this.selectedColumns.has(field)) {
+        this.selectedColumns.delete(field);
+      } else {
+        this.selectedColumns.add(field);
+      }
+      this.columnAnchor = field;
+      this.columnHead = field;
+    } else {
+      this.selectedColumns.clear();
+      this.selectedColumns.add(field);
+      this.columnAnchor = field;
+      this.columnHead = field;
+    }
+
+    this.activeAxis = this.selectedColumns.size > 0 ? 'column' : 'none';
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
+  }
+
+  /**
+   * Remove a column from the column-axis selection. No-op if `field` isn't selected.
+   * @since 2.8.0
+   */
+  deselectColumn(field: string): void {
+    if (!this.#mode.columnEnabled) return;
+    if (!this.selectedColumns.delete(field)) return;
+    if (this.selectedColumns.size === 0) {
+      this.columnAnchor = null;
+      this.columnHead = null;
+      if (this.activeAxis === 'column') this.activeAxis = 'none';
+    }
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
+  }
+
+  /**
+   * Select every selectable column. No-op when `multiSelect: false` or column
+   * mode isn't enabled.
+   * @since 2.8.0
+   */
+  selectAllColumns(): void {
+    if (!this.#mode.columnEnabled) return;
+    if (this.config.multiSelect === false) return;
+    const fields = selectableColumnFields(this.visibleColumns);
+    if (fields.length === 0) return;
+    this.#enforceMutualExclusion('column');
+    this.selectedColumns.clear();
+    for (const f of fields) this.selectedColumns.add(f);
+    this.columnAnchor = fields[0];
+    this.columnHead = fields[fields.length - 1];
+    this.activeAxis = 'column';
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
+  }
+
+  /**
+   * Clear column-axis selection only. Leaves any row/cell/range selection intact.
+   * @since 2.8.0
+   */
+  clearColumnSelection(): void {
+    if (this.selectedColumns.size === 0) return;
+    this.selectedColumns.clear();
+    this.columnAnchor = null;
+    this.columnHead = null;
+    if (this.activeAxis === 'column') this.activeAxis = 'none';
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
+  }
+
+  /**
+   * Get the field names of all currently selected columns, in visible-column
+   * order. Returns an empty array when the column axis is inactive or empty.
+   * @since 2.8.0
+   */
+  getSelectedColumns(): readonly string[] {
+    if (this.selectedColumns.size === 0) return [];
+    const fields = selectableColumnFields(this.visibleColumns);
+    return fields.filter((f) => this.selectedColumns.has(f));
+  }
+
+  /**
+   * Clear all selection (every axis).
    */
   clearSelection(): void {
     this.selectedCell = null;
@@ -1398,7 +1751,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.ranges = [];
     this.activeRange = null;
     this.cellAnchor = null;
-    this.emit<SelectionChangeDetail>('selection-change', { mode: this.config.mode, ranges: [] });
+    this.selectedColumns.clear();
+    this.columnAnchor = null;
+    this.columnHead = null;
+    this.activeAxis = 'none';
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
     this.requestAfterRender();
   }
 
@@ -1413,10 +1770,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       endCol: r.to.col,
     }));
     this.activeRange = this.ranges.length > 0 ? this.ranges[this.ranges.length - 1] : null;
-    this.emit<SelectionChangeDetail>('selection-change', {
-      mode: this.config.mode,
-      ranges: toPublicRanges(this.ranges),
-    });
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
     this.requestAfterRender();
   }
 
@@ -1425,24 +1779,111 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   // #region Private Helpers
 
   #buildEvent(): SelectionChangeDetail {
+    // Derive the axis from current state so all existing in-row code paths
+    // (which mutate state then emit) report the correct axis without needing
+    // to pre-set `this.activeAxis` themselves. Mutual exclusion is enforced
+    // separately in {@link #enforceMutualExclusion}.
+    const primary = this.#mode.primary;
+    const inRowPopulated =
+      (primary === 'row' && this.selected.size > 0) ||
+      (primary === 'cell' && this.selectedCell !== null) ||
+      (primary === 'range' && this.ranges.length > 0);
+
+    // Mutual exclusion: in `bothAxes` mode, the user just mutated the in-row
+    // axis (we know because `#buildEvent` is called from the in-row code paths
+    // immediately after state changes) — so clear stale column selection. The
+    // column-axis code paths call `#enforceMutualExclusion('column')`
+    // explicitly BEFORE mutating; they then update `activeAxis` to 'column'
+    // so the in-row state seen here is empty and this branch doesn't trigger.
+    if (this.#mode.bothAxes && inRowPopulated && this.selectedColumns.size > 0) {
+      this.selectedColumns.clear();
+      this.columnAnchor = null;
+      this.columnHead = null;
+      if (this.gridElement) {
+        announce(this.gridElement, getA11yMessage(this.gridElement, 'selectionAxisChanged', 'row'));
+      }
+    }
+
+    let axis: SelectionAxis;
+    if (inRowPopulated) {
+      // In-row state always wins when populated — column-axis paths clear
+      // in-row state via #enforceMutualExclusion before mutating columns.
+      if (primary === 'row') axis = 'row';
+      else if (primary === 'cell') axis = 'cell';
+      else axis = 'range';
+    } else if (this.selectedColumns.size > 0) {
+      axis = 'column';
+    } else {
+      axis = 'none';
+    }
+    this.activeAxis = axis;
+
     const event = buildSelectionEvent(
       this.config.mode,
+      axis,
+      primary,
       {
         selectedCell: this.selectedCell,
         selected: this.selected,
         ranges: this.ranges,
+        selectedColumns: this.selectedColumns,
       },
       this.columns.length,
     );
     // Debounced screen reader announcement for selection changes
     if (this.announceTimer) clearTimeout(this.announceTimer);
     this.announceTimer = setTimeout(() => {
-      const count = event.mode === 'row' ? this.selected.size : event.ranges.length;
-      if (count > 0) {
-        announce(this.gridElement, getA11yMessage(this.gridElement, 'selectionChanged', count));
+      if (event.activeAxis === 'column') {
+        const cols = event.selectedColumns;
+        if (cols.length === 1) {
+          const field = cols[0];
+          const col = this.columns.find((c) => c.field === field);
+          const label = (typeof col?.header === 'string' && col.header) || field;
+          announce(this.gridElement, getA11yMessage(this.gridElement, 'columnSelected', label));
+        } else if (cols.length > 1) {
+          announce(this.gridElement, getA11yMessage(this.gridElement, 'columnSelectionChanged', cols.length));
+        } else {
+          announce(this.gridElement, getA11yMessage(this.gridElement, 'columnSelectionCleared'));
+        }
+      } else {
+        const count = event.activeAxis === 'row' ? this.selected.size : event.ranges.length;
+        if (count > 0) {
+          announce(this.gridElement, getA11yMessage(this.gridElement, 'selectionChanged', count));
+        }
       }
     }, 150);
     return event;
+  }
+
+  /**
+   * Enforce row↔column mutual exclusion when both axes are configured
+   * (`mode: ['row', 'column']` etc.). Call BEFORE mutating the destination
+   * axis so its data won't be wiped along with the inactive axis.
+   *
+   * Single-string-mode configs are no-ops (the inactive axis can't have data
+   * because there's no UI path to populate it). The in-row → column path is
+   * called explicitly by the column-axis code; the column → in-row path is
+   * handled automatically inside {@link #buildEvent} (which runs on every
+   * in-row state change immediately before emitting).
+   */
+  #enforceMutualExclusion(toAxis: 'row' | 'cell' | 'range' | 'column'): void {
+    if (!this.#mode.bothAxes) return;
+    if (toAxis === 'column') {
+      const hadInRow = this.selected.size > 0 || this.selectedCell !== null || this.ranges.length > 0;
+      if (!hadInRow) return;
+      this.selected.clear();
+      this.lastSelected = null;
+      this.anchor = null;
+      this.selectedCell = null;
+      this.ranges = [];
+      this.activeRange = null;
+      this.cellAnchor = null;
+      if (this.gridElement) {
+        announce(this.gridElement, getA11yMessage(this.gridElement, 'selectionAxisChanged', 'column'));
+      }
+    }
+    // Column → in-row flip is handled inside #buildEvent (auto-detected by
+    // observing populated in-row state with stale columns).
   }
 
   // #endregion

@@ -64,7 +64,14 @@ declare module '../../core/types' {
  * |------|----------|----------|
  * | `'cell'` | Spreadsheet-style editing | Single cell focus. Click to select one cell at a time. |
  * | `'row'` | Record-based operations | Full row selection. Click anywhere to select the entire row. |
+ * | `'column'` | Spreadsheet-style column operations | Full column selection. Activated via `Ctrl+Click` on header or `Ctrl+Space` on a focused cell. |
  * | `'range'` | Bulk operations, export | Rectangular selection. Drag or Shift+Click to select ranges. |
+ *
+ * `mode` may also be an **array** to enable column selection alongside one in-row mode
+ * (`['row', 'column']`, `['cell', 'column']`, or `['range', 'column']`). When both axes
+ * are enabled, they are mutually exclusive at runtime — selecting a column clears any row
+ * selection, and selecting a row clears any column selection. Only column-paired arrays
+ * are valid; combining other modes (e.g. `['row', 'cell']`) throws at attach time.
  *
  * @example
  * ```ts
@@ -74,8 +81,14 @@ declare module '../../core/types' {
  * // Row mode - for selecting complete records
  * new SelectionPlugin({ mode: 'row' })
  *
+ * // Column mode - for column-wise operations (copy column, hide column)
+ * new SelectionPlugin({ mode: 'column' })
+ *
  * // Range mode - for bulk copy/paste operations
  * new SelectionPlugin({ mode: 'range' })
+ *
+ * // Both row and column - mutually exclusive at runtime
+ * new SelectionPlugin({ mode: ['row', 'column'] })
  * ```
  *
  * @see Cell Mode Demo — Click cells to select
@@ -83,7 +96,15 @@ declare module '../../core/types' {
  * @see Range Mode Demo — Drag to select ranges
  * @since 0.1.1
  */
-export type SelectionMode = 'cell' | 'row' | 'range';
+export type SelectionMode = 'cell' | 'row' | 'column' | 'range';
+
+/**
+ * The axis of the active selection. Used in {@link SelectionChangeDetail} to disambiguate
+ * which axis (row vs. column vs. cell vs. range) was last touched. `'none'` when nothing
+ * is selected.
+ * @since 2.8.0
+ */
+export type SelectionAxis = 'cell' | 'row' | 'column' | 'range' | 'none';
 
 /**
  * Mouse event type that triggers selection.
@@ -136,8 +157,19 @@ export type SelectableCallback<T = unknown> = (
 /** Configuration options for the selection plugin * @since 0.1.1
  */
 export interface SelectionConfig<T = unknown> {
-  /** Selection mode (default: 'cell') */
-  mode: SelectionMode;
+  /**
+   * Selection mode (default: `'cell'`).
+   *
+   * Accepts a single mode string OR an array combining `'column'` with one in-row mode
+   * (`['row', 'column']`, `['cell', 'column']`, `['range', 'column']`). When both axes
+   * are configured, they are mutually exclusive at runtime — selecting on one axis
+   * clears the other and emits a single {@link SelectionChangeDetail} with the new
+   * `activeAxis`.
+   *
+   * Other array combinations (e.g. `['row', 'cell']`, `['cell', 'range']`) are rejected
+   * at attach time because they don't compose meaningfully.
+   */
+  mode: SelectionMode | SelectionMode[];
 
   /**
    * Allow multiple items to be selected simultaneously (default: true).
@@ -281,10 +313,21 @@ export interface CellRange {
  * @since 0.1.1
  */
 export interface SelectionChangeDetail {
-  /** The selection mode that triggered this event */
-  mode: SelectionMode;
-  /** Selected cell ranges. For cell mode, contains a single-cell range. For row mode, contains full-row ranges. */
+  /** The selection mode (or modes) configured on the plugin. Echoes {@link SelectionConfig.mode}. */
+  mode: SelectionMode | SelectionMode[];
+  /**
+   * The axis that owns the current selection. In array-mode, this flips between `'row'`
+   * and `'column'` as the user activates each axis. `'none'` when nothing is selected.
+   * @since 2.8.0
+   */
+  activeAxis: SelectionAxis;
+  /** Selected cell ranges. For cell mode, contains a single-cell range. For row mode, contains full-row ranges. Empty when the active axis is `'column'`. */
   ranges: CellRange[];
+  /**
+   * Field names of selected columns (column axis only). Empty when the active axis is row/cell/range.
+   * @since 2.8.0
+   */
+  selectedColumns: readonly string[];
 }
 
 /**
@@ -302,10 +345,20 @@ export interface SelectionChangeDetail {
  * @since 0.4.2
  */
 export interface SelectionResult {
-  /** The current selection mode */
-  mode: SelectionMode;
-  /** All selected ranges. Empty if nothing is selected. */
+  /** The current selection mode (or modes if array-configured) */
+  mode: SelectionMode | SelectionMode[];
+  /**
+   * Which axis owns the active selection.
+   * @since 2.8.0
+   */
+  activeAxis: SelectionAxis;
+  /** All selected ranges. Empty if nothing is selected on the row/cell/range axis. */
   ranges: CellRange[];
+  /**
+   * Selected column field names. Empty unless the column axis is active.
+   * @since 2.8.0
+   */
+  selectedColumns: readonly string[];
   /** The anchor cell for range extension (Shift+click/arrow). Null if no anchor is set. */
   anchor: { row: number; col: number } | null;
 }

@@ -3,7 +3,7 @@ title: Selection Plugin
 description: Cell, row, and range selection with full keyboard support, conditional selection, and checkbox mode.
 ---
 
-import { TabItem, Tabs } from '@astrojs/starlight/components';
+import { Badge, TabItem, Tabs } from '@astrojs/starlight/components';
 import ShowSource from '@components/ShowSource.astro';
 import SelectionCheckboxDemo from '@components/demos/SelectionCheckboxDemo.astro';
 import SelectionPlaygroundDemo from '@components/demos/SelectionPlaygroundDemo.astro';
@@ -166,6 +166,7 @@ Switch between selection modes to see how each one behaves. The state panel belo
 - **Cell mode:** Click cells to select them individually
 - **Row mode:** Click anywhere in a row to select the entire row. Ctrl+Click to toggle, Shift+Click for range
 - **Range mode:** Click and drag to select rectangular ranges. Ctrl+drag for multiple ranges
+- **Column mode:** Ctrl/⌘+Click on a header (or Ctrl/⌘+Space on a focused cell) selects that column. Ctrl+Shift+Click extends from the column anchor.
 
 <ShowSource file="demos/SelectionPlaygroundDemo.astro">
   <SelectionPlaygroundDemo />
@@ -182,6 +183,36 @@ Add `checkbox: true` to show a selection checkbox column with a "select all" hea
 ```ts
 features: { selection: { mode: 'row', checkbox: true } }
 ```
+
+### Column Selection
+
+<Badge text="Since 2.8.0" variant="tip" size="small" />
+
+Set `mode: 'column'` to enable column-axis selection. Selected columns are tracked by **field name** (not visible-index), so the selection survives column pinning, reordering, virtualization recycling, and visibility changes.
+
+```ts
+features: { selection: { mode: 'column' } }
+```
+
+You can combine column selection with one in-row axis (`'cell'`, `'row'`, or `'range'`) by passing an array. The two axes are **mutually exclusive** at any given moment — selecting on one clears the other and announces the axis change to assistive technology:
+
+```ts
+features: { selection: { mode: ['row', 'column'] } }
+```
+
+Invalid combinations (`['cell', 'row']`, `['cell', 'range']`, `['row', 'range']`) throw at attach time — only `'column' + X` array shapes are accepted.
+
+**Activation paths**
+
+| Input | Action |
+| ----- | ------ |
+| `Ctrl/⌘ + Click` on column header | Toggle column |
+| `Ctrl/⌘ + Shift + Click` on column header | Extend from anchor |
+| `Ctrl/⌘ + Space` | Toggle column at focused cell |
+| `Ctrl/⌘ + Shift + ←/→` | Extend column selection |
+| Plain header click | Reserved for sort (no selection change) |
+
+Utility columns (checkbox, expander, etc.) are never selectable. With `multiSelect: false`, only one column can be selected at a time and `selectAllColumns()` is a no-op.
 
 ## Configuration Options
 
@@ -255,7 +286,11 @@ features: {
 | `Ctrl/⌘ + Click` | Toggle row/cell (multi-select) |
 | `Shift + Click` | Extend selection from anchor |
 | `Ctrl/⌘ + A` | Select all (row and range modes) |
-| `Escape` | Clear selection |
+| `Ctrl/⌘ + Click` (header) | Toggle column selection (column mode) |
+| `Ctrl/⌘ + Shift + Click` (header) | Extend column selection from anchor |
+| `Ctrl/⌘ + Space` | Toggle column at the focused column (column mode) |
+| `Ctrl/⌘ + Shift + ←/→` | Extend column selection (column mode) |
+| `Escape` | Clear current selection (whichever axis is active) |
 
 ## Programmatic API
 
@@ -272,6 +307,15 @@ const rows = plugin.getSelectedRows<Employee>();
 
 // Range mode
 plugin.setRanges([{ from: { row: 0, col: 0 }, to: { row: 5, col: 3 } }]);
+
+// Column mode (since 2.8.0)
+plugin.selectColumn('email');
+plugin.selectColumn('name', { toggle: true });
+plugin.selectColumn('lastLogin', { range: true }); // From column anchor
+plugin.deselectColumn('email');
+plugin.selectAllColumns();
+plugin.clearColumnSelection();
+const cols = plugin.getSelectedColumns(); // string[]
 
 // Actions
 plugin.selectAll();

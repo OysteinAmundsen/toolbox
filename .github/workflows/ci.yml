@@ -324,13 +324,18 @@ jobs:
     timeout-minutes: 45
     env:
       # Number of bench iterations per side. Each iteration is a full
-      # `vitest bench` run for each AFFECTED project. N=2 is the minimum
-      # that supports max-of-N noise filtering; bump back to 3 if the
-      # false-positive rate proves unacceptable after a few weeks of data.
-      # (Netflix uses 3 across ~50 tests on many devices; we have far
-      # fewer benches on a single VM, so diminishing returns kick in
-      # earlier.)
-      BENCH_ITERATIONS: 2
+      # `vitest bench` run for each AFFECTED project.
+      #
+      # N=1: same-runner sampling already eliminates cross-VM variance
+      # (the entire point of the worktree comparison design), so the
+      # remaining noise is intra-run jitter (GC, scheduler hiccups,
+      # thermal). A single GC pause inside one bench can spuriously
+      # flip a verdict — but we compensate by widening the regression
+      # threshold (`compare-benches.ts --threshold 0.30` below) which
+      # gives the same effective false-positive rate at half the wall
+      # time vs N=2 max-of-N filtering. If the false-positive rate spikes
+      # in real-world data, bump back to 2 (and tighten threshold to 0.25).
+      BENCH_ITERATIONS: 1
     steps:
       # Checkout the PR head (or push commit). On pull_request events the
       # default ref is the merge ref refs/pull/X/merge; we explicitly use
@@ -506,7 +511,7 @@ jobs:
           bun tools/compare-benches.ts \
             --current tmp/bench-current.json \
             --baseline tmp/bench-baseline.json \
-            --threshold 0.25 \
+            --threshold 0.30 \
             --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Upload bench results

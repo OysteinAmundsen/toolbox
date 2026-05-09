@@ -172,5 +172,29 @@
       margin: 0;
       cursor: pointer;
     }
+
+    /* ---- Column-axis selection ----------------------------------------- */
+    /* Background tint for selected columns. Applied to the matching header
+       cell and every data cell whose data-col resolves to a selected field.
+       The tint uses --tbw-column-selection-bg (overridable) defaulting to
+       a 12 % accent overlay — visually distinct from row-focus but uses the
+       same palette so themes stay coherent. */
+    .header-row > .cell.column-selected,
+    .data-grid-row > .cell.column-selected {
+      background:
+        linear-gradient(var(--tbw-column-selection-bg, rgba(from var(--tbw-color-accent) r g b / 12%)) 0 0),
+        var(--tbw-color-panel-bg);
+    }
+
+    /* Pinned columns repaint with sticky background; layer the column tint
+       on top of the panel-bg fill so the indicator survives pinning. */
+    .data-grid-row > .cell.column-selected.sticky-left,
+    .data-grid-row > .cell.column-selected.sticky-right,
+    .header-row > .cell.column-selected.sticky-left,
+    .header-row > .cell.column-selected.sticky-right {
+      background:
+        linear-gradient(var(--tbw-column-selection-bg, rgba(from var(--tbw-color-accent) r g b / 12%)) 0 0),
+        var(--tbw-color-panel-bg);
+    }
   }
 } /* End @layer tbw-plugins */

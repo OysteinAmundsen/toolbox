@@ -2271,6 +2271,14 @@ export interface A11yMessages {
   groupCollapsed: (name: string) => string;
   /** Announced when row selection changes. */
   selectionChanged: (count: number) => string;
+  /** Announced when a single column is selected. @since 2.8.0 */
+  columnSelected: (label: string) => string;
+  /** Announced when multiple columns are selected. @since 2.8.0 */
+  columnSelectionChanged: (count: number) => string;
+  /** Announced when column selection is cleared. @since 2.8.0 */
+  columnSelectionCleared: () => string;
+  /** Announced when the active selection axis flips between row and column. @since 2.8.0 */
+  selectionAxisChanged: (toAxis: 'row' | 'column') => string;
   /** Announced when row editing starts. */
   editingStarted: (rowIndex: number) => string;
   /** Announced when row editing is committed. */
@@ -2327,6 +2335,13 @@ export const DEFAULT_A11Y_MESSAGES: A11yMessages = {
   groupExpanded: (name, count) => `Group ${name} expanded, ${count} rows`,
   groupCollapsed: (name) => `Group ${name} collapsed`,
   selectionChanged: (count) => `${count} rows selected`,
+  columnSelected: (label) => `Column ${label} selected`,
+  columnSelectionChanged: (count) => `${count} columns selected`,
+  columnSelectionCleared: () => 'Column selection cleared',
+  selectionAxisChanged: (toAxis) =>
+    toAxis === 'column'
+      ? 'Row selection cleared, column selection active'
+      : 'Column selection cleared, row selection active',
   editingStarted: (rowIndex) => `Editing row ${rowIndex + 1}`,
   editingCommitted: (rowIndex) => `Row ${rowIndex + 1} saved`,
   dataLoaded: (count) => `${count} rows loaded`,

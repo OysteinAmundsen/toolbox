@@ -5,8 +5,8 @@ import DemoControls from '@components/DemoControls.astro';
 <div class="grid-playground not-content" id="playground-selection-demo">
   <DemoControls controls={[
     { section: 'SELECTION', name: 'mode', label: 'Mode', type: 'radio',
-      options: ['cell', 'row', 'range'], default: 'cell',
-      description: 'Selection mode determines what gets selected on click' },
+      options: ['cell', 'row', 'range', 'column', 'row+column'], default: 'cell',
+      description: 'Selection mode. "row+column" enables both axes (mutually exclusive at runtime). Use Ctrl/⌘+Click on a header (or Ctrl/⌘+Space) to select a column.' },
   ]} />
   <tbw-grid style="height: 350px;"></tbw-grid>
   <div class="grid-playground-output" data-output-id="selection-demo">
@@ -45,16 +45,23 @@ import '@toolbox-web/grid/features/selection';
       ];
 
       function setupGrid(mode: string) {
-        grid.gridConfig = { columns, features: { selection: mode as 'cell' | 'row' | 'range' } };
+        const selectionMode: any = mode === 'row+column' ? ['row', 'column'] : mode;
+        grid.gridConfig = { columns, features: { selection: { mode: selectionMode } } };
         grid.rows = sampleData;
 
         grid.on('selection-change', () => {
           const plugin = grid.getPluginByName('selection');
           if (!plugin || !output) return;
-          const sel = plugin.getSelection();
-          const lines = ['<b>mode:</b> ' + sel.mode];
+          const sel: any = plugin.getSelection();
+          const modeLabel = Array.isArray(sel.mode) ? '[' + sel.mode.join(', ') + ']' : sel.mode;
+          const lines = ['<b>mode:</b> ' + modeLabel, '<b>activeAxis:</b> ' + sel.activeAxis];
 
-          if (sel.mode === 'row') {
+          if (sel.activeAxis === 'column') {
+            const cols = plugin.getSelectedColumns();
+            lines.push('<b>selectedColumns:</b> [' + cols.map((c: string) => '"' + c + '"').join(', ') + ']');
+          }
+
+          if (sel.activeAxis === 'row') {
             const indices = plugin.getSelectedRowIndices();
             lines.push('<b>selectedRows:</b> [' + indices.join(', ') + ']');
             if (indices.length > 0) {

@@ -1950,5 +1950,36 @@ describe('SelectionPlugin', () => {
       plugin.handleQuery({ type: 'selectColumns', context: ['a', 'c'] } as any);
       expect(plugin.handleQuery({ type: 'getSelectedColumns' } as any)).toEqual(['a', 'c']);
     });
+
+    it('handleQuery selectColumns batches into a single emit + render', () => {
+      const plugin = new SelectionPlugin({ mode: 'column' });
+      const mockGrid = createMockGrid([], cols);
+      plugin.attach(mockGrid);
+
+      const emitSpy = vi.spyOn(plugin as any, 'emit');
+      const renderSpy = vi.spyOn(plugin as any, 'requestAfterRender');
+
+      plugin.handleQuery({ type: 'selectColumns', context: ['a', 'b', 'c', 'd'] } as any);
+
+      const selectionEmits = emitSpy.mock.calls.filter((c) => c[0] === 'selection-change');
+      expect(selectionEmits).toHaveLength(1);
+      expect(renderSpy).toHaveBeenCalledTimes(1);
+      expect(plugin.getSelectedColumns()).toEqual(['a', 'b', 'c', 'd']);
+    });
+
+    it('selection-change.detail.selectedColumns is in visible-column order, not toggle order', () => {
+      const mockGrid = createMockGrid([], cols);
+      const plugin = new SelectionPlugin({ mode: 'column' });
+      plugin.attach(mockGrid);
+
+      // Toggle in non-visible order: d, a, c
+      plugin.selectColumn('d', { toggle: true });
+      plugin.selectColumn('a', { toggle: true });
+      plugin.selectColumn('c', { toggle: true });
+
+      const calls = mockGrid.dispatchEvent.mock.calls.filter((c: any[]) => c[0]?.type === 'selection-change');
+      const lastDetail = calls[calls.length - 1][0].detail;
+      expect(lastDetail.selectedColumns).toEqual(['a', 'c', 'd']);
+    });
   });
 });

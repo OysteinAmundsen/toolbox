@@ -78,14 +78,20 @@ function buildSelectionEvent(
     selectedColumns: Set<string>;
   },
   colCount: number,
+  visibleColumnFieldsInOrder: readonly string[],
 ): SelectionChangeDetail {
-  // Column axis active → ignore in-row state, report column field names.
+  // Column axis active → ignore in-row state, report column field names in
+  // visible-column order. WHY: `Set` insertion order reflects toggle history
+  // (so the same selection emits different orderings depending on how the
+  // user reached it), which makes `selection-change.detail.selectedColumns`
+  // non-deterministic for consumers. Filtering the visible field list keeps
+  // the event detail stable and consistent with `getSelectedColumns()`.
   if (axis === 'column' && state.selectedColumns.size > 0) {
     return {
       mode: configuredMode,
       activeAxis: 'column',
       ranges: [],
-      selectedColumns: [...state.selectedColumns],
+      selectedColumns: visibleColumnFieldsInOrder.filter((f) => state.selectedColumns.has(f)),
     };
   }
 
@@ -456,8 +462,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
     if (query.type === 'selectColumns') {
       const fields = query.context as string[];
-      this.clearColumnSelection();
-      for (const f of fields) this.selectColumn(f, { toggle: true });
+      this.#setColumnSelection(fields);
       return true;
     }
     return undefined;
@@ -1187,10 +1192,17 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       rowsBodyEl.setAttribute('aria-multiselectable', multi ? 'true' : 'false');
     }
 
-    // Clear all selection classes first (including column-selected)
+    // Clear all selection classes first (including column-selected).
+    // Also reset stale aria-selected on data cells: range/column passes set
+    // aria-selected="true" on selected cells, and core only updates the
+    // attribute when focus changes — so without an explicit reset here a cell
+    // that lost selection (e.g. axis flipped, range shrank, virtualization
+    // recycled the node into a non-selected position) would keep the stale
+    // value. Header aria-selected is handled in the columnEnabled block below.
     const allCells = gridEl.querySelectorAll('.cell');
     allCells.forEach((cell) => {
       cell.classList.remove(GridClasses.SELECTED, 'top', 'bottom', 'first', 'last', 'column-selected');
+      cell.removeAttribute('aria-selected');
       // Clear selectable attribute - will be re-applied below
       if (hasSelectableCallback) {
         cell.removeAttribute('data-selectable');
@@ -1625,6 +1637,43 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   }
 
   /**
+   * Replace the entire column-axis selection with `fields` in a single
+   * batched operation. Filters out unknown / utility / hidden fields against
+   * the current visible columns, updates `selectedColumns` once, sets the
+   * anchor/head to the last accepted field (or null when empty), emits
+   * `selection-change` exactly once, and schedules a single render.
+   *
+   * Used by the `selectColumns` plugin query so external callers wiring
+   * many fields at once don't pay N×emit + N×requestAfterRender.
+   */
+  #setColumnSelection(fields: readonly string[]): void {
+    if (!this.#mode.columnEnabled) return;
+
+    const visible = selectableColumnFields(this.visibleColumns);
+    const allowed = new Set(visible);
+    // Preserve caller order but de-duplicate and filter unknowns/utility cols.
+    const accepted: string[] = [];
+    const seen = new Set<string>();
+    for (const f of fields) {
+      if (!allowed.has(f) || seen.has(f)) continue;
+      seen.add(f);
+      accepted.push(f);
+    }
+
+    this.#enforceMutualExclusion('column');
+
+    this.selectedColumns.clear();
+    for (const f of accepted) this.selectedColumns.add(f);
+    const last = accepted.length > 0 ? accepted[accepted.length - 1] : null;
+    this.columnAnchor = last;
+    this.columnHead = last;
+    this.activeAxis = this.selectedColumns.size > 0 ? 'column' : 'none';
+
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
+  }
+
+  /**
    * Toggle, add, or replace a column in the column-axis selection.
    *
    * Column selection is identified by **field name**, so it survives column
@@ -1829,6 +1878,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         selectedColumns: this.selectedColumns,
       },
       this.columns.length,
+      selectableColumnFields(this.visibleColumns),
     );
     // Debounced screen reader announcement for selection changes
     if (this.announceTimer) clearTimeout(this.announceTimer);

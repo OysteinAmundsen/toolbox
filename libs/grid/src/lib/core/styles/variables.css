@@ -98,6 +98,9 @@
     --tbw-range-border-color: var(--tbw-color-accent);
     --tbw-range-selection-bg: rgba(from var(--tbw-range-border-color) r g b / 12%);
 
+    /* Column selection (selection plugin, column axis) */
+    --tbw-column-selection-bg: rgba(from var(--tbw-color-accent) r g b / 12%);
+
     /* ========== Resize Handle ========== */
     --tbw-resize-handle-width: 2px;
     --tbw-resize-handle-color: transparent;

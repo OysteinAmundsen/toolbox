@@ -291,24 +291,31 @@ jobs:
 
   # ============================================
   # BENCH: Vitest microbenchmarks (regression detection)
-  # - PR-only. Runs the bench suite TWICE on the same runner: once on the
-  #   PR target branch tip (baseline), once on the PR head (current). Both
-  #   samples are drawn from the same VM, kernel, thermal state, and noisy
-  #   neighbour — eliminating cross-runner variance which previously caused
-  #   spurious ±30–60% regression/improvement flips on each push to `main`
-  #   (the cached-baseline approach compared runs from different VMs).
-  # - Each side is measured **3 times** and merged via max-of-3 on `hz`
-  #   (tools/merge-bench-runs.ts). Borrowed from Netflix's TVUI perf-test
-  #   methodology: outlier bench results on shared CI runners are almost
-  #   always SLOWER than reality (GC, scheduler, fs cache misses) — never
-  #   faster — so the fastest of N runs is the most representative.
-  # - On push to `main`/`next`: bench is uploaded as an artifact for offline
-  #   trend tracking, but no comparison is performed (no baseline exists in
-  #   this model — comparison is always against the PR's own base).
-  # - Order: baseline runs FIRST so warm-up cost (JIT, fs cache, bun install
-  #   side-effects) is paid before measuring the PR head. Same-runner
-  #   guarantee means we do NOT need cache restore/save dance, --threshold
-  #   can be tightened later, and improvements/regressions are symmetric.
+  # - PR-only comparison. Runs the bench suite TWICE on the same runner:
+  #   once on the PR target branch tip (baseline), once on the PR head
+  #   (current). Both samples are drawn from the same VM, kernel, thermal
+  #   state, and noisy neighbour — eliminating cross-runner variance which
+  #   previously caused spurious ±30–60% regression/improvement flips on
+  #   each push to `main` (the cached-baseline approach compared runs from
+  #   different VMs).
+  # - Scoped via `nx affected --with-target=bench`: only projects whose
+  #   bench-relevant code (or its dependencies in the Nx graph) changed in
+  #   the PR are benched. Docs-only / chore PRs run zero benches and the
+  #   job exits early. Single-project PRs skip the other two suites. This
+  #   is the primary lever for keeping wall time bounded.
+  # - Each affected side is measured **N times** (BENCH_ITERATIONS) and
+  #   merged via max-of-N on `hz` (tools/merge-bench-runs.ts). Borrowed
+  #   from Netflix's TVUI perf-test methodology: outlier bench results on
+  #   shared CI runners are almost always SLOWER than reality (GC,
+  #   scheduler, fs cache misses) — never faster — so the fastest of N
+  #   runs is the most representative.
+  # - On push to `main`/`next`: bench is uploaded as an artifact for
+  #   offline trend tracking, but no comparison is performed (no baseline
+  #   exists in this model — comparison is always against the PR's own
+  #   base). Push runs benches for ALL projects (no affected filtering)
+  #   to keep trend artifacts complete and continuous.
+  # - Order on PR: baseline runs FIRST so warm-up cost (JIT, fs cache, bun
+  #   install side-effects) is paid before measuring the PR head.
   # ============================================
   bench:
     needs: [setup]
@@ -317,16 +324,20 @@ jobs:
     timeout-minutes: 45
     env:
       # Number of bench iterations per side. Each iteration is a full
-      # `vitest bench` run for grid + grid-react + grid-vue. 3 is the sweet
-      # spot identified by Netflix: enough to absorb device-noise outliers
-      # without burning CI time. Bump if false-positive rate stays high.
-      BENCH_ITERATIONS: 3
+      # `vitest bench` run for each AFFECTED project. N=2 is the minimum
+      # that supports max-of-N noise filtering; bump back to 3 if the
+      # false-positive rate proves unacceptable after a few weeks of data.
+      # (Netflix uses 3 across ~50 tests on many devices; we have far
+      # fewer benches on a single VM, so diminishing returns kick in
+      # earlier.)
+      BENCH_ITERATIONS: 2
     steps:
       # Checkout the PR head (or push commit). On pull_request events the
       # default ref is the merge ref refs/pull/X/merge; we explicitly use
       # head.sha so "current" measures the PR branch as authored, not the
       # speculative merge commit. fetch-depth: 0 so we can reach the base
-      # commit for the worktree below.
+      # commit for the worktree below AND so `nx affected` has full
+      # history to compute the diff.
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
@@ -348,10 +359,38 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-bun-
 
-      # PUSH to main/next: bench once (no need for max-of-N when there's no
-      # comparison), upload artifact only. Trend data is preserved via the
-      # uploaded artifact — anyone wanting historical analysis can download
-      # the `bench-results` artifacts across runs.
+      # PR head install runs early because we need `nx` to compute the
+      # affected project list before we can decide whether to do anything
+      # else. (On push events `nx affected` is not used; we install in
+      # the push branch below.)
+      - name: Install dependencies (PR head)
+        if: github.event_name == 'pull_request'
+        run: bun install
+
+      # Compute the bench-targeted projects affected by this PR. Output
+      # is a space-separated list (e.g. "grid grid-react") consumed by
+      # the loops below. Empty output → skip all bench/compare steps.
+      - name: Detect affected bench projects (PR)
+        if: github.event_name == 'pull_request'
+        id: affected
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          AFFECTED=$(bun nx show projects --affected --with-target=bench --base "$BASE_SHA" --head "$HEAD_SHA" | tr '\n' ' ' | xargs)
+          echo "Affected bench projects: ${AFFECTED:-(none)}"
+          echo "projects=${AFFECTED}" >> "$GITHUB_OUTPUT"
+          if [ -z "$AFFECTED" ]; then
+            {
+              echo "## Bench: skipped";
+              echo "";
+              echo "No bench-target projects affected by this PR.";
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # PUSH to main/next: bench once across ALL projects (no need for
+      # max-of-N when there's no comparison; full project coverage so the
+      # trend artifact is continuous), upload artifact only.
       - name: Install dependencies (push)
         if: github.event_name == 'push'
         run: bun install
@@ -369,11 +408,11 @@ jobs:
             tmp/bench-current-grid-react.json \
             tmp/bench-current-grid-vue.json
 
-      # PR: same-runner base vs head comparison.
+      # PR with affected projects: same-runner base vs head comparison.
       # Step 1 — set up a worktree at the base ref. We use a sibling
       # directory so node_modules / dist from the two checkouts don't collide.
       - name: Prepare base worktree (PR)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.affected.outputs.projects != ''
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
@@ -381,23 +420,30 @@ jobs:
           git worktree add ../base "$BASE_SHA"
 
       # Step 2 — measure BASELINE first so warm-up costs (bun install, fs
-      # cache, JIT) are paid before the PR-head measurement. Run the bench
-      # suite N times back-to-back; merge step takes the best (max-hz)
-      # result per benchmark to filter device-noise outliers. Output paths
-      # are anchored to $GITHUB_WORKSPACE/tmp/ because Vitest resolves
+      # cache, JIT) are paid before the PR-head measurement. Loop only
+      # over affected projects, each measured N times. Output paths are
+      # anchored to $GITHUB_WORKSPACE/tmp/ because Vitest resolves
       # --outputJson relative to the config's project root, not the cwd.
-      - name: Run baseline benchmarks (PR, ${{ env.BENCH_ITERATIONS }}× iterations)
-        if: github.event_name == 'pull_request'
+      - name: Run baseline benchmarks (PR, ${{ env.BENCH_ITERATIONS }}× iterations × affected projects)
+        if: github.event_name == 'pull_request' && steps.affected.outputs.projects != ''
         working-directory: ../base
+        env:
+          AFFECTED_PROJECTS: ${{ steps.affected.outputs.projects }}
         run: |
           bun install
           mkdir -p "$GITHUB_WORKSPACE/tmp"
-          for i in $(seq 1 $BENCH_ITERATIONS); do
-            echo "::group::Baseline run $i / $BENCH_ITERATIONS"
-            bunx vitest bench --config libs/grid/vite.config.ts --run --outputJson="$GITHUB_WORKSPACE/tmp/bench-baseline-grid-$i.json"
-            bunx vitest bench --config libs/grid-react/vite.config.mts --run --outputJson="$GITHUB_WORKSPACE/tmp/bench-baseline-grid-react-$i.json"
-            bunx vitest bench --config libs/grid-vue/vite.config.mts --run --outputJson="$GITHUB_WORKSPACE/tmp/bench-baseline-grid-vue-$i.json"
-            echo "::endgroup::"
+          for project in $AFFECTED_PROJECTS; do
+            case "$project" in
+              grid) CONFIG=libs/grid/vite.config.ts ;;
+              grid-react) CONFIG=libs/grid-react/vite.config.mts ;;
+              grid-vue) CONFIG=libs/grid-vue/vite.config.mts ;;
+              *) echo "::warning::Unknown bench project '$project' — skipping"; continue ;;
+            esac
+            for i in $(seq 1 $BENCH_ITERATIONS); do
+              echo "::group::Baseline $project run $i / $BENCH_ITERATIONS"
+              bunx vitest bench --config "$CONFIG" --run --outputJson="$GITHUB_WORKSPACE/tmp/bench-baseline-$project-$i.json"
+              echo "::endgroup::"
+            done
           done
           # Merge across iterations AND across projects in one pass — the
           # merge script is keyed on group.fullName which already includes
@@ -407,28 +453,33 @@ jobs:
             --output "$GITHUB_WORKSPACE/tmp/bench-baseline.json" \
             "$GITHUB_WORKSPACE"/tmp/bench-baseline-*.json
 
-      # Step 3 — install deps in PR-head checkout, then measure CURRENT
-      # with the same N-iteration max-of-N strategy.
-      - name: Install dependencies (PR head)
-        if: github.event_name == 'pull_request'
-        run: bun install
-
-      - name: Run current benchmarks (PR, ${{ env.BENCH_ITERATIONS }}× iterations)
-        if: github.event_name == 'pull_request'
+      # Step 3 — measure CURRENT (deps already installed during the
+      # affected-detection step above) with the same N-iteration max-of-N
+      # strategy over the same project list.
+      - name: Run current benchmarks (PR, ${{ env.BENCH_ITERATIONS }}× iterations × affected projects)
+        if: github.event_name == 'pull_request' && steps.affected.outputs.projects != ''
+        env:
+          AFFECTED_PROJECTS: ${{ steps.affected.outputs.projects }}
         run: |
-          for i in $(seq 1 $BENCH_ITERATIONS); do
-            echo "::group::Current run $i / $BENCH_ITERATIONS"
-            bunx vitest bench --config libs/grid/vite.config.ts --run --outputJson="$PWD/tmp/bench-current-grid-$i.json"
-            bunx vitest bench --config libs/grid-react/vite.config.mts --run --outputJson="$PWD/tmp/bench-current-grid-react-$i.json"
-            bunx vitest bench --config libs/grid-vue/vite.config.mts --run --outputJson="$PWD/tmp/bench-current-grid-vue-$i.json"
-            echo "::endgroup::"
+          for project in $AFFECTED_PROJECTS; do
+            case "$project" in
+              grid) CONFIG=libs/grid/vite.config.ts ;;
+              grid-react) CONFIG=libs/grid-react/vite.config.mts ;;
+              grid-vue) CONFIG=libs/grid-vue/vite.config.mts ;;
+              *) continue ;;
+            esac
+            for i in $(seq 1 $BENCH_ITERATIONS); do
+              echo "::group::Current $project run $i / $BENCH_ITERATIONS"
+              bunx vitest bench --config "$CONFIG" --run --outputJson="$PWD/tmp/bench-current-$project-$i.json"
+              echo "::endgroup::"
+            done
           done
           bun tools/merge-bench-runs.ts \
             --output tmp/bench-current.json \
             tmp/bench-current-*.json
 
       - name: Compare against baseline (PR)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.affected.outputs.projects != ''
         run: |
           bun tools/compare-benches.ts \
             --current tmp/bench-current.json \

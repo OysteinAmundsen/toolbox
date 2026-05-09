@@ -119,33 +119,37 @@ type ReactPinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & 
   }>;
 };
 
-registerFeature('pinnedRows', (rawConfig) => {
-  if (typeof rawConfig === 'boolean') return new PinnedRowsPlugin();
-  if (!rawConfig) return new PinnedRowsPlugin();
+registerFeature(
+  'pinnedRows',
+  (rawConfig) => {
+    if (typeof rawConfig === 'boolean') return new PinnedRowsPlugin();
+    if (!rawConfig) return new PinnedRowsPlugin();
 
-  // Single boundary cast: rawConfig is `unknown`-ish; we accept the React-typed shape.
-  const config = rawConfig as ReactPinnedRowsConfig;
-  // Strip the framework-typed fields so the spread base only has shared (vanilla-compatible) fields.
-  const { slots: reactSlots, customPanels: reactCustomPanels, ...sharedBase } = config;
-  const options: PinnedRowsConfig = { ...sharedBase };
+    // Single boundary cast: rawConfig is `unknown`-ish; we accept the React-typed shape.
+    const config = rawConfig as ReactPinnedRowsConfig;
+    // Strip the framework-typed fields so the spread base only has shared (vanilla-compatible) fields.
+    const { slots: reactSlots, customPanels: reactCustomPanels, ...sharedBase } = config;
+    const options: PinnedRowsConfig = { ...sharedBase };
 
-  // Bridge React customPanels[].render (returns ReactNode) to vanilla.
-  if (Array.isArray(reactCustomPanels)) {
-    options.customPanels = reactCustomPanels.map((panel) => {
-      if (typeof panel.render !== 'function') return panel as never;
-      const bridged = createNodeBridge<PinnedRowsContext>(panel.render);
-      return {
-        ...panel,
-        // customPanels expect HTMLElement (not nullable); coerce null → empty wrapper.
-        render: (ctx: PinnedRowsContext) => bridged(ctx) ?? document.createElement('div'),
-      };
-    });
-  }
+    // Bridge React customPanels[].render (returns ReactNode) to vanilla.
+    if (Array.isArray(reactCustomPanels)) {
+      options.customPanels = reactCustomPanels.map((panel) => {
+        if (typeof panel.render !== 'function') return panel as never;
+        const bridged = createNodeBridge<PinnedRowsContext>(panel.render);
+        return {
+          ...panel,
+          // customPanels expect HTMLElement (not nullable); coerce null → empty wrapper.
+          render: (ctx: PinnedRowsContext) => bridged(ctx) ?? document.createElement('div'),
+        };
+      });
+    }
 
-  // Bridge slots[] panel renders (issue #255).
-  if (Array.isArray(reactSlots)) {
-    options.slots = reactSlots.map(bridgeSlot);
-  }
+    // Bridge slots[] panel renders (issue #255).
+    if (Array.isArray(reactSlots)) {
+      options.slots = reactSlots.map(bridgeSlot);
+    }
 
-  return new PinnedRowsPlugin(options);
-});
+    return new PinnedRowsPlugin(options);
+  },
+  { override: true },
+);

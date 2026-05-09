@@ -46,33 +46,37 @@ import { GridElementContext } from '../lib/grid-element-context';
 import { removeFromContainer, renderToContainer } from '../lib/portal-bridge';
 import { registerFilterPanelTypeDefaultBridge } from '../lib/react-grid-adapter';
 
-registerFeature('filtering', (rawConfig) => {
-  if (typeof rawConfig === 'boolean') return new FilteringPlugin();
-  if (!rawConfig) return new FilteringPlugin();
+registerFeature(
+  'filtering',
+  (rawConfig) => {
+    if (typeof rawConfig === 'boolean') return new FilteringPlugin();
+    if (!rawConfig) return new FilteringPlugin();
 
-  const config = rawConfig as FilterConfig & { filterPanelRenderer?: unknown };
-  const options = { ...config } as FilterConfig;
+    const config = rawConfig as FilterConfig & { filterPanelRenderer?: unknown };
+    const options = { ...config } as FilterConfig;
 
-  // Bridge React filterPanelRenderer (1 arg) to vanilla (2 args)
-  if (typeof config.filterPanelRenderer === 'function' && config.filterPanelRenderer.length <= 1) {
-    const reactFn = config.filterPanelRenderer as unknown as (params: FilterPanelParams) => ReactNode;
-    // Track portal key per parent container to avoid leaks on re-render
-    const containerKeys = new WeakMap<HTMLElement, string>();
-    options.filterPanelRenderer = (container: HTMLElement, params: FilterPanelParams) => {
-      // Remove previous portal for this container if it exists
-      const prevKey = containerKeys.get(container);
-      if (prevKey) removeFromContainer(prevKey);
+    // Bridge React filterPanelRenderer (1 arg) to vanilla (2 args)
+    if (typeof config.filterPanelRenderer === 'function' && config.filterPanelRenderer.length <= 1) {
+      const reactFn = config.filterPanelRenderer as unknown as (params: FilterPanelParams) => ReactNode;
+      // Track portal key per parent container to avoid leaks on re-render
+      const containerKeys = new WeakMap<HTMLElement, string>();
+      options.filterPanelRenderer = (container: HTMLElement, params: FilterPanelParams) => {
+        // Remove previous portal for this container if it exists
+        const prevKey = containerKeys.get(container);
+        if (prevKey) removeFromContainer(prevKey);
 
-      const wrapper = document.createElement('div');
-      wrapper.style.display = 'contents';
-      const key = renderToContainer(wrapper, reactFn(params) as React.ReactElement);
-      containerKeys.set(container, key);
-      container.appendChild(wrapper);
-    };
-  }
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'contents';
+        const key = renderToContainer(wrapper, reactFn(params) as React.ReactElement);
+        containerKeys.set(container, key);
+        container.appendChild(wrapper);
+      };
+    }
 
-  return new FilteringPlugin(options);
-});
+    return new FilteringPlugin(options);
+  },
+  { override: true },
+);
 
 // Install the type-default `filterPanelRenderer` bridge on the React adapter.
 // Augments the adapter so the filtering-specific wrapping logic for

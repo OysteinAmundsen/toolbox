@@ -1,11 +1,11 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import '../../lib/core/grid';
 
 // Import feature side-effect modules (registers factories in the registry)
-import '../../lib/features/selection';
 import '../../lib/features/editing';
-import '../../lib/features/multi-sort';
 import '../../lib/features/filtering';
+import '../../lib/features/multi-sort';
+import '../../lib/features/selection';
 
 function nextFrame() {
   return new Promise((r) => requestAnimationFrame(r));
@@ -114,6 +114,30 @@ describe('gridConfig.features integration', () => {
     await waitUpgrade(grid);
 
     expect(grid.getPluginByName?.('selection')).toBeDefined();
+  });
+
+  it('dedups when same plugin appears in both features and plugins (manual wins)', async () => {
+    const { SelectionPlugin } = await import('../../lib/plugins/selection');
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const manualSelection = new SelectionPlugin({ mode: 'cell' });
+
+    grid = document.createElement('tbw-grid');
+    grid.gridConfig = {
+      columns: [{ field: 'name' }],
+      features: { selection: 'range' }, // would create another SelectionPlugin
+      plugins: [manualSelection],
+    };
+    grid.rows = [{ name: 'Alice' }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    // Only one selection plugin attached, and it's the manual instance.
+    expect(grid.getPluginByName?.('selection')).toBe(manualSelection);
+    // No TBW023 multiple-instance warning emitted.
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes('TBW023'))).toBe(false);
+
+    warnSpy.mockRestore();
   });
 });
 

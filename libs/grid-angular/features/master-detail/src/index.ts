@@ -86,22 +86,22 @@ registerTemplateBridge(({ grid }) => {
   const detailElement = grid.querySelector('tbw-grid-detail');
   if (!detailElement) return;
 
-  // The plugin must already have been added to the grid (via [masterDetail] input
-  // or manual gridConfig.plugins). Find it by name to avoid importing the class.
+  // The plugin must already have been attached (via [masterDetail] input,
+  // gridConfig.features.masterDetail, or gridConfig.plugins). Use the runtime
+  // lookup so we don't miss plugins instantiated from `gridConfig.features`,
+  // which never appear in `gridConfig.plugins`.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const existingPlugin = (grid as any).gridConfig?.plugins?.find(
-    (p: { name?: string }) => p.name === 'masterDetail',
-  ) as MasterDetailPluginLike | undefined;
+  const existingPlugin = (grid as any).getPluginByName?.('masterDetail') as MasterDetailPluginLike | undefined;
 
   if (!existingPlugin) {
     // eslint-disable-next-line no-console
     console.warn(
       '[tbw-grid-angular] <tbw-grid-detail> found but MasterDetailPlugin is not configured.\n' +
-        'Add the [masterDetail] input or include MasterDetailPlugin in gridConfig.plugins:\n\n' +
+        'Add the [masterDetail] input, set gridConfig.features.masterDetail, or include\n' +
+        'MasterDetailPlugin in gridConfig.plugins:\n\n' +
         '  <tbw-grid [masterDetail]="{ showExpandColumn: true }">...</tbw-grid>\n\n' +
         'or:\n\n' +
-        '  import { MasterDetailPlugin } from "@toolbox-web/grid/plugins/master-detail";\n' +
-        '  gridConfig = { plugins: [new MasterDetailPlugin({ ... })] };',
+        '  gridConfig = { features: { masterDetail: { showExpandColumn: true } } };',
     );
     return;
   }

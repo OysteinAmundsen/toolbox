@@ -45,37 +45,41 @@ import { renderToContainer } from '../lib/teleport-bridge';
 import { GRID_ELEMENT_KEY } from '../lib/use-grid';
 import { registerFilterPanelTypeDefaultBridge } from '../lib/vue-grid-adapter';
 
-registerFeature('filtering', (rawConfig) => {
-  if (rawConfig === true) {
-    return new FilteringPlugin();
-  }
-  if (!rawConfig) {
-    return new FilteringPlugin();
-  }
+registerFeature(
+  'filtering',
+  (rawConfig) => {
+    if (rawConfig === true) {
+      return new FilteringPlugin();
+    }
+    if (!rawConfig) {
+      return new FilteringPlugin();
+    }
 
-  const config = rawConfig as FilterConfig & { filterPanelRenderer?: unknown };
-  const options = { ...config } as FilterConfig;
+    const config = rawConfig as FilterConfig & { filterPanelRenderer?: unknown };
+    const options = { ...config } as FilterConfig;
 
-  // Bridge Vue filterPanelRenderer (1 arg: params → VNode) to vanilla (2 args: container, params)
-  if (typeof config.filterPanelRenderer === 'function' && config.filterPanelRenderer.length <= 1) {
-    const vueFn = config.filterPanelRenderer as unknown as (params: FilterPanelParams) => VNode;
-    options.filterPanelRenderer = (container: HTMLElement, params: FilterPanelParams) => {
-      const wrapper = document.createElement('div');
-      wrapper.style.display = 'contents';
+    // Bridge Vue filterPanelRenderer (1 arg: params → VNode) to vanilla (2 args: container, params)
+    if (typeof config.filterPanelRenderer === 'function' && config.filterPanelRenderer.length <= 1) {
+      const vueFn = config.filterPanelRenderer as unknown as (params: FilterPanelParams) => VNode;
+      options.filterPanelRenderer = (container: HTMLElement, params: FilterPanelParams) => {
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'contents';
 
-      const app = createApp({
-        render() {
-          return vueFn(params);
-        },
-      });
+        const app = createApp({
+          render() {
+            return vueFn(params);
+          },
+        });
 
-      app.mount(wrapper);
-      container.appendChild(wrapper);
-    };
-  }
+        app.mount(wrapper);
+        container.appendChild(wrapper);
+      };
+    }
 
-  return new FilteringPlugin(options);
-});
+    return new FilteringPlugin(options);
+  },
+  { override: true },
+);
 
 // Install the type-default `filterPanelRenderer` bridge on the Vue adapter.
 // Augments the adapter so the filtering-specific wrapping logic for

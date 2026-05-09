@@ -986,8 +986,20 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       featurePlugins = resolveFeatures(features as Record<string, unknown>) as BaseGridPlugin[];
     }
 
-    // Merge: feature-derived first (for dependency ordering), then explicit plugins
-    const allPlugins = featurePlugins.length > 0 ? [...featurePlugins, ...explicitPlugins] : explicitPlugins;
+    // Merge: feature-derived first (for dependency ordering), then explicit plugins.
+    // Manual `plugins` take precedence on name conflict — drop the feature-derived
+    // instance so we don't double-attach (which would log TBW023). This matches
+    // the contract documented on `GridConfig.features`.
+    let allPlugins: BaseGridPlugin[];
+    if (featurePlugins.length === 0) {
+      allPlugins = explicitPlugins;
+    } else if (explicitPlugins.length === 0) {
+      allPlugins = featurePlugins;
+    } else {
+      const explicitNames = new Set(explicitPlugins.map((p) => p.name));
+      const dedupedFeaturePlugins = featurePlugins.filter((p) => !explicitNames.has(p.name));
+      allPlugins = [...dedupedFeaturePlugins, ...explicitPlugins];
+    }
 
     // Attach all plugins
     this.#pluginManager.attachAll(allPlugins);

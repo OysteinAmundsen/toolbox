@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, useSlots, type VNode } from 'vue';
+import { computed, onMounted, ref, useSlots, type VNode } from 'vue';
 import { toolPanelRegistry, type ToolPanelContext } from './tool-panel-registry';
 
 /**
@@ -13,9 +13,17 @@ const props = withDefaults(
     id: string;
 
     /**
-     * Display label for the panel tab/button.
+     * Display title for the panel tab/button. Mapped to the `title` attribute
+     * on the underlying `<tbw-grid-tool-panel>` element (matches React/Angular
+     * adapters and the core grid contract).
      */
-    label: string;
+    title?: string;
+
+    /**
+     * @deprecated Use `title` instead. Kept as a fallback for existing
+     * templates; will be removed in a future major version.
+     */
+    label?: string;
 
     /**
      * Icon for the panel tab (string or SVG).
@@ -40,6 +48,8 @@ const props = withDefaults(
   },
 );
 
+const resolvedTitle = computed(() => props.title ?? props.label ?? '');
+
 // Define slots with proper typing
 defineSlots<{
   /** Tool panel content slot */
@@ -62,5 +72,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <tbw-grid-tool-panel ref="panelRef" :id="id" :label="label" :icon="icon" :position="position" :width="width" />
+  <tbw-grid-tool-panel
+    ref="panelRef"
+    :id="id"
+    :title="resolvedTitle"
+    :icon="icon"
+    :position="position"
+    :width="width"
+  />
 </template>

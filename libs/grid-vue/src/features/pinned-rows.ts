@@ -119,36 +119,40 @@ type VuePinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & {
   }>;
 };
 
-registerFeature('pinnedRows', (rawConfig) => {
-  if (rawConfig === true) {
-    return new PinnedRowsPlugin();
-  }
-  if (!rawConfig) {
-    return new PinnedRowsPlugin();
-  }
+registerFeature(
+  'pinnedRows',
+  (rawConfig) => {
+    if (rawConfig === true) {
+      return new PinnedRowsPlugin();
+    }
+    if (!rawConfig) {
+      return new PinnedRowsPlugin();
+    }
 
-  // Single boundary cast: rawConfig is `unknown`-ish; we accept the Vue-typed shape.
-  const config = rawConfig as VuePinnedRowsConfig;
-  const { slots: vueSlots, customPanels: vueCustomPanels, ...sharedBase } = config;
-  const options: PinnedRowsConfig = { ...sharedBase };
+    // Single boundary cast: rawConfig is `unknown`-ish; we accept the Vue-typed shape.
+    const config = rawConfig as VuePinnedRowsConfig;
+    const { slots: vueSlots, customPanels: vueCustomPanels, ...sharedBase } = config;
+    const options: PinnedRowsConfig = { ...sharedBase };
 
-  // Bridge Vue customPanels[].render (returns VNode) to vanilla.
-  if (Array.isArray(vueCustomPanels)) {
-    options.customPanels = vueCustomPanels.map((panel) => {
-      if (typeof panel.render !== 'function') return panel as never;
-      const bridged = createNodeBridge<PinnedRowsContext>(panel.render);
-      return {
-        ...panel,
-        // customPanels expect HTMLElement (not nullable); coerce null → empty wrapper.
-        render: (ctx: PinnedRowsContext) => bridged(ctx) ?? document.createElement('div'),
-      };
-    });
-  }
+    // Bridge Vue customPanels[].render (returns VNode) to vanilla.
+    if (Array.isArray(vueCustomPanels)) {
+      options.customPanels = vueCustomPanels.map((panel) => {
+        if (typeof panel.render !== 'function') return panel as never;
+        const bridged = createNodeBridge<PinnedRowsContext>(panel.render);
+        return {
+          ...panel,
+          // customPanels expect HTMLElement (not nullable); coerce null → empty wrapper.
+          render: (ctx: PinnedRowsContext) => bridged(ctx) ?? document.createElement('div'),
+        };
+      });
+    }
 
-  // Bridge slots[] panel renders (issue #255).
-  if (Array.isArray(vueSlots)) {
-    options.slots = vueSlots.map(bridgeSlot);
-  }
+    // Bridge slots[] panel renders (issue #255).
+    if (Array.isArray(vueSlots)) {
+      options.slots = vueSlots.map(bridgeSlot);
+    }
 
-  return new PinnedRowsPlugin(options);
-});
+    return new PinnedRowsPlugin(options);
+  },
+  { override: true },
+);

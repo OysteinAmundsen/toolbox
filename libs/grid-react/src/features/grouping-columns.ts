@@ -41,30 +41,34 @@ function bridgeRenderer(
   return (params) => bridged(params) ?? document.createElement('div');
 }
 
-registerFeature('groupingColumns', (rawConfig) => {
-  if (typeof rawConfig === 'boolean') return new GroupingColumnsPlugin();
-  if (!rawConfig) return new GroupingColumnsPlugin();
+registerFeature(
+  'groupingColumns',
+  (rawConfig) => {
+    if (typeof rawConfig === 'boolean') return new GroupingColumnsPlugin();
+    if (!rawConfig) return new GroupingColumnsPlugin();
 
-  const config = rawConfig as GroupingColumnsConfig & {
-    groupHeaderRenderer?: unknown;
-    columnGroups?: (ColumnGroupDefinition & { renderer?: unknown })[];
-  };
-  const options = { ...config } as GroupingColumnsConfig;
+    const config = rawConfig as GroupingColumnsConfig & {
+      groupHeaderRenderer?: unknown;
+      columnGroups?: (ColumnGroupDefinition & { renderer?: unknown })[];
+    };
+    const options = { ...config } as GroupingColumnsConfig;
 
-  // Bridge React groupHeaderRenderer (returns ReactNode) to vanilla (returns HTMLElement | string | void)
-  if (typeof config.groupHeaderRenderer === 'function') {
-    const reactFn = config.groupHeaderRenderer as unknown as (params: GroupHeaderRenderParams) => ReactNode;
-    options.groupHeaderRenderer = bridgeRenderer(reactFn);
-  }
+    // Bridge React groupHeaderRenderer (returns ReactNode) to vanilla (returns HTMLElement | string | void)
+    if (typeof config.groupHeaderRenderer === 'function') {
+      const reactFn = config.groupHeaderRenderer as unknown as (params: GroupHeaderRenderParams) => ReactNode;
+      options.groupHeaderRenderer = bridgeRenderer(reactFn);
+    }
 
-  // Bridge per-group renderers inside columnGroups
-  if (Array.isArray(config.columnGroups)) {
-    options.columnGroups = config.columnGroups.map((def) => {
-      if (typeof def.renderer !== 'function') return def as ColumnGroupDefinition;
-      const reactFn = def.renderer as unknown as (params: GroupHeaderRenderParams) => ReactNode;
-      return { ...def, renderer: bridgeRenderer(reactFn) } as ColumnGroupDefinition;
-    });
-  }
+    // Bridge per-group renderers inside columnGroups
+    if (Array.isArray(config.columnGroups)) {
+      options.columnGroups = config.columnGroups.map((def) => {
+        if (typeof def.renderer !== 'function') return def as ColumnGroupDefinition;
+        const reactFn = def.renderer as unknown as (params: GroupHeaderRenderParams) => ReactNode;
+        return { ...def, renderer: bridgeRenderer(reactFn) } as ColumnGroupDefinition;
+      });
+    }
 
-  return new GroupingColumnsPlugin(options);
-});
+    return new GroupingColumnsPlugin(options);
+  },
+  { override: true },
+);

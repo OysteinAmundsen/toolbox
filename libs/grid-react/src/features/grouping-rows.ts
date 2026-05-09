@@ -31,20 +31,24 @@ import type { ReactNode } from 'react';
 import { registerFeature } from '../lib/feature-registry';
 import { createNodeBridge } from '../lib/portal-bridge';
 
-registerFeature('groupingRows', (rawConfig) => {
-  if (typeof rawConfig === 'boolean') return new GroupingRowsPlugin();
-  if (!rawConfig) return new GroupingRowsPlugin();
+registerFeature(
+  'groupingRows',
+  (rawConfig) => {
+    if (typeof rawConfig === 'boolean') return new GroupingRowsPlugin();
+    if (!rawConfig) return new GroupingRowsPlugin();
 
-  const config = rawConfig as GroupingRowsConfig & { groupRowRenderer?: unknown };
-  const options = { ...config } as GroupingRowsConfig;
+    const config = rawConfig as GroupingRowsConfig & { groupRowRenderer?: unknown };
+    const options = { ...config } as GroupingRowsConfig;
 
-  // Bridge React groupRowRenderer (returns ReactNode) to vanilla (returns HTMLElement | string | void)
-  if (typeof config.groupRowRenderer === 'function') {
-    const reactFn = config.groupRowRenderer as unknown as (params: GroupRowRenderParams) => ReactNode;
-    const bridged = createNodeBridge<GroupRowRenderParams>(reactFn);
-    // Group rows always need an element; coerce null → empty wrapper.
-    options.groupRowRenderer = (params) => bridged(params) ?? document.createElement('div');
-  }
+    // Bridge React groupRowRenderer (returns ReactNode) to vanilla (returns HTMLElement | string | void)
+    if (typeof config.groupRowRenderer === 'function') {
+      const reactFn = config.groupRowRenderer as unknown as (params: GroupRowRenderParams) => ReactNode;
+      const bridged = createNodeBridge<GroupRowRenderParams>(reactFn);
+      // Group rows always need an element; coerce null → empty wrapper.
+      options.groupRowRenderer = (params) => bridged(params) ?? document.createElement('div');
+    }
 
-  return new GroupingRowsPlugin(options);
-});
+    return new GroupingRowsPlugin(options);
+  },
+  { override: true },
+);

@@ -207,6 +207,12 @@ export function createNodeBridge<TCtx>(reactFn: (ctx: TCtx) => ReactNode): (ctx:
   return (ctx) => {
     const node = reactFn(ctx);
     if (node == null || node === false) return null;
+    // Pass through: vanilla renderers (e.g. `rowCountPanel()` from
+    // `@toolbox-web/grid/plugins/pinned-rows`) return a real DOM node, not a
+    // React element. Mounting one through React triggers
+    // "Objects are not valid as a React child". The grid only needs an
+    // HTMLElement, so just hand it back.
+    if (node instanceof Node) return node as HTMLElement;
     const wrapper = document.createElement('div');
     wrapper.style.display = 'contents';
     renderToContainer(wrapper, node);

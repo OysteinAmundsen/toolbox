@@ -232,6 +232,11 @@ export function createNodeBridge<TCtx>(
   return (ctx) => {
     const vnode = vueFn(ctx);
     if (vnode == null) return null;
+    // Pass through: vanilla renderers (e.g. `rowCountPanel()` from
+    // `@toolbox-web/grid/plugins/pinned-rows`) return a real DOM node, not a
+    // VNode. Mounting a Node through Vue's renderer would error; the grid
+    // only needs an HTMLElement, so just hand it back.
+    if (vnode instanceof Node) return vnode as unknown as HTMLElement;
     const wrapper = document.createElement('div');
     wrapper.style.display = 'contents';
     renderToContainer(wrapper, vnode);

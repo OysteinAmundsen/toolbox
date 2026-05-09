@@ -534,11 +534,23 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   // Detect child components (GridDetailPanel, GridResponsiveCard) and merge with feature props
   const childFeatures = useMemo(() => detectChildComponentFeatures(children), [children]);
 
-  // Merge explicit feature props with child-detected features
-  // Priority: explicit props > child-detected props
+  // Merge explicit feature props with child-detected features.
+  // Priority: explicit props > child-detected props.
+  // Also strip child-detected features that are already configured in
+  // `gridConfig.features` — otherwise the child-derived bare-bones config (e.g.
+  // `responsive: true` with no breakpoint) gets converted into a manual plugin
+  // and, via core's manual-wins dedup, clobbers the user's full
+  // `gridConfig.features.responsive` config.
   const mergedFeatureProps = useMemo(() => {
-    return { ...childFeatures, ...featureProps } as FeatureProps<TRow>;
-  }, [featureProps, childFeatures]);
+    const configFeatures = gridConfig?.features as Record<string, unknown> | undefined;
+    const filteredChildFeatures: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(childFeatures)) {
+      if (configFeatures && key in configFeatures && configFeatures[key] !== undefined && configFeatures[key] !== false)
+        continue;
+      filteredChildFeatures[key] = value;
+    }
+    return { ...filteredChildFeatures, ...featureProps } as FeatureProps<TRow>;
+  }, [featureProps, childFeatures, gridConfig]);
 
   // ═══════════════════════════════════════════════════════════════════
   // PLUGIN INSTANTIATION (sync via feature registry)

@@ -95,6 +95,14 @@ function ensureAdapterRegistered(): GridAdapter {
 // Register adapter at module load
 ensureAdapterRegistered();
 
+// TbwGrid renders a fragment root (<TeleportManager> + <tbw-grid>). Disable
+// Vue's automatic attribute fallthrough — we forward `class`, `style` and any
+// other unknown attribute onto the inner `<tbw-grid>` custom element via
+// `v-bind="$attrs"` in the template instead. Without this, Vue logs an
+// "Extraneous non-props attributes" warning whenever consumers add `class=`
+// or any custom attribute to the component.
+defineOptions({ inheritAttrs: false });
+
 /**
  * Props for TbwGrid component
  */
@@ -700,7 +708,7 @@ defineExpose({
     surrounding component's provide/inject, Pinia, Router, and i18n setup.
   -->
   <TeleportManager ref="teleportManagerRef" />
-  <tbw-grid ref="gridRef">
+  <tbw-grid ref="gridRef" v-bind="$attrs">
     <slot></slot>
   </tbw-grid>
 </template>

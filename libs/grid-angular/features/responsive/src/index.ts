@@ -74,21 +74,22 @@ registerTemplateBridge(({ grid, adapter }) => {
   const cardRenderer = adapter.createResponsiveCardRenderer(grid);
   if (!cardRenderer) return;
 
-  // Find the plugin by name to avoid importing the class.
+  // The plugin must already have been attached (via [responsive] input,
+  // gridConfig.features.responsive, or gridConfig.plugins). Use the runtime
+  // lookup so we don't miss plugins instantiated from `gridConfig.features`,
+  // which never appear in `gridConfig.plugins`.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const existingPlugin = (grid as any).gridConfig?.plugins?.find((p: { name?: string }) => p.name === 'responsive') as
-    | ResponsivePluginLike
-    | undefined;
+  const existingPlugin = (grid as any).getPluginByName?.('responsive') as ResponsivePluginLike | undefined;
 
   if (!existingPlugin) {
     // eslint-disable-next-line no-console
     console.warn(
       '[tbw-grid-angular] <tbw-grid-responsive-card> found but ResponsivePlugin is not configured.\n' +
-        'Add the [responsive] input or include ResponsivePlugin in gridConfig.plugins:\n\n' +
+        'Add the [responsive] input, set gridConfig.features.responsive, or include\n' +
+        'ResponsivePlugin in gridConfig.plugins:\n\n' +
         '  <tbw-grid [responsive]="{ breakpoint: 600 }">...</tbw-grid>\n\n' +
         'or:\n\n' +
-        '  import { ResponsivePlugin } from "@toolbox-web/grid/plugins/responsive";\n' +
-        '  gridConfig = { plugins: [new ResponsivePlugin({ breakpoint: 600 })] };',
+        '  gridConfig = { features: { responsive: { breakpoint: 600 } } };',
     );
     return;
   }

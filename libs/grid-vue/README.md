@@ -493,7 +493,7 @@ import { TbwGrid, TbwGridToolPanel, type ToolPanelContext } from '@toolbox-web/g
   <TbwGrid :rows="employees">
     <TbwGridColumn field="name" header="Name" />
 
-    <TbwGridToolPanel id="stats" label="Statistics" v-slot="{ rows }: ToolPanelContext<Employee>">
+    <TbwGridToolPanel id="stats" title="Statistics" v-slot="{ rows }: ToolPanelContext<Employee>">
       <div class="stats-panel">
         <p>Total: {{ rows.length }}</p>
         <p>Avg Salary: {{ averageSalary(rows) }}</p>

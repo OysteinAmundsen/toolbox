@@ -62,17 +62,33 @@ const isDev = (): boolean =>
   typeof window !== 'undefined' &&
   (window.location?.hostname === 'localhost' || window.location?.hostname === '127.0.0.1');
 
+/** Optional flags passed to {@link registerFeature}. */
+export interface RegisterFeatureOptions {
+  /**
+   * Set to `true` when the registration is intentionally overwriting an
+   * existing entry (e.g. a framework adapter wrapping the vanilla factory
+   * with reactive bridging). Suppresses the TBW030 dev-mode warning.
+   */
+  override?: boolean;
+}
+
 /**
  * Register a feature's plugin factory.
  * Called by side-effect feature imports (e.g., `import '@toolbox-web/grid/features/selection'`).
  *
  * @param name - The feature name (matches a key on FeatureConfig)
  * @param factory - Function that creates a plugin instance from config
+ * @param options - Pass `{ override: true }` for intentional re-registration
+ *   (framework adapters bridging the vanilla factory) to suppress TBW030.
  */
-export function registerFeature<K extends FeatureName>(name: K, factory: PluginFactory<FeatureConfig[K]>): void;
-export function registerFeature(name: string, factory: PluginFactory): void;
-export function registerFeature(name: string, factory: PluginFactory): void {
-  if (isDev() && featureRegistry.has(name)) {
+export function registerFeature<K extends FeatureName>(
+  name: K,
+  factory: PluginFactory<FeatureConfig[K]>,
+  options?: RegisterFeatureOptions,
+): void;
+export function registerFeature(name: string, factory: PluginFactory, options?: RegisterFeatureOptions): void;
+export function registerFeature(name: string, factory: PluginFactory, options?: RegisterFeatureOptions): void {
+  if (isDev() && featureRegistry.has(name) && !options?.override) {
     warnDiagnostic(FEATURE_REREGISTERED, `Feature "${name}" was re-registered. Previous registration overwritten.`);
   }
   featureRegistry.set(name, { factory, name });

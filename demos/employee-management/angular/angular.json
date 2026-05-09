@@ -24,7 +24,7 @@
                 "input": "public"
               }
             ],
-            "styles": ["src/../shared/demo-styles.css"]
+            "styles": ["../../shared/employee-management/demo-styles.css"]
           },
           "configurations": {
             "production": {

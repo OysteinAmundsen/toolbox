@@ -1,6 +1,6 @@
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
-import { getResolveAliases } from '../shared/resolve-aliases';
+import { getResolveAliases } from '../../shared/resolve-aliases';
 
 export default defineConfig({
   root: resolve(__dirname),

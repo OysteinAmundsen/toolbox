@@ -6,4 +6,4 @@
  */
 
 // Re-export shared types used by the demo
-export type { DemoConfig, Employee, GridElement } from '@demo/shared';
+export type { DemoConfig, Employee, GridElement } from '@demo/shared/employee-management';

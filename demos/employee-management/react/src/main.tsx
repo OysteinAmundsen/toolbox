@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 
 // Import shared demo styles
-import '@demo/shared/demo-styles.css';
+import '@demo/shared/employee-management/demo-styles.css';
 
 const rootElement = document.getElementById('root');
 if (rootElement) {

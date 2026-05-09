@@ -1,4 +1,4 @@
-import { DEPARTMENTS } from '@demo/shared';
+import { DEPARTMENTS } from '@demo/shared/employee-management';
 import type { ToolPanelContext } from '@toolbox-web/grid-react';
 import { useCallback, useState } from 'react';
 

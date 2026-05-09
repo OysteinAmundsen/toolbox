@@ -11,7 +11,7 @@ import type { Alias } from 'vite';
  *
  * Usage in vite.config.ts:
  * ```typescript
- * import { getResolveAliases } from '../shared/resolve-aliases';
+ * import { getResolveAliases } from '../../shared/resolve-aliases';
  * export default defineConfig({
  *   resolve: { alias: getResolveAliases(__dirname) }
  * });
@@ -23,7 +23,7 @@ import type { Alias } from 'vite';
  * ```
  */
 
-const ROOT = resolve(import.meta.dirname, '../../..');
+const ROOT = resolve(import.meta.dirname, '../..');
 
 /**
  * Whether to resolve @toolbox-web/* packages to dist/ (built output)
@@ -39,7 +39,7 @@ export const USE_DIST = process.env.USE_DIST === 'true';
  * @returns Array of Vite alias configurations
  */
 export function getResolveAliases(
-  demoDir: string,
+  _demoDir: string,
   options: {
     /** Include grid-react aliases (default: false) */
     includeReact?: boolean;
@@ -50,7 +50,7 @@ export function getResolveAliases(
   } = {},
 ): Alias[] {
   const { includeReact = false, includeAngular = false, includeVue = false } = options;
-  const sharedDir = resolve(demoDir, '../shared');
+  const sharedDir = resolve(ROOT, 'demos/shared');
 
   const aliases: Alias[] = [];
 
@@ -201,12 +201,17 @@ export function getResolveAliases(
     }
   }
 
-  // Shared demo imports (always from source)
-  aliases.push(
-    { find: '@demo/shared/styles', replacement: resolve(sharedDir, 'styles.ts') },
-    { find: '@demo/shared/demo-styles.css', replacement: resolve(sharedDir, 'demo-styles.css') },
-    { find: '@demo/shared', replacement: resolve(sharedDir, 'index.ts') },
-  );
+  // Shared demo imports (always from source).
+  // Per-demo subpaths so each demo's data/types/styles live under demos/shared/<demo-name>/.
+  // Add a new entry here when introducing a new demo.
+  const demoNames = ['employee-management'];
+  for (const name of demoNames) {
+    aliases.push(
+      { find: `@demo/shared/${name}/styles`, replacement: resolve(sharedDir, name, 'styles.ts') },
+      { find: `@demo/shared/${name}/demo-styles.css`, replacement: resolve(sharedDir, name, 'demo-styles.css') },
+      { find: `@demo/shared/${name}`, replacement: resolve(sharedDir, name, 'index.ts') },
+    );
+  }
 
   return aliases;
 }

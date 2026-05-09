@@ -10,7 +10,7 @@
  * Renderers and editors are passed in as options since they use Vue components.
  */
 
-import { DEPARTMENTS, type Employee } from '@demo/shared';
+import { DEPARTMENTS, type Employee } from '@demo/shared/employee-management';
 // Import Vue-specific GridConfig that accepts VNode renderers/editors
 import type { GridConfig } from '@toolbox-web/grid-vue';
 import { filteredCountPanel, rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';

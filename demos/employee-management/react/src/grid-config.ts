@@ -10,7 +10,7 @@
  * Renderers and editors are passed in as options since they use JSX.
  */
 
-import { DEPARTMENTS, type Employee } from '@demo/shared';
+import { DEPARTMENTS, type Employee } from '@demo/shared/employee-management';
 import type { GridConfig } from '@toolbox-web/grid-react';
 import { filteredCountPanel, rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 import type { ReactNode } from 'react';

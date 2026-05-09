@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { Employee } from '@demo/shared';
+import type { Employee } from '@demo/shared/employee-management';
 
 /**
  * DetailPanel - Master-detail panel showing employee details

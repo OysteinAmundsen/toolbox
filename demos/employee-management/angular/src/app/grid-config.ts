@@ -15,7 +15,7 @@
  *
  * Both patterns merge seamlessly - plugins from feature inputs are combined with gridConfig.plugins.
  */
-import { DEPARTMENTS, type Employee } from '@demo/shared';
+import { DEPARTMENTS, type Employee } from '@demo/shared/employee-management';
 import type { GridConfig } from '@toolbox-web/grid-angular';
 // Only import plugins needed for dynamic toggling or complex configuration.
 // Always-on features use feature inputs in app.component.ts instead.

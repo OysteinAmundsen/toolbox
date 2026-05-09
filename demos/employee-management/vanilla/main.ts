@@ -14,7 +14,7 @@
  */
 
 // Import shared demo styles (applies to document)
-import '@demo/shared/demo-styles.css';
+import '@demo/shared/employee-management/demo-styles.css';
 
 // Import the grid component (registers <tbw-grid> custom element)
 import '@toolbox-web/grid';
@@ -23,7 +23,7 @@ import '@toolbox-web/grid';
 import { createGrid, type DataGridElement } from '@toolbox-web/grid/all';
 
 // Import shared data generators and types
-import { generateEmployees, type Employee } from '@demo/shared';
+import { generateEmployees, type Employee } from '@demo/shared/employee-management';
 
 // Import grid configuration from separate file
 import { createGridConfig, type GridConfigOptions } from './grid-config';

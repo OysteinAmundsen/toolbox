@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { DEPARTMENTS } from '@demo/shared';
+import { DEPARTMENTS } from '@demo/shared/employee-management';
 
 /**
  * QuickFiltersPanel - Sidebar panel with quick filter buttons

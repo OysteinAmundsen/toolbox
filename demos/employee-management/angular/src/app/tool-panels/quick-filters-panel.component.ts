@@ -1,6 +1,6 @@
 import { Component, input, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DEPARTMENTS, type Employee, type GridElement } from '@demo/shared';
+import { DEPARTMENTS, type Employee, type GridElement } from '@demo/shared/employee-management';
 import { FilteringPlugin } from '@toolbox-web/grid/all';
 
 /**

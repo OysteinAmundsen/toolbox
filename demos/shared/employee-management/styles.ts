@@ -5,7 +5,7 @@
  * for injection into the grid's DOM.
  *
  * Usage:
- *   import { shadowDomStyles } from '@demo/shared/styles';
+ *   import { shadowDomStyles } from '@demo/shared/employee-management/styles';
  */
 
 import shadowDomStyles from './demo-styles.css?inline';

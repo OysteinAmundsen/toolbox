@@ -51,8 +51,8 @@ import { useGridExport } from '@toolbox-web/grid-vue/features/export';
 import { computed, h, markRaw, ref } from 'vue';
 
 // Import shared data, types, and styles
-import { generateEmployees, type Employee } from '@demo/shared';
-import '@demo/shared/demo-styles.css';
+import { generateEmployees, type Employee } from '@demo/shared/employee-management';
+import '@demo/shared/employee-management/demo-styles.css';
 
 // Grid configuration (columns, groups, pinned rows, responsive)
 import { createGridConfig, PINNED_ROWS_CONFIG, RESPONSIVE_CONFIG } from './grid-config';

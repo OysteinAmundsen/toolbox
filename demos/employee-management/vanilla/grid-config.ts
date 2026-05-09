@@ -31,7 +31,7 @@ import '@toolbox-web/grid/features/visibility';
 import type { GridConfig } from '@toolbox-web/grid';
 import { filteredCountPanel, PinnedRowsPlugin, rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 
-import { DEPARTMENTS, type Employee } from '@demo/shared';
+import { DEPARTMENTS, type Employee } from '@demo/shared/employee-management';
 
 import { bonusSliderEditor, dateEditor, starRatingEditor, statusSelectEditor } from './editors';
 import {

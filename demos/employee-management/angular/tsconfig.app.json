@@ -5,8 +5,8 @@
     "types": ["node", "vite/client"],
     "skipLibCheck": true,
     "paths": {
-      "@demo/shared": ["../shared/index.ts"],
-      "@demo/shared/styles": ["../shared/styles.ts"],
+      "@demo/shared/employee-management": ["../../shared/employee-management/index.ts"],
+      "@demo/shared/employee-management/styles": ["../../shared/employee-management/styles.ts"],
       "@toolbox-web/grid": ["../../../libs/grid/src/index.ts"],
       "@toolbox-web/grid/all": ["../../../libs/grid/src/all.ts"],
       "@toolbox-web/grid/plugins/*": ["../../../libs/grid/src/lib/plugins/*/index.ts"],

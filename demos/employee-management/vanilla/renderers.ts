@@ -4,7 +4,7 @@
  * View renderers customize how cell values are displayed in read mode.
  */
 
-import type { Employee } from '@demo/shared';
+import type { Employee } from '@demo/shared/employee-management';
 
 /**
  * Renders a status badge with color-coded styling.

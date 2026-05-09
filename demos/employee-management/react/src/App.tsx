@@ -50,8 +50,8 @@ import { useGridExport } from '@toolbox-web/grid-react/features/export';
 import { useCallback, useMemo, useState } from 'react';
 
 // Import shared data, types, and styles
-import { generateEmployees, type Employee } from '@demo/shared';
-import { shadowDomStyles } from '@demo/shared/styles';
+import { generateEmployees, type Employee } from '@demo/shared/employee-management';
+import { shadowDomStyles } from '@demo/shared/employee-management/styles';
 
 // Grid configuration (columns, groups, pinned rows, responsive)
 import { createGridConfig, PINNED_ROWS_CONFIG, RESPONSIVE_CONFIG } from './grid-config';

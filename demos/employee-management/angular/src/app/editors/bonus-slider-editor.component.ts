@@ -9,7 +9,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import type { Employee } from '@demo/shared';
+import type { Employee } from '@demo/shared/employee-management';
 import { BaseGridEditor } from '@toolbox-web/grid-angular/features/editing';
 
 /**

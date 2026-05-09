@@ -1,5 +1,5 @@
 import { Component, input } from '@angular/core';
-import type { Employee } from '@demo/shared';
+import type { Employee } from '@demo/shared/employee-management';
 import type { ColumnConfig } from '@toolbox-web/grid';
 import type { CellRenderer } from '@toolbox-web/grid-angular';
 

@@ -1,5 +1,5 @@
 import { Component, computed, input } from '@angular/core';
-import type { Employee } from '@demo/shared';
+import type { Employee } from '@demo/shared/employee-management';
 
 @Component({
   selector: 'app-detail-panel',

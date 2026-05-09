@@ -25,8 +25,8 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { generateEmployees, type Employee } from '@demo/shared';
-import { shadowDomStyles } from '@demo/shared/styles';
+import { generateEmployees, type Employee } from '@demo/shared/employee-management';
+import { shadowDomStyles } from '@demo/shared/employee-management/styles';
 import {
   CellCommitEvent,
   Grid,

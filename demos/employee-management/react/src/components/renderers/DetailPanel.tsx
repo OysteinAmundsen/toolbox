@@ -1,4 +1,4 @@
-import type { Employee } from '@demo/shared';
+import type { Employee } from '@demo/shared/employee-management';
 
 /**
  * DetailPanel - Master-detail panel showing employee details

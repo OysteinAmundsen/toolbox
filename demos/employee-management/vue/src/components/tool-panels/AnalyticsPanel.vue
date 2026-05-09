@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { Employee } from '@demo/shared';
-import { DEPARTMENTS } from '@demo/shared';
+import type { Employee } from '@demo/shared/employee-management';
+import { DEPARTMENTS } from '@demo/shared/employee-management';
 
 /**
  * AnalyticsPanel - Sidebar panel showing employee analytics

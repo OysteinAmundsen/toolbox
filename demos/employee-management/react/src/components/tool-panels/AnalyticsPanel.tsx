@@ -1,4 +1,4 @@
-import type { Employee } from '@demo/shared';
+import type { Employee } from '@demo/shared/employee-management';
 import type { ToolPanelContext } from '@toolbox-web/grid-react';
 import { useEffect, useMemo, useState } from 'react';
 

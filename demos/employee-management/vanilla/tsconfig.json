@@ -16,11 +16,11 @@
     "paths": {
       "@toolbox-web/grid": ["../../../libs/grid/src/index.ts"],
       "@toolbox-web/grid/*": ["../../../libs/grid/src/*"],
-      "@demo/shared/styles": ["../shared/styles.ts"],
-      "@demo/shared": ["../shared/index.ts"]
+      "@demo/shared/employee-management/styles": ["../../shared/employee-management/styles.ts"],
+      "@demo/shared/employee-management": ["../../shared/employee-management/index.ts"]
     }
   },
-  "include": ["../shared/**/*.ts", "**/*.ts"],
+  "include": ["../../shared/employee-management/**/*.ts", "**/*.ts"],
   "exclude": ["node_modules", "dist"],
   "references": [
     {

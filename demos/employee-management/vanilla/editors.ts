@@ -4,7 +4,7 @@
  * Each editor demonstrates different interaction patterns for inline editing.
  */
 
-import type { Employee } from '@demo/shared';
+import type { Employee } from '@demo/shared/employee-management';
 import type { ColumnEditorContext } from '@toolbox-web/grid';
 
 /**

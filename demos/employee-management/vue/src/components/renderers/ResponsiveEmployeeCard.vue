@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Employee } from '@demo/shared';
+import type { Employee } from '@demo/shared/employee-management';
 
 /**
  * ResponsiveEmployeeCard - Card layout for responsive/mobile view

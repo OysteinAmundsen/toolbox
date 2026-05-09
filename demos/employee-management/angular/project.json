@@ -22,7 +22,7 @@
             "input": "demos/employee-management/angular/public"
           }
         ],
-        "styles": ["demos/employee-management/shared/demo-styles.css"],
+        "styles": ["demos/shared/employee-management/demo-styles.css"],
         "plugins": ["./demos/employee-management/angular/tools/esbuild-alias-plugin.mjs"]
       },
       "configurations": {

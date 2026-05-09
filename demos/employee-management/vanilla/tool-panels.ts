@@ -5,8 +5,8 @@
  * This demonstrates how clean the API is - no type casting needed!
  */
 
-import { DEPARTMENTS, type Employee, type GridElement } from '@demo/shared';
-import { shadowDomStyles } from '@demo/shared/styles';
+import { DEPARTMENTS, type Employee, type GridElement } from '@demo/shared/employee-management';
+import { shadowDomStyles } from '@demo/shared/employee-management/styles';
 import { FilteringPlugin } from '@toolbox-web/grid/all';
 
 /**

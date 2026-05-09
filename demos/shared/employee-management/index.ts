@@ -8,5 +8,5 @@
 export * from './data';
 export * from './types';
 
-// Note: Styles are exported separately via @demo/shared/styles
+// Note: Styles are exported separately via @demo/shared/employee-management/styles
 // to allow bundler-specific handling of CSS imports

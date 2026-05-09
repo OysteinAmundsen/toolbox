@@ -1,5 +1,5 @@
 import { Component, computed, input } from '@angular/core';
-import { type Employee, type GridElement } from '@demo/shared';
+import { type Employee, type GridElement } from '@demo/shared/employee-management';
 
 /**
  * Analytics tool panel component.

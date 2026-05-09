@@ -212,7 +212,7 @@ export function createNodeBridge<TCtx>(reactFn: (ctx: TCtx) => ReactNode): (ctx:
     // React element. Mounting one through React triggers
     // "Objects are not valid as a React child". The grid only needs an
     // HTMLElement, so just hand it back.
-    if (node instanceof Node) return node as HTMLElement;
+    if (node instanceof HTMLElement) return node;
     const wrapper = document.createElement('div');
     wrapper.style.display = 'contents';
     renderToContainer(wrapper, node);

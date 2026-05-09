@@ -320,14 +320,7 @@ jobs:
   bench:
     needs: [setup]
     if: needs.setup.outputs.should_validate == 'true'
-    # 4-core larger runner: bench wall time is dominated by per-invocation
-    # vitest cold-start cost (config load + transform pipeline init) and
-    # ~50 s of single-process bench execution per file. Doubling cores
-    # mostly buys us less scheduler contention and faster transforms,
-    # which historically shaves ~25–35% off the bench job. Requires the
-    # repo's "Larger runners" setting to expose this label; falls back to
-    # standard ubuntu-latest behavior if the label is unavailable.
-    runs-on: ubuntu-latest-4-cores
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       # Number of bench iterations per side. Each iteration is a full

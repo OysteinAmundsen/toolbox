@@ -370,6 +370,17 @@ jobs:
       # Compute the bench-targeted projects affected by this PR. Output
       # is a space-separated list (e.g. "grid grid-react") consumed by
       # the loops below. Empty output → skip all bench/compare steps.
+      #
+      # Workaround for an Nx quirk: when ONLY `sharedGlobals` files
+      # (e.g. `.github/workflows/ci.yml`) change in a PR, `nx affected`
+      # surfaces the adapters (`grid-{angular,react,vue}`) but NOT the
+      # underlying `grid` library — even though the adapters depend on
+      # grid. This is internally inconsistent (if the adapters are
+      # affected, their dependency must be too) and causes us to silently
+      # skip benching the largest surface. We force-include `grid`
+      # whenever any of its adapters is in the bench-affected set; this
+      # also matches the semantic we actually want (grid + adapter
+      # benches change together when shared code moves).
       - name: Detect affected bench projects (PR)
         if: github.event_name == 'pull_request'
         id: affected
@@ -378,6 +389,15 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           AFFECTED=$(bun nx show projects --affected --with-target=bench --base "$BASE_SHA" --head "$HEAD_SHA" | tr '\n' ' ' | xargs)
+          # Force-include `grid` if an adapter is affected (see comment above).
+          case " $AFFECTED " in
+            *" grid "*) ;;  # already included
+            *" grid-react "*|*" grid-vue "*|*" grid-angular "*)
+              AFFECTED="grid $AFFECTED"
+              echo "Force-including 'grid' because an adapter is affected (Nx sharedGlobals quirk)."
+              ;;
+          esac
+          AFFECTED=$(echo "$AFFECTED" | xargs)
           echo "Affected bench projects: ${AFFECTED:-(none)}"
           echo "projects=${AFFECTED}" >> "$GITHUB_OUTPUT"
           if [ -z "$AFFECTED" ]; then

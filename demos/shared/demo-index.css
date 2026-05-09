@@ -1,0 +1,70 @@
+/**
+ * Shared styles for the demo index page (`/`).
+ * Imported by every shell's main entry so the index renders consistently
+ * regardless of whether per-demo styles have been loaded yet.
+ */
+
+.demo-index {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+}
+
+.demo-index-header h1 {
+  margin: 0 0 0.5rem;
+  font-size: 2rem;
+}
+
+.demo-index-header p {
+  margin: 0 0 2rem;
+  color: var(--demo-color-fg-muted, light-dark(#6b7280, #9ca3af));
+}
+
+.demo-index-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.demo-index-card {
+  display: contents;
+}
+
+.demo-index-link {
+  display: block;
+  padding: 1.25rem 1.25rem 1rem;
+  border: 1px solid var(--demo-color-border, light-dark(#d0d4d9, #3a3d44));
+  border-radius: 8px;
+  background: var(--demo-color-surface, light-dark(#ffffff, #1f2125));
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 120ms ease,
+    transform 120ms ease;
+}
+
+.demo-index-link:hover {
+  border-color: var(--demo-color-accent, light-dark(#2563eb, #3b82f6));
+  transform: translateY(-1px);
+}
+
+.demo-index-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+}
+
+.demo-index-description {
+  margin: 0 0 0.75rem;
+  color: var(--demo-color-fg-muted, light-dark(#6b7280, #9ca3af));
+  font-size: 0.95rem;
+}
+
+.demo-index-route {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  color: var(--demo-color-accent, light-dark(#2563eb, #3b82f6));
+}

@@ -7,10 +7,10 @@ import { resolve } from 'path';
  * Ports are configured in each demo's project.json
  */
 export const DEMOS = {
-  vanilla: 'http://localhost:4000',
-  react: 'http://localhost:4300',
-  angular: 'http://localhost:4200',
-  vue: 'http://localhost:4100',
+  vanilla: 'http://localhost:4000/employee-management',
+  react: 'http://localhost:4300/employee-management',
+  angular: 'http://localhost:4200/employee-management',
+  vue: 'http://localhost:4100/employee-management',
 } as const;
 
 export type DemoName = keyof typeof DEMOS;

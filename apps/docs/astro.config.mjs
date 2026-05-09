@@ -92,7 +92,10 @@ export default defineConfig({
         ...gridAliases(),
         '@toolbox/themes': resolve(rootDir, 'libs/themes'),
         '@demo/shared/employee-management': resolve(rootDir, 'demos/shared/employee-management'),
-        '@demo/vanilla': resolve(rootDir, 'demos/employee-management/vanilla/main.ts'),
+        '@demo/vanilla/employee-management': resolve(
+          rootDir,
+          'demos/vanilla/src/demos/employee-management/grid-factory.ts',
+        ),
         '@components': resolve(import.meta.dirname, 'src/components'),
       },
     },

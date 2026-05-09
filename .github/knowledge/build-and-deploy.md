@@ -197,3 +197,18 @@ ng-packagr forbids primary→secondary imports, so the source must be **written 
 - `bun nx build docs` (catches stale code blocks)
 - `bun nx run grid-angular:typedoc` (regen MDX matches new file layout)
 - `bun nx run e2e:e2e` and `bun nx run docs-e2e:e2e`
+
+## demos-layout
+
+- OWNS: cross-framework demo apps. All four frameworks now use the route-based shell layout under `demos/<framework>/` (no per-framework `employee-management` wrapper, no `app/` wrapper inside Angular). Each shell bootstraps an idiomatic router and registers one lazy route per demo; demos live under `src/demos/<demo-name>/` (Angular: `src/demos/<demo-name>/`).
+- INVARIANT: per-demo data/types/styles live in `demos/shared/<demo-name>/` so every framework imports identical fixtures via `@demo/shared/<demo-name>` — required for cross-framework parity tests in `e2e/`.
+- INVARIANT: `demos/shared/resolve-aliases.ts` enumerates demo names in a `demoNames` array and emits `@demo/shared/<name>`, `@demo/shared/<name>/styles`, `@demo/shared/<name>/demo-styles.css` aliases. Adding a new demo = appending one string here. Angular esbuild plugin (`demos/angular/tools/esbuild-alias-plugin.mjs`) duplicates this logic since Angular bypasses Vite — keep them in sync.
+- INVARIANT: every shell loads its routes lazily (dynamic `import()` for vanilla/Vue, `lazy()` for React, `loadComponent` for Angular) so each demo ships as its own chunk and unused demos never bundle.
+- INVARIANT: unknown paths in every shell fall back to the first registered route, so the existing CI `wait-on http://localhost:<port>` health checks keep working without changes. No nav UI by design — demos accessed via direct URL only (e.g. `localhost:4300/employee-management`).
+- INVARIANT: docs site imports the pure grid factory via `@demo/vanilla/<demo-name>` (alias points at `demos/vanilla/src/demos/<demo-name>/grid-factory.ts`), NOT the route module. Factory exports `createEmployeeGrid()` etc.; route module's `index.ts` owns mount/teardown + control panel. Keep these separate so importing the factory doesn't drag in route-shell DOM code. React/Vue/Angular do NOT need a separate factory because the docs site does not import their adapters.
+- INVARIANT: per-framework router choices: vanilla = hand-rolled `shell/router.ts` (~50 LOC, `pathname`-based); React = `react-router-dom` v7 with `BrowserRouter` + `<Routes>`; Vue = `vue-router` v4 with `createWebHistory()`; Angular = `@angular/router` with `provideRouter()` + `loadComponent`. Routes register the demo paths in `shell/App.tsx` / `shell/router.ts` / `shell/App.vue` / `app.routes.ts` respectively.
+- DECIDED (May 2026): hand-rolled router for vanilla, idiomatic per-framework routers for the others. WHY: the framework demos serve double duty as reference setups, so they must look like real apps would; the vanilla demo is a fixture, so an extra router dependency would be noise.
+- DECIDED (May 2026): Angular shell flattens to `demos/angular/src/` (no `src/app/` wrapper). WHY: the `app/` folder is just Angular CLI scaffolding convention, not a framework requirement; flattening keeps the layout symmetric with React/Vue/vanilla. Demo modules live at `demos/angular/src/demos/<name>/`.
+- DECIDED (May 2026): `/` falls back to first route so the existing CI `wait-on http://localhost:4000` health check keeps working without change. E2E tests target `localhost:<port>/employee-management` explicitly via `e2e/tests/utils.ts:DEMOS`.
+
+## ci-pipeline (.github/workflows/ci.yml)

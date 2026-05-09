@@ -73,6 +73,7 @@
     "nx": "22.6.1",
     "pagefind": "1.4.0",
     "prettier": "3.8.1",
+    "react-router-dom": "7.10.1",
     "rollup-plugin-cleanup": "3.2.1",
     "rxjs": "7.8.2",
     "ts-node": "10.9.2",
@@ -86,6 +87,7 @@
     "vite-tsconfig-paths": "6.1.1",
     "vitest": "4.1.0",
     "vue": "3.5.30",
+    "vue-router": "4.6.4",
     "wait-on": "9.0.4"
   },
   "workspaces": [

@@ -1,0 +1,42 @@
+{
+  "name": "demo-vanilla",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "demos/vanilla/src",
+  "implicitDependencies": ["grid"],
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vite",
+        "cwd": "demos/vanilla",
+        "port": 4000
+      }
+    },
+    "serve:dist": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vite",
+        "cwd": "demos/vanilla",
+        "port": 4000,
+        "env": {
+          "USE_DIST": "true"
+        }
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vite build",
+        "cwd": "demos/vanilla"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["demos/vanilla/**/*.ts"]
+      }
+    }
+  }
+}

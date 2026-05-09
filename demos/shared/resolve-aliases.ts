@@ -213,6 +213,9 @@ export function getResolveAliases(
     );
   }
 
+  // Shell-level shared assets (not tied to any individual demo).
+  aliases.push({ find: '@demo/shared/demo-index.css', replacement: resolve(sharedDir, 'demo-index.css') });
+
   return aliases;
 }
 

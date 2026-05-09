@@ -1193,16 +1193,25 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
 
     // Clear all selection classes first (including column-selected).
-    // Also reset stale aria-selected on data cells: range/column passes set
-    // aria-selected="true" on selected cells, and core only updates the
-    // attribute when focus changes — so without an explicit reset here a cell
-    // that lost selection (e.g. axis flipped, range shrank, virtualization
-    // recycled the node into a non-selected position) would keep the stale
-    // value. Header aria-selected is handled in the columnEnabled block below.
+    // Also reset stale aria-selected on cells that previously carried a
+    // selection marker — range/column passes set aria-selected="true" on
+    // selected cells, and core only updates the attribute when focus
+    // changes — so without an explicit reset a cell that lost selection
+    // (axis flipped, range shrank, virtualization recycled the node into a
+    // non-selected position) would keep the stale value. We MUST scope the
+    // reset to cells that had `.selected` / `.column-selected` BEFORE the
+    // class wipe — clearing aria-selected unconditionally would also blow
+    // away the focused-cell marker that core's keyboard handler / row
+    // renderer set for the active cell, regressing keyboard a11y.
+    // Header aria-selected is handled in the columnEnabled block below.
     const allCells = gridEl.querySelectorAll('.cell');
     allCells.forEach((cell) => {
+      const hadSelectionMarker =
+        cell.classList.contains(GridClasses.SELECTED) || cell.classList.contains('column-selected');
       cell.classList.remove(GridClasses.SELECTED, 'top', 'bottom', 'first', 'last', 'column-selected');
-      cell.removeAttribute('aria-selected');
+      if (hadSelectionMarker) {
+        cell.removeAttribute('aria-selected');
+      }
       // Clear selectable attribute - will be re-applied below
       if (hasSelectableCallback) {
         cell.removeAttribute('data-selectable');

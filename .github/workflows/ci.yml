@@ -291,24 +291,46 @@ jobs:
 
   # ============================================
   # BENCH: Vitest microbenchmarks (regression detection)
-  # - Runs `vitest bench` for grid + grid-react + grid-vue, merges JSON.
-  # - Restores the most recent baseline cached on a push to `main` (or `next`).
-  # - On push to `main`/`next`: saves the new baseline under a SHA-pinned key.
-  # - On PR: compares current run vs. baseline using tools/compare-benches.ts
-  #   (CI-overlap gated, ±25% threshold). Soft-warn only — does NOT fail CI
-  #   yet; flip `--fail-on-regression` once we've calibrated runner noise.
-  # - Pinned to ubuntu-latest (same runner class as test/build) so baseline
-  #   and PR are measured on consistent hardware.
+  # - PR-only. Runs the bench suite TWICE on the same runner: once on the
+  #   PR target branch tip (baseline), once on the PR head (current). Both
+  #   samples are drawn from the same VM, kernel, thermal state, and noisy
+  #   neighbour — eliminating cross-runner variance which previously caused
+  #   spurious ±30–60% regression/improvement flips on each push to `main`
+  #   (the cached-baseline approach compared runs from different VMs).
+  # - Each side is measured **3 times** and merged via max-of-3 on `hz`
+  #   (tools/merge-bench-runs.ts). Borrowed from Netflix's TVUI perf-test
+  #   methodology: outlier bench results on shared CI runners are almost
+  #   always SLOWER than reality (GC, scheduler, fs cache misses) — never
+  #   faster — so the fastest of N runs is the most representative.
+  # - On push to `main`/`next`: bench is uploaded as an artifact for offline
+  #   trend tracking, but no comparison is performed (no baseline exists in
+  #   this model — comparison is always against the PR's own base).
+  # - Order: baseline runs FIRST so warm-up cost (JIT, fs cache, bun install
+  #   side-effects) is paid before measuring the PR head. Same-runner
+  #   guarantee means we do NOT need cache restore/save dance, --threshold
+  #   can be tightened later, and improvements/regressions are symmetric.
   # ============================================
   bench:
     needs: [setup]
     if: needs.setup.outputs.should_validate == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
+    env:
+      # Number of bench iterations per side. Each iteration is a full
+      # `vitest bench` run for grid + grid-react + grid-vue. 3 is the sweet
+      # spot identified by Netflix: enough to absorb device-noise outliers
+      # without burning CI time. Bump if false-positive rate stays high.
+      BENCH_ITERATIONS: 3
     steps:
+      # Checkout the PR head (or push commit). On pull_request events the
+      # default ref is the merge ref refs/pull/X/merge; we explicitly use
+      # head.sha so "current" measures the PR branch as authored, not the
+      # speculative merge commit. fetch-depth: 0 so we can reach the base
+      # commit for the worktree below.
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -326,38 +348,87 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-bun-
 
-      - name: Install dependencies
+      # PUSH to main/next: bench once (no need for max-of-N when there's no
+      # comparison), upload artifact only. Trend data is preserved via the
+      # uploaded artifact — anyone wanting historical analysis can download
+      # the `bench-results` artifacts across runs.
+      - name: Install dependencies (push)
+        if: github.event_name == 'push'
         run: bun install
 
-      # Restore the most recent baseline for the PR target branch (or the
-      # branch we just pushed to). `github.base_ref` is set on pull_request
-      # events to the target branch (main/next); on push it is empty so we
-      # fall back to `github.ref_name` (which is `main` or `next`). This
-      # keeps `main` and `next` baselines in separate cache namespaces.
-      - name: Restore bench baseline
-        id: bench-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: tmp/bench-baseline.json
-          key: bench-baseline-${{ runner.os }}-${{ github.base_ref || github.ref_name }}-${{ github.sha }}
-          restore-keys: |
-            bench-baseline-${{ runner.os }}-${{ github.base_ref || github.ref_name }}-
-
-      - name: Run benchmarks
+      - name: Run benchmarks (push, trend artifact only)
+        if: github.event_name == 'push'
         run: |
           mkdir -p tmp
-          # Vitest resolves --outputJson relative to the config's project root
-          # (libs/<project>/), not the workspace cwd. Anchor with $PWD so all
-          # three runs land in the same workspace-level tmp/ directory.
           bunx vitest bench --config libs/grid/vite.config.ts --run --outputJson="$PWD/tmp/bench-current-grid.json"
           bunx vitest bench --config libs/grid-react/vite.config.mts --run --outputJson="$PWD/tmp/bench-current-grid-react.json"
           bunx vitest bench --config libs/grid-vue/vite.config.mts --run --outputJson="$PWD/tmp/bench-current-grid-vue.json"
-          # Merge into a single file for the cached baseline (compare-benches
-          # also accepts multiple --current flags, but the cache stores one
-          # file so we collapse here).
-          bun -e "import {readFileSync,writeFileSync} from 'node:fs'; const files=['tmp/bench-current-grid.json','tmp/bench-current-grid-react.json','tmp/bench-current-grid-vue.json'].map(p=>JSON.parse(readFileSync(p,'utf8'))); writeFileSync('tmp/bench-current.json', JSON.stringify({files: files.flatMap(r=>r.files??[])}));"
+          bun tools/merge-bench-runs.ts \
+            --output tmp/bench-current.json \
+            tmp/bench-current-grid.json \
+            tmp/bench-current-grid-react.json \
+            tmp/bench-current-grid-vue.json
 
-      - name: Compare against baseline
+      # PR: same-runner base vs head comparison.
+      # Step 1 — set up a worktree at the base ref. We use a sibling
+      # directory so node_modules / dist from the two checkouts don't collide.
+      - name: Prepare base worktree (PR)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          git worktree add ../base "$BASE_SHA"
+
+      # Step 2 — measure BASELINE first so warm-up costs (bun install, fs
+      # cache, JIT) are paid before the PR-head measurement. Run the bench
+      # suite N times back-to-back; merge step takes the best (max-hz)
+      # result per benchmark to filter device-noise outliers. Output paths
+      # are anchored to $GITHUB_WORKSPACE/tmp/ because Vitest resolves
+      # --outputJson relative to the config's project root, not the cwd.
+      - name: Run baseline benchmarks (PR, ${{ env.BENCH_ITERATIONS }}× iterations)
+        if: github.event_name == 'pull_request'
+        working-directory: ../base
+        run: |
+          bun install
+          mkdir -p "$GITHUB_WORKSPACE/tmp"
+          for i in $(seq 1 $BENCH_ITERATIONS); do
+            echo "::group::Baseline run $i / $BENCH_ITERATIONS"
+            bunx vitest bench --config libs/grid/vite.config.ts --run --outputJson="$GITHUB_WORKSPACE/tmp/bench-baseline-grid-$i.json"
+            bunx vitest bench --config libs/grid-react/vite.config.mts --run --outputJson="$GITHUB_WORKSPACE/tmp/bench-baseline-grid-react-$i.json"
+            bunx vitest bench --config libs/grid-vue/vite.config.mts --run --outputJson="$GITHUB_WORKSPACE/tmp/bench-baseline-grid-vue-$i.json"
+            echo "::endgroup::"
+          done
+          # Merge across iterations AND across projects in one pass — the
+          # merge script is keyed on group.fullName which already includes
+          # the bench file path, so cross-project collisions are impossible
+          # and cross-iteration duplicates are reduced via max-hz.
+          bun "$GITHUB_WORKSPACE/tools/merge-bench-runs.ts" \
+            --output "$GITHUB_WORKSPACE/tmp/bench-baseline.json" \
+            "$GITHUB_WORKSPACE"/tmp/bench-baseline-*.json
+
+      # Step 3 — install deps in PR-head checkout, then measure CURRENT
+      # with the same N-iteration max-of-N strategy.
+      - name: Install dependencies (PR head)
+        if: github.event_name == 'pull_request'
+        run: bun install
+
+      - name: Run current benchmarks (PR, ${{ env.BENCH_ITERATIONS }}× iterations)
+        if: github.event_name == 'pull_request'
+        run: |
+          for i in $(seq 1 $BENCH_ITERATIONS); do
+            echo "::group::Current run $i / $BENCH_ITERATIONS"
+            bunx vitest bench --config libs/grid/vite.config.ts --run --outputJson="$PWD/tmp/bench-current-grid-$i.json"
+            bunx vitest bench --config libs/grid-react/vite.config.mts --run --outputJson="$PWD/tmp/bench-current-grid-react-$i.json"
+            bunx vitest bench --config libs/grid-vue/vite.config.mts --run --outputJson="$PWD/tmp/bench-current-grid-vue-$i.json"
+            echo "::endgroup::"
+          done
+          bun tools/merge-bench-runs.ts \
+            --output tmp/bench-current.json \
+            tmp/bench-current-*.json
+
+      - name: Compare against baseline (PR)
+        if: github.event_name == 'pull_request'
         run: |
           bun tools/compare-benches.ts \
             --current tmp/bench-current.json \
@@ -370,24 +441,11 @@ jobs:
         if: always()
         with:
           name: bench-results
-          path: tmp/bench-current.json
+          path: |
+            tmp/bench-current.json
+            tmp/bench-baseline.json
           retention-days: 30
-
-      # Save the new baseline ONLY on pushes to main/next (not PRs, not release
-      # merges). Cache write is cheap; this keeps the baseline rolling forward
-      # so PRs always compare against the most recent main commit.
-      # Copy current → baseline path before saving so the next restore extracts
-      # straight to the path the comparison step expects.
-      - name: Save bench baseline (main/next push only)
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/next') && needs.setup.outputs.is_release_merge == 'false'
-        run: cp tmp/bench-current.json tmp/bench-baseline.json
-
-      - name: Cache bench baseline (main/next push only)
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/next') && needs.setup.outputs.is_release_merge == 'false'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/bench-baseline.json
-          key: bench-baseline-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          if-no-files-found: ignore
 
   # ============================================
   # RELEASE PLEASE

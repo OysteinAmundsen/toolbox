@@ -430,13 +430,15 @@ jobs:
 
       # PR with affected projects: same-runner base vs head comparison.
       # Step 1 — set up a worktree at the base ref. We use a sibling
-      # directory so node_modules / dist from the two checkouts don't collide.
+      # directory so node_modules / dist from the two checkouts don't
+      # collide. The base SHA is already in the local repo because the
+      # initial `actions/checkout@v5` step uses `fetch-depth: 0`, so no
+      # extra `git fetch` is needed before `git worktree add`.
       - name: Prepare base worktree (PR)
         if: github.event_name == 'pull_request' && steps.affected.outputs.projects != ''
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
           git worktree add ../base "$BASE_SHA"
 
       # Step 2 — measure BASELINE first so warm-up costs (bun install, fs

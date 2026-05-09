@@ -23,12 +23,11 @@
  *
  *  2. **Across runs of the same project** (run 1 / 2 / 3): SAME benchmark
  *     identity (`group.fullName > bench.name`) appears in every input. We
- *     keep the entry with the highest `hz`, and for the comparison code
- *     downstream we also recompute `mean = 1000 / hz` so `compare-benches.ts`
- *     sees a coherent (mean, hz) pair. We keep the SMALLEST `moe` across
- *     the merged runs (tightest CI seen) — the alternative (re-deriving moe
- *     from cross-run variance) would require raw samples Vitest doesn't
- *     emit in the JSON report.
+ *     keep the entry with the highest `hz` **as a unit** — `mean`, `moe`,
+ *     `rme`, and `hz` all come from the same measured run, so the
+ *     `(mean ± moe)` interval used by `compare-benches.ts` corresponds to
+ *     a real distribution. See `pickBetter()` for why earlier "min(moe)"
+ *     and "rewrite mean = 1000/hz" tweaks are explicitly avoided.
  *
  * Usage:
  *   bun tools/merge-bench-runs.ts --output <path> <input.json> [<input.json> ...]
@@ -103,28 +102,28 @@ function parseArgs(argv: string[]): { output: string; inputs: string[] } {
  * polluted ones (GC, page faults, neighbour CPU contention) — they are
  * rarely indicative of the code's true cost.
  *
- * `mean` is rewritten to stay coherent with the picked `hz`: Vitest emits
- * `mean` in milliseconds and `hz` in ops/sec (`hz ≈ 1000/mean`), and
- * `compare-benches.ts` derives its CI bounds from `mean ± moe`. If we kept
- * a different run's `mean` alongside this run's `hz`, the disjointness
- * gate would silently disagree with the threshold gate.
+ * The returned entry is the **winner verbatim**: `mean`, `moe`, `rme`,
+ * `hz`, and `sampleCount` all come from the same measured run, so the
+ * `(mean ± moe)` interval used by `compare-benches.ts` corresponds to a
+ * real distribution. Earlier revisions rewrote `mean = 1000/winner.hz`
+ * "for coherence" and took `min(moeA, moeB)` — that was wrong on both
+ * counts: (a) `min(moe)` artificially tightens the CI band by pairing
+ * the winner's mean with a *different* run's moe, which makes the
+ * disjointness gate fire more often (i.e. MORE false positives, not
+ * fewer); (b) the rewritten `1000/winner.hz` doesn't match `winner.mean`
+ * exactly because Vitest derives both from samples independently, so the
+ * winner's own `moe` (computed against `winner.mean`) was already paired
+ * with a slightly off mean. Keeping the winner as a unit avoids both
+ * problems.
  *
- * `moe` is taken as the smaller of the two (tightest within-run CI we
- * observed). We do NOT widen `moe` to reflect cross-run variance: Vitest
- * doesn't expose raw per-iteration samples in the JSON report, so we
- * cannot legitimately re-estimate moe from N runs. The comparison
- * downstream is conservative (CI overlap AND threshold), so a tight moe
- * just means we trust the better of the two samples.
+ * The only normalization we still do is fall back to `(mean * rme/100)`
+ * if `moe` is absent on either side — purely for the comparator path,
+ * which prefers `moe` but accepts `rme%` as a backup.
  */
 function pickBetter(a: BenchEntry, b: BenchEntry): BenchEntry {
   const winner = a.hz >= b.hz ? a : b;
-  const moeA = a.moe ?? (a.mean * (a.rme ?? 0)) / 100;
-  const moeB = b.moe ?? (b.mean * (b.rme ?? 0)) / 100;
-  return {
-    ...winner,
-    mean: 1000 / winner.hz,
-    moe: Math.min(moeA, moeB),
-  };
+  const moe = winner.moe ?? (winner.mean * (winner.rme ?? 0)) / 100;
+  return { ...winner, moe };
 }
 
 function loadReport(path: string): BenchReport {
@@ -161,7 +160,9 @@ function mergeReports(reports: BenchReport[]): BenchReport {
   // Re-bucket by filepath so the output keeps Vitest's two-level layout.
   const filesByPath = new Map<string, BenchFile>();
   for (const [fullName, bucket] of groups) {
-    const filepath = groupFile.get(fullName)!;
+    // groupFile is populated alongside groups in the loop above, so this
+    // lookup is always defined; default to '' as an inert safeguard.
+    const filepath = groupFile.get(fullName) ?? '';
     let file = filesByPath.get(filepath);
     if (!file) {
       file = { filepath, groups: [] };

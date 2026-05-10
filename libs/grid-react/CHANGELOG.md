@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.5.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.5.1...grid-react-1.5.2) (2026-05-10)
+
+
+### Bug Fixes
+
+* **grid,grid-react,grid-angular:** honor gridConfig.features in dedup and template bridges ([45983a3](https://github.com/OysteinAmundsen/toolbox/commit/45983a3d0ca4957b7011a25c63bddadd001ed4fc))
+* **grid,grid-react,grid-angular:** honor gridConfig.features in dedup and template bridges ([45983a3](https://github.com/OysteinAmundsen/toolbox/commit/45983a3d0ca4957b7011a25c63bddadd001ed4fc))
+* **portal-bridge:** ensure correct type check for node in createNodeBridge function ([5703b79](https://github.com/OysteinAmundsen/toolbox/commit/5703b797d16648f99cb15411e4557cb811d82a57))
+
 ## [1.5.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.5.0...grid-react-1.5.1) (2026-05-07)
 
 

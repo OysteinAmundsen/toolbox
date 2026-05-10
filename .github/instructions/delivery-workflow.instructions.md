@@ -197,13 +197,23 @@ Do **not** invent catch-all scopes like `repo`, `meta`, or `workspace`. If you c
 
 **Chained (multi-system) scopes:**
 
-When a single commit legitimately spans multiple parts of the system, chain them with commas (Conventional Commits doesn't define multi-scope, but comma is the de-facto convention and `release-please` handles it). Order alphabetically when listing peer plugins/features so the form is deterministic; when mixing core with plugins/features, list `grid` first to read as "core plus these plugins":
+When a single commit legitimately spans multiple parts of the system, chain them with **`/`** (slash), NOT commas. Order alphabetically when listing peer plugins/features so the form is deterministic; when mixing core with plugins/features, list `grid` first to read as "core plus these plugins":
 
-- `fix(grid,sort): handle sort reset when columns array changes`
-- `feat(filter,sort): unify operator metadata shape`
-- `refactor(grid-react,grid-vue): share event-name normalizer`
+- `fix(grid/sort): handle sort reset when columns array changes`
+- `feat(filter/sort): unify operator metadata shape`
+- `refactor(grid-react/grid-vue): share event-name normalizer`
 
-Prefer splitting commits over long chains. If a commit needs more than ~3 scopes, it is probably doing too much — break it up.
+> **Why `/` not `,`** — Conventional Commits does not formally define multi-scope. release-please tokenises a comma-separated scope as a **list** of scopes and then matches the commit against each package's scope filter independently, which produces **duplicate CHANGELOG entries** (the same commit appears twice in every affected package). A `/`-separated scope is treated as one opaque string and matched once; per-package bumps fall back to path-based detection (release-please-config's `packages` map), which is what we want anyway. The rendered changelog line is identical (`**grid/sort:** ...` vs `**grid,sort:** ...`), so this is purely a parser workaround at zero readability cost.
+
+Prefer splitting commits over long chains. If a commit needs more than ~3 scopes, it is probably doing too much — break it up. When the cross-cutting effect is best explained in prose, prefer **single scope + body**:
+
+```
+fix(grid): honor gridConfig.features in dedup and template bridges
+
+Also touches grid-react and grid-angular template bridges.
+```
+
+— release-please bumps the other packages from the file paths in the diff and the per-package CHANGELOG attribution stays clean.
 
 **Documentation-only commits must use `docs` type** — but the scope still names the **system being documented**, not `docs`. The `docs` _scope_ is reserved for changes to the docs site infrastructure itself (`apps/docs/`).
 

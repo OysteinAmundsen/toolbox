@@ -3,11 +3,14 @@
  * the demo index page. Add a new entry here when introducing a new demo.
  */
 
+import type { Type } from '@angular/core';
+
 export interface DemoEntry {
   path: string;
   label: string;
   description?: string;
-  loadComponent: () => Promise<unknown>;
+  /** Lazy component loader compatible with `Route.loadComponent`. */
+  loadComponent: () => Promise<Type<unknown>>;
 }
 
 export const DEMOS: DemoEntry[] = [

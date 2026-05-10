@@ -15,7 +15,7 @@ export const routes: Routes = [
   { path: '', component: DemoIndexComponent, pathMatch: 'full' },
   ...DEMOS.map((demo) => ({
     path: demo.path,
-    loadComponent: demo.loadComponent as () => Promise<never>,
+    loadComponent: demo.loadComponent,
   })),
   { path: '**', component: DemoIndexComponent },
 ];

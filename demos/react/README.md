@@ -17,8 +17,9 @@ bun nx serve demo-react      # http://localhost:4300/<demo-route>
 bun nx build demo-react
 ```
 
-`/` falls back to the first registered route, so existing health checks
-(`wait-on http://localhost:4300`) keep working.
+`/` renders the demo index page (listing every registered route), so existing
+health checks (`wait-on http://localhost:4300`) keep working — the index
+returns 200.
 
 ## Adding a new demo
 

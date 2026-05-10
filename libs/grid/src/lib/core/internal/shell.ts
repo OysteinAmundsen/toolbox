@@ -1068,30 +1068,26 @@ export function buildGridDOMIntoElement(
 ): boolean {
   const hasShell = shouldRenderShellHeader(shellConfig);
 
-  // Preserve light DOM elements before clearing (they contain user content)
-  // These are custom elements used for declarative configuration
-  const lightDomElements: Element[] = [];
-  const lightDomSelectors = [
-    'tbw-grid-header',
-    'tbw-grid-tool-buttons',
-    'tbw-grid-tool-panel',
-    'tbw-grid-column',
-    'tbw-grid-detail',
-    'tbw-grid-responsive-card',
-  ];
-  for (const selector of lightDomSelectors) {
-    const elements = renderRoot.querySelectorAll(`:scope > ${selector}`);
-    elements.forEach((el) => lightDomElements.push(el));
+  // Preserve all direct child nodes EXCEPT the grid's own `.tbw-grid-root`
+  // (which we are about to rebuild). This keeps user/framework light-DOM
+  // intact in its original order — including non-element nodes like comment
+  // anchors that Angular's `@if`/`@for` and other structural directives use
+  // as positional markers. Filtering by element-tag selectors would discard
+  // those anchors and break re-renders of the conditional content.
+  const preservedNodes: Node[] = [];
+  for (let n: Node | null = renderRoot.firstChild; n; n = n.nextSibling) {
+    if (n.nodeType === 1 && (n as Element).classList.contains(GridClasses.ROOT)) continue;
+    preservedNodes.push(n);
   }
 
-  // Clear existing content (this would delete light DOM elements, so we preserved them first)
+  // Clear existing content (this would delete light DOM nodes, so we preserved them first)
   renderRoot.replaceChildren();
 
-  // Re-append preserved light DOM elements (hidden, they're used for config).
+  // Re-append preserved nodes in original order (hidden elements are used for config).
   // IMPORTANT: These are prepended before .tbw-grid-root, so `renderRoot.children[0]`
   // is NOT the grid root. Use `querySelector('.tbw-grid-root')` instead.
-  for (const el of lightDomElements) {
-    renderRoot.appendChild(el);
+  for (const n of preservedNodes) {
+    renderRoot.appendChild(n);
   }
 
   if (hasShell) {

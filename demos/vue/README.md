@@ -17,8 +17,9 @@ bun nx serve demo-vue        # http://localhost:4100/<demo-route>
 bun nx build demo-vue
 ```
 
-`/` falls back to the first registered route, so existing health checks
-(`wait-on http://localhost:4100`) keep working.
+`/` renders the demo index page (listing every registered route), so existing
+health checks (`wait-on http://localhost:4100`) keep working — the index
+returns 200.
 
 ## Adding a new demo
 

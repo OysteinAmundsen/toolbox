@@ -36,8 +36,9 @@ demos/
         └── demos/employee-management/employee-management.component.ts
 ```
 
-`/` in any shell falls back to the first registered route, which keeps the
-existing `wait-on http://localhost:<port>` health checks working.
+`/` in any shell renders a demo index page (listing every registered route),
+which keeps the existing `wait-on http://localhost:<port>` health checks
+working — the index returns 200.
 
 ## Running
 

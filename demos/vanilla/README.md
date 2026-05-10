@@ -18,8 +18,9 @@ bun nx serve demo-vanilla    # http://localhost:4000/<demo-route>
 bun nx build demo-vanilla
 ```
 
-`/` falls back to the first registered route, so existing health checks
-(`wait-on http://localhost:4000`) keep working.
+`/` renders the demo index page (listing every registered route), so existing
+health checks (`wait-on http://localhost:4000`) keep working — the index
+returns 200.
 
 ## Adding a new demo
 

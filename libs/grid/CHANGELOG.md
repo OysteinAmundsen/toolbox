@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.8.0...grid-2.8.1) (2026-05-10)
+
+
+### Bug Fixes
+
+* **grid,grid-react,grid-angular:** honor gridConfig.features in dedup and template bridges ([45983a3](https://github.com/OysteinAmundsen/toolbox/commit/45983a3d0ca4957b7011a25c63bddadd001ed4fc))
+
 ## [2.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.7.3...grid-2.8.0) (2026-05-09)
 
 

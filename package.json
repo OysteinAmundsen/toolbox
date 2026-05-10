@@ -21,6 +21,7 @@
     "e2e:update": "nx e2e:update-snapshots e2e",
     "e2e:full": "bun run build && concurrently --kill-others --success first -n servers,e2e -c gray,magenta \"bun run demo:dist\" \"bunx wait-on http://localhost:4000 http://localhost:4300 http://localhost:4200 http://localhost:4100 -t 60000 && bun run e2e\"",
     "bench": "nx run-many --target=bench --output-style=stream",
+    "bench:vs-tag": "bun scripts/bench-vs-tag.ts",
     "demo": "concurrently --kill-others -n vanilla,react,angular,vue -c blue,green,yellow,cyan \"bun nx run demo-vanilla:serve\" \"bun nx run demo-react:serve\" \"bun nx run demo-angular:serve\" \"bun nx run demo-vue:serve\"",
     "demo:dist": "concurrently --kill-others -n vanilla,react,angular,vue -c blue,green,yellow,cyan \"bun nx run demo-vanilla:serve:dist\" \"bun nx run demo-react:serve:dist\" \"bun nx run demo-angular:serve:dist\" \"bun nx run demo-vue:serve:dist\"",
     "lint": "nx run-many --target=lint --output-style=stream --quiet",

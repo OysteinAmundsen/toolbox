@@ -6,7 +6,6 @@
 ### Bug Fixes
 
 * **grid,grid-react,grid-angular:** honor gridConfig.features in dedup and template bridges ([45983a3](https://github.com/OysteinAmundsen/toolbox/commit/45983a3d0ca4957b7011a25c63bddadd001ed4fc))
-* **grid,grid-react,grid-angular:** honor gridConfig.features in dedup and template bridges ([45983a3](https://github.com/OysteinAmundsen/toolbox/commit/45983a3d0ca4957b7011a25c63bddadd001ed4fc))
 
 ## [1.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.5.1...grid-vue-1.6.0) (2026-05-08)
 

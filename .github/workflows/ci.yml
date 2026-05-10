@@ -291,18 +291,25 @@ jobs:
 
   # ============================================
   # BENCH: Vitest microbenchmarks (regression detection)
-  # - PR-only comparison. Runs the bench suite TWICE on the same runner:
-  #   once on the PR target branch tip (baseline), once on the PR head
-  #   (current). Both samples are drawn from the same VM, kernel, thermal
-  #   state, and noisy neighbour — eliminating cross-runner variance which
+  # - PR comparison against the LAST RELEASED COMMIT on `main` (the most
+  #   recent reachable tag, e.g. `grid-2.8.0`), not the PR's merge base.
+  #   This widens the comparison window so every PR is measured against
+  #   the last shipped product, not against the moving tip of `main`.
+  #   Practical effect: a perf regression introduced earlier in the same
+  #   release cycle still surfaces on later PRs instead of being baked
+  #   silently into the new baseline as soon as it merged.
+  # - Runs the bench suite TWICE on the same runner: once on the
+  #   last-tag commit (baseline), once on the PR head (current). Both
+  #   samples are drawn from the same VM, kernel, thermal state, and
+  #   noisy neighbour — eliminating cross-runner variance which
   #   previously caused spurious ±30–60% regression/improvement flips on
   #   each push to `main` (the cached-baseline approach compared runs from
   #   different VMs).
-  # - Scoped via `nx affected --with-target=bench`: only projects whose
-  #   bench-relevant code (or its dependencies in the Nx graph) changed in
-  #   the PR are benched. Docs-only / chore PRs run zero benches and the
-  #   job exits early. Single-project PRs skip the other two suites. This
-  #   is the primary lever for keeping wall time bounded.
+  # - Scoped via `nx affected --with-target=bench` against the same
+  #   last-tag SHA: only projects whose bench-relevant code (or its
+  #   dependencies in the Nx graph) changed since the last release are
+  #   benched. Docs-only / chore PRs typically run zero benches and the
+  #   job exits early.
   # - Each affected side is measured **N times** (BENCH_ITERATIONS) and
   #   merged via max-of-N on `hz` (tools/merge-bench-runs.ts). Borrowed
   #   from Netflix's TVUI perf-test methodology: outlier bench results on
@@ -372,9 +379,42 @@ jobs:
         if: github.event_name == 'pull_request'
         run: bun install
 
+      # Resolve the bench baseline to the most recent tag reachable from
+      # `origin/main` and emit its SHA. Tags follow `<package>-<semver>`
+      # (e.g. `grid-2.8.0`, `grid-vue-1.6.0`) and are written by
+      # release-please on every published release, so the latest tag is
+      # by definition the last released commit. Using this as the bench
+      # baseline means every PR is compared against the last shipped
+      # product instead of the moving tip of `main` — perf regressions
+      # accumulate visibly across a release cycle instead of being
+      # silently absorbed into the next PR's baseline.
+      #
+      # Falls back to `origin/main` if no tags exist yet (fresh repo).
+      - name: Resolve bench baseline (last tag on main)
+        if: github.event_name == 'pull_request'
+        id: baseline
+        run: |
+          git fetch --tags --quiet origin main || true
+          # Latest tag reachable from origin/main (falls back gracefully).
+          LAST_TAG=$(git describe --tags --abbrev=0 origin/main 2>/dev/null || true)
+          if [ -n "$LAST_TAG" ]; then
+            BASE_SHA=$(git rev-list -n 1 "$LAST_TAG")
+            echo "Bench baseline: tag '$LAST_TAG' → $BASE_SHA"
+            echo "label=$LAST_TAG" >> "$GITHUB_OUTPUT"
+          else
+            BASE_SHA=$(git rev-parse origin/main)
+            echo "No tags found; falling back to origin/main tip: $BASE_SHA"
+            echo "label=origin/main" >> "$GITHUB_OUTPUT"
+          fi
+          echo "sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+
       # Compute the bench-targeted projects affected by this PR. Output
       # is a space-separated list (e.g. "grid grid-react") consumed by
       # the loops below. Empty output → skip all bench/compare steps.
+      #
+      # The `--base` is the last-tag SHA resolved above (not the PR
+      # merge base), so this surfaces every project touched since the
+      # last release — matching the bench comparison window below.
       #
       # Workaround for an Nx quirk: when ONLY `sharedGlobals` files
       # (e.g. `.github/workflows/ci.yml`) change in a PR, `nx affected`
@@ -390,7 +430,7 @@ jobs:
         if: github.event_name == 'pull_request'
         id: affected
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ steps.baseline.outputs.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           AFFECTED=$(bun nx show projects --affected --with-target=bench --base "$BASE_SHA" --head "$HEAD_SHA" | tr '\n' ' ' | xargs)
@@ -434,16 +474,20 @@ jobs:
             tmp/bench-current-grid-vue.json
 
       # PR with affected projects: same-runner base vs head comparison.
-      # Step 1 — set up a worktree at the base ref. We use a sibling
-      # directory so node_modules / dist from the two checkouts don't
-      # collide. The base SHA is already in the local repo because the
-      # initial `actions/checkout@v5` step uses `fetch-depth: 0`, so no
-      # extra `git fetch` is needed before `git worktree add`.
+      # Step 1 — set up a worktree at the bench baseline (last released
+      # commit on main, resolved in the `baseline` step above). We use a
+      # sibling directory so node_modules / dist from the two checkouts
+      # don't collide. The baseline SHA is already in the local repo
+      # because the initial `actions/checkout@v5` step uses
+      # `fetch-depth: 0` (and the baseline step also fetched tags), so
+      # no extra `git fetch` is needed before `git worktree add`.
       - name: Prepare base worktree (PR)
         if: github.event_name == 'pull_request' && steps.affected.outputs.projects != ''
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ steps.baseline.outputs.sha }}
+          BASE_LABEL: ${{ steps.baseline.outputs.label }}
         run: |
+          echo "Checking out baseline $BASE_LABEL ($BASE_SHA) into ../base"
           git worktree add ../base "$BASE_SHA"
 
       # Step 2 — measure BASELINE first so warm-up costs (bun install, fs

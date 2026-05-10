@@ -1,17 +1,19 @@
 /**
- * Local "bench against a tagged release" utility.
+ * Bench against a tagged release — the canonical implementation of the
+ * "same-runner base vs. head" comparison used by both local development
+ * and CI.
  *
- * Mirrors the CI bench job (.github/workflows/ci.yml `bench:`):
+ * Steps:
  *   1. Resolve a baseline ref (default: last tag reachable from origin/main).
  *   2. Materialise that commit in a sibling git worktree.
  *   3. Run `vitest bench` on selected projects in BOTH worktrees on this
- *      machine (same CPU / kernel / thermal state — the whole point of the
- *      same-runner methodology, locally reproduced).
+ *      machine (same CPU / kernel / thermal state — the entire point of the
+ *      methodology, applied identically locally and on the CI runner).
  *   4. Merge per-project / per-iteration JSON via tools/merge-bench-runs.ts.
- *   5. Compare via tools/compare-benches.ts and print the same step-summary
- *      Markdown that CI posts.
+ *   5. Compare via tools/compare-benches.ts and (optionally) write the
+ *      step-summary Markdown that CI posts to $GITHUB_STEP_SUMMARY.
  *
- * Usage:
+ * Local usage:
  *   bun scripts/bench-vs-tag.ts                       # default: last tag, all bench projects, 1 iter
  *   bun scripts/bench-vs-tag.ts --ref grid-2.7.0      # explicit tag/SHA
  *   bun scripts/bench-vs-tag.ts --project grid        # subset (repeatable)
@@ -19,16 +21,26 @@
  *   bun scripts/bench-vs-tag.ts --threshold 0.20      # tighter regression gate
  *   bun scripts/bench-vs-tag.ts --keep-worktree       # don't delete ../base on exit
  *
+ * CI usage (.github/workflows/ci.yml `bench:` job):
+ *   bun scripts/bench-vs-tag.ts \
+ *     --ref "$BASE_SHA" --ref-label "$BASE_LABEL" \
+ *     --worktree ../base --keep-worktree --skip-current-install \
+ *     --iterations "$BENCH_ITERATIONS" --threshold 0.30 \
+ *     --group-logs --summary "$GITHUB_STEP_SUMMARY" \
+ *     --project grid --project grid-react ...
+ *
  * Notes:
  *   - The worktree lives at `<repo-parent>/<repo-name>-bench-baseline` by
  *     default (mirrors CI's `../base`). Override with `--worktree <path>`.
  *   - The worktree is removed on exit unless `--keep-worktree` is passed
- *     (useful when iterating: skip the second `bun install` cost).
+ *     (useful when iterating locally; CI sets it because the runner is
+ *     ephemeral and teardown is wasted work).
  *   - Run with a quiet machine. Close browsers, stop dev servers, etc.
  *     Same-runner sampling cancels VM/thermal noise but NOT app-level CPU
  *     contention from your own desktop.
  */
 
+import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 
@@ -38,23 +50,31 @@ const ROOT = resolve(import.meta.dirname, '..');
 
 interface CliOptions {
   ref: string | null; // null = auto-detect
+  refLabel: string | null;
   projects: string[]; // empty = all known
   iterations: number;
   threshold: number;
   worktree: string | null;
   keepWorktree: boolean;
   failOnRegression: boolean;
+  skipCurrentInstall: boolean;
+  groupLogs: boolean;
+  summary: string | null;
 }
 
 function parseArgs(argv: string[]): CliOptions {
   const opts: CliOptions = {
     ref: null,
+    refLabel: null,
     projects: [],
     iterations: 1,
     threshold: 0.3,
     worktree: null,
     keepWorktree: false,
     failOnRegression: false,
+    skipCurrentInstall: false,
+    groupLogs: false,
+    summary: null,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -62,6 +82,9 @@ function parseArgs(argv: string[]): CliOptions {
     switch (a) {
       case '--ref':
         opts.ref = next();
+        break;
+      case '--ref-label':
+        opts.refLabel = next();
         break;
       case '--project':
         opts.projects.push(next());
@@ -81,6 +104,15 @@ function parseArgs(argv: string[]): CliOptions {
       case '--fail-on-regression':
         opts.failOnRegression = true;
         break;
+      case '--skip-current-install':
+        opts.skipCurrentInstall = true;
+        break;
+      case '--group-logs':
+        opts.groupLogs = true;
+        break;
+      case '--summary':
+        opts.summary = next();
+        break;
       case '-h':
       case '--help':
         printHelp();
@@ -94,19 +126,23 @@ function parseArgs(argv: string[]): CliOptions {
 }
 
 function printHelp(): void {
-  // Strip the leading JSDoc block from this file and print the Usage section.
   console.log(`
-Local bench vs. tagged release.
+Bench against a tagged release (same-runner methodology).
 
   bun scripts/bench-vs-tag.ts [options]
 
 Options:
   --ref <tag-or-sha>     Baseline ref. Default: last tag reachable from origin/main.
+  --ref-label <label>    Display label for the baseline (e.g. when --ref is a SHA).
   --project <name>       Bench project to run (repeatable). Default: grid, grid-react, grid-vue.
   --iterations <n>       Bench iterations per side (max-of-N merge). Default: 1.
   --threshold <fraction> Regression threshold. Default: 0.30.
   --worktree <path>      Path for baseline worktree. Default: <repo>-bench-baseline sibling.
-  --keep-worktree        Leave the worktree on disk after the run (faster reruns).
+  --keep-worktree        Leave the worktree on disk after the run (faster reruns / CI).
+  --skip-current-install Don't run 'bun install' in the HEAD cwd (CI already did).
+  --group-logs           Wrap each bench iteration in ::group:: for GitHub Actions log folding.
+  --summary <path>       Append the comparison summary as Markdown to <path>
+                         (e.g. "$GITHUB_STEP_SUMMARY" in CI).
   --fail-on-regression   Exit non-zero if compare-benches reports any regression.
   -h, --help             Show this help.
 `);
@@ -137,11 +173,47 @@ function sh(cmd: string[], cwd: string = ROOT, opts: { capture?: boolean; allowF
   return opts.capture ? (proc.stdout?.toString() ?? '').trim() : '';
 }
 
+/**
+ * Streaming async variant of `sh` for long-running children (vitest bench,
+ * `bun install` on a fresh worktree).
+ *
+ * Why this exists: when a Bun parent process spawns a long-running `bun`
+ * (or `bunx`) child on Windows via `Bun.spawn`/`Bun.spawnSync`, the child
+ * is reliably killed mid-run (exit 58, no error output). The same command
+ * run directly from a shell completes fine. Using Node's `child_process`
+ * (still available under Bun) sidesteps the nested-Bun lifecycle issue.
+ *
+ * Returns the exit code; never throws on non-zero (callers decide what
+ * counts as failure — for vitest bench the canonical signal is "did the
+ * --outputJson file appear?").
+ */
+async function shAsync(cmd: string[], cwd: string = ROOT): Promise<number> {
+  return await new Promise<number>((resolvePromise, rejectPromise) => {
+    const child = spawn(cmd[0], cmd.slice(1), {
+      cwd,
+      stdio: 'inherit',
+      env: { ...process.env, NX_DAEMON: 'false' },
+      shell: process.platform === 'win32',
+    });
+    child.on('error', rejectPromise);
+    child.on('exit', (code, signal) => {
+      if (signal) {
+        rejectPromise(new Error(`Command killed by signal ${signal}: ${cmd.join(' ')}`));
+        return;
+      }
+      resolvePromise(code ?? 0);
+    });
+  });
+}
+
 // #endregion
 
 // #region Baseline resolution
 
-function resolveBaseline(refArg: string | null): { ref: string; sha: string; label: string } {
+function resolveBaseline(
+  refArg: string | null,
+  labelOverride: string | null,
+): { ref: string; sha: string; label: string } {
   // Make sure tags from origin/main are present locally before describing.
   // `allowFail: true` because some local clones won't have an `origin` remote
   // (e.g. forks); we'll still try `git describe` against whatever's local.
@@ -165,7 +237,8 @@ function resolveBaseline(refArg: string | null): { ref: string; sha: string; lab
 
   const sha = sh(['git', 'rev-list', '-n', '1', ref], ROOT, { capture: true });
   if (!sha) die(`Ref '${ref}' did not resolve to a SHA.`);
-  return { ref, sha, label: refArg ? ref : `${ref} (latest tag on main)` };
+  const label = labelOverride ?? (refArg ? ref : `${ref} (latest tag on main)`);
+  return { ref, sha, label };
 }
 
 // #endregion
@@ -217,22 +290,57 @@ function removeWorktree(target: string): void {
 
 // #region Bench execution
 
-function runBenchSide(
+async function runBenchSide(
   side: 'baseline' | 'current',
   cwd: string,
   projects: string[],
   iterations: number,
   outDir: string,
-): void {
-  console.log(`\n[bench-vs-tag] ${side}: bun install (cwd=${cwd})`);
-  sh(['bun', 'install'], cwd);
+  opts: { skipInstall: boolean; groupLogs: boolean },
+): Promise<void> {
+  if (opts.skipInstall) {
+    console.log(`\n[bench-vs-tag] ${side}: skipping bun install (--skip-current-install)`);
+  } else {
+    console.log(`\n[bench-vs-tag] ${side}: bun install --frozen-lockfile (cwd=${cwd})`);
+    // --frozen-lockfile: skip resolution when bun.lock is unchanged.
+    // Massively faster on the second worktree (cache + lock match) and
+    // safer because it errors out if the baseline's lock would otherwise
+    // be silently rewritten.
+    //
+    // Use shAsync (streaming) — Bun.spawnSync crashes long children on
+    // Windows with exit 58 (parent-process buffer pressure). `bun install`
+    // on a fresh worktree easily hits this.
+    const installExit = await shAsync(['bun', 'install', '--frozen-lockfile'], cwd);
+    if (installExit !== 0) die(`bun install --frozen-lockfile failed in ${cwd} (exit ${installExit})`);
+  }
 
   for (const project of projects) {
     const config = PROJECT_CONFIGS[project];
     for (let i = 1; i <= iterations; i++) {
       const out = resolve(outDir, `bench-${side}-${project}-${i}.json`);
-      console.log(`\n[bench-vs-tag] ${side}: ${project} run ${i}/${iterations}`);
-      sh(['bunx', 'vitest', 'bench', '--config', config, '--run', `--outputJson=${out}`], cwd);
+      const sideTitle = side === 'baseline' ? 'Baseline' : 'Current';
+      const groupTitle = `${sideTitle} ${project} run ${i}/${iterations}`;
+      if (opts.groupLogs) console.log(`::group::${groupTitle}`);
+      else console.log(`\n[bench-vs-tag] ${side}: ${project} run ${i}/${iterations}`);
+      // Use the streaming async spawn (shAsync) for vitest. The sync variant
+      // crashes mid-run on long Windows suites with exit 58 because of
+      // parent-process buffer pressure; async spawn passes child stdio
+      // straight through with no parent buffering.
+      //
+      // Vitest bench may still exit non-zero due to worker cleanup
+      // flakiness even when the run completes; the canonical success
+      // signal is "did the --outputJson file appear?". A real failure
+      // (config error, missing file, etc.) won't produce one.
+      const exitCode = await shAsync(
+        ['bunx', 'vitest', 'bench', '--config', config, '--run', `--outputJson=${out}`],
+        cwd,
+      );
+      if (!existsSync(out)) {
+        die(
+          `Vitest did not produce ${out} for ${side}/${project} (run ${i}, exit ${exitCode}). See output above for the real failure.`,
+        );
+      }
+      if (opts.groupLogs) console.log('::endgroup::');
     }
   }
 }
@@ -242,7 +350,7 @@ function runBenchSide(
 async function main(): Promise<void> {
   const opts = parseArgs(process.argv.slice(2));
   const projects = selectProjects(opts.projects);
-  const baseline = resolveBaseline(opts.ref);
+  const baseline = resolveBaseline(opts.ref, opts.refLabel);
 
   const repoName = basename(ROOT);
   const worktreePath = opts.worktree ?? resolve(ROOT, '..', `${repoName}-bench-baseline`);
@@ -254,6 +362,7 @@ async function main(): Promise<void> {
   console.log(`[bench-vs-tag] Iterations per side: ${opts.iterations}`);
   console.log(`[bench-vs-tag] Worktree: ${worktreePath}`);
   console.log(`[bench-vs-tag] Threshold: ${opts.threshold} (fail-on-regression=${opts.failOnRegression})`);
+  if (opts.summary) console.log(`[bench-vs-tag] Summary will append to: ${opts.summary}`);
 
   const cleanup = () => {
     if (!opts.keepWorktree) removeWorktree(worktreePath);
@@ -269,8 +378,14 @@ async function main(): Promise<void> {
 
     // Baseline first — warm-up cost (bun install, fs cache, JIT) is paid
     // before measuring HEAD, mirroring the CI ordering.
-    runBenchSide('baseline', worktreePath, projects, opts.iterations, tmpDir);
-    runBenchSide('current', ROOT, projects, opts.iterations, tmpDir);
+    await runBenchSide('baseline', worktreePath, projects, opts.iterations, tmpDir, {
+      skipInstall: false,
+      groupLogs: opts.groupLogs,
+    });
+    await runBenchSide('current', ROOT, projects, opts.iterations, tmpDir, {
+      skipInstall: opts.skipCurrentInstall,
+      groupLogs: opts.groupLogs,
+    });
 
     // Merge max-of-N per side.
     const baselineGlob = projects.flatMap((p) =>
@@ -297,10 +412,10 @@ async function main(): Promise<void> {
       '--threshold',
       String(opts.threshold),
     ];
+    if (opts.summary) compareArgs.push('--summary', opts.summary);
     if (opts.failOnRegression) compareArgs.push('--fail-on-regression');
 
-    const proc = Bun.spawnSync(compareArgs, { cwd: ROOT, stdout: 'inherit', stderr: 'inherit' });
-    exitCode = proc.exitCode ?? 0;
+    exitCode = await shAsync(compareArgs, ROOT);
   } finally {
     cleanup();
   }

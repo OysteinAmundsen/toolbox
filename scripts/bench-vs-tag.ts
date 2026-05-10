@@ -1,14 +1,21 @@
 /**
- * Bench against a tagged release — the canonical implementation of the
- * "same-runner base vs. head" comparison used by both local development
- * and CI.
+ * Bench against a tagged release — local mirror of the CI bench pipeline.
+ *
+ * Mirrors the behaviour of the `bench:` job in `.github/workflows/ci.yml`:
+ * worktree the baseline ref, run `vitest bench` on both sides on the same
+ * machine (same CPU / kernel / thermal state — same-runner methodology),
+ * merge max-of-N per side, then compare. CI itself currently runs the
+ * equivalent steps inline as shell loops; this script is the developer
+ * entry point for reproducing a CI bench run locally and is also wired
+ * for CI use (the flags below cover that case) if/when the workflow is
+ * consolidated to a single invocation.
  *
  * Steps:
  *   1. Resolve a baseline ref (default: last tag reachable from origin/main).
  *   2. Materialise that commit in a sibling git worktree.
  *   3. Run `vitest bench` on selected projects in BOTH worktrees on this
- *      machine (same CPU / kernel / thermal state — the entire point of the
- *      methodology, applied identically locally and on the CI runner).
+ *      machine (same CPU / kernel / thermal state — the entire point of
+ *      the methodology, applied identically locally and on the CI runner).
  *   4. Merge per-project / per-iteration JSON via tools/merge-bench-runs.ts.
  *   5. Compare via tools/compare-benches.ts and (optionally) write the
  *      step-summary Markdown that CI posts to $GITHUB_STEP_SUMMARY.
@@ -21,7 +28,8 @@
  *   bun scripts/bench-vs-tag.ts --threshold 0.20      # tighter regression gate
  *   bun scripts/bench-vs-tag.ts --keep-worktree       # don't delete ../base on exit
  *
- * CI usage (.github/workflows/ci.yml `bench:` job):
+ * CI-equivalent invocation (kept here as documentation of the supported
+ * flag set; the workflow does NOT currently call this script directly):
  *   bun scripts/bench-vs-tag.ts \
  *     --ref "$BASE_SHA" --ref-label "$BASE_LABEL" \
  *     --worktree ../base --keep-worktree --skip-current-install \
@@ -89,12 +97,24 @@ function parseArgs(argv: string[]): CliOptions {
       case '--project':
         opts.projects.push(next());
         break;
-      case '--iterations':
-        opts.iterations = Math.max(1, Number(next()));
+      case '--iterations': {
+        const raw = next();
+        const n = Number(raw);
+        if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) {
+          die(`--iterations must be a positive integer, got: ${raw}`);
+        }
+        opts.iterations = n;
         break;
-      case '--threshold':
-        opts.threshold = Number(next());
+      }
+      case '--threshold': {
+        const raw = next();
+        const n = Number(raw);
+        if (!Number.isFinite(n) || n < 0 || n > 1) {
+          die(`--threshold must be a number between 0 and 1, got: ${raw}`);
+        }
+        opts.threshold = n;
         break;
+      }
       case '--worktree':
         opts.worktree = resolve(next());
         break;

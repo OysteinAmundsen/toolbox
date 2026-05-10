@@ -19,10 +19,10 @@
       "path": "./libs/grid-vue"
     },
     {
-      "path": "./demos/employee-management/vue"
+      "path": "./apps/docs-e2e"
     },
     {
-      "path": "./apps/docs-e2e"
+      "path": "./demos/vue"
     }
   ],
   "ts-node": {

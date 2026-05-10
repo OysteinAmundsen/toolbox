@@ -91,8 +91,11 @@ export default defineConfig({
       alias: {
         ...gridAliases(),
         '@toolbox/themes': resolve(rootDir, 'libs/themes'),
-        '@demo/shared': resolve(rootDir, 'demos/employee-management/shared'),
-        '@demo/vanilla': resolve(rootDir, 'demos/employee-management/vanilla/main.ts'),
+        '@demo/shared/employee-management': resolve(rootDir, 'demos/shared/employee-management'),
+        '@demo/vanilla/employee-management': resolve(
+          rootDir,
+          'demos/vanilla/src/demos/employee-management/grid-factory.ts',
+        ),
         '@components': resolve(import.meta.dirname, 'src/components'),
       },
     },

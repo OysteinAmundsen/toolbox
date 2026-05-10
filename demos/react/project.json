@@ -1,0 +1,43 @@
+{
+  "name": "demo-react",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "demos/react/src",
+  "implicitDependencies": ["grid", "grid-react"],
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vite",
+        "cwd": "demos/react",
+        "port": 4300
+      }
+    },
+    "serve:dist": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vite",
+        "cwd": "demos/react",
+        "port": 4300,
+        "env": {
+          "USE_DIST": "true"
+        }
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["^build"],
+      "options": {
+        "command": "vite build",
+        "cwd": "demos/react"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["demos/react/**/*.{ts,tsx}"]
+      }
+    }
+  }
+}

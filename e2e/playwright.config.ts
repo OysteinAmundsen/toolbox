@@ -13,9 +13,10 @@ const workspaceRoot = resolve(__dirname, '..');
 
 // Default ports for each demo (from project.json configurations)
 const DEMO_PORTS = {
-  vanilla: 4000, // From demos/employee-management/vanilla/project.json
-  react: 4300, // From demos/employee-management/react/project.json
-  angular: 4200, // Angular default
+  vanilla: 4000, // From demos/vanilla/project.json
+  react: 4300, // From demos/react/project.json
+  angular: 4200, // From demos/angular/project.json (Angular default)
+  vue: 4100, // From demos/vue/project.json
 };
 
 // Use GitHub summary reporter on CI, custom clean-list reporter locally

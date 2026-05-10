@@ -58,9 +58,10 @@
       "@toolbox-web/grid-vue": ["dist/libs/grid-vue/index.d.ts"],
       "@toolbox-web/grid-vue/features/*": ["dist/libs/grid-vue/features/*.d.ts"],
       "@toolbox/themes/*": ["libs/themes/*"],
-      "@demo/shared": ["demos/employee-management/shared/index.ts"],
-      "@demo/shared/styles": ["demos/employee-management/shared/styles.ts"],
-      "@demo/shared/demo-styles.css": ["demos/employee-management/shared/demo-styles.css"]
+      "@demo/shared/demo-index.css": ["demos/shared/demo-index.css"],
+      "@demo/shared/employee-management": ["demos/shared/employee-management/index.ts"],
+      "@demo/shared/employee-management/styles": ["demos/shared/employee-management/styles.ts"],
+      "@demo/shared/employee-management/demo-styles.css": ["demos/shared/employee-management/demo-styles.css"]
     }
   }
 }

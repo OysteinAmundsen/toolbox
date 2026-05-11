@@ -170,6 +170,14 @@ export interface ShellHeaderOptions {
   hasPanels: boolean;
   isPanelOpen: boolean;
   toolPanelIcon?: string;
+  /**
+   * Whether to render the built-in tool panel toggle button and the
+   * adjacent separator. Independent of `hasPanels` so panels can remain
+   * registered (and openable via the public API) while the consumer
+   * supplies their own toggle button.
+   * @default true when hasPanels is true
+   */
+  showToggle?: boolean;
   /** Config toolbar contents with render function (pre-sorted by order) */
   configButtons: Array<{
     id: string;
@@ -222,12 +230,15 @@ export function buildShellHeader(options: ShellHeaderOptions): HTMLDivElement {
   // Separator between custom content and panel toggle
   const hasCustomContent =
     options.configButtons.some((b) => b.hasRender) || options.apiButtons.some((b) => b.hasRender);
-  if (hasCustomContent && options.hasPanels) {
+  // Default showToggle to hasPanels for backwards compat; suppress both the
+  // button and the separator when the consumer opts out.
+  const showToggle = options.hasPanels && options.showToggle !== false;
+  if (hasCustomContent && showToggle) {
     toolbar.appendChild(div('tbw-toolbar-separator'));
   }
 
-  // Panel toggle button
-  if (options.hasPanels) {
+  // Panel toggle button (suppressed when shell.header.toolPanelToggle is false)
+  if (showToggle) {
     const toggleBtn = button(options.isPanelOpen ? 'tbw-toolbar-btn active' : 'tbw-toolbar-btn', {
       'data-panel-toggle': '',
       title: 'Settings',

@@ -3536,6 +3536,20 @@ export interface ShellHeaderConfig {
   /** Custom toolbar content (rendered before tool panel toggle) */
   toolbarContents?: ToolbarContentDefinition[];
   /**
+   * Whether the grid renders its built-in tool panel toggle button
+   * (`button.tbw-toolbar-btn[data-panel-toggle]`) and the auto-inserted
+   * `.tbw-toolbar-separator` between custom toolbar contents and the toggle.
+   *
+   * Set to `false` when you want to provide your own toggle button (e.g. a
+   * design-system button styled to match your application). Wire your button
+   * to call {@link Grid.toggleToolPanel} (or `toggleToolPanelSection(id)` for
+   * a specific section). All tool panels remain functional; only the
+   * built-in toggle button and adjacent separator are suppressed.
+   *
+   * @default true
+   */
+  toolPanelToggle?: boolean;
+  /**
    * Light DOM header content elements (parsed from <tbw-grid-header> children).
    * @internal Set by ConfigManager during merge
    */

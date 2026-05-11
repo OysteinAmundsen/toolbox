@@ -1218,6 +1218,34 @@ tbw-grid .tbw-toolbar-separator {
 
 No grid configuration is required; this is the recommended way to standardize toolbar layout across an application's grids.
 
+### Bring Your Own Tool-Panel Toggle
+
+If you need to replace the built-in toggle button entirely — for example, to use a design-system button (`<my-button>`, MUI `<Button>`, etc.) instead of styling `.tbw-toolbar-btn` — set `shell.header.toolPanelToggle: false`. The grid will not render the built-in button **or** the auto-inserted separator next to it; tool panels themselves remain fully functional and can be toggled from any element via [`grid.toggleToolPanel()`](./api-reference) (or `toggleToolPanelSection(id)` for a specific section).
+
+```typescript
+const config = {
+  shell: {
+    header: {
+      title: 'Employees',
+      toolPanelToggle: false, // suppress built-in <button data-panel-toggle> + separator
+      toolbarContents: [
+        {
+          id: 'my-settings',
+          render: (container) => {
+            const btn = document.createElement('my-button');
+            btn.textContent = 'Settings';
+            btn.addEventListener('click', () => grid.toggleToolPanel());
+            container.appendChild(btn);
+          },
+        },
+      ],
+    },
+  },
+};
+```
+
+This is the supported alternative to hiding `.tbw-toolbar-btn` and `.tbw-toolbar-separator` with CSS — no library DOM needs to be hidden, and you keep full control of the button's markup, attributes, and event handlers.
+
 ---
 
 ## Loading States

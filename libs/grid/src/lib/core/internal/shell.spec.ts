@@ -256,6 +256,72 @@ describe('shell module', () => {
       expect(html).not.toContain('tbw-toolbar-separator');
     });
 
+    it('omits built-in toggle button when shell.header.toolPanelToggle is false', () => {
+      const panel: ToolPanelDefinition = {
+        id: 'columns',
+        title: 'Columns',
+        icon: '☰',
+        render: () => {
+          /* noop */
+        },
+      };
+      state.toolPanels.set('columns', panel);
+
+      const html = renderShellHeader({ header: { toolPanelToggle: false } }, state);
+
+      expect(html).not.toContain('data-panel-toggle');
+      expect(html).not.toContain('tbw-toolbar-btn');
+      // Header itself still renders so consumer toolbarContents can mount.
+      expect(html).toContain('tbw-shell-header');
+    });
+
+    it('omits separator when toolPanelToggle is false even with custom toolbar contents', () => {
+      const panel: ToolPanelDefinition = {
+        id: 'columns',
+        title: 'Columns',
+        icon: '☰',
+        render: () => {
+          /* noop */
+        },
+      };
+      state.toolPanels.set('columns', panel);
+      const config: ShellConfig = {
+        header: {
+          toolPanelToggle: false,
+          toolbarContents: [
+            {
+              id: 'eds-button',
+              render: () => {
+                /* noop */
+              },
+            },
+          ],
+        },
+      };
+
+      const html = renderShellHeader(config, state);
+
+      expect(html).toContain('data-toolbar-content="eds-button"');
+      expect(html).not.toContain('tbw-toolbar-separator');
+      expect(html).not.toContain('data-panel-toggle');
+    });
+
+    it('still renders built-in toggle when toolPanelToggle is explicitly true (default)', () => {
+      const panel: ToolPanelDefinition = {
+        id: 'columns',
+        title: 'Columns',
+        icon: '☰',
+        render: () => {
+          /* noop */
+        },
+      };
+      state.toolPanels.set('columns', panel);
+
+      const html = renderShellHeader({ header: { toolPanelToggle: true } }, state);
+
+      expect(html).toContain('data-panel-toggle');
+    });
+
     it('renders single panel toggle for multiple panels', () => {
       const panel1: ToolPanelDefinition = {
         id: 'columns',

@@ -208,7 +208,12 @@ export function renderShellHeader(
 
   const hasCustomContent = allContents.length > 0;
   const hasPanels = state.toolPanels.size > 0;
-  const showSeparator = hasCustomContent && hasPanels;
+  // Allow consumers to suppress the built-in toggle (and the separator that
+  // only exists to space it from custom toolbar contents) so they can render
+  // their own design-system button and wire it to `grid.toggleToolPanel()`.
+  // Default true preserves existing behavior.
+  const showToggle = hasPanels && config?.header?.toolPanelToggle !== false;
+  const showSeparator = hasCustomContent && showToggle;
 
   // Sort contents by order for slot placement
   const sortedContents = [...allContents].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -226,8 +231,10 @@ export function renderShellHeader(
     toolbarHtml += '<div class="tbw-toolbar-separator"></div>';
   }
 
-  // Single panel toggle button (the ONLY button the grid creates)
-  if (hasPanels) {
+  // Single panel toggle button (the ONLY button the grid creates).
+  // Suppressed when `shell.header.toolPanelToggle === false` so consumers can
+  // BYO toggle button without hiding library DOM via CSS.
+  if (showToggle) {
     const isOpen = state.isPanelOpen;
     const toggleClass = isOpen ? 'tbw-toolbar-btn active' : 'tbw-toolbar-btn';
     // type="button" is required: without it a <button> inside a <form>
@@ -1027,6 +1034,7 @@ function buildShellOptions(
       hasPanels: sortedPanels.length > 0,
       isPanelOpen: runtimeState.isPanelOpen,
       toolPanelIcon,
+      showToggle: shellConfig.header?.toolPanelToggle !== false,
       configButtons: sortedContents.map((c) => ({
         id: c.id,
         hasElement: false,

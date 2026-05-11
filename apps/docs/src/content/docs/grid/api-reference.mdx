@@ -1075,6 +1075,7 @@ grid.gridConfig = {
   shell: {
     header: {
       title: 'Employee Directory',
+      toolPanelToggle: true,        // Render built-in panel toggle button (default: true)
     },
     toolPanel: {
       position: 'right',           // 'left' | 'right'
@@ -1086,6 +1087,8 @@ grid.gridConfig = {
   },
 };
 ```
+
+Set `header.toolPanelToggle` to `false` to suppress the built-in `<button class="tbw-toolbar-btn" data-panel-toggle>` and the adjacent `.tbw-toolbar-separator` — useful when supplying your own design-system toggle button. Wire the custom button to `grid.toggleToolPanel()` or `grid.toggleToolPanelSection(id)`. See [Bring Your Own Tool-Panel Toggle](./core#bring-your-own-tool-panel-toggle) for a worked example.
 
 ### Icon Customization
 

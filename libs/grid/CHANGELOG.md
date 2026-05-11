@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.9.0...grid-2.10.0) (2026-05-11)
+
+
+### Features
+
+* **grid:** add toolPanel.initialState and toolPanel.locked; deprecate defaultOpen sidebar-open side effect ([138d865](https://github.com/OysteinAmundsen/toolbox/commit/138d86557d84fb6c4a9556cdb92812f9deb11fb5))
+
+
+### Bug Fixes
+
+* **grid:** include column groups in Excel and JSON exports ([#314](https://github.com/OysteinAmundsen/toolbox/issues/314)) ([#315](https://github.com/OysteinAmundsen/toolbox/issues/315)) ([8d5b12a](https://github.com/OysteinAmundsen/toolbox/commit/8d5b12a00b1493081a5150cb39089c7f9436732a))
+
 ## [2.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.8.1...grid-2.9.0) (2026-05-11)
 
 

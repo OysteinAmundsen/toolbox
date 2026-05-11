@@ -22,12 +22,31 @@ Whenever you add a new public type, interface, method, property, exported consta
 
 **Determining the next version:**
 
-1. Read the affected library's `package.json` `version` field (e.g. `libs/grid/package.json`, `libs/grid-react/package.json`). This is the **last released** version.
-2. The next version depends on the change type and release-please's Conventional Commits mapping (see `release-please-config.json`):
+The next version is the **max** of (a) what release-please has already staged for queued PRs, and (b) what your own PR would bump the library to. Use whichever is higher.
+
+1. **Read the staged version from release-please.** Release-please maintains an open release PR on `origin/release-please--branches--main` whose diff bumps every affected library's `package.json` to its next published version, accounting for every queued conventional-commit type.
+
+   ```bash
+   git fetch origin release-please--branches--main:refs/remotes/origin/release-please--branches--main
+   git show origin/release-please--branches--main:libs/grid/package.json | grep '"version"'
+   ```
+
+   If the branch doesn't exist (no queued release) or doesn't touch your library, the staged version is the current `package.json` `version` field.
+
+2. **Compute the bump your PR would cause on its own**, starting from the _last released_ version in `libs/<lib>/package.json` and applying release-please's Conventional Commits mapping (see `release-please-config.json`):
    - `feat:` → next **minor** (e.g. `2.7.3` → `2.8.0`)
    - `fix:`, `perf:`, `refactor:` → next **patch** (e.g. `2.7.3` → `2.7.4`)
    - `feat!:` / `BREAKING CHANGE` → next **major** (e.g. `2.7.3` → `3.0.0`)
-3. Use the resolved version (`@since 2.8.0`, not `@since 0.1.1`).
+
+3. **Pick the higher of the two.** Your PR can only raise release-please's staged tier, never lower it:
+   - staged `2.10.0` (queued `feat`) + your PR is `fix:` → use **`2.10.0`** (staged wins).
+   - staged `2.9.1` (queued `fix`) + your PR is `feat:` → use **`2.10.0`** (your PR upgrades the bump to minor).
+   - staged `2.10.0` (queued `feat`) + your PR is `feat!:` → use **`3.0.0`** (your PR upgrades to major).
+   - No release-please branch and your PR is `feat:` from `2.9.0` → use **`2.10.0`**.
+
+   Practical rule: if your PR's tier (major > minor > patch) is **stricter** than release-please's currently staged tier, apply your tier to the _last released_ version; otherwise use release-please's staged version verbatim.
+
+4. Use the resolved version (`@since 2.10.0`, not `@since 0.1.1`).
 
 **Why this matters:** TypeDoc and the docs site surface `@since` directly in the API reference. Wrong values mislead users about when an API was added and which versions support it.
 

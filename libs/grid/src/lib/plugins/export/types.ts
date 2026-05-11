@@ -108,11 +108,10 @@ export interface ExportParams {
   excelStyles?: ExcelStyleConfig;
   /**
    * Plugin-contributed extra header rows that sit **above** the leaf header
-   * row. Normally populated automatically from the
-   * {@link QUERY_COLLECT_HEADER_ROWS} broadcast in `ExportPlugin.export*()`;
-   * you only set it manually when calling the pure formatters
-   * ({@link ExportPlugin.formatCsv} / {@link ExportPlugin.formatExcel}) with
-   * pre-built row data.
+   * row. Normally populated automatically from the `'collectHeaderRows'`
+   * broadcast in `ExportPlugin.export*()`; you only set it manually when
+   * calling the pure formatters ({@link ExportPlugin.formatCsv} /
+   * {@link ExportPlugin.formatExcel}) with pre-built row data.
    *
    * Ignored when `includeHeaders` is `false`.
    * @since 2.10.0

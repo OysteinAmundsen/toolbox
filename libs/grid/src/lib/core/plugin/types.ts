@@ -222,30 +222,20 @@ export interface PluginQuery<T = unknown> {
 }
 
 /**
- * Query type used by consumers (e.g. the export plugin) to collect extra
- * header rows that should sit **above** the leaf column-header row.
+ * Context passed in {@link PluginQuery.context} for the `'collectHeaderRows'`
+ * query — used by consumers (e.g. the export plugin) to collect extra header
+ * rows that should sit **above** the leaf column-header row.
  *
- * Plugins that contribute header rows (e.g. {@link GroupingColumnsPlugin})
- * declare `{ type: QUERY_COLLECT_HEADER_ROWS }` in their manifest and
- * respond from `handleQuery` with a {@link HeaderRowContribution}.
+ * Plugins that contribute header rows (e.g. `GroupingColumnsPlugin`) declare
+ * `{ type: 'collectHeaderRows' }` in their manifest and respond from
+ * `handleQuery` with a {@link HeaderRowContribution} — or an array of them
+ * for multi-row contributions (e.g. multi-level grouping). The consumer
+ * flattens array replies.
  *
- * The reply shape is intentionally generic — it just says "here are some
- * cells, each spanning N leaf columns" — so consumers don't need to know
- * which plugin produced them.
- *
- * @category Plugin Development
- * @since 2.10.0
- */
-export const QUERY_COLLECT_HEADER_ROWS = 'collectHeaderRows';
-
-/**
- * Context passed in {@link PluginQuery.context} for the
- * {@link QUERY_COLLECT_HEADER_ROWS} query.
- *
- * Carries the resolved leaf-column array the consumer is about to render
- * (already filtered by visibility / `params.columns` / etc.). Responding
- * plugins MUST align their contribution to this column array — `span`
- * values are indices into it.
+ * The reply shape is intentionally generic — "here are some cells, each
+ * spanning N leaf columns" — so consumers don't need to know which plugin
+ * produced them. Responding plugins MUST align their contribution to the
+ * `columns` array on this context — `span` values are indices into it.
  *
  * @category Plugin Development
  * @since 2.10.0
@@ -282,9 +272,10 @@ export interface HeaderRowCell {
  * A single header row contributed by a plugin. Sits **above** the leaf
  * column-header row in the visual / export output.
  *
- * Plugins MAY return multiple contributions from a single `handleQuery`
- * call (e.g. multi-level grouping → one row per level), in which case each
- * row's `cells` must independently sum to `context.columns.length`.
+ * Each contribution represents **one row**. A plugin needing multiple rows
+ * (e.g. multi-level grouping) returns `HeaderRowContribution[]` from
+ * `handleQuery`; the consumer flattens. Within each row, `cells` MUST
+ * independently sum to `context.columns.length`.
  *
  * @category Plugin Development
  * @since 2.10.0

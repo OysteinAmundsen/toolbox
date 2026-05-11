@@ -9,12 +9,7 @@
 import { COLUMN_GROUPS_CONFLICT } from '../../core/internal/diagnostics';
 import type { AfterCellRenderContext, PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
-import {
-  type CollectHeaderRowsContext,
-  type HeaderRowCell,
-  type HeaderRowContribution,
-  QUERY_COLLECT_HEADER_ROWS,
-} from '../../core/plugin/types';
+import { type CollectHeaderRowsContext, type HeaderRowCell, type HeaderRowContribution } from '../../core/plugin/types';
 import type { ColumnConfig } from '../../core/types';
 import type { ColumnGroupInfo } from '../visibility/types';
 import {
@@ -114,7 +109,7 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     queries: [
       { type: 'getColumnGrouping', description: 'Returns column group metadata for the visibility panel' },
       {
-        type: QUERY_COLLECT_HEADER_ROWS,
+        type: 'collectHeaderRows',
         description: 'Contributes a group-header row above the leaf header for exports / printers',
       },
     ],
@@ -269,7 +264,7 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     if (query.type === 'getColumnGrouping') {
       return this.#getStableColumnGrouping();
     }
-    if (query.type === QUERY_COLLECT_HEADER_ROWS) {
+    if (query.type === 'collectHeaderRows') {
       return this.#buildHeaderRowContribution((query as PluginQuery<CollectHeaderRowsContext>).context);
     }
     return undefined;

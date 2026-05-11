@@ -629,7 +629,7 @@ The column grouping plugin uses these class names:
 
 ## Integration with Exports
 
-When the [ExportPlugin](../export/) is installed alongside grouping columns, group headers automatically appear in **Excel** and **JSON** exports (since 2.10.0 — fixes [#314](https://github.com/OysteinAmundsen/toolbox/issues/314)). CSV stays flat. See [Column Groups in Exports](../export/#column-groups-in-exports) for the full behaviour matrix.
+When the [ExportPlugin](../export/) is installed alongside grouping columns, group headers automatically appear in **Excel** and **JSON** exports (since 2.10.0). CSV stays flat. See [Column Groups in Exports](../export/#column-groups-in-exports) for the full behaviour matrix.
 
 The mechanism is the generic `collectHeaderRows` plugin query — any plugin can contribute extra header rows the same way. Style group rows independently via `excelStyles.groupHeaderStyle`.
 

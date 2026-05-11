@@ -233,7 +233,7 @@ exportPlugin.exportExcel({
 
 ## Column Groups in Exports
 
-**Since 2.10.0.** When the [`GroupingColumnsPlugin`](/grid/plugins/grouping-columns/) is installed alongside the export plugin, column group headers are automatically included above the leaf headers — fixing [issue #314](https://github.com/OysteinAmundsen/toolbox/issues/314).
+**Since 2.10.0.** When the [`GroupingColumnsPlugin`](/grid/plugins/grouping-columns/) is installed alongside the export plugin, column group headers are automatically included above the leaf headers.
 
 How it works: the export plugin broadcasts the generic `collectHeaderRows` plugin query before emitting headers. Any plugin can reply with a `HeaderRowContribution` describing extra rows that sit above the leaf header. The grouping plugin replies with one row whose cells carry the group label and a `span` matching the number of leaf columns the group covers. The mechanism is plugin-agnostic — third-party plugins can contribute their own header rows the same way.
 

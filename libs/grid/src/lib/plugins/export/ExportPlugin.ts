@@ -10,12 +10,7 @@
 import { formatDateValue } from '../../core/internal/utils';
 import { resolveCellValue } from '../../core/internal/value-accessor';
 import { BaseGridPlugin, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
-import {
-  type CollectHeaderRowsContext,
-  type HeaderRowCell,
-  type HeaderRowContribution,
-  QUERY_COLLECT_HEADER_ROWS,
-} from '../../core/plugin/types';
+import { type CollectHeaderRowsContext, type HeaderRowCell, type HeaderRowContribution } from '../../core/plugin/types';
 import type { ColumnConfig, InternalGrid } from '../../core/types';
 import { resolveColumns, resolveRows } from '../shared/data-collection';
 import { buildCsv, type CsvOptions, downloadBlob, downloadCsv } from './csv';
@@ -195,61 +190,114 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
       rows = [...this.rows] as Record<string, unknown>[];
     }
 
-    // Collect plugin-contributed header rows (e.g. column groups) and apply
-    // `processHeaderRow` filtering. Both gated on `includeHeaders` — if the
-    // caller asked for no headers, we collect nothing.
-    if (fullParams.includeHeaders !== false && !fullParams.headerRows) {
-      fullParams.headerRows = this.#collectAndProcessHeaderRows(columns, fullParams.processHeaderRow);
-    } else if (fullParams.includeHeaders === false) {
+    // Resolve header rows.
+    //
+    // Two entry paths:
+    //   1. Auto-collect: broadcast `collectHeaderRows` to all plugins.
+    //   2. Manual: caller passed `params.headerRows` directly (typical for
+    //      pure-formatter usage where there's no grid to query).
+    //
+    // Both paths run through the same processing pipeline so
+    // `processHeaderRow`, span validation, and blank-row dropping behave
+    // identically regardless of how the rows arrived.
+    //
+    // All gated on `includeHeaders`: `false` skips both leaf AND contributed
+    // rows (all-or-nothing per #314 design).
+    if (fullParams.includeHeaders === false) {
       fullParams.headerRows = undefined;
+    } else {
+      const raw = fullParams.headerRows ?? this.#collectHeaderRows(columns);
+      fullParams.headerRows = this.#processHeaderRows(raw, columns, fullParams.processHeaderRow);
     }
 
     return { columns, rows, fullParams };
   }
 
   /**
-   * Broadcast {@link QUERY_COLLECT_HEADER_ROWS} to all plugins, apply the
-   * optional `processHeaderRow` callback, and drop any row whose every cell
-   * is blank (`label === ''`).
-   *
-   * Returns `undefined` (not `[]`) when no row survives, so downstream
-   * formatters can keep their single-header-row layout unchanged via a
-   * single `headerRows?.length` check.
+   * Broadcast the `'collectHeaderRows'` query to all plugins and flatten the
+   * responses. Each plugin may return a single contribution or an array of
+   * contributions (one per row) — both shapes are flattened to a single
+   * `HeaderRowContribution[]`.
    */
-  #collectAndProcessHeaderRows(
+  #collectHeaderRows(columns: ColumnConfig[]): HeaderRowContribution[] {
+    if (columns.length === 0) return [];
+    const grid = this.grid as { query?: <T>(type: string, context: CollectHeaderRowsContext) => T[] } | undefined;
+    if (!grid?.query) return [];
+    const responses = grid.query<HeaderRowContribution | HeaderRowContribution[] | undefined>('collectHeaderRows', {
+      columns,
+    });
+    if (!responses || responses.length === 0) return [];
+    const flat: HeaderRowContribution[] = [];
+    for (const r of responses) {
+      if (!r) continue;
+      if (Array.isArray(r)) {
+        for (const row of r) {
+          if (row && Array.isArray(row.cells) && row.cells.length > 0) flat.push(row);
+        }
+      } else if (Array.isArray(r.cells) && r.cells.length > 0) {
+        flat.push(r);
+      }
+    }
+    return flat;
+  }
+
+  /**
+   * Normalize, validate, and filter a list of header-row contributions.
+   *
+   * - Applies the optional `processHeaderRow` callback per cell. `null`
+   *   returns blank the cell (span preserved); rows where every cell ends
+   *   up blank are dropped (`#314` "collapse fully-blank row" rule).
+   * - Validates that each row's spans sum to `columns.length`. Rows that
+   *   under-fill are padded with a trailing blank cell; rows that
+   *   over-fill (malformed third-party contribution) are skipped to keep
+   *   downstream formatters structurally sound.
+   *
+   * Returns `undefined` (not `[]`) when no row survives so downstream
+   * formatters can short-circuit with a single `headerRows?.length` check.
+   */
+  #processHeaderRows(
+    rows: HeaderRowContribution[] | undefined,
     columns: ColumnConfig[],
     processHeaderRow?: (cell: HeaderRowCell, rowIndex: number) => HeaderRowCell | null,
   ): HeaderRowContribution[] | undefined {
-    if (columns.length === 0) return undefined;
-    const grid = this.grid as { query?: <T>(type: string, context: CollectHeaderRowsContext) => T[] } | undefined;
-    if (!grid?.query) return undefined;
-    const responses = grid.query<HeaderRowContribution | undefined>(QUERY_COLLECT_HEADER_ROWS, { columns });
-    if (!responses || responses.length === 0) return undefined;
-    const collected: HeaderRowContribution[] = [];
-    for (const r of responses) {
-      if (r && Array.isArray(r.cells) && r.cells.length > 0) collected.push(r);
-    }
-    if (collected.length === 0) return undefined;
+    if (!rows || rows.length === 0) return undefined;
+    const expectedSpan = columns.length;
 
-    // Apply processHeaderRow per cell; drop rows that end up entirely blank.
     const processed: HeaderRowContribution[] = [];
-    for (let rowIndex = 0; rowIndex < collected.length; rowIndex++) {
-      const row = collected[rowIndex];
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      const row = rows[rowIndex];
+      if (!row || !Array.isArray(row.cells) || row.cells.length === 0) continue;
+
       const outCells: HeaderRowCell[] = [];
       let anyVisible = false;
+      let runningSpan = 0;
+      let overflowed = false;
       for (const cell of row.cells) {
+        const span = Math.max(1, cell.span | 0);
+        if (runningSpan + span > expectedSpan) {
+          // Malformed: cumulative span exceeds column count. Skip the row.
+          overflowed = true;
+          break;
+        }
+        runningSpan += span;
         const next = processHeaderRow ? processHeaderRow(cell, rowIndex) : cell;
         if (next === null) {
-          // Blank — preserve span so neighbours stay aligned.
-          outCells.push({ label: '', span: cell.span });
+          outCells.push({ label: '', span });
         } else {
-          outCells.push(next);
+          outCells.push({ ...next, span });
           if ((next.label ?? '') !== '') anyVisible = true;
         }
       }
-      // Drop fully-blank rows (every cell `label === ''`). Honours the
-      // "collapse row if every slot is blank" rule from #314.
+      if (overflowed) continue;
+      // Pad under-filled rows with a trailing blank cell so leaf headers
+      // stay aligned. (A well-behaved contribution from the grouping plugin
+      // always fully covers `columns.length`; this guards against
+      // third-party plugins that drift.)
+      if (runningSpan < expectedSpan) {
+        outCells.push({ label: '', span: expectedSpan - runningSpan });
+      }
       if (anyVisible) processed.push({ cells: outCells });
+      // else: every cell collapsed → row dropped.
     }
 
     return processed.length > 0 ? processed : undefined;

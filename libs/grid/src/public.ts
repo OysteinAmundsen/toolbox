@@ -347,7 +347,7 @@ export { invalidateAccessorCache, resolveCellValue } from './lib/core/internal/v
 
 // #region Plugin Development
 // Plugin base class - for creating custom plugins
-export { BaseGridPlugin, QUERY_COLLECT_HEADER_ROWS } from './lib/core/plugin';
+export { BaseGridPlugin } from './lib/core/plugin';
 export type {
   AfterCellRenderContext,
   AfterRowRenderContext,

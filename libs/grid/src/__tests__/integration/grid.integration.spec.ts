@@ -1253,7 +1253,41 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(shadow.querySelector('.tbw-grid-root.has-shell')).toBeNull();
   });
 
-  it('opens default section when configured', async () => {
+  it('expands the configured default section but does not open the sidebar', async () => {
+    grid = document.createElement('tbw-grid');
+    grid.registerToolPanel({
+      id: 'columns',
+      title: 'Columns',
+      icon: '☰',
+      render: () => {
+        /* noop */
+      },
+    });
+    grid.registerToolPanel({
+      id: 'filters',
+      title: 'Filters',
+      icon: '🔍',
+      order: 0, // would otherwise be picked as the first section
+      render: () => {
+        /* noop */
+      },
+    });
+    // initialState: 'closed' opts into the v3 behavior (#259) where
+    // defaultOpen only pre-selects the section without opening the sidebar.
+    grid.gridConfig = {
+      shell: { toolPanel: { defaultOpen: 'columns', initialState: 'closed' } },
+    };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    expect(grid.isToolPanelOpen).toBe(false);
+    expect(grid.expandedToolPanelSections).toContain('columns');
+  });
+
+  // TOOLPANEL-OPEN-LEGACY-259: legacy v2 behavior — defaultOpen alone opens
+  // the sidebar. Remove this test (or invert its expectation) in v3.0.0.
+  it('legacy v2: defaultOpen alone opens the sidebar (deprecated, see #259)', async () => {
     grid = document.createElement('tbw-grid');
     grid.registerToolPanel({
       id: 'columns',
@@ -1272,6 +1306,90 @@ describe('tbw-grid integration: shell header & tool panels', () => {
 
     expect(grid.isToolPanelOpen).toBe(true);
     expect(grid.expandedToolPanelSections).toContain('columns');
+  });
+
+  it('opens the sidebar on load when shell.toolPanel.initialState === "open"', async () => {
+    grid = document.createElement('tbw-grid');
+    grid.registerToolPanel({
+      id: 'columns',
+      title: 'Columns',
+      icon: '☰',
+      render: () => {
+        /* noop */
+      },
+    });
+    grid.gridConfig = {
+      shell: { toolPanel: { initialState: 'open' } },
+    };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    expect(grid.isToolPanelOpen).toBe(true);
+    expect(grid.expandedToolPanelSections).toContain('columns');
+  });
+
+  it('opens the sidebar and expands defaultOpen when initialState === "open"', async () => {
+    grid = document.createElement('tbw-grid');
+    grid.registerToolPanel({
+      id: 'columns',
+      title: 'Columns',
+      icon: '☰',
+      render: () => {
+        /* noop */
+      },
+    });
+    grid.registerToolPanel({
+      id: 'filters',
+      title: 'Filters',
+      icon: '🔍',
+      order: 0,
+      render: () => {
+        /* noop */
+      },
+    });
+    grid.gridConfig = {
+      shell: { toolPanel: { initialState: 'open', defaultOpen: 'columns' } },
+    };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    expect(grid.isToolPanelOpen).toBe(true);
+    // defaultOpen wins over the order-based first panel.
+    expect(grid.expandedToolPanelSections).toContain('columns');
+    expect(grid.expandedToolPanelSections).not.toContain('filters');
+  });
+
+  it('locks the sidebar open and suppresses the built-in toggle button', async () => {
+    grid = document.createElement('tbw-grid');
+    grid.registerToolPanel({
+      id: 'columns',
+      title: 'Columns',
+      icon: '☰',
+      render: () => {
+        /* noop */
+      },
+    });
+    grid.gridConfig = {
+      shell: { toolPanel: { locked: true } },
+    };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    // Locked implies the sidebar is open on load.
+    expect(grid.isToolPanelOpen).toBe(true);
+    // The built-in toggle button is suppressed (consumer can't close it).
+    expect(grid.querySelector('[data-panel-toggle]')).toBeNull();
+
+    // closeToolPanel() is a no-op while locked.
+    grid.closeToolPanel();
+    expect(grid.isToolPanelOpen).toBe(true);
+
+    // toggleToolPanel() is also a no-op (it routes through closeToolPanel).
+    grid.toggleToolPanel();
+    expect(grid.isToolPanelOpen).toBe(true);
   });
 
   it('re-renders tool panel when position changes from right to left', async () => {

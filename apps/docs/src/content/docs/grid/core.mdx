@@ -1162,9 +1162,11 @@ import { TbwGrid, TbwGridToolButtons } from '@toolbox-web/grid-vue';
 | `shell.header.title` | `string` | — | Title text in the header bar |
 | `shell.toolPanel.position` | `'left' \| 'right'` | `'right'` | Sidebar position |
 | `shell.toolPanel.width` | `number` | `280` | Sidebar width in pixels |
-| `shell.toolPanel.defaultOpen` | `string` | — | Panel ID to open on load |
+| `shell.toolPanel.defaultOpen` | `string` | — | Accordion section to auto-expand on first open. **Deprecated:** in v2.x this also opens the sidebar; in v3.0.0 it will only pre-select the section (see [#259](https://github.com/OysteinAmundsen/toolbox/issues/259)). Combine with `initialState: 'open'` for forward-compatible behavior. |
+| `shell.toolPanel.initialState` | `'open' \| 'closed'` | `'closed'` | Whether the sidebar starts open on grid load. Overrides the legacy `defaultOpen` open-on-load behavior when set. |
+| `shell.toolPanel.locked` | `boolean` | `false` | Lock the sidebar open. Implies `initialState: 'open'`, makes `closeToolPanel()` a no-op, and hides the built-in toggle button. |
 | `shell.toolPanel.persistState` | `boolean` | `false` | Remember open/closed state |
-| `shell.toolPanel.closeOnClickOutside` | `boolean` | `false` | Close on outside click (ignored in `mode: 'push'`) |
+| `shell.toolPanel.closeOnClickOutside` | `boolean` | `false` | Close on outside click (ignored in `mode: 'push'` or when `locked: true`) |
 | `shell.toolPanel.mode` | `'overlay' \| 'push'` | `'overlay'` | `'overlay'` floats over the grid; `'push'` reflows the grid sideways so all cells stay visible |
 
 ### Tool-panel layout modes
@@ -1220,7 +1222,7 @@ No grid configuration is required; this is the recommended way to standardize to
 
 ### Bring Your Own Tool-Panel Toggle
 
-If you need to replace the built-in toggle button entirely — for example, to use a design-system button (`<my-button>`, MUI `<Button>`, etc.) instead of styling `.tbw-toolbar-btn` — set `shell.header.toolPanelToggle: false`. The grid will not render the built-in button **or** the auto-inserted separator next to it; tool panels themselves remain fully functional and can be toggled from any element via [`grid.toggleToolPanel()`](./api-reference) (or `toggleToolPanelSection(id)` for a specific section).
+If you need to replace the built-in toggle button entirely — for example, to use a design-system button instead of styling `.tbw-toolbar-btn` — set `shell.header.toolPanelToggle: false`. The grid will not render the built-in button **or** the auto-inserted separator next to it; tool panels themselves remain fully functional and can be toggled from any element via [`grid.toggleToolPanel()`](./api-reference) (or `toggleToolPanelSection(id)` for a specific section).
 
 ```typescript
 const config = {

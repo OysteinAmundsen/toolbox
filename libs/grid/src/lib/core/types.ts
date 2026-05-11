@@ -3486,7 +3486,8 @@ export const DEFAULT_GRID_ICONS: Required<GridIcons> = {
  *     },
  *     toolPanel: {
  *       position: 'right',
- *       defaultOpen: 'columns', // Open by default
+ *       initialState: 'open',     // Sidebar open on load
+ *       defaultOpen: 'columns',   // Auto-expand the "Columns" section
  *     },
  *   },
  *   plugins: [new VisibilityPlugin()], // Adds "Columns" panel
@@ -3570,8 +3571,59 @@ export interface ToolPanelConfig {
   position?: 'left' | 'right';
   /** Default panel width in pixels (default: 280) */
   width?: number;
-  /** Panel ID to open by default on load */
+  /**
+   * Accordion section to auto-expand the first time the tool panel opens.
+   *
+   * @deprecated **Behavior change planned for v3.0.0** — see [issue #259](https://github.com/OysteinAmundsen/toolbox/issues/259).
+   *
+   * Today (v2.x, kept for backward compatibility): setting `defaultOpen` also
+   * **opens the sidebar** on grid load. This conflates "which section is
+   * pre-selected" with "is the sidebar open", and there is no way to
+   * pre-select a section without also forcing the sidebar open.
+   *
+   * In v3.0.0 (#259): `defaultOpen` will only pre-select which accordion
+   * section auto-expands the first time the sidebar opens, and will no
+   * longer open the sidebar by itself. Migrate by combining `defaultOpen`
+   * with `initialState: 'open'` (or `locked: true`) when you want both
+   * effects.
+   *
+   * Callers that want forward-compatible behavior today: prefer
+   * `initialState` / `locked` for sidebar open state, and use `defaultOpen`
+   * purely for section selection.
+   *
+   * @since 0.1.1
+   */
   defaultOpen?: string;
+  /**
+   * Initial open state of the tool panel sidebar on grid load.
+   *
+   * - `'closed'` (default) — sidebar starts collapsed; user opens it via the
+   *   built-in toggle button or `grid.openToolPanel()`.
+   * - `'open'` — sidebar starts open; the section named by {@link defaultOpen}
+   *   (or the first registered panel) is expanded.
+   *
+   * Takes precedence over the legacy v2 behavior of {@link defaultOpen}: if
+   * `initialState` is set explicitly, it wins.
+   *
+   * @default 'closed'
+   * @since 2.9.0
+   */
+  initialState?: 'open' | 'closed';
+  /**
+   * When `true`, lock the tool panel sidebar in its open state.
+   *
+   * Effects:
+   * - Implies `initialState: 'open'` — the sidebar is forced open on load.
+   * - `grid.closeToolPanel()` / `grid.toggleToolPanel()` become no-ops while
+   *   locked (the panel cannot be closed by user or programmatic actions).
+   * - Suppresses the built-in toolbar toggle button (same effect as
+   *   `shell.header.toolPanelToggle: false`) since toggling is disabled.
+   * - Accordion sections inside the panel can still be expanded/collapsed.
+   *
+   * @default false
+   * @since 2.9.0
+   */
+  locked?: boolean;
   /** Whether to persist open/closed state (requires Column State Events) */
   persistState?: boolean;
   /**

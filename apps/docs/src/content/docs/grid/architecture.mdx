@@ -720,7 +720,9 @@ gridConfig: {
     toolPanel: {
       position: 'left' | 'right',  // Sidebar position
       width: '17.5em',             // Panel width (CSS value)
-      defaultOpen: 'filters',      // Auto-open section ID
+      defaultOpen: 'filters',      // Section auto-expanded on first open (v2: also opens sidebar — deprecated, see #259)
+      initialState: 'closed',      // 'open' | 'closed' — preferred way to control sidebar open state
+      locked: false,               // true = sidebar always open, toggle hidden
       closeOnClickOutside: false,
     },
   },

@@ -211,8 +211,10 @@ export function renderShellHeader(
   // Allow consumers to suppress the built-in toggle (and the separator that
   // only exists to space it from custom toolbar contents) so they can render
   // their own design-system button and wire it to `grid.toggleToolPanel()`.
+  // Also suppress when the tool panel is locked open — toggling is disabled.
   // Default true preserves existing behavior.
-  const showToggle = hasPanels && config?.header?.toolPanelToggle !== false;
+  const isLocked = config?.toolPanel?.locked === true;
+  const showToggle = hasPanels && config?.header?.toolPanelToggle !== false && !isLocked;
   const showSeparator = hasCustomContent && showToggle;
 
   // Sort contents by order for slot placement
@@ -1034,7 +1036,7 @@ function buildShellOptions(
       hasPanels: sortedPanels.length > 0,
       isPanelOpen: runtimeState.isPanelOpen,
       toolPanelIcon,
-      showToggle: shellConfig.header?.toolPanelToggle !== false,
+      showToggle: shellConfig.header?.toolPanelToggle !== false && shellConfig.toolPanel?.locked !== true,
       configButtons: sortedContents.map((c) => ({
         id: c.id,
         hasElement: false,

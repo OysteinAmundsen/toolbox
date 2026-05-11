@@ -1370,11 +1370,26 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       renderHeaderContent(this.#renderRoot, this.#shellState);
       // Render custom toolbar contents (render modes) - all contents unified in effectiveConfig
       renderCustomToolbarContents(this.#renderRoot, this.#effectiveConfig?.shell, this.#shellState);
-      // Open default section if configured
-      const defaultOpen = this.#effectiveConfig?.shell?.toolPanel?.defaultOpen;
+      // Pre-expand the configured default section.
+      const toolPanelCfg = this.#effectiveConfig?.shell?.toolPanel;
+      const defaultOpen = toolPanelCfg?.defaultOpen;
       if (defaultOpen && this.#shellState.toolPanels.has(defaultOpen)) {
-        this.openToolPanel();
         this.#shellState.expandedSections.add(defaultOpen);
+      }
+      // Decide whether the sidebar should be open on load.
+      // NOTE: In v2.x `defaultOpen` alone also opens the sidebar (legacy
+      // behavior). v3.0.0 will drop that — see issue #259 and the
+      // @deprecated note on ToolPanelConfig.defaultOpen.
+      // Search marker: TOOLPANEL-OPEN-LEGACY-259
+      const shouldOpenOnLoad =
+        toolPanelCfg?.locked === true ||
+        toolPanelCfg?.initialState === 'open' ||
+        // Legacy v2 path — remove in v3.0.0 (#259)
+        (toolPanelCfg?.initialState === undefined &&
+          defaultOpen !== undefined &&
+          this.#shellState.toolPanels.has(defaultOpen));
+      if (!this.#shellState.isPanelOpen && this.#shellState.toolPanels.size > 0 && shouldOpenOnLoad) {
+        this.openToolPanel();
       }
       // Restore panel content if panel was already open (e.g., after position change re-render)
       if (this.#shellState.isPanelOpen) {
@@ -4345,10 +4360,21 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       renderHeaderContent(this.#renderRoot, this.#shellState);
       renderCustomToolbarContents(this.#renderRoot, this.#effectiveConfig?.shell, this.#shellState);
 
-      const defaultOpen = this.#effectiveConfig?.shell?.toolPanel?.defaultOpen;
+      const toolPanelCfg = this.#effectiveConfig?.shell?.toolPanel;
+      const defaultOpen = toolPanelCfg?.defaultOpen;
       if (defaultOpen && this.#shellState.toolPanels.has(defaultOpen)) {
-        this.openToolPanel();
         this.#shellState.expandedSections.add(defaultOpen);
+      }
+      // See TOOLPANEL-OPEN-LEGACY-259 comment above (afterConnect) — same
+      // legacy fallback applies after a shell refresh.
+      const shouldOpenOnLoad =
+        toolPanelCfg?.locked === true ||
+        toolPanelCfg?.initialState === 'open' ||
+        (toolPanelCfg?.initialState === undefined &&
+          defaultOpen !== undefined &&
+          this.#shellState.toolPanels.has(defaultOpen));
+      if (!this.#shellState.isPanelOpen && this.#shellState.toolPanels.size > 0 && shouldOpenOnLoad) {
+        this.openToolPanel();
       }
 
       // Restore panel content if panel was already open (e.g., after plugin re-init triggers refreshShellHeader)

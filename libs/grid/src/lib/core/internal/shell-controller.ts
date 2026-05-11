@@ -100,12 +100,19 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
 
       state.isPanelOpen = true;
 
-      // Auto-expand first section if none expanded
+      // Auto-expand a section if none expanded.
+      // Prefer toolPanel.defaultOpen when it matches a registered panel;
+      // otherwise pick the first panel by `order`.
       if (state.expandedSections.size === 0 && state.toolPanels.size > 0) {
-        const sortedPanels = [...state.toolPanels.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
-        const firstPanel = sortedPanels[0];
-        if (firstPanel) {
-          state.expandedSections.add(firstPanel.id);
+        const defaultOpenId = grid.effectiveConfig?.shell?.toolPanel?.defaultOpen;
+        if (defaultOpenId && state.toolPanels.has(defaultOpenId)) {
+          state.expandedSections.add(defaultOpenId);
+        } else {
+          const sortedPanels = [...state.toolPanels.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+          const firstPanel = sortedPanels[0];
+          if (firstPanel) {
+            state.expandedSections.add(firstPanel.id);
+          }
         }
       }
 
@@ -123,6 +130,9 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
 
     closeToolPanel() {
       if (!state.isPanelOpen) return;
+      // When the tool panel is locked open, programmatic and user close
+      // requests become no-ops. Accordion sections can still toggle.
+      if (grid.effectiveConfig?.shell?.toolPanel?.locked) return;
 
       // Clean up all panel content
       for (const cleanup of state.panelCleanups.values()) {

@@ -1080,7 +1080,9 @@ grid.gridConfig = {
     toolPanel: {
       position: 'right',           // 'left' | 'right'
       width: 280,                   // Panel width in pixels
-      defaultOpen: 'filters',       // Panel ID to open initially
+      defaultOpen: 'filters',       // Section auto-expanded on first open (v2: also opens sidebar — deprecated, see #259)
+      initialState: 'open',         // 'open' | 'closed' — preferred way to control sidebar open state
+      locked: false,                // Lock the sidebar open and hide the toggle button
       persistState: true,           // Persist open/closed state
       closeOnClickOutside: true,    // Close when clicking outside panel
     },

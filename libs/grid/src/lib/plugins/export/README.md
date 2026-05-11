@@ -70,17 +70,28 @@ const lastExport = exporter.getLastExport();
 
 All export methods accept optional `ExportParams`:
 
-| Option           | Type                         | Default      | Description                                                                                                 |
-| ---------------- | ---------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
-| `fileName`       | `string`                     | config value | File name (without extension)                                                                               |
-| `columns`        | `string[]`                   | -            | Specific column fields to export                                                                            |
-| `rowIndices`     | `number[]`                   | -            | Specific row indices to export                                                                              |
-| `includeHeaders` | `boolean`                    | config value | Include column headers in export                                                                            |
-| `processCell`    | `(value, field, row) => any` | -            | Custom cell value processor                                                                                 |
-| `processHeader`  | `(header, field) => string`  | -            | Custom header processor                                                                                     |
-| `mode`           | `'raw' \| 'formatted'`       | `'raw'`      | `'raw'` = underlying typed values; `'formatted'` = what the grid displays (`column.format` + type defaults) |
-| `fileExtension`  | `string`                     | `'.xls'`     | Override file extension for Excel export (e.g. `'.xml'`)                                                    |
-| `excelStyles`    | `ExcelStyleConfig`           | -            | Excel style configuration (Excel only)                                                                      |
+| Option             | Type                                        | Default      | Description                                                                                                                                                                 |
+| ------------------ | ------------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fileName`         | `string`                                    | config value | File name (without extension)                                                                                                                                               |
+| `columns`          | `string[]`                                  | -            | Specific column fields to export                                                                                                                                            |
+| `rowIndices`       | `number[]`                                  | -            | Specific row indices to export                                                                                                                                              |
+| `includeHeaders`   | `boolean`                                   | config value | Include column headers in export                                                                                                                                            |
+| `processCell`      | `(value, field, row) => any`                | -            | Custom cell value processor                                                                                                                                                 |
+| `processHeader`    | `(header, field) => string`                 | -            | Custom header processor                                                                                                                                                     |
+| `processHeaderRow` | `(cell, rowIndex) => HeaderRowCell \| null` | -            | Per-cell processor for plugin-contributed header rows (e.g. column groups). Return `null` to blank a cell; if every cell in a row is blank the row is dropped. Since 2.10.0 |
+| `mode`             | `'raw' \| 'formatted'`                      | `'raw'`      | `'raw'` = underlying typed values; `'formatted'` = what the grid displays (`column.format` + type defaults)                                                                 |
+| `fileExtension`    | `string`                                    | `'.xls'`     | Override file extension for Excel export (e.g. `'.xml'`)                                                                                                                    |
+| `excelStyles`      | `ExcelStyleConfig`                          | -            | Excel style configuration (Excel only). Includes new `groupHeaderStyle` (since 2.10.0) for styling plugin-contributed header rows.                                          |
+
+## Column Groups in Exports (since 2.10.0)
+
+When the [`GroupingColumnsPlugin`](../grouping-columns/) is installed alongside the export plugin, column group headers are automatically included above the leaf headers in **Excel** and **JSON** exports. Fixes [#314](https://github.com/OysteinAmundsen/toolbox/issues/314).
+
+- **Excel**: each group becomes a merged-cell row above the leaf headers (`ss:MergeAcross`). Style independently via `excelStyles.groupHeaderStyle`.
+- **JSON**: output becomes `{ headerRows, rows }` when groups are present; stays a flat array when not (backward-compatible).
+- **CSV**: stays flat — no native span representation.
+
+The mechanism is a generic `collectHeaderRows` plugin query — third-party plugins can contribute their own header rows the same way without the export plugin needing to know about them.
 
 ## Excel File Format
 

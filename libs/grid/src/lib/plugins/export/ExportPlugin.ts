@@ -10,6 +10,12 @@
 import { formatDateValue } from '../../core/internal/utils';
 import { resolveCellValue } from '../../core/internal/value-accessor';
 import { BaseGridPlugin, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
+import {
+  type CollectHeaderRowsContext,
+  type HeaderRowCell,
+  type HeaderRowContribution,
+  QUERY_COLLECT_HEADER_ROWS,
+} from '../../core/plugin/types';
 import type { ColumnConfig, InternalGrid } from '../../core/types';
 import { resolveColumns, resolveRows } from '../shared/data-collection';
 import { buildCsv, type CsvOptions, downloadBlob, downloadCsv } from './csv';
@@ -164,11 +170,13 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
       includeHeaders: params?.includeHeaders ?? config.includeHeaders,
       processCell: params?.processCell,
       processHeader: params?.processHeader,
+      processHeaderRow: params?.processHeaderRow,
       mode: params?.mode ?? 'raw',
       columns: params?.columns,
       rowIndices: params?.rowIndices,
       excelStyles: params?.excelStyles,
       fileExtension: params?.fileExtension,
+      headerRows: params?.headerRows,
     };
 
     const columns = resolveColumns(this.columns, params?.columns, config.onlyVisible) as ColumnConfig[];
@@ -187,7 +195,64 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
       rows = [...this.rows] as Record<string, unknown>[];
     }
 
+    // Collect plugin-contributed header rows (e.g. column groups) and apply
+    // `processHeaderRow` filtering. Both gated on `includeHeaders` — if the
+    // caller asked for no headers, we collect nothing.
+    if (fullParams.includeHeaders !== false && !fullParams.headerRows) {
+      fullParams.headerRows = this.#collectAndProcessHeaderRows(columns, fullParams.processHeaderRow);
+    } else if (fullParams.includeHeaders === false) {
+      fullParams.headerRows = undefined;
+    }
+
     return { columns, rows, fullParams };
+  }
+
+  /**
+   * Broadcast {@link QUERY_COLLECT_HEADER_ROWS} to all plugins, apply the
+   * optional `processHeaderRow` callback, and drop any row whose every cell
+   * is blank (`label === ''`).
+   *
+   * Returns `undefined` (not `[]`) when no row survives, so downstream
+   * formatters can keep their single-header-row layout unchanged via a
+   * single `headerRows?.length` check.
+   */
+  #collectAndProcessHeaderRows(
+    columns: ColumnConfig[],
+    processHeaderRow?: (cell: HeaderRowCell, rowIndex: number) => HeaderRowCell | null,
+  ): HeaderRowContribution[] | undefined {
+    if (columns.length === 0) return undefined;
+    const grid = this.grid as { query?: <T>(type: string, context: CollectHeaderRowsContext) => T[] } | undefined;
+    if (!grid?.query) return undefined;
+    const responses = grid.query<HeaderRowContribution | undefined>(QUERY_COLLECT_HEADER_ROWS, { columns });
+    if (!responses || responses.length === 0) return undefined;
+    const collected: HeaderRowContribution[] = [];
+    for (const r of responses) {
+      if (r && Array.isArray(r.cells) && r.cells.length > 0) collected.push(r);
+    }
+    if (collected.length === 0) return undefined;
+
+    // Apply processHeaderRow per cell; drop rows that end up entirely blank.
+    const processed: HeaderRowContribution[] = [];
+    for (let rowIndex = 0; rowIndex < collected.length; rowIndex++) {
+      const row = collected[rowIndex];
+      const outCells: HeaderRowCell[] = [];
+      let anyVisible = false;
+      for (const cell of row.cells) {
+        const next = processHeaderRow ? processHeaderRow(cell, rowIndex) : cell;
+        if (next === null) {
+          // Blank — preserve span so neighbours stay aligned.
+          outCells.push({ label: '', span: cell.span });
+        } else {
+          outCells.push(next);
+          if ((next.label ?? '') !== '') anyVisible = true;
+        }
+      }
+      // Drop fully-blank rows (every cell `label === ''`). Honours the
+      // "collapse row if every slot is blank" rule from #314.
+      if (anyVisible) processed.push({ cells: outCells });
+    }
+
+    return processed.length > 0 ? processed : undefined;
   }
 
   /**
@@ -268,7 +333,15 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
 
         case 'json': {
           const data = this.#buildExportData(rows, columns, fullParams);
-          const content = JSON.stringify(data, null, 2);
+          // When plugins contributed header rows (e.g. column groups), emit an
+          // envelope `{ headerRows, rows }` so consumers can reconstruct
+          // multi-level headers. Without contributions the output stays a flat
+          // array — non-breaking for existing JSON consumers.
+          const payload =
+            fullParams.headerRows && fullParams.headerRows.length > 0
+              ? { headerRows: fullParams.headerRows, rows: data }
+              : data;
+          const content = JSON.stringify(payload, null, 2);
           fileName = fileName.endsWith('.json') ? fileName : `${fileName}.json`;
           const blob = new Blob([content], { type: 'application/json' });
           downloadBlob(blob, fileName);

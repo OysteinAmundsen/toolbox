@@ -220,6 +220,79 @@ export interface PluginQuery<T = unknown> {
   /** Query-specific context/parameters */
   context: T;
 }
+
+/**
+ * Query type used by consumers (e.g. the export plugin) to collect extra
+ * header rows that should sit **above** the leaf column-header row.
+ *
+ * Plugins that contribute header rows (e.g. {@link GroupingColumnsPlugin})
+ * declare `{ type: QUERY_COLLECT_HEADER_ROWS }` in their manifest and
+ * respond from `handleQuery` with a {@link HeaderRowContribution}.
+ *
+ * The reply shape is intentionally generic — it just says "here are some
+ * cells, each spanning N leaf columns" — so consumers don't need to know
+ * which plugin produced them.
+ *
+ * @category Plugin Development
+ * @since 2.10.0
+ */
+export const QUERY_COLLECT_HEADER_ROWS = 'collectHeaderRows';
+
+/**
+ * Context passed in {@link PluginQuery.context} for the
+ * {@link QUERY_COLLECT_HEADER_ROWS} query.
+ *
+ * Carries the resolved leaf-column array the consumer is about to render
+ * (already filtered by visibility / `params.columns` / etc.). Responding
+ * plugins MUST align their contribution to this column array — `span`
+ * values are indices into it.
+ *
+ * @category Plugin Development
+ * @since 2.10.0
+ */
+export interface CollectHeaderRowsContext {
+  /** Resolved leaf columns (in display order) the consumer is about to emit. */
+  columns: ColumnConfig[];
+}
+
+/**
+ * Single cell in a contributed header row. `span` is the number of leaf
+ * columns this cell covers (always `>= 1`). The sum of `span` across all
+ * cells in a row MUST equal `context.columns.length`.
+ *
+ * `label === ''` is treated as a blank/dropped cell — consumers may still
+ * emit it (to preserve span alignment) or skip the entire row if every
+ * cell is blank.
+ *
+ * @category Plugin Development
+ * @since 2.10.0
+ */
+export interface HeaderRowCell {
+  /** Display label for this cell. Empty string = blank cell (span preserved). */
+  label: string;
+  /** Number of leaf columns covered. Always `>= 1`. */
+  span: number;
+  /** Optional plugin name (for debugging / `processHeaderRow` filtering). */
+  source?: string;
+  /** Optional opaque payload for consumers that need plugin-specific data. */
+  meta?: unknown;
+}
+
+/**
+ * A single header row contributed by a plugin. Sits **above** the leaf
+ * column-header row in the visual / export output.
+ *
+ * Plugins MAY return multiple contributions from a single `handleQuery`
+ * call (e.g. multi-level grouping → one row per level), in which case each
+ * row's `cells` must independently sum to `context.columns.length`.
+ *
+ * @category Plugin Development
+ * @since 2.10.0
+ */
+export interface HeaderRowContribution {
+  /** Cells in this row, in left-to-right column order. */
+  cells: HeaderRowCell[];
+}
 // #endregion
 
 // #region Cell Renderer Types

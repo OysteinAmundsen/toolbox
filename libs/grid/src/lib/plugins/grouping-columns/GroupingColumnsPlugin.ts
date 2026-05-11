@@ -9,6 +9,12 @@
 import { COLUMN_GROUPS_CONFLICT } from '../../core/internal/diagnostics';
 import type { AfterCellRenderContext, PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
+import {
+  type CollectHeaderRowsContext,
+  type HeaderRowCell,
+  type HeaderRowContribution,
+  QUERY_COLLECT_HEADER_ROWS,
+} from '../../core/plugin/types';
 import type { ColumnConfig } from '../../core/types';
 import type { ColumnGroupInfo } from '../visibility/types';
 import {
@@ -105,7 +111,13 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
         isUsed: (v) => Array.isArray(v) && v.length > 0,
       },
     ],
-    queries: [{ type: 'getColumnGrouping', description: 'Returns column group metadata for the visibility panel' }],
+    queries: [
+      { type: 'getColumnGrouping', description: 'Returns column group metadata for the visibility panel' },
+      {
+        type: QUERY_COLLECT_HEADER_ROWS,
+        description: 'Contributes a group-header row above the leaf header for exports / printers',
+      },
+    ],
   };
 
   /** @internal */
@@ -257,7 +269,70 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     if (query.type === 'getColumnGrouping') {
       return this.#getStableColumnGrouping();
     }
+    if (query.type === QUERY_COLLECT_HEADER_ROWS) {
+      return this.#buildHeaderRowContribution((query as PluginQuery<CollectHeaderRowsContext>).context);
+    }
     return undefined;
+  }
+
+  /**
+   * Build a {@link HeaderRowContribution} aligned to the caller-supplied
+   * leaf-column array. Reuses the same fragment-aware compute/merge pipeline
+   * the visual header row uses, so reordered / hidden columns and embedded
+   * utility columns produce identical spans to what the user sees.
+   *
+   * Returns `undefined` (rather than an empty row) when no meaningful groups
+   * exist, so the export/print consumer can keep its current single-row
+   * layout unchanged.
+   */
+  #buildHeaderRowContribution(context: CollectHeaderRowsContext): HeaderRowContribution | undefined {
+    const columns = context?.columns;
+    if (!Array.isArray(columns) || columns.length === 0) return undefined;
+
+    const groups = computeColumnGroups(columns);
+    if (groups.length === 0) return undefined;
+
+    const { merged } = mergeGroups(groups);
+
+    const cells: HeaderRowCell[] = [];
+    for (const g of merged) {
+      const gid = String(g.id);
+      const isImplicit = gid.startsWith('__implicit__');
+
+      // Span = distance from the group's first column to its last in the
+      // resolved columns array. This naturally absorbs any utility columns
+      // that sit between fragments of the same group (matches the visual
+      // header's `gridColumn: 'start / span N'` calculation).
+      const first = g.columns[0];
+      const last = g.columns[g.columns.length - 1];
+      if (!first || !last) continue;
+      const start = columns.findIndex((c) => c.field === first.field);
+      const end = columns.findIndex((c) => c.field === last.field);
+      if (start < 0 || end < 0) continue;
+      const span = end - start + 1;
+
+      cells.push({
+        label: isImplicit ? '' : (g.label ?? g.id),
+        span,
+        source: this.name,
+      });
+    }
+
+    if (cells.length === 0) return undefined;
+
+    // INVARIANT: cell spans sum to columns.length. If they don't, there are
+    // gaps (e.g. columns between merged groups that no fragment claims) —
+    // fill them with blank spacers so consumers can rely on the invariant.
+    const totalSpan = cells.reduce((s, c) => s + c.span, 0);
+    if (totalSpan !== columns.length) {
+      // Conservative fallback: collapse to a single blank row of correct span.
+      // This shouldn't trip under normal grouping flows but guards against
+      // unexpected column-set drift between the live grid and the snapshot
+      // passed by the consumer.
+      return { cells: [{ label: '', span: columns.length, source: this.name }] };
+    }
+
+    return { cells };
   }
 
   /**

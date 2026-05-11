@@ -60,6 +60,27 @@ export function buildExcelXml(rows: any[], columns: ColumnConfig[], params: Expo
 
   // Header style ID
   const headerStyleId = styles?.headerStyle && registry ? registry.getStyleId(styles.headerStyle) : undefined;
+  // Group-header style ID (for plugin-contributed rows). Falls back to
+  // headerStyleId so users get sensible defaults without configuring twice.
+  const groupHeaderStyleId =
+    styles?.groupHeaderStyle && registry ? registry.getStyleId(styles.groupHeaderStyle) : headerStyleId;
+
+  // Build plugin-contributed header rows (e.g. column groups) above the leaf
+  // header. Each row's cells must independently span the full column count;
+  // `span > 1` becomes `ss:MergeAcross="span-1"` and we skip the next
+  // `span-1` cell slots (Excel implicitly fills them from the merge).
+  if (params.includeHeaders !== false && params.headerRows && params.headerRows.length > 0) {
+    const styleAttr = groupHeaderStyleId ? ` ss:StyleID="${groupHeaderStyleId}"` : '';
+    for (const headerRow of params.headerRows) {
+      xml += '\n<Row>';
+      for (const cell of headerRow.cells) {
+        const span = Math.max(1, cell.span | 0);
+        const mergeAttr = span > 1 ? ` ss:MergeAcross="${span - 1}"` : '';
+        xml += `<Cell${styleAttr}${mergeAttr}><Data ss:Type="String">${escapeXml(cell.label ?? '')}</Data></Cell>`;
+      }
+      xml += '</Row>';
+    }
+  }
 
   // Build header row
   if (params.includeHeaders !== false) {

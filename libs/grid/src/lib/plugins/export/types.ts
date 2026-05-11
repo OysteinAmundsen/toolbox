@@ -4,6 +4,8 @@
  * Type definitions for the data export feature.
  */
 
+import type { HeaderRowCell, HeaderRowContribution } from '../../core/plugin/types';
+
 /**
  * Supported export file formats.
  *
@@ -81,6 +83,20 @@ export interface ExportParams {
   /** Custom header processor */
   processHeader?: (header: string, field: string) => string;
   /**
+   * Custom processor for cells in **plugin-contributed header rows** (e.g. the
+   * column-group header row above the leaf headers). Runs once per cell.
+   *
+   * Return `null` to blank a cell (its `span` is preserved so neighbours stay
+   * aligned). If **every** cell in a row is blank after processing, the
+   * entire row is dropped from the output. Return the same `cell` unchanged
+   * to keep it as-is.
+   *
+   * @param cell  - The contributed cell (`label`, `span`, optional `source`).
+   * @param rowIndex - 0-based index of the contributed row (top-down).
+   * @since 2.10.0
+   */
+  processHeaderRow?: (cell: HeaderRowCell, rowIndex: number) => HeaderRowCell | null;
+  /**
    * Controls how cell values are produced. See {@link ExportMode}.
    *
    * Default: `'raw'` — preserves current behaviour (passthrough + `processCell`).
@@ -90,6 +106,17 @@ export interface ExportParams {
   mode?: ExportMode;
   /** Excel style configuration (only applies to Excel export) */
   excelStyles?: ExcelStyleConfig;
+  /**
+   * Plugin-contributed extra header rows that sit **above** the leaf header
+   * row. Normally populated automatically from the `'collectHeaderRows'`
+   * broadcast in `ExportPlugin.export*()`; you only set it manually when
+   * calling the pure formatters ({@link ExportPlugin.formatCsv} /
+   * {@link ExportPlugin.formatExcel}) with pre-built row data.
+   *
+   * Ignored when `includeHeaders` is `false`.
+   * @since 2.10.0
+   */
+  headerRows?: HeaderRowContribution[];
 }
 
 // #region Excel Style Types
@@ -104,6 +131,15 @@ export interface ExportParams {
 export interface ExcelStyleConfig {
   /** Style applied to all header cells */
   headerStyle?: ExcelCellStyle;
+  /**
+   * Style applied to cells in **plugin-contributed header rows** (e.g. the
+   * column-group header row). Falls back to `headerStyle` when omitted.
+   *
+   * Use this to visually distinguish group/super headers from leaf headers
+   * (e.g. heavier weight, larger font, accent fill).
+   * @since 2.10.0
+   */
+  groupHeaderStyle?: ExcelCellStyle;
   /** Default style for all data cells */
   defaultStyle?: ExcelCellStyle;
   /** Per-column style overrides (keyed by field name) */

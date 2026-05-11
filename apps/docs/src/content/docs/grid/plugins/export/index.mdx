@@ -226,9 +226,39 @@ exportPlugin.exportExcel({
 | `includeHeaders` | `boolean`                       | config value  | Include column headers in export    |
 | `processCell`    | `(value, field, row) => any`    | -             | Custom cell value processor         |
 | `processHeader`  | `(header, field) => string`     | -             | Custom header processor             |
+| `processHeaderRow` | `(cell, rowIndex) => HeaderRowCell \| null` | -  | Custom processor for plugin-contributed header rows (e.g. column groups). Return `null` to blank a cell; if every cell in a row is blank the row is dropped. **Since 2.10.0** |
 | `mode`           | `'raw' \| 'formatted'`          | `'raw'`       | `'raw'` = underlying typed values; `'formatted'` = what the grid displays (`column.format` + type defaults applied) |
 | `fileExtension`  | `string`                        | `'.xls'`      | Override file extension for Excel export (e.g. `'.xml'`) |
 | `excelStyles`    | `ExcelStyleConfig`              | -             | Excel style configuration (Excel only) |
+
+## Column Groups in Exports
+
+**Since 2.10.0.** When the [`GroupingColumnsPlugin`](/grid/plugins/grouping-columns/) is installed alongside the export plugin, column group headers are automatically included above the leaf headers.
+
+How it works: the export plugin broadcasts the generic `collectHeaderRows` plugin query before emitting headers. Any plugin can reply with a `HeaderRowContribution` describing extra rows that sit above the leaf header. The grouping plugin replies with one row whose cells carry the group label and a `span` matching the number of leaf columns the group covers. The mechanism is plugin-agnostic — third-party plugins can contribute their own header rows the same way.
+
+| Format | Behaviour |
+| ------ | --------- |
+| **Excel** | Each contributed row becomes a `<Row>` above the leaf headers. Cells with `span > 1` use `ss:MergeAcross="span-1"` so they appear merged in Excel. Use the new `excelStyles.groupHeaderStyle` to style group rows independently (falls back to `headerStyle`). |
+| **JSON** | When at least one plugin contributes a row, output becomes `{ headerRows: HeaderRowContribution[], rows: [...] }`. Without contributions the output stays a flat array — **backward-compatible** for existing consumers. |
+| **CSV** | Stays flat. CSV has no native span representation; multi-row headers would confuse most CSV consumers. |
+
+Set `includeHeaders: false` to skip **all** headers (leaf and contributed). It's all-or-nothing — use `processHeaderRow` if you want fine-grained control over which contributed cells to emit.
+
+```ts
+// Drop all "Personal" group labels but keep "Work":
+grid.getPluginByName('export').exportExcel({
+  processHeaderRow: (cell) => (cell.label === 'Personal' ? null : cell),
+});
+
+// Style group rows independently of leaf headers:
+grid.getPluginByName('export').exportExcel({
+  excelStyles: {
+    headerStyle: { font: { bold: true } },
+    groupHeaderStyle: { font: { bold: true, size: 14 }, fill: { color: '#DDEEFF' } },
+  },
+});
+```
 
 ## Custom Output / `.xlsx` Hand-off
 

@@ -167,6 +167,8 @@ export function buildStyleRegistry(config: ExcelStyleConfig): StyleRegistry {
 
   if (config.headerStyle) registry.register(config.headerStyle);
 
+  if (config.groupHeaderStyle) registry.register(config.groupHeaderStyle);
+
   if (config.defaultStyle) registry.register(config.defaultStyle);
 
   if (config.columnStyles) {

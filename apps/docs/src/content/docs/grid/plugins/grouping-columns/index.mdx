@@ -627,8 +627,15 @@ The column grouping plugin uses these class names:
 | `.header-row .cell.grouped` | Column under a group |
 | `.header-row .cell.group-end` | Last column in a group |
 
+## Integration with Exports
+
+When the [ExportPlugin](../export/) is installed alongside grouping columns, group headers automatically appear in **Excel** and **JSON** exports (since 2.10.0). CSV stays flat. See [Column Groups in Exports](../export/#column-groups-in-exports) for the full behaviour matrix.
+
+The mechanism is the generic `collectHeaderRows` plugin query — any plugin can contribute extra header rows the same way. Style group rows independently via `excelStyles.groupHeaderStyle`.
+
 ## See Also
 
+- **[Export](../export/)** — Column groups appear in Excel/JSON exports
 - **[Row Grouping](../grouping-rows/)** — Group rows by field values
 - **[Pinned Columns](../pinned-columns/)** — Sticky columns
 - **[Reorder Columns](../reorder-columns/)** — Drag-and-drop column reordering

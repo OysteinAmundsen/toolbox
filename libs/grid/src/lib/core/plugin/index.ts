@@ -27,6 +27,7 @@ export type {
   RowClickEvent,
   ScrollEvent,
 } from './base-plugin';
+export type { CollectHeaderRowsContext, HeaderRowCell, HeaderRowContribution } from './types';
 // #endregion
 
 // #region Plugin Manager

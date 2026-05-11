@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.8.1...grid-2.9.0) (2026-05-11)
+
+
+### Features
+
+* **grid:** add shell.header.toolPanelToggle opt-out for built-in toggle button ([fece3c7](https://github.com/OysteinAmundsen/toolbox/commit/fece3c753148f822bd62f63a6c9b525ab0866dbf))
+
 ## [2.8.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.8.0...grid-2.8.1) (2026-05-10)
 
 

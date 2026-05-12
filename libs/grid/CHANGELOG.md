@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.11.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.10.0...grid-2.11.0) (2026-05-12)
+
+
+### Features
+
+* **grid:** accept panelId in openToolPanel() for one-click panel routing ([#316](https://github.com/OysteinAmundsen/toolbox/issues/316)) ([#318](https://github.com/OysteinAmundsen/toolbox/issues/318)) ([ca58a1b](https://github.com/OysteinAmundsen/toolbox/commit/ca58a1b8f6ed4a512297313965483f3690ad079e))
+
+
+### Bug Fixes
+
+* **grid:** preserve adapter-rendered tool panels on idempotent re-parse ([#317](https://github.com/OysteinAmundsen/toolbox/issues/317)) ([33bdbc9](https://github.com/OysteinAmundsen/toolbox/commit/33bdbc9648927865481e5a3072a8bffdd4977775))
+
 ## [2.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.9.0...grid-2.10.0) (2026-05-11)
 
 

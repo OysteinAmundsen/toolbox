@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.11.0...grid-2.11.1) (2026-05-12)
+
+
+### Bug Fixes
+
+* **grid:** honor columnState on gridConfig re-assignment after init ([2370bdc](https://github.com/OysteinAmundsen/toolbox/commit/2370bdc5fdbd4b983018a14ef4064bda2a4615b6))
+
 ## [2.11.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.10.0...grid-2.11.0) (2026-05-12)
 
 

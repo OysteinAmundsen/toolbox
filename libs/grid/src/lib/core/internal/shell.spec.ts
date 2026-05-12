@@ -577,6 +577,21 @@ describe('shell module', () => {
 
       expect(state.isPanelOpen).toBe(false);
     });
+
+    it('clears adapterBoundToolPanelIds so reconnect re-triggers vanilla→adapter teardown', () => {
+      // Regression: <tbw-grid> reuses #shellState across disconnect/reconnect.
+      // If adapterBoundToolPanelIds isn't cleared on cleanup, a panel parsed
+      // during the next lifecycle would see firstAdapterAttach=false and skip
+      // the required teardown when the adapter renderer first becomes
+      // available, leaving the vanilla fallback rendered.
+      state.lightDomToolPanelIds.add('settings');
+      state.adapterBoundToolPanelIds.add('settings');
+
+      cleanupShellState(state);
+
+      expect(state.adapterBoundToolPanelIds.size).toBe(0);
+      expect(state.lightDomToolPanelIds.size).toBe(0);
+    });
   });
 
   describe('parseLightDomToolPanels', () => {

@@ -1000,6 +1000,7 @@ export function cleanupShellState(state: ShellState): void {
 
   // Clear light DOM tracking sets (allow re-parsing)
   state.lightDomToolPanelIds.clear();
+  state.adapterBoundToolPanelIds.clear();
   state.lightDomToolbarContentIds.clear();
 
   // Reset move tracking flag (allow re-initialization)

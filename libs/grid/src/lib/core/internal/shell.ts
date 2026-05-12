@@ -50,6 +50,16 @@ export interface ShellState {
   lightDomTitle: string | null;
   /** IDs of tool panels registered from light DOM (to avoid re-parsing) */
   lightDomToolPanelIds: Set<string>;
+  /**
+   * IDs of light DOM tool panels whose `render` has already been bound to a
+   * framework-adapter renderer. Used by `parseLightDomToolPanels` to detect
+   * the FIRST adapter attach (which legitimately needs to swap the vanilla
+   * fallback for the real adapter renderer and tear down any in-progress
+   * render) vs. subsequent re-parses (which must NOT tear down — doing so
+   * unmounts the user's React/Vue/Angular component, losing local state and
+   * resetting scroll position inside the panel).
+   */
+  adapterBoundToolPanelIds: Set<string>;
   /** IDs of toolbar content registered from light DOM (to avoid re-parsing) */
   lightDomToolbarContentIds: Set<string>;
   /** IDs of tool panels registered via registerToolPanel API */
@@ -123,6 +133,7 @@ export function createShellState(): ShellState {
     lightDomHeaderContent: [],
     lightDomTitle: null,
     lightDomToolPanelIds: new Set(),
+    adapterBoundToolPanelIds: new Set(),
     lightDomToolbarContentIds: new Set(),
     apiToolPanelIds: new Set(),
     apiHeaderContentIds: new Set(),
@@ -519,26 +530,45 @@ export function parseLightDomToolPanels(
     // Check if panel was already parsed
     const existingPanel = state.toolPanels.get(id);
 
-    // If already parsed and we have an adapter renderer, update the render function
-    // and re-read attributes from DOM (Angular may have updated them after initial parse)
-    // This handles the case where Angular templates register after initial parsing
+    // If already parsed and we have an adapter renderer, refresh the render
+    // function and (potentially) re-read attributes from DOM (Angular may have
+    // updated them after the initial parse). However, **only tear down the
+    // already-rendered panel content** when something the user can observe has
+    // actually changed:
+    //   - First time the adapter renderer attaches (we may have been using
+    //     the vanilla innerHTML fallback up to now)
+    //   - Any attribute the panel header renders from changed
+    //
+    // Otherwise the user's React/Vue/Angular component is already mounted in
+    // the panel and is happily managing its own state. A teardown here unmounts
+    // it (losing local state) and re-mounts it on next renderPanelContent —
+    // which, for a scrollable panel, resets `scrollTop` to 0. This was the
+    // cause of the "tool panel scroll jumps to top on column visibility toggle"
+    // bug: every `grid.gridConfig = …` setter in the adapter eventually calls
+    // back into parseLightDomToolPanels (via #applyGridConfigUpdate), and the
+    // previous unconditional `cleanup()` here threw away the user's component
+    // tree on every config sync.
     if (existingPanel) {
       if (adapterRenderer) {
-        // Update render function with framework adapter renderer
-        existingPanel.render = render;
+        const firstAdapterAttach = !state.adapterBoundToolPanelIds.has(id);
+        const attrsChanged =
+          existingPanel.order !== order || existingPanel.icon !== icon || existingPanel.tooltip !== tooltip;
 
-        // Re-read attributes from DOM - framework may have set them after initial parse
-        // (e.g., Angular directive sets attributes in an effect after template is available)
+        // Always keep the render function fresh — adapter renderers capture
+        // the current grid element / portal context and the most recent
+        // children, so a stale reference would render against an old closure.
+        existingPanel.render = render;
         existingPanel.order = order;
         existingPanel.icon = icon;
         existingPanel.tooltip = tooltip;
-        // Note: title and id are required and shouldn't change
+        state.adapterBoundToolPanelIds.add(id);
 
-        // Clear existing cleanup to force re-render with new renderer
-        const cleanup = state.panelCleanups.get(id);
-        if (cleanup) {
-          cleanup();
-          state.panelCleanups.delete(id);
+        if (firstAdapterAttach || attrsChanged) {
+          const cleanup = state.panelCleanups.get(id);
+          if (cleanup) {
+            cleanup();
+            state.panelCleanups.delete(id);
+          }
         }
       }
       return;
@@ -556,6 +586,9 @@ export function parseLightDomToolPanels(
 
     state.toolPanels.set(id, panel);
     state.lightDomToolPanelIds.add(id);
+    if (adapterRenderer) {
+      state.adapterBoundToolPanelIds.add(id);
+    }
 
     // Hide the light DOM element
     panelEl.style.display = 'none';

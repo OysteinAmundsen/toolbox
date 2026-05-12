@@ -733,6 +733,86 @@ describe('shell module', () => {
       const img = container.querySelector('img');
       expect(img?.getAttribute('onerror')).toBeNull();
     });
+
+    it('does not tear down adapter-rendered panel content on idempotent re-parse', async () => {
+      // Regression test: previously every call to parseLightDomToolPanels with
+      // an adapter renderer ran the existing panel's cleanup and forced a
+      // re-render. For React/Vue users this meant any `grid.gridConfig = …`
+      // setter (e.g. driven by a checkbox inside a custom tool panel that
+      // toggles column visibility) unmounted their panel component, losing
+      // local state and resetting the panel's scrollTop to 0.
+      const { parseLightDomToolPanels } = await import('./shell');
+
+      host.innerHTML = `
+        <tbw-grid-tool-panel id="settings" title="Settings"></tbw-grid-tool-panel>
+      `;
+
+      let renderCalls = 0;
+      let cleanupCalls = 0;
+      const rendererFactory = () => (container: HTMLElement) => {
+        renderCalls++;
+        container.innerHTML = '<div class="adapter">x</div>';
+        return () => {
+          cleanupCalls++;
+        };
+      };
+
+      // First parse: registers the panel + first adapter attach
+      parseLightDomToolPanels(host, state, rendererFactory);
+      const panel = state.toolPanels.get('settings')!;
+      // Simulate the panel being opened and rendered
+      const contentArea = document.createElement('div');
+      const cleanup = panel.render(contentArea);
+      if (typeof cleanup === 'function') {
+        state.panelCleanups.set('settings', cleanup);
+      }
+      expect(renderCalls).toBe(1);
+      expect(cleanupCalls).toBe(0);
+      expect(state.panelCleanups.has('settings')).toBe(true);
+
+      // Re-parse with identical attributes — must NOT tear down rendered content
+      parseLightDomToolPanels(host, state, rendererFactory);
+      expect(cleanupCalls).toBe(0);
+      expect(state.panelCleanups.has('settings')).toBe(true);
+
+      // Re-parse with changed attributes — DOES tear down so header updates
+      host.querySelector('tbw-grid-tool-panel')!.setAttribute('icon', '⚙️');
+      parseLightDomToolPanels(host, state, rendererFactory);
+      expect(cleanupCalls).toBe(1);
+      expect(state.panelCleanups.has('settings')).toBe(false);
+      expect(state.toolPanels.get('settings')!.icon).toBe('⚙️');
+    });
+
+    it('tears down vanilla fallback when an adapter renderer first becomes available', async () => {
+      // The Angular case: panel parsed first with no adapter (template not
+      // yet projected), so the vanilla innerHTML fallback was registered.
+      // When the adapter renderer becomes available later, we MUST swap and
+      // re-render — otherwise the user sees the wrong content.
+      const { parseLightDomToolPanels } = await import('./shell');
+
+      host.innerHTML = `
+        <tbw-grid-tool-panel id="late" title="Late">
+          <span>vanilla</span>
+        </tbw-grid-tool-panel>
+      `;
+
+      // First parse: no adapter renderer → vanilla fallback
+      parseLightDomToolPanels(host, state);
+      const contentArea = document.createElement('div');
+      const cleanup = state.toolPanels.get('late')!.render(contentArea);
+      if (typeof cleanup === 'function') {
+        state.panelCleanups.set('late', cleanup);
+      }
+      expect(state.panelCleanups.has('late')).toBe(true);
+
+      // Second parse: adapter renderer now available → must tear down
+      const rendererFactory = () => (container: HTMLElement) => {
+        container.innerHTML = '<div class="adapter">x</div>';
+        return () => undefined;
+      };
+      parseLightDomToolPanels(host, state, rendererFactory);
+      expect(state.panelCleanups.has('late')).toBe(false);
+    });
   });
 
   describe('setupClickOutsideDismiss', () => {

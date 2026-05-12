@@ -2180,6 +2180,24 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#configManager.markSourcesChanged();
     this.#configManager.merge();
 
+    // Re-apply `gridConfig.columnState` (if any) after the source rebuild.
+    // The merges above clone `effectiveConfig.columns` fresh from the original
+    // gridConfig.columns, wiping any runtime visibility/width/order mutations
+    // (col.hidden written by setColumnVisible / applyColumnState). If the new
+    // gridConfig carries a `columnState`, `#collectAllSources` re-stored it
+    // into `#initialColumnState`; consume it here so the declared state is
+    // honoured on every gridConfig (re-)assignment, not just initial setup.
+    // Regression: liquids-operations-roma cargo-list — saved preset's hidden
+    // columns became visible after several filter/refetch cycles caused the
+    // memoized gridConfig ref to rebuild.
+    const pendingInitialState = this.#configManager.initialColumnState;
+    if (pendingInitialState) {
+      this.#configManager.initialColumnState = undefined;
+      this.#initialColumnState = undefined;
+      const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
+      this.#configManager.applyState(pendingInitialState, plugins);
+    }
+
     const nowNeedsShell = shouldRenderShellHeader(this.#effectiveConfig?.shell);
     const nowHasToolPanels = (this.#effectiveConfig?.shell?.toolPanels?.length ?? 0) > 0;
     const toolPanelCount = this.#effectiveConfig?.shell?.toolPanels?.length ?? 0;

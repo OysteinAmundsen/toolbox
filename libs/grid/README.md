@@ -230,21 +230,21 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 
 #### Shell Methods
 
-| Method                                | Returns                 | Description                           |
-| ------------------------------------- | ----------------------- | ------------------------------------- |
-| `openToolPanel()`                     | `void`                  | Open the tool panel sidebar           |
-| `closeToolPanel()`                    | `void`                  | Close the tool panel sidebar          |
-| `toggleToolPanel()`                   | `void`                  | Toggle tool panel open/closed         |
-| `toggleToolPanelSection(sectionId)`   | `void`                  | Toggle a tool panel accordion section |
-| `isToolPanelOpen`                     | `boolean` (getter)      | Whether tool panel is open            |
-| `expandedToolPanelSections`           | `string[]` (getter)     | IDs of expanded accordion sections    |
-| `getToolPanels()`                     | `ToolPanelDefinition[]` | Get registered tool panels            |
-| `registerToolPanel(panel)`            | `void`                  | Register a custom tool panel          |
-| `unregisterToolPanel(panelId)`        | `void`                  | Remove a registered tool panel        |
-| `registerHeaderContent(content)`      | `void`                  | Add custom header content             |
-| `unregisterHeaderContent(contentId)`  | `void`                  | Remove custom header content          |
-| `registerToolbarContent(content)`     | `void`                  | Add custom toolbar button             |
-| `unregisterToolbarContent(contentId)` | `void`                  | Remove custom toolbar button          |
+| Method                                | Returns                 | Description                                                                    |
+| ------------------------------------- | ----------------------- | ------------------------------------------------------------------------------ |
+| `openToolPanel(panelId?)`             | `void`                  | Open the tool panel sidebar; optional `panelId` jumps straight to that section |
+| `closeToolPanel()`                    | `void`                  | Close the tool panel sidebar                                                   |
+| `toggleToolPanel()`                   | `void`                  | Toggle tool panel open/closed                                                  |
+| `toggleToolPanelSection(sectionId)`   | `void`                  | Toggle a tool panel accordion section                                          |
+| `isToolPanelOpen`                     | `boolean` (getter)      | Whether tool panel is open                                                     |
+| `expandedToolPanelSections`           | `string[]` (getter)     | IDs of expanded accordion sections                                             |
+| `getToolPanels()`                     | `ToolPanelDefinition[]` | Get registered tool panels                                                     |
+| `registerToolPanel(panel)`            | `void`                  | Register a custom tool panel                                                   |
+| `unregisterToolPanel(panelId)`        | `void`                  | Remove a registered tool panel                                                 |
+| `registerHeaderContent(content)`      | `void`                  | Add custom header content                                                      |
+| `unregisterHeaderContent(contentId)`  | `void`                  | Remove custom header content                                                   |
+| `registerToolbarContent(content)`     | `void`                  | Add custom toolbar button                                                      |
+| `unregisterToolbarContent(contentId)` | `void`                  | Remove custom toolbar button                                                   |
 
 #### Style Methods
 

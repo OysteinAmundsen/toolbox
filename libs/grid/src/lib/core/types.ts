@@ -181,8 +181,11 @@ export interface PublicGrid<T = any> {
   unregisterToolPanel?(panelId: string): void;
   /**
    * Open the tool panel sidebar.
+   * @param panelId - Optional ID of the section to expand on open. Takes precedence
+   *   over `shell.toolPanel.defaultOpen`. Falls back to default behavior with a
+   *   warning if the ID is not registered.
    */
-  openToolPanel?(): void;
+  openToolPanel?(panelId?: string): void;
   /**
    * Close the tool panel sidebar.
    */

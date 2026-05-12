@@ -3988,16 +3988,27 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Each section can be expanded/collapsed independently.
    *
    * @group Tool Panel
+   * @param panelId - Optional ID of the section to expand on open. When provided,
+   *   takes precedence over `shell.toolPanel.defaultOpen`. If the panel is already
+   *   open with a different section expanded, switches to the requested section.
+   *   If the panel ID is not registered, a warning is emitted and the call falls
+   *   back to default behavior (auto-expand `defaultOpen` or first registered panel).
+   *
    * @example
    * ```typescript
-   * // Open the tool panel when a toolbar button is clicked
+   * // Open the tool panel with the default / first section expanded.
    * settingsButton.addEventListener('click', () => {
    *   grid.openToolPanel();
    * });
+   *
+   * // Open the tool panel and jump straight to a specific section.
+   * filtersButton.addEventListener('click', () => {
+   *   grid.openToolPanel('filters');
+   * });
    * ```
    */
-  openToolPanel(): void {
-    this.#shellController.openToolPanel();
+  openToolPanel(panelId?: string): void {
+    this.#shellController.openToolPanel(panelId);
   }
 
   /**

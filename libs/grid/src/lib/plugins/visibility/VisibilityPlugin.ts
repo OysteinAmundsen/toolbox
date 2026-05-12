@@ -264,11 +264,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * Opens the tool panel and ensures this section is expanded.
    */
   show(): void {
-    this.grid.openToolPanel();
-    // Ensure our section is expanded
-    if (!this.grid.expandedToolPanelSections.includes(VisibilityPlugin.PANEL_ID)) {
-      this.grid.toggleToolPanelSection(VisibilityPlugin.PANEL_ID);
-    }
+    this.grid.openToolPanel(VisibilityPlugin.PANEL_ID);
   }
 
   /**

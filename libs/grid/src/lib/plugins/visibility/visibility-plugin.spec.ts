@@ -332,20 +332,15 @@ describe('VisibilityPlugin', () => {
   // #region show / hide / toggle panel
 
   describe('show', () => {
-    it('should open tool panel', () => {
+    it('should open tool panel with the visibility section expanded', () => {
       plugin.show();
-      expect(grid.openToolPanel).toHaveBeenCalled();
+      expect(grid.openToolPanel).toHaveBeenCalledWith('columns');
     });
 
-    it('should expand the visibility section if not already expanded', () => {
-      plugin.show();
-      expect(grid.toggleToolPanelSection).toHaveBeenCalledWith('columns');
-    });
-
-    it('should not toggle section if already expanded', () => {
+    it('should still open with section id when already expanded (controller is idempotent)', () => {
       grid._expandedSections.push('columns');
       plugin.show();
-      expect(grid.toggleToolPanelSection).not.toHaveBeenCalled();
+      expect(grid.openToolPanel).toHaveBeenCalledWith('columns');
     });
   });
 

@@ -40,8 +40,15 @@ export interface ShellController {
   readonly isPanelOpen: boolean;
   /** Get IDs of expanded accordion sections */
   readonly expandedSections: string[];
-  /** Open the tool panel */
-  openToolPanel(): void;
+  /**
+   * Open the tool panel.
+   * @param panelId - Optional ID of the section to expand on open. When provided,
+   *   takes precedence over `shell.toolPanel.defaultOpen`. If the panel is already
+   *   open with a different section expanded, switches to the requested section.
+   *   If the panel ID is not registered, a `TBW072` warning is emitted and the
+   *   call falls back to default behavior (auto-expand `defaultOpen` or first by order).
+   */
+  openToolPanel(panelId?: string): void;
   /** Close the tool panel */
   closeToolPanel(): void;
   /** Toggle the tool panel */
@@ -91,29 +98,63 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
       return [...state.expandedSections];
     },
 
-    openToolPanel() {
-      if (state.isPanelOpen) return;
+    openToolPanel(panelId?: string) {
       if (state.toolPanels.size === 0) {
         warnDiagnostic(NO_TOOL_PANELS, 'No tool panels registered', grid.id);
         return;
       }
 
+      // Validate explicit panelId; on unknown id, warn and fall back to default behavior.
+      let targetSectionId: string | undefined;
+      if (panelId !== undefined) {
+        if (state.toolPanels.has(panelId)) {
+          targetSectionId = panelId;
+        } else {
+          warnDiagnostic(TOOL_PANEL_NOT_FOUND, `Tool panel "${panelId}" not found`, grid.id);
+        }
+      }
+
+      // Fast path: panel already open and requested section already expanded → no-op.
+      if (state.isPanelOpen && targetSectionId && state.expandedSections.has(targetSectionId)) {
+        return;
+      }
+
+      // Panel already open but a different section is expanded → switch sections
+      // (delegate to toggleToolPanelSection for accordion exclusivity + event emission).
+      if (state.isPanelOpen && targetSectionId && !state.expandedSections.has(targetSectionId)) {
+        controller.toggleToolPanelSection(targetSectionId);
+        return;
+      }
+
+      if (state.isPanelOpen) return;
+
       state.isPanelOpen = true;
 
-      // Auto-expand a section if none expanded.
-      // Prefer toolPanel.defaultOpen when it matches a registered panel;
-      // otherwise pick the first panel by `order`.
+      // Decide initial expanded section:
+      // 1. Explicit panelId argument (already validated above).
+      // 2. shell.toolPanel.defaultOpen if it matches a registered panel.
+      // 3. First panel by `order`.
       if (state.expandedSections.size === 0 && state.toolPanels.size > 0) {
-        const defaultOpenId = grid.effectiveConfig?.shell?.toolPanel?.defaultOpen;
-        if (defaultOpenId && state.toolPanels.has(defaultOpenId)) {
-          state.expandedSections.add(defaultOpenId);
+        if (targetSectionId) {
+          state.expandedSections.add(targetSectionId);
         } else {
-          const sortedPanels = [...state.toolPanels.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
-          const firstPanel = sortedPanels[0];
-          if (firstPanel) {
-            state.expandedSections.add(firstPanel.id);
+          const defaultOpenId = grid.effectiveConfig?.shell?.toolPanel?.defaultOpen;
+          if (defaultOpenId && state.toolPanels.has(defaultOpenId)) {
+            state.expandedSections.add(defaultOpenId);
+          } else {
+            const sortedPanels = [...state.toolPanels.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+            const firstPanel = sortedPanels[0];
+            if (firstPanel) {
+              state.expandedSections.add(firstPanel.id);
+            }
           }
         }
+      } else if (targetSectionId && !state.expandedSections.has(targetSectionId)) {
+        // Some other section was already pre-expanded (e.g. via config); switch to requested.
+        for (const id of [...state.expandedSections]) {
+          state.expandedSections.delete(id);
+        }
+        state.expandedSections.add(targetSectionId);
       }
 
       // Update UI

@@ -586,8 +586,11 @@ export interface GridElementRef {
 
   /**
    * Open the tool panel sidebar (accordion view with all registered panels).
+   * @param panelId - Optional ID of the section to expand on open. Takes precedence
+   *   over `shell.toolPanel.defaultOpen`. If the panel ID is unknown, the call
+   *   falls back to default behavior with a `TBW072` warning.
    */
-  openToolPanel(): void;
+  openToolPanel(panelId?: string): void;
 
   /**
    * Close the tool panel sidebar.

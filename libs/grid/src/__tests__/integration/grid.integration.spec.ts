@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../lib/core/grid';
 // Import plugins used by integration tests
 import { ColumnVirtualizationPlugin } from '../../lib/plugins/column-virtualization';
@@ -1142,6 +1142,95 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     toggleBtn.click();
     await nextFrame();
     expect(grid.isToolPanelOpen).toBe(false);
+  });
+
+  it('opens tool panel with explicit panelId expanding the requested section', async () => {
+    grid = document.createElement('tbw-grid');
+    grid.rows = [{ id: 1 }];
+    grid.registerToolPanel({
+      id: 'settings',
+      title: 'Settings',
+      icon: '⚙',
+      order: 1,
+      render: () => {
+        /* noop */
+      },
+    });
+    grid.registerToolPanel({
+      id: 'filters',
+      title: 'Filters',
+      icon: '⌕',
+      order: 2,
+      render: () => {
+        /* noop */
+      },
+    });
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    // Open with explicit panelId — should expand 'filters' even though 'settings' is order:1
+    grid.openToolPanel('filters');
+    await nextFrame();
+    expect(grid.isToolPanelOpen).toBe(true);
+    expect(grid.expandedToolPanelSections).toEqual(['filters']);
+  });
+
+  it('switches expanded section when openToolPanel is called with a different panelId while open', async () => {
+    grid = document.createElement('tbw-grid');
+    grid.rows = [{ id: 1 }];
+    grid.registerToolPanel({
+      id: 'settings',
+      title: 'Settings',
+      icon: '⚙',
+      order: 1,
+      render: () => {
+        /* noop */
+      },
+    });
+    grid.registerToolPanel({
+      id: 'filters',
+      title: 'Filters',
+      icon: '⌕',
+      order: 2,
+      render: () => {
+        /* noop */
+      },
+    });
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    grid.openToolPanel('settings');
+    await nextFrame();
+    expect(grid.expandedToolPanelSections).toEqual(['settings']);
+
+    grid.openToolPanel('filters');
+    await nextFrame();
+    expect(grid.isToolPanelOpen).toBe(true);
+    expect(grid.expandedToolPanelSections).toEqual(['filters']);
+  });
+
+  it('falls back to default behavior when openToolPanel is called with an unknown panelId', async () => {
+    grid = document.createElement('tbw-grid');
+    grid.rows = [{ id: 1 }];
+    grid.registerToolPanel({
+      id: 'settings',
+      title: 'Settings',
+      icon: '⚙',
+      order: 1,
+      render: () => {
+        /* noop */
+      },
+    });
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    grid.openToolPanel('does-not-exist');
+    await nextFrame();
+    expect(grid.isToolPanelOpen).toBe(true);
+    expect(grid.expandedToolPanelSections).toEqual(['settings']);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 
   it('renders header content from plugin', async () => {

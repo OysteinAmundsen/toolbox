@@ -14,7 +14,9 @@ const TYPEDOC_DIRS = ['/api/', '/Classes/', '/Interfaces/', '/Functions/', '/Typ
 const curated = all.filter((f) => !TYPEDOC_DIRS.some((d) => f.includes(d)));
 
 // Build a set of all valid page slugs (every mdx becomes a route).
-// In Starlight, /foo/bar.mdx -> /foo/bar/ (or /foo/bar). index.mdx -> /foo/.
+// Astro is configured with `trailingSlash: 'always'` (apps/docs/astro.config.mjs),
+// so the canonical form is /foo/bar/ — links without the trailing slash 404.
+// We store ONLY the trailing-slash form so the audit catches missing slashes.
 const slugs = new Set();
 for (const f of all) {
   const rel = path
@@ -23,8 +25,7 @@ for (const f of all) {
     .replace(/\.mdx$/, '');
   let slug = '/' + rel.toLowerCase();
   if (slug.endsWith('/index')) slug = slug.slice(0, -'/index'.length) || '/';
-  slugs.add(slug);
-  slugs.add(slug + '/');
+  slugs.add(slug === '/' ? '/' : slug + '/');
 }
 
 // Also accept root '/'
@@ -59,8 +60,7 @@ for (const f of all) {
   for (const m of content.matchAll(/\{#([a-z0-9-]+)\}/gi)) {
     anchors.add(m[1].toLowerCase());
   }
-  anchorsByPage.set(slug, anchors);
-  anchorsByPage.set(slug + '/', anchors);
+  anchorsByPage.set(slug === '/' ? '/' : slug + '/', anchors);
 }
 
 const linkRe = /\[([^\]]*)\]\(([^)]+)\)/g;
@@ -97,24 +97,30 @@ for (const f of curated) {
     }
     // Strip trailing slash for slug lookup, but keep for set membership
     const norm1 = resolved.replace(/\/+$/, '') || '/';
-    const norm2 = norm1 + '/';
+    const norm2 = norm1 === '/' ? '/' : norm1 + '/';
     // Skip non-doc paths (e.g., /assets/, .png)
     if (/\.(png|jpg|jpeg|svg|gif|webp|css|js|json|pdf|zip)$/i.test(norm1)) continue;
 
-    const exists = slugs.has(norm1) || slugs.has(norm2);
+    const exists = slugs.has(norm2);
     if (!exists) {
       // Find line number
       const idx = content.indexOf(m[0]);
       const line = content.slice(0, idx).split('\n').length;
-      broken.push({ file: f, line, link: m[0], url, reason: 'page not found' });
+      // Distinguish "page missing" from "missing trailing slash" — both 404
+      // under trailingSlash:'always', but the latter has a clearer fix.
+      const reason =
+        slugs.has(norm1 + '/') && !resolved.endsWith('/')
+          ? `missing trailing slash (site uses trailingSlash: 'always')`
+          : 'page not found';
+      broken.push({ file: f, line, link: m[0], url, reason });
       continue;
     }
     if (hash) {
-      const anchors = anchorsByPage.get(norm1) || anchorsByPage.get(norm2);
+      const anchors = anchorsByPage.get(norm2);
       if (anchors && !anchors.has(hash.toLowerCase())) {
         const idx = content.indexOf(m[0]);
         const line = content.slice(0, idx).split('\n').length;
-        broken.push({ file: f, line, link: m[0], url, reason: `anchor #${hash} not found on ${norm1}` });
+        broken.push({ file: f, line, link: m[0], url, reason: `anchor #${hash} not found on ${norm2}` });
       }
     }
   }

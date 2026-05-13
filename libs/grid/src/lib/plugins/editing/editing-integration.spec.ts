@@ -1259,7 +1259,7 @@ describe('EditingPlugin', () => {
             header: 'Date',
             editable: true,
             // Custom editor function that returns a Node (simulating framework adapter)
-            editor: (ctx: { value: string; commit: (v: unknown) => void }) => {
+            editor: (_ctx: { value: string; commit: (v: unknown) => void }) => {
               const div = document.createElement('div');
               const input = document.createElement('input');
               // Simulate a formatted display value (like Material datepicker shows)
@@ -1985,7 +1985,6 @@ describe('EditingPlugin', () => {
       await nextFrame();
 
       expect(grid._activeEditRows).toBe(1);
-      const editRowRef = (editingPlugin as any)['#activeEditRowRef'] ?? grid._rows[1];
 
       // Simulate typing into the editor
       const nameCell = grid.querySelector('.cell[data-row="1"].editing');

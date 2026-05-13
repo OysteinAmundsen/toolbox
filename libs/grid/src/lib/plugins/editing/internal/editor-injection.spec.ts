@@ -254,7 +254,7 @@ describe('editor-injection', () => {
       const deps = createDeps();
       const { cell } = createCellInRow();
       const column = col('name', {
-        editor: (ctx: any) => {
+        editor: (_ctx: any) => {
           // Simulate framework adapter mounting content into the host
           const host = cell.querySelector('.tbw-editor-host');
           if (host) {
@@ -578,10 +578,10 @@ describe('editor-injection', () => {
     it('should invoke onValueChange callback when editorValueCallbacks triggers', () => {
       const deps = createDeps();
       const { cell } = createCellInRow();
-      let capturedOnValueChange: ((v: unknown) => void) | undefined;
+      let _capturedOnValueChange: ((v: unknown) => void) | undefined;
       const column = col('name', {
         editor: (ctx: any) => {
-          capturedOnValueChange = ctx.onValueChange;
+          _capturedOnValueChange = ctx.onValueChange;
           const valueSpy = vi.fn();
           ctx.onValueChange(valueSpy);
           return document.createElement('input');

@@ -804,7 +804,6 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
       unsubs.forEach((fn) => fn());
     };
     // Only re-subscribe when the SET of handlers changes, not their identity
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventHandlersKey]);
 
   // Expose ref API

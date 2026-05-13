@@ -33,7 +33,7 @@ describe('grid-type-registry', () => {
 
   describe('typeDefaultToBaseTypeDefault', () => {
     it('should return base type default with editorParams', () => {
-      const mockRender = vi.fn((node) => document.createElement('div'));
+      const mockRender = vi.fn((_node) => document.createElement('div'));
       const typeDefault: TypeDefault = {
         editorParams: { options: ['A', 'B'] },
       };
@@ -85,7 +85,7 @@ describe('grid-type-registry', () => {
       const container = document.createElement('div');
       const mockRender = vi.fn(() => container);
       const typeDefault: TypeDefault = {
-        filterPanelRenderer: (params) => createElement('div', null, 'Filter Panel'),
+        filterPanelRenderer: (_params) => createElement('div', null, 'Filter Panel'),
       };
 
       const result = typeDefaultToBaseTypeDefault(typeDefault, mockRender);

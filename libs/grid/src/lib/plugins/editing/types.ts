@@ -4,7 +4,6 @@
  * Configuration and event types for the EditingPlugin.
  */
 
-import type { ColumnEditorContext } from '../../core/types';
 import type { BaselinesCapturedDetail, DirtyChangeDetail } from './internal/dirty-tracking';
 
 // ============================================================================
@@ -283,7 +282,7 @@ declare module '../../core/types' {
      * When omitted (default), behaviour matches `false` for text/number columns
      * and no special handling is applied.
      *
-     * Custom editors can read `column.nullable` from the {@link ColumnEditorContext}
+     * Custom editors can read `column.nullable` from the `ColumnEditorContext`
      * to implement their own nullable behaviour.
      *
      * @default false

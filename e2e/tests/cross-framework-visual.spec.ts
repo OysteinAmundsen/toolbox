@@ -307,7 +307,7 @@ test.describe('Cross-Framework Functional Parity', () => {
           .locator(SELECTORS.cell)
           .filter({ hasText: /[A-Za-z]/ })
           .first();
-        const textBefore = await firstCell.textContent();
+        const _textBefore = await firstCell.textContent();
 
         // Click on a sortable header - use ID column which is always sortable
         // Use data-field attribute to get the correct column (not expander column)

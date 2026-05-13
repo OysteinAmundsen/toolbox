@@ -245,7 +245,7 @@ describe('BaseOverlayEditor', () => {
     it('should inject styles into document head', async () => {
       // Import the module to trigger style injection (ensureOverlayStyles is called in constructor)
       // Just verify the style element exists
-      const styleEl = document.querySelector('style[data-tbw-overlay]');
+      document.querySelector('style[data-tbw-overlay]');
       // May or may not exist depending on whether any instance was created
       // The important thing is the class exists and has the method
       expect(BaseOverlayEditor).toBeDefined();

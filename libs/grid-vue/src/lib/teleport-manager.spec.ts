@@ -43,13 +43,11 @@ function mountTeleportManager(): { app: App; handle: TeleportManagerHandle; moun
 describe('TeleportManager', () => {
   let app: App;
   let handle: TeleportManagerHandle;
-  let mountEl: HTMLElement;
 
   beforeEach(() => {
     const result = mountTeleportManager();
     app = result.app;
     handle = result.handle;
-    mountEl = result.mountEl;
   });
 
   afterEach(() => {
@@ -144,7 +142,7 @@ describe('TeleportManager', () => {
 
   describe('batching', () => {
     it('should batch multiple renders in a single microtask', async () => {
-      const targets = Array.from({ length: 5 }, (_, i) => {
+      const targets = Array.from({ length: 5 }, (_, _i) => {
         const el = document.createElement('div');
         document.body.appendChild(el);
         return el;
@@ -309,7 +307,6 @@ describe('TeleportManager', () => {
       const recreated = mountTeleportManager();
       app = recreated.app;
       handle = recreated.handle;
-      mountEl = recreated.mountEl;
     });
   });
 

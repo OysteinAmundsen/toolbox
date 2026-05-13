@@ -858,7 +858,7 @@ export function renderHeaderContent(renderRoot: Element, state: ShellState): voi
 export function renderPanelContent(
   renderRoot: Element,
   state: ShellState,
-  icons?: { expand?: IconValue; collapse?: IconValue },
+  _icons?: { expand?: IconValue; collapse?: IconValue },
 ): void {
   if (!state.isPanelOpen) return;
 

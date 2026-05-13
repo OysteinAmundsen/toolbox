@@ -31,7 +31,7 @@ const mockGroupingColumnsPlugin: BaseGridPlugin = {
   },
 };
 
-const mockPinnedColumnsPlugin: BaseGridPlugin = {
+const _mockPinnedColumnsPlugin: BaseGridPlugin = {
   name: 'pinnedColumns',
   version: '1.0.0',
   attach: () => {

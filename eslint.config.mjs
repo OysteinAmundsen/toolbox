@@ -37,7 +37,22 @@ export default [
   {
     files: ['**/*.ts', '**/*.tsx', '**/*.cts', '**/*.mts', '**/*.js', '**/*.jsx', '**/*.cjs', '**/*.mjs'],
     // Override or add rules here
-    rules: {},
+    rules: {
+      // Honor the conventional `_`-prefix for intentionally unused parameters,
+      // variables, destructure rest siblings, and caught errors. Matches the
+      // TypeScript compiler's own `noUnusedParameters` / `noUnusedLocals`
+      // behavior so the compiler and the linter agree.
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          args: 'after-used',
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+        },
+      ],
+    },
   },
   {
     // React hooks rules for TSX files

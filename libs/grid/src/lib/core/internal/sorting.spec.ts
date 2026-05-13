@@ -215,7 +215,7 @@ describe('applySort', () => {
   });
 
   it('uses custom sortHandler from effectiveConfig', () => {
-    const customHandler = vi.fn((rows, sortState) => {
+    const customHandler = vi.fn((rows, _sortState) => {
       // Custom: sort by name length instead of value
       return [...rows].sort((a, b) => a.name.length - b.name.length);
     });
@@ -231,7 +231,7 @@ describe('applySort', () => {
   });
 
   it('supports async sortHandler', async () => {
-    const asyncHandler = vi.fn(async (rows, sortState) => {
+    const asyncHandler = vi.fn(async (rows, _sortState) => {
       // Simulate server delay
       await new Promise((r) => setTimeout(r, 10));
       return [...rows].sort((a, b) => a.id - b.id);

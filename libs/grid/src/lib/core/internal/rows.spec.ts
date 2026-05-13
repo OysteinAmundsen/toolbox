@@ -424,7 +424,7 @@ describe('rowClass callback', () => {
   it('stores dynamic classes in data attribute for cleanup', () => {
     const g = makeGrid();
     g.effectiveConfig = {
-      rowClass: (row: any) => ['dynamic-class', 'another-class'],
+      rowClass: (_row: any) => ['dynamic-class', 'another-class'],
     };
     renderVisibleRows(g, 0, 1, 1);
     const row = g._bodyEl.querySelector('.data-grid-row')!;

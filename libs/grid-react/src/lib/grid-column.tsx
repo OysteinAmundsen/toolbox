@@ -154,7 +154,7 @@ export function GridColumn<TRow = unknown, TValue = unknown>(props: GridColumnPr
         registerColumnEditor(element, editor as (ctx: ColumnEditorContext<unknown, unknown>) => ReactNode);
       }
     },
-    [children, editor, field],
+    [children, editor],
   );
 
   // Convert width to string if number

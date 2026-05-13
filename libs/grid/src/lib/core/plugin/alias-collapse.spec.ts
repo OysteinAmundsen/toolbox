@@ -24,7 +24,6 @@ function makeGrid(): GridElement {
   // Cast via `any` (single-cast escape hatch for tests) — the alias-collapse
   // path only touches `id` and the plugin abort-controller plumbing, both of
   // which a plain HTMLElement satisfies.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const el: any = document.createElement('div');
   el.id = 'g-test';
   return el as GridElement;

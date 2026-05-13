@@ -79,12 +79,10 @@ export function runTemplateBridges(ctx: TemplateBridgeContext): void {
       const result = bridge(ctx);
       if (result && typeof (result as Promise<void>).catch === 'function') {
         (result as Promise<void>).catch((err) => {
-          // eslint-disable-next-line no-console
           console.error('[tbw-grid-angular] template bridge threw:', err);
         });
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('[tbw-grid-angular] template bridge threw:', err);
     }
   }

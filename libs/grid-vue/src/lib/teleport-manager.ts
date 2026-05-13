@@ -172,7 +172,6 @@ export const TeleportManager = defineComponent({
           }
           // Best-effort surface for diagnostics; mirrors the React boundary
           // (which also relies on console for the error tape).
-          // eslint-disable-next-line no-console
           console.error(`[tbw-grid-vue] Teleport "${props.entryKey}" threw and was removed (${info}):`, err);
           // Stop propagation so the host app's onErrorCaptured / errorHandler
           // does not also receive it (matches React's boundary contract).

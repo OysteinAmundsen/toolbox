@@ -9,8 +9,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp, defineComponent, h, provide, ref } from 'vue';
 import { GRID_ELEMENT_KEY, useGrid } from './use-grid';
 
-type MockGrid = Record<string, unknown>;
-
 // ═══════════════════════════════════════════════════════════════════════════
 // USE GRID TESTS
 // ═══════════════════════════════════════════════════════════════════════════

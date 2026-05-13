@@ -250,7 +250,6 @@ describe('GridAdapter', () => {
     });
 
     it('should return false for function expression', () => {
-      // eslint-disable-next-line prefer-arrow-callback
       expect(
         isVueComponent(function namedFn() {
           return 'hello';
@@ -619,7 +618,7 @@ describe('GridAdapter', () => {
 
       const renderer = adapter.createRenderer(element);
       const ctx = { value: 'test-value', row: {}, column: { field: 'rendered' } };
-      const container = (renderer as (...args: unknown[]) => HTMLElement)(ctx);
+      (renderer as (...args: unknown[]) => HTMLElement)(ctx);
     });
 
     it('should use cell caching when cellEl is provided', () => {
@@ -680,7 +679,7 @@ describe('GridAdapter', () => {
 
       const editor = adapter.createEditor(element);
       const ctx = { value: 'edit-me', row: {}, column: { field: 'editField' } };
-      const container = (editor as (...args: unknown[]) => HTMLElement)(ctx);
+      (editor as (...args: unknown[]) => HTMLElement)(ctx);
     });
 
     it('flushes the focused editor input via native .blur() on before-edit-close', () => {

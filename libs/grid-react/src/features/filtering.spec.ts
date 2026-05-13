@@ -73,12 +73,7 @@ function renderHook(selector?: string, gridEl?: HTMLElement | null) {
 
   function TestComponent() {
     const ref = useRef(gridEl ?? null);
-    return createElement(
-      GridElementContext.Provider,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      { value: ref as any },
-      createElement(Inner),
-    );
+    return createElement(GridElementContext.Provider, { value: ref as any }, createElement(Inner));
   }
   function Inner() {
     captured.current = useGridFiltering(selector);

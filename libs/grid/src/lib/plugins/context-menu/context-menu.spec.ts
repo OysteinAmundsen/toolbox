@@ -309,7 +309,6 @@ describe('contextMenu', () => {
       ];
 
       const menu = createMenuElement(items, params, onAction);
-      const menuItems = menu.querySelectorAll('.tbw-context-menu-item');
       const icons = menu.querySelectorAll('.tbw-context-menu-icon');
 
       // Both items should have icon elements

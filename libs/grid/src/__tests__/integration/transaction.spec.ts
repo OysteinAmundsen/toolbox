@@ -13,10 +13,6 @@ interface TestRow {
   count: number;
 }
 
-function nextFrame() {
-  return new Promise<void>((r) => requestAnimationFrame(r));
-}
-
 async function createGrid<T>(rows: T[], config?: Partial<GridConfig<T>>) {
   const grid = document.createElement('tbw-grid') as any;
   if (config) {

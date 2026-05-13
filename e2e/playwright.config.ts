@@ -9,7 +9,7 @@ import { resolve } from 'path';
  */
 
 // Workspace root (one level up from e2e folder)
-const workspaceRoot = resolve(__dirname, '..');
+const _workspaceRoot = resolve(__dirname, '..');
 
 // Default ports for each demo (from project.json configurations)
 const DEMO_PORTS = {

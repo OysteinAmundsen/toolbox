@@ -28,7 +28,6 @@ interface Row {
 }
 
 describe('EditingPlugin ARIA overlay fallback (#251)', () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let grid: any;
   let portalPanel: HTMLDivElement;
 
@@ -58,7 +57,6 @@ describe('EditingPlugin ARIA overlay fallback (#251)', () => {
           field: 'city',
           header: 'City',
           editable: true,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           editor: (ctx: any) => {
             const wrapper = document.createElement('div');
             const input = document.createElement('input');
@@ -138,7 +136,6 @@ describe('EditingPlugin ARIA overlay fallback (#251)', () => {
 });
 
 describe('ColumnEditorContext.grid (#251)', () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let grid: any;
 
   beforeEach(async () => {
@@ -161,7 +158,6 @@ describe('ColumnEditorContext.grid (#251)', () => {
           field: 'city',
           header: 'City',
           editable: true,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           editor: (ctx: any) => {
             capturedGrid = ctx.grid;
             const input = document.createElement('input');

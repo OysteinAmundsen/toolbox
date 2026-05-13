@@ -209,7 +209,7 @@ test.describe('Custom Editors', () => {
         await expect(statusCell).toBeVisible();
 
         // Get original value
-        const originalText = await statusCell.textContent();
+        const _originalText = await statusCell.textContent();
 
         // Double-click to edit
         await statusCell.dblclick();

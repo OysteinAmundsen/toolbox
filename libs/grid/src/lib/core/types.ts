@@ -2237,7 +2237,7 @@ export interface PluginNameMap {}
  * ```
  * @since 1.24.0
  */
-export interface FeatureConfig<TRow = unknown> {
+export interface FeatureConfig<_TRow = unknown> {
   /**
    * @internal Sentinel property that makes the interface non-empty so TypeScript's
    * excess-property checking rejects unknown feature keys in object literals.

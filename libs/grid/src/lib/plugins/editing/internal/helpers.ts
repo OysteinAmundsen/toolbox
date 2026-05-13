@@ -117,7 +117,6 @@ export function clearEditingState(rowEl: RowElementInternal): void {
  * No-op updateRow function for rows without IDs.
  * Extracted to a named function to satisfy eslint no-empty-function.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function noopUpdateRow(_changes: unknown): void {
   // Row has no ID - cannot update
 }

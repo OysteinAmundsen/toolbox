@@ -451,7 +451,7 @@ describe('injectGridFiltering', () => {
       // Clear the host element so grid isn't found
       mockElementRef.nativeElement = document.createElement('div');
 
-      const result = injectGridFiltering();
+      injectGridFiltering();
       afterNextRenderCallback?.();
 
       // onDestroy should have been called to register observer cleanup

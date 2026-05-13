@@ -25,7 +25,7 @@ describe('responsive-card-registry', () => {
 
     it('should store and retrieve renderer for an element', () => {
       const element = document.createElement('tbw-grid-responsive-card');
-      const renderer = (ctx: ResponsiveCardContext) => undefined;
+      const renderer = (_ctx: ResponsiveCardContext) => undefined;
 
       cardRegistry.set(element, renderer);
       expect(cardRegistry.get(element)).toBe(renderer);
@@ -60,7 +60,7 @@ describe('responsive-card-registry', () => {
       gridElement.appendChild(cardElement);
       container.appendChild(gridElement);
 
-      const mockRenderer = (ctx: ResponsiveCardContext) => undefined;
+      const mockRenderer = (_ctx: ResponsiveCardContext) => undefined;
       cardRegistry.set(cardElement, mockRenderer);
 
       const renderer = getResponsiveCardRenderer(gridElement);
@@ -77,7 +77,7 @@ describe('responsive-card-registry', () => {
       container.appendChild(gridElement);
       container.appendChild(cardElement);
 
-      const mockRenderer = (ctx: ResponsiveCardContext) => undefined;
+      const mockRenderer = (_ctx: ResponsiveCardContext) => undefined;
       cardRegistry.set(cardElement, mockRenderer);
 
       const renderer = getResponsiveCardRenderer(gridElement);

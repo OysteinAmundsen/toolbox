@@ -517,7 +517,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   }
 
   /** @internal */
-  override onScroll(event: ScrollEvent): void {
+  override onScroll(_event: ScrollEvent): void {
     if (!this.dataSource) return;
 
     // Immediate check for blocks

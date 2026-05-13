@@ -481,7 +481,7 @@ describe('renderHeader', () => {
         columns: [
           {
             field: 'id',
-            headerRenderer: (ctx: any) => {
+            headerRenderer: (_ctx: any) => {
               const div = document.createElement('div');
               div.className = 'fully-custom';
               div.textContent = 'Full Control';

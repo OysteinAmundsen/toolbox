@@ -82,7 +82,6 @@ registerTemplateBridge(({ grid, adapter }) => {
   const existingPlugin = (grid as any).getPluginByName?.('responsive') as ResponsivePluginLike | undefined;
 
   if (!existingPlugin) {
-    // eslint-disable-next-line no-console
     console.warn(
       '[tbw-grid-angular] <tbw-grid-responsive-card> found but ResponsivePlugin is not configured.\n' +
         'Add the [responsive] input, set gridConfig.features.responsive, or include\n' +

@@ -19,7 +19,7 @@ declare module '../core/types' {
   }
 }
 
-registerFeature('pinnedColumns', (config) => {
+registerFeature('pinnedColumns', (_config) => {
   return new PinnedColumnsPlugin();
 });
 

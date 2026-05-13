@@ -556,7 +556,6 @@ function splitMixedPinExplicitGroup(
         ? lastRightRunIdx - 1
         : -1;
 
-  let pinnedStickyOffset = '0px';
   let pinnedFragment: HTMLElement | undefined;
   let scrollableFragment: HTMLElement | undefined;
   let floatLabel: HTMLElement | undefined;
@@ -576,7 +575,6 @@ function splitMixedPinExplicitGroup(
         cell.classList.add(GridClasses.STICKY_LEFT);
         cell.style.position = 'sticky';
         cell.style.left = firstCell.style.left;
-        pinnedStickyOffset = firstCell.style.left;
       }
 
       if (ri === pinnedRunIdx) {

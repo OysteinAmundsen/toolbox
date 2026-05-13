@@ -914,7 +914,7 @@ describe('tree plugin integration', () => {
         },
         rows: [],
         _columns: [],
-        query: (type: string, context: unknown) => {
+        query: (type: string, _context: unknown) => {
           queryCalls.push({ type });
           if (type === 'datasource:is-active') return true;
           return undefined;

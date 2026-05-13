@@ -6,7 +6,7 @@ test.describe('Sorting Demos', () => {
     await openDemo(page, 'IntroBasicDemo');
 
     // Get initial first cell value
-    const col1Before = await cellText(page, 0, 1);
+    const _col1Before = await cellText(page, 0, 1);
 
     // Sort by Name ascending
     await sortByColumn(page, 'Name');

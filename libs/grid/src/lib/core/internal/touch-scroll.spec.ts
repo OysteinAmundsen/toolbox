@@ -90,14 +90,12 @@ describe('touch-scroll', () => {
 
   describe('handleTouchStart', () => {
     let state: TouchScrollState;
-    let elements: TouchScrollElements;
     let fauxScrollbar: HTMLElement;
 
     beforeEach(() => {
       state = createTouchScrollState();
       fauxScrollbar = document.createElement('div');
       Object.defineProperty(fauxScrollbar, 'scrollTop', { value: 100, writable: true });
-      elements = { fauxScrollbar, scrollArea: null };
     });
 
     it('should initialize touch state from coordinates', () => {

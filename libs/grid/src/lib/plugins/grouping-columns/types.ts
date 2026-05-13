@@ -13,7 +13,7 @@ import type { ColumnConfig as CoreColumnConfig } from '../../core/types';
 // ============================================================================
 
 declare module '../../core/types' {
-  interface ColumnConfig<TRow = any> {
+  interface ColumnConfig<_TRow = any> {
     /**
      * Column group assignment for the GroupingColumnsPlugin.
      * Columns with the same group.id are rendered under a shared header.
@@ -21,7 +21,7 @@ declare module '../../core/types' {
     group?: { id: string; label?: string } | string;
   }
 
-  interface GridConfig<TRow = any> {
+  interface GridConfig<_TRow = any> {
     /**
      * Declarative column group definitions for the GroupingColumnsPlugin.
      * Each group specifies an id, header label, and array of column field names.

@@ -1594,7 +1594,6 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
       ];
 
   // Store event listeners for cleanup
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private eventListeners: Map<string, (e: Event) => void> = new Map();
 
   ngOnInit(): void {
@@ -1656,7 +1655,6 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * Returns the array of created plugins (doesn't modify grid).
    */
   private createFeaturePlugins(): unknown[] {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const plugins: unknown[] = [];
     const adapter = this.adapter;
     const grid = this.elementRef.nativeElement;

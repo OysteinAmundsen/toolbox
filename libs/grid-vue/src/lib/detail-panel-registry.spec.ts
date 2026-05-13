@@ -25,7 +25,7 @@ describe('detail-panel-registry', () => {
 
     it('should store and retrieve renderer for an element', () => {
       const element = document.createElement('tbw-grid-detail');
-      const renderer = (ctx: DetailPanelContext) => undefined;
+      const renderer = (_ctx: DetailPanelContext) => undefined;
 
       detailRegistry.set(element, renderer);
       expect(detailRegistry.get(element)).toBe(renderer);
@@ -60,7 +60,7 @@ describe('detail-panel-registry', () => {
       gridElement.appendChild(detailElement);
       container.appendChild(gridElement);
 
-      const mockRenderer = (ctx: DetailPanelContext) => undefined;
+      const mockRenderer = (_ctx: DetailPanelContext) => undefined;
       detailRegistry.set(detailElement, mockRenderer);
 
       const renderer = getDetailRenderer(gridElement);
@@ -77,7 +77,7 @@ describe('detail-panel-registry', () => {
       container.appendChild(gridElement);
       container.appendChild(detailElement);
 
-      const mockRenderer = (ctx: DetailPanelContext) => undefined;
+      const mockRenderer = (_ctx: DetailPanelContext) => undefined;
       detailRegistry.set(detailElement, mockRenderer);
 
       const renderer = getDetailRenderer(gridElement);

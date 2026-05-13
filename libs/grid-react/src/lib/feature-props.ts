@@ -535,7 +535,6 @@ export type AllFeatureProps<TRow = unknown> = FeatureProps<TRow> & SSRProps;
  * here. Add the matching prop above with appropriate React-specific types.
  */
 type _MissingReactProps = Exclude<keyof FeatureConfig, keyof FeatureProps>;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type _AssertFeaturePropsCoverCore = [_MissingReactProps] extends [never]
   ? true
   : ['Missing React props for core features:', _MissingReactProps];

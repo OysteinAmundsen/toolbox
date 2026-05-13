@@ -45,7 +45,7 @@ export type ResolvedPinnedPosition = 'left' | 'right';
  * This augments the core BaseColumnConfig interface.
  */
 declare module '../../core/types' {
-  interface BaseColumnConfig<TRow, TValue> {
+  interface BaseColumnConfig<_TRow, _TValue> {
     /**
      * Pin column to an edge of the grid.
      *

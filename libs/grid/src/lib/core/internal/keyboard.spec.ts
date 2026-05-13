@@ -37,7 +37,7 @@ describe('keyboard navigation', () => {
       dispatchEvent(ev: any) {
         grid.__events.push(ev);
       },
-      querySelector(selector: string) {
+      querySelector(_selector: string) {
         return null; // Mock - no DOM elements in unit tests
       },
     };

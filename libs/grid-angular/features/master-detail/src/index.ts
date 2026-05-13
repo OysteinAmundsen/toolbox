@@ -94,7 +94,6 @@ registerTemplateBridge(({ grid }) => {
   const existingPlugin = (grid as any).getPluginByName?.('masterDetail') as MasterDetailPluginLike | undefined;
 
   if (!existingPlugin) {
-    // eslint-disable-next-line no-console
     console.warn(
       '[tbw-grid-angular] <tbw-grid-detail> found but MasterDetailPlugin is not configured.\n' +
         'Add the [masterDetail] input, set gridConfig.features.masterDetail, or include\n' +

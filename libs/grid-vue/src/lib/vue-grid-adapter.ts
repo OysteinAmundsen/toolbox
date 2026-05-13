@@ -453,16 +453,16 @@ export class GridAdapter implements FrameworkAdapter {
     // Process emptyRenderer - convert Vue component/VNode to DOM-returning function.
     // `null` is a valid opt-out value (suppresses the built-in default message);
     // it short-circuits the `if (vueConfig.emptyRenderer)` branch and is
-    // forwarded through `result` unchanged.
+    // forwarded through `result` unchanged. Vanilla `(ctx) => HTMLElement | string`
+    // functions are also accepted via the base type and pass through the VNode
+    // wrapper, which detects DOM/string results at runtime.
     if (vueConfig.emptyRenderer) {
       if (isVueComponent(vueConfig.emptyRenderer)) {
-        (result as BaseGridConfig<TRow>).emptyRenderer = this.createComponentEmptyRenderer(
-          vueConfig.emptyRenderer as unknown as Component,
-        ) as unknown as BaseGridConfig<TRow>['emptyRenderer'];
+        result.emptyRenderer = this.createComponentEmptyRenderer(vueConfig.emptyRenderer);
       } else if (isVNodeRenderFunction(vueConfig.emptyRenderer)) {
-        (result as BaseGridConfig<TRow>).emptyRenderer = this.createVNodeEmptyRenderer(
-          vueConfig.emptyRenderer as unknown as (ctx: EmptyContext) => VNode,
-        ) as unknown as BaseGridConfig<TRow>['emptyRenderer'];
+        result.emptyRenderer = this.createVNodeEmptyRenderer(
+          vueConfig.emptyRenderer as (ctx: EmptyContext) => VNode | HTMLElement | string,
+        );
       }
     }
 
@@ -888,13 +888,26 @@ export class GridAdapter implements FrameworkAdapter {
   }
 
   /**
-   * Creates a DOM-returning empty-state renderer from a VNode-returning render function.
+   * Creates a DOM-returning empty-state renderer from a render function.
+   *
+   * The Vue `GridConfig.emptyRenderer` type permits both a VNode-returning
+   * function (mounted via teleport) and a vanilla
+   * `(ctx) => HTMLElement | string` function (passed through unchanged).
+   * Mirroring `wrapReactEmptyRenderer`, we invoke the renderer and only
+   * teleport-mount when the result is a VNode; DOM/string results are
+   * returned as-is so consumers can mix vanilla and Vue renderers freely.
    * @internal
    */
-  private createVNodeEmptyRenderer(renderFn: (ctx: EmptyContext) => VNode): (ctx: EmptyContext) => HTMLElement {
+  private createVNodeEmptyRenderer(
+    renderFn: (ctx: EmptyContext) => VNode | HTMLElement | string,
+  ): (ctx: EmptyContext) => HTMLElement | string {
     return (ctx: EmptyContext) => {
+      const result = renderFn(ctx);
+      if (result instanceof HTMLElement || typeof result === 'string') {
+        return result;
+      }
       const container = createTeleportContainer('vue-empty-renderer');
-      const teleportKey = renderToContainer(container, renderFn(ctx));
+      const teleportKey = renderToContainer(container, result);
       this.teleportKeys.push(teleportKey);
       return container;
     };

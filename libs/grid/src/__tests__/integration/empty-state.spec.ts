@@ -174,31 +174,50 @@ describe('emptyRenderer integration (#321)', () => {
     expect(overlay?.parentElement).toBe(gridRoot);
   });
 
-  it('updates the message when filtered out via plugin (filteredOut flag)', async () => {
-    // Without bringing in a filtering plugin, simulate the post-plugin state
-    // by directly mutating _rows after setting source rows. This is what the
-    // FilteringPlugin's processRows hook does at runtime.
-    const grid = await makeGrid();
-    grid.rows = [{ id: 1, name: 'Alice' }];
+  it('shows the filtered-out message when FilteringPlugin filters every row out', async () => {
+    // Drive the filteredOut path through the real plugin pipeline rather than
+    // mutating internals: register FilteringPlugin, populate rows, then apply
+    // a filter that excludes every value. The plugin's processRows hook
+    // empties the rendered set while #rows (source) stays > 0, which is the
+    // exact precondition for the filtered-out message.
+    const { FilteringPlugin } = await import('../../lib/plugins/filtering');
+
+    const data = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+    ];
+
+    const plugin = new FilteringPlugin({});
+
+    const grid = await makeGrid({
+      columns: [
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name', filterable: true },
+      ],
+      plugins: [plugin],
+    });
+    grid.rows = data;
     await nextFrame();
 
-    // Simulate a plugin filtering everything out: source rows still 1, but
-    // rendered rows is 0.
-    grid._rows.length = 0;
-    grid._setup?.();
-    // _setup may not re-trigger after-render in a single tick; force a fresh
-    // render cycle so the empty hook runs.
+    // Sanity: data is rendered, no overlay yet.
+    expect(getOverlay(grid)).toBeNull();
+
+    // Exclude every value of `name` so the rendered row count drops to 0
+    // while the source row array (#rows) still holds both rows.
+    plugin.setFilter('name', {
+      type: 'set',
+      operator: 'notIn',
+      value: ['Alice', 'Bob'],
+    });
+
+    // Filter resolution + render cycle.
+    await new Promise((r) => setTimeout(r, 10));
     grid.refreshVirtualWindow?.(true);
     await nextFrame();
+    await nextFrame();
 
-    // If the framework cleared _rows before our push, the overlay should now
-    // claim filteredOut.
     const overlay = getOverlay(grid);
-    if (overlay) {
-      // Either the default flow restored rows or the filter simulation took:
-      // assert one of the two known messages, and that filteredOut wins when
-      // sourceRows still hold data.
-      expect([DEFAULT_EMPTY_MESSAGE, DEFAULT_FILTERED_OUT_MESSAGE]).toContain(overlay.textContent);
-    }
+    expect(overlay).not.toBeNull();
+    expect(overlay?.textContent).toBe(DEFAULT_FILTERED_OUT_MESSAGE);
   });
 });

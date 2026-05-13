@@ -2237,7 +2237,8 @@ export interface PluginNameMap {}
  * ```
  * @since 1.24.0
  */
-export interface FeatureConfig<_TRow = unknown> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- TRow must keep this exact name so module augmentations across features merge (TS2428).
+export interface FeatureConfig<TRow = unknown> {
   /**
    * @internal Sentinel property that makes the interface non-empty so TypeScript's
    * excess-property checking rejects unknown feature keys in object literals.

@@ -13,7 +13,8 @@ import type { ColumnConfig as CoreColumnConfig } from '../../core/types';
 // ============================================================================
 
 declare module '../../core/types' {
-  interface ColumnConfig<_TRow = any> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- TRow must match the original ColumnConfig<TRow> declaration for module augmentation to merge (TS2428).
+  interface ColumnConfig<TRow = any> {
     /**
      * Column group assignment for the GroupingColumnsPlugin.
      * Columns with the same group.id are rendered under a shared header.
@@ -21,7 +22,8 @@ declare module '../../core/types' {
     group?: { id: string; label?: string } | string;
   }
 
-  interface GridConfig<_TRow = any> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- TRow must match the original GridConfig<TRow> declaration for module augmentation to merge (TS2428).
+  interface GridConfig<TRow = any> {
     /**
      * Declarative column group definitions for the GroupingColumnsPlugin.
      * Each group specifies an id, header label, and array of column field names.

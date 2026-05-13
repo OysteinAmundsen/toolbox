@@ -45,7 +45,8 @@ export type ResolvedPinnedPosition = 'left' | 'right';
  * This augments the core BaseColumnConfig interface.
  */
 declare module '../../core/types' {
-  interface BaseColumnConfig<_TRow, _TValue> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- TRow/TValue must match the original BaseColumnConfig<TRow, TValue> declaration for module augmentation to merge (TS2428).
+  interface BaseColumnConfig<TRow, TValue> {
     /**
      * Pin column to an edge of the grid.
      *

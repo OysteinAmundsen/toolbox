@@ -68,7 +68,8 @@ export interface ColumnMoveDetail {
 
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
-  interface BaseColumnConfig<_TRow, _TValue> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- TRow/TValue must match the original BaseColumnConfig<TRow, TValue> declaration for module augmentation to merge (TS2428).
+  interface BaseColumnConfig<TRow, TValue> {
     /**
      * Prevent this column from being reordered by the user. When `true`, the column
      * cannot be dragged in the header row or rearranged via the visibility panel.

@@ -77,6 +77,40 @@ For each file (or each hunk, when reviewing a diff), check:
 - Missing or inappropriate `data-testid` on new visual components (workspace rule).
 - Bundle-budget risk for `libs/grid/**` changes (toolbox workspace) — flag if change looks heavy.
 
+### Documentation accuracy (treat prose as untrusted)
+
+Any prose added or modified by the diff — code comments, JSDoc, README sections,
+`.github/knowledge/*.md` `DECIDED` entries, `@deprecated` notes, version
+strings — is **not** authoritative narration of the code. Verify each prose
+claim against the actual implementation. This is the class of defect the
+GitHub Copilot reviewer catches most consistently and the easiest one for a
+human reviewer to gloss over because the surrounding code "looks right".
+
+For every modified or new prose block:
+
+1. **Within the same file:** read the body of the function/class/field the
+   prose describes and confirm the prose matches it. Pay particular
+   attention to negations ("does NOT track", "is now a no-op", "no longer
+   installs"), enumerations ("excludes a, b, and c"), and version claims
+   ("Since 1.34.0", "@deprecated").
+2. **Cross-file:** if the prose makes a claim about behavior elsewhere
+   ("the X plugin no longer needs to install Y", "callers should use Z
+   instead"), `grep` for the referenced symbol/option across the codebase
+   and verify the claim. A JSDoc that says "X is a no-op" is wrong if any
+   file still branches on X.
+3. **Against package state:** version strings in `@deprecated`/`@since`
+   tags must match `package.json`. "Will be removed in a future major
+   release" is fine; specific version numbers must be real.
+4. **Knowledge files (`.github/knowledge/*.md`):** `DECIDED` entries are
+   contracts. If a `DECIDED` entry's claim contradicts the code in scope,
+   one of them is wrong — flag it explicitly and say which side you
+   believe is correct (the entry usually wins per the workspace's "Read
+   gate" rule, but the diff under review may be the legitimate update).
+
+When prose disagrees with code, treat it as a **Should fix** at minimum
+(possibly **Blocking** if the prose is on a public API surface and would
+mislead consumers).
+
 ## 4. Report format
 
 Structure the output as:

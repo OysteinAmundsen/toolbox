@@ -24,12 +24,14 @@ export class FocusManager<T = any> {
   #externalFocusContainers = new Set<Element>();
   #externalFocusCleanups = new Map<Element, () => void>();
 
-  // Last "real" element the user explicitly focused inside the grid logical
-  // area (grid host descendants + registered external containers). The grid
-  // host itself and bare cell elements are intentionally NOT tracked — host
-  // focus is artificial (tabindex=0 keeps keyboard nav alive) and cell focus
-  // is virtual (managed by _focusRow/_focusCol). Editor inputs INSIDE a
-  // .cell.editing are tracked so editing can resume after an overlay bounce.
+  // Last "real" element the user explicitly focused inside the grid host's
+  // light-DOM subtree. Intentionally NOT tracked: the grid host itself
+  // (artificial tabindex=0 focus from the keyboard handler), bare .cell
+  // elements (cell focus is virtual, owned by _focusRow/_focusCol), and
+  // descendants of registered external containers (overlay closes →
+  // restore should land INSIDE the grid proper, not back into the about-
+  // to-be-removed overlay). Editor inputs INSIDE a .cell.editing ARE
+  // tracked so editing can resume after an overlay bounce.
   #lastFocused: HTMLElement | null = null;
 
   // Always-on trap listener cleanup
@@ -245,7 +247,7 @@ export class FocusManager<T = any> {
    * outside element) is detected via `relatedTarget !== null` and respected.
    */
   #installFocusTrap(): void {
-    const grid = this.#grid as unknown as HTMLElement;
+    const grid = this.#grid;
     const ac = new AbortController();
     const signal = ac.signal;
 
@@ -280,8 +282,7 @@ export class FocusManager<T = any> {
    */
   #noteFocus(target: EventTarget | null): void {
     if (!(target instanceof HTMLElement)) return;
-    const grid = this.#grid as unknown as HTMLElement;
-    if (target === grid) return;
+    if (target === this.#grid) return;
 
     const cell = target.closest?.('.cell') as HTMLElement | null;
     if (cell && !cell.classList.contains('editing')) {
@@ -301,7 +302,7 @@ export class FocusManager<T = any> {
     queueMicrotask(() => {
       const active = document.activeElement;
       // Someone else already moved focus to a meaningful target — leave it alone.
-      if (active && active !== document.body && active !== (this.#grid as unknown as Element)) return;
+      if (active && active !== document.body && active !== this.#grid) return;
       this.restoreLastFocus();
     });
   }
@@ -330,9 +331,11 @@ export class FocusManager<T = any> {
   }
 
   /**
-   * Currently tracked last-user-focused element, if any. Exposed so plugins
-   * (notably EditingPlugin) can defer to the unified trap before falling
-   * back to plugin-specific restoration logic.
+   * Currently tracked last-user-focused element inside the grid host's
+   * light-DOM subtree, if any. Excludes the grid host itself, bare `.cell`
+   * elements, and descendants of registered external focus containers.
+   * Exposed so plugins (notably EditingPlugin) can defer to the unified
+   * trap before falling back to plugin-specific restoration logic.
    * @internal
    */
   get lastFocusedElement(): HTMLElement | null {

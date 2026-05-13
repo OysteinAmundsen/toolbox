@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.11.1...grid-2.12.0) (2026-05-13)
+
+
+### Features
+
+* **grid:** add emptyRenderer config for no-rows / error overlay ([#321](https://github.com/OysteinAmundsen/toolbox/issues/321)) ([#322](https://github.com/OysteinAmundsen/toolbox/issues/322)) ([63118e3](https://github.com/OysteinAmundsen/toolbox/commit/63118e308557bdbedb083b0c1bb20a279782217b))
+
 ## [2.11.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.11.0...grid-2.11.1) (2026-05-12)
 
 

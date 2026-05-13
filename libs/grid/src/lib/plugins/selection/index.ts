@@ -8,6 +8,7 @@ export { SelectionPlugin } from './SelectionPlugin';
 export type {
   CellRange,
   SelectableCallback,
+  SelectionAxis,
   SelectionChangeDetail,
   SelectionConfig,
   SelectionMode,

@@ -10,7 +10,7 @@ import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim 
 import type { UndoRedoConfig, UndoRedoDetail } from '@toolbox-web/grid/plugins/undo-redo';
 
 /**
- * Owns the binding(s) `[undoRedo], [undo], [redo]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ * Owns the binding(s) `[undoRedo], [undo], [redo]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */

@@ -1694,7 +1694,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * current selection with the single column.
    *
    * @param field - The column field name to select.
-   * @param options.range - When true and a {@link columnAnchor} exists, selects
+   * @param options.range - When true and a `columnAnchor` exists, selects
    *   every column from anchor to `field` inclusive (Ctrl+Shift+Click semantics).
    * @param options.toggle - When true, removes `field` if already selected;
    *   otherwise adds it. Without `toggle`, plain calls replace the selection.

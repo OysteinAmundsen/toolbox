@@ -10,7 +10,7 @@ import { registerFeatureClaim, unregisterFeatureClaim } from '@toolbox-web/grid-
 import type { PivotConfig } from '@toolbox-web/grid/plugins/pivot';
 
 /**
- * Owns the binding(s) `[pivot]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ * Owns the binding(s) `[pivot]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */

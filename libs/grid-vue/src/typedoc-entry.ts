@@ -27,7 +27,7 @@ export type { UseGridReturn } from './lib/use-grid';
 export type { CellEditor, CellRenderer, ColumnConfig, GridConfig } from './lib/vue-column-config';
 
 // Feature props types for declarative plugin configuration
-export type { AllFeatureProps, FeatureProps } from './lib/feature-props';
+export type { AllFeatureProps, FeatureProps, SSRProps, VueFilterConfig } from './lib/feature-props';
 
 // Feature registry for tree-shakeable plugin registration
 export {

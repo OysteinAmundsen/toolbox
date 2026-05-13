@@ -22,6 +22,7 @@ import './jsx.d.ts';
 export { DataGrid } from './lib/data-grid';
 export type { DataGridProps, DataGridRef } from './lib/data-grid';
 export { GridColumn } from './lib/grid-column';
+export type { GridColumnProps } from './lib/grid-column';
 export { GridDetailPanel, type DetailPanelContext, type GridDetailPanelProps } from './lib/grid-detail-panel';
 export {
   GridResponsiveCard,
@@ -32,7 +33,14 @@ export { GridToolButtons, type GridToolButtonsProps } from './lib/grid-tool-butt
 export { GridToolPanel, type GridToolPanelProps, type ToolPanelContext } from './lib/grid-tool-panel';
 
 // Feature props types for declarative plugin configuration
-export type { AllFeatureProps, FeatureProps, SSRProps } from './lib/feature-props';
+export type {
+  AllFeatureProps,
+  FeatureProps,
+  ReactColumnGroupDefinition,
+  ReactFilterConfig,
+  ReactGroupingColumnsConfig,
+  SSRProps,
+} from './lib/feature-props';
 
 // Column shorthand type & helpers (for typing column arrays with shorthand syntax)
 export {

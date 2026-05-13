@@ -1045,7 +1045,7 @@ export class GridAdapter implements FrameworkAdapter {
   /**
    * Framework adapter hook called by MasterDetailPlugin during attach().
    * Implementation is installed by `@toolbox-web/grid-vue/features/master-detail`
-   * via {@link registerDetailRendererBridge}. Returns undefined if the
+   * via `registerDetailRendererBridge`. Returns undefined if the
    * master-detail feature has not been imported, or if no TbwGridDetailPanel
    * was registered for this grid.
    */
@@ -1061,7 +1061,7 @@ export class GridAdapter implements FrameworkAdapter {
   /**
    * Framework adapter hook called by ResponsivePlugin during attach().
    * Implementation is installed by `@toolbox-web/grid-vue/features/responsive`
-   * via {@link registerResponsiveCardRendererBridge}. Returns undefined if
+   * via `registerResponsiveCardRendererBridge`. Returns undefined if
    * the responsive feature has not been imported, or if no TbwGridResponsiveCard
    * was registered for this grid.
    */

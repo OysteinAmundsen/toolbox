@@ -10,7 +10,7 @@ import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim 
 import type { ResponsiveChangeDetail, ResponsivePluginConfig } from '@toolbox-web/grid/plugins/responsive';
 
 /**
- * Owns the binding(s) `[responsive], [responsiveChange]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ * Owns the binding(s) `[responsive], [responsiveChange]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */

@@ -10,7 +10,7 @@ import { registerFeatureClaim, unregisterFeatureClaim } from '@toolbox-web/grid-
 import type { TooltipConfig } from '@toolbox-web/grid/plugins/tooltip';
 
 /**
- * Owns the binding(s) `[tooltip]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ * Owns the binding(s) `[tooltip]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */

@@ -12,7 +12,7 @@ import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim 
 import type { ColumnVisibilityDetail, VisibilityConfig } from '@toolbox-web/grid/plugins/visibility';
 
 /**
- * Owns the binding(s) `[visibility], [columnVisibility]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ * Owns the binding(s) `[visibility], [columnVisibility]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */

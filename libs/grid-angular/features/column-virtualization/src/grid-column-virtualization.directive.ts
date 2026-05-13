@@ -11,7 +11,7 @@ import { registerFeatureClaim, unregisterFeatureClaim } from '@toolbox-web/grid-
 import type { ColumnVirtualizationConfig } from '@toolbox-web/grid/plugins/column-virtualization';
 
 /**
- * Owns the binding(s) `[columnVirtualization]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ * Owns the binding(s) `[columnVirtualization]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */

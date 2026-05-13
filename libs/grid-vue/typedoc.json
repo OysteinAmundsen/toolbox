@@ -20,6 +20,15 @@
   "externalPattern": ["**/node_modules/**"],
   "sort": ["source-order"],
   "categoryOrder": ["Components", "Composables", "Types", "Utilities", "*"],
+  "externalSymbolLinkMappings": {
+    "@toolbox-web/grid": {
+      "ColumnEditorContext": "https://toolboxjs.com/grid/api/core/Interfaces/ColumnEditorContext/",
+      "DataGridElement": "https://toolboxjs.com/grid/api/core/Classes/DataGridElement/",
+      "DataGridElement.sort": "https://toolboxjs.com/grid/api/core/Classes/DataGridElement/#sort",
+      "DataGridElement.sortModel": "https://toolboxjs.com/grid/api/core/Classes/DataGridElement/#sortmodel",
+      "BaseColumnConfig.sortComparator": "https://toolboxjs.com/grid/api/core/Interfaces/BaseColumnConfig/#sortcomparator"
+    }
+  },
   "blockTags": [
     "@category",
     "@default",

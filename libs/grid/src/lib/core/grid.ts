@@ -881,7 +881,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * const editing = grid.getPluginByName('editing');
    * ```
    *
-   * @param name - The plugin name (matches {@link BaseGridPlugin.name}).
+   * @param name - The plugin name (matches `BaseGridPlugin.name`).
    * @returns The plugin instance, or `undefined` if not registered.
    * @group Plugin Communication
    */

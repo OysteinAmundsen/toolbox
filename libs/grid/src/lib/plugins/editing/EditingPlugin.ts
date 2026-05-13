@@ -133,7 +133,7 @@ import type {
  * ```
  *
  * @see {@link EditingConfig} for configuration options
- * @see {@link EditorContext} for custom editor context
+ * @see `ColumnEditorContext` for custom editor context
  * @see {@link EditingConfig} for interactive examples in the docs site
  * @since 0.4.0
  */

@@ -11,7 +11,7 @@ import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim 
 import type { PrintCompleteDetail, PrintConfig, PrintStartDetail } from '@toolbox-web/grid/plugins/print';
 
 /**
- * Owns the binding(s) `[print], [printStart], [printComplete]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ * Owns the binding(s) `[print], [printStart], [printComplete]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */

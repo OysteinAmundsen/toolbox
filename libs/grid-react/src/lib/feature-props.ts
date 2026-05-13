@@ -56,14 +56,14 @@ import type { ReactNode } from 'react';
  * `(params: FilterPanelParams) => ReactNode` in addition to the vanilla
  * `(container: HTMLElement, params: FilterPanelParams) => void` signature.
  */
-type ReactFilterConfig<TRow = unknown> = Omit<FilterConfig<TRow>, 'filterPanelRenderer'> & {
+export type ReactFilterConfig<TRow = unknown> = Omit<FilterConfig<TRow>, 'filterPanelRenderer'> & {
   filterPanelRenderer?: FilterConfig<TRow>['filterPanelRenderer'] | ((params: FilterPanelParams) => ReactNode);
 };
 
 /**
  * React-specific column group definition that allows React render functions as `renderer`.
  */
-type ReactColumnGroupDefinition = Omit<ColumnGroupDefinition, 'renderer'> & {
+export type ReactColumnGroupDefinition = Omit<ColumnGroupDefinition, 'renderer'> & {
   renderer?:
     | ColumnGroupDefinition['renderer']
     | ((...args: Parameters<NonNullable<ColumnGroupDefinition['renderer']>>) => ReactNode);
@@ -76,7 +76,7 @@ type ReactColumnGroupDefinition = Omit<ColumnGroupDefinition, 'renderer'> & {
  * Extends the base GroupingColumnsConfig to accept a React render function
  * returning `ReactNode` instead of only `HTMLElement | string | void`.
  */
-type ReactGroupingColumnsConfig = Omit<GroupingColumnsConfig, 'groupHeaderRenderer' | 'columnGroups'> & {
+export type ReactGroupingColumnsConfig = Omit<GroupingColumnsConfig, 'groupHeaderRenderer' | 'columnGroups'> & {
   columnGroups?: ReactColumnGroupDefinition[];
   groupHeaderRenderer?:
     | GroupingColumnsConfig['groupHeaderRenderer']

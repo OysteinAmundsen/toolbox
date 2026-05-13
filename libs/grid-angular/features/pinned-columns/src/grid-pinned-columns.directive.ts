@@ -10,7 +10,7 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { registerFeatureClaim, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 
 /**
- * Owns the binding(s) `[pinnedColumns]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ * Owns the binding(s) `[pinnedColumns]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */

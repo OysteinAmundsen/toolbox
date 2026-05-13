@@ -24,7 +24,7 @@ export interface UseGridOverlayOptions {
    *
    * 1. Walking up the DOM from `panelRef.current` via `closest('tbw-grid')`
    *    (works for inline overlays).
-   * 2. Falling back to the {@link GridElementContext} populated by
+   * 2. Falling back to the `GridElementContext` populated by
    *    `<DataGrid>` / `<GridProvider>` (works for portal-rendered overlays
    *    whose DOM is detached from the grid subtree).
    */
@@ -40,7 +40,7 @@ export interface UseGridOverlayOptions {
  * editors. Wires `registerExternalFocusContainer(panel)` on mount/open
  * and `unregisterExternalFocusContainer(panel)` on unmount/close.
  *
- * Pair with `ColumnEditorContext.grid` (see {@link DataGridElement}) when
+ * Pair with `ColumnEditorContext.grid` (see `DataGridElement`) when
  * the panel is rendered outside any `<DataGrid>` provider.
  *
  * @example

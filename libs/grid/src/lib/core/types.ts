@@ -2585,7 +2585,7 @@ export interface GridConfig<TRow = any> {
    * instead. It is honored by every sort code path in the grid (core, multi-sort,
    * tree, server-side) and is composable across columns.
    *
-   * For server-side sort, prefer {@link ServerSideConfig.dataSource} — the
+   * For server-side sort, prefer `ServerSideConfig.dataSource` — the
    * `sortModel` is shipped to your `getRows` handler so the backend can return
    * pre-sorted blocks.
    * :::
@@ -2608,7 +2608,7 @@ export interface GridConfig<TRow = any> {
    * ```
    *
    * @see {@link BaseColumnConfig.sortComparator} — recommended per-column override
-   * @see {@link ServerSideConfig.dataSource} — recommended server-side sort path
+   * @see `ServerSideConfig.dataSource` — recommended server-side sort path
    */
   sortHandler?: SortHandler<TRow>;
 
@@ -2625,8 +2625,8 @@ export interface GridConfig<TRow = any> {
    * };
    * ```
    *
-   * @see {@link DataGrid.sort} for runtime sorting
-   * @see {@link DataGrid.sortModel} for reading current sort state
+   * @see {@link DataGridElement.sort} for runtime sorting
+   * @see {@link DataGridElement.sortModel} for reading current sort state
    */
   initialSort?: { field: string; direction: 'asc' | 'desc' };
 
@@ -2955,7 +2955,7 @@ export interface SortState {
  * active sort field. For per-column custom sort logic that survives every
  * sort code path (core, multi-sort, tree, server-side), set `sortComparator`
  * on the relevant columns instead. For server-side sort, use
- * {@link ServerSideConfig.dataSource}.
+ * `ServerSideConfig.dataSource`.
  * :::
  *
  * Use `SortHandler` only when you need to replace the grid's sort engine
@@ -3644,7 +3644,7 @@ export interface ShellHeaderConfig {
    *
    * Set to `false` when you want to provide your own toggle button (e.g. a
    * design-system button styled to match your application). Wire your button
-   * to call {@link Grid.toggleToolPanel} (or `toggleToolPanelSection(id)` for
+   * to call {@link DataGridElement.toggleToolPanel} (or `toggleToolPanelSection(id)` for
    * a specific section). All tool panels remain functional; only the
    * built-in toggle button and adjacent separator are suppressed.
    *

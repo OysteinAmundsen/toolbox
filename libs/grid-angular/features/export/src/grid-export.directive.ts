@@ -15,7 +15,7 @@ import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim 
 import type { ExportCompleteDetail, ExportConfig } from '@toolbox-web/grid/plugins/export';
 
 /**
- * Owns the binding(s) `[export], [exportComplete]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ * Owns the binding(s) `[export], [exportComplete]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */

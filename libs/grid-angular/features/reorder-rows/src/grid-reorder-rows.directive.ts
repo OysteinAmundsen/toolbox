@@ -15,7 +15,7 @@ import { registerFeatureClaim, unregisterFeatureClaim } from '@toolbox-web/grid-
 import type { RowReorderConfig } from '@toolbox-web/grid/plugins/reorder-rows';
 
 /**
- * Owns the binding(s) `[reorderRows]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ * Owns the binding(s) `[reorderRows]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */

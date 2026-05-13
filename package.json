@@ -24,7 +24,7 @@
     "bench:vs-tag": "bun scripts/bench-vs-tag.ts",
     "demo": "concurrently --kill-others -n vanilla,react,angular,vue -c blue,green,yellow,cyan \"bun nx run demo-vanilla:serve\" \"bun nx run demo-react:serve\" \"bun nx run demo-angular:serve\" \"bun nx run demo-vue:serve\"",
     "demo:dist": "concurrently --kill-others -n vanilla,react,angular,vue -c blue,green,yellow,cyan \"bun nx run demo-vanilla:serve:dist\" \"bun nx run demo-react:serve:dist\" \"bun nx run demo-angular:serve:dist\" \"bun nx run demo-vue:serve:dist\"",
-    "lint": "nx run-many --target=lint --output-style=stream --quiet",
+    "lint": "nx run-many --target=lint --output-style=stream",
     "coverage": "bun run test --coverage",
     "build:libs": "nx run-many --target=build --projects=grid,grid-angular,grid-react,grid-vue --output-style=stream --skip-nx-cache",
     "build:watch": "bun scripts/watch-libs.ts",

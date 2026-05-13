@@ -10,7 +10,7 @@ import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim 
 import type { ContextMenuConfig, ContextMenuOpenDetail } from '@toolbox-web/grid/plugins/context-menu';
 
 /**
- * Owns the binding(s) `[contextMenu], [contextMenuOpen]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ * Owns the binding(s) `[contextMenu], [contextMenuOpen]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */

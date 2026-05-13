@@ -449,7 +449,7 @@ export class GridAdapter implements FrameworkAdapter {
   /**
    * Creates a detail renderer function for MasterDetailPlugin.
    * Implementation is installed by `@toolbox-web/grid-react/features/master-detail`
-   * via {@link registerDetailRendererBridge}. Returns undefined if the
+   * via `registerDetailRendererBridge`. Returns undefined if the
    * master-detail feature has not been imported, or if no GridDetailPanel
    * was registered for this grid.
    */
@@ -475,7 +475,7 @@ export class GridAdapter implements FrameworkAdapter {
   /**
    * Creates a responsive card renderer function for ResponsivePlugin.
    * Implementation is installed by `@toolbox-web/grid-react/features/responsive`
-   * via {@link registerResponsiveCardRendererBridge}. Returns undefined if
+   * via `registerResponsiveCardRendererBridge`. Returns undefined if
    * the responsive feature has not been imported, or if no GridResponsiveCard
    * was registered for this grid.
    */

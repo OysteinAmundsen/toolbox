@@ -155,7 +155,7 @@ function broadcastRemoteTransfer(msg: RemoteTransferMessage): void {
 /**
  * Row Drag-Drop Plugin for `<tbw-grid>`.
  *
- * @example Intra-grid (parity with deprecated `RowReorderPlugin`)
+ * @example Intra-grid (parity with deprecated RowReorderPlugin)
  * ```ts
  * import { RowDragDropPlugin } from '@toolbox-web/grid/plugins/row-drag-drop';
  *

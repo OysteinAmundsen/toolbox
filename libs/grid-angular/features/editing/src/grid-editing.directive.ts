@@ -32,7 +32,7 @@ import type {
 } from '@toolbox-web/grid/plugins/editing';
 
 /**
- * Owns the binding(s) `[editing], [cellCommit], [cellCancel], [rowCommit], [changedRowsReset], [editOpen], [beforeEditClose], [editClose], [dirtyChange]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ * Owns the binding(s) `[editing], [cellCommit], [cellCancel], [rowCommit], [changedRowsReset], [editOpen], [beforeEditClose], [editClose], [dirtyChange]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */

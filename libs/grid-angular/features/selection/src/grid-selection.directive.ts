@@ -11,7 +11,7 @@ import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim 
 import type { SelectionChangeDetail, SelectionConfig } from '@toolbox-web/grid/plugins/selection';
 
 /**
- * Owns the binding(s) `[selection], [selectionChange]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ * Owns the binding(s) `[selection], [selectionChange]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */

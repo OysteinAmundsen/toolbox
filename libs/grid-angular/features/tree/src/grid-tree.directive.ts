@@ -10,7 +10,7 @@ import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim 
 import type { TreeConfig, TreeExpandDetail } from '@toolbox-web/grid/plugins/tree';
 
 /**
- * Owns the binding(s) `[tree], [treeExpand]` on `<tbw-grid>` for the matching feature plugin. See {@link GridFilteringDirective} for the full rationale.
+ * Owns the binding(s) `[tree], [treeExpand]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */

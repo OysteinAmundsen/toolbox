@@ -2708,7 +2708,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.querySelector('.tbw-grid-root'),
       this.#loading,
       this._rows.length,
-      this.#rows.length,
+      this.#rows,
       this.#effectiveConfig?.emptyRenderer,
       this.#effectiveConfig?.emptyOverlay ?? 'rows',
       this.#emptyOverlay,

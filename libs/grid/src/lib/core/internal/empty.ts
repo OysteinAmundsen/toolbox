@@ -109,12 +109,19 @@ export function shouldShowEmpty(
  * VIRTUALIZATION during scroll) can skip the recreate when nothing observable
  * has changed. Without this guard we'd churn DOM and could leak
  * framework-adapter portals returned from user renderers.
+ *
+ * `sourceRows` is the array reference (not just its length): reassigning
+ * `grid.rows` produces a new reference and busts the cache, even when the
+ * length is unchanged (e.g. `grid.rows = []` after a previous `grid.rows = []`).
+ * That is the user's explicit "something changed" signal, and it lets custom
+ * renderers that close over external state (e.g. an `errorMessage` variable)
+ * re-render without forcing them to mint a new renderer function.
  */
 export interface EmptyOverlayState {
   el?: HTMLElement;
   renderer?: GridConfig['emptyRenderer'];
   target?: EmptyOverlay;
-  sourceRowCount?: number;
+  sourceRows?: readonly unknown[];
   filteredOut?: boolean;
 }
 
@@ -130,7 +137,7 @@ export function updateEmptyOverlay(
   gridRoot: Element | null,
   loading: boolean,
   renderedRowCount: number,
-  sourceRowCount: number,
+  sourceRows: readonly unknown[],
   renderer: GridConfig['emptyRenderer'] | undefined,
   target: EmptyOverlay,
   state: EmptyOverlayState,
@@ -142,19 +149,23 @@ export function updateEmptyOverlay(
     state.el = undefined;
     state.renderer = undefined;
     state.target = undefined;
-    state.sourceRowCount = undefined;
+    state.sourceRows = undefined;
     state.filteredOut = undefined;
     return;
   }
 
+  const sourceRowCount = sourceRows.length;
   const filteredOut = sourceRowCount > 0 && renderedRowCount === 0;
 
-  // Idempotent fast path — see EmptyOverlayState docs.
+  // Idempotent fast path — see EmptyOverlayState docs. Keyed on the
+  // sourceRows reference so a `grid.rows = ...` reassignment busts the cache
+  // even when the length is unchanged; scroll/sort/filter/column updates
+  // don't reassign #rows, so the fast path still catches them.
   if (
     state.el &&
     state.renderer === renderer &&
     state.target === target &&
-    state.sourceRowCount === sourceRowCount &&
+    state.sourceRows === sourceRows &&
     state.filteredOut === filteredOut
   ) {
     return;
@@ -169,6 +180,6 @@ export function updateEmptyOverlay(
   showEmptyOverlay(mountTarget, state.el);
   state.renderer = renderer;
   state.target = target;
-  state.sourceRowCount = sourceRowCount;
+  state.sourceRows = sourceRows;
   state.filteredOut = filteredOut;
 }

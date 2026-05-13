@@ -6,6 +6,7 @@ import type {
   ColumnEditorContext,
   ColumnEditorSpec,
   ColumnViewRenderer,
+  EmptyContext,
   FrameworkAdapter,
   HeaderCellContext,
   HeaderLabelContext,
@@ -449,6 +450,22 @@ export class GridAdapter implements FrameworkAdapter {
       }
     }
 
+    // Process emptyRenderer - convert Vue component/VNode to DOM-returning function.
+    // `null` is a valid opt-out value (suppresses the built-in default message);
+    // it short-circuits the `if (vueConfig.emptyRenderer)` branch and is
+    // forwarded through `result` unchanged.
+    if (vueConfig.emptyRenderer) {
+      if (isVueComponent(vueConfig.emptyRenderer)) {
+        (result as BaseGridConfig<TRow>).emptyRenderer = this.createComponentEmptyRenderer(
+          vueConfig.emptyRenderer as unknown as Component,
+        ) as unknown as BaseGridConfig<TRow>['emptyRenderer'];
+      } else if (isVNodeRenderFunction(vueConfig.emptyRenderer)) {
+        (result as BaseGridConfig<TRow>).emptyRenderer = this.createVNodeEmptyRenderer(
+          vueConfig.emptyRenderer as unknown as (ctx: EmptyContext) => VNode,
+        ) as unknown as BaseGridConfig<TRow>['emptyRenderer'];
+      }
+    }
+
     return result as BaseGridConfig<TRow>;
   }
 
@@ -848,6 +865,37 @@ export class GridAdapter implements FrameworkAdapter {
       const teleportKey = renderToContainer(container, renderFn(ctx));
       this.teleportKeys.push(teleportKey);
 
+      return container;
+    };
+  }
+
+  /**
+   * Creates a DOM-returning empty-state renderer from a Vue component class.
+   * The component receives the {@link EmptyContext} fields as props
+   * (`sourceRowCount`, `filteredOut`).
+   * @internal
+   */
+  private createComponentEmptyRenderer(component: Component): (ctx: EmptyContext) => HTMLElement {
+    return (ctx: EmptyContext) => {
+      const container = createTeleportContainer('vue-empty-renderer');
+      const teleportKey = renderToContainer(
+        container,
+        createVNode(component, { sourceRowCount: ctx.sourceRowCount, filteredOut: ctx.filteredOut }),
+      );
+      this.teleportKeys.push(teleportKey);
+      return container;
+    };
+  }
+
+  /**
+   * Creates a DOM-returning empty-state renderer from a VNode-returning render function.
+   * @internal
+   */
+  private createVNodeEmptyRenderer(renderFn: (ctx: EmptyContext) => VNode): (ctx: EmptyContext) => HTMLElement {
+    return (ctx: EmptyContext) => {
+      const container = createTeleportContainer('vue-empty-renderer');
+      const teleportKey = renderToContainer(container, renderFn(ctx));
+      this.teleportKeys.push(teleportKey);
       return container;
     };
   }

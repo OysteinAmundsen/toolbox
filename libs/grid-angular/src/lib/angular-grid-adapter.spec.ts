@@ -425,6 +425,28 @@ describe('GridAdapter', () => {
       const result = adapter.processGridConfig(cfg);
       expect((result as { loadingRenderer?: unknown }).loadingRenderer).toBe(fn);
     });
+
+    it('processes emptyRenderer when it is a component class', () => {
+      const { adapter } = makeAdapter();
+      const cfg: GridConfig = { emptyRenderer: FakeComponent } as unknown as GridConfig;
+      const result = adapter.processGridConfig(cfg);
+      expect(typeof (result as { emptyRenderer?: unknown }).emptyRenderer).toBe('function');
+    });
+
+    it('leaves non-component emptyRenderer alone', () => {
+      const { adapter } = makeAdapter();
+      const fn = vi.fn();
+      const cfg = { emptyRenderer: fn } as unknown as GridConfig;
+      const result = adapter.processGridConfig(cfg);
+      expect((result as { emptyRenderer?: unknown }).emptyRenderer).toBe(fn);
+    });
+
+    it('preserves null emptyRenderer (opt-out)', () => {
+      const { adapter } = makeAdapter();
+      const cfg = { emptyRenderer: null } as unknown as GridConfig;
+      const result = adapter.processGridConfig(cfg);
+      expect((result as { emptyRenderer?: unknown }).emptyRenderer).toBeNull();
+    });
   });
 
   describe('processColumn', () => {

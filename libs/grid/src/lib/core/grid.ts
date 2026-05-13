@@ -331,6 +331,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #loadingCells = new Map<string, Set<string>>(); // Map<rowId, Set<field>> for cells loading
   #loadingOverlayEl?: HTMLElement; // Cached loading overlay element
   #emptyOverlayEl?: HTMLElement; // Cached empty-state overlay element
+  // Last applied empty-state context (renderer ref + target + derived flags)
+  // so #updateEmptyOverlay can skip the recreate path on idempotent ticks
+  // (e.g. virtualization renders during scroll).
+  #emptyOverlayState?: {
+    renderer: GridConfig<T>['emptyRenderer'];
+    target: 'rows' | 'grid';
+    sourceRowCount: number;
+    filteredOut: boolean;
+  };
 
   // Row ID Map - O(1) lookup for rows by ID
   #rowIdMap = new Map<string, { row: T; index: number }>();
@@ -2719,6 +2728,26 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (!show) {
       hideEmptyOverlay(this.#emptyOverlayEl);
       this.#emptyOverlayEl = undefined;
+      this.#emptyOverlayState = undefined;
+      return;
+    }
+
+    const filteredOut = sourceRowCount > 0 && renderedRowCount === 0;
+
+    // Idempotent fast path: when the overlay is already mounted and nothing
+    // observable has changed, skip the recreate. `_schedulerAfterRender`
+    // fires on every render phase (including VIRTUALIZATION during scroll)
+    // so this guard is hot — without it we'd churn DOM and could leak
+    // framework-adapter portals returned from user renderers.
+    const prev = this.#emptyOverlayState;
+    if (
+      this.#emptyOverlayEl &&
+      prev &&
+      prev.renderer === renderer &&
+      prev.target === target &&
+      prev.sourceRowCount === sourceRowCount &&
+      prev.filteredOut === filteredOut
+    ) {
       return;
     }
 
@@ -2726,17 +2755,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // hasn't been built yet (e.g. very first render before #setup completes).
     const mountTarget: Element = target === 'grid' ? gridRoot : (gridRoot.querySelector('.rows-container') ?? gridRoot);
 
-    // Recreate on each show so the renderer (and `filteredOut` flag) reflect
-    // the current state. The element is small, this only fires on transitions
-    // into the empty state, and recreating sidesteps cleanup of stale node
-    // references when the user passes a new renderer.
     hideEmptyOverlay(this.#emptyOverlayEl);
-    this.#emptyOverlayEl = createEmptyOverlay(
-      { sourceRowCount, filteredOut: sourceRowCount > 0 && renderedRowCount === 0 },
-      renderer ?? undefined,
-      target,
-    );
+    this.#emptyOverlayEl = createEmptyOverlay({ sourceRowCount, filteredOut }, renderer ?? undefined, target);
     showEmptyOverlay(mountTarget, this.#emptyOverlayEl);
+    this.#emptyOverlayState = { renderer, target, sourceRowCount, filteredOut };
   }
 
   /**

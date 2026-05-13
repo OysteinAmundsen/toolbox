@@ -1428,7 +1428,7 @@ grid.gridConfig = {
 The renderer receives an [`EmptyContext`](/grid/api/core/interfaces/emptycontext/) with:
 
 - `sourceRowCount` — the number of input rows before any plugin filtering.
-- `filteredOut` — `true` when `sourceRowCount > 0` but all rows were hidden (e.g. by the [FilterPlugin](/grid/plugins/filtering/) or grouping).
+- `filteredOut` — `true` when `sourceRowCount > 0` but all rows were hidden (e.g. by the [FilteringPlugin](/grid/plugins/filtering/) or grouping).
 
 Return an `HTMLElement` for rich content (icons, buttons, multi-line layouts) or a `string` for plain text. Set `emptyRenderer: null` to suppress the overlay entirely.
 

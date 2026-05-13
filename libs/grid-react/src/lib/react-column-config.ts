@@ -393,7 +393,7 @@ export function processGridConfig<TRow>(config: GridConfig<TRow> | undefined): B
     const originalEmptyRenderer = config.emptyRenderer as (ctx: EmptyContext) => ReactNode;
     config = {
       ...config,
-      emptyRenderer: wrapReactEmptyRenderer(originalEmptyRenderer) as unknown as BaseGridConfig<TRow>['emptyRenderer'],
+      emptyRenderer: wrapReactEmptyRenderer(originalEmptyRenderer),
     };
   }
 

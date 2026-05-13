@@ -12,6 +12,7 @@
  */
 
 import type { EmptyContext, EmptyOverlay, EmptyRenderer, GridConfig } from '../types';
+import { sanitizeHTML } from './sanitize';
 
 /** Default messages used when no `emptyRenderer` is configured. */
 export const DEFAULT_EMPTY_MESSAGE = 'No data to display';
@@ -31,7 +32,10 @@ export function defaultEmptyRenderer(ctx: EmptyContext): HTMLElement {
 /**
  * Create the rendered content for the empty overlay.
  * If a custom renderer is provided, use it; otherwise fall back to the default
- * message. Strings returned by user renderers are wrapped in a `<div>`.
+ * message. Strings returned by user renderers are sanitized through
+ * `sanitizeHTML()` before being assigned to `innerHTML` — mirroring the cell
+ * render path — so consumers can safely embed values from API responses
+ * (e.g. `Failed to load deals: ${error.message}`) without opening an XSS sink.
  */
 export function createEmptyContent(ctx: EmptyContext, renderer?: EmptyRenderer): HTMLElement {
   const fn = renderer ?? defaultEmptyRenderer;
@@ -39,7 +43,7 @@ export function createEmptyContent(ctx: EmptyContext, renderer?: EmptyRenderer):
   if (typeof result === 'string') {
     const wrapper = document.createElement('div');
     wrapper.className = 'tbw-empty-message';
-    wrapper.innerHTML = result;
+    wrapper.innerHTML = sanitizeHTML(result);
     return wrapper;
   }
   return result;
@@ -49,8 +53,9 @@ export function createEmptyContent(ctx: EmptyContext, renderer?: EmptyRenderer):
  * Create the empty-state overlay element.
  * Always carries `role="status"` + `aria-live="polite"` so screen readers
  * announce the state on transition; the `data-overlay-target` attribute is
- * informational only (CSS positions absolutely against the closest positioned
- * ancestor — both `.rows-container` and `.tbw-grid-root` are positioned).
+ * informational only. CSS positions absolutely against the closest positioned
+ * ancestor — `.tbw-grid-root` is positioned by `base.css`, and `.rows-container`
+ * is given `position: relative` for `target='rows'` for the same reason.
  */
 export function createEmptyOverlay(
   ctx: EmptyContext,

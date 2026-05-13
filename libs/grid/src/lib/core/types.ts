@@ -2840,7 +2840,7 @@ export interface GridConfig<TRow = any> {
    * ```
    *
    * @see {@link EmptyOverlay} to control where the overlay is mounted.
-   * @since 1.8.0
+   * @since 2.12.0
    */
   emptyRenderer?: EmptyRenderer | null;
 
@@ -2853,7 +2853,7 @@ export interface GridConfig<TRow = any> {
    *   shell/toolbar content too.
    *
    * @defaultValue `'rows'`
-   * @since 1.8.0
+   * @since 2.12.0
    */
   emptyOverlay?: EmptyOverlay;
 
@@ -2867,14 +2867,14 @@ export interface GridConfig<TRow = any> {
  * Where the empty-state overlay is mounted.
  *
  * @see {@link GridConfig.emptyOverlay}
- * @since 1.8.0
+ * @since 2.12.0
  */
 export type EmptyOverlay = 'rows' | 'grid';
 
 /**
  * Context passed to a custom {@link EmptyRenderer}.
  *
- * @since 1.8.0
+ * @since 2.12.0
  */
 export interface EmptyContext {
   /**
@@ -2908,7 +2908,7 @@ export interface EmptyContext {
  * ```
  *
  * @see {@link GridConfig.emptyRenderer}
- * @since 1.8.0
+ * @since 2.12.0
  */
 export type EmptyRenderer = (context: EmptyContext) => HTMLElement | string;
 

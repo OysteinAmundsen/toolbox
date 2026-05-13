@@ -976,6 +976,47 @@ describe('GridAdapter', () => {
     });
   });
 
+  describe('processGridConfig - emptyRenderer', () => {
+    it('should wrap Vue component emptyRenderer', () => {
+      const adapter = new GridAdapter();
+      const EmptyComp = defineComponent({
+        props: ['sourceRowCount', 'filteredOut'],
+        setup() {
+          return () => h('div', 'no data');
+        },
+      });
+      const config = {
+        columns: [{ field: 'name' }],
+        emptyRenderer: EmptyComp,
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.emptyRenderer).toBeDefined();
+      expect(result.emptyRenderer).not.toBe(EmptyComp);
+    });
+
+    it('should wrap VNode-returning emptyRenderer function', () => {
+      const adapter = new GridAdapter();
+      const emptyFn = (_ctx: any) => h('div', 'no data');
+      const config = {
+        columns: [{ field: 'name' }],
+        emptyRenderer: emptyFn,
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.emptyRenderer).toBeDefined();
+      expect(result.emptyRenderer).not.toBe(emptyFn);
+    });
+
+    it('should preserve null emptyRenderer (opt-out)', () => {
+      const adapter = new GridAdapter();
+      const config = {
+        columns: [{ field: 'name' }],
+        emptyRenderer: null,
+      };
+      const result = adapter.processGridConfig(config as any);
+      expect(result.emptyRenderer).toBeNull();
+    });
+  });
+
   // #endregion
 
   // #region getTypeDefault with execution

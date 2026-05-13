@@ -22,6 +22,8 @@
   "categoryOrder": ["Components", "Composables", "Types", "Utilities", "*"],
   "blockTags": [
     "@category",
+    "@default",
+    "@defaultValue",
     "@deprecated",
     "@example",
     "@fires",
@@ -34,6 +36,7 @@
     "@see",
     "@since",
     "@template",
-    "@throws"
+    "@throws",
+    "@typeParam"
   ]
 }

@@ -41,15 +41,20 @@
   "categoryOrder": ["Directives", "Features", "Types", "Utilities", "*"],
   "blockTags": [
     "@category",
+    "@default",
+    "@defaultValue",
     "@deprecated",
     "@example",
     "@fires",
     "@internal",
     "@param",
     "@remarks",
+    "@requires",
     "@returns",
     "@see",
     "@since",
-    "@throws"
+    "@template",
+    "@throws",
+    "@typeParam"
   ]
 }

@@ -37,7 +37,7 @@ The custom element is registered as `tbw-grid` (Toolbox Web Grid).
 
 | Property      | Type                        | Default | Description                                 |
 | ------------- | --------------------------- | ------- | ------------------------------------------- |
-| `loading`     | `boolean`                   | `false` | Grid-level loading state. Customise the indicator via [`gridConfig.loadingRenderer`](/grid/api/core/type-aliases/loadingrenderer/) |
+| `loading`     | `boolean`                   | `false` | Grid-level loading state. Customise the indicator via [`gridConfig.loadingRenderer`](/grid/api/core/types/loadingrenderer/) |
 | `columnState` | [`GridColumnState[]`](/grid/api/core/interfaces/gridcolumnstate/)         | -       | Get/set column widths, order, visibility, sort |
 
 ### Read-only Properties
@@ -846,7 +846,7 @@ The detail is a fresh object literal each tick — safe to retain, freeze,
 copy into framework state, or post to a worker.
 
 :::tip[Server-side pagination?]
-For paginated server-side data, prefer the [`ServerSidePlugin`](/grid/server-side/) — it handles block fetching out of the box. `tbw-scroll` is the lower-level primitive for cases the plugin doesn't cover (custom load-more triggers, deferred cell content, scroll-driven UI, etc.).
+For paginated server-side data, prefer the [`ServerSidePlugin`](/grid/plugins/server-side/) — it handles block fetching out of the box. `tbw-scroll` is the lower-level primitive for cases the plugin doesn't cover (custom load-more triggers, deferred cell content, scroll-driven UI, etc.).
 :::
 
 #### Infinite scroll / load more
@@ -919,7 +919,7 @@ When `MultiSortPlugin` is active, the `sort-change` event payload changes from `
 
 ## CSS Custom Properties
 
-See the [Theming](/grid/theming/) page for the complete list of CSS custom properties.
+See the [Theming](/grid/guides/theming/) page for the complete list of CSS custom properties.
 
 ### Quick Reference
 
@@ -1186,7 +1186,7 @@ No polyfills required for modern browsers.
 ## Related Documentation
 
 - [Core Features](/grid/core/) — Detailed guide on columns, renderers, formatters, and shell components
-- [Theming](/grid/theming/) — Complete CSS custom property reference and theme customization
+- [Theming](/grid/guides/theming/) — Complete CSS custom property reference and theme customization
 - [Getting Started](/grid/getting-started/) — Installation and quick start guide
 - [Demos](/grid/demos/) — Full-featured demo applications
 - [Angular Adapter](/grid/angular/getting-started/) — `@toolbox-web/grid-angular`

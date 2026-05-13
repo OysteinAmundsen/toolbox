@@ -210,7 +210,7 @@ async getRows(params: GetRowsParams) {
 Toggle **Server-side sorting** / **Server-side filtering** in the demo above to see the request parameters change. Toggling them off switches to [local mode](#local-sort--filter-modes) — the plugin keeps the loaded blocks and sorts/filters them in the browser without a refetch.
 
 :::note[Standalone handlers]
-The grid also exposes [`sortHandler`](/grid/plugins/multi-sort/#server-side-sorting) (core `GridConfig`) and [`filterHandler` / `valuesHandler`](/grid/plugins/filtering/#async-filtering-server-side) (FilteringPlugin config). These are **independent** of the ServerSidePlugin and let you offload sort/filter work to the server **without** opting into block-based virtual scrolling. Use them when you want async sort/filter against an already-loaded dataset; use ServerSidePlugin's native `sortModel`/`filterModel` when you want them combined with lazy block loading.
+The grid also exposes [`sortHandler`](/grid/plugins/multi-sort/#server-side-sorting) (core `GridConfig`) and [`filterHandler` / `valuesHandler`](/grid/plugins/filtering/#server-side-filtering) (FilteringPlugin config). These are **independent** of the ServerSidePlugin and let you offload sort/filter work to the server **without** opting into block-based virtual scrolling. Use them when you want async sort/filter against an already-loaded dataset; use ServerSidePlugin's native `sortModel`/`filterModel` when you want them combined with lazy block loading.
 :::
 
 ### Local Sort / Filter Modes

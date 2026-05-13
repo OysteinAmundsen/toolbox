@@ -6,7 +6,7 @@ description: Bind @toolbox-web/grid to Angular FormArray — cell-level validati
 
 The `@toolbox-web/grid-angular` package provides seamless integration with Angular Reactive Forms, allowing the grid to act as a form-bound component with cell-level validation.
 
-> **Pair with the editing directive.** [`GridFormArray`](/grid/angular/api/directives/GridFormArray/) and [`GridLazyForm`](/grid/angular/api/directives/GridLazyForm/) are themselves form-binding directives — they do **not** turn editing on. To allow cell edits, also add [`GridEditingDirective`](/grid/angular/api/directives/GridEditingDirective/) (from `@toolbox-web/grid-angular/features/editing`) to the component's `imports`, **or** configure editing through `[gridConfig]="{ features: { editing: … } }"`. The legacy `[editing]` binding on `Grid` itself is `@deprecated` and will be removed in v2.0.
+> **Pair with the editing directive.** [`GridFormArray`](/grid/angular/api/utilities/GridFormArray/) and [`GridLazyForm`](/grid/angular/api/utilities/GridLazyForm/) are themselves form-binding directives — they do **not** turn editing on. To allow cell edits, also add [`GridEditingDirective`](/grid/angular/api/directives/GridEditingDirective/) (from `@toolbox-web/grid-angular/features/editing`) to the component's `imports`, **or** configure editing through `[gridConfig]="{ features: { editing: … } }"`. The legacy `[editing]` binding on `Grid` itself is `@deprecated` and will be removed in v2.0.
 
 ## Overview
 
@@ -21,7 +21,7 @@ You can bind a grid to a `FormArray` using the `[formArray]` directive. This ena
 
 Use a `FormArray` of `FormGroup`s for full validation support. This exposes cell-level `FormControl`s in the editor context.
 
-> **Directive:** [`GridFormArray`](/grid/angular/api/directives/GridFormArray/) · binds via the `[formArray]` input on `<tbw-grid>`.
+> **Directive:** [`GridFormArray`](/grid/angular/api/utilities/GridFormArray/) · binds via the `[formArray]` input on `<tbw-grid>`.
 
 ```typescript
 import { Component, inject, input, output } from '@angular/core';
@@ -144,7 +144,7 @@ Without `rowId`, each `getRawValue()` call creates new objects, causing all row 
 
 ## Row-Level Validation
 
-When using `FormArray` with `FormGroup`s, you can access row-level validation state via [`getFormArrayContext()`](/grid/angular/api/utilities/getFormArrayContext/). The returned [`FormArrayContext`](/grid/angular/api/types/FormArrayContext/) exposes:
+When using `FormArray` with `FormGroup`s, you can access row-level validation state via `getFormArrayContext()` (re-exported from [`GridFormArray`](/grid/angular/api/utilities/GridFormArray/)). The returned [`FormArrayContext`](/grid/angular/api/types/FormArrayContext/) exposes:
 
 ```typescript
 import { getFormArrayContext } from '@toolbox-web/grid-angular/features/editing';
@@ -290,7 +290,7 @@ For large datasets, `GridFormArray` can be slow because it creates **all FormGro
 
 `GridLazyForm` solves this by creating FormGroups **on-demand** when editing starts—typically reducing control count by 100x.
 
-> **Directive:** [`GridLazyForm`](/grid/angular/api/directives/GridLazyForm/) · [`LazyFormFactory`](/grid/angular/api/types/LazyFormFactory/) · [`RowFormChangeEvent`](/grid/angular/api/types/RowFormChangeEvent/)
+> **Directive:** [`GridLazyForm`](/grid/angular/api/utilities/GridLazyForm/) · [`LazyFormFactory`](/grid/angular/api/types/LazyFormFactory/) · [`RowFormChangeEvent`](/grid/angular/api/types/RowFormChangeEvent/)
 
 ### When to Use Each Directive
 

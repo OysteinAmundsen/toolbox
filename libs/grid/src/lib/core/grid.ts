@@ -8,6 +8,7 @@ import {
 import { autoSizeColumns, updateTemplate } from './internal/columns';
 import { ConfigManager } from './internal/config-manager';
 import { INVALID_ATTRIBUTE_JSON, warnDiagnostic } from './internal/diagnostics';
+import { updateEmptyOverlay, type EmptyOverlayState } from './internal/empty';
 import { setupCellEventDelegation, setupRootEventDelegation } from './internal/event-delegation';
 import { resolveFeatures } from './internal/feature-hook';
 import { FocusManager } from './internal/focus-manager';
@@ -329,6 +330,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #loadingRows = new Set<string>(); // Row IDs currently loading
   #loadingCells = new Map<string, Set<string>>(); // Map<rowId, Set<field>> for cells loading
   #loadingOverlayEl?: HTMLElement; // Cached loading overlay element
+  // Empty-state overlay state — element + last-applied context — kept inside
+  // a single struct managed by `updateEmptyOverlay()` in `internal/empty.ts`.
+  #emptyOverlay: EmptyOverlayState = {};
 
   // Row ID Map - O(1) lookup for rows by ID
   #rowIdMap = new Map<string, { row: T; index: number }>();
@@ -659,6 +663,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
 
     this.#updateLoadingOverlay();
+    // Loading and empty overlays are mutually exclusive: hide empty when
+    // loading turns on; reconsider it when loading turns off (rows may have
+    // arrived empty).
+    this.#updateEmptyOverlay();
   }
 
   /**
@@ -2431,36 +2439,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this._emitDataChange();
   }
 
-  /**
-   * Apply animation configuration to CSS custom properties on the host element.
-   * This makes the grid's animation settings available to plugins via CSS variables.
-   * Called by ConfigManager after merge.
-   */
-  #applyAnimationConfig(gridConfig: GridConfig<T>): void {
-    const config: AnimationConfig = {
-      ...DEFAULT_ANIMATION_CONFIG,
-      ...gridConfig.animation,
-    };
-
-    // Resolve animation mode
-    const mode = config.mode ?? 'reduced-motion';
-    let enabled: 0 | 1 = 1;
-
-    if (mode === false || mode === 'off') {
-      enabled = 0;
-    } else if (mode === true || mode === 'on') {
-      enabled = 1;
-    }
-    // For 'reduced-motion', we leave enabled=1 and let CSS @media query handle it
-
-    // Set CSS custom properties
-    this.style.setProperty('--tbw-animation-duration', `${config.duration}ms`);
-    this.style.setProperty('--tbw-animation-easing', config.easing ?? 'ease-out');
-    this.style.setProperty('--tbw-animation-enabled', String(enabled));
-
-    // Set data attribute for mode-based CSS selectors
-    this.dataset.animationMode = typeof mode === 'boolean' ? (mode ? 'on' : 'off') : mode;
-  }
+  // `_applyAnimationConfig` (called by ConfigManager after merge) lives in the
+  // "Methods exposed for extracted managers" region below \u2014 there is no
+  // private wrapper because there are no in-class callers besides that path.
   // #endregion
 
   // #region Internal Helpers
@@ -2555,6 +2536,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /** @internal Run afterRender hooks and post-render bookkeeping (STYLE phase). */
   _schedulerAfterRender(): void {
     this.#pluginManager?.afterRender();
+
+    // Recompute the empty-state overlay AFTER plugin afterRender so plugins
+    // that mutate `_rows` or row visibility (server-side, tree, grouping,
+    // filtering) are reflected in the visible-or-not decision.
+    this.#updateEmptyOverlay();
 
     // Recalculate spacer height after plugins modify the DOM in afterRender.
     if (this._virtualization.enabled && this._virtualization.totalHeightEl) {
@@ -2659,8 +2645,30 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /** @internal Apply animation configuration to host element. */
-  _applyAnimationConfig(config: GridConfig<T>): void {
-    this.#applyAnimationConfig(config);
+  _applyAnimationConfig(gridConfig: GridConfig<T>): void {
+    const config: AnimationConfig = {
+      ...DEFAULT_ANIMATION_CONFIG,
+      ...gridConfig.animation,
+    };
+
+    // Resolve animation mode
+    const mode = config.mode ?? 'reduced-motion';
+    let enabled: 0 | 1 = 1;
+
+    if (mode === false || mode === 'off') {
+      enabled = 0;
+    } else if (mode === true || mode === 'on') {
+      enabled = 1;
+    }
+    // For 'reduced-motion', we leave enabled=1 and let CSS @media query handle it
+
+    // Set CSS custom properties
+    this.style.setProperty('--tbw-animation-duration', `${config.duration}ms`);
+    this.style.setProperty('--tbw-animation-easing', config.easing ?? 'ease-out');
+    this.style.setProperty('--tbw-animation-enabled', String(enabled));
+
+    // Set data attribute for mode-based CSS selectors
+    this.dataset.animationMode = typeof mode === 'boolean' ? (mode ? 'on' : 'off') : mode;
   }
 
   /** Updates ARIA label and describedby attributes. Delegates to aria.ts module. */
@@ -2685,6 +2693,26 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     } else {
       hideLoadingOverlay(this.#loadingOverlayEl);
     }
+  }
+
+  /**
+   * Update the empty-state overlay visibility.
+   *
+   * Called from `_schedulerAfterRender` (every render cycle, so the overlay
+   * tracks plugin-driven row count changes — filtering, server-side, tree
+   * collapse) and from the `loading` setter (for prompt show/hide on the
+   * loading transition without waiting for the next RAF).
+   */
+  #updateEmptyOverlay(): void {
+    updateEmptyOverlay(
+      this.querySelector('.tbw-grid-root'),
+      this.#loading,
+      this._rows.length,
+      this.#rows.length,
+      this.#effectiveConfig?.emptyRenderer,
+      this.#effectiveConfig?.emptyOverlay ?? 'rows',
+      this.#emptyOverlay,
+    );
   }
 
   /**

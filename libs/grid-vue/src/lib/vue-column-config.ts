@@ -3,6 +3,7 @@ import type {
   GridConfig as BaseGridConfig,
   CellRenderContext,
   ColumnEditorContext,
+  EmptyContext,
   HeaderCellContext,
   HeaderLabelContext,
   LoadingContext,
@@ -148,7 +149,10 @@ export interface ColumnConfig<TRow = unknown, TValue = unknown> extends Omit<
  * ```
  * @since 0.1.0
  */
-export interface GridConfig<TRow = unknown> extends Omit<BaseGridConfig<TRow>, 'columns' | 'loadingRenderer'> {
+export interface GridConfig<TRow = unknown> extends Omit<
+  BaseGridConfig<TRow>,
+  'columns' | 'loadingRenderer' | 'emptyRenderer'
+> {
   /**
    * Column definitions with Vue renderer/editor support.
    */
@@ -161,6 +165,17 @@ export interface GridConfig<TRow = unknown> extends Omit<BaseGridConfig<TRow>, '
    * - A Vue render function `(ctx: LoadingContext) => VNode`
    */
   loadingRenderer?: BaseGridConfig<TRow>['loadingRenderer'] | ((ctx: LoadingContext) => VNode) | Component;
+
+  /**
+   * Custom empty-state renderer shown when the grid has no rows and is not
+   * loading. Can be:
+   * - A vanilla function `(ctx: EmptyContext) => HTMLElement | string`
+   * - A Vue component receiving `sourceRowCount` and `filteredOut` props
+   * - A Vue render function `(ctx: EmptyContext) => VNode`
+   *
+   * Set explicitly to `null` to suppress the built-in default message.
+   */
+  emptyRenderer?: BaseGridConfig<TRow>['emptyRenderer'] | ((ctx: EmptyContext) => VNode) | Component;
 }
 
 // #endregion

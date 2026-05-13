@@ -413,7 +413,7 @@ describe('GridAdapter', () => {
 
     it('processes loadingRenderer when it is a component class', () => {
       const { adapter } = makeAdapter();
-      const cfg: GridConfig = { loadingRenderer: FakeComponent } as unknown as GridConfig;
+      const cfg: GridConfig = { loadingRenderer: FakeComponent };
       const result = adapter.processGridConfig(cfg);
       expect(typeof (result as { loadingRenderer?: unknown }).loadingRenderer).toBe('function');
     });
@@ -421,9 +421,31 @@ describe('GridAdapter', () => {
     it('leaves non-component loadingRenderer alone', () => {
       const { adapter } = makeAdapter();
       const fn = vi.fn();
-      const cfg = { loadingRenderer: fn } as unknown as GridConfig;
+      const cfg: GridConfig = { loadingRenderer: fn };
       const result = adapter.processGridConfig(cfg);
       expect((result as { loadingRenderer?: unknown }).loadingRenderer).toBe(fn);
+    });
+
+    it('processes emptyRenderer when it is a component class', () => {
+      const { adapter } = makeAdapter();
+      const cfg: GridConfig = { emptyRenderer: FakeComponent };
+      const result = adapter.processGridConfig(cfg);
+      expect(typeof (result as { emptyRenderer?: unknown }).emptyRenderer).toBe('function');
+    });
+
+    it('leaves non-component emptyRenderer alone', () => {
+      const { adapter } = makeAdapter();
+      const fn = vi.fn();
+      const cfg: GridConfig = { emptyRenderer: fn };
+      const result = adapter.processGridConfig(cfg);
+      expect((result as { emptyRenderer?: unknown }).emptyRenderer).toBe(fn);
+    });
+
+    it('preserves null emptyRenderer (opt-out)', () => {
+      const { adapter } = makeAdapter();
+      const cfg = { emptyRenderer: null } as unknown as GridConfig;
+      const result = adapter.processGridConfig(cfg);
+      expect((result as { emptyRenderer?: unknown }).emptyRenderer).toBeNull();
     });
   });
 

@@ -251,7 +251,7 @@ export interface ColumnConfig<TRow = unknown> extends Omit<
  */
 export interface GridConfig<TRow = unknown> extends Omit<
   BaseGridConfig<TRow>,
-  'columns' | 'typeDefaults' | 'loadingRenderer'
+  'columns' | 'typeDefaults' | 'loadingRenderer' | 'emptyRenderer'
 > {
   columns?: ColumnConfig<TRow>[];
   /** Type-level defaults that can use Angular component classes */
@@ -262,6 +262,15 @@ export interface GridConfig<TRow = unknown> extends Omit<
    * - An Angular component class with a `size` input
    */
   loadingRenderer?: BaseGridConfig<TRow>['loadingRenderer'] | Type<unknown>;
+  /**
+   * Custom empty-state renderer shown when the grid has no rows and is not
+   * loading. Can be:
+   * - A function `(ctx: EmptyContext) => HTMLElement | string`
+   * - An Angular component class with `sourceRowCount` and `filteredOut` inputs
+   *
+   * Set explicitly to `null` to suppress the built-in default message.
+   */
+  emptyRenderer?: BaseGridConfig<TRow>['emptyRenderer'] | Type<unknown>;
 }
 
 // #endregion

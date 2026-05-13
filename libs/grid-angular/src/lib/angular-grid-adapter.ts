@@ -16,6 +16,7 @@ import type {
   ColumnEditorContext,
   ColumnEditorSpec,
   ColumnViewRenderer,
+  EmptyContext,
   FrameworkAdapter,
   HeaderCellContext,
   HeaderLabelContext,
@@ -263,6 +264,15 @@ export class GridAdapter implements FrameworkAdapter {
       (result as BaseGridConfig<TRow>).loadingRenderer = this.createComponentLoadingRenderer(
         angularConfig.loadingRenderer,
       ) as unknown as BaseGridConfig<TRow>['loadingRenderer'];
+    }
+
+    // Process emptyRenderer - convert Angular component class to function.
+    // `null` is a valid opt-out value (suppresses the built-in default message);
+    // non-component values (vanilla functions, null) are forwarded unchanged.
+    if (angularConfig.emptyRenderer && isComponentClass(angularConfig.emptyRenderer)) {
+      (result as BaseGridConfig<TRow>).emptyRenderer = this.createComponentEmptyRenderer(
+        angularConfig.emptyRenderer,
+      ) as unknown as BaseGridConfig<TRow>['emptyRenderer'];
     }
 
     return result as BaseGridConfig<TRow>;
@@ -862,6 +872,20 @@ export class GridAdapter implements FrameworkAdapter {
    */
   private createComponentLoadingRenderer(componentClass: Type<unknown>): (ctx: LoadingContext) => HTMLElement {
     const mount = this.mountComponentRenderer<LoadingContext>(componentClass, (ctx) => ({ size: ctx.size }));
+    return (ctx) => mount(ctx).hostElement;
+  }
+
+  /**
+   * Creates an empty-state renderer function from an Angular component class.
+   *
+   * The component receives `sourceRowCount` and `filteredOut` inputs.
+   * @internal
+   */
+  private createComponentEmptyRenderer(componentClass: Type<unknown>): (ctx: EmptyContext) => HTMLElement {
+    const mount = this.mountComponentRenderer<EmptyContext>(componentClass, (ctx) => ({
+      sourceRowCount: ctx.sourceRowCount,
+      filteredOut: ctx.filteredOut,
+    }));
     return (ctx) => mount(ctx).hostElement;
   }
 

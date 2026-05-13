@@ -78,6 +78,10 @@
       flex: 1;
       min-height: 0;
       overflow: visible;
+      /* Positioning context for the empty-state overlay (default
+         emptyOverlay='rows' target). Without this the overlay would
+         resolve to .tbw-grid-root and cover the header — see #321. */
+      position: relative;
     }
 
     .rows-viewport {

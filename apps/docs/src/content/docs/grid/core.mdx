@@ -8,6 +8,7 @@ import ColumnInferenceDemo from '@components/demos/ColumnInferenceDemo.astro';
 import ColumnStatePersistenceDemo from '@components/demos/ColumnStatePersistenceDemo.astro';
 import CustomLoadingRendererDemo from '@components/demos/CustomLoadingRendererDemo.astro';
 import CustomRenderersDemo from '@components/demos/CustomRenderersDemo.astro';
+import EmptyStateDemo from '@components/demos/EmptyStateDemo.astro';
 import HeaderRenderersDemo from '@components/demos/HeaderRenderersDemo.astro';
 import InteractivePlaygroundDemo from '@components/demos/InteractivePlaygroundDemo.astro';
 import LightDomColumnsDemo from '@components/demos/LightDomColumnsDemo.astro';
@@ -181,6 +182,8 @@ The grid is configured through the `gridConfig` property (or individual shorthan
 | `icons` | [`GridIcons`](/grid/api/core/interfaces/gridicons/) | Grid-wide icon overrides |
 | `animation` | [`AnimationConfig`](/grid/api/core/interfaces/animationconfig/) | Animation defaults (expand/collapse, reorder, etc.) |
 | `loadingRenderer` | [`LoadingRenderer`](/grid/api/core/types/loadingrenderer/) | Custom loading indicator |
+| `emptyRenderer` | [`EmptyRenderer`](/grid/api/core/types/emptyrenderer/) ` \| null` | Custom no-rows message (set `null` to suppress) |
+| `emptyOverlay` | `'rows' \| 'grid'` | Where to mount the empty overlay (default `'rows'`) |
 | `sortHandler` | [`SortHandler`](/grid/api/core/types/sorthandler/) | Low-level sort engine override (prefer `sortComparator` per-column) |
 | `gridAriaLabel` | `string` | Accessible label for the grid (`aria-label`) |
 | `gridAriaDescribedBy` | `string` | ID of an element that describes the grid (`aria-describedby`) |
@@ -1406,6 +1409,44 @@ The `LoadingContext` provides a `size` property: `'large'` for the grid-wide ove
 
 <ShowSource file="demos/CustomLoadingRendererDemo.astro">
   <CustomLoadingRendererDemo />
+</ShowSource>
+
+### Empty State
+
+When the grid has no rows and is **not** loading, it shows a built-in message (`No data to display`, or `No matching rows` when a filter plugin hides every source row). Override the message with `emptyRenderer` — typically to surface error text from a failed fetch, or to provide an actionable empty state.
+
+```typescript
+grid.gridConfig = {
+  emptyRenderer: (ctx) => {
+    if (loadError) return `Failed to load deals: ${loadError.message}`;
+    if (ctx.filteredOut) return 'No deals match the current filter.';
+    return 'No deals to display.';
+  },
+};
+```
+
+The renderer receives an [`EmptyContext`](/grid/api/core/interfaces/emptycontext/) with:
+
+- `sourceRowCount` — the number of input rows before any plugin filtering.
+- `filteredOut` — `true` when `sourceRowCount > 0` but all rows were hidden (e.g. by the [FilteringPlugin](/grid/plugins/filtering/) or grouping).
+
+Return an `HTMLElement` for rich content (icons, buttons, multi-line layouts) or a `string` for plain text. Set `emptyRenderer: null` to suppress the overlay entirely.
+
+The overlay mounts inside the rows container by default. Set `emptyOverlay: 'grid'` to cover the entire grid (including the header) instead — useful for full-page error states.
+
+```typescript
+grid.gridConfig = {
+  emptyOverlay: 'grid',
+  emptyRenderer: (ctx) => /* ... */,
+};
+```
+
+:::note
+The loading overlay always wins: while `grid.loading === true` the empty overlay is hidden, even if there are zero rows. This avoids flashing an empty message during the initial fetch.
+:::
+
+<ShowSource file="demos/EmptyStateDemo.astro">
+  <EmptyStateDemo />
 </ShowSource>
 
 ---

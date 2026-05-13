@@ -8,7 +8,7 @@ import {
 import { autoSizeColumns, updateTemplate } from './internal/columns';
 import { ConfigManager } from './internal/config-manager';
 import { INVALID_ATTRIBUTE_JSON, warnDiagnostic } from './internal/diagnostics';
-import { createEmptyOverlay, hideEmptyOverlay, shouldShowEmpty, showEmptyOverlay } from './internal/empty';
+import { updateEmptyOverlay, type EmptyOverlayState } from './internal/empty';
 import { setupCellEventDelegation, setupRootEventDelegation } from './internal/event-delegation';
 import { resolveFeatures } from './internal/feature-hook';
 import { FocusManager } from './internal/focus-manager';
@@ -330,16 +330,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #loadingRows = new Set<string>(); // Row IDs currently loading
   #loadingCells = new Map<string, Set<string>>(); // Map<rowId, Set<field>> for cells loading
   #loadingOverlayEl?: HTMLElement; // Cached loading overlay element
-  #emptyOverlayEl?: HTMLElement; // Cached empty-state overlay element
-  // Last applied empty-state context (renderer ref + target + derived flags)
-  // so #updateEmptyOverlay can skip the recreate path on idempotent ticks
-  // (e.g. virtualization renders during scroll).
-  #emptyOverlayState?: {
-    renderer: GridConfig<T>['emptyRenderer'];
-    target: 'rows' | 'grid';
-    sourceRowCount: number;
-    filteredOut: boolean;
-  };
+  // Empty-state overlay state — element + last-applied context — kept inside
+  // a single struct managed by `updateEmptyOverlay()` in `internal/empty.ts`.
+  #emptyOverlay: EmptyOverlayState = {};
 
   // Row ID Map - O(1) lookup for rows by ID
   #rowIdMap = new Map<string, { row: T; index: number }>();
@@ -2446,36 +2439,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this._emitDataChange();
   }
 
-  /**
-   * Apply animation configuration to CSS custom properties on the host element.
-   * This makes the grid's animation settings available to plugins via CSS variables.
-   * Called by ConfigManager after merge.
-   */
-  #applyAnimationConfig(gridConfig: GridConfig<T>): void {
-    const config: AnimationConfig = {
-      ...DEFAULT_ANIMATION_CONFIG,
-      ...gridConfig.animation,
-    };
-
-    // Resolve animation mode
-    const mode = config.mode ?? 'reduced-motion';
-    let enabled: 0 | 1 = 1;
-
-    if (mode === false || mode === 'off') {
-      enabled = 0;
-    } else if (mode === true || mode === 'on') {
-      enabled = 1;
-    }
-    // For 'reduced-motion', we leave enabled=1 and let CSS @media query handle it
-
-    // Set CSS custom properties
-    this.style.setProperty('--tbw-animation-duration', `${config.duration}ms`);
-    this.style.setProperty('--tbw-animation-easing', config.easing ?? 'ease-out');
-    this.style.setProperty('--tbw-animation-enabled', String(enabled));
-
-    // Set data attribute for mode-based CSS selectors
-    this.dataset.animationMode = typeof mode === 'boolean' ? (mode ? 'on' : 'off') : mode;
-  }
+  // `_applyAnimationConfig` (called by ConfigManager after merge) lives in the
+  // "Methods exposed for extracted managers" region below \u2014 there is no
+  // private wrapper because there are no in-class callers besides that path.
   // #endregion
 
   // #region Internal Helpers
@@ -2679,8 +2645,30 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /** @internal Apply animation configuration to host element. */
-  _applyAnimationConfig(config: GridConfig<T>): void {
-    this.#applyAnimationConfig(config);
+  _applyAnimationConfig(gridConfig: GridConfig<T>): void {
+    const config: AnimationConfig = {
+      ...DEFAULT_ANIMATION_CONFIG,
+      ...gridConfig.animation,
+    };
+
+    // Resolve animation mode
+    const mode = config.mode ?? 'reduced-motion';
+    let enabled: 0 | 1 = 1;
+
+    if (mode === false || mode === 'off') {
+      enabled = 0;
+    } else if (mode === true || mode === 'on') {
+      enabled = 1;
+    }
+    // For 'reduced-motion', we leave enabled=1 and let CSS @media query handle it
+
+    // Set CSS custom properties
+    this.style.setProperty('--tbw-animation-duration', `${config.duration}ms`);
+    this.style.setProperty('--tbw-animation-easing', config.easing ?? 'ease-out');
+    this.style.setProperty('--tbw-animation-enabled', String(enabled));
+
+    // Set data attribute for mode-based CSS selectors
+    this.dataset.animationMode = typeof mode === 'boolean' ? (mode ? 'on' : 'off') : mode;
   }
 
   /** Updates ARIA label and describedby attributes. Delegates to aria.ts module. */
@@ -2716,49 +2704,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * loading transition without waiting for the next RAF).
    */
   #updateEmptyOverlay(): void {
-    const renderer = this.#effectiveConfig?.emptyRenderer;
-    const target: 'rows' | 'grid' = this.#effectiveConfig?.emptyOverlay ?? 'rows';
-    const gridRoot = this.querySelector('.tbw-grid-root');
-    if (!gridRoot) return;
-
-    const renderedRowCount = this._rows.length;
-    const sourceRowCount = this.#rows.length;
-    const show = shouldShowEmpty(this.#loading, renderedRowCount, renderer);
-
-    if (!show) {
-      hideEmptyOverlay(this.#emptyOverlayEl);
-      this.#emptyOverlayEl = undefined;
-      this.#emptyOverlayState = undefined;
-      return;
-    }
-
-    const filteredOut = sourceRowCount > 0 && renderedRowCount === 0;
-
-    // Idempotent fast path: when the overlay is already mounted and nothing
-    // observable has changed, skip the recreate. `_schedulerAfterRender`
-    // fires on every render phase (including VIRTUALIZATION during scroll)
-    // so this guard is hot — without it we'd churn DOM and could leak
-    // framework-adapter portals returned from user renderers.
-    const prev = this.#emptyOverlayState;
-    if (
-      this.#emptyOverlayEl &&
-      prev &&
-      prev.renderer === renderer &&
-      prev.target === target &&
-      prev.sourceRowCount === sourceRowCount &&
-      prev.filteredOut === filteredOut
-    ) {
-      return;
-    }
-
-    // Resolve the mount point. Fall back to grid root when the rows-container
-    // hasn't been built yet (e.g. very first render before #setup completes).
-    const mountTarget: Element = target === 'grid' ? gridRoot : (gridRoot.querySelector('.rows-container') ?? gridRoot);
-
-    hideEmptyOverlay(this.#emptyOverlayEl);
-    this.#emptyOverlayEl = createEmptyOverlay({ sourceRowCount, filteredOut }, renderer ?? undefined, target);
-    showEmptyOverlay(mountTarget, this.#emptyOverlayEl);
-    this.#emptyOverlayState = { renderer, target, sourceRowCount, filteredOut };
+    updateEmptyOverlay(
+      this.querySelector('.tbw-grid-root'),
+      this.#loading,
+      this._rows.length,
+      this.#rows.length,
+      this.#effectiveConfig?.emptyRenderer,
+      this.#effectiveConfig?.emptyOverlay ?? 'rows',
+      this.#emptyOverlay,
+    );
   }
 
   /**

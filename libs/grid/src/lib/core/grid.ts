@@ -1496,12 +1496,36 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Measure actual row height from DOM.
    * Finds the tallest cell to account for custom renderers that may push height.
+   *
+   * Called from `requestAnimationFrame` after first paint (when no explicit
+   * rowHeight was configured) and from a ResizeObserver on the first row
+   * (which catches dynamic CSS loading, lazy images, font loading, etc.).
    */
   #measureRowHeight(): void {
-    // Skip if a plugin is managing variable row heights (e.g., ResponsivePlugin with groups)
-    // In that case, the plugin handles height via getRowHeight() and we shouldn't
-    // override the base row height, which would cause oscillation loops.
+    // Skip if a plugin is managing variable row heights (e.g., ResponsivePlugin
+    // with groups). The plugin handles height via getRowHeight() and we must
+    // not override the base row height — that would cause oscillation loops.
     if (this.#pluginManager.hasRowHeightPlugin()) {
+      return;
+    }
+
+    // Skip if the user provided an explicit numeric `gridConfig.rowHeight`.
+    // The user has expressed intent ("rows are this tall") and the grid must
+    // honor it absolutely — overriding via DOM measurement turns the user's
+    // value into a no-op hint and creates the following nasty failure mode:
+    // when content rows render at one height and placeholder/loading rows at
+    // another (e.g. server-side plugin while a block is in flight), the
+    // ResizeObserver alternates between the two heights, the measure logic
+    // ratchets `_virtualization.rowHeight` to whichever is observed first,
+    // and the virtualization window mis-fits the viewport — visible as
+    // either flicker during scroll or a permanent gap before the pinned
+    // footer where the bottom of the body should be filled.
+    //
+    // Users who want measurement-driven sizing should either omit `rowHeight`
+    // (default branch below) or pass a function — both opt into the dynamic
+    // path. A numeric value is a contract; respect it.
+    const userRowHeight = this.#effectiveConfig.rowHeight;
+    if (typeof userRowHeight === 'number' && userRowHeight > 0) {
       return;
     }
 
@@ -1519,8 +1543,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Resolve the --tbw-row-height CSS variable to detect theme changes.
     // When a theme is swapped, the computed value changes (e.g., 52px → 28px).
-    // We accept both increases AND decreases from the CSS variable because
-    // this reflects an intentional style change, not content oscillation.
+    // Compared against the previously-resolved CSS value (NOT against the
+    // current `_virtualization.rowHeight`) so that natural drift between
+    // CSS-resolved height and a content-grown rowHeight doesn't masquerade
+    // as a theme switch on every observation.
     const cssRowHeight = this.#resolveCssRowHeight();
 
     // Find the tallest cell in the row (custom renderers may push some cells taller)
@@ -1532,24 +1558,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     });
 
     const rowRect = (firstRow as HTMLElement).getBoundingClientRect();
-
-    // Use the larger of row height or max cell height
     const measuredHeight = Math.max(rowRect.height, maxCellHeight);
 
-    // Determine if the row height changed.
-    // - CSS variable changes (theme switch): accept both increases AND decreases.
-    //   Detected by comparing the *resolved CSS value itself* against the
-    //   previously-resolved value — NOT by comparing CSS against the current
-    //   `_virtualization.rowHeight`. The latter would mis-fire as soon as
-    //   content growth (below) had legitimately bumped rowHeight above the CSS
-    //   value: every subsequent ResizeObserver tick would see CSS=34 vs
-    //   current=39, declare "CSS changed", and shrink rowHeight back down on
-    //   any tick where the observed row happened to render shorter content
-    //   (e.g. server-side placeholder rows). That created a ~50 Hz oscillation
-    //   between the two heights, flickering the visible row count during scroll.
-    // - Content-based changes: only accept increases to avoid the same
-    //   oscillation between mixed-height content (e.g. server-side plugin
-    //   placeholder vs real rows).
     const currentHeight = this._virtualization.rowHeight;
     const lastCss = this.#lastResolvedCssRowHeight;
     const cssChanged = cssRowHeight > 0 && lastCss > 0 && Math.abs(cssRowHeight - lastCss) > 1;
@@ -1561,13 +1571,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
 
     if (cssChanged || cssFirstResolved || contentGrew) {
-      // For real CSS changes (theme switch), prefer the new CSS-resolved height
-      // but allow content to push it taller if needed. For first-resolution and
-      // content growth, take the larger of the two so we never undersize rows.
+      // For real CSS changes (theme switch) and first resolution, take the
+      // larger of CSS and measured so rows are never undersized. For content
+      // growth (only direction we ratchet automatically), use the measurement.
       const next = cssChanged || cssFirstResolved ? Math.max(cssRowHeight, measuredHeight) : measuredHeight;
       if (Math.abs(next - currentHeight) > 1) {
         this._virtualization.rowHeight = next;
-        // Use scheduler to batch with other pending work
         this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'measureRowHeight');
       }
     }

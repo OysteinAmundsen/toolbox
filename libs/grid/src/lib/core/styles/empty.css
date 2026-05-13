@@ -1,0 +1,51 @@
+/**
+ * Empty State Overlay Styles
+ *
+ * Styles for the "no rows to display" overlay shown when the grid has been
+ * loaded (loading === false) but has no rows to render. Layered alongside
+ * the loading overlay; the two are mutually exclusive at runtime.
+ *
+ * @layer tbw-base
+ */
+
+@layer tbw-base {
+  /* Empty-state overlay
+     `position: absolute` with `inset: 0` overlays whichever positioned
+     ancestor mounts it: `.rows-container` (target='rows', headers stay
+     visible) or `.tbw-grid-root` (target='grid', everything covered). */
+  .tbw-empty-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--tbw-spacing-md, 12px);
+    text-align: center;
+    background: light-dark(rgba(255, 255, 255, 0.6), rgba(0, 0, 0, 0.4));
+    color: var(--tbw-color-text-secondary, var(--tbw-color-text));
+    z-index: 999;
+
+    /* Slightly lower than the loading overlay (z-index: 1000) so a stale
+       empty overlay can never paint over a freshly-mounted spinner during a
+       reload — even though `shouldShowEmpty()` already guards against both
+       being mounted at once. */
+
+    /* Pointer events stay enabled so users can't accidentally interact with
+       cells underneath the overlay (matches loading behaviour). */
+    pointer-events: all;
+
+    /* Fade in to match the loading overlay's onset. */
+    animation: tbw-fade-in 0.15s ease-out;
+  }
+
+  /* Default message element (used when no custom renderer is configured, or
+     when the user renderer returned a plain string). User renderers returning
+     an HTMLElement are inserted as-is and unaffected by this rule. */
+  .tbw-empty-message {
+    font-family: var(--tbw-font-family, inherit);
+    font-size: var(--tbw-font-size-md, 14px);
+    line-height: 1.4;
+    max-width: 480px;
+    user-select: text;
+  }
+}

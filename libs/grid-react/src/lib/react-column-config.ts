@@ -3,6 +3,7 @@ import type {
   GridConfig as BaseGridConfig,
   CellRenderContext,
   ColumnEditorContext,
+  EmptyContext,
   HeaderCellContext,
   HeaderLabelContext,
   LoadingContext,
@@ -97,12 +98,19 @@ export interface ColumnConfig<TRow = unknown> extends Omit<
  * ```
  * @since 0.0.1
  */
-export type GridConfig<TRow = unknown> = Omit<BaseGridConfig<TRow>, 'columns' | 'loadingRenderer'> & {
+export type GridConfig<TRow = unknown> = Omit<BaseGridConfig<TRow>, 'columns' | 'loadingRenderer' | 'emptyRenderer'> & {
   columns?: ColumnConfig<TRow>[];
   /**
    * Custom loading renderer - can be a vanilla DOM function or a React render function returning JSX.
    */
   loadingRenderer?: BaseGridConfig<TRow>['loadingRenderer'] | ((ctx: LoadingContext) => ReactNode);
+  /**
+   * Custom empty-state renderer shown when the grid has no rows and is not
+   * loading. Can be a vanilla DOM function (returning `HTMLElement | string`)
+   * or a React render function returning JSX. Set explicitly to `null` to
+   * suppress the built-in default message.
+   */
+  emptyRenderer?: BaseGridConfig<TRow>['emptyRenderer'] | ((ctx: EmptyContext) => ReactNode);
 };
 
 // #endregion
@@ -335,6 +343,30 @@ export function wrapReactLoadingRenderer(
 }
 
 /**
+ * Wraps a React empty-state renderer into a DOM-returning function.
+ * Mirrors `wrapReactLoadingRenderer`: vanilla `HTMLElement | string` returns
+ * are passed through unchanged so consumers can mix DOM-only and React
+ * renderers freely.
+ */
+export function wrapReactEmptyRenderer(
+  renderFn: (ctx: EmptyContext) => ReactNode,
+): (ctx: EmptyContext) => HTMLElement | string {
+  return (ctx: EmptyContext) => {
+    const result = renderFn(ctx);
+
+    if (result instanceof HTMLElement || typeof result === 'string') {
+      return result;
+    }
+
+    const container = createPortalContainer('react-empty-renderer');
+    const portalKey = renderToContainer(container, result);
+    mountedPortals.set(container, { key: portalKey });
+
+    return container;
+  };
+}
+
+/**
  * Processes a GridConfig, converting React renderer/editor functions
  * to DOM-returning functions that the grid core understands.
  *
@@ -352,6 +384,16 @@ export function processGridConfig<TRow>(config: GridConfig<TRow> | undefined): B
     config = {
       ...config,
       loadingRenderer: wrapReactLoadingRenderer(originalRenderer) as unknown as BaseGridConfig<TRow>['loadingRenderer'],
+    };
+  }
+
+  // Process emptyRenderer at grid config level. `null` is a valid opt-out
+  // value (suppresses the built-in default message); only wrap functions.
+  if (config.emptyRenderer && typeof config.emptyRenderer === 'function') {
+    const originalEmptyRenderer = config.emptyRenderer as (ctx: EmptyContext) => ReactNode;
+    config = {
+      ...config,
+      emptyRenderer: wrapReactEmptyRenderer(originalEmptyRenderer) as unknown as BaseGridConfig<TRow>['emptyRenderer'],
     };
   }
 

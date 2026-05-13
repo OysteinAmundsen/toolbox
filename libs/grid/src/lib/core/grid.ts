@@ -8,6 +8,7 @@ import {
 import { autoSizeColumns, updateTemplate } from './internal/columns';
 import { ConfigManager } from './internal/config-manager';
 import { INVALID_ATTRIBUTE_JSON, warnDiagnostic } from './internal/diagnostics';
+import { createEmptyOverlay, hideEmptyOverlay, shouldShowEmpty, showEmptyOverlay } from './internal/empty';
 import { setupCellEventDelegation, setupRootEventDelegation } from './internal/event-delegation';
 import { resolveFeatures } from './internal/feature-hook';
 import { FocusManager } from './internal/focus-manager';
@@ -329,6 +330,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #loadingRows = new Set<string>(); // Row IDs currently loading
   #loadingCells = new Map<string, Set<string>>(); // Map<rowId, Set<field>> for cells loading
   #loadingOverlayEl?: HTMLElement; // Cached loading overlay element
+  #emptyOverlayEl?: HTMLElement; // Cached empty-state overlay element
 
   // Row ID Map - O(1) lookup for rows by ID
   #rowIdMap = new Map<string, { row: T; index: number }>();
@@ -659,6 +661,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
 
     this.#updateLoadingOverlay();
+    // Loading and empty overlays are mutually exclusive: hide empty when
+    // loading turns on; reconsider it when loading turns off (rows may have
+    // arrived empty).
+    this.#updateEmptyOverlay();
   }
 
   /**
@@ -2556,6 +2562,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   _schedulerAfterRender(): void {
     this.#pluginManager?.afterRender();
 
+    // Recompute the empty-state overlay AFTER plugin afterRender so plugins
+    // that mutate `_rows` or row visibility (server-side, tree, grouping,
+    // filtering) are reflected in the visible-or-not decision.
+    this.#updateEmptyOverlay();
+
     // Recalculate spacer height after plugins modify the DOM in afterRender.
     if (this._virtualization.enabled && this._virtualization.totalHeightEl) {
       queueMicrotask(() => {
@@ -2685,6 +2696,47 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     } else {
       hideLoadingOverlay(this.#loadingOverlayEl);
     }
+  }
+
+  /**
+   * Update the empty-state overlay visibility.
+   *
+   * Called from `_schedulerAfterRender` (every render cycle, so the overlay
+   * tracks plugin-driven row count changes — filtering, server-side, tree
+   * collapse) and from the `loading` setter (for prompt show/hide on the
+   * loading transition without waiting for the next RAF).
+   */
+  #updateEmptyOverlay(): void {
+    const renderer = this.#effectiveConfig?.emptyRenderer;
+    const target: 'rows' | 'grid' = this.#effectiveConfig?.emptyOverlay ?? 'rows';
+    const gridRoot = this.querySelector('.tbw-grid-root');
+    if (!gridRoot) return;
+
+    const renderedRowCount = this._rows.length;
+    const sourceRowCount = this.#rows.length;
+    const show = shouldShowEmpty(this.#loading, renderedRowCount, renderer);
+
+    if (!show) {
+      hideEmptyOverlay(this.#emptyOverlayEl);
+      this.#emptyOverlayEl = undefined;
+      return;
+    }
+
+    // Resolve the mount point. Fall back to grid root when the rows-container
+    // hasn't been built yet (e.g. very first render before #setup completes).
+    const mountTarget: Element = target === 'grid' ? gridRoot : (gridRoot.querySelector('.rows-container') ?? gridRoot);
+
+    // Recreate on each show so the renderer (and `filteredOut` flag) reflect
+    // the current state. The element is small, this only fires on transitions
+    // into the empty state, and recreating sidesteps cleanup of stale node
+    // references when the user passes a new renderer.
+    hideEmptyOverlay(this.#emptyOverlayEl);
+    this.#emptyOverlayEl = createEmptyOverlay(
+      { sourceRowCount, filteredOut: sourceRowCount > 0 && renderedRowCount === 0 },
+      renderer ?? undefined,
+      target,
+    );
+    showEmptyOverlay(mountTarget, this.#emptyOverlayEl);
   }
 
   /**

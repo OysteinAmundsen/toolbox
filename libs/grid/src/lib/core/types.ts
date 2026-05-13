@@ -2813,7 +2813,105 @@ export interface GridConfig<TRow = any> {
   loadingRenderer?: LoadingRenderer;
 
   // #endregion
+
+  // #region Empty State
+
+  /**
+   * Custom renderer shown when the grid has no rows to display
+   * (`loading === false` AND the rendered row count is `0`, after all plugin
+   * processing such as filtering / grouping / server-side).
+   *
+   * - When **omitted**, a built-in message is rendered ("No data to display"
+   *   or "No matching rows" when source rows existed but were filtered out).
+   * - When set to a function, the function receives an {@link EmptyContext}
+   *   and returns an `HTMLElement` or HTML string.
+   * - When **explicitly `null`**, the empty overlay is suppressed entirely.
+   *
+   * The empty overlay is mutually exclusive with the loading overlay; if
+   * `loading === true`, the loading overlay always wins.
+   *
+   * @example
+   * ```typescript
+   * // Show a backend error message via a closure over the consumer's state.
+   * gridConfig.emptyRenderer = () =>
+   *   error
+   *     ? `Failed to load deals: ${error.message}`
+   *     : 'No deals to display';
+   * ```
+   *
+   * @see {@link EmptyOverlay} to control where the overlay is mounted.
+   * @since 1.8.0
+   */
+  emptyRenderer?: EmptyRenderer | null;
+
+  /**
+   * Where the empty-state overlay is mounted.
+   *
+   * - `'rows'` (default) — overlays the `.rows-container`. Headers stay
+   *   visible so users can clear filters or see the column schema.
+   * - `'grid'` — overlays the `.tbw-grid-root`. Hides headers and any
+   *   shell/toolbar content too.
+   *
+   * @defaultValue `'rows'`
+   * @since 1.8.0
+   */
+  emptyOverlay?: EmptyOverlay;
+
+  // #endregion
 }
+// #endregion
+
+// #region Empty State Types
+
+/**
+ * Where the empty-state overlay is mounted.
+ *
+ * @see {@link GridConfig.emptyOverlay}
+ * @since 1.8.0
+ */
+export type EmptyOverlay = 'rows' | 'grid';
+
+/**
+ * Context passed to a custom {@link EmptyRenderer}.
+ *
+ * @since 1.8.0
+ */
+export interface EmptyContext {
+  /**
+   * Number of rows in the source data before any plugin processing
+   * (sort / filter / group / server-side). Equivalent to
+   * `grid.sourceRows.length`.
+   */
+  sourceRowCount: number;
+  /**
+   * `true` when the source had rows but all of them were filtered out
+   * (i.e. `sourceRowCount > 0` while the rendered row count is `0`).
+   * The default renderer uses this flag to switch between
+   * "No data to display" and "No matching rows".
+   */
+  filteredOut: boolean;
+}
+
+/**
+ * Custom renderer for the empty state overlay.
+ *
+ * @param context - {@link EmptyContext} describing why the grid is empty.
+ * @returns An `HTMLElement` or an HTML string.
+ *
+ * @example
+ * ```typescript
+ * const renderer: EmptyRenderer = (ctx) => {
+ *   const div = document.createElement('div');
+ *   div.textContent = ctx.filteredOut ? 'No matches' : 'No data';
+ *   return div;
+ * };
+ * ```
+ *
+ * @see {@link GridConfig.emptyRenderer}
+ * @since 1.8.0
+ */
+export type EmptyRenderer = (context: EmptyContext) => HTMLElement | string;
+
 // #endregion
 
 // #region Animation

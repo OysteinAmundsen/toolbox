@@ -1,0 +1,158 @@
+---
+// EmptyStateDemo.astro — Empty-state messages and custom error renderers via `emptyRenderer`
+---
+<p class="grid-demo-description">
+  When the grid has no rows and is not loading, it shows a default "No data" message.
+  Provide an <code>emptyRenderer</code> to display custom messages — e.g. error text from a failed
+  fetch. Use the buttons below to simulate different states.
+</p>
+<div class="grid-demo not-content">
+  <div class="empty-bar">
+    <button data-action="load">Load data</button>
+    <button data-action="clear">Clear (empty)</button>
+    <button data-action="error">Simulate error</button>
+    <span class="empty-bar-status" data-status></span>
+  </div>
+  <tbw-grid style="height: 300px;" id="demo-empty-state"></tbw-grid>
+</div>
+
+<script>
+  import type { EmptyContext } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+  type Row = { id: number; name: string; email: string; department: string };
+
+  const allRows: Array<Row> = [
+    { id: 1, name: 'Alice Johnson', email: 'alice@example.com', department: 'Engineering' },
+    { id: 2, name: 'Bob Smith', email: 'bob@example.com', department: 'Marketing' },
+    { id: 3, name: 'Carol Davis', email: 'carol@example.com', department: 'Engineering' },
+    { id: 4, name: 'Dan Wilson', email: 'dan@example.com', department: 'Sales' },
+    { id: 5, name: 'Eve Brown', email: 'eve@example.com', department: 'HR' },
+  ];
+
+  const grid = await queryGrid('#demo-empty-state', true);
+  const statusEl = document.querySelector<HTMLSpanElement>('[data-status]');
+
+  if (grid) {
+    grid.columns = [
+      { field: 'id', header: 'ID', width: 80 },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'department', header: 'Department' },
+    ];
+
+    let errorMessage: string | null = null;
+
+    const setStatus = (msg: string) => {
+      if (statusEl) statusEl.textContent = msg;
+    };
+
+    const emptyRenderer = (ctx: EmptyContext) => {
+      if (errorMessage) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'empty-error';
+        const icon = document.createElement('div');
+        icon.className = 'empty-error-icon';
+        icon.textContent = '⚠';
+        const title = document.createElement('div');
+        title.className = 'empty-error-title';
+        title.textContent = 'Failed to load data';
+        const detail = document.createElement('div');
+        detail.className = 'empty-error-detail';
+        detail.textContent = errorMessage;
+        wrapper.append(icon, title, detail);
+        return wrapper;
+      }
+      if (ctx.filteredOut) {
+        return 'No employees match the current filter.';
+      }
+      return 'No employees to display. Click "Load data" to fetch.';
+    };
+
+    grid.registerStyles('empty-state-demo', `
+      .empty-error {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        text-align: center;
+        max-width: 320px;
+      }
+      .empty-error-icon {
+        font-size: 28px;
+        color: light-dark(#c62828, #ef9a9a);
+      }
+      .empty-error-title {
+        font-weight: 600;
+        color: light-dark(#c62828, #ef9a9a);
+      }
+      .empty-error-detail {
+        font-size: 0.85em;
+        color: light-dark(rgba(0,0,0,0.6), rgba(255,255,255,0.6));
+      }
+    `);
+
+    grid.gridConfig = {
+      getRowId: (row: Row) => row.id,
+      emptyRenderer,
+    };
+
+    grid.rows = [];
+    setStatus('Empty state — showing default message.');
+
+    document.querySelector('[data-action="load"]')?.addEventListener('click', () => {
+      errorMessage = null;
+      grid.rows = allRows;
+      setStatus(`Loaded ${allRows.length} rows.`);
+    });
+
+    document.querySelector('[data-action="clear"]')?.addEventListener('click', () => {
+      errorMessage = null;
+      grid.rows = [];
+      setStatus('Cleared — showing empty message.');
+    });
+
+    document.querySelector('[data-action="error"]')?.addEventListener('click', () => {
+      errorMessage = 'Network request timed out after 30s';
+      grid.rows = [];
+      setStatus('Simulated error — showing custom error renderer.');
+    });
+  }
+</script>
+
+<style>
+  .grid-demo-description {
+    padding: 0.75rem 1rem;
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--sl-color-gray-2);
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+  .empty-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--sl-color-gray-6);
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    font-size: 13px;
+    flex-wrap: wrap;
+  }
+  .empty-bar button {
+    padding: 4px 14px;
+    border: 1px solid var(--sl-color-gray-4);
+    border-radius: 4px;
+    background: var(--sl-color-accent);
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .empty-bar button:hover {
+    opacity: 0.9;
+  }
+  .empty-bar-status {
+    margin-left: auto;
+    color: var(--sl-color-gray-2);
+    font-style: italic;
+  }
+</style>

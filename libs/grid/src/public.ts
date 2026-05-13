@@ -273,6 +273,10 @@ export type {
   DataChangeDetail,
   DataGridCustomEvent,
   DataGridEventMap,
+  // Empty state types
+  EmptyContext,
+  EmptyOverlay,
+  EmptyRenderer,
   ExpandCollapseAnimation,
   ExternalMountEditorDetail,
   ExternalMountViewDetail,

@@ -16,6 +16,7 @@
 // Import all CSS partials as inline strings (Vite handles ?inline)
 import animations from './animations.css?inline';
 import base from './base.css?inline';
+import empty from './empty.css?inline';
 import header from './header.css?inline';
 import icons from './icons.css?inline';
 import loading from './loading.css?inline';
@@ -37,8 +38,9 @@ import variables from './variables.css?inline';
  * 6. Shell (toolbar, layout)
  * 7. Tool Panel (side panels, accordion)
  * 8. Loading (spinners, overlays)
- * 9. Animations (keyframes, transitions)
- * 10. Media Queries (accessibility, responsive)
+ * 9. Empty state (no-rows overlay)
+ * 10. Animations (keyframes, transitions)
+ * 11. Media Queries (accessibility, responsive)
  */
 export const gridStyles = `@layer tbw-base, tbw-plugins, tbw-theme;
 
@@ -50,6 +52,7 @@ ${rows}
 ${shell}
 ${toolPanel}
 ${loading}
+${empty}
 ${animations}
 ${mediaQueries}
 `;

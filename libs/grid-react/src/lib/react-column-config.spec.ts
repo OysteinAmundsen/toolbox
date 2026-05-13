@@ -15,6 +15,7 @@ import {
   cleanupConfigRootsIn,
   processGridConfig,
   wrapReactEditor,
+  wrapReactEmptyRenderer,
   wrapReactHeaderLabelRenderer,
   wrapReactHeaderRenderer,
   wrapReactLoadingRenderer,
@@ -225,6 +226,34 @@ describe('react-column-config', () => {
 
   // #endregion
 
+  // #region wrapReactEmptyRenderer
+
+  describe('wrapReactEmptyRenderer', () => {
+    it('should pass through HTMLElement results', () => {
+      const el = document.createElement('div');
+      el.textContent = 'No data';
+      const wrapped = wrapReactEmptyRenderer(() => el as any);
+      const result = wrapped({ sourceRowCount: 0, filteredOut: false });
+      expect(result).toBe(el);
+    });
+
+    it('should pass through string results', () => {
+      const wrapped = wrapReactEmptyRenderer(() => 'No data' as any);
+      const result = wrapped({ sourceRowCount: 0, filteredOut: false });
+      expect(result).toBe('No data');
+    });
+
+    it('should mount React content for non-element results', () => {
+      const { createElement } = require('react');
+      const wrapped = wrapReactEmptyRenderer(() => createElement('div', null, 'No data'));
+      const result = wrapped({ sourceRowCount: 0, filteredOut: false });
+      expect(result).toBeInstanceOf(HTMLElement);
+      expect((result as HTMLElement).className).toBe('react-empty-renderer');
+    });
+  });
+
+  // #endregion
+
   // #region processGridConfig
 
   describe('processGridConfig', () => {
@@ -308,6 +337,28 @@ describe('react-column-config', () => {
 
       const result = processGridConfig(config);
       expect(result?.loadingRenderer).toBeDefined();
+    });
+
+    it('should wrap emptyRenderer at config level', () => {
+      const emptyFn = () => ({ type: 'div' }) as any;
+      const config: GridConfig = {
+        columns: [{ field: 'name' }],
+        emptyRenderer: emptyFn,
+      };
+
+      const result = processGridConfig(config);
+      expect(result?.emptyRenderer).toBeDefined();
+      expect(result?.emptyRenderer).not.toBe(emptyFn);
+    });
+
+    it('should preserve emptyRenderer: null (opt-out)', () => {
+      const config: GridConfig = {
+        columns: [{ field: 'name' }],
+        emptyRenderer: null,
+      };
+
+      const result = processGridConfig(config);
+      expect(result?.emptyRenderer).toBeNull();
     });
 
     it('should preserve non-renderer column properties', () => {

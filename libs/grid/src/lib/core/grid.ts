@@ -4598,6 +4598,34 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   containsFocus(node?: Node | null): boolean {
     return this.#focusManager.containsFocus(node);
   }
+
+  /**
+   * The last meaningful element inside the grid host's light-DOM subtree
+   * that received user focus. Excludes the grid host itself (synthetic
+   * `tabindex=0` focus during keyboard navigation), bare `.cell` elements
+   * (whose focus is virtual), and descendants of registered external focus
+   * containers (overlays/datepickers/dropdowns). Returns `null` when the
+   * user has not yet interacted with any tracked descendant.
+   *
+   * @group Focus Management
+   */
+  get lastFocusedElement(): HTMLElement | null {
+    return this.#focusManager.lastFocusedElement;
+  }
+
+  /**
+   * Restore focus to the last meaningful user-focused element inside the
+   * grid (see {@link lastFocusedElement} for what counts as "meaningful").
+   * The grid invokes this automatically whenever focus is bounced to
+   * `<body>` (e.g. when a body-level overlay is removed). Exposed publicly
+   * so application code can re-anchor focus on demand.
+   *
+   * @group Focus Management
+   * @returns `true` if a tracked element existed and was refocused; `false` otherwise.
+   */
+  restoreLastFocus(): boolean {
+    return this.#focusManager.restoreLastFocus();
+  }
   // #endregion
 
   // #region Light DOM Helpers

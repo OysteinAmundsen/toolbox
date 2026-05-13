@@ -34,6 +34,13 @@ export function handleGridKeyDown(grid: GridHost, e: KeyboardEvent): void {
   const colType = col?.type;
   const path = e.composedPath?.() ?? [];
   const target = (path.length ? path[0] : e.target) as HTMLElement | null;
+  // Keyboard events whose target lives inside the grid host but OUTSIDE the
+  // rows body (toolpanel inputs/buttons, shell-header controls, light-DOM
+  // children of <tbw-grid>) own their own keyboard interactions. Treating
+  // ArrowUp/ArrowDown/Enter on such a target as cell navigation steals the
+  // user's actual interaction target on the very next render cycle.
+  // Cells and the grid host itself remain valid navigation targets.
+  if (target && target !== grid && !target.closest?.('.rows-body')) return;
   if (isFormField(target) && (e.key === 'Home' || e.key === 'End')) return;
   if (isFormField(target) && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
     if ((target as HTMLInputElement).tagName === 'INPUT' && (target as HTMLInputElement).type === 'number') return;
@@ -297,7 +304,22 @@ export function ensureCellVisible(grid: GridHost, options?: EnsureCellVisibleOpt
         // → RAF → row recycling). A detached focused cell causes activeElement
         // to revert to <body>, breaking keyboard navigation.
         // Visual focus is managed by the .cell-focus CSS class + data-has-focus.
-        if (document.activeElement !== grid) {
+        //
+        // BUT: don't steal focus from a real focused descendant (toolpanel
+        // input, shell-header button, registered overlay control). Cell focus
+        // is virtual; if the user is actively typing in a non-cell input, we
+        // must leave that input alone. We only reclaim focus when nothing
+        // meaningful inside the grid currently holds it (active element is
+        // outside grid, on the grid host itself, or on a bare cell).
+        const active = document.activeElement;
+        const meaningful =
+          active instanceof HTMLElement &&
+          active !== grid &&
+          typeof grid.contains === 'function' &&
+          grid.contains(active) &&
+          !active.classList.contains('cell') &&
+          !active.closest('.cell');
+        if (!meaningful && active !== grid) {
           grid.focus({ preventScroll: true });
         }
       }

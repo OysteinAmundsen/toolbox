@@ -545,6 +545,14 @@ export interface EditingConfig {
    * considered "inside" the grid for focus trap purposes, so overlays
    * (datepickers, dropdowns) continue to work normally.
    *
+   * @remarks Independently of this option, the grid ships an always-on
+   * focus trap that restores the last user-focused element whenever focus
+   * is bounced to `<body>` (e.g. an overlay child of `<body>` closes). That
+   * built-in behavior covers most accidental focus loss without locking the
+   * user inside the editor. Set `focusTrap: true` only when you also want
+   * to actively reclaim focus into the editing cell on intentional outside
+   * navigation (Tab/click) during a row edit.
+   *
    * @default false
    *
    * @example

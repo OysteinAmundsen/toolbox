@@ -1300,6 +1300,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#rowHeightObserver.disconnect();
       this.#rowHeightObserver = undefined;
       this.#rowHeightObserverSetup = false;
+      this.#lastResolvedCssRowHeight = 0;
     }
 
     // Clear caches to prevent memory leaks
@@ -1536,18 +1537,39 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const measuredHeight = Math.max(rowRect.height, maxCellHeight);
 
     // Determine if the row height changed.
-    // - CSS variable changes (theme switch): accept both increases AND decreases
-    // - Content-based changes: only accept increases to avoid oscillation from
-    //   mixed-height content (e.g., server-side plugin placeholder vs real rows)
+    // - CSS variable changes (theme switch): accept both increases AND decreases.
+    //   Detected by comparing the *resolved CSS value itself* against the
+    //   previously-resolved value — NOT by comparing CSS against the current
+    //   `_virtualization.rowHeight`. The latter would mis-fire as soon as
+    //   content growth (below) had legitimately bumped rowHeight above the CSS
+    //   value: every subsequent ResizeObserver tick would see CSS=34 vs
+    //   current=39, declare "CSS changed", and shrink rowHeight back down on
+    //   any tick where the observed row happened to render shorter content
+    //   (e.g. server-side placeholder rows). That created a ~50 Hz oscillation
+    //   between the two heights, flickering the visible row count during scroll.
+    // - Content-based changes: only accept increases to avoid the same
+    //   oscillation between mixed-height content (e.g. server-side plugin
+    //   placeholder vs real rows).
     const currentHeight = this._virtualization.rowHeight;
-    const cssChanged = cssRowHeight > 0 && Math.abs(cssRowHeight - currentHeight) > 1;
+    const lastCss = this.#lastResolvedCssRowHeight;
+    const cssChanged = cssRowHeight > 0 && lastCss > 0 && Math.abs(cssRowHeight - lastCss) > 1;
+    const cssFirstResolved = cssRowHeight > 0 && lastCss === 0;
     const contentGrew = measuredHeight > 0 && measuredHeight - currentHeight > 1;
 
-    if (cssChanged || contentGrew) {
-      // Prefer CSS-resolved height for theme changes; use measured height for content growth
-      this._virtualization.rowHeight = cssChanged ? Math.max(cssRowHeight, measuredHeight) : measuredHeight;
-      // Use scheduler to batch with other pending work
-      this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'measureRowHeight');
+    if (cssRowHeight > 0) {
+      this.#lastResolvedCssRowHeight = cssRowHeight;
+    }
+
+    if (cssChanged || cssFirstResolved || contentGrew) {
+      // For real CSS changes (theme switch), prefer the new CSS-resolved height
+      // but allow content to push it taller if needed. For first-resolution and
+      // content growth, take the larger of the two so we never undersize rows.
+      const next = cssChanged || cssFirstResolved ? Math.max(cssRowHeight, measuredHeight) : measuredHeight;
+      if (Math.abs(next - currentHeight) > 1) {
+        this._virtualization.rowHeight = next;
+        // Use scheduler to batch with other pending work
+        this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'measureRowHeight');
+      }
     }
   }
 
@@ -1833,6 +1855,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Handles dynamic CSS loading, lazy images, font loading, column virtualization, etc.
    */
   #rowHeightObserverSetup = false; // Only set up once per lifecycle
+  /**
+   * Last value the `--tbw-row-height` CSS variable resolved to.
+   * Used by `#measureRowHeight` to distinguish a real theme switch
+   * (resolved value changed) from natural drift between CSS-resolved height
+   * and `_virtualization.rowHeight` after content growth pushed the latter
+   * above the former. 0 means "never resolved" — first resolution seeds it.
+   */
+  #lastResolvedCssRowHeight = 0;
   #setupRowHeightObserver(): void {
     // Only set up once - row height measurement is one-time during initialization
     if (this.#rowHeightObserverSetup) return;

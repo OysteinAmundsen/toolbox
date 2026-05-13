@@ -612,3 +612,190 @@ describe('EditingPlugin focus management', () => {
     });
   });
 });
+
+// #region Always-on focus trap (last-user-focus tracking + restore)
+
+describe('always-on focus trap', () => {
+  type TrapGrid = TestGrid & {
+    restoreLastFocus: () => boolean;
+    lastFocusedElement: HTMLElement | null;
+  };
+  let grid: TrapGrid;
+
+  beforeEach(async () => {
+    await import('../../lib/core/grid');
+    document.body.innerHTML = '';
+    grid = document.createElement('tbw-grid') as TrapGrid;
+    grid.style.display = 'block';
+    grid.style.height = '300px';
+    grid.columns = [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+    ];
+    grid.rows = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+    ];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('exposes restoreLastFocus() and lastFocusedElement on the grid', () => {
+    expect(typeof grid.restoreLastFocus).toBe('function');
+    expect('lastFocusedElement' in grid).toBe(true);
+  });
+
+  it('tracks the last user-focused descendant of the grid', async () => {
+    const input = document.createElement('input');
+    input.type = 'number';
+    grid.appendChild(input);
+    input.focus();
+    await nextFrame();
+
+    expect(grid.lastFocusedElement).toBe(input);
+  });
+
+  it('does NOT track the grid host itself (artificial tabindex focus)', async () => {
+    const input = document.createElement('input');
+    grid.appendChild(input);
+    input.focus();
+    await nextFrame();
+    expect(grid.lastFocusedElement).toBe(input);
+
+    // Grid host receiving focus (e.g. via keyboard handler) should not overwrite
+    // the meaningful last-focused descendant.
+    grid.focus();
+    await nextFrame();
+    expect(grid.lastFocusedElement).toBe(input);
+  });
+
+  it('restoreLastFocus() returns false when no element has been tracked yet', () => {
+    expect(grid.restoreLastFocus()).toBe(false);
+  });
+
+  it('restoreLastFocus() refocuses the last tracked element', async () => {
+    const input = document.createElement('input');
+    grid.appendChild(input);
+    input.focus();
+    await nextFrame();
+
+    input.blur();
+    expect(document.activeElement).not.toBe(input);
+
+    expect(grid.restoreLastFocus()).toBe(true);
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('restores focus when an external container is removed (focusout with relatedTarget=null)', async () => {
+    const overlay = document.createElement('div');
+    const overlayInput = document.createElement('input');
+    overlay.appendChild(overlayInput);
+    document.body.appendChild(overlay);
+    grid.registerExternalFocusContainer(overlay);
+
+    // First, user focuses something inside the grid (toolpanel-like input)
+    const innerInput = document.createElement('input');
+    grid.appendChild(innerInput);
+    innerInput.focus();
+    await nextFrame();
+    expect(grid.lastFocusedElement).toBe(innerInput);
+
+    // Then user opens the overlay and focuses something inside it
+    overlayInput.focus();
+    await nextFrame();
+
+    // Overlay closes: dispatch focusout with relatedTarget=null (focus bounces to body)
+    overlayInput.blur();
+    overlay.remove();
+    // Wait for the queued microtask + frame
+    await new Promise((resolve) => queueMicrotask(() => resolve(undefined)));
+    await nextFrame();
+
+    // Focus should be restored to the last meaningful tracked element
+    expect(document.activeElement).toBe(innerInput);
+  });
+});
+
+// #endregion
+
+// #region Cell-focus does not steal focus from non-cell descendants
+
+describe('focusCell preserves non-cell descendant focus', () => {
+  let grid: TestGrid;
+
+  beforeEach(async () => {
+    await import('../../lib/core/grid');
+    document.body.innerHTML = '';
+    grid = document.createElement('tbw-grid') as TestGrid;
+    grid.style.display = 'block';
+    grid.style.height = '300px';
+    grid.columns = [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+    ];
+    grid.rows = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+    ];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('does not steal focus from a focused non-cell descendant when navigating cells', async () => {
+    const toolInput = document.createElement('input');
+    toolInput.type = 'number';
+    grid.appendChild(toolInput);
+    toolInput.focus();
+    expect(document.activeElement).toBe(toolInput);
+
+    grid.focusCell(1, 'name');
+    await nextFrame();
+
+    // Toolpanel input must retain focus; cell focus is virtual and tracked by
+    // _focusRow / _focusCol without yanking the active element.
+    expect(document.activeElement).toBe(toolInput);
+  });
+
+  it('ArrowUp on a non-cell input does not change cell focus', async () => {
+    const toolInput = document.createElement('input');
+    toolInput.type = 'number';
+    grid.appendChild(toolInput);
+    toolInput.focus();
+
+    const initialRow = grid._focusRow;
+    const initialCol = grid._focusCol;
+
+    toolInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
+    await nextFrame();
+
+    expect(grid._focusRow).toBe(initialRow);
+    expect(grid._focusCol).toBe(initialCol);
+    expect(document.activeElement).toBe(toolInput);
+  });
+
+  it('Enter on a non-cell button inside the grid does not dispatch cell-activate', async () => {
+    const button = document.createElement('button');
+    grid.appendChild(button);
+    button.focus();
+
+    let activated = false;
+    grid.addEventListener('cell-activate', () => {
+      activated = true;
+    });
+
+    button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    await nextFrame();
+
+    expect(activated).toBe(false);
+  });
+});
+
+// #endregion

@@ -1,8 +1,7 @@
 ---
-description: "Local pre-commit code review. Run before committing to catch bugs, security issues, and convention violations — same checks as the GitHub Copilot PR reviewer, but without pushing. Accepts a file path, folder path, or no argument (reviews uncommitted changes)."
-name: "QA Review"
-argument-hint: "[optional file or folder path; defaults to uncommitted changes]"
-agent: "agent"
+description: 'Local pre-commit code review. Run before committing to catch bugs, security issues, and convention violations — same checks as the GitHub Copilot PR reviewer, but without pushing. Accepts a file path, folder path, or no argument (reviews uncommitted changes).'
+argument-hint: '[optional file or folder path; defaults to uncommitted changes]'
+agent: 'agent'
 ---
 
 # QA Review
@@ -38,6 +37,7 @@ These are the contract the code must obey. Cite specific rules by filename when 
 For each file (or each hunk, when reviewing a diff), check:
 
 ### Correctness & bugs
+
 - Off-by-one, null/undefined access, unhandled promise rejections, missing `await`.
 - Incorrect equality (`==` vs `===`), accidental reassignment, shadowed variables.
 - Dead code, unreachable branches, contradictory conditions.
@@ -45,6 +45,7 @@ For each file (or each hunk, when reviewing a diff), check:
 - Type assertions that hide real type errors (`as any`, `as unknown as T`, non-null `!`).
 
 ### Security (OWASP-aware)
+
 - Injection (SQL, command, prompt, XSS via `dangerouslySetInnerHTML`, `innerHTML`, `eval`).
 - Hard-coded secrets, tokens, credentials, connection strings.
 - Unsafe deserialization, path traversal (`../`), SSRF in fetch/HTTP calls.
@@ -53,6 +54,7 @@ For each file (or each hunk, when reviewing a diff), check:
 - Dependency additions: flag any new package and call out if it looks unmaintained / typosquatted.
 
 ### Workspace conventions
+
 - File/folder naming (kebab-case, `use-` prefix for hooks, `.styles.ts` co-location, etc.).
 - Import paths (workspace aliases vs relative), public-API boundaries (no deep imports into `internal/`, `src/lib/...`).
 - Forbidden patterns called out in instruction files (e.g. `as unknown as`, `T[]` vs `Array<T>`, styled components inside render bodies, missing `data-testid`, hand-written hooks where a generated one exists).
@@ -60,6 +62,7 @@ For each file (or each hunk, when reviewing a diff), check:
 - Test conventions (co-located `*.spec.ts`, `waitUpgrade()`, no skipped tests left behind).
 
 ### Best practices
+
 - Single-responsibility; functions doing too much.
 - Public API additions: are types stable, named consistently, documented?
 - Error handling at boundaries only — no defensive try/catch around impossible cases.
@@ -68,6 +71,7 @@ For each file (or each hunk, when reviewing a diff), check:
 - Performance hotspots: synchronous work in render, unbounded loops, N+1 fetches.
 
 ### Hygiene
+
 - Leftover `console.log`, `debugger`, `TODO`/`FIXME` without an issue link, commented-out code.
 - Stale or contradictory comments.
 - Missing or inappropriate `data-testid` on new visual components (workspace rule).
@@ -98,7 +102,7 @@ Rules for the report:
 - **Group by severity, not by file.** Blocking = bugs, security, broken contracts. Should fix = convention violations, clear smells. Nits = style, minor improvements.
 - **Cite line numbers** (use `file.ts#L42` markdown links so they're clickable in chat).
 - **Quote the rule** when a workspace convention is violated, e.g. "violates `.github/instructions/typescript-conventions.instructions.md` — no `as unknown as`".
-- **Be specific.** "This could be cleaner" is useless. Say *what* and *how*.
+- **Be specific.** "This could be cleaner" is useless. Say _what_ and _how_.
 - **Do not auto-fix.** Report only. The user decides what to apply, then re-runs `/qa` if they want.
 - **If everything passes**, say so plainly with a one-line scope summary. No padding.
 

@@ -6,6 +6,7 @@
  * - External focus container registry (register/unregister/containsFocus)
  * - Focus cell navigation (focusCell, focusedCell getter)
  * - Scroll-to-row logic (scrollToRow, scrollToRowById)
+ * - Last user focus tracking + always-on restore-on-bounce focus trap
  *
  * Takes the grid reference directly (tightly coupled — this manager
  * can never live outside the grid).
@@ -23,8 +24,20 @@ export class FocusManager<T = any> {
   #externalFocusContainers = new Set<Element>();
   #externalFocusCleanups = new Map<Element, () => void>();
 
+  // Last "real" element the user explicitly focused inside the grid logical
+  // area (grid host descendants + registered external containers). The grid
+  // host itself and bare cell elements are intentionally NOT tracked — host
+  // focus is artificial (tabindex=0 keeps keyboard nav alive) and cell focus
+  // is virtual (managed by _focusRow/_focusCol). Editor inputs INSIDE a
+  // .cell.editing are tracked so editing can resume after an overlay bounce.
+  #lastFocused: HTMLElement | null = null;
+
+  // Always-on trap listener cleanup
+  #trapCleanup: (() => void) | null = null;
+
   constructor(grid: GridHost<T>) {
     this.#grid = grid;
+    this.#installFocusTrap();
   }
 
   // #region Focus & Navigation
@@ -160,8 +173,9 @@ export class FocusManager<T = any> {
 
     el.addEventListener(
       'focusin',
-      () => {
+      (e) => {
         gridEl.dataset.hasFocus = '';
+        this.#noteFocus((e as FocusEvent).target);
       },
       { signal },
     );
@@ -173,6 +187,11 @@ export class FocusManager<T = any> {
         if (!newFocus || !this.containsFocus(newFocus)) {
           delete gridEl.dataset.hasFocus;
         }
+        // Bounce-to-body: relatedTarget === null usually means the focused
+        // element was removed from the DOM (overlay closed) and focus reverted
+        // to <body>. Restore the last user focus so keyboard interaction can
+        // resume where the user left off.
+        if (newFocus === null) this.#scheduleRestore();
       },
       { signal },
     );
@@ -215,6 +234,113 @@ export class FocusManager<T = any> {
 
   // #endregion
 
+  // #region Last User Focus & Always-On Trap
+
+  /**
+   * Install the always-on focus trap. Tracks user focus inside the grid and
+   * restores it when focus is unintentionally bounced to `<body>` (e.g. an
+   * overlay child of `<body>` is removed while focused).
+   *
+   * Intentional focus movement (Tab to a button outside the grid, click on an
+   * outside element) is detected via `relatedTarget !== null` and respected.
+   */
+  #installFocusTrap(): void {
+    const grid = this.#grid as unknown as HTMLElement;
+    const ac = new AbortController();
+    const signal = ac.signal;
+
+    grid.addEventListener('focusin', (e) => this.#noteFocus(e.target), { signal, capture: true });
+
+    grid.addEventListener(
+      'focusout',
+      (e) => {
+        const newFocus = (e as FocusEvent).relatedTarget as Node | null;
+        // Intentional movement (browser told us where focus is going) — don't fight it.
+        if (newFocus !== null) return;
+        this.#scheduleRestore();
+      },
+      { signal },
+    );
+
+    this.#trapCleanup = () => ac.abort();
+  }
+
+  /**
+   * Record `target` as the last meaningful user focus, if eligible.
+   *
+   * Eligible: any HTMLElement inside the grid logical area EXCEPT
+   *   - the grid host itself (artificial tabindex=0 focus),
+   *   - bare `.cell` elements (cell focus is virtual; restoring a stale
+   *     pooled cell after virtualization recycles it is meaningless).
+   *
+   * Editor inputs inside `.cell.editing` ARE tracked: they are the user's
+   * real point of interaction during a row edit, and restoring them after
+   * an overlay close is exactly what `EditingPlugin` used to do via its
+   * own focusTrap option.
+   */
+  #noteFocus(target: EventTarget | null): void {
+    if (!(target instanceof HTMLElement)) return;
+    const grid = this.#grid as unknown as HTMLElement;
+    if (target === grid) return;
+
+    const cell = target.closest?.('.cell') as HTMLElement | null;
+    if (cell && !cell.classList.contains('editing')) {
+      // Bare cell focus — virtual, don't track.
+      return;
+    }
+    // Focus inside a registered external container (datepicker, dropdown,
+    // body-level overlay) is intentionally NOT tracked. When the overlay
+    // closes, the user expects focus to return to the last element they
+    // were on INSIDE the grid proper, not back into the (about-to-be-
+    // removed) overlay.
+    if (this.isInExternalFocusContainer(target)) return;
+    this.#lastFocused = target;
+  }
+
+  #scheduleRestore(): void {
+    queueMicrotask(() => {
+      const active = document.activeElement;
+      // Someone else already moved focus to a meaningful target — leave it alone.
+      if (active && active !== document.body && active !== (this.#grid as unknown as Element)) return;
+      this.restoreLastFocus();
+    });
+  }
+
+  /**
+   * Restore focus to the last tracked user-focused element if it is still
+   * connected and focusable. Returns `true` on success.
+   *
+   * Stale references (element removed from DOM during a re-render) are
+   * silently dropped so callers can fall back to their own restoration logic.
+   */
+  restoreLastFocus(): boolean {
+    const el = this.#lastFocused;
+    if (!el) return false;
+    if (!el.isConnected) {
+      this.#lastFocused = null;
+      return false;
+    }
+    if (el === document.activeElement) return true;
+    try {
+      el.focus({ preventScroll: true });
+    } catch {
+      return false;
+    }
+    return document.activeElement === el;
+  }
+
+  /**
+   * Currently tracked last-user-focused element, if any. Exposed so plugins
+   * (notably EditingPlugin) can defer to the unified trap before falling
+   * back to plugin-specific restoration logic.
+   * @internal
+   */
+  get lastFocusedElement(): HTMLElement | null {
+    return this.#lastFocused?.isConnected ? this.#lastFocused : null;
+  }
+
+  // #endregion
+
   // #region Cleanup
 
   /**
@@ -227,6 +353,9 @@ export class FocusManager<T = any> {
     }
     this.#externalFocusCleanups.clear();
     this.#externalFocusContainers.clear();
+    this.#trapCleanup?.();
+    this.#trapCleanup = null;
+    this.#lastFocused = null;
   }
 
   // #endregion

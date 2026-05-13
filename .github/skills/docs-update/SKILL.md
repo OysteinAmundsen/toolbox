@@ -188,6 +188,20 @@ Individual event descriptions, payload types, and code examples are auto-generat
 - New CSS custom properties
 - New adapter features
 
+#### Periodic audit checklist
+
+Both files drift easily because they're the last documentation surface to update and are easy to forget. Run this audit whenever you suspect drift, when preparing a release, or when the user reports stale info:
+
+1. **Plugin coverage** — every folder under `libs/grid/src/lib/plugins/` (except `shared/`) MUST have:
+   - One bullet in `llms.txt` "Plugins" section
+   - One row in `llms-full.txt` "Correct Plugin Class Names" table
+   - One `### XxxPlugin` config code-fence in `llms-full.txt` "Plugin Configuration Reference"
+2. **Feature coverage** — every `.ts` under `libs/grid/src/lib/features/` (except `registry.ts` / `*.spec.ts`) MUST have a row in the `llms-full.txt` "Feature Props Reference" table. Adapter parity may differ — cross-check `libs/grid-{react,angular,vue}/src/features/` and call out core-only features explicitly (e.g. `(core only — configure via gridConfig.features.<name>)`).
+3. **Feature count header** — the "Via features (N available, ...)" line near the top of `llms.txt` must match the actual feature folder count.
+4. **Recent CHANGELOG entries** — scan the last ~10 entries for new public API or config options that may not yet be documented in either file (common offenders: new plugin config keys, new shell options, new selection modes, new programmatic methods).
+
+**Examples of drift caught historically** — sticky-rows plugin (added 2.7.0) absent from both files for many releases; selection `'column'` mode + array form (2.8.0) absent; shell `toolPanel.initialState` / `.locked` / `.mode: 'push'` (2.9.0–2.10.0) and `openToolPanel(panelId)` (2.11.0) absent from `llms-full.txt`. Use these as a smell test — if a CHANGELOG entry mentions a public-facing option and `grep` doesn't find it in `llms-full.txt`, that's drift.
+
 ### Core MDX Docs (`apps/docs/src/content/docs/grid/`)
 
 | File                  | Contents                                           |

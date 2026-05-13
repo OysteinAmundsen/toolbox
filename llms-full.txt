@@ -160,6 +160,7 @@ These plugins **cannot** be used together. A development-mode warning is shown w
 | `ServerSidePlugin` | `@toolbox-web/grid/plugins/server-side` |
 | `PivotPlugin` | `@toolbox-web/grid/plugins/pivot` |
 | `TooltipPlugin` | `@toolbox-web/grid/plugins/tooltip` |
+| `StickyRowsPlugin` | `@toolbox-web/grid/plugins/sticky-rows` |
 
 All-in-one import (larger bundle): `import { SelectionPlugin, EditingPlugin, ... } from '@toolbox-web/grid/all';`
 
@@ -309,7 +310,7 @@ Feature props enable declarative plugin loading with tree-shaking. Import the fe
 
 | Feature Prop | Side-Effect Import (React example) | Example Values |
 |--------------|------------------------------------|----------------|
-| `selection` | `@toolbox-web/grid-react/features/selection` | `"cell"`, `"row"`, `"range"`, `{ mode: 'range', checkbox: true }` |
+| `selection` | `@toolbox-web/grid-react/features/selection` | `"cell"`, `"row"`, `"column"`, `"range"`, `["column", "row"]`, `{ mode: 'range', checkbox: true }` |
 | `editing` | `features/editing` | `true`, `"click"`, `"dblclick"`, `"manual"` |
 | `multiSort` | `features/multi-sort` | `true`, `"single"`, `"multi"`, `{ maxSortColumns: 3 }` |
 | `filtering` | `features/filtering` | `true`, `{ debounceMs: 200 }` |
@@ -333,6 +334,7 @@ Feature props enable declarative plugin loading with tree-shaking. Import the fe
 | `pivot` | `features/pivot` | `{ rowGroupFields: ['region'], columnGroupFields: ['quarter'], valueFields: [{ field: 'revenue', aggFunc: 'sum' }] }` |
 | `serverSide` | `features/server-side` | `{ dataSource: async (params) => ... }` |
 | `tooltip` | `features/tooltip` | `true`, `{ header: true, cell: false }` |
+| `stickyRows` | `features/sticky-rows` (core only — not yet wired in adapters; configure via `gridConfig.features.stickyRows`) | `{ isSticky: 'isSection' }`, `{ isSticky: (row) => row.isHeader, mode: 'stack', maxStacked: 3 }` |
 
 For Angular: replace `@toolbox-web/grid-react` with `@toolbox-web/grid-angular`.
 For Vue: replace `@toolbox-web/grid-react` with `@toolbox-web/grid-vue`.
@@ -1124,7 +1126,11 @@ function onCellClick(event: CustomEvent<CellClickDetail>) {
 
 ```typescript
 new SelectionPlugin({
-  mode: 'cell' | 'row' | 'range',  // Required
+  // 'column' selects the entire column when its header is clicked.
+  // Pass a 2-element array like ['column', 'row'] to enable dual-axis selection
+  // (column-on-header-click + cell/row/range elsewhere). Arrays MUST contain
+  // 'column' plus exactly one of 'cell' | 'row' | 'range'.
+  mode: 'cell' | 'row' | 'column' | 'range' | ['column', 'cell' | 'row' | 'range'] | ['cell' | 'row' | 'range', 'column'],
   multiSelect?: boolean,             // Allow multi-select (default: true)
   enabled?: boolean,                 // Whether selection is enabled (default: true)
   triggerOn?: 'click' | 'dblclick',  // Mouse event that triggers selection (default: 'click')
@@ -1137,6 +1143,7 @@ new SelectionPlugin({
 //   'selectRows'             → select rows by index array (row mode)
 //   'getSelectedRowIndices'  → returns sorted number[] of selected row indices
 //   'getSelectedRows'        → returns actual row objects (preferred over index lookup)
+//   'getSelectedColumns'     → returns string[] of selected column fields (column mode)
 ```
 
 ### EditingPlugin
@@ -1693,6 +1700,30 @@ queueMicrotask(() => undoRedo.endTransaction()); // Push compound to stack
 // Undo reverts ALL grouped edits in reverse; redo replays in forward order
 ```
 
+### StickyRowsPlugin
+
+```typescript
+import { StickyRowsPlugin } from '@toolbox-web/grid/plugins/sticky-rows';
+
+new StickyRowsPlugin({
+  // Required. Field name on the row (truthy value marks the row as sticky)
+  // OR a predicate `(row, index) => unknown`.
+  isSticky: 'isSection', // or: (row) => row.kind === 'header'
+
+  mode?: 'push' | 'stack',  // 'push' (default): one sticky row at a time, replaced by next.
+                            // 'stack': sticky rows accumulate below the header.
+  maxStacked?: number,      // Cap for 'stack' mode (default: Infinity). Ignored in 'push'.
+  className?: string,       // Optional class added to stuck-row clones for custom styling.
+})
+// Use case: section/group headers in a flat row list (e.g. month dividers in a
+// transaction log) that should remain visible while scrolling through their
+// section. NOT for summary/totals rows (use PinnedRowsPlugin) and NOT for
+// hierarchical groups (use GroupingRowsPlugin).
+// Note: sticky-rows is currently exposed via the core feature import only —
+// the React/Vue/Angular adapters do not yet ship a `stickyRows` prop. Configure
+// it via `gridConfig.features.stickyRows = { isSticky: ... }` from any framework.
+```
+
 ---
 
 ## Grid API
@@ -1883,6 +1914,9 @@ gridConfig: {
   shell: {
     header: {
       title: 'Employee Directory',
+      toolPanelToggle: false, // optional — suppress built-in panel toggle button + separator
+                              // when you want to drive the panel from a custom toolbar button.
+                              // Use grid.toggleToolPanel() / grid.openToolPanel(panelId) to control it.
       toolbarContents: [{
         id: 'export-btn',
         order: 10,
@@ -1895,10 +1929,39 @@ gridConfig: {
         },
       }],
     },
-    toolPanel: { position: 'right', width: 280, closeOnClickOutside: true },
+    toolPanel: {
+      position: 'right',           // 'left' | 'right' (default: 'right')
+      width: 280,                  // pixels (default: 280)
+      mode: 'overlay',             // 'overlay' (default — floats over the grid)
+                                   // | 'push' (laid out as a flex sibling; grid reflows
+                                   // when panel opens, all cells stay reachable).
+                                   // In 'push' mode the resize handle is hidden and
+                                   // closeOnClickOutside is a no-op.
+      initialState: 'closed',      // 'open' | 'closed' (default: 'closed')
+                                   // Whether the sidebar starts open on first render.
+                                   // Overrides the legacy `defaultOpen` open-on-load side effect.
+      locked: false,               // When true, sidebar is forced open: closeToolPanel() is a
+                                   // no-op and the built-in toggle button is hidden. Implies
+                                   // initialState: 'open'.
+      defaultOpen: 'columns',      // ⚠️ DEPRECATED open-on-load behavior.
+                                   // In v3.0.0 this will only pre-select the named accordion
+                                   // section without auto-opening the sidebar. Combine with
+                                   // initialState: 'open' for forward-compatible behavior.
+      persistState: false,         // Remember open/closed state across reloads
+      closeOnClickOutside: true,   // (ignored in mode: 'push' or when locked: true)
+    },
   },
   plugins: [new VisibilityPlugin()], // Adds column visibility panel
 }
+
+// Programmatic tool-panel control:
+grid.toggleToolPanel();              // Toggle open/closed
+grid.openToolPanel();                // Open (uses defaultOpen / first registered panel)
+grid.openToolPanel('filters');       // Jump straight to the 'filters' accordion section
+                                     // (one click — overrides defaultOpen). Emits TBW072 if
+                                     // the panel id is not registered.
+grid.closeToolPanel();               // Close (no-op when locked: true)
+grid.toggleToolPanelSection('filters'); // Toggle a specific section
 ```
 
 **Light DOM Shell:**

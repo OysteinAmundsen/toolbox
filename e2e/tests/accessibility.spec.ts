@@ -349,4 +349,147 @@ test.describe('Accessibility: axe-core scans', () => {
   });
 
   // #endregion
+
+  // #region Always-On Focus Trap (PR #324)
+
+  /**
+   * Body-level overlays (datepickers, dropdowns, custom-editor portals from
+   * framework adapters) sometimes close while still holding focus. The browser
+   * then bounces focus to `<body>`. The grid's always-on focus trap restores
+   * the last meaningful in-grid focus so keyboard navigation can resume.
+   *
+   * These tests simulate that scenario by appending a focusable element
+   * directly to `<body>`, focusing it, and removing it — exactly the DOM
+   * pattern produced by Material/PrimeNG/Headless UI overlays on close.
+   */
+
+  test('focus trap restores in-grid focus when an external overlay container closes', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+
+    // Inject a real, persistent in-grid focus target, focus it (so the trap
+    // tracks it as "last focus"), then simulate the full lifecycle of a
+    // body-level overlay (datepicker / dropdown / menu portal) registered
+    // via the grid's public registerExternalFocusContainer() API:
+    //
+    //   1. open: append <input> to <body>, register with grid, focus it
+    //   2. close: unregister + remove from DOM
+    //
+    // Because the overlay was a registered external container, its focus
+    // is intentionally NOT tracked. When it's removed and focus drops to
+    // <body>, the trap restores focus to the previously-tracked in-grid
+    // input — proving the always-on focus trap and external container
+    // mechanism work end-to-end in a real browser.
+    const result = await page.evaluate(async () => {
+      const grid = document.querySelector('tbw-grid')! as HTMLElement & {
+        registerExternalFocusContainer: (el: Element) => void;
+        unregisterExternalFocusContainer: (el: Element) => void;
+      };
+
+      // 1. Persistent in-grid focus target — represents whatever the user
+      //    was working on before the overlay opened.
+      const anchor = document.createElement('input');
+      anchor.id = '__test_grid_anchor';
+      grid.appendChild(anchor);
+      anchor.focus();
+
+      // Sanity: anchor must be the active element before the overlay opens.
+      const anchoredBefore = document.activeElement === anchor;
+
+      // 2. Body-level overlay opens and steals focus.
+      const overlay = document.createElement('input');
+      overlay.id = '__test_body_overlay';
+      document.body.appendChild(overlay);
+      grid.registerExternalFocusContainer(overlay);
+      overlay.focus();
+
+      // 3. Overlay closes — remove from DOM FIRST so the still-registered
+      //    focusout listener fires (relatedTarget=null) and schedules the
+      //    restore. Then unregister to clean up. (Unregister-then-remove
+      //    would abort the listener before the focusout could fire.)
+      overlay.remove();
+      // Wait for the trap's queueMicrotask + restore to complete.
+      await new Promise((r) => setTimeout(r, 50));
+      grid.unregisterExternalFocusContainer(overlay);
+
+      const restored = document.activeElement === anchor;
+      const isBody = document.activeElement === document.body;
+
+      // Cleanup
+      anchor.remove();
+
+      return { anchoredBefore, restored, isBody };
+    });
+
+    expect(result.anchoredBefore, 'anchor input should receive focus initially').toBe(true);
+    expect(result.isBody, 'focus must not be stranded on <body> after overlay closes').toBe(false);
+    expect(result.restored, 'focus must be restored to the previously focused in-grid element').toBe(true);
+  });
+
+  test('focus trap restores when in-grid focus is blurred to body', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+
+    // Inject a tracked in-grid element, blur it programmatically (focus →
+    // <body>), and confirm the trap restores it. This is the minimal
+    // bounce-to-body scenario the trap is designed to catch.
+    const result = await page.evaluate(async () => {
+      const grid = document.querySelector('tbw-grid')!;
+      const anchor = document.createElement('input');
+      anchor.id = '__test_blur_anchor';
+      grid.appendChild(anchor);
+      anchor.focus();
+
+      const anchoredBefore = document.activeElement === anchor;
+
+      // Programmatic blur — focusout fires with relatedTarget=null,
+      // trap schedules restore.
+      anchor.blur();
+      await new Promise((r) => setTimeout(r, 50));
+
+      const restored = document.activeElement === anchor;
+      const isBody = document.activeElement === document.body;
+
+      anchor.remove();
+      return { anchoredBefore, restored, isBody };
+    });
+
+    expect(result.anchoredBefore).toBe(true);
+    expect(result.isBody, 'focus must not be stranded on <body> after blur').toBe(false);
+    expect(result.restored, 'focus must be restored to the blurred in-grid element').toBe(true);
+  });
+
+  test('focus trap does NOT fight intentional outward Tab', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+
+    const grid = page.locator('tbw-grid');
+
+    // Add a sibling button after the grid so Tab has somewhere meaningful to go.
+    await page.evaluate(() => {
+      const btn = document.createElement('button');
+      btn.id = '__test_outside_btn';
+      btn.textContent = 'outside';
+      document.body.appendChild(btn);
+    });
+
+    await grid.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.waitForTimeout(150);
+
+    // Tab out of the grid to the sibling button.
+    // The grid's focusout fires with relatedTarget=#__test_outside_btn, which
+    // the trap MUST treat as intentional and NOT yank focus back.
+    await page.evaluate(() => {
+      (document.getElementById('__test_outside_btn') as HTMLButtonElement).focus();
+    });
+    await page.waitForTimeout(50);
+
+    const outsideFocused = await page.evaluate(
+      () => (document.activeElement as HTMLElement | null)?.id === '__test_outside_btn',
+    );
+    expect(outsideFocused).toBe(true);
+  });
+
+  // #endregion
 });

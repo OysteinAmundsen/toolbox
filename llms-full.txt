@@ -1784,6 +1784,43 @@ gridConfig: {
 }
 ```
 
+### Empty State
+
+When `loading === false` and the grid has zero rows to display, an empty-state overlay is rendered. The built-in default shows `"No data to display"`, or `"No matching rows"` when filtering/grouping has hidden every source row. Override `emptyRenderer` to surface error text (the grid does not own data fetching — read your own error state in the renderer closure) or to provide an actionable empty state.
+
+```typescript
+gridConfig: {
+  // EmptyContext: { sourceRowCount: number; filteredOut: boolean }
+  emptyRenderer: (ctx) => {
+    if (loadError) return `Failed to load deals: ${loadError.message}`;
+    if (ctx.filteredOut) return 'No deals match the current filter.';
+    return 'No deals to display.';
+  },
+  emptyOverlay: 'rows', // 'rows' (default, headers stay visible) | 'grid' (covers headers too)
+}
+
+// Opt out of the overlay entirely:
+gridConfig: { emptyRenderer: null }
+```
+
+Renderer return type is `HTMLElement | string`. Mutual exclusion with the loading overlay is built in: while `grid.loading === true` the empty overlay is suppressed even if `rows.length === 0`, so there is no flash during the initial fetch. The transition into empty triggers a single `aria-live="polite"` announcement (the announcement does not repeat for re-renders that keep the count at 0).
+
+**React adapter** — `emptyRenderer` also accepts a function returning `ReactNode`; the adapter's `wrapReactEmptyRenderer` portal plumbing renders it into the overlay container automatically.
+
+```tsx
+<DataGrid
+  rows={data ?? []}
+  loading={isLoading}
+  gridConfig={{
+    emptyRenderer: (ctx) =>
+      error ? <ErrorBanner message={error.message} /> : <EmptyHint filtered={ctx.filteredOut} />,
+    emptyOverlay: 'rows',
+  }}
+/>
+```
+
+Public types exported from `@toolbox-web/grid`: `EmptyRenderer`, `EmptyContext`, `EmptyOverlay`.
+
 ### Column State Persistence
 
 ```typescript

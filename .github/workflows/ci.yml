@@ -99,6 +99,7 @@ jobs:
     needs: setup
     if: needs.setup.outputs.should_validate == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
         with:

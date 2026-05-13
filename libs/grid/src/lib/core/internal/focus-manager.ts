@@ -300,9 +300,19 @@ export class FocusManager<T = any> {
 
   #scheduleRestore(): void {
     queueMicrotask(() => {
+      // Bail if grid was disconnected between schedule and execution (e.g.
+      // a test removed it from the DOM); restoring focus into an orphan
+      // element is a no-op and just wastes work.
+      if (!this.#grid.isConnected) return;
       const active = document.activeElement;
-      // Someone else already moved focus to a meaningful target — leave it alone.
-      if (active && active !== document.body && active !== this.#grid) return;
+      // Only restore on a true bounce-to-body. If focus already landed on
+      // the grid host or on any meaningful descendant, leave it alone —
+      // re-focusing #lastFocused in that case can race the host's own
+      // synthetic focus (`ensureCellVisible` calls `grid.focus()`) and
+      // produce a focusin/focusout ping-pong: input.focus() → focusout
+      // bounces to grid → schedule restore → input.focus() … repeat,
+      // hanging the test runner.
+      if (active !== document.body) return;
       this.restoreLastFocus();
     });
   }

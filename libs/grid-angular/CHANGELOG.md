@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.4.1...grid-angular-1.5.0) (2026-05-13)
+
+
+### Features
+
+* **grid:** add emptyRenderer config for no-rows / error overlay ([#321](https://github.com/OysteinAmundsen/toolbox/issues/321)) ([#322](https://github.com/OysteinAmundsen/toolbox/issues/322)) ([63118e3](https://github.com/OysteinAmundsen/toolbox/commit/63118e308557bdbedb083b0c1bb20a279782217b))
+
 ## [1.4.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.4.0...grid-angular-1.4.1) (2026-05-10)
 
 

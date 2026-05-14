@@ -61,7 +61,9 @@
       "@demo/shared/demo-index.css": ["demos/shared/demo-index.css"],
       "@demo/shared/employee-management": ["demos/shared/employee-management/index.ts"],
       "@demo/shared/employee-management/styles": ["demos/shared/employee-management/styles.ts"],
-      "@demo/shared/employee-management/demo-styles.css": ["demos/shared/employee-management/demo-styles.css"]
+      "@demo/shared/employee-management/demo-styles.css": ["demos/shared/employee-management/demo-styles.css"],
+      "@demo/shared/booking-logs": ["demos/shared/booking-logs/index.ts"],
+      "@demo/shared/booking-logs/demo-styles.css": ["demos/shared/booking-logs/demo-styles.css"]
     }
   }
 }

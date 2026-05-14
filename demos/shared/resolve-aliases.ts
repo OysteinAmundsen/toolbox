@@ -204,7 +204,7 @@ export function getResolveAliases(
   // Shared demo imports (always from source).
   // Per-demo subpaths so each demo's data/types/styles live under demos/shared/<demo-name>/.
   // Add a new entry here when introducing a new demo.
-  const demoNames = ['employee-management'];
+  const demoNames = ['employee-management', 'booking-logs'];
   for (const name of demoNames) {
     aliases.push(
       { find: `@demo/shared/${name}/styles`, replacement: resolve(sharedDir, name, 'styles.ts') },

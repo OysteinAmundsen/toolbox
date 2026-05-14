@@ -63,7 +63,7 @@ import {
   validatePluginIncompatibilities,
   validatePluginProperties,
 } from './internal/validate-config';
-import { getRowIndexAtOffset } from './internal/virtualization';
+import { getRowIndexAtOffset, toVirtualScrollTop } from './internal/virtualization';
 import { VirtualizationManager } from './internal/virtualization-manager';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent, ScrollEvent } from './plugin';
 import type { BaseGridPlugin, CellClickEvent, HeaderClickEvent, RowClickEvent } from './plugin/base-plugin';
@@ -1674,13 +1674,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           // Fast exit if no scroll processing needed
           if (!this._virtualization.enabled && !this.#hasScrollPlugins) return;
 
-          const currentScrollTop = fauxScrollbar.scrollTop;
+          const rawScrollTop = fauxScrollbar.scrollTop;
+          // Translate native scrollTop (clamped spacer space) into virtual
+          // row-content space. Identity for datasets within MAX_ELEMENT_HEIGHT_PX —
+          // larger datasets need fractional mapping or the tail is unreachable.
+          const currentScrollTop = toVirtualScrollTop(rawScrollTop, this._virtualization.scrollMapping);
           const rowHeight = this._virtualization.rowHeight;
 
           // Bypass mode: all rows are rendered, just translate by scroll position
           // No need for virtual window calculations
           if (this._rows.length <= this._virtualization.bypassThreshold) {
-            rowsEl.style.transform = `translateY(${-currentScrollTop}px)`;
+            rowsEl.style.transform = `translateY(${-rawScrollTop}px)`;
           } else {
             // Virtualized mode: calculate sub-pixel offset for smooth scrolling
             // Even-aligned start preserves zebra stripe parity
@@ -1709,7 +1713,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
           // Batch content update with requestAnimationFrame
           // Old content stays visible with smooth offset until new content renders
-          this.#pendingScrollTop = currentScrollTop;
+          this.#pendingScrollTop = rawScrollTop;
           if (!this.#scrollRaf) {
             this.#scrollRaf = requestAnimationFrame(() => {
               this.#scrollRaf = 0;

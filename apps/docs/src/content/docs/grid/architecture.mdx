@@ -337,6 +337,21 @@ Rendered: rows 170–200 (30 rows in DOM)
 
 For very small datasets (≤8 rows by default), virtualization is bypassed — the overhead isn't worth it.
 
+#### Massive datasets and the browser height cap
+
+Browsers cap a single element's rendered height at roughly **33.5M px** (Chromium's `2^25`; Firefox/Safari are similar). With the default `rowHeight: 34`, that's hit at about **986,895 rows**. Above the cap, the faux-vscroll spacer would silently truncate, leaving the tail of the dataset unreachable.
+
+To support datasets exceeding the cap (e.g. log viewers with 10M+ rows), the grid switches to **fractional scroll mapping**:
+
+- The spacer is clamped at `MAX_ELEMENT_HEIGHT_PX` (≈ 33.5M px).
+- The native `scrollTop` is treated as a position in the clamped spacer space and translated into a **virtual** offset in raw row-content space:
+  ```
+  virtualScrollTop = scrollTop * (rawContentHeight − viewport) / (spacerHeight − viewport)
+  ```
+- `scrollToRow(N)` reverse-maps the row's offset back into the spacer's `scrollTop` so any row in the dataset is reachable programmatically.
+
+For datasets below the cap, mapping is identity — pixel-accurate behavior is unchanged. The mapping helpers (`MAX_ELEMENT_HEIGHT_PX`, `computeScrollMapping`, `toVirtualScrollTop`, `fromVirtualScrollTop`) are exported for plugins that maintain their own scroll-driven DOM state.
+
 ### Column Virtualization (Plugin)
 
 The `ColumnVirtualizationPlugin` applies the same window concept horizontally. Only columns visible in the horizontal scroll position are rendered.

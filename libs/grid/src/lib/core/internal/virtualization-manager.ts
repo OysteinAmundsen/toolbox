@@ -10,10 +10,14 @@ import type { InternalGrid, VirtualState } from '../types';
 import { RenderPhase } from './render-scheduler';
 import {
   computeAverageExcludingPluginRows,
+  computeScrollMapping,
+  createIdentityScrollMapping,
   getRowIndexAtOffset,
   getTotalHeight,
+  MAX_ELEMENT_HEIGHT_PX,
   measureRenderedRowHeights,
   rebuildPositionCache,
+  toVirtualScrollTop,
   updateRowHeight,
 } from './virtualization';
 
@@ -49,6 +53,7 @@ export class VirtualizationManager<T = any> {
       cachedFauxHeight: 0,
       cachedScrollAreaHeight: 0,
       scrollAreaEl: null,
+      scrollMapping: createIdentityScrollMapping(),
       ...initialState,
     };
   }
@@ -123,7 +128,16 @@ export class VirtualizationManager<T = any> {
       rowContentHeight = totalRows * s.rowHeight;
     }
 
-    return rowContentHeight + viewportHeightDiff + hScrollbarPadding;
+    // Clamp the row-content portion to the browser's max element height. Above
+    // this cap (Chromium ~33.5M px), a single element's rendered height is silently
+    // truncated, so the tail of huge datasets becomes unreachable via the native
+    // scrollbar / Ctrl+End. Storing the mapping here lets refreshVirtualWindow
+    // (and the scroll listener / scrollToRow) translate between spacer-space
+    // scrollTop and virtual row-content space.
+    const cappedRowContentHeight = Math.min(rowContentHeight, MAX_ELEMENT_HEIGHT_PX);
+    s.scrollMapping = computeScrollMapping(rowContentHeight, viewportHeight);
+
+    return cappedRowContentHeight + viewportHeightDiff + hScrollbarPadding;
   }
 
   // #endregion
@@ -305,7 +319,10 @@ export class VirtualizationManager<T = any> {
       ? (s.cachedViewportHeight = viewportEl.clientHeight)
       : s.cachedViewportHeight || (s.cachedViewportHeight = viewportEl.clientHeight);
     const rowHeight = s.rowHeight;
-    const scrollTop = fauxScrollbar.scrollTop;
+    const rawScrollTop = fauxScrollbar.scrollTop;
+    // Translate native scrollTop (clamped spacer space) into virtual row-content
+    // space. Identity for datasets within MAX_ELEMENT_HEIGHT_PX. See computeScrollMapping.
+    const scrollTop = toVirtualScrollTop(rawScrollTop, s.scrollMapping);
 
     // On force refresh with variable heights, rebuild the position cache
     // to pick up any height changes from plugins (e.g., ResponsivePlugin

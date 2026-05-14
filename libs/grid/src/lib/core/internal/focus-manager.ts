@@ -13,6 +13,7 @@
  */
 import type { GridHost, ScrollToRowOptions } from '../types';
 import { ensureCellVisible } from './keyboard';
+import { fromVirtualScrollTop } from './virtualization';
 
 // #region FocusManager
 
@@ -141,10 +142,15 @@ export class FocusManager<T = any> {
 
     target = Math.max(0, target);
 
+    // Translate from virtual row-content space into native scrollTop (clamped
+    // spacer space). Identity for datasets within MAX_ELEMENT_HEIGHT_PX. Without
+    // this, scrollToRow(N) above the cap would silently clamp to the row at the cap.
+    const nativeTarget = fromVirtualScrollTop(target, virt.scrollMapping);
+
     if (behavior === 'smooth') {
-      scrollEl.scrollTo({ top: target, behavior: 'smooth' });
+      scrollEl.scrollTo({ top: nativeTarget, behavior: 'smooth' });
     } else {
-      scrollEl.scrollTop = target;
+      scrollEl.scrollTop = nativeTarget;
     }
   }
 

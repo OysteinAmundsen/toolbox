@@ -6,14 +6,18 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   calculateAverageHeight,
+  computeScrollMapping,
   computeVirtualWindow,
   createHeightCache,
+  fromVirtualScrollTop,
   getCachedHeight,
   getRowIndexAtOffset,
   getTotalHeight,
+  MAX_ELEMENT_HEIGHT_PX,
   rebuildPositionCache,
   setCachedHeight,
   shouldBypassVirtualization,
+  toVirtualScrollTop,
   updateRowHeight,
   type HeightCache,
   type RowPosition,
@@ -550,4 +554,118 @@ describe('shouldBypassVirtualization', () => {
     expect(shouldBypassVirtualization(51, 50)).toBe(false);
   });
 });
+
+// #region Scroll Mapping Tests (Issue #326)
+
+describe('computeScrollMapping', () => {
+  it('returns identity mapping for sub-cap content', () => {
+    const m = computeScrollMapping(100_000, 600);
+    expect(m.capped).toBe(false);
+    expect(m.spacerHeight).toBe(100_000);
+    expect(m.rawContentHeight).toBe(100_000);
+  });
+
+  it('caps spacer when raw content exceeds MAX_ELEMENT_HEIGHT_PX', () => {
+    // 10M rows × 34px = 340M px (well above the cap)
+    const raw = 10_000_000 * 34;
+    const m = computeScrollMapping(raw, 600);
+    expect(m.capped).toBe(true);
+    expect(m.spacerHeight).toBe(MAX_ELEMENT_HEIGHT_PX);
+    expect(m.rawContentHeight).toBe(raw);
+  });
+
+  it('honors a custom maxSpacerHeight', () => {
+    const m = computeScrollMapping(10_000, 600, 5_000);
+    expect(m.capped).toBe(true);
+    expect(m.spacerHeight).toBe(5_000);
+  });
+});
+
+describe('toVirtualScrollTop / fromVirtualScrollTop', () => {
+  it('is identity below the cap', () => {
+    const m = computeScrollMapping(100_000, 600);
+    expect(toVirtualScrollTop(0, m)).toBe(0);
+    expect(toVirtualScrollTop(12_345, m)).toBe(12_345);
+    expect(fromVirtualScrollTop(12_345, m)).toBe(12_345);
+  });
+
+  it('maps spacer top → raw top above the cap', () => {
+    const raw = 10_000_000 * 34; // 340M px
+    const m = computeScrollMapping(raw, 600);
+    expect(toVirtualScrollTop(0, m)).toBe(0);
+  });
+
+  it('maps spacer max → raw max above the cap (last row reachable)', () => {
+    const raw = 10_000_000 * 34;
+    const viewport = 600;
+    const m = computeScrollMapping(raw, viewport);
+    const spacerMax = m.spacerHeight - viewport;
+    const rawMax = raw - viewport;
+    expect(toVirtualScrollTop(spacerMax, m)).toBeCloseTo(rawMax, 0);
+  });
+
+  it('round-trips raw → spacer → raw', () => {
+    const raw = 10_000_000 * 34;
+    const m = computeScrollMapping(raw, 600);
+    const target = raw - 600 - 17 * 34; // 17 rows above the bottom
+    const native = fromVirtualScrollTop(target, m);
+    expect(toVirtualScrollTop(native, m)).toBeCloseTo(target, 0);
+  });
+});
+
+describe('computeVirtualWindow above MAX_ELEMENT_HEIGHT_PX', () => {
+  it('reaches the last row when scrolled to the spacer maximum', () => {
+    const totalRows = 10_000_000;
+    const rowHeight = 34;
+    const viewportHeight = 600;
+    const spacerMax = MAX_ELEMENT_HEIGHT_PX - viewportHeight;
+
+    const result = computeVirtualWindow({
+      totalRows,
+      viewportHeight,
+      scrollTop: spacerMax,
+      rowHeight,
+      overscan: 5,
+    });
+
+    // Without fractional mapping, end would clamp at ~986_894 (the cap row).
+    expect(result.end).toBe(totalRows);
+  });
+
+  it('keeps small datasets identical to pre-cap behavior', () => {
+    const totalRows = 100_000;
+    const rowHeight = 34;
+    const viewportHeight = 600;
+    const scrollTop = 1600;
+
+    const result = computeVirtualWindow({
+      totalRows,
+      viewportHeight,
+      scrollTop,
+      rowHeight,
+      overscan: 5,
+    });
+
+    // 1600 / 34 = 47.05 → floor 47 → minus overscan 5 → 42
+    expect(result.start).toBe(42);
+    expect(result.totalHeight).toBe(totalRows * rowHeight);
+  });
+
+  it('respects an explicit maxSpacerHeight=Infinity opt-out', () => {
+    const totalRows = 10_000_000;
+    const rowHeight = 34;
+    const result = computeVirtualWindow({
+      totalRows,
+      viewportHeight: 600,
+      scrollTop: 100_000_000,
+      rowHeight,
+      overscan: 5,
+      maxSpacerHeight: Infinity,
+    });
+    // Without cap, scrollTop / rowHeight directly → 100M / 34 ≈ 2_941_176
+    expect(result.start).toBeGreaterThan(2_900_000);
+  });
+});
+
+// #endregion
 // #endregion

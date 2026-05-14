@@ -451,4 +451,88 @@ describe('keyboard navigation', () => {
       expect(document.activeElement).toBe(input);
     });
   });
+
+  // Regression for #326: above the browser height cap the spacer is clamped
+  // and `scrollTop` lives in a different coordinate space than `rowIndex *
+  // rowHeight`. ensureCellVisible() must translate through the scroll mapping
+  // so per-row keyboard nav still keeps the focused row in view.
+  describe('above MAX_ELEMENT_HEIGHT_PX (fractional scroll mapping)', () => {
+    function makeCappedGrid(focusRow: number) {
+      const rowHeight = 34;
+      const totalRows = 10_000_000;
+      const viewportHeight = 400;
+      const rawContentHeight = totalRows * rowHeight; // 340M px
+      const spacerHeight = 33_500_000; // MAX_ELEMENT_HEIGHT_PX
+      const scrollEl = {
+        scrollTop: 0,
+        clientHeight: viewportHeight,
+      } as unknown as HTMLElement;
+      const viewportEl = { clientHeight: viewportHeight } as unknown as HTMLElement;
+      const grid: any = {
+        _rows: { length: totalRows } as any[],
+        _columns: [{ field: 'c0' }],
+        get _visibleColumns() {
+          return this._columns;
+        },
+        _focusRow: focusRow,
+        _focusCol: 0,
+        _virtualization: {
+          enabled: true,
+          rowHeight,
+          container: scrollEl,
+          viewportEl,
+          start: focusRow,
+          end: focusRow + 12,
+          scrollMapping: {
+            rawContentHeight,
+            spacerHeight,
+            viewportHeight,
+            capped: true,
+          },
+        },
+        _bodyEl: document.createElement('div'),
+        refreshVirtualWindow: () => {
+          /* empty */
+        },
+        dispatchEvent: () => true,
+        querySelector: () => null,
+      };
+      return { grid, scrollEl, rowHeight, spacerHeight, viewportHeight };
+    }
+
+    it('ArrowDown one row at a time advances by exactly one row index', () => {
+      const { grid } = makeCappedGrid(5_000_000);
+      key(grid, 'ArrowDown');
+      expect(grid._focusRow).toBe(5_000_001);
+      key(grid, 'ArrowDown');
+      expect(grid._focusRow).toBe(5_000_002);
+    });
+
+    it('ArrowDown writes a scrollTop within the clamped spacer (never past the cap)', () => {
+      const { grid, scrollEl, spacerHeight, viewportHeight } = makeCappedGrid(5_000_000);
+      // Simulate the native scrollTop the browser would currently report for
+      // a focused row near the middle of the dataset (mapped from virtual).
+      scrollEl.scrollTop = (5_000_000 * 34 * (spacerHeight - viewportHeight)) / (10_000_000 * 34 - viewportHeight);
+
+      key(grid, 'ArrowDown');
+
+      // The new scrollTop must fit inside the clamped spacer's scrollable
+      // extent. The pre-fix code would write ~5_000_001 * 34 = 170M, which
+      // the browser silently clamps to MAX, leaving focus off-screen.
+      expect(scrollEl.scrollTop).toBeLessThanOrEqual(spacerHeight - viewportHeight);
+      expect(scrollEl.scrollTop).toBeGreaterThan(0);
+    });
+
+    it('ArrowUp from a row near the end maps back to a reachable scrollTop', () => {
+      const { grid, scrollEl, spacerHeight, viewportHeight } = makeCappedGrid(9_999_999);
+      // Place native scrollTop at the bottom of the clamped spacer.
+      scrollEl.scrollTop = spacerHeight - viewportHeight;
+
+      key(grid, 'ArrowUp');
+
+      expect(grid._focusRow).toBe(9_999_998);
+      expect(scrollEl.scrollTop).toBeLessThanOrEqual(spacerHeight - viewportHeight);
+      expect(scrollEl.scrollTop).toBeGreaterThanOrEqual(0);
+    });
+  });
 });

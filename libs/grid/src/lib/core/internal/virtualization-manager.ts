@@ -10,10 +10,13 @@ import type { InternalGrid, VirtualState } from '../types';
 import { RenderPhase } from './render-scheduler';
 import {
   computeAverageExcludingPluginRows,
+  computeScrollMapping,
+  createIdentityScrollMapping,
   getRowIndexAtOffset,
   getTotalHeight,
   measureRenderedRowHeights,
   rebuildPositionCache,
+  toVirtualScrollTop,
   updateRowHeight,
 } from './virtualization';
 
@@ -49,6 +52,7 @@ export class VirtualizationManager<T = any> {
       cachedFauxHeight: 0,
       cachedScrollAreaHeight: 0,
       scrollAreaEl: null,
+      scrollMapping: createIdentityScrollMapping(),
       ...initialState,
     };
   }
@@ -123,7 +127,15 @@ export class VirtualizationManager<T = any> {
       rowContentHeight = totalRows * s.rowHeight;
     }
 
-    return rowContentHeight + viewportHeightDiff + hScrollbarPadding;
+    // Clamp the row-content portion to the browser's max element height. Above
+    // this cap (Chromium ~33.5M px), a single element's rendered height is silently
+    // truncated, so the tail of huge datasets becomes unreachable via the native
+    // scrollbar / Ctrl+End. Storing the mapping here lets refreshVirtualWindow
+    // (and the scroll listener / scrollToRow) translate between spacer-space
+    // scrollTop and virtual row-content space.
+    s.scrollMapping = computeScrollMapping(rowContentHeight, viewportHeight);
+
+    return s.scrollMapping.spacerHeight + viewportHeightDiff + hScrollbarPadding;
   }
 
   // #endregion
@@ -305,7 +317,10 @@ export class VirtualizationManager<T = any> {
       ? (s.cachedViewportHeight = viewportEl.clientHeight)
       : s.cachedViewportHeight || (s.cachedViewportHeight = viewportEl.clientHeight);
     const rowHeight = s.rowHeight;
-    const scrollTop = fauxScrollbar.scrollTop;
+    const rawScrollTop = fauxScrollbar.scrollTop;
+    // Translate native scrollTop (clamped spacer space) into virtual row-content
+    // space. Identity for datasets within MAX_ELEMENT_HEIGHT_PX. See computeScrollMapping.
+    const scrollTop = toVirtualScrollTop(rawScrollTop, s.scrollMapping);
 
     // On force refresh with variable heights, rebuild the position cache
     // to pick up any height changes from plugins (e.g., ResponsivePlugin
@@ -328,6 +343,13 @@ export class VirtualizationManager<T = any> {
     // Round down to even number for zebra stripe parity
     start = start - (start % 2);
     if (start < 0) start = 0;
+    // Defensive upper-clamp: with a capped scrollMapping the spacer's actual
+    // scrollable extent can slightly exceed `spacerHeight - viewportHeight`
+    // (e.g. horizontal-scrollbar padding, sub-pixel rounding), so a maxed-out
+    // raw scrollTop could otherwise translate to a `start` past the end of the
+    // dataset. Cap to the last possible row so `end` clamping (further below)
+    // doesn't leave the renderer with `start > end`.
+    if (totalRows > 0 && start > totalRows - 1) start = totalRows - 1;
 
     // Allow plugins to extend the start index backwards
     const pluginAdjustedStart = grid._adjustPluginVirtualStart(start, scrollTop, rowHeight);

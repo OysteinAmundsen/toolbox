@@ -6,6 +6,7 @@ import { GridClasses } from '../constants';
 import type { GridHost } from '../types';
 import { FOCUSABLE_EDITOR_SELECTOR } from './rows';
 import { clearCellFocus, isRTL } from './utils';
+import { fromVirtualScrollTop, toVirtualScrollTop } from './virtualization';
 
 /** Commit active row edit if the editing plugin provides this method. */
 function tryCommitEdit(grid: GridHost): void {
@@ -202,17 +203,27 @@ interface EnsureCellVisibleOptions {
  */
 export function ensureCellVisible(grid: GridHost, options?: EnsureCellVisibleOptions): void {
   if (grid._virtualization?.enabled) {
-    const { rowHeight, container, viewportEl } = grid._virtualization;
+    const { rowHeight, container, viewportEl, scrollMapping } = grid._virtualization;
     // container is the faux scrollbar element that handles actual scrolling
     // viewportEl is the visible area element that has the correct height
     const scrollEl = container as HTMLElement | undefined;
     const visibleHeight = viewportEl?.clientHeight ?? scrollEl?.clientHeight ?? 0;
     if (scrollEl && visibleHeight > 0) {
+      // `y` is in raw row-content space (rowHeight × index). Above the
+      // browser height cap (#326), `scrollEl.scrollTop` is in clamped
+      // spacer space — the two coordinate systems are not interchangeable.
+      // Translate scrollTop into virtual space for the comparison, and
+      // translate the target back into native space when writing it.
+      // For sub-cap datasets the mapping is identity so this is a no-op.
       const y = grid._focusRow * rowHeight;
-      if (y < scrollEl.scrollTop) {
-        scrollEl.scrollTop = y;
-      } else if (y + rowHeight > scrollEl.scrollTop + visibleHeight) {
-        scrollEl.scrollTop = y - visibleHeight + rowHeight;
+      const virtualScrollTop = scrollMapping
+        ? toVirtualScrollTop(scrollEl.scrollTop, scrollMapping)
+        : scrollEl.scrollTop;
+      if (y < virtualScrollTop) {
+        scrollEl.scrollTop = scrollMapping ? fromVirtualScrollTop(y, scrollMapping) : y;
+      } else if (y + rowHeight > virtualScrollTop + visibleHeight) {
+        const target = y - visibleHeight + rowHeight;
+        scrollEl.scrollTop = scrollMapping ? fromVirtualScrollTop(target, scrollMapping) : target;
       }
     }
   }

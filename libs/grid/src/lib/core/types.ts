@@ -1,6 +1,6 @@
 import type { RenderPhase } from './internal/render-scheduler';
 import type { ShellState } from './internal/shell';
-import type { RowPosition } from './internal/virtualization';
+import type { RowPosition, ScrollMapping } from './internal/virtualization';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } from './plugin/types';
 
 /**
@@ -1982,6 +1982,18 @@ export interface VirtualState {
 
   /** Cached reference to .tbw-scroll-area element. Set during scroll listener setup. */
   scrollAreaEl: HTMLElement | null;
+
+  /**
+   * Active scroll mapping between native `scrollTop` (clamped spacer space) and
+   * "virtual" row-content space. Identity (`capped: false`) for datasets within
+   * the browser's max-element-height cap (Chromium ~33.5M px). For larger datasets,
+   * the spacer height is clamped and `scrollTop` must be translated via this
+   * mapping before computing the visible window. Updated by `calculateTotalSpacerHeight`.
+   *
+   * @see {@link computeScrollMapping}
+   * @since 2.13.0
+   */
+  scrollMapping: ScrollMapping;
 }
 
 // RowElementInternal is now defined earlier in the file with all internal properties

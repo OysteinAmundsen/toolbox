@@ -179,6 +179,20 @@ jobs:
           file-coverage-mode: none
         continue-on-error: true
 
+      # ----------------------------------------------------------------
+      # Nx Self-Healing CI (PR-only)
+      # On task failure, Nx Cloud's AI agent proposes a patch that you
+      # approve in the Nx Cloud UI / Nx Console; this step blocks the
+      # job until the heal cycle finishes (or is rejected) and re-runs
+      # the failed targets. PR-only by design — we don't want auto-fix
+      # touching pushes to main / release-please branches.
+      # Docs: https://nx.dev/ci/features/self-healing-ci
+      # ----------------------------------------------------------------
+      - name: Nx self-healing CI
+        if: always() && github.event_name == 'pull_request'
+        run: bunx nx fix-ci
+        continue-on-error: true
+
   build:
     needs: setup
     if: needs.setup.outputs.should_validate == 'true'
@@ -223,6 +237,12 @@ jobs:
       - name: Build size report
         if: always() && hashFiles('dist/libs/grid/index.js') != ''
         run: bun run tools/build-size-report.ts --ci
+
+      # See `test` job for rationale. PR-only.
+      - name: Nx self-healing CI
+        if: always() && github.event_name == 'pull_request'
+        run: bunx nx fix-ci
+        continue-on-error: true
 
   # ============================================
   # E2E: Cross-Framework Visual Regression Tests

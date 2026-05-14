@@ -40,19 +40,24 @@ const scanCursor = new Map<string, number>();
 function buildPredicate(q: BookingLogsQuery): FilterPredicate | null {
   const checks: FilterPredicate[] = [];
 
-  if (q.level && q.level.length > 0) {
+  // For the four allow-list fields below, an explicit empty array means
+  // “match no rows” (the user excluded every value of a set filter). Building
+  // a `Set` from `[]` and calling `.has(...)` returns `false` for every row,
+  // so we don't need a special case — just drop the `length > 0` guard so
+  // the empty-array predicate is registered.
+  if (q.level !== undefined) {
     const set = new Set(q.level);
     checks.push((e) => set.has(e.level));
   }
-  if (q.service && q.service.length > 0) {
+  if (q.service !== undefined) {
     const set = new Set(q.service);
     checks.push((e) => set.has(e.service));
   }
-  if (q.region && q.region.length > 0) {
+  if (q.region !== undefined) {
     const set = new Set(q.region);
     checks.push((e) => set.has(e.region));
   }
-  if (q.method && q.method.length > 0) {
+  if (q.method !== undefined) {
     const set = new Set(q.method);
     checks.push((e) => set.has(e.method));
   }
@@ -174,9 +179,12 @@ function scanBoundsFromTimeRange(q: BookingLogsQuery): { start: number; limit: n
  * Execute a query and return the response payload.
  *
  * - **No filter:** `totalNodeCount = DATASET_SIZE` (finite scrollbar).
- * - **With filter:** `totalNodeCount = -1` (infinite scroll); when the
- *   underlying scan reaches the end of the dataset we set `lastNode` so
- *   the grid stops requesting further blocks.
+ * - **With filter, scan in flight:** `totalNodeCount = -1` (infinite scroll);
+ *   the grid keeps requesting blocks until either no more matches are
+ *   returned or the scan completes.
+ * - **With filter, scan complete:** `totalNodeCount = matchedCount` AND
+ *   `lastNode = matchedCount - 1`. The exact total is now known so the
+ *   scrollbar can become finite for the final response.
  */
 export function queryLogs(q: BookingLogsQuery): BookingLogsResponse {
   const start = Math.max(0, Math.min(DATASET_SIZE, q.start));

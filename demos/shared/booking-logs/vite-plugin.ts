@@ -25,13 +25,23 @@ const DEFAULT_LATENCY_MS = 250;
 const VALID_LEVELS = new Set<LogLevel>(['DEBUG', 'INFO', 'WARN', 'ERROR']);
 const VALID_METHODS = new Set<HttpMethod>(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 
+/**
+ * Parse a comma-separated allow-list query param.
+ *
+ * Distinguishes three states so that an “exclude all values from a set
+ * filter” gesture in the client can be represented end-to-end:
+ *
+ * - **Missing param** (`raw === null`) → `undefined` (no constraint on this field).
+ * - **Explicit empty** (`raw === ''`, or all-whitespace, or `,,,`) → `[]`
+ *   (constraint that matches no rows).
+ * - **One or more values** → a deduped, trimmed array.
+ */
 function parseList(raw: string | null): string[] | undefined {
-  if (!raw) return undefined;
-  const out = raw
+  if (raw === null) return undefined;
+  return raw
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  return out.length ? out : undefined;
 }
 
 function parseInt32(raw: string | null): number | undefined {
@@ -58,6 +68,8 @@ function parseQuery(url: URL): { query: BookingLogsQuery; latencyMs: number } {
   const latencyMs = parseInt32(sp.get('latency')) ?? DEFAULT_LATENCY_MS;
 
   const levelRaw = parseList(sp.get('level'));
+  // Preserve explicit empty (`level=`) as `[]` — see {@link parseList}. Only
+  // collapse to `undefined` if the param was actually absent.
   const level = levelRaw?.filter((v): v is LogLevel => VALID_LEVELS.has(v as LogLevel));
   const methodRaw = parseList(sp.get('method'));
   const method = methodRaw?.filter((v): v is HttpMethod => VALID_METHODS.has(v as HttpMethod));
@@ -65,10 +77,10 @@ function parseQuery(url: URL): { query: BookingLogsQuery; latencyMs: number } {
   const query: BookingLogsQuery = {
     start,
     end,
-    level: level && level.length ? level : undefined,
+    level,
     service: parseList(sp.get('service')),
     region: parseList(sp.get('region')),
-    method: method && method.length ? method : undefined,
+    method,
     statusCodeMin: parseInt32(sp.get('statusCodeMin')),
     statusCodeMax: parseInt32(sp.get('statusCodeMax')),
     tsFrom: parseEpochMs(sp.get('tsFrom')),

@@ -9,33 +9,7 @@
  * of the grid chrome. Cell badges (level / method / status) are *semantic*
  * — keeping them on `light-dark()` literals is correct since their colour
  * carries domain meaning, not theme intent.
- *
- * --- Reusable panel-control mixin ---
- * `.bl-filter-panel-control` is the shared base for inputs, buttons, and
- * selects rendered inside any custom filter panel. Apply it to keep the
- * border/radius/colour story consistent across the trace / status /
- * datetime panels without re-declaring the same five lines per element.
  */
-
-.bl-filter-panel-control {
-  padding: 4px 8px;
-  border: 1px solid var(--tbw-color-border);
-  border-radius: var(--tbw-border-radius, 4px);
-  background: var(--tbw-color-panel-bg);
-  color: var(--tbw-color-fg);
-  font: inherit;
-}
-.bl-filter-panel-control:hover:not(:disabled) {
-  background: var(--tbw-color-row-hover);
-}
-.bl-filter-panel-control:focus-visible {
-  outline: 2px solid var(--tbw-color-accent);
-  outline-offset: 1px;
-}
-.bl-filter-panel-control:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
 
 .booking-logs-layout {
   flex: 1;

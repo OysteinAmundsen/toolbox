@@ -93,10 +93,16 @@ export interface BookingLogsQuery {
 }
 
 /**
- * Server response. `totalNodeCount` is `DATASET_SIZE` for unfiltered queries
- * (the grid renders a finite scrollbar). For filtered queries we return `-1`
- * and set `lastNode` once the underlying scan reaches the end of the dataset
- * — the grid's server-side plugin treats this as "infinite scroll, ended".
+ * Server response. `totalNodeCount` reflects three states:
+ *
+ * - **Unfiltered query:** `DATASET_SIZE` (the grid renders a finite scrollbar).
+ * - **Filtered, scan in flight:** `-1` (“unknown”) — the server-side plugin
+ *   treats this as infinite scroll and keeps requesting more blocks. The
+ *   honest progress is reported via {@link scanProgress}.
+ * - **Filtered, scan complete:** the exact match count. `lastNode` is also
+ *   set to `count - 1` so the grid stops requesting further blocks. (The
+ *   plugin is fine with `totalNodeCount` switching from `-1` to a concrete
+ *   number on the final response.)
  *
  * `scanProgress` is supplied for filtered queries so consumers can render an
  * honest progress indicator while the lazy scan is still in flight (the

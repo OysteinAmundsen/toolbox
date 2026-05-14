@@ -343,6 +343,13 @@ export class VirtualizationManager<T = any> {
     // Round down to even number for zebra stripe parity
     start = start - (start % 2);
     if (start < 0) start = 0;
+    // Defensive upper-clamp: with a capped scrollMapping the spacer's actual
+    // scrollable extent can slightly exceed `spacerHeight - viewportHeight`
+    // (e.g. horizontal-scrollbar padding, sub-pixel rounding), so a maxed-out
+    // raw scrollTop could otherwise translate to a `start` past the end of the
+    // dataset. Cap to the last possible row so `end` clamping (further below)
+    // doesn't leave the renderer with `start > end`.
+    if (totalRows > 0 && start > totalRows - 1) start = totalRows - 1;
 
     // Allow plugins to extend the start index backwards
     const pluginAdjustedStart = grid._adjustPluginVirtualStart(start, scrollTop, rowHeight);

@@ -1,14 +1,18 @@
 /**
- * Integration tests for issue #326 — fractional scroll mapping above the
- * browser's max-element-height cap. We simulate the cap with a tiny
- * `maxSpacerHeight` by mutating `_virtualization.scrollMapping` directly so
- * the test does not need to allocate 10M rows.
+ * Integration test for issue #326 — verify the default `scrollMapping` is
+ * identity for sub-cap datasets so wired-up code paths (scroll listener,
+ * `refreshVirtualWindow`, `scrollToRow`) stay byte-identical to pre-#326
+ * behavior. The above-cap math is exercised exhaustively at the unit level in
+ * `virtualization.spec.ts > computeScrollMapping` /
+ * `> toVirtualScrollTop / fromVirtualScrollTop` /
+ * `> computeVirtualWindow above MAX_ELEMENT_HEIGHT_PX` — mocking a capped
+ * mapping on top of a small live grid would put the renderer in an internally
+ * inconsistent state (`start ≫ totalRows`) and not validate anything new.
  *
  * @vitest-environment happy-dom
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
-import { computeScrollMapping } from '../../lib/core/internal/virtualization';
 
 function nextFrame() {
   return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -53,43 +57,6 @@ describe('issue #326 — scroll mapping above max element-height cap', () => {
 
     // Sub-cap dataset → identity mapping (capped: false, no transform applied).
     expect(grid._virtualization.scrollMapping.capped).toBe(false);
-  });
-
-  it('refreshVirtualWindow translates spacer-space scrollTop into virtual rows', async () => {
-    const grid: any = document.createElement('tbw-grid');
-    document.body.appendChild(grid);
-    grid.gridConfig = {
-      columns: [{ field: 'id', header: 'ID', width: 80 }],
-      fitMode: 'fixed',
-      virtualization: { enabled: true },
-      rowHeight: 34,
-    };
-    grid.rows = makeRows(1000);
-    await waitUpgrade(grid);
-
-    const fauxScrollbar = grid._virtualization.container as HTMLElement;
-    expect(fauxScrollbar).toBeTruthy();
-
-    // Simulate a 10M-row dataset on top of a tiny spacer cap. Setting the
-    // mapping directly (instead of allocating 10M rows) keeps the test fast
-    // while still exercising the real refreshVirtualWindow → toVirtualScrollTop
-    // → getRowIndexAtOffset code path.
-    const totalRows = 1000;
-    const rowHeight = 34;
-    const viewportHeight = 600;
-    const rawContentHeight = 10_000_000 * rowHeight; // simulate 10M virtual rows
-    const tinySpacerCap = totalRows * rowHeight; // pretend the spacer caps at this height
-    grid._virtualization.scrollMapping = computeScrollMapping(rawContentHeight, viewportHeight, tinySpacerCap);
-    grid._virtualization.cachedViewportHeight = viewportHeight;
-
-    expect(grid._virtualization.scrollMapping.capped).toBe(true);
-
-    // Scrolling near the spacer max should map close to the end of the virtual
-    // dataset (~10M rows). Without fractional mapping, start would clamp at
-    // ~tinySpacerCap / rowHeight (≈ 1000). The translation pushes start past
-    // 9.9M — within ~viewport+overscan rows of the dataset's tail.
-    fauxScrollbar.scrollTop = tinySpacerCap - viewportHeight;
-    grid.refreshVirtualWindow(true);
-    expect(grid._virtualization.start).toBeGreaterThan(9_900_000);
+    expect(grid._virtualization.scrollMapping.rawContentHeight).toBe(grid._virtualization.scrollMapping.spacerHeight);
   });
 });

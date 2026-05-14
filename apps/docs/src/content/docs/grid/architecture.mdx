@@ -350,7 +350,7 @@ To support datasets exceeding the cap (e.g. log viewers with 10M+ rows), the gri
   ```
 - `scrollToRow(N)` reverse-maps the row's offset back into the spacer's `scrollTop` so any row in the dataset is reachable programmatically.
 
-For datasets below the cap, mapping is identity — pixel-accurate behavior is unchanged. Above the cap, every row remains reachable via the scrollbar, `Ctrl+End`, and `scrollToRow(N)`, but **wheel and keyboard ticks become coarse**: one pixel of `scrollTop` corresponds to many rows, so a single wheel notch can skip past hundreds of rows. The mapping helpers (`MAX_ELEMENT_HEIGHT_PX`, `computeScrollMapping`, `toVirtualScrollTop`, `fromVirtualScrollTop`) are exported for plugins that maintain their own scroll-driven DOM state.
+For datasets below the cap, mapping is identity — pixel-accurate behavior is unchanged. Above the cap, every row remains reachable via the scrollbar, `Ctrl+End`, and `scrollToRow(N)`. Keyboard cell navigation (`ArrowDown`/`ArrowUp`/`Tab`/`PageDown`/`PageUp`) also stays single-row accurate — focus moves by row index and the auto-scroll that keeps the focused cell visible routes through the mapping. The remaining caveat is **direct scroll input** (mouse wheel, scrollbar drag, `Space`/`Shift+Space`): one pixel of `scrollTop` corresponds to many rows above the cap, so a single wheel notch can skip past hundreds of rows. The mapping helpers (`MAX_ELEMENT_HEIGHT_PX`, `computeScrollMapping`, `toVirtualScrollTop`, `fromVirtualScrollTop`) are exported for plugins that maintain their own scroll-driven DOM state.
 
 ### Column Virtualization (Plugin)
 

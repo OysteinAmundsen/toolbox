@@ -481,10 +481,20 @@
   opacity: 0;
   transition: opacity 80ms ease-out;
 }
-tbw-grid .data-grid-row:hover .bl-trace-cell-show,
 tbw-grid .cell:focus-within .bl-trace-cell-show,
 .bl-trace-cell-show:focus-visible {
   opacity: 1;
+}
+/* Pointer-only: reveal on row hover. Gated with `@media (hover: hover)` so
+ * touch devices don't apply `:hover` on tap and "stick" the highlight to a
+ * recycled row as the virtual list scrolls past — see
+ * `.github/instructions/css-conventions.instructions.md`. The
+ * `:focus-within`/`:focus-visible` rules above stay outside the media query
+ * so keyboard navigation reveals the action regardless of input modality. */
+@media (hover: hover) {
+  tbw-grid .data-grid-row:hover .bl-trace-cell-show {
+    opacity: 1;
+  }
 }
 .bl-trace-cell-show:hover {
   background: color-mix(in srgb, var(--tbw-color-accent) 22%, var(--tbw-color-panel-bg));

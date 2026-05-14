@@ -26,6 +26,7 @@ export interface HttpTrace {
   response: string;
 }
 
+// #region Dictionaries
 const STATUS_REASON: Record<number, string> = {
   200: 'OK',
   201: 'Created',
@@ -66,7 +67,9 @@ const CURRENCIES = ['USD', 'EUR', 'NOK', 'GBP', 'JPY'] as const;
 const PAYMENT_METHODS = ['card_visa', 'card_mc', 'card_amex', 'paypal', 'apple_pay'] as const;
 const SEARCH_TERMS = ['lisbon', 'tokyo', 'oslo', 'rome', 'barcelona', 'reykjavik', 'bangkok', 'cape town'];
 const TEMPLATES = ['booking_confirmed', 'payment_received', 'flight_change', 'reminder_24h', 'cancellation_refund'];
+// #endregion
 
+// #region Body builders
 function pickFrom<T>(rng: () => number, arr: readonly T[]): T {
   return arr[Math.floor(rng() * arr.length) % arr.length];
 }
@@ -271,6 +274,9 @@ function buildResponseBody(entry: BookingLogEntry, rng: () => number): unknown {
  * Format a JSON value with two-space indentation. Returns an empty string
  * for `null` so callers can branch on whether to emit the body section.
  */
+// #endregion
+
+// #region Formatting helpers
 function pretty(body: unknown): string {
   if (body === null || body === undefined) return '';
   return JSON.stringify(body, null, 2);
@@ -279,7 +285,9 @@ function pretty(body: unknown): string {
 function joinHeaders(headers: Array<[string, string]>): string {
   return headers.map(([k, v]) => `${k}: ${v}`).join('\n');
 }
+// #endregion
 
+// #region Public API
 /**
  * Build the synthetic request/response pair.
  *
@@ -353,3 +361,4 @@ export function buildHttpTrace(entry: BookingLogEntry): HttpTrace {
 
   return { request, response };
 }
+// #endregion

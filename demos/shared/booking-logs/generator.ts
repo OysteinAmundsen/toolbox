@@ -80,6 +80,7 @@ const PERM_MASK = TRACE_BLOCK_SIZE - 1;
  */
 export const NEWEST_TIMESTAMP_MS = Date.UTC(2026, 4, 1, 12, 0, 0); // 2026-05-01T12:00:00Z
 
+// #region PRNG slots
 // One PRNG per "slot" within a row. Picking a different slot per attribute
 // avoids correlation artifacts (e.g. same-row method and status both peaking
 // together because they share the same random draw).
@@ -116,7 +117,9 @@ const r = {
 
 /** ~5% of traces fail over to an alternate region partway through. */
 const TRACE_FAILOVER_RATE = 0.05;
+// #endregion
 
+// #region Helpers
 /** Hex chars used for trace-ID generation. */
 const HEX = '0123456789abcdef';
 
@@ -285,7 +288,9 @@ function substituteEndpoint(template: string, i: number): string {
     .replace('{id}', String(10_000 + (Math.floor(r.endpoint(i + 1) * 90_000) % 90_000)))
     .replace('{ref}', `BK-${String(100_000 + (Math.floor(r.endpoint(i + 2) * 900_000) % 900_000))}`);
 }
+// #endregion
 
+// #region Public API
 /**
  * Pure: row index → log entry.
  */
@@ -404,3 +409,4 @@ export function generateRow(i: number): BookingLogEntry {
     errorMessage,
   };
 }
+// #endregion

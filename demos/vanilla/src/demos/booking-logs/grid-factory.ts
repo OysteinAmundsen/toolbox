@@ -40,7 +40,13 @@ import '@toolbox-web/grid/features/server-side';
 
 import type { BookingLogEntry, BookingLogsResponse, BookingLogsScanProgress } from '@demo/shared/booking-logs';
 import { DATASET_SIZE, LEVELS, REGIONS, SERVICES } from '@demo/shared/booking-logs';
-import { ContextMenuPlugin, createGrid, type ContextMenuItem, type DataGridElement } from '@toolbox-web/grid/all';
+import {
+  ContextMenuPlugin,
+  createGrid,
+  type ContextMenuItem,
+  type DataGridElement,
+  type InternalGrid,
+} from '@toolbox-web/grid/all';
 
 import { renderDateTimePanel, renderStatusPanel, renderTraceIdPanel, type CustomPanelParams } from './filters';
 import { COLUMNS, escapeHtml } from './renderers';
@@ -56,6 +62,7 @@ import type { DemoFilterModel } from './types';
  * (`endpoint`) we forward the substring; for the custom traceId panel we
  * forward the exact match (`operator: 'equals'`).
  */
+// #region Filter → query string
 function appendFilterParams(params: URLSearchParams, filterModel: Record<string, DemoFilterModel> | undefined): void {
   if (!filterModel) return;
   const setColumns: Array<{ field: 'level' | 'service' | 'region'; vocab: readonly string[] }> = [
@@ -154,7 +161,9 @@ function buildQueryString(
   appendFilterParams(params, filterModel);
   return params.toString();
 }
+// #endregion
 
+// #region Public types & local constants
 /** Result of {@link createBookingLogsGrid}. */
 export interface BookingLogsGridHandle {
   grid: DataGridElement<BookingLogEntry>;
@@ -188,7 +197,9 @@ const VOCAB: Record<string, readonly string[]> = {
 /** Page size for the server-side plugin. See README in this folder for tuning rationale. */
 const API_PAGE_SIZE = 100;
 const CACHE_BLOCK_SIZE = 50;
+// #endregion
 
+// #region Factory
 export function createBookingLogsGrid(): BookingLogsGridHandle {
   const grid = createGrid<BookingLogEntry>();
   grid.id = 'booking-logs-grid';
@@ -362,7 +373,7 @@ export function createBookingLogsGrid(): BookingLogsGridHandle {
         // `undefined` for any other field falls through to the built-in
         // panel (set checkboxes / text input).
         filterPanelRenderer: (container, panelParams) => {
-          const p = panelParams as unknown as CustomPanelParams;
+          const p: CustomPanelParams = panelParams;
           if (p.field === 'statusCode') return renderStatusPanel(container, p, grid);
           if (p.field === 'traceId') return renderTraceIdPanel(container, p);
           if (p.field === 'timestamp') return renderDateTimePanel(container, p);
@@ -492,8 +503,12 @@ export function createBookingLogsGrid(): BookingLogsGridHandle {
         return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || node.isContentEditable;
       });
       if (inEditable) return;
-      const focusRow = (grid as unknown as { _focusRow?: number; _rows?: BookingLogEntry[] })._focusRow;
-      const rows = (grid as unknown as { _rows?: BookingLogEntry[] })._rows;
+      // `InternalGrid` is the documented public type for reading plugin-accessible
+      // (`_`-prefixed) state from outside the plugin system — see `AsInternalGrid`
+      // in `@toolbox-web/grid` and `.github/instructions/typescript-conventions.md`.
+      const internal = grid as InternalGrid<BookingLogEntry>;
+      const focusRow = internal._focusRow;
+      const rows = internal._rows;
       if (focusRow == null || focusRow < 0 || !rows) return;
       const row = rows[focusRow];
       if (row && typeof row.id === 'number') {
@@ -603,3 +618,4 @@ export function createBookingLogsGrid(): BookingLogsGridHandle {
 
   return { grid, onRowActivate, onFilterChange, showTrace };
 }
+// #endregion

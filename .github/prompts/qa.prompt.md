@@ -1,30 +1,40 @@
 ---
-description: 'Local pre-commit code review. Run before committing to catch bugs, security issues, and convention violations — same checks as the GitHub Copilot PR reviewer, but without pushing. Accepts a file path, folder path, or no argument (reviews uncommitted changes).'
-argument-hint: '[optional file or folder path; defaults to uncommitted changes]'
+description: 'Local pre-commit code review **and fix**. Reviews the target scope (file, folder, or uncommitted changes), produces an actionable findings list, then applies the fixes — same loop as opening a PR, getting Copilot review comments, and having an agent address them, but entirely local. Append `report-only` to skip the fix step.'
+argument-hint: '[optional file or folder path] [optional "report-only"]'
 agent: 'agent'
 ---
 
-# QA Review
+# QA Review + Fix
 
-Perform a thorough code review of the target scope. Match the rigor of the GitHub Copilot PR reviewer, but run entirely locally so the user can fix issues **before** committing.
+End-to-end local quality loop:
 
-## 1. Determine scope
+1. **Review** the target scope with the same rigor as the GitHub Copilot PR reviewer.
+2. **Report** findings in a format an agent (you) can mechanically act on — one finding per actionable defect, each with location, evidence, and a concrete fix.
+3. **Fix** every Blocking and Should-fix finding, then re-validate.
+4. **Summarize** what was changed, what was left, and why.
 
-Resolve `${input:target}` (the prompt argument) using this precedence:
+The user runs this _before_ committing so problems are caught locally instead of waiting for the PR reviewer.
 
-1. **Argument is a file path** → review just that file.
-2. **Argument is a folder path** → review every source file under it (recursive, excluding `node_modules`, `dist`, `build`, `coverage`, `.nx`, generated code).
-3. **Argument is empty / not provided** → review the uncommitted working tree:
-   - Run `git status --porcelain` to list modified, added, and untracked files.
-   - Run `git diff --staged` and `git diff` to see exactly what changed.
-   - For new (untracked) files, read the file in full.
-   - Focus the review on **what changed**, not the whole file — but read enough surrounding context to judge correctness.
+---
 
-If the working tree is clean and no argument was given, report that and stop.
+## 1. Parse the argument
+
+`${input:target}` may contain:
+
+- A file path → review that file.
+- A folder path → review every source file under it (recursive; exclude `node_modules`, `dist`, `build`, `coverage`, `.nx`, generated code).
+- The literal token `report-only` (alone or trailing the path) → run steps 1–4 only; **skip** the fix step (§5). Echo back at the top of the report that fix mode is disabled.
+- Empty / not provided → review the uncommitted working tree:
+  - `git status --porcelain` for the file list.
+  - `git diff --staged` and `git diff` for hunks.
+  - For untracked files, read them in full.
+  - Focus on **what changed**, but read enough surrounding code to judge correctness.
+
+If the working tree is clean and no path was given, report that and stop.
 
 ## 2. Load workspace conventions
 
-Before reviewing, load the relevant convention sources for the files in scope:
+Before reviewing, load the convention sources that apply to files in scope:
 
 - `.github/copilot-instructions.md` and/or `AGENTS.md` at each workspace root that owns a file in scope.
 - Any `.github/instructions/*.instructions.md` whose `applyTo` glob matches a file in scope.
@@ -55,18 +65,17 @@ For each file (or each hunk, when reviewing a diff), check:
 
 ### Workspace conventions
 
-- File/folder naming (kebab-case, `use-` prefix for hooks, `.styles.ts` co-location, etc.).
-- Import paths (workspace aliases vs relative), public-API boundaries (no deep imports into `internal/`, `src/lib/...`).
-- Forbidden patterns called out in instruction files (e.g. `as unknown as`, `T[]` vs `Array<T>`, styled components inside render bodies, missing `data-testid`, hand-written hooks where a generated one exists).
-- Generated/legacy preferences (e.g. prefer `@cargo-list/api-gen` over `@cargo-list/api`).
+- File/folder naming, public-API boundaries (no deep imports into `internal/`, `src/lib/...`).
+- Forbidden patterns called out in instruction files (e.g. `as unknown as`, `T[]` vs `Array<T>`).
+- Generated/legacy preferences.
 - Test conventions (co-located `*.spec.ts`, `waitUpgrade()`, no skipped tests left behind).
 
 ### Best practices
 
 - Single-responsibility; functions doing too much.
-- Public API additions: are types stable, named consistently, documented?
+- Public API additions: stable types, consistent naming, documented.
 - Error handling at boundaries only — no defensive try/catch around impossible cases.
-- React: stable hook dependencies, memoization where it matters, keys not using array index.
+- React: stable hook deps, memoization where it matters, keys not array index.
 - CSS: tokens over hardcoded values, no `!important` without justification.
 - Performance hotspots: synchronous work in render, unbounded loops, N+1 fetches.
 
@@ -74,75 +83,104 @@ For each file (or each hunk, when reviewing a diff), check:
 
 - Leftover `console.log`, `debugger`, `TODO`/`FIXME` without an issue link, commented-out code.
 - Stale or contradictory comments.
-- Missing or inappropriate `data-testid` on new visual components (workspace rule).
-- Bundle-budget risk for `libs/grid/**` changes (toolbox workspace) — flag if change looks heavy.
+- Bundle-budget risk for `libs/grid/**` changes — flag if change looks heavy.
 
 ### Documentation accuracy (treat prose as untrusted)
 
-Any prose added or modified by the diff — code comments, JSDoc, README sections,
-`.github/knowledge/*.md` `DECIDED` entries, `@deprecated` notes, version
-strings — is **not** authoritative narration of the code. Verify each prose
-claim against the actual implementation. This is the class of defect the
-GitHub Copilot reviewer catches most consistently and the easiest one for a
-human reviewer to gloss over because the surrounding code "looks right".
+Any prose added or modified by the diff — code comments, JSDoc, README, knowledge `DECIDED` entries, `@deprecated`/`@since` notes — is **not** authoritative narration of the code. Verify each prose claim against the actual implementation. This is the defect class the GitHub Copilot reviewer catches most consistently.
 
 For every modified or new prose block:
 
-1. **Within the same file:** read the body of the function/class/field the
-   prose describes and confirm the prose matches it. Pay particular
-   attention to negations ("does NOT track", "is now a no-op", "no longer
-   installs"), enumerations ("excludes a, b, and c"), and version claims
-   ("Since 1.34.0", "@deprecated").
-2. **Cross-file:** if the prose makes a claim about behavior elsewhere
-   ("the X plugin no longer needs to install Y", "callers should use Z
-   instead"), `grep` for the referenced symbol/option across the codebase
-   and verify the claim. A JSDoc that says "X is a no-op" is wrong if any
-   file still branches on X.
-3. **Against package state:** version strings in `@deprecated`/`@since`
-   tags must match `package.json`. "Will be removed in a future major
-   release" is fine; specific version numbers must be real.
-4. **Knowledge files (`.github/knowledge/*.md`):** `DECIDED` entries are
-   contracts. If a `DECIDED` entry's claim contradicts the code in scope,
-   one of them is wrong — flag it explicitly and say which side you
-   believe is correct (the entry usually wins per the workspace's "Read
-   gate" rule, but the diff under review may be the legitimate update).
+1. **Within the same file:** read the body of the function/class/field the prose describes and confirm it matches. Watch negations ("does NOT track"), enumerations ("excludes a, b, and c"), and version claims.
+2. **Cross-file:** if prose claims behavior elsewhere ("plugin X no longer needs Y"), `grep` for the symbol and verify.
+3. **Against package state:** version strings in `@deprecated`/`@since` must match `package.json`.
+4. **Knowledge files:** `DECIDED` entries are contracts. If a `DECIDED` claim contradicts code in scope, flag it explicitly and say which side you believe is correct (the entry usually wins; the diff under review may be the legitimate update).
 
-When prose disagrees with code, treat it as a **Should fix** at minimum
-(possibly **Blocking** if the prose is on a public API surface and would
-mislead consumers).
+When prose disagrees with code, treat it as **Should fix** at minimum (**Blocking** if on a public API surface).
 
-## 4. Report format
+## 4. Report format — must be agent-actionable
 
-Structure the output as:
+Output **one finding per actionable defect**, in this exact shape:
 
-```
+````
 ## QA Review — <scope summary>
+<If `report-only` mode: prepend a line "_Fix step skipped (report-only)_">
 
-### Blocking
-- [file.ts:42] <issue>. Why: <one line>. Fix: <suggestion>.
+### Blocking (N)
 
-### Should fix
-- [file.ts:88] ...
+#### B1 · <one-line title> — [file.ts#L42](file.ts#L42)
+- **Problem:** <what is wrong, in one sentence>
+- **Evidence:** <quoted offending snippet OR cited rule, e.g. `.github/instructions/typescript-conventions.instructions.md` → "no `as unknown as`">
+- **Fix:** <concrete change, ideally as a small before/after diff>
+  ```diff
+  - const x = something as unknown as Foo;
+  + const x = toFoo(something);
+  ```
+- **Verify:** <one-line check, e.g. "lint passes", "test `foo.spec.ts` still green", "no remaining matches for /<pattern>/">
 
-### Nits / suggestions
-- [file.ts:120] ...
+#### B2 · ...
+
+### Should fix (N)
+
+#### S1 · <title> — [file.ts#L88](file.ts#L88)
+- **Problem:** ...
+- **Evidence:** ...
+- **Fix:** ...
+- **Verify:** ...
+
+### Nits / suggestions (N)
+
+#### N1 · <title> — [file.ts#L120](file.ts#L120)
+- **Problem:** ...
+- **Fix:** ...
 
 ### Looks good
 - <one-line summary of what was reviewed and passed>
-```
+````
 
-Rules for the report:
+**Rules for the report:**
 
+- **Stable IDs (`B1`, `S2`, `N3`)** so the fix step can reference them.
 - **Group by severity, not by file.** Blocking = bugs, security, broken contracts. Should fix = convention violations, clear smells. Nits = style, minor improvements.
-- **Cite line numbers** (use `file.ts#L42` markdown links so they're clickable in chat).
-- **Quote the rule** when a workspace convention is violated, e.g. "violates `.github/instructions/typescript-conventions.instructions.md` — no `as unknown as`".
-- **Be specific.** "This could be cleaner" is useless. Say _what_ and _how_.
-- **Do not auto-fix.** Report only. The user decides what to apply, then re-runs `/qa` if they want.
-- **If everything passes**, say so plainly with a one-line scope summary. No padding.
+- **Use clickable line links** (`[path#L42](path#L42)`).
+- **Quote the rule** when a workspace convention is violated.
+- **Provide a concrete fix.** "This could be cleaner" is useless. Say _what_ and _how_, ideally as a small diff. If a fix is non-trivial or has trade-offs, mark the finding with `**Manual:** <reason>` and skip it during step 5.
+- **Provide a `Verify` line** for every Blocking and Should-fix finding so the fix step has a pass/fail signal.
+- If everything passes, say so plainly with a one-line scope summary. No padding, no fix step needed.
 
-## 5. Do not
+## 5. Fix step (default ON; skipped under `report-only`)
 
-- Do not run `git commit`, `git push`, or any remote-mutating command.
-- Do not stage, unstage, or modify files.
-- Do not regenerate code, run formatters, or "improve" things on the side.
-- Do not skip the convention-loading step — workspace rules are the whole point of running this locally instead of waiting for the PR reviewer.
+After printing the report, apply fixes in this order:
+
+1. **Hard precondition — call `manage_todo_list` first.** Per the workspace's delivery checklist, you MUST register a todo list covering: read knowledge → apply fixes → run tests → run lint → docs check → retrospective → commit suggestion. Do not call any edit tool before this list exists.
+2. **Apply Blocking fixes first**, then Should-fix. Skip any finding tagged `**Manual:**` and any Nits unless the user asked for them.
+3. **Group edits by file** so each file is opened at most once. Prefer `multi_replace_string_in_file` when several findings touch the same file.
+4. **Re-read the file after editing** to confirm the change landed correctly and didn't introduce new issues at adjacent lines.
+5. **Run the per-finding `Verify` checks** that are cheap (regex/grep, file-level inspection). Defer expensive checks (full `nx test`, `nx build`) to step 6.
+6. **Validate the affected projects:**
+   - Determine which Nx project(s) own the changed files.
+   - Run `bun nx affected -t lint,test` (or per-project `bun nx test <project>` when affected isn't viable). Report the result.
+   - For `libs/grid/**` changes that look material to bundle size, also run `bun nx build grid` (bundle budget gate).
+7. **Final summary** — print a compact recap:
+
+   ```
+   ## QA Fix Summary
+   - Applied: B1, B2, S1, S3 (4 findings)
+   - Deferred (manual): S2 — <one-line reason>
+   - Deferred (nit, not in scope): N1, N2
+   - Validation: lint ✅, test ✅ (3225 passed), build ✅
+   - Files touched: <list>
+
+   📦 **Good commit point:** <type(scope): subject suggestion>
+   ```
+
+If any validation fails, **stop, report the failure, and do not attempt destructive recovery.** Leave the partial fixes in the working tree for the user to inspect — the same way a CI failure on a PR would.
+
+## 6. Hard rules — never violate
+
+- Do **not** run `git commit`, `git push`, `gh pr *`, or any remote-mutating command. Suggest commit messages in chat; the user runs `git commit` themselves.
+- Do **not** stage or unstage files (`git add`, `git reset`, `git restore --staged`).
+- Do **not** "improve" code beyond the reported findings. If you spot something during the fix step that wasn't in the report, add it as a follow-up bullet under the summary instead of silently editing.
+- Do **not** disable lint/type rules to make a finding "go away" — fix the underlying issue.
+- Do **not** skip the convention-loading step (§2). Workspace rules are the entire reason this runs locally instead of waiting for the PR reviewer.
+- Do **not** edit files under `node_modules`, `dist`, `build`, `coverage`, `.nx`, or any generated tree.

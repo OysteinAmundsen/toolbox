@@ -14,7 +14,6 @@ import {
   createIdentityScrollMapping,
   getRowIndexAtOffset,
   getTotalHeight,
-  MAX_ELEMENT_HEIGHT_PX,
   measureRenderedRowHeights,
   rebuildPositionCache,
   toVirtualScrollTop,
@@ -134,10 +133,9 @@ export class VirtualizationManager<T = any> {
     // scrollbar / Ctrl+End. Storing the mapping here lets refreshVirtualWindow
     // (and the scroll listener / scrollToRow) translate between spacer-space
     // scrollTop and virtual row-content space.
-    const cappedRowContentHeight = Math.min(rowContentHeight, MAX_ELEMENT_HEIGHT_PX);
     s.scrollMapping = computeScrollMapping(rowContentHeight, viewportHeight);
 
-    return cappedRowContentHeight + viewportHeightDiff + hScrollbarPadding;
+    return s.scrollMapping.spacerHeight + viewportHeightDiff + hScrollbarPadding;
   }
 
   // #endregion

@@ -84,10 +84,12 @@ describe('issue #326 — scroll mapping above max element-height cap', () => {
 
     expect(grid._virtualization.scrollMapping.capped).toBe(true);
 
-    // Scrolling near the spacer max maps to row indices well above the cap row
-    // (without fractional mapping, start would clamp at ~tinySpacerCap / rowHeight).
+    // Scrolling near the spacer max should map close to the end of the virtual
+    // dataset (~10M rows). Without fractional mapping, start would clamp at
+    // ~tinySpacerCap / rowHeight (≈ 1000). The translation pushes start past
+    // 9.9M — within ~viewport+overscan rows of the dataset's tail.
     fauxScrollbar.scrollTop = tinySpacerCap - viewportHeight;
     grid.refreshVirtualWindow(true);
-    expect(grid._virtualization.start).toBeGreaterThan(9_000_000);
+    expect(grid._virtualization.start).toBeGreaterThan(9_900_000);
   });
 });

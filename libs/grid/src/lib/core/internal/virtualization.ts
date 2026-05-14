@@ -444,7 +444,9 @@ export function computeAverageExcludingPluginRows<T>(
  * Maximum spacer element height (px) before browsers cap the rendered height.
  *
  * Chromium's hard cap is `2^25 = 33,554,432` px; Firefox/Safari are similar or larger.
- * We pick a value slightly below Chromium's cap to be conservative across engines.
+ * We pick `33,500,000` — ~54 KB of headroom under Chromium's cap so that floating-point
+ * drift in the fractional mapping math (`scrollTop * rMax / sMax`) cannot push a computed
+ * spacer position past the engine cap and silently truncate.
  *
  * For datasets where `totalRows * rowHeight` exceeds this value, the faux-vscroll
  * spacer would silently truncate, making the tail of the dataset unreachable via
@@ -452,16 +454,16 @@ export function computeAverageExcludingPluginRows<T>(
  * above this threshold — see {@link computeScrollMapping}.
  *
  * @category Plugin Development
- * @since 0.21.0
+ * @since 2.13.0
  */
-export const MAX_ELEMENT_HEIGHT_PX = 33_554_400;
+export const MAX_ELEMENT_HEIGHT_PX = 33_500_000;
 
 /**
  * Mapping between native `scrollTop` (clamped spacer space) and "virtual" scroll
  * position (raw row-content space). See {@link computeScrollMapping}.
  *
  * @category Plugin Development
- * @since 0.21.0
+ * @since 2.13.0
  */
 export interface ScrollMapping {
   /** Raw row-content height in pixels (totalRows * rowHeight or sum of variable heights). */
@@ -484,7 +486,7 @@ export interface ScrollMapping {
  * to translate between the two coordinate spaces.
  *
  * @category Plugin Development
- * @since 0.21.0
+ * @since 2.13.0
  */
 export function computeScrollMapping(
   rawContentHeight: number,
@@ -504,15 +506,23 @@ export function computeScrollMapping(
  * Translate a native `scrollTop` (spacer space) into a virtual scroll offset
  * in raw row-content space. Identity when the mapping is not capped.
  *
+ * The result is clamped to `[0, rawContentHeight - viewportHeight]` so callers
+ * never index past the dataset, even when the spacer's actual scrollable extent
+ * slightly exceeds `spacerHeight - viewportHeight` (e.g. when a horizontal scrollbar
+ * adds bottom padding to the faux spacer).
+ *
  * @category Plugin Development
- * @since 0.21.0
+ * @since 2.13.0
  */
 export function toVirtualScrollTop(scrollTop: number, mapping: ScrollMapping): number {
   if (!mapping.capped) return scrollTop;
   const sMax = mapping.spacerHeight - mapping.viewportHeight;
   const rMax = mapping.rawContentHeight - mapping.viewportHeight;
   if (sMax <= 0 || rMax <= 0) return scrollTop;
-  return (scrollTop * rMax) / sMax;
+  const virtual = (scrollTop * rMax) / sMax;
+  if (virtual < 0) return 0;
+  if (virtual > rMax) return rMax;
+  return virtual;
 }
 
 /**
@@ -520,7 +530,7 @@ export function toVirtualScrollTop(scrollTop: number, mapping: ScrollMapping): n
  * `scrollTop` value (spacer space). Identity when the mapping is not capped.
  *
  * @category Plugin Development
- * @since 0.21.0
+ * @since 2.13.0
  */
 export function fromVirtualScrollTop(virtualTop: number, mapping: ScrollMapping): number {
   if (!mapping.capped) return virtualTop;
@@ -532,10 +542,12 @@ export function fromVirtualScrollTop(virtualTop: number, mapping: ScrollMapping)
 
 /**
  * Identity scroll mapping (no cap applied). Useful as a default in places that
- * don't yet know the dataset extents.
+ * don't yet know the dataset extents. `viewportHeight` is `0` until the first
+ * `calculateTotalSpacerHeight` call populates the real extents — safe because
+ * `capped: false` short-circuits both translation helpers before they read it.
  *
  * @category Plugin Development
- * @since 0.21.0
+ * @since 2.13.0
  */
 export function createIdentityScrollMapping(): ScrollMapping {
   return { rawContentHeight: 0, spacerHeight: 0, viewportHeight: 0, capped: false };
@@ -556,8 +568,19 @@ export interface VirtualWindow {
   end: number;
   /** Pixel offset to apply to the rows container (translateY) */
   offsetY: number;
-  /** Total height of the scrollable content */
+  /**
+   * Effective spacer DOM height — use this for the scrollable spacer element.
+   * Equal to `min(totalRows * rowHeight, maxSpacerHeight)`. Above the cap this
+   * is clamped; use {@link VirtualWindow.rawContentHeight} for the un-clamped value.
+   */
   totalHeight: number;
+  /**
+   * Raw, un-clamped row-content height (`totalRows * rowHeight`). Equal to
+   * `totalHeight` when the dataset is below `maxSpacerHeight`.
+   *
+   * @since 2.13.0
+   */
+  rawContentHeight: number;
 }
 
 /** Parameters for computing the virtual window */
@@ -578,7 +601,7 @@ export interface VirtualWindowParams {
    * to virtual row-content space via fractional mapping. Defaults to {@link MAX_ELEMENT_HEIGHT_PX}.
    * Pass `Infinity` to disable.
    *
-   * @since 0.21.0
+   * @since 2.13.0
    */
   maxSpacerHeight?: number;
 }
@@ -619,6 +642,7 @@ export function computeVirtualWindow(params: VirtualWindowParams): VirtualWindow
     end,
     offsetY: start * rowHeight,
     totalHeight: mapping.spacerHeight,
+    rawContentHeight,
   };
 }
 

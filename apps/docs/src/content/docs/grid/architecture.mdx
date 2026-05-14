@@ -345,12 +345,12 @@ To support datasets exceeding the cap (e.g. log viewers with 10M+ rows), the gri
 
 - The spacer is clamped at `MAX_ELEMENT_HEIGHT_PX` (≈ 33.5M px).
 - The native `scrollTop` is treated as a position in the clamped spacer space and translated into a **virtual** offset in raw row-content space:
-  ```
+  ```text
   virtualScrollTop = scrollTop * (rawContentHeight − viewport) / (spacerHeight − viewport)
   ```
 - `scrollToRow(N)` reverse-maps the row's offset back into the spacer's `scrollTop` so any row in the dataset is reachable programmatically.
 
-For datasets below the cap, mapping is identity — pixel-accurate behavior is unchanged. The mapping helpers (`MAX_ELEMENT_HEIGHT_PX`, `computeScrollMapping`, `toVirtualScrollTop`, `fromVirtualScrollTop`) are exported for plugins that maintain their own scroll-driven DOM state.
+For datasets below the cap, mapping is identity — pixel-accurate behavior is unchanged. Above the cap, every row remains reachable via the scrollbar, `Ctrl+End`, and `scrollToRow(N)`, but **wheel and keyboard ticks become coarse**: one pixel of `scrollTop` corresponds to many rows, so a single wheel notch can skip past hundreds of rows. The mapping helpers (`MAX_ELEMENT_HEIGHT_PX`, `computeScrollMapping`, `toVirtualScrollTop`, `fromVirtualScrollTop`) are exported for plugins that maintain their own scroll-driven DOM state.
 
 ### Column Virtualization (Plugin)
 

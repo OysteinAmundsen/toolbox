@@ -468,7 +468,7 @@ export type { VirtualState } from './lib/core/types';
  * row-content space. Required for datasets exceeding the browser's max
  * element-height cap (Chromium ~33.5M px).
  * @category Plugin Development
- * @since 0.21.0
+ * @since 2.13.0
  */
 export {
   computeScrollMapping,

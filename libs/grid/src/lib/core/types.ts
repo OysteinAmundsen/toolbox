@@ -1991,7 +1991,7 @@ export interface VirtualState {
    * mapping before computing the visible window. Updated by `calculateTotalSpacerHeight`.
    *
    * @see {@link computeScrollMapping}
-   * @since 0.21.0
+   * @since 2.13.0
    */
   scrollMapping: ScrollMapping;
 }

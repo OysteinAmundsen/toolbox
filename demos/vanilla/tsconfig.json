@@ -17,10 +17,11 @@
       "@toolbox-web/grid": ["../../libs/grid/src/index.ts"],
       "@toolbox-web/grid/*": ["../../libs/grid/src/*"],
       "@demo/shared/employee-management/styles": ["../shared/employee-management/styles.ts"],
-      "@demo/shared/employee-management": ["../shared/employee-management/index.ts"]
+      "@demo/shared/employee-management": ["../shared/employee-management/index.ts"],
+      "@demo/shared/booking-logs": ["../shared/booking-logs/index.ts"]
     }
   },
-  "include": ["../shared/employee-management/**/*.ts", "src/**/*.ts"],
+  "include": ["../shared/employee-management/**/*.ts", "../shared/booking-logs/**/*.ts", "src/**/*.ts"],
   "exclude": ["node_modules", "dist"],
   "references": [
     {

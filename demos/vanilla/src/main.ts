@@ -29,5 +29,11 @@ startRouter({
       description: 'Full-featured grid with sorting, filtering, editing, master-detail and responsive card layout.',
       load: () => import('./demos/employee-management'),
     },
+    {
+      name: 'booking-logs',
+      label: 'Booking API Logs',
+      description: 'Server-side infinite scroll over a deterministic 10-million-row log dataset, with filters and a side detail panel.',
+      load: () => import('./demos/booking-logs'),
+    },
   ],
 });

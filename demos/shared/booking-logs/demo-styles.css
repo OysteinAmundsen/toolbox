@@ -1,0 +1,572 @@
+/**
+ * Booking-Logs Demo — shared styles.
+ *
+ * Provides the split-pane layout (grid + side panel), level/status badges,
+ * and detail-panel typography. Custom filter panels and the in-grid shell
+ * widgets (search, trace banner) deliberately consume the **grid's own
+ * CSS variables** (`--tbw-color-*`) rather than the demo tokens, so that
+ * any user theme automatically restyles them in lockstep with the rest
+ * of the grid chrome. Cell badges (level / method / status) are *semantic*
+ * — keeping them on `light-dark()` literals is correct since their colour
+ * carries domain meaning, not theme intent.
+ *
+ * --- Reusable panel-control mixin ---
+ * `.bl-filter-panel-control` is the shared base for inputs, buttons, and
+ * selects rendered inside any custom filter panel. Apply it to keep the
+ * border/radius/colour story consistent across the trace / status /
+ * datetime panels without re-declaring the same five lines per element.
+ */
+
+.bl-filter-panel-control {
+  padding: 4px 8px;
+  border: 1px solid var(--tbw-color-border);
+  border-radius: var(--tbw-border-radius, 4px);
+  background: var(--tbw-color-panel-bg);
+  color: var(--tbw-color-fg);
+  font: inherit;
+}
+.bl-filter-panel-control:hover:not(:disabled) {
+  background: var(--tbw-color-row-hover);
+}
+.bl-filter-panel-control:focus-visible {
+  outline: 2px solid var(--tbw-color-accent);
+  outline-offset: 1px;
+}
+.bl-filter-panel-control:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.booking-logs-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 0;
+  gap: 0;
+  height: 100%;
+  min-height: 0;
+  padding: 16px;
+  transition: grid-template-columns 200ms ease;
+}
+
+.booking-logs-layout.has-detail {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 28%);
+  gap: 16px;
+}
+
+.booking-logs-grid-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  gap: 12px;
+}
+
+/* === Custom filter panels ===
+ *
+ * The trace-id, status, and datetime panels below reuse the built-in
+ * filter-plugin classes (`tbw-filter-search-input`, `tbw-filter-buttons`,
+ * `tbw-filter-apply-btn`, `tbw-filter-clear-btn`) for inputs, the footer
+ * action row, and the Apply / Clear buttons so they look identical to
+ * the default panels. The `bl-*` rules here only own panel-specific
+ * *layout* (containers, presets, datetime row grid).
+ */
+
+/* === Custom filter panel for the Trace ID column === */
+.bl-trace-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px;
+  min-width: 220px;
+}
+
+/* === Custom filter panel for the Status column (devops triage) === */
+.bl-status-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px;
+  min-width: 240px;
+}
+.bl-status-presets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.bl-status-preset {
+  padding: 4px 8px;
+  border: 1px solid var(--tbw-color-border);
+  border-radius: var(--tbw-border-radius, 4px);
+  background: var(--tbw-color-panel-bg);
+  color: var(--tbw-color-fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bl-status-preset:hover:not(:disabled) {
+  background: var(--tbw-color-row-hover);
+}
+.bl-status-preset:focus-visible {
+  outline: 2px solid var(--tbw-color-accent);
+  outline-offset: 1px;
+}
+.bl-status-preset:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.bl-status-preset.is-active {
+  /* Active preset uses the grid's accent token so the highlight matches
+     other selected-state UI (sort indicator, focused header, etc.). */
+  border-color: var(--tbw-color-accent);
+  background: color-mix(in srgb, var(--tbw-color-accent) 15%, var(--tbw-color-panel-bg));
+  color: var(--tbw-color-accent);
+}
+.bl-status-specific {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--tbw-color-border);
+}
+.bl-status-specific label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--tbw-color-fg-muted, var(--tbw-color-fg));
+}
+
+/* === Custom filter panel for the Time column (date + time, ms-precision) === */
+.bl-datetime-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px;
+  min-width: 240px;
+}
+.bl-datetime-row {
+  display: grid;
+  /* `minmax(0, 1fr)` lets the input track shrink below its intrinsic size
+     so the native datetime-local picker can't push past the panel edge. */
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.bl-datetime-label {
+  font-size: 12px;
+  color: var(--tbw-color-fg-muted, var(--tbw-color-fg));
+}
+
+/* === Shell freetext search (center slot of <tbw-grid-header>) === */
+.bl-shell-search {
+  width: 280px;
+  max-width: 100%;
+  padding: 4px 10px;
+  border: 1px solid var(--tbw-color-border);
+  border-radius: var(--tbw-border-radius, 4px);
+  background: var(--tbw-color-panel-bg);
+  color: var(--tbw-color-fg);
+  font: inherit;
+  font-size: 13px;
+}
+.bl-shell-search:focus {
+  outline: 2px solid var(--tbw-color-accent);
+  outline-offset: -1px;
+}
+
+/* === Trace-mode banner (right-click → "View trace") ===
+ *
+ * The banner is intentionally tinted with the grid's accent token rather
+ * than a hard-coded blue: any theme that overrides `--tbw-color-accent`
+ * will recolour the banner along with everything else. We use
+ * `color-mix()` to derive a soft tinted background from the accent, and
+ * fall back to the accent itself for the border + label colour.
+ */
+.bl-trace-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+  padding: 4px 10px;
+  border-radius: var(--tbw-border-radius, 4px);
+  background: color-mix(in srgb, var(--tbw-color-accent) 12%, var(--tbw-color-panel-bg));
+  color: var(--tbw-color-accent);
+  border: 1px solid color-mix(in srgb, var(--tbw-color-accent) 50%, transparent);
+  font-size: 12px;
+}
+.bl-trace-banner[hidden] {
+  display: none;
+}
+.bl-trace-banner-icon {
+  font-size: 13px;
+}
+.bl-trace-banner-label {
+  font-weight: 500;
+}
+.bl-trace-banner-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  padding: 1px 6px;
+  background: color-mix(in srgb, var(--tbw-color-accent) 20%, var(--tbw-color-panel-bg));
+  border-radius: 3px;
+}
+.bl-trace-banner-clear {
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid color-mix(in srgb, var(--tbw-color-accent) 50%, transparent);
+  background: var(--tbw-color-panel-bg);
+  color: inherit;
+  cursor: pointer;
+}
+.bl-trace-banner-clear:hover {
+  background: color-mix(in srgb, var(--tbw-color-accent) 18%, var(--tbw-color-panel-bg));
+}
+
+.booking-logs-grid {
+  flex: 1;
+  min-height: 0;
+}
+
+/* === Cell badges === */
+.bl-level {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.bl-level.lvl-DEBUG {
+  background: light-dark(#e5e7eb, #2a2d32);
+  color: light-dark(#4b5563, #9ca3af);
+}
+.bl-level.lvl-INFO {
+  background: light-dark(#dbeafe, #1e3a5f);
+  color: light-dark(#1d4ed8, #93c5fd);
+}
+.bl-level.lvl-WARN {
+  background: light-dark(#fef3c7, #4d3a10);
+  color: light-dark(#92400e, #fde68a);
+}
+.bl-level.lvl-ERROR {
+  background: light-dark(#fee2e2, #4d1d1d);
+  color: light-dark(#991b1b, #fecaca);
+}
+
+.bl-status {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 600;
+}
+.bl-status.s-2xx {
+  color: light-dark(#059669, #34d399);
+}
+.bl-status.s-3xx {
+  color: light-dark(#0284c7, #38bdf8);
+}
+.bl-status.s-4xx {
+  color: light-dark(#b45309, #fbbf24);
+}
+.bl-status.s-5xx {
+  color: light-dark(#b91c1c, #f87171);
+}
+
+.bl-method {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 600;
+  font-size: 12px;
+}
+.bl-method.m-GET {
+  color: light-dark(#1d4ed8, #93c5fd);
+}
+.bl-method.m-POST {
+  color: light-dark(#059669, #34d399);
+}
+.bl-method.m-PUT {
+  color: light-dark(#7c3aed, #c4b5fd);
+}
+.bl-method.m-PATCH {
+  color: light-dark(#0891b2, #67e8f9);
+}
+.bl-method.m-DELETE {
+  color: light-dark(#b91c1c, #fca5a5);
+}
+
+.bl-endpoint,
+.bl-trace {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+/* === Timestamp cell ===
+ *
+ * The wrapper establishes a CSS container so the date child can be
+ * revealed only when the user resizes the Time column wide enough
+ * to show both date and time without crowding. No JS resize listener,
+ * no per-row layout cost \u2014 the browser handles it natively.
+ */
+.bl-timestamp {
+  container-type: inline-size;
+  /* `container-type: inline-size` requires a non-inline display. The
+     parent `.cell` already provides ellipsis + overflow handling, so
+     `block` here is safe and gives the container a measurable inline-size
+     equal to the cell's content box. */
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+.bl-timestamp-date {
+  display: none;
+  margin-right: 6px;
+  color: var(--demo-color-fg-muted, var(--tbw-color-fg-muted, #888));
+}
+/* Reveal the date once the cell content area is wide enough to fit
+   `YYYY-MM-DD HH:mm:ss.SSS` (roughly 22 monospace chars \u2248 160 px) with
+   breathing room. Drag the column wider than ~170 px to show it. */
+@container (min-width: 170px) {
+  .bl-timestamp-date {
+    display: inline;
+  }
+}
+
+.bl-placeholder {
+  display: inline-block;
+  color: var(--demo-color-fg-muted);
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.bl-duration {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  text-align: right;
+}
+.bl-duration.slow {
+  color: light-dark(#b45309, #fbbf24);
+}
+.bl-duration.very-slow {
+  color: light-dark(#b91c1c, #f87171);
+  font-weight: 600;
+}
+
+/* === Detail panel === */
+.booking-logs-detail {
+  display: flex;
+  flex-direction: column;
+  background: var(--demo-color-surface);
+  border: 1px solid var(--demo-color-border);
+  border-radius: 6px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.booking-logs-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--demo-color-border);
+  background: var(--demo-color-surface-alt);
+}
+
+.booking-logs-detail-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.booking-logs-detail-header .close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--demo-color-fg-muted);
+  padding: 0 4px;
+  line-height: 1;
+}
+.booking-logs-detail-header .close-btn:hover {
+  color: var(--demo-color-fg);
+}
+
+.booking-logs-detail-body {
+  padding: 14px;
+  overflow: auto;
+  font-size: 13px;
+  flex: 1;
+  min-height: 0;
+}
+
+.booking-logs-detail-body dl {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 6px 12px;
+  margin: 0;
+}
+
+.booking-logs-detail-body dt {
+  color: var(--demo-color-fg-muted);
+  font-weight: 500;
+}
+
+.booking-logs-detail-body dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+/* Trace ID row inside the detail panel: value (monospace) + an inline
+ * "Show trace" pivot button, side-by-side. The button matches the trace
+ * banner's accent treatment so users associate the two as the same
+ * "drill into a trace" affordance. Clicking the button does NOT close
+ * the drawer (see `index.ts`) — the user keeps reading the focused row
+ * while the grid pivots underneath. */
+.bl-detail-trace-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bl-detail-trace-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+.bl-detail-show-trace {
+  /* Icon button — same 🔗 affordance as the context-menu "View trace"
+   * item and the per-row 🔗 hover button (`.bl-trace-cell-show`).
+   * Sized to sit flush next to the trace-id `<code>` baseline. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  border-radius: var(--tbw-border-radius, 3px);
+  border: 1px solid color-mix(in srgb, var(--tbw-color-accent) 50%, transparent);
+  background: color-mix(in srgb, var(--tbw-color-accent) 12%, var(--tbw-color-panel-bg));
+  color: var(--tbw-color-accent);
+  cursor: pointer;
+}
+.bl-detail-show-trace:hover {
+  background: color-mix(in srgb, var(--tbw-color-accent) 22%, var(--tbw-color-panel-bg));
+}
+.bl-detail-show-trace:focus-visible {
+  outline: 2px solid var(--tbw-color-accent);
+  outline-offset: 1px;
+}
+
+/* Hover-revealed 🔗 icon button inside the `traceId` cell. Hidden by
+ * default so it doesn't add visual noise to every row; appears when the
+ * row is hovered, when the button itself receives focus (keyboard), or
+ * when the cell is focused (arrow-key navigation). */
+.bl-trace-cell-show {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1;
+  vertical-align: middle;
+  border-radius: var(--tbw-border-radius, 3px);
+  border: 1px solid color-mix(in srgb, var(--tbw-color-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--tbw-color-accent) 10%, transparent);
+  color: var(--tbw-color-accent);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 80ms ease-out;
+}
+tbw-grid .data-grid-row:hover .bl-trace-cell-show,
+tbw-grid .cell:focus-within .bl-trace-cell-show,
+.bl-trace-cell-show:focus-visible {
+  opacity: 1;
+}
+.bl-trace-cell-show:hover {
+  background: color-mix(in srgb, var(--tbw-color-accent) 22%, var(--tbw-color-panel-bg));
+}
+.bl-trace-cell-show:focus-visible {
+  outline: 2px solid var(--tbw-color-accent);
+  outline-offset: 1px;
+}
+
+.booking-logs-detail-body .error-box {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: light-dark(#fef2f2, #2a1717);
+  border-left: 3px solid light-dark(#dc2626, #f87171);
+  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: light-dark(#991b1b, #fecaca);
+  white-space: pre-wrap;
+}
+
+/* HTTP request/response trace inside the detail panel. */
+.bl-trace {
+  margin-top: 18px;
+}
+.bl-trace h3 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--demo-color-fg-muted);
+}
+.bl-trace-block {
+  margin: 0;
+  padding: 10px 12px;
+  background: light-dark(#f8fafc, #0f1419);
+  border: 1px solid var(--demo-color-border);
+  border-left-width: 3px;
+  border-left-color: light-dark(#94a3b8, #475569);
+  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+  color: light-dark(#1f2937, #cbd5e1);
+}
+.bl-trace.is-2xx .bl-trace-block {
+  border-left-color: light-dark(#16a34a, #4ade80);
+}
+.bl-trace.is-3xx .bl-trace-block {
+  border-left-color: light-dark(#0891b2, #22d3ee);
+}
+.bl-trace.is-4xx .bl-trace-block {
+  border-left-color: light-dark(#d97706, #fbbf24);
+}
+.bl-trace.is-5xx .bl-trace-block {
+  border-left-color: light-dark(#dc2626, #f87171);
+}
+.bl-trace-reqline {
+  color: light-dark(#1d4ed8, #93c5fd);
+  font-weight: 600;
+}
+.bl-trace-status {
+  color: light-dark(#0f766e, #5eead4);
+  font-weight: 600;
+}
+.bl-trace.is-4xx .bl-trace-status,
+.bl-trace.is-5xx .bl-trace-status {
+  color: light-dark(#b91c1c, #fca5a5);
+}
+.bl-trace-key {
+  color: light-dark(#7c3aed, #c4b5fd);
+}
+.bl-trace-val {
+  color: light-dark(#334155, #cbd5e1);
+}
+
+.booking-logs-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--demo-color-fg-muted);
+  font-size: 13px;
+}

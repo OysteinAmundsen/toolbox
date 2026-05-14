@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.13.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.12.0...grid-2.13.0) (2026-05-14)
+
+
+### Features
+
+* **grid:** support datasets exceeding the browser's max element-height cap via fractional scroll mapping ([#326](https://github.com/OysteinAmundsen/toolbox/issues/326)) ([#327](https://github.com/OysteinAmundsen/toolbox/issues/327)) ([6711de1](https://github.com/OysteinAmundsen/toolbox/commit/6711de15b184151d18cce51336666f9122d01706))
+
+
+### Bug Fixes
+
+* **grid:** always-on focus trap that tracks last user focus ([#324](https://github.com/OysteinAmundsen/toolbox/issues/324)) ([e9558da](https://github.com/OysteinAmundsen/toolbox/commit/e9558daaa4925a8deb5811ee43c3a8f4fee87010))
+* **grid:** break focus-trap restore loop that hangs vitest mid-suite ([788cf1f](https://github.com/OysteinAmundsen/toolbox/commit/788cf1fd81ec90927833da59adab7a1da85a0fed))
+* **grid:** honor explicit numeric rowHeight; stabilize CSS-change detection ([9921f3c](https://github.com/OysteinAmundsen/toolbox/commit/9921f3c0679cd648da305a0ba5c75ab60ae89cfd))
+* **grid:** refresh empty overlay when rows reference changes ([02112ea](https://github.com/OysteinAmundsen/toolbox/commit/02112ea618d89da239de754c51a43fa49a3b9652))
+* **grid:** restore TRow/TValue names in module augmentations (TS2428) ([c894e52](https://github.com/OysteinAmundsen/toolbox/commit/c894e52e5d41ab11038661eab1947115991da782))
+* **grid:** stabilize #measureRowHeight against content/CSS height drift ([ba89e2b](https://github.com/OysteinAmundsen/toolbox/commit/ba89e2b6098df987f5979943d63f04d5bc6ff2bf))
+
 ## [2.12.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.11.1...grid-2.12.0) (2026-05-13)
 
 

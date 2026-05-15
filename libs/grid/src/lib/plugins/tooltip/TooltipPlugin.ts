@@ -204,8 +204,12 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
     cell.style.setProperty('anchor-name', '--tbw-tooltip-anchor');
     this.#anchorCell = cell;
 
-    // Set content (always textContent — safe, no XSS)
+    // Set content (always textContent — safe, no XSS).
+    // Multi-line content uses `white-space: pre` so author-supplied line
+    // breaks survive verbatim and the popover grows to fit; single-line
+    // content keeps `pre-wrap` so long values wrap inside `max-width`.
     this.#popoverEl.textContent = text;
+    this.#popoverEl.classList.toggle('tbw-tooltip-multiline', text.includes('\n'));
 
     // Show via Popover API
     if (supportsPopover()) {

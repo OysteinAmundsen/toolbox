@@ -12,11 +12,21 @@
     font-family: var(--tbw-font-family, system-ui, sans-serif);
     font-size: var(--tbw-tooltip-font-size, var(--tbw-font-size-sm, 0.9285em));
     max-width: var(--tbw-tooltip-max-width, 300px);
-    white-space: pre-line;
+    white-space: pre-wrap;
     word-wrap: break-word;
     overflow-wrap: break-word;
     pointer-events: none;
     z-index: 10001;
+  }
+
+  /* Multi-line content (text contains `\n`): preserve author line breaks
+     verbatim and let the popover grow horizontally instead of wrapping
+     mid-line. `max-width` is lifted so long lines aren't broken. */
+  .tbw-tooltip-popover.tbw-tooltip-multiline {
+    white-space: pre;
+    max-width: none;
+    word-wrap: normal;
+    overflow-wrap: normal;
   }
 
   /* Arrow — a 14×14 box rotated 45° to form a diamond, with its center

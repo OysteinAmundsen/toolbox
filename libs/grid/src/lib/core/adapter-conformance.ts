@@ -36,6 +36,8 @@ export const CORE_CONSUMED_ADAPTER_METHODS: ReadonlyArray<keyof FrameworkAdapter
   'parseResponsiveCardElement',
   'releaseCell',
   'unmount',
+  'beginBatch',
+  'endBatch',
 ] as const;
 
 export interface AdapterConformanceReport {

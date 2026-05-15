@@ -174,6 +174,35 @@ export function clearContainersForGrid(gridEl: HTMLElement): void {
 }
 
 /**
+ * Open a teardown batch on every registered PortalManager. Used by the
+ * adapter's `beginBatch()` hook so grid core's bulk teardown loops
+ * (`_clearRowPool`, row-pool shrink, `renderInlineRow`) can release N
+ * portals without N `flushSync` warnings (#330).
+ *
+ * Optional `gridEl` scopes the batch to a single grid; omit to batch
+ * across all grids (the multi-grid case is rare but harmless).
+ */
+export function beginPortalBatch(gridEl?: HTMLElement): void {
+  if (gridEl) {
+    portalManagers.get(gridEl)?.beginBatch();
+    return;
+  }
+  for (const pm of portalManagers.values()) pm.beginBatch();
+}
+
+/**
+ * Close a teardown batch opened by {@link beginPortalBatch}. Calls MUST
+ * pair with `beginPortalBatch` (same grid scope or both global).
+ */
+export function endPortalBatch(gridEl?: HTMLElement): void {
+  if (gridEl) {
+    portalManagers.get(gridEl)?.endBatch();
+    return;
+  }
+  for (const pm of portalManagers.values()) pm.endBatch();
+}
+
+/**
  * Remove all portals and fallback roots across all grids.
  * Use `clearContainersForGrid()` in multi-grid scenarios instead.
  */

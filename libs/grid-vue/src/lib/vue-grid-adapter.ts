@@ -1277,4 +1277,23 @@ export class GridAdapter implements FrameworkAdapter {
       }
     }
   }
+
+  /**
+   * Open a teardown batch. No-op for the Vue adapter — teleport removals
+   * are already coalesced into a single reactive `Map` swap per microtask
+   * by the TeleportManager (see `teleport-manager.ts`). Implemented for
+   * {@link FrameworkAdapter} parity so grid core's bulk-teardown wrappers
+   * work uniformly across adapters.
+   */
+  beginBatch(_gridEl?: HTMLElement): void {
+    // intentionally empty
+  }
+
+  /**
+   * Close a teardown batch opened by {@link beginBatch}. No-op for Vue —
+   * see {@link beginBatch}.
+   */
+  endBatch(_gridEl?: HTMLElement): void {
+    // intentionally empty
+  }
 }

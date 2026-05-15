@@ -18,6 +18,8 @@ function makeFullAdapter(): FrameworkAdapter {
     parseResponsiveCardElement: () => undefined,
     releaseCell: () => undefined,
     unmount: () => undefined,
+    beginBatch: () => undefined,
+    endBatch: () => undefined,
   };
 }
 
@@ -36,6 +38,8 @@ describe('adapter-conformance', () => {
       'parseResponsiveCardElement',
       'releaseCell',
       'unmount',
+      'beginBatch',
+      'endBatch',
     ]);
   });
 

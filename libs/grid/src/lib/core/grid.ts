@@ -2665,20 +2665,35 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // `innerHTML = ''` detaches portals/teleports without notifying the
     // framework adapter, which then crashes on its next commit when it
     // tries to remove now-orphan children (#250).
+    //
+    // Wrap the per-cell release loop in adapter.beginBatch / endBatch so
+    // adapters that synchronously commit teardown per cell (React's
+    // `flushSync`) defer those commits to a single deferred render once
+    // `bodyEl.innerHTML = ''` has detached every cell. Eliminates the
+    // per-cell `flushSync was called from inside a lifecycle method`
+    // warning storm on grouping changes (#330).
     const adapter = this.__frameworkAdapter;
     const release = adapter?.releaseCell;
     if (release) {
-      for (let r = 0; r < this._rowPool.length; r++) {
-        const rowEl = this._rowPool[r];
-        const cells = rowEl.children;
-        for (let c = 0; c < cells.length; c++) {
-          const cell = cells[c] as HTMLElement;
-          if (cell.firstElementChild) release.call(adapter, cell);
+      adapter?.beginBatch?.(this);
+      try {
+        for (let r = 0; r < this._rowPool.length; r++) {
+          const rowEl = this._rowPool[r];
+          const cells = rowEl.children;
+          for (let c = 0; c < cells.length; c++) {
+            const cell = cells[c] as HTMLElement;
+            if (cell.firstElementChild) release.call(adapter, cell);
+          }
         }
+        this._rowPool.length = 0;
+        if (this._bodyEl) this._bodyEl.innerHTML = '';
+      } finally {
+        adapter?.endBatch?.(this);
       }
+    } else {
+      this._rowPool.length = 0;
+      if (this._bodyEl) this._bodyEl.innerHTML = '';
     }
-    this._rowPool.length = 0;
-    if (this._bodyEl) this._bodyEl.innerHTML = '';
     this.__rowRenderEpoch++;
   }
 

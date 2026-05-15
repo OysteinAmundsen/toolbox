@@ -12,7 +12,7 @@ import type { ReactNode } from 'react';
 import { notifyEditorMounted, registerEditorMountHook, type EditorMountHook } from './editor-mount-hooks';
 import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
 import type { TypeDefault as ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
-import { removeFromContainer, renderToContainer } from './portal-bridge';
+import { beginPortalBatch, endPortalBatch, removeFromContainer, renderToContainer } from './portal-bridge';
 import { cleanupConfigRootsIn, processGridConfig } from './react-column-config';
 
 // Re-export so feature secondary entries can install editor-mount hooks
@@ -743,5 +743,27 @@ export class GridAdapter implements FrameworkAdapter {
       removeFromContainer(key);
       this.untrackPortal(key);
     }
+  }
+
+  /**
+   * Open a teardown batch on the PortalManager. Grid core wraps multi-cell
+   * release loops (`_clearRowPool`, row-pool shrink, full row rebuild) with
+   * `beginBatch` / `endBatch` so the N per-cell sync removals collapse to a
+   * single deferred render instead of N `flushSync` calls. Eliminates the
+   * "flushSync was called from inside a lifecycle method" warning storm on
+   * grouping changes (#330).
+   */
+  beginBatch(gridEl?: HTMLElement): void {
+    beginPortalBatch(gridEl);
+  }
+
+  /**
+   * Close a teardown batch opened by {@link beginBatch}. Caller is
+   * responsible for ensuring affected containers are detached from the
+   * DOM before this returns; the manager's render-time `isConnected`
+   * filter then prunes them silently.
+   */
+  endBatch(gridEl?: HTMLElement): void {
+    endPortalBatch(gridEl);
   }
 }

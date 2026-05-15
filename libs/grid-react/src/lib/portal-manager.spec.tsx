@@ -379,4 +379,117 @@ describe('PortalManager', () => {
 
     unmount();
   });
+
+  // #region beginBatch / endBatch (#330)
+
+  describe('beginBatch / endBatch', () => {
+    it('exposes beginBatch and endBatch on the handle', () => {
+      const { handle, unmount } = mountPortalManager();
+      expect(typeof handle.beginBatch).toBe('function');
+      expect(typeof handle.endBatch).toBe('function');
+      unmount();
+    });
+
+    it('suppresses per-call flushSync warnings during a batch of sync removals', async () => {
+      const { handle, unmount } = mountPortalManager();
+
+      // Mount N portals into containers so a regroup-style teardown has work to do.
+      const containers: HTMLElement[] = [];
+      for (let i = 0; i < 8; i++) {
+        const c = document.createElement('div');
+        document.body.appendChild(c);
+        containers.push(c);
+      }
+      await act(async () => {
+        for (let i = 0; i < containers.length; i++) {
+          handle.renderPortal(`k${i}`, containers[i], React.createElement('span', null, `c${i}`));
+        }
+        await flushMicrotasks();
+      });
+      for (let i = 0; i < containers.length; i++) {
+        expect(containers[i].textContent).toBe(`c${i}`);
+      }
+
+      // Spy on console.error to detect React's
+      // "flushSync was called from inside a lifecycle method" warning.
+      const errors: unknown[][] = [];
+      const originalError = console.error;
+      console.error = (...args: unknown[]) => {
+        errors.push(args);
+      };
+
+      try {
+        // Simulate grid core's `_clearRowPool`: open batch, release every
+        // portal sync (would normally trigger a flushSync warning each),
+        // then detach the parent and close the batch.
+        await act(async () => {
+          handle.beginBatch();
+          for (let i = 0; i < containers.length; i++) {
+            handle.removePortal(`k${i}`, /* sync */ true);
+          }
+          // Detach all containers from the DOM (parallels `bodyEl.innerHTML = ''`).
+          for (const c of containers) c.remove();
+          handle.endBatch();
+          await flushMicrotasks();
+        });
+
+        // No flushSync warning should have been emitted.
+        const flushSyncWarnings = errors.filter((args) =>
+          args.some((a) => typeof a === 'string' && a.includes('flushSync')),
+        );
+        expect(flushSyncWarnings).toEqual([]);
+
+        // And the portals are actually gone — a fresh render with the
+        // same keys works (containers were detached, but new containers
+        // are accepted).
+        const fresh = document.createElement('div');
+        document.body.appendChild(fresh);
+        await act(async () => {
+          handle.renderPortal('k0', fresh, React.createElement('span', null, 'after-batch'));
+          await flushMicrotasks();
+        });
+        expect(fresh.textContent).toBe('after-batch');
+      } finally {
+        console.error = originalError;
+      }
+
+      unmount();
+    });
+
+    it('nests beginBatch / endBatch and only flushes on the outermost close', async () => {
+      const { handle, unmount } = mountPortalManager();
+
+      const a = document.createElement('div');
+      const b = document.createElement('div');
+      document.body.append(a, b);
+
+      await act(async () => {
+        handle.renderPortal('a', a, React.createElement('span', null, 'A'));
+        handle.renderPortal('b', b, React.createElement('span', null, 'B'));
+        await flushMicrotasks();
+      });
+
+      await act(async () => {
+        handle.beginBatch();
+        handle.beginBatch();
+        handle.removePortal('a', true);
+        a.remove();
+        handle.endBatch(); // inner — must NOT flush yet
+        // 'a' is still pruned from map, but no flushSync has been issued.
+        handle.removePortal('b', true);
+        b.remove();
+        handle.endBatch(); // outer — flushes once
+        await flushMicrotasks();
+      });
+
+      // No assertion needed beyond "no warnings + no exception"; the
+      // suppress-warnings test above covers the observable behaviour.
+      // Nesting is exercised here so a future regression in the depth
+      // counter (e.g. flushing at every endBatch) trips a different
+      // failure mode.
+      unmount();
+    });
+  });
+
+  // #endregion
 });

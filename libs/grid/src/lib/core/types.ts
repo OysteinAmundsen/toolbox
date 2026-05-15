@@ -1672,6 +1672,40 @@ export interface FrameworkAdapter {
   releaseCell?(cellEl: HTMLElement): void;
 
   /**
+   * Open a teardown batch. Grid core wraps multi-cell teardown sequences
+   * (e.g., `_clearRowPool`, row-pool shrink, full row rebuild) where every
+   * affected cell will be detached from the DOM before the batch ends.
+   *
+   * Adapters that normally synchronously commit framework teardown per
+   * `releaseCell` (React's `flushSync`) should defer those commits until
+   * the matching {@link endBatch} call. Detached containers can then be
+   * pruned without emitting per-cell render warnings.
+   *
+   * Calls may nest; adapters MUST track depth and only flush on the
+   * outermost {@link endBatch}.
+   *
+   * @param gridEl - The grid element whose adapter-managed cells are
+   *   being torn down. Adapters that key state per grid (e.g. one
+   *   PortalManager per grid) should scope the batch to this element.
+   *   Omitted only by callers without a grid reference.
+   *
+   * @since 2.14.0
+   */
+  beginBatch?(gridEl?: HTMLElement): void;
+
+  /**
+   * Close a teardown batch opened by {@link beginBatch}. Adapters should
+   * flush any deferred framework commits here (or rely on render-time
+   * detached-container filtering for adapters that don't need a flush).
+   *
+   * @param gridEl - Must match the element passed to the paired
+   *   {@link beginBatch} call.
+   *
+   * @since 2.14.0
+   */
+  endBatch?(gridEl?: HTMLElement): void;
+
+  /**
    * Unmount a specific framework container and free its resources.
    *
    * Called by the grid core (e.g., MasterDetailPlugin) when a container

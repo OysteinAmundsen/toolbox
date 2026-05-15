@@ -276,6 +276,10 @@ plugin.collapseAll();
 plugin.isExpanded('Engineering');    // boolean
 plugin.getExpandedGroups();          // string[]
 plugin.setGroupOn((row) => [row.region, row.department]);
+// Optionally pass an initial expansion that resolves against the *new* groups
+// (issue #335). Avoids the stale-snapshot race when chaining setGroupOn → expandAll.
+plugin.setGroupOn((row) => row.counterparty, true);
+plugin.setGroupOn((row) => row.region, ['EMEA', 'AMER']);
 plugin.refreshGroups();
 ```
 

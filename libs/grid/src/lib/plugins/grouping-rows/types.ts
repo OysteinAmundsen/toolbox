@@ -263,14 +263,16 @@ export type RenderRow = GroupRowModelItem | DataRowModelItem;
 /** Event detail for group toggle * @since 0.1.1
  */
 export interface GroupToggleDetail {
-  /** The group key that was toggled */
-  key: string;
-  /** Whether the group is now expanded */
-  expanded: boolean;
-  /** The group value */
-  value: any;
-  /** Depth level */
-  depth: number;
+  /** The group key that was toggled. Omitted for bulk operations
+   *  (`expandAll` / `collapseAll`) and when applying a deferred expansion
+   *  after `setGroupOn`. */
+  key?: string;
+  /** Whether the group is now expanded. Omitted for bulk operations. */
+  expanded?: boolean;
+  /** The group value. Omitted for bulk operations. */
+  value?: any;
+  /** Depth level. Omitted for bulk operations. */
+  depth?: number;
   /** All currently expanded keys after the operation */
   expandedKeys?: string[];
 }

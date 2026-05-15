@@ -609,9 +609,12 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     this.computeFlatMeta();
 
     // Notify subscribers when a deferred expansion has been applied so React/
-    // host code can mirror the new state without a follow-up call.
+    // host code can mirror the new state without a follow-up call. Use
+    // `broadcast` so DOM listeners (`grid.addEventListener('group-toggle')`)
+    // see the change too — matches the manifest contract for `group-toggle`
+    // and `toggle()`'s emit pattern.
     if (isPendingApply) {
-      this.emitPluginEvent('group-toggle', { expandedKeys: [...this.expandedKeys] });
+      this.broadcast<GroupToggleDetail>('group-toggle', { expandedKeys: [...this.expandedKeys] });
     }
 
     // Track which data rows are newly visible (for animation)
@@ -1168,7 +1171,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       return;
     }
     this.expandedKeys = expandAllGroups(this.flattenedRows);
-    this.emitPluginEvent('group-toggle', { expandedKeys: [...this.expandedKeys] });
+    this.broadcast<GroupToggleDetail>('group-toggle', { expandedKeys: [...this.expandedKeys] });
     this.requestRender();
   }
 
@@ -1187,7 +1190,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       return;
     }
     this.expandedKeys = collapseAllGroups();
-    this.emitPluginEvent('group-toggle', { expandedKeys: [...this.expandedKeys] });
+    this.broadcast<GroupToggleDetail>('group-toggle', { expandedKeys: [...this.expandedKeys] });
     this.requestRender();
   }
 

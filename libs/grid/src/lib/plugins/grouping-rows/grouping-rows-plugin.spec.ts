@@ -682,7 +682,7 @@ describe('GroupingRowsPlugin', () => {
           plugin.attach(grid);
           plugin.processRows(initialRows);
 
-          const emitSpy = vi.spyOn(plugin as any, 'emitPluginEvent');
+          const emitSpy = vi.spyOn(plugin as any, 'broadcast');
 
           plugin.setGroupOn((row: any) => row.counterparty);
           plugin.expandAll();

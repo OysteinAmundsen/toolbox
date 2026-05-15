@@ -469,4 +469,36 @@ describe('TooltipPlugin', () => {
     });
   });
   // #endregion
+
+  // #region Multi-line Content Tests
+  describe('multi-line content', () => {
+    it('should toggle tbw-tooltip-multiline class based on whether text contains newlines', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'note', headerTooltip: 'line1\nline2' },
+        { field: 'name', headerTooltip: 'single line' },
+      ];
+      grid = createMockGrid({ _visibleColumns: columns });
+      plugin = new TooltipPlugin();
+      plugin.attach(grid as any);
+
+      const multiCell = createHeaderCell('note', 0, 'Note', false);
+      const singleCell = createHeaderCell('name', 1, 'Name', false);
+      (grid as any)._root.appendChild(multiCell);
+      (grid as any)._root.appendChild(singleCell);
+
+      plugin.afterRender();
+
+      // Multi-line content adds the class
+      multiCell.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      const popover = getPopover()!;
+      expect(popover.textContent).toBe('line1\nline2');
+      expect(popover.classList.contains('tbw-tooltip-multiline')).toBe(true);
+
+      // Subsequent single-line content removes the class (no stale state)
+      singleCell.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      expect(popover.textContent).toBe('single line');
+      expect(popover.classList.contains('tbw-tooltip-multiline')).toBe(false);
+    });
+  });
+  // #endregion
 });

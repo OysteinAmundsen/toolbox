@@ -39,6 +39,7 @@ import {
 } from './grouping-rows';
 import styles from './grouping-rows.css?inline';
 import type {
+  DefaultExpandedValue,
   ExpandCollapseAnimation,
   GroupCollapseDetail,
   GroupDefinition,
@@ -235,6 +236,20 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
   private keysToAnimate = new Set<string>();
   /** Track if initial defaultExpanded has been applied */
   private hasAppliedDefaultExpanded = false;
+  /**
+   * Expansion override to apply on the next `processRows` rebuild instead of
+   * — or in addition to — `config.defaultExpanded`. Set by `setGroupOn(fn, expanded)`
+   * and by `expandAll()` / `collapseAll()` when the grouping config has just
+   * changed (so `flattenedRows` is stale). Cleared once consumed by a rebuild.
+   * See issue #335.
+   */
+  private pendingExpansion: DefaultExpandedValue | undefined;
+  /**
+   * Set by `setGroupOn` to mark the cached `flattenedRows` as stale until the
+   * next `processRows` runs. While true, `expandAll`/`collapseAll` defer via
+   * `pendingExpansion` instead of reading the stale snapshot. See issue #335.
+   */
+  private groupConfigDirty = false;
   /** Pre-defined group definitions (from config, setGroups(), or datasource:data) */
   private preDefinedGroups: GroupDefinition[] = [];
   /** Row data keyed by group key (from setGroupRows() or datasource:children) */
@@ -286,6 +301,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     this.previousVisibleKeys.clear();
     this.keysToAnimate.clear();
     this.hasAppliedDefaultExpanded = false;
+    this.pendingExpansion = undefined;
+    this.groupConfigDirty = false;
     this.preDefinedGroups = [];
     this.groupRowsMap.clear();
     this.loadingGroups.clear();
@@ -508,6 +525,13 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   /** @internal */
   override processRows(rows: readonly any[]): any[] {
+    // Snapshot + clear deferred-expansion state at the top so any early-return
+    // (no groupOn, empty rows, etc.) doesn't leave a stale `pendingExpansion`
+    // behind to be (mis-)applied to the next unrelated rebuild.
+    const pendingExpansion = this.pendingExpansion;
+    this.pendingExpansion = undefined;
+    this.groupConfigDirty = false;
+
     // Pre-defined groups path — use external group structure instead of groupOn analysis
     if (this.preDefinedGroups.length > 0 || Array.isArray(this.config.groups)) {
       if (this.preDefinedGroups.length > 0 || (Array.isArray(this.config.groups) && this.config.groups.length > 0)) {
@@ -544,14 +568,28 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       return [...rows];
     }
 
-    // Resolve defaultExpanded on first render only
-    let initialExpanded: Set<string> | undefined;
-    if (!this.hasAppliedDefaultExpanded && this.expandedKeys.size === 0 && config.defaultExpanded !== false) {
-      const allKeys = getGroupKeys(initialBuild);
-      initialExpanded = resolveDefaultExpanded(config.defaultExpanded ?? false, allKeys);
+    // Determine which expansion config to resolve against the *fresh* group
+    // keys. A pending value (from `setGroupOn(fn, expanded)` or a deferred
+    // `expandAll`/`collapseAll` after `setGroupOn`) takes priority and is
+    // applied unconditionally — including the empty case (collapseAll). Falls
+    // back to the first-render `defaultExpanded` resolution.
+    let expansionConfig: DefaultExpandedValue | undefined;
+    const isPendingApply = pendingExpansion !== undefined;
+    if (isPendingApply) {
+      expansionConfig = pendingExpansion;
+    } else if (!this.hasAppliedDefaultExpanded && this.expandedKeys.size === 0 && config.defaultExpanded !== false) {
+      expansionConfig = config.defaultExpanded ?? false;
+    }
 
-      // Mark as applied and populate expandedKeys for subsequent toggles
-      if (initialExpanded.size > 0) {
+    let initialExpanded: Set<string> | undefined;
+    if (expansionConfig !== undefined) {
+      const allKeys = getGroupKeys(initialBuild);
+      initialExpanded = resolveDefaultExpanded(expansionConfig, allKeys);
+      if (isPendingApply) {
+        // Pending overrides any stale keys — apply unconditionally.
+        this.expandedKeys = new Set(initialExpanded);
+        this.hasAppliedDefaultExpanded = true;
+      } else if (initialExpanded.size > 0) {
         this.expandedKeys = new Set(initialExpanded);
         this.hasAppliedDefaultExpanded = true;
       }
@@ -569,6 +607,12 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     this.isActive = true;
     this.flattenedRows = grouped;
     this.computeFlatMeta();
+
+    // Notify subscribers when a deferred expansion has been applied so React/
+    // host code can mirror the new state without a follow-up call.
+    if (isPendingApply) {
+      this.emitPluginEvent('group-toggle', { expandedKeys: [...this.expandedKeys] });
+    }
 
     // Track which data rows are newly visible (for animation)
     this.keysToAnimate.clear();
@@ -1106,8 +1150,23 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   /**
    * Expand all groups.
+   *
+   * Safe to call immediately after {@link setGroupOn}: when the grouping
+   * config has just changed, the cached `flattenedRows` is stale, so the
+   * call defers until the next render rebuilds the group model against the
+   * new `groupOn` (issue #335). The `group-toggle` event is emitted once
+   * the new keys are known.
    */
   expandAll(): void {
+    if (this.groupConfigDirty) {
+      // flattenedRows is stale — defer until processRows rebuilds it. Clear
+      // the cached set so callers don't observe stale keys via
+      // `getExpandedGroups()` between this call and the next render.
+      this.pendingExpansion = true;
+      this.expandedKeys = new Set();
+      this.requestRender();
+      return;
+    }
     this.expandedKeys = expandAllGroups(this.flattenedRows);
     this.emitPluginEvent('group-toggle', { expandedKeys: [...this.expandedKeys] });
     this.requestRender();
@@ -1115,8 +1174,18 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   /**
    * Collapse all groups.
+   *
+   * Safe to call immediately after {@link setGroupOn}: defers until the next
+   * render rebuilds the group model so the collapse targets the new groups
+   * rather than a stale snapshot (issue #335).
    */
   collapseAll(): void {
+    if (this.groupConfigDirty) {
+      this.pendingExpansion = false;
+      this.expandedKeys = new Set();
+      this.requestRender();
+      return;
+    }
     this.expandedKeys = collapseAllGroups();
     this.emitPluginEvent('group-toggle', { expandedKeys: [...this.expandedKeys] });
     this.requestRender();
@@ -1294,10 +1363,43 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   /**
    * Set the groupOn function dynamically.
+   *
+   * Optionally specify the initial expansion state to apply against the new
+   * group set. Without it, the previous `expandedKeys` are kept (and most
+   * likely won't match the new keys, so groups land collapsed). With it,
+   * the new groups are expanded synchronously on the next render — no need
+   * to chain `setGroupOn(fn); expandAll()` or wait for `requestAnimationFrame`.
+   *
+   * If you do call `expandAll()` / `collapseAll()` separately right after
+   * `setGroupOn`, those calls automatically defer to the same mechanism so
+   * they target the new groups rather than the stale snapshot. See issue #335.
+   *
    * @param fn - The groupOn function or undefined to disable
+   * @param expanded - Optional initial expansion for the new grouping:
+   *   - `true`: expand all new groups
+   *   - `false`: collapse all new groups
+   *   - `string` / `string[]`: expand specific group key(s)
+   *   - `number`: expand the group at this index
+   *   When omitted, existing `expandedKeys` are preserved (legacy behavior).
+   *
+   * @example Group by a new field and expand everything
+   * ```ts
+   * plugin.setGroupOn((row) => row.counterparty, true);
+   * ```
+   *
+   * @example Group by a new field but keep all groups collapsed
+   * ```ts
+   * plugin.setGroupOn((row) => row.region, false);
+   * ```
    */
-  setGroupOn(fn: ((row: any) => any[] | any | null | false) | undefined): void {
+  setGroupOn(fn: ((row: any) => any[] | any | null | false) | undefined, expanded?: DefaultExpandedValue): void {
     (this.config as GroupingRowsConfig).groupOn = fn;
+    this.groupConfigDirty = true;
+    if (expanded !== undefined) {
+      this.pendingExpansion = expanded;
+      this.expandedKeys = new Set();
+      this.hasAppliedDefaultExpanded = false;
+    }
     this.requestRender();
   }
 

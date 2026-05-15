@@ -137,6 +137,18 @@ const active = grouping.isGroupingActive();
 // Set groupOn dynamically
 grouping.setGroupOn((row) => row.category);
 
+// Set groupOn and immediately expand all new groups (issue #335).
+// The optional second argument resolves against the *new* group set
+// once the next render rebuilds the grouping.
+grouping.setGroupOn((row) => row.counterparty, true);
+// Or expand specific keys:
+grouping.setGroupOn((row) => row.region, ['EMEA', 'AMER']);
+
+// expandAll()/collapseAll() called immediately after setGroupOn(fn)
+// also defer automatically, so this works as expected:
+grouping.setGroupOn((row) => row.region);
+grouping.expandAll();
+
 // Refresh grouped row model
 grouping.refreshGroups();
 ```

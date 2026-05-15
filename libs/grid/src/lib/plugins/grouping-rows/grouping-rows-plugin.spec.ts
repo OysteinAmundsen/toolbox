@@ -589,6 +589,116 @@ describe('GroupingRowsPlugin', () => {
 
         expect(plugin.isGroupingActive()).toBe(false);
       });
+
+      // Regression coverage for issue #335: changing the grouping function then
+      // immediately calling expandAll() expanded the *previous* group keys
+      // because flattenedRows was still stale.
+      describe('issue #335 — regroup + expand-all', () => {
+        const initialRows = [
+          { id: 1, type: 'PURCHASE', counterparty: 'IC 120000' },
+          { id: 2, type: 'PURCHASE', counterparty: 'INT E&P' },
+          { id: 3, type: 'SALE', counterparty: 'IC 802900' },
+          { id: 4, type: 'SALE', counterparty: 'UNIPECGB' },
+        ];
+
+        it('expands the new groups when expandAll() is called right after setGroupOn(fn)', () => {
+          const plugin = new GroupingRowsPlugin({
+            groupOn: (row: any) => row.type,
+            defaultExpanded: true,
+          });
+          const grid = createMockGrid({ rows: initialRows });
+          plugin.attach(grid);
+          plugin.processRows(initialRows);
+
+          // Sanity: initial grouping is by `type`, both expanded.
+          expect(plugin.getExpandedGroups().sort()).toEqual(['PURCHASE', 'SALE']);
+
+          // Switch grouping and immediately ask to expand all — the bug repro.
+          plugin.setGroupOn((row: any) => row.counterparty);
+          plugin.expandAll();
+
+          // expandAll must NOT have populated stale keys.
+          expect(plugin.getExpandedGroups()).not.toContain('PURCHASE');
+          expect(plugin.getExpandedGroups()).not.toContain('SALE');
+
+          // Next render rebuilds against the new groupOn and resolves the
+          // pending expansion against the fresh keys.
+          plugin.processRows(initialRows);
+
+          expect(plugin.getExpandedGroups().sort()).toEqual(['IC 120000', 'IC 802900', 'INT E&P', 'UNIPECGB']);
+        });
+
+        it('accepts an explicit expansion as the second argument to setGroupOn', () => {
+          const plugin = new GroupingRowsPlugin({
+            groupOn: (row: any) => row.type,
+            defaultExpanded: true,
+          });
+          const grid = createMockGrid({ rows: initialRows });
+          plugin.attach(grid);
+          plugin.processRows(initialRows);
+
+          plugin.setGroupOn((row: any) => row.counterparty, true);
+          plugin.processRows(initialRows);
+
+          expect(plugin.getExpandedGroups().sort()).toEqual(['IC 120000', 'IC 802900', 'INT E&P', 'UNIPECGB']);
+        });
+
+        it('accepts an explicit list of keys as the second argument', () => {
+          const plugin = new GroupingRowsPlugin({
+            groupOn: (row: any) => row.type,
+            defaultExpanded: true,
+          });
+          const grid = createMockGrid({ rows: initialRows });
+          plugin.attach(grid);
+          plugin.processRows(initialRows);
+
+          plugin.setGroupOn((row: any) => row.counterparty, ['UNIPECGB']);
+          plugin.processRows(initialRows);
+
+          expect(plugin.getExpandedGroups()).toEqual(['UNIPECGB']);
+        });
+
+        it('collapseAll() called right after setGroupOn(fn) collapses the new groups', () => {
+          const plugin = new GroupingRowsPlugin({
+            groupOn: (row: any) => row.type,
+            defaultExpanded: true,
+          });
+          const grid = createMockGrid({ rows: initialRows });
+          plugin.attach(grid);
+          plugin.processRows(initialRows);
+
+          plugin.setGroupOn((row: any) => row.counterparty);
+          plugin.collapseAll();
+          plugin.processRows(initialRows);
+
+          expect(plugin.getExpandedGroups()).toEqual([]);
+        });
+
+        it('emits group-toggle once the deferred expansion has been applied', () => {
+          const plugin = new GroupingRowsPlugin({
+            groupOn: (row: any) => row.type,
+          });
+          const grid = createMockGrid({ rows: initialRows });
+          plugin.attach(grid);
+          plugin.processRows(initialRows);
+
+          const emitSpy = vi.spyOn(plugin as any, 'emitPluginEvent');
+
+          plugin.setGroupOn((row: any) => row.counterparty);
+          plugin.expandAll();
+          // No event yet — flattenedRows was stale, so the call was deferred.
+          expect(emitSpy).not.toHaveBeenCalled();
+
+          plugin.processRows(initialRows);
+
+          expect(emitSpy).toHaveBeenCalledWith(
+            'group-toggle',
+            expect.objectContaining({
+              expandedKeys: expect.arrayContaining(['IC 120000', 'IC 802900', 'INT E&P', 'UNIPECGB']),
+            }),
+          );
+        });
+      });
     });
   });
 

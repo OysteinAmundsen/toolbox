@@ -185,4 +185,82 @@ describe('DataGridElement', () => {
       expect(grid.sourceRows).toEqual([]);
     });
   });
+
+  // #region _clearRowPool batching (#330)
+
+  describe('_clearRowPool batching', () => {
+    /**
+     * Verifies that `_clearRowPool` brackets the per-cell `releaseCell`
+     * loop in `adapter.beginBatch` / `endBatch`. Without this, framework
+     * adapters that synchronously commit teardown per cell (React's
+     * `flushSync`) emit one warning per cell during full rebuilds.
+     */
+    it('wraps releases in adapter.beginBatch / endBatch', () => {
+      const calls: string[] = [];
+      const grid = document.createElement('tbw-grid') as DataGridElement;
+      document.body.appendChild(grid);
+      grid._bodyEl = document.createElement('div') as HTMLElement;
+
+      // Manually populate the row pool with rows whose cells contain
+      // adapter-managed children so `releaseCell` is invoked.
+      const rowEl = document.createElement('div');
+      for (let i = 0; i < 3; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.innerHTML = '<div class="react-cell-renderer"></div>';
+        rowEl.appendChild(cell);
+      }
+      grid._rowPool = [rowEl];
+
+      grid.__frameworkAdapter = {
+        canHandle: () => false,
+        createRenderer: () => () => null,
+        createEditor: () => () => document.createElement('input'),
+        releaseCell: () => calls.push('release'),
+        beginBatch: () => calls.push('begin'),
+        endBatch: () => calls.push('end'),
+      };
+
+      grid._clearRowPool();
+
+      expect(calls[0]).toBe('begin');
+      expect(calls[calls.length - 1]).toBe('end');
+      expect(calls.filter((c) => c === 'release').length).toBe(3);
+      expect(calls.filter((c) => c === 'begin').length).toBe(1);
+      expect(calls.filter((c) => c === 'end').length).toBe(1);
+      expect(grid._rowPool.length).toBe(0);
+    });
+
+    it('still calls endBatch in finally when releaseCell throws', () => {
+      const order: string[] = [];
+      const grid = document.createElement('tbw-grid') as DataGridElement;
+      document.body.appendChild(grid);
+      grid._bodyEl = document.createElement('div') as HTMLElement;
+
+      const rowEl = document.createElement('div');
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.innerHTML = '<div class="react-cell-renderer"></div>';
+      rowEl.appendChild(cell);
+      grid._rowPool = [rowEl];
+
+      grid.__frameworkAdapter = {
+        canHandle: () => false,
+        createRenderer: () => () => null,
+        createEditor: () => () => document.createElement('input'),
+        releaseCell: () => {
+          order.push('release');
+          throw new Error('boom');
+        },
+        beginBatch: () => order.push('begin'),
+        endBatch: () => order.push('end'),
+      };
+
+      expect(() => grid._clearRowPool()).toThrow('boom');
+      expect(order[0]).toBe('begin');
+      expect(order[order.length - 1]).toBe('end');
+    });
+  });
+
+  // #endregion
 });

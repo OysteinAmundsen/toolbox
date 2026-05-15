@@ -87,8 +87,37 @@ export interface PortalManagerHandle {
    *   so the caller can safely mutate the container DOM immediately after.
    *   Use this in cleanup callbacks that precede external DOM clearing
    *   (e.g., tool panel accordion collapse sets `innerHTML = ''`).
+   *   While a batch is open via {@link beginBatch}, the sync flush is
+   *   suppressed and the deletion rides the batch's deferred render —
+   *   the caller is then responsible for ensuring the affected container
+   *   is detached before {@link endBatch} runs.
    */
   removePortal(key: string, sync?: boolean): void;
+
+  /**
+   * Open a teardown batch. While open, sync portal removals do NOT trigger
+   * `flushSync` per call. Multiple bulk-cleanup paths (`_clearRowPool`,
+   * row-pool shrink, row rebuild) can release N portals without emitting
+   * N `flushSync was called from inside a lifecycle method` warnings.
+   *
+   * Calls nest; only the outermost {@link endBatch} schedules the flush.
+   *
+   * Caller MUST detach every affected container from the DOM before
+   * `endBatch()` runs — otherwise the deferred render commits an unmount
+   * against a container whose children were already wiped, reproducing
+   * the original `removeChild` `NotFoundError` that issue #250 fixed.
+   * Bulk paths in grid core (`_clearRowPool`, pool-shrink, `renderInlineRow`)
+   * satisfy this naturally because they wipe the parent (`bodyEl.innerHTML = ''`,
+   * `el.remove()`, `rowEl.innerHTML = ''`) AFTER the per-cell release loop.
+   */
+  beginBatch(): void;
+
+  /**
+   * Close a teardown batch. When the depth returns to zero, schedules a
+   * single render so the manager's render-time `isConnected` filter drops
+   * any portals whose containers are now detached. No `flushSync` is used.
+   */
+  endBatch(): void;
 
   /** Remove all portals. */
   clear(): void;
@@ -111,6 +140,14 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
   const [, forceRender] = useReducer((c: number) => c + 1, 0);
   const batchPendingRef = useRef(false);
   const pruneTimerRef = useRef(0);
+  /**
+   * Depth counter for `beginBatch` / `endBatch`. While > 0, sync removals
+   * skip `flushSync` and the deletion rides a deferred render scheduled
+   * by the outermost `endBatch`.
+   */
+  const batchDepthRef = useRef(0);
+  /** Set when at least one removal occurred during the current batch. */
+  const batchDirtyRef = useRef(false);
 
   /**
    * Schedule a single `flushSync` to commit all pending portal changes.
@@ -180,7 +217,15 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
 
       removePortal(key: string, sync?: boolean) {
         if (portalsRef.current.delete(key)) {
-          if (sync) {
+          if (batchDepthRef.current > 0) {
+            // Inside a teardown batch — defer the framework commit. The
+            // caller has promised to detach the affected container before
+            // `endBatch()` runs, so the next render's `isConnected` filter
+            // will silently drop the entry without committing an unmount.
+            // This is what eliminates the per-cell `flushSync` warnings
+            // during bulk operations like grouping changes (#330).
+            batchDirtyRef.current = true;
+          } else if (sync) {
             // Synchronous removal — caller is about to clear the container
             // DOM immediately (e.g., accordion collapse via innerHTML = '').
             // React must fully unmount portal content before that happens.
@@ -188,6 +233,28 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
           } else {
             scheduleFlush();
           }
+        }
+      },
+
+      beginBatch() {
+        batchDepthRef.current++;
+      },
+
+      endBatch() {
+        if (batchDepthRef.current === 0) return;
+        batchDepthRef.current--;
+        if (batchDepthRef.current === 0 && batchDirtyRef.current) {
+          batchDirtyRef.current = false;
+          // Plain forceRender (NOT flushSync). React batches with the
+          // surrounding event/lifecycle, the next render runs the
+          // `isConnected` filter against now-detached containers, and no
+          // commit deletion is needed for them. No rAF prune chaser
+          // needed — the caller has already detached every affected
+          // container before invoking `endBatch`, so this single render
+          // is sufficient (unlike `scheduleFlush`, which fires after
+          // arbitrary mutations and pairs with a frame-later prune to
+          // catch containers detached between flush and frame).
+          forceRender();
         }
       },
 

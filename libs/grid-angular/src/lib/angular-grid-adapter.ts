@@ -993,6 +993,25 @@ export class GridAdapter implements FrameworkAdapter {
   }
 
   /**
+   * Open a teardown batch. No-op for the Angular adapter — `viewRef.destroy()`
+   * and `componentRef.destroy()` are synchronous DOM operations with no
+   * deferred-commit warning analogous to React's `flushSync`. Implemented
+   * for {@link FrameworkAdapter} parity so grid core's bulk-teardown
+   * wrappers work uniformly across adapters.
+   */
+  beginBatch(_gridEl?: HTMLElement): void {
+    // intentionally empty
+  }
+
+  /**
+   * Close a teardown batch opened by {@link beginBatch}. No-op for Angular —
+   * see {@link beginBatch}.
+   */
+  endBatch(_gridEl?: HTMLElement): void {
+    // intentionally empty
+  }
+
+  /**
    * Unmount a specific container (e.g., detail panel, tool panel).
    * Finds the matching view or component ref whose DOM nodes are inside
    * the container and properly destroys it to prevent memory leaks.

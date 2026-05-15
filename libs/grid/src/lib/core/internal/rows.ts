@@ -198,21 +198,30 @@ export function renderVisibleRows(
   // (React portals, Vue teleports, Angular EmbeddedViewRefs) can unmount
   // cleanly. Skipping this leaves portals tracked against detached
   // containers, causing `removeChild` crashes on the next commit (#250).
+  //
+  // Wrap in adapter.beginBatch / endBatch — once each row is `el.remove()`'d
+  // its cells are detached, so adapters can defer per-cell sync commits to
+  // a single render at the end (#330).
   if (grid._rowPool.length > needed) {
     const adapter = grid.__frameworkAdapter;
     const release = adapter?.releaseCell;
-    for (let i = needed; i < grid._rowPool.length; i++) {
-      const el = grid._rowPool[i];
-      if (release) {
-        const cells = el.children;
-        for (let c = 0; c < cells.length; c++) {
-          const cell = cells[c] as HTMLElement;
-          if (cell.firstElementChild) release.call(adapter, cell);
+    adapter?.beginBatch?.(grid);
+    try {
+      for (let i = needed; i < grid._rowPool.length; i++) {
+        const el = grid._rowPool[i];
+        if (release) {
+          const cells = el.children;
+          for (let c = 0; c < cells.length; c++) {
+            const cell = cells[c] as HTMLElement;
+            if (cell.firstElementChild) release.call(adapter, cell);
+          }
         }
+        if (el.parentNode === bodyEl) el.remove();
       }
-      if (el.parentNode === bodyEl) el.remove();
+      grid._rowPool.length = needed;
+    } finally {
+      adapter?.endBatch?.(grid);
     }
-    grid._rowPool.length = needed;
   }
 
   // Check if any plugin has a renderRow hook (cache this)
@@ -767,15 +776,25 @@ export function renderInlineRow(grid: GridHost, rowEl: HTMLElement, rowData: any
   // Without this, Angular EmbeddedViewRefs / React roots / Vue apps created by
   // editor factories would remain alive in the adapter's tracking arrays even
   // after their DOM is destroyed, leaking memory on every edit cycle.
+  //
+  // Wrap in adapter.beginBatch / endBatch — `rowEl.innerHTML = ''` below
+  // detaches every cell as a group, so adapters can defer per-cell sync
+  // commits to a single render once detachment is complete (#330).
   const adapter = grid.__frameworkAdapter;
   if (adapter?.releaseCell) {
-    const children = rowEl.children;
-    for (let i = children.length - 1; i >= 0; i--) {
-      adapter.releaseCell(children[i] as HTMLElement);
+    adapter.beginBatch?.(grid);
+    try {
+      const children = rowEl.children;
+      for (let i = children.length - 1; i >= 0; i--) {
+        adapter.releaseCell(children[i] as HTMLElement);
+      }
+      rowEl.innerHTML = '';
+    } finally {
+      adapter.endBatch?.(grid);
     }
+  } else {
+    rowEl.innerHTML = '';
   }
-
-  rowEl.innerHTML = '';
 
   // Pre-cache values used in the loop
   const columns = grid._visibleColumns;

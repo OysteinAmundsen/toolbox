@@ -951,6 +951,119 @@ describe('releaseCell lifecycle', () => {
     const calledCells = releaseSpy.mock.calls.map((c: any[]) => c[0] as HTMLElement);
     expect(calledCells.some((el: HTMLElement) => el.getAttribute('data-field') === 'name')).toBe(true);
   });
+
+  // #region beginBatch / endBatch wrapping (#330)
+
+  it('wraps row-pool shrink releases in adapter.beginBatch / endBatch (#330)', () => {
+    const calls: string[] = [];
+    const g = makeGrid();
+    // Use text-only columns so untouched cells have no `firstElementChild`
+    // and only the cells we inject below trigger `releaseCell` — keeps the
+    // assertion focused on the pool-shrink batch.
+    g._columns = [{ field: 'id' }, { field: 'name' }];
+    g.__frameworkAdapter = {
+      canHandle: () => false,
+      createRenderer: () => () => null,
+      createEditor: () => () => document.createElement('input'),
+      releaseCell: () => calls.push('release'),
+      beginBatch: () => calls.push('begin'),
+      endBatch: () => calls.push('end'),
+    };
+
+    // Populate pool with 2 rows and inject adapter-managed children so
+    // releaseCell is actually invoked during the shrink.
+    renderVisibleRows(g, 0, 2, 1);
+    for (const cell of Array.from((g._rowPool[1] as HTMLElement).children)) {
+      cell.innerHTML = '<div class="react-cell-renderer"></div>';
+    }
+    calls.length = 0;
+
+    // Shrink to 1 row — pool element[1] is detached after per-cell release.
+    renderVisibleRows(g, 0, 1, 1);
+
+    expect(calls[0]).toBe('begin');
+    expect(calls[calls.length - 1]).toBe('end');
+    expect(calls.filter((c) => c === 'release').length).toBeGreaterThan(0);
+    // Exactly one batch around the shrink (no nested re-entry).
+    expect(calls.filter((c) => c === 'begin').length).toBe(1);
+    expect(calls.filter((c) => c === 'end').length).toBe(1);
+  });
+
+  it('still calls endBatch in finally when releaseCell throws during pool shrink (#330)', () => {
+    const order: string[] = [];
+    const g = makeGrid();
+    g._columns = [{ field: 'id' }, { field: 'name' }];
+    g.__frameworkAdapter = {
+      canHandle: () => false,
+      createRenderer: () => () => null,
+      createEditor: () => () => document.createElement('input'),
+      releaseCell: () => {
+        order.push('release');
+        throw new Error('boom');
+      },
+      beginBatch: () => order.push('begin'),
+      endBatch: () => order.push('end'),
+    };
+
+    renderVisibleRows(g, 0, 2, 1);
+    for (const cell of Array.from((g._rowPool[1] as HTMLElement).children)) {
+      cell.innerHTML = '<div class="react-cell-renderer"></div>';
+    }
+    order.length = 0;
+
+    expect(() => renderVisibleRows(g, 0, 1, 1)).toThrow('boom');
+    expect(order[0]).toBe('begin');
+    expect(order[order.length - 1]).toBe('end');
+  });
+
+  it('wraps renderInlineRow releases in adapter.beginBatch / endBatch (#330)', () => {
+    const calls: string[] = [];
+    const g = makeGrid();
+    g.__frameworkAdapter = {
+      canHandle: () => false,
+      createRenderer: () => () => null,
+      createEditor: () => () => document.createElement('input'),
+      releaseCell: () => calls.push('release'),
+      beginBatch: () => calls.push('begin'),
+      endBatch: () => calls.push('end'),
+    };
+
+    renderVisibleRows(g, 0, 1, 1);
+    calls.length = 0;
+
+    // Bumping the epoch triggers a full rebuild → renderInlineRow,
+    // which wipes rowEl.innerHTML after a per-cell release loop.
+    renderVisibleRows(g, 0, 1, 2);
+
+    expect(calls[0]).toBe('begin');
+    expect(calls[calls.length - 1]).toBe('end');
+    expect(calls.filter((c) => c === 'release').length).toBeGreaterThan(0);
+  });
+
+  it('still calls endBatch in finally when releaseCell throws during renderInlineRow (#330)', () => {
+    const order: string[] = [];
+    const g = makeGrid();
+    g.__frameworkAdapter = {
+      canHandle: () => false,
+      createRenderer: () => () => null,
+      createEditor: () => () => document.createElement('input'),
+      releaseCell: () => {
+        order.push('release');
+        throw new Error('boom');
+      },
+      beginBatch: () => order.push('begin'),
+      endBatch: () => order.push('end'),
+    };
+
+    renderVisibleRows(g, 0, 1, 1);
+    order.length = 0;
+
+    expect(() => renderVisibleRows(g, 0, 1, 2)).toThrow('boom');
+    expect(order[0]).toBe('begin');
+    expect(order[order.length - 1]).toBe('end');
+  });
+
+  // #endregion
 });
 // #endregion
 

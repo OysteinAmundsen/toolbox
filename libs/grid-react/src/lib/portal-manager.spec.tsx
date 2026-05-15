@@ -627,6 +627,75 @@ describe('PortalManager', () => {
 
       act(() => root.unmount());
     });
+
+    it('handles subtree unmount via conditional render inside a still-mounted root', async () => {
+      // PR #334 review: the other tests in this block use `root.unmount()`,
+      // which is a stronger teardown than the #332 scenario (a route /
+      // view toggle in a still-mounted host tree). This test reproduces
+      // the real shape: a conditional render removes `<PortalManager />`
+      // while the host root and a wrapping context provider stay mounted.
+      // A `renderPortal` call queues a microtask flush, then the parent
+      // re-renders with the manager removed. The microtask must NOT
+      // re-enter `createPortal` against the unmounted manager's stale
+      // portal entries.
+      const TestContext = createContext('host-value');
+
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      const root = createRoot(container);
+
+      let resolvedHandle: PortalManagerHandle | null = null;
+      let setShow: ((v: boolean) => void) | null = null;
+
+      let renderCount = 0;
+      const Tracked = () => {
+        // Reads context — would throw "No QueryClient set"-style errors
+        // if it ever rendered against a torn-down provider chain.
+        useContext(TestContext);
+        renderCount++;
+        return React.createElement('span', null, 'x');
+      };
+
+      function Host() {
+        const [show, setShowState] = React.useState(true);
+        setShow = setShowState;
+        const ref = useRef<PortalManagerHandle>(null);
+        React.useEffect(() => {
+          resolvedHandle = ref.current;
+        });
+        return React.createElement(
+          TestContext.Provider,
+          { value: 'host-value' },
+          show ? <PortalManager ref={ref} /> : null,
+        );
+      }
+
+      act(() => {
+        root.render(<Host />);
+      });
+
+      const target = document.createElement('div');
+      document.body.appendChild(target);
+
+      // Queue a render — microtask is pending.
+      resolvedHandle!.renderPortal('subtree', target, React.createElement(Tracked));
+
+      // Conditionally remove the manager from the still-mounted root.
+      // With useLayoutEffect cleanup, the guard is set during the commit
+      // phase before the microtask drains.
+      act(() => {
+        setShow!(false);
+      });
+
+      // Drain the queued microtask. Should be a no-op.
+      await act(async () => {
+        await flushMicrotasks();
+      });
+
+      expect(renderCount).toBe(0);
+
+      act(() => root.unmount());
+    });
   });
 
   // #endregion

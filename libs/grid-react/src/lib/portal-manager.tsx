@@ -15,7 +15,7 @@
  * @internal
  */
 
-import { Component, forwardRef, useEffect, useImperativeHandle, useReducer, useRef, type ReactNode } from 'react';
+import { Component, forwardRef, useImperativeHandle, useLayoutEffect, useReducer, useRef, type ReactNode } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 
 // #region Per-portal error boundary
@@ -317,7 +317,15 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
    * (`useQuery`, `useAppModule`, `useTranslation`, …) then throws an
    * uncaught exception, one per visible row × per React-renderer column.
    *
-   * The cleanup runs synchronously during React's unmount phase. It:
+   * `useLayoutEffect` (NOT `useEffect`) is required: layout-effect cleanups
+   * run **synchronously during the commit phase**, before the browser
+   * yields to the next task / microtask drain. Passive `useEffect` cleanups
+   * are deferred until after the commit, which leaves a window where a
+   * `queueMicrotask`-scheduled `flushSync(forceRender)` can still run
+   * against a half-torn-down tree before `unmountedRef` is set. The
+   * layout-effect timing closes that window. Issue #332, PR #334 review.
+   *
+   * The cleanup:
    *   1. Sets `unmountedRef` so any pending or future imperative call
    *      becomes a no-op.
    *   2. Cancels the pending rAF prune to avoid a stray late render.
@@ -328,7 +336,7 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
    * unmounting this component, and the children (the portals we just
    * dropped) will be unmounted in the same commit.
    */
-  useEffect(() => {
+  useLayoutEffect(() => {
     // Re-arm on every mount. React 18+ `<StrictMode>` runs the
     // mount → cleanup → mount cycle in dev to surface effect bugs;
     // refs are preserved across that simulated remount, so without

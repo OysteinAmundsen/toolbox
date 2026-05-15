@@ -15,7 +15,7 @@
  * @internal
  */
 
-import { Component, forwardRef, useImperativeHandle, useReducer, useRef, type ReactNode } from 'react';
+import { Component, forwardRef, useEffect, useImperativeHandle, useReducer, useRef, type ReactNode } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 
 // #region Per-portal error boundary
@@ -148,6 +148,20 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
   const batchDepthRef = useRef(0);
   /** Set when at least one removal occurred during the current batch. */
   const batchDirtyRef = useRef(false);
+  /**
+   * Set in the unmount cleanup. Once true, all imperative mutations
+   * (`renderPortal` / `removePortal` / `clear`) become no-ops and any
+   * pending microtask / rAF flush short-circuits. WHY: when the host
+   * React tree unmounts (route change, view toggle, conditional removal
+   * of `<DataGrid>`), the grid's render scheduler may still emit one
+   * more cell render pass via `queueMicrotask` AFTER React has begun
+   * tearing down the surrounding providers. Without this guard,
+   * `flushSync(forceRender)` from the pending microtask would re-enter
+   * `createPortal(...)` against torn-down providers — every cell whose
+   * subtree calls a hook (`useQuery`, `useAppModule`, `useTranslation`,
+   * `useContext(...)`) then throws an uncaught exception. Issue #332.
+   */
+  const unmountedRef = useRef(false);
 
   /**
    * Schedule a single `flushSync` to commit all pending portal changes.
@@ -160,6 +174,12 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
       batchPendingRef.current = true;
       queueMicrotask(() => {
         batchPendingRef.current = false;
+        // Host tree may have unmounted between scheduling and now.
+        // Skip the flush — React is already tearing down PortalManager
+        // and its portal children in the same commit; running
+        // `flushSync(forceRender)` here would re-enter `createPortal`
+        // against torn-down providers. Issue #332.
+        if (unmountedRef.current) return;
         flushSync(forceRender);
         schedulePrune();
       });
@@ -190,6 +210,7 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
     if (pruneTimerRef.current) return;
     pruneTimerRef.current = requestAnimationFrame(() => {
       pruneTimerRef.current = 0;
+      if (unmountedRef.current) return;
       // Render-time filter handles the actual prune; just trigger a render.
       forceRender();
     });
@@ -211,11 +232,18 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
     ref,
     () => ({
       renderPortal(key: string, container: HTMLElement, element: ReactNode) {
+        if (unmountedRef.current) return;
         portalsRef.current.set(key, { container, element });
         scheduleFlush();
       },
 
       removePortal(key: string, sync?: boolean) {
+        if (unmountedRef.current) {
+          // Manager already torn down — entries were cleared in cleanup.
+          // Just drop any stragglers without triggering a commit.
+          portalsRef.current.delete(key);
+          return;
+        }
         if (portalsRef.current.delete(key)) {
           if (batchDepthRef.current > 0) {
             // Inside a teardown batch — defer the framework commit. The
@@ -259,6 +287,10 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
       },
 
       clear() {
+        if (unmountedRef.current) {
+          portalsRef.current.clear();
+          return;
+        }
         if (portalsRef.current.size > 0) {
           portalsRef.current.clear();
           if (pruneTimerRef.current) {
@@ -273,6 +305,50 @@ export const PortalManager = forwardRef<PortalManagerHandle>(function PortalMana
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
+
+  /**
+   * Host-tree unmount cleanup. WHY: see `unmountedRef` declaration above
+   * and issue #332. When the host React tree containing `<DataGrid>` is
+   * removed (route change, view toggle, conditional render), React tears
+   * down `PortalManager` along with everything else. Without this effect,
+   * pending microtask (`scheduleFlush`) and rAF (`schedulePrune`) callbacks
+   * fire AFTER unmount and re-enter `createPortal(...)` against providers
+   * that no longer exist — every cell whose subtree calls a context hook
+   * (`useQuery`, `useAppModule`, `useTranslation`, …) then throws an
+   * uncaught exception, one per visible row × per React-renderer column.
+   *
+   * The cleanup runs synchronously during React's unmount phase. It:
+   *   1. Sets `unmountedRef` so any pending or future imperative call
+   *      becomes a no-op.
+   *   2. Cancels the pending rAF prune to avoid a stray late render.
+   *   3. Clears `portalsRef` so the portal subtrees are dropped from
+   *      React's tree alongside the manager itself — no orphan commits.
+   *
+   * No `forceRender` is needed: React is already in the middle of
+   * unmounting this component, and the children (the portals we just
+   * dropped) will be unmounted in the same commit.
+   */
+  useEffect(() => {
+    // Re-arm on every mount. React 18+ `<StrictMode>` runs the
+    // mount → cleanup → mount cycle in dev to surface effect bugs;
+    // refs are preserved across that simulated remount, so without
+    // this reset the second mount would start with `unmountedRef.current
+    // === true` (set by the previous cleanup) and every imperative
+    // method would become a permanent no-op.
+    unmountedRef.current = false;
+    // Snapshot the portal map ref so the cleanup uses the same Map
+    // instance the effect captured (silences react-hooks/exhaustive-deps;
+    // `portalsRef.current` is in fact stable for the component lifetime).
+    const portals = portalsRef.current;
+    return () => {
+      unmountedRef.current = true;
+      if (pruneTimerRef.current) {
+        cancelAnimationFrame(pruneTimerRef.current);
+        pruneTimerRef.current = 0;
+      }
+      portals.clear();
+    };
+  }, []);
 
   const portals: ReactNode[] = [];
   // Render-time short-circuit: skip portals whose container has been

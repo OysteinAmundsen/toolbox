@@ -29,6 +29,8 @@ function createMockManager(): PortalManagerHandle {
   return {
     renderPortal: vi.fn(),
     removePortal: vi.fn(),
+    beginBatch: vi.fn(),
+    endBatch: vi.fn(),
     clear: vi.fn(),
   };
 }

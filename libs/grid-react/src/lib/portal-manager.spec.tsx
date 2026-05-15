@@ -463,11 +463,28 @@ describe('PortalManager', () => {
       const b = document.createElement('div');
       document.body.append(a, b);
 
+      // Track unmounts via a useEffect cleanup. Each portal commit that
+      // unmounts the subtree increments the counter — this is the
+      // observable proxy for "did the manager flush?".
+      let unmountCount = 0;
+      const Tracked = ({ id }: { id: string }) => {
+        React.useEffect(
+          () => () => {
+            unmountCount++;
+          },
+          [],
+        );
+        return React.createElement('span', null, id);
+      };
+
       await act(async () => {
-        handle.renderPortal('a', a, React.createElement('span', null, 'A'));
-        handle.renderPortal('b', b, React.createElement('span', null, 'B'));
+        handle.renderPortal('a', a, React.createElement(Tracked, { id: 'A' }));
+        handle.renderPortal('b', b, React.createElement(Tracked, { id: 'B' }));
         await flushMicrotasks();
       });
+      expect(a.textContent).toBe('A');
+      expect(b.textContent).toBe('B');
+      expect(unmountCount).toBe(0);
 
       await act(async () => {
         handle.beginBatch();
@@ -475,18 +492,21 @@ describe('PortalManager', () => {
         handle.removePortal('a', true);
         a.remove();
         handle.endBatch(); // inner — must NOT flush yet
-        // 'a' is still pruned from map, but no flushSync has been issued.
+        // Depth is still 1: no commit has happened, so the 'a' subtree's
+        // useEffect cleanup has NOT run. If a regression made every
+        // endBatch flush (instead of only the outermost), this would be 1.
+        expect(unmountCount).toBe(0);
+
         handle.removePortal('b', true);
         b.remove();
         handle.endBatch(); // outer — flushes once
         await flushMicrotasks();
       });
 
-      // No assertion needed beyond "no warnings + no exception"; the
-      // suppress-warnings test above covers the observable behaviour.
-      // Nesting is exercised here so a future regression in the depth
-      // counter (e.g. flushing at every endBatch) trips a different
-      // failure mode.
+      // Outer endBatch triggered the single deferred render; both
+      // detached subtrees are committed-out, so both cleanups ran.
+      expect(unmountCount).toBe(2);
+
       unmount();
     });
   });

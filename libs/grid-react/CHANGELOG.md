@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.6.0...grid-react-1.6.1) (2026-05-15)
+
+
+### Bug Fixes
+
+* **grid-react:** batch portal teardown to silence flushSync warnings ([#330](https://github.com/OysteinAmundsen/toolbox/issues/330)) ([#333](https://github.com/OysteinAmundsen/toolbox/issues/333)) ([b6b586a](https://github.com/OysteinAmundsen/toolbox/commit/b6b586a227ba39f111edc2a930cda94233046c2a))
+* **grid-react:** drop pending portal flushes on host-tree unmount ([#332](https://github.com/OysteinAmundsen/toolbox/issues/332)) ([#334](https://github.com/OysteinAmundsen/toolbox/issues/334)) ([b5e2d45](https://github.com/OysteinAmundsen/toolbox/commit/b5e2d4576a56eeb18030bd310674ca90c8f52a8e))
+
 ## [1.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.5.2...grid-react-1.6.0) (2026-05-13)
 
 

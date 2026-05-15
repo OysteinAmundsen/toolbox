@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.13.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.13.0...grid-2.13.1) (2026-05-15)
+
+
+### Bug Fixes
+
+* **grid-react:** batch portal teardown to silence flushSync warnings ([#330](https://github.com/OysteinAmundsen/toolbox/issues/330)) ([#333](https://github.com/OysteinAmundsen/toolbox/issues/333)) ([b6b586a](https://github.com/OysteinAmundsen/toolbox/commit/b6b586a227ba39f111edc2a930cda94233046c2a))
+* **grid/tooltip:** clip tooltip arrow so its inner half no longer overlaps content ([#329](https://github.com/OysteinAmundsen/toolbox/issues/329)) ([e1a321a](https://github.com/OysteinAmundsen/toolbox/commit/e1a321a3bd7240a9086d52cd5378e81f4750eb22))
+* **grid:** defer expandAll/collapseAll after setGroupOn so they target the new groups ([#335](https://github.com/OysteinAmundsen/toolbox/issues/335)) ([#336](https://github.com/OysteinAmundsen/toolbox/issues/336)) ([d00ee7f](https://github.com/OysteinAmundsen/toolbox/commit/d00ee7fe65f1a880f1a99a61cf7cd01384918f9c))
+
 ## [2.13.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.12.0...grid-2.13.0) (2026-05-14)
 
 

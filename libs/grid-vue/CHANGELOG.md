@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.7.0...grid-vue-1.7.1) (2026-05-15)
+
+
+### Bug Fixes
+
+* **grid-react:** batch portal teardown to silence flushSync warnings ([#330](https://github.com/OysteinAmundsen/toolbox/issues/330)) ([#333](https://github.com/OysteinAmundsen/toolbox/issues/333)) ([b6b586a](https://github.com/OysteinAmundsen/toolbox/commit/b6b586a227ba39f111edc2a930cda94233046c2a))
+
 ## [1.7.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.6.1...grid-vue-1.7.0) (2026-05-13)
 
 

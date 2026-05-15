@@ -19,7 +19,15 @@
     z-index: 10001;
   }
 
-  /* Arrow — rotated box gives a visible diamond with background + border */
+  /* Arrow — a 14×14 box rotated 45° to form a diamond, with its center
+     pinned to the popover edge. Without `clip-path` the diamond's inner
+     half sits *inside* the popover, painting `background: inherit` over
+     the first ~7px of text content. The clip-path keeps only the
+     pre-rotation triangle whose three corners rotate to the outside of
+     the popover (the visible "V"), so the inner half is removed before
+     it can overlap the content. clip-path is applied in the element's
+     own (pre-transform) coordinate space per the CSS Transforms spec,
+     which is why the polygon is expressed in the unrotated square. */
   .tbw-tooltip-popover::after {
     content: '';
     position: absolute;
@@ -30,20 +38,29 @@
     pointer-events: none;
   }
 
-  /* Arrow below-anchor default: diamond points up from the top edge */
+  /* Arrow below-anchor default: diamond points up from the top edge.
+     Pre-rotation: top-left, top-right, bottom-left → after rotate(45deg)
+     these become the top, right, and left points of the diamond, i.e.
+     the upper "V" that pokes above the popover. The bottom-right corner
+     (which would land inside the popover) is clipped away. */
   .tbw-tooltip-popover:not(.tbw-tooltip-above)::after {
     top: calc(var(--tbw-tooltip-arrow-size, 14px) / -2);
     transform: rotate(45deg);
     border-top: 1px solid var(--tbw-tooltip-border, light-dark(#222226, #6a6a72));
     border-left: 1px solid var(--tbw-tooltip-border, light-dark(#222226, #6a6a72));
+    clip-path: polygon(0 0, 100% 0, 0 100%);
   }
 
-  /* Above-anchor: diamond points down from the bottom edge */
+  /* Above-anchor: diamond points down from the bottom edge. Mirror of
+     the below-anchor clip — keep the corners (top-right, bottom-right,
+     bottom-left) that rotate to the right, bottom, and left points of
+     the diamond, i.e. the lower "Λ" that pokes below the popover. */
   .tbw-tooltip-popover.tbw-tooltip-above::after {
     bottom: calc(var(--tbw-tooltip-arrow-size, 14px) / -2);
     transform: rotate(45deg);
     border-bottom: 1px solid var(--tbw-tooltip-border, light-dark(#222226, #6a6a72));
     border-right: 1px solid var(--tbw-tooltip-border, light-dark(#222226, #6a6a72));
+    clip-path: polygon(100% 0, 100% 100%, 0 100%);
   }
 
   /* CSS Anchor Positioning — modern browsers */

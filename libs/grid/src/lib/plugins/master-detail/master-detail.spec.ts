@@ -1012,19 +1012,6 @@ describe('masterDetail', () => {
       expect(plugin['config'].expandOnRowClick).toBe(true);
     });
 
-    it('should parse collapse-on-click-outside attribute', () => {
-      const gridEl = createMockGridElement();
-      const detailEl = document.createElement('tbw-grid-detail');
-      detailEl.setAttribute('collapse-on-click-outside', 'true');
-      detailEl.innerHTML = '<div>Detail</div>';
-      gridEl.appendChild(detailEl);
-
-      const plugin = new MasterDetailPlugin({});
-      plugin.attach(gridEl as any);
-
-      expect(plugin['config'].collapseOnClickOutside).toBe(true);
-    });
-
     it('should parse numeric height attribute', () => {
       const gridEl = createMockGridElement();
       const detailEl = document.createElement('tbw-grid-detail');

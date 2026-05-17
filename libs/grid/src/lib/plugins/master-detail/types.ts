@@ -35,8 +35,6 @@ export interface MasterDetailConfig {
   detailHeight?: number | 'auto';
   /** Expand/collapse detail on row click (default: false) */
   expandOnRowClick?: boolean;
-  /** Collapse expanded detail when clicking outside (default: false) */
-  collapseOnClickOutside?: boolean;
   /** Show expand/collapse column (default: true) */
   showExpandColumn?: boolean;
   /**

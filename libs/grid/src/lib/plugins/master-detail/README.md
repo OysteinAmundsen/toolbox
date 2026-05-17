@@ -32,14 +32,13 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option                   | Type                                                                        | Default   | Description                    |
-| ------------------------ | --------------------------------------------------------------------------- | --------- | ------------------------------ |
-| `detailRenderer`         | `(row: Record<string, unknown>, rowIndex: number) => HTMLElement \| string` | -         | Render detail content          |
-| `detailHeight`           | `number \| 'auto'`                                                          | `'auto'`  | Detail row height              |
-| `expandOnRowClick`       | `boolean`                                                                   | `false`   | Expand on row click            |
-| `collapseOnClickOutside` | `boolean`                                                                   | `false`   | Collapse when clicking outside |
-| `showExpandColumn`       | `boolean`                                                                   | `true`    | Show expand/collapse column    |
-| `animation`              | `false \| 'slide' \| 'fade'`                                                | `'slide'` | Expand/collapse animation      |
+| Option             | Type                                                                        | Default   | Description                 |
+| ------------------ | --------------------------------------------------------------------------- | --------- | --------------------------- |
+| `detailRenderer`   | `(row: Record<string, unknown>, rowIndex: number) => HTMLElement \| string` | -         | Render detail content       |
+| `detailHeight`     | `number \| 'auto'`                                                          | `'auto'`  | Detail row height           |
+| `expandOnRowClick` | `boolean`                                                                   | `false`   | Expand on row click         |
+| `showExpandColumn` | `boolean`                                                                   | `true`    | Show expand/collapse column |
+| `animation`        | `false \| 'slide' \| 'fade'`                                                | `'slide'` | Expand/collapse animation   |
 
 ## Events
 

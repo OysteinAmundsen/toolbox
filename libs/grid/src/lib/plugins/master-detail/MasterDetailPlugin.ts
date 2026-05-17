@@ -109,7 +109,6 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     return {
       detailHeight: 'auto',
       expandOnRowClick: false,
-      collapseOnClickOutside: false,
       // Note: showExpandColumn is intentionally NOT defaulted here.
       // If undefined, processColumns() adds expander only when detailRenderer is provided.
       // Set to true for framework adapters that register renderers asynchronously.
@@ -169,7 +168,6 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    * - `animation`: 'slide' | 'fade' | 'false' (default: 'slide')
    * - `show-expand-column`: 'true' | 'false' (default: 'true')
    * - `expand-on-row-click`: 'true' | 'false' (default: 'false')
-   * - `collapse-on-click-outside`: 'true' | 'false' (default: 'false')
    * - `height`: number (pixels) or 'auto' (default: 'auto')
    */
   private parseLightDomDetail(): void {
@@ -194,7 +192,6 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     const animation = detailEl.getAttribute('animation');
     const showExpandColumn = detailEl.getAttribute('show-expand-column');
     const expandOnRowClick = detailEl.getAttribute('expand-on-row-click');
-    const collapseOnClickOutside = detailEl.getAttribute('collapse-on-click-outside');
     const heightAttr = detailEl.getAttribute('height');
 
     const configUpdates: Partial<MasterDetailConfig> = {};
@@ -207,9 +204,6 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     }
     if (expandOnRowClick !== null) {
       configUpdates.expandOnRowClick = expandOnRowClick === 'true';
-    }
-    if (collapseOnClickOutside !== null) {
-      configUpdates.collapseOnClickOutside = collapseOnClickOutside === 'true';
     }
     if (heightAttr !== null) {
       configUpdates.detailHeight = heightAttr === 'auto' ? 'auto' : parseInt(heightAttr, 10);

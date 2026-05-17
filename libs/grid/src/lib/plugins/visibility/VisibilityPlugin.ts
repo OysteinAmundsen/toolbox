@@ -139,9 +139,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
 
   /** @internal */
   protected override get defaultConfig(): Partial<VisibilityConfig> {
-    return {
-      allowHideAll: false,
-    };
+    return {};
   }
 
   // #region Internal State

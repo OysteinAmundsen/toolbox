@@ -75,49 +75,35 @@ describe('visibility', () => {
 
     it('should allow hiding a column when others remain visible', () => {
       const hidden = new Set<string>();
-      const result = canHideColumn(testColumns, 'name', hidden, false);
+      const result = canHideColumn(testColumns, 'name', hidden);
 
       expect(result).toBe(true);
     });
 
     it('should not allow hiding a lockVisible column', () => {
       const hidden = new Set<string>();
-      const result = canHideColumn(testColumns, 'id', hidden, false);
+      const result = canHideColumn(testColumns, 'id', hidden);
 
       expect(result).toBe(false);
     });
 
-    it('should not allow hiding the last visible column when allowHideAll is false', () => {
+    it('should not allow hiding the last visible column', () => {
       const hidden = new Set(['name', 'age', 'id']);
-      const result = canHideColumn(testColumns, 'city', hidden, false);
-
-      expect(result).toBe(false);
-    });
-
-    it('should allow hiding the last visible column when allowHideAll is true', () => {
-      const hidden = new Set(['name', 'age', 'id']);
-      const result = canHideColumn(testColumns, 'city', hidden, true);
-
-      expect(result).toBe(true);
-    });
-
-    it('should not allow hiding lockVisible column even when allowHideAll is true', () => {
-      const hidden = new Set<string>();
-      const result = canHideColumn(testColumns, 'id', hidden, true);
+      const result = canHideColumn(testColumns, 'city', hidden);
 
       expect(result).toBe(false);
     });
 
     it('should allow hiding when multiple columns remain visible', () => {
       const hidden = new Set(['name']);
-      const result = canHideColumn(testColumns, 'age', hidden, false);
+      const result = canHideColumn(testColumns, 'age', hidden);
 
       expect(result).toBe(true);
     });
 
     it('should return true for non-existent field (no lockVisible)', () => {
       const hidden = new Set<string>();
-      const result = canHideColumn(testColumns, 'nonexistent', hidden, false);
+      const result = canHideColumn(testColumns, 'nonexistent', hidden);
 
       expect(result).toBe(true);
     });
@@ -229,11 +215,11 @@ describe('visibility', () => {
       expect(visible.map((c) => c.field)).toEqual(['id', 'name', 'email']);
     });
 
-    it('should respect lockVisible when trying to hide multiple columns', () => {
+    it('should respect lockVisible when checking hide eligibility', () => {
       const hidden = new Set(['name', 'email', 'phone']);
 
-      // Try to hide 'id' which is lockVisible
-      const canHideId = canHideColumn(columns, 'id', hidden, false);
+      // 'id' is lockVisible — canHideColumn should refuse.
+      const canHideId = canHideColumn(columns, 'id', hidden);
       expect(canHideId).toBe(false);
 
       // Verify id is still visible

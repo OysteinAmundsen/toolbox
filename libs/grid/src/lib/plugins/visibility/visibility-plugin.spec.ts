@@ -150,20 +150,6 @@ describe('VisibilityPlugin', () => {
         { type: 'getContextMenuItems', description: expect.any(String) },
       ]);
     });
-
-    it('should have default allowHideAll as false', () => {
-      const p = new VisibilityPlugin();
-      const g = createGridMock(defaultColumns);
-      p.attach(g as any);
-      expect(p.config.allowHideAll).toBe(false);
-    });
-
-    it('should accept custom config', () => {
-      const p = new VisibilityPlugin({ allowHideAll: true });
-      const g = createGridMock(defaultColumns);
-      p.attach(g as any);
-      expect(p.config.allowHideAll).toBe(true);
-    });
   });
 
   // #endregion

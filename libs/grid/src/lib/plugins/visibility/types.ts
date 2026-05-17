@@ -10,20 +10,15 @@
  * Controls the visibility sidebar panel that lets users show/hide individual columns.
  * The sidebar is toggled via a button in the grid toolbar or programmatically.
  *
- * @example
- * ```typescript
- * new VisibilityPlugin({ allowHideAll: false })
- * ```
+ * Currently has no configurable options — reserved as an extension point for
+ * future flags (e.g. default open state, panel title). The grid always keeps
+ * at least one column visible; columns flagged with `lockVisible: true` are
+ * un-hideable individually.
+ *
  * @since 0.1.1
  */
-export interface VisibilityConfig {
-  /**
-   * Whether users are allowed to hide every column.
-   * When `false`, the last visible column's toggle is disabled to prevent an empty grid.
-   * @default false
-   */
-  allowHideAll?: boolean;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/no-empty-interface
+export interface VisibilityConfig {}
 
 /** Internal state managed by the visibility plugin */
 export interface VisibilityState {

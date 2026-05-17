@@ -34,9 +34,9 @@ grid.columns = [
 
 ## Configuration
 
-| Option         | Type      | Default | Description              |
-| -------------- | --------- | ------- | ------------------------ |
-| `allowHideAll` | `boolean` | `false` | Allow hiding all columns |
+The plugin currently has no configurable options. The visibility panel is enabled
+just by registering the plugin. The grid always keeps at least one column visible;
+mark a column `lockVisible: true` to make it un-hideable individually.
 
 ## API Methods
 

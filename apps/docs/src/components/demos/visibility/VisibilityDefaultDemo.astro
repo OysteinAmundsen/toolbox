@@ -4,8 +4,6 @@ import DemoControls from '@components/DemoControls.astro';
 ---
 <div class="grid-demo not-content" id="visibility-default-demo">
   <DemoControls controls={[
-    { section: 'VISIBILITY', name: 'allowHideAll', label: 'Allow hide all', type: 'boolean',
-      default: false, description: 'Allow hiding every column' },
     { section: 'COLUMNS', name: 'hiddenColumns', label: 'Initially hidden', type: 'check-group',
       options: ['email', 'department', 'salary'], default: ['email'],
       description: 'Columns hidden by default' },
@@ -51,12 +49,12 @@ if (container) {
         hidden: hiddenArr.includes(col.field),
         lockVisible: lockedArr.includes(col.field),
       })),
-      features: { visibility: { allowHideAll: (opts.allowHideAll as boolean) ?? false } },
+      features: { visibility: {} },
     };
     grid.rows = sampleData;
   }
 
-  rebuild({ allowHideAll: false, hiddenColumns: ['email'], lockedColumns: ['id'] });
+  rebuild({ hiddenColumns: ['email'], lockedColumns: ['id'] });
 
   container.addEventListener('control-change', ((e: CustomEvent) => {
     rebuild(e.detail.allValues);

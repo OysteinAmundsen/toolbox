@@ -1184,8 +1184,6 @@ Client-side and server-side filtering. Server-side support (`filterHandler`/`val
 new FilteringPlugin({
   debounceMs?: number,          // Debounce input (default: 300)
   caseSensitive?: boolean,      // Case-sensitive text matching (default: false)
-  trimInput?: boolean,          // Trim whitespace from filter input (default: true, reserved)
-  useWorker?: boolean,          // Offload filtering to Web Worker (default: true, reserved — not yet implemented)
   trackColumnState?: boolean,   // Include filters in column state persistence (default: false)
   filterHandler?: (rows, filters) => rows | Promise<rows>, // Custom/server-side filtering
   valuesHandler?: (field, column) => Promise<unknown[]>,    // Async unique-value provider for filter panels
@@ -1243,7 +1241,6 @@ new MasterDetailPlugin({
   detailRenderer: (row, rowIndex) => HTMLElement | string, // Detail renderer (required)
   detailHeight?: number | 'auto', // Detail panel height (default: 'auto')
   expandOnRowClick?: boolean,   // Expand on row click (default: false)
-  collapseOnClickOutside?: boolean, // Collapse when clicking outside (default: false)
   showExpandColumn?: boolean,   // Show expand column (default: true)
   animation?: false | 'slide' | 'fade', // Animation style (default: 'slide')
 })
@@ -1303,8 +1300,7 @@ Unified data orchestrator for large datasets. Provides block-based virtual scrol
 
 ```typescript
 new ServerSidePlugin({
-  pageSize?: number,             // Rows per API request (default: 100)
-  cacheBlockSize?: number,       // Cache block size
+  pageSize?: number,             // Rows per getRows() call (default: 100; also surfaced as params.pageSize)
   maxConcurrentRequests?: number, // Parallel request limit (default: 2)
   loadThreshold?: number,        // Prefetch slack in rows; 0 = fetch only on viewport entry (default: 0)
   sortMode?: 'server' | 'local', // 'local' re-sorts cache without refetch (default: 'server')
@@ -1591,9 +1587,9 @@ rdd.canMoveRow(fromIndex, toIndex);
 ### VisibilityPlugin
 
 ```typescript
-new VisibilityPlugin({
-  allowHideAll?: boolean,            // Allow hiding all columns (default: false)
-})
+new VisibilityPlugin()
+// No configuration options. The grid always keeps at least one column visible;
+// mark a column `lockVisible: true` to make it un-hideable individually.
 // Programmatic API:
 const vis = grid.getPluginByName('visibility');
 vis.show();                          // Open visibility tool panel

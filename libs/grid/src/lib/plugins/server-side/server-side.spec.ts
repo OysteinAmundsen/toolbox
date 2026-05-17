@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BlockCache } from './cache';
 import {
-    getBlockNumber,
-    getBlockRange,
-    getRequiredBlocks,
-    getRowFromCache,
-    isBlockLoaded,
-    isBlockLoading,
-    loadBlock,
+  getBlockNumber,
+  getBlockRange,
+  getRequiredBlocks,
+  getRowFromCache,
+  isBlockLoaded,
+  isBlockLoading,
+  loadBlock,
 } from './datasource';
 import { ServerSidePlugin } from './ServerSidePlugin';
 import type { ServerSideDataSource } from './types';
@@ -181,6 +181,7 @@ describe('server-side plugin', () => {
       expect(mockDataSource.getRows).toHaveBeenCalledWith({
         startNode: 200,
         endNode: 300,
+        pageSize: 100,
         sortModel: [{ field: 'name', direction: 'asc' }],
         filterModel: { status: 'active' },
         signal: expect.any(AbortSignal),
@@ -203,6 +204,7 @@ describe('server-side plugin', () => {
       expect(mockDataSource.getRows).toHaveBeenCalledWith({
         startNode: 0,
         endNode: 50,
+        pageSize: 50,
         sortModel: undefined,
         filterModel: undefined,
         signal: expect.any(AbortSignal),

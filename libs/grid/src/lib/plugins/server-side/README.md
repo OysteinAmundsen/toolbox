@@ -15,7 +15,6 @@ import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
 
 const serverSide = new ServerSidePlugin({
   pageSize: 100,
-  cacheBlockSize: 100,
 });
 
 grid.gridConfig = {
@@ -37,11 +36,10 @@ serverSide.setDataSource({
 
 ## Configuration
 
-| Option                  | Type     | Default | Description                |
-| ----------------------- | -------- | ------- | -------------------------- |
-| `pageSize`              | `number` | `100`   | Rows per page/block        |
-| `cacheBlockSize`        | `number` | `100`   | Rows per cache block       |
-| `maxConcurrentRequests` | `number` | `2`     | Max concurrent block loads |
+| Option                  | Type     | Default | Description                                                    |
+| ----------------------- | -------- | ------- | -------------------------------------------------------------- |
+| `pageSize`              | `number` | `100`   | Rows per `getRows()` call (also surfaced as `params.pageSize`) |
+| `maxConcurrentRequests` | `number` | `2`     | Max concurrent block loads                                     |
 
 > **Note:** `dataSource` is set via the `setDataSource()` method, not as a config option.
 

@@ -30,6 +30,14 @@ export interface GetRowsParams extends DataRequestModel {
   /** Zero-based index of the last node to fetch (exclusive). `endNode - startNode` equals the block size. */
   endNode: number;
   /**
+   * Number of nodes requested in this fetch. Equal to `endNode - startNode`.
+   *
+   * Provided as a convenience for backends that expect an explicit page-size
+   * query parameter (e.g. `?start=0&pageSize=100`) rather than a start/end
+   * range. The value matches the configured `cacheBlockSize`.
+   */
+  pageSize: number;
+  /**
    * Cancellation signal for the request. The grid aborts the signal when:
    * - a newer request supersedes the same block (sort/filter change, refresh, purgeCache)
    * - the plugin detaches or the grid disconnects
@@ -127,11 +135,9 @@ export interface GetChildRowsResult<TRow = unknown> {
  * @since 2.4.0
  */
 export interface Subscribable<T> {
-  subscribe(observer: {
-    next?(value: T): void;
-    error?(err: unknown): void;
-    complete?(): void;
-  }): { unsubscribe(): void };
+  subscribe(observer: { next?(value: T): void; error?(err: unknown): void; complete?(): void }): {
+    unsubscribe(): void;
+  };
 }
 
 /**

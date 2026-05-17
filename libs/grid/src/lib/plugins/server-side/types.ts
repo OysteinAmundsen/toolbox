@@ -2,20 +2,20 @@ import type { ServerSideDataSource } from './datasource-types';
 
 // Re-export unified types for convenience
 export type {
-    DataRequestModel,
-    DataSourceChildrenDetail,
-    DataSourceDataDetail,
-    DataSourceErrorDetail,
-    DataSourceLoadingDetail,
-    FetchChildrenQuery,
-    GetChildRowsParams,
-    GetChildRowsResult,
-    GetRowsParams,
-    GetRowsResult,
-    ServerSideDataSource,
-    Subscribable,
-    ViewportMappingQuery,
-    ViewportMappingResponse
+  DataRequestModel,
+  DataSourceChildrenDetail,
+  DataSourceDataDetail,
+  DataSourceErrorDetail,
+  DataSourceLoadingDetail,
+  FetchChildrenQuery,
+  GetChildRowsParams,
+  GetChildRowsResult,
+  GetRowsParams,
+  GetRowsResult,
+  ServerSideDataSource,
+  Subscribable,
+  ViewportMappingQuery,
+  ViewportMappingResponse,
 } from './datasource-types';
 
 /**
@@ -29,7 +29,6 @@ export type {
  * ```typescript
  * new ServerSidePlugin({
  *   pageSize: 100,
- *   cacheBlockSize: 200,
  *   maxConcurrentRequests: 2,
  * })
  * ```
@@ -37,17 +36,16 @@ export type {
  */
 export interface ServerSideConfig {
   /**
-   * Number of nodes to request per fetch.
-   * This determines the `endNode - startNode` range passed to `getRows()`.
-   * Smaller values mean faster initial loads but more frequent requests while scrolling.
+   * Number of nodes requested per `getRows()` call. The same value is surfaced
+   * on `params.pageSize` inside the callback, so backends that expect an
+   * explicit page-size query parameter can forward it directly. Larger values
+   * reduce request count at the cost of longer per-request latency.
    * @default 100
    */
   pageSize?: number;
   /**
-   * Number of nodes kept in each cache block.
-   * When a block is evicted (e.g. scrolled far away), re-scrolling back triggers a new fetch.
-   * Should be ≥ `pageSize`; larger values reduce re-fetches at the cost of memory.
-   * @default 200
+   * @deprecated Alias for {@link ServerSideConfig.pageSize}. Use `pageSize`
+   * instead. If both are set, `pageSize` wins.
    */
   cacheBlockSize?: number;
   /**
@@ -71,7 +69,7 @@ export interface ServerSideConfig {
    * server with requests.
    *
    * A reasonable starting point is `pageSize / 2`. Values larger than
-   * `cacheBlockSize` will eagerly request 2+ blocks ahead, which can hurt
+   * `pageSize` will eagerly request 2+ blocks ahead, which can hurt
    * perceived performance with slow backends.
    *
    * @default 0 (fetch only when the visible window enters an unloaded block)

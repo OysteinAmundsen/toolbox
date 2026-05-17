@@ -43,10 +43,7 @@ function makeAbortError(): DOMException {
  * Promise sources should pass `signal` to `fetch` themselves — we still reject
  * on abort either way so the plugin's abort path is consistent.
  */
-export function toResultPromise<T>(
-  source: Promise<T> | Subscribable<T>,
-  signal: AbortSignal,
-): Promise<T> {
+export function toResultPromise<T>(source: Promise<T> | Subscribable<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) {
     return Promise.reject(makeAbortError());
   }
@@ -113,6 +110,7 @@ export function loadBlock(
   const result = dataSource.getRows({
     startNode: range.start,
     endNode: range.end,
+    pageSize: range.end - range.start,
     sortModel: params.sortModel,
     filterModel: params.filterModel,
     signal,

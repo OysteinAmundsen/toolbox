@@ -195,8 +195,7 @@ const VOCAB: Record<string, readonly string[]> = {
 };
 
 /** Page size for the server-side plugin. See README in this folder for tuning rationale. */
-const API_PAGE_SIZE = 100;
-const CACHE_BLOCK_SIZE = 50;
+const API_PAGE_SIZE = 50;
 // #endregion
 
 // #region Factory
@@ -358,8 +357,7 @@ export function createBookingLogsGrid(): BookingLogsGridHandle {
     features: {
       serverSide: {
         pageSize: API_PAGE_SIZE,
-        cacheBlockSize: CACHE_BLOCK_SIZE,
-        loadThreshold: Math.floor(CACHE_BLOCK_SIZE / 2),
+        loadThreshold: Math.floor(API_PAGE_SIZE / 2),
         maxConcurrentRequests: 4,
         dataSource,
       },

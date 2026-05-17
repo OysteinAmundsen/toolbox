@@ -159,7 +159,6 @@ if (container) {
         // a refetch through getRows with sortModel/filterModel.
         serverSide: {
           pageSize,
-          cacheBlockSize: pageSize,
           loadThreshold,
           sortMode: serverSort ? 'server' : 'local',
           filterMode: serverFilter ? 'server' : 'local',

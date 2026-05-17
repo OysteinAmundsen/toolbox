@@ -6,8 +6,8 @@ import DemoControls from '@components/DemoControls.astro';
   <DemoControls controls={[
     { section: 'RESPONSIVE', name: 'breakpoint', label: 'Breakpoint (px)', type: 'number',
       min: 200, max: 1000, step: 50, default: 500, description: 'Width threshold for card layout' },
-    { section: 'RESPONSIVE', name: 'hideHeader', label: 'Hide header', type: 'boolean',
-      default: true, description: 'Hide column headers in card layout' },
+    { section: 'RESPONSIVE', name: 'hideHeader', label: 'Hide field labels', type: 'boolean',
+      default: false, description: 'Hide per-card field labels (e.g. "Name:") in card layout' },
     { section: 'RESPONSIVE', name: 'animate', label: 'Animate', type: 'boolean',
       default: true, description: 'Smooth transitions between modes' },
     { section: 'RESPONSIVE', name: 'hiddenColumns', label: 'Hidden columns', type: 'check-group',
@@ -52,7 +52,7 @@ if (container) {
   const status = container.querySelector('.responsive-status')!;
   let currentBreakpoint = 500;
 
-  function rebuild(breakpoint = 500, hideHeader = true, animate = true, hiddenColumns: string[] = [], debounceMs = 100) {
+  function rebuild(breakpoint = 500, hideHeader = false, animate = true, hiddenColumns: string[] = [], debounceMs = 100) {
     currentBreakpoint = breakpoint;
     grid.gridConfig = {
       columns,

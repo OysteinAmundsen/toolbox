@@ -169,6 +169,12 @@ tbw-grid[data-responsive] .data-grid-row > .cell[data-responsive-value-only] {
   font-weight: 500;
 }
 
+/* Opt-in: hide per-card field labels (the "Name:" prefix) when
+   `hideHeader: true` is configured. Toggled by ResponsivePlugin. */
+tbw-grid[data-responsive][data-responsive-hide-header] .data-grid-row:not(.group-row) > .cell::before {
+  display: none !important;
+}
+
 /* Non-responsive mode: progressive column hiding still works */
 tbw-grid:not([data-responsive]) .cell[data-responsive-hidden] {
   display: none !important;

@@ -98,8 +98,17 @@ export interface ResponsivePluginConfig<T = unknown> {
   cardRenderer?: (row: T, rowIndex: number, column?: ColumnConfig) => HTMLElement;
 
   /**
-   * Whether to hide the header row in responsive mode.
-   * @default true
+   * Whether to hide the per-field label rendered inside each card.
+   *
+   * In card mode each cell renders its column header as a label
+   * (e.g. `Name: Alice`) via the `data-header` attribute. Set this to
+   * `true` to suppress that label — only the value is shown.
+   *
+   * Note: this does NOT control the column header *row* at the top of
+   * the grid; that row is always hidden in card mode (a card layout
+   * has no use for a tabular header).
+   *
+   * @default false
    */
   hideHeader?: boolean;
 

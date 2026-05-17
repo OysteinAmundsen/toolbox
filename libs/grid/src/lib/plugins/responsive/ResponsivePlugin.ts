@@ -232,7 +232,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    * - `breakpoint`: number - Width threshold for responsive mode
    * - `card-row-height`: number | 'auto' - Card height (default: 'auto')
    * - `hidden-columns`: string - Comma-separated fields to hide
-   * - `hide-header`: 'true' | 'false' - Hide header row (default: 'true')
+   * - `hide-header`: 'true' | 'false' - Hide per-card field labels (default: 'false')
    * - `debounce-ms`: number - Resize debounce delay (default: 100)
    */
   #parseLightDomCard(): void {
@@ -508,6 +508,14 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     // Apply animation attribute if enabled (default: true)
     const animate = this.config.animate !== false;
     this.gridElement.toggleAttribute('data-responsive-animate', animate);
+
+    // Toggle per-card label visibility based on hideHeader config.
+    // Attribute only meaningful while in card mode; clear it otherwise so
+    // the CSS rule cannot accidentally apply to non-responsive layouts.
+    this.gridElement.toggleAttribute(
+      'data-responsive-hide-header',
+      this.#isResponsive && this.config.hideHeader === true,
+    );
 
     // Set custom animation duration if provided
     if (this.config.animationDuration) {

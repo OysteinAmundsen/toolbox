@@ -218,6 +218,29 @@ describe('ResponsivePlugin', () => {
       expect(mockGrid.hasAttribute('data-responsive')).toBe(false);
     });
 
+    it('should not set data-responsive-hide-header by default', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500 });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(true);
+      expect(mockGrid.hasAttribute('data-responsive-hide-header')).toBe(false);
+    });
+
+    it('should toggle data-responsive-hide-header when hideHeader is true', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, hideHeader: true });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+      expect(mockGrid.hasAttribute('data-responsive-hide-header')).toBe(true);
+
+      // Attribute should clear when leaving card mode so it can't affect non-responsive layouts
+      plugin.setResponsive(false);
+      expect(mockGrid.hasAttribute('data-responsive-hide-header')).toBe(false);
+    });
+
     it('should allow updating breakpoint with setBreakpoint()', () => {
       const plugin = new ResponsivePlugin({ breakpoint: 500 });
       const mockGrid = createMockGrid();

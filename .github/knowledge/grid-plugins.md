@@ -236,7 +236,7 @@ DECIDED (May 2026, #335 deferred-expansion): `setGroupOn(fn, expanded?)` accepts
 
 ### Display
 
-**Responsive** — OWNS: breakpoint-based column visibility. HOOKS: processColumns, getRowHeight
+**Responsive** — OWNS: breakpoint-based column visibility. HOOKS: processColumns, getRowHeight. INVARIANT: column header _row_ is ALWAYS hidden in card mode (unconditional CSS `tbw-grid[data-responsive] .header { display: none }`). The `hideHeader` config does NOT control that — it gates per-card _field labels_ (the `Name:` ::before prefix on each cell). DECIDED (May 2026): `hideHeader` default = `false` (labels visible) — matches the visual purpose of card mode where each row needs its fields named. Plugin toggles `data-responsive-hide-header` on grid host in `#applyResponsiveState()` (only when `isResponsive && config.hideHeader === true`); CSS rule `tbw-grid[data-responsive][data-responsive-hide-header] .data-grid-row:not(.group-row) > .cell::before { display: none }` does the work. Attribute cleared when leaving card mode so it cannot affect non-responsive layouts. Files: `ResponsivePlugin.ts` `#applyResponsiveState`, `responsive.css` (search `data-responsive-hide-header`).
 
 **Tooltip** — OWNS: active tooltip, positioning. HOOKS: afterCellRender
 

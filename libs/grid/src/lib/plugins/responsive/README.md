@@ -24,17 +24,17 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option              | Type                          | Default  | Description                                      |
-| ------------------- | ----------------------------- | -------- | ------------------------------------------------ |
-| `breakpoint`        | `number`                      | —        | Width threshold (px) to trigger card layout      |
-| `breakpoints`       | `BreakpointConfig[]`          | —        | Multiple breakpoints for progressive degradation |
-| `cardRenderer`      | `(row, index) => HTMLElement` | —        | Custom card renderer                             |
-| `hideHeader`        | `boolean`                     | `true`   | Hide header row in responsive mode               |
-| `cardRowHeight`     | `number \| 'auto'`            | `'auto'` | Card row height (with custom renderer)           |
-| `debounceMs`        | `number`                      | `100`    | Resize event debounce delay (ms)                 |
-| `hiddenColumns`     | `HiddenColumnConfig[]`        | —        | Columns to hide in responsive mode               |
-| `animate`           | `boolean`                     | `true`   | Smooth transitions between modes                 |
-| `animationDuration` | `number`                      | `200`    | Animation duration (ms)                          |
+| Option              | Type                          | Default  | Description                                                                                              |
+| ------------------- | ----------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
+| `breakpoint`        | `number`                      | —        | Width threshold (px) to trigger card layout                                                              |
+| `breakpoints`       | `BreakpointConfig[]`          | —        | Multiple breakpoints for progressive degradation                                                         |
+| `cardRenderer`      | `(row, index) => HTMLElement` | —        | Custom card renderer                                                                                     |
+| `hideHeader`        | `boolean`                     | `false`  | Hide per-card field labels (`Name:` prefix). Column header row is always hidden in card mode regardless. |
+| `cardRowHeight`     | `number \| 'auto'`            | `'auto'` | Card row height (with custom renderer)                                                                   |
+| `debounceMs`        | `number`                      | `100`    | Resize event debounce delay (ms)                                                                         |
+| `hiddenColumns`     | `HiddenColumnConfig[]`        | —        | Columns to hide in responsive mode                                                                       |
+| `animate`           | `boolean`                     | `true`   | Smooth transitions between modes                                                                         |
+| `animationDuration` | `number`                      | `200`    | Animation duration (ms)                                                                                  |
 
 ### `BreakpointConfig`
 

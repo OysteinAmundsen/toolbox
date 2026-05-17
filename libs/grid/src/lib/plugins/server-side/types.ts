@@ -45,7 +45,8 @@ export interface ServerSideConfig {
   pageSize?: number;
   /**
    * @deprecated Alias for {@link ServerSideConfig.pageSize}. Use `pageSize`
-   * instead. If both are set, `pageSize` wins.
+   * instead. If both are set, `pageSize` wins. Will be removed in the next
+   * major release.
    */
   cacheBlockSize?: number;
   /**

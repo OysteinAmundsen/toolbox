@@ -260,7 +260,7 @@ serverSide: {
 
 The threshold is applied symmetrically (the viewport is expanded by `loadThreshold` rows in both directions before block coverage is computed). The `maxConcurrentRequests` cap and per-block dedup still apply, so a large threshold during fast scrolling will not flood the server.
 
-A reasonable starting point is `pageSize / 2`. Values larger than `cacheBlockSize` will eagerly request 2+ blocks ahead, which can hurt perceived performance with slow backends.
+A reasonable starting point is `pageSize / 2`. Values larger than `pageSize` will eagerly request 2+ blocks ahead, which can hurt perceived performance with slow backends.
 
 ### Request Cancellation
 

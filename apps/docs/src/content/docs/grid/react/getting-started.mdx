@@ -515,7 +515,7 @@ function ServerSideGrid() {
     <DataGrid
       columns={columns}
       multiSort
-      serverSide={{ dataSource, cacheBlockSize: 100 }}
+      serverSide={{ dataSource, pageSize: 100 }}
     />
   );
 }
@@ -588,7 +588,7 @@ function ServerSideGrid() {
     <DataGrid
       columns={columns}
       multiSort
-      serverSide={{ dataSource, cacheBlockSize: 100 }}
+      serverSide={{ dataSource, pageSize: 100 }}
     />
   );
 }

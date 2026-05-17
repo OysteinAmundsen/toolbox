@@ -395,11 +395,11 @@ export function createBookingLogsGrid(): BookingLogsGridHandle {
               // the current filter (or 0 before the first response).
               const reported = ss?.getTotalNodeCount?.() ?? 0;
               // Approximate "currently loaded into the cache" as
-              // loadedBlocks × cacheBlockSize, clamped to whatever total we
+              // loadedBlocks × pageSize, clamped to whatever total we
               // know about. Slightly overcounts on the last partial block —
               // good enough for a status counter at this dataset size.
               const blocks = ss?.getLoadedBlockCount?.() ?? 0;
-              const loadedRaw = blocks * CACHE_BLOCK_SIZE;
+              const loadedRaw = blocks * API_PAGE_SIZE;
               const hasFilter = (filtering?.getFilters?.() ?? []).length > 0;
               const fmt = (n: number) => n.toLocaleString('en-US');
               if (hasFilter) {

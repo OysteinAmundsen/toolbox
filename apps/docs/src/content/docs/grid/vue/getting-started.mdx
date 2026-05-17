@@ -376,7 +376,7 @@ const dataSource: ServerSideDataSource<Employee> = {
   <TbwGrid
     :columns="columns"
     multi-sort
-    :server-side="{ dataSource, cacheBlockSize: 100 }"
+    :server-side="{ dataSource, pageSize: 100 }"
   />
 </template>
 ```
@@ -448,7 +448,7 @@ const dataSource: ServerSideDataSource<Employee> = {
   <TbwGrid
     :columns="columns"
     multi-sort
-    :server-side="{ dataSource, cacheBlockSize: 100 }"
+    :server-side="{ dataSource, pageSize: 100 }"
   />
 </template>
 ```

@@ -149,8 +149,6 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     return {
       debounceMs: 300,
       caseSensitive: false,
-      trimInput: true,
-      useWorker: true,
     };
   }
 

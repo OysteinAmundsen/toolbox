@@ -695,36 +695,6 @@ export interface FilterConfig<TRow = unknown> {
   caseSensitive?: boolean;
 
   /**
-   * Whether to trim leading/trailing whitespace from filter input values
-   * before applying them.
-   *
-   * @default true
-   *
-   * @remarks
-   * **Reserved for future use.** This option is accepted in configuration
-   * but not yet applied in the current filtering implementation.
-   */
-  trimInput?: boolean;
-
-  /**
-   * Whether to offload filtering to a Web Worker for large datasets.
-   *
-   * @default true
-   *
-   * @remarks
-   * **Reserved for future use.** This option is accepted in configuration
-   * but not yet implemented. Filtering currently runs synchronously on
-   * the main thread for all dataset sizes. Performance is excellent for
-   * most use cases — the grid handles 10,000+ rows without noticeable delay
-   * thanks to result caching and debounced input.
-   *
-   * When implemented, this will automatically offload `filterRows()` to a
-   * Web Worker when the row count exceeds an internal threshold, keeping
-   * the main thread responsive during heavy filtering operations.
-   */
-  useWorker?: boolean;
-
-  /**
    * Custom filter panel renderer that replaces the built-in panel content
    * for **all** columns (unless you return `undefined` for specific columns
    * to fall through to the next level).

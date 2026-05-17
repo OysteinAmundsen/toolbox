@@ -35,8 +35,6 @@ grid.columns = [
 | --------------------- | --------------------- | ------- | ------------------------------------------------ |
 | `debounceMs`          | `number`              | `300`   | Debounce delay for filter input                  |
 | `caseSensitive`       | `boolean`             | `false` | Whether text filtering is case sensitive         |
-| `trimInput`           | `boolean`             | `true`  | Whether to trim whitespace from filter input     |
-| `useWorker`           | `boolean`             | `true`  | Use Web Worker for filtering large datasets      |
 | `trackColumnState`    | `boolean`             | `false` | Include filter state in column state persistence |
 | `filterPanelRenderer` | `FilterPanelRenderer` | -       | Custom filter panel renderer                     |
 

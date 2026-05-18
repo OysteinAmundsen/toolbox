@@ -32,8 +32,16 @@ startRouter({
     {
       name: 'booking-logs',
       label: 'Booking API Logs',
-      description: 'Server-side infinite scroll over a deterministic 10-million-row log dataset, with filters and a side detail panel.',
+      description:
+        'Server-side infinite scroll over a deterministic 10-million-row log dataset, with filters and a side detail panel.',
       load: () => import('./demos/booking-logs'),
+    },
+    {
+      name: 'calendar',
+      label: 'Calendar',
+      description:
+        'Outlook-style month view: one row per week, custom day-cell renderer, responsive densities (events → dots → date picker).',
+      load: () => import('./demos/calendar'),
     },
   ],
 });

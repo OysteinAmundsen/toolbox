@@ -63,12 +63,18 @@ export function getSharedStore(): SharedGridStore {
   const g = globalThis as GlobalWithStore;
   let store = g[SHARED_STORE_KEY];
   if (!store) {
+    // Bucket records use `Object.create(null)` (no prototype chain) so that
+    // `slot[key] = factory()` in `getOrCreateShared` cannot accidentally
+    // mutate `Object.prototype` if `key` ever held a value like `'__proto__'`
+    // or `'constructor'`. The keys are internal today, but CodeQL flags the
+    // assignment pattern regardless of provenance — eliminating the prototype
+    // chain closes the rule structurally.
     store = {
       features: new Map(),
       featureResolver: undefined,
-      reactContexts: {},
-      vueKeys: {},
-      ngTokens: {},
+      reactContexts: Object.create(null) as Record<string, unknown>,
+      vueKeys: Object.create(null) as Record<string, unknown>,
+      ngTokens: Object.create(null) as Record<string, unknown>,
     };
     g[SHARED_STORE_KEY] = store;
   }

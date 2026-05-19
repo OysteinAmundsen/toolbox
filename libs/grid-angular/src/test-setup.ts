@@ -16,6 +16,9 @@
 
 if (typeof globalThis.ResizeObserver === 'undefined') {
   class NoopResizeObserver {
+    constructor(_callback?: ResizeObserverCallback) {
+      /* no-op */
+    }
     observe(): void {
       /* no-op */
     }
@@ -26,5 +29,5 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
       /* no-op */
     }
   }
-  globalThis.ResizeObserver = NoopResizeObserver as unknown as typeof ResizeObserver;
+  globalThis.ResizeObserver = NoopResizeObserver as typeof ResizeObserver;
 }

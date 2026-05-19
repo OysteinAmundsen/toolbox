@@ -751,7 +751,7 @@ The shared store gives you cross-copy **identity sharing**, but it does **not** 
 
 | Resource | Behavior | Risk |
 | -------- | -------- | ---- |
-| `customElements.define('tbw-grid', …)` | First-wins | Both apps' `<tbw-grid>` elements run the **older** version's class even if the newer was bundled. Methods added in v2.15 are `undefined` on instances created by v2.14's code path. |
+| `customElements.define('tbw-grid', …)` | First-call-wins (by script execution order) | Both apps' `<tbw-grid>` elements run the **first-loaded** version's class. The winner can be either older or newer depending on which script tag/import evaluates first (e.g. if the embedded widget loads before the host's main bundle, the newer version wins and the host's older code path uses it). Methods only present on the losing version are `undefined` on instances created by code paths assuming the bundled (loser) class. |
 | `shared.features` Map | Last-write-wins per key | If both versions register a feature with the same name but different factory shapes, whichever loaded second silently overwrites the first. |
 | `shared.reactContexts.gridElement` | First-wins | Adapter v2.15 may expect the Context value to carry a new field — it gets v2.14's narrower shape. |
 | `shared.ngTokens.cellEditor` | First-wins | Same identity; mismatched interface assumptions on the two sides. |

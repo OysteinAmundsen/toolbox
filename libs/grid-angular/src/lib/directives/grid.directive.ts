@@ -1701,6 +1701,11 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     addPlugin('print', this.print());
     addPlugin('pivot', this.pivot());
     addPlugin('serverSide', this.serverSide());
+    // `stickyRows` has no deprecated `Grid` input — `GridStickyRowsDirective`
+    // is the only owner. Iterate it here so the directive's feature claim is
+    // consulted; without this call the directive would set a claim that
+    // nobody reads and `[stickyRows]` would silently do nothing.
+    addPlugin('stickyRows', undefined);
     addPlugin('tooltip', this.tooltip());
 
     return plugins;

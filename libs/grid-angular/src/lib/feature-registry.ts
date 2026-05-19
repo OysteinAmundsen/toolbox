@@ -56,4 +56,5 @@ export type FeatureName =
   | 'print'
   | 'pivot'
   | 'serverSide'
+  | 'stickyRows'
   | 'tooltip';

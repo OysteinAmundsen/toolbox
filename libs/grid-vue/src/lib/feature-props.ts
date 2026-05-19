@@ -37,6 +37,7 @@ import type {
   RowReorderConfig,
   SelectionConfig,
   ServerSideConfig,
+  StickyRowsConfig,
   TooltipConfig,
   TreeConfig,
   UndoRedoConfig,
@@ -309,6 +310,26 @@ export interface FeatureProps<TRow = unknown> {
    * ```
    */
   pinnedRows?: boolean | PinnedRowsConfig;
+
+  /**
+   * Pin selected data rows below the header as the user scrolls past them.
+   *
+   * @requires `import '@toolbox-web/grid-vue/features/sticky-rows';`
+   *
+   * @example
+   * ```vue
+   * <!-- Field-name shorthand -->
+   * <TbwGrid :sticky-rows="{ isSticky: 'isSection' }" />
+   *
+   * <!-- Predicate + stack mode -->
+   * <TbwGrid :sticky-rows="{
+   *   isSticky: (row) => row.kind === 'section',
+   *   mode: 'stack',
+   *   maxStacked: 3,
+   * }" />
+   * ```
+   */
+  stickyRows?: StickyRowsConfig;
 
   // ═══════════════════════════════════════════════════════════════════
   // HIERARCHICAL DATA

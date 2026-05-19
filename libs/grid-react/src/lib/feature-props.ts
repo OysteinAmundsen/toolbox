@@ -38,6 +38,7 @@ import type {
   RowReorderConfig,
   SelectionConfig,
   ServerSideConfig,
+  StickyRowsConfig,
   TooltipConfig,
   TreeConfig,
   UndoRedoConfig,
@@ -335,6 +336,26 @@ export interface FeatureProps<TRow = unknown> {
    * ```
    */
   pinnedRows?: boolean | PinnedRowsConfig;
+
+  /**
+   * Pin selected data rows below the header as the user scrolls past them.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/sticky-rows';`
+   *
+   * @example
+   * ```tsx
+   * // Field-name shorthand
+   * <DataGrid stickyRows={{ isSticky: 'isSection' }} />
+   *
+   * // Predicate + stack mode
+   * <DataGrid stickyRows={{
+   *   isSticky: (row) => row.kind === 'section',
+   *   mode: 'stack',
+   *   maxStacked: 3,
+   * }} />
+   * ```
+   */
+  stickyRows?: StickyRowsConfig;
 
   // ═══════════════════════════════════════════════════════════════════
   // HIERARCHICAL DATA

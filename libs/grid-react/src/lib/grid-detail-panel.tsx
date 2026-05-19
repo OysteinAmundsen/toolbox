@@ -135,7 +135,7 @@ export function GridDetailPanel<TRow = unknown>(props: GridDetailPanelProps<TRow
       detailRegistry.set(element, children as (ctx: DetailPanelContext<unknown>) => ReactNode);
 
       // Also register by grid ID for fallback
-      const gridElement = element.closest('tbw-grid');
+      const gridElement = element.closest('tbw-grid, [data-tbw-grid]');
       if (gridElement) {
         const gridId = gridElement.id || gridElement.getAttribute('data-grid-id');
         if (gridId) {
@@ -156,7 +156,7 @@ export function GridDetailPanel<TRow = unknown>(props: GridDetailPanelProps<TRow
         // Clean up registries
         detailRegistry.delete(element);
 
-        const gridElement = element.closest('tbw-grid');
+        const gridElement = element.closest('tbw-grid, [data-tbw-grid]');
         if (gridElement) {
           const gridId = gridElement.id || gridElement.getAttribute('data-grid-id');
           if (gridId) {

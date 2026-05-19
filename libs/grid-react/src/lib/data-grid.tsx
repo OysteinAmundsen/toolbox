@@ -2,6 +2,7 @@ import type { BaseGridPlugin, DataGridElement } from '@toolbox-web/grid';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import {
   Children,
+  createElement,
   forwardRef,
   isValidElement,
   useContext,
@@ -871,33 +872,42 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   return (
     <>
       <PortalManager ref={portalManagerRef} />
-      <tbw-grid
-        ref={(el) => {
-          (gridRef as React.MutableRefObject<ExtendedGridElement | null>).current = el as ExtendedGridElement | null;
+      {/*
+        Render via `createElement(GridElement.activeTag, ...)` instead of the
+        literal `<tbw-grid>` JSX tag. When two `@toolbox-web/grid` versions
+        coexist on a page, the second bundle to load registers itself under
+        a version-suffixed tag (e.g. `tbw-grid-v2-11-0`); `activeTag`
+        reflects whichever tag THIS bundle actually owns. See issue #339.
+      */}
+      {createElement(
+        GridElement.activeTag,
+        {
+          ref: (el: ExtendedGridElement | null) => {
+            (gridRef as React.MutableRefObject<ExtendedGridElement | null>).current = el;
 
-          // Initial sync ONCE on first attach. See `initialSyncDoneRef` declaration
-          // above for the rationale (React reattaches inline refs on every render).
-          if (el && !initialSyncDoneRef.current) {
-            initialSyncDoneRef.current = true;
-            const grid = el as ExtendedGridElement;
-            // Use processedGridConfig which has React renderers/editors wrapped as DOM functions
-            // Cast through any because React renderers are not assignable to base DOM types
-            if (processedGridConfig) {
-              grid.gridConfig = processedGridConfig as any;
+            // Initial sync ONCE on first attach. See `initialSyncDoneRef` declaration
+            // above for the rationale (React reattaches inline refs on every render).
+            if (el && !initialSyncDoneRef.current) {
+              initialSyncDoneRef.current = true;
+              const grid = el as ExtendedGridElement;
+              // Use processedGridConfig which has React renderers/editors wrapped as DOM functions
+              // Cast through any because React renderers are not assignable to base DOM types
+              if (processedGridConfig) {
+                grid.gridConfig = processedGridConfig as any;
+              }
+              if (rows) {
+                grid.rows = rows;
+              }
+              if (processedColumns) {
+                grid.columns = processedColumns as any;
+              }
             }
-            if (rows) {
-              grid.rows = rows;
-            }
-            if (processedColumns) {
-              grid.columns = processedColumns as any;
-            }
-          }
-        }}
-        class={className}
-        style={style}
-      >
-        <GridElementContext.Provider value={gridRef}>{children}</GridElementContext.Provider>
-      </tbw-grid>
+          },
+          class: className,
+          style,
+        },
+        <GridElementContext.Provider value={gridRef}>{children}</GridElementContext.Provider>,
+      )}
     </>
   );
 }) as <TRow = unknown>(props: DataGridProps<TRow> & { ref?: React.Ref<DataGridRef<TRow>> }) => React.ReactElement;

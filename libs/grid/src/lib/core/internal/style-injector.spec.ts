@@ -153,4 +153,60 @@ describe('style-injector', () => {
     });
   });
   // #endregion
+
+  // #region multi-version selector rewriting (issue #339)
+  describe('multi-version selector rewriting', () => {
+    // The rewrite path activates only when `activeTag !== tagName`. We import
+    // the live `DataGridElement` class and temporarily flip its `activeTag`
+    // to a suffixed value to simulate the second-bundle-loaded scenario.
+    it('rewrites bare `tbw-grid` selectors to the suffixed activeTag', async () => {
+      const { DataGridElement } = await import('../grid');
+      const original = DataGridElement.activeTag;
+      DataGridElement.activeTag = 'tbw-grid-v2-99-0';
+      try {
+        addPluginStyles([{ name: 'p', styles: 'tbw-grid .cell { color: red; }' }]);
+
+        const styleEl = document.getElementById('tbw-grid-styles-tbw-grid-v2-99-0');
+        expect(styleEl?.textContent).toContain('tbw-grid-v2-99-0 .cell');
+        expect(styleEl?.textContent).not.toContain('tbw-grid .cell');
+      } finally {
+        DataGridElement.activeTag = original;
+      }
+    });
+
+    it('leaves longer tag names (`tbw-grid-detail`, etc.) untouched', async () => {
+      const { DataGridElement } = await import('../grid');
+      const original = DataGridElement.activeTag;
+      DataGridElement.activeTag = 'tbw-grid-v2-99-0';
+      try {
+        addPluginStyles([{ name: 'p', styles: 'tbw-grid-detail { display: block; }' }]);
+
+        const styleEl = document.getElementById('tbw-grid-styles-tbw-grid-v2-99-0');
+        // Must NOT have been rewritten to `tbw-grid-v2-99-0-detail`.
+        expect(styleEl?.textContent).toContain('tbw-grid-detail { display: block; }');
+      } finally {
+        DataGridElement.activeTag = original;
+      }
+    });
+
+    it('does NOT corrupt the `[data-tbw-grid]` attribute selector', async () => {
+      // Regression guard: a previous version of the regex used `\b` as the
+      // left anchor, which matched between `-` and `t` and rewrote the
+      // `tbw-grid` inside `[data-tbw-grid]` to `[data-tbw-grid-v…]`,
+      // breaking attribute-selector matches in multi-version mode.
+      const { DataGridElement } = await import('../grid');
+      const original = DataGridElement.activeTag;
+      DataGridElement.activeTag = 'tbw-grid-v2-99-0';
+      try {
+        addPluginStyles([{ name: 'p', styles: '[data-tbw-grid] { font-size: 14px; }' }]);
+
+        const styleEl = document.getElementById('tbw-grid-styles-tbw-grid-v2-99-0');
+        expect(styleEl?.textContent).toContain('[data-tbw-grid] { font-size: 14px; }');
+        expect(styleEl?.textContent).not.toContain('data-tbw-grid-v2-99-0');
+      } finally {
+        DataGridElement.activeTag = original;
+      }
+    });
+  });
+  // #endregion
 });

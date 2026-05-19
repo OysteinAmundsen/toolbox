@@ -200,7 +200,7 @@ export abstract class BaseGridEditor<TRow = unknown, TValue = unknown> {
   }
 
   private _initEditCloseListener(): void {
-    const grid = this.elementRef.nativeElement.closest('tbw-grid') as
+    const grid = this.elementRef.nativeElement.closest('tbw-grid, [data-tbw-grid]') as
       | import('@toolbox-web/grid').DataGridElement
       | null;
     if (!grid) return;

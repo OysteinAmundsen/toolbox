@@ -5,7 +5,7 @@
  * https://m3.material.io/
  */
 @layer tbw-theme {
-  tbw-grid {
+  [data-tbw-grid] {
     /* ========== Core Palette ========== */
     /* M3 surface colors with subtle tonal variation */
     --tbw-color-bg: light-dark(#fffbff, #1c1b1f);
@@ -180,7 +180,7 @@
     --tbw-editing-row-outline-width: 2px;
   }
 
-  tbw-grid,
+  [data-tbw-grid],
   .tbw-filter-panel {
     /* ========== M3 Checkboxes ========== */
     /* Material Design 3 styled checkboxes for all grid & filter panel checkboxes */

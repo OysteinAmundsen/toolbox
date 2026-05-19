@@ -134,7 +134,7 @@ export function GridResponsiveCard<TRow = unknown>(props: GridResponsiveCardProp
       responsiveCardRegistry.set(element, children as (ctx: ResponsiveCardContext<unknown>) => ReactNode);
 
       // Also register by grid ID for fallback
-      const gridElement = element.closest('tbw-grid');
+      const gridElement = element.closest('tbw-grid, [data-tbw-grid]');
       if (gridElement) {
         const gridId = gridElement.id || gridElement.getAttribute('data-grid-id');
         if (gridId) {
@@ -154,7 +154,7 @@ export function GridResponsiveCard<TRow = unknown>(props: GridResponsiveCardProp
         // Clean up registries
         responsiveCardRegistry.delete(element);
 
-        const gridElement = element.closest('tbw-grid');
+        const gridElement = element.closest('tbw-grid, [data-tbw-grid]');
         if (gridElement) {
           const gridId = gridElement.id || gridElement.getAttribute('data-grid-id');
           if (gridId) {

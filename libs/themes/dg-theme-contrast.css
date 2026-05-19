@@ -1,6 +1,6 @@
 /* High contrast accessibility-focused theme */
 @layer tbw-theme {
-  tbw-grid {
+  [data-tbw-grid] {
     --tbw-color-bg: light-dark(#ffffff, #000000);
     --tbw-color-fg: light-dark(#000000, #ffffff);
     --tbw-color-fg-muted: light-dark(#222222, #dddddd);

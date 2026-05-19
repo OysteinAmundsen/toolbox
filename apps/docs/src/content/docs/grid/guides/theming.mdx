@@ -12,9 +12,13 @@ The `@toolbox-web/grid` component is fully themeable via CSS custom properties. 
 
 ## Quick Start
 
-Override CSS custom properties on the grid element:
+Override CSS custom properties on the grid element. Use the combined
+`[data-tbw-grid], tbw-grid` selector — it matches the canonical `<tbw-grid>`
+tag *and* version-suffixed tags (e.g. `<tbw-grid-v2-14-0>`) emitted when
+[multiple grid versions](./multi-version) share the page:
 
 ```css
+[data-tbw-grid],
 tbw-grid {
   --tbw-color-bg: #1a1a2e;
   --tbw-color-fg: #eaeaea;
@@ -23,6 +27,17 @@ tbw-grid {
   --tbw-color-row-hover: #1a1a4e;
 }
 ```
+
+:::caution[Themes targeting only `tbw-grid` break in micro-frontends]
+If your theme might ever be loaded into a micro-frontend host where another
+bundle already owns `tbw-grid`, your bundle will register itself under a
+suffixed tag (e.g. `tbw-grid-v2-14-0`) and any rule keyed on the bare
+`tbw-grid` selector will silently miss those grids. **Always include
+`[data-tbw-grid]` in custom theme selectors** — every grid sets that
+attribute on its host regardless of the registered tag. The bundled
+themes (`@toolbox-web/grid/themes/dg-theme-*.css`) already follow this
+convention. See [Multi-version coexistence](./multi-version) for details.
+:::
 
 ## Scaling with Font Size
 
@@ -95,6 +110,7 @@ Create a CSS file with your overrides:
 ```css
 /* my-theme.css */
 @layer tbw-theme {
+  [data-tbw-grid],
   tbw-grid {
     --tbw-color-bg: #fafafa;
     --tbw-color-fg: #333;

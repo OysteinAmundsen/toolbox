@@ -533,7 +533,7 @@ export abstract class BaseOverlayEditor<TRow = unknown, TValue = unknown> extend
         unregisterExternalFocusContainer?(el: Element): void;
       })
     | null {
-    return this._elementRef.nativeElement.closest('tbw-grid') ?? null;
+    return this._elementRef.nativeElement.closest('tbw-grid, [data-tbw-grid]') ?? null;
   }
 
   /**

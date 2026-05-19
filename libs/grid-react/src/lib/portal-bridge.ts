@@ -5,7 +5,7 @@
  *
  * Each DataGrid instance registers its own PortalManager via
  * `setPortalManager(gridEl, handle)`. The bridge resolves the correct
- * manager for a given container using `container.closest('tbw-grid')`
+ * manager for a given container using `container.closest('tbw-grid, [data-tbw-grid]')`
  * or the explicit `gridEl` parameter.
  *
  * When no PortalManager is available (e.g., adapter used standalone),
@@ -72,7 +72,7 @@ export function getPortalManager(gridEl?: HTMLElement): PortalManagerHandle | nu
  */
 function resolveGrid(container: HTMLElement, gridEl?: HTMLElement): HTMLElement | undefined {
   if (gridEl) return gridEl;
-  const closest = container.closest('tbw-grid') as HTMLElement | null;
+  const closest = container.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
   if (closest) return closest;
   // Single-grid optimization: if only one PM is registered, use it
   if (portalManagers.size === 1) return portalManagers.keys().next().value!;

@@ -91,7 +91,7 @@ registerFilterPanelTypeDefaultBridge((rawRenderFn, gridEl, { trackPortal }) => {
     wrapper.style.display = 'contents';
 
     // Resolve grid from the filter panel container (in-DOM) first, then fall back to gridEl
-    const resolvedGrid = (container.closest('tbw-grid') as HTMLElement | null) ?? gridEl;
+    const resolvedGrid = (container.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null) ?? gridEl;
     const portalKey = renderToContainer(wrapper, renderFn(params) as React.ReactElement, undefined, resolvedGrid);
     trackPortal(portalKey, wrapper, false);
 

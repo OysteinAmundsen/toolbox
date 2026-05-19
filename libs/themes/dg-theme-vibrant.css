@@ -4,7 +4,7 @@
  * Features subtle gradients, glowing accents, and polished transitions.
  */
 @layer tbw-theme {
-  tbw-grid {
+  [data-tbw-grid] {
     /* ========== Core Palette ========== */
     --tbw-color-bg: light-dark(#fafaff, #12141c);
     --tbw-color-panel-bg: light-dark(#f0f0ff, #1a1d28);

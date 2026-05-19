@@ -4,7 +4,7 @@
  * Clean lines, subtle depth, and professional aesthetics.
  */
 @layer tbw-theme {
-  tbw-grid {
+  [data-tbw-grid] {
     /* ========== Core Palette ========== */
     --tbw-color-bg: light-dark(#ffffff, #1a1c20);
     --tbw-color-panel-bg: light-dark(#f8f9fa, #232528);

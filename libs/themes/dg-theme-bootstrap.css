@@ -4,7 +4,7 @@
  * https://getbootstrap.com/docs/5.3/content/tables/
  */
 @layer tbw-theme {
-  tbw-grid {
+  [data-tbw-grid] {
     /* ========== Core Palette ========== */
     --tbw-color-bg: light-dark(#ffffff, #212529);
     --tbw-color-panel-bg: light-dark(#f8f9fa, #2b3035);
@@ -154,7 +154,7 @@
     }
   }
 
-  tbw-grid,
+  [data-tbw-grid],
   .tbw-filter-panel {
     /* ========== Bootstrap 5 Checkboxes ========== */
     /* Matches Bootstrap's .form-check-input styling */

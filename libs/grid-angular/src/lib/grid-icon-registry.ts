@@ -6,25 +6,12 @@
  */
 import { EnvironmentProviders, inject, Injectable, InjectionToken, makeEnvironmentProviders } from '@angular/core';
 import type { GridIcons } from '@toolbox-web/grid';
-import { getOrCreateShared } from '@toolbox-web/grid';
 
 /**
  * Injection token for providing icon overrides at app level.
- *
- * Created lazily via the shared store so that two bundled copies of
- * `@toolbox-web/grid-angular` on the same page (micro-frontend scenario,
- * issue #338) converge on the same `InjectionToken` instance. Without this,
- * `inject(GRID_ICONS)` from copy B looks up a different token identity than
- * the provider registered by copy A — `NullInjectorError` or, with
- * `{ optional: true }`, a silent `null` fallback.
- *
  * @since 0.8.0
  */
-export const GRID_ICONS: InjectionToken<Partial<GridIcons>> = getOrCreateShared(
-  'ngTokens',
-  'icons',
-  () => new InjectionToken<Partial<GridIcons>>('GRID_ICONS'),
-);
+export const GRID_ICONS = new InjectionToken<Partial<GridIcons>>('GRID_ICONS');
 
 /**
  * Injectable service for managing grid icons.

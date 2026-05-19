@@ -1,24 +1,11 @@
 import type { ColumnConfig, DataGridElement, GridConfig } from '@toolbox-web/grid';
-import { getOrCreateShared } from '@toolbox-web/grid';
 import { inject, onMounted, ref, type InjectionKey, type Ref } from 'vue';
 
 /**
  * Injection key for the grid element.
- *
- * Created lazily via the shared store so that two bundled copies of
- * `@toolbox-web/grid-vue` on the same page (micro-frontend scenario,
- * issue #338) converge on the same Symbol identity. Without this, a
- * `<TbwGrid>` wrapper from copy A would `provide(SYMBOL_A, ...)` while a
- * feature composable from copy B would `inject(SYMBOL_B, ref(null))` and
- * silently fall back to the default — features no-op with no error.
- *
  * @since 0.1.0
  */
-export const GRID_ELEMENT_KEY: InjectionKey<Ref<DataGridElement | null>> = getOrCreateShared(
-  'vueKeys',
-  'gridElement',
-  () => Symbol('tbw-grid'),
-);
+export const GRID_ELEMENT_KEY: InjectionKey<Ref<DataGridElement | null>> = Symbol('tbw-grid');
 
 /**
  * Return type for useGrid composable.

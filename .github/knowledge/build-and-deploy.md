@@ -29,7 +29,6 @@ related: [grid-core]
 - INVARIANT: warn-only thresholds (`warnSize` / `warnGzip`) emit yellow warnings but never fail the build; hard thresholds (`maxSize` / `maxGzip`) fail when severity: 'error'
 - INVARIANT: build fails with exit code 1 if severity: 'error' mode
 - DECIDED (Apr 2026): raised hard gzip ceiling 45 → 50 kB and added 45 kB warn gate. Bundle was at the 45 kB cliff blocking bug fixes; new policy is design-target 45 kB, hard ceiling 50 kB. Any new code that pushes core toward 50 kB MUST first try a plugin extraction — only land in core if a plugin would damage performance (hot path, render scheduler, virtualization).
-- DECIDED (#338 / PR #340, May 2026): bumped `grid-angular` `bundle-check` budget 256 → 257 kB (262144 → 263168 bytes) in [libs/grid-angular/project.json](libs/grid-angular/project.json). WHY: wrapping `GRID_ICONS` / `GRID_TYPE_DEFAULTS` / `GRID_CELL_EDITOR` / `GRID_CELL_RENDERER` in `getOrCreateShared(...)` adds ~100 B of intentional cross-bundle DI plumbing; 1 kB headroom absorbs minor follow-up edits. Temporary — the v3.0.0 deprecation cleanup (#260) drops the legacy directive/module surface and will reclaim far more than 1 kB, so the 256 kB ceiling should be restored (and likely lowered) in that release cycle. Note: `grid-angular` uses `tools/check-bundle-budget.ts` (Nx `bundle-check` target on the ng-packagr output), NOT the Vite `vite-bundle-budget.ts` plugin used by core/plugins/react/vue.
 
 ## css-layer-strategy
 

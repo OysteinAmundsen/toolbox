@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.14.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.13.1...grid-2.14.0) (2026-05-19)
+
+
+### Features
+
+* **grid:** auto-suffix tag for multi-version coexistence ([#339](https://github.com/OysteinAmundsen/toolbox/issues/339)) ([#342](https://github.com/OysteinAmundsen/toolbox/issues/342)) ([5585171](https://github.com/OysteinAmundsen/toolbox/commit/558517172444bb7eaaaeac3ca18b5519a4ad79dd))
+
+
+### Bug Fixes
+
+* **grid/responsive:** make hideHeader actually work and flip default to false ([47d0c94](https://github.com/OysteinAmundsen/toolbox/commit/47d0c9496e93923aa9707686bde095fdc4b6c120))
+
 ## [2.13.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.13.0...grid-2.13.1) (2026-05-15)
 
 

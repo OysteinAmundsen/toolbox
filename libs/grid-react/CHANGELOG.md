@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.6.1...grid-react-1.7.0) (2026-05-19)
+
+
+### Features
+
+* **grid/adapters:** add sticky-rows wrappers for angular/react/vue and missing row-drag-drop entry for react ([74e9fa7](https://github.com/OysteinAmundsen/toolbox/commit/74e9fa749df798a154e03005dd286462a7f591fc))
+* **grid:** auto-suffix tag for multi-version coexistence ([#339](https://github.com/OysteinAmundsen/toolbox/issues/339)) ([#342](https://github.com/OysteinAmundsen/toolbox/issues/342)) ([5585171](https://github.com/OysteinAmundsen/toolbox/commit/558517172444bb7eaaaeac3ca18b5519a4ad79dd))
+
 ## [1.6.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.6.0...grid-react-1.6.1) (2026-05-15)
 
 

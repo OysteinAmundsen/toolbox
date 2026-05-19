@@ -1,4 +1,5 @@
 import { InjectionToken, InputSignal, OutputEmitterRef } from '@angular/core';
+import { getOrCreateShared } from '@toolbox-web/grid';
 
 /**
  * Interface for Angular components used as cell editors in the grid.
@@ -87,4 +88,8 @@ export interface GridCellEditor<TValue = unknown, TRow = unknown> {
  * })
  * ```
  */
-export const GRID_CELL_EDITOR = new InjectionToken<GridCellEditor>('GridCellEditor');
+export const GRID_CELL_EDITOR: InjectionToken<GridCellEditor> = getOrCreateShared(
+  'ngTokens',
+  'cellEditor',
+  () => new InjectionToken<GridCellEditor>('GridCellEditor'),
+);

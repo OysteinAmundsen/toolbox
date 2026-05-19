@@ -696,6 +696,90 @@ grid.__frameworkAdapter?.releaseCell?.(cell);
 
 ---
 
+## Multi-Instance & Micro-Frontend Sharing
+
+A single web page may load `@toolbox-web/grid` (and its adapters) **more than once** — this is normal in micro-frontend architectures (module federation, Single-SPA, Equinor Fusion/Roma, qiankun) where each remote application bundles its own copy of the library.
+
+The grid is designed to coexist with copies of **itself** on the same page. This section explains how that works, what guarantees it provides, and where the limits are.
+
+### What `customElements.define` forces on us
+
+The browser's custom-elements registry is **process-global** and **first-write-wins**: once any script has called `customElements.define('tbw-grid', SomeClass)`, every subsequent attempt to redefine `tbw-grid` is silently ignored (or throws, depending on the call site). This applies regardless of how many bundled copies of the grid module exist — only one *class* can own the `tbw-grid` tag.
+
+The grid handles this with first-wins guards on both `customElements.define` and `globalThis.DataGridElement`. The first copy to load defines the element; later copies detect the existing registration and skip it.
+
+### The shared store — what gets unified across copies
+
+Auto-registration of the custom element is only half the story. Each bundled copy of `@toolbox-web/grid` would normally also have its own module-private state — feature registry, framework-adapter Contexts (React), InjectionKeys (Vue), InjectionTokens (Angular). Without intervention, copy A's feature registration would be invisible to copy B's render pipeline, and adapter contexts created by one copy would be unfindable by another copy's `useContext` / `inject`.
+
+The fix is a process-wide **shared store** anchored on `globalThis[Symbol.for('@toolbox-web/grid/shared')]`. Identity primitives that participate in DI / context are created via `getOrCreateShared(bucket, key, factory)`, which is first-wins per `(bucket, key)`: the factory only runs once, and every later caller (including a second bundled copy) receives the same instance.
+
+Buckets on the shared store:
+
+| Bucket | Used by | What it holds |
+| ------ | ------- | ------------- |
+| `features` | core grid | The feature registry (`Map<string, RegistryEntry>`) — features registered by any copy are visible to all copies. |
+| `featureResolver` | core grid | The function that turns a `features: {…}` config into `Plugin[]`. |
+| `reactContexts` | `@toolbox-web/grid-react` | `GridElementContext`, `GridIconContext`, `GridTypeContext`. |
+| `vueKeys` | `@toolbox-web/grid-vue` | `GRID_ELEMENT_KEY`, `GRID_ICONS`, `GRID_TYPE_DEFAULTS` (`Symbol`s). |
+| `ngTokens` | `@toolbox-web/grid-angular` | `GRID_ICONS`, `GRID_TYPE_DEFAULTS`, `GRID_CELL_EDITOR`, `GRID_CELL_RENDERER` (`InjectionToken`s). |
+
+For debugging, the store is also exposed as `DataGridElement.shared`.
+
+### Minimum supported version: 2.14.0
+
+The shared store landed in **v2.14.0**. Earlier versions of `@toolbox-web/grid` neither read nor write the global anchor, so they cannot participate in cross-copy identity sharing.
+
+In a micro-frontend deployment **every grid copy on the page must be on v2.14.0 or newer**. Mixing a pre-2.14 grid with a 2.14+ grid degrades to the old broken behavior for whichever copy loaded second — the older copy will silently mint its own (incompatible) Contexts and registries.
+
+If you ship a host that embeds third-party widgets, document this as a peer requirement: *"widgets that use `@toolbox-web/grid` directly must depend on `>=2.14.0`."*
+
+### What sharing **does** guarantee
+
+When two copies of the grid on the same page are on **compatible versions** (typically same minor, see caveat below):
+
+- The `tbw-grid` element class is the first-loaded copy's class. DOM elements created by either copy are the same class and respond to the same methods.
+- A feature (e.g. `features.selection`) registered by either copy resolves identically.
+- A React `<DataGridProvider>` from copy A is found by `useContext(GridElementContext)` from copy B's components.
+- A Vue `provide(GRID_ELEMENT_KEY, …)` from copy A is read by `inject(GRID_ELEMENT_KEY)` from copy B's composables.
+- An Angular `InjectionToken` from copy A is satisfied by providers from copy B's injector.
+- `document.querySelector('tbw-grid')` from anywhere on the page returns every grid, regardless of which copy created it.
+
+### What sharing does **not** fix — version skew
+
+The shared store gives you cross-copy **identity sharing**, but it does **not** give you cross-copy **behavior unification**. With two genuinely different grid *versions* on the same page (e.g. v2.14.5 in the host, v2.15.2 in an embedded widget):
+
+| Resource | Behavior | Risk |
+| -------- | -------- | ---- |
+| `customElements.define('tbw-grid', …)` | First-call-wins (by script execution order) | Both apps' `<tbw-grid>` elements run the **first-loaded** version's class. The winner can be either older or newer depending on which script tag/import evaluates first (e.g. if the embedded widget loads before the host's main bundle, the newer version wins and the host's older code path uses it). Methods only present on the losing version are `undefined` on instances created by code paths assuming the bundled (loser) class. |
+| `shared.features` Map | Last-write-wins per key | If both versions register a feature with the same name but different factory shapes, whichever loaded second silently overwrites the first. |
+| `shared.reactContexts.gridElement` | First-wins | Adapter v2.15 may expect the Context value to carry a new field — it gets v2.14's narrower shape. |
+| `shared.ngTokens.cellEditor` | First-wins | Same identity; mismatched interface assumptions on the two sides. |
+
+In short: **the shared store assumes the participating copies share an API contract.** Within a minor version that's almost always true; across major versions it is not.
+
+### Recommended deployment patterns
+
+1. **Pin all consumers to the same minor.** This is the safest and most common micro-frontend pattern. Either the host dictates the version, or the team agrees on a target minor and bumps in lockstep. With this discipline the shared store is invisible — everything just works.
+2. **Use module-federation / import-map dedupe.** If your micro-frontend platform supports shared singleton deps, mark `@toolbox-web/grid` as a singleton with a compatible version range. Only one copy ever loads, sidestepping the problem entirely.
+3. **For genuinely independent versions, wait for #339.** Issue [#339](https://github.com/OysteinAmundsen/toolbox/issues/339) tracks **auto-suffixed tag names** — when the loading copy detects a different version already owns `tbw-grid`, it registers itself as `tbw-grid-v2-15-0` (or similar) and isolates its DOM. That gives you true version isolation at the cost of duplicate runtimes. It builds on the v2.14 shared-store fix; both mechanisms will coexist.
+
+### Caveat: `customElements` cannot be unregistered
+
+Browsers do not currently expose a way to remove a custom-element definition. Once `tbw-grid` is defined, it stays defined for the lifetime of the document. Patterns like *"unregister on app teardown"* are not implementable today.
+
+The portable forward path is the auto-suffixed tag name proposed in [#339](https://github.com/OysteinAmundsen/toolbox/issues/339): when a loading copy detects a different version already owns `tbw-grid`, it registers itself as `tbw-grid-v2-15-0` (or similar) and isolates its DOM. It works in 100% of browsers today and preserves the grid's light-DOM API surface (slotted column children, queries, portals, event listeners).
+
+A **Scoped Custom Element Registries** path (`new CustomElementRegistry()` + `ShadowRoot.customElementRegistry`) is sometimes mentioned as the "clean" solution, but it is not interchangeable with auto-suffix:
+
+- As of May 2026 it ships in Chrome / Edge 146+, Safari 26+, and Opera 130+, but Firefox keeps it behind the `dom.scoped-custom-element-registries.enabled` flag, so it has not reached [Baseline Widely available](https://web.dev/baseline) status (global usage ≈ 75%).
+- It isolates per **ShadowRoot**, not per **document** — every grid instance would have to live behind its own shadow root, with bridges across that boundary for slotted columns, portals, and the rest of the light-DOM API.
+- It would not save runtime bytes in a multi-version scenario; both grid bundles still load.
+
+The grid does not progressively enhance to scoped registries automatically: that would split runtime behavior across browsers and double the test surface for zero net benefit. If scoped registries ever become attractive for a specific consumer, the future API would be an **explicit, opt-in** mode (e.g. `defineGrid({ registry })`), not a transparent fallback.
+
+---
+
 ## Shell System
 
 The **shell** is an optional wrapper that adds a header bar, toolbar buttons, and a collapsible tool panel sidebar to the grid.

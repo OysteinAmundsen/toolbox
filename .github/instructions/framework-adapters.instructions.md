@@ -38,6 +38,8 @@ Adapter API docs are auto-generated via `bun nx typedoc grid-{angular,react,vue}
 
 ### Cross-cutting (apply to all three adapters)
 
+- **Identity primitives must go through `getOrCreateShared`** — Any per-adapter React `Context`, Vue `InjectionKey` (Symbol), or Angular `InjectionToken` MUST be created via `getOrCreateShared(bucket, key, factory)` imported from `@toolbox-web/grid` (buckets: `reactContexts`, `vueKeys`, `ngTokens`). Otherwise two bundled copies of the adapter on one page mint distinct identities and cross-copy `useContext` / `inject` lookups miss. See `.github/knowledge/grid-core.md` § shared-store and issue #338.
+
 - **Keep adapter proxy signatures in sync with core plugins** — When a core plugin method gains a new parameter (e.g., `options?: { silent?: boolean }`), update the `FilteringMethods`/`*Methods` interface AND the proxy closures in **all three** adapters. Forgetting one adapter silently drops the parameter for that framework's users.
 - **New feature entry points must be added to TypeDoc** — Feature functions live in subpath entry points, not the main `index.ts`. If you add a new feature (e.g., `injectGridSorting`), add its file to `typedoc.json` `entryPoints` in all three adapters or it won't appear in the generated API docs.
 - **`DataGridElement` built types omit plugin-injected methods** — Methods like `toggleGroup` are declared on the `PublicGrid` interface but not implemented on the `DataGridElement` class directly (they're added by plugins at runtime). When accessing these methods on a raw `DataGridElement` reference (e.g., selector-based discovery), cast through `any`; prefer the typed wrapper (`DataGridRef` in React) when available.

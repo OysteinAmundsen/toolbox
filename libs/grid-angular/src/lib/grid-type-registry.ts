@@ -13,6 +13,7 @@ import {
   Type,
 } from '@angular/core';
 import type { TypeDefault } from '@toolbox-web/grid';
+import { getOrCreateShared } from '@toolbox-web/grid';
 import type { FilterPanelRenderer } from '@toolbox-web/grid/plugins/filtering';
 
 /**
@@ -49,9 +50,18 @@ export interface TypeDefaultRegistration<_TRow = unknown> {
 
 /**
  * Injection token for providing type defaults at app level.
+ *
+ * Shared across module copies via the page-wide store (issue #338) so that
+ * a provider registered by one bundle and `inject(GRID_TYPE_DEFAULTS)` from
+ * another resolve to the same identity.
+ *
  * @since 0.3.0
  */
-export const GRID_TYPE_DEFAULTS = new InjectionToken<Record<string, TypeDefaultRegistration>>('GRID_TYPE_DEFAULTS');
+export const GRID_TYPE_DEFAULTS: InjectionToken<Record<string, TypeDefaultRegistration>> = getOrCreateShared(
+  'ngTokens',
+  'typeDefaults',
+  () => new InjectionToken<Record<string, TypeDefaultRegistration>>('GRID_TYPE_DEFAULTS'),
+);
 
 /**
  * Injectable service for managing type-level defaults.

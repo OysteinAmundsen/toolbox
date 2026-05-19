@@ -10,7 +10,7 @@ import { ConfigManager } from './internal/config-manager';
 import { INVALID_ATTRIBUTE_JSON, warnDiagnostic } from './internal/diagnostics';
 import { updateEmptyOverlay, type EmptyOverlayState } from './internal/empty';
 import { setupCellEventDelegation, setupRootEventDelegation } from './internal/event-delegation';
-import { resolveFeatures } from './internal/feature-hook';
+import { getFeatureResolver } from './internal/feature-hook';
 import { FocusManager } from './internal/focus-manager';
 import { renderHeader } from './internal/header';
 import { cancelIdle, scheduleIdle } from './internal/idle-scheduler';
@@ -27,6 +27,7 @@ import { createResizeController } from './internal/resize';
 import { animateRow, animateRowById, animateRows } from './internal/row-animation';
 import { resolveRowIdOrThrow, RowManager, tryResolveRowId } from './internal/row-manager';
 import { invalidateCellCache, renderVisibleRows } from './internal/rows';
+import { getSharedStore, type SharedGridStore } from './internal/shared-store';
 import {
   buildGridDOMIntoElement,
   cleanupShellState,
@@ -168,6 +169,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   static readonly tagName = 'tbw-grid';
   /** Version of the grid component, injected at build time from package.json */
   static readonly version = typeof __GRID_VERSION__ !== 'undefined' ? __GRID_VERSION__ : 'dev';
+
+  /**
+   * Page-wide shared store for cross-module-instance singletons (feature
+   * registry, framework Contexts / InjectionKeys / InjectionTokens). See
+   * `internal/shared-store.ts` and issue #338. Convenience reference — the
+   * canonical anchor is `globalThis[Symbol.for('@toolbox-web/grid/shared')]`.
+   *
+   * @internal
+   * @since 2.14.0
+   */
+  static readonly shared: SharedGridStore = getSharedStore();
 
   /** Static counter for generating unique grid IDs */
   static #instanceCounter = 0;
@@ -987,9 +999,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const pluginsConfig = this.#effectiveConfig?.plugins;
     const explicitPlugins = Array.isArray(pluginsConfig) ? (pluginsConfig as BaseGridPlugin[]) : [];
 
-    // Resolve feature-derived plugins (if feature registry is loaded)
+    // Resolve feature-derived plugins (if feature registry is loaded).
+    // Read the resolver lazily via the shared store so that two bundled copies
+    // of @toolbox-web/grid on one page (issue #338) converge on a single
+    // registry instead of each holding its own module-local resolver.
     const features = this.#effectiveConfig?.features;
     let featurePlugins: BaseGridPlugin[] = [];
+    const resolveFeatures = getFeatureResolver();
     if (features && resolveFeatures) {
       featurePlugins = resolveFeatures(features as Record<string, unknown>) as BaseGridPlugin[];
     }
@@ -4900,13 +4916,20 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // #endregion
 }
 
-// Self-registering custom element
+// Self-registering custom element. First-write-wins: if another copy of
+// this library already defined `tbw-grid`, leave it alone — that class
+// owns every `<tbw-grid>` instance on the page. The shared store
+// (`DataGridElement.shared`) makes that safe across copies.
 if (!customElements.get(DataGridElement.tagName)) {
   customElements.define(DataGridElement.tagName, DataGridElement);
 }
 
-// Make DataGridElement accessible globally for framework adapters
-globalThis.DataGridElement = DataGridElement;
+// Expose the (first-loaded) class globally for framework adapters and DOM
+// inspection. First-write-wins to keep the global pointing at the same class
+// that won `customElements.define`. See issue #338.
+if (!globalThis.DataGridElement) {
+  globalThis.DataGridElement = DataGridElement;
+}
 
 // Type augmentation for querySelector/createElement and globalThis
 declare global {

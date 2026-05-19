@@ -5,9 +5,8 @@
  * that all grids inherit automatically via React Context.
  */
 import type { TypeDefault as BaseTypeDefault, CellRenderContext, ColumnEditorContext } from '@toolbox-web/grid';
-import { getOrCreateShared } from '@toolbox-web/grid';
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
-import { createContext, useContext, type Context, type FC, type ReactNode } from 'react';
+import { createContext, useContext, type FC, type ReactNode } from 'react';
 
 // #region TypeDefault Interface
 /**
@@ -65,15 +64,8 @@ export type TypeDefaultsMap = Record<string, TypeDefault>;
 
 /**
  * Context for providing type defaults to grids.
- *
- * Created lazily via the shared store (issue #338) so that two bundled
- * copies of `@toolbox-web/grid-react` on one page converge on one identity.
  */
-const GridTypeContext = getOrCreateShared(
-  'reactContexts',
-  'typeDefaults',
-  () => createContext<TypeDefaultsMap | null>(null),
-) as Context<TypeDefaultsMap | null>;
+const GridTypeContext = createContext<TypeDefaultsMap | null>(null);
 
 /**
  * Props for the GridTypeProvider component.

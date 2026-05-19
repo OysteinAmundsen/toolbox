@@ -5,7 +5,6 @@
  * that all grids inherit automatically via Vue's provide/inject.
  */
 import type { CellRenderContext, ColumnEditorContext } from '@toolbox-web/grid';
-import { getOrCreateShared } from '@toolbox-web/grid';
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import { defineComponent, inject, provide, type InjectionKey, type PropType, type VNode } from 'vue';
 
@@ -73,18 +72,9 @@ export type TypeDefaultsMap = Record<string, TypeDefault>;
 
 /**
  * Injection key for type defaults.
- *
- * Shared across module copies via the page-wide store (issue #338) so that
- * `<GridTypeProvider>` from one bundle and `useGridTypeDefaults()` from
- * another resolve to the same identity.
- *
  * @since 0.1.0
  */
-export const GRID_TYPE_DEFAULTS: InjectionKey<TypeDefaultsMap> = getOrCreateShared(
-  'vueKeys',
-  'typeDefaults',
-  () => Symbol('grid-type-defaults'),
-);
+export const GRID_TYPE_DEFAULTS: InjectionKey<TypeDefaultsMap> = Symbol('grid-type-defaults');
 
 /**
  * Composable to get the current type defaults from the nearest provider.

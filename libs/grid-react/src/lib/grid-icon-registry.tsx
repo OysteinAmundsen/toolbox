@@ -4,21 +4,13 @@
  * Provides application-wide icon overrides for all grids via React Context.
  */
 import type { GridIcons } from '@toolbox-web/grid';
-import { getOrCreateShared } from '@toolbox-web/grid';
-import { createContext, useContext, type Context, type FC, type ReactNode } from 'react';
+import { createContext, useContext, type FC, type ReactNode } from 'react';
 
 /**
  * Context for providing icon overrides to grids.
- *
- * Created lazily via the shared store so that two bundled copies of
- * `@toolbox-web/grid-react` on the same page (issue #338) converge on one
- * Context identity. See `grid-element-context.ts` for rationale.
- *
  * @internal
  */
-export const GridIconContext = getOrCreateShared('reactContexts', 'icons', () =>
-  createContext<Partial<GridIcons> | null>(null),
-) as Context<Partial<GridIcons> | null>;
+export const GridIconContext = createContext<Partial<GridIcons> | null>(null);
 
 /**
  * Props for the GridIconProvider component.

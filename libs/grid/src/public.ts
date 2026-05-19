@@ -527,15 +527,4 @@ export { RenderPhase } from './lib/core/internal/render-scheduler';
  * @internal
  */
 export { setFeatureResolver } from './lib/core/internal/feature-hook';
-
-/**
- * Cross-module-instance shared store. Framework adapters use this to anchor
- * their React Contexts / Vue InjectionKeys / Angular InjectionTokens on a
- * single per-page identity, so that two bundled copies of the adapter on the
- * same page (micro-frontend scenario) do not crash on Context-identity miss
- * or silently drop feature wiring. See issue #338.
- *
- * @internal
- */
-export { getOrCreateShared, getSharedStore, type SharedGridStore } from './lib/core/internal/shared-store';
 // #endregion

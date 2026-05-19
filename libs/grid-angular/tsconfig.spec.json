@@ -8,9 +8,6 @@
     "moduleResolution": "nodenext",
     "forceConsistentCasingInFileNames": true
   },
-  "angularCompilerOptions": {
-    "strictTemplates": true
-  },
   "include": [
     "vite.config.ts",
     "vite.config.mts",

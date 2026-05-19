@@ -701,7 +701,7 @@ export class GridAdapter implements FrameworkAdapter {
    */
   private attachBeforeEditCloseFlush(container: HTMLElement): void {
     queueMicrotask(() => {
-      const gridEl = container.closest('tbw-grid') as HTMLElement | null;
+      const gridEl = container.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
       if (!gridEl) return;
       this.editorBeforeCloseUnsubs.set(container, notifyEditorMounted(container, gridEl));
     });
@@ -1016,12 +1016,12 @@ export class GridAdapter implements FrameworkAdapter {
     }
 
     // Resolve grid once from the column element (stable in the DOM, so
-    // `closest('tbw-grid')` returns synchronously at creation time — unlike
+    // `closest('tbw-grid, [data-tbw-grid]')` returns synchronously at creation time — unlike
     // the config-based path where the container is constructed before being
     // attached). This lets us install the `before-edit-close` listener
     // eagerly so synchronous dispatches (e.g. from tests or programmatic
     // row-exit calls during the same task) are captured.
-    const gridEl = (element.closest('tbw-grid') as HTMLElement | null) ?? undefined;
+    const gridEl = (element.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null) ?? undefined;
 
     // Return a function that creates the editor element
     return (ctx: ColumnEditorContext<TRow, TValue>): HTMLElement => {
@@ -1053,7 +1053,7 @@ export class GridAdapter implements FrameworkAdapter {
     detailElement: Element,
   ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined {
     if (!detailRendererBridge) return undefined;
-    const gridElement = detailElement.closest('tbw-grid') as HTMLElement | null;
+    const gridElement = detailElement.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
     if (!gridElement) return undefined;
     return detailRendererBridge<TRow>(gridElement, this.bridgeContext);
   }
@@ -1069,7 +1069,7 @@ export class GridAdapter implements FrameworkAdapter {
     cardElement: Element,
   ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined {
     if (!responsiveCardRendererBridge) return undefined;
-    const gridElement = cardElement.closest('tbw-grid') as HTMLElement | null;
+    const gridElement = cardElement.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
     if (!gridElement) return undefined;
     return responsiveCardRendererBridge<TRow>(gridElement, this.bridgeContext);
   }
@@ -1090,7 +1090,7 @@ export class GridAdapter implements FrameworkAdapter {
     const renderFn = getToolPanelRenderer(element);
     if (!renderFn) return undefined;
 
-    const gridElement = element.closest('tbw-grid') as HTMLElement | null;
+    const gridElement = element.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
 
     return (container: HTMLElement) => {
       const ctx: ToolPanelContext = { gridElement: gridElement ?? container };

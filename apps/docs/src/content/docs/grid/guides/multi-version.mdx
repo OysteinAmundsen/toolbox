@@ -4,10 +4,10 @@ description: How @toolbox-web/grid lets two different grid versions live on one 
 ---
 
 When two micro-frontends on the same page each ship their own copy of
-`@toolbox-web/grid` (for example, a host app upgrading from `v2.x` while a
-widget is still on `v1.x`), the browser's custom-elements registry is shared
-and first-wins: a second `customElements.define('tbw-grid', …)` call throws.
-Starting with `v3`, the grid handles this for you automatically — the
+`@toolbox-web/grid` (for example, a host app on `v2.14` while a widget is
+still on `v2.11`), the browser's custom-elements registry is shared and
+first-wins: a second `customElements.define('tbw-grid', …)` call throws.
+Starting with `v2.14`, the grid handles this for you automatically — the
 second bundle to load registers itself under a version-suffixed tag and the
 two implementations coexist.
 
@@ -18,7 +18,7 @@ Each grid bundle exposes the version it was built with on the class:
 ```ts
 import { DataGridElement } from '@toolbox-web/grid';
 
-DataGridElement.version;   // e.g. '3.2.0' — set at build time
+DataGridElement.version;   // e.g. '2.14.0' — set at build time
 DataGridElement.tagName;   // 'tbw-grid' — the canonical tag
 DataGridElement.activeTag; // 'tbw-grid' OR 'tbw-grid-v<sanitised-version>'
 ```
@@ -31,12 +31,12 @@ following rule:
 2. **An existing registration at the SAME version** → don't re-register;
    reuse the existing class. `activeTag === 'tbw-grid'`.
 3. **An existing registration at a DIFFERENT version** → register under
-   `tbw-grid-v<sanitised-version>` (e.g. `tbw-grid-v3-2-0`). `activeTag`
+   `tbw-grid-v<sanitised-version>` (e.g. `tbw-grid-v2-14-0`). `activeTag`
    reflects the suffixed tag.
 
 The sanitiser replaces every non-alphanumeric character with `-` and
 lower-cases the result, so semver pre-release / build-metadata strings like
-`3.0.0-beta.1+build.42` produce `tbw-grid-v3-0-0-beta-1-build-42`.
+`2.14.0-beta.1+build.42` produce `tbw-grid-v2-14-0-beta-1-build-42`.
 
 In the **single-version** case (99% of apps), nothing changes: the tag is
 `<tbw-grid>` and existing markup, styles, and tooling continue to work
@@ -49,7 +49,7 @@ every grid sets a stable attribute on its host element when it connects:
 
 ```html
 <tbw-grid data-tbw-grid="">…</tbw-grid>
-<tbw-grid-v2-99-0 data-tbw-grid="">…</tbw-grid-v2-99-0>
+<tbw-grid-v2-14-0 data-tbw-grid="">…</tbw-grid-v2-14-0>
 ```
 
 **Always use `[data-tbw-grid]` (not the tag name) when you need to target

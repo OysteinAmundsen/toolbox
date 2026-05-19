@@ -343,7 +343,7 @@ export class GridAdapter implements FrameworkAdapter {
     }
 
     // Resolve grid once from the column element (stable in the DOM)
-    const gridEl = element.closest('tbw-grid') as HTMLElement | null;
+    const gridEl = element.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
     // Cell cache for this field - maps cell element to its portal key + container
     const cellCache = new WeakMap<HTMLElement, CellPortalCache>();
     return (ctx: CellRenderContext<TRow, TValue>) => {
@@ -416,7 +416,7 @@ export class GridAdapter implements FrameworkAdapter {
     }
 
     // Resolve grid once from the column element (stable in the DOM)
-    const gridEl = (element.closest('tbw-grid') as HTMLElement | null) ?? undefined;
+    const gridEl = (element.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null) ?? undefined;
 
     return (ctx: ColumnEditorContext<TRow, TValue>) => {
       // Create container for React
@@ -466,7 +466,7 @@ export class GridAdapter implements FrameworkAdapter {
   parseDetailElement<TRow = unknown>(
     detailElement: Element,
   ): ((row: TRow, rowIndex: number) => HTMLElement | string) | undefined {
-    const gridElement = detailElement.closest('tbw-grid') as HTMLElement | null;
+    const gridElement = detailElement.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
     if (!gridElement) return undefined;
 
     return this.createDetailRenderer<TRow>(gridElement);
@@ -496,7 +496,7 @@ export class GridAdapter implements FrameworkAdapter {
   parseResponsiveCardElement<TRow = unknown>(
     cardElement: Element,
   ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined {
-    const gridElement = cardElement.closest('tbw-grid') as HTMLElement | null;
+    const gridElement = cardElement.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
     if (!gridElement) return undefined;
 
     return this.createResponsiveCardRenderer<TRow>(gridElement);
@@ -513,7 +513,7 @@ export class GridAdapter implements FrameworkAdapter {
       return undefined;
     }
 
-    const gridElement = element.closest('tbw-grid') as DataGridElement | null;
+    const gridElement = element.closest('tbw-grid, [data-tbw-grid]') as DataGridElement | null;
 
     return (container: HTMLElement) => {
       const ctx: ToolPanelContext = {
@@ -612,7 +612,7 @@ export class GridAdapter implements FrameworkAdapter {
       container.style.display = 'contents';
 
       // Resolve grid from cellEl (in-DOM) first, then fall back to the gridEl captured at getTypeDefault time
-      const resolvedGrid = (ctx.cellEl?.closest('tbw-grid') as HTMLElement | null) ?? gridEl;
+      const resolvedGrid = (ctx.cellEl?.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null) ?? gridEl;
       const portalKey = renderToContainer(container, renderFn(ctx) as React.ReactElement, undefined, resolvedGrid);
       this.trackPortal(portalKey, container, false);
 

@@ -169,16 +169,26 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /** Version of the grid component, injected at build time from package.json */
   static readonly version = typeof __GRID_VERSION__ !== 'undefined' ? __GRID_VERSION__ : 'dev';
   /**
-   * Tag name actually registered for THIS class in `customElements`.
+   * Tag name this bundle should render and query for.
    *
-   * In the common (single-version) case this equals {@link tagName} (`'tbw-grid'`).
-   * If a different grid version is already registered as `tbw-grid` on the page
-   * (e.g. two micro-frontend widgets bundling different `@toolbox-web/grid`
-   * versions), this class registers itself under a version-suffixed tag like
-   * `tbw-grid-v2-11-0` and `activeTag` reflects that suffixed name.
+   * In the common (single-version) case this equals {@link tagName}
+   * (`'tbw-grid'`).
    *
-   * Adapters and consumers that need to construct or query for the grid element
-   * MUST use this property, not the hard-coded `tagName` literal.
+   * Resolution rules (see `registerDataGrid()` at the bottom of this file):
+   *  - **No existing registration** → this class registers under `tbw-grid`;
+   *    `activeTag === 'tbw-grid'`.
+   *  - **Existing registration at the SAME version** → this class is NOT
+   *    redefined (the first-loaded bundle's class keeps the registration),
+   *    and `activeTag` still points at `'tbw-grid'` so adapters render the
+   *    shared element. Note that in this branch `customElements.get(activeTag)`
+   *    returns the OTHER bundle's class, not this one.
+   *  - **Existing registration at a DIFFERENT version** → this class
+   *    registers under a version-suffixed tag like `tbw-grid-v2-14-0` and
+   *    `activeTag` reflects that suffixed name; the two implementations
+   *    coexist on the page.
+   *
+   * Adapters and consumers that need to construct or query for the grid
+   * element MUST use this property, not the hard-coded `tagName` literal.
    */
   static activeTag = 'tbw-grid';
 

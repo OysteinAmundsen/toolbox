@@ -59,7 +59,7 @@ function handleCellMousedown(grid: InternalGrid, cell: HTMLElement): void {
   // Always call focus() — even when activeElement is inside the grid — because
   // browser default behaviors (e.g., shift+click text selection, cell re-pooling)
   // can move focus to document.body between mousedown and the next keydown.
-  const gridEl = cell.closest('tbw-grid') as HTMLElement | null;
+  const gridEl = cell.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
   if (gridEl && document.activeElement !== gridEl) {
     gridEl.focus({ preventScroll: true });
   }
@@ -239,7 +239,7 @@ export function setupCellEventDelegation(grid: GridHost, bodyEl: HTMLElement, si
       // and receives all keyboard events via bubble phase.
       // Skip if an editor is active — editors manage their own focus.
       if (!document.activeElement?.closest(`.cell.${GridClasses.EDITING}`)) {
-        const gridEl = (e.target as HTMLElement).closest('tbw-grid') as HTMLElement | null;
+        const gridEl = (e.target as HTMLElement).closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
         if (gridEl) gridEl.focus({ preventScroll: true });
       }
     },

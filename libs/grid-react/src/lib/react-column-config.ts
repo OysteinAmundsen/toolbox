@@ -272,7 +272,7 @@ export function wrapReactEditor<TRow>(
     // editing precondition (the EditingPlugin needs the same import to
     // exist at all).
     queueMicrotask(() => {
-      const gridEl = container.closest('tbw-grid') as HTMLElement | null;
+      const gridEl = container.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
       if (!gridEl) return;
       entry.unsub = notifyEditorMounted(container, gridEl);
     });

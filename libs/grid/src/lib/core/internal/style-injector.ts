@@ -4,36 +4,77 @@
  * Handles injection of grid and plugin styles into the document.
  * Uses a singleton pattern to avoid duplicate injection across multiple grid instances.
  *
+ * ## Multi-version coexistence
+ *
+ * The style element ID is scoped to the registered tag name
+ * (`tbw-grid-styles-<activeTag>`) so that a second `@toolbox-web/grid` bundle
+ * loaded under a version-suffixed tag (e.g. `tbw-grid-v2-11-0`, see
+ * `DataGridElement.activeTag`) creates its OWN `<style>` element rather than
+ * overwriting the first bundle's. Each bundle's CSS is also rewritten at
+ * injection time to target its own active tag, so a suffixed grid still
+ * picks up its bundle's styles. Issue #339.
+ *
  * @module internal/style-injector
  */
-
+import { DataGridElement } from '../grid';
 import { STYLE_EXTRACT_FAILED, STYLE_NOT_FOUND, warnDiagnostic } from './diagnostics';
 
 // #region State
-/** ID for the consolidated grid stylesheet in document.head */
-const STYLE_ELEMENT_ID = 'tbw-grid-styles';
+/** Base ID for the consolidated grid stylesheet in document.head */
+const STYLE_ELEMENT_ID_BASE = 'tbw-grid-styles';
 
-/** Track injected base styles CSS text */
+/** Track injected base styles CSS text (per this module instance / bundle) */
 let baseStyles = '';
 
-/** Track injected plugin styles by plugin name (accumulates across all grid instances) */
+/** Track injected plugin styles by plugin name (accumulates across all grid instances in this bundle) */
 const pluginStylesMap = new Map<string, string>();
 // #endregion
 
 // #region Internal Helpers
 /**
+ * Resolve the per-bundle style element ID. When the grid registered under
+ * a version-suffixed tag, the style element ID includes that suffix so
+ * bundles can coexist without overwriting each other's styles.
+ */
+function getStyleElementId(): string {
+  const tag = DataGridElement.activeTag;
+  return tag === DataGridElement.tagName ? STYLE_ELEMENT_ID_BASE : `${STYLE_ELEMENT_ID_BASE}-${tag}`;
+}
+
+/**
  * Get or create the consolidated style element in document.head.
  * All grid and plugin styles are combined into this single element.
  */
 function getStyleElement(): HTMLStyleElement {
-  let styleEl = document.getElementById(STYLE_ELEMENT_ID) as HTMLStyleElement | null;
+  const id = getStyleElementId();
+  let styleEl = document.getElementById(id) as HTMLStyleElement | null;
   if (!styleEl) {
     styleEl = document.createElement('style');
-    styleEl.id = STYLE_ELEMENT_ID;
+    styleEl.id = id;
     styleEl.setAttribute('data-tbw-grid', 'true');
     document.head.appendChild(styleEl);
   }
   return styleEl;
+}
+
+/**
+ * Rewrite occurrences of the bare `tbw-grid` tag name in a CSS string so that
+ * the bundle's stylesheet targets its actual registered tag (`activeTag`).
+ *
+ * The match is bounded on both sides:
+ *  - Negative lookbehind on `[-\w]` excludes `tbw-grid` that follows a `-`
+ *    or word character, most importantly inside the attribute selector
+ *    `[data-tbw-grid]`. (A plain `\b` would happily match between `-` and
+ *    `t` and corrupt the selector to `[data-tbw-grid-v<…>]`.)
+ *  - Negative lookahead on `[-\w]` excludes longer light-DOM tags like
+ *    `tbw-grid-detail`, `tbw-grid-column`, `tbw-grid-tool-panel`.
+ *
+ * No-op when `activeTag === 'tbw-grid'` (the common single-version case).
+ */
+function rewriteTagSelectors(css: string): string {
+  const tag = DataGridElement.activeTag;
+  if (tag === DataGridElement.tagName) return css;
+  return css.replace(/(?<![-\w])tbw-grid(?![-\w])/g, tag);
 }
 
 /**
@@ -57,7 +98,7 @@ export function addPluginStyles(pluginStyles: Array<{ name: string; styles: stri
 
   for (const { name, styles } of pluginStyles) {
     if (!pluginStylesMap.has(name)) {
-      pluginStylesMap.set(name, styles);
+      pluginStylesMap.set(name, rewriteTagSelectors(styles));
       hasNewStyles = true;
     }
   }
@@ -117,7 +158,7 @@ export async function injectStyles(inlineStyles: string): Promise<void> {
 
   // If styles is a string (from ?inline import in Vite builds), use it directly
   if (typeof inlineStyles === 'string' && inlineStyles.length > 0) {
-    baseStyles = inlineStyles;
+    baseStyles = rewriteTagSelectors(inlineStyles);
     updateStyleElement();
     return;
   }
@@ -130,7 +171,7 @@ export async function injectStyles(inlineStyles: string): Promise<void> {
   const gridCssText = extractGridCssFromDocument();
 
   if (gridCssText) {
-    baseStyles = gridCssText;
+    baseStyles = rewriteTagSelectors(gridCssText);
     updateStyleElement();
   } else if (typeof process === 'undefined' || process.env?.['NODE_ENV'] !== 'test') {
     // Only warn in non-test environments - test environments (happy-dom, jsdom) don't load stylesheets
@@ -153,7 +194,10 @@ export async function injectStyles(inlineStyles: string): Promise<void> {
 export function _resetForTesting(): void {
   baseStyles = '';
   pluginStylesMap.clear();
-  const styleEl = document.getElementById(STYLE_ELEMENT_ID);
-  styleEl?.remove();
+  // Remove every per-tag style element (single-version uses the base id; the
+  // multi-version test plants suffixed ids as well).
+  for (const el of Array.from(document.querySelectorAll(`style[id^="${STYLE_ELEMENT_ID_BASE}"]`))) {
+    el.remove();
+  }
 }
 // #endregion

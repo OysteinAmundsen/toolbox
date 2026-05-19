@@ -467,7 +467,7 @@ export class GridAdapter implements FrameworkAdapter {
     const template = getAnyEditorTemplate(element) as TemplateRef<GridEditorContext<TValue, TRow>> | undefined;
 
     // Find the parent grid element for FormArray context access
-    const gridElement = element.closest('tbw-grid') as HTMLElement | null;
+    const gridElement = element.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
 
     if (!template) {
       // No template registered - return undefined to let the grid use its default editor.
@@ -572,7 +572,7 @@ export class GridAdapter implements FrameworkAdapter {
   parseDetailElement<TRow = unknown>(
     detailElement: Element,
   ): ((row: TRow, rowIndex: number) => HTMLElement | string) | undefined {
-    const gridElement = detailElement.closest('tbw-grid') as HTMLElement | null;
+    const gridElement = detailElement.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
     if (!gridElement) return undefined;
     return getDetailRendererBridge()?.<TRow>(gridElement, this);
   }
@@ -594,7 +594,7 @@ export class GridAdapter implements FrameworkAdapter {
   parseResponsiveCardElement<TRow = unknown>(
     cardElement: Element,
   ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined {
-    const gridElement = cardElement.closest('tbw-grid') as HTMLElement | null;
+    const gridElement = cardElement.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
     if (!gridElement) return undefined;
     return getResponsiveCardRendererBridge()?.<TRow>(gridElement, this);
   }
@@ -611,7 +611,7 @@ export class GridAdapter implements FrameworkAdapter {
     }
 
     // Find the parent grid element for context
-    const gridElement = element.closest('tbw-grid') as HTMLElement | null;
+    const gridElement = element.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
 
     return (container: HTMLElement) => {
       // Create the context for the template
@@ -1067,7 +1067,7 @@ export class GridAdapter implements FrameworkAdapter {
    */
   private runEditorMountHooks(host: HTMLElement): void {
     queueMicrotask(() => {
-      const gridEl = host.closest('tbw-grid') as HTMLElement | null;
+      const gridEl = host.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
       if (!gridEl) return;
       this.editorMountTeardowns.set(host, notifyEditorMounted(host, gridEl));
     });

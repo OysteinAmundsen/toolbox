@@ -12,10 +12,13 @@ The `@toolbox-web/grid` component is fully themeable via CSS custom properties. 
 
 ## Quick Start
 
-Override CSS custom properties on the grid element:
+Override CSS custom properties on the grid element. Prefer the
+`[data-tbw-grid]` attribute selector over the bare `tbw-grid` tag — it also
+matches version-suffixed tags when [multiple grid versions](./multi-version)
+share the page:
 
 ```css
-tbw-grid {
+[data-tbw-grid] {
   --tbw-color-bg: #1a1a2e;
   --tbw-color-fg: #eaeaea;
   --tbw-color-border: #16213e;

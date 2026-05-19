@@ -1,0 +1,108 @@
+---
+title: Multi-version coexistence
+description: How @toolbox-web/grid lets two different grid versions live on one page — useful for micro-frontends and gradual upgrades.
+---
+
+When two micro-frontends on the same page each ship their own copy of
+`@toolbox-web/grid` (for example, a host app upgrading from `v2.x` while a
+widget is still on `v1.x`), the browser's custom-elements registry is shared
+and first-wins: a second `customElements.define('tbw-grid', …)` call throws.
+Starting with `v3`, the grid handles this for you automatically — the
+second bundle to load registers itself under a version-suffixed tag and the
+two implementations coexist.
+
+## How it works
+
+Each grid bundle exposes the version it was built with on the class:
+
+```ts
+import { DataGridElement } from '@toolbox-web/grid';
+
+DataGridElement.version;   // e.g. '3.2.0' — set at build time
+DataGridElement.tagName;   // 'tbw-grid' — the canonical tag
+DataGridElement.activeTag; // 'tbw-grid' OR 'tbw-grid-v<sanitised-version>'
+```
+
+At module load the bundle calls `customElements.define()` using the
+following rule:
+
+1. **No existing registration** → register under `tbw-grid`. The bundle owns
+   the bare tag. `activeTag === 'tbw-grid'`.
+2. **An existing registration at the SAME version** → don't re-register;
+   reuse the existing class. `activeTag === 'tbw-grid'`.
+3. **An existing registration at a DIFFERENT version** → register under
+   `tbw-grid-v<sanitised-version>` (e.g. `tbw-grid-v3-2-0`). `activeTag`
+   reflects the suffixed tag.
+
+The sanitiser replaces every non-alphanumeric character with `-` and
+lower-cases the result, so semver pre-release / build-metadata strings like
+`3.0.0-beta.1+build.42` produce `tbw-grid-v3-0-0-beta-1-build-42`.
+
+In the **single-version** case (99% of apps), nothing changes: the tag is
+`<tbw-grid>` and existing markup, styles, and tooling continue to work
+unmodified.
+
+## The `data-tbw-grid` selector contract
+
+Because the tag name is no longer guaranteed to be `tbw-grid` literally,
+every grid sets a stable attribute on its host element when it connects:
+
+```html
+<tbw-grid data-tbw-grid="">…</tbw-grid>
+<tbw-grid-v2-99-0 data-tbw-grid="">…</tbw-grid-v2-99-0>
+```
+
+**Always use `[data-tbw-grid]` (not the tag name) when you need to target
+"any grid" in CSS, querySelector, or `closest()`**. The framework adapters
+(`@toolbox-web/grid-react`, `@toolbox-web/grid-vue`,
+`@toolbox-web/grid-angular`) already do this internally — your application
+code only needs to follow the same rule for hand-written selectors:
+
+```css
+/* ✅ Works for both bare and suffixed grids */
+[data-tbw-grid] { font-size: 14px; }
+
+/* ⚠️ Only matches the first-loaded bundle's bare tag */
+tbw-grid { font-size: 14px; }
+```
+
+The bundled themes (`@toolbox-web/grid/themes/dg-theme-*.css`) already use
+`[data-tbw-grid]` for their root selectors, so they apply correctly to every
+loaded version. If you author a custom theme, follow the same pattern.
+
+## Adapter usage
+
+The React and Vue adapters resolve `activeTag` at render time, so they
+always emit the correct tag for the bundle they imported:
+
+```tsx
+// React — renders <tbw-grid> or <tbw-grid-v…> depending on which bundle
+// supplied DataGridElement.
+import { DataGrid } from '@toolbox-web/grid-react';
+```
+
+```vue
+<!-- Vue — same behaviour via <component :is="…"> internally. -->
+<TbwGrid :rows="rows" :columns="columns" />
+```
+
+Angular consumers that embed `<tbw-grid>` literally in component templates
+work in single-version setups. Multi-version Angular usage requires
+rendering the active tag dynamically (e.g. via a structural directive that
+reads `DataGridElement.activeTag`).
+
+## Per-bundle styles
+
+The internal style injector scopes its `<style id="tbw-grid-styles-…">`
+element to the active tag, and rewrites bare `tbw-grid` selectors in the
+injected CSS to the active tag. Each bundle ships its own stylesheet
+without overwriting the other.
+
+## The `globalThis.DataGridElement` alias
+
+For convenience the grid exposes its class on `globalThis.DataGridElement`,
+but this alias is **first-wins** and points at the first-loaded bundle's
+class. Multi-version-aware code that needs a specific version's class must
+import it directly (`import { DataGridElement } from '@toolbox-web/grid'`)
+or look it up via `customElements.get(activeTag)`. Don't rely on the global
+when multiple bundles may be present.

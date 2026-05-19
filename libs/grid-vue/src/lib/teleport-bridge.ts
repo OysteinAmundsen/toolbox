@@ -5,7 +5,7 @@
  *
  * Each TbwGrid instance registers its own TeleportManager via
  * `setTeleportManager(gridEl, handle)`. The bridge resolves the correct
- * manager for a given container using `container.closest('tbw-grid')`
+ * manager for a given container using `container.closest('tbw-grid, [data-tbw-grid]')`
  * or the explicit `gridEl` parameter.
  *
  * When no TeleportManager is available (e.g., adapter used standalone),
@@ -79,7 +79,7 @@ export function getTeleportManager(gridEl?: HTMLElement): TeleportManagerHandle 
  */
 function resolveGrid(container: HTMLElement, gridEl?: HTMLElement): HTMLElement | undefined {
   if (gridEl) return gridEl;
-  const closest = container.closest('tbw-grid') as HTMLElement | null;
+  const closest = container.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
   if (closest) return closest;
   // Single-grid optimization: if only one TM is registered, use it
   if (teleportManagers.size === 1) return teleportManagers.keys().next().value!;

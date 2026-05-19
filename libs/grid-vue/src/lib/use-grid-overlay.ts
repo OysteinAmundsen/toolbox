@@ -23,7 +23,7 @@ export interface UseGridOverlayOptions {
    * Optional explicit grid element. When omitted, the hook resolves the
    * grid by:
    *
-   * 1. Walking up the DOM from `panelRef.value` via `closest('tbw-grid')`
+   * 1. Walking up the DOM from `panelRef.value` via `closest('tbw-grid, [data-tbw-grid]')`
    *    (works for inline overlays).
    * 2. Falling back to the {@link GRID_ELEMENT_KEY} ref provided by
    *    `<TbwGrid>` (works for `<Teleport>`-rendered overlays whose DOM is
@@ -113,7 +113,7 @@ export function useGridOverlay(
 
       if (!isOpen || !panel) return;
 
-      const resolved = grid ?? (panel.closest('tbw-grid') as DataGridElement | null) ?? ctx ?? null;
+      const resolved = grid ?? (panel.closest('tbw-grid, [data-tbw-grid]') as DataGridElement | null) ?? ctx ?? null;
       if (!resolved) return;
 
       resolved.registerExternalFocusContainer?.(panel);

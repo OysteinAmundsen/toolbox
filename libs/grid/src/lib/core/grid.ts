@@ -168,6 +168,19 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   static readonly tagName = 'tbw-grid';
   /** Version of the grid component, injected at build time from package.json */
   static readonly version = typeof __GRID_VERSION__ !== 'undefined' ? __GRID_VERSION__ : 'dev';
+  /**
+   * Tag name actually registered for THIS class in `customElements`.
+   *
+   * In the common (single-version) case this equals {@link tagName} (`'tbw-grid'`).
+   * If a different grid version is already registered as `tbw-grid` on the page
+   * (e.g. two micro-frontend widgets bundling different `@toolbox-web/grid`
+   * versions), this class registers itself under a version-suffixed tag like
+   * `tbw-grid-v2-11-0` and `activeTag` reflects that suffixed name.
+   *
+   * Adapters and consumers that need to construct or query for the grid element
+   * MUST use this property, not the hard-coded `tagName` literal.
+   */
+  static activeTag = 'tbw-grid';
 
   /** Static counter for generating unique grid IDs */
   static #instanceCounter = 0;
@@ -1186,6 +1199,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   connectedCallback(): void {
     if (!this.hasAttribute('tabindex')) this.tabIndex = 0;
     if (!this.hasAttribute('version')) this.setAttribute('version', DataGridElement.version);
+    // Tag-agnostic marker so adapters, themes, and CSS selectors can target
+    // every grid instance regardless of whether it was registered under the
+    // bare `tbw-grid` tag or a version-suffixed variant. See `activeTag`.
+    if (!this.hasAttribute('data-tbw-grid')) this.setAttribute('data-tbw-grid', '');
     // Ensure grid has a unique ID for print isolation and other use cases
     if (!this.id) {
       this.id = `tbw-grid-${++DataGridElement.#instanceCounter}`;
@@ -4900,13 +4917,65 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // #endregion
 }
 
-// Self-registering custom element
-if (!customElements.get(DataGridElement.tagName)) {
-  customElements.define(DataGridElement.tagName, DataGridElement);
+// #region Self-registration (multi-version safe)
+/**
+ * Register `DataGridElement` with the platform `customElements` registry.
+ *
+ * The custom-elements registry is realm-global and first-wins: once a tag
+ * name is defined, subsequent `define()` calls for the same name throw. When
+ * two micro-frontend widgets on the same page bundle different versions of
+ * `@toolbox-web/grid`, the second bundle to load would either crash or have
+ * its grid silently rendered by the first bundle's (possibly incompatible)
+ * class.
+ *
+ * Algorithm:
+ *  1. If `tbw-grid` is not yet registered, register THIS class as `tbw-grid`
+ *     (the common single-version case — `activeTag` stays `'tbw-grid'`).
+ *  2. If `tbw-grid` is already registered AND the existing class reports the
+ *     same `version`, reuse it — same code, no need to re-register. The
+ *     existing class wins, but `activeTag` still points at `tbw-grid` so
+ *     adapters render the bare tag.
+ *  3. Otherwise, register THIS class under a version-suffixed tag
+ *     (`tbw-grid-v<version-with-dashes>`) and point `activeTag` at it. Two
+ *     copies of the same version always share; only different versions get
+ *     suffixed.
+ *
+ * Issue: #339 — "grid: support multiple grid versions on one page via
+ * auto-suffixed tag names".
+ */
+function registerDataGrid(): void {
+  const base = DataGridElement.tagName;
+  const existing = customElements.get(base) as typeof DataGridElement | undefined;
+  if (!existing) {
+    customElements.define(base, DataGridElement);
+    DataGridElement.activeTag = base;
+    return;
+  }
+  if (existing.version === DataGridElement.version) {
+    DataGridElement.activeTag = base;
+    return;
+  }
+  // Sanitize the version into a valid custom-element name suffix: only
+  // ASCII letters, digits, and dashes. Replace any other characters
+  // (notably `.` from semver and `+`/`-` from pre-release tags) with `-`.
+  const versionSuffix = DataGridElement.version.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase();
+  const suffixed = `${base}-v${versionSuffix}`;
+  if (!customElements.get(suffixed)) {
+    customElements.define(suffixed, DataGridElement);
+  }
+  DataGridElement.activeTag = suffixed;
 }
+registerDataGrid();
 
-// Make DataGridElement accessible globally for framework adapters
-globalThis.DataGridElement = DataGridElement;
+// Make DataGridElement accessible globally for framework adapters.
+// Like the custom-element registry, this alias is realm-global and first-wins:
+// the *first* loaded grid bundle's class becomes `globalThis.DataGridElement`.
+// Subsequent bundles keep their class accessible via the named export and via
+// `customElements.get(activeTag)`, so adapters MUST NOT rely on the global.
+if (!(globalThis as { DataGridElement?: typeof DataGridElement }).DataGridElement) {
+  globalThis.DataGridElement = DataGridElement;
+}
+// #endregion
 
 // Type augmentation for querySelector/createElement and globalThis
 declare global {

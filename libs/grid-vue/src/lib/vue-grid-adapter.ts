@@ -688,7 +688,7 @@ export class GridAdapter implements FrameworkAdapter {
 
   /**
    * Schedules a microtask that runs all registered editor-mount hooks for
-   * `container` once it's been appended to the cell DOM (so `closest('tbw-grid')`
+   * `container` once it's been appended to the cell DOM (so `closest('tbw-grid, [data-tbw-grid]')`
    * resolves). Mirror of the same bridge inline in `createEditor` (slot path)
    * and the React adapter's `wrapReactEditor` / `createEditor`.
    *

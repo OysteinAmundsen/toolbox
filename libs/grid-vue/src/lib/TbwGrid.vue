@@ -431,6 +431,11 @@ const emit = defineEmits<{
 // Template ref for the grid element
 const gridRef = ref<DataGridElement<TRow> | null>(null);
 
+// The custom-element tag this bundle's grid is registered under. Equals
+// `'tbw-grid'` in the single-version case; falls back to a version-suffixed
+// tag when a different grid version was registered first. See issue #339.
+const gridTag = GridElement.activeTag;
+
 // Template ref for the TeleportManager — exposes a TeleportManagerHandle
 // that the teleport-bridge uses to render Vue content into grid containers
 // while preserving the parent Vue context (provide/inject, Pinia, Router, i18n).
@@ -708,7 +713,14 @@ defineExpose({
     surrounding component's provide/inject, Pinia, Router, and i18n setup.
   -->
   <TeleportManager ref="teleportManagerRef" />
-  <tbw-grid ref="gridRef" v-bind="$attrs">
+  <!--
+    Render via `<component :is>` instead of the literal `<tbw-grid>` tag.
+    When two `@toolbox-web/grid` versions coexist on a page, the second
+    bundle to load registers itself under a version-suffixed tag (e.g.
+    `tbw-grid-v2-11-0`); `GridElement.activeTag` reflects whichever tag
+    THIS bundle actually owns. See issue #339.
+  -->
+  <component :is="gridTag" ref="gridRef" v-bind="$attrs">
     <slot></slot>
-  </tbw-grid>
+  </component>
 </template>

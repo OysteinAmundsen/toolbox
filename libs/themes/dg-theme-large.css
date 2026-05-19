@@ -10,7 +10,7 @@
    - Slightly higher contrast for muted fg & borders (within WCAG AA)
 */
 @layer tbw-theme {
-  tbw-grid {
+  [data-tbw-grid] {
     /* Reuse core color tokens from standard theme with a few tweaks */
     --tbw-color-bg: light-dark(#ffffff, #1f2125);
     --tbw-color-fg: light-dark(#1b1e23, #e7e9ed); /* a bit darker/lighter */

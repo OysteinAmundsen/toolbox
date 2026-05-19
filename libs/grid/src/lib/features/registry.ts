@@ -31,6 +31,7 @@ import {
   warnDiagnostic,
 } from '../core/internal/diagnostics';
 import { setFeatureResolver } from '../core/internal/feature-hook';
+import { getSharedStore } from '../core/internal/shared-store';
 import type { FeatureConfig, GridPlugin } from '../core/types';
 
 // #region Types
@@ -50,7 +51,14 @@ interface RegistryEntry {
 
 // #region Registry State
 
-const featureRegistry = new Map<string, RegistryEntry>();
+/**
+ * Page-wide feature registry. Lives on the shared store so that two bundled
+ * copies of `@toolbox-web/grid` on one page (issue #338) converge on the same
+ * `Map` instead of each holding its own module-local copy. Without this, a
+ * feature import from copy B would register into B's map while the actual
+ * `<tbw-grid>` element on the page reads from A's map.
+ */
+const featureRegistry = getSharedStore().features as Map<string, RegistryEntry>;
 const warnedFeatures = new Set<string>();
 
 // #endregion

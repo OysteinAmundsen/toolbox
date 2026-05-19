@@ -5,13 +5,23 @@
  * automatically via Vue's provide/inject.
  */
 import type { GridIcons } from '@toolbox-web/grid';
+import { getOrCreateShared } from '@toolbox-web/grid';
 import { defineComponent, inject, provide, type InjectionKey, type PropType } from 'vue';
 
 /**
  * Injection key for grid icons.
+ *
+ * Shared across module copies via the page-wide store (issue #338) so that
+ * `<GridIconProvider>` from one bundle and `useGridIcons()` from another
+ * resolve to the same identity.
+ *
  * @since 0.1.0
  */
-export const GRID_ICONS: InjectionKey<Partial<GridIcons>> = Symbol('grid-icons');
+export const GRID_ICONS: InjectionKey<Partial<GridIcons>> = getOrCreateShared(
+  'vueKeys',
+  'icons',
+  () => Symbol('grid-icons'),
+);
 
 /**
  * Composable to get the current icon overrides from the nearest provider.

@@ -1,4 +1,5 @@
 import { InjectionToken, InputSignal } from '@angular/core';
+import { getOrCreateShared } from '@toolbox-web/grid';
 
 /**
  * Interface for Angular components used as cell renderers in the grid.
@@ -63,4 +64,8 @@ export interface GridCellRenderer<TValue = unknown, TRow = unknown> {
  * })
  * ```
  */
-export const GRID_CELL_RENDERER = new InjectionToken<GridCellRenderer>('GridCellRenderer');
+export const GRID_CELL_RENDERER: InjectionToken<GridCellRenderer> = getOrCreateShared(
+  'ngTokens',
+  'cellRenderer',
+  () => new InjectionToken<GridCellRenderer>('GridCellRenderer'),
+);

@@ -68,12 +68,14 @@ interface RegistryEntry {
  *
  * The key embeds `__GRID_VERSION__` so **only same-version** bundles share a
  * registry. `registerDataGrid()` already isolates differently-versioned grid
- * classes by registering them under suffixed tag names (`tbw-grid-v<version>`,
- * issue #339); the feature registry must mirror that isolation, otherwise the
- * last-loaded bundle's plugin factories would overwrite earlier versions'
- * entries and the running grid would attach plugin instances built against a
- * different internal contract. The trailing `/v1` is a schema version for the
- * slot shape — bump if the stored value's shape changes incompatibly.
+ * classes by registering them under suffixed tag names — the version is
+ * sanitized to ASCII letters/digits/dashes, so `2.14.0` becomes the tag
+ * `tbw-grid-v2-14-0` (issue #339). The feature registry must mirror that
+ * isolation, otherwise the last-loaded bundle's plugin factories would
+ * overwrite earlier versions' entries and the running grid would attach
+ * plugin instances built against a different internal contract. The trailing
+ * `/v1` is a schema version for the slot shape — bump if the stored value's
+ * shape changes incompatibly.
  *
  * Issue: planning #9 (two Roma widgets each bundling their own grid copy).
  */

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.14.0...grid-2.14.1) (2026-05-21)
+
+
+### Bug Fixes
+
+* **grid:** scope global feature registry by grid version ([#343](https://github.com/OysteinAmundsen/toolbox/issues/343)) ([489f359](https://github.com/OysteinAmundsen/toolbox/commit/489f3596110aafe76ade666a650b9fac42eb1c6c))
+
 ## [2.14.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.13.1...grid-2.14.0) (2026-05-19)
 
 

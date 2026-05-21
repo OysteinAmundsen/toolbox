@@ -50,8 +50,49 @@ interface RegistryEntry {
 
 // #region Registry State
 
-const featureRegistry = new Map<string, RegistryEntry>();
-const warnedFeatures = new Set<string>();
+/*
+ * Cross-bundle singleton (version-scoped).
+ *
+ * The custom-elements registry is realm-global, but `import` graphs are not:
+ * when two micro-frontend widgets on the same page bundle their own copy of
+ * `@toolbox-web/grid`, each copy gets its own `featureRegistry` Map. The
+ * `<tbw-grid>` class is realm-global (see `registerDataGrid()` in
+ * `core/grid.ts`), so the *running* class resolves features via the resolver
+ * its own bundle wired up — which closes over the *local* Map. Side-effect
+ * imports from any other bundle (`import '@toolbox-web/grid/features/tree'`)
+ * land in a different Map that the running class never reads, producing
+ * spurious TBW031 "feature not registered" warnings.
+ *
+ * Fix: persist the Map on `globalThis` under a `Symbol.for(...)` key so every
+ * loaded copy of this module reads and writes the same instance.
+ *
+ * The key embeds `__GRID_VERSION__` so **only same-version** bundles share a
+ * registry. `registerDataGrid()` already isolates differently-versioned grid
+ * classes by registering them under suffixed tag names (`tbw-grid-v<version>`,
+ * issue #339); the feature registry must mirror that isolation, otherwise the
+ * last-loaded bundle's plugin factories would overwrite earlier versions'
+ * entries and the running grid would attach plugin instances built against a
+ * different internal contract. The trailing `/v1` is a schema version for the
+ * slot shape — bump if the stored value's shape changes incompatibly.
+ *
+ * Issue: planning #9 (two Roma widgets each bundling their own grid copy).
+ */
+declare const __GRID_VERSION__: string;
+const GRID_VERSION = typeof __GRID_VERSION__ !== 'undefined' ? __GRID_VERSION__ : 'dev';
+const REGISTRY_KEY = Symbol.for(`@toolbox-web/grid:feature-registry@${GRID_VERSION}/v1`);
+const WARNED_KEY = Symbol.for(`@toolbox-web/grid:feature-registry-warned@${GRID_VERSION}/v1`);
+
+function getOrCreateGlobal<T>(key: symbol, make: () => T): T {
+  let value = Reflect.get(globalThis, key) as T | undefined;
+  if (value === undefined) {
+    value = make();
+    Reflect.set(globalThis, key, value);
+  }
+  return value;
+}
+
+const featureRegistry = getOrCreateGlobal(REGISTRY_KEY, () => new Map<string, RegistryEntry>());
+const warnedFeatures = getOrCreateGlobal(WARNED_KEY, () => new Set<string>());
 
 // #endregion
 

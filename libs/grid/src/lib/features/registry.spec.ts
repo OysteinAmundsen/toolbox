@@ -10,6 +10,9 @@ import {
   registerFeature,
 } from './registry';
 
+declare const __GRID_VERSION__: string;
+const GRID_VERSION = typeof __GRID_VERSION__ !== 'undefined' ? __GRID_VERSION__ : 'dev';
+
 /** Minimal plugin stub for testing. */
 function fakePlugin(name: string, config?: unknown): GridPlugin {
   return { pluginName: name, _config: config } as unknown as GridPlugin;
@@ -144,6 +147,56 @@ describe('Feature Registry', () => {
       clearFeatureRegistry();
       expect(getRegisteredFeatures()).toHaveLength(0);
       expect(isFeatureRegistered('selection')).toBe(false);
+    });
+  });
+
+  // #endregion
+
+  // #region cross-bundle singleton (micro-frontend duplicate bundling)
+
+  describe('cross-bundle singleton', () => {
+    // When two micro-frontends each bundle their own copy of @toolbox-web/grid
+    // at the SAME version, the module-scope Map would otherwise be duplicated.
+    // Persisting it on globalThis under a version-scoped Symbol.for(...) key
+    // makes both copies share one instance, so a `registerFeature` call from
+    // one bundle is visible to the running grid class that came from another
+    // bundle. Different versions intentionally get isolated keys, mirroring
+    // the version-suffixed tag isolation done by `registerDataGrid()`.
+    it('stores featureRegistry on globalThis under a version-scoped Symbol.for key', () => {
+      registerFeature('selection' as any, () => fakePlugin('selection'));
+      // The production module embeds __GRID_VERSION__ (a Vite define) in the
+      // key. The same define is active in tests, so we resolve the key with
+      // the same fallback chain used by registry.ts.
+      const key = Symbol.for(`@toolbox-web/grid:feature-registry@${GRID_VERSION}/v1`);
+      const shared = Reflect.get(globalThis, key) as Map<string, unknown> | undefined;
+      expect(shared).toBeInstanceOf(Map);
+      expect(shared?.has('selection')).toBe(true);
+    });
+
+    it('module-local handle and the globalThis slot are the same Map instance', () => {
+      // Proves the singleton: anything a second bundled copy of registry.ts
+      // would resolve via Reflect.get(globalThis, KEY) is the very same Map
+      // this module is using — so registrations from either bundle land in
+      // the same place.
+      registerFeature('editing' as any, () => fakePlugin('editing'));
+      const key = Symbol.for(`@toolbox-web/grid:feature-registry@${GRID_VERSION}/v1`);
+      const fromGlobal = Reflect.get(globalThis, key) as Map<string, unknown> | undefined;
+      expect(fromGlobal?.has('editing')).toBe(true);
+      // Sanity: getFeatureFactory (which closes over the module-local handle)
+      // must see the same entry.
+      expect(getFeatureFactory('editing')).toBeDefined();
+      expect(fromGlobal?.get('editing')).toBeDefined();
+    });
+
+    it('uses different globalThis keys for different grid versions', () => {
+      // If two bundles at different versions used the same key they would
+      // overwrite each other's plugin factories at side-effect-import time,
+      // and the running grid class for version A could end up calling a
+      // factory built by version B (different internal contract). The
+      // version-embedded key keeps each version's registry isolated.
+      const v1 = Symbol.for('@toolbox-web/grid:feature-registry@1.0.0/v1');
+      const v2 = Symbol.for('@toolbox-web/grid:feature-registry@2.0.0/v1');
+      expect(v1).not.toBe(v2);
     });
   });
 

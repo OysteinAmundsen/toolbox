@@ -906,6 +906,69 @@ grid.on('tbw-scroll', () => closeOpenOverlays());
 | Vue | `<TbwGrid @tbw-scroll="..." />` |
 | Angular | `<tbw-grid (tbwScroll)="..." />` |
 
+### `render` — render cycle completed
+
+Fires once at the end of every render cycle (the single RAF flush in the render
+scheduler), **after** all plugin `afterRender` hooks have run and **after**
+`grid.ready()` has resolved. Use this when you need to act on the rendered DOM
+immediately after a programmatic mutation — without resorting to `setTimeout`
+or double-`requestAnimationFrame` hacks.
+
+:::tip[`ready()` vs `render` event]
+`grid.ready()` resolves **once**, after the first render. The `render` event
+fires on **every** flush. When you only care about a specific mutation (e.g.
+the row you just added), attach with `{ once: true }`.
+:::
+
+The detail payload includes the highest render phase that ran (`phase`),
+whether this was the first render (`initial`), the post-`processRows` row
+count (`rowCount`), and the current virtual window (`visibleRange`, or `null`
+when virtualization is disabled).
+
+#### Focus the first input after `addRow` in full-grid edit mode
+
+The original motivation: with `editing: { mode: 'grid' }` every row is
+permanently in edit mode. After inserting a new row you want the first cell's
+input focused — but the row doesn't exist in the DOM until the next render.
+
+```typescript
+function addEmployee() {
+  grid.addRow({ id: crypto.randomUUID(), name: '', email: '' });
+  grid.addEventListener(
+    'render',
+    () => {
+      const input = grid.querySelector<HTMLInputElement>(
+        '[data-row="0"][data-col="0"] input',
+      );
+      input?.focus();
+    },
+    { once: true },
+  );
+}
+```
+
+#### Skip cheap scroll renders
+
+The event fires on virtualization-only re-renders too. If you only care about
+row/column model changes, gate on `phase`:
+
+```typescript
+import { RenderPhase } from '@toolbox-web/grid';
+
+grid.on('render', ({ phase, rowCount }) => {
+  if (phase < RenderPhase.ROWS) return; // ignore scroll/style-only flushes
+  statusBar.textContent = `${rowCount} rows rendered`;
+});
+```
+
+**Framework adapter names**:
+
+| Adapter | Binding |
+|---------|---------|
+| React | `<DataGrid onRender={...} />` |
+| Vue | `<TbwGrid @render="..." />` |
+| Angular | `<tbw-grid (render)="..." />` |
+
 ### Event Reference
 
 The [`DataGridEventMap`](/grid/api/core/interfaces/datagrideventmap/) is the complete, auto-generated reference for every event the grid dispatches — core events and plugin events alike. It includes detail payload types, descriptions, and code examples, grouped by plugin.

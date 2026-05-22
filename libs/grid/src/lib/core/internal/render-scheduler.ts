@@ -34,7 +34,7 @@
  * ```
  */
 
-import type { InternalGrid } from '../types';
+import type { InternalGrid, RenderDetail } from '../types';
 
 // #region Types & Enums
 /**
@@ -237,10 +237,12 @@ export class RenderScheduler {
       this.#grid._schedulerAfterRender();
     }
 
+    const initial = !this.#initialReadyFired;
+
     // Fire initial ready resolver once
-    if (!this.#initialReadyFired && this.#initialReadyResolver) {
+    if (initial) {
       this.#initialReadyFired = true;
-      this.#initialReadyResolver();
+      this.#initialReadyResolver?.();
     }
 
     // Resolve the ready promise
@@ -249,6 +251,31 @@ export class RenderScheduler {
       this.#readyResolve = null;
       this.#readyPromise = null;
     }
+
+    // Public 'render' event — fires once per completed flush, after plugin
+    // afterRender hooks and after ready()/whenReady() have resolved.
+    // Consumers use this to act on the rendered DOM (e.g. focus the first
+    // input of a freshly added row) without setTimeout / double-RAF hacks.
+    if (phase !== 0) {
+      this.#dispatchRenderEvent(phase, initial);
+    }
+  }
+
+  #dispatchRenderEvent(phase: RenderPhase, initial: boolean): void {
+    const virt = this.#grid._virtualization;
+    // `visibleRange` is `{ start, end }` whenever virtualization is enabled
+    // (including the empty-dataset `{ 0, 0 }` case); only `null` when
+    // virtualization is disabled. Lets consumers distinguish the two.
+    const visibleRange = virt?.enabled ? { start: virt.start, end: virt.end } : null;
+    const detail: RenderDetail = {
+      phase,
+      initial,
+      rowCount: this.#grid._rows?.length ?? 0,
+      visibleRange,
+    };
+    this.#grid._hostElement.dispatchEvent(
+      new CustomEvent('render', { detail, bubbles: true, composed: true }),
+    );
   }
 }
 // #endregion

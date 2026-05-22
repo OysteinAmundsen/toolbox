@@ -41,6 +41,7 @@ import type {
   PrintCompleteDetail,
   PrintConfig,
   PrintStartDetail,
+  RenderDetail,
   ReorderConfig,
   ResponsiveChangeDetail,
   ResponsivePluginConfig,
@@ -379,6 +380,7 @@ const EVENT_MAP = {
   'print-start': '' as unknown as PrintStartDetail,
   'print-complete': '' as unknown as PrintCompleteDetail,
   'tbw-scroll': '' as unknown as TbwScrollDetail,
+  render: '' as unknown as RenderDetail,
 } as const;
 
 /**
@@ -426,6 +428,7 @@ const emit = defineEmits<{
   (e: 'print-start', event: CustomEvent<PrintStartDetail>): void;
   (e: 'print-complete', event: CustomEvent<PrintCompleteDetail>): void;
   (e: 'tbw-scroll', event: CustomEvent<TbwScrollDetail>): void;
+  (e: 'render', event: CustomEvent<RenderDetail>): void;
 }>();
 
 // Template ref for the grid element

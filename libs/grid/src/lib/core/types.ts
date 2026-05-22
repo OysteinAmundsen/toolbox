@@ -4023,6 +4023,60 @@ export interface GridColumnState {
 
 // #region Public Event Detail Interfaces
 /**
+ * Detail for the {@link DataGridEventMap.render | `render`} event.
+ *
+ * Fired once at the end of every render cycle (the single RAF flush in the
+ * render scheduler), after all plugin `afterRender` hooks have run and after
+ * `grid.ready()` has resolved.
+ *
+ * Use this when you need to act on the rendered DOM (e.g. focus the first
+ * input of a freshly added row when `editing.mode === 'grid'`) without
+ * resorting to `setTimeout` or double-`requestAnimationFrame` hacks.
+ *
+ * @example
+ * ```typescript
+ * // Focus the first cell's input after adding a row in full-grid edit mode
+ * function addEmployee() {
+ *   grid.addRow({ id: crypto.randomUUID(), name: '', email: '' });
+ *   grid.addEventListener(
+ *     'render',
+ *     () => {
+ *       const input = grid.querySelector<HTMLInputElement>(
+ *         '[data-row="0"][data-col="0"] input',
+ *       );
+ *       input?.focus();
+ *     },
+ *     { once: true },
+ *   );
+ * }
+ * ```
+ *
+ * @category Events
+ * @since 2.15.0
+ */
+export interface RenderDetail {
+  /**
+   * The highest render phase that executed this cycle (see {@link RenderPhase}).
+   * Use this to skip cheap scroll-only renders (`phase < RenderPhase.ROWS`)
+   * if you only care about row/column model changes.
+   */
+  phase: RenderPhase;
+  /** `true` only for the very first render after the grid was connected. */
+  initial: boolean;
+  /** Number of rows in the effective row model after plugin `processRows` hooks ran. */
+  rowCount: number;
+  /**
+   * The visible virtual window — `start` inclusive, `end` exclusive — or `null`
+   * when virtualization is disabled (small datasets below the bypass threshold).
+   *
+   * When virtualization is enabled but no rows are visible (e.g. empty dataset)
+   * this is `{ start: 0, end: 0 }`, NOT `null` — that lets consumers distinguish
+   * "virtualization disabled" from "enabled but currently empty".
+   */
+  visibleRange: { start: number; end: number } | null;
+}
+
+/**
  * Detail for a cell click event.
  * Provides full context about the clicked cell including row data.
  *
@@ -4584,6 +4638,41 @@ export interface DataGridEventMap<TRow = unknown> {
    * @group Core Events
    */
   'column-state-change': GridColumnState;
+
+  /**
+   * Fired once at the end of every render cycle, after all plugin
+   * `afterRender` hooks have run and `ready()` has resolved.
+   *
+   * This is the canonical post-render hook for consumers. Use it instead of
+   * `setTimeout` / double-`requestAnimationFrame` to act on the rendered DOM
+   * after a programmatic mutation.
+   *
+   * Note: `ready()` only resolves once (after the first render). The `render`
+   * event fires on every flush — including scroll-driven virtual-window
+   * updates — so prefer `{ once: true }` (or check `detail.phase`) when you
+   * want to act on a specific mutation.
+   *
+   * @example
+   * ```typescript
+   * // Focus the first cell's input after addRow in full-grid edit mode
+   * grid.addRow({ id: crypto.randomUUID(), name: '', email: '' });
+   * grid.addEventListener(
+   *   'render',
+   *   () => {
+   *     const input = grid.querySelector<HTMLInputElement>(
+   *       '[data-row="0"][data-col="0"] input',
+   *     );
+   *     input?.focus();
+   *   },
+   *   { once: true },
+   * );
+   * ```
+   *
+   * @see {@link RenderDetail}
+   * @group Core Events
+   * @since 2.15.0
+   */
+  render: RenderDetail;
 
   // Note: 'cell-commit', 'row-commit', 'changed-rows-reset' are added via
   // module augmentation by EditingPlugin when imported

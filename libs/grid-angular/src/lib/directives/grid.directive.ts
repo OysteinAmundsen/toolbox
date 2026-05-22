@@ -69,6 +69,7 @@ import type {
   PrintCompleteDetail,
   PrintConfig,
   PrintStartDetail,
+  RenderDetail,
   ReorderConfig,
   ResponsiveChangeDetail,
   ResponsivePluginConfig,
@@ -1508,6 +1509,25 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    */
   tbwScroll = output<TbwScrollDetail>();
 
+  /**
+   * Emitted once at the end of every render-scheduler flush, after all
+   * plugin `afterRender` hooks have run and `ready()` has resolved.
+   *
+   * Use this to act on the rendered DOM after a programmatic mutation
+   * (e.g. focus the first input of a freshly added row in full-grid edit
+   * mode) without `setTimeout` or double-`requestAnimationFrame` hacks.
+   * The `render` event fires on every flush — including scroll-driven
+   * virtual-window updates — so prefer subscribing once and unsubscribing
+   * (or gating on `detail.phase >= RenderPhase.ROWS`) when you only care
+   * about a specific mutation.
+   *
+   * @example
+   * ```html
+   * <tbw-grid (render)="onRender($event)">...</tbw-grid>
+   * ```
+   */
+  render = output<RenderDetail>();
+
   // Map of output names to event names for automatic wiring.
   //
   // The `satisfies` clause enforces compile-time sync against
@@ -1557,6 +1577,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     printStart: 'print-start',
     printComplete: 'print-complete',
     tbwScroll: 'tbw-scroll',
+    render: 'render',
   } as const satisfies Readonly<Record<string, keyof DataGridEventMap<unknown>>>;
 
   // ─────────────────────────────────────────────────────────────────────────

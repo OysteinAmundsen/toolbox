@@ -21,6 +21,7 @@ describe('RenderScheduler', () => {
       }),
       _schedulerAfterRender: vi.fn(() => callOrder.push('afterRender')),
       _schedulerIsConnected: true,
+      _hostElement: document.createElement('div'),
     } as unknown as InternalGrid;
     scheduler = new RenderScheduler(grid);
   });
@@ -239,6 +240,151 @@ describe('RenderScheduler', () => {
       await scheduler.whenReady();
 
       expect(grid._schedulerAfterRender).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('render event', () => {
+    let events: CustomEvent[];
+    let host: HTMLElement;
+    let evtGrid: InternalGrid;
+    let evtScheduler: RenderScheduler;
+
+    beforeEach(() => {
+      events = [];
+      host = document.createElement('div');
+      host.addEventListener('render', (ev) => events.push(ev as CustomEvent));
+      // Narrowed mock shape — covers exactly the InternalGrid surface the
+      // scheduler touches. Direct `as InternalGrid` cast avoids the
+      // forbidden `as unknown as` escape hatch (see typescript-conventions).
+      const mock: Pick<
+        InternalGrid,
+        | '_schedulerMergeConfig'
+        | '_schedulerProcessColumns'
+        | '_schedulerProcessRows'
+        | '_schedulerRenderHeader'
+        | '_schedulerUpdateTemplate'
+        | 'refreshVirtualWindow'
+        | '_schedulerAfterRender'
+        | '_schedulerIsConnected'
+        | '_rows'
+        | '_virtualization'
+        | '_hostElement'
+      > = {
+        _schedulerMergeConfig: vi.fn(),
+        _schedulerProcessColumns: vi.fn(),
+        _schedulerProcessRows: vi.fn(),
+        _schedulerRenderHeader: vi.fn(),
+        _schedulerUpdateTemplate: vi.fn(),
+        refreshVirtualWindow: vi.fn(() => true),
+        _schedulerAfterRender: vi.fn(),
+        _schedulerIsConnected: true,
+        _rows: [{ id: 1 }, { id: 2 }, { id: 3 }],
+        _virtualization: { enabled: true, start: 0, end: 3 } as InternalGrid['_virtualization'],
+        _hostElement: host,
+      };
+      evtGrid = mock as InternalGrid;
+      evtScheduler = new RenderScheduler(evtGrid);
+    });
+
+    afterEach(() => {
+      evtScheduler.cancel();
+    });
+
+    it('dispatches a "render" CustomEvent after each flush', async () => {
+      evtScheduler.requestPhase(RenderPhase.STYLE, 'test');
+      await evtScheduler.whenReady();
+
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe('render');
+      expect(events[0].bubbles).toBe(true);
+      expect(events[0].composed).toBe(true);
+    });
+
+    it('includes phase, initial, rowCount and visibleRange in the detail', async () => {
+      evtScheduler.requestPhase(RenderPhase.ROWS, 'test');
+      await evtScheduler.whenReady();
+
+      expect(events[0].detail).toEqual({
+        phase: RenderPhase.ROWS,
+        initial: true,
+        rowCount: 3,
+        visibleRange: { start: 0, end: 3 },
+      });
+    });
+
+    it('marks initial=true only on the first flush', async () => {
+      evtScheduler.requestPhase(RenderPhase.STYLE, 'first');
+      await evtScheduler.whenReady();
+      evtScheduler.requestPhase(RenderPhase.STYLE, 'second');
+      await evtScheduler.whenReady();
+
+      expect(events).toHaveLength(2);
+      expect(events[0].detail.initial).toBe(true);
+      expect(events[1].detail.initial).toBe(false);
+    });
+
+    it('reports null visibleRange when virtualization is disabled', async () => {
+      evtGrid._virtualization = {
+        enabled: false,
+        start: 0,
+        end: 0,
+      } as InternalGrid['_virtualization'];
+      evtScheduler.requestPhase(RenderPhase.STYLE, 'test');
+      await evtScheduler.whenReady();
+
+      expect(events[0].detail.visibleRange).toBeNull();
+    });
+
+    it('reports { start: 0, end: 0 } when virtualization is enabled but empty (NOT null)', async () => {
+      evtGrid._virtualization = {
+        enabled: true,
+        start: 0,
+        end: 0,
+      } as InternalGrid['_virtualization'];
+      evtGrid._rows = [];
+      evtScheduler.requestPhase(RenderPhase.STYLE, 'test');
+      await evtScheduler.whenReady();
+
+      expect(events[0].detail.visibleRange).toEqual({ start: 0, end: 0 });
+    });
+
+    it('does NOT dispatch "render" when the grid is disconnected', async () => {
+      (evtGrid as { _schedulerIsConnected: boolean })._schedulerIsConnected = false;
+      evtScheduler.requestPhase(RenderPhase.FULL, 'test');
+      await evtScheduler.whenReady();
+
+      expect(events).toHaveLength(0);
+    });
+
+    it('dispatches "render" AFTER plugin afterRender hooks run', async () => {
+      const order: string[] = [];
+      (evtGrid._schedulerAfterRender as ReturnType<typeof vi.fn>).mockImplementation(() =>
+        order.push('afterRender'),
+      );
+      host.addEventListener('render', () => order.push('event:render'), { once: true });
+      // Drop the recorder added in beforeEach so we don't double-count
+      events.length = 0;
+
+      evtScheduler.requestPhase(RenderPhase.STYLE, 'test');
+      await evtScheduler.whenReady();
+
+      expect(order).toEqual(['afterRender', 'event:render']);
+    });
+
+    it('dispatches "render" AFTER whenReady() resolves', async () => {
+      const order: string[] = [];
+      host.addEventListener('render', () => order.push('event:render'), { once: true });
+
+      evtScheduler.requestPhase(RenderPhase.STYLE, 'test');
+      await evtScheduler.whenReady().then(() => order.push('ready'));
+
+      // ready resolves inside the flush, BEFORE dispatch — but the `.then()`
+      // microtask runs after the synchronous flush returns. So the observed
+      // order must be: render-event dispatched (sync inside flush), then the
+      // ready microtask. The contract: the event fires after ready() has
+      // already been resolved internally, so a listener can safely call
+      // grid.ready() and not wait extra cycles.
+      expect(order).toEqual(['event:render', 'ready']);
     });
   });
 });

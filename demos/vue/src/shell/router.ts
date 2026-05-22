@@ -29,6 +29,13 @@ const demoRoutes: DemoRoute[] = [
     description: 'Full-featured grid with sorting, filtering, editing, master-detail and responsive card layout.',
     component: () => import('../demos/employee-management/EmployeeManagement.vue'),
   },
+  {
+    path: '/calendar',
+    label: 'Calendar',
+    description:
+      'Month-view calendar built on top of <tbw-grid> — custom shell header, pinned legend, responsive density, keyboard navigation across months.',
+    component: () => import('../demos/calendar/Calendar.vue'),
+  },
 ];
 
 const indexEntries = demoRoutes.map((r) => ({

@@ -5,6 +5,7 @@ description: Full-featured demo applications showcasing @toolbox-web/grid with 1
 
 import EmployeeManagementAllFeaturesDemo from '@components/demos/EmployeeManagementAllFeaturesDemo.astro';
 import EmployeeManagementGroupedDemo from '@components/demos/EmployeeManagementGroupedDemo.astro';
+import CalendarDemo from '@components/demos/CalendarDemo.astro';
 
 ## Employee Management Demo
 
@@ -83,7 +84,47 @@ The same employee data, but with row grouping enabled. Rows are grouped by depar
 
 ---
 
-## Code Architecture
+## Calendar Demo
+
+A month-view calendar built on top of `<tbw-grid>` — same data-grid engine, different surface. Rows are ISO weeks (Mon–Sun), columns are weekdays + a fixed week-number gutter, and each cell renders a `CalendarDay` with up to three coloured event chips. The whole thing demonstrates how the grid's extension points (custom shell header, pinned-rows feature, light-DOM density attributes) can be used to build domain UIs that aren't a traditional row/column table.
+
+<CalendarDemo />
+
+### What This Demo Showcases
+
+| Feature                  | Details                                                                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| **Custom shell header**  | Month title + year `<select>` injected via `registerHeaderContent`; prev / today / next nav buttons via `registerToolbarContent` |
+| **Pinned-row feature**   | Colour-coded category legend rendered as a permanent `position: 'bottom'` pinned row                                             |
+| **Responsive density**   | A `ResizeObserver` toggles `data-density` between `full` (≥880 px), `compact` (480–880 px), and `minimal` (under 480 px)         |
+| **Dynamic row height**   | A second `ResizeObserver` on `.rows-viewport` keeps the 4–6 visible week rows exactly filling the viewport — no inner scrollbar  |
+| **Custom keyboard nav**  | Arrow keys cross month boundaries; PageUp / PageDown jump month-by-month while preserving the focused weekday slot               |
+| **Cell-level "double-click"** | Detected via two `mousedown` events in capture phase (the grid rewrites cell interiors on focus, so native `dblclick` never fires) |
+| **Stretch fit-mode**     | `fitMode: 'stretch'` distributes weekday columns evenly; only the week-# column has a fixed `width`                              |
+
+### Try These Interactions
+
+1. **Navigate** — Click the `‹` / `›` buttons in the header, or pick a year from the dropdown.
+2. **Keyboard** — Click any day, then use arrow keys. From the first / last day of the month, arrow keys cross into the previous / next month. PageUp / PageDown jump by month.
+3. **Add an event** — Double-click any day cell, or press Enter while a cell is focused. Fill in the dialog and submit.
+4. **Resize** — Drag the docs side-panel narrower to watch the cells collapse from full event chips → dots → date-only.
+
+### Implementation
+
+| Layer                                       | Lives in                                                  |
+| ------------------------------------------- | --------------------------------------------------------- |
+| Shared types + seed data                    | `demos/shared/calendar/` (`types.ts`, `data.ts`)          |
+| Vanilla implementation                      | `demos/vanilla/src/demos/calendar/` (factory + DOM renderers) |
+| Angular implementation                      | `demos/angular/src/demos/calendar/` (components + services, `*tbwRenderer`) |
+| React implementation                        | `demos/react/src/demos/calendar/` (components + hooks, `createRoot` bridge) |
+| Vue implementation                          | `demos/vue/src/demos/calendar/` (SFCs + composables, `createApp` bridge)    |
+| Docs embed                                  | `apps/docs/src/components/demos/CalendarDemo.astro` (mounts the vanilla build) |
+
+Each framework rebuilds the day-cell renderer, shell header, toolbar, pinned legend, dialog, density observer, dynamic row-height, keyboard navigation and double-click detector in its own idiom — the point of the demo is to show how the same grid surface is composed from each framework's component model. Only the row/event types and the seed dataset are shared.
+
+---
+
+## Code Architecture (Employee Management)
 
 The employee management demo is built as a **reusable factory function** that can be called from any context (standalone HTML page, documentation site, or your own app).
 
@@ -119,16 +160,16 @@ The employee management demo is built as a **reusable factory function** that ca
 
 ## Demo Implementations
 
-The employee management demo is implemented in four frameworks to showcase the grid's cross-framework compatibility:
+The grid demos are implemented in four frameworks to showcase cross-framework compatibility:
 
-| Framework | Adapter Package             | Source Code                                                                                                          |
-| --------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Vanilla   | (none — native web component) | [demos/vanilla/src/demos/employee-management/](https://github.com/OysteinAmundsen/toolbox/tree/main/demos/vanilla/src/demos/employee-management) |
-| Angular   | `@toolbox-web/grid-angular` | [demos/angular/src/demos/employee-management/](https://github.com/OysteinAmundsen/toolbox/tree/main/demos/angular/src/demos/employee-management) |
-| React     | `@toolbox-web/grid-react`   | [demos/react/src/demos/employee-management/](https://github.com/OysteinAmundsen/toolbox/tree/main/demos/react/src/demos/employee-management) |
-| Vue       | `@toolbox-web/grid-vue`     | [demos/vue/src/demos/employee-management/](https://github.com/OysteinAmundsen/toolbox/tree/main/demos/vue/src/demos/employee-management) |
+| Framework | Adapter Package               | Employee Management                                                                                                                              | Calendar                                                                                                                  |
+| --------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Vanilla   | (none — native web component) | [source](https://github.com/OysteinAmundsen/toolbox/tree/main/demos/vanilla/src/demos/employee-management)                                       | [source](https://github.com/OysteinAmundsen/toolbox/tree/main/demos/vanilla/src/demos/calendar)                           |
+| Angular   | `@toolbox-web/grid-angular`   | [source](https://github.com/OysteinAmundsen/toolbox/tree/main/demos/angular/src/demos/employee-management)                                       | [source](https://github.com/OysteinAmundsen/toolbox/tree/main/demos/angular/src/demos/calendar)                           |
+| React     | `@toolbox-web/grid-react`     | [source](https://github.com/OysteinAmundsen/toolbox/tree/main/demos/react/src/demos/employee-management)                                         | [source](https://github.com/OysteinAmundsen/toolbox/tree/main/demos/react/src/demos/calendar)                             |
+| Vue       | `@toolbox-web/grid-vue`       | [source](https://github.com/OysteinAmundsen/toolbox/tree/main/demos/vue/src/demos/employee-management)                                           | [source](https://github.com/OysteinAmundsen/toolbox/tree/main/demos/vue/src/demos/calendar)                               |
 
-Each demo uses the same shared data generators and types from `demos/shared/employee-management/`, ensuring consistent behavior across all implementations. The vanilla demo acts as the reference implementation, and its `createEmployeeGrid()` factory function is reused in these documentation pages.
+Both demos are reimplemented from scratch in each framework. The Employee Management demo shows framework-idiomatic renderers and editors via each adapter's renderer prop. The Calendar demo goes further — it also rebuilds the shell header, toolbar, pinned legend and dialog in each framework, bridged into the grid's shell extension points via `createComponent` (Angular) / `createRoot` (React) / `createApp` (Vue). Only the row types and seed data are shared (`demos/shared/calendar/`).
 
 ---
 

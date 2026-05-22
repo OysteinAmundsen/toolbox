@@ -204,12 +204,15 @@ export function getResolveAliases(
   // Shared demo imports (always from source).
   // Per-demo subpaths so each demo's data/types/styles live under demos/shared/<demo-name>/.
   // Add a new entry here when introducing a new demo.
-  const demoNames = ['employee-management', 'booking-logs'];
+  const demoNames = ['employee-management', 'booking-logs', 'calendar'];
   for (const name of demoNames) {
     aliases.push(
       { find: `@demo/shared/${name}/styles`, replacement: resolve(sharedDir, name, 'styles.ts') },
-      { find: `@demo/shared/${name}/demo-styles.css`, replacement: resolve(sharedDir, name, 'demo-styles.css') },
-      { find: `@demo/shared/${name}`, replacement: resolve(sharedDir, name, 'index.ts') },
+      // Bare alias points to the DIRECTORY (not `index.ts`). Vite resolves the
+      // bare specifier through its default index/extension resolution, and
+      // subpaths like `@demo/shared/calendar/demo-styles.css` are appended
+      // naturally. Pointing to `index.ts` would produce `…/index.ts/<subpath>`.
+      { find: `@demo/shared/${name}`, replacement: resolve(sharedDir, name) },
     );
   }
 

@@ -22,6 +22,7 @@ export default defineConfig({
         __dirname,
         '../shared/employee-management/index.ts',
       ),
+      '@demo/shared/calendar': resolve(__dirname, '../shared/calendar/index.ts'),
       '@demo/shared/demo-index.css': resolve(__dirname, '../shared/demo-index.css'),
     },
   },

@@ -80,6 +80,20 @@ describe('parseLightDomColumns', () => {
     const [col] = parseLightDomColumns(host as any);
     expect(col.minWidth).toBe(80);
   });
+
+  it('treats `attr="false"` as false for sortable, editable, and resizable', () => {
+    // Vue's `:sortable="false"` serializes to `sortable="false"` on custom
+    // elements, so `hasAttribute` alone would incorrectly treat the column
+    // as sortable. Same for editable (which also trips TBW001 validation).
+    const host = document.createElement('div');
+    host.innerHTML = `
+      <tbw-grid-column field="id" sortable="false" resizable="false" editable="false"></tbw-grid-column>
+    `;
+    const [col] = parseLightDomColumns(host as any);
+    expect(col.sortable).toBe(false);
+    expect(col.editable).toBe(false);
+    expect(col.resizable).toBeFalsy();
+  });
 });
 
 describe('mergeColumns', () => {

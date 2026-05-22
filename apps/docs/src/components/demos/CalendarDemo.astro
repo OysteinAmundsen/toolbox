@@ -1,0 +1,51 @@
+---
+// CalendarDemo.astro — Month-view calendar built on <tbw-grid>
+//
+// Embeds the vanilla `createCalendarGrid` factory (same pattern as the
+// employee-management demo). The other framework demos (Angular, React,
+// Vue) live in their own demo apps and showcase framework-idiomatic
+// implementations; this docs page uses the vanilla one because the
+// docs site is itself a vanilla Astro page.
+---
+
+<div class="grid-demo not-content" id="calendar-demo-container">
+  <div id="calendar-demo-host" class="calendar-demo" style="height: 600px;"></div>
+</div>
+
+<script>
+  import '@demo/shared/calendar/demo-styles.css';
+import { createCalendarGrid, type CalendarGridHandle } from '@demo/vanilla/calendar';
+
+  const host = document.getElementById('calendar-demo-host');
+  if (host) {
+    let handle: CalendarGridHandle | null = null;
+
+    function mount() {
+      if (!host) return;
+      handle = createCalendarGrid();
+      host.appendChild(handle.grid);
+    }
+
+    function destroy() {
+      if (handle) {
+        handle.destroy();
+        handle.grid.remove();
+        handle = null;
+      }
+    }
+
+    mount();
+
+    // Best-effort cleanup if the host is removed from the DOM (e.g. on
+    // Starlight view transitions). The factory installs its own
+    // ResizeObserver / document-level listeners that would otherwise leak.
+    const mo = new MutationObserver(() => {
+      if (host && !host.isConnected) {
+        destroy();
+        mo.disconnect();
+      }
+    });
+    if (host.parentNode) mo.observe(host.parentNode, { childList: true });
+  }
+</script>
+

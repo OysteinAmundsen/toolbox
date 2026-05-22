@@ -13,7 +13,7 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "../shared/employee-management/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.vue", "../shared/employee-management/**/*.ts", "../shared/calendar/**/*.ts"],
   "exclude": ["node_modules"],
   "references": [
     {

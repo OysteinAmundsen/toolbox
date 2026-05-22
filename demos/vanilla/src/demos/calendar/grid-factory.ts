@@ -25,10 +25,14 @@ import '@toolbox-web/grid/features/pinned-rows';
 import type { ColumnConfig, DataGridElement, GridConfig } from '@toolbox-web/grid';
 import { createGrid } from '@toolbox-web/grid';
 
-import { buildWeeks, generateEvents, isoKey } from './data';
+import type { CalendarDay, CalendarEvent, CalendarWeek, WeekdayField } from '@demo/shared/calendar';
+import {
+    buildWeeks, CATEGORIES, generateEvents, isoKey, WEEKDAY_FIELDS,
+    WEEKDAY_HEADERS,
+    WEEKDAY_HEADERS_FULL,
+    WEEKDAY_HEADERS_MINI
+} from '@demo/shared/calendar';
 import { renderDayCell } from './renderers';
-import type { CalendarDay, CalendarEvent, CalendarWeek, WeekdayField } from './types';
-import { CATEGORIES, WEEKDAY_FIELDS, WEEKDAY_HEADERS, WEEKDAY_HEADERS_FULL, WEEKDAY_HEADERS_MINI } from './types';
 
 const MONTH_NAMES = [
   'January',
@@ -50,7 +54,13 @@ const MONTH_NAMES = [
 //   ≥ 880 → full event list
 //   480-880 → colored dots only
 //   < 480 → date picker (numbers only)
-const DENSITY_FULL_PX = 880;
+// Switch from text events to colored swatches once each day cell drops
+// below 70px. With 7 day columns + a 44px week-number column that means
+// a grid width of 7 * 70 + 44 = 534px.
+const WEEK_COL_PX = 44;
+const DAY_COLS = 7;
+const DAY_CELL_FULL_PX = 70;
+const DENSITY_FULL_PX = WEEK_COL_PX + DAY_COLS * DAY_CELL_FULL_PX;
 const DENSITY_COMPACT_PX = 480;
 
 // Default until the first ResizeObserver tick reports a real height.
@@ -665,7 +675,7 @@ function createEventDialog(onSubmit: (event: CalendarEvent, day: CalendarDay) =>
       return;
     }
     const newEvent: CalendarEvent = {
-      id: `user-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+      id: `user-${crypto.randomUUID()}`,
       title: titleField.input.value.trim() || 'Untitled',
       category: categoryField.input.value as CalendarEvent['category'],
       startTime: timeField.input.value || '09:00',

@@ -429,11 +429,49 @@ function wrapCustomPanelElement(element: HTMLElement): HTMLElement {
 }
 
 /**
+ * Per-row memo of the per-renderer outputs that were last appended into the
+ * row. Lets {@link renderPanelSlot} reuse a previously-built row when the
+ * user's render callbacks return the same element references on subsequent
+ * grid renders — avoiding a wipe + re-append that would otherwise force
+ * consumers (Angular/React/Vue component mounts) to be torn down on every
+ * grid render and cause feedback loops via ResizeObserver-based row-height
+ * autosizers.
+ *
+ * Keyed by row element so the memo is GC'd with the row.
+ */
+const rowOutputsCache = new WeakMap<HTMLElement, (HTMLElement | null)[]>();
+
+/**
  * Renders a single {@link PanelSlot} as a `.tbw-pinned-rows` row with three zones.
  * Returns `null` if no panel content was produced (all renders returned null).
+ *
+ * When `previousRow` is supplied and every per-renderer output is reference-equal
+ * to the outputs that built `previousRow`, the cached row is returned unchanged
+ * so the caller can skip DOM mutation. Built-in panels (e.g. row-count) create a
+ * fresh element on every call so this short-circuit is naturally bypassed for
+ * them; consumer-supplied panels that return a stable element benefit.
  */
-export function renderPanelSlot(slot: PanelSlot, context: PinnedRowsContext): HTMLElement | null {
-  // Build the three zones up-front so we can drop the row entirely if everything is null.
+export function renderPanelSlot(
+  slot: PanelSlot,
+  context: PinnedRowsContext,
+  previousRow?: HTMLElement | null,
+): HTMLElement | null {
+  const renderers: ZonedPanelRender[] = Array.isArray(slot.render)
+    ? slot.render
+    : [{ zone: 'left', render: slot.render }];
+
+  // Collect outputs in renderer order; we compare these to the previous row's
+  // outputs to decide whether to reuse the row as-is.
+  const outputs: (HTMLElement | null)[] = renderers.map((entry) => entry.render(context) ?? null);
+
+  if (previousRow) {
+    const prevOutputs = rowOutputsCache.get(previousRow);
+    if (prevOutputs && prevOutputs.length === outputs.length && prevOutputs.every((out, i) => out === outputs[i])) {
+      return previousRow;
+    }
+  }
+
+  // Build a fresh row.
   const row = document.createElement('div');
   row.className = 'tbw-pinned-rows';
   row.setAttribute('role', 'presentation');
@@ -449,14 +487,11 @@ export function renderPanelSlot(slot: PanelSlot, context: PinnedRowsContext): HT
 
   const zoneOf: Record<PanelZone, HTMLElement> = { left, center, right };
 
-  const renderers: ZonedPanelRender[] = Array.isArray(slot.render)
-    ? slot.render
-    : [{ zone: 'left', render: slot.render }];
-
-  for (const entry of renderers) {
-    const zone = entry.zone ?? 'left';
-    const out = entry.render(context);
+  for (let i = 0; i < renderers.length; i++) {
+    const entry = renderers[i];
+    const out = outputs[i];
     if (out == null) continue;
+    const zone = entry.zone ?? 'left';
     // Built-in panels return their element ready-to-append; wrap others
     // (user-supplied via render array) consistently in .tbw-status-panel only
     // when not already a status panel, to preserve existing semantics.
@@ -471,6 +506,7 @@ export function renderPanelSlot(slot: PanelSlot, context: PinnedRowsContext): HT
   row.appendChild(left);
   row.appendChild(center);
   row.appendChild(right);
+  rowOutputsCache.set(row, outputs);
   return row;
 }
 

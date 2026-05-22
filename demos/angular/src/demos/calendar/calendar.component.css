@@ -1,0 +1,8 @@
+/* Calendar demo — Angular styles.
+ * All visual rules live in demos/shared/calendar/demo-styles.css so the
+ * four framework demos stay pixel-equal. The relative path is required
+ * because Angular's esbuild pipeline doesn't apply the demo path alias
+ * to CSS @import specifiers.
+ * The component uses ViewEncapsulation.None so the descendant selectors
+ * (tbw-grid …) aren't rewritten. */
+@import '../../../../shared/calendar/demo-styles.css';

@@ -1,0 +1,19 @@
+<div class="demo-container">
+  <div class="calendar-demo">
+    <tbw-grid
+      #calendarGrid
+      class="calendar-demo__grid"
+      data-density="full"
+      [rows]="rows()"
+      [gridConfig]="gridConfig()"
+    >
+      @for (field of weekdayFields; track field) {
+        <tbw-grid-column [attr.field]="field">
+          <app-calendar-day-cell *tbwRenderer="let day" [day]="day" />
+        </tbw-grid-column>
+      }
+    </tbw-grid>
+
+    <app-calendar-event-dialog (createEvent)="addEvent($event.event, $event.day)" />
+  </div>
+</div>

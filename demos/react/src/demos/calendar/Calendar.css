@@ -1,0 +1,5 @@
+/* Calendar demo — React styles.
+ * All visual rules live in @demo/shared/calendar/demo-styles.css so the
+ * four framework demos stay pixel-equal. This file exists only as the
+ * import target referenced by Calendar.tsx. */
+@import '@demo/shared/calendar/demo-styles.css';

@@ -27,8 +27,13 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
       const type =
         rawType && allowedTypes.has(rawType as PrimitiveColumnType) ? (rawType as PrimitiveColumnType) : undefined;
       const header = el.getAttribute('header') || undefined;
-      const sortable = el.hasAttribute('sortable');
-      const editable = el.hasAttribute('editable');
+      // Treat `attr="false"` as false. Framework adapters (notably Vue)
+      // serialize boolean props to string attributes on custom elements,
+      // so a Vue template `:sortable="false"` reaches the DOM as
+      // `sortable="false"`. Without this guard `hasAttribute('sortable')`
+      // would return true and force the column to be sortable.
+      const sortable = el.hasAttribute('sortable') && el.getAttribute('sortable') !== 'false';
+      const editable = el.hasAttribute('editable') && el.getAttribute('editable') !== 'false';
       const config: ColumnInternal = { field, type, header, sortable, editable };
 
       // Parse width attribute (supports px values, percentages, or plain numbers)
@@ -51,7 +56,13 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
         }
       }
 
-      if (el.hasAttribute('resizable')) config.resizable = true;
+      if (el.hasAttribute('resizable')) {
+        // `resizable` defaults to true at the column level, so an explicit
+        // `resizable="false"` (e.g. emitted by Vue's `:resizable="false"`)
+        // must propagate as `false` — not be left undefined — or the
+        // header renderer will fall back to the default and add a handle.
+        config.resizable = el.getAttribute('resizable') !== 'false';
+      }
 
       // Parse editor and renderer attribute names for programmatic lookup
       const editorName = el.getAttribute('editor');

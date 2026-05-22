@@ -27,10 +27,14 @@ import { createGrid } from '@toolbox-web/grid';
 
 import type { CalendarDay, CalendarEvent, CalendarWeek, WeekdayField } from '@demo/shared/calendar';
 import {
-    buildWeeks, CATEGORIES, generateEvents, isoKey, WEEKDAY_FIELDS,
-    WEEKDAY_HEADERS,
-    WEEKDAY_HEADERS_FULL,
-    WEEKDAY_HEADERS_MINI
+  buildWeeks,
+  CATEGORIES,
+  generateEvents,
+  isoKey,
+  WEEKDAY_FIELDS,
+  WEEKDAY_HEADERS,
+  WEEKDAY_HEADERS_FULL,
+  WEEKDAY_HEADERS_MINI,
 } from '@demo/shared/calendar';
 import { renderDayCell } from './renderers';
 
@@ -51,12 +55,11 @@ const MONTH_NAMES = [
 
 // Density breakpoints (px). Picked so each weekday column gets a sensible
 // minimum amount of room:
-//   ≥ 880 → full event list
-//   480-880 → colored dots only
-//   < 480 → date picker (numbers only)
-// Switch from text events to colored swatches once each day cell drops
-// below 70px. With 7 day columns + a 44px week-number column that means
-// a grid width of 7 * 70 + 44 = 534px.
+//   ≥ 534 → full event list (7 day cols × 70px + 44px week col)
+//   480–534 → colored dots only
+//   < 480 → minimal — single letter glyph only
+// Below 70px per day cell the text won't fit, so we switch to colored
+// swatches. 7 * 70 + 44 = 534px.
 const WEEK_COL_PX = 44;
 const DAY_COLS = 7;
 const DAY_CELL_FULL_PX = 70;

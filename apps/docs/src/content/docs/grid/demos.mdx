@@ -96,7 +96,7 @@ A month-view calendar built on top of `<tbw-grid>` — same data-grid engine, di
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
 | **Custom shell header**  | Month title + year `<select>` injected via `registerHeaderContent`; prev / today / next nav buttons via `registerToolbarContent` |
 | **Pinned-row feature**   | Colour-coded category legend rendered as a permanent `position: 'bottom'` pinned row                                             |
-| **Responsive density**   | A `ResizeObserver` toggles `data-density` between `full` (≥880 px), `compact` (480–880 px), and `minimal` (under 480 px)         |
+| **Responsive density**   | A `ResizeObserver` toggles `data-density` between `full` (≥534 px), `compact` (480–534 px), and `minimal` (under 480 px)         |
 | **Dynamic row height**   | A second `ResizeObserver` on `.rows-viewport` keeps the 4–6 visible week rows exactly filling the viewport — no inner scrollbar  |
 | **Custom keyboard nav**  | Arrow keys cross month boundaries; PageUp / PageDown jump month-by-month while preserving the focused weekday slot               |
 | **Cell-level "double-click"** | Detected via two `mousedown` events in capture phase (the grid rewrites cell interiors on focus, so native `dblclick` never fires) |
@@ -121,40 +121,6 @@ A month-view calendar built on top of `<tbw-grid>` — same data-grid engine, di
 | Docs embed                                  | `apps/docs/src/components/demos/CalendarDemo.astro` (mounts the vanilla build) |
 
 Each framework rebuilds the day-cell renderer, shell header, toolbar, pinned legend, dialog, density observer, dynamic row-height, keyboard navigation and double-click detector in its own idiom — the point of the demo is to show how the same grid surface is composed from each framework's component model. Only the row/event types and the seed dataset are shared.
-
----
-
-## Code Architecture (Employee Management)
-
-The employee management demo is built as a **reusable factory function** that can be called from any context (standalone HTML page, documentation site, or your own app).
-
-### Plugins Used
-
-| Plugin              | Purpose                                       |
-| ------------------- | --------------------------------------------- |
-| SelectionPlugin     | Row selection with checkbox column             |
-| FilteringPlugin     | Per-column filtering with debounce             |
-| EditingPlugin       | Inline cell editing with dirty tracking        |
-| ClipboardPlugin     | Copy/paste support                             |
-| ExportPlugin        | CSV and Excel export                           |
-| VisibilityPlugin    | Column show/hide panel                         |
-| ReorderPlugin       | Drag-and-drop column reorder                   |
-| RowReorderPlugin    | Drag-and-drop row reorder                      |
-| MultiSortPlugin     | Multi-column sorting                           |
-| ContextMenuPlugin   | Right-click context menus                       |
-| MasterDetailPlugin  | Expandable detail panels                       |
-| GroupingRowsPlugin  | Row grouping with aggregation (grouped variant)|
-| PinnedColumnsPlugin | Pin columns to left/right edges                |
-| UndoRedoPlugin      | Undo/redo editing history                      |
-| ResponsivePlugin    | Mobile-friendly card layout at small widths    |
-
-### Performance Notes
-
-- **200 rows** load instantly with the default configuration
-- Scale to **10,000+ rows** with row virtualization (only visible rows are rendered)
-- Column virtualization available via `ColumnVirtualizationPlugin` for wide datasets
-- Master-detail panels are lazily rendered on expand
-- Filtering uses debounced input (200ms default) to avoid excess re-renders
 
 ---
 

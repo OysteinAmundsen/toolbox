@@ -35,6 +35,7 @@ import { type EditorInjectionDeps, injectEditor as injectEditorImpl } from './in
 import {
   clearEditingState,
   FOCUSABLE_EDITOR_SELECTOR,
+  getEditorAncestor,
   hasRowChanged,
   isInsideOpenAriaOverlay,
   isSafePropertyKey,
@@ -557,7 +558,28 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       this.gridElement.addEventListener(
         'focusout',
         (e: FocusEvent) => {
+          const target = e.target as HTMLElement | null;
           const related = e.relatedTarget as HTMLElement | null;
+          // Intra-editor focus moves MUST NOT flip the flag — the editor
+          // is still logically focused. Cases observed in the wild:
+          //   - Native <select> opening: SELECT → child OPTION
+          //   - Native <select> popup ArrowDown: OPTION → sibling OPTION
+          //   - Framework editors moving focus to inner popup descendants
+          // Detect via two ancestry checks: (a) `target` contains `related`
+          // (parent-to-descendant), or (b) `related` lives inside an
+          // editor element (input/select/textarea/contenteditable) — this
+          // covers OPTION-to-OPTION and any other intra-editor traversal.
+          // Exclude `gridElement` itself: it has tabindex=0 and so matches
+          // FOCUSABLE_EDITOR_SELECTOR, but focus moving to the grid host
+          // means we ARE leaving the editor — the explicit Escape/Enter
+          // paths handle that by setting the flag to false themselves.
+          if (target && related) {
+            if (target.contains(related)) return;
+            const relatedEditor = getEditorAncestor(related);
+            if (relatedEditor && relatedEditor !== this.gridElement && this.gridElement.contains(relatedEditor)) {
+              return;
+            }
+          }
           // Only clear if focus went outside grid (and external containers) or to a non-input element
           if (
             !related ||
@@ -747,10 +769,20 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       }
     }
 
-    // Arrow keys in grid mode when not editing input: navigate cells
+    // Arrow keys in grid mode when not editing input: navigate cells.
+    // `#gridModeInputFocused` is a cached flag — keep `event.target` as a
+    // fallback check so a stale flag (e.g. between a native <select>
+    // popup opening and our focusout/focusin guard updating it) doesn't
+    // hijack ArrowUp/Down away from a focused editor. Use `closest()`
+    // (not `matches()`) so that descendants of an editor — most notably
+    // `<option>` children of an open native <select> popup — are also
+    // recognised as "keydown originating inside an editor".
+    const arrowEditorAncestor = getEditorAncestor(event.target);
+    const targetIsEditor = !!arrowEditorAncestor && arrowEditorAncestor !== this.gridElement;
     if (
       this.#isGridMode &&
       !this.#gridModeInputFocused &&
+      !targetIsEditor &&
       (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight')
     ) {
       // Let the grid's default keyboard navigation handle this
@@ -759,7 +791,11 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // Arrow Up/Down in grid mode when input is focused: let the editor handle it
     // (e.g., ArrowDown opens autocomplete/datepicker overlays, ArrowUp/Down navigates options)
-    if (this.#isGridMode && this.#gridModeInputFocused && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+    if (
+      this.#isGridMode &&
+      (this.#gridModeInputFocused || targetIsEditor) &&
+      (event.key === 'ArrowUp' || event.key === 'ArrowDown')
+    ) {
       return true; // Handled: block grid navigation, let event reach editor
     }
 
@@ -835,6 +871,40 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       // In grid mode when not editing: focus the current cell's input
       if (this.#isGridMode && !this.#gridModeInputFocused) {
         this.#focusCurrentCellEditor();
+        return true;
+      }
+
+      // In grid mode while an editor (or its descendant — most notably an
+      // <option> inside an open native <select> popup) has focus: do NOT
+      // start row-based editing or re-render. Two sub-cases:
+      //   (a) target is a descendant of an editor (popup option): let the
+      //       browser's native commit-and-close run untouched — calling
+      //       beginBulkEdit / re-rendering would destroy the open popup
+      //       and abort the commit. We just bail.
+      //   (b) target IS the editor itself (focused SELECT after popup
+      //       closed, focused INPUT with no popup): commit the current
+      //       value, blur the editor, return focus to the grid so arrow
+      //       keys resume cell navigation. Mirrors Escape but accepts
+      //       the value instead of reverting.
+      if (this.#isGridMode && this.#gridModeInputFocused) {
+        const enterEditorAncestor = getEditorAncestor(event.target);
+        if (enterEditorAncestor && enterEditorAncestor !== event.target) {
+          // (a) descendant — let native commit fire; do not interfere.
+          // Return true so core's Enter handler (which would dispatch
+          // cell-activate) does not also run. We don't call
+          // preventDefault, so the browser still commits the popup.
+          return true;
+        }
+        // (b) editor itself — commit + blur + return to navigation mode.
+        this.#gridModeCellSnapshot = null;
+        const activeEl = document.activeElement as HTMLElement | null;
+        if (activeEl && this.gridElement.contains(activeEl)) {
+          activeEl.blur();
+          this.gridElement.focus();
+        }
+        this.#gridModeInputFocused = false;
+        this.#gridModeEditLocked = true;
+        this.requestAfterRender();
         return true;
       }
 

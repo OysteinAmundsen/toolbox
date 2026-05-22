@@ -1633,6 +1633,215 @@ describe('EditingPlugin', () => {
       expect(document.activeElement).toBe(emailInput);
       expect(document.activeElement).not.toBe(grid);
     });
+
+    it('ArrowDown originating from a focused <select> editor does not navigate cells', async () => {
+      // Regression: when a native <select> dropdown opens it transiently
+      // moves focus to a child <option>, which used to flip the cached
+      // `#gridModeInputFocused` flag to false. The next ArrowDown then
+      // took the grid-navigation branch and stole focus to the cell
+      // below — instead of letting the open <select> traverse options.
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          {
+            field: 'role',
+            header: 'Role',
+            type: 'select',
+            editable: true,
+            options: [
+              { value: 'admin', label: 'Admin' },
+              { value: 'user', label: 'User' },
+            ],
+          },
+        ],
+        plugins: [new EditingPlugin({ mode: 'grid' })],
+      };
+      grid.rows = [
+        { id: 1, role: 'admin' },
+        { id: 2, role: 'user' },
+      ];
+      await waitUpgrade(grid);
+
+      const internalGrid = grid as any;
+      internalGrid._focusRow = 0;
+      internalGrid._focusCol = 1;
+
+      const selectCell = grid.querySelector('.cell[data-col="1"][data-row="0"]') as HTMLElement;
+      const select = selectCell.querySelector('select') as HTMLSelectElement;
+      select.focus();
+      expect(document.activeElement).toBe(select);
+
+      // Simulate Chromium's behavior when the native <select> popup opens:
+      // focus transiently moves to a descendant <option>, then back to the
+      // <select>. Without the fix the focusout(SELECT → OPTION) handler
+      // resets `#gridModeInputFocused` because OPTION does not match
+      // `FOCUSABLE_EDITOR_SELECTOR`.
+      const option = select.options[0] as unknown as HTMLElement;
+      select.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: option }));
+
+      // ArrowDown dispatched from the SELECT (still the keydown target,
+      // even though `document.activeElement` may briefly be the option in
+      // a real browser) must NOT cause the grid to navigate to row 1.
+      const arrowEvent = new KeyboardEvent('keydown', {
+        key: 'ArrowDown',
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+      });
+      select.dispatchEvent(arrowEvent);
+      await nextFrame();
+
+      // Focus should not have left the select, and the grid's tracked
+      // focus row must still be 0.
+      expect(internalGrid._focusRow).toBe(0);
+    });
+
+    it('ArrowDown originating from an <option> (open select popup) does not navigate cells', async () => {
+      // Regression for the OPTION→OPTION focusout step inside an open
+      // native <select> popup. Live Chromium repro: after the popup
+      // opens, focus is on an <option>. The next ArrowDown fires
+      // keydown on the <option>, then focus moves to a sibling
+      // <option>. <option> does not match FOCUSABLE_EDITOR_SELECTOR, so
+      // an over-narrow guard would (a) clear `#gridModeInputFocused` in
+      // the focusout handler and (b) fail to recognise the keydown
+      // target as an editor — letting the grid navigate cells.
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          {
+            field: 'role',
+            header: 'Role',
+            type: 'select',
+            editable: true,
+            options: [
+              { value: 'admin', label: 'Admin' },
+              { value: 'user', label: 'User' },
+              { value: 'guest', label: 'Guest' },
+            ],
+          },
+        ],
+        plugins: [new EditingPlugin({ mode: 'grid' })],
+      };
+      grid.rows = [
+        { id: 1, role: 'admin' },
+        { id: 2, role: 'user' },
+      ];
+      await waitUpgrade(grid);
+
+      const internalGrid = grid as any;
+      internalGrid._focusRow = 0;
+      internalGrid._focusCol = 1;
+
+      const selectCell = grid.querySelector('.cell[data-col="1"][data-row="0"]') as HTMLElement;
+      const select = selectCell.querySelector('select') as HTMLSelectElement;
+      const opt0 = select.options[0] as unknown as HTMLElement;
+      const opt1 = select.options[1] as unknown as HTMLElement;
+      select.focus();
+      // Simulate popup opening: focus moves SELECT → OPTION
+      select.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: opt0 }));
+
+      // Now simulate an in-popup arrow: keydown fires on the focused
+      // <option>, then focus moves to a sibling <option>.
+      const arrow = new KeyboardEvent('keydown', {
+        key: 'ArrowDown',
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+      });
+      opt0.dispatchEvent(arrow);
+      opt0.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: opt1 }));
+      await nextFrame();
+
+      // Grid focus must not have moved to row 1
+      expect(internalGrid._focusRow).toBe(0);
+    });
+
+    it('Enter on an <option> (open select popup) commits natively and does not start row edit or re-render', async () => {
+      // Regression: Enter on a highlighted <option> in an open native
+      // <select> popup must let the browser commit the option and close
+      // the popup. Previously the plugin fell through to "Start
+      // row-based editing", which called beginBulkEdit + re-rendered
+      // the row, destroying the open popup before the commit landed.
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          {
+            field: 'role',
+            header: 'Role',
+            type: 'select',
+            editable: true,
+            options: [
+              { value: 'admin', label: 'Admin' },
+              { value: 'user', label: 'User' },
+            ],
+          },
+        ],
+        plugins: [new EditingPlugin({ mode: 'grid' })],
+      };
+      grid.rows = [{ id: 1, role: 'admin' }];
+      await waitUpgrade(grid);
+
+      const internalGrid = grid as any;
+      internalGrid._focusRow = 0;
+      internalGrid._focusCol = 1;
+
+      const activateDetails: any[] = [];
+      grid.addEventListener('cell-activate', (e: any) => {
+        activateDetails.push(e.detail);
+      });
+      const editingPlugin = ((grid as any).gridConfig?.plugins ?? []).find(
+        (p: any) => p?.constructor?.name === 'EditingPlugin',
+      ) as any;
+      const beginSpy = vi.spyOn(editingPlugin, 'beginBulkEdit');
+
+      const select = grid.querySelector('.cell[data-col="1"][data-row="0"] select') as HTMLSelectElement;
+      const opt1 = select.options[1] as unknown as HTMLElement;
+      select.focus();
+      select.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+      // Simulate popup open + ArrowDown highlighting opt1
+      select.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: opt1 }));
+
+      // Enter while focus target is the highlighted <option>
+      const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true, cancelable: true });
+      opt1.dispatchEvent(enter);
+
+      // Plugin must not preventDefault, must not start row edit, must not
+      // dispatch a keyboard-triggered cell-activate. Native browser is
+      // responsible for committing the popup and closing it.
+      expect(enter.defaultPrevented).toBe(false);
+      expect(beginSpy).not.toHaveBeenCalled();
+      expect(activateDetails.some((d) => d.trigger === 'keyboard')).toBe(false);
+    });
+
+    it('Enter on a focused editor in grid mode blurs it and returns focus to grid', async () => {
+      // After committing the popup option (or any other in-cell edit),
+      // a subsequent Enter on the focused editor itself should commit
+      // and exit edit-input mode: blur the editor, focus the grid host
+      // so arrow keys resume cell navigation.
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        plugins: [new EditingPlugin({ mode: 'grid' })],
+      };
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      await waitUpgrade(grid);
+
+      const internalGrid = grid as any;
+      internalGrid._focusRow = 0;
+      internalGrid._focusCol = 1;
+
+      const input = grid.querySelector('.cell.editing input') as HTMLInputElement;
+      input.focus();
+      input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+      expect(document.activeElement).toBe(input);
+
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }));
+      await nextFrame();
+
+      expect(document.activeElement).toBe(grid);
+    });
   });
 
   // #endregion

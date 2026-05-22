@@ -29,6 +29,23 @@ import type { EditingConfig } from '../types';
 export const FOCUSABLE_EDITOR_SELECTOR =
   'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])';
 
+/**
+ * Returns the closest ancestor (or `target` itself) that matches
+ * {@link FOCUSABLE_EDITOR_SELECTOR}, or `null` if none exists.
+ *
+ * Always prefer this over `target.matches(FOCUSABLE_EDITOR_SELECTOR)` —
+ * non-focusable editor descendants (e.g. `<option>` inside an open
+ * native `<select>` popup; spans inside `contenteditable`) need to be
+ * recognised as "inside the editor" but do not themselves match the
+ * selector.
+ *
+ * @internal
+ */
+export function getEditorAncestor(target: EventTarget | null | undefined): Element | null {
+  const el = target as Element | null | undefined;
+  return el?.closest?.(FOCUSABLE_EDITOR_SELECTOR) ?? null;
+}
+
 // #endregion
 
 // #region Editor Resolution

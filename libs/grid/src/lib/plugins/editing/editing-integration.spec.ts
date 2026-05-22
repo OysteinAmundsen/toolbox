@@ -1676,7 +1676,7 @@ describe('EditingPlugin', () => {
       // <select>. Without the fix the focusout(SELECT → OPTION) handler
       // resets `#gridModeInputFocused` because OPTION does not match
       // `FOCUSABLE_EDITOR_SELECTOR`.
-      const option = select.options[0] as unknown as HTMLElement;
+      const option = select.options[0];
       select.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: option }));
 
       // ArrowDown dispatched from the SELECT (still the keydown target,
@@ -1734,8 +1734,8 @@ describe('EditingPlugin', () => {
 
       const selectCell = grid.querySelector('.cell[data-col="1"][data-row="0"]') as HTMLElement;
       const select = selectCell.querySelector('select') as HTMLSelectElement;
-      const opt0 = select.options[0] as unknown as HTMLElement;
-      const opt1 = select.options[1] as unknown as HTMLElement;
+      const opt0 = select.options[0];
+      const opt1 = select.options[1];
       select.focus();
       // Simulate popup opening: focus moves SELECT → OPTION
       select.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: opt0 }));
@@ -1795,7 +1795,7 @@ describe('EditingPlugin', () => {
       const beginSpy = vi.spyOn(editingPlugin, 'beginBulkEdit');
 
       const select = grid.querySelector('.cell[data-col="1"][data-row="0"] select') as HTMLSelectElement;
-      const opt1 = select.options[1] as unknown as HTMLElement;
+      const opt1 = select.options[1];
       select.focus();
       select.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
       // Simulate popup open + ArrowDown highlighting opt1

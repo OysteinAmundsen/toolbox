@@ -29,6 +29,7 @@ import FullscreenButton from './FullscreenButton.astro';
 <script>
   import '@toolbox-web/grid';
 import type { ColumnConfig, GridConfig, ShellConfig } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import {
 ContextMenuPlugin,
 ExportPlugin,
@@ -687,11 +688,7 @@ VisibilityPlugin,
   // #endregion
 
   // #region Initialize
-  const grid = document.getElementById('tb-grid') as HTMLElement & {
-    rows: Employee[];
-    gridConfig: GridConfig<Employee>;
-    ready: () => Promise<void>;
-  };
+  const grid = queryGrid<Employee>('#tb-grid')!;
   const toolbar = document.getElementById('tb-toolbar')!;
   const panelSlot = document.getElementById('tb-panel-slot')!;
 

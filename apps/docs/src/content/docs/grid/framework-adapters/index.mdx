@@ -1,0 +1,31 @@
+---
+title: Framework Adapters
+description: How React, Angular, and Vue adapters let @toolbox-web/grid render framework-native components as cells, editors, and tool panels.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+`@toolbox-web/grid` is a framework-agnostic web component, but most applications want their cell renderers, editors, and tool panels written in their host framework — JSX, Angular templates, Vue SFCs. **Framework adapters** are the bridge: each adapter intercepts grid rendering and mounts the appropriate framework primitive at the right DOM node.
+
+Three official adapters ship today:
+
+<CardGrid>
+  <LinkCard title="Angular" description="@toolbox-web/grid-angular" href="/grid/angular/getting-started/" />
+  <LinkCard title="React"   description="@toolbox-web/grid-react"   href="/grid/react/getting-started/" />
+  <LinkCard title="Vue"     description="@toolbox-web/grid-vue"     href="/grid/vue/getting-started/" />
+</CardGrid>
+
+You can also write your own adapter for any framework (Svelte, Solid, Lit, plain custom elements) — the contract is small and stable.
+
+<CardGrid>
+  <LinkCard
+    title="Architecture"
+    description="How adapters integrate into the grid lifecycle, the FrameworkAdapter interface, registration, and invocation points."
+    href="/grid/framework-adapters/architecture/"
+  />
+  <LinkCard
+    title="API Reference"
+    description="Typed reference for FrameworkAdapter, registration helpers, and the cell-renderer / editor contracts."
+    href="/grid/api/framework-adapters/"
+  />
+</CardGrid>

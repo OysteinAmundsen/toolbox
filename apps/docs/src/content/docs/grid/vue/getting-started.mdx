@@ -3,6 +3,8 @@ title: Vue Integration
 description: Install and configure @toolbox-web/grid-vue — feature props, slot renderers, editors, composables, and event handling.
 ---
 
+import { TabItem, Tabs } from '@astrojs/starlight/components';
+
 
 The `@toolbox-web/grid-vue` package provides Vue 3 integration for the `<tbw-grid>` data grid component.
 
@@ -21,15 +23,28 @@ This page covers Vue-specific setup and APIs (feature props, composables, slot r
 
 ## Installation
 
-```bash
-
-npm install @toolbox-web/grid @toolbox-web/grid-vue
-
-
-yarn add @toolbox-web/grid @toolbox-web/grid-vue
-pnpm add @toolbox-web/grid @toolbox-web/grid-vue
-bun add @toolbox-web/grid @toolbox-web/grid-vue
-```
+<Tabs>
+  <TabItem label="npm">
+  ```bash
+  npm install @toolbox-web/grid @toolbox-web/grid-vue
+  ```
+  </TabItem>
+  <TabItem label="yarn">
+  ```bash
+  yarn add @toolbox-web/grid @toolbox-web/grid-vue
+  ```
+  </TabItem>
+  <TabItem label="pnpm">
+  ```bash
+  pnpm add @toolbox-web/grid @toolbox-web/grid-vue
+  ```
+  </TabItem>
+  <TabItem label="bun">
+  ```bash
+  bun add @toolbox-web/grid @toolbox-web/grid-vue
+  ```
+  </TabItem>
+</Tabs>
 
 ## Setup
 
@@ -325,7 +340,7 @@ Feature props and manual plugins can be mixed — the grid merges them.
 
 ## Custom Icons
 
-The grid supports two complementary ways to customize icons — see the core [Icon Customization](/grid/api-reference/#icon-customization) reference and the [Theming Guide](/grid/guides/theming/#icon-customization) for the full picture:
+The grid supports two complementary ways to customize icons — see the [Theming Guide → Icon Customization](/grid/guides/theming/#icon-customization) for both the CSS and JavaScript approaches:
 
 - **CSS variables** (`--tbw-icon-*`) — preferred for themes and static customization; no JavaScript needed.
 - **`gridConfig.icons`** — for dynamic icons, icon libraries, or `HTMLElement` instances; takes precedence over CSS.

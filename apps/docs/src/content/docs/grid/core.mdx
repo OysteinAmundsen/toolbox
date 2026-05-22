@@ -197,6 +197,42 @@ The grid is configured through the `gridConfig` property (or individual shorthan
 4. Inferred columns (auto-detected from first row)
 5. Individual props (`fitMode`) — highest
 
+### System Columns
+
+Some columns exist to support grid behaviour rather than to display user data — a row-action menu, a status indicator, a row number, the selection checkbox the grid injects for you. Mark any column with `utility: true` and the grid treats it as a **system column**: rendered normally, but excluded from chooser, reorder, print, export, clipboard, and selection.
+
+```ts
+{
+  field: '__actions',
+  header: '',
+  width: 80,
+  utility: true,                   // ← marks this as a system column
+  resizable: false,
+  sortable: false,
+  filterable: false,
+  viewRenderer: ({ row }) => createActionsButton(row),
+}
+```
+
+**What `utility: true` does:**
+
+| Surface | Behaviour |
+| --- | --- |
+| Visibility panel | Not listed — users cannot toggle it on/off |
+| Column reorder | Locked in place |
+| Print | Hidden by `PrintPlugin` (override with `printHidden: false`) |
+| Clipboard copy | Skipped by `ClipboardPlugin` |
+| Export (CSV/JSON/XLSX) | Skipped by `ExportPlugin` |
+| Range / row selection | Click does not extend selection |
+| Filter UI | No filter button, no filter model entry |
+| Cell rendering | **Rendered normally** — your renderer runs |
+
+> **Naming convention:** Prefix the field with `__` (e.g. `__actions`, `__status`) so it cannot collide with a real data field.
+
+**Built-in system columns** the grid synthesises automatically use the same flag: `SelectionPlugin` checkbox (`__tbw_checkbox`), `MasterDetailPlugin` / `TreePlugin` / `GroupingRowsPlugin` expander (`__tbw_expander`), `RowDragDropPlugin` drag handle.
+
+**Related flags** when you want finer control: `lockPosition` (reorder only), `lockVisible` (chooser only), `printHidden` (print only), `hidden` (entirely hidden).
+
 ---
 
 ## Presentation
@@ -535,6 +571,32 @@ For event-driven use cases, click and activation events (`cell-click`, `row-clic
 <ShowSource file="demos/CustomRenderersDemo.astro">
   <CustomRenderersDemo />
 </ShowSource>
+
+#### Renderer security: avoid `innerHTML`
+
+Renderers run with full DOM access. The grid does not sandbox what you do inside one, so user-supplied data must be inserted safely. The hazard is `innerHTML`:
+
+```typescript
+// ✅ Safe — textContent escapes HTML automatically
+renderer: (ctx) => {
+  const span = document.createElement('span');
+  span.textContent = ctx.value;
+  return span;
+};
+
+// ❌ XSS vulnerability — user input rendered as HTML
+renderer: (ctx) => {
+  const div = document.createElement('div');
+  div.innerHTML = ctx.value; // If value contains <script>, it executes
+  return div;
+};
+```
+
+If you genuinely need to inject HTML (e.g. rendering a server-trusted markdown snippet), sanitize first with a library like [DOMPurify](https://github.com/cure53/DOMPurify) before assigning to `innerHTML`.
+
+:::note[String-returning renderers are auto-sanitized]
+When a cell renderer or group header renderer returns an **HTML string** (rather than an `HTMLElement` / `Node` / framework component), the grid runs the string through an internal sanitizer that strips `<script>` elements and event-handler attributes (`onclick`, `onerror`, etc.) before inserting it into the DOM. This is defense-in-depth — always validate your data upstream, but accidental injection through these renderer paths will not execute. Renderers that return `HTMLElement` / `Node` / framework components are inserted as-is and are not sanitized; the `textContent` rule above is your responsibility.
+:::
 
 ### Choosing: Formatter vs Renderer
 
@@ -1525,4 +1587,4 @@ For the complete method reference — including signatures, return types, and fa
 - [Plugins](/grid/plugins/) — Extend with selection, filtering, editing, and more
 - [Theming](/grid/guides/theming/) — CSS custom properties, dark mode, themes
 - [Architecture](/grid/architecture/) — Render scheduler, Light DOM, design decisions
-- [Plugin System](/grid/guides/custom-plugins/) — Build your own plugins
+- [Plugin System](/grid/plugin-development/custom-plugins/) — Build your own plugins

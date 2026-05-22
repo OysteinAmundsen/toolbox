@@ -1,0 +1,440 @@
+---
+title: Automated testing
+description: Write reliable Playwright, Cypress, and WebdriverIO tests against @toolbox-web/grid using its stable CSS classes, data attributes, ARIA roles, and ready() / 'render' event lifecycle hooks.
+sidebar:
+  order: 5
+---
+
+import { CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+`@toolbox-web/grid` is built to be tested. Every surface a test script needs — CSS class names, `data-*` attributes, ARIA roles, lifecycle promises, and events — is a **stable, documented public API**. You should never have to reverse-engineer a selector from DevTools to assert on a cell.
+
+This guide shows you what those surfaces are and how to drive the grid from Playwright, Cypress, and WebdriverIO.
+
+:::tip[For manual debugging]
+This page is about **automated tests in CI**. If you're poking at a grid in the DevTools console to diagnose a bug, see [Troubleshooting → How to debug the grid](/grid/guides/troubleshooting/#how-to-debug-the-grid) — same selectors, different audience.
+:::
+
+## Why the grid is testable
+
+| Surface | What you get | Stability |
+|---|---|---|
+| **CSS classes** ([`GridClasses`](/grid/api/core/variables/gridclasses/)) | `data-grid-row` (row container), `cell` (data cell), `header-row`, `header-cell`, `selected`, `editing`, `sorted-asc`, `sorted-desc`, `focused`, … | Semver-stable, `@since 0.1.1` |
+| **Data attributes** ([`GridDataAttrs`](/grid/api/core/variables/griddataattrs/)) | `data-field="<col>"`, `data-row="<rowIndex>"`, `data-group-key` | Semver-stable |
+| **CSS selectors** ([`GridSelectors`](/grid/api/core/variables/gridselectors/)) | Prebuilt selectors: `DATA_ROW`, `DATA_CELL`, `SELECTED_ROWS`, `EDITING_CELL`, `CELL_BY_FIELD(field)`, … | Semver-stable |
+| **ARIA roles + attributes** | `role="grid"`, `role="row"`, `role="gridcell"`, `role="columnheader"`, `aria-rowindex`, `aria-colindex`, `aria-sort`, `aria-selected`, `aria-expanded` | Semver-stable — also the WCAG contract |
+| **Lifecycle hook** | `grid.ready()` — `Promise` resolved after first render | Public API |
+| **Render event** | `grid.addEventListener('render', …)` — fires once per scheduler flush | Public API, `@since 2.15.0` |
+
+Locator strategy in priority order:
+
+1. **ARIA selectors first** (`getByRole`, `aria-rowindex`, `aria-colindex`) — they match what assistive tech sees, so a passing accessibility test is also a passing functional test.
+2. **`data-field` + `data-row`** for cell lookups when you know the column field and want a specific row.
+3. **`GridClasses` constants** for state assertions (`.selected`, `.editing`, `.sorted-asc`).
+4. **Never** depend on framework wrapper class names (React/Vue/Angular wrappers generate them; they change between builds).
+
+## The stable selector surface
+
+### Finding cells
+
+```ts
+// All rendered data rows
+'tbw-grid .data-grid-row';
+
+// The cell at row 42, column "email" (works for any data field)
+'tbw-grid .cell[data-row="42"][data-field="email"]';
+
+// Every cell in a given column
+'tbw-grid .cell[data-field="salary"]';
+
+// Header cell for a column
+'tbw-grid .header-cell[data-field="email"]';
+
+// Currently-editing cell
+'tbw-grid .cell.editing';
+
+// Selected rows
+'tbw-grid .data-grid-row.selected';
+```
+
+### Finding cells by ARIA (recommended for accessibility parity)
+
+```ts
+// Header cell — page.getByRole('columnheader', { name: 'Email' })
+'tbw-grid [role="columnheader"]:has-text("Email")';
+
+// Any data cell at the visible row index N (1-based, ARIA convention)
+`tbw-grid [role="row"][aria-rowindex="${n}"] [role="gridcell"]`;
+
+// Cell at row N, column M (both 1-based)
+`tbw-grid [role="row"][aria-rowindex="${n}"] [role="gridcell"][aria-colindex="${m}"]`;
+
+// Sorted columns and their direction
+'tbw-grid [role="columnheader"][aria-sort="ascending"]';
+'tbw-grid [role="columnheader"][aria-sort="descending"]';
+
+// Selected rows
+'tbw-grid [role="row"][aria-selected="true"]';
+```
+
+> **`data-row` vs `aria-rowindex`:** `data-row` is the **0-based index** of the row in the current processed data array (attached to each cell). `aria-rowindex` is the **1-based row position** for assistive tech (attached to each row element), with the header counting as row 1. Pick one and be consistent.
+
+## Waiting for the grid
+
+The grid renders asynchronously. **Never `setTimeout`** — wait on the real signals.
+
+### Wait for first render
+
+`grid.ready()` returns a `Promise` that resolves after the grid has mounted, registered plugins, and completed its first render. Awaitable from any test framework via `page.evaluate()` (Playwright) or equivalent.
+
+### Test setup — make `queryGrid` available to the page
+
+Tests run their callbacks inside the **browser**, not Node, so they can't `import` from `@toolbox-web/grid` directly inside a `page.evaluate` body. You have two ways to make `queryGrid` reachable from inside the browser context — pick the one that matches how your app loads the grid:
+
+**If your app uses an ESM bundler (Vite, Webpack, Next.js, Astro, etc.)** — expose `queryGrid` on `window` once, from your app's entry file or a test-only entry:
+
+```ts
+// src/test-setup.ts — loaded by your app's dev server during tests
+import { queryGrid } from '@toolbox-web/grid';
+
+declare global {
+  interface Window {
+    queryGrid: typeof queryGrid;
+  }
+}
+
+window.queryGrid = queryGrid;
+```
+
+Now `window.queryGrid('tbw-grid')` is fully typed inside every test — no `as HTMLElement & { ... }` casts.
+
+**If your app loads the [UMD bundle](/grid/getting-started/#option-1-cdn-no-build-step)** — `window.TbwGrid.queryGrid(...)` is already available, no setup needed. Substitute `window.TbwGrid.queryGrid` for `window.queryGrid` in every example below.
+
+<Tabs syncKey="e2e-framework">
+  <TabItem label="Playwright">
+```ts
+await page.evaluate(async () => {
+  const grid = window.queryGrid('tbw-grid');
+  await grid?.ready();
+});
+```
+  </TabItem>
+  <TabItem label="Cypress">
+```ts
+cy.window().then(async (win) => {
+  const grid = win.queryGrid('tbw-grid');
+  await grid?.ready();
+});
+```
+  </TabItem>
+  <TabItem label="WebdriverIO">
+```ts
+await browser.execute(async () => {
+  const grid = window.queryGrid('tbw-grid');
+  await grid?.ready();
+});
+```
+  </TabItem>
+</Tabs>
+
+> `queryGrid` returns a fully-typed `DataGridElement<T>` — no manual `HTMLElement & { ... }` intersections, and it's multi-version-safe (it finds the grid even if more than one major version is loaded on the page).
+
+### Wait for a subsequent render
+
+After you trigger a sort, filter, edit, or data swap, wait for the next `'render'` event before asserting on the new DOM.
+
+<Tabs syncKey="e2e-framework">
+  <TabItem label="Playwright">
+```ts
+// Wait for the next render after triggering some action
+async function waitForRender(page) {
+  await page.evaluate(
+    () => new Promise<void>((resolve) =>
+      window.queryGrid('tbw-grid')!.addEventListener('render', () => resolve(), { once: true })
+    ),
+  );
+}
+
+await page.locator('[role="columnheader"]:has-text("Salary")').click();
+await waitForRender(page);
+```
+  </TabItem>
+  <TabItem label="Cypress">
+```ts
+// Returns a Cypress chain that yields once the next render fires
+Cypress.Commands.add('waitForGridRender', () => {
+  cy.window().then(
+    (win) =>
+      new Cypress.Promise<void>((resolve) =>
+        win.queryGrid('tbw-grid')!.addEventListener('render', () => resolve(), { once: true }),
+      ),
+  );
+});
+
+cy.get('[role="columnheader"]').contains('Salary').click();
+cy.waitForGridRender();
+```
+  </TabItem>
+  <TabItem label="WebdriverIO">
+```ts
+async function waitForRender(): Promise<void> {
+  await browser.executeAsync((done: () => void) => {
+    window.queryGrid('tbw-grid')!.addEventListener('render', () => done(), { once: true });
+  });
+}
+
+await $('[role="columnheader"]=Salary').click();
+await waitForRender();
+```
+  </TabItem>
+</Tabs>
+
+## Common operations
+
+### Sort a column
+
+<Tabs syncKey="e2e-framework">
+  <TabItem label="Playwright">
+```ts
+// Click the column header
+await page.getByRole('columnheader', { name: 'Email' }).click();
+
+// Assert sort direction via aria-sort (works even if you customised the icon)
+await expect(page.getByRole('columnheader', { name: 'Email' })).toHaveAttribute(
+  'aria-sort',
+  'ascending',
+);
+```
+  </TabItem>
+  <TabItem label="Cypress">
+```ts
+cy.contains('[role="columnheader"]', 'Email').click();
+cy.contains('[role="columnheader"]', 'Email').should('have.attr', 'aria-sort', 'ascending');
+```
+  </TabItem>
+  <TabItem label="WebdriverIO">
+```ts
+await $('[role="columnheader"]=Email').click();
+await expect($('[role="columnheader"]=Email')).toHaveAttribute('aria-sort', 'ascending');
+```
+  </TabItem>
+</Tabs>
+
+### Read a cell's text content
+
+<Tabs syncKey="e2e-framework">
+  <TabItem label="Playwright">
+```ts
+const cellAt = (row: number, field: string) =>
+  page.locator(`tbw-grid .cell[data-row="${row}"][data-field="${field}"]`);
+
+await expect(cellAt(0, 'name')).toHaveText('Alice');
+```
+  </TabItem>
+  <TabItem label="Cypress">
+```ts
+const cellAt = (row: number, field: string) =>
+  cy.get(`tbw-grid .cell[data-row="${row}"][data-field="${field}"]`);
+
+cellAt(0, 'name').should('have.text', 'Alice');
+```
+  </TabItem>
+  <TabItem label="WebdriverIO">
+```ts
+const cellAt = (row: number, field: string) =>
+  $(`tbw-grid .cell[data-row="${row}"][data-field="${field}"]`);
+
+await expect(cellAt(0, 'name')).toHaveText('Alice');
+```
+  </TabItem>
+</Tabs>
+
+### Edit a cell
+
+<Tabs syncKey="e2e-framework">
+  <TabItem label="Playwright">
+```ts
+const cell = page.locator('tbw-grid .cell[data-row="0"][data-field="email"]');
+
+await cell.dblclick();                              // open the editor
+await expect(cell).toHaveClass(/editing/);          // wait for editor to mount
+await cell.locator('input').fill('alice@new.com');
+await cell.locator('input').press('Enter');         // commit
+await expect(cell).not.toHaveClass(/editing/);
+await expect(cell).toHaveText('alice@new.com');
+```
+  </TabItem>
+  <TabItem label="Cypress">
+```ts
+cy.get('tbw-grid .cell[data-row="0"][data-field="email"]').as('cell');
+
+cy.get('@cell').dblclick();
+cy.get('@cell').should('have.class', 'editing');
+cy.get('@cell').find('input').clear().type('alice@new.com{enter}');
+cy.get('@cell').should('not.have.class', 'editing');
+cy.get('@cell').should('have.text', 'alice@new.com');
+```
+  </TabItem>
+  <TabItem label="WebdriverIO">
+```ts
+const cell = await $('tbw-grid .cell[data-row="0"][data-field="email"]');
+
+await cell.doubleClick();
+await expect(cell).toHaveElementClass('editing');
+const input = await cell.$('input');
+await input.setValue('alice@new.com');
+await browser.keys('Enter');
+await expect(cell).not.toHaveElementClass('editing');
+await expect(cell).toHaveText('alice@new.com');
+```
+  </TabItem>
+</Tabs>
+
+### Select a row
+
+<Tabs syncKey="e2e-framework">
+  <TabItem label="Playwright">
+```ts
+// Click the row's selection checkbox (the SelectionPlugin renders it in a __tbw_checkbox column)
+await page
+  .locator('tbw-grid .cell[data-row="0"][data-field="__tbw_checkbox"] input[type="checkbox"]')
+  .check();
+
+await expect(page.locator('tbw-grid .data-grid-row.selected')).toHaveCount(1);
+await expect(page.locator('tbw-grid [role="row"][aria-selected="true"]')).toHaveCount(1);
+```
+  </TabItem>
+  <TabItem label="Cypress">
+```ts
+cy.get('tbw-grid .cell[data-row="0"][data-field="__tbw_checkbox"] input[type="checkbox"]').check();
+cy.get('tbw-grid .data-grid-row.selected').should('have.length', 1);
+```
+  </TabItem>
+  <TabItem label="WebdriverIO">
+```ts
+await $('tbw-grid .cell[data-row="0"][data-field="__tbw_checkbox"] input[type="checkbox"]').click();
+await expect($$('tbw-grid .data-grid-row.selected')).toBeElementsArrayOfSize(1);
+```
+  </TabItem>
+</Tabs>
+
+### Assert the rendered row count
+
+The grid is virtualized — `.data-grid-row` only matches **visible** rows. To assert against the full filtered dataset, read `grid.rows.length` instead of counting DOM elements.
+
+<Tabs syncKey="e2e-framework">
+  <TabItem label="Playwright">
+```ts
+const visibleRows = await page.locator('tbw-grid .data-grid-row').count();
+const totalRows = await page.evaluate(
+  () => window.queryGrid('tbw-grid')!.rows.length,
+);
+expect(totalRows).toBe(100);
+expect(visibleRows).toBeLessThanOrEqual(totalRows);
+```
+  </TabItem>
+  <TabItem label="Cypress">
+```ts
+cy.window().then((win) => {
+  const grid = win.queryGrid('tbw-grid')!;
+  expect(grid.rows.length).to.equal(100);
+});
+```
+  </TabItem>
+  <TabItem label="WebdriverIO">
+```ts
+const totalRows = await browser.execute(
+  () => window.queryGrid('tbw-grid')!.rows.length,
+);
+expect(totalRows).toEqual(100);
+```
+  </TabItem>
+</Tabs>
+
+## The virtualization gotcha
+
+At any moment the DOM only contains the rows in the viewport + a small overscan buffer. **If `data-row="500"` doesn't exist as a CSS match, the row hasn't been rendered yet — that's not a bug, that's virtualization working.** Bring it into view before interacting.
+
+<Tabs syncKey="e2e-framework">
+  <TabItem label="Playwright">
+```ts
+// Scroll row 500 into view, then assert on it
+await page.evaluate(
+  ([rowIndex]) => {
+    window.queryGrid('tbw-grid')!.scrollToRow(rowIndex);
+  },
+  [500],
+);
+await waitForRender(page);
+await expect(page.locator('.cell[data-row="500"][data-field="name"]')).toBeVisible();
+```
+  </TabItem>
+  <TabItem label="Cypress">
+```ts
+cy.window().then((win) => {
+  win.queryGrid('tbw-grid')!.scrollToRow(500);
+});
+cy.waitForGridRender();
+cy.get('.cell[data-row="500"][data-field="name"]').should('be.visible');
+```
+  </TabItem>
+  <TabItem label="WebdriverIO">
+```ts
+await browser.execute((rowIndex: number) => {
+  window.queryGrid('tbw-grid')!.scrollToRow(rowIndex);
+}, 500);
+await waitForRender();
+await expect($('.cell[data-row="500"][data-field="name"]')).toBeDisplayed();
+```
+  </TabItem>
+</Tabs>
+
+If your row has a stable business ID and you've configured [`getRowId`](/grid/api/core/interfaces/gridconfig/#getrowid), use `scrollToRowById('emp-42')` instead — it survives sort and filter changes.
+
+## Test against row identity, not row index
+
+`data-row="0"` is "whatever happens to be the first visible row right now". After a sort it might be a different employee; after a filter it might be empty. For stable assertions, look up the cell **by the business value** instead:
+
+<Tabs syncKey="e2e-framework">
+  <TabItem label="Playwright">
+```ts
+// "The row that contains 'Alice' in the name column"
+const aliceRow = page.locator('tbw-grid .data-grid-row', {
+  has: page.locator('.cell[data-field="name"]', { hasText: 'Alice' }),
+});
+
+await expect(aliceRow.locator('.cell[data-field="email"]')).toHaveText('alice@example.com');
+```
+  </TabItem>
+  <TabItem label="Cypress">
+```ts
+cy.get('tbw-grid .data-grid-row')
+  .filter(':has(.cell[data-field="name"]:contains("Alice"))')
+  .find('.cell[data-field="email"]')
+  .should('have.text', 'alice@example.com');
+```
+  </TabItem>
+  <TabItem label="WebdriverIO">
+```ts
+const aliceRow = await $('tbw-grid .data-grid-row*=Alice');
+await expect(aliceRow.$('.cell[data-field="email"]')).toHaveText('alice@example.com');
+```
+  </TabItem>
+</Tabs>
+
+## Anti-patterns
+
+- **`page.waitForTimeout(500)`** to "let the grid settle" — flake city. Always await `grid.ready()` or the next `'render'` event.
+- **Counting `.data-grid-row` elements** as a proxy for total rows — virtualization makes this wrong by design. Read `grid.rows.length`.
+- **Asserting on visual position** ("the third row from the top") — sorting and filtering invalidate this. Assert on data identity (the row that contains "Alice").
+- **Querying by framework wrapper class names** (`._ng-content-c12`, React fiber IDs, Vue scoped attributes) — these change between builds. Stick to the grid's published classes and ARIA attributes.
+- **Using `effectiveConfig` / internal APIs in test assertions** — these aren't covered by semver. Use `await grid.getConfig()` if you need to inspect resolved config.
+
+## See also
+
+<CardGrid>
+  <LinkCard title="Troubleshooting → debug APIs" description="The manual / DevTools-console equivalent of this guide — same selectors, different audience" href="/grid/guides/troubleshooting/#how-to-debug-the-grid" />
+  <LinkCard title="Accessibility" description="The full ARIA contract — anything documented there is also a stable test selector" href="/grid/guides/accessibility/" />
+  <LinkCard title="GridSelectors API" description="Typed reference for every selector / class / data-attribute the grid publishes" href="/grid/api/core/variables/gridselectors/" />
+  <LinkCard title="Multi-version coexistence" description="Testing apps that load more than one grid version on the same page" href="/grid/guides/multi-version/" />
+</CardGrid>

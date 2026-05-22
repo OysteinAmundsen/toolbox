@@ -85,6 +85,21 @@ export default defineConfig({
   site: 'https://toolboxjs.com',
   trailingSlash: 'always',
 
+  redirects: {
+    // custom-plugins.mdx moved from guides/ to plugin-development/ so it lives
+    // alongside the conceptual architecture page and the typedoc API reference.
+    // Keep the old URL working for inbound links and historical bookmarks.
+    '/grid/guides/custom-plugins/': '/grid/plugin-development/custom-plugins/',
+    // system-columns.mdx merged into core.mdx as a section — it documents a
+    // column-config flag, not a guide topic. Old URL redirects to the anchor.
+    '/grid/guides/system-columns/': '/grid/core/#system-columns',
+    // multi-version was briefly relocated to framework-adapters/ during a
+    // restructure pass, but the content is framework-agnostic (it's about the
+    // custom-elements registry, which applies to vanilla JS, Native Federation,
+    // Module Federation, etc.). Keep the short-lived URL redirecting home.
+    '/grid/framework-adapters/multi-version/': '/grid/guides/multi-version/',
+  },
+
   vite: {
     plugins: [pagefindDevPlugin()],
     resolve: {
@@ -151,7 +166,6 @@ export default defineConfig({
             { label: 'Getting Started', slug: 'grid/getting-started' },
             { label: 'Core Features', slug: 'grid/core' },
             { label: 'Demos', slug: 'grid/demos' },
-            { label: 'Changelog', slug: 'grid/changelog' },
             {
               label: 'Guides',
               autogenerate: { directory: 'grid/guides' },
@@ -166,20 +180,37 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { slug: 'grid/api-reference' },
-                { slug: 'grid/architecture' },
+                { label: 'Grid Architecture', slug: 'grid/architecture' },
                 {
-                  label: 'Core',
-                  autogenerate: { directory: 'grid/api/core' },
+                  label: 'Plugin Development',
                   collapsed: true,
+                  items: [
+                    { slug: 'grid/plugin-development' },
+                    { slug: 'grid/plugin-development/architecture' },
+                    { slug: 'grid/plugin-development/custom-plugins' },
+                    {
+                      label: 'API Reference',
+                      autogenerate: { directory: 'grid/api/plugin-development' },
+                      collapsed: true,
+                    },
+                  ],
                 },
                 {
                   label: 'Framework Adapters',
-                  autogenerate: { directory: 'grid/api/framework-adapters' },
                   collapsed: true,
+                  items: [
+                    { slug: 'grid/framework-adapters' },
+                    { slug: 'grid/framework-adapters/architecture' },
+                    {
+                      label: 'API Reference',
+                      autogenerate: { directory: 'grid/api/framework-adapters' },
+                      collapsed: true,
+                    },
+                  ],
                 },
                 {
-                  label: 'Plugin Development',
-                  autogenerate: { directory: 'grid/api/plugin-development' },
+                  label: 'Core API',
+                  autogenerate: { directory: 'grid/api/core' },
                   collapsed: true,
                 },
               ],
@@ -227,6 +258,7 @@ export default defineConfig({
               ],
             },
             { label: 'Compared to other grids', slug: 'grid/comparison' },
+            { label: 'Changelog', slug: 'grid/changelog' },
           ],
         },
       ],

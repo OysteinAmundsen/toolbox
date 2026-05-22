@@ -1,6 +1,8 @@
 ---
 title: Common Patterns
 description: Practical recipes for combining grid features. Covers data browsing, editable grids, master-detail, grouping, export, and more.
+sidebar:
+  order: 1
 ---
 
 import { CardGrid, LinkCard, TabItem, Tabs } from '@astrojs/starlight/components';
@@ -898,6 +900,233 @@ rows about to be removed, and new rows don't collide with existing IDs.
 :::tip
 Both methods return a `TransactionResult` with the actual `added`, `updated`, and `removed` row objects — useful for logging or post-processing.
 :::
+
+## Event Handling Recipes
+
+Practical patterns for wiring grid events into your application — listening across frameworks, reacting to scroll, and acting after a render flush.
+
+### Listening to Events Across Frameworks
+
+The grid dispatches standard `CustomEvent`s that bubble up the DOM. All events use `bubbles: true` and `composed: true`. Cancelable events (`cell-commit`, `row-commit`, `column-move`, `row-move`) honour `preventDefault()` to reject the action — see the [Cancelable Events table](/grid/api-reference/#cancelable-events).
+
+<Tabs syncKey="framework">
+  <TabItem label="TypeScript">
+```typescript
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid<Employee>('#my-grid');
+
+// Type-safe event listening
+grid.on('cell-click', ({ row, field }) => {
+  console.log(row, field);
+});
+
+// Cancelable events — call preventDefault() to reject the action
+grid.on('cell-commit', (detail, e) => {
+  if (!isValid(detail.value)) {
+    e.preventDefault(); // Rejects the edit
+  }
+});
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import { DataGrid } from '@toolbox-web/grid-react';
+import type { CellClickDetail, CellCommitDetail } from '@toolbox-web/grid';
+
+function EmployeeGrid() {
+  // Event props deliver the unwrapped detail directly
+  const handleCellClick = useCallback((detail: CellClickDetail<Employee>) => {
+    console.log(detail.row, detail.field);
+  }, []);
+
+  const handleCellCommit = useCallback((detail: CellCommitDetail<Employee>, e?: CustomEvent) => {
+    if (!isValid(detail.value)) {
+      e?.preventDefault(); // Rejects the edit
+    }
+  }, []);
+
+  return (
+    <DataGrid
+      rows={employees}
+      onCellClick={handleCellClick}
+      onCellCommit={handleCellCommit}
+    />
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { CellClickDetail, CellCommitDetail } from '@toolbox-web/grid';
+
+function onCellClick(event: CustomEvent<CellClickDetail>) {
+  console.log(event.detail.row, event.detail.field);
+}
+
+function onCellCommit(event: CustomEvent<CellCommitDetail>) {
+  if (!isValid(event.detail.value)) {
+    event.preventDefault(); // Rejects the edit
+  }
+}
+</script>
+
+<template>
+  <TbwGrid :rows="employees" @cell-click="onCellClick" @cell-commit="onCellCommit" />
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { CellClickDetail, CellCommitDetail } from '@toolbox-web/grid';
+
+@Component({
+  imports: [Grid],
+  template: `
+    <tbw-grid
+      [rows]="employees"
+      (cellClick)="onCellClick($event)"
+      (cellCommit)="onCellCommit($event)"
+    />
+  `,
+})
+export class EmployeeGridComponent {
+  onCellClick(detail: CellClickDetail<Employee>) {
+    console.log(detail.row, detail.field);
+  }
+
+  onCellCommit(detail: CellCommitDetail<Employee>) {
+    if (!isValid(detail.value)) {
+      // To cancel, use the native event via kebab-case binding:
+      // (cell-commit)="onCellCommit($event)" → event.preventDefault()
+    }
+  }
+}
+```
+
+:::note[camelCase vs kebab-case]
+Use **camelCase** outputs like `(cellClick)` for typed, unwrapped detail. Use kebab-case `(cell-commit)` when you need `preventDefault()` on the native `CustomEvent`.
+:::
+  </TabItem>
+</Tabs>
+
+### Scroll-Driven Patterns (`tbw-scroll`)
+
+`tbw-scroll` fires (rAF-batched) whenever the grid's vertical viewport scrolls. The detail payload contains `scrollTop`, `scrollHeight`, `clientHeight`, and a `direction: 'vertical'` discriminator (reserved for future horizontal opt-in). The detail is a fresh object literal each tick — safe to retain, freeze, copy into framework state, or post to a worker.
+
+:::tip[Server-side pagination?]
+For paginated server-side data, prefer the [`ServerSidePlugin`](/grid/plugins/server-side/) — it handles block fetching out of the box. `tbw-scroll` is the lower-level primitive for cases the plugin doesn't cover (custom load-more triggers, deferred cell content, scroll-driven UI, etc.).
+:::
+
+#### Infinite scroll / load more
+
+```typescript
+grid.on('tbw-scroll', ({ scrollTop, scrollHeight, clientHeight }) => {
+  if (scrollTop + clientHeight >= scrollHeight - 200) {
+    loadNextPage();
+  }
+});
+```
+
+#### Sticky scroll-progress indicator
+
+A toolbar or progress bar that lives outside the grid and tracks scroll position:
+
+```typescript
+grid.on('tbw-scroll', ({ scrollTop, scrollHeight, clientHeight }) => {
+  const max = scrollHeight - clientHeight;
+  const pct = max > 0 ? scrollTop / max : 0;
+  progressBarEl.style.width = `${pct * 100}%`;
+});
+```
+
+For purely visual scroll-driven CSS effects on a different scroller, also consider the native `animation-timeline: scroll()` — no JS needed.
+
+#### Defer heavy cell content (Angular `@defer` style)
+
+Render expensive content (charts, images, embedded video) only when its row is near the viewport:
+
+```typescript
+grid.on('tbw-scroll', ({ scrollTop, clientHeight }) => {
+  // Lazy-mount components in the visible window
+  hydrateHeavyCellsBetween(scrollTop, scrollTop + clientHeight);
+});
+```
+
+#### Dismiss overlays on scroll
+
+Tooltips, popovers, context menus rendered outside the grid should typically close when the user scrolls:
+
+```typescript
+grid.on('tbw-scroll', () => closeOpenOverlays());
+```
+
+:::note[Not for per-row visibility tracking]
+`tbw-scroll` fires at most once per frame, **not** per row entering or leaving the viewport. For "row N just became visible" semantics, observe rendered row elements directly in `afterRowRender` or use `IntersectionObserver` from a custom plugin.
+:::
+
+**Framework adapter names** — disambiguated to avoid colliding with native scroll events:
+
+| Adapter | Binding |
+|---------|---------|
+| React | `<DataGrid onTbwScroll={...} />` |
+| Vue | `<TbwGrid @tbw-scroll="..." />` |
+| Angular | `<tbw-grid (tbwScroll)="..." />` |
+
+### Render-Completed Patterns (`render`)
+
+The `render` event fires once at the end of every render cycle (the single RAF flush in the render scheduler), **after** all plugin `afterRender` hooks have run and **after** `grid.ready()` has resolved. Use this when you need to act on the rendered DOM immediately after a programmatic mutation — without resorting to `setTimeout` or double-`requestAnimationFrame` hacks.
+
+:::tip[`ready()` vs `render` event]
+`grid.ready()` resolves **once**, after the first render. The `render` event fires on **every** flush. When you only care about a specific mutation (e.g. the row you just added), attach with `{ once: true }`.
+:::
+
+The detail payload includes the highest render phase that ran (`phase`), whether this was the first render (`initial`), the post-`processRows` row count (`rowCount`), and the current virtual window (`visibleRange`, or `null` when virtualization is disabled).
+
+#### Focus the first input after `addRow` in full-grid edit mode
+
+The original motivation: with `editing: { mode: 'grid' }` every row is permanently in edit mode. After inserting a new row you want the first cell's input focused — but the row doesn't exist in the DOM until the next render.
+
+```typescript
+function addEmployee() {
+  grid.addRow({ id: crypto.randomUUID(), name: '', email: '' });
+  grid.addEventListener(
+    'render',
+    () => {
+      const input = grid.querySelector<HTMLInputElement>(
+        '[data-row="0"][data-col="0"] input',
+      );
+      input?.focus();
+    },
+    { once: true },
+  );
+}
+```
+
+#### Skip cheap scroll renders
+
+The event fires on virtualization-only re-renders too. If you only care about row/column model changes, gate on `phase`:
+
+```typescript
+import { RenderPhase } from '@toolbox-web/grid';
+
+grid.on('render', ({ phase, rowCount }) => {
+  if (phase < RenderPhase.ROWS) return; // ignore scroll/style-only flushes
+  statusBar.textContent = `${rowCount} rows rendered`;
+});
+```
+
+**Framework adapter names**:
+
+| Adapter | Binding |
+|---------|---------|
+| React | `<DataGrid onRender={...} />` |
+| Vue | `<TbwGrid @render="..." />` |
+| Angular | `<tbw-grid (render)="..." />` |
 
 ## See Also
 

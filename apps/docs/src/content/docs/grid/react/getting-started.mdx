@@ -3,6 +3,8 @@ title: React Integration
 description: Install and configure @toolbox-web/grid-react — feature props, JSX renderers, editors, hooks, and event handling.
 ---
 
+import { TabItem, Tabs } from '@astrojs/starlight/components';
+
 
 The `@toolbox-web/grid-react` package provides React integration for the `<tbw-grid>` data grid component.
 
@@ -20,15 +22,28 @@ This page covers React-specific setup and APIs (feature props, hooks, providers)
 
 ## Installation
 
-```bash
-
-npm install @toolbox-web/grid @toolbox-web/grid-react
-
-
-yarn add @toolbox-web/grid @toolbox-web/grid-react
-pnpm add @toolbox-web/grid @toolbox-web/grid-react
-bun add @toolbox-web/grid @toolbox-web/grid-react
-```
+<Tabs>
+  <TabItem label="npm">
+  ```bash
+  npm install @toolbox-web/grid @toolbox-web/grid-react
+  ```
+  </TabItem>
+  <TabItem label="yarn">
+  ```bash
+  yarn add @toolbox-web/grid @toolbox-web/grid-react
+  ```
+  </TabItem>
+  <TabItem label="pnpm">
+  ```bash
+  pnpm add @toolbox-web/grid @toolbox-web/grid-react
+  ```
+  </TabItem>
+  <TabItem label="bun">
+  ```bash
+  bun add @toolbox-web/grid @toolbox-web/grid-react
+  ```
+  </TabItem>
+</Tabs>
 
 ## Setup
 
@@ -44,6 +59,7 @@ import '@toolbox-web/grid';
 The simplest way to use the grid is with the `DataGrid` component:
 
 ```tsx
+import { useState } from 'react';
 import { DataGrid } from '@toolbox-web/grid-react';
 
 interface Employee {
@@ -69,7 +85,7 @@ function EmployeeGrid() {
         { field: 'department', header: 'Department', sortable: true },
         { field: 'salary', header: 'Salary', type: 'number' },
       ]}
-      style={{ height: 400 }}
+      style={{ height: 400, display: 'block' }}
     />
   );
 }
@@ -462,7 +478,7 @@ function EmployeeGrid() {
 
 ## Custom Icons
 
-The grid supports two complementary ways to customize icons — see the core [Icon Customization](/grid/api-reference/#icon-customization) reference and the [Theming Guide](/grid/guides/theming/#icon-customization) for the full picture:
+The grid supports two complementary ways to customize icons — see the [Theming Guide → Icon Customization](/grid/guides/theming/#icon-customization) for both the CSS and JavaScript approaches:
 
 - **CSS variables** (`--tbw-icon-*`) — preferred for themes and static customization; no JavaScript needed.
 - **`gridConfig.icons`** — for dynamic icons, icon libraries, or `HTMLElement` instances; takes precedence over CSS.

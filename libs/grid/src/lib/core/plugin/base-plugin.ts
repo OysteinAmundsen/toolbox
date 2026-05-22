@@ -1160,7 +1160,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * ```ts
    * afterRender(): void {
    *   // Apply selection styling to rendered rows
-   *   const rows = this.gridElement?.querySelectorAll('.data-row');
+   *   const rows = this.gridElement?.querySelectorAll('.data-grid-row');
    *   rows?.forEach((row, i) => {
    *     row.classList.toggle('selected', this.selectedRows.has(i));
    *   });

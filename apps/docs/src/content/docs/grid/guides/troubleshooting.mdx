@@ -1,13 +1,197 @@
 ---
 title: Troubleshooting
 description: Solutions to common issues when working with @toolbox-web/grid — height and virtualization problems, performance tuning, plugin conflicts, and framework adapter development.
+sidebar:
+  order: 6
 ---
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 The grid is designed to work out of the box with minimal setup. If you're hitting issues with basic configuration — TypeScript types, framework imports, or event handling — check the [Getting Started](/grid/getting-started/) guide first, which covers setup for all frameworks.
 
-This page covers the few genuine gotchas that can't be solved in code.
+This page covers two things: **how to debug the grid when something is wrong**, and the genuine gotchas that can't be solved in code alone.
+
+---
+
+## How to debug the grid
+
+When the grid isn't doing what you expect, work through this checklist in order. Most issues fall out at one of the first three steps.
+
+### 1. Read the console — every warning has a code
+
+Every user-facing warning and error from the grid is prefixed with `[tbw-grid#<your-id>:<PluginName>]` and tagged with a stable diagnostic code (e.g. `TBW001`, `TBW020`). The code → cause mapping is published on the [Error Codes](/grid/errors/) reference page.
+
+```
+[tbw-grid#employees:SelectionPlugin] TBW020 SelectionPlugin requires EditingPlugin
+  when `editable` is set on any column. Add to your features:
+  import '@toolbox-web/grid/features/editing';
+```
+
+What the parts mean:
+
+| Part | Meaning |
+|---|---|
+| `[tbw-grid…]` | Came from the grid, not your app code |
+| `#employees` | The grid's `id` attribute (or omitted if anonymous) — useful when you have several on a page |
+| `:SelectionPlugin` | The plugin that produced the message (omitted for core messages) |
+| `TBW020` | Stable code — links to [the errors page](/grid/errors/) |
+
+If a TBW code appears in production logs or a Sentry event, search the errors page first — most have an actionable fix one click away.
+
+### 2. Inspect the grid's effective configuration
+
+The biggest source of "why isn't this working?" confusion is *what config did the grid actually end up with*, after defaults, features, plugin merges, and light-DOM column nodes are all combined. The grid exposes the resolved config two ways:
+
+```ts
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('#employees');        // typed DataGridElement<T> — no casts needed
+await grid.ready();                          // wait for first render
+
+// Public — frozen, async, safe to assign from production code
+const config = await grid.getConfig();
+console.log(config);
+console.log(config.plugins);
+
+// Internal — synchronous getter, the live merged config. Great in the DevTools
+// console; do NOT call from production code (see stability note below).
+console.log(grid.effectiveConfig);
+console.log(grid.effectiveConfig.plugins);
+
+// Always-public state
+console.log(grid.columns);                   // current column array (post-plugin transforms)
+console.log(grid.rows);                      // current rows (post-sort/filter)
+console.log(grid.sourceRows);                // unfiltered, unsorted source data
+```
+
+:::caution[Stability of internal APIs]
+Anything documented below as **internal** (also: any property or method starting with `_` or `#` you find on the grid element) is reachable from the DevTools console but is **not covered by semver**. It can change or disappear in any release. Use it for debugging, logging, and one-off scripts — not for production code paths.
+:::
+
+Common things to check here:
+
+- `config.plugins?.map(p => p.constructor.name)` — is the plugin you expect actually attached? Plugins are silently *not* added if their feature import was missed.
+- `grid.columns` after assignment — did your inferred columns end up where you expected?
+- `grid.rows.length` vs `grid.sourceRows.length` — does filtering/grouping account for the difference?
+- `grid._pluginManager` *(internal)* — exposes the live plugin manager (lookup, ordering, hook subscriptions).
+- `grid._virtualization` *(internal)* — current virtual window: `{ start, end, … }` — useful for "why isn't row N in the DOM?".
+
+### 3. Find your grid (and a specific row/cell) in the DOM
+
+The grid uses **Light DOM** — there's no shadow root to break inspection. Standard DevTools "Inspect element" works directly. The grid publishes its class names, data-attribute names, and prebuilt selectors as public constants so your queries don't break if internals change:
+
+```ts
+import { GridSelectors, GridClasses, GridDataAttrs, queryGrid } from '@toolbox-web/grid';
+
+// Multi-version-safe grid lookup
+const grid = queryGrid('#employees');
+// Or any grid on the page (works across versions thanks to the data attribute):
+queryGrid('[data-tbw-grid]');
+
+// Use the published selectors — these are stable across versions
+grid.querySelector(GridSelectors.HEADER_ROW);             // header row
+grid.querySelectorAll(GridSelectors.DATA_ROW);            // all rendered data rows
+grid.querySelectorAll(GridSelectors.DATA_CELL);           // all rendered cells
+grid.querySelectorAll(GridSelectors.SELECTED_ROWS);       // selected rows
+grid.querySelector(GridSelectors.EDITING_CELL);           // the currently-editing cell
+
+// Find a specific cell by field, or by row index (data-row is on the cell)
+grid.querySelector(GridSelectors.CELL_BY_FIELD('email')); // first cell in the 'email' column
+grid.querySelector(`.${GridClasses.DATA_CELL}[data-row="42"][${GridDataAttrs.FIELD}="email"]`);
+```
+
+**Internal shortcuts** that are convenient in the DevTools console (subject to the stability note above):
+
+```ts
+grid.findHeaderRow();                        // the header row element
+grid.findRenderedRowElement(42);             // null if row 42 is outside the virtualized window
+grid._hostElement;                           // the grid root element
+grid._renderRoot;                            // the inner render container
+```
+
+> **Virtualization gotcha:** at any moment the DOM only contains rows in the visible viewport + a small overscan buffer. If `grid.querySelectorAll(GridSelectors.DATA_ROW)` doesn't include the row you expect, it exists in `grid.rows` but hasn't been rendered yet — call `grid.scrollToRow(rowIndex)` (or `grid.scrollToRowById(rowId)`) to bring it into view, or operate on the data, not the DOM.
+
+### 4. Watch what the grid is doing — listen to lifecycle events
+
+Most "is the grid even re-rendering?" / "did my sort actually apply?" questions are answered in five seconds by attaching a listener. The full event catalog is exported as `DGEvents`:
+
+```ts
+import { DGEvents, PluginEvents } from '@toolbox-web/grid';
+
+// Log every render (use the string literal — `render` is not in the legacy
+// DGEvents enum because it was added later; the listener is type-checked
+// against `DataGridEventMap`).
+grid.on('render', (detail) => console.log('render', detail));
+
+// Log every sort / filter / column / selection change
+grid.on(DGEvents.SORT_CHANGE, (detail) => console.log('sort', detail));
+grid.on(PluginEvents.FILTER_CHANGE, (detail) => console.log('filter', detail));
+grid.on(DGEvents.COLUMN_STATE_CHANGE, (detail) => console.log('columns', detail));
+grid.on(PluginEvents.SELECTION_CHANGE, (detail) => console.log('selection', detail));
+
+// Log everything (catch-all — use briefly)
+for (const name of [...Object.values(DGEvents), ...Object.values(PluginEvents)]) {
+  grid.on(name, (detail) => console.log(name, detail));
+}
+```
+
+`grid.on()` returns a disposer (`() => void`) — call it to stop listening. Useful patterns:
+
+- **"My edit isn't saving"** → listen for `'cell-commit'` / `'row-commit'` and `'edit-close'`; see which one fires.
+- **"My data appears stale"** → log `RENDER` after every data mutation; if it doesn't fire, the grid isn't seeing the change (most often: you mutated `rows` in place instead of assigning a new array).
+- **"Selection state is wrong"** → log `SELECTION_CHANGE` to see what the grid thinks is selected.
+
+### 5. Diagnose a hot path with the Performance tab
+
+Anything that *works but is slow* is a performance question, not a config question. The [Performance guide](/grid/guides/performance/#profile-your-own-app) has a flame-graph reading walkthrough that distinguishes grid-internal work from framework reconciliation from layout thrashing. Start there.
+
+### 6. Diagnose a plugin
+
+Plugin issues usually trace to one of three causes:
+
+1. **Plugin not attached.** Confirm via `(await grid.getConfig()).plugins`. If your column uses `editable: true` and you see no `EditingPlugin` in the list, you forgot the feature import.
+2. **Hook order conflict.** Two plugins manipulating the same columns/rows — see [Two plugins modifying the same columns/rows](#two-plugins-modifying-the-same-columnsrows).
+3. **Hook too slow.** Plugin work in `afterCellRender` / `afterRowRender` shows up in the flame graph during scroll. See [Hook performance budget](/grid/plugin-development/architecture/#hook-performance-budget).
+
+When filing a plugin bug, include the output of:
+
+```ts
+const config = await grid.getConfig();
+console.log(config.plugins?.map(p => ({
+  name: p.constructor.name,
+  config: p,
+})));
+```
+
+### Quick reference: debug APIs
+
+Stable APIs (covered by semver):
+
+| API | Returns | Use when |
+|---|---|---|
+| `queryGrid(selector)` | grid element (or `null`) | Multi-version-safe lookup |
+| `grid.ready()` | `Promise<void>` | Wait for first render before assertions |
+| `grid.getConfig()` | `Promise<Readonly<GridConfig>>` | "What did the grid actually merge?" — async, frozen |
+| `grid.columns` / `grid.rows` | current arrays | After-the-fact inspection |
+| `grid.sourceRows` | unfiltered/unsorted data | Distinguish view from source |
+| `grid.getRow(id)` / `grid.getRowId(row)` | row / string | Row identity debugging |
+| `grid.on(name, listener)` | disposer | Watch what the grid is doing |
+| `DGEvents` / `PluginEvents` | event-name catalog | "What can I even listen for?" |
+| `GridSelectors` / `GridClasses` / `GridDataAttrs` | stable selectors and attribute names | Standard DOM queries against the grid |
+| `grid.scrollToRow(index)` / `grid.scrollToRowById(id)` | `void` | Bring a virtualized row into view |
+| `grid.forceLayout()` | `Promise<void>` | Re-measure after content change |
+
+Internal helpers (reachable from the DevTools console — not covered by semver):
+
+| API | Returns | Use when |
+|---|---|---|
+| `grid.effectiveConfig` | `GridConfig` (sync, live) | Quick sync peek at merged config from the console |
+| `grid.findHeaderRow()` | `HTMLElement` | Direct header lookup |
+| `grid.findRenderedRowElement(index)` | element or `null` | DOM lookup respecting virtualization |
+| `grid._pluginManager` | `PluginManager` | Inspect plugin ordering, hook subscriptions |
+| `grid._virtualization` | `{ start, end, … }` | See the current virtual window |
+| `grid._hostElement` / `grid._renderRoot` | `HTMLElement` | Direct internal DOM access |
+| `grid.disconnectSignal` | `AbortSignal` | Auto-cleanup for ad-hoc listeners |
 
 ---
 
@@ -187,18 +371,21 @@ Since the grid uses Light DOM, normal CSS selectors also work — just ensure yo
 
 ## Still Stuck?
 
-1. **Check the console** — The grid logs configuration errors with actionable import hints
-2. **Inspect the DOM** — Light DOM means standard browser DevTools work directly
-3. **Minimal reproduction** — Isolate the issue in a standalone example
-4. **Check GitHub Issues** — Someone may have encountered the same problem
-5. **Open an issue** — Include a reproduction for fastest help
+If you've worked through [How to debug the grid](#how-to-debug-the-grid) and the issue isn't covered above, the fastest path to help is a minimal reproduction:
+
+1. **Strip your code to the smallest example that still reproduces the issue** — one grid, the minimum config, ideally in a [StackBlitz](https://stackblitz.com/) or a single HTML file with the UMD bundle.
+2. **Capture the diagnostic output** — copy the TBW error code and full prefixed message from the console.
+3. **Capture the effective config** — `console.log(await grid.getConfig())` and include the plugin list.
+4. **Search [existing GitHub issues](https://github.com/OysteinAmundsen/toolbox/issues)** — someone may have hit the same wall.
+5. **Open a new issue** with reproduction, browser/OS, grid version, and the captures above.
 
 ## See Also
 
 <CardGrid>
   <LinkCard title="Getting Started" description="Installation and setup for all frameworks" href="/grid/getting-started/" />
+  <LinkCard title="Automated testing" description="Drive the grid from Playwright, Cypress, or WebdriverIO" href="/grid/guides/automated-testing/" />
   <LinkCard title="Performance Guide" description="Profiling, virtualization tuning, and bundle optimization" href="/grid/guides/performance/" />
   <LinkCard title="Production Checklist" description="Security, performance, and deployment readiness" href="/grid/guides/production-checklist/" />
-  <LinkCard title="Custom Plugins" description="Plugin development guide — hooks, styles, lifecycle" href="/grid/guides/custom-plugins/" />
+  <LinkCard title="Custom Plugins" description="Plugin development guide — hooks, styles, lifecycle" href="/grid/plugin-development/custom-plugins/" />
   <LinkCard title="Plugins Overview" description="Plugin compatibility, dependencies, and known conflicts" href="/grid/plugins/" />
 </CardGrid>

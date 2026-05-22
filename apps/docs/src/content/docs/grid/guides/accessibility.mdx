@@ -1,12 +1,29 @@
 ---
 title: Accessibility
 description: How @toolbox-web/grid implements WAI-ARIA grid patterns, keyboard navigation, screen reader support, and high contrast mode.
+sidebar:
+  order: 4
 ---
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 
 `@toolbox-web/grid` follows the [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/) to provide an accessible data grid experience. This page documents the ARIA attributes, keyboard interactions, and best practices.
+
+## Our accessibility commitment
+
+We target **WCAG 2.1 Level AA** out of the box, with no configuration required. That means:
+
+- **Every interactive operation** (sort, filter, select, edit, expand, reorder, resize, group, paste) is reachable from the keyboard alone — no mouse-only paths.
+- **Every state change** (sort applied, filter cleared, row selected, edit committed) is announced to assistive technology via the grid's built-in `aria-live` region.
+- **Every visual signal** (focus, selection, error state, sort direction) has a non-color cue (icon, text, ARIA attribute) so the grid works without color perception.
+- **Windows High Contrast / forced-colors** is supported automatically — the grid maps every themable surface to system colors via `@media (forced-colors: active)`.
+- **Reduced motion** is respected — animations, expand/collapse transitions, and scroll smoothing disable under `prefers-reduced-motion: reduce`.
+- **Focus is never lost** — after editing, deleting, sorting, or filtering, the grid restores focus to a sensible cell.
+
+See the [full WCAG 2.1 AA conformance table](#wcag-compliance-checklist) below for the criteria we test against.
+
+> **Filing accessibility issues:** If you find an a11y bug, please open an issue with the screen reader / browser / OS you used and what was announced (or wasn't). A11y bugs are treated as P0.
 
 ## ARIA Roles & Attributes
 
@@ -98,6 +115,24 @@ The grid uses a roving tabindex pattern:
 - All other cells have `tabindex="-1"`
 - This means **Tab** moves focus out of the grid, and **Shift+Tab** moves focus back to the last focused cell
 
+This matches the [WAI-ARIA grid pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/) — a grid is *one* tab stop in the page's tab order. Once focus enters, arrow keys navigate.
+
+### Focus restoration
+
+After every operation that destroys and recreates row DOM (sort, filter, edit-commit, row removal, expand/collapse, virtualization scroll-back), the grid restores focus to the most logical cell — the same row by identity if it still exists, otherwise the same row index, otherwise the nearest surviving row in the same column. You do not need to do anything for this to work — it's automatic.
+
+### External focus containers
+
+Overlay UIs that float *outside* the grid's DOM (date pickers, dropdowns, autocompletes used by editors or custom renderers) need to be registered so the grid's focus trap and outside-click handling treat them as part of the grid:
+
+```ts
+const cleanup = grid.registerExternalFocusContainer(popoverEl);
+// ...later, when the popover closes:
+cleanup();
+```
+
+Without this, clicking inside the popover commits the active edit and closes it. With it, the popover is treated as an extension of the focused cell.
+
 ## Screen Reader Support
 
 ### Labels and Descriptions
@@ -163,6 +198,53 @@ Column headers include:
 - Sort direction via `aria-sort`
 - Filter state via `aria-description` ("Filtered")
 
+### Testing with screen readers
+
+The grid is tested against NVDA, VoiceOver, and JAWS in CI-adjacent environments. When testing in your own app, here's what a screen-reader user should hear for the core flows. If your output diverges substantially from this, that's likely an a11y bug worth filing.
+
+**NVDA (Windows, Firefox or Chrome):**
+1. Download [NVDA](https://www.nvaccess.org/download/) (free) and start it.
+2. Tab into the grid — you should hear `"<grid label>, grid, <N> rows, <M> columns"` followed by the focused cell.
+3. Press <kbd>↓</kbd> — `"<value>, column <name>, row <n> of <total>"`.
+4. Press <kbd>Enter</kbd> on a header — `"sorted ascending"` / `"sorted descending"` (and the announcement is repeated via the live region).
+5. Use NVDA's *Browse Mode* toggle (<kbd>Insert</kbd>+<kbd>Space</kbd>) to switch to virtual cursor — table-reading shortcuts (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+arrows) should walk the grid as a native HTML table.
+
+**VoiceOver (macOS, Safari):**
+1. Enable VoiceOver: <kbd>⌘</kbd>+<kbd>F5</kbd>.
+2. Use <kbd>VO</kbd>+<kbd>→</kbd> to enter the grid — you should hear the label and dimensions.
+3. <kbd>VO</kbd>+<kbd>Shift</kbd>+<kbd>↓</kbd> enters interaction mode; then arrow keys navigate cells with full column + row context.
+4. Rotor (<kbd>VO</kbd>+<kbd>U</kbd>) → *Tables* should list the grid for jump-navigation.
+
+**JAWS (Windows):**
+- Use *Virtual PC Cursor* (default) for browse, *Forms Mode* (<kbd>Enter</kbd>) for grid interaction. Table layer (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+arrows) walks cells.
+
+**iOS VoiceOver / Android TalkBack:**
+- Touch a cell — the column header, value, row/column position, and any selection/expand state are announced.
+- Swipe right/left moves through cells; swipe up/down navigates by row.
+
+**What you should *not* hear** — these would indicate a bug worth filing:
+- Empty cell announcements (`"blank"`) when the cell has visible content
+- Position announced as `"row 1 of 1"` when there are clearly more rows (virtualization metadata is wrong)
+- Sort/filter changes never announced (live region not wired up)
+- Editing committed without any feedback
+
+## Reduced Motion
+
+The grid respects the `prefers-reduced-motion: reduce` user preference automatically. When set, the grid:
+
+- **Disables row animations** ([row animation API](/grid/core/#row-animation) skips transitions)
+- **Disables expand/collapse transitions** in tree, grouping, and master-detail plugins
+- **Disables scroll smoothing** in programmatic `scrollToRow()` / `scrollToCell()` calls (jumps instead of animating)
+- **Disables loading-state crossfade** (instant swap instead)
+
+You don't need to do anything to opt in. If you have custom renderers or plugins that animate, honor the preference:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .my-cell-animation { transition: none; animation: none; }
+}
+```
+
 ## High Contrast Mode
 
 ### Using CSS Custom Properties
@@ -191,6 +273,68 @@ import '@toolbox-web/grid/themes/dg-theme-contrast.css';
 ### Windows High Contrast Mode
 
 The grid ships with a built-in `@media (forced-colors: active)` block that remaps all theming variables to Windows system colors (`CanvasText`, `Canvas`, `Highlight`, `HighlightText`). Focus rings and selected rows are also overridden to use `Highlight`. No extra configuration needed — it works automatically.
+
+If you write custom renderers, follow the same pattern so your cells stay legible under forced-colors:
+
+```css
+.my-status-badge {
+  background: var(--tbw-color-accent);
+  color: var(--tbw-color-on-accent);
+  border: 1px solid transparent;
+}
+
+@media (forced-colors: active) {
+  .my-status-badge {
+    background: Canvas;
+    color: CanvasText;
+    border: 1px solid CanvasText; /* outline so the badge stays distinguishable */
+    forced-color-adjust: none;     /* opt out of the browser's automatic remap */
+  }
+}
+```
+
+Key rules: prefer **system color keywords** (`CanvasText`, `Canvas`, `LinkText`, `ButtonText`, `Highlight`, `HighlightText`, `Mark`, `MarkText`) inside `forced-colors` media queries, and never rely on color alone — always pair with a border, underline, or icon.
+
+## Accessibility-First Patterns
+
+These patterns are how we keep the grid accessible — and how you should keep your customizations accessible too.
+
+### 1. Never replace content with color alone
+
+When you write a `renderer` for status, error, or category cells, give it text or an icon — not just a colored dot. The grid's built-in renderers (selection checkbox, sort indicator, expand chevron, filter button) all follow this rule.
+
+```ts
+// ❌ Color-only — invisible to screen readers, fails in forced-colors
+{ field: 'status', renderer: ({ value }) => `<span class="dot dot-${value}"></span>` }
+
+// ✅ Text + color — readable everywhere
+{ field: 'status', renderer: ({ value }) => `<span class="dot dot-${value}" aria-label="${value}">${value}</span>` }
+```
+
+### 2. Don't suppress focus indicators
+
+The default focus ring is 2px solid `var(--tbw-color-focus-ring)` using `outline` (not `border`) so it doesn't reflow. **Never** set `outline: none` without providing an equivalent indicator — WCAG 2.4.7 fails immediately, and forced-colors users lose the only signal they have.
+
+### 3. Use semantic `<button>` / `<a>` inside renderers
+
+Custom action buttons should be real `<button>` elements (or `<a href>` for navigation), not clickable `<div>`s. They inherit keyboard activation, focus, and screen-reader role for free. The grid's roving-tabindex pattern still works because the renderer is inside a `gridcell` — pressing <kbd>Enter</kbd> activates the button.
+
+### 4. Label fragmented controls
+
+If a cell renders multiple controls (e.g. edit + delete buttons), each needs a discrete accessible name — usually via `aria-label`:
+
+```ts
+viewRenderer: ({ row }) => `
+  <button aria-label="Edit ${row.name}">✏️</button>
+  <button aria-label="Delete ${row.name}">🗑️</button>
+`
+```
+
+A bare emoji or icon has no name; screen readers announce `"button"` and the user can't tell them apart.
+
+### 5. Don't override keyboard handling without consulting the WAI-ARIA pattern
+
+The grid implements the [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/). If you stop event propagation in a `keydown` handler on a cell, you may break navigation. If you really need to override (rare), do it only for the specific keys you care about and let the rest bubble.
 
 ## WCAG Compliance Checklist
 

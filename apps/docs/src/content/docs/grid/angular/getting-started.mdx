@@ -3,6 +3,8 @@ title: Angular Integration
 description: Install and configure @toolbox-web/grid-angular — feature inputs, renderers, editors, events, inject functions, and Angular-specific patterns.
 ---
 
+import { TabItem, Tabs } from '@astrojs/starlight/components';
+
 
 The `@toolbox-web/grid-angular` package provides Angular integration for the `<tbw-grid>` data grid component.
 
@@ -21,15 +23,28 @@ This page covers Angular-specific setup and APIs (feature inputs, inject functio
 
 ## Installation
 
-```bash
-
-npm install @toolbox-web/grid @toolbox-web/grid-angular
-
-
-yarn add @toolbox-web/grid @toolbox-web/grid-angular
-pnpm add @toolbox-web/grid @toolbox-web/grid-angular
-bun add @toolbox-web/grid @toolbox-web/grid-angular
-```
+<Tabs>
+  <TabItem label="npm">
+  ```bash
+  npm install @toolbox-web/grid @toolbox-web/grid-angular
+  ```
+  </TabItem>
+  <TabItem label="yarn">
+  ```bash
+  yarn add @toolbox-web/grid @toolbox-web/grid-angular
+  ```
+  </TabItem>
+  <TabItem label="pnpm">
+  ```bash
+  pnpm add @toolbox-web/grid @toolbox-web/grid-angular
+  ```
+  </TabItem>
+  <TabItem label="bun">
+  ```bash
+  bun add @toolbox-web/grid @toolbox-web/grid-angular
+  ```
+  </TabItem>
+</Tabs>
 
 ## Setup
 
@@ -338,7 +353,7 @@ export class AppComponent {
 
 ## Custom Icons
 
-The grid supports two complementary ways to customize icons — see the core [Icon Customization](/grid/api-reference/#icon-customization) reference and the [Theming Guide](/grid/guides/theming/#icon-customization) for the full picture:
+The grid supports two complementary ways to customize icons — see the [Theming Guide → Icon Customization](/grid/guides/theming/#icon-customization) for both the CSS and JavaScript approaches:
 
 - **CSS variables** (`--tbw-icon-*`) — preferred for themes and static customization; no JavaScript needed.
 - **`gridConfig.icons`** — for dynamic icons, icon libraries, or `HTMLElement` instances; takes precedence over CSS.
@@ -440,29 +455,38 @@ The full data-source contract, sort/filter modes, prefetching, cancellation and 
 2. **Return the `HttpClient` `Observable` directly from `getRows`.** No `firstValueFrom`, no manual `takeUntil`. The grid subscribes once and calls `unsubscribe()` when the request is superseded (sort change, fast scrolling, `refresh()`); `HttpClient` cancels the underlying XHR in response, which is the only correct way to avoid stale-buffer races.
 
 ```typescript
-import { inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { map } from 'rxjs/operators';
+import { Grid } from '@toolbox-web/grid-angular';
+import { GridServerSideDirective } from '@toolbox-web/grid-angular/features/server-side';
 import type { GridConfig } from '@toolbox-web/grid';
 import type { ServerSideDataSource } from '@toolbox-web/grid/plugins/server-side';
-import { GridServerSideDirective } from '@toolbox-web/grid-angular/features/server-side';
-private http = inject(HttpClient);
 
-private dataSource: ServerSideDataSource<Employee> = {
-  getRows: (params) => {
-    const httpParams = new HttpParams()
-      .set('offset', params.startNode)
-      .set('limit', params.endNode - params.startNode);
-    return this.http
-      .get<{ items: Employee[]; total: number }>('/api/employees', { params: httpParams })
-      .pipe(map((data) => ({ rows: data.items, totalNodeCount: data.total })));
-  },
-};
+@Component({
+  selector: 'app-employee-grid',
+  imports: [Grid, GridServerSideDirective],
+  template: `<tbw-grid [gridConfig]="gridConfig" style="height: 400px; display: block;"></tbw-grid>`,
+})
+export class EmployeeGridComponent {
+  private http = inject(HttpClient);
 
-gridConfig: GridConfig<Employee> = {
-  columns: [/* … */],
-  features: { serverSide: { dataSource: this.dataSource } },
-};
+  private dataSource: ServerSideDataSource<Employee> = {
+    getRows: (params) => {
+      const httpParams = new HttpParams()
+        .set('offset', params.startNode)
+        .set('limit', params.endNode - params.startNode);
+      return this.http
+        .get<{ items: Employee[]; total: number }>('/api/employees', { params: httpParams })
+        .pipe(map((data) => ({ rows: data.items, totalNodeCount: data.total })));
+    },
+  };
+
+  gridConfig: GridConfig<Employee> = {
+    columns: [/* … */],
+    features: { serverSide: { dataSource: this.dataSource } },
+  };
+}
 ```
 
 > **Caching:** Angular has no built-in equivalent to TanStack Query's request cache. If you need cross-component caching, deduplication or `staleTime`, wrap the `HttpClient` call in your own service (e.g. with `shareReplay`), or evaluate [`@tanstack/angular-query-experimental`](https://tanstack.com/query/latest/docs/framework/angular/overview) — note the `experimental` tag.

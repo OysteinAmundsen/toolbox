@@ -3,7 +3,7 @@ title: Introduction
 description: A high-performance, framework-agnostic data grid web component for JavaScript, React, Angular, and Vue. Zero dependencies, 100k+ rows, virtualized rendering.
 ---
 
-import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { CardGrid, LinkCard, TabItem, Tabs } from '@astrojs/starlight/components';
 import IntroBasicDemo from '@components/demos/IntroBasicDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
@@ -18,7 +18,7 @@ We built this grid because we needed something that works everywhere without fra
 | -------------------------- | ------------------------------------------------------------------- |
 | 🚀 **Enterprise Performance** | Virtualized rendering handles 100k+ rows at 60fps                |
 | 🔧 **True Framework Agnostic** | Single codebase works in vanilla JS, React, Vue, Angular, Svelte |
-| 📦 **Lightweight & Self-Contained** | ~45KB gzipped with zero runtime dependencies           |
+| 📦 **Lightweight & Self-Contained** | ~50KB gzipped with zero runtime dependencies           |
 | 🧩 **Extensible Plugin System** | Lifecycle hooks, dependency validation, type-safe config extension |
 | ⌨️ **Full Keyboard Support** | Arrow keys, Tab, Enter, Escape, Home/End, Page Up/Down            |
 | 🎨 **Themeable**           | CSS custom properties for complete visual customization             |
@@ -39,18 +39,49 @@ What does that mean for you? **It will never stop working.** Even if development
 
 ## Quick Start
 
+The grid ships as a standard custom element. Pick the install style that matches your setup.
+
+<Tabs>
+  <TabItem label="With a bundler (Vite, webpack, etc.)">
+
 ```bash
 npm install @toolbox-web/grid
 ```
 
-```html
+```typescript title="main.ts"
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
+grid.columns = [
+  { field: 'id', header: 'ID', type: 'number', sortable: true },
+  { field: 'name', header: 'Name', sortable: true },
+  { field: 'email', header: 'Email' },
+];
+grid.rows = [
+  { id: 1, name: 'Alice', email: 'alice@example.com' },
+  { id: 2, name: 'Bob',   email: 'bob@example.com' },
+  { id: 3, name: 'Carol', email: 'carol@example.com' },
+];
+```
+
+```html title="index.html"
 <tbw-grid style="height: 300px;"></tbw-grid>
+```
 
-<script type="module">
-  import '@toolbox-web/grid';
-  import { queryGrid } from '@toolbox-web/grid';
+  </TabItem>
+  <TabItem label="No build (CDN, single HTML file)">
 
-  const grid = queryGrid('tbw-grid');
+Drop one `<script>` tag and you're done — no bundler, no install. Everything is exposed on the global `TbwGrid` object.
+
+```html title="index.html"
+<!DOCTYPE html>
+<script src="https://unpkg.com/@toolbox-web/grid/umd/grid.umd.js"></script>
+
+<tbw-grid id="my-grid" style="height: 300px;"></tbw-grid>
+
+<script>
+  const grid = TbwGrid.queryGrid('#my-grid');
   grid.columns = [
     { field: 'id', header: 'ID', type: 'number', sortable: true },
     { field: 'name', header: 'Name', sortable: true },
@@ -58,13 +89,16 @@ npm install @toolbox-web/grid
   ];
   grid.rows = [
     { id: 1, name: 'Alice', email: 'alice@example.com' },
-    { id: 2, name: 'Bob', email: 'bob@example.com' },
+    { id: 2, name: 'Bob',   email: 'bob@example.com' },
     { id: 3, name: 'Carol', email: 'carol@example.com' },
   ];
 </script>
 ```
 
-That's it—no build step required for basic usage. See the [Getting Started guide](/grid/getting-started/) for framework integration (React, Vue, Angular), CDN usage, declarative HTML, and TypeScript setup.
+  </TabItem>
+</Tabs>
+
+See the [Getting Started guide](/grid/getting-started/) for framework integration (React, Vue, Angular), declarative HTML, plugins, and TypeScript setup.
 
 ### Live Demo
 
@@ -101,7 +135,7 @@ The core grid is intentionally minimal. Advanced features are delivered through 
 - **ClipboardPlugin** — Copy/paste with Excel-compatible formatting
 - ...and [many more](/grid/plugins/)
 
-Plugins benefit from **dependency validation**, **type-safe config extension**, **auto-cleanup** via `AbortSignal`, and a **third-party friendly** API so you can [build and distribute your own](/grid/guides/custom-plugins/).
+Plugins benefit from **dependency validation**, **type-safe config extension**, **auto-cleanup** via `AbortSignal`, and a **third-party friendly** API so you can [build and distribute your own](/grid/plugin-development/custom-plugins/).
 
 ## AI-Assisted Development
 
@@ -119,7 +153,7 @@ Ready to dive in?
 <CardGrid>
   <LinkCard title="Getting Started" description="Detailed setup for Vanilla JS, React, Vue, and Angular" href="/grid/getting-started/" />
   <LinkCard title="Core Features" description="Sorting, rendering, keyboard navigation, and interactive playground" href="/grid/core/" />
-  <LinkCard title="Plugins" description="Extend with selection, filtering, grouping, and 20+ more" href="/grid/plugins/" />
+  <LinkCard title="Plugins" description="Extend with selection, filtering, grouping, and 24+ more" href="/grid/plugins/" />
   <LinkCard title="API Reference" description="Complete property, method, and event reference" href="/grid/api-reference/" />
 </CardGrid>
 

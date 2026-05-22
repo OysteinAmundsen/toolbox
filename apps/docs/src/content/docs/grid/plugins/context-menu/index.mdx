@@ -31,6 +31,11 @@ Define your menu items as an array—each item has an `id`, `label`, and `action
 import { queryGrid } from '@toolbox-web/grid';
 
 const grid = queryGrid('tbw-grid');
+
+function removeRow(rowIndex: number) {
+  grid.rows = grid.rows.filter((_, i) => i !== rowIndex);
+}
+
 grid.gridConfig = {
   columns: [
     { field: 'name', header: 'Name' },
@@ -76,6 +81,7 @@ function MyGrid({ data, onDelete }) {
         { field: 'status', header: 'Status' }
       ]}
       contextMenu={contextMenu}
+      style={{ height: '400px' }}
     />
   );
 }

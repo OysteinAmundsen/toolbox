@@ -28,6 +28,13 @@ import '@toolbox-web/grid';
 import '@toolbox-web/grid/features/pivot';
 import { queryGrid } from '@toolbox-web/grid';
 
+const salesData = [
+  { region: 'North', product: 'Widget', quarter: 'Q1', sales: 1200 },
+  { region: 'North', product: 'Widget', quarter: 'Q2', sales: 1500 },
+  { region: 'South', product: 'Gadget', quarter: 'Q1', sales: 900 },
+  { region: 'South', product: 'Gadget', quarter: 'Q2', sales: 1100 },
+];
+
 const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [

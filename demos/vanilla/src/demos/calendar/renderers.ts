@@ -15,8 +15,8 @@
  * the factory can flip the mode for every cell at once.
  */
 
-import type { CalendarDay, CategoryId } from './types';
-import { CATEGORIES } from './types';
+import type { CalendarDay, CategoryId } from '@demo/shared/calendar';
+import { CATEGORIES } from '@demo/shared/calendar';
 
 const CATEGORY_LABEL: Record<CategoryId, string> = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.label])) as Record<
   CategoryId,

@@ -25,6 +25,13 @@ const routes = [
       import('../demos/employee-management/EmployeeManagement').then((m) => ({ default: m.EmployeeManagement })),
     ),
   },
+  {
+    path: 'calendar',
+    label: 'Calendar',
+    description:
+      'Month-view calendar built on top of <tbw-grid> — custom shell header, pinned legend, responsive density, keyboard navigation across months.',
+    component: lazy(() => import('../demos/calendar/Calendar').then((m) => ({ default: m.Calendar }))),
+  },
 ] as const;
 
 export function App() {

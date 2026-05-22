@@ -1,0 +1,435 @@
+/**
+ * Calendar demo — shared stylesheet
+ *
+ * Single source of truth for the calendar demo's look across all four
+ * framework adapters (vanilla, react, angular, vue). Each demo imports
+ * this file via `@demo/shared/calendar/demo-styles.css` so visual changes
+ * land in one place and parity is automatic.
+ *
+ * Scoped under `.calendar-demo` so they don't bleed into other demos in
+ * the same shell. Drives three responsive densities via `[data-density]`
+ * on the `<tbw-grid>` host.
+ *
+ * Angular note: the consuming component must use
+ * `ViewEncapsulation.None` (or load this as a global stylesheet) so the
+ * `tbw-grid`/`.data-grid-row` descendant selectors aren't rewritten by
+ * Angular's emulated encapsulation.
+ *
+ * Vue note: when imported from inside an SFC, the `<style>` block must
+ * NOT be `scoped` — descendant selectors targeting grid-internal classes
+ * (`.data-grid-row .cell`) need to leave the shadow boundary alone.
+ */
+
+.calendar-demo {
+  /* Calendar-local tokens. Demo-shell colors (`--demo-color-*`) cascade
+   * from `:root` (set by `@demo/shared/demo-index.css` /
+   * `@demo/shared/employee-management/demo-styles.css`). Do NOT redeclare
+   * them here with `var(--demo-color-x, fallback)` — a self-referencing
+   * custom property resolves to the guaranteed-invalid value, which would
+   * clobber the parent cascade. */
+
+  --cal-color-mon: light-dark(#fff, #1f2125);
+  --cal-color-out: light-dark(#f5f6f8, #1a1c20);
+  --cal-color-today-ring: light-dark(#2563eb, #3b82f6);
+
+  /* Category palette — also referenced by the legend in the toolbar. */
+  --cal-cat-work: light-dark(#2563eb, #60a5fa);
+  --cal-cat-personal: light-dark(#16a34a, #4ade80);
+  --cal-cat-travel: light-dark(#9333ea, #c084fc);
+  --cal-cat-health: light-dark(#dc2626, #f87171);
+  --cal-cat-social: light-dark(#ea580c, #fb923c);
+
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.calendar-demo__grid {
+  flex: 1;
+  min-height: 0;
+}
+
+/* === Custom header (registered via grid.registerHeaderContent) === */
+.cal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cal-header__title {
+  font-weight: 600;
+  font-size: 1.15rem;
+}
+
+.cal-header__year {
+  font-size: 0.95rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--demo-color-border);
+  background: var(--demo-color-surface);
+  color: var(--demo-color-fg);
+}
+
+/* === Toolbar nav buttons (registered via grid.registerToolbarContent) === */
+.cal-toolbar-nav {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.cal-header__btn {
+  background: var(--demo-color-surface);
+  border: 1px solid var(--demo-color-border);
+  color: var(--demo-color-fg);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+
+.cal-header__btn:hover {
+  border-color: var(--demo-color-accent);
+}
+
+/* === Category legend (pinned-bottom panel slot) === */
+.cal-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  color: var(--demo-color-fg-muted);
+}
+
+.cal-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cal-legend__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* === Day cell === */
+.cal-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: 100%;
+  padding: 6px 6px 4px;
+  gap: 4px;
+  overflow: hidden;
+}
+
+/* Light-grey border around every day. The grid already paints right and
+ * bottom dividers on each `.cell`; we add the missing top + left sides on
+ * data rows (and re-color all four with a calendar-specific token) so the
+ * calendar reads as a true matrix. Painted on `.cell` rather than
+ * `.cal-cell` because the grid cell uses `overflow: hidden`, which clips
+ * a border drawn on inner `height: 100%` content. */
+.calendar-demo {
+  --cal-color-cell-border: light-dark(#cbd0d6, #4a4d54);
+  --cal-color-cell-focus: light-dark(#2563eb, #3b82f6);
+}
+
+tbw-grid .data-grid-row > .cell {
+  border-top: 1px solid var(--cal-color-cell-border);
+  border-right: 1px solid var(--cal-color-cell-border);
+  border-bottom: 1px solid var(--cal-color-cell-border);
+}
+
+tbw-grid .data-grid-row > .cell:first-child {
+  border-left: 1px solid var(--cal-color-cell-border);
+}
+
+/* Cell focus — the grid adds `.cell-focus` to the active cell (click +
+ * keyboard nav). A dotted outline reads as a focus affordance without
+ * competing with the solid day-cell border; `outline-offset: -3px`
+ * tucks it inside so it doesn't shift the matrix layout. */
+tbw-grid .data-grid-row > .cell.cell-focus {
+  outline: 2px dotted var(--cal-color-cell-focus);
+  outline-offset: -3px;
+  position: relative;
+  z-index: 1;
+}
+
+.cal-cell--out-of-month {
+  opacity: 0.4;
+}
+
+.cal-cell--today {
+  background: color-mix(in oklab, var(--cal-color-today-ring) 12%, transparent);
+}
+
+/* Today's date number: bold, accent-colored, wrapped in a rounded outline
+ * ring. `align-self: center` shrink-wraps the cell from the flex column
+ * parent (`.cal-cell`) so the rounded border hugs the digit instead of
+ * the full row width. */
+.cal-cell--today .cal-cell__date {
+  align-self: center;
+  color: var(--cal-color-today-ring);
+  font-weight: 800;
+  border: 2px solid var(--cal-color-today-ring);
+  border-radius: 999px;
+  min-width: 1.9em;
+  padding: 0 0.3em;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+.cal-cell__date {
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.cal-cell__events {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.cal-cell__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.cal-event {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  line-height: 1.25;
+  color: #fff;
+  background: var(--cal-cat-color, var(--cal-cat-work));
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cal-event--work,
+.cal-dot--work {
+  --cal-cat-color: var(--cal-cat-work);
+}
+.cal-event--personal,
+.cal-dot--personal {
+  --cal-cat-color: var(--cal-cat-personal);
+}
+.cal-event--travel,
+.cal-dot--travel {
+  --cal-cat-color: var(--cal-cat-travel);
+}
+.cal-event--health,
+.cal-dot--health {
+  --cal-cat-color: var(--cal-cat-health);
+}
+.cal-event--social,
+.cal-dot--social {
+  --cal-cat-color: var(--cal-cat-social);
+}
+
+.cal-event__time {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+  font-size: 0.7rem;
+}
+
+.cal-event__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-cell__dots {
+  display: none;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-content: flex-start;
+  justify-content: center;
+}
+
+.cal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cal-cat-color, var(--cal-cat-work));
+  display: inline-block;
+}
+
+.cal-dot__more {
+  font-size: 0.65rem;
+  color: var(--demo-color-fg-muted);
+  line-height: 1;
+  align-self: center;
+}
+
+/* === Responsive densities ===
+   The factory toggles `data-density` on the `<tbw-grid>` host based on
+   measured width. Renderers always emit the full markup; CSS hides the
+   parts that don't belong at the current density. */
+
+tbw-grid[data-density='compact'] .cal-cell__list {
+  display: none;
+}
+
+tbw-grid[data-density='compact'] .cal-cell__dots {
+  display: flex;
+}
+
+tbw-grid[data-density='minimal'] .cal-cell__events {
+  display: none;
+}
+
+tbw-grid[data-density='minimal'] .cal-cell {
+  justify-content: center;
+}
+
+tbw-grid[data-density='minimal'] .cal-cell__date {
+  font-size: 1.1rem;
+}
+
+/* Weekday header labels: three variants in one node, picked by density.
+   Defaults to the short (3-letter) form so the chosen variant is visible
+   even when `[data-density]` hasn't been applied yet (e.g. first frame).
+   Vue uses a computed header instead of multi-variant DOM, so these
+   selectors are inert there — harmless dead CSS. */
+.cal-wday__full,
+.cal-wday__mini {
+  display: none;
+}
+
+.cal-wday__short {
+  display: inline;
+}
+
+tbw-grid[data-density='full'] .cal-wday__full {
+  display: inline;
+}
+
+tbw-grid[data-density='full'] .cal-wday__short,
+tbw-grid[data-density='full'] .cal-wday__mini {
+  display: none;
+}
+
+tbw-grid[data-density='minimal'] .cal-wday__mini {
+  display: inline;
+}
+
+tbw-grid[data-density='minimal'] .cal-wday__short,
+tbw-grid[data-density='minimal'] .cal-wday__full {
+  display: none;
+}
+
+/* Week-number column — narrow, muted.
+   `.cal-week-cell` is applied via `cellClass` in vanilla/react/angular.
+   The `[data-field='weekNumber']` selector is the same rule keyed on the
+   column's `field` (the grid sets `data-field` on every cell), so Vue
+   (which doesn't accept `cellClass` on `<GridColumn>`) gets the same
+   look. Scoping to `.data-grid-row` keeps the header cell out. */
+.cal-week-cell,
+tbw-grid .data-grid-row .cell[data-field='weekNumber'] {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--demo-color-fg-muted);
+  font-variant-numeric: tabular-nums;
+  padding-top: 4px;
+}
+
+/* === "New entry" dialog ============================================== */
+/* Lives at document.body (outside .calendar-demo) so styles are scoped
+   directly to .cal-event-dialog rather than nested. */
+.cal-event-dialog {
+  /* Center on screen. Native `<dialog>.showModal()` UA styles center by
+   * default, but parent stylesheets (Starlight docs shell, etc.) can
+   * override `position`/`inset`, so we pin it explicitly. */
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  border: 1px solid var(--demo-color-border, #d0d4dc);
+  border-radius: 10px;
+  padding: 0;
+  background: var(--demo-color-surface, light-dark(#fff, #1f2125));
+  color: var(--demo-color-fg, light-dark(#1a1c20, #f0f2f5));
+  min-width: min(380px, 92vw);
+  max-height: calc(100vh - 2rem);
+  box-shadow: 0 12px 32px light-dark(rgb(0 0 0 / 18%), rgb(0 0 0 / 55%));
+}
+
+.cal-event-dialog::backdrop {
+  background: light-dark(rgb(0 0 0 / 25%), rgb(0 0 0 / 55%));
+  backdrop-filter: blur(2px);
+}
+
+.cal-event-dialog__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+}
+
+.cal-event-dialog__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.cal-event-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.cal-event-dialog__field > span {
+  color: var(--demo-color-fg-muted, light-dark(#586070, #aab0bd));
+}
+
+.cal-event-dialog__field input,
+.cal-event-dialog__field select {
+  font: inherit;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--demo-color-border, #d0d4dc);
+  background: var(--demo-color-bg, light-dark(#fff, #15171b));
+  color: inherit;
+}
+
+.cal-event-dialog__field input:focus-visible,
+.cal-event-dialog__field select:focus-visible {
+  outline: 2px solid var(--demo-color-accent, #2563eb);
+  outline-offset: 1px;
+}
+
+.cal-event-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.cal-header__btn--primary {
+  background: var(--demo-color-accent, #2563eb);
+  border-color: var(--demo-color-accent, #2563eb);
+  color: #fff;
+}
+
+.cal-header__btn--primary:hover {
+  filter: brightness(1.08);
+}

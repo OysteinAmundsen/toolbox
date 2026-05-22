@@ -24,4 +24,12 @@ export const DEMOS: DemoEntry[] = [
         (m) => m.EmployeeManagementComponent,
       ),
   },
+  {
+    path: 'calendar',
+    label: 'Calendar',
+    description:
+      'Month-view calendar built on top of <tbw-grid> — custom shell header, pinned legend, responsive density, keyboard navigation across months.',
+    loadComponent: () =>
+      import('./demos/calendar/calendar.component').then((m) => m.CalendarComponent),
+  },
 ];

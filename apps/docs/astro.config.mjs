@@ -107,9 +107,18 @@ export default defineConfig({
         ...gridAliases(),
         '@toolbox/themes': resolve(rootDir, 'libs/themes'),
         '@demo/shared/employee-management': resolve(rootDir, 'demos/shared/employee-management'),
+        // Alias to the directory (not `index.ts`) so subpaths like
+        // `@demo/shared/calendar/demo-styles.css` resolve naturally — matches
+        // the `@demo/shared/employee-management` pattern above. Vite's
+        // resolver then handles index resolution for the bare specifier.
+        '@demo/shared/calendar': resolve(rootDir, 'demos/shared/calendar'),
         '@demo/vanilla/employee-management': resolve(
           rootDir,
           'demos/vanilla/src/demos/employee-management/grid-factory.ts',
+        ),
+        '@demo/vanilla/calendar': resolve(
+          rootDir,
+          'demos/vanilla/src/demos/calendar/grid-factory.ts',
         ),
         '@components': resolve(import.meta.dirname, 'src/components'),
       },

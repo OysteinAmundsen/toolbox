@@ -3,7 +3,11 @@
  *
  * Mounts a month-view calendar built on top of `<tbw-grid>`. See
  * `./grid-factory.ts` for the grid wiring and `./renderers.ts` for the
- * shared day-cell renderer.
+ * shared day-cell renderer. Types + raw event data come from
+ * `@demo/shared/calendar` so all four framework demos share the same
+ * deterministic dataset; everything else (grid config, renderers,
+ * styles, dialog, density observer) is vanilla-DOM here so each
+ * framework demo can showcase its own idiomatic implementation.
  */
 
 import './styles.css';
@@ -34,3 +38,4 @@ export function mount(host: HTMLElement): () => void {
     host.innerHTML = '';
   };
 }
+

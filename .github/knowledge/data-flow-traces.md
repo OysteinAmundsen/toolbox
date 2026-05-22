@@ -32,6 +32,7 @@ FIRST RAF (render-scheduler):
   ├─ refreshVirtualWindow() — compute start/end, renderVisibleRows
   └─ _schedulerAfterRender() — plugin afterRender, auto-size, focus setup
       → resolves ready() promise → fires initialReadyResolver (once)
+      → dispatchEvent('render', { phase, initial:true, rowCount, visibleRange })
 ```
 
 ## trace: property-change (grid.rows = newData)
@@ -66,6 +67,7 @@ NEXT RAF:
   │   └─ renderVisibleRows(start, end) — reuse pooled row elements
   └─ _schedulerAfterRender()
       └─ plugin afterRender hooks
+      → dispatchEvent('render', { phase, initial:false, rowCount, visibleRange })
 ```
 
 ## trace: user-sorts-column (header click)

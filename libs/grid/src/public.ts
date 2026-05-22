@@ -309,6 +309,7 @@ export type {
   PrimitiveColumnType,
   // Public interface
   PublicGrid,
+  RenderDetail,
   // Row animation type
   RowAnimationType,
   RowClickDetail,

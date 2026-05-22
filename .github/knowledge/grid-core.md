@@ -42,6 +42,11 @@ related: [grid-plugins, grid-features, data-flow-traces]
 - TENSION: mergeConfig MUST run before processRows (plugins may register renderers after gridConfig set by adapters)
 - TENSION: all batching adds complexity vs immediate rendering, but eliminates race conditions between ResizeObserver, framework updates, scroll events
 - DECIDED: single-RAF batching chosen over microtask or synchronous rendering to prevent layout thrashing
+- DECIDED (May 2026): public `'render'` CustomEvent dispatched at end of `#flush()`, after `_schedulerAfterRender` and after `#initialReadyResolver`/`#readyResolve` fire. WHY: `ready()` is one-shot; consumers had no hook to act on rendered DOM after a programmatic mutation (e.g. `editing.mode:'grid'` + `addRow` → focus first input). Detail: `{ phase, initial, rowCount, visibleRange }`. Bubbles + composed.
+  - INVARIANT: NOT dispatched on the disconnected-bail path (no DOM mutation happened).
+  - INVARIANT: fires on EVERY flush including virtualization-only scroll renders. Consumers gate on `phase >= RenderPhase.ROWS` for model-only changes, or use `{ once: true }` for "after this mutation" semantics.
+  - Files: `render-scheduler.ts#dispatchRenderEvent`, `types.ts > RenderDetail` + `DataGridEventMap.render`. Tests: `render-scheduler.spec.ts > render event`, `__tests__/integration/render-event.spec.ts`.
+  - RULED OUT: `beforeRender` (plugin hooks cover it); per-row `row-render` (too noisy — one per-cycle event + `data-row` query suffices).
 
 ## virtualization-manager
 

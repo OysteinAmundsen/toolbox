@@ -40,6 +40,7 @@ import type {
   PasteDetail,
   PrintCompleteDetail,
   PrintStartDetail,
+  RenderDetail,
   ResponsiveChangeDetail,
   RowClickDetail,
   RowCommitDetail,
@@ -588,6 +589,31 @@ export interface EventProps<TRow = unknown> {
    * ```
    */
   onTbwScroll?: EventHandler<TbwScrollDetail>;
+
+  // ════════════════════════════════════════════════════════════════════
+  // LIFECYCLE EVENTS
+  // ════════════════════════════════════════════════════════════════════
+
+  /**
+   * Fired once at the end of every render-scheduler flush, after all
+   * plugin `afterRender` hooks have run and `ready()` has resolved.
+   *
+   * Use this to act on the rendered DOM after a programmatic mutation
+   * (e.g. focus the first input of a freshly added row in full-grid
+   * edit mode) without `setTimeout` or double-`requestAnimationFrame`
+   * hacks. Fires on every flush — including scroll-driven virtual-window
+   * updates — so prefer subscribing once and unsubscribing (or gating on
+   * `detail.phase >= RenderPhase.ROWS`) when you only care about a
+   * specific mutation.
+   *
+   * @example
+   * ```tsx
+   * onRender={(detail) => {
+   *   if (detail.initial) console.log('first render complete');
+   * }}
+   * ```
+   */
+  onRender?: EventHandler<RenderDetail>;
 }
 
 /**
@@ -641,6 +667,7 @@ export const EVENT_PROP_MAP = {
   onPrintStart: 'print-start',
   onPrintComplete: 'print-complete',
   onTbwScroll: 'tbw-scroll',
+  onRender: 'render',
 } as const satisfies Readonly<Record<keyof EventProps, keyof DataGridEventMap<unknown>>>;
 
 /**

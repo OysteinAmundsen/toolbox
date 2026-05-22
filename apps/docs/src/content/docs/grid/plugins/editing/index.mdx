@@ -1362,6 +1362,36 @@ if (editing.dirty) {
 }
 ```
 
+## Imperative Bulk-Edit API
+
+For programmatic row editing (e.g. wiring an "Edit" toolbar button, building a custom save flow, or driving edits from outside the grid), the Editing plugin installs the following methods and getters directly on the grid instance:
+
+```typescript
+// Start row editing programmatically (all editable cells in the row enter edit mode)
+grid.beginBulkEdit(rowIndex);
+
+// Commit the active row edit (fires `row-commit`, applies pending values)
+grid.commitActiveRowEdit();
+
+// Cancel the active row edit (discards pending values)
+grid.cancelActiveRowEdit();
+
+// Snapshot of rows whose data has been changed this session
+const changes: T[] = grid.changedRows;
+
+// IDs of changed rows — requires `gridConfig.getRowId` (or an `id`/`_id` field)
+const ids: string[] = grid.changedRowIds;
+
+// Clear change tracking — pass `silent: true` to suppress events
+grid.resetChangedRows();
+```
+
+:::tip[changedRows vs Dirty Tracking]
+`changedRows` / `changedRowIds` is the lightweight session-level "what did the user commit?" tracker — it grows as each cell-/row-commit lands and is cleared by `resetChangedRows()`.
+
+For richer per-row baseline diffing (original vs current, revert, programmatic mark-dirty), enable [Dirty Tracking](#dirty-tracking) and use the plugin's `getDirtyRows()` / `revertRow()` / `markAsPristine()` API instead.
+:::
+
 ## Row CSS Classes
 
 When dirty tracking is enabled, the EditingPlugin automatically applies CSS classes

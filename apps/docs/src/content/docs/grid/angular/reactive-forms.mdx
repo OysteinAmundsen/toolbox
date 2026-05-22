@@ -421,7 +421,12 @@ By default, FormGroups are cleaned up when a row exits edit mode. Set `[keepForm
 The `(rowFormChange)` output emits a [`RowFormChangeEvent`](/grid/angular/api/types/RowFormChangeEvent/) every time the row's `FormGroup` value or status changes. The event includes `rowIndex`, `rowId?`, `row`, `formGroup`, `values`, `valid`, and `dirty`.
 
 ```typescript
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { RowFormChangeEvent } from '@toolbox-web/grid-angular';
+
 @Component({
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="employees()"

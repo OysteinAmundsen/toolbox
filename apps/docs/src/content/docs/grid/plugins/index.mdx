@@ -118,7 +118,7 @@ plugins: [
 ]
 ```
 
-For declaring dependencies in your own custom plugins, see [Custom Plugins → Plugin Dependencies](/grid/guides/custom-plugins/#plugin-dependencies).
+For declaring dependencies in your own custom plugins, see [Custom Plugins → Plugin Dependencies](/grid/plugin-development/custom-plugins/#plugin-dependencies).
 
 ## Using Features (Recommended)
 
@@ -208,7 +208,7 @@ For rapid prototyping when bundle size is not critical:
 import { SelectionPlugin, FilteringPlugin, EditingPlugin } from '@toolbox-web/grid/all';
 ```
 
-This imports the core grid and all 22 plugin classes. Use the `plugins` array to configure them:
+This imports the core grid and all 25 plugin modules. Use the `plugins` array to configure them:
 
 ```typescript
 grid.gridConfig = {
@@ -316,7 +316,7 @@ new ExportPlugin({
 
 The grid's plugin system lets you build fully custom functionality. Plugins extend [`BaseGridPlugin`](/grid/api/plugin-development/classes/basegridplugin/) and can hook into lifecycle events, process rows/columns, handle keyboard events, and inject CSS.
 
-For the full development guide including lifecycle hooks, plugin communication, the query system, and styling patterns, see [Writing Custom Plugins](/grid/guides/custom-plugins/).
+For the full development guide including lifecycle hooks, plugin communication, the query system, and styling patterns, see [Writing Custom Plugins](/grid/plugin-development/custom-plugins/).
 
 ## Known Incompatibilities
 
@@ -335,6 +335,6 @@ Some plugin combinations conflict and should not be used together. A development
 
 - [Common Patterns](/grid/guides/common-patterns/) — Real-world recipes combining plugins (all frameworks)
 - [Getting Started](/grid/getting-started/) — Quick setup with features API
-- [Custom Plugin Development](/grid/guides/custom-plugins/) — Build your own plugins
+- [Custom Plugin Development](/grid/plugin-development/custom-plugins/) — Build your own plugins
 - [Architecture](/grid/architecture/) — How the plugin system fits into the grid's internals
 - [Performance Guide](/grid/guides/performance/) — Bundle optimization with tree-shakeable features

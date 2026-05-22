@@ -1,6 +1,8 @@
 ---
 title: Performance
 description: Optimize @toolbox-web/grid for large datasets — virtualization tuning, bundle optimization, rendering best practices, and benchmarks.
+sidebar:
+  order: 3
 ---
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
@@ -9,6 +11,24 @@ import ShowSource from '@components/ShowSource.astro';
 
 
 `@toolbox-web/grid` is engineered for high performance out of the box. This guide helps you understand the performance characteristics and tune the grid for your specific workload.
+
+:::tip[Looking for benchmarks?]
+We publish a head-to-head benchmark against AG Grid, Tabulator, and SlickGrid that **runs live in your browser** — render 1k / 10k / 100k rows side-by-side and watch the numbers. See [Compared to other grids](/grid/comparison/) for the methodology, results, and a feature matrix.
+:::
+
+## Why it's fast
+
+A short explanation lives here so you don't have to dig — for the full architectural narrative (render scheduler, virtualization, DOM recycling, template cloning, faux scrollbar) see the [Architecture deep-dive](/grid/architecture/).
+
+| Technique | What it buys you |
+|---|---|
+| **Centralized render scheduler** | All updates coalesce into a single `requestAnimationFrame` — no layout thrashing, no double work |
+| **Row + column virtualization** | Rendering 100k rows costs the same as rendering 50 |
+| **DOM recycling with epoch invalidation** | Row elements are reused via a pool — minimal GC, no element churn |
+| **Template cloning** (`cloneNode(true)`) | 3-4× faster than `createElement` + attribute assignment |
+| **Event delegation** | One listener per event type on the container — scales to any dataset |
+| **Faux scrollbar** | Scroll container is separate from the rendered content — zero reflow on scroll |
+| **Phase-priority execution** | Highest-priority phase wins per frame — full re-renders absorb sub-renders |
 
 ## Key Performance Features
 
@@ -191,22 +211,56 @@ Formatters return a plain string — significantly faster than creating DOM elem
 
 ## Profiling
 
-### Browser DevTools
+### Scale-tier reference
 
-1. Open Chrome DevTools → Performance tab
-2. Record while scrolling or sorting
-3. Look for long tasks (> 50ms) in the flame chart
-4. Check for layout thrashing (forced reflows)
+Use this table to set expectations and pick which knobs matter for your dataset. All numbers assume the default plugin set on a 2023-class laptop (M-series Mac / Ryzen 7).
 
-### Key Metrics to Watch
+| Rows × Cols | What to expect | What you'll tune |
+|---|---|---|
+| **≤ 1k × 20** | Instant — no tuning needed | Nothing |
+| **10k × 20** | Smooth 60fps scroll / sort < 50ms | `rowHeight: number` (fixed) over variable; prefer `format` over `renderer` |
+| **100k × 20** | Smooth scroll; sort 200-500ms (single-threaded JS) | Same as above + `getRowId` for stable identity; consider [Server-Side](/grid/plugins/server-side/) for queries |
+| **1M+ rows** | Don't load into memory — paginate or use [Server-Side](/grid/plugins/server-side/) | Server-Side plugin with infinite scroll |
+| **× 50+ columns** | Horizontal scroll may stutter without column virtualization | Enable [`ColumnVirtualizationPlugin`](/grid/plugins/column-virtualization/) |
 
-| Metric | Target | How to Measure |
+### Profile your own app
+
+The "is the grid slow?" question is almost always one of: (a) **the grid is doing too much work** (too many columns rendered, expensive renderers, layout thrashing from outside the grid); or (b) **your data pipeline is slow** (re-allocating row arrays, re-deriving columns on every render, heavy formatters). The DevTools Performance tab can tell the two apart in 60 seconds.
+
+1. **Record a representative interaction.** Open Chrome DevTools → Performance → click ⏺ Record → do the slow thing (scroll, sort, filter, edit) for 2-3 seconds → stop.
+2. **Find the long tasks.** Anything > 50ms shows up as a red triangle. Click into the flame graph.
+3. **Read the stack:**
+   - **`renderScheduler.flush` dominates** → grid-internal work. Look one level deeper:
+     - `renderRow` / `updateRowDom` heavy → your `renderer` or `cellClass` is slow. Switch to `format` if you only return text.
+     - `measureRow` heavy → variable row heights with expensive content. Set a fixed `rowHeight` or memoize.
+     - `applyColumns` heavy → too many visible columns. Enable [`ColumnVirtualizationPlugin`](/grid/plugins/column-virtualization/).
+   - **Framework code (React reconciler / Angular CD / Vue render) dominates** → your wrapper is re-rendering the grid on unrelated state changes. Pass `rows` / `gridConfig` as a stable reference (`useMemo`, `computed`, `signal`).
+   - **`Recalculate Style` / `Layout` dominate, outside the grid** → something on the page is reacting to the grid's resize. Usually a parent flexbox or a `ResizeObserver` you wrote.
+
+4. **Mark your own boundaries** to make the trace readable:
+
+   ```ts
+   performance.mark('app:load-rows:start');
+   grid.rows = bigArray;
+   await new Promise(r => requestAnimationFrame(r));
+   performance.mark('app:load-rows:end');
+   performance.measure('app:load-rows', 'app:load-rows:start', 'app:load-rows:end');
+   ```
+
+   `performance.measure()` entries show up as labeled bars at the top of the flame chart.
+
+5. **Compare against the [comparison page](/grid/comparison/)** — if your numbers are very different from ours on a similar dataset, the cause is in your app code, not the grid.
+
+### Key metrics to watch
+
+| Metric | Target | How to measure |
 |--------|--------|---------------|
-| **Scroll FPS** | 60fps | Performance tab → Frames |
+| **Scroll FPS** | 60fps | DevTools → Performance → Frames row |
 | **Sort time (10K rows)** | < 50ms | `console.time()` around `grid.rows = sorted` |
 | **Filter time (10K rows)** | < 30ms | Measure in `filter-change` event handler |
 | **Initial render** | < 100ms | Performance tab → First Paint |
 | **Memory (100K rows)** | < 100 MB | Memory tab → Heap snapshot |
+
 
 ## Stress Test
 
@@ -217,7 +271,8 @@ Try the interactive stress test below — adjust row and column counts to see ho
 ## See Also
 
 <CardGrid>
+  <LinkCard title="Compared to other grids" description="Live benchmarks vs AG Grid, Tabulator, SlickGrid — runnable in your browser" href="/grid/comparison/" />
   <LinkCard title="Architecture" description="How the render scheduler and virtualization work internally" href="/grid/architecture/" />
   <LinkCard title="Column Virtualization" description="Render only visible columns for wide grids (50+ columns)" href="/grid/plugins/column-virtualization/" />
-  <LinkCard title="Plugins Overview" description="All available plugins with import paths and descriptions" href="/grid/plugins/" />
+  <LinkCard title="Server-Side Plugin" description="Stream rows for million-row datasets without loading them into memory" href="/grid/plugins/server-side/" />
 </CardGrid>

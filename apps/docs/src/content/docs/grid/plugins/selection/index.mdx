@@ -70,6 +70,12 @@ import '@toolbox-web/grid/features/selection';
   import { queryGrid } from '@toolbox-web/grid';
   import '@toolbox-web/grid/features/selection';
 
+  const data = [
+    { id: 1, name: 'Alice', email: 'alice@example.com' },
+    { id: 2, name: 'Bob',   email: 'bob@example.com' },
+    { id: 3, name: 'Carol', email: 'carol@example.com' },
+  ];
+
   const grid = queryGrid('tbw-grid');
   grid.gridConfig = {
     columns: [

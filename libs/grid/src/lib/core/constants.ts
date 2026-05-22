@@ -38,11 +38,11 @@ export const GridClasses = {
   ROWS_CONTAINER: 'rows',
 
   // Row elements
-  DATA_ROW: 'data-row',
+  DATA_ROW: 'data-grid-row',
   GROUP_ROW: 'group-row',
 
   // Cell elements
-  DATA_CELL: 'data-cell',
+  DATA_CELL: 'cell',
 
   // ─── Core States ──────────────────────────────────────────────────
   SELECTED: 'selected',

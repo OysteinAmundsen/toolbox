@@ -1,7 +1,11 @@
 ---
 title: Multi-version coexistence
 description: How @toolbox-web/grid lets two different grid versions live on one page — useful for micro-frontends and gradual upgrades.
+sidebar:
+  order: 8
 ---
+
+This guide is **framework-agnostic**. Multi-version coexistence is a property of the underlying web component (`<tbw-grid>` and its custom-element registry), not of any adapter — it applies equally to vanilla JavaScript, Module Federation, [Native Federation](https://github.com/angular-architects/module-federation-plugin/blob/main/libs/native-federation/README.md), iframe-less micro-frontend shells, and any setup where two copies of `@toolbox-web/grid` end up on the same page. You don't need a framework adapter, and you don't need to install anything extra.
 
 When two micro-frontends on the same page each ship their own copy of
 `@toolbox-web/grid` (for example, a host app on `v2.14` while a widget is

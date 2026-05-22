@@ -1,6 +1,8 @@
 ---
 title: Theming
 description: Customize @toolbox-web/grid with CSS custom properties — colors, spacing, typography, dark mode, pre-built themes, and cascade layers.
+sidebar:
+  order: 2
 ---
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
@@ -199,11 +201,25 @@ The grid uses a **CSS-first hybrid icon system** with two configuration paths:
 
 CSS is the **recommended default** — it requires no JavaScript, works with cascade layers, and is tree-shakeable. Use the JS path when you need dynamic icons (e.g., loading from an icon library at runtime) or `HTMLElement` instances.
 
-:::tip
-See the [API Reference — Icon Customization](/grid/api-reference/#icon-customization) for the JavaScript approach. For the full list of icon keys, see the [`GridIcons` interface](/grid/api/core/interfaces/gridicons/).
-:::
+For the full list of icon keys with their TypeScript signatures, see the [`GridIcons` interface](/grid/api/core/interfaces/gridicons/).
 
-All grid icons (sort indicators, expand/collapse, filter, drag handles, etc.) are rendered via CSS custom properties. Override them in your theme.
+### JavaScript Path (`gridConfig.icons`)
+
+For programmatic control (e.g., dynamic icon libraries, `HTMLElement` icons, or runtime theme switching), use `gridConfig.icons`. JavaScript values take precedence over CSS variables:
+
+```typescript
+grid.gridConfig = {
+  icons: {
+    sortAsc: '↑',
+    sortDesc: '↓',
+    expand: '+',
+    collapse: '−',
+    // Values may also be HTMLElement instances for fully custom markup
+  },
+};
+```
+
+All grid icons (sort indicators, expand/collapse, filter, drag handles, etc.) are rendered via CSS custom properties. The remainder of this section covers the CSS-first approach — override them in your theme.
 
 ### Text / Emoji Icons
 

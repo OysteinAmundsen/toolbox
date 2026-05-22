@@ -1,0 +1,39 @@
+---
+title: Plugin Development
+description: Build plugins that extend @toolbox-web/grid — lifecycle hooks, manifests, communication, feature registration, and bundling.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+`@toolbox-web/grid` is **plugin-driven by design**. The core is intentionally minimal (rendering, virtualization, scheduling); selection, editing, filtering, grouping, drag-and-drop, validation, accessibility shortcuts — almost every grid capability is a plugin under `libs/grid/src/lib/plugins/`. The same APIs are available to you for building your own.
+
+This section covers the plugin system from three angles:
+
+<CardGrid>
+  <LinkCard
+    title="Architecture"
+    description="How the plugin system works internally — lifecycle, hooks, render integration, the feature registry, and tree-shaking."
+    href="/grid/plugin-development/architecture/"
+  />
+  <LinkCard
+    title="Authoring Guide"
+    description="Step-by-step guide to building your first plugin: BaseGridPlugin, manifest, communication, queries, testing, distribution."
+    href="/grid/plugin-development/custom-plugins/"
+  />
+  <LinkCard
+    title="API Reference"
+    description="Typed reference for BaseGridPlugin, GridPlugin, PluginManifest, hooks, and the feature registry."
+    href="/grid/api/plugin-development/"
+  />
+</CardGrid>
+
+## When to write a plugin
+
+Reach for a plugin when you need to:
+
+- React to grid lifecycle events (render, attach, detach, scroll, cell click, keyboard).
+- Add new column-level or grid-level configuration that the grid validates and merges.
+- Communicate with other plugins (e.g. an "audit log" plugin that listens for edits from `EditingPlugin`).
+- Ship a reusable behaviour as its own package — third-party plugins are first-class.
+
+For one-off styling or event handlers, plain CSS and `grid.addEventListener(...)` are usually enough — no plugin needed.

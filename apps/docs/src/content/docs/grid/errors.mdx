@@ -101,7 +101,7 @@ grid.gridConfig = {
 
 <CardGrid>
   <LinkCard title="Plugins Overview" href="/grid/plugins/" />
-  <LinkCard title="Custom Plugins Guide" href="/grid/guides/custom-plugins/" />
+  <LinkCard title="Custom Plugins Guide" href="/grid/plugin-development/custom-plugins/" />
 </CardGrid>
 
 <div id="tbw021" />
@@ -140,7 +140,28 @@ An error was thrown inside a plugin event handler. This doesn't crash the grid �
 
 **Fix:** Check the stack trace to find and fix the error in the plugin's event handler.
 
-<LinkCard title="Custom Plugins Guide" href="/grid/guides/custom-plugins/" />
+<LinkCard title="Custom Plugins Guide" href="/grid/plugin-development/custom-plugins/" />
+
+<div id="tbw025" />
+
+### TBW025 — Plugin Alias Config Conflict
+
+Two plugin instances resolve to the same canonical name (for example, both `RowReorderPlugin` and `RowDragDropPlugin` are passed in `plugins`), and they supply conflicting values for the same configuration key. The grid cannot decide which one wins.
+
+**Fix:** Pass the option on a single instance, or remove the duplicate plugin. If you only need the legacy API surface, keep `RowReorderPlugin`; if you need cross-grid drag, keep `RowDragDropPlugin`.
+
+```ts
+// ❌ Conflict: both instances configure `animation`
+plugins: [
+  new RowReorderPlugin({ animation: 'fade' }),
+  new RowDragDropPlugin({ animation: 'flip' }),
+]
+
+// ✅ Configure on one instance only
+plugins: [
+  new RowDragDropPlugin({ animation: 'flip' }),
+]
+```
 
 ---
 

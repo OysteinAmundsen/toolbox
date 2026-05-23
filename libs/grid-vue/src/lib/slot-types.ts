@@ -99,3 +99,64 @@ export type GridCellContext<TValue = any, TRow = unknown> = CellSlotProps<TRow, 
  * @since 1.5.0
  */
 export type GridEditorContext<TValue = any, TRow = unknown> = EditorSlotProps<TRow, TValue>;
+
+/**
+ * Slot context for `#headerLabel` slot in TbwGridColumn. Lets the consumer
+ * customize the header label content; the grid keeps ownership of sort
+ * icons, filter buttons, and resize handles.
+ *
+ * @example
+ * ```vue
+ * <TbwGridColumn field="price">
+ *   <template #headerLabel="{ value }">
+ *     <span>{{ value }} <small>(USD)</small></span>
+ *   </template>
+ * </TbwGridColumn>
+ * ```
+ * @typeParam TRow - Row data shape. Defaults to `unknown`.
+ * @since 1.9.0
+ */
+export interface HeaderLabelSlotProps<TRow = unknown> {
+  /** Column configuration reference. */
+  column: ColumnConfig<TRow>;
+  /** The header text (from `column.header` or `column.field`). */
+  value: string;
+}
+
+/**
+ * Slot context for `#header` slot in TbwGridColumn. Gives the consumer
+ * full control over the header cell label — sort icons and filter
+ * buttons are NOT added automatically; use the `renderSortIcon` and
+ * `renderFilterButton` helpers to opt in. Resize handles are appended
+ * automatically by the grid for resizable columns.
+ *
+ * @example
+ * ```vue
+ * <TbwGridColumn field="status" sortable>
+ *   <template #header="{ value, sortState, renderSortIcon }">
+ *     <div class="custom-header">
+ *       <span>{{ value }}</span>
+ *       <component :is="renderSortIcon()" v-if="sortState" />
+ *     </div>
+ *   </template>
+ * </TbwGridColumn>
+ * ```
+ * @typeParam TRow - Row data shape. Defaults to `unknown`.
+ * @since 1.9.0
+ */
+export interface HeaderSlotProps<TRow = unknown> {
+  /** Column configuration reference. */
+  column: ColumnConfig<TRow>;
+  /** The header text (from `column.header` or `column.field`). */
+  value: string;
+  /** Current sort state for this column. */
+  sortState: 'asc' | 'desc' | null;
+  /** Whether the column has an active filter. */
+  filterActive: boolean;
+  /** The header cell DOM element being rendered into. */
+  cellEl: HTMLElement;
+  /** Render the standard sort indicator icon. Returns null if not sortable. */
+  renderSortIcon: () => HTMLElement | null;
+  /** Render the standard filter button. Returns null if filtering is not active for this column. */
+  renderFilterButton: () => HTMLElement | null;
+}

@@ -51,7 +51,14 @@ export { default as TbwGridToolPanel } from './lib/TbwGridToolPanel.vue';
 // Context types for slots
 export type { DetailPanelContext } from './lib/detail-panel-registry';
 export type { ResponsiveCardContext } from './lib/responsive-card-registry';
-export type { CellSlotProps, EditorSlotProps, GridCellContext, GridEditorContext } from './lib/slot-types';
+export type {
+  CellSlotProps,
+  EditorSlotProps,
+  GridCellContext,
+  GridEditorContext,
+  HeaderLabelSlotProps,
+  HeaderSlotProps,
+} from './lib/slot-types';
 export type { ToolPanelContext } from './lib/tool-panel-registry';
 
 // Vue grid adapter

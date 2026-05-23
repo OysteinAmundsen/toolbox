@@ -2,7 +2,7 @@
  * Tests for GridAdapter registration and lookup
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { defineComponent, h, type VNode } from 'vue';
+import { defineComponent, h } from 'vue';
 
 // Side-effect imports: install detail / responsive / editing / filtering
 // bridges on the adapter so `parseDetailElement` / `parseResponsiveCardElement`
@@ -19,11 +19,15 @@ import { cardRegistry } from './responsive-card-registry';
 import {
   clearFieldRegistries,
   getColumnEditor,
+  getColumnHeaderLabelRenderer,
+  getColumnHeaderRenderer,
   getColumnRenderer,
   getRegisteredFields,
   GridAdapter,
   isVueComponent,
   registerColumnEditor,
+  registerColumnHeaderLabelRenderer,
+  registerColumnHeaderRenderer,
   registerColumnRenderer,
 } from './vue-grid-adapter';
 
@@ -37,7 +41,7 @@ describe('GridAdapter', () => {
       const element = document.createElement('tbw-grid-column');
       element.setAttribute('field', 'testField');
 
-      const renderer = () => null as unknown as VNode;
+      const renderer = () => h('span');
       registerColumnRenderer(element, renderer);
 
       const retrieved = getColumnRenderer(element);
@@ -48,7 +52,7 @@ describe('GridAdapter', () => {
       const element1 = document.createElement('tbw-grid-column');
       element1.setAttribute('field', 'statusField');
 
-      const renderer = () => null as unknown as VNode;
+      const renderer = () => h('span');
       registerColumnRenderer(element1, renderer);
 
       // Create a new element with same field (simulates Vue re-render)
@@ -64,7 +68,7 @@ describe('GridAdapter', () => {
       const element = document.createElement('tbw-grid-column');
       element.setAttribute('field', 'myField');
 
-      registerColumnRenderer(element, () => null as unknown as VNode);
+      registerColumnRenderer(element, () => h('span'));
 
       const fields = getRegisteredFields();
       expect(fields).toContain('myField');
@@ -74,7 +78,7 @@ describe('GridAdapter', () => {
       const element = document.createElement('tbw-grid-column');
       element.setAttribute('field', 'editorTestField');
 
-      const editor = () => null as unknown as VNode;
+      const editor = () => h('span');
       registerColumnEditor(element, editor);
 
       const retrieved = getColumnEditor(element);
@@ -85,7 +89,7 @@ describe('GridAdapter', () => {
       const element1 = document.createElement('tbw-grid-column');
       element1.setAttribute('field', 'editorFieldLookup');
 
-      const editor = () => null as unknown as VNode;
+      const editor = () => h('span');
       registerColumnEditor(element1, editor);
 
       // Create a new element with same field (simulates Vue re-render)
@@ -102,6 +106,54 @@ describe('GridAdapter', () => {
 
       expect(getColumnRenderer(element)).toBeUndefined();
       expect(getColumnEditor(element)).toBeUndefined();
+      expect(getColumnHeaderRenderer(element)).toBeUndefined();
+      expect(getColumnHeaderLabelRenderer(element)).toBeUndefined();
+    });
+
+    it('should register header renderer and lookup by element', () => {
+      const element = document.createElement('tbw-grid-column');
+      element.setAttribute('field', 'headerTestField');
+
+      const renderer = () => h('span');
+      registerColumnHeaderRenderer(element, renderer);
+
+      expect(getColumnHeaderRenderer(element)).toBe(renderer);
+    });
+
+    it('should register header renderer and lookup by field for different element', () => {
+      const element1 = document.createElement('tbw-grid-column');
+      element1.setAttribute('field', 'headerFieldLookup');
+
+      const renderer = () => h('span');
+      registerColumnHeaderRenderer(element1, renderer);
+
+      const element2 = document.createElement('tbw-grid-column');
+      element2.setAttribute('field', 'headerFieldLookup');
+
+      expect(getColumnHeaderRenderer(element2)).toBe(renderer);
+    });
+
+    it('should register header label renderer and lookup by element', () => {
+      const element = document.createElement('tbw-grid-column');
+      element.setAttribute('field', 'headerLabelTestField');
+
+      const renderer = () => h('span');
+      registerColumnHeaderLabelRenderer(element, renderer);
+
+      expect(getColumnHeaderLabelRenderer(element)).toBe(renderer);
+    });
+
+    it('should register header label renderer and lookup by field for different element', () => {
+      const element1 = document.createElement('tbw-grid-column');
+      element1.setAttribute('field', 'headerLabelFieldLookup');
+
+      const renderer = () => h('span');
+      registerColumnHeaderLabelRenderer(element1, renderer);
+
+      const element2 = document.createElement('tbw-grid-column');
+      element2.setAttribute('field', 'headerLabelFieldLookup');
+
+      expect(getColumnHeaderLabelRenderer(element2)).toBe(renderer);
     });
   });
 
@@ -137,7 +189,7 @@ describe('GridAdapter', () => {
         const element = document.createElement('tbw-grid-column');
         element.setAttribute('field', 'registeredField');
 
-        registerColumnRenderer(element, () => null as unknown as VNode);
+        registerColumnRenderer(element, () => h('span'));
 
         expect(adapter.canHandle(element)).toBe(true);
       });
@@ -165,6 +217,85 @@ describe('GridAdapter', () => {
       });
     });
 
+    describe('canHandle (header registries)', () => {
+      it('should return true if only headerRenderer registered', () => {
+        const adapter = new GridAdapter();
+        const element = document.createElement('tbw-grid-column');
+        element.setAttribute('field', 'headerOnlyField');
+
+        registerColumnHeaderRenderer(element, () => h('span'));
+
+        expect(adapter.canHandle(element)).toBe(true);
+      });
+
+      it('should return true if only headerLabelRenderer registered', () => {
+        const adapter = new GridAdapter();
+        const element = document.createElement('tbw-grid-column');
+        element.setAttribute('field', 'headerLabelOnlyField');
+
+        registerColumnHeaderLabelRenderer(element, () => h('span'));
+
+        expect(adapter.canHandle(element)).toBe(true);
+      });
+    });
+
+    describe('createHeaderRenderer', () => {
+      it('should return undefined if no header renderer registered', () => {
+        const adapter = new GridAdapter();
+        const element = document.createElement('tbw-grid-column');
+        element.setAttribute('field', 'noHeader');
+
+        expect(adapter.createHeaderRenderer(element)).toBeUndefined();
+      });
+
+      it('should return a function that renders DOM when a slot is registered', () => {
+        const adapter = new GridAdapter();
+        const element = document.createElement('tbw-grid-column');
+        element.setAttribute('field', 'withHeader');
+
+        registerColumnHeaderRenderer(element, () => h('span', 'header'));
+
+        const fn = adapter.createHeaderRenderer(element);
+        expect(fn).toBeDefined();
+        const result = fn!({
+          column: { field: 'withHeader' } as never,
+          value: 'Header',
+          sortState: null,
+          filterActive: false,
+          cellEl: document.createElement('div'),
+          renderSortIcon: () => null,
+          renderFilterButton: () => null,
+        });
+        expect(result).toBeInstanceOf(HTMLElement);
+      });
+    });
+
+    describe('createHeaderLabelRenderer', () => {
+      it('should return undefined if no header label renderer registered', () => {
+        const adapter = new GridAdapter();
+        const element = document.createElement('tbw-grid-column');
+        element.setAttribute('field', 'noHeaderLabel');
+
+        expect(adapter.createHeaderLabelRenderer(element)).toBeUndefined();
+      });
+
+      it('should return a function that renders DOM when a slot is registered', () => {
+        const adapter = new GridAdapter();
+        const element = document.createElement('tbw-grid-column');
+        element.setAttribute('field', 'withHeaderLabel');
+
+        registerColumnHeaderLabelRenderer(element, () => h('span', 'label'));
+
+        const fn = adapter.createHeaderLabelRenderer(element);
+        expect(fn).toBeDefined();
+        const result = fn!({
+          column: { field: 'withHeaderLabel' } as never,
+          value: 'Label',
+        });
+        expect(result).toBeInstanceOf(HTMLElement);
+      });
+    });
+
     describe('type defaults', () => {
       it('should have setTypeDefaults method', () => {
         expect(GridAdapter.prototype.setTypeDefaults).toBeDefined();
@@ -182,14 +313,14 @@ describe('GridAdapter', () => {
       it('should return undefined for unregistered type', () => {
         const adapter = new GridAdapter();
         adapter.setTypeDefaults({
-          country: { renderer: () => null as unknown as VNode },
+          country: { renderer: () => h('span') },
         });
         expect(adapter.getTypeDefault('unknown')).toBeUndefined();
       });
 
       it('should return type default with renderer', () => {
         const adapter = new GridAdapter();
-        const renderer = () => null as unknown as VNode;
+        const renderer = () => h('span');
         adapter.setTypeDefaults({
           country: { renderer },
         });
@@ -201,7 +332,7 @@ describe('GridAdapter', () => {
 
       it('should return type default with editor', () => {
         const adapter = new GridAdapter();
-        const editor = () => null as unknown as VNode;
+        const editor = () => h('span');
         adapter.setTypeDefaults({
           status: { editor },
         });
@@ -226,7 +357,7 @@ describe('GridAdapter', () => {
       it('should clear type defaults when set to null', () => {
         const adapter = new GridAdapter();
         adapter.setTypeDefaults({
-          country: { renderer: () => null as unknown as VNode },
+          country: { renderer: () => h('span') },
         });
         expect(adapter.getTypeDefault('country')).toBeDefined();
 

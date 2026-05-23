@@ -13,7 +13,7 @@
 // Context types for slots
 export type { DetailPanelContext } from './lib/detail-panel-registry';
 export type { ResponsiveCardContext } from './lib/responsive-card-registry';
-export type { CellSlotProps, EditorSlotProps } from './lib/slot-types';
+export type { CellSlotProps, EditorSlotProps, HeaderLabelSlotProps, HeaderSlotProps } from './lib/slot-types';
 export type { ToolPanelContext } from './lib/tool-panel-registry';
 
 // Vue grid adapter

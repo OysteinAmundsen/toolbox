@@ -105,6 +105,8 @@ export function registerFilterPanelTypeDefaultBridge(bridge: FilterPanelTypeDefa
 interface ColumnRegistry {
   renderer?: (ctx: CellRenderContext<unknown, unknown>) => VNode;
   editor?: (ctx: ColumnEditorContext<unknown, unknown>) => VNode;
+  headerRenderer?: (ctx: HeaderCellContext<unknown>) => VNode;
+  headerLabelRenderer?: (ctx: HeaderLabelContext<unknown>) => VNode;
 }
 
 const columnRegistries = new WeakMap<HTMLElement, ColumnRegistry>();
@@ -193,6 +195,80 @@ export function getColumnEditor(
   }
 
   return editor;
+}
+
+/**
+ * Register a Vue header-cell renderer for a column element.
+ * Called by TbwGridColumn when it has a `#header` slot.
+ */
+export function registerColumnHeaderRenderer(
+  element: HTMLElement,
+  renderer: (ctx: HeaderCellContext<unknown>) => VNode,
+): void {
+  const field = element.getAttribute('field');
+  const registry = columnRegistries.get(element) ?? {};
+  registry.headerRenderer = renderer;
+  columnRegistries.set(element, registry);
+
+  if (field) {
+    const fieldRegistry = fieldRegistries.get(field) ?? {};
+    fieldRegistry.headerRenderer = renderer;
+    fieldRegistries.set(field, fieldRegistry);
+  }
+}
+
+/**
+ * Register a Vue header-label renderer for a column element.
+ * Called by TbwGridColumn when it has a `#headerLabel` slot.
+ */
+export function registerColumnHeaderLabelRenderer(
+  element: HTMLElement,
+  renderer: (ctx: HeaderLabelContext<unknown>) => VNode,
+): void {
+  const field = element.getAttribute('field');
+  const registry = columnRegistries.get(element) ?? {};
+  registry.headerLabelRenderer = renderer;
+  columnRegistries.set(element, registry);
+
+  if (field) {
+    const fieldRegistry = fieldRegistries.get(field) ?? {};
+    fieldRegistry.headerLabelRenderer = renderer;
+    fieldRegistries.set(field, fieldRegistry);
+  }
+}
+
+/**
+ * Get the header renderer registered for a column element.
+ * Falls back to field-based lookup if WeakMap lookup fails.
+ */
+export function getColumnHeaderRenderer(
+  element: HTMLElement,
+): ((ctx: HeaderCellContext<unknown>) => VNode) | undefined {
+  let renderer = columnRegistries.get(element)?.headerRenderer;
+  if (!renderer) {
+    const field = element.getAttribute('field');
+    if (field) {
+      renderer = fieldRegistries.get(field)?.headerRenderer;
+    }
+  }
+  return renderer;
+}
+
+/**
+ * Get the header label renderer registered for a column element.
+ * Falls back to field-based lookup if WeakMap lookup fails.
+ */
+export function getColumnHeaderLabelRenderer(
+  element: HTMLElement,
+): ((ctx: HeaderLabelContext<unknown>) => VNode) | undefined {
+  let renderer = columnRegistries.get(element)?.headerLabelRenderer;
+  if (!renderer) {
+    const field = element.getAttribute('field');
+    if (field) {
+      renderer = fieldRegistries.get(field)?.headerLabelRenderer;
+    }
+  }
+  return renderer;
 }
 
 /**
@@ -944,7 +1020,9 @@ export class GridAdapter implements FrameworkAdapter {
 
     const hasRenderer = registry?.renderer !== undefined;
     const hasEditor = registry?.editor !== undefined;
-    return registry !== undefined && (hasRenderer || hasEditor);
+    const hasHeaderRenderer = registry?.headerRenderer !== undefined;
+    const hasHeaderLabelRenderer = registry?.headerLabelRenderer !== undefined;
+    return registry !== undefined && (hasRenderer || hasEditor || hasHeaderRenderer || hasHeaderLabelRenderer);
   }
 
   /**
@@ -1040,6 +1118,36 @@ export class GridAdapter implements FrameworkAdapter {
 
       return container;
     };
+  }
+
+  /**
+   * Creates a DOM-returning header renderer for a `<tbw-grid-column>`
+   * element that has registered a slot-based renderer via `#header`.
+   * Returns undefined when no slot was registered, letting the grid
+   * fall back to its built-in header.
+   *
+   * Reuses the same teleport/VNode infrastructure as the config-path
+   * `headerRenderer` wrapper.
+   */
+  createHeaderRenderer<TRow = unknown>(
+    element: HTMLElement,
+  ): ((ctx: HeaderCellContext<TRow>) => HTMLElement) | undefined {
+    const renderFn = getColumnHeaderRenderer(element);
+    if (!renderFn) return undefined;
+    return this.createConfigVNodeHeaderRenderer(renderFn as (ctx: HeaderCellContext<TRow>) => VNode);
+  }
+
+  /**
+   * Creates a DOM-returning header *label* renderer for a `<tbw-grid-column>`
+   * element that has registered a slot-based renderer via `#headerLabel`.
+   * Returns undefined when no slot was registered.
+   */
+  createHeaderLabelRenderer<TRow = unknown>(
+    element: HTMLElement,
+  ): ((ctx: HeaderLabelContext<TRow>) => HTMLElement) | undefined {
+    const renderFn = getColumnHeaderLabelRenderer(element);
+    if (!renderFn) return undefined;
+    return this.createConfigVNodeHeaderLabelRenderer(renderFn as (ctx: HeaderLabelContext<TRow>) => VNode);
   }
 
   /**

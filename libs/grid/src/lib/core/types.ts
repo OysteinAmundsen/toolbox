@@ -1629,6 +1629,39 @@ export interface FrameworkAdapter {
   createEditor<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnEditorSpec<TRow, TValue> | undefined;
 
   /**
+   * Creates a header cell renderer from a light DOM element (e.g. a slot or
+   * template on a `<tbw-grid-column>`). Receives `HeaderCellContext` and
+   * returns DOM / string for the entire header cell — the user is then
+   * responsible for sort icons, filter buttons, and resize handles
+   * (use `ctx.renderSortIcon()` / `ctx.renderFilterButton()` helpers).
+   *
+   * Returns undefined when the adapter has no header renderer registered
+   * for this element, letting the grid fall back to its built-in header.
+   *
+   * Mirrors `headerRenderer` from `BaseColumnConfig`. Optional on the
+   * adapter — adapters that don't expose a slot/template surface for
+   * full-header customization can omit it; callers must null-check.
+   *
+   * @since 2.15.0
+   */
+  createHeaderRenderer?<TRow = unknown>(element: HTMLElement): HeaderRenderer<TRow> | undefined;
+
+  /**
+   * Creates a header *label* renderer from a light DOM element. The grid
+   * keeps ownership of the sort icon, filter button, and resize handle;
+   * the returned function only customizes the label content.
+   *
+   * Returns undefined when the adapter has no header label renderer
+   * registered for this element.
+   *
+   * Mirrors `headerLabelRenderer` from `BaseColumnConfig`. Optional on
+   * the adapter — see `createHeaderRenderer` for rationale.
+   *
+   * @since 2.15.0
+   */
+  createHeaderLabelRenderer?<TRow = unknown>(element: HTMLElement): HeaderLabelRenderer<TRow> | undefined;
+
+  /**
    * Creates a tool panel renderer from a light DOM element.
    * The renderer receives a container element and optionally returns a cleanup function.
    */

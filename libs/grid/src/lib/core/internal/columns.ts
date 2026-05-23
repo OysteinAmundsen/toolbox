@@ -9,6 +9,8 @@ interface DataGridElementClass {
     canHandle: (el: HTMLElement) => boolean;
     createRenderer: (el: HTMLElement) => ((ctx: unknown) => Node | string | void) | undefined;
     createEditor: (el: HTMLElement) => ((ctx: unknown) => HTMLElement | string) | undefined;
+    createHeaderRenderer?: (el: HTMLElement) => ((ctx: unknown) => Node | string | void | null) | undefined;
+    createHeaderLabelRenderer?: (el: HTMLElement) => ((ctx: unknown) => Node | string | void | null) | undefined;
   }[];
 }
 
@@ -113,6 +115,26 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
         }
       }
 
+      // Header (full cell) + header label renderers. Both hooks are
+      // optional on the adapter — only Vue's slot-based <TbwGridColumn>
+      // currently registers them today, but the API is symmetric so any
+      // adapter exposing a template/slot surface for header customization
+      // can opt in. Pulls from the column element itself; no inner
+      // template wrapper is involved (slot/template lives in the SFC).
+      const headerAdapter = adapters.find(
+        (a) => a.canHandle(el) && (a.createHeaderRenderer || a.createHeaderLabelRenderer),
+      );
+      if (headerAdapter) {
+        const headerRenderer = headerAdapter.createHeaderRenderer?.(el);
+        if (headerRenderer) {
+          config.headerRenderer = headerRenderer as ColumnInternal['headerRenderer'];
+        }
+        const headerLabelRenderer = headerAdapter.createHeaderLabelRenderer?.(el);
+        if (headerLabelRenderer) {
+          config.headerLabelRenderer = headerLabelRenderer as ColumnInternal['headerLabelRenderer'];
+        }
+      }
+
       return config;
     })
     .filter((c): c is ColumnInternal => !!c);
@@ -162,6 +184,8 @@ export function mergeColumns(
         if (c.renderer) existing.renderer = cRenderer;
       }
       if (c.editor && !existing.editor) existing.editor = c.editor;
+      if (c.headerRenderer && !existing.headerRenderer) existing.headerRenderer = c.headerRenderer;
+      if (c.headerLabelRenderer && !existing.headerLabelRenderer) existing.headerLabelRenderer = c.headerLabelRenderer;
     } else {
       domMap[c.field] = { ...c };
     }
@@ -190,6 +214,8 @@ export function mergeColumns(
       if (d.renderer) m.renderer = dRenderer;
     }
     if (d.editor && !m.editor) m.editor = d.editor;
+    if (d.headerRenderer && !m.headerRenderer) m.headerRenderer = d.headerRenderer;
+    if (d.headerLabelRenderer && !m.headerLabelRenderer) m.headerLabelRenderer = d.headerLabelRenderer;
     delete domMap[c.field];
     return m;
   });

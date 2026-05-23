@@ -1,8 +1,13 @@
 <script setup lang="ts" generic="TRow = unknown, TValue = any">
-import type { CellRenderContext, ColumnEditorContext } from '@toolbox-web/grid';
+import type { CellRenderContext, ColumnEditorContext, HeaderCellContext, HeaderLabelContext } from '@toolbox-web/grid';
 import { h, onMounted, ref, type VNode } from 'vue';
-import type { CellSlotProps, EditorSlotProps } from './slot-types';
-import { registerColumnEditor, registerColumnRenderer } from './vue-grid-adapter';
+import type { CellSlotProps, EditorSlotProps, HeaderLabelSlotProps, HeaderSlotProps } from './slot-types';
+import {
+  registerColumnEditor,
+  registerColumnHeaderLabelRenderer,
+  registerColumnHeaderRenderer,
+  registerColumnRenderer,
+} from './vue-grid-adapter';
 
 /**
  * Props for TbwGridColumn.
@@ -44,6 +49,18 @@ const slots = defineSlots<{
   cell?: (props: CellSlotProps<TRow, TValue>) => VNode[];
   /** Custom cell editor slot */
   editor?: (props: EditorSlotProps<TRow, TValue>) => VNode[];
+  /**
+   * Full header cell renderer slot. Consumer owns sort icons, filter
+   * buttons, and resize handles — use the `renderSortIcon` /
+   * `renderFilterButton` helpers on the slot props to opt in.
+   */
+  header?: (props: HeaderSlotProps<TRow>) => VNode[];
+  /**
+   * Header label renderer slot. Grid keeps ownership of sort icons,
+   * filter buttons, and resize handles; the slot content only replaces
+   * the label text.
+   */
+  headerLabel?: (props: HeaderLabelSlotProps<TRow>) => VNode[];
 }>();
 
 // Template ref for the column element
@@ -90,6 +107,37 @@ onMounted(() => {
         updateRow: ctx.updateRow,
         onValueChange: ctx.onValueChange,
       } as EditorSlotProps<TRow, TValue>);
+      return h('div', { style: 'display: contents' }, slotContent);
+    });
+  }
+
+  // Register header renderer if #header slot is provided
+  if (slots.header) {
+    registerColumnHeaderRenderer(element, (ctx: HeaderCellContext<unknown>) => {
+      const slotFn = slots.header;
+      if (!slotFn) return h('span');
+      const slotContent = slotFn({
+        column: ctx.column,
+        value: ctx.value,
+        sortState: ctx.sortState,
+        filterActive: ctx.filterActive,
+        cellEl: ctx.cellEl,
+        renderSortIcon: ctx.renderSortIcon,
+        renderFilterButton: ctx.renderFilterButton,
+      } as HeaderSlotProps<TRow>);
+      return h('div', { style: 'display: contents' }, slotContent);
+    });
+  }
+
+  // Register header label renderer if #headerLabel slot is provided
+  if (slots.headerLabel) {
+    registerColumnHeaderLabelRenderer(element, (ctx: HeaderLabelContext<unknown>) => {
+      const slotFn = slots.headerLabel;
+      if (!slotFn) return h('span');
+      const slotContent = slotFn({
+        column: ctx.column,
+        value: ctx.value,
+      } as HeaderLabelSlotProps<TRow>);
       return h('div', { style: 'display: contents' }, slotContent);
     });
   }

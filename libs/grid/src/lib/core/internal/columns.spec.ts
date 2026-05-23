@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { FitModeEnum } from '../types';
 import { autoSizeColumns, mergeColumns, parseLightDomColumns, updateTemplate } from './columns';
 import { renderHeader } from './header';
@@ -94,6 +94,82 @@ describe('parseLightDomColumns', () => {
     expect(col.editable).toBe(false);
     expect(col.resizable).toBeFalsy();
   });
+
+  describe('framework adapter header hooks', () => {
+    const original = (globalThis as any).DataGridElement;
+
+    afterEach(() => {
+      if (original === undefined) {
+        delete (globalThis as any).DataGridElement;
+      } else {
+        (globalThis as any).DataGridElement = original;
+      }
+    });
+
+    it('calls createHeaderRenderer / createHeaderLabelRenderer on the column element when adapter exposes them', () => {
+      const calls: { kind: 'header' | 'headerLabel'; el: HTMLElement }[] = [];
+      const headerFn = () => document.createElement('div');
+      const headerLabelFn = () => document.createElement('span');
+
+      const adapter = {
+        canHandle: () => true,
+        createRenderer: () => undefined,
+        createEditor: () => undefined,
+        createHeaderRenderer: (el: HTMLElement) => {
+          calls.push({ kind: 'header', el });
+          return headerFn;
+        },
+        createHeaderLabelRenderer: (el: HTMLElement) => {
+          calls.push({ kind: 'headerLabel', el });
+          return headerLabelFn;
+        },
+      };
+      (globalThis as any).DataGridElement = { getAdapters: () => [adapter] };
+
+      const host = document.createElement('div');
+      host.innerHTML = `<tbw-grid-column field="x"></tbw-grid-column>`;
+      const [col] = parseLightDomColumns(host as any);
+
+      expect(col.headerRenderer).toBe(headerFn);
+      expect(col.headerLabelRenderer).toBe(headerLabelFn);
+      expect(calls.map((c) => c.kind)).toEqual(['header', 'headerLabel']);
+      expect(calls[0].el.tagName.toLowerCase()).toBe('tbw-grid-column');
+    });
+
+    it('does not assign header(Label)Renderer when adapter returns undefined', () => {
+      const adapter = {
+        canHandle: () => true,
+        createRenderer: () => undefined,
+        createEditor: () => undefined,
+        createHeaderRenderer: () => undefined,
+        createHeaderLabelRenderer: () => undefined,
+      };
+      (globalThis as any).DataGridElement = { getAdapters: () => [adapter] };
+
+      const host = document.createElement('div');
+      host.innerHTML = `<tbw-grid-column field="x"></tbw-grid-column>`;
+      const [col] = parseLightDomColumns(host as any);
+
+      expect(col.headerRenderer).toBeUndefined();
+      expect(col.headerLabelRenderer).toBeUndefined();
+    });
+
+    it('skips header hooks entirely when adapter omits them (back-compat)', () => {
+      const adapter = {
+        canHandle: () => true,
+        createRenderer: () => undefined,
+        createEditor: () => undefined,
+      };
+      (globalThis as any).DataGridElement = { getAdapters: () => [adapter] };
+
+      const host = document.createElement('div');
+      host.innerHTML = `<tbw-grid-column field="x"></tbw-grid-column>`;
+      const [col] = parseLightDomColumns(host as any);
+
+      expect(col.headerRenderer).toBeUndefined();
+      expect(col.headerLabelRenderer).toBeUndefined();
+    });
+  });
 });
 
 describe('mergeColumns', () => {
@@ -143,6 +219,23 @@ describe('mergeColumns', () => {
     expect(a).toMatchObject({ field: 'a', width: 120, minWidth: 80 });
     // Programmatic width should be preserved, but minWidth from DOM should be applied
     expect(b).toMatchObject({ field: 'b', width: 200, minWidth: 50 });
+  });
+
+  it('propagates headerRenderer / headerLabelRenderer from DOM when programmatic is missing', () => {
+    const headerFn = () => document.createElement('div');
+    const headerLabelFn = () => document.createElement('span');
+    const programmatic: any = [{ field: 'a' }, { field: 'b', headerRenderer: () => document.createElement('em') }];
+    const dom: any = [
+      { field: 'a', headerRenderer: headerFn, headerLabelRenderer: headerLabelFn },
+      { field: 'b', headerRenderer: headerFn },
+    ];
+    const merged = mergeColumns(programmatic, dom);
+    const a = merged.find((c: any) => c.field === 'a');
+    const b = merged.find((c: any) => c.field === 'b');
+    expect(a.headerRenderer).toBe(headerFn);
+    expect(a.headerLabelRenderer).toBe(headerLabelFn);
+    // Programmatic headerRenderer takes precedence over DOM
+    expect(b.headerRenderer).not.toBe(headerFn);
   });
 });
 

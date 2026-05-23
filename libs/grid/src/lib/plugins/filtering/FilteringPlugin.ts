@@ -204,16 +204,25 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     let map: Map<string, (value: unknown, row: Record<string, unknown>) => unknown | unknown[]> | undefined;
     for (const col of columns) {
       if (!col.field) continue;
-      if (col.filterValue) {
+      const extractor = this.getFilterExtractor(col);
+      if (extractor) {
         if (!map) map = new Map();
-        map.set(col.field, col.filterValue);
-      } else if (col.valueAccessor) {
-        if (!map) map = new Map();
-        const column = col;
-        map.set(col.field, (_value, row) => resolveCellValue(row as Record<string, unknown>, column));
+        map.set(col.field, extractor);
       }
     }
     return map;
+  }
+
+  /**
+   * Resolve a per-column filter-value extractor with documented precedence:
+   * `filterValue` → `valueAccessor` → undefined (callers fall back to `row[field]`).
+   */
+  private getFilterExtractor(
+    col: ColumnConfig,
+  ): ((value: unknown, row: Record<string, unknown>) => unknown | unknown[]) | undefined {
+    if (col.filterValue) return col.filterValue;
+    if (col.valueAccessor) return (_v, row) => resolveCellValue(row, col);
+    return undefined;
   }
 
   // #endregion
@@ -222,8 +231,12 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   private filters: Map<string, FilterModel> = new Map();
   private cachedResult: unknown[] | null = null;
   private cacheKey: string | null = null;
-  /** Spot-check of input rows for cache invalidation when upstream plugins (e.g. sort) change row order */
-  private cachedInputSpot: { len: number; first: unknown; mid: unknown; last: unknown } | null = null;
+  /**
+   * Reference to the input rows used to compute {@link cachedResult}.
+   * Upstream plugins (e.g. sort) produce a new array on every change, so
+   * reference inequality is a sufficient invalidation signal.
+   */
+  private cachedInputRows: readonly unknown[] | null = null;
   private openPanelField: string | null = null;
   private panelElement: HTMLElement | null = null;
   private panelAnchorElement: HTMLElement | null = null; // For CSS anchor positioning cleanup
@@ -287,10 +300,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       }
       if (filter.operator === 'notIn') {
         const col = this.getColumnByField(field);
-        const extractor =
-          col?.filterValue ??
-          (col?.valueAccessor ? (_v: unknown, row: Record<string, unknown>) => resolveCellValue(row, col) : undefined);
-        notInFields.push({ field, filterValue: extractor });
+        notInFields.push({ field, filterValue: col ? this.getFilterExtractor(col) : undefined });
       }
     }
 
@@ -313,6 +323,36 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
    * For `in` filters, the complement is computed (allUnique - inValues)
    * so that the filter panel UI can render checked/unchecked states correctly.
    */
+  /**
+   * Drop the memoized filtered result. Called whenever filter state or input
+   * data changes, so the next {@link processRows} call recomputes.
+   */
+  private invalidateCache(): void {
+    this.cachedResult = null;
+    this.cacheKey = null;
+    this.cachedInputRows = null;
+  }
+
+  /**
+   * Emit `filter-change` to consumers and plugins, then optionally request a
+   * column-state save. `silent` skips the public DOM event but still notifies
+   * plugins via the internal plugin-event bus so they stay in sync.
+   */
+  private notifyFilterChange(filters: FilterModel[], filteredRowCount: number, silent: boolean | undefined): void {
+    if (silent) {
+      this.emitPluginEvent('filter-change', { filters });
+      return;
+    }
+    this.broadcast<FilterChangeDetail>('filter-change', {
+      filters,
+      filteredRowCount,
+      selected: this.computeSelected(),
+    });
+    if (this.config.trackColumnState) {
+      this.grid.requestStateChange?.();
+    }
+  }
+
   private syncExcludedValues(field: string, filter: FilterModel | null): void {
     if (!filter) {
       this.excludedValues.delete(field);
@@ -351,9 +391,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   /** @internal */
   override detach(): void {
     this.filters.clear();
-    this.cachedResult = null;
-    this.cacheKey = null;
-    this.cachedInputSpot = null;
+    this.invalidateCache();
     this.columnLookup = null;
     this.columnLookupRef = null;
     this.openPanelField = null;
@@ -443,20 +481,11 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       return rows as unknown[];
     }
 
-    // Check cache — also verify input rows haven't changed (e.g. due to sort)
+    // Check cache — also verify input rows haven't changed (e.g. due to sort).
+    // Upstream plugins return a new array on every change, so reference
+    // equality is a sufficient invalidation signal.
     const newCacheKey = computeFilterCacheKey(filterList);
-    const inputSpot = {
-      len: rows.length,
-      first: rows[0],
-      mid: rows[Math.floor(rows.length / 2)],
-      last: rows[rows.length - 1],
-    };
-    const inputUnchanged =
-      this.cachedInputSpot != null &&
-      inputSpot.len === this.cachedInputSpot.len &&
-      inputSpot.first === this.cachedInputSpot.first &&
-      inputSpot.mid === this.cachedInputSpot.mid &&
-      inputSpot.last === this.cachedInputSpot.last;
+    const inputUnchanged = rows === this.cachedInputRows;
 
     if (this.cacheKey === newCacheKey && this.cachedResult && inputUnchanged) {
       return this.cachedResult;
@@ -483,7 +512,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     // Update cache
     this.cachedResult = result;
     this.cacheKey = newCacheKey;
-    this.cachedInputSpot = inputSpot;
+    this.cachedInputRows = rows;
 
     return result;
   }
@@ -579,20 +608,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       this.filters.set(field, fullFilter);
       this.syncExcludedValues(field, fullFilter);
     }
-    // Invalidate cache
-    this.cachedResult = null;
-    this.cacheKey = null;
-    this.cachedInputSpot = null;
-
+    this.invalidateCache();
+    // filteredRowCount = 0 here; processRows will produce the accurate count.
+    this.notifyFilterChange([...this.filters.values()], 0, options?.silent);
     if (!options?.silent) {
-      this.broadcast<FilterChangeDetail>('filter-change', {
-        filters: [...this.filters.values()],
-        filteredRowCount: 0, // Will be accurate after processRows
-        selected: this.computeSelected(),
-      });
-      if (this.config.trackColumnState) {
-        this.grid.requestStateChange?.();
-      }
       const header = this.getColumnByField(field)?.header ?? field;
       announce(
         this.gridElement!,
@@ -600,9 +619,6 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
           ? getA11yMessage(this.gridElement!, 'filterCleared', header)
           : getA11yMessage(this.gridElement!, 'filterApplied', header),
       );
-    } else {
-      // Silent: notify plugins only (no DOM event), using same event name for unified subscriptions
-      this.emitPluginEvent('filter-change', { filters: [...this.filters.values()] });
     }
     this.requestRender();
   }
@@ -639,23 +655,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       this.filters.set(filter.field, filter);
       this.syncExcludedValues(filter.field, filter);
     }
-    this.cachedResult = null;
-    this.cacheKey = null;
-    this.cachedInputSpot = null;
-
-    if (!options?.silent) {
-      this.broadcast<FilterChangeDetail>('filter-change', {
-        filters: [...this.filters.values()],
-        filteredRowCount: 0,
-        selected: this.computeSelected(),
-      });
-      if (this.config.trackColumnState) {
-        this.grid.requestStateChange?.();
-      }
-    } else {
-      // Silent: notify plugins only (no DOM event)
-      this.emitPluginEvent('filter-change', { filters: [...this.filters.values()] });
-    }
+    this.invalidateCache();
+    this.notifyFilterChange([...this.filters.values()], 0, options?.silent);
     this.requestRender();
   }
 
@@ -909,10 +910,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
     // Sync path: get unique values from locally available rows (raw input or
     // plugin-managed processed rows when a plugin owns the data, e.g. ServerSide).
-    const filterExtractor =
-      column.filterValue ??
-      (column.valueAccessor ? (_v: unknown, row: Record<string, unknown>) => resolveCellValue(row, column) : undefined);
-    const uniqueValues = getUniqueValues(this.getDataRows(), field, filterExtractor);
+    const uniqueValues = getUniqueValues(this.getDataRows(), field, this.getFilterExtractor(column));
 
     // Position and append to body BEFORE rendering content
     // so getListItemHeight() can read CSS variables from computed styles
@@ -1229,9 +1227,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
    * @param silent - When true, suppress the `filter-change` consumer event
    */
   private applyFiltersInternal(silent?: boolean): void {
-    this.cachedResult = null;
-    this.cacheKey = null;
-    this.cachedInputSpot = null;
+    this.invalidateCache();
 
     const filterList = [...this.filters.values()];
 
@@ -1249,19 +1245,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
         // Update grid rows directly for async filtering
         this.grid.rows = rows;
 
-        if (!silent) {
-          this.broadcast<FilterChangeDetail>('filter-change', {
-            filters: filterList,
-            filteredRowCount: rows.length,
-            selected: this.computeSelected(),
-          });
-          if (this.config.trackColumnState) {
-            this.grid.requestStateChange?.();
-          }
-        } else {
-          // Silent: notify plugins only (no DOM event)
-          this.emitPluginEvent('filter-change', { filters: filterList });
-        }
+        this.notifyFilterChange(filterList, rows.length, silent);
 
         // Trigger afterRender to update filter button active state
         this.requestRender();
@@ -1276,19 +1260,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     }
 
     // Sync path: emit event and re-render (processRows will handle filtering)
-    if (!silent) {
-      this.broadcast<FilterChangeDetail>('filter-change', {
-        filters: filterList,
-        filteredRowCount: 0,
-        selected: this.computeSelected(),
-      });
-      if (this.config.trackColumnState) {
-        this.grid.requestStateChange?.();
-      }
-    } else {
-      // Silent: notify plugins only (no DOM event)
-      this.emitPluginEvent('filter-change', { filters: filterList });
-    }
+    this.notifyFilterChange(filterList, 0, silent);
     this.requestRender();
   }
   // #endregion
@@ -1341,9 +1313,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
     this.filters.set(field, filterModel);
     // Invalidate cache so filter is reapplied
-    this.cachedResult = null;
-    this.cacheKey = null;
-    this.cachedInputSpot = null;
+    this.invalidateCache();
   }
   // #endregion
 }

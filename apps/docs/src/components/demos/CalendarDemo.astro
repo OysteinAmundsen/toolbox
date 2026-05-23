@@ -6,18 +6,49 @@
 // Vue) live in their own demo apps and showcase framework-idiomatic
 // implementations; this docs page uses the vanilla one because the
 // docs site is itself a vanilla Astro page.
+import FullscreenButton from '@components/FullscreenButton.astro';
 ---
 
-<div class="grid-demo not-content" id="calendar-demo-container">
+<div class="grid-demo not-content calendar-demo-wrapper" id="calendar-demo-container">
+  <div class="demo-toolbar">
+    <FullscreenButton target="#calendar-demo-container" label="Open calendar in fullscreen" />
+  </div>
   <div id="calendar-demo-host" class="calendar-demo" style="height: 600px;"></div>
 </div>
+
+<style>
+  .calendar-demo-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .calendar-demo-wrapper > .demo-toolbar {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  /* Fullscreen mode: let the calendar fill the viewport. The grid's
+     ResizeObserver on .rows-viewport keeps week rows perfectly fitted. */
+  .calendar-demo-wrapper.is-fullscreen {
+    padding: 2rem;
+  }
+
+  .calendar-demo-wrapper.is-fullscreen > #calendar-demo-host {
+    flex: 1;
+    height: auto !important;
+    min-height: 0;
+  }
+</style>
 
 <script>
   import '@demo/shared/calendar/demo-styles.css';
 import { createCalendarGrid, type CalendarGridHandle } from '@demo/vanilla/calendar';
 
+  const wrapper = document.getElementById('calendar-demo-container');
   const host = document.getElementById('calendar-demo-host');
-  if (host) {
+  if (wrapper && host) {
     let handle: CalendarGridHandle | null = null;
 
     function mount() {
@@ -36,16 +67,28 @@ import { createCalendarGrid, type CalendarGridHandle } from '@demo/vanilla/calen
 
     mount();
 
-    // Best-effort cleanup if the host is removed from the DOM (e.g. on
+    // FullscreenButton moves the wrapper to <body> when entering / exiting
+    // fullscreen. That disconnects-then-reconnects the <tbw-grid>, which
+    // wipes the shell content registered via registerHeaderContent /
+    // registerToolbarContent / pinned-rows. Rebuild from scratch on every
+    // class toggle so the calendar reappears intact.
+    const fsObserver = new MutationObserver(() => {
+      destroy();
+      mount();
+    });
+    fsObserver.observe(wrapper, { attributes: true, attributeFilter: ['class'] });
+
+    // Best-effort cleanup if the wrapper is removed from the DOM (e.g. on
     // Starlight view transitions). The factory installs its own
     // ResizeObserver / document-level listeners that would otherwise leak.
     const mo = new MutationObserver(() => {
-      if (host && !host.isConnected) {
+      if (!wrapper.isConnected) {
         destroy();
+        fsObserver.disconnect();
         mo.disconnect();
       }
     });
-    if (host.parentNode) mo.observe(host.parentNode, { childList: true });
+    if (wrapper.parentNode) mo.observe(wrapper.parentNode, { childList: true });
   }
 </script>
 

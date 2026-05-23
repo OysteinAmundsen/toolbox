@@ -1,8 +1,12 @@
 ---
 // EmployeeManagementAllFeaturesDemo.astro — Full-featured employee management grid demo
 import DemoControls from '@components/DemoControls.astro';
+import FullscreenButton from '@components/FullscreenButton.astro';
 ---
-<div class="grid-demo not-content" id="employee-all-features-container">
+<div class="grid-demo not-content employee-all-features-wrapper" id="employee-all-features-container">
+  <div class="demo-toolbar">
+    <FullscreenButton target="#employee-all-features-container" label="Open demo in fullscreen" />
+  </div>
   <DemoControls controls={[
     { name: 'rowCount', label: 'Row count', type: 'number', default: 200, min: 50, max: 1000, step: 50 },
     { name: 'enableSelection', label: 'Selection', type: 'boolean', default: true },
@@ -14,6 +18,31 @@ import DemoControls from '@components/DemoControls.astro';
   ]} />
   <div id="employee-all-features" style="height: 600px;"></div>
 </div>
+
+<style>
+  .employee-all-features-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .employee-all-features-wrapper > .demo-toolbar {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  /* Fullscreen mode: let the grid fill the viewport */
+  .employee-all-features-wrapper.is-fullscreen {
+    padding: 2rem;
+    gap: 1rem;
+  }
+
+  .employee-all-features-wrapper.is-fullscreen > #employee-all-features {
+    flex: 1;
+    height: auto !important;
+    min-height: 0;
+  }
+</style>
 
 <script>
   import { createEmployeeGrid } from '@demo/vanilla/employee-management';
@@ -32,7 +61,18 @@ import DemoControls from '@components/DemoControls.astro';
       enableRowGrouping: boolean;
     }
 
+    let currentValues: AllFeaturesValues = {
+      rowCount: 200,
+      enableSelection: true,
+      enableFiltering: true,
+      enableSorting: true,
+      enableEditing: true,
+      enableMasterDetail: true,
+      enableRowGrouping: false,
+    };
+
     function rebuild(v: AllFeaturesValues) {
+      currentValues = v;
       host.innerHTML = '';
       const grid = createEmployeeGrid({
         rowCount: v.rowCount,
@@ -46,18 +86,20 @@ import DemoControls from '@components/DemoControls.astro';
       host.appendChild(grid);
     }
 
-    rebuild({
-      rowCount: 200,
-      enableSelection: true,
-      enableFiltering: true,
-      enableSorting: true,
-      enableEditing: true,
-      enableMasterDetail: true,
-      enableRowGrouping: false,
-    });
+    rebuild(currentValues);
 
     container.addEventListener('control-change', ((e: CustomEvent) => {
       rebuild(e.detail.allValues as AllFeaturesValues);
     }) as EventListener);
+
+    // FullscreenButton moves the wrapper to <body> when entering / exiting
+    // fullscreen. That disconnects-then-reconnects the <tbw-grid>, which
+    // wipes any shell content registered by the factory (toolbar buttons,
+    // side panels, etc.). Rebuild on every is-fullscreen class toggle so
+    // the grid reappears intact.
+    const fsObserver = new MutationObserver(() => {
+      rebuild(currentValues);
+    });
+    fsObserver.observe(container, { attributes: true, attributeFilter: ['class'] });
   }
 </script>

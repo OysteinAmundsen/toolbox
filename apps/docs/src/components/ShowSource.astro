@@ -554,22 +554,20 @@ const inlineHtml = isSimpleHtml ? htmlSource : '';
     opacity: 1;
   }
 
-  /* --- Fullscreen mode --- */
-  .show-source-wrapper:fullscreen {
-    background: var(--sl-color-bg, #fff);
+  /* --- Fullscreen mode (CSS-only viewport-fill, see FullscreenButton.astro) --- */
+  .show-source-wrapper.is-fullscreen {
     padding: 2rem;
-    overflow: auto;
     display: flex;
     flex-direction: column;
   }
 
-  .show-source-wrapper:fullscreen > :global(.grid-demo) tbw-grid,
-  .show-source-wrapper:fullscreen > :global(.grid-playground) tbw-grid {
+  .show-source-wrapper.is-fullscreen > :global(.grid-demo) tbw-grid,
+  .show-source-wrapper.is-fullscreen > :global(.grid-playground) tbw-grid {
     height: 80vh;
   }
 
-  .show-source-wrapper:fullscreen > :global(.grid-demo),
-  .show-source-wrapper:fullscreen > :global(.grid-playground) {
+  .show-source-wrapper.is-fullscreen > :global(.grid-demo),
+  .show-source-wrapper.is-fullscreen > :global(.grid-playground) {
     flex: 1;
     border-radius: 8px;
   }

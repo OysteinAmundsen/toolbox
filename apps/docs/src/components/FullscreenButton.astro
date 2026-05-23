@@ -1,10 +1,17 @@
 ---
 /**
- * FullscreenButton.astro — Reusable fullscreen toggle using the native Fullscreen API.
+ * FullscreenButton.astro — Reusable viewport-fill toggle (CSS-based, not the
+ * native Fullscreen API).
  *
- * Renders a small button that, on click, puts the closest matching ancestor
- * into fullscreen mode. The browser provides a native "Press Escape to exit"
- * indicator. The button icon toggles between expand and collapse states.
+ * Renders a small button that, on click, expands the closest matching ancestor
+ * to fill the browser viewport via `position: fixed; inset: 0`. Escape exits.
+ *
+ * Why not the native Fullscreen API:
+ *  - Triggers OS-level fullscreen (the F11 behaviour), which is more invasive
+ *    than what a docs demo needs.
+ *  - The browser only paints the fullscreen subtree; anything mounted on
+ *    `document.body` outside that subtree (popovers, portaled filter panels,
+ *    tooltips) becomes invisible. The grid's filter panel is one such example.
  *
  * Usage:
  * ```astro
@@ -46,6 +53,58 @@ const { target, label = 'Open in fullscreen' } = Astro.props;
 </button>
 
 <script>
+  const FS_CLASS = 'is-fullscreen';
+  const BTN_ACTIVE_CLASS = 'fullscreen-btn--active';
+  const PLACEHOLDER_ATTR = 'data-fs-placeholder-for';
+
+  function syncButton(btn: HTMLButtonElement, isFullscreen: boolean) {
+    btn.classList.toggle(BTN_ACTIVE_CLASS, isFullscreen);
+    btn.title = isFullscreen ? 'Exit fullscreen' : 'Open in fullscreen';
+    btn.setAttribute('aria-label', isFullscreen ? 'Exit fullscreen' : 'Open in fullscreen');
+  }
+
+  /**
+   * Track the target's original DOM location so we can restore it on exit.
+   * We move the target out to `document.body` while expanded — otherwise an
+   * ancestor with `transform`/`filter`/`contain` (Starlight's layout has these)
+   * traps `position: fixed` to its own box instead of the viewport.
+   */
+  const placeholders = new WeakMap<Element, HTMLElement>();
+
+  function exitFullscreen(target: Element) {
+    target.classList.remove(FS_CLASS);
+    document.body.classList.remove('has-fullscreen-target');
+    const btn = target.querySelector<HTMLButtonElement>('.fullscreen-btn');
+    if (btn) syncButton(btn, false);
+
+    // Restore to original location.
+    const placeholder = placeholders.get(target);
+    if (placeholder && placeholder.parentNode) {
+      placeholder.parentNode.replaceChild(target, placeholder);
+      placeholders.delete(target);
+    }
+  }
+
+  function enterFullscreen(target: Element, btn: HTMLButtonElement) {
+    // Only one viewport-filling target at a time.
+    for (const other of document.querySelectorAll(`.${FS_CLASS}`)) {
+      if (other !== target) exitFullscreen(other);
+    }
+
+    // Leave a placeholder behind so we can restore the target to its exact
+    // DOM position when the user exits.
+    const placeholder = document.createElement('div');
+    placeholder.setAttribute(PLACEHOLDER_ATTR, '');
+    placeholder.style.display = 'none';
+    target.parentNode?.insertBefore(placeholder, target);
+    placeholders.set(target, placeholder);
+
+    document.body.appendChild(target);
+    target.classList.add(FS_CLASS);
+    document.body.classList.add('has-fullscreen-target');
+    syncButton(btn, true);
+  }
+
   document.addEventListener('click', (e) => {
     const btn = (e.target as HTMLElement).closest('.fullscreen-btn') as HTMLButtonElement | null;
     if (!btn) return;
@@ -56,24 +115,19 @@ const { target, label = 'Open in fullscreen' } = Astro.props;
     const target = btn.closest(selector);
     if (!target) return;
 
-    if (document.fullscreenElement === target) {
-      document.exitFullscreen();
+    if (target.classList.contains(FS_CLASS)) {
+      exitFullscreen(target);
     } else {
-      target.requestFullscreen();
+      enterFullscreen(target, btn);
     }
   });
 
-  document.addEventListener('fullscreenchange', () => {
-    // Update all fullscreen buttons to reflect current state
-    const buttons = document.querySelectorAll<HTMLButtonElement>('.fullscreen-btn');
-    for (const btn of buttons) {
-      const selector = btn.dataset.fsTarget;
-      if (!selector) continue;
-      const target = btn.closest(selector);
-      const isFullscreen = document.fullscreenElement === target;
-      btn.classList.toggle('fullscreen-btn--active', isFullscreen);
-      btn.title = isFullscreen ? 'Exit fullscreen' : 'Open in fullscreen';
-      btn.setAttribute('aria-label', isFullscreen ? 'Exit fullscreen' : 'Open in fullscreen');
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const active = document.querySelector(`.${FS_CLASS}`);
+    if (active) {
+      e.preventDefault();
+      exitFullscreen(active);
     }
   });
 </script>
@@ -114,5 +168,32 @@ const { target, label = 'Open in fullscreen' } = Astro.props;
 
   .fullscreen-btn--active .fullscreen-btn__collapse {
     display: block;
+  }
+</style>
+
+<!--
+  Global rules so consumers can simply target `.my-container.is-fullscreen` to
+  layer additional fullscreen styling on top of the base viewport-fill. Loaded
+  once because <style is:global> hoists to the page.
+
+  The element is moved to `<body>` while expanded (see script above) so
+  `body > .is-fullscreen` matches and gives us the specificity (0,1,1) needed
+  to win over per-component scoped rules that set `position: relative` on the
+  target (e.g. `.show-source-wrapper`).
+-->
+<style is:global>
+  body > .is-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    margin: 0;
+    overflow: auto;
+    background: var(--sl-color-bg, #fff);
+    box-sizing: border-box;
+  }
+
+  /* Prevent background scroll while a target is expanded. */
+  body.has-fullscreen-target {
+    overflow: hidden;
   }
 </style>

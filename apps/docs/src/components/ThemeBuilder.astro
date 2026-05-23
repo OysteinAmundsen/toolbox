@@ -28,7 +28,7 @@ import FullscreenButton from './FullscreenButton.astro';
 
 <script>
   import '@toolbox-web/grid';
-import type { ColumnConfig, GridConfig, ShellConfig } from '@toolbox-web/grid';
+import type { ColumnConfig, ShellConfig } from '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
 import {
 ContextMenuPlugin,
@@ -848,9 +848,8 @@ VisibilityPlugin,
     grid-template-rows: auto 1fr auto;
   }
 
-  .theme-builder-container:fullscreen {
+  .theme-builder-container.is-fullscreen {
     height: 100vh;
-    background: var(--sl-color-bg, #fff);
   }
 
   .theme-builder-toolbar {

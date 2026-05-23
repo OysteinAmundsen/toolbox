@@ -221,21 +221,39 @@ describe('mergeColumns', () => {
     expect(b).toMatchObject({ field: 'b', width: 200, minWidth: 50 });
   });
 
-  it('propagates headerRenderer / headerLabelRenderer from DOM when programmatic is missing', () => {
+  it('propagates headerRenderer / headerLabelRenderer from DOM when programmatic has neither (mutually exclusive)', () => {
     const headerFn = () => document.createElement('div');
     const headerLabelFn = () => document.createElement('span');
-    const programmatic: any = [{ field: 'a' }, { field: 'b', headerRenderer: () => document.createElement('em') }];
+    const programmatic: any = [
+      { field: 'a' },
+      { field: 'b', headerRenderer: () => document.createElement('em') },
+      { field: 'c', headerLabelRenderer: () => document.createElement('em') },
+      { field: 'd' },
+    ];
     const dom: any = [
-      { field: 'a', headerRenderer: headerFn, headerLabelRenderer: headerLabelFn },
+      // 'a': DOM supplies headerRenderer only -> picked
+      { field: 'a', headerRenderer: headerFn },
+      // 'b': programmatic already has headerRenderer -> DOM ignored
       { field: 'b', headerRenderer: headerFn },
+      // 'c': programmatic already has headerLabelRenderer -> DOM headerRenderer ignored
+      //      (renderHeader gives `headerRenderer` precedence, so promoting DOM here would
+      //      silently shadow the programmatic label renderer).
+      { field: 'c', headerRenderer: headerFn },
+      // 'd': DOM supplies both -> headerRenderer wins (precedence in renderHeader)
+      { field: 'd', headerRenderer: headerFn, headerLabelRenderer: headerLabelFn },
     ];
     const merged = mergeColumns(programmatic, dom);
     const a = merged.find((c: any) => c.field === 'a');
     const b = merged.find((c: any) => c.field === 'b');
+    const c = merged.find((c: any) => c.field === 'c');
+    const d = merged.find((c: any) => c.field === 'd');
     expect(a.headerRenderer).toBe(headerFn);
-    expect(a.headerLabelRenderer).toBe(headerLabelFn);
-    // Programmatic headerRenderer takes precedence over DOM
+    expect(a.headerLabelRenderer).toBeUndefined();
     expect(b.headerRenderer).not.toBe(headerFn);
+    expect(c.headerRenderer).toBeUndefined();
+    expect(c.headerLabelRenderer).toBeDefined();
+    expect(d.headerRenderer).toBe(headerFn);
+    expect(d.headerLabelRenderer).toBeUndefined();
   });
 });
 

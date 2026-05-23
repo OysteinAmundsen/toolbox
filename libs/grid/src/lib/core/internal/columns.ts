@@ -214,8 +214,14 @@ export function mergeColumns(
       if (d.renderer) m.renderer = dRenderer;
     }
     if (d.editor && !m.editor) m.editor = d.editor;
-    if (d.headerRenderer && !m.headerRenderer) m.headerRenderer = d.headerRenderer;
-    if (d.headerLabelRenderer && !m.headerLabelRenderer) m.headerLabelRenderer = d.headerLabelRenderer;
+    // Header renderers are mutually exclusive: `headerRenderer` (full control) has precedence
+    // over `headerLabelRenderer` in `renderHeader`. Only fill from DOM when the programmatic
+    // column has neither — otherwise a DOM `headerRenderer` would shadow a programmatic
+    // `headerLabelRenderer` (and vice versa).
+    if (!m.headerRenderer && !m.headerLabelRenderer) {
+      if (d.headerRenderer) m.headerRenderer = d.headerRenderer;
+      else if (d.headerLabelRenderer) m.headerLabelRenderer = d.headerLabelRenderer;
+    }
     delete domMap[c.field];
     return m;
   });

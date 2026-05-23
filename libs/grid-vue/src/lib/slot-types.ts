@@ -125,9 +125,10 @@ export interface HeaderLabelSlotProps<TRow = unknown> {
 
 /**
  * Slot context for `#header` slot in TbwGridColumn. Gives the consumer
- * full control over the header cell — sort icons, filter buttons, and
- * resize handles are NOT added automatically. Use the `renderSortIcon`
- * and `renderFilterButton` helpers to opt in.
+ * full control over the header cell label — sort icons and filter
+ * buttons are NOT added automatically; use the `renderSortIcon` and
+ * `renderFilterButton` helpers to opt in. Resize handles are appended
+ * automatically by the grid for resizable columns.
  *
  * @example
  * ```vue

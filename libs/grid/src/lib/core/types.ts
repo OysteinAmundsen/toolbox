@@ -1631,9 +1631,13 @@ export interface FrameworkAdapter {
   /**
    * Creates a header cell renderer from a light DOM element (e.g. a slot or
    * template on a `<tbw-grid-column>`). Receives `HeaderCellContext` and
-   * returns DOM / string for the entire header cell — the user is then
-   * responsible for sort icons, filter buttons, and resize handles
-   * (use `ctx.renderSortIcon()` / `ctx.renderFilterButton()` helpers).
+   * returns DOM / string for the entire header cell — the user is
+   * responsible for sort icons and filter buttons (use
+   * `ctx.renderSortIcon()` / `ctx.renderFilterButton()` helpers).
+   *
+   * Resize handles are appended automatically by the grid for resizable
+   * columns regardless of which renderer path is active; do not render one
+   * yourself.
    *
    * Returns undefined when the adapter has no header renderer registered
    * for this element, letting the grid fall back to its built-in header.

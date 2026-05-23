@@ -50,9 +50,10 @@ const slots = defineSlots<{
   /** Custom cell editor slot */
   editor?: (props: EditorSlotProps<TRow, TValue>) => VNode[];
   /**
-   * Full header cell renderer slot. Consumer owns sort icons, filter
-   * buttons, and resize handles — use the `renderSortIcon` /
-   * `renderFilterButton` helpers on the slot props to opt in.
+   * Full header cell renderer slot. Consumer owns sort icons and filter
+   * buttons — use the `renderSortIcon` / `renderFilterButton` helpers on
+   * the slot props to opt in. Resize handles are appended automatically
+   * by the grid for resizable columns; do not render one yourself.
    */
   header?: (props: HeaderSlotProps<TRow>) => VNode[];
   /**

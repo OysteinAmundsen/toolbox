@@ -75,7 +75,7 @@ export const WEEKDAY_HEADERS: Record<WeekdayField, string> = {
   sun: 'Sun',
 };
 
-/** Full weekday names (used at `data-density="full"`). */
+/** Full weekday names (used at the `full` density tier, ≥534 px). */
 export const WEEKDAY_HEADERS_FULL: Record<WeekdayField, string> = {
   mon: 'Monday',
   tue: 'Tuesday',
@@ -86,7 +86,7 @@ export const WEEKDAY_HEADERS_FULL: Record<WeekdayField, string> = {
   sun: 'Sunday',
 };
 
-/** Single-letter weekday names (used at `data-density="minimal"`). */
+/** Single-letter weekday names (used at the `minimal` density tier, <480 px). */
 export const WEEKDAY_HEADERS_MINI: Record<WeekdayField, string> = {
   mon: 'M',
   tue: 'T',

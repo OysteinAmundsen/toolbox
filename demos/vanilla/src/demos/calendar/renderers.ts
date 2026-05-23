@@ -2,17 +2,18 @@
  * Calendar demo — day-cell renderer
  *
  * The same renderer is reused for all seven weekday columns. Layout responds
- * to three densities driven by the host element's `data-density` attribute:
+ * to three densities, switched purely in CSS via `@container calendar (...)`
+ * queries on `.calendar-demo__grid` (see `demo-styles.css`):
  *
- * | density   | shows                                                       |
- * | --------- | ----------------------------------------------------------- |
- * | `full`    | date number + list of events with title and start time      |
- * | `compact` | date number + colored dots per event (one per category)     |
- * | `minimal` | date number only (degrades to a plain date picker)          |
+ * | density   | width range  | shows                                                       |
+ * | --------- | ------------ | ----------------------------------------------------------- |
+ * | `full`    | ≥534 px      | date number + list of events with title and start time      |
+ * | `compact` | 480–534 px   | date number + colored dots per event (one per category)     |
+ * | `minimal` | <480 px      | date number only (degrades to a plain date picker)          |
  *
- * The density attribute lives on the grid host element (`<tbw-grid>`); the
- * renderer reads it via `closest('tbw-grid')` so a single ResizeObserver in
- * the factory can flip the mode for every cell at once.
+ * The renderer always emits the full markup for all three tiers; CSS hides
+ * the parts that don't apply at the current container width. No JS density
+ * lookup or `ResizeObserver` is required.
  */
 
 import type { CalendarDay, CategoryId } from '@demo/shared/calendar';

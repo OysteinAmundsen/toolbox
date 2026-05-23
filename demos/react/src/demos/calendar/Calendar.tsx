@@ -19,7 +19,6 @@ import { EventDialog } from './components/EventDialog';
 import { HeaderNav } from './components/HeaderNav';
 import { Legend } from './components/Legend';
 import { ToolbarNav } from './components/ToolbarNav';
-import { useDensityObserver } from './hooks/useDensityObserver';
 import { useDoubleClick } from './hooks/useDoubleClick';
 import { useDynamicRowHeight } from './hooks/useDynamicRowHeight';
 import { useGridCallbackRoot } from './hooks/useGridCallbackRoot';
@@ -232,7 +231,6 @@ export function Calendar() {
   const openDialog = useCallback((day: CalendarDay) => setDialogDay(day), []);
 
   useKeyboardNav({ gridRef: grid.ref, enabled: grid.isReady, rows, view: state, setView, openDialog });
-  useDensityObserver(grid.ref, grid.isReady);
   useDynamicRowHeight(grid.ref, grid.isReady, rows.length, gridConfig);
   useDoubleClick(
     grid.ref,

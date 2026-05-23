@@ -1,27 +1,27 @@
 import '@toolbox-web/grid-angular/features/pinned-rows';
 
 import {
-    AfterViewInit,
-    ChangeDetectionStrategy,
-    Component,
-    ComponentRef,
-    computed,
-    ElementRef,
-    inject,
-    OnDestroy,
-    signal,
-    ViewChild,
-    ViewEncapsulation,
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  Component,
+  ComponentRef,
+  computed,
+  ElementRef,
+  inject,
+  OnDestroy,
+  signal,
+  ViewChild,
+  ViewEncapsulation,
 } from '@angular/core';
 import type { CalendarDay, CalendarEvent, CalendarWeek, WeekdayField } from '@demo/shared/calendar';
 import {
-    buildWeeks,
-    generateEvents,
-    isoKey,
-    WEEKDAY_FIELDS,
-    WEEKDAY_HEADERS,
-    WEEKDAY_HEADERS_FULL,
-    WEEKDAY_HEADERS_MINI,
+  buildWeeks,
+  generateEvents,
+  isoKey,
+  WEEKDAY_FIELDS,
+  WEEKDAY_HEADERS,
+  WEEKDAY_HEADERS_FULL,
+  WEEKDAY_HEADERS_MINI,
 } from '@demo/shared/calendar';
 import type { ColumnConfig, TbwGrid } from '@toolbox-web/grid';
 import { Grid, TbwGridColumn, TbwRenderer, type GridConfig } from '@toolbox-web/grid-angular';
@@ -47,14 +47,9 @@ const MONTH_NAMES = [
   'December',
 ] as const;
 
-// Switch from text events to colored swatches once each day cell drops
-// below 70px. With 7 day columns + a 44px week-number column that means
-// a grid width of 7 * 70 + 44 = 534px.
-const WEEK_COL_PX = 44;
-const DAY_COLS = 7;
-const DAY_CELL_FULL_PX = 70;
-const DENSITY_FULL_PX = WEEK_COL_PX + DAY_COLS * DAY_CELL_FULL_PX;
-const DENSITY_COMPACT_PX = 480;
+// Density tiers (full / compact / minimal) are driven purely by CSS
+// `@container calendar (...)` queries in `demo-styles.css` — no JS
+// width observer is needed.
 const DEFAULT_ROW_HEIGHT_PX = 110;
 const YEAR_RANGE = 5;
 const DBLCLICK_MS = 400;
@@ -68,7 +63,6 @@ const ARROW_DAY_DELTA: Record<string, number> = {
 
 type CalendarGridElement = TbwGrid<CalendarWeek>;
 type FocusTarget = { day: number } | { position: { rowIndex: number; colIndex: number } };
-type Density = 'full' | 'compact' | 'minimal';
 
 @Component({
   selector: 'app-calendar',
@@ -94,9 +88,7 @@ export class CalendarComponent implements AfterViewInit, OnDestroy {
   private mountedShellComponents: Array<MountedComponent<unknown>> = [];
   private headerComponentRef: ComponentRef<HeaderNavComponent> | null = null;
   private shellSubscriptions: Array<{ unsubscribe: () => void }> = [];
-  private widthObserver: ResizeObserver | null = null;
   private heightObserver: ResizeObserver | null = null;
-  private lastDensity: Density | null = null;
   private lastViewportHeight = 0;
   private lastMousedownCell: HTMLElement | null = null;
   private lastMousedownTime = 0;
@@ -146,12 +138,11 @@ export class CalendarComponent implements AfterViewInit, OnDestroy {
 
     this.installKeyboardNavigation(grid);
     this.installMousedownPairDetection(grid);
-    this.installResizeObservers(grid);
+    this.installResizeObserver(grid);
   }
 
   ngOnDestroy(): void {
     const grid = this.gridRef.nativeElement;
-    this.widthObserver?.disconnect();
     this.heightObserver?.disconnect();
     grid.removeEventListener('keydown', this.onKeydown, true);
     grid.removeEventListener('mousedown', this.onMousedown, true);
@@ -406,20 +397,7 @@ export class CalendarComponent implements AfterViewInit, OnDestroy {
     return this.rows()[ariaRowIndex - 2]?.[field] ?? null;
   }
 
-  private installResizeObservers(grid: CalendarGridElement): void {
-    this.widthObserver = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      const width = entry.contentRect.width;
-      const density: Density =
-        width >= DENSITY_FULL_PX ? 'full' : width >= DENSITY_COMPACT_PX ? 'compact' : 'minimal';
-      if (density !== this.lastDensity) {
-        grid.setAttribute('data-density', density);
-        this.lastDensity = density;
-      }
-    });
-    this.widthObserver.observe(grid);
-
+  private installResizeObserver(grid: CalendarGridElement): void {
     this.heightObserver = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;

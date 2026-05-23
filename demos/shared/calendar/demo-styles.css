@@ -295,7 +295,7 @@ tbw-grid .data-grid-row > .cell.cell-focus {
    Renderers always emit the full markup; CSS hides the parts that
    don't belong at the current density. No JS width observer required. */
 
-@container calendar (max-width: 533.98px) {
+@container calendar (width < 534px) {
   .cal-cell__list {
     display: none;
   }
@@ -305,7 +305,7 @@ tbw-grid .data-grid-row > .cell.cell-focus {
   }
 }
 
-@container calendar (max-width: 479.98px) {
+@container calendar (width < 480px) {
   .cal-cell__events {
     display: none;
   }
@@ -331,7 +331,7 @@ tbw-grid .data-grid-row > .cell.cell-focus {
   display: inline;
 }
 
-@container calendar (min-width: 534px) {
+@container calendar (width >= 534px) {
   .cal-wday__full {
     display: inline;
   }
@@ -342,7 +342,7 @@ tbw-grid .data-grid-row > .cell.cell-focus {
   }
 }
 
-@container calendar (max-width: 479.98px) {
+@container calendar (width < 480px) {
   .cal-wday__mini {
     display: inline;
   }

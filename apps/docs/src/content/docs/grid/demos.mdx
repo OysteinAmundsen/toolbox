@@ -4,7 +4,6 @@ description: Full-featured demo applications showcasing @toolbox-web/grid with 1
 ---
 
 import EmployeeManagementAllFeaturesDemo from '@components/demos/EmployeeManagementAllFeaturesDemo.astro';
-import EmployeeManagementGroupedDemo from '@components/demos/EmployeeManagementGroupedDemo.astro';
 import CalendarDemo from '@components/demos/CalendarDemo.astro';
 
 ## Employee Management Demo
@@ -15,53 +14,13 @@ A comprehensive demo application that demonstrates the full power of `@toolbox-w
 
 ### What This Demo Showcases
 
-#### Data Complexity
-
-| Feature              | Details                                                    |
-| -------------------- | ---------------------------------------------------------- |
-| **200 employees**    | Realistic generated data with names, emails, departments   |
-| **15+ columns**      | Text, number, date, select, boolean, and custom types      |
-| **Nested data**      | Department, manager references, address objects             |
-| **Computed values**  | Performance scores, tenure calculations                     |
-
-#### Visual Features
-
-| Feature              | Details                                                    |
-| -------------------- | ---------------------------------------------------------- |
-| **Custom renderers** | Status badges, star ratings, color-coded performance       |
-| **Row styling**      | Dynamic CSS classes based on row data                      |
-| **Shell header**     | Title bar with export buttons                              |
-| **Tool panels**      | Quick filters and analytics sidebar panels                 |
-
-#### Interaction Features
-
-| Feature              | Details                                                    |
-| -------------------- | ---------------------------------------------------------- |
-| **Row selection**    | Checkbox column with multi-select (Shift/Ctrl+Click)       |
-| **Column sorting**   | Click headers to sort, multi-sort with Shift+Click         |
-| **Column filtering** | Per-column filter dropdowns with text/number/date filters  |
-| **Column resizing**  | Drag column borders to resize                              |
-| **Master-detail**    | Expand rows to see nested detail panels                    |
-
-#### Editing Features
-
-| Feature              | Details                                                    |
-| -------------------- | ---------------------------------------------------------- |
-| **Inline editing**   | Double-click cells to edit in place                        |
-| **Custom editors**   | Star rating picker, bonus slider, status dropdown, date picker |
-| **Validation**       | Cell-level validation with error highlighting              |
-| **Undo/Redo**        | Ctrl+Z / Ctrl+Y to undo and redo edits                    |
-
-#### Advanced Features
-
-| Feature              | Details                                                    |
-| -------------------- | ---------------------------------------------------------- |
-| **CSV/Excel export** | Export visible or selected data                            |
-| **Column visibility**| Show/hide columns via tool panel                           |
-| **Column reorder**   | Drag-and-drop column headers                               |
-| **Keyboard nav**     | Full keyboard navigation (arrows, Enter, Escape, Tab)      |
-| **Clipboard**        | Copy cells and ranges to clipboard                         |
-| **Context menu**     | Right-click for context-sensitive actions                   |
+| Area              | Highlights                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| **Data**          | 200 generated employees, 15+ columns mixing text/number/date/select/boolean, nested objects, computed values |
+| **Visuals**       | Custom renderers (status badges, star ratings), row styling, shell header with export buttons, side tool panels |
+| **Interaction**   | Multi-select, multi-sort (Shift+Click), per-column filtering, resizing, master-detail expansion         |
+| **Editing**       | Inline edit (double-click), custom editors, validation, undo/redo (Ctrl+Z / Ctrl+Y)                     |
+| **Advanced**      | CSV/Excel export, column visibility & reorder, full keyboard nav, clipboard, context menu, row grouping |
 
 ### Try These Interactions
 
@@ -73,14 +32,6 @@ A comprehensive demo application that demonstrates the full power of `@toolbox-w
 6. **Expand** — Click the expand arrow on any row to see the master-detail panel.
 7. **Export** — Click the 📄 or 📊 buttons in the header toolbar to export CSV or Excel.
 8. **Undo** — After editing a cell, press Ctrl+Z to undo the change.
-
----
-
-## Grouped by Department
-
-The same employee data, but with row grouping enabled. Rows are grouped by department with expand/collapse and aggregate summaries.
-
-<EmployeeManagementGroupedDemo />
 
 ---
 
@@ -108,19 +59,6 @@ A month-view calendar built on top of `<tbw-grid>` — same data-grid engine, di
 2. **Keyboard** — Click any day, then use arrow keys. From the first / last day of the month, arrow keys cross into the previous / next month. PageUp / PageDown jump by month.
 3. **Add an event** — Double-click any day cell, or press Enter while a cell is focused. Fill in the dialog and submit.
 4. **Resize** — Drag the docs side-panel narrower to watch the cells collapse from full event chips → dots → date-only.
-
-### Implementation
-
-| Layer                                       | Lives in                                                  |
-| ------------------------------------------- | --------------------------------------------------------- |
-| Shared types + seed data                    | `demos/shared/calendar/` (`types.ts`, `data.ts`)          |
-| Vanilla implementation                      | `demos/vanilla/src/demos/calendar/` (factory + DOM renderers) |
-| Angular implementation                      | `demos/angular/src/demos/calendar/` (components + services, `*tbwRenderer`) |
-| React implementation                        | `demos/react/src/demos/calendar/` (components + hooks, `createRoot` bridge) |
-| Vue implementation                          | `demos/vue/src/demos/calendar/` (SFCs + composables, `createApp` bridge)    |
-| Docs embed                                  | `apps/docs/src/components/demos/CalendarDemo.astro` (mounts the vanilla build) |
-
-Each framework rebuilds the day-cell renderer, shell header, toolbar, pinned legend, dialog, density observer, dynamic row-height, keyboard navigation and double-click detector in its own idiom — the point of the demo is to show how the same grid surface is composed from each framework's component model. Only the row/event types and the seed dataset are shared.
 
 ---
 

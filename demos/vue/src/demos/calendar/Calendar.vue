@@ -22,7 +22,6 @@ import EventDialog from './components/EventDialog.vue';
 import HeaderNav from './components/HeaderNav.vue';
 import Legend from './components/Legend.vue';
 import ToolbarNav from './components/ToolbarNav.vue';
-import { type CalendarDensity, useDensityObserver } from './composables/useDensityObserver';
 import { DEFAULT_ROW_HEIGHT_PX, useDynamicRowHeight } from './composables/useDynamicRowHeight';
 import { useDoubleClick } from './composables/useDoubleClick';
 import { useGridCallbackRoot } from './composables/useGridCallbackRoot';
@@ -57,7 +56,6 @@ const YEAR_RANGE = 5;
 const today = new Date();
 const state = reactive<CalendarViewState>({ year: today.getFullYear(), month: today.getMonth() });
 const userEvents = reactive(new Map<string, CalendarEvent[]>()) as Map<string, CalendarEvent[]>;
-const density = ref<CalendarDensity>('full');
 const dialogDay = ref<CalendarDay | null>(null);
 const gridComponent = ref<GridComponentExpose | null>(null);
 const cleanups: (() => void)[] = [];
@@ -122,12 +120,6 @@ function makeRows(viewState: CalendarViewState, addedEvents: ReadonlyMap<string,
     byDate.set(key, merged);
   }
   return buildWeeks(viewState.year, viewState.month, byDate);
-}
-
-function weekdayHeader(field: WeekdayField): string {
-  if (density.value === 'full') return WEEKDAY_HEADERS_FULL[field];
-  if (density.value === 'minimal') return WEEKDAY_HEADERS_MINI[field];
-  return WEEKDAY_HEADERS[field];
 }
 
 function getGrid(): DataGridElement<CalendarWeek> | null {
@@ -201,7 +193,6 @@ onMounted(async () => {
   await nextTick();
   const grid = getGrid();
   if (!grid) return;
-  grid.setAttribute('data-density', density.value);
   await grid.ready?.();
 
   grid.registerHeaderContent?.({ id: 'calendar-nav', order: 0, render: headerRoot.mount });
@@ -214,9 +205,6 @@ onMounted(async () => {
   grid.updateTemplate?.();
 
   cleanups.push(
-    useDensityObserver(grid, density, () => {
-      void nextTick(() => grid.refreshColumns?.());
-    }),
     useKeyboardNav({
       grid,
       getRows: () => rows.value,
@@ -259,11 +247,18 @@ onBeforeUnmount(() => {
           v-for="field in WEEKDAY_FIELDS"
           :key="field"
           :field="field"
-          :header="weekdayHeader(field)"
+          :header="WEEKDAY_HEADERS_FULL[field]"
           :min-width="60"
           :sortable="false"
           :resizable="false"
         >
+          <template #headerLabel>
+            <span class="cal-wday">
+              <span class="cal-wday__full">{{ WEEKDAY_HEADERS_FULL[field] }}</span>
+              <span class="cal-wday__short">{{ WEEKDAY_HEADERS[field] }}</span>
+              <span class="cal-wday__mini">{{ WEEKDAY_HEADERS_MINI[field] }}</span>
+            </span>
+          </template>
           <template #cell="{ value }">
             <DayCell :day="value" />
           </template>

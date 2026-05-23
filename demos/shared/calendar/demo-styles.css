@@ -7,8 +7,9 @@
  * land in one place and parity is automatic.
  *
  * Scoped under `.calendar-demo` so they don't bleed into other demos in
- * the same shell. Drives three responsive densities via `[data-density]`
- * on the `<tbw-grid>` host.
+ * the same shell. Three responsive densities are driven by CSS
+ * `@container` queries on `.calendar-demo__grid` (`container-type:
+ * inline-size`) — no JS width observer needed.
  *
  * Angular note: the consuming component must use
  * `ViewEncapsulation.None` (or load this as a global stylesheet) so the
@@ -48,6 +49,11 @@
 .calendar-demo__grid {
   flex: 1;
   min-height: 0;
+  /* Establish a size container so descendant `@container calendar (...)`
+   * rules can switch density tiers based on the grid's own width
+   * (independent of viewport / sidebar / page layout). */
+  container-type: inline-size;
+  container-name: calendar;
 }
 
 /* === Custom header (registered via grid.registerHeaderContent) === */
@@ -281,35 +287,41 @@ tbw-grid .data-grid-row > .cell.cell-focus {
 }
 
 /* === Responsive densities ===
-   The factory toggles `data-density` on the `<tbw-grid>` host based on
-   measured width. Renderers always emit the full markup; CSS hides the
-   parts that don't belong at the current density. */
+   CSS `@container` queries on `.calendar-demo__grid` switch the cell
+   layout between three tiers based on the grid's measured width:
+     • ≥534 px → full event list (default)
+     • 480–534 px → colour dots
+     • <480 px → date only, centered
+   Renderers always emit the full markup; CSS hides the parts that
+   don't belong at the current density. No JS width observer required. */
 
-tbw-grid[data-density='compact'] .cal-cell__list {
-  display: none;
+@container calendar (width < 534px) {
+  .cal-cell__list {
+    display: none;
+  }
+
+  .cal-cell__dots {
+    display: flex;
+  }
 }
 
-tbw-grid[data-density='compact'] .cal-cell__dots {
-  display: flex;
+@container calendar (width < 480px) {
+  .cal-cell__events {
+    display: none;
+  }
+
+  .cal-cell {
+    justify-content: center;
+  }
+
+  .cal-cell__date {
+    font-size: 1.1rem;
+  }
 }
 
-tbw-grid[data-density='minimal'] .cal-cell__events {
-  display: none;
-}
-
-tbw-grid[data-density='minimal'] .cal-cell {
-  justify-content: center;
-}
-
-tbw-grid[data-density='minimal'] .cal-cell__date {
-  font-size: 1.1rem;
-}
-
-/* Weekday header labels: three variants in one node, picked by density.
-   Defaults to the short (3-letter) form so the chosen variant is visible
-   even when `[data-density]` hasn't been applied yet (e.g. first frame).
-   Vue uses a computed header instead of multi-variant DOM, so these
-   selectors are inert there — harmless dead CSS. */
+/* Weekday header labels: three variants in one node, picked by
+   container width. Defaults to the short (3-letter) form, which is
+   what shows in the 480–534 px range. */
 .cal-wday__full,
 .cal-wday__mini {
   display: none;
@@ -319,22 +331,26 @@ tbw-grid[data-density='minimal'] .cal-cell__date {
   display: inline;
 }
 
-tbw-grid[data-density='full'] .cal-wday__full {
-  display: inline;
+@container calendar (width >= 534px) {
+  .cal-wday__full {
+    display: inline;
+  }
+
+  .cal-wday__short,
+  .cal-wday__mini {
+    display: none;
+  }
 }
 
-tbw-grid[data-density='full'] .cal-wday__short,
-tbw-grid[data-density='full'] .cal-wday__mini {
-  display: none;
-}
+@container calendar (width < 480px) {
+  .cal-wday__mini {
+    display: inline;
+  }
 
-tbw-grid[data-density='minimal'] .cal-wday__mini {
-  display: inline;
-}
-
-tbw-grid[data-density='minimal'] .cal-wday__short,
-tbw-grid[data-density='minimal'] .cal-wday__full {
-  display: none;
+  .cal-wday__short,
+  .cal-wday__full {
+    display: none;
+  }
 }
 
 /* Week-number column — narrow, muted.

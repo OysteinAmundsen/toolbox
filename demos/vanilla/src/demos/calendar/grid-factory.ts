@@ -13,9 +13,10 @@
  *   shell's toolbar area on the right via `registerToolbarContent`, and the
  *   category color legend is rendered as a pinned-bottom row via the
  *   `pinnedRows` feature.
- * - A `ResizeObserver` on the wrapper toggles `data-density` on the grid
- *   host between `full`, `compact`, and `minimal`. The cell renderer always
- *   emits the same markup; CSS hides the parts that don't apply.
+ * - Responsive density tiers (`full` / `compact` / `minimal`) are driven
+ *   purely by CSS `@container calendar (...)` queries on
+ *   `.calendar-demo__grid` (see `demo-styles.css`). The cell renderer
+ *   always emits the same markup; CSS hides the parts that don't apply.
  */
 
 import '@toolbox-web/grid';
@@ -53,18 +54,9 @@ const MONTH_NAMES = [
   'December',
 ];
 
-// Density breakpoints (px). Picked so each weekday column gets a sensible
-// minimum amount of room:
-//   ≥ 534 → full event list (7 day cols × 70px + 44px week col)
-//   480–534 → colored dots only
-//   < 480 → minimal — single letter glyph only
-// Below 70px per day cell the text won't fit, so we switch to colored
-// swatches. 7 * 70 + 44 = 534px.
-const WEEK_COL_PX = 44;
-const DAY_COLS = 7;
-const DAY_CELL_FULL_PX = 70;
-const DENSITY_FULL_PX = WEEK_COL_PX + DAY_COLS * DAY_CELL_FULL_PX;
-const DENSITY_COMPACT_PX = 480;
+// Density tiers (full / compact / minimal) are driven purely by CSS
+// `@container calendar (...)` queries in `demo-styles.css` — no JS
+// width observer is needed.
 
 // Default until the first ResizeObserver tick reports a real height.
 const DEFAULT_ROW_HEIGHT_PX = 110;
@@ -96,8 +88,6 @@ export function createCalendarGrid(): CalendarGridHandle {
 
   const grid = createGrid<CalendarWeek>();
   grid.className = 'calendar-demo__grid';
-  // Start in `full` density; the ResizeObserver will adjust shortly.
-  grid.setAttribute('data-density', 'full');
 
   // Kept in a closure because the `gridConfig` setter REPLACES rather than
   // merges (see ConfigManager.setGridConfig). When the ResizeObserver wants
@@ -274,19 +264,19 @@ export function createCalendarGrid(): CalendarGridHandle {
   };
   grid.addEventListener('mousedown', onMousedown, true);
 
-  // === Responsive density + dynamic row height ===
+  // === Dynamic row height ===
   //
-  // Two observers, each on the element it actually cares about:
-  //   - Width  → observe the grid host; flip `data-density` (full /
-  //     compact / minimal) via a CSS attribute selector.
-  //   - Height → observe `.rows-viewport` (the scrollable rows area
-  //     inside the grid); set `rowHeight = viewportHeight / weekCount`
-  //     so every row is identical and `weekCount * rowHeight` exactly
-  //     fills the viewport — no empty strip, no inner scrollbar.
+  // Height → observe `.rows-viewport` (the scrollable rows area inside
+  // the grid); set `rowHeight = viewportHeight / weekCount` so every
+  // row is identical and `weekCount * rowHeight` exactly fills the
+  // viewport — no empty strip, no inner scrollbar.
+  //
+  // Density tiers (full / compact / minimal) are driven purely by CSS
+  // `@container` queries on `.calendar-demo__grid` — no JS observer
+  // required for that.
   //
   // `gridConfig` is a merge target — re-assigning a partial just patches
   // the fields we name, so plugins / columns / fitMode are preserved.
-  let lastDensity: 'full' | 'compact' | 'minimal' | null = null;
   let lastRowHeight = DEFAULT_ROW_HEIGHT_PX;
   let lastViewportHeight = 0;
 
@@ -312,19 +302,6 @@ export function createCalendarGrid(): CalendarGridHandle {
     }
   }
 
-  // Width observer on the host — density breakpoints don't care about height.
-  const widthRo = new ResizeObserver((entries) => {
-    const entry = entries[0];
-    if (!entry) return;
-    const width = entry.contentRect.width;
-    const density = width >= DENSITY_FULL_PX ? 'full' : width >= DENSITY_COMPACT_PX ? 'compact' : 'minimal';
-    if (density !== lastDensity) {
-      grid.setAttribute('data-density', density);
-      lastDensity = density;
-    }
-  });
-  widthRo.observe(grid);
-
   // Height observer on `.rows-viewport`. The element is created when the
   // grid first renders, so we wait for `ready()` before attaching.
   const heightRo = new ResizeObserver((entries) => {
@@ -339,7 +316,6 @@ export function createCalendarGrid(): CalendarGridHandle {
   return {
     grid,
     destroy: () => {
-      widthRo.disconnect();
       heightRo.disconnect();
       grid.removeEventListener('keydown', onKeydown, true);
       grid.removeEventListener('mousedown', onMousedown, true);
@@ -357,7 +333,7 @@ export function createCalendarGrid(): CalendarGridHandle {
       // Plain-text fallback used by ARIA / a11y / export.
       header: WEEKDAY_HEADERS_FULL[field],
       // Visual label: three width variants in one node; CSS shows the right
-      // one based on the grid host's `[data-density]` attribute.
+      // one based on container width via `@container calendar (...)` queries.
       headerLabelRenderer: () => renderWeekdayHeader(field),
       // No `width` set → eligible for stretch under `fitMode: 'stretch'`.
       minWidth: 60,
@@ -514,8 +490,9 @@ function renderLegend(): HTMLElement {
 
 /**
  * Build the weekday header label node with three width variants in one DOM.
- * CSS shows one based on the grid host's `[data-density]`:
- * `full` → "Monday", `compact` → "Mon", `minimal` → "M".
+ * CSS shows one based on the grid's container width via
+ * `@container calendar (...)` queries:
+ * ≥534 px → "Monday", 480–534 px → "Mon", <480 px → "M".
  */
 function renderWeekdayHeader(field: WeekdayField): HTMLElement {
   const root = document.createElement('span');

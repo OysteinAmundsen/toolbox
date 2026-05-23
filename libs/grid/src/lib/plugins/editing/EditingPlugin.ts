@@ -344,8 +344,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     };
 
     // Inject editing state and methods onto grid for backward compatibility
-    internalGrid._activeEditRows = -1;
-    internalGrid._rowEditSnapshots = new Map();
+    this.#syncGridEditState();
 
     // Inject changedRows getter
     Object.defineProperty(grid, 'changedRows', {
@@ -485,22 +484,17 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         if (!action) return;
         const row = this.rows[action.rowIndex] as T | undefined;
         if (!row) return;
-        const rowId = this.grid.getRowId(row);
+        const rowId = this.#safeGetRowId(row);
         if (!rowId) return;
         const dirty = this.#dirty.isRowDirty(rowId, row);
-        this.emit<DirtyChangeDetail<T>>('dirty-change', {
-          rowId,
-          row,
-          original: this.#dirty.getOriginalRow(rowId),
-          type: dirty ? 'modified' : 'pristine',
-        });
+        this.#emitDirtyChange(rowId, row, dirty ? 'modified' : 'pristine');
       };
       this.gridElement.addEventListener('undo', handleUndoRedo, { signal });
       this.gridElement.addEventListener('redo', handleUndoRedo, { signal });
 
       // Listen for row-inserted events to auto-mark new rows for dirty tracking
       this.on('row-inserted', (detail: { row: T; index: number }) => {
-        const rowId = this.grid.getRowId(detail.row);
+        const rowId = this.#safeGetRowId(detail.row);
         if (rowId != null) {
           this.markAsNew(String(rowId));
         }
@@ -606,29 +600,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
               // after the overlay tears down.
               queueMicrotask(() => {
                 if (this.#gridModeInputFocused) {
-                  this.#revertGridModeCellEdit();
-                  const activeEl = document.activeElement as HTMLElement;
-                  if (activeEl && this.gridElement.contains(activeEl)) {
-                    activeEl.blur();
-                    this.gridElement.focus();
-                  }
-                  this.#gridModeInputFocused = false;
-                  this.#gridModeEditLocked = true;
+                  this.#enterGridModeNavigation();
                 }
               });
               return;
             }
-            // Revert cell value to pre-edit snapshot
-            this.#revertGridModeCellEdit();
-
-            const activeEl = document.activeElement as HTMLElement;
-            if (activeEl && this.gridElement.contains(activeEl)) {
-              activeEl.blur();
-              // Move focus to the grid container so arrow keys work
-              this.gridElement.focus();
-            }
-            this.#gridModeInputFocused = false;
-            this.#gridModeEditLocked = true; // Lock edit mode until Enter/click
+            this.#enterGridModeNavigation();
             e.preventDefault();
             e.stopPropagation();
           }
@@ -717,9 +694,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (!hasEditableColumn) return false;
 
     // Row-level gate
-    const rowData = internalGrid._rows[rowIndex];
-    const rowEditable = internalGrid.effectiveConfig?.rowEditable;
-    if (rowData && rowEditable && !rowEditable(rowData as any)) return false;
+    if (!this.#isRowEditable(internalGrid._rows[rowIndex] as T | undefined)) return false;
 
     // Start row-based editing (all editable cells get editors)
     event.originalEvent.stopPropagation();
@@ -745,17 +720,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       //   b) no overlay was open.
       // In both cases we should transition to navigation mode.
       if (this.#isGridMode && this.#gridModeInputFocused) {
-        // Revert cell value to pre-edit snapshot
-        this.#revertGridModeCellEdit();
-
-        const activeEl = document.activeElement as HTMLElement;
-        if (activeEl && this.gridElement.contains(activeEl)) {
-          activeEl.blur();
-          // Move focus to the grid so arrow keys navigate cells, not the editor
-          this.gridElement.focus();
-        }
-        this.#gridModeInputFocused = false;
-        this.#gridModeEditLocked = true; // Lock until Enter/click re-enables editing
+        this.#enterGridModeNavigation();
         // Update focus styling
         this.requestAfterRender();
         return true;
@@ -938,9 +903,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         const hasEditableColumn = internalGrid._columns?.some((col) => this.#hasEditableConfig(col as ColumnConfig<T>));
         // Row-level gate
         const rowData = internalGrid._rows[focusRow];
-        const rowEditable = internalGrid.effectiveConfig?.rowEditable;
-        const rowBlocked = rowData && rowEditable && !rowEditable(rowData as any);
-        if (hasEditableColumn && !rowBlocked) {
+        if (hasEditableColumn && this.#isRowEditable(rowData as T | undefined)) {
           // Emit cell-activate event BEFORE starting edit
           // This ensures consumers always get the activation event
           const column = internalGrid._visibleColumns[focusCol];
@@ -1097,13 +1060,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Find the edited row's new position by ID
     let newIndex = -1;
     for (let i = 0; i < result.length; i++) {
-      try {
-        if (internalGrid.getRowId?.(result[i]) === editRowId) {
-          newIndex = i;
-          break;
-        }
-      } catch {
-        // Row has no ID — skip
+      if (this.#safeGetRowId(result[i]) === editRowId) {
+        newIndex = i;
+        break;
       }
     }
 
@@ -1186,10 +1145,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       const rowIndex = parseInt(rowStr, 10);
       const colIndex = parseInt(colStr, 10);
 
-      const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
-      if (!rowEl) continue;
-
-      const cellEl = rowEl.querySelector(`.cell[data-col="${colIndex}"]`) as HTMLElement | null;
+      const cellEl = this.#getCell(rowIndex, colIndex);
       if (!cellEl || cellEl.classList.contains('editing')) continue;
 
       // Cell is visible but not in editing mode - reinject editor
@@ -1402,10 +1358,11 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const row = this.grid.getRow(rowId) as T | undefined;
     if (!row) return;
     this.#dirty.markPristine(rowId, row);
+    // After mark-pristine, original === current — emit row as the canonical value.
     this.emit<DirtyChangeDetail<T>>('dirty-change', {
       rowId,
       row,
-      original: row, // after mark-pristine, original === current
+      original: row,
       type: 'pristine',
     });
   }
@@ -1415,6 +1372,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (!this.config.dirtyTracking) return;
     this.#dirty.markNew(rowId);
     const row = this.grid.getRow(rowId) as T | undefined;
+    // `original` is intentionally undefined for new rows — emit directly
+    // rather than via #emitDirtyChange (which always derives original from
+    // the baseline map).
     this.emit<DirtyChangeDetail<T>>('dirty-change', {
       rowId,
       row: row as T,
@@ -1429,12 +1389,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const row = this.grid.getRow(rowId) as T | undefined;
     if (!row) return;
     this.#dirty.markDirty(rowId);
-    this.emit<DirtyChangeDetail<T>>('dirty-change', {
-      rowId,
-      row,
-      original: this.#dirty.getOriginalRow(rowId),
-      type: 'modified',
-    });
+    this.#emitDirtyChange(rowId, row, 'modified');
   }
 
   /** Mark all tracked rows as pristine (call after a batch save). */
@@ -1483,12 +1438,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const row = this.grid.getRow(rowId) as T | undefined;
     if (!row) return;
     if (this.#dirty.revertRow(rowId, row)) {
-      this.emit<DirtyChangeDetail<T>>('dirty-change', {
-        rowId,
-        row,
-        original: this.#dirty.getOriginalRow(rowId),
-        type: 'reverted',
-      });
+      this.#emitDirtyChange(rowId, row, 'reverted');
       this.requestRender();
     }
   }
@@ -1605,8 +1555,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const rowData = internalGrid._rows[rowIndex];
     if (!column || !rowData || !this.#isCellEditable(column as ColumnConfig<T>, rowData as T)) return;
 
-    const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
-    const cellEl = rowEl?.querySelector(`.cell[data-col="${colIndex}"]`) as HTMLElement | null;
+    const cellEl = this.#getCell(rowIndex, colIndex);
     if (!cellEl) return;
 
     this.#singleCellEdit = true;
@@ -1632,8 +1581,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // Row-level gate
     const rowData = internalGrid._rows[rowIndex];
-    const rowEditable = internalGrid.effectiveConfig?.rowEditable;
-    if (rowData && rowEditable && !rowEditable(rowData as any)) return;
+    if (!this.#isRowEditable(rowData as T | undefined)) return;
 
     // Bulk edit clears single-cell mode
     this.#singleCellEdit = false;
@@ -1692,6 +1640,92 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
   // #region Internal Methods
 
+  // --- Small private helpers (centralised to keep call sites uniform) ---
+
+  /**
+   * Safely resolve a row's ID via the configured `getRowId`. Returns
+   * `undefined` when no ID can be derived (no `getRowId` callback, or it
+   * threw — e.g. row has no key).
+   */
+  #safeGetRowId(row: T | undefined | null): string | undefined {
+    if (!row) return undefined;
+    try {
+      return this.#internalGrid.getRowId?.(row);
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Resolve a rendered cell element by row + column index. Returns `null`
+   * when the row is not currently rendered or the cell is missing.
+   */
+  #getCell(rowIndex: number, colIndex: number): HTMLElement | null {
+    const rowEl = this.#internalGrid.findRenderedRowElement?.(rowIndex);
+    return (rowEl?.querySelector(`.cell[data-col="${colIndex}"]`) as HTMLElement | null) ?? null;
+  }
+
+  /**
+   * Row-level editability gate. Returns `false` only when
+   * `gridConfig.rowEditable` is configured AND vetoes the row. Rows without
+   * data return `true` (defer to the column-level check).
+   */
+  #isRowEditable(rowData: T | undefined): boolean {
+    if (!rowData) return true;
+    const rowEditable = this.#internalGrid.effectiveConfig?.rowEditable;
+    if (!rowEditable) return true;
+    return rowEditable(rowData as any) !== false;
+  }
+
+  /**
+   * Emit a `dirty-change` event with the canonical `{ rowId, row, original, type }`
+   * shape. Centralises baseline lookup so every emit site uses the same
+   * source of truth.
+   */
+  #emitDirtyChange(rowId: string, row: T | undefined, type: DirtyChangeDetail<T>['type']): void {
+    this.emit<DirtyChangeDetail<T>>('dirty-change', {
+      rowId,
+      row: row as T,
+      original: this.#dirty.getOriginalRow(rowId),
+      type,
+    });
+  }
+
+  /**
+   * Grid-mode "Escape → navigation mode" transition: revert the cell from
+   * the focus snapshot, blur the active editor, return focus to the grid,
+   * and flip the navigation/lock flags. Used by the capture-phase Escape
+   * handler (both deferred and sync branches) and the bubble-phase Escape
+   * handler in `onKeyDown`.
+   */
+  #enterGridModeNavigation(): void {
+    this.#revertGridModeCellEdit();
+    const activeEl = document.activeElement as HTMLElement | null;
+    if (activeEl && this.gridElement.contains(activeEl)) {
+      activeEl.blur();
+      this.gridElement.focus();
+    }
+    this.#gridModeInputFocused = false;
+    this.#gridModeEditLocked = true;
+  }
+
+  /**
+   * Restore a row to its snapshot values and clear all per-row dirty
+   * bookkeeping. Called both from the explicit-revert path and from the
+   * `row-commit` cancellation path in `#exitRowEdit`.
+   */
+  #revertRowFromSnapshot(rowId: string | undefined, current: T, snapshot: T | undefined): void {
+    if (!snapshot) return;
+    Object.keys(snapshot as object).forEach((k) => {
+      (current as Record<string, unknown>)[k] = (snapshot as Record<string, unknown>)[k];
+    });
+    if (rowId) {
+      this.#dirty.changedRowIds.delete(rowId);
+      this.#dirty.committedDirtyRowIds.delete(rowId);
+      this.clearRowInvalid(rowId);
+    }
+  }
+
   /**
    * Sync the data-invalid attribute on a cell element.
    * Used as the DOM callback for CellValidationManager.
@@ -1703,17 +1737,10 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // Find the row element by rowId
     const rows = internalGrid._rows;
-    const rowIndex = rows?.findIndex((r) => {
-      try {
-        return internalGrid.getRowId?.(r) === rowId;
-      } catch {
-        return false;
-      }
-    });
+    const rowIndex = rows?.findIndex((r) => this.#safeGetRowId(r as T) === rowId);
     if (rowIndex === -1 || rowIndex === undefined) return;
 
-    const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
-    const cellEl = rowEl?.querySelector(`.cell[data-col="${colIndex}"]`) as HTMLElement | null;
+    const cellEl = this.#getCell(rowIndex, colIndex);
     if (!cellEl) return;
 
     if (invalid) {
@@ -1836,23 +1863,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // be unconditional — otherwise the Set retains stale IDs when dirtyTracking
     // is disabled and the built-in toggle re-adds `.changed` on every render.
     if (rowData) {
-      let rowId: string | undefined;
-      try {
-        rowId = this.grid.getRowId(rowData);
-      } catch {
-        // Row has no ID
-      }
+      const rowId = this.#safeGetRowId(rowData as T);
       if (rowId) {
         if (this.config.dirtyTracking) {
           // With dirty tracking, only remove if the row has no other dirty cells
           if (!this.#dirty.isRowDirty(rowId, rowData as T)) {
             this.#dirty.changedRowIds.delete(rowId);
-            this.emit<DirtyChangeDetail<T>>('dirty-change', {
-              rowId,
-              row: rowData as T,
-              original: this.#dirty.getOriginalRow(rowId),
-              type: 'reverted',
-            });
+            this.#emitDirtyChange(rowId, rowData as T, 'reverted');
           }
         } else {
           // Without dirty tracking there's no baseline to compare, so always
@@ -1881,8 +1898,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     if (focusRow < 0 || focusCol < 0) return;
 
-    const rowEl = internalGrid.findRenderedRowElement?.(focusRow);
-    const cellEl = rowEl?.querySelector(`.cell[data-col="${focusCol}"]`) as HTMLElement | null;
+    const cellEl = this.#getCell(focusRow, focusCol);
 
     if (cellEl?.classList.contains('editing')) {
       const editor = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
@@ -1922,8 +1938,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Can move within same row?
     if (nextIdx >= 0 && nextIdx < editableCols.length) {
       internalGrid._focusCol = editableCols[nextIdx];
-      const rowEl = internalGrid.findRenderedRowElement?.(currentRow);
-      const cellEl = rowEl?.querySelector(`.cell[data-col="${editableCols[nextIdx]}"]`) as HTMLElement | null;
+      const cellEl = this.#getCell(currentRow, editableCols[nextIdx]);
       if (cellEl?.classList.contains('editing')) {
         const editor = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
         editor?.focus({ preventScroll: true });
@@ -1950,8 +1965,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         // Focus the editor in the new cell after render
         this.requestAfterRender();
         setTimeout(() => {
-          const rowEl = internalGrid.findRenderedRowElement?.(nextRow);
-          const cellEl = rowEl?.querySelector(`.cell[data-col="${internalGrid._focusCol}"]`) as HTMLElement | null;
+          const cellEl = this.#getCell(nextRow, internalGrid._focusCol);
           if (cellEl?.classList.contains('editing')) {
             const editor = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
             editor?.focus({ preventScroll: true });
@@ -1992,12 +2006,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       this.#activeEditRowRef = rowData;
 
       // Store stable row ID for resilience against _rows replacement during editing
-      const internalGrid = this.#internalGrid;
-      try {
-        this.#activeEditRowId = internalGrid.getRowId?.(rowData) ?? undefined;
-      } catch {
-        this.#activeEditRowId = undefined;
-      }
+      this.#activeEditRowId = this.#safeGetRowId(rowData);
 
       this.#syncGridEditState();
 
@@ -2037,11 +2046,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const current = entry?.row ?? this.#activeEditRowRef ?? internalGrid._rows[rowIndex];
 
     if (!rowId && current) {
-      try {
-        rowId = internalGrid.getRowId?.(current);
-      } catch {
-        // Row has no ID - skip ID-based tracking
-      }
+      rowId = this.#safeGetRowId(current);
     }
 
     // Collect and commit values from active editors before re-rendering
@@ -2088,15 +2093,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     }
 
     // Revert if requested
-    if (revert && snapshot && current) {
-      Object.keys(snapshot as object).forEach((k) => {
-        (current as Record<string, unknown>)[k] = (snapshot as Record<string, unknown>)[k];
-      });
-      if (rowId) {
-        this.#dirty.changedRowIds.delete(rowId);
-        this.#dirty.committedDirtyRowIds.delete(rowId);
-        this.clearRowInvalid(rowId);
-      }
+    if (revert && current) {
+      this.#revertRowFromSnapshot(rowId, current, snapshot);
     } else if (!revert && current) {
       // Compare snapshot vs current to detect if changes were made during THIS edit session
       const changedThisSession = hasRowChanged(snapshot, current);
@@ -2119,14 +2117,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
       // If consumer called preventDefault(), revert the row
       if (cancelled && snapshot) {
-        Object.keys(snapshot as object).forEach((k) => {
-          (current as Record<string, unknown>)[k] = (snapshot as Record<string, unknown>)[k];
-        });
-        if (rowId) {
-          this.#dirty.changedRowIds.delete(rowId);
-          this.#dirty.committedDirtyRowIds.delete(rowId);
-          this.clearRowInvalid(rowId);
-        }
+        this.#revertRowFromSnapshot(rowId, current, snapshot);
       } else if (!cancelled) {
         // Mark row as committed-dirty if it has actual changes vs baseline
         if (rowId && this.config.dirtyTracking) {
@@ -2237,12 +2228,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const internalGrid = this.#internalGrid;
 
     // Get row ID for change tracking (may not exist if getRowId not configured)
-    let rowId: string | undefined;
-    try {
-      rowId = this.grid.getRowId(rowData);
-    } catch {
-      // Row has no ID - will still work but won't be tracked in changedRowIds
-    }
+    const rowId = this.#safeGetRowId(rowData);
 
     const firstTime = rowId ? !this.#dirty.changedRowIds.has(rowId) : true;
 
@@ -2297,12 +2283,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Emit dirty-change event if dirty tracking is enabled
     if (this.config.dirtyTracking && rowId) {
       const dirty = this.#dirty.isRowDirty(rowId, rowData);
-      this.emit<DirtyChangeDetail<T>>('dirty-change', {
-        rowId,
-        row: rowData,
-        original: this.#dirty.getOriginalRow(rowId),
-        type: dirty ? 'modified' : 'pristine',
-      });
+      this.#emitDirtyChange(rowId, rowData, dirty ? 'modified' : 'pristine');
     }
 
     // Notify other plugins (e.g., UndoRedoPlugin) about the committed edit

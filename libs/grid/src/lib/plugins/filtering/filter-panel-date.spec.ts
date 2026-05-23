@@ -148,7 +148,7 @@ describe('renderDateFilterPanel', () => {
       expect(inputs[1].value).toBe('2024-06-30');
     });
 
-    it('should restore "greaterThanOrEqual" filter to From input', () => {
+    it('should restore "greaterThanOrEqual" filter to From input and keep To at default max', () => {
       const filters = new Map<string, FilterModel>();
       filters.set('date', {
         field: 'date',
@@ -156,14 +156,17 @@ describe('renderDateFilterPanel', () => {
         operator: 'greaterThanOrEqual',
         value: '2024-05-01',
       });
-      renderDateFilterPanel(panel, createParams(), [], filters);
+      const values = [new Date('2024-01-01'), new Date('2024-12-31')];
+      renderDateFilterPanel(panel, createParams(), values, filters);
 
       const inputs = panel.querySelectorAll('input[type="date"]') as NodeListOf<HTMLInputElement>;
       expect(inputs[0].value).toBe('2024-05-01');
-      expect(inputs[1].value).toBe('');
+      // Other bound stays populated with its default so the user can see the
+      // open upper bound rather than an empty input (parity with number panel).
+      expect(inputs[1].value).toBe('2024-12-31');
     });
 
-    it('should restore "lessThanOrEqual" filter to To input', () => {
+    it('should restore "lessThanOrEqual" filter to To input and keep From at default min', () => {
       const filters = new Map<string, FilterModel>();
       filters.set('date', {
         field: 'date',
@@ -171,10 +174,11 @@ describe('renderDateFilterPanel', () => {
         operator: 'lessThanOrEqual',
         value: '2024-11-30',
       });
-      renderDateFilterPanel(panel, createParams(), [], filters);
+      const values = [new Date('2024-01-01'), new Date('2024-12-31')];
+      renderDateFilterPanel(panel, createParams(), values, filters);
 
       const inputs = panel.querySelectorAll('input[type="date"]') as NodeListOf<HTMLInputElement>;
-      expect(inputs[0].value).toBe('');
+      expect(inputs[0].value).toBe('2024-01-01');
       expect(inputs[1].value).toBe('2024-11-30');
     });
 
@@ -333,6 +337,151 @@ describe('renderDateFilterPanel', () => {
       clearBtn.click();
 
       expect(params.clearFilter).toHaveBeenCalled();
+    });
+  });
+
+  // #endregion
+
+  // #region Auto-populate from data range
+
+  describe('auto-populate from data range', () => {
+    it('should pre-populate from/to inputs with data min/max when no filter is active', () => {
+      const values = [new Date('2024-01-01'), new Date('2024-06-15'), new Date('2024-12-31')];
+      renderDateFilterPanel(panel, createParams(), values, new Map());
+
+      const inputs = panel.querySelectorAll('input[type="date"]') as NodeListOf<HTMLInputElement>;
+      expect(inputs[0].value).toBe('2024-01-01');
+      expect(inputs[1].value).toBe('2024-12-31');
+    });
+
+    it('should leave inputs empty when no data and no filter', () => {
+      renderDateFilterPanel(panel, createParams(), [], new Map());
+
+      const inputs = panel.querySelectorAll('input[type="date"]') as NodeListOf<HTMLInputElement>;
+      expect(inputs[0].value).toBe('');
+      expect(inputs[1].value).toBe('');
+    });
+
+    it('should pre-populate with data-derived defaults but use filterParams for input min/max constraints', () => {
+      const params = createParams({
+        column: {
+          field: 'date',
+          header: 'Date',
+          type: 'date' as any,
+          filterParams: { min: '2020-01-01', max: '2030-12-31' },
+        },
+      });
+      const values = [new Date('2024-01-01'), new Date('2024-12-31')];
+      renderDateFilterPanel(panel, params, values, new Map());
+
+      const inputs = panel.querySelectorAll('input[type="date"]') as NodeListOf<HTMLInputElement>;
+      // Default *values* reflect the actual data so narrowing the inputs by a
+      // small amount actually filters rows (the user's reported bug fix).
+      expect(inputs[0].value).toBe('2024-01-01');
+      expect(inputs[1].value).toBe('2024-12-31');
+      // The input's allowed range still respects filterParams.
+      expect(inputs[0].min).toBe('2020-01-01');
+      expect(inputs[0].max).toBe('2030-12-31');
+    });
+
+    it('should fall back to filterParams defaults when no data is available', () => {
+      const params = createParams({
+        column: {
+          field: 'date',
+          header: 'Date',
+          type: 'date' as any,
+          filterParams: { min: '2020-01-01', max: '2030-12-31' },
+        },
+      });
+      renderDateFilterPanel(panel, params, [], new Map());
+
+      const inputs = panel.querySelectorAll('input[type="date"]') as NodeListOf<HTMLInputElement>;
+      expect(inputs[0].value).toBe('2020-01-01');
+      expect(inputs[1].value).toBe('2030-12-31');
+    });
+
+    it('should clearFilter when Apply is clicked with unchanged data range defaults', () => {
+      const params = createParams();
+      const values = [new Date('2024-01-01'), new Date('2024-12-31')];
+      renderDateFilterPanel(panel, params, values, new Map());
+
+      const applyBtn = panel.querySelector('.tbw-filter-apply-btn') as HTMLButtonElement;
+      applyBtn.click();
+
+      expect(params.clearFilter).toHaveBeenCalled();
+      expect(params.applyTextFilter).not.toHaveBeenCalled();
+    });
+
+    it('should apply "between" when user narrows below the data range', () => {
+      const params = createParams();
+      const values = [new Date('2024-01-01'), new Date('2024-12-31')];
+      renderDateFilterPanel(panel, params, values, new Map());
+
+      const inputs = panel.querySelectorAll('input[type="date"]') as NodeListOf<HTMLInputElement>;
+      inputs[0].value = '2024-03-01';
+      inputs[1].value = '2024-09-30';
+
+      const applyBtn = panel.querySelector('.tbw-filter-apply-btn') as HTMLButtonElement;
+      applyBtn.click();
+
+      expect(params.applyTextFilter).toHaveBeenCalledWith('between', '2024-03-01', '2024-09-30');
+    });
+
+    it('should apply "lessThanOrEqual" when only To is narrowed (From left at default min)', () => {
+      // Regression: changing only To while From was pre-populated with the data
+      // min used to emit `between(defaultMin, newTo)`, which silently excluded
+      // blank rows and round-tripped as a confusing filter. The default-equal
+      // From is now collapsed away so the filter is stored as a true upper
+      // bound only — and the panel restores To to the user's value with From
+      // back at the default min.
+      const params = createParams();
+      const values = [new Date('2024-01-01'), new Date('2024-12-31')];
+      renderDateFilterPanel(panel, params, values, new Map());
+
+      const inputs = panel.querySelectorAll('input[type="date"]') as NodeListOf<HTMLInputElement>;
+      expect(inputs[0].value).toBe('2024-01-01');
+      expect(inputs[1].value).toBe('2024-12-31');
+
+      // User reduces the max by 2 months — From left untouched.
+      inputs[1].value = '2024-10-31';
+
+      const applyBtn = panel.querySelector('.tbw-filter-apply-btn') as HTMLButtonElement;
+      applyBtn.click();
+
+      expect(params.applyTextFilter).toHaveBeenCalledWith('lessThanOrEqual', '2024-10-31');
+    });
+
+    it('should apply "greaterThanOrEqual" when only From is narrowed (To left at default max)', () => {
+      const params = createParams();
+      const values = [new Date('2024-01-01'), new Date('2024-12-31')];
+      renderDateFilterPanel(panel, params, values, new Map());
+
+      const inputs = panel.querySelectorAll('input[type="date"]') as NodeListOf<HTMLInputElement>;
+      inputs[0].value = '2024-04-01';
+
+      const applyBtn = panel.querySelector('.tbw-filter-apply-btn') as HTMLButtonElement;
+      applyBtn.click();
+
+      expect(params.applyTextFilter).toHaveBeenCalledWith('greaterThanOrEqual', '2024-04-01');
+    });
+
+    it('should restore a narrowed "lessThanOrEqual" filter with the default From after reopen', () => {
+      // Full round-trip for the user-reported bug: narrow To by 2 months,
+      // Apply, reopen — From shows the data min again (not blank) and To
+      // shows the user's value.
+      const filters = new Map<string, FilterModel>();
+      filters.set('date', {
+        field: 'date',
+        type: 'date',
+        operator: 'lessThanOrEqual',
+        value: '2024-10-31',
+      });
+      const values = [new Date('2024-01-01'), new Date('2024-12-31')];
+      renderDateFilterPanel(panel, createParams(), values, filters);
+
+      const inputs = panel.querySelectorAll('input[type="date"]') as NodeListOf<HTMLInputElement>;
+      expect(inputs[0].value).toBe('2024-01-01');
+      expect(inputs[1].value).toBe('2024-10-31');
     });
   });
 

@@ -53,22 +53,32 @@ export function renderNumberFilterPanel(
   const dataMin = numericValues.length > 0 ? Math.min(...numericValues) : 0;
   const dataMax = numericValues.length > 0 ? Math.max(...numericValues) : 100;
 
+  // `min` / `max` define the slider/input domain (HTML min/max attributes).
+  // `filterParams` wins here so consumers can widen the picker beyond the data.
   const min = toNumber(filterParams?.min ?? editorParams?.min, dataMin);
   const max = toNumber(filterParams?.max ?? editorParams?.max, dataMax);
   const step = filterParams?.step ?? editorParams?.step ?? 1;
 
+  // `defaultMin` / `defaultMax` are the pre-populated values when no filter is
+  // active AND the comparators used to detect a default-equal Apply. These
+  // reflect the *actual data range* (clamped into the slider domain) so
+  // narrowing the inputs by a small amount actually filters rows. When there's
+  // no data, fall back to the slider domain.
+  const defaultMin = numericValues.length > 0 ? Math.max(min, dataMin) : min;
+  const defaultMax = numericValues.length > 0 ? Math.min(max, dataMax) : max;
+
   // Get current filter values if any
   const currentFilter = currentFilters.get(field);
-  let currentMin = min;
-  let currentMax = max;
+  let currentMin = defaultMin;
+  let currentMax = defaultMax;
   const isBlankFilter = currentFilter?.operator === 'blank';
   if (currentFilter?.operator === 'between') {
-    currentMin = toNumber(currentFilter.value, min);
-    currentMax = toNumber(currentFilter.valueTo, max);
+    currentMin = toNumber(currentFilter.value, defaultMin);
+    currentMax = toNumber(currentFilter.valueTo, defaultMax);
   } else if (currentFilter?.operator === 'greaterThanOrEqual') {
-    currentMin = toNumber(currentFilter.value, min);
+    currentMin = toNumber(currentFilter.value, defaultMin);
   } else if (currentFilter?.operator === 'lessThanOrEqual') {
-    currentMax = toNumber(currentFilter.value, max);
+    currentMax = toNumber(currentFilter.value, defaultMax);
   }
 
   // Range inputs container
@@ -250,12 +260,12 @@ export function renderNumberFilterPanel(
     const minVal = parseFloat(minInput.value);
     const maxVal = parseFloat(maxInput.value);
     // An empty input parses to NaN; treat that as "not constrained" and fall
-    // back to the panel bound. Then, when neither side has actually been moved
-    // from the data-derived defaults, Apply means "no filter" — applying a
+    // back to the data-derived default. Then, when neither side has actually
+    // been moved from the defaults, Apply means "no filter" — applying a
     // `between` over the full range would silently drop blank rows.
-    const effectiveMin = Number.isFinite(minVal) ? minVal : min;
-    const effectiveMax = Number.isFinite(maxVal) ? maxVal : max;
-    if (effectiveMin === min && effectiveMax === max) {
+    const effectiveMin = Number.isFinite(minVal) ? minVal : defaultMin;
+    const effectiveMax = Number.isFinite(maxVal) ? maxVal : defaultMax;
+    if (effectiveMin === defaultMin && effectiveMax === defaultMax) {
       params.clearFilter();
       return;
     }

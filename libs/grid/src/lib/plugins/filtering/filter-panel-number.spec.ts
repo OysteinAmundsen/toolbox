@@ -208,6 +208,72 @@ describe('renderNumberFilterPanel', () => {
 
   // #endregion
 
+  // #region Default values vs input constraints
+
+  describe('default values vs input constraints', () => {
+    it('should pre-populate inputs with data-derived values but use filterParams for min/max attributes', () => {
+      const params = createParams({
+        column: {
+          field: 'amount',
+          header: 'Amount',
+          type: 'number' as any,
+          filterParams: { min: 0, max: 1000, step: 10 },
+        },
+      });
+      // Data is much narrower than filterParams. The inputs should pre-populate
+      // with the *data* range so narrowing by a small amount actually filters
+      // rows, while the input's allowed range (HTML min/max) still respects
+      // filterParams so consumers can widen the picker beyond the data.
+      renderNumberFilterPanel(panel, params, [50, 80], new Map());
+
+      const inputs = panel.querySelectorAll('input[type="number"]') as NodeListOf<HTMLInputElement>;
+      expect(inputs[0].value).toBe('50');
+      expect(inputs[1].value).toBe('80');
+      expect(inputs[0].min).toBe('0');
+      expect(inputs[0].max).toBe('1000');
+    });
+
+    it('should fall back to filterParams defaults when no data is available', () => {
+      const params = createParams({
+        column: {
+          field: 'amount',
+          header: 'Amount',
+          type: 'number' as any,
+          filterParams: { min: 0, max: 1000, step: 10 },
+        },
+      });
+      renderNumberFilterPanel(panel, params, [], new Map());
+
+      const inputs = panel.querySelectorAll('input[type="number"]') as NodeListOf<HTMLInputElement>;
+      expect(inputs[0].value).toBe('0');
+      expect(inputs[1].value).toBe('1000');
+    });
+
+    it('should clearFilter on Apply when both bounds equal the data-derived defaults', () => {
+      const params = createParams({
+        column: {
+          field: 'amount',
+          header: 'Amount',
+          type: 'number' as any,
+          filterParams: { min: 0, max: 1000 },
+        },
+      });
+      // Data range [50, 80] is narrower than filterParams [0, 1000]; the panel
+      // pre-populates inputs with 50/80. Applying without changes must clear
+      // the filter — emitting `between(50, 80)` would silently drop blank rows
+      // and round-trip as a confusing filter on reopen.
+      renderNumberFilterPanel(panel, params, [50, 80], new Map());
+
+      const applyBtn = panel.querySelector('.tbw-filter-apply-btn') as HTMLButtonElement;
+      applyBtn.click();
+
+      expect(params.clearFilter).toHaveBeenCalled();
+      expect(params.applyTextFilter).not.toHaveBeenCalled();
+    });
+  });
+
+  // #endregion
+
   // #region Blank toggle
 
   describe('blank toggle', () => {

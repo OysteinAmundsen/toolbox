@@ -5,15 +5,29 @@
  *
  * @category Directive
  */
-import { Directive, ElementRef, inject, input, OnDestroy, OnInit, output } from '@angular/core';
+import { Directive, ElementRef, inject, input, OnDestroy, OnInit, output, type Type } from '@angular/core';
 import type { DataGridElement } from '@toolbox-web/grid';
 import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type {
   GroupCollapseDetail,
   GroupExpandDetail,
   GroupingRowsConfig,
+  GroupRowRenderParams,
   GroupToggleDetail,
 } from '@toolbox-web/grid/plugins/grouping-rows';
+
+/**
+ * Angular-shaped grouping rows config that allows an Angular component class
+ * as `groupRowRenderer`.
+ *
+ * Component instances receive the {@link GroupRowRenderParams} fields as
+ * inputs (`key`, `value`, `depth`, `rows`, `expanded`, `toggleExpand`).
+ *
+ * @since 1.7.0
+ */
+export type AngularGroupingRowsConfig = Omit<GroupingRowsConfig, 'groupRowRenderer'> & {
+  groupRowRenderer?: GroupingRowsConfig['groupRowRenderer'] | Type<unknown>;
+};
 
 /**
  * Owns the binding(s) `[groupingRows], [groupToggle], [groupExpand], [groupCollapse]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
@@ -27,7 +41,7 @@ import type {
 export class GridGroupingRowsDirective implements OnInit, OnDestroy {
   private readonly elementRef = inject(ElementRef<DataGridElement>);
 
-  readonly groupingRows = input<GroupingRowsConfig>();
+  readonly groupingRows = input<AngularGroupingRowsConfig>();
   readonly groupToggle = output<GroupToggleDetail>();
   readonly groupExpand = output<GroupExpandDetail>();
   readonly groupCollapse = output<GroupCollapseDetail>();

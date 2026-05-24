@@ -85,7 +85,15 @@ export type { ColumnShorthand } from './lib/column-shorthand';
 export type { CellEditor, CellRenderer, ColumnConfig, GridConfig } from './lib/vue-column-config';
 
 // Feature props types for declarative plugin configuration
-export type { AllFeatureProps, FeatureProps, SSRProps } from './lib/feature-props';
+export type {
+  AllFeatureProps,
+  FeatureProps,
+  SSRProps,
+  VueColumnGroupDefinition,
+  VueFilterConfig,
+  VueGroupingColumnsConfig,
+  VueGroupingRowsConfig,
+} from './lib/feature-props';
 
 // Feature registry for tree-shakeable plugin registration
 export {

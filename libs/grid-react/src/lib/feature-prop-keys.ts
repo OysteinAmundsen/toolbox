@@ -27,6 +27,14 @@ import type { FeatureName } from './feature-registry';
 const featurePropKeys = new Set<FeatureName>();
 
 /**
+ * Cached frozen snapshot of `featurePropKeys`. Rebuilt lazily on the next
+ * `getFeaturePropKeys()` call after any registry mutation. `<DataGrid>`
+ * reads this on every render (via `useMemo` dependency), so per-call
+ * allocation is worth avoiding.
+ */
+let cachedSnapshot: readonly FeatureName[] | null = null;
+
+/**
  * Register a feature prop name as a recognised `FeatureProps` key. Called by
  * built-in pre-registration (this module's bottom) and by third-party feature
  * secondary entries that augment `FeatureConfig`.
@@ -34,18 +42,25 @@ const featurePropKeys = new Set<FeatureName>();
  * @internal Plugin API
  */
 export function registerFeaturePropKey(name: FeatureName): void {
+  if (featurePropKeys.has(name)) return;
   featurePropKeys.add(name);
+  cachedSnapshot = null;
 }
 
 /**
  * Snapshot of all currently-registered feature prop keys, in registration
  * order. Returned as a frozen array so callers cannot mutate the registry by
- * reference.
+ * reference. The snapshot is cached and only rebuilt when the registry
+ * changes — `<DataGrid>` calls this during render, so per-call allocation
+ * is avoided.
  *
  * @internal `<DataGrid>` extract/sync use only.
  */
 export function getFeaturePropKeys(): readonly FeatureName[] {
-  return Object.freeze(Array.from(featurePropKeys));
+  if (cachedSnapshot === null) {
+    cachedSnapshot = Object.freeze(Array.from(featurePropKeys));
+  }
+  return cachedSnapshot;
 }
 
 /**
@@ -56,6 +71,7 @@ export function getFeaturePropKeys(): readonly FeatureName[] {
  */
 export function clearFeaturePropKeys(): void {
   featurePropKeys.clear();
+  cachedSnapshot = null;
 }
 
 // Pre-register all built-in feature prop names at module load (gh #356 §7:

@@ -56,6 +56,21 @@ function ensureAdapterRegistered(): GridAdapter {
 // This ensures the adapter is available when grids parse their light DOM columns
 ensureAdapterRegistered();
 
+// Stable ref-id assignment for objects that can't be JSON.stringify'd
+// (e.g. third-party feature props containing cycles or BigInt). Used by
+// `featurePropsKey` below as a non-throwing fallback so a malformed feature
+// value can't crash <DataGrid>.
+const refTokens = new WeakMap<object, number>();
+let nextRefToken = 0;
+function getRefToken(value: object): number {
+  let id = refTokens.get(value);
+  if (id === undefined) {
+    id = ++nextRefToken;
+    refTokens.set(value, id);
+  }
+  return id;
+}
+
 // Pre-register the built-in child-component detectors at module load so the
 // declarative `<GridDetailPanel>` / `<GridResponsiveCard>` patterns Just Work
 // without requiring the user to import `features/master-detail` /
@@ -414,12 +429,29 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   // ═══════════════════════════════════════════════════════════════════
 
   // Create a stable key from feature prop values to detect actual changes
-  // This avoids infinite loops from `rest` object reference changing each render
+  // This avoids infinite loops from `rest` object reference changing each render.
+  // `JSON.stringify` is wrapped because third-party features registered via
+  // `registerFeaturePropKey` may pass non-serializable values (BigInt, cycles)
+  // — falling back to a reference-token keeps render from throwing. Cache
+  // misses on the fallback path mean the memo re-runs whenever the prop's
+  // reference changes, which matches React's normal expectation for opaque
+  // values.
   const featurePropsKey = useMemo(() => {
     return getFeaturePropKeys()
       .map((key) => {
         const value = (rest as Record<string, unknown>)[key];
-        return value !== undefined ? `${key}:${JSON.stringify(value)}` : '';
+        if (value === undefined) return '';
+        let serialized: string;
+        try {
+          serialized = JSON.stringify(value) ?? 'undefined';
+        } catch {
+          // Non-serializable (cycle / BigInt / etc.) — use a per-reference
+          // token. Primitive fallback via String() handles BigInt; objects
+          // get a stable ref-id via a WeakMap-backed counter.
+          serialized =
+            typeof value === 'object' && value !== null ? `ref#${getRefToken(value)}` : `prim:${String(value)}`;
+        }
+        return `${key}:${serialized}`;
       })
       .filter(Boolean)
       .join('|');

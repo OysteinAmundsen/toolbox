@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.15.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.14.1...grid-2.15.0) (2026-05-24)
+
+
+### Features
+
+* **grid-vue:** add #header and #headerLabel slots to &lt;TbwGridColumn&gt; ([#350](https://github.com/OysteinAmundsen/toolbox/issues/350)) ([08ab19c](https://github.com/OysteinAmundsen/toolbox/commit/08ab19cc0d58832f3d2af1be3d06221293a4a01f))
+* **grid:** add public 'render' event fired after every render-scheduler flush ([#345](https://github.com/OysteinAmundsen/toolbox/issues/345)) ([c7c8693](https://github.com/OysteinAmundsen/toolbox/commit/c7c8693112cb678c42b0c2e74d806458a5ad812c))
+
+
+### Bug Fixes
+
+* **editing:** keep native &lt;select&gt; popups intact during grid-mode keyboard interactions ([#347](https://github.com/OysteinAmundsen/toolbox/issues/347)) ([2d3379d](https://github.com/OysteinAmundsen/toolbox/commit/2d3379d9365366275f9936f8220dddee10989f0f))
+* **grid/filtering:** use data-derived defaults for date and number filter panels ([42ec33d](https://github.com/OysteinAmundsen/toolbox/commit/42ec33d347320af4b972928f5acaf82d6fb1310b))
+
 ## [2.14.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.14.0...grid-2.14.1) (2026-05-21)
 
 

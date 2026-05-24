@@ -28,48 +28,27 @@ export {
 
 export type { PluginFactory } from '@toolbox-web/grid/features/registry';
 
+import type { FeatureConfig } from '@toolbox-web/grid';
+// Anchor every core feature module on the type graph so its `FeatureConfig`
+// augmentation is visible to ng-packagr's partial compilation when emitting
+// the `keyof FeatureConfig` below — see `internal/feature-augmentations.ts`
+// header for the full rationale (gh #356 phase 6).
+
 /**
- * Feature names supported by the Grid directive.
+ * Feature names supported by the Grid directive, derived from the core
+ * augmentable `FeatureConfig` interface — stays in lockstep with core: any
+ * feature that augments `FeatureConfig` (via `declare module
+ * '@toolbox-web/grid'`) is automatically a member of this union, including
+ * third-party features.
  *
- * NOTE: This is intentionally still a hand-listed union (rather than
- * `keyof FeatureConfig`) because the Angular adapter does **not** currently
- * side-effect-import any `@toolbox-web/grid/features/*` modules. Without
- * those imports, the `FeatureConfig` augmentations declared by each feature
- * are invisible to ng-packagr's partial-compilation typecheck and
- * `keyof FeatureConfig` collapses to its empty-interface sentinel
- * (`'__brand'`), breaking every directive input that accepts a `FeatureName`.
+ * The `__brand` sentinel declared on core's `FeatureConfig` (to keep the
+ * interface non-empty for excess-property checks) is filtered out — it is
+ * not a real feature name.
  *
- * Switching to `keyof FeatureConfig` (gh #356 phase 1, parity with the
- * React/Vue adapters) is therefore deferred until Angular gains either
- * auto-registration of feature modules or a types-only augmentation entry
- * point — tracked as a follow-up on issue #356. The spec file enforces this
- * union is at least a superset of the prior shape.
+ * The `feature-registry.spec.ts` superset check enforces the strict
+ * additive contract (gh #356 §7): every previously-accepted name must stay
+ * assignable to the derived union.
  *
  * @since 0.6.0
  */
-export type FeatureName =
-  | 'selection'
-  | 'editing'
-  | 'clipboard'
-  | 'contextMenu'
-  | 'multiSort'
-  | 'filtering'
-  | 'reorderColumns'
-  | 'visibility'
-  | 'pinnedColumns'
-  | 'groupingColumns'
-  | 'columnVirtualization'
-  | 'reorderRows'
-  | 'rowDragDrop'
-  | 'groupingRows'
-  | 'pinnedRows'
-  | 'tree'
-  | 'masterDetail'
-  | 'responsive'
-  | 'undoRedo'
-  | 'export'
-  | 'print'
-  | 'pivot'
-  | 'serverSide'
-  | 'stickyRows'
-  | 'tooltip';
+export type FeatureName = Exclude<keyof FeatureConfig, '__brand'>;

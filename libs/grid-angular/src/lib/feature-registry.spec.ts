@@ -1,16 +1,16 @@
 /**
  * Type-test spec for `feature-registry.ts`.
  *
- * The Angular adapter currently keeps `FeatureName` as a hand-listed union
- * because ng-packagr's partial-compilation cannot see the
- * `FeatureConfig` augmentations from `@toolbox-web/grid/features/*` (the
- * Angular adapter does not side-effect-import those modules). Switching to
- * `keyof FeatureConfig` is deferred until that gap is closed — see
- * gh #356 phase 1 notes in `feature-registry.ts`.
+ * As of gh #356 phase 6 the Angular adapter's `FeatureName` is derived from
+ * `keyof FeatureConfig` (matching React/Vue). ng-packagr now sees every
+ * `FeatureConfig` augmentation via the side-effect-free
+ * `internal/feature-augmentations.ts` barrel.
  *
- * This spec enforces the strict additive contract (gh #356, §7): whatever
- * shape `FeatureName` takes in the future, it MUST stay a superset of every
- * name the adapter previously accepted.
+ * This spec enforces the strict additive contract (gh #356 §7): the
+ * derived `FeatureName` MUST stay a superset of every name the adapter
+ * previously accepted, so any future change that drops a feature module
+ * from `internal/feature-augmentations.ts` (or removes an augmentation
+ * from core) fails compilation here.
  */
 
 import { describe, expect, it } from 'vitest';

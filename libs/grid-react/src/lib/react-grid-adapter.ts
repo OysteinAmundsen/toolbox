@@ -11,6 +11,7 @@ import type {
 import type { ReactNode } from 'react';
 import { registerChildFeatureDetector, type ChildFeatureDetector } from './child-feature-detector';
 import { notifyEditorMounted, registerEditorMountHook, type EditorMountHook } from './editor-mount-hooks';
+import { registerFeaturePropKey } from './feature-prop-keys';
 import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
 import type { TypeDefault as ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { beginPortalBatch, endPortalBatch, removeFromContainer, renderToContainer } from './portal-bridge';
@@ -31,6 +32,13 @@ export { registerPostMountRefresh, type PostMountRefreshHook };
 // '@toolbox-web/grid-react'`. `detectChildFeatures` is internal and consumed
 // only by `<DataGrid>` itself.
 export { registerChildFeatureDetector, type ChildFeatureDetector };
+
+// Re-export so third-party feature secondary entries can register additional
+// feature prop keys via `import { registerFeaturePropKey } from
+// '@toolbox-web/grid-react'`. `getFeaturePropKeys` is internal and consumed
+// only by `<DataGrid>` itself. Pre-populated with the built-in feature names
+// at module load (gh #356 §7: registry pre-populates from core).
+export { registerFeaturePropKey };
 
 // #region Feature bridge registries
 

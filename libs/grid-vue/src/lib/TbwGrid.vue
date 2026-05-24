@@ -69,7 +69,7 @@ import type {
 import { createPluginsFromFeatures } from '@toolbox-web/grid/features/registry';
 import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch, type PropType } from 'vue';
 import { applyColumnDefaults, normalizeColumns, type ColumnShorthand } from './column-shorthand';
-import type { FeatureName } from './feature-registry';
+import { getFeaturePropKeys } from './feature-prop-keys';
 import { useGridIcons } from './grid-icon-registry';
 import { useGridTypeDefaults } from './grid-type-registry';
 import { setTeleportManager } from './teleport-bridge';
@@ -452,42 +452,20 @@ provide(GRID_ELEMENT_KEY, gridRef);
 const typeDefaults = useGridTypeDefaults();
 const iconOverrides = useGridIcons();
 
-// Feature prop names for creating plugins
-const FEATURE_PROPS: FeatureName[] = [
-  'selection',
-  'editing',
-  'clipboard',
-  'contextMenu',
-  'multiSort',
-  'filtering',
-  'reorderColumns',
-  'visibility',
-  'pinnedColumns',
-  'groupingColumns',
-  'columnVirtualization',
-  'reorderRows',
-  'groupingRows',
-  'pinnedRows',
-  'tree',
-  'masterDetail',
-  'responsive',
-  'undoRedo',
-  'export',
-  'print',
-  'pivot',
-  'serverSide',
-  'tooltip',
-];
-
 /**
  * Create plugins from feature props. Delegates to the core registry's
  * `createPluginsFromFeatures` so dependency validation (e.g. `undoRedo`
  * requires `editing`, `clipboard` requires `selection`) and dependency
  * ordering are shared with the React adapter and `gridConfig.features`.
+ *
+ * The list of feature prop names is read from the `feature-prop-keys`
+ * registry (pre-populated with all built-ins at module load) so third-party
+ * features can extend the recognised prop set via `registerFeaturePropKey`
+ * without forking `<TbwGrid>`.
  */
 function createFeaturePlugins(): BaseGridPlugin[] {
   const featureProps: Record<string, unknown> = {};
-  for (const feature of FEATURE_PROPS) {
+  for (const feature of getFeaturePropKeys()) {
     const propValue = props[feature as keyof typeof props];
     if (propValue !== undefined) {
       featureProps[feature] = propValue;

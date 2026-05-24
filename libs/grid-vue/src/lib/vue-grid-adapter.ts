@@ -15,6 +15,7 @@ import type {
 import { createVNode, type Component, type VNode } from 'vue';
 import { registerChildFeatureDetector, type ChildFeatureDetector } from './child-feature-detector';
 import { notifyEditorMounted, registerEditorMountHook, type EditorMountHook } from './editor-mount-hooks';
+import { registerFeaturePropKey } from './feature-prop-keys';
 import type { TypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { registerPostMountRefresh, type PostMountRefreshHook } from './post-mount-refresh-hooks';
 import { removeFromContainer, renderToContainer } from './teleport-bridge';
@@ -36,6 +37,13 @@ export { registerPostMountRefresh, type PostMountRefreshHook };
 // '@toolbox-web/grid-vue'`. `detectChildFeatures` is internal; `<TbwGrid>`
 // does not yet invoke it (see child-feature-detector.ts module docs).
 export { registerChildFeatureDetector, type ChildFeatureDetector };
+
+// Re-export so third-party feature secondary entries can register additional
+// feature prop keys via `import { registerFeaturePropKey } from
+// '@toolbox-web/grid-vue'`. `getFeaturePropKeys` is internal and consumed
+// only by `<TbwGrid>` itself. Pre-populated with the built-in feature names
+// at module load (gh #356 §7: registry pre-populates from core).
+export { registerFeaturePropKey };
 
 // #region Feature bridge registries
 

@@ -15,6 +15,7 @@ import '../jsx.d.ts';
 import { detectChildFeatures, registerChildFeatureDetector } from './child-feature-detector';
 import { applyColumnDefaults, normalizeColumns, type ColumnShorthand } from './column-shorthand';
 import { EVENT_PROP_MAP, type EventProps } from './event-props';
+import { getFeaturePropKeys } from './feature-prop-keys';
 import { type AllFeatureProps, type FeatureProps } from './feature-props';
 import { type GridDetailPanelProps } from './grid-detail-panel';
 import { GridIconContextInternal } from './grid-icon-registry';
@@ -36,39 +37,6 @@ interface ExtendedGridElement extends DataGridElement {
 // Track if adapter is registered
 let adapterRegistered = false;
 let globalAdapter: GridAdapter | null = null;
-
-/**
- * Static list of all feature prop names recognised by `<DataGrid>`.
- * Hoisted to module scope so the array is allocated once at module load,
- * not on every render. Used to extract `FeatureProps` from `...rest` and
- * to derive a stable change-detection key.
- */
-const FEATURE_KEYS = [
-  'selection',
-  'editing',
-  'filtering',
-  'multiSort',
-  'clipboard',
-  'contextMenu',
-  'reorderColumns',
-  'reorderRows',
-  'rowDragDrop',
-  'visibility',
-  'undoRedo',
-  'tree',
-  'groupingRows',
-  'groupingColumns',
-  'pinnedColumns',
-  'pinnedRows',
-  'masterDetail',
-  'responsive',
-  'columnVirtualization',
-  'export',
-  'print',
-  'pivot',
-  'serverSide',
-  'tooltip',
-] as const;
 
 /**
  * Ensure the React adapter is registered globally.
@@ -448,25 +416,28 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   // Create a stable key from feature prop values to detect actual changes
   // This avoids infinite loops from `rest` object reference changing each render
   const featurePropsKey = useMemo(() => {
-    return FEATURE_KEYS.map((key) => {
-      const value = (rest as Record<string, unknown>)[key];
-      return value !== undefined ? `${key}:${JSON.stringify(value)}` : '';
-    })
+    return getFeaturePropKeys()
+      .map((key) => {
+        const value = (rest as Record<string, unknown>)[key];
+        return value !== undefined ? `${key}:${JSON.stringify(value)}` : '';
+      })
       .filter(Boolean)
       .join('|');
   }, [rest]);
 
   // Extract feature props - only recalculate when the stable key changes
   const featureProps = useMemo(() => {
-    const features: FeatureProps<TRow> = {};
+    const features: Record<string, unknown> = {};
+    const restRecord = rest as Record<string, unknown>;
 
-    for (const key of FEATURE_KEYS) {
-      if (key in rest && (rest as any)[key] !== undefined) {
-        (features as any)[key] = (rest as any)[key];
+    for (const key of getFeaturePropKeys()) {
+      const value = restRecord[key];
+      if (value !== undefined) {
+        features[key] = value;
       }
     }
 
-    return features;
+    return features as FeatureProps<TRow>;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [featurePropsKey]);
 

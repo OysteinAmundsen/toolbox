@@ -125,6 +125,15 @@ export default defineConfig(() => ({
       provider: 'v8' as const,
       reporter: ['text', 'json-summary'],
       thresholds: { statements: 70, branches: 70, functions: 70, lines: 70 },
+      // Genuine zero-logic exclusions only. Anything with conditional branches,
+      // lifecycle hooks, or registry wiring MUST be tested, not excluded.
+      exclude: [
+        // Pure `<slot />` passthrough — no script logic beyond `defineProps<{}>`
+        // and `defineSlots`. Adding a test would assert "Vue renders a slot".
+        'src/lib/TbwGridToolButtons.vue',
+        // Pure barrel — re-exports only, nothing to instrument.
+        'src/index.ts',
+      ],
     },
     alias: [
       // Resolve @toolbox-web/grid imports to grid source (so tests pass without building grid)

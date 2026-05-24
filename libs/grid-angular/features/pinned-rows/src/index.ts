@@ -22,26 +22,20 @@ import type {
   PinnedRowSlot,
   ZonedPanelRender,
 } from '@toolbox-web/grid/plugins/pinned-rows';
+import { buildCachedPanelRenderer } from './cached-panel-renderer';
 export { GridPinnedRowsDirective } from './grid-pinned-rows.directive';
 export type { _Augmentation as _PinnedRowsAugmentation } from '@toolbox-web/grid/features/pinned-rows';
 
 /**
  * Build a pinned-rows panel renderer function from an Angular component class.
- * The component should accept inputs from PinnedRowsContext.
+ * Thin wrapper around {@link buildCachedPanelRenderer} that fixes the adapter
+ * type to the concrete `GridAdapter`.
  */
 function buildPanelRenderer(
   adapter: GridAdapter,
   componentClass: Type<unknown>,
 ): (ctx: PinnedRowsContext) => HTMLElement {
-  const mount = adapter.mountComponentRenderer<PinnedRowsContext>(componentClass, (ctx) => ({
-    totalRows: ctx.totalRows,
-    filteredRows: ctx.filteredRows,
-    selectedRows: ctx.selectedRows,
-    columns: ctx.columns,
-    rows: ctx.rows,
-    grid: ctx.grid,
-  }));
-  return (ctx) => mount(ctx).hostElement;
+  return buildCachedPanelRenderer(adapter, componentClass);
 }
 
 /**

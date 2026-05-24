@@ -58,59 +58,46 @@ import {
 } from '@toolbox-web/grid/plugins/pinned-rows';
 import type { ReactNode } from 'react';
 import { registerFeature } from '../lib/feature-registry';
-import { createNodeBridge } from '../lib/portal-bridge';
+import { removeFromContainer, renderToContainer } from '../lib/portal-bridge';
 
-/** React-typed render function for a pinned-row panel slot. */
-type ReactPanelRender = (ctx: PinnedRowsContext) => ReactNode;
-/** React-typed zoned render entry. */
-interface ReactZonedPanelRender {
+/**
+ * React-typed render function for a pinned-row panel slot.
+ *
+ * @since 1.8.0
+ */
+export type ReactPanelRender = (ctx: PinnedRowsContext) => ReactNode;
+/**
+ * React-typed zoned render entry.
+ *
+ * @since 1.8.0
+ */
+export interface ReactZonedPanelRender {
   zone?: PanelZone;
   render: ReactPanelRender;
 }
-/** React-typed panel slot — same shape as vanilla PanelSlot but with ReactNode render returns. */
-interface ReactPanelSlot {
+/**
+ * React-typed panel slot — same shape as vanilla PanelSlot but with ReactNode render returns.
+ *
+ * @since 1.8.0
+ */
+export interface ReactPanelSlot {
   id?: string;
   position?: 'top' | 'bottom';
   render: ReactPanelRender | ReactZonedPanelRender[];
 }
-/** React-typed slot — either a panel slot or an aggregation slot. */
-type ReactPinnedRowSlot = ReactPanelSlot | AggregationSlot;
+/**
+ * React-typed slot — either a panel slot or an aggregation slot.
+ *
+ * @since 1.8.0
+ */
+export type ReactPinnedRowSlot = ReactPanelSlot | AggregationSlot;
 
 /**
- * Wrap a React-returning render function in a vanilla `() => HTMLElement | null`.
- * `null` / `undefined` / `false` from the React function passes through so
- * built-in conditional panels (e.g. selectedCountPanel) can opt out.
- * Thin alias around the shared `createNodeBridge` helper.
+ * Per-feature shape of `pinnedRows` accepted by the React adapter.
+ *
+ * @since 1.8.0
  */
-function bridgeReactRender(reactFn: ReactPanelRender): (ctx: PinnedRowsContext) => HTMLElement | null {
-  return createNodeBridge<PinnedRowsContext>(reactFn);
-}
-
-/**
- * Bridge a single slot. Aggregation slots (no `render`) pass through unchanged.
- * Panel slots with a function `render` get wrapped; panel slots with an array
- * of `ReactZonedPanelRender` get each entry's `render` wrapped individually.
- */
-function bridgeSlot(slot: ReactPinnedRowSlot): PinnedRowSlot {
-  if (!('render' in slot) || slot.render == null) return slot;
-
-  if (Array.isArray(slot.render)) {
-    const zoned: ZonedPanelRender[] = slot.render.map((entry) => {
-      if (typeof entry?.render !== 'function') return entry as ZonedPanelRender;
-      return { zone: entry.zone, render: bridgeReactRender(entry.render) };
-    });
-    return { ...slot, render: zoned };
-  }
-
-  if (typeof slot.render === 'function') {
-    return { ...slot, render: bridgeReactRender(slot.render) };
-  }
-
-  return slot as PinnedRowSlot;
-}
-
-/** Per-feature shape of `pinnedRows` accepted by the React adapter. */
-type ReactPinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & {
+export type ReactPinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & {
   slots?: ReactPinnedRowSlot[];
   customPanels?: Array<{
     id: string;
@@ -118,6 +105,103 @@ type ReactPinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & 
     render: (ctx: PinnedRowsContext) => ReactNode;
   }>;
 };
+
+/**
+ * Cache entry for a single React-typed renderer. Reused across grid re-renders
+ * so the host element reference is stable — the pinned-rows plugin
+ * (`renderPanelSlot`) reference-checks renderer outputs to skip DOM mutation
+ * when nothing changed, and React updates the existing portal in place.
+ */
+interface ReactRenderCache {
+  host: HTMLDivElement;
+  portalKey: string | null;
+}
+
+/**
+ * Wrap a React render function to cache its host element across calls.
+ * - First call: creates a `<div style="display:contents">` host, mounts the
+ *   React node into it, returns the host.
+ * - Subsequent calls: re-renders into the same portal key (React reconciles)
+ *   and returns the same host element so the plugin can short-circuit row
+ *   DOM rebuilds (and avoid React unmount/remount loops).
+ * - Returns `null` when React produces `null`/`undefined`/`false` so built-in
+ *   conditional panels can opt out without tearing down state.
+ *
+ * `registerTeardown` is invoked once per bridge so the registered cleanup
+ * function fires when the plugin detaches (grid disconnect or config replace).
+ */
+function createCachedReactRender(
+  reactFn: ReactPanelRender,
+  registerTeardown: (fn: () => void) => void,
+): (ctx: PinnedRowsContext) => HTMLElement | null {
+  let cache: ReactRenderCache | null = null;
+  let registered = false;
+  return (ctx) => {
+    const node = reactFn(ctx);
+    if (node == null || node === false) return null;
+    if (node instanceof HTMLElement) return node;
+    if (!cache) {
+      const host = document.createElement('div');
+      host.style.display = 'contents';
+      cache = { host, portalKey: null };
+    }
+    cache.portalKey = renderToContainer(cache.host, node, cache.portalKey ?? undefined);
+    if (!registered) {
+      registered = true;
+      registerTeardown(() => {
+        if (cache?.portalKey) removeFromContainer(cache.portalKey, { sync: false });
+        cache = null;
+      });
+    }
+    return cache.host;
+  };
+}
+
+/**
+ * Bridge a single slot. Aggregation slots (no `render`) pass through unchanged.
+ * Panel slots with a function `render` get wrapped; panel slots with an array
+ * of `ReactZonedPanelRender` get each entry's `render` wrapped individually.
+ */
+function bridgeSlot(slot: ReactPinnedRowSlot, registerTeardown: (fn: () => void) => void): PinnedRowSlot {
+  if (!('render' in slot) || slot.render == null) return slot;
+
+  if (Array.isArray(slot.render)) {
+    const zoned: ZonedPanelRender[] = slot.render.map((entry) => {
+      if (typeof entry?.render !== 'function') return entry as ZonedPanelRender;
+      return { zone: entry.zone, render: createCachedReactRender(entry.render, registerTeardown) };
+    });
+    return { ...slot, render: zoned };
+  }
+
+  if (typeof slot.render === 'function') {
+    return { ...slot, render: createCachedReactRender(slot.render, registerTeardown) };
+  }
+
+  return slot as PinnedRowSlot;
+}
+
+/**
+ * Subclass that runs registered teardown callbacks when the plugin is detached
+ * from the grid. Used to release React portals owned by slot/customPanel bridges.
+ */
+class PinnedRowsPluginWithCleanup extends PinnedRowsPlugin {
+  #teardowns: Array<() => void>;
+  constructor(config: PinnedRowsConfig | undefined, teardowns: Array<() => void>) {
+    super(config);
+    this.#teardowns = teardowns;
+  }
+  override detach(): void {
+    super.detach();
+    for (const fn of this.#teardowns) {
+      try {
+        fn();
+      } catch {
+        // Ignore individual teardown errors so siblings still run.
+      }
+    }
+    this.#teardowns.length = 0;
+  }
+}
 
 registerFeature(
   'pinnedRows',
@@ -131,11 +215,16 @@ registerFeature(
     const { slots: reactSlots, customPanels: reactCustomPanels, ...sharedBase } = config;
     const options: PinnedRowsConfig = { ...sharedBase };
 
+    const teardowns: Array<() => void> = [];
+    const registerTeardown = (fn: () => void): void => {
+      teardowns.push(fn);
+    };
+
     // Bridge React customPanels[].render (returns ReactNode) to vanilla.
     if (Array.isArray(reactCustomPanels)) {
       options.customPanels = reactCustomPanels.map((panel) => {
         if (typeof panel.render !== 'function') return panel as never;
-        const bridged = createNodeBridge<PinnedRowsContext>(panel.render);
+        const bridged = createCachedReactRender(panel.render, registerTeardown);
         return {
           ...panel,
           // customPanels expect HTMLElement (not nullable); coerce null → empty wrapper.
@@ -144,12 +233,12 @@ registerFeature(
       });
     }
 
-    // Bridge slots[] panel renders (issue #255).
+    // Bridge slots[] panel renders (issue #255 + #354).
     if (Array.isArray(reactSlots)) {
-      options.slots = reactSlots.map(bridgeSlot);
+      options.slots = reactSlots.map((slot) => bridgeSlot(slot, registerTeardown));
     }
 
-    return new PinnedRowsPlugin(options);
+    return new PinnedRowsPluginWithCleanup(options, teardowns);
   },
   { override: true },
 );

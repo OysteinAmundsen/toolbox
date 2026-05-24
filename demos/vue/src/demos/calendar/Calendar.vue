@@ -21,7 +21,7 @@ import {
   type CalendarWeek,
   type WeekdayField,
 } from '@demo/shared/calendar';
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue';
+import { computed, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue';
 import DayCell from './components/DayCell.vue';
 import EventDialog from './components/EventDialog.vue';
 import HeaderNav from './components/HeaderNav.vue';
@@ -29,7 +29,6 @@ import Legend from './components/Legend.vue';
 import ToolbarNav from './components/ToolbarNav.vue';
 import { DEFAULT_ROW_HEIGHT_PX, useDynamicRowHeight } from './composables/useDynamicRowHeight';
 import { useDoubleClick } from './composables/useDoubleClick';
-import { useGridCallbackRoot } from './composables/useGridCallbackRoot';
 import {
   findDayPosition,
   shiftCalendarMonth,
@@ -93,11 +92,6 @@ const toolbarProps = {
   onNext: () => shiftMonth(1),
 };
 
-const legendRoot = useGridCallbackRoot(Legend, () => ({}));
-// Cache the legend element so the pinned-rows plugin can short-circuit DOM
-// mutation across grid renders (fresh element each call = unmount loop).
-let legendElement: HTMLElement | null = null;
-
 const gridConfig = shallowRef({
   fitMode: 'stretch',
   shell: { header: { toolPanelToggle: false } },
@@ -108,10 +102,10 @@ const gridConfig = shallowRef({
         {
           id: 'calendar-legend',
           position: 'bottom',
-          render: () => {
-            if (!legendElement) legendElement = legendRoot.mountElement('cal-legend-root');
-            return legendElement;
-          },
+          // The grid-vue pinned-rows feature module caches the host element
+          // across calls (#354), so returning a VNode directly is safe — no
+          // unmount-loop workaround needed.
+          render: () => h(Legend),
         },
       ],
     },
@@ -235,7 +229,6 @@ watch(
 
 onBeforeUnmount(() => {
   for (const cleanup of cleanups.splice(0)) cleanup();
-  legendRoot.cleanupAll();
 });
 </script>
 

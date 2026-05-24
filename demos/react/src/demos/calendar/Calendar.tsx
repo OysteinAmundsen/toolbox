@@ -21,7 +21,6 @@ import { Legend } from './components/Legend';
 import { ToolbarNav } from './components/ToolbarNav';
 import { useDoubleClick } from './hooks/useDoubleClick';
 import { useDynamicRowHeight } from './hooks/useDynamicRowHeight';
-import { useGridCallbackRoot } from './hooks/useGridCallbackRoot';
 import { findDayPosition, useKeyboardNav, type PendingFocus } from './hooks/useKeyboardNav';
 
 const DEFAULT_ROW_HEIGHT_PX = 110;
@@ -111,11 +110,7 @@ export function Calendar() {
   const [state, dispatch] = useReducer(calendarReducer, undefined, initialState);
   const [dialogDay, setDialogDay] = useState<CalendarDay | null>(null);
   const grid = useGrid<CalendarWeek>();
-  const callbackRoot = useGridCallbackRoot();
   const pendingFocusRef = useRef<PendingFocus | null>(null);
-  // Cache the legend container so the pinned-rows plugin can short-circuit
-  // DOM mutation across grid renders (fresh element each call = unmount loop).
-  const legendElementRef = useRef<HTMLElement | null>(null);
 
   const rows = useMemo(() => makeRows(state), [state]);
 
@@ -135,12 +130,10 @@ export function Calendar() {
             {
               id: 'calendar-legend',
               position: 'bottom',
-              render: () => {
-                if (!legendElementRef.current) {
-                  legendElementRef.current = callbackRoot.renderElement(<Legend />);
-                }
-                return legendElementRef.current;
-              },
+              // The grid-react pinned-rows feature module caches the host element
+              // across calls (#354), so returning JSX directly is safe — no
+              // unmount-loop workaround needed.
+              render: () => <Legend />,
             },
           ],
         },
@@ -165,7 +158,7 @@ export function Calendar() {
         })),
       ],
     }),
-    [callbackRoot],
+    [],
   );
 
   useEffect(() => {

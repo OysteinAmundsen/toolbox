@@ -3,6 +3,10 @@
  *
  * Import this module to enable the `reorderRows` prop on TbwGrid.
  *
+ * @deprecated v1.x — slated for removal in `@toolbox-web/grid-vue` 2.0.0
+ * (coordinated v3.0.0 release, see gh #262 / #263). Use the `rowDragDrop`
+ * prop and import `@toolbox-web/grid-vue/features/row-drag-drop` instead.
+ *
  * @example
  * ```vue
  * <script setup>

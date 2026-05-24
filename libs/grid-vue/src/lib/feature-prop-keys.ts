@@ -76,6 +76,7 @@ const BUILTIN_FEATURE_PROP_KEYS: readonly FeatureName[] = [
   'pinnedColumns',
   'groupingColumns',
   'columnVirtualization',
+  // @deprecated v1.x — remove in `@toolbox-web/grid-vue` 2.0.0 (gh #262 / #263). Superseded by `rowDragDrop`.
   'reorderRows',
   'groupingRows',
   'pinnedRows',

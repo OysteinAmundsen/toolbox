@@ -15,6 +15,8 @@
  * @internal
  */
 
+import type { FeatureConfig } from '@toolbox-web/grid/all';
+
 import type { FeatureName } from './feature-registry';
 
 /**
@@ -92,3 +94,33 @@ const BUILTIN_FEATURE_PROP_KEYS: readonly FeatureName[] = [
 for (const key of BUILTIN_FEATURE_PROP_KEYS) {
   registerFeaturePropKey(key);
 }
+
+// #region Drift guard
+
+/**
+ * Compile-time check that `BUILTIN_FEATURE_PROP_KEYS` covers every core
+ * `FeatureConfig` key. Complements `_AssertFeaturePropsCoverCore` in
+ * `feature-props.ts`, which guards the reverse direction
+ * (`FeatureProps` ⊇ `FeatureConfig`).
+ *
+ * Together the two guards close the drift door: adding a new core feature
+ * forces both a `FeatureProps` field AND a `BUILTIN_FEATURE_PROP_KEYS`
+ * entry, otherwise the build fails.
+ *
+ * Known pre-existing gap (intentional, tracked for v3): `stickyRows` is
+ * declared on `FeatureProps` but missing from BUILTIN — see the Phase 4
+ * DECIDED entry in `.github/knowledge/adapters.md`. Listed in the
+ * allowlist below until the gap is closed.
+ */
+type _KnownBuiltinGaps = 'stickyRows';
+type _MissingFromBuiltin = Exclude<
+  keyof FeatureConfig,
+  (typeof BUILTIN_FEATURE_PROP_KEYS)[number] | '__brand' | _KnownBuiltinGaps
+>;
+type _AssertBuiltinCoversCore = [_MissingFromBuiltin] extends [never]
+  ? true
+  : ['BUILTIN_FEATURE_PROP_KEYS is missing core feature keys:', _MissingFromBuiltin];
+const _builtinCoversCore: _AssertBuiltinCoversCore = true;
+void _builtinCoversCore;
+
+// #endregion

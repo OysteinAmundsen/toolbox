@@ -574,16 +574,22 @@ onMounted(() => {
   void nextTick(() => {
     const gridEl = gridRef.value;
     if (!gridEl) return;
-    const g = gridEl as unknown as Record<string, unknown>;
+    // Narrow with an intersection cast instead of `as unknown as` (TS
+    // conventions Priority 1). `refreshColumns`/`refreshShellHeader` are
+    // optional core methods that may be absent on older grid builds.
+    const g = gridEl as DataGridElement<TRow> & {
+      refreshColumns?: () => void;
+      refreshShellHeader?: () => void;
+    };
     // Feature secondary entries (e.g. `features/master-detail`,
     // `features/responsive`) install their own refresh hooks via
     // `registerPostMountRefresh`. The adapter core no longer knows which
     // plugins need refreshing or what their refresh method is called.
     notifyPostMount(gridEl);
     // Refresh columns to pick up Vue-rendered light DOM elements
-    (g['refreshColumns'] as (() => void) | undefined)?.();
+    g.refreshColumns?.();
     // Refresh shell header to pick up tool panel templates
-    (g['refreshShellHeader'] as (() => void) | undefined)?.();
+    g.refreshShellHeader?.();
   });
 });
 

@@ -83,6 +83,7 @@ related: [adapters-react, adapters-vue, adapters-angular, grid-core, grid-featur
 
 - All adapters expose feature props that auto-load plugins. React: `<DataGrid selection="range" editing="dblclick" />`. Vue: `<TbwGrid :selection="'range'" :editing="'dblclick'" />`. Angular: `<tbw-grid [selection]="'range'" [editing]="'dblclick'">`.
 - MECHANISM: feature props → `createPluginsFromFeatures()` → factory creates plugins → added to `gridConfig.plugins`.
+- DECIDED (gh #356 phase 1): React/Vue `FeatureName = Exclude<keyof FeatureConfig, '__brand'>` (derived from core's augmentable interface — third-party features auto-join; `__brand` sentinel filtered out). Angular keeps a hand-listed union: ng-packagr partial compilation cannot see `@toolbox-web/grid/features/*` augmentations because the Angular adapter does not side-effect-import them (React/Vue do, via `src/features/*.ts` per-feature helpers). Strict-additive enforced by `feature-registry.spec.ts` in all three adapters. See [adapters-angular.md](adapters-angular.md) for the deferred fix.
 
 ## three-way-parity (May 2026 audit)
 

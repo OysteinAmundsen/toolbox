@@ -18,12 +18,25 @@
 
 // Re-export core registry — all adapters share the same registry Map
 export {
-  clearFeatureRegistry, createPluginFromFeature, getFeatureFactory,
-  getRegisteredFeatures, isFeatureRegistered, registerFeature
+  clearFeatureRegistry,
+  createPluginFromFeature,
+  getFeatureFactory,
+  getRegisteredFeatures,
+  isFeatureRegistered,
+  registerFeature,
 } from '@toolbox-web/grid/features/registry';
 
 export type { PluginFactory } from '@toolbox-web/grid/features/registry';
 
-// Keep backward-compatible FeatureName type based on React's FeatureProps
-import type { FeatureProps } from './feature-props';
-export type FeatureName = keyof FeatureProps;
+/**
+ * Feature names supported by the grid, derived from the core augmentable
+ * `FeatureConfig` interface. Stays in lockstep with core: any feature that
+ * augments `FeatureConfig` (via `declare module '@toolbox-web/grid'`) is
+ * automatically a member of this union, including third-party features.
+ *
+ * The `__brand` sentinel declared on core's `FeatureConfig` (to keep the
+ * interface non-empty for excess-property checks) is filtered out — it is
+ * not a real feature name.
+ */
+import type { FeatureConfig } from '@toolbox-web/grid/all';
+export type FeatureName = Exclude<keyof FeatureConfig, '__brand'>;

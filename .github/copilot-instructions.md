@@ -74,14 +74,17 @@ Auto-applied from `.github/instructions/` when working on matching files:
 
 Loaded on demand from `.github/knowledge/` — read relevant files before starting work to rebuild the mental model:
 
-| Knowledge file     | Domain                    | Content                                                                          |
-| ------------------ | ------------------------- | -------------------------------------------------------------------------------- |
-| `grid-core`        | Grid internals            | Config-manager, render-scheduler, virtualization, DOM structure, state ownership |
-| `grid-plugins`     | Plugin system             | Plugin lifecycle, hooks, inter-plugin communication, all 24 plugins catalogued   |
-| `grid-features`    | Feature registry          | Feature vs plugin distinction, registry pattern, all 25 features                 |
-| `adapters`         | Framework adapters        | React/Vue/Angular bridging, portal/teleport patterns, event handling             |
-| `build-and-deploy` | Build, CSS, release       | Vite config, bundle budgets, CSS layers, themes, CI pipeline                     |
-| `data-flow-traces` | End-to-end operation maps | First render, property change, sort, scroll, edit, tree expand, config merge     |
+| Knowledge file     | Domain                      | Content                                                                                 |
+| ------------------ | --------------------------- | --------------------------------------------------------------------------------------- |
+| `grid-core`        | Grid internals              | Config-manager, render-scheduler, virtualization, DOM structure, state ownership        |
+| `grid-plugins`     | Plugin system               | Plugin lifecycle, hooks, inter-plugin communication, all 24 plugins catalogued          |
+| `grid-features`    | Feature registry            | Feature vs plugin distinction, registry pattern, all 25 features                        |
+| `adapters`         | Framework adapters (shared) | Shared adapter conformance, shell-content wrappers, bridge registries, three-way parity |
+| `adapters-react`   | React adapter               | Portal manager, overlay editors, feature-prop coverage assertion                        |
+| `adapters-vue`     | Vue adapter                 | Teleport manager, overlay editors, typed slots                                          |
+| `adapters-angular` | Angular adapter             | `mountComponentRenderer`, per-feature directives, ng-packagr secondary entries          |
+| `build-and-deploy` | Build, CSS, release         | Vite config, bundle budgets, CSS layers, themes, CI pipeline                            |
+| `data-flow-traces` | End-to-end operation maps   | First render, property change, sort, scroll, edit, tree expand, config merge            |
 
 > **Schema:** Each entry uses structured notation — OWNS, READS FROM, WRITES TO, INVARIANT, FLOW, TENSION, DECIDED — optimized for fast scanning and mental model reconstruction.
 

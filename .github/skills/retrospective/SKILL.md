@@ -212,6 +212,44 @@ Before adding content, consider the cost:
 4. **Remove outdated content** — if the lesson replaces old advice, delete the old advice
 5. **No duplication** — each piece of information lives in exactly one place. If it's in a knowledge file, do not also add it to pitfalls/instructions. If moving information from one file to another, delete it from the source.
 
+## Step 5b: Condense pass on touched knowledge files (MANDATORY)
+
+> **If you wrote to any `.github/knowledge/*.md` file in this task — including a tiny one-bullet append — you MUST do a condense pass before finishing.** Skipping this step is what causes knowledge files to drift into changelog prose and lose their value as agent memory. The "I just added one line" case is exactly when drift happens, because nobody re-reads the surrounding context.
+
+For each knowledge file you touched, re-read the whole file end-to-end and apply the style rules from `copilot-instructions.md` → "Knowledge file style — keep them dense or they stop working". Concretely:
+
+1. **Re-read the entire file** (not just the section you edited). You cannot spot drift by looking at the diff.
+2. **Fold, don't stack.** If your new entry restates or extends an existing `DECIDED` / `INVARIANT` / `TENSION`, rewrite that entry in place. Do not leave both the old and new versions side by side.
+3. **Strip prose.** Kill adjectives, transitions, "we will…", narrative tone, and explanations of obvious mechanics. Keep proper nouns (file paths, function/class names, PR/issue numbers, MUST/MUST NOT rules) — they are the navigation targets.
+4. **Collapse enumerations into tables.** Any list of ≥4 parallel items (plugins, features, hooks, bindings, options) belongs in a markdown table, not stacked bullets.
+5. **Delete dead history.** "We tried X, then Y, then Z" is git's job. Keep the conclusion; drop the path that got there. Exception: a single "RULED OUT:" line for alternatives that look obvious but don't work.
+6. **Check the size budget.** Run `wc -l .github/knowledge/<file>.md`. Soft cap: **≤200 lines**. Hard cap: **250 lines**.
+   - If you're still under 200 after condensing → done.
+   - If 200–250 → condense harder before finishing.
+   - If >250 or condensing isn't enough → **evaluate a split** (Step 5c).
+7. **Sanity-scan headings.** Each `## name` heading should still have at least one of `OWNS:` / `READS FROM:` / `WRITES TO:` / `INVARIANT:` / `FLOW:` / `TENSION:` / `DECIDED:`. If a heading has degenerated into a prose dump with no structured markers, restructure it.
+
+End-state check: ask yourself, _"If I started a new session tomorrow and loaded only this file, could I rebuild the mental model of this domain in under a minute?"_ If no, condense more.
+
+## Step 5c: Evaluate splitting (when a file outgrows its domain)
+
+A knowledge file should cover **one mental model**. Split when any of these are true:
+
+- File is >250 lines after a serious condense pass.
+- The file has grown to cover two clearly separable subdomains (e.g. `adapters.md` describing React, Vue, _and_ Angular bridging in detail).
+- A future agent loading the file for question X would have to skip past >50% of the file that is irrelevant to X.
+- Two top-level sections share almost no `related:` cross-references with each other.
+
+How to split:
+
+1. **Identify the seam.** Pick the natural boundary (per-framework, per-subsystem, per-lifecycle-phase). Avoid splits that force readers to load both files together for every task.
+2. **Create the new file** with the same frontmatter schema. Add `related: [original-file, ...]` to both sides.
+3. **Move, don't copy.** Cut the section from the original; paste into the new file. Update any cross-references in other knowledge / instruction / skill files.
+4. **Update `copilot-instructions.md` → Knowledge Reference table** with the new file and a one-line domain description.
+5. **Re-run the condense pass (Step 5b)** on both halves — splits often expose redundancy that was hidden when the content was interleaved.
+
+If you can't justify a split cleanly, condense harder instead. Splitting prematurely fragments the mental model and forces multi-file loads for single questions.
+
 ## Step 6: Summarize for the User
 
 Present the retrospective findings as a brief report:
@@ -223,6 +261,9 @@ Present the retrospective findings as a brief report:
 - ✅ Updated `<file>`: <what changed>
 - ✅ Created `<file>`: <why>
 - ⏭️ Skipped: <lesson that wasn't worth documenting and why>
+
+**Knowledge condense pass:** (only if Step 5b ran)
+- `<knowledge-file>`: <lines before> → <lines after>, <split? yes/no, why>
 
 **No updates needed** (if nothing was worth capturing)
 ```
@@ -239,3 +280,5 @@ Present the retrospective findings as a brief report:
 - **Don't duplicate** — if the advice exists elsewhere, add a cross-reference, not a copy
 - **Don't speculate** — only document things that were actually verified during the task
 - **Don't create a skill for a single-step action** — that's just an instruction bullet point
+- **Don't skip the condense pass** — every knowledge-file write, no matter how small, triggers Step 5b. Drift compounds silently; one un-condensed append turns into ten
+- **Don't split prematurely** — a 180-line cohesive knowledge file is better than two 90-line files that always load together. Split only at a real seam (see Step 5c)

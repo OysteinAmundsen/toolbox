@@ -11,7 +11,7 @@ import {
   WEEKDAY_HEADERS_FULL,
   WEEKDAY_HEADERS_MINI,
 } from '@demo/shared/calendar';
-import { DataGrid, useGrid, type GridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, GridHeaderContent, GridToolbarContent, useGrid, type GridConfig } from '@toolbox-web/grid-react';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { DayCell } from './components/DayCell';
@@ -169,49 +169,6 @@ export function Calendar() {
   );
 
   useEffect(() => {
-    if (!grid.isReady) return;
-    const gridElement = grid.ref.current?.element;
-    if (!gridElement) return;
-
-    gridElement.registerHeaderContent?.({
-      id: 'calendar-nav',
-      order: 0,
-      render: (container: HTMLElement) =>
-        callbackRoot.renderInto(
-          container,
-          <HeaderNav
-            year={state.year}
-            month={state.month}
-            onYearChange={(year) => dispatch({ type: 'set-year', year })}
-          />,
-        ),
-    });
-    gridElement.registerToolbarContent?.({
-      id: 'calendar-nav-buttons',
-      order: 0,
-      render: (container: HTMLElement) =>
-        callbackRoot.renderInto(
-          container,
-          <ToolbarNav
-            onPrevious={() => dispatch({ type: 'shift-month', delta: -1 })}
-            onToday={() => {
-              const today = new Date();
-              pendingFocusRef.current = { day: today.getDate() };
-              dispatch({ type: 'today' });
-            }}
-            onNext={() => dispatch({ type: 'shift-month', delta: 1 })}
-          />,
-        ),
-    });
-    gridElement.refreshShellHeader?.();
-
-    return () => {
-      gridElement.unregisterHeaderContent?.('calendar-nav');
-      gridElement.unregisterToolbarContent?.('calendar-nav-buttons');
-    };
-  }, [callbackRoot, grid.isReady, grid.ref, state.month, state.year]);
-
-  useEffect(() => {
     const target = pendingFocusRef.current;
     if (!target || !grid.isReady) return;
     const gridElement = grid.ref.current?.element;
@@ -248,7 +205,26 @@ export function Calendar() {
     <div id="app">
       <div className="demo-container">
         <div className="calendar-demo">
-          <DataGrid ref={grid.ref} rows={rows} gridConfig={gridConfig} className="calendar-demo__grid" />
+          <DataGrid ref={grid.ref} rows={rows} gridConfig={gridConfig} className="calendar-demo__grid">
+            <GridHeaderContent id="calendar-nav" order={0}>
+              <HeaderNav
+                year={state.year}
+                month={state.month}
+                onYearChange={(year) => dispatch({ type: 'set-year', year })}
+              />
+            </GridHeaderContent>
+            <GridToolbarContent id="calendar-nav-buttons" order={0}>
+              <ToolbarNav
+                onPrevious={() => dispatch({ type: 'shift-month', delta: -1 })}
+                onToday={() => {
+                  const today = new Date();
+                  pendingFocusRef.current = { day: today.getDate() };
+                  dispatch({ type: 'today' });
+                }}
+                onNext={() => dispatch({ type: 'shift-month', delta: 1 })}
+              />
+            </GridToolbarContent>
+          </DataGrid>
           <EventDialog
             day={dialogDay}
             onCancel={() => setDialogDay(null)}

@@ -1117,16 +1117,18 @@ export class TextFilterComponent extends BaseFilterPanel {
 
 ### Exported Directives
 
-| Directive          | Selector                                             | Description                            |
-| ------------------ | ---------------------------------------------------- | -------------------------------------- |
-| `Grid`             | `tbw-grid`                                           | Main directive, auto-registers adapter |
-| `GridFormArray`    | `tbw-grid[formControlName]`, `tbw-grid[formControl]` | Reactive Forms integration             |
-| `TbwRenderer`      | `*tbwRenderer`                                       | Structural directive for cell views    |
-| `TbwEditor`        | `*tbwEditor`                                         | Structural directive for cell editors  |
-| `GridColumnView`   | `tbw-grid-column-view`                               | Nested directive for cell views        |
-| `GridColumnEditor` | `tbw-grid-column-editor`                             | Nested directive for cell editors      |
-| `GridDetailView`   | `tbw-grid-detail`                                    | Master-detail panel template           |
-| `GridToolPanel`    | `tbw-grid-tool-panel`                                | Custom sidebar panel                   |
+| Directive            | Selector                                             | Description                                     |
+| -------------------- | ---------------------------------------------------- | ----------------------------------------------- |
+| `Grid`               | `tbw-grid`                                           | Main directive, auto-registers adapter          |
+| `GridFormArray`      | `tbw-grid[formControlName]`, `tbw-grid[formControl]` | Reactive Forms integration                      |
+| `TbwRenderer`        | `*tbwRenderer`                                       | Structural directive for cell views             |
+| `TbwEditor`          | `*tbwEditor`                                         | Structural directive for cell editors           |
+| `GridColumnView`     | `tbw-grid-column-view`                               | Nested directive for cell views                 |
+| `GridColumnEditor`   | `tbw-grid-column-editor`                             | Nested directive for cell editors               |
+| `GridDetailView`     | `tbw-grid-detail`                                    | Master-detail panel template                    |
+| `GridToolPanel`      | `tbw-grid-tool-panel`                                | Custom sidebar panel                            |
+| `GridHeaderContent`  | `tbw-grid-header-content`                            | Inject Angular template into shell header zone  |
+| `GridToolbarContent` | `tbw-grid-toolbar-content`                           | Inject Angular template into shell toolbar zone |
 
 ### Base Classes
 

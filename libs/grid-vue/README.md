@@ -561,17 +561,19 @@ const props = defineProps<{
 
 ### Components
 
-| Component               | Description                   |
-| ----------------------- | ----------------------------- |
-| `TbwGrid`               | Main grid wrapper component   |
-| `TbwGridColumn`         | Declarative column definition |
-| `TbwGridDetailPanel`    | Master-detail row content     |
-| `TbwGridToolPanel`      | Custom sidebar panel          |
-| `TbwGridToolButtons`    | Toolbar button container      |
-| `TbwGridResponsiveCard` | Mobile card layout template   |
-| `GridTypeProvider`      | App-wide type defaults        |
-| `GridIconProvider`      | App-wide icon overrides       |
-| `GridProvider`          | Combined type + icon provider |
+| Component               | Description                                    |
+| ----------------------- | ---------------------------------------------- |
+| `TbwGrid`               | Main grid wrapper component                    |
+| `TbwGridColumn`         | Declarative column definition                  |
+| `TbwGridDetailPanel`    | Master-detail row content                      |
+| `TbwGridToolPanel`      | Custom sidebar panel                           |
+| `TbwGridHeaderContent`  | Inject Vue content into the shell header zone  |
+| `TbwGridToolbarContent` | Inject Vue content into the shell toolbar zone |
+| `TbwGridToolButtons`    | Toolbar button container                       |
+| `TbwGridResponsiveCard` | Mobile card layout template                    |
+| `GridTypeProvider`      | App-wide type defaults                         |
+| `GridIconProvider`      | App-wide icon overrides                        |
+| `GridProvider`          | Combined type + icon provider                  |
 
 ### Composables
 

@@ -106,6 +106,11 @@ related: [grid-core, grid-features]
 
 - DECIDED: adapter cores (`{react,vue,angular}-grid-adapter.ts`, `react-column-config.ts`) MUST NOT runtime-reference feature behaviour (type-only imports OK). Runtime wiring lives in `features/<name>.ts` (React/Vue) or `features/<name>/src/` (Angular) secondary entries via registered bridges/hooks. Mirrors WC plugin discipline.
 
+## shell-content-wrappers (#352)
+
+- OWNS: React `Grid{Header,Toolbar}Content`, Vue `TbwGrid{Header,Toolbar}Content`, Angular `Grid{Header,Toolbar}Content` directives — wrap `registerHeaderContent`/`registerToolbarContent` (specs co-located). Vue uses built-in `<Teleport>` (slot child of `<TbwGrid>`); Angular uses `host.closest('tbw-grid')` (NOT `injectGrid()` — descendants).
+- INVARIANT: render-callback cleanup is a **no-op** AND `register*` MUST `await grid.ready?.()` then guard unmount-during-await (React `unmounted` / Vue `cancelled` / Angular `destroyed`); Angular extra: render MUST be idempotent (`createEmbeddedView` is not — skip when `viewRef.rootNodes[0]` still inside container, else destroy stale viewRef first). WHY: grid reuses SAME container by id across shell refreshes (`shell.ts` cleans → re-renders same node) — real teardown destroys child state; await leaks registration without flag.
+
 ### Bridge registries (append-only, populated by side-effect imports)
 
 | Registry                                                                | Module                                                                                   | Installed by                                                | Purpose                                                                                  |

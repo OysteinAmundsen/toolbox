@@ -1,6 +1,27 @@
 <div class="demo-container">
   <div class="calendar-demo">
     <tbw-grid #calendarGrid class="calendar-demo__grid" [rows]="rows()" [gridConfig]="gridConfig()">
+      <tbw-grid-header-content id="calendar-nav" [order]="0">
+        <ng-template>
+          <app-calendar-header-nav
+            class="cal-header"
+            [monthLabel]="monthLabel()"
+            [year]="year()"
+            [yearOptions]="yearOptions"
+            (yearChange)="onYearChange($event)"
+          />
+        </ng-template>
+      </tbw-grid-header-content>
+      <tbw-grid-toolbar-content id="calendar-nav-buttons" [order]="0">
+        <ng-template>
+          <app-calendar-toolbar-nav
+            class="cal-toolbar-nav"
+            (previous)="onPrevious()"
+            (today)="onToday()"
+            (next)="onNext()"
+          />
+        </ng-template>
+      </tbw-grid-toolbar-content>
       @for (field of weekdayFields; track field) {
         <tbw-grid-column [attr.field]="field">
           <app-calendar-day-cell *tbwRenderer="let day" [day]="day" />

@@ -13,11 +13,17 @@ import { notifyEditorMounted, registerEditorMountHook, type EditorMountHook } fr
 import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
 import type { TypeDefault as ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { beginPortalBatch, endPortalBatch, removeFromContainer, renderToContainer } from './portal-bridge';
+import { registerPostMountRefresh, type PostMountRefreshHook } from './post-mount-refresh-hooks';
 import { cleanupConfigRootsIn, processGridConfig } from './react-column-config';
 
 // Re-export so feature secondary entries can install editor-mount hooks
 // via `import { registerEditorMountHook } from '@toolbox-web/grid-react'`.
 export { registerEditorMountHook, type EditorMountHook };
+
+// Re-export so feature secondary entries can install post-mount refresh
+// hooks via `import { registerPostMountRefresh } from '@toolbox-web/grid-react'`.
+// `notifyPostMount` is internal and consumed only by `<DataGrid>` itself.
+export { registerPostMountRefresh, type PostMountRefreshHook };
 
 // #region Feature bridge registries
 

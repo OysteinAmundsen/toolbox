@@ -38,6 +38,7 @@ import {
   getResponsiveCardRendererBridge,
 } from './internal/feature-bridges';
 import { getFeatureConfigPreprocessor } from './internal/feature-extensions';
+import { registerPostMountRefresh, type PostMountRefreshHook } from './post-mount-refresh-hooks';
 
 // Re-export so feature secondary entries can install editor-mount hooks via
 // `import { registerEditorMountHook } from '@toolbox-web/grid-angular'`.
@@ -49,6 +50,13 @@ export {
 } from './internal/feature-bridges';
 export type { FilterPanelTypeDefaultBridge, RowRendererBridge } from './internal/feature-bridges';
 export { registerEditorMountHook, type EditorMountHook };
+
+// Re-export so feature secondary entries can install post-mount refresh
+// hooks via `import { registerPostMountRefresh } from '@toolbox-web/grid-angular'`.
+// Parity-only with React/Vue: no Angular caller invokes `notifyPostMount`
+// today (`ngAfterContentInit` handles the equivalent wiring). See the
+// DECIDED entry in `.github/knowledge/adapters.md` (gh #356 phase 2).
+export { registerPostMountRefresh, type PostMountRefreshHook };
 
 // #region Feature bridge registries
 // (Storage lives in `./internal/feature-bridges` so feature subpaths can

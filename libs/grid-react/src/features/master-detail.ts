@@ -18,8 +18,10 @@
 // Delegate to core feature registration
 import '@toolbox-web/grid/features/master-detail';
 
+import type { DataGridElement } from '@toolbox-web/grid/all';
 import { getDetailRenderer, type DetailPanelContext } from '../lib/grid-detail-panel';
 import { renderToContainer } from '../lib/portal-bridge';
+import { registerPostMountRefresh } from '../lib/post-mount-refresh-hooks';
 import { registerDetailRendererBridge } from '../lib/react-grid-adapter';
 
 // Install the master-detail row-renderer bridge on the React adapter.
@@ -45,4 +47,15 @@ registerDetailRendererBridge((gridElement, { trackPortal }) => {
 
     return container;
   };
+});
+
+// Refresh the MasterDetailPlugin's renderer once React has committed the
+// `<GridDetailPanel>` child (the plugin is instantiated by feature-props
+// before React's commit phase, so its initial renderer lookup misses).
+// Replaces the hard-coded `refreshMasterDetailRenderer` that used to live
+// in `data-grid.tsx`.
+registerPostMountRefresh('masterDetail', ({ gridEl }) => {
+  const grid = gridEl as DataGridElement;
+  const plugin = grid.getPluginByName('masterDetail') as { refreshDetailRenderer?: () => void } | undefined;
+  plugin?.refreshDetailRenderer?.();
 });

@@ -75,6 +75,7 @@ import { useGridTypeDefaults } from './grid-type-registry';
 import { setTeleportManager } from './teleport-bridge';
 import { TeleportManager, type TeleportManagerHandle } from './teleport-manager';
 import { GRID_ELEMENT_KEY } from './use-grid';
+import { notifyPostMount } from './post-mount-refresh-hooks';
 import { GridAdapter } from './vue-grid-adapter';
 
 // Track if adapter is registered
@@ -593,18 +594,14 @@ onMounted(() => {
   // TbwGridToolPanel, TbwGridColumn slots) are picked up by the grid.
   // Mirrors the React adapter's post-mount refresh in data-grid.tsx.
   void nextTick(() => {
-    const g = gridRef.value as unknown as Record<string, unknown> | null;
-    if (!g) return;
-    // Refresh master-detail renderer if plugin already exists
-    const masterDetailPlugin = (g['getPluginByName'] as ((name: string) => unknown) | undefined)?.('masterDetail') as
-      | { refreshDetailRenderer?: () => void }
-      | undefined;
-    masterDetailPlugin?.refreshDetailRenderer?.();
-    // Refresh responsive plugin's card renderer
-    const responsivePlugin = (g['getPluginByName'] as ((name: string) => unknown) | undefined)?.('responsive') as
-      | { refreshCardRenderer?: () => void }
-      | undefined;
-    responsivePlugin?.refreshCardRenderer?.();
+    const gridEl = gridRef.value;
+    if (!gridEl) return;
+    const g = gridEl as unknown as Record<string, unknown>;
+    // Feature secondary entries (e.g. `features/master-detail`,
+    // `features/responsive`) install their own refresh hooks via
+    // `registerPostMountRefresh`. The adapter core no longer knows which
+    // plugins need refreshing or what their refresh method is called.
+    notifyPostMount(gridEl);
     // Refresh columns to pick up Vue-rendered light DOM elements
     (g['refreshColumns'] as (() => void) | undefined)?.();
     // Refresh shell header to pick up tool panel templates

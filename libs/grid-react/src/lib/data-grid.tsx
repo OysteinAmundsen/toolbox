@@ -19,10 +19,10 @@ import { EVENT_PROP_MAP, type EventProps } from './event-props';
 import { type AllFeatureProps, type FeatureProps } from './feature-props';
 import { type GridDetailPanelProps } from './grid-detail-panel';
 import { GridIconContextInternal } from './grid-icon-registry';
-import { getResponsiveCardRenderer } from './grid-responsive-card';
 import { GridTypeContextInternal } from './grid-type-registry';
 import { setPortalManager } from './portal-bridge';
 import { PortalManager, type PortalManagerHandle } from './portal-manager';
+import { notifyPostMount } from './post-mount-refresh-hooks';
 import { processGridConfig, type ColumnConfig, type GridConfig } from './react-column-config';
 import { GridAdapter } from './react-grid-adapter';
 import { createPluginsFromFeatures } from './use-sync-plugins';
@@ -95,47 +95,6 @@ import { GridElementContext } from './grid-element-context';
 export { GridElementContext };
 
 /**
- * Refreshes the MasterDetailPlugin renderer after React renders GridDetailPanel.
- * Only refreshes if plugin already exists - plugin creation is handled by feature props.
- */
-function refreshMasterDetailRenderer(gridElement: Element): void {
-  const grid = gridElement as any;
-
-  // Check if plugin already exists by name
-  const existingPlugin = grid.getPluginByName?.('masterDetail');
-  if (existingPlugin && typeof existingPlugin.refreshDetailRenderer === 'function') {
-    // Plugin exists - refresh the renderer to pick up React templates
-    existingPlugin.refreshDetailRenderer();
-  }
-}
-
-/**
- * Refreshes the ResponsivePlugin card renderer after React renders GridResponsiveCard.
- * Only refreshes if plugin already exists - plugin creation is handled by feature props.
- */
-function refreshResponsiveCardRenderer(gridElement: Element, adapter: GridAdapter): void {
-  const grid = gridElement as any;
-
-  // Check if <tbw-grid-responsive-card> is present in light DOM
-  const cardElement = gridElement.querySelector('tbw-grid-responsive-card');
-  if (!cardElement) return;
-
-  // Check if a card renderer was registered via GridResponsiveCard
-  const cardRenderer = getResponsiveCardRenderer(gridElement as HTMLElement);
-  if (!cardRenderer) return;
-
-  // Check if plugin exists by name
-  const existingPlugin = grid.getPluginByName?.('responsive');
-  if (existingPlugin && typeof existingPlugin.setCardRenderer === 'function') {
-    // Plugin exists - create React card renderer and update it
-    const reactCardRenderer = adapter.createResponsiveCardRenderer(gridElement as HTMLElement);
-    if (reactCardRenderer) {
-      existingPlugin.setCardRenderer(reactCardRenderer);
-    }
-  }
-}
-
-/**
  * Detects child components (GridDetailPanel, GridResponsiveCard) and returns
  * feature props to auto-load the corresponding plugins.
  *
@@ -162,7 +121,8 @@ function detectChildComponentFeatures(children: ReactNode): Partial<FeatureProps
         // Use props from the child component for configuration
         showExpandColumn: detailProps.showExpandColumn ?? true,
         animation: detailProps.animation ?? 'slide',
-        // detailRenderer will be wired up by refreshMasterDetailRenderer after mount
+        // detailRenderer is wired up by the masterDetail post-mount refresh
+        // hook registered in `features/master-detail.ts`.
       };
     }
 
@@ -692,10 +652,13 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     const adapter = ensureAdapterRegistered();
     (grid as any).__frameworkAdapter = adapter;
 
-    // Refresh plugin renderers to pick up React templates from child components
-    // Plugin creation is handled by feature props (see auto-detection in featureProps memo)
-    refreshMasterDetailRenderer(grid);
-    refreshResponsiveCardRenderer(grid, adapter);
+    // Refresh plugin renderers to pick up React templates from child components.
+    // Plugin creation is handled by feature props (see auto-detection in featureProps memo).
+    // Each feature secondary entry registers its own post-mount refresh hook via
+    // `registerPostMountRefresh(name, ...)`; the shell only publishes the
+    // framework adapter on `__frameworkAdapter` (above) and fires the kick —
+    // it no longer hard-codes plugin names or refresh-method shapes.
+    notifyPostMount(grid as HTMLElement);
 
     // Use a single RAF for column/shell refresh
     // React 18+ batches updates, so one frame is usually enough

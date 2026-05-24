@@ -1,32 +1,42 @@
 /**
- * Cross-adapter registry parity spec (gh #356 §8).
+ * Cross-adapter registry parity spec (gh #356 §8, post-cleanup).
  *
- * Asserts every canonical registry name from the cross-adapter contract is
- * exported from the Vue adapter's primary entry. The React and Angular
- * adapters carry the same spec with the same registry names — if any
- * adapter drops one of these exports, this spec (or its peer in the other
- * adapter) fails.
+ * Asserts the Vue adapter exports exactly the registries its `<TbwGrid>`
+ * shell actually invokes. Each adapter ships only the registries it uses —
+ * "ship-without-caller" symmetry was removed in the post-#356 cleanup
+ * because it created public API surface that nothing exercised. See the
+ * cleanup DECIDED entry in `.github/knowledge/adapters.md`.
  *
- * Per §8, applicability differs by adapter:
- * - `registerEditorMountHook` — all 3 adapters
- * - `registerPostMountRefresh` — all 3 adapters
- * - `registerFeatureConfigPreprocessor` / `getFeatureConfigPreprocessor` — all 3 adapters
- * - `registerChildFeatureDetector` — React + Vue only (Angular uses
- *   attribute-selector directives instead)
- * - `registerFeaturePropKey` — React + Vue only (Angular has no `...rest`
- *   prop split; uses per-feature `@Input()`)
+ * Current per-adapter map:
+ * - `registerEditorMountHook` — all 3 adapters (live)
+ * - `registerPostMountRefresh` — React + Vue (live); Angular N/A
+ *   (`ngAfterContentInit` covers the equivalent wiring)
+ * - `registerChildFeatureDetector` — React only (live); Vue uses default
+ *   slots, Angular uses attribute-selector directives
+ * - `registerFeaturePropKey` — React + Vue (live); Angular uses per-feature
+ *   `@Input()` directives
+ * - `registerFeatureConfigPreprocessor` — Angular only (live, bridges
+ *   TemplateRef / Component shapes); React/Vue need no such bridge
  */
 
 import { describe, expect, it } from 'vitest';
 import * as VueAdapter from '..';
 
 describe('registry-parity (grid-vue)', () => {
-  it('exports every cross-adapter registry from the primary entry', () => {
+  it('exports every registry the Vue shell uses', () => {
     expect(typeof VueAdapter.registerEditorMountHook).toBe('function');
     expect(typeof VueAdapter.registerPostMountRefresh).toBe('function');
-    expect(typeof VueAdapter.registerFeatureConfigPreprocessor).toBe('function');
-    expect(typeof VueAdapter.getFeatureConfigPreprocessor).toBe('function');
-    expect(typeof VueAdapter.registerChildFeatureDetector).toBe('function');
     expect(typeof VueAdapter.registerFeaturePropKey).toBe('function');
+  });
+
+  it('does NOT export registries with no Vue caller (documents N/A intent)', () => {
+    // Vue uses default slots (not child-component scans) and JSX-style
+    // configs (no preprocessor bridging needed). If any of these appear
+    // here, update the instructions file and the React/Angular parity
+    // specs in the same PR.
+    const adapter = VueAdapter as Record<string, unknown>;
+    expect(adapter['registerChildFeatureDetector']).toBeUndefined();
+    expect(adapter['registerFeatureConfigPreprocessor']).toBeUndefined();
+    expect(adapter['getFeatureConfigPreprocessor']).toBeUndefined();
   });
 });

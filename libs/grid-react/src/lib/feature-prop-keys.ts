@@ -6,10 +6,10 @@
  * that augment the core `FeatureConfig` can call `registerFeaturePropKey` to
  * make `<DataGrid>` recognise their prop without forking the shell.
  *
- * Mirrors the `Map<string, T>` shape of the other adapter bridge registries
- * (`registerEditorMountHook`, `registerPostMountRefresh`,
- * `registerChildFeatureDetector`) and keeps API parity with the Vue adapter's
- * `feature-prop-keys.ts`.
+ * Mirrors the bridge-registry shape (insertion-ordered, idempotent
+ * re-registration) of `registerEditorMountHook`, `registerPostMountRefresh`
+ * and `registerChildFeatureDetector`, and keeps API parity with the Vue
+ * adapter's `feature-prop-keys.ts`.
  *
  * @packageDocumentation
  * @internal
@@ -20,11 +20,11 @@ import type { FeatureConfig } from '@toolbox-web/grid/all';
 import type { FeatureName } from './feature-registry';
 
 /**
- * Insertion-ordered set of registered feature prop keys. Map-based (value
- * unused) so re-registering with the same name is a no-op replace rather than
- * a duplicate entry — same HMR semantics as the other bridge registries.
+ * Insertion-ordered set of registered feature prop keys. Re-adding an
+ * existing name is a no-op — same HMR semantics as the other bridge
+ * registries.
  */
-const featurePropKeys = new Map<FeatureName, true>();
+const featurePropKeys = new Set<FeatureName>();
 
 /**
  * Register a feature prop name as a recognised `FeatureProps` key. Called by
@@ -34,7 +34,7 @@ const featurePropKeys = new Map<FeatureName, true>();
  * @internal Plugin API
  */
 export function registerFeaturePropKey(name: FeatureName): void {
-  featurePropKeys.set(name, true);
+  featurePropKeys.add(name);
 }
 
 /**
@@ -45,7 +45,7 @@ export function registerFeaturePropKey(name: FeatureName): void {
  * @internal `<DataGrid>` extract/sync use only.
  */
 export function getFeaturePropKeys(): readonly FeatureName[] {
-  return Object.freeze(Array.from(featurePropKeys.keys()));
+  return Object.freeze(Array.from(featurePropKeys));
 }
 
 /**

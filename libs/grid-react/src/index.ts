@@ -83,23 +83,17 @@ export { useGridOverlay, type UseGridOverlayOptions } from './lib/use-grid-overl
 // React adapter (for advanced manual registration - most users don't need this)
 export { GridAdapter } from './lib/react-grid-adapter';
 
-// Cross-adapter registry surface (gh #356 §8). Same export names exist on
-// `@toolbox-web/grid-vue` and `@toolbox-web/grid-angular`. Asserted by
-// `react-grid-adapter.registry-parity.spec.ts`.
+// Cross-adapter registry surface (gh #356 §8). Each adapter ships only the
+// registries its shell actually invokes — same export names exist on
+// `@toolbox-web/grid-vue` and `@toolbox-web/grid-angular` where applicable.
+// Asserted by `react-grid-adapter.registry-parity.spec.ts`.
 export {
-  getFeatureConfigPreprocessor,
   registerChildFeatureDetector,
   registerEditorMountHook,
-  registerFeatureConfigPreprocessor,
   registerFeaturePropKey,
   registerPostMountRefresh,
 } from './lib/react-grid-adapter';
-export type {
-  ChildFeatureDetector,
-  EditorMountHook,
-  FeatureConfigPreprocessor,
-  PostMountRefreshHook,
-} from './lib/react-grid-adapter';
+export type { ChildFeatureDetector, EditorMountHook, PostMountRefreshHook } from './lib/react-grid-adapter';
 
 // Context types
 export type { GridCellContext, GridDetailContext, GridEditorContext, GridToolPanelContext } from './lib/context-types';

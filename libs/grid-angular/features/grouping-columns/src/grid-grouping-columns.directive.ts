@@ -8,7 +8,11 @@
 import { Directive, ElementRef, inject, input, OnDestroy, type Type } from '@angular/core';
 import type { DataGridElement } from '@toolbox-web/grid';
 import { registerFeatureClaim, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
-import type { ColumnGroupDefinition, GroupingColumnsConfig } from '@toolbox-web/grid/plugins/grouping-columns';
+import type {
+  ColumnGroupDefinition,
+  GroupHeaderRenderParams,
+  GroupingColumnsConfig,
+} from '@toolbox-web/grid/plugins/grouping-columns';
 
 /**
  * Angular-shaped column group definition that allows an Angular component

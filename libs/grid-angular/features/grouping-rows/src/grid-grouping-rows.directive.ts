@@ -12,6 +12,7 @@ import type {
   GroupCollapseDetail,
   GroupExpandDetail,
   GroupingRowsConfig,
+  GroupRowRenderParams,
   GroupToggleDetail,
 } from '@toolbox-web/grid/plugins/grouping-rows';
 

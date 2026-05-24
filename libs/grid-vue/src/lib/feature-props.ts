@@ -342,10 +342,19 @@ export interface FeatureProps<TRow = unknown> {
    * ```
    *
    * @example Custom group row renderer (Vue VNode)
+   *
+   * To keep mouse-toggle behavior, either add the `group-toggle` class to a
+   * clickable element (the plugin delegates clicks via `closest('.group-toggle')`)
+   * or call `params.toggleExpand()` from your own handler.
+   *
    * ```vue
    * <TbwGrid :groupingRows="{
    *   groupOn: (row) => row.department,
-   *   groupRowRenderer: (params) => h('strong', `${params.value} (${params.rows.length})`),
+   *   groupRowRenderer: (params) => h(
+   *     'button',
+   *     { type: 'button', class: 'group-toggle' },
+   *     `${params.expanded ? '▾' : '▸'} ${params.value} (${params.rows.length})`,
+   *   ),
    * }" />
    * ```
    */

@@ -10,9 +10,10 @@
  */
 import { createPluginFromFeature } from '@toolbox-web/grid/features/registry';
 import type { GroupHeaderRenderParams } from '@toolbox-web/grid/plugins/grouping-columns';
-import { afterEach, describe, expect, expectTypeOf, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
 import { h, type VNode } from 'vue';
 import type { VueColumnGroupDefinition, VueGroupingColumnsConfig } from '../lib/feature-props';
+import { resetBridge } from '../lib/teleport-bridge';
 import './grouping-columns';
 
 const sampleParams: GroupHeaderRenderParams = {
@@ -29,6 +30,11 @@ const userConfigOf = <T>(plugin: unknown): T | undefined =>
 
 afterEach(() => {
   document.body.innerHTML = '';
+  resetBridge();
+});
+
+beforeEach(() => {
+  resetBridge();
 });
 
 describe('@toolbox-web/grid-vue/features/grouping-columns', () => {

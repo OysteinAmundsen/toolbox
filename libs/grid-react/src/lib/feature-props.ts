@@ -336,11 +336,18 @@ export interface FeatureProps<TRow = unknown> {
    * ```
    *
    * @example Custom group row renderer (React JSX)
+   *
+   * To keep mouse-toggle behavior, either add the `group-toggle` class to a
+   * clickable element (the plugin delegates clicks via `closest('.group-toggle')`)
+   * or call `params.toggleExpand()` from your own handler.
+   *
    * ```tsx
    * <DataGrid groupingRows={{
    *   groupOn: (row) => row.department,
    *   groupRowRenderer: (params) => (
-   *     <strong>{params.value} ({params.rows.length})</strong>
+   *     <button type="button" className="group-toggle">
+   *       {params.expanded ? '▾' : '▸'} {params.value} ({params.rows.length})
+   *     </button>
    *   ),
    * }} />
    * ```

@@ -149,7 +149,9 @@ grid.gridConfig = {
       groupOn: (row) => [row.department],
       groupRowRenderer: (params) => {
         const arrow = params.expanded ? '▼' : '▶';
-        return `<button type="button">${arrow} <strong>${params.value}</strong> (${params.rows.length})</button>`;
+        // The `group-toggle` class makes the element a click target for the
+        // plugin's delegated `closest('.group-toggle')` toggle handler.
+        return `<button type="button" class="group-toggle">${arrow} <strong>${params.value}</strong> (${params.rows.length})</button>`;
       },
     },
   },

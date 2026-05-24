@@ -9,9 +9,10 @@
  */
 import { createPluginFromFeature } from '@toolbox-web/grid/features/registry';
 import type { GroupRowRenderParams } from '@toolbox-web/grid/plugins/grouping-rows';
-import { afterEach, describe, expect, expectTypeOf, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
 import { h, type VNode } from 'vue';
 import type { VueGroupingRowsConfig } from '../lib/feature-props';
+import { resetBridge } from '../lib/teleport-bridge';
 import './grouping-rows';
 
 const sampleParams: GroupRowRenderParams = {
@@ -29,6 +30,11 @@ const userConfigOf = <T>(plugin: unknown): T | undefined =>
 
 afterEach(() => {
   document.body.innerHTML = '';
+  resetBridge();
+});
+
+beforeEach(() => {
+  resetBridge();
 });
 
 describe('@toolbox-web/grid-vue/features/grouping-rows', () => {

@@ -13,6 +13,7 @@ import type {
   LoadingContext,
 } from '@toolbox-web/grid';
 import { createVNode, type Component, type VNode } from 'vue';
+import { registerChildFeatureDetector, type ChildFeatureDetector } from './child-feature-detector';
 import { notifyEditorMounted, registerEditorMountHook, type EditorMountHook } from './editor-mount-hooks';
 import type { TypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { registerPostMountRefresh, type PostMountRefreshHook } from './post-mount-refresh-hooks';
@@ -29,6 +30,12 @@ export { registerEditorMountHook, type EditorMountHook };
 // hooks via `import { registerPostMountRefresh } from '@toolbox-web/grid-vue'`.
 // `notifyPostMount` is internal and consumed only by `TbwGrid` itself.
 export { registerPostMountRefresh, type PostMountRefreshHook };
+
+// Re-export so feature secondary entries can install child-component
+// detectors via `import { registerChildFeatureDetector } from
+// '@toolbox-web/grid-vue'`. `detectChildFeatures` is internal; `<TbwGrid>`
+// does not yet invoke it (see child-feature-detector.ts module docs).
+export { registerChildFeatureDetector, type ChildFeatureDetector };
 
 // #region Feature bridge registries
 

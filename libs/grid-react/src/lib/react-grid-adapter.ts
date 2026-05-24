@@ -9,6 +9,7 @@ import type {
   TypeDefault,
 } from '@toolbox-web/grid';
 import type { ReactNode } from 'react';
+import { registerChildFeatureDetector, type ChildFeatureDetector } from './child-feature-detector';
 import { notifyEditorMounted, registerEditorMountHook, type EditorMountHook } from './editor-mount-hooks';
 import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
 import type { TypeDefault as ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
@@ -24,6 +25,12 @@ export { registerEditorMountHook, type EditorMountHook };
 // hooks via `import { registerPostMountRefresh } from '@toolbox-web/grid-react'`.
 // `notifyPostMount` is internal and consumed only by `<DataGrid>` itself.
 export { registerPostMountRefresh, type PostMountRefreshHook };
+
+// Re-export so feature secondary entries can install child-component
+// detectors via `import { registerChildFeatureDetector } from
+// '@toolbox-web/grid-react'`. `detectChildFeatures` is internal and consumed
+// only by `<DataGrid>` itself.
+export { registerChildFeatureDetector, type ChildFeatureDetector };
 
 // #region Feature bridge registries
 

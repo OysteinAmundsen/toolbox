@@ -1,10 +1,8 @@
 import type { BaseGridPlugin, DataGridElement } from '@toolbox-web/grid';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import {
-  Children,
   createElement,
   forwardRef,
-  isValidElement,
   useContext,
   useEffect,
   useImperativeHandle,
@@ -14,6 +12,7 @@ import {
   type ReactNode,
 } from 'react';
 import '../jsx.d.ts';
+import { detectChildFeatures, registerChildFeatureDetector } from './child-feature-detector';
 import { applyColumnDefaults, normalizeColumns, type ColumnShorthand } from './column-shorthand';
 import { EVENT_PROP_MAP, type EventProps } from './event-props';
 import { type AllFeatureProps, type FeatureProps } from './feature-props';
@@ -89,53 +88,32 @@ function ensureAdapterRegistered(): GridAdapter {
 // This ensures the adapter is available when grids parse their light DOM columns
 ensureAdapterRegistered();
 
+// Pre-register the built-in child-component detectors at module load so the
+// declarative `<GridDetailPanel>` / `<GridResponsiveCard>` patterns Just Work
+// without requiring the user to import `features/master-detail` /
+// `features/responsive` for child detection alone. Third-party features can
+// add their own via `registerChildFeatureDetector` (gh #356 §7: registry
+// pre-populates from core; side-effect imports augment for third-party).
+registerChildFeatureDetector<FeatureProps>('GridDetailPanel', (element) => {
+  const detailProps = element.props as GridDetailPanelProps;
+  return {
+    masterDetail: {
+      showExpandColumn: detailProps.showExpandColumn ?? true,
+      animation: detailProps.animation ?? 'slide',
+      // detailRenderer is wired up by the masterDetail post-mount refresh hook.
+    },
+  };
+});
+registerChildFeatureDetector<FeatureProps>('GridResponsiveCard', () => ({
+  // GridResponsiveCard only carries cardRowHeight; breakpoint is set via the
+  // responsive prop. Enable the plugin with defaults — user can override.
+  responsive: true,
+}));
+
 // Re-export from standalone module so feature entry points can import
 // the context without pulling in the entire DataGrid module graph.
 import { GridElementContext } from './grid-element-context';
 export { GridElementContext };
-
-/**
- * Detects child components (GridDetailPanel, GridResponsiveCard) and returns
- * feature props to auto-load the corresponding plugins.
- *
- * This allows the declarative child component pattern to work with lazy loading:
- * ```tsx
- * <DataGrid>
- *   <GridDetailPanel>{(ctx) => <Detail row={ctx.row} />}</GridDetailPanel>
- * </DataGrid>
- * ```
- *
- * The GridDetailPanel child will automatically trigger loading of MasterDetailPlugin.
- */
-function detectChildComponentFeatures(children: ReactNode): Partial<FeatureProps> {
-  const features: Partial<FeatureProps> = {};
-
-  Children.forEach(children, (child) => {
-    if (!isValidElement(child)) return;
-
-    // Check for GridDetailPanel - auto-add masterDetail feature
-    // GridDetailPanel renders <tbw-grid-detail> which the plugin looks for
-    if (child.type && (child.type as { displayName?: string }).displayName === 'GridDetailPanel') {
-      const detailProps = child.props as GridDetailPanelProps;
-      features.masterDetail = {
-        // Use props from the child component for configuration
-        showExpandColumn: detailProps.showExpandColumn ?? true,
-        animation: detailProps.animation ?? 'slide',
-        // detailRenderer is wired up by the masterDetail post-mount refresh
-        // hook registered in `features/master-detail.ts`.
-      };
-    }
-
-    // Check for GridResponsiveCard - auto-add responsive feature
-    if (child.type && (child.type as { displayName?: string }).displayName === 'GridResponsiveCard') {
-      // GridResponsiveCard only has cardRowHeight, breakpoint is set via the responsive prop
-      // Just enable the plugin with defaults - user can override with responsive prop if needed
-      features.responsive = true;
-    }
-  });
-
-  return features;
-}
 
 /**
  * Props for the DataGrid component.
@@ -493,7 +471,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   }, [featurePropsKey]);
 
   // Detect child components (GridDetailPanel, GridResponsiveCard) and merge with feature props
-  const childFeatures = useMemo(() => detectChildComponentFeatures(children), [children]);
+  const childFeatures = useMemo(() => detectChildFeatures<FeatureProps>(children), [children]);
 
   // Merge explicit feature props with child-detected features.
   // Priority: explicit props > child-detected props.

@@ -62,13 +62,19 @@ const container = ref<HTMLElement | null>(null);
 let registeredId: string | null = null;
 let cancelled = false;
 
-async function registerWith(grid: DataGridElement, id: string, order: number): Promise<void> {
+async function registerWith(grid: DataGridElement): Promise<void> {
   try {
     await grid.ready?.();
   } catch {
     return;
   }
   if (cancelled) return;
+  // Read props AFTER ready() resolves so any id/order change that happened
+  // while ready was pending is honored on the initial registration (the
+  // re-register watch below only fires for changes AFTER `registeredId`
+  // is set, so a race window exists without this read-after-await).
+  const id = contentId.value;
+  const order = props.order;
   const def: HeaderContentDefinition = {
     id,
     order,
@@ -96,7 +102,7 @@ function unregister(grid: DataGridElement | null, id: string | null): void {
 onMounted(() => {
   const grid = gridRef.value;
   if (!grid) return;
-  void registerWith(grid, contentId.value, props.order);
+  void registerWith(grid);
 });
 
 // Re-register if id or order changes after mount.
@@ -106,7 +112,7 @@ watch([contentId, () => props.order], async ([nextId, nextOrder], [prevId, prevO
   if (registeredId && (nextId !== prevId || nextOrder !== prevOrder)) {
     unregister(grid, registeredId);
     registeredId = null;
-    await registerWith(grid, nextId, nextOrder);
+    await registerWith(grid);
   }
 });
 

@@ -68,7 +68,7 @@ function setupHarness(): Harness {
     }),
   };
   const gridRef: RefObject<DataGridElement | null> = createRef<DataGridElement | null>();
-  (gridRef as { current: DataGridElement | null }).current = grid as unknown as DataGridElement;
+  (gridRef as { current: DataGridElement | null }).current = grid as DataGridElement;
   const root = createRoot(container);
   return { grid, gridRef, container, slot, root, headerDefs, toolbarDefs, unregisteredHeader, unregisteredToolbar };
 }

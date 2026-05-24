@@ -10,7 +10,7 @@ import TbwGridHeaderContent from './TbwGridHeaderContent.vue';
 import TbwGridToolbarContent from './TbwGridToolbarContent.vue';
 import { GRID_ELEMENT_KEY } from './use-grid';
 
-interface MockGrid {
+interface MockGrid extends Partial<DataGridElement> {
   ready: () => Promise<void>;
   registerHeaderContent: (def: HeaderContentDefinition) => void;
   unregisterHeaderContent: (id: string) => void;
@@ -82,7 +82,7 @@ afterEach(() => {
 
 async function mountWith(component: ReturnType<typeof defineComponent>): Promise<Harness> {
   const m = makeGrid();
-  const gridRef = ref<DataGridElement | null>(m.grid as unknown as DataGridElement);
+  const gridRef = ref<DataGridElement | null>(m.grid as DataGridElement);
   const app = createApp(component);
   app.provide(GRID_ELEMENT_KEY, gridRef);
   app.mount(mountEl);

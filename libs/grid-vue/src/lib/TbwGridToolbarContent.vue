@@ -66,13 +66,16 @@ const container = ref<HTMLElement | null>(null);
 let registeredId: string | null = null;
 let cancelled = false;
 
-async function registerWith(grid: DataGridElement, id: string, order: number): Promise<void> {
+async function registerWith(grid: DataGridElement): Promise<void> {
   try {
     await grid.ready?.();
   } catch {
     return;
   }
   if (cancelled) return;
+  // Read props after ready() resolves — see TbwGridHeaderContent.vue.
+  const id = contentId.value;
+  const order = props.order;
   const def: ToolbarContentDefinition = {
     id,
     order,
@@ -97,16 +100,16 @@ function unregister(grid: DataGridElement | null, id: string | null): void {
 onMounted(() => {
   const grid = gridRef.value;
   if (!grid) return;
-  void registerWith(grid, contentId.value, props.order);
+  void registerWith(grid);
 });
 
-watch([contentId, () => props.order], async ([nextId, nextOrder], [, prevOrder]) => {
+watch([contentId, () => props.order], async ([nextId, nextOrder], [prevId, prevOrder]) => {
   const grid = gridRef.value;
   if (!grid) return;
-  if (registeredId && (registeredId !== nextId || nextOrder !== prevOrder)) {
+  if (registeredId && (nextId !== prevId || nextOrder !== prevOrder)) {
     unregister(grid, registeredId);
     registeredId = null;
-    await registerWith(grid, nextId, nextOrder);
+    await registerWith(grid);
   }
 });
 

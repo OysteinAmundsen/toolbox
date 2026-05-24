@@ -117,3 +117,10 @@ export type { GridIconProviderProps } from './lib/grid-icon-registry';
 // Combined provider for type defaults and icons
 export { GridProvider } from './lib/grid-provider';
 export type { GridProviderProps } from './lib/grid-provider';
+
+// Cross-adapter registry surface (gh #356 §8). Each adapter ships only the
+// registries its shell actually invokes — same export names exist on
+// `@toolbox-web/grid-react` and `@toolbox-web/grid-angular` where applicable.
+// Asserted by `vue-grid-adapter.registry-parity.spec.ts`.
+export { registerEditorMountHook, registerFeaturePropKey, registerPostMountRefresh } from './lib/vue-grid-adapter';
+export type { EditorMountHook, PostMountRefreshHook } from './lib/vue-grid-adapter';

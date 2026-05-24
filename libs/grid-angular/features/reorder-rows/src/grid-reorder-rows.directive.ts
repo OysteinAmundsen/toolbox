@@ -17,6 +17,10 @@ import type { RowReorderConfig } from '@toolbox-web/grid/plugins/reorder-rows';
 /**
  * Owns the binding(s) `[reorderRows]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
+ * @deprecated v1.x — slated for removal in `@toolbox-web/grid-angular` 2.0.0
+ * (coordinated v3.0.0 release, see gh #260 / #263). Use `GridRowDragDropDirective`
+ * (binds `[rowDragDrop]`) instead.
+ *
  * @category Directive
  */
 @Directive({

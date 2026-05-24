@@ -1,10 +1,8 @@
 import type { BaseGridPlugin, DataGridElement } from '@toolbox-web/grid';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import {
-  Children,
   createElement,
   forwardRef,
-  isValidElement,
   useContext,
   useEffect,
   useImperativeHandle,
@@ -14,15 +12,17 @@ import {
   type ReactNode,
 } from 'react';
 import '../jsx.d.ts';
+import { detectChildFeatures, registerChildFeatureDetector } from './child-feature-detector';
 import { applyColumnDefaults, normalizeColumns, type ColumnShorthand } from './column-shorthand';
 import { EVENT_PROP_MAP, type EventProps } from './event-props';
+import { getFeaturePropKeys } from './feature-prop-keys';
 import { type AllFeatureProps, type FeatureProps } from './feature-props';
 import { type GridDetailPanelProps } from './grid-detail-panel';
 import { GridIconContextInternal } from './grid-icon-registry';
-import { getResponsiveCardRenderer } from './grid-responsive-card';
 import { GridTypeContextInternal } from './grid-type-registry';
 import { setPortalManager } from './portal-bridge';
 import { PortalManager, type PortalManagerHandle } from './portal-manager';
+import { notifyPostMount } from './post-mount-refresh-hooks';
 import { processGridConfig, type ColumnConfig, type GridConfig } from './react-column-config';
 import { GridAdapter } from './react-grid-adapter';
 import { createPluginsFromFeatures } from './use-sync-plugins';
@@ -37,39 +37,6 @@ interface ExtendedGridElement extends DataGridElement {
 // Track if adapter is registered
 let adapterRegistered = false;
 let globalAdapter: GridAdapter | null = null;
-
-/**
- * Static list of all feature prop names recognised by `<DataGrid>`.
- * Hoisted to module scope so the array is allocated once at module load,
- * not on every render. Used to extract `FeatureProps` from `...rest` and
- * to derive a stable change-detection key.
- */
-const FEATURE_KEYS = [
-  'selection',
-  'editing',
-  'filtering',
-  'multiSort',
-  'clipboard',
-  'contextMenu',
-  'reorderColumns',
-  'reorderRows',
-  'rowDragDrop',
-  'visibility',
-  'undoRedo',
-  'tree',
-  'groupingRows',
-  'groupingColumns',
-  'pinnedColumns',
-  'pinnedRows',
-  'masterDetail',
-  'responsive',
-  'columnVirtualization',
-  'export',
-  'print',
-  'pivot',
-  'serverSide',
-  'tooltip',
-] as const;
 
 /**
  * Ensure the React adapter is registered globally.
@@ -89,93 +56,47 @@ function ensureAdapterRegistered(): GridAdapter {
 // This ensures the adapter is available when grids parse their light DOM columns
 ensureAdapterRegistered();
 
+// Stable ref-id assignment for objects that can't be JSON.stringify'd
+// (e.g. third-party feature props containing cycles or BigInt). Used by
+// `featurePropsKey` below as a non-throwing fallback so a malformed feature
+// value can't crash <DataGrid>.
+const refTokens = new WeakMap<object, number>();
+let nextRefToken = 0;
+function getRefToken(value: object): number {
+  let id = refTokens.get(value);
+  if (id === undefined) {
+    id = ++nextRefToken;
+    refTokens.set(value, id);
+  }
+  return id;
+}
+
+// Pre-register the built-in child-component detectors at module load so the
+// declarative `<GridDetailPanel>` / `<GridResponsiveCard>` patterns Just Work
+// without requiring the user to import `features/master-detail` /
+// `features/responsive` for child detection alone. Third-party features can
+// add their own via `registerChildFeatureDetector` (gh #356 §7: registry
+// pre-populates from core; side-effect imports augment for third-party).
+registerChildFeatureDetector<FeatureProps>('GridDetailPanel', (element) => {
+  const detailProps = element.props as GridDetailPanelProps;
+  return {
+    masterDetail: {
+      showExpandColumn: detailProps.showExpandColumn ?? true,
+      animation: detailProps.animation ?? 'slide',
+      // detailRenderer is wired up by the masterDetail post-mount refresh hook.
+    },
+  };
+});
+registerChildFeatureDetector<FeatureProps>('GridResponsiveCard', () => ({
+  // GridResponsiveCard only carries cardRowHeight; breakpoint is set via the
+  // responsive prop. Enable the plugin with defaults — user can override.
+  responsive: true,
+}));
+
 // Re-export from standalone module so feature entry points can import
 // the context without pulling in the entire DataGrid module graph.
 import { GridElementContext } from './grid-element-context';
 export { GridElementContext };
-
-/**
- * Refreshes the MasterDetailPlugin renderer after React renders GridDetailPanel.
- * Only refreshes if plugin already exists - plugin creation is handled by feature props.
- */
-function refreshMasterDetailRenderer(gridElement: Element): void {
-  const grid = gridElement as any;
-
-  // Check if plugin already exists by name
-  const existingPlugin = grid.getPluginByName?.('masterDetail');
-  if (existingPlugin && typeof existingPlugin.refreshDetailRenderer === 'function') {
-    // Plugin exists - refresh the renderer to pick up React templates
-    existingPlugin.refreshDetailRenderer();
-  }
-}
-
-/**
- * Refreshes the ResponsivePlugin card renderer after React renders GridResponsiveCard.
- * Only refreshes if plugin already exists - plugin creation is handled by feature props.
- */
-function refreshResponsiveCardRenderer(gridElement: Element, adapter: GridAdapter): void {
-  const grid = gridElement as any;
-
-  // Check if <tbw-grid-responsive-card> is present in light DOM
-  const cardElement = gridElement.querySelector('tbw-grid-responsive-card');
-  if (!cardElement) return;
-
-  // Check if a card renderer was registered via GridResponsiveCard
-  const cardRenderer = getResponsiveCardRenderer(gridElement as HTMLElement);
-  if (!cardRenderer) return;
-
-  // Check if plugin exists by name
-  const existingPlugin = grid.getPluginByName?.('responsive');
-  if (existingPlugin && typeof existingPlugin.setCardRenderer === 'function') {
-    // Plugin exists - create React card renderer and update it
-    const reactCardRenderer = adapter.createResponsiveCardRenderer(gridElement as HTMLElement);
-    if (reactCardRenderer) {
-      existingPlugin.setCardRenderer(reactCardRenderer);
-    }
-  }
-}
-
-/**
- * Detects child components (GridDetailPanel, GridResponsiveCard) and returns
- * feature props to auto-load the corresponding plugins.
- *
- * This allows the declarative child component pattern to work with lazy loading:
- * ```tsx
- * <DataGrid>
- *   <GridDetailPanel>{(ctx) => <Detail row={ctx.row} />}</GridDetailPanel>
- * </DataGrid>
- * ```
- *
- * The GridDetailPanel child will automatically trigger loading of MasterDetailPlugin.
- */
-function detectChildComponentFeatures(children: ReactNode): Partial<FeatureProps> {
-  const features: Partial<FeatureProps> = {};
-
-  Children.forEach(children, (child) => {
-    if (!isValidElement(child)) return;
-
-    // Check for GridDetailPanel - auto-add masterDetail feature
-    // GridDetailPanel renders <tbw-grid-detail> which the plugin looks for
-    if (child.type && (child.type as { displayName?: string }).displayName === 'GridDetailPanel') {
-      const detailProps = child.props as GridDetailPanelProps;
-      features.masterDetail = {
-        // Use props from the child component for configuration
-        showExpandColumn: detailProps.showExpandColumn ?? true,
-        animation: detailProps.animation ?? 'slide',
-        // detailRenderer will be wired up by refreshMasterDetailRenderer after mount
-      };
-    }
-
-    // Check for GridResponsiveCard - auto-add responsive feature
-    if (child.type && (child.type as { displayName?: string }).displayName === 'GridResponsiveCard') {
-      // GridResponsiveCard only has cardRowHeight, breakpoint is set via the responsive prop
-      // Just enable the plugin with defaults - user can override with responsive prop if needed
-      features.responsive = true;
-    }
-  });
-
-  return features;
-}
 
 /**
  * Props for the DataGrid component.
@@ -508,32 +429,52 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   // ═══════════════════════════════════════════════════════════════════
 
   // Create a stable key from feature prop values to detect actual changes
-  // This avoids infinite loops from `rest` object reference changing each render
+  // This avoids infinite loops from `rest` object reference changing each render.
+  // `JSON.stringify` is wrapped because third-party features registered via
+  // `registerFeaturePropKey` may pass non-serializable values (BigInt, cycles)
+  // — falling back to a reference-token keeps render from throwing. Cache
+  // misses on the fallback path mean the memo re-runs whenever the prop's
+  // reference changes, which matches React's normal expectation for opaque
+  // values.
   const featurePropsKey = useMemo(() => {
-    return FEATURE_KEYS.map((key) => {
-      const value = (rest as Record<string, unknown>)[key];
-      return value !== undefined ? `${key}:${JSON.stringify(value)}` : '';
-    })
+    return getFeaturePropKeys()
+      .map((key) => {
+        const value = (rest as Record<string, unknown>)[key];
+        if (value === undefined) return '';
+        let serialized: string;
+        try {
+          serialized = JSON.stringify(value) ?? 'undefined';
+        } catch {
+          // Non-serializable (cycle / BigInt / etc.) — use a per-reference
+          // token. Primitive fallback via String() handles BigInt; objects
+          // get a stable ref-id via a WeakMap-backed counter.
+          serialized =
+            typeof value === 'object' && value !== null ? `ref#${getRefToken(value)}` : `prim:${String(value)}`;
+        }
+        return `${key}:${serialized}`;
+      })
       .filter(Boolean)
       .join('|');
   }, [rest]);
 
   // Extract feature props - only recalculate when the stable key changes
   const featureProps = useMemo(() => {
-    const features: FeatureProps<TRow> = {};
+    const features: Record<string, unknown> = {};
+    const restRecord = rest as Record<string, unknown>;
 
-    for (const key of FEATURE_KEYS) {
-      if (key in rest && (rest as any)[key] !== undefined) {
-        (features as any)[key] = (rest as any)[key];
+    for (const key of getFeaturePropKeys()) {
+      const value = restRecord[key];
+      if (value !== undefined) {
+        features[key] = value;
       }
     }
 
-    return features;
+    return features as FeatureProps<TRow>;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [featurePropsKey]);
 
   // Detect child components (GridDetailPanel, GridResponsiveCard) and merge with feature props
-  const childFeatures = useMemo(() => detectChildComponentFeatures(children), [children]);
+  const childFeatures = useMemo(() => detectChildFeatures<FeatureProps>(children), [children]);
 
   // Merge explicit feature props with child-detected features.
   // Priority: explicit props > child-detected props.
@@ -692,10 +633,13 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     const adapter = ensureAdapterRegistered();
     (grid as any).__frameworkAdapter = adapter;
 
-    // Refresh plugin renderers to pick up React templates from child components
-    // Plugin creation is handled by feature props (see auto-detection in featureProps memo)
-    refreshMasterDetailRenderer(grid);
-    refreshResponsiveCardRenderer(grid, adapter);
+    // Refresh plugin renderers to pick up React templates from child components.
+    // Plugin creation is handled by feature props (see auto-detection in featureProps memo).
+    // Each feature secondary entry registers its own post-mount refresh hook via
+    // `registerPostMountRefresh(name, ...)`; the shell only publishes the
+    // framework adapter on `__frameworkAdapter` (above) and fires the kick —
+    // it no longer hard-codes plugin names or refresh-method shapes.
+    notifyPostMount(grid as HTMLElement);
 
     // Use a single RAF for column/shell refresh
     // React 18+ batches updates, so one frame is usually enough

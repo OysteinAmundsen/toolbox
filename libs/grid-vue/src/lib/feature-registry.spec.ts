@@ -18,6 +18,42 @@ import {
   type FeatureName,
 } from './feature-registry';
 
+// ─────────────────────────────────────────────────────────────────────────
+// Strict additive contract (gh #356, §7): FeatureName MUST stay a superset
+// of every name the adapter previously accepted. The prior shape was a
+// hand-listed union of 24 names (stickyRows was missing — switching to
+// `keyof FeatureConfig` adds it, which is additive). If any of these names
+// stops being assignable to `FeatureName`, this file fails to compile.
+// ─────────────────────────────────────────────────────────────────────────
+type _PriorFeatureNames =
+  | 'selection'
+  | 'editing'
+  | 'clipboard'
+  | 'contextMenu'
+  | 'multiSort'
+  | 'filtering'
+  | 'reorderColumns'
+  | 'visibility'
+  | 'pinnedColumns'
+  | 'groupingColumns'
+  | 'columnVirtualization'
+  | 'reorderRows'
+  | 'rowDragDrop'
+  | 'groupingRows'
+  | 'pinnedRows'
+  | 'tree'
+  | 'masterDetail'
+  | 'responsive'
+  | 'undoRedo'
+  | 'export'
+  | 'print'
+  | 'pivot'
+  | 'serverSide'
+  | 'tooltip';
+type _FeatureNameSupersetCheck = Exclude<_PriorFeatureNames, FeatureName> extends never ? true : false;
+const _featureNameSupersetCheck: _FeatureNameSupersetCheck = true;
+void _featureNameSupersetCheck;
+
 // ═══════════════════════════════════════════════════════════════════════════
 // FEATURE REGISTRY TESTS
 // ═══════════════════════════════════════════════════════════════════════════

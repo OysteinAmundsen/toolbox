@@ -585,10 +585,15 @@ export type AllFeatureProps<TRow = unknown> = FeatureProps<TRow> & SSRProps;
  *
  * If this fails to compile, a feature was added to core but not yet wired
  * here. Add the matching prop above with appropriate React-specific types.
+ *
+ * The `'__brand'` sentinel on core's `FeatureConfig` is filtered out — it
+ * is not a real feature.
  */
-type _MissingReactProps = Exclude<keyof FeatureConfig, keyof FeatureProps>;
+type _MissingReactProps = Exclude<keyof FeatureConfig, keyof FeatureProps | '__brand'>;
 type _AssertFeaturePropsCoverCore = [_MissingReactProps] extends [never]
   ? true
   : ['Missing React props for core features:', _MissingReactProps];
+const _featurePropsCoverCore: _AssertFeaturePropsCoverCore = true;
+void _featurePropsCoverCore;
 
 // #endregion

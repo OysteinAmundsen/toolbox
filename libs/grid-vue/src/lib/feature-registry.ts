@@ -29,31 +29,16 @@ export {
 export type { PluginFactory } from '@toolbox-web/grid/features/registry';
 
 /**
- * Feature names supported by the TbwGrid component.
+ * Feature names supported by the TbwGrid component, derived from the core
+ * augmentable `FeatureConfig` interface. Stays in lockstep with core: any
+ * feature that augments `FeatureConfig` (via `declare module '@toolbox-web/grid'`)
+ * is automatically a member of this union, including third-party features.
+ *
+ * The `__brand` sentinel declared on core's `FeatureConfig` (to keep the
+ * interface non-empty for excess-property checks) is filtered out — it is
+ * not a real feature name.
+ *
  * @since 0.1.0
  */
-export type FeatureName =
-  | 'selection'
-  | 'editing'
-  | 'clipboard'
-  | 'contextMenu'
-  | 'multiSort'
-  | 'filtering'
-  | 'reorderColumns'
-  | 'visibility'
-  | 'pinnedColumns'
-  | 'groupingColumns'
-  | 'columnVirtualization'
-  | 'reorderRows'
-  | 'rowDragDrop'
-  | 'groupingRows'
-  | 'pinnedRows'
-  | 'tree'
-  | 'masterDetail'
-  | 'responsive'
-  | 'undoRedo'
-  | 'export'
-  | 'print'
-  | 'pivot'
-  | 'serverSide'
-  | 'tooltip';
+import type { FeatureConfig } from '@toolbox-web/grid/all';
+export type FeatureName = Exclude<keyof FeatureConfig, '__brand'>;

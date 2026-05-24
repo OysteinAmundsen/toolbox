@@ -23,10 +23,11 @@
 // Delegate to core feature registration
 import '@toolbox-web/grid/features/master-detail';
 
+import type { DataGridElement } from '@toolbox-web/grid/all';
 import type { VNode } from 'vue';
 import { detailRegistry, type DetailPanelContext } from '../lib/detail-panel-registry';
 import { renderToContainer } from '../lib/teleport-bridge';
-import { registerDetailRendererBridge } from '../lib/vue-grid-adapter';
+import { registerDetailRendererBridge, registerPostMountRefresh } from '../lib/vue-grid-adapter';
 
 // Install the master-detail row-renderer bridge on the Vue adapter.
 // This augments the adapter (mirroring how core plugins augment the grid
@@ -53,4 +54,15 @@ registerDetailRendererBridge((gridElement, { trackTeleportKey }) => {
 
     return container;
   };
+});
+
+// Refresh the MasterDetailPlugin's renderer once Vue has rendered the
+// `<TbwGridDetailPanel>` child. The plugin is instantiated by feature props
+// before Vue commits its children, so it never sees the registered renderer
+// without a post-mount kick. Replaces the hard-coded `getPluginByName('masterDetail')`
+// call that used to live in `TbwGrid.vue`.
+registerPostMountRefresh('masterDetail', ({ gridEl }) => {
+  const grid = gridEl as DataGridElement;
+  const plugin = grid.getPluginByName('masterDetail') as { refreshDetailRenderer?: () => void } | undefined;
+  plugin?.refreshDetailRenderer?.();
 });

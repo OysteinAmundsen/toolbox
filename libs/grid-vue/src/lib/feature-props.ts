@@ -23,6 +23,7 @@ import type {
   ColumnVirtualizationConfig,
   ContextMenuConfig,
   ExportConfig,
+  FeatureConfig,
   FilterConfig,
   GroupingColumnsConfig,
   GroupingRowsConfig,
@@ -572,3 +573,29 @@ export interface SSRProps {
  * @since 0.1.0
  */
 export type AllFeatureProps<TRow = unknown> = FeatureProps<TRow> & SSRProps;
+
+// #region Drift guard
+
+/**
+ * Compile-time check that every core feature has a matching Vue prop.
+ *
+ * `FeatureConfig` (in core) is augmented by each side-effect feature import
+ * (`libs/grid/src/lib/features/*.ts`). `FeatureProps` here must stay a
+ * superset — every core feature should be exposed as a declarative Vue
+ * prop. (Reverse direction is intentionally NOT enforced: Vue adds `ssr`,
+ * and Vue props may use richer shorthand types than core configs.)
+ *
+ * If this fails to compile, a feature was added to core but not yet wired
+ * here. Add the matching prop above with appropriate Vue-specific types.
+ *
+ * Mirrors `_AssertFeaturePropsCoverCore` in
+ * `libs/grid-react/src/lib/feature-props.ts` (gh #356 phase 6 parity).
+ */
+type _MissingVueProps = Exclude<keyof FeatureConfig, keyof FeatureProps | '__brand'>;
+type _AssertFeaturePropsCoverCore = [_MissingVueProps] extends [never]
+  ? true
+  : ['Missing Vue props for core features:', _MissingVueProps];
+const _featurePropsCoverCore: _AssertFeaturePropsCoverCore = true;
+void _featurePropsCoverCore;
+
+// #endregion

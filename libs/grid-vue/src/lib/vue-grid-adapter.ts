@@ -14,7 +14,9 @@ import type {
 } from '@toolbox-web/grid';
 import { createVNode, type Component, type VNode } from 'vue';
 import { notifyEditorMounted, registerEditorMountHook, type EditorMountHook } from './editor-mount-hooks';
+import { registerFeaturePropKey } from './feature-prop-keys';
 import type { TypeDefault, TypeDefaultsMap } from './grid-type-registry';
+import { registerPostMountRefresh, type PostMountRefreshHook } from './post-mount-refresh-hooks';
 import { removeFromContainer, renderToContainer } from './teleport-bridge';
 import { getToolPanelRenderer, type ToolPanelContext } from './tool-panel-registry';
 import type { ColumnConfig, GridConfig } from './vue-column-config';
@@ -23,6 +25,18 @@ export type { GridConfig };
 // Re-export so feature secondary entries can install editor-mount hooks
 // via `import { registerEditorMountHook } from '@toolbox-web/grid-vue'`.
 export { registerEditorMountHook, type EditorMountHook };
+
+// Re-export so feature secondary entries can install post-mount refresh
+// hooks via `import { registerPostMountRefresh } from '@toolbox-web/grid-vue'`.
+// `notifyPostMount` is internal and consumed only by `TbwGrid` itself.
+export { registerPostMountRefresh, type PostMountRefreshHook };
+
+// Re-export so third-party feature secondary entries can register additional
+// feature prop keys via `import { registerFeaturePropKey } from
+// '@toolbox-web/grid-vue'`. `getFeaturePropKeys` is internal and consumed
+// only by `<TbwGrid>` itself. Pre-populated with the built-in feature names
+// at module load (gh #356 §7: registry pre-populates from core).
+export { registerFeaturePropKey };
 
 // #region Feature bridge registries
 

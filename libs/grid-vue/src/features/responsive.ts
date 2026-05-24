@@ -24,10 +24,11 @@
 // Delegate to core feature registration
 import '@toolbox-web/grid/features/responsive';
 
+import type { DataGridElement } from '@toolbox-web/grid/all';
 import type { VNode } from 'vue';
 import { cardRegistry, type ResponsiveCardContext } from '../lib/responsive-card-registry';
 import { renderToContainer } from '../lib/teleport-bridge';
-import { registerResponsiveCardRendererBridge } from '../lib/vue-grid-adapter';
+import { registerPostMountRefresh, registerResponsiveCardRendererBridge } from '../lib/vue-grid-adapter';
 
 // Install the responsive card row-renderer bridge on the Vue adapter.
 // Augments the adapter so responsive-specific bridging lives with the
@@ -53,4 +54,15 @@ registerResponsiveCardRendererBridge((gridElement, { trackTeleportKey }) => {
 
     return container;
   };
+});
+
+// Refresh the ResponsivePlugin's card renderer once Vue has rendered the
+// `<TbwGridResponsiveCard>` child. The plugin is instantiated by feature props
+// before Vue commits its children, so it never sees the registered renderer
+// without a post-mount kick. Replaces the hard-coded `getPluginByName('responsive')`
+// call that used to live in `TbwGrid.vue`.
+registerPostMountRefresh('responsive', ({ gridEl }) => {
+  const grid = gridEl as DataGridElement;
+  const plugin = grid.getPluginByName('responsive') as { refreshCardRenderer?: () => void } | undefined;
+  plugin?.refreshCardRenderer?.();
 });

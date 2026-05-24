@@ -12,9 +12,15 @@ export {
   registerDetailRendererBridge,
   registerEditorMountHook,
   registerFilterPanelTypeDefaultBridge,
+  registerPostMountRefresh,
   registerResponsiveCardRendererBridge,
 } from './lib/angular-grid-adapter';
-export type { EditorMountHook, FilterPanelTypeDefaultBridge, RowRendererBridge } from './lib/angular-grid-adapter';
+export type {
+  EditorMountHook,
+  FilterPanelTypeDefaultBridge,
+  PostMountRefreshHook,
+  RowRendererBridge,
+} from './lib/angular-grid-adapter';
 
 // Configuration types
 export { isComponentClass } from './lib/angular-column-config';

@@ -26,3 +26,29 @@
  * @packageDocumentation
  * @internal
  */
+
+import type {} from '@toolbox-web/grid/features/clipboard';
+import type {} from '@toolbox-web/grid/features/column-virtualization';
+import type {} from '@toolbox-web/grid/features/context-menu';
+import type {} from '@toolbox-web/grid/features/editing';
+import type {} from '@toolbox-web/grid/features/export';
+import type {} from '@toolbox-web/grid/features/filtering';
+import type {} from '@toolbox-web/grid/features/grouping-columns';
+import type {} from '@toolbox-web/grid/features/grouping-rows';
+import type {} from '@toolbox-web/grid/features/master-detail';
+import type {} from '@toolbox-web/grid/features/multi-sort';
+import type {} from '@toolbox-web/grid/features/pinned-columns';
+import type {} from '@toolbox-web/grid/features/pinned-rows';
+import type {} from '@toolbox-web/grid/features/pivot';
+import type {} from '@toolbox-web/grid/features/print';
+import type {} from '@toolbox-web/grid/features/reorder-columns';
+import type {} from '@toolbox-web/grid/features/reorder-rows';
+import type {} from '@toolbox-web/grid/features/responsive';
+import type {} from '@toolbox-web/grid/features/row-drag-drop';
+import type {} from '@toolbox-web/grid/features/selection';
+import type {} from '@toolbox-web/grid/features/server-side';
+import type {} from '@toolbox-web/grid/features/sticky-rows';
+import type {} from '@toolbox-web/grid/features/tooltip';
+import type {} from '@toolbox-web/grid/features/tree';
+import type {} from '@toolbox-web/grid/features/undo-redo';
+import type {} from '@toolbox-web/grid/features/visibility';

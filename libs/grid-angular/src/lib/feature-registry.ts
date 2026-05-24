@@ -33,6 +33,7 @@ import type { FeatureConfig } from '@toolbox-web/grid';
 // augmentation is visible to ng-packagr's partial compilation when emitting
 // the `keyof FeatureConfig` below — see `internal/feature-augmentations.ts`
 // header for the full rationale (gh #356 phase 6).
+import './internal/feature-augmentations';
 
 /**
  * Feature names supported by the Grid directive, derived from the core

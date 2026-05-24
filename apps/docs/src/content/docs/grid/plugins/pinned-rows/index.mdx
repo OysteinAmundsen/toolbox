@@ -273,6 +273,76 @@ via the existing portal/teleport/component-rendering machinery:
 | Vue     | `VNode \| null` (e.g. `h('span', ...)`)    |
 | Angular | `Type<unknown> \| null` (a component class) |
 
+The adapter feature modules cache the host DOM element per-renderer across
+calls, so the plugin's reference-equality short-circuit keeps the pinned
+row stable across grid refreshes (no React/Vue unmount-remount loop, no
+Angular component re-creation). You can therefore write the renderers as
+plain inline functions — no need for manual `useRef` / `ref` host caching:
+
+<Tabs syncKey="framework">
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/pinned-rows';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+function Legend() {
+  return <span className="legend">Legend content</span>;
+}
+
+<DataGrid
+  rows={rows}
+  pinnedRows={{
+    slots: [
+      { id: 'legend', position: 'bottom', render: () => <Legend /> },
+    ],
+  }}
+/>;
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/pinned-rows';
+import { h, shallowRef } from 'vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import Legend from './Legend.vue';
+
+const pinnedRows = shallowRef({
+  slots: [
+    { id: 'legend', position: 'bottom' as const, render: () => h(Legend) },
+  ],
+});
+</script>
+
+<template>
+  <TbwGrid :rows="rows" :pinned-rows="pinnedRows" />
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```ts
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import { GridPinnedRowsDirective } from '@toolbox-web/grid-angular/features/pinned-rows';
+import { LegendComponent } from './legend.component';
+
+@Component({
+  selector: 'app-grid',
+  imports: [Grid, GridPinnedRowsDirective],
+  template: `<tbw-grid [rows]="rows" [pinnedRows]="pinnedRows" />`,
+})
+export class AppGrid {
+  rows = [];
+  pinnedRows = {
+    slots: [
+      { id: 'legend', position: 'bottom' as const, render: LegendComponent },
+    ],
+  };
+}
+```
+  </TabItem>
+</Tabs>
+
 ## Aggregation Rows
 
 An **aggregation slot** (any slot without a `render` field) computes values

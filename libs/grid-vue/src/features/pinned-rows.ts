@@ -62,55 +62,48 @@ import {
 } from '@toolbox-web/grid/plugins/pinned-rows';
 import type { VNode } from 'vue';
 import { registerFeature } from '../lib/feature-registry';
-import { createNodeBridge } from '../lib/teleport-bridge';
+import { removeFromContainer, renderToContainer } from '../lib/teleport-bridge';
 
-/** Vue-typed render function for a pinned-row panel slot. */
-type VuePanelRender = (ctx: PinnedRowsContext) => VNode | null | undefined;
-/** Vue-typed zoned render entry. */
-interface VueZonedPanelRender {
+/**
+ * Vue-typed render function for a pinned-row panel slot. Returning `HTMLElement`
+ * directly (e.g. built-in renderers from `@toolbox-web/grid/plugins/pinned-rows`)
+ * is supported as a pass-through.
+ *
+ * @since 1.9.0
+ */
+export type VuePanelRender = (ctx: PinnedRowsContext) => VNode | HTMLElement | null | undefined;
+/**
+ * Vue-typed zoned render entry.
+ *
+ * @since 1.9.0
+ */
+export interface VueZonedPanelRender {
   zone?: PanelZone;
   render: VuePanelRender;
 }
-/** Vue-typed panel slot — same shape as vanilla PanelSlot but with VNode render returns. */
-interface VuePanelSlot {
+/**
+ * Vue-typed panel slot — same shape as vanilla PanelSlot but with VNode render returns.
+ *
+ * @since 1.9.0
+ */
+export interface VuePanelSlot {
   id?: string;
   position?: 'top' | 'bottom';
   render: VuePanelRender | VueZonedPanelRender[];
 }
-/** Vue-typed slot — either a panel slot or an aggregation slot. */
-type VuePinnedRowSlot = VuePanelSlot | AggregationSlot;
+/**
+ * Vue-typed slot — either a panel slot or an aggregation slot.
+ *
+ * @since 1.9.0
+ */
+export type VuePinnedRowSlot = VuePanelSlot | AggregationSlot;
 
 /**
- * Wrap a Vue-returning render function in a vanilla `() => HTMLElement | null`.
- * `null` / `undefined` from the Vue function passes through so built-in
- * conditional panels (e.g. selectedCountPanel) can opt out.
- * Thin alias around the shared `createNodeBridge` helper.
+ * Per-feature shape of `pinnedRows` accepted by the Vue adapter.
+ *
+ * @since 1.9.0
  */
-function bridgeVueRender(vueFn: VuePanelRender): (ctx: PinnedRowsContext) => HTMLElement | null {
-  return createNodeBridge<PinnedRowsContext>(vueFn);
-}
-
-/** Bridge a single slot. Aggregation slots pass through unchanged. */
-function bridgeSlot(slot: VuePinnedRowSlot): PinnedRowSlot {
-  if (!('render' in slot) || slot.render == null) return slot;
-
-  if (Array.isArray(slot.render)) {
-    const zoned: ZonedPanelRender[] = slot.render.map((entry) => {
-      if (typeof entry?.render !== 'function') return entry as ZonedPanelRender;
-      return { zone: entry.zone, render: bridgeVueRender(entry.render) };
-    });
-    return { ...slot, render: zoned };
-  }
-
-  if (typeof slot.render === 'function') {
-    return { ...slot, render: bridgeVueRender(slot.render) };
-  }
-
-  return slot as PinnedRowSlot;
-}
-
-/** Per-feature shape of `pinnedRows` accepted by the Vue adapter. */
-type VuePinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & {
+export type VuePinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & {
   slots?: VuePinnedRowSlot[];
   customPanels?: Array<{
     id: string;
@@ -118,6 +111,101 @@ type VuePinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & {
     render: (ctx: PinnedRowsContext) => VNode;
   }>;
 };
+
+/**
+ * Cache entry for a single Vue-typed renderer. Reused across grid re-renders
+ * so the host element reference is stable — the pinned-rows plugin
+ * (`renderPanelSlot`) reference-checks renderer outputs to skip DOM mutation
+ * when nothing changed, and the teleport portal updates in place.
+ */
+interface VueRenderCache {
+  host: HTMLDivElement;
+  portalKey: string | null;
+}
+
+/**
+ * Wrap a Vue render function to cache its host element across calls.
+ * - First call: creates a `<div style="display:contents">` host, mounts the
+ *   VNode into it, returns the host.
+ * - Subsequent calls: re-renders into the same portal key and returns the same
+ *   host element so the plugin can short-circuit row DOM rebuilds (and avoid
+ *   Vue app unmount/remount loops).
+ * - Returns `null` when the Vue function returns `null`/`undefined` so
+ *   built-in conditional panels can opt out without tearing down state.
+ *
+ * `registerTeardown` is invoked once per bridge so the registered cleanup
+ * function fires when the plugin detaches (grid disconnect or config replace).
+ */
+function createCachedVueRender(
+  vueFn: VuePanelRender,
+  registerTeardown: (fn: () => void) => void,
+): (ctx: PinnedRowsContext) => HTMLElement | null {
+  let cache: VueRenderCache | null = null;
+  let registered = false;
+  return (ctx) => {
+    const node = vueFn(ctx);
+    if (node == null) return null;
+    // Pass through: vanilla renderers (e.g. `rowCountPanel()`) return real DOM
+    // nodes, not VNodes — hand them back as-is rather than mounting via Vue.
+    if (node instanceof HTMLElement) return node;
+    if (!cache) {
+      const host = document.createElement('div');
+      host.style.display = 'contents';
+      cache = { host, portalKey: null };
+    }
+    cache.portalKey = renderToContainer(cache.host, node, cache.portalKey ?? undefined);
+    if (!registered) {
+      registered = true;
+      registerTeardown(() => {
+        if (cache?.portalKey) removeFromContainer(cache.portalKey);
+        cache = null;
+      });
+    }
+    return cache.host;
+  };
+}
+
+/** Bridge a single slot. Aggregation slots pass through unchanged. */
+function bridgeSlot(slot: VuePinnedRowSlot, registerTeardown: (fn: () => void) => void): PinnedRowSlot {
+  if (!('render' in slot) || slot.render == null) return slot;
+
+  if (Array.isArray(slot.render)) {
+    const zoned: ZonedPanelRender[] = slot.render.map((entry) => {
+      if (typeof entry?.render !== 'function') return entry as ZonedPanelRender;
+      return { zone: entry.zone, render: createCachedVueRender(entry.render, registerTeardown) };
+    });
+    return { ...slot, render: zoned };
+  }
+
+  if (typeof slot.render === 'function') {
+    return { ...slot, render: createCachedVueRender(slot.render, registerTeardown) };
+  }
+
+  return slot as PinnedRowSlot;
+}
+
+/**
+ * Subclass that runs registered teardown callbacks when the plugin is detached.
+ * Used to release Vue teleport portals owned by slot/customPanel bridges.
+ */
+class PinnedRowsPluginWithCleanup extends PinnedRowsPlugin {
+  #teardowns: Array<() => void>;
+  constructor(config: PinnedRowsConfig | undefined, teardowns: Array<() => void>) {
+    super(config);
+    this.#teardowns = teardowns;
+  }
+  override detach(): void {
+    super.detach();
+    for (const fn of this.#teardowns) {
+      try {
+        fn();
+      } catch {
+        // Ignore individual teardown errors so siblings still run.
+      }
+    }
+    this.#teardowns.length = 0;
+  }
+}
 
 registerFeature(
   'pinnedRows',
@@ -134,11 +222,16 @@ registerFeature(
     const { slots: vueSlots, customPanels: vueCustomPanels, ...sharedBase } = config;
     const options: PinnedRowsConfig = { ...sharedBase };
 
+    const teardowns: Array<() => void> = [];
+    const registerTeardown = (fn: () => void): void => {
+      teardowns.push(fn);
+    };
+
     // Bridge Vue customPanels[].render (returns VNode) to vanilla.
     if (Array.isArray(vueCustomPanels)) {
       options.customPanels = vueCustomPanels.map((panel) => {
         if (typeof panel.render !== 'function') return panel as never;
-        const bridged = createNodeBridge<PinnedRowsContext>(panel.render);
+        const bridged = createCachedVueRender(panel.render, registerTeardown);
         return {
           ...panel,
           // customPanels expect HTMLElement (not nullable); coerce null → empty wrapper.
@@ -147,12 +240,12 @@ registerFeature(
       });
     }
 
-    // Bridge slots[] panel renders (issue #255).
+    // Bridge slots[] panel renders (issue #255 + #354).
     if (Array.isArray(vueSlots)) {
-      options.slots = vueSlots.map(bridgeSlot);
+      options.slots = vueSlots.map((slot) => bridgeSlot(slot, registerTeardown));
     }
 
-    return new PinnedRowsPlugin(options);
+    return new PinnedRowsPluginWithCleanup(options, teardowns);
   },
   { override: true },
 );

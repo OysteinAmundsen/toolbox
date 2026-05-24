@@ -232,6 +232,30 @@ function EmployeeGrid() {
 
 **Props:** `id` (required), `title` (required), `icon`, `tooltip`, `order` (default `100`, lower = first).
 
+## Header & Toolbar Content
+
+Inject framework content into the grid's shell header (left zone) or toolbar (right zone) via [`GridHeaderContent`](/grid/react/api/components/GridHeaderContent/) and [`GridToolbarContent`](/grid/react/api/components/GridToolbarContent/). These wrap the imperative `registerHeaderContent` / `registerToolbarContent` APIs so children render through React's normal reconciliation (state, context, hooks all work).
+
+```tsx
+import { DataGrid, GridHeaderContent, GridToolbarContent } from '@toolbox-web/grid-react';
+
+function CalendarGrid() {
+  const [year, setYear] = useState(new Date().getFullYear());
+  return (
+    <DataGrid rows={rows} columns={columns}>
+      <GridHeaderContent id="calendar-nav" order={0}>
+        <HeaderNav year={year} onYearChange={setYear} />
+      </GridHeaderContent>
+      <GridToolbarContent id="calendar-buttons" order={0}>
+        <ToolbarNav onPrev={prev} onToday={today} onNext={next} />
+      </GridToolbarContent>
+    </DataGrid>
+  );
+}
+```
+
+**Props:** `id` (optional — auto-generated if omitted), `order` (default `100`, lower = first). Children re-render in place when state changes without re-registering with the grid.
+
 ## Using the `useGrid` Hook
 
 The [`useGrid()`](/grid/react/api/hooks/useGrid/) hook provides programmatic access to the grid — see [`UseGridReturn`](/grid/react/api/types/UseGridReturn/) for the full return shape. It exposes core grid operations only; **feature-specific operations (export, selection, filtering, etc.) live on the dedicated feature hooks** (`useGridSelection`, `useGridExport`, ...) listed below.

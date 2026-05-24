@@ -24,6 +24,7 @@ export type { DataGridProps, DataGridRef } from './lib/data-grid';
 export { GridColumn } from './lib/grid-column';
 export type { GridColumnProps } from './lib/grid-column';
 export { GridDetailPanel, type DetailPanelContext, type GridDetailPanelProps } from './lib/grid-detail-panel';
+export { GridHeaderContent, type GridHeaderContentProps } from './lib/grid-header-content';
 export {
   GridResponsiveCard,
   type GridResponsiveCardProps,
@@ -31,6 +32,7 @@ export {
 } from './lib/grid-responsive-card';
 export { GridToolButtons, type GridToolButtonsProps } from './lib/grid-tool-button';
 export { GridToolPanel, type GridToolPanelProps, type ToolPanelContext } from './lib/grid-tool-panel';
+export { GridToolbarContent, type GridToolbarContentProps } from './lib/grid-toolbar-content';
 
 // Feature props types for declarative plugin configuration
 export type {

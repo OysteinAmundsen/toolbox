@@ -173,6 +173,31 @@ Each feature prop enables a specific plugin with simplified configuration:
 | `filterable` | `boolean` | Grid-wide filtering toggle (default: true). Requires FilteringPlugin. |
 | `selectable` | `boolean` | Grid-wide selection toggle (default: true). Requires SelectionPlugin. |
 
+## Header & Toolbar Content
+
+Inject Vue components into the grid's shell header (left zone) or toolbar (right zone) via `<TbwGridHeaderContent>` and `<TbwGridToolbarContent>`. These wrap the imperative `registerHeaderContent` / `registerToolbarContent` APIs using Vue's built-in `<Teleport>`, so slot content keeps full reactivity (props, refs, computed, slots, provide/inject).
+
+```html
+<script setup lang="ts">
+import { TbwGrid, TbwGridHeaderContent, TbwGridToolbarContent } from '@toolbox-web/grid-vue';
+import { ref } from 'vue';
+const year = ref(new Date().getFullYear());
+</script>
+
+<template>
+  <TbwGrid :rows="rows" :grid-config="config">
+    <TbwGridHeaderContent id="calendar-nav" :order="0">
+      <HeaderNav :year="year" @year-change="year = $event" />
+    </TbwGridHeaderContent>
+    <TbwGridToolbarContent id="calendar-buttons" :order="0">
+      <ToolbarNav @prev="prev" @today="today" @next="next" />
+    </TbwGridToolbarContent>
+  </TbwGrid>
+</template>
+```
+
+**Props:** `id` (optional — auto-generated if omitted), `order` (default `100`, lower = first). Slot content updates reactively without re-registering with the grid.
+
 ## Programmatic Grid Access
 
 Use the `useGrid` composable for programmatic control:

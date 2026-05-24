@@ -640,16 +640,18 @@ Inject custom CSS into the grid:
 
 ### Exported Components
 
-| Component          | Description                                 |
-| ------------------ | ------------------------------------------- |
-| `DataGrid`         | Main grid component wrapper                 |
-| `GridColumn`       | Declarative column with render props        |
-| `GridDetailPanel`  | Master-detail expandable panel              |
-| `GridToolPanel`    | Custom sidebar panel                        |
-| `GridToolButtons`  | Toolbar button container                    |
-| `GridProvider`     | Combined provider for icons & type defaults |
-| `GridTypeProvider` | App-level type defaults context             |
-| `GridIconProvider` | App-level icon overrides context            |
+| Component            | Description                                  |
+| -------------------- | -------------------------------------------- |
+| `DataGrid`           | Main grid component wrapper                  |
+| `GridColumn`         | Declarative column with render props         |
+| `GridDetailPanel`    | Master-detail expandable panel               |
+| `GridToolPanel`      | Custom sidebar panel                         |
+| `GridHeaderContent`  | Inject React content into shell header zone  |
+| `GridToolbarContent` | Inject React content into shell toolbar zone |
+| `GridToolButtons`    | Toolbar button container                     |
+| `GridProvider`       | Combined provider for icons & type defaults  |
+| `GridTypeProvider`   | App-level type defaults context              |
+| `GridIconProvider`   | App-level icon overrides context             |
 
 ### Exported Hooks
 

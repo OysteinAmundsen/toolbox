@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { DataGridElement, GridConfig } from '@toolbox-web/grid';
-import { TbwGrid as DataGrid, TbwGridColumn as GridColumn } from '@toolbox-web/grid-vue';
+import {
+  TbwGrid as DataGrid,
+  TbwGridColumn as GridColumn,
+  TbwGridHeaderContent,
+  TbwGridToolbarContent,
+} from '@toolbox-web/grid-vue';
 import '@toolbox-web/grid-vue/features/pinned-rows';
 import '@demo/shared/calendar/demo-styles.css';
 import {
@@ -70,7 +75,9 @@ const years = computed(() => {
 
 const rows = computed(() => makeRows(state, userEvents));
 
-const headerRoot = useGridCallbackRoot(HeaderNav, () => ({
+// Header/toolbar content is now rendered declaratively via
+// <TbwGridHeaderContent> / <TbwGridToolbarContent> in the template.
+const headerProps = computed(() => ({
   state,
   years: years.value,
   monthNames: MONTH_NAMES,
@@ -80,11 +87,11 @@ const headerRoot = useGridCallbackRoot(HeaderNav, () => ({
   },
 }));
 
-const toolbarRoot = useGridCallbackRoot(ToolbarNav, () => ({
+const toolbarProps = {
   onPrev: () => shiftMonth(-1),
   onToday: goToday,
   onNext: () => shiftMonth(1),
-}));
+};
 
 const legendRoot = useGridCallbackRoot(Legend, () => ({}));
 // Cache the legend element so the pinned-rows plugin can short-circuit DOM
@@ -194,9 +201,8 @@ onMounted(async () => {
   const grid = getGrid();
   if (!grid) return;
   await grid.ready?.();
-
-  grid.registerHeaderContent?.({ id: 'calendar-nav', order: 0, render: headerRoot.mount });
-  grid.registerToolbarContent?.({ id: 'calendar-nav-buttons', order: 0, render: toolbarRoot.mount });
+  // Header / toolbar registration is handled declaratively by the
+  // <TbwGridHeaderContent> and <TbwGridToolbarContent> wrappers below.
   grid.refreshShellHeader?.();
   // Vue's slot-mounted <TbwGridColumn> children don't trigger the grid's
   // column-template recompute on first mount; nudge it so layout uses the
@@ -228,12 +234,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
-  const grid = getGrid();
-  grid?.unregisterHeaderContent?.('calendar-nav');
-  grid?.unregisterToolbarContent?.('calendar-nav-buttons');
   for (const cleanup of cleanups.splice(0)) cleanup();
-  headerRoot.cleanupAll();
-  toolbarRoot.cleanupAll();
   legendRoot.cleanupAll();
 });
 </script>
@@ -242,6 +243,12 @@ onBeforeUnmount(() => {
   <div class="demo-container">
     <div class="calendar-demo">
       <DataGrid ref="gridComponent" :rows="rows" :grid-config="gridConfig" class="calendar-demo__grid">
+        <TbwGridHeaderContent id="calendar-nav" :order="0">
+          <HeaderNav v-bind="headerProps" />
+        </TbwGridHeaderContent>
+        <TbwGridToolbarContent id="calendar-nav-buttons" :order="0">
+          <ToolbarNav v-bind="toolbarProps" />
+        </TbwGridToolbarContent>
         <GridColumn field="weekNumber" header="W" :width="44" :sortable="false" :resizable="false" />
         <GridColumn
           v-for="field in WEEKDAY_FIELDS"

@@ -447,6 +447,39 @@ export class EmployeeGridComponent {
 
 **Inputs:** `id` (required), `title` (required), `icon`, `tooltip`, `order` (default `100`, lower = first).
 
+### Header & Toolbar Content
+
+Inject Angular components into the grid's shell header (left zone) or toolbar (right zone) via the [`GridHeaderContent`](/grid/angular/api/directives/GridHeaderContent/) and [`GridToolbarContent`](/grid/angular/api/directives/GridToolbarContent/) directives. These wrap the imperative `registerHeaderContent` / `registerToolbarContent` APIs and mount an `<ng-template>` so projected components retain full DI, change detection, and signal reactivity.
+
+```typescript
+import { Component, signal } from '@angular/core';
+import { Grid, GridHeaderContent, GridToolbarContent } from '@toolbox-web/grid-angular';
+
+@Component({
+  imports: [Grid, GridHeaderContent, GridToolbarContent, HeaderNavComponent, ToolbarNavComponent],
+  template: `
+    <tbw-grid [rows]="rows()" [gridConfig]="config()">
+      <tbw-grid-header-content id="calendar-nav" [order]="0">
+        <ng-template>
+          <app-header-nav [year]="year()" (yearChange)="onYearChange($event)" />
+        </ng-template>
+      </tbw-grid-header-content>
+      <tbw-grid-toolbar-content id="calendar-buttons" [order]="0">
+        <ng-template>
+          <app-toolbar-nav (previous)="prev()" (today)="today()" (next)="next()" />
+        </ng-template>
+      </tbw-grid-toolbar-content>
+    </tbw-grid>
+  `,
+})
+export class CalendarGridComponent {
+  year = signal(new Date().getFullYear());
+  onYearChange(year: number) { this.year.set(year); }
+}
+```
+
+**Inputs:** `id` (optional — auto-generated if omitted), `order` (default `100`, lower = first). Template bindings re-evaluate via Angular change detection without re-registering with the grid.
+
 ## Server-Side Data Loading
 
 The full data-source contract, sort/filter modes, prefetching, cancellation and live-update patterns are documented on the [Server-Side plugin](/grid/plugins/server-side/) page (it has runnable demos and an Angular tab in every example). The two Angular-specific points worth calling out here:

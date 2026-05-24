@@ -44,7 +44,9 @@
 export { default as TbwGrid } from './lib/TbwGrid.vue';
 export { default as TbwGridColumn } from './lib/TbwGridColumn.vue';
 export { default as TbwGridDetailPanel } from './lib/TbwGridDetailPanel.vue';
+export { default as TbwGridHeaderContent } from './lib/TbwGridHeaderContent.vue';
 export { default as TbwGridResponsiveCard } from './lib/TbwGridResponsiveCard.vue';
+export { default as TbwGridToolbarContent } from './lib/TbwGridToolbarContent.vue';
 export { default as TbwGridToolButtons } from './lib/TbwGridToolButtons.vue';
 export { default as TbwGridToolPanel } from './lib/TbwGridToolPanel.vue';
 

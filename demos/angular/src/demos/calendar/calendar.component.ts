@@ -4,7 +4,6 @@ import {
   AfterViewInit,
   ChangeDetectionStrategy,
   Component,
-  ComponentRef,
   computed,
   ElementRef,
   inject,
@@ -23,8 +22,15 @@ import {
   WEEKDAY_HEADERS_FULL,
   WEEKDAY_HEADERS_MINI,
 } from '@demo/shared/calendar';
-import type { ColumnConfig, TbwGrid } from '@toolbox-web/grid';
-import { Grid, TbwGridColumn, TbwRenderer, type GridConfig } from '@toolbox-web/grid-angular';
+import type { ColumnConfig, DataGridElement } from '@toolbox-web/grid';
+import {
+  Grid,
+  GridHeaderContent,
+  GridToolbarContent,
+  TbwGridColumn,
+  TbwRenderer,
+  type GridConfig,
+} from '@toolbox-web/grid-angular';
 import { DayCellComponent } from './components/day-cell.component';
 import { EventDialogComponent } from './components/event-dialog.component';
 import { HeaderNavComponent } from './components/header-nav.component';
@@ -61,12 +67,22 @@ const ARROW_DAY_DELTA: Record<string, number> = {
   ArrowDown: 7,
 };
 
-type CalendarGridElement = TbwGrid<CalendarWeek>;
+type CalendarGridElement = DataGridElement<CalendarWeek>;
 type FocusTarget = { day: number } | { position: { rowIndex: number; colIndex: number } };
 
 @Component({
   selector: 'app-calendar',
-  imports: [Grid, TbwGridColumn, TbwRenderer, DayCellComponent, EventDialogComponent],
+  imports: [
+    Grid,
+    GridHeaderContent,
+    GridToolbarContent,
+    TbwGridColumn,
+    TbwRenderer,
+    DayCellComponent,
+    EventDialogComponent,
+    HeaderNavComponent,
+    ToolbarNavComponent,
+  ],
   templateUrl: './calendar.component.html',
   styleUrl: './calendar.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -81,19 +97,22 @@ export class CalendarComponent implements AfterViewInit, OnDestroy {
 
   private mountIntoContainer = inject(MountIntoContainer);
   private today = new Date();
-  private year = signal(this.today.getFullYear());
-  private month = signal(this.today.getMonth());
+  private yearSignal = signal(this.today.getFullYear());
+  private monthSignal = signal(this.today.getMonth());
   private userEvents = signal<ReadonlyMap<string, CalendarEvent[]>>(new Map());
   private rowHeight = signal(DEFAULT_ROW_HEIGHT_PX);
   private mountedShellComponents: Array<MountedComponent<unknown>> = [];
-  private headerComponentRef: ComponentRef<HeaderNavComponent> | null = null;
-  private shellSubscriptions: Array<{ unsubscribe: () => void }> = [];
   private heightObserver: ResizeObserver | null = null;
   private lastViewportHeight = 0;
   private lastMousedownCell: HTMLElement | null = null;
   private lastMousedownTime = 0;
 
-  readonly rows = computed(() => makeRows(this.year(), this.month(), this.userEvents()));
+  /** Exposed for the template-driven `<tbw-grid-header-content>` binding. */
+  readonly year = this.yearSignal.asReadonly();
+  /** Exposed for the template-driven `<tbw-grid-header-content>` binding. */
+  readonly monthLabel = computed(() => MONTH_NAMES[this.monthSignal()]);
+
+  readonly rows = computed(() => makeRows(this.year(), this.monthSignal(), this.userEvents()));
 
   readonly gridConfig = computed<GridConfig<CalendarWeek>>(() => ({
     fitMode: 'stretch',
@@ -126,7 +145,6 @@ export class CalendarComponent implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     const grid = this.gridRef.nativeElement;
     grid.ready?.().then(() => {
-      this.mountShell(grid);
       grid.refreshShellHeader?.();
       const viewport = grid.querySelector<HTMLElement>('.rows-viewport');
       if (viewport) {
@@ -146,7 +164,6 @@ export class CalendarComponent implements AfterViewInit, OnDestroy {
     this.heightObserver?.disconnect();
     grid.removeEventListener('keydown', this.onKeydown, true);
     grid.removeEventListener('mousedown', this.onMousedown, true);
-    this.shellSubscriptions.forEach((subscription) => subscription.unsubscribe());
     this.mountedShellComponents.forEach((mounted) => mounted.destroy());
   }
 
@@ -178,60 +195,25 @@ export class CalendarComponent implements AfterViewInit, OnDestroy {
     };
   }
 
-  private mountShell(grid: CalendarGridElement): void {
-    grid.registerHeaderContent?.({
-      id: 'calendar-nav',
-      order: 0,
-      render: (container) => {
-        container.classList.add('cal-header');
-        const mounted = this.mountIntoContainer.mount(container, HeaderNavComponent);
-        this.mountedShellComponents.push(mounted);
-        const componentRef = mounted.componentRef as ComponentRef<HeaderNavComponent>;
-        this.headerComponentRef = componentRef;
-        this.updateHeader(componentRef);
-        const subscription = componentRef.instance.yearChange.subscribe((year) => {
-          this.year.set(year);
-          this.rerender();
-        });
-        this.shellSubscriptions.push(subscription);
-        return () => {
-          subscription.unsubscribe();
-          if (this.headerComponentRef === componentRef) {
-            this.headerComponentRef = null;
-          }
-          mounted.destroy();
-        };
-      },
-    });
-
-    grid.registerToolbarContent?.({
-      id: 'calendar-nav-buttons',
-      order: 0,
-      render: (container) => {
-        container.classList.add('cal-toolbar-nav');
-        const mounted = this.mountIntoContainer.mount(container, ToolbarNavComponent);
-        this.mountedShellComponents.push(mounted);
-        const toolbar = (mounted.componentRef as ComponentRef<ToolbarNavComponent>).instance;
-        const subscriptions = [
-          toolbar.previous.subscribe(() => this.shiftMonth(-1)),
-          toolbar.today.subscribe(() => this.goToday()),
-          toolbar.next.subscribe(() => this.shiftMonth(1)),
-        ];
-        this.shellSubscriptions.push(...subscriptions);
-        return () => {
-          subscriptions.forEach((subscription) => subscription.unsubscribe());
-          mounted.destroy();
-        };
-      },
-    });
+  /** Handler for the header-nav `<select>` year picker (template binding). */
+  onYearChange(year: number): void {
+    this.yearSignal.set(year);
+    this.rerender();
   }
 
-  private updateHeader(componentRef = this.headerComponentRef): void {
-    if (!componentRef) return;
-    componentRef.setInput('monthLabel', MONTH_NAMES[this.month()]);
-    componentRef.setInput('year', this.year());
-    componentRef.setInput('yearOptions', this.yearOptions);
-    componentRef.changeDetectorRef.detectChanges();
+  /** Handler for the toolbar-nav previous button (template binding). */
+  onPrevious(): void {
+    this.shiftMonth(-1);
+  }
+
+  /** Handler for the toolbar-nav today button (template binding). */
+  onToday(): void {
+    this.goToday();
+  }
+
+  /** Handler for the toolbar-nav next button (template binding). */
+  onNext(): void {
+    this.shiftMonth(1);
   }
 
   private legendContainer: HTMLElement | null = null;
@@ -249,29 +231,30 @@ export class CalendarComponent implements AfterViewInit, OnDestroy {
   }
 
   private shiftMonth(delta: number, focusTarget?: FocusTarget): void {
-    const date = new Date(this.year(), this.month() + delta, 1);
-    this.year.set(date.getFullYear());
-    this.month.set(date.getMonth());
+    const date = new Date(this.year(), this.monthSignal() + delta, 1);
+    this.yearSignal.set(date.getFullYear());
+    this.monthSignal.set(date.getMonth());
     this.rerender(focusTarget);
   }
 
   private goToday(): void {
     const today = new Date();
-    this.year.set(today.getFullYear());
-    this.month.set(today.getMonth());
+    this.yearSignal.set(today.getFullYear());
+    this.monthSignal.set(today.getMonth());
     this.rerender({ day: today.getDate() });
   }
 
   private rerender(focusTarget?: FocusTarget): void {
     const grid = this.gridRef.nativeElement;
-    this.updateHeader();
+    // Header re-renders automatically via signal-bound template inputs
+    // (monthLabel / year) on <app-calendar-header-nav>.
     this.applyRowHeight(grid);
 
     if (!focusTarget) return;
     const rows = this.rows();
     let position: { rowIndex: number; colIndex: number } | null = null;
     if ('day' in focusTarget) {
-      position = findDayPosition(rows, this.year(), this.month(), focusTarget.day);
+      position = findDayPosition(rows, this.year(), this.monthSignal(), focusTarget.day);
     } else {
       position = {
         rowIndex: Math.min(focusTarget.position.rowIndex, Math.max(rows.length - 1, 0)),
@@ -345,14 +328,14 @@ export class CalendarComponent implements AfterViewInit, OnDestroy {
     const targetMonth = target.getMonth();
     const targetDay = target.getDate();
 
-    if (targetYear === this.year() && targetMonth === this.month()) {
+    if (targetYear === this.year() && targetMonth === this.monthSignal()) {
       const position = findDayPosition(this.rows(), targetYear, targetMonth, targetDay);
       if (position) grid.focusCell?.(position.rowIndex, position.colIndex);
       return;
     }
 
-    this.year.set(targetYear);
-    this.month.set(targetMonth);
+    this.yearSignal.set(targetYear);
+    this.monthSignal.set(targetMonth);
     this.rerender({ day: targetDay });
   }
 

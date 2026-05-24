@@ -91,6 +91,8 @@ export type { GridDetailContext } from './lib/directives/grid-detail-view.direct
 export { GridFormArray, getFormArrayContext } from './lib/directives/grid-form-array.directive';
 /** @deprecated Import from `@toolbox-web/grid-angular/features/editing` instead. Will be removed from the main entry in v2.0.0. */
 export type { FormArrayContext } from './lib/directives/grid-form-array.directive';
+export { GridHeaderContent } from './lib/directives/grid-header-content.directive';
+export type { GridHeaderContentContext } from './lib/directives/grid-header-content.directive';
 export { TbwGridHeader } from './lib/directives/grid-header.directive';
 /** @deprecated Import from `@toolbox-web/grid-angular/features/editing` instead. Will be removed from the main entry in v2.0.0. */
 export { GridLazyForm, getLazyFormContext } from './lib/directives/grid-lazy-form.directive';
@@ -101,6 +103,8 @@ export type { GridResponsiveCardContext } from './lib/directives/grid-responsive
 export { TbwGridToolButtons } from './lib/directives/grid-tool-buttons.directive';
 export { GridToolPanel } from './lib/directives/grid-tool-panel.directive';
 export type { GridToolPanelContext } from './lib/directives/grid-tool-panel.directive';
+export { GridToolbarContent } from './lib/directives/grid-toolbar-content.directive';
+export type { GridToolbarContentContext } from './lib/directives/grid-toolbar-content.directive';
 export { Grid } from './lib/directives/grid.directive';
 export type { CellCommitEvent, RowCommitEvent } from './lib/directives/grid.directive';
 

@@ -9,12 +9,13 @@
  * @vitest-environment happy-dom
  */
 import '@angular/compiler';
-import type { DataGridElement, HeaderContentDefinition, ToolbarContentDefinition } from '@toolbox-web/grid';
+import type { HeaderContentDefinition, ToolbarContentDefinition } from '@toolbox-web/grid';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // --- Mock Angular DI primitives --------------------------------------------
 let mockInjectResolver: (token: unknown) => unknown = () => undefined;
 const afterNextRenderCallbacks: Array<() => void> = [];
+const effectCallbacks: Array<() => void> = [];
 let destroyCallback: (() => void) | null = null;
 
 vi.mock('@angular/core', async () => {
@@ -31,7 +32,12 @@ vi.mock('@angular/core', async () => {
   return {
     ...actual,
     inject: (token: unknown) => mockInjectResolver(token),
-    effect: () => ({ destroy: () => undefined }),
+    effect: (cb: () => void) => {
+      effectCallbacks.push(cb);
+      // Run once immediately (Angular effects run synchronously after construction).
+      cb();
+      return { destroy: () => undefined };
+    },
     afterNextRender: (cb: () => void) => {
       afterNextRenderCallbacks.push(cb);
     },
@@ -101,6 +107,7 @@ interface BuiltHeader {
 
 function buildHeader(opts: { withGrid?: boolean; id?: string; order?: number } = {}): BuiltHeader {
   afterNextRenderCallbacks.length = 0;
+  effectCallbacks.length = 0;
   destroyCallback = null;
   const grid = createMockGrid();
   const host = document.createElement('tbw-grid-header-content');
@@ -157,6 +164,7 @@ interface BuiltToolbar {
 
 function buildToolbar(opts: { id?: string; order?: number } = {}): BuiltToolbar {
   afterNextRenderCallbacks.length = 0;
+  effectCallbacks.length = 0;
   destroyCallback = null;
   const grid = createMockGrid();
   const host = document.createElement('tbw-grid-toolbar-content');
@@ -203,9 +211,14 @@ function buildToolbar(opts: { id?: string; order?: number } = {}): BuiltToolbar 
 // Tests
 // ---------------------------------------------------------------------------
 
+function runEffects(): void {
+  for (const cb of effectCallbacks) cb();
+}
+
 afterEach(() => {
   document.body.innerHTML = '';
   afterNextRenderCallbacks.length = 0;
+  effectCallbacks.length = 0;
   destroyCallback = null;
 });
 
@@ -270,6 +283,42 @@ describe('GridHeaderContent (real directive)', () => {
     built.triggerDestroy();
     expect(built.grid.unregisterHeaderContent).toHaveBeenCalledWith('hdr-destroy');
   });
+
+  it('re-registers when id changes after initial registration', async () => {
+    const built = buildHeader({ id: 'hdr-a', order: 1 });
+    await built.runAfterNextRender();
+    expect(built.grid.headerDefs.map((d) => d.id)).toEqual(['hdr-a']);
+    (built.directive.id as unknown as { __setValue: (v: unknown) => void }).__setValue('hdr-b');
+    runEffects();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(built.grid.unregisterHeaderContent).toHaveBeenCalledWith('hdr-a');
+    expect(built.grid.headerDefs.map((d) => d.id)).toEqual(['hdr-a', 'hdr-b']);
+  });
+
+  it('re-registers when order changes after initial registration', async () => {
+    const built = buildHeader({ id: 'hdr-ord', order: 1 });
+    await built.runAfterNextRender();
+    (built.directive.order as unknown as { __setValue: (v: unknown) => void }).__setValue(9);
+    runEffects();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(built.grid.unregisterHeaderContent).toHaveBeenCalledWith('hdr-ord');
+    expect(built.grid.headerDefs.map((d) => d.order)).toEqual([1, 9]);
+  });
+
+  it('skips registration when grid.ready() rejects', async () => {
+    const built = buildHeader({ id: 'hdr-rej' });
+    built.grid.ready.mockRejectedValue(new Error('boom'));
+    await built.runAfterNextRender();
+    expect(built.grid.registerHeaderContent).not.toHaveBeenCalled();
+  });
+
+  it('destroy without prior registration does not call unregister', () => {
+    const built = buildHeader({ id: 'hdr-noreg' });
+    built.triggerDestroy();
+    expect(built.grid.unregisterHeaderContent).not.toHaveBeenCalled();
+  });
 });
 
 describe('GridToolbarContent (real directive)', () => {
@@ -325,5 +374,34 @@ describe('GridToolbarContent (real directive)', () => {
     await built.runAfterNextRender();
     built.triggerDestroy();
     expect(built.grid.unregisterToolbarContent).toHaveBeenCalledWith('tb-destroy');
+  });
+
+  it('re-registers when id changes after initial registration', async () => {
+    const built = buildToolbar({ id: 'tb-a', order: 1 });
+    await built.runAfterNextRender();
+    (built.directive.id as unknown as { __setValue: (v: unknown) => void }).__setValue('tb-b');
+    runEffects();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(built.grid.unregisterToolbarContent).toHaveBeenCalledWith('tb-a');
+    expect(built.grid.toolbarDefs.map((d) => d.id)).toEqual(['tb-a', 'tb-b']);
+  });
+
+  it('re-registers when order changes after initial registration', async () => {
+    const built = buildToolbar({ id: 'tb-ord', order: 1 });
+    await built.runAfterNextRender();
+    (built.directive.order as unknown as { __setValue: (v: unknown) => void }).__setValue(9);
+    runEffects();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(built.grid.unregisterToolbarContent).toHaveBeenCalledWith('tb-ord');
+    expect(built.grid.toolbarDefs.map((d) => d.order)).toEqual([1, 9]);
+  });
+
+  it('skips registration when grid.ready() rejects', async () => {
+    const built = buildToolbar({ id: 'tb-rej' });
+    built.grid.ready.mockRejectedValue(new Error('boom'));
+    await built.runAfterNextRender();
+    expect(built.grid.registerToolbarContent).not.toHaveBeenCalled();
   });
 });

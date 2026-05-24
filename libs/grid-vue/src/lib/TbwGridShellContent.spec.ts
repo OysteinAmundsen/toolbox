@@ -80,9 +80,13 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-async function mountWith(component: ReturnType<typeof defineComponent>): Promise<Harness> {
-  const m = makeGrid();
-  const gridRef = ref<DataGridElement | null>(m.grid as DataGridElement);
+async function mountWith(
+  component: ReturnType<typeof defineComponent>,
+  opts: { grid?: MockGrid | null } = {},
+): Promise<Harness> {
+  const m = opts.grid === undefined ? makeGrid() : null;
+  const grid = opts.grid === undefined ? m!.grid : opts.grid;
+  const gridRef = ref<DataGridElement | null>((grid as DataGridElement | null) ?? null);
   const app = createApp(component);
   app.provide(GRID_ELEMENT_KEY, gridRef);
   app.mount(mountEl);
@@ -94,12 +98,12 @@ async function mountWith(component: ReturnType<typeof defineComponent>): Promise
   return {
     app,
     mountEl,
-    grid: m.grid,
-    slot: m.slot,
-    headerDefs: m.headerDefs,
-    toolbarDefs: m.toolbarDefs,
-    unregisteredHeader: m.unregisteredHeader,
-    unregisteredToolbar: m.unregisteredToolbar,
+    grid: (grid ?? makeGrid().grid) as MockGrid,
+    slot: m?.slot ?? document.createElement('div'),
+    headerDefs: m?.headerDefs ?? [],
+    toolbarDefs: m?.toolbarDefs ?? [],
+    unregisteredHeader: m?.unregisteredHeader ?? [],
+    unregisteredToolbar: m?.unregisteredToolbar ?? [],
   };
 }
 
@@ -156,6 +160,81 @@ describe('TbwGridHeaderContent', () => {
     currentApp = null;
     expect(h.unregisteredHeader).toContain('hdr-4');
   });
+
+  it('re-registers when id changes after mount', async () => {
+    const idProp = ref('hdr-id-a');
+    const h = await mountWith(
+      defineComponent({
+        setup: () => () => h2(TbwGridHeaderContent, { id: idProp.value }, () => h2('span', null, 'x')),
+      }),
+    );
+    expect(h.headerDefs.map((d) => d.id)).toEqual(['hdr-id-a']);
+    idProp.value = 'hdr-id-b';
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+    expect(h.unregisteredHeader).toContain('hdr-id-a');
+    expect(h.headerDefs.map((d) => d.id)).toEqual(['hdr-id-a', 'hdr-id-b']);
+  });
+
+  it('re-registers when order changes after mount', async () => {
+    const orderProp = ref(1);
+    const h = await mountWith(
+      defineComponent({
+        setup: () => () =>
+          h2(TbwGridHeaderContent, { id: 'hdr-ord', order: orderProp.value }, () => h2('span', null, 'x')),
+      }),
+    );
+    orderProp.value = 9;
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+    expect(h.unregisteredHeader).toContain('hdr-ord');
+    expect(h.headerDefs.map((d) => d.order)).toEqual([1, 9]);
+  });
+
+  it('falls back to generated id when id prop becomes undefined', async () => {
+    const idProp = ref<string | undefined>('hdr-named');
+    const h = await mountWith(
+      defineComponent({
+        setup: () => () => h2(TbwGridHeaderContent, { id: idProp.value }, () => h2('span', null, 'x')),
+      }),
+    );
+    idProp.value = undefined;
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+    const newId = h.headerDefs[1]?.id;
+    expect(newId).toMatch(/^tbw-header-content-/);
+  });
+
+  it('skips registration when grid.ready() rejects', async () => {
+    const m = makeGrid();
+    (m.grid.ready as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('boom'));
+    const gridRef = ref<DataGridElement | null>(m.grid as DataGridElement);
+    const app = createApp(
+      defineComponent({
+        setup: () => () => h2(TbwGridHeaderContent, { id: 'hdr-rej' }, () => h2('span', null, 'x')),
+      }),
+    );
+    app.provide(GRID_ELEMENT_KEY, gridRef);
+    app.mount(mountEl);
+    currentApp = app;
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+    expect(m.grid.registerHeaderContent).not.toHaveBeenCalled();
+  });
+
+  it('does not register when no parent grid is provided', async () => {
+    const h = await mountWith(
+      defineComponent({
+        setup: () => () => h2(TbwGridHeaderContent, { id: 'hdr-nogrid' }, () => h2('span', null, 'x')),
+      }),
+      { grid: null },
+    );
+    expect(h.headerDefs).toHaveLength(0);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -182,6 +261,65 @@ describe('TbwGridToolbarContent', () => {
     h.app.unmount();
     currentApp = null;
     expect(h.unregisteredToolbar).toContain('tb-2');
+  });
+
+  it('re-registers when id changes after mount', async () => {
+    const idProp = ref('tb-id-a');
+    const h = await mountWith(
+      defineComponent({
+        setup: () => () => h2(TbwGridToolbarContent, { id: idProp.value }, () => h2('button', null, 'go')),
+      }),
+    );
+    idProp.value = 'tb-id-b';
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+    expect(h.unregisteredToolbar).toContain('tb-id-a');
+    expect(h.toolbarDefs.map((d) => d.id)).toEqual(['tb-id-a', 'tb-id-b']);
+  });
+
+  it('re-registers when order changes after mount', async () => {
+    const orderProp = ref(1);
+    const h = await mountWith(
+      defineComponent({
+        setup: () => () =>
+          h2(TbwGridToolbarContent, { id: 'tb-ord', order: orderProp.value }, () => h2('button', null, 'go')),
+      }),
+    );
+    orderProp.value = 9;
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+    expect(h.unregisteredToolbar).toContain('tb-ord');
+    expect(h.toolbarDefs.map((d) => d.order)).toEqual([1, 9]);
+  });
+
+  it('skips registration when grid.ready() rejects', async () => {
+    const m = makeGrid();
+    (m.grid.ready as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('boom'));
+    const gridRef = ref<DataGridElement | null>(m.grid as DataGridElement);
+    const app = createApp(
+      defineComponent({
+        setup: () => () => h2(TbwGridToolbarContent, { id: 'tb-rej' }, () => h2('button', null, 'go')),
+      }),
+    );
+    app.provide(GRID_ELEMENT_KEY, gridRef);
+    app.mount(mountEl);
+    currentApp = app;
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+    expect(m.grid.registerToolbarContent).not.toHaveBeenCalled();
+  });
+
+  it('does not register when no parent grid is provided', async () => {
+    const h = await mountWith(
+      defineComponent({
+        setup: () => () => h2(TbwGridToolbarContent, { id: 'tb-nogrid' }, () => h2('button', null, 'go')),
+      }),
+      { grid: null },
+    );
+    expect(h.toolbarDefs).toHaveLength(0);
   });
 });
 

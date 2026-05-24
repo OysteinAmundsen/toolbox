@@ -15,6 +15,11 @@ import type {
 import { createVNode, type Component, type VNode } from 'vue';
 import { registerChildFeatureDetector, type ChildFeatureDetector } from './child-feature-detector';
 import { notifyEditorMounted, registerEditorMountHook, type EditorMountHook } from './editor-mount-hooks';
+import {
+  getFeatureConfigPreprocessor,
+  registerFeatureConfigPreprocessor,
+  type FeatureConfigPreprocessor,
+} from './feature-config-preprocessors';
 import { registerFeaturePropKey } from './feature-prop-keys';
 import type { TypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { registerPostMountRefresh, type PostMountRefreshHook } from './post-mount-refresh-hooks';
@@ -44,6 +49,15 @@ export { registerChildFeatureDetector, type ChildFeatureDetector };
 // only by `<TbwGrid>` itself. Pre-populated with the built-in feature names
 // at module load (gh #356 §7: registry pre-populates from core).
 export { registerFeaturePropKey };
+
+// Re-export so third-party feature secondary entries can register per-feature
+// config preprocessors via `import { registerFeatureConfigPreprocessor } from
+// '@toolbox-web/grid-vue'`. Cross-adapter API parity with the Angular
+// registry (gh #356 §8). The `<TbwGrid>` shell does not yet invoke these
+// preprocessors — ships now so third-party features can target a stable API
+// across all three adapters today (matches the Phase 3
+// `child-feature-detector` ship-without-caller pattern).
+export { getFeatureConfigPreprocessor, registerFeatureConfigPreprocessor, type FeatureConfigPreprocessor };
 
 // #region Feature bridge registries
 

@@ -136,6 +136,117 @@ export class EmployeeGridComponent {
   <GroupingRowsDefaultDemo />
 </ShowSource>
 
+### Custom Group Row Renderer
+
+Use `groupRowRenderer` to take full control of the group row's contents. The renderer receives a `GroupRowRenderParams` object (`key`, `value`, `depth`, `rows`, `expanded`, `toggleExpand`) and can return an `HTMLElement`, an HTML string, or `void` to keep the default rendering. The framework adapters accept their native return types (`ReactNode`, `VNode`, or a component `Type`) and bridge them automatically.
+
+<Tabs syncKey="framework">
+  <TabItem label="TypeScript">
+```ts
+grid.gridConfig = {
+  features: {
+    groupingRows: {
+      groupOn: (row) => [row.department],
+      groupRowRenderer: (params) => {
+        const arrow = params.expanded ? '▼' : '▶';
+        return `<button type="button">${arrow} <strong>${params.value}</strong> (${params.rows.length})</button>`;
+      },
+    },
+  },
+};
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/grouping-rows';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+<DataGrid
+  rows={employees}
+  columns={columns}
+  groupingRows={{
+    groupOn: (row) => row.department,
+    groupRowRenderer: (params) => (
+      <button type="button" onClick={params.toggleExpand}>
+        {params.expanded ? '▼' : '▶'} <strong>{params.value}</strong> ({params.rows.length})
+      </button>
+    ),
+  }}
+/>
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup>
+import { h } from 'vue';
+import '@toolbox-web/grid-vue/features/grouping-rows';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+
+const groupingConfig = {
+  groupOn: (row) => row.department,
+  groupRowRenderer: (params) =>
+    h('button', { type: 'button', onClick: params.toggleExpand }, [
+      params.expanded ? '▼ ' : '▶ ',
+      h('strong', params.value),
+      ` (${params.rows.length})`,
+    ]),
+};
+</script>
+
+<template>
+  <TbwGrid :rows="employees" :grouping-rows="groupingConfig">
+    <!-- columns -->
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+Pass a component class — the adapter bridges it and binds the params as inputs.
+
+```typescript
+import { GridGroupingRowsDirective } from '@toolbox-web/grid-angular/features/grouping-rows';
+import { Component, input } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-group-row',
+  template: `
+    <button type="button" (click)="toggleExpand()">
+      {{ expanded() ? '▼' : '▶' }} <strong>{{ value() }}</strong> ({{ rows().length }})
+    </button>
+  `,
+})
+export class GroupRowComponent {
+  key = input.required<string>();
+  value = input.required<unknown>();
+  depth = input.required<number>();
+  rows = input.required<unknown[]>();
+  expanded = input.required<boolean>();
+  toggleExpand = input.required<() => void>();
+}
+
+@Component({
+  selector: 'app-my-grid',
+  imports: [Grid, GridGroupingRowsDirective],
+  template: `
+    <tbw-grid
+      [rows]="employees"
+      [columns]="columns"
+      [groupingRows]="groupingConfig"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class MyGridComponent {
+  groupingConfig = {
+    groupOn: (row: any) => [row.department],
+    groupRowRenderer: GroupRowComponent,
+  };
+}
+```
+  </TabItem>
+</Tabs>
+
 
 
 ## Configuration Options

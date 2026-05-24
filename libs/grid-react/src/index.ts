@@ -41,6 +41,7 @@ export type {
   ReactColumnGroupDefinition,
   ReactFilterConfig,
   ReactGroupingColumnsConfig,
+  ReactGroupingRowsConfig,
   SSRProps,
 } from './lib/feature-props';
 

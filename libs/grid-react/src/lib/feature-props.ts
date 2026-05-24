@@ -47,6 +47,7 @@ import type {
 import type { EditingConfig } from '@toolbox-web/grid/plugins/editing';
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import type { ColumnGroupDefinition } from '@toolbox-web/grid/plugins/grouping-columns';
+import type { GroupRowRenderParams } from '@toolbox-web/grid/plugins/grouping-rows';
 import type { ReactNode } from 'react';
 
 // #region React-specific Config Overrides
@@ -82,6 +83,19 @@ export type ReactGroupingColumnsConfig = Omit<GroupingColumnsConfig, 'groupHeade
   groupHeaderRenderer?:
     | GroupingColumnsConfig['groupHeaderRenderer']
     | ((...args: Parameters<NonNullable<GroupingColumnsConfig['groupHeaderRenderer']>>) => ReactNode);
+};
+
+/**
+ * React-specific grouping rows config that allows React components as `groupRowRenderer`.
+ *
+ * Extends the base GroupingRowsConfig to accept a React render function
+ * `(params: GroupRowRenderParams) => ReactNode` in addition to the vanilla
+ * `(params) => HTMLElement | string | void` signature.
+ *
+ * @since 1.8.0
+ */
+export type ReactGroupingRowsConfig = Omit<GroupingRowsConfig, 'groupRowRenderer'> & {
+  groupRowRenderer?: GroupingRowsConfig['groupRowRenderer'] | ((params: GroupRowRenderParams) => ReactNode);
 };
 // #endregion
 
@@ -316,12 +330,22 @@ export interface FeatureProps<TRow = unknown> {
    * @example
    * ```tsx
    * <DataGrid groupingRows={{
-   *   groupBy: ['department', 'team'],
+   *   groupOn: (row) => [row.department, row.team],
    *   defaultExpanded: true,
    * }} />
    * ```
+   *
+   * @example Custom group row renderer (React JSX)
+   * ```tsx
+   * <DataGrid groupingRows={{
+   *   groupOn: (row) => row.department,
+   *   groupRowRenderer: (params) => (
+   *     <strong>{params.value} ({params.rows.length})</strong>
+   *   ),
+   * }} />
+   * ```
    */
-  groupingRows?: GroupingRowsConfig;
+  groupingRows?: ReactGroupingRowsConfig;
 
   /**
    * Enable pinned rows (aggregation/status bar).

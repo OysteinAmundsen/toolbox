@@ -17,7 +17,11 @@ import type { Type } from '@angular/core';
 import { isComponentClass, registerFeatureConfigPreprocessor, type GridAdapter } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/grouping-columns';
 import type { GroupHeaderRenderParams, GroupingColumnsConfig } from '@toolbox-web/grid/plugins/grouping-columns';
-export { GridGroupingColumnsDirective } from './grid-grouping-columns.directive';
+export {
+  GridGroupingColumnsDirective,
+  type AngularColumnGroupDefinition,
+  type AngularGroupingColumnsConfig,
+} from './grid-grouping-columns.directive';
 export type { _Augmentation as _GroupingColumnsAugmentation } from '@toolbox-web/grid/features/grouping-columns';
 
 /**

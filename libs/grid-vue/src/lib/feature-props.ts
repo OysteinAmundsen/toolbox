@@ -45,6 +45,8 @@ import type {
 } from '@toolbox-web/grid/all';
 import type { EditingConfig } from '@toolbox-web/grid/plugins/editing';
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
+import type { ColumnGroupDefinition, GroupHeaderRenderParams } from '@toolbox-web/grid/plugins/grouping-columns';
+import type { GroupRowRenderParams } from '@toolbox-web/grid/plugins/grouping-rows';
 import type { VNode } from 'vue';
 
 /**
@@ -59,6 +61,42 @@ import type { VNode } from 'vue';
  */
 export type VueFilterConfig<TRow = unknown> = Omit<FilterConfig<TRow>, 'filterPanelRenderer'> & {
   filterPanelRenderer?: FilterConfig<TRow>['filterPanelRenderer'] | ((params: FilterPanelParams) => VNode);
+};
+
+/**
+ * Vue-specific column group definition that allows Vue render functions as the per-group `renderer`.
+ *
+ * @since 1.9.0
+ */
+export type VueColumnGroupDefinition = Omit<ColumnGroupDefinition, 'renderer'> & {
+  renderer?: ColumnGroupDefinition['renderer'] | ((params: GroupHeaderRenderParams) => VNode);
+};
+
+/**
+ * Vue-specific grouping columns config that allows Vue render functions for
+ * `groupHeaderRenderer` and the per-group `renderer` inside `columnGroups`.
+ *
+ * Extends the base GroupingColumnsConfig to accept render functions returning
+ * a `VNode` in addition to the vanilla `HTMLElement | string | void` signature.
+ *
+ * @since 1.9.0
+ */
+export type VueGroupingColumnsConfig = Omit<GroupingColumnsConfig, 'groupHeaderRenderer' | 'columnGroups'> & {
+  columnGroups?: VueColumnGroupDefinition[];
+  groupHeaderRenderer?: GroupingColumnsConfig['groupHeaderRenderer'] | ((params: GroupHeaderRenderParams) => VNode);
+};
+
+/**
+ * Vue-specific grouping rows config that allows Vue render functions for
+ * `groupRowRenderer`.
+ *
+ * Extends the base GroupingRowsConfig to accept a render function returning
+ * a `VNode` in addition to the vanilla `HTMLElement | string | void` signature.
+ *
+ * @since 1.9.0
+ */
+export type VueGroupingRowsConfig = Omit<GroupingRowsConfig, 'groupRowRenderer'> & {
+  groupRowRenderer?: GroupingRowsConfig['groupRowRenderer'] | ((params: GroupRowRenderParams) => VNode);
 };
 
 /**
@@ -236,8 +274,16 @@ export interface FeatureProps<TRow = unknown> {
    *   ],
    * }" />
    * ```
+   *
+   * @example Custom group header renderer (Vue VNode)
+   * ```vue
+   * <TbwGrid :groupingColumns="{
+   *   columnGroups: [...],
+   *   groupHeaderRenderer: (params) => h('strong', `${params.label} (${params.columns.length})`),
+   * }" />
+   * ```
    */
-  groupingColumns?: boolean | GroupingColumnsConfig;
+  groupingColumns?: boolean | VueGroupingColumnsConfig;
 
   /**
    * Enable horizontal column virtualization for wide grids.
@@ -290,12 +336,20 @@ export interface FeatureProps<TRow = unknown> {
    * @example
    * ```vue
    * <TbwGrid :groupingRows="{
-   *   groupBy: ['department', 'team'],
+   *   groupOn: (row) => [row.department, row.team],
    *   defaultExpanded: true,
    * }" />
    * ```
+   *
+   * @example Custom group row renderer (Vue VNode)
+   * ```vue
+   * <TbwGrid :groupingRows="{
+   *   groupOn: (row) => row.department,
+   *   groupRowRenderer: (params) => h('strong', `${params.value} (${params.rows.length})`),
+   * }" />
+   * ```
    */
-  groupingRows?: GroupingRowsConfig;
+  groupingRows?: VueGroupingRowsConfig;
 
   /**
    * Enable pinned rows (aggregation/status bar).

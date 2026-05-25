@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.8.0...grid-vue-1.9.0) (2026-05-25)
+
+
+### Features
+
+* **adapters:** add framework-native typing for grouping renderers (closes [#353](https://github.com/OysteinAmundsen/toolbox/issues/353)) ([#357](https://github.com/OysteinAmundsen/toolbox/issues/357)) ([74f002a](https://github.com/OysteinAmundsen/toolbox/commit/74f002a46312d6dd6d9ce20b96b5fcece3ee46e5))
+* **adapters:** cache pinned-rows slot host elements; document framework usage (closes [#354](https://github.com/OysteinAmundsen/toolbox/issues/354)) ([#358](https://github.com/OysteinAmundsen/toolbox/issues/358)) ([ef61827](https://github.com/OysteinAmundsen/toolbox/commit/ef6182712b7bba135db4c35c45cc7c35fbdbb699))
+* **grid-react,grid-vue,grid-angular:** adapter wrappers for shell-content APIs ([#355](https://github.com/OysteinAmundsen/toolbox/issues/355)) ([2baf8fa](https://github.com/OysteinAmundsen/toolbox/commit/2baf8fa086f9ff8521b3c8d43ed037bab0c531bb))
+* **grid-vue:** add #header and #headerLabel slots to &lt;TbwGridColumn&gt; ([#350](https://github.com/OysteinAmundsen/toolbox/issues/350)) ([08ab19c](https://github.com/OysteinAmundsen/toolbox/commit/08ab19cc0d58832f3d2af1be3d06221293a4a01f))
+* **grid:** add public 'render' event fired after every render-scheduler flush ([#345](https://github.com/OysteinAmundsen/toolbox/issues/345)) ([c7c8693](https://github.com/OysteinAmundsen/toolbox/commit/c7c8693112cb678c42b0c2e74d806458a5ad812c))
+
+
+### Bug Fixes
+
+* **grid-react/grid-vue:** keep FeatureName honest under typedoc's strict program ([7bb5de0](https://github.com/OysteinAmundsen/toolbox/commit/7bb5de0719e3ae6bb2c88586def6cb21714f58fd))
+
 ## [1.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.8.0...grid-vue-1.9.0) (2026-05-24)
 
 

@@ -640,7 +640,12 @@ jobs:
     if: |
       always() && !cancelled() && (
         (github.event_name == 'release' && github.event.release.prerelease != true) ||
-        (needs.release-please.outputs.grid_release_created == 'true' && github.ref == 'refs/heads/main') ||
+        ((
+          needs.release-please.outputs.grid_release_created == 'true' ||
+          needs.release-please.outputs.grid_angular_release_created == 'true' ||
+          needs.release-please.outputs.grid_react_release_created == 'true' ||
+          needs.release-please.outputs.grid_vue_release_created == 'true'
+        ) && github.ref == 'refs/heads/main') ||
         (github.event_name == 'workflow_dispatch' && inputs.deploy_pages == true && github.ref == 'refs/heads/main')
       )
     needs: [release-please]
@@ -684,7 +689,12 @@ jobs:
     if: |
       always() && !cancelled() && (
         (github.event_name == 'release' && github.event.release.prerelease != true) ||
-        (needs.release-please.outputs.grid_release_created == 'true' && github.ref == 'refs/heads/main') ||
+        ((
+          needs.release-please.outputs.grid_release_created == 'true' ||
+          needs.release-please.outputs.grid_angular_release_created == 'true' ||
+          needs.release-please.outputs.grid_react_release_created == 'true' ||
+          needs.release-please.outputs.grid_vue_release_created == 'true'
+        ) && github.ref == 'refs/heads/main') ||
         (github.event_name == 'workflow_dispatch' && inputs.deploy_pages == true && github.ref == 'refs/heads/main')
       )
     environment:

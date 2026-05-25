@@ -18,12 +18,12 @@
 
 // Re-export core registry — all adapters share the same registry Map
 export {
-  clearFeatureRegistry,
-  createPluginFromFeature,
-  getFeatureFactory,
-  getRegisteredFeatures,
-  isFeatureRegistered,
-  registerFeature,
+    clearFeatureRegistry,
+    createPluginFromFeature,
+    getFeatureFactory,
+    getRegisteredFeatures,
+    isFeatureRegistered,
+    registerFeature
 } from '@toolbox-web/grid/features/registry';
 
 export type { PluginFactory } from '@toolbox-web/grid/features/registry';
@@ -39,4 +39,12 @@ export type { PluginFactory } from '@toolbox-web/grid/features/registry';
  * not a real feature name.
  */
 import type { FeatureConfig } from '@toolbox-web/grid/all';
+// Bare side-effect import pulls every core feature's `_Augmentation` anchor
+// type onto the type graph so vite-plugin-dts and typedoc see the
+// `declare module` blocks that augment `FeatureConfig`. Without it,
+// `keyof FeatureConfig` collapses (typedoc's entry-point program only loads
+// transitively-imported feature modules) and feature names like `'filtering'`
+// / `'groupingRows'` are rejected as not assignable to `FeatureName`.
+// See `internal/feature-augmentations.ts`.
+import './internal/feature-augmentations';
 export type FeatureName = Exclude<keyof FeatureConfig, '__brand'>;

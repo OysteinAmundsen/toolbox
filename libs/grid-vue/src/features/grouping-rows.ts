@@ -41,14 +41,19 @@ import { createNodeBridge } from '../lib/teleport-bridge';
 registerFeature(
   'groupingRows',
   (rawConfig) => {
-    if (rawConfig === true) {
+    // Core types `groupingRows?: GroupingRowsConfig` (no boolean shorthand),
+    // but the Vue prop accepts `true` for "enable with defaults" at runtime
+    // — the core factory handles it (`typeof config === 'boolean'`). Widen
+    // the type here so the runtime check passes `tsc --strict` under typedoc.
+    const raw = rawConfig as GroupingRowsConfig | boolean | undefined;
+    if (raw === true) {
       return new GroupingRowsPlugin();
     }
-    if (!rawConfig) {
+    if (!raw) {
       return new GroupingRowsPlugin();
     }
 
-    const config = rawConfig as GroupingRowsConfig & { groupRowRenderer?: unknown };
+    const config = raw as GroupingRowsConfig & { groupRowRenderer?: unknown };
     const options = { ...config } as GroupingRowsConfig;
 
     // Bridge Vue groupRowRenderer (returns VNode) to vanilla (returns HTMLElement | string | void)

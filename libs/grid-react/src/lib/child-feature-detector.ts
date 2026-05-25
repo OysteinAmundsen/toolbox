@@ -59,7 +59,12 @@ export function detectChildFeatures<TFeatures = Record<string, unknown>>(childre
 
   Children.forEach(children, (child) => {
     if (!isValidElement(child)) return;
-    const displayName = (child.type as { displayName?: string } | string | null)?.displayName;
+    // `child.type` is `string | ComponentType`; only component types carry a
+    // `displayName`. Narrow out the string (intrinsic-tag) case before the
+    // optional-chain read so `tsc --strict` (used by typedoc's program)
+    // doesn't reject `.displayName` on the `string` branch.
+    const type = child.type;
+    const displayName = typeof type === 'string' ? undefined : (type as { displayName?: string } | null)?.displayName;
     if (typeof displayName !== 'string') return;
     const detector = childFeatureDetectors.get(displayName);
     if (!detector) return;

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.7.0...grid-react-1.8.0) (2026-05-24)
+
+
+### Features
+
+* **adapters:** add framework-native typing for grouping renderers (closes [#353](https://github.com/OysteinAmundsen/toolbox/issues/353)) ([#357](https://github.com/OysteinAmundsen/toolbox/issues/357)) ([74f002a](https://github.com/OysteinAmundsen/toolbox/commit/74f002a46312d6dd6d9ce20b96b5fcece3ee46e5))
+* **adapters:** cache pinned-rows slot host elements; document framework usage (closes [#354](https://github.com/OysteinAmundsen/toolbox/issues/354)) ([#358](https://github.com/OysteinAmundsen/toolbox/issues/358)) ([ef61827](https://github.com/OysteinAmundsen/toolbox/commit/ef6182712b7bba135db4c35c45cc7c35fbdbb699))
+* **grid-react,grid-vue,grid-angular:** adapter wrappers for shell-content APIs ([#355](https://github.com/OysteinAmundsen/toolbox/issues/355)) ([2baf8fa](https://github.com/OysteinAmundsen/toolbox/commit/2baf8fa086f9ff8521b3c8d43ed037bab0c531bb))
+* **grid:** add public 'render' event fired after every render-scheduler flush ([#345](https://github.com/OysteinAmundsen/toolbox/issues/345)) ([c7c8693](https://github.com/OysteinAmundsen/toolbox/commit/c7c8693112cb678c42b0c2e74d806458a5ad812c))
+
 ## [1.7.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.6.1...grid-react-1.7.0) (2026-05-19)
 
 

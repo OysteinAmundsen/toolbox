@@ -1,5 +1,67 @@
 # Changelog
 
+## [2.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.9.0...grid-vue-2.0.0) (2026-05-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* Remove ~106 deprecated APIs across grid core and all framework adapters.
+
+### Features
+
+* **adapters:** add 10 missing grid events to vue & angular + drift guard ([c524fbf](https://github.com/OysteinAmundsen/toolbox/commit/c524fbf809bbdd1450e38bd165ff40eb30a643de))
+* **adapters:** add framework-native typing for grouping renderers (closes [#353](https://github.com/OysteinAmundsen/toolbox/issues/353)) ([#357](https://github.com/OysteinAmundsen/toolbox/issues/357)) ([74f002a](https://github.com/OysteinAmundsen/toolbox/commit/74f002a46312d6dd6d9ce20b96b5fcece3ee46e5))
+* **adapters:** bring grid-react and grid-vue to full surface-area parity ([8a7314d](https://github.com/OysteinAmundsen/toolbox/commit/8a7314d61d424ffadabe803db1ed13c67897bd5f))
+* **adapters:** cache pinned-rows slot host elements; document framework usage (closes [#354](https://github.com/OysteinAmundsen/toolbox/issues/354)) ([#358](https://github.com/OysteinAmundsen/toolbox/issues/358)) ([ef61827](https://github.com/OysteinAmundsen/toolbox/commit/ef6182712b7bba135db4c35c45cc7c35fbdbb699))
+* **grid-angular,grid-react,grid-vue:** bridge all custom renderer callbacks ([4c01a08](https://github.com/OysteinAmundsen/toolbox/commit/4c01a0877a55a0fe26ae48a7b9c433ff728a82bb))
+* **grid-react,grid-vue,grid-angular:** adapter wrappers for shell-content APIs ([#355](https://github.com/OysteinAmundsen/toolbox/issues/355)) ([2baf8fa](https://github.com/OysteinAmundsen/toolbox/commit/2baf8fa086f9ff8521b3c8d43ed037bab0c531bb))
+* **grid-vue:** add #header and #headerLabel slots to &lt;TbwGridColumn&gt; ([#350](https://github.com/OysteinAmundsen/toolbox/issues/350)) ([08ab19c](https://github.com/OysteinAmundsen/toolbox/commit/08ab19cc0d58832f3d2af1be3d06221293a4a01f))
+* **grid-vue:** column shorthand + columnDefaults + plugin dep validation; add adapter-conformance ([#237](https://github.com/OysteinAmundsen/toolbox/issues/237)) ([1f84ecc](https://github.com/OysteinAmundsen/toolbox/commit/1f84ecc5240f3d33cf78c70600d3cc465fcf9bf4))
+* **grid-vue:** expand event emits to 24 events, deprecate useGridEvent ([34bdc1b](https://github.com/OysteinAmundsen/toolbox/commit/34bdc1ba3de395549c8760b6dd0f39ba5b891b15))
+* **grid-vue:** make TbwGridColumn generic over TRow/TValue ([#289](https://github.com/OysteinAmundsen/toolbox/issues/289)) ([4a00688](https://github.com/OysteinAmundsen/toolbox/commit/4a00688ed1ef06d1ae49f4104890519dbd89cf1d))
+* **grid-vue:** overlay editor ([#253](https://github.com/OysteinAmundsen/toolbox/issues/253)) ([ca478ff](https://github.com/OysteinAmundsen/toolbox/commit/ca478ff162b8dd83b247ec28e8eaabeac7096127))
+* **grid/adapters:** add sticky-rows wrappers for angular/react/vue and missing row-drag-drop entry for react ([74e9fa7](https://github.com/OysteinAmundsen/toolbox/commit/74e9fa749df798a154e03005dd286462a7f591fc))
+* **grid/pinned-rows:** unified slots[] API (issue [#255](https://github.com/OysteinAmundsen/toolbox/issues/255)) ([#257](https://github.com/OysteinAmundsen/toolbox/issues/257)) ([8a84f0d](https://github.com/OysteinAmundsen/toolbox/commit/8a84f0dc27c64a68645a72ee6c1cda8ce59a6929))
+* **grid:** add declarative features API for plugin configuration ([94fa3b4](https://github.com/OysteinAmundsen/toolbox/commit/94fa3b4fcfafb80f562d3458f369bfe9c5763b17))
+* **grid:** add emptyRenderer config for no-rows / error overlay ([#321](https://github.com/OysteinAmundsen/toolbox/issues/321)) ([#322](https://github.com/OysteinAmundsen/toolbox/issues/322)) ([63118e3](https://github.com/OysteinAmundsen/toolbox/commit/63118e308557bdbedb083b0c1bb20a279782217b))
+* **grid:** add public 'render' event fired after every render-scheduler flush ([#345](https://github.com/OysteinAmundsen/toolbox/issues/345)) ([c7c8693](https://github.com/OysteinAmundsen/toolbox/commit/c7c8693112cb678c42b0c2e74d806458a5ad812c))
+* **grid:** add TooltipPlugin with popover-based overflow tooltips ([61fc11c](https://github.com/OysteinAmundsen/toolbox/commit/61fc11c1b755b8eabbd019e37901e2a84ee8bf8a))
+* **grid:** auto-suffix tag for multi-version coexistence ([#339](https://github.com/OysteinAmundsen/toolbox/issues/339)) ([#342](https://github.com/OysteinAmundsen/toolbox/issues/342)) ([5585171](https://github.com/OysteinAmundsen/toolbox/commit/558517172444bb7eaaaeac3ca18b5519a4ad79dd))
+* **grid:** expose tbw-scroll CustomEvent for scroll-driven consumer use cases ([#234](https://github.com/OysteinAmundsen/toolbox/issues/234)) ([259171e](https://github.com/OysteinAmundsen/toolbox/commit/259171ed2e0f1735f4d277f6ad223987ee616390))
+* **grid:** RowDragDropPlugin — drag rows within and across grids ([#225](https://github.com/OysteinAmundsen/toolbox/issues/225)) ([#246](https://github.com/OysteinAmundsen/toolbox/issues/246)) ([4a22beb](https://github.com/OysteinAmundsen/toolbox/commit/4a22bebfcad0d26df2302290b73761b090f429d7))
+* remove deprecated APIs for v2 ([#186](https://github.com/OysteinAmundsen/toolbox/issues/186)) ([c1b4a95](https://github.com/OysteinAmundsen/toolbox/commit/c1b4a95fbf74950d168ea0df706d31d0d813c930))
+
+
+### Bug Fixes
+
+* **grid-angular:** re-export feature type anchors to preserve FeatureConfig augmentation ([8d47822](https://github.com/OysteinAmundsen/toolbox/commit/8d4782291fd2475611160713e2d5d39ae391a358))
+* **grid-angular:** use getPluginByName in adapter features ([acfb512](https://github.com/OysteinAmundsen/toolbox/commit/acfb5128d324ef9abed16902d609d25da99df0cb))
+* **grid-react,grid-vue:** add missing tooltip feature build entry ([b7c586c](https://github.com/OysteinAmundsen/toolbox/commit/b7c586c987ffb71a6f6083a994fb2559f4304fb5))
+* **grid-react,grid-vue:** flush focused editor on before-edit-close so Tab commits pending input ([9cafde1](https://github.com/OysteinAmundsen/toolbox/commit/9cafde17303e832bf02ce6749922ac1980cb969b))
+* **grid-react,grid-vue:** forward options parameter in filtering proxy methods ([1f2a35f](https://github.com/OysteinAmundsen/toolbox/commit/1f2a35f1110e36216fbdf601377d8c9833b67bee))
+* **grid-react:** batch portal teardown to silence flushSync warnings ([#330](https://github.com/OysteinAmundsen/toolbox/issues/330)) ([#333](https://github.com/OysteinAmundsen/toolbox/issues/333)) ([b6b586a](https://github.com/OysteinAmundsen/toolbox/commit/b6b586a227ba39f111edc2a930cda94233046c2a))
+* **grid-vue,grid-react:** close adapter API parity gaps ([3ff3e9a](https://github.com/OysteinAmundsen/toolbox/commit/3ff3e9a8ae0d9e03bfa4ef73f6637a344f4c7a02))
+* **grid-vue,grid-react:** default cell/editor TValue generic to any ([#289](https://github.com/OysteinAmundsen/toolbox/issues/289)) ([#290](https://github.com/OysteinAmundsen/toolbox/issues/290)) ([66ec863](https://github.com/OysteinAmundsen/toolbox/commit/66ec8635c9591244952b217a6a7ad2b5ff0f37f4))
+* **grid-vue:** mount TeleportManager + wire createToolPanelRenderer for context-preserving renderers ([#237](https://github.com/OysteinAmundsen/toolbox/issues/237)) ([84fe96d](https://github.com/OysteinAmundsen/toolbox/commit/84fe96d6f6d6c29c760ba310727003c169dd1e7b))
+* **grid-vue:** replace createApp with teleports for Vue context preservation ([e2caf8b](https://github.com/OysteinAmundsen/toolbox/commit/e2caf8bdf304a2686014a6737a58f098b282ee66))
+* **grid-vue:** replace inline import() with static type import ([4ff1ee8](https://github.com/OysteinAmundsen/toolbox/commit/4ff1ee8868b600af05511a7d3a692bbd8cb44a80))
+* **grid,grid-react,grid-angular:** honor gridConfig.features in dedup and template bridges ([45983a3](https://github.com/OysteinAmundsen/toolbox/commit/45983a3d0ca4957b7011a25c63bddadd001ed4fc))
+* **grid,grid-react,grid-angular:** honor gridConfig.features in dedup and template bridges ([45983a3](https://github.com/OysteinAmundsen/toolbox/commit/45983a3d0ca4957b7011a25c63bddadd001ed4fc))
+* **grid,grid-react,grid-vue,grid-angular:** release renderers and flush editors on cell teardown ([#250](https://github.com/OysteinAmundsen/toolbox/issues/250)) ([3121b5f](https://github.com/OysteinAmundsen/toolbox/commit/3121b5f091663514692b53bc59863836637915bb))
+* **grid,grid-react,grid-vue:** plug memory leaks in adapters, cache, and global handlers ([c69c86d](https://github.com/OysteinAmundsen/toolbox/commit/c69c86d1a93d2653a45832c28021a40e5b1563c8))
+* **grid,grid-react:** thread gridEl for multi-grid portal resolution ([f18e397](https://github.com/OysteinAmundsen/toolbox/commit/f18e3975ccd22336bf65cbb44710dabe8781fe53))
+* **grid/pinned-rows:** render top slot wrappers when .header is nested in .rows-body ([d781366](https://github.com/OysteinAmundsen/toolbox/commit/d781366bf72bd52dc35dec74bacf56ac2692c9f8))
+* **grid:** resolve adapter test aliases to source instead of dist ([deefc10](https://github.com/OysteinAmundsen/toolbox/commit/deefc1064d7f14364fc71b87682668fec047b236))
+
+
+### Enhancements
+
+* **grid-angular,grid-react,grid-vue:** add optional selector parameter to inject/use functions for multi-grid support ([c8e377d](https://github.com/OysteinAmundsen/toolbox/commit/c8e377d7c2af48ab865d77db97e873739bd46451))
+* **grid-angular:** migrate addEventListener to .on() API ([0592112](https://github.com/OysteinAmundsen/toolbox/commit/059211291721f450ba51c4a9bd8699297cc0866b))
+* **grid-react:** migrate addEventListener to .on() API ([24ff2b2](https://github.com/OysteinAmundsen/toolbox/commit/24ff2b21dad39cc03f648e8365be5c4634190b6e))
+* **grid,grid-react,grid-vue,grid-angular:** allow columnGroups and per-group renderer in plugin config ([91960a9](https://github.com/OysteinAmundsen/toolbox/commit/91960a9ae1c5920abcc5ceed30f3c5f94a19ca3e))
+* **grid:** add filtering UX helpers — stale detection, set helpers, data ranges, blank toggle ([#166](https://github.com/OysteinAmundsen/toolbox/issues/166), [#167](https://github.com/OysteinAmundsen/toolbox/issues/167), [#168](https://github.com/OysteinAmundsen/toolbox/issues/168), [#169](https://github.com/OysteinAmundsen/toolbox/issues/169)) ([b5452a8](https://github.com/OysteinAmundsen/toolbox/commit/b5452a8d04eb73caa96216004c1e50ae7c155309))
+
 ## [1.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.8.0...grid-vue-1.9.0) (2026-05-24)
 
 

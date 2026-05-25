@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.8.0...grid-react-1.8.1) (2026-05-25)
+
+
+### Bug Fixes
+
+* **grid-react/grid-vue:** keep FeatureName honest under typedoc's strict program ([7bb5de0](https://github.com/OysteinAmundsen/toolbox/commit/7bb5de0719e3ae6bb2c88586def6cb21714f58fd))
+
 ## [1.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.7.0...grid-react-1.8.0) (2026-05-24)
 
 

@@ -64,6 +64,15 @@ Feature props (`<DataGrid selection="row" />`) are a valid shorthand and remain 
 
 For everything else — including all generated examples, demos, and tutorials — default to `gridConfig`.
 
+### Anti-Patterns — Don't Reach For a Plugin First
+
+A recurring failure mode for AI-generated grids is loading plugins to solve problems the core element already handles. Check these BEFORE adding a plugin:
+
+- **Don't add `SelectionPlugin` just to make a row clickable.** For "click row to open detail", listen for the `cell-activate` event on the grid (it fires for both pointer and keyboard, so you get a11y for free). Only add `SelectionPlugin` when the user actually needs persistent visible row/cell/range selection state, checkboxes, or multi-select.
+- **Don't subclass `BaseGridEditor` before trying `column.type`.** Built-in types (`'select'`, `'number'`, `'date'`, etc.) plus `gridConfig.typeDefaults` cover most editor needs without writing a component. Subclass `BaseGridEditor` / `BaseGridEditorCVA` only when the editor UI is genuinely custom (overlay picker, multi-field composite, framework-specific component).
+- **Don't write `cell-click` handlers when you mean "activate".** `cell-click` is pointer-only — keyboard users (Enter / Space on a focused cell) won't trigger it. Use `cell-activate` (cancelable, fires for both pointer and keyboard) for click-to-open / click-to-navigate patterns.
+- **Don't reinvent post-render orchestration.** When you need to do something after the first render (focus a cell, scroll to row, begin an edit), `await grid.ready()` instead of chaining `afterNextRender` / `setTimeout` / `requestAnimationFrame`. See [Grid API → Lifecycle](#grid-api).
+
 ---
 
 ## CRITICAL RULES — Read Before Generating Any Code
@@ -311,7 +320,7 @@ Feature props enable declarative plugin loading with tree-shaking. Import the fe
 | Feature Prop | Side-Effect Import (React example) | Example Values |
 |--------------|------------------------------------|----------------|
 | `selection` | `@toolbox-web/grid-react/features/selection` | `"cell"`, `"row"`, `"column"`, `"range"`, `["column", "row"]`, `{ mode: 'range', checkbox: true }` |
-| `editing` | `features/editing` | `true`, `"click"`, `"dblclick"`, `"manual"` |
+| `editing` | `features/editing` | `true`, `"click"`, `"dblclick"`, `"manual"`, `{ mode: 'row', editOn: 'click' }`, `{ mode: 'grid' }` (always-editable grid) |
 | `multiSort` | `features/multi-sort` | `true`, `"single"`, `"multi"`, `{ maxSortColumns: 3 }` |
 | `filtering` | `features/filtering` | `true`, `{ debounceMs: 200 }` |
 | `clipboard` | `features/clipboard` | `true` (requires selection) |
@@ -334,7 +343,7 @@ Feature props enable declarative plugin loading with tree-shaking. Import the fe
 | `pivot` | `features/pivot` | `{ rowGroupFields: ['region'], columnGroupFields: ['quarter'], valueFields: [{ field: 'revenue', aggFunc: 'sum' }] }` |
 | `serverSide` | `features/server-side` | `{ dataSource: async (params) => ... }` |
 | `tooltip` | `features/tooltip` | `true`, `{ header: true, cell: false }` |
-| `stickyRows` | `features/sticky-rows` (core only — not yet wired in adapters; configure via `gridConfig.features.stickyRows`) | `{ isSticky: 'isSection' }`, `{ isSticky: (row) => row.isHeader, mode: 'stack', maxStacked: 3 }` |
+| `stickyRows` | `features/sticky-rows` | `{ isSticky: 'isSection' }`, `{ isSticky: (row) => row.isHeader, mode: 'stack', maxStacked: 3 }` |
 
 For Angular: replace `@toolbox-web/grid-react` with `@toolbox-web/grid-angular`.
 For Vue: replace `@toolbox-web/grid-react` with `@toolbox-web/grid-vue`.
@@ -639,8 +648,8 @@ function EmployeeGrid({ employees }) {
 import '@toolbox-web/grid';
 import '@toolbox-web/grid-angular/features/editing';
 import { Component } from '@angular/core';
-import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
-import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
+import { Grid, TbwRenderer } from '@toolbox-web/grid-angular';
+import { GridEditingDirective, TbwEditor } from '@toolbox-web/grid-angular/features/editing';
 
 @Component({
   imports: [Grid, GridEditingDirective, TbwRenderer, TbwEditor],
@@ -1040,7 +1049,10 @@ to the same registry.
 | `cell-click` | `row`, `rowIndex`, `colIndex`, `column`, `field`, `value`, `cellEl`, `originalEvent` |
 | `row-click` | `row`, `rowIndex`, `rowEl`, `originalEvent` |
 | `cell-change` | `row`, `rowId`, `rowIndex`, `field`, `oldValue`, `newValue`, `changes`, `source` |
-| `cell-activate` | `row`, `rowIndex`, `colIndex`, `field`, `value`, `cellEl`, `trigger`, `originalEvent` |
+| `cell-activate` | `row`, `rowIndex`, `colIndex`, `field`, `value`, `cellEl`, `trigger` (`'pointer'` \| `'keyboard'`), `originalEvent` (**cancelable**) |
+
+> **Prefer `cell-activate` over `cell-click` / `row-click`.** `cell-activate` is the unified activation event — it fires for **both** pointer clicks and keyboard activation (Enter / Space on a focused cell), so handlers stay keyboard-accessible. It is also cancelable: calling `event.preventDefault()` aborts the activation (e.g. blocks the EditingPlugin from entering edit mode). Use `cell-click` / `row-click` only when you specifically need pointer-only behavior (e.g. distinguishing left vs right click via `originalEvent.button`).
+
 | `sort-change` | `field`, `direction` (0=none, 1=asc, -1=desc) |
 | `column-resize` | `field`, `width` |
 | `column-resize-reset` | `field`, `width` (original width or `undefined` if auto-sized) |
@@ -1715,9 +1727,10 @@ new StickyRowsPlugin({
 // transaction log) that should remain visible while scrolling through their
 // section. NOT for summary/totals rows (use PinnedRowsPlugin) and NOT for
 // hierarchical groups (use GroupingRowsPlugin).
-// Note: sticky-rows is currently exposed via the core feature import only —
-// the React/Vue/Angular adapters do not yet ship a `stickyRows` prop. Configure
-// it via `gridConfig.features.stickyRows = { isSticky: ... }` from any framework.
+// Adapter feature imports are available: `@toolbox-web/grid-{react,angular,vue}/features/sticky-rows`
+// (registers the `stickyRows` prop / [stickyRows] input / :sticky-rows binding
+// in addition to `gridConfig.features.stickyRows`). Composes with TreePlugin
+// and GroupingRowsPlugin — predicate receives the post-processed row shape.
 ```
 
 ---
@@ -1781,6 +1794,27 @@ const existing = queryGrid<Employee>('#my-grid');
 | `updateRow(id, changes)` | Patch a row in place — single render pass |
 | `applyTransaction(tx, animate?)` | Apply `{ add, update, remove }` mutations atomically (Promise<TransactionResult>) |
 | `applyTransactionAsync(tx)` | Same as `applyTransaction`, but rapid calls within one frame are merged (animations disabled) |
+
+### Post-Render Orchestration: `await grid.ready()`
+
+Use `grid.ready()` when your code needs to run **after the first render cycle has completed** — for example, focusing a cell, scrolling to a row, or programmatically entering edit mode. The promise resolves once `afterRender` hooks have run; it resolves immediately on subsequent calls (it only gates the first render).
+
+```typescript
+// Focus a specific cell and begin editing after the grid is ready
+await grid.ready();
+grid.focusCell(0, 'name');
+grid.api.editing?.beginBulkEdit(0); // row-mode: enter edit on all editable cells in row 0
+
+// Restore column state from storage on first render
+await grid.ready();
+const saved = localStorage.getItem('grid-state');
+if (saved) grid.applyColumnState(JSON.parse(saved));
+
+// Listen for every render (not just the first):
+grid.on('render', () => { /* runs after each render cycle */ });
+```
+
+> **Why this matters:** without `ready()`, code that runs immediately after creating or configuring the grid races the render scheduler. In Angular, do **not** wrap this in `afterNextRender` / `NgZone.runOutsideAngular` — `await grid.ready()` already waits for the correct moment and works the same in every framework.
 
 ### Loading States
 
@@ -2119,9 +2153,10 @@ import { GridProvider, GridTypeProvider, GridIconProvider } from '@toolbox-web/g
 
 ```typescript
 // Note: @toolbox-web/grid-angular auto-imports the grid — no separate import needed
-import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
+import { Grid, TbwRenderer } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid-angular/features/selection';   // Feature side-effect imports
 import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
+import { TbwEditor } from '@toolbox-web/grid-angular/features/editing'; // editor structural directive lives under the editing entry
 ```
 
 ### Three Ways to Configure Features
@@ -2177,10 +2212,33 @@ export class GridComponent {
 **Renderer component** implements `CellRenderer<TRow, TValue>` with `value`, `row`, `column` inputs.
 **Editor component** extends `BaseGridEditor<TRow, TValue>` with `commitValue(v)` and `cancelEdit()` methods.
 
+#### Lower-level: `adapter.mountComponentRenderer(Component, ctxMap)`
+
+`processGridConfig` is the recommended top-level API, but it's a thin wrapper around `GridAdapter.mountComponentRenderer<TCtx>(componentClass, ctxMap)`. Use the lower-level API directly when you need to mount an Angular component as a renderer for grid surfaces that `processGridConfig` doesn't traverse (custom tool-panel sections, group-row renderers passed imperatively, third-party plugin slots, etc.):
+
+```typescript
+import { GridAdapter } from '@toolbox-web/grid-angular';
+
+export class MyPlugin {
+  private adapter = inject(GridAdapter);
+
+  buildToolPanel() {
+    const mount = this.adapter.mountComponentRenderer<{ params: ToolPanelParams }>(
+      MyToolPanelComponent,
+      (params) => ({ params }), // maps grid-side context → component inputs
+    );
+    return mount; // (host: HTMLElement, ctx: ToolPanelParams) => () => void  (returns disposer)
+  }
+}
+```
+
+`mountComponentRenderer` is what gives you DI, change detection, signals, and `OnPush` semantics inside the cell. Plain DOM callbacks (`(host, ctx) => host.textContent = ctx.value`) work too but lose all of the above — only use them for trivial display logic where Angular wiring is unwanted overhead.
+
 ### Reactive Forms Integration
 
 ```typescript
-import { Grid, GridFormArray, TbwEditor } from '@toolbox-web/grid-angular';
+import { Grid, GridFormArray } from '@toolbox-web/grid-angular';
+import { TbwEditor } from '@toolbox-web/grid-angular/features/editing';
 
 @Component({
   imports: [Grid, GridFormArray, TbwEditor, ReactiveFormsModule],
@@ -2204,6 +2262,27 @@ export class MyComponent {
 ```
 
 **Lazy form** for large datasets: Use `[lazyForm]="createRowFormFn"` instead of `[formArray]` — creates FormGroups on-demand when editing.
+
+### `injectGrid<TRow>()` — typed access to the grid element
+
+The bare `injectGrid<TRow>(selector?)` helper returns a signal-backed handle to a `<tbw-grid>` element in the current component template. Use it whenever you need to call grid methods (`focusCell`, `scrollToRow`, `applyTransaction`, `ready`, etc.) from the component class without `@ViewChild` / manual `ElementRef` lookup:
+
+```typescript
+import { injectGrid } from '@toolbox-web/grid-angular';
+
+export class EmployeeListComponent {
+  private grid = injectGrid<Employee>(); // signal — resolves lazily, safe with *ngIf / @defer
+
+  async focusFirstEditable() {
+    const grid = this.grid.element(); // unwrap the signal — may be null until the view renders
+    if (!grid) return;
+    await grid.ready();
+    grid.focusCell(0, 'name');
+  }
+}
+```
+
+Returns `{ element: Signal<DataGridElement<TRow> | null>, ... }`. Pass a CSS selector string to disambiguate when the component template contains multiple grids: `injectGrid('tbw-grid.secondary')`.
 
 ### Feature-Scoped Injectables
 

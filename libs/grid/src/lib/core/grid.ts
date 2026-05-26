@@ -1559,15 +1559,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const firstRow = this._bodyEl?.querySelector('.data-grid-row') as HTMLElement | null;
     if (!firstRow) return;
 
-    // Skip if the observed row has a per-row --tbw-row-height override.
-    // Variable-height rows set this inline, and measuring them would ratchet
-    // the global s.rowHeight up, corrupting the position cache for ALL rows.
-    // Normal rows (no override) are still measured so s.rowHeight reflects the
-    // true default height from CSS/themes.
-    if (firstRow.style.getPropertyValue('--tbw-row-height')) {
-      return;
-    }
-
     // Resolve the --tbw-row-height CSS variable to detect theme changes.
     // When a theme is swapped, the computed value changes (e.g., 52px → 28px).
     // Compared against the previously-resolved CSS value (NOT against the
@@ -1576,16 +1567,42 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // as a theme switch on every observation.
     const cssRowHeight = this.#resolveCssRowHeight();
 
-    // Find the tallest cell in the row (custom renderers may push some cells taller)
-    const cells = firstRow.querySelectorAll('.cell');
-    let maxCellHeight = 0;
-    cells.forEach((cell) => {
-      const h = (cell as HTMLElement).offsetHeight;
-      if (h > maxCellHeight) maxCellHeight = h;
-    });
-
-    const rowRect = (firstRow as HTMLElement).getBoundingClientRect();
-    const measuredHeight = Math.max(rowRect.height, maxCellHeight);
+    // Sample every currently-rendered body row and take the MEDIAN height.
+    //
+    // The old "trust the first row" approach made `_virtualization.rowHeight`
+    // hostage to whatever the first row happened to look like at the moment
+    // the ResizeObserver fired. That broke as soon as a single row deviated:
+    //   - Editing the first row inflates it (framework form-field chrome)
+    //     for as long as the editor is open. Single-row measurement ratchets
+    //     `rowHeight` up to the inflated value, shrinks the virtual window
+    //     to half its rows, and never recovers because the ratchet doesn't
+    //     shrink.
+    //   - A custom renderer in row[0] (taller chip, wrapping text, image)
+    //     similarly poisons the global height for every other row.
+    //
+    // Median is robust to ~half of samples being outliers and degrades
+    // gracefully when only one row is rendered (returns that row).
+    //
+    // Rows with an explicit per-row `--tbw-row-height` override are excluded
+    // from the sample — they're intentional one-off heights (e.g. expanded
+    // master-detail rows) and would skew the global default.
+    const sampledHeights: number[] = [];
+    const bodyRows = this._bodyEl?.querySelectorAll<HTMLElement>('.data-grid-row');
+    for (const row of bodyRows ?? []) {
+      if (row.style.getPropertyValue('--tbw-row-height')) continue;
+      let maxCellHeight = 0;
+      row.querySelectorAll('.cell').forEach((cell) => {
+        const h = (cell as HTMLElement).offsetHeight;
+        if (h > maxCellHeight) maxCellHeight = h;
+      });
+      const h = Math.max(row.getBoundingClientRect().height, maxCellHeight);
+      if (h > 0) sampledHeights.push(h);
+    }
+    if (sampledHeights.length === 0) return;
+    sampledHeights.sort((a, b) => a - b);
+    const mid = sampledHeights.length >> 1;
+    const measuredHeight =
+      sampledHeights.length % 2 === 1 ? sampledHeights[mid] : (sampledHeights[mid - 1] + sampledHeights[mid]) / 2;
 
     const currentHeight = this._virtualization.rowHeight;
     const lastCss = this.#lastResolvedCssRowHeight;

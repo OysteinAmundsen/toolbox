@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.15.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.15.0...grid-2.15.1) (2026-05-26)
+
+
+### Bug Fixes
+
+* **grid:** use median row-height sampling so an outlier row can't ratchet rowHeight ([aa78104](https://github.com/OysteinAmundsen/toolbox/commit/aa7810480a72a573fedcc227f5fff13e56280fea))
+
 ## [2.15.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.14.1...grid-2.15.0) (2026-05-24)
 
 

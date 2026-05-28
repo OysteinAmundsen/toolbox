@@ -11,15 +11,19 @@
  * @vitest-environment jsdom
  */
 import '@angular/compiler';
-import { Component, type ComponentRef, type Type } from '@angular/core';
-import { getFeatureConfigPreprocessor, type GridAdapter } from '@toolbox-web/grid-angular';
+import { Component, input, type ComponentRef, type Type } from '@angular/core';
+import { getFeatureConfigPreprocessor, type FilterPanel, type GridAdapter } from '@toolbox-web/grid-angular';
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import { describe, expect, it, vi } from 'vitest';
 import './index';
 import type { FilterConfig } from './index';
 
 @Component({ standalone: true, template: '<div>panel</div>' })
-class PanelComponent {}
+class PanelComponent implements FilterPanel {
+  // `input.required<T>()` returns an `InputSignal<T>`, whose call-signature
+  // `(): T` is what the `FilterPanel.params` contract requires.
+  readonly params = input.required<FilterPanelParams>();
+}
 
 function makeAdapter(): { adapter: GridAdapter; mount: ReturnType<typeof vi.fn>; hostElement: HTMLElement } {
   const hostElement = document.createElement('div');
@@ -44,7 +48,9 @@ describe('filtering preprocessor bridge (plugin-level filterPanelRenderer)', () 
 
   it('accepts a (container, params) => void function (type test)', () => {
     const cfg: FilterConfig = {
-      filterPanelRenderer: (container) => container.appendChild(document.createElement('div')),
+      filterPanelRenderer: (container) => {
+        container.appendChild(document.createElement('div'));
+      },
     };
     expect(typeof cfg.filterPanelRenderer).toBe('function');
   });
@@ -54,7 +60,9 @@ describe('filtering preprocessor bridge (plugin-level filterPanelRenderer)', () 
     expect(pre).toBeDefined();
     const { adapter } = makeAdapter();
     const cfg: FilterConfig = {
-      filterPanelRenderer: (container) => container.appendChild(document.createElement('div')),
+      filterPanelRenderer: (container) => {
+        container.appendChild(document.createElement('div'));
+      },
     };
     expect(pre!(cfg, adapter)).toBe(cfg);
   });

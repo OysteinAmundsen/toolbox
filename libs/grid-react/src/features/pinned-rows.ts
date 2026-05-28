@@ -49,23 +49,29 @@ import '@toolbox-web/grid/features/pinned-rows';
 
 import {
   PinnedRowsPlugin,
-  type PinnedRowSlot,
-  type PinnedRowsConfig,
+  type PinnedRowSlot as CorePinnedRowSlot,
+  type PinnedRowsConfig as CorePinnedRowsConfig,
+  type ZonedPanelRender as CoreZonedPanelRender,
   type PinnedRowsContext,
-  type ZonedPanelRender,
 } from '@toolbox-web/grid/plugins/pinned-rows';
-import type { ReactPanelRender, ReactPinnedRowSlot, ReactPinnedRowsConfig } from '../lib/feature-props';
+import type { PanelRender, PinnedRowSlot, PinnedRowsConfig } from '../lib/feature-props';
 import { registerFeature } from '../lib/feature-registry';
 import { removeFromContainer, renderToContainer } from '../lib/portal-bridge';
 
 // Re-export React-typed config shapes from their single source of truth in
 // `feature-props.ts`, so consumers can keep importing them from this module.
 export type {
+  PanelRender,
+  PanelSlot,
+  PinnedRowSlot,
+  PinnedRowsConfig,
+  // Deprecated framework-prefixed aliases (re-exported for back-compat).
   ReactPanelRender,
   ReactPanelSlot,
   ReactPinnedRowSlot,
   ReactPinnedRowsConfig,
   ReactZonedPanelRender,
+  ZonedPanelRender,
 } from '../lib/feature-props';
 
 /**
@@ -93,7 +99,7 @@ interface ReactRenderCache {
  * function fires when the plugin detaches (grid disconnect or config replace).
  */
 function createCachedReactRender(
-  reactFn: ReactPanelRender,
+  reactFn: PanelRender,
   registerTeardown: (fn: () => void) => void,
 ): (ctx: PinnedRowsContext) => HTMLElement | null {
   let cache: ReactRenderCache | null = null;
@@ -124,12 +130,12 @@ function createCachedReactRender(
  * Panel slots with a function `render` get wrapped; panel slots with an array
  * of `ReactZonedPanelRender` get each entry's `render` wrapped individually.
  */
-function bridgeSlot(slot: ReactPinnedRowSlot, registerTeardown: (fn: () => void) => void): PinnedRowSlot {
+function bridgeSlot(slot: PinnedRowSlot, registerTeardown: (fn: () => void) => void): CorePinnedRowSlot {
   if (!('render' in slot) || slot.render == null) return slot;
 
   if (Array.isArray(slot.render)) {
-    const zoned: ZonedPanelRender[] = slot.render.map((entry) => {
-      if (typeof entry?.render !== 'function') return entry as ZonedPanelRender;
+    const zoned: CoreZonedPanelRender[] = slot.render.map((entry) => {
+      if (typeof entry?.render !== 'function') return entry as CoreZonedPanelRender;
       return { zone: entry.zone, render: createCachedReactRender(entry.render, registerTeardown) };
     });
     return { ...slot, render: zoned };
@@ -139,7 +145,7 @@ function bridgeSlot(slot: ReactPinnedRowSlot, registerTeardown: (fn: () => void)
     return { ...slot, render: createCachedReactRender(slot.render, registerTeardown) };
   }
 
-  return slot as PinnedRowSlot;
+  return slot as CorePinnedRowSlot;
 }
 
 /**
@@ -148,7 +154,7 @@ function bridgeSlot(slot: ReactPinnedRowSlot, registerTeardown: (fn: () => void)
  */
 class PinnedRowsPluginWithCleanup extends PinnedRowsPlugin {
   #teardowns: Array<() => void>;
-  constructor(config: PinnedRowsConfig | undefined, teardowns: Array<() => void>) {
+  constructor(config: CorePinnedRowsConfig | undefined, teardowns: Array<() => void>) {
     super(config);
     this.#teardowns = teardowns;
   }
@@ -172,10 +178,10 @@ registerFeature(
     if (!rawConfig) return new PinnedRowsPlugin();
 
     // Single boundary cast: rawConfig is `unknown`-ish; we accept the React-typed shape.
-    const config = rawConfig as ReactPinnedRowsConfig;
+    const config = rawConfig as PinnedRowsConfig;
     // Strip the framework-typed fields so the spread base only has shared (vanilla-compatible) fields.
     const { slots: reactSlots, customPanels: reactCustomPanels, ...sharedBase } = config;
-    const options: PinnedRowsConfig = { ...sharedBase };
+    const options: CorePinnedRowsConfig = { ...sharedBase };
 
     const teardowns: Array<() => void> = [];
     const registerTeardown = (fn: () => void): void => {

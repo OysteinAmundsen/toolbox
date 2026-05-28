@@ -37,12 +37,32 @@ export { GridToolbarContent, type GridToolbarContentProps } from './lib/grid-too
 // Feature props types for declarative plugin configuration
 export type {
   AllFeatureProps,
+  // Canonical (unprefixed) adapter-widened config types. Same names as the
+  // core types from `@toolbox-web/grid` — these accept React renderers in
+  // addition to the vanilla `HTMLElement`-returning ones.
+  ColumnGroupDefinition,
   FeatureProps,
+  FilterConfig,
+  GroupingColumnsConfig,
+  GroupingRowsConfig,
+  MasterDetailConfig,
+  PanelRender,
+  PanelSlot,
+  PinnedRowSlot,
+  PinnedRowsConfig,
+  // Deprecated framework-prefixed aliases — kept for backwards compatibility.
   ReactColumnGroupDefinition,
   ReactFilterConfig,
   ReactGroupingColumnsConfig,
   ReactGroupingRowsConfig,
+  ReactPanelRender,
+  ReactPanelSlot,
+  ReactPinnedRowSlot,
+  ReactPinnedRowsConfig,
+  ReactZonedPanelRender,
+  ResponsivePluginConfig,
   SSRProps,
+  ZonedPanelRender,
 } from './lib/feature-props';
 
 // Column shorthand type & helpers (for typing column arrays with shorthand syntax)

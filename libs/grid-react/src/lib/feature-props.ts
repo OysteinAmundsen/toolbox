@@ -17,20 +17,22 @@
  * ```
  */
 
-// Import plugin config types from the all bundle for monorepo compatibility
+// Import plugin config types from the all bundle for monorepo compatibility.
+// Types that the React adapter re-exports under their canonical (unprefixed)
+// name are imported with a `Core*` alias to avoid a local naming collision.
 import type {
   ClipboardConfig,
   ColumnVirtualizationConfig,
   ContextMenuConfig,
+  FilterConfig as CoreFilterConfig,
+  GroupingColumnsConfig as CoreGroupingColumnsConfig,
+  GroupingRowsConfig as CoreGroupingRowsConfig,
   MasterDetailConfig as CoreMasterDetailConfig,
+  PinnedRowsConfig as CorePinnedRowsConfig,
   ResponsivePluginConfig as CoreResponsivePluginConfig,
   ExportConfig,
   FeatureConfig,
-  FilterConfig,
-  GroupingColumnsConfig,
-  GroupingRowsConfig,
   MultiSortConfig,
-  PinnedRowsConfig,
   PivotConfig,
   PrintConfig,
   ReorderConfig,
@@ -46,57 +48,59 @@ import type {
 } from '@toolbox-web/grid/all';
 import type { EditingConfig } from '@toolbox-web/grid/plugins/editing';
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
-import type { ColumnGroupDefinition } from '@toolbox-web/grid/plugins/grouping-columns';
+import type { ColumnGroupDefinition as CoreColumnGroupDefinition } from '@toolbox-web/grid/plugins/grouping-columns';
 import type { GroupRowRenderParams } from '@toolbox-web/grid/plugins/grouping-rows';
 import type { AggregationSlot, PanelZone, PinnedRowsContext } from '@toolbox-web/grid/plugins/pinned-rows';
 import type { ReactNode } from 'react';
 
 // #region React-specific Config Overrides
+//
+// Naming policy: each adapter-widened config is exported under the SAME
+// canonical name as its core counterpart (`FilterConfig`, `MasterDetailConfig`,
+// `PinnedRowsConfig`, ...). The colliding core import is renamed to `Core*`.
+// Historical `React*` aliases remain as `@deprecated` re-exports for one or
+// two minor cycles. See `.github/instructions/framework-adapters.instructions.md`.
+
 /**
- * React-specific filter config that allows React components as `filterPanelRenderer`.
+ * Filter config widened to accept a React render function as `filterPanelRenderer`.
  *
- * Extends the base FilterConfig to accept a React render function
+ * Extends the core `FilterConfig` so consumers can return a `ReactNode`
  * `(params: FilterPanelParams) => ReactNode` in addition to the vanilla
  * `(container: HTMLElement, params: FilterPanelParams) => void` signature.
  */
-export type ReactFilterConfig<TRow = unknown> = Omit<FilterConfig<TRow>, 'filterPanelRenderer'> & {
-  filterPanelRenderer?: FilterConfig<TRow>['filterPanelRenderer'] | ((params: FilterPanelParams) => ReactNode);
+export type FilterConfig<TRow = unknown> = Omit<CoreFilterConfig<TRow>, 'filterPanelRenderer'> & {
+  filterPanelRenderer?: CoreFilterConfig<TRow>['filterPanelRenderer'] | ((params: FilterPanelParams) => ReactNode);
 };
 
 /**
- * React-specific column group definition that allows React render functions as `renderer`.
+ * Column group definition widened to accept a React `renderer`.
  */
-export type ReactColumnGroupDefinition = Omit<ColumnGroupDefinition, 'renderer'> & {
+export type ColumnGroupDefinition = Omit<CoreColumnGroupDefinition, 'renderer'> & {
   renderer?:
-    | ColumnGroupDefinition['renderer']
-    | ((...args: Parameters<NonNullable<ColumnGroupDefinition['renderer']>>) => ReactNode);
+    | CoreColumnGroupDefinition['renderer']
+    | ((...args: Parameters<NonNullable<CoreColumnGroupDefinition['renderer']>>) => ReactNode);
 };
 
 /**
- * React-specific grouping columns config that allows React components as `groupHeaderRenderer`
- * and per-group `renderer` in `columnGroups`.
- *
- * Extends the base GroupingColumnsConfig to accept a React render function
- * returning `ReactNode` instead of only `HTMLElement | string | void`.
+ * Grouping-columns config widened to accept React render functions for
+ * `groupHeaderRenderer` and per-group `renderer` entries in `columnGroups`.
  */
-export type ReactGroupingColumnsConfig = Omit<GroupingColumnsConfig, 'groupHeaderRenderer' | 'columnGroups'> & {
-  columnGroups?: ReactColumnGroupDefinition[];
+export type GroupingColumnsConfig = Omit<CoreGroupingColumnsConfig, 'groupHeaderRenderer' | 'columnGroups'> & {
+  columnGroups?: ColumnGroupDefinition[];
   groupHeaderRenderer?:
-    | GroupingColumnsConfig['groupHeaderRenderer']
-    | ((...args: Parameters<NonNullable<GroupingColumnsConfig['groupHeaderRenderer']>>) => ReactNode);
+    | CoreGroupingColumnsConfig['groupHeaderRenderer']
+    | ((...args: Parameters<NonNullable<CoreGroupingColumnsConfig['groupHeaderRenderer']>>) => ReactNode);
 };
 
 /**
- * React-specific grouping rows config that allows React components as `groupRowRenderer`.
- *
- * Extends the base GroupingRowsConfig to accept a React render function
+ * Grouping-rows config widened to accept a React `groupRowRenderer`
  * `(params: GroupRowRenderParams) => ReactNode` in addition to the vanilla
  * `(params) => HTMLElement | string | void` signature.
  *
- * @since 1.8.1
+ * @since 1.8.0
  */
-export type ReactGroupingRowsConfig = Omit<GroupingRowsConfig, 'groupRowRenderer'> & {
-  groupRowRenderer?: GroupingRowsConfig['groupRowRenderer'] | ((params: GroupRowRenderParams) => ReactNode);
+export type GroupingRowsConfig = Omit<CoreGroupingRowsConfig, 'groupRowRenderer'> & {
+  groupRowRenderer?: CoreGroupingRowsConfig['groupRowRenderer'] | ((params: GroupRowRenderParams) => ReactNode);
 };
 
 /**
@@ -108,53 +112,53 @@ export type ReactGroupingRowsConfig = Omit<GroupingRowsConfig, 'groupRowRenderer
  * pinned-rows plugin can keep its host-element reference stable across
  * grid re-renders.
  *
- * @since 1.8.1
+ * @since 1.8.2
  */
-export type ReactPanelRender = (ctx: PinnedRowsContext) => ReactNode;
+export type PanelRender = (ctx: PinnedRowsContext) => ReactNode;
 
 /**
  * React-typed zoned panel render entry.
  *
- * @since 1.8.1
+ * @since 1.8.2
  */
-export interface ReactZonedPanelRender {
+export interface ZonedPanelRender {
   zone?: PanelZone;
-  render: ReactPanelRender;
+  render: PanelRender;
 }
 
 /**
  * React-typed panel slot — same shape as the vanilla `PanelSlot` but with
  * `ReactNode` render returns.
  *
- * @since 1.8.1
+ * @since 1.8.2
  */
-export interface ReactPanelSlot {
+export interface PanelSlot {
   id?: string;
   position?: 'top' | 'bottom';
-  render: ReactPanelRender | ReactZonedPanelRender[];
+  render: PanelRender | ZonedPanelRender[];
 }
 
 /**
  * React-typed pinned-rows slot — either a panel slot (with React renderers)
  * or a passthrough aggregation slot.
  *
- * @since 1.8.1
+ * @since 1.8.2
  */
-export type ReactPinnedRowSlot = ReactPanelSlot | AggregationSlot;
+export type PinnedRowSlot = PanelSlot | AggregationSlot;
 
 /**
- * React-specific pinned-rows config that allows React components as panel
+ * Pinned-rows config widened to accept React components as panel
  * `render` functions inside `slots[]` and `customPanels[]`.
  *
- * Extends the base `PinnedRowsConfig` to accept React render functions
+ * Extends the core `PinnedRowsConfig` to accept React render functions
  * returning `ReactNode` instead of only `HTMLElement | null`. Bridging to
  * vanilla DOM is handled by the side-effect import
  * `@toolbox-web/grid-react/features/pinned-rows`.
  *
- * @since 1.8.1
+ * @since 1.8.2
  */
-export type ReactPinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & {
-  slots?: ReactPinnedRowSlot[];
+export type PinnedRowsConfig = Omit<CorePinnedRowsConfig, 'slots' | 'customPanels'> & {
+  slots?: PinnedRowSlot[];
   customPanels?: Array<{
     id: string;
     position: PanelZone;
@@ -163,10 +167,7 @@ export type ReactPinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPane
 };
 
 /**
- * React-specific master-detail config that allows React render functions as
- * `detailRenderer`.
- *
- * Extends the core `MasterDetailConfig` to accept a React render function
+ * Master-detail config widened to accept a React `detailRenderer`
  * `(row, rowIndex) => ReactNode` in addition to the vanilla
  * `(row, rowIndex) => HTMLElement | string` signature. Bridging to vanilla
  * DOM is handled by the side-effect import
@@ -175,7 +176,7 @@ export type ReactPinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPane
  * Re-exported under the same name as the core type so React users see a
  * single canonical `MasterDetailConfig` from `@toolbox-web/grid-react`.
  *
- * @since 1.8.1
+ * @since 1.8.2
  */
 export type MasterDetailConfig = Omit<CoreMasterDetailConfig, 'detailRenderer'> & {
   detailRenderer?:
@@ -184,10 +185,7 @@ export type MasterDetailConfig = Omit<CoreMasterDetailConfig, 'detailRenderer'> 
 };
 
 /**
- * React-specific responsive config that allows React render functions as
- * `cardRenderer`.
- *
- * Extends the core `ResponsivePluginConfig` to accept a React render function
+ * Responsive config widened to accept a React `cardRenderer`
  * `(row, rowIndex, column?) => ReactNode` in addition to the vanilla
  * `(row, rowIndex, column?) => HTMLElement` signature. Bridging to vanilla
  * DOM is handled by the side-effect import
@@ -196,7 +194,7 @@ export type MasterDetailConfig = Omit<CoreMasterDetailConfig, 'detailRenderer'> 
  * Re-exported under the same name as the core type so React users see a
  * single canonical `ResponsivePluginConfig` from `@toolbox-web/grid-react`.
  *
- * @since 1.8.1
+ * @since 1.8.2
  */
 export type ResponsivePluginConfig<TRow = unknown> = Omit<CoreResponsivePluginConfig<TRow>, 'cardRenderer'> & {
   cardRenderer?:
@@ -207,6 +205,29 @@ export type ResponsivePluginConfig<TRow = unknown> = Omit<CoreResponsivePluginCo
         column?: Parameters<NonNullable<CoreResponsivePluginConfig<TRow>['cardRenderer']>>[2],
       ) => ReactNode);
 };
+
+// ── Deprecated framework-prefixed aliases ──────────────────────────────────
+// Retained for backwards compatibility. New code should import the canonical
+// (unprefixed) names above.
+
+/** @deprecated Use {@link FilterConfig} from `@toolbox-web/grid-react` instead. */
+export type ReactFilterConfig<TRow = unknown> = FilterConfig<TRow>;
+/** @deprecated Use {@link ColumnGroupDefinition} from `@toolbox-web/grid-react` instead. */
+export type ReactColumnGroupDefinition = ColumnGroupDefinition;
+/** @deprecated Use {@link GroupingColumnsConfig} from `@toolbox-web/grid-react` instead. */
+export type ReactGroupingColumnsConfig = GroupingColumnsConfig;
+/** @deprecated Use {@link GroupingRowsConfig} from `@toolbox-web/grid-react` instead. */
+export type ReactGroupingRowsConfig = GroupingRowsConfig;
+/** @deprecated Use {@link PanelRender} from `@toolbox-web/grid-react` instead. */
+export type ReactPanelRender = PanelRender;
+/** @deprecated Use {@link ZonedPanelRender} from `@toolbox-web/grid-react` instead. */
+export type ReactZonedPanelRender = ZonedPanelRender;
+/** @deprecated Use {@link PanelSlot} from `@toolbox-web/grid-react` instead. */
+export type ReactPanelSlot = PanelSlot;
+/** @deprecated Use {@link PinnedRowSlot} from `@toolbox-web/grid-react` instead. */
+export type ReactPinnedRowSlot = PinnedRowSlot;
+/** @deprecated Use {@link PinnedRowsConfig} from `@toolbox-web/grid-react` instead. */
+export type ReactPinnedRowsConfig = PinnedRowsConfig;
 // #endregion
 
 /**
@@ -322,7 +343,7 @@ export interface FeatureProps<TRow = unknown> {
    * <DataGrid filtering={{ debounceMs: 200 }} />
    * ```
    */
-  filtering?: boolean | ReactFilterConfig<TRow>;
+  filtering?: boolean | FilterConfig<TRow>;
 
   // ═══════════════════════════════════════════════════════════════════
   // COLUMN FEATURES
@@ -383,7 +404,7 @@ export interface FeatureProps<TRow = unknown> {
    * }} />
    * ```
    */
-  groupingColumns?: boolean | ReactGroupingColumnsConfig;
+  groupingColumns?: boolean | GroupingColumnsConfig;
 
   /**
    * Enable horizontal column virtualization for wide grids.
@@ -462,7 +483,7 @@ export interface FeatureProps<TRow = unknown> {
    * }} />
    * ```
    */
-  groupingRows?: ReactGroupingRowsConfig;
+  groupingRows?: GroupingRowsConfig;
 
   /**
    * Enable pinned rows (aggregation/status bar).
@@ -485,7 +506,7 @@ export interface FeatureProps<TRow = unknown> {
    * }} />
    * ```
    */
-  pinnedRows?: boolean | ReactPinnedRowsConfig;
+  pinnedRows?: boolean | PinnedRowsConfig;
 
   /**
    * Pin selected data rows below the header as the user scrolls past them.

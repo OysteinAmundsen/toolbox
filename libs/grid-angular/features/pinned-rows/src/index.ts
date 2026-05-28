@@ -24,6 +24,13 @@ import type {
 } from '@toolbox-web/grid/plugins/pinned-rows';
 import { buildCachedPanelRenderer } from './cached-panel-renderer';
 export { GridPinnedRowsDirective } from './grid-pinned-rows.directive';
+export type {
+  AngularPanelRender,
+  AngularPanelSlot,
+  AngularPinnedRowsConfig,
+  AngularPinnedRowSlot,
+  AngularZonedPanelRender,
+} from './grid-pinned-rows.directive';
 export type { _Augmentation as _PinnedRowsAugmentation } from '@toolbox-web/grid/features/pinned-rows';
 
 /**

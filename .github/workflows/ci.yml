@@ -287,6 +287,14 @@ jobs:
         run: bun run build
 
       - name: Install Playwright browsers
+        # `bunx playwright install` has been observed to hang silently
+        # after the Chrome download finishes — the unzip-to-cache phase
+        # produces no output and can stall the runner indefinitely
+        # (confirmed: 18 min of silence between the 100 % download line
+        # and the job timeout, with no further log output). Cap this
+        # step so the next such hang fails fast instead of consuming
+        # the full 20-min e2e job budget.
+        timeout-minutes: 5
         run: bunx playwright install --with-deps chromium
 
       - name: Start demo servers (against dist)

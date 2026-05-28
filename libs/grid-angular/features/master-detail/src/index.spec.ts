@@ -1,7 +1,7 @@
 /**
  * Type and runtime tests for `@toolbox-web/grid-angular/features/master-detail`.
  *
- * Covers the v1.8.0 widening of `MasterDetailConfig.detailRenderer` to accept
+ * Covers the v1.7.1 widening of `MasterDetailConfig.detailRenderer` to accept
  * an Angular component class, and the corresponding
  * `registerFeatureConfigPreprocessor('masterDetail', ...)` bridge.
  *

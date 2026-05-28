@@ -166,9 +166,10 @@ describe('@toolbox-web/grid-react/features/pinned-rows', () => {
   describe('types', () => {
     it('the `pinnedRows` feature prop accepts a React JSX slot renderer without a cast', () => {
       // Regression for the v1.8.1 typing gap: `FeatureProps.pinnedRows` was
-      // typed as `boolean | PinnedRowsConfig` (vanilla), forcing consumers to
+      // typed as the vanilla core `PinnedRowsConfig`, forcing consumers to
       // cast their config when using JSX in `slots[].render`. The prop is now
-      // widened to `boolean | ReactPinnedRowsConfig`.
+      // widened to the React adapter's canonical `PinnedRowsConfig` (which
+      // accepts `ReactNode` renderers in addition to vanilla ones).
       const props: FeatureProps = {
         pinnedRows: {
           slots: [{ id: 'add-row', position: 'bottom', render: () => <span>add row</span> }],
@@ -177,7 +178,9 @@ describe('@toolbox-web/grid-react/features/pinned-rows', () => {
       expect(props.pinnedRows).toBeTruthy();
     });
 
-    it('the `pinnedRows` feature prop accepts a ReactPinnedRowsConfig directly', () => {
+    it('the `pinnedRows` feature prop accepts the deprecated `ReactPinnedRowsConfig` alias directly', () => {
+      // Back-compat: pre-existing consumers using the framework-prefixed
+      // alias still compile.
       const cfg: ReactPinnedRowsConfig = {
         slots: [{ position: 'top', render: (ctx) => <strong>{ctx.totalRows}</strong> }],
       };

@@ -1,7 +1,7 @@
 /**
  * Type and runtime tests for `@toolbox-web/grid-angular/features/responsive`.
  *
- * Covers the v1.8.0 widening of `ResponsivePluginConfig.cardRenderer` to accept
+ * Covers the v1.7.1 widening of `ResponsivePluginConfig.cardRenderer` to accept
  * an Angular component class, and the corresponding
  * `registerFeatureConfigPreprocessor('responsive', ...)` bridge.
  *

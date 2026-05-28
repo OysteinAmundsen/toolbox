@@ -1,5 +1,5 @@
 /**
- * Type and runtime tests for the v1.8.0 widening of
+ * Type and runtime tests for the v1.7.1 widening of
  * `FilterConfig.filterPanelRenderer` in
  * `@toolbox-web/grid-angular/features/filtering`.
  *

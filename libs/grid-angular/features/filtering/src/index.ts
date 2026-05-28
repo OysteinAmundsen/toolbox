@@ -111,7 +111,7 @@ registerFilterPanelTypeDefaultBridge((rendererValue: unknown, adapter: GridAdapt
  * `filtering.filterPanelRenderer` would be invoked as a function at render
  * time and crash.
  *
- * @since 1.8.0
+ * @since 1.7.1
  */
 registerFeatureConfigPreprocessor('filtering', (config, adapter) => {
   if (!config || typeof config === 'boolean' || typeof config !== 'object') return config;

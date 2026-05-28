@@ -31,7 +31,7 @@ import type {
  * so Angular consumers see a single canonical `MasterDetailConfig` from
  * `@toolbox-web/grid-angular/features/master-detail`.
  *
- * @since 1.8.0
+ * @since 1.7.1
  */
 export type MasterDetailConfig = Omit<CoreMasterDetailConfig, 'detailRenderer'> & {
   detailRenderer?: CoreMasterDetailConfig['detailRenderer'] | Type<unknown>;

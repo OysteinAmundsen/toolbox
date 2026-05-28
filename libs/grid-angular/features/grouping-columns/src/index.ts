@@ -16,11 +16,18 @@
 import type { Type } from '@angular/core';
 import { isComponentClass, registerFeatureConfigPreprocessor, type GridAdapter } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/grouping-columns';
-import type { GroupHeaderRenderParams, GroupingColumnsConfig } from '@toolbox-web/grid/plugins/grouping-columns';
+import type {
+  GroupingColumnsConfig as CoreGroupingColumnsConfig,
+  GroupHeaderRenderParams,
+} from '@toolbox-web/grid/plugins/grouping-columns';
 export {
   GridGroupingColumnsDirective,
+  // Deprecated framework-prefixed aliases.
   type AngularColumnGroupDefinition,
   type AngularGroupingColumnsConfig,
+  // Canonical (unprefixed) widening types.
+  type ColumnGroupDefinition,
+  type GroupingColumnsConfig,
 } from './grid-grouping-columns.directive';
 export type { _Augmentation as _GroupingColumnsAugmentation } from '@toolbox-web/grid/features/grouping-columns';
 
@@ -48,7 +55,7 @@ function buildGroupHeaderRenderer(
 // would be invoked without `new`, causing runtime errors.
 registerFeatureConfigPreprocessor('groupingColumns', (config, adapter) => {
   if (!config || typeof config !== 'object') return config;
-  const cfg = config as GroupingColumnsConfig;
+  const cfg = config as CoreGroupingColumnsConfig;
   const processed = { ...cfg };
   let changed = false;
 

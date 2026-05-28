@@ -9,25 +9,29 @@ import { Directive, ElementRef, inject, input, OnDestroy, OnInit, output, type T
 import type { DataGridElement } from '@toolbox-web/grid';
 import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
 import type {
+  GroupingRowsConfig as CoreGroupingRowsConfig,
   GroupCollapseDetail,
   GroupExpandDetail,
-  GroupingRowsConfig,
   GroupRowRenderParams,
   GroupToggleDetail,
 } from '@toolbox-web/grid/plugins/grouping-rows';
 
 /**
- * Angular-shaped grouping rows config that allows an Angular component class
- * as `groupRowRenderer`.
+ * Grouping-rows config widened to accept an Angular component class as
+ * `groupRowRenderer`.
  *
  * Component instances receive the {@link GroupRowRenderParams} fields as
  * inputs (`key`, `value`, `depth`, `rows`, `expanded`, `toggleExpand`).
  *
  * @since 1.7.0
  */
-export type AngularGroupingRowsConfig = Omit<GroupingRowsConfig, 'groupRowRenderer'> & {
-  groupRowRenderer?: GroupingRowsConfig['groupRowRenderer'] | Type<unknown>;
+export type GroupingRowsConfig = Omit<CoreGroupingRowsConfig, 'groupRowRenderer'> & {
+  groupRowRenderer?: CoreGroupingRowsConfig['groupRowRenderer'] | Type<unknown>;
 };
+
+// ── Deprecated framework-prefixed alias ─────────────────────────────────
+/** @deprecated Use {@link GroupingRowsConfig} instead. */
+export type AngularGroupingRowsConfig = GroupingRowsConfig;
 
 /**
  * Owns the binding(s) `[groupingRows], [groupToggle], [groupExpand], [groupCollapse]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
@@ -41,7 +45,7 @@ export type AngularGroupingRowsConfig = Omit<GroupingRowsConfig, 'groupRowRender
 export class GridGroupingRowsDirective implements OnInit, OnDestroy {
   private readonly elementRef = inject(ElementRef<DataGridElement>);
 
-  readonly groupingRows = input<AngularGroupingRowsConfig>();
+  readonly groupingRows = input<GroupingRowsConfig>();
   readonly groupToggle = output<GroupToggleDetail>();
   readonly groupExpand = output<GroupExpandDetail>();
   readonly groupCollapse = output<GroupCollapseDetail>();

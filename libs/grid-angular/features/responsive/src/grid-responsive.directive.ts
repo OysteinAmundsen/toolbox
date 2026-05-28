@@ -26,7 +26,7 @@ import type {
  * so Angular consumers see a single canonical `ResponsivePluginConfig` from
  * `@toolbox-web/grid-angular/features/responsive`.
  *
- * @since 1.8.0
+ * @since 1.7.1
  */
 export type ResponsivePluginConfig<TRow = unknown> = Omit<CoreResponsivePluginConfig<TRow>, 'cardRenderer'> & {
   cardRenderer?: CoreResponsivePluginConfig<TRow>['cardRenderer'] | Type<unknown>;

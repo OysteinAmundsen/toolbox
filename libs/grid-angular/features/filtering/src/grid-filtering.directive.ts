@@ -66,7 +66,7 @@ import type { FilterConfig as CoreFilterConfig, FilterChangeDetail } from '@tool
  * so Angular consumers see a single canonical `FilterConfig` from
  * `@toolbox-web/grid-angular/features/filtering`.
  *
- * @since 1.8.0
+ * @since 1.7.1
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type FilterConfig<TRow = any> = Omit<CoreFilterConfig<TRow>, 'filterPanelRenderer'> & {

@@ -7,7 +7,11 @@
 import { Directive, ElementRef, inject, input, OnDestroy, type Type } from '@angular/core';
 import type { DataGridElement } from '@toolbox-web/grid';
 import { registerFeatureClaim, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
-import type { PanelZone, PinnedRowsConfig, PinnedRowsContext } from '@toolbox-web/grid/plugins/pinned-rows';
+import type {
+  PinnedRowsConfig as CorePinnedRowsConfig,
+  PanelZone,
+  PinnedRowsContext,
+} from '@toolbox-web/grid/plugins/pinned-rows';
 
 /**
  * Angular-shaped panel-slot render: a renderer function (vanilla), an Angular
@@ -15,58 +19,76 @@ import type { PanelZone, PinnedRowsConfig, PinnedRowsContext } from '@toolbox-we
  *
  * Component instances receive the {@link PinnedRowsContext} fields as inputs.
  *
- * @since 1.9.0
+ * @since 1.7.1
  */
-export type AngularPanelRender = ((ctx: PinnedRowsContext) => HTMLElement | null) | Type<unknown>;
+export type PanelRender = ((ctx: PinnedRowsContext) => HTMLElement | null) | Type<unknown>;
 
 /**
  * Angular-shaped zoned panel render entry.
  *
- * @since 1.9.0
+ * @since 1.7.1
  */
-export interface AngularZonedPanelRender {
+export interface ZonedPanelRender {
   zone?: PanelZone;
-  render: AngularPanelRender;
+  render: PanelRender;
 }
 
 /**
  * Angular-shaped pinned-rows panel slot.
  *
- * @since 1.9.0
+ * @since 1.7.1
  */
-export interface AngularPanelSlot {
+export interface PanelSlot {
   id?: string;
   position?: 'top' | 'bottom';
-  render: AngularPanelRender | AngularZonedPanelRender[];
+  render: PanelRender | ZonedPanelRender[];
 }
 
-type CoreSlot = NonNullable<PinnedRowsConfig['slots']>[number];
+type CoreSlot = NonNullable<CorePinnedRowsConfig['slots']>[number];
 type CoreAggregationSlot = Exclude<CoreSlot, { render: unknown }>;
 
 /**
  * Angular-shaped pinned-rows slot \u2014 either an aggregation slot (passthrough)
  * or a panel slot accepting Angular component classes as `render`.
  *
- * @since 1.9.0
+ * @since 1.7.1
  */
-export type AngularPinnedRowSlot = CoreAggregationSlot | AngularPanelSlot;
+export type PinnedRowSlot = CoreAggregationSlot | PanelSlot;
 
 /**
- * Angular-specific pinned-rows config that allows Angular component classes
- * as `render` inside `slots[]` and `customPanels[]`. Bridging to vanilla DOM
- * is handled by the side-effect import
+ * Pinned-rows config widened to accept Angular component classes as `render`
+ * inside `slots[]` and `customPanels[]`. Bridging to vanilla DOM is handled
+ * by the side-effect import `@toolbox-web/grid-angular/features/pinned-rows`.
+ *
+ * Re-exported under the same name as the core type so Angular users see a
+ * single canonical `PinnedRowsConfig` from
  * `@toolbox-web/grid-angular/features/pinned-rows`.
  *
- * @since 1.9.0
+ * @since 1.7.1
  */
-export type AngularPinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & {
-  slots?: AngularPinnedRowSlot[];
+export type PinnedRowsConfig = Omit<CorePinnedRowsConfig, 'slots' | 'customPanels'> & {
+  slots?: PinnedRowSlot[];
   customPanels?: Array<{
     id: string;
     position: PanelZone;
     render: ((ctx: PinnedRowsContext) => HTMLElement) | Type<unknown>;
   }>;
 };
+
+// ── Deprecated framework-prefixed aliases ──────────────────────────────────
+// Retained for backwards compatibility. New code should use the canonical
+// (unprefixed) names above.
+
+/** @deprecated Use {@link PanelRender} instead. */
+export type AngularPanelRender = PanelRender;
+/** @deprecated Use {@link ZonedPanelRender} instead. */
+export type AngularZonedPanelRender = ZonedPanelRender;
+/** @deprecated Use {@link PanelSlot} instead. */
+export type AngularPanelSlot = PanelSlot;
+/** @deprecated Use {@link PinnedRowSlot} instead. */
+export type AngularPinnedRowSlot = PinnedRowSlot;
+/** @deprecated Use {@link PinnedRowsConfig} instead. */
+export type AngularPinnedRowsConfig = PinnedRowsConfig;
 
 /**
  * Owns the binding(s) `[pinnedRows]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
@@ -80,7 +102,7 @@ export type AngularPinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPa
 export class GridPinnedRowsDirective implements OnDestroy {
   private readonly elementRef = inject(ElementRef<DataGridElement>);
 
-  readonly pinnedRows = input<boolean | AngularPinnedRowsConfig>();
+  readonly pinnedRows = input<boolean | PinnedRowsConfig>();
 
   constructor() {
     registerFeatureClaim(this.elementRef.nativeElement, 'pinnedRows', () => this.pinnedRows());

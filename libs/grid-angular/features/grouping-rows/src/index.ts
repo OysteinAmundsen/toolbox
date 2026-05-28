@@ -15,8 +15,15 @@
 
 import { isComponentClass, registerFeatureConfigPreprocessor } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/grouping-rows';
-import type { GroupingRowsConfig, GroupRowRenderParams } from '@toolbox-web/grid/plugins/grouping-rows';
-export { GridGroupingRowsDirective, type AngularGroupingRowsConfig } from './grid-grouping-rows.directive';
+import type {
+  GroupingRowsConfig as CoreGroupingRowsConfig,
+  GroupRowRenderParams,
+} from '@toolbox-web/grid/plugins/grouping-rows';
+export {
+  GridGroupingRowsDirective,
+  type AngularGroupingRowsConfig,
+  type GroupingRowsConfig,
+} from './grid-grouping-rows.directive';
 export type { _Augmentation as _GroupingRowsAugmentation } from '@toolbox-web/grid/features/grouping-rows';
 
 // Bridge any Angular component classes embedded in the user-supplied config
@@ -24,7 +31,7 @@ export type { _Augmentation as _GroupingRowsAugmentation } from '@toolbox-web/gr
 // plugin factory consumes the config.
 registerFeatureConfigPreprocessor('groupingRows', (config, adapter) => {
   if (!config || typeof config !== 'object') return config;
-  const cfg = config as GroupingRowsConfig;
+  const cfg = config as CoreGroupingRowsConfig;
   if (cfg.groupRowRenderer && isComponentClass(cfg.groupRowRenderer)) {
     const mount = adapter.mountComponentRenderer<GroupRowRenderParams>(cfg.groupRowRenderer, (p) => ({
       key: p.key,

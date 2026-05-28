@@ -17,19 +17,28 @@ import type { Type } from '@angular/core';
 import { isComponentClass, registerFeatureConfigPreprocessor, type GridAdapter } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/pinned-rows';
 import type {
-  PinnedRowsConfig,
+  PinnedRowsConfig as CorePinnedRowsConfig,
+  PinnedRowSlot as CorePinnedRowSlot,
+  ZonedPanelRender as CoreZonedPanelRender,
   PinnedRowsContext,
-  PinnedRowSlot,
-  ZonedPanelRender,
 } from '@toolbox-web/grid/plugins/pinned-rows';
 import { buildCachedPanelRenderer } from './cached-panel-renderer';
 export { GridPinnedRowsDirective } from './grid-pinned-rows.directive';
 export type {
+  // Deprecated framework-prefixed aliases \u2014 kept for backwards compatibility.
   AngularPanelRender,
   AngularPanelSlot,
   AngularPinnedRowsConfig,
   AngularPinnedRowSlot,
   AngularZonedPanelRender,
+  // Canonical (unprefixed) widening types. Same names as the core types
+  // from `@toolbox-web/grid` \u2014 these accept Angular component classes in
+  // addition to the vanilla `HTMLElement`-returning renderer functions.
+  PanelRender,
+  PanelSlot,
+  PinnedRowsConfig,
+  PinnedRowSlot,
+  ZonedPanelRender,
 } from './grid-pinned-rows.directive';
 export type { _Augmentation as _PinnedRowsAugmentation } from '@toolbox-web/grid/features/pinned-rows';
 
@@ -50,11 +59,11 @@ function buildPanelRenderer(
  * For panel slots, wrap any component-class `render` (or array entry's `render`)
  * with the Angular component renderer.
  */
-function bridgeSlot(adapter: GridAdapter, slot: PinnedRowSlot): PinnedRowSlot {
+function bridgeSlot(adapter: GridAdapter, slot: CorePinnedRowSlot): CorePinnedRowSlot {
   if (!('render' in slot) || slot.render == null) return slot;
 
   if (Array.isArray(slot.render)) {
-    const zoned: ZonedPanelRender[] = slot.render.map((entry) => {
+    const zoned: CoreZonedPanelRender[] = slot.render.map((entry) => {
       if (entry?.render == null) return entry;
       if (isComponentClass(entry.render)) {
         return { zone: entry.zone, render: buildPanelRenderer(adapter, entry.render as Type<unknown>) };
@@ -74,8 +83,8 @@ function bridgeSlot(adapter: GridAdapter, slot: PinnedRowSlot): PinnedRowSlot {
 // to plain renderer functions before the core plugin factory consumes the config.
 registerFeatureConfigPreprocessor('pinnedRows', (config, adapter) => {
   if (!config || typeof config !== 'object') return config;
-  const cfg = config as PinnedRowsConfig;
-  let next: PinnedRowsConfig = cfg;
+  const cfg = config as CorePinnedRowsConfig;
+  let next: CorePinnedRowsConfig = cfg;
 
   // Legacy customPanels bridging.
   if (Array.isArray(cfg.customPanels)) {

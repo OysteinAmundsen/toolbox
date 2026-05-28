@@ -121,7 +121,7 @@ registerTemplateBridge(({ grid }) => {
  * and crash. Light-DOM `<tbw-grid-detail>` templates continue to win via
  * `parseLightDomDetail` inside the plugin.
  *
- * @since 1.8.0
+ * @since 1.7.1
  */
 registerFeatureConfigPreprocessor('masterDetail', (config, adapter) => {
   if (!config || typeof config !== 'object') return config;

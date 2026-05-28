@@ -109,7 +109,7 @@ registerTemplateBridge(({ grid, adapter }) => {
  * time and crash. Light-DOM `<tbw-grid-responsive-card>` templates continue
  * to win via the post-mount template bridge above.
  *
- * @since 1.8.0
+ * @since 1.7.1
  */
 registerFeatureConfigPreprocessor('responsive', (config, adapter) => {
   if (!config || typeof config !== 'object') return config;

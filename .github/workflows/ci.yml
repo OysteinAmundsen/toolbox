@@ -256,7 +256,12 @@ jobs:
   e2e:
     needs: [setup]
     if: needs.setup.outputs.should_validate == 'true'
-    runs-on: ubuntu-latest
+    # Pinned (not `ubuntu-latest`) because this job relies on the
+    # preinstalled Google Chrome shipped with the 24.04 runner image
+    # (see `channel: 'chrome'` in the Playwright configs). Letting
+    # `latest` float to a future image would silently change the
+    # browser available to e2e.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       # Disable Nx interactive prompts for CI
@@ -291,14 +296,36 @@ jobs:
       - name: Build libraries
         run: bun run build
 
-      - name: Install Playwright browsers
-        # `bunx playwright install` has been observed to hang silently
-        # after the Chrome download finishes — the unzip-to-cache phase
-        # produces no output and can stall the runner indefinitely
-        # (confirmed: 18 min of silence between the 100 % download line
-        # and the job timeout, with no further log output). Cap this
-        # step so the next such hang fails fast instead of consuming
-        # the full 20-min e2e job budget.
+      - name: Verify system Chrome
+        # We run e2e against the system Google Chrome preinstalled on
+        # the ubuntu-24.04 runner image (Playwright configs use
+        # `channel: 'chrome'` on CI). This avoids the
+        # `bunx playwright install` hang where the unzip-to-cache phase
+        # stalls after the Chrome download finishes (18 min of silence
+        # observed → 20-min job timeout). The cache + install steps
+        # below are kept as best-effort warm-up for the bundled
+        # Chromium cache; if they hang or fail, e2e still runs via the
+        # system Chrome channel.
+        run: google-chrome --version
+
+      - name: Cache Playwright browsers
+        # Cheap insurance: if the bundled Chromium install step below
+        # ever succeeds, this cache lets subsequent runs skip the
+        # hang-prone extract phase. Keyed on bun.lock so the cache
+        # invalidates when @playwright/test bumps.
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browsers (best-effort)
+        # Opportunistic warm-up of ~/.cache/ms-playwright. The primary
+        # e2e browser is system Chrome via `channel: 'chrome'`, so a
+        # hang or failure here does not block the job — `continue-on-error`
+        # plus the 5-min timeout ensure we fail fast and proceed.
+        continue-on-error: true
         timeout-minutes: 5
         run: bunx playwright install --with-deps chromium
 

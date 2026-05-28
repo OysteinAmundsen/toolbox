@@ -63,7 +63,14 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      // On CI, use the system Google Chrome preinstalled on the
+      // ubuntu-24.04 runner image. This avoids the
+      // `bunx playwright install` unzip-to-cache hang. Locally we
+      // keep Playwright's bundled Chromium for reproducibility.
+      use: {
+        ...devices['Desktop Chrome'],
+        ...(process.env.CI ? { channel: 'chrome' as const } : {}),
+      },
     },
     // Can add Firefox and WebKit for broader testing
     // {

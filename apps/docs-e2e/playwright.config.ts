@@ -35,7 +35,13 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      // On CI, use the system Google Chrome preinstalled on the
+      // ubuntu-24.04 runner image (see ci.yml `e2e` job). Avoids the
+      // `bunx playwright install` unzip-to-cache hang.
+      use: {
+        ...devices['Desktop Chrome'],
+        ...(process.env.CI ? { channel: 'chrome' as const } : {}),
+      },
     },
   ],
 

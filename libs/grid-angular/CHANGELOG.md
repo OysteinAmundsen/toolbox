@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.7.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.7.0...grid-angular-1.7.1) (2026-05-28)
+
+
+### Bug Fixes
+
+* **grid-angular:** bridge component classes for masterDetail.detailRenderer, responsive.cardRenderer, plugin-level filtering.filterPanelRenderer; export canonical MasterDetailConfig/ResponsivePluginConfig/FilterConfig ([23081ff](https://github.com/OysteinAmundsen/toolbox/commit/23081ff972c98e50ae14da4e086e27830d0080cb))
+* **grid-angular:** rename framework-prefixed widening types to canonical names, deprecate Angular* aliases ([4a961b8](https://github.com/OysteinAmundsen/toolbox/commit/4a961b88439afcfe6c2949be27f7c8541b77eb4b))
+* **grid-angular:** widen pinnedRows config types to allow framework-native renderers ([be3f5bc](https://github.com/OysteinAmundsen/toolbox/commit/be3f5bc9ee5773dbccb5e443ff7c943376eddc52))
+
 ## [1.7.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.6.0...grid-angular-1.7.0) (2026-05-24)
 
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.8.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.8.1...grid-react-1.8.2) (2026-05-28)
+
+
+### Bug Fixes
+
+* **grid-react:** bridge ReactNode for masterDetail.detailRenderer and responsive.cardRenderer; export canonical MasterDetailConfig/ResponsivePluginConfig ([1fe8831](https://github.com/OysteinAmundsen/toolbox/commit/1fe8831da2934b9627b09cebda53ba8e5e3da897))
+* **grid-react:** rename framework-prefixed widening types to canonical names, deprecate React* aliases ([1ba1435](https://github.com/OysteinAmundsen/toolbox/commit/1ba1435a3a033abca82e051bb5e180a95662d569))
+* **grid-react:** widen pinnedRows prop to accept React JSX slot/customPanel renderers ([d49cd58](https://github.com/OysteinAmundsen/toolbox/commit/d49cd5892e6123c6301699a7c39b2fc54d0bc5b8))
+
 ## [1.8.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.8.0...grid-react-1.8.1) (2026-05-25)
 
 

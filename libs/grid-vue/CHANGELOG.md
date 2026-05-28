@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.9.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.9.0...grid-vue-1.9.1) (2026-05-28)
+
+
+### Bug Fixes
+
+* **grid-vue:** bridge VNode for masterDetail.detailRenderer and responsive.cardRenderer; export canonical MasterDetailConfig/ResponsivePluginConfig ([357de27](https://github.com/OysteinAmundsen/toolbox/commit/357de27fa473192bb4c5dbba37a6d0a0dbe2355f))
+* **grid-vue:** rename framework-prefixed widening types to canonical names, deprecate Vue* aliases ([1a9c490](https://github.com/OysteinAmundsen/toolbox/commit/1a9c490b8ad6515cea2357051a9e55207d6b74c1))
+* **grid-vue:** widen pinnedRows config types to allow framework-native renderers ([1368125](https://github.com/OysteinAmundsen/toolbox/commit/1368125f8d60a3d8a8b0943764ddf172e13cae9a))
+
 ## [1.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.8.0...grid-vue-1.9.0) (2026-05-25)
 
 ### Features

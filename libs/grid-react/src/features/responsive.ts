@@ -1,13 +1,19 @@
 /**
  * Responsive feature for @toolbox-web/grid-react
  *
- * Import this module to enable the `responsive` prop on DataGrid.
+ * Import this module to enable the `responsive` prop on DataGrid. Bridges
+ * both:
+ * - Light-DOM `<GridResponsiveCard>` children → ResponsivePlugin's cardRenderer
+ *   (via the adapter's `createResponsiveCardRenderer` bridge).
+ * - Config-level `responsive={{ cardRenderer: (row) => <JSX/> }}` → vanilla
+ *   `HTMLElement` (via a per-feature factory override that wraps React node
+ *   returns through the React portal bridge).
  *
  * @example
  * ```tsx
  * import '@toolbox-web/grid-react/features/responsive';
  *
- * <DataGrid responsive={{ breakpoint: 700 }} />
+ * <DataGrid responsive={{ breakpoint: 700, cardRenderer: (row) => <Card row={row} /> }} />
  * ```
  *
  * @packageDocumentation
@@ -17,8 +23,12 @@
 import '@toolbox-web/grid/features/responsive';
 
 import type { DataGridElement, FrameworkAdapter } from '@toolbox-web/grid/all';
+import { ResponsivePlugin, type ResponsivePluginConfig } from '@toolbox-web/grid/plugins/responsive';
+import type { ReactNode } from 'react';
+import type { ResponsivePluginConfig as ReactResponsiveConfig } from '../lib/feature-props';
+import { registerFeature } from '../lib/feature-registry';
 import { getResponsiveCardRenderer, type ResponsiveCardContext } from '../lib/grid-responsive-card';
-import { renderToContainer } from '../lib/portal-bridge';
+import { removeFromContainer, renderToContainer } from '../lib/portal-bridge';
 import { registerPostMountRefresh } from '../lib/post-mount-refresh-hooks';
 import { registerResponsiveCardRendererBridge } from '../lib/react-grid-adapter';
 
@@ -68,3 +78,60 @@ registerPostMountRefresh('responsive', ({ gridEl }) => {
   const reactRenderer = grid.__frameworkAdapter?.createResponsiveCardRenderer?.(gridEl);
   if (reactRenderer) plugin.setCardRenderer(reactRenderer);
 });
+
+/**
+ * Subclass that releases React portals owned by the bridged `cardRenderer`
+ * when the plugin detaches (grid disconnect or config replace).
+ */
+class ResponsivePluginWithCleanup extends ResponsivePlugin {
+  #portalKeys: Set<string>;
+  constructor(config: ResponsivePluginConfig, portalKeys: Set<string>) {
+    super(config);
+    this.#portalKeys = portalKeys;
+  }
+  override detach(): void {
+    super.detach();
+    for (const key of this.#portalKeys) {
+      try {
+        removeFromContainer(key, { sync: false });
+      } catch {
+        // Ignore individual teardown errors so siblings still run.
+      }
+    }
+    this.#portalKeys.clear();
+  }
+}
+
+// Override the core feature factory to bridge config-level `cardRenderer`
+// returns (`ReactNode`) to vanilla `HTMLElement`. Light-DOM
+// `<GridResponsiveCard>` continues to win via the post-mount hook above.
+registerFeature(
+  'responsive',
+  (rawConfig) => {
+    const options = rawConfig == null || typeof rawConfig === 'boolean' ? {} : (rawConfig as ReactResponsiveConfig);
+    const userRenderer = options.cardRenderer as
+      | ((row: unknown, rowIndex: number, column?: unknown) => ReactNode | HTMLElement)
+      | undefined;
+    if (typeof userRenderer !== 'function') {
+      return new ResponsivePlugin(options as ResponsivePluginConfig);
+    }
+
+    const portalKeys = new Set<string>();
+    const bridged: ResponsivePluginConfig['cardRenderer'] = (row, rowIndex, column) => {
+      const result = userRenderer(row, rowIndex, column);
+      if (result instanceof HTMLElement) return result;
+      const host = document.createElement('div');
+      host.className = 'react-responsive-card';
+      if (result == null || result === false) return host;
+      const key = renderToContainer(host, result as ReactNode);
+      portalKeys.add(key);
+      return host;
+    };
+
+    return new ResponsivePluginWithCleanup(
+      { ...(options as ResponsivePluginConfig), cardRenderer: bridged },
+      portalKeys,
+    );
+  },
+  { override: true },
+);

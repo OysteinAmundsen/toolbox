@@ -22,18 +22,18 @@ import type {
   ClipboardConfig,
   ColumnVirtualizationConfig,
   ContextMenuConfig,
+  MasterDetailConfig as CoreMasterDetailConfig,
+  ResponsivePluginConfig as CoreResponsivePluginConfig,
   ExportConfig,
   FeatureConfig,
   FilterConfig,
   GroupingColumnsConfig,
   GroupingRowsConfig,
-  MasterDetailConfig,
   MultiSortConfig,
   PinnedRowsConfig,
   PivotConfig,
   PrintConfig,
   ReorderConfig,
-  ResponsivePluginConfig,
   RowDragDropConfig,
   RowReorderConfig,
   SelectionConfig,
@@ -93,7 +93,7 @@ export type ReactGroupingColumnsConfig = Omit<GroupingColumnsConfig, 'groupHeade
  * `(params: GroupRowRenderParams) => ReactNode` in addition to the vanilla
  * `(params) => HTMLElement | string | void` signature.
  *
- * @since 1.8.0
+ * @since 1.8.1
  */
 export type ReactGroupingRowsConfig = Omit<GroupingRowsConfig, 'groupRowRenderer'> & {
   groupRowRenderer?: GroupingRowsConfig['groupRowRenderer'] | ((params: GroupRowRenderParams) => ReactNode);
@@ -108,14 +108,14 @@ export type ReactGroupingRowsConfig = Omit<GroupingRowsConfig, 'groupRowRenderer
  * pinned-rows plugin can keep its host-element reference stable across
  * grid re-renders.
  *
- * @since 1.8.0
+ * @since 1.8.1
  */
 export type ReactPanelRender = (ctx: PinnedRowsContext) => ReactNode;
 
 /**
  * React-typed zoned panel render entry.
  *
- * @since 1.8.0
+ * @since 1.8.1
  */
 export interface ReactZonedPanelRender {
   zone?: PanelZone;
@@ -126,7 +126,7 @@ export interface ReactZonedPanelRender {
  * React-typed panel slot — same shape as the vanilla `PanelSlot` but with
  * `ReactNode` render returns.
  *
- * @since 1.8.0
+ * @since 1.8.1
  */
 export interface ReactPanelSlot {
   id?: string;
@@ -138,7 +138,7 @@ export interface ReactPanelSlot {
  * React-typed pinned-rows slot — either a panel slot (with React renderers)
  * or a passthrough aggregation slot.
  *
- * @since 1.8.0
+ * @since 1.8.1
  */
 export type ReactPinnedRowSlot = ReactPanelSlot | AggregationSlot;
 
@@ -151,7 +151,7 @@ export type ReactPinnedRowSlot = ReactPanelSlot | AggregationSlot;
  * vanilla DOM is handled by the side-effect import
  * `@toolbox-web/grid-react/features/pinned-rows`.
  *
- * @since 1.8.0
+ * @since 1.8.1
  */
 export type ReactPinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & {
   slots?: ReactPinnedRowSlot[];
@@ -160,6 +160,52 @@ export type ReactPinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPane
     position: PanelZone;
     render: (ctx: PinnedRowsContext) => ReactNode;
   }>;
+};
+
+/**
+ * React-specific master-detail config that allows React render functions as
+ * `detailRenderer`.
+ *
+ * Extends the core `MasterDetailConfig` to accept a React render function
+ * `(row, rowIndex) => ReactNode` in addition to the vanilla
+ * `(row, rowIndex) => HTMLElement | string` signature. Bridging to vanilla
+ * DOM is handled by the side-effect import
+ * `@toolbox-web/grid-react/features/master-detail`.
+ *
+ * Re-exported under the same name as the core type so React users see a
+ * single canonical `MasterDetailConfig` from `@toolbox-web/grid-react`.
+ *
+ * @since 1.8.1
+ */
+export type MasterDetailConfig = Omit<CoreMasterDetailConfig, 'detailRenderer'> & {
+  detailRenderer?:
+    | CoreMasterDetailConfig['detailRenderer']
+    | ((row: Record<string, unknown>, rowIndex: number) => ReactNode);
+};
+
+/**
+ * React-specific responsive config that allows React render functions as
+ * `cardRenderer`.
+ *
+ * Extends the core `ResponsivePluginConfig` to accept a React render function
+ * `(row, rowIndex, column?) => ReactNode` in addition to the vanilla
+ * `(row, rowIndex, column?) => HTMLElement` signature. Bridging to vanilla
+ * DOM is handled by the side-effect import
+ * `@toolbox-web/grid-react/features/responsive`.
+ *
+ * Re-exported under the same name as the core type so React users see a
+ * single canonical `ResponsivePluginConfig` from `@toolbox-web/grid-react`.
+ *
+ * @since 1.8.1
+ */
+export type ResponsivePluginConfig<TRow = unknown> = Omit<CoreResponsivePluginConfig<TRow>, 'cardRenderer'> & {
+  cardRenderer?:
+    | CoreResponsivePluginConfig<TRow>['cardRenderer']
+    | ((
+        row: TRow,
+        rowIndex: number,
+        column?: Parameters<NonNullable<CoreResponsivePluginConfig<TRow>['cardRenderer']>>[2],
+      ) => ReactNode);
 };
 // #endregion
 
@@ -511,7 +557,7 @@ export interface FeatureProps<TRow = unknown> {
    * }} />
    * ```
    */
-  responsive?: boolean | ResponsivePluginConfig;
+  responsive?: boolean | ResponsivePluginConfig<TRow>;
 
   // ═══════════════════════════════════════════════════════════════════
   // UNDO/REDO

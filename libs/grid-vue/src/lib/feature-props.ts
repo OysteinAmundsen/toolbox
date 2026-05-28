@@ -17,20 +17,22 @@
  * ```
  */
 
-// Import plugin config types from the all bundle for monorepo compatibility
+// Import plugin config types from the all bundle for monorepo compatibility.
+// Types that the Vue adapter re-exports under their canonical (unprefixed)
+// name are imported with a `Core*` alias to avoid a local naming collision.
 import type {
   ClipboardConfig,
   ColumnVirtualizationConfig,
   ContextMenuConfig,
+  FilterConfig as CoreFilterConfig,
+  GroupingColumnsConfig as CoreGroupingColumnsConfig,
+  GroupingRowsConfig as CoreGroupingRowsConfig,
   MasterDetailConfig as CoreMasterDetailConfig,
+  PinnedRowsConfig as CorePinnedRowsConfig,
   ResponsivePluginConfig as CoreResponsivePluginConfig,
   ExportConfig,
   FeatureConfig,
-  FilterConfig,
-  GroupingColumnsConfig,
-  GroupingRowsConfig,
   MultiSortConfig,
-  PinnedRowsConfig,
   PivotConfig,
   PrintConfig,
   ReorderConfig,
@@ -46,14 +48,23 @@ import type {
 } from '@toolbox-web/grid/all';
 import type { EditingConfig } from '@toolbox-web/grid/plugins/editing';
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
-import type { ColumnGroupDefinition, GroupHeaderRenderParams } from '@toolbox-web/grid/plugins/grouping-columns';
+import type {
+  ColumnGroupDefinition as CoreColumnGroupDefinition,
+  GroupHeaderRenderParams,
+} from '@toolbox-web/grid/plugins/grouping-columns';
 import type { GroupRowRenderParams } from '@toolbox-web/grid/plugins/grouping-rows';
 import type { AggregationSlot, PanelZone, PinnedRowsContext } from '@toolbox-web/grid/plugins/pinned-rows';
 import type { VNode } from 'vue';
 
+// Naming policy: each adapter-widened config is exported under the SAME
+// canonical name as its core counterpart (`FilterConfig`, `MasterDetailConfig`,
+// `PinnedRowsConfig`, ...). The colliding core import is renamed to `Core*`.
+// Historical `Vue*` aliases remain as `@deprecated` re-exports for one or two
+// minor cycles. See `.github/instructions/framework-adapters.instructions.md`.
+
 /**
- * Vue-specific filter configuration that extends `FilterConfig` to accept
- * Vue render functions for `filterPanelRenderer`.
+ * Filter configuration widened to accept Vue render functions as
+ * `filterPanelRenderer`.
  *
  * The `filterPanelRenderer` property accepts either:
  * - The core imperative signature: `(container: HTMLElement, params: FilterPanelParams) => void`
@@ -61,44 +72,39 @@ import type { VNode } from 'vue';
  *
  * @template TRow - The row data type
  */
-export type VueFilterConfig<TRow = unknown> = Omit<FilterConfig<TRow>, 'filterPanelRenderer'> & {
-  filterPanelRenderer?: FilterConfig<TRow>['filterPanelRenderer'] | ((params: FilterPanelParams) => VNode);
+export type FilterConfig<TRow = unknown> = Omit<CoreFilterConfig<TRow>, 'filterPanelRenderer'> & {
+  filterPanelRenderer?: CoreFilterConfig<TRow>['filterPanelRenderer'] | ((params: FilterPanelParams) => VNode);
 };
 
 /**
- * Vue-specific column group definition that allows Vue render functions as the per-group `renderer`.
+ * Column group definition widened to accept Vue render functions as the
+ * per-group `renderer`.
  *
  * @since 1.9.0
  */
-export type VueColumnGroupDefinition = Omit<ColumnGroupDefinition, 'renderer'> & {
-  renderer?: ColumnGroupDefinition['renderer'] | ((params: GroupHeaderRenderParams) => VNode);
+export type ColumnGroupDefinition = Omit<CoreColumnGroupDefinition, 'renderer'> & {
+  renderer?: CoreColumnGroupDefinition['renderer'] | ((params: GroupHeaderRenderParams) => VNode);
 };
 
 /**
- * Vue-specific grouping columns config that allows Vue render functions for
+ * Grouping-columns config widened to accept Vue render functions for
  * `groupHeaderRenderer` and the per-group `renderer` inside `columnGroups`.
  *
- * Extends the base GroupingColumnsConfig to accept render functions returning
- * a `VNode` in addition to the vanilla `HTMLElement | string | void` signature.
- *
  * @since 1.9.0
  */
-export type VueGroupingColumnsConfig = Omit<GroupingColumnsConfig, 'groupHeaderRenderer' | 'columnGroups'> & {
-  columnGroups?: VueColumnGroupDefinition[];
-  groupHeaderRenderer?: GroupingColumnsConfig['groupHeaderRenderer'] | ((params: GroupHeaderRenderParams) => VNode);
+export type GroupingColumnsConfig = Omit<CoreGroupingColumnsConfig, 'groupHeaderRenderer' | 'columnGroups'> & {
+  columnGroups?: ColumnGroupDefinition[];
+  groupHeaderRenderer?: CoreGroupingColumnsConfig['groupHeaderRenderer'] | ((params: GroupHeaderRenderParams) => VNode);
 };
 
 /**
- * Vue-specific grouping rows config that allows Vue render functions for
+ * Grouping-rows config widened to accept Vue render functions for
  * `groupRowRenderer`.
- *
- * Extends the base GroupingRowsConfig to accept a render function returning
- * a `VNode` in addition to the vanilla `HTMLElement | string | void` signature.
  *
  * @since 1.9.0
  */
-export type VueGroupingRowsConfig = Omit<GroupingRowsConfig, 'groupRowRenderer'> & {
-  groupRowRenderer?: GroupingRowsConfig['groupRowRenderer'] | ((params: GroupRowRenderParams) => VNode);
+export type GroupingRowsConfig = Omit<CoreGroupingRowsConfig, 'groupRowRenderer'> & {
+  groupRowRenderer?: CoreGroupingRowsConfig['groupRowRenderer'] | ((params: GroupRowRenderParams) => VNode);
 };
 
 /**
@@ -107,53 +113,48 @@ export type VueGroupingRowsConfig = Omit<GroupingRowsConfig, 'groupRowRenderer'>
  * Returning a real `HTMLElement` (e.g. built-in renderers from
  * `@toolbox-web/grid/plugins/pinned-rows`) is supported as a pass-through.
  *
- * @since 1.9.0
+ * @since 1.9.1
  */
-export type VuePanelRender = (ctx: PinnedRowsContext) => VNode | HTMLElement | null | undefined;
+export type PanelRender = (ctx: PinnedRowsContext) => VNode | HTMLElement | null | undefined;
 
 /**
  * Vue-typed zoned panel render entry.
  *
- * @since 1.9.0
+ * @since 1.9.1
  */
-export interface VueZonedPanelRender {
+export interface ZonedPanelRender {
   zone?: PanelZone;
-  render: VuePanelRender;
+  render: PanelRender;
 }
 
 /**
  * Vue-typed panel slot — same shape as the vanilla `PanelSlot` but with
  * `VNode` render returns.
  *
- * @since 1.9.0
+ * @since 1.9.1
  */
-export interface VuePanelSlot {
+export interface PanelSlot {
   id?: string;
   position?: 'top' | 'bottom';
-  render: VuePanelRender | VueZonedPanelRender[];
+  render: PanelRender | ZonedPanelRender[];
 }
 
 /**
  * Vue-typed pinned-rows slot — either a panel slot (with Vue renderers) or a
  * passthrough aggregation slot.
  *
- * @since 1.9.0
+ * @since 1.9.1
  */
-export type VuePinnedRowSlot = VuePanelSlot | AggregationSlot;
+export type PinnedRowSlot = PanelSlot | AggregationSlot;
 
 /**
- * Vue-specific pinned-rows config that allows Vue components as panel
- * `render` functions inside `slots[]` and `customPanels[]`.
+ * Pinned-rows config widened to accept Vue components as panel `render`
+ * functions inside `slots[]` and `customPanels[]`.
  *
- * Extends the base `PinnedRowsConfig` to accept Vue render functions
- * returning a `VNode` in addition to the vanilla `HTMLElement | null`
- * signature. Bridging to vanilla DOM is handled by the side-effect import
- * `@toolbox-web/grid-vue/features/pinned-rows`.
- *
- * @since 1.9.0
+ * @since 1.9.1
  */
-export type VuePinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & {
-  slots?: VuePinnedRowSlot[];
+export type PinnedRowsConfig = Omit<CorePinnedRowsConfig, 'slots' | 'customPanels'> & {
+  slots?: PinnedRowSlot[];
   customPanels?: Array<{
     id: string;
     position: PanelZone;
@@ -162,19 +163,14 @@ export type VuePinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels
 };
 
 /**
- * Vue-specific master-detail config that allows Vue render functions as
- * `detailRenderer`.
+ * Master-detail config widened to accept a Vue render function as
+ * `detailRenderer` `(row, rowIndex) => VNode` in addition to the vanilla
+ * `(row, rowIndex) => HTMLElement | string` signature.
  *
- * Extends the core `MasterDetailConfig` to accept a Vue render function
- * `(row, rowIndex) => VNode` in addition to the vanilla
- * `(row, rowIndex) => HTMLElement | string` signature. Bridging to vanilla
- * DOM is handled by the side-effect import
- * `@toolbox-web/grid-vue/features/master-detail`.
+ * Re-exported under the same name as the core type so Vue users see a single
+ * canonical `MasterDetailConfig` from `@toolbox-web/grid-vue`.
  *
- * Re-exported under the same name as the core type so Vue users see a
- * single canonical `MasterDetailConfig` from `@toolbox-web/grid-vue`.
- *
- * @since 1.10.0
+ * @since 1.9.1
  */
 export type MasterDetailConfig = Omit<CoreMasterDetailConfig, 'detailRenderer'> & {
   detailRenderer?:
@@ -183,19 +179,14 @@ export type MasterDetailConfig = Omit<CoreMasterDetailConfig, 'detailRenderer'> 
 };
 
 /**
- * Vue-specific responsive config that allows Vue render functions as
- * `cardRenderer`.
- *
- * Extends the core `ResponsivePluginConfig` to accept a Vue render function
+ * Responsive config widened to accept a Vue render function as `cardRenderer`
  * `(row, rowIndex, column?) => VNode` in addition to the vanilla
- * `(row, rowIndex, column?) => HTMLElement` signature. Bridging to vanilla
- * DOM is handled by the side-effect import
- * `@toolbox-web/grid-vue/features/responsive`.
+ * `(row, rowIndex, column?) => HTMLElement` signature.
  *
- * Re-exported under the same name as the core type so Vue users see a
- * single canonical `ResponsivePluginConfig` from `@toolbox-web/grid-vue`.
+ * Re-exported under the same name as the core type so Vue users see a single
+ * canonical `ResponsivePluginConfig` from `@toolbox-web/grid-vue`.
  *
- * @since 1.10.0
+ * @since 1.9.1
  */
 export type ResponsivePluginConfig<TRow = unknown> = Omit<CoreResponsivePluginConfig<TRow>, 'cardRenderer'> & {
   cardRenderer?:
@@ -206,6 +197,29 @@ export type ResponsivePluginConfig<TRow = unknown> = Omit<CoreResponsivePluginCo
         column?: Parameters<NonNullable<CoreResponsivePluginConfig<TRow>['cardRenderer']>>[2],
       ) => VNode | null | undefined);
 };
+
+// ── Deprecated framework-prefixed aliases ──────────────────────────────────
+// Retained for backwards compatibility. New code should import the canonical
+// (unprefixed) names above.
+
+/** @deprecated Use {@link FilterConfig} from `@toolbox-web/grid-vue` instead. */
+export type VueFilterConfig<TRow = unknown> = FilterConfig<TRow>;
+/** @deprecated Use {@link ColumnGroupDefinition} from `@toolbox-web/grid-vue` instead. */
+export type VueColumnGroupDefinition = ColumnGroupDefinition;
+/** @deprecated Use {@link GroupingColumnsConfig} from `@toolbox-web/grid-vue` instead. */
+export type VueGroupingColumnsConfig = GroupingColumnsConfig;
+/** @deprecated Use {@link GroupingRowsConfig} from `@toolbox-web/grid-vue` instead. */
+export type VueGroupingRowsConfig = GroupingRowsConfig;
+/** @deprecated Use {@link PanelRender} from `@toolbox-web/grid-vue` instead. */
+export type VuePanelRender = PanelRender;
+/** @deprecated Use {@link ZonedPanelRender} from `@toolbox-web/grid-vue` instead. */
+export type VueZonedPanelRender = ZonedPanelRender;
+/** @deprecated Use {@link PanelSlot} from `@toolbox-web/grid-vue` instead. */
+export type VuePanelSlot = PanelSlot;
+/** @deprecated Use {@link PinnedRowSlot} from `@toolbox-web/grid-vue` instead. */
+export type VuePinnedRowSlot = PinnedRowSlot;
+/** @deprecated Use {@link PinnedRowsConfig} from `@toolbox-web/grid-vue` instead. */
+export type VuePinnedRowsConfig = PinnedRowsConfig;
 
 /**
  * Feature props for declarative plugin configuration.
@@ -322,7 +336,7 @@ export interface FeatureProps<TRow = unknown> {
    * <TbwGrid :filtering="{ debounceMs: 200 }" />
    * ```
    */
-  filtering?: boolean | VueFilterConfig<TRow>;
+  filtering?: boolean | FilterConfig<TRow>;
 
   // ═══════════════════════════════════════════════════════════════════
   // COLUMN FEATURES
@@ -391,7 +405,7 @@ export interface FeatureProps<TRow = unknown> {
    * }" />
    * ```
    */
-  groupingColumns?: boolean | VueGroupingColumnsConfig;
+  groupingColumns?: boolean | GroupingColumnsConfig;
 
   /**
    * Enable horizontal column virtualization for wide grids.
@@ -466,7 +480,7 @@ export interface FeatureProps<TRow = unknown> {
    * }" />
    * ```
    */
-  groupingRows?: VueGroupingRowsConfig;
+  groupingRows?: GroupingRowsConfig;
 
   /**
    * Enable pinned rows (aggregation/status bar).
@@ -489,7 +503,7 @@ export interface FeatureProps<TRow = unknown> {
    * }" />
    * ```
    */
-  pinnedRows?: boolean | VuePinnedRowsConfig;
+  pinnedRows?: boolean | PinnedRowsConfig;
 
   /**
    * Pin selected data rows below the header as the user scrolls past them.

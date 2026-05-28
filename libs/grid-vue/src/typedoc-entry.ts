@@ -29,12 +29,28 @@ export type { CellEditor, CellRenderer, ColumnConfig, GridConfig } from './lib/v
 // Feature props types for declarative plugin configuration
 export type {
   AllFeatureProps,
+  ColumnGroupDefinition,
   FeatureProps,
+  FilterConfig,
+  GroupingColumnsConfig,
+  GroupingRowsConfig,
+  MasterDetailConfig,
+  PanelRender,
+  PanelSlot,
+  PinnedRowSlot,
+  PinnedRowsConfig,
+  ResponsivePluginConfig,
   SSRProps,
   VueColumnGroupDefinition,
   VueFilterConfig,
   VueGroupingColumnsConfig,
   VueGroupingRowsConfig,
+  VuePanelRender,
+  VuePanelSlot,
+  VuePinnedRowSlot,
+  VuePinnedRowsConfig,
+  VueZonedPanelRender,
+  ZonedPanelRender,
 } from './lib/feature-props';
 
 // Feature registry for tree-shakeable plugin registration

@@ -87,12 +87,32 @@ export type { CellEditor, CellRenderer, ColumnConfig, GridConfig } from './lib/v
 // Feature props types for declarative plugin configuration
 export type {
   AllFeatureProps,
+  // Canonical (unprefixed) adapter-widened config types. Same names as the
+  // core types from `@toolbox-web/grid` — these accept Vue render functions
+  // in addition to the vanilla `HTMLElement`-returning ones.
+  ColumnGroupDefinition,
   FeatureProps,
+  FilterConfig,
+  GroupingColumnsConfig,
+  GroupingRowsConfig,
+  MasterDetailConfig,
+  PanelRender,
+  PanelSlot,
+  PinnedRowSlot,
+  PinnedRowsConfig,
+  ResponsivePluginConfig,
   SSRProps,
+  // Deprecated framework-prefixed aliases — kept for backwards compatibility.
   VueColumnGroupDefinition,
   VueFilterConfig,
   VueGroupingColumnsConfig,
   VueGroupingRowsConfig,
+  VuePanelRender,
+  VuePanelSlot,
+  VuePinnedRowSlot,
+  VuePinnedRowsConfig,
+  VueZonedPanelRender,
+  ZonedPanelRender,
 } from './lib/feature-props';
 
 // Feature registry for tree-shakeable plugin registration

@@ -53,25 +53,31 @@ import '@toolbox-web/grid/features/pinned-rows';
 
 import {
   PinnedRowsPlugin,
-  type PinnedRowSlot,
-  type PinnedRowsConfig,
+  type PinnedRowSlot as CorePinnedRowSlot,
+  type PinnedRowsConfig as CorePinnedRowsConfig,
+  type ZonedPanelRender as CoreZonedPanelRender,
   type PinnedRowsContext,
-  type ZonedPanelRender,
 } from '@toolbox-web/grid/plugins/pinned-rows';
-import {
-  type VuePanelRender,
-  type VuePanelSlot,
-  type VuePinnedRowSlot,
-  type VuePinnedRowsConfig,
-  type VueZonedPanelRender,
-} from '../lib/feature-props';
+import type { PanelRender, PinnedRowSlot, PinnedRowsConfig } from '../lib/feature-props';
 import { registerFeature } from '../lib/feature-registry';
 import { removeFromContainer, renderToContainer } from '../lib/teleport-bridge';
 
 // Re-export Vue-typed pinned-rows types for back-compat. The canonical home is
-// `../lib/feature-props.ts` so all Vue*Config types live in one place (see
+// `../lib/feature-props.ts` so all widening types live in one place (see
 // React adapter for the same pattern).
-export type { VuePanelRender, VuePanelSlot, VuePinnedRowSlot, VuePinnedRowsConfig, VueZonedPanelRender };
+export type {
+  PanelRender,
+  PanelSlot,
+  PinnedRowSlot,
+  PinnedRowsConfig,
+  // Deprecated framework-prefixed aliases (re-exported for back-compat).
+  VuePanelRender,
+  VuePanelSlot,
+  VuePinnedRowSlot,
+  VuePinnedRowsConfig,
+  VueZonedPanelRender,
+  ZonedPanelRender,
+} from '../lib/feature-props';
 
 /**
  * Cache entry for a single Vue-typed renderer. Reused across grid re-renders
@@ -98,7 +104,7 @@ interface VueRenderCache {
  * function fires when the plugin detaches (grid disconnect or config replace).
  */
 function createCachedVueRender(
-  vueFn: VuePanelRender,
+  vueFn: PanelRender,
   registerTeardown: (fn: () => void) => void,
 ): (ctx: PinnedRowsContext) => HTMLElement | null {
   let cache: VueRenderCache | null = null;
@@ -127,12 +133,12 @@ function createCachedVueRender(
 }
 
 /** Bridge a single slot. Aggregation slots pass through unchanged. */
-function bridgeSlot(slot: VuePinnedRowSlot, registerTeardown: (fn: () => void) => void): PinnedRowSlot {
+function bridgeSlot(slot: PinnedRowSlot, registerTeardown: (fn: () => void) => void): CorePinnedRowSlot {
   if (!('render' in slot) || slot.render == null) return slot;
 
   if (Array.isArray(slot.render)) {
-    const zoned: ZonedPanelRender[] = slot.render.map((entry) => {
-      if (typeof entry?.render !== 'function') return entry as ZonedPanelRender;
+    const zoned: CoreZonedPanelRender[] = slot.render.map((entry) => {
+      if (typeof entry?.render !== 'function') return entry as CoreZonedPanelRender;
       return { zone: entry.zone, render: createCachedVueRender(entry.render, registerTeardown) };
     });
     return { ...slot, render: zoned };
@@ -142,7 +148,7 @@ function bridgeSlot(slot: VuePinnedRowSlot, registerTeardown: (fn: () => void) =
     return { ...slot, render: createCachedVueRender(slot.render, registerTeardown) };
   }
 
-  return slot as PinnedRowSlot;
+  return slot as CorePinnedRowSlot;
 }
 
 /**
@@ -151,7 +157,7 @@ function bridgeSlot(slot: VuePinnedRowSlot, registerTeardown: (fn: () => void) =
  */
 class PinnedRowsPluginWithCleanup extends PinnedRowsPlugin {
   #teardowns: Array<() => void>;
-  constructor(config: PinnedRowsConfig | undefined, teardowns: Array<() => void>) {
+  constructor(config: CorePinnedRowsConfig | undefined, teardowns: Array<() => void>) {
     super(config);
     this.#teardowns = teardowns;
   }
@@ -179,9 +185,9 @@ registerFeature(
     }
 
     // Single boundary cast: rawConfig is `unknown`-ish; we accept the Vue-typed shape.
-    const config = rawConfig as VuePinnedRowsConfig;
+    const config = rawConfig as PinnedRowsConfig;
     const { slots: vueSlots, customPanels: vueCustomPanels, ...sharedBase } = config;
-    const options: PinnedRowsConfig = { ...sharedBase };
+    const options: CorePinnedRowsConfig = { ...sharedBase };
 
     const teardowns: Array<() => void> = [];
     const registerTeardown = (fn: () => void): void => {

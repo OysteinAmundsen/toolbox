@@ -48,6 +48,7 @@ import type { EditingConfig } from '@toolbox-web/grid/plugins/editing';
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import type { ColumnGroupDefinition, GroupHeaderRenderParams } from '@toolbox-web/grid/plugins/grouping-columns';
 import type { GroupRowRenderParams } from '@toolbox-web/grid/plugins/grouping-rows';
+import type { AggregationSlot, PanelZone, PinnedRowsContext } from '@toolbox-web/grid/plugins/pinned-rows';
 import type { VNode } from 'vue';
 
 /**
@@ -98,6 +99,66 @@ export type VueGroupingColumnsConfig = Omit<GroupingColumnsConfig, 'groupHeaderR
  */
 export type VueGroupingRowsConfig = Omit<GroupingRowsConfig, 'groupRowRenderer'> & {
   groupRowRenderer?: GroupingRowsConfig['groupRowRenderer'] | ((params: GroupRowRenderParams) => VNode);
+};
+
+/**
+ * Vue-typed render function for a pinned-row panel slot.
+ *
+ * Returning a real `HTMLElement` (e.g. built-in renderers from
+ * `@toolbox-web/grid/plugins/pinned-rows`) is supported as a pass-through.
+ *
+ * @since 1.9.0
+ */
+export type VuePanelRender = (ctx: PinnedRowsContext) => VNode | HTMLElement | null | undefined;
+
+/**
+ * Vue-typed zoned panel render entry.
+ *
+ * @since 1.9.0
+ */
+export interface VueZonedPanelRender {
+  zone?: PanelZone;
+  render: VuePanelRender;
+}
+
+/**
+ * Vue-typed panel slot — same shape as the vanilla `PanelSlot` but with
+ * `VNode` render returns.
+ *
+ * @since 1.9.0
+ */
+export interface VuePanelSlot {
+  id?: string;
+  position?: 'top' | 'bottom';
+  render: VuePanelRender | VueZonedPanelRender[];
+}
+
+/**
+ * Vue-typed pinned-rows slot — either a panel slot (with Vue renderers) or a
+ * passthrough aggregation slot.
+ *
+ * @since 1.9.0
+ */
+export type VuePinnedRowSlot = VuePanelSlot | AggregationSlot;
+
+/**
+ * Vue-specific pinned-rows config that allows Vue components as panel
+ * `render` functions inside `slots[]` and `customPanels[]`.
+ *
+ * Extends the base `PinnedRowsConfig` to accept Vue render functions
+ * returning a `VNode` in addition to the vanilla `HTMLElement | null`
+ * signature. Bridging to vanilla DOM is handled by the side-effect import
+ * `@toolbox-web/grid-vue/features/pinned-rows`.
+ *
+ * @since 1.9.0
+ */
+export type VuePinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & {
+  slots?: VuePinnedRowSlot[];
+  customPanels?: Array<{
+    id: string;
+    position: PanelZone;
+    render: (ctx: PinnedRowsContext) => VNode;
+  }>;
 };
 
 /**
@@ -372,8 +433,17 @@ export interface FeatureProps<TRow = unknown> {
    *   bottom: [{ type: 'aggregation', aggregator: 'sum' }],
    * }" />
    * ```
+   *
+   * @example Vue VNodes in panel slots
+   * ```vue
+   * <TbwGrid :pinnedRows="{
+   *   slots: [
+   *     { id: 'add-row', position: 'bottom', render: () => h(AddRowPanel) },
+   *   ],
+   * }" />
+   * ```
    */
-  pinnedRows?: boolean | PinnedRowsConfig;
+  pinnedRows?: boolean | VuePinnedRowsConfig;
 
   /**
    * Pin selected data rows below the header as the user scrolls past them.

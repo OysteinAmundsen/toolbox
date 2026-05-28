@@ -53,64 +53,25 @@ import '@toolbox-web/grid/features/pinned-rows';
 
 import {
   PinnedRowsPlugin,
-  type AggregationSlot,
-  type PanelZone,
   type PinnedRowSlot,
   type PinnedRowsConfig,
   type PinnedRowsContext,
   type ZonedPanelRender,
 } from '@toolbox-web/grid/plugins/pinned-rows';
-import type { VNode } from 'vue';
+import {
+  type VuePanelRender,
+  type VuePanelSlot,
+  type VuePinnedRowSlot,
+  type VuePinnedRowsConfig,
+  type VueZonedPanelRender,
+} from '../lib/feature-props';
 import { registerFeature } from '../lib/feature-registry';
 import { removeFromContainer, renderToContainer } from '../lib/teleport-bridge';
 
-/**
- * Vue-typed render function for a pinned-row panel slot. Returning `HTMLElement`
- * directly (e.g. built-in renderers from `@toolbox-web/grid/plugins/pinned-rows`)
- * is supported as a pass-through.
- *
- * @since 1.9.0
- */
-export type VuePanelRender = (ctx: PinnedRowsContext) => VNode | HTMLElement | null | undefined;
-/**
- * Vue-typed zoned render entry.
- *
- * @since 1.9.0
- */
-export interface VueZonedPanelRender {
-  zone?: PanelZone;
-  render: VuePanelRender;
-}
-/**
- * Vue-typed panel slot — same shape as vanilla PanelSlot but with VNode render returns.
- *
- * @since 1.9.0
- */
-export interface VuePanelSlot {
-  id?: string;
-  position?: 'top' | 'bottom';
-  render: VuePanelRender | VueZonedPanelRender[];
-}
-/**
- * Vue-typed slot — either a panel slot or an aggregation slot.
- *
- * @since 1.9.0
- */
-export type VuePinnedRowSlot = VuePanelSlot | AggregationSlot;
-
-/**
- * Per-feature shape of `pinnedRows` accepted by the Vue adapter.
- *
- * @since 1.9.0
- */
-export type VuePinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & {
-  slots?: VuePinnedRowSlot[];
-  customPanels?: Array<{
-    id: string;
-    position: PanelZone;
-    render: (ctx: PinnedRowsContext) => VNode;
-  }>;
-};
+// Re-export Vue-typed pinned-rows types for back-compat. The canonical home is
+// `../lib/feature-props.ts` so all Vue*Config types live in one place (see
+// React adapter for the same pattern).
+export type { VuePanelRender, VuePanelSlot, VuePinnedRowSlot, VuePinnedRowsConfig, VueZonedPanelRender };
 
 /**
  * Cache entry for a single Vue-typed renderer. Reused across grid re-renders

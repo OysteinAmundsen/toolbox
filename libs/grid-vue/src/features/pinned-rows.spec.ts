@@ -143,4 +143,17 @@ describe('@toolbox-web/grid-vue/features/pinned-rows', () => {
     const after = (slot.render as (ctx: PinnedRowsContext) => HTMLElement | null)(sampleCtx);
     expect(after).toBeInstanceOf(HTMLElement);
   });
+
+  // Type-only regression for the typing gap fixed in this commit: before the
+  // fix, `FeatureProps['pinnedRows']` was `boolean | PinnedRowsConfig` so
+  // users could not pass a slot whose `render` returned a Vue VNode without
+  // casting through `as unknown as PinnedRowsConfig`.
+  describe('types', () => {
+    it('accepts a VuePinnedRowsConfig literal with VNode-returning slot render', () => {
+      const cfg = {
+        slots: [{ id: 'count', position: 'top' as const, render: (ctx) => h('strong', String(ctx.totalRows)) }],
+      } satisfies NonNullable<import('../lib/feature-props').FeatureProps['pinnedRows']>;
+      expect(cfg.slots).toHaveLength(1);
+    });
+  });
 });

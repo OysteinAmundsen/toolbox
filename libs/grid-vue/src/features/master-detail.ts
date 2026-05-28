@@ -24,9 +24,12 @@
 import '@toolbox-web/grid/features/master-detail';
 
 import type { DataGridElement } from '@toolbox-web/grid/all';
+import { MasterDetailPlugin, type MasterDetailConfig } from '@toolbox-web/grid/plugins/master-detail';
 import type { VNode } from 'vue';
 import { detailRegistry, type DetailPanelContext } from '../lib/detail-panel-registry';
-import { renderToContainer } from '../lib/teleport-bridge';
+import type { MasterDetailConfig as VueMasterDetailConfig } from '../lib/feature-props';
+import { registerFeature } from '../lib/feature-registry';
+import { removeFromContainer, renderToContainer } from '../lib/teleport-bridge';
 import { registerDetailRendererBridge, registerPostMountRefresh } from '../lib/vue-grid-adapter';
 
 // Install the master-detail row-renderer bridge on the Vue adapter.
@@ -66,3 +69,62 @@ registerPostMountRefresh('masterDetail', ({ gridEl }) => {
   const plugin = grid.getPluginByName('masterDetail') as { refreshDetailRenderer?: () => void } | undefined;
   plugin?.refreshDetailRenderer?.();
 });
+
+/**
+ * Subclass that releases Vue teleport portals owned by the bridged
+ * `detailRenderer` when the plugin detaches.
+ */
+class MasterDetailPluginWithCleanup extends MasterDetailPlugin {
+  #teleportKeys: Set<string>;
+  constructor(config: MasterDetailConfig, teleportKeys: Set<string>) {
+    super(config);
+    this.#teleportKeys = teleportKeys;
+  }
+  override detach(): void {
+    super.detach();
+    for (const key of this.#teleportKeys) {
+      try {
+        removeFromContainer(key);
+      } catch {
+        // Ignore individual teardown errors so siblings still run.
+      }
+    }
+    this.#teleportKeys.clear();
+  }
+}
+
+// Override the core feature factory to bridge config-level `detailRenderer`
+// returns (`VNode`) to vanilla `HTMLElement | string`. Light-DOM
+// `<TbwGridDetailPanel>` continues to win via `parseDetailElement` inside the
+// plugin's `parseLightDomDetail`.
+registerFeature(
+  'masterDetail',
+  (rawConfig) => {
+    const options = rawConfig == null || typeof rawConfig === 'boolean' ? {} : (rawConfig as VueMasterDetailConfig);
+    const userRenderer = options.detailRenderer;
+    if (typeof userRenderer !== 'function') {
+      return new MasterDetailPlugin(options as MasterDetailConfig);
+    }
+
+    const teleportKeys = new Set<string>();
+    const bridged: MasterDetailConfig['detailRenderer'] = (row, rowIndex) => {
+      const result = (
+        userRenderer as (r: Record<string, unknown>, i: number) => VNode | HTMLElement | string | null | undefined
+      )(row, rowIndex);
+      if (result == null) return document.createElement('div');
+      if (typeof result === 'string') return result;
+      if (result instanceof HTMLElement) return result;
+      const host = document.createElement('div');
+      host.className = 'vue-detail-panel';
+      const key = renderToContainer(host, result as VNode);
+      teleportKeys.add(key);
+      return host;
+    };
+
+    return new MasterDetailPluginWithCleanup(
+      { ...(options as MasterDetailConfig), detailRenderer: bridged },
+      teleportKeys,
+    );
+  },
+  { override: true },
+);

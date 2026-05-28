@@ -22,18 +22,18 @@ import type {
   ClipboardConfig,
   ColumnVirtualizationConfig,
   ContextMenuConfig,
+  MasterDetailConfig as CoreMasterDetailConfig,
+  ResponsivePluginConfig as CoreResponsivePluginConfig,
   ExportConfig,
   FeatureConfig,
   FilterConfig,
   GroupingColumnsConfig,
   GroupingRowsConfig,
-  MasterDetailConfig,
   MultiSortConfig,
   PinnedRowsConfig,
   PivotConfig,
   PrintConfig,
   ReorderConfig,
-  ResponsivePluginConfig,
   RowDragDropConfig,
   RowReorderConfig,
   SelectionConfig,
@@ -159,6 +159,52 @@ export type VuePinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels
     position: PanelZone;
     render: (ctx: PinnedRowsContext) => VNode;
   }>;
+};
+
+/**
+ * Vue-specific master-detail config that allows Vue render functions as
+ * `detailRenderer`.
+ *
+ * Extends the core `MasterDetailConfig` to accept a Vue render function
+ * `(row, rowIndex) => VNode` in addition to the vanilla
+ * `(row, rowIndex) => HTMLElement | string` signature. Bridging to vanilla
+ * DOM is handled by the side-effect import
+ * `@toolbox-web/grid-vue/features/master-detail`.
+ *
+ * Re-exported under the same name as the core type so Vue users see a
+ * single canonical `MasterDetailConfig` from `@toolbox-web/grid-vue`.
+ *
+ * @since 1.10.0
+ */
+export type MasterDetailConfig = Omit<CoreMasterDetailConfig, 'detailRenderer'> & {
+  detailRenderer?:
+    | CoreMasterDetailConfig['detailRenderer']
+    | ((row: Record<string, unknown>, rowIndex: number) => VNode | null | undefined);
+};
+
+/**
+ * Vue-specific responsive config that allows Vue render functions as
+ * `cardRenderer`.
+ *
+ * Extends the core `ResponsivePluginConfig` to accept a Vue render function
+ * `(row, rowIndex, column?) => VNode` in addition to the vanilla
+ * `(row, rowIndex, column?) => HTMLElement` signature. Bridging to vanilla
+ * DOM is handled by the side-effect import
+ * `@toolbox-web/grid-vue/features/responsive`.
+ *
+ * Re-exported under the same name as the core type so Vue users see a
+ * single canonical `ResponsivePluginConfig` from `@toolbox-web/grid-vue`.
+ *
+ * @since 1.10.0
+ */
+export type ResponsivePluginConfig<TRow = unknown> = Omit<CoreResponsivePluginConfig<TRow>, 'cardRenderer'> & {
+  cardRenderer?:
+    | CoreResponsivePluginConfig<TRow>['cardRenderer']
+    | ((
+        row: TRow,
+        rowIndex: number,
+        column?: Parameters<NonNullable<CoreResponsivePluginConfig<TRow>['cardRenderer']>>[2],
+      ) => VNode | null | undefined);
 };
 
 /**
@@ -515,7 +561,7 @@ export interface FeatureProps<TRow = unknown> {
    * }" />
    * ```
    */
-  responsive?: boolean | ResponsivePluginConfig;
+  responsive?: boolean | ResponsivePluginConfig<TRow>;
 
   // ═══════════════════════════════════════════════════════════════════
   // UNDO/REDO

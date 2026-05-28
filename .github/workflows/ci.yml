@@ -17,6 +17,11 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
+      run_release_please:
+        description: "Run release-please (create/update release PR or cut a release). Use this to bypass a flaky CI gate."
+        required: false
+        type: boolean
+        default: false
       deploy_pages:
         description: "Build and deploy docs site to GitHub Pages"
         required: false
@@ -635,7 +640,13 @@ jobs:
       releases_created: ${{ steps.release.outputs.releases_created }}
     steps:
       - uses: googleapis/release-please-action@v4
-        if: github.event_name == 'push'
+        # Runs automatically on push events, and on manual `workflow_dispatch`
+        # runs when the `run_release_please` input is checked. The manual
+        # path exists so a flaky upstream CI gate (e.g. a runner-side
+        # Playwright install hang) cannot block a release indefinitely.
+        if: |
+          github.event_name == 'push' ||
+          (github.event_name == 'workflow_dispatch' && inputs.run_release_please == true)
         id: release
         with:
           config-file: release-please-config.json

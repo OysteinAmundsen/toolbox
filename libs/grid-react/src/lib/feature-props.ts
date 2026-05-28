@@ -48,6 +48,7 @@ import type { EditingConfig } from '@toolbox-web/grid/plugins/editing';
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import type { ColumnGroupDefinition } from '@toolbox-web/grid/plugins/grouping-columns';
 import type { GroupRowRenderParams } from '@toolbox-web/grid/plugins/grouping-rows';
+import type { AggregationSlot, PanelZone, PinnedRowsContext } from '@toolbox-web/grid/plugins/pinned-rows';
 import type { ReactNode } from 'react';
 
 // #region React-specific Config Overrides
@@ -96,6 +97,69 @@ export type ReactGroupingColumnsConfig = Omit<GroupingColumnsConfig, 'groupHeade
  */
 export type ReactGroupingRowsConfig = Omit<GroupingRowsConfig, 'groupRowRenderer'> & {
   groupRowRenderer?: GroupingRowsConfig['groupRowRenderer'] | ((params: GroupRowRenderParams) => ReactNode);
+};
+
+/**
+ * React-typed render function for a pinned-row panel slot.
+ *
+ * Mirrors the vanilla `PanelRender` signature but returns a `ReactNode`
+ * instead of `HTMLElement | null`. The React adapter (see
+ * `features/pinned-rows.ts`) wraps the returned node in a portal so the
+ * pinned-rows plugin can keep its host-element reference stable across
+ * grid re-renders.
+ *
+ * @since 1.8.0
+ */
+export type ReactPanelRender = (ctx: PinnedRowsContext) => ReactNode;
+
+/**
+ * React-typed zoned panel render entry.
+ *
+ * @since 1.8.0
+ */
+export interface ReactZonedPanelRender {
+  zone?: PanelZone;
+  render: ReactPanelRender;
+}
+
+/**
+ * React-typed panel slot — same shape as the vanilla `PanelSlot` but with
+ * `ReactNode` render returns.
+ *
+ * @since 1.8.0
+ */
+export interface ReactPanelSlot {
+  id?: string;
+  position?: 'top' | 'bottom';
+  render: ReactPanelRender | ReactZonedPanelRender[];
+}
+
+/**
+ * React-typed pinned-rows slot — either a panel slot (with React renderers)
+ * or a passthrough aggregation slot.
+ *
+ * @since 1.8.0
+ */
+export type ReactPinnedRowSlot = ReactPanelSlot | AggregationSlot;
+
+/**
+ * React-specific pinned-rows config that allows React components as panel
+ * `render` functions inside `slots[]` and `customPanels[]`.
+ *
+ * Extends the base `PinnedRowsConfig` to accept React render functions
+ * returning `ReactNode` instead of only `HTMLElement | null`. Bridging to
+ * vanilla DOM is handled by the side-effect import
+ * `@toolbox-web/grid-react/features/pinned-rows`.
+ *
+ * @since 1.8.0
+ */
+export type ReactPinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & {
+  slots?: ReactPinnedRowSlot[];
+  customPanels?: Array<{
+    id: string;
+    position: PanelZone;
+    render: (ctx: PinnedRowsContext) => ReactNode;
+  }>;
 };
 // #endregion
 
@@ -365,8 +429,17 @@ export interface FeatureProps<TRow = unknown> {
    *   bottom: [{ type: 'aggregation', aggregator: 'sum' }],
    * }} />
    * ```
+   *
+   * @example React JSX in panel slots
+   * ```tsx
+   * <DataGrid pinnedRows={{
+   *   slots: [
+   *     { id: 'add-row', position: 'bottom', render: () => <AddRowPanel /> },
+   *   ],
+   * }} />
+   * ```
    */
-  pinnedRows?: boolean | PinnedRowsConfig;
+  pinnedRows?: boolean | ReactPinnedRowsConfig;
 
   /**
    * Pin selected data rows below the header as the user scrolls past them.

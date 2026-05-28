@@ -49,62 +49,24 @@ import '@toolbox-web/grid/features/pinned-rows';
 
 import {
   PinnedRowsPlugin,
-  type AggregationSlot,
-  type PanelZone,
   type PinnedRowSlot,
   type PinnedRowsConfig,
   type PinnedRowsContext,
   type ZonedPanelRender,
 } from '@toolbox-web/grid/plugins/pinned-rows';
-import type { ReactNode } from 'react';
+import type { ReactPanelRender, ReactPinnedRowSlot, ReactPinnedRowsConfig } from '../lib/feature-props';
 import { registerFeature } from '../lib/feature-registry';
 import { removeFromContainer, renderToContainer } from '../lib/portal-bridge';
 
-/**
- * React-typed render function for a pinned-row panel slot.
- *
- * @since 1.8.0
- */
-export type ReactPanelRender = (ctx: PinnedRowsContext) => ReactNode;
-/**
- * React-typed zoned render entry.
- *
- * @since 1.8.0
- */
-export interface ReactZonedPanelRender {
-  zone?: PanelZone;
-  render: ReactPanelRender;
-}
-/**
- * React-typed panel slot — same shape as vanilla PanelSlot but with ReactNode render returns.
- *
- * @since 1.8.0
- */
-export interface ReactPanelSlot {
-  id?: string;
-  position?: 'top' | 'bottom';
-  render: ReactPanelRender | ReactZonedPanelRender[];
-}
-/**
- * React-typed slot — either a panel slot or an aggregation slot.
- *
- * @since 1.8.0
- */
-export type ReactPinnedRowSlot = ReactPanelSlot | AggregationSlot;
-
-/**
- * Per-feature shape of `pinnedRows` accepted by the React adapter.
- *
- * @since 1.8.0
- */
-export type ReactPinnedRowsConfig = Omit<PinnedRowsConfig, 'slots' | 'customPanels'> & {
-  slots?: ReactPinnedRowSlot[];
-  customPanels?: Array<{
-    id: string;
-    position: PanelZone;
-    render: (ctx: PinnedRowsContext) => ReactNode;
-  }>;
-};
+// Re-export React-typed config shapes from their single source of truth in
+// `feature-props.ts`, so consumers can keep importing them from this module.
+export type {
+  ReactPanelRender,
+  ReactPanelSlot,
+  ReactPinnedRowSlot,
+  ReactPinnedRowsConfig,
+  ReactZonedPanelRender,
+} from '../lib/feature-props';
 
 /**
  * Cache entry for a single React-typed renderer. Reused across grid re-renders

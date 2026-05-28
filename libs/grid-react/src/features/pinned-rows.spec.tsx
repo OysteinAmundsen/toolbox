@@ -18,6 +18,7 @@ import {
   type PinnedRowsContext,
 } from '@toolbox-web/grid/plugins/pinned-rows';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { FeatureProps } from '../lib/feature-props';
 import { resetBridge } from '../lib/portal-bridge';
 import './pinned-rows';
 import type { ReactPinnedRowsConfig } from './pinned-rows';
@@ -160,5 +161,33 @@ describe('@toolbox-web/grid-react/features/pinned-rows', () => {
     // After detach, calling render again creates a fresh host (cache cleared).
     const after = (slot.render as (ctx: PinnedRowsContext) => HTMLElement | null)(sampleCtx);
     expect(after).toBeInstanceOf(HTMLElement);
+  });
+
+  describe('types', () => {
+    it('the `pinnedRows` feature prop accepts a React JSX slot renderer without a cast', () => {
+      // Regression for the v1.8.1 typing gap: `FeatureProps.pinnedRows` was
+      // typed as `boolean | PinnedRowsConfig` (vanilla), forcing consumers to
+      // cast their config when using JSX in `slots[].render`. The prop is now
+      // widened to `boolean | ReactPinnedRowsConfig`.
+      const props: FeatureProps = {
+        pinnedRows: {
+          slots: [{ id: 'add-row', position: 'bottom', render: () => <span>add row</span> }],
+        },
+      };
+      expect(props.pinnedRows).toBeTruthy();
+    });
+
+    it('the `pinnedRows` feature prop accepts a ReactPinnedRowsConfig directly', () => {
+      const cfg: ReactPinnedRowsConfig = {
+        slots: [{ position: 'top', render: (ctx) => <strong>{ctx.totalRows}</strong> }],
+      };
+      const props: FeatureProps = { pinnedRows: cfg };
+      expect(props.pinnedRows).toBe(cfg);
+    });
+
+    it('the `pinnedRows` feature prop still accepts the vanilla boolean shorthand', () => {
+      const props: FeatureProps = { pinnedRows: true };
+      expect(props.pinnedRows).toBe(true);
+    });
   });
 });

@@ -42,10 +42,36 @@
  *
  * @category Directive
  */
-import { Directive, ElementRef, inject, input, OnDestroy, OnInit, output } from '@angular/core';
+import { Directive, ElementRef, inject, input, OnDestroy, OnInit, output, type Type } from '@angular/core';
 import type { DataGridElement } from '@toolbox-web/grid';
-import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
-import type { FilterChangeDetail, FilterConfig } from '@toolbox-web/grid/plugins/filtering';
+import {
+  claimEvent,
+  registerFeatureClaim,
+  unclaimEvent,
+  unregisterFeatureClaim,
+  type FilterPanel,
+} from '@toolbox-web/grid-angular';
+import type { FilterConfig as CoreFilterConfig, FilterChangeDetail } from '@toolbox-web/grid/plugins/filtering';
+
+/**
+ * Angular-specific filter config that allows an Angular component class as
+ * the plugin-level `filterPanelRenderer`.
+ *
+ * Extends the core `FilterConfig` to accept a `Type<FilterPanel>` for
+ * `filterPanelRenderer` in addition to the vanilla
+ * `(container, params) => void` signature. Bridging to vanilla DOM is handled
+ * by the side-effect import `@toolbox-web/grid-angular/features/filtering`.
+ *
+ * Re-exported from the feature entry under the same name as the core type
+ * so Angular consumers see a single canonical `FilterConfig` from
+ * `@toolbox-web/grid-angular/features/filtering`.
+ *
+ * @since 1.8.0
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type FilterConfig<TRow = any> = Omit<CoreFilterConfig<TRow>, 'filterPanelRenderer'> & {
+  filterPanelRenderer?: CoreFilterConfig<TRow>['filterPanelRenderer'] | Type<FilterPanel>;
+};
 
 /**
  * Owns the `[filtering]` input and `(filterChange)` output on `<tbw-grid>`.

@@ -22,15 +22,20 @@
  * @packageDocumentation
  */
 
+import type { Type } from '@angular/core';
 import {
   getDetailTemplate,
+  isComponentClass,
   registerDetailRendererBridge,
+  registerFeatureConfigPreprocessor,
   registerTemplateBridge,
   type GridAdapter,
   type GridDetailContext,
 } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/master-detail';
+import type { MasterDetailConfig } from './grid-master-detail.directive';
 export { GridMasterDetailDirective } from './grid-master-detail.directive';
+export type { MasterDetailConfig } from './grid-master-detail.directive';
 export type { _Augmentation as _MasterDetailAugmentation } from '@toolbox-web/grid/features/master-detail';
 
 // ---------------------------------------------------------------------------
@@ -106,4 +111,35 @@ registerTemplateBridge(({ grid }) => {
   }
 
   existingPlugin.refreshDetailRenderer?.();
+});
+
+/**
+ * Bridge any Angular component class used as `masterDetail.detailRenderer` to
+ * a plain `(row, rowIndex) => HTMLElement` function before the core plugin
+ * factory consumes the config. Without this preprocessor, a component class
+ * passed as `detailRenderer` would be invoked as a function at render time
+ * and crash. Light-DOM `<tbw-grid-detail>` templates continue to win via
+ * `parseLightDomDetail` inside the plugin.
+ *
+ * @since 1.8.0
+ */
+registerFeatureConfigPreprocessor('masterDetail', (config, adapter) => {
+  if (!config || typeof config !== 'object') return config;
+  const cfg = config as MasterDetailConfig;
+  if (!isComponentClass(cfg.detailRenderer)) return config;
+
+  const componentClass = cfg.detailRenderer as Type<unknown>;
+  const mount = adapter.mountComponentRenderer<{ row: unknown; rowIndex: number }>(componentClass, (ctx) => ({
+    row: ctx.row,
+    rowIndex: ctx.rowIndex,
+  }));
+  const cached = new Map<unknown, HTMLElement>();
+  const detailRenderer: MasterDetailConfig['detailRenderer'] = (row, rowIndex) => {
+    const existing = cached.get(row);
+    if (existing) return existing;
+    const { hostElement } = mount({ row, rowIndex });
+    cached.set(row, hostElement);
+    return hostElement;
+  };
+  return { ...cfg, detailRenderer };
 });

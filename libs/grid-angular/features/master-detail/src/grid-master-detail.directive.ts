@@ -9,10 +9,33 @@
  *
  * @category Directive
  */
-import { Directive, ElementRef, inject, input, OnDestroy, OnInit, output } from '@angular/core';
+import { Directive, ElementRef, inject, input, OnDestroy, OnInit, output, type Type } from '@angular/core';
 import type { DataGridElement } from '@toolbox-web/grid';
 import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
-import type { DetailExpandDetail, MasterDetailConfig } from '@toolbox-web/grid/plugins/master-detail';
+import type {
+  MasterDetailConfig as CoreMasterDetailConfig,
+  DetailExpandDetail,
+} from '@toolbox-web/grid/plugins/master-detail';
+
+/**
+ * Angular-specific master-detail config that allows an Angular component class
+ * as `detailRenderer`.
+ *
+ * Extends the core `MasterDetailConfig` to accept a `Type<unknown>` for
+ * `detailRenderer` in addition to the vanilla
+ * `(row, rowIndex) => HTMLElement | string` signature. Bridging to vanilla
+ * DOM is handled by the side-effect import
+ * `@toolbox-web/grid-angular/features/master-detail`.
+ *
+ * Re-exported from the feature entry under the same name as the core type
+ * so Angular consumers see a single canonical `MasterDetailConfig` from
+ * `@toolbox-web/grid-angular/features/master-detail`.
+ *
+ * @since 1.8.0
+ */
+export type MasterDetailConfig = Omit<CoreMasterDetailConfig, 'detailRenderer'> & {
+  detailRenderer?: CoreMasterDetailConfig['detailRenderer'] | Type<unknown>;
+};
 
 /**
  * Owns the binding(s) `[masterDetail], [detailExpand]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.

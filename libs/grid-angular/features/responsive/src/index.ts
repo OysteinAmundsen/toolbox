@@ -22,15 +22,20 @@
  * @packageDocumentation
  */
 
+import type { Type } from '@angular/core';
 import {
   getResponsiveCardTemplate,
+  isComponentClass,
+  registerFeatureConfigPreprocessor,
   registerResponsiveCardRendererBridge,
   registerTemplateBridge,
   type GridAdapter,
   type GridResponsiveCardContext,
 } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/responsive';
+import type { ResponsivePluginConfig } from './grid-responsive.directive';
 export { GridResponsiveDirective } from './grid-responsive.directive';
+export type { ResponsivePluginConfig } from './grid-responsive.directive';
 export type { _Augmentation as _ResponsiveAugmentation } from '@toolbox-web/grid/features/responsive';
 
 /**
@@ -94,4 +99,35 @@ registerTemplateBridge(({ grid, adapter }) => {
   }
 
   existingPlugin.setCardRenderer?.(cardRenderer as (row: unknown, rowIndex: number) => HTMLElement);
+});
+
+/**
+ * Bridge any Angular component class used as `responsive.cardRenderer` to a
+ * plain `(row, rowIndex, column?) => HTMLElement` function before the core
+ * plugin factory consumes the config. Without this preprocessor, a component
+ * class passed as `cardRenderer` would be invoked as a function at render
+ * time and crash. Light-DOM `<tbw-grid-responsive-card>` templates continue
+ * to win via the post-mount template bridge above.
+ *
+ * @since 1.8.0
+ */
+registerFeatureConfigPreprocessor('responsive', (config, adapter) => {
+  if (!config || typeof config !== 'object') return config;
+  const cfg = config as ResponsivePluginConfig;
+  if (!isComponentClass(cfg.cardRenderer)) return config;
+
+  const componentClass = cfg.cardRenderer as Type<unknown>;
+  const mount = adapter.mountComponentRenderer<{ row: unknown; rowIndex: number; column?: unknown }>(
+    componentClass,
+    (ctx) => ({ row: ctx.row, rowIndex: ctx.rowIndex, column: ctx.column }),
+  );
+  const cached = new Map<unknown, HTMLElement>();
+  const cardRenderer: NonNullable<ResponsivePluginConfig['cardRenderer']> = (row, rowIndex, column) => {
+    const existing = cached.get(row);
+    if (existing) return existing;
+    const { hostElement } = mount({ row, rowIndex, column });
+    cached.set(row, hostElement);
+    return hostElement;
+  };
+  return { ...cfg, cardRenderer };
 });

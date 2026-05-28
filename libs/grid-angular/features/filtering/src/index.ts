@@ -52,11 +52,17 @@
 
 import { afterNextRender, DestroyRef, ElementRef, inject, signal, type Signal, type Type } from '@angular/core';
 import type { DataGridElement } from '@toolbox-web/grid';
-import { registerFilterPanelTypeDefaultBridge, type GridAdapter } from '@toolbox-web/grid-angular';
+import {
+  isComponentClass,
+  registerFeatureConfigPreprocessor,
+  registerFilterPanelTypeDefaultBridge,
+  type GridAdapter,
+} from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/filtering';
 import {
   FilteringPlugin,
   type BlankMode,
+  type FilterConfig as CoreFilterConfig,
   type FilterModel,
   type FilterPanelParams,
 } from '@toolbox-web/grid/plugins/filtering';
@@ -68,6 +74,7 @@ export type { _Augmentation as _FilteringAugmentation } from '@toolbox-web/grid/
 // matching deprecated bindings on `Grid` remain as a v1.x compatibility
 // shim and will be removed in v2.0.0.
 export { GridFilteringDirective } from './grid-filtering.directive';
+export type { FilterConfig } from './grid-filtering.directive';
 
 // ---------------------------------------------------------------------------
 // Re-exports from `@toolbox-web/grid-angular` (main entry).
@@ -92,6 +99,31 @@ registerFilterPanelTypeDefaultBridge((rendererValue: unknown, adapter: GridAdapt
   return (container: HTMLElement, params: FilterPanelParams) => {
     container.appendChild(mount(params).hostElement);
   };
+});
+
+/**
+ * Bridge an Angular component class used as the plugin-level
+ * `filterPanelRenderer` (in `FilterConfig`) to the `(container, params) => void`
+ * form required by FilteringPlugin. Mirrors `registerFilterPanelTypeDefaultBridge`
+ * above, but for the plugin-wide renderer rather than per-type defaults.
+ *
+ * Without this preprocessor, passing a component class as
+ * `filtering.filterPanelRenderer` would be invoked as a function at render
+ * time and crash.
+ *
+ * @since 1.8.0
+ */
+registerFeatureConfigPreprocessor('filtering', (config, adapter) => {
+  if (!config || typeof config === 'boolean' || typeof config !== 'object') return config;
+  const cfg = config as CoreFilterConfig;
+  if (!isComponentClass(cfg.filterPanelRenderer)) return config;
+
+  const componentClass = cfg.filterPanelRenderer as Type<unknown>;
+  const mount = adapter.mountComponentRenderer<FilterPanelParams>(componentClass, (params) => ({ params }));
+  const filterPanelRenderer: CoreFilterConfig['filterPanelRenderer'] = (container, params) => {
+    container.appendChild(mount(params).hostElement);
+  };
+  return { ...cfg, filterPanelRenderer };
 });
 
 /**

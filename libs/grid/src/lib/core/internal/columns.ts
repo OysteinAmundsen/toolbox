@@ -1,4 +1,4 @@
-import type { ColumnConfig, ColumnInternal, ElementWithPart, GridHost, PrimitiveColumnType } from '../types';
+import type { ColumnConfig, ColumnInternal, ElementWithPart, GridHost } from '../types';
 import { FitModeEnum } from '../types';
 import { INVALID_COLUMN_WIDTH, warnDiagnostic } from './diagnostics';
 
@@ -24,10 +24,11 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
     .map((el) => {
       const field = el.getAttribute('field') || '';
       if (!field) return null;
-      const rawType = el.getAttribute('type') || undefined;
-      const allowedTypes = new Set<PrimitiveColumnType>(['number', 'string', 'date', 'boolean', 'select']);
-      const type =
-        rawType && allowedTypes.has(rawType as PrimitiveColumnType) ? (rawType as PrimitiveColumnType) : undefined;
+      // Core does not gate `type` to a fixed allowlist — any string passes
+      // through so custom column types (resolved by plugins/typeDefaults)
+      // work declaratively. `ColumnConfig.type` is `ColumnType`
+      // (`PrimitiveColumnType | (string & {})`), so no cast is needed.
+      const type = el.getAttribute('type') || undefined;
       const header = el.getAttribute('header') || undefined;
       // Treat `attr="false"` as false. Framework adapters (notably Vue)
       // serialize boolean props to string attributes on custom elements,
@@ -35,8 +36,11 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
       // `sortable="false"`. Without this guard `hasAttribute('sortable')`
       // would return true and force the column to be sortable.
       const sortable = el.hasAttribute('sortable') && el.getAttribute('sortable') !== 'false';
-      const editable = el.hasAttribute('editable') && el.getAttribute('editable') !== 'false';
-      const config: ColumnInternal = { field, type, header, sortable, editable };
+      // `__element` exposes the originating light-DOM element so plugins can
+      // read their own attributes in `processColumns` (issue #272). Core no
+      // longer parses plugin-owned attributes such as `editable` (editing),
+      // `pinned` (pinned-columns) or `hidden`/`lock-visible` (visibility).
+      const config: ColumnInternal = { field, type, header, sortable, __element: el };
 
       // Parse width attribute (supports px values, percentages, or plain numbers)
       const widthAttr = el.getAttribute('width');
@@ -66,10 +70,9 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
         config.resizable = el.getAttribute('resizable') !== 'false';
       }
 
-      // Parse editor and renderer attribute names for programmatic lookup
-      const editorName = el.getAttribute('editor');
+      // Parse renderer attribute name for programmatic lookup. The `editor`
+      // attribute is plugin-owned (editing) and read from `__element` there.
       const rendererName = el.getAttribute('renderer');
-      if (editorName) config.__editorName = editorName;
       if (rendererName) config.__rendererName = rendererName;
 
       // Parse options attribute for select/typeahead: "value1:Label1,value2:Label2" or "value1,value2"
@@ -81,10 +84,11 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
         });
       }
       const viewTpl = el.querySelector('tbw-grid-column-view');
+      // The editor template is plugin-owned (editing reads it from `__element`)
+      // but the framework-adapter editor path below still needs the element.
       const editorTpl = el.querySelector('tbw-grid-column-editor');
       const headerTpl = el.querySelector('tbw-grid-column-header');
       if (viewTpl) config.__viewTemplate = viewTpl as HTMLElement;
-      if (editorTpl) config.__editorTemplate = editorTpl as HTMLElement;
       if (headerTpl) config.__headerTemplate = headerTpl as HTMLElement;
 
       // Check if framework adapters can handle template wrapper elements or the column element itself
@@ -169,13 +173,12 @@ export function mergeColumns(
       if (c.header && !existing.header) existing.header = c.header;
       if (c.type && !existing.type) existing.type = c.type;
       if (c.sortable) existing.sortable = true;
-      if (c.editable) existing.editable = true;
       if (c.resizable) existing.resizable = true;
       if (c.width != null && existing.width == null) existing.width = c.width;
       if (c.minWidth != null && existing.minWidth == null) existing.minWidth = c.minWidth;
       if (c.__viewTemplate) existing.__viewTemplate = c.__viewTemplate;
-      if (c.__editorTemplate) existing.__editorTemplate = c.__editorTemplate;
       if (c.__headerTemplate) existing.__headerTemplate = c.__headerTemplate;
+      if (c.__element && !existing.__element) existing.__element = c.__element;
       // Support both 'renderer' alias and 'viewRenderer'
       const cRenderer = c.renderer || c.viewRenderer;
       const existingRenderer = existing.renderer || existing.viewRenderer;
@@ -199,13 +202,12 @@ export function mergeColumns(
     if (d.type && !m.type) m.type = d.type;
     m.sortable = c.sortable || d.sortable;
     if (c.resizable === true || d.resizable === true) m.resizable = true;
-    m.editable = c.editable || d.editable;
     // Merge width/minWidth from DOM if not set programmatically
     if (d.width != null && m.width == null) m.width = d.width;
     if (d.minWidth != null && m.minWidth == null) m.minWidth = d.minWidth;
     if (d.__viewTemplate) m.__viewTemplate = d.__viewTemplate;
-    if (d.__editorTemplate) m.__editorTemplate = d.__editorTemplate;
     if (d.__headerTemplate) m.__headerTemplate = d.__headerTemplate;
+    if (d.__element && !m.__element) m.__element = d.__element;
     // Merge framework adapter renderers/editors from DOM (support both 'renderer' alias and 'viewRenderer')
     const dRenderer = d.renderer || d.viewRenderer;
     const mRenderer = m.renderer || m.viewRenderer;

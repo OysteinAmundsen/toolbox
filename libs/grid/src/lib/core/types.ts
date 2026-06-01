@@ -1780,8 +1780,6 @@ export interface FrameworkAdapter {
  * @internal
  */
 export interface ColumnParsedAttributes {
-  /** Editor name from `editor` attribute (resolved later) */
-  __editorName?: string;
   /** Renderer name from `renderer` attribute (resolved later) */
   __rendererName?: string;
 }
@@ -1827,6 +1825,15 @@ export interface ColumnInternal<T = any> extends ColumnConfig<T>, ColumnParsedAt
   __headerTemplate?: HTMLElement;
   __compiledView?: CompiledViewFunction<T>;
   __compiledEditor?: (ctx: EditorExecContext<T>) => string;
+  /**
+   * The originating `<tbw-grid-column>` light-DOM element, if this column was
+   * parsed from declarative HTML. Plugins read their own attributes from this
+   * element inside their `processColumns` hook (see issue #272). Core only
+   * parses a minimal set of structural attributes; everything else is
+   * plugin-owned.
+   * @since 2.16.0
+   */
+  __element?: HTMLElement;
 }
 
 /**

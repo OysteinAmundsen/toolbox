@@ -8,7 +8,7 @@ import { GridClasses } from '../../core/constants';
 import { getDirection } from '../../core/internal/utils';
 import type { AfterCellRenderContext, PluginManifest, PluginQuery, ScrollEvent } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
-import type { ColumnConfig } from '../../core/types';
+import type { ColumnConfig, ColumnInternal } from '../../core/types';
 import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
 import {
   applyStickyOffsets,
@@ -150,6 +150,13 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    * Used to restore original positions when unpinning.
    */
   #originalColumnOrder: string[] = [];
+  /**
+   * Light-DOM elements whose `pinned` attribute has already seeded a column.
+   * The attribute supplies the INITIAL pin only — seeding once guarantees a
+   * later runtime unpin (which clears `col.pinned`) is not re-applied on the
+   * next `processColumns` pass (issue #272).
+   */
+  #seededFromAttr = new WeakSet<HTMLElement>();
   // #endregion
 
   // #region Lifecycle
@@ -182,6 +189,22 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     const cols = [...columns];
+    // Read the declarative `pinned` attribute from the originating light-DOM
+    // element (issue #272). Each element seeds a column at most once: after the
+    // first pass the element is recorded, so a later runtime unpin (which
+    // clears `col.pinned`) is never overridden by re-reading the attribute.
+    // The `pinned != null` guard additionally lets a programmatic config value
+    // win over the attribute on that first pass.
+    for (const col of cols) {
+      const el = (col as ColumnInternal).__element;
+      if (!el || this.#seededFromAttr.has(el)) continue;
+      this.#seededFromAttr.add(el);
+      if (col.pinned != null) continue;
+      const pinned = el.getAttribute('pinned');
+      if (pinned === 'left' || pinned === 'right' || pinned === 'start' || pinned === 'end') {
+        col.pinned = pinned;
+      }
+    }
     this.isApplied = hasStickyColumns(cols);
     if (!this.isApplied) return cols;
 

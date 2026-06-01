@@ -330,6 +330,7 @@ export function buildShellBody(options: ShellBodyOptions): HTMLDivElement {
     if (options.showCloseButton) {
       const panelHeader = div('tbw-tool-panel-header', { part: 'tool-panel-header' });
       const closeBtn = button('tbw-tool-panel-close', {
+        part: 'tool-panel-close',
         'data-panel-close': '',
         title: 'Close panel',
         'aria-label': 'Close panel',

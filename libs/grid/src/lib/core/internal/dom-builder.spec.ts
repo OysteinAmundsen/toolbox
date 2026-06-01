@@ -160,6 +160,8 @@ describe('dom-builder', () => {
       expect(closeBtn!.closest('.tbw-tool-panel')).not.toBeNull();
       expect(closeBtn!.tagName).toBe('BUTTON');
       expect(closeBtn!.getAttribute('aria-label')).toBe('Close panel');
+      // Exposed as the documented `tool-panel-close` CSS part for ::part() styling.
+      expect(closeBtn!.getAttribute('part')).toBe('tool-panel-close');
     });
   });
 });

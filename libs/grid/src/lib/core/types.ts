@@ -3738,7 +3738,7 @@ export interface ShellHeaderConfig {
    * CSS override needed.
    *
    * @default true
-   * @since 2.10.0
+   * @since 2.16.0
    */
   visible?: boolean;
   /**

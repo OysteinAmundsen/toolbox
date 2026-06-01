@@ -201,6 +201,8 @@ modifiesRowStructure — affects render scheduler
 
 **MasterDetail** — OWNS: expanded rows, detail height, animation state. HOOKS: processColumns (expander), onCellClick, afterRowRender, getRowHeight, adjustVirtualStart. EVENTS: master-detail-toggle
 
+- SHARED expander util `core/plugin/expander-column.ts` surface: `EXPANDER_COLUMN_FIELD`, `EXPANDER_COLUMN_WIDTH`, `isExpanderColumn`, `isUtilityColumn`, `findExpanderColumn`, `createExpanderColumnConfig`, `ExpanderColumnRenderer`. DECIDED (Jun 2026): `createExpanderContainer` + `EXPANDER_COLUMN_STYLES` removed — zero consumers (plugins build their own DOM; real styling is in the modular CSS layers). Do not reintroduce.
+
 ### Reordering
 
 **ReorderColumns** — OWNS: column order, drag state, `BaseColumnConfig.lockPosition` augmentation. HOOKS: onCellMouseDown/Move/Up, afterRender. QUERIES: owns `canMoveColumn` (local check + aggregates `grid.query('canMoveColumn', column)` for vetoes from PinnedColumnsPlugin etc.).

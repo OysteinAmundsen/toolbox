@@ -10,7 +10,6 @@
  * - Narrow width (just fits the icon)
  */
 
-import { GridClasses } from '../constants';
 import type { ColumnConfig } from '../types';
 
 /** Special field name for the expander column */
@@ -75,60 +74,3 @@ export function createExpanderColumnConfig(pluginName: string): ColumnConfig {
     },
   };
 }
-
-/**
- * Create a container element for expand/collapse toggle icons.
- * Used by plugins to wrap their expand icons with consistent styling.
- *
- * @param expanded - Whether the item is currently expanded
- * @param pluginClass - CSS class prefix for the plugin (e.g., 'master-detail', 'tree')
- * @returns Container span element
- */
-export function createExpanderContainer(expanded: boolean, pluginClass: string): HTMLSpanElement {
-  const container = document.createElement('span');
-  container.className = `${pluginClass}-expander expander-cell`;
-  if (expanded) {
-    container.classList.add(GridClasses.EXPANDED);
-  }
-  return container;
-}
-
-/**
- * CSS styles for the expander column.
- * Plugins should include this in their styles to ensure consistent appearance.
- */
-export const EXPANDER_COLUMN_STYLES = `
-/* Expander column data cells - always first, borderless right edge */
-.cell[data-field="${EXPANDER_COLUMN_FIELD}"] {
-  border-right: none !important;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Expander column header - completely hidden, no content, no border, no width contribution */
-.header-row .cell[data-field="${EXPANDER_COLUMN_FIELD}"] {
-  visibility: hidden;
-  border: none !important;
-  padding: 0;
-  overflow: hidden;
-}
-
-/* The column after the expander should visually extend into the expander header space */
-.header-row .cell[data-field="${EXPANDER_COLUMN_FIELD}"] + .cell {
-  /* Pull left to cover the hidden expander header */
-  margin-left: -${EXPANDER_COLUMN_WIDTH}px;
-  padding-left: calc(var(--tbw-cell-padding, 8px) + ${EXPANDER_COLUMN_WIDTH}px);
-}
-
-/* Expander cell contents */
-.expander-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  cursor: pointer;
-}
-`;

@@ -41,6 +41,7 @@ import {
   renderPanelContent,
   renderShellHeader,
   setupClickOutsideDismiss,
+  setupEscapeDismiss,
   setupShellEventListeners,
   setupToolPanelResize,
   shouldRenderShellHeader,
@@ -347,6 +348,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #shellController!: ShellController;
   #resizeCleanup?: () => void;
   #clickOutsideCleanup?: () => void;
+  #escapeDismissCleanup?: () => void;
 
   // Loading State
   #loading = false;
@@ -1301,6 +1303,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Clean up click-outside dismiss handler
     this.#clickOutsideCleanup?.();
     this.#clickOutsideCleanup = undefined;
+
+    // Clean up Escape-to-close dismiss handler
+    this.#escapeDismissCleanup?.();
+    this.#escapeDismissCleanup = undefined;
 
     // Cancel any ongoing touch momentum animation
     cancelMomentum(this.#touchState);
@@ -4926,6 +4932,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     setupShellEventListeners(this.#renderRoot, this.#effectiveConfig?.shell, this.#shellState, {
       onPanelToggle: () => this.toggleToolPanel(),
       onSectionToggle: (sectionId: string) => this.toggleToolPanelSection(sectionId),
+      onPanelClose: () => this.closeToolPanel(),
     });
 
     // Set up tool panel resize
@@ -4938,6 +4945,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Set up click-outside dismiss for tool panel
     this.#clickOutsideCleanup?.();
     this.#clickOutsideCleanup = setupClickOutsideDismiss(this, this.#effectiveConfig?.shell, this.#shellState, () =>
+      this.closeToolPanel(),
+    );
+
+    // Set up Escape-to-close dismiss for overlay tool panels
+    this.#escapeDismissCleanup?.();
+    this.#escapeDismissCleanup = setupEscapeDismiss(this.#effectiveConfig?.shell, this.#shellState, () =>
       this.closeToolPanel(),
     );
   }

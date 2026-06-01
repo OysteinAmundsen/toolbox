@@ -1320,7 +1320,52 @@ Passing a `panelId` to `openToolPanel()` jumps straight to that accordion sectio
 
 ---
 
-## Loading States
+### Hide the Shell Header Bar Entirely
+
+`toolPanelToggle: false` removes the built-in toggle button but keeps the header bar (with its title and any toolbar contents). To suppress the **entire** `.tbw-shell-header` bar — for example when you want to open tool panels from a custom column header icon and own all chrome yourself — set `shell.header.visible: false`.
+
+```typescript
+const config = {
+  columns: [
+    // …
+    {
+      field: '__actions',
+      width: 56,
+      utility: true, // excluded from print, export, reorder, visibility, etc.
+      resizable: false,
+      sortable: false,
+      headerRenderer: () => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = '⚙';
+        btn.setAttribute('aria-label', 'Open tool panel');
+        btn.addEventListener('click', () => grid.toggleToolPanel());
+        return btn;
+      },
+    },
+  ],
+  shell: {
+    header: { visible: false },
+    toolPanel: {
+      closeOnClickOutside: true, // optional — see below
+      sections: [
+        /* … */
+      ],
+    },
+  },
+};
+```
+
+When `header.visible: false`, tool panels remain fully functional and are opened with [`grid.toggleToolPanel()`](./api-reference) / [`grid.openToolPanel(panelId)`](./api-reference) from any element you like. Because there is no header toggle to close the panel, the grid provides three additional dismissal affordances:
+
+- **Close button** — a small `✕` button is rendered in the top-right of the panel (exposed as the `tool-panel-header` and `tool-panel-close` CSS parts). It is omitted when `shell.toolPanel.locked` is `true`, since a locked panel cannot be closed.
+- **Escape key** — pressing <kbd>Esc</kbd> closes an open **overlay** panel. It yields to more specific handlers (e.g. an active cell editor that has already handled the key), and is a no-op for `push`-mode panels, which are persistent sidebars.
+- **Click-outside** — set `shell.toolPanel.closeOnClickOutside: true` to dismiss an open overlay panel when clicking anywhere in the window outside the panel. This is opt-in and, like Esc, is a no-op in `push` mode.
+
+`header.visible: false` keeps the shell active (the panel overlay still mounts); it only suppresses the header bar element. This is the supported alternative to hiding `.tbw-shell-header` with CSS.
+
+---
+
 
 The grid supports loading indicators at three levels: grid-wide, per-row, and per-cell.
 

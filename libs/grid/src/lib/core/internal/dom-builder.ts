@@ -140,9 +140,11 @@ export function buildGridDOM(options: GridDOMOptions): DocumentFragment {
 
   const root = div(options.hasShell ? `${GridClasses.ROOT} has-shell` : GridClasses.ROOT);
 
-  if (options.hasShell && options.shellHeader && options.shellBody) {
-    // Shell mode: header + body (with grid content inside)
-    root.appendChild(options.shellHeader);
+  if (options.hasShell && options.shellBody) {
+    // Shell mode: optional header + body (with grid content inside).
+    // The header bar may be suppressed via `shell.header.visible: false`, in
+    // which case only the body (and its tool panel) is rendered.
+    if (options.shellHeader) root.appendChild(options.shellHeader);
     root.appendChild(options.shellBody);
   } else {
     // No shell: just grid content in wrapper
@@ -273,6 +275,12 @@ export interface ShellBodyOptions {
   isPanelOpen: boolean;
   expandIcon?: string;
   collapseIcon?: string;
+  /**
+   * Render an in-panel close (✕) button in the panel's top-right corner.
+   * Used when the shell header bar is hidden (`shell.header.visible: false`)
+   * so the panel can be dismissed without the built-in header toggle.
+   */
+  showCloseButton?: boolean;
   /** Sorted panels for accordion */
   panels: Array<{
     id: string;
@@ -315,6 +323,22 @@ export function buildShellBody(options: ShellBodyOptions): HTMLDivElement {
         'aria-hidden': 'true',
       }),
     );
+
+    // Optional close (✕) button — rendered top-right when the shell header bar
+    // is hidden, so the panel can always be dismissed. `data-panel-close` is
+    // wired by setupShellEventListeners to close the panel.
+    if (options.showCloseButton) {
+      const panelHeader = div('tbw-tool-panel-header', { part: 'tool-panel-header' });
+      const closeBtn = button('tbw-tool-panel-close', {
+        'data-panel-close': '',
+        title: 'Close panel',
+        'aria-label': 'Close panel',
+        'aria-controls': 'tbw-tool-panel',
+      });
+      closeBtn.textContent = '✕';
+      panelHeader.appendChild(closeBtn);
+      panelEl.appendChild(panelHeader);
+    }
 
     // Panel content with accordion
     const panelContent = div('tbw-tool-panel-content', { role: 'presentation' });

@@ -26,7 +26,7 @@ import type {
 } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
 import type { GetEditableFieldsContext } from '../../core/plugin/types';
-import type { ColumnConfig, GridHost, InternalGrid, RowElementInternal } from '../../core/types';
+import type { ColumnConfig, ColumnInternal, GridHost, InternalGrid, RowElementInternal } from '../../core/types';
 import styles from './editing.css?inline';
 import { getInputValue } from './editors';
 import { CellValidationManager } from './internal/cell-validation';
@@ -990,20 +990,41 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   // #region Render Hooks
 
   /**
-   * Process columns to merge type-level editorParams with column-level.
-   * Column-level params take precedence.
+   * Process columns to merge type-level editorParams with column-level and to
+   * read editing-owned attributes from declarative `<tbw-grid-column>` markup.
+   *
+   * Column-level params take precedence over type-level. Editing-owned
+   * attributes (`editable`, `<tbw-grid-column-editor>` template) are parsed
+   * here from `col.__element` rather than in core, so the grid carries no
+   * editing knowledge (issue #272).
    * @internal
    */
   override processColumns(columns: ColumnConfig<T>[]): ColumnConfig<T>[] {
     const internalGrid = this.#internalGrid;
     const typeDefaults = (internalGrid as any).effectiveConfig?.typeDefaults;
     const adapter = internalGrid.__frameworkAdapter;
-
-    // If no type defaults configured anywhere, skip processing
-    if (!typeDefaults && !adapter?.getTypeDefault) return columns;
+    const hasTypeDefaults = !!typeDefaults || !!adapter?.getTypeDefault;
 
     return columns.map((col) => {
-      if (!col.type) return col;
+      // Read editing-owned attributes from the originating light-DOM element.
+      // Guarded so config / runtime state always wins over the attribute:
+      // the attribute only supplies the initial value when none is set.
+      const el = (col as ColumnInternal<T>).__element;
+      if (el) {
+        // `!col.editable` faithfully replicates the old core OR-merge
+        // (`programmatic.editable || dom.editable`): a present `editable`
+        // attribute makes the column editable unless explicitly `="false"`.
+        if (!col.editable && el.hasAttribute('editable')) {
+          col.editable = el.getAttribute('editable') !== 'false';
+        }
+        const internalCol = col as ColumnInternal<T>;
+        if (!internalCol.__editorTemplate) {
+          const editorTpl = el.querySelector('tbw-grid-column-editor');
+          if (editorTpl) internalCol.__editorTemplate = editorTpl as HTMLElement;
+        }
+      }
+
+      if (!col.type || !hasTypeDefaults) return col;
 
       // Get type-level editorParams
       let typeEditorParams: Record<string, unknown> | undefined;

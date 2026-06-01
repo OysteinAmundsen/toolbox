@@ -7,14 +7,33 @@ describe('parseLightDomColumns', () => {
   it('parses attributes and boolean flags', () => {
     const host = document.createElement('div');
     host.innerHTML = `
-      <tbw-grid-column field="id" type="number" header="ID" sortable resizable editable></tbw-grid-column>
+      <tbw-grid-column field="id" type="number" header="ID" sortable resizable></tbw-grid-column>
       <tbw-grid-column field="name"></tbw-grid-column>
     `;
     const cols = parseLightDomColumns(host as any);
     const id = cols.find((c: any) => c.field === 'id');
     const name = cols.find((c: any) => c.field === 'name');
-    expect(id).toMatchObject({ field: 'id', type: 'number', header: 'ID', sortable: true, editable: true });
+    expect(id).toMatchObject({ field: 'id', type: 'number', header: 'ID', sortable: true });
     expect(name).toMatchObject({ field: 'name' });
+  });
+
+  it('exposes the originating `<tbw-grid-column>` element via __element', () => {
+    const host = document.createElement('div');
+    host.innerHTML = `
+      <tbw-grid-column field="id"></tbw-grid-column>
+    `;
+    const [col] = parseLightDomColumns(host as any);
+    expect(col.__element).toBeInstanceOf(HTMLElement);
+    expect(col.__element?.getAttribute('field')).toBe('id');
+  });
+
+  it('passes through any `type` string without an allowlist', () => {
+    const host = document.createElement('div');
+    host.innerHTML = `
+      <tbw-grid-column field="rating" type="stars"></tbw-grid-column>
+    `;
+    const [col] = parseLightDomColumns(host as any);
+    expect(col.type).toBe('stars');
   });
 
   it('parses options attribute for select columns', () => {
@@ -41,8 +60,11 @@ describe('parseLightDomColumns', () => {
     `;
     const [col] = parseLightDomColumns(host as any);
     expect(col.__viewTemplate).toBeInstanceOf(HTMLElement);
-    expect(col.__editorTemplate).toBeInstanceOf(HTMLElement);
     expect(col.__headerTemplate).toBeInstanceOf(HTMLElement);
+    // The editor template is plugin-owned now — core only exposes __element;
+    // the editing plugin reads <tbw-grid-column-editor> from it.
+    expect(col.__editorTemplate).toBeUndefined();
+    expect(col.__element?.querySelector('tbw-grid-column-editor')).toBeInstanceOf(HTMLElement);
   });
 
   it('parses width attribute as number', () => {
@@ -81,17 +103,16 @@ describe('parseLightDomColumns', () => {
     expect(col.minWidth).toBe(80);
   });
 
-  it('treats `attr="false"` as false for sortable, editable, and resizable', () => {
+  it('treats `attr="false"` as false for sortable and resizable', () => {
     // Vue's `:sortable="false"` serializes to `sortable="false"` on custom
     // elements, so `hasAttribute` alone would incorrectly treat the column
-    // as sortable. Same for editable (which also trips TBW001 validation).
+    // as sortable.
     const host = document.createElement('div');
     host.innerHTML = `
-      <tbw-grid-column field="id" sortable="false" resizable="false" editable="false"></tbw-grid-column>
+      <tbw-grid-column field="id" sortable="false" resizable="false"></tbw-grid-column>
     `;
     const [col] = parseLightDomColumns(host as any);
     expect(col.sortable).toBe(false);
-    expect(col.editable).toBe(false);
     expect(col.resizable).toBeFalsy();
   });
 

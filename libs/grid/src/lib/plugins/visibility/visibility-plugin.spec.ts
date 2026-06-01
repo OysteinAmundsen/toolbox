@@ -154,6 +154,49 @@ describe('VisibilityPlugin', () => {
 
   // #endregion
 
+  // #region processColumns - declarative attributes (issue #272)
+
+  describe('processColumns', () => {
+    const makeColEl = (attrs: Record<string, string>) => {
+      const el = document.createElement('tbw-grid-column');
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      return el;
+    };
+
+    it('reads the `hidden` attribute from __element', () => {
+      const cols = [{ field: 'a', __element: makeColEl({ hidden: '' }) }] as any;
+      const result = plugin.processColumns(cols);
+      expect((result[0] as any).hidden).toBe(true);
+    });
+
+    it('treats `hidden="false"` as not hidden', () => {
+      const cols = [{ field: 'a', __element: makeColEl({ hidden: 'false' }) }] as any;
+      const result = plugin.processColumns(cols);
+      expect((result[0] as any).hidden).toBeUndefined();
+    });
+
+    it('reads the `lock-visible` attribute from __element', () => {
+      const cols = [{ field: 'a', __element: makeColEl({ 'lock-visible': '' }) }] as any;
+      const result = plugin.processColumns(cols);
+      expect((result[0] as any).lockVisible).toBe(true);
+    });
+
+    it('does not clobber a runtime-set visibility state (config wins)', () => {
+      // setColumnVisible writes col.hidden = false; the attribute must not override it.
+      const cols = [{ field: 'a', hidden: false, __element: makeColEl({ hidden: '' }) }] as any;
+      const result = plugin.processColumns(cols);
+      expect((result[0] as any).hidden).toBe(false);
+    });
+
+    it('leaves columns without __element untouched', () => {
+      const cols = [{ field: 'a' }] as any;
+      const result = plugin.processColumns(cols);
+      expect((result[0] as any).hidden).toBeUndefined();
+    });
+  });
+
+  // #endregion
+
   // #region Public API - isColumnVisible
 
   describe('isColumnVisible', () => {

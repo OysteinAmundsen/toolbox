@@ -669,6 +669,46 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
       // isApplied is private, so we test via afterRender behavior
       // This is verified through the afterRender tests
     });
+
+    it('reads the declarative `pinned` attribute from __element (issue #272)', () => {
+      const el = document.createElement('tbw-grid-column');
+      el.setAttribute('pinned', 'left');
+      const columns = [{ field: 'a' }, { field: 'b', __element: el }, { field: 'c' }];
+      const result = plugin.processColumns(columns as any);
+      expect((result.find((c: any) => c.field === 'b') as any).pinned).toBe('left');
+      // Pinned column is reordered to the start.
+      expect(result.map((c: any) => c.field)).toEqual(['b', 'a', 'c']);
+    });
+
+    it('ignores an invalid `pinned` attribute value', () => {
+      const el = document.createElement('tbw-grid-column');
+      el.setAttribute('pinned', 'middle');
+      const columns = [{ field: 'a', __element: el }];
+      const result = plugin.processColumns(columns as any);
+      expect((result[0] as any).pinned).toBeUndefined();
+    });
+
+    it('config pinned value wins over the attribute', () => {
+      const el = document.createElement('tbw-grid-column');
+      el.setAttribute('pinned', 'left');
+      const columns = [{ field: 'a', pinned: 'right', __element: el }];
+      const result = plugin.processColumns(columns as any);
+      expect((result.find((c: any) => c.field === 'a') as any).pinned).toBe('right');
+    });
+
+    it('does not re-apply the `pinned` attribute after a runtime unpin (issue #272)', () => {
+      const el = document.createElement('tbw-grid-column');
+      el.setAttribute('pinned', 'left');
+      const col: any = { field: 'a', __element: el };
+      // First pass seeds the attribute.
+      plugin.processColumns([col] as any);
+      expect(col.pinned).toBe('left');
+      // Simulate a runtime unpin (setPinPosition deletes the property).
+      delete col.pinned;
+      // Second pass must NOT re-read the attribute and re-pin the column.
+      plugin.processColumns([col] as any);
+      expect(col.pinned).toBeUndefined();
+    });
   });
 
   describe('detach', () => {

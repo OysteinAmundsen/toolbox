@@ -20,7 +20,7 @@ import {
   type PluginManifest,
   type PluginQuery,
 } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, ToolPanelDefinition } from '../../core/types';
+import type { ColumnConfig, ColumnInternal, ToolPanelDefinition } from '../../core/types';
 import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
 import type { ColumnGroupInfo, ColumnReorderRequestDetail, VisibilityConfig } from './types';
 import styles from './visibility.css?inline';
@@ -199,6 +199,35 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     this.draggedField = null;
     this.draggedIndex = null;
     this.dropIndex = null;
+  }
+  // #endregion
+
+  // #region Render Hooks
+
+  /**
+   * Read declarative visibility attributes from the originating
+   * `<tbw-grid-column>` element (issue #272). `hidden` and `lock-visible`
+   * only seed the initial state — the `=== undefined` guards ensure a runtime
+   * toggle (`setColumnVisible`, which writes `col.hidden = false`) or an
+   * explicit config value always wins over the attribute.
+   * @internal
+   */
+  override processColumns(columns: ColumnConfig[]): ColumnConfig[] {
+    for (const col of columns) {
+      const el = (col as ColumnInternal).__element;
+      if (!el) continue;
+      if (col.hidden === undefined && el.hasAttribute('hidden') && el.getAttribute('hidden') !== 'false') {
+        col.hidden = true;
+      }
+      if (
+        col.lockVisible === undefined &&
+        el.hasAttribute('lock-visible') &&
+        el.getAttribute('lock-visible') !== 'false'
+      ) {
+        col.lockVisible = true;
+      }
+    }
+    return columns;
   }
   // #endregion
 

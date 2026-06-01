@@ -89,19 +89,24 @@ Child elements inside `<tbw-grid>` for more readable, template-friendly configur
 
 Define column configuration declaratively.
 
-| Attribute   | Type      | Description                                                      |
-| ----------- | --------- | ---------------------------------------------------------------- |
-| `field`     | `string`  | **Required.** Data field key                                     |
-| `header`    | `string`  | Column header text                                               |
-| `type`      | `string`  | Column type: `'string'`, `'number'`, `'boolean'`, `'date'`, `'select'` |
-| `width`     | `string`  | Column width (e.g., `"120"`, `"100px"`, `"20%"`)                 |
-| `min-width` | `number`  | Minimum column width in pixels                                   |
-| `sortable`  | `boolean` | Enable sorting (presence = true)                                 |
-| `resizable` | `boolean` | Enable resizing (presence = true)                                |
-| `editable`  | `boolean` | Enable editing (presence = true, requires EditingPlugin)         |
-| `options`   | `string`  | Select options: `"value1:Label1,value2:Label2"` or `"val1,val2"` |
-| `renderer`  | `string`  | Named renderer (for framework adapter lookup)                    |
-| `editor`    | `string`  | Named editor (for framework adapter lookup)                      |
+| Attribute      | Type      | Description                                                      |
+| -------------- | --------- | ---------------------------------------------------------------- |
+| `field`        | `string`  | **Required.** Data field key                                     |
+| `header`       | `string`  | Column header text                                               |
+| `type`         | `string`  | Column type. Built-ins: `'string'`, `'number'`, `'boolean'`, `'date'`, `'select'`. Any custom/plugin-registered type string is also accepted. |
+| `width`        | `string`  | Column width (e.g., `"120"`, `"100px"`, `"20%"`)                 |
+| `min-width`    | `number`  | Minimum column width in pixels                                   |
+| `sortable`     | `boolean` | Enable sorting (presence = true)                                 |
+| `resizable`    | `boolean` | Enable resizing (presence = true)                                |
+| `editable`     | `boolean` | Enable editing (presence = true, requires EditingPlugin)         |
+| `options`      | `string`  | Select options: `"value1:Label1,value2:Label2"` or `"val1,val2"` |
+| `renderer`     | `string`  | Named renderer (for framework adapter lookup)                    |
+| `editor`       | `string`  | Named editor (for framework adapter lookup)                      |
+| `pinned`       | `string`  | Pin the column to an edge: `'left'` / `'start'` or `'right'` / `'end'` (requires PinnedColumnsPlugin). |
+| `hidden`       | `boolean` | Hide the column initially (presence = true; `hidden="false"` keeps it visible). Requires VisibilityPlugin. |
+| `lock-visible` | `boolean` | Prevent the column from being hidden via the visibility panel (presence = true). Requires VisibilityPlugin. |
+
+> Plugin-contributed attributes (`pinned`, `hidden`, `lock-visible`, `editable`, `<tbw-grid-column-editor>`) are read by their owning plugin when it is registered. They set the column's **initial** state — subsequent runtime changes (e.g. `setColumnVisible()`, drag-to-pin) take precedence.
 
 ```html
 <tbw-grid>

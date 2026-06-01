@@ -1476,6 +1476,25 @@ describe('EditingPlugin', () => {
       expect(results.flat()).toEqual(['name']);
     });
 
+    it('reads the `editable` attribute from declarative light-DOM columns (issue #272)', async () => {
+      // Core no longer parses `editable`; the editing plugin reads it from
+      // `col.__element` inside processColumns.
+      grid.innerHTML = `
+        <tbw-grid-column field="id" header="ID"></tbw-grid-column>
+        <tbw-grid-column field="name" header="Name" editable></tbw-grid-column>
+      `;
+      grid.gridConfig = { plugins: [new EditingPlugin()] };
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      await waitUpgrade(grid);
+
+      const cfg = await grid.getConfig();
+      const nameCol = cfg.columns.find((c: any) => c.field === 'name');
+      expect(nameCol.editable).toBe(true);
+
+      const results = grid.query<string[]>('getEditableFields', { columns: cfg.columns });
+      expect(results.flat()).toEqual(['name']);
+    });
+
     describe('navigation vs edit mode (Excel-like)', () => {
       it('Escape blurs input allowing arrow key navigation', async () => {
         grid.gridConfig = {

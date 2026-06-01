@@ -169,6 +169,9 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     this.#groupEndAdjustments = { addGroupEnd: new Set(), removeGroupEnd: new Set() };
     this.#splitGroups = [];
     this.#originalColumnOrder = [];
+    // Reset seeded elements so a re-attached instance re-seeds from the same
+    // light-DOM `pinned` attributes instead of permanently ignoring them (#272).
+    this.#seededFromAttr = new WeakSet<HTMLElement>();
   }
   // #endregion
 

@@ -709,6 +709,20 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
       plugin.processColumns([col] as any);
       expect(col.pinned).toBeUndefined();
     });
+
+    it('re-seeds the `pinned` attribute after detach/re-attach (issue #272)', () => {
+      const el = document.createElement('tbw-grid-column');
+      el.setAttribute('pinned', 'left');
+      const col: any = { field: 'a', __element: el };
+      // First attach seeds the attribute.
+      plugin.processColumns([col] as any);
+      expect(col.pinned).toBe('left');
+      // Detach must clear the seeded-elements set so a reused instance re-seeds.
+      delete col.pinned;
+      plugin.detach();
+      plugin.processColumns([col] as any);
+      expect(col.pinned).toBe('left');
+    });
   });
 
   describe('detach', () => {

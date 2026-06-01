@@ -1495,6 +1495,29 @@ describe('EditingPlugin', () => {
       expect(results.flat()).toEqual(['name']);
     });
 
+    it('keeps an explicit `editable: false` config over the declarative attribute (issue #272)', async () => {
+      // A column declared with the `editable` attribute but configured
+      // `editable: false` must stay non-editable: the attribute only seeds the
+      // INITIAL value, so config wins (guard `col.editable == null`).
+      grid.innerHTML = `
+        <tbw-grid-column field="id" header="ID"></tbw-grid-column>
+        <tbw-grid-column field="name" header="Name" editable></tbw-grid-column>
+      `;
+      grid.gridConfig = {
+        columns: [{ field: 'name', editable: false }],
+        plugins: [new EditingPlugin()],
+      };
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      await waitUpgrade(grid);
+
+      const cfg = await grid.getConfig();
+      const nameCol = cfg.columns.find((c: any) => c.field === 'name');
+      expect(nameCol.editable).toBe(false);
+
+      const results = grid.query<string[]>('getEditableFields', { columns: cfg.columns });
+      expect(results.flat()).toEqual([]);
+    });
+
     describe('navigation vs edit mode (Excel-like)', () => {
       it('Escape blurs input allowing arrow key navigation', async () => {
         grid.gridConfig = {

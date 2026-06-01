@@ -258,6 +258,15 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   #editingCells = new Set<string>();
 
   /**
+   * Light-DOM elements whose declarative attributes have already been read.
+   * The `editable` attribute (and `<tbw-grid-column-editor>` template) supply
+   * the INITIAL state only — seeding once guarantees a later runtime/config
+   * change to a falsy value is not re-applied on the next `processColumns`
+   * pass (issue #272). Reset in `detach()` so a re-attached instance re-seeds.
+   */
+  #seededFromAttr = new WeakSet<HTMLElement>();
+
+  /**
    * Value-change callbacks for active editors.
    * Keyed by "rowIndex:field" → callback that pushes updated values to the editor.
    * Populated during #injectEditor, cleaned up when editors are removed.
@@ -650,6 +659,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     this.#gridModeEditLocked = false;
     this.#gridModeCellSnapshot = null;
     this.#singleCellEdit = false;
+    this.#seededFromAttr = new WeakSet<HTMLElement>();
     super.detach();
   }
 
@@ -1007,14 +1017,15 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     return columns.map((col) => {
       // Read editing-owned attributes from the originating light-DOM element.
-      // Guarded so config / runtime state always wins over the attribute:
-      // the attribute only supplies the initial value when none is set.
+      // Each element is seeded at most once: the attribute supplies the INITIAL
+      // value only, so config and later runtime changes always win and are not
+      // overridden by re-reading the attribute on subsequent passes (#272).
       const el = (col as ColumnInternal<T>).__element;
-      if (el) {
-        // `!col.editable` faithfully replicates the old core OR-merge
-        // (`programmatic.editable || dom.editable`): a present `editable`
-        // attribute makes the column editable unless explicitly `="false"`.
-        if (!col.editable && el.hasAttribute('editable')) {
+      if (el && !this.#seededFromAttr.has(el)) {
+        this.#seededFromAttr.add(el);
+        // `col.editable == null` lets a programmatic config value (including an
+        // explicit `editable: false`) win over the attribute on this first pass.
+        if (col.editable == null && el.hasAttribute('editable')) {
           col.editable = el.getAttribute('editable') !== 'false';
         }
         const internalCol = col as ColumnInternal<T>;

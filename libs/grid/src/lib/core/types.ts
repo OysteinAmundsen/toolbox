@@ -1775,16 +1775,6 @@ export interface FrameworkAdapter {
 // #region Internal Types
 
 /**
- * Column internal properties used during light DOM parsing.
- * Stores attribute-based names before they're resolved to actual functions.
- * @internal
- */
-export interface ColumnParsedAttributes {
-  /** Renderer name from `renderer` attribute (resolved later) */
-  __rendererName?: string;
-}
-
-/**
  * Extended column config used internally.
  * Includes all internal properties needed during grid lifecycle.
  *
@@ -1814,7 +1804,7 @@ export interface ColumnParsedAttributes {
  * @internal
  * @since 0.1.1
  */
-export interface ColumnInternal<T = any> extends ColumnConfig<T>, ColumnParsedAttributes {
+export interface ColumnInternal<T = any> extends ColumnConfig<T> {
   __autoSized?: boolean;
   __userResized?: boolean;
   __renderedWidth?: number;

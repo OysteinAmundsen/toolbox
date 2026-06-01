@@ -70,11 +70,6 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
         config.resizable = el.getAttribute('resizable') !== 'false';
       }
 
-      // Parse renderer attribute name for programmatic lookup. The `editor`
-      // attribute is plugin-owned (editing) and read from `__element` there.
-      const rendererName = el.getAttribute('renderer');
-      if (rendererName) config.__rendererName = rendererName;
-
       // Parse options attribute for select/typeahead: "value1:Label1,value2:Label2" or "value1,value2"
       const optionsAttr = el.getAttribute('options');
       if (optionsAttr) {

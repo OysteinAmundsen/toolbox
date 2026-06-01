@@ -79,6 +79,18 @@ Attributes on the `<tbw-grid>` element for simple or programmatically-generated 
 ></tbw-grid>
 ```
 
+### Plugin Host Attributes (`data-*`)
+
+Some plugins read their own `data-*` attributes directly from the `<tbw-grid>` host
+element when they attach. These are namespaced under `data-` to avoid colliding with
+the grid's own reactive attributes (`rows`, `columns`, `grid-config`, `fit-mode`,
+`loading`). They are read **once at attach time** — changing them afterward has no
+effect (use the JSON `grid-config` attribute or a JS property for reactive updates).
+
+| Attribute  | Owning plugin      | Description                                                                                         |
+| ---------- | ------------------ | -------------------------------------------------------------------------------------------------- |
+| `data-src` | [`ServerSidePlugin`](/grid/plugins/server-side/) | URL to fetch row data from — enables a zero-JS server-fetched grid. See [Server-Side → Declarative `data-src`](/grid/plugins/server-side/#declarative-data-src-zero-js). |
+
 ### Light DOM Elements
 
 Child elements inside `<tbw-grid>` for more readable, template-friendly configuration. Preferred for framework templates (Angular, Vue, etc.) and complex column setups with custom renderers/editors.

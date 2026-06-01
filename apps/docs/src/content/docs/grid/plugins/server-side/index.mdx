@@ -178,6 +178,35 @@ export class ServerSideGridComponent {
   </TabItem>
 </Tabs>
 
+## Declarative `data-src` (zero-JS)
+
+For the simplest case — render a server-fetched grid from static HTML with no
+JavaScript — set a `data-src` attribute on the `<tbw-grid>` host. When the plugin
+attaches and no JS `dataSource` is configured, it fetches the whole dataset from that
+URL once and serves it to the grid in blocks:
+
+```html
+<tbw-grid grid-config='{"features":{"serverSide":true}}' data-src="/api/rows.json"></tbw-grid>
+```
+
+The endpoint may return either a plain array of rows or a `{ rows, totalNodeCount }`
+envelope:
+
+```jsonc
+// Plain array — totalNodeCount derived from length
+[{ "id": 1, "name": "Alice" }, { "id": 2, "name": "Bob" }]
+
+// Envelope — totalNodeCount honoured
+{ "rows": [{ "id": 1, "name": "Alice" }], "totalNodeCount": 5000 }
+```
+
+:::note
+`data-src` is read **once at attach time** and fetches the entire dataset (it caches
+the result and slices it per block). A JS `dataSource` always takes precedence. For
+true server-side pagination, remote sort/filter, or per-block fetching, provide a
+`dataSource` callback as shown above instead.
+:::
+
 ## Demo
 
 Toggle between virtual scrolling and paging mode, adjust the page size, and enable server-side sorting — all in one demo.

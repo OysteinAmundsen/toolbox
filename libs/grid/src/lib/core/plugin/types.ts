@@ -284,6 +284,30 @@ export interface HeaderRowContribution {
   /** Cells in this row, in left-to-right column order. */
   cells: HeaderRowCell[];
 }
+
+/**
+ * Context passed in {@link PluginQuery.context} for the `'getEditableFields'`
+ * query — used by consumers (e.g. the clipboard plugin's paste handler) to
+ * discover which column fields may receive values, **without** importing the
+ * editing plugin or depending on its column-config augmentations.
+ *
+ * The editing plugin declares `{ type: 'getEditableFields' }` in its manifest
+ * and responds from `handleQuery` with a `string[]` of field names that are
+ * unconditionally editable (`column.editable === true`). When the editing
+ * plugin is absent, no plugin responds and consumers treat **no** field as
+ * editable.
+ *
+ * Function-typed `editable` (row-conditional) is intentionally excluded — this
+ * query carries no row context, so consumers needing per-row gating must
+ * evaluate that separately.
+ *
+ * @category Plugin Development
+ * @since 2.16.0
+ */
+export interface GetEditableFieldsContext {
+  /** Columns the consumer is about to operate on (in display order). */
+  columns: ColumnConfig[];
+}
 // #endregion
 
 // #region Cell Renderer Types

@@ -18,7 +18,7 @@ import {
 import { builtInSort } from '../../core/internal/sorting';
 import { BaseGridPlugin, ScrollEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, GridHost } from '../../core/types';
-import { getBlockNumber, getRequiredBlocks, getRowFromCache, loadBlock } from './datasource';
+import { createUrlDataSource, getBlockNumber, getRequiredBlocks, getRowFromCache, loadBlock } from './datasource';
 import type {
   DataSourceChildrenDetail,
   DataSourceDataDetail,
@@ -175,6 +175,16 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     // Auto-initialize from config when dataSource is provided declaratively
     if (this.config.dataSource) {
       this.setDataSource(this.config.dataSource);
+      return;
+    }
+
+    // Declarative `data-src` shorthand (issue #273): when no JS dataSource is
+    // configured, read the host's `data-src` attribute and fetch the whole
+    // dataset from that URL. Enables a zero-JS HTML page to render
+    // server-fetched rows. A JS `dataSource` config always takes precedence.
+    const src = this.gridElement?.getAttribute('data-src');
+    if (src) {
+      this.setDataSource(createUrlDataSource(src));
     }
   }
 

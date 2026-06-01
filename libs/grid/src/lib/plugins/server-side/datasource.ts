@@ -138,3 +138,61 @@ export function isBlockLoaded(blockNumber: number, loadedBlocks: Map<number, unk
 export function isBlockLoading(blockNumber: number, loadingBlocks: Set<number>): boolean {
   return loadingBlocks.has(blockNumber);
 }
+
+/**
+ * Build a default {@link ServerSideDataSource} that fetches the whole dataset
+ * from a URL once and serves it in blocks from memory. Powers the declarative
+ * `<tbw-grid data-src="...">` shorthand (issue #273) so a zero-JS HTML page can
+ * render server-fetched rows.
+ *
+ * The endpoint may return either a plain array of rows (`[...]`) or an envelope
+ * (`{ rows, totalNodeCount }`). The fetch runs at most once on success — the
+ * resolved dataset is cached and sliced per `getRows` block — so a static JSON
+ * file works out of the box. A failed (or aborted) fetch is not cached, so a
+ * later block request retries instead of leaving the grid permanently empty.
+ * For true server-side pagination (per-block fetches, remote sort/filter),
+ * provide a `dataSource` in the plugin config instead.
+ *
+ * @param url Absolute or relative URL. The fetch runs at most once on success,
+ *   so only the first `getRows()` call's `signal` is passed to `fetch()`;
+ *   later calls resolve from the cached dataset and don't re-fetch.
+ * @internal
+ */
+export function createUrlDataSource(url: string): ServerSideDataSource {
+  let datasetPromise: Promise<{ rows: unknown[]; total: number }> | null = null;
+
+  const loadDataset = (signal: AbortSignal): Promise<{ rows: unknown[]; total: number }> => {
+    if (!datasetPromise) {
+      datasetPromise = fetch(url, { signal })
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`Failed to fetch "${url}": ${response.status} ${response.statusText}`);
+          }
+          const data: unknown = await response.json();
+          if (Array.isArray(data)) {
+            return { rows: data, total: data.length };
+          }
+          const envelope = (data ?? {}) as { rows?: unknown[]; totalNodeCount?: number };
+          const rows = Array.isArray(envelope.rows) ? envelope.rows : [];
+          const total = typeof envelope.totalNodeCount === 'number' ? envelope.totalNodeCount : rows.length;
+          return { rows, total };
+        })
+        .catch((err) => {
+          // Don't cache failures/aborts — the plugin aborts in-flight block
+          // requests on sort/filter/refresh, and caching the rejected promise
+          // would poison every later block load. Null it so the next request
+          // re-fetches.
+          datasetPromise = null;
+          throw err;
+        });
+    }
+    return datasetPromise;
+  };
+
+  return {
+    async getRows({ startNode, endNode, signal }: GetRowsParams): Promise<GetRowsResult> {
+      const { rows, total } = await loadDataset(signal);
+      return { rows: rows.slice(startNode, endNode), totalNodeCount: total };
+    },
+  };
+}

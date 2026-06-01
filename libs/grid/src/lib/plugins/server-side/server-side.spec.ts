@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BlockCache } from './cache';
 import {
+  createUrlDataSource,
   getBlockNumber,
   getBlockRange,
   getRequiredBlocks,
@@ -530,6 +531,153 @@ describe('ServerSidePlugin', () => {
       plugin.attach(grid as any);
 
       // processRows should pass through when no dataSource is set
+      const rows = [{ id: 1 }];
+      expect(plugin.processRows(rows)).toEqual(rows);
+    });
+  });
+
+  describe('serverSide feature boolean shorthand', () => {
+    it('enables the plugin with `serverSide: true` (matches the feature convention)', async () => {
+      // Importing the feature module registers its factory.
+      await import('../../features/server-side');
+      const { createPluginsFromFeatures } = await import('../../features/registry');
+
+      const plugins = createPluginsFromFeatures({ serverSide: true });
+
+      expect(plugins).toHaveLength(1);
+      expect(plugins[0]).toBeInstanceOf(ServerSidePlugin);
+    });
+  });
+
+  describe('createUrlDataSource', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('fetches a plain JSON array and derives totalNodeCount from its length', async () => {
+      const data = [{ id: 1 }, { id: 2 }, { id: 3 }];
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(data) });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const ds = createUrlDataSource('/api/rows.json');
+      const result = await ds.getRows({
+        startNode: 0,
+        endNode: 2,
+        pageSize: 2,
+        signal: new AbortController().signal,
+      });
+
+      expect(fetchMock).toHaveBeenCalledWith('/api/rows.json', expect.objectContaining({ signal: expect.anything() }));
+      expect(result).toEqual({ rows: [{ id: 1 }, { id: 2 }], totalNodeCount: 3 });
+    });
+
+    it('fetches a { rows, totalNodeCount } envelope and honours totalNodeCount', async () => {
+      const envelope = { rows: [{ id: 1 }, { id: 2 }], totalNodeCount: 500 };
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(envelope) });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const ds = createUrlDataSource('/api/rows');
+      const result = await ds.getRows({
+        startNode: 0,
+        endNode: 2,
+        pageSize: 2,
+        signal: new AbortController().signal,
+      });
+
+      expect(result).toEqual({ rows: [{ id: 1 }, { id: 2 }], totalNodeCount: 500 });
+    });
+
+    it('fetches once and serves subsequent blocks from cache', async () => {
+      const data = Array.from({ length: 5 }, (_, i) => ({ id: i }));
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(data) });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const ds = createUrlDataSource('/api/rows.json');
+      const signal = new AbortController().signal;
+      const first = await ds.getRows({ startNode: 0, endNode: 2, pageSize: 2, signal });
+      const second = await ds.getRows({ startNode: 2, endNode: 4, pageSize: 2, signal });
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(first.rows).toEqual([{ id: 0 }, { id: 1 }]);
+      expect(second.rows).toEqual([{ id: 2 }, { id: 3 }]);
+    });
+
+    it('rejects when the response is not ok', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const ds = createUrlDataSource('/api/missing');
+      await expect(
+        ds.getRows({ startNode: 0, endNode: 2, pageSize: 2, signal: new AbortController().signal }),
+      ).rejects.toThrow('/api/missing');
+    });
+
+    it('does not cache a failed fetch — a later block request retries', async () => {
+      const data = [{ id: 1 }, { id: 2 }];
+      const fetchMock = vi
+        .fn()
+        .mockRejectedValueOnce(new DOMException('Aborted', 'AbortError'))
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(data) });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const ds = createUrlDataSource('/api/rows.json');
+      const signal = new AbortController().signal;
+
+      await expect(ds.getRows({ startNode: 0, endNode: 2, pageSize: 2, signal })).rejects.toThrow();
+      // The rejected promise must not be cached — the retry re-fetches and succeeds.
+      const retry = await ds.getRows({ startNode: 0, endNode: 2, pageSize: 2, signal });
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(retry).toEqual({ rows: [{ id: 1 }, { id: 2 }], totalNodeCount: 2 });
+    });
+  });
+
+  describe('data-src host attribute (declarative)', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('reads data-src from the host element and loads the first block on attach', async () => {
+      const data = [{ id: 1 }, { id: 2 }];
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(data) });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid({ _hostElement: undefined });
+      grid._hostElement = grid;
+      grid.setAttribute('data-src', '/api/rows.json');
+      plugin.attach(grid as any);
+
+      await vi.waitFor(() => expect(grid.requestRender).toHaveBeenCalled());
+
+      expect(fetchMock).toHaveBeenCalledWith('/api/rows.json', expect.objectContaining({ signal: expect.anything() }));
+      expect(plugin.getTotalRowCount()).toBe(2);
+      expect(plugin.getLoadedBlockCount()).toBe(1);
+    });
+
+    it('prefers config.dataSource over the data-src attribute', async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+
+      const configDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 9 }], totalNodeCount: 1 }),
+      };
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10, dataSource: configDS });
+      const grid = createServerSideMockGrid();
+      grid._hostElement = grid;
+      grid.setAttribute('data-src', '/api/rows.json');
+      plugin.attach(grid as any);
+
+      await vi.waitFor(() => expect(configDS.getRows).toHaveBeenCalled());
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when neither config.dataSource nor data-src is present', () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid();
+      grid._hostElement = grid;
+      plugin.attach(grid as any);
+
       const rows = [{ id: 1 }];
       expect(plugin.processRows(rows)).toEqual(rows);
     });

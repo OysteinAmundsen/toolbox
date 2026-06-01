@@ -25,6 +25,7 @@ import type {
   PluginQuery,
 } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
+import type { GetEditableFieldsContext } from '../../core/plugin/types';
 import type { ColumnConfig, GridHost, InternalGrid, RowElementInternal } from '../../core/types';
 import styles from './editing.css?inline';
 import { getInputValue } from './editors';
@@ -177,6 +178,11 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       {
         type: 'isEditing',
         description: 'Returns whether any cell is currently being edited',
+      },
+      {
+        type: 'getEditableFields',
+        description:
+          'Returns the field names of columns that are unconditionally editable (editable === true), for consumers like clipboard paste',
       },
     ],
   };
@@ -655,6 +661,16 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (query.type === 'isEditing') {
       // In grid mode, we're always editing
       return this.#isGridMode || this.#activeEditRow !== -1;
+    }
+    if (query.type === 'getEditableFields') {
+      // Report fields that are unconditionally editable (`editable === true`).
+      // Function-typed `editable` is row-conditional and excluded here, since
+      // this query carries no row context. Falls back to the grid's resolved
+      // columns when the caller does not supply any.
+      const context = query.context as GetEditableFieldsContext | undefined;
+      const columns =
+        context?.columns ?? (this.#internalGrid.effectiveConfig?.columns as ColumnConfig<T>[] | undefined) ?? [];
+      return columns.filter((col) => col.editable === true).map((col) => col.field);
     }
     return undefined;
   }

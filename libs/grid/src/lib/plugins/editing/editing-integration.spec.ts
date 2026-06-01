@@ -1458,6 +1458,24 @@ describe('EditingPlugin', () => {
       expect(results.includes(true)).toBe(true);
     });
 
+    it('reports editable field names via getEditableFields query', async () => {
+      const plugin = new EditingPlugin();
+      const cols = [
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name', editable: true },
+        { field: 'role', header: 'Role', editable: false },
+        { field: 'age', header: 'Age', editable: (row: { id: number }) => row.id > 0 },
+      ];
+      grid.gridConfig = { columns: cols, plugins: [plugin] };
+      grid.rows = [{ id: 1, name: 'Alice', role: 'Dev', age: 30 }];
+      await waitUpgrade(grid);
+
+      // Only `editable === true` columns are reported; function-typed editable
+      // is row-conditional and intentionally excluded.
+      const results = grid.query<string[]>('getEditableFields', { columns: cols });
+      expect(results.flat()).toEqual(['name']);
+    });
+
     describe('navigation vs edit mode (Excel-like)', () => {
       it('Escape blurs input allowing arrow key navigation', async () => {
         grid.gridConfig = {

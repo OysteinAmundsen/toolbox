@@ -170,11 +170,11 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
   const columns = grid.effectiveConfig.columns ?? [];
   const allFields = columns.map((col) => col.field);
 
-  // Build a map of field -> editable for quick lookup
-  const editableMap = new Map<string, boolean>();
-  columns.forEach((col) => {
-    editableMap.set(col.field, col.editable === true);
-  });
+  // Ask plugins (the editing plugin) which fields are editable. We never read
+  // editing-owned column props (`editable`) directly here — that keeps clipboard
+  // decoupled from editing. With no editing plugin loaded, no plugin responds
+  // and nothing is treated as editable (paste becomes a no-op).
+  const editableFields = new Set(grid.query<string[]>('getEditableFields', { columns }).flat());
 
   // Clone data for immutability
   const newRows = [...currentRows];
@@ -206,7 +206,7 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
     rowData.forEach((cellValue, colOffset) => {
       // fields array is already constrained by bounds in ClipboardPlugin
       const field = fields[colOffset];
-      if (field && editableMap.get(field)) {
+      if (field && editableFields.has(field)) {
         // Only paste into editable columns
         newRows[targetRowIndex][field] = cellValue;
       }
@@ -221,9 +221,9 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
 declare module '../../core/types' {
   interface DataGridEventMap {
     /** Fired after a successful copy operation. Provides the copied text, row count, and column count. @group Clipboard Events */
-    'copy': CopyDetail;
+    copy: CopyDetail;
     /** Fired after a paste operation. Provides parsed rows, target cell, and column fields. @group Clipboard Events */
-    'paste': PasteDetail;
+    paste: PasteDetail;
   }
 
   interface PluginNameMap {

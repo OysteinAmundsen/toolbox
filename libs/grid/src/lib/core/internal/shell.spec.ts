@@ -12,6 +12,8 @@ import {
   renderShellBody,
   renderShellHeader,
   setupClickOutsideDismiss,
+  setupEscapeDismiss,
+  shouldRenderHeaderBar,
   shouldRenderShellHeader,
   type ShellState,
 } from './shell';
@@ -95,6 +97,27 @@ describe('shell module', () => {
     it('returns true when tool buttons container was found in config', () => {
       const config: ShellConfig = { header: { hasToolButtonsContainer: true } };
       expect(shouldRenderShellHeader(config)).toBe(true);
+    });
+  });
+
+  describe('shouldRenderHeaderBar', () => {
+    it('returns true when config is undefined', () => {
+      expect(shouldRenderHeaderBar(undefined)).toBe(true);
+    });
+
+    it('returns true by default when header.visible is not set', () => {
+      const config: ShellConfig = { header: { title: 'My Grid' } };
+      expect(shouldRenderHeaderBar(config)).toBe(true);
+    });
+
+    it('returns true when header.visible is explicitly true', () => {
+      const config: ShellConfig = { header: { visible: true } };
+      expect(shouldRenderHeaderBar(config)).toBe(true);
+    });
+
+    it('returns false only when header.visible is explicitly false', () => {
+      const config: ShellConfig = { header: { visible: false } };
+      expect(shouldRenderHeaderBar(config)).toBe(false);
     });
   });
 
@@ -955,6 +978,100 @@ describe('shell module', () => {
       expect(onClose).not.toHaveBeenCalled();
 
       cleanup();
+    });
+
+    it('closes when clicking anywhere in the window outside the panel (window-wide)', () => {
+      const config: ShellConfig = { toolPanel: { closeOnClickOutside: true } };
+      state.isPanelOpen = true;
+
+      const cleanup = setupClickOutsideDismiss(gridEl, config, state, onClose);
+
+      // Click on an unrelated element outside the grid entirely.
+      const outside = document.createElement('div');
+      document.body.appendChild(outside);
+      outside.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+
+      cleanup();
+    });
+  });
+
+  describe('setupEscapeDismiss', () => {
+    let onClose: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      onClose = vi.fn();
+    });
+
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('closes the panel when Escape is pressed while open', () => {
+      const config: ShellConfig = { toolPanel: {} };
+      state.isPanelOpen = true;
+
+      const cleanup = setupEscapeDismiss(config, state, onClose);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+
+      cleanup();
+    });
+
+    it('does NOT close when the panel is not open', () => {
+      const config: ShellConfig = { toolPanel: {} };
+      state.isPanelOpen = false;
+
+      const cleanup = setupEscapeDismiss(config, state, onClose);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      expect(onClose).not.toHaveBeenCalled();
+
+      cleanup();
+    });
+
+    it('ignores non-Escape keys', () => {
+      const config: ShellConfig = { toolPanel: {} };
+      state.isPanelOpen = true;
+
+      const cleanup = setupEscapeDismiss(config, state, onClose);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      expect(onClose).not.toHaveBeenCalled();
+
+      cleanup();
+    });
+
+    it('yields to more-specific handlers when the event was already defaultPrevented', () => {
+      const config: ShellConfig = { toolPanel: {} };
+      state.isPanelOpen = true;
+
+      const cleanup = setupEscapeDismiss(config, state, onClose);
+      const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+      event.preventDefault();
+      document.dispatchEvent(event);
+      expect(onClose).not.toHaveBeenCalled();
+
+      cleanup();
+    });
+
+    it('is a no-op in push mode', () => {
+      const config: ShellConfig = { toolPanel: { mode: 'push' } };
+      state.isPanelOpen = true;
+
+      const cleanup = setupEscapeDismiss(config, state, onClose);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      expect(onClose).not.toHaveBeenCalled();
+
+      cleanup();
+    });
+
+    it('cleanup removes the listener', () => {
+      const config: ShellConfig = { toolPanel: {} };
+      state.isPanelOpen = true;
+
+      const cleanup = setupEscapeDismiss(config, state, onClose);
+      cleanup();
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      expect(onClose).not.toHaveBeenCalled();
     });
   });
 });

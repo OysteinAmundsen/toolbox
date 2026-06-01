@@ -48,6 +48,16 @@ describe('dom-builder', () => {
       const fragment = buildGridDOM({ hasShell: false });
       expect(fragment.querySelector('.tbw-grid-content')).not.toBeNull();
     });
+
+    it('should render shell body without header when header is suppressed', () => {
+      const shellBody = document.createElement('div');
+      shellBody.className = 'tbw-shell-body';
+      const fragment = buildGridDOM({ hasShell: true, shellBody });
+      const root = fragment.querySelector('.tbw-grid-root');
+      expect(root?.classList.contains('has-shell')).toBe(true);
+      expect(fragment.querySelector('.tbw-shell-body')).not.toBeNull();
+      expect(fragment.querySelector('.tbw-shell-header')).toBeNull();
+    });
   });
 
   describe('buildShellHeader', () => {
@@ -126,6 +136,32 @@ describe('dom-builder', () => {
         panels: [{ id: 'test', title: 'Test Panel', isExpanded: true }],
       });
       expect(body.firstElementChild).toBe(body.querySelector('.tbw-grid-content'));
+    });
+
+    it('does not render a close button by default', () => {
+      const body = buildShellBody({
+        ...baseOpts,
+        isPanelOpen: true,
+        panels: [{ id: 'test', title: 'Test Panel', isExpanded: true }],
+      });
+      expect(body.querySelector('[data-panel-close]')).toBeNull();
+    });
+
+    it('renders a close (✕) button when showCloseButton is true', () => {
+      const body = buildShellBody({
+        ...baseOpts,
+        isPanelOpen: true,
+        showCloseButton: true,
+        panels: [{ id: 'test', title: 'Test Panel', isExpanded: true }],
+      });
+      const closeBtn = body.querySelector('[data-panel-close]') as HTMLButtonElement | null;
+      expect(closeBtn).not.toBeNull();
+      // Lives inside the tool panel, is a real button with an accessible name.
+      expect(closeBtn!.closest('.tbw-tool-panel')).not.toBeNull();
+      expect(closeBtn!.tagName).toBe('BUTTON');
+      expect(closeBtn!.getAttribute('aria-label')).toBe('Close panel');
+      // Exposed as the documented `tool-panel-close` CSS part for ::part() styling.
+      expect(closeBtn!.getAttribute('part')).toBe('tool-panel-close');
     });
   });
 });

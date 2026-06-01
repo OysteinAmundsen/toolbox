@@ -3719,6 +3719,29 @@ export interface ShellHeaderConfig {
   /** Custom toolbar content (rendered before tool panel toggle) */
   toolbarContents?: ToolbarContentDefinition[];
   /**
+   * Whether the shell header bar element (`.tbw-shell-header`) is rendered.
+   *
+   * Set to `false` to drive tool panels entirely from your own UI — for
+   * example, a utility-column header icon whose click handler calls
+   * {@link DataGridElement.openToolPanel}. The header bar (title, toolbar
+   * contents, built-in toggle) is fully suppressed, but the shell body and
+   * any registered tool panels still render and remain openable via the API.
+   *
+   * When `false`, a close (✕) button is rendered in the top-right corner of
+   * the open tool panel (unless `toolPanel.locked` is `true`) so the panel
+   * can always be dismissed without the header toggle. Overlay panels also
+   * close on <kbd>Esc</kbd>; window-wide click-outside dismissal additionally
+   * requires `toolPanel.closeOnClickOutside: true`.
+   *
+   * Unlike `toolPanelToggle: false` (which only removes the built-in toggle
+   * button while keeping the bar), this removes the entire bar element — no
+   * CSS override needed.
+   *
+   * @default true
+   * @since 2.16.0
+   */
+  visible?: boolean;
+  /**
    * Whether the grid renders its built-in tool panel toggle button
    * (`button.tbw-toolbar-btn[data-panel-toggle]`) and the auto-inserted
    * `.tbw-toolbar-separator` between custom toolbar contents and the toggle.

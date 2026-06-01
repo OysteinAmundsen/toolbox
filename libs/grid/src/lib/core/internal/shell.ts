@@ -175,6 +175,20 @@ export function shouldRenderShellHeader(config: ShellConfig | undefined): boolea
 }
 
 /**
+ * Determine whether the visible shell header bar (`.tbw-shell-header`) should
+ * be rendered.
+ *
+ * Distinct from {@link shouldRenderShellHeader}, which decides whether the
+ * shell *wrapper* (including the body that hosts the tool panel) exists at
+ * all. The header bar can be suppressed via `header.visible: false` while the
+ * shell body and tool panels still render — letting consumers drive panels
+ * from their own UI (e.g. a utility-column header icon).
+ */
+export function shouldRenderHeaderBar(config: ShellConfig | undefined): boolean {
+  return config?.header?.visible !== false;
+}
+
+/**
  * Render the shell header HTML.
  *
  * Toolbar contents come from two sources:
@@ -607,6 +621,8 @@ export function setupShellEventListeners(
   callbacks: {
     onPanelToggle: () => void;
     onSectionToggle: (sectionId: string) => void;
+    /** Invoked when the in-panel close (✕) button is clicked. */
+    onPanelClose?: () => void;
   },
 ): void {
   const toolbar = renderRoot.querySelector('.tbw-shell-toolbar');
@@ -619,6 +635,17 @@ export function setupShellEventListeners(
       if (panelToggle) {
         callbacks.onPanelToggle();
         return;
+      }
+    });
+  }
+
+  // In-panel close (✕) button — only present when the header bar is hidden.
+  const panel = renderRoot.querySelector('.tbw-tool-panel');
+  if (panel && callbacks.onPanelClose) {
+    panel.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-panel-close]')) {
+        callbacks.onPanelClose!();
       }
     });
   }
@@ -642,16 +669,19 @@ export function setupShellEventListeners(
 
 /**
  * Set up a click-outside listener that closes the tool panel when the user
- * clicks anywhere inside the grid but outside the tool panel itself.
+ * clicks anywhere in the document outside the tool panel itself.
  *
  * Only active when `config.toolPanel.closeOnClickOutside` is `true` AND the
- * panel is open. The listener is added on `mousedown` (not `click`) so it
- * fires before focus changes.
+ * panel is open. The listener is added on `document` `mousedown` (not `click`)
+ * so it fires before focus changes and catches clicks anywhere in the window —
+ * including outside the grid. Uses `composedPath()` so clicks inside the
+ * grid's shadow DOM are correctly attributed (shadow-retargeted `event.target`
+ * would otherwise always be the host element).
  *
  * @returns A cleanup function that removes the listener.
  */
 export function setupClickOutsideDismiss(
-  gridElement: Element,
+  _gridElement: Element,
   config: ShellConfig | undefined,
   state: ShellState,
   onClose: () => void,
@@ -671,19 +701,55 @@ export function setupClickOutsideDismiss(
   const handler = (e: Event) => {
     if (!state.isPanelOpen) return;
 
-    const target = e.target as Element | null;
-    if (!target) return;
-
-    // Ignore clicks inside the tool panel itself or its toggle button
-    if (target.closest('.tbw-tool-panel') || target.closest('[data-panel-toggle]')) {
-      return;
+    // Ignore clicks inside the tool panel itself or on the toggle button.
+    // composedPath() pierces shadow boundaries so this works for both the
+    // light-DOM toggle and the shadow-DOM panel.
+    for (const node of e.composedPath()) {
+      if (
+        node instanceof Element &&
+        (node.classList?.contains('tbw-tool-panel') || node.matches?.('[data-panel-toggle]'))
+      ) {
+        return;
+      }
     }
 
     onClose();
   };
 
-  gridElement.addEventListener('mousedown', handler);
-  return () => gridElement.removeEventListener('mousedown', handler);
+  document.addEventListener('mousedown', handler);
+  return () => document.removeEventListener('mousedown', handler);
+}
+
+/**
+ * Set up an Escape-key listener that closes an open overlay tool panel.
+ *
+ * Active only in `overlay` mode (a push panel is a persistent sidebar, not a
+ * transient overlay, so Esc does not dismiss it — the in-panel close button is
+ * the affordance there). Yields to more specific handlers: if another listener
+ * already called `preventDefault()` on the keydown (e.g. an active cell editor
+ * cancelling an edit), the panel is left open.
+ *
+ * @returns A cleanup function that removes the listener.
+ */
+export function setupEscapeDismiss(
+  config: ShellConfig | undefined,
+  state: ShellState,
+  onClose: () => void,
+): () => void {
+  // Push panels are persistent — Esc only dismisses overlay panels.
+  if (config?.toolPanel?.mode === 'push') {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    return () => {};
+  }
+
+  const handler = (e: KeyboardEvent) => {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    if (!state.isPanelOpen) return;
+    onClose();
+  };
+
+  document.addEventListener('keydown', handler);
+  return () => document.removeEventListener('keydown', handler);
 }
 
 /**
@@ -1084,6 +1150,10 @@ function buildShellOptions(
       isPanelOpen: runtimeState.isPanelOpen,
       expandIcon,
       collapseIcon,
+      // Render an in-panel close (✕) button when the header bar is hidden, so
+      // the panel can be dismissed without the (absent) built-in toggle. A
+      // locked panel cannot be closed, so no button in that case.
+      showCloseButton: shellConfig.header?.visible === false && shellConfig.toolPanel?.locked !== true,
       panels: sortedPanels.map((p) => ({
         id: p.id,
         title: p.title,
@@ -1136,7 +1206,7 @@ export function buildGridDOMIntoElement(
 
   if (hasShell) {
     const { headerOptions, bodyOptions } = buildShellOptions(shellConfig!, runtimeState, icons);
-    const shellHeader = buildShellHeader(headerOptions);
+    const shellHeader = shouldRenderHeaderBar(shellConfig) ? buildShellHeader(headerOptions) : undefined;
     const shellBody = buildShellBody(bodyOptions);
 
     const fragment = buildGridDOM({
@@ -1192,7 +1262,7 @@ export function rebuildShellDOM(
     existingRoot.className = `${GridClasses.ROOT} has-shell`;
 
     const { headerOptions, bodyOptions } = buildShellOptions(shellConfig!, runtimeState, icons);
-    const shellHeader = buildShellHeader(headerOptions);
+    const shellHeader = shouldRenderHeaderBar(shellConfig) ? buildShellHeader(headerOptions) : undefined;
     const shellBody = buildShellBody(bodyOptions);
 
     // Replace the freshly cloned grid content with the preserved one
@@ -1201,7 +1271,7 @@ export function rebuildShellDOM(
       freshContent.replaceWith(existingContent);
     }
 
-    existingRoot.appendChild(shellHeader);
+    if (shellHeader) existingRoot.appendChild(shellHeader);
     existingRoot.appendChild(shellBody);
   } else {
     // No shell — place content directly in root

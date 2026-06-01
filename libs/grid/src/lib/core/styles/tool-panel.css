@@ -109,7 +109,7 @@
     .tbw-tool-panel-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-end;
       min-height: var(--tbw-tool-panel-header-height);
       padding: 0 12px;
       border-bottom: 1px solid var(--tbw-tool-panel-border);

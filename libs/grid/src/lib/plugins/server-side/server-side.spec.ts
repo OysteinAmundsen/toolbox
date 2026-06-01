@@ -536,6 +536,19 @@ describe('ServerSidePlugin', () => {
     });
   });
 
+  describe('serverSide feature boolean shorthand', () => {
+    it('enables the plugin with `serverSide: true` (matches the feature convention)', async () => {
+      // Importing the feature module registers its factory.
+      await import('../../features/server-side');
+      const { createPluginsFromFeatures } = await import('../../features/registry');
+
+      const plugins = createPluginsFromFeatures({ serverSide: true });
+
+      expect(plugins).toHaveLength(1);
+      expect(plugins[0]).toBeInstanceOf(ServerSidePlugin);
+    });
+  });
+
   describe('createUrlDataSource', () => {
     afterEach(() => {
       vi.unstubAllGlobals();

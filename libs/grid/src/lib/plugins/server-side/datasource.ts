@@ -153,7 +153,9 @@ export function isBlockLoading(blockNumber: number, loadingBlocks: Set<number>):
  * For true server-side pagination (per-block fetches, remote sort/filter),
  * provide a `dataSource` in the plugin config instead.
  *
- * @param url Absolute or relative URL fetched with the request's abort signal.
+ * @param url Absolute or relative URL. The fetch runs at most once on success,
+ *   so only the first `getRows()` call's `signal` is passed to `fetch()`;
+ *   later calls resolve from the cached dataset and don't re-fetch.
  * @internal
  */
 export function createUrlDataSource(url: string): ServerSideDataSource {

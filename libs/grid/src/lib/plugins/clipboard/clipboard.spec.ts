@@ -433,13 +433,13 @@ describe('clipboard', () => {
     ): {
       rows: unknown[];
       effectiveConfig: { columns: ColumnConfig[] };
-      query: <U>(type: string, context: unknown) => U[];
+      query: <U>(type: string, context?: unknown) => U[];
     } => ({
       rows: [...rows],
       effectiveConfig: { columns },
       // Simulate the editing plugin responding to the `getEditableFields` query:
       // it reports the field names of columns marked `editable === true`.
-      query: <U>(type: string, context: unknown): U[] => {
+      query: <U>(type: string, context?: unknown): U[] => {
         if (type === 'getEditableFields') {
           const cols = (context as { columns: ColumnConfig[] }).columns;
           return [cols.filter((col) => col.editable === true).map((col) => col.field)] as U[];

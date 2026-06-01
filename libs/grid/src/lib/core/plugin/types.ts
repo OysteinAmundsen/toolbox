@@ -305,8 +305,12 @@ export interface HeaderRowContribution {
  * @since 2.16.0
  */
 export interface GetEditableFieldsContext {
-  /** Columns the consumer is about to operate on (in display order). */
-  columns: ColumnConfig[];
+  /**
+   * Columns the consumer is about to operate on (in display order). Optional:
+   * when omitted, the editing plugin falls back to the grid's resolved
+   * (`effectiveConfig`) columns.
+   */
+  columns?: ColumnConfig[];
 }
 // #endregion
 

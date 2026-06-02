@@ -3,7 +3,7 @@ title: Plugin Architecture
 description: How the @toolbox-web/grid plugin system works internally — lifecycle, hooks, communication, manifests, validated properties, and the feature registry.
 ---
 
-This page describes how the plugin and feature subsystems work inside `@toolbox-web/grid`. It is the contributor-facing companion to the [Authoring Guide](/grid/plugin-development/custom-plugins/) and to the typed [Plugin Development API reference](/grid/api/plugin-development/).
+This page describes how the plugin and feature subsystems work inside `@toolbox-web/grid`. It is the contributor-facing companion to the [Authoring Guide](/grid/plugin-development/custom-plugins/) and to the typed [`BaseGridPlugin` API reference](/grid/api/plugin-development/classes/basegridplugin/).
 
 For grid-core internals (render scheduler, virtualization, DOM structure, configuration), see the main [Architecture](/grid/architecture/) page.
 
@@ -277,6 +277,6 @@ This tells bundlers: "these imports have side effects (registration), don't opti
 ## See Also
 
 - **[Authoring Guide](/grid/plugin-development/custom-plugins/)** — Step-by-step plugin tutorial with complete examples.
-- **[Plugin Development API](/grid/api/plugin-development/)** — Typed reference for `BaseGridPlugin`, `GridPlugin`, `PluginManifest`.
+- **[Plugin Development API](/grid/api/plugin-development/classes/basegridplugin/)** — Typed reference for `BaseGridPlugin`, `GridPlugin`, `PluginManifest`.
 - **[Grid Architecture](/grid/architecture/)** — Render scheduler, virtualization, and DOM structure that plugins integrate with.
 - **[Framework Adapters](/grid/framework-adapters/)** — How React / Angular / Vue adapters extend the plugin pipeline.

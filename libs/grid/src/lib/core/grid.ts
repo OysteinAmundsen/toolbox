@@ -1,6 +1,7 @@
 // SHELL-AUTOREGISTER-V3-370: the single value import core gains so the shell
 // ships as a built-in plugin. Auto-registered (first position) in
 // #initializePlugins unless a `shell`-named plugin already resolved.
+// eslint-disable-next-line no-restricted-imports -- sanctioned core→shell seam (#370), removed at v3
 import { ShellPlugin } from '../plugins/shell';
 import {
   announceDataLoaded,
@@ -14,6 +15,7 @@ import { ConfigManager } from './internal/config-manager';
 import {
   HEADER_CONTENT_DUPLICATE,
   INVALID_ATTRIBUTE_JSON,
+  SHELL_API_DEPRECATED,
   TOOL_PANEL_DUPLICATE,
   warnDiagnostic,
 } from './internal/diagnostics';
@@ -871,6 +873,24 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const plugin = attached ?? (this.#shellPlugin ??= new ShellPlugin());
     plugin.ensureState(this);
     return plugin;
+  }
+
+  /**
+   * One-time deprecation warning for the core shell delegates (#370). Tracks
+   * which delegate names have already warned so each fires at most once per
+   * grid instance. Removed in v3 together with the delegates themselves.
+   */
+  #shellApiWarned = new Set<string>();
+
+  /** @internal Emit the TBW076 shell-API deprecation warning once per method. */
+  #warnShellApiDeprecated(method: string): void {
+    if (this.#shellApiWarned.has(method)) return;
+    this.#shellApiWarned.add(method);
+    warnDiagnostic(
+      SHELL_API_DEPRECATED,
+      `grid.${method} is deprecated. Enable the shell via \`features: { shell }\` and call \`grid.getPluginByName('shell')?.${method}\` instead.`,
+      this.id,
+    );
   }
 
   /** @internal Shell state — owned by the ShellPlugin (extraction #370). */
@@ -4147,6 +4167,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Removed in v3 (#370). Use `grid.getPluginByName('shell')?.isToolPanelOpen`.
    */
   get isToolPanelOpen(): boolean {
+    this.#warnShellApiDeprecated('isToolPanelOpen');
     return this.#resolveShellPlugin().isToolPanelOpen;
   }
 
@@ -4180,6 +4201,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Removed in v3 (#370). Use `grid.getPluginByName('shell')?.expandedToolPanelSections`.
    */
   get expandedToolPanelSections(): string[] {
+    this.#warnShellApiDeprecated('expandedToolPanelSections');
     return this.#resolveShellPlugin().expandedToolPanelSections;
   }
 
@@ -4212,6 +4234,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Removed in v3 (#370). Use `grid.getPluginByName('shell')?.openToolPanel()`.
    */
   openToolPanel(panelId?: string): void {
+    this.#warnShellApiDeprecated('openToolPanel()');
     this.#resolveShellPlugin().openToolPanel(panelId);
   }
 
@@ -4228,6 +4251,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Removed in v3 (#370). Use `grid.getPluginByName('shell')?.closeToolPanel()`.
    */
   closeToolPanel(): void {
+    this.#warnShellApiDeprecated('closeToolPanel()');
     this.#resolveShellPlugin().closeToolPanel();
   }
 
@@ -4246,6 +4270,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Removed in v3 (#370). Use `grid.getPluginByName('shell')?.toggleToolPanel()`.
    */
   toggleToolPanel(): void {
+    this.#warnShellApiDeprecated('toggleToolPanel()');
     this.#resolveShellPlugin().toggleToolPanel();
   }
 
@@ -4265,6 +4290,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Removed in v3 (#370). Use `grid.getPluginByName('shell')?.toggleToolPanelSection()`.
    */
   toggleToolPanelSection(sectionId: string): void {
+    this.#warnShellApiDeprecated('toggleToolPanelSection()');
     this.#resolveShellPlugin().toggleToolPanelSection(sectionId);
   }
 
@@ -4288,6 +4314,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Removed in v3 (#370). Use `grid.getPluginByName('shell')?.getToolPanels()`.
    */
   getToolPanels(): ToolPanelDefinition[] {
+    this.#warnShellApiDeprecated('getToolPanels()');
     return this.#resolveShellPlugin().getToolPanels();
   }
 
@@ -4324,6 +4351,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Removed in v3 (#370). Use `grid.getPluginByName('shell')?.registerToolPanel()`.
    */
   registerToolPanel(panel: ToolPanelDefinition): void {
+    this.#warnShellApiDeprecated('registerToolPanel()');
     this.#resolveShellPlugin().registerToolPanel(panel);
   }
 
@@ -4342,6 +4370,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Removed in v3 (#370). Use `grid.getPluginByName('shell')?.unregisterToolPanel()`.
    */
   unregisterToolPanel(panelId: string): void {
+    this.#warnShellApiDeprecated('unregisterToolPanel()');
     this.#resolveShellPlugin().unregisterToolPanel(panelId);
   }
 
@@ -4365,6 +4394,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Removed in v3 (#370). Use `grid.getPluginByName('shell')?.getHeaderContents()`.
    */
   getHeaderContents(): HeaderContentDefinition[] {
+    this.#warnShellApiDeprecated('getHeaderContents()');
     return this.#resolveShellPlugin().getHeaderContents();
   }
 
@@ -4400,6 +4430,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Removed in v3 (#370). Use `grid.getPluginByName('shell')?.registerHeaderContent()`.
    */
   registerHeaderContent(content: HeaderContentDefinition): void {
+    this.#warnShellApiDeprecated('registerHeaderContent()');
     this.#resolveShellPlugin().registerHeaderContent(content);
   }
 
@@ -4417,6 +4448,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Removed in v3 (#370). Use `grid.getPluginByName('shell')?.unregisterHeaderContent()`.
    */
   unregisterHeaderContent(contentId: string): void {
+    this.#warnShellApiDeprecated('unregisterHeaderContent()');
     this.#resolveShellPlugin().unregisterHeaderContent(contentId);
   }
 
@@ -4441,6 +4473,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Removed in v3 (#370). Use `grid.getPluginByName('shell')?.getToolbarContents()`.
    */
   getToolbarContents(): ToolbarContentDefinition[] {
+    this.#warnShellApiDeprecated('getToolbarContents()');
     return this.#resolveShellPlugin().getToolbarContents();
   }
 
@@ -4501,6 +4534,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Removed in v3 (#370). Use `grid.getPluginByName('shell')?.registerToolbarContent()`.
    */
   registerToolbarContent(content: ToolbarContentDefinition): void {
+    this.#warnShellApiDeprecated('registerToolbarContent()');
     this.#resolveShellPlugin().registerToolbarContent(content);
   }
 
@@ -4519,6 +4553,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Removed in v3 (#370). Use `grid.getPluginByName('shell')?.unregisterToolbarContent()`.
    */
   unregisterToolbarContent(contentId: string): void {
+    this.#warnShellApiDeprecated('unregisterToolbarContent()');
     this.#resolveShellPlugin().unregisterToolbarContent(contentId);
   }
 

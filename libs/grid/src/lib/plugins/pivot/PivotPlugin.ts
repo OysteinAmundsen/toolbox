@@ -7,7 +7,13 @@
  */
 
 import { announce, getA11yMessage } from '../../core/internal/aria';
-import { BaseGridPlugin, HeaderClickEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
+import {
+  BaseGridPlugin,
+  HeaderClickEvent,
+  type PluginDependency,
+  type PluginManifest,
+  type PluginQuery,
+} from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ToolPanelDefinition } from '../../core/types';
 import {
   buildPivot,
@@ -132,12 +138,25 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   };
 
   /**
-   * Optional dependency on MultiSort for coordinated sorting.
-   * When MultiSort is loaded, Pivot queries its sort model to apply sorting
-   * to pivot columns.
+   * Plugin dependencies.
+   *
+   * - `multiSort` (optional): when present, Pivot queries its sort model to
+   *   apply sorting to pivot columns.
+   * - `shell` (optional, warn): only when the pivot tool panel is enabled
+   *   (`showToolPanel: true`, the default) does Pivot need a shell host for
+   *   its panel. Soft dependency — recommends but does not require. The shell
+   *   auto-registers today; this only surfaces once auto-register is removed
+   *   at v3 (#370).
    */
-  static override readonly dependencies = [
+  static override readonly dependencies: PluginDependency[] = [
     { name: 'multiSort', required: false, reason: 'Queries sort model for pivot column sorting' },
+    {
+      name: 'shell',
+      required: false,
+      severity: 'warn',
+      when: (cfg) => (cfg as PivotConfig).showToolPanel === true,
+      reason: 'PivotPlugin renders its tool panel in a shell host when showToolPanel is enabled',
+    },
   ];
 
   /** @internal */

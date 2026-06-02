@@ -102,4 +102,28 @@ export default [
       '@nx/enforce-module-boundaries': 'off',
     },
   },
+  {
+    // HARD RULE (#370): the grid core MUST NOT depend on any plugin. Forbid
+    // value imports from the shell plugin in `libs/grid/src/lib/core/**`.
+    // `import type` is allowed (the deprecated `core/types` re-aliases shell
+    // types). The single sanctioned value import is the shell auto-register in
+    // `core/grid.ts`, which carries an inline `eslint-disable-next-line`.
+    files: ['libs/grid/src/lib/core/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/plugins/shell', '**/plugins/shell/**'],
+              allowTypeImports: true,
+              message:
+                'Core must not depend on the shell plugin (#370). Use `import type` only, or route through the PluginManager seam.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];

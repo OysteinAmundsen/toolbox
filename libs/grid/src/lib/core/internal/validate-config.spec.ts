@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { PluginDependency, PluginIncompatibility, PluginManifest } from '../plugin';
 import { BaseGridPlugin } from '../plugin';
 import type { GridConfig } from '../types';
+import { PivotPlugin } from '../../plugins/pivot';
+import { VisibilityPlugin } from '../../plugins/visibility';
 import {
   validatePluginConfigRules,
   validatePluginDependencies,
@@ -649,6 +651,85 @@ describe('validatePluginDependencies', () => {
       expect(debugSpy).toHaveBeenCalledOnce();
 
       debugSpy.mockRestore();
+    });
+  });
+
+  describe('shell dependencies (#370)', () => {
+    const mockShell: BaseGridPlugin = {
+      name: 'shell',
+      version: '1.0.0',
+      attach: () => {
+        /* noop */
+      },
+      detach: () => {
+        /* noop */
+      },
+    };
+
+    it('VisibilityPlugin declares a required shell dependency', () => {
+      const shellDep = VisibilityPlugin.dependencies?.find((d) => d.name === 'shell');
+      expect(shellDep).toBeDefined();
+      expect(shellDep?.required).toBe(true);
+    });
+
+    it('VisibilityPlugin throws when the shell is missing', () => {
+      expect(() => {
+        validatePluginDependencies(new VisibilityPlugin(), []);
+      }).toThrow(/Plugin dependency error/);
+      expect(() => {
+        validatePluginDependencies(new VisibilityPlugin(), []);
+      }).toThrow(/shell tool panel/);
+    });
+
+    it('VisibilityPlugin does not throw when the shell is present', () => {
+      expect(() => {
+        validatePluginDependencies(new VisibilityPlugin(), [mockShell]);
+      }).not.toThrow();
+    });
+
+    it('PivotPlugin declares a config-conditional soft shell dependency', () => {
+      const shellDep = PivotPlugin.dependencies?.find((d) => d.name === 'shell');
+      expect(shellDep).toBeDefined();
+      expect(shellDep?.required).toBe(false);
+      expect(shellDep?.severity).toBe('warn');
+      expect(shellDep?.when).toBeTypeOf('function');
+    });
+
+    it('PivotPlugin warns when its tool panel is enabled and the shell is missing', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* suppress */
+      });
+
+      expect(() => {
+        validatePluginDependencies(new PivotPlugin({ showToolPanel: true }), []);
+      }).not.toThrow();
+      expect(warnSpy).toHaveBeenCalledOnce();
+
+      warnSpy.mockRestore();
+    });
+
+    it('PivotPlugin stays silent when its tool panel is disabled', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* suppress */
+      });
+
+      validatePluginDependencies(new PivotPlugin({ showToolPanel: false }), []);
+
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+
+    it('PivotPlugin stays silent when the shell is present', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* suppress */
+      });
+
+      validatePluginDependencies(new PivotPlugin({ showToolPanel: true }), [mockShell]);
+
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
     });
   });
 });

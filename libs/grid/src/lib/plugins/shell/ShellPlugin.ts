@@ -475,12 +475,12 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
     // Click-outside dismiss for an open overlay tool panel.
     this.#clickOutsideCleanup?.();
     this.#clickOutsideCleanup = setupClickOutsideDismiss(grid._hostElement, shellConfig, state, () =>
-      grid.closeToolPanel(),
+      this.closeToolPanel(),
     );
 
     // Escape-to-close dismiss for overlay tool panels.
     this.#escapeDismissCleanup?.();
-    this.#escapeDismissCleanup = setupEscapeDismiss(shellConfig, state, () => grid.closeToolPanel());
+    this.#escapeDismissCleanup = setupEscapeDismiss(shellConfig, state, () => this.closeToolPanel());
   }
 
   /** @internal Remove the document-level shell listeners. */

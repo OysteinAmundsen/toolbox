@@ -358,9 +358,11 @@ declare module '../../core/types' {
      * Shell configuration for header bar and tool panels.
      * When configured, adds an optional wrapper with title, toolbar, and collapsible side panels.
      *
-     * @deprecated Import `ShellConfig` from `@toolbox-web/grid/plugins/shell`. The shell
-     *   is a built-in plugin as of #370; this field is provided via plugin augmentation
-     *   and the `core/types` re-alias is removed at v3.
+     * @deprecated Enable the shell via `features: { shell }` and pass this config there
+     *   (`features: { shell: { header: ... } }`), importing `ShellConfig` from
+     *   `@toolbox-web/grid/plugins/shell`. The shell is a built-in plugin as of #370; this
+     *   top-level field is provided via plugin augmentation and the `core/types` re-alias is
+     *   removed at v3.
      */
     shell?: ShellConfig;
   }

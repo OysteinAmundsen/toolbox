@@ -13,9 +13,36 @@ function createGridMock(columns: any[] = []) {
   const expandedSections: string[] = [];
   let toolPanelOpen = false;
 
+  // Shell tool-panel mock (#370). VisibilityPlugin resolves the shell via
+  // `getPluginByName('shell')` and drives panel open/close/toggle through the
+  // plugin instance — never the deprecated core `grid.*` shell delegates.
+  const openToolPanel = vi.fn((_id?: string) => {
+    toolPanelOpen = true;
+  });
+  const closeToolPanel = vi.fn(() => {
+    toolPanelOpen = false;
+  });
+  const toggleToolPanelSection = vi.fn((id: string) => {
+    const idx = expandedSections.indexOf(id);
+    if (idx >= 0) expandedSections.splice(idx, 1);
+    else expandedSections.push(id);
+  });
+  const shellMock = {
+    openToolPanel,
+    closeToolPanel,
+    toggleToolPanelSection,
+    get isToolPanelOpen() {
+      return toolPanelOpen;
+    },
+    get expandedToolPanelSections() {
+      return expandedSections;
+    },
+  };
+
   // Track whether the reorder plugin is "present" so the query mock can answer
-  // `canMoveColumn` the way the real ReorderPlugin would.
-  const getPluginByName = vi.fn(() => undefined as unknown);
+  // `canMoveColumn` the way the real ReorderPlugin would. The shell plugin is
+  // always resolvable (mirrors auto-registration).
+  const getPluginByName = vi.fn((name?: string) => (name === 'shell' ? shellMock : undefined) as unknown);
   const reorderPresent = () => !!getPluginByName('reorder');
 
   const allColumnsProvider = () =>
@@ -80,24 +107,18 @@ function createGridMock(columns: any[] = []) {
     getAllColumns: vi.fn(allColumnsProvider),
     setColumnOrder: vi.fn(),
 
-    // Tool panel API
+    // Tool panel API — the same vi.fn instances exposed via the shell mock, so
+    // tests can assert on either `grid.getPluginByName('shell').openToolPanel`
+    // or the shared `openToolPanel`/`closeToolPanel`/`toggleToolPanelSection`.
     get isToolPanelOpen() {
       return toolPanelOpen;
     },
-    openToolPanel: vi.fn(() => {
-      toolPanelOpen = true;
-    }),
-    closeToolPanel: vi.fn(() => {
-      toolPanelOpen = false;
-    }),
+    openToolPanel,
+    closeToolPanel,
     get expandedToolPanelSections() {
       return expandedSections;
     },
-    toggleToolPanelSection: vi.fn((id: string) => {
-      const idx = expandedSections.indexOf(id);
-      if (idx >= 0) expandedSections.splice(idx, 1);
-      else expandedSections.push(id);
-    }),
+    toggleToolPanelSection,
 
     // Hidden columns state (for test introspection)
     _hiddenColumns: hiddenColumns,
@@ -142,7 +163,10 @@ describe('VisibilityPlugin', () => {
     });
 
     it('should declare optional dependency on reorder plugin', () => {
-      expect(VisibilityPlugin.dependencies).toEqual([{ name: 'reorder', required: false, reason: expect.any(String) }]);
+      expect(VisibilityPlugin.dependencies).toEqual([
+        { name: 'shell', required: true, reason: expect.any(String) },
+        { name: 'reorder', required: false, reason: expect.any(String) },
+      ]);
     });
 
     it('should declare manifest with getContextMenuItems query', () => {

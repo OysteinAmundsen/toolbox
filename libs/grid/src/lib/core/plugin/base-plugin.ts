@@ -448,8 +448,9 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * Plugin dependencies - declare other plugins this one requires.
    *
    * Dependencies are validated when the plugin is attached.
-   * Required dependencies throw an error if missing.
-   * Optional dependencies log an info message if missing.
+   * Required dependencies throw an error if missing. Optional dependencies are
+   * silent by default; set a {@link PluginDependency.severity} of `'warn'` or
+   * `'info'` to opt into a development-only log.
    *
    * @example
    * ```typescript
@@ -546,11 +547,17 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * eagerly so it is available **before** {@link attach} runs. Dependency
    * validation happens before `attach()` merges {@link config}, so config
    * -conditional dependency `when` predicates evaluate against this getter.
-   * Once attached, returns the already-merged {@link config}.
+   *
+   * While attached, returns the already-merged {@link config}; otherwise
+   * recomputes `defaultConfig` + `userConfig` fresh. `config` is intentionally
+   * **not** trusted when detached because {@link detach} does not clear it — a
+   * re-validated plugin would otherwise see stale config from a prior
+   * attachment. The {@link attach}-managed abort controller is the
+   * attached/detached signal.
    * @internal Plugin infrastructure (used by `validatePluginDependencies`).
    */
   get resolvedConfig(): TConfig {
-    return (this.config ?? { ...this.defaultConfig, ...this.userConfig }) as TConfig;
+    return (this.#abortController ? this.config : { ...this.defaultConfig, ...this.userConfig }) as TConfig;
   }
 
   /**

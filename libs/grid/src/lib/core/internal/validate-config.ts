@@ -19,6 +19,7 @@ import {
   MISSING_DEPENDENCY,
   MISSING_PLUGIN,
   MISSING_PLUGIN_CONFIG,
+  OPTIONAL_DEPENDENCY,
   debugDiagnostic,
   throwDiagnostic,
   warnDiagnostic,
@@ -356,7 +357,9 @@ export function validatePluginDependencies(
     const severity = dep.severity ?? (required ? 'error' : undefined);
     if (!severity) continue;
 
-    const reasonText = reason ?? `${capitalize(pluginName)}Plugin requires ${capitalize(requiredPlugin)}Plugin`;
+    // Verb matches intent: errors "require", soft notifications "recommend".
+    const verb = severity === 'error' ? 'requires' : 'recommends';
+    const reasonText = reason ?? `${capitalize(pluginName)}Plugin ${verb} ${capitalize(requiredPlugin)}Plugin`;
 
     if (severity === 'error') {
       const importHint = getImportHint(requiredPlugin);
@@ -371,10 +374,11 @@ export function validatePluginDependencies(
       );
     } else if (isDevelopment()) {
       // Soft notification — development only to avoid polluting production logs.
+      // Use OPTIONAL_DEPENDENCY (TBW021), not the required-dependency code.
       if (severity === 'warn') {
-        warnDiagnostic(MISSING_DEPENDENCY, `${reasonText}.`, gridId);
+        warnDiagnostic(OPTIONAL_DEPENDENCY, `${reasonText}.`, gridId);
       } else {
-        debugDiagnostic(MISSING_DEPENDENCY, `${reasonText}.`, gridId);
+        debugDiagnostic(OPTIONAL_DEPENDENCY, `${reasonText}.`, gridId);
       }
     }
   }

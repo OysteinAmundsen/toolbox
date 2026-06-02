@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { BaseGridPlugin, PluginIncompatibility, PluginManifest } from '../plugin';
+import type { PluginDependency, PluginIncompatibility, PluginManifest } from '../plugin';
+import { BaseGridPlugin } from '../plugin';
 import type { GridConfig } from '../types';
 import {
   validatePluginConfigRules,
@@ -544,27 +545,19 @@ describe('validatePluginDependencies', () => {
   describe('config-conditional dependencies (when predicate)', () => {
     /** Mock plugin whose dependency only applies when `showToolPanel === true`. */
     const makePivotMock = (showToolPanel: boolean): BaseGridPlugin => {
-      class MockPivotPlugin {
-        static readonly dependencies = [
+      class MockPivotPlugin extends BaseGridPlugin<{ showToolPanel?: boolean }> {
+        static override readonly dependencies: PluginDependency[] = [
           {
             name: 'shell',
             required: false,
-            severity: 'warn' as const,
-            when: (cfg: unknown) => (cfg as { showToolPanel?: boolean }).showToolPanel === true,
+            severity: 'warn',
+            when: (cfg) => (cfg as { showToolPanel?: boolean }).showToolPanel === true,
             reason: 'PivotPlugin needs a tool-panel host when showToolPanel is enabled',
           },
         ];
         readonly name = 'pivot';
-        readonly version = '1.0.0';
-        readonly resolvedConfig = { showToolPanel };
-        attach() {
-          /* noop */
-        }
-        detach() {
-          /* noop */
-        }
       }
-      return new MockPivotPlugin() as unknown as BaseGridPlugin;
+      return new MockPivotPlugin({ showToolPanel });
     };
 
     it('applies the dependency when the predicate is satisfied', () => {
@@ -596,7 +589,16 @@ describe('validatePluginDependencies', () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
         /* suppress */
       });
-      const mockShell = { name: 'shell', version: '1.0.0' } as unknown as BaseGridPlugin;
+      const mockShell: BaseGridPlugin = {
+        name: 'shell',
+        version: '1.0.0',
+        attach: () => {
+          /* noop */
+        },
+        detach: () => {
+          /* noop */
+        },
+      };
 
       validatePluginDependencies(makePivotMock(true), [mockShell]);
 
@@ -608,19 +610,13 @@ describe('validatePluginDependencies', () => {
 
   describe('explicit severity', () => {
     const makeDepMock = (severity: 'error' | 'warn' | 'info', required = false): BaseGridPlugin => {
-      class MockSeverityPlugin {
-        static readonly dependencies = [{ name: 'shell', required, severity, reason: 'needs the shell host' }];
+      class MockSeverityPlugin extends BaseGridPlugin {
+        static override readonly dependencies: PluginDependency[] = [
+          { name: 'shell', required, severity, reason: 'needs the shell host' },
+        ];
         readonly name = 'demo';
-        readonly version = '1.0.0';
-        readonly resolvedConfig = {};
-        attach() {
-          /* noop */
-        }
-        detach() {
-          /* noop */
-        }
       }
-      return new MockSeverityPlugin() as unknown as BaseGridPlugin;
+      return new MockSeverityPlugin();
     };
 
     it("severity 'error' throws even when required is false", () => {

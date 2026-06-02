@@ -18,6 +18,7 @@ import { sanitizeHTML } from '../internal/sanitize';
 import type {
   ColumnConfig,
   ColumnState,
+  GridConfig,
   GridIcons,
   GridPlugin,
   HeaderContentDefinition,
@@ -321,7 +322,9 @@ export interface PluginConfigRule<TConfig = unknown> {
  */
 export type HookName =
   | 'processColumns'
+  | 'processConfig'
   | 'processRows'
+  | 'afterStructuralRender'
   | 'afterRender'
   | 'afterCellRender'
   | 'afterRowRender'
@@ -1160,6 +1163,28 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   processRows?(rows: readonly any[]): any[];
 
   /**
+   * Contribute to the grid's effective configuration during each config merge.
+   * Called by {@link ConfigManager.merge} after the base config is assembled,
+   * before it becomes `effectiveConfig`. Mutate `config` in place to inject
+   * plugin-derived settings (e.g. the shell plugin folds its light-DOM /
+   * API-registered state into `config.shell`).
+   *
+   * This is the config-pipeline counterpart to {@link processColumns} /
+   * {@link processRows}: it keeps the core config merge free of any plugin
+   * knowledge — each plugin owns the shape it contributes.
+   *
+   * @param config - The mutable base config being assembled into effectiveConfig.
+   *
+   * @example
+   * ```ts
+   * processConfig(config: GridConfig): void {
+   *   config.shell = { ...config.shell, header: { title: this.#title } };
+   * }
+   * ```
+   */
+  processConfig?(config: GridConfig): void;
+
+  /**
    * Transform columns before rendering.
    * Called during each render cycle before column headers and cells are rendered.
    * Use this to add, remove, or modify column definitions.
@@ -1214,6 +1239,33 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * ```
    */
   afterRender?(): void;
+
+  /**
+   * Called synchronously immediately after the grid (re)builds its root DOM
+   * structure, before the browser has a chance to paint.
+   *
+   * Unlike {@link afterRender} (which runs in the scheduler's STYLE phase and
+   * may be deferred), this hook fires inside the same task as the structural
+   * DOM build. It is the correct place for plugins that need to wrap, relocate,
+   * or augment the freshly built grid DOM without a flash of unstyled/unwrapped
+   * content — e.g. a shell that moves the grid content into a chrome wrapper.
+   *
+   * The grid emits this hook every time it performs a full structural rebuild
+   * (initial connect and structural changes), but NOT on the scroll/data hot
+   * path. Implementations MUST be idempotent: a full rebuild discards any DOM a
+   * previous invocation produced, so re-create it, and no-op when the desired
+   * structure is already present.
+   *
+   * @example
+   * ```ts
+   * afterStructuralRender(): void {
+   *   const root = this.grid?._renderRoot;
+   *   if (!root || root.querySelector('.my-wrapper > .tbw-grid-content')) return;
+   *   // build wrapper, move .tbw-grid-content inside it
+   * }
+   * ```
+   */
+  afterStructuralRender?(): void;
 
   /**
    * Called after each cell is rendered.

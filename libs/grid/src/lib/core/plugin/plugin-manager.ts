@@ -12,7 +12,7 @@
 
 import { PLUGIN_ALIAS_COLLAPSE, PLUGIN_EVENT_ERROR, errorDiagnostic, warnDiagnostic } from '../internal/diagnostics';
 import { validatePluginDependencies } from '../internal/validate-config';
-import type { ColumnConfig } from '../types';
+import type { ColumnConfig, GridConfig } from '../types';
 import type {
   AfterCellRenderContext,
   AfterRowRenderContext,
@@ -367,11 +367,34 @@ export class PluginManager {
   }
 
   /**
+   * Execute processConfig hook on all plugins.
+   * Lets plugins contribute to the effective config during each merge. Plugins
+   * mutate the passed config in place (e.g. the shell plugin folds its state
+   * into `config.shell`).
+   */
+  processConfig(config: GridConfig): void {
+    for (const plugin of this.#getPluginsForHook('processConfig')) {
+      plugin.processConfig!(config);
+    }
+  }
+
+  /**
    * Execute beforeRender hook on all plugins.
    */
   beforeRender(): void {
     for (const plugin of this.plugins) {
       plugin.beforeRender?.();
+    }
+  }
+
+  /**
+   * Execute afterStructuralRender hook on all plugins.
+   * Fired synchronously by the grid right after a full structural DOM rebuild,
+   * before paint. Used by plugins that wrap/relocate the freshly built grid DOM.
+   */
+  afterStructuralRender(): void {
+    for (const plugin of this.#getPluginsForHook('afterStructuralRender')) {
+      plugin.afterStructuralRender!();
     }
   }
 

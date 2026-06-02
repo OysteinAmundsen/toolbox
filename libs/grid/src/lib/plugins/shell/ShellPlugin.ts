@@ -3,16 +3,37 @@
  *
  * Owns the grid shell: header bar, toolbar content, and tool panels.
  *
- * **Extraction #370 — Phase 1a (skeleton):** this class is currently an empty
- * `BaseGridPlugin` shell that only contributes the shell CSS. State, light-DOM
- * parsing, lifecycle, and DOM construction are moved out of core into this
- * class in Phase 1b. Until then, core still drives the shell; the auto-register
- * + delegate seam is wired in Phase 1b/Phase 2.
+ * **Extraction #370 — Phase 1b (ownership inversion):** this plugin now owns
+ * the shell **state** for the grid's lifetime (Approach A: state created once,
+ * survives plugin re-inits, torn down on disconnect). Light-DOM parsing,
+ * per-render work, and DOM construction move here in the following increments;
+ * until each lands, core still drives that part via the resolved plugin
+ * instance.
  *
  * @module Plugins/Shell
  */
 
 import { BaseGridPlugin, type GridElement } from '../../core/plugin/base-plugin';
+import type { GridConfig } from '../../core/types';
+import {
+  cleanupShellState,
+  parseLightDomShell,
+  parseLightDomToolButtons,
+  parseLightDomToolPanels,
+  prepareForRerender,
+  rebuildShellDOM,
+  renderCustomToolbarContents,
+  renderHeaderContent,
+  renderPanelContent,
+  setupClickOutsideDismiss,
+  setupEscapeDismiss,
+  setupShellEventListeners,
+  setupToolPanelResize,
+  updatePanelState,
+  updateToolbarActiveStates,
+  type ShellState,
+} from './shell';
+import type { ShellController } from './shell-controller';
 import styles from './shell.css?inline';
 import './types';
 import type { ShellConfig } from './types';
@@ -31,17 +52,322 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
   /** @internal */
   override readonly styles = styles;
 
+  // Extraction #370 — Approach A: the plugin owns the shell state for the
+  // grid's lifetime. State is created once (via `adoptState`, lazily by core)
+  // and survives plugin re-inits (idempotent attach / non-destructive detach);
+  // it is torn down only on grid disconnect via `disposeShellState()`.
+  #state?: ShellState;
+  #controller?: ShellController;
+
+  // Document-level listeners the plugin owns for the shell's interactive
+  // affordances. Each `#setupListeners` call cleans the previous registration
+  // before re-adding (idempotent across re-wraps); torn down on disconnect.
+  #resizeCleanup?: () => void;
+  #clickOutsideCleanup?: () => void;
+  #escapeDismissCleanup?: () => void;
+
+  // The light-DOM shell-change handler (re-parses <tbw-grid-header> /
+  // <tbw-grid-tool-buttons> / <tbw-grid-tool-panel> when the framework projects
+  // them asynchronously). Registered in `attach` via the generic
+  // `_registerLightDomHandler` seam; unregistered on disconnect.
+  #shellChangeHandler?: () => void;
+
+  /** @internal Whether shell state has been created yet. */
+  get hasState(): boolean {
+    return this.#state !== undefined;
+  }
+
+  /**
+   * @internal Adopt the canonical shell state + controller (idempotent).
+   * Core creates them (it holds the `InternalGrid` type) and hands them over;
+   * the plugin holds them for its lifetime. No-op once state exists.
+   */
+  adoptState(state: ShellState, controller: ShellController): void {
+    this.#state ??= state;
+    this.#controller ??= controller;
+  }
+
+  /** @internal Canonical shell state. */
+  get shellState(): ShellState {
+    return this.#state as ShellState;
+  }
+
+  /** @internal Shell controller. */
+  get shellController(): ShellController {
+    return this.#controller as ShellController;
+  }
+
   /** @internal */
   override attach(grid: GridElement): void {
     super.attach(grid);
-    // Phase 1b moves shell state, light-DOM parsing, listeners, and DOM
-    // construction here.
+    // Register the light-DOM shell handlers via the generic seam. Core holds no
+    // shell tag knowledge (extraction #370). `registerLightDomHandler` is keyed
+    // by tag name, so re-attach simply overwrites — idempotent. Torn down on
+    // grid disconnect in `disposeShellState` (Approach A: survives re-inits).
+    const handler = (): void => this.#handleLightDomShellChange(grid);
+    this.#shellChangeHandler = handler;
+    grid._registerLightDomHandler('tbw-grid-header', handler);
+    grid._registerLightDomHandler('tbw-grid-tool-buttons', handler);
+    grid._registerLightDomHandler('tbw-grid-tool-panel', handler);
+  }
+
+  /** @internal Parse all light-DOM shell elements into the plugin's state. */
+  #parseLightDom(grid: GridElement): void {
+    const host = grid._hostElement;
+    parseLightDomShell(host, this.shellState);
+    parseLightDomToolButtons(host, this.shellState);
+    parseLightDomToolPanels(host, this.shellState, grid._getToolPanelRendererFactory());
+  }
+
+  /**
+   * @internal React to a light-DOM shell element being added/removed/mutated
+   * (e.g. a framework projecting `<tbw-grid-header title>` asynchronously).
+   * Re-parses, and if a title or tool-buttons container newly appeared, re-merges
+   * the config (so `processConfig` folds it in) and re-wraps the shell header.
+   */
+  #handleLightDomShellChange(grid: GridElement): void {
+    if (!this.hasState) return;
+    const state = this.shellState;
+    const hadTitle = state.lightDomTitle;
+    const hadToolButtons = state.hasToolButtonsContainer;
+    this.#parseLightDom(grid);
+    const hasTitle = state.lightDomTitle;
+    const hasToolButtons = state.hasToolButtonsContainer;
+
+    if ((hasTitle && !hadTitle) || (hasToolButtons && !hadToolButtons)) {
+      grid._requestConfigMerge();
+      // Re-wrap the shell header to reflect the new title / tool buttons.
+      // `afterStructuralRender` rebuilds the chrome AND re-renders all shell
+      // contents (header content, toolbar slots, panel), so no manual render is
+      // needed here.
+      if (grid._renderRoot.querySelector('.tbw-shell-header')) {
+        prepareForRerender(state);
+        this.afterStructuralRender();
+      }
+    }
+  }
+
+  /**
+   * @internal Fold the plugin's shell state into the effective config.
+   *
+   * Called by core's config merge ({@link ConfigManager.merge}) via the neutral
+   * `processConfig` plugin hook \u2014 core holds no shell-config knowledge. Mutates
+   * `config.shell` in place from light-DOM-parsed + API-registered shell state
+   * (title, header content, tool buttons, tool panels, header/toolbar contents).
+   *
+   * Extraction #370, Task 1b \u2014 config ownership inversion: replaces core's old
+   * `ConfigManager.#mergeShellConfig`.
+   */
+  override processConfig(config: GridConfig): void {
+    if (!this.hasState) return;
+    const state = this.shellState;
+
+    // Clone shell hierarchy to avoid mutating the original gridConfig.
+    config.shell = config.shell ? { ...config.shell } : {};
+    config.shell.header = config.shell.header ? { ...config.shell.header } : {};
+
+    // Light DOM title (does not override an explicit config title).
+    if (state.lightDomTitle && !config.shell.header.title) {
+      config.shell.header.title = state.lightDomTitle;
+    }
+
+    // Light DOM header content elements.
+    if (state.lightDomHeaderContent?.length > 0) {
+      config.shell.header.lightDomContent = state.lightDomHeaderContent;
+    }
+
+    // Tool-buttons container presence.
+    if (state.hasToolButtonsContainer) {
+      config.shell.header.hasToolButtonsContainer = true;
+    }
+
+    // Tool panels (from plugins + API + Light DOM), sorted by order.
+    if (state.toolPanels.size > 0) {
+      const panels = Array.from(state.toolPanels.values());
+      panels.sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+      config.shell.toolPanels = panels;
+    }
+
+    // Header contents (from plugins + API), sorted by order.
+    if (state.headerContents.size > 0) {
+      const contents = Array.from(state.headerContents.values());
+      contents.sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+      config.shell.headerContents = contents;
+    }
+
+    // Toolbar contents: merge ORIGINAL config contents (from the source
+    // gridConfig, not a previous merge) with API-registered contents so stale
+    // API entries never accumulate. Config takes precedence by id.
+    const apiContents = Array.from(state.toolbarContents.values());
+    const originalConfigContents = this.grid?._sourceConfig?.shell?.header?.toolbarContents ?? [];
+    const configIds = new Set(originalConfigContents.map((c) => c.id));
+    const mergedContents = [...originalConfigContents];
+    for (const content of apiContents) {
+      if (!configIds.has(content.id)) {
+        mergedContents.push(content);
+      }
+    }
+    mergedContents.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    config.shell.header.toolbarContents = mergedContents;
+  }
+
+  /**
+   * @internal Wrap the freshly built (bare) grid DOM in shell chrome.
+   *
+   * Fired synchronously by core at the end of every structural (re)build, before
+   * paint. Core builds a BARE grid; this hook relocates the existing
+   * `.tbw-grid-content` node into shell chrome (header bar, toolbar, tool panel)
+   * via {@link rebuildShellDOM}, which preserves the content subtree (and all its
+   * listeners / cached refs) intact. No-op when no shell is configured.
+   *
+   * Extraction #370, Task 1b — DOM ownership inversion: the shell DOM is now
+   * constructed by the plugin, not core.
+   */
+  override afterStructuralRender(): void {
+    const grid = this.grid;
+    if (!grid || !this.hasState) return;
+    const state = this.shellState;
+    const hasShell = rebuildShellDOM(
+      grid._renderRoot,
+      grid.effectiveConfig?.shell,
+      { isPanelOpen: state.isPanelOpen, expandedSections: state.expandedSections },
+      grid.effectiveConfig?.icons,
+    );
+    if (hasShell) {
+      this.#setupListeners(grid);
+      this.shellController.setInitialized(true);
+      this.#renderShellContents(grid);
+    }
+  }
+
+  /**
+   * @internal Render all shell contents into the freshly built shell chrome.
+   *
+   * Runs from {@link afterStructuralRender} after the chrome is wrapped and
+   * listeners are attached. Renders plugin header content + custom toolbar
+   * slots, applies the configured default-open / legacy open-on-load behavior,
+   * and restores an already-open panel's content. All render functions operate
+   * on the shell DOM (queried from `_renderRoot`), not on the grid-body refs,
+   * so they are safe to run before `#afterConnect` caches those.
+   *
+   * Extraction #370, Task 1b (Step 1b.1.3) — replaces core's per-render shell
+   * content block in `#afterConnect` / `#afterShellRefresh`.
+   */
+  #renderShellContents(grid: GridElement): void {
+    const state = this.shellState;
+    const renderRoot = grid._renderRoot;
+    const shellConfig = grid.effectiveConfig?.shell;
+
+    // Render plugin header content + custom toolbar contents (render modes).
+    renderHeaderContent(renderRoot, state);
+    renderCustomToolbarContents(renderRoot, shellConfig, state);
+
+    // Pre-expand the configured default section.
+    const toolPanelCfg = shellConfig?.toolPanel;
+    const defaultOpen = toolPanelCfg?.defaultOpen;
+    if (defaultOpen && state.toolPanels.has(defaultOpen)) {
+      state.expandedSections.add(defaultOpen);
+    }
+
+    // Decide whether the sidebar should be open on load.
+    // NOTE: In v2.x `defaultOpen` alone also opens the sidebar (legacy
+    // behavior). v3.0.0 will drop that — see issue #259 and the
+    // @deprecated note on ToolPanelConfig.defaultOpen.
+    // Search marker: TOOLPANEL-OPEN-LEGACY-259
+    const shouldOpenOnLoad =
+      toolPanelCfg?.locked === true ||
+      toolPanelCfg?.initialState === 'open' ||
+      // Legacy v2 path — remove in v3.0.0 (#259)
+      (toolPanelCfg?.initialState === undefined && defaultOpen !== undefined && state.toolPanels.has(defaultOpen));
+    if (!state.isPanelOpen && state.toolPanels.size > 0 && shouldOpenOnLoad) {
+      grid.openToolPanel();
+    }
+
+    // Restore panel content if the panel was already open (e.g. after a position
+    // change re-render or a plugin re-init that triggered a shell refresh).
+    if (state.isPanelOpen) {
+      updatePanelState(renderRoot, state);
+      renderPanelContent(renderRoot, state, {
+        expand: grid.effectiveConfig?.icons?.expand,
+        collapse: grid.effectiveConfig?.icons?.collapse,
+      });
+      updateToolbarActiveStates(renderRoot, state);
+    }
+  }
+
+  /**
+   * @internal Attach shell event + dismiss/resize listeners.
+   *
+   * Cleans any prior document-level registrations before re-adding, so it is
+   * safe to call on every re-wrap (initial render, shell refresh, plugin
+   * re-init) without leaking or double-attaching listeners.
+   */
+  #setupListeners(grid: GridElement): void {
+    const renderRoot = grid._renderRoot;
+    const shellConfig = grid.effectiveConfig?.shell;
+    const state = this.shellState;
+
+    setupShellEventListeners(renderRoot, shellConfig, state, {
+      onPanelToggle: () => grid.toggleToolPanel(),
+      onSectionToggle: (sectionId: string) => grid.toggleToolPanelSection(sectionId),
+      onPanelClose: () => grid.closeToolPanel(),
+    });
+
+    // Tool panel resize handle — persists the new width as a CSS variable on
+    // the host element.
+    this.#resizeCleanup?.();
+    this.#resizeCleanup = setupToolPanelResize(renderRoot, shellConfig, (width: number) => {
+      grid._hostElement.style.setProperty('--tbw-tool-panel-width', `${width}px`);
+    });
+
+    // Click-outside dismiss for an open overlay tool panel.
+    this.#clickOutsideCleanup?.();
+    this.#clickOutsideCleanup = setupClickOutsideDismiss(grid._hostElement, shellConfig, state, () =>
+      grid.closeToolPanel(),
+    );
+
+    // Escape-to-close dismiss for overlay tool panels.
+    this.#escapeDismissCleanup?.();
+    this.#escapeDismissCleanup = setupEscapeDismiss(shellConfig, state, () => grid.closeToolPanel());
+  }
+
+  /** @internal Remove the document-level shell listeners. */
+  #teardownListeners(): void {
+    this.#resizeCleanup?.();
+    this.#resizeCleanup = undefined;
+    this.#clickOutsideCleanup?.();
+    this.#clickOutsideCleanup = undefined;
+    this.#escapeDismissCleanup?.();
+    this.#escapeDismissCleanup = undefined;
   }
 
   /** @internal */
   override detach(): void {
-    // Phase 1b moves shell teardown (state cleanup, light-DOM handler
-    // unregistration) here.
+    // Non-destructive detach (Approach A): shell state and document listeners
+    // survive plugin re-inits. `#setupListeners` cleans-before-add on the next
+    // re-wrap, so there is nothing to tear down here. Real teardown happens in
+    // `disposeShellState()` on grid disconnect.
     super.detach();
+  }
+
+  /**
+   * @internal Tear down shell state on grid disconnect (Approach A).
+   * Idempotent and harmless when no state exists.
+   */
+  disposeShellState(): void {
+    this.#teardownListeners();
+    // Unregister the light-DOM shell handlers (registered in `attach`). `detach`
+    // does not clear `this.grid`, so the reference is still valid here.
+    const grid = this.grid as GridElement | undefined;
+    if (grid && this.#shellChangeHandler) {
+      grid._unregisterLightDomHandler('tbw-grid-header');
+      grid._unregisterLightDomHandler('tbw-grid-tool-buttons');
+      grid._unregisterLightDomHandler('tbw-grid-tool-panel');
+      this.#shellChangeHandler = undefined;
+    }
+    if (this.#state) {
+      cleanupShellState(this.#state);
+      this.#controller?.setInitialized(false);
+    }
   }
 }

@@ -77,9 +77,6 @@ export class ConfigManager<T = unknown> {
   #initialColumnState?: GridColumnState;
   #grid: GridHost<T>;
 
-  // Shell state (Light DOM title)
-  #lightDomTitle?: string;
-
   constructor(grid: GridHost<T>) {
     this.#grid = grid;
   }
@@ -124,16 +121,6 @@ export class ConfigManager<T = unknown> {
   /** Set original column nodes */
   set originalColumnNodes(value: HTMLElement[] | undefined) {
     this.#originalColumnNodes = value;
-  }
-
-  /** Get light DOM title */
-  get lightDomTitle(): string | undefined {
-    return this.#lightDomTitle;
-  }
-
-  /** Set light DOM title */
-  set lightDomTitle(value: string | undefined) {
-    this.#lightDomTitle = value;
   }
 
   /** Get initial column state */
@@ -430,10 +417,11 @@ export class ConfigManager<T = unknown> {
     if (!base.fitMode) base.fitMode = 'stretch';
 
     // ========================================================================
-    // Merge shell configuration from ShellState into effectiveConfig.shell
-    // This ensures a single source of truth for all shell config
+    // Let plugins contribute to the effective config (e.g. the ShellPlugin
+    // folds its light-DOM / API-registered shell state into base.shell). Core
+    // holds no shell-config knowledge — this is the neutral processConfig hook.
     // ========================================================================
-    this.#mergeShellConfig(base);
+    this.#grid._pluginManager?.processConfig?.(base);
 
     // Store columnState from gridConfig if not already set
     if (base.columnState && !this.#initialColumnState) {
@@ -441,81 +429,6 @@ export class ConfigManager<T = unknown> {
     }
 
     return base;
-  }
-
-  /**
-   * Merge shell state into base config's shell property.
-   * Ensures effectiveConfig.shell is the single source of truth.
-   *
-   * IMPORTANT: This method must NOT mutate the original gridConfig.
-   * We shallow-clone the shell hierarchy to avoid side effects.
-   */
-  #mergeShellConfig(base: GridConfig<T>): void {
-    // Clone shell hierarchy to avoid mutating original gridConfig
-    // base.shell may still reference this.#gridConfig.shell, so we need fresh objects
-    base.shell = base.shell ? { ...base.shell } : {};
-    base.shell.header = base.shell.header ? { ...base.shell.header } : {};
-
-    // Sync light DOM title
-    const shellLightDomTitle = this.#grid._shellState.lightDomTitle;
-    if (shellLightDomTitle) {
-      this.#lightDomTitle = shellLightDomTitle;
-    }
-    if (this.#lightDomTitle && !base.shell.header.title) {
-      base.shell.header.title = this.#lightDomTitle;
-    }
-
-    // Sync light DOM header content elements
-    const lightDomHeaderContent = this.#grid._shellState.lightDomHeaderContent;
-    if (lightDomHeaderContent?.length > 0) {
-      base.shell.header.lightDomContent = lightDomHeaderContent;
-    }
-
-    // Sync hasToolButtonsContainer from shell state
-    if (this.#grid._shellState.hasToolButtonsContainer) {
-      base.shell.header.hasToolButtonsContainer = true;
-    }
-
-    // Sync tool panels (from plugins + API + Light DOM)
-    const toolPanelsMap = this.#grid._shellState.toolPanels;
-    if (toolPanelsMap.size > 0) {
-      const panels = Array.from(toolPanelsMap.values());
-      // Sort by order (lower = first, default 100)
-      panels.sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
-      base.shell.toolPanels = panels;
-    }
-
-    // Sync header contents (from plugins + API)
-    const headerContentsMap = this.#grid._shellState.headerContents;
-    if (headerContentsMap.size > 0) {
-      const contents = Array.from(headerContentsMap.values());
-      // Sort by order
-      contents.sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
-      base.shell.headerContents = contents;
-    }
-
-    // Sync toolbar contents (from API - config contents are already in base.shell.header.toolbarContents)
-    // We need to merge config contents (from gridConfig) with API contents (from registerToolbarContent)
-    // API contents can be added/removed dynamically, so we need to rebuild from current state each time
-    const toolbarContentsMap = this.#grid._shellState.toolbarContents;
-    const apiContents = Array.from(toolbarContentsMap.values());
-
-    // Get ORIGINAL config contents (from gridConfig, not from previous merges)
-    // We use a fresh read from gridConfig to avoid accumulating stale API contents
-    const originalConfigContents = this.#gridConfig?.shell?.header?.toolbarContents ?? [];
-
-    // Merge: config contents + API contents (config takes precedence by id)
-    const configIds = new Set(originalConfigContents.map((c) => c.id));
-    const mergedContents = [...originalConfigContents];
-    for (const content of apiContents) {
-      if (!configIds.has(content.id)) {
-        mergedContents.push(content);
-      }
-    }
-
-    // Sort by order
-    mergedContents.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    base.shell.header.toolbarContents = mergedContents;
   }
   // #endregion
 

@@ -495,6 +495,8 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
     _hasRowStructurePlugins: boolean;
     /** Emit an event on the plugin event bus (does not dispatch a DOM event). */
     emitPluginEvent?: <D>(eventType: string, detail: D) => void;
+    /** Let plugins contribute to the effective config during merge (mutates in place). */
+    processConfig?(config: GridConfig): void;
   };
   _gridTemplate: string;
   _virtualization: VirtualState;

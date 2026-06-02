@@ -7,7 +7,6 @@
  * @module internal/aria
  */
 
-import type { ShellState } from '../../plugins/shell/shell';
 import type { A11yMessages, GridConfig } from '../types';
 import { DEFAULT_A11Y_MESSAGES } from '../types';
 
@@ -105,19 +104,18 @@ export function updateAriaCounts(
  * Determine the effective aria-label for the grid.
  * Priority: explicit config > shell title > nothing
  *
- * @param config - Grid configuration
- * @param shellState - Shell state (for light DOM title)
+ * The shell title is read from `config.shell.header.title`. The shell plugin
+ * folds any light-DOM `<tbw-grid-header title>` into that field via its
+ * `processConfig` hook (extraction #370), so core needs no plugin state here.
+ *
+ * @param config - Grid configuration (the merged effective config)
  * @returns The aria-label to use, or undefined
  */
-export function getEffectiveAriaLabel<T>(
-  config: GridConfig<T> | undefined,
-  shellState: ShellState | undefined,
-): string | undefined {
+export function getEffectiveAriaLabel<T>(config: GridConfig<T> | undefined): string | undefined {
   const explicitLabel = config?.gridAriaLabel;
   if (explicitLabel) return explicitLabel;
 
-  const shellTitle = config?.shell?.header?.title ?? shellState?.lightDomTitle;
-  return shellTitle ?? undefined;
+  return config?.shell?.header?.title ?? undefined;
 }
 
 /**
@@ -126,15 +124,13 @@ export function getEffectiveAriaLabel<T>(
  *
  * @param state - ARIA state for caching
  * @param rowsBodyEl - Element to set aria-label/aria-describedby on
- * @param config - Grid configuration
- * @param shellState - Shell state (for light DOM title)
+ * @param config - Grid configuration (the merged effective config)
  * @returns true if anything was updated
  */
 export function updateAriaLabels<T>(
   state: AriaState,
   rowsBodyEl: HTMLElement | null,
   config: GridConfig<T> | undefined,
-  shellState: ShellState | undefined,
 ): boolean {
   if (!rowsBodyEl) return false;
 
@@ -144,7 +140,7 @@ export function updateAriaLabels<T>(
   // `aria-label` is suppressed even if explicitly configured to avoid two
   // competing names being computed by AT.
   const ariaLabelledBy = config?.gridAriaLabelledBy;
-  const effectiveLabel = ariaLabelledBy ? undefined : getEffectiveAriaLabel(config, shellState);
+  const effectiveLabel = ariaLabelledBy ? undefined : getEffectiveAriaLabel(config);
 
   // Update aria-labelledby only if changed
   if (ariaLabelledBy !== state.ariaLabelledBy) {

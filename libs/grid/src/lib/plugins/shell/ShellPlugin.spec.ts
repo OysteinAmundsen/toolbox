@@ -13,9 +13,15 @@ import { ShellPlugin } from './ShellPlugin';
  */
 
 function createMockGrid(): GridElement {
-  const grid = document.createElement('div') as unknown as GridElement;
-  document.body.appendChild(grid as unknown as HTMLElement);
-  return grid;
+  const el = document.createElement('div');
+  document.body.appendChild(el);
+  // The plugin's `attach` registers light-DOM shell handlers via these generic
+  // seams (extraction #370); stub them so the skeleton smoke test can attach.
+  Object.assign(el, {
+    _registerLightDomHandler: () => {},
+    _unregisterLightDomHandler: () => {},
+  });
+  return el as unknown as GridElement;
 }
 
 describe('ShellPlugin (skeleton)', () => {

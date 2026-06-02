@@ -14,6 +14,7 @@
 <script>
   import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/shell';
 import '@toolbox-web/grid/features/visibility';
 
   const grid = queryGrid('#demo-shell-multi-panels');
@@ -23,7 +24,6 @@ import '@toolbox-web/grid/features/visibility';
     const names = ['Alice', 'Bob', 'Carol', 'Dan', 'Eve', 'Frank', 'Grace', 'Henry'];
 
     grid.gridConfig = {
-      shell: { header: { title: 'Multi-Panel Demo' } },
       columns: [
         { field: 'id', header: 'ID', type: 'number', width: 80 },
         { field: 'name', header: 'Name', minWidth: 150 },
@@ -31,7 +31,10 @@ import '@toolbox-web/grid/features/visibility';
         { field: 'salary', header: 'Salary', type: 'number', width: 120 },
         { field: 'active', header: 'Active', type: 'boolean', width: 80 },
       ],
-      features: { visibility: true },
+      features: {
+        shell: { header: { title: 'Multi-Panel Demo' } },
+        visibility: true,
+      },
     };
 
     grid.rows = Array.from({ length: 20 }, (_, i) => ({
@@ -43,7 +46,8 @@ import '@toolbox-web/grid/features/visibility';
     }));
 
     // Custom filter panel
-    grid.registerToolPanel({
+    const shell = grid.getPluginByName('shell');
+    shell?.registerToolPanel({
       id: 'filter',
       title: 'Filter',
       icon: '🔍',
@@ -73,7 +77,7 @@ import '@toolbox-web/grid/features/visibility';
     });
 
     // Custom settings panel
-    grid.registerToolPanel({
+    shell?.registerToolPanel({
       id: 'settings',
       title: 'Settings',
       icon: '⚙',

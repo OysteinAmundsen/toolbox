@@ -20,8 +20,10 @@ import DemoControls from '@components/DemoControls.astro';
 
 <script>
   import '@toolbox-web/grid';
-import type { ColumnConfig, ShellConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/shell';
+import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
 import '@toolbox-web/grid/features/visibility';
 
   const container = document.getElementById('shell-basic-demo-container');
@@ -69,16 +71,17 @@ import '@toolbox-web/grid/features/visibility';
         },
       };
       grid.gridConfig = {
-        shell: shellConfig,
         columns: shellColumns,
         features: {
+          shell: shellConfig,
           ...(v.showVisibilityPlugin ? { visibility: true } : {}),
         },
       };
       grid.rows = sampleData;
 
+      const shell = grid.getPluginByName('shell');
       if (v.showHeaderContent) {
-        grid.registerHeaderContent({
+        shell?.registerHeaderContent({
           id: 'row-count',
           order: 10,
           render: (el) => {
@@ -94,12 +97,13 @@ import '@toolbox-web/grid/features/visibility';
           },
         });
       } else {
-        grid.unregisterHeaderContent('row-count');
+        shell?.unregisterHeaderContent('row-count');
       }
 
       if (v.showCustomPanel) {
-        grid.registerToolPanel({
+        shell?.registerToolPanel({
           id: 'custom-info',
+          title: 'Info Panel',
           icon: 'ℹ',
           tooltip: 'Info Panel',
           render: (el) => {
@@ -108,11 +112,11 @@ import '@toolbox-web/grid/features/visibility';
           },
         });
       } else {
-        grid.unregisterToolPanel('custom-info');
+        shell?.unregisterToolPanel('custom-info');
       }
 
       if (v.showToolbarButton) {
-        grid.registerToolbarContent({
+        shell?.registerToolbarContent({
           id: 'refresh-btn',
           render: (el) => {
             const btn = document.createElement('button');
@@ -126,7 +130,7 @@ import '@toolbox-web/grid/features/visibility';
           },
         });
       } else {
-        grid.unregisterToolbarContent('refresh-btn');
+        shell?.unregisterToolbarContent('refresh-btn');
       }
     }
 

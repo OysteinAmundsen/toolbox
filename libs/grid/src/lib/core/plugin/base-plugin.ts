@@ -128,10 +128,37 @@ export interface PluginDependency {
   /**
    * Whether this dependency is required (hard) or optional (soft).
    * - `true`: Plugin cannot function without it. Throws error if missing.
-   * - `false`: Plugin works with reduced functionality. Logs info if missing.
+   * - `false`: Plugin works with reduced functionality. Silent if missing
+   *   (set {@link severity} to `'warn'` or `'info'` to opt into a message).
    * @default true
    */
   required?: boolean;
+
+  /**
+   * Explicit severity when this dependency is missing. Overrides the default
+   * derived from {@link required}.
+   * - `'error'`: throw (halts grid setup). Default when `required` is not `false`.
+   * - `'warn'`: log a console warning and continue (development only).
+   * - `'info'`: log a verbose console.debug message and continue (development only).
+   *
+   * When omitted, a missing hard dependency throws and a missing soft
+   * dependency is silent — preserving backward-compatible behavior.
+   * @since 2.16.0
+   */
+  severity?: 'error' | 'warn' | 'info';
+
+  /**
+   * Optional predicate that gates whether this dependency applies, evaluated
+   * against the depending plugin's own resolved configuration (defaults merged
+   * with user config). Return `false` to skip the dependency entirely.
+   *
+   * Lets a plugin require/recommend another plugin only under certain config
+   * — e.g. a plugin that needs a tool-panel host only when its tool panel is
+   * enabled. When omitted, the dependency always applies.
+   * @example when: (cfg: PivotConfig) => cfg.showToolPanel === true
+   * @since 2.16.0
+   */
+  when?: (pluginConfig: unknown) => boolean;
 
   /**
    * Human-readable reason for this dependency.
@@ -421,8 +448,9 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * Plugin dependencies - declare other plugins this one requires.
    *
    * Dependencies are validated when the plugin is attached.
-   * Required dependencies throw an error if missing.
-   * Optional dependencies log an info message if missing.
+   * Required dependencies throw an error if missing. Optional dependencies are
+   * silent by default; set a {@link PluginDependency.severity} of `'warn'` or
+   * `'info'` to opt into a development-only log.
    *
    * @example
    * ```typescript
@@ -512,6 +540,24 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
 
   constructor(config: Partial<TConfig> = {}) {
     this.userConfig = config;
+  }
+
+  /**
+   * Effective configuration (defaults merged with user config), resolved
+   * eagerly so it is available **before** {@link attach} runs. Dependency
+   * validation happens before `attach()` merges {@link config}, so config
+   * -conditional dependency `when` predicates evaluate against this getter.
+   *
+   * While attached, returns the already-merged {@link config}; otherwise
+   * recomputes `defaultConfig` + `userConfig` fresh. `config` is intentionally
+   * **not** trusted when detached because {@link detach} does not clear it — a
+   * re-validated plugin would otherwise see stale config from a prior
+   * attachment. The {@link attach}-managed abort controller is the
+   * attached/detached signal.
+   * @internal Plugin infrastructure (used by `validatePluginDependencies`).
+   */
+  get resolvedConfig(): TConfig {
+    return (this.#abortController ? this.config : { ...this.defaultConfig, ...this.userConfig }) as TConfig;
   }
 
   /**

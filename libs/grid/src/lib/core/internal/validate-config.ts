@@ -19,6 +19,8 @@ import {
   MISSING_DEPENDENCY,
   MISSING_PLUGIN,
   MISSING_PLUGIN_CONFIG,
+  OPTIONAL_DEPENDENCY,
+  debugDiagnostic,
   throwDiagnostic,
   warnDiagnostic,
 } from './diagnostics';
@@ -315,12 +317,17 @@ export function validatePluginConfigRules(plugins: readonly BaseGridPlugin[], gr
  *
  * Dependencies are read from the plugin's static `dependencies` property.
  *
- * For hard dependencies (required: true), throws an error if the dependency is not loaded.
- * For soft dependencies (required: false), logs an info message but continues.
+ * Each dependency may declare a `when` predicate (evaluated against the
+ * depending plugin's resolved config) to make it config-conditional, and an
+ * explicit `severity` (`'error'` | `'warn'` | `'info'`). When `severity` is
+ * omitted, a missing hard dependency (`required !== false`) throws and a
+ * missing soft dependency (`required: false`) is silent — preserving
+ * backward-compatible behavior. `'warn'`/`'info'` messages are logged in
+ * development only.
  *
  * @param plugin - The plugin instance being attached
  * @param loadedPlugins - The array of already-loaded plugins
- * @throws Error if a required dependency is missing
+ * @throws Error if a missing dependency resolves to `'error'` severity
  */
 export function validatePluginDependencies(
   plugin: BaseGridPlugin,
@@ -335,28 +342,43 @@ export function validatePluginDependencies(
 
   // Validate each dependency
   for (const dep of dependencies) {
+    // Config-conditional dependency: skip when its predicate is not satisfied.
+    if (dep.when && !dep.when(plugin.resolvedConfig)) continue;
+
     const requiredPlugin = dep.name;
     const required = dep.required ?? true; // Default to required
     const reason = dep.reason;
     const hasRequired = loadedPlugins.some((p) => p.name === requiredPlugin);
 
-    if (!hasRequired) {
-      const reasonText = reason ?? `${capitalize(pluginName)}Plugin requires ${capitalize(requiredPlugin)}Plugin`;
-      const importHint = getImportHint(requiredPlugin);
+    if (hasRequired) continue;
 
-      if (required) {
-        throwDiagnostic(
-          MISSING_DEPENDENCY,
-          `Plugin dependency error:\n\n` +
-            `${reasonText}.\n\n` +
-            `  → Add the plugin to your gridConfig.plugins array BEFORE ${capitalize(pluginName)}Plugin:\n` +
-            `    ${importHint}\n` +
-            `    plugins: [new ${capitalize(requiredPlugin)}Plugin(), new ${capitalize(pluginName)}Plugin()]`,
-          gridId,
-        );
+    // Explicit severity wins; otherwise hard deps error and soft deps stay
+    // silent (legacy behavior). `undefined` => no diagnostic.
+    const severity = dep.severity ?? (required ? 'error' : undefined);
+    if (!severity) continue;
+
+    // Verb matches intent: errors "require", soft notifications "recommend".
+    const verb = severity === 'error' ? 'requires' : 'recommends';
+    const reasonText = reason ?? `${capitalize(pluginName)}Plugin ${verb} ${capitalize(requiredPlugin)}Plugin`;
+
+    if (severity === 'error') {
+      const importHint = getImportHint(requiredPlugin);
+      throwDiagnostic(
+        MISSING_DEPENDENCY,
+        `Plugin dependency error:\n\n` +
+          `${reasonText}.\n\n` +
+          `  → Add the plugin to your gridConfig.plugins array BEFORE ${capitalize(pluginName)}Plugin:\n` +
+          `    ${importHint}\n` +
+          `    plugins: [new ${capitalize(requiredPlugin)}Plugin(), new ${capitalize(pluginName)}Plugin()]`,
+        gridId,
+      );
+    } else if (isDevelopment()) {
+      // Soft notification — development only to avoid polluting production logs.
+      // Use OPTIONAL_DEPENDENCY (TBW021), not the required-dependency code.
+      if (severity === 'warn') {
+        warnDiagnostic(OPTIONAL_DEPENDENCY, `${reasonText}.`, gridId);
       } else {
-        // Soft dependency - silently continue.
-        // Optional plugins enhance functionality but are not required.
+        debugDiagnostic(OPTIONAL_DEPENDENCY, `${reasonText}.`, gridId);
       }
     }
   }

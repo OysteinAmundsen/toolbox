@@ -1,0 +1,364 @@
+/**
+ * Shell Plugin Styles
+ *
+ * Merged from the former core partials `core/styles/shell.css` +
+ * `core/styles/tool-panel.css` (extraction #370). Near-verbatim concatenation —
+ * cascade layer (`@layer tbw-base`) preserved so behavior is byte-identical
+ * while both copies coexist during Phase 1a. Core copies are removed in
+ * Task 1b.1.5; the layer question (tbw-base vs tbw-plugins) is revisited then.
+ *
+ * EXCEPTION: `.tbw-scroll-area` is NOT here — it is core scroll-viewport layout
+ * (rendered by dom-builder for every grid, shell or not) and lives in
+ * `core/styles/base.css`. `.tbw-grid-content` IS here: it is the shell-only
+ * wrapper around the scroll area.
+ *
+ * @layer tbw-base
+ */
+
+/* ==========================================================================
+ * Shell Layout (was core/styles/shell.css)
+ *
+ * Styles for the grid shell including header, toolbar, content area,
+ * and scroll container.
+ * ========================================================================== */
+
+@layer tbw-base {
+  tbw-grid {
+    .tbw-shell-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: var(--tbw-shell-header-height);
+      padding: 0 8px;
+      background: var(--tbw-shell-header-bg);
+      border-bottom: 1px solid var(--tbw-shell-header-border);
+      flex-shrink: 0;
+    }
+
+    .tbw-shell-title {
+      font-size: var(--tbw-shell-title-font-size);
+      font-weight: var(--tbw-shell-title-font-weight);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tbw-shell-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .tbw-shell-toolbar {
+      display: flex;
+      align-items: center;
+      gap: var(--tbw-toolbar-button-gap);
+      flex-shrink: 0;
+    }
+
+    .tbw-toolbar-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--tbw-toolbar-button-size);
+      height: var(--tbw-toolbar-button-size);
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: var(--tbw-border-radius);
+      background: transparent;
+      color: var(--tbw-color-fg);
+      cursor: pointer;
+      font-size: 16px;
+      transition:
+        background var(--tbw-transition-duration) var(--tbw-transition-ease),
+        border-color var(--tbw-transition-duration) var(--tbw-transition-ease);
+
+      &:hover {
+        background: var(--tbw-color-row-hover);
+      }
+
+      &:focus-visible {
+        outline: var(--tbw-focus-outline);
+        outline-offset: var(--tbw-focus-outline-offset);
+      }
+
+      &.active {
+        background: var(--tbw-focus-background);
+        border-color: var(--tbw-color-accent);
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+
+    .tbw-toolbar-separator {
+      width: 1px;
+      height: 20px;
+      background: var(--tbw-color-border);
+      margin: 0 4px;
+    }
+
+    .tbw-shell-body {
+      position: relative;
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: visible;
+    }
+
+    .tbw-grid-content {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: row;
+      overflow: hidden;
+      /* Grid handles touch scrolling via JS (faux scrollbar pattern).
+         Prevent browser compositor from hijacking touch gestures mid-scroll. */
+      touch-action: none;
+    }
+  }
+}
+
+/* ==========================================================================
+ * Tool Panel (was core/styles/tool-panel.css)
+ *
+ * Styles for the collapsible side panel including header, content,
+ * resize handle, and accordion components.
+ * ========================================================================== */
+
+@layer tbw-base {
+  tbw-grid {
+    .tbw-tool-panel {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: 0;
+      width: 0;
+      overflow: hidden;
+      background: var(--tbw-tool-panel-bg);
+      border-left: 1px solid var(--tbw-tool-panel-border);
+      transition: width var(--tbw-tool-panel-transition);
+      display: flex;
+      flex-direction: column;
+      z-index: var(--tbw-z-layer-toolpanel, 31);
+      box-shadow: -2px 0 8px var(--tbw-color-shadow);
+
+      &[data-position='left'] {
+        right: auto;
+        left: 0;
+        border-left: none;
+        border-right: 1px solid var(--tbw-tool-panel-border);
+        box-shadow: 2px 0 8px var(--tbw-color-shadow);
+      }
+
+      &.open {
+        width: var(--tbw-tool-panel-width);
+      }
+    }
+
+    /* ========== Push mode ========== */
+
+    /* In push mode the panel becomes a flex sibling of the grid content
+       instead of overlaying it. Opening the panel shrinks the grid's
+       available width; the grid's ResizeObserver re-runs column
+       virtualization, so cells that would be hidden by an overlay panel
+       remain reachable.
+
+       The overlay shadow is dropped (nothing to lift off) and the resize
+       handle is suppressed: the panel's width is part of the layout, so
+       drag-to-resize would fight the flex container instead of cooperating
+       with it. */
+    .tbw-shell-body[data-mode='push'] {
+      .tbw-tool-panel {
+        position: relative;
+        top: auto;
+        bottom: auto;
+        right: auto;
+        left: auto;
+        flex-shrink: 0;
+        box-shadow: none;
+        z-index: auto;
+        /* In overlay mode the 1px side border is harmless because the panel
+           floats above the grid. In push mode the panel is a flex sibling,
+           so a non-zero border on a width:0 panel still reserves 1px of
+           horizontal space and shows as a stray divider. Drop the border
+           by default and only re-apply it on the open state. */
+        border-left: none;
+        border-right: none;
+
+        &.open {
+          border-left: 1px solid var(--tbw-tool-panel-border);
+        }
+
+        &[data-position='left'].open {
+          border-left: none;
+          border-right: 1px solid var(--tbw-tool-panel-border);
+        }
+      }
+
+      .tbw-tool-panel-resize {
+        display: none;
+      }
+    }
+
+    .tbw-tool-panel-resize {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 6px;
+      cursor: col-resize;
+      background: transparent;
+      z-index: 10;
+      transition: background var(--tbw-transition-duration) var(--tbw-transition-ease);
+
+      &[data-handle-position='left'] {
+        left: 0;
+      }
+
+      &[data-handle-position='right'] {
+        right: 0;
+      }
+
+      &:hover,
+      &.resizing {
+        background: var(--tbw-color-accent);
+      }
+    }
+
+    .tbw-tool-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      min-height: var(--tbw-tool-panel-header-height);
+      padding: 0 12px;
+      border-bottom: 1px solid var(--tbw-tool-panel-border);
+      flex-shrink: 0;
+    }
+
+    .tbw-tool-panel-title {
+      font-weight: 600;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tbw-tool-panel-close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      border: none;
+      border-radius: var(--tbw-border-radius);
+      background: transparent;
+      color: var(--tbw-color-fg-muted);
+      cursor: pointer;
+      font-size: 14px;
+
+      &:hover {
+        background: var(--tbw-color-row-hover);
+        color: var(--tbw-color-fg);
+      }
+    }
+
+    .tbw-tool-panel-content {
+      flex: 1;
+      overflow: auto;
+    }
+
+    /* ========== Accordion ========== */
+
+    .tbw-accordion {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .tbw-accordion-section {
+      border-bottom: 1px solid var(--tbw-tool-panel-border);
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &.single .tbw-accordion-header {
+        cursor: default;
+
+        &:hover {
+          background: transparent;
+        }
+      }
+
+      &.expanded {
+        .tbw-accordion-chevron {
+          transform: rotate(90deg);
+        }
+
+        .tbw-accordion-content {
+          display: block;
+        }
+      }
+    }
+
+    .tbw-accordion-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 12px;
+      border: none;
+      background: transparent;
+      color: var(--tbw-color-fg);
+      font-size: 13px;
+      font-weight: 600;
+      text-align: start;
+      cursor: pointer;
+      user-select: none;
+
+      &:hover {
+        background: var(--tbw-color-row-hover);
+      }
+    }
+
+    .tbw-accordion-chevron {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      font-size: 10px;
+      color: var(--tbw-color-fg-muted);
+      transition: transform 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .tbw-accordion-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .tbw-accordion-title {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tbw-accordion-content {
+      display: none;
+    }
+  }
+}

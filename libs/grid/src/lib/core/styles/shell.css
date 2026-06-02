@@ -107,16 +107,5 @@
          Prevent browser compositor from hijacking touch gestures mid-scroll. */
       touch-action: none;
     }
-
-    .tbw-scroll-area {
-      flex: 1;
-      min-width: 0;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      overflow-x: auto;
-      overflow-y: hidden;
-      overflow-anchor: none;
-    }
   }
 }

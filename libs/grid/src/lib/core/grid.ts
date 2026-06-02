@@ -1,4 +1,30 @@
 import {
+  buildGridDOMIntoElement,
+  cleanupShellState,
+  createShellState,
+  parseLightDomShell,
+  parseLightDomToolButtons,
+  parseLightDomToolPanels,
+  prepareForRerender,
+  rebuildShellDOM,
+  renderCustomToolbarContents,
+  renderHeaderContent,
+  renderPanelContent,
+  renderShellHeader,
+  setupClickOutsideDismiss,
+  setupEscapeDismiss,
+  setupShellEventListeners,
+  setupToolPanelResize,
+  shouldRenderShellHeader,
+  updatePanelState,
+  updateToolbarActiveStates,
+  type ShellState,
+  type ToolPanelRendererFactory,
+  // TEMP-SHELL-IMPORT-1b: transitional value import — core still drives shell
+  // DOM/lifecycle during Phase 1a. Removed in Task 1b once ShellPlugin owns it.
+} from '../plugins/shell/shell';
+import { createShellController, type ShellController } from '../plugins/shell/shell-controller';
+import {
   announceDataLoaded,
   createAriaState,
   updateAriaCounts,
@@ -27,30 +53,6 @@ import { createResizeController } from './internal/resize';
 import { animateRow, animateRowById, animateRows } from './internal/row-animation';
 import { resolveRowIdOrThrow, RowManager, tryResolveRowId } from './internal/row-manager';
 import { invalidateCellCache, renderVisibleRows } from './internal/rows';
-import {
-  buildGridDOMIntoElement,
-  cleanupShellState,
-  createShellState,
-  parseLightDomShell,
-  parseLightDomToolButtons,
-  parseLightDomToolPanels,
-  prepareForRerender,
-  rebuildShellDOM,
-  renderCustomToolbarContents,
-  renderHeaderContent,
-  renderPanelContent,
-  renderShellHeader,
-  setupClickOutsideDismiss,
-  setupEscapeDismiss,
-  setupShellEventListeners,
-  setupToolPanelResize,
-  shouldRenderShellHeader,
-  updatePanelState,
-  updateToolbarActiveStates,
-  type ShellState,
-  type ToolPanelRendererFactory,
-} from './internal/shell';
-import { createShellController, type ShellController } from './internal/shell-controller';
 import { applySort, reapplyCoreSort, toggleSort } from './internal/sorting';
 import { addPluginStyles, injectStyles } from './internal/style-injector';
 import {

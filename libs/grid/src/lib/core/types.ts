@@ -1,5 +1,13 @@
+import type { ShellState } from '../plugins/shell/shell';
+import type {
+  HeaderContentDefinition as HeaderContentDefinitionImpl,
+  ShellConfig as ShellConfigImpl,
+  ShellHeaderConfig as ShellHeaderConfigImpl,
+  ToolbarContentDefinition as ToolbarContentDefinitionImpl,
+  ToolPanelConfig as ToolPanelConfigImpl,
+  ToolPanelDefinition as ToolPanelDefinitionImpl,
+} from '../plugins/shell/types';
 import type { RenderPhase } from './internal/render-scheduler';
-import type { ShellState } from './internal/shell';
 import type { RowPosition, ScrollMapping } from './internal/virtualization';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } from './plugin/types';
 
@@ -2622,11 +2630,8 @@ export interface GridConfig<TRow = any> {
    */
   columnState?: GridColumnState;
 
-  /**
-   * Shell configuration for header bar and tool panels.
-   * When configured, adds an optional wrapper with title, toolbar, and collapsible side panels.
-   */
-  shell?: ShellConfig;
+  // NOTE: `shell?: ShellConfig` is contributed via module augmentation from
+  // `plugins/shell/types.ts` (extraction #370). Core has no intrinsic shell field.
 
   /**
    * Grid-wide icon configuration.
@@ -3650,337 +3655,47 @@ export const DEFAULT_GRID_ICONS: Required<GridIcons> = {
 };
 // #endregion
 
-// #region Shell Configuration
+// #region Shell Configuration (deprecated re-aliases)
+//
+// The canonical shell config types now live in `plugins/shell/types.ts`
+// (extraction #370, Task 1a.2). These `@deprecated` aliases keep deep
+// importers of `@toolbox-web/grid` core types compiling; they are removed at v3.
 
 /**
- * Shell configuration for the grid's optional header bar and tool panels.
- *
- * The shell provides a wrapper around the grid with:
- * - Header bar with title, toolbar buttons, and custom content
- * - Collapsible side panel for filters, column visibility, settings, etc.
- *
- * @example
- * ```typescript
- * grid.gridConfig = {
- *   shell: {
- *     header: {
- *       title: 'Employee Directory',
- *     },
- *     toolPanel: {
- *       position: 'right',
- *       initialState: 'open',     // Sidebar open on load
- *       defaultOpen: 'columns',   // Auto-expand the "Columns" section
- *     },
- *   },
- *   plugins: [new VisibilityPlugin()], // Adds "Columns" panel
- * };
- *
- * // Register custom tool panels
- * grid.registerToolPanel({
- *   id: 'filters',
- *   title: 'Filters',
- *   icon: '🔍',
- *   render: (container) => {
- *     container.innerHTML = '<div>Filter controls...</div>';
- *   },
- * });
- * ```
- *
- * @see {@link ShellHeaderConfig} for header options
- * @see {@link ToolPanelConfig} for tool panel options
- * @since 0.1.1
+ * @deprecated Import `ShellConfig` from `@toolbox-web/grid/plugins/shell`.
+ *   The shell is a built-in plugin as of #370; this core alias is removed at v3.
  */
-export interface ShellConfig {
-  /** Shell header bar configuration */
-  header?: ShellHeaderConfig;
-  /** Tool panel configuration */
-  toolPanel?: ToolPanelConfig;
-  /**
-   * Registered tool panels (from plugins, API, or Light DOM).
-   * These are the actual panel definitions that can be opened.
-   * @internal Set by ConfigManager during merge
-   */
-  toolPanels?: ToolPanelDefinition[];
-  /**
-   * Registered header content sections (from plugins or API).
-   * Content rendered in the center of the shell header.
-   * @internal Set by ConfigManager during merge
-   */
-  headerContents?: HeaderContentDefinition[];
-}
+export type ShellConfig = ShellConfigImpl;
 
 /**
- * Shell header bar configuration
- * @since 0.1.1
+ * @deprecated Import `ShellHeaderConfig` from `@toolbox-web/grid/plugins/shell`.
+ *   The shell is a built-in plugin as of #370; this core alias is removed at v3.
  */
-export interface ShellHeaderConfig {
-  /** Grid title displayed on the left (optional) */
-  title?: string;
-  /** Custom toolbar content (rendered before tool panel toggle) */
-  toolbarContents?: ToolbarContentDefinition[];
-  /**
-   * Whether the shell header bar element (`.tbw-shell-header`) is rendered.
-   *
-   * Set to `false` to drive tool panels entirely from your own UI — for
-   * example, a utility-column header icon whose click handler calls
-   * {@link DataGridElement.openToolPanel}. The header bar (title, toolbar
-   * contents, built-in toggle) is fully suppressed, but the shell body and
-   * any registered tool panels still render and remain openable via the API.
-   *
-   * When `false`, a close (✕) button is rendered in the top-right corner of
-   * the open tool panel (unless `toolPanel.locked` is `true`) so the panel
-   * can always be dismissed without the header toggle. Overlay panels also
-   * close on <kbd>Esc</kbd>; window-wide click-outside dismissal additionally
-   * requires `toolPanel.closeOnClickOutside: true`.
-   *
-   * Unlike `toolPanelToggle: false` (which only removes the built-in toggle
-   * button while keeping the bar), this removes the entire bar element — no
-   * CSS override needed.
-   *
-   * @default true
-   * @since 2.16.0
-   */
-  visible?: boolean;
-  /**
-   * Whether the grid renders its built-in tool panel toggle button
-   * (`button.tbw-toolbar-btn[data-panel-toggle]`) and the auto-inserted
-   * `.tbw-toolbar-separator` between custom toolbar contents and the toggle.
-   *
-   * Set to `false` when you want to provide your own toggle button (e.g. a
-   * design-system button styled to match your application). Wire your button
-   * to call {@link DataGridElement.toggleToolPanel} (or `toggleToolPanelSection(id)` for
-   * a specific section). All tool panels remain functional; only the
-   * built-in toggle button and adjacent separator are suppressed.
-   *
-   * @default true
-   */
-  toolPanelToggle?: boolean;
-  /**
-   * Light DOM header content elements (parsed from <tbw-grid-header> children).
-   * @internal Set by ConfigManager during merge
-   */
-  lightDomContent?: HTMLElement[];
-  /**
-   * Whether a tool buttons container was found in light DOM.
-   * @internal Set by ConfigManager during merge
-   */
-  hasToolButtonsContainer?: boolean;
-}
+export type ShellHeaderConfig = ShellHeaderConfigImpl;
 
 /**
- * Tool panel configuration
- * @since 0.1.1
+ * @deprecated Import `ToolPanelConfig` from `@toolbox-web/grid/plugins/shell`.
+ *   The shell is a built-in plugin as of #370; this core alias is removed at v3.
  */
-export interface ToolPanelConfig {
-  /** Panel position: 'left' | 'right' (default: 'right') */
-  position?: 'left' | 'right';
-  /** Default panel width in pixels (default: 280) */
-  width?: number;
-  /**
-   * Accordion section to auto-expand the first time the tool panel opens.
-   *
-   * @deprecated **Behavior change planned for v3.0.0** — see [issue #259](https://github.com/OysteinAmundsen/toolbox/issues/259).
-   *
-   * Today (v2.x, kept for backward compatibility): setting `defaultOpen` also
-   * **opens the sidebar** on grid load. This conflates "which section is
-   * pre-selected" with "is the sidebar open", and there is no way to
-   * pre-select a section without also forcing the sidebar open.
-   *
-   * In v3.0.0 (#259): `defaultOpen` will only pre-select which accordion
-   * section auto-expands the first time the sidebar opens, and will no
-   * longer open the sidebar by itself. Migrate by combining `defaultOpen`
-   * with `initialState: 'open'` (or `locked: true`) when you want both
-   * effects.
-   *
-   * Callers that want forward-compatible behavior today: prefer
-   * `initialState` / `locked` for sidebar open state, and use `defaultOpen`
-   * purely for section selection.
-   *
-   * @since 0.1.1
-   */
-  defaultOpen?: string;
-  /**
-   * Initial open state of the tool panel sidebar on grid load.
-   *
-   * - `'closed'` (default) — sidebar starts collapsed; user opens it via the
-   *   built-in toggle button or `grid.openToolPanel()`.
-   * - `'open'` — sidebar starts open; the section named by {@link defaultOpen}
-   *   (or the first registered panel) is expanded.
-   *
-   * Takes precedence over the legacy v2 behavior of {@link defaultOpen}: if
-   * `initialState` is set explicitly, it wins.
-   *
-   * @default 'closed'
-   * @since 2.9.0
-   */
-  initialState?: 'open' | 'closed';
-  /**
-   * When `true`, lock the tool panel sidebar in its open state.
-   *
-   * Effects:
-   * - Implies `initialState: 'open'` — the sidebar is forced open on load.
-   * - `grid.closeToolPanel()` / `grid.toggleToolPanel()` become no-ops while
-   *   locked (the panel cannot be closed by user or programmatic actions).
-   * - Suppresses the built-in toolbar toggle button (same effect as
-   *   `shell.header.toolPanelToggle: false`) since toggling is disabled.
-   * - Accordion sections inside the panel can still be expanded/collapsed.
-   *
-   * @default false
-   * @since 2.9.0
-   */
-  locked?: boolean;
-  /** Whether to persist open/closed state (requires Column State Events) */
-  persistState?: boolean;
-  /**
-   * Close the tool panel when clicking outside of it.
-   * When `true`, clicking anywhere outside the tool panel (but inside the grid)
-   * will close the panel automatically.
-   *
-   * Ignored in `mode: 'push'` (the panel does not overlap grid content,
-   * so there is no meaningful "outside" to dismiss against).
-   * @default false
-   */
-  closeOnClickOutside?: boolean;
-  /**
-   * Layout mode for the tool panel.
-   *
-   * - `'overlay'` (default) — panel is positioned over the grid content;
-   *   opening/closing the panel does not change the grid's available width.
-   *   Best for narrow viewports.
-   * - `'push'` — panel participates in the shell's flex layout as a sibling
-   *   of the grid content; opening the panel shrinks the grid's available
-   *   width and triggers a normal column-virtualization re-layout via
-   *   ResizeObserver. Best for desktop layouts where users want to keep
-   *   all cells visible while the panel is open.
-   *
-   * @default 'overlay'
-   * @since 2.8.0
-   */
-  mode?: 'overlay' | 'push';
-}
+export type ToolPanelConfig = ToolPanelConfigImpl;
 
 /**
- * Toolbar content definition for the shell header toolbar area.
- * Register via `registerToolbarContent()` or use light DOM `<tbw-grid-tool-buttons>`.
- *
- * @example
- * ```typescript
- * grid.registerToolbarContent({
- *   id: 'my-toolbar',
- *   order: 10,
- *   render: (container) => {
- *     const btn = document.createElement('button');
- *     btn.textContent = 'Refresh';
- *     btn.onclick = () => console.log('clicked');
- *     container.appendChild(btn);
- *     return () => btn.remove();
- *   },
- * });
- * ```
- * @since 1.0.0
+ * @deprecated Import `ToolbarContentDefinition` from `@toolbox-web/grid/plugins/shell`.
+ *   The shell is a built-in plugin as of #370; this core alias is removed at v3.
  */
-export interface ToolbarContentDefinition {
-  /** Unique content ID */
-  id: string;
-  /** Content factory - called once when shell header renders */
-  render: (container: HTMLElement) => void | (() => void);
-  /** Called when content is removed (for cleanup) */
-  onDestroy?: () => void;
-  /** Order priority (lower = first, default: 100) */
-  order?: number;
-}
+export type ToolbarContentDefinition = ToolbarContentDefinitionImpl;
 
 /**
- * Tool panel definition registered by plugins or consumers.
- *
- * Register via `grid.registerToolPanel()` to add panels to the sidebar.
- * Panels appear as collapsible sections with icons and titles.
- *
- * @example
- * ```typescript
- * grid.registerToolPanel({
- *   id: 'filters',
- *   title: 'Filters',
- *   icon: '🔍',
- *   tooltip: 'Filter grid data',
- *   order: 10, // Lower = appears first
- *   render: (container) => {
- *     container.innerHTML = `
- *       <div class="filter-panel">
- *         <input type="text" placeholder="Search..." />
- *       </div>
- *     `;
- *     // Return cleanup function
- *     return () => container.innerHTML = '';
- *   },
- *   onClose: () => {
- *     console.log('Filter panel closed');
- *   },
- * });
- * ```
- *
- * @see {@link ShellConfig} for shell configuration
- * @since 0.1.1
+ * @deprecated Import `ToolPanelDefinition` from `@toolbox-web/grid/plugins/shell`.
+ *   The shell is a built-in plugin as of #370; this core alias is removed at v3.
  */
-export interface ToolPanelDefinition {
-  /** Unique panel ID */
-  id: string;
-  /** Panel title shown in accordion header */
-  title: string;
-  /** Icon for accordion section header (optional, emoji or SVG) */
-  icon?: string;
-  /** Tooltip for accordion section header */
-  tooltip?: string;
-  /** Panel content factory - called when panel section opens */
-  render: (container: HTMLElement) => void | (() => void);
-  /** Called when panel closes (for cleanup) */
-  onClose?: () => void;
-  /** Panel order priority (lower = first, default: 100) */
-  order?: number;
-}
+export type ToolPanelDefinition = ToolPanelDefinitionImpl;
 
 /**
- * Header content definition for plugins contributing to shell header center section.
- *
- * Register via `grid.registerHeaderContent()` to add content between
- * the title and toolbar buttons.
- *
- * @example
- * ```typescript
- * grid.registerHeaderContent({
- *   id: 'row-count',
- *   order: 10,
- *   render: (container) => {
- *     const span = document.createElement('span');
- *     span.className = 'row-count';
- *     span.textContent = `${grid.rows.length} rows`;
- *     container.appendChild(span);
- *
- *     // Update on data changes
- *     const unsub = grid.on('data-change', () => {
- *       span.textContent = `${grid.rows.length} rows`;
- *     });
- *
- *     return () => {
- *       unsub();
- *     };
- *   },
- * });
- * ```
- *
- * @see {@link ShellConfig} for shell configuration
- * @since 0.1.1
+ * @deprecated Import `HeaderContentDefinition` from `@toolbox-web/grid/plugins/shell`.
+ *   The shell is a built-in plugin as of #370; this core alias is removed at v3.
  */
-export interface HeaderContentDefinition {
-  /** Unique content ID */
-  id: string;
-  /** Content factory - called once when shell header renders */
-  render: (container: HTMLElement) => void | (() => void);
-  /** Called when content is removed (for cleanup) */
-  onDestroy?: () => void;
-  /** Order priority (lower = first, default: 100) */
-  order?: number;
-}
+export type HeaderContentDefinition = HeaderContentDefinitionImpl;
 // #endregion
 
 // #region Column State (Persistence)

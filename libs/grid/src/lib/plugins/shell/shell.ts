@@ -7,15 +7,10 @@
  * - Light DOM parsing for framework-friendly configuration
  */
 
-import type {
-  HeaderContentDefinition,
-  IconValue,
-  ShellConfig,
-  ToolbarContentDefinition,
-  ToolPanelDefinition,
-} from '../types';
-import { TOOL_PANEL_MISSING_ATTR, warnDiagnostic } from './diagnostics';
-import { escapeHtml, sanitizeHTML } from './sanitize';
+import { TOOL_PANEL_MISSING_ATTR, warnDiagnostic } from '../../core/internal/diagnostics';
+import { escapeHtml, sanitizeHTML } from '../../core/internal/sanitize';
+import type { IconValue } from '../../core/types';
+import type { HeaderContentDefinition, ShellConfig, ToolbarContentDefinition, ToolPanelDefinition } from './types';
 
 // #region Types & State
 /**
@@ -1102,14 +1097,14 @@ export const GRID_CONTENT_HTML = `
 // #endregion
 
 // #region DOM Construction
-import { GridClasses } from '../constants';
+import { GridClasses } from '../../core/constants';
 import {
   buildGridDOM,
   buildShellBody,
   buildShellHeader,
   type ShellBodyOptions,
   type ShellHeaderOptions,
-} from './dom-builder';
+} from '../../core/internal/dom-builder';
 
 /**
  * Build ShellHeaderOptions and ShellBodyOptions from shell config and runtime state.

@@ -7,9 +7,9 @@
  * @module internal/aria
  */
 
+import type { ShellState } from '../../plugins/shell/shell';
 import type { A11yMessages, GridConfig } from '../types';
 import { DEFAULT_A11Y_MESSAGES } from '../types';
-import type { ShellState } from './shell';
 
 // #region Types
 

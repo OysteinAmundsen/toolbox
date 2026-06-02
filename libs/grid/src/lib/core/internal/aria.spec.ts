@@ -5,6 +5,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { ShellState } from '../../plugins/shell/shell';
 import type { GridConfig } from '../types';
 import {
   announce,
@@ -16,7 +17,6 @@ import {
   updateAriaLabels,
   type AriaState,
 } from './aria';
-import type { ShellState } from './shell';
 
 describe('ARIA Helpers', () => {
   // #region createAriaState

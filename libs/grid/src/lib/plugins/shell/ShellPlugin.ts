@@ -13,10 +13,9 @@
  */
 
 import { BaseGridPlugin, type GridElement } from '../../core/plugin/base-plugin';
-// Transitional: the canonical ShellConfig moves into ./types in Task 1a.2.
-import type { ShellConfig } from '../../core/types';
 import styles from './shell.css?inline';
 import './types';
+import type { ShellConfig } from './types';
 
 /**
  * Shell plugin for `<tbw-grid>`.

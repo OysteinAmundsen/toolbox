@@ -5,7 +5,6 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { HeaderContentDefinition, ShellConfig, ToolPanelDefinition } from '../types';
 import {
   cleanupShellState,
   createShellState,
@@ -17,6 +16,7 @@ import {
   shouldRenderShellHeader,
   type ShellState,
 } from './shell';
+import type { HeaderContentDefinition, ShellConfig, ToolPanelDefinition } from './types';
 
 describe('shell module', () => {
   let state: ShellState;

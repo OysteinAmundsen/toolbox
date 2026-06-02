@@ -228,3 +228,125 @@ describe('GridToolbarContent', () => {
     expect(h.toolbarDefs).toHaveLength(0);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Shell-plugin routing (#370)
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface ShellApi {
+  registerHeaderContent: (def: HeaderContentDefinition) => void;
+  unregisterHeaderContent: (id: string) => void;
+  registerToolbarContent: (def: ToolbarContentDefinition) => void;
+  unregisterToolbarContent: (id: string) => void;
+}
+
+interface ShellHarness {
+  gridRef: RefObject<DataGridElement | null>;
+  root: Root;
+  shell: ShellApi;
+  /** Deprecated grid-element delegates — must NOT be called when a shell plugin exists. */
+  gridDelegates: {
+    registerHeaderContent: ReturnType<typeof vi.fn>;
+    unregisterHeaderContent: ReturnType<typeof vi.fn>;
+    registerToolbarContent: ReturnType<typeof vi.fn>;
+    unregisterToolbarContent: ReturnType<typeof vi.fn>;
+  };
+}
+
+function setupShellHarness(): ShellHarness {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const slot = document.createElement('div');
+
+  const shell: ShellApi = {
+    registerHeaderContent: vi.fn((def: HeaderContentDefinition) => def.render(slot)),
+    unregisterHeaderContent: vi.fn(),
+    registerToolbarContent: vi.fn((def: ToolbarContentDefinition) => def.render(slot)),
+    unregisterToolbarContent: vi.fn(),
+  };
+  const gridDelegates = {
+    registerHeaderContent: vi.fn(),
+    unregisterHeaderContent: vi.fn(),
+    registerToolbarContent: vi.fn(),
+    unregisterToolbarContent: vi.fn(),
+  };
+
+  const grid = {
+    ready: vi.fn().mockResolvedValue(undefined),
+    getPluginByName: vi.fn((name: string) => (name === 'shell' ? shell : undefined)),
+    ...gridDelegates,
+  } as unknown as DataGridElement;
+
+  const gridRef: RefObject<DataGridElement | null> = createRef<DataGridElement | null>();
+  (gridRef as { current: DataGridElement | null }).current = grid;
+  const root = createRoot(container);
+  return { gridRef, root, shell, gridDelegates };
+}
+
+describe('shell-plugin routing (#370)', () => {
+  it('registers header content via the shell plugin, not the deprecated grid delegate', async () => {
+    const h = setupShellHarness();
+    await act(async () => {
+      h.root.render(
+        <GridElementContext.Provider value={h.gridRef}>
+          <GridHeaderContent id="hdr-shell">
+            <span>x</span>
+          </GridHeaderContent>
+        </GridElementContext.Provider>,
+      );
+    });
+    expect(h.shell.registerHeaderContent).toHaveBeenCalledTimes(1);
+    expect(h.gridDelegates.registerHeaderContent).not.toHaveBeenCalled();
+  });
+
+  it('unregisters header content via the shell plugin on unmount', async () => {
+    const h = setupShellHarness();
+    await act(async () => {
+      h.root.render(
+        <GridElementContext.Provider value={h.gridRef}>
+          <GridHeaderContent id="hdr-shell-2">
+            <span>x</span>
+          </GridHeaderContent>
+        </GridElementContext.Provider>,
+      );
+    });
+    await act(async () => {
+      h.root.unmount();
+    });
+    expect(h.shell.unregisterHeaderContent).toHaveBeenCalledWith('hdr-shell-2');
+    expect(h.gridDelegates.unregisterHeaderContent).not.toHaveBeenCalled();
+  });
+
+  it('registers toolbar content via the shell plugin, not the deprecated grid delegate', async () => {
+    const h = setupShellHarness();
+    await act(async () => {
+      h.root.render(
+        <GridElementContext.Provider value={h.gridRef}>
+          <GridToolbarContent id="tb-shell">
+            <button>x</button>
+          </GridToolbarContent>
+        </GridElementContext.Provider>,
+      );
+    });
+    expect(h.shell.registerToolbarContent).toHaveBeenCalledTimes(1);
+    expect(h.gridDelegates.registerToolbarContent).not.toHaveBeenCalled();
+  });
+
+  it('unregisters toolbar content via the shell plugin on unmount', async () => {
+    const h = setupShellHarness();
+    await act(async () => {
+      h.root.render(
+        <GridElementContext.Provider value={h.gridRef}>
+          <GridToolbarContent id="tb-shell-2">
+            <button>x</button>
+          </GridToolbarContent>
+        </GridElementContext.Provider>,
+      );
+    });
+    await act(async () => {
+      h.root.unmount();
+    });
+    expect(h.shell.unregisterToolbarContent).toHaveBeenCalledWith('tb-shell-2');
+    expect(h.gridDelegates.unregisterToolbarContent).not.toHaveBeenCalled();
+  });
+});

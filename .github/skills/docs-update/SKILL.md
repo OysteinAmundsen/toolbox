@@ -321,10 +321,20 @@ After updating docs:
 # Verify docs site builds cleanly
 bun nx build docs
 
-# Check for broken links or missing pages
-bun nx serve docs
-# Navigate to updated pages in browser (http://localhost:4401)
+# Authoritative broken-link gate (NOT an nx target — Astro does NOT fail on broken links)
+node tools/check-doc-links.mjs
 ```
+
+> `bun nx build docs` passing (EXIT=0) does **not** mean links are valid — Astro silently renders dead links. `node tools/check-doc-links.mjs` is the real gate; it must report "No broken internal links found." A broken link in a file you never touched is pre-existing — fix it if in scope, otherwise note it as out-of-scope.
+
+### Internal-link rules (avoid the common 404s)
+
+- **`trailingSlash: 'always'`** — every internal link MUST end with `/` (`/grid/plugins/shell/`, not `/grid/plugins/shell`).
+- **Anchors must match a real heading slug** — grep the target page's `^#{1,4} ` headings before linking to `#some-anchor`; renamed/removed headings are a frequent source of dead anchors.
+- **TypeDoc generates NO page for area roots or `export const` objects.** `tools/typedoc-mdx-shared.ts` `KIND_FOLDER_MAP` only emits `Classes/`, `Interfaces/`, `Functions/`, `Types/` — there is **no** per-area index page and **no** `Variables/` folder.
+  - ❌ `/grid/api/framework-adapters/` (area root) · ❌ `/grid/api/plugin-development/` · ❌ `/grid/api/core/variables/gridclasses/`
+  - ✅ link to a concrete generated child page (`/grid/api/<area>/<kind>/<symbol>/`, slug lowercased), e.g. `/grid/api/framework-adapters/interfaces/frameworkadapter/` or `/grid/api/plugin-development/classes/basegridplugin/`.
+  - Exported const objects (`GridClasses`, `GridDataAttrs`, `GridSelectors`, `GridCSSVars` in `core/constants.ts`) are public API but have NO generated page — keep them as inline code, don't link. Only their TYPE aliases (`GridClassName`, `GridDataAttr`) get `Types/` pages.
 
 ## Pre-Commit Documentation Review
 

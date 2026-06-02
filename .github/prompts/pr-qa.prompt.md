@@ -7,7 +7,7 @@ We have new comments on PR #${input:prNumber:PR number (e.g. 285)}.
 
 For each unresolved review comment / thread:
 
-1. **Read the full thread** (not just the latest comment) so you understand what was originally requested and what has since changed. Use the `address-pr-comments` skill if available; otherwise fetch via the GitHub PR tools.
+1. **Read the full thread** (not just the latest comment) so you understand what was originally requested and what has since changed. Fetch every thread with the `pr-comments` skill (`fetch-threads.mjs`).
 2. **Classify the comment** using these explicit definitions, then jump to the matching subsection below:
    - **Valid** → the comment is fully correct: it identifies a real problem and the proposed fix (or an equivalent one) aligns with the project's instructions, knowledge entries, tests, and invariants.
    - **Partially valid** → some parts of the comment are correct and some are not (e.g. the diagnosis is right but the suggested fix is wrong, or one of several suggestions applies).
@@ -38,10 +38,7 @@ Constraints — grouped by category:
 
 **Tools (GitHub interactions):**
 
-- **Use the `gh` CLI** (run via the terminal) for all PR interactions: fetching threads, posting inline replies on a specific review comment, posting summary comments, and resolving threads. Do NOT use the GitKraken MCP tools — they only support PR-level comments and approvals, not inline thread replies, so per-thread responses get lost.
-- Read threads: `gh api repos/{owner}/{repo}/pulls/{pr}/comments` (inline review comments) and `gh api graphql` for resolution state / thread IDs (`pullRequest.reviewThreads`).
-- Reply inline on a review thread: `gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies -f body='...'`.
-- Resolve a thread (does NOT close the PR): `gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' -f id='<threadId>'`.
+- **Use the `pr-comments` skill** for all inline-thread I/O: it ships `fetch-threads.mjs` (fetch every review thread as normalized JSON) and `reply-resolve.mjs` (post inline replies + resolve threads from a JSON items file). It drives the `gh` CLI under the hood. Do NOT use the GitKraken MCP tools — they only support PR-level comments and approvals, not inline thread replies, so per-thread responses get lost.
 - Summary comment on the PR: `gh pr comment <pr> --body '...'` (or `gh issue comment` for non-PR issues).
 
 **Workflows (code changes):**

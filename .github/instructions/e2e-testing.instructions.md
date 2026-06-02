@@ -11,23 +11,7 @@ Two Playwright-based e2e suites exist in the workspace:
 | **Docs demos**      | `apps/docs-e2e/` | Test every Astro demo page renders and works correctly             | Auto-starts Astro on port 4450 |
 | **Cross-framework** | `e2e/`           | Visual/functional parity across Vanilla, React, Angular, Vue demos | Manual server start required   |
 
-## Running E2E Tests
-
-```bash
-# Docs demo tests (auto-starts Astro dev server — no manual setup needed)
-bun nx e2e docs-e2e
-
-# Cross-framework tests — requires demo servers to be running first:
-# Option 1: Start demos manually in a separate terminal, then run tests
-bun run demo              # Starts all 4 demo servers (vanilla, react, angular, vue)
-bun nx e2e e2e            # Run tests against running servers
-
-# Option 2: Build + start + test in one command (CI-friendly)
-bun run e2e:full          # Builds, starts dist servers, waits for ports, runs tests
-
-# Update visual baselines
-bun nx e2e:update-snapshots e2e
-```
+> **Running the suites** (start demo servers, run commands, update visual baselines, run perf locally) lives in the on-demand **`run-e2e` skill** — this instruction covers only how to **author** tests.
 
 ## Docs Demo Tests (`apps/docs-e2e/`)
 
@@ -170,22 +154,7 @@ Automated benchmarks that catch performance regressions by comparing the **curre
 3. The test flags a regression if the current build is **>10% slower** than the released version
 4. **Retry on regression** — when a regression is detected, the benchmark re-runs up to 2 more times with fresh browser pages. Only fails if the regression reproduces consistently (absorbs transient CI noise)
 
-### Environment Variables
-
-| Variable           | Purpose                                                     |
-| ------------------ | ----------------------------------------------------------- |
-| `PERF_CDN_VERSION` | Override CDN version to compare against (default: `latest`) |
-| `PERF_RUN_ID`      | Unique ID for the output file (`perf-metrics-{runId}.json`) |
-
-### Running Locally
-
-```bash
-# Requires a build first (for the local UMD bundle)
-bun nx build grid
-
-# Run self-comparison tests (no demo server needed)
-bunx playwright test --config=e2e/playwright.config.ts performance-regression
-```
+> See the **`run-e2e` skill** for the local run command and the `PERF_CDN_VERSION` / `PERF_RUN_ID` env vars.
 
 ## Grid Stability Tests (`e2e/tests/grid-stability.spec.ts`)
 

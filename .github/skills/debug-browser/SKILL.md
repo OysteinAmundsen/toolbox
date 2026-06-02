@@ -40,39 +40,59 @@ If an MCP tool call returns an error such as "server not running", "failed to la
 - [ ] If a stale Chromium is suspected, kill any running `chrome-devtools-mcp` / orphan Chromium processes and retry.
 - [ ] As a last resort, manually run `npx -y chrome-devtools-mcp@latest` in a terminal and report the exact stderr output back to the user; do not silently retry the tool call.
 
-## Step 1: Start a Dev Server
+## Step 1: Reach the Dev Server (assume it's already running)
 
-Before navigating, ensure a dev server is running. Use one of:
+**Do NOT start a dev server first.** In a debugging session the user almost always already has the relevant dev server running. Starting another one wastes time and can fail on a port-in-use clash. Check first, start only as a last resort.
 
-```bash
-# Docs site (port 4400)
-bun nx serve docs
+Work through these in order and stop at the first that succeeds:
 
-# Vanilla demo (port 4000)
-bun nx serve demo-vanilla
+1. **Just navigate via Chrome MCP.** Point `navigate_page` straight at the target URL. If the page loads, you're done — no terminal command needed.
 
-# Angular demo (port 4200)
-bun nx serve demo-angular
+   ```
+   navigate_page → url: http://localhost:4400/grid/plugins/editing/
+   ```
 
-# React demo (port 4300)
-bun nx serve demo-react
+   If it errors with a connection refused / `ERR_CONNECTION_REFUSED`, the server for that port isn't up — fall through to step 2.
 
-# Vue demo (port 4100)
-bun nx serve demo-vue
+2. **Probe the port from the terminal** (cheap, non-blocking) to confirm whether something is listening before launching anything:
 
-# All demos at once
-bun run demo
-```
+   ```bash
+   curl -sSf -o /dev/null http://localhost:4400/ && echo "up" || echo "down"
+   ```
+
+   If it prints `up`, retry the `navigate_page` from step 1 (the server is there). If `down`, proceed to step 3.
+
+3. **Only now start the dev server** for the port you need, then navigate once it's listening:
+
+   ```bash
+   # Docs site (port 4400)
+   bun nx serve docs
+
+   # Vanilla demo (port 4000)
+   bun nx serve demo-vanilla
+
+   # Angular demo (port 4200)
+   bun nx serve demo-angular
+
+   # React demo (port 4300)
+   bun nx serve demo-react
+
+   # Vue demo (port 4100)
+   bun nx serve demo-vue
+
+   # All demos at once
+   bun run demo
+   ```
 
 **Server reference:**
 
-| App          | Port | Command                     |
-| ------------ | ---- | --------------------------- |
-| Docs Site    | 4400 | `bun nx serve docs`         |
-| Demo Vanilla | 4000 | `bun nx serve demo-vanilla` |
-| Demo Angular | 4200 | `bun nx serve demo-angular` |
-| Demo React   | 4300 | `bun nx serve demo-react`   |
-| Demo Vue     | 4100 | `bun nx serve demo-vue`     |
+| App          | Port | Command                     | Probe                                    |
+| ------------ | ---- | --------------------------- | ---------------------------------------- |
+| Docs Site    | 4400 | `bun nx serve docs`         | `curl -sSf -o /dev/null localhost:4400/` |
+| Demo Vanilla | 4000 | `bun nx serve demo-vanilla` | `curl -sSf -o /dev/null localhost:4000/` |
+| Demo Angular | 4200 | `bun nx serve demo-angular` | `curl -sSf -o /dev/null localhost:4200/` |
+| Demo React   | 4300 | `bun nx serve demo-react`   | `curl -sSf -o /dev/null localhost:4300/` |
+| Demo Vue     | 4100 | `bun nx serve demo-vue`     | `curl -sSf -o /dev/null localhost:4100/` |
 
 ## Step 2: Navigate to the Target
 
@@ -248,7 +268,7 @@ The grid's internal state is accessible through the DOM element:
     editingCells: grid.querySelectorAll('.cell.editing').length,
 
     // Plugin state
-    plugins: grid._pluginManager?._plugins?.map((p) => p.constructor.name),
+    plugins: grid._pluginManager?.getPlugins().map((p) => p.constructor.name),
   };
 };
 ```

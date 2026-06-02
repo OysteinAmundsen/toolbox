@@ -2,8 +2,8 @@
 /**
  * Map every public top-level export of each library to the first published
  * version tag that contains it. Writes the result to
- * `tools/since-map.json` for the companion `apply-since-tags.ts` script
- * to consume.
+ * `.github/skills/since-tag/since-map.json` for the companion
+ * `apply-since-tags.ts` script to consume.
  *
  * For each library:
  *   1. Use the TypeScript compiler to enumerate top-level exports of the
@@ -36,7 +36,7 @@ interface LibConfig {
   tagPrefixes: string[];
 }
 
-const repoRoot = resolve(import.meta.dirname, '..');
+const repoRoot = resolve(import.meta.dirname, '../../..');
 
 /** All grid plugin sub-entries (each has its own typedoc entry point). */
 function gridPluginEntries(): string[] {

@@ -1,6 +1,6 @@
 ---
-description: 'Local pre-commit code review **and fix**. Reviews the target scope (file, folder, or uncommitted changes), produces an actionable findings list, then applies the fixes — same loop as opening a PR, getting Copilot review comments, and having an agent address them, but entirely local. Append `report-only` to skip the fix step.'
-argument-hint: '[optional file or folder path] [optional "report-only"]'
+description: 'Local pre-commit code review **and fix**. Reviews the target scope (file, folder, uncommitted changes, or the whole branch vs its base), produces an actionable findings list, then applies the fixes — same loop as opening a PR, getting Copilot review comments, and having an agent address them, but entirely local. Append `report-only` to skip the fix step.'
+argument-hint: '[optional file/folder path | "branch [base-ref]"] [optional "report-only"]'
 agent: 'agent'
 ---
 
@@ -24,13 +24,20 @@ The user runs this _before_ committing so problems are caught locally instead of
 - A file path → review that file.
 - A folder path → review every source file under it (recursive; exclude `node_modules`, `dist`, `build`, `coverage`, `.nx`, generated code).
 - The literal token `report-only` (alone or trailing the path) → run steps 1–4 only; **skip** the fix step (§5). Echo back at the top of the report that fix mode is disabled.
+- The literal token `branch` (alone or trailing a base ref, e.g. `branch origin/next`) → review **everything this branch added since it diverged from its base** — the precursor-QA-for-a-PR mode. This is the same diff the eventual PR will show.
+  - Resolve the base ref: use the one given after `branch`, else default to `origin/main` (fall back to `main` if there is no remote). Run `git fetch origin <base>` first so the comparison is against the up-to-date base.
+  - Find the fork point: `git merge-base HEAD <base>`.
+  - List changed files: `git diff --stat <base>...HEAD`. Read hunks with `git diff <base>...HEAD`.
+  - **Use three-dot (`<base>...HEAD`), never two-dot.** Three-dot diffs against the merge-base, so it shows only what _this branch_ changed and excludes commits that landed on the base after you forked. Two-dot would fold in unrelated upstream changes you didn't write.
+  - Read net-new files in full (a three-dot diff renders them as all-additions; reading the whole file gives surrounding context for correctness judgments).
+  - In the fix step (§5), still scope validation to the affected Nx projects (`bun nx affected -t lint,test` works against the same base).
 - Empty / not provided → review the uncommitted working tree:
   - `git status --porcelain` for the file list.
   - `git diff --staged` and `git diff` for hunks.
   - For untracked files, read them in full.
   - Focus on **what changed**, but read enough surrounding code to judge correctness.
 
-If the working tree is clean and no path was given, report that and stop.
+If the working tree is clean and no path was given, report that and stop. (In `branch` mode, if `<base>...HEAD` is empty — the branch is level with base — report that and stop.)
 
 ## 2. Load workspace conventions
 

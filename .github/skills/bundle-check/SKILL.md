@@ -19,27 +19,25 @@ Verify that the grid library build stays within its budget constraints.
 
 ## Steps
 
-### 1. Build the Library
+> **Steps 1–2 are deterministic — run the scripts, don't eyeball it.** The build hard-enforces the budget and the report script prints exact raw/gzip sizes. Reserve your judgment for step 3 (interpreting the warning band and investigating causes).
+
+### 1. Build the Library (enforces the hard budget)
 
 ```bash
 bun nx build grid
 ```
 
-### 2. Check Output Sizes
+The Vite `bundleBudget` plugin (`tools/vite-bundle-budget.ts`) runs during this build and **exits non-zero** if `index.js` exceeds the hard limits (170 kB raw / 50 kB gzipped). A clean build means the hard budget already passed; a failed build prints the exact offending size.
 
-After a successful build, check the output file sizes:
+### 2. Print Exact Sizes
+
+Run the shared size-report script — it measures raw **and** gzip for `index.js`, `all.js`, and every plugin in one deterministic pass (same script CI uses):
 
 ```bash
-# Raw size
-wc -c dist/libs/grid/index.js
-
-# Gzipped size (use gzip -c on Linux/macOS, or PowerShell on Windows)
-# PowerShell:
-$bytes = [System.IO.File]::ReadAllBytes("dist/libs/grid/index.js"); $ms = New-Object System.IO.MemoryStream; $gs = New-Object System.IO.Compression.GZipStream($ms, [System.IO.Compression.CompressionMode]::Compress); $gs.Write($bytes, 0, $bytes.Length); $gs.Close(); $ms.Length
-
-# Bash:
-gzip -c dist/libs/grid/index.js | wc -c
+bun run tools/build-size-report.ts
 ```
+
+This replaces ad-hoc `wc -c` / PowerShell gzip snippets — do not hand-measure. Read the `grid` column of the **core (index.js)** row for the numbers you need.
 
 ### 3. Evaluate Results
 
@@ -87,14 +85,7 @@ The build will hard-fail. Work through the **Over-budget investigation checklist
 
 ## Plugin Bundle Sizes
 
-Individual plugins are separate entry points. Check their sizes too:
-
-```bash
-# List all plugin bundles with sizes
-ls -la dist/libs/grid/plugins/*/index.js 2>/dev/null || dir dist\libs\grid\plugins\*\index.js
-```
-
-Plugins don't have strict budgets but should be as small as possible.
+Individual plugins are separate entry points. The `tools/build-size-report.ts` table from step 2 already lists every plugin's raw/gzip size (one row per plugin) — read those rows rather than re-listing files by hand. Plugins don't have strict budgets but should be as small as possible.
 
 ## Dead Code Removal
 

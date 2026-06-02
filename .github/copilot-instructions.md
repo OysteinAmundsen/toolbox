@@ -57,13 +57,13 @@ Auto-applied from `.github/instructions/` when working on matching files:
 
 | Instruction file         | Applies to                         | Content                                                                 |
 | ------------------------ | ---------------------------------- | ----------------------------------------------------------------------- |
-| `development-principles` | `{libs,apps,demos}/**/*.ts`        | Three pillars + troubleshooting: check pitfalls when stuck              |
+| `development-principles` | `libs/**/*.ts`                     | Three pillars + troubleshooting: check pitfalls when stuck              |
 | `delivery-workflow`      | `{libs,apps,demos}/**`             | 5-step delivery checklist, commit hygiene, feature workflow             |
 | `nx-workflow`            | `{libs,apps,demos,e2e}/**`         | Nx commands, path mappings, Vite build, CI                              |
 | `grid-architecture`      | `libs/grid/src/**`                 | Config precedence, render scheduler, virtualization, plugin DOM access  |
 | `grid-api`               | `libs/grid/**`                     | API stability, features vs plugins, plugin conventions, usage reference |
 | `grid-pitfalls`          | `libs/grid/**`                     | Counterintuitive DOM/render/plugin gotchas (check when debugging)       |
-| `typescript-conventions` | `**/*.ts`                          | No `as unknown as`, region markers, naming/visibility                   |
+| `typescript-conventions` | `libs/**/*.ts`                     | No `as unknown as`, region markers, naming/visibility                   |
 | `css-conventions`        | `**/*.css`                         | Color guidelines, `light-dark()`, hover/sticky rules                    |
 | `testing-patterns`       | `**/*.spec.ts`                     | Test co-location, `waitUpgrade()`, DOM cleanup                          |
 | `e2e-testing`            | `{e2e,apps/docs-e2e}/**`           | Playwright patterns, docs demo e2e, cross-framework e2e, utilities      |
@@ -74,17 +74,19 @@ Auto-applied from `.github/instructions/` when working on matching files:
 
 Loaded on demand from `.github/knowledge/` — read relevant files before starting work to rebuild the mental model:
 
-| Knowledge file     | Domain                      | Content                                                                                 |
-| ------------------ | --------------------------- | --------------------------------------------------------------------------------------- |
-| `grid-core`        | Grid internals              | Config-manager, render-scheduler, virtualization, DOM structure, state ownership        |
-| `grid-plugins`     | Plugin system               | Plugin lifecycle, hooks, inter-plugin communication, all 24 plugins catalogued          |
-| `grid-features`    | Feature registry            | Feature vs plugin distinction, registry pattern, all 25 features                        |
-| `adapters`         | Framework adapters (shared) | Shared adapter conformance, shell-content wrappers, bridge registries, three-way parity |
-| `adapters-react`   | React adapter               | Portal manager, overlay editors, feature-prop coverage assertion                        |
-| `adapters-vue`     | Vue adapter                 | Teleport manager, overlay editors, typed slots                                          |
-| `adapters-angular` | Angular adapter             | `mountComponentRenderer`, per-feature directives, ng-packagr secondary entries          |
-| `build-and-deploy` | Build, CSS, release         | Vite config, bundle budgets, CSS layers, themes, CI pipeline                            |
-| `data-flow-traces` | End-to-end operation maps   | First render, property change, sort, scroll, edit, tree expand, config merge            |
+| Knowledge file         | Domain                      | Content                                                                                 |
+| ---------------------- | --------------------------- | --------------------------------------------------------------------------------------- |
+| `grid-core`            | Grid internals              | Config-manager, render-scheduler, virtualization, DOM structure, state ownership        |
+| `grid-plugins`         | Plugin system               | Plugin manager, lifecycle, hooks, inter-plugin communication, manifest, scroll dispatch |
+| `grid-plugins-catalog` | Plugin catalog              | Per-plugin OWNS/HOOKS/DECIDED for all 25 plugins + shell plugin                         |
+| `grid-features`        | Feature registry            | Feature vs plugin distinction, registry pattern, all 25 features                        |
+| `adapters`             | Framework adapters (shared) | Shared adapter conformance, shell-content wrappers, bridge registries, three-way parity |
+| `adapters-react`       | React adapter               | Portal manager, overlay editors, feature-prop coverage assertion                        |
+| `adapters-vue`         | Vue adapter                 | Teleport manager, overlay editors, typed slots                                          |
+| `adapters-angular`     | Angular adapter             | `mountComponentRenderer`, per-feature directives, ng-packagr secondary entries          |
+| `build-and-deploy`     | Build, release, CI          | Vite config, bundle budgets, release-please, CI pipeline, bench regression, v3 cleanup  |
+| `build-css`            | Styling & CSS               | CSS layers, custom properties, partials, themes, style injection, demo-asset aliases    |
+| `data-flow-traces`     | End-to-end operation maps   | First render, property change, sort, scroll, edit, tree expand, config merge            |
 
 > **Schema:** Each entry uses structured notation — OWNS, READS FROM, WRITES TO, INVARIANT, FLOW, TENSION, DECIDED — optimized for fast scanning and mental model reconstruction.
 
@@ -103,7 +105,10 @@ Loaded on demand from `.github/skills/` for task-specific workflows:
 | `astro-demo`          | Adding demos or documentation for features              |
 | `debug-perf`          | Profiling, hot path analysis, render scheduler issues   |
 | `debug-browser`       | DOM inspection, screenshots, console, script eval       |
+| `run-e2e`             | Running e2e suites, demo servers, updating baselines    |
 | `docs-update`         | After any feature, fix, or refactor                     |
+| `since-tag`           | Resolving `@since` JSDoc versions for new public API    |
+| `pr-comments`         | Read/reply/resolve PR review threads via the `gh` CLI   |
 | `retrospective`       | Post-task lessons learned; update instructions & skills |
 
 ## Core Constraints

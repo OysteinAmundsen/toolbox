@@ -7,3 +7,11 @@
  * @module Plugins/Shell
  */
 export { ShellPlugin } from './ShellPlugin';
+export type {
+  HeaderContentDefinition,
+  ShellConfig,
+  ShellHeaderConfig,
+  ToolbarContentDefinition,
+  ToolPanelConfig,
+  ToolPanelDefinition,
+} from './types';

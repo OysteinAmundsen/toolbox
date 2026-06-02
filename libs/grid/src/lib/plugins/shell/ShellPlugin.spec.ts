@@ -18,8 +18,8 @@ function createMockGrid(): GridElement {
   // The plugin's `attach` registers light-DOM shell handlers via these generic
   // seams (extraction #370); stub them so the skeleton smoke test can attach.
   Object.assign(el, {
-    _registerLightDomHandler: () => {},
-    _unregisterLightDomHandler: () => {},
+    _registerLightDomHandler: () => undefined,
+    _unregisterLightDomHandler: () => undefined,
   });
   return el as unknown as GridElement;
 }

@@ -696,6 +696,38 @@ describe('shell module', () => {
       expect(state.toolPanels.get('test')!.title).toBe('Modified');
     });
 
+    it('lets a plugin-owned panel win over a colliding light-DOM panel (#370)', async () => {
+      const { parseLightDomToolPanels } = await import('./shell');
+
+      // Simulate a plugin having already contributed a panel with id "shared".
+      // Plugin-owned panels live in toolPanels but NOT in lightDomToolPanelIds.
+      state.toolPanels.set('shared', {
+        id: 'shared',
+        title: 'Plugin Panel',
+        order: 100,
+        render: () => undefined,
+      });
+
+      host.innerHTML = `
+        <tbw-grid-tool-panel id="shared" title="Light DOM Panel">Content</tbw-grid-tool-panel>
+      `;
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* intentionally empty */
+      });
+      parseLightDomToolPanels(host, state);
+
+      // Plugin keeps ownership; light-DOM definition is ignored.
+      expect(state.toolPanels.get('shared')!.title).toBe('Plugin Panel');
+      expect(state.lightDomToolPanelIds.has('shared')).toBe(false);
+      // The ignored light-DOM element is hidden.
+      const panelEl = host.querySelector('tbw-grid-tool-panel') as HTMLElement;
+      expect(panelEl.style.display).toBe('none');
+      // A diagnostic warning was emitted (TBW073).
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('TBW073'));
+      warnSpy.mockRestore();
+    });
+
     it('uses framework adapter renderer when provided', async () => {
       const { parseLightDomToolPanels } = await import('./shell');
       let adapterCalled = false;

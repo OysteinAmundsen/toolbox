@@ -14,9 +14,10 @@
  */
 
 import { BaseGridPlugin, type GridElement } from '../../core/plugin/base-plugin';
-import type { GridConfig } from '../../core/types';
+import type { GridConfig, InternalGrid } from '../../core/types';
 import {
   cleanupShellState,
+  createShellState,
   parseLightDomShell,
   parseLightDomToolButtons,
   parseLightDomToolPanels,
@@ -29,14 +30,15 @@ import {
   setupEscapeDismiss,
   setupShellEventListeners,
   setupToolPanelResize,
+  shouldRenderShellHeader,
   updatePanelState,
   updateToolbarActiveStates,
   type ShellState,
 } from './shell';
-import type { ShellController } from './shell-controller';
+import { createShellController, type ShellController } from './shell-controller';
 import styles from './shell.css?inline';
 import './types';
-import type { ShellConfig } from './types';
+import type { HeaderContentDefinition, ShellConfig, ToolbarContentDefinition, ToolPanelDefinition } from './types';
 
 /**
  * Shell plugin for `<tbw-grid>`.
@@ -53,9 +55,9 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
   override readonly styles = styles;
 
   // Extraction #370 — Approach A: the plugin owns the shell state for the
-  // grid's lifetime. State is created once (via `adoptState`, lazily by core)
-  // and survives plugin re-inits (idempotent attach / non-destructive detach);
-  // it is torn down only on grid disconnect via `disposeShellState()`.
+  // grid's lifetime. State is created once (via `ensureState`, lazily on first
+  // access) and survives plugin re-inits (idempotent attach / non-destructive
+  // detach); it is torn down only on grid disconnect via `disposeShellState()`.
   #state?: ShellState;
   #controller?: ShellController;
 
@@ -78,13 +80,17 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
   }
 
   /**
-   * @internal Adopt the canonical shell state + controller (idempotent).
-   * Core creates them (it holds the `InternalGrid` type) and hands them over;
-   * the plugin holds them for its lifetime. No-op once state exists.
+   * @internal Create the canonical shell state + controller (idempotent).
+   * The plugin owns shell-state construction; core only supplies the grid
+   * reference (the controller binds to it for UI updates). No-op once state
+   * exists, so it is safe to call on every resolve — including before the
+   * plugin formally attaches, which keeps pre-connect API calls working.
    */
-  adoptState(state: ShellState, controller: ShellController): void {
-    this.#state ??= state;
-    this.#controller ??= controller;
+  ensureState(grid: InternalGrid): void {
+    if (this.#state) return;
+    const state = createShellState();
+    this.#state = state;
+    this.#controller = createShellController(state, grid);
   }
 
   /** @internal Canonical shell state. */
@@ -96,6 +102,100 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
   get shellController(): ShellController {
     return this.#controller as ShellController;
   }
+
+  // #region Public Shell API
+  // The shell plugin's public, programmatic API. Obtain the instance via
+  // `grid.getPluginByName('shell')`. These mirror the (now `@deprecated`)
+  // `<tbw-grid>` delegate methods, which forward here for the v2.x window and
+  // are removed in v3 (extraction #370). Each guards on `hasState` so a call
+  // before the shell has initialized is a safe no-op.
+
+  /** Whether the tool panel sidebar is currently open. */
+  get isToolPanelOpen(): boolean {
+    return this.hasState ? this.shellController.isPanelOpen : false;
+  }
+
+  /** IDs of the currently expanded accordion sections in the tool panel. */
+  get expandedToolPanelSections(): string[] {
+    return this.hasState ? this.shellController.expandedSections : [];
+  }
+
+  /**
+   * Open the tool panel sidebar.
+   * @param panelId - Optional section to expand on open (see {@link ShellController.openToolPanel}).
+   */
+  openToolPanel(panelId?: string): void {
+    this.shellController?.openToolPanel(panelId);
+  }
+
+  /** Close the tool panel sidebar. */
+  closeToolPanel(): void {
+    this.shellController?.closeToolPanel();
+  }
+
+  /** Toggle the tool panel sidebar open or closed. */
+  toggleToolPanel(): void {
+    this.shellController?.toggleToolPanel();
+  }
+
+  /** Toggle an accordion section expanded or collapsed within the tool panel. */
+  toggleToolPanelSection(sectionId: string): void {
+    this.shellController?.toggleToolPanelSection(sectionId);
+  }
+
+  /** Get all registered tool panel definitions. */
+  getToolPanels(): ToolPanelDefinition[] {
+    return this.hasState ? this.shellController.getToolPanels() : [];
+  }
+
+  /** Register a custom tool panel section. */
+  registerToolPanel(panel: ToolPanelDefinition): void {
+    if (!this.hasState) return;
+    this.shellState.apiToolPanelIds.add(panel.id);
+    this.shellController.registerToolPanel(panel);
+  }
+
+  /** Unregister a custom tool panel section. */
+  unregisterToolPanel(panelId: string): void {
+    if (!this.hasState) return;
+    this.shellState.apiToolPanelIds.delete(panelId);
+    this.shellController.unregisterToolPanel(panelId);
+  }
+
+  /** Get all registered header content definitions. */
+  getHeaderContents(): HeaderContentDefinition[] {
+    return this.hasState ? this.shellController.getHeaderContents() : [];
+  }
+
+  /** Register custom header content (rendered in the shell header bar). */
+  registerHeaderContent(content: HeaderContentDefinition): void {
+    if (!this.hasState) return;
+    this.shellState.apiHeaderContentIds.add(content.id);
+    this.shellController.registerHeaderContent(content);
+  }
+
+  /** Unregister custom header content. */
+  unregisterHeaderContent(contentId: string): void {
+    if (!this.hasState) return;
+    this.shellState.apiHeaderContentIds.delete(contentId);
+    this.shellController.unregisterHeaderContent(contentId);
+  }
+
+  /** Get all registered toolbar content definitions. */
+  getToolbarContents(): ToolbarContentDefinition[] {
+    return this.hasState ? this.shellController.getToolbarContents() : [];
+  }
+
+  /** Register custom toolbar content (rendered in the shell toolbar). */
+  registerToolbarContent(content: ToolbarContentDefinition): void {
+    this.shellController?.registerToolbarContent(content);
+  }
+
+  /** Unregister custom toolbar content. */
+  unregisterToolbarContent(contentId: string): void {
+    this.shellController?.unregisterToolbarContent(contentId);
+  }
+  // #endregion
 
   /** @internal */
   override attach(grid: GridElement): void {
@@ -147,6 +247,50 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
     }
   }
 
+  // #region Core transitional bridge (extraction #370, Task 1b — removed at v3)
+  // Thin instance methods that let core orchestrate shell light-DOM parsing and
+  // re-render WITHOUT a static import of the shell pure functions (the old
+  // `TEMP-SHELL-IMPORT-1b` module import). Core invokes them through
+  // `#resolveShellPlugin()`, the same transitional bridge used by `#shellState`
+  // and the deprecated delegate shims. Deleted once core's merge/render
+  // orchestration is fully inverted into hooks (and with the rest at v3).
+
+  /** @internal Parse `<tbw-grid-header>` + `<tbw-grid-tool-buttons>` into shell state. */
+  _parseLightDomHeader(grid: GridElement): void {
+    const host = grid._hostElement;
+    parseLightDomShell(host, this.shellState);
+    parseLightDomToolButtons(host, this.shellState);
+  }
+
+  /** @internal Parse `<tbw-grid-tool-panel>` elements into shell state. */
+  _parseLightDomToolPanels(grid: GridElement): void {
+    parseLightDomToolPanels(grid._hostElement, this.shellState, grid._getToolPanelRendererFactory());
+  }
+
+  /** @internal Parse all light-DOM shell elements (header + tool buttons + panels). */
+  _parseLightDomAll(grid: GridElement): void {
+    this._parseLightDomHeader(grid);
+    this._parseLightDomToolPanels(grid);
+  }
+
+  /** @internal Move toolbar buttons back to their original container ahead of a re-render. */
+  _prepareForRerender(): void {
+    if (!this.hasState) return;
+    prepareForRerender(this.shellState);
+  }
+
+  /** @internal Re-render any open tool-panel sections cleared during plugin re-init (idempotent). */
+  _renderOpenPanelContent(grid: GridElement): void {
+    if (!this.hasState) return;
+    renderPanelContent(grid._renderRoot, this.shellState);
+  }
+
+  /** @internal Whether the given shell config should render a shell header. */
+  _shouldRenderHeader(shellConfig: ShellConfig | undefined): boolean {
+    return shouldRenderShellHeader(shellConfig);
+  }
+  // #endregion
+
   /**
    * @internal Fold the plugin's shell state into the effective config.
    *
@@ -162,9 +306,17 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
     if (!this.hasState) return;
     const state = this.shellState;
 
+    // Constructor-supplied shell config is the base layer: the canonical
+    // `features: { shell: ... }` opt-in passes the config value here (and an
+    // explicit `plugins: [new ShellPlugin(cfg)]` does too). An explicit
+    // top-level `gridConfig.shell` overrides it; parsed light-DOM / API state
+    // folds on top below. Empty for the auto-registered instance
+    // (`new ShellPlugin()`), so existing default-on behavior is unchanged.
+    const ctor = this.resolvedConfig;
+
     // Clone shell hierarchy to avoid mutating the original gridConfig.
-    config.shell = config.shell ? { ...config.shell } : {};
-    config.shell.header = config.shell.header ? { ...config.shell.header } : {};
+    config.shell = { ...ctor, ...config.shell };
+    config.shell.header = { ...ctor.header, ...config.shell.header };
 
     // Light DOM title (does not override an explicit config title).
     if (state.lightDomTitle && !config.shell.header.title) {
@@ -280,7 +432,7 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
       // Legacy v2 path — remove in v3.0.0 (#259)
       (toolPanelCfg?.initialState === undefined && defaultOpen !== undefined && state.toolPanels.has(defaultOpen));
     if (!state.isPanelOpen && state.toolPanels.size > 0 && shouldOpenOnLoad) {
-      grid.openToolPanel();
+      this.openToolPanel();
     }
 
     // Restore panel content if the panel was already open (e.g. after a position
@@ -308,9 +460,9 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
     const state = this.shellState;
 
     setupShellEventListeners(renderRoot, shellConfig, state, {
-      onPanelToggle: () => grid.toggleToolPanel(),
-      onSectionToggle: (sectionId: string) => grid.toggleToolPanelSection(sectionId),
-      onPanelClose: () => grid.closeToolPanel(),
+      onPanelToggle: () => this.toggleToolPanel(),
+      onSectionToggle: (sectionId: string) => this.toggleToolPanelSection(sectionId),
+      onPanelClose: () => this.closeToolPanel(),
     });
 
     // Tool panel resize handle — persists the new width as a CSS variable on

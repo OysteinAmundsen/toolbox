@@ -29,6 +29,7 @@ related: [grid-core]
 - INVARIANT: warn-only thresholds (`warnSize` / `warnGzip`) emit yellow warnings but never fail the build; hard thresholds (`maxSize` / `maxGzip`) fail when severity: 'error'
 - INVARIANT: build fails with exit code 1 if severity: 'error' mode
 - DECIDED (Apr 2026): raised hard gzip ceiling 45 → 50 kB and added 45 kB warn gate. Bundle was at the 45 kB cliff blocking bug fixes; new policy is design-target 45 kB, hard ceiling 50 kB. Any new code that pushes core toward 50 kB MUST first try a plugin extraction — only land in core if a plugin would damage performance (hot path, render scheduler, virtualization).
+- BASELINE (Jun 2026, pre-#370 ShellPlugin extraction): `index.js` = **172.46 kB raw / 49.25 kB gz** (vite report) — budget tool reports **48.1 kB gz** (no sourcemap). UMD `grid.umd.js` = 169.50 kB raw / 47.98 kB gz. Already **over** the 45 kB gz soft warn (warning fires) but under the 50 kB hard ceiling. This is the number every #370 phase compares against (plan invariant 9). #370 v3 cut is expected to reclaim ~20–24 kB raw by tree-shaking the shell out of the default graph. NOTE: the plan's "~1.9 KiB headroom to 45 kB" remark is stale — there is negative headroom to the soft warn today.
 
 ## css-layer-strategy
 

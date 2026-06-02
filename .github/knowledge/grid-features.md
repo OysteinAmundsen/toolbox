@@ -84,6 +84,12 @@ export type _Augmentation = true;
 | serverSide           | ServerSideConfig                | —            |
 | tooltip              | TooltipConfig                   | —            |
 
+## shell-feature (extraction #370, in progress)
+
+- DECIDED (Jun 2026, #370 Phase 0): the shell ships `libs/grid/src/lib/features/shell.ts` mirroring `features/clipboard.ts` — augments `FeatureConfig.shell?: boolean | ShellConfig`, calls `registerFeature('shell', cfg => new ShellPlugin(typeof cfg === 'boolean' ? {} : (cfg ?? {})))`, exports `_Augmentation` anchor, exposed at `@toolbox-web/grid/features/shell` via the existing `./features/*` wildcard. `features: { shell }` is the **taught best-practice API** — every demo/doc uses it (plan invariant 10).
+- INVARIANT (#370): exactly **one** `shell` plugin instance must attach. Two registration channels coexist in v2.x: (1) `features.shell` / explicit `plugins[]` (user), (2) a static auto-register prepend in `Grid.#initializePlugins` (default-on fallback, marker `// SHELL-AUTOREGISTER-V3-370`). The auto-register MUST skip when a `shell`-named plugin already resolved (else TBW023 double-attach). Channel (2) is the single v3-deletion point; at v3 the feature (or explicit plugin) is the only path.
+- DECIDED (#370): shell config TYPES (`ShellConfig`, `ToolPanelConfig`, etc.) move to `plugins/shell/types.ts` and augment core (`FeatureConfig.shell`, deprecated `GridConfig.shell` alias) — same plugin-augmentation pattern as every other feature; old `core/types.ts`/`public.ts` exports become `@deprecated` re-export aliases (non-breaking, dropped at v3).
+
 ## explicit-feature-opt-out (validator behavior)
 
 - DECIDED: when `gridConfig.features[name] === false` (explicit, not just absent), `validatePluginProperties` skips all "missing plugin" diagnostics for that plugin's owned properties (e.g. `editor`, `editable`, `editorParams` for `editing`; `group` for `groupingColumns`; `pinned` for `pinnedColumns`).

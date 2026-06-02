@@ -573,6 +573,34 @@ grid.gridConfig = {
 ```
 :::
 
+#### Conditional dependencies and severity
+
+A dependency can be made **config-conditional** with a `when` predicate, and its missing-dependency behavior tuned with `severity`:
+
+```typescript
+export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
+  static override readonly dependencies: PluginDependency[] = [
+    {
+      name: 'shell',
+      // Only needed when the tool panel is enabled
+      when: (cfg) => (cfg as PivotConfig).showToolPanel === true,
+      severity: 'warn',
+      reason: 'PivotPlugin needs a tool-panel host when showToolPanel is enabled',
+    },
+  ];
+
+  readonly name = 'pivot';
+}
+```
+
+- **`when(pluginConfig)`** — receives the depending plugin's resolved config (defaults merged with user config) and is evaluated **before** the plugin attaches. Return `false` to skip the dependency entirely. When omitted, the dependency always applies.
+- **`severity`** — overrides the default derived from `required`:
+  - `'error'` — throws and halts grid setup (the default when `required` is not `false`).
+  - `'warn'` — logs a `console.warn` and continues (development only).
+  - `'info'` — logs a verbose `console.debug` and continues (development only).
+
+When `severity` is omitted, a missing **hard** dependency (`required !== false`) throws and a missing **soft** dependency (`required: false`) stays silent — preserving backward-compatible behavior. Opt into a message by setting `severity` explicitly.
+
 ## Plugin Communication
 
 ### Event Bus (Plugin-to-Plugin)

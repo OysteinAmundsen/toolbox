@@ -128,10 +128,37 @@ export interface PluginDependency {
   /**
    * Whether this dependency is required (hard) or optional (soft).
    * - `true`: Plugin cannot function without it. Throws error if missing.
-   * - `false`: Plugin works with reduced functionality. Logs info if missing.
+   * - `false`: Plugin works with reduced functionality. Silent if missing
+   *   (set {@link severity} to `'warn'` or `'info'` to opt into a message).
    * @default true
    */
   required?: boolean;
+
+  /**
+   * Explicit severity when this dependency is missing. Overrides the default
+   * derived from {@link required}.
+   * - `'error'`: throw (halts grid setup). Default when `required` is not `false`.
+   * - `'warn'`: log a console warning and continue (development only).
+   * - `'info'`: log a verbose console.debug message and continue (development only).
+   *
+   * When omitted, a missing hard dependency throws and a missing soft
+   * dependency is silent — preserving backward-compatible behavior.
+   * @since 2.16.0
+   */
+  severity?: 'error' | 'warn' | 'info';
+
+  /**
+   * Optional predicate that gates whether this dependency applies, evaluated
+   * against the depending plugin's own resolved configuration (defaults merged
+   * with user config). Return `false` to skip the dependency entirely.
+   *
+   * Lets a plugin require/recommend another plugin only under certain config
+   * — e.g. a plugin that needs a tool-panel host only when its tool panel is
+   * enabled. When omitted, the dependency always applies.
+   * @example when: (cfg: PivotConfig) => cfg.showToolPanel === true
+   * @since 2.16.0
+   */
+  when?: (pluginConfig: unknown) => boolean;
 
   /**
    * Human-readable reason for this dependency.
@@ -512,6 +539,18 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
 
   constructor(config: Partial<TConfig> = {}) {
     this.userConfig = config;
+  }
+
+  /**
+   * Effective configuration (defaults merged with user config), resolved
+   * eagerly so it is available **before** {@link attach} runs. Dependency
+   * validation happens before `attach()` merges {@link config}, so config
+   * -conditional dependency `when` predicates evaluate against this getter.
+   * Once attached, returns the already-merged {@link config}.
+   * @internal Plugin infrastructure (used by `validatePluginDependencies`).
+   */
+  get resolvedConfig(): TConfig {
+    return (this.config ?? { ...this.defaultConfig, ...this.userConfig }) as TConfig;
   }
 
   /**

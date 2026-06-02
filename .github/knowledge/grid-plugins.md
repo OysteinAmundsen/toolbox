@@ -91,6 +91,8 @@ events             — event types this plugin emits
 modifiesRowStructure — affects render scheduler
 ```
 
+- DECIDED (#372): `PluginDependency` gained `when?: (pluginConfig: unknown) => boolean` (config-conditional, skip dep when false) and `severity?: 'error'|'warn'|'info'` on top of `name`/`required`/`reason`. `validatePluginDependencies` (core/internal/validate-config.ts) evaluates `dep.when(plugin.resolvedConfig)` FIRST, then resolves effective severity = `dep.severity ?? (required ? 'error' : undefined)` and dispatches error→throwDiagnostic / warn→warnDiagnostic / info→debugDiagnostic. WHY: lets a plugin recommend another only under certain config (e.g. Pivot needs shell host only when `showToolPanel===true`). INVARIANT: validation runs BEFORE `plugin.attach()` (plugin-manager.ts attach() L167 before L194), so `plugin.config` is NOT merged yet — `when` reads new `BaseGridPlugin.resolvedConfig` getter (`this.config ?? {...defaultConfig, ...userConfig}`, `@internal`, base-plugin.ts). INVARIANT: omitted `severity` preserves legacy behavior — hard dep throws, soft dep (`required:false`) stays SILENT (not 'info'); warn/info fire dev-only (`isDevelopment()`), matching configRules/incompatibilities. Tests: validate-config.spec.ts `config-conditional dependencies` + `explicit severity`.
+
 ## hook-priority-map (key priorities from codebase)
 
 | Plugin        | Hook           | Priority | Reason                                     |

@@ -540,6 +540,121 @@ describe('validatePluginDependencies', () => {
       }).toThrow(/Plugin dependency error/);
     });
   });
+
+  describe('config-conditional dependencies (when predicate)', () => {
+    /** Mock plugin whose dependency only applies when `showToolPanel === true`. */
+    const makePivotMock = (showToolPanel: boolean): BaseGridPlugin => {
+      class MockPivotPlugin {
+        static readonly dependencies = [
+          {
+            name: 'shell',
+            required: false,
+            severity: 'warn' as const,
+            when: (cfg: unknown) => (cfg as { showToolPanel?: boolean }).showToolPanel === true,
+            reason: 'PivotPlugin needs a tool-panel host when showToolPanel is enabled',
+          },
+        ];
+        readonly name = 'pivot';
+        readonly version = '1.0.0';
+        readonly resolvedConfig = { showToolPanel };
+        attach() {
+          /* noop */
+        }
+        detach() {
+          /* noop */
+        }
+      }
+      return new MockPivotPlugin() as unknown as BaseGridPlugin;
+    };
+
+    it('applies the dependency when the predicate is satisfied', () => {
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* suppress */
+      });
+
+      validatePluginDependencies(makePivotMock(true), []);
+
+      expect(consoleSpy).toHaveBeenCalledOnce();
+      expect(consoleSpy.mock.calls[0]?.join(' ')).toMatch(/tool-panel host/);
+
+      consoleSpy.mockRestore();
+    });
+
+    it('skips the dependency when the predicate is not satisfied', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* suppress */
+      });
+
+      validatePluginDependencies(makePivotMock(false), []);
+
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+
+    it('does not warn when the conditional dependency is present', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* suppress */
+      });
+      const mockShell = { name: 'shell', version: '1.0.0' } as unknown as BaseGridPlugin;
+
+      validatePluginDependencies(makePivotMock(true), [mockShell]);
+
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+  });
+
+  describe('explicit severity', () => {
+    const makeDepMock = (severity: 'error' | 'warn' | 'info', required = false): BaseGridPlugin => {
+      class MockSeverityPlugin {
+        static readonly dependencies = [{ name: 'shell', required, severity, reason: 'needs the shell host' }];
+        readonly name = 'demo';
+        readonly version = '1.0.0';
+        readonly resolvedConfig = {};
+        attach() {
+          /* noop */
+        }
+        detach() {
+          /* noop */
+        }
+      }
+      return new MockSeverityPlugin() as unknown as BaseGridPlugin;
+    };
+
+    it("severity 'error' throws even when required is false", () => {
+      expect(() => {
+        validatePluginDependencies(makeDepMock('error'), []);
+      }).toThrow(/Plugin dependency error/);
+    });
+
+    it("severity 'warn' logs a console warning and continues", () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* suppress */
+      });
+
+      expect(() => {
+        validatePluginDependencies(makeDepMock('warn'), []);
+      }).not.toThrow();
+      expect(warnSpy).toHaveBeenCalledOnce();
+
+      warnSpy.mockRestore();
+    });
+
+    it("severity 'info' logs a console.debug message and continues", () => {
+      const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {
+        /* suppress */
+      });
+
+      expect(() => {
+        validatePluginDependencies(makeDepMock('info'), []);
+      }).not.toThrow();
+      expect(debugSpy).toHaveBeenCalledOnce();
+
+      debugSpy.mockRestore();
+    });
+  });
 });
 
 describe('validatePluginConfigRules', () => {

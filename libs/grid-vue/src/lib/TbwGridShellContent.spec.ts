@@ -323,6 +323,106 @@ describe('TbwGridToolbarContent', () => {
   });
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Shell-plugin routing (#370)
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface ShellApi {
+  registerHeaderContent: ReturnType<typeof vi.fn>;
+  unregisterHeaderContent: ReturnType<typeof vi.fn>;
+  registerToolbarContent: ReturnType<typeof vi.fn>;
+  unregisterToolbarContent: ReturnType<typeof vi.fn>;
+}
+
+function makeShellGrid(): { grid: DataGridElement; shell: ShellApi; delegates: ShellApi } {
+  const slot = document.createElement('div');
+  const shell: ShellApi = {
+    registerHeaderContent: vi.fn((def: HeaderContentDefinition) => def.render(slot)),
+    unregisterHeaderContent: vi.fn(),
+    registerToolbarContent: vi.fn((def: ToolbarContentDefinition) => def.render(slot)),
+    unregisterToolbarContent: vi.fn(),
+  };
+  // Deprecated grid-element delegates — must NOT be called when a shell plugin exists.
+  const delegates: ShellApi = {
+    registerHeaderContent: vi.fn(),
+    unregisterHeaderContent: vi.fn(),
+    registerToolbarContent: vi.fn(),
+    unregisterToolbarContent: vi.fn(),
+  };
+  const grid = {
+    ready: vi.fn().mockResolvedValue(undefined),
+    getPluginByName: vi.fn((name: string) => (name === 'shell' ? shell : undefined)),
+    ...delegates,
+  } as unknown as DataGridElement;
+  return { grid, shell, delegates };
+}
+
+async function mountShellGrid(component: ReturnType<typeof defineComponent>, grid: DataGridElement): Promise<App> {
+  const gridRef = ref<DataGridElement | null>(grid);
+  const app = createApp(component);
+  app.provide(GRID_ELEMENT_KEY, gridRef);
+  app.mount(mountEl);
+  currentApp = app;
+  await nextTick();
+  await Promise.resolve();
+  await nextTick();
+  return app;
+}
+
+describe('shell-plugin routing (#370)', () => {
+  it('registers header content via the shell plugin, not the deprecated grid delegate', async () => {
+    const { grid, shell, delegates } = makeShellGrid();
+    await mountShellGrid(
+      defineComponent({
+        setup: () => () => h2(TbwGridHeaderContent, { id: 'hdr-shell' }, () => h2('span', null, 'x')),
+      }),
+      grid,
+    );
+    expect(shell.registerHeaderContent).toHaveBeenCalledTimes(1);
+    expect(delegates.registerHeaderContent).not.toHaveBeenCalled();
+  });
+
+  it('unregisters header content via the shell plugin on unmount', async () => {
+    const { grid, shell, delegates } = makeShellGrid();
+    const app = await mountShellGrid(
+      defineComponent({
+        setup: () => () => h2(TbwGridHeaderContent, { id: 'hdr-shell-2' }, () => h2('span', null, 'x')),
+      }),
+      grid,
+    );
+    app.unmount();
+    currentApp = null;
+    expect(shell.unregisterHeaderContent).toHaveBeenCalledWith('hdr-shell-2');
+    expect(delegates.unregisterHeaderContent).not.toHaveBeenCalled();
+  });
+
+  it('registers toolbar content via the shell plugin, not the deprecated grid delegate', async () => {
+    const { grid, shell, delegates } = makeShellGrid();
+    await mountShellGrid(
+      defineComponent({
+        setup: () => () => h2(TbwGridToolbarContent, { id: 'tb-shell' }, () => h2('button', null, 'x')),
+      }),
+      grid,
+    );
+    expect(shell.registerToolbarContent).toHaveBeenCalledTimes(1);
+    expect(delegates.registerToolbarContent).not.toHaveBeenCalled();
+  });
+
+  it('unregisters toolbar content via the shell plugin on unmount', async () => {
+    const { grid, shell, delegates } = makeShellGrid();
+    const app = await mountShellGrid(
+      defineComponent({
+        setup: () => () => h2(TbwGridToolbarContent, { id: 'tb-shell-2' }, () => h2('button', null, 'x')),
+      }),
+      grid,
+    );
+    app.unmount();
+    currentApp = null;
+    expect(shell.unregisterToolbarContent).toHaveBeenCalledWith('tb-shell-2');
+    expect(delegates.unregisterToolbarContent).not.toHaveBeenCalled();
+  });
+});
+
 // `h` from vue collides with our harness object — alias.
 function h2(...args: Parameters<typeof h>): ReturnType<typeof h> {
   return h(...args);

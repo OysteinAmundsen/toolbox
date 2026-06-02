@@ -18,6 +18,9 @@
  * @since 1.9.0
  */
 import type { DataGridElement, HeaderContentDefinition } from '@toolbox-web/grid';
+// Activate the `PluginNameMap` augmentation so `grid.getPluginByName('shell')`
+// is typed as the shell plugin (which owns register/unregisterHeaderContent).
+import type {} from '@toolbox-web/grid/plugins/shell';
 import { inject, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import { GRID_ELEMENT_KEY } from './use-grid';
 
@@ -90,13 +93,26 @@ async function registerWith(grid: DataGridElement): Promise<void> {
       };
     },
   };
-  grid.registerHeaderContent?.(def);
+  // Route through the shell plugin (#370). The core grid-element delegates
+  // (`grid.registerHeaderContent`) are deprecated (TBW076) and removed at v3;
+  // fall back to them only on cores that predate the shell plugin.
+  const shell = grid.getPluginByName?.('shell');
+  if (shell?.registerHeaderContent) {
+    shell.registerHeaderContent(def);
+  } else {
+    grid.registerHeaderContent?.(def);
+  }
   registeredId = id;
 }
 
 function unregister(grid: DataGridElement | null, id: string | null): void {
   if (!grid || !id) return;
-  grid.unregisterHeaderContent?.(id);
+  const shell = grid.getPluginByName?.('shell');
+  if (shell?.unregisterHeaderContent) {
+    shell.unregisterHeaderContent(id);
+  } else {
+    grid.unregisterHeaderContent?.(id);
+  }
 }
 
 onMounted(() => {

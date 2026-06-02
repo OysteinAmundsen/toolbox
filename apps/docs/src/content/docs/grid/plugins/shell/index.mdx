@@ -1,0 +1,409 @@
+---
+title: "Shell Plugin"
+description: "Wrap the grid with a header bar (title + toolbar) and a collapsible tool-panel sidebar."
+---
+
+import { TabItem, Tabs } from '@astrojs/starlight/components';
+import ShellBasicDemo from '@components/demos/ShellBasicDemo.astro';
+import ShellLightDomDemo from '@components/demos/ShellLightDomDemo.astro';
+import ShellMultiPanelsDemo from '@components/demos/ShellMultiPanelsDemo.astro';
+import ShellToolbarButtonsDemo from '@components/demos/ShellToolbarButtonsDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
+
+The Shell plugin wraps the grid with an optional **header bar** (title + toolbar) and a
+collapsible **tool panel** sidebar. Features like `visibility`, `filtering`, and `pivot`
+register their tool panels into this shell.
+
+:::note[On by default in v2.x — opt-in at v3]
+In **v2.x** the shell still ships **on by default**, so existing code keeps working without
+a code change. It is **deprecated** in that form: from **v3.0.0** the shell becomes opt-in and
+you must enable the feature explicitly (see [Migrating to the feature API](#migrating-to-the-feature-api)).
+New code should enable it now via `import '@toolbox-web/grid/features/shell'` + `features: { shell: true }`.
+:::
+
+## Installation
+
+```ts
+import '@toolbox-web/grid/features/shell';
+```
+
+The feature import registers the `ShellPlugin` and augments `features` with a typed `shell`
+option. Shell configuration types (`ShellConfig`, `ToolPanelDefinition`, …) are exported from
+`@toolbox-web/grid/plugins/shell`.
+
+## Basic Usage
+
+Enable the shell by setting `features: { shell }` with a `header.title`. Features like
+`visibility` automatically register a tool panel when the shell is active.
+
+```ts
+import '@toolbox-web/grid/features/shell';
+import '@toolbox-web/grid/features/visibility';
+
+grid.gridConfig = {
+  features: {
+    shell: { header: { title: 'Employee Data' } },
+    visibility: true,
+  },
+};
+```
+
+<ShowSource file="demos/ShellBasicDemo.astro">
+  <ShellBasicDemo />
+</ShowSource>
+
+## Light DOM Configuration
+
+Configure the shell declaratively using `<tbw-grid-header>` and `<tbw-grid-header-content>`
+elements. Still `import '@toolbox-web/grid/features/shell'` so the plugin is present:
+
+```html
+<tbw-grid>
+  <tbw-grid-header title="Employee Directory">
+    <tbw-grid-header-content>
+      <span id="row-count">0 employees</span>
+    </tbw-grid-header-content>
+  </tbw-grid-header>
+</tbw-grid>
+```
+
+<ShowSource file="demos/ShellLightDomDemo.astro">
+  <ShellLightDomDemo />
+</ShowSource>
+
+## Multiple Tool Panels
+
+Register multiple tool panels — each gets a tab in the sidebar. Panels can be registered via
+configuration, the framework wrapper components, or the plugin's runtime `registerToolPanel()`
+API. Each panel **requires** a `title`.
+
+<Tabs syncKey="framework">
+  <TabItem label="TypeScript">
+```ts
+import '@toolbox-web/grid/features/shell';
+
+const shell = grid.getPluginByName('shell');
+shell?.registerToolPanel({
+  id: 'filter-panel',
+  title: 'Filters',
+  icon: '🔍',
+  render(container) {
+    container.innerHTML = '<p>Filter controls here</p>';
+  },
+});
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import { DataGrid, GridToolPanel } from '@toolbox-web/grid-react';
+
+function MyGrid({ rows }) {
+  return (
+    <DataGrid rows={rows} gridConfig={config}>
+      <GridToolPanel id="filter-panel" title="Filters" icon="🔍">
+        {({ grid }) => <p>Filter controls here</p>}
+      </GridToolPanel>
+    </DataGrid>
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import { TbwGrid, TbwGridToolPanel } from '@toolbox-web/grid-vue';
+</script>
+
+<template>
+  <TbwGrid :rows="rows" :grid-config="config">
+    <TbwGridToolPanel id="filter-panel" label="Filters" icon="🔍">
+      <template #default="{ grid }">
+        <p>Filter controls here</p>
+      </template>
+    </TbwGridToolPanel>
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```html
+<tbw-grid [rows]="rows" [gridConfig]="config">
+  <tbw-grid-tool-panel id="filter-panel" title="Filters" icon="🔍">
+    <ng-template>
+      <p>Filter controls here</p>
+    </ng-template>
+  </tbw-grid-tool-panel>
+</tbw-grid>
+```
+  </TabItem>
+</Tabs>
+
+:::tip[Adapters auto-register the shell]
+The React, Vue, and Angular wrappers register the `ShellPlugin` automatically when you use a
+shell wrapper component (`GridToolPanel`, `GridToolButtons`, …) or pass `features.shell`, so
+adapter users do not need the `import '@toolbox-web/grid/features/shell'` line.
+:::
+
+<ShowSource file="demos/ShellMultiPanelsDemo.astro">
+  <ShellMultiPanelsDemo />
+</ShowSource>
+
+## Toolbar Buttons
+
+Add custom buttons to the shell toolbar using framework wrapper components or light-DOM
+`<tbw-grid-tool-buttons>`:
+
+<Tabs syncKey="framework">
+  <TabItem label="TypeScript">
+```html
+<tbw-grid>
+  <tbw-grid-tool-buttons>
+    <button onclick="exportData()">📥 Export</button>
+    <button onclick="printGrid()">🖨️ Print</button>
+  </tbw-grid-tool-buttons>
+</tbw-grid>
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import { DataGrid, GridToolButtons } from '@toolbox-web/grid-react';
+
+function MyGrid({ rows }) {
+  return (
+    <DataGrid rows={rows} gridConfig={config}>
+      <GridToolButtons>
+        <button onClick={exportData}>📥 Export</button>
+        <button onClick={printGrid}>🖨️ Print</button>
+      </GridToolButtons>
+    </DataGrid>
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import { TbwGrid, TbwGridToolButtons } from '@toolbox-web/grid-vue';
+</script>
+
+<template>
+  <TbwGrid :rows="rows" :grid-config="config">
+    <TbwGridToolButtons>
+      <button @click="exportData">📥 Export</button>
+      <button @click="printGrid">🖨️ Print</button>
+    </TbwGridToolButtons>
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```html
+<tbw-grid [rows]="rows" [gridConfig]="config">
+  <tbw-grid-tool-buttons>
+    <button (click)="exportData()">📥 Export</button>
+    <button (click)="printGrid()">🖨️ Print</button>
+  </tbw-grid-tool-buttons>
+</tbw-grid>
+```
+  </TabItem>
+</Tabs>
+
+<ShowSource file="demos/ShellToolbarButtonsDemo.astro">
+  <ShellToolbarButtonsDemo />
+</ShowSource>
+
+## Shell Configuration Reference
+
+All options live under `features.shell` and are typed by `ShellConfig`
+(from `@toolbox-web/grid/plugins/shell`):
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `header.title` | `string` | — | Title text in the header bar |
+| `header.visible` | `boolean` | `true` | Render the header bar. Set `false` to suppress the entire `.tbw-shell-header` and own all chrome yourself |
+| `header.toolPanelToggle` | `boolean` | `true` | Render the built-in panel toggle button + separator |
+| `toolPanel.position` | `'left' \| 'right'` | `'right'` | Sidebar position |
+| `toolPanel.width` | `number` | `280` | Sidebar width in pixels |
+| `toolPanel.defaultOpen` | `string` | — | Accordion section to auto-expand on first open. **Deprecated:** in v2.x this also opens the sidebar; in v3.0.0 it will only pre-select the section (see [#259](https://github.com/OysteinAmundsen/toolbox/issues/259)). Combine with `initialState: 'open'` for forward-compatible behavior. |
+| `toolPanel.initialState` | `'open' \| 'closed'` | `'closed'` | Whether the sidebar starts open on grid load. Overrides the legacy `defaultOpen` open-on-load behavior when set. |
+| `toolPanel.locked` | `boolean` | `false` | Lock the sidebar open. Implies `initialState: 'open'`, makes `closeToolPanel()` a no-op, and hides the built-in toggle button. |
+| `toolPanel.persistState` | `boolean` | `false` | Remember open/closed state |
+| `toolPanel.closeOnClickOutside` | `boolean` | `false` | Close on outside click (ignored in `mode: 'push'` or when `locked: true`) |
+| `toolPanel.mode` | `'overlay' \| 'push'` | `'overlay'` | `'overlay'` floats over the grid; `'push'` reflows the grid sideways so all cells stay visible |
+
+## Tool-panel layout modes
+
+The tool panel supports two layout modes — pick whichever fits the viewport you're targeting.
+
+- **`'overlay'`** (default): the panel is positioned **over** the grid content. Opening it does not change the grid's available width. Best for narrow viewports where shrinking the grid would leave too little room for the data.
+- **`'push'`**: the panel is laid out as a **sibling** of the grid content in a flex row. Opening it shrinks the grid's available width; the grid's `ResizeObserver` re-runs column virtualization, so cells that an overlay panel would hide remain reachable. Best for desktop layouts.
+
+```ts
+import '@toolbox-web/grid/features/shell';
+
+grid.gridConfig = {
+  features: {
+    shell: {
+      toolPanel: {
+        position: 'right',
+        mode: 'push', // grid reflows when the panel opens/closes
+      },
+    },
+  },
+};
+```
+
+In `'push'` mode the user-facing resize handle is hidden (the panel's width is part of the layout, so drag-to-resize would fight the flex container) and `closeOnClickOutside` is treated as a no-op (there is no overlap to dismiss against). Drive the width via the `--tbw-tool-panel-width` CSS variable instead.
+
+## Styling the Shell
+
+`<tbw-grid>` renders into the **light DOM**, so the shell's internals are reachable from any outer stylesheet — no `::part()` needed. Theme-level overrides applied to a top-level CSS file affect every grid in the application uniformly.
+
+**Stable selectors:**
+
+| Selector | Element |
+|----------|---------|
+| `tbw-grid .tbw-shell-header` | Header bar (title + content + toolbar) |
+| `tbw-grid .tbw-shell-title` | Title element |
+| `tbw-grid .tbw-shell-toolbar` | Toolbar (flex container; custom content + toggle) |
+| `tbw-grid .tbw-toolbar-btn` | Buttons inside the toolbar (incl. panel toggle) |
+| `tbw-grid [data-panel-toggle]` | The single panel toggle button |
+| `tbw-grid .tbw-toolbar-separator` | Separator between custom content and the toggle |
+| `tbw-grid .tbw-tool-panel` | Tool-panel sidebar |
+| `tbw-grid .tbw-accordion-header` | Tool-panel section header (one per registered panel) |
+
+**Recipe — move the panel toggle to the start of the toolbar (left in LTR):**
+
+The toolbar is a flex row, so reordering is purely a CSS concern — use `order` on both the toggle and its separator so they stay grouped together:
+
+```css
+/* App-level theme — affects every <tbw-grid> uniformly */
+tbw-grid [data-panel-toggle],
+tbw-grid .tbw-toolbar-separator {
+  order: -1;
+}
+```
+
+No grid configuration is required; this is the recommended way to standardize toolbar layout across an application's grids.
+
+## Bring Your Own Tool-Panel Toggle
+
+If you need to replace the built-in toggle button entirely — for example, to use a design-system button instead of styling `.tbw-toolbar-btn` — set `header.toolPanelToggle: false`. The grid will not render the built-in button **or** the auto-inserted separator next to it; tool panels themselves remain fully functional and can be toggled from any element via the plugin's `toggleToolPanel()`, opened directly on a specific section via `openToolPanel(panelId)`, or driven section-by-section with `toggleToolPanelSection(id)`.
+
+```ts
+import '@toolbox-web/grid/features/shell';
+
+const shell = grid.getPluginByName('shell');
+
+const config = {
+  features: {
+    shell: {
+      header: {
+        title: 'Employees',
+        toolPanelToggle: false, // suppress built-in <button data-panel-toggle> + separator
+        toolbarContents: [
+          {
+            id: 'my-buttons',
+            render: (container) => {
+              const filters = document.createElement('my-button');
+              filters.textContent = 'Filters';
+              filters.addEventListener('click', () => shell?.openToolPanel('filters'));
+
+              const settings = document.createElement('my-button');
+              settings.textContent = 'Settings';
+              settings.addEventListener('click', () => shell?.openToolPanel('settings'));
+
+              container.append(filters, settings);
+            },
+          },
+        ],
+      },
+    },
+  },
+};
+```
+
+Passing a `panelId` to `openToolPanel()` jumps straight to that accordion section (one click, no double-tap). It takes precedence over `toolPanel.defaultOpen`; if the ID isn't registered, the call falls back to default behavior and emits a `TBW072` warning.
+
+## Hide the Shell Header Bar Entirely
+
+`toolPanelToggle: false` removes the built-in toggle button but keeps the header bar (with its title and any toolbar contents). To suppress the **entire** `.tbw-shell-header` bar — for example when you want to open tool panels from a custom column header icon and own all chrome yourself — set `header.visible: false`.
+
+```ts
+import '@toolbox-web/grid/features/shell';
+
+const shell = grid.getPluginByName('shell');
+
+const config = {
+  columns: [
+    // …
+    {
+      field: '__actions',
+      width: 56,
+      utility: true, // excluded from print, export, reorder, visibility, etc.
+      resizable: false,
+      sortable: false,
+      headerRenderer: () => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = '⚙';
+        btn.setAttribute('aria-label', 'Open tool panel');
+        btn.addEventListener('click', () => shell?.toggleToolPanel());
+        return btn;
+      },
+    },
+  ],
+  features: {
+    shell: {
+      header: { visible: false },
+      toolPanel: {
+        closeOnClickOutside: true, // optional — see below
+      },
+    },
+  },
+};
+```
+
+When `header.visible: false`, tool panels remain fully functional and are opened with the plugin's `toggleToolPanel()` / `openToolPanel(panelId)` from any element you like. Because there is no header toggle to close the panel, the grid provides three additional dismissal affordances:
+
+- **Close button** — a small `✕` button is rendered in the top-right of the panel (exposed as the `tool-panel-header` and `tool-panel-close` CSS parts). It is omitted when `toolPanel.locked` is `true`, since a locked panel cannot be closed.
+- **Escape key** — pressing <kbd>Esc</kbd> closes an open **overlay** panel. It yields to more specific handlers (e.g. an active cell editor that has already handled the key), and is a no-op for `push`-mode panels, which are persistent sidebars.
+- **Click-outside** — set `toolPanel.closeOnClickOutside: true` to dismiss an open overlay panel when clicking anywhere in the window outside the panel. This is opt-in and, like Esc, is a no-op in `push` mode.
+
+`header.visible: false` keeps the shell active (the panel overlay still mounts); it only suppresses the header bar element. This is the supported alternative to hiding `.tbw-shell-header` with CSS.
+
+## Migrating to the feature API
+
+The shell used to be part of grid **core**: configured via a top-level `config.shell` field and
+driven by `grid.register*` / `openToolPanel` element delegates. Those surfaces are **deprecated**
+and will be **removed in v3.0.0**. Migrate as follows:
+
+| Deprecated (v2.x, removed at v3) | Use instead |
+|----------------------------------|-------------|
+| _Implicit_ shell (no import) | `import '@toolbox-web/grid/features/shell'` |
+| `config.shell = { … }` (top-level) | `config.features = { shell: { … } }` |
+| `grid.registerToolPanel(panel)` | `grid.getPluginByName('shell')?.registerToolPanel(panel)` |
+| `grid.unregisterToolPanel(id)` | `grid.getPluginByName('shell')?.unregisterToolPanel(id)` |
+| `grid.registerHeaderContent(c)` | `grid.getPluginByName('shell')?.registerHeaderContent(c)` |
+| `grid.registerToolbarContent(c)` | `grid.getPluginByName('shell')?.registerToolbarContent(c)` |
+| `grid.openToolPanel(id)` / `closeToolPanel()` / `toggleToolPanel()` | `grid.getPluginByName('shell')?.openToolPanel(id)` (same method names) |
+| Shell types from `@toolbox-web/grid` | Shell types from `@toolbox-web/grid/plugins/shell` |
+
+Notes:
+
+- In **v2.x** the shell is still auto-registered, so unmigrated code keeps working — the
+  imperative `grid.*` shell delegates emit a one-time **TBW076** deprecation warning. The
+  top-level `config.shell` field and `refreshShellHeader()` are merged/handled silently.
+- For advanced/explicit control you can register the plugin directly:
+  `plugins: [new ShellPlugin(shellConfig)]` (from `@toolbox-web/grid/plugins/shell`).
+- **Adapters auto-register** the `ShellPlugin`, so React/Vue/Angular users need no change.
+- From **v3.0.0** the shell is opt-in: shell usage without the feature/plugin throws a clear
+  error with a migration link.
+
+## See Also
+
+- **[Visibility](/grid/plugins/visibility/)** — Registers a column show/hide tool panel into the shell
+- **[Filtering](/grid/plugins/filtering/)** — Registers a filter tool panel into the shell
+- **[Pivot](/grid/plugins/pivot/)** — Registers a pivot configuration tool panel
+- **[Core Features](/grid/core/)** — Columns, renderers, formatters, events, and methods
+- **[Plugins Overview](/grid/plugins/)** — Plugin compatibility and combinations

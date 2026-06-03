@@ -36,6 +36,10 @@ import {
   type GroupHeaderRenderParams,
   type GroupingColumnsConfig,
 } from '@toolbox-web/grid/plugins/grouping-columns';
+// Named type re-export surfaces the core `FeatureConfig` augmentation to dist
+// consumers (this module registers via factory override, not the core feature
+// module, so the augmentation must be pulled in explicitly). See adapters.md.
+export type { _Augmentation as _GroupingColumnsAugmentation } from '@toolbox-web/grid/features/grouping-columns';
 import type { VNode } from 'vue';
 import { registerFeature } from '../lib/feature-registry';
 import { createNodeBridge } from '../lib/teleport-bridge';

@@ -36,6 +36,10 @@ import { GridElementContext } from '../lib/grid-element-context';
 
 // Delegate to core feature registration
 import '@toolbox-web/grid/features/print';
+// Named type re-export surfaces the core `FeatureConfig` augmentation to dist
+// consumers — a bare side-effect import alone is stripped from the emitted
+// `.d.ts`. See `.github/knowledge/adapters.md`.
+export type { _Augmentation as _PrintAugmentation } from '@toolbox-web/grid/features/print';
 
 /**
  * Print methods returned from useGridPrint.

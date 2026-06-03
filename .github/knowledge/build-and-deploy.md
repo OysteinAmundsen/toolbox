@@ -102,6 +102,23 @@ related: [build-css, grid-core]
 - INVARIANT: TypeScript `compilerOptions.paths` does **NOT merge** across `extends`. A child tsconfig that declares its own `paths` block fully **replaces** the parent's. Same applies to `compilerOptions.types` and `compilerOptions.lib`.
 - DECIDED: when a child tsconfig must override one mapping (e.g. `tsconfig.typedoc.json` pointing `@toolbox-web/grid-angular` at source instead of dist), it MUST repeat every `@toolbox-web/grid*` parent mapping it still needs, using wildcard forms (`plugins/*`, `features/*`) for compactness. Detection signal: a sudden burst of `TS2307: Cannot find module '@toolbox-web/...'` from a child config that has its own `paths` block — suspect path-shadowing first.
 
+## dependency-clusters (.ncurc.cjs)
+
+- OWNS: the rules that keep `npm-check-updates` from proposing breaking upgrades. Default `target: latest`; cluster-anchored packages forced to `minor` (stay within current major); Nx + Angular toolchain `reject`ed entirely (owned by `nx migrate`). File: [.ncurc.cjs](.ncurc.cjs).
+- WHY IT EXISTS: the old `update` script ran `ncu --target minor`, which freezes **every** package at its current major — so unlocked tools (concurrently, jsdom, jsonc-eslint-parser, typedoc-…) rotted one major behind while Nx/Angular advanced. `--target latest` would cross the cluster majors and break the build. The reject + per-package `minor` map gets both right.
+- CLUSTERS (anchor → followers; bump only when the anchor advances):
+  - **Nx**: `nx` == every `@nx/*`, byte-identical. Only via `nx migrate latest`. (rejected from ncu)
+  - **Angular** (gated by `@nx/angular` 22.7.x → supports Ng 20–21, NOT 22): `@angular/*` pinned to 21.2.x via root `overrides`; `@angular-devkit/build-angular` + `ng-packagr` must match Angular major. (rejected — migrate owns)
+  - **TypeScript ceiling**: `typescript` capped `<6` by **both** Angular 21 and typescript-eslint 8. Do NOT move to 6.x until both advance. (minor)
+  - **ESLint**: `eslint` + `@eslint/js` held at 9 — typescript-eslint 8 and `@nx/eslint` don't support ESLint 10. (minor)
+  - **Vite/Vitest** (gated by `@nx/vite` 22.7.x → Vite 7): `vite`, `vite-plugin-dts`, `@vitejs/plugin-react`, `@vitejs/plugin-vue`, `vitest`, `@vitest/coverage-v8`, `@vitest/ui`. `@vitest/*` MUST equal `vitest` exactly. (minor)
+  - **Astro/Starlight** (Starlight gates the safe Astro major): `astro`, `@astrojs/mdx`, `@astrojs/starlight`, `@astrojs/cloudflare`, `astro-mermaid`. (minor)
+  - **Vue**: `vue` + `vue-router` (demo-only). (minor)
+- FREE (ncu → latest, majors OK): `concurrently`, `jsdom`, `jsonc-eslint-parser`, `wait-on`, `happy-dom`, `mermaid`, `pagefind`, `@types/node`, `typedoc*`, etc. — anything not in the locked set or reject list.
+- HARDENING: `majorLocked` entries ending in `/` (e.g. `@astrojs/`, `@vitejs/`, `@vitest/`) match by **prefix** via `isMajorLocked()`, so new family members are auto-locked without enumerating each name. Exact-name entries (e.g. `typescript`) match exactly.
+- FLOW (full upgrade): run `bun run update` → [tools/update-deps.ts](tools/update-deps.ts) sequences `nx migrate latest` + run-migrations (Nx+Angular codemods) → `bunx npm-check-updates -u` (NO `--target` flag — CLI flag would override `.ncurc.cjs`) → `bun install` → verify `lint`/`test`/`build`. `bun run update:dry` reports planned changes only; `bun run update:full` adds `e2e:full`. Never auto-commits; prints rollback SHA on failure.
+- DECIDED (Jun 2026): replaced `--target minor` one-liner with `.ncurc.cjs` cluster map + `tools/update-deps.ts` runner. WHY: CLI `--target minor` overrode the config and froze every package a major behind; the script omits `--target` so the per-package config wins, and gates the upgrade behind lint/test/build. Verified: held typescript 6.0 / eslint 10 / vite 8 / @angular-devkit 22 / ng-packagr 22 / @astrojs/mdx 6 / vue-router 5 / @vitejs/plugin-react 6 / vite-plugin-dts 5; advanced concurrently 9→10, jsdom 27→29, jsonc-eslint-parser 2→3. All tests (4949) + build + lint green.
+
 ## v3.0.0 cleanup plan (deprecation removal)
 
 Tracked in milestone `v3.0.0` and epic issue #263. Sub-issues: #259 (grid), #260 (grid-angular), #261 (grid-react), #262 (grid-vue) and #228 (touch DnD). Use `grep -rn '@deprecated\|MOVE-IN-V2' libs/` to enumerate at cut time.

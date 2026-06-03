@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.7.1...grid-angular-1.8.0) (2026-06-03)
+
+
+### Features
+
+* **adapters:** add opt-in shell feature side-effect imports for v3 ([566d717](https://github.com/OysteinAmundsen/toolbox/commit/566d717ed13d711217f7158a027c2da9dcf6cc00))
+
 ## [1.7.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.7.0...grid-angular-1.7.1) (2026-05-28)
 
 

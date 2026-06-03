@@ -58,7 +58,7 @@ After the edit:
 
 Re-run the same bench command `/bench` would use for this baseline:
 
-- With a tag: `bun run bench:vs-tag -- --ref <resolved-tag> --fail-on-regression=false` (add `--iterations 3` if the original run was noisy).
+- With a tag: `bun .github/skills/bench/bench-vs-tag.ts --ref <resolved-tag> --fail-on-regression=false` (add `--iterations 3` if the original run was noisy).
 - Without a tag: `bun run bench` and compare to the pre-patch artifacts.
 
 Read the resulting comparison artifacts. Do not eyeball console output.

@@ -20,17 +20,17 @@
  *   5. Compare via tools/compare-benches.ts and (optionally) write the
  *      step-summary Markdown that CI posts to $GITHUB_STEP_SUMMARY.
  *
- * Local usage:
- *   bun scripts/bench-vs-tag.ts                       # default: last tag, all bench projects, 1 iter
- *   bun scripts/bench-vs-tag.ts --ref grid-2.7.0      # explicit tag/SHA
- *   bun scripts/bench-vs-tag.ts --project grid        # subset (repeatable)
- *   bun scripts/bench-vs-tag.ts --iterations 2        # max-of-N per side
- *   bun scripts/bench-vs-tag.ts --threshold 0.20      # tighter regression gate
- *   bun scripts/bench-vs-tag.ts --keep-worktree       # don't delete ../base on exit
+ * Local usage (run directly with Bun):
+ *   bun .github/skills/bench/bench-vs-tag.ts                    # default: last tag, all bench projects, 1 iter
+ *   bun .github/skills/bench/bench-vs-tag.ts --ref grid-2.7.0   # explicit tag/SHA
+ *   bun .github/skills/bench/bench-vs-tag.ts --project grid     # subset (repeatable)
+ *   bun .github/skills/bench/bench-vs-tag.ts --iterations 2     # max-of-N per side
+ *   bun .github/skills/bench/bench-vs-tag.ts --threshold 0.20   # tighter regression gate
+ *   bun .github/skills/bench/bench-vs-tag.ts --keep-worktree    # don't delete ../base on exit
  *
  * CI-equivalent invocation (kept here as documentation of the supported
  * flag set; the workflow does NOT currently call this script directly):
- *   bun scripts/bench-vs-tag.ts \
+ *   bun .github/skills/bench/bench-vs-tag.ts \
  *     --ref "$BASE_SHA" --ref-label "$BASE_LABEL" \
  *     --worktree ../base --keep-worktree --skip-current-install \
  *     --iterations "$BENCH_ITERATIONS" --threshold 0.30 \
@@ -52,7 +52,11 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 
-const ROOT = resolve(import.meta.dirname, '..');
+// This script lives in .github/skills/bench/ but operates on the repo root
+// (worktree, tmp/, and the CI-shared tools/merge-bench-runs.ts +
+// tools/compare-benches.ts siblings). Climb three levels: bench → skills →
+// .github → repo root.
+const ROOT = resolve(import.meta.dirname, '..', '..', '..');
 
 // #region CLI parsing
 
@@ -149,7 +153,7 @@ function printHelp(): void {
   console.log(`
 Bench against a tagged release (same-runner methodology).
 
-  bun scripts/bench-vs-tag.ts [options]
+  bun .github/skills/bench/bench-vs-tag.ts [options]
 
 Options:
   --ref <tag-or-sha>     Baseline ref. Default: last tag reachable from origin/main.

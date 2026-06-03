@@ -322,10 +322,10 @@ After updating docs:
 bun nx build docs
 
 # Authoritative broken-link gate (NOT an nx target — Astro does NOT fail on broken links)
-node tools/check-doc-links.mjs
+node .github/skills/docs-update/check-doc-links.mjs
 ```
 
-> `bun nx build docs` passing (EXIT=0) does **not** mean links are valid — Astro silently renders dead links. `node tools/check-doc-links.mjs` is the real gate; it must report "No broken internal links found." A broken link in a file you never touched is pre-existing — fix it if in scope, otherwise note it as out-of-scope.
+> `bun nx build docs` passing (EXIT=0) does **not** mean links are valid — Astro silently renders dead links. `node .github/skills/docs-update/check-doc-links.mjs` is the real gate; it must report "No broken internal links found." A broken link in a file you never touched is pre-existing — fix it if in scope, otherwise note it as out-of-scope.
 
 ### Internal-link rules (avoid the common 404s)
 

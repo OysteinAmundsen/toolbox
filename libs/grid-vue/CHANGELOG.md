@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.9.1...grid-vue-1.10.0) (2026-06-03)
+
+
+### Features
+
+* **adapters:** add opt-in shell feature side-effect imports for v3 ([566d717](https://github.com/OysteinAmundsen/toolbox/commit/566d717ed13d711217f7158a027c2da9dcf6cc00))
+
+
+### Bug Fixes
+
+* **grid-react,grid-vue:** surface all FeatureConfig augmentations to published-dist consumers ([31b4263](https://github.com/OysteinAmundsen/toolbox/commit/31b426369ba59d598181ffc3b2cc91ab8579dfa8))
+* **grid-react,grid-vue:** surface filtering FeatureConfig augmentation to consumers ([9b68117](https://github.com/OysteinAmundsen/toolbox/commit/9b6811792bcaf7f1be6274a3346259692ece9184))
+
 ## [1.9.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.9.0...grid-vue-1.9.1) (2026-05-28)
 
 

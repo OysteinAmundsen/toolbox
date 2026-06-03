@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.16.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.15.1...grid-2.16.0) (2026-06-03)
+
+
+### Features
+
+* **grid:** add 'dropdown' layout mode to shell tool panel ([#375](https://github.com/OysteinAmundsen/toolbox/issues/375)) ([#376](https://github.com/OysteinAmundsen/toolbox/issues/376)) ([f7d2654](https://github.com/OysteinAmundsen/toolbox/commit/f7d26547307738a8e858d0107cd71a7282a529c2))
+* **grid:** add conditional (when) and severity to plugin dependencies ([#372](https://github.com/OysteinAmundsen/toolbox/issues/372)) ([#373](https://github.com/OysteinAmundsen/toolbox/issues/373)) ([311cee7](https://github.com/OysteinAmundsen/toolbox/commit/311cee7425cda17a7eab0c800eb0bf299394b0a6))
+* **grid:** add shell.header.visible flag with Esc/click-outside/✕-button panel dismissal ([#371](https://github.com/OysteinAmundsen/toolbox/issues/371)) ([3eb390c](https://github.com/OysteinAmundsen/toolbox/commit/3eb390cf3f49565079c829ad7e3ae4c9923641b8))
+* **grid:** expose col.__element so plugins read their own light-DOM attributes ([#272](https://github.com/OysteinAmundsen/toolbox/issues/272)) ([#367](https://github.com/OysteinAmundsen/toolbox/issues/367)) ([fc22d3b](https://github.com/OysteinAmundsen/toolbox/commit/fc22d3b780b7aede7395035e857de1213d420080))
+* **grid:** inline shell close button on single panel, omit it in dropdown mode ([f618df4](https://github.com/OysteinAmundsen/toolbox/commit/f618df4d69319dd4267deda6a470770195e423bb))
+* **grid:** ServerSidePlugin reads data-src host attribute for zero-JS server fetch ([#369](https://github.com/OysteinAmundsen/toolbox/issues/369)) ([7b2a822](https://github.com/OysteinAmundsen/toolbox/commit/7b2a822cef577f85cb0de0d1bd908772b369a124))
+
+
+### Bug Fixes
+
+* **grid:** seed declarative editable/pinned once + clear on detach; drop dead renderer attr ([#272](https://github.com/OysteinAmundsen/toolbox/issues/272)) ([698d5af](https://github.com/OysteinAmundsen/toolbox/commit/698d5af36559ee75f730233555294fc7fe76099a))
+
 ## [2.15.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.15.0...grid-2.15.1) (2026-05-26)
 
 

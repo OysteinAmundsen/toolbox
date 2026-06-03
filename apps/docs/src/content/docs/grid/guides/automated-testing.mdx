@@ -19,9 +19,9 @@ This page is about **automated tests in CI**. If you're poking at a grid in the 
 
 | Surface | What you get | Stability |
 |---|---|---|
-| **CSS classes** ([`GridClasses`](/grid/api/core/variables/gridclasses/)) | `data-grid-row` (row container), `cell` (data cell), `header-row`, `header-cell`, `selected`, `editing`, `sorted-asc`, `sorted-desc`, `focused`, … | Semver-stable, `@since 0.1.1` |
-| **Data attributes** ([`GridDataAttrs`](/grid/api/core/variables/griddataattrs/)) | `data-field="<col>"`, `data-row="<rowIndex>"`, `data-group-key` | Semver-stable |
-| **CSS selectors** ([`GridSelectors`](/grid/api/core/variables/gridselectors/)) | Prebuilt selectors: `DATA_ROW`, `DATA_CELL`, `SELECTED_ROWS`, `EDITING_CELL`, `CELL_BY_FIELD(field)`, … | Semver-stable |
+| **CSS classes** (`GridClasses`) | `data-grid-row` (row container), `cell` (data cell), `header-row`, `header-cell`, `selected`, `editing`, `sorted-asc`, `sorted-desc`, `focused`, … | Semver-stable, `@since 0.1.1` |
+| **Data attributes** (`GridDataAttrs`) | `data-field="<col>"`, `data-row="<rowIndex>"`, `data-group-key` | Semver-stable |
+| **CSS selectors** (`GridSelectors`) | Prebuilt selectors: `DATA_ROW`, `DATA_CELL`, `SELECTED_ROWS`, `EDITING_CELL`, `CELL_BY_FIELD(field)`, … | Semver-stable |
 | **ARIA roles + attributes** | `role="grid"`, `role="row"`, `role="gridcell"`, `role="columnheader"`, `aria-rowindex`, `aria-colindex`, `aria-sort`, `aria-selected`, `aria-expanded` | Semver-stable — also the WCAG contract |
 | **Lifecycle hook** | `grid.ready()` — `Promise` resolved after first render | Public API |
 | **Render event** | `grid.addEventListener('render', …)` — fires once per scheduler flush | Public API, `@since 2.15.0` |
@@ -108,7 +108,7 @@ window.queryGrid = queryGrid;
 
 Now `window.queryGrid('tbw-grid')` is fully typed inside every test — no `as HTMLElement & { ... }` casts.
 
-**If your app loads the [UMD bundle](/grid/getting-started/#option-1-cdn-no-build-step)** — `window.TbwGrid.queryGrid(...)` is already available, no setup needed. Substitute `window.TbwGrid.queryGrid` for `window.queryGrid` in every example below.
+**If your app loads the [UMD bundle](/grid/getting-started/#plain-javascript-no-build-step)** — `window.TbwGrid.queryGrid(...)` is already available, no setup needed. Substitute `window.TbwGrid.queryGrid` for `window.queryGrid` in every example below.
 
 <Tabs syncKey="e2e-framework">
   <TabItem label="Playwright">

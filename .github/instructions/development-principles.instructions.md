@@ -1,5 +1,5 @@
 ---
-applyTo: '{libs,apps,demos}/**/*.ts'
+applyTo: 'libs/**/*.ts'
 ---
 
 # Core Development Principles

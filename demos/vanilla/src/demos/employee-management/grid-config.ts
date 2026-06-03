@@ -23,6 +23,7 @@ import '@toolbox-web/grid/features/pinned-rows';
 import '@toolbox-web/grid/features/reorder-columns';
 import '@toolbox-web/grid/features/responsive';
 import '@toolbox-web/grid/features/selection';
+import '@toolbox-web/grid/features/shell';
 import '@toolbox-web/grid/features/undo-redo';
 import '@toolbox-web/grid/features/visibility';
 
@@ -117,13 +118,6 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
   } = options;
 
   return {
-    // Shell configuration (header, tool panels)
-    shell: {
-      header: {
-        title: 'Employee Management System (JS)',
-      },
-      toolPanel: { position: 'right' as const, width: 300 },
-    },
     fitMode: 'fixed',
 
     // Column groups for grouped headers
@@ -239,6 +233,13 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
     // Each key corresponds to a feature side-effect import above.
     // The grid creates plugin instances from these configs automatically.
     features: {
+      // Shell (header, tool panels) — best-practice feature opt-in.
+      shell: {
+        header: {
+          title: 'Employee Management System (JS)',
+        },
+        toolPanel: { position: 'right' as const, width: 300 },
+      },
       selection: 'range',
       multiSort: true,
       filtering: { debounceMs: 200 },

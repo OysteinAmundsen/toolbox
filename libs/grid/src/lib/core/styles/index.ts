@@ -22,8 +22,6 @@ import icons from './icons.css?inline';
 import loading from './loading.css?inline';
 import mediaQueries from './media-queries.css?inline';
 import rows from './rows.css?inline';
-import shell from './shell.css?inline';
-import toolPanel from './tool-panel.css?inline';
 import variables from './variables.css?inline';
 
 /**
@@ -35,12 +33,14 @@ import variables from './variables.css?inline';
  * 3. Base (root element styles)
  * 4. Header (column headers, sort, resize)
  * 5. Rows (data rows and cells)
- * 6. Shell (toolbar, layout)
- * 7. Tool Panel (side panels, accordion)
- * 8. Loading (spinners, overlays)
- * 9. Empty state (no-rows overlay)
- * 10. Animations (keyframes, transitions)
- * 11. Media Queries (accessibility, responsive)
+ * 6. Loading (spinners, overlays)
+ * 7. Empty state (no-rows overlay)
+ * 8. Animations (keyframes, transitions)
+ * 9. Media Queries (accessibility, responsive)
+ *
+ * Shell + tool-panel styles are no longer aggregated here — they ship via the
+ * auto-registered ShellPlugin's `styles` (extraction #370, Step 1b.1.5),
+ * injected in the `tbw-base` layer so the cascade is byte-identical.
  */
 export const gridStyles = `@layer tbw-base, tbw-plugins, tbw-theme;
 
@@ -49,8 +49,6 @@ ${base}
 ${icons}
 ${header}
 ${rows}
-${shell}
-${toolPanel}
 ${loading}
 ${empty}
 ${animations}

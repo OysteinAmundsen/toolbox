@@ -12,6 +12,7 @@ import {
 } from './pivot-engine';
 import { createValueKey, getPivotAggregator, validatePivotConfig } from './pivot-model';
 import { PivotPlugin } from './PivotPlugin';
+import { validatePluginDependencies } from '../../core/internal/validate-config';
 import type {
   PivotConfig,
   PivotConfigChangeDetail,
@@ -537,6 +538,41 @@ describe('PivotPlugin.getToolPanel', () => {
     expect(panel?.icon).toBe('⊞');
     expect(panel?.tooltip).toBe('Configure pivot table');
     expect(panel?.order).toBe(90);
+  });
+});
+
+describe('PivotPlugin shell dependency predicate', () => {
+  // The `when` predicate evaluates `resolvedConfig` (defaults merged with
+  // user config), not raw user config — see `BaseGridPlugin.resolvedConfig`.
+  // So the default `showToolPanel: true` (from `defaultConfig`) satisfies
+  // `showToolPanel === true` and the recommend-shell warning fires even when
+  // the consumer never sets `showToolPanel` explicitly.
+  it('warns about missing shell with default config (showToolPanel implied true)', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const plugin = new PivotPlugin();
+      validatePluginDependencies(plugin, [plugin], 'grid-default');
+      const warnedAboutShell = warnSpy.mock.calls.some((call) =>
+        String(call.join(' ')).toLowerCase().includes('shell'),
+      );
+      expect(warnedAboutShell).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('does not warn about missing shell when showToolPanel is false', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const plugin = new PivotPlugin({ showToolPanel: false });
+      validatePluginDependencies(plugin, [plugin], 'grid-no-panel');
+      const warnedAboutShell = warnSpy.mock.calls.some((call) =>
+        String(call.join(' ')).toLowerCase().includes('shell'),
+      );
+      expect(warnedAboutShell).toBe(false);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });
 

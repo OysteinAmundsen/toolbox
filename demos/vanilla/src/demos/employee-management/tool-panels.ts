@@ -21,7 +21,7 @@ export function injectToolPanelStyles(grid: GridElement<Employee>): void {
  * Registers the Quick Filters tool panel.
  */
 export function registerQuickFiltersPanel(grid: GridElement<Employee>): void {
-  grid.registerToolPanel?.({
+  grid.getPluginByName('shell')?.registerToolPanel({
     id: 'quick-filters',
     title: 'Quick Filters',
     icon: '🔍',
@@ -142,7 +142,7 @@ export function registerQuickFiltersPanel(grid: GridElement<Employee>): void {
  * Registers the Analytics tool panel.
  */
 export function registerAnalyticsPanel(grid: GridElement<Employee>): void {
-  grid.registerToolPanel?.({
+  grid.getPluginByName('shell')?.registerToolPanel({
     id: 'analytics',
     title: 'Analytics',
     icon: '📈',

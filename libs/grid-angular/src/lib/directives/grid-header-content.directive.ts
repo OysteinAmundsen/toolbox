@@ -12,6 +12,9 @@ import {
   ViewContainerRef,
 } from '@angular/core';
 import type { DataGridElement, HeaderContentDefinition } from '@toolbox-web/grid';
+// Activate the `PluginNameMap` augmentation so `grid.getPluginByName('shell')`
+// is typed as the shell plugin (which owns register/unregisterHeaderContent).
+import type {} from '@toolbox-web/grid/plugins/shell';
 
 /**
  * Context object passed to the header content template.
@@ -151,14 +154,27 @@ export class GridHeaderContent {
         };
       },
     };
-    grid.registerHeaderContent?.(def);
+    // Route through the shell plugin (#370). The core grid-element delegates
+    // (`grid.registerHeaderContent`) are deprecated (TBW076) and removed at v3;
+    // fall back to them only on cores that predate the shell plugin.
+    const shell = grid.getPluginByName?.('shell');
+    if (shell?.registerHeaderContent) {
+      shell.registerHeaderContent(def);
+    } else {
+      grid.registerHeaderContent?.(def);
+    }
     this.registeredId = id;
   }
 
   private unregister(): void {
     const grid = this.findGrid();
     if (grid && this.registeredId) {
-      grid.unregisterHeaderContent?.(this.registeredId);
+      const shell = grid.getPluginByName?.('shell');
+      if (shell?.unregisterHeaderContent) {
+        shell.unregisterHeaderContent(this.registeredId);
+      } else {
+        grid.unregisterHeaderContent?.(this.registeredId);
+      }
     }
     this.registeredId = null;
     if (this.viewRef) {

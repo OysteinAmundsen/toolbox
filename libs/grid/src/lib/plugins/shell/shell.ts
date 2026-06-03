@@ -7,15 +7,10 @@
  * - Light DOM parsing for framework-friendly configuration
  */
 
-import type {
-  HeaderContentDefinition,
-  IconValue,
-  ShellConfig,
-  ToolbarContentDefinition,
-  ToolPanelDefinition,
-} from '../types';
-import { TOOL_PANEL_MISSING_ATTR, warnDiagnostic } from './diagnostics';
-import { escapeHtml, sanitizeHTML } from './sanitize';
+import { TOOL_PANEL_DUPLICATE, TOOL_PANEL_MISSING_ATTR, warnDiagnostic } from '../../core/internal/diagnostics';
+import { escapeHtml, sanitizeHTML } from '../../core/internal/sanitize';
+import type { IconValue } from '../../core/types';
+import type { HeaderContentDefinition, ShellConfig, ToolbarContentDefinition, ToolPanelDefinition } from './types';
 
 // #region Types & State
 /**
@@ -543,6 +538,20 @@ export function parseLightDomToolPanels(
 
     // Check if panel was already parsed
     const existingPanel = state.toolPanels.get(id);
+
+    // Precedence (#370): a panel contributed by a plugin (or registered via the
+    // grid API) owns its id. A light-DOM <tbw-grid-tool-panel> with the same id
+    // is ignored so the owner can rely on its own DOM existing. We detect a
+    // foreign owner by the id being present in toolPanels but NOT tracked as a
+    // light-DOM id (which would mean this is just a re-parse of our own panel).
+    if (existingPanel && !state.lightDomToolPanelIds.has(id)) {
+      warnDiagnostic(
+        TOOL_PANEL_DUPLICATE,
+        `Tool panel "${id}" is already provided by a plugin or the grid API; ignoring the matching light-DOM <tbw-grid-tool-panel>.`,
+      );
+      panelEl.style.display = 'none';
+      return;
+    }
 
     // If already parsed and we have an adapter renderer, refresh the render
     // function and (potentially) re-read attributes from DOM (Angular may have
@@ -1102,14 +1111,14 @@ export const GRID_CONTENT_HTML = `
 // #endregion
 
 // #region DOM Construction
-import { GridClasses } from '../constants';
+import { GridClasses } from '../../core/constants';
 import {
   buildGridDOM,
   buildShellBody,
   buildShellHeader,
   type ShellBodyOptions,
   type ShellHeaderOptions,
-} from './dom-builder';
+} from '../../core/internal/dom-builder';
 
 /**
  * Build ShellHeaderOptions and ShellBodyOptions from shell config and runtime state.

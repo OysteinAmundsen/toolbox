@@ -22,6 +22,9 @@
 import '@toolbox-web/grid';
 // Pinned rows feature: registers the factory so `features.pinnedRows` works.
 import '@toolbox-web/grid/features/pinned-rows';
+// Shell feature: registers the ShellPlugin so `features.shell` + the plugin
+// instance (`getPluginByName('shell')`) are available for header/toolbar content.
+import '@toolbox-web/grid/features/shell';
 
 import type { ColumnConfig, DataGridElement, GridConfig } from '@toolbox-web/grid';
 import { createGrid } from '@toolbox-web/grid';
@@ -346,9 +349,6 @@ export function createCalendarGrid(): CalendarGridHandle {
 
     return {
       fitMode: 'stretch',
-      // Header gets a custom section; do not set a title (it would be the
-      // only thing in the left slot and override our centered controls).
-      shell: { header: { toolPanelToggle: false } },
       // Initial fallback; the ResizeObserver below recomputes this from
       // (host height − chrome) ÷ weekCount so the 4-6 visible weeks fill
       // the viewport like an Outlook calendar.
@@ -356,6 +356,9 @@ export function createCalendarGrid(): CalendarGridHandle {
       // Category color legend lives in a pinned-bottom panel row rather
       // than in the header — out of the way but always visible.
       features: {
+        // Header gets a custom section; do not set a title (it would be the
+        // only thing in the left slot and override our centered controls).
+        shell: { header: { toolPanelToggle: false } },
         pinnedRows: {
           slots: [
             {
@@ -396,7 +399,8 @@ function mountNav(
   let titleEl: HTMLSpanElement | null = null;
   let yearEl: HTMLSelectElement | null = null;
 
-  grid.registerHeaderContent?.({
+  const shell = grid.getPluginByName('shell');
+  shell?.registerHeaderContent({
     id: 'calendar-nav',
     order: 0,
     render: (container) => {
@@ -428,7 +432,7 @@ function mountNav(
     },
   });
 
-  grid.registerToolbarContent?.({
+  shell?.registerToolbarContent({
     id: 'calendar-nav-buttons',
     order: 0,
     render: (container) => {

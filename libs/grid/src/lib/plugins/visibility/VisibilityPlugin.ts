@@ -107,12 +107,18 @@ type ColumnEntry = {
  */
 export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   /**
-   * Plugin dependencies - VisibilityPlugin optionally uses ReorderPlugin for drag-drop reordering.
+   * Plugin dependencies.
    *
-   * When ReorderPlugin is present, columns in the visibility panel become draggable.
+   * - `shell` (required): VisibilityPlugin renders its column list inside a
+   *   shell tool panel. Without the shell plugin there is no host for the
+   *   panel. The shell auto-registers today, so this only bites once the
+   *   auto-register is removed at v3 (#370).
+   * - `reorder` (optional): when present, columns in the visibility panel
+   *   become draggable.
    * @internal
    */
   static override readonly dependencies: PluginDependency[] = [
+    { name: 'shell', required: true, reason: 'VisibilityPlugin renders its column list in a shell tool panel' },
     { name: 'reorder', required: false, reason: 'Enables drag-to-reorder columns in visibility panel' },
   ];
 
@@ -287,29 +293,39 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   // #region Public API
 
   /**
+   * Resolve the shell plugin (#370). The visibility tool panel lives in the
+   * shell, so panel open/close/toggle is delegated to the ShellPlugin instance
+   * rather than the deprecated core `grid.*` shell delegates.
+   */
+  #shell() {
+    return this.grid.getPluginByName('shell');
+  }
+
+  /**
    * Show the visibility sidebar panel.
    * Opens the tool panel and ensures this section is expanded.
    */
   show(): void {
-    this.grid.openToolPanel(VisibilityPlugin.PANEL_ID);
+    this.#shell()?.openToolPanel(VisibilityPlugin.PANEL_ID);
   }
 
   /**
    * Hide the visibility sidebar panel.
    */
   hide(): void {
-    this.grid.closeToolPanel();
+    this.#shell()?.closeToolPanel();
   }
 
   /**
    * Toggle the visibility sidebar panel section.
    */
   toggle(): void {
+    const shell = this.#shell();
     // If tool panel is closed, open it first
-    if (!this.grid.isToolPanelOpen) {
-      this.grid.openToolPanel();
+    if (!shell?.isToolPanelOpen) {
+      shell?.openToolPanel();
     }
-    this.grid.toggleToolPanelSection(VisibilityPlugin.PANEL_ID);
+    shell?.toggleToolPanelSection(VisibilityPlugin.PANEL_ID);
   }
 
   /**
@@ -409,7 +425,8 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * @returns True if the panel section is expanded
    */
   isPanelVisible(): boolean {
-    return this.grid.isToolPanelOpen && this.grid.expandedToolPanelSections.includes(VisibilityPlugin.PANEL_ID);
+    const shell = this.#shell();
+    return !!shell?.isToolPanelOpen && shell.expandedToolPanelSections.includes(VisibilityPlugin.PANEL_ID);
   }
   // #endregion
 

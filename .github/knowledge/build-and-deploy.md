@@ -1,6 +1,6 @@
 ---
 domain: build-and-deploy
-related: [grid-core]
+related: [build-css, grid-core]
 ---
 
 # Build, CSS & Deploy — Mental Model
@@ -29,66 +29,8 @@ related: [grid-core]
 - INVARIANT: warn-only thresholds (`warnSize` / `warnGzip`) emit yellow warnings but never fail the build; hard thresholds (`maxSize` / `maxGzip`) fail when severity: 'error'
 - INVARIANT: build fails with exit code 1 if severity: 'error' mode
 - DECIDED (Apr 2026): raised hard gzip ceiling 45 → 50 kB and added 45 kB warn gate. Bundle was at the 45 kB cliff blocking bug fixes; new policy is design-target 45 kB, hard ceiling 50 kB. Any new code that pushes core toward 50 kB MUST first try a plugin extraction — only land in core if a plugin would damage performance (hot path, render scheduler, virtualization).
-
-## css-layer-strategy
-
-- CASCADE (lowest→highest): @layer tbw-base → @layer tbw-plugins → @layer tbw-theme → unlayered (user CSS always wins)
-- DECIDED: layers eliminate specificity wars; three layers separate structure / features / cosmetics
-- DECIDED: unlayered CSS wins so users can always override without !important
-
-## css-custom-properties
-
-- ALL prefixed --tbw-\* (no collision risk)
-- Em-based spacing/icons: scales proportionally with font size
-- Colors use light-dark() function (CSS level 4): responds to `color-scheme` on :root
-- Color mixing via color-mix(in hsl, ...) for derived colors
-- Grid inherits: `color-scheme: inherit` (respects page settings)
-
-## css-self-reference-pitfall
-
-- INVARIANT: `--x: var(--x, fallback)` declared at the **same scope** is self-referencing → produces the [CSS guaranteed-invalid value](https://www.w3.org/TR/css-variables-1/#guaranteed-invalid-value). It does NOT mean "use `--x` from the parent, else fallback" — that pattern only works when the inner declaration is on a **descendant** element of the one where `--x` was defined.
-- SYMPTOM: a child rule that consumes `--x` silently renders nothing (e.g. `outline: 2px dotted var(--cell-focus)` invisible, `background: var(--today-ring)` empty). DevTools shows the property as defined but with the invalid-value indicator.
-- DECIDED: never re-declare an existing token with `var(--same-token, fallback)` to "set a default". Either pick a different variable name for the local layer, or assign the fallback value directly. Bit our demo CSS when the calendar shell re-declared `--demo-color-accent` on `.calendar-demo` to seed a default — clobbered the parent cascade. File context: [demos/shared/calendar/demo-styles.css](demos/shared/calendar/demo-styles.css).
-
-## demo-shared-aliases (`@demo/shared/*`)
-
-- OWNS: cross-demo import paths used by `demos/{vanilla,react,vue,angular}` and by `apps/docs` Astro components consuming the same shared data/types/styles under `demos/shared/<demo-name>/`.
-- WHERE: [demos/shared/resolve-aliases.ts](demos/shared/resolve-aliases.ts) (consumed by each demo's Vite config); [apps/docs/astro.config.mjs](apps/docs/astro.config.mjs) `vite.resolve.alias` block.
-- INVARIANT: bare alias values MUST point at a **directory**, not a specific `index.ts` file. Vite's resolver appends unmatched subpath tails to the alias `replacement` (Node-style). With `find: '@demo/shared/calendar'` → `replacement: '.../calendar/index.ts'`, a postcss-import of `@demo/shared/calendar/demo-styles.css` resolves to `.../calendar/index.ts/demo-styles.css` (ENOENT). Directory form lets bare specifiers go through default index resolution AND subpath imports work naturally.
-- DECIDED (May 2026): drop the dedicated per-file `@demo/shared/<name>/demo-styles.css` alias and the regex-anchored bare alias. One directory alias per demo covers both bare and subpath cases and matches the existing `employee-management` pattern. Verified with `bun nx run-many -t build -p demo-vanilla,demo-react,demo-vue,docs`.
-- RULED OUT: regex-anchored `new RegExp(\`^@demo/shared/${name}$\`)` to disambiguate prefix-match. Works for Vite arrays but Astro's alias map is object-keyed, and the directory pattern is simpler and uniform across both consumers.
-
-## style-injection
-
-- Grid styles: concatenated partials → `<style>` tag in shadow DOM (connectedCallback)
-- Custom/plugin styles: CSSStyleSheet via document.adoptedStyleSheets (survives DOM rebuilds)
-- Plugin styles registered via `grid.registerStyles(id, css)` → creates sheet → replaceSync → add to adopted
-
-## css-partials (libs/grid/src/lib/core/styles/)
-
-| File              | Layer    | Responsibility                             |
-| ----------------- | -------- | ------------------------------------------ |
-| variables.css     | tbw-base | ~150 CSS custom properties (design tokens) |
-| base.css          | tbw-base | grid root, flex layout, box-sizing         |
-| header.css        | tbw-base | column headers, sort icons, resize handles |
-| rows.css          | tbw-base | data rows, cells, borders, focus           |
-| shell.css         | tbw-base | toolbar, shell header                      |
-| tool-panel.css    | tbw-base | side panels, accordion                     |
-| icons.css         | tbw-base | icon sizing, SVG                           |
-| loading.css       | tbw-base | spinners, overlay                          |
-| animations.css    | tbw-base | keyframes, transitions                     |
-| media-queries.css | tbw-base | @prefers-reduced-motion, responsive        |
-
-- INVARIANT: order matters — variables first, media queries last
-- Plugin CSS uses @layer tbw-plugins; theme CSS uses @layer tbw-theme
-
-## themes (libs/themes/)
-
-- 6 built-in: standard, material, bootstrap, contrast (a11y), vibrant, large (a11y)
-- All wrap in @layer tbw-theme
-- Source files (not built), copied as-is to dist
-- Optional — grid works without any theme using base variables only
-- Usage: `<link>` tag or `import '@toolbox-web/grid/themes/dg-theme-standard.css'`
+- BASELINE (Jun 2026, pre-#370 ShellPlugin extraction): `index.js` = **172.46 kB raw / 49.25 kB gz** (vite report) — budget tool reports **48.1 kB gz** (no sourcemap). UMD `grid.umd.js` = 169.50 kB raw / 47.98 kB gz. Already **over** the 45 kB gz soft warn (warning fires) but under the 50 kB hard ceiling. This is the number every #370 phase compares against (plan invariant 9). #370 v3 cut is expected to reclaim ~20–24 kB raw by tree-shaking the shell out of the default graph. NOTE: the plan's "~1.9 KiB headroom to 45 kB" remark is stale — there is negative headroom to the soft warn today.
+- DECIDED (#370, Phase 4 v3 dry-run): with the shell auto-registered (current v2.x default), `index.js` = **175.28 kB raw / 50.10 kB gz** — at the 50 kB hard ceiling (build still passes; a `// TEMP-BUDGET-370` bump covers the seam during the deprecation window). Projected **v3** (ShellPlugin tree-shaken: import made type-only + `#resolveShellPlugin`/cleanup stubbed) = **148.24 kB raw / 43.41 kB gz** — reclaims **27 kB raw / 6.7 kB gz**, dropping back UNDER both the 50 kB hard ceiling and the 45 kB soft warn. Slightly conservative: the 15 deprecated grid-element shell delegates (still in core until v3) remain bundled, so real v3 lands a touch smaller. WHY: confirms removing the core→shell seam at v3 restores budget headroom; any TEMP budget bump can be reverted then. Measured via `bun nx build grid` on `grid.ts` (marker `SHELL-AUTOREGISTER-V3-370`).
 
 ## release (release-please-config.json)
 
@@ -106,12 +48,12 @@ related: [grid-core]
 ## docs versioning (`@since` pipeline + version badges)
 
 - OWNS: per-symbol "introduced in vX.Y.Z" pills in TypeDoc-generated MDX, footer version badges linking to changelogs.
-- WHERE: `tools/build-since-map.ts` (git-history scan → `tools/since-map.json`), `tools/apply-since-tags.ts` (writes `@since` JSDoc into source), `tools/typedoc-mdx-shared.ts` (`sinceBadge` / `sinceBlock` helpers), `libs/grid/scripts/typedoc-to-mdx.ts` (calls helpers in genClass/genPluginClass/genInterface/genTypeAlias/genFunction/genEnum/genPropertiesTable/genMethod/genAccessor + `genDataGridSplit` Public API), `libs/{grid,grid-angular,grid-react,grid-vue}/typedoc.json` (`blockTags` allowlist includes `@since`).
+- WHERE: `.github/skills/since-tag/build-since-map.ts` (git-history scan → `.github/skills/since-tag/since-map.json`), `.github/skills/since-tag/apply-since-tags.ts` (writes `@since` JSDoc into source), `.github/skills/since-tag/resolve-since.mjs` (deterministic next-`@since` for a single new symbol), `tools/typedoc-mdx-shared.ts` (`sinceBadge` / `sinceBlock` helpers), `libs/grid/scripts/typedoc-to-mdx.ts` (calls helpers in genClass/genPluginClass/genInterface/genTypeAlias/genFunction/genEnum/genPropertiesTable/genMethod/genAccessor + `genDataGridSplit` Public API), `libs/{grid,grid-angular,grid-react,grid-vue}/typedoc.json` (`blockTags` allowlist includes `@since`). Scripts live in the `since-tag` skill (nothing automated calls them).
 - OWNS (footer): `apps/docs/src/components/VersionBadges.astro` reads `package.json` files via static `import` (NOT `readFileSync` — fails in `astro build`), `apps/docs/src/components/Footer.astro` slots it after `<Default />`. CSS in `apps/docs/src/styles/custom.css` (`.since-badge`, `.tbw-versions`).
 - INVARIANT: `build-since-map.ts` MUST enumerate every TypeDoc entry point. Grid has 1 + 26 plugin entries (`libs/grid/src/lib/plugins/*/index.ts`); missing them silently drops plugin classes from the since-map and the MDX renders no Since pill. Adapter libs have a single entry each.
 - INVARIANT: tag-prefix scoping is required — grid uses `grid-` (and legacy `v`), each adapter uses `grid-<framework>-`. Mixing causes wrong "since" attribution.
 - INVARIANT: `apply-since-tags.ts` is idempotent — re-running on already-tagged source skips, never duplicates.
-- FLOW (back-fill, run once per cycle): `bun tools/build-since-map.ts` → `bun tools/apply-since-tags.ts` → `bun nx typedoc grid && bun nx typedoc grid-angular && bun nx typedoc grid-react && bun nx typedoc grid-vue`.
+- FLOW (back-fill, run once per cycle): `bun .github/skills/since-tag/build-since-map.ts` → `bun .github/skills/since-tag/apply-since-tags.ts` → `bun nx typedoc grid && bun nx typedoc grid-angular && bun nx typedoc grid-react && bun nx typedoc grid-vue`.
 - DECIDED: `@since` lives in source JSDoc (not in a separate sidecar) so it survives refactors and is visible in IDE hovers. Generator no-ops when the tag is absent.
 - DECIDED: Plugin/Adapter splits of `DataGridElement` (internal API pages) intentionally do NOT show the Since pill — it lives only on the Public API split to avoid noise on plugin-developer pages.
 - DECIDED: Version badges link to `/grid/<framework>/changelog/` (slug convention); changelog pages are MDX shells that import the package CHANGELOG.md.
@@ -216,5 +158,3 @@ ng-packagr forbids primary→secondary imports, so the source must be **written 
 - DECIDED (May 2026): hand-rolled router for vanilla, idiomatic per-framework routers for the others. WHY: the framework demos serve double duty as reference setups, so they must look like real apps would; the vanilla demo is a fixture, so an extra router dependency would be noise.
 - DECIDED (May 2026): Angular shell flattens to `demos/angular/src/` (no `src/app/` wrapper). WHY: the `app/` folder is just Angular CLI scaffolding convention, not a framework requirement; flattening keeps the layout symmetric with React/Vue/vanilla. Demo modules live at `demos/angular/src/demos/<name>/`.
 - DECIDED (May 2026): `/` renders a demo-index page (with nav links) instead of redirecting to the first route. WHY: with multiple demos planned, an index gives discoverability; the index returns 200 so existing CI `wait-on` health checks keep working without change. Each shell has its own `demo-index` view (`demos/vanilla/src/shell/demo-index.ts`, `DemoIndexComponent` in Angular, equivalents in React/Vue).
-
-## ci-pipeline (.github/workflows/ci.yml)

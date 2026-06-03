@@ -158,6 +158,12 @@ Skills are **loaded on demand** and can be longer. They should contain:
 - Reference tables
 - Verification criteria
 
+**Skill-private scripts — keep the skill self-contained:**
+
+- If a script is used **only** by one skill (not by Nx, CI, Vite, or the build), place it **inside the skill folder** (e.g. `.github/skills/<name>/analyze-trace.mjs`) and reference it by that path. The skill carries everything it needs; no hunting for a script that lives elsewhere or has been gitignored.
+- If a script is **shared infrastructure** — invoked by CI, an Nx target, Vite, or the build — it stays in `tools/` (or `libs/*/scripts/`) and the skill **references** it. Do NOT copy it into the skill folder; a second copy will drift. Example: `tools/build-size-report.ts` is run by `ci.yml`, so `bundle-check`/`release-prep` reference it rather than vendoring it.
+- Prefer **zero-dependency** Node/Bun scripts for skill-private tooling so the skill works on a fresh checkout without extra installs.
+
 Format:
 
 ```markdown

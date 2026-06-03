@@ -10,7 +10,6 @@
  * - Registration of tool panels, header content, and toolbar content
  */
 
-import type { HeaderContentDefinition, InternalGrid, ToolbarContentDefinition, ToolPanelDefinition } from '../types';
 import {
   HEADER_CONTENT_DUPLICATE,
   NO_TOOL_PANELS,
@@ -18,7 +17,8 @@ import {
   TOOL_PANEL_NOT_FOUND,
   TOOLBAR_CONTENT_DUPLICATE,
   warnDiagnostic,
-} from './diagnostics';
+} from '../../core/internal/diagnostics';
+import type { InternalGrid } from '../../core/types';
 import {
   renderHeaderContent,
   renderPanelContent,
@@ -26,6 +26,7 @@ import {
   updateToolbarActiveStates,
   type ShellState,
 } from './shell';
+import type { HeaderContentDefinition, ToolbarContentDefinition, ToolPanelDefinition } from './types';
 
 // #region ShellController
 /**

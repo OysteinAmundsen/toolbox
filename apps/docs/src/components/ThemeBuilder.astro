@@ -28,7 +28,7 @@ import FullscreenButton from './FullscreenButton.astro';
 
 <script>
   import '@toolbox-web/grid';
-import type { ColumnConfig, ShellConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
 import {
 ContextMenuPlugin,
@@ -40,6 +40,8 @@ PinnedColumnsPlugin,
 SelectionPlugin,
 VisibilityPlugin,
 } from '@toolbox-web/grid/all';
+import '@toolbox-web/grid/features/shell';
+import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
 
   // #region Types & Data
   interface Employee {
@@ -695,10 +697,12 @@ VisibilityPlugin,
   grid.gridConfig = {
     columns,
     defaultColDef: { sortable: true, resizable: true, filterable: true },
-    shell: {
-      header: { title: 'Theme Builder Preview' },
-      toolPanel: { position: 'right' },
-    } satisfies ShellConfig,
+    features: {
+      shell: {
+        header: { title: 'Theme Builder Preview' },
+        toolPanel: { position: 'right' },
+      } satisfies ShellConfig,
+    },
     plugins: [
       new SelectionPlugin({ mode: 'row' }),
       new FilteringPlugin(),

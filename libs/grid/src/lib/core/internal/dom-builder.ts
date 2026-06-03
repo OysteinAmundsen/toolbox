@@ -156,6 +156,39 @@ export function buildGridDOM(options: GridDOMOptions): DocumentFragment {
   fragment.appendChild(root);
   return fragment;
 }
+
+/**
+ * Build the BARE grid DOM (no shell chrome) directly into `renderRoot`.
+ *
+ * Preserves all existing direct child nodes EXCEPT the grid's own
+ * `.tbw-grid-root` (which is rebuilt), so user/framework light-DOM stays intact
+ * in its original order — including non-element nodes (comment anchors used by
+ * Angular `@if`/`@for` and other structural directives as positional markers).
+ *
+ * Core's render path always builds the bare grid; the shell, when configured,
+ * is wrapped around this freshly built grid by the auto-registered ShellPlugin
+ * in the `afterStructuralRender` hook (extraction #370 — DOM ownership
+ * inversion). Core therefore holds no shell-construction knowledge.
+ */
+export function buildBareGridDOMIntoElement(renderRoot: Element): void {
+  const preservedNodes: Node[] = [];
+  for (let n: Node | null = renderRoot.firstChild; n; n = n.nextSibling) {
+    if (n.nodeType === 1 && (n as Element).classList.contains(GridClasses.ROOT)) continue;
+    preservedNodes.push(n);
+  }
+
+  // Clear existing content (this would delete light DOM nodes, so we preserved them first).
+  renderRoot.replaceChildren();
+
+  // Re-append preserved nodes in original order (hidden elements are used for config).
+  // IMPORTANT: These are prepended before .tbw-grid-root, so `renderRoot.children[0]`
+  // is NOT the grid root. Use `querySelector('.tbw-grid-root')` instead.
+  for (const n of preservedNodes) {
+    renderRoot.appendChild(n);
+  }
+
+  renderRoot.appendChild(buildGridDOM({ hasShell: false }));
+}
 // #endregion
 
 // #region Shell Header

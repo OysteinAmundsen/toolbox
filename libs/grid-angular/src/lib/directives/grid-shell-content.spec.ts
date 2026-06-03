@@ -405,3 +405,107 @@ describe('GridToolbarContent (real directive)', () => {
     expect(built.grid.registerToolbarContent).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Shell-plugin routing (#370)
+// ---------------------------------------------------------------------------
+
+interface ShellApi {
+  registerHeaderContent: ReturnType<typeof vi.fn>;
+  unregisterHeaderContent: ReturnType<typeof vi.fn>;
+  registerToolbarContent: ReturnType<typeof vi.fn>;
+  unregisterToolbarContent: ReturnType<typeof vi.fn>;
+}
+
+interface ShellMockGrid extends MockGrid {
+  getPluginByName: ReturnType<typeof vi.fn>;
+  shell: ShellApi;
+}
+
+function createShellMockGrid(): ShellMockGrid {
+  const grid = createMockGrid() as ShellMockGrid;
+  const shell: ShellApi = {
+    registerHeaderContent: vi.fn((def: HeaderContentDefinition) => grid.headerDefs.push(def)),
+    unregisterHeaderContent: vi.fn(),
+    registerToolbarContent: vi.fn((def: ToolbarContentDefinition) => grid.toolbarDefs.push(def)),
+    unregisterToolbarContent: vi.fn(),
+  };
+  grid.shell = shell;
+  grid.getPluginByName = vi.fn((name: string) => (name === 'shell' ? shell : undefined));
+  return grid;
+}
+
+function buildWithShell<D extends GridHeaderContent | GridToolbarContent>(
+  DirectiveCtor: new () => D,
+  hostTag: string,
+  id: string,
+): { directive: D; grid: ShellMockGrid; runAfterNextRender: () => Promise<void>; triggerDestroy: () => void } {
+  afterNextRenderCallbacks.length = 0;
+  effectCallbacks.length = 0;
+  destroyCallback = null;
+  const grid = createShellMockGrid();
+  const host = document.createElement(hostTag);
+  grid.appendChild(host);
+  document.body.appendChild(grid);
+  const elementRef = { nativeElement: host } as ElementRef<HTMLElement>;
+  const viewContainerRef = createMockViewContainerRef();
+  const destroyRef = {
+    onDestroy: (cb: () => void) => {
+      destroyCallback = cb;
+      return () => undefined;
+    },
+  } as unknown as DestroyRef;
+  mockInjectResolver = (token: unknown) => {
+    if (token === ElementRef) return elementRef;
+    if (token === ViewContainerRef) return viewContainerRef;
+    if (token === DestroyRef) return destroyRef;
+    return undefined;
+  };
+  const directive = new DirectiveCtor();
+  (directive.id as unknown as { __setValue: (v: unknown) => void }).__setValue(id);
+  const template = {} as TemplateRef<unknown>;
+  (directive.template as unknown as { __setValue: (v: unknown) => void }).__setValue(template);
+  return {
+    directive,
+    grid,
+    runAfterNextRender: async () => {
+      const cbs = afterNextRenderCallbacks.splice(0);
+      for (const cb of cbs) cb();
+      await Promise.resolve();
+      await Promise.resolve();
+    },
+    triggerDestroy: () => destroyCallback?.(),
+  };
+}
+
+describe('shell-plugin routing (#370)', () => {
+  it('registers header content via the shell plugin, not the deprecated grid delegate', async () => {
+    const built = buildWithShell(GridHeaderContent, 'tbw-grid-header-content', 'hdr-shell');
+    await built.runAfterNextRender();
+    expect(built.grid.shell.registerHeaderContent).toHaveBeenCalledTimes(1);
+    expect(built.grid.registerHeaderContent).not.toHaveBeenCalled();
+  });
+
+  it('unregisters header content via the shell plugin on destroy', async () => {
+    const built = buildWithShell(GridHeaderContent, 'tbw-grid-header-content', 'hdr-shell-2');
+    await built.runAfterNextRender();
+    built.triggerDestroy();
+    expect(built.grid.shell.unregisterHeaderContent).toHaveBeenCalledWith('hdr-shell-2');
+    expect(built.grid.unregisterHeaderContent).not.toHaveBeenCalled();
+  });
+
+  it('registers toolbar content via the shell plugin, not the deprecated grid delegate', async () => {
+    const built = buildWithShell(GridToolbarContent, 'tbw-grid-toolbar-content', 'tb-shell');
+    await built.runAfterNextRender();
+    expect(built.grid.shell.registerToolbarContent).toHaveBeenCalledTimes(1);
+    expect(built.grid.registerToolbarContent).not.toHaveBeenCalled();
+  });
+
+  it('unregisters toolbar content via the shell plugin on destroy', async () => {
+    const built = buildWithShell(GridToolbarContent, 'tbw-grid-toolbar-content', 'tb-shell-2');
+    await built.runAfterNextRender();
+    built.triggerDestroy();
+    expect(built.grid.shell.unregisterToolbarContent).toHaveBeenCalledWith('tb-shell-2');
+    expect(built.grid.unregisterToolbarContent).not.toHaveBeenCalled();
+  });
+});

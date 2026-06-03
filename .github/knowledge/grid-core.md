@@ -74,6 +74,7 @@ related: [grid-plugins, grid-features, data-flow-traces]
 - OWNS: DOM refs (\_bodyEl, \_\_rowsBodyEl, \_renderRoot), row pool (\_rowPool), touch state, batched update coalescing (#pendingUpdate, #pendingUpdateFlags)
 - READS FROM: user properties (rows, columns, gridConfig, fitMode), light DOM, plugin hooks, DOM events, ResizeObserver, MutationObserver
 - WRITES TO: shadow DOM, CSS grid-template-columns, visible row elements (pooled), custom events (cell-click, row-click, header-click, cell-change, sort-change, data-change)
+- INVARIANT (HARD RULE #370): core MUST NOT reference any plugin. Only core→plugin coupling allowed is the auto-register value import at [grid.ts](libs/grid/src/lib/core/grid.ts#L4) (`// SHELL-AUTOREGISTER-V3-370`, inline-disabled); everything else uses `import type` or the PluginManager seam (`getPluginByName`/`getPlugin`). Enforced by a `no-restricted-imports` ESLint rule scoped to `libs/grid/src/lib/core/**` (allowTypeImports). See grid-plugins.md shell-plugin section.
 - INVARIANT: \_rows always reflects #rows (input) after plugin processing
 - INVARIANT: #rows is ALWAYS an array — the `rows` and `sourceRows` setters coerce nullish/non-array input to `[]`. Frameworks (React `useEffect`, Vue, Angular) may sync `grid.rows = undefined` when the caller did not pass a `rows` prop; without this coercion, `_emitDataChange` (and any `this.#rows.length` reader) crashes with "Cannot read properties of undefined". Common trigger: ServerSidePlugin (data owned by plugin, no `rows` prop required). DECIDED (Apr 2026): coerce at the setter rather than guarding every reader.
 - INVARIANT: \_columns contains ALL columns including hidden; \_visibleColumns is cached filter
@@ -149,18 +150,18 @@ related: [grid-plugins, grid-features, data-flow-traces]
 
 ## state-ownership-matrix
 
-| State                      | Owner                 | Mutators                                     | Notes                                                           |
-| -------------------------- | --------------------- | -------------------------------------------- | --------------------------------------------------------------- |
-| gridConfig/columns/fitMode | ConfigManager         | merge(), property setters                    | frozen original + mutable effective                             |
-| \_rows (processed)         | grid.ts               | rebuildRowModel, processRows hooks           | after plugin transforms                                         |
-| #rows (raw input)          | grid.ts               | property setter only                         | raw user input, copied to \_rows                                |
-| \_sortState                | grid.ts               | sort API, rebuildRowModel                    | field + direction                                               |
-| \_rowIdMap                 | grid.ts               | \_rebuildRowIdMap on row changes             | O(1): rowId → {row, index}; lazy-rebuilt via #ensureRowIdMap    |
-| VirtualState               | VirtualizationManager | refreshVirtualWindow, init methods           | shared mutable object                                           |
-| positionCache/heightCache  | VirtualizationManager | initializePositionCache, invalidateRowHeight | variable height support                                         |
-| shell config + runtime     | grid.ts + ShellState  | registerToolPanel, light DOM parsing         | config maps vs runtime sets                                     |
-| plugin instances           | PluginManager         | Plugin.attach                                | registered in array order                                       |
-| accessor cache             | value-accessor.ts     | resolveCellValue, invalidateAccessorCache    | WeakMap<row, Map<field, value>>; in-place edits must invalidate |
+| State                         | Owner                       | Mutators                                          | Notes                                                                               |
+| ----------------------------- | --------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| gridConfig/columns/fitMode    | ConfigManager               | merge(), property setters                         | frozen original + mutable effective                                                 |
+| \_rows (processed)            | grid.ts                     | rebuildRowModel, processRows hooks                | after plugin transforms                                                             |
+| #rows (raw input)             | grid.ts                     | property setter only                              | raw user input, copied to \_rows                                                    |
+| \_sortState                   | grid.ts                     | sort API, rebuildRowModel                         | field + direction                                                                   |
+| \_rowIdMap                    | grid.ts                     | \_rebuildRowIdMap on row changes                  | O(1): rowId → {row, index}; lazy-rebuilt via #ensureRowIdMap                        |
+| VirtualState                  | VirtualizationManager       | refreshVirtualWindow, init methods                | shared mutable object                                                               |
+| positionCache/heightCache     | VirtualizationManager       | initializePositionCache, invalidateRowHeight      | variable height support                                                             |
+| shell (header/toolbar/panels) | ShellPlugin (plugins/shell) | registerToolPanel, light-DOM parse, processConfig | extracted from core #370; deprecated core API delegates via `#resolveShellPlugin()` |
+| plugin instances              | PluginManager               | Plugin.attach                                     | registered in array order                                                           |
+| accessor cache                | value-accessor.ts           | resolveCellValue, invalidateAccessorCache         | WeakMap<row, Map<field, value>>; in-place edits must invalidate                     |
 
 ## type-interfaces
 
@@ -170,28 +171,32 @@ related: [grid-plugins, grid-features, data-flow-traces]
 
 ## internal-modules (other files in core/internal/)
 
-| Module             | Responsibility                                                                 |
-| ------------------ | ------------------------------------------------------------------------------ |
-| rows               | row rendering, template cloning, pool management, row mutations                |
-| dom-builder        | DOM construction helpers, template fragments                                   |
-| shell              | header, tool panel state, rendering, light DOM parsing, DOM construction       |
-| shell-controller   | ShellController: tool panel orchestration, header/toolbar content registration |
-| event-delegation   | delegated mouse/keyboard handlers at grid level                                |
-| columns            | column definitions, merging, template updates                                  |
-| header             | header row rendering, cell templates                                           |
-| keyboard           | keyboard navigation, cell focus                                                |
-| sorting            | sort state, sort application, sort UI updates                                  |
-| row-manager        | row CRUD (insertRow, removeRow, updateRow)                                     |
-| focus-manager      | focus state, external focus containers, always-on last-user-focus trap         |
-| row-animation      | row insertion/removal animations                                               |
-| resize             | column resize, user resize tracking, width persistence                         |
-| touch-scroll       | touch/momentum scrolling (mobile)                                              |
-| idle-scheduler     | deferred work (requestIdleCallback pattern)                                    |
-| sanitize           | HTML sanitization for user renderers                                           |
-| style-injector     | CSS injection, plugin styles, custom styles                                    |
-| aria / aria-labels | accessibility state, ARIA attributes, announcements                            |
-| aggregators        | sum, avg, count for grouping                                                   |
-| value-accessor     | single source of truth for cell value resolution; per-row WeakMap cache        |
+| Module             | Responsibility                                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| rows               | row rendering, template cloning, pool management, row mutations                                                                |
+| dom-builder        | DOM construction helpers, template fragments (incl. `buildShellHeader`/`buildShellBody` — still core, consumed by ShellPlugin) |
+| event-delegation   | delegated mouse/keyboard handlers at grid level                                                                                |
+| columns            | column definitions, merging, template updates                                                                                  |
+| header             | header row rendering, cell templates                                                                                           |
+| keyboard           | keyboard navigation, cell focus                                                                                                |
+| sorting            | sort state, sort application, sort UI updates                                                                                  |
+| row-manager        | row CRUD (insertRow, removeRow, updateRow)                                                                                     |
+| focus-manager      | focus state, external focus containers, always-on last-user-focus trap                                                         |
+| row-animation      | row insertion/removal animations                                                                                               |
+| resize             | column resize, user resize tracking, width persistence                                                                         |
+| touch-scroll       | touch/momentum scrolling (mobile)                                                                                              |
+| idle-scheduler     | deferred work (requestIdleCallback pattern)                                                                                    |
+| sanitize           | HTML sanitization for user renderers                                                                                           |
+| style-injector     | CSS injection, plugin styles, custom styles                                                                                    |
+| aria / aria-labels | accessibility state, ARIA attributes, announcements                                                                            |
+| aggregators        | sum, avg, count for grouping                                                                                                   |
+| value-accessor     | single source of truth for cell value resolution; per-row WeakMap cache                                                        |
+
+> NOTE (#370): `shell.ts` + `shell-controller.ts` moved OUT of `core/internal/` into the auto-registered `ShellPlugin` ([plugins/shell/](libs/grid/src/lib/plugins/shell/)). See grid-plugins-catalog.md shell-plugin for extraction mechanics, the 15 deprecated core delegates, lint seam guard, and type ownership.
+
+## shell config behavior (ShellPlugin #370)
+
+> Behavior knobs below are owned by the plugin. File links reading `core/internal/shell.ts` / `core/internal/shell-controller.ts` now resolve to `plugins/shell/shell.ts` / `plugins/shell/shell-controller.ts`; `dom-builder.ts` shell builders + `core/types.ts` deprecated config aliases remain in core during the staged extraction.
 
 - DECIDED (May 2026): `shell.header.toolPanelToggle: false` opts out of the built-in `<button.tbw-toolbar-btn[data-panel-toggle]>` AND the auto-inserted `.tbw-toolbar-separator`. Tool panels stay registered/openable via `grid.toggleToolPanel()` / `toggleToolPanelSection(id)`. WHY: lets consumers (e.g. Equinor EDS) ship their own design-system button via `shell.header.toolbarContents` without hiding library DOM with CSS — and avoids orphaned separator. Default `true` preserves existing behavior. Both render paths gated: `renderShellHeader` in [shell.ts](libs/grid/src/lib/core/internal/shell.ts) and `buildShellHeader` in [dom-builder.ts](libs/grid/src/lib/core/internal/dom-builder.ts) (via `ShellHeaderOptions.showToggle`). Tests: `shell.spec.ts > omits built-in toggle button when shell.header.toolPanelToggle is false`.
 

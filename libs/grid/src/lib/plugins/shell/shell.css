@@ -1,11 +1,136 @@
 /**
- * Tool Panel Styles
+ * Shell Plugin Styles
  *
- * Styles for the collapsible side panel including header, content,
- * resize handle, and accordion components.
+ * Merged from the former core partials `core/styles/shell.css` +
+ * `core/styles/tool-panel.css` (extraction #370). Near-verbatim concatenation —
+ * cascade layer (`@layer tbw-base`) preserved so behavior is byte-identical
+ * while both copies coexist during Phase 1a. Core copies are removed in
+ * Task 1b.1.5; the layer question (tbw-base vs tbw-plugins) is revisited then.
+ *
+ * EXCEPTION: `.tbw-scroll-area` is NOT here — it is core scroll-viewport layout
+ * (rendered by dom-builder for every grid, shell or not) and lives in
+ * `core/styles/base.css`. `.tbw-grid-content` IS here: it is the shell-only
+ * wrapper around the scroll area.
  *
  * @layer tbw-base
  */
+
+/* ==========================================================================
+ * Shell Layout (was core/styles/shell.css)
+ *
+ * Styles for the grid shell including header, toolbar, content area,
+ * and scroll container.
+ * ========================================================================== */
+
+@layer tbw-base {
+  tbw-grid {
+    .tbw-shell-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: var(--tbw-shell-header-height);
+      padding: 0 8px;
+      background: var(--tbw-shell-header-bg);
+      border-bottom: 1px solid var(--tbw-shell-header-border);
+      flex-shrink: 0;
+    }
+
+    .tbw-shell-title {
+      font-size: var(--tbw-shell-title-font-size);
+      font-weight: var(--tbw-shell-title-font-weight);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tbw-shell-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .tbw-shell-toolbar {
+      display: flex;
+      align-items: center;
+      gap: var(--tbw-toolbar-button-gap);
+      flex-shrink: 0;
+    }
+
+    .tbw-toolbar-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--tbw-toolbar-button-size);
+      height: var(--tbw-toolbar-button-size);
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: var(--tbw-border-radius);
+      background: transparent;
+      color: var(--tbw-color-fg);
+      cursor: pointer;
+      font-size: 16px;
+      transition:
+        background var(--tbw-transition-duration) var(--tbw-transition-ease),
+        border-color var(--tbw-transition-duration) var(--tbw-transition-ease);
+
+      &:hover {
+        background: var(--tbw-color-row-hover);
+      }
+
+      &:focus-visible {
+        outline: var(--tbw-focus-outline);
+        outline-offset: var(--tbw-focus-outline-offset);
+      }
+
+      &.active {
+        background: var(--tbw-focus-background);
+        border-color: var(--tbw-color-accent);
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+
+    .tbw-toolbar-separator {
+      width: 1px;
+      height: 20px;
+      background: var(--tbw-color-border);
+      margin: 0 4px;
+    }
+
+    .tbw-shell-body {
+      position: relative;
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: visible;
+    }
+
+    .tbw-grid-content {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: row;
+      overflow: hidden;
+      /* Grid handles touch scrolling via JS (faux scrollbar pattern).
+         Prevent browser compositor from hijacking touch gestures mid-scroll. */
+      touch-action: none;
+    }
+  }
+}
+
+/* ==========================================================================
+ * Tool Panel (was core/styles/tool-panel.css)
+ *
+ * Styles for the collapsible side panel including header, content,
+ * resize handle, and accordion components.
+ * ========================================================================== */
 
 @layer tbw-base {
   tbw-grid {

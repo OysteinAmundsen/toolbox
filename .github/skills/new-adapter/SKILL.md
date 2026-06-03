@@ -1,4 +1,3 @@
-````skill
 ---
 name: new-adapter
 description: Create a new framework adapter library for @toolbox-web/grid, with a matching demo app. Covers library scaffolding, adapter implementation, demo setup, workspace wiring, and e2e parity testing.
@@ -9,20 +8,20 @@ argument-hint: <framework-name>
 
 This skill guides you through creating a **complete framework adapter** for `@toolbox-web/grid` — a library (`@toolbox-web/grid-{framework}`), a demo app (`demo-{framework}`), and all workspace wiring needed to integrate with the monorepo.
 
-> **Prerequisite**: Read the `new-adapter-feature` skill to understand how features work *within* existing adapters. This skill covers creating an adapter from scratch.
+> **Prerequisite**: Read the `new-adapter-feature` skill to understand how features work _within_ existing adapters. This skill covers creating an adapter from scratch.
 
 ## How to Use This Skill
 
 The skill is long because an adapter has many moving parts. To keep cognitive load manageable, work through the **six numbered steps below in order**. Do not jump ahead — each step depends on artifacts produced by the previous one.
 
-| Step | Section                       | Mandatory? | Output                                            |
-| ---- | ----------------------------- | ---------- | ------------------------------------------------- |
-| 1    | Scaffold the Library          | Mandatory  | `libs/grid-{framework}/` skeleton + config files  |
-| 2    | Implement the Adapter         | Mandatory  | Working `FrameworkAdapter` + wrapper component    |
-| 3    | Scaffold the Demo App         | Mandatory  | `demos/employee-management/{framework}/`          |
-| 4    | Workspace Wiring              | Mandatory  | tsconfig paths, resolve aliases, e2e DEMOS map    |
-| 5    | Testing                       | Mandatory  | Library unit tests + e2e parity tests passing     |
-| 6    | Documentation                 | Optional (recommended) | READMEs, TypeDoc, `llms.txt` updates    |
+| Step | Section               | Mandatory?             | Output                                           |
+| ---- | --------------------- | ---------------------- | ------------------------------------------------ |
+| 1    | Scaffold the Library  | Mandatory              | `libs/grid-{framework}/` skeleton + config files |
+| 2    | Implement the Adapter | Mandatory              | Working `FrameworkAdapter` + wrapper component   |
+| 3    | Scaffold the Demo App | Mandatory              | `demos/employee-management/{framework}/`         |
+| 4    | Workspace Wiring      | Mandatory              | tsconfig paths, resolve aliases, e2e DEMOS map   |
+| 5    | Testing               | Mandatory              | Library unit tests + e2e parity tests passing    |
+| 6    | Documentation         | Optional (recommended) | READMEs, TypeDoc, `llms.txt` updates             |
 
 Use the **Checklist at the end of the file** as the single source of truth for completion. The reference sections below the checklist (`Architecture Reference`, etc.) are background material — read them once before starting Step 1, then refer back as needed.
 
@@ -81,11 +80,11 @@ Existing adapters auto-register when their wrapper component/directive initializ
 
 ### Existing Adapter Patterns
 
-| Framework | Wrapper Component | Rendering | Column Registry | Component Mount/Destroy |
-|-----------|-------------------|-----------|----------------|------------------------|
-| **Angular** | `Grid` directive | `TemplateRef` + `ViewContainerRef` | Structural directives register templates | `createComponent()` / `viewRef.destroy()` |
-| **React** | `<DataGrid>` component | `ReactDOM.createRoot()` per cell | `WeakMap<HTMLElement, ColumnRegistry>` + field fallback | `root.render()` / `root.unmount()` |
-| **Vue** | `<TbwGrid>` SFC | `createApp()` + `createVNode()` | `WeakMap<HTMLElement, ColumnRegistry>` + field fallback | `app.mount()` / `app.unmount()` |
+| Framework   | Wrapper Component      | Rendering                          | Column Registry                                         | Component Mount/Destroy                   |
+| ----------- | ---------------------- | ---------------------------------- | ------------------------------------------------------- | ----------------------------------------- |
+| **Angular** | `Grid` directive       | `TemplateRef` + `ViewContainerRef` | Structural directives register templates                | `createComponent()` / `viewRef.destroy()` |
+| **React**   | `<DataGrid>` component | `ReactDOM.createRoot()` per cell   | `WeakMap<HTMLElement, ColumnRegistry>` + field fallback | `root.render()` / `root.unmount()`        |
+| **Vue**     | `<TbwGrid>` SFC        | `createApp()` + `createVNode()`    | `WeakMap<HTMLElement, ColumnRegistry>` + field fallback | `app.mount()` / `app.unmount()`           |
 
 The **React and Vue patterns are nearly identical** — use them as your primary reference for a new adapter. Angular is unique due to its DI system and ng-packagr build.
 
@@ -114,6 +113,7 @@ export function useGridSelection() { /* ... */ }
 ```
 
 Users then import features as side effects:
+
 ```typescript
 import '@toolbox-web/grid-{framework}/features/selection';
 // The 'selection' prop now works on the wrapper component
@@ -174,33 +174,31 @@ libs/grid-{framework}/
       "executor": "@nx/vite:build",
       "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
-      "dependsOn": [
-        { "projects": ["grid"], "target": "build" }
-      ],
+      "dependsOn": [{ "projects": ["grid"], "target": "build" }],
       "options": {
         "outputPath": "dist/libs/grid-{framework}",
-        "emptyOutDir": true
+        "emptyOutDir": true,
       },
       "configurations": {
         "development": { "mode": "development" },
-        "production": { "mode": "production" }
-      }
+        "production": { "mode": "production" },
+      },
     },
     "lint": {
       "executor": "@nx/eslint:lint",
       "outputs": ["{options.outputFile}"],
       "options": {
-        "lintFilePatterns": ["libs/grid-{framework}/**/*.{ts,tsx,vue,svelte}"]
+        "lintFilePatterns": ["libs/grid-{framework}/**/*.{ts,tsx,vue,svelte}"],
         // ↑ Adjust extensions for your framework
-      }
+      },
     },
     "typedoc": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "npx typedoc --options libs/grid-{framework}/typedoc.json"
-      }
-    }
-  }
+        "command": "npx typedoc --options libs/grid-{framework}/typedoc.json",
+      },
+    },
+  },
 }
 ```
 
@@ -218,32 +216,32 @@ libs/grid-{framework}/
   "typesVersions": {
     "*": {
       "features": ["features/index.d.ts"],
-      "features/*": ["features/*.d.ts"]
-    }
+      "features/*": ["features/*.d.ts"],
+    },
   },
   "exports": {
     "./package.json": "./package.json",
     ".": {
       "types": "./index.d.ts",
       "import": "./index.js",
-      "default": "./index.js"
+      "default": "./index.js",
     },
     "./features": {
       "types": "./features/index.d.ts",
       "import": "./features/index.js",
-      "default": "./features/index.js"
+      "default": "./features/index.js",
     },
     "./features/*": {
       "types": "./features/*.d.ts",
       "import": "./features/*.js",
-      "default": "./features/*.js"
-    }
+      "default": "./features/*.js",
+    },
   },
   "peerDependencies": {
     "{framework-package}": ">=X.Y.Z",
-    "@toolbox-web/grid": ">=1.0.0"
+    "@toolbox-web/grid": ">=1.0.0",
   },
-  "sideEffects": ["./features/*.js"]
+  "sideEffects": ["./features/*.js"],
 }
 ```
 
@@ -291,7 +289,7 @@ export default defineConfig(() => ({
     },
     rollupOptions: {
       external: [
-        '{framework-package}',        // e.g. 'svelte', 'react', 'vue'
+        '{framework-package}', // e.g. 'svelte', 'react', 'vue'
         // Add framework sub-packages as needed
         '@toolbox-web/grid',
         '@toolbox-web/grid/all',
@@ -331,16 +329,14 @@ export default defineConfig(() => ({
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "../../dist/libs/grid-{framework}",
-    "types": ["vite/client"]
+    "types": ["vite/client"],
     // Add framework-specific compiler options as needed
     // e.g. "jsx": "react-jsx" for React, or "jsx": "preserve" for Vue
   },
   "include": ["src/**/*.ts", "src/**/*.{ext}"],
   // ↑ Add framework extensions: .tsx, .vue, .svelte, etc.
   "exclude": ["src/**/*.spec.ts", "src/**/*.test.ts"],
-  "references": [
-    { "path": "../grid/tsconfig.lib.json" }
-  ]
+  "references": [{ "path": "../grid/tsconfig.lib.json" }],
 }
 ```
 
@@ -601,6 +597,7 @@ bun nx build demo-{framework}
 ```
 
 Verify the dist output structure matches React/Vue:
+
 ```
 dist/libs/grid-{framework}/
 ├── index.js
@@ -626,6 +623,7 @@ dist/libs/grid-{framework}/
 ## Checklist
 
 ### Library
+
 - [ ] `libs/grid-{framework}/` created with all config files
 - [ ] `FrameworkAdapter` implemented (`canHandle`, `createRenderer`, `createEditor`, `releaseCell`, `unmount`)
 - [ ] Wrapper component created with props, events, and child component support
@@ -637,6 +635,7 @@ dist/libs/grid-{framework}/
 - [ ] Unit tests written and passing
 
 ### Demo
+
 - [ ] `demos/employee-management/{framework}/` created
 - [ ] Uses `@demo/shared` types and `generateEmployees()` data
 - [ ] Uses `@demo/shared/demo-styles.css`
@@ -649,6 +648,7 @@ dist/libs/grid-{framework}/
 - [ ] `project.json` with serve, serve:dist, build, lint targets
 
 ### Workspace Integration
+
 - [ ] `tsconfig.base.json` paths added
 - [ ] `resolve-aliases.ts` updated with `include{Framework}` option
 - [ ] `e2e/tests/utils.ts` DEMOS map updated
@@ -658,4 +658,3 @@ dist/libs/grid-{framework}/
 - [ ] `bun nx build grid-{framework}` succeeds
 - [ ] `bun nx test grid-{framework}` passes
 - [ ] `bun nx lint grid-{framework}` passes
-````

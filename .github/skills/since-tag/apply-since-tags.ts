@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Reads `tools/since-map.json` and inserts `@since X.Y.Z` JSDoc tags on
- * the corresponding declarations in source. Idempotent: skips symbols
- * that already have a `@since` tag.
+ * Reads `.github/skills/since-tag/since-map.json` and inserts `@since
+ * X.Y.Z` JSDoc tags on the corresponding declarations in source.
+ * Idempotent: skips symbols that already have a `@since` tag.
  *
  * For each entry:
  *   - Resolve the AST node whose name matches `localName` in the file.
@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import * as ts from 'typescript';
 
-const repoRoot = resolve(import.meta.dirname, '..');
+const repoRoot = resolve(import.meta.dirname, '../../..');
 const mapPath = resolve(import.meta.dirname, 'since-map.json');
 
 /**

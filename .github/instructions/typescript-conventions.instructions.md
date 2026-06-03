@@ -1,5 +1,5 @@
 ---
-applyTo: '**/*.ts'
+applyTo: 'libs/**/*.ts'
 ---
 
 # TypeScript Conventions
@@ -18,41 +18,17 @@ Apply rules in this order when they conflict. Higher-priority rules override low
 
 ## `@since` Tag Versioning
 
-Whenever you add a new public type, interface, method, property, exported constant, or event detail, add a `@since` JSDoc tag with the **next release version** of the affected library — never copy a `@since` value from a neighboring symbol.
+Whenever you add a new public type, interface, method, property, exported constant, or event detail, add a `@since` JSDoc tag — never copy a value from a neighboring symbol and never guess.
 
-**Determining the next version:**
+**Resolve the version deterministically** with the `since-tag` skill's script instead of reasoning about it by hand:
 
-The next version is the **max** of (a) what release-please has already staged for queued PRs, and (b) what your own PR would bump the library to. Use whichever is higher.
+```bash
+bun .github/skills/since-tag/resolve-since.mjs <lib> <bump>   # prints e.g. 2.16.0
+```
 
-1. **Read the staged version from release-please.** Release-please maintains an open release PR on `origin/release-please--branches--main` whose diff bumps every affected library's `package.json` to its next published version, accounting for every queued conventional-commit type.
+`<lib>` is `grid` | `grid-angular` | `grid-react` | `grid-vue`; `<bump>` is your change's commit type (`feat`/`fix`/`perf`/`refactor`/`breaking`). It returns `max(release-please's staged version, your PR's bump of the last release)`, which is always correct because a PR can only raise the staged tier. See the **`since-tag` skill** for the full algorithm and the bulk back-fill workflow (`build-since-map.ts` / `apply-since-tags.ts`).
 
-   ```bash
-   git fetch origin release-please--branches--main:refs/remotes/origin/release-please--branches--main
-   git show origin/release-please--branches--main:libs/grid/package.json | grep '"version"'
-   ```
-
-   If the branch doesn't exist (no queued release) or doesn't touch your library, the staged version is the current `package.json` `version` field.
-
-2. **Compute the bump your PR would cause on its own**, starting from the _last released_ version in `libs/<lib>/package.json` and applying release-please's Conventional Commits mapping (see `release-please-config.json`):
-   - `feat:` → next **minor** (e.g. `2.7.3` → `2.8.0`)
-   - `fix:`, `perf:`, `refactor:` → next **patch** (e.g. `2.7.3` → `2.7.4`)
-   - `feat!:` / `BREAKING CHANGE` → next **major** (e.g. `2.7.3` → `3.0.0`)
-
-3. **Pick the higher of the two.** Your PR can only raise release-please's staged tier, never lower it:
-   - staged `2.10.0` (queued `feat`) + your PR is `fix:` → use **`2.10.0`** (staged wins).
-   - staged `2.9.1` (queued `fix`) + your PR is `feat:` → use **`2.10.0`** (your PR upgrades the bump to minor).
-   - staged `2.10.0` (queued `feat`) + your PR is `feat!:` → use **`3.0.0`** (your PR upgrades to major).
-   - No release-please branch and your PR is `feat:` from `2.9.0` → use **`2.10.0`**.
-
-   Practical rule: if your PR's tier (major > minor > patch) is **stricter** than release-please's currently staged tier, apply your tier to the _last released_ version; otherwise use release-please's staged version verbatim.
-
-4. Use the resolved version (`@since 2.10.0`, not `@since 0.1.1`).
-
-**Why this matters:** TypeDoc and the docs site surface `@since` directly in the API reference. Wrong values mislead users about when an API was added and which versions support it.
-
-**Bulk refresh from git history:** `tools/build-since-map.ts` resolves the introducing commit & earliest release tag for every public export and writes `tools/since-map.json`. `tools/apply-since-tags.ts` applies that map to source. The applier is idempotent by default (skips declarations that already have any `@since`); pass `--force` to rewrite stale tags to match the regenerated map. Canonical refresh: `bun tools/build-since-map.ts && bun tools/apply-since-tags.ts --force`.
-
-When unsure between a feat and a fix bump, ask the user before guessing.
+When genuinely unsure whether your change is a feat or a fix, ask the user before stamping.
 
 ## No `as unknown as` Casts
 

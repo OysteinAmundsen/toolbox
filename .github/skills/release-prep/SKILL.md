@@ -60,17 +60,13 @@ Verify clean builds with no TypeScript errors.
 
 ### 4. Check Bundle Size Budget
 
-Verify `dist/libs/grid/index.js`:
-
-- Raw size ≤ 170 kB (hard fail)
-- Gzipped ≤ 50 kB (hard fail), warning at 45 kB
+Step 3's build already hard-enforces the budget via the Vite `bundleBudget` plugin (build fails if `dist/libs/grid/index.js` exceeds 170 kB raw or 50 kB gzipped). To read the exact raw/gzip sizes for every entry deterministically, run the shared report script:
 
 ```bash
-# Check raw size
-wc -c dist/libs/grid/index.js
-# Or on PowerShell:
-(Get-Item dist/libs/grid/index.js).Length
+bun run tools/build-size-report.ts
 ```
+
+Confirm the **core (index.js)** `grid` cell is within budget (≤ 170 kB raw, ≤ 50 kB gzipped; soft warning at 45 kB gzipped). For a soft-warning or over-budget result, follow the `bundle-check` skill's investigation checklist.
 
 ### 5. Review CHANGELOG
 

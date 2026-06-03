@@ -56,17 +56,12 @@ NEXT RAF:
   ├─ _schedulerProcessRows() (ROWS phase)
   │   ├─ start with _rows (copy of input)
   │   ├─ reapplyCoreSort (maintain existing sort)
-  │   └─ pluginManager.processRows() — each plugin transforms in priority order
+  │   └─ pluginManager.processRows() — priority order:
   │       ServerSide(-10) → Tree/GroupingRows(10) → MultiSort(0) → Filtering(0) → others
   ├─ _schedulerProcessColumns() (if COLUMNS phase also requested)
-  ├─ _schedulerUpdateTemplate()
-  ├─ _schedulerRenderHeader()
-  ├─ refreshVirtualWindow()
-  │   ├─ initializePositionCache (if variable heights)
-  │   ├─ calculate start/end from scroll position
-  │   └─ renderVisibleRows(start, end) — reuse pooled row elements
-  └─ _schedulerAfterRender()
-      └─ plugin afterRender hooks
+  ├─ _schedulerUpdateTemplate() → _schedulerRenderHeader()
+  ├─ refreshVirtualWindow() → renderVisibleRows(start, end) — reuse pooled row elements
+  └─ _schedulerAfterRender() — plugin afterRender hooks
       → dispatchEvent('render', { phase, initial:false, rowCount, visibleRange })
 ```
 
@@ -99,18 +94,12 @@ RAF:
 ```
 EVENT: scroll on .rows-viewport
   ├─ virtualizationManager handles scroll
-  │   ├─ getRowIndexAtOffset(scrollTop)
-  │   │   └─ if variableHeights: binary search on positionCache
-  │   │   └─ if uniform: simple division (scrollTop / rowHeight)
+  │   ├─ getRowIndexAtOffset(scrollTop) — binary search on positionCache (variable
+  │   │   heights) or scrollTop / rowHeight (uniform)
   │   ├─ calculate new start/end indices
   │   └─ if window changed: renderVisibleRows(start, end)
-  │       ├─ for each row in window:
-  │       │   ├─ get/create pooled row element
-  │       │   ├─ set data-row-index attribute
-  │       │   ├─ render cells (reuse or create)
-  │       │   ├─ afterCellRender hooks (per cell)
-  │       │   ├─ afterRowRender hooks (per row)
-  │       │   └─ onScrollRender hooks (lightweight reapply for recycled rows)
+  │       ├─ per row: get/create pooled element, set data-row-index, render cells
+  │       │   (reuse or create), afterCellRender, afterRowRender, onScrollRender hooks
   │       └─ recycle unused row elements back to pool
   └─ pluginManager.onScroll(event)
       ├─ PinnedColumns — update sticky positioning
@@ -133,15 +122,10 @@ USER TYPES → editor captures input
 
 EVENT: Enter/Tab/Escape/blur
   ├─ Editing.onKeyDown or blur handler
-  │   ├─ if commit (Enter/Tab):
-  │   │   ├─ get new value from editor
-  │   │   ├─ compare with snapshot
-  │   │   ├─ if changed: update row data, mark as dirty, emit 'cell-commit'
-  │   │   ├─ UndoRedo pushes to undo stack (if listening)
-  │   │   └─ decrement __editingCellCount
-  │   ├─ if cancel (Escape):
-  │   │   ├─ restore from snapshot
-  │   │   └─ decrement __editingCellCount
+  │   ├─ commit (Enter/Tab): get new value, compare with snapshot; if changed update
+  │   │   row data, mark dirty, emit 'cell-commit', UndoRedo pushes undo stack (if
+  │   │   listening), decrement __editingCellCount
+  │   ├─ cancel (Escape): restore from snapshot, decrement __editingCellCount
   │   └─ remove editor, restore cell renderer
   ├─ if Tab: move focus to next editable cell → open new editor
   └─ grid.requestRender() if data changed → re-sort may apply
@@ -156,9 +140,8 @@ React app renders:
 
 MOUNT:
   ├─ DataGrid component (wrapper)
-  │   ├─ processGridConfig(columns)
-  │   │   ├─ detect StatusBadge is React component (not plain function)
-  │   │   └─ wrap in createComponentRenderer(StatusBadge)
+  │   ├─ processGridConfig(columns) — detect StatusBadge is a React component (not plain
+  │   │   function), wrap in createComponentRenderer(StatusBadge)
   │   │       └─ returns (ctx) => PortalManager.render(StatusBadge, container, ctx)
   │   ├─ set grid.gridConfig = { columns: [...processed] }
   │   └─ set grid.rows = data
@@ -170,8 +153,7 @@ RENDER CYCLE (in grid):
   │   └─ React renders StatusBadge into cellDiv
 
 SCROLL RECYCLE:
-  ├─ row element reused for different row
-  ├─ cell container already has portal
+  ├─ row element reused for different row; cell container already has portal
   ├─ PortalManager.render() called again with new ctx → React re-renders in place
   └─ if cell removed: releaseCell() → PortalManager.unmountPortal(key) → cleanup
 ```
@@ -194,18 +176,13 @@ EVENT: click on tree expander cell
 RAF:
   ├─ _schedulerProcessRows()
   │   ├─ ServerSide.processRows(-10) — if async: trigger fetch children, insert placeholders
-  │   ├─ Tree.processRows(10)
-  │   │   ├─ query sort:get-model from MultiSort (apply hierarchical sort)
-  │   │   ├─ flatten tree: walk rows, include children of expanded keys
-  │   │   ├─ set __treeLevel, __isExpanded, __hasChildren on each row
-  │   │   └─ return flattened array (more rows than input if expanded)
-  │   ├─ MultiSort.processRows — sort the flattened tree respecting hierarchy
+  │   ├─ Tree.processRows(10) — query sort:get-model (hierarchical sort), flatten tree
+  │   │   (include children of expanded keys), set __treeLevel/__isExpanded/__hasChildren
+  │   ├─ MultiSort.processRows — sort flattened tree respecting hierarchy
   │   └─ Filtering.processRows — filter respecting tree structure
-  ├─ virtualization recalculates (row count changed)
-  │   ├─ initializePositionCache (if variable heights — tree rows may have different heights)
-  │   └─ refreshVirtualWindow → renderVisibleRows
-  └─ _schedulerAfterRender()
-      └─ Tree.afterCellRender — apply indent styling, expander icon state
+  ├─ virtualization recalculates (row count changed) → initializePositionCache
+  │   (variable heights) → refreshVirtualWindow → renderVisibleRows
+  └─ _schedulerAfterRender() → Tree.afterCellRender — indent styling, expander icon state
 ```
 
 ## trace: config-merge (multiple sources)
@@ -213,19 +190,12 @@ RAF:
 ```
 ConfigManager.merge() called by scheduler (COLUMNS phase)
   ├─ if sourcesChanged || no columns exist:
-  │   ├─ collectAllSources() — precedence order:
-  │   │   1. gridConfig property (lowest)
-  │   │   2. light DOM elements (<tbw-grid-column> with attributes)
-  │   │   3. columns property
-  │   │   4. fitMode property
-  │   │   5. column inference from first row (if no columns defined)
-  │   ├─ merge all sources into single config object
-  │   ├─ apply TypeDefaults to columns
+  │   ├─ collectAllSources() — precedence low→high: gridConfig prop, light-DOM
+  │   │   <tbw-grid-column>, columns prop, fitMode prop, inference from first row
+  │   ├─ merge into single config, apply TypeDefaults to columns
   │   ├─ Object.freeze(originalConfig) — immutable snapshot
   │   └─ effectiveConfig = structuredClone(originalConfig) — mutable runtime copy
-  ├─ applyPostMergeOperations()
-  │   ├─ set row height on virtualization manager
-  │   ├─ calculate column widths for fixed mode
-  │   └─ apply animation config via CSS custom properties
+  ├─ applyPostMergeOperations() — row height on virtualization, fixed-mode widths,
+  │   animation config via CSS custom properties
   └─ mark sourcesChanged = false
 ```

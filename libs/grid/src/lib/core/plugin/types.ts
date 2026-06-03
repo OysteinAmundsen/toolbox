@@ -409,6 +409,14 @@ export interface GridElementRef {
    */
   readonly _hostElement: HTMLElement;
 
+  /**
+   * The element the grid renders its DOM into (light-DOM render root).
+   * Plugins that wrap, relocate, or query the grid's rendered structure use
+   * this instead of reaching for the host element's children directly.
+   * @internal Plugin API
+   */
+  readonly _renderRoot: HTMLElement;
+
   // =========================================================================
   // Grid Data & Configuration
   // =========================================================================
@@ -425,6 +433,57 @@ export interface GridElementRef {
   gridConfig: GridConfig;
   /** Effective (merged) configuration - the single source of truth. */
   effectiveConfig: GridConfig;
+  /**
+   * The original, unmerged source config exactly as supplied via the
+   * `gridConfig` property (or light DOM). Unlike {@link gridConfig} /
+   * {@link effectiveConfig} (which return the merged result), this is the raw
+   * input \u2014 plugins that must distinguish caller-supplied values from
+   * plugin/API-contributed values (e.g. to avoid re-merging stale entries) read
+   * this.
+   * @internal Plugin API
+   */
+  readonly _sourceConfig: GridConfig | undefined;
+
+  // =========================================================================
+  // Light DOM Observation (generic infrastructure)
+  // =========================================================================
+
+  /**
+   * Register a handler invoked when a light-DOM child element with the given
+   * tag name is added, removed, or mutated. The light-DOM observer itself is
+   * generic, tag-agnostic core infrastructure (owned by `ConfigManager`);
+   * plugins declare which tags they care about and supply the parsing logic.
+   * This is what keeps the core free of plugin-specific tag knowledge \u2014 with a
+   * plugin absent, no handler is registered for its tags.
+   * @internal Plugin API
+   */
+  _registerLightDomHandler(tagName: string, callback: () => void): void;
+
+  /**
+   * Unregister a previously registered light-DOM handler. Plugins MUST call this
+   * in `detach()` for every tag they registered.
+   * @internal Plugin API
+   */
+  _unregisterLightDomHandler(tagName: string): void;
+
+  /**
+   * Re-merge all config sources into `effectiveConfig`. Plugins call this after
+   * re-parsing light DOM (or otherwise mutating their own state) so the merge
+   * picks up the new values via the `processConfig` hook.
+   * @internal Plugin API
+   */
+  _requestConfigMerge(): void;
+
+  /**
+   * Build a renderer factory from the registered framework adapters (Angular,
+   * React, Vue). Given a light-DOM element, the factory returns a renderer that
+   * mounts the framework's template into a target container (or `undefined` if
+   * no adapter handles it). Generic adapter capability \u2014 not shell-specific.
+   * @internal Plugin API
+   */
+  _getToolPanelRendererFactory():
+    | ((element: HTMLElement) => ((container: HTMLElement) => void | (() => void)) | undefined)
+    | undefined;
 
   // =========================================================================
   // Row Update API

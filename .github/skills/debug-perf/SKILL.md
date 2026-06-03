@@ -117,14 +117,14 @@ await page.tracing.stop({ path: 'trace.json' });
 await browser.close();
 ```
 
-Then analyze with the project's trace analyzer:
+Then analyze with this skill's bundled trace analyzer (zero dependencies, runs under Node or Bun):
 
 ```bash
 # Extract long tasks, layout thrashing, forced reflows, scroll bottlenecks
-node scripts/analyze-trace.mjs trace.json
+node .github/skills/debug-perf/analyze-trace.mjs trace.json
 ```
 
-The `scripts/analyze-trace.mjs` script reports:
+The `analyze-trace.mjs` script (co-located in this skill folder) reports:
 
 - Top 20 long tasks (>50ms)
 - Layout/style recalculation frequency and cost
@@ -184,7 +184,7 @@ it('should render 10k rows within budget', async () => {
 
 1. Record in DevTools Performance tab
 2. Right-click the timeline → "Save profile..."
-3. Run `node scripts/analyze-trace.mjs <saved-trace.json>`
+3. Run `node .github/skills/debug-perf/analyze-trace.mjs <saved-trace.json>`
 
 ### Vitest Profiling
 
@@ -322,7 +322,7 @@ class MyPlugin {
 
 After fixing, verify the improvement:
 
-1. **Playwright trace comparison** — Capture traces before/after the fix and compare with `node scripts/analyze-trace.mjs`
+1. **Playwright trace comparison** — Capture traces before/after the fix and compare with `node .github/skills/debug-perf/analyze-trace.mjs`
 2. **Run e2e performance tests** — `bun nx e2e e2e --grep="Performance"` (enforces budgets, catches regressions)
 3. **Run unit tests** to verify no regressions — `bun nx test grid`
 4. **Check bundle size** hasn't increased — `bun nx build grid` (core ≤ 170 kB raw, ≤ 50 kB gzip with warning at 45 kB)

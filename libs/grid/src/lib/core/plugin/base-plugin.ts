@@ -621,6 +621,27 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   }
 
   /**
+   * Replace this plugin's `userConfig` with a freshly-resolved sibling
+   * instance's config. Used by the grid's per-grid feature-instance gate
+   * (`#initializePlugins`): when a feature is re-resolved across a config
+   * change, the **existing** instance is reused — so its accumulated state
+   * survives — but it must adopt the latest `gridConfig.features.<name>`
+   * value. Unlike {@link mergeConfigsFrom}, this is last-write-wins with no
+   * conflict detection: the re-resolved instance is authoritative.
+   *
+   * `attach()` recomputes {@link config} from `userConfig`, so updating
+   * `userConfig` here is enough for the reused instance to pick up the new
+   * config on its next attach during the same `#initializePlugins` pass.
+   *
+   * @internal Plugin infrastructure (used by the grid feature gate).
+   */
+  refreshUserConfigFrom(other: BaseGridPlugin<TConfig>): void {
+    const target = this.userConfig as Record<string, unknown>;
+    for (const key of Object.keys(target)) delete target[key];
+    Object.assign(target, other.userConfig);
+  }
+
+  /**
    * Called when the plugin is attached to a grid.
    * Override to set up event listeners, initialize state, etc.
    *

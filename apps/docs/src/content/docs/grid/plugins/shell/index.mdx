@@ -138,10 +138,12 @@ import { TbwGrid, TbwGridToolPanel } from '@toolbox-web/grid-vue';
   </TabItem>
 </Tabs>
 
-:::tip[Adapters auto-register the shell]
-The React, Vue, and Angular wrappers register the `ShellPlugin` automatically when you use a
-shell wrapper component (`GridToolPanel`, `GridToolButtons`, …) or pass `features.shell`, so
-adapter users do not need the `import '@toolbox-web/grid/features/shell'` line.
+:::tip[Adapters auto-register the shell (v2.x)]
+While **v2.x** is current, the React, Vue, and Angular wrappers register the `ShellPlugin`
+automatically when you use a shell wrapper component (`GridToolPanel`, `GridToolButtons`, …) or
+pass `features.shell`, so adapter users do not need the `import '@toolbox-web/grid/features/shell'`
+line. This auto-registration is a v2.x convenience and is removed at **v3.0.0**, where the shell
+becomes opt-in.
 :::
 
 <ShowSource file="demos/ShellMultiPanelsDemo.astro">
@@ -374,14 +376,15 @@ When `header.visible: false`, tool panels remain fully functional and are opened
 
 ## Migrating to the feature API
 
-The shell used to be part of grid **core**: configured via a top-level `config.shell` field and
-driven by `grid.register*` / `openToolPanel` element delegates. Those surfaces are **deprecated**
-and will be **removed in v3.0.0**. Migrate as follows:
+The shell used to be part of grid **core**: auto-registered with no import, driven by
+`grid.register*` / `openToolPanel` element delegates, with its config types exported from the
+package root. Those surfaces are **deprecated** and will be **removed in v3.0.0**. The `shell`
+configuration object itself is augmented onto `gridConfig` by the plugin and is **not** deprecated.
+Migrate as follows:
 
 | Deprecated (v2.x, removed at v3) | Use instead |
 |----------------------------------|-------------|
 | _Implicit_ shell (no import) | `import '@toolbox-web/grid/features/shell'` |
-| `config.shell = { … }` (top-level) | `config.features = { shell: { … } }` |
 | `grid.registerToolPanel(panel)` | `grid.getPluginByName('shell')?.registerToolPanel(panel)` |
 | `grid.unregisterToolPanel(id)` | `grid.getPluginByName('shell')?.unregisterToolPanel(id)` |
 | `grid.registerHeaderContent(c)` | `grid.getPluginByName('shell')?.registerHeaderContent(c)` |
@@ -393,10 +396,12 @@ Notes:
 
 - In **v2.x** the shell is still auto-registered, so unmigrated code keeps working — the
   imperative `grid.*` shell delegates emit a one-time **TBW076** deprecation warning. The
-  top-level `config.shell` field and `refreshShellHeader()` are merged/handled silently.
+  top-level `config.shell` field is a plugin augmentation (**not** deprecated) and
+  `refreshShellHeader()` is merged/handled silently.
 - For advanced/explicit control you can register the plugin directly:
   `plugins: [new ShellPlugin(shellConfig)]` (from `@toolbox-web/grid/plugins/shell`).
-- **Adapters auto-register** the `ShellPlugin`, so React/Vue/Angular users need no change.
+- **Adapters auto-register** the `ShellPlugin` in **v2.x**, so React/Vue/Angular users need no
+  change; this auto-registration is removed at **v3.0.0** (opt-in).
 - From **v3.0.0** the shell is opt-in: shell usage without the feature/plugin throws a clear
   error with a migration link.
 

@@ -45,8 +45,9 @@ import '@toolbox-web/grid/features/visibility';
       active: i % 3 !== 0,
     }));
 
-    // Custom filter panel
     const shell = grid.getPluginByName('shell');
+
+    // Custom filter panel
     shell?.registerToolPanel({
       id: 'filter',
       title: 'Filter',

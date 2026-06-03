@@ -174,7 +174,6 @@ The grid is configured through the `gridConfig` property (or individual shorthan
 | `plugins` | [`GridPlugin[]`](/grid/api/plugin-development/interfaces/gridplugin/) | Plugin instances |
 | `features` | [`Partial<FeatureConfig>`](/grid/api/core/interfaces/featureconfig/) | Declarative feature config (alternative to `plugins`) |
 | `columnState` | [`GridColumnState`](/grid/api/core/interfaces/gridcolumnstate/) | Saved column state to restore on init |
-| `shell` | [`ShellConfig`](/grid/plugins/shell/) | Shell layout (header, tool panels) — now the [Shell plugin](/grid/plugins/shell/). Configure under `features: { shell }`; the top-level `shell` field is **deprecated** (removed at v3). |
 | `icons` | [`GridIcons`](/grid/api/core/interfaces/gridicons/) | Grid-wide icon overrides |
 | `animation` | [`AnimationConfig`](/grid/api/core/interfaces/animationconfig/) | Animation defaults (expand/collapse, reorder, etc.) |
 | `loadingRenderer` | [`LoadingRenderer`](/grid/api/core/types/loadingrenderer/) | Custom loading indicator |
@@ -1053,7 +1052,7 @@ grid.columns = [...originalColumns];
 :::caution[The shell moved to a plugin]
 The shell (header bar, toolbar, and tool-panel sidebar) is **no longer part of core** — it is now the **[Shell plugin](/grid/plugins/shell/)**. See that page for the full guide, demos, and configuration reference.
 
-In **v2.x** the shell still ships **on by default**, but it is **deprecated**. From **v3.0.0** the shell is opt-in — code that uses the header bar, toolbar, or tool panels **MUST** enable the feature:
+In **v2.x** the shell is **auto-registered**, so existing code keeps working without an import. That implicit auto-registration is **deprecated**: from **v3.0.0** the shell is opt-in — code that uses the header bar, toolbar, or tool panels **MUST** enable it explicitly:
 
 ```ts
 import '@toolbox-web/grid/features/shell';
@@ -1063,7 +1062,7 @@ grid.gridConfig = {
 };
 ```
 
-The top-level `config.shell` field and the `grid.register*` / `openToolPanel` element delegates are **deprecated** and removed at v3. See [Migrating to the feature API](/grid/plugins/shell/#migrating-to-the-feature-api).
+The `grid.register*` / `openToolPanel` element delegates — and importing shell types from `@toolbox-web/grid` instead of `@toolbox-web/grid/plugins/shell` — are **deprecated** and removed at v3. The `shell` configuration object itself is augmented onto `gridConfig` by the plugin and is **not** deprecated. See [Migrating to the feature API](/grid/plugins/shell/#migrating-to-the-feature-api).
 :::
 
 ---

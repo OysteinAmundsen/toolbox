@@ -44,9 +44,11 @@ If an MCP tool call returns an error such as "server not running", "failed to la
 
 **Do NOT start a dev server first.** In a debugging session the user almost always already has the relevant dev server running. Starting another one wastes time and can fail on a port-in-use clash. Check first, start only as a last resort.
 
+> **`about:blank` is NOT "no server".** `list_pages` (or a freshly attached MCP browser) reports `about:blank` because that's the default empty tab — it tells you **nothing** about whether the dev server is up. Never infer "the server isn't running, I must start one" from an `about:blank` page. The **only** way to test the server is to `navigate_page` to the real URL and see whether it loads. Always navigate first.
+
 Work through these in order and stop at the first that succeeds:
 
-1. **Just navigate via Chrome MCP.** Point `navigate_page` straight at the target URL. If the page loads, you're done — no terminal command needed.
+1. **Just navigate via Chrome MCP.** Point `navigate_page` straight at the target URL (do not be misled by an `about:blank` tab — navigate to confirm). If the page loads, you're done — no terminal command needed.
 
    ```
    navigate_page → url: http://localhost:4400/grid/plugins/editing/

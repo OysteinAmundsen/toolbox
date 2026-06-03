@@ -339,6 +339,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // survives user plugin/feature churn (Approach A — idempotent attach).
   #shellPlugin?: ShellPlugin;
 
+  // FEATURE-INSTANCE-GATE-370: per-grid cache of feature-derived plugin
+  // instances, keyed by plugin name. A feature is instantiated at most once per
+  // grid: on every `#initializePlugins` re-resolution the cached instance is
+  // reused (its config refreshed from the freshly-resolved one) instead of
+  // constructing a second instance. This keeps each plugin's identity — and
+  // therefore its accumulated state (e.g. the shell's API/light-DOM tool
+  // panels) — stable across feature/plugin config changes. Without this gate
+  // the auto-registered shell instance was silently replaced by a fresh feature
+  // instance, dropping API-registered tool panels (regression after #370).
+  #featureInstances = new Map<string, BaseGridPlugin>();
+
   // Loading State
   #loading = false;
   #loadingRows = new Set<string>(); // Row IDs currently loading
@@ -1058,7 +1069,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const features = this.#effectiveConfig?.features;
     let featurePlugins: BaseGridPlugin[] = [];
     if (features && resolveFeatures) {
-      featurePlugins = resolveFeatures(features as Record<string, unknown>) as BaseGridPlugin[];
+      const resolved = resolveFeatures(features as Record<string, unknown>) as BaseGridPlugin[];
+      // FEATURE-INSTANCE-GATE-370: reuse the cached instance for each feature
+      // (refreshing its config) so a feature is never instantiated twice for
+      // this grid; only genuinely new features create a new instance.
+      featurePlugins = resolved.map((p) => this.#gateFeatureInstance(p));
     }
 
     // Merge: feature-derived first (for dependency ordering), then explicit plugins.
@@ -1083,11 +1098,38 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // its state survives plugin re-inits (Approach A — idempotent attach).
     if (!allPlugins.some((p) => p.name === 'shell')) {
       this.#shellPlugin ??= new ShellPlugin();
+      // Seed the feature-instance gate so a later `features: { shell }` opt-in
+      // reuses this same instance (and its accumulated state) instead of
+      // constructing a fresh feature instance that would drop API-registered
+      // tool panels.
+      this.#featureInstances.set('shell', this.#shellPlugin);
       allPlugins = [this.#shellPlugin, ...allPlugins];
+    } else {
+      // A shell resolved from features/plugins[]: keep the canonical
+      // `#shellPlugin` reference pointed at it so `#resolveShellPlugin()` and a
+      // later auto-register fallback operate on the same stateful instance.
+      this.#shellPlugin = allPlugins.find((p) => p.name === 'shell') as ShellPlugin | undefined;
     }
 
     // Attach all plugins
     this.#pluginManager.attachAll(allPlugins);
+  }
+
+  /**
+   * FEATURE-INSTANCE-GATE-370: return the canonical per-grid instance for a
+   * freshly-resolved feature plugin. If this grid already has an instance for
+   * the feature's name, reuse it (refreshing its config from the fresh one) so
+   * the feature is instantiated at most once per grid and its accumulated state
+   * survives. Otherwise cache and return the fresh instance.
+   */
+  #gateFeatureInstance(fresh: BaseGridPlugin): BaseGridPlugin {
+    const cached = this.#featureInstances.get(fresh.name);
+    if (cached && cached !== fresh) {
+      cached.refreshUserConfigFrom(fresh);
+      return cached;
+    }
+    this.#featureInstances.set(fresh.name, fresh);
+    return fresh;
   }
 
   /**

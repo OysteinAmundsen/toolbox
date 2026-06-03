@@ -240,7 +240,12 @@
          flex layout only while the popover is actually shown. */
       display: none;
 
-      &:popover-open {
+      /* `:popover-open` is the native (Popover API) open signal. `.open` is the
+         JS-toggled fallback (`updatePanelState`) so dropdown mode still renders
+         in browsers / DOMs without Popover API support, where `showPopover()`
+         is unavailable and `:popover-open` never matches. */
+      &:popover-open,
+      &.open {
         display: flex;
         width: var(--tbw-tool-panel-width);
       }

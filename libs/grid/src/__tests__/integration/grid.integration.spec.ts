@@ -1089,20 +1089,21 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(body?.getAttribute('data-mode')).toBe('dropdown');
     expect(panel?.getAttribute('popover')).toBe('manual');
 
-    const shell = grid.getPluginByName('shell') as unknown as {
-      openToolPanel: (id?: string) => void;
-      closeToolPanel: () => void;
-    };
+    const shell = grid.getPluginByName('shell')!;
     shell.openToolPanel();
     await nextFrame();
     expect(grid.isToolPanelOpen).toBe(true);
     // Anchored to the built-in toggle (drop below) when no explicit anchor given.
     expect(panel?.dataset.anchor).toBe('below');
+    // `.open` is the CSS fallback that renders the popover when the Popover API
+    // is unavailable (no `:popover-open`); it MUST be toggled in dropdown mode.
+    expect(panel?.classList.contains('open')).toBe(true);
 
     shell.closeToolPanel();
     await nextFrame();
     expect(grid.isToolPanelOpen).toBe(false);
     expect(panel?.dataset.anchor).toBeUndefined();
+    expect(panel?.classList.contains('open')).toBe(false);
   });
 
   it('anchors the dropdown to an explicit anchor element when provided', async () => {
@@ -1123,9 +1124,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     const customAnchor = document.createElement('button');
     document.body.appendChild(customAnchor);
 
-    const shell = grid.getPluginByName('shell') as unknown as {
-      openToolPanel: (id?: string, options?: { anchor?: HTMLElement }) => void;
-    };
+    const shell = grid.getPluginByName('shell')!;
     shell.openToolPanel('columns', { anchor: customAnchor });
     await nextFrame();
 

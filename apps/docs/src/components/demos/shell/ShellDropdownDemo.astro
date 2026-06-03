@@ -85,7 +85,11 @@ import '@toolbox-web/grid/features/visibility';
   }
 </script>
 
-<style>
+<!-- `is:global`: the trigger button is created at runtime by `headerRenderer`
+     and rendered into the grid's light DOM, so it never carries Astro's
+     build-time scope attribute. A scoped selector wouldn't match it; the
+     `#demo-shell-dropdown` id prefix keeps these rules narrowed to this demo. -->
+<style is:global>
   #demo-shell-dropdown .tbw-columns-trigger {
     display: inline-flex;
     align-items: center;

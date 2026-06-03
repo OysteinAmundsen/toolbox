@@ -177,6 +177,48 @@ const style = document.createElement('style');
 this.gridElement.appendChild(style);
 ```
 
+### Wrapping plugins (host-DOM chrome)
+
+Most plugins **enrich** the grid: they tag rows in `processRows()`, decorate cells in
+`afterCellRender()`, or handle interaction hooks. A few plugins instead **wrap** the grid —
+they take the freshly built grid DOM and render their own chrome (a header bar, a sidebar,
+a toolbar) _around_ it. The [Shell plugin](/grid/plugins/shell/) is the canonical example.
+
+Wrapping is not done with the per-cell/per-row hooks. It uses one dedicated lifecycle hook:
+
+```typescript
+override afterStructuralRender(): void {
+  const root = this.grid?._renderRoot;
+  if (!root || root.querySelector('.my-chrome > .tbw-grid-content')) return;
+  // 1. Core has built a BARE grid containing `.tbw-grid-content`.
+  // 2. Relocate that existing node into your chrome — do NOT re-create it.
+  //    Moving (not rebuilding) preserves the content subtree, its event
+  //    listeners, and the grid's cached DOM refs.
+  const content = root.querySelector('.tbw-grid-content');
+  const chrome = buildChrome(); // header bar + body + sidebar, etc.
+  chrome.querySelector('[data-content-slot]')!.append(content!);
+  root.append(chrome);
+}
+```
+
+Key contract for a wrapping plugin:
+
+- **Use `afterStructuralRender()`, not `afterRender()`.** It fires synchronously inside the
+  same task as the structural DOM build, before paint — so there is no flash of unwrapped
+  content. It runs only on full structural rebuilds (connect / structural change), **never**
+  on the scroll or data hot path.
+- **Move the `.tbw-grid-content` node; never replace it.** The grid caches references into
+  that subtree (body, viewport, rows). Re-creating it breaks scrolling, virtualization, and
+  every plugin that cached a ref. Relocate the existing element into your wrapper.
+- **Be idempotent.** A full rebuild discards whatever chrome a previous invocation produced,
+  so re-create it each time and early-return when the desired structure is already present.
+- **Render your own content after wrapping.** Inject titles, toolbar buttons, and panel
+  bodies into the chrome you built — query them from `this.grid._renderRoot`, not from the
+  grid-body refs (which point inside `.tbw-grid-content`).
+
+See [`afterStructuralRender` in the `BaseGridPlugin` reference](/grid/api/plugin-development/classes/basegridplugin/)
+for the full hook contract.
+
 ---
 
 ## Feature Registry

@@ -36,10 +36,14 @@ option. Shell configuration types (`ShellConfig`, `ToolPanelDefinition`, …) ar
 Enable the shell by setting `features: { shell }` with a `header.title`. Features like
 `visibility` automatically register a tool panel when the shell is active.
 
+<Tabs syncKey="framework">
+  <TabItem label="TypeScript">
 ```ts
+import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/shell';
 import '@toolbox-web/grid/features/visibility';
 
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   features: {
     shell: { header: { title: 'Employee Data' } },
@@ -47,6 +51,62 @@ grid.gridConfig = {
   },
 };
 ```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/visibility';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+// Adapters auto-register the shell in v2.x — no shell import needed.
+const config = { shell: { header: { title: 'Employee Data' } } };
+
+function MyGrid({ data }) {
+  return <DataGrid rows={data} gridConfig={config} visibility />;
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/visibility';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+
+// Adapters auto-register the shell in v2.x — no shell import needed.
+const config = { shell: { header: { title: 'Employee Data' } } };
+</script>
+
+<template>
+  <TbwGrid :rows="data" :grid-config="config" visibility />
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+// Enables the [visibility] input; the shell auto-registers in v2.x.
+import { GridVisibilityDirective } from '@toolbox-web/grid-angular/features/visibility';
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { GridConfig } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-shell-grid',
+  imports: [Grid, GridVisibilityDirective],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [gridConfig]="config"
+      [visibility]="true"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class ShellGridComponent {
+  rows = [];
+  config: GridConfig = { shell: { header: { title: 'Employee Data' } } };
+}
+```
+  </TabItem>
+</Tabs>
 
 <ShowSource file="demos/ShellBasicDemo.astro">
   <ShellBasicDemo />
@@ -233,7 +293,7 @@ All options live under `features.shell` and are typed by `ShellConfig`
 | `toolPanel.closeOnClickOutside` | `boolean` | `false` | Close on outside click (ignored in `mode: 'push'` or when `locked: true`) |
 | `toolPanel.mode` | `'overlay' \| 'push'` | `'overlay'` | `'overlay'` floats over the grid; `'push'` reflows the grid sideways so all cells stay visible |
 
-## Tool-panel layout modes
+## Tool-Panel Layout Modes
 
 The tool panel supports two layout modes — pick whichever fits the viewport you're targeting.
 
@@ -374,7 +434,7 @@ When `header.visible: false`, tool panels remain fully functional and are opened
 
 `header.visible: false` keeps the shell active (the panel overlay still mounts); it only suppresses the header bar element. This is the supported alternative to hiding `.tbw-shell-header` with CSS.
 
-## Migrating to the feature API
+## Migrating to the Feature API
 
 The shell used to be part of grid **core**: auto-registered with no import, driven by
 `grid.register*` / `openToolPanel` element delegates, with its config types exported from the
@@ -405,9 +465,19 @@ Notes:
 - From **v3.0.0** the shell is opt-in: shell usage without the feature/plugin throws a clear
   error with a migration link.
 
-## See Also
+## How the Shell Wraps the Grid
 
-- **[Visibility](/grid/plugins/visibility/)** — Registers a column show/hide tool panel into the shell
+The shell is unusual among plugins: most plugins **enrich** the grid (tagging rows, decorating
+cells), but the shell **wraps** it — it consumes the freshly built grid DOM and renders its own
+chrome (header bar + tool-panel sidebar) _around_ it. It does this from the
+`afterStructuralRender()` lifecycle hook, relocating the existing `.tbw-grid-content` node into
+the shell wrapper (preserving the subtree, its listeners, and the grid's cached refs) rather than
+re-creating it.
+
+If you want to build **another** grid-wrapping plugin, this pattern is documented as a reusable
+recipe in [Plugin Architecture → Wrapping plugins](/grid/plugin-development/architecture/#wrapping-plugins-host-dom-chrome).
+
+## See Also
 - **[Filtering](/grid/plugins/filtering/)** — Registers a filter tool panel into the shell
 - **[Pivot](/grid/plugins/pivot/)** — Registers a pivot configuration tool panel
 - **[Core Features](/grid/core/)** — Columns, renderers, formatters, events, and methods

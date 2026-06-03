@@ -73,6 +73,20 @@ export interface ShellState {
   panelCleanups: Map<string, () => void>;
   /** Cleanup functions for toolbar content render returns */
   toolbarContentCleanups: Map<string, () => void>;
+  /**
+   * Element the dropdown popover is currently anchored to (mode: 'dropdown').
+   * Tracked so dismissal logic can ignore clicks on the anchor and the
+   * `anchor-name` it set can be cleared on close. `null` when no dropdown is open.
+   */
+  dropdownAnchorEl?: HTMLElement | null;
+  /**
+   * Unique `anchor-name` assigned to the current dropdown's trigger (and
+   * mirrored as `position-anchor` on the popover). Minted per show so multiple
+   * grids on one page never collide on a shared anchor name — a collision would
+   * position one grid's popover against another grid's trigger. `null` when no
+   * dropdown is open.
+   */
+  dropdownAnchorName?: string | null;
 }
 
 /**
@@ -138,6 +152,8 @@ export function createShellState(): ShellState {
     panelCleanups: new Map(),
     toolbarContentCleanups: new Map(),
     lightDomContentMoved: false,
+    dropdownAnchorEl: null,
+    dropdownAnchorName: null,
   };
 }
 // #endregion
@@ -327,7 +343,7 @@ export function renderShellBody(
 
   const panelHtml = hasPanel
     ? `
-    <aside class="tbw-tool-panel${isOpen ? ' open' : ''}" part="tool-panel" data-position="${position}" role="presentation" id="tbw-tool-panel">
+    <aside class="tbw-tool-panel${isOpen ? ' open' : ''}" part="tool-panel" data-position="${position}" role="presentation" id="tbw-tool-panel"${mode === 'dropdown' ? ' popover="manual"' : ''}>
       <div class="tbw-tool-panel-resize" data-resize-handle data-handle-position="${resizeHandlePosition}" aria-hidden="true"></div>
       <div class="tbw-tool-panel-content" role="presentation">
         <div class="tbw-accordion">
@@ -677,6 +693,18 @@ export function setupShellEventListeners(
 }
 
 /**
+ * Whether `node` belongs to `gridElement` — directly (light DOM) or via the
+ * grid's shadow root (the node's root-node host is the grid). Used to scope
+ * click-outside checks so one grid's listener never treats another grid's
+ * toggle or panel as "inside" itself.
+ */
+function isInGrid(node: Node, gridElement: Element): boolean {
+  if (gridElement.contains(node)) return true;
+  const root = node.getRootNode();
+  return root instanceof ShadowRoot && root.host === gridElement;
+}
+
+/**
  * Set up a click-outside listener that closes the tool panel when the user
  * clicks anywhere in the document outside the tool panel itself.
  *
@@ -690,19 +718,24 @@ export function setupShellEventListeners(
  * @returns A cleanup function that removes the listener.
  */
 export function setupClickOutsideDismiss(
-  _gridElement: Element,
+  gridElement: Element,
   config: ShellConfig | undefined,
   state: ShellState,
   onClose: () => void,
 ): () => void {
-  if (!config?.toolPanel?.closeOnClickOutside) {
+  const mode = config?.toolPanel?.mode;
+
+  // Dropdown popovers always light-dismiss on outside click (standard dropdown
+  // behavior), regardless of the `closeOnClickOutside` flag. Other modes only
+  // dismiss when the consumer opts in.
+  if (mode !== 'dropdown' && !config?.toolPanel?.closeOnClickOutside) {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     return () => {};
   }
 
   // In push mode the panel does not overlap grid content, so there is
   // no meaningful "outside" to click against. Treat the option as a no-op.
-  if (config.toolPanel.mode === 'push') {
+  if (mode === 'push') {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     return () => {};
   }
@@ -710,13 +743,24 @@ export function setupClickOutsideDismiss(
   const handler = (e: Event) => {
     if (!state.isPanelOpen) return;
 
-    // Ignore clicks inside the tool panel itself or on the toggle button.
+    // Ignore clicks inside the tool panel itself, on the toggle button, or on
+    // the dropdown's resolved anchor element (so a consumer's BYO trigger can
+    // toggle without the outside-click handler racing the button's own click).
     // composedPath() pierces shadow boundaries so this works for both the
     // light-DOM toggle and the shadow-DOM panel.
+    //
+    // CRITICAL: the panel/toggle match MUST be scoped to THIS grid via
+    // `isInGrid`. With multiple grids on one page, a click on another grid's
+    // toggle/panel is an "outside" click for us and must still dismiss \u2014
+    // otherwise opening a dropdown in grid B leaves grid A's dropdown stuck
+    // open (#375 follow-up).
+    const anchorEl = state.dropdownAnchorEl;
     for (const node of e.composedPath()) {
+      if (anchorEl != null && node === anchorEl) return;
       if (
         node instanceof Element &&
-        (node.classList?.contains('tbw-tool-panel') || node.matches?.('[data-panel-toggle]'))
+        (node.classList?.contains('tbw-tool-panel') || node.matches?.('[data-panel-toggle]')) &&
+        isInGrid(node, gridElement)
       ) {
         return;
       }
@@ -998,6 +1042,125 @@ export function updatePanelState(renderRoot: Element, state: ShellState): void {
   if (!state.isPanelOpen) {
     panel.style.width = '';
   }
+}
+
+/** Base CSS anchor name used to feature-detect CSS anchor positioning support. */
+const DROPDOWN_ANCHOR_NAME = '--tbw-tool-panel-anchor';
+
+/**
+ * Monotonic counter for minting unique per-grid dropdown anchor names. A shared
+ * constant name collides when two grids on the same page each open a dropdown,
+ * pairing one grid's popover with the other grid's trigger (#375 follow-up).
+ */
+let dropdownAnchorSeq = 0;
+
+/** Whether the current environment supports CSS anchor positioning. */
+function supportsAnchorPositioning(): boolean {
+  return (
+    typeof CSS !== 'undefined' &&
+    typeof CSS.supports === 'function' &&
+    CSS.supports('anchor-name', DROPDOWN_ANCHOR_NAME)
+  );
+}
+
+/**
+ * Position the dropdown popover with fixed coordinates derived from the
+ * anchor's bounding rect. Used only when CSS anchor positioning is
+ * unsupported; otherwise placement is driven entirely by `shell.css`.
+ */
+function positionDropdownFallback(panel: HTMLElement, anchorEl: HTMLElement, corner: boolean): void {
+  const rect = anchorEl.getBoundingClientRect();
+  const position = panel.getAttribute('data-position') ?? 'right';
+  panel.style.position = 'fixed';
+  // `corner` anchors to the top of the grid (top corner); otherwise drop below
+  // the trigger button.
+  panel.style.top = `${Math.round((corner ? rect.top : rect.bottom) + 4)}px`;
+  if (position === 'left') {
+    panel.style.left = `${Math.round(rect.left)}px`;
+    panel.style.right = 'auto';
+  } else {
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
+    panel.style.left = 'auto';
+    panel.style.right = `${Math.round(viewportWidth - rect.right)}px`;
+  }
+}
+
+/**
+ * Show the tool panel as an anchored dropdown popover (`mode: 'dropdown'`).
+ *
+ * Reuses the existing `.tbw-tool-panel` aside (the full accordion) and shows it
+ * in the top layer via the native Popover API. Placement is handled by CSS
+ * anchor positioning when supported, with a JS bounding-rect fallback otherwise.
+ *
+ * @param anchorEl - Element the popover anchors to.
+ * @param corner - When `true`, anchor to the top corner of `anchorEl` (grid
+ *   corner fallback); otherwise drop directly below it (toggle / custom button).
+ */
+export function showToolPanelDropdown(
+  renderRoot: Element,
+  state: ShellState,
+  anchorEl: HTMLElement,
+  corner: boolean,
+): void {
+  const panel = renderRoot.querySelector('.tbw-tool-panel') as (HTMLElement & { showPopover?: () => void }) | null;
+  if (!panel) return;
+
+  state.dropdownAnchorEl = anchorEl;
+  panel.dataset.anchor = corner ? 'corner' : 'below';
+
+  // Show in the top layer. Guard for environments (older browsers / test DOM)
+  // without the native Popover API.
+  if (panel.hasAttribute('popover') && typeof panel.showPopover === 'function') {
+    try {
+      panel.showPopover();
+    } catch {
+      // Already open or not connected — ignore.
+    }
+  }
+
+  if (supportsAnchorPositioning()) {
+    // CSS drives placement; just wire up the anchor-name pairing. Mint a unique
+    // name per show so multiple grids (or repeated opens) on one page never
+    // collide on a shared anchor name — a collision positions this popover
+    // against another grid's trigger instead of its own.
+    const anchorName = `${DROPDOWN_ANCHOR_NAME}-${++dropdownAnchorSeq}`;
+    state.dropdownAnchorName = anchorName;
+    anchorEl.style.setProperty('anchor-name', anchorName);
+    panel.style.setProperty('position-anchor', anchorName);
+    panel.style.removeProperty('top');
+    panel.style.removeProperty('left');
+    panel.style.removeProperty('right');
+  } else {
+    positionDropdownFallback(panel, anchorEl, corner);
+  }
+}
+
+/**
+ * Hide the dropdown popover and clear all anchor wiring set by
+ * {@link showToolPanelDropdown}.
+ */
+export function hideToolPanelDropdown(renderRoot: Element, state: ShellState): void {
+  const panel = renderRoot.querySelector('.tbw-tool-panel') as (HTMLElement & { hidePopover?: () => void }) | null;
+  if (panel) {
+    if (panel.hasAttribute('popover') && typeof panel.hidePopover === 'function') {
+      try {
+        panel.hidePopover();
+      } catch {
+        // Not currently open — ignore.
+      }
+    }
+    panel.style.removeProperty('position-anchor');
+    panel.style.removeProperty('position');
+    panel.style.removeProperty('top');
+    panel.style.removeProperty('left');
+    panel.style.removeProperty('right');
+    delete panel.dataset.anchor;
+  }
+  if (state.dropdownAnchorEl) {
+    state.dropdownAnchorEl.style.removeProperty('anchor-name');
+    state.dropdownAnchorEl = null;
+  }
+  state.dropdownAnchorName = null;
 }
 
 /**

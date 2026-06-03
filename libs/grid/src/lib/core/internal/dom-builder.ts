@@ -303,8 +303,9 @@ export interface ShellBodyOptions {
    * Layout mode for the tool panel.
    * - `'overlay'` (default): panel is absolutely positioned over the grid.
    * - `'push'`: panel participates in flex layout, shrinking the grid sibling.
+   * - `'dropdown'`: panel is a native popover anchored near a trigger element.
    */
-  mode?: 'overlay' | 'push';
+  mode?: 'overlay' | 'push' | 'dropdown';
   isPanelOpen: boolean;
   expandIcon?: string;
   collapseIcon?: string;
@@ -345,6 +346,9 @@ export function buildShellBody(options: ShellBodyOptions): HTMLDivElement {
       'data-position': options.position,
       role: 'presentation',
       id: 'tbw-tool-panel',
+      // In dropdown mode the panel is a manually-controlled native popover
+      // (shown/hidden via showPopover()/hidePopover() from the controller).
+      ...(mode === 'dropdown' ? { popover: 'manual' } : {}),
     });
 
     // Resize handle

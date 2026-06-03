@@ -8,12 +8,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   cleanupShellState,
   createShellState,
+  hideToolPanelDropdown,
   renderShellBody,
   renderShellHeader,
   setupClickOutsideDismiss,
   setupEscapeDismiss,
   shouldRenderHeaderBar,
   shouldRenderShellHeader,
+  showToolPanelDropdown,
   type ShellState,
 } from './shell';
 import type { HeaderContentDefinition, ShellConfig, ToolPanelDefinition } from './types';
@@ -501,6 +503,40 @@ describe('shell module', () => {
       const config: ShellConfig = { toolPanel: { mode: 'push' } };
       const html = renderShellBody(config, state, gridContentHtml);
       expect(html).toContain('data-mode="push"');
+    });
+
+    it('emits data-mode="dropdown" and a manual popover attribute when configured', () => {
+      const config: ShellConfig = { toolPanel: { mode: 'dropdown' } };
+      const panel: ToolPanelDefinition = {
+        id: 'columns',
+        title: 'Columns',
+        render: () => {
+          /* noop */
+        },
+      };
+      state.toolPanels.set('columns', panel);
+
+      const html = renderShellBody(config, state, gridContentHtml);
+
+      expect(html).toContain('data-mode="dropdown"');
+      expect(html).toContain('popover="manual"');
+    });
+
+    it('does not set a popover attribute in overlay or push modes', () => {
+      const panel: ToolPanelDefinition = {
+        id: 'columns',
+        title: 'Columns',
+        render: () => {
+          /* noop */
+        },
+      };
+      state.toolPanels.set('columns', panel);
+
+      const overlay = renderShellBody(undefined, state, gridContentHtml);
+      const push = renderShellBody({ toolPanel: { mode: 'push' } }, state, gridContentHtml);
+
+      expect(overlay).not.toContain('popover=');
+      expect(push).not.toContain('popover=');
     });
 
     it('renders ARIA attributes for accordion sections', () => {
@@ -1026,6 +1062,144 @@ describe('shell module', () => {
 
       cleanup();
     });
+
+    it('always light-dismisses in dropdown mode even without closeOnClickOutside', () => {
+      const config: ShellConfig = { toolPanel: { mode: 'dropdown' } };
+      state.isPanelOpen = true;
+
+      const cleanup = setupClickOutsideDismiss(gridEl, config, state, onClose);
+
+      gridEl.querySelector('.grid-body')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+
+      cleanup();
+    });
+
+    it('ignores clicks on the resolved dropdown anchor element', () => {
+      const config: ShellConfig = { toolPanel: { mode: 'dropdown' } };
+      state.isPanelOpen = true;
+      const anchor = document.createElement('button');
+      gridEl.appendChild(anchor);
+      state.dropdownAnchorEl = anchor;
+
+      const cleanup = setupClickOutsideDismiss(gridEl, config, state, onClose);
+
+      anchor.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(onClose).not.toHaveBeenCalled();
+
+      cleanup();
+      state.dropdownAnchorEl = null;
+    });
+
+    it('closes when clicking ANOTHER grid\u2019s toggle/panel (multi-grid scoping)', () => {
+      // A second, independent grid on the same page with its own toggle + panel.
+      const otherGrid = document.createElement('div');
+      const otherPanel = document.createElement('div');
+      otherPanel.className = 'tbw-tool-panel';
+      otherGrid.appendChild(otherPanel);
+      const otherToggle = document.createElement('button');
+      otherToggle.setAttribute('data-panel-toggle', '');
+      otherGrid.appendChild(otherToggle);
+      document.body.appendChild(otherGrid);
+
+      const config: ShellConfig = { toolPanel: { mode: 'dropdown' } };
+      state.isPanelOpen = true;
+
+      const cleanup = setupClickOutsideDismiss(gridEl, config, state, onClose);
+
+      // Clicking the OTHER grid's toggle is an outside click for us — must
+      // dismiss even though the node matches the generic [data-panel-toggle]
+      // selector (regression: #375 left grid A stuck open when grid B opened).
+      otherToggle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+
+      // Clicking the OTHER grid's panel must likewise dismiss us.
+      otherPanel.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(onClose).toHaveBeenCalledTimes(2);
+
+      cleanup();
+    });
+  });
+
+  describe('dropdown popover helpers', () => {
+    let renderRoot: HTMLElement;
+    let panel: HTMLElement;
+    let anchor: HTMLElement;
+
+    beforeEach(() => {
+      renderRoot = document.createElement('div');
+      panel = document.createElement('aside');
+      panel.className = 'tbw-tool-panel';
+      panel.setAttribute('data-position', 'right');
+      panel.setAttribute('popover', 'manual');
+      renderRoot.appendChild(panel);
+      anchor = document.createElement('button');
+      renderRoot.appendChild(anchor);
+      document.body.appendChild(renderRoot);
+    });
+
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('tracks the anchor and tags the placement on show', () => {
+      showToolPanelDropdown(renderRoot, state, anchor, false);
+
+      expect(state.dropdownAnchorEl).toBe(anchor);
+      expect(panel.dataset.anchor).toBe('below');
+    });
+
+    it('tags corner placement when anchored to the grid corner', () => {
+      showToolPanelDropdown(renderRoot, state, anchor, true);
+
+      expect(panel.dataset.anchor).toBe('corner');
+    });
+
+    it('clears anchor wiring on hide', () => {
+      showToolPanelDropdown(renderRoot, state, anchor, false);
+      hideToolPanelDropdown(renderRoot, state);
+
+      expect(state.dropdownAnchorEl).toBeNull();
+      expect(panel.dataset.anchor).toBeUndefined();
+      expect(anchor.style.getPropertyValue('anchor-name')).toBe('');
+    });
+
+    it('mints a UNIQUE anchor-name per grid so two open dropdowns do not collide', () => {
+      // Force the anchor-positioning branch on regardless of the test DOM's
+      // CSS.supports() result, so the name-pairing logic is exercised.
+      const realSupports = CSS.supports;
+      CSS.supports = (() => true) as typeof CSS.supports;
+      try {
+        // First grid opens.
+        showToolPanelDropdown(renderRoot, state, anchor, false);
+        const name1 = anchor.style.getPropertyValue('anchor-name');
+        expect(name1).not.toBe('');
+        // The popover's position-anchor must reference the SAME name the
+        // trigger advertises, or CSS anchor resolution fails.
+        expect(panel.style.getPropertyValue('position-anchor')).toBe(name1);
+
+        // A second, independent grid opens its own dropdown.
+        const renderRoot2 = document.createElement('div');
+        const panel2 = document.createElement('aside');
+        panel2.className = 'tbw-tool-panel';
+        panel2.setAttribute('data-position', 'right');
+        panel2.setAttribute('popover', 'manual');
+        renderRoot2.appendChild(panel2);
+        const anchor2 = document.createElement('button');
+        renderRoot2.appendChild(anchor2);
+        document.body.appendChild(renderRoot2);
+        const state2 = createShellState();
+
+        showToolPanelDropdown(renderRoot2, state2, anchor2, false);
+        const name2 = anchor2.style.getPropertyValue('anchor-name');
+
+        // The two grids MUST use different anchor names (#375 follow-up).
+        expect(name2).not.toBe(name1);
+        expect(panel2.style.getPropertyValue('position-anchor')).toBe(name2);
+      } finally {
+        CSS.supports = realSupports;
+      }
+    });
   });
 
   describe('setupEscapeDismiss', () => {
@@ -1092,6 +1266,17 @@ describe('shell module', () => {
       const cleanup = setupEscapeDismiss(config, state, onClose);
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       expect(onClose).not.toHaveBeenCalled();
+
+      cleanup();
+    });
+
+    it('closes the dropdown popover on Escape', () => {
+      const config: ShellConfig = { toolPanel: { mode: 'dropdown' } };
+      state.isPanelOpen = true;
+
+      const cleanup = setupEscapeDismiss(config, state, onClose);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      expect(onClose).toHaveBeenCalledTimes(1);
 
       cleanup();
     });

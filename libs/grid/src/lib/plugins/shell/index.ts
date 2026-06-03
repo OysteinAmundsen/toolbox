@@ -9,6 +9,7 @@
 export { ShellPlugin } from './ShellPlugin';
 export type {
   HeaderContentDefinition,
+  OpenToolPanelOptions,
   ShellConfig,
   ShellHeaderConfig,
   ToolbarContentDefinition,

@@ -1069,6 +1069,72 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(grid.isToolPanelOpen).toBe(false);
   });
 
+  it('renders the tool panel as a popover in dropdown mode and anchors to the toggle', async () => {
+    grid = document.createElement('tbw-grid');
+    grid.registerToolPanel({
+      id: 'columns',
+      title: 'Columns',
+      icon: '☰',
+      render: () => {
+        /* noop */
+      },
+    });
+    grid.gridConfig = { shell: { toolPanel: { mode: 'dropdown' } } };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const body = grid.querySelector('.tbw-shell-body');
+    const panel = grid.querySelector('.tbw-tool-panel') as HTMLElement;
+    expect(body?.getAttribute('data-mode')).toBe('dropdown');
+    expect(panel?.getAttribute('popover')).toBe('manual');
+
+    const shell = grid.getPluginByName('shell')!;
+    shell.openToolPanel();
+    await nextFrame();
+    expect(grid.isToolPanelOpen).toBe(true);
+    // Anchored to the built-in toggle (drop below) when no explicit anchor given.
+    expect(panel?.dataset.anchor).toBe('below');
+    // `.open` is the CSS fallback that renders the popover when the Popover API
+    // is unavailable (no `:popover-open`); it MUST be toggled in dropdown mode.
+    expect(panel?.classList.contains('open')).toBe(true);
+
+    shell.closeToolPanel();
+    await nextFrame();
+    expect(grid.isToolPanelOpen).toBe(false);
+    expect(panel?.dataset.anchor).toBeUndefined();
+    expect(panel?.classList.contains('open')).toBe(false);
+  });
+
+  it('anchors the dropdown to an explicit anchor element when provided', async () => {
+    grid = document.createElement('tbw-grid');
+    grid.registerToolPanel({
+      id: 'columns',
+      title: 'Columns',
+      icon: '☰',
+      render: () => {
+        /* noop */
+      },
+    });
+    grid.gridConfig = { shell: { toolPanel: { mode: 'dropdown' } } };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const customAnchor = document.createElement('button');
+    document.body.appendChild(customAnchor);
+
+    const shell = grid.getPluginByName('shell')!;
+    shell.openToolPanel('columns', { anchor: customAnchor });
+    await nextFrame();
+
+    expect(grid.isToolPanelOpen).toBe(true);
+    const panel = grid.querySelector('.tbw-tool-panel') as HTMLElement;
+    expect(panel?.dataset.anchor).toBe('below');
+
+    customAnchor.remove();
+  });
+
   it('toggles tool panels', async () => {
     grid = document.createElement('tbw-grid');
     grid.rows = [{ id: 1 }];

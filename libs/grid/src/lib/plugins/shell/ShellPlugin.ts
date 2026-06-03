@@ -38,7 +38,13 @@ import {
 import { createShellController, type ShellController } from './shell-controller';
 import styles from './shell.css?inline';
 import './types';
-import type { HeaderContentDefinition, ShellConfig, ToolbarContentDefinition, ToolPanelDefinition } from './types';
+import type {
+  HeaderContentDefinition,
+  OpenToolPanelOptions,
+  ShellConfig,
+  ToolbarContentDefinition,
+  ToolPanelDefinition,
+} from './types';
 
 /**
  * Shell plugin for `<tbw-grid>`.
@@ -123,9 +129,11 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
   /**
    * Open the tool panel sidebar.
    * @param panelId - Optional section to expand on open (see {@link ShellController.openToolPanel}).
+   * @param options - Optional open options. In `mode: 'dropdown'`, `options.anchor`
+   *   sets the element the popover anchors to (see {@link OpenToolPanelOptions}).
    */
-  openToolPanel(panelId?: string): void {
-    this.shellController?.openToolPanel(panelId);
+  openToolPanel(panelId?: string, options?: OpenToolPanelOptions): void {
+    this.shellController?.openToolPanel(panelId, options);
   }
 
   /** Close the tool panel sidebar. */
@@ -133,9 +141,13 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
     this.shellController?.closeToolPanel();
   }
 
-  /** Toggle the tool panel sidebar open or closed. */
-  toggleToolPanel(): void {
-    this.shellController?.toggleToolPanel();
+  /**
+   * Toggle the tool panel sidebar open or closed.
+   * @param options - Optional open options forwarded when opening (e.g. `anchor`
+   *   for dropdown mode; see {@link OpenToolPanelOptions}).
+   */
+  toggleToolPanel(options?: OpenToolPanelOptions): void {
+    this.shellController?.toggleToolPanel(options);
   }
 
   /** Toggle an accordion section expanded or collapsed within the tool panel. */

@@ -271,14 +271,14 @@ function setupShellHarness(): ShellHarness {
     unregisterToolbarContent: vi.fn(),
   };
 
-  const grid = {
+  const grid: Partial<DataGridElement> = {
     ready: vi.fn().mockResolvedValue(undefined),
     getPluginByName: vi.fn((name: string) => (name === 'shell' ? shell : undefined)),
     ...gridDelegates,
-  } as unknown as DataGridElement;
+  };
 
   const gridRef: RefObject<DataGridElement | null> = createRef<DataGridElement | null>();
-  (gridRef as { current: DataGridElement | null }).current = grid;
+  (gridRef as { current: DataGridElement | null }).current = grid as DataGridElement;
   const root = createRoot(container);
   return { gridRef, root, shell, gridDelegates };
 }

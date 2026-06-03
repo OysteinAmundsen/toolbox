@@ -349,12 +349,12 @@ function makeShellGrid(): { grid: DataGridElement; shell: ShellApi; delegates: S
     registerToolbarContent: vi.fn(),
     unregisterToolbarContent: vi.fn(),
   };
-  const grid = {
+  const grid: Partial<DataGridElement> = {
     ready: vi.fn().mockResolvedValue(undefined),
     getPluginByName: vi.fn((name: string) => (name === 'shell' ? shell : undefined)),
     ...delegates,
-  } as unknown as DataGridElement;
-  return { grid, shell, delegates };
+  };
+  return { grid: grid as DataGridElement, shell, delegates };
 }
 
 async function mountShellGrid(component: ReturnType<typeof defineComponent>, grid: DataGridElement): Promise<App> {

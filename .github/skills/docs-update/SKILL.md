@@ -1,6 +1,6 @@
 ---
 name: docs-update
-description: Keep documentation up-to-date after code changes. Covers which docs to check, how to write them, and how to regenerate API docs. Use after any feature, fix, or refactor.
+description: Keep documentation up-to-date after code changes. Covers which prose/MDX and API-reference docs to check, how to write them, and how to regenerate typedoc API docs. Use after any feature, fix, or refactor. (For building a new interactive demo component, use the astro-demo skill instead.)
 argument-hint: optional what-changed description
 ---
 

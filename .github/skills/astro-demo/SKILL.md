@@ -1,6 +1,6 @@
 ---
 name: astro-demo
-description: Create Astro demo components and MDX docs for a grid feature or plugin. Scaffolds .astro demo files following project conventions.
+description: Create an interactive Astro demo component and its MDX docs page for a grid feature or plugin. Scaffolds .astro demo files following project conventions. Use when adding a live/interactive example; for updating existing prose or API-reference docs, use the docs-update skill instead.
 argument-hint: <feature-or-plugin-name>
 ---
 

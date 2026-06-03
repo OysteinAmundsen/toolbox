@@ -1,6 +1,6 @@
 ---
 name: new-plugin
-description: Create a new grid plugin for @toolbox-web/grid following the canonical plugin structure. Use when adding a new plugin with hooks, styles, tests, and documentation.
+description: Create a new grid plugin for @toolbox-web/grid following the canonical plugin structure. Use when adding a plugin or extending the grid with optional, toggleable behaviour (hooks, styles, tests, and documentation). Prefer a plugin over a core feature to keep the bundle lean.
 argument-hint: <plugin-name> [description]
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: test-coverage
-description: Analyze test coverage for a specific file or project in the toolbox-web monorepo and generate tests to improve coverage. Follows project test patterns (co-located specs, Vitest, happy-dom).
+description: Analyze test coverage for a specific file or project in the toolbox-web monorepo and write missing tests to improve coverage. Use when coverage is low, when a file or branch is untested/uncovered, or when adding tests for existing code. Follows project test patterns (co-located specs, Vitest, happy-dom).
 argument-hint: <file-or-project-path>
 ---
 

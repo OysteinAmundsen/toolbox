@@ -1,6 +1,6 @@
 ---
 name: pr-comments
-description: Read, reply to, and resolve review-comment threads on a GitHub pull request using the gh CLI. Use whenever you need to triage PR feedback (fetch all unresolved review threads as structured JSON, post inline replies on specific threads, and mark threads resolved) instead of hand-writing a one-off gh/GraphQL script each time.
+description: Read, reply to, and resolve review-comment threads on a GitHub pull request using the gh CLI. Use whenever you need to triage PR feedback (fetch all unresolved review threads as structured JSON, post inline replies on specific threads, and mark threads resolved) instead of hand-writing a one-off gh/GraphQL script each time. Prefer this over the generic address-pr-comments skill for bulk thread triage and programmatic gh/GraphQL access.
 ---
 
 # Reading and answering PR review comments

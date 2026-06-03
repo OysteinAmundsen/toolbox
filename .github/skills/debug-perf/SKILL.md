@@ -1,6 +1,6 @@
 ---
 name: debug-perf
-description: Investigate and resolve performance issues in @toolbox-web/grid. Covers profiling, hot path analysis, virtualization tuning, and render scheduler optimization.
+description: Investigate, optimize, and prevent performance regressions in @toolbox-web/grid. Use when something is slow, janky, or memory-leaking, when checking or guarding against a performance regression, when optimizing or improving a hot path, or when capturing/analyzing a performance trace. Covers Chrome DevTools MCP trace capture, the bundled trace analyzer, profiling, hot-path analysis, virtualization tuning, and render-scheduler optimization. (For micro-benchmark regression gating with .bench.ts, see the `bench` skill.)
 argument-hint: <symptom-description>
 ---
 
@@ -34,28 +34,56 @@ The Chrome DevTools MCP server (pre-configured in `.vscode/mcp.json`) provides p
    bun nx serve demo-angular   # Angular demo on port 4200
    ```
 
-2. **Navigate** to the page with the performance issue:
+2. **Navigate** to the page with the performance issue **before** starting the trace:
 
    ```
    navigate_page → url: http://localhost:4200/
    ```
 
-3. **Start a performance trace:**
+3. **Start a performance trace.** Pick the mode based on what you're measuring:
+   - **Page-load trace** (LCP/CLS/TTFB on a fresh load) — use the defaults, which reload the
+     page and auto-stop once it settles:
+
+     ```
+     performance_start_trace → reload: true, autoStop: true
+     ```
+
+   - **Interaction trace** (scroll/sort/filter/edit on an already-loaded grid — the common
+     grid case) — you MUST disable reload and auto-stop, otherwise the trace reloads the page
+     and stops before you can reproduce the interaction:
+
+     ```
+     performance_start_trace → reload: false, autoStop: false
+     ```
+
+4. **Reproduce the issue** — use `click`, `press_key`, `fill`, `evaluate_script` to interact
+   with the page. (Only relevant for interaction traces; an `autoStop` page-load trace has
+   already finished by now.)
+
+5. **Stop the trace, save the raw data, and analyze:**
 
    ```
-   performance_start_trace
+   performance_stop_trace → filePath: <abs-path>/trace.json
+   performance_analyze_insight → insightSetId: <id>, insightName: <e.g. LCPBreakdown>
    ```
 
-4. **Reproduce the issue** — use `click`, `press_key`, `fill`, `evaluate_script` to interact with the page.
+   - `performance_stop_trace` returns a structured summary (LCP, CLS, TTFB, render delay,
+     forced reflows, DOM size, render-blocking resources) **and** a list of available insight
+     sets/ids. `performance_start_trace` also accepts `filePath` if you want the page-load
+     trace saved at start.
+   - `performance_analyze_insight` drills into one highlighted insight (e.g. `DocumentLatency`,
+     `LCPBreakdown`, `ForcedReflow`) using an `insightSetId` from the stop-trace output.
+   - Because `filePath` writes the **raw** trace JSON, you can feed it straight into this
+     skill's bundled analyzer for grid-specific long-task / layout-thrash / scroll breakdown
+     (see "Playwright Trace Capture" below — same analyzer, same file format):
 
-5. **Stop the trace and analyze:**
+     ```bash
+     node .github/skills/debug-perf/analyze-trace.mjs trace.json
+     ```
 
-   ```
-   performance_stop_trace
-   performance_analyze_insight
-   ```
-
-   The MCP server returns structured results including LCP, CLS, TTFB, render delay, forced reflows, DOM size analysis, and render-blocking resources.
+   This is the full **start → act → stop → download → analyze** loop: capture with the MCP,
+   read the high-level insights inline, then run `analyze-trace.mjs` on the saved file for the
+   detailed hot-path report.
 
 6. **Targeted measurement via script evaluation** — for measuring specific code paths:
 

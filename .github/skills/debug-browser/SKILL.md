@@ -1,6 +1,6 @@
 ---
 name: debug-browser
-description: Debug components in a live browser using the Chrome DevTools MCP server. Covers launching dev servers, navigating to pages/stories, DOM inspection, console monitoring, network analysis, screenshots, and script evaluation.
+description: Debug or reproduce a component issue in a live browser using the Chrome DevTools MCP server. Use to get a live repro, inspect the DOM, watch console errors, analyze network requests, take screenshots, or evaluate scripts against a running grid. Covers launching dev servers and navigating to pages/stories. (For performance traces and hot-path profiling, use the debug-perf skill.)
 argument-hint: <issue-description>
 ---
 

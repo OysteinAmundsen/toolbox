@@ -143,6 +143,7 @@ Import from `@toolbox-web/grid-react/features/<name>`:
 | `master-detail`         | `masterDetail`         | `masterDetail` (use with `<GridDetailPanel>`)                        |
 | `pivot`                 | `pivot`                | `pivot={{ rowFields: [...], columnFields: [...] }}`                  |
 | `server-side`           | `serverSide`           | `serverSide={{ ... }}` (server-side data)                            |
+| `shell`                 | `gridConfig.shell`     | header bar + tool panels (config-driven; opt-in for v3)              |
 
 ### Import All Features
 

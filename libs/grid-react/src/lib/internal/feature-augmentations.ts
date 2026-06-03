@@ -34,6 +34,7 @@ export type { _Augmentation as _ResponsiveAugmentation } from '@toolbox-web/grid
 export type { _Augmentation as _RowDragDropAugmentation } from '@toolbox-web/grid/features/row-drag-drop';
 export type { _Augmentation as _SelectionAugmentation } from '@toolbox-web/grid/features/selection';
 export type { _Augmentation as _ServerSideAugmentation } from '@toolbox-web/grid/features/server-side';
+export type { _Augmentation as _ShellAugmentation } from '@toolbox-web/grid/features/shell';
 export type { _Augmentation as _StickyRowsAugmentation } from '@toolbox-web/grid/features/sticky-rows';
 export type { _Augmentation as _TooltipAugmentation } from '@toolbox-web/grid/features/tooltip';
 export type { _Augmentation as _TreeAugmentation } from '@toolbox-web/grid/features/tree';

@@ -48,6 +48,7 @@ import './responsive';
 import './row-drag-drop';
 import './selection';
 import './server-side';
+import './shell';
 import './sticky-rows';
 import './tooltip';
 import './tree';

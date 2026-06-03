@@ -124,12 +124,14 @@ for (const key of BUILTIN_FEATURE_PROP_KEYS) {
  * forces both a `FeatureProps` field AND a `BUILTIN_FEATURE_PROP_KEYS`
  * entry, otherwise the build fails.
  *
- * Known pre-existing gap (intentional, tracked for v3): `stickyRows` is
+ * Known pre-existing gaps (intentional, tracked for v3): `stickyRows` is
  * declared on `FeatureProps` but missing from BUILTIN — see the Phase 4
- * DECIDED entry in `.github/knowledge/adapters.md`. Listed in the
- * allowlist below until the gap is closed.
+ * DECIDED entry in `.github/knowledge/adapters.md`. `shell` is config-driven
+ * (enabled via `gridConfig.features.shell` or the shell-content wrappers, not
+ * a boolean prop), so it is typed on `FeatureProps` for documentation but is
+ * intentionally not runtime-extracted. Both are listed in the allowlist below.
  */
-type _KnownBuiltinGaps = 'stickyRows';
+type _KnownBuiltinGaps = 'stickyRows' | 'shell';
 type _MissingFromBuiltin = Exclude<
   keyof FeatureConfig,
   (typeof BUILTIN_FEATURE_PROP_KEYS)[number] | '__brand' | _KnownBuiltinGaps

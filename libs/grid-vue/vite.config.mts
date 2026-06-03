@@ -85,6 +85,7 @@ export default defineConfig(() => ({
         'features/row-drag-drop': 'src/features/row-drag-drop.ts',
         'features/selection': 'src/features/selection.ts',
         'features/server-side': 'src/features/server-side.ts',
+        'features/shell': 'src/features/shell.ts',
         'features/sticky-rows': 'src/features/sticky-rows.ts',
         'features/tooltip': 'src/features/tooltip.ts',
         'features/tree': 'src/features/tree.ts',

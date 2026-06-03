@@ -54,6 +54,7 @@ import type {
 } from '@toolbox-web/grid/plugins/grouping-columns';
 import type { GroupRowRenderParams } from '@toolbox-web/grid/plugins/grouping-rows';
 import type { AggregationSlot, PanelZone, PinnedRowsContext } from '@toolbox-web/grid/plugins/pinned-rows';
+import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
 import type { VNode } from 'vue';
 
 // Naming policy: each adapter-widened config is exported under the SAME
@@ -669,6 +670,18 @@ export interface FeatureProps<TRow = unknown> {
    * ```
    */
   tooltip?: boolean | TooltipConfig;
+
+  /**
+   * Enable the grid shell (header bar + collapsible tool panels).
+   *
+   * Config-driven: set shape via `gridConfig.features.shell` or use the
+   * `<TbwGridHeaderContent>` / `<TbwGridToolbarContent>` / `<TbwGridToolPanel>`
+   * wrappers. The shell also auto-registers in v2.x; this opt-in import makes
+   * it explicit and tree-shakeable for v3.
+   *
+   * @requires `import '@toolbox-web/grid-vue/features/shell';`
+   */
+  shell?: boolean | ShellConfig;
 }
 
 /**

@@ -57,7 +57,8 @@ grid.gridConfig = {
 import '@toolbox-web/grid-react/features/visibility';
 import { DataGrid } from '@toolbox-web/grid-react';
 
-// Adapters auto-register the shell in v2.x — no shell import needed.
+// Shell auto-registers in v2.x. For v3, opt in explicitly:
+// import '@toolbox-web/grid-react/features/shell';
 const config = { shell: { header: { title: 'Employee Data' } } };
 
 function MyGrid({ data }) {
@@ -71,7 +72,8 @@ function MyGrid({ data }) {
 import '@toolbox-web/grid-vue/features/visibility';
 import { TbwGrid } from '@toolbox-web/grid-vue';
 
-// Adapters auto-register the shell in v2.x — no shell import needed.
+// Shell auto-registers in v2.x. For v3, opt in explicitly:
+// import '@toolbox-web/grid-vue/features/shell';
 const config = { shell: { header: { title: 'Employee Data' } } };
 </script>
 
@@ -83,6 +85,7 @@ const config = { shell: { header: { title: 'Employee Data' } } };
   <TabItem label="Angular">
 ```typescript
 // Enables the [visibility] input; the shell auto-registers in v2.x.
+// For v3, opt in explicitly: import '@toolbox-web/grid-angular/features/shell';
 import { GridVisibilityDirective } from '@toolbox-web/grid-angular/features/visibility';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
@@ -201,9 +204,11 @@ import { TbwGrid, TbwGridToolPanel } from '@toolbox-web/grid-vue';
 :::tip[Adapters auto-register the shell (v2.x)]
 While **v2.x** is current, the React, Vue, and Angular wrappers register the `ShellPlugin`
 automatically when you use a shell wrapper component (`GridToolPanel`, `GridToolButtons`, …) or
-pass `features.shell`, so adapter users do not need the `import '@toolbox-web/grid/features/shell'`
-line. This auto-registration is a v2.x convenience and is removed at **v3.0.0**, where the shell
-becomes opt-in.
+pass `features.shell`, so adapter users do not need an explicit shell import. This
+auto-registration is a v2.x convenience and is removed at **v3.0.0**, where the shell becomes
+opt-in. Each adapter ships a side-effect feature import for the explicit opt-in:
+`import '@toolbox-web/grid-react/features/shell'` (and the matching
+`grid-vue` / `grid-angular` subpaths). Adding it now is forward-compatible and tree-shakeable.
 :::
 
 <ShowSource file="demos/ShellMultiPanelsDemo.astro">
@@ -461,7 +466,9 @@ Notes:
 - For advanced/explicit control you can register the plugin directly:
   `plugins: [new ShellPlugin(shellConfig)]` (from `@toolbox-web/grid/plugins/shell`).
 - **Adapters auto-register** the `ShellPlugin` in **v2.x**, so React/Vue/Angular users need no
-  change; this auto-registration is removed at **v3.0.0** (opt-in).
+  change; this auto-registration is removed at **v3.0.0** (opt-in). The forward-compatible opt-in
+  is the adapter-specific side-effect import
+  `import '@toolbox-web/grid-{react,vue,angular}/features/shell'`.
 - From **v3.0.0** the shell is opt-in: shell usage without the feature/plugin throws a clear
   error with a migration link.
 

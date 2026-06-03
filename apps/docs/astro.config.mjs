@@ -3,6 +3,7 @@ import mermaid from 'astro-mermaid';
 import { defineConfig } from 'astro/config';
 import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join, resolve } from 'path';
+import remarkGfm from 'remark-gfm';
 
 const rootDir = resolve(import.meta.dirname, '../..');
 const pagefindDir = resolve(import.meta.dirname, 'dist/pagefind');
@@ -85,6 +86,15 @@ export default defineConfig({
   site: 'https://toolboxjs.com',
   trailingSlash: 'always',
 
+  // Astro 6 + @astrojs/mdx 5 no longer auto-injects remark-gfm into the MDX
+  // pipeline once another integration (astro-mermaid) populates
+  // markdown.remarkPlugins via the legacy API, so GFM tables in .mdx files
+  // render as raw pipe text. Re-add remark-gfm explicitly so .mdx regains
+  // table/strikethrough/autolink support (.md files are unaffected).
+  markdown: {
+    remarkPlugins: [remarkGfm],
+  },
+
   redirects: {
     // custom-plugins.mdx moved from guides/ to plugin-development/ so it lives
     // alongside the conceptual architecture page and the typedoc API reference.
@@ -116,10 +126,7 @@ export default defineConfig({
           rootDir,
           'demos/vanilla/src/demos/employee-management/grid-factory.ts',
         ),
-        '@demo/vanilla/calendar': resolve(
-          rootDir,
-          'demos/vanilla/src/demos/calendar/grid-factory.ts',
-        ),
+        '@demo/vanilla/calendar': resolve(rootDir, 'demos/vanilla/src/demos/calendar/grid-factory.ts'),
         '@components': resolve(import.meta.dirname, 'src/components'),
       },
     },
@@ -177,12 +184,12 @@ export default defineConfig({
             { label: 'Demos', slug: 'grid/demos' },
             {
               label: 'Guides',
-              autogenerate: { directory: 'grid/guides' },
+              items: [{ autogenerate: { directory: 'grid/guides' } }],
             },
             {
               label: 'Plugins',
-              autogenerate: { directory: 'grid/plugins', collapsed: true },
               collapsed: true,
+              items: [{ autogenerate: { directory: 'grid/plugins', collapsed: true } }],
             },
             {
               label: 'API Docs',
@@ -199,8 +206,8 @@ export default defineConfig({
                     { slug: 'grid/plugin-development/custom-plugins' },
                     {
                       label: 'API Reference',
-                      autogenerate: { directory: 'grid/api/plugin-development' },
                       collapsed: true,
+                      items: [{ autogenerate: { directory: 'grid/api/plugin-development' } }],
                     },
                   ],
                 },
@@ -212,15 +219,15 @@ export default defineConfig({
                     { slug: 'grid/framework-adapters/architecture' },
                     {
                       label: 'API Reference',
-                      autogenerate: { directory: 'grid/api/framework-adapters' },
                       collapsed: true,
+                      items: [{ autogenerate: { directory: 'grid/api/framework-adapters' } }],
                     },
                   ],
                 },
                 {
                   label: 'Core API',
-                  autogenerate: { directory: 'grid/api/core' },
                   collapsed: true,
+                  items: [{ autogenerate: { directory: 'grid/api/core' } }],
                 },
               ],
             },
@@ -235,8 +242,8 @@ export default defineConfig({
                 { label: 'Changelog', slug: 'grid/angular/changelog' },
                 {
                   label: 'API Reference',
-                  autogenerate: { directory: 'grid/angular/api' },
                   collapsed: true,
+                  items: [{ autogenerate: { directory: 'grid/angular/api' } }],
                 },
               ],
             },
@@ -248,8 +255,8 @@ export default defineConfig({
                 { label: 'Changelog', slug: 'grid/react/changelog' },
                 {
                   label: 'API Reference',
-                  autogenerate: { directory: 'grid/react/api' },
                   collapsed: true,
+                  items: [{ autogenerate: { directory: 'grid/react/api' } }],
                 },
               ],
             },
@@ -261,8 +268,8 @@ export default defineConfig({
                 { label: 'Changelog', slug: 'grid/vue/changelog' },
                 {
                   label: 'API Reference',
-                  autogenerate: { directory: 'grid/vue/api' },
                   collapsed: true,
+                  items: [{ autogenerate: { directory: 'grid/vue/api' } }],
                 },
               ],
             },

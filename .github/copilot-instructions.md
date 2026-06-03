@@ -144,6 +144,21 @@ Constraints fall into three categories. Read the category summary first; the bul
 
 Grid-specific gotchas (DOM, rendering, plugin system) are in `grid-pitfalls.instructions.md` (auto-applied when editing grid files). **Check pitfalls first when something fails unexpectedly.**
 
+## Dev Server Ports (canonical)
+
+Single source of truth — skills should reference this table rather than hardcoding ports.
+
+| Port | App                         | Serve command               |
+| ---- | --------------------------- | --------------------------- |
+| 4000 | vanilla demo                | `bun nx serve demo-vanilla` |
+| 4100 | vue demo                    | `bun nx serve demo-vue`     |
+| 4200 | angular demo                | `bun nx serve demo-angular` |
+| 4300 | react demo                  | `bun nx serve demo-react`   |
+| 4400 | docs site (Astro/Starlight) | `bun nx serve docs`         |
+| 4450 | docs-e2e                    | (Playwright-managed)        |
+
+Next free port for a new adapter demo: **4500**.
+
 ## External Dependencies
 
 Nx v22.4.x · Vite v7.3.x · Vitest v4.x · Bun · Astro v5.18.x · Starlight v0.37.x · happy-dom · Prettier v3.8.x

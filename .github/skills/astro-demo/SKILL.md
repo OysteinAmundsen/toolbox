@@ -226,7 +226,7 @@ container.addEventListener('control-change', ((e: CustomEvent) => {
 5. **Use `@components/` alias**: Import shared components from `@components/` (e.g., `import DemoControls from '@components/DemoControls.astro'`)
 6. **ShowSource wrapper**: Always wrap demos in `<ShowSource component="path">` to provide a "View Source" button
 7. **Import `@toolbox-web/grid` not `../../index`**: Demos import from the package path, not relative source paths
-8. **Docs site runs on port 4401**: `bun nx serve docs`
+8. **Docs site runs on port 4400**: `bun nx serve docs`
 
 ## Naming Conventions
 
@@ -298,7 +298,7 @@ bun nx build docs
 
 # Start dev server to visually verify
 bun nx serve docs
-# Navigate to http://localhost:4401/grid/plugins/<plugin-name>/
+# Navigate to http://localhost:4400/grid/plugins/<plugin-name>/
 
 # Run e2e tests for the demo
 bun nx e2e docs-e2e

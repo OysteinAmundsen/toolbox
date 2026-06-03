@@ -254,7 +254,7 @@ Build the docs site to verify the new plugin page renders correctly:
 bun nx build docs
 ```
 
-Navigate to `http://localhost:4401/grid/plugins/<plugin-name>/` after running `bun nx serve docs`.
+Navigate to `http://localhost:4400/grid/plugins/<plugin-name>/` after running `bun nx serve docs`.
 
 ---
 

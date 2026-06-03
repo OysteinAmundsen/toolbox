@@ -119,8 +119,8 @@ import '@toolbox-web/grid-{framework}/features/selection';
 // The 'selection' prop now works on the wrapper component
 ```
 
-**There are 24 feature modules** to implement (matching React/Vue):
-`clipboard`, `column-virtualization`, `context-menu`, `editing`, `export`, `filtering`, `grouping-columns`, `grouping-rows`, `master-detail`, `multi-sort`, `pinned-columns`, `pinned-rows`, `pivot`, `print`, `reorder`, `responsive`, `row-reorder`, `selection`, `server-side`, `sorting`, `tree`, `undo-redo`, `visibility`, plus a barrel `index.ts` that re-exports all.
+**There are 26 feature modules** to implement (matching React/Vue — run `ls libs/grid-react/src/features/*.ts | grep -v spec | grep -v index` to confirm the current set):
+`clipboard`, `column-virtualization`, `context-menu`, `editing`, `export`, `filtering`, `grouping-columns`, `grouping-rows`, `master-detail`, `multi-sort`, `pinned-columns`, `pinned-rows`, `pivot`, `print`, `reorder-columns`, `reorder-rows`, `responsive`, `row-drag-drop`, `selection`, `server-side`, `shell`, `sticky-rows`, `tooltip`, `tree`, `undo-redo`, `visibility`, plus a barrel `index.ts` that re-exports all.
 
 ## Step 1: Scaffold the Library
 
@@ -142,7 +142,7 @@ libs/grid-{framework}/
     ├── index.ts                         # Public barrel export
     ├── features/
     │   ├── index.ts                     # Re-exports all features (side-effect barrel)
-    │   ├── selection.ts                 # One per feature (24 total)
+    │   ├── selection.ts                 # One per feature (26 total)
     │   ├── editing.ts
     │   └── ...
     └── lib/
@@ -250,7 +250,7 @@ libs/grid-{framework}/
 Copy `libs/grid-react/vite.config.mts` (or `libs/grid-vue/vite.config.mts`) and adapt the framework-specific bits. The required structural elements you must keep are listed below; everything else (plugin choice, framework externals, JSX/SFC handling) is framework-specific.
 
 - **Plugins**: a framework-specific Vite plugin (e.g. `@vitejs/plugin-react`, `@vitejs/plugin-vue`) plus `vite-plugin-dts` configured with `pathsToAliases: false`.
-- **Library entry map**: one entry per public surface — `index`, `features/index`, and one entry per feature module (24 total).
+- **Library entry map**: one entry per public surface — `index`, `features/index`, and one entry per feature module (26 total).
 - **Rollup externals**: the framework runtime package(s) and every `@toolbox-web/grid` subpath.
 - **Test config**: self-referencing aliases for `@toolbox-web/grid-{framework}/features/*` and grid dist aliases for `@toolbox-web/grid` / `@toolbox-web/grid/all` / `@toolbox-web/grid/plugins/*`.
 
@@ -283,7 +283,7 @@ export default defineConfig(() => ({
         // One entry per feature:
         'features/selection': 'src/features/selection.ts',
         'features/editing': 'src/features/editing.ts',
-        // ... all 24 features
+        // ... all 26 features
       },
       formats: ['es'],
     },
@@ -454,7 +454,7 @@ demos/employee-management/{framework}/
 }
 ```
 
-**Port assignment**: Existing ports are vanilla=4000, vue=4100, angular=4200, react=4300. Pick the next available (e.g., 4400 for Svelte, 4500 for Solid).
+**Port assignment**: Existing ports are vanilla=4000, vue=4100, angular=4200, react=4300, docs=4400, docs-e2e=4450. Pick the next available (e.g., 4500 for Svelte, 4600 for Solid).
 
 ### vite.config.ts
 
@@ -628,7 +628,7 @@ dist/libs/grid-{framework}/
 - [ ] `FrameworkAdapter` implemented (`canHandle`, `createRenderer`, `createEditor`, `releaseCell`, `unmount`)
 - [ ] Wrapper component created with props, events, and child component support
 - [ ] `useGrid()` and `useGridEvent()` composables/hooks implemented
-- [ ] Feature registry + all 24 feature modules created
+- [ ] Feature registry + all 26 feature modules created
 - [ ] `GridColumn`, `GridDetailPanel`, `GridToolPanel`, `GridToolButtons`, `GridResponsiveCard` components created
 - [ ] Type-level defaults support (type registry) implemented
 - [ ] `src/index.ts` exports all public API

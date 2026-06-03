@@ -163,5 +163,40 @@ describe('dom-builder', () => {
       // Exposed as the documented `tool-panel-close` CSS part for ::part() styling.
       expect(closeBtn!.getAttribute('part')).toBe('tool-panel-close');
     });
+
+    it('inlines the close button onto the accordion header row for a single panel', () => {
+      const body = buildShellBody({
+        ...baseOpts,
+        isPanelOpen: true,
+        showCloseButton: true,
+        panels: [{ id: 'only', title: 'Only Panel', isExpanded: true }],
+      });
+      const closeBtn = body.querySelector('[data-panel-close]') as HTMLButtonElement | null;
+      expect(closeBtn).not.toBeNull();
+      // No dedicated full-width header row; the ✕ shares the accordion header row.
+      expect(body.querySelector('.tbw-tool-panel-header')).toBeNull();
+      expect(closeBtn!.classList.contains('tbw-tool-panel-close--inline')).toBe(true);
+      const headerRow = closeBtn!.closest('.tbw-accordion-header-row');
+      expect(headerRow).not.toBeNull();
+      expect(headerRow!.querySelector('.tbw-accordion-header')).not.toBeNull();
+    });
+
+    it('renders a dedicated close header row when multiple panels exist', () => {
+      const body = buildShellBody({
+        ...baseOpts,
+        isPanelOpen: true,
+        showCloseButton: true,
+        panels: [
+          { id: 'a', title: 'Panel A', isExpanded: true },
+          { id: 'b', title: 'Panel B', isExpanded: false },
+        ],
+      });
+      const closeBtn = body.querySelector('[data-panel-close]') as HTMLButtonElement | null;
+      expect(closeBtn).not.toBeNull();
+      // Multi-panel keeps the slim header row above the accordion; no inline row.
+      expect(closeBtn!.closest('.tbw-tool-panel-header')).not.toBeNull();
+      expect(closeBtn!.classList.contains('tbw-tool-panel-close--inline')).toBe(false);
+      expect(body.querySelector('.tbw-accordion-header-row')).toBeNull();
+    });
   });
 });

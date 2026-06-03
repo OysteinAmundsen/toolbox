@@ -89,11 +89,13 @@ export interface ShellHeaderConfig {
    * contents, built-in toggle) is fully suppressed, but the shell body and
    * any registered tool panels still render and remain openable via the API.
    *
-   * When `false`, a close (✕) button is rendered in the top-right corner of
-   * the open tool panel (unless `toolPanel.locked` is `true`) so the panel
-   * can always be dismissed without the header toggle. Overlay panels also
-   * close on <kbd>Esc</kbd>; window-wide click-outside dismissal additionally
-   * requires `toolPanel.closeOnClickOutside: true`.
+   * When `false`, a close (✕) button is rendered in the open tool panel
+   * (unless `toolPanel.locked` is `true`, or `toolPanel.mode` is `'dropdown'`,
+   * which already light-dismisses) so the panel can always be dismissed
+   * without the header toggle. With a single panel the ✕ shares the first
+   * accordion header row; with multiple panels it gets its own row at the top.
+   * Overlay panels also close on <kbd>Esc</kbd>; window-wide click-outside
+   * dismissal additionally requires `toolPanel.closeOnClickOutside: true`.
    *
    * Unlike `toolPanelToggle: false` (which only removes the built-in toggle
    * button while keeping the bar), this removes the entire bar element — no

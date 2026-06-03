@@ -1324,8 +1324,13 @@ function buildShellOptions(
       collapseIcon,
       // Render an in-panel close (✕) button when the header bar is hidden, so
       // the panel can be dismissed without the (absent) built-in toggle. A
-      // locked panel cannot be closed, so no button in that case.
-      showCloseButton: shellConfig.header?.visible === false && shellConfig.toolPanel?.locked !== true,
+      // locked panel cannot be closed, so no button in that case. Dropdown mode
+      // is excluded: the popover light-dismisses on Esc / click-outside, so a
+      // ✕ would be redundant clutter.
+      showCloseButton:
+        shellConfig.header?.visible === false &&
+        shellConfig.toolPanel?.locked !== true &&
+        (shellConfig.toolPanel?.mode ?? 'overlay') !== 'dropdown',
       panels: sortedPanels.map((p) => ({
         id: p.id,
         title: p.title,

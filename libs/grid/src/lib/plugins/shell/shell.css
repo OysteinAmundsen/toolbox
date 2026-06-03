@@ -345,6 +345,24 @@
       }
     }
 
+    /* Inline close button — shares the first accordion header row in
+       single-panel mode (header bar hidden, overlay/push mode). */
+    .tbw-accordion-header-row {
+      display: flex;
+      align-items: stretch;
+
+      .tbw-accordion-header {
+        flex: 1;
+        min-width: 0;
+      }
+    }
+
+    .tbw-tool-panel-close--inline {
+      align-self: center;
+      flex-shrink: 0;
+      margin-inline-end: 8px;
+    }
+
     .tbw-tool-panel-content {
       flex: 1;
       overflow: auto;

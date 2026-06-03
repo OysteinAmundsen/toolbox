@@ -1106,6 +1106,34 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(panel?.classList.contains('open')).toBe(false);
   });
 
+  it('omits the in-panel close button in dropdown mode (light-dismisses instead)', async () => {
+    grid = document.createElement('tbw-grid');
+    grid.registerToolPanel({ id: 'columns', title: 'Columns', icon: '☰', render: () => undefined });
+    // Header hidden (would normally render a ✕) AND dropdown mode → no ✕ button.
+    grid.gridConfig = { shell: { header: { visible: false }, toolPanel: { mode: 'dropdown' } } };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    expect(grid.querySelector('[data-panel-close]')).toBeNull();
+  });
+
+  it('inlines the close button onto the single accordion header when the header bar is hidden (overlay)', async () => {
+    grid = document.createElement('tbw-grid');
+    grid.registerToolPanel({ id: 'columns', title: 'Columns', icon: '☰', render: () => undefined });
+    grid.gridConfig = { shell: { header: { visible: false }, toolPanel: { mode: 'overlay' } } };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const closeBtn = grid.querySelector('[data-panel-close]') as HTMLButtonElement | null;
+    expect(closeBtn).not.toBeNull();
+    // Single panel → inlined onto the accordion header row, no dedicated header row.
+    expect(closeBtn!.classList.contains('tbw-tool-panel-close--inline')).toBe(true);
+    expect(closeBtn!.closest('.tbw-accordion-header-row')).not.toBeNull();
+    expect(grid.querySelector('.tbw-tool-panel-header')).toBeNull();
+  });
+
   it('anchors the dropdown to an explicit anchor element when provided', async () => {
     grid = document.createElement('tbw-grid');
     grid.registerToolPanel({

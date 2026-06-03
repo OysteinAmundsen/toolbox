@@ -453,7 +453,7 @@ const config = {
 
 When `header.visible: false`, tool panels remain fully functional and are opened with the plugin's `toggleToolPanel()` / `openToolPanel(panelId)` from any element you like. Because there is no header toggle to close the panel, the grid provides three additional dismissal affordances:
 
-- **Close button** — a small `✕` button is rendered in the top-right of the panel (exposed as the `tool-panel-header` and `tool-panel-close` CSS parts). It is omitted when `toolPanel.locked` is `true`, since a locked panel cannot be closed.
+- **Close button** — a small `✕` button (exposed as the `tool-panel-close` CSS part) is rendered to dismiss the panel. With a single panel it sits inline on the first accordion header row; with multiple panels it gets its own row at the top of the panel (exposed as the `tool-panel-header` CSS part). It is omitted when `toolPanel.locked` is `true` (a locked panel cannot be closed) and in `dropdown` mode, where the popover already light-dismisses on <kbd>Esc</kbd> / click-outside.
 - **Escape key** — pressing <kbd>Esc</kbd> closes an open **overlay** panel. It yields to more specific handlers (e.g. an active cell editor that has already handled the key), and is a no-op for `push`-mode panels, which are persistent sidebars.
 - **Click-outside** — set `toolPanel.closeOnClickOutside: true` to dismiss an open overlay panel when clicking anywhere in the window outside the panel. This is opt-in and, like Esc, is a no-op in `push` mode.
 

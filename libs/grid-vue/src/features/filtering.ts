@@ -45,6 +45,17 @@ import { renderToContainer } from '../lib/teleport-bridge';
 import { GRID_ELEMENT_KEY } from '../lib/use-grid';
 import { registerFilterPanelTypeDefaultBridge } from '../lib/vue-grid-adapter';
 
+// Pull the core feature's `FeatureConfig` type augmentation (`filtering?`) onto
+// the consumer's type graph. The Vue registration below overrides the factory
+// with a teleport-aware version, so we don't need the core feature's runtime
+// registration — only its `declare module` augmentation that makes `filtering`
+// a known property on `FeatureConfig`. A bare side-effect import
+// (`import '@toolbox-web/grid/features/filtering'`) is stripped from the emitted
+// `.d.ts`, so consumers would still see TS2353. A named type re-export of the
+// `_Augmentation` anchor survives emit and drags the augmenting module in.
+// See `lib/internal/feature-augmentations.ts` for the same trick.
+export type { _Augmentation as _FilteringAugmentation } from '@toolbox-web/grid/features/filtering';
+
 registerFeature(
   'filtering',
   (rawConfig) => {

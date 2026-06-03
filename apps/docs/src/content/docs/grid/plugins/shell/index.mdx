@@ -295,15 +295,16 @@ All options live under `features.shell` and are typed by `ShellConfig`
 | `toolPanel.initialState` | `'open' \| 'closed'` | `'closed'` | Whether the sidebar starts open on grid load. Overrides the legacy `defaultOpen` open-on-load behavior when set. |
 | `toolPanel.locked` | `boolean` | `false` | Lock the sidebar open. Implies `initialState: 'open'`, makes `closeToolPanel()` a no-op, and hides the built-in toggle button. |
 | `toolPanel.persistState` | `boolean` | `false` | Remember open/closed state |
-| `toolPanel.closeOnClickOutside` | `boolean` | `false` | Close on outside click (ignored in `mode: 'push'` or when `locked: true`) |
-| `toolPanel.mode` | `'overlay' \| 'push'` | `'overlay'` | `'overlay'` floats over the grid; `'push'` reflows the grid sideways so all cells stay visible |
+| `toolPanel.closeOnClickOutside` | `boolean` | `false` | Close on outside click (ignored in `mode: 'push'` or when `locked: true`; `'dropdown'` always light-dismisses) |
+| `toolPanel.mode` | `'overlay' \| 'push' \| 'dropdown'` | `'overlay'` | `'overlay'` floats over the grid; `'push'` reflows the grid sideways so all cells stay visible; `'dropdown'` renders the whole sidebar as an anchored popover |
 
 ## Tool-Panel Layout Modes
 
-The tool panel supports two layout modes — pick whichever fits the viewport you're targeting.
+The tool panel supports three layout modes — pick whichever fits the viewport you're targeting.
 
 - **`'overlay'`** (default): the panel is positioned **over** the grid content. Opening it does not change the grid's available width. Best for narrow viewports where shrinking the grid would leave too little room for the data.
 - **`'push'`**: the panel is laid out as a **sibling** of the grid content in a flex row. Opening it shrinks the grid's available width; the grid's `ResizeObserver` re-runs column virtualization, so cells that an overlay panel would hide remain reachable. Best for desktop layouts.
+- **`'dropdown'`**: the entire sidebar (the full accordion) renders as an **anchored popover** built on the native [Popover API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API). It floats above all other content in the top layer, is dismissed on `Escape` or click-outside, and is positioned via [CSS anchor positioning](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_anchor_positioning) where supported (with a JS bounding-rect fallback). The anchor is resolved by priority: an explicit `anchor` passed to `openToolPanel()` → the built-in toggle button → the grid corner. Best for compact toolbars and bring-your-own trigger buttons (e.g. a "columns" button in a custom column header).
 
 ```ts
 import '@toolbox-web/grid/features/shell';
@@ -321,6 +322,25 @@ grid.gridConfig = {
 ```
 
 In `'push'` mode the user-facing resize handle is hidden (the panel's width is part of the layout, so drag-to-resize would fight the flex container) and `closeOnClickOutside` is treated as a no-op (there is no overlap to dismiss against). Drive the width via the `--tbw-tool-panel-width` CSS variable instead.
+
+### Dropdown mode + a custom column-header trigger
+
+`'dropdown'` mode shines when you want the column chooser to hang off your **own** button rather than the built-in toolbar toggle. Pass that button as the `anchor` when you open the panel, and the popover positions itself directly below it:
+
+```ts
+const shell = grid.getPluginByName('shell');
+columnsButton.addEventListener('click', () => {
+  shell?.openToolPanel('columns', { anchor: columnsButton });
+});
+```
+
+The demo below renders a utility-type column whose **header** hosts a custom `▥` button. Clicking it opens the full tool panel as a dropdown anchored to that button — no toolbar required.
+
+import ShellDropdownDemo from '@components/demos/shell/ShellDropdownDemo.astro';
+
+<ShellDropdownDemo />
+
+In `'dropdown'` mode the resize handle is hidden, the popover is capped to the viewport (`max-height: min(70vh, 480px)`) with internal scrolling for tall accordions, and dismissal (Escape / click-outside) is always active regardless of `closeOnClickOutside`.
 
 ## Styling the Shell
 

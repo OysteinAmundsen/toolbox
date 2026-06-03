@@ -214,11 +214,39 @@ export interface ToolPanelConfig {
    *   width and triggers a normal column-virtualization re-layout via
    *   ResizeObserver. Best for desktop layouts where users want to keep
    *   all cells visible while the panel is open.
+   * - `'dropdown'` — the whole tool-panel sidebar (the full accordion) is
+   *   shown as an anchored popover floating above the grid, dismissed on
+   *   Escape or click-outside. The popover anchors to (in priority order)
+   *   the `anchor` passed to {@link ShellController.openToolPanel}, the
+   *   built-in toolbar toggle button, or the top corner of the grid. Best
+   *   for compact toolbars and custom column-header "columns" buttons.
    *
    * @default 'overlay'
    * @since 2.8.0
    */
-  mode?: 'overlay' | 'push';
+  mode?: 'overlay' | 'push' | 'dropdown';
+}
+
+/**
+ * Options for {@link ShellController.openToolPanel} (and the
+ * `ShellPlugin.openToolPanel` / grid-level wrappers).
+ *
+ * @since 2.16.0
+ */
+export interface OpenToolPanelOptions {
+  /**
+   * Element to anchor the dropdown popover to when `shell.toolPanel.mode` is
+   * `'dropdown'`. The popover is positioned directly below this element (or at
+   * its top corner for the grid-corner fallback). Ignored in `'overlay'` and
+   * `'push'` modes.
+   *
+   * When omitted, the dropdown anchors to the built-in toolbar toggle button
+   * if present, otherwise to the top corner of the grid (on the side given by
+   * `shell.toolPanel.position`).
+   *
+   * @since 2.16.0
+   */
+  anchor?: HTMLElement;
 }
 
 /**

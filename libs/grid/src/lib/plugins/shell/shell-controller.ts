@@ -20,13 +20,20 @@ import {
 } from '../../core/internal/diagnostics';
 import type { InternalGrid } from '../../core/types';
 import {
+  hideToolPanelDropdown,
   renderHeaderContent,
   renderPanelContent,
+  showToolPanelDropdown,
   updatePanelState,
   updateToolbarActiveStates,
   type ShellState,
 } from './shell';
-import type { HeaderContentDefinition, ToolbarContentDefinition, ToolPanelDefinition } from './types';
+import type {
+  HeaderContentDefinition,
+  OpenToolPanelOptions,
+  ToolbarContentDefinition,
+  ToolPanelDefinition,
+} from './types';
 
 // #region ShellController
 /**
@@ -48,12 +55,18 @@ export interface ShellController {
    *   open with a different section expanded, switches to the requested section.
    *   If the panel ID is not registered, a `TBW072` warning is emitted and the
    *   call falls back to default behavior (auto-expand `defaultOpen` or first by order).
+   * @param options - Optional open options. In `mode: 'dropdown'`, `options.anchor`
+   *   sets the element the popover anchors to (see {@link OpenToolPanelOptions}).
    */
-  openToolPanel(panelId?: string): void;
+  openToolPanel(panelId?: string, options?: OpenToolPanelOptions): void;
   /** Close the tool panel */
   closeToolPanel(): void;
-  /** Toggle the tool panel */
-  toggleToolPanel(): void;
+  /**
+   * Toggle the tool panel.
+   * @param options - Optional open options forwarded to {@link openToolPanel}
+   *   when the panel is currently closed (e.g. `anchor` for dropdown mode).
+   */
+  toggleToolPanel(options?: OpenToolPanelOptions): void;
   /** Toggle an accordion section */
   toggleToolPanelSection(sectionId: string): void;
   /** Get registered tool panels */
@@ -83,6 +96,18 @@ export interface ShellController {
 export function createShellController(state: ShellState, grid: InternalGrid): ShellController {
   let initialized = false;
 
+  /**
+   * Resolve the element a dropdown popover should anchor to. Priority:
+   * explicit `anchor` option → built-in toolbar toggle button → grid host
+   * corner fallback.
+   */
+  function resolveDropdownAnchor(explicit?: HTMLElement): { el: HTMLElement; corner: boolean } {
+    if (explicit) return { el: explicit, corner: false };
+    const toggle = grid._renderRoot.querySelector('[data-panel-toggle]') as HTMLElement | null;
+    if (toggle) return { el: toggle, corner: false };
+    return { el: grid._hostElement, corner: true };
+  }
+
   const controller: ShellController = {
     get isInitialized() {
       return initialized;
@@ -99,7 +124,7 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
       return [...state.expandedSections];
     },
 
-    openToolPanel(panelId?: string) {
+    openToolPanel(panelId?: string, options?: OpenToolPanelOptions) {
       if (state.toolPanels.size === 0) {
         warnDiagnostic(NO_TOOL_PANELS, 'No tool panels registered', grid.id);
         return;
@@ -166,6 +191,12 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
       // Render accordion sections
       renderPanelContent(shadow, state, grid._accordionIcons);
 
+      // In dropdown mode, show the panel as an anchored popover in the top layer.
+      if (grid.effectiveConfig?.shell?.toolPanel?.mode === 'dropdown') {
+        const { el, corner } = resolveDropdownAnchor(options?.anchor);
+        showToolPanelDropdown(shadow, state, el, corner);
+      }
+
       // Emit event
       grid._emit('tool-panel-open', { sections: controller.expandedSections });
     },
@@ -194,15 +225,20 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
       updateToolbarActiveStates(shadow, state);
       updatePanelState(shadow, state);
 
+      // In dropdown mode, hide the popover and clear anchor wiring.
+      if (grid.effectiveConfig?.shell?.toolPanel?.mode === 'dropdown') {
+        hideToolPanelDropdown(shadow, state);
+      }
+
       // Emit event
       grid._emit('tool-panel-close', {});
     },
 
-    toggleToolPanel() {
+    toggleToolPanel(options?: OpenToolPanelOptions) {
       if (state.isPanelOpen) {
         controller.closeToolPanel();
       } else {
-        controller.openToolPanel();
+        controller.openToolPanel(undefined, options);
       }
     },
 

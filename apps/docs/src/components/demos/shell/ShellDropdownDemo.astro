@@ -1,0 +1,108 @@
+---
+/**
+ * Demo: Tool-Panel Dropdown Mode — the whole sidebar renders as an anchored
+ * popover, opened from a custom "columns" button hosted in the header of a
+ * utility-type column (instead of the built-in toolbar toggle).
+ */
+---
+
+<p class="grid-demo-description">
+  <code>mode: 'dropdown'</code> renders the full tool panel as an anchored popover.
+  Here it is opened from a custom <code>▥</code> button in the header of a utility
+  column — a bring-your-own trigger anchored via <code>openToolPanel('columns', &#123; anchor &#125;)</code>.
+</p>
+<div class="grid-demo">
+  <tbw-grid id="demo-shell-dropdown" style="height: 360px;"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/shell';
+import '@toolbox-web/grid/features/visibility';
+
+  const grid = queryGrid('#demo-shell-dropdown');
+
+  if (grid) {
+    const departments = ['Engineering', 'Sales', 'Marketing', 'Support'];
+    const names = ['Alice', 'Bob', 'Carol', 'Dan', 'Eve', 'Frank', 'Grace', 'Henry'];
+
+    // A utility column: not bound to data — its header hosts the dropdown trigger.
+    const columnsTrigger: ColumnConfig = {
+      field: '__columns__',
+      header: '',
+      width: 48,
+      sortable: false,
+      resizable: false,
+      headerRenderer: (ctx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tbw-columns-trigger';
+        btn.textContent = '▥';
+        btn.title = 'Choose columns';
+        btn.setAttribute('aria-label', 'Choose columns');
+        btn.setAttribute('aria-haspopup', 'dialog');
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const shell = grid.getPluginByName('shell');
+          if (shell?.isToolPanelOpen) {
+            shell.closeToolPanel();
+          } else {
+            // Anchor the dropdown popover directly to this header button.
+            shell?.openToolPanel('columns', { anchor: btn });
+          }
+        });
+        ctx.cellEl.style.justifyContent = 'center';
+        return btn;
+      },
+    };
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', type: 'number', width: 70 },
+        { field: 'name', header: 'Name', minWidth: 140 },
+        { field: 'department', header: 'Department', width: 150 },
+        { field: 'salary', header: 'Salary', type: 'number', width: 110 },
+        { field: 'active', header: 'Active', type: 'boolean', width: 80 },
+        columnsTrigger,
+      ],
+      features: {
+        // No built-in toolbar toggle — the dropdown is driven entirely by the
+        // custom column-header button.
+        shell: { header: { title: 'Employees', toolPanelToggle: false }, toolPanel: { mode: 'dropdown' } },
+        visibility: true,
+      },
+    };
+
+    grid.rows = Array.from({ length: 20 }, (_, i) => ({
+      id: i + 1,
+      name: names[i % names.length] + ' ' + (Math.floor(i / names.length) + 1),
+      department: departments[i % departments.length],
+      salary: 50000 + Math.floor(Math.random() * 50000),
+      active: i % 3 !== 0,
+    }));
+  }
+</script>
+
+<style>
+  #demo-shell-dropdown .tbw-columns-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--sl-color-text);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+  }
+  #demo-shell-dropdown .tbw-columns-trigger:hover {
+    background: var(--sl-color-gray-6);
+    border-color: var(--sl-color-gray-5);
+  }
+</style>

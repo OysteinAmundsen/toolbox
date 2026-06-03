@@ -118,4 +118,26 @@ test.describe('Shell Demos', () => {
     await toolbarButtons.first().click();
     await page.waitForTimeout(300);
   });
+
+  test('ShellDropdownDemo — custom column-header button opens the tool panel as a popover', async ({ page }) => {
+    await openDemo(page, 'shell/ShellDropdownDemo');
+    await expect(grid(page)).toBeVisible();
+
+    // The tool panel is rendered as a manual popover (closed initially).
+    const panel = page.locator('tbw-grid .tbw-tool-panel[popover]');
+    await expect(panel).toHaveCount(1);
+
+    // The built-in toolbar toggle is disabled — only the custom header button drives it.
+    const trigger = page.locator('tbw-grid .tbw-columns-trigger');
+    await expect(trigger).toBeVisible();
+
+    // Click the custom header button → the popover opens, anchored below it.
+    await trigger.click();
+    await expect(panel).toHaveAttribute('data-anchor', 'below');
+    await expect(panel).toBeVisible();
+
+    // Escape dismisses the dropdown.
+    await page.keyboard.press('Escape');
+    await expect(panel).toBeHidden();
+  });
 });

@@ -13,7 +13,7 @@ import DemoControls from '@components/DemoControls.astro';
     { section: 'PLUGINS', name: 'showVisibilityPlugin', label: 'Visibility plugin', type: 'boolean', default: true, description: 'Include VisibilityPlugin (column chooser)' },
     { section: 'PANELS', name: 'showCustomPanel', label: 'Custom tool panel', type: 'boolean', default: false, description: 'Show custom tool panel via API' },
     { section: 'PANELS', name: 'panelPosition', label: 'Panel position', type: 'radio', options: ['left', 'right'], default: 'right', description: 'Tool panel position' },
-    { section: 'PANELS', name: 'panelMode', label: 'Panel mode', type: 'radio', options: ['overlay', 'push'], default: 'overlay', description: 'Overlay floats over the grid; push reflows the grid' },
+    { section: 'PANELS', name: 'panelMode', label: 'Panel mode', type: 'radio', options: ['overlay', 'push', 'dropdown'], default: 'overlay', description: 'Overlay floats over the grid; push reflows the grid; dropdown anchors a popover to the toggle' },
   ]} />
   <tbw-grid id="demo-shell-basic" style="height: 420px;"></tbw-grid>
 </div>
@@ -23,8 +23,8 @@ import DemoControls from '@components/DemoControls.astro';
 import type { ColumnConfig } from '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/shell';
-import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
 import '@toolbox-web/grid/features/visibility';
+import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
 
   const container = document.getElementById('shell-basic-demo-container');
   const grid = queryGrid('#demo-shell-basic');
@@ -67,7 +67,7 @@ import '@toolbox-web/grid/features/visibility';
         header: v.showTitle ? { title: 'Employee Data' } : {},
         toolPanel: {
           position: v.panelPosition as 'left' | 'right',
-          mode: v.panelMode as 'overlay' | 'push',
+          mode: v.panelMode as 'overlay' | 'push' | 'dropdown',
         },
       };
       grid.gridConfig = {

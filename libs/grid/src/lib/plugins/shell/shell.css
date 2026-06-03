@@ -207,6 +207,77 @@
       }
     }
 
+    /* ========== Dropdown mode ========== */
+
+    /* In dropdown mode the whole tool-panel sidebar (the full accordion) is
+       promoted to the top layer as a native popover and anchored near a
+       trigger (the built-in toggle, a custom column-header button, or the grid
+       corner). The docked absolute/full-height sidebar styling is replaced by
+       a self-sized floating card with an internal scroll region.
+
+       The resize handle is suppressed (a popover has no docked edge to drag)
+       and the open/close width transition is dropped (the popover is shown and
+       hidden via the Popover API, not by animating width). */
+    .tbw-tool-panel[popover] {
+      position: fixed;
+      inset: auto;
+      width: var(--tbw-tool-panel-width);
+      max-width: calc(100vw - 16px);
+      height: auto;
+      max-height: min(70vh, 480px);
+      overflow: hidden auto;
+      margin: 4px 0 0 0;
+      padding: 0;
+      border: 1px solid var(--tbw-tool-panel-border);
+      border-radius: var(--tbw-border-radius, 6px);
+      box-shadow: 0 8px 24px var(--tbw-color-shadow);
+      transition: none;
+
+      /* The native popover UA rule hides a closed popover with `display: none`,
+         but the base `.tbw-tool-panel { display: flex }` author rule outranks
+         the UA origin and would leak the closed popover onto the page (floating
+         over the header). Re-assert hidden-until-open here, and restore the
+         flex layout only while the popover is actually shown. */
+      display: none;
+
+      &:popover-open {
+        display: flex;
+        width: var(--tbw-tool-panel-width);
+      }
+
+      .tbw-tool-panel-resize {
+        display: none;
+      }
+    }
+
+    /* CSS anchor positioning (progressive enhancement). When the browser
+       supports it, the controller wires `anchor-name` on the trigger and
+       `position-anchor` on the popover; JS only sets fixed coordinates as a
+       fallback for browsers without anchor positioning. */
+    @supports (anchor-name: --x) {
+      .tbw-tool-panel[popover] {
+        /* Default (right position): align popover's right edge to the anchor's
+           right edge and drop below it. */
+        top: anchor(bottom);
+        right: anchor(right);
+        left: auto;
+        position-try-fallbacks:
+          flip-block,
+          flip-inline,
+          flip-block flip-inline;
+
+        /* Grid-corner fallback anchors to the top of the grid host. */
+        &[data-anchor='corner'] {
+          top: anchor(top);
+        }
+
+        &[data-position='left'] {
+          left: anchor(left);
+          right: auto;
+        }
+      }
+    }
+
     .tbw-tool-panel-resize {
       position: absolute;
       top: 0;

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import '../core/grid';
+import { ShellPlugin } from '../plugins/shell';
 // Side-effect import: registers the `shell` feature factory.
 import './shell';
 
@@ -75,6 +76,35 @@ describe('shell feature (features: { shell })', () => {
     // The shell plugin resolved by name is the same instance the grid uses
     // internally (no divergence between the feature instance and the cache).
     expect(grid.getPluginByName('shell')).toBe(shellPlugin);
+  });
+
+  it('renders the shell when the attached plugin class differs from core (dist duplication #370/#374)', async () => {
+    // Reproduces the e2e regression: in the dist build, core bundles its own
+    // ShellPlugin copy while the feature/plugin entry ships a SEPARATE copy, so
+    // the attached instance's constructor differs from the class core imports.
+    // A constructor-identity lookup (`getPlugin(ShellPlugin)`) misses, so core
+    // never calls `ensureState` on the attached instance; `processConfig` and
+    // `afterStructuralRender` then early-return on `!hasState` and no shell
+    // chrome renders. Core must resolve the shell by NAME. A subclass has a
+    // distinct constructor but the same `name`, faithfully reproducing this.
+    class DuplicateShellPlugin extends ShellPlugin {}
+
+    grid = document.createElement('tbw-grid');
+    grid.gridConfig = {
+      columns: [{ field: 'name' }],
+      plugins: [new DuplicateShellPlugin({ header: { title: 'Dup Title' } })],
+    };
+    grid.rows = [{ name: 'Alice' }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    // Core resolved the attached (differently-classed) instance by name.
+    expect(grid.getPluginByName('shell')).toBeInstanceOf(DuplicateShellPlugin);
+
+    // The shell header renders with the constructor-supplied title.
+    const html = grid.innerHTML;
+    expect(html).toContain('tbw-shell-header');
+    expect(html).toContain('Dup Title');
   });
 
   it('merges light-DOM shell state onto the feature instance (#370)', async () => {

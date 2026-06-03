@@ -26,21 +26,19 @@
  * @example
  * ```typescript
  * grid.gridConfig = {
+ *   // `shell` is augmented onto gridConfig by the built-in ShellPlugin
  *   shell: {
- *     header: {
- *       title: 'Employee Directory',
- *     },
+ *     header: { title: 'Employee Directory' },
  *     toolPanel: {
  *       position: 'right',
- *       initialState: 'open',     // Sidebar open on load
- *       defaultOpen: 'columns',   // Auto-expand the "Columns" section
+ *       initialState: 'open', // Sidebar open on load
  *     },
  *   },
- *   plugins: [new VisibilityPlugin()], // Adds "Columns" panel
+ *   plugins: [new VisibilityPlugin()], // Adds the "Columns" tool panel
  * };
  *
- * // Register custom tool panels
- * grid.registerToolPanel({
+ * // Register custom tool panels via the shell plugin
+ * grid.getPluginByName('shell')?.registerToolPanel({
  *   id: 'filters',
  *   title: 'Filters',
  *   icon: '🔍',
@@ -225,11 +223,11 @@ export interface ToolPanelConfig {
 
 /**
  * Toolbar content definition for the shell header toolbar area.
- * Register via `registerToolbarContent()` or use light DOM `<tbw-grid-tool-buttons>`.
+ * Register via the shell plugin's `registerToolbarContent()` or use light DOM `<tbw-grid-tool-buttons>`.
  *
  * @example
  * ```typescript
- * grid.registerToolbarContent({
+ * grid.getPluginByName('shell')?.registerToolbarContent({
  *   id: 'my-toolbar',
  *   order: 10,
  *   render: (container) => {
@@ -257,12 +255,12 @@ export interface ToolbarContentDefinition {
 /**
  * Tool panel definition registered by plugins or consumers.
  *
- * Register via `grid.registerToolPanel()` to add panels to the sidebar.
+ * Register via the shell plugin's `registerToolPanel()` to add panels to the sidebar.
  * Panels appear as collapsible sections with icons and titles.
  *
  * @example
  * ```typescript
- * grid.registerToolPanel({
+ * grid.getPluginByName('shell')?.registerToolPanel({
  *   id: 'filters',
  *   title: 'Filters',
  *   icon: '🔍',
@@ -306,12 +304,12 @@ export interface ToolPanelDefinition {
 /**
  * Header content definition for plugins contributing to shell header center section.
  *
- * Register via `grid.registerHeaderContent()` to add content between
+ * Register via the shell plugin's `registerHeaderContent()` to add content between
  * the title and toolbar buttons.
  *
  * @example
  * ```typescript
- * grid.registerHeaderContent({
+ * grid.getPluginByName('shell')?.registerHeaderContent({
  *   id: 'row-count',
  *   order: 10,
  *   render: (container) => {
@@ -358,11 +356,11 @@ declare module '../../core/types' {
      * Shell configuration for header bar and tool panels.
      * When configured, adds an optional wrapper with title, toolbar, and collapsible side panels.
      *
-     * @deprecated Enable the shell via `features: { shell }` and pass this config there
-     *   (`features: { shell: { header: ... } }`), importing `ShellConfig` from
-     *   `@toolbox-web/grid/plugins/shell`. The shell is a built-in plugin as of #370; this
-     *   top-level field is provided via plugin augmentation and the `core/types` re-alias is
-     *   removed at v3.
+     * Provided via module augmentation by the built-in `ShellPlugin` (#370), mirroring how
+     * feature plugins augment `FeatureConfig`. Import the `ShellConfig` type from
+     * `@toolbox-web/grid/plugins/shell`. This augmented path is the supported configuration
+     * entry point — only the core delegate methods (`grid.registerToolPanel()`, etc.) and the
+     * `core/types` re-aliases are deprecated and dropped at v3.
      */
     shell?: ShellConfig;
   }

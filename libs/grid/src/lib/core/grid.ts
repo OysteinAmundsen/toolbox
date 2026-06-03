@@ -869,7 +869,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * core reads/writes never see `undefined`, even before the plugin attaches.
    */
   #resolveShellPlugin(): ShellPlugin {
-    const attached = this.#pluginManager?.getPlugin(ShellPlugin);
+    // Resolve by NAME, not by class identity. In the dist build the core entry
+    // bundles its own ShellPlugin copy while the feature/plugin entry ships a
+    // separate copy, so a `getPlugin(ShellPlugin)` constructor-identity lookup
+    // misses the feature-attached instance — leaving its state uninitialized so
+    // `processConfig`/`afterStructuralRender` early-return and no shell renders
+    // (regression #374). Name lookup is immune to the duplicate class identity.
+    const attached = this.#pluginManager?.getPluginByName('shell') as ShellPlugin | undefined;
     const plugin = attached ?? (this.#shellPlugin ??= new ShellPlugin());
     plugin.ensureState(this);
     return plugin;
@@ -1404,8 +1410,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Clean up shell state (owned by ShellPlugin, extraction #370). Resolve the
     // attached-or-cached instance without resurrecting state if none exists.
+    // Resolve by name (not class identity) so the feature-attached instance is
+    // disposed even when its class differs from core's copy in the dist build
+    // (#374) — otherwise its document-level listeners would leak.
     // disposeShellState() also tears down the shell's document-level listeners.
-    const shellPlugin = this.#pluginManager?.getPlugin(ShellPlugin) ?? this.#shellPlugin;
+    const shellPlugin = (this.#pluginManager?.getPluginByName('shell') as ShellPlugin | undefined) ?? this.#shellPlugin;
     shellPlugin?.disposeShellState();
 
     // Cancel any ongoing touch momentum animation

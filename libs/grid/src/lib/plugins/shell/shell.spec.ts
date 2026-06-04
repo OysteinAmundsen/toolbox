@@ -5,12 +5,14 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { InternalGrid } from '../../core/types';
 import {
   cleanupShellState,
   createShellState,
   hideToolPanelDropdown,
   renderShellBody,
   renderShellHeader,
+  repairDropdownAnchor,
   setupClickOutsideDismiss,
   setupEscapeDismiss,
   shouldRenderHeaderBar,
@@ -18,6 +20,7 @@ import {
   showToolPanelDropdown,
   type ShellState,
 } from './shell';
+import { createShellController } from './shell-controller';
 import type { HeaderContentDefinition, ShellConfig, ToolPanelDefinition } from './types';
 
 describe('shell module', () => {
@@ -1289,6 +1292,292 @@ describe('shell module', () => {
       cleanup();
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       expect(onClose).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('reanchorOpenDropdown', () => {
+    let renderRoot: HTMLElement;
+    let host: HTMLElement;
+    let panel: HTMLElement;
+
+    /** Append a fresh `[data-panel-toggle]` trigger to the render root. */
+    function addToggle(): HTMLElement {
+      const btn = document.createElement('button');
+      btn.setAttribute('data-panel-toggle', '');
+      renderRoot.appendChild(btn);
+      return btn;
+    }
+
+    function makeGrid(mode: 'dropdown' | 'overlay' | 'push'): InternalGrid {
+      const grid: Partial<InternalGrid> = {
+        id: 'g1',
+        _renderRoot: renderRoot,
+        _hostElement: host,
+        effectiveConfig: { shell: { toolPanel: { mode } } },
+      };
+      return grid as InternalGrid;
+    }
+
+    beforeEach(() => {
+      host = document.createElement('div');
+      renderRoot = document.createElement('div');
+      panel = document.createElement('aside');
+      panel.className = 'tbw-tool-panel';
+      panel.setAttribute('popover', 'manual');
+      renderRoot.appendChild(panel);
+      host.appendChild(renderRoot);
+      document.body.appendChild(host);
+    });
+
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('re-anchors to a freshly recreated [data-panel-toggle] when the original trigger was detached', () => {
+      // Open against the original trigger.
+      const original = addToggle();
+      state.isPanelOpen = true;
+      const controller = createShellController(state, makeGrid('dropdown'));
+      showToolPanelDropdown(renderRoot, state, original, false);
+      expect(state.dropdownAnchorEl).toBe(original);
+
+      // Simulate a structural re-render: the host recreates the trigger node
+      // (e.g. a custom column-header button rebuilt on a column toggle).
+      original.remove();
+      const recreated = addToggle();
+      expect(state.dropdownAnchorEl!.isConnected).toBe(false);
+
+      controller.reanchorOpenDropdown();
+
+      // The popover must now track the live, connected trigger.
+      expect(state.dropdownAnchorEl).toBe(recreated);
+      expect(state.dropdownAnchorEl!.isConnected).toBe(true);
+      expect(panel.dataset.anchor).toBe('below');
+    });
+
+    it('reuses the still-connected trigger when it survived the re-render', () => {
+      const toggle = addToggle();
+      state.isPanelOpen = true;
+      const controller = createShellController(state, makeGrid('dropdown'));
+      showToolPanelDropdown(renderRoot, state, toggle, false);
+
+      controller.reanchorOpenDropdown();
+
+      expect(state.dropdownAnchorEl).toBe(toggle);
+    });
+
+    it('keeps the popover at its last position (no corner flash) when a trigger-origin dropdown loses its trigger', () => {
+      const original = addToggle();
+      state.isPanelOpen = true;
+      const controller = createShellController(state, makeGrid('dropdown'));
+      showToolPanelDropdown(renderRoot, state, original, false);
+      expect(panel.dataset.anchor).toBe('below');
+
+      // Re-render drops the trigger entirely with no replacement yet (an outer
+      // framework will re-commit it on a later task). Re-anchoring must NOT
+      // flash the popover to the grid corner — it must stay where it was so the
+      // ShellPlugin observer can re-pair the trigger before paint.
+      original.remove();
+      controller.reanchorOpenDropdown();
+
+      expect(panel.dataset.anchor).toBe('below');
+      expect(state.dropdownAnchorEl).not.toBe(host);
+    });
+
+    it('preserves grid-corner placement on re-anchor when there is no trigger', () => {
+      // Open with the corner fallback (anchored directly to the grid host).
+      state.isPanelOpen = true;
+      const controller = createShellController(state, makeGrid('dropdown'));
+      showToolPanelDropdown(renderRoot, state, host, true);
+      expect(state.dropdownAnchorEl).toBe(host);
+      expect(panel.dataset.anchor).toBe('corner');
+
+      // A structural re-render must keep the popover at the corner, not drop it
+      // below the entire grid (which reusing the host as an explicit anchor
+      // would do).
+      controller.reanchorOpenDropdown();
+
+      expect(state.dropdownAnchorEl).toBe(host);
+      expect(panel.dataset.anchor).toBe('corner');
+    });
+
+    it('is a no-op when the panel is closed', () => {
+      addToggle();
+      state.isPanelOpen = false;
+      const controller = createShellController(state, makeGrid('dropdown'));
+
+      controller.reanchorOpenDropdown();
+
+      expect(state.dropdownAnchorEl).toBeFalsy();
+    });
+
+    it('is a no-op when the tool panel mode is not dropdown', () => {
+      addToggle();
+      state.isPanelOpen = true;
+      const controller = createShellController(state, makeGrid('overlay'));
+
+      controller.reanchorOpenDropdown();
+
+      expect(state.dropdownAnchorEl).toBeFalsy();
+    });
+
+    it('idempotent fast-path: skips re-anchoring when the connected trigger still carries the minted anchor-name', () => {
+      const toggle = addToggle();
+      state.isPanelOpen = true;
+      const controller = createShellController(state, makeGrid('dropdown'));
+      // Simulate a supported-anchor-positioning open: the trigger carries a
+      // minted anchor-name and state tracks it. (showToolPanelDropdown only
+      // sets these when CSS anchor positioning is supported, which happy-dom
+      // does not report — so wire them up manually to exercise the fast-path.)
+      state.dropdownAnchorEl = toggle;
+      state.dropdownAnchorName = '--tbw-tool-panel-anchor-1';
+      toggle.style.setProperty('anchor-name', '--tbw-tool-panel-anchor-1');
+      panel.dataset.anchor = 'below';
+
+      controller.reanchorOpenDropdown();
+
+      // Anchor is intact → the same trigger is kept and no re-show occurred
+      // (data-anchor untouched, anchor-name unchanged).
+      expect(state.dropdownAnchorEl).toBe(toggle);
+      expect(toggle.style.getPropertyValue('anchor-name')).toBe('--tbw-tool-panel-anchor-1');
+    });
+
+    it('re-anchors when the trigger lost its anchor-name even though the node is still connected', () => {
+      const toggle = addToggle();
+      state.isPanelOpen = true;
+      const controller = createShellController(state, makeGrid('dropdown'));
+      state.dropdownAnchorEl = toggle;
+      state.dropdownAnchorName = '--tbw-tool-panel-anchor-1';
+      // Trigger node survived but its anchor-name was cleared by a re-render
+      // that reset inline styles.
+      toggle.style.removeProperty('anchor-name');
+
+      controller.reanchorOpenDropdown();
+
+      // Fast-path must NOT short-circuit: the panel is re-shown/anchored.
+      expect(state.dropdownAnchorEl).toBe(toggle);
+      expect(panel.dataset.anchor).toBe('below');
+    });
+
+    it('fallback fast-path: skips the layout read when the trigger survived and the panel is still positioned', () => {
+      // Fixed-coordinate fallback mode (no minted anchor-name). When nothing was
+      // recreated — same connected trigger, panel still tagged `data-anchor` —
+      // re-anchoring must not re-run the `getBoundingClientRect()` re-position.
+      const toggle = addToggle();
+      state.isPanelOpen = true;
+      state.dropdownAnchorEl = toggle;
+      state.dropdownAnchorName = null;
+      panel.dataset.anchor = 'below';
+      const controller = createShellController(state, makeGrid('dropdown'));
+
+      const rectSpy = vi.spyOn(toggle, 'getBoundingClientRect');
+      controller.reanchorOpenDropdown();
+
+      expect(rectSpy).not.toHaveBeenCalled();
+      expect(state.dropdownAnchorEl).toBe(toggle);
+    });
+
+    it('fallback path: re-positions a FRESH panel even when the trigger survived', () => {
+      // A structural rebuild replaces `.tbw-tool-panel` (no `data-anchor`) while
+      // the trigger node survives — the fast-path MUST NOT short-circuit here,
+      // or the fresh panel would never be re-shown/positioned.
+      const toggle = addToggle();
+      state.isPanelOpen = true;
+      state.dropdownAnchorEl = toggle;
+      state.dropdownAnchorName = null;
+      const controller = createShellController(state, makeGrid('dropdown'));
+
+      panel.remove();
+      const freshPanel = document.createElement('aside');
+      freshPanel.className = 'tbw-tool-panel';
+      freshPanel.setAttribute('popover', 'manual');
+      renderRoot.appendChild(freshPanel);
+
+      controller.reanchorOpenDropdown();
+
+      // Fresh panel had no `data-anchor` → fast-path did not short-circuit → it
+      // was re-shown and tagged.
+      expect(freshPanel.dataset.anchor).toBe('below');
+      expect(state.dropdownAnchorEl).toBe(toggle);
+    });
+  });
+
+  describe('repairDropdownAnchor', () => {
+    let renderRoot: HTMLElement;
+    let panel: HTMLElement;
+    let state: ShellState;
+
+    beforeEach(() => {
+      renderRoot = document.createElement('div');
+      panel = document.createElement('aside');
+      panel.className = 'tbw-tool-panel';
+      panel.setAttribute('popover', 'manual');
+      renderRoot.appendChild(panel);
+      document.body.appendChild(renderRoot);
+      state = createShellState();
+    });
+
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('moves the existing anchor-name to a fresh trigger in place (no re-show)', () => {
+      const old = document.createElement('button');
+      old.setAttribute('data-panel-toggle', '');
+      old.style.setProperty('anchor-name', '--tbw-tool-panel-anchor-1');
+      renderRoot.appendChild(old);
+      state.dropdownAnchorEl = old;
+      state.dropdownAnchorName = '--tbw-tool-panel-anchor-1';
+      // Stale fixed-coord styles from a previous fallback open must be cleared.
+      panel.style.setProperty('top', '100px');
+      panel.style.setProperty('left', '50px');
+
+      const fresh = document.createElement('button');
+      fresh.setAttribute('data-panel-toggle', '');
+      renderRoot.appendChild(fresh);
+
+      const result = repairDropdownAnchor(renderRoot, state, fresh);
+
+      expect(result).toBe(true);
+      expect(fresh.style.getPropertyValue('anchor-name')).toBe('--tbw-tool-panel-anchor-1');
+      expect(old.style.getPropertyValue('anchor-name')).toBe('');
+      expect(panel.style.getPropertyValue('position-anchor')).toBe('--tbw-tool-panel-anchor-1');
+      expect(panel.style.getPropertyValue('top')).toBe('');
+      expect(panel.style.getPropertyValue('left')).toBe('');
+      expect(panel.dataset.anchor).toBe('below');
+      expect(state.dropdownAnchorEl).toBe(fresh);
+    });
+
+    it('returns false when no anchor-name has been minted', () => {
+      state.dropdownAnchorName = null;
+      const fresh = document.createElement('button');
+      renderRoot.appendChild(fresh);
+
+      expect(repairDropdownAnchor(renderRoot, state, fresh)).toBe(false);
+    });
+
+    it('returns false when the tool panel is absent', () => {
+      panel.remove();
+      state.dropdownAnchorName = '--tbw-tool-panel-anchor-1';
+      const fresh = document.createElement('button');
+      renderRoot.appendChild(fresh);
+
+      expect(repairDropdownAnchor(renderRoot, state, fresh)).toBe(false);
+    });
+
+    it('idempotently shows the popover in the top layer (a structural rebuild leaves a fresh, un-shown panel)', () => {
+      // `rebuildShellDOM` creates a brand-new `.tbw-tool-panel` that is NOT in
+      // the top layer. repairDropdownAnchor must re-assert the popover so the
+      // dropdown is not left rendered only via the `.open` fallback.
+      const showPopover = vi.fn();
+      (panel as HTMLElement & { showPopover?: () => void }).showPopover = showPopover;
+      state.dropdownAnchorName = '--tbw-tool-panel-anchor-1';
+      const fresh = document.createElement('button');
+      fresh.setAttribute('data-panel-toggle', '');
+      renderRoot.appendChild(fresh);
+
+      expect(repairDropdownAnchor(renderRoot, state, fresh)).toBe(true);
+      expect(showPopover).toHaveBeenCalledTimes(1);
     });
   });
 });

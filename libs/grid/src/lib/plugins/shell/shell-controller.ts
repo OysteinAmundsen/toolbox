@@ -23,7 +23,9 @@ import {
   hideToolPanelDropdown,
   renderHeaderContent,
   renderPanelContent,
+  repairDropdownAnchor,
   showToolPanelDropdown,
+  supportsAnchorPositioning,
   updatePanelState,
   updateToolbarActiveStates,
   type ShellState,
@@ -67,6 +69,26 @@ export interface ShellController {
    *   when the panel is currently closed (e.g. `anchor` for dropdown mode).
    */
   toggleToolPanel(options?: OpenToolPanelOptions): void;
+  /**
+   * Re-pair an open dropdown popover onto its (possibly recreated) trigger
+   * after a re-render (`mode: 'dropdown'` only). A column toggle / reorder may
+   * recreate the custom column-header button the popover was anchored to,
+   * leaving the popover's `position-anchor` dangling so the browser drops it to
+   * the corner.
+   *
+   * Behaviour:
+   * - intact pairing → no-op (cheap fast-path, safe to call every render);
+   * - a live `[data-panel-toggle]` exists → re-pair the existing anchor onto it
+   *   IN PLACE (no popover re-show → no flash), or a fixed-coord re-show when
+   *   CSS anchor positioning is unavailable;
+   * - corner-origin dropdown with no trigger → keep it pinned to the corner;
+   * - trigger-origin dropdown whose trigger is transiently absent → leave the
+   *   popover at its last position (the shell's MutationObserver re-pairs it
+   *   before paint once the trigger reappears), rather than flashing to corner.
+   *
+   * No-op when the panel is closed or the mode is not `'dropdown'`.
+   */
+  reanchorOpenDropdown(): void;
   /** Toggle an accordion section */
   toggleToolPanelSection(sectionId: string): void;
   /** Get registered tool panels */
@@ -240,6 +262,68 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
       } else {
         controller.openToolPanel(undefined, options);
       }
+    },
+
+    reanchorOpenDropdown() {
+      if (!state.isPanelOpen) return;
+      if (grid.effectiveConfig?.shell?.toolPanel?.mode !== 'dropdown') return;
+      const stored = state.dropdownAnchorEl;
+      // Idempotent fast-path: the anchor element is still connected AND still
+      // carries the minted `anchor-name`, so the pairing is intact — nothing to
+      // do. This keeps the hook cheap when it runs on the `afterRender` path
+      // (which fires on every render, e.g. a column toggle), only doing real
+      // work when the trigger was actually recreated/detached.
+      if (
+        stored &&
+        stored.isConnected &&
+        state.dropdownAnchorName &&
+        stored.style.getPropertyValue('anchor-name') === state.dropdownAnchorName
+      ) {
+        return;
+      }
+      // Idempotent fast-path (fixed-coordinate fallback mode — CSS anchor
+      // positioning unsupported, so `dropdownAnchorName` is never minted). Here
+      // re-anchoring means a `getBoundingClientRect()` + re-show on every
+      // render/mutation, which is wasteful when nothing was recreated. Skip when
+      // the stored trigger is still the SAME connected node (not the corner
+      // anchor) AND the CURRENT panel was already positioned (`data-anchor` set).
+      // A structural rebuild produces a FRESH `.tbw-tool-panel` with no
+      // `data-anchor`, so this never short-circuits the case that still needs a
+      // re-show.
+      if (!state.dropdownAnchorName && stored && stored.isConnected && stored !== grid._hostElement) {
+        const panel = grid._renderRoot.querySelector('.tbw-tool-panel') as HTMLElement | null;
+        if (panel?.dataset.anchor === 'below') return;
+      }
+      // Re-pair to a LIVE custom trigger (`[data-panel-toggle]`) whenever one
+      // exists. Prefer the cheap in-place repair: it reuses the already-minted
+      // `anchor-name`, keeps the popover shown, and never re-enters the Popover
+      // API — so the popover stays visually anchored with NO flash. Falls back
+      // to a fixed-coordinate re-show only when CSS anchor positioning is
+      // unavailable.
+      const fresh = grid._renderRoot.querySelector('[data-panel-toggle]') as HTMLElement | null;
+      if (fresh && fresh !== grid._hostElement) {
+        if (
+          state.dropdownAnchorName &&
+          supportsAnchorPositioning() &&
+          repairDropdownAnchor(grid._renderRoot, state, fresh)
+        ) {
+          return;
+        }
+        showToolPanelDropdown(grid._renderRoot, state, fresh, false);
+        return;
+      }
+      // No live trigger.
+      if (stored === grid._hostElement) {
+        // Corner-origin dropdown (opened without a custom trigger): keep it
+        // pinned to the grid corner across re-renders.
+        showToolPanelDropdown(grid._renderRoot, state, grid._hostElement, true);
+        return;
+      }
+      // Trigger-origin dropdown whose trigger is transiently absent (an outer
+      // framework, e.g. React, recreates it on a separate commit) — or was
+      // permanently removed. Do NOT flash the popover to the corner: leave it
+      // at its last position. When the trigger reappears, the shell's
+      // MutationObserver re-pairs it before paint (see ShellPlugin).
     },
 
     toggleToolPanelSection(sectionId: string) {

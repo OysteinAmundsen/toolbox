@@ -74,11 +74,11 @@
     },
     "libs/grid": {
       "name": "@toolbox-web/grid",
-      "version": "2.15.1",
+      "version": "2.16.0",
     },
     "libs/grid-angular": {
       "name": "@toolbox-web/grid-angular",
-      "version": "1.7.1",
+      "version": "1.8.0",
       "devDependencies": {
         "@angular/build": "^21.0.4",
         "@angular/cli": "^21.0.4",
@@ -98,7 +98,7 @@
     },
     "libs/grid-react": {
       "name": "@toolbox-web/grid-react",
-      "version": "1.8.2",
+      "version": "1.9.0",
       "devDependencies": {
         "@toolbox-web/grid": ">=1.0.0",
         "@types/react": "^19.0.0",
@@ -114,7 +114,7 @@
     },
     "libs/grid-vue": {
       "name": "@toolbox-web/grid-vue",
-      "version": "1.9.1",
+      "version": "1.10.0",
       "devDependencies": {
         "@toolbox-web/grid": ">=1.0.0",
         "vue": "^3.5.0",

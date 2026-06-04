@@ -43,6 +43,13 @@ import '@toolbox-web/grid/features/visibility';
         btn.title = 'Choose columns';
         btn.setAttribute('aria-label', 'Choose columns');
         btn.setAttribute('aria-haspopup', 'dialog');
+        // INVARIANT: a custom dropdown trigger MUST carry `data-panel-toggle`.
+        // Toggling a column from inside the panel rebuilds this header (and so
+        // recreates this very button), detaching the element the popover was
+        // anchored to. The shell re-resolves the anchor via the
+        // `[data-panel-toggle]` selector, so without this attribute the dropdown
+        // would re-anchor to the grid corner instead of back to this button.
+        btn.setAttribute('data-panel-toggle', '');
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const shell = grid.getPluginByName('shell');

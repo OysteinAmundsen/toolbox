@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.16.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.16.1...grid-2.16.2) (2026-06-04)
+
+
+### Bug Fixes
+
+* **grid:** re-render shell when only toolPanel.mode changes so data-mode updates ([330e34c](https://github.com/OysteinAmundsen/toolbox/commit/330e34c6cac2ba7808a20ba9099b8a2ee3b3d26f))
+
 ## [2.16.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.16.0...grid-2.16.1) (2026-06-04)
 
 

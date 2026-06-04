@@ -1,4 +1,5 @@
 /// <reference types='vitest' />
+import codspeedPlugin from '@codspeed/vitest-plugin';
 import vue from '@vitejs/plugin-vue';
 import { copyFileSync } from 'fs';
 import * as path from 'path';
@@ -30,6 +31,7 @@ export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/grid-vue',
   plugins: [
+    codspeedPlugin(),
     vue({
       template: {
         compilerOptions: {

@@ -1,4 +1,5 @@
 /// <reference types='vitest' />
+import codspeedPlugin from '@codspeed/vitest-plugin';
 import react from '@vitejs/plugin-react';
 import { copyFileSync } from 'fs';
 import * as path from 'path';
@@ -29,6 +30,7 @@ export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/grid-react',
   plugins: [
+    codspeedPlugin(),
     react(),
     dts({
       entryRoot: 'src',

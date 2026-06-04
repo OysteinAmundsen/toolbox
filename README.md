@@ -1,6 +1,7 @@
 # Toolbox Web
 
 [![CI/CD Pipeline](https://github.com/OysteinAmundsen/toolbox/actions/workflows/ci.yml/badge.svg)](https://github.com/OysteinAmundsen/toolbox/actions/workflows/ci.yml)
+[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/OysteinAmundsen/toolbox?utm_source=badge)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-❤-ea4aaa?logo=github)](https://github.com/sponsors/OysteinAmundsen)
 

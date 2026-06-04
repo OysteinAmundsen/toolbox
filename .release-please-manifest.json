@@ -1,5 +1,5 @@
 {
-  "libs/grid": "2.16.0",
+  "libs/grid": "2.16.1",
   "libs/grid-angular": "1.8.0",
   "libs/grid-react": "1.9.0",
   "libs/grid-vue": "1.10.0"

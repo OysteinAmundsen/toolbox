@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.16.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.16.0...grid-2.16.1) (2026-06-04)
+
+
+### Bug Fixes
+
+* **shell:** re-anchor open dropdown tool panel after structural re-render ([#378](https://github.com/OysteinAmundsen/toolbox/issues/378)) ([#379](https://github.com/OysteinAmundsen/toolbox/issues/379)) ([b842521](https://github.com/OysteinAmundsen/toolbox/commit/b842521a5f5bf2948275d8e871a0a49ca8fb7177))
+
 ## [2.16.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.15.1...grid-2.16.0) (2026-06-03)
 
 

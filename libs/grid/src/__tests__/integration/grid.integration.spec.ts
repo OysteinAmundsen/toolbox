@@ -1106,6 +1106,35 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(panel?.classList.contains('open')).toBe(false);
   });
 
+  it('updates the shell body data-mode when only toolPanel.mode changes (no panel-count/position change)', async () => {
+    // Regression: a mode-only change (overlay → push → dropdown) on an already
+    // rendered shell with an unchanged panel set went through the in-place
+    // header update, which never rewrites `data-mode` on `.tbw-shell-body`. The
+    // config (effectiveConfig.shell.toolPanel.mode) updated but the DOM did not,
+    // so push/dropdown silently rendered as overlay.
+    grid = document.createElement('tbw-grid');
+    grid.registerToolPanel({ id: 'columns', title: 'Columns', icon: '☰', render: () => undefined });
+    grid.gridConfig = { shell: { toolPanel: { mode: 'overlay' } } };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const mode = () => grid.querySelector('.tbw-shell-body')?.getAttribute('data-mode');
+    expect(mode()).toBe('overlay');
+
+    // Mode-only change to push — a NEW gridConfig object, same single panel.
+    grid.gridConfig = { shell: { toolPanel: { mode: 'push' } } };
+    await nextFrame();
+    expect(grid.effectiveConfig?.shell?.toolPanel?.mode).toBe('push');
+    expect(mode()).toBe('push');
+
+    // And to dropdown.
+    grid.gridConfig = { shell: { toolPanel: { mode: 'dropdown' } } };
+    await nextFrame();
+    expect(mode()).toBe('dropdown');
+    expect(grid.querySelector('.tbw-tool-panel')?.getAttribute('popover')).toBe('manual');
+  });
+
   it('omits the in-panel close button in dropdown mode (light-dismisses instead)', async () => {
     grid = document.createElement('tbw-grid');
     grid.registerToolPanel({ id: 'columns', title: 'Columns', icon: '☰', render: () => undefined });

@@ -2385,6 +2385,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const accordionSectionsBefore = this.#renderRoot.querySelectorAll('.tbw-accordion-section').length;
     const prevPosition =
       (this.#renderRoot.querySelector('.tbw-tool-panel') as HTMLElement)?.dataset.position ?? 'right';
+    // The tool-panel layout mode is baked into `data-mode` on `.tbw-shell-body`
+    // (and gates `popover` on `.tbw-tool-panel`). An in-place header update does
+    // not rewrite either, so a mode-only change (`overlay` ↔ `push` ↔ `dropdown`)
+    // must force a full re-render to be reflected in the DOM.
+    const prevMode = (this.#renderRoot.querySelector('.tbw-shell-body') as HTMLElement)?.dataset.mode ?? 'overlay';
 
     this.#configManager.parseLightDomColumns(this);
     this.#configManager.merge();
@@ -2421,13 +2426,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const nowHasToolPanels = (this.#effectiveConfig?.shell?.toolPanels?.length ?? 0) > 0;
     const toolPanelCount = this.#effectiveConfig?.shell?.toolPanels?.length ?? 0;
     const newPosition = this.#effectiveConfig?.shell?.toolPanel?.position ?? 'right';
+    const newMode = this.#effectiveConfig?.shell?.toolPanel?.mode ?? 'overlay';
 
-    // Full re-render needed if shell state, panel count, or panel position changed
+    // Full re-render needed if shell state, panel count, panel position, or
+    // panel mode changed
     const needsFullRerender =
       hadShell !== nowNeedsShell ||
       (!hadToolPanel && nowHasToolPanels) ||
       (hadToolPanel && toolPanelCount !== accordionSectionsBefore) ||
-      (hadToolPanel && prevPosition !== newPosition);
+      (hadToolPanel && prevPosition !== newPosition) ||
+      (hadToolPanel && prevMode !== newMode);
 
     if (needsFullRerender) {
       // Prepare shell state for re-render (moves toolbar buttons back to original container)

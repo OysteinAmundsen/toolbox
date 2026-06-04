@@ -31,6 +31,7 @@ import '@toolbox-web/grid/features/visibility';
     // A utility column: not bound to data — its header hosts the dropdown trigger.
     const columnsTrigger: ColumnConfig = {
       field: '__columns__',
+      utility: true,
       header: '',
       width: 48,
       sortable: false,
@@ -68,7 +69,7 @@ import '@toolbox-web/grid/features/visibility';
     grid.gridConfig = {
       columns: [
         { field: 'id', header: 'ID', type: 'number', width: 70 },
-        { field: 'name', header: 'Name', minWidth: 140 },
+        { field: 'name', header: 'Name', minWidth: 140, lockVisible: true },
         { field: 'department', header: 'Department', width: 150 },
         { field: 'salary', header: 'Salary', type: 'number', width: 110 },
         { field: 'active', header: 'Active', type: 'boolean', width: 80 },

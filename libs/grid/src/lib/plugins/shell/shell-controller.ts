@@ -281,6 +281,19 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
       ) {
         return;
       }
+      // Idempotent fast-path (fixed-coordinate fallback mode — CSS anchor
+      // positioning unsupported, so `dropdownAnchorName` is never minted). Here
+      // re-anchoring means a `getBoundingClientRect()` + re-show on every
+      // render/mutation, which is wasteful when nothing was recreated. Skip when
+      // the stored trigger is still the SAME connected node (not the corner
+      // anchor) AND the CURRENT panel was already positioned (`data-anchor` set).
+      // A structural rebuild produces a FRESH `.tbw-tool-panel` with no
+      // `data-anchor`, so this never short-circuits the case that still needs a
+      // re-show.
+      if (!state.dropdownAnchorName && stored && stored.isConnected && stored !== grid._hostElement) {
+        const panel = grid._renderRoot.querySelector('.tbw-tool-panel') as HTMLElement | null;
+        if (panel?.dataset.anchor === 'below') return;
+      }
       // Re-pair to a LIVE custom trigger (`[data-panel-toggle]`) whenever one
       // exists. Prefer the cheap in-place repair: it reuses the already-minted
       // `anchor-name`, keeps the popover shown, and never re-enters the Popover

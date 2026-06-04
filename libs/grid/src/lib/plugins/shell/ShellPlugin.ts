@@ -453,7 +453,13 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
 
   /** @internal Start (idempotently) the dropdown re-anchor observer. */
   #startReanchorObserver(grid: GridElement): void {
-    if (grid.effectiveConfig?.shell?.toolPanel?.mode !== 'dropdown') return;
+    // Only dropdown mode needs the observer. If the mode changed away from
+    // 'dropdown' while the panel is still open, tear down any observer started
+    // by an earlier render instead of leaving it watching the render root.
+    if (grid.effectiveConfig?.shell?.toolPanel?.mode !== 'dropdown') {
+      this.#stopReanchorObserver();
+      return;
+    }
     if (typeof MutationObserver === 'undefined') return;
     if (!this.#reanchorObserver) {
       this.#reanchorObserver = new MutationObserver(() => {

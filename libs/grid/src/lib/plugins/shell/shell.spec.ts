@@ -1458,6 +1458,48 @@ describe('shell module', () => {
       expect(state.dropdownAnchorEl).toBe(toggle);
       expect(panel.dataset.anchor).toBe('below');
     });
+
+    it('fallback fast-path: skips the layout read when the trigger survived and the panel is still positioned', () => {
+      // Fixed-coordinate fallback mode (no minted anchor-name). When nothing was
+      // recreated — same connected trigger, panel still tagged `data-anchor` —
+      // re-anchoring must not re-run the `getBoundingClientRect()` re-position.
+      const toggle = addToggle();
+      state.isPanelOpen = true;
+      state.dropdownAnchorEl = toggle;
+      state.dropdownAnchorName = null;
+      panel.dataset.anchor = 'below';
+      const controller = createShellController(state, makeGrid('dropdown'));
+
+      const rectSpy = vi.spyOn(toggle, 'getBoundingClientRect');
+      controller.reanchorOpenDropdown();
+
+      expect(rectSpy).not.toHaveBeenCalled();
+      expect(state.dropdownAnchorEl).toBe(toggle);
+    });
+
+    it('fallback path: re-positions a FRESH panel even when the trigger survived', () => {
+      // A structural rebuild replaces `.tbw-tool-panel` (no `data-anchor`) while
+      // the trigger node survives — the fast-path MUST NOT short-circuit here,
+      // or the fresh panel would never be re-shown/positioned.
+      const toggle = addToggle();
+      state.isPanelOpen = true;
+      state.dropdownAnchorEl = toggle;
+      state.dropdownAnchorName = null;
+      const controller = createShellController(state, makeGrid('dropdown'));
+
+      panel.remove();
+      const freshPanel = document.createElement('aside');
+      freshPanel.className = 'tbw-tool-panel';
+      freshPanel.setAttribute('popover', 'manual');
+      renderRoot.appendChild(freshPanel);
+
+      controller.reanchorOpenDropdown();
+
+      // Fresh panel had no `data-anchor` → fast-path did not short-circuit → it
+      // was re-shown and tagged.
+      expect(freshPanel.dataset.anchor).toBe('below');
+      expect(state.dropdownAnchorEl).toBe(toggle);
+    });
   });
 
   describe('repairDropdownAnchor', () => {
@@ -1521,6 +1563,21 @@ describe('shell module', () => {
       renderRoot.appendChild(fresh);
 
       expect(repairDropdownAnchor(renderRoot, state, fresh)).toBe(false);
+    });
+
+    it('idempotently shows the popover in the top layer (a structural rebuild leaves a fresh, un-shown panel)', () => {
+      // `rebuildShellDOM` creates a brand-new `.tbw-tool-panel` that is NOT in
+      // the top layer. repairDropdownAnchor must re-assert the popover so the
+      // dropdown is not left rendered only via the `.open` fallback.
+      const showPopover = vi.fn();
+      (panel as HTMLElement & { showPopover?: () => void }).showPopover = showPopover;
+      state.dropdownAnchorName = '--tbw-tool-panel-anchor-1';
+      const fresh = document.createElement('button');
+      fresh.setAttribute('data-panel-toggle', '');
+      renderRoot.appendChild(fresh);
+
+      expect(repairDropdownAnchor(renderRoot, state, fresh)).toBe(true);
+      expect(showPopover).toHaveBeenCalledTimes(1);
     });
   });
 });

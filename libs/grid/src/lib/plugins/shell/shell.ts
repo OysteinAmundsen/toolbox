@@ -1184,7 +1184,7 @@ export function hideToolPanelDropdown(renderRoot: Element, state: ShellState): v
 export function repairDropdownAnchor(renderRoot: Element, state: ShellState, trigger: HTMLElement): boolean {
   const anchorName = state.dropdownAnchorName;
   if (!anchorName) return false;
-  const panel = renderRoot.querySelector('.tbw-tool-panel') as HTMLElement | null;
+  const panel = renderRoot.querySelector('.tbw-tool-panel') as (HTMLElement & { showPopover?: () => void }) | null;
   if (!panel) return false;
   const prev = state.dropdownAnchorEl;
   if (prev && prev !== trigger) prev.style.removeProperty('anchor-name');
@@ -1195,6 +1195,18 @@ export function repairDropdownAnchor(renderRoot: Element, state: ShellState, tri
   panel.style.removeProperty('right');
   panel.dataset.anchor = 'below';
   state.dropdownAnchorEl = trigger;
+  // A structural rebuild (`rebuildShellDOM`) creates a FRESH `.tbw-tool-panel`
+  // that is not in the top layer — only its `.open` class arm renders it, which
+  // can be clipped / mis-stacked. Re-assert the popover idempotently so both the
+  // non-structural path (panel already open → no-op via the catch) and the
+  // structural-rebuild path (fresh panel → shown) end up in the top layer.
+  if (panel.hasAttribute('popover') && typeof panel.showPopover === 'function') {
+    try {
+      panel.showPopover();
+    } catch {
+      // Already open or not connected — ignore.
+    }
+  }
   return true;
 }
 

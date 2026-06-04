@@ -14,14 +14,14 @@ The checklist has 10 steps grouped into four phases. Complete each phase fully b
 
 | Phase                  | Steps | Goal                                              |
 | ---------------------- | ----- | ------------------------------------------------- |
-| **Quality gates**      | 1–3   | Lint, test, and build the workspace cleanly.      |
-| **Release validation** | 4–6   | Bundle budget, CHANGELOG, breaking-change review. |
-| **Documentation**      | 7–9   | Docs updates, docs-site build, demo smoke test.   |
-| **Commit hygiene**     | 10    | Final commit polish before merging.               |
+| **Quality gates**      | 1     | Lint, test, and build the workspace cleanly.      |
+| **Release validation** | 2–4   | Bundle budget, CHANGELOG, breaking-change review. |
+| **Documentation**      | 5–7   | Docs updates, docs-site build, demo smoke test.   |
+| **Commit hygiene**     | 8     | Final commit polish before merging.               |
 
 ## Handling Failures During the Checklist
 
-If any command in steps 1–9 fails (lint error, failing test, type error, build break, bundle over budget, broken docs build, broken demo):
+If any command in steps 1–7 fails (lint error, failing test, type error, build break, bundle over budget, broken docs build, broken demo):
 
 1. **Stop the checklist immediately** — do not move to the next step. The release is not ready.
 2. **Diagnose the failure** by reading the actual command output. Do not retry the same command unchanged hoping for a different result.
@@ -34,33 +34,25 @@ Do not proceed to the **Release Process** section until every checklist step has
 
 ## Pre-Release Checklist
 
-### 1. Lint All Projects
+### 1. Lint, Test & Build All Projects (parallel)
+
+Run all three quality gates across the workspace in a single parallel command. Nx parallelizes the targets, prefixes each output line with its project, and returns one exit code plus an explicit `Failed tasks:` list — so you get the speedup and still collect real per-target results:
 
 ```bash
-bun run lint
+bun nx run-many -t lint test build
 ```
 
-Fix any lint errors before proceeding. Do not skip warnings either — either fix them, or **suppress with justification**, which means add a single-line ESLint disable directive on the offending line that includes the rule name **and** a brief reason, e.g. `// eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party API returns `any``. Bare `eslint-disable`directives without a`--` reason are not acceptable.
+This covers grid, grid-angular, grid-react, and grid-vue. All targets must pass:
 
-### 2. Run All Tests
+- **Lint** — fix any errors. Do not skip warnings either — either fix them, or **suppress with justification**, which means add a single-line ESLint disable directive on the offending line that includes the rule name **and** a brief reason, e.g. `// eslint-disable-next-line @typescript-eslint/no-explicit-any -- third-party API returns `any``. Bare `eslint-disable`directives without a`--` reason are not acceptable.
+- **Test** — all tests must pass across grid, grid-angular, grid-react, and grid-vue.
+- **Build** — verify clean builds with no TypeScript errors. The build target hard-enforces the bundle budget (see step 2).
 
-```bash
-bun run test
-```
+> Do **not** pipe this command through `| tail`/`| head`/`2>&1` on this machine — it hangs the terminal. Let the tool capture output, then read the captured file if the output is large.
 
-All tests must pass across grid, grid-angular, grid-react, and grid-vue.
+### 2. Check Bundle Size Budget
 
-### 3. Build All Libraries
-
-```bash
-bun nx run-many -t build
-```
-
-Verify clean builds with no TypeScript errors.
-
-### 4. Check Bundle Size Budget
-
-Step 3's build already hard-enforces the budget via the Vite `bundleBudget` plugin (build fails if `dist/libs/grid/index.js` exceeds 170 kB raw or 50 kB gzipped). To read the exact raw/gzip sizes for every entry deterministically, run the shared report script:
+Step 1's build already hard-enforces the budget via the Vite `bundleBudget` plugin (build fails if `dist/libs/grid/index.js` exceeds 170 kB raw or 50 kB gzipped). To read the exact raw/gzip sizes for every entry deterministically, run the shared report script:
 
 ```bash
 bun run tools/build-size-report.ts
@@ -68,7 +60,7 @@ bun run tools/build-size-report.ts
 
 Confirm the **core (index.js)** `grid` cell is within budget (≤ 170 kB raw, ≤ 50 kB gzipped; soft warning at 45 kB gzipped). For a soft-warning or over-budget result, follow the `bundle-check` skill's investigation checklist.
 
-### 5. Review CHANGELOG
+### 3. Review CHANGELOG
 
 Check `libs/grid/CHANGELOG.md` (and other library CHANGELOGs):
 
@@ -77,7 +69,7 @@ Check `libs/grid/CHANGELOG.md` (and other library CHANGELOGs):
 - Breaking changes clearly marked with migration guides
 - Entries follow Conventional Commits format
 
-### 6. Check for Breaking Changes
+### 4. Check for Breaking Changes
 
 Review all changes since last release:
 
@@ -110,7 +102,7 @@ git --no-pager log --oneline $(git describe --tags --abbrev=0)..HEAD
 2. Ensure major version bump
 3. Consider deprecation warnings before removal
 
-### 7. Update Documentation
+### 5. Update Documentation
 
 Check if these files need updates:
 
@@ -123,7 +115,7 @@ Check if these files need updates:
 | `llms-full.txt`                            | Full AI guide needs updating                  |
 | `.github/copilot-instructions.md`          | Workflow or conventions changed               |
 
-### 8. Verify Docs Site Builds
+### 6. Verify Docs Site Builds
 
 ```bash
 bun nx build docs
@@ -131,7 +123,7 @@ bun nx build docs
 
 Docs site must build without errors.
 
-### 9. Test Demo Applications
+### 7. Test Demo Applications
 
 ```bash
 bun nx serve demo-vanilla
@@ -141,7 +133,7 @@ bun nx serve demo-react
 
 Manually verify demos work with the latest changes.
 
-### 10. Final Commit Hygiene
+### 8. Final Commit Hygiene
 
 - All commits follow Conventional Commits format: `type(scope): description`
 - No WIP commits in the release branch

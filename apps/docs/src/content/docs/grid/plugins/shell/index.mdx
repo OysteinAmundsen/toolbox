@@ -329,10 +329,16 @@ In `'push'` mode the user-facing resize handle is hidden (the panel's width is p
 
 ```ts
 const shell = grid.getPluginByName('shell');
+// Mark your trigger so the popover can re-find it after a structural re-render.
+columnsButton.setAttribute('data-panel-toggle', '');
 columnsButton.addEventListener('click', () => {
   shell?.openToolPanel('columns', { anchor: columnsButton });
 });
 ```
+
+:::caution[Mark a custom trigger with `data-panel-toggle`]
+A custom trigger button **must** carry the `data-panel-toggle` attribute. Toggling a column's visibility or reordering columns from inside the panel triggers a structural re-render that **rebuilds the trigger node** — so the element reference you passed as `anchor` is detached and can no longer be re-anchored. The shell re-resolves the anchor after every re-render via the `[data-panel-toggle]` selector; without it, an open dropdown falls back to the grid corner instead of staying under your button.
+:::
 
 The demo below renders a utility-type column whose **header** hosts a custom `▥` button. Clicking it opens the full tool panel as a dropdown anchored to that button — no toolbar required.
 

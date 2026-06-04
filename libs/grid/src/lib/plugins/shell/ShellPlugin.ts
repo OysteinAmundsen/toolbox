@@ -80,6 +80,17 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
   // `_registerLightDomHandler` seam; unregistered on disconnect.
   #shellChangeHandler?: () => void;
 
+  // While a dropdown tool panel is open, this observer watches the render root
+  // for the trigger being recreated by an outer framework (e.g. a React column
+  // `headerRenderer` re-running on a column toggle) and re-pairs the popover's
+  // anchor. MutationObserver callbacks run as a pre-paint microtask, so the
+  // re-pair lands BEFORE the browser paints the dangling-anchor frame — no
+  // flash. It also fires for every toggle (not a coalesced single rAF), so the
+  // dropdown no longer intermittently disappears. Connected lazily while a
+  // dropdown is open; disconnected on close and on grid disconnect.
+  #reanchorObserver?: MutationObserver;
+  #reanchorObserving = false;
+
   /** @internal Whether shell state has been created yet. */
   get hasState(): boolean {
     return this.#state !== undefined;
@@ -405,6 +416,69 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
   }
 
   /**
+   * @internal Re-anchor an open dropdown tool panel after a NON-structural
+   * render.
+   *
+   * A column-visibility toggle (or reorder) re-renders the grid header WITHOUT
+   * a full structural rebuild — it fires `afterRender`, not
+   * `afterStructuralRender`. When the column-chooser trigger lives in the grid
+   * header (e.g. a custom `[data-panel-toggle]` button in a column
+   * `headerRenderer`), that re-render recreates the trigger node, so it loses
+   * the `anchor-name` that paired it with the open popover. The popover then
+   * collapses to the viewport / grid corner.
+   *
+   * Two cooperating mechanisms keep the popover anchored with NO flash:
+   * 1. A synchronous {@link ShellController.reanchorOpenDropdown} here catches
+   *    the case where the trigger was recreated synchronously during this
+   *    render (in-place re-pair, before paint).
+   * 2. A {@link MutationObserver} (started here, kept running while the panel is
+   *    open) catches the case where an outer framework commits the replacement
+   *    trigger on a LATER task. Its callback runs as a pre-paint microtask, so
+   *    the re-pair lands before the dangling-anchor frame is painted.
+   *
+   * `reanchorOpenDropdown()` is idempotent and cheap (early-returns unless a
+   * dropdown is open with a broken anchor), so running it on every render and
+   * every mutation is safe.
+   */
+  override afterRender(): void {
+    const grid = this.grid;
+    if (!grid || !this.hasState) return;
+    if (!this.shellState.isPanelOpen) {
+      this.#stopReanchorObserver();
+      return;
+    }
+    this.shellController.reanchorOpenDropdown();
+    this.#startReanchorObserver(grid);
+  }
+
+  /** @internal Start (idempotently) the dropdown re-anchor observer. */
+  #startReanchorObserver(grid: GridElement): void {
+    if (grid.effectiveConfig?.shell?.toolPanel?.mode !== 'dropdown') return;
+    if (typeof MutationObserver === 'undefined') return;
+    if (!this.#reanchorObserver) {
+      this.#reanchorObserver = new MutationObserver(() => {
+        if (!this.grid || !this.hasState || !this.shellState.isPanelOpen) {
+          this.#stopReanchorObserver();
+          return;
+        }
+        this.shellController.reanchorOpenDropdown();
+      });
+    }
+    if (!this.#reanchorObserving) {
+      this.#reanchorObserver.observe(grid._renderRoot, { childList: true, subtree: true });
+      this.#reanchorObserving = true;
+    }
+  }
+
+  /** @internal Stop the dropdown re-anchor observer if running. */
+  #stopReanchorObserver(): void {
+    if (this.#reanchorObserver && this.#reanchorObserving) {
+      this.#reanchorObserver.disconnect();
+      this.#reanchorObserving = false;
+    }
+  }
+
+  /**
    * @internal Render all shell contents into the freshly built shell chrome.
    *
    * Runs from {@link afterStructuralRender} after the chrome is wrapped and
@@ -456,6 +530,12 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
         collapse: grid.effectiveConfig?.icons?.collapse,
       });
       updateToolbarActiveStates(renderRoot, state);
+      // In dropdown mode `rebuildShellDOM` created a fresh `.tbw-tool-panel`, so
+      // the popover must be re-shown in the top layer and re-anchored — the
+      // trigger may have been recreated by the same re-render (e.g. a custom
+      // column-header button after a column toggle/reorder). Otherwise the
+      // popover loses its anchor and collapses to the viewport corner.
+      this.shellController.reanchorOpenDropdown();
     }
   }
 
@@ -520,6 +600,8 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
    */
   disposeShellState(): void {
     this.#teardownListeners();
+    this.#stopReanchorObserver();
+    this.#reanchorObserver = undefined;
     // Unregister the light-DOM shell handlers (registered in `attach`). `detach`
     // does not clear `this.grid`, so the reference is still valid here.
     const grid = this.grid as GridElement | undefined;

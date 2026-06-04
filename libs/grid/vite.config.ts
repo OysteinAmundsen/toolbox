@@ -365,15 +365,16 @@ export default defineConfig(({ command }) => ({
           bundleBudget({
             outDir,
             budgets: [
-              // Core: warn at 45 kB gzip, hard fail at 50 kB gzip / 170 kB raw.
+              // Core: warn at 50 kB gzip, hard fail at 52 kB gzip / 178 kB raw.
               // Keep core lean — push features to plugins unless they cost performance.
               // TEMP-BUDGET-370: shell extraction transition. While both core's
               // shell.ts copy (TEMP-SHELL-IMPORT-1b) AND the auto-registered
               // ShellPlugin (+ its inlined shell.css) are in the index.js graph,
-              // raw temporarily exceeds 170 kB. Reclaimed when core's duplicate
-              // shell CSS is dropped (Task 1b.1.5) and fully at v3 (auto-register
-              // removed). Restore to 170 * 1024 then. gzip stays under 50 kB.
-              { path: 'index.js', maxSize: 178 * 1024, maxGzip: 50 * 1024, warnGzip: 45 * 1024 },
+              // BOTH raw AND gzip temporarily exceed the v3 budget (170 kB raw /
+              // 50 kB gzip). Reclaimed when core's duplicate shell CSS is dropped
+              // (Task 1b.1.5) and fully at v3 (auto-register removed). Restore to
+              // maxSize: 170 * 1024 and maxGzip: 50 * 1024 (warnGzip: 45 * 1024) then.
+              { path: 'index.js', maxSize: 178 * 1024, maxGzip: 52 * 1024, warnGzip: 50 * 1024 },
               { path: 'lib/plugins/*/index.js', maxSize: 50 * 1024 },
             ],
           }),

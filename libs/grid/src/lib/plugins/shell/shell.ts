@@ -1055,7 +1055,7 @@ const DROPDOWN_ANCHOR_NAME = '--tbw-tool-panel-anchor';
 let dropdownAnchorSeq = 0;
 
 /** Whether the current environment supports CSS anchor positioning. */
-function supportsAnchorPositioning(): boolean {
+export function supportsAnchorPositioning(): boolean {
   return (
     typeof CSS !== 'undefined' &&
     typeof CSS.supports === 'function' &&
@@ -1161,6 +1161,41 @@ export function hideToolPanelDropdown(renderRoot: Element, state: ShellState): v
     state.dropdownAnchorEl = null;
   }
   state.dropdownAnchorName = null;
+}
+
+/**
+ * Re-pair an OPEN dropdown's existing anchor onto a freshly resolved trigger
+ * IN PLACE — reusing the already-minted `anchor-name` and leaving the popover
+ * shown — instead of hiding and re-showing it.
+ *
+ * WHY: when an outer framework (e.g. a React column `headerRenderer`) recreates
+ * the `[data-panel-toggle]` trigger on a column toggle, the new node lacks the
+ * `anchor-name`, so the popover's `position-anchor` no longer resolves and the
+ * browser drops it to the corner. Hiding + re-showing (the heavier
+ * {@link showToolPanelDropdown} path) mints a NEW name and re-enters the
+ * Popover API, which flashes the popover to the corner for a frame. Moving the
+ * SAME name to the new node keeps the popover visually anchored with no flash.
+ *
+ * Returns `true` when the re-pair was applied. The caller must ensure CSS
+ * anchor positioning is supported (see {@link supportsAnchorPositioning});
+ * otherwise the fixed-coordinate fallback in {@link showToolPanelDropdown} must
+ * be used instead.
+ */
+export function repairDropdownAnchor(renderRoot: Element, state: ShellState, trigger: HTMLElement): boolean {
+  const anchorName = state.dropdownAnchorName;
+  if (!anchorName) return false;
+  const panel = renderRoot.querySelector('.tbw-tool-panel') as HTMLElement | null;
+  if (!panel) return false;
+  const prev = state.dropdownAnchorEl;
+  if (prev && prev !== trigger) prev.style.removeProperty('anchor-name');
+  trigger.style.setProperty('anchor-name', anchorName);
+  panel.style.setProperty('position-anchor', anchorName);
+  panel.style.removeProperty('top');
+  panel.style.removeProperty('left');
+  panel.style.removeProperty('right');
+  panel.dataset.anchor = 'below';
+  state.dropdownAnchorEl = trigger;
+  return true;
 }
 
 /**

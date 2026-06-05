@@ -110,6 +110,7 @@ Loaded on demand from `.github/skills/` for task-specific workflows:
 | `docs-update`         | After any feature, fix, or refactor                           |
 | `since-tag`           | Resolving `@since` JSDoc versions for new public API          |
 | `pr-comments`         | Read/reply/resolve PR review threads via the `gh` CLI         |
+| `qa-apply-findings`   | Shared findings execution core for `/qa` and `/pr-qa`         |
 | `retrospective`       | Post-task lessons learned; update instructions & skills       |
 
 ## Core Constraints

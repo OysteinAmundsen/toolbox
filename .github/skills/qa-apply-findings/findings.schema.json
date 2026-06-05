@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qa-apply-findings.schema.json",
+  "title": "QA Findings",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["id", "severity", "source", "path", "problem", "expected"],
+    "properties": {
+      "id": { "type": "string", "pattern": "^[BSN][0-9]+$" },
+      "severity": { "type": "string", "enum": ["blocking", "should-fix", "nit"] },
+      "source": { "type": "string", "enum": ["local-review", "pr-thread"] },
+      "path": { "type": "string" },
+      "line": { "type": "integer", "minimum": 1 },
+      "problem": { "type": "string" },
+      "expected": { "type": "string" },
+      "evidence": { "type": "string" },
+      "proposedFix": { "type": "string" },
+      "verify": { "type": "string" },
+      "thread": {
+        "type": "object",
+        "properties": {
+          "threadId": { "type": "string" },
+          "commentId": { "type": "integer" }
+        },
+        "required": ["threadId", "commentId"],
+        "additionalProperties": false
+      }
+    },
+    "additionalProperties": false
+  }
+}

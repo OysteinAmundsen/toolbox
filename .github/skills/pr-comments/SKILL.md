@@ -83,13 +83,10 @@ The script validates the file shape up front, posts each reply via
 `repos/{repo}/pulls/{pr}/comments/{commentId}/replies`, then resolves each thread
 via the `resolveReviewThread` mutation. Use `--dry-run` first if unsure.
 
-## 3. Post a summary comment (optional)
+## 3. Final PR-level summary comment
 
-A single PR-level summary doesn't need a script:
-
-```bash
-gh pr comment <pr> --body "Addressed N threads: …"
-```
+For `/pr-qa`, do not post an extra PR-level summary comment. The required output
+is per-thread: reply inline and resolve each thread.
 
 ## Constraints
 

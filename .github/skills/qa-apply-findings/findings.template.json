@@ -1,0 +1,14 @@
+[
+  {
+    "id": "B1",
+    "severity": "blocking",
+    "source": "local-review",
+    "path": "libs/example/src/lib/example.ts",
+    "line": 42,
+    "problem": "Describe the concrete defect.",
+    "expected": "Describe the expected behavior.",
+    "evidence": "Optional quoted snippet or rule reference.",
+    "proposedFix": "Optional short fix strategy.",
+    "verify": "Optional one-line verification check."
+  }
+]

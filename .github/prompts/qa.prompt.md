@@ -9,8 +9,8 @@ agent: 'agent'
 End-to-end local quality loop:
 
 1. **Review** the target scope with the same rigor as the GitHub Copilot PR reviewer.
-2. **Report** findings in a format an agent (you) can mechanically act on — one finding per actionable defect, each with location, evidence, and a concrete fix.
-3. **Fix** every Blocking and Should-fix finding, then re-validate.
+2. **Report** findings in a normalized format that can be executed by the shared `qa-apply-findings` skill.
+3. **Fix + validate** by delegating to `qa-apply-findings` (execution core shared with `/pr-qa`).
 4. **Summarize** what was changed, what was left, and why.
 
 The user runs this _before_ committing so problems are caught locally instead of waiting for the PR reviewer.
@@ -107,6 +107,14 @@ When prose disagrees with code, treat it as **Should fix** at minimum (**Blockin
 
 ## 4. Report format — must be agent-actionable
 
+Normalize findings so they are directly consumable by
+`.github/skills/qa-apply-findings/`:
+
+- Use `.github/skills/qa-apply-findings/findings.schema.json` as the contract.
+- Start from `.github/skills/qa-apply-findings/findings.template.json`.
+- Keep legacy human-readable sections (`Blocking`, `Should fix`, `Nits`) for user readability,
+  but ensure each finding can be represented as one normalized item with an ID (`B1`, `S2`, `N3`).
+
 Output **one finding per actionable defect**, in this exact shape:
 
 ````
@@ -157,18 +165,15 @@ Output **one finding per actionable defect**, in this exact shape:
 
 ## 5. Fix step (default ON; skipped under `report-only`)
 
-After printing the report, apply fixes in this order:
+After printing the report, delegate execution to `qa-apply-findings`:
 
 1. **Hard precondition — call `manage_todo_list` first.** Per the workspace's delivery checklist, you MUST register a todo list covering: read knowledge → apply fixes → run tests → run lint → docs check → retrospective → commit suggestion. Do not call any edit tool before this list exists.
-2. **Apply Blocking fixes first**, then Should-fix. Skip any finding tagged `**Manual:**` and any Nits unless the user asked for them.
-3. **Group edits by file** so each file is opened at most once. Prefer `multi_replace_string_in_file` when several findings touch the same file.
-4. **Re-read the file after editing** to confirm the change landed correctly and didn't introduce new issues at adjacent lines.
-5. **Run the per-finding `Verify` checks** that are cheap (regex/grep, file-level inspection). Defer expensive checks (full `nx test`, `nx build`) to step 6.
-6. **Validate the affected projects:**
-   - Determine which Nx project(s) own the changed files.
-   - Run `bun nx affected -t lint,test` (or per-project `bun nx test <project>` when affected isn't viable). Report the result.
-   - For `libs/grid/**` changes that look material to bundle size, also run `bun nx build grid` (bundle budget gate).
-7. **Final summary** — print a compact recap:
+2. Convert findings into the normalized JSON shape expected by
+  `.github/skills/qa-apply-findings/findings.schema.json`.
+3. Run `qa-apply-findings` to apply `blocking` first, then `should-fix` findings.
+4. Reuse the skill's validation contract and summary template at
+  `.github/skills/qa-apply-findings/summary.template.md`.
+5. If needed, append the existing human-readable recap:
 
    ```
    ## QA Fix Summary

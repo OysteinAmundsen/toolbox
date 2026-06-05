@@ -13,15 +13,19 @@ For each unresolved review comment / thread:
    - **Partially valid** → some parts of the comment are correct and some are not (e.g. the diagnosis is right but the suggested fix is wrong, or one of several suggestions applies).
    - **Wrong** → the comment is incorrect or contradicts a `DECIDED` entry, instruction file, test, or invariant; no code change is warranted.
 
+After classification, normalize all actionable items into the shared findings contract
+from `.github/skills/qa-apply-findings/findings.schema.json` (source=`pr-thread`) and
+use `qa-apply-findings` as the common execution core for code changes.
+
 ### Handling a Valid comment
 
-- Implement the fix following the standard delivery workflow (knowledge read → code → test → build/lint → docs → retrospective).
+- Normalize the comment into a finding item and run `qa-apply-findings` to implement + validate.
 - Reply on the thread with a short note pointing at the file/change that addresses it.
 - Mark the thread resolved.
 
 ### Handling a Partially valid comment
 
-- Implement only the parts you agree with.
+- Normalize only the accepted parts as finding items and run `qa-apply-findings`.
 - Reply explaining what you changed, what you did not change, and why.
 - Mark the thread resolved.
 
@@ -32,14 +36,14 @@ For each unresolved review comment / thread:
 - Mark the thread resolved once you've replied.
 
 3. **Do NOT commit, push, force-push, merge, or close the PR itself.** "Mark the thread resolved" above refers to the per-thread `resolveReviewThread` GraphQL mutation only — it collapses an individual review thread and does not close the pull request. Leave changes unstaged in the working tree. End with a suggested commit message for the user to run themselves. The author handles all git operations.
-4. After processing every thread, post a short summary comment on the PR listing: addressed (with file refs), partially addressed, and disagreed-with (with one-line reasons).
+4. After processing every thread, stop. Do not post an additional final PR-level summary comment; per-thread replies and thread resolution are sufficient.
 
 Constraints — grouped by category:
 
 **Tools (GitHub interactions):**
 
 - **Use the `pr-comments` skill** for all inline-thread I/O: it ships `fetch-threads.mjs` (fetch every review thread as normalized JSON) and `reply-resolve.mjs` (post inline replies + resolve threads from a JSON items file). It drives the `gh` CLI under the hood. Do NOT use the GitKraken MCP tools — they only support PR-level comments and approvals, not inline thread replies, so per-thread responses get lost.
-- Summary comment on the PR: `gh pr comment <pr> --body '...'` (or `gh issue comment` for non-PR issues).
+- Do not post a final PR-level summary comment from this workflow.
 
 **Workflows (code changes):**
 

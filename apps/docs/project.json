@@ -13,11 +13,8 @@
       }
     },
     "build": {
-      "command": "astro build",
+      "command": "astro build --root apps/docs",
       "dependsOn": ["grid:build", "grid:typedoc", "grid-angular:typedoc", "grid-react:typedoc", "grid-vue:typedoc"],
-      "options": {
-        "cwd": "apps/docs"
-      },
       "outputs": ["{workspaceRoot}/dist/docs"]
     },
     "preview": {

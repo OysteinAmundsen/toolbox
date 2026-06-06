@@ -15,6 +15,7 @@
  */
 import type { APIRoute } from 'astro';
 
+import { AGENT_PREAMBLE_SHORT } from './_llm-agent-preamble';
 import { extractFrontmatter } from './_llm-markdown';
 import {
   API_AREA_ORDER,
@@ -35,10 +36,7 @@ const INTRO = `# @toolbox-web/grid
 
 This is a **Web Component** (\`<tbw-grid>\`) that works natively in all frameworks without wrappers (optional adapter packages for React, Angular, and Vue add JSX/template/slot renderers). Configuration uses a **single source of truth** pattern via the \`gridConfig\` property. Capabilities are enabled through tree-shakeable \`features\` (declarative, recommended) or \`plugins\` (manual class instantiation). The grid uses **light DOM** (not Shadow DOM) for CSS cascade and accessibility.
 
-**Agent conventions:**
-
-- **Prefer a single \`gridConfig\` object** over many individual props/attributes — it is portable across frameworks and far more readable for multi-line feature config.
-- **Every documentation page has a plain-markdown companion**: append \`.md\` to any docs URL (e.g. \`/grid/getting-started.md\`) to fetch a lean, self-contained Markdown rendering with demo code inlined. All links below already use that \`.md\` form.
+**Every documentation page has a plain-markdown companion**: append \`.md\` to any docs URL (e.g. \`/grid/getting-started.md\`) to fetch a lean, self-contained Markdown rendering with demo code inlined. All links below already use that \`.md\` form.
 `;
 
 interface Entry {
@@ -101,7 +99,7 @@ function renderApiSection(origin: string, apiEntries: Entry[]): string {
 
 function buildIndex(origin: string): string {
   const bySection = collectEntries();
-  const parts: string[] = [INTRO.trim()];
+  const parts: string[] = [INTRO.trim(), AGENT_PREAMBLE_SHORT.trim()];
 
   for (const section of SECTION_ORDER) {
     if (section === 'API') continue; // the exhaustive API gets its own section below

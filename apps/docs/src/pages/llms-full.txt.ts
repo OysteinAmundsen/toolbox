@@ -18,6 +18,7 @@
  */
 import type { APIRoute } from 'astro';
 
+import { AGENT_PREAMBLE_FULL } from './_llm-agent-preamble';
 import { extractFrontmatter, mdxToAgentMarkdown } from './_llm-markdown';
 import {
   API_AREA_ORDER,
@@ -105,7 +106,12 @@ function buildFull(origin: string): string {
     .filter((p) => sectionOf(p.slug) === 'API')
     .map((p) => ({ slug: p.slug, title: titleFromSlug(p.slug) }));
 
-  const body = [HEADER.trim(), sections.join('\n\n---\n\n'), renderApiIndex(origin, apiEntries)];
+  const body = [
+    HEADER.trim(),
+    AGENT_PREAMBLE_FULL.trim(),
+    sections.join('\n\n---\n\n'),
+    renderApiIndex(origin, apiEntries),
+  ];
   return body.join('\n\n---\n\n') + '\n';
 }
 

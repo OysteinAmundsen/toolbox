@@ -16,7 +16,15 @@
 import type { APIRoute } from 'astro';
 
 import { extractFrontmatter } from './_llm-markdown';
-import { API_AREA_ORDER, apiAreaOf, docSources, keyToSlug, SECTION_ORDER, sectionOf } from './_llm-sources';
+import {
+  API_AREA_ORDER,
+  apiAreaOf,
+  compareSlugsInSection,
+  docSources,
+  keyToSlug,
+  SECTION_ORDER,
+  sectionOf,
+} from './_llm-sources';
 
 type Section = (typeof SECTION_ORDER)[number];
 
@@ -32,18 +40,6 @@ This is a **Web Component** (\`<tbw-grid>\`) that works natively in all framewor
 - **Prefer a single \`gridConfig\` object** over many individual props/attributes — it is portable across frameworks and far more readable for multi-line feature config.
 - **Every documentation page has a plain-markdown companion**: append \`.md\` to any docs URL (e.g. \`/grid/getting-started.md\`) to fetch a lean, self-contained Markdown rendering with demo code inlined. All links below already use that \`.md\` form.
 `;
-
-// Within "Core Documentation", surface the conceptual pages in reading order;
-// everything else falls back to alphabetical.
-const CORE_ORDER = [
-  'grid/introduction',
-  'grid/getting-started',
-  'grid/core',
-  'grid/demos',
-  'grid/comparison',
-  'grid/architecture',
-  'grid/api-reference',
-];
 
 interface Entry {
   slug: string;
@@ -71,14 +67,7 @@ function collectEntries(): Map<Section, Entry[]> {
   }
 
   for (const [section, entries] of bySection) {
-    entries.sort((a, b) => {
-      if (section === 'Core Documentation') {
-        const ai = CORE_ORDER.indexOf(a.slug);
-        const bi = CORE_ORDER.indexOf(b.slug);
-        if (ai !== bi) return (ai === -1 ? Infinity : ai) - (bi === -1 ? Infinity : bi);
-      }
-      return a.slug.localeCompare(b.slug);
-    });
+    entries.sort((a, b) => compareSlugsInSection(section, a.slug, b.slug));
   }
   return bySection;
 }
@@ -128,7 +117,7 @@ function buildIndex(origin: string): string {
     [
       '## Optional',
       '',
-      `- [Full documentation](${origin}/llms-full.txt): Every guide, plugin and adapter page inlined into one file for one-shot ingestion.`,
+      `- [Full documentation](${origin}/llms-full.txt): Guide, plugin and adapter pages inlined into one file for one-shot ingestion (a few non-implementation pages such as the competitor comparison are omitted; they remain linked above).`,
     ].join('\n'),
   );
 

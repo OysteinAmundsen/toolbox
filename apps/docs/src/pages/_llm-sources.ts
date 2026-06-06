@@ -8,6 +8,7 @@
  * source of truth and one slug-derivation rule, so they can never disagree
  * about which pages exist or where they live.
  */
+import { CSS_VARIABLES } from '../data/css-variable-registry.js';
 
 // Raw source of every grid doc page (build-time, via Vite). Paths are relative
 // to THIS file (`src/pages/`), so `../` reaches `src/`.
@@ -114,3 +115,62 @@ export const API_AREA_ORDER = [
   'Vue Adapter',
   'Other',
 ] as const;
+
+/**
+ * Reading order for the conceptual "Core Documentation" pages — generic → specific
+ * (orientation → setup → core concepts → demos → architecture → reference → history),
+ * so both agent files lead with what-it-is and how-to-set-up before deep internals or
+ * historical material. Pages not listed sort alphabetically AFTER these. Shared by
+ * `llms.txt` (index) and `llms-full.txt` (corpus) so both present the same narrative arc.
+ *
+ * NOTE: `demos`, `comparison`, and `changelog` stay listed here even though they are
+ * EXCLUDED from the `llms-full.txt` corpus (via `llmsFull: false`). The exclusion only
+ * affects the corpus; the `llms.txt` INDEX still links every page and uses this array to
+ * order them. Dropping them here would push those three to the alphabetical tail of the
+ * index in an arbitrary order — they belong in the curated reading order regardless.
+ */
+export const CORE_ORDER = [
+  'grid/introduction',
+  'grid/getting-started',
+  'grid/core',
+  'grid/demos',
+  'grid/architecture',
+  'grid/api-reference',
+  'grid/errors',
+  'grid/comparison',
+  'grid/changelog',
+] as const;
+
+/**
+ * Comparator for two slugs within the SAME section. "Core Documentation" follows the
+ * curated `CORE_ORDER` reading order (generic → specific); every other section sorts
+ * alphabetically by slug. Section-level ordering is `SECTION_ORDER` (Core → Guides →
+ * Plugins → Plugin Development → Framework Adapters → Angular/React/Vue), itself
+ * generic → specific. Used by both agent endpoints for one consistent order.
+ */
+export function compareSlugsInSection(section: string, a: string, b: string): number {
+  if (section === 'Core Documentation') {
+    const ai = CORE_ORDER.indexOf(a as (typeof CORE_ORDER)[number]);
+    const bi = CORE_ORDER.indexOf(b as (typeof CORE_ORDER)[number]);
+    const an = ai === -1 ? Infinity : ai;
+    const bn = bi === -1 ? Infinity : bi;
+    if (an !== bn) return an - bn;
+  }
+  return a.localeCompare(b);
+}
+
+/**
+ * Markdown rendering of the live `<CSSVariableReference />` widget for the agent
+ * corpus. The human page shows three columns (Variable / Current Value / Description);
+ * for agents only the **variable name + description** carry meaning — the "current
+ * value" column is a runtime-computed convenience, so it is dropped here. Grouped by
+ * the same category headings the widget renders. Injected into `mdxToAgentMarkdown`
+ * via `AgentMarkdownOptions.cssVarReference` so the transform stays free of doc-data
+ * imports (it cannot import `CSS_VARIABLES` itself and remain pure).
+ */
+export const cssVariableReferenceMarkdown: string = Object.entries(CSS_VARIABLES)
+  .map(([category, defs]) => {
+    const rows = defs.map((def) => `| \`${def.name}\` | ${def.description} |`).join('\n');
+    return `### ${category}\n\n| Variable | Description |\n| --- | --- |\n${rows}`;
+  })
+  .join('\n\n');

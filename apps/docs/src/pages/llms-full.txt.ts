@@ -18,10 +18,12 @@
  */
 import type { APIRoute } from 'astro';
 
-import { mdxToAgentMarkdown } from './_llm-markdown';
+import { extractFrontmatter, mdxToAgentMarkdown } from './_llm-markdown';
 import {
   API_AREA_ORDER,
   apiAreaOf,
+  compareSlugsInSection,
+  cssVariableReferenceMarkdown,
   docSources,
   hasDoc,
   keyToSlug,
@@ -39,6 +41,10 @@ framework adapters — into one document for one-shot ingestion. Demo code is
 inlined as fenced blocks. The exhaustive per-symbol TypeDoc API is linked (not
 inlined) at the end to keep this file small; fetch any symbol by appending
 \`.md\` to its page URL. For the curated link index, see \`llms.txt\`.
+
+A few non-implementation pages (e.g. the competitor comparison) are intentionally
+omitted here to keep the corpus focused on building with the grid; they remain
+linked in \`llms.txt\`.
 `;
 
 interface ApiEntry {
@@ -79,14 +85,20 @@ function buildFull(origin: string): string {
   const allPages = Object.entries(docSources).map(([key, source]) => ({ slug: keyToSlug(key), source }));
 
   // Prose pages (everything except per-symbol API), grouped by section then slug.
+  // Pages whose frontmatter sets `llmsFull: false` (sales/marketing — e.g. the
+  // competitor comparison) are omitted here but stay linked in `llms.txt`.
   const prosePages = allPages
-    .filter((p) => sectionOf(p.slug) !== 'API')
+    .filter((p) => sectionOf(p.slug) !== 'API' && extractFrontmatter(p.source).llmsFull !== false)
     .sort((a, b) => {
-      const ai = SECTION_ORDER.indexOf(sectionOf(a.slug) as (typeof SECTION_ORDER)[number]);
-      const bi = SECTION_ORDER.indexOf(sectionOf(b.slug) as (typeof SECTION_ORDER)[number]);
-      return ai !== bi ? ai - bi : a.slug.localeCompare(b.slug);
+      const sa = sectionOf(a.slug);
+      const sb = sectionOf(b.slug);
+      const ai = SECTION_ORDER.indexOf(sa as (typeof SECTION_ORDER)[number]);
+      const bi = SECTION_ORDER.indexOf(sb as (typeof SECTION_ORDER)[number]);
+      return ai !== bi ? ai - bi : compareSlugsInSection(sa, a.slug, b.slug);
     });
-  const sections = prosePages.map((p) => mdxToAgentMarkdown(p.source, { resolveDemo, hasDoc }).trim());
+  const sections = prosePages.map((p) =>
+    mdxToAgentMarkdown(p.source, { resolveDemo, hasDoc, cssVarReference: cssVariableReferenceMarkdown }).trim(),
+  );
 
   // Per-symbol API pages, linked (not inlined) at the end.
   const apiEntries: ApiEntry[] = allPages

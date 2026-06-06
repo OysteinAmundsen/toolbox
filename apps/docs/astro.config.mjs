@@ -6,7 +6,10 @@ import { join, resolve } from 'path';
 import remarkGfm from 'remark-gfm';
 
 const rootDir = resolve(import.meta.dirname, '../..');
-const pagefindDir = resolve(import.meta.dirname, 'dist/pagefind');
+// The docs site builds into the workspace-wide `dist/docs` output (alongside
+// every other `dist/<project>` artifact) rather than the project-local
+// `apps/docs/dist`. `pagefindDir` tracks that location for the dev-server shim.
+const pagefindDir = resolve(rootDir, 'dist/docs/pagefind');
 const isProductionBuild = process.argv.includes('build');
 
 /**
@@ -82,9 +85,41 @@ function pagefindDevPlugin() {
   };
 }
 
+/**
+ * Vite plugin that makes the per-page `**.md` agent-markdown endpoint reachable
+ * WITHOUT a trailing slash during `astro dev`.
+ *
+ * The global `trailingSlash: 'always'` setting forces `astro dev` to 404 a
+ * no-slash request to the `[...slug].md.ts` rest-route (only the `foo.md/` form
+ * matches). The static production build emits literal `foo.md` files, so GitHub
+ * Pages / `astro preview` already serve the clean no-slash URL correctly — this
+ * shim only closes the dev/prod gap by internally rewriting `foo.md` ->
+ * `foo.md/` before Astro routes it, reusing the existing endpoint (no transform
+ * logic duplicated here).
+ */
+function llmsMarkdownDevPlugin() {
+  return {
+    name: 'llms-markdown-dev-server',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const [path, query] = (req.url || '').split('?');
+        if (path.endsWith('.md')) {
+          req.url = path + '/' + (query ? '?' + query : '');
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
   site: 'https://toolboxjs.com',
   trailingSlash: 'always',
+
+  // Emit the build into the workspace-wide `dist/docs` (next to `dist/libs/*`),
+  // not the project-local `apps/docs/dist`. `outDir` is resolved relative to the
+  // Astro project root (`apps/docs`), so `../../dist/docs` reaches the repo root.
+  outDir: '../../dist/docs',
 
   // Astro 6 + @astrojs/mdx 5 no longer auto-injects remark-gfm into the MDX
   // pipeline once another integration (astro-mermaid) populates
@@ -111,7 +146,7 @@ export default defineConfig({
   },
 
   vite: {
-    plugins: [pagefindDevPlugin()],
+    plugins: [pagefindDevPlugin(), llmsMarkdownDevPlugin()],
     resolve: {
       alias: {
         ...gridAliases(),
@@ -152,7 +187,7 @@ export default defineConfig({
           attrs: {
             rel: 'alternate',
             type: 'text/plain',
-            href: 'https://raw.githubusercontent.com/OysteinAmundsen/toolbox/main/llms.txt',
+            href: '/llms.txt',
             title: 'LLM-optimized documentation (summary)',
           },
         },
@@ -161,7 +196,7 @@ export default defineConfig({
           attrs: {
             rel: 'alternate',
             type: 'text/plain',
-            href: 'https://raw.githubusercontent.com/OysteinAmundsen/toolbox/main/llms-full.txt',
+            href: '/llms-full.txt',
             title: 'LLM-optimized documentation (full)',
           },
         },

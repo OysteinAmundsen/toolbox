@@ -18,7 +18,7 @@
       "options": {
         "cwd": "apps/docs"
       },
-      "outputs": ["{projectRoot}/dist"]
+      "outputs": ["{workspaceRoot}/dist/docs"]
     },
     "preview": {
       "command": "astro preview --port 4400",

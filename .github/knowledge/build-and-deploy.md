@@ -59,6 +59,22 @@ related: [build-css, grid-core]
 - DECIDED: Plugin/Adapter splits of `DataGridElement` (internal API pages) intentionally do NOT show the Since pill — it lives only on the Public API split to avoid noise on plugin-developer pages.
 - DECIDED: Version badges link to `/grid/<framework>/changelog/` (slug convention); changelog pages are MDX shells that import the package CHANGELOG.md.
 
+## llms.txt / llms-full.txt / per-page `.md` (generated agent endpoints)
+
+- OWNS: three Astro endpoints serving plain-markdown for agents, all driven by ONE source-of-truth glob in `apps/docs/src/pages/_llm-sources.ts` (`docSources` = `../content/docs/grid/**/*.{md,mdx}`, `demoSources`, plus `keyToSlug`/`sectionOf`/`hasDoc`/`resolveDemo`/`SECTION_ORDER`/`apiAreaOf`/`API_AREA_ORDER`). Transform logic in `apps/docs/src/pages/_llm-markdown.ts` (`mdxToAgentMarkdown` + `extractFrontmatter`).
+  - `[...slug].md.ts` — per-page `.md` companion for every docs page (637 pages: 58 prose + 579 TypeDoc API). Append `.md` to ANY docs URL to fetch it.
+  - `llms.txt.ts` — curated link INDEX (~65 kB): hand-authored intro + generated section lists, INCLUDING a full `## API Reference` grouped by `### area` linking all 579 API pages.
+  - `llms-full.txt.ts` — full PROSE corpus inlined (~1.16 MB), then a LINKED `## API Reference` index (NOT inlined).
+- DECIDED (Jun 2026): llms-full.txt inlines prose only; per-symbol TypeDoc API is LINKED, not inlined. WHY: inlining all 579 API `.md` (~1 MB) doubled the file to 2.2 MB and buried the conceptual docs. Linked index keeps it ingestion-friendly while every symbol stays one `.md` fetch away. `sectionOf(slug)==='API'` partitions prose vs API.
+- INVARIANT: `sectionOf` classifies a slug as `'API'` two ways — `/(^|\/)api\//` OR a reflection-kind dir (`/(classes|interfaces|functions|types|variables|enumerations)\//`). The second catches per-plugin/adapter TypeDoc pages (e.g. `grid/plugins/clipboard/classes/...`) that have no `/api/` segment; without it they leak into the Plugins section.
+- INVARIANT: `keyToSlug` lowercases — Starlight serves TypeDoc routes lowercased (`Classes/DataGridElement.mdx` → `/classes/datagridelement/`), so `.md` URLs must match.
+- INVARIANT: head `rel="alternate"` links in `astro.config.mjs` point at SAME-ORIGIN `/llms.txt` and `/llms-full.txt` (was `raw.githubusercontent.com`). The endpoints are generated each build from `docSources` → zero drift with docs. `public/robots.txt` also advertises both as discoverability comments (static, alongside the `Sitemap:` line).
+
+## docs outDir → workspace `dist/docs` (Jun 2026)
+
+- DECIDED: docs build outputs to workspace-root `dist/docs` (was `apps/docs/dist`), matching every other lib. WHY: single canonical `dist/` tree. SET IN: `apps/docs/astro.config.mjs` `outDir: '../../dist/docs'` (resolved from Astro root `apps/docs`) + `pagefindDir: resolve(rootDir,'dist/docs/pagefind')`; `apps/docs/project.json` build `outputs: ["{workspaceRoot}/dist/docs"]`; `.github/workflows/ci.yml` `upload-pages-artifact` `path: dist/docs`.
+- INVARIANT: sitemap is auto-enabled by Starlight's bundled `@astrojs/sitemap` because `site: 'https://toolboxjs.com'` is set (no literal `sitemap` in config). Emits `sitemap-index.xml` + `sitemap-0.xml` (639 URLs); `robots.txt` references `sitemap-index.xml`. NOTE: a stale singular `dist/docs/sitemap.xml` was orphaned Storybook cruft, not produced by the Astro build.
+
 ## ci-pipeline (.github/workflows/ci.yml)
 
 - FLOW: setup (detect release merge) → validation (lint + test + build + bench, parallel) → e2e (build all → start 4 demo servers with USE_DIST=true → Playwright) → release-please → build-docs → deploy-pages

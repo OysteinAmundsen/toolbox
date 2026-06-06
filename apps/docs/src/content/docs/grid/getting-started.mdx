@@ -98,6 +98,12 @@ The grid detects types (`number`, `boolean`, `date`, `string`) from values and f
 
 The grid is a standard web component that works in any JavaScript environment — you can always use the Vanilla JS approach in any framework. For React, Vue, and Angular, we also provide dedicated adapter packages that enable custom component renderers and editors.
 
+:::tip[Prefer a single `gridConfig` object]
+Across every framework, the recommended pattern is to describe the grid with one `gridConfig` object — columns, `features`, and `plugins` together — and pass it as a single prop/input/attribute. Keep reactive data (`rows`) separate, since it changes independently of configuration.
+
+A single config object is portable (the same `GridConfig` works in vanilla, React, Angular, and Vue), easy to share or snapshot in tests, and keeps multi-line feature config readable. Individual feature props (e.g. `selection="row"`) remain fully supported and are a fine shorthand for very small grids — but default to `gridConfig` for everything else, including any column that uses a custom renderer or editor.
+:::
+
 <Tabs syncKey="framework">
   <TabItem label="TypeScript">
 

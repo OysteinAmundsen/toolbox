@@ -155,6 +155,44 @@ Double-click any cell to start editing. Press Enter to commit or Escape to cance
 
 
 
+## Built-in Editors
+
+The editor used for a cell is chosen from the column's `type`. No editor code is required for the common cases — set `type` and `editable: true`, and the matching native input is rendered:
+
+| Column `type`        | Built-in editor   | Configure via                                                          |
+| -------------------- | ----------------- | ---------------------------------------------------------------------- |
+| `'string'` (default) | Text `<input>`    | `editorParams`: `maxLength`, `pattern`, `placeholder`                  |
+| `'number'`           | Number `<input>`  | `editorParams`: `min`, `max`, `step`, `placeholder`                    |
+| `'date'`             | Date `<input>`    | `editorParams`: `min`, `max` (ISO `'YYYY-MM-DD'`), `placeholder`, `default` |
+| `'boolean'`          | Checkbox          | _(no params)_                                                          |
+| `'select'`           | Dropdown `<select>` | column `options`; `editorParams`: `includeEmpty`, `emptyLabel`       |
+
+`editorParams` is set on the column and tunes the built-in editor's HTML attributes:
+
+```ts
+grid.gridConfig = {
+  columns: [
+    { field: 'name', editable: true, editorParams: { maxLength: 50, placeholder: 'Full name' } },
+    { field: 'price', type: 'number', editable: true, editorParams: { min: 0, step: 0.01 } },
+    { field: 'hireDate', type: 'date', editable: true, editorParams: { min: '2020-01-01' } },
+    {
+      field: 'department',
+      type: 'select',
+      editable: true,
+      // `options` is a column property — an array of { label, value } (or a function returning one).
+      options: [
+        { label: 'Engineering', value: 'eng' },
+        { label: 'Sales', value: 'sales' },
+      ],
+      editorParams: { includeEmpty: true, emptyLabel: '-- Select --' },
+    },
+  ],
+  features: { editing: 'dblclick' },
+};
+```
+
+For anything beyond these — overlay pickers, multi-field composites, or framework components — provide a custom `editor` on the column (see [Custom Editors](#custom-editors) below) or, in a framework adapter, the adapter's editor base class. The select editor's choices come from the column-level `options` property (not `editorParams`); `editorParams.includeEmpty`/`emptyLabel` only control the leading blank entry.
+
 ## Add/Remove Rows
 
 <ShowSource file="demos/editing/EditingAddRemoveRowsDemo.astro">

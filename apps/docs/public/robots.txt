@@ -1,3 +1,9 @@
 User-agent: *
 Allow: /
 Sitemap: https://toolboxjs.com/sitemap-index.xml
+
+# LLM-optimized documentation (llms.txt standard — https://llmstxt.org/)
+# Summary index:
+# https://toolboxjs.com/llms.txt
+# Full corpus:
+# https://toolboxjs.com/llms-full.txt

@@ -68,10 +68,12 @@ bun run test                 # Test all libraries
 
 ## AI/LLM Integration
 
-This project includes [`llms.txt`](llms.txt) and [`llms-full.txt`](llms-full.txt) files following the [llms.txt specification](https://llmstxt.org/) to help AI assistants understand and work with the codebase:
+This project publishes [`llms.txt`](https://toolboxjs.com/llms.txt) and [`llms-full.txt`](https://toolboxjs.com/llms-full.txt) files following the [llms.txt specification](https://llmstxt.org/) to help AI assistants understand and work with the codebase:
 
 - **`llms.txt`** - Concise overview with links to documentation
-- **`llms-full.txt`** - Comprehensive implementation guide with migration patterns from AG Grid, TanStack Table, and ngx-datatable
+- **`llms-full.txt`** - Comprehensive implementation guide with code examples, plugin configuration, and framework recipes
+
+Both are generated from the documentation site on every build, so they always reflect the current docs.
 
 ## Architecture
 

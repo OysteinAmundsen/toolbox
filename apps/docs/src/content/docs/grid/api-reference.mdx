@@ -710,14 +710,17 @@ For framework-specific patterns (vanilla TypeScript, React, Vue, Angular) and th
 
 ### Cancelable Events
 
-Four events support `preventDefault()` to reject the action:
+Five events support `preventDefault()` to reject the action:
 
 | Event | Plugin | What Canceling Does |
 |-------|--------|-------------------|
+| `cell-activate` | Core | Suppresses the default activation — prevents plugins (e.g. inline editing) from acting on the click/keypress |
 | `cell-commit` | Editing | Reverts the cell to its previous value |
 | `row-commit` | Editing | Reverts the entire row to pre-edit state |
 | `column-move` | Reorder | Rejects the column drag-and-drop |
 | `row-move` | Row Reorder | Rejects the row drag/keyboard move |
+
+`cell-activate` fires **first**, before any plugin handles the interaction, and for **both** pointer clicks and keyboard activation (Enter) — its `detail.trigger` is `'pointer'` or `'keyboard'`. Because it covers the keyboard path and is cancelable, prefer it over `cell-click` (pointer-only) for click-to-open / activate-to-edit patterns that must stay keyboard-accessible.
 
 ### Scroll & Render Recipes
 

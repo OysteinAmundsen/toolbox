@@ -178,7 +178,11 @@ export default defineConfig({
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/OysteinAmundsen/toolbox' }],
       customCss: ['./src/styles/custom.css'],
       editLink: {
-        baseUrl: 'https://github.com/OysteinAmundsen/toolbox/edit/main/',
+        // Starlight appends the page path relative to the Astro project root
+        // (`apps/docs/`), e.g. `src/content/docs/index.mdx`. The repo path is
+        // `apps/docs/src/content/docs/index.mdx`, so the baseUrl must include
+        // the `apps/docs/` prefix or every edit link 404s.
+        baseUrl: 'https://github.com/OysteinAmundsen/toolbox/edit/main/apps/docs/',
       },
       head: [
         // AI / LLM documentation

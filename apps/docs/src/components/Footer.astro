@@ -1,9 +1,45 @@
 ---
-import Default from '@astrojs/starlight/components/Footer.astro';
+import { Icon } from '@astrojs/starlight/components';
+import EditLink from '@astrojs/starlight/components/EditLink.astro';
+import LastUpdated from '@astrojs/starlight/components/LastUpdated.astro';
+import Pagination from '@astrojs/starlight/components/Pagination.astro';
+import config from 'virtual:starlight/user-config';
+
+import { hasDoc } from '../pages/_llm-sources';
 import VersionBadges from './VersionBadges.astro';
+
+// Every grid docs page (including generated TypeDoc API pages) has a plain-text
+// Markdown companion served at the same URL with a `.md` suffix, emitted by the
+// `[...slug].md.ts` route. Surface it next to "Edit page" so human readers and
+// AI agents can discover that machine-readable versions exist.
+const { pathname } = Astro.url;
+const slug = pathname.replace(/^\/|\/$/g, '').toLowerCase();
+const markdownHref = hasDoc(slug) ? pathname.replace(/\/$/, '') + '.md' : null;
 ---
 
-<Default {...Astro.props}><slot /></Default>
+<footer class="sl-flex">
+  <div class="meta sl-flex">
+    <EditLink />
+    {
+      markdownHref && (
+        <a href={markdownHref} class="md-link sl-flex print:hidden">
+          <Icon name="document" size="1.2em" />
+          View as Markdown
+        </a>
+      )
+    }
+    <LastUpdated />
+  </div>
+  <Pagination />
+
+  {
+    config.credits && (
+      <a class="kudos sl-flex" href="https://starlight.astro.build">
+        <Icon name={'starlight'} /> {Astro.locals.t('builtWithStarlight.label')}
+      </a>
+    )
+  }
+</footer>
 
 <VersionBadges />
 
@@ -13,6 +49,50 @@ import VersionBadges from './VersionBadges.astro';
 </div>
 
 <style>
+  /* Mirror Starlight's default Footer layout so the override stays visually
+     identical apart from the added "View as Markdown" link. */
+  footer {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .meta {
+    gap: 0.75rem 3rem;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-top: 3rem;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+  .meta > :global(p:only-child) {
+    margin-inline-start: auto;
+  }
+
+  /* Match Starlight's EditLink anchor styling. */
+  .md-link {
+    gap: 0.5rem;
+    align-items: center;
+    text-decoration: none;
+    color: var(--sl-color-gray-3);
+  }
+  .md-link:hover {
+    color: var(--sl-color-white);
+  }
+
+  .kudos {
+    align-items: center;
+    gap: 0.5em;
+    margin: 1.5rem auto;
+    font-size: var(--sl-text-xs);
+    text-decoration: none;
+    color: var(--sl-color-gray-3);
+  }
+  .kudos:hover {
+    color: var(--sl-color-white);
+  }
+  .kudos :global(svg) {
+    color: var(--sl-color-orange);
+  }
+
   .llm-context {
     font-size: 1px;
     line-height: 1;

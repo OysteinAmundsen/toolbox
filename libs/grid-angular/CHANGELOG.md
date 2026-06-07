@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.8.0...grid-angular-1.8.1) (2026-06-07)
+
+
+### Bug Fixes
+
+* **grid/grid-angular:** honor activeTag in createGrid/queryGrid and Angular host/shell directives ([#382](https://github.com/OysteinAmundsen/toolbox/issues/382)) ([#383](https://github.com/OysteinAmundsen/toolbox/issues/383)) ([52fa3cf](https://github.com/OysteinAmundsen/toolbox/commit/52fa3cf3ca1783c4dfb04737f40d46dee11e4f50))
+
 ## [1.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.7.1...grid-angular-1.8.0) (2026-06-03)
 
 

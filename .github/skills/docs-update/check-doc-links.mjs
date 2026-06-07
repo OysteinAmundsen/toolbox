@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // Audit internal markdown links in curated MDX docs (skip typedoc-generated subfolders).
-import { readFileSync, statSync } from 'node:fs';
-import { globSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const ROOT = path.resolve('apps/docs/src/content/docs');

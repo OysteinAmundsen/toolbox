@@ -1,0 +1,91 @@
+---
+title: AI-Assisted Development
+description: Machine-readable docs for @toolbox-web/grid — llms.txt, llms-full.txt, and per-page Markdown companions that let GitHub Copilot, Cursor, Claude, and other agents generate correct grid code.
+llmsFull: false
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import LlmFileSizes from '@components/LlmFileSizes.astro';
+
+Building with an AI coding assistant — GitHub Copilot, Cursor, Claude, ChatGPT, or any agentic workflow? This documentation is designed to be **consumed by machines as well as humans**. Every page is published in a clean, machine-readable form so an agent can ground its answers in the _actual_ current API instead of guessing from stale training data.
+
+## Why this matters for agentic workflows
+
+Coding agents are only as good as the context they're given. Left to their training data alone, an LLM will happily invent plausible-but-wrong API: a method that never existed, a prop from a different grid library, an import path from an old major version. The fix is **retrieval** — handing the agent the authoritative, current docs at generation time.
+
+Pointing your assistant at the files below gives you:
+
+- **Correct imports and API surface** — side-effect imports, feature vs. plugin config, event names, and type names come straight from the source, not a hallucination.
+- **Fewer iterations** — the agent gets the [critical rules](/grid/introduction/) (height is required, editing is opt-in, plugin load order) up front, so generated code runs the first time.
+- **Framework-portable answers** — the same `gridConfig` pattern is documented for vanilla JS, React, Angular, and Vue, so the agent recommends the portable shape by default.
+- **Up-to-date guidance** — because these files are regenerated on every docs build, your assistant reads today's API, not last year's.
+
+## What we publish
+
+All three formats follow the [llms.txt standard](https://llmstxt.org/) and are served from the site root.
+
+<CardGrid>
+  <LinkCard
+    title="llms.txt"
+    description="A concise, curated index: a one-paragraph overview, the agent steering rules, and links to every documentation page (each pointing at its Markdown companion). Small enough to fit a modest context window."
+    href="/llms.txt"
+  />
+  <LinkCard
+    title="Per-page Markdown"
+    description="Append .md to any docs URL — e.g. /grid/getting-started.md — to fetch a lean, self-contained Markdown rendering of just that page, with its demo code inlined. There's also a 'View as Markdown' link at the bottom of every page."
+    href="/grid/getting-started.md"
+  />
+</CardGrid>
+
+<Card title="The full corpus and its sizes">
+
+`llms-full.txt` is the **full corpus**: every prose guide, plugin, and adapter page concatenated with demo code inlined, for one-shot ingestion. The per-symbol API reference is linked, not inlined. A per-framework variant drops the other stacks' examples to trim size.
+
+The sizes below are **computed at build time by the same generators that emit the files**, so they never drift from reality. Don't be put off by the megabyte figures — most assistants retrieve only the sections a task needs rather than loading a file whole; size mainly bites if you paste verbatim, so when in doubt prefer `llms.txt` plus on-demand `.md` fetches.
+
+<LlmFileSizes />
+</Card>
+
+## Which one should you use?
+
+Reach for the **smallest file that answers the question** — precision beats volume. More context is not always better: an oversized prompt buries the relevant lines and can push the model past its usable window.
+
+| Your assistant can…                                            | Use this                              | Why                                                                                               |
+| ------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **Fetch URLs on demand** (Copilot, Cursor, Claude + MCP/tools) | **`llms.txt`** first → fetch `.md` pages | Loads a small index, then pulls only the pages the task needs. Highest signal-to-noise.           |
+| **Only accept one pasted/loaded blob** (no fetching)          | **`llms-full.txt`**                   | One-shot ingestion of the whole corpus when on-demand retrieval isn't available.                  |
+| **One blob, but you work in one framework**                   | **`llms-full-{react,vue,angular,vanilla}.txt`** | Same corpus, scoped to your stack — other frameworks' examples and adapter pages are dropped, cutting size substantially. |
+| **Work on one specific page/feature**                         | The page's **`.md`** companion        | Self-contained — the single most relevant document, nothing else.                                 |
+
+**Recommended default: `llms.txt`.** It is the curated map (overview, the agent steering rules, and a link to every page's `.md` companion). A capable agent reads it, then fetches just the handful of pages a task requires — e.g. the Editing and Selection plugin pages for an editable grid — instead of ingesting all ~25 plugins. Point at **`llms-full.txt` only** when your tool can't fetch on demand and you want everything in a single load. If your tool can't fetch but you only target one framework, prefer the scoped **`llms-full-{react,vue,angular,vanilla}.txt`** variant — it is the same corpus with the irrelevant framework variants removed.
+
+:::note[`llms-full.txt` is large by design]
+The full corpus is sizeable (it inlines every prose page and its runnable demo code, four framework variants included). Two kinds of repetition are **intentional**, not waste:
+
+- **Self-contained pages.** Core rules — _height is required_, _side-effect imports are mandatory_, _prefer one `gridConfig`_ — are restated on the pages where they matter. That is essential when an agent fetches a **single** `.md` page in isolation (it must stand alone), and merely redundant when those pages are concatenated into `llms-full.txt`.
+- **Every example in four frameworks.** Vanilla, React, Vue, and Angular snippets sit side by side so the agent finds your stack without guessing. In a per-page fetch this is a feature; in the concatenated dump it is the main size driver.
+
+If the full file is too big for your context window, switch to the **`llms.txt` + `.md`** retrieval flow above, or — if you only target one stack — the per-framework **`llms-full-{react,vue,angular,vanilla}.txt`** variant, rather than truncating it.
+:::
+
+## Where the content comes from — and what's in it
+
+These files are **generated at build time, never hand-written**, so they cannot drift from the documentation you're reading:
+
+- **Source of truth** — they are built from the same MDX documentation pages, the live demo component sources, and the JSDoc-derived TypeDoc API that produce this website. When the docs change, the AI files change in the same build.
+- **Demo code is the real code** — runnable examples are inlined directly from the demo sources the live site executes, so an agent learns from code that actually works, with zero copy-paste drift.
+- **Honest curation** — a few non-implementation pages (this one and the changelogs) are intentionally kept out of `llms-full.txt` so the corpus stays focused on _building_ with the grid. They remain linked in `llms.txt` for discoverability.
+- **Steering rules first** — `llms.txt` and the introduction lead with the [critical rules and anti-patterns](/grid/introduction/) an agent must respect before writing a single line, so the most consequential constraints are read first.
+
+## How to use them
+
+- **Pick the right entry point.** Prefer **`llms.txt`** when your assistant can fetch pages on demand (it then pulls only the `.md` pages a task needs); fall back to **`llms-full.txt`** for one-shot loads when on-demand fetching isn't available. See [Which one should you use?](#which-one-should-you-use) above.
+- **Share `.md` links, not HTML.** When you reference a specific page in a prompt, append `.md` to the URL. It hands the agent the page's actual content directly, so it spends no compute stripping HTML to reach the words that matter.
+- **Configure project rules.** For repeated use, drop a pointer to `/llms.txt` (or `/llms-full.txt` for fetch-less tools) into your tool's project rules file (e.g. a Cursor rule or a Copilot instructions file) so every session starts grounded.
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Introduction" description="The agent steering rules and critical gotchas, read first by any assistant" href="/grid/introduction/" />
+  <LinkCard title="Getting Started" description="Framework setup for Vanilla JS, React, Vue, and Angular" href="/grid/getting-started/" />
+</CardGrid>

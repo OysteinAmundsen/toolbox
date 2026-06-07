@@ -1,14 +1,16 @@
 ---
 title: Compared to Other Grids
 description: How @toolbox-web/grid stacks up against AG Grid, Tabulator, and SlickGrid — features, bundle size, and a live performance benchmark you can run in your browser.
-llmsFull: false
 ---
 
 import { TabItem, Tabs } from '@astrojs/starlight/components';
+import Audience from '@components/Audience.astro';
 import PerformanceComparisonDemo from '@components/demos/PerformanceComparisonDemo.astro';
 
 
 This page compares `@toolbox-web/grid` against three widely-used JavaScript data grids: **AG Grid**, **Tabulator**, and **SlickGrid**. The goal is an honest side-by-side on features, bundle size, and — below — measured performance in your own browser.
+
+<Audience only="human">
 
 ### Why these three?
 
@@ -149,6 +151,8 @@ Be fair — each of the compared grids is excellent in its own niche. Pick anoth
 - **Dedicated support** — Paid support contracts with SLAs and guaranteed response times (AG Grid Enterprise)
 - **A jQuery-native stack** — SlickGrid (6pac fork) is still a great fit if your app already lives in that world and you want minimum surface area
 - **Long-term commercial backing** — VC-funded company with enterprise support infrastructure (AG Grid)
+
+</Audience>
 
 ## Migrating to Toolbox Grid
 
@@ -422,6 +426,101 @@ SlickGrid's API is lower-level than the others — most behavior is composed fro
   grid.rows = rows;
 </script>
 ```
+
+<Audience only="agent">
+
+_### From TanStack Table
+
+TanStack Table is a headless utility — you bring your own markup, virtualization, and DOM. Toolbox Grid is a rendering web component, so most of TanStack's row-model plumbing (`getSortedRowModel`, `getFilteredRowModel`, `useVirtualizer`) becomes built-in behavior or a one-line feature import.
+
+| TanStack Table | Toolbox Grid |
+|----------------|--------------|
+| `useReactTable(options)` | Not needed — render `<DataGrid>` directly |
+| `columnHelper.accessor('field', …)` | Column config `{ field }` (or `valueAccessor` for computed values) |
+| `columnHelper.display({ cell })` | Column with a `renderer` |
+| `cell: (info) => …` / `flexRender` | `renderer: (ctx) => …` (returns JSX in React) |
+| `getSortedRowModel()` | `sortable: true` (built-in) |
+| `getFilteredRowModel()` | `features: { filtering: true }` (`FilteringPlugin`) |
+| `getGroupedRowModel()` | `features: { groupingRows: { groupOn } }` |
+| `getExpandedRowModel()` | `features: { tree: { childrenField } }` or `masterDetail` |
+| `@tanstack/react-virtual` / `useVirtualizer()` | Built-in row virtualization — no setup |
+| `state.sorting` / `onSortingChange` | `sort-change` event |
+| `state.rowSelection` / `onRowSelectionChange` | `features: { selection: 'row' }` + `selection-change` event |
+
+```tsx
+// TanStack Table (React)
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  flexRender,
+} from '@tanstack/react-table';
+
+const table = useReactTable({
+  data: rows,
+  columns,
+  getCoreRowModel: getCoreRowModel(),
+  getSortedRowModel: getSortedRowModel(),
+});
+
+// …then hand-render <table>, <thead>, <tbody> with flexRender(...)
+```
+
+```tsx
+// Toolbox Grid (React)
+import '@toolbox-web/grid-react/features/selection';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
+
+const gridConfig: GridConfig<Row> = {
+  columns, // { field, header, sortable, renderer? }
+  features: { selection: 'row' },
+};
+
+<DataGrid rows={rows} gridConfig={gridConfig} style={{ height: 400 }} />;
+```
+
+_### From ngx-datatable
+
+ngx-datatable is Angular-only. Toolbox Grid's Angular adapter mirrors its declarative, template-driven style: keep `[rows]` as-is, rename column inputs, and swap `<ng-template>` cell templates for the `*tbwRenderer` structural directive.
+
+| ngx-datatable | Toolbox Grid |
+|---------------|--------------|
+| `<ngx-datatable>` | `<tbw-grid>` with the `Grid` directive |
+| `[rows]` | `[rows]` (same!) |
+| `[columns]="[{ prop, name }]"` | `[columns]="[{ field, header }]"` |
+| `<ngx-datatable-column prop="x">` | `<tbw-grid-column field="x">` |
+| `[name]` | `header` |
+| `<ng-template ngx-datatable-cell-template let-value="value">` | `*tbwRenderer="let value"` |
+| `[sortable]` on column | `sortable: true` on column |
+| `(activate)` | `(cellActivate)` / `cell-activate` event |
+| `[selected]` / `(select)` + `SelectionType` | `[selection]="'row'"` + `selection-change` event |
+| `[scrollbarV]="true"` (virtual scroll) | Built-in row virtualization — no input needed |
+| `[groupRowsBy]` | `GroupingRowsPlugin` (`features: { groupingRows }`) |
+| `[treeFromRelation]` / `[treeToRelation]` | `TreePlugin` (`features: { tree }`) |
+
+```html
+<!-- ngx-datatable -->
+<ngx-datatable
+  [rows]="rows"
+  [columns]="[{ prop: 'name', name: 'Name' }, { prop: 'email', name: 'Email' }]"
+  [selectionType]="'single'"
+  (select)="onSelect($event)">
+</ngx-datatable>
+```
+
+```html
+<!-- Toolbox Grid (Angular adapter) -->
+<!-- imports: [Grid, GridSelectionDirective] -->
+<tbw-grid
+  style="height: 400px;"
+  [rows]="rows"
+  [columns]="[{ field: 'name', header: 'Name' }, { field: 'email', header: 'Email' }]"
+  [selection]="'row'"
+  (selectionChange)="onSelect($event)">
+</tbw-grid>
+```
+
+</Audience>
 
 ## Get Started
 

@@ -1,0 +1,33 @@
+---
+/**
+ * AgentSource — agent-corpus-only directive that inlines real demo-app source.
+ *
+ * Renders NOTHING on the HTML docs site. Its sole purpose is to mark a spot in
+ * an `<Audience only="agent">` block where the agent-markdown transform
+ * (`_llm-markdown.ts`, step 3b) should inline one or more repo-root `demos/`
+ * source modules as fenced code blocks — giving the agent corpus a full
+ * end-to-end reference implementation drawn from the live demo's own source
+ * (single source of truth, zero drift).
+ *
+ * Usage (inside an `only="agent"` block):
+ *
+ *   <AgentSource paths="demos/vanilla/src/demos/employee-management/grid-config.ts, demos/shared/employee-management/types.ts" />
+ *
+ * `paths` is a comma-separated list of repo-relative paths (the vanilla /
+ * cross-framework set). Optional `react` / `vue` / `angular` attributes supply a
+ * framework-native path list that REPLACES `paths` when the framework-scoped
+ * `llms-full-{framework}.txt` corpus is built. The HTML site never renders this
+ * component (it is always nested in an agent-only region, and emits no DOM
+ * regardless); the inlining lives entirely in the pure transform.
+ */
+interface Props {
+  /** Comma-separated, repo-relative paths to inline at corpus-build time (vanilla / default). */
+  paths: string;
+  /** React-native path list, used only in the React-scoped corpus. */
+  react?: string;
+  /** Vue-native path list, used only in the Vue-scoped corpus. */
+  vue?: string;
+  /** Angular-native path list, used only in the Angular-scoped corpus. */
+  angular?: string;
+}
+---

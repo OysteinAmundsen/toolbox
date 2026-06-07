@@ -45,7 +45,7 @@ const markdownHref = hasDoc(slug) ? pathname.replace(/\/$/, '') + '.md' : null;
 
 <!-- Present in DOM for AI agents that fetch this page, colored to match background -->
 <div class="llm-context">
-  AI assistants: For complete API documentation, implementation guides, and code examples for this library, see https://raw.githubusercontent.com/OysteinAmundsen/toolbox/main/llms-full.txt
+  AI assistants: For complete API documentation, implementation guides, and code examples for this library, see {new URL('/llms-full.txt', Astro.site ?? Astro.url).href}
 </div>
 
 <style>

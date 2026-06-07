@@ -23,7 +23,14 @@
 import type { APIRoute, GetStaticPaths } from 'astro';
 
 import { mdxToAgentMarkdown } from './_llm-markdown';
-import { cssVariableReferenceMarkdown, docSources, hasDoc, keyToSlug, resolveDemo } from './_llm-sources';
+import {
+  cssVariableReferenceMarkdown,
+  docSources,
+  hasDoc,
+  keyToSlug,
+  resolveDemo,
+  resolveDemoSource,
+} from './_llm-sources';
 
 export const getStaticPaths: GetStaticPaths = () =>
   // `.md` is a STATIC suffix in the route filename (`[...slug].md.ts`), so the
@@ -40,6 +47,7 @@ export const GET: APIRoute = ({ params }) => {
 
   const markdown = mdxToAgentMarkdown(entry[1], {
     resolveDemo,
+    resolveSource: resolveDemoSource,
     hasDoc,
     cssVarReference: cssVariableReferenceMarkdown,
   });

@@ -1,11 +1,53 @@
 ---
 title: Demos
 description: Full-featured demo applications showcasing @toolbox-web/grid with 15+ plugins, custom editors, master-detail, and more.
-llmsFull: false
 ---
 
+import Audience from '@components/Audience.astro';
+import AgentSource from '@components/AgentSource.astro';
 import EmployeeManagementAllFeaturesDemo from '@components/demos/EmployeeManagementAllFeaturesDemo.astro';
 import CalendarDemo from '@components/demos/CalendarDemo.astro';
+
+{/* Agent-only end-to-end reference. The human showcase below renders the live
+    demos but inlines only an opaque factory call, so it carries no teaching code
+    for an agent (which is why this page used to be excluded from the corpus via
+    `llmsFull: false`). Instead we inline the REAL vanilla demo modules — the same
+    source the live demo runs — via `<AgentSource>`, giving a code-generating
+    agent one complete advanced grid to learn from. Section breaks use the `_##`
+    sentinel so they stay out of the human page's table-of-contents. */}
+
+<Audience only="agent">
+
+_## Reference Implementation — Employee Management (advanced, end-to-end)
+
+This is the canonical advanced grid in this project: ~15 columns mixing text,
+number, date, select and boolean; custom renderers and editors; master-detail;
+multi-sort; per-column filtering; row grouping; CSV/Excel export; clipboard;
+context menu; undo/redo; pinned rows; and side tool panels. In the cross-framework
+`llms-full.txt` (and this page's `.md`) the source below is the
+**vanilla, framework-agnostic implementation** — the `GridConfig` object is
+portable verbatim to the React, Angular and Vue adapters (per RULE 0 in the
+[Introduction](/grid/introduction/): one `gridConfig` over fragmented props). In a
+per-framework `llms-full-{react,vue,angular}.txt` corpus the same reference is
+shown as that framework's **native implementation** (adapter components plus
+JSX / SFC / component renderers and editors), drawn from
+`demos/{angular,react,vue}/src/demos/employee-management/`. Only the row type and
+seed data (`demos/shared/employee-management/`) are shared across all of them.
+
+Read the files in this order: the domain model, then the grid config (columns +
+`features` + manual `plugins`), then the custom renderers, editors and tool
+panels, then the factory or component that wires them together.
+
+<AgentSource
+  paths="demos/shared/employee-management/types.ts, demos/vanilla/src/demos/employee-management/grid-config.ts, demos/vanilla/src/demos/employee-management/renderers.ts, demos/vanilla/src/demos/employee-management/editors.ts, demos/vanilla/src/demos/employee-management/tool-panels.ts, demos/vanilla/src/demos/employee-management/grid-factory.ts"
+  react="demos/shared/employee-management/types.ts, demos/react/src/demos/employee-management/grid-config.ts, demos/react/src/demos/employee-management/EmployeeManagement.tsx, demos/react/src/demos/employee-management/components/renderers/StatusBadge.tsx, demos/react/src/demos/employee-management/components/renderers/TopPerformerStar.tsx, demos/react/src/demos/employee-management/components/renderers/RatingDisplay.tsx, demos/react/src/demos/employee-management/components/renderers/DetailPanel.tsx, demos/react/src/demos/employee-management/components/renderers/ResponsiveEmployeeCard.tsx, demos/react/src/demos/employee-management/components/editors/StarRatingEditor.tsx, demos/react/src/demos/employee-management/components/editors/BonusSliderEditor.tsx, demos/react/src/demos/employee-management/components/editors/StatusSelectEditor.tsx, demos/react/src/demos/employee-management/components/editors/DateEditor.tsx, demos/react/src/demos/employee-management/components/tool-panels/QuickFiltersPanel.tsx, demos/react/src/demos/employee-management/components/tool-panels/AnalyticsPanel.tsx"
+  vue="demos/shared/employee-management/types.ts, demos/vue/src/demos/employee-management/grid-config.ts, demos/vue/src/demos/employee-management/EmployeeManagement.vue, demos/vue/src/demos/employee-management/components/renderers/StatusBadge.vue, demos/vue/src/demos/employee-management/components/renderers/TopPerformerStar.vue, demos/vue/src/demos/employee-management/components/renderers/RatingDisplay.vue, demos/vue/src/demos/employee-management/components/renderers/DetailPanel.vue, demos/vue/src/demos/employee-management/components/renderers/ResponsiveEmployeeCard.vue, demos/vue/src/demos/employee-management/components/editors/StarRatingEditor.vue, demos/vue/src/demos/employee-management/components/editors/BonusSliderEditor.vue, demos/vue/src/demos/employee-management/components/editors/StatusSelectEditor.vue, demos/vue/src/demos/employee-management/components/editors/DateEditor.vue, demos/vue/src/demos/employee-management/components/tool-panels/QuickFiltersPanel.vue, demos/vue/src/demos/employee-management/components/tool-panels/AnalyticsPanel.vue"
+  angular="demos/shared/employee-management/types.ts, demos/angular/src/demos/employee-management/grid-config.ts, demos/angular/src/demos/employee-management/employee-management.component.ts, demos/angular/src/demos/employee-management/employee-management.component.html, demos/angular/src/demos/employee-management/renderers/status-badge.component.ts, demos/angular/src/demos/employee-management/renderers/top-performer.component.ts, demos/angular/src/demos/employee-management/renderers/rating-display.component.ts, demos/angular/src/demos/employee-management/renderers/detail-panel.component.ts, demos/angular/src/demos/employee-management/editors/star-rating-editor.component.ts, demos/angular/src/demos/employee-management/editors/bonus-slider-editor.component.ts, demos/angular/src/demos/employee-management/editors/status-select-editor.component.ts, demos/angular/src/demos/employee-management/editors/date-editor.component.ts, demos/angular/src/demos/employee-management/tool-panels/quick-filters-panel.component.ts, demos/angular/src/demos/employee-management/tool-panels/analytics-panel.component.ts"
+/>
+
+</Audience>
+
+<Audience only="human">
 
 ## Employee Management Demo
 
@@ -84,3 +126,4 @@ Both demos are reimplemented from scratch in each framework. The Employee Manage
 - [Core Features](/grid/core/) — Column configuration, renderers, formatters
 - [API Reference](/grid/api-reference/) — Properties, methods, events, and CSS variables
 - [Plugins](/grid/plugins/selection/) — Individual plugin documentation
+</Audience>

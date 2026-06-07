@@ -9,6 +9,7 @@
  * about which pages exist or where they live.
  */
 import { CSS_VARIABLES } from '../data/css-variable-registry.js';
+import type { Framework } from './_llm-markdown.js';
 
 // Raw source of every grid doc page (build-time, via Vite). Paths are relative
 // to THIS file (`src/pages/`), so `../` reaches `src/`.
@@ -24,6 +25,28 @@ export const demoSources = import.meta.glob<string>('../components/demos/**/*.as
   import: 'default',
   eager: true,
 });
+
+// Raw source of the real demo-app TypeScript modules (repo-root `demos/`), for
+// inlining a full end-to-end reference implementation into the agent corpus via
+// the `<AgentSource paths="…" />` directive. Unlike the docs `demoSources` above
+// (whose `<script>` only calls an opaque factory through the `@demo/*` alias),
+// these are the canonical advanced grid-config files the live demo actually runs
+// — so the corpus teaches from the single source of truth with zero drift. The
+// vanilla demo + shared models are the cross-framework default; the React, Vue,
+// and Angular demo trees back the per-framework `<AgentSource>` overrides used by
+// the framework-scoped `llms-full-{framework}.txt` corpora. Paths escape the docs
+// root (`../../../../`) to reach repo-root `demos/`, which Vite already reads via
+// the `@demo/*` aliases.
+export const demoAppSources = import.meta.glob<string>(
+  [
+    '../../../../demos/vanilla/src/demos/**/*.ts',
+    '../../../../demos/shared/**/*.ts',
+    '../../../../demos/react/src/demos/**/*.{ts,tsx}',
+    '../../../../demos/vue/src/demos/**/*.{ts,vue}',
+    '../../../../demos/angular/src/demos/**/*.{ts,html}',
+  ],
+  { query: '?raw', import: 'default', eager: true },
+);
 
 /** Convert a glob key to a clean docs slug: `.../grid/introduction.mdx` → `grid/introduction`. */
 export function keyToSlug(key: string): string {
@@ -42,6 +65,21 @@ export function keyToSlug(key: string): string {
 export function resolveDemo(relPath: string): string | undefined {
   const needle = relPath.replace(/^.*?demos\//, 'demos/');
   for (const [key, source] of Object.entries(demoSources)) {
+    if (key.endsWith('/' + needle) || key.endsWith(needle)) return source;
+  }
+  return undefined;
+}
+
+/**
+ * Resolve a repo-relative demo-app source path (e.g.
+ * `demos/vanilla/src/demos/employee-management/grid-config.ts`) to its raw text
+ * from the `demoAppSources` glob, by matching the glob key's suffix. Used by the
+ * `<AgentSource paths="…" />` directive to inline real demo modules into the
+ * agent corpus. Returns `undefined` if no module matches.
+ */
+export function resolveDemoSource(relPath: string): string | undefined {
+  const needle = relPath.replace(/^\/+/, '');
+  for (const [key, source] of Object.entries(demoAppSources)) {
     if (key.endsWith('/' + needle) || key.endsWith(needle)) return source;
   }
   return undefined;
@@ -104,6 +142,26 @@ export function apiAreaOf(slug: string): string {
   return 'Other';
 }
 
+/** Adapter slug prefixes that are foreign to each framework-scoped corpus. */
+const FOREIGN_ADAPTER_PREFIXES: Record<Framework, readonly string[]> = {
+  vanilla: ['grid/angular/', 'grid/react/', 'grid/vue/'],
+  react: ['grid/angular/', 'grid/vue/'],
+  vue: ['grid/angular/', 'grid/react/'],
+  angular: ['grid/react/', 'grid/vue/'],
+};
+
+/**
+ * Return `true` when a page belongs to a framework adapter OTHER than the target
+ * framework, so it can be dropped from that framework's scoped corpus. Matches on
+ * the slug prefix, covering both adapter prose pages (`grid/angular/**`) and their
+ * per-symbol API pages (`grid/angular/api/**`). `null` (the "everything" variant)
+ * never excludes anything.
+ */
+export function isForeignFrameworkPage(slug: string, framework: Framework | null): boolean {
+  if (!framework) return false;
+  return FOREIGN_ADAPTER_PREFIXES[framework].some((prefix) => slug.startsWith(prefix));
+}
+
 /** Display order for the API-area subsections. */
 export const API_AREA_ORDER = [
   'Core',
@@ -123,15 +181,16 @@ export const API_AREA_ORDER = [
  * historical material. Pages not listed sort alphabetically AFTER these. Shared by
  * `llms.txt` (index) and `llms-full.txt` (corpus) so both present the same narrative arc.
  *
- * NOTE: `demos`, `comparison`, and `changelog` stay listed here even though they are
+ * NOTE: `ai`, `demos`, `comparison`, and `changelog` stay listed here even though they are
  * EXCLUDED from the `llms-full.txt` corpus (via `llmsFull: false`). The exclusion only
  * affects the corpus; the `llms.txt` INDEX still links every page and uses this array to
- * order them. Dropping them here would push those three to the alphabetical tail of the
+ * order them. Dropping them here would push those pages to the alphabetical tail of the
  * index in an arbitrary order — they belong in the curated reading order regardless.
  */
 export const CORE_ORDER = [
   'grid/introduction',
   'grid/getting-started',
+  'grid/ai',
   'grid/core',
   'grid/demos',
   'grid/architecture',

@@ -97,7 +97,13 @@ function renderApiSection(origin: string, apiEntries: Entry[]): string {
   return blocks.join('\n\n');
 }
 
-function buildIndex(origin: string): string {
+/**
+ * Build the curated `llms.txt` index for the given origin. Exported so the
+ * docs `LlmFileSizes` component can compute the index's byte/token size at build
+ * time from this exact source — guaranteeing the advertised size never drifts
+ * from the file actually served.
+ */
+export function buildIndex(origin: string): string {
   const bySection = collectEntries();
   const parts: string[] = [INTRO.trim(), AGENT_PREAMBLE_SHORT.trim()];
 
@@ -115,7 +121,11 @@ function buildIndex(origin: string): string {
     [
       '## Optional',
       '',
-      `- [Full documentation](${origin}/llms-full.txt): Guide, plugin and adapter pages inlined into one file for one-shot ingestion (a few non-implementation pages such as the competitor comparison are omitted; they remain linked above).`,
+      `- [Full documentation](${origin}/llms-full.txt): Guide, plugin and adapter pages inlined into one file for one-shot ingestion (a few non-implementation pages such as the changelogs are omitted; they remain linked above).`,
+      `- [Full documentation — React](${origin}/llms-full-react.txt): The full corpus scoped to React; code examples are narrowed to React and the Vue/Angular adapter pages are omitted.`,
+      `- [Full documentation — Vue](${origin}/llms-full-vue.txt): The full corpus scoped to Vue; code examples are narrowed to Vue and the React/Angular adapter pages are omitted.`,
+      `- [Full documentation — Angular](${origin}/llms-full-angular.txt): The full corpus scoped to Angular; code examples are narrowed to Angular and the React/Vue adapter pages are omitted.`,
+      `- [Full documentation — Vanilla](${origin}/llms-full-vanilla.txt): The full corpus scoped to vanilla TypeScript/JavaScript; the React, Vue and Angular adapter pages are omitted.`,
     ].join('\n'),
   );
 

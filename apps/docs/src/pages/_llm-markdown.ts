@@ -15,12 +15,28 @@
 
 // #region Types
 
+/**
+ * Target framework for a framework-scoped agent corpus
+ * (`llms-full-{framework}.txt`). `'vanilla'` keeps the plain TypeScript/JS/HTML
+ * examples and drops the React/Vue/Angular adapter variants.
+ */
+export type Framework = 'vanilla' | 'react' | 'vue' | 'angular';
+
 export interface AgentMarkdownOptions {
   /**
    * Resolve a demo `.astro` path (e.g. `demos/IntroBasicDemo.astro`) to its raw
    * source text, or `undefined` if it cannot be found.
    */
   resolveDemo: (relPath: string) => string | undefined;
+  /**
+   * Resolve a repo-relative demo-app source path (e.g.
+   * `demos/vanilla/src/demos/employee-management/grid-config.ts`) to its raw
+   * text, or `undefined` if not found. Drives the `<AgentSource paths="…" />`
+   * directive, which inlines a full end-to-end reference implementation into the
+   * agent corpus from the live demo's own source. When omitted, `<AgentSource>`
+   * tags are stripped.
+   */
+  resolveSource?: (relPath: string) => string | undefined;
   /**
    * Return `true` if the given lowercase doc slug (e.g. `grid/getting-started`)
    * has a generated `.md` companion page. Used to rewrite internal HTML links to
@@ -36,6 +52,14 @@ export interface AgentMarkdownOptions {
    * omitted, the tag is stripped like any other non-demo widget.
    */
   cssVarReference?: string;
+  /**
+   * When set, produce a framework-scoped corpus: within framework tab groups
+   * (those offering React/Vue/Angular alternatives), keep only the variant for
+   * this framework and drop the rest. Neutral tab groups (e.g. npm/yarn/CDN) and
+   * pages with no framework tabs are left untouched. When omitted, every tab
+   * variant is kept.
+   */
+  frameworkFilter?: Framework;
 }
 
 // #endregion
@@ -48,7 +72,7 @@ interface Frontmatter {
   /**
    * When explicitly `false`, the page is omitted from the inlined `llms-full.txt`
    * corpus (it stays linked in the `llms.txt` index). Used to keep sales/marketing
-   * pages — e.g. the competitor comparison — out of the one-shot ingestion file
+   * pages — e.g. release-history changelogs — out of the one-shot ingestion file
    * while leaving them discoverable. Defaults to included.
    */
   llmsFull?: boolean;
@@ -85,6 +109,33 @@ export function extractFrontmatter(raw: string): { title?: string; description?:
 
 // #endregion
 
+// #region Audience regions
+
+/**
+ * Resolve `<Audience only="human|agent">…</Audience>` regions for the agent
+ * corpus. Runs on the WHOLE body BEFORE the fenced-code split so a region whose
+ * children include a ```code``` fence is handled as one unit (the open/close
+ * tags would otherwise land in different fence segments).
+ *
+ * - `only="human"` regions (sales/marketing copy, motivational asides) are
+ *   removed entirely — they render on the HTML site but must not pollute the
+ *   implementation guidance an agent ingests.
+ * - `only="agent"` regions (steering directives, extra gotchas, recipes) have
+ *   only their wrapper tags removed; the inner Markdown is KEPT and flows through
+ *   the rest of the transform. They render as nothing on the HTML site (see
+ *   `Audience.astro`).
+ *
+ * Nesting is not supported (the non-greedy match stops at the first
+ * `</Audience>`); do not nest `<Audience>` blocks.
+ */
+export function resolveAudienceRegions(body: string): string {
+  return body
+    .replace(/<Audience\b[^>]*\bonly=["']human["'][^>]*>[\s\S]*?<\/Audience>/g, '')
+    .replace(/<Audience\b[^>]*\bonly=["']agent["'][^>]*>([\s\S]*?)<\/Audience>/g, '$1');
+}
+
+// #endregion
+
 // #region Demo inlining
 
 /** Extract the first `<script>` block's inner content from a demo `.astro` file. */
@@ -104,6 +155,56 @@ function demoCodeBlock(relPath: string, resolveDemo: (p: string) => string | und
   // code knows which `.astro` demo source it represents (provenance hint).
   const fileName = relPath.split(/[\\/]/).pop() ?? relPath;
   return '```ts\n// ' + fileName + '\n' + script + '\n```';
+}
+
+/**
+ * Expand an `<AgentSource paths="a, b, c" />` directive into one fenced code
+ * block per referenced demo-app module, each prefixed with a `// <repo path>`
+ * provenance comment. Paths are comma-separated and repo-relative; the language
+ * is inferred from the extension (`.css` → css, `.vue` → vue, `.tsx` → tsx,
+ * `.html` → html, else ts). A path that cannot be resolved emits an HTML comment
+ * instead of failing the build. Returns an empty string when no resolver is
+ * supplied (tags are simply dropped).
+ */
+function agentSourceBlock(pathsAttr: string, resolveSource?: (p: string) => string | undefined): string {
+  if (!resolveSource) return '';
+  const blocks = pathsAttr
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => {
+      const source = resolveSource(p);
+      if (!source) return `<!-- agent source not found: ${p} -->`;
+      const lang = langOfPath(p);
+      return '```' + lang + '\n// ' + p + '\n' + source.replace(/\s+$/, '') + '\n```';
+    });
+  return '\n' + blocks.join('\n\n') + '\n';
+}
+
+/** Infer the fenced-code language tag for a demo-source path. */
+function langOfPath(p: string): string {
+  if (/\.css$/.test(p)) return 'css';
+  if (/\.vue$/.test(p)) return 'vue';
+  if (/\.tsx$/.test(p)) return 'tsx';
+  if (/\.html$/.test(p)) return 'html';
+  return 'ts';
+}
+
+/**
+ * Pick the path list for an `<AgentSource>` tag, honouring per-framework
+ * overrides. The default `paths` attribute is the vanilla / cross-framework set;
+ * optional `react`/`vue`/`angular` attributes supply a framework-native set that
+ * REPLACES it when the corpus is scoped to that framework. `vanilla` has no
+ * dedicated attribute — `paths` already is the vanilla list. Returns `undefined`
+ * when the tag has no usable path list.
+ */
+function selectAgentSourcePaths(tag: string, framework?: Framework): string | undefined {
+  const attr = (name: string): string | undefined => {
+    const m = tag.match(new RegExp(`\\b${name}=["']([^"']+)["']`));
+    return m ? m[1] : undefined;
+  };
+  const override = framework && framework !== 'vanilla' ? attr(framework) : undefined;
+  return override ?? attr('paths');
 }
 
 // #endregion
@@ -129,6 +230,57 @@ function rewriteDocLink(url: string, hasDoc?: (slug: string) => boolean): string
 
 // #endregion
 
+// #region Framework tab filtering
+
+/**
+ * Map a `<TabItem>` label to the framework it represents, or `null` when the
+ * label is framework-neutral (e.g. `npm`, `CDN`, `With a bundler`). Adapter
+ * frameworks are matched first so a compound label like `React (TypeScript)`
+ * classifies as `react`, not `vanilla`.
+ */
+function frameworkOfLabel(label: string): Framework | null {
+  if (/react/i.test(label)) return 'react';
+  if (/vue/i.test(label)) return 'vue';
+  if (/angular/i.test(label)) return 'angular';
+  if (/typescript|javascript|vanilla|html|^\s*ts\s*$|^\s*js\s*$/i.test(label)) return 'vanilla';
+  return null;
+}
+
+/**
+ * Within each `<Tabs>` block that offers framework alternatives (a React, Vue,
+ * or Angular tab is present), keep only the `<TabItem>` for the target framework
+ * and drop the rest. Framework-neutral tab groups (install managers, bundler vs
+ * CDN, …) and blocks with no adapter-framework tab are left untouched. When the
+ * group has no tab for the target framework, fall back to the vanilla/TypeScript
+ * tab, and if even that is absent keep the whole group rather than emptying it.
+ *
+ * Runs on the full body BEFORE the fenced-code split (a `<TabItem>` wraps code
+ * fences), so it must operate on `<Tabs>`/`<TabItem>` structure while intact —
+ * i.e. before step 2b flattens them into `####` headings.
+ */
+export function filterFrameworkTabs(body: string, framework: Framework): string {
+  return body.replace(/<Tabs\b[^>]*>([\s\S]*?)<\/Tabs>/g, (full: string, inner: string) => {
+    const items: { raw: string; label: string }[] = [];
+    const itemRe = /<TabItem\b[^>]*\blabel=["']([^"']+)["'][^>]*>[\s\S]*?<\/TabItem>/g;
+    for (let m = itemRe.exec(inner); m; m = itemRe.exec(inner)) {
+      items.push({ raw: m[0], label: m[1] });
+    }
+    if (items.length === 0) return full;
+    const isFrameworkGroup = items.some((it) => {
+      const f = frameworkOfLabel(it.label);
+      return f === 'react' || f === 'vue' || f === 'angular';
+    });
+    if (!isFrameworkGroup) return full;
+
+    let kept = items.filter((it) => frameworkOfLabel(it.label) === framework);
+    if (kept.length === 0) kept = items.filter((it) => frameworkOfLabel(it.label) === 'vanilla');
+    if (kept.length === 0) return full;
+    return '<Tabs>\n' + kept.map((it) => it.raw).join('\n') + '\n</Tabs>';
+  });
+}
+
+// #endregion
+
 // #region Transform
 
 /**
@@ -144,7 +296,17 @@ function rewriteDocLink(url: string, hasDoc?: (slug: string) => boolean): string
  *   and it carries structure; aggressive flattening is deferred.
  */
 export function mdxToAgentMarkdown(raw: string, opts: AgentMarkdownOptions): string {
-  const { data, body } = splitFrontmatter(raw);
+  const { data, body: rawBody } = splitFrontmatter(raw);
+
+  // Resolve `<Audience>` regions first (drop human-only, unwrap agent-only) so the
+  // rest of the transform never sees the wrapper tags. Done before the fenced-code
+  // split below because a region may straddle a ```code``` fence.
+  const audienceResolved = resolveAudienceRegions(rawBody);
+
+  // Optionally scope to a single framework: keep only the matching tab in each
+  // framework tab group. Runs before the fenced split for the same straddling
+  // reason, while `<Tabs>`/`<TabItem>` structure is still intact.
+  const body = opts.frameworkFilter ? filterFrameworkTabs(audienceResolved, opts.frameworkFilter) : audienceResolved;
 
   // Split into fenced-code vs prose segments. ALL stripping/replacement runs on
   // prose only — example `import` lines inside ```code``` fences are real,
@@ -175,6 +337,15 @@ export function mdxToAgentMarkdown(raw: string, opts: AgentMarkdownOptions): str
     if (isFence(seg)) return seg; // leave code blocks untouched
 
     let out = seg;
+    // 1b. Restore agent-only headings. Inside `<Audience only="agent">` blocks,
+    //     section breaks are authored as `_## Heading` (underscore-prefixed) so
+    //     Starlight's compile-time table-of-contents harvest — which scans real
+    //     ATX headings even inside conditionally-rendered slots — skips them and
+    //     the human page gets no phantom TOC links. `_#…` is not a valid heading
+    //     in CommonMark, so it never reaches the human site. Here we drop the
+    //     leading `_` to turn it back into a true Markdown heading the agent can
+    //     navigate by. Runs in prose only, so `_#` inside a code fence is kept.
+    out = out.replace(/^_(#{1,6} )/gm, '$1');
     // 2. Drop ESM import lines and MDX comments.
     out = out.replace(/^import\s+.*$/gm, '');
     out = out.replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
@@ -231,6 +402,20 @@ export function mdxToAgentMarkdown(raw: string, opts: AgentMarkdownOptions): str
       /<ShowSource\b[^>]*\bfile=["']([^"']+)["'][^>]*>[\s\S]*?<\/ShowSource>/g,
       (_full, file: string) => '\n' + demoCodeBlock(file, opts.resolveDemo) + '\n',
     );
+
+    // 3b. Expand `<AgentSource paths="…" />` directives — an agent-only mechanism
+    //     (placed inside `<Audience only="agent">`) that inlines real demo-app
+    //     modules from repo-root `demos/` as fenced code, so the corpus carries a
+    //     full end-to-end reference implementation from the live demo's own
+    //     source. In a framework-scoped corpus, a per-framework attribute
+    //     (`react`/`vue`/`angular`) swaps in that framework's native demo set;
+    //     otherwise the default `paths` (vanilla) set is used. Self-closing, so
+    //     handle before the non-demo-component strip in 4b (which would otherwise
+    //     remove the tag and lose the inlined source).
+    out = out.replace(/<AgentSource\b[^>]*\/?>/g, (tag: string) => {
+      const paths = selectAgentSourcePaths(tag, opts.frameworkFilter);
+      return paths ? agentSourceBlock(paths, opts.resolveSource) : '';
+    });
 
     // 4. Inline remaining standalone demo components (`<IntroBasicDemo />` or
     //    `<IntroBasicDemo>…</IntroBasicDemo>`).

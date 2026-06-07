@@ -219,6 +219,7 @@ export default defineConfig({
           items: [
             { label: 'Introduction', slug: 'grid/introduction' },
             { label: 'Getting Started', slug: 'grid/getting-started' },
+            { label: 'AI-Assisted Development', slug: 'grid/ai' },
             { label: 'Core Features', slug: 'grid/core' },
             { label: 'Demos', slug: 'grid/demos' },
             {

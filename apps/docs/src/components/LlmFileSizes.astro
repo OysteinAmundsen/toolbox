@@ -1,0 +1,81 @@
+---
+/**
+ * LlmFileSizes.astro — Build-time size table for the generated agent files.
+ *
+ * Computes each `llms*.txt` file's download size by calling the SAME generators
+ * the `.txt` routes use (`buildIndex`, `buildFull`). Because the numbers come
+ * from the real source — not a hand-typed guestimate — they can never drift
+ * from the file actually served: regenerate the docs and the table updates
+ * itself.
+ *
+ * Only the download size is shown. A total token count would only matter for a
+ * verbatim paste into a context window; the common agent pattern is query-based
+ * retrieval (RAG / chunked / grep-style), which pulls just the relevant
+ * sections and never loads the whole file, so a corpus-wide token figure would
+ * overstate the cost and mislead.
+ */
+import { buildFull } from '../pages/_llm-full-builder';
+import type { Framework } from '../pages/_llm-markdown';
+import { buildIndex } from '../pages/llms.txt';
+
+// `site.origin` has no trailing slash (e.g. `https://toolboxjs.com`), matching
+// what the `.txt` routes pass to the builders, so embedded link lengths — and
+// therefore the computed sizes — match the served files exactly.
+const origin = Astro.site?.origin ?? 'https://toolboxjs.com';
+
+interface Row {
+  label: string;
+  href: string;
+  note: string;
+  text: string;
+}
+
+const rows: Row[] = [
+  { label: 'llms.txt', href: '/llms.txt', note: 'Curated index — smallest', text: buildIndex(origin) },
+  { label: 'llms-full.txt', href: '/llms-full.txt', note: 'Full corpus, all frameworks', text: buildFull(origin, null) },
+  ...(['vanilla', 'react', 'vue', 'angular'] as Framework[]).map((fw) => ({
+    label: `llms-full-${fw}.txt`,
+    href: `/llms-full-${fw}.txt`,
+    note: `Full corpus, ${fw === 'vanilla' ? 'vanilla TS/JS' : fw[0].toUpperCase() + fw.slice(1)} only`,
+    text: buildFull(origin, fw),
+  })),
+];
+
+function formatSize(bytes: number): string {
+  const kb = bytes / 1024;
+  if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
+  return kb >= 100 ? `${Math.round(kb)} KB` : `${kb.toFixed(1)} KB`;
+}
+
+const data = rows.map((r) => ({
+  label: r.label,
+  href: r.href,
+  note: r.note,
+  size: formatSize(Buffer.byteLength(r.text, 'utf8')),
+}));
+---
+
+<table>
+  <thead>
+    <tr>
+      <th>File</th>
+      <th>Size</th>
+      <th>What it is</th>
+    </tr>
+  </thead>
+  <tbody>
+    {
+      data.map((r) => (
+        <tr>
+          <td>
+            <a href={r.href}>
+              <code>{r.label}</code>
+            </a>
+          </td>
+          <td>{r.size}</td>
+          <td>{r.note}</td>
+        </tr>
+      ))
+    }
+  </tbody>
+</table>

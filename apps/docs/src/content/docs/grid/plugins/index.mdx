@@ -4,6 +4,7 @@ description: Overview of all @toolbox-web/grid plugins — editing, selection, f
 ---
 
 import { TabItem, Tabs } from '@astrojs/starlight/components';
+import Audience from '@components/Audience.astro';
 
 The `@toolbox-web/grid` plugin architecture allows you to extend the grid with powerful features while keeping the core bundle lightweight. Plugins are tree-shakeable — only import what you need.
 
@@ -201,6 +202,47 @@ import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing
   </TabItem>
 </Tabs>
 
+<Audience only="agent">
+
+_## Feature Reference (all features, side-effect import + accepted values)
+
+One-line lookup for every feature. Import the side-effect once, then set the
+matching `gridConfig.features.<name>` key (recommended) or the equivalent
+framework prop. Paths below use the core package; adapters mirror them — replace
+`@toolbox-web/grid` with `@toolbox-web/grid-react` / `-angular` / `-vue`.
+
+| Feature key | Side-effect import | Accepted values |
+|-------------|--------------------|-----------------|
+| `selection` | `@toolbox-web/grid/features/selection` | `"cell"`, `"row"`, `"column"`, `"range"`, `["column", "row"]`, `{ mode: 'range', checkbox: true }` |
+| `editing` | `…/features/editing` | `true`, `"click"`, `"dblclick"`, `"manual"`, `{ mode: 'row', editOn: 'click' }`, `{ mode: 'grid' }` (always-editable) |
+| `multiSort` | `…/features/multi-sort` | `true`, `"single"`, `"multi"`, `{ maxSortColumns: 3 }` |
+| `filtering` | `…/features/filtering` | `true`, `{ debounceMs: 200 }` |
+| `clipboard` | `…/features/clipboard` | `true` (requires selection) |
+| `undoRedo` | `…/features/undo-redo` | `true` (requires editing) |
+| `contextMenu` | `…/features/context-menu` | `true`, `{ items: [...] }` |
+| `reorderColumns` | `…/features/reorder-columns` | `true` |
+| `reorderRows` | `…/features/reorder-rows` | `true` |
+| `rowDragDrop` | `…/features/row-drag-drop` | `true`, `{ dropZone: 'employees' }` |
+| `visibility` | `…/features/visibility` | `true` |
+| `pinnedColumns` | `…/features/pinned-columns` | `true` |
+| `pinnedRows` | `…/features/pinned-rows` | `true`, `{ slots: [{ position: 'bottom', aggregators: { … } }] }` |
+| `groupingColumns` | `…/features/grouping-columns` | `true`, `{ columnGroups: [...] }` |
+| `groupingRows` | `…/features/grouping-rows` | `{ groupOn: (row) => [row.department] }` |
+| `tree` | `…/features/tree` | `{ childrenField: 'children' }` |
+| `columnVirtualization` | `…/features/column-virtualization` | `true` |
+| `masterDetail` | `…/features/master-detail` | `{ detailRenderer: (row, rowIndex) => '<div>…</div>' }` |
+| `responsive` | `…/features/responsive` | `true`, `{ breakpoint: 768 }` |
+| `export` | `…/features/export` | `true`, `{ fileName: 'data' }` |
+| `print` | `…/features/print` | `true` |
+| `pivot` | `…/features/pivot` | `{ rowGroupFields: ['region'], columnGroupFields: ['quarter'], valueFields: [{ field: 'revenue', aggFunc: 'sum' }] }` |
+| `serverSide` | `…/features/server-side` | `{ dataSource: async (params) => … }` |
+| `tooltip` | `…/features/tooltip` | `true`, `{ header: true, cell: false }` |
+| `stickyRows` | `…/features/sticky-rows` | `{ isSticky: 'isSection' }`, `{ isSticky: (row) => row.isHeader, mode: 'stack', maxStacked: 3 }` |
+
+Import every feature at once (prototyping only): `import '@toolbox-web/grid/features';`
+
+</Audience>
+
 ### Import All Plugins
 
 For rapid prototyping when bundle size is not critical:
@@ -233,6 +275,43 @@ if (selection) {
   const ranges = selection.getSelectedRanges();
 }
 ```
+
+<Audience only="agent">
+
+_## Plugin Imperative API Reference (`grid.getPluginByName(name)`)
+
+`grid.getPluginByName(name)` returns the live plugin instance (or `undefined` if
+not loaded). The `name` is the plugin's registered key (NOT the class name).
+Key imperative methods per plugin:
+
+| Plugin | `name` key | Key imperative methods |
+|--------|-----------|------------------------|
+| SelectionPlugin | `selection` | `selectAll()`, `clearSelection()`, `getSelectedRanges()`, `getSelection()`, `selectRows(idx[])`, `getSelectedRowIndices()`, `getSelectedRows()`, `getSelectedColumns()` |
+| EditingPlugin | `editing` | (dirtyTracking) `isDirty(rowId)`, `isPristine(rowId)`, `getDirtyRows()`, `markAsPristine(rowId)`, `markAllPristine()`, `markAsDirty(rowId)`, `revertRow(rowId)`, `getOriginalRow(rowId)` |
+| FilteringPlugin | `filtering` | `setFilter()`, `setFilterModel()`, `clearAllFilters()`, `clearFieldFilter()` (all accept `{ silent: true }`), `getStaleFilters()`, `getBlankMode(field)`, `toggleBlankFilter(field, mode)` |
+| MultiSortPlugin | `multiSort` | `getSortModel()`, `setSortModel(model)`, `clearSort()`, `getSortIndex(field)`, `getSortDirection(field)` |
+| TreePlugin | `tree` | `expand(key)`, `collapse(key)`, `toggle(key)`, `expandAll()`, `collapseAll()`, `isExpanded(key)`, `getExpandedKeys()`, `expandToKey(key)`, `getFlattenedRows()`, `getRowByKey(key)` |
+| GroupingRowsPlugin | `groupingRows` | `expand(key)`, `collapse(key)`, `toggle(key)`, `expandAll()`, `collapseAll()`, `isExpanded(key)`, `getExpandedGroups()`, `getGroupState()`, `getFlattenedRows()`, `setGroups(g)`, `getGroups()`, `setGroupRows(key, rows)`, `clearGroupRows(key?)` |
+| GroupingColumnsPlugin | `groupingColumns` | `isGroupingActive()`, `getGroups()`, `getGroupColumns(groupId)`, `refresh()` |
+| MasterDetailPlugin | `masterDetail` | `expand(rowIndex)`, `collapse(rowIndex)`, `toggle(rowIndex)`, `expandAll()`, `collapseAll()`, `isExpanded(rowIndex)`, `getExpandedRows()`, `getDetailElement(rowIndex)`, `getDetailData(rowIndex)`, `isDetailLoading(rowIndex)` |
+| PivotPlugin | `pivot` | `enablePivot()`, `disablePivot()`, `isPivotActive()`, `getPivotResult()`, `setRowGroupFields(f)`, `setColumnGroupFields(f)`, `setValueFields(f)`, `refresh()`, `expandAll()`, `collapseAll()`, `getExpandedGroups()` |
+| ClipboardPlugin | `clipboard` | `copy()`, `copy({ columns, rowIndices, includeHeaders })`, `copyRows(idx[], opts)`, `getSelectionAsText(opts)`, `paste()` |
+| ExportPlugin | `export` | `exportCsv(opts)`, `exportExcel(opts)`, `exportJson(opts)`, `export()` (rows), `formatCsv(rows)`, `formatExcel(rows)`, `getResolvedColumns()` |
+| VisibilityPlugin | `visibility` | `show()`, `hide()`, `toggle()`, `isPanelVisible()`, `isColumnVisible(field)`, `setColumnVisible(field, v)`, `toggleColumn(field)`, `showAll()`, `getVisibleColumns()`, `getHiddenColumns()` |
+| PinnedColumnsPlugin | `pinnedColumns` | `setPinPosition(field, pos)`, `refreshStickyOffsets()`, `getLeftPinnedColumns()`, `getRightPinnedColumns()`, `clearStickyPositions()` |
+| PinnedRowsPlugin | `pinnedRows` | `refresh()`, `addPanel(p)`, `removePanel(id)`, `addAggregationRow(c)`, `removeAggregationRow(id)` |
+| ReorderPlugin | `reorderColumns` | `getColumnOrder()`, `moveColumn(field, toIndex)`, `setColumnOrder(order)`, `resetColumnOrder()` |
+| RowDragDropPlugin | `rowDragDrop` | `moveRow(fromIndex, toIndex)`, `canMoveRow(fromIndex, toIndex)` |
+| ColumnVirtualizationPlugin | `columnVirtualization` | `getIsVirtualized()`, `getVisibleColumnRange()`, `scrollToColumn(idx)`, `getTotalWidth()` |
+| PrintPlugin | `print` | `isPrinting()`, `print()`, `print({ orientation, title, maxRows })` |
+| UndoRedoPlugin | `undoRedo` | `undo()`, `redo()`, `canUndo()`, `canRedo()`, `clearHistory()`, `getUndoStack()`, `getRedoStack()`, `recordEdit(idx, field, old, new)`, `beginTransaction()`, `endTransaction()` |
+
+Inter-plugin queries (`grid.query(name, ...)`) — used when one plugin reads
+another without a hard dependency. SelectionPlugin exposes: `'getSelection'`,
+`'selectRows'`, `'getSelectedRowIndices'`, `'getSelectedRows'`,
+`'getSelectedColumns'`.
+
+</Audience>
 
 ## Using Plugins (Advanced)
 

@@ -70,7 +70,7 @@ function createMockGrid(gridTag = 'tbw-grid'): MockGrid {
   // Core sets this stable attribute on connect; the directives locate their
   // host via `closest('[data-tbw-grid]')`, not the literal tag (issue #382).
   el.setAttribute('data-tbw-grid', '');
-  const grid = el as unknown as MockGrid;
+  const grid = el as MockGrid;
   grid.headerDefs = [];
   grid.toolbarDefs = [];
   grid.ready = vi.fn(() => Promise.resolve());

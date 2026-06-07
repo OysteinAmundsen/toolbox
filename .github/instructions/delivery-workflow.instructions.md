@@ -95,6 +95,10 @@ The final message must end with the commit suggestion from the Commit Hygiene se
 
 **Agents MUST NOT execute any command that publishes, merges, or alters state on a remote (`origin`, GitHub, etc.) unless the user has explicitly asked for that specific operation in the current turn.** Local commits are fine; anything that touches the remote is not.
 
+### Tooling: `gh`/`git` CLI only — never GitKraken
+
+The user has **no GitKraken license**. The GitKraken MCP tools (`mcp_gitkraken_cli_*`) and GitLens MCP tools are **off-limits for every operation** — including read-only ones like status, log, diff, blame, branch listing, and PR/issue lookups. Use the **`gh` CLI** for all GitHub operations (issues, PRs, releases, reviews, comments) and the **`git` CLI** for all local repository operations. The VS Code `github-pull-request_*` read tools may be used for read-only PR/issue lookups. This tooling restriction is independent of the consent rules below: even an allowed read-only operation must go through `gh`/`git`, and remote-mutating operations still require explicit per-request consent.
+
 ### Forbidden without explicit per-request user consent
 
 The following commands are **forbidden** unless the user has, in the current turn, asked for that exact action by name:

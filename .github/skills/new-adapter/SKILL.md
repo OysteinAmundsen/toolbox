@@ -10,6 +10,15 @@ This skill guides you through creating a **complete framework adapter** for `@to
 
 > **Prerequisite**: Read the `new-adapter-feature` skill to understand how features work _within_ existing adapters. This skill covers creating an adapter from scratch.
 
+## Parity Mandate (non-negotiable)
+
+A new adapter is not "another adapter" — it is **the same product wearing a fourth (or fifth) façade**. It MUST ship at **complete parity** with the existing adapters from day one:
+
+- **Identical public API.** Same exported names, same config types (same canonical names — no framework prefix), same feature props, same events, same programmatic-access surface (`useGrid`/`injectGrid` equivalent). Every capability the other adapters expose, this one exposes too. A partial adapter is not shippable.
+- **As close to the same DX as the framework allows.** Match the usage patterns of the existing adapters; deviate ONLY where the framework's idioms force it (slots vs render props vs structural directives, `<DataGrid>` vs `<TbwGrid>`, emits vs outputs). Idiomatic differences are fine; capability or API-name gaps are not.
+- **Adapters facilitate, they do not add capabilities.** The adapter's only job is bridging framework components into the `HTMLElement` slots the grid already exposes, plus idiomatic event/config ergonomics. It MUST respect the core ↔ feature boundary: the adapter core never runtime-references feature behaviour; feature wiring lives in `features/<name>` secondary entries via registered bridges/hooks. Keep DX-only extras minimal and symmetric with the other adapters.
+- **Parity is enforced by tests, not honour.** The mandatory demo app (Step 3) is wired into the cross-framework e2e suite (Step 4), which compares the new demo against the vanilla/React/Angular/Vue baselines for visual, structural, renderer, editor, master-detail, responsive, and functional parity. The demo and its e2e wiring are NOT optional — they are how parity is proven. A new adapter without a passing parity demo is incomplete.
+
 ## How to Use This Skill
 
 The skill is long because an adapter has many moving parts. To keep cognitive load manageable, work through the **six numbered steps below in order**. Do not jump ahead — each step depends on artifacts produced by the previous one.
@@ -33,6 +42,8 @@ An adapter bridges the gap between the vanilla `<tbw-grid>` web component and a 
 2. **A wrapper component** — idiomatic API surface (props, events, slots/children) for the framework
 3. **Feature modules** — tree-shakeable plugin registration via side-effect imports
 4. **A demo app** — full employee management demo matching all other framework demos visually and functionally
+
+> **Guiding principles (same as the `new-adapter-feature` skill):** An adapter only _facilitates_ framework rendering niceties — it lets users pass framework components where the grid expects an `HTMLElement`, plus idiomatic event/config ergonomics. It does NOT add grid capabilities (those belong in core or a plugin), and it MUST respect the core ↔ feature boundary: the adapter core never runtime-references feature behaviour, feature wiring lives in `features/<name>` secondary entries. Aim for full parity with the existing adapters in both API and usage — differences must be idiomatic (slots vs render props vs directives), never capability or API-name gaps.
 
 ## Architecture Reference
 
@@ -621,6 +632,13 @@ dist/libs/grid-{framework}/
 5. **Docs site** (optional) — The Astro docs site already covers the grid; framework-specific demo pages can be added to `apps/docs/`
 
 ## Checklist
+
+### Parity (gate — the adapter is incomplete until all are true)
+
+- [ ] Public API matches the existing adapters exactly: same exported names, same config types (same canonical names, no framework prefix), same feature props, same events, same programmatic-access surface
+- [ ] DX mirrors the existing adapters as closely as the framework allows; any deviation is idiomatic (forced by the framework), not a capability or API-name gap
+- [ ] No grid behaviour added in the adapter; core ↔ feature boundary respected (adapter core never runtime-references feature behaviour)
+- [ ] Parity demo built and wired into the cross-framework e2e suite, passing all parity categories
 
 ### Library
 

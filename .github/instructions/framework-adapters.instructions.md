@@ -10,6 +10,16 @@ Each adapter auto-registers a framework-specific `GridAdapter` on `<tbw-grid>` e
 - **React** (`@toolbox-web/grid-react`) — Components: `DataGrid`, `GridColumn`; Hooks: `useGrid`, `useGridEvent`
 - **Vue** (`@toolbox-web/grid-vue`) — Components: `DataGrid`, `GridColumn`; Composables: `useGrid`, `useGridEvent`
 
+## Parity Mandate (read before changing any adapter)
+
+The three adapters are **one product with three façades**. They MUST look, feel, and behave identically — same public API names, same usage patterns, same behaviour. Only _idiomatic_ framework differences are expected (render props vs slots vs structural directives, `<DataGrid>` vs `<TbwGrid>`, `useGrid()` vs `injectGrid()`); capability gaps and API-shape gaps are not.
+
+- **Every feature or bugfix to one adapter MUST be evaluated against the other two — in the same change.** Before treating adapter work as done, investigate whether the same gap exists in the remaining adapters and apply the equivalent fix there. The default is "fix all three"; shipping to only one adapter is the exception that must be justified, not the norm. When a task is framed as "fix grid-react bug X", your job is _not_ complete until you have confirmed whether grid-vue and grid-angular share the bug and handled them too.
+- **The ONLY permitted per-adapter difference is one that is genuinely framework-specific** — it touches functionality that exists _only_ in that framework. Legitimately single-adapter: Angular Forms / `ControlValueAccessor` integration (grid-angular only), React-portal context internals (grid-react only), Vue Teleport internals (grid-vue only). A bug in _shared_ behaviour (event forwarding, config merging, feature-prop bridging, cell cleanup / leak prevention, type parity) is NEVER framework-specific — fix it everywhere.
+- **Adapters respect the core ↔ feature boundary, exactly like the core grid.** Core knows nothing about plugins/features; features build on top of core. Mirror this: adapter cores (`*-grid-adapter.ts`, `react-column-config.ts`) MUST NOT runtime-reference feature behaviour (type-only imports are fine). Feature wiring lives in `features/<name>` secondary entries via registered bridges/hooks (see `adapter-feature-purity` in `.github/knowledge/adapters.md`).
+- **Adapters only facilitate framework rendering niceties — they do NOT add grid capabilities.** An adapter's sole job is letting users supply framework components where the grid expects an `HTMLElement`, plus idiomatic event/config ergonomics. If a proposed change isn't "bridge a framework component into a slot the core already exposes", it almost certainly belongs in core or a plugin, not an adapter.
+- **Keep DX-only extras to a minimum, and symmetric.** When an adapter adds convenience beyond raw bridging, prefer adding the equivalent to all three so the surface stays balanced. Any asymmetry must be framework-shaped (a lifecycle hook one framework has and another lacks), never historical drift.
+
 ## Key Files
 
 - `libs/grid-angular/src/index.ts` - Angular adapter exports (Grid, TbwRenderer, TbwEditor directives, base classes)

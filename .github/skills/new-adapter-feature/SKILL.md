@@ -1,12 +1,24 @@
 ---
 name: new-adapter-feature
-description: Add a new feature consistently across the Angular, React, and Vue adapter libraries for @toolbox-web/grid. Ensures feature parity and consistent patterns.
-argument-hint: <feature-description>
+description: Add a new feature OR backport a bugfix consistently across the Angular, React, and Vue adapter libraries for @toolbox-web/grid. Use whenever you touch one adapter, to confirm the other two need the same change and to keep full parity.
+argument-hint: <feature-or-fix-description>
 ---
 
-# Add a Feature Across Framework Adapters
+# Add a Feature or Fix Across Framework Adapters
 
-When adding a new grid feature that needs framework adapter support (Angular, React, Vue), follow this guide to ensure consistency and feature parity.
+When adding a new grid feature **or fixing a bug** in any framework adapter (Angular, React, Vue), follow this guide to keep the three adapters at full parity and consistent in patterns.
+
+## When to Use This Skill
+
+Use this skill whenever you add a feature **or fix a bug** in _any_ adapter. The adapters are one product with three façades, so a change to one is presumed to belong in all three.
+
+> **Parity is the default, not an afterthought.** Before you treat adapter work as done, you MUST investigate whether the same feature/fix is missing in the other two adapters and apply the equivalent change there. Shipping to only one adapter is allowed ONLY when the change is genuinely framework-specific — it touches functionality that exists _solely_ in that framework (e.g. Angular Forms / `ControlValueAccessor`, React-portal context internals, Vue Teleport internals). A bug in shared behaviour (events, config merge, feature-prop bridging, cell cleanup / leaks, type parity) is never framework-specific — fix it in all three.
+
+## Guiding Principles
+
+- **Adapters facilitate, they do not add capabilities.** An adapter exists only to let users pass framework components where the grid expects an `HTMLElement`, plus idiomatic event/config ergonomics. New _grid behaviour_ belongs in core or a plugin, not an adapter.
+- **Respect the core ↔ feature boundary.** Like the core grid, core knows nothing about plugins/features. Adapter cores (`*-grid-adapter.ts`, `react-column-config.ts`) must NOT runtime-reference feature behaviour (type-only imports are fine); feature wiring lives in `features/<name>` secondary entries via registered bridges/hooks.
+- **Identical API and usage across frameworks.** Differences must be idiomatic (slots vs render props vs directives, `<DataGrid>` vs `<TbwGrid>`), never capability or API-name gaps. Keep DX-only extras minimal and symmetric across all three.
 
 ## Architecture Overview
 
@@ -28,9 +40,12 @@ This skill covers three frameworks. To keep the work tractable, treat each frame
 
 The ordering between Angular, React, and Vue does not matter; pick whichever is most familiar first. The Checklist at the end is the single source of truth for completion.
 
-## Step 1: Understand the Core Feature
+## Step 1: Understand the Core Feature (or the Bug)
 
-Before touching adapters, understand how the feature works in the vanilla grid:
+Before touching adapters, understand the behaviour in the vanilla grid:
+
+- **New feature** — Read the relevant core code in `libs/grid/src/lib/` and identify which renderer/bridge surfaces it touches.
+- **Bugfix** — Reproduce the bug in the adapter you were pointed at, then determine whether the root cause is _shared_ (event forwarding, config merge, feature-prop bridging, cell cleanup, type parity) or _genuinely framework-specific_. If shared, the fix belongs in all three adapters; treat the other two as in-scope from the start.
 
 1. Read the relevant core code in `libs/grid/src/lib/`
 2. Check if the feature uses any of the items in the table below. **You only need to handle the renderer subtypes the feature actually uses** (e.g. a sorting feature with no custom UI may use no renderers at all; a filter feature may only need a filter renderer). Implement support in each adapter for exactly the subtypes the core feature surfaces — do not add wrappers for renderer kinds the feature does not use.
@@ -202,15 +217,17 @@ const config = {
 - Test composables via `defineComponent` wrappers
 - Run: `bun nx test grid-vue`
 
-## Step 5: Verify Feature Parity
+## Step 5: Verify Feature / Fix Parity
 
 After implementing across all adapters:
 
-1. **Types align**: Config extensions should have equivalent properties
-2. **Behavior matches**: Same user interactions produce same results
-3. **Tests cover**: Each adapter has tests for the new feature
-4. **Docs updated**: README files and any MDX docs reflect new feature
-5. **Exports added**: New public types/components exported from barrel files
+1. **All three handled**: The feature/fix landed in grid-angular, grid-react, AND grid-vue — or you can name the specific framework-only functionality (e.g. Angular Forms) that justifies a single-adapter change
+2. **Types align**: Config extensions should have equivalent properties and identical canonical names (no framework prefix)
+3. **Behavior matches**: Same user interactions produce same results across frameworks
+4. **Boundary respected**: No new feature behaviour leaked into adapter cores (`*-grid-adapter.ts`); feature wiring stays in `features/<name>` secondary entries
+5. **Tests cover**: Each adapter has tests for the new feature/fix
+6. **Docs updated**: README files and any MDX docs reflect the change
+7. **Exports added**: New public types/components exported from barrel files
 
 ## Step 6: Run All Tests
 
@@ -222,11 +239,14 @@ Ensure all 4 projects pass (grid, grid-angular, grid-react, grid-vue).
 
 ## Checklist
 
-- [ ] Core grid feature working in vanilla mode
-- [ ] Angular adapter updated with directive/template support
-- [ ] React adapter updated with component/hook support
-- [ ] Vue adapter updated with composable/slot support
+- [ ] Core grid feature working in vanilla mode (or root cause of the bug understood)
+- [ ] Determined whether the change is shared or genuinely framework-specific
+- [ ] Angular adapter updated with directive/template support (or fix applied)
+- [ ] React adapter updated with component/hook support (or fix applied)
+- [ ] Vue adapter updated with composable/slot support (or fix applied)
+- [ ] If a single adapter was skipped, the framework-only justification is documented in the PR
+- [ ] No feature behaviour leaked into adapter cores (core ↔ feature boundary respected)
 - [ ] Tests added for each adapter
 - [ ] Public exports updated in each `index.ts`
-- [ ] TypeScript types consistent across adapters
+- [ ] TypeScript types consistent across adapters (same canonical names, no framework prefix)
 - [ ] All tests passing

@@ -14,7 +14,6 @@ import {
 import type { DataGridElement, ToolbarContentDefinition } from '@toolbox-web/grid';
 // Activate the `PluginNameMap` augmentation so `grid.getPluginByName('shell')`
 // is typed as the shell plugin (which owns register/unregisterToolbarContent).
-import type {} from '@toolbox-web/grid/plugins/shell';
 
 /**
  * Context object passed to the toolbar content template.
@@ -173,7 +172,10 @@ export class GridToolbarContent {
 
   private findGrid(): DataGridElement | null {
     const host = this.elementRef.nativeElement;
-    return host.closest('tbw-grid') as DataGridElement | null;
+    // Use the stable `[data-tbw-grid]` attribute (set by core on connect) rather
+    // than the literal `tbw-grid` tag, so a version-suffixed grid host (e.g.
+    // `<tbw-grid-v2-15-0>`) is still found. See the multi-version guide.
+    return host.closest('[data-tbw-grid]') as DataGridElement | null;
   }
 
   static ngTemplateContextGuard(_dir: GridToolbarContent, ctx: unknown): ctx is GridToolbarContentContext {

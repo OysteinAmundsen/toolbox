@@ -65,8 +65,12 @@ interface MockGrid extends HTMLElement {
   toolbarDefs: ToolbarContentDefinition[];
 }
 
-function createMockGrid(): MockGrid {
-  const grid = document.createElement('tbw-grid') as unknown as MockGrid;
+function createMockGrid(gridTag = 'tbw-grid'): MockGrid {
+  const el = document.createElement(gridTag);
+  // Core sets this stable attribute on connect; the directives locate their
+  // host via `closest('[data-tbw-grid]')`, not the literal tag (issue #382).
+  el.setAttribute('data-tbw-grid', '');
+  const grid = el as unknown as MockGrid;
   grid.headerDefs = [];
   grid.toolbarDefs = [];
   grid.ready = vi.fn(() => Promise.resolve());
@@ -105,11 +109,11 @@ interface BuiltHeader {
   triggerDestroy: () => void;
 }
 
-function buildHeader(opts: { withGrid?: boolean; id?: string; order?: number } = {}): BuiltHeader {
+function buildHeader(opts: { withGrid?: boolean; id?: string; order?: number; gridTag?: string } = {}): BuiltHeader {
   afterNextRenderCallbacks.length = 0;
   effectCallbacks.length = 0;
   destroyCallback = null;
-  const grid = createMockGrid();
+  const grid = createMockGrid(opts.gridTag);
   const host = document.createElement('tbw-grid-header-content');
   if (opts.withGrid !== false) {
     grid.appendChild(host);
@@ -162,11 +166,11 @@ interface BuiltToolbar {
   triggerDestroy: () => void;
 }
 
-function buildToolbar(opts: { id?: string; order?: number } = {}): BuiltToolbar {
+function buildToolbar(opts: { id?: string; order?: number; gridTag?: string } = {}): BuiltToolbar {
   afterNextRenderCallbacks.length = 0;
   effectCallbacks.length = 0;
   destroyCallback = null;
-  const grid = createMockGrid();
+  const grid = createMockGrid(opts.gridTag);
   const host = document.createElement('tbw-grid-toolbar-content');
   grid.appendChild(host);
   document.body.appendChild(grid);
@@ -246,6 +250,13 @@ describe('GridHeaderContent (real directive)', () => {
     const built = buildHeader({ withGrid: false, id: 'no-parent' });
     await built.runAfterNextRender();
     expect(built.grid.registerHeaderContent).not.toHaveBeenCalled();
+  });
+
+  it('locates a version-suffixed grid host via [data-tbw-grid] (#382)', async () => {
+    const built = buildHeader({ id: 'hdr-multi', order: 3, gridTag: 'tbw-grid-v2-99-0' });
+    await built.runAfterNextRender();
+    expect(built.grid.registerHeaderContent).toHaveBeenCalledTimes(1);
+    expect(built.grid.headerDefs[0].id).toBe('hdr-multi');
   });
 
   it('skips registration if destroyed before ready() resolves', async () => {
@@ -339,6 +350,13 @@ describe('GridToolbarContent (real directive)', () => {
     const built = buildToolbar({ order: 0 });
     await built.runAfterNextRender();
     expect(built.grid.toolbarDefs[0].id).toMatch(/^tbw-toolbar-content-\d+$/);
+  });
+
+  it('locates a version-suffixed grid host via [data-tbw-grid] (#382)', async () => {
+    const built = buildToolbar({ id: 'tb-multi', order: 1, gridTag: 'tbw-grid-v2-99-0' });
+    await built.runAfterNextRender();
+    expect(built.grid.registerToolbarContent).toHaveBeenCalledTimes(1);
+    expect(built.grid.toolbarDefs[0].id).toBe('tb-multi');
   });
 
   it('skips registration if destroyed before ready() resolves', async () => {

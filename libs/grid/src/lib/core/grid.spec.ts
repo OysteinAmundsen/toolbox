@@ -159,6 +159,44 @@ describe('DataGridElement', () => {
     });
   });
 
+  describe('multi-version coexistence (activeTag)', () => {
+    // Simulate a version-suffixed bundle: `activeTag` points at a suffixed tag
+    // whose registered class is NOT the bare-tag class. The imperative helpers
+    // must honour `activeTag`, not the literal `tbw-grid`. See issue #382.
+    const SUFFIXED_TAG = 'tbw-grid-v2-99-0';
+
+    class SuffixedFakeGrid extends DataGridElement {}
+
+    let originalActiveTag: string;
+
+    beforeEach(() => {
+      if (!customElements.get(SUFFIXED_TAG)) {
+        customElements.define(SUFFIXED_TAG, SuffixedFakeGrid);
+      }
+      originalActiveTag = DataGridElement.activeTag;
+      DataGridElement.activeTag = SUFFIXED_TAG;
+    });
+
+    afterEach(() => {
+      DataGridElement.activeTag = originalActiveTag;
+    });
+
+    it('createGrid uses activeTag, not the bare tag', () => {
+      const grid = createGrid();
+      expect(grid.tagName.toLowerCase()).toBe(SUFFIXED_TAG);
+      expect(grid).toBeInstanceOf(SuffixedFakeGrid);
+    });
+
+    it('queryGrid (awaitUpgrade) awaits the active tag and resolves the element', async () => {
+      const created = createGrid();
+      created.id = 'multi-version-grid';
+      document.body.appendChild(created);
+
+      const found = await queryGrid('#multi-version-grid', true);
+      expect(found).toBe(created);
+    });
+  });
+
   describe('rows setter', () => {
     it('should coerce undefined to empty array (regression: ServerSidePlugin crash)', async () => {
       const grid = createGrid();

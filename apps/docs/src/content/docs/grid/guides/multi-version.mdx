@@ -90,10 +90,24 @@ import { DataGrid } from '@toolbox-web/grid-react';
 <TbwGrid :rows="rows" :columns="columns" />
 ```
 
-Angular consumers that embed `<tbw-grid>` literally in component templates
-work in single-version setups. Multi-version Angular usage requires
-rendering the active tag dynamically (e.g. via a structural directive that
-reads `DataGridElement.activeTag`).
+The Angular adapter's `Grid` directive matches both the bare `tbw-grid` tag
+**and** the stable `[data-tbw-grid]` attribute, and its shell-content
+directives (`tbw-grid-header-content`, `tbw-grid-toolbar-content`) locate their
+host via `closest('[data-tbw-grid]')`. In single-version setups embed
+`<tbw-grid>` literally as before. For multi-version Angular usage, render the
+active tag for the bundle you imported and add `data-tbw-grid` so the directive
+attaches (Angular matches selectors at compile time, so the runtime tag can't be
+matched by name alone):
+
+```html
+<!-- activeTag for this bundle is e.g. 'tbw-grid-v2-15-0' -->
+<tbw-grid-v2-15-0 data-tbw-grid [rows]="rows" [gridConfig]="config">
+  <tbw-grid-header-content [order]="0">
+    <ng-template let-grid>…</ng-template>
+  </tbw-grid-header-content>
+</tbw-grid-v2-15-0>
+```
+
 
 ## Per-bundle styles
 
@@ -101,6 +115,25 @@ The internal style injector scopes its `<style id="tbw-grid-styles-…">`
 element to the active tag, and rewrites bare `tbw-grid` selectors in the
 injected CSS to the active tag. Each bundle ships its own stylesheet
 without overwriting the other.
+
+## Imperative helpers
+
+The `createGrid()` and `queryGrid()` helpers from `@toolbox-web/grid` resolve
+`DataGridElement.activeTag` internally, so they operate on the tag owned by the
+bundle that exported them:
+
+```ts
+import { createGrid, queryGrid } from '@toolbox-web/grid';
+
+// Creates <tbw-grid> or <tbw-grid-v…> depending on which bundle you imported.
+const grid = createGrid({ columns: [{ field: 'name' }] });
+
+// `awaitUpgrade` waits for the active tag's upgrade, not the bare tag.
+const found = await queryGrid('[data-tbw-grid]', true);
+```
+
+When you query with a hand-written selector, prefer `[data-tbw-grid]` over
+`tbw-grid` so it matches a suffixed grid too.
 
 ## The `globalThis.DataGridElement` alias
 

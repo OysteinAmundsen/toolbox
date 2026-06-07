@@ -170,10 +170,26 @@ export interface RowCommitEvent<TRow = unknown> {
  * - Injects custom styles into the grid
  * - Handles cleanup on destruction
  *
+ * ## Multi-version coexistence
+ *
+ * In single-version apps the directive matches the bare `<tbw-grid>` tag. When
+ * two different grid versions share a page, the second-loaded bundle registers
+ * under a version-suffixed tag (e.g. `<tbw-grid-v2-15-0>`). Because Angular
+ * matches selectors at compile time, a runtime-only tag cannot be matched by
+ * tag name. The directive therefore also matches the stable `[data-tbw-grid]`
+ * attribute, so a suffixed grid can opt in by adding it literally:
+ *
+ * ```html
+ * <tbw-grid-v2-15-0 data-tbw-grid [rows]="rows" [gridConfig]="config"></tbw-grid-v2-15-0>
+ * ```
+ *
+ * Read the concrete tag from `DataGridElement.activeTag` of the bundle you
+ * imported. See the multi-version coexistence guide.
+ *
  * @category Directive
  * @since 0.1.0
  */
-@Directive({ selector: 'tbw-grid' })
+@Directive({ selector: 'tbw-grid,[data-tbw-grid]' })
 export class Grid implements OnInit, AfterContentInit, OnDestroy {
   private elementRef = inject(ElementRef<GridElement>);
   private injector = inject(EnvironmentInjector);

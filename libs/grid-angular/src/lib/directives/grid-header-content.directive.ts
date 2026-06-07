@@ -14,7 +14,6 @@ import {
 import type { DataGridElement, HeaderContentDefinition } from '@toolbox-web/grid';
 // Activate the `PluginNameMap` augmentation so `grid.getPluginByName('shell')`
 // is typed as the shell plugin (which owns register/unregisterHeaderContent).
-import type {} from '@toolbox-web/grid/plugins/shell';
 
 /**
  * Context object passed to the header content template.
@@ -185,7 +184,10 @@ export class GridHeaderContent {
 
   private findGrid(): DataGridElement | null {
     const host = this.elementRef.nativeElement;
-    const grid = host.closest('tbw-grid') as DataGridElement | null;
+    // Use the stable `[data-tbw-grid]` attribute (set by core on connect) rather
+    // than the literal `tbw-grid` tag, so a version-suffixed grid host (e.g.
+    // `<tbw-grid-v2-15-0>`) is still found. See the multi-version guide.
+    const grid = host.closest('[data-tbw-grid]') as DataGridElement | null;
     return grid;
   }
 

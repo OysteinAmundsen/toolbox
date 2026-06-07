@@ -24,7 +24,7 @@ export { DataGridElement, DataGridElement as GridElement } from './lib/core/grid
  */
 export type { DataGridElement as TbwGrid } from './lib/core/grid';
 
-// Import needed for factory functions (value import: tagName is accessed at runtime)
+// Import needed for factory functions (value import: activeTag is accessed at runtime)
 import { DataGridElement } from './lib/core/grid';
 import type { GridConfig } from './lib/core/types';
 
@@ -50,7 +50,10 @@ import type { GridConfig } from './lib/core/types';
  * @since 0.6.0
  */
 export function createGrid<TRow = unknown>(config?: Partial<GridConfig<TRow>>): DataGridElement<TRow> {
-  const grid = document.createElement('tbw-grid') as DataGridElement<TRow>;
+  // Use `activeTag` (not the literal `tbw-grid`) so a version-suffixed bundle
+  // creates an element backed by ITS OWN class, not the first-loaded bundle's.
+  // See the multi-version coexistence guide.
+  const grid = document.createElement(DataGridElement.activeTag) as DataGridElement<TRow>;
   if (config) {
     grid.gridConfig = config as GridConfig<TRow>;
   }
@@ -114,7 +117,9 @@ export function queryGrid<TRow = unknown>(
   }
 
   if (shouldAwait) {
-    return customElements.whenDefined(DataGridElement.tagName).then(() => {
+    // Await the active tag's upgrade (suffixed in multi-version bundles) so the
+    // resolved element exposes the methods of the bundle that called us.
+    return customElements.whenDefined(DataGridElement.activeTag).then(() => {
       return parent.querySelector(selector) as DataGridElement<TRow> | null;
     });
   }

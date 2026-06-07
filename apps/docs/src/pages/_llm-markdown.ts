@@ -130,8 +130,8 @@ export function extractFrontmatter(raw: string): { title?: string; description?:
  */
 export function resolveAudienceRegions(body: string): string {
   return body
-    .replace(/<Audience\b[^>]*\bonly=["']human["'][^>]*>[\s\S]*?<\/Audience>/g, '')
-    .replace(/<Audience\b[^>]*\bonly=["']agent["'][^>]*>([\s\S]*?)<\/Audience>/g, '$1');
+    .replace(/<Audience\b[^>]*\bonly=["']human["'][^>]*>[\s\S]*?<\/Audience\s*>/g, '')
+    .replace(/<Audience\b[^>]*\bonly=["']agent["'][^>]*>([\s\S]*?)<\/Audience\s*>/g, '$1');
 }
 
 // #endregion
@@ -140,7 +140,10 @@ export function resolveAudienceRegions(body: string): string {
 
 /** Extract the first `<script>` block's inner content from a demo `.astro` file. */
 function extractDemoScript(astroSource: string): string | undefined {
-  const match = astroSource.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
+  // Allow whitespace/attributes before the closing `>` (e.g. `</script >`) so the
+  // pattern matches the same forgiving end tags a browser parser accepts
+  // (CodeQL js/bad-tag-filter).
+  const match = astroSource.match(/<script[^>]*>([\s\S]*?)<\/script\s*>/i);
   if (!match) return undefined;
   return match[1].replace(/^\r?\n/, '').replace(/\s+$/, '');
 }

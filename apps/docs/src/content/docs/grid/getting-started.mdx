@@ -401,8 +401,11 @@ export class EmployeeGridComponent {
     { field: 'email', header: 'Email', editable: true },
   ];
 
-  onCellCommit(event: CustomEvent<CellCommitDetail>) {
-    console.log('Edited:', event.detail);
+  // camelCase outputs deliver the unwrapped detail directly ($event is the
+  // detail, not the native CustomEvent). Bind kebab-case (cell-commit) instead
+  // if you need the CustomEvent for event.preventDefault().
+  onCellCommit(detail: CellCommitDetail) {
+    console.log('Edited:', detail);
   }
 }
 ```

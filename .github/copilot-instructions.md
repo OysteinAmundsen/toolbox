@@ -113,6 +113,10 @@ Loaded on demand from `.github/skills/` for task-specific workflows:
 | `qa-apply-findings`   | Shared findings execution core for `/qa` and `/pr-qa`         |
 | `retrospective`       | Post-task lessons learned; update instructions & skills       |
 
+## AI Usage Mode (token budget)
+
+A project-scoped token-budget flag (`full` | `saving`) governs how aggressively I spend tokens/credits. The **single source of truth** — both the active flag and the full behavioral rules (including the saving-mode handoff/deferral list) — is `.github/instructions/ai-mode.instructions.md`, auto-loaded every session via `applyTo: '**'`. Toggle it with the `/ai_mode saving` / `/ai_mode full` prompt; install it on a new project with `/ai_mode setup`. The flag never overrides safety/consent rules. See `delivery-workflow.instructions.md` → "Saving mode" for how it interacts with the delivery checklist.
+
 ## Core Constraints
 
 Constraints fall into three categories. Read the category summary first; the bullets below give the full rules.

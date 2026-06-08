@@ -29,6 +29,15 @@ If the answer to all three is **no**, the method/feature likely belongs in consu
 
 **This checklist applies to every change — no matter how small.** A one-line bug fix, a CSS tweak, and a multi-file feature all follow the same process. There are no exemptions based on request size, perceived simplicity, or urgency.
 
+> **Saving mode (`ai_mode: saving`) — defer credit-heavy steps to the user.** When the `ai_mode` flag (the active source of truth is `.github/instructions/ai-mode.instructions.md`, auto-loaded every session) is `saving`, still create the todo list and implement the change, but do **not** execute the credit-heavy steps yourself:
+>
+> - **Step 3 (Test)** and **Step 4 (Build & lint)** — do not run them. Instead, give the user the exact command to run (e.g. `bun nx run-many -t lint test build --projects=<project>`) and mark each step **completed with a "deferred to user (saving mode)"** note. This is an additional allowed reason to mark these steps without executing them, beyond the N/A cases listed in Rule 2.
+> - **Debugging / profiling / e2e** — do not initiate autonomously; hand off with the command.
+> - **Steps 1, 5, 6** — keep them lightweight: read only the knowledge files strictly needed for the edit, and state "no new knowledge" / "no user-visible change" rather than spending tokens to confirm.
+> - Do not expand scope beyond the literal request. Still end with the Step 7 commit suggestion.
+>
+> In `full` mode (default), execute all seven steps as written below.
+
 ### Quick reference
 
 | #   | Step                                  | Default action                                                                                                                                                    | Skip allowed only when…                                                |
@@ -82,6 +91,8 @@ A step may be marked completed with "N/A" only in these specific cases:
 - **Test** — the change is purely non-functional (comment-only, formatting, pure documentation edit)
 - **Docs** — the change has zero user-visible impact (internal refactor, test-only change, build config)
 - **Retrospective** — no new lesson emerged (state this explicitly; do not silently skip)
+
+Additionally, when `ai_mode: saving` (see the "Saving mode" note above), **Test** and **Build & lint** may be marked completed with a "deferred to user (saving mode)" note instead of being executed — hand the user the exact command to run.
 
 In all other cases the step must be executed.
 

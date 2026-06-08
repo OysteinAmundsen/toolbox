@@ -11,6 +11,14 @@ import { bundleBudget } from '../../tools/vite-bundle-budget';
 const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'));
 const gridVersion = pkg.version;
 
+// Build-time defines. MUST be applied to the main config AND every nested
+// programmatic build() below — those use `configFile: false`, so they do NOT
+// inherit the top-level `define`. Without this, secondary entries
+// (features/registry.js, plugins/*/index.js) ship the literal `__GRID_VERSION__`
+// and fall back to 'dev' at runtime, collapsing per-version registry isolation
+// into a single shared `@dev` symbol (gh: multi-version coexistence).
+const gridDefine = { __GRID_VERSION__: JSON.stringify(gridVersion) };
+
 const outDir = resolve(__dirname, '../../dist/libs/grid');
 const pluginsDir = resolve(__dirname, 'src/lib/plugins');
 const featuresDir = resolve(__dirname, 'src/lib/features');
@@ -48,7 +56,12 @@ const getFileSizes = (path: string) => {
 
 /** Shared build options factory */
 const libBuild = (opts: { entry: string; outDir: string; lib: LibraryOptions } & Partial<BuildOptions>) =>
-  build({ configFile: false, logLevel: 'warn', build: { emptyOutDir: false, sourcemap: true, ...opts } });
+  build({
+    configFile: false,
+    logLevel: 'warn',
+    define: gridDefine,
+    build: { emptyOutDir: false, sourcemap: true, ...opts },
+  });
 
 /** Externalize core imports in plugin builds */
 function externalizeCore(): Plugin {
@@ -125,6 +138,7 @@ function buildPluginModules(): Plugin {
           await build({
             configFile: false,
             logLevel: 'silent',
+            define: gridDefine,
             plugins: [externalizeCore()],
             build: {
               outDir: dir,
@@ -198,6 +212,7 @@ function buildFeatureModules(): Plugin {
       await build({
         configFile: false,
         logLevel: 'silent',
+        define: gridDefine,
         plugins: [externalizeForFeatures()],
         build: {
           outDir: featDir,
@@ -218,6 +233,7 @@ function buildFeatureModules(): Plugin {
           build({
             configFile: false,
             logLevel: 'silent',
+            define: gridDefine,
             plugins: [externalizeForFeatures()],
             build: {
               outDir: featDir,
@@ -295,6 +311,7 @@ function buildUmdBundles(): Plugin {
           build({
             configFile: false,
             logLevel: 'silent',
+            define: gridDefine,
             build: {
               outDir: umdPlugins,
               emptyOutDir: false,
@@ -344,9 +361,7 @@ function buildUmdBundles(): Plugin {
 export default defineConfig(({ command }) => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/libs/grid',
-  define: {
-    __GRID_VERSION__: JSON.stringify(gridVersion),
-  },
+  define: gridDefine,
   plugins: [
     dts({
       entryRoot: 'src',

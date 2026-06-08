@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.16.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.16.3...grid-2.16.4) (2026-06-08)
+
+
+### Bug Fixes
+
+* **grid:** inject __GRID_VERSION__ into all build entries ([4afe1fb](https://github.com/OysteinAmundsen/toolbox/commit/4afe1fb72d3b58e2986235c193a1c578712964ef))
+
 ## [2.16.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.16.2...grid-2.16.3) (2026-06-07)
 
 

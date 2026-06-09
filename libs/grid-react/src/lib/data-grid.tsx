@@ -1,15 +1,15 @@
 import type { BaseGridPlugin, ColumnInferenceMode, DataGridElement } from '@toolbox-web/grid';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import {
-  createElement,
-  forwardRef,
-  useContext,
-  useEffect,
-  useImperativeHandle,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  type ReactNode,
+    createElement,
+    forwardRef,
+    useContext,
+    useEffect,
+    useImperativeHandle,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    type ReactNode,
 } from 'react';
 import '../jsx.d.ts';
 import { detectChildFeatures, registerChildFeatureDetector } from './child-feature-detector';
@@ -623,8 +623,8 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
 
   // Sync columnInference
   useEffect(() => {
-    if (gridRef.current && columnInference !== undefined) {
-      (gridRef.current as unknown as { columnInference: ColumnInferenceMode }).columnInference = columnInference;
+    if (gridRef.current) {
+      gridRef.current.columnInference = columnInference;
     }
   }, [columnInference]);
 

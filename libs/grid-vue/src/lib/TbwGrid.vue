@@ -662,7 +662,7 @@ watch(
 watch(
   () => props.columnInference,
   (newColumnInference) => {
-    if (gridRef.value && newColumnInference) {
+    if (gridRef.value) {
       gridRef.value.columnInference = newColumnInference;
     }
   },

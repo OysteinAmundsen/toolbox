@@ -13,16 +13,16 @@
 
 import type { BaseGridPlugin } from '../plugin';
 import type {
-  ColumnConfig,
-  ColumnConfigMap,
-  ColumnInferenceMode,
-  ColumnInternal,
-  ColumnSortState,
-  ColumnState,
-  FitMode,
-  GridColumnState,
-  GridConfig,
-  GridHost,
+    ColumnConfig,
+    ColumnConfigMap,
+    ColumnInferenceMode,
+    ColumnInternal,
+    ColumnSortState,
+    ColumnState,
+    FitMode,
+    GridColumnState,
+    GridConfig,
+    GridHost,
 } from '../types';
 import { mergeColumns, parseLightDomColumns, updateTemplate } from './columns';
 import { renderHeader } from './header';
@@ -199,6 +199,7 @@ export class ConfigManager<T = unknown> {
 
   /** Set columnInference source */
   setColumnInference(mode: ColumnInferenceMode | undefined): void {
+    if (this.#columnInference === mode) return;
     this.#columnInference = mode;
     this.#sourcesChanged = true;
   }

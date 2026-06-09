@@ -110,7 +110,7 @@ Define column configuration declaratively.
 | `min-width`    | `number`  | Minimum column width in pixels                                   |
 | `sortable`     | `boolean` | Enable sorting (presence = true)                                 |
 | `resizable`    | `boolean` | Enable resizing (presence = true)                                |
-| `order`        | `number`  | Initial column position (lower values come first). Columns without `order` appear after ordered ones in declaration order. Only affects initial render; user reorder takes precedence. |
+| `order`        | `number`  | Initial column position (0-based index; must be non-negative integer). Columns without `order` fill positions in declaration order. Only affects initial render; user reorder takes precedence. |
 | `editable`     | `boolean` | Enable editing (presence = true, requires EditingPlugin)         |
 | `options`      | `string`  | Select options: `"value1:Label1,value2:Label2"` or `"val1,val2"` |
 | `pinned`       | `string`  | Pin the column to an edge: `'left'` / `'start'` or `'right'` / `'end'` (requires PinnedColumnsPlugin). |

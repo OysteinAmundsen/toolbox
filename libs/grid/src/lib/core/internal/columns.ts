@@ -62,11 +62,11 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
         }
       }
 
-      // Parse order attribute (numeric only)
+      // Parse order attribute (non-negative integer only)
       const orderAttr = el.getAttribute('order');
       if (orderAttr) {
-        const numericOrder = parseFloat(orderAttr);
-        if (!isNaN(numericOrder)) {
+        const numericOrder = parseInt(orderAttr, 10);
+        if (Number.isFinite(numericOrder) && numericOrder >= 0) {
           config.order = numericOrder;
         }
       }
@@ -165,13 +165,13 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
  * // Result:  [{ field: 'b' }, { field: 'a' }, { field: 'c' }]
  */
 export function applyInitialOrder<T>(columns: ColumnInternal<T>[]): ColumnInternal<T>[] {
-  // Separate ordered and unordered columns
+  // Separate ordered and unordered columns, filtering for finite non-negative integers
   const ordered: Array<{ col: ColumnInternal<T>; order: number }> = [];
   const unordered: ColumnInternal<T>[] = [];
 
   for (const col of columns) {
-    if (typeof col.order === 'number') {
-      ordered.push({ col, order: col.order });
+    if (typeof col.order === 'number' && Number.isFinite(col.order) && col.order >= 0) {
+      ordered.push({ col, order: Math.floor(col.order) });
     } else {
       unordered.push(col);
     }
@@ -181,10 +181,10 @@ export function applyInitialOrder<T>(columns: ColumnInternal<T>[]): ColumnIntern
     return columns; // No reordering needed
   }
 
-  // Sort ordered columns by their order value
+  // Sort ordered columns by their order value (stable sort, so duplicates preserve declaration order)
   ordered.sort((a, b) => a.order - b.order);
 
-  // Build result by splicing ordered columns at their target indices
+  // Build result: fill indices with unordered columns, then splice ordered at their positions
   const result: ColumnInternal<T>[] = [];
   let unorderedIndex = 0;
 
@@ -195,8 +195,9 @@ export function applyInitialOrder<T>(columns: ColumnInternal<T>[]): ColumnIntern
       result.push(unordered[unorderedIndex++]);
     }
 
-    // Insert the ordered column at its target index
-    result.splice(order, 0, col);
+    // Insert the ordered column at its target index (clamp to result.length if beyond bounds)
+    const insertPos = Math.min(order, result.length);
+    result.splice(insertPos, 0, col);
   }
 
   // Append remaining unordered columns

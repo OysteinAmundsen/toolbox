@@ -151,6 +151,8 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   private dropIndex: number | null = null;
   /** When dragging a group header, holds the field names in that fragment. */
   private draggedGroupFields: string[] = [];
+  /** Initial column order (captured after order-attribute reordering). Used by resetColumnOrder(). */
+  private originalColumnOrder: string[] | null = null;
 
   /** Typed internal grid accessor. */
   get #internalGrid(): GridHost {
@@ -217,6 +219,11 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   override afterRender(): void {
     const gridEl = this.gridElement;
     if (!gridEl) return;
+
+    // Capture initial column order on first render (after order-attribute reordering)
+    if (!this.originalColumnOrder) {
+      this.originalColumnOrder = this.columns.map((c) => c.field);
+    }
 
     const headers = gridEl.querySelectorAll('.header-row > .cell');
 
@@ -607,7 +614,9 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
    * Reset column order to the original configuration order.
    */
   resetColumnOrder(): void {
-    const originalOrder = this.columns.map((c) => c.field);
+    // Use the captured initial order (including order-attribute reordering),
+    // or fall back to current column order if not yet captured
+    const originalOrder = this.originalColumnOrder ?? this.columns.map((c) => c.field);
     this.updateColumnOrder(originalOrder);
   }
   // #endregion

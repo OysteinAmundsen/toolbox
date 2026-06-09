@@ -269,3 +269,122 @@ describe('HTML attribute configuration', () => {
     expect(nameCol.editable).toBe(true);
   }, 20000);
 });
+
+describe('column order attribute', () => {
+  it('reorders columns based on order attribute in auto mode', async () => {
+    const grid: any = document.createElement('tbw-grid');
+    document.body.innerHTML = '';
+    document.body.appendChild(grid);
+
+    grid.innerHTML = `
+      <tbw-grid-column field="c" header="C"></tbw-grid-column>
+      <tbw-grid-column field="a" header="A" order="0"></tbw-grid-column>
+      <tbw-grid-column field="b" header="B"></tbw-grid-column>
+    `;
+
+    // Clear light DOM cache so columns are re-parsed (triggers on gridConfig change)
+    grid.gridConfig = {};
+    grid.rows = [{ a: 1, b: 2, c: 3 }];
+    await customElements.whenDefined('tbw-grid');
+    await waitForUpgraded(grid);
+
+    const cfg = await grid.getConfig();
+    expect(cfg.columns.map((c: any) => c.field)).toEqual(['a', 'c', 'b']);
+  }, 20000);
+
+  it('reorders columns based on order attribute in merge mode', async () => {
+    const grid: any = document.createElement('tbw-grid');
+    document.body.innerHTML = '';
+    document.body.appendChild(grid);
+
+    grid.columnInference = 'merge';
+    grid.innerHTML = `
+      <tbw-grid-column field="special" header="Special" order="1"></tbw-grid-column>
+    `;
+
+    // Clear light DOM cache so columns are re-parsed (triggers on gridConfig change)
+    grid.gridConfig = {};
+    grid.rows = [{ id: 1, name: 'Alice', special: 'value' }];
+    await customElements.whenDefined('tbw-grid');
+    await waitForUpgraded(grid);
+
+    const cfg = await grid.getConfig();
+    // Data columns in order, then special repositioned to index 1
+    // Expected: id (0), special (1), name (2)
+    expect(cfg.columns.map((c: any) => c.field)).toEqual(['id', 'special', 'name']);
+  }, 20000);
+
+  it('order is overridden by columnState', async () => {
+    const grid: any = document.createElement('tbw-grid');
+    document.body.innerHTML = '';
+    document.body.appendChild(grid);
+
+    grid.innerHTML = `
+      <tbw-grid-column field="a" header="A" order="2"></tbw-grid-column>
+      <tbw-grid-column field="b" header="B"></tbw-grid-column>
+      <tbw-grid-column field="c" header="C"></tbw-grid-column>
+    `;
+
+    // Clear light DOM cache so columns are re-parsed (triggers on gridConfig change)
+    grid.gridConfig = {};
+    grid.rows = [{ a: 1, b: 2, c: 3 }];
+    await customElements.whenDefined('tbw-grid');
+    await waitForUpgraded(grid);
+
+    const cfg = await grid.getConfig();
+    // Initial order after order attribute: a at index 2, b and c before it = [b, c, a]
+    expect(cfg.columns.map((c: any) => c.field)).toEqual(['b', 'c', 'a']);
+
+    // Now apply column state that should override the order attribute
+    const columnState = {
+      columns: [
+        { field: 'c', order: 0, visible: true },
+        { field: 'a', order: 1, visible: true },
+        { field: 'b', order: 2, visible: true },
+      ],
+    };
+    grid.applyColumnState(columnState);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    const cfgAfterState = await grid.getConfig();
+    // State should win over order attribute
+    expect(cfgAfterState.columns.map((c: any) => c.field)).toEqual(['c', 'a', 'b']);
+  }, 20000);
+
+  it('resetColumnOrder returns to order-influenced initial order', async () => {
+    const grid: any = document.createElement('tbw-grid');
+    document.body.innerHTML = '';
+    document.body.appendChild(grid);
+
+    grid.innerHTML = `
+      <tbw-grid-column field="a" header="A" order="1"></tbw-grid-column>
+      <tbw-grid-column field="b" header="B"></tbw-grid-column>
+      <tbw-grid-column field="c" header="C"></tbw-grid-column>
+    `;
+
+    // Clear light DOM cache so columns are re-parsed (triggers on gridConfig change)
+    grid.gridConfig = {};
+    grid.rows = [{ a: 1, b: 2, c: 3 }];
+    await customElements.whenDefined('tbw-grid');
+    await waitForUpgraded(grid);
+
+    let cfg = await grid.getConfig();
+    // Initial order after order attribute
+    expect(cfg.columns.map((c: any) => c.field)).toEqual(['b', 'a', 'c']);
+
+    // Move columns via reorder plugin
+    const reorder = grid.getPluginByName('reorderColumns');
+    if (reorder) {
+      reorder.updateColumnOrder(['c', 'b', 'a']);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      cfg = await grid.getConfig();
+      expect(cfg.columns.map((c: any) => c.field)).toEqual(['c', 'b', 'a']);
+
+      // Reset should return to order-influenced order
+      reorder.resetColumnOrder();
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      cfg = await grid.getConfig();
+      expect(cfg.columns.map((c: any) => c.field)).toEqual(['b', 'a', 'c']);
+    }
+  }, 20000);
+});

@@ -29,6 +29,8 @@ const props = defineProps<{
   minWidth?: string | number;
   /** Maximum column width */
   maxWidth?: string | number;
+  /** Initial column display index */
+  order?: number;
   /** Whether the column is sortable */
   sortable?: boolean;
   /** Whether the column is resizable */
@@ -153,6 +155,7 @@ onMounted(() => {
     :width="width"
     :min-width="minWidth"
     :max-width="maxWidth"
+    :order="order"
     :sortable="sortable"
     :resizable="resizable"
     :editable="editable"

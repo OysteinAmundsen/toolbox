@@ -62,6 +62,15 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
         }
       }
 
+      // Parse order attribute (numeric only)
+      const orderAttr = el.getAttribute('order');
+      if (orderAttr) {
+        const numericOrder = parseFloat(orderAttr);
+        if (!isNaN(numericOrder)) {
+          config.order = numericOrder;
+        }
+      }
+
       if (el.hasAttribute('resizable')) {
         // `resizable` defaults to true at the column level, so an explicit
         // `resizable="false"` (e.g. emitted by Vue's `:resizable="false"`)
@@ -137,6 +146,69 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
       return config;
     })
     .filter((c): c is ColumnInternal => !!c);
+}
+// #endregion
+
+// #region Column Ordering
+/**
+ * Apply initial column ordering based on the `order` property.
+ *
+ * Reorders columns using a splice-based algorithm: columns without an explicit `order`
+ * stay in their relative order, then columns with `order` are inserted (ascending by order value)
+ * at their target indices in the final result.
+ *
+ * @param columns - Column array to reorder (mutated in-place)
+ * @returns The mutated columns array (same reference)
+ *
+ * @example
+ * // Columns: [{ field: 'a' }, { field: 'b', order: 0 }, { field: 'c' }]
+ * // Result:  [{ field: 'b' }, { field: 'a' }, { field: 'c' }]
+ */
+export function applyInitialOrder<T>(columns: ColumnInternal<T>[]): ColumnInternal<T>[] {
+  // Separate ordered and unordered columns
+  const ordered: Array<{ col: ColumnInternal<T>; order: number }> = [];
+  const unordered: ColumnInternal<T>[] = [];
+
+  for (const col of columns) {
+    if (typeof col.order === 'number') {
+      ordered.push({ col, order: col.order });
+    } else {
+      unordered.push(col);
+    }
+  }
+
+  if (ordered.length === 0) {
+    return columns; // No reordering needed
+  }
+
+  // Sort ordered columns by their order value
+  ordered.sort((a, b) => a.order - b.order);
+
+  // Build result by splicing ordered columns at their target indices
+  const result: ColumnInternal<T>[] = [];
+  let unorderedIndex = 0;
+
+  // Process each ordered column and insert it at its target index
+  for (const { col, order } of ordered) {
+    // Fill up to the target index with unordered columns
+    while (result.length < order && unorderedIndex < unordered.length) {
+      result.push(unordered[unorderedIndex++]);
+    }
+
+    // Insert the ordered column at its target index
+    result.splice(order, 0, col);
+  }
+
+  // Append remaining unordered columns
+  while (unorderedIndex < unordered.length) {
+    result.push(unordered[unorderedIndex++]);
+  }
+
+  // Copy result back to original array
+  columns.length = 0;
+  columns.push(...result);
+
+  return columns;
 }
 // #endregion
 

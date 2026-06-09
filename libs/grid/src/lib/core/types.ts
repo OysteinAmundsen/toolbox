@@ -833,6 +833,35 @@ export interface BaseColumnConfig<TRow = any, TValue = any> {
   width?: string | number;
   /** Minimum column width in pixels (stretch mode only); when set, column uses minmax(minWidth, 1fr) */
   minWidth?: number;
+  /**
+   * Initial column display index.
+   *
+   * Sets the column's initial position in the grid declaratively. When `order` is set,
+   * the column is repositioned at that index among the initial column array, _before_
+   * any saved column state is applied.
+   *
+   * **Precedence** (low → high):
+   * ```
+   * data-key order (merge)    <  order attribute  <  columnState / applyColumnState / runtime reorder
+   * / array order (auto)
+   * ```
+   *
+   * If the user supplies saved column state (`gridConfig.columnState`, `applyColumnState()`,
+   * or runtime reorder via drag), that state **wins**. Use `resetColumnOrder()` to return
+   * to the `order`-influenced initial order.
+   *
+   * @example
+   * ```typescript
+   * // Move 'special-field' to initial index 1; other columns stay inferred
+   * <tbw-grid data-src="/url" column-inference="merge">
+   *   <tbw-grid-column field="special-field" order="1"></tbw-grid-column>
+   * </tbw-grid>
+   * ```
+   *
+   * @see ReorderPlugin.resetColumnOrder() — returns to this order
+   * @since 2.17.0
+   */
+  order?: number;
   /** Whether column can be sorted */
   sortable?: boolean;
   /** Whether column can be resized by user */

@@ -110,6 +110,7 @@ Define column configuration declaratively.
 | `min-width`    | `number`  | Minimum column width in pixels                                   |
 | `sortable`     | `boolean` | Enable sorting (presence = true)                                 |
 | `resizable`    | `boolean` | Enable resizing (presence = true)                                |
+| `order`        | `number`  | Initial column position (lower values come first). Columns without `order` appear after ordered ones in declaration order. Only affects initial render; user reorder takes precedence. |
 | `editable`     | `boolean` | Enable editing (presence = true, requires EditingPlugin)         |
 | `options`      | `string`  | Select options: `"value1:Label1,value2:Label2"` or `"val1,val2"` |
 | `pinned`       | `string`  | Pin the column to an edge: `'left'` / `'start'` or `'right'` / `'end'` (requires PinnedColumnsPlugin). |
@@ -120,9 +121,9 @@ Define column configuration declaratively.
 
 ```html
 <tbw-grid>
-  <tbw-grid-column field="id" header="ID" type="number" width="80"></tbw-grid-column>
-  <tbw-grid-column field="name" header="Name" sortable resizable></tbw-grid-column>
-  <tbw-grid-column field="role" type="select" options="admin:Admin,user:User"></tbw-grid-column>
+  <tbw-grid-column field="id" header="ID" type="number" width="80" order="0"></tbw-grid-column>
+  <tbw-grid-column field="name" header="Name" sortable resizable order="1"></tbw-grid-column>
+  <tbw-grid-column field="role" type="select" options="admin:Admin,user:User" order="2"></tbw-grid-column>
 </tbw-grid>
 ```
 

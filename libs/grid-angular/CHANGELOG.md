@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.8.1...grid-angular-1.9.0) (2026-06-09)
+
+
+### Features
+
+* **grid:** add columnInference 'merge' mode to overlay provided columns onto inferred set ([#388](https://github.com/OysteinAmundsen/toolbox/issues/388)) ([1fe2929](https://github.com/OysteinAmundsen/toolbox/commit/1fe292928ffad5c1372510ef1d63c17266e1b741))
+
 ## [1.8.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.8.0...grid-angular-1.8.1) (2026-06-07)
 
 

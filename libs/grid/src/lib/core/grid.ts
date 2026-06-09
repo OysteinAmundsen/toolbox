@@ -62,6 +62,7 @@ import type {
   AnimationConfig,
   ColumnConfig,
   ColumnConfigMap,
+  ColumnInferenceMode,
   ColumnInternal,
   DataChangeDetail,
   DataGridEventMap,
@@ -231,7 +232,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // #region Static Methods - Observed Attributes
   /** @internal Web component lifecycle - not part of public API */
   static get observedAttributes(): string[] {
-    return ['rows', 'columns', 'grid-config', 'fit-mode', 'loading'];
+    return ['rows', 'columns', 'grid-config', 'fit-mode', 'column-inference', 'loading'];
   }
   // #endregion
 
@@ -270,6 +271,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     columns: false,
     gridConfig: false,
     fitMode: false,
+    columnInference: false,
   };
 
   // Render Scheduler - centralizes all rendering through RAF
@@ -658,6 +660,38 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#configManager?.setFitMode(value);
     if (oldValue !== value) {
       this.#queueUpdate('fitMode');
+    }
+  }
+
+  /**
+   * Get or set how automatic column inference combines with explicitly provided columns.
+   *
+   * - `'auto'` (default): infer columns only when none are provided. Declaring a
+   *   single column disables inference and renders only the declared column(s).
+   * - `'merge'`: always infer the full column set from the data (data-key order),
+   *   then overlay provided columns matched by `field`. A provided column customizes
+   *   only its own field and keeps its data position; provided columns for fields
+   *   absent from the data are appended as computed columns.
+   *
+   * Can also be set via `gridConfig.columnInference` or the `column-inference` attribute.
+   *
+   * @group Configuration
+   * @since 2.17.0
+   * @example
+   * ```typescript
+   * // Render every data field, then customize just one column
+   * grid.columnInference = 'merge';
+   * grid.columns = [{ field: 'salary', type: 'number', header: 'Salary (USD)' }];
+   * ```
+   */
+  get columnInference(): ColumnInferenceMode {
+    return this.#effectiveConfig.columnInference ?? 'auto';
+  }
+  set columnInference(value: ColumnInferenceMode | undefined) {
+    const oldValue = this.#configManager?.getColumnInference();
+    this.#configManager?.setColumnInference(value);
+    if (oldValue !== value) {
+      this.#queueUpdate('columnInference');
     }
   }
 
@@ -1538,6 +1572,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       }
     } else if (name === 'fit-mode') {
       this.fitMode = newValue as FitMode;
+    } else if (name === 'column-inference') {
+      this.columnInference = newValue as ColumnInferenceMode;
     }
   }
 
@@ -2256,7 +2292,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Queue an update for a specific property type.
    * All updates queued within the same microtask are batched together.
    */
-  #queueUpdate(type: 'rows' | 'columns' | 'gridConfig' | 'fitMode'): void {
+  #queueUpdate(type: 'rows' | 'columns' | 'gridConfig' | 'fitMode' | 'columnInference'): void {
     this.#pendingUpdateFlags[type] = true;
 
     // If already queued, skip scheduling
@@ -2286,6 +2322,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       columns: false,
       gridConfig: false,
       fitMode: false,
+      columnInference: false,
     };
 
     // If gridConfig changed, it supersedes columns/fit changes
@@ -2300,7 +2337,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
 
     // Process remaining changes in dependency order
-    if (flags.columns) {
+    if (flags.columns || flags.columnInference) {
       this.#applyColumnsUpdate();
     }
     if (flags.rows) {

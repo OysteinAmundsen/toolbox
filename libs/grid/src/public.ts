@@ -267,6 +267,7 @@ export type {
   ColumnEditorContext,
   // Column features
   ColumnEditorSpec,
+  ColumnInferenceMode,
   ColumnResizeDetail,
   ColumnResizeResetDetail,
   // Column state types
@@ -341,7 +342,13 @@ export type {
 } from './lib/core/types';
 
 // Re-export FitModeEnum for runtime usage
-export { DEFAULT_A11Y_MESSAGES, DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS, FitModeEnum } from './lib/core/types';
+export {
+  ColumnInferenceModeEnum,
+  DEFAULT_A11Y_MESSAGES,
+  DEFAULT_ANIMATION_CONFIG,
+  DEFAULT_GRID_ICONS,
+  FitModeEnum,
+} from './lib/core/types';
 
 // Re-export sorting utilities for custom sort handlers
 export { builtInSort, defaultComparator } from './lib/core/internal/sorting';

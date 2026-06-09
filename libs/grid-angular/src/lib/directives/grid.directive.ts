@@ -18,6 +18,7 @@ import type {
   CellChangeDetail,
   CellClickDetail,
   ColumnConfigMap,
+  ColumnInferenceMode,
   ColumnResizeDetail,
   FitMode,
   GridColumnState,
@@ -316,6 +317,15 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
       const grid = this.elementRef.nativeElement;
       grid.fitMode = fitModeValue;
     });
+
+    // Effect to sync columnInference to the grid element
+    effect(() => {
+      const columnInferenceValue = this.columnInference();
+      if (columnInferenceValue === undefined) return;
+
+      const grid = this.elementRef.nativeElement;
+      grid.columnInference = columnInferenceValue;
+    });
   }
 
   /**
@@ -494,6 +504,20 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```
    */
   fitMode = input<FitMode>();
+
+  /**
+   * How automatic column inference combines with explicitly provided columns.
+   *
+   * - `'auto'` (default): infer only when no columns are provided.
+   * - `'merge'`: always infer from data, then overlay provided columns by `field`.
+   *
+   * @example
+   * ```html
+   * <tbw-grid [rows]="data" columnInference="merge" />
+   * <tbw-grid [rows]="data" [columnInference]="mode()" />
+   * ```
+   */
+  columnInference = input<ColumnInferenceMode>();
 
   /**
    * Grid configuration object with optional Angular-specific extensions.

@@ -87,6 +87,36 @@ grid.rows = myData; // That's it!
   <ColumnInferenceDemo />
 </ShowSource>
 
+#### Merge mode — infer everything, customize one column
+
+By default (`columnInference: 'auto'`), inference is **all-or-nothing**: the moment you declare a
+single column, the grid renders **only** that column and skips inference entirely.
+
+Opt into `columnInference: 'merge'` for a low-config workflow: the grid always infers the full
+column set from your data, then **overlays** any explicitly provided columns matched by `field`.
+Feed it data and it renders everything; if you disagree with how one column is rendered, add config
+for _just that column_.
+
+```typescript
+grid.columnInference = 'merge';
+grid.rows = employees; // every field renders, in data-key order
+// Customize only the salary column — the rest stay inferred:
+grid.columns = [{ field: 'salary', type: 'number', header: 'Salary (USD)' }];
+```
+
+Behaviour in `merge` mode:
+
+- All data fields render in **data-key order** (from the first row), auto-typed.
+- A provided column overlays **only its own field** (your config wins; inferred values such as
+  `header`/`type` fill the gaps) and keeps its data position.
+- A provided column for a field **absent from the data** is appended at the end as a computed
+  column (e.g. an `actions` column).
+- To hide a column, omit its key from the row objects (control via the data shape).
+
+Set it via the `columnInference` prop, the `column-inference="merge"` attribute, or
+`gridConfig.columnInference`. The default `'auto'` preserves the classic "declare a subset → show
+only that subset" behaviour.
+
 ### Light DOM Columns
 
 **Declarative configuration** — Define columns in HTML instead of JavaScript.
@@ -164,6 +194,7 @@ The grid is configured through the `gridConfig` property (or individual shorthan
 | `columns` | [`ColumnConfig[]`](/grid/api/core/interfaces/columnconfig/) | Column definitions |
 | `rows` | `any[]` | Row data array (top-level grid prop, not on `GridConfig`) |
 | `fitMode` | [`FitMode`](/grid/api/core/types/fitmode/) | How columns fill available width (`'stretch'` or `'fixed'`) |
+| `columnInference` | [`ColumnInferenceMode`](/grid/api/core/types/columninferencemode/) | How inference combines with provided columns (`'auto'` default, or `'merge'`) |
 | `sortable` | `boolean` | Grid-wide sort toggle (default `true`) |
 | `resizable` | `boolean` | Grid-wide resize toggle (default `true`) |
 | `initialSort` | `{ field, direction }` | Sort applied on first render (`'asc'` or `'desc'`) |
@@ -191,6 +222,9 @@ The grid is configured through the `gridConfig` property (or individual shorthan
 3. `columns` prop (direct array)
 4. Inferred columns (auto-detected from first row)
 5. Individual props (`fitMode`) — highest
+
+> In `columnInference: 'merge'` mode the order differs: the grid infers the full column set first,
+> then overlays the merged provided columns by `field` (provided wins, in data-key order).
 
 ### System Columns
 

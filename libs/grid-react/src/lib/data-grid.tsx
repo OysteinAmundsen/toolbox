@@ -1,4 +1,4 @@
-import type { BaseGridPlugin, DataGridElement } from '@toolbox-web/grid';
+import type { BaseGridPlugin, ColumnInferenceMode, DataGridElement } from '@toolbox-web/grid';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import {
   createElement,
@@ -162,6 +162,13 @@ export interface DataGridProps<TRow = unknown> extends AllFeatureProps<TRow>, Ev
   columnDefaults?: Partial<ColumnConfig<TRow>>;
   /** Fit mode for column sizing */
   fitMode?: 'stretch' | 'fit-columns' | 'auto-fit';
+  /**
+   * How automatic column inference combines with explicitly provided columns.
+   *
+   * - `'auto'` (default): infer only when no columns are provided.
+   * - `'merge'`: always infer from data, then overlay provided columns by `field`.
+   */
+  columnInference?: ColumnInferenceMode;
   /**
    * Grid-wide sorting toggle.
    * When false, disables sorting for all columns regardless of their individual `sortable` setting.
@@ -387,6 +394,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     columns,
     columnDefaults,
     fitMode,
+    columnInference,
     sortable,
     filterable,
     selectable,
@@ -612,6 +620,13 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
       (gridRef.current as unknown as { fitMode: string }).fitMode = fitMode;
     }
   }, [fitMode]);
+
+  // Sync columnInference
+  useEffect(() => {
+    if (gridRef.current && columnInference !== undefined) {
+      (gridRef.current as unknown as { columnInference: ColumnInferenceMode }).columnInference = columnInference;
+    }
+  }, [columnInference]);
 
   // Sync loading
   useEffect(() => {

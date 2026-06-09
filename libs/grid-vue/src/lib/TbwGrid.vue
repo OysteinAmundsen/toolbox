@@ -1,5 +1,12 @@
 <script setup lang="ts" generic="TRow = unknown">
-import type { BaseGridPlugin, ColumnConfig, DataGridElement, FitMode, GridConfig } from '@toolbox-web/grid';
+import type {
+  BaseGridPlugin,
+  ColumnConfig,
+  ColumnInferenceMode,
+  DataGridElement,
+  FitMode,
+  GridConfig,
+} from '@toolbox-web/grid';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import type {
   BeforeEditCloseDetail,
@@ -152,6 +159,15 @@ const props = defineProps({
   /** Fit mode shorthand */
   fitMode: {
     type: String as PropType<FitMode>,
+    default: undefined,
+  },
+  /**
+   * How automatic column inference combines with explicitly provided columns.
+   * - `'auto'` (default): infer only when no columns are provided.
+   * - `'merge'`: always infer from data, then overlay provided columns by `field`.
+   */
+  columnInference: {
+    type: String as PropType<ColumnInferenceMode>,
     default: undefined,
   },
 
@@ -555,6 +571,9 @@ onMounted(() => {
   if (props.fitMode) {
     grid.fitMode = props.fitMode;
   }
+  if (props.columnInference) {
+    grid.columnInference = props.columnInference;
+  }
   if (props.loading !== undefined) {
     grid.loading = props.loading;
   }
@@ -636,6 +655,15 @@ watch(
   (newFitMode) => {
     if (gridRef.value && newFitMode) {
       gridRef.value.fitMode = newFitMode;
+    }
+  },
+);
+
+watch(
+  () => props.columnInference,
+  (newColumnInference) => {
+    if (gridRef.value && newColumnInference) {
+      gridRef.value.columnInference = newColumnInference;
     }
   },
 );

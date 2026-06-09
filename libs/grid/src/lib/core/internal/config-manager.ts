@@ -13,18 +13,18 @@
 
 import type { BaseGridPlugin } from '../plugin';
 import type {
-    ColumnConfig,
-    ColumnConfigMap,
-    ColumnInferenceMode,
-    ColumnInternal,
-    ColumnSortState,
-    ColumnState,
-    FitMode,
-    GridColumnState,
-    GridConfig,
-    GridHost,
+  ColumnConfig,
+  ColumnConfigMap,
+  ColumnInferenceMode,
+  ColumnInternal,
+  ColumnSortState,
+  ColumnState,
+  FitMode,
+  GridColumnState,
+  GridConfig,
+  GridHost,
 } from '../types';
-import { mergeColumns, parseLightDomColumns, updateTemplate } from './columns';
+import { applyInitialOrder, mergeColumns, parseLightDomColumns, updateTemplate } from './columns';
 import { renderHeader } from './header';
 import { inferColumns, overlayInferred } from './inference';
 import { RenderPhase } from './render-scheduler';
@@ -410,6 +410,9 @@ export class ConfigManager<T = unknown> {
     }
 
     if (columns.length) {
+      // Apply initial column ordering (before defaults and compilation)
+      applyInitialOrder(columns);
+
       // Apply per-column defaults
       columns.forEach((c) => {
         if (c.sortable === undefined) c.sortable = true;

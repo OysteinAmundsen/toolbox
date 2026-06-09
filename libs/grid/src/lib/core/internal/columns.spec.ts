@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { FitModeEnum } from '../types';
-import { autoSizeColumns, mergeColumns, parseLightDomColumns, updateTemplate } from './columns';
+import { applyInitialOrder, autoSizeColumns, mergeColumns, parseLightDomColumns, updateTemplate } from './columns';
 import { renderHeader } from './header';
 
 describe('parseLightDomColumns', () => {
@@ -387,5 +387,46 @@ describe('column configuration', () => {
     autoSizeColumns(g);
     const sized = g._columns.filter((c: any) => c.width);
     expect(sized.length).toBeGreaterThan(0);
+  });
+});
+
+describe('applyInitialOrder', () => {
+  it('reorders columns with explicit order values', () => {
+    const cols: any = [{ field: 'a' }, { field: 'b', order: 0 }, { field: 'c' }];
+    applyInitialOrder(cols);
+    expect(cols.map((c: any) => c.field)).toEqual(['b', 'a', 'c']);
+  });
+
+  it('returns unchanged when no columns have order', () => {
+    const cols: any = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
+    applyInitialOrder(cols);
+    expect(cols.map((c: any) => c.field)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('handles multiple ordered columns', () => {
+    const cols: any = [{ field: 'a' }, { field: 'b', order: 1 }, { field: 'c', order: 0 }, { field: 'd' }];
+    applyInitialOrder(cols);
+    expect(cols.map((c: any) => c.field)).toEqual(['c', 'b', 'a', 'd']);
+  });
+
+  it('handles order values that are out of bounds', () => {
+    const cols: any = [{ field: 'a', order: 5 }, { field: 'b' }, { field: 'c' }];
+    applyInitialOrder(cols);
+    // Ordered column 'a' should still be placed at its index
+    expect(cols.length).toBe(3);
+  });
+
+  it('mutates array in-place', () => {
+    const cols: any = [{ field: 'a' }, { field: 'b', order: 0 }, { field: 'c' }];
+    const result = applyInitialOrder(cols);
+    expect(result).toBe(cols); // Should return the same array reference
+  });
+
+  it('preserves unordered column relative order', () => {
+    const cols: any = [{ field: 'a' }, { field: 'b', order: 2 }, { field: 'c' }, { field: 'd' }];
+    applyInitialOrder(cols);
+    // Unordered columns (a, c, d) should stay in relative order
+    // b goes to index 2: a, c, b, d
+    expect(cols.map((c: any) => c.field)).toEqual(['a', 'c', 'b', 'd']);
   });
 });

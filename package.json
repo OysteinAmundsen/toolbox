@@ -14,7 +14,7 @@
   "scripts": {
     "nx": "nx",
     "start": "nx serve docs",
-    "build": "rm -rf dist/libs/ && nx run-many --target=build --exclude=docs --output-style=stream && bun run cem",
+    "build": "nx run-many --target=build --exclude=docs --output-style=stream && bun run cem",
     "cem": "cd libs/grid && bunx cem analyze",
     "test": "nx run-many --target=test --exclude=demo-angular --output-style=stream --silent",
     "e2e": "nx run-many --target=e2e --parallel=1",

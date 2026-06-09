@@ -23,6 +23,8 @@ export interface GridColumnProps<TRow = unknown, TValue = unknown> {
   width?: string | number;
   /** Minimum width for stretch mode */
   minWidth?: number;
+  /** Initial column display index */
+  order?: number;
   /** Whether the column is hidden */
   hidden?: boolean;
   /** Prevent column from being hidden */
@@ -126,6 +128,7 @@ export function GridColumn<TRow = unknown, TValue = unknown>(props: GridColumnPr
     resizable,
     width,
     minWidth,
+    order,
     hidden,
     lockVisible,
     children,
@@ -173,6 +176,7 @@ export function GridColumn<TRow = unknown, TValue = unknown>(props: GridColumnPr
   if (resizable !== undefined) attrs['resizable'] = resizable;
   if (widthStr !== undefined) attrs['width'] = widthStr;
   if (minWidth !== undefined) attrs['min-width'] = minWidth;
+  if (order !== undefined) attrs['order'] = order;
   if (hidden !== undefined) attrs['hidden'] = hidden;
   if (lockVisible !== undefined) attrs['lock-visible'] = lockVisible;
   if (multi !== undefined) attrs['multi'] = multi;

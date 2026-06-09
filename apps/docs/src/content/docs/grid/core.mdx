@@ -185,6 +185,54 @@ This approach is ideal for:
   <LightDomColumnsDemo />
 </ShowSource>
 
+#### Initial column ordering with the `order` attribute
+
+Use the `order` attribute to control the initial position of columns when they are first rendered. This is useful for reordering columns declaratively without JavaScript:
+
+<Tabs syncKey="framework">
+  <TabItem label="TypeScript">
+```html
+<tbw-grid>
+  <tbw-grid-column field="id" header="ID" order="2"></tbw-grid-column>
+  <tbw-grid-column field="name" header="Full Name" order="0"></tbw-grid-column>
+  <tbw-grid-column field="email" header="Email Address" order="1"></tbw-grid-column>
+</tbw-grid>
+```
+The columns will appear in order: `name`, `email`, `id`.
+  </TabItem>
+  <TabItem label="React">
+```tsx
+<DataGrid rows={rows}>
+  <GridColumn field="id" header="ID" order={2} />
+  <GridColumn field="name" header="Full Name" order={0} />
+  <GridColumn field="email" header="Email Address" order={1} />
+</DataGrid>
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<TbwGrid :rows="rows">
+  <TbwGridColumn field="id" header="ID" :order="2" />
+  <TbwGridColumn field="name" header="Full Name" :order="0" />
+  <TbwGridColumn field="email" header="Email Address" :order="1" />
+</TbwGrid>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```html
+<tbw-grid [rows]="rows">
+  <tbw-grid-column field="id" header="ID" order="2"></tbw-grid-column>
+  <tbw-grid-column field="name" header="Full Name" order="0"></tbw-grid-column>
+  <tbw-grid-column field="email" header="Email Address" order="1"></tbw-grid-column>
+</tbw-grid>
+```
+  </TabItem>
+</Tabs>
+
+Columns without an `order` attribute keep their relative order; columns with `order` are inserted at their target indices. The `order` attribute only affects the **initial render**; user interactions (drag-to-reorder via the [Reorder plugin](/grid/plugins/reorder-columns/)) take precedence after that. Use [`resetColumnOrder()`](/grid/api/plugins/reorder-columns/methods/resetcolumnorder/) to restore the order-attribute positioning.
+
+**Combining with `columnInference: 'merge'`** — The `order` attribute becomes especially powerful in `merge` mode. With inference enabled, the grid automatically displays all data fields, and you can use light-DOM `<tbw-grid-column>` elements to customize **only the columns you care about** — adding a custom `header`, overriding the `type`, adjusting `width`, and positioning via `order`, all without declaring the entire column set.
+
 ### Configuration Reference
 
 The grid is configured through the `gridConfig` property (or individual shorthand properties). The table below covers the most common options — see [`GridConfig`](/grid/api/core/interfaces/gridconfig/) for the full, type-checked reference.
@@ -600,6 +648,28 @@ For event-driven use cases, click and activation events (`cell-click`, `row-clic
 <ShowSource file="demos/CustomRenderersDemo.astro">
   <CustomRenderersDemo />
 </ShowSource>
+
+#### Light DOM renderers
+
+You can also define a cell renderer **declaratively in HTML** — no JavaScript required. Nest a
+`<tbw-grid-column-view>` element inside a `<tbw-grid-column>`; its content becomes the cell template.
+Use `{{ value }}` to interpolate the cell value (and `{{ row.field }}` for other row fields):
+
+```html
+<tbw-grid column-inference="merge">
+  <tbw-grid-column field="status">
+    <tbw-grid-column-view>
+      <span class="badge badge-{{ value }}">{{ value }}</span>
+    </tbw-grid-column-view>
+  </tbw-grid-column>
+</tbw-grid>
+```
+
+The companion light-DOM templates are `<tbw-grid-column-editor>` (custom editor, requires the
+[Editing plugin](/grid/plugins/editing/)) and `<tbw-grid-column-header>` (custom header cell). See the
+[API reference](/grid/api-reference/#column-elements) for the full list. The framework adapters
+expose the same capability through their own template syntax — `#cell` slots in Vue, `*tbwRenderer`
+in Angular, and `renderer` props in React (shown in the tabs above).
 
 #### Renderer security: avoid `innerHTML`
 

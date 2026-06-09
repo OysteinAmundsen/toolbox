@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.11.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.10.0...grid-vue-1.11.0) (2026-06-09)
+
+
+### Features
+
+* **grid:** add columnInference 'merge' mode to overlay provided columns onto inferred set ([#388](https://github.com/OysteinAmundsen/toolbox/issues/388)) ([1fe2929](https://github.com/OysteinAmundsen/toolbox/commit/1fe292928ffad5c1372510ef1d63c17266e1b741))
+* **grid:** declarative column order attribute for initial display ([#391](https://github.com/OysteinAmundsen/toolbox/issues/391)) ([3f47e90](https://github.com/OysteinAmundsen/toolbox/commit/3f47e904bf57ec28891e3611ad7d3e42ded052e9))
+
 ## [1.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.9.1...grid-vue-1.10.0) (2026-06-03)
 
 

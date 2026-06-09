@@ -229,7 +229,7 @@ The columns will appear in order: `name`, `email`, `id`.
   </TabItem>
 </Tabs>
 
-Columns without an `order` attribute appear after ordered columns in their original order. The `order` attribute only affects the **initial render**; user interactions (drag-to-reorder via the [Reorder plugin](/grid/plugins/reorder-columns/)) take precedence after that. Use [`resetColumnOrder()`](/grid/api/plugins/reorder-columns/methods/resetcolumnorder/) to restore the order-attribute positioning.
+Columns without an `order` attribute keep their relative order; columns with `order` are inserted at their target indices. The `order` attribute only affects the **initial render**; user interactions (drag-to-reorder via the [Reorder plugin](/grid/plugins/reorder-columns/)) take precedence after that. Use [`resetColumnOrder()`](/grid/api/plugins/reorder-columns/methods/resetcolumnorder/) to restore the order-attribute positioning.
 
 **Combining with `columnInference: 'merge'`** — The `order` attribute becomes especially powerful in `merge` mode. With inference enabled, the grid automatically displays all data fields, and you can use light-DOM `<tbw-grid-column>` elements to customize **only the columns you care about** — adding a custom `header`, overriding the `type`, adjusting `width`, and positioning via `order`, all without declaring the entire column set.
 

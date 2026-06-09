@@ -46,6 +46,66 @@ describe('config precedence', () => {
   }, 20000);
 });
 
+describe('columnInference: merge', () => {
+  it('infers the full column set even when a column is declared (auto would show only the declared one)', async () => {
+    const grid: any = document.createElement('tbw-grid');
+    document.body.innerHTML = '';
+    document.body.appendChild(grid);
+    grid.columnInference = 'merge';
+    grid.columns = [{ field: 'salary', type: 'number', header: 'Salary (USD)' }];
+    grid.rows = [{ id: 1, name: 'Alice', salary: 100 }];
+    await customElements.whenDefined('tbw-grid');
+    await waitForUpgraded(grid);
+    const cfg = await grid.getConfig();
+    // All data fields appear in data-key order
+    expect(cfg.columns.map((c: any) => c.field)).toEqual(['id', 'name', 'salary']);
+    // Provided column overlays only its own field (config wins) and keeps position
+    const salary = cfg.columns.find((c: any) => c.field === 'salary');
+    expect(salary.header).toBe('Salary (USD)');
+    expect(salary.type).toBe('number');
+    // Inferred columns keep their derived header
+    expect(cfg.columns.find((c: any) => c.field === 'name').header).toBe('Name');
+  }, 20000);
+
+  it('appends a provided column absent from the data as a computed column', async () => {
+    const grid: any = document.createElement('tbw-grid');
+    document.body.innerHTML = '';
+    document.body.appendChild(grid);
+    grid.columnInference = 'merge';
+    grid.columns = [{ field: 'actions', header: 'Actions' }];
+    grid.rows = [{ id: 1, name: 'Alice' }];
+    await customElements.whenDefined('tbw-grid');
+    await waitForUpgraded(grid);
+    const cfg = await grid.getConfig();
+    expect(cfg.columns.map((c: any) => c.field)).toEqual(['id', 'name', 'actions']);
+  }, 20000);
+
+  it('reads the mode from gridConfig and via the column-inference attribute', async () => {
+    const grid: any = document.createElement('tbw-grid');
+    document.body.innerHTML = '';
+    document.body.appendChild(grid);
+    grid.setAttribute('column-inference', 'merge');
+    grid.gridConfig = { columns: [{ field: 'salary', type: 'number' }] };
+    grid.rows = [{ id: 1, name: 'Alice', salary: 100 }];
+    await customElements.whenDefined('tbw-grid');
+    await waitForUpgraded(grid);
+    const cfg = await grid.getConfig();
+    expect(cfg.columns.map((c: any) => c.field)).toEqual(['id', 'name', 'salary']);
+  }, 20000);
+
+  it('auto mode (default) is unchanged — declaring a column shows only that column', async () => {
+    const grid: any = document.createElement('tbw-grid');
+    document.body.innerHTML = '';
+    document.body.appendChild(grid);
+    grid.columns = [{ field: 'salary', type: 'number' }];
+    grid.rows = [{ id: 1, name: 'Alice', salary: 100 }];
+    await customElements.whenDefined('tbw-grid');
+    await waitForUpgraded(grid);
+    const cfg = await grid.getConfig();
+    expect(cfg.columns.map((c: any) => c.field)).toEqual(['salary']);
+  }, 20000);
+});
+
 describe('HTML attribute configuration', () => {
   it('parses rows from JSON attribute', async () => {
     const grid: any = document.createElement('tbw-grid');

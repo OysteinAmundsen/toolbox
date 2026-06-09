@@ -2229,6 +2229,31 @@ export const FitModeEnum = {
  * @since 0.1.1
  */
 export type FitMode = (typeof FitModeEnum)[keyof typeof FitModeEnum];
+
+/**
+ * How automatic column inference combines with explicitly provided columns.
+ *
+ * - `'auto'` (default): infer columns only when none are provided. Declaring a
+ *   single column (via `columns`, `gridConfig.columns`, or `<tbw-grid-column>`)
+ *   disables inference and renders only the declared column(s).
+ * - `'merge'`: always infer the full column set from the data (in data-key
+ *   order), then overlay any explicitly provided columns matched by `field`.
+ *   A provided column customizes only its own field and keeps its data
+ *   position; provided columns for fields absent from the data are appended as
+ *   computed columns.
+ *
+ * Use `ColumnInferenceModeEnum` to access individual values by key.
+ * @since 2.17.0
+ */
+export const ColumnInferenceModeEnum = {
+  AUTO: 'auto',
+  MERGE: 'merge',
+} as const;
+/**
+ * Column inference mode — see {@link ColumnInferenceModeEnum} for values.
+ * @since 2.17.0
+ */
+export type ColumnInferenceMode = (typeof ColumnInferenceModeEnum)[keyof typeof ColumnInferenceModeEnum];
 // #endregion
 
 // #region Plugin Interface
@@ -2503,6 +2528,17 @@ export interface GridConfig<TRow = any> {
   /** Sizing mode for columns. Can also be set via `fitMode` prop. */
   fitMode?: FitMode;
 
+  /**
+   * How automatic column inference combines with explicitly provided columns.
+   * Can also be set via the `columnInference` prop or `column-inference` attribute.
+   *
+   * - `'auto'` (default): infer only when no columns are provided (current behavior).
+   * - `'merge'`: always infer from data, then overlay provided columns by `field`.
+   *
+   * @see {@link ColumnInferenceMode}
+   * @since 2.17.0
+   */
+  columnInference?: ColumnInferenceMode;
   /**
    * Grid-wide sorting toggle.
    * When false, disables sorting for all columns regardless of their individual `sortable` setting.

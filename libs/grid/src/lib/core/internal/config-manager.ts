@@ -13,19 +13,20 @@
 
 import type { BaseGridPlugin } from '../plugin';
 import type {
-  ColumnConfig,
-  ColumnConfigMap,
-  ColumnInternal,
-  ColumnSortState,
-  ColumnState,
-  FitMode,
-  GridColumnState,
-  GridConfig,
-  GridHost,
+    ColumnConfig,
+    ColumnConfigMap,
+    ColumnInferenceMode,
+    ColumnInternal,
+    ColumnSortState,
+    ColumnState,
+    FitMode,
+    GridColumnState,
+    GridConfig,
+    GridHost,
 } from '../types';
 import { mergeColumns, parseLightDomColumns, updateTemplate } from './columns';
 import { renderHeader } from './header';
-import { inferColumns } from './inference';
+import { inferColumns, overlayInferred } from './inference';
 import { RenderPhase } from './render-scheduler';
 import { compileTemplate } from './sanitize';
 
@@ -46,6 +47,7 @@ export class ConfigManager<T = unknown> {
   #gridConfig?: GridConfig<T>;
   #columns?: ColumnConfig<T>[] | ColumnConfigMap<T>;
   #fitMode?: FitMode;
+  #columnInference?: ColumnInferenceMode;
 
   // Light DOM cache
   #lightDomColumnsCache?: ColumnInternal<T>[];
@@ -193,6 +195,18 @@ export class ConfigManager<T = unknown> {
   /** Get the raw fitMode source */
   getFitMode(): FitMode | undefined {
     return this.#fitMode;
+  }
+
+  /** Set columnInference source */
+  setColumnInference(mode: ColumnInferenceMode | undefined): void {
+    if (this.#columnInference === mode) return;
+    this.#columnInference = mode;
+    this.#sourcesChanged = true;
+  }
+
+  /** Get the raw columnInference source */
+  getColumnInference(): ColumnInferenceMode | undefined {
+    return this.#columnInference;
   }
   // #endregion
 
@@ -382,9 +396,15 @@ export class ConfigManager<T = unknown> {
       ) as ColumnInternal<T>[];
     }
 
-    // Inference if still empty
+    // Inference. Mode resolved from standalone source (prop/attribute) then gridConfig.
     const rows = this.#grid.sourceRows;
-    if (columns.length === 0 && rows.length) {
+    const inferenceMode: ColumnInferenceMode = this.#columnInference ?? base.columnInference ?? 'auto';
+    if (inferenceMode === 'merge' && rows.length) {
+      // Always infer the full column set from data, then overlay provided columns by field.
+      const inferred = inferColumns(rows as Record<string, unknown>[]).columns as ColumnInternal<T>[];
+      columns = overlayInferred(inferred, columns);
+    } else if (columns.length === 0 && rows.length) {
+      // 'auto' (default): infer only when nothing was provided.
       const result = inferColumns(rows as Record<string, unknown>[]);
       columns = result.columns as ColumnInternal<T>[];
     }
@@ -415,6 +435,7 @@ export class ConfigManager<T = unknown> {
     // Individual prop overrides
     if (this.#fitMode) base.fitMode = this.#fitMode;
     if (!base.fitMode) base.fitMode = 'stretch';
+    if (this.#columnInference) base.columnInference = this.#columnInference;
 
     // ========================================================================
     // Let plugins contribute to the effective config (e.g. the ShellPlugin

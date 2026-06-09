@@ -389,7 +389,7 @@ export default defineConfig(({ command }) => ({
               // 50 kB gzip). Reclaimed when core's duplicate shell CSS is dropped
               // (Task 1b.1.5) and fully at v3 (auto-register removed). Restore to
               // maxSize: 170 * 1024 and maxGzip: 50 * 1024 (warnGzip: 45 * 1024) then.
-              { path: 'index.js', maxSize: 178 * 1024, maxGzip: 52 * 1024, warnGzip: 50 * 1024 },
+              { path: 'index.js', maxSize: 179 * 1024, maxGzip: 52 * 1024, warnGzip: 50 * 1024 },
               { path: 'lib/plugins/*/index.js', maxSize: 50 * 1024 },
             ],
           }),

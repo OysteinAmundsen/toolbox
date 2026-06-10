@@ -1146,6 +1146,88 @@ describe('SelectionPlugin', () => {
       const container = mockGrid.children[0];
       expect(container.classList.contains('selecting')).toBe(true);
     });
+
+    // Issue #392: first row auto-selected on initial load regression tests
+    describe('Issue #392: selection follows focus only when grid has focus', () => {
+      it('should not auto-select row 0 in row mode when grid has no focus', () => {
+        const mockGrid = createMockGrid([{ id: 1 }, { id: 2 }], [{ field: 'name' }]);
+        Object.assign(mockGrid, { _focusRow: 0, _focusCol: 0 });
+        // Do NOT set data-has-focus attribute on the mock grid
+
+        const plugin = new SelectionPlugin({ mode: 'row' });
+        plugin.attach(mockGrid);
+
+        // Call afterRender (which calls #syncSelectionToFocus)
+        plugin.afterRender();
+
+        // Grid has no focus, so row 0 should NOT be selected
+        expect(plugin.getSelectedRowIndices()).toEqual([]);
+        expect(mockGrid.dispatchEvent).not.toHaveBeenCalled();
+      });
+
+      it('should not auto-select cell 0,0 in cell mode when grid has no focus', () => {
+        const mockGrid = createMockGrid([{ id: 1 }, { id: 2 }], [{ field: 'id' }, { field: 'name' }]);
+        Object.assign(mockGrid, { _focusRow: 0, _focusCol: 0 });
+        // Do NOT set data-has-focus attribute on the mock grid
+
+        const plugin = new SelectionPlugin({ mode: 'cell' });
+        plugin.attach(mockGrid);
+
+        // Call afterRender (which calls #syncSelectionToFocus)
+        plugin.afterRender();
+
+        // Grid has no focus, so cell should NOT be selected
+        // Check that getSelection().ranges is empty (no cells selected)
+        expect(plugin.getSelection().ranges).toEqual([]);
+        expect(mockGrid.dispatchEvent).not.toHaveBeenCalled();
+      });
+
+      it('should follow focus in row mode when grid has focus (not a regression)', () => {
+        const mockGrid = createMockGrid([{ id: 1 }, { id: 2 }, { id: 3 }], [{ field: 'name' }]);
+        Object.assign(mockGrid, { _focusRow: 0, _focusCol: 0 });
+        // Set data-has-focus to indicate grid has focus
+        mockGrid.setAttribute('data-has-focus', '');
+        mockGrid.hasAttribute = (attr: string) => attr === 'data-has-focus';
+
+        const plugin = new SelectionPlugin({ mode: 'row' });
+        plugin.attach(mockGrid);
+
+        // First call to afterRender: focus is on row 0 and grid HAS focus (no-focus gate runs only when !hasAttribute)
+        // So lastSyncedFocusRow stays at -1, and the row 0 != -1 comparison triggers the selection
+        // (This is the regression test: once grid has focus, selection should follow focus changes)
+        plugin.afterRender();
+
+        // Now move focus to row 1 while grid still has focus
+        Object.assign(mockGrid, { _focusRow: 1 });
+        plugin.afterRender();
+
+        // Row 1 should now be selected (focus moved and grid has focus)
+        expect(plugin.getSelectedRowIndices()).toEqual([1]);
+      });
+
+      it('should keep synced markers in step when grid has no focus (resting position)', () => {
+        const mockGrid = createMockGrid([{ id: 1 }, { id: 2 }], [{ field: 'name' }]);
+        Object.assign(mockGrid, { _focusRow: 0, _focusCol: 0 });
+        // Do NOT set data-has-focus
+
+        const plugin = new SelectionPlugin({ mode: 'row' });
+        plugin.attach(mockGrid);
+
+        // First afterRender: grid has no focus, lastSyncedFocusRow is gated to 0
+        plugin.afterRender();
+        expect(plugin.getSelectedRowIndices()).toEqual([]);
+
+        // Simulate the grid getting focus later and focus being on row 0 (no movement)
+        mockGrid.setAttribute('data-has-focus', '');
+        mockGrid.hasAttribute = (attr: string) => attr === 'data-has-focus';
+
+        plugin.afterRender();
+
+        // Grid has focus now, but lastSyncedFocusRow is already 0 (so no change detected)
+        // Therefore row 0 should NOT be selected just because focus entered the grid
+        expect(plugin.getSelectedRowIndices()).toEqual([]);
+      });
+    });
   });
 
   describe('onScrollRender', () => {

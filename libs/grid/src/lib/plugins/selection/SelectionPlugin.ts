@@ -1116,15 +1116,39 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   // #endregion
 
   /**
+   * True when focus is currently inside the grid host (data-has-focus is set on focusin).
+   * Used to determine whether selection should follow the focus cursor.
+   */
+  #gridHasFocus(): boolean {
+    return this.gridElement?.hasAttribute('data-has-focus') ?? false;
+  }
+
+  /**
    * Sync selection state to the grid's current focus position.
    * In row mode, keeps `selected` in sync with `_focusRow`.
    * In cell mode, keeps `selectedCell` in sync with `_focusRow`/`_focusCol`.
    * Only updates when the focus has changed since the last sync.
    * Skips when `explicitSelection` is set (click/keyboard set selection directly).
+   *
+   * Issue #392: selection must be a deliberate user action. The grid's focus
+   * cursor defaults to (0,0) even before focus enters the grid, so following it
+   * unconditionally auto-selects row 0 / cell 0,0 on first render. Only follow
+   * focus when focus is genuinely inside the grid. Always advance the synced
+   * markers so the resting position is treated as already-synced (tabbing in and
+   * landing on the default cell must not select it).
    */
   #syncSelectionToFocus(mode: string): void {
     const focusRow = this.grid._focusRow;
     const focusCol = this.grid._focusCol;
+
+    // Only follow focus when the grid actually has focus. Otherwise, keep the
+    // synced markers in step so the resting position is not retroactively selected
+    // when focus enters the grid later.
+    if (!this.#gridHasFocus()) {
+      this.lastSyncedFocusRow = focusRow;
+      this.lastSyncedFocusCol = focusCol;
+      return;
+    }
 
     if (mode === 'row') {
       // Skip auto-sync when selection was explicitly set (Shift/Ctrl click, keyboard)

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.0...grid-2.17.1) (2026-06-10)
+
+
+### Bug Fixes
+
+* **selection:** don't auto-select first row/cell on initial load ([#392](https://github.com/OysteinAmundsen/toolbox/issues/392)) ([#393](https://github.com/OysteinAmundsen/toolbox/issues/393)) ([acec098](https://github.com/OysteinAmundsen/toolbox/commit/acec0981ca9cc838b48eb573045fb997a7564a60))
+
 ## [2.17.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.16.4...grid-2.17.0) (2026-06-09)
 
 

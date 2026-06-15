@@ -502,6 +502,54 @@ describe('StickyRowsPlugin', () => {
       plugin.onScroll(scrollEvent(5 * 28 + 1));
       expect(cloneText()).toBe('SETTLED-0');
     });
+
+    it('never paints stale content on the displayed clone during a scroll-up recycle (no flash)', () => {
+      // Regression for the real-world flash: scrolling DOWN past the sticky
+      // row, then UP a few px recycles row 0 back into the rendered window.
+      // The grid sets its cell `data-row` synchronously but async framework
+      // adapters flush the cell content a microtask LATER, so the live row
+      // momentarily shows the PREVIOUS row's content. `onScrollRender` must
+      // NOT re-capture the displayed clone from that stale live DOM — doing so
+      // paints the wrong content for one frame (visible flash) before the
+      // deferred settle pass corrects it. The displayed clone must therefore
+      // keep its last-good content through `onScrollRender` and stay correct
+      // after the settle pass.
+      const plugin = new StickyRowsPlugin({ isSticky: 'flag', mode: 'push' });
+      const { grid } = gridWithSpy(allRendered);
+      plugin.attach(grid);
+
+      // Mimic a live scroll position past row 0 so the displayed set stays
+      // `[0]` across `onScrollRender`/`afterRender` (which read the live
+      // `container.scrollTop`, not the per-tick override). Without this the
+      // set would collapse to `[]` and mask the bug.
+      const vstate = (grid as unknown as { _virtualization: { container: { scrollTop: number } } })._virtualization;
+      vstate.container = { scrollTop: 5 * 28 + 1 };
+
+      const liveCell = (idx: number) =>
+        grid.querySelector(`.rows .data-grid-row .cell[data-row="${idx}"]`) as HTMLElement;
+      const cloneText = () =>
+        (grid.querySelector('.tbw-sticky-rows .tbw-sticky-row .cell[data-row="0"]') as HTMLElement | null)
+          ?.textContent ?? null;
+
+      // Settled initial content → clone primed correctly, row 0 sticks.
+      liveCell(0).textContent = 'SETTLED-0';
+      plugin.afterRender();
+      plugin.onScroll(scrollEvent(5 * 28 + 1));
+      expect(cloneText()).toBe('SETTLED-0');
+
+      // Scroll-up recycle: live row 0 momentarily holds the previous row's
+      // not-yet-flushed content. The DISPLAYED clone must NOT pick it up —
+      // it keeps showing the last-good content (no flash).
+      liveCell(0).textContent = 'STALE-PREVIOUS-ROW';
+      plugin.onScrollRender();
+      expect(cloneText()).toBe('SETTLED-0');
+
+      // Microtask flush settles the live content; the deferred settle pass
+      // re-captures it (still correct), and a settle pass was scheduled.
+      liveCell(0).textContent = 'SETTLED-0';
+      plugin.afterRender();
+      expect(cloneText()).toBe('SETTLED-0');
+    });
   });
 
   // #endregion

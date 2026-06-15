@@ -118,17 +118,37 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
     // BEFORE it scrolls out — otherwise findRenderedRow() returns null at
     // display time and we'd render an empty container.
     this.primeCloneCache();
+    // Re-capture the clones that are CURRENTLY displayed from the (now
+    // settled) live DOM. WHY: `primeCloneCache` refreshes the cache, but
+    // `refreshDisplay` only swaps the container's child nodes when the
+    // displayed *set* changes. On the deferred settle pass after a small
+    // scroll-up — where the sticky set is unchanged (e.g. row 0 stays the
+    // single pinned row) — the stale clone captured during `onScrollRender`
+    // would otherwise remain in the DOM forever, since `sameSet` short-
+    // circuits the rebuild. Reconciling displayed clones here replaces the
+    // stale node with the freshly-settled content. Symptom it fixes: scroll
+    // down past the sticky row, then up a few px → a non-sticky row's content
+    // is pinned until you scroll all the way to the absolute top.
+    this.refreshClonesInWindow();
     this.refreshDisplay();
   }
 
   /** @internal Re-render clones after a scroll-driven row pool refresh. */
   override onScrollRender(): void {
-    // The pool may have repopulated rows we're tracking. Refresh clone DOM
-    // for any displayed indices that are now back in the rendered window,
-    // and pre-cache any sticky rows that just entered the window so we have
-    // a clone ready when they scroll past.
+    // Pre-cache clones for any sticky row currently in the rendered window so
+    // we have one ready when it scrolls past. Do NOT re-capture the DISPLAYED
+    // clones synchronously here. WHY: when a sticky row is recycled back into
+    // the window on scroll-up, the grid sets its cell `data-row` synchronously
+    // but async framework adapters (React/Vue) flush the cell content a
+    // microtask LATER — so a synchronous re-capture would paint the PREVIOUS
+    // row's content for one frame before the deferred settle pass corrects it
+    // (visible flash on the sticky row at the scroll boundary). Re-capturing
+    // displayed clones is therefore deferred entirely to the settle pass
+    // (`afterRender` → `refreshClonesInWindow`), which runs after the
+    // microtask flush. A settle pass is always scheduled below whenever a
+    // sticky row is in the window — exactly the case this method could refresh
+    // — so no displayed-clone update is lost, only delayed one frame.
     this.primeCloneCache();
-    this.refreshClonesInWindow();
     this.refreshDisplay();
     this.maybeScheduleSettlePass();
   }

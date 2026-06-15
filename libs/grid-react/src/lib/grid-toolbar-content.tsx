@@ -1,7 +1,6 @@
 import type { ToolbarContentDefinition } from '@toolbox-web/grid';
 // Activate the `PluginNameMap` augmentation so `grid.getPluginByName('shell')`
 // is typed as the shell plugin (which owns register/unregisterToolbarContent).
-import type {} from '@toolbox-web/grid/plugins/shell';
 import { useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { GridElementContext } from './grid-element-context';
 import { removeFromContainer, renderToContainer } from './portal-bridge';
@@ -27,7 +26,7 @@ export interface GridToolbarContentProps {
 
 /**
  * Declarative wrapper around the grid's imperative
- * {@link DataGridElement.registerToolbarContent} API.
+ * {@link ShellPlugin.registerToolbarContent} API.
  *
  * Mounts its children into the slot the grid provides for toolbar content while
  * keeping them inside the React tree. Must be a descendant of `<DataGrid>`.

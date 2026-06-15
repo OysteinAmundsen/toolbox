@@ -448,7 +448,7 @@ Plugins and application code can register three types of content:
 Each content type uses a render function pattern:
 
 ```typescript
-grid.registerToolPanel({
+grid.getPluginByName('shell')?.registerToolPanel({
   id: 'filters',
   title: 'Filters',
   icon: '🔍',

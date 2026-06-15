@@ -18,6 +18,10 @@ Documentation lives in `apps/docs/` using Astro + Starlight. MDX content pages a
 - `ThemeBuilder.astro` — Interactive CSS variable editor
 - `CSSVariableReference.astro` — CSS variable reference table
 
+## Shell API — recommend `grid.getPluginByName('shell')`, never the deprecated `grid.*` delegates
+
+The header bar / toolbar content / tool panels are owned by the built-in **shell plugin** (extraction #370). The 15 `grid.*` element delegates (`openToolPanel`, `closeToolPanel`, `toggleToolPanel`, `toggleToolPanelSection`, `get`/`register`/`unregisterToolPanel`, `get`/`register`/`unregister`{HeaderContent,ToolbarContent}, getters `isToolPanelOpen`/`expandedToolPanelSections`) are `@deprecated` and removed at v3. In guides, examples, and JSDoc, ALWAYS show `const shell = grid.getPluginByName('shell'); shell?.openToolPanel()` — never `grid.openToolPanel()`. JSDoc `@link`s in shell/adapter source must target `ShellPlugin.*`, not `DataGridElement.*`. The only acceptable `grid.openToolPanel()` occurrences are inside the auto-generated `DataGridElement` deprecated-method reference pages (which document the deprecated surface itself and carry the replacement notice).
+
 ## Internal links must be lowercase — Astro lowercases every slug
 
 Astro lowercases the slug of every content-collection page, so a page whose source file is `api/core/Classes/DataGridElement.mdx` is served at `/grid/api/core/classes/datagridelement/`. **Any internal link that includes uppercase path segments (e.g. `/grid/react/api/features/useGridExport/`) 404s in production**, even though the on-disk typedoc directory is capitalized. Always write internal links fully lowercased: `/grid/react/api/features/usegridexport/`. This applies to hand-authored MDX links, the `externalSymbolLinkMappings` in each adapter's `typedoc.json`, and any hard-coded link strings in `libs/grid/scripts/typedoc-to-mdx.ts`. Note: `grep_search` is case-insensitive — use a case-sensitive terminal `grep -E '\]\(/[^) ]*[A-Z]'` to detect offending links.

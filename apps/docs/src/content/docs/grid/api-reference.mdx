@@ -562,9 +562,13 @@ grid.resetColumnState();
 
 ### Shell Methods (Header/Toolbar)
 
+The header bar, toolbar content, and tool panels are owned by the built-in **shell plugin**. Access it via `grid.getPluginByName('shell')` rather than the deprecated `grid.*` element delegates (removed in v3):
+
 ```typescript
+const shell = grid.getPluginByName('shell');
+
 // Register a tool panel
-grid.registerToolPanel({
+shell?.registerToolPanel({
   id: 'myPanel',
   title: 'My Panel',
   icon: '⚙️',
@@ -574,31 +578,33 @@ grid.registerToolPanel({
 });
 
 // Open/close/toggle the tool panel sidebar
-grid.openToolPanel();
-grid.closeToolPanel();
-grid.toggleToolPanel();
+shell?.openToolPanel();
+shell?.closeToolPanel();
+shell?.toggleToolPanel();
 
 // Open directly on a specific accordion section (one-click navigation)
-grid.openToolPanel('myPanel');
+shell?.openToolPanel('myPanel');
 
 // Toggle specific accordion sections
-grid.toggleToolPanelSection('myPanel');
+shell?.toggleToolPanelSection('myPanel');
 
 // Check panel state
-const isOpen = grid.isToolPanelOpen;
-const sections = grid.expandedToolPanelSections;
+const isOpen = shell?.isToolPanelOpen;
+const sections = shell?.expandedToolPanelSections;
 
 // Get registered panels
-const panels = grid.getToolPanels();
+const panels = shell?.getToolPanels();
 ```
 
 ### Header & Toolbar Content
 
-Register custom content in the grid's header bar (above column headers) or toolbar area:
+Register custom content in the grid's header bar (above column headers) or toolbar area through the shell plugin:
 
 ```typescript
+const shell = grid.getPluginByName('shell');
+
 // Register header content (e.g., a search box)
-grid.registerHeaderContent({
+shell?.registerHeaderContent({
   id: 'global-search',
   order: 10,
   render: (container) => {
@@ -610,13 +616,13 @@ grid.registerHeaderContent({
 });
 
 // Unregister header content
-grid.unregisterHeaderContent('global-search');
+shell?.unregisterHeaderContent('global-search');
 
 // Get all registered header content definitions
-const headerContents = grid.getHeaderContents();
+const headerContents = shell?.getHeaderContents();
 
 // Register toolbar content (e.g., action buttons)
-grid.registerToolbarContent({
+shell?.registerToolbarContent({
   id: 'export-buttons',
   order: 100,
   render: (container) => {
@@ -628,10 +634,10 @@ grid.registerToolbarContent({
 });
 
 // Unregister toolbar content
-grid.unregisterToolbarContent('export-buttons');
+shell?.unregisterToolbarContent('export-buttons');
 
 // Get all registered toolbar content definitions
-const toolbarContents = grid.getToolbarContents();
+const toolbarContents = shell?.getToolbarContents();
 ```
 
 ### Row Height

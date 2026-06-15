@@ -85,7 +85,7 @@ export interface ShellHeaderConfig {
    *
    * Set to `false` to drive tool panels entirely from your own UI — for
    * example, a utility-column header icon whose click handler calls
-   * {@link DataGridElement.openToolPanel}. The header bar (title, toolbar
+   * {@link ShellPlugin.openToolPanel}. The header bar (title, toolbar
    * contents, built-in toggle) is fully suppressed, but the shell body and
    * any registered tool panels still render and remain openable via the API.
    *
@@ -112,7 +112,7 @@ export interface ShellHeaderConfig {
    *
    * Set to `false` when you want to provide your own toggle button (e.g. a
    * design-system button styled to match your application). Wire your button
-   * to call {@link DataGridElement.toggleToolPanel} (or `toggleToolPanelSection(id)` for
+   * to call {@link ShellPlugin.toggleToolPanel} (or `toggleToolPanelSection(id)` for
    * a specific section). All tool panels remain functional; only the
    * built-in toggle button and adjacent separator are suppressed.
    *
@@ -167,7 +167,7 @@ export interface ToolPanelConfig {
    * Initial open state of the tool panel sidebar on grid load.
    *
    * - `'closed'` (default) — sidebar starts collapsed; user opens it via the
-   *   built-in toggle button or `grid.openToolPanel()`.
+   *   built-in toggle button or `grid.getPluginByName('shell')?.openToolPanel()`.
    * - `'open'` — sidebar starts open; the section named by {@link defaultOpen}
    *   (or the first registered panel) is expanded.
    *
@@ -183,7 +183,7 @@ export interface ToolPanelConfig {
    *
    * Effects:
    * - Implies `initialState: 'open'` — the sidebar is forced open on load.
-   * - `grid.closeToolPanel()` / `grid.toggleToolPanel()` become no-ops while
+   * - `grid.getPluginByName('shell')?.closeToolPanel()` / `toggleToolPanel()` become no-ops while
    *   locked (the panel cannot be closed by user or programmatic actions).
    * - Suppresses the built-in toolbar toggle button (same effect as
    *   `shell.header.toolPanelToggle: false`) since toggling is disabled.

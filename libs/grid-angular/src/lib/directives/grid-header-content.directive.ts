@@ -30,7 +30,7 @@ let autoIdCounter = 0;
 
 /**
  * Declarative wrapper around the grid's imperative
- * {@link DataGridElement.registerHeaderContent} API.
+ * {@link ShellPlugin.registerHeaderContent} API.
  *
  * Captures an `<ng-template>` and mounts it as an Angular embedded view into
  * the slot the grid provides for header content. Must be a child of

@@ -18,6 +18,10 @@ Documentation lives in `apps/docs/` using Astro + Starlight. MDX content pages a
 - `ThemeBuilder.astro` — Interactive CSS variable editor
 - `CSSVariableReference.astro` — CSS variable reference table
 
+## Internal links must be lowercase — Astro lowercases every slug
+
+Astro lowercases the slug of every content-collection page, so a page whose source file is `api/core/Classes/DataGridElement.mdx` is served at `/grid/api/core/classes/datagridelement/`. **Any internal link that includes uppercase path segments (e.g. `/grid/react/api/features/useGridExport/`) 404s in production**, even though the on-disk typedoc directory is capitalized. Always write internal links fully lowercased: `/grid/react/api/features/usegridexport/`. This applies to hand-authored MDX links, the `externalSymbolLinkMappings` in each adapter's `typedoc.json`, and any hard-coded link strings in `libs/grid/scripts/typedoc-to-mdx.ts`. Note: `grep_search` is case-insensitive — use a case-sensitive terminal `grep -E '\]\(/[^) ]*[A-Z]'` to detect offending links.
+
 ## Demo CSS Gotcha — Use `<style is:global>` for grid-internal selectors
 
 Astro scopes `<style>` blocks by appending `:where(.astro-<hash>)` to every selector. This means `#my-demo tbw-grid .row-section .cell` becomes `#my-demo:where(.astro-X) tbw-grid:where(.astro-X) .row-section:where(.astro-X) .cell:where(.astro-X)` — and since the grid's rows are dynamically rendered web-component DOM that does NOT carry the Astro hash class, **none of those selectors will match**. Demos that style elements rendered by `tbw-grid` (rows, cells, plugin clones) MUST use `<style is:global>` so the selectors stay un-scoped. Symptom: the rule shows up in DevTools but never matches anything; rowClass-tagged rows render unstyled.

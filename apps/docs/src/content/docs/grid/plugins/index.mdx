@@ -18,7 +18,7 @@ The `@toolbox-web/grid` plugin architecture allows you to extend the grid with p
 :::
 
 :::note[Angular: pair feature inputs with the per-feature directive]
-The Angular tabs in plugin docs often show the shorthand `[selection]`, `[filtering]`, `[editing]`, etc. on `<tbw-grid>`. In **v1.4+** the recommended way to use those bindings is to import the matching per-feature directive (e.g. [`GridSelectionDirective`](/grid/angular/api/directives/GridSelectionDirective/) from `@toolbox-web/grid-angular/features/selection`) alongside `Grid` in the component's `imports`. The same bindings on the central `Grid` directive are still accepted for v1.x backward compatibility but are `@deprecated` and will be removed in v2.0. Apps that configure plugins through `[gridConfig]="{ features: { … } }"` are unaffected — see the [Angular getting-started guide](/grid/angular/getting-started/#three-ways-to-configure-features) for the full breakdown.
+The Angular tabs in plugin docs often show the shorthand `[selection]`, `[filtering]`, `[editing]`, etc. on `<tbw-grid>`. In **v1.4+** the recommended way to use those bindings is to import the matching per-feature directive (e.g. [`GridSelectionDirective`](/grid/angular/api/directives/gridselectiondirective/) from `@toolbox-web/grid-angular/features/selection`) alongside `Grid` in the component's `imports`. The same bindings on the central `Grid` directive are still accepted for v1.x backward compatibility but are `@deprecated` and will be removed in v2.0. Apps that configure plugins through `[gridConfig]="{ features: { … } }"` are unaffected — see the [Angular getting-started guide](/grid/angular/getting-started/#three-ways-to-configure-features) for the full breakdown.
 :::
 
 ## Available Plugins

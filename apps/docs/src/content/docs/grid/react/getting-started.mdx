@@ -163,14 +163,14 @@ function EmployeeGrid() {
 
 ### Core Config Props (no import needed)
 
-These props control core grid behaviour and don't require feature imports. See [`DataGridProps`](/grid/react/api/types/DataGridProps/) for the full prop surface and [`AllFeatureProps`](/grid/react/api/types/AllFeatureProps/) for every typed feature prop.
+These props control core grid behaviour and don't require feature imports. See [`DataGridProps`](/grid/react/api/types/datagridprops/) for the full prop surface and [`AllFeatureProps`](/grid/react/api/types/allfeatureprops/) for every typed feature prop.
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `rows` | `T[]` | `[]` | Row data — omit when using `serverSide` |
 | `columns` | [`ColumnConfig`](/grid/api/core/interfaces/columnconfig/)`[]` | — | Column definitions (alternative to `gridConfig.columns`) |
 | `gridConfig` | [`GridConfig`](/grid/api/core/interfaces/gridconfig/) | — | Full configuration object — always wrap in `useMemo` |
-| `ref` | [`Ref<DataGridRef>`](/grid/react/api/types/DataGridRef/) | — | Imperative handle (also returned by `useGrid()`) |
+| `ref` | [`Ref<DataGridRef>`](/grid/react/api/types/datagridref/) | — | Imperative handle (also returned by `useGrid()`) |
 | `loading` | `boolean` | `false` | Show the grid's loading overlay |
 | `fitMode` | `FitMode` | `'auto'` | Column-fit strategy |
 | `customStyles` | `string` | — | CSS injected into the grid (renderer/editor styling) |
@@ -202,7 +202,7 @@ import '@toolbox-web/grid-react/features';
 
 ## Custom Tool Panels
 
-Use [`GridToolPanel`](/grid/react/api/components/GridToolPanel/) to declare a sidebar panel inline. The component renders a `<tbw-grid-tool-panel>` element in the grid's light DOM — the shell picks it up automatically, so **no `gridConfig.shell.toolPanels` registration is needed**. The `children` prop is a render function that receives a [`ToolPanelContext`](/grid/react/api/types/ToolPanelContext/) (`{ grid }`).
+Use [`GridToolPanel`](/grid/react/api/components/gridtoolpanel/) to declare a sidebar panel inline. The component renders a `<tbw-grid-tool-panel>` element in the grid's light DOM — the shell picks it up automatically, so **no `gridConfig.shell.toolPanels` registration is needed**. The `children` prop is a render function that receives a [`ToolPanelContext`](/grid/react/api/types/toolpanelcontext/) (`{ grid }`).
 
 ```tsx
 import { DataGrid, GridToolPanel, type ToolPanelContext } from '@toolbox-web/grid-react';
@@ -234,7 +234,7 @@ function EmployeeGrid() {
 
 ## Header & Toolbar Content
 
-Inject framework content into the grid's shell header (left zone) or toolbar (right zone) via [`GridHeaderContent`](/grid/react/api/components/GridHeaderContent/) and [`GridToolbarContent`](/grid/react/api/components/GridToolbarContent/). These wrap the imperative `registerHeaderContent` / `registerToolbarContent` APIs so children render through React's normal reconciliation (state, context, hooks all work).
+Inject framework content into the grid's shell header (left zone) or toolbar (right zone) via [`GridHeaderContent`](/grid/react/api/components/gridheadercontent/) and [`GridToolbarContent`](/grid/react/api/components/gridtoolbarcontent/). These wrap the imperative `registerHeaderContent` / `registerToolbarContent` APIs so children render through React's normal reconciliation (state, context, hooks all work).
 
 ```tsx
 import { DataGrid, GridHeaderContent, GridToolbarContent } from '@toolbox-web/grid-react';
@@ -258,7 +258,7 @@ function CalendarGrid() {
 
 ## Using the `useGrid` Hook
 
-The [`useGrid()`](/grid/react/api/hooks/useGrid/) hook provides programmatic access to the grid — see [`UseGridReturn`](/grid/react/api/types/UseGridReturn/) for the full return shape. It exposes core grid operations only; **feature-specific operations (export, selection, filtering, etc.) live on the dedicated feature hooks** (`useGridSelection`, `useGridExport`, ...) listed below.
+The [`useGrid()`](/grid/react/api/hooks/usegrid/) hook provides programmatic access to the grid — see [`UseGridReturn`](/grid/react/api/types/usegridreturn/) for the full return shape. It exposes core grid operations only; **feature-specific operations (export, selection, filtering, etc.) live on the dedicated feature hooks** (`useGridSelection`, `useGridExport`, ...) listed below.
 
 ```tsx
 import { DataGrid, useGrid } from '@toolbox-web/grid-react';
@@ -340,7 +340,7 @@ function MultiGridPage() {
 
 ## Type-Level Defaults
 
-Register application-wide renderers for data types using `GridTypeProvider` (see [`GridTypeProviderProps`](/grid/react/api/types/GridTypeProviderProps/)) with a [`TypeDefaultsMap`](/grid/react/api/types/TypeDefaultsMap/):
+Register application-wide renderers for data types using `GridTypeProvider` (see [`GridTypeProviderProps`](/grid/react/api/types/gridtypeproviderprops/)) with a [`TypeDefaultsMap`](/grid/react/api/types/typedefaultsmap/):
 
 ```tsx
 import { GridTypeProvider, DataGrid, type TypeDefaultsMap } from '@toolbox-web/grid-react';
@@ -414,11 +414,11 @@ See the **API Reference > Hooks** section for detailed method signatures, return
 
 | Hook | Import | Key Methods |
 |------|--------|-------------|
-| [`useGridSelection()`](/grid/react/api/features/useGridSelection/) | `features/selection` | `selectAll`, `clearSelection`, `getSelection`, `getSelectedRows` |
-| [`useGridFiltering()`](/grid/react/api/features/useGridFiltering/) | `features/filtering` | `setFilter`, `clearAllFilters`, `getFilters`, `getFilteredRowCount` |
-| [`useGridExport()`](/grid/react/api/features/useGridExport/) | `features/export` | `exportToCsv`, `exportToExcel`, `exportToJson`, `isExporting` |
-| [`useGridPrint()`](/grid/react/api/features/useGridPrint/) | `features/print` | `print`, `isPrinting` |
-| [`useGridUndoRedo()`](/grid/react/api/features/useGridUndoRedo/) | `features/undo-redo` | `undo`, `redo`, `canUndo`, `canRedo` |
+| [`useGridSelection()`](/grid/react/api/features/usegridselection/) | `features/selection` | `selectAll`, `clearSelection`, `getSelection`, `getSelectedRows` |
+| [`useGridFiltering()`](/grid/react/api/features/usegridfiltering/) | `features/filtering` | `setFilter`, `clearAllFilters`, `getFilters`, `getFilteredRowCount` |
+| [`useGridExport()`](/grid/react/api/features/usegridexport/) | `features/export` | `exportToCsv`, `exportToExcel`, `exportToJson`, `isExporting` |
+| [`useGridPrint()`](/grid/react/api/features/usegridprint/) | `features/print` | `print`, `isPrinting` |
+| [`useGridUndoRedo()`](/grid/react/api/features/usegridundoredo/) | `features/undo-redo` | `undo`, `redo`, `canUndo`, `canRedo` |
 
 ## Overlay Editors (`useGridOverlay`)
 
@@ -523,7 +523,7 @@ function App() {
 
 ## Server-Side Data Loading
 
-For backends that own paging / sorting / filtering, use the `serverSide` feature prop. Your `getRows` handler receives the current `sortModel`, `filterModel`, and block range — return rows and the total count. See [`ServerSideDataSource`](/grid/plugins/server-side/Interfaces/ServerSideDataSource/), [`GetRowsParams`](/grid/plugins/server-side/Interfaces/GetRowsParams/), and [`GetRowsResult`](/grid/plugins/server-side/Interfaces/GetRowsResult/) for the full contract — including the `params.signal` `AbortSignal` you can forward to `fetch()` for explicit cancellation.
+For backends that own paging / sorting / filtering, use the `serverSide` feature prop. Your `getRows` handler receives the current `sortModel`, `filterModel`, and block range — return rows and the total count. See [`ServerSideDataSource`](/grid/plugins/server-side/interfaces/serversidedatasource/), [`GetRowsParams`](/grid/plugins/server-side/interfaces/getrowsparams/), and [`GetRowsResult`](/grid/plugins/server-side/interfaces/getrowsresult/) for the full contract — including the `params.signal` `AbortSignal` you can forward to `fetch()` for explicit cancellation.
 
 ```tsx
 import '@toolbox-web/grid-react/features/server-side';

@@ -386,7 +386,7 @@ import { GridIconProvider, TbwGrid } from '@toolbox-web/grid-vue';
 
 ## Server-Side Data Loading
 
-For backends that own paging / sorting / filtering, use the `serverSide` feature prop. Your `getRows` handler receives the current `sortModel`, `filterModel`, and block range — return rows and the total count. See [`ServerSideDataSource`](/grid/plugins/server-side/Interfaces/ServerSideDataSource/), [`GetRowsParams`](/grid/plugins/server-side/Interfaces/GetRowsParams/), and [`GetRowsResult`](/grid/plugins/server-side/Interfaces/GetRowsResult/) for the full contract — including the `params.signal` `AbortSignal` you can forward to `fetch()` for explicit cancellation.
+For backends that own paging / sorting / filtering, use the `serverSide` feature prop. Your `getRows` handler receives the current `sortModel`, `filterModel`, and block range — return rows and the total count. See [`ServerSideDataSource`](/grid/plugins/server-side/interfaces/serversidedatasource/), [`GetRowsParams`](/grid/plugins/server-side/interfaces/getrowsparams/), and [`GetRowsResult`](/grid/plugins/server-side/interfaces/getrowsresult/) for the full contract — including the `params.signal` `AbortSignal` you can forward to `fetch()` for explicit cancellation.
 
 ```html
 <script setup lang="ts">

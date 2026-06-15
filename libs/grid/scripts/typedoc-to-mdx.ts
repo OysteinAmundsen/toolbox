@@ -1002,7 +1002,7 @@ const grid = document.createElement('tbw-grid');
 Internal API for plugin developers. Members marked with \`@internal Plugin API\`
 or using the \`_underscore\` prefix convention.
 
-See the [public API documentation](/grid/api/core/Classes/datagridelement/) for consumer-facing members.
+See the [public API documentation](/grid/api/core/classes/datagridelement/) for consumer-facing members.
 
 | Prefix | Meaning |
 | ------ | ------- |
@@ -1023,7 +1023,7 @@ API for framework adapter developers (React, Angular, Vue, etc.).
 These methods are used by framework integration libraries to register adapters
 and manage column/renderer lifecycles.
 
-See the [public API documentation](/grid/api/core/Classes/datagridelement/) for consumer-facing members.
+See the [public API documentation](/grid/api/core/classes/datagridelement/) for consumer-facing members.
 
 `;
     adapterMdx += genMembersSection(adapterMembers);

@@ -27,7 +27,7 @@ BaseGridEditor          ← common inputs/outputs, validation helpers
 
 The foundation class for all Angular cell editors. Provides common inputs, outputs, validation state, and automatic cleanup.
 
-> **Full API:** [`BaseGridEditor`](/grid/angular/api/utilities/BaseGridEditor/)
+> **Full API:** [`BaseGridEditor`](/grid/angular/api/utilities/basegrideditor/)
 
 ### API
 
@@ -116,7 +116,7 @@ Because they are Angular `computed()` signals:
 
 Combines `BaseGridEditor` with Angular's `ControlValueAccessor` interface. Use this when a single component needs to work both as a grid cell editor **and** as a standalone form control.
 
-> **Full API:** [`BaseGridEditorCVA`](/grid/angular/api/utilities/BaseGridEditorCVA/)
+> **Full API:** [`BaseGridEditorCVA`](/grid/angular/api/utilities/basegrideditorcva/)
 
 ### Additional API (on top of BaseGridEditor)
 
@@ -180,7 +180,7 @@ is an Angular limitation.
 
 Base class for editors that display a **floating overlay panel** (date pickers, autocomplete dropdowns, color pickers, etc.). Handles all the positioning, focus gating, click-outside detection, and cleanup infrastructure.
 
-> **Full API:** [`BaseOverlayEditor`](/grid/angular/api/utilities/BaseOverlayEditor/) · [`OverlayPosition`](/grid/angular/api/types/OverlayPosition/)
+> **Full API:** [`BaseOverlayEditor`](/grid/angular/api/utilities/baseoverlayeditor/) · [`OverlayPosition`](/grid/angular/api/types/overlayposition/)
 
 ### Features
 
@@ -294,7 +294,7 @@ The overlay panel uses CSS custom properties from the grid theme:
 
 Base class for custom column filter panels used with the `FilteringPlugin`. Provides the `params` input and lifecycle helpers so you only need to implement your filter logic.
 
-> **Full API:** [`BaseFilterPanel`](/grid/angular/api/utilities/BaseFilterPanel/) · [`FilterPanelParams`](/grid/plugins/filtering/Interfaces/FilterPanelParams/)
+> **Full API:** [`BaseFilterPanel`](/grid/angular/api/utilities/basefilterpanel/) · [`FilterPanelParams`](/grid/plugins/filtering/interfaces/filterpanelparams/)
 
 ### API
 
@@ -307,7 +307,7 @@ Base class for custom column filter panels used with the `FilteringPlugin`. Prov
 
 ### FilterPanelParams
 
-The `params` input provides these members (see [`FilterPanelParams`](/grid/plugins/filtering/Interfaces/FilterPanelParams/) for the full type):
+The `params` input provides these members (see [`FilterPanelParams`](/grid/plugins/filtering/interfaces/filterpanelparams/) for the full type):
 
 | Property | Type | Description |
 |----------|------|-------------|

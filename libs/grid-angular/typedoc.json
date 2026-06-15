@@ -42,11 +42,11 @@
   "categoryOrder": ["Directives", "Features", "Types", "Utilities", "*"],
   "externalSymbolLinkMappings": {
     "@toolbox-web/grid": {
-      "ColumnEditorContext": "https://toolboxjs.com/grid/api/core/Interfaces/ColumnEditorContext/",
-      "DataGridElement": "https://toolboxjs.com/grid/api/core/Classes/DataGridElement/",
-      "DataGridElement.sort": "https://toolboxjs.com/grid/api/core/Classes/DataGridElement/#sort",
-      "DataGridElement.sortModel": "https://toolboxjs.com/grid/api/core/Classes/DataGridElement/#sortmodel",
-      "BaseColumnConfig.sortComparator": "https://toolboxjs.com/grid/api/core/Interfaces/BaseColumnConfig/#sortcomparator"
+      "ColumnEditorContext": "https://toolboxjs.com/grid/api/core/interfaces/columneditorcontext/",
+      "DataGridElement": "https://toolboxjs.com/grid/api/core/classes/datagridelement/",
+      "DataGridElement.sort": "https://toolboxjs.com/grid/api/core/classes/datagridelement/#sort",
+      "DataGridElement.sortModel": "https://toolboxjs.com/grid/api/core/classes/datagridelement/#sortmodel",
+      "BaseColumnConfig.sortComparator": "https://toolboxjs.com/grid/api/core/interfaces/basecolumnconfig/#sortcomparator"
     }
   },
   "blockTags": [

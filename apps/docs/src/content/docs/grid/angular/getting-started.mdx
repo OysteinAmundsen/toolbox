@@ -155,34 +155,34 @@ export class EmployeeGridComponent {
 
 ## Feature Input Reference
 
-Each feature exposes an input + (optional) output. The recommended way to use them is to import the matching **per-feature directive** alongside `Grid` (left column). The same `[input]` / `(output)` bindings are also accepted directly on `Grid` in v1.x for backward compatibility, but those bindings on `Grid` are `@deprecated` and will be removed in v2.0 — see the [Grid directive API](/grid/angular/api/directives/Grid/).
+Each feature exposes an input + (optional) output. The recommended way to use them is to import the matching **per-feature directive** alongside `Grid` (left column). The same `[input]` / `(output)` bindings are also accepted directly on `Grid` in v1.x for backward compatibility, but those bindings on `Grid` are `@deprecated` and will be removed in v2.0 — see the [Grid directive API](/grid/angular/api/directives/grid/).
 
 | Per-Feature Directive (recommended) | Input | Feature Import | Description |
 |-------------------------------------|-------|----------------|-------------|
-| [`GridSelectionDirective`](/grid/angular/api/directives/GridSelectionDirective/) | `[selection]` | `features/selection` | Cell, row, or range selection |
-| [`GridEditingDirective`](/grid/angular/api/directives/GridEditingDirective/) | `[editing]` | `features/editing` | Inline cell editing |
-| [`GridMultiSortDirective`](/grid/angular/api/directives/GridMultiSortDirective/) | `[multiSort]` | `features/multi-sort` | Multi-column sorting |
-| [`GridFilteringDirective`](/grid/angular/api/directives/GridFilteringDirective/) | `[filtering]` | `features/filtering` | Column filtering |
-| [`GridClipboardDirective`](/grid/angular/api/directives/GridClipboardDirective/) | `[clipboard]` | `features/clipboard` | Copy/paste support |
-| [`GridContextMenuDirective`](/grid/angular/api/directives/GridContextMenuDirective/) | `[contextMenu]` | `features/context-menu` | Right-click context menu |
-| [`GridReorderColumnsDirective`](/grid/angular/api/directives/GridReorderColumnsDirective/) | `[reorderColumns]` | `features/reorder-columns` | Column drag-to-reorder |
-| [`GridVisibilityDirective`](/grid/angular/api/directives/GridVisibilityDirective/) | `[visibility]` | `features/visibility` | Column visibility panel |
-| [`GridPinnedColumnsDirective`](/grid/angular/api/directives/GridPinnedColumnsDirective/) | `[pinnedColumns]` | `features/pinned-columns` | Sticky left/right columns |
-| [`GridPinnedRowsDirective`](/grid/angular/api/directives/GridPinnedRowsDirective/) | `[pinnedRows]` | `features/pinned-rows` | Sticky top/bottom rows |
-| [`GridGroupingColumnsDirective`](/grid/angular/api/directives/GridGroupingColumnsDirective/) | `[groupingColumns]` | `features/grouping-columns` | Multi-level column headers |
-| [`GridGroupingRowsDirective`](/grid/angular/api/directives/GridGroupingRowsDirective/) | `[groupingRows]` | `features/grouping-rows` | Row grouping |
-| [`GridColumnVirtualizationDirective`](/grid/angular/api/directives/GridColumnVirtualizationDirective/) | `[columnVirtualization]` | `features/column-virtualization` | Virtualize columns for wide grids |
-| [`GridRowDragDropDirective`](/grid/angular/api/directives/GridRowDragDropDirective/) | `[rowDragDrop]` / `[reorderRows]` | `features/row-drag-drop` | Row drag-and-drop (within and across grids) |
-| [`GridTreeDirective`](/grid/angular/api/directives/GridTreeDirective/) | `[tree]` | `features/tree` | Hierarchical tree view |
-| [`GridMasterDetailDirective`](/grid/angular/api/directives/GridMasterDetailDirective/) | `[masterDetail]` | `features/master-detail` | Expandable detail rows |
-| [`GridResponsiveDirective`](/grid/angular/api/directives/GridResponsiveDirective/) | `[responsive]` | `features/responsive` | Card layout for narrow viewports |
-| [`GridTooltipDirective`](/grid/angular/api/directives/GridTooltipDirective/) | `[tooltip]` | `features/tooltip` | Cell / header tooltips |
-| [`GridUndoRedoDirective`](/grid/angular/api/directives/GridUndoRedoDirective/) | `[undoRedo]` | `features/undo-redo` | Edit undo/redo |
-| [`GridExportDirective`](/grid/angular/api/directives/GridExportDirective/) | `[export]` | `features/export` | CSV/Excel export |
-| [`GridPrintDirective`](/grid/angular/api/directives/GridPrintDirective/) | `[print]` | `features/print` | Print support |
-| [`GridPivotDirective`](/grid/angular/api/directives/GridPivotDirective/) | `[pivot]` | `features/pivot` | Pivot table functionality |
-| [`GridServerSideDirective`](/grid/angular/api/directives/GridServerSideDirective/) | `[serverSide]` | `features/server-side` | Server-side data loading |
-| [`GridStickyRowsDirective`](/grid/angular/api/directives/GridStickyRowsDirective/) | `[stickyRows]` | `features/sticky-rows` | Pin selected data rows below the header on scroll |
+| [`GridSelectionDirective`](/grid/angular/api/directives/gridselectiondirective/) | `[selection]` | `features/selection` | Cell, row, or range selection |
+| [`GridEditingDirective`](/grid/angular/api/directives/grideditingdirective/) | `[editing]` | `features/editing` | Inline cell editing |
+| [`GridMultiSortDirective`](/grid/angular/api/directives/gridmultisortdirective/) | `[multiSort]` | `features/multi-sort` | Multi-column sorting |
+| [`GridFilteringDirective`](/grid/angular/api/directives/gridfilteringdirective/) | `[filtering]` | `features/filtering` | Column filtering |
+| [`GridClipboardDirective`](/grid/angular/api/directives/gridclipboarddirective/) | `[clipboard]` | `features/clipboard` | Copy/paste support |
+| [`GridContextMenuDirective`](/grid/angular/api/directives/gridcontextmenudirective/) | `[contextMenu]` | `features/context-menu` | Right-click context menu |
+| [`GridReorderColumnsDirective`](/grid/angular/api/directives/gridreordercolumnsdirective/) | `[reorderColumns]` | `features/reorder-columns` | Column drag-to-reorder |
+| [`GridVisibilityDirective`](/grid/angular/api/directives/gridvisibilitydirective/) | `[visibility]` | `features/visibility` | Column visibility panel |
+| [`GridPinnedColumnsDirective`](/grid/angular/api/directives/gridpinnedcolumnsdirective/) | `[pinnedColumns]` | `features/pinned-columns` | Sticky left/right columns |
+| [`GridPinnedRowsDirective`](/grid/angular/api/directives/gridpinnedrowsdirective/) | `[pinnedRows]` | `features/pinned-rows` | Sticky top/bottom rows |
+| [`GridGroupingColumnsDirective`](/grid/angular/api/directives/gridgroupingcolumnsdirective/) | `[groupingColumns]` | `features/grouping-columns` | Multi-level column headers |
+| [`GridGroupingRowsDirective`](/grid/angular/api/directives/gridgroupingrowsdirective/) | `[groupingRows]` | `features/grouping-rows` | Row grouping |
+| [`GridColumnVirtualizationDirective`](/grid/angular/api/directives/gridcolumnvirtualizationdirective/) | `[columnVirtualization]` | `features/column-virtualization` | Virtualize columns for wide grids |
+| [`GridRowDragDropDirective`](/grid/angular/api/directives/gridrowdragdropdirective/) | `[rowDragDrop]` / `[reorderRows]` | `features/row-drag-drop` | Row drag-and-drop (within and across grids) |
+| [`GridTreeDirective`](/grid/angular/api/directives/gridtreedirective/) | `[tree]` | `features/tree` | Hierarchical tree view |
+| [`GridMasterDetailDirective`](/grid/angular/api/directives/gridmasterdetaildirective/) | `[masterDetail]` | `features/master-detail` | Expandable detail rows |
+| [`GridResponsiveDirective`](/grid/angular/api/directives/gridresponsivedirective/) | `[responsive]` | `features/responsive` | Card layout for narrow viewports |
+| [`GridTooltipDirective`](/grid/angular/api/directives/gridtooltipdirective/) | `[tooltip]` | `features/tooltip` | Cell / header tooltips |
+| [`GridUndoRedoDirective`](/grid/angular/api/directives/gridundoredodirective/) | `[undoRedo]` | `features/undo-redo` | Edit undo/redo |
+| [`GridExportDirective`](/grid/angular/api/directives/gridexportdirective/) | `[export]` | `features/export` | CSV/Excel export |
+| [`GridPrintDirective`](/grid/angular/api/directives/gridprintdirective/) | `[print]` | `features/print` | Print support |
+| [`GridPivotDirective`](/grid/angular/api/directives/gridpivotdirective/) | `[pivot]` | `features/pivot` | Pivot table functionality |
+| [`GridServerSideDirective`](/grid/angular/api/directives/gridserversidedirective/) | `[serverSide]` | `features/server-side` | Server-side data loading |
+| [`GridStickyRowsDirective`](/grid/angular/api/directives/gridstickyrowsdirective/) | `[stickyRows]` | `features/sticky-rows` | Pin selected data rows below the header on scroll |
 
 **Core Config Inputs (no feature import needed):**
 
@@ -200,7 +200,7 @@ Each feature exposes an input + (optional) output. The recommended way to use th
 
 ## Programmatic Grid Access
 
-Use [`injectGrid()`](/grid/angular/api/utilities/injectGrid/) for programmatic access to the grid. It provides a reactive API via signals — see [`InjectGridReturn`](/grid/angular/api/types/InjectGridReturn/) for the full return shape:
+Use [`injectGrid()`](/grid/angular/api/utilities/injectgrid/) for programmatic access to the grid. It provides a reactive API via signals — see [`InjectGridReturn`](/grid/angular/api/types/injectgridreturn/) for the full return shape:
 
 ```typescript
 import { Component, effect } from '@angular/core';
@@ -280,12 +280,12 @@ gridExport = injectGridExport('#secondary-grid');
 
 | Function | Import | Key Methods |
 |----------|--------|-------------|
-| [`injectGrid()`](/grid/angular/api/utilities/injectGrid/) | `@toolbox-web/grid-angular` | `element`, `isReady`, `config`, `forceLayout`, `toggleGroup`, `registerStyles`, `visibleColumns` |
-| [`injectGridSelection()`](/grid/angular/api/features/injectGridSelection/) | `features/selection` | `selectAll`, `clearSelection`, `getSelection`, `selectedRowIndices` (Signal) |
-| [`injectGridFiltering()`](/grid/angular/api/features/injectGridFiltering/) | `features/filtering` | `setFilter`, `clearAllFilters`, `getFilters`, `getFilteredRowCount` |
-| [`injectGridExport()`](/grid/angular/api/features/injectGridExport/) | `features/export` | `exportToCsv`, `exportToExcel`, `exportToJson`, `isExporting` |
-| [`injectGridPrint()`](/grid/angular/api/features/injectGridPrint/) | `features/print` | `print`, `isPrinting` |
-| [`injectGridUndoRedo()`](/grid/angular/api/features/injectGridUndoRedo/) | `features/undo-redo` | `undo`, `redo`, `canUndo` (Signal), `canRedo` (Signal) |
+| [`injectGrid()`](/grid/angular/api/utilities/injectgrid/) | `@toolbox-web/grid-angular` | `element`, `isReady`, `config`, `forceLayout`, `toggleGroup`, `registerStyles`, `visibleColumns` |
+| [`injectGridSelection()`](/grid/angular/api/features/injectgridselection/) | `features/selection` | `selectAll`, `clearSelection`, `getSelection`, `selectedRowIndices` (Signal) |
+| [`injectGridFiltering()`](/grid/angular/api/features/injectgridfiltering/) | `features/filtering` | `setFilter`, `clearAllFilters`, `getFilters`, `getFilteredRowCount` |
+| [`injectGridExport()`](/grid/angular/api/features/injectgridexport/) | `features/export` | `exportToCsv`, `exportToExcel`, `exportToJson`, `isExporting` |
+| [`injectGridPrint()`](/grid/angular/api/features/injectgridprint/) | `features/print` | `print`, `isPrinting` |
+| [`injectGridUndoRedo()`](/grid/angular/api/features/injectgridundoredo/) | `features/undo-redo` | `undo`, `redo`, `canUndo` (Signal), `canRedo` (Signal) |
 
 ### Signal-Based Selection Example
 
@@ -316,7 +316,7 @@ export class EmployeeGridComponent {
 
 ## Type-Level Defaults
 
-Register application-wide renderers and editors for specific data types using [`provideGridTypeDefaults()`](/grid/angular/api/utilities/provideGridTypeDefaults/):
+Register application-wide renderers and editors for specific data types using [`provideGridTypeDefaults()`](/grid/angular/api/utilities/providegridtypedefaults/):
 
 ```typescript
 // app.config.ts
@@ -334,7 +334,7 @@ export const appConfig: ApplicationConfig = {
 };
 ```
 
-For dynamic registration at runtime, inject [`GridTypeRegistry`](/grid/angular/api/utilities/GridTypeRegistry/):
+For dynamic registration at runtime, inject [`GridTypeRegistry`](/grid/angular/api/utilities/gridtyperegistry/):
 
 ```typescript
 import { inject } from '@angular/core';
@@ -358,7 +358,7 @@ The grid supports two complementary ways to customize icons — see the [Theming
 - **CSS variables** (`--tbw-icon-*`) — preferred for themes and static customization; no JavaScript needed.
 - **`gridConfig.icons`** — for dynamic icons, icon libraries, or `HTMLElement` instances; takes precedence over CSS.
 
-[`provideGridIcons()`](/grid/angular/api/utilities/provideGridIcons/) is the Angular DI wrapper for the JS path — it injects `icons` into `gridConfig.icons` for every grid in the application:
+[`provideGridIcons()`](/grid/angular/api/utilities/providegridicons/) is the Angular DI wrapper for the JS path — it injects `icons` into `gridConfig.icons` for every grid in the application:
 
 ```typescript
 // app.config.ts
@@ -413,7 +413,7 @@ Feature inputs and manual plugins can be mixed — the grid merges them, with ma
 
 ### Custom Tool Panels
 
-Use the [`GridToolPanel`](/grid/angular/api/directives/GridToolPanel/) directive to declare a custom sidebar panel inline. Place a `<tbw-grid-tool-panel>` element inside the grid with an `<ng-template>` for its content — the template receives the grid element as its implicit context (and as `let-grid`):
+Use the [`GridToolPanel`](/grid/angular/api/directives/gridtoolpanel/) directive to declare a custom sidebar panel inline. Place a `<tbw-grid-tool-panel>` element inside the grid with an `<ng-template>` for its content — the template receives the grid element as its implicit context (and as `let-grid`):
 
 ```typescript
 import { Component } from '@angular/core';
@@ -449,7 +449,7 @@ export class EmployeeGridComponent {
 
 ### Header & Toolbar Content
 
-Inject Angular components into the grid's shell header (left zone) or toolbar (right zone) via the [`GridHeaderContent`](/grid/angular/api/directives/GridHeaderContent/) and [`GridToolbarContent`](/grid/angular/api/directives/GridToolbarContent/) directives. These wrap the imperative `registerHeaderContent` / `registerToolbarContent` APIs and mount an `<ng-template>` so projected components retain full DI, change detection, and signal reactivity.
+Inject Angular components into the grid's shell header (left zone) or toolbar (right zone) via the [`GridHeaderContent`](/grid/angular/api/directives/gridheadercontent/) and [`GridToolbarContent`](/grid/angular/api/directives/gridtoolbarcontent/) directives. These wrap the imperative `registerHeaderContent` / `registerToolbarContent` APIs and mount an `<ng-template>` so projected components retain full DI, change detection, and signal reactivity.
 
 ```typescript
 import { Component, signal } from '@angular/core';
@@ -484,7 +484,7 @@ export class CalendarGridComponent {
 
 The full data-source contract, sort/filter modes, prefetching, cancellation and live-update patterns are documented on the [Server-Side plugin](/grid/plugins/server-side/) page (it has runnable demos and an Angular tab in every example). The two Angular-specific points worth calling out here:
 
-1. **Use the per-feature directive (recommended).** Add [`GridServerSideDirective`](/grid/angular/api/directives/GridServerSideDirective/) to your component's `imports` if you want to bind via `[serverSide]="…"` on `<tbw-grid>`. If you configure server-side through `[gridConfig]="{ features: { serverSide: … } }"` instead, no extra directive is needed — the deprecated `[serverSide]` binding on `Grid` itself still works in v1.x but will be removed in v2.0.
+1. **Use the per-feature directive (recommended).** Add [`GridServerSideDirective`](/grid/angular/api/directives/gridserversidedirective/) to your component's `imports` if you want to bind via `[serverSide]="…"` on `<tbw-grid>`. If you configure server-side through `[gridConfig]="{ features: { serverSide: … } }"` instead, no extra directive is needed — the deprecated `[serverSide]` binding on `Grid` itself still works in v1.x but will be removed in v2.0.
 2. **Return the `HttpClient` `Observable` directly from `getRows`.** No `firstValueFrom`, no manual `takeUntil`. The grid subscribes once and calls `unsubscribe()` when the request is superseded (sort change, fast scrolling, `refresh()`); `HttpClient` cancels the underlying XHR in response, which is the only correct way to avoid stale-buffer races.
 
 ```typescript

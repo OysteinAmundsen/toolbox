@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.1...grid-2.17.2) (2026-06-15)
+
+
+### Bug Fixes
+
+* **grid:** re-capture sticky-row clones after async framework cell content settles ([913ace6](https://github.com/OysteinAmundsen/toolbox/commit/913ace60b24e838cafb403dae4e3389096e3b7d1))
+
 ## [2.17.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.0...grid-2.17.1) (2026-06-10)
 
 

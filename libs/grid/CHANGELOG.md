@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.2...grid-2.17.3) (2026-06-15)
+
+
+### Bug Fixes
+
+* **grid:** reconcile displayed sticky-row clone on settle pass when set unchanged ([20f1d90](https://github.com/OysteinAmundsen/toolbox/commit/20f1d908a2d4cfd40e21813b6d3ea9af83a5a3a3))
+
 ## [2.17.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.1...grid-2.17.2) (2026-06-15)
 
 

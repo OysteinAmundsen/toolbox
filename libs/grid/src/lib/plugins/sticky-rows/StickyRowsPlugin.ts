@@ -85,6 +85,11 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
 
   /** Last applied push-mode translation, to skip writes on no-op ticks. */
   private lastPushOffset = 0;
+
+  /** True while a deferred "settle" style pass is already queued. Coalesces
+   *  multiple scroll ticks into a single re-capture. See
+   *  {@link maybeScheduleSettlePass}. */
+  private settlePassScheduled = false;
   // #endregion
 
   // #region Lifecycle
@@ -96,6 +101,7 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
     this.stickyIndices = [];
     this.displayedIndices = [];
     this.lastPushOffset = 0;
+    this.settlePassScheduled = false;
   }
   // #endregion
 
@@ -103,6 +109,9 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
 
   /** @internal Recompute the sticky-index list and refresh display. */
   override afterRender(): void {
+    // A style pass is now running — possibly the deferred settle pass we
+    // requested. Clear the flag so a later scroll tick can queue a fresh one.
+    this.settlePassScheduled = false;
     this.recomputeStickyIndices();
     this.ensureContainer();
     // Pre-cache clones for any sticky row currently in the rendered window
@@ -121,11 +130,37 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
     this.primeCloneCache();
     this.refreshClonesInWindow();
     this.refreshDisplay();
+    this.maybeScheduleSettlePass();
   }
 
   /** @internal Update which clones show / how they're positioned. */
   override onScroll(event: ScrollEvent): void {
     this.refreshDisplay(event.scrollTop);
+  }
+
+  /**
+   * Queue a single deferred style pass that re-captures sticky clones once
+   * async framework cell content has settled.
+   *
+   * WHY: framework adapters (React/Vue) flush custom cell content on a
+   * microtask (`PortalManager` batches via `queueMicrotask` + `flushSync`)
+   * AFTER this synchronous scroll hook. When a sticky row is recycled back
+   * into the rendered window on scroll-up, the grid sets the cell
+   * `data-row` attribute synchronously but the cell's rendered content still
+   * shows the PREVIOUS row. A clone captured during the hook therefore holds
+   * stale content, and because clones are cached by index it stays wrong
+   * forever (symptom: scrolling down, back up, then down again pins a
+   * different row than the first time). Re-running `afterRender` on the next
+   * style pass — after the microtask flush — re-captures the now-settled
+   * clone. Only schedule when a sticky row is actually in the rendered window
+   * (the only case where a stale capture could have happened) to avoid
+   * needless style passes during ordinary scrolling.
+   */
+  private maybeScheduleSettlePass(): void {
+    if (this.settlePassScheduled) return;
+    if (!this.stickyIndices.some((idx) => this.findRenderedRow(idx) != null)) return;
+    this.settlePassScheduled = true;
+    this.requestAfterRender();
   }
 
   // #endregion

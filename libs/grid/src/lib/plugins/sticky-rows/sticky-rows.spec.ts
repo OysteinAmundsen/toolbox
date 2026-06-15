@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ScrollEvent } from '../../core/plugin/types';
 import type { ColumnConfig } from '../../core/types';
 import { StickyRowsPlugin } from './StickyRowsPlugin';
@@ -407,6 +407,100 @@ describe('StickyRowsPlugin', () => {
       const stuck = grid.querySelectorAll('.tbw-sticky-rows .tbw-sticky-row');
       expect(stuck.length).toBe(1);
       expect((stuck[0] as HTMLElement).dataset['stickyRow']).toBe('0');
+    });
+  });
+
+  // #endregion
+
+  // #region async framework content settle pass (regression)
+
+  describe('async framework cell content (settle pass)', () => {
+    // Framework adapters (React/Vue) flush custom cell content on a microtask
+    // AFTER the synchronous scroll hook. When a sticky row is recycled back
+    // into the window on scroll-up, the grid sets the cell `data-row`
+    // attribute synchronously but the cell content still shows the PREVIOUS
+    // row. A clone captured during `onScrollRender` then holds stale content,
+    // and because clones are cached by index it stays wrong forever (symptom:
+    // scroll down, up, then down again pins a different row). The fix queues a
+    // deferred style pass that re-captures the clone once content settles.
+
+    const stickyRow0 = () => Array.from({ length: 20 }, (_, i) => ({ flag: i === 0 }));
+    const allRendered = Array.from({ length: 20 }, (_, i) => i);
+
+    function gridWithSpy(renderedIndices: number[]) {
+      const grid = createMockGrid({ rows: stickyRow0(), renderedIndices });
+      const requestAfterRender = vi.fn();
+      Object.defineProperty(grid, 'requestAfterRender', { value: requestAfterRender, configurable: true });
+      return { grid, requestAfterRender };
+    }
+
+    it('schedules a deferred style pass when a sticky row is in the rendered window', () => {
+      const plugin = new StickyRowsPlugin({ isSticky: 'flag', mode: 'push' });
+      const { grid, requestAfterRender } = gridWithSpy(allRendered);
+      plugin.attach(grid);
+      plugin.afterRender();
+      plugin.onScrollRender();
+      expect(requestAfterRender).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not schedule a settle pass when no sticky row is in the rendered window', () => {
+      const plugin = new StickyRowsPlugin({ isSticky: 'flag', mode: 'push' });
+      // Render rows 5..10 only — sticky row 0 is out of the window.
+      const { grid, requestAfterRender } = gridWithSpy([5, 6, 7, 8, 9, 10]);
+      plugin.attach(grid);
+      plugin.afterRender();
+      plugin.onScrollRender();
+      expect(requestAfterRender).not.toHaveBeenCalled();
+    });
+
+    it('coalesces multiple scroll ticks into a single pass, re-arming after afterRender', () => {
+      const plugin = new StickyRowsPlugin({ isSticky: 'flag', mode: 'push' });
+      const { grid, requestAfterRender } = gridWithSpy(allRendered);
+      plugin.attach(grid);
+      plugin.afterRender();
+      plugin.onScrollRender();
+      plugin.onScrollRender();
+      plugin.onScrollRender();
+      expect(requestAfterRender).toHaveBeenCalledTimes(1);
+      // The deferred pass runs afterRender, clearing the flag → next tick re-arms.
+      plugin.afterRender();
+      plugin.onScrollRender();
+      expect(requestAfterRender).toHaveBeenCalledTimes(2);
+    });
+
+    it('re-captures the correct clone after stale framework content settles', () => {
+      const plugin = new StickyRowsPlugin({ isSticky: 'flag', mode: 'push' });
+      const { grid } = gridWithSpy(allRendered);
+      plugin.attach(grid);
+
+      const liveCell = (idx: number) =>
+        grid.querySelector(`.rows .data-grid-row .cell[data-row="${idx}"]`) as HTMLElement;
+      const cloneText = () =>
+        (grid.querySelector('.tbw-sticky-rows .tbw-sticky-row .cell[data-row="0"]') as HTMLElement | null)
+          ?.textContent ?? null;
+
+      // Settled initial content → clone primed correctly, row 0 sticks.
+      liveCell(0).textContent = 'SETTLED-0';
+      plugin.afterRender();
+      plugin.onScroll(scrollEvent(5 * 28 + 1));
+      expect(cloneText()).toBe('SETTLED-0');
+
+      // Scroll-up recycle: data-row="0" is present but the framework hasn't
+      // flushed the cell content yet → it still shows the previous row.
+      // onScrollRender captures this stale snapshot (poisons the cache).
+      liveCell(0).textContent = 'STALE-PREVIOUS-ROW';
+      plugin.onScrollRender();
+
+      // Framework microtask flushes; the deferred settle pass (afterRender)
+      // re-captures the now-correct clone.
+      liveCell(0).textContent = 'SETTLED-0';
+      plugin.afterRender();
+
+      // Row 0 scrolls out of the pool again — only the cached clone remains.
+      liveCell(0).parentElement?.remove();
+      plugin.onScroll(scrollEvent(0));
+      plugin.onScroll(scrollEvent(5 * 28 + 1));
+      expect(cloneText()).toBe('SETTLED-0');
     });
   });
 

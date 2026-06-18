@@ -85,27 +85,13 @@ These files are **generated at build time, never hand-written**, so they cannot 
 
 ## If Large-File Fetch Fails
 
-Some tools (including Copilot fetch in certain environments) may time out or truncate very large text files such as `llms-full-angular.txt`. In that case, use a local retrieval workflow instead of pasting the whole corpus into the model:
+If your assistant cannot fetch the full Angular corpus reliably, give it a prompt like this instead of pasting the whole file:
 
-1. Download once to a local file.
-
-```bash
-curl -L https://toolboxjs.com/llms-full-angular.txt -o llms-full-angular.txt
+```text
+Download https://toolboxjs.com/llms-full-angular.txt to a local file, search it for the exact topic or symbols I care about, and return only the smallest relevant slices. Prefer a local search first, then extract just the matching regions. Do not paste the entire corpus back to me.
 ```
 
-2. Search locally for the exact topic, symbols, or plugin names.
-
-```bash
-rg -n "renderer|headerRenderer|gridConfig\.features|SelectionPlugin|TbwRenderer|GridColumn" llms-full-angular.txt
-```
-
-3. Extract only the relevant region(s) and provide those chunks to the assistant.
-
-```bash
-sed -n '1200,1320p' llms-full-angular.txt
-```
-
-This gives predictable, low-latency retrieval and avoids context-window overload. As a rule: **search first, then send only the matching slices**.
+You can then follow up with a concrete topic, such as a renderer type, a directive name, or a plugin.
 
 ## Next steps
 

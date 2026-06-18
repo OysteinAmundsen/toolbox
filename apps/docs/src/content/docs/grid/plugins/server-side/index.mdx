@@ -205,6 +205,10 @@ envelope:
 the result and slices it per block). A JS `dataSource` always takes precedence. For
 true server-side pagination, remote sort/filter, or per-block fetching, provide a
 `dataSource` callback as shown above instead.
+
+`data-src` is primarily a zero-JS/vanilla convenience. In React, Vue, and Angular,
+prefer adapter-native setup with `gridConfig.features.serverSide` and framework-native
+renderers/editors.
 :::
 
 ## Demo
@@ -384,6 +388,12 @@ columns: [{
   renderer: (value, row) => row.__loading ? '<span class="loading">Loading…</span>' : value,
 }]
 ```
+
+:::tip[Framework adapter best practice]
+In React/Vue/Angular, prefer adapter-native renderer APIs (JSX renderers, Vue slots/components,
+Angular template/component renderers) over plain `HTMLElement`/string renderer functions.
+See [Core → Renderers](/grid/core/#renderers) and [Core → Custom Header Renderers](/grid/core/#custom-header-renderers).
+:::
 
 ## Live Data Updates (WebSocket/SSE)
 

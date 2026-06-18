@@ -19,6 +19,9 @@
 export const AGENT_PREAMBLE_SHORT = `**Agent rules (read before generating code):**
 
 - **RULE 0 — prefer one \`gridConfig\` object** over fragmented props/inputs/attributes. Reserve props for reactive \`rows\` and the imperative \`ref\`/handle. The same \`GridConfig\` is portable across vanilla, React, Angular, Vue.
+- **Inside React/Vue/Angular, default to framework-native renderers/editors** (JSX renderers, Vue slots/components, Angular template/component renderers). Do NOT default to plain \`HTMLElement\` renderers unless the user explicitly asks for framework-agnostic/vanilla code.
+- **Default to features in \`gridConfig.features\`**, not manual plugin instances. Treat \`plugins: [new ...Plugin()]\` as advanced/exceptional (custom-plugin development or tightly-scoped imperative needs).
+- **In React/Vue/Angular, configure features through \`gridConfig.features\` by default**. Per-feature props/inputs/directives are supported, but they are shorthand for tiny examples.
 - **Side-effect imports are always required** even when using \`gridConfig.features.X\` (\`import '@toolbox-web/grid/features/selection'\`). Vanilla JS must also \`import '@toolbox-web/grid'\`.
 - **Height is required** (\`tbw-grid { height: 400px; }\`) — the grid renders at zero height without it.
 - **Editing is opt-in** — \`editable: true\` throws unless the editing feature/plugin is loaded.

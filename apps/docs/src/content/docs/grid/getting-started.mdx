@@ -102,6 +102,8 @@ The grid is a standard web component that works in any JavaScript environment �
 Across every framework, the recommended pattern is to describe the grid with one `gridConfig` object — columns, `features`, and `plugins` together — and pass it as a single prop/input/attribute. Keep reactive data (`rows`) separate, since it changes independently of configuration.
 
 A single config object is portable (the same `GridConfig` works in vanilla, React, Angular, and Vue), easy to share or snapshot in tests, and keeps multi-line feature config readable. Individual feature props (e.g. `selection="row"`) remain fully supported and are a fine shorthand for very small grids — but default to `gridConfig` for everything else, including any column that uses a custom renderer or editor.
+
+For framework adapters (React/Vue/Angular), the default should be `gridConfig.features` rather than wiring many feature props/inputs/directives in templates. Keep those template-level bindings as shorthand for tiny examples.
 :::
 
 <Tabs syncKey="framework">

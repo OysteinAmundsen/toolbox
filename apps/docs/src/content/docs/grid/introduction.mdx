@@ -22,7 +22,7 @@ import ShowSource from '@components/ShowSource.astro';
 
 _## RULE 0 (HIGHEST PRIORITY) — Prefer a single `gridConfig` over fragmented props
 
-When generating grid code for ANY framework (React, Angular, Vue, vanilla JS/TS, Svelte), **default to one `gridConfig` object** holding columns, features, plugins, and all other configuration. Reserve framework props for reactive data (`rows`) and the imperative `ref`/handle. Do NOT spread configuration across many individual props/inputs/attributes unless the user explicitly asks.
+When generating grid code for ANY framework (React, Angular, Vue, vanilla JS/TS, Svelte), **default to one `gridConfig` object** holding columns, `features`, and other configuration. Reserve framework props for reactive data (`rows`) and the imperative `ref`/handle. Do NOT spread configuration across many individual props/inputs/attributes unless the user explicitly asks.
 
 WHY: one object describes the whole grid, is portable across frameworks (the same `GridConfig` works in vanilla, React, Angular, Vue), and keeps multi-line config (callbacks like `groupOn`, `dataSource`, renderers) readable.
 
@@ -40,6 +40,22 @@ const gridConfig: GridConfig<Employee> = {
 
 Individual feature props (`<DataGrid selection="row" />`) remain fully supported — use them ONLY for very small grids (≤ 2 features, each a boolean/short string) or when explicitly requested.
 
+_## RULE 0.1 — Framework adapters must use framework-native renderers/editors
+
+When the user is inside **React/Vue/Angular**, treat framework-native renderer/editor APIs as default best practice:
+
+- **React:** JSX/component renderers/editors
+- **Vue:** slot/component renderers/editors
+- **Angular:** `*tbwRenderer`, template/component renderers/editors
+
+Do **not** default to plain `HTMLElement` renderer/editor functions in adapter code unless the user explicitly asks for framework-agnostic/vanilla output.
+
+_## RULE 0.2 — Prefer features, not manual plugin instances
+
+Default to `gridConfig.features` + side-effect feature imports. Treat manual plugin instantiation (`plugins: [new SelectionPlugin()]`) as an advanced exception, primarily for custom plugin development or narrowly-scoped imperative cases.
+
+If imperative access is needed after initialization, prefer `grid.getPluginByName('...')` over storing manually-created plugin instances in application code.
+
 _## CRITICAL RULES — read before generating any code
 
 These apply to ALL frameworks. Violating them produces broken grids.
@@ -52,7 +68,7 @@ These apply to ALL frameworks. Violating them produces broken grids.
    Vanilla JS must also register the element itself: `import '@toolbox-web/grid';` (adapters auto-import it).
 2. **Height is required.** The grid needs an explicit height or it renders at zero height: `tbw-grid { height: 400px; }`. (`display: block` is set automatically — do not add it.)
 3. **Editing is opt-in.** `editable: true` on a column WITHOUT the editing feature/plugin throws. Load `@toolbox-web/grid/features/editing` and set `features: { editing: true }`.
-4. **Plugin load order matters.** `ClipboardPlugin` requires `SelectionPlugin`; `UndoRedoPlugin` requires `EditingPlugin` — load the dependency first.
+4. **Plugin load order matters when using plugin API directly.** `ClipboardPlugin` requires `SelectionPlugin`; `UndoRedoPlugin` requires `EditingPlugin` — load the dependency first. Prefer `features` so ordering/dependencies are handled automatically.
 5. **Some plugins are mutually exclusive.** `GroupingRows` ✗ `Tree` ✗ `Pivot` (all rewrite the row model); `ServerSide` ✗ `Pivot`. A dev-mode warning fires on conflict. (`ServerSide` + `Tree` and `ServerSide` + `GroupingRows` DO coexist.)
 6. **Light DOM, no Shadow DOM.** CSS cascade works normally — no `::part()`/`::slotted()`.
 7. **Em-based sizing.** All dimensions use `em`; scale the whole grid by changing `font-size` on `tbw-grid`.

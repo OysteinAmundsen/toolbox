@@ -20,6 +20,31 @@ import ShowSource from '@components/ShowSource.astro';
 
 <Audience only="agent">
 
+_## CORPUS RETRIEVAL STRATEGY
+
+Five corpus variants are published. **Pick the one that covers your stack:**
+
+| File | Use when |
+|------|----------|
+| `llms-full-angular.txt` | Working in an Angular project |
+| `llms-full-react.txt` | Working in a React project |
+| `llms-full-vue.txt` | Working in a Vue project |
+| `llms-full-vanilla.txt` | Plain TypeScript / JavaScript, no framework |
+| `llms-full.txt` | Framework unknown, or multiple frameworks in one session |
+
+All variants are ~900 kB–1.2 MB. If your tool cannot fetch or fully process the file in one pass:
+
+1. Download the right variant once: `curl -L https://toolboxjs.com/llms-full-angular.txt -o llms-full-angular.txt`
+2. Search for the topic: `rg -n 'your keyword' llms-full-angular.txt`
+3. Extract the matching region: `sed -n '1200,1320p' llms-full-angular.txt`
+4. Paste only those slices into context — not the whole file.
+
+**Keep the local copy fresh.** These files are regenerated on every docs build. A cached copy older than one week may reference stale API, wrong import paths, or removed features. Re-download before starting any significant implementation work.
+
+Preferred retrieval order (smallest to largest): per-page `.md` companion (e.g. `/grid/plugins/editing.md`) → `llms.txt` index → framework-scoped `llms-full-{framework}.txt` local-grepped slices → `llms-full.txt` local-grepped slices.
+
+Because this introduction always sorts first in the corpus, you are reading these instructions even if your context window is smaller than the full file.
+
 _## RULE 0 (HIGHEST PRIORITY) — Prefer a single `gridConfig` over fragmented props
 
 When generating grid code for ANY framework (React, Angular, Vue, vanilla JS/TS, Svelte), **default to one `gridConfig` object** holding columns, `features`, and other configuration. Reserve framework props for reactive data (`rows`) and the imperative `ref`/handle. Do NOT spread configuration across many individual props/inputs/attributes unless the user explicitly asks.

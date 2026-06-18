@@ -83,6 +83,30 @@ These files are **generated at build time, never hand-written**, so they cannot 
 - **Share `.md` links, not HTML.** When you reference a specific page in a prompt, append `.md` to the URL. It hands the agent the page's actual content directly, so it spends no compute stripping HTML to reach the words that matter.
 - **Configure project rules.** For repeated use, drop a pointer to `/llms.txt` (or `/llms-full.txt` for fetch-less tools) into your tool's project rules file (e.g. a Cursor rule or a Copilot instructions file) so every session starts grounded.
 
+## If Large-File Fetch Fails
+
+Some tools (including Copilot fetch in certain environments) may time out or truncate very large text files such as `llms-full-angular.txt`. In that case, use a local retrieval workflow instead of pasting the whole corpus into the model:
+
+1. Download once to a local file.
+
+```bash
+curl -L https://toolboxjs.com/llms-full-angular.txt -o llms-full-angular.txt
+```
+
+2. Search locally for the exact topic, symbols, or plugin names.
+
+```bash
+rg -n "renderer|headerRenderer|gridConfig\.features|SelectionPlugin|TbwRenderer|GridColumn" llms-full-angular.txt
+```
+
+3. Extract only the relevant region(s) and provide those chunks to the assistant.
+
+```bash
+sed -n '1200,1320p' llms-full-angular.txt
+```
+
+This gives predictable, low-latency retrieval and avoids context-window overload. As a rule: **search first, then send only the matching slices**.
+
 ## Next steps
 
 <CardGrid>

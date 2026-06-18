@@ -28,5 +28,5 @@ export const AGENT_PREAMBLE_SHORT = `**Agent rules (read before generating code)
 - **Plugin order/compat:** \`Clipboard\` needs \`Selection\`; \`UndoRedo\` needs \`Editing\`. \`GroupingRows\`/\`Tree\`/\`Pivot\` are mutually exclusive.
 - **Use \`cell-activate\`** (pointer + keyboard, cancelable) for click-to-open, not \`cell-click\`/\`row-click\` (pointer-only). Don't add \`SelectionPlugin\` just to make a row clickable.
 - Light DOM (no Shadow DOM); em-based sizing (scale via \`font-size\`); \`await grid.ready()\` for post-render work.
-
+- **Large file?** If the corpus is too large to fetch in one pass, download the right variant locally and grep for the topic. Pick the smallest file that covers your stack: \`llms-full-angular.txt\` (Angular), \`llms-full-react.txt\` (React), \`llms-full-vue.txt\` (Vue), \`llms-full-vanilla.txt\` (plain JS/TS), or \`llms-full.txt\` (all frameworks). Example: \`curl -L https://toolboxjs.com/llms-full-angular.txt -o llms-full-angular.txt && rg -n 'your keyword' llms-full-angular.txt\`. Send only the matching slices. **Re-download at least weekly** — these files are regenerated on every docs build and a stale copy may reference removed APIs or wrong import paths.
 For the full directives and copy-paste recipes, see \`llms-full.txt\`.`;

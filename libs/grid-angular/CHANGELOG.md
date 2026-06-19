@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.9.0...grid-angular-1.9.1) (2026-06-19)
+
+
+### Bug Fixes
+
+* **grid-angular:** bridge component-class renderers in gridConfig.features ([3df3fa6](https://github.com/OysteinAmundsen/toolbox/commit/3df3fa6391216a07a9dd8d6f160b18719667de92))
+
 ## [1.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.8.1...grid-angular-1.9.0) (2026-06-09)
 
 

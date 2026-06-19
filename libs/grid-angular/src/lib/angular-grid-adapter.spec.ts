@@ -447,6 +447,52 @@ describe('GridAdapter', () => {
       const result = adapter.processGridConfig(cfg);
       expect((result as { emptyRenderer?: unknown }).emptyRenderer).toBeNull();
     });
+
+    it('bridges a component-class groupHeaderRenderer inside gridConfig.features.groupingColumns', () => {
+      const { adapter } = makeAdapter();
+      const cfg = {
+        features: {
+          groupingColumns: {
+            columnGroups: [{ header: 'Personal', children: ['firstName'] }],
+            groupHeaderRenderer: FakeComponent,
+          },
+        },
+      } as unknown as GridConfig;
+      const result = adapter.processGridConfig(cfg);
+      const grouping = (result as { features?: { groupingColumns?: { groupHeaderRenderer?: unknown } } }).features
+        ?.groupingColumns;
+      expect(typeof grouping?.groupHeaderRenderer).toBe('function');
+    });
+
+    it('bridges a per-group component-class renderer inside gridConfig.features.groupingColumns', () => {
+      const { adapter } = makeAdapter();
+      const cfg = {
+        features: {
+          groupingColumns: {
+            columnGroups: [{ header: 'Personal', children: ['firstName'], renderer: FakeComponent }],
+          },
+        },
+      } as unknown as GridConfig;
+      const result = adapter.processGridConfig(cfg);
+      const groups = (result as { features?: { groupingColumns?: { columnGroups?: Array<{ renderer?: unknown }> } } })
+        .features?.groupingColumns?.columnGroups;
+      expect(typeof groups?.[0].renderer).toBe('function');
+    });
+
+    it('leaves feature configs without component classes unchanged', () => {
+      const { adapter } = makeAdapter();
+      const groupingConfig = { columnGroups: [{ header: 'Personal', children: ['firstName'] }] };
+      const cfg = { features: { groupingColumns: groupingConfig } } as unknown as GridConfig;
+      const result = adapter.processGridConfig(cfg);
+      expect((result as { features?: { groupingColumns?: unknown } }).features?.groupingColumns).toBe(groupingConfig);
+    });
+
+    it('ignores boolean feature configs (e.g. features: { groupingColumns: true })', () => {
+      const { adapter } = makeAdapter();
+      const cfg = { features: { groupingColumns: true } } as unknown as GridConfig;
+      const result = adapter.processGridConfig(cfg);
+      expect((result as { features?: { groupingColumns?: unknown } }).features?.groupingColumns).toBe(true);
+    });
   });
 
   describe('processColumn', () => {

@@ -259,6 +259,33 @@ export class GridAdapter implements FrameworkAdapter {
       result.typeDefaults = this.processTypeDefaults(angularConfig.typeDefaults) as typeof angularConfig.typeDefaults;
     }
 
+    // Process feature configs - bridge Angular component classes embedded in
+    // `gridConfig.features.<name>` (e.g. `groupingColumns.groupHeaderRenderer`,
+    // per-group `renderer`) to plain renderer functions via the per-feature
+    // preprocessors registered by the feature secondary entries. Without this,
+    // component-class renderers supplied through `gridConfig.features` reach the
+    // core plugin factory raw and are invoked without `new` at render time.
+    // (The directive-input path bridges these in `createFeaturePlugins`; this
+    // covers the equivalent `gridConfig.features` path.)
+    if (angularConfig.features && typeof angularConfig.features === 'object') {
+      const features = angularConfig.features as Record<string, unknown>;
+      const processedFeatures: Record<string, unknown> = { ...features };
+      let featuresChanged = false;
+      for (const [name, featureConfig] of Object.entries(features)) {
+        if (!featureConfig || typeof featureConfig !== 'object') continue;
+        const preprocess = getFeatureConfigPreprocessor(name as FeatureName);
+        if (!preprocess) continue;
+        const processedFeature = preprocess(featureConfig, this);
+        if (processedFeature !== featureConfig) {
+          processedFeatures[name] = processedFeature;
+          featuresChanged = true;
+        }
+      }
+      if (featuresChanged) {
+        (result as { features?: unknown }).features = processedFeatures;
+      }
+    }
+
     // Process loadingRenderer - convert Angular component class to function
     if (angularConfig.loadingRenderer && isComponentClass(angularConfig.loadingRenderer)) {
       (result as BaseGridConfig<TRow>).loadingRenderer = this.createComponentLoadingRenderer(

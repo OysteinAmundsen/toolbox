@@ -113,25 +113,21 @@ const data = [...];
 ```
   </TabItem>
   <TabItem label="Angular">
+Define everything inside `gridConfig.features`, exactly like the other frameworks. The side-effect import registers the feature so the adapter can bridge it.
+
 ```typescript
-import { GridGroupingColumnsDirective } from '@toolbox-web/grid-angular/features/grouping-columns';
+import '@toolbox-web/grid-angular/features/grouping-columns';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid, GridGroupingColumnsDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="rows"
-      [columns]="columns"
-      [groupingColumns]="{
-        columnGroups: [
-          { header: 'Personal Info', children: ['firstName', 'lastName', 'email'] },
-          { header: 'Work Info', children: ['department', 'title', 'salary'] },
-        ]
-      }"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -139,16 +135,30 @@ import type { ColumnConfig } from '@toolbox-web/grid';
 export class MyGridComponent {
   rows = [...];
 
-  columns: ColumnConfig[] = [
-    { field: 'firstName', header: 'First Name' },
-    { field: 'lastName', header: 'Last Name' },
-    { field: 'email', header: 'Email' },
-    { field: 'department', header: 'Department' },
-    { field: 'title', header: 'Title' },
-    { field: 'salary', header: 'Salary' },
-  ];
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'firstName', header: 'First Name' },
+      { field: 'lastName', header: 'Last Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'department', header: 'Department' },
+      { field: 'title', header: 'Title' },
+      { field: 'salary', header: 'Salary' },
+    ],
+    features: {
+      groupingColumns: {
+        columnGroups: [
+          { header: 'Personal Info', children: ['firstName', 'lastName', 'email'] },
+          { header: 'Work Info', children: ['department', 'title', 'salary'] },
+        ],
+      },
+    },
+  };
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridGroupingColumnsDirective` and bind `[groupingColumns]` directly on `<tbw-grid>`. That form gives a compile-time check that the feature is imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
   </TabItem>
 </Tabs>
 
@@ -304,13 +314,13 @@ const groupingConfig = {
 ```
   </TabItem>
   <TabItem label="Angular">
-You can pass a component class as the renderer. The adapter bridges it automatically.
+Pass a component class as the renderer inside `gridConfig.features`. The adapter bridges it automatically.
 
 ```typescript
-import { GridGroupingColumnsDirective } from '@toolbox-web/grid-angular/features/grouping-columns';
+import '@toolbox-web/grid-angular/features/grouping-columns';
 import { Component, input } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { ColumnConfig, GridConfig } from '@toolbox-web/grid';
 
 // Group header component — receives params as inputs
 @Component({
@@ -334,26 +344,29 @@ export class GroupHeaderComponent {
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid, GridGroupingColumnsDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="rows"
-      [columns]="columns"
-      [groupingColumns]="groupingConfig"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
 })
 export class MyGridComponent {
   rows = [...];
-  columns = [...];
 
-  groupingConfig = {
-    columnGroups: [
-      { header: 'Personal Info', children: ['firstName', 'lastName', 'email'] },
-      { header: 'Work Info', children: ['department', 'title', 'salary'] },
-    ],
-    groupHeaderRenderer: GroupHeaderComponent,
+  gridConfig: GridConfig = {
+    columns: [...],
+    features: {
+      groupingColumns: {
+        columnGroups: [
+          { header: 'Personal Info', children: ['firstName', 'lastName', 'email'] },
+          { header: 'Work Info', children: ['department', 'title', 'salary'] },
+        ],
+        groupHeaderRenderer: GroupHeaderComponent,
+      },
+    },
   };
 }
 ```
@@ -441,10 +454,10 @@ const groupingConfig = {
 Per-group renderers can also be component classes:
 
 ```typescript
-import { GridGroupingColumnsDirective } from '@toolbox-web/grid-angular/features/grouping-columns';
+import '@toolbox-web/grid-angular/features/grouping-columns';
 import { Component, input } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { ColumnConfig, GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-personal-group-header',
@@ -472,31 +485,34 @@ export class DefaultGroupHeaderComponent {
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid, GridGroupingColumnsDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="rows"
-      [columns]="columns"
-      [groupingColumns]="groupingConfig"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
 })
 export class MyGridComponent {
   rows = [...];
-  columns = [...];
 
-  groupingConfig = {
-    columnGroups: [
-      {
-        header: 'Personal Info',
-        children: ['firstName', 'lastName', 'email'],
-        renderer: PersonalGroupHeaderComponent,
+  gridConfig: GridConfig = {
+    columns: [...],
+    features: {
+      groupingColumns: {
+        columnGroups: [
+          {
+            header: 'Personal Info',
+            children: ['firstName', 'lastName', 'email'],
+            renderer: PersonalGroupHeaderComponent,
+          },
+          { header: 'Work Info', children: ['department', 'title', 'salary'] },
+        ],
+        // Fallback for groups without their own renderer
+        groupHeaderRenderer: DefaultGroupHeaderComponent,
       },
-      { header: 'Work Info', children: ['department', 'title', 'salary'] },
-    ],
-    // Fallback for groups without their own renderer
-    groupHeaderRenderer: DefaultGroupHeaderComponent,
+    },
   };
 }
 ```

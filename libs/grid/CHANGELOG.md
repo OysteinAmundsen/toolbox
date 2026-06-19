@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.3...grid-2.17.4) (2026-06-19)
+
+
+### Bug Fixes
+
+* **context-menu:** preserve feature-path config across gridConfig re-resolution ([f15e744](https://github.com/OysteinAmundsen/toolbox/commit/f15e744085c5f72e1a2c069a48d3651546f5959b))
+
 ## [2.17.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.2...grid-2.17.3) (2026-06-15)
 
 

@@ -637,8 +637,17 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    */
   refreshUserConfigFrom(other: BaseGridPlugin<TConfig>): void {
     const target = this.userConfig as Record<string, unknown>;
+    // Snapshot the source BEFORE clearing `target`. A feature factory may
+    // store the consumer's config object by reference (e.g. `new
+    // ContextMenuPlugin(config)`), and a consumer that passes the *same* config
+    // object across re-resolutions (common when `gridConfig` is a recomputed
+    // Angular `computed()`) makes `this.userConfig === other.userConfig`.
+    // Without this snapshot, the `delete` loop below would empty that shared
+    // object first, then `Object.assign` would copy back nothing — silently
+    // wiping the config and falling back to plugin defaults. (#contextMenu)
+    const source = { ...(other.userConfig as Record<string, unknown>) };
     for (const key of Object.keys(target)) delete target[key];
-    Object.assign(target, other.userConfig);
+    Object.assign(target, source);
   }
 
   /**

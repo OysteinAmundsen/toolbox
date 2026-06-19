@@ -55,59 +55,89 @@ grid.gridConfig = {
   <TabItem label="React">
 ```tsx
 import '@toolbox-web/grid-react/features/visibility';
-import { DataGrid } from '@toolbox-web/grid-react';
-
 // Shell auto-registers in v2.x. For v3, opt in explicitly:
 // import '@toolbox-web/grid-react/features/shell';
-const config = { shell: { header: { title: 'Employee Data' } } };
+import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig = {
+  features: {
+    shell: { header: { title: 'Employee Data' } },
+    visibility: true,
+  },
+};
 
 function MyGrid({ data }) {
-  return <DataGrid rows={data} gridConfig={config} visibility />;
+  return <DataGrid rows={data} gridConfig={gridConfig} style={{ height: '400px' }} />;
 }
 ```
+
+:::note[Alternative: feature props]
+You can instead pass `visibility` and `shell={{ … }}` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Vue">
 ```html
 <script setup lang="ts">
 import '@toolbox-web/grid-vue/features/visibility';
-import { TbwGrid } from '@toolbox-web/grid-vue';
-
 // Shell auto-registers in v2.x. For v3, opt in explicitly:
 // import '@toolbox-web/grid-vue/features/shell';
-const config = { shell: { header: { title: 'Employee Data' } } };
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig = {
+  features: {
+    shell: { header: { title: 'Employee Data' } },
+    visibility: true,
+  },
+};
 </script>
 
 <template>
-  <TbwGrid :rows="data" :grid-config="config" visibility />
+  <TbwGrid :rows="data" :grid-config="gridConfig" style="height: 400px" />
 </template>
 ```
+
+:::note[Alternative: feature props]
+You can instead bind `visibility` and `:shell="{ … }"` directly on `<TbwGrid>`. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Angular">
+Define everything inside `gridConfig.features`, exactly like the other frameworks. The side-effect import registers the feature so the adapter can bridge it.
+
 ```typescript
-// Enables the [visibility] input; the shell auto-registers in v2.x.
-// For v3, opt in explicitly: import '@toolbox-web/grid-angular/features/shell';
-import { GridVisibilityDirective } from '@toolbox-web/grid-angular/features/visibility';
+import '@toolbox-web/grid-angular/features/visibility';
+// Shell auto-registers in v2.x. For v3, opt in explicitly:
+// import '@toolbox-web/grid-angular/features/shell';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-shell-grid',
-  imports: [Grid, GridVisibilityDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="rows"
-      [gridConfig]="config"
-      [visibility]="true"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
 })
 export class ShellGridComponent {
   rows = [];
-  config: GridConfig = { shell: { header: { title: 'Employee Data' } } };
+  gridConfig: GridConfig = {
+    features: {
+      shell: { header: { title: 'Employee Data' } },
+      visibility: true,
+    },
+  };
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridVisibilityDirective` and bind `[visibility]` directly on `<tbw-grid>`. That form gives a compile-time check that the feature is imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
   </TabItem>
 </Tabs>
 

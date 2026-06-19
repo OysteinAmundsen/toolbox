@@ -58,33 +58,39 @@ grid.rows = salesData;
 ```tsx
 import '@toolbox-web/grid-react/features/pivot';
 import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'region', header: 'Region' },
+    { field: 'product', header: 'Product' },
+    { field: 'quarter', header: 'Quarter' },
+    { field: 'sales', header: 'Sales', type: 'number' },
+  ],
+  features: {
+    pivot: {
+      rowGroupFields: ['region', 'product'],
+      columnGroupFields: ['quarter'],
+      valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total' }],
+    },
+  },
+};
 
 function SalesPivot({ data }) {
-  return (
-    <DataGrid
-      rows={data}
-      columns={[
-        { field: 'region', header: 'Region' },
-        { field: 'product', header: 'Product' },
-        { field: 'quarter', header: 'Quarter' },
-        { field: 'sales', header: 'Sales', type: 'number' },
-      ]}
-      pivot={{
-        rowGroupFields: ['region', 'product'],
-        columnGroupFields: ['quarter'],
-        valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total' }],
-      }}
-      style={{ height: '400px' }}
-    />
-  );
+  return <DataGrid rows={data} gridConfig={gridConfig} style={{ height: '400px' }} />;
 }
 ```
+
+:::note[Alternative: feature prop]
+You can instead pass `columns={[ … ]}` and `pivot={{ … }}` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Vue">
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/pivot';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const data = [
   { region: 'North', product: 'Widget', quarter: 'Q1', sales: 1000 },
@@ -92,39 +98,48 @@ const data = [
   { region: 'South', product: 'Widget', quarter: 'Q2', sales: 1200 },
 ];
 
-const pivotConfig = {
-  rowGroupFields: ['region', 'product'],
-  columnGroupFields: ['quarter'],
-  valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total' }],
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'region', header: 'Region' },
+    { field: 'product', header: 'Product' },
+    { field: 'quarter', header: 'Quarter' },
+    { field: 'sales', header: 'Sales', type: 'number' },
+  ],
+  features: {
+    pivot: {
+      rowGroupFields: ['region', 'product'],
+      columnGroupFields: ['quarter'],
+      valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total' }],
+    },
+  },
 };
 </script>
 
 <template>
-  <TbwGrid :rows="data" :pivot="pivotConfig" style="height: 400px">
-    <TbwGridColumn field="region" header="Region" />
-    <TbwGridColumn field="product" header="Product" />
-    <TbwGridColumn field="quarter" header="Quarter" />
-    <TbwGridColumn field="sales" header="Sales" type="number" />
-  </TbwGrid>
+  <TbwGrid :rows="data" :grid-config="gridConfig" style="height: 400px" />
 </template>
 ```
+
+:::note[Alternative: prop + light-dom columns]
+You can instead bind `:pivot="{ … }"` and declare columns with `<TbwGridColumn>` children. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Angular">
+Define everything inside `gridConfig.features`, exactly like the other frameworks. The side-effect import registers the feature so the adapter can bridge it.
+
 ```typescript
-// Feature import - enables the [pivot] input
-import { GridPivotDirective } from '@toolbox-web/grid-angular/features/pivot';
+import '@toolbox-web/grid-angular/features/pivot';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-sales-pivot',
-  imports: [Grid, GridPivotDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="rows"
-      [columns]="columns"
-      [pivot]="pivotConfig"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -132,20 +147,27 @@ import type { ColumnConfig } from '@toolbox-web/grid';
 export class SalesPivotComponent {
   rows = [...]; // Your sales data
 
-  columns: ColumnConfig[] = [
-    { field: 'region', header: 'Region' },
-    { field: 'product', header: 'Product' },
-    { field: 'quarter', header: 'Quarter' },
-    { field: 'sales', header: 'Sales', type: 'number' },
-  ];
-
-  pivotConfig = {
-    rowGroupFields: ['region', 'product'],
-    columnGroupFields: ['quarter'],
-    valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total' }],
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'region', header: 'Region' },
+      { field: 'product', header: 'Product' },
+      { field: 'quarter', header: 'Quarter' },
+      { field: 'sales', header: 'Sales', type: 'number' },
+    ],
+    features: {
+      pivot: {
+        rowGroupFields: ['region', 'product'],
+        columnGroupFields: ['quarter'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total' }],
+      },
+    },
   };
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridPivotDirective` and bind `[pivot]` directly on `<tbw-grid>`. That form gives a compile-time check that the feature is imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
   </TabItem>
 </Tabs>
 

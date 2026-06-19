@@ -56,68 +56,79 @@ grid.gridConfig = {
 import '@toolbox-web/grid-react/features/selection';
 import '@toolbox-web/grid-react/features/clipboard';
 import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' }
+  ],
+  features: {
+    selection: 'range',
+    clipboard: { includeHeaders: true, quoteStrings: true },
+  },
+};
 
 function MyGrid({ data }) {
-  return (
-    <DataGrid
-      rows={data}
-      columns={[
-        { field: 'name', header: 'Name' },
-        { field: 'email', header: 'Email' },
-        { field: 'department', header: 'Department' }
-      ]}
-      selection="range"
-      clipboard={{ includeHeaders: true, quoteStrings: true }}
-      style={{ height: '400px' }}
-    />
-  );
+  return <DataGrid rows={data} gridConfig={gridConfig} style={{ height: '400px' }} />;
 }
 ```
+
+:::note[Alternative: feature prop]
+You can instead pass `columns={[ … ]}`, `selection="range"`, and `clipboard={{ … }}` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Vue">
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/selection';
 import '@toolbox-web/grid-vue/features/clipboard';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const data = [
   { name: 'Alice', email: 'alice@example.com', department: 'Engineering' },
   { name: 'Bob', email: 'bob@example.com', department: 'Marketing' },
 ];
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' },
+  ],
+  features: {
+    selection: 'range',
+    clipboard: { includeHeaders: true, quoteStrings: true },
+  },
+};
 </script>
 
 <template>
-  <TbwGrid
-    :rows="data"
-    selection="range"
-    :clipboard="{ includeHeaders: true, quoteStrings: true }"
-  >
-    <TbwGridColumn field="name" header="Name" />
-    <TbwGridColumn field="email" header="Email" />
-    <TbwGridColumn field="department" header="Department" />
-  </TbwGrid>
+  <TbwGrid :rows="data" :grid-config="gridConfig" style="height: 400px" />
 </template>
 ```
+
+:::note[Alternative: prop + light-dom columns]
+You can instead set `selection="range"`, bind `:clipboard="{ … }"`, and declare columns with `<TbwGridColumn>` children. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-// Feature imports - enable the [selection] and [clipboard] inputs
-import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
-import { GridClipboardDirective } from '@toolbox-web/grid-angular/features/clipboard';
+import '@toolbox-web/grid-angular/features/selection';
+import '@toolbox-web/grid-angular/features/clipboard';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid, GridSelectionDirective, GridClipboardDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="rows"
-      [columns]="columns"
-      [selection]="'range'"
-      [clipboard]="{ includeHeaders: true, quoteStrings: true }"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -125,13 +136,23 @@ import type { ColumnConfig } from '@toolbox-web/grid';
 export class MyGridComponent {
   rows = [...];
 
-  columns: ColumnConfig[] = [
-    { field: 'name', header: 'Name' },
-    { field: 'email', header: 'Email' },
-    { field: 'department', header: 'Department' }
-  ];
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'department', header: 'Department' }
+    ],
+    features: {
+      selection: 'range',
+      clipboard: { includeHeaders: true, quoteStrings: true },
+    },
+  };
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridSelectionDirective` and `GridClipboardDirective` and bind `[selection]` and `[clipboard]` directly on `<tbw-grid>`. That form gives a compile-time check that the features are imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
   </TabItem>
 </Tabs>
 

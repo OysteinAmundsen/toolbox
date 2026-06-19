@@ -79,6 +79,7 @@ grid.gridConfig = {
 ```tsx
 import '@toolbox-web/grid-react/features/server-side';
 import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
 import type { GetRowsParams, ServerSideDataSource } from '@toolbox-web/grid/plugins/server-side';
 
 const dataSource: ServerSideDataSource = {
@@ -89,26 +90,32 @@ const dataSource: ServerSideDataSource = {
   },
 };
 
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+  ],
+  features: {
+    serverSide: { pageSize: 50, dataSource },
+  },
+};
+
 function ServerSideGrid() {
-  return (
-    <DataGrid
-      columns={[
-        { field: 'id', header: 'ID' },
-        { field: 'name', header: 'Name' },
-        { field: 'email', header: 'Email' },
-      ]}
-      serverSide={{ pageSize: 50, dataSource }}
-      style={{ height: '400px' }}
-    />
-  );
+  return <DataGrid gridConfig={gridConfig} style={{ height: '400px' }} />;
 }
 ```
+
+:::note[Alternative: feature prop]
+You can instead pass `columns={[ … ]}` and `serverSide={{ … }}` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Vue">
 ```html
 <script setup lang="ts">
 import '@toolbox-web/grid-vue/features/server-side';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 import type { GetRowsParams, ServerSideDataSource } from '@toolbox-web/grid/plugins/server-side';
 
 const dataSource: ServerSideDataSource = {
@@ -119,48 +126,48 @@ const dataSource: ServerSideDataSource = {
   },
 };
 
-const serverSideConfig = {
-  pageSize: 50,
-  dataSource,
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+  ],
+  features: {
+    serverSide: { pageSize: 50, dataSource },
+  },
 };
 </script>
 
 <template>
-  <TbwGrid :server-side="serverSideConfig" style="height: 400px">
-    <TbwGridColumn field="id" header="ID" />
-    <TbwGridColumn field="name" header="Name" />
-    <TbwGridColumn field="email" header="Email" />
-  </TbwGrid>
+  <TbwGrid :grid-config="gridConfig" style="height: 400px" />
 </template>
 ```
+
+:::note[Alternative: prop + light-dom columns]
+You can instead bind `:server-side="{ … }"` and declare columns with `<TbwGridColumn>` children. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Angular">
+Define everything inside `gridConfig.features`, exactly like the other frameworks. The side-effect import registers the feature so the adapter can bridge it.
+
 ```typescript
-// Feature import - enables the [serverSide] input
-import { GridServerSideDirective } from '@toolbox-web/grid-angular/features/server-side';
+import '@toolbox-web/grid-angular/features/server-side';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 import type { GetRowsParams, ServerSideDataSource } from '@toolbox-web/grid/plugins/server-side';
 
 @Component({
   selector: 'app-server-side-grid',
-  imports: [Grid, GridServerSideDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
-      [columns]="columns"
-      [serverSide]="serverSideConfig"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
 })
 export class ServerSideGridComponent {
-  columns: ColumnConfig[] = [
-    { field: 'id', header: 'ID' },
-    { field: 'name', header: 'Name' },
-    { field: 'email', header: 'Email' },
-  ];
-
   dataSource: ServerSideDataSource = {
     getRows: async (params: GetRowsParams) => {
       const response = await fetch(`/api/data?start=${params.startNode}&end=${params.endNode}`);
@@ -169,12 +176,22 @@ export class ServerSideGridComponent {
     },
   };
 
-  serverSideConfig = {
-    pageSize: 50,
-    dataSource: this.dataSource,
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+    ],
+    features: {
+      serverSide: { pageSize: 50, dataSource: this.dataSource },
+    },
   };
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridServerSideDirective` and bind `[serverSide]` directly on `<tbw-grid>`. That form gives a compile-time check that the feature is imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
   </TabItem>
 </Tabs>
 

@@ -71,6 +71,22 @@ await plugin.print();
 import '@toolbox-web/grid-react/features/print';
 import { DataGrid } from '@toolbox-web/grid-react';
 import { useGridPrint } from '@toolbox-web/grid-react/features/print';
+import type { GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary' },
+  ],
+  features: {
+    print: {
+      title: 'Employee Report',
+      includeTitle: true,
+      includeTimestamp: true,
+    },
+  },
+};
 
 function EmployeeGrid({ data }) {
   const { print } = useGridPrint();
@@ -82,35 +98,38 @@ function EmployeeGrid({ data }) {
   return (
     <div>
       <button onClick={handlePrint}>Print Report</button>
-      <DataGrid
-        rows={data}
-        columns={[
-          { field: 'name', header: 'Name' },
-          { field: 'department', header: 'Department' },
-          { field: 'salary', header: 'Salary' },
-        ]}
-        print={{
-          title: 'Employee Report',
-          includeTitle: true,
-          includeTimestamp: true,
-        }}
-        style={{ height: '400px' }}
-      />
+      <DataGrid rows={data} gridConfig={gridConfig} style={{ height: '400px' }} />
     </div>
   );
 }
 ```
+
+:::note[Alternative: feature prop]
+You can instead pass `columns={[ … ]}` and `print={{ … }}` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Vue">
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/print';
-import { TbwGrid, TbwGridColumn, useGrid } from '@toolbox-web/grid-vue';
+import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const data = [
   { name: 'Alice', department: 'Engineering', salary: 95000 },
   { name: 'Bob', department: 'Marketing', salary: 75000 },
 ];
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary' },
+  ],
+  features: {
+    print: { title: 'Employee Report', includeTitle: true, includeTimestamp: true },
+  },
+};
 
 const { gridElement } = useGrid();
 
@@ -122,32 +141,32 @@ const handlePrint = async () => {
 <template>
   <div>
     <button @click="handlePrint">Print Report</button>
-    <TbwGrid :rows="data" :print="{ title: 'Employee Report', includeTitle: true, includeTimestamp: true }" style="height: 400px">
-      <TbwGridColumn field="name" header="Name" />
-      <TbwGridColumn field="department" header="Department" />
-      <TbwGridColumn field="salary" header="Salary" />
-    </TbwGrid>
+    <TbwGrid :rows="data" :grid-config="gridConfig" style="height: 400px" />
   </div>
 </template>
 ```
+
+:::note[Alternative: prop + light-dom columns]
+You can instead bind `:print="{ … }"` and declare columns with `<TbwGridColumn>` children. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Angular">
+Define everything inside `gridConfig.features`, exactly like the other frameworks. The side-effect import registers the feature so the adapter can bridge it.
+
 ```typescript
-// Feature import - enables the [print] input
-import { GridPrintDirective } from '@toolbox-web/grid-angular/features/print';
+import '@toolbox-web/grid-angular/features/print';
 import { Component } from '@angular/core';
 import { Grid, injectGrid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-employee-grid',
-  imports: [Grid, GridPrintDirective],
+  imports: [Grid],
   template: `
     <button (click)="handlePrint()">Print Report</button>
     <tbw-grid
       [rows]="rows"
-      [columns]="columns"
-      [print]="{ title: 'Employee Report', includeTitle: true, includeTimestamp: true }"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -156,11 +175,14 @@ export class EmployeeGridComponent {
   grid = injectGrid();
   rows = [...];
 
-  columns: ColumnConfig[] = [
-    { field: 'name', header: 'Name' },
-    { field: 'department', header: 'Department' },
-    { field: 'salary', header: 'Salary' },
-  ];
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'department', header: 'Department' },
+      { field: 'salary', header: 'Salary' },
+    ],
+    features: { print: { title: 'Employee Report', includeTitle: true, includeTimestamp: true } },
+  };
 
   async handlePrint() {
     const plugin = this.grid.element()?.getPluginByName('print');
@@ -168,6 +190,10 @@ export class EmployeeGridComponent {
   }
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridPrintDirective` and bind `[print]` directly on `<tbw-grid>`. That form gives a compile-time check that the feature is imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
   </TabItem>
 </Tabs>
 

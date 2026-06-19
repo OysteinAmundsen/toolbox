@@ -158,15 +158,23 @@ grid.gridConfig = {
 import '@toolbox-web/grid-react/features/selection';
 import '@toolbox-web/grid-react/features/filtering';
 import '@toolbox-web/grid-react/features/editing';
+import type { GridConfig } from '@toolbox-web/grid';
 
-<DataGrid
-  rows={rows}
-  columns={columns}
-  selection="row"
-  filtering={{ debounceMs: 300 }}
-  editing="dblclick"
-/>
+const gridConfig: GridConfig = {
+  columns,
+  features: {
+    selection: 'row',                       // shorthand
+    filtering: { debounceMs: 300 },         // full config object
+    editing: 'dblclick',                    // shorthand
+  },
+};
+
+<DataGrid rows={rows} gridConfig={gridConfig} />
 ```
+
+:::note[Alternative: feature props]
+You can instead pass `columns={columns}`, `selection="row"`, `filtering={{ debounceMs: 300 }}`, and `editing="dblclick"` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
 
   </TabItem>
   <TabItem label="Vue">
@@ -176,28 +184,49 @@ import '@toolbox-web/grid-react/features/editing';
 import '@toolbox-web/grid-vue/features/selection';
 import '@toolbox-web/grid-vue/features/filtering';
 import '@toolbox-web/grid-vue/features/editing';
+import type { GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig = {
+  columns,
+  features: {
+    selection: 'row',
+    filtering: { debounceMs: 300 },
+    editing: 'dblclick',
+  },
+};
 </script>
 
-<DataGrid
-  :rows="rows"
-  :columns="columns"
-  selection="row"
-  :filtering="{ debounceMs: 300 }"
-  editing="dblclick"
-/>
+<TbwGrid :rows="rows" :grid-config="gridConfig" />
 ```
+
+:::note[Alternative: feature props]
+You can instead bind `:columns="columns"`, `selection="row"`, `:filtering="{ debounceMs: 300 }"`, and `editing="dblclick"` directly on the grid. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
 
   </TabItem>
   <TabItem label="Angular">
 
 ```typescript
-import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
-import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
-import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
+import '@toolbox-web/grid-angular/features/selection';
+import '@toolbox-web/grid-angular/features/filtering';
+import '@toolbox-web/grid-angular/features/editing';
+import type { GridConfig } from '@toolbox-web/grid';
+
+gridConfig: GridConfig = {
+  columns,
+  features: {
+    selection: 'row',
+    filtering: { debounceMs: 300 },
+    editing: 'dblclick',
+  },
+};
 // In template:
-// <tbw-grid [rows]="rows" [columns]="columns"
-//   [selection]="'row'" [filtering]="{ debounceMs: 300 }" [editing]="'dblclick'" />
+// <tbw-grid [rows]="rows" [gridConfig]="gridConfig" />
 ```
+
+:::note[Alternative: per-feature directives]
+You can instead import `GridSelectionDirective`, `GridFilteringDirective`, and `GridEditingDirective` and bind `[selection]`, `[filtering]`, and `[editing]` directly on `<tbw-grid>`. That form gives a compile-time check that the features are imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
 
   </TabItem>
 </Tabs>

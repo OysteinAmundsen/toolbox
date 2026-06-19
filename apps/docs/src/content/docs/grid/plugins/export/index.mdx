@@ -54,6 +54,18 @@ document.getElementById('export-btn').addEventListener('click', () => {
 ```tsx
 import '@toolbox-web/grid-react/features/export';
 import { DataGrid, useGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' },
+  ],
+  features: {
+    export: { fileName: 'employees', includeHeaders: true },
+  },
+};
 
 function EmployeeGrid({ data }) {
   const { ref, element } = useGrid();
@@ -65,32 +77,38 @@ function EmployeeGrid({ data }) {
   return (
     <>
       <button onClick={handleExport}>Export CSV</button>
-      <DataGrid
-        ref={ref}
-        rows={data}
-        columns={[
-          { field: 'name', header: 'Name' },
-          { field: 'email', header: 'Email' },
-          { field: 'department', header: 'Department' },
-        ]}
-        export={{ fileName: 'employees', includeHeaders: true }}
-        style={{ height: '400px' }}
-      />
+      <DataGrid ref={ref} rows={data} gridConfig={gridConfig} style={{ height: '400px' }} />
     </>
   );
 }
 ```
+
+:::note[Alternative: feature prop]
+You can instead pass `columns={[ … ]}` and `export={{ … }}` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Vue">
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/export';
-import { TbwGrid, TbwGridColumn, useGrid } from '@toolbox-web/grid-vue';
+import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const data = [
   { name: 'Alice', email: 'alice@example.com', department: 'Engineering' },
   { name: 'Bob', email: 'bob@example.com', department: 'Marketing' },
 ];
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' },
+  ],
+  features: {
+    export: { fileName: 'employees', includeHeaders: true },
+  },
+};
 
 const { gridElement } = useGrid();
 
@@ -102,32 +120,32 @@ const handleExport = () => {
 <template>
   <div>
     <button @click="handleExport">Export CSV</button>
-    <TbwGrid :rows="data" :export="{ fileName: 'employees', includeHeaders: true }">
-      <TbwGridColumn field="name" header="Name" />
-      <TbwGridColumn field="email" header="Email" />
-      <TbwGridColumn field="department" header="Department" />
-    </TbwGrid>
+    <TbwGrid :rows="data" :grid-config="gridConfig" />
   </div>
 </template>
 ```
+
+:::note[Alternative: prop + light-dom columns]
+You can instead bind `:export="{ … }"` and declare columns with `<TbwGridColumn>` children. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Angular">
+Define everything inside `gridConfig.features`, exactly like the other frameworks. The side-effect import registers the feature so the adapter can bridge it.
+
 ```typescript
-// Feature import - enables the [exportFeature] input
-import { GridExportDirective } from '@toolbox-web/grid-angular/features/export';
+import '@toolbox-web/grid-angular/features/export';
 import { Component } from '@angular/core';
 import { Grid, injectGrid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-data-grid',
-  imports: [Grid, GridExportDirective],
+  imports: [Grid],
   template: `
     <button (click)="handleExport()">Export CSV</button>
     <tbw-grid
       [rows]="rows"
-      [columns]="columns"
-      [exportFeature]="{ fileName: 'employees', includeHeaders: true }"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -136,11 +154,16 @@ export class DataGridComponent {
   grid = injectGrid();
   rows = [];
 
-  columns: ColumnConfig[] = [
-    { field: 'name', header: 'Name' },
-    { field: 'email', header: 'Email' },
-    { field: 'department', header: 'Department' },
-  ];
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'department', header: 'Department' },
+    ],
+    features: {
+      export: { fileName: 'employees', includeHeaders: true },
+    },
+  };
 
   handleExport() {
     const plugin = this.grid.element()?.getPluginByName('export');
@@ -148,6 +171,10 @@ export class DataGridComponent {
   }
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridExportDirective` and bind `[exportFeature]` directly on `<tbw-grid>`. That form gives a compile-time check that the feature is imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
   </TabItem>
 </Tabs>
 

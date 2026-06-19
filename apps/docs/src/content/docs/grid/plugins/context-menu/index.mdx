@@ -57,83 +57,89 @@ grid.gridConfig = {
   <TabItem label="React">
 ```tsx
 import '@toolbox-web/grid-react/features/context-menu';
-import { DataGrid, useGrid } from '@toolbox-web/grid-react';
-import type { ContextMenuConfig } from '@toolbox-web/grid/plugins/context-menu';
+import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
 
 function MyGrid({ data, onDelete }) {
-  const { ref, element } = useGrid();
-
-  const contextMenu: ContextMenuConfig = {
-    items: [
-      { id: 'copy', name: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(String(ctx.value)) },
-      { id: 'sep1', name: '', separator: true },
-      { id: 'delete', name: 'Delete Row', action: (ctx) => onDelete(ctx.rowIndex) },
+  const gridConfig: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'status', header: 'Status' }
     ],
+    features: {
+      contextMenu: {
+        items: [
+          { id: 'copy', name: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(String(ctx.value)) },
+          { id: 'sep1', name: '', separator: true },
+          { id: 'delete', name: 'Delete Row', action: (ctx) => onDelete(ctx.rowIndex) },
+        ],
+      },
+    },
   };
 
-  return (
-    <DataGrid
-      ref={ref}
-      rows={data}
-      columns={[
-        { field: 'name', header: 'Name' },
-        { field: 'email', header: 'Email' },
-        { field: 'status', header: 'Status' }
-      ]}
-      contextMenu={contextMenu}
-      style={{ height: '400px' }}
-    />
-  );
+  return <DataGrid rows={data} gridConfig={gridConfig} style={{ height: '400px' }} />;
 }
 ```
+
+:::note[Alternative: feature prop]
+You can instead pass `columns={[ … ]}` and `contextMenu={{ … }}` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Vue">
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/context-menu';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const data = [
   { name: 'Alice', email: 'alice@example.com', status: 'active' },
   { name: 'Bob', email: 'bob@example.com', status: 'inactive' },
 ];
 
-const contextMenuConfig = {
-  items: [
-    { id: 'copy', name: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(String(ctx.value)) },
-    { id: 'sep1', name: '', separator: true },
-    { id: 'delete', name: 'Delete Row', action: (ctx) => console.log('Delete row:', ctx.rowIndex) },
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'status', header: 'Status' },
   ],
+  features: {
+    contextMenu: {
+      items: [
+        { id: 'copy', name: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(String(ctx.value)) },
+        { id: 'sep1', name: '', separator: true },
+        { id: 'delete', name: 'Delete Row', action: (ctx) => console.log('Delete row:', ctx.rowIndex) },
+      ],
+    },
+  },
 };
 </script>
 
 <template>
-  <TbwGrid :rows="data" :context-menu="contextMenuConfig">
-    <TbwGridColumn field="name" header="Name" />
-    <TbwGridColumn field="email" header="Email" />
-    <TbwGridColumn field="status" header="Status" />
-  </TbwGrid>
+  <TbwGrid :rows="data" :grid-config="gridConfig" style="height: 400px" />
 </template>
 ```
+
+:::note[Alternative: prop + light-dom columns]
+You can instead bind `:context-menu="{ … }"` and declare columns with `<TbwGridColumn>` children. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-// Feature import - enables the [contextMenu] input
-import { GridContextMenuDirective } from '@toolbox-web/grid-angular/features/context-menu';
+import '@toolbox-web/grid-angular/features/context-menu';
 import { Component, output } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 import type { ContextMenuItem } from '@toolbox-web/grid/plugins/context-menu';
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid, GridContextMenuDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
-      #grid
       [rows]="rows"
-      [columns]="columns"
-      [contextMenu]="contextMenuConfig"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -142,21 +148,28 @@ export class MyGridComponent {
   deleteRow = output<number>();
   rows = [...];
 
-  columns: ColumnConfig[] = [
-    { field: 'name', header: 'Name' },
-    { field: 'email', header: 'Email' },
-    { field: 'status', header: 'Status' }
-  ];
-
-  contextMenuConfig = {
-    items: [
-      { id: 'copy', name: 'Copy Cell', action: (ctx: any) => navigator.clipboard.writeText(String(ctx.value)) },
-      { id: 'sep1', name: '', separator: true },
-      { id: 'delete', name: 'Delete Row', action: (ctx: any) => this.deleteRow.emit(ctx.rowIndex) },
-    ] as ContextMenuItem[],
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'status', header: 'Status' }
+    ],
+    features: {
+      contextMenu: {
+        items: [
+          { id: 'copy', name: 'Copy Cell', action: (ctx: any) => navigator.clipboard.writeText(String(ctx.value)) },
+          { id: 'sep1', name: '', separator: true },
+          { id: 'delete', name: 'Delete Row', action: (ctx: any) => this.deleteRow.emit(ctx.rowIndex) },
+        ] as ContextMenuItem[],
+      },
+    },
   };
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridContextMenuDirective` and bind `[contextMenu]` directly on `<tbw-grid>`. That form gives a compile-time check that the feature is imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
   </TabItem>
 </Tabs>
 

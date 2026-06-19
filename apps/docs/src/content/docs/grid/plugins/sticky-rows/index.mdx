@@ -67,56 +67,66 @@ grid.gridConfig = {
   </TabItem>
   <TabItem label="React">
 ```tsx
-import { DataGrid } from '@toolbox-web/grid-react';
 import '@toolbox-web/grid-react/features/sticky-rows';
+import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'label', header: 'Label' },
+    { field: 'value', header: 'Value' },
+  ],
+  features: { stickyRows: { isSticky: 'isSection' } },
+};
 
 function MyGrid({ rows }) {
-  return (
-    <DataGrid
-      rows={rows}
-      columns={[
-        { field: 'label', header: 'Label' },
-        { field: 'value', header: 'Value' },
-      ]}
-      stickyRows={{ isSticky: 'isSection' }}
-    />
-  );
+  return <DataGrid rows={rows} gridConfig={gridConfig} style={{ height: '400px' }} />;
 }
 ```
+
+:::note[Alternative: feature prop]
+You can instead pass `columns={[ … ]}` and `stickyRows={{ … }}` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Vue">
 ```html
 <script setup>
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 import '@toolbox-web/grid-vue/features/sticky-rows';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
-const stickyConfig = { isSticky: 'isSection' };
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'label', header: 'Label' },
+    { field: 'value', header: 'Value' },
+  ],
+  features: { stickyRows: { isSticky: 'isSection' } },
+};
 </script>
 
 <template>
-  <TbwGrid :rows="rows" :sticky-rows="stickyConfig">
-    <TbwGridColumn field="label" header="Label" />
-    <TbwGridColumn field="value" header="Value" />
-  </TbwGrid>
+  <TbwGrid :rows="rows" :grid-config="gridConfig" style="height: 400px" />
 </template>
 ```
+
+:::note[Alternative: prop + light-dom columns]
+You can instead bind `:sticky-rows="{ … }"` and declare columns with `<TbwGridColumn>` children. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-// Feature import - enables the [stickyRows] input
-import { GridStickyRowsDirective } from '@toolbox-web/grid-angular/features/sticky-rows';
+import '@toolbox-web/grid-angular/features/sticky-rows';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid, GridStickyRowsDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="rows"
-      [columns]="columns"
-      [stickyRows]="stickyConfig"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -124,15 +134,20 @@ import type { ColumnConfig } from '@toolbox-web/grid';
 export class MyGridComponent {
   rows = [/* ... */];
 
-  columns: ColumnConfig[] = [
-    { field: 'label', header: 'Label' },
-    { field: 'value', header: 'Value' },
-  ];
-
-  // Field-name shorthand: any row whose `isSection` is truthy is sticky.
-  stickyConfig = { isSticky: 'isSection' };
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'label', header: 'Label' },
+      { field: 'value', header: 'Value' },
+    ],
+    // Field-name shorthand: any row whose `isSection` is truthy is sticky.
+    features: { stickyRows: { isSticky: 'isSection' } },
+  };
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridStickyRowsDirective` and bind `[stickyRows]` directly on `<tbw-grid>`. That form gives a compile-time check that the feature is imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
   </TabItem>
 </Tabs>
 

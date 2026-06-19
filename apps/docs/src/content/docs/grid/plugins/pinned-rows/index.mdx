@@ -61,38 +61,45 @@ grid.gridConfig = {
 ```tsx
 import '@toolbox-web/grid-react/features/pinned-rows';
 import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
 import { rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'product', header: 'Product' },
+    { field: 'quantity', header: 'Qty', type: 'number' },
+    { field: 'price', header: 'Price', type: 'currency' },
+  ],
+  features: {
+    pinnedRows: {
+      slots: [
+        {
+          id: 'totals',
+          position: 'bottom',
+          aggregators: { quantity: 'sum', price: 'sum' },
+          cells: { product: 'Totals:' },
+        },
+        { id: 'count', position: 'bottom', render: rowCountPanel() },
+      ],
+    },
+  },
+};
+
 function OrderGrid({ orders }) {
-  return (
-    <DataGrid
-      rows={orders}
-      columns={[
-        { field: 'product', header: 'Product' },
-        { field: 'quantity', header: 'Qty', type: 'number' },
-        { field: 'price', header: 'Price', type: 'currency' },
-      ]}
-      pinnedRows={{
-        slots: [
-          {
-            id: 'totals',
-            position: 'bottom',
-            aggregators: { quantity: 'sum', price: 'sum' },
-            cells: { product: 'Totals:' },
-          },
-          { id: 'count', position: 'bottom', render: rowCountPanel() },
-        ],
-      }}
-    />
-  );
+  return <DataGrid rows={orders} gridConfig={gridConfig} style={{ height: '400px' }} />;
 }
 ```
+
+:::note[Alternative: feature prop]
+You can instead pass `columns={[ … ]}` and `pinnedRows={{ … }}` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Vue">
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/pinned-rows';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 import { rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 
 const orders = [
@@ -100,45 +107,54 @@ const orders = [
   { product: 'Gadget', quantity: 5, price: 149.99 },
 ];
 
-const pinnedRowsConfig = {
-  slots: [
-    {
-      id: 'totals',
-      position: 'bottom',
-      aggregators: { quantity: 'sum', price: 'sum' },
-      cells: { product: 'Totals:' },
-    },
-    { id: 'count', position: 'bottom', render: rowCountPanel() },
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'product', header: 'Product' },
+    { field: 'quantity', header: 'Qty', type: 'number' },
+    { field: 'price', header: 'Price', type: 'currency' },
   ],
+  features: {
+    pinnedRows: {
+      slots: [
+        {
+          id: 'totals',
+          position: 'bottom',
+          aggregators: { quantity: 'sum', price: 'sum' },
+          cells: { product: 'Totals:' },
+        },
+        { id: 'count', position: 'bottom', render: rowCountPanel() },
+      ],
+    },
+  },
 };
 </script>
 
 <template>
-  <TbwGrid :rows="orders" :pinned-rows="pinnedRowsConfig">
-    <TbwGridColumn field="product" header="Product" />
-    <TbwGridColumn field="quantity" header="Qty" type="number" />
-    <TbwGridColumn field="price" header="Price" type="currency" />
-  </TbwGrid>
+  <TbwGrid :rows="orders" :grid-config="gridConfig" style="height: 400px" />
 </template>
 ```
+
+:::note[Alternative: prop + light-dom columns]
+You can instead bind `:pinned-rows="{ … }"` and declare columns with `<TbwGridColumn>` children. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Angular">
+Define everything inside `gridConfig.features`, exactly like the other frameworks. The side-effect import registers the feature so the adapter can bridge it.
+
 ```typescript
-// Feature import - enables the [pinnedRows] input
-import { GridPinnedRowsDirective } from '@toolbox-web/grid-angular/features/pinned-rows';
+import '@toolbox-web/grid-angular/features/pinned-rows';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 import { rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 
 @Component({
   selector: 'app-order-grid',
-  imports: [Grid, GridPinnedRowsDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="rows"
-      [columns]="columns"
-      [pinnedRows]="pinnedRowsConfig"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -146,25 +162,32 @@ import { rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 export class OrderGridComponent {
   rows = [];
 
-  columns: ColumnConfig[] = [
-    { field: 'product', header: 'Product' },
-    { field: 'quantity', header: 'Qty', type: 'number' },
-    { field: 'price', header: 'Price', type: 'currency' },
-  ];
-
-  pinnedRowsConfig = {
-    slots: [
-      {
-        id: 'totals',
-        position: 'bottom' as const,
-        aggregators: { quantity: 'sum', price: 'sum' },
-        cells: { product: 'Totals:' },
-      },
-      { id: 'count', position: 'bottom' as const, render: rowCountPanel() },
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'product', header: 'Product' },
+      { field: 'quantity', header: 'Qty', type: 'number' },
+      { field: 'price', header: 'Price', type: 'currency' },
     ],
+    features: {
+      pinnedRows: {
+        slots: [
+          {
+            id: 'totals',
+            position: 'bottom' as const,
+            aggregators: { quantity: 'sum', price: 'sum' },
+            cells: { product: 'Totals:' },
+          },
+          { id: 'count', position: 'bottom' as const, render: rowCountPanel() },
+        ],
+      },
+    },
   };
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridPinnedRowsDirective` and bind `[pinnedRows]` directly on `<tbw-grid>`. That form gives a compile-time check that the feature is imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
   </TabItem>
 </Tabs>
 
@@ -284,19 +307,23 @@ plain inline functions — no need for manual `useRef` / `ref` host caching:
 ```tsx
 import '@toolbox-web/grid-react/features/pinned-rows';
 import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
 
 function Legend() {
   return <span className="legend">Legend content</span>;
 }
 
-<DataGrid
-  rows={rows}
-  pinnedRows={{
-    slots: [
-      { id: 'legend', position: 'bottom', render: () => <Legend /> },
-    ],
-  }}
-/>;
+const gridConfig: GridConfig = {
+  features: {
+    pinnedRows: {
+      slots: [
+        { id: 'legend', position: 'bottom', render: () => <Legend /> },
+      ],
+    },
+  },
+};
+
+<DataGrid rows={rows} gridConfig={gridConfig} />;
 ```
   </TabItem>
   <TabItem label="Vue">
@@ -305,38 +332,48 @@ function Legend() {
 import '@toolbox-web/grid-vue/features/pinned-rows';
 import { h, shallowRef } from 'vue';
 import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 import Legend from './Legend.vue';
 
-const pinnedRows = shallowRef({
-  slots: [
-    { id: 'legend', position: 'bottom' as const, render: () => h(Legend) },
-  ],
+const gridConfig = shallowRef<GridConfig>({
+  features: {
+    pinnedRows: {
+      slots: [
+        { id: 'legend', position: 'bottom' as const, render: () => h(Legend) },
+      ],
+    },
+  },
 });
 </script>
 
 <template>
-  <TbwGrid :rows="rows" :pinned-rows="pinnedRows" />
+  <TbwGrid :rows="rows" :grid-config="gridConfig" />
 </template>
 ```
   </TabItem>
   <TabItem label="Angular">
 ```ts
+import '@toolbox-web/grid-angular/features/pinned-rows';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { GridPinnedRowsDirective } from '@toolbox-web/grid-angular/features/pinned-rows';
+import type { GridConfig } from '@toolbox-web/grid';
 import { LegendComponent } from './legend.component';
 
 @Component({
   selector: 'app-grid',
-  imports: [Grid, GridPinnedRowsDirective],
-  template: `<tbw-grid [rows]="rows" [pinnedRows]="pinnedRows" />`,
+  imports: [Grid],
+  template: `<tbw-grid [rows]="rows" [gridConfig]="gridConfig" />`,
 })
 export class AppGrid {
   rows = [];
-  pinnedRows = {
-    slots: [
-      { id: 'legend', position: 'bottom' as const, render: LegendComponent },
-    ],
+  gridConfig: GridConfig = {
+    features: {
+      pinnedRows: {
+        slots: [
+          { id: 'legend', position: 'bottom' as const, render: LegendComponent },
+        ],
+      },
+    },
   };
 }
 ```

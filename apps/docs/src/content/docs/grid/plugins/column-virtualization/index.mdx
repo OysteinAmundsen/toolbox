@@ -38,65 +38,80 @@ grid.rows = data;
 ```tsx
 import '@toolbox-web/grid-react/features/column-virtualization';
 import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig = {
+  columns: generateManyColumns(100),
+  fitMode: 'fixed',
+  features: { columnVirtualization: true },
+};
 
 function WideGrid({ data }) {
-  return (
-    <DataGrid
-      rows={data}
-      columns={generateManyColumns(100)}
-      fitMode="fixed"
-      columnVirtualization
-      style={{ height: '400px' }}
-    />
-  );
+  return <DataGrid rows={data} gridConfig={gridConfig} style={{ height: '400px' }} />;
 }
 ```
+
+:::note[Alternative: feature prop]
+You can instead pass `columns={[ … ]}` and `columnVirtualization={{ … }}` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Vue">
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/column-virtualization';
 import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const data = [{ col0: 'Row 1', col1: 'Value 1' }, { col0: 'Row 2', col1: 'Value 2' }];
 
-const columns = Array.from({ length: 100 }, (_, i) => ({
-  field: `col${i}`,
-  header: `Column ${i + 1}`,
-  width: 120,
-}));
+const gridConfig: GridConfig = {
+  columns: Array.from({ length: 100 }, (_, i) => ({
+    field: `col${i}`,
+    header: `Column ${i + 1}`,
+    width: 120,
+  })),
+  fitMode: 'fixed',
+  features: { columnVirtualization: true },
+};
 </script>
 
 <template>
-  <TbwGrid :rows="data" :columns="columns" fit-mode="fixed" column-virtualization style="height: 400px">
-  </TbwGrid>
+  <TbwGrid :rows="data" :grid-config="gridConfig" style="height: 400px" />
 </template>
 ```
+
+:::note[Alternative: prop + light-dom columns]
+You can instead bind `:column-virtualization="{ … }"` and declare columns with `<TbwGridColumn>` children. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Angular">
+Define everything inside `gridConfig.features`, exactly like the other frameworks. The side-effect import registers the feature so the adapter can bridge it.
+
 ```typescript
-// Feature import - enables the [columnVirtualization] input
-import { GridColumnVirtualizationDirective } from '@toolbox-web/grid-angular/features/column-virtualization';
+import '@toolbox-web/grid-angular/features/column-virtualization';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { ColumnConfig, GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-wide-grid',
-  imports: [Grid, GridColumnVirtualizationDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="rows"
-      [columns]="columns"
-      [columnVirtualization]="true"
-      fitMode="fixed"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
 })
 export class WideGridComponent {
   rows = [...];
-  columns: ColumnConfig[] = this.generateManyColumns(100);
+
+  gridConfig: GridConfig = {
+    columns: this.generateManyColumns(100),
+    fitMode: 'fixed',
+    features: { columnVirtualization: true },
+  };
 
   generateManyColumns(count: number): ColumnConfig[] {
     return Array.from({ length: count }, (_, i) => ({
@@ -107,6 +122,10 @@ export class WideGridComponent {
   }
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridColumnVirtualizationDirective` and bind `[columnVirtualization]` directly on `<tbw-grid>`. That form gives a compile-time check that the feature is imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
   </TabItem>
 </Tabs>
 

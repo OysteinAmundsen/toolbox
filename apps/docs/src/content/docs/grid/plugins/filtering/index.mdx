@@ -48,22 +48,25 @@ grid.rows = data;
 ```tsx
 import '@toolbox-web/grid-react/features/filtering';
 import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', filterable: true },
+    { field: 'status', header: 'Status', filterable: true },
+    { field: 'email', header: 'Email', filterable: true },
+  ],
+  features: { filtering: { debounceMs: 300 } },
+};
 
 function MyGrid({ data }) {
-  return (
-    <DataGrid
-      rows={data}
-      columns={[
-        { field: 'name', header: 'Name', filterable: true },
-        { field: 'status', header: 'Status', filterable: true },
-        { field: 'email', header: 'Email', filterable: true },
-      ]}
-      filtering={{ debounceMs: 300 }}
-      style={{ height: '400px' }}
-    />
-  );
+  return <DataGrid rows={data} gridConfig={gridConfig} style={{ height: '400px' }} />;
 }
 ```
+
+:::note[Alternative: feature prop]
+You can instead pass `columns={[ … ]}` and `filtering={{ … }}` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
 
   </TabItem>
   <TabItem label="Vue">
@@ -71,41 +74,51 @@ function MyGrid({ data }) {
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/filtering';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const data = [
   { name: 'Alice', status: 'active', email: 'alice@example.com' },
   { name: 'Bob', status: 'inactive', email: 'bob@example.com' },
 ];
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', filterable: true },
+    { field: 'status', header: 'Status', filterable: true },
+    { field: 'email', header: 'Email', filterable: true },
+  ],
+  features: { filtering: { debounceMs: 300 } },
+};
 </script>
 
 <template>
-  <TbwGrid :rows="data" :filtering="{ debounceMs: 300 }" style="height: 400px">
-    <TbwGridColumn field="name" header="Name" filterable />
-    <TbwGridColumn field="status" header="Status" filterable />
-    <TbwGridColumn field="email" header="Email" filterable />
-  </TbwGrid>
+  <TbwGrid :rows="data" :grid-config="gridConfig" style="height: 400px" />
 </template>
 ```
+
+:::note[Alternative: prop + light-dom columns]
+You can instead bind `:filtering="{ … }"` and declare columns with `<TbwGridColumn>` children. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
 
   </TabItem>
   <TabItem label="Angular">
 
+Define everything inside `gridConfig.features`, exactly like the other frameworks. The side-effect import registers the feature so the adapter can bridge it.
+
 ```typescript
-// Feature import - enables the [filtering] input
-import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
+import '@toolbox-web/grid-angular/features/filtering';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid, GridFilteringDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="rows"
-      [columns]="columns"
-      [filtering]="{ debounceMs: 300 }"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -113,13 +126,20 @@ import type { ColumnConfig } from '@toolbox-web/grid';
 export class MyGridComponent {
   rows = [...];
 
-  columns: ColumnConfig[] = [
-    { field: 'name', header: 'Name', filterable: true },
-    { field: 'status', header: 'Status', filterable: true },
-    { field: 'email', header: 'Email', filterable: true },
-  ];
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name', filterable: true },
+      { field: 'status', header: 'Status', filterable: true },
+      { field: 'email', header: 'Email', filterable: true },
+    ],
+    features: { filtering: { debounceMs: 300 } },
+  };
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridFilteringDirective` and bind `[filtering]` directly on `<tbw-grid>`. That form gives a compile-time check that the feature is imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
 
   </TabItem>
 </Tabs>
@@ -220,6 +240,7 @@ grid.gridConfig = {
 ```tsx
 import '@toolbox-web/grid-react/features/filtering';
 import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
 
 // React filterPanelRenderer receives only params (no container)
 // and returns JSX — the adapter bridges it automatically
@@ -254,19 +275,20 @@ function StatusFilterPanel({ params }) {
   );
 }
 
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', filterable: true },
+    { field: 'status', header: 'Status', filterable: true },
+  ],
+  features: {
+    filtering: {
+      filterPanelRenderer: (params) => <StatusFilterPanel params={params} />,
+    },
+  },
+};
+
 function MyGrid({ data }) {
-  return (
-    <DataGrid
-      rows={data}
-      columns={[
-        { field: 'name', header: 'Name', filterable: true },
-        { field: 'status', header: 'Status', filterable: true },
-      ]}
-      filtering={{
-        filterPanelRenderer: (params) => <StatusFilterPanel params={params} />,
-      }}
-    />
-  );
+  return <DataGrid rows={data} gridConfig={gridConfig} />;
 }
 ```
   </TabItem>
@@ -274,8 +296,9 @@ function MyGrid({ data }) {
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/filtering';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
 import { h } from 'vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const data = [...];
 
@@ -308,13 +331,18 @@ const filterPanelRenderer = (params) => {
     )
   );
 };
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', filterable: true },
+    { field: 'status', header: 'Status', filterable: true },
+  ],
+  features: { filtering: { filterPanelRenderer } },
+};
 </script>
 
 <template>
-  <TbwGrid :rows="data" :filtering="{ filterPanelRenderer }" style="height: 400px">
-    <TbwGridColumn field="name" header="Name" filterable />
-    <TbwGridColumn field="status" header="Status" filterable />
-  </TbwGrid>
+  <TbwGrid :rows="data" :grid-config="gridConfig" style="height: 400px" />
 </template>
 ```
   </TabItem>
@@ -364,23 +392,28 @@ export class StatusFilterComponent extends BaseFilterPanel {
 
 ```typescript
 // In your grid component — pass the component class as filterPanelRenderer
-import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
+import '@toolbox-web/grid-angular/features/filtering';
 import { Grid } from '@toolbox-web/grid-angular';
+import type { GridConfig } from '@toolbox-web/grid';
 import { StatusFilterComponent } from './status-filter.component';
 
 @Component({
-  imports: [Grid, GridFilteringDirective],
-  template: `<tbw-grid [rows]="data" [columns]="columns" [filtering]="filterConfig" />`
+  imports: [Grid],
+  template: `<tbw-grid [rows]="data" [gridConfig]="gridConfig" />`
 })
 export class MyGridComponent {
   data = [...];
-  columns = [
-    { field: 'name', header: 'Name', filterable: true },
-    { field: 'status', header: 'Status', filterable: true },
-  ];
 
-  filterConfig = {
-    filterPanelRenderer: StatusFilterComponent,
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name', filterable: true },
+      { field: 'status', header: 'Status', filterable: true },
+    ],
+    features: {
+      filtering: {
+        filterPanelRenderer: StatusFilterComponent,
+      },
+    },
   };
 }
 ```

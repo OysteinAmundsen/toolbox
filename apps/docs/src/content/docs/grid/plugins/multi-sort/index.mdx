@@ -53,33 +53,53 @@ grid.on('sort-change', ({ sortModel }) => {
 ```tsx
 import '@toolbox-web/grid-react/features/multi-sort';
 import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', sortable: true },
+    { field: 'department', header: 'Department', sortable: true },
+    { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+  ],
+  features: { multiSort: { maxSortColumns: 3 } },
+};
 
 function SortableGrid({ data }) {
   return (
     <DataGrid
       rows={data}
-      columns={[
-        { field: 'name', header: 'Name', sortable: true },
-        { field: 'department', header: 'Department', sortable: true },
-        { field: 'salary', header: 'Salary', type: 'number', sortable: true },
-      ]}
-      multiSort={{ maxSortColumns: 3 }}
+      gridConfig={gridConfig}
       onSortChange={(detail) => console.log('Sort changed:', detail.sortModel)}
+      style={{ height: '400px' }}
     />
   );
 }
 ```
+
+:::note[Alternative: feature prop]
+You can instead pass `columns={[ … ]}` and `multiSort={{ … }}` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Vue">
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/multi-sort';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const data = [
   { name: 'Alice', department: 'Engineering', salary: 95000 },
   { name: 'Bob', department: 'Marketing', salary: 75000 },
 ];
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', sortable: true },
+    { field: 'department', header: 'Department', sortable: true },
+    { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+  ],
+  features: { multiSort: { maxSortColumns: 3 } },
+};
 
 const onSortChange = (e) => {
   console.log('Sort changed:', e.detail.sortModel);
@@ -89,32 +109,33 @@ const onSortChange = (e) => {
 <template>
   <TbwGrid
     :rows="data"
-    :multi-sort="{ maxSortColumns: 3 }"
+    :grid-config="gridConfig"
+    style="height: 400px"
     @sort-change="onSortChange"
-  >
-    <TbwGridColumn field="name" header="Name" sortable />
-    <TbwGridColumn field="department" header="Department" sortable />
-    <TbwGridColumn field="salary" header="Salary" type="number" sortable />
-  </TbwGrid>
+  />
 </template>
 ```
+
+:::note[Alternative: prop + light-dom columns]
+You can instead bind `:multi-sort="{ … }"` and declare columns with `<TbwGridColumn>` children. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Angular">
+Define everything inside `gridConfig.features`, exactly like the other frameworks. The side-effect import registers the feature so the adapter can bridge it.
+
 ```typescript
-// Feature import - enables the [multiSort] input
-import { GridMultiSortDirective } from '@toolbox-web/grid-angular/features/multi-sort';
+import '@toolbox-web/grid-angular/features/multi-sort';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-sortable-grid',
-  imports: [Grid, GridMultiSortDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="rows"
-      [columns]="columns"
-      [multiSort]="{ maxSortColumns: 3 }"
+      [gridConfig]="gridConfig"
       (sort-change)="onSortChange($event)"
       style="height: 400px; display: block;">
     </tbw-grid>
@@ -126,17 +147,24 @@ export class SortableGridComponent {
     { name: 'Bob', department: 'Marketing', salary: 75000 },
   ];
 
-  columns: ColumnConfig[] = [
-    { field: 'name', header: 'Name', sortable: true },
-    { field: 'department', header: 'Department', sortable: true },
-    { field: 'salary', header: 'Salary', type: 'number', sortable: true },
-  ];
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name', sortable: true },
+      { field: 'department', header: 'Department', sortable: true },
+      { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+    ],
+    features: { multiSort: { maxSortColumns: 3 } },
+  };
 
   onSortChange(e: CustomEvent) {
     console.log('Sort changed:', e.detail.sortModel);
   }
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridMultiSortDirective` and bind `[multiSort]` directly on `<tbw-grid>`. That form gives a compile-time check that the feature is imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
   </TabItem>
 </Tabs>
 

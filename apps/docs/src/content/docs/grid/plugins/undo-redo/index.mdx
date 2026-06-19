@@ -49,67 +49,81 @@ grid.gridConfig = {
 import '@toolbox-web/grid-react/features/editing';
 import '@toolbox-web/grid-react/features/undo-redo';
 import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'price', header: 'Price', type: 'number', editable: true },
+    { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
+  ],
+  features: {
+    editing: { editOn: 'dblclick' },
+    undoRedo: { maxHistorySize: 50 },
+  },
+};
 
 function MyGrid({ data }) {
-  return (
-    <DataGrid
-      rows={data}
-      columns={[
-        { field: 'name', header: 'Name', editable: true },
-        { field: 'price', header: 'Price', type: 'number', editable: true },
-        { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
-      ]}
-      editing={{ editOn: 'dblclick' }}
-      undoRedo={{ maxHistorySize: 50 }}
-    />
-  );
+  return <DataGrid rows={data} gridConfig={gridConfig} style={{ height: '400px' }} />;
 }
 ```
+
+:::note[Alternative: feature prop]
+You can instead pass `columns={[ … ]}`, `editing={{ … }}` and `undoRedo={{ … }}` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Vue">
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/editing';
 import '@toolbox-web/grid-vue/features/undo-redo';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const data = [
   { name: 'Widget', price: 9.99, quantity: 10 },
   { name: 'Gadget', price: 19.99, quantity: 5 },
 ];
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'price', header: 'Price', type: 'number', editable: true },
+    { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
+  ],
+  features: {
+    editing: 'dblclick',
+    undoRedo: { maxHistorySize: 50 },
+  },
+};
 </script>
 
 <template>
-  <TbwGrid
-    :rows="data"
-    editing="dblclick"
-    :undo-redo="{ maxHistorySize: 50 }"
-  >
-    <TbwGridColumn field="name" header="Name" editable />
-    <TbwGridColumn field="price" header="Price" type="number" editable />
-    <TbwGridColumn field="quantity" header="Quantity" type="number" editable />
-  </TbwGrid>
+  <TbwGrid :rows="data" :grid-config="gridConfig" style="height: 400px" />
 </template>
 ```
+
+:::note[Alternative: prop + light-dom columns]
+You can instead bind `editing="…"` and `:undo-redo="{ … }"` and declare columns with `<TbwGridColumn>` children. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Angular">
+Define everything inside `gridConfig.features`, exactly like the other frameworks. The side-effect imports register the features so the adapter can bridge them.
+
 ```typescript
-// Feature imports - enable the [editing] and [undoRedo] inputs
-import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
-import { GridUndoRedoDirective } from '@toolbox-web/grid-angular/features/undo-redo';
+import '@toolbox-web/grid-angular/features/editing';
+import '@toolbox-web/grid-angular/features/undo-redo';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid, GridEditingDirective, GridUndoRedoDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="rows"
-      [columns]="columns"
-      [editing]="true"
-      [undoRedo]="{ maxHistorySize: 50 }"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -117,13 +131,23 @@ import type { ColumnConfig } from '@toolbox-web/grid';
 export class MyGridComponent {
   rows = [...];
 
-  columns: ColumnConfig[] = [
-    { field: 'name', header: 'Name', editable: true },
-    { field: 'price', header: 'Price', type: 'number', editable: true },
-    { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
-  ];
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'price', header: 'Price', type: 'number', editable: true },
+      { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
+    ],
+    features: {
+      editing: true,
+      undoRedo: { maxHistorySize: 50 },
+    },
+  };
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridEditingDirective` and `GridUndoRedoDirective` and bind `[editing]` / `[undoRedo]` directly on `<tbw-grid>`. That form gives a compile-time check that the features are imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
   </TabItem>
 </Tabs>
 

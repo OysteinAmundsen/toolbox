@@ -63,27 +63,34 @@ grid.rows = [
 ```tsx
 import '@toolbox-web/grid-react/features/tree';
 import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'type', header: 'Type' },
+    { field: 'size', header: 'Size' }
+  ],
+  features: {
+    tree: { childrenField: 'children', indentWidth: 24 },
+  },
+};
 
 function FileExplorer({ files }) {
-  return (
-    <DataGrid
-      rows={files}
-      columns={[
-        { field: 'name', header: 'Name' },
-        { field: 'type', header: 'Type' },
-        { field: 'size', header: 'Size' }
-      ]}
-      tree={{ childrenField: 'children', indentWidth: 24 }}
-    />
-  );
+  return <DataGrid rows={files} gridConfig={gridConfig} />;
 }
 ```
+
+:::note[Alternative: feature prop]
+You can instead pass `columns={[ … ]}` and `tree={{ … }}` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Vue">
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/tree';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const files = [
   {
@@ -96,33 +103,44 @@ const files = [
     ],
   },
 ];
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'type', header: 'Type' },
+    { field: 'size', header: 'Size' },
+  ],
+  features: {
+    tree: { childrenField: 'children', indentWidth: 24 },
+  },
+};
 </script>
 
 <template>
-  <TbwGrid :rows="files" :tree="{ childrenField: 'children', indentWidth: 24 }">
-    <TbwGridColumn field="name" header="Name" />
-    <TbwGridColumn field="type" header="Type" />
-    <TbwGridColumn field="size" header="Size" />
-  </TbwGrid>
+  <TbwGrid :rows="files" :grid-config="gridConfig" />
 </template>
 ```
+
+:::note[Alternative: prop + light-dom columns]
+You can instead bind `:tree="{ … }"` and declare columns with `<TbwGridColumn>` children. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Angular">
+Define everything inside `gridConfig.features`, exactly like the other frameworks. The side-effect import registers the feature so the adapter can bridge it.
+
 ```typescript
-// Feature import - enables the [tree] input
-import { GridTreeDirective } from '@toolbox-web/grid-angular/features/tree';
+import '@toolbox-web/grid-angular/features/tree';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-file-explorer',
-  imports: [Grid, GridTreeDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="files"
-      [columns]="columns"
-      [tree]="{ childrenField: 'children', indentWidth: 24 }"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -130,13 +148,22 @@ import type { ColumnConfig } from '@toolbox-web/grid';
 export class FileExplorerComponent {
   files = [/* hierarchical data */];
 
-  columns: ColumnConfig[] = [
-    { field: 'name', header: 'Name' },
-    { field: 'type', header: 'Type' },
-    { field: 'size', header: 'Size' }
-  ];
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'type', header: 'Type' },
+      { field: 'size', header: 'Size' }
+    ],
+    features: {
+      tree: { childrenField: 'children', indentWidth: 24 },
+    },
+  };
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridTreeDirective` and bind `[tree]` directly on `<tbw-grid>`. That form gives a compile-time check that the feature is imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
   </TabItem>
 </Tabs>
 
@@ -200,6 +227,7 @@ grid.gridConfig = {
 import '@toolbox-web/grid-react/features/tree';
 import '@toolbox-web/grid-react/features/server-side';
 import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const dataSource = {
   async getRows(params) {
@@ -208,17 +236,19 @@ const dataSource = {
   },
 };
 
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'role', header: 'Role' },
+  ],
+  features: {
+    serverSide: { pageSize: 50, dataSource },
+    tree: { childrenField: 'children' },
+  },
+};
+
 function ServerTree() {
-  return (
-    <DataGrid
-      columns={[
-        { field: 'name', header: 'Name' },
-        { field: 'role', header: 'Role' },
-      ]}
-      serverSide={{ pageSize: 50, dataSource }}
-      tree={{ childrenField: 'children' }}
-    />
-  );
+  return <DataGrid gridConfig={gridConfig} />;
 }
 ```
   </TabItem>
@@ -227,7 +257,8 @@ function ServerTree() {
 <script setup>
 import '@toolbox-web/grid-vue/features/tree';
 import '@toolbox-web/grid-vue/features/server-side';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const serverSideConfig = {
   pageSize: 50,
@@ -238,42 +269,43 @@ const serverSideConfig = {
     },
   },
 };
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'role', header: 'Role' },
+  ],
+  features: {
+    serverSide: serverSideConfig,
+    tree: { childrenField: 'children' },
+  },
+};
 </script>
 
 <template>
-  <TbwGrid :server-side="serverSideConfig" :tree="{ childrenField: 'children' }">
-    <TbwGridColumn field="name" header="Name" />
-    <TbwGridColumn field="role" header="Role" />
-  </TbwGrid>
+  <TbwGrid :grid-config="gridConfig" />
 </template>
 ```
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-import { GridTreeDirective } from '@toolbox-web/grid-angular/features/tree';
-import { GridServerSideDirective } from '@toolbox-web/grid-angular/features/server-side';
+import '@toolbox-web/grid-angular/features/tree';
+import '@toolbox-web/grid-angular/features/server-side';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-server-tree',
-  imports: [Grid, GridTreeDirective, GridServerSideDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
-      [columns]="columns"
-      [serverSide]="serverSideConfig"
-      [tree]="{ childrenField: 'children' }"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
 })
 export class ServerTreeComponent {
-  columns: ColumnConfig[] = [
-    { field: 'name', header: 'Name' },
-    { field: 'role', header: 'Role' },
-  ];
-
   serverSideConfig = {
     pageSize: 50,
     dataSource: {
@@ -281,6 +313,17 @@ export class ServerTreeComponent {
         const res = await fetch(`/api/tree?start=${params.startNode}&end=${params.endNode}`);
         return res.json();
       },
+    },
+  };
+
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'role', header: 'Role' },
+    ],
+    features: {
+      serverSide: this.serverSideConfig,
+      tree: { childrenField: 'children' },
     },
   };
 }

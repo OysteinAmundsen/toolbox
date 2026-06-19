@@ -52,60 +52,76 @@ grid.rows = employees;
 ```tsx
 import '@toolbox-web/grid-react/features/grouping-rows';
 import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Employee' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'currency' }
+  ],
+  features: {
+    groupingRows: { groupOn: (row) => row.department, showRowCount: true },
+  },
+};
 
 function EmployeeGrid({ employees }) {
-  return (
-    <DataGrid
-      rows={employees}
-      columns={[
-        { field: 'name', header: 'Employee' },
-        { field: 'department', header: 'Department' },
-        { field: 'salary', header: 'Salary', type: 'currency' }
-      ]}
-      groupingRows={{ groupOn: (row) => row.department, showRowCount: true }}
-    />
-  );
+  return <DataGrid rows={employees} gridConfig={gridConfig} style={{ height: '400px' }} />;
 }
 ```
+
+:::note[Alternative: feature prop]
+You can instead pass `columns={[ … ]}` and `groupingRows={{ … }}` as individual props on `<DataGrid>`. That form is idiomatic React, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Vue">
 ```html
 <script setup>
 import '@toolbox-web/grid-vue/features/grouping-rows';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const employees = [
   { name: 'Alice', department: 'Engineering', salary: 95000 },
   { name: 'Bob', department: 'Marketing', salary: 75000 },
   { name: 'Carol', department: 'Engineering', salary: 90000 },
 ];
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Employee' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'currency' },
+  ],
+  features: {
+    groupingRows: { groupOn: (row) => row.department, showRowCount: true },
+  },
+};
 </script>
 
 <template>
-  <TbwGrid :rows="employees" :grouping-rows="{ groupOn: (row) => row.department, showRowCount: true }">
-    <TbwGridColumn field="name" header="Employee" />
-    <TbwGridColumn field="department" header="Department" />
-    <TbwGridColumn field="salary" header="Salary" type="currency" />
-  </TbwGrid>
+  <TbwGrid :rows="employees" :grid-config="gridConfig" style="height: 400px" />
 </template>
 ```
+
+:::note[Alternative: prop + light-dom columns]
+You can instead bind `:grouping-rows="{ … }"` and declare columns with `<TbwGridColumn>` children. That form is idiomatic Vue, but `gridConfig` keeps the configuration identical across every framework.
+:::
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-// Feature import - enables the [groupingRows] input
-import { GridGroupingRowsDirective } from '@toolbox-web/grid-angular/features/grouping-rows';
+import '@toolbox-web/grid-angular/features/grouping-rows';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-employee-grid',
-  imports: [Grid, GridGroupingRowsDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="employees"
-      [columns]="columns"
-      [groupingRows]="groupingConfig"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -113,18 +129,25 @@ import type { ColumnConfig } from '@toolbox-web/grid';
 export class EmployeeGridComponent {
   employees = [/* employee data */];
 
-  columns: ColumnConfig[] = [
-    { field: 'name', header: 'Employee' },
-    { field: 'department', header: 'Department' },
-    { field: 'salary', header: 'Salary', type: 'currency' }
-  ];
-
-  groupingConfig = {
-    groupOn: (row: any) => [row.department],
-    showRowCount: true,
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Employee' },
+      { field: 'department', header: 'Department' },
+      { field: 'salary', header: 'Salary', type: 'currency' }
+    ],
+    features: {
+      groupingRows: {
+        groupOn: (row: any) => [row.department],
+        showRowCount: true,
+      },
+    },
   };
 }
 ```
+
+:::note[Alternative: per-feature directive]
+You can instead import `GridGroupingRowsDirective` and bind `[groupingRows]` directly on `<tbw-grid>`. That form gives a compile-time check that the feature is imported, but `gridConfig.features` above is the recommended, framework-consistent approach.
+:::
   </TabItem>
 </Tabs>
 
@@ -162,19 +185,23 @@ grid.gridConfig = {
 ```tsx
 import '@toolbox-web/grid-react/features/grouping-rows';
 import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
 
-<DataGrid
-  rows={employees}
-  columns={columns}
-  groupingRows={{
-    groupOn: (row) => row.department,
-    groupRowRenderer: (params) => (
-      <button type="button" onClick={params.toggleExpand}>
-        {params.expanded ? '▼' : '▶'} <strong>{params.value}</strong> ({params.rows.length})
-      </button>
-    ),
-  }}
-/>
+const gridConfig: GridConfig = {
+  columns,
+  features: {
+    groupingRows: {
+      groupOn: (row) => row.department,
+      groupRowRenderer: (params) => (
+        <button type="button" onClick={params.toggleExpand}>
+          {params.expanded ? '▼' : '▶'} <strong>{params.value}</strong> ({params.rows.length})
+        </button>
+      ),
+    },
+  },
+};
+
+<DataGrid rows={employees} gridConfig={gridConfig} />
 ```
   </TabItem>
   <TabItem label="Vue">
@@ -183,22 +210,26 @@ import { DataGrid } from '@toolbox-web/grid-react';
 import { h } from 'vue';
 import '@toolbox-web/grid-vue/features/grouping-rows';
 import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
-const groupingConfig = {
-  groupOn: (row) => row.department,
-  groupRowRenderer: (params) =>
-    h('button', { type: 'button', onClick: params.toggleExpand }, [
-      params.expanded ? '▼ ' : '▶ ',
-      h('strong', params.value),
-      ` (${params.rows.length})`,
-    ]),
+const gridConfig: GridConfig = {
+  columns,
+  features: {
+    groupingRows: {
+      groupOn: (row) => row.department,
+      groupRowRenderer: (params) =>
+        h('button', { type: 'button', onClick: params.toggleExpand }, [
+          params.expanded ? '▼ ' : '▶ ',
+          h('strong', params.value),
+          ` (${params.rows.length})`,
+        ]),
+    },
+  },
 };
 </script>
 
 <template>
-  <TbwGrid :rows="employees" :grouping-rows="groupingConfig">
-    <!-- columns -->
-  </TbwGrid>
+  <TbwGrid :rows="employees" :grid-config="gridConfig" />
 </template>
 ```
   </TabItem>
@@ -206,9 +237,10 @@ const groupingConfig = {
 Pass a component class — the adapter bridges it and binds the params as inputs.
 
 ```typescript
-import { GridGroupingRowsDirective } from '@toolbox-web/grid-angular/features/grouping-rows';
+import '@toolbox-web/grid-angular/features/grouping-rows';
 import { Component, input } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-group-row',
@@ -229,20 +261,24 @@ export class GroupRowComponent {
 
 @Component({
   selector: 'app-my-grid',
-  imports: [Grid, GridGroupingRowsDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="employees"
-      [columns]="columns"
-      [groupingRows]="groupingConfig"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
 })
 export class MyGridComponent {
-  groupingConfig = {
-    groupOn: (row: any) => [row.department],
-    groupRowRenderer: GroupRowComponent,
+  gridConfig: GridConfig = {
+    columns: [...],
+    features: {
+      groupingRows: {
+        groupOn: (row: any) => [row.department],
+        groupRowRenderer: GroupRowComponent,
+      },
+    },
   };
 }
 ```
@@ -504,6 +540,7 @@ grid.gridConfig = {
 import '@toolbox-web/grid-react/features/grouping-rows';
 import '@toolbox-web/grid-react/features/server-side';
 import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid';
 
 const dataSource = {
   async getRows(params) {
@@ -517,18 +554,20 @@ const dataSource = {
   },
 };
 
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Employee' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'currency' },
+  ],
+  features: {
+    serverSide: { pageSize: 50, dataSource },
+    groupingRows: true,
+  },
+};
+
 function ServerGroupedGrid() {
-  return (
-    <DataGrid
-      columns={[
-        { field: 'name', header: 'Employee' },
-        { field: 'department', header: 'Department' },
-        { field: 'salary', header: 'Salary', type: 'currency' },
-      ]}
-      serverSide={{ pageSize: 50, dataSource }}
-      groupingRows
-    />
-  );
+  return <DataGrid gridConfig={gridConfig} />;
 }
 ```
   </TabItem>
@@ -537,72 +576,81 @@ function ServerGroupedGrid() {
 <script setup>
 import '@toolbox-web/grid-vue/features/grouping-rows';
 import '@toolbox-web/grid-vue/features/server-side';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid';
 
-const serverSideConfig = {
-  pageSize: 50,
-  dataSource: {
-    async getRows(params) {
-      const res = await fetch(`/api/groups?start=${params.startNode}&end=${params.endNode}`);
-      return res.json();
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', header: 'Employee' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'currency' },
+  ],
+  features: {
+    serverSide: {
+      pageSize: 50,
+      dataSource: {
+        async getRows(params) {
+          const res = await fetch(`/api/groups?start=${params.startNode}&end=${params.endNode}`);
+          return res.json();
+        },
+        async getChildRows(params) {
+          const { groupKey } = params.context;
+          const res = await fetch(`/api/groups/${groupKey}/rows`);
+          return { rows: await res.json() };
+        },
+      },
     },
-    async getChildRows(params) {
-      const { groupKey } = params.context;
-      const res = await fetch(`/api/groups/${groupKey}/rows`);
-      return { rows: await res.json() };
-    },
+    groupingRows: true,
   },
 };
 </script>
 
 <template>
-  <TbwGrid :server-side="serverSideConfig" grouping-rows>
-    <TbwGridColumn field="name" header="Employee" />
-    <TbwGridColumn field="department" header="Department" />
-    <TbwGridColumn field="salary" header="Salary" type="currency" />
-  </TbwGrid>
+  <TbwGrid :grid-config="gridConfig" />
 </template>
 ```
   </TabItem>
   <TabItem label="Angular">
 ```typescript
-import { GridGroupingRowsDirective } from '@toolbox-web/grid-angular/features/grouping-rows';
-import { GridServerSideDirective } from '@toolbox-web/grid-angular/features/server-side';
+import '@toolbox-web/grid-angular/features/grouping-rows';
+import '@toolbox-web/grid-angular/features/server-side';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-server-grouped-grid',
-  imports: [Grid, GridGroupingRowsDirective, GridServerSideDirective],
+  imports: [Grid],
   template: `
     <tbw-grid
-      [columns]="columns"
-      [serverSide]="serverSideConfig"
-      [groupingRows]="true"
+      [gridConfig]="gridConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
 })
 export class ServerGroupedGridComponent {
-  columns: ColumnConfig[] = [
-    { field: 'name', header: 'Employee' },
-    { field: 'department', header: 'Department' },
-    { field: 'salary', header: 'Salary', type: 'currency' },
-  ];
-
-  serverSideConfig = {
-    pageSize: 50,
-    dataSource: {
-      async getRows(params: any) {
-        const res = await fetch(`/api/groups?start=${params.startNode}&end=${params.endNode}`);
-        return res.json();
+  gridConfig: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Employee' },
+      { field: 'department', header: 'Department' },
+      { field: 'salary', header: 'Salary', type: 'currency' },
+    ],
+    features: {
+      serverSide: {
+        pageSize: 50,
+        dataSource: {
+          async getRows(params: any) {
+            const res = await fetch(`/api/groups?start=${params.startNode}&end=${params.endNode}`);
+            return res.json();
+          },
+          async getChildRows(params: any) {
+            const { groupKey } = params.context;
+            const res = await fetch(`/api/groups/${groupKey}/rows`);
+            return { rows: await res.json() };
+          },
+        },
       },
-      async getChildRows(params: any) {
-        const { groupKey } = params.context;
-        const res = await fetch(`/api/groups/${groupKey}/rows`);
-        return { rows: await res.json() };
-      },
+      groupingRows: true,
     },
   };
 }

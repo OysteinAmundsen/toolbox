@@ -3,6 +3,8 @@ title: Architecture
 description: Internal architecture of @toolbox-web/grid — configuration system, render scheduler, virtualization, plugin lifecycle, and light DOM design.
 ---
 
+import Audience from '@components/Audience.astro';
+
 This page describes the internal architecture of `@toolbox-web/grid`. It's intended for contributors, plugin developers, and anyone who wants to understand how the grid works under the hood.
 
 ## Design Philosophy
@@ -686,6 +688,8 @@ Render: update visible row content from new _rows
 
 ---
 
+<Audience only="human">
+
 ## Directory Structure
 
 ```
@@ -727,6 +731,7 @@ libs/grid/src/
       ├─ multi-sort/          # Multi-column sorting
       └─ ...                 # 24 plugins total
 ```
+</Audience>
 
 ## See Also
 

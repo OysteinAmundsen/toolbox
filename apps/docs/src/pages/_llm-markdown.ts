@@ -60,6 +60,51 @@ export interface AgentMarkdownOptions {
    * variant is kept.
    */
   frameworkFilter?: Framework;
+  /**
+   * Lowercase H2 heading texts whose whole section (the `## Heading` line through
+   * everything up to the next `##`/`#`) is removed from the output. Used by the
+   * `llms-full.txt` corpus builder to drop illustrative/navigational sections —
+   * `## Demos`, `## Demo`, `## See Also` — that inline large demo `.astro` dumps
+   * or pure link lists and carry no API truth, while keeping every API-bearing
+   * section (Installation, Basic Usage, Configuration Options, Programmatic API,
+   * Events, Keyboard Shortcuts). NOT passed by the per-page `.md` endpoint, so a
+   * single-page fetch still includes its demos. Matched case-insensitively after
+   * stripping any `[text](url)` link wrapper from the heading.
+   */
+  dropSections?: string[];
+  /**
+   * Inverse of `dropSections`: when set, the output keeps ONLY the page preamble
+   * (everything before the first `##`) plus the listed H2 sections; every other
+   * H2 section is removed. Used by the `llms-full.txt` corpus builder to demote
+   * plugin pages to a compact "how to enable + basic usage" stub (intro +
+   * `## Installation` + `## Basic Usage`), with the deep API (configuration
+   * tables, events, methods) linked as a per-page `.md` companion rather than
+   * inlined — the dominant corpus-size driver. NOT passed by the per-page `.md`
+   * endpoint, so a single-page fetch still includes the full plugin API. Matched
+   * case-insensitively after stripping any `[text](url)` link wrapper. Applied
+   * after `dropSections`.
+   */
+  keepSections?: string[];
+  /**
+   * When `true`, bare demo components (`<DemoName />`) and `<ShowSource file>`
+   * blocks are NOT inlined as code; each is replaced by a one-line pointer to the
+   * page's `.md` companion (`demoPageUrl`). Used by the per-framework corpus
+   * variants (`llms-full-{react,vue,angular}.txt`): the demo `.astro` sources are
+   * vanilla-only (`queryGrid` + `HTMLElement` renderers), so inlining them into a
+   * framework-scoped corpus contradicts that framework's "use components, not
+   * HTMLElements" guidance. The framework-native snippet in the adjacent tab group
+   * is the idiomatic example; the full vanilla reference stays one fetch away.
+   * `<AgentSource>` (which has framework-native `react`/`vue`/`angular` overrides)
+   * is unaffected. NOT passed by the per-page `.md` endpoint, so single-page
+   * fetches still inline every demo.
+   */
+  omitDemoComponents?: boolean;
+  /**
+   * Absolute `.md` URL of the page being transformed, used as the link target in
+   * the pointer emitted when `omitDemoComponents` is set. When omitted, the
+   * pointer falls back to a generic "see the page's `.md` companion" note.
+   */
+  demoPageUrl?: string;
 }
 
 // #endregion
@@ -158,6 +203,19 @@ function demoCodeBlock(relPath: string, resolveDemo: (p: string) => string | und
   // code knows which `.astro` demo source it represents (provenance hint).
   const fileName = relPath.split(/[\\/]/).pop() ?? relPath;
   return '```ts\n// ' + fileName + '\n' + script + '\n```';
+}
+
+/**
+ * One-line pointer that REPLACES an inlined demo when `omitDemoComponents` is set
+ * (the per-framework corpus variants). The demo `.astro` sources are vanilla-only,
+ * so a framework-scoped corpus links to the full reference instead of inlining
+ * non-idiomatic code. Links to the page's `.md` companion when known.
+ */
+function demoPointer(relPath: string, pageUrl?: string): string {
+  const fileName = relPath.split(/[\\/]/).pop() ?? relPath;
+  return pageUrl
+    ? `> Runnable demo \`${fileName}\` (vanilla reference) omitted from this framework-scoped corpus — see the [full example](${pageUrl}); the framework-native snippet above is the idiomatic version.`
+    : `> Runnable demo \`${fileName}\` (vanilla reference) omitted — see the page's \`.md\` companion for the full example.`;
 }
 
 /**
@@ -284,6 +342,79 @@ export function filterFrameworkTabs(body: string, framework: Framework): string 
 
 // #endregion
 
+// #region Section dropping
+
+/**
+ * Remove whole H2 sections whose heading text matches `names` (case-insensitive,
+ * after unwrapping any `[text](url)` link in the heading). A section spans from
+ * its `## Heading` line through every following line up to — but not including —
+ * the next `##` or `#` heading (so nested `###` subsections are dropped too).
+ * Only level-2 headings are eligible; deeper or shallower headings never match.
+ * Exported for unit testing.
+ */
+export function dropMarkdownSections(md: string, names: string[]): string {
+  if (names.length === 0) return md;
+  const drop = new Set(names.map((n) => n.trim().toLowerCase()));
+  // Split on CRLF *or* LF: the source MDX is often CRLF-authored (Windows /
+  // git autocrlf), and a trailing `\r` left on each line would defeat the
+  // heading regex below (`.` never matches `\r`, and a non-multiline `$` won't
+  // anchor before it). Re-joining with `\n` also normalises the output.
+  const lines = md.split(/\r?\n/);
+  const out: string[] = [];
+  let dropping = false;
+  for (const line of lines) {
+    const heading = line.match(/^(#{1,6})\s+(.*)$/);
+    if (heading) {
+      const level = heading[1].length;
+      if (level <= 2) {
+        // A new `#`/`##` heading always ends any active drop. Decide afresh
+        // whether THIS heading starts a new dropped section.
+        const text = heading[2]
+          .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+          .replace(/[#*`]/g, '')
+          .trim()
+          .toLowerCase();
+        dropping = level === 2 && drop.has(text);
+        if (dropping) continue;
+      }
+    }
+    if (!dropping) out.push(line);
+  }
+  return out.join('\n');
+}
+
+/**
+ * Inverse of {@link dropMarkdownSections}: keep ONLY the preamble (every line
+ * before the first `## ` heading) plus the H2 sections whose heading text matches
+ * `names` (case-insensitive, after unwrapping any `[text](url)` link). Every other
+ * level-2 section — and its nested `###` content — is removed. Only level-2
+ * headings act as section boundaries. Exported for unit testing.
+ */
+export function keepMarkdownSections(md: string, names: string[]): string {
+  if (names.length === 0) return md;
+  const keep = new Set(names.map((n) => n.trim().toLowerCase()));
+  // CRLF-safe split (see dropMarkdownSections): the source MDX is often
+  // CRLF-authored, and a trailing `\r` would defeat the heading regex.
+  const lines = md.split(/\r?\n/);
+  const out: string[] = [];
+  let keeping = true; // preamble before the first H2 is always kept
+  for (const line of lines) {
+    const heading = line.match(/^(#{1,6})\s+(.*)$/);
+    if (heading && heading[1].length === 2) {
+      const text = heading[2]
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+        .replace(/[#*`]/g, '')
+        .trim()
+        .toLowerCase();
+      keeping = keep.has(text);
+    }
+    if (keeping) out.push(line);
+  }
+  return out.join('\n');
+}
+
+// #endregion
+
 // #region Transform
 
 /**
@@ -401,9 +532,14 @@ export function mdxToAgentMarkdown(raw: string, opts: AgentMarkdownOptions): str
     // 3. Inline `<ShowSource file="…"> … </ShowSource>` blocks first (the `file`
     //    attribute points directly at the demo, and its children are the same
     //    demo component, so replacing the whole block avoids duplicate code).
+    //    When `omitDemoComponents` is set (framework-scoped corpus), emit a
+    //    pointer to the page's `.md` companion instead of the vanilla source.
     out = out.replace(
       /<ShowSource\b[^>]*\bfile=["']([^"']+)["'][^>]*>[\s\S]*?<\/ShowSource>/g,
-      (_full, file: string) => '\n' + demoCodeBlock(file, opts.resolveDemo) + '\n',
+      (_full, file: string) =>
+        '\n' +
+        (opts.omitDemoComponents ? demoPointer(file, opts.demoPageUrl) : demoCodeBlock(file, opts.resolveDemo)) +
+        '\n',
     );
 
     // 3b. Expand `<AgentSource paths="…" />` directives — an agent-only mechanism
@@ -421,11 +557,18 @@ export function mdxToAgentMarkdown(raw: string, opts: AgentMarkdownOptions): str
     });
 
     // 4. Inline remaining standalone demo components (`<IntroBasicDemo />` or
-    //    `<IntroBasicDemo>…</IntroBasicDemo>`).
+    //    `<IntroBasicDemo>…</IntroBasicDemo>`). When `omitDemoComponents` is set
+    //    (framework-scoped corpus), emit a `.md` pointer instead of the vanilla
+    //    source so the corpus stays free of non-idiomatic `HTMLElement` code.
     for (const [name, demoPath] of componentToDemo) {
       const selfClosing = new RegExp(`<${name}\\b[^>]*/>`, 'g');
       const paired = new RegExp(`<${name}\\b[^>]*>[\\s\\S]*?</${name}>`, 'g');
-      const block = '\n' + demoCodeBlock(demoPath, opts.resolveDemo) + '\n';
+      const block =
+        '\n' +
+        (opts.omitDemoComponents
+          ? demoPointer(demoPath, opts.demoPageUrl)
+          : demoCodeBlock(demoPath, opts.resolveDemo)) +
+        '\n';
       out = out.replace(paired, block).replace(selfClosing, block);
     }
 
@@ -466,11 +609,30 @@ export function mdxToAgentMarkdown(raw: string, opts: AgentMarkdownOptions): str
   // 6. Rejoin and collapse the blank lines left behind by stripped content.
   //    Normalise whitespace-only lines first (stripped wrapper tags were often
   //    indented, leaving lines of stray spaces) so the blank-line collapse works.
-  const out = transformed
+  let out = transformed
     .join('')
     .replace(/^[ \t]+$/gm, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+
+  // 6b. Drop illustrative/navigational H2 sections requested by the corpus
+  //     builder (e.g. `## Demos`, `## See Also`). Runs after the body is fully
+  //     transformed so it sees real `##` headings, and collapses the blank lines
+  //     the removal leaves behind. Skipped entirely when no sections are listed.
+  if (opts.dropSections?.length) {
+    out = dropMarkdownSections(out, opts.dropSections)
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  // 6c. Inverse filter: keep only the preamble + listed H2 sections (e.g. demote
+  //     plugin pages to intro + Installation + Basic Usage). Runs after 6b so it
+  //     sees real `##` headings; collapses the blank lines the removal leaves.
+  if (opts.keepSections?.length) {
+    out = keepMarkdownSections(out, opts.keepSections)
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
 
   // 7. Prepend a title heading + description so the page is self-describing.
   const header: string[] = [];

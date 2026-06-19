@@ -651,10 +651,16 @@ For event-driven use cases, click and activation events (`cell-click`, `row-clic
 
 #### Light DOM renderers
 
-You can also define a cell renderer **declaratively in HTML** — no JavaScript required. Nest a
-`<tbw-grid-column-view>` element inside a `<tbw-grid-column>`; its content becomes the cell template.
-Use `{{ value }}` to interpolate the cell value (and `{{ row.field }}` for other row fields):
+You can also define a cell renderer **declaratively in your template** — favouring markup over an
+imperative JavaScript callback. It is not the highest-performance path, but it has its place when you
+want more configuration in the template and less in JavaScript (a step toward setting up a grid with
+as little JS as possible). Every stack supports it: a light-DOM `<tbw-grid-column-view>` element in
+vanilla (use `{{ value }}` to interpolate the cell value, and `{{ row.field }}` for other row
+fields), a `renderer` prop in React, a `#cell` slot in Vue, and the `*tbwRenderer` directive in
+Angular:
 
+<Tabs syncKey="framework">
+  <TabItem label="TypeScript">
 ```html
 <tbw-grid column-inference="merge">
   <tbw-grid-column field="status">
@@ -664,12 +670,54 @@ Use `{{ value }}` to interpolate the cell value (and `{{ row.field }}` for other
   </tbw-grid-column>
 </tbw-grid>
 ```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import { DataGrid, GridColumn } from '@toolbox-web/grid-react';
+
+function StatusGrid({ rows }) {
+  return (
+    <DataGrid rows={rows}>
+      <GridColumn
+        field="status"
+        renderer={({ value }) => <span className={`badge badge-${value}`}>{value}</span>}
+      />
+    </DataGrid>
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+</script>
+
+<template>
+  <TbwGrid :rows="rows">
+    <TbwGridColumn field="status">
+      <template #cell="{ value }">
+        <span :class="`badge badge-${value}`">{{ value }}</span>
+      </template>
+    </TbwGridColumn>
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```html
+<tbw-grid [rows]="rows">
+  <tbw-grid-column field="status">
+    <span *tbwRenderer="let value" [class]="'badge badge-' + value">{{ value }}</span>
+  </tbw-grid-column>
+</tbw-grid>
+```
+  </TabItem>
+</Tabs>
 
 The companion light-DOM templates are `<tbw-grid-column-editor>` (custom editor, requires the
 [Editing plugin](/grid/plugins/editing/)) and `<tbw-grid-column-header>` (custom header cell). See the
-[API reference](/grid/api-reference/#column-elements) for the full list. The framework adapters
-expose the same capability through their own template syntax — `#cell` slots in Vue, `*tbwRenderer`
-in Angular, and `renderer` props in React (shown in the tabs above).
+[API reference](/grid/api-reference/#column-elements) for the full list.
 
 #### Renderer security: avoid `innerHTML`
 

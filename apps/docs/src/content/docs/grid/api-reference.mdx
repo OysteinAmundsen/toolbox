@@ -598,8 +598,14 @@ const panels = shell?.getToolPanels();
 
 ### Header & Toolbar Content
 
-Register custom content in the grid's header bar (above column headers) or toolbar area through the shell plugin:
+Register custom content in the grid's header bar (above column headers) or toolbar area. In
+vanilla you call the shell plugin's imperative `registerHeaderContent` / `registerToolbarContent`
+APIs directly; the framework adapters wrap those same APIs in declarative components/directives that
+mount your own component (with full reactivity and DI) into the slot — prefer those over reaching for
+the imperative API by hand.
 
+<Tabs syncKey="framework">
+  <TabItem label="TypeScript">
 ```typescript
 const shell = grid.getPluginByName('shell');
 
@@ -639,6 +645,71 @@ shell?.unregisterToolbarContent('export-buttons');
 // Get all registered toolbar content definitions
 const toolbarContents = shell?.getToolbarContents();
 ```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import { DataGrid, GridHeaderContent, GridToolbarContent } from '@toolbox-web/grid-react';
+
+function EmployeeGrid({ rows }) {
+  return (
+    <DataGrid rows={rows}>
+      <GridHeaderContent id="global-search" order={10}>
+        <input type="search" placeholder="Search all columns..." />
+      </GridHeaderContent>
+      <GridToolbarContent id="export-buttons" order={100}>
+        <button className="tbw-toolbar-btn">Export CSV</button>
+      </GridToolbarContent>
+    </DataGrid>
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import { TbwGrid, TbwGridHeaderContent, TbwGridToolbarContent } from '@toolbox-web/grid-vue';
+</script>
+
+<template>
+  <TbwGrid :rows="rows">
+    <TbwGridHeaderContent id="global-search" :order="10">
+      <input type="search" placeholder="Search all columns..." />
+    </TbwGridHeaderContent>
+    <TbwGridToolbarContent id="export-buttons" :order="100">
+      <button class="tbw-toolbar-btn">Export CSV</button>
+    </TbwGridToolbarContent>
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import { Component } from '@angular/core';
+import { Grid, GridHeaderContent, GridToolbarContent } from '@toolbox-web/grid-angular';
+
+@Component({
+  imports: [Grid, GridHeaderContent, GridToolbarContent],
+  template: `
+    <tbw-grid [rows]="rows">
+      <tbw-grid-header-content id="global-search" [order]="10">
+        <ng-template>
+          <input type="search" placeholder="Search all columns..." />
+        </ng-template>
+      </tbw-grid-header-content>
+      <tbw-grid-toolbar-content id="export-buttons" [order]="100">
+        <ng-template>
+          <button class="tbw-toolbar-btn">Export CSV</button>
+        </ng-template>
+      </tbw-grid-toolbar-content>
+    </tbw-grid>
+  `,
+})
+export class EmployeeGridComponent {
+  rows = [/* ... */];
+}
+```
+  </TabItem>
+</Tabs>
 
 ### Row Height
 

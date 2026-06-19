@@ -32,7 +32,10 @@ Five corpus variants are published. **Pick the one that covers your stack:**
 | `llms-full-vanilla.txt` | Plain TypeScript / JavaScript, no framework |
 | `llms-full.txt` | Framework unknown, or multiple frameworks in one session |
 
-All variants are ~900 kB–1.2 MB. If your tool cannot fetch or fully process the file in one pass:
+These files are large (the per-framework variants are the smallest — they drop the
+other stacks' examples and link runnable demos instead of inlining them; the
+cross-framework `llms-full.txt` is the largest). If your tool cannot fetch or fully
+process the file in one pass:
 
 1. Download the right variant once: `curl -L https://toolboxjs.com/llms-full-angular.txt -o llms-full-angular.txt`
 2. Search for the topic: `rg -n 'your keyword' llms-full-angular.txt`

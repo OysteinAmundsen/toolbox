@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { filterFrameworkTabs, mdxToAgentMarkdown, resolveAudienceRegions } from './_llm-markdown.js';
+import {
+  dropMarkdownSections,
+  filterFrameworkTabs,
+  keepMarkdownSections,
+  mdxToAgentMarkdown,
+  resolveAudienceRegions,
+} from './_llm-markdown.js';
 
 /** Minimal options: no demos, no link rewriting, no CSS-var table. */
 const noop = { resolveDemo: () => undefined };
@@ -324,5 +330,186 @@ describe('filterFrameworkTabs', () => {
     expect(md).toContain('#### React');
     expect(md).toContain('#### Vue');
     expect(md).toContain('#### Angular');
+  });
+});
+
+describe('dropMarkdownSections', () => {
+  const page = [
+    '# Plugin',
+    '',
+    '## Installation',
+    '',
+    "import '@toolbox-web/grid/x';",
+    '',
+    '## Demos',
+    '',
+    'Big demo dump.',
+    '',
+    '### Sub demo',
+    '',
+    'More demo.',
+    '',
+    '## Configuration Options',
+    '',
+    'config truth',
+    '',
+    '## See Also',
+    '',
+    '- [x](y)',
+  ].join('\n');
+
+  it('removes a named H2 section and its nested subsections', () => {
+    const out = dropMarkdownSections(page, ['Demos', 'See Also']);
+    expect(out).not.toContain('Big demo dump.');
+    expect(out).not.toContain('### Sub demo');
+    expect(out).not.toContain('More demo.');
+    expect(out).not.toContain('## See Also');
+  });
+
+  it('keeps API-bearing sections intact', () => {
+    const out = dropMarkdownSections(page, ['Demos', 'See Also']);
+    expect(out).toContain('## Installation');
+    expect(out).toContain('## Configuration Options');
+    expect(out).toContain('config truth');
+  });
+
+  it('matches case-insensitively and unwraps linked headings', () => {
+    const md = ['## [See Also](/x)', 'links', '## Keep', 'body'].join('\n');
+    const out = dropMarkdownSections(md, ['see also']);
+    expect(out).not.toContain('links');
+    expect(out).toContain('## Keep');
+    expect(out).toContain('body');
+  });
+
+  it('is a no-op when no names are supplied', () => {
+    expect(dropMarkdownSections(page, [])).toBe(page);
+  });
+
+  it('matches headings even with CRLF line endings', () => {
+    // Source MDX is frequently CRLF-authored (Windows / git autocrlf); a naive
+    // `split("\n")` would leave a trailing `\r` and defeat the heading match.
+    const crlf = ['## Demos', 'demo body', '## Keep', 'kept body'].join('\r\n');
+    const out = dropMarkdownSections(crlf, ['Demos']);
+    expect(out).not.toContain('demo body');
+    expect(out).toContain('## Keep');
+    expect(out).toContain('kept body');
+  });
+
+  it('only matches level-2 headings, never deeper or shallower', () => {
+    const md = ['# Demos', 'a', '### Demos', 'b', '## Demos', 'c', '## Keep', 'd'].join('\n');
+    const out = dropMarkdownSections(md, ['Demos']);
+    expect(out).toContain('# Demos');
+    expect(out).toContain('### Demos');
+    expect(out).toContain('a');
+    expect(out).toContain('b');
+    expect(out).not.toContain('c');
+    expect(out).toContain('## Keep');
+  });
+
+  it('drops sections through mdxToAgentMarkdown when dropSections is set', () => {
+    const raw = [
+      '---',
+      'title: Plugin',
+      '---',
+      '## Installation',
+      '',
+      'install body',
+      '',
+      '## See Also',
+      '',
+      '- link',
+    ].join('\n');
+    const md = mdxToAgentMarkdown(raw, { resolveDemo: () => undefined, dropSections: ['See Also'] });
+    expect(md).toContain('## Installation');
+    expect(md).toContain('install body');
+    expect(md).not.toContain('## See Also');
+    expect(md).not.toContain('- link');
+  });
+});
+
+describe('keepMarkdownSections', () => {
+  const page = [
+    'Lead paragraph describing the plugin capability.',
+    '',
+    '## Installation',
+    '',
+    "import '@toolbox-web/grid/x';",
+    '',
+    '## Basic Usage',
+    '',
+    'minimal usage',
+    '',
+    '### Try It',
+    '',
+    'demo body',
+    '',
+    '## Configuration Options',
+    '',
+    'big config table',
+    '',
+    '## Events',
+    '',
+    'event list',
+  ].join('\n');
+
+  it('keeps the preamble plus the listed sections, dropping the rest', () => {
+    const out = keepMarkdownSections(page, ['Installation', 'Basic Usage']);
+    expect(out).toContain('Lead paragraph describing the plugin capability.');
+    expect(out).toContain('## Installation');
+    expect(out).toContain('## Basic Usage');
+    expect(out).toContain('minimal usage');
+    expect(out).not.toContain('## Configuration Options');
+    expect(out).not.toContain('big config table');
+    expect(out).not.toContain('## Events');
+    expect(out).not.toContain('event list');
+  });
+
+  it('keeps nested ### subsections of a kept H2', () => {
+    const out = keepMarkdownSections(page, ['Basic Usage']);
+    expect(out).toContain('### Try It');
+    expect(out).toContain('demo body');
+  });
+
+  it('matches case-insensitively and unwraps linked headings', () => {
+    const md = ['intro', '## [Installation](/x)', 'install body', '## Events', 'events'].join('\n');
+    const out = keepMarkdownSections(md, ['installation']);
+    expect(out).toContain('install body');
+    expect(out).not.toContain('events');
+  });
+
+  it('is a no-op when no names are supplied', () => {
+    expect(keepMarkdownSections(page, [])).toBe(page);
+  });
+
+  it('matches headings even with CRLF line endings', () => {
+    const crlf = ['intro', '## Installation', 'install body', '## Events', 'events'].join('\r\n');
+    const out = keepMarkdownSections(crlf, ['Installation']);
+    expect(out).toContain('install body');
+    expect(out).not.toContain('events');
+  });
+
+  it('keeps only the listed sections through mdxToAgentMarkdown when keepSections is set', () => {
+    const raw = [
+      '---',
+      'title: Plugin',
+      'description: A plugin.',
+      '---',
+      'Lead capability sentence.',
+      '',
+      '## Installation',
+      '',
+      'install body',
+      '',
+      '## Events',
+      '',
+      'event detail',
+    ].join('\n');
+    const md = mdxToAgentMarkdown(raw, { resolveDemo: () => undefined, keepSections: ['Installation'] });
+    expect(md).toContain('# Plugin');
+    expect(md).toContain('Lead capability sentence.');
+    expect(md).toContain('## Installation');
+    expect(md).toContain('install body');
+    expect(md).not.toContain('## Events');
+    expect(md).not.toContain('event detail');
   });
 });

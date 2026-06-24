@@ -1,4 +1,5 @@
 /// <reference types="vitest" />
+import codspeedPlugin from '@codspeed/vitest-plugin';
 import { copyFileSync, mkdirSync, readdirSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import cleanup from 'rollup-plugin-cleanup';
@@ -363,6 +364,7 @@ export default defineConfig(({ command }) => ({
   cacheDir: '../../node_modules/.vite/libs/grid',
   define: gridDefine,
   plugins: [
+    codspeedPlugin(),
     dts({
       entryRoot: 'src',
       tsconfigPath: resolve(__dirname, 'tsconfig.lib.json'),

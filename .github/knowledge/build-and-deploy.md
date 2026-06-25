@@ -37,15 +37,18 @@ related: [build-css, grid-core]
 ## release (release-please-config.json)
 
 - OWNS: per-package versioning (grid, grid-angular, grid-react, grid-vue)
-- MODE: prerelease (all versions tagged -rc.X)
-- PATTERN: single PR for all package bumps, component in tag (grid-v2.0.0-rc.4)
+- MODEL (maintenance-branch, since Jun 2026): `main` = active development of the **next major** (currently v3, prerelease `-beta.N`, npm dist-tag `next`); `2.x` = long-lived **v2 GA maintenance** branch (stable patches, npm dist-tag `latest`). release-please runs per-branch via `target-branch: ${{ github.ref_name }}`, so each branch keeps its OWN release PR + `.release-please-manifest.json`. Forward dev happens normally on `main`; backport bugfixes to the GA line with `git cherry-pick -x <sha>` onto `2.x`. SUPERSEDES the old `next`-branch flow (which forced constant `main → next` forward-merges of every commit).
+- PRERELEASE: `main`'s `release-please-config.json` sets `"prerelease": true, "prerelease-type": "beta"` on all 4 packages. `2.x`'s copy MUST keep these absent (stable releases). Bootstrap the first beta with a one-time `Release-As: 3.0.0-beta.0` footer (release-please then auto-increments beta.1, beta.2…). Promote to GA by flipping `prerelease` off on `main` and merging.
+- PATTERN: single PR for all package bumps, component in tag (`grid-3.0.0-beta.0`)
 - COMMIT TYPES: feat/fix/enhance/perf visible in changelog; docs/style/chore/refactor/test/build/ci hidden
 - INVARIANT: each library is an independent release-please component; major bumps are per-scope. A `feat(<scope>)!:` (or `BREAKING CHANGE:` footer) on one scope triggers a major for **only** that scope.
 - INVARIANT: `separate-pull-requests: false` ⇒ all pending bumps land in a single coordinated release PR.
 - INVARIANT (peer-dep cascade): release-please does NOT bump `peerDependencies` automatically. When `grid` jumps a major, every adapter's `peerDependencies."@toolbox-web/grid"` range must be widened **manually** in the same PR. That peer change is itself a breaking change, so adapters get a major even when they have no own deprecation removals.
 - DECIDED: publish order on a coordinated multi-major is `grid` first, then `grid-angular` / `grid-react` / `grid-vue` (peer-range satisfied at install time).
 - DECIDED: v1.x deprecation commits intentionally do NOT use `!`; the `!` is reserved for the major-bump PR itself.
-- DECIDED (cadence): aim for ~1 major / quarter (v1 → v2 was 22 Jan → 16 Apr 2026). Long-lived release branches are NOT used; branch from `main` ~1 week before the cut, run the cleanup as 4 `feat(<scope>)!:` commits + peer-dep bumps in one PR, let release-please publish, delete branch.
+- DECIDED (Jun 2026, npm dist-tag is version-driven NOT branch-driven): the 4 `publish-*` jobs read `dist/libs/<pkg>/package.json` version — contains `-` (prerelease) → `--tag next`, else → `--tag latest`. WHY: under the maintenance-branch model the beta lives on `main`, so the old branch-name rule (`ref == next → next`) would have pushed betas to `latest`. File: [ci.yml](.github/workflows/ci.yml) `Determine npm tag` steps. AT v3 GA: v2 patches from `2.x` should move OFF `latest` to a `2.x`/`v2-lts` dist-tag — the only manual dist-tag change needed at the GA flip.
+- DECIDED (Jun 2026, docs deploy is GA-only): `build-docs`/`deploy-pages` skip when `grid_version` contains `-` (prerelease), so toolboxjs.com stays on the GA (v2) docs throughout the v3 beta and auto-flips to v3 when `main` cuts the first stable `3.0.0`. v2 doc-only fixes during the beta deploy via manual `workflow_dispatch` (deploy_pages) — `2.x` does not auto-deploy docs (avoids re-clobbering v3 docs with v2 after GA). File: [ci.yml](.github/workflows/ci.yml) `build-docs`/`deploy-pages` `if`.
+- DECIDED (cadence): aim for ~1 major / quarter (v1 → v2 was 22 Jan → 16 Apr 2026). The next major is developed continuously on `main`; the previous major gets a `<major>.x` maintenance branch at the moment the major work starts, kept alive until the major is EOL.
 
 ## docs versioning (`@since` pipeline + version badges)
 

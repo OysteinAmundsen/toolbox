@@ -8,10 +8,12 @@ on:
     branches:
       - main
       - next
+      - "2.x"
   push:
     branches:
       - main
       - next
+      - "2.x"
       - "release-please--*"
   release:
     types: [published]
@@ -76,9 +78,9 @@ jobs:
           IS_RELEASE_MERGE="false"
           SHOULD_VALIDATE="false"
 
-          # Check if this is a release-please merge commit (main or next)
-          if [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/next" ]]; then
-            if [[ "$COMMIT_MSG" == "chore(main): release"* ]] || [[ "$COMMIT_MSG" == "chore(next): release"* ]] || [[ "$COMMIT_MSG" == "chore: release"* ]]; then
+          # Check if this is a release-please merge commit (main, next, or a maintenance branch like 2.x)
+          if [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/next" || "${{ github.ref }}" == "refs/heads/2.x" ]]; then
+            if [[ "$COMMIT_MSG" == "chore(main): release"* ]] || [[ "$COMMIT_MSG" == "chore(next): release"* ]] || [[ "$COMMIT_MSG" == "chore(2.x): release"* ]] || [[ "$COMMIT_MSG" == "chore: release"* ]]; then
               IS_RELEASE_MERGE="true"
               echo "🚀 Detected release-please merge commit - skipping test/build"
             fi
@@ -90,7 +92,7 @@ jobs:
             SHOULD_VALIDATE="true"
           elif [[ "${{ github.ref }}" == refs/heads/release-please--* ]]; then
             SHOULD_VALIDATE="true"
-          elif [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/next" ]] && [[ "$IS_RELEASE_MERGE" == "false" ]]; then
+          elif [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/next" || "${{ github.ref }}" == "refs/heads/2.x" ]] && [[ "$IS_RELEASE_MERGE" == "false" ]]; then
             SHOULD_VALIDATE="true"
           fi
 
@@ -641,7 +643,7 @@ jobs:
     if: |
       always() && !cancelled() &&
       (github.event_name == 'release' || github.event_name == 'workflow_dispatch') ||
-      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/next') && (
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/next' || github.ref == 'refs/heads/2.x') && (
         needs.setup.outputs.is_release_merge == 'true' ||
         (needs.test.result == 'success' && needs.build.result == 'success' && (needs.e2e.result == 'success' || needs.e2e.result == 'skipped'))
       ))
@@ -678,6 +680,10 @@ jobs:
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+          # Operate on whichever long-lived branch triggered the run so the v3
+          # line (main) and the v2 maintenance line (2.x) each keep their own
+          # release PR + manifest independently.
+          target-branch: ${{ github.ref_name }}
 
   # ============================================
   # RELEASE JOBS (runs on release published, release-please creates a release, or manual workflow_dispatch with release=true)
@@ -691,7 +697,8 @@ jobs:
           needs.release-please.outputs.grid_angular_release_created == 'true' ||
           needs.release-please.outputs.grid_react_release_created == 'true' ||
           needs.release-please.outputs.grid_vue_release_created == 'true'
-        ) && github.ref == 'refs/heads/main') ||
+        ) && github.ref == 'refs/heads/main'
+          && !contains(needs.release-please.outputs.grid_version, '-')) ||
         (github.event_name == 'workflow_dispatch' && inputs.deploy_pages == true && github.ref == 'refs/heads/main')
       )
     needs: [release-please]
@@ -740,7 +747,8 @@ jobs:
           needs.release-please.outputs.grid_angular_release_created == 'true' ||
           needs.release-please.outputs.grid_react_release_created == 'true' ||
           needs.release-please.outputs.grid_vue_release_created == 'true'
-        ) && github.ref == 'refs/heads/main') ||
+        ) && github.ref == 'refs/heads/main'
+          && !contains(needs.release-please.outputs.grid_version, '-')) ||
         (github.event_name == 'workflow_dispatch' && inputs.deploy_pages == true && github.ref == 'refs/heads/main')
       )
     environment:
@@ -800,10 +808,13 @@ jobs:
       - name: Determine npm tag
         id: npm-tag
         run: |
-          if [[ "${{ github.event.release.prerelease }}" == "true" ]] || [[ "${{ github.ref }}" == "refs/heads/next" ]]; then
-            echo "tag=next" >> $GITHUB_OUTPUT
+          # Version-driven dist-tag: prerelease versions (e.g. 3.0.0-beta.1) publish to
+          # "next", stable versions (GA line) to "latest" — independent of branch name.
+          VERSION=$(node -p "require('./dist/libs/grid/package.json').version")
+          if [[ "$VERSION" == *-* ]]; then
+            echo "tag=next" >> "$GITHUB_OUTPUT"
           else
-            echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish @toolbox-web/grid to npm
@@ -855,10 +866,13 @@ jobs:
       - name: Determine npm tag
         id: npm-tag
         run: |
-          if [[ "${{ github.event.release.prerelease }}" == "true" ]] || [[ "${{ github.ref }}" == "refs/heads/next" ]]; then
-            echo "tag=next" >> $GITHUB_OUTPUT
+          # Version-driven dist-tag: prerelease versions (e.g. 3.0.0-beta.1) publish to
+          # "next", stable versions (GA line) to "latest" — independent of branch name.
+          VERSION=$(node -p "require('./dist/libs/grid-angular/package.json').version")
+          if [[ "$VERSION" == *-* ]]; then
+            echo "tag=next" >> "$GITHUB_OUTPUT"
           else
-            echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish @toolbox-web/grid-angular to npm
@@ -910,10 +924,13 @@ jobs:
       - name: Determine npm tag
         id: npm-tag
         run: |
-          if [[ "${{ github.event.release.prerelease }}" == "true" ]] || [[ "${{ github.ref }}" == "refs/heads/next" ]]; then
-            echo "tag=next" >> $GITHUB_OUTPUT
+          # Version-driven dist-tag: prerelease versions (e.g. 3.0.0-beta.1) publish to
+          # "next", stable versions (GA line) to "latest" — independent of branch name.
+          VERSION=$(node -p "require('./dist/libs/grid-react/package.json').version")
+          if [[ "$VERSION" == *-* ]]; then
+            echo "tag=next" >> "$GITHUB_OUTPUT"
           else
-            echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish @toolbox-web/grid-react to npm
@@ -965,10 +982,13 @@ jobs:
       - name: Determine npm tag
         id: npm-tag
         run: |
-          if [[ "${{ github.event.release.prerelease }}" == "true" ]] || [[ "${{ github.ref }}" == "refs/heads/next" ]]; then
-            echo "tag=next" >> $GITHUB_OUTPUT
+          # Version-driven dist-tag: prerelease versions (e.g. 3.0.0-beta.1) publish to
+          # "next", stable versions (GA line) to "latest" — independent of branch name.
+          VERSION=$(node -p "require('./dist/libs/grid-vue/package.json').version")
+          if [[ "$VERSION" == *-* ]]; then
+            echo "tag=next" >> "$GITHUB_OUTPUT"
           else
-            echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish @toolbox-web/grid-vue to npm

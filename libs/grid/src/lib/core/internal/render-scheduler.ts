@@ -273,9 +273,7 @@ export class RenderScheduler {
       rowCount: this.#grid._rows?.length ?? 0,
       visibleRange,
     };
-    this.#grid._hostElement.dispatchEvent(
-      new CustomEvent('render', { detail, bubbles: true, composed: true }),
-    );
+    this.#grid._hostElement.dispatchEvent(new CustomEvent('render', { detail, bubbles: true, composed: true }));
   }
 }
 // #endregion

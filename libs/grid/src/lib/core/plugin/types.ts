@@ -5,7 +5,7 @@
  * Centralizing them here avoids circular imports and reduces duplication.
  */
 
-import type { ColumnConfig, GridConfig, ToolPanelDefinition, UpdateSource } from '../types';
+import type { ColumnConfig, GridConfig, HeaderContentDefinition, ToolPanelDefinition, UpdateSource } from '../types';
 
 // #region Event Types
 /**
@@ -484,6 +484,15 @@ export interface GridElementRef {
   _getToolPanelRendererFactory():
     | ((element: HTMLElement) => ((container: HTMLElement) => void | (() => void)) | undefined)
     | undefined;
+
+  /**
+   * Tool-panel + header-content contributions gathered from all attached
+   * plugins. The ShellPlugin polls this from its own `processConfig` hook to
+   * self-collect plugin shell contributions — core holds no shell orchestration
+   * (extraction #370). Generic plugin-contribution accessor, not shell-specific.
+   * @internal Plugin API
+   */
+  _pluginShellContributions(): { toolPanels: ToolPanelDefinition[]; headerContents: HeaderContentDefinition[] };
 
   // =========================================================================
   // Row Update API

@@ -12,13 +12,7 @@ import {
 } from './internal/aria';
 import { autoSizeColumns, updateTemplate } from './internal/columns';
 import { ConfigManager } from './internal/config-manager';
-import {
-  HEADER_CONTENT_DUPLICATE,
-  INVALID_ATTRIBUTE_JSON,
-  SHELL_API_DEPRECATED,
-  TOOL_PANEL_DUPLICATE,
-  warnDiagnostic,
-} from './internal/diagnostics';
+import { INVALID_ATTRIBUTE_JSON, SHELL_API_DEPRECATED, warnDiagnostic } from './internal/diagnostics';
 import { buildBareGridDOMIntoElement } from './internal/dom-builder';
 import { updateEmptyOverlay, type EmptyOverlayState } from './internal/empty';
 import { setupCellEventDelegation, setupRootEventDelegation } from './internal/event-delegation';
@@ -1145,6 +1139,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#shellPlugin = allPlugins.find((p) => p.name === 'shell') as ShellPlugin | undefined;
     }
 
+    // SHELL-ALWAYS-ON-V3-370: eagerly create the shell's state so it is active
+    // from first render — matching HEAD's always-on shell. Without this, a
+    // plugin-contributed tool panel (e.g. VisibilityPlugin) cannot activate an
+    // otherwise-untouched auto-registered shell, so its structural-rerender
+    // decision and config fold never run. (Stage 4 removes auto-register; the
+    // opt-in shell creates its own state on attach.)
+    this.#shellPlugin?.ensureState(this);
+
     // Attach all plugins
     this.#pluginManager.attachAll(allPlugins);
   }
@@ -1209,37 +1211,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#pluginManager.detachAll();
     }
 
-    // Clear plugin-contributed panels BEFORE re-initializing plugins
-    // This is critical: when plugins are re-initialized, they create NEW instances
-    // with NEW render functions. The old panel definitions have stale closures.
-    // We preserve light DOM panels (tracked in lightDomToolPanelIds) and
-    // API-registered panels (tracked in apiToolPanelIds).
-    for (const panelId of this.#shellState.toolPanels.keys()) {
-      const isLightDom = this.#shellState.lightDomToolPanelIds.has(panelId);
-      const isApiRegistered = this.#shellState.apiToolPanelIds.has(panelId);
-      if (!isLightDom && !isApiRegistered) {
-        // Clean up any active panel cleanup function
-        const cleanup = this.#shellState.panelCleanups.get(panelId);
-        if (cleanup) {
-          cleanup();
-          this.#shellState.panelCleanups.delete(panelId);
-        }
-        this.#shellState.toolPanels.delete(panelId);
-      }
-    }
-
-    // Similarly clear plugin-contributed header contents
-    // Preserve API-registered header contents (tracked in apiHeaderContentIds).
-    for (const contentId of this.#shellState.headerContents.keys()) {
-      if (this.#shellState.apiHeaderContentIds.has(contentId)) continue;
-      const cleanup = this.#shellState.headerContentCleanups.get(contentId);
-      if (cleanup) {
-        cleanup();
-        this.#shellState.headerContentCleanups.delete(contentId);
-      }
-      this.#shellState.headerContents.delete(contentId);
-    }
-
     this.#initializePlugins();
     this.#injectAllPluginStyles();
 
@@ -1253,9 +1224,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // producing incorrect translateY when detail rows are expanded.
     this.#configureVariableHeights();
 
-    // Re-collect plugin shell contributions (tool panels, header content)
-    // Now the new plugin instances will add their fresh panel definitions
-    this.#collectPluginShellContributions();
+    // Re-run the config merge so the ShellPlugin's `processConfig` re-collects
+    // shell contributions from the freshly re-initialized plugin instances
+    // (extraction #370 — collection is now plugin-owned).
+    this.#configManager.markSourcesChanged();
+    this.#configManager.merge();
 
     // Update cached scroll plugin flag and re-setup scroll listeners if needed
     // This ensures horizontal scroll listener is added when plugins with onScroll handlers are added
@@ -1275,60 +1248,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   #destroyPlugins(): void {
     this.#pluginManager?.detachAll();
-  }
-
-  /**
-   * Collect tool panels and header content from all plugins.
-   * Called after plugins are attached but before render.
-   */
-  #collectPluginShellContributions(): void {
-    if (!this.#pluginManager) return;
-
-    // Collect tool panels from plugins
-    const pluginPanels = this.#pluginManager.getToolPanels();
-    for (const { panel } of pluginPanels) {
-      // Precedence (#370): a plugin-contributed panel wins over a colliding
-      // light-DOM panel (the plugin manipulates its own DOM, so it must own the
-      // id), but an explicitly API-registered panel still wins over the plugin.
-      if (this.#shellState.apiToolPanelIds.has(panel.id)) continue;
-      const isLightDom = this.#shellState.lightDomToolPanelIds.has(panel.id);
-      if (isLightDom) {
-        warnDiagnostic(
-          TOOL_PANEL_DUPLICATE,
-          `Tool panel "${panel.id}" is provided by a plugin; ignoring the matching light-DOM <tbw-grid-tool-panel>.`,
-          this.id,
-        );
-        const cleanup = this.#shellState.panelCleanups.get(panel.id);
-        if (cleanup) {
-          cleanup();
-          this.#shellState.panelCleanups.delete(panel.id);
-        }
-        this.#shellState.lightDomToolPanelIds.delete(panel.id);
-        this.#shellState.adapterBoundToolPanelIds.delete(panel.id);
-      }
-      this.#shellState.toolPanels.set(panel.id, panel);
-    }
-
-    // Collect header contents from plugins
-    const pluginContents = this.#pluginManager.getHeaderContents();
-    for (const { content } of pluginContents) {
-      // Precedence (#370): plugin wins over a colliding light-DOM header content,
-      // but an explicitly API-registered header content still wins over the plugin.
-      if (this.#shellState.apiHeaderContentIds.has(content.id)) continue;
-      if (this.#shellState.headerContents.has(content.id)) {
-        warnDiagnostic(
-          HEADER_CONTENT_DUPLICATE,
-          `Header content "${content.id}" is provided by a plugin; ignoring the matching light-DOM definition.`,
-          this.id,
-        );
-        const cleanup = this.#shellState.headerContentCleanups.get(content.id);
-        if (cleanup) {
-          cleanup();
-          this.#shellState.headerContentCleanups.delete(content.id);
-        }
-      }
-      this.#shellState.headerContents.set(content.id, content);
-    }
   }
 
   /**
@@ -1445,9 +1364,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const pluginsConfig = this.#effectiveConfig?.plugins;
     this.#lastPluginsArray = Array.isArray(pluginsConfig) ? (pluginsConfig as BaseGridPlugin[]) : [];
     this.#lastFeaturesConfig = (this.#effectiveConfig?.features as Record<string, unknown>) ?? undefined;
-
-    // Collect tool panels and header content from plugins (must be before render)
-    this.#collectPluginShellContributions();
 
     if (!this.#initialized) {
       this.#render();
@@ -2412,22 +2328,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   #applyGridConfigUpdate(): void {
-    // Parse shell config (title, etc.) - needed for React where gridConfig is set after initial render
-    // Note: We parse header/buttons here (not all of #parseLightDom) because we need to
-    // parse tool panels AFTER plugins are initialized (see below)
-    this.#resolveShellPlugin()._parseLightDomHeader(this);
-
-    const hadShell = !!this.#renderRoot.querySelector('.has-shell');
-    const hadToolPanel = !!this.#renderRoot.querySelector('.tbw-tool-panel');
-    const accordionSectionsBefore = this.#renderRoot.querySelectorAll('.tbw-accordion-section').length;
-    const prevPosition =
-      (this.#renderRoot.querySelector('.tbw-tool-panel') as HTMLElement)?.dataset.position ?? 'right';
-    // The tool-panel layout mode is baked into `data-mode` on `.tbw-shell-body`
-    // (and gates `popover` on `.tbw-tool-panel`). An in-place header update does
-    // not rewrite either, so a mode-only change (`overlay` ↔ `push` ↔ `dropdown`)
-    // must force a full re-render to be reflected in the DOM.
-    const prevMode = (this.#renderRoot.querySelector('.tbw-shell-body') as HTMLElement)?.dataset.mode ?? 'overlay';
-
+    // Shell light-DOM (header / tool-buttons / tool-panels) is parsed by the
+    // ShellPlugin's `processConfig` + `parseLightDom` hooks on each merge below —
+    // core holds no shell parse knowledge (extraction #370).
     this.#configManager.parseLightDomColumns(this);
     this.#configManager.merge();
     this.#updatePluginConfigs();
@@ -2436,8 +2339,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // from a number to a function (or vice versa) without any plugin changes.
     this.#configureVariableHeights();
 
-    // Parse light DOM tool panels AFTER plugins are initialized
-    this.#resolveShellPlugin()._parseLightDomToolPanels(this);
+    // Second merge so plugin hooks re-fold any contributions parsed/collected
+    // after plugin (re-)initialization.
     this.#configManager.markSourcesChanged();
     this.#configManager.merge();
 
@@ -2459,24 +2362,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#configManager.applyState(pendingInitialState, plugins);
     }
 
-    const nowNeedsShell = this.#resolveShellPlugin()._shouldRenderHeader(this.#effectiveConfig?.shell);
-    const nowHasToolPanels = (this.#effectiveConfig?.shell?.toolPanels?.length ?? 0) > 0;
-    const toolPanelCount = this.#effectiveConfig?.shell?.toolPanels?.length ?? 0;
-    const newPosition = this.#effectiveConfig?.shell?.toolPanel?.position ?? 'right';
-    const newMode = this.#effectiveConfig?.shell?.toolPanel?.mode ?? 'overlay';
-
-    // Full re-render needed if shell state, panel count, panel position, or
-    // panel mode changed
-    const needsFullRerender =
-      hadShell !== nowNeedsShell ||
-      (!hadToolPanel && nowHasToolPanels) ||
-      (hadToolPanel && toolPanelCount !== accordionSectionsBefore) ||
-      (hadToolPanel && prevPosition !== newPosition) ||
-      (hadToolPanel && prevMode !== newMode);
+    // Ask plugins whether the structural DOM signature changed (shell header
+    // appearing/disappearing, tool-panel count/position/mode). Generic hook —
+    // core holds no shell-specific re-render logic (extraction #370). The hook
+    // reads the still-current (old) DOM vs the freshly merged config.
+    const needsFullRerender = this.#pluginManager?.needsStructuralRerender() ?? false;
 
     if (needsFullRerender) {
-      // Prepare shell state for re-render (moves toolbar buttons back to original container)
-      this.#resolveShellPlugin()._prepareForRerender();
+      // Plugins move relocated light-DOM nodes back ahead of the rebuild.
+      this.#pluginManager?.beforeStructuralRender();
       this.#render();
       this.#injectAllPluginStyles();
       this.#afterConnect();
@@ -2484,47 +2378,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       return;
     }
 
-    if (hadShell) {
-      this.#updateShellHeaderInPlace();
-    }
-
-    // If tool panel is open, re-render any expanded sections whose content was
-    // cleared during plugin re-initialization (cleanup removes rendered DOM).
-    // renderPanelContent is idempotent — it only renders sections with empty content.
-    if (this.#shellState.isPanelOpen) {
-      this.#resolveShellPlugin()._renderOpenPanelContent(this);
-    }
-
+    // In-place shell header sync + open tool-panel re-render now happen in the
+    // ShellPlugin's `afterRender` hook, fired by the COLUMNS render below.
     this._rebuildRowIdMap();
     this.#scheduler.requestPhase(RenderPhase.COLUMNS, 'applyGridConfigUpdate');
-  }
-
-  /**
-   * Update the shell header DOM in place without a full re-render.
-   * Handles title, toolbar buttons, and other shell header changes.
-   */
-  #updateShellHeaderInPlace(): void {
-    const shellHeader = this.#renderRoot.querySelector('.tbw-shell-header');
-    if (!shellHeader) return;
-
-    const title = this.#effectiveConfig.shell?.header?.title ?? this.#shellState.lightDomTitle;
-
-    // Update or create title element
-    let titleEl = shellHeader.querySelector('.tbw-shell-title') as HTMLElement | null;
-    if (title) {
-      if (!titleEl) {
-        // Create title element if it doesn't exist
-        titleEl = document.createElement('h2');
-        titleEl.className = 'tbw-shell-title';
-        titleEl.setAttribute('part', 'shell-title');
-        // Insert at the beginning of the shell header
-        shellHeader.insertBefore(titleEl, shellHeader.firstChild);
-      }
-      titleEl.textContent = title;
-    } else if (titleEl) {
-      // Remove title element if no title
-      titleEl.remove();
-    }
   }
 
   // NOTE: Legacy watch handlers have been replaced by the batched update system.
@@ -2867,6 +2724,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /** @internal Shell state for config manager shell merging. */
   get _shellState() {
     return this.#shellState;
+  }
+
+  /**
+   * @internal Tool-panel + header-content contributions gathered from all
+   * attached plugins. The ShellPlugin polls this from its own `processConfig`
+   * hook to self-collect plugin shell contributions (extraction #370).
+   */
+  _pluginShellContributions(): { toolPanels: ToolPanelDefinition[]; headerContents: HeaderContentDefinition[] } {
+    const toolPanels = (this.#pluginManager?.getToolPanels() ?? []).map((entry) => entry.panel);
+    const headerContents = (this.#pluginManager?.getHeaderContents() ?? []).map((entry) => entry.content);
+    return { toolPanels, headerContents };
   }
 
   /** @internal Clear the row pool and body element. */
@@ -4683,8 +4551,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       // Re-merge config to sync shell state changes into effectiveConfig.shell
       this.#configManager.merge();
 
-      // Prepare shell state for re-render (moves toolbar buttons back to original container)
-      this.#resolveShellPlugin()._prepareForRerender();
+      // Prepare for re-render (plugins move relocated light-DOM nodes back).
+      this.#pluginManager?.beforeStructuralRender();
 
       // Re-wrap the freshly prepared shell DOM via the ShellPlugin (fires the
       // afterStructuralRender hook). The plugin surgically rebuilds the shell
@@ -4908,7 +4776,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Consolidates parsing of header, tool buttons, and tool panels.
    */
   #parseLightDom(): void {
-    this.#resolveShellPlugin()._parseLightDomAll(this);
+    // Generic seam — each plugin parses its own light-DOM contributions. The
+    // ShellPlugin parses header / tool-buttons / tool-panels here (#370).
+    this.#pluginManager?.parseLightDom();
   }
 
   /**
@@ -4918,8 +4788,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #replaceShellHeaderElement(): void {
     if (!this.#renderRoot.querySelector('.tbw-shell-header')) return;
 
-    // Prepare for re-render (moves toolbar buttons back to original container)
-    this.#resolveShellPlugin()._prepareForRerender();
+    // Prepare for re-render (plugins move relocated light-DOM nodes back).
+    this.#pluginManager?.beforeStructuralRender();
 
     // Re-wrap via the ShellPlugin (afterStructuralRender) so the shell header
     // reflects the new title / tool buttons; the hook also re-renders all shell

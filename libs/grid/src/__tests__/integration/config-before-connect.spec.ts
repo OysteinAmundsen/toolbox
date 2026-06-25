@@ -12,6 +12,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
 import type { DataGridElement } from '../../lib/core/grid';
+import { ShellPlugin } from '../../lib/plugins/shell';
 
 function nextFrame() {
   return new Promise((r) => requestAnimationFrame(r));
@@ -90,8 +91,10 @@ describe('Vanilla Demo Pattern - Config Before Connect', () => {
     toolButtons.appendChild(exportBtn);
     grid.appendChild(toolButtons);
 
-    // Set gridConfig with shell (like vanilla demo)
+    // Set gridConfig with shell (like vanilla demo). Shell is opt-in (#370):
+    // register the ShellPlugin so the top-level `shell` config is honored.
     grid.gridConfig = {
+      plugins: [new ShellPlugin()],
       shell: {
         header: {
           title: 'Employee Management System (JS)',
@@ -205,6 +208,7 @@ describe('Vanilla Demo Pattern - Config Before Connect', () => {
         { field: 'status', header: 'Status', width: 140, sortable: true },
       ],
       plugins: [
+        new ShellPlugin(),
         new SelectionPlugin({ mode: 'range' }),
         new MultiSortPlugin(),
         new FilteringPlugin({ debounceMs: 200 }),

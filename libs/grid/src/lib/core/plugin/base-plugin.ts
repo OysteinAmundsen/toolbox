@@ -8,6 +8,7 @@
 // Injected by Vite at build time from package.json (same as grid.ts)
 declare const __GRID_VERSION__: string;
 
+import type { HeaderContentDefinition, ToolPanelDefinition } from '../../plugins/shell/types';
 import {
   type DiagnosticCode,
   PLUGIN_ALIAS_CONFIG_CONFLICT,
@@ -15,17 +16,7 @@ import {
   gridPrefix,
 } from '../internal/diagnostics';
 import { sanitizeHTML } from '../internal/sanitize';
-import type {
-  ColumnConfig,
-  ColumnState,
-  GridConfig,
-  GridIcons,
-  GridPlugin,
-  HeaderContentDefinition,
-  IconValue,
-  PluginNameMap,
-  ToolPanelDefinition,
-} from '../types';
+import type { ColumnConfig, ColumnState, GridConfig, GridIcons, GridPlugin, IconValue, PluginNameMap } from '../types';
 import { DEFAULT_GRID_ICONS } from '../types';
 
 // Re-export shared plugin types for convenience
@@ -1324,6 +1315,17 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * `this.grid._hostElement`). MUST be idempotent.
    */
   parseLightDom?(): void;
+
+  /**
+   * Called by the grid (from `refreshColumns` and the light-DOM observer) to
+   * let a plugin re-parse its light-DOM contributions AND refresh any
+   * already-rendered chrome in place when something changed — e.g. a shell
+   * title or tool buttons that a framework projected asynchronously after the
+   * initial render. Distinct from {@link parseLightDom}, which only updates
+   * plugin state. Generic seam — core holds no plugin-specific knowledge. MUST
+   * be idempotent and a no-op when the plugin's chrome is not yet rendered.
+   */
+  syncLightDom?(): void;
 
   /**
    * Called after each cell is rendered.

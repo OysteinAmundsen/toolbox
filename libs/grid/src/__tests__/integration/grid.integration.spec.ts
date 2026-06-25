@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../lib/core/grid';
+// Shell is opt-in (#370): importing the feature registers its factory so
+// `features: { shell }` activates the ShellPlugin.
+import '../../lib/features/shell';
 // Import plugins used by integration tests
 import { ColumnVirtualizationPlugin } from '../../lib/plugins/column-virtualization';
 import { EditingPlugin } from '../../lib/plugins/editing';
@@ -943,7 +946,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
   it('renders shell header when title is configured', async () => {
     grid = document.createElement('tbw-grid');
     grid.gridConfig = {
-      shell: { header: { title: 'My Grid' } },
+      features: { shell: { header: { title: 'My Grid' } } },
     };
     grid.rows = [{ id: 1 }];
     document.body.appendChild(grid);
@@ -971,6 +974,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     toolButtons.appendChild(refreshBtn);
     grid.appendChild(toolButtons);
 
+    grid.gridConfig = { features: { shell: true } };
     grid.rows = [{ id: 1 }];
     document.body.appendChild(grid);
     await waitUpgrade(grid);
@@ -1005,7 +1009,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     toolButtons.appendChild(exportBtn);
     grid.appendChild(toolButtons);
 
-    grid.gridConfig = { columns: [{ field: 'id' }] };
+    grid.gridConfig = { columns: [{ field: 'id' }], features: { shell: true } };
     grid.rows = [{ id: 1 }];
     document.body.appendChild(grid);
     await waitUpgrade(grid);
@@ -1020,7 +1024,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(clickCount).toBe(1);
 
     // Re-apply gridConfig (triggers re-render in some cases)
-    grid.gridConfig = { columns: [{ field: 'id' }, { field: 'name' }] };
+    grid.gridConfig = { columns: [{ field: 'id' }, { field: 'name' }], features: { shell: true } };
     await nextFrame();
 
     // Button should still be connected and in a slot
@@ -1037,7 +1041,12 @@ describe('tbw-grid integration: shell header & tool panels', () => {
   it('opens and closes tool panels via API', async () => {
     grid = document.createElement('tbw-grid');
     grid.rows = [{ id: 1 }];
-    grid.registerToolPanel({
+    grid.gridConfig = { features: { shell: true } };
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
       id: 'test-panel',
       title: 'Test Panel',
       icon: '⚙',
@@ -1045,18 +1054,17 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         container.innerHTML = '<span class="test-content">Hello</span>';
       },
     });
-    document.body.appendChild(grid);
-    await waitUpgrade(grid);
+    await nextFrame();
 
     // Panel should be registered but closed
-    expect(grid.isToolPanelOpen).toBe(false);
+    expect(shell.isToolPanelOpen).toBe(false);
 
     // Open panel - first section is auto-expanded
-    grid.openToolPanel();
+    shell.openToolPanel();
     await nextFrame();
-    expect(grid.isToolPanelOpen).toBe(true);
+    expect(shell.isToolPanelOpen).toBe(true);
     // First (and only) panel should be auto-expanded
-    expect(grid.expandedToolPanelSections).toContain('test-panel');
+    expect(shell.expandedToolPanelSections).toContain('test-panel');
 
     const shadow = grid;
     const panel = shadow.querySelector('.tbw-tool-panel');
@@ -1064,14 +1072,20 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(shadow.querySelector('.test-content')?.textContent).toBe('Hello');
 
     // Close panel
-    grid.closeToolPanel();
+    shell.closeToolPanel();
     await nextFrame();
-    expect(grid.isToolPanelOpen).toBe(false);
+    expect(shell.isToolPanelOpen).toBe(false);
   });
 
   it('renders the tool panel as a popover in dropdown mode and anchors to the toggle', async () => {
     grid = document.createElement('tbw-grid');
-    grid.registerToolPanel({
+    grid.gridConfig = { features: { shell: { toolPanel: { mode: 'dropdown' } } } };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
       id: 'columns',
       title: 'Columns',
       icon: '☰',
@@ -1079,20 +1093,16 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
-    grid.gridConfig = { shell: { toolPanel: { mode: 'dropdown' } } };
-    grid.rows = [{ id: 1 }];
-    document.body.appendChild(grid);
-    await waitUpgrade(grid);
+    await nextFrame();
 
     const body = grid.querySelector('.tbw-shell-body');
     const panel = grid.querySelector('.tbw-tool-panel') as HTMLElement;
     expect(body?.getAttribute('data-mode')).toBe('dropdown');
     expect(panel?.getAttribute('popover')).toBe('manual');
 
-    const shell = grid.getPluginByName('shell')!;
     shell.openToolPanel();
     await nextFrame();
-    expect(grid.isToolPanelOpen).toBe(true);
+    expect(shell.isToolPanelOpen).toBe(true);
     // Anchored to the built-in toggle (drop below) when no explicit anchor given.
     expect(panel?.dataset.anchor).toBe('below');
     // `.open` is the CSS fallback that renders the popover when the Popover API
@@ -1101,7 +1111,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
 
     shell.closeToolPanel();
     await nextFrame();
-    expect(grid.isToolPanelOpen).toBe(false);
+    expect(shell.isToolPanelOpen).toBe(false);
     expect(panel?.dataset.anchor).toBeUndefined();
     expect(panel?.classList.contains('open')).toBe(false);
   });
@@ -1113,23 +1123,26 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     // config (effectiveConfig.shell.toolPanel.mode) updated but the DOM did not,
     // so push/dropdown silently rendered as overlay.
     grid = document.createElement('tbw-grid');
-    grid.registerToolPanel({ id: 'columns', title: 'Columns', icon: '☰', render: () => undefined });
-    grid.gridConfig = { shell: { toolPanel: { mode: 'overlay' } } };
+    grid.gridConfig = { features: { shell: { toolPanel: { mode: 'overlay' } } } };
     grid.rows = [{ id: 1 }];
     document.body.appendChild(grid);
     await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({ id: 'columns', title: 'Columns', icon: '☰', render: () => undefined });
+    await nextFrame();
 
     const mode = () => grid.querySelector('.tbw-shell-body')?.getAttribute('data-mode');
     expect(mode()).toBe('overlay');
 
     // Mode-only change to push — a NEW gridConfig object, same single panel.
-    grid.gridConfig = { shell: { toolPanel: { mode: 'push' } } };
+    grid.gridConfig = { features: { shell: { toolPanel: { mode: 'push' } } } };
     await nextFrame();
     expect(grid.effectiveConfig?.shell?.toolPanel?.mode).toBe('push');
     expect(mode()).toBe('push');
 
     // And to dropdown.
-    grid.gridConfig = { shell: { toolPanel: { mode: 'dropdown' } } };
+    grid.gridConfig = { features: { shell: { toolPanel: { mode: 'dropdown' } } } };
     await nextFrame();
     expect(mode()).toBe('dropdown');
     expect(grid.querySelector('.tbw-tool-panel')?.getAttribute('popover')).toBe('manual');
@@ -1137,23 +1150,29 @@ describe('tbw-grid integration: shell header & tool panels', () => {
 
   it('omits the in-panel close button in dropdown mode (light-dismisses instead)', async () => {
     grid = document.createElement('tbw-grid');
-    grid.registerToolPanel({ id: 'columns', title: 'Columns', icon: '☰', render: () => undefined });
     // Header hidden (would normally render a ✕) AND dropdown mode → no ✕ button.
-    grid.gridConfig = { shell: { header: { visible: false }, toolPanel: { mode: 'dropdown' } } };
+    grid.gridConfig = { features: { shell: { header: { visible: false }, toolPanel: { mode: 'dropdown' } } } };
     grid.rows = [{ id: 1 }];
     document.body.appendChild(grid);
     await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({ id: 'columns', title: 'Columns', icon: '☰', render: () => undefined });
+    await nextFrame();
 
     expect(grid.querySelector('[data-panel-close]')).toBeNull();
   });
 
   it('inlines the close button onto the single accordion header when the header bar is hidden (overlay)', async () => {
     grid = document.createElement('tbw-grid');
-    grid.registerToolPanel({ id: 'columns', title: 'Columns', icon: '☰', render: () => undefined });
-    grid.gridConfig = { shell: { header: { visible: false }, toolPanel: { mode: 'overlay' } } };
+    grid.gridConfig = { features: { shell: { header: { visible: false }, toolPanel: { mode: 'overlay' } } } };
     grid.rows = [{ id: 1 }];
     document.body.appendChild(grid);
     await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({ id: 'columns', title: 'Columns', icon: '☰', render: () => undefined });
+    await nextFrame();
 
     const closeBtn = grid.querySelector('[data-panel-close]') as HTMLButtonElement | null;
     expect(closeBtn).not.toBeNull();
@@ -1165,7 +1184,13 @@ describe('tbw-grid integration: shell header & tool panels', () => {
 
   it('anchors the dropdown to an explicit anchor element when provided', async () => {
     grid = document.createElement('tbw-grid');
-    grid.registerToolPanel({
+    grid.gridConfig = { features: { shell: { toolPanel: { mode: 'dropdown' } } } };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
       id: 'columns',
       title: 'Columns',
       icon: '☰',
@@ -1173,19 +1198,15 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
-    grid.gridConfig = { shell: { toolPanel: { mode: 'dropdown' } } };
-    grid.rows = [{ id: 1 }];
-    document.body.appendChild(grid);
-    await waitUpgrade(grid);
+    await nextFrame();
 
     const customAnchor = document.createElement('button');
     document.body.appendChild(customAnchor);
 
-    const shell = grid.getPluginByName('shell')!;
     shell.openToolPanel('columns', { anchor: customAnchor });
     await nextFrame();
 
-    expect(grid.isToolPanelOpen).toBe(true);
+    expect(shell.isToolPanelOpen).toBe(true);
     const panel = grid.querySelector('.tbw-tool-panel') as HTMLElement;
     expect(panel?.dataset.anchor).toBe('below');
 
@@ -1195,7 +1216,12 @@ describe('tbw-grid integration: shell header & tool panels', () => {
   it('toggles tool panels', async () => {
     grid = document.createElement('tbw-grid');
     grid.rows = [{ id: 1 }];
-    grid.registerToolPanel({
+    grid.gridConfig = { features: { shell: true } };
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
       id: 'columns',
       title: 'Columns',
       icon: '☰',
@@ -1203,22 +1229,26 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
-    document.body.appendChild(grid);
-    await waitUpgrade(grid);
+    await nextFrame();
 
     // Toggle on
-    grid.toggleToolPanel();
-    expect(grid.isToolPanelOpen).toBe(true);
+    shell.toggleToolPanel();
+    expect(shell.isToolPanelOpen).toBe(true);
 
     // Toggle off
-    grid.toggleToolPanel();
-    expect(grid.isToolPanelOpen).toBe(false);
+    shell.toggleToolPanel();
+    expect(shell.isToolPanelOpen).toBe(false);
   });
 
   it('clicks panel toggle button to open panel', async () => {
     grid = document.createElement('tbw-grid');
     grid.rows = [{ id: 1 }];
-    grid.registerToolPanel({
+    grid.gridConfig = { features: { shell: true } };
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
       id: 'columns',
       title: 'Columns',
       icon: '☰',
@@ -1226,8 +1256,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
-    document.body.appendChild(grid);
-    await waitUpgrade(grid);
+    await nextFrame();
 
     const shadow = grid;
     const toggleBtn = shadow.querySelector('[data-panel-toggle]') as HTMLButtonElement;
@@ -1235,13 +1264,18 @@ describe('tbw-grid integration: shell header & tool panels', () => {
 
     toggleBtn.click();
     await nextFrame();
-    expect(grid.isToolPanelOpen).toBe(true);
+    expect(shell.isToolPanelOpen).toBe(true);
   });
 
   it('closes panel by toggling toolbar button again', async () => {
     grid = document.createElement('tbw-grid');
     grid.rows = [{ id: 1 }];
-    grid.registerToolPanel({
+    grid.gridConfig = { features: { shell: true } };
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
       id: 'columns',
       title: 'Columns',
       icon: '☰',
@@ -1249,13 +1283,12 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
-    document.body.appendChild(grid);
-    await waitUpgrade(grid);
+    await nextFrame();
 
     // Open panel
-    grid.openToolPanel();
+    shell.openToolPanel();
     await nextFrame();
-    expect(grid.isToolPanelOpen).toBe(true);
+    expect(shell.isToolPanelOpen).toBe(true);
 
     // Toggle via toolbar button to close
     const shadow = grid;
@@ -1264,13 +1297,18 @@ describe('tbw-grid integration: shell header & tool panels', () => {
 
     toggleBtn.click();
     await nextFrame();
-    expect(grid.isToolPanelOpen).toBe(false);
+    expect(shell.isToolPanelOpen).toBe(false);
   });
 
   it('opens tool panel with explicit panelId expanding the requested section', async () => {
     grid = document.createElement('tbw-grid');
     grid.rows = [{ id: 1 }];
-    grid.registerToolPanel({
+    grid.gridConfig = { features: { shell: true } };
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
       id: 'settings',
       title: 'Settings',
       icon: '⚙',
@@ -1279,7 +1317,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
-    grid.registerToolPanel({
+    shell.registerToolPanel({
       id: 'filters',
       title: 'Filters',
       icon: '⌕',
@@ -1288,20 +1326,24 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
-    document.body.appendChild(grid);
-    await waitUpgrade(grid);
+    await nextFrame();
 
     // Open with explicit panelId — should expand 'filters' even though 'settings' is order:1
-    grid.openToolPanel('filters');
+    shell.openToolPanel('filters');
     await nextFrame();
-    expect(grid.isToolPanelOpen).toBe(true);
-    expect(grid.expandedToolPanelSections).toEqual(['filters']);
+    expect(shell.isToolPanelOpen).toBe(true);
+    expect(shell.expandedToolPanelSections).toEqual(['filters']);
   });
 
   it('switches expanded section when openToolPanel is called with a different panelId while open', async () => {
     grid = document.createElement('tbw-grid');
     grid.rows = [{ id: 1 }];
-    grid.registerToolPanel({
+    grid.gridConfig = { features: { shell: true } };
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
       id: 'settings',
       title: 'Settings',
       icon: '⚙',
@@ -1310,7 +1352,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
-    grid.registerToolPanel({
+    shell.registerToolPanel({
       id: 'filters',
       title: 'Filters',
       icon: '⌕',
@@ -1319,23 +1361,27 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
-    document.body.appendChild(grid);
-    await waitUpgrade(grid);
-
-    grid.openToolPanel('settings');
     await nextFrame();
-    expect(grid.expandedToolPanelSections).toEqual(['settings']);
 
-    grid.openToolPanel('filters');
+    shell.openToolPanel('settings');
     await nextFrame();
-    expect(grid.isToolPanelOpen).toBe(true);
-    expect(grid.expandedToolPanelSections).toEqual(['filters']);
+    expect(shell.expandedToolPanelSections).toEqual(['settings']);
+
+    shell.openToolPanel('filters');
+    await nextFrame();
+    expect(shell.isToolPanelOpen).toBe(true);
+    expect(shell.expandedToolPanelSections).toEqual(['filters']);
   });
 
   it('falls back to default behavior when openToolPanel is called with an unknown panelId', async () => {
     grid = document.createElement('tbw-grid');
     grid.rows = [{ id: 1 }];
-    grid.registerToolPanel({
+    grid.gridConfig = { features: { shell: true } };
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
       id: 'settings',
       title: 'Settings',
       icon: '⚙',
@@ -1344,14 +1390,13 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
-    document.body.appendChild(grid);
-    await waitUpgrade(grid);
+    await nextFrame();
 
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    grid.openToolPanel('does-not-exist');
+    shell.openToolPanel('does-not-exist');
     await nextFrame();
-    expect(grid.isToolPanelOpen).toBe(true);
-    expect(grid.expandedToolPanelSections).toEqual(['settings']);
+    expect(shell.isToolPanelOpen).toBe(true);
+    expect(shell.expandedToolPanelSections).toEqual(['settings']);
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
   });
@@ -1359,15 +1404,19 @@ describe('tbw-grid integration: shell header & tool panels', () => {
   it('renders header content from plugin', async () => {
     grid = document.createElement('tbw-grid');
     grid.rows = [{ id: 1 }];
-    grid.registerHeaderContent({
+    grid.gridConfig = { features: { shell: true } };
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerHeaderContent({
       id: 'status',
       order: 10,
       render: (container: HTMLElement) => {
         container.innerHTML = '<span class="status-text">Ready</span>';
       },
     });
-    document.body.appendChild(grid);
-    await waitUpgrade(grid);
+    await nextFrame();
 
     const shadow = grid;
     expect(shadow.querySelector('.tbw-shell-header')).not.toBeNull();
@@ -1380,13 +1429,17 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
-    // Now set config and register header content (like ShellBasicDemo.rebuild)
+    // Now set config (activating the shell feature) and register header content
+    // (like ShellBasicDemo.rebuild)
     grid.gridConfig = {
-      shell: { header: { title: 'Test' } },
+      features: { shell: { header: { title: 'Test' } } },
       columns: [{ field: 'id' }],
     };
     grid.rows = [{ id: 1 }];
-    grid.registerHeaderContent({
+    await nextFrame();
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerHeaderContent({
       id: 'row-count',
       order: 10,
       render: (container: HTMLElement) => {
@@ -1405,7 +1458,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
 
     // Now simulate a rebuild: set gridConfig again (triggers re-render)
     grid.gridConfig = {
-      shell: { header: { title: 'Updated' } },
+      features: { shell: { header: { title: 'Updated' } } },
       columns: [{ field: 'id' }],
     };
     grid.rows = [{ id: 1 }, { id: 2 }];
@@ -1418,10 +1471,12 @@ describe('tbw-grid integration: shell header & tool panels', () => {
 
   it('registers and unregisters toolbar content dynamically via render function', async () => {
     grid = document.createElement('tbw-grid');
-    grid.gridConfig = { shell: { header: { title: 'Test' } } };
+    grid.gridConfig = { features: { shell: { header: { title: 'Test' } } } };
     grid.rows = [{ id: 1 }];
     document.body.appendChild(grid);
     await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
 
     // Create a button element
     const customBtn = document.createElement('button');
@@ -1429,16 +1484,13 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     customBtn.id = 'custom-dynamic';
     customBtn.textContent = '★';
 
-    // Register content with render function
-    grid.registerToolbarContent({
+    // Register content with render function (auto-refreshes the shell header)
+    shell.registerToolbarContent({
       id: 'dynamic',
-      render: (container) => {
+      render: (container: HTMLElement) => {
         container.appendChild(customBtn);
       },
     });
-
-    // Need to refresh shell to see the content
-    grid.refreshShellHeader();
     await nextFrame();
 
     const shadow = grid;
@@ -1446,8 +1498,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(slot).not.toBeNull();
 
     // Unregister content
-    grid.unregisterToolbarContent('dynamic');
-    grid.refreshShellHeader();
+    shell.unregisterToolbarContent('dynamic');
     await nextFrame();
 
     slot = shadow.querySelector('[data-toolbar-content="dynamic"]');
@@ -1467,7 +1518,17 @@ describe('tbw-grid integration: shell header & tool panels', () => {
 
   it('expands the configured default section but does not open the sidebar', async () => {
     grid = document.createElement('tbw-grid');
-    grid.registerToolPanel({
+    // initialState: 'closed' opts into the v3 behavior (#259) where
+    // defaultOpen only pre-selects the section without opening the sidebar.
+    grid.gridConfig = {
+      features: { shell: { toolPanel: { defaultOpen: 'columns', initialState: 'closed' } } },
+    };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
       id: 'columns',
       title: 'Columns',
       icon: '☰',
@@ -1475,7 +1536,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
-    grid.registerToolPanel({
+    shell.registerToolPanel({
       id: 'filters',
       title: 'Filters',
       icon: '🔍',
@@ -1484,24 +1545,25 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
-    // initialState: 'closed' opts into the v3 behavior (#259) where
-    // defaultOpen only pre-selects the section without opening the sidebar.
-    grid.gridConfig = {
-      shell: { toolPanel: { defaultOpen: 'columns', initialState: 'closed' } },
-    };
-    grid.rows = [{ id: 1 }];
-    document.body.appendChild(grid);
-    await waitUpgrade(grid);
+    await nextFrame();
 
-    expect(grid.isToolPanelOpen).toBe(false);
-    expect(grid.expandedToolPanelSections).toContain('columns');
+    expect(shell.isToolPanelOpen).toBe(false);
+    expect(shell.expandedToolPanelSections).toContain('columns');
   });
 
   // TOOLPANEL-OPEN-LEGACY-259: legacy v2 behavior — defaultOpen alone opens
   // the sidebar. Remove this test (or invert its expectation) in v3.0.0.
   it('legacy v2: defaultOpen alone opens the sidebar (deprecated, see #259)', async () => {
     grid = document.createElement('tbw-grid');
-    grid.registerToolPanel({
+    grid.gridConfig = {
+      features: { shell: { toolPanel: { defaultOpen: 'columns' } } },
+    };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
       id: 'columns',
       title: 'Columns',
       icon: '☰',
@@ -1509,41 +1571,23 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
-    grid.gridConfig = {
-      shell: { toolPanel: { defaultOpen: 'columns' } },
-    };
-    grid.rows = [{ id: 1 }];
-    document.body.appendChild(grid);
-    await waitUpgrade(grid);
+    await nextFrame();
 
-    expect(grid.isToolPanelOpen).toBe(true);
-    expect(grid.expandedToolPanelSections).toContain('columns');
+    expect(shell.isToolPanelOpen).toBe(true);
+    expect(shell.expandedToolPanelSections).toContain('columns');
   });
 
   it('opens the sidebar on load when shell.toolPanel.initialState === "open"', async () => {
     grid = document.createElement('tbw-grid');
-    grid.registerToolPanel({
-      id: 'columns',
-      title: 'Columns',
-      icon: '☰',
-      render: () => {
-        /* noop */
-      },
-    });
     grid.gridConfig = {
-      shell: { toolPanel: { initialState: 'open' } },
+      features: { shell: { toolPanel: { initialState: 'open' } } },
     };
     grid.rows = [{ id: 1 }];
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
-    expect(grid.isToolPanelOpen).toBe(true);
-    expect(grid.expandedToolPanelSections).toContain('columns');
-  });
-
-  it('opens the sidebar and expands defaultOpen when initialState === "open"', async () => {
-    grid = document.createElement('tbw-grid');
-    grid.registerToolPanel({
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
       id: 'columns',
       title: 'Columns',
       icon: '☰',
@@ -1551,7 +1595,31 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
-    grid.registerToolPanel({
+    await nextFrame();
+
+    expect(shell.isToolPanelOpen).toBe(true);
+    expect(shell.expandedToolPanelSections).toContain('columns');
+  });
+
+  it('opens the sidebar and expands defaultOpen when initialState === "open"', async () => {
+    grid = document.createElement('tbw-grid');
+    grid.gridConfig = {
+      features: { shell: { toolPanel: { initialState: 'open', defaultOpen: 'columns' } } },
+    };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
+      id: 'columns',
+      title: 'Columns',
+      icon: '☰',
+      render: () => {
+        /* noop */
+      },
+    });
+    shell.registerToolPanel({
       id: 'filters',
       title: 'Filters',
       icon: '🔍',
@@ -1560,22 +1628,25 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
+    await nextFrame();
+
+    expect(shell.isToolPanelOpen).toBe(true);
+    // defaultOpen wins over the order-based first panel.
+    expect(shell.expandedToolPanelSections).toContain('columns');
+    expect(shell.expandedToolPanelSections).not.toContain('filters');
+  });
+
+  it('locks the sidebar open and suppresses the built-in toggle button', async () => {
+    grid = document.createElement('tbw-grid');
     grid.gridConfig = {
-      shell: { toolPanel: { initialState: 'open', defaultOpen: 'columns' } },
+      features: { shell: { toolPanel: { locked: true } } },
     };
     grid.rows = [{ id: 1 }];
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
-    expect(grid.isToolPanelOpen).toBe(true);
-    // defaultOpen wins over the order-based first panel.
-    expect(grid.expandedToolPanelSections).toContain('columns');
-    expect(grid.expandedToolPanelSections).not.toContain('filters');
-  });
-
-  it('locks the sidebar open and suppresses the built-in toggle button', async () => {
-    grid = document.createElement('tbw-grid');
-    grid.registerToolPanel({
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
       id: 'columns',
       title: 'Columns',
       icon: '☰',
@@ -1583,30 +1654,33 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
+    await nextFrame();
+
+    // Locked implies the sidebar is open on load.
+    expect(shell.isToolPanelOpen).toBe(true);
+    // The built-in toggle button is suppressed (consumer can't close it).
+    expect(grid.querySelector('[data-panel-toggle]')).toBeNull();
+
+    // closeToolPanel() is a no-op while locked.
+    shell.closeToolPanel();
+    expect(shell.isToolPanelOpen).toBe(true);
+
+    // toggleToolPanel() is also a no-op (it routes through closeToolPanel).
+    shell.toggleToolPanel();
+    expect(shell.isToolPanelOpen).toBe(true);
+  });
+
+  it('re-renders tool panel when position changes from right to left', async () => {
+    grid = document.createElement('tbw-grid');
     grid.gridConfig = {
-      shell: { toolPanel: { locked: true } },
+      features: { shell: { header: { title: 'Test' }, toolPanel: { position: 'right' } } },
     };
     grid.rows = [{ id: 1 }];
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
-    // Locked implies the sidebar is open on load.
-    expect(grid.isToolPanelOpen).toBe(true);
-    // The built-in toggle button is suppressed (consumer can't close it).
-    expect(grid.querySelector('[data-panel-toggle]')).toBeNull();
-
-    // closeToolPanel() is a no-op while locked.
-    grid.closeToolPanel();
-    expect(grid.isToolPanelOpen).toBe(true);
-
-    // toggleToolPanel() is also a no-op (it routes through closeToolPanel).
-    grid.toggleToolPanel();
-    expect(grid.isToolPanelOpen).toBe(true);
-  });
-
-  it('re-renders tool panel when position changes from right to left', async () => {
-    grid = document.createElement('tbw-grid');
-    grid.registerToolPanel({
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
       id: 'test-panel',
       title: 'Test',
       icon: '⚙',
@@ -1614,12 +1688,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         /* noop */
       },
     });
-    grid.gridConfig = {
-      shell: { header: { title: 'Test' }, toolPanel: { position: 'right' } },
-    };
-    grid.rows = [{ id: 1 }];
-    document.body.appendChild(grid);
-    await waitUpgrade(grid);
+    await nextFrame();
 
     // Panel should be on the right (default: panel after grid content in DOM)
     let panel = grid.querySelector('.tbw-tool-panel');
@@ -1628,7 +1697,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
 
     // Change position to left
     grid.gridConfig = {
-      shell: { header: { title: 'Test' }, toolPanel: { position: 'left' } },
+      features: { shell: { header: { title: 'Test' }, toolPanel: { position: 'left' } } },
     };
     await nextFrame();
     await nextFrame();
@@ -1648,7 +1717,15 @@ describe('tbw-grid integration: shell header & tool panels', () => {
 
   it('preserves open panel content when position changes', async () => {
     grid = document.createElement('tbw-grid');
-    grid.registerToolPanel({
+    grid.gridConfig = {
+      features: { shell: { header: { title: 'Test' }, toolPanel: { position: 'right' } } },
+    };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    const shell = grid.getPluginByName('shell');
+    shell.registerToolPanel({
       id: 'test-panel',
       title: 'Test',
       icon: '⚙',
@@ -1659,28 +1736,23 @@ describe('tbw-grid integration: shell header & tool panels', () => {
         };
       },
     });
-    grid.gridConfig = {
-      shell: { header: { title: 'Test' }, toolPanel: { position: 'right' } },
-    };
-    grid.rows = [{ id: 1 }];
-    document.body.appendChild(grid);
-    await waitUpgrade(grid);
+    await nextFrame();
 
     // Open the panel
-    grid.openToolPanel();
+    shell.openToolPanel();
     await nextFrame();
-    expect(grid.isToolPanelOpen).toBe(true);
+    expect(shell.isToolPanelOpen).toBe(true);
     expect(grid.querySelector('.panel-content')).not.toBeNull();
 
     // Change position while panel is open
     grid.gridConfig = {
-      shell: { header: { title: 'Test' }, toolPanel: { position: 'left' } },
+      features: { shell: { header: { title: 'Test' }, toolPanel: { position: 'left' } } },
     };
     await nextFrame();
     await nextFrame();
 
     // Panel should still be open with content
-    expect(grid.isToolPanelOpen).toBe(true);
+    expect(shell.isToolPanelOpen).toBe(true);
     const panel = grid.querySelector('.tbw-tool-panel');
     expect(panel).not.toBeNull();
     expect(panel.dataset.position).toBe('left');
@@ -1689,13 +1761,13 @@ describe('tbw-grid integration: shell header & tool panels', () => {
 
     // Switch back to right
     grid.gridConfig = {
-      shell: { header: { title: 'Test' }, toolPanel: { position: 'right' } },
+      features: { shell: { header: { title: 'Test' }, toolPanel: { position: 'right' } } },
     };
     await nextFrame();
     await nextFrame();
 
     // Content should still be there
-    expect(grid.isToolPanelOpen).toBe(true);
+    expect(shell.isToolPanelOpen).toBe(true);
     expect(grid.querySelector('.panel-content')?.textContent).toBe('Panel Content');
   });
 
@@ -1704,32 +1776,32 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     // Use features API (like the demo does) — triggers plugin re-init on each gridConfig set
     await import('../../lib/features/visibility');
     grid.gridConfig = {
-      shell: { header: { title: 'Test' }, toolPanel: { position: 'right' } },
+      features: { shell: { header: { title: 'Test' }, toolPanel: { position: 'right' } }, visibility: true },
       columns: [{ field: 'id' }, { field: 'name' }],
-      features: { visibility: true },
     };
     grid.rows = [{ id: 1, name: 'Alice' }];
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
+    const shell = grid.getPluginByName('shell');
+
     // Open the panel
-    grid.openToolPanel();
+    shell.openToolPanel();
     await nextFrame();
-    expect(grid.isToolPanelOpen).toBe(true);
+    expect(shell.isToolPanelOpen).toBe(true);
     // Visibility plugin renders toggle checkboxes
     expect(grid.querySelector('.tbw-visibility-content')).not.toBeNull();
 
     // Change position (with features in same config — triggers plugin re-init + refreshShellHeader microtask)
     grid.gridConfig = {
-      shell: { header: { title: 'Test' }, toolPanel: { position: 'left' } },
+      features: { shell: { header: { title: 'Test' }, toolPanel: { position: 'left' } }, visibility: true },
       columns: [{ field: 'id' }, { field: 'name' }],
-      features: { visibility: true },
     };
     await nextFrame();
     await nextFrame();
 
     // Panel should still be open with content after microtask fires
-    expect(grid.isToolPanelOpen).toBe(true);
+    expect(shell.isToolPanelOpen).toBe(true);
     const panel = grid.querySelector('.tbw-tool-panel');
     expect(panel?.dataset.position).toBe('left');
     expect(panel?.classList.contains('open')).toBe(true);
@@ -1737,14 +1809,13 @@ describe('tbw-grid integration: shell header & tool panels', () => {
 
     // Switch back to right
     grid.gridConfig = {
-      shell: { header: { title: 'Test' }, toolPanel: { position: 'right' } },
+      features: { shell: { header: { title: 'Test' }, toolPanel: { position: 'right' } }, visibility: true },
       columns: [{ field: 'id' }, { field: 'name' }],
-      features: { visibility: true },
     };
     await nextFrame();
     await nextFrame();
 
-    expect(grid.isToolPanelOpen).toBe(true);
+    expect(shell.isToolPanelOpen).toBe(true);
     expect(grid.querySelector('.tbw-visibility-content')).not.toBeNull();
   });
 });
@@ -2480,8 +2551,10 @@ describe('tbw-grid scroll height calculation', () => {
     grid.style.height = '600px';
     grid.style.display = 'block';
     grid.gridConfig = {
-      shell: {
-        header: { title: 'Test Grid' },
+      features: {
+        shell: {
+          header: { title: 'Test Grid' },
+        },
       },
       columnGroups: [
         { id: 'personal', header: 'Personal Info', children: ['firstName', 'lastName'] },

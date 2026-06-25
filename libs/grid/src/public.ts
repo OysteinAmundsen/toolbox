@@ -183,8 +183,6 @@ export type {
   GridPlugin,
   // Header renderer types
   HeaderCellContext,
-  // Shell types
-  HeaderContentDefinition,
   HeaderLabelContext,
   HeaderLabelRenderer,
   HeaderRenderer,
@@ -209,16 +207,11 @@ export type {
   RowUpdate,
   // Focus & Navigation
   ScrollToRowOptions,
-  ShellConfig,
-  ShellHeaderConfig,
   SortChangeDetail,
   // Sorting types
   SortHandler,
   SortState,
   TbwScrollDetail,
-  ToolbarContentDefinition,
-  ToolPanelConfig,
-  ToolPanelDefinition,
   TransactionResult,
   TypeDefault,
   UpdateSource,

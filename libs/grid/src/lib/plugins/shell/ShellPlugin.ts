@@ -13,9 +13,9 @@
  * @module Plugins/Shell
  */
 
-import { BaseGridPlugin, type GridElement } from '../../core/plugin/base-plugin';
 import { HEADER_CONTENT_DUPLICATE, TOOL_PANEL_DUPLICATE, warnDiagnostic } from '../../core/internal/diagnostics';
-import type { GridConfig, InternalGrid } from '../../core/types';
+import { BaseGridPlugin, type GridElement } from '../../core/plugin/base-plugin';
+import type { GridConfig } from '../../core/types';
 import {
   cleanupShellState,
   createShellState,
@@ -36,7 +36,7 @@ import {
   updateToolbarActiveStates,
   type ShellState,
 } from './shell';
-import { createShellController, type ShellController } from './shell-controller';
+import { createShellController, type ShellController, type ShellControllerGrid } from './shell-controller';
 import styles from './shell.css?inline';
 import './types';
 import type {
@@ -99,16 +99,16 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
 
   /**
    * @internal Create the canonical shell state + controller (idempotent).
-   * The plugin owns shell-state construction; core only supplies the grid
-   * reference (the controller binds to it for UI updates). No-op once state
-   * exists, so it is safe to call on every resolve — including before the
-   * plugin formally attaches, which keeps pre-connect API calls working.
+   * The plugin owns shell-state construction; the controller binds to the grid
+   * for UI updates. No-op once state exists, so it is safe to call on every
+   * `attach` (and from a pre-connect API call), which keeps the shell self-
+   * sufficient — core holds no shell-activation knowledge (extraction #370).
    */
-  ensureState(grid: InternalGrid): void {
+  ensureState(grid: GridElement): void {
     if (this.#state) return;
     const state = createShellState();
     this.#state = state;
-    this.#controller = createShellController(state, grid);
+    this.#controller = createShellController(state, grid as ShellControllerGrid);
   }
 
   /** @internal Canonical shell state. */
@@ -224,11 +224,15 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
   /** @internal */
   override attach(grid: GridElement): void {
     super.attach(grid);
+    // Activate the shell on attach so an opted-in shell renders without core
+    // ever calling into it (extraction #370 — core holds no shell-activation
+    // knowledge). Idempotent: a pre-connect API call may have created state.
+    this.ensureState(grid);
     // Register the light-DOM shell handlers via the generic seam. Core holds no
     // shell tag knowledge (extraction #370). `registerLightDomHandler` is keyed
     // by tag name, so re-attach simply overwrites — idempotent. Torn down on
     // grid disconnect in `disposeShellState` (Approach A: survives re-inits).
-    const handler = (): void => this.#handleLightDomShellChange(grid);
+    const handler = (): void => this.syncLightDom();
     this.#shellChangeHandler = handler;
     grid._registerLightDomHandler('tbw-grid-header', handler);
     grid._registerLightDomHandler('tbw-grid-tool-buttons', handler);
@@ -244,13 +248,16 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
   }
 
   /**
-   * @internal React to a light-DOM shell element being added/removed/mutated
-   * (e.g. a framework projecting `<tbw-grid-header title>` asynchronously).
-   * Re-parses, and if a title or tool-buttons container newly appeared, re-merges
-   * the config (so `processConfig` folds it in) and re-wraps the shell header.
+   * @internal Generic hook: react to a light-DOM shell element being
+   * added/removed/mutated (e.g. a framework projecting `<tbw-grid-header title>`
+   * asynchronously). Re-parses, and if a title or tool-buttons container newly
+   * appeared, re-merges the config (so `processConfig` folds it in) and re-wraps
+   * the already-rendered shell header. No-op until the shell header is rendered.
+   * Called by core from `refreshColumns` and the light-DOM observer.
    */
-  #handleLightDomShellChange(grid: GridElement): void {
-    if (!this.hasState) return;
+  override syncLightDom(): void {
+    const grid = this.grid;
+    if (!grid || !this.hasState) return;
     const state = this.shellState;
     const hadTitle = state.lightDomTitle;
     const hadToolButtons = state.hasToolButtonsContainer;

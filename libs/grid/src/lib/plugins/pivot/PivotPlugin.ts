@@ -14,7 +14,8 @@ import {
   type PluginManifest,
   type PluginQuery,
 } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, ToolPanelDefinition } from '../../core/types';
+import type { ColumnConfig } from '../../core/types';
+import type { ToolPanelDefinition } from '../shell/types';
 import {
   buildPivot,
   flattenPivotRows,
@@ -957,14 +958,24 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   // #region Tool Panel API
 
   /**
+   * Resolve the shell plugin (#370). The pivot tool panel lives in the shell,
+   * so panel open/close/toggle is delegated to the ShellPlugin instance rather
+   * than core `grid.*` shell delegates (removed in v3).
+   */
+  #shell() {
+    return this.grid.getPluginByName('shell');
+  }
+
+  /**
    * Show the pivot tool panel.
    * Opens the tool panel and ensures this section is expanded.
    */
   showPanel(): void {
-    this.grid.openToolPanel();
+    const shell = this.#shell();
+    shell?.openToolPanel();
     // Ensure our section is expanded
-    if (!this.grid.expandedToolPanelSections.includes(PivotPlugin.PANEL_ID)) {
-      this.grid.toggleToolPanelSection(PivotPlugin.PANEL_ID);
+    if (!shell?.expandedToolPanelSections.includes(PivotPlugin.PANEL_ID)) {
+      shell?.toggleToolPanelSection(PivotPlugin.PANEL_ID);
     }
   }
 
@@ -972,25 +983,27 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
    * Hide the tool panel.
    */
   hidePanel(): void {
-    this.grid.closeToolPanel();
+    this.#shell()?.closeToolPanel();
   }
 
   /**
    * Toggle the pivot tool panel section.
    */
   togglePanel(): void {
+    const shell = this.#shell();
     // If tool panel is closed, open it first
-    if (!this.grid.isToolPanelOpen) {
-      this.grid.openToolPanel();
+    if (!shell?.isToolPanelOpen) {
+      shell?.openToolPanel();
     }
-    this.grid.toggleToolPanelSection(PivotPlugin.PANEL_ID);
+    shell?.toggleToolPanelSection(PivotPlugin.PANEL_ID);
   }
 
   /**
    * Check if the pivot panel section is currently expanded.
    */
   isPanelVisible(): boolean {
-    return this.grid.isToolPanelOpen && this.grid.expandedToolPanelSections.includes(PivotPlugin.PANEL_ID);
+    const shell = this.#shell();
+    return !!shell?.isToolPanelOpen && shell.expandedToolPanelSections.includes(PivotPlugin.PANEL_ID);
   }
 
   // #endregion

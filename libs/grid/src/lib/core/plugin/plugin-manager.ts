@@ -420,6 +420,18 @@ export class PluginManager {
   }
 
   /**
+   * Ask each plugin to re-parse its light-DOM contributions AND refresh any
+   * already-rendered chrome in place (e.g. a shell title/tool buttons that a
+   * framework projected asynchronously). Called from `refreshColumns` and the
+   * light-DOM observer — generic seam, core holds no plugin-specific knowledge.
+   */
+  syncLightDom(): void {
+    for (const plugin of this.plugins) {
+      plugin.syncLightDom?.();
+    }
+  }
+
+  /**
    * Ask all plugins whether the most recent config change requires a full
    * structural re-render. Returns `true` if ANY plugin votes for one.
    */

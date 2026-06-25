@@ -8,7 +8,8 @@
 
 import { PRINT_FAILED, PRINT_IN_PROGRESS, PRINT_NO_GRID, errorDiagnostic } from '../../core/internal/diagnostics';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
-import type { InternalGrid, ToolbarContentDefinition } from '../../core/types';
+import type { InternalGrid } from '../../core/types';
+import type { ToolbarContentDefinition } from '../shell/types';
 import { printGridIsolated } from './print-isolated';
 import styles from './print.css?inline';
 import type { PrintCompleteDetail, PrintConfig, PrintParams, PrintStartDetail } from './types';

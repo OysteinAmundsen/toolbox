@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { validatePluginDependencies } from '../../core/internal/validate-config';
 import {
   buildPivot,
   calculateTotals,
@@ -12,7 +13,6 @@ import {
 } from './pivot-engine';
 import { createValueKey, getPivotAggregator, validatePivotConfig } from './pivot-model';
 import { PivotPlugin } from './PivotPlugin';
-import { validatePluginDependencies } from '../../core/internal/validate-config';
 import type {
   PivotConfig,
   PivotConfigChangeDetail,
@@ -605,6 +605,10 @@ describe('PivotPlugin lifecycle and API', () => {
       getAllColumns: () => columns,
       getRenderCount: () => renderCount,
       _hostElement: grid,
+      // Shell is opt-in (#370): the pivot panel delegates to the resolved shell
+      // plugin. The mock grid itself carries the tool-panel methods/getters, so
+      // resolve 'shell' to the grid for these unit tests.
+      getPluginByName: (name: string) => (name === 'shell' ? grid : undefined),
     });
 
     // Define getters for tool panel state

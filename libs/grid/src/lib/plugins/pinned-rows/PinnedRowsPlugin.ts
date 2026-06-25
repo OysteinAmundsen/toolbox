@@ -10,20 +10,14 @@ import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import {
   buildContext,
-  createAggregationContainer,
-  createInfoBarElement,
-  renderAggregationRows,
+  filteredCountPanel,
   renderAggregationSlot,
   renderPanelSlot,
+  rowCountPanel,
+  selectedCountPanel,
 } from './pinned-rows';
 import styles from './pinned-rows.css?inline';
-import type {
-  AggregationRowConfig,
-  PinnedRowSlot,
-  PinnedRowsConfig,
-  PinnedRowsContext,
-  PinnedRowsPanel,
-} from './types';
+import type { AggregationRowConfig, PinnedRowSlot, PinnedRowsConfig, PinnedRowsContext } from './types';
 
 /**
  * Pinned Rows (Status Bar) Plugin for tbw-grid
@@ -100,23 +94,23 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
   /** @internal */
   protected override get defaultConfig(): Partial<PinnedRowsConfig> {
     return {
-      position: 'bottom',
-      showRowCount: true,
-      showSelectedCount: true,
-      showFilteredCount: true,
+      slots: [
+        {
+          position: 'bottom',
+          render: [
+            { zone: 'left', render: rowCountPanel() },
+            { zone: 'left', render: filteredCountPanel() },
+            { zone: 'right', render: selectedCountPanel() },
+          ],
+        },
+      ],
     };
   }
 
   // #region Internal State
-  private infoBarElement: HTMLElement | null = null;
-  private topAggregationContainer: HTMLElement | null = null;
-  private bottomAggregationContainer: HTMLElement | null = null;
   private footerWrapper: HTMLElement | null = null;
   /** Slot-mode wrapper: holds top slot rows when `config.slots` is provided. */
   private headerWrapper: HTMLElement | null = null;
-  /** Tracks whether the last render used slot mode, so we can clean up the
-   *  opposite mode's DOM if the user toggles between APIs at runtime. */
-  private lastModeWasSlots = false;
   // #endregion
 
   // #region Lifecycle
@@ -144,14 +138,6 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     // (e.g., by buildGridDOMIntoShadow calling replaceChildren()).
     if (this.footerWrapper && !container.contains(this.footerWrapper)) {
       this.footerWrapper = null;
-      this.bottomAggregationContainer = null;
-      this.infoBarElement = null;
-    }
-    if (this.topAggregationContainer && !container.contains(this.topAggregationContainer)) {
-      this.topAggregationContainer = null;
-    }
-    if (this.infoBarElement && !container.contains(this.infoBarElement)) {
-      this.infoBarElement = null;
     }
     if (this.headerWrapper && !container.contains(this.headerWrapper)) {
       this.headerWrapper = null;
@@ -169,13 +155,8 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
       filterState,
     );
 
-    // Mode dispatch: explicit `slots[]` ⇒ slot-driven layout.
-    // Otherwise: legacy layout (preserves byte-identical DOM for existing consumers).
-    if (this.config.slots) {
-      this.renderSlotMode(container as HTMLElement, gridEl, context);
-    } else {
-      this.renderLegacyMode(container as HTMLElement, gridEl, context);
-    }
+    // Slot-driven layout: one DOM row per slot in declared order.
+    this.renderSlotMode(container as HTMLElement, gridEl, context);
   }
   // #endregion
 
@@ -187,13 +168,6 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
    * within each area.
    */
   private renderSlotMode(container: HTMLElement, gridEl: HTMLElement, context: PinnedRowsContext): void {
-    // If we just switched into slot mode from legacy mode, tear down the
-    // legacy DOM elements so we don't end up with both rendered side-by-side.
-    if (!this.lastModeWasSlots) {
-      this.detachLegacyOnly();
-    }
-    this.lastModeWasSlots = true;
-
     const slots = this.config.slots ?? [];
     const topSlots = slots.filter((s) => s.position === 'top');
     const bottomSlots = slots.filter((s) => s.position !== 'top');
@@ -295,122 +269,8 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
   }
   // #endregion
 
-  // #region Legacy-mode rendering (DOM byte-identical to pre-#255 behavior)
-  private renderLegacyMode(container: HTMLElement, gridEl: HTMLElement, context: PinnedRowsContext): void {
-    if (this.lastModeWasSlots) {
-      // Switched out of slot mode — drop the slot-mode wrappers.
-      if (this.headerWrapper) {
-        this.headerWrapper.remove();
-        this.headerWrapper = null;
-      }
-      if (this.footerWrapper) {
-        this.footerWrapper.remove();
-        this.footerWrapper = null;
-      }
-      this.bottomAggregationContainer = null;
-      this.infoBarElement = null;
-    }
-    this.lastModeWasSlots = false;
-
-    // #region Handle Aggregation Rows
-    const aggregationRows = this.config.aggregationRows || [];
-    const topRows = aggregationRows.filter((r) => r.position === 'top');
-    const bottomRows = aggregationRows.filter((r) => r.position !== 'top');
-
-    // Top aggregation rows
-    if (topRows.length > 0) {
-      if (!this.topAggregationContainer) {
-        this.topAggregationContainer = createAggregationContainer('top');
-        // See note in renderSlotMode: `.header` is nested in `.rows-body`,
-        // not in `container`, so its `nextSibling` is not a valid reference
-        // for `container.insertBefore`. Insert at the top of `container`.
-        container.insertBefore(this.topAggregationContainer, container.firstChild);
-      }
-      renderAggregationRows(
-        this.topAggregationContainer,
-        topRows,
-        this.visibleColumns as ColumnConfig[],
-        this.sourceRows as unknown[],
-        this.config.fullWidth,
-      );
-    } else if (this.topAggregationContainer) {
-      this.topAggregationContainer.remove();
-      this.topAggregationContainer = null;
-    }
-
-    // Handle footer
-    const hasInfoContent =
-      this.config.showRowCount !== false ||
-      (this.config.showSelectedCount && context.selectedRows > 0) ||
-      (this.config.showFilteredCount && context.filteredRows !== context.totalRows) ||
-      (this.config.customPanels && this.config.customPanels.length > 0);
-    const hasBottomInfoBar = hasInfoContent && this.config.position !== 'top';
-    const needsFooter = bottomRows.length > 0 || hasBottomInfoBar;
-
-    // Handle top info bar
-    if (hasInfoContent && this.config.position === 'top') {
-      if (!this.infoBarElement) {
-        this.infoBarElement = createInfoBarElement(this.config, context);
-        container.insertBefore(this.infoBarElement, container.firstChild);
-      } else {
-        const newInfoBar = createInfoBarElement(this.config, context);
-        this.infoBarElement.replaceWith(newInfoBar);
-        this.infoBarElement = newInfoBar;
-      }
-    } else if (this.config.position === 'top' && this.infoBarElement) {
-      this.infoBarElement.remove();
-      this.infoBarElement = null;
-    }
-
-    // Create/manage footer wrapper
-    if (needsFooter) {
-      if (!this.footerWrapper) {
-        this.footerWrapper = document.createElement('div');
-        this.footerWrapper.className = 'tbw-footer';
-        container.appendChild(this.footerWrapper);
-      }
-
-      this.footerWrapper.innerHTML = '';
-
-      if (bottomRows.length > 0) {
-        if (!this.bottomAggregationContainer) {
-          this.bottomAggregationContainer = createAggregationContainer('bottom');
-        }
-        this.footerWrapper.appendChild(this.bottomAggregationContainer);
-        renderAggregationRows(
-          this.bottomAggregationContainer,
-          bottomRows,
-          this.visibleColumns as ColumnConfig[],
-          this.sourceRows as unknown[],
-          this.config.fullWidth,
-        );
-      }
-
-      if (hasBottomInfoBar) {
-        this.infoBarElement = createInfoBarElement(this.config, context);
-        this.footerWrapper.appendChild(this.infoBarElement);
-      }
-    } else {
-      this.cleanupFooter();
-    }
-    // #endregion
-  }
-  // #endregion
-
   // #region Private Methods
   private cleanup(): void {
-    if (this.infoBarElement) {
-      this.infoBarElement.remove();
-      this.infoBarElement = null;
-    }
-    if (this.topAggregationContainer) {
-      this.topAggregationContainer.remove();
-      this.topAggregationContainer = null;
-    }
-    if (this.bottomAggregationContainer) {
-      this.bottomAggregationContainer.remove();
-      this.bottomAggregationContainer = null;
-    }
     if (this.footerWrapper) {
       this.footerWrapper.remove();
       this.footerWrapper = null;
@@ -418,41 +278,6 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     if (this.headerWrapper) {
       this.headerWrapper.remove();
       this.headerWrapper = null;
-    }
-  }
-
-  /** Detach only the legacy-mode DOM (used when switching legacy → slot mode). */
-  private detachLegacyOnly(): void {
-    if (this.topAggregationContainer) {
-      this.topAggregationContainer.remove();
-      this.topAggregationContainer = null;
-    }
-    if (this.bottomAggregationContainer) {
-      this.bottomAggregationContainer.remove();
-      this.bottomAggregationContainer = null;
-    }
-    if (this.footerWrapper) {
-      this.footerWrapper.remove();
-      this.footerWrapper = null;
-    }
-    if (this.infoBarElement) {
-      this.infoBarElement.remove();
-      this.infoBarElement = null;
-    }
-  }
-
-  private cleanupFooter(): void {
-    if (this.footerWrapper) {
-      this.footerWrapper.remove();
-      this.footerWrapper = null;
-    }
-    if (this.bottomAggregationContainer) {
-      this.bottomAggregationContainer.remove();
-      this.bottomAggregationContainer = null;
-    }
-    if (this.infoBarElement && this.config.position !== 'top') {
-      this.infoBarElement.remove();
-      this.infoBarElement = null;
     }
   }
 
@@ -497,52 +322,6 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
       selectionState,
       filterState,
     );
-  }
-
-  /**
-   * Add a custom panel to the info bar.
-   * @param panel - The panel configuration to add
-   */
-  addPanel(panel: PinnedRowsPanel): void {
-    if (!this.config.customPanels) {
-      this.config.customPanels = [];
-    }
-    this.config.customPanels.push(panel);
-    this.requestRender();
-  }
-
-  /**
-   * Remove a custom panel by ID.
-   * @param id - The panel ID to remove
-   */
-  removePanel(id: string): void {
-    if (this.config.customPanels) {
-      this.config.customPanels = this.config.customPanels.filter((p) => p.id !== id);
-      this.requestRender();
-    }
-  }
-
-  /**
-   * Add an aggregation row.
-   * @param row - The aggregation row configuration
-   */
-  addAggregationRow(row: AggregationRowConfig): void {
-    if (!this.config.aggregationRows) {
-      this.config.aggregationRows = [];
-    }
-    this.config.aggregationRows.push(row);
-    this.requestRender();
-  }
-
-  /**
-   * Remove an aggregation row by ID.
-   * @param id - The aggregation row ID to remove
-   */
-  removeAggregationRow(id: string): void {
-    if (this.config.aggregationRows) {
-      this.config.aggregationRows = this.config.aggregationRows.filter((r) => r.id !== id);
-      this.requestRender();
-    }
   }
   // #endregion
 }

@@ -394,17 +394,15 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
   /**
    * Check if a row can be moved within this grid.
-   * Consults the user-provided `canMove` callback (or `canDrag` veto for the
-   * source row), the plugin query system (`canMoveRow`), and `canDrop` for
-   * the target.
+   * Consults the `canDrag` veto for the source row, the plugin query system
+   * (`canMoveRow`), and `canDrop` for the target.
    */
   canMoveRow(fromIndex: number, toIndex: number): boolean {
     // During debounced keyboard moves, `grid._rows` diverges from
     // `sourceRows` (the user-facing snapshot) because the plugin mutates
-    // `_rows` per keystroke and only commits on flush. `onKeyDown` resolves
-    // the focused row from `_rows ?? sourceRows`, so validation must read
-    // from the same array — otherwise we'd run `canDrag`/`canMove`/queries
-    // against the wrong row.
+    // resolves the focused row from `_rows ?? sourceRows`, so validation must
+    // read from the same array — otherwise we'd run `canDrag`/queries against
+    // the wrong row.
     const rows = this.internalGrid._rows ?? this.sourceRows;
     if (fromIndex < 0 || fromIndex >= rows.length) return false;
     if (toIndex < 0 || toIndex >= rows.length) return false;
@@ -417,12 +415,6 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
     // canDrag veto (dragstart side)
     if (this.config.canDrag && !this.config.canDrag(row, fromIndex)) return false;
-
-    // Legacy canMove callback
-    if (this.config.canMove) {
-      const direction = toIndex < fromIndex ? 'up' : 'down';
-      if (!this.config.canMove(row, fromIndex, toIndex, direction)) return false;
-    }
 
     // canDrop callback (intra-grid synthesised payload)
     if (this.config.canDrop) {

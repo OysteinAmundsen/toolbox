@@ -337,7 +337,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     if (!this.dataSource) return;
 
     const gridRef = this.grid as unknown as GridHost;
-    const blockSize = this.config.pageSize ?? this.config.cacheBlockSize ?? 100;
+    const blockSize = this.config.pageSize ?? 100;
 
     // Translate viewport to node space via structural plugins
     const viewport = this.getViewportMapping(gridRef._virtualization.start, gridRef._virtualization.end);
@@ -471,7 +471,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   override processRows(rows: readonly unknown[]): unknown[] {
     if (!this.dataSource) return [...rows];
 
-    const blockSize = this.config.pageSize ?? this.config.cacheBlockSize ?? 100;
+    const blockSize = this.config.pageSize ?? 100;
 
     // Guard against invalid totalNodeCount (e.g. undefined from a malformed datasource response).
     // In infinite scroll mode, estimate the total from loaded data + one extra block.
@@ -614,7 +614,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.infiniteScrollMode = false;
 
     // Load first block with enrichment params
-    const blockSize = this.config.pageSize ?? this.config.cacheBlockSize ?? 100;
+    const blockSize = this.config.pageSize ?? 100;
     const enrichment = this.getEnrichmentParams();
     const gridId = this.grid?.getAttribute?.('id') ?? undefined;
     const controller = new AbortController();
@@ -701,27 +701,13 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   }
 
   /**
-   * @deprecated Use {@link getTotalNodeCount} instead. Will be removed in a future version.
-   */
-  getTotalRowCount(): number {
-    return this.totalNodeCount;
-  }
-
-  /**
    * Check if a specific node is loaded in the cache.
    * @param nodeIndex - Node index to check
    */
   isNodeLoaded(nodeIndex: number): boolean {
-    const blockSize = this.config.pageSize ?? this.config.cacheBlockSize ?? 100;
+    const blockSize = this.config.pageSize ?? 100;
     const blockNum = getBlockNumber(nodeIndex, blockSize);
     return this.loadedBlocks.has(blockNum);
-  }
-
-  /**
-   * @deprecated Use {@link isNodeLoaded} instead. Will be removed in a future version.
-   */
-  isRowLoaded(rowIndex: number): boolean {
-    return this.isNodeLoaded(rowIndex);
   }
 
   /**

@@ -6,7 +6,6 @@
  */
 
 import { aggregatorRegistry } from '../../core/internal/aggregators';
-import { sanitizeHTML } from '../../core/internal/sanitize';
 import type { ColumnConfig } from '../../core/types';
 import type {
   AggregationRowConfig,
@@ -15,9 +14,7 @@ import type {
   PanelRender,
   PanelSlot,
   PanelZone,
-  PinnedRowsConfig,
   PinnedRowsContext,
-  PinnedRowsPanel,
   ZonedPanelRender,
 } from './types';
 
@@ -26,77 +23,6 @@ import type {
  */
 function isAggregatorConfig(def: AggregatorDefinition): def is AggregatorConfig {
   return typeof def === 'object' && def !== null && 'aggFunc' in def;
-}
-
-/**
- * Creates the info bar DOM element with all configured panels.
- *
- * @param config - The status bar configuration
- * @param context - The current grid context for rendering
- * @returns The complete info bar element
- */
-export function createInfoBarElement(config: PinnedRowsConfig, context: PinnedRowsContext): HTMLElement {
-  const pinnedRows = document.createElement('div');
-  pinnedRows.className = 'tbw-pinned-rows';
-  pinnedRows.setAttribute('role', 'presentation');
-  pinnedRows.setAttribute('aria-live', 'polite');
-
-  const left = document.createElement('div');
-  left.className = 'tbw-pinned-rows-left';
-
-  const center = document.createElement('div');
-  center.className = 'tbw-pinned-rows-center';
-
-  const right = document.createElement('div');
-  right.className = 'tbw-pinned-rows-right';
-
-  // Default panels - row count
-  if (config.showRowCount !== false) {
-    const rowCount = document.createElement('span');
-    rowCount.className = 'tbw-status-panel tbw-status-panel-row-count';
-    rowCount.textContent = `Total: ${context.totalRows} rows`;
-    left.appendChild(rowCount);
-  }
-
-  // Filtered count panel (only shows when filter is active)
-  if (config.showFilteredCount && context.filteredRows !== context.totalRows) {
-    const filteredCount = document.createElement('span');
-    filteredCount.className = 'tbw-status-panel tbw-status-panel-filtered-count';
-    filteredCount.textContent = `Filtered: ${context.filteredRows}`;
-    left.appendChild(filteredCount);
-  }
-
-  // Selected count panel (only shows when rows are selected)
-  if (config.showSelectedCount && context.selectedRows > 0) {
-    const selectedCount = document.createElement('span');
-    selectedCount.className = 'tbw-status-panel tbw-status-panel-selected-count';
-    selectedCount.textContent = `Selected: ${context.selectedRows}`;
-    right.appendChild(selectedCount);
-  }
-
-  // Render custom panels
-  if (config.customPanels) {
-    for (const panel of config.customPanels) {
-      const panelEl = renderCustomPanel(panel, context);
-      switch (panel.position) {
-        case 'left':
-          left.appendChild(panelEl);
-          break;
-        case 'center':
-          center.appendChild(panelEl);
-          break;
-        case 'right':
-          right.appendChild(panelEl);
-          break;
-      }
-    }
-  }
-
-  pinnedRows.appendChild(left);
-  pinnedRows.appendChild(center);
-  pinnedRows.appendChild(right);
-
-  return pinnedRows;
 }
 
 /**
@@ -289,29 +215,6 @@ function renderInlineAggregates(
   }
 
   return container.children.length > 0 ? container : null;
-}
-
-/**
- * Renders a custom panel element.
- *
- * @param panel - The panel definition
- * @param context - The current grid context
- * @returns The panel DOM element
- */
-function renderCustomPanel(panel: PinnedRowsPanel, context: PinnedRowsContext): HTMLElement {
-  const panelEl = document.createElement('div');
-  panelEl.className = 'tbw-status-panel tbw-status-panel-custom';
-  panelEl.id = `status-panel-${panel.id}`;
-
-  const content = panel.render(context);
-
-  if (typeof content === 'string') {
-    panelEl.innerHTML = sanitizeHTML(content);
-  } else {
-    panelEl.appendChild(content);
-  }
-
-  return panelEl;
 }
 
 /**

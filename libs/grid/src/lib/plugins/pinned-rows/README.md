@@ -44,10 +44,12 @@ grid.gridConfig = {
 | `slots`     | `PinnedRowSlot[]` | `[]`    | Ordered list of pinned-row slots (see [Slots API](#slots-api)) |
 | `fullWidth` | `boolean`         | `false` | Default fullWidth mode applied to every aggregation slot       |
 
-> **Legacy fields** — `position`, `showRowCount`, `showSelectedCount`,
-> `showFilteredCount`, `aggregationRows`, `customPanels` — are still accepted
-> for backwards compatibility but are deprecated and ignored when `slots` is
-> set. New code should use `slots`.
+> **Removed in v3** — the legacy `position`, `showRowCount`, `showSelectedCount`,
+> `showFilteredCount`, `aggregationRows`, and `customPanels` fields, plus the
+> imperative `addPanel`/`removePanel`/`addAggregationRow`/`removeAggregationRow`
+> methods, have been removed. Use `slots` instead. The default config seeds a
+> single bottom info-bar slot (row count, filtered count, selected count), so
+> `new PinnedRowsPlugin()` still renders the familiar info bar.
 
 ## Slots API
 

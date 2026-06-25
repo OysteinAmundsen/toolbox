@@ -435,7 +435,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('should accept custom config', () => {
-      const plugin = new ServerSidePlugin({ pageSize: 50, cacheBlockSize: 50, maxConcurrentRequests: 1 });
+      const plugin = new ServerSidePlugin({ pageSize: 50, maxConcurrentRequests: 1 });
       expect(plugin.name).toBe('serverSide');
     });
   });
@@ -451,7 +451,7 @@ describe('ServerSidePlugin', () => {
 
   describe('setDataSource', () => {
     it('should load first block and trigger render', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -465,12 +465,12 @@ describe('ServerSidePlugin', () => {
       await vi.waitFor(() => expect(grid.requestRender).toHaveBeenCalled());
 
       expect(mockDS.getRows).toHaveBeenCalledWith(expect.objectContaining({ startNode: 0, endNode: 10 }));
-      expect(plugin.getTotalRowCount()).toBe(100);
+      expect(plugin.getTotalNodeCount()).toBe(100);
       expect(plugin.getLoadedBlockCount()).toBe(1);
     });
 
     it('should clear previous state when setting new data source', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -478,13 +478,13 @@ describe('ServerSidePlugin', () => {
         getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalNodeCount: 50 }),
       };
       plugin.setDataSource(ds1);
-      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(50));
+      await vi.waitFor(() => expect(plugin.getTotalNodeCount()).toBe(50));
 
       const ds2: ServerSideDataSource = {
         getRows: vi.fn().mockResolvedValue({ rows: [{ id: 2 }], totalNodeCount: 200 }),
       };
       plugin.setDataSource(ds2);
-      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(200));
+      await vi.waitFor(() => expect(plugin.getTotalNodeCount()).toBe(200));
 
       expect(plugin.getLoadedBlockCount()).toBe(1);
     });
@@ -495,14 +495,14 @@ describe('ServerSidePlugin', () => {
       const mockDS: ServerSideDataSource = {
         getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }, { id: 2 }], totalNodeCount: 100 }),
       };
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10, dataSource: mockDS });
+      const plugin = new ServerSidePlugin({ pageSize: 10, dataSource: mockDS });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
       await vi.waitFor(() => expect(grid.requestRender).toHaveBeenCalled());
 
       expect(mockDS.getRows).toHaveBeenCalledWith(expect.objectContaining({ startNode: 0, endNode: 10 }));
-      expect(plugin.getTotalRowCount()).toBe(100);
+      expect(plugin.getTotalNodeCount()).toBe(100);
       expect(plugin.getLoadedBlockCount()).toBe(1);
     });
 
@@ -510,23 +510,23 @@ describe('ServerSidePlugin', () => {
       const configDS: ServerSideDataSource = {
         getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalNodeCount: 50 }),
       };
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10, dataSource: configDS });
+      const plugin = new ServerSidePlugin({ pageSize: 10, dataSource: configDS });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
-      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(50));
+      await vi.waitFor(() => expect(plugin.getTotalNodeCount()).toBe(50));
 
       const runtimeDS: ServerSideDataSource = {
         getRows: vi.fn().mockResolvedValue({ rows: [{ id: 2 }], totalNodeCount: 200 }),
       };
       plugin.setDataSource(runtimeDS);
-      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(200));
+      await vi.waitFor(() => expect(plugin.getTotalNodeCount()).toBe(200));
 
       expect(runtimeDS.getRows).toHaveBeenCalled();
     });
 
     it('should not auto-initialize when config.dataSource is not provided', () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -642,7 +642,7 @@ describe('ServerSidePlugin', () => {
       const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(data) });
       vi.stubGlobal('fetch', fetchMock);
 
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid({ _hostElement: undefined });
       grid._hostElement = grid;
       grid.setAttribute('data-src', '/api/rows.json');
@@ -651,7 +651,7 @@ describe('ServerSidePlugin', () => {
       await vi.waitFor(() => expect(grid.requestRender).toHaveBeenCalled());
 
       expect(fetchMock).toHaveBeenCalledWith('/api/rows.json', expect.objectContaining({ signal: expect.anything() }));
-      expect(plugin.getTotalRowCount()).toBe(2);
+      expect(plugin.getTotalNodeCount()).toBe(2);
       expect(plugin.getLoadedBlockCount()).toBe(1);
     });
 
@@ -662,7 +662,7 @@ describe('ServerSidePlugin', () => {
       const configDS: ServerSideDataSource = {
         getRows: vi.fn().mockResolvedValue({ rows: [{ id: 9 }], totalNodeCount: 1 }),
       };
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10, dataSource: configDS });
+      const plugin = new ServerSidePlugin({ pageSize: 10, dataSource: configDS });
       const grid = createServerSideMockGrid();
       grid._hostElement = grid;
       grid.setAttribute('data-src', '/api/rows.json');
@@ -673,7 +673,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('does nothing when neither config.dataSource nor data-src is present', () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid();
       grid._hostElement = grid;
       plugin.attach(grid as any);
@@ -685,7 +685,7 @@ describe('ServerSidePlugin', () => {
 
   describe('AbortSignal cancellation', () => {
     it('passes a fresh, non-aborted AbortSignal to getRows', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -693,7 +693,7 @@ describe('ServerSidePlugin', () => {
         getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalNodeCount: 1 }),
       };
       plugin.setDataSource(mockDS);
-      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(1));
+      await vi.waitFor(() => expect(plugin.getTotalNodeCount()).toBe(1));
 
       const params = (mockDS.getRows as any).mock.calls[0][0];
       expect(params.signal).toBeInstanceOf(AbortSignal);
@@ -701,7 +701,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('aborts the in-flight signal when setDataSource is called again', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -726,7 +726,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('aborts the in-flight signal on detach', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -746,7 +746,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('aborts the in-flight signal when refresh() is called', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -771,7 +771,7 @@ describe('ServerSidePlugin', () => {
     it('drops the result when a superseded request resolves anyway', async () => {
       // Simulates a data source that ignores params.signal — the plugin still
       // protects the cache by checking signal.aborted before storing the result.
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -788,21 +788,21 @@ describe('ServerSidePlugin', () => {
       plugin.setDataSource(ds);
       // Supersede before the first resolves.
       plugin.refresh();
-      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(1));
+      await vi.waitFor(() => expect(plugin.getTotalNodeCount()).toBe(1));
 
       // Now resolve the stale first request — its result must NOT replace block 0.
       resolveFirst({ rows: [{ id: 'stale' }], totalNodeCount: 999 });
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(plugin.getTotalRowCount()).toBe(1);
+      expect(plugin.getTotalNodeCount()).toBe(1);
       expect(plugin.getLoadedBlockCount()).toBe(1);
     });
   });
 
   describe('Subscribable getRows (RxJS / HttpClient)', () => {
     it('accepts a Subscribable and resolves on next', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -816,12 +816,12 @@ describe('ServerSidePlugin', () => {
       };
       plugin.setDataSource(ds);
 
-      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(2));
+      await vi.waitFor(() => expect(plugin.getTotalNodeCount()).toBe(2));
       expect(plugin.getLoadedBlockCount()).toBe(1);
     });
 
     it('unsubscribes from the Subscribable when the request is superseded', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -846,7 +846,7 @@ describe('ServerSidePlugin', () => {
       // Wait a tick so the Subscribable has been subscribed to.
       await Promise.resolve();
       plugin.refresh();
-      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(1));
+      await vi.waitFor(() => expect(plugin.getTotalNodeCount()).toBe(1));
 
       expect(unsubscribe).toHaveBeenCalled();
     });
@@ -882,7 +882,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('should return managed rows with placeholders when data source is set', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -892,7 +892,7 @@ describe('ServerSidePlugin', () => {
           .mockResolvedValue({ rows: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }], totalNodeCount: 10 }),
       };
       plugin.setDataSource(mockDS);
-      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(10));
+      await vi.waitFor(() => expect(plugin.getTotalNodeCount()).toBe(10));
 
       const result = plugin.processRows([]);
       expect(result.length).toBe(10);
@@ -904,7 +904,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('should not throw when totalNodeCount is undefined (malformed datasource)', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -920,7 +920,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('should enter infinite scroll mode when totalNodeCount is -1', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -937,17 +937,17 @@ describe('ServerSidePlugin', () => {
     });
   });
 
-  describe('isRowLoaded', () => {
+  describe('isNodeLoaded', () => {
     it('should return false when no data is loaded', () => {
       const plugin = new ServerSidePlugin();
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
-      expect(plugin.isRowLoaded(0)).toBe(false);
+      expect(plugin.isNodeLoaded(0)).toBe(false);
     });
 
     it('should return true for rows in loaded blocks', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 100 });
+      const plugin = new ServerSidePlugin({ pageSize: 100 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -959,16 +959,16 @@ describe('ServerSidePlugin', () => {
       plugin.setDataSource(mockDS);
       await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
 
-      expect(plugin.isRowLoaded(0)).toBe(true);
-      expect(plugin.isRowLoaded(50)).toBe(true);
-      expect(plugin.isRowLoaded(99)).toBe(true);
-      expect(plugin.isRowLoaded(100)).toBe(false);
+      expect(plugin.isNodeLoaded(0)).toBe(true);
+      expect(plugin.isNodeLoaded(50)).toBe(true);
+      expect(plugin.isNodeLoaded(99)).toBe(true);
+      expect(plugin.isNodeLoaded(100)).toBe(false);
     });
   });
 
   describe('refresh', () => {
     it('should clear cache and trigger re-render', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -1002,7 +1002,7 @@ describe('ServerSidePlugin', () => {
       // the immediate processRows returns []. onModelChange must (a) trigger a fresh
       // fetch with new enrichment params and (b) on resolve call requestRender() so
       // processRows runs again and managedNodes regrows. Otherwise the grid stays blank.
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -1041,7 +1041,7 @@ describe('ServerSidePlugin', () => {
 
   describe('purgeCache', () => {
     it('should clear loaded blocks without triggering render', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -1062,7 +1062,7 @@ describe('ServerSidePlugin', () => {
   describe('onScroll', () => {
     it('should trigger block loading on scroll', async () => {
       vi.useFakeTimers();
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid({
         _virtualization: { enabled: true, start: 10, end: 20 },
       });
@@ -1104,7 +1104,7 @@ describe('ServerSidePlugin', () => {
       // Viewport rows 0..10 normally only requires block 0 (size 10).
       // With loadThreshold: 5 the expanded range becomes 0..15, pulling in block 1.
       // Prefetch must fire on the initial fetch, not require a user scroll.
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10, loadThreshold: 5 });
+      const plugin = new ServerSidePlugin({ pageSize: 10, loadThreshold: 5 });
       const grid = createServerSideMockGrid({
         _virtualization: { enabled: true, start: 0, end: 10 },
       });
@@ -1135,7 +1135,7 @@ describe('ServerSidePlugin', () => {
       vi.useFakeTimers();
       // Total of 15 rows means only blocks 0 and 1 exist (block 1 has rows 10..14).
       // loadThreshold: 50 would otherwise request many blocks past the end.
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10, loadThreshold: 50 });
+      const plugin = new ServerSidePlugin({ pageSize: 10, loadThreshold: 50 });
       const grid = createServerSideMockGrid({
         _virtualization: { enabled: true, start: 0, end: 5 },
       });
@@ -1150,7 +1150,7 @@ describe('ServerSidePlugin', () => {
         }),
       };
       plugin.setDataSource(mockDS);
-      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(15));
+      await vi.waitFor(() => expect(plugin.getTotalNodeCount()).toBe(15));
 
       plugin.onScroll({ scrollTop: 0, scrollLeft: 0, direction: 'vertical' } as any);
       vi.advanceTimersByTime(200);
@@ -1164,7 +1164,7 @@ describe('ServerSidePlugin', () => {
 
     it('should default to 0 (no prefetch beyond visible viewport)', async () => {
       vi.useFakeTimers();
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid({
         _virtualization: { enabled: true, start: 0, end: 10 },
       });
@@ -1191,7 +1191,7 @@ describe('ServerSidePlugin', () => {
 
   describe('detach', () => {
     it('should clean up all state', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -1203,17 +1203,17 @@ describe('ServerSidePlugin', () => {
 
       plugin.detach();
 
-      expect(plugin.getTotalRowCount()).toBe(0);
+      expect(plugin.getTotalNodeCount()).toBe(0);
       expect(plugin.getLoadedBlockCount()).toBe(0);
     });
   });
 
-  describe('getTotalRowCount', () => {
+  describe('getTotalNodeCount', () => {
     it('should return 0 initially', () => {
       const plugin = new ServerSidePlugin();
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
-      expect(plugin.getTotalRowCount()).toBe(0);
+      expect(plugin.getTotalNodeCount()).toBe(0);
     });
   });
 
@@ -1228,7 +1228,7 @@ describe('ServerSidePlugin', () => {
 
   describe('infinite scroll (lastNode)', () => {
     it('should enter infinite scroll mode when totalNodeCount is -1', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -1250,7 +1250,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('should finalize total when lastNode is returned', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -1265,13 +1265,13 @@ describe('ServerSidePlugin', () => {
       await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
 
       // lastNode should override infinite scroll and set exact total
-      expect(plugin.getTotalRowCount()).toBe(8);
+      expect(plugin.getTotalNodeCount()).toBe(8);
       const result = plugin.processRows([]);
       expect(result.length).toBe(8);
     });
 
     it('should auto-detect end of data when a short block is returned', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -1286,13 +1286,13 @@ describe('ServerSidePlugin', () => {
       await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
 
       // Short block (3 rows < blockSize 10) → total is 3
-      expect(plugin.getTotalRowCount()).toBe(3);
+      expect(plugin.getTotalNodeCount()).toBe(3);
       const result = plugin.processRows([]);
       expect(result.length).toBe(3);
     });
 
     it('should use exact totalNodeCount when provided (non -1)', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -1306,13 +1306,13 @@ describe('ServerSidePlugin', () => {
       await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
 
       // Not in infinite scroll — exact total used
-      expect(plugin.getTotalRowCount()).toBe(100);
+      expect(plugin.getTotalNodeCount()).toBe(100);
       const result = plugin.processRows([]);
       expect(result.length).toBe(100);
     });
 
     it('should reset infinite scroll mode on refresh', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -1338,14 +1338,14 @@ describe('ServerSidePlugin', () => {
       // Refresh with finite response
       plugin.refresh();
       await vi.waitFor(() => expect(mockDS.getRows).toHaveBeenCalledTimes(2));
-      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(2));
+      await vi.waitFor(() => expect(plugin.getTotalNodeCount()).toBe(2));
 
       result = plugin.processRows([]);
       expect(result.length).toBe(2);
     });
 
     it('should prioritize lastNode over totalNodeCount when both are provided', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
       const grid = createServerSideMockGrid();
       plugin.attach(grid as any);
 
@@ -1359,7 +1359,7 @@ describe('ServerSidePlugin', () => {
       plugin.setDataSource(mockDS);
       await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
 
-      expect(plugin.getTotalRowCount()).toBe(50);
+      expect(plugin.getTotalNodeCount()).toBe(50);
     });
   });
 
@@ -1382,7 +1382,7 @@ describe('ServerSidePlugin', () => {
     }
 
     it('default (sortMode omitted) purges cache and refetches on sort-change', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
       const { grid } = setupQueriesGrid();
       plugin.attach(grid as any);
       const mockDS: ServerSideDataSource = {
@@ -1403,7 +1403,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('sortMode: "local" does NOT purge cache and does NOT refetch on sort-change', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, sortMode: 'local' });
+      const plugin = new ServerSidePlugin({ pageSize: 5, sortMode: 'local' });
       const { grid } = setupQueriesGrid();
       plugin.attach(grid as any);
       const mockDS: ServerSideDataSource = {
@@ -1425,7 +1425,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('filterMode: "local" does NOT purge cache and does NOT refetch on filter-change', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, filterMode: 'local' });
+      const plugin = new ServerSidePlugin({ pageSize: 5, filterMode: 'local' });
       const { grid } = setupQueriesGrid();
       plugin.attach(grid as any);
       const mockDS: ServerSideDataSource = {
@@ -1446,7 +1446,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('mixed sortMode: "local", filterMode: "server" — only filter purges cache', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, sortMode: 'local', filterMode: 'server' });
+      const plugin = new ServerSidePlugin({ pageSize: 5, sortMode: 'local', filterMode: 'server' });
       const { grid } = setupQueriesGrid();
       plugin.attach(grid as any);
       const mockDS: ServerSideDataSource = {
@@ -1470,7 +1470,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('block fetch params omit sortModel under sortMode: "local"', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, sortMode: 'local' });
+      const plugin = new ServerSidePlugin({ pageSize: 5, sortMode: 'local' });
       const { grid } = setupQueriesGrid();
       plugin.attach(grid as any);
       const mockDS: ServerSideDataSource = {
@@ -1486,7 +1486,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('block fetch params omit filterModel under filterMode: "local"', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, filterMode: 'local' });
+      const plugin = new ServerSidePlugin({ pageSize: 5, filterMode: 'local' });
       const { grid } = setupQueriesGrid();
       plugin.attach(grid as any);
       const mockDS: ServerSideDataSource = {
@@ -1502,7 +1502,7 @@ describe('ServerSidePlugin', () => {
 
     it('both modes "local" — neither sort nor filter is sent on block fetch', async () => {
       const plugin = new ServerSidePlugin({
-        cacheBlockSize: 5,
+        pageSize: 5,
         sortMode: 'local',
         filterMode: 'local',
       });
@@ -1520,7 +1520,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('processRows applies core _sortState to managedNodes when sortMode === "local"', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, sortMode: 'local' });
+      const plugin = new ServerSidePlugin({ pageSize: 5, sortMode: 'local' });
       const grid = createServerSideMockGrid();
       // Provide columns and a sort state on the grid for the plugin to read.
       Object.defineProperty(grid, '_columns', {
@@ -1547,7 +1547,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('processRows leaves managedNodes order untouched when sortMode is server (default)', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
       const grid = createServerSideMockGrid();
       Object.defineProperty(grid, '_columns', {
         value: [{ field: 'name', sortable: true }],
@@ -1574,7 +1574,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('processRows under sortMode === "local" honors gridConfig.sortHandler', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, sortMode: 'local' });
+      const plugin = new ServerSidePlugin({ pageSize: 5, sortMode: 'local' });
       // Custom sortHandler that always reverses input — distinct from default
       // comparator so we can confirm it actually ran.
       const sortHandler = vi.fn((input: any[]) => [...input].reverse());
@@ -1608,7 +1608,7 @@ describe('ServerSidePlugin', () => {
     });
 
     it('processRows falls back to managedNodes order when sortHandler returns a Promise', async () => {
-      const plugin = new ServerSidePlugin({ cacheBlockSize: 5, sortMode: 'local' });
+      const plugin = new ServerSidePlugin({ pageSize: 5, sortMode: 'local' });
       const sortHandler = vi.fn(() => Promise.resolve([]));
       const grid = createServerSideMockGrid({
         effectiveConfig: { sortHandler },

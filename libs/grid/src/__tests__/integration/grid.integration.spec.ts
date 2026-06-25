@@ -2497,12 +2497,13 @@ describe('tbw-grid scroll height calculation', () => {
       plugins: [
         new GroupingColumnsPlugin(),
         new PinnedRowsPlugin({
-          position: 'bottom',
-          showRowCount: true,
-          aggregationRows: [
+          slots: [
             {
               id: 'Summary',
-              salary: (r: any[]) => r.reduce((a, b) => a + (b.salary || 0), 0),
+              position: 'bottom',
+              cells: {
+                salary: (r: unknown[]) => (r as any[]).reduce((a, b) => a + (b.salary || 0), 0),
+              },
             },
           ],
         }),

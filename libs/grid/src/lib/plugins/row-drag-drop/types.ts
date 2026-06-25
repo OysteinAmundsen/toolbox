@@ -90,15 +90,6 @@ export interface RowDragDropConfig<T = unknown> {
    */
   canDrag?: (row: T, index: number) => boolean;
 
-  /**
-   * @deprecated Use {@link RowDragDropConfig.canDrag canDrag} for the
-   * dragstart-side veto and {@link RowDragDropConfig.canDrop canDrop} for
-   * the drop-side veto. `canMove` is accepted as a back-compat alias and
-   * mapped internally — it is invoked for intra-grid moves with the same
-   * `(row, fromIndex, toIndex, direction)` signature as `RowReorderConfig`.
-   */
-  canMove?: (row: T, fromIndex: number, toIndex: number, direction: 'up' | 'down') => boolean;
-
   // === Cross-grid ===
 
   /**

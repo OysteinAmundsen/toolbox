@@ -18,7 +18,6 @@ export type {
   PinnedRowSlot,
   PinnedRowsConfig,
   PinnedRowsContext,
-  PinnedRowsPanel,
   PinnedRowsPosition,
   ZonedPanelRender,
 } from './types';

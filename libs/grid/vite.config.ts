@@ -385,6 +385,22 @@ export default defineConfig(({ command }) => ({
               { path: 'index.js', maxSize: 170 * 1024, maxGzip: 50 * 1024, warnGzip: 45 * 1024 },
               { path: 'lib/plugins/*/index.js', maxSize: 50 * 1024 },
             ],
+            // #259/#370 v3: the shell is opt-in and MUST tree-shake out of core.
+            // Assert the shell *controller logic* never leaks into index.js. We key
+            // on the public ShellPlugin method names — terser preserves property/
+            // method names (only `mangle.properties` would rename them, which is off),
+            // so these survive minification and uniquely identify the shell bundle.
+            // Note: do NOT use `tbw-shell-header` (core dom-builder always emits that
+            // structural placeholder div), the `ShellController`/`ShellPlugin` class
+            // names (mangled away in both chunks), or `getToolPanels` (substring also
+            // present in core) — all give false readings. See vite.config build proof.
+            forbiddenSymbols: [
+              {
+                path: 'index.js',
+                symbols: ['openToolPanel', 'registerHeaderContent', 'unregisterHeaderContent'],
+                reason: 'shell must tree-shake out of core index.js (#259/#370)',
+              },
+            ],
           }),
         ]
       : []),

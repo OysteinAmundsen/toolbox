@@ -1,0 +1,129 @@
+---
+title: Migrating from v2 to v3
+description: Breaking changes in @toolbox-web/grid v3 — the shell is now opt-in, and the v2.x deprecated API has been removed.
+sidebar:
+  order: 6
+---
+
+import { Aside, TabItem, Tabs } from '@astrojs/starlight/components';
+
+This guide covers the breaking changes in `@toolbox-web/grid` **v3**. Every removed
+symbol was `@deprecated` throughout the v2.x line, so if you kept up with IDE
+deprecation warnings you may have little to change.
+
+<Aside type="note">
+  This page covers the **grid core** package. Adapter-specific breaking changes
+  (Angular, React, Vue) are documented in each adapter's changelog and added to
+  this guide as their v3 majors land.
+</Aside>
+
+## The shell is now opt-in
+
+The biggest behavioural change: the **shell** (header bar, toolbar content, and
+tool panels) was extracted into a built-in `ShellPlugin` and is **no longer
+auto-registered**. A bare `<tbw-grid>` now renders **no shell chrome**, which lets
+the shell tree-shake out of the core bundle when you don't use it.
+
+Activate the shell explicitly using **one** of these forms:
+
+<Tabs>
+  <TabItem label="Feature (recommended)">
+
+```ts
+// Side-effect import registers the feature, then enable it in gridConfig.
+import '@toolbox-web/grid/features/shell';
+
+grid.gridConfig = {
+  features: { shell: true }, // or: { shell: { /* ShellConfig */ } }
+};
+```
+
+  </TabItem>
+  <TabItem label="Explicit plugin">
+
+```ts
+import { ShellPlugin } from '@toolbox-web/grid/plugins/shell';
+
+grid.gridConfig = {
+  plugins: [new ShellPlugin(/* ShellConfig */)],
+};
+```
+
+  </TabItem>
+</Tabs>
+
+### Shell API access
+
+The deprecated grid-element shell delegates (`grid.openToolPanel(...)`,
+`grid.registerHeaderContent(...)`, `grid.getToolPanels()`, etc.) have been
+**removed**. Reach the shell through the plugin instance instead:
+
+```ts
+const shell = grid.getPluginByName('shell');
+shell?.openToolPanel('filters');
+shell?.registerHeaderContent(/* ... */);
+```
+
+<Aside type="caution">
+  Plugins that depend on the shell now surface their dependency diagnostics that
+  were inert while the shell auto-registered: `VisibilityPlugin` **throws**
+  [`TBW020`](/grid/errors#tbw020) when the shell is absent, and `PivotPlugin`
+  **warns** [`TBW021`](/grid/errors#tbw021) when `showToolPanel: true` but no
+  shell is registered. Register the shell (forms above) to resolve both.
+</Aside>
+
+### Shell config types
+
+The shell config types are no longer re-exported from the core entry point.
+Import them from the plugin subpath:
+
+```ts
+// v2 (removed core re-exports)
+// import type { ShellConfig, ToolPanelConfig } from '@toolbox-web/grid';
+
+// v3
+import type { ShellConfig, ToolPanelConfig } from '@toolbox-web/grid/plugins/shell';
+```
+
+## Removed deprecated API
+
+| v2 (removed)                                    | v3 (replacement)                                                        |
+| ----------------------------------------------- | ----------------------------------------------------------------------- |
+| `DGEvents`, `DGEventName`                        | String literals typed against `DataGridEventMap` (or `keyof DataGridEventMap`) |
+| `PluginEvents`, `PluginEventName`                | String literals typed against `DataGridEventMap`                        |
+| `@toolbox-web/grid/plugins/reorder-rows` (`RowReorderPlugin`) | `@toolbox-web/grid/plugins/row-drag-drop` (`RowDragDropPlugin`) |
+| `RowDragDropConfig.canDragRow`                   | `RowDragDropConfig.canDrag`                                             |
+| `ServerSidePlugin.getNodeCount()`                | `ServerSidePlugin.getTotalNodeCount()`                                  |
+| `ServerSidePlugin.isLoaded(index)`               | `ServerSidePlugin.isNodeLoaded(index)`                                  |
+| `PinnedRowsConfig.position`, `showRowCount`, `showSelectedCount`, `showFilteredCount`, `aggregationRows`, `customPanels` | `PinnedRowsConfig.slots[]` |
+| `PinnedRowsPlugin.addPanel` / `removePanel` / `addAggregationRow` / `removeAggregationRow` | Configure `slots[]` declaratively |
+
+### Event listeners
+
+```ts
+// v2 (removed)
+import { DGEvents, PluginEvents } from '@toolbox-web/grid';
+grid.on(DGEvents.SORT_CHANGE, (detail) => { /* ... */ });
+grid.on(PluginEvents.FILTER_CHANGE, (detail) => { /* ... */ });
+
+// v3 — string literals are type-checked against DataGridEventMap
+grid.on('sort-change', (detail) => { /* ... */ });
+grid.on('filter-change', (detail) => { /* ... */ });
+```
+
+### Pinned rows
+
+```ts
+// v2 (removed legacy fields)
+new PinnedRowsPlugin({ showRowCount: true, aggregationRows: [/* ... */] });
+
+// v3 — the unified slots[] API
+new PinnedRowsPlugin({
+  slots: [
+    { position: 'bottom', aggregators: { price: 'sum' }, label: 'Total' },
+  ],
+});
+```
+
+The default `new PinnedRowsPlugin()` still seeds the familiar bottom info bar
+(row count, filtered count, selected count), so the no-argument case is unchanged.

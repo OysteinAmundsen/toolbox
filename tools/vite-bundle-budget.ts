@@ -16,11 +16,28 @@ export interface BudgetEntry {
   warnGzip?: number;
 }
 
+/**
+ * Assertion that a built file does NOT contain certain string tokens — used to
+ * prove a tree-shaken module (e.g. an opt-in plugin) left no trace in core.
+ * Prefer non-manglable signals (string literals such as CSS class names) over
+ * class identifiers, which terser may rename.
+ */
+export interface ForbiddenSymbolsEntry {
+  /** Path pattern relative to outDir. Same glob semantics as {@link BudgetEntry.path}. */
+  path: string;
+  /** String tokens that MUST NOT appear in the matched file(s). */
+  symbols: string[];
+  /** Optional human-readable reason, surfaced in the violation message. */
+  reason?: string;
+}
+
 export interface BundleBudgetOptions {
   /** Absolute path to the build output directory */
   outDir: string;
   /** Budget definitions to enforce */
   budgets: BudgetEntry[];
+  /** Symbol-absence assertions (e.g. ensure a tree-shaken plugin left no trace in core) */
+  forbiddenSymbols?: ForbiddenSymbolsEntry[];
   /** 'error' (default) fails the build; 'warn' logs a warning */
   severity?: 'error' | 'warn';
 }
@@ -65,6 +82,24 @@ export function checkBudgets(options: BundleBudgetOptions): BudgetCheckResult {
         violations.push(`${rel}: ${fmt(gz)} gzipped exceeds budget of ${fmt(budget.maxGzip)}`);
       } else if (budget.warnGzip != null && gz > budget.warnGzip) {
         warnings.push(`${rel}: ${fmt(gz)} gzipped approaching budget (warn at ${fmt(budget.warnGzip)})`);
+      }
+    }
+  }
+
+  for (const rule of options.forbiddenSymbols ?? []) {
+    const files = resolveGlob(outDir, rule.path);
+    if (files.length === 0) {
+      violations.push(`No files matched pattern "${rule.path}"`);
+      continue;
+    }
+
+    for (const filePath of files) {
+      const rel = relative(outDir, filePath).replace(/\\/g, '/');
+      const content = readFileSync(filePath, 'utf8');
+      for (const symbol of rule.symbols) {
+        if (content.includes(symbol)) {
+          violations.push(`${rel}: must not contain "${symbol}"${rule.reason ? ` — ${rule.reason}` : ''}`);
+        }
       }
     }
   }

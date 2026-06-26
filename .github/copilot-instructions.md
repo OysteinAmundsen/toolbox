@@ -94,24 +94,25 @@ Loaded on demand from `.github/knowledge/` — read relevant files before starti
 
 Loaded on demand from `.github/skills/` for task-specific workflows:
 
-| Skill                 | When to use                                                   |
-| --------------------- | ------------------------------------------------------------- |
-| `new-plugin`          | Adding a grid plugin with hooks, styles, tests, demos         |
-| `bundle-check`        | After code changes that may affect bundle size                |
-| `test-coverage`       | Writing tests, improving coverage for a file                  |
-| `new-adapter-feature` | Ensuring feature parity across framework adapters             |
-| `new-adapter`         | Scaffolding a new framework adapter from scratch              |
-| `release-prep`        | Preparing a library version for release                       |
-| `astro-demo`          | Adding demos or documentation for features                    |
-| `bench`               | Benchmarking as local regression testing; writing `.bench.ts` |
-| `debug-perf`          | Profiling, hot path analysis, render scheduler issues         |
-| `debug-browser`       | DOM inspection, screenshots, console, script eval             |
-| `run-e2e`             | Running e2e suites, demo servers, updating baselines          |
-| `docs-update`         | After any feature, fix, or refactor                           |
-| `since-tag`           | Resolving `@since` JSDoc versions for new public API          |
-| `pr-comments`         | Read/reply/resolve PR review threads via the `gh` CLI         |
-| `qa-apply-findings`   | Shared findings execution core for `/qa` and `/pr-qa`         |
-| `retrospective`       | Post-task lessons learned; update instructions & skills       |
+| Skill                 | When to use                                                                                        |
+| --------------------- | -------------------------------------------------------------------------------------------------- |
+| `new-plugin`          | Adding a grid plugin with hooks, styles, tests, demos                                              |
+| `bundle-check`        | After code changes that may affect bundle size                                                     |
+| `test-coverage`       | Writing tests, improving coverage for a file                                                       |
+| `new-adapter-feature` | Ensuring feature parity across framework adapters                                                  |
+| `new-adapter`         | Scaffolding a new framework adapter from scratch                                                   |
+| `release-prep`        | Preparing a library version for release                                                            |
+| `astro-demo`          | Adding demos or documentation for features                                                         |
+| `bench`               | Benchmarking as local regression testing; writing `.bench.ts`                                      |
+| `debug-perf`          | Profiling, hot path analysis, render scheduler issues                                              |
+| `debug-browser`       | DOM inspection, screenshots, console, script eval                                                  |
+| `run-e2e`             | Running e2e suites, demo servers, updating baselines                                               |
+| `docs-update`         | After any feature, fix, or refactor                                                                |
+| `since-tag`           | Resolving `@since` JSDoc versions for new public API                                               |
+| `pr-comments`         | Read/reply/resolve PR review threads via the `gh` CLI                                              |
+| `fallow`              | Codebase intelligence: health score, complexity, dead code, duplication, PR audit via `bun fallow` |
+| `qa-apply-findings`   | Shared findings execution core for `/qa` and `/pr-qa`                                              |
+| `retrospective`       | Post-task lessons learned; update instructions & skills                                            |
 
 ## AI Usage Mode (token budget)
 

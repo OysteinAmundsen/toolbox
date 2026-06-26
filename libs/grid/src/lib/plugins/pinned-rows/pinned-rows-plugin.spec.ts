@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ColumnConfig } from '../../core/types';
 import { PinnedRowsPlugin } from './PinnedRowsPlugin';
-import type { AggregationRowConfig, PinnedRowsPanel } from './types';
 
 /**
  * Unit tests for PinnedRowsPlugin class
@@ -88,24 +87,19 @@ describe('PinnedRowsPlugin', () => {
 
       plugin.attach(grid);
 
-      expect(plugin.config.position).toBe('bottom');
-      expect(plugin.config.showRowCount).toBe(true);
-      expect(plugin.config.showSelectedCount).toBe(true);
-      expect(plugin.config.showFilteredCount).toBe(true);
+      // v3: default config seeds a single bottom info-bar slot.
+      expect(plugin.config.slots).toBeDefined();
+      expect(plugin.config.slots?.length).toBe(1);
+      expect(plugin.config.slots?.[0].position).toBe('bottom');
     });
 
-    it('should merge user config with defaults', () => {
-      const plugin = new PinnedRowsPlugin({
-        position: 'top',
-        showRowCount: false,
-      });
+    it('lets user-provided slots replace the default slot', () => {
+      const plugin = new PinnedRowsPlugin({ slots: [] });
       const grid = createMockGrid();
 
       plugin.attach(grid);
 
-      expect(plugin.config.position).toBe('top');
-      expect(plugin.config.showRowCount).toBe(false);
-      expect(plugin.config.showSelectedCount).toBe(true);
+      expect(plugin.config.slots).toEqual([]);
     });
   });
 
@@ -148,15 +142,30 @@ describe('PinnedRowsPlugin', () => {
       expect(footer?.querySelector('.tbw-pinned-rows')).not.toBeNull();
     });
 
-    it('should render info bar at top when position is top', () => {
-      const plugin = new PinnedRowsPlugin({ position: 'top' });
+    it('should render info bar at top when a top slot is configured', () => {
+      const plugin = new PinnedRowsPlugin({
+        slots: [
+          {
+            id: 'top',
+            position: 'top',
+            render: () => {
+              const el = document.createElement('span');
+              el.className = 'tbw-status-panel';
+              el.textContent = 'top';
+              return el;
+            },
+          },
+        ],
+      });
       const grid = createMockGrid({ rows: [{ id: 1 }] });
 
       plugin.attach(grid);
       plugin.afterRender();
 
       const scrollArea = grid.querySelector('.tbw-scroll-area');
-      expect(scrollArea?.firstElementChild?.classList.contains('tbw-pinned-rows')).toBe(true);
+      const headerPinned = scrollArea?.firstElementChild;
+      expect(headerPinned?.classList.contains('tbw-header-pinned')).toBe(true);
+      expect(headerPinned?.querySelector('.tbw-pinned-rows')).not.toBeNull();
     });
 
     it('should show row count in info bar', () => {
@@ -171,7 +180,7 @@ describe('PinnedRowsPlugin', () => {
     });
 
     it('should show selected count when rows are selected', () => {
-      const plugin = new PinnedRowsPlugin({ showSelectedCount: true });
+      const plugin = new PinnedRowsPlugin({});
       const grid = createMockGrid({
         rows: [{ id: 1 }, { id: 2 }],
         selectionState: { selected: new Set([0, 1]) },
@@ -185,7 +194,7 @@ describe('PinnedRowsPlugin', () => {
     });
 
     it('should show filtered count when filter is active', () => {
-      const plugin = new PinnedRowsPlugin({ showFilteredCount: true });
+      const plugin = new PinnedRowsPlugin({});
       const grid = createMockGrid({
         rows: [{ id: 1 }, { id: 2 }, { id: 3 }],
         filterState: { cachedResult: [{ id: 1 }] },
@@ -199,7 +208,7 @@ describe('PinnedRowsPlugin', () => {
     });
 
     it('should not show filtered count when equal to total', () => {
-      const plugin = new PinnedRowsPlugin({ showFilteredCount: true });
+      const plugin = new PinnedRowsPlugin({});
       const grid = createMockGrid({
         rows: [{ id: 1 }, { id: 2 }],
         filterState: { cachedResult: [{ id: 1 }, { id: 2 }] },
@@ -215,7 +224,7 @@ describe('PinnedRowsPlugin', () => {
     it('should render top aggregation rows', () => {
       const columns = [{ field: 'value' }];
       const plugin = new PinnedRowsPlugin({
-        aggregationRows: [{ id: 'header-row', position: 'top', cells: { value: 'Header' } }],
+        slots: [{ id: 'header-row', position: 'top', cells: { value: 'Header' } }],
       });
       const grid = createMockGrid({
         rows: [{ value: 100 }],
@@ -234,7 +243,7 @@ describe('PinnedRowsPlugin', () => {
     it('should render bottom aggregation rows', () => {
       const columns = [{ field: 'amount' }];
       const plugin = new PinnedRowsPlugin({
-        aggregationRows: [{ id: 'totals', position: 'bottom', aggregators: { amount: 'sum' } }],
+        slots: [{ id: 'totals', position: 'bottom', aggregators: { amount: 'sum' } }],
       });
       const grid = createMockGrid({
         rows: [{ amount: 100 }, { amount: 200 }],
@@ -284,7 +293,7 @@ describe('PinnedRowsPlugin', () => {
       ];
 
       const plugin = new PinnedRowsPlugin({
-        aggregationRows: [{ id: 'totals', aggregators: { amount: 'sum' } }],
+        slots: [{ id: 'totals', aggregators: { amount: 'sum' } }],
       });
       const grid = createMockGrid({
         rows: processedRows, // processed rows with group markers
@@ -305,7 +314,7 @@ describe('PinnedRowsPlugin', () => {
     it('should clean up top aggregation when removed', () => {
       const columns = [{ field: 'value' }];
       const plugin = new PinnedRowsPlugin({
-        aggregationRows: [{ id: 'top-row', position: 'top', cells: { value: 'X' } }],
+        slots: [{ id: 'top-row', position: 'top', cells: { value: 'X' } }],
       });
       const grid = createMockGrid({
         rows: [{ value: 1 }],
@@ -318,19 +327,15 @@ describe('PinnedRowsPlugin', () => {
 
       expect(grid.querySelector('.tbw-aggregation-rows-top')).not.toBeNull();
 
-      // Remove aggregation rows
-      plugin.config.aggregationRows = [];
+      // Remove aggregation slot
+      plugin.config.slots = [];
       plugin.afterRender();
 
       expect(grid.querySelector('.tbw-aggregation-rows-top')).toBeNull();
     });
 
     it('should not render footer when no content', () => {
-      const plugin = new PinnedRowsPlugin({
-        showRowCount: false,
-        showSelectedCount: false,
-        showFilteredCount: false,
-      });
+      const plugin = new PinnedRowsPlugin({ slots: [] });
       const grid = createMockGrid({ rows: [] });
 
       plugin.attach(grid);
@@ -398,124 +403,6 @@ describe('PinnedRowsPlugin', () => {
         expect(context.filteredRows).toBe(1);
       });
     });
-
-    describe('addPanel', () => {
-      it('should add custom panel and request render', () => {
-        const plugin = new PinnedRowsPlugin({});
-        const grid = createMockGrid();
-        plugin.attach(grid);
-
-        const requestRenderSpy = vi.spyOn(plugin, 'requestRender');
-        const panel: PinnedRowsPanel = {
-          id: 'custom',
-          position: 'center',
-          render: () => 'Custom Panel',
-        };
-
-        plugin.addPanel(panel);
-
-        expect(plugin.config.customPanels).toContain(panel);
-        expect(requestRenderSpy).toHaveBeenCalled();
-      });
-
-      it('should initialize customPanels array if not present', () => {
-        const plugin = new PinnedRowsPlugin({});
-        const grid = createMockGrid();
-        plugin.attach(grid);
-
-        expect(plugin.config.customPanels).toBeUndefined();
-
-        plugin.addPanel({ id: 'test', position: 'left', render: () => 'Test' });
-
-        expect(plugin.config.customPanels).toBeDefined();
-        expect(plugin.config.customPanels?.length).toBe(1);
-      });
-    });
-
-    describe('removePanel', () => {
-      it('should remove panel by id and request render', () => {
-        const panel: PinnedRowsPanel = {
-          id: 'to-remove',
-          position: 'right',
-          render: () => 'Remove me',
-        };
-        const plugin = new PinnedRowsPlugin({ customPanels: [panel] });
-        const grid = createMockGrid();
-        plugin.attach(grid);
-
-        const requestRenderSpy = vi.spyOn(plugin, 'requestRender');
-        plugin.removePanel('to-remove');
-
-        expect(plugin.config.customPanels?.find((p) => p.id === 'to-remove')).toBeUndefined();
-        expect(requestRenderSpy).toHaveBeenCalled();
-      });
-
-      it('should do nothing if customPanels is undefined', () => {
-        const plugin = new PinnedRowsPlugin({});
-        const grid = createMockGrid();
-        plugin.attach(grid);
-
-        const requestRenderSpy = vi.spyOn(plugin, 'requestRender');
-        plugin.removePanel('non-existent');
-
-        expect(requestRenderSpy).not.toHaveBeenCalled();
-      });
-    });
-
-    describe('addAggregationRow', () => {
-      it('should add aggregation row and request render', () => {
-        const plugin = new PinnedRowsPlugin({});
-        const grid = createMockGrid();
-        plugin.attach(grid);
-
-        const requestRenderSpy = vi.spyOn(plugin, 'requestRender');
-        const row: AggregationRowConfig = { id: 'totals', aggregators: { amount: 'sum' } };
-
-        plugin.addAggregationRow(row);
-
-        expect(plugin.config.aggregationRows).toContain(row);
-        expect(requestRenderSpy).toHaveBeenCalled();
-      });
-
-      it('should initialize aggregationRows array if not present', () => {
-        const plugin = new PinnedRowsPlugin({});
-        const grid = createMockGrid();
-        plugin.attach(grid);
-
-        expect(plugin.config.aggregationRows).toBeUndefined();
-
-        plugin.addAggregationRow({ id: 'test' });
-
-        expect(plugin.config.aggregationRows).toBeDefined();
-        expect(plugin.config.aggregationRows?.length).toBe(1);
-      });
-    });
-
-    describe('removeAggregationRow', () => {
-      it('should remove aggregation row by id and request render', () => {
-        const row: AggregationRowConfig = { id: 'remove-me' };
-        const plugin = new PinnedRowsPlugin({ aggregationRows: [row] });
-        const grid = createMockGrid();
-        plugin.attach(grid);
-
-        const requestRenderSpy = vi.spyOn(plugin, 'requestRender');
-        plugin.removeAggregationRow('remove-me');
-
-        expect(plugin.config.aggregationRows?.find((r) => r.id === 'remove-me')).toBeUndefined();
-        expect(requestRenderSpy).toHaveBeenCalled();
-      });
-
-      it('should do nothing if aggregationRows is undefined', () => {
-        const plugin = new PinnedRowsPlugin({});
-        const grid = createMockGrid();
-        plugin.attach(grid);
-
-        const requestRenderSpy = vi.spyOn(plugin, 'requestRender');
-        plugin.removeAggregationRow('non-existent');
-
-        expect(requestRenderSpy).not.toHaveBeenCalled();
-      });
-    });
   });
 
   describe('edge cases', () => {
@@ -555,19 +442,30 @@ describe('PinnedRowsPlugin', () => {
       expect(() => plugin.afterRender()).not.toThrow();
     });
 
-    it('should render correctly when position is changed', () => {
-      // Test rendering at top with fresh plugin
-      const pluginTop = new PinnedRowsPlugin({ position: 'top' });
+    it('should render correctly at top and bottom positions', () => {
+      const makePanel = () => () => {
+        const el = document.createElement('span');
+        el.className = 'tbw-status-panel';
+        el.textContent = 'x';
+        return el;
+      };
+
+      // Top slot renders inside the header-pinned wrapper.
+      const pluginTop = new PinnedRowsPlugin({
+        slots: [{ id: 'top', position: 'top', render: makePanel() }],
+      });
       const grid1 = createMockGrid({ rows: [{ id: 1 }] });
 
       pluginTop.attach(grid1);
       pluginTop.afterRender();
 
       const scrollArea1 = grid1.querySelector('.tbw-scroll-area');
-      expect(scrollArea1?.querySelector('.tbw-pinned-rows')).not.toBeNull();
+      expect(scrollArea1?.querySelector('.tbw-header-pinned .tbw-pinned-rows')).not.toBeNull();
 
-      // Test rendering at bottom with fresh plugin
-      const pluginBottom = new PinnedRowsPlugin({ position: 'bottom' });
+      // Bottom slot renders inside the footer.
+      const pluginBottom = new PinnedRowsPlugin({
+        slots: [{ id: 'bot', position: 'bottom', render: makePanel() }],
+      });
       const grid2 = createMockGrid({ rows: [{ id: 1 }] });
 
       pluginBottom.attach(grid2);
@@ -769,77 +667,6 @@ describe('PinnedRowsPlugin', () => {
 
       expect(grid.querySelector('.tbw-footer [data-pinned-row-id="no-pos"]')).not.toBeNull();
       expect(grid.querySelector('.tbw-header-pinned')).toBeNull();
-    });
-
-    it('ignores legacy fields when slots[] is provided', () => {
-      const plugin = new PinnedRowsPlugin({
-        // Legacy fields should NOT contribute when slots[] is set.
-        showRowCount: true,
-        customPanels: [
-          {
-            id: 'legacy',
-            position: 'left',
-            render: () => {
-              const el = document.createElement('span');
-              el.textContent = 'legacy';
-              return el;
-            },
-          },
-        ],
-        slots: [
-          {
-            id: 'only-this',
-            position: 'bottom',
-            render: () => {
-              const el = document.createElement('span');
-              el.textContent = 'only';
-              return el;
-            },
-          },
-        ],
-      });
-      const grid = createMockGrid({ rows: [{ id: 1 }] });
-
-      plugin.attach(grid);
-      plugin.afterRender();
-
-      // Only the slot row should exist; legacy showRowCount and customPanels skipped.
-      expect(grid.querySelector('[data-pinned-row-id="only-this"]')).not.toBeNull();
-      expect(grid.querySelector('.tbw-status-panel-row-count')).toBeNull();
-      expect(grid.querySelector('#status-panel-legacy')).toBeNull();
-    });
-
-    it('switches cleanly between legacy mode and slot mode at runtime', () => {
-      const plugin = new PinnedRowsPlugin({ showRowCount: true });
-      const grid = createMockGrid({ rows: [{ id: 1 }] });
-
-      plugin.attach(grid);
-      plugin.afterRender();
-      expect(grid.querySelector('.tbw-status-panel-row-count')).not.toBeNull();
-
-      // Toggle into slot mode.
-      plugin.config.slots = [
-        {
-          id: 'slot-only',
-          position: 'bottom',
-          render: () => {
-            const el = document.createElement('span');
-            el.textContent = 'slot';
-            return el;
-          },
-        },
-      ];
-      plugin.afterRender();
-
-      // Legacy info bar should be gone, slot row present.
-      expect(grid.querySelector('.tbw-status-panel-row-count')).toBeNull();
-      expect(grid.querySelector('[data-pinned-row-id="slot-only"]')).not.toBeNull();
-
-      // Toggle back to legacy mode.
-      delete plugin.config.slots;
-      plugin.afterRender();
-      expect(grid.querySelector('[data-pinned-row-id="slot-only"]')).toBeNull();
-      expect(grid.querySelector('.tbw-status-panel-row-count')).not.toBeNull();
     });
   });
 

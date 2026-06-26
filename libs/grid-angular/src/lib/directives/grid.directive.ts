@@ -1,95 +1,94 @@
 import {
-    AfterContentInit,
-    ApplicationRef,
-    Directive,
-    effect,
-    ElementRef,
-    EnvironmentInjector,
-    inject,
-    input,
-    OnDestroy,
-    OnInit,
-    output,
-    ViewContainerRef,
+  AfterContentInit,
+  ApplicationRef,
+  Directive,
+  effect,
+  ElementRef,
+  EnvironmentInjector,
+  inject,
+  input,
+  OnDestroy,
+  OnInit,
+  output,
+  ViewContainerRef,
 } from '@angular/core';
 import type {
-    ColumnConfig as BaseColumnConfig,
-    CellActivateDetail,
-    CellChangeDetail,
-    CellClickDetail,
-    ColumnConfigMap,
-    ColumnInferenceMode,
-    ColumnResizeDetail,
-    FitMode,
-    GridColumnState,
-    DataGridElement as GridElement,
-    RowClickDetail,
-    SortChangeDetail,
-    TbwScrollDetail,
+  ColumnConfig as BaseColumnConfig,
+  CellActivateDetail,
+  CellChangeDetail,
+  CellClickDetail,
+  ColumnConfigMap,
+  ColumnInferenceMode,
+  ColumnResizeDetail,
+  FitMode,
+  GridColumnState,
+  DataGridElement as GridElement,
+  RowClickDetail,
+  SortChangeDetail,
+  TbwScrollDetail,
 } from '@toolbox-web/grid';
 import { DataGridElement as GridElementClass } from '@toolbox-web/grid';
 // Import editing event types from the editing plugin
 import type {
-    BeforeEditCloseDetail,
-    CellCancelDetail,
-    ChangedRowsResetDetail,
-    DirtyChangeDetail,
-    EditCloseDetail,
-    EditingConfig,
-    EditOpenDetail,
+  BeforeEditCloseDetail,
+  CellCancelDetail,
+  ChangedRowsResetDetail,
+  DirtyChangeDetail,
+  EditCloseDetail,
+  EditingConfig,
+  EditOpenDetail,
 } from '@toolbox-web/grid/plugins/editing';
 // Import plugin config types only. Specific plugin classes are intentionally
 // not imported here — feature-specific bridging lives in the feature secondary
 // entries (see `internal/feature-extensions.ts`).
 import type {
-    ClipboardConfig,
-    ColumnMoveDetail,
-    ColumnResizeResetDetail,
-    ColumnVirtualizationConfig,
-    ColumnVisibilityDetail,
-    ContextMenuConfig,
-    ContextMenuOpenDetail,
-    CopyDetail,
-    DataChangeDetail,
-    DataGridEventMap,
-    DetailExpandDetail,
-    ExportCompleteDetail,
-    ExportConfig,
-    FilterChangeDetail,
-    FilterConfig,
-    GroupCollapseDetail,
-    GroupExpandDetail,
-    GroupingColumnsConfig,
-    GroupingRowsConfig,
-    GroupToggleDetail,
-    MasterDetailConfig,
-    MultiSortConfig,
-    PasteDetail,
-    PinnedRowsConfig,
-    PivotConfig,
-    PrintCompleteDetail,
-    PrintConfig,
-    PrintStartDetail,
-    RenderDetail,
-    ReorderConfig,
-    ResponsiveChangeDetail,
-    ResponsivePluginConfig,
-    RowDragDropConfig,
-    RowDragEndDetail,
-    RowDragStartDetail,
-    RowDropDetail,
-    RowMoveDetail,
-    RowReorderConfig,
-    RowTransferDetail,
-    SelectionChangeDetail,
-    SelectionConfig,
-    ServerSideConfig,
-    TooltipConfig,
-    TreeConfig,
-    TreeExpandDetail,
-    UndoRedoConfig,
-    UndoRedoDetail,
-    VisibilityConfig,
+  ClipboardConfig,
+  ColumnMoveDetail,
+  ColumnResizeResetDetail,
+  ColumnVirtualizationConfig,
+  ColumnVisibilityDetail,
+  ContextMenuConfig,
+  ContextMenuOpenDetail,
+  CopyDetail,
+  DataChangeDetail,
+  DataGridEventMap,
+  DetailExpandDetail,
+  ExportCompleteDetail,
+  ExportConfig,
+  FilterChangeDetail,
+  FilterConfig,
+  GroupCollapseDetail,
+  GroupExpandDetail,
+  GroupingColumnsConfig,
+  GroupingRowsConfig,
+  GroupToggleDetail,
+  MasterDetailConfig,
+  MultiSortConfig,
+  PasteDetail,
+  PinnedRowsConfig,
+  PivotConfig,
+  PrintCompleteDetail,
+  PrintConfig,
+  PrintStartDetail,
+  RenderDetail,
+  ReorderConfig,
+  ResponsiveChangeDetail,
+  ResponsivePluginConfig,
+  RowDragDropConfig,
+  RowDragEndDetail,
+  RowDragStartDetail,
+  RowDropDetail,
+  RowMoveDetail,
+  RowTransferDetail,
+  SelectionChangeDetail,
+  SelectionConfig,
+  ServerSideConfig,
+  TooltipConfig,
+  TreeConfig,
+  TreeExpandDetail,
+  UndoRedoConfig,
+  UndoRedoDetail,
+  VisibilityConfig,
 } from '@toolbox-web/grid/all';
 import type { ColumnConfig, GridConfig } from '../angular-column-config';
 import { GridAdapter } from '../angular-grid-adapter';
@@ -792,18 +791,6 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * `@toolbox-web/grid-angular/features/column-virtualization`. Will be removed in v2.0.0.
    */
   columnVirtualization = input<boolean | ColumnVirtualizationConfig>();
-
-  /**
-   * Enable row drag-to-reorder.
-   *
-   * @deprecated Use `rowDragDrop` instead. `reorderRows` remains as an alias.
-   *
-   * **Requires feature import:**
-   * ```typescript
-   * import '@toolbox-web/grid-angular/features/reorder-rows';
-   * ```
-   */
-  reorderRows = input<boolean | RowReorderConfig>();
 
   /**
    * Enable row drag-and-drop within and across grids.
@@ -1748,7 +1735,6 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     addPlugin('pinnedColumns', this.pinnedColumns());
     addPlugin('groupingColumns', this.groupingColumns());
     addPlugin('columnVirtualization', this.columnVirtualization());
-    addPlugin('reorderRows', this.reorderRows());
     addPlugin('rowDragDrop', this.rowDragDrop());
     addPlugin('groupingRows', this.groupingRows());
     addPlugin('pinnedRows', this.pinnedRows());

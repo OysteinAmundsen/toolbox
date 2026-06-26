@@ -1,4 +1,5 @@
 import '@toolbox-web/grid-react/features/pinned-rows';
+import '@toolbox-web/grid-react/features/shell';
 import './Calendar.css';
 
 import type { CalendarDay, CalendarEvent, CalendarWeek, WeekdayField } from '@demo/shared/calendar';
@@ -122,9 +123,9 @@ export function Calendar() {
   const gridConfig = useMemo<GridConfig<CalendarWeek>>(
     () => ({
       fitMode: 'stretch',
-      shell: { header: { toolPanelToggle: false } },
       rowHeight: DEFAULT_ROW_HEIGHT_PX,
       features: {
+        shell: { header: { toolPanelToggle: false } },
         pinnedRows: {
           slots: [
             {

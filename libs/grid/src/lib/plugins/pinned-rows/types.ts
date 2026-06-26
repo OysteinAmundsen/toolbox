@@ -124,13 +124,8 @@ export interface AggregationRowConfig {
  */
 export interface PinnedRowsConfig {
   /**
-   * Unified ordered list of pinned-row slots. When provided, `aggregationRows`,
-   * `customPanels`, `position`, `showRowCount`, `showSelectedCount` and
-   * `showFilteredCount` are ignored — slots are rendered in declared order
-   * within their `position` ('top' or 'bottom', default 'bottom').
-   *
-   * When omitted, the plugin synthesizes a slot list from the legacy fields so
-   * existing consumers keep their current DOM byte-identical.
+   * Unified ordered list of pinned-row slots. Slots are rendered in declared
+   * order within their `position` ('top' or 'bottom', default 'bottom').
    *
    * @example Mixed slots, top placement
    * ```ts
@@ -146,37 +141,6 @@ export interface PinnedRowsConfig {
    * ```
    */
   slots?: PinnedRowSlot[];
-  /**
-   * Position of the info bar (default: 'bottom').
-   * @deprecated Use {@link PinnedRowsConfig.slots} with per-slot `position`.
-   */
-  position?: PinnedRowsPosition;
-  /**
-   * Show total row count in info bar (default: true).
-   * @deprecated Use {@link PinnedRowsConfig.slots} with the exported `rowCountPanel()` render function.
-   */
-  showRowCount?: boolean;
-  /**
-   * Show selected row count in info bar (default: true).
-   * @deprecated Use {@link PinnedRowsConfig.slots} with the exported `selectedCountPanel()` render function.
-   */
-  showSelectedCount?: boolean;
-  /**
-   * Show filtered row count when filter is active (default: true).
-   * @deprecated Use {@link PinnedRowsConfig.slots} with the exported `filteredCountPanel()` render function.
-   */
-  showFilteredCount?: boolean;
-  /**
-   * Custom panels to display in the info bar.
-   * @deprecated Use {@link PinnedRowsConfig.slots} with `PanelSlot` entries.
-   */
-  customPanels?: PinnedRowsPanel[];
-  /**
-   * Aggregation rows (footer/header rows with computed values).
-   * @deprecated Use {@link PinnedRowsConfig.slots} with `AggregationSlot` entries (any slot
-   * without a `render` field is treated as an aggregation slot).
-   */
-  aggregationRows?: AggregationRowConfig[];
   /**
    * Default fullWidth mode for all aggregation rows.
    * When true, each aggregation row renders as a single spanning cell with label and
@@ -240,20 +204,6 @@ export interface PanelSlot {
  * @since 2.6.0
  */
 export type AggregationSlot = AggregationRowConfig;
-
-/**
- * Custom panel definition for the legacy info bar.
- * @deprecated Use {@link PinnedRowSlot} via {@link PinnedRowsConfig.slots}.
- * @since 0.1.1
- */
-export interface PinnedRowsPanel {
-  /** Unique identifier for the panel */
-  id: string;
-  /** Position within the status bar */
-  position: PanelZone;
-  /** Render function for the panel content */
-  render: (context: PinnedRowsContext) => HTMLElement | string;
-}
 
 /** Context provided to panel renderers * @since 0.1.1
  */

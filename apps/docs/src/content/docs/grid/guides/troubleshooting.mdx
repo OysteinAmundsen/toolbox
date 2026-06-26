@@ -113,24 +113,31 @@ grid._renderRoot;                            // the inner render container
 
 ### 4. Watch what the grid is doing — listen to lifecycle events
 
-Most "is the grid even re-rendering?" / "did my sort actually apply?" questions are answered in five seconds by attaching a listener. The full event catalog is exported as `DGEvents`:
+Most "is the grid even re-rendering?" / "did my sort actually apply?" questions are answered in five seconds by attaching a listener. Every event is keyed in the typed `DataGridEventMap` — pass the name as a plain string literal and the detail is type-checked for you:
 
 ```ts
-import { DGEvents, PluginEvents } from '@toolbox-web/grid';
+import type { DataGridEventMap } from '@toolbox-web/grid';
 
-// Log every render (use the string literal — `render` is not in the legacy
-// DGEvents enum because it was added later; the listener is type-checked
-// against `DataGridEventMap`).
+// Log every render
 grid.on('render', (detail) => console.log('render', detail));
 
 // Log every sort / filter / column / selection change
-grid.on(DGEvents.SORT_CHANGE, (detail) => console.log('sort', detail));
-grid.on(PluginEvents.FILTER_CHANGE, (detail) => console.log('filter', detail));
-grid.on(DGEvents.COLUMN_STATE_CHANGE, (detail) => console.log('columns', detail));
-grid.on(PluginEvents.SELECTION_CHANGE, (detail) => console.log('selection', detail));
+grid.on('sort-change', (detail) => console.log('sort', detail));
+grid.on('filter-change', (detail) => console.log('filter', detail));
+grid.on('column-state-change', (detail) => console.log('columns', detail));
+grid.on('selection-change', (detail) => console.log('selection', detail));
 
-// Log everything (catch-all — use briefly)
-for (const name of [...Object.values(DGEvents), ...Object.values(PluginEvents)]) {
+// Log a representative set at once. This is a curated subset, not the full
+// catalog — the `keyof DataGridEventMap` type is the complete, type-checked
+// list of event names; add any others you need to the array below.
+const allEvents: (keyof DataGridEventMap)[] = [
+  'render',
+  'sort-change',
+  'filter-change',
+  'column-state-change',
+  'selection-change',
+];
+for (const name of allEvents) {
   grid.on(name, (detail) => console.log(name, detail));
 }
 ```
@@ -138,8 +145,8 @@ for (const name of [...Object.values(DGEvents), ...Object.values(PluginEvents)])
 `grid.on()` returns a disposer (`() => void`) — call it to stop listening. Useful patterns:
 
 - **"My edit isn't saving"** → listen for `'cell-commit'` / `'row-commit'` and `'edit-close'`; see which one fires.
-- **"My data appears stale"** → log `RENDER` after every data mutation; if it doesn't fire, the grid isn't seeing the change (most often: you mutated `rows` in place instead of assigning a new array).
-- **"Selection state is wrong"** → log `SELECTION_CHANGE` to see what the grid thinks is selected.
+- **"My data appears stale"** → log `'render'` after every data mutation; if it doesn't fire, the grid isn't seeing the change (most often: you mutated `rows` in place instead of assigning a new array).
+- **"Selection state is wrong"** → log `'selection-change'` to see what the grid thinks is selected.
 
 ### 5. Diagnose a hot path with the Performance tab
 

@@ -162,14 +162,14 @@ describe('RowDragDropPlugin', () => {
       expect(plugin.canMoveRow(1, 1)).toBe(false);
     });
 
-    it('should respect canMove callback', () => {
-      const canMove = vi.fn().mockReturnValue(false);
-      const plugin = new RowDragDropPlugin({ canMove });
+    it('should respect canDrag callback', () => {
+      const canDrag = vi.fn().mockReturnValue(false);
+      const plugin = new RowDragDropPlugin({ canDrag });
       const grid = createGridMock([{ id: 1 }, { id: 2 }]);
       plugin.attach(grid as any);
 
       expect(plugin.canMoveRow(0, 1)).toBe(false);
-      expect(canMove).toHaveBeenCalledWith({ id: 1 }, 0, 1, 'down');
+      expect(canDrag).toHaveBeenCalledWith({ id: 1 }, 0);
     });
   });
 
@@ -221,9 +221,9 @@ describe('RowDragDropPlugin', () => {
       expect(grid.rows).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }]);
     });
 
-    it('should not move when canMove returns false', () => {
-      const canMove = vi.fn().mockReturnValue(false);
-      const plugin = new RowDragDropPlugin({ canMove });
+    it('should not move when canDrag returns false', () => {
+      const canDrag = vi.fn().mockReturnValue(false);
+      const plugin = new RowDragDropPlugin({ canDrag });
       const rows = [{ id: 1 }, { id: 2 }];
       const grid = createGridMock(rows);
       plugin.attach(grid as any);
@@ -525,34 +525,10 @@ describe('RowDragDropPlugin', () => {
     });
   });
 
-  describe('canMove callback interactions', () => {
-    it('should pass correct direction for upward move', () => {
-      const canMove = vi.fn().mockReturnValue(true);
-      const plugin = new RowDragDropPlugin({ canMove });
-      const grid = createGridMock([{ id: 1 }, { id: 2 }, { id: 3 }]);
-      grid.dispatchEvent = vi.fn(() => true);
-      plugin.attach(grid as any);
-
-      plugin.moveRow(2, 0);
-
-      expect(canMove).toHaveBeenCalledWith({ id: 3 }, 2, 0, 'up');
-    });
-
-    it('should pass correct direction for downward move', () => {
-      const canMove = vi.fn().mockReturnValue(true);
-      const plugin = new RowDragDropPlugin({ canMove });
-      const grid = createGridMock([{ id: 1 }, { id: 2 }, { id: 3 }]);
-      grid.dispatchEvent = vi.fn(() => true);
-      plugin.attach(grid as any);
-
-      plugin.moveRow(0, 2);
-
-      expect(canMove).toHaveBeenCalledWith({ id: 1 }, 0, 2, 'down');
-    });
-
-    it('should prevent keyboard moves when canMove returns false', () => {
-      const canMove = vi.fn().mockReturnValue(false);
-      const plugin = new RowDragDropPlugin({ canMove, debounceMs: 0 });
+  describe('canDrag callback interactions', () => {
+    it('should prevent keyboard moves when canDrag returns false', () => {
+      const canDrag = vi.fn().mockReturnValue(false);
+      const plugin = new RowDragDropPlugin({ canDrag, debounceMs: 0 });
       const rows = [{ id: 1, locked: true }, { id: 2 }];
       const grid = createGridMock(rows);
       grid.dispatchEvent = vi.fn(() => true);

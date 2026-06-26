@@ -54,6 +54,26 @@
       }
     }
 
+    /* Core grid-content wrapper. Rendered by dom-builder's `buildGridDOM` for
+       every grid (shell or not): without a shell it wraps `.tbw-scroll-area`
+       directly; with a shell it sits inside `.tbw-shell-body` alongside the
+       tool panel. Either way it must be a flex item that fills its parent so
+       the `flex: 1` scroll-area below can claim the viewport height. This is
+       core layout, NOT a shell concern — keeping it here ensures shell-less
+       grids (the default since the shell became opt-in) don't collapse to a
+       single row. Previously orphaned in shell.css. */
+    .tbw-grid-content {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: row;
+      overflow: hidden;
+      /* Grid handles touch scrolling via JS (faux scrollbar pattern).
+         Prevent browser compositor from hijacking touch gestures mid-scroll. */
+      touch-action: none;
+    }
+
     /* Core scroll viewport. Rendered by dom-builder's gridContentTemplate for
        every grid, with or without the shell — so it is core layout, not a
        shell concern (the shell only wraps it in a `.tbw-grid-content` div).

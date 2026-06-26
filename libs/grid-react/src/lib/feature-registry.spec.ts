@@ -36,7 +36,6 @@ type _PriorFeatureNames =
   | 'pinnedColumns'
   | 'groupingColumns'
   | 'columnVirtualization'
-  | 'reorderRows'
   | 'rowDragDrop'
   | 'groupingRows'
   | 'pinnedRows'
@@ -223,24 +222,25 @@ describe('use-sync-plugins', () => {
     });
 
     it('should create plugins in dependency order', () => {
-      const order: string[] = [];
-      registerFeature('selection' as FeatureName, () => {
-        order.push('selection');
-        return { name: 'selection' };
-      });
-      registerFeature('editing' as FeatureName, () => {
-        order.push('editing');
-        return { name: 'editing' };
-      });
-      registerFeature('clipboard' as FeatureName, () => {
-        order.push('clipboard');
-        return { name: 'clipboard' };
-      });
+      // Mirror real plugins: instances whose constructor carries the static
+      // `dependencies` list the core resolver topologically sorts by. The core
+      // resolver instantiates in config order then reorders, so we assert on
+      // the RETURNED (attach) order rather than instantiation order.
+      class SelectionMock {
+        readonly name = 'selection';
+      }
+      class ClipboardMock {
+        static dependencies = [{ name: 'selection' }];
+        readonly name = 'clipboard';
+      }
+      registerFeature('selection' as FeatureName, () => new SelectionMock());
+      registerFeature('clipboard' as FeatureName, () => new ClipboardMock());
 
       // Enable in reverse order
-      createPluginsFromFeatures({ clipboard: true, selection: 'row' });
+      const plugins = createPluginsFromFeatures({ clipboard: true, selection: 'row' });
+      const order = (plugins as { name: string }[]).map((p) => p.name);
 
-      // Selection should be created before clipboard
+      // Selection should be ordered before clipboard (clipboard depends on it)
       expect(order.indexOf('selection')).toBeLessThan(order.indexOf('clipboard'));
     });
   });

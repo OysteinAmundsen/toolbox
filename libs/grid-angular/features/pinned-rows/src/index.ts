@@ -79,26 +79,12 @@ function bridgeSlot(adapter: GridAdapter, slot: CorePinnedRowSlot): CorePinnedRo
   return slot;
 }
 
-// Bridge any Angular component classes embedded in `customPanels` and `slots`
+// Bridge any Angular component classes embedded in `slots`
 // to plain renderer functions before the core plugin factory consumes the config.
 registerFeatureConfigPreprocessor('pinnedRows', (config, adapter) => {
   if (!config || typeof config !== 'object') return config;
   const cfg = config as CorePinnedRowsConfig;
   let next: CorePinnedRowsConfig = cfg;
-
-  // Legacy customPanels bridging.
-  if (Array.isArray(cfg.customPanels)) {
-    const hasComponentRender = cfg.customPanels.some((panel) => isComponentClass(panel.render));
-    if (hasComponentRender) {
-      next = {
-        ...next,
-        customPanels: cfg.customPanels.map((panel) => {
-          if (!isComponentClass(panel.render)) return panel;
-          return { ...panel, render: buildPanelRenderer(adapter, panel.render) };
-        }),
-      };
-    }
-  }
 
   // Slots[] bridging \u2014 each PanelSlot.render may be a component class, or an
   // array of { zone?, render } where each render may be a component class.

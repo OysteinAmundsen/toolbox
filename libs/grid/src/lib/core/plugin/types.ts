@@ -5,7 +5,8 @@
  * Centralizing them here avoids circular imports and reduces duplication.
  */
 
-import type { ColumnConfig, GridConfig, ToolPanelDefinition, UpdateSource } from '../types';
+import type { HeaderContentDefinition, ToolPanelDefinition } from '../../plugins/shell/types';
+import type { ColumnConfig, GridConfig, UpdateSource } from '../types';
 
 // #region Event Types
 /**
@@ -485,6 +486,15 @@ export interface GridElementRef {
     | ((element: HTMLElement) => ((container: HTMLElement) => void | (() => void)) | undefined)
     | undefined;
 
+  /**
+   * Tool-panel + header-content contributions gathered from all attached
+   * plugins. The ShellPlugin polls this from its own `processConfig` hook to
+   * self-collect plugin shell contributions — core holds no shell orchestration
+   * (extraction #370). Generic plugin-contribution accessor, not shell-specific.
+   * @internal Plugin API
+   */
+  _pluginShellContributions(): { toolPanels: ToolPanelDefinition[]; headerContents: HeaderContentDefinition[] };
+
   // =========================================================================
   // Row Update API
   // =========================================================================
@@ -649,15 +659,6 @@ export interface GridElementRef {
    */
   requestStateChange?(): void;
 
-  // =========================================================================
-  // Tool Panel API (Shell Integration)
-  // =========================================================================
-
-  /**
-   * Whether the tool panel sidebar is currently open.
-   */
-  readonly isToolPanelOpen: boolean;
-
   /**
    * The default row height in pixels.
    * For fixed heights, this is the configured or CSS-measured row height.
@@ -665,40 +666,6 @@ export interface GridElementRef {
    * Plugins should use this instead of hardcoding row heights.
    */
   readonly defaultRowHeight: number;
-
-  /**
-   * Get the IDs of expanded accordion sections.
-   */
-  readonly expandedToolPanelSections: string[];
-
-  /**
-   * Open the tool panel sidebar (accordion view with all registered panels).
-   * @param panelId - Optional ID of the section to expand on open. Takes precedence
-   *   over `shell.toolPanel.defaultOpen`. If the panel ID is unknown, the call
-   *   falls back to default behavior with a `TBW072` warning.
-   */
-  openToolPanel(panelId?: string): void;
-
-  /**
-   * Close the tool panel sidebar.
-   */
-  closeToolPanel(): void;
-
-  /**
-   * Toggle the tool panel sidebar open/closed.
-   */
-  toggleToolPanel(): void;
-
-  /**
-   * Toggle a specific accordion section expanded/collapsed.
-   * @param sectionId - The panel ID to toggle (matches ToolPanelDefinition.id)
-   */
-  toggleToolPanelSection(sectionId: string): void;
-
-  /**
-   * Get registered tool panel definitions.
-   */
-  getToolPanels(): ToolPanelDefinition[];
 
   // =========================================================================
   // Variable Row Height API

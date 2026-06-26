@@ -2,8 +2,8 @@
  * Pinned rows feature for @toolbox-web/grid-vue
  *
  * Import this module to enable the `pinnedRows` prop on TbwGrid.
- * Automatically bridges Vue render-function `customPanels[].render` and the
- * new `slots[]` panel renderers (issue #255) to vanilla DOM via the teleport bridge.
+ * Automatically bridges Vue render-function
+ * `slots[]` panel renderers (issue #255) to vanilla DOM via the teleport bridge.
  *
  * @example
  * ```vue
@@ -19,17 +19,6 @@
  *     ],
  *   }" />
  * </template>
- * ```
- *
- * @example Custom panel with Vue render function (legacy `customPanels` — deprecated)
- * ```vue
- * <TbwGrid :pinnedRows="{
- *   customPanels: [{
- *     id: 'stats',
- *     position: 'center',
- *     render: (ctx) => h('span', `Total: ${ctx.totalRows}`),
- *   }],
- * }" />
  * ```
  *
  * @example Slots API with Vue renderers
@@ -190,26 +179,13 @@ registerFeature(
 
     // Single boundary cast: rawConfig is `unknown`-ish; we accept the Vue-typed shape.
     const config = rawConfig as PinnedRowsConfig;
-    const { slots: vueSlots, customPanels: vueCustomPanels, ...sharedBase } = config;
+    const { slots: vueSlots, ...sharedBase } = config;
     const options: CorePinnedRowsConfig = { ...sharedBase };
 
     const teardowns: Array<() => void> = [];
     const registerTeardown = (fn: () => void): void => {
       teardowns.push(fn);
     };
-
-    // Bridge Vue customPanels[].render (returns VNode) to vanilla.
-    if (Array.isArray(vueCustomPanels)) {
-      options.customPanels = vueCustomPanels.map((panel) => {
-        if (typeof panel.render !== 'function') return panel as never;
-        const bridged = createCachedVueRender(panel.render, registerTeardown);
-        return {
-          ...panel,
-          // customPanels expect HTMLElement (not nullable); coerce null → empty wrapper.
-          render: (ctx: PinnedRowsContext) => bridged(ctx) ?? document.createElement('div'),
-        };
-      });
-    }
 
     // Bridge slots[] panel renders (issue #255 + #354).
     if (Array.isArray(vueSlots)) {

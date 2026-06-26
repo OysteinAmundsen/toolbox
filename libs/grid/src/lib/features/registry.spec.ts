@@ -14,8 +14,16 @@ declare const __GRID_VERSION__: string;
 const GRID_VERSION = typeof __GRID_VERSION__ !== 'undefined' ? __GRID_VERSION__ : 'dev';
 
 /** Minimal plugin stub for testing. */
-function fakePlugin(name: string, config?: unknown): GridPlugin {
-  return { pluginName: name, _config: config } as unknown as GridPlugin;
+function fakePlugin(name: string, config?: unknown, dependencies: { name: string }[] = []): GridPlugin {
+  // Mirror a real plugin: an instance whose constructor carries the static
+  // `dependencies` list the resolver reads to order plugins.
+  class FakePlugin {
+    static dependencies = dependencies;
+    readonly name = name;
+    readonly pluginName = name;
+    readonly _config = config;
+  }
+  return new FakePlugin() as unknown as GridPlugin;
 }
 
 describe('Feature Registry', () => {
@@ -112,7 +120,7 @@ describe('Feature Registry', () => {
     });
 
     it('orders selection before other plugins', () => {
-      registerFeature('clipboard' as any, () => fakePlugin('clipboard'));
+      registerFeature('clipboard' as any, () => fakePlugin('clipboard', undefined, [{ name: 'selection' }]));
       registerFeature('selection' as any, () => fakePlugin('selection'));
 
       const plugins = createPluginsFromFeatures({ clipboard: true, selection: true });
@@ -121,12 +129,23 @@ describe('Feature Registry', () => {
     });
 
     it('orders editing before dependent plugins', () => {
-      registerFeature('undoRedo' as any, () => fakePlugin('undoRedo'));
+      registerFeature('undoRedo' as any, () => fakePlugin('undoRedo', undefined, [{ name: 'editing' }]));
       registerFeature('editing' as any, () => fakePlugin('editing'));
 
       const plugins = createPluginsFromFeatures({ undoRedo: true, editing: true });
       expect((plugins[0] as any).pluginName).toBe('editing');
       expect((plugins[1] as any).pluginName).toBe('undoRedo');
+    });
+
+    it('orders shell before dependent plugins regardless of key order', () => {
+      registerFeature('visibility' as any, () => fakePlugin('visibility', undefined, [{ name: 'shell' }]));
+      registerFeature('shell' as any, () => fakePlugin('shell'));
+
+      // `shell` listed AFTER `visibility` must still resolve shell-first so the
+      // shell host attaches before VisibilityPlugin's TBW020 dependency check.
+      const plugins = createPluginsFromFeatures({ visibility: true, shell: true });
+      expect((plugins[0] as any).pluginName).toBe('shell');
+      expect((plugins[1] as any).pluginName).toBe('visibility');
     });
 
     it('returns empty array for empty features', () => {

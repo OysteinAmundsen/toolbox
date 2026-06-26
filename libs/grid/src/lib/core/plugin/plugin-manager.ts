@@ -399,6 +399,54 @@ export class PluginManager {
   }
 
   /**
+   * Execute beforeStructuralRender hook on all plugins. Fired synchronously by
+   * the grid right before it tears down and rebuilds its root DOM, so plugins
+   * can move relocated light-DOM nodes back to their original container.
+   */
+  beforeStructuralRender(): void {
+    for (const plugin of this.plugins) {
+      plugin.beforeStructuralRender?.();
+    }
+  }
+
+  /**
+   * Let a plugin (re-)parse its own light-DOM contributions into plugin state.
+   * Generic seam — core holds no plugin-specific light-DOM tag knowledge.
+   */
+  parseLightDom(): void {
+    for (const plugin of this.plugins) {
+      plugin.parseLightDom?.();
+    }
+  }
+
+  /**
+   * Ask each plugin to re-parse its light-DOM contributions AND refresh any
+   * already-rendered chrome in place (e.g. a shell title/tool buttons that a
+   * framework projected asynchronously). Called from `refreshColumns` and the
+   * light-DOM observer — generic seam, core holds no plugin-specific knowledge.
+   */
+  syncLightDom(): void {
+    for (const plugin of this.plugins) {
+      plugin.syncLightDom?.();
+    }
+  }
+
+  /**
+   * Ask all plugins whether the most recent config change requires a full
+   * structural re-render. Returns `true` if ANY plugin votes for one.
+   */
+  needsStructuralRerender(): boolean {
+    let needed = false;
+    for (const plugin of this.plugins) {
+      // Don't short-circuit: a voting plugin may read DOM signatures with side
+      // effects in future, but today this is pure — still, evaluate all so a
+      // single early `true` doesn't hide a later plugin's intent.
+      if (plugin.needsStructuralRerender?.()) needed = true;
+    }
+    return needed;
+  }
+
+  /**
    * Execute afterRender hook on all plugins.
    */
   afterRender(): void {

@@ -57,7 +57,7 @@ export type PinnedRowSlot = CoreAggregationSlot | PanelSlot;
 
 /**
  * Pinned-rows config widened to accept Angular component classes as `render`
- * inside `slots[]` and `customPanels[]`. Bridging to vanilla DOM is handled
+ * inside `slots[]`. Bridging to vanilla DOM is handled
  * by the side-effect import `@toolbox-web/grid-angular/features/pinned-rows`.
  *
  * Re-exported under the same name as the core type so Angular users see a
@@ -66,13 +66,8 @@ export type PinnedRowSlot = CoreAggregationSlot | PanelSlot;
  *
  * @since 1.7.1
  */
-export type PinnedRowsConfig = Omit<CorePinnedRowsConfig, 'slots' | 'customPanels'> & {
+export type PinnedRowsConfig = Omit<CorePinnedRowsConfig, 'slots'> & {
   slots?: PinnedRowSlot[];
-  customPanels?: Array<{
-    id: string;
-    position: PanelZone;
-    render: ((ctx: PinnedRowsContext) => HTMLElement) | Type<unknown>;
-  }>;
 };
 
 // ── Deprecated framework-prefixed aliases ──────────────────────────────────

@@ -9,6 +9,7 @@
 import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
 
+import '@toolbox-web/grid/features/shell';
 import '@toolbox-web/grid/features/visibility';
 
 const container = document.getElementById('visibility-initially-hidden-demo');
@@ -23,7 +24,7 @@ if (container) {
           { field: 'phone', header: 'Phone', hidden: true },
           { field: 'department', header: 'Department' },
         ],
-        features: { visibility: true },
+        features: { shell: true, visibility: true },
       };
 
       grid.rows = [

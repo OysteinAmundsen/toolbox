@@ -18,6 +18,7 @@ import {
   TOOLBAR_CONTENT_DUPLICATE,
   warnDiagnostic,
 } from '../../core/internal/diagnostics';
+import type { GridElement } from '../../core/plugin/base-plugin';
 import type { InternalGrid } from '../../core/types';
 import {
   hideToolPanelDropdown,
@@ -112,10 +113,21 @@ export interface ShellController {
 }
 
 /**
+ * The slice of the grid the shell controller needs: the plugin-facing
+ * {@link GridElement} surface plus a few internal seams (`id`, `_emit`,
+ * `_accordionIcons`, optional `refreshShellHeader`). Declaring it as
+ * `GridElement & Pick<InternalGrid, …>` lets the {@link ShellPlugin} pass its
+ * `GridElement`-typed `grid` with a plain downcast — no `as unknown as` — while
+ * keeping core free of any shell-specific grid surface (extraction #370).
+ */
+export type ShellControllerGrid = GridElement &
+  Pick<InternalGrid, 'id' | '_emit' | '_accordionIcons' | 'refreshShellHeader'>;
+
+/**
  * Create a ShellController instance.
  * The controller encapsulates all tool panel orchestration logic.
  */
-export function createShellController(state: ShellState, grid: InternalGrid): ShellController {
+export function createShellController(state: ShellState, grid: ShellControllerGrid): ShellController {
   let initialized = false;
 
   /**
@@ -389,7 +401,12 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
       }
       state.toolPanels.set(panel.id, panel);
 
-      if (initialized) {
+      // Refresh when already rendered, OR bootstrap the chrome when the shell is
+      // connected but has not rendered yet (an opt-in `features: { shell: true }`
+      // shell with no other content renders no chrome — registering the first
+      // tool panel must build it). `refreshShellHeader` self-guards on
+      // `isConnected` and batches, so a pre-connect call is a harmless no-op.
+      if (initialized || grid._hostElement.isConnected) {
         grid.refreshShellHeader?.();
       }
     },
@@ -407,7 +424,7 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
 
       state.toolPanels.delete(panelId);
 
-      if (initialized) {
+      if (initialized || grid._hostElement.isConnected) {
         grid.refreshShellHeader?.();
       }
     },
@@ -425,6 +442,10 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
 
       if (initialized) {
         renderHeaderContent(grid._renderRoot, state);
+      } else if (grid._hostElement.isConnected) {
+        // Connected opt-in shell with no chrome yet — bootstrap it so the header
+        // content has a `.tbw-shell-header` to render into.
+        grid.refreshShellHeader?.();
       }
     },
 
@@ -458,7 +479,7 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
       }
       state.toolbarContents.set(content.id, content);
 
-      if (initialized) {
+      if (initialized || grid._hostElement.isConnected) {
         grid.refreshShellHeader?.();
       }
     },

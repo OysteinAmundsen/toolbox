@@ -49,8 +49,9 @@ grid.gridConfig = {
 + new RowDragDropPlugin(cfg);
 ```
 
-The legacy `canMove` callback continues to work — it is mapped internally to
-`canDrop` with a synthesised intra-grid payload.
+`RowReorderConfig.canMove` has no direct replacement: use `canDrag(row, index)`
+for the dragstart-side veto and `canDrop(payload, targetIndex)` for the
+drop-side veto.
 
 See the [docs page](https://toolboxjs.com/grid/plugins/row-drag-drop/) for a
 live two-grid demo and the full configuration reference.

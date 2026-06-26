@@ -17,6 +17,7 @@ import DemoControls from '@components/DemoControls.astro';
 <script>
 import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/shell';
 import '@toolbox-web/grid/features/visibility';
 
 const container = document.getElementById('visibility-default-demo');
@@ -49,7 +50,7 @@ if (container) {
         hidden: hiddenArr.includes(col.field),
         lockVisible: lockedArr.includes(col.field),
       })),
-      features: { visibility: {} },
+      features: { shell: true, visibility: {} },
     };
     grid.rows = sampleData;
   }

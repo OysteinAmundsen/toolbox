@@ -9,7 +9,7 @@
  * @vitest-environment happy-dom
  */
 import '@angular/compiler';
-import type { HeaderContentDefinition, ToolbarContentDefinition } from '@toolbox-web/grid';
+import type { HeaderContentDefinition, ToolbarContentDefinition } from '@toolbox-web/grid/plugins/shell';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // --- Mock Angular DI primitives --------------------------------------------
@@ -57,6 +57,7 @@ import { GridToolbarContent } from './grid-toolbar-content.directive';
 
 interface MockGrid extends HTMLElement {
   ready: ReturnType<typeof vi.fn>;
+  getPluginByName: ReturnType<typeof vi.fn>;
   registerHeaderContent: ReturnType<typeof vi.fn>;
   unregisterHeaderContent: ReturnType<typeof vi.fn>;
   registerToolbarContent: ReturnType<typeof vi.fn>;
@@ -82,6 +83,16 @@ function createMockGrid(gridTag = 'tbw-grid'): MockGrid {
     grid.toolbarDefs.push(def);
   });
   grid.unregisterToolbarContent = vi.fn();
+  // v3: shell-content directives route register/unregister through the shell
+  // plugin (`getPluginByName('shell')`), not the removed grid-element delegates.
+  // Expose the same spies via the shell plugin so existing assertions hold.
+  const shell = {
+    registerHeaderContent: grid.registerHeaderContent,
+    unregisterHeaderContent: grid.unregisterHeaderContent,
+    registerToolbarContent: grid.registerToolbarContent,
+    unregisterToolbarContent: grid.unregisterToolbarContent,
+  };
+  grid.getPluginByName = vi.fn((name: string) => (name === 'shell' ? shell : undefined));
   return grid;
 }
 

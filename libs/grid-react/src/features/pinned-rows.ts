@@ -2,7 +2,7 @@
  * Pinned Rows feature for @toolbox-web/grid-react
  *
  * Import this module to enable the `pinnedRows` prop on DataGrid.
- * Automatically bridges React JSX `customPanels[].render` and `slots[]` panel
+ * Automatically bridges React JSX `slots[]` panel
  * renderers to vanilla DOM via the portal bridge.
  *
  * @example
@@ -14,17 +14,6 @@
  *   slots: [
  *     { id: 'count', position: 'bottom', render: rowCountPanel() },
  *   ],
- * }} />
- * ```
- *
- * @example Custom panel with React component (legacy `customPanels` — deprecated)
- * ```tsx
- * <DataGrid pinnedRows={{
- *   customPanels: [{
- *     id: 'stats',
- *     position: 'center',
- *     render: (ctx) => <span>Total: {ctx.totalRows}</span>,
- *   }],
  * }} />
  * ```
  *
@@ -154,7 +143,7 @@ function bridgeSlot(slot: PinnedRowSlot, registerTeardown: (fn: () => void) => v
 
 /**
  * Subclass that runs registered teardown callbacks when the plugin is detached
- * from the grid. Used to release React portals owned by slot/customPanel bridges.
+ * from the grid. Used to release React portals owned by slot bridges.
  */
 class PinnedRowsPluginWithCleanup extends PinnedRowsPlugin {
   #teardowns: Array<() => void>;
@@ -184,26 +173,13 @@ registerFeature(
     // Single boundary cast: rawConfig is `unknown`-ish; we accept the React-typed shape.
     const config = rawConfig as PinnedRowsConfig;
     // Strip the framework-typed fields so the spread base only has shared (vanilla-compatible) fields.
-    const { slots: reactSlots, customPanels: reactCustomPanels, ...sharedBase } = config;
+    const { slots: reactSlots, ...sharedBase } = config;
     const options: CorePinnedRowsConfig = { ...sharedBase };
 
     const teardowns: Array<() => void> = [];
     const registerTeardown = (fn: () => void): void => {
       teardowns.push(fn);
     };
-
-    // Bridge React customPanels[].render (returns ReactNode) to vanilla.
-    if (Array.isArray(reactCustomPanels)) {
-      options.customPanels = reactCustomPanels.map((panel) => {
-        if (typeof panel.render !== 'function') return panel as never;
-        const bridged = createCachedReactRender(panel.render, registerTeardown);
-        return {
-          ...panel,
-          // customPanels expect HTMLElement (not nullable); coerce null → empty wrapper.
-          render: (ctx: PinnedRowsContext) => bridged(ctx) ?? document.createElement('div'),
-        };
-      });
-    }
 
     // Bridge slots[] panel renders (issue #255 + #354).
     if (Array.isArray(reactSlots)) {

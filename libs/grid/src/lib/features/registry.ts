@@ -31,6 +31,7 @@ import {
   warnDiagnostic,
 } from '../core/internal/diagnostics';
 import { setFeatureResolver } from '../core/internal/feature-hook';
+import type { PluginDependency } from '../core/plugin/base-plugin';
 import type { FeatureConfig, GridPlugin } from '../core/types';
 
 // #region Types
@@ -223,14 +224,14 @@ function validateDependencies(featureNames: string[]): void {
  *
  * Handles:
  * - Dependency validation (clipboard needs selection)
- * - Dependency ordering (selection before clipboard)
+ * - Dependency ordering, derived programmatically from each plugin's declared
+ *   `static dependencies` (selection before clipboard, shell before visibility)
  * - Skipping false/undefined values
  *
  * @param features - Partial FeatureConfig object
  * @returns Array of plugin instances ready for gridConfig.plugins
  */
 export function createPluginsFromFeatures(features: Record<string, unknown>): GridPlugin[] {
-  const plugins: GridPlugin[] = [];
   const enabledFeatures: string[] = [];
 
   // Collect enabled feature names
@@ -239,28 +240,60 @@ export function createPluginsFromFeatures(features: Record<string, unknown>): Gr
     enabledFeatures.push(key);
   }
 
-  // Validate dependencies
+  // Validate dependencies (dev-only warnings for missing feature deps)
   validateDependencies(enabledFeatures);
 
-  // Create plugins in dependency order: dep-targets first, then the rest
-  const dependencyOrder: string[] = [
-    'selection',
-    'editing',
-    ...enabledFeatures.filter((f) => f !== 'selection' && f !== 'editing'),
-  ];
-  const orderedFeatures = [...new Set(dependencyOrder)].filter((f) => enabledFeatures.includes(f));
-
-  for (const featureName of orderedFeatures) {
-    const config = features[featureName];
-    if (config === undefined || config === false) continue;
-
-    const plugin = createPluginFromFeature(featureName, config);
-    if (plugin) {
-      plugins.push(plugin);
-    }
+  // Instantiate each enabled feature's plugin in declared (config) order...
+  const plugins: GridPlugin[] = [];
+  for (const featureName of enabledFeatures) {
+    const plugin = createPluginFromFeature(featureName, features[featureName]);
+    if (plugin) plugins.push(plugin);
   }
 
-  return plugins;
+  // ...then reorder so every plugin's declared `static dependencies` attach
+  // before it (see orderPluginsByDependencies).
+  return orderPluginsByDependencies(plugins);
+}
+
+/**
+ * Topologically order plugin instances so each plugin's declared
+ * `static dependencies` precede it. The dependency list is read straight off
+ * the plugin constructor — the SAME metadata `validatePluginDependencies`
+ * consumes at attach time — so the resolved order satisfies the dependency
+ * validator regardless of `features` key order, and third-party plugins that
+ * declare their own `static dependencies` are sequenced correctly with no
+ * hardcoded table.
+ *
+ * Independent plugins keep their original (config) order. Edges pointing at
+ * plugins that aren't enabled are ignored (a missing required dependency is
+ * reported separately by the validator at attach time). Cycles are broken
+ * gracefully — the partial order is preserved rather than looping forever.
+ */
+function orderPluginsByDependencies(plugins: GridPlugin[]): GridPlugin[] {
+  if (plugins.length < 2) return plugins;
+
+  const byName = new Map<string, GridPlugin>();
+  for (const plugin of plugins) byName.set(plugin.name, plugin);
+
+  const ordered: GridPlugin[] = [];
+  const done = new Set<GridPlugin>();
+  const onStack = new Set<GridPlugin>();
+
+  const visit = (plugin: GridPlugin): void => {
+    if (done.has(plugin) || onStack.has(plugin)) return;
+    onStack.add(plugin);
+    const deps = (plugin.constructor as { dependencies?: PluginDependency[] }).dependencies ?? [];
+    for (const dep of deps) {
+      const depPlugin = byName.get(dep.name);
+      if (depPlugin) visit(depPlugin);
+    }
+    onStack.delete(plugin);
+    done.add(plugin);
+    ordered.push(plugin);
+  };
+
+  for (const plugin of plugins) visit(plugin);
+  return ordered;
 }
 
 // #endregion

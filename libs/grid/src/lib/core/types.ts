@@ -1,12 +1,4 @@
-import type { ShellState } from '../plugins/shell/shell';
-import type {
-  HeaderContentDefinition as HeaderContentDefinitionImpl,
-  ShellConfig as ShellConfigImpl,
-  ShellHeaderConfig as ShellHeaderConfigImpl,
-  ToolbarContentDefinition as ToolbarContentDefinitionImpl,
-  ToolPanelConfig as ToolPanelConfigImpl,
-  ToolPanelDefinition as ToolPanelDefinitionImpl,
-} from '../plugins/shell/types';
+import type { ToolPanelDefinition } from '../plugins/shell/types';
 import type { RenderPhase } from './internal/render-scheduler';
 import type { RowPosition, ScrollMapping } from './internal/virtualization';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } from './plugin/types';
@@ -598,8 +590,6 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   _emit(eventName: string, detail: unknown): void;
   /** @internal Get accordion expand/collapse icons from effective config. */
   readonly _accordionIcons: { expand: IconValue; collapse: IconValue };
-  /** @internal Shell state for config manager shell merging. */
-  readonly _shellState: ShellState;
   /** @internal Clear the row pool and body element. */
   _clearRowPool(): void;
   /** @internal Run grid setup (DOM rebuild). */
@@ -3720,49 +3710,6 @@ export const DEFAULT_GRID_ICONS: Required<GridIcons> = {
   filterActive: '',
   print: '🖨️',
 };
-// #endregion
-
-// #region Shell Configuration (deprecated re-aliases)
-//
-// The canonical shell config types now live in `plugins/shell/types.ts`
-// (extraction #370, Task 1a.2). These `@deprecated` aliases keep deep
-// importers of `@toolbox-web/grid` core types compiling; they are removed at v3.
-
-/**
- * @deprecated Import `ShellConfig` from `@toolbox-web/grid/plugins/shell`.
- *   The shell is a built-in plugin as of #370; this core alias is removed at v3.
- */
-export type ShellConfig = ShellConfigImpl;
-
-/**
- * @deprecated Import `ShellHeaderConfig` from `@toolbox-web/grid/plugins/shell`.
- *   The shell is a built-in plugin as of #370; this core alias is removed at v3.
- */
-export type ShellHeaderConfig = ShellHeaderConfigImpl;
-
-/**
- * @deprecated Import `ToolPanelConfig` from `@toolbox-web/grid/plugins/shell`.
- *   The shell is a built-in plugin as of #370; this core alias is removed at v3.
- */
-export type ToolPanelConfig = ToolPanelConfigImpl;
-
-/**
- * @deprecated Import `ToolbarContentDefinition` from `@toolbox-web/grid/plugins/shell`.
- *   The shell is a built-in plugin as of #370; this core alias is removed at v3.
- */
-export type ToolbarContentDefinition = ToolbarContentDefinitionImpl;
-
-/**
- * @deprecated Import `ToolPanelDefinition` from `@toolbox-web/grid/plugins/shell`.
- *   The shell is a built-in plugin as of #370; this core alias is removed at v3.
- */
-export type ToolPanelDefinition = ToolPanelDefinitionImpl;
-
-/**
- * @deprecated Import `HeaderContentDefinition` from `@toolbox-web/grid/plugins/shell`.
- *   The shell is a built-in plugin as of #370; this core alias is removed at v3.
- */
-export type HeaderContentDefinition = HeaderContentDefinitionImpl;
 // #endregion
 
 // #region Column State (Persistence)

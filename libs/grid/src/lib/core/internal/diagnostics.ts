@@ -130,11 +130,6 @@ export const TOOL_PANEL_DUPLICATE = 'TBW073' as const;
 export const HEADER_CONTENT_DUPLICATE = 'TBW074' as const;
 /** Toolbar content already registered. */
 export const TOOLBAR_CONTENT_DUPLICATE = 'TBW075' as const;
-/**
- * Core shell API is deprecated. Enable the shell via `features: { shell }` and
- * use the plugin instance (`grid.getPluginByName('shell')`). Removed in v3.
- */
-export const SHELL_API_DEPRECATED = 'TBW076' as const;
 
 // --- Editing & editors (080–089) ---
 /** External editor mount() threw an error. */
@@ -214,7 +209,6 @@ export type DiagnosticCode =
   | typeof TOOL_PANEL_DUPLICATE
   | typeof HEADER_CONTENT_DUPLICATE
   | typeof TOOLBAR_CONTENT_DUPLICATE
-  | typeof SHELL_API_DEPRECATED
   | typeof EDITOR_MOUNT_ERROR
   | typeof PRINT_IN_PROGRESS
   | typeof PRINT_NO_GRID

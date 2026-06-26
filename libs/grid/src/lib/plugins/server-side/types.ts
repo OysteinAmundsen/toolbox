@@ -44,12 +44,6 @@ export interface ServerSideConfig {
    */
   pageSize?: number;
   /**
-   * @deprecated Alias for {@link ServerSideConfig.pageSize}. Use `pageSize`
-   * instead. If both are set, `pageSize` wins. Will be removed in the next
-   * major release.
-   */
-  cacheBlockSize?: number;
-  /**
    * Maximum number of concurrent `getRows()` requests.
    * Limits how many blocks can be fetched simultaneously during fast scrolling.
    * Set to 1 for strict sequential loading; higher values improve perceived performance.

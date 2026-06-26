@@ -20,8 +20,9 @@ import {
   type PluginManifest,
   type PluginQuery,
 } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, ColumnInternal, ToolPanelDefinition } from '../../core/types';
+import type { ColumnConfig, ColumnInternal } from '../../core/types';
 import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
+import type { ToolPanelDefinition } from '../shell/types';
 import type { ColumnGroupInfo, ColumnReorderRequestDetail, VisibilityConfig } from './types';
 import styles from './visibility.css?inline';
 

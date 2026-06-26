@@ -32,7 +32,6 @@ type _PriorFeatureNames =
   | 'pinnedColumns'
   | 'groupingColumns'
   | 'columnVirtualization'
-  | 'reorderRows'
   | 'rowDragDrop'
   | 'groupingRows'
   | 'pinnedRows'

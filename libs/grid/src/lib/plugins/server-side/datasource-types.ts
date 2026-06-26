@@ -34,7 +34,7 @@ export interface GetRowsParams extends DataRequestModel {
    *
    * Provided as a convenience for backends that expect an explicit page-size
    * query parameter (e.g. `?start=0&pageSize=100`) rather than a start/end
-   * range. The value matches the configured `cacheBlockSize`.
+   * range. The value matches the configured `pageSize`.
    */
   pageSize: number;
   /**

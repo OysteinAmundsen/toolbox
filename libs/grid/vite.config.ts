@@ -380,17 +380,26 @@ export default defineConfig(({ command }) => ({
           bundleBudget({
             outDir,
             budgets: [
-              // Core: warn at 50 kB gzip, hard fail at 52 kB gzip / 178 kB raw.
+              // Core: warn at 45 kB gzip, hard fail at 50 kB gzip / 170 kB raw.
               // Keep core lean — push features to plugins unless they cost performance.
-              // TEMP-BUDGET-370: shell extraction transition. While both core's
-              // shell.ts copy (TEMP-SHELL-IMPORT-1b) AND the auto-registered
-              // ShellPlugin (+ its inlined shell.css) are in the index.js graph,
-              // BOTH raw AND gzip temporarily exceed the v3 budget (170 kB raw /
-              // 50 kB gzip). Reclaimed when core's duplicate shell CSS is dropped
-              // (Task 1b.1.5) and fully at v3 (auto-register removed). Restore to
-              // maxSize: 170 * 1024 and maxGzip: 50 * 1024 (warnGzip: 45 * 1024) then.
-              { path: 'index.js', maxSize: 179 * 1024, maxGzip: 52 * 1024, warnGzip: 50 * 1024 },
+              { path: 'index.js', maxSize: 170 * 1024, maxGzip: 50 * 1024, warnGzip: 45 * 1024 },
               { path: 'lib/plugins/*/index.js', maxSize: 50 * 1024 },
+            ],
+            // #259/#370 v3: the shell is opt-in and MUST tree-shake out of core.
+            // Assert the shell *controller logic* never leaks into index.js. We key
+            // on the public ShellPlugin method names — terser preserves property/
+            // method names (only `mangle.properties` would rename them, which is off),
+            // so these survive minification and uniquely identify the shell bundle.
+            // Note: do NOT use `tbw-shell-header` (core dom-builder always emits that
+            // structural placeholder div), the `ShellController`/`ShellPlugin` class
+            // names (mangled away in both chunks), or `getToolPanels` (substring also
+            // present in core) — all give false readings. See vite.config build proof.
+            forbiddenSymbols: [
+              {
+                path: 'index.js',
+                symbols: ['openToolPanel', 'registerHeaderContent', 'unregisterHeaderContent'],
+                reason: 'shell must tree-shake out of core index.js (#259/#370)',
+              },
             ],
           }),
         ]

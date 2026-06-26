@@ -9,6 +9,7 @@
 import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
 
+import '@toolbox-web/grid/features/shell';
 import '@toolbox-web/grid/features/visibility';
 
 const container = document.getElementById('visibility-locked-columns-demo');
@@ -23,7 +24,7 @@ if (container) {
           { field: 'department', header: 'Department' },
           { field: 'salary', header: 'Salary', type: 'number' },
         ],
-        features: { visibility: true },
+        features: { shell: true, visibility: true },
       };
 
       grid.rows = [

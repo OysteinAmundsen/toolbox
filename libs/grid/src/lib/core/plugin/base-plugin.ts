@@ -8,6 +8,7 @@
 // Injected by Vite at build time from package.json (same as grid.ts)
 declare const __GRID_VERSION__: string;
 
+import type { HeaderContentDefinition, ToolPanelDefinition } from '../../plugins/shell/types';
 import {
   type DiagnosticCode,
   PLUGIN_ALIAS_CONFIG_CONFLICT,
@@ -15,17 +16,7 @@ import {
   gridPrefix,
 } from '../internal/diagnostics';
 import { sanitizeHTML } from '../internal/sanitize';
-import type {
-  ColumnConfig,
-  ColumnState,
-  GridConfig,
-  GridIcons,
-  GridPlugin,
-  HeaderContentDefinition,
-  IconValue,
-  PluginNameMap,
-  ToolPanelDefinition,
-} from '../types';
+import type { ColumnConfig, ColumnState, GridConfig, GridIcons, GridPlugin, IconValue, PluginNameMap } from '../types';
 import { DEFAULT_GRID_ICONS } from '../types';
 
 // Re-export shared plugin types for convenience
@@ -1296,6 +1287,45 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * ```
    */
   afterStructuralRender?(): void;
+
+  /**
+   * Called synchronously by the grid immediately before it tears down and
+   * rebuilds its root DOM structure (a structural re-render). Plugins that
+   * relocated existing light-DOM nodes into their own chrome (e.g. a shell that
+   * moves toolbar buttons into the header bar) use this to move those nodes back
+   * to their original container so they survive the rebuild. Generic
+   * counterpart to {@link afterStructuralRender}. MUST be idempotent.
+   */
+  beforeStructuralRender?(): void;
+
+  /**
+   * Called by the grid after a config merge to ask whether the change requires a
+   * full structural re-render (rather than a cheaper in-place update). A plugin
+   * returns `true` when its rendered DOM signature no longer matches the new
+   * effective config — e.g. a shell header appearing/disappearing or a tool
+   * panel's count/position/mode changing. The grid performs a structural
+   * re-render if ANY plugin returns `true`. MUST be side-effect free.
+   */
+  needsStructuralRerender?(): boolean;
+
+  /**
+   * Called by the grid to let a plugin (re-)parse its own light-DOM
+   * contributions into plugin state ahead of a config merge. Generic seam that
+   * keeps core free of plugin-specific light-DOM tag knowledge (the plugin reads
+   * `this.grid._hostElement`). MUST be idempotent.
+   */
+  parseLightDom?(): void;
+
+  /**
+   * Called by the grid (from `refreshColumns` and the light-DOM observer) to
+   * let a plugin re-parse its light-DOM contributions AND refresh any
+   * already-rendered chrome in place when something changed — e.g. a shell
+   * title or tool buttons that a framework projected asynchronously after the
+   * initial render. Distinct from {@link parseLightDom}, which only updates
+   * plugin state. Generic seam — core holds no plugin-specific knowledge. MUST
+   * be idempotent and a no-op when the plugin's chrome is not yet rendered.
+   */
+  syncLightDom?(): void;
 
   /**
    * Called after each cell is rendered.

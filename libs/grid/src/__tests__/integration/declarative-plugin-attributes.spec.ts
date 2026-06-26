@@ -12,6 +12,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
 import { PinnedColumnsPlugin } from '../../lib/plugins/pinned-columns';
+import { ShellPlugin } from '../../lib/plugins/shell';
 import { VisibilityPlugin } from '../../lib/plugins/visibility';
 
 async function nextFrame(): Promise<void> {
@@ -87,7 +88,9 @@ describe('declarative plugin attributes (issue #272)', () => {
         <tbw-grid-column field="secret" header="Secret" hidden></tbw-grid-column>
         <tbw-grid-column field="name" header="Name"></tbw-grid-column>
       `;
-      grid.gridConfig = { plugins: [new VisibilityPlugin()] };
+      // VisibilityPlugin renders its column list in a shell tool panel, so the
+      // shell must be registered first (#370 — opt-in shell, TBW020 otherwise).
+      grid.gridConfig = { plugins: [new ShellPlugin(), new VisibilityPlugin()] };
       grid.rows = [{ id: 1, secret: 'x', name: 'Alice' }];
       await waitUpgrade(grid);
 
@@ -112,7 +115,7 @@ describe('declarative plugin attributes (issue #272)', () => {
         <tbw-grid-column field="id" header="ID"></tbw-grid-column>
         <tbw-grid-column field="name" header="Name" hidden="false"></tbw-grid-column>
       `;
-      grid.gridConfig = { plugins: [new VisibilityPlugin()] };
+      grid.gridConfig = { plugins: [new ShellPlugin(), new VisibilityPlugin()] };
       grid.rows = [{ id: 1, name: 'Alice' }];
       await waitUpgrade(grid);
 

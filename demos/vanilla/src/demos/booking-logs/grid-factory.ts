@@ -380,67 +380,81 @@ export function createBookingLogsGrid(): BookingLogsGridHandle {
         },
       },
       pinnedRows: {
-        position: 'bottom',
-        showRowCount: false,
-        customPanels: [
+        // Single pinned-bottom panel row with two zones: dataset counters on
+        // the left, the double-click hint on the right (slots API, #400).
+        slots: [
           {
-            id: 'dataset-info',
-            position: 'left',
-            render: () => {
-              const ss = grid.getPluginByName?.('serverSide') as
-                | { getTotalNodeCount?: () => number; getLoadedBlockCount?: () => number }
-                | undefined;
-              const filtering = grid.getPluginByName?.('filtering') as { getFilters?: () => unknown[] } | undefined;
-              const total = DATASET_SIZE;
-              // `getTotalNodeCount()` returns the server-reported total for
-              // the current filter (or 0 before the first response).
-              const reported = ss?.getTotalNodeCount?.() ?? 0;
-              // Approximate "currently loaded into the cache" as
-              // loadedBlocks × pageSize, clamped to whatever total we
-              // know about. Slightly overcounts on the last partial block —
-              // good enough for a status counter at this dataset size.
-              const blocks = ss?.getLoadedBlockCount?.() ?? 0;
-              const loadedRaw = blocks * API_PAGE_SIZE;
-              const hasFilter = (filtering?.getFilters?.() ?? []).length > 0;
-              const fmt = (n: number) => n.toLocaleString('en-US');
-              if (hasFilter) {
-                if (reported > 0) {
-                  // Server has fully scanned and reported the exact filtered total.
-                  const loaded = Math.min(loadedRaw, reported);
-                  return `${fmt(loaded)}/${fmt(reported)} of ${fmt(total)}`;
-                }
-                if (scanProgress) {
-                  // Mid-scan: show the lower bound the server already found,
-                  // suffixed with `+` so it's clear more matches may come.
-                  // A tooltip-friendly progress fraction sits beside it.
-                  const matched = scanProgress.matchedSoFar;
-                  // Guard against `datasetSize === 0` (e.g. an unfiltered
-                  // partial scan window where the server reports zero scanned
-                  // bounds): division would yield NaN and render "scanned
-                  // NaN%", which looks broken. Treat any non-finite ratio
-                  // as zero progress so the footer always reads cleanly.
-                  const rawRatio = scanProgress.scannedRows / scanProgress.datasetSize;
-                  const ratio = Number.isFinite(rawRatio) ? rawRatio : 0;
-                  // Round to a sensible precision: integer % when ≥1%,
-                  // else 2 decimals so the user sees motion at large
-                  // dataset sizes (10M rows / 500k scan budget = 5%/req
-                  // peak, but a high match rate stops the scan early
-                  // and ratios can be well below 1% per request).
-                  const pct = ratio >= 0.01 ? `${Math.round(ratio * 100)}%` : `${(ratio * 100).toFixed(2)}%`;
-                  const loaded = Math.min(loadedRaw, matched);
-                  return `${fmt(loaded)}/${fmt(matched)}+ of ${fmt(total)} · scanned ${pct}`;
-                }
-                return `${fmt(loadedRaw)}/? of ${fmt(total)}`;
-              }
-              const loaded = Math.min(loadedRaw, total);
-              return `${fmt(loaded)}/${fmt(total)}`;
-            },
-          },
-          {
-            id: 'hint',
-            position: 'right',
-            render: () =>
-              loading ? '<em>Loading rows… Double-click to inspect</em>' : '<em>Double-click to inspect</em>',
+            id: 'booking-status',
+            position: 'bottom',
+            render: [
+              {
+                zone: 'left',
+                render: () => {
+                  const text = ((): string => {
+                    const ss = grid.getPluginByName?.('serverSide') as
+                      | { getTotalNodeCount?: () => number; getLoadedBlockCount?: () => number }
+                      | undefined;
+                    const filtering = grid.getPluginByName?.('filtering') as
+                      | { getFilters?: () => unknown[] }
+                      | undefined;
+                    const total = DATASET_SIZE;
+                    // `getTotalNodeCount()` returns the server-reported total for
+                    // the current filter (or 0 before the first response).
+                    const reported = ss?.getTotalNodeCount?.() ?? 0;
+                    // Approximate "currently loaded into the cache" as
+                    // loadedBlocks × pageSize, clamped to whatever total we
+                    // know about. Slightly overcounts on the last partial block —
+                    // good enough for a status counter at this dataset size.
+                    const blocks = ss?.getLoadedBlockCount?.() ?? 0;
+                    const loadedRaw = blocks * API_PAGE_SIZE;
+                    const hasFilter = (filtering?.getFilters?.() ?? []).length > 0;
+                    const fmt = (n: number) => n.toLocaleString('en-US');
+                    if (hasFilter) {
+                      if (reported > 0) {
+                        // Server has fully scanned and reported the exact filtered total.
+                        const loaded = Math.min(loadedRaw, reported);
+                        return `${fmt(loaded)}/${fmt(reported)} of ${fmt(total)}`;
+                      }
+                      if (scanProgress) {
+                        // Mid-scan: show the lower bound the server already found,
+                        // suffixed with `+` so it's clear more matches may come.
+                        // A tooltip-friendly progress fraction sits beside it.
+                        const matched = scanProgress.matchedSoFar;
+                        // Guard against `datasetSize === 0` (e.g. an unfiltered
+                        // partial scan window where the server reports zero scanned
+                        // bounds): division would yield NaN and render "scanned
+                        // NaN%", which looks broken. Treat any non-finite ratio
+                        // as zero progress so the footer always reads cleanly.
+                        const rawRatio = scanProgress.scannedRows / scanProgress.datasetSize;
+                        const ratio = Number.isFinite(rawRatio) ? rawRatio : 0;
+                        // Round to a sensible precision: integer % when ≥1%,
+                        // else 2 decimals so the user sees motion at large
+                        // dataset sizes (10M rows / 500k scan budget = 5%/req
+                        // peak, but a high match rate stops the scan early
+                        // and ratios can be well below 1% per request).
+                        const pct = ratio >= 0.01 ? `${Math.round(ratio * 100)}%` : `${(ratio * 100).toFixed(2)}%`;
+                        const loaded = Math.min(loadedRaw, matched);
+                        return `${fmt(loaded)}/${fmt(matched)}+ of ${fmt(total)} · scanned ${pct}`;
+                      }
+                      return `${fmt(loadedRaw)}/? of ${fmt(total)}`;
+                    }
+                    const loaded = Math.min(loadedRaw, total);
+                    return `${fmt(loaded)}/${fmt(total)}`;
+                  })();
+                  const el = document.createElement('span');
+                  el.textContent = text;
+                  return el;
+                },
+              },
+              {
+                zone: 'right',
+                render: () => {
+                  const el = document.createElement('em');
+                  el.textContent = loading ? 'Loading rows… Double-click to inspect' : 'Double-click to inspect';
+                  return el;
+                },
+              },
+            ],
           },
         ],
       },

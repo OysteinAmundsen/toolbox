@@ -2,7 +2,7 @@
  * Tests for `@toolbox-web/grid-vue/features/pinned-rows`.
  *
  * Covers the slot-renderer bridging added in #354: per-slot host-element
- * caching, zoned and flat slot renderers, aggregation passthrough, customPanels
+ * caching, zoned and flat slot renderers, aggregation passthrough,
  * bridging, built-in vanilla renderer passthrough, and disconnect-time teardown.
  *
  * @vitest-environment jsdom
@@ -120,16 +120,6 @@ describe('@toolbox-web/grid-vue/features/pinned-rows', () => {
     const plugin = createPluginFromFeature('pinnedRows', cfg);
     const slot = userConfigOf<PinnedRowsConfig>(plugin)?.slots?.[0] as PanelSlot;
     expect((slot.render as (ctx: PinnedRowsContext) => HTMLElement | null)(sampleCtx)).toBeNull();
-  });
-
-  it('bridges legacy customPanels[].render to an HTMLElement', () => {
-    const cfg: VuePinnedRowsConfig = {
-      customPanels: [{ id: 'stats', position: 'center', render: (ctx) => h('span', String(ctx.totalRows)) }],
-    };
-    const plugin = createPluginFromFeature('pinnedRows', cfg);
-    const panels = userConfigOf<PinnedRowsConfig>(plugin)?.customPanels;
-    expect(panels).toHaveLength(1);
-    expect(panels![0].render(sampleCtx)).toBeInstanceOf(HTMLElement);
   });
 
   it('detach() tears down bridged slot portals without throwing', () => {

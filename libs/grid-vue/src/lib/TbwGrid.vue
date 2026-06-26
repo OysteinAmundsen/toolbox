@@ -59,7 +59,6 @@ import type {
   RowDragStartDetail,
   RowDropDetail,
   RowMoveDetail,
-  RowReorderConfig,
   RowTransferDetail,
   SelectionChangeDetail,
   SelectionConfig,
@@ -278,11 +277,6 @@ const props = defineProps({
   /** Enable horizontal column virtualization */
   columnVirtualization: {
     type: [Boolean, Object] as PropType<boolean | ColumnVirtualizationConfig>,
-    default: undefined,
-  },
-  /** Enable row drag-to-reorder (deprecated alias for `rowDragDrop`) */
-  reorderRows: {
-    type: [Boolean, Object] as PropType<boolean | RowReorderConfig>,
     default: undefined,
   },
   /** Enable row drag-and-drop within and across grids */

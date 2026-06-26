@@ -36,6 +36,7 @@ import '@toolbox-web/grid-vue/features/pinned-rows';
 import '@toolbox-web/grid-vue/features/reorder-columns';
 import '@toolbox-web/grid-vue/features/responsive';
 import '@toolbox-web/grid-vue/features/selection';
+import '@toolbox-web/grid-vue/features/shell';
 import '@toolbox-web/grid-vue/features/undo-redo';
 import '@toolbox-web/grid-vue/features/visibility';
 
@@ -93,17 +94,17 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
     options;
 
   return {
-    shell: {
-      header: {
-        title: 'Employee Management System (Vue)',
-      },
-    },
     columnGroups: COLUMN_GROUPS,
     // Declarative feature configuration — features themselves are loaded via
     // side-effect imports in `EmployeeManagement.vue`. Configuring them here
     // (instead of as `<TbwGrid ...>` props) keeps the template tidy and
     // mirrors the React/Angular demos.
     features: {
+      shell: {
+        header: {
+          title: 'Employee Management System (Vue)',
+        },
+      },
       selection: enableSelection ? 'range' : undefined,
       multiSort: enableSorting ? 'multi' : undefined,
       filtering: enableFiltering ? { debounceMs: 200 } : undefined,

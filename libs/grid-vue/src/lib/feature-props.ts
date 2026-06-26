@@ -37,7 +37,6 @@ import type {
   PrintConfig,
   ReorderConfig,
   RowDragDropConfig,
-  RowReorderConfig,
   SelectionConfig,
   ServerSideConfig,
   StickyRowsConfig,
@@ -150,17 +149,12 @@ export type PinnedRowSlot = PanelSlot | AggregationSlot;
 
 /**
  * Pinned-rows config widened to accept Vue components as panel `render`
- * functions inside `slots[]` and `customPanels[]`.
+ * functions inside `slots[]`.
  *
  * @since 1.9.1
  */
-export type PinnedRowsConfig = Omit<CorePinnedRowsConfig, 'slots' | 'customPanels'> & {
+export type PinnedRowsConfig = Omit<CorePinnedRowsConfig, 'slots'> & {
   slots?: PinnedRowSlot[];
-  customPanels?: Array<{
-    id: string;
-    position: PanelZone;
-    render: (ctx: PinnedRowsContext) => VNode;
-  }>;
 };
 
 /**
@@ -423,20 +417,6 @@ export interface FeatureProps<TRow = unknown> {
   // ═══════════════════════════════════════════════════════════════════
   // ROW FEATURES
   // ═══════════════════════════════════════════════════════════════════
-
-  /**
-   * Enable row drag-to-reorder.
-   *
-   * @deprecated Use `rowDragDrop` instead. `reorderRows` remains as an alias
-   *             until V3 and forwards to the same plugin.
-   * @requires `import '@toolbox-web/grid-vue/features/reorder-rows';`
-   *
-   * @example
-   * ```vue
-   * <TbwGrid reorder-rows />
-   * ```
-   */
-  reorderRows?: boolean | RowReorderConfig;
 
   /**
    * Enable row drag-and-drop, both within a single grid (reorder) and

@@ -7,6 +7,7 @@ import {
   TbwGridToolbarContent,
 } from '@toolbox-web/grid-vue';
 import '@toolbox-web/grid-vue/features/pinned-rows';
+import '@toolbox-web/grid-vue/features/shell';
 import '@demo/shared/calendar/demo-styles.css';
 import {
   buildWeeks,
@@ -94,9 +95,9 @@ const toolbarProps = {
 
 const gridConfig = shallowRef({
   fitMode: 'stretch',
-  shell: { header: { toolPanelToggle: false } },
   rowHeight: DEFAULT_ROW_HEIGHT_PX,
   features: {
+    shell: { header: { toolPanelToggle: false } },
     pinnedRows: {
       slots: [
         {

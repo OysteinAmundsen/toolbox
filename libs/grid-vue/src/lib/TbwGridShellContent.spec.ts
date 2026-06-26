@@ -3,24 +3,31 @@
  *
  * @vitest-environment happy-dom
  */
-import type { DataGridElement, HeaderContentDefinition, ToolbarContentDefinition } from '@toolbox-web/grid';
+import type { DataGridElement } from '@toolbox-web/grid';
+import type { HeaderContentDefinition, ToolbarContentDefinition } from '@toolbox-web/grid/plugins/shell';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp, defineComponent, h, nextTick, ref, type App } from 'vue';
 import TbwGridHeaderContent from './TbwGridHeaderContent.vue';
 import TbwGridToolbarContent from './TbwGridToolbarContent.vue';
 import { GRID_ELEMENT_KEY } from './use-grid';
 
-interface MockGrid extends Partial<DataGridElement> {
-  ready: () => Promise<void>;
+interface MockShell {
   registerHeaderContent: (def: HeaderContentDefinition) => void;
   unregisterHeaderContent: (id: string) => void;
   registerToolbarContent: (def: ToolbarContentDefinition) => void;
   unregisterToolbarContent: (id: string) => void;
 }
 
+interface MockGrid extends Partial<DataGridElement> {
+  ready: () => Promise<void>;
+  getPluginByName: (name: string) => unknown;
+}
+
 interface Harness {
   app: App;
   grid: MockGrid;
+  /** Shell-plugin mock the wrappers route register/unregister through (#370). */
+  shell: MockShell;
   slot: HTMLElement;
   mountEl: HTMLElement;
   headerDefs: HeaderContentDefinition[];
@@ -31,6 +38,7 @@ interface Harness {
 
 function makeGrid(): {
   grid: MockGrid;
+  shell: MockShell;
   slot: HTMLElement;
   headerDefs: HeaderContentDefinition[];
   toolbarDefs: ToolbarContentDefinition[];
@@ -42,8 +50,7 @@ function makeGrid(): {
   const toolbarDefs: ToolbarContentDefinition[] = [];
   const unregisteredHeader: string[] = [];
   const unregisteredToolbar: string[] = [];
-  const grid: MockGrid = {
-    ready: vi.fn().mockResolvedValue(undefined),
+  const shell: MockShell = {
     registerHeaderContent: vi.fn((def: HeaderContentDefinition) => {
       headerDefs.push(def);
       def.render(slot);
@@ -59,7 +66,11 @@ function makeGrid(): {
       unregisteredToolbar.push(id);
     }),
   };
-  return { grid, slot, headerDefs, toolbarDefs, unregisteredHeader, unregisteredToolbar };
+  const grid: MockGrid = {
+    ready: vi.fn().mockResolvedValue(undefined),
+    getPluginByName: vi.fn((name: string) => (name === 'shell' ? shell : undefined)),
+  };
+  return { grid, shell, slot, headerDefs, toolbarDefs, unregisteredHeader, unregisteredToolbar };
 }
 
 let mountEl: HTMLElement;
@@ -99,6 +110,7 @@ async function mountWith(
     app,
     mountEl,
     grid: (grid ?? makeGrid().grid) as MockGrid,
+    shell: m?.shell ?? makeGrid().shell,
     slot: m?.slot ?? document.createElement('div'),
     headerDefs: m?.headerDefs ?? [],
     toolbarDefs: m?.toolbarDefs ?? [],
@@ -146,7 +158,7 @@ describe('TbwGridHeaderContent', () => {
     await nextTick();
     label.value = 'second';
     await nextTick();
-    expect(h.grid.registerHeaderContent).toHaveBeenCalledTimes(1);
+    expect(h.shell.registerHeaderContent).toHaveBeenCalledTimes(1);
     expect(h.slot.querySelector('[data-testid="hdr"]')?.textContent).toBe('second');
   });
 
@@ -223,7 +235,7 @@ describe('TbwGridHeaderContent', () => {
     await nextTick();
     await Promise.resolve();
     await nextTick();
-    expect(m.grid.registerHeaderContent).not.toHaveBeenCalled();
+    expect(m.shell.registerHeaderContent).not.toHaveBeenCalled();
   });
 
   it('does not register when no parent grid is provided', async () => {
@@ -309,7 +321,7 @@ describe('TbwGridToolbarContent', () => {
     await nextTick();
     await Promise.resolve();
     await nextTick();
-    expect(m.grid.registerToolbarContent).not.toHaveBeenCalled();
+    expect(m.shell.registerToolbarContent).not.toHaveBeenCalled();
   });
 
   it('does not register when no parent grid is provided', async () => {

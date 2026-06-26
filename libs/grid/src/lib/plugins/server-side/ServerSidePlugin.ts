@@ -16,7 +16,13 @@ import {
   warnDiagnostic,
 } from '../../core/internal/diagnostics';
 import { builtInSort } from '../../core/internal/sorting';
-import { BaseGridPlugin, ScrollEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
+import {
+  BaseGridPlugin,
+  ScrollEvent,
+  type GridElement,
+  type PluginManifest,
+  type PluginQuery,
+} from '../../core/plugin/base-plugin';
 import type { ColumnConfig, GridHost } from '../../core/types';
 import { createUrlDataSource, getBlockNumber, getRequiredBlocks, getRowFromCache, loadBlock } from './datasource';
 import type {
@@ -336,11 +342,11 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   private loadRequiredBlocks(): void {
     if (!this.dataSource) return;
 
-    const gridRef = this.grid as unknown as GridHost;
+    const { _virtualization } = this.grid as GridElement & Pick<GridHost, '_virtualization'>;
     const blockSize = this.config.pageSize ?? 100;
 
     // Translate viewport to node space via structural plugins
-    const viewport = this.getViewportMapping(gridRef._virtualization.start, gridRef._virtualization.end);
+    const viewport = this.getViewportMapping(_virtualization.start, _virtualization.end);
 
     // Expand the viewport by loadThreshold in both directions to prefetch
     // blocks the user is about to scroll into. The end is clamped to

@@ -127,8 +127,9 @@ grid.on('filter-change', (detail) => console.log('filter', detail));
 grid.on('column-state-change', (detail) => console.log('columns', detail));
 grid.on('selection-change', (detail) => console.log('selection', detail));
 
-// Log everything (catch-all — use briefly). `keyof DataGridEventMap` is the
-// full, type-checked event catalog.
+// Log a representative set at once. This is a curated subset, not the full
+// catalog — the `keyof DataGridEventMap` type is the complete, type-checked
+// list of event names; add any others you need to the array below.
 const allEvents: (keyof DataGridEventMap)[] = [
   'render',
   'sort-change',

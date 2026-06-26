@@ -88,8 +88,6 @@ const BUILTIN_FEATURE_PROP_KEYS: readonly FeatureName[] = [
   'clipboard',
   'contextMenu',
   'reorderColumns',
-  // @deprecated v1.x — remove in `@toolbox-web/grid-react` 2.0.0 (gh #261 / #263). Superseded by `rowDragDrop`.
-  'reorderRows',
   'rowDragDrop',
   'visibility',
   'undoRedo',

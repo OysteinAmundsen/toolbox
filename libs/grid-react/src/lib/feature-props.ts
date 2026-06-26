@@ -37,7 +37,6 @@ import type {
   PrintConfig,
   ReorderConfig,
   RowDragDropConfig,
-  RowReorderConfig,
   SelectionConfig,
   ServerSideConfig,
   StickyRowsConfig,
@@ -149,7 +148,7 @@ export type PinnedRowSlot = PanelSlot | AggregationSlot;
 
 /**
  * Pinned-rows config widened to accept React components as panel
- * `render` functions inside `slots[]` and `customPanels[]`.
+ * `render` functions inside `slots[]`.
  *
  * Extends the core `PinnedRowsConfig` to accept React render functions
  * returning `ReactNode` instead of only `HTMLElement | null`. Bridging to
@@ -158,13 +157,8 @@ export type PinnedRowSlot = PanelSlot | AggregationSlot;
  *
  * @since 1.8.2
  */
-export type PinnedRowsConfig = Omit<CorePinnedRowsConfig, 'slots' | 'customPanels'> & {
+export type PinnedRowsConfig = Omit<CorePinnedRowsConfig, 'slots'> & {
   slots?: PinnedRowSlot[];
-  customPanels?: Array<{
-    id: string;
-    position: PanelZone;
-    render: (ctx: PinnedRowsContext) => ReactNode;
-  }>;
 };
 
 /**
@@ -424,20 +418,6 @@ export interface FeatureProps<TRow = unknown> {
   // ═══════════════════════════════════════════════════════════════════
 
   /**
-   * Enable row drag-to-reorder.
-   *
-   * @deprecated Use `rowDragDrop` instead. `reorderRows` remains as an alias
-   *             until V3 and forwards to the same plugin.
-   * @requires `import '@toolbox-web/grid-react/features/reorder-rows';`
-   *
-   * @example
-   * ```tsx
-   * <DataGrid reorderRows />
-   * ```
-   */
-  reorderRows?: boolean | RowReorderConfig;
-
-  /**
    * Enable row drag-and-drop, both within a single grid (reorder) and
    * across grids that share a `dropZone`.
    *
@@ -445,7 +425,7 @@ export interface FeatureProps<TRow = unknown> {
    *
    * @example
    * ```tsx
-   * // Intra-grid reorder (parity with reorderRows)
+   * // Intra-grid reorder
    * <DataGrid rowDragDrop />
    *
    * // Cross-grid transfer

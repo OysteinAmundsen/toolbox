@@ -35,6 +35,7 @@ import '@toolbox-web/grid-react/features/pinned-rows';
 import '@toolbox-web/grid-react/features/reorder-columns';
 import '@toolbox-web/grid-react/features/responsive';
 import '@toolbox-web/grid-react/features/selection';
+import '@toolbox-web/grid-react/features/shell';
 import '@toolbox-web/grid-react/features/undo-redo';
 import '@toolbox-web/grid-react/features/visibility';
 
@@ -92,16 +93,16 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
     options;
 
   return {
-    shell: {
-      header: {
-        title: 'Employee Management System (React)',
-      },
-    },
     columnGroups: COLUMN_GROUPS,
     // Declarative feature configuration — features themselves are loaded via
     // side-effect imports in `EmployeeManagement.tsx`. Configuring them here
     // (instead of as `<DataGrid ...>` props) keeps the template tidy.
     features: {
+      shell: {
+        header: {
+          title: 'Employee Management System (React)',
+        },
+      },
       selection: enableSelection ? 'range' : undefined,
       multiSort: enableSorting ? 'multi' : undefined,
       filtering: enableFiltering ? { debounceMs: 200 } : undefined,

@@ -3,7 +3,7 @@
  *
  * Covers the slot-renderer bridging added in #354: per-slot host-element
  * caching (so the pinned-rows plugin can short-circuit row rebuilds), zoned
- * and flat slot renderers, aggregation passthrough, customPanels bridging,
+ * and flat slot renderers, aggregation passthrough,
  * built-in vanilla renderer passthrough, and disconnect-time teardown.
  *
  * @vitest-environment jsdom
@@ -134,17 +134,6 @@ describe('@toolbox-web/grid-react/features/pinned-rows', () => {
     const plugin = createPluginFromFeature('pinnedRows', cfg);
     const slot = userConfigOf<PinnedRowsConfig>(plugin)?.slots?.[0] as PanelSlot;
     expect((slot.render as (ctx: PinnedRowsContext) => HTMLElement | null)(sampleCtx)).toBeNull();
-  });
-
-  it('bridges legacy customPanels[].render and coerces null to an empty div', () => {
-    const cfg: ReactPinnedRowsConfig = {
-      customPanels: [{ id: 'stats', position: 'center', render: (ctx) => <span>{ctx.totalRows}</span> }],
-    };
-    const plugin = createPluginFromFeature('pinnedRows', cfg);
-    const panels = userConfigOf<PinnedRowsConfig>(plugin)?.customPanels;
-    expect(panels).toHaveLength(1);
-    const out = panels![0].render(sampleCtx);
-    expect(out).toBeInstanceOf(HTMLElement);
   });
 
   it('detach() tears down bridged slot portals without throwing', () => {

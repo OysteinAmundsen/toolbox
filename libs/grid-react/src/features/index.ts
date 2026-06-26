@@ -43,7 +43,6 @@ import './pinned-rows';
 import './pivot';
 import './print';
 import './reorder-columns';
-import './reorder-rows';
 import './responsive';
 import './row-drag-drop';
 import './selection';

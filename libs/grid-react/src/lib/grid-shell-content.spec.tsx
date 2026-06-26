@@ -9,7 +9,8 @@
  *
  * @vitest-environment happy-dom
  */
-import type { DataGridElement, HeaderContentDefinition, ToolbarContentDefinition } from '@toolbox-web/grid';
+import type { DataGridElement } from '@toolbox-web/grid';
+import type { HeaderContentDefinition, ToolbarContentDefinition } from '@toolbox-web/grid/plugins/shell';
 import { act, createRef, useState, type RefObject } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -21,16 +22,22 @@ beforeAll(() => {
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
-interface MockGrid extends Partial<DataGridElement> {
-  ready: () => Promise<void>;
+interface MockShell {
   registerHeaderContent: (def: HeaderContentDefinition) => void;
   unregisterHeaderContent: (id: string) => void;
   registerToolbarContent: (def: ToolbarContentDefinition) => void;
   unregisterToolbarContent: (id: string) => void;
 }
 
+interface MockGrid extends Partial<DataGridElement> {
+  ready: () => Promise<void>;
+  getPluginByName: (name: string) => unknown;
+}
+
 interface Harness {
   grid: MockGrid;
+  /** Shell-plugin mock the wrappers route register/unregister through (#370). */
+  shell: MockShell;
   gridRef: RefObject<DataGridElement | null>;
   container: HTMLElement;
   /** Container the grid would hand to the render callback. */
@@ -50,8 +57,7 @@ function setupHarness(): Harness {
   const toolbarDefs: ToolbarContentDefinition[] = [];
   const unregisteredHeader: string[] = [];
   const unregisteredToolbar: string[] = [];
-  const grid: MockGrid = {
-    ready: vi.fn().mockResolvedValue(undefined),
+  const shell: MockShell = {
     registerHeaderContent: vi.fn((def: HeaderContentDefinition) => {
       headerDefs.push(def);
       def.render(slot);
@@ -67,10 +73,25 @@ function setupHarness(): Harness {
       unregisteredToolbar.push(id);
     }),
   };
+  const grid: MockGrid = {
+    ready: vi.fn().mockResolvedValue(undefined),
+    getPluginByName: vi.fn((name: string) => (name === 'shell' ? shell : undefined)),
+  };
   const gridRef: RefObject<DataGridElement | null> = createRef<DataGridElement | null>();
   (gridRef as { current: DataGridElement | null }).current = grid as DataGridElement;
   const root = createRoot(container);
-  return { grid, gridRef, container, slot, root, headerDefs, toolbarDefs, unregisteredHeader, unregisteredToolbar };
+  return {
+    grid,
+    shell,
+    gridRef,
+    container,
+    slot,
+    root,
+    headerDefs,
+    toolbarDefs,
+    unregisteredHeader,
+    unregisteredToolbar,
+  };
 }
 
 afterEach(() => {
@@ -139,7 +160,7 @@ describe('GridHeaderContent', () => {
       await new Promise((r) => queueMicrotask(r));
       await new Promise((r) => requestAnimationFrame(() => r(undefined)));
     });
-    expect(h.grid.registerHeaderContent).toHaveBeenCalledTimes(1);
+    expect(h.shell.registerHeaderContent).toHaveBeenCalledTimes(1);
     expect(h.slot.querySelector('[data-testid="hdr"]')?.textContent).toBe('second');
   });
 

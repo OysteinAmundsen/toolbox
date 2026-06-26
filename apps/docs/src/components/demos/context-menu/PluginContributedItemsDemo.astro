@@ -12,6 +12,7 @@ import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/context-menu';
 import '@toolbox-web/grid/features/filtering';
 import '@toolbox-web/grid/features/pinned-columns';
+import '@toolbox-web/grid/features/shell';
 import '@toolbox-web/grid/features/visibility';
 
   const grid = queryGrid('#demo-context-menu-plugin-items');
@@ -24,6 +25,7 @@ import '@toolbox-web/grid/features/visibility';
         { field: 'status', header: 'Status', sortable: true },
       ],
       features: {
+        shell: true,
         filtering: true,
         visibility: true,
         pinnedColumns: true,

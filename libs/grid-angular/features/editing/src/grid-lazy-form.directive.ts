@@ -77,7 +77,7 @@ export interface RowFormChangeEvent<TRow = unknown> {
  * ```typescript
  * import { Component, inject, signal } from '@angular/core';
  * import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
- * import { Grid, GridLazyForm, TbwEditor } from '@toolbox-web/grid-angular';
+ * import { Grid, GridLazyForm, TbwEditor } from '@toolbox-web/grid-angular/features/editing';
  *
  * @Component({
  *   imports: [Grid, GridLazyForm, TbwEditor, ReactiveFormsModule],
@@ -134,12 +134,6 @@ export interface RowFormChangeEvent<TRow = unknown> {
  * @see GridFormArray For small datasets with full upfront validation
  * @category Directive
  *
- * MOVE-IN-V2: this directive (and its `LazyFormFactory`, `RowFormChangeEvent`
- * types and `getLazyFormContext` helper) will physically move into
- * `@toolbox-web/grid-angular/features/editing` in v2.0.0; the deprecated
- * re-exports from the main `@toolbox-web/grid-angular` entry will be removed
- * at the same time. Consumers should already be importing from the feature
- * entry.
  * @since 0.11.0
  */
 @Directive({

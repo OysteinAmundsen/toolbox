@@ -99,21 +99,21 @@ Run the fallow codebase intelligence tool to get deterministic complexity, dead-
 **For `branch` or diff mode** (reviewing changed files):
 
 ```bash
-bun fallow audit --base <resolved-base-ref> --format json > tmp/fallow-audit.json
+bunx fallow audit --base <resolved-base-ref> --format json > tmp/fallow-audit.json
 ```
 
 **For single-file or folder mode**:
 
 ```bash
-bun fallow health --file <path> --format json > tmp/fallow-audit.json
+bunx fallow health --file <path> --format json > tmp/fallow-audit.json
 # or for dead-code:
-bun fallow dead-code --format json > tmp/fallow-audit.json
+bunx fallow dead-code --format json > tmp/fallow-audit.json
 ```
 
 **For full working-tree scope** (uncommitted changes):
 
 ```bash
-bun fallow --format json > tmp/fallow-audit.json
+bunx fallow --format json > tmp/fallow-audit.json
 ```
 
 After running, read `tmp/fallow-audit.json` and extract findings. Map to report severity:

@@ -24,19 +24,25 @@
 
 import type { Type } from '@angular/core';
 import {
-  getResponsiveCardTemplate,
   isComponentClass,
   registerFeatureConfigPreprocessor,
   registerResponsiveCardRendererBridge,
   registerTemplateBridge,
   type GridAdapter,
-  type GridResponsiveCardContext,
 } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/responsive';
+import { getResponsiveCardTemplate, type GridResponsiveCardContext } from './grid-responsive-card.directive';
 import type { ResponsivePluginConfig } from './grid-responsive.directive';
 export { GridResponsiveDirective } from './grid-responsive.directive';
 export type { ResponsivePluginConfig } from './grid-responsive.directive';
 export type { _Augmentation as _ResponsiveAugmentation } from '@toolbox-web/grid/features/responsive';
+
+// ---------------------------------------------------------------------------
+// Responsive-owned directive + helpers. These physically live in this
+// secondary entry (the runtime behaviour lives here too).
+// ---------------------------------------------------------------------------
+export { getResponsiveCardTemplate, GridResponsiveCard } from './grid-responsive-card.directive';
+export type { GridResponsiveCardContext } from './grid-responsive-card.directive';
 
 /**
  * Subset of `ResponsivePlugin` we touch from the bridge. Avoids importing

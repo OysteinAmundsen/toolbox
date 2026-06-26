@@ -1,6 +1,6 @@
 import { Directive, input } from '@angular/core';
+import type { FilterPanel } from '@toolbox-web/grid-angular';
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
-import type { FilterPanel } from './angular-column-config';
 
 /**
  * Base class for Angular filter panel components.
@@ -13,7 +13,7 @@ import type { FilterPanel } from './angular-column-config';
  *
  * ```typescript
  * import { Component, viewChild, ElementRef } from '@angular/core';
- * import { BaseFilterPanel } from '@toolbox-web/grid-angular';
+ * import { BaseFilterPanel } from '@toolbox-web/grid-angular/features/filtering';
  *
  * @Component({
  *   selector: 'app-text-filter',
@@ -47,10 +47,6 @@ import type { FilterPanel } from './angular-column-config';
  *
  * @typeParam TRow - The row data type (available via `params().column`)
  *
- * MOVE-IN-V2: this class will physically move into
- * `@toolbox-web/grid-angular/features/filtering` in v2.0.0; the deprecated
- * re-export from the main `@toolbox-web/grid-angular` entry will be removed at
- * the same time. Consumers should already be importing from the feature entry.
  * @since 0.13.0
  */
 @Directive()

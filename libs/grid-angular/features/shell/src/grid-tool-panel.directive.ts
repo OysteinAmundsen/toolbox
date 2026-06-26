@@ -69,7 +69,7 @@ export function getToolPanelElements(gridElement: HTMLElement): HTMLElement[] {
  * Import the directive in your component:
  *
  * ```typescript
- * import { GridToolPanel } from '@toolbox-web/grid-angular';
+ * import { GridToolPanel } from '@toolbox-web/grid-angular/features/shell';
  *
  * @Component({
  *   imports: [GridToolPanel],

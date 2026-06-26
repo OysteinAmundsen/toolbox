@@ -9,10 +9,12 @@
  * 1. Mock `@angular/core`'s `createComponent` so it returns a fake
  *    `ComponentRef` whose `setInput` / `detectChanges` are spies.
  * 2. Mock the template registry getters (`grid-column-view.directive`,
- *    `grid-column-editor.directive`, `grid-detail-view.directive`,
- *    `grid-tool-panel.directive`, `grid-responsive-card.directive`,
- *    `grid-form-array.directive`, `structural-directives`) so individual tests
- *    can decide whether a template is registered for a given element.
+ *    `structural-directives`) so individual tests can decide whether a
+ *    template is registered for a given element. Editor, detail, responsive,
+ *    and tool-panel templates are resolved through feature bridges
+ *    (`features/editing`, `features/master-detail`, `features/responsive`,
+ *    `features/shell`), which are mirrored inline in `beforeAll` using local
+ *    `vi.fn()` stubs.
  * 3. Construct the adapter with hand-rolled mock `EnvironmentInjector`,
  *    `ApplicationRef`, and `ViewContainerRef` whose `createEmbeddedView`
  *    returns a fake `EmbeddedViewRef`.
@@ -34,8 +36,10 @@ import { GridAdapter } from './angular-grid-adapter';
 import { makeFlushFocusedInput, registerEditorMountHook } from './editor-mount-hooks';
 import {
   registerDetailRendererBridge,
+  registerEditorSpecBridge,
   registerFilterPanelTypeDefaultBridge,
   registerResponsiveCardRendererBridge,
+  registerToolPanelRendererBridge,
 } from './internal/feature-bridges';
 import { registerFeatureConfigPreprocessor } from './internal/feature-extensions';
 
@@ -71,6 +75,81 @@ beforeAll(() => {
       const container = document.createElement('div');
       viewRef.rootNodes.forEach((node: Node) => container.appendChild(node));
       return container;
+    };
+  });
+
+  // Mirror `features/editing` (template-based editor bridge). Uses the mocked
+  // `structuralEditorGetter` / `editorTemplateGetter` / `formArrayContextGetter`
+  // local stubs below instead of the (moved) directive modules.
+  registerEditorSpecBridge(<TRow, TValue>(element: HTMLElement, adapter: GridAdapter) => {
+    const template = (structuralEditorGetter(element) ?? editorTemplateGetter(element)) as
+      | TemplateRef<Record<string, unknown>>
+      | undefined;
+    if (!template) return undefined;
+    const gridElement = element.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
+    return (ctx: {
+      value: TValue;
+      row: TRow;
+      field: string | number | symbol;
+      column: unknown;
+      rowId?: string;
+      commit: (v: TValue) => void;
+      cancel: () => void;
+      updateRow?: unknown;
+      onValueChange?: (cb: (v: unknown) => void) => void;
+    }) => {
+      let control: unknown;
+      if (gridElement) {
+        const formContext = formArrayContextGetter(gridElement) as
+          | { hasFormGroups?: boolean; getControl: (i: number, f: string) => unknown }
+          | undefined;
+        if (formContext?.hasFormGroups) {
+          const gridRows = (gridElement as { rows?: TRow[] }).rows;
+          if (gridRows) {
+            const rowIndex = gridRows.indexOf(ctx.row);
+            if (rowIndex >= 0) control = formContext.getControl(rowIndex, ctx.field as string);
+          }
+        }
+      }
+      const context: Record<string, unknown> = {
+        $implicit: ctx.value,
+        value: ctx.value,
+        row: ctx.row,
+        field: ctx.field as string,
+        column: ctx.column,
+        rowId: ctx.rowId ?? '',
+        onCommit: (v: TValue) => ctx.commit(v),
+        onCancel: () => ctx.cancel(),
+        updateRow: ctx.updateRow,
+        onValueChange: ctx.onValueChange,
+        control,
+      };
+      const { container, viewRef } = adapter.createEditorTemplateView(template, context);
+      container.addEventListener('commit', (e: Event) => ctx.commit((e as CustomEvent<TValue>).detail));
+      container.addEventListener('cancel', () => ctx.cancel());
+      ctx.onValueChange?.((newVal: unknown) => {
+        context.$implicit = newVal;
+        context.value = newVal;
+        viewRef.detectChanges();
+        adapter.syncEditorTemplateView(viewRef, container);
+      });
+      return container;
+    };
+  });
+
+  // Mirror `features/shell` (tool-panel renderer bridge). Uses the mocked
+  // `toolPanelGetter` local stub below.
+  registerToolPanelRendererBridge((element: HTMLElement, adapter: GridAdapter) => {
+    const template = toolPanelGetter(element) as TemplateRef<Record<string, unknown>> | undefined;
+    if (!template) return undefined;
+    const gridElement = element.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
+    return (container: HTMLElement) => {
+      const viewRef = adapter.createTrackedEmbeddedView(template, {
+        $implicit: gridElement ?? container,
+        grid: gridElement ?? container,
+      });
+      viewRef.rootNodes.forEach((node: Node) => container.appendChild(node));
+      return () => viewRef.destroy();
     };
   });
 
@@ -171,12 +250,6 @@ vi.mock('./directives/grid-column-view.directive', async () => {
   );
   return { ...actual, getViewTemplate: (el: HTMLElement) => viewTemplateGetter(el) };
 });
-vi.mock('./directives/grid-column-editor.directive', async () => {
-  const actual = await vi.importActual<typeof import('./directives/grid-column-editor.directive')>(
-    './directives/grid-column-editor.directive',
-  );
-  return { ...actual, getEditorTemplate: (el: HTMLElement) => editorTemplateGetter(el) };
-});
 vi.mock('./directives/structural-directives', async () => {
   const actual = await vi.importActual<typeof import('./directives/structural-directives')>(
     './directives/structural-directives',
@@ -184,32 +257,7 @@ vi.mock('./directives/structural-directives', async () => {
   return {
     ...actual,
     getStructuralViewTemplate: (el: HTMLElement) => structuralViewGetter(el),
-    getStructuralEditorTemplate: (el: HTMLElement) => structuralEditorGetter(el),
   };
-});
-vi.mock('./directives/grid-detail-view.directive', async () => {
-  const actual = await vi.importActual<typeof import('./directives/grid-detail-view.directive')>(
-    './directives/grid-detail-view.directive',
-  );
-  return { ...actual, getDetailTemplate: (el: HTMLElement) => detailTemplateGetter(el) };
-});
-vi.mock('./directives/grid-responsive-card.directive', async () => {
-  const actual = await vi.importActual<typeof import('./directives/grid-responsive-card.directive')>(
-    './directives/grid-responsive-card.directive',
-  );
-  return { ...actual, getResponsiveCardTemplate: (el: HTMLElement) => responsiveCardGetter(el) };
-});
-vi.mock('./directives/grid-tool-panel.directive', async () => {
-  const actual = await vi.importActual<typeof import('./directives/grid-tool-panel.directive')>(
-    './directives/grid-tool-panel.directive',
-  );
-  return { ...actual, getToolPanelTemplate: (el: HTMLElement) => toolPanelGetter(el) };
-});
-vi.mock('./directives/grid-form-array.directive', async () => {
-  const actual = await vi.importActual<typeof import('./directives/grid-form-array.directive')>(
-    './directives/grid-form-array.directive',
-  );
-  return { ...actual, getFormArrayContext: (el: HTMLElement) => formArrayContextGetter(el) };
 });
 
 // Import after mocks so the module under test sees the mocked getters

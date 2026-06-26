@@ -24,33 +24,25 @@
 
 import type { Type } from '@angular/core';
 import {
-  getDetailTemplate,
   isComponentClass,
   registerDetailRendererBridge,
   registerFeatureConfigPreprocessor,
   registerTemplateBridge,
   type GridAdapter,
-  type GridDetailContext,
 } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/master-detail';
+import { getDetailTemplate, type GridDetailContext } from './grid-detail-view.directive';
 import type { MasterDetailConfig } from './grid-master-detail.directive';
 export { GridMasterDetailDirective } from './grid-master-detail.directive';
 export type { MasterDetailConfig } from './grid-master-detail.directive';
 export type { _Augmentation as _MasterDetailAugmentation } from '@toolbox-web/grid/features/master-detail';
 
 // ---------------------------------------------------------------------------
-// Re-exports from `@toolbox-web/grid-angular` (main entry).
-//
-// `GridDetailView` (and its `getDetailTemplate` helper / `GridDetailContext`
-// type) still physically live in the main entry today but are master-detail
-// specific. They are re-exported here so consumers can import them from the
-// feature entry that owns the runtime behaviour. The same symbols are
-// `@deprecated` on the main entry; in v2.0.0 the source will physically move
-// into this secondary entry and the deprecated re-exports on the main entry
-// will be removed.
+// Master-detail-owned directive + helpers. These physically live in this
+// secondary entry (the runtime behaviour lives here too).
 // ---------------------------------------------------------------------------
-export { getDetailTemplate, GridDetailView } from '@toolbox-web/grid-angular';
-export type { GridDetailContext } from '@toolbox-web/grid-angular';
+export { getDetailTemplate, GridDetailView } from './grid-detail-view.directive';
+export type { GridDetailContext } from './grid-detail-view.directive';
 
 /**
  * Subset of `MasterDetailPlugin` we touch from the bridge. Avoids importing

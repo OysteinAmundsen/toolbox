@@ -3,6 +3,8 @@
   "ignorePatterns": [
     "**/*.generated.ts",
     "dist/**",
+    ".fallow/**",
+    "fallow-report.json",
     ".nx/**",
     "coverage/**",
     "tmp/**",

@@ -15,7 +15,7 @@
  * @internal
  */
 
-import type { TypeDefault as BaseTypeDefault } from '@toolbox-web/grid';
+import type { TypeDefault as BaseTypeDefault, ColumnEditorSpec } from '@toolbox-web/grid';
 import type { GridAdapter } from '../angular-grid-adapter';
 
 /**
@@ -43,9 +43,39 @@ export type FilterPanelTypeDefaultBridge = (
   adapter: GridAdapter,
 ) => NonNullable<BaseTypeDefault['filterPanelRenderer']> | undefined;
 
+/**
+ * Installer signature for the template-based cell editor. Given a column/editor
+ * light-DOM element + adapter, returns the `ColumnEditorSpec` the grid should
+ * use, or undefined if no Angular editor template (`*tbwEditor` /
+ * `<tbw-grid-column-editor>`) is registered for that element. Installed by
+ * `@toolbox-web/grid-angular/features/editing`; without it, template-based
+ * editors are not resolved (component-class editors are unaffected).
+ * @internal
+ * @since 3.0.0
+ */
+export type EditorSpecBridge = <TRow = unknown, TValue = unknown>(
+  element: HTMLElement,
+  adapter: GridAdapter,
+) => ColumnEditorSpec<TRow, TValue> | undefined;
+
+/**
+ * Installer signature for the tool-panel renderer. Given a tool-panel
+ * light-DOM element + adapter, returns the imperative renderer the grid should
+ * use, or undefined if no Angular tool-panel template is registered. Installed
+ * by `@toolbox-web/grid-angular/features/shell`.
+ * @internal
+ * @since 3.0.0
+ */
+export type ToolPanelRendererBridge = (
+  element: HTMLElement,
+  adapter: GridAdapter,
+) => ((container: HTMLElement) => void | (() => void)) | undefined;
+
 let detailRendererBridge: RowRendererBridge | null = null;
 let responsiveCardRendererBridge: RowRendererBridge | null = null;
 let filterPanelTypeDefaultBridge: FilterPanelTypeDefaultBridge | null = null;
+let editorSpecBridge: EditorSpecBridge | null = null;
+let toolPanelRendererBridge: ToolPanelRendererBridge | null = null;
 
 /**
  * Install the master-detail row-renderer bridge. Called once on import by
@@ -92,4 +122,34 @@ export function getResponsiveCardRendererBridge(): RowRendererBridge | null {
 /** @internal Adapter use only. */
 export function getFilterPanelTypeDefaultBridge(): FilterPanelTypeDefaultBridge | null {
   return filterPanelTypeDefaultBridge;
+}
+
+/**
+ * Install the template-based editor bridge. Called once on import by
+ * `@toolbox-web/grid-angular/features/editing`.
+ * @internal Plugin API
+ * @since 3.0.0
+ */
+export function registerEditorSpecBridge(bridge: EditorSpecBridge): void {
+  editorSpecBridge = bridge;
+}
+
+/** @internal Adapter use only. */
+export function getEditorSpecBridge(): EditorSpecBridge | null {
+  return editorSpecBridge;
+}
+
+/**
+ * Install the tool-panel renderer bridge. Called once on import by
+ * `@toolbox-web/grid-angular/features/shell`.
+ * @internal Plugin API
+ * @since 3.0.0
+ */
+export function registerToolPanelRendererBridge(bridge: ToolPanelRendererBridge): void {
+  toolPanelRendererBridge = bridge;
+}
+
+/** @internal Adapter use only. */
+export function getToolPanelRendererBridge(): ToolPanelRendererBridge | null {
+  return toolPanelRendererBridge;
 }

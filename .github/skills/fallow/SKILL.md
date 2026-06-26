@@ -11,22 +11,22 @@ argument-hint: '[health | audit | dead-code | dupes | full] [--changed-since <re
 
 # Fallow Codebase Intelligence
 
-Fallow (`bunx fallow` / `bun fallow`) is the deterministic codebase analysis tool
-for this monorepo. It is installed as a devDependency (`fallow`).
+Fallow (`bunx fallow`) is the deterministic codebase analysis tool
+for this monorepo. It is run on demand via `bunx` and is not a project dependency.
 
 ---
 
 ## Quick reference
 
-| Goal                                     | Command                                                        |
-| ---------------------------------------- | -------------------------------------------------------------- |
-| Full-project maintainability report      | `bun fallow health --score --hotspots --targets --format json` |
-| PR-scoped risk gate (changed files only) | `bun fallow audit --changed-since origin/main --format json`   |
-| Dead code + unused exports               | `bun fallow dead-code --format json`                           |
-| Duplication across the codebase          | `bun fallow dupes --format json`                               |
-| Everything at once                       | `bun fallow --format json`                                     |
-| Single-file deep dive                    | `bun fallow health --file <path> --format json`                |
-| Per-package scores (monorepo)            | `bun fallow health --group-by package --score --format json`   |
+| Goal                                     | Command                                                         |
+| ---------------------------------------- | --------------------------------------------------------------- |
+| Full-project maintainability report      | `bunx fallow health --score --hotspots --targets --format json` |
+| PR-scoped risk gate (changed files only) | `bunx fallow audit --changed-since origin/main --format json`   |
+| Dead code + unused exports               | `bunx fallow dead-code --format json`                           |
+| Duplication across the codebase          | `bunx fallow dupes --format json`                               |
+| Everything at once                       | `bunx fallow --format json`                                     |
+| Single-file deep dive                    | `bunx fallow health --file <path> --format json`                |
+| Per-package scores (monorepo)            | `bunx fallow health --group-by package --score --format json`   |
 
 ---
 
@@ -39,7 +39,7 @@ identifying which functions to refactor; tracking quality score over time.
 
 ```bash
 # Full maintainability report with score and top hotspots
-bun fallow health \
+bunx fallow health \
   --score \
   --hotspots \
   --targets \
@@ -48,14 +48,14 @@ bun fallow health \
   --format json
 
 # Only functions that exceed thresholds in the grid library
-bun fallow health \
+bunx fallow health \
   --workspace @toolbox-web/grid \
   --score \
   --targets \
   --format json
 
 # Changed files only (for PR review)
-bun fallow health \
+bunx fallow health \
   --changed-since origin/main \
   --score \
   --format json
@@ -85,13 +85,13 @@ introduced by the current change.
 
 ```bash
 # Gate against main (auto-detects base)
-bun fallow audit --format json
+bunx fallow audit --format json
 
 # Explicit base ref
-bun fallow audit --base origin/main --format json
+bunx fallow audit --base origin/main --format json
 
 # With Istanbul coverage for exact CRAP scoring
-bun fallow audit \
+bunx fallow audit \
   --base origin/main \
   --coverage coverage/coverage-final.json \
   --format json
@@ -108,16 +108,16 @@ verifying that deprecated API removals didn't leave orphaned symbols.
 
 ```bash
 # All dead code
-bun fallow dead-code --format json
+bunx fallow dead-code --format json
 
 # Only unused exports (most actionable in a library)
-bun fallow dead-code --unused-exports --format json
+bunx fallow dead-code --unused-exports --format json
 
 # Only circular dependencies
-bun fallow dead-code --circular-deps --format json
+bunx fallow dead-code --circular-deps --format json
 
 # Scope to changed files
-bun fallow dead-code --changed-since origin/main --format json
+bunx fallow dead-code --changed-since origin/main --format json
 ```
 
 ---
@@ -129,24 +129,24 @@ a refactor didn't leave stale copies.
 
 ```bash
 # Default (mild mode — AST-based)
-bun fallow dupes --format json
+bunx fallow dupes --format json
 
 # Semantic mode — catches renamed-variable clones
-bun fallow dupes --mode semantic --format json
+bunx fallow dupes --mode semantic --format json
 
 # Only cross-directory duplicates (skip local overloads)
-bun fallow dupes --skip-local --format json
+bunx fallow dupes --skip-local --format json
 ```
 
 ---
 
-### `bun fallow` — combined run
+### `bunx fallow` — combined run
 
 The bare command runs dead-code + duplication + health together. Use for a full
 baseline snapshot or when preparing a release.
 
 ```bash
-bun fallow --format json > tmp/fallow-full.json
+bunx fallow --format json > tmp/fallow-full.json
 ```
 
 ---
@@ -176,7 +176,7 @@ relaxed thresholds in `.fallowrc.json`. Flag them but don't block work on them.
 When running `/qa` on a branch or PR scope, include a fallow audit step:
 
 ```bash
-bun fallow audit --base origin/main --format json > tmp/fallow-audit.json
+bunx fallow audit --base origin/main --format json > tmp/fallow-audit.json
 ```
 
 Map fallow JSON findings to `qa-apply-findings` format:
@@ -215,15 +215,15 @@ tooling, demos) — not for individual production functions.
 After a major cleanup pass, save a baseline so future audits only gate on regressions:
 
 ```bash
-bun fallow health --save-baseline fallow-baselines/health.json
-bun fallow dead-code --save-baseline fallow-baselines/dead-code.json
-bun fallow dupes --save-baseline fallow-baselines/dupes.json
+bunx fallow health --save-baseline fallow-baselines/health.json
+bunx fallow dead-code --save-baseline fallow-baselines/dead-code.json
+bunx fallow dupes --save-baseline fallow-baselines/dupes.json
 ```
 
 Commit the `fallow-baselines/` directory. Then CI uses:
 
 ```bash
-bun fallow audit \
+bunx fallow audit \
   --health-baseline fallow-baselines/health.json \
   --dead-code-baseline fallow-baselines/dead-code.json \
   --dupes-baseline fallow-baselines/dupes.json \

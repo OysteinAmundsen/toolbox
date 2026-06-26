@@ -7,10 +7,10 @@
  * while both copies coexist during Phase 1a. Core copies are removed in
  * Task 1b.1.5; the layer question (tbw-base vs tbw-plugins) is revisited then.
  *
- * EXCEPTION: `.tbw-scroll-area` is NOT here — it is core scroll-viewport layout
- * (rendered by dom-builder for every grid, shell or not) and lives in
- * `core/styles/base.css`. `.tbw-grid-content` IS here: it is the shell-only
- * wrapper around the scroll area.
+ * EXCEPTION: `.tbw-scroll-area` and `.tbw-grid-content` are NOT here — both are
+ * core scroll-viewport layout (rendered by dom-builder for every grid, shell or
+ * not) and live in `core/styles/base.css`. Without a shell, `.tbw-grid-content`
+ * still wraps the scroll area, so its layout rule must load unconditionally.
  *
  * @layer tbw-base
  */
@@ -109,18 +109,6 @@
       flex: 1;
       min-height: 0;
       overflow: visible;
-    }
-
-    .tbw-grid-content {
-      flex: 1;
-      min-width: 0;
-      min-height: 0;
-      display: flex;
-      flex-direction: row;
-      overflow: hidden;
-      /* Grid handles touch scrolling via JS (faux scrollbar pattern).
-         Prevent browser compositor from hijacking touch gestures mid-scroll. */
-      touch-action: none;
     }
   }
 }

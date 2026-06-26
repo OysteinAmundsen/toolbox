@@ -55,13 +55,6 @@ describe('GridPinnedRowsDirective types', () => {
     expect(cfg.slots).toHaveLength(1);
   });
 
-  it('PinnedRowsConfig accepts a component class in customPanels[].render', () => {
-    const cfg: PinnedRowsConfig = {
-      customPanels: [{ id: 'c', position: 'center', render: PanelComponent }],
-    };
-    expect(cfg.customPanels).toHaveLength(1);
-  });
-
   it('directive input type accepts boolean shorthand', () => {
     // Type assertion only — the directive's input() signal type accepts
     // both `boolean` and `PinnedRowsConfig`.

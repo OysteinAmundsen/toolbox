@@ -1,4 +1,5 @@
 import '@toolbox-web/grid-angular/features/pinned-rows';
+import '@toolbox-web/grid-angular/features/shell';
 
 import {
   AfterViewInit,
@@ -116,9 +117,9 @@ export class CalendarComponent implements AfterViewInit, OnDestroy {
 
   readonly gridConfig = computed<GridConfig<CalendarWeek>>(() => ({
     fitMode: 'stretch',
-    shell: { header: { toolPanelToggle: false } },
     rowHeight: this.rowHeight(),
     features: {
+      shell: { header: { toolPanelToggle: false } },
       pinnedRows: {
         slots: [
           {

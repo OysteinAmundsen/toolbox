@@ -31,6 +31,7 @@ import '@toolbox-web/grid-angular/features/pinned-columns';
 import '@toolbox-web/grid-angular/features/pinned-rows';
 import '@toolbox-web/grid-angular/features/reorder-columns';
 import '@toolbox-web/grid-angular/features/selection';
+import '@toolbox-web/grid-angular/features/shell';
 import '@toolbox-web/grid-angular/features/undo-redo';
 import '@toolbox-web/grid-angular/features/visibility';
 
@@ -178,10 +179,6 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
       { field: 'isTopPerformer', header: '⭐', type: 'boolean', width: 50, sortable: false },
       { field: 'location', header: 'Location', width: 110, sortable: true },
     ],
-    // Shell configuration
-    shell: {
-      toolPanel: { position: 'right', width: 300 },
-    },
 
     // Grid-wide feature toggles (used by plugins that support enable/disable)
     sortable: enableSorting,
@@ -195,6 +192,10 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
     // → `(filterChange)`) remain in the component's `imports`, but their
     // input is empty and feature config flows through here.
     features: {
+      // Shell configuration
+      shell: {
+        toolPanel: { position: 'right', width: 300 },
+      },
       selection: enableSelection ? 'range' : undefined,
       multiSort: enableSorting ? 'multi' : undefined,
       filtering: enableFiltering ? { debounceMs: 200 } : undefined,

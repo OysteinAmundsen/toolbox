@@ -11,9 +11,8 @@ import {
   TemplateRef,
   ViewContainerRef,
 } from '@angular/core';
-import type { DataGridElement, ToolbarContentDefinition } from '@toolbox-web/grid';
-// Activate the `PluginNameMap` augmentation so `grid.getPluginByName('shell')`
-// is typed as the shell plugin (which owns register/unregisterToolbarContent).
+import type { DataGridElement } from '@toolbox-web/grid';
+import type { ToolbarContentDefinition } from '@toolbox-web/grid/plugins/shell';
 
 /**
  * Context object passed to the toolbar content template.
@@ -141,27 +140,16 @@ export class GridToolbarContent {
         };
       },
     };
-    // Route through the shell plugin (#370). The core grid-element delegates
-    // (`grid.registerToolbarContent`) are deprecated (TBW076) and removed at v3;
-    // fall back to them only on cores that predate the shell plugin.
-    const shell = grid.getPluginByName?.('shell');
-    if (shell?.registerToolbarContent) {
-      shell.registerToolbarContent(def);
-    } else {
-      grid.registerToolbarContent?.(def);
-    }
+    // Route through the shell plugin (#370). The shell is opt-in at v3 —
+    // content registers only when a shell plugin is present.
+    grid.getPluginByName?.('shell')?.registerToolbarContent(def);
     this.registeredId = id;
   }
 
   private unregister(): void {
     const grid = this.findGrid();
     if (grid && this.registeredId) {
-      const shell = grid.getPluginByName?.('shell');
-      if (shell?.unregisterToolbarContent) {
-        shell.unregisterToolbarContent(this.registeredId);
-      } else {
-        grid.unregisterToolbarContent?.(this.registeredId);
-      }
+      grid.getPluginByName?.('shell')?.unregisterToolbarContent(this.registeredId);
     }
     this.registeredId = null;
     if (this.viewRef) {

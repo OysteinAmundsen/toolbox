@@ -27,7 +27,6 @@ export type { _Augmentation as _PinnedRowsAugmentation } from '@toolbox-web/grid
 export type { _Augmentation as _PivotAugmentation } from '@toolbox-web/grid/features/pivot';
 export type { _Augmentation as _PrintAugmentation } from '@toolbox-web/grid/features/print';
 export type { _Augmentation as _ReorderColumnsAugmentation } from '@toolbox-web/grid/features/reorder-columns';
-export type { _Augmentation as _ReorderRowsAugmentation } from '@toolbox-web/grid/features/reorder-rows';
 export type { _Augmentation as _ResponsiveAugmentation } from '@toolbox-web/grid/features/responsive';
 export type { _Augmentation as _RowDragDropAugmentation } from '@toolbox-web/grid/features/row-drag-drop';
 export type { _Augmentation as _SelectionAugmentation } from '@toolbox-web/grid/features/selection';

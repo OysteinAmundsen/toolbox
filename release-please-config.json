@@ -23,6 +23,7 @@
       "changelog-path": "CHANGELOG.md"
     }
   },
+  "last-release-sha": "c74b2c8a04f46d675f44ebda1becca7631cfaa4d",
   "group-pull-request-title-pattern": "chore(${branch}): release ${version}",
   "changelog-sections": [
     { "type": "feat", "section": "Features" },

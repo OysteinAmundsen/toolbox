@@ -183,6 +183,12 @@ When creating a new plugin:
 
 This project uses [Release Please](https://github.com/googleapis/release-please) for automated releases.
 
+### Branch Roles
+
+- `main` is the prerelease line and publishes beta versions (for example `3.0.0-beta.0`).
+- `2.x` is the stable maintenance line and publishes GA patch releases.
+- Release Please uses branch-specific config in CI, so release commits must land on the branch they are meant to publish from.
+
 ### How It Works
 
 1. **Develop & Merge PRs** - Use conventional commit messages (`feat:`, `fix:`, etc.)

@@ -678,7 +678,7 @@ jobs:
           (github.event_name == 'workflow_dispatch' && inputs.run_release_please == true)
         id: release
         with:
-          config-file: release-please-config.json
+          config-file: ${{ github.ref_name == 'main' && 'release-please-config.main.json' || 'release-please-config.json' }}
           manifest-file: .release-please-manifest.json
           # Operate on whichever long-lived branch triggered the run so the v3
           # line (main) and the v2 maintenance line (2.x) each keep their own

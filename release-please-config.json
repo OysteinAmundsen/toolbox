@@ -46,6 +46,7 @@
     { "type": "ci", "section": "CI/CD", "hidden": true }
   ],
   "separate-pull-requests": false,
+  "group-pull-request-title-pattern": "chore(${branch}): release ${version}",
   "include-component-in-tag": true,
   "include-v-in-tag": false
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.4...grid-2.17.5) (2026-07-03)
+
+
+### Bug Fixes
+
+* **grid:** honor column minWidth during drag resize and initial render ([#404](https://github.com/OysteinAmundsen/toolbox/issues/404)) ([27aa842](https://github.com/OysteinAmundsen/toolbox/commit/27aa8424bd2b0ae0ab7d1d3fc685211d5de0c5ce))
+
 ## [2.17.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.3...grid-2.17.4) (2026-06-19)
 
 

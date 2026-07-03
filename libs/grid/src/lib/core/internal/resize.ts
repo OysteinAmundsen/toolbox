@@ -8,8 +8,10 @@ export function createResizeController(grid: GridHost): ResizeController {
   const onMove = (e: MouseEvent) => {
     if (!resizeState) return;
     const delta = e.clientX - resizeState.startX;
-    const width = Math.max(40, resizeState.startWidth + delta);
     const col = grid._visibleColumns[resizeState.colIndex];
+    const minResizeWidth =
+      typeof col?.minWidth === 'number' && Number.isFinite(col.minWidth) && col.minWidth > 0 ? col.minWidth : 40;
+    const width = Math.max(minResizeWidth, resizeState.startWidth + delta);
     col.width = width;
     col.__userResized = true;
     col.__renderedWidth = width;

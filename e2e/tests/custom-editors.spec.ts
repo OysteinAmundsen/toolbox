@@ -28,6 +28,18 @@ const CUSTOM_EDITORS = [
 // Custom editors with visual styling (for visual comparison)
 const CUSTOM_STYLED_EDITORS = ['bonus', 'status', 'rating'] as const;
 
+function getGlobalEditorFallbackSelector(editorType: string): string | null {
+  const selectors = editorType
+    .split(',')
+    .map((selector) => selector.trim())
+    .filter(Boolean)
+    .filter((selector) => selector !== 'select')
+    .filter((selector) => selector !== 'input')
+    .filter((selector) => selector !== 'textarea');
+
+  return selectors.length ? selectors.join(', ') : null;
+}
+
 test.describe('Custom Editors', () => {
   // Disable retries — these tests are deterministic; retrying masks real bugs
   test.describe.configure({ retries: 0 });
@@ -93,6 +105,7 @@ test.describe('Custom Editors', () => {
           }
 
           await expect(cell).toBeVisible();
+          await cell.scrollIntoViewIfNeeded();
 
           // Double-click to edit
           await cell.dblclick();
@@ -115,6 +128,15 @@ test.describe('Custom Editors', () => {
           if (!editorFound) {
             const anyInput = cell.locator('input, select');
             editorFound = await anyInput.isVisible().catch(() => false);
+          }
+
+          // Last fallback: some framework editors can mount outside the grid root.
+          if (!editorFound) {
+            const globalFallbackSelector = getGlobalEditorFallbackSelector(editorType);
+            if (globalFallbackSelector) {
+              const pageEditor = page.locator(globalFallbackSelector).first();
+              editorFound = await pageEditor.isVisible().catch(() => false);
+            }
           }
 
           expect(editorFound, `${description} should be visible for field ${field}`).toBe(true);

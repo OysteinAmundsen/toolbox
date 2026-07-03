@@ -300,11 +300,14 @@ export class ConfigManager<T = unknown> {
       this.#grid._virtualization.rowHeight = config.rowHeight;
     }
 
-    // If fixed mode and width not specified: assign default 80px
+    // If fixed mode and width not specified: use minWidth when available,
+    // otherwise fall back to default 80px.
     if (config.fitMode === 'fixed') {
       const columns = this.columns;
       columns.forEach((c) => {
-        if (c.width == null) c.width = 80;
+        if (c.width == null) {
+          c.width = typeof c.minWidth === 'number' && Number.isFinite(c.minWidth) && c.minWidth > 0 ? c.minWidth : 80;
+        }
       });
     }
 

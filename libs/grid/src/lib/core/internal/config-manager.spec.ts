@@ -125,6 +125,46 @@ describe('ConfigManager', () => {
       expect(configManager.effective.columns).toBeDefined();
       expect(configManager.effective.columns!.length).toBeGreaterThan(0);
     });
+
+    it('should use minWidth as implicit width in fixed mode when width is omitted', () => {
+      configManager.setGridConfig({
+        fitMode: 'fixed',
+        columns: [
+          { field: 'firstName', header: 'First Name', minWidth: 100 },
+          { field: 'lastName', header: 'Last Name', minWidth: 120 },
+          { field: 'email', header: 'Email' },
+        ],
+      });
+      configManager.merge();
+
+      const firstName = configManager.columns.find((c) => c.field === 'firstName');
+      const lastName = configManager.columns.find((c) => c.field === 'lastName');
+      const email = configManager.columns.find((c) => c.field === 'email');
+
+      expect(firstName?.width).toBe(100);
+      expect(lastName?.width).toBe(120);
+      expect(email?.width).toBe(80);
+    });
+
+    it('should ignore non-positive minWidth when assigning implicit fixed-mode widths', () => {
+      configManager.setGridConfig({
+        fitMode: 'fixed',
+        columns: [
+          { field: 'invalidZero', header: 'Invalid Zero', minWidth: 0 },
+          { field: 'invalidNegative', header: 'Invalid Negative', minWidth: -10 },
+          { field: 'valid', header: 'Valid', minWidth: 110 },
+        ],
+      });
+      configManager.merge();
+
+      const invalidZero = configManager.columns.find((c) => c.field === 'invalidZero');
+      const invalidNegative = configManager.columns.find((c) => c.field === 'invalidNegative');
+      const valid = configManager.columns.find((c) => c.field === 'valid');
+
+      expect(invalidZero?.width).toBe(80);
+      expect(invalidNegative?.width).toBe(80);
+      expect(valid?.width).toBe(110);
+    });
   });
 
   describe('Column Visibility', () => {

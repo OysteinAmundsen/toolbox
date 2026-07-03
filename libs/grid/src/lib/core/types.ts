@@ -831,7 +831,7 @@ export interface BaseColumnConfig<TRow = any, TValue = any> {
   type?: ColumnType;
   /** Column width in pixels; fixed size (no flexibility) */
   width?: string | number;
-  /** Minimum column width in pixels (stretch mode only); when set, column uses minmax(minWidth, 1fr) */
+  /** Minimum column width in pixels; in stretch mode uses minmax(minWidth, 1fr), and in fixed mode is used as implicit width when width is omitted */
   minWidth?: number;
   /**
    * Initial column display index.

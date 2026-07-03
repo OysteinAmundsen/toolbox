@@ -697,9 +697,9 @@ jobs:
           needs.release-please.outputs.grid_angular_release_created == 'true' ||
           needs.release-please.outputs.grid_react_release_created == 'true' ||
           needs.release-please.outputs.grid_vue_release_created == 'true'
-        ) && github.ref == 'refs/heads/main'
+        ) && github.ref == 'refs/heads/2.x'
           && !contains(needs.release-please.outputs.grid_version, '-')) ||
-        (github.event_name == 'workflow_dispatch' && inputs.deploy_pages == true && github.ref == 'refs/heads/main')
+        (github.event_name == 'workflow_dispatch' && inputs.deploy_pages == true && github.ref == 'refs/heads/2.x')
       )
     needs: [release-please]
     runs-on: ubuntu-latest
@@ -747,9 +747,9 @@ jobs:
           needs.release-please.outputs.grid_angular_release_created == 'true' ||
           needs.release-please.outputs.grid_react_release_created == 'true' ||
           needs.release-please.outputs.grid_vue_release_created == 'true'
-        ) && github.ref == 'refs/heads/main'
+        ) && github.ref == 'refs/heads/2.x'
           && !contains(needs.release-please.outputs.grid_version, '-')) ||
-        (github.event_name == 'workflow_dispatch' && inputs.deploy_pages == true && github.ref == 'refs/heads/main')
+        (github.event_name == 'workflow_dispatch' && inputs.deploy_pages == true && github.ref == 'refs/heads/2.x')
       )
     environment:
       name: github-pages

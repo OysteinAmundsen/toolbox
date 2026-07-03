@@ -6,6 +6,7 @@
       "release-type": "node",
       "component": "grid",
       "changelog-path": "CHANGELOG.md",
+      "versioning-strategy": "prerelease",
       "prerelease": true,
       "prerelease-type": "beta"
     },
@@ -13,6 +14,7 @@
       "release-type": "node",
       "component": "grid-angular",
       "changelog-path": "CHANGELOG.md",
+      "versioning-strategy": "prerelease",
       "prerelease": true,
       "prerelease-type": "beta"
     },
@@ -20,6 +22,7 @@
       "release-type": "node",
       "component": "grid-react",
       "changelog-path": "CHANGELOG.md",
+      "versioning-strategy": "prerelease",
       "prerelease": true,
       "prerelease-type": "beta"
     },
@@ -27,10 +30,12 @@
       "release-type": "node",
       "component": "grid-vue",
       "changelog-path": "CHANGELOG.md",
+      "versioning-strategy": "prerelease",
       "prerelease": true,
       "prerelease-type": "beta"
     }
   },
+  "group-pull-request-title-pattern": "chore(${branch}): release ${version}",
   "changelog-sections": [
     { "type": "feat", "section": "Features" },
     { "type": "fix", "section": "Bug Fixes" },
@@ -46,7 +51,6 @@
     { "type": "ci", "section": "CI/CD", "hidden": true }
   ],
   "separate-pull-requests": false,
-  "group-pull-request-title-pattern": "chore(${branch}): release ${version}",
   "include-component-in-tag": true,
   "include-v-in-tag": false
 }

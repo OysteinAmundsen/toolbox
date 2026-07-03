@@ -668,7 +668,7 @@ jobs:
       # Any release created (for jobs that run on any release)
       releases_created: ${{ steps.release.outputs.releases_created }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         # Runs automatically on push events, and on manual `workflow_dispatch`
         # runs when the `run_release_please` input is checked. The manual
         # path exists so a flaky upstream CI gate (e.g. a runner-side

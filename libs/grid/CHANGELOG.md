@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.4...grid-3.0.0) (2026-07-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400))
+
+### Features
+
+* **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400)) ([c6fafe7](https://github.com/OysteinAmundsen/toolbox/commit/c6fafe73d4450c7aa57a58869da3b369e709bd43))
+
+
+### Bug Fixes
+
+* **grid:** honor column minWidth during drag resize and initial render ([#404](https://github.com/OysteinAmundsen/toolbox/issues/404)) ([fe6f104](https://github.com/OysteinAmundsen/toolbox/commit/fe6f104e92a880f401146914f27e90bf961edce2))
+
 ## [2.17.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.3...grid-2.17.4) (2026-06-19)
 
 

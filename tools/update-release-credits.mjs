@@ -63,10 +63,18 @@ function toSkipLoginSet(issueState) {
   return new Set(normalized);
 }
 
+function toMaintainerLoginSet(issueState) {
+  const values = Array.isArray(issueState?.maintainerLogins) ? issueState.maintainerLogins : [];
+  const normalized = values.map((v) => normalizeLogin(v)).filter(Boolean);
+  if (owner) normalized.push(normalizeLogin(owner));
+  return new Set(normalized);
+}
+
 function normalizeIssueState(rawState) {
   const issues = rawState && typeof rawState.issues === 'object' && rawState.issues ? rawState.issues : {};
   const skipLogins = [...toSkipLoginSet(rawState)].sort();
-  return { issues, skipLogins };
+  const maintainerLogins = [...toMaintainerLoginSet(rawState)].sort();
+  return { issues, skipLogins, maintainerLogins };
 }
 
 function parseLatestReleaseBlock(markdown) {
@@ -174,8 +182,11 @@ function getChangedChangelogs() {
 async function main() {
   const monthlyData = readJson(monthlyPath, { subscribers: [] });
   const oneTimeData = readJson(oneTimePath, { backers: [] });
-  const issueState = normalizeIssueState(readJson(issueStatePath, { issues: {}, skipLogins: [] }));
+  const issueState = normalizeIssueState(
+    readJson(issueStatePath, { issues: {}, skipLogins: [], maintainerLogins: [] }),
+  );
   const skipLogins = toSkipLoginSet(issueState);
+  const maintainerLogins = toMaintainerLoginSet(issueState);
 
   const monthly = uniquePeople(Array.isArray(monthlyData.subscribers) ? monthlyData.subscribers : []);
   const backers = Array.isArray(oneTimeData.backers) ? oneTimeData.backers : [];
@@ -219,6 +230,10 @@ async function main() {
       if (!person) continue;
 
       if (skipLogins.has(normalizeLogin(person.login))) {
+        continue;
+      }
+
+      if (maintainerLogins.has(normalizeLogin(person.login))) {
         continue;
       }
 

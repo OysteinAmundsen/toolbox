@@ -35,6 +35,11 @@ The inserted section heading is `### Community Thanks`.
 3. Optional: add GitHub logins to `issue-submitter-state.json.skipLogins` when users prefer not to be credited.
 4. Release-please PR updates changelogs automatically via `.github/workflows/release-credits.yml`.
 
+## Workflow Triggering
+
+- The workflow runs on `workflow_run` after `CI` completes successfully for pushes to `main`/`2.x`, then checks out the corresponding release-please branch (`release-please--branches--<base>`).
+- This avoids relying only on `pull_request` events, which may not fire when branches/PRs are created by another workflow using `GITHUB_TOKEN`.
+
 ## Notes
 
 - One-time backers are marked `credited` for the current release cycle and are not repeated on future cycles.

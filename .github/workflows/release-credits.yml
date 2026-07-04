@@ -1,6 +1,9 @@
 name: release-credits
 
 on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
   pull_request:
     types: [opened, synchronize, reopened]
 
@@ -10,38 +13,77 @@ permissions:
 jobs:
   update-credits:
     if: |
-      startsWith(github.event.pull_request.head.ref, 'release-please--') &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == '2.x')
+      ) || (
+        github.event_name == 'pull_request' &&
+        startsWith(github.event.pull_request.head.ref, 'release-please--') &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      )
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout release branch
+      - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
+      - name: Resolve release branch
+        id: vars
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            BASE_BRANCH="${{ github.event.workflow_run.head_branch }}"
+            RELEASE_BRANCH="release-please--branches--${BASE_BRANCH}"
+          else
+            BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+            RELEASE_BRANCH="${{ github.event.pull_request.head.ref }}"
+          fi
+
+          echo "base_branch=${BASE_BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "release_branch=${RELEASE_BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout release branch if it exists
+        id: checkout_release
+        shell: bash
+        run: |
+          RELEASE_BRANCH="${{ steps.vars.outputs.release_branch }}"
+
+          if git fetch origin "${RELEASE_BRANCH}"; then
+            git checkout -B "${RELEASE_BRANCH}" "origin/${RELEASE_BRANCH}"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No release-please branch '${RELEASE_BRANCH}' found. Skipping credits update."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Node
+        if: steps.checkout_release.outputs.exists == 'true'
         uses: actions/setup-node@v5
         with:
           node-version: "24"
 
       - name: Update changelog credits
+        if: steps.checkout_release.outputs.exists == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
-          GITHUB_REPOSITORY_NAME: ${{ github.event.repository.name }}
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
-          CREDITS_CYCLE_KEY: ${{ github.event.pull_request.head.ref }}
+          GITHUB_REPOSITORY_NAME: ${{ github.event.repository.name || github.event.workflow_run.repository.name }}
+          BASE_REF: ${{ steps.vars.outputs.base_branch }}
+          CREDITS_CYCLE_KEY: ${{ steps.vars.outputs.release_branch }}
         run: node tools/update-release-credits.mjs
 
       - name: Commit credit updates
+        if: steps.checkout_release.outputs.exists == 'true'
         run: |
           if [[ -n "$(git status --porcelain)" ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add .github/credits libs/*/CHANGELOG.md
             git commit -m "chore(tooling): update release changelog credits"
-            git push
+            git push origin "HEAD:${{ steps.vars.outputs.release_branch }}"
           else
             echo "No credit updates to commit"
           fi

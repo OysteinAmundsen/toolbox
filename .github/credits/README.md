@@ -33,12 +33,12 @@ The inserted section heading is `### Community Thanks`.
 1. Add monthly supporters to `monthly-subscribers.json`.
 2. Add new one-time backers to `one-time-backers.json` with only `login` (and optionally `name`, `url`).
 3. Optional: add GitHub logins to `issue-submitter-state.json.skipLogins` when users prefer not to be credited.
-4. Release-please PR updates changelogs automatically via `.github/workflows/release-credits.yml`.
+4. Release-please PR updates changelogs automatically via the `release-credits` job inside `.github/workflows/ci.yml`.
 
 ## Workflow Triggering
 
-- The workflow runs on `workflow_run` after `CI` completes successfully for pushes to `main`/`2.x`, then checks out the corresponding release-please branch (`release-please--branches--<base>`).
-- This avoids relying only on `pull_request` events, which may not fire when branches/PRs are created by another workflow using `GITHUB_TOKEN`.
+- The credits updater runs as a dedicated `release-credits` job inside `CI`, after the `release-please` job on pushes to `main`/`2.x`.
+- Keeping release-please and credits in one workflow avoids cross-workflow trigger gaps that happen with bot-generated events.
 
 ## Notes
 

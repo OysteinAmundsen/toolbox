@@ -65,6 +65,22 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Resolve credits script path
+        if: steps.checkout_release.outputs.exists == 'true'
+        id: script
+        shell: bash
+        run: |
+          mkdir -p .github/credits
+
+          if [[ -f tools/update-release-credits.mjs ]]; then
+            echo "path=tools/update-release-credits.mjs" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "tools/update-release-credits.mjs missing on release branch; falling back to origin/main copy"
+          git show origin/main:tools/update-release-credits.mjs > /tmp/update-release-credits.mjs
+          echo "path=/tmp/update-release-credits.mjs" >> "$GITHUB_OUTPUT"
+
       - name: Update changelog credits
         if: steps.checkout_release.outputs.exists == 'true'
         env:
@@ -73,7 +89,7 @@ jobs:
           GITHUB_REPOSITORY_NAME: ${{ github.event.repository.name || github.event.workflow_run.repository.name }}
           BASE_REF: ${{ steps.vars.outputs.base_branch }}
           CREDITS_CYCLE_KEY: ${{ steps.vars.outputs.release_branch }}
-        run: node tools/update-release-credits.mjs
+        run: node "${{ steps.script.outputs.path }}"
 
       - name: Commit credit updates
         if: steps.checkout_release.outputs.exists == 'true'

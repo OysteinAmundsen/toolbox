@@ -51,4 +51,5 @@ The inserted section heading is `### Community Thanks`.
 - Repo owner is treated as a maintainer by default and excluded from issue-submitter community thanks.
 - Logins listed in `maintainerLogins` are excluded from issue-submitter community thanks.
 - Logins listed in `skipLogins` are always excluded from issue-submitter credits.
+- If filtering leaves no eligible entries, the existing `❤️ Community Thanks` section is removed from that release block.
 - Re-runs in the same release cycle are idempotent and keep the same credits stable.

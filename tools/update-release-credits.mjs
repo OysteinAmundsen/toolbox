@@ -95,19 +95,37 @@ function parseLatestReleaseBlock(markdown) {
   };
 }
 
-function upsertCreditsSection(releaseBlock, creditsMarkdown) {
+function findCreditsSectionRange(releaseBlock) {
   const sectionHeader = '\n### ❤️ Community Thanks:\n';
-  const existingStart = releaseBlock.indexOf(sectionHeader);
-  if (existingStart === -1) {
+  const start = releaseBlock.indexOf(sectionHeader);
+  if (start === -1) return null;
+
+  const afterHeader = start + sectionHeader.length;
+  const remainder = releaseBlock.slice(afterHeader);
+  const nextSubHeadingMatch = /\n### [^\n]+\n/.exec(remainder);
+  const end = nextSubHeadingMatch ? afterHeader + nextSubHeadingMatch.index : releaseBlock.length;
+
+  return { start, afterHeader, end, sectionHeader };
+}
+
+function upsertCreditsSection(releaseBlock, creditsMarkdown) {
+  const section = findCreditsSectionRange(releaseBlock);
+  if (!section) {
+    const sectionHeader = '\n### ❤️ Community Thanks:\n';
     return `${releaseBlock.trimEnd()}\n${sectionHeader}\n${creditsMarkdown}\n\n`;
   }
 
-  const afterHeader = existingStart + sectionHeader.length;
-  const remainder = releaseBlock.slice(afterHeader);
-  const nextSubHeadingMatch = /\n### [^\n]+\n/.exec(remainder);
-  const existingEnd = nextSubHeadingMatch ? afterHeader + nextSubHeadingMatch.index : releaseBlock.length;
+  return `${releaseBlock.slice(0, section.afterHeader)}\n${creditsMarkdown}\n\n${releaseBlock
+    .slice(section.end)
+    .replace(/^\n+/, '')}`;
+}
 
-  return `${releaseBlock.slice(0, afterHeader)}\n${creditsMarkdown}\n\n${releaseBlock.slice(existingEnd).replace(/^\n+/, '')}`;
+function removeCreditsSection(releaseBlock) {
+  const section = findCreditsSectionRange(releaseBlock);
+  if (!section) return releaseBlock;
+
+  const without = `${releaseBlock.slice(0, section.start)}${releaseBlock.slice(section.end)}`;
+  return without.replace(/\n{3,}/g, '\n\n').trimEnd() + '\n\n';
 }
 
 function extractIssueNumbers(text) {
@@ -257,9 +275,9 @@ async function main() {
     }
 
     const creditsMarkdown = buildCreditsMarkdown(monthly, eligibleBackers, issueCredits);
-    if (!creditsMarkdown) continue;
-
-    const updatedBlock = upsertCreditsSection(latest.block, creditsMarkdown);
+    const updatedBlock = creditsMarkdown
+      ? upsertCreditsSection(latest.block, creditsMarkdown)
+      : removeCreditsSection(latest.block);
     const updatedFile = `${original.slice(0, latest.start)}${updatedBlock}${original.slice(latest.end)}`;
 
     if (updatedFile !== original) {

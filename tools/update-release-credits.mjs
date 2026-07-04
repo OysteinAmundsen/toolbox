@@ -51,6 +51,24 @@ function uniquePeople(people) {
   return out;
 }
 
+function normalizeLogin(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase();
+}
+
+function toSkipLoginSet(issueState) {
+  const values = Array.isArray(issueState?.skipLogins) ? issueState.skipLogins : [];
+  const normalized = values.map((v) => normalizeLogin(v)).filter(Boolean);
+  return new Set(normalized);
+}
+
+function normalizeIssueState(rawState) {
+  const issues = rawState && typeof rawState.issues === 'object' && rawState.issues ? rawState.issues : {};
+  const skipLogins = [...toSkipLoginSet(rawState)].sort();
+  return { issues, skipLogins };
+}
+
 function parseLatestReleaseBlock(markdown) {
   const heading = /^## \[[^\]]+\][^\n]*$/m;
   const first = heading.exec(markdown);
@@ -156,7 +174,8 @@ function getChangedChangelogs() {
 async function main() {
   const monthlyData = readJson(monthlyPath, { subscribers: [] });
   const oneTimeData = readJson(oneTimePath, { backers: [] });
-  const issueState = readJson(issueStatePath, { issues: {} });
+  const issueState = normalizeIssueState(readJson(issueStatePath, { issues: {}, skipLogins: [] }));
+  const skipLogins = toSkipLoginSet(issueState);
 
   const monthly = uniquePeople(Array.isArray(monthlyData.subscribers) ? monthlyData.subscribers : []);
   const backers = Array.isArray(oneTimeData.backers) ? oneTimeData.backers : [];
@@ -198,6 +217,10 @@ async function main() {
         person = await fetchIssueAuthor(issueNumber);
       }
       if (!person) continue;
+
+      if (skipLogins.has(normalizeLogin(person.login))) {
+        continue;
+      }
 
       const allowed = !existing || existing.cycleKey === cycleKey;
       if (!allowed) continue;

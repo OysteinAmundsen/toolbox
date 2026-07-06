@@ -61,7 +61,6 @@ export type {
   ReactPinnedRowsConfig,
   ReactZonedPanelRender,
   ResponsivePluginConfig,
-  SSRProps,
   ZonedPanelRender,
 } from './lib/feature-props';
 

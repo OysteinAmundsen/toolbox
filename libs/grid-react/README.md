@@ -683,7 +683,6 @@ import type {
   DataGridProps,
   // Feature props
   FeatureProps,
-  SSRProps,
   // Type-level defaults (TypeDefault is primary)
   TypeDefault,
   TypeDefaultsMap,
@@ -705,7 +704,6 @@ import type {
 | `gridConfig`         | `GridConfig`                               | Full configuration object                      |
 | `fitMode`            | `'stretch' \| 'fit-columns' \| 'auto-fit'` | Column sizing mode                             |
 | `customStyles`       | `string`                                   | CSS injected via `document.adoptedStyleSheets` |
-| `ssr`                | `boolean`                                  | **Deprecated** — no-op, will be removed        |
 | `onRowsChange`       | `(rows: TRow[]) => void`                   | Rows changed callback                          |
 | `onCellEdit`         | `(event: CustomEvent) => void`             | Cell edited callback                           |
 | `onRowClick`         | `(event: CustomEvent) => void`             | Row clicked callback                           |

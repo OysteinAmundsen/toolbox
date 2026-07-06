@@ -112,8 +112,11 @@ registerFeatureConfigPreprocessor('filtering', (config, adapter) => {
   const cfg = config as CoreFilterConfig;
   if (!isComponentClass(cfg.filterPanelRenderer)) return config;
 
+  type PluginFilterPanelRenderer = NonNullable<CoreFilterConfig['filterPanelRenderer']>;
+  type PluginFilterPanelParams = Parameters<PluginFilterPanelRenderer>[1];
+
   const componentClass = cfg.filterPanelRenderer as Type<unknown>;
-  const mount = adapter.mountComponentRenderer<FilterPanelParams>(componentClass, (params) => ({ params }));
+  const mount = adapter.mountComponentRenderer<PluginFilterPanelParams>(componentClass, (params) => ({ params }));
   const filterPanelRenderer: CoreFilterConfig['filterPanelRenderer'] = (container, params) => {
     container.appendChild(mount(params).hostElement);
   };

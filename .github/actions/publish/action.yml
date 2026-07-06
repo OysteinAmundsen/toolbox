@@ -1,0 +1,127 @@
+name: Publish package
+description: Build, publish, and reconcile a package release
+
+inputs:
+  package-name:
+    description: npm package name
+    required: true
+  dist-path:
+    description: Path to built package directory
+    required: true
+  build-command:
+    description: Nx build command for the package
+    required: true
+  release-tag-prefix:
+    description: Prefix used for release tags
+    required: true
+  release-title-prefix:
+    description: Prefix used in GitHub release titles
+    required: true
+  changelog-path:
+    description: Path to the package changelog file
+    required: true
+  post-build-command:
+    description: Optional command to run after the build
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    - uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Cache Bun dependencies
+      uses: actions/cache@v5
+      with:
+        path: ~/.bun/install/cache
+        key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-bun-
+
+    - uses: actions/setup-node@v5
+      with:
+        node-version: '24'
+        registry-url: https://registry.npmjs.org
+
+    - name: Install dependencies
+      shell: bash
+      run: bun install
+
+    - name: Build package
+      shell: bash
+      run: ${{ inputs.build-command }}
+
+    - name: Run optional post-build command
+      if: ${{ inputs.post-build-command != '' }}
+      shell: bash
+      run: ${{ inputs.post-build-command }}
+
+    - name: Determine npm tag
+      id: npm-tag
+      shell: bash
+      run: |
+        VERSION=$(node -p "require('./${{ inputs.dist-path }}/package.json').version")
+        if [[ "$VERSION" == *-* ]]; then
+          echo "tag=next" >> "$GITHUB_OUTPUT"
+        else
+          echo "tag=latest" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Determine release metadata
+      id: release-meta
+      shell: bash
+      run: |
+        VERSION=$(node -p "require('./${{ inputs.dist-path }}/package.json').version")
+        TAG="${{ inputs.release-tag-prefix }}-${VERSION}"
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+        echo "title=${{ inputs.release-title-prefix }}: v${VERSION}" >> "$GITHUB_OUTPUT"
+        if [[ "$VERSION" == *-* ]]; then
+          echo "prerelease=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "prerelease=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Publish package to npm
+      shell: bash
+      run: |
+        cd '${{ inputs.dist-path }}'
+        npm publish --provenance --tag '${{ steps.npm-tag.outputs.tag }}'
+
+    - name: Ensure GitHub release exists
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        TAG='${{ steps.release-meta.outputs.tag }}'
+        TITLE='${{ steps.release-meta.outputs.title }}'
+        VERSION='${{ steps.release-meta.outputs.version }}'
+        CHANGELOG='${{ inputs.changelog-path }}'
+        if gh release view "$TAG" --json tagName >/dev/null 2>/dev/null; then
+          echo "Release $TAG already exists."
+          exit 0
+        fi
+
+        notes_file=$(mktemp)
+        awk -v version="$VERSION" '
+          $0 ~ "^## \\[" version "\\]" { in_section=1 }
+          in_section && $0 ~ "^## \\[" && $0 !~ "^## \\[" version "\\]" { exit }
+          in_section { print }
+        ' "$CHANGELOG" > "$notes_file"
+
+        if [[ ! -s "$notes_file" ]]; then
+          echo "Failed to extract changelog section for version $VERSION from $CHANGELOG" >&2
+          exit 1
+        fi
+
+        args=(release create "$TAG" --verify-tag --title "$TITLE" --notes-file "$notes_file")
+        if [[ '${{ steps.release-meta.outputs.prerelease }}' == 'true' ]]; then
+          args+=(--prerelease)
+        fi
+        gh "${args[@]}"

@@ -845,55 +845,18 @@ jobs:
     runs-on: ubuntu-latest
     environment: NPM
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: ./.github/actions/publish
         with:
-          fetch-depth: 0
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v5
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Build grid library
-        run: bun nx build grid
-
-      - name: Generate custom elements manifest
-        run: bun run cem
-
-      - name: Determine npm tag
-        id: npm-tag
-        run: |
-          # Version-driven dist-tag: prerelease versions (e.g. 3.0.0-beta.1) publish to
-          # "next", stable versions (GA line) to "latest" — independent of branch name.
-          VERSION=$(node -p "require('./dist/libs/grid/package.json').version")
-          if [[ "$VERSION" == *-* ]]; then
-            echo "tag=next" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=latest" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Publish @toolbox-web/grid to npm
-        run: |
-          cd dist/libs/grid
-          npm publish --provenance --tag ${{ steps.npm-tag.outputs.tag }}
+          package-name: "@toolbox-web/grid"
+          dist-path: dist/libs/grid
+          build-command: bun nx build grid
+          post-build-command: bun run cem
+          release-tag-prefix: grid
+          release-title-prefix: grid
+          changelog-path: libs/grid/CHANGELOG.md
 
   publish-grid-angular:
     if: |
@@ -906,52 +869,17 @@ jobs:
     runs-on: ubuntu-latest
     environment: NPM
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: ./.github/actions/publish
         with:
-          fetch-depth: 0
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v5
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Build grid-angular library
-        run: bun nx build grid-angular
-
-      - name: Determine npm tag
-        id: npm-tag
-        run: |
-          # Version-driven dist-tag: prerelease versions (e.g. 3.0.0-beta.1) publish to
-          # "next", stable versions (GA line) to "latest" — independent of branch name.
-          VERSION=$(node -p "require('./dist/libs/grid-angular/package.json').version")
-          if [[ "$VERSION" == *-* ]]; then
-            echo "tag=next" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=latest" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Publish @toolbox-web/grid-angular to npm
-        run: |
-          cd dist/libs/grid-angular
-          npm publish --provenance --tag ${{ steps.npm-tag.outputs.tag }}
+          package-name: "@toolbox-web/grid-angular"
+          dist-path: dist/libs/grid-angular
+          build-command: bun nx build grid-angular
+          release-tag-prefix: grid-angular
+          release-title-prefix: grid-angular
+          changelog-path: libs/grid-angular/CHANGELOG.md
 
   publish-grid-react:
     if: |
@@ -964,52 +892,17 @@ jobs:
     runs-on: ubuntu-latest
     environment: NPM
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: ./.github/actions/publish
         with:
-          fetch-depth: 0
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v5
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Build grid-react library
-        run: bun nx build grid-react
-
-      - name: Determine npm tag
-        id: npm-tag
-        run: |
-          # Version-driven dist-tag: prerelease versions (e.g. 3.0.0-beta.1) publish to
-          # "next", stable versions (GA line) to "latest" — independent of branch name.
-          VERSION=$(node -p "require('./dist/libs/grid-react/package.json').version")
-          if [[ "$VERSION" == *-* ]]; then
-            echo "tag=next" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=latest" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Publish @toolbox-web/grid-react to npm
-        run: |
-          cd dist/libs/grid-react
-          npm publish --provenance --tag ${{ steps.npm-tag.outputs.tag }}
+          package-name: "@toolbox-web/grid-react"
+          dist-path: dist/libs/grid-react
+          build-command: bun nx build grid-react
+          release-tag-prefix: grid-react
+          release-title-prefix: grid-react
+          changelog-path: libs/grid-react/CHANGELOG.md
 
   publish-grid-vue:
     if: |
@@ -1022,49 +915,53 @@ jobs:
     runs-on: ubuntu-latest
     environment: NPM
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
+      - uses: ./.github/actions/publish
+        with:
+          package-name: "@toolbox-web/grid-vue"
+          dist-path: dist/libs/grid-vue
+          build-command: bun nx build grid-vue
+          release-tag-prefix: grid-vue
+          release-title-prefix: grid-vue
+          changelog-path: libs/grid-vue/CHANGELOG.md
+
+  reconcile-release-pr:
+    if: always() && !cancelled() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/2.x')
+    needs:
+      [publish-grid, publish-grid-angular, publish-grid-react, publish-grid-vue]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v5
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Build grid-vue library
-        run: bun nx build grid-vue
-
-      - name: Determine npm tag
-        id: npm-tag
+      - name: Reconcile merged release PR state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ github.ref_name }}
         run: |
-          # Version-driven dist-tag: prerelease versions (e.g. 3.0.0-beta.1) publish to
-          # "next", stable versions (GA line) to "latest" — independent of branch name.
-          VERSION=$(node -p "require('./dist/libs/grid-vue/package.json').version")
-          if [[ "$VERSION" == *-* ]]; then
-            echo "tag=next" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          mapfile -t expected_tags < <(node -e "const manifest=require('./.release-please-manifest.json'); for (const [path, version] of Object.entries(manifest)) console.log(path.replace(/^libs\//, '') + '-' + version);")
+
+          missing=()
+          for tag in "${expected_tags[@]}"; do
+            if ! gh release view "$tag" --json tagName >/dev/null 2>/dev/null; then
+              missing+=("$tag")
+            fi
+          done
+
+          if [[ ${#missing[@]} -ne 0 ]]; then
+            echo "Release reconciliation deferred; missing GitHub releases: ${missing[*]}"
+            exit 0
           fi
 
-      - name: Publish @toolbox-web/grid-vue to npm
-        run: |
-          cd dist/libs/grid-vue
-          npm publish --provenance --tag ${{ steps.npm-tag.outputs.tag }}
+          pr_number=$(gh pr list --state merged --limit 1 --search "chore(${RELEASE_BRANCH}): release in:title" --json number --jq '.[0].number // empty')
+          if [[ -z "$pr_number" ]]; then
+            echo "No merged release PR found for ${RELEASE_BRANCH}."
+            exit 0
+          fi
+
+          gh pr edit "$pr_number" --remove-label "autorelease: pending" || true
+          gh pr edit "$pr_number" --add-label "autorelease: tagged" || true

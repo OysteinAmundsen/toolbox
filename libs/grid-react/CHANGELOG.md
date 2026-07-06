@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.0-beta](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.10.0...grid-react-2.0.0-beta) (2026-07-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **grid-react:** remove v1.x deprecations ([#411](https://github.com/OysteinAmundsen/toolbox/issues/411))
+* **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400))
+
+### Features
+
+* **grid-react:** remove v1.x deprecations ([#411](https://github.com/OysteinAmundsen/toolbox/issues/411)) ([c89ac69](https://github.com/OysteinAmundsen/toolbox/commit/c89ac696a30319792ae8fc84dab51f089884fe2b)), closes [#261](https://github.com/OysteinAmundsen/toolbox/issues/261)
+* **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400)) ([c6fafe7](https://github.com/OysteinAmundsen/toolbox/commit/c6fafe73d4450c7aa57a58869da3b369e709bd43))
+
 ## [1.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.9.0...grid-react-1.10.0) (2026-06-09)
 
 

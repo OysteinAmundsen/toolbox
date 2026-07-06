@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.0.0-beta](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.9.1...grid-angular-2.0.0-beta) (2026-07-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **grid-react:** remove v1.x deprecations ([#411](https://github.com/OysteinAmundsen/toolbox/issues/411))
+* **grid-angular:** deprecated per-feature `Grid` inputs/outputs (e.g. [selection], [editing], (cellCommit), (selectionChange), …) are removed; bind the corresponding per-feature directive instead. Feature-owned exports (GridToolPanel, GridHeaderContent, GridToolbarContent, GridResponsiveCard, GridDetailView, editing editors/forms, base-filter-panel) are no longer re-exported from the package root and must be imported from their `@toolbox-web/grid-angular/features/*` secondary entry. Requires `@toolbox-web/grid` v3.
+* **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400))
+
+### Features
+
+* **grid-angular:** remove v1.x deprecations ([#402](https://github.com/OysteinAmundsen/toolbox/issues/402)) ([8fb1a20](https://github.com/OysteinAmundsen/toolbox/commit/8fb1a2086177975675092bb7487618c50e87eaa7)), closes [#260](https://github.com/OysteinAmundsen/toolbox/issues/260)
+* **grid-react:** remove v1.x deprecations ([#411](https://github.com/OysteinAmundsen/toolbox/issues/411)) ([c89ac69](https://github.com/OysteinAmundsen/toolbox/commit/c89ac696a30319792ae8fc84dab51f089884fe2b)), closes [#261](https://github.com/OysteinAmundsen/toolbox/issues/261)
+* **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400)) ([c6fafe7](https://github.com/OysteinAmundsen/toolbox/commit/c6fafe73d4450c7aa57a58869da3b369e709bd43))
+
 ## [1.9.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.9.0...grid-angular-1.9.1) (2026-06-19)
 
 

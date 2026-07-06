@@ -665,37 +665,10 @@ export interface FeatureProps<TRow = unknown> {
 }
 
 /**
- * Props for controlling SSR behavior.
- *
- * @deprecated This prop is a no-op in any meaningful sense and will be removed
- * in a future major release. Features in the Vue adapter are registered via
- * synchronous side-effect imports (`import '@toolbox-web/grid-vue/features/...'`),
- * which are SSR-safe by construction. Setting `ssr={true}` today only skips
- * Vue-side plugin instantiation; `<tbw-grid>` itself is a custom element that
- * requires a custom-elements polyfill to render anything server-side, and upon
- * client hydration the grid mounts and renders normally regardless of this
- * flag. Exported for cross-adapter symmetry with `@toolbox-web/grid-react`.
- * If you need real SSR support (Nuxt / Vike / Astro), open an issue describing
- * your hydration requirements so we can design a proper cross-adapter story
- * rather than relying on this flag.
- * @since 0.1.0
- */
-export interface SSRProps {
-  /**
-   * Enable SSR mode — skips Vue-side plugin instantiation.
-   *
-   * @deprecated No-op in practice — see {@link SSRProps} for details. Will be
-   * removed in a future major release.
-   * @default false
-   */
-  ssr?: boolean;
-}
-
-/**
  * All feature-related props combined.
  * @since 0.1.0
  */
-export type AllFeatureProps<TRow = unknown> = FeatureProps<TRow> & SSRProps;
+export type AllFeatureProps<TRow = unknown> = FeatureProps<TRow>;
 
 // #region Drift guard
 
@@ -705,8 +678,8 @@ export type AllFeatureProps<TRow = unknown> = FeatureProps<TRow> & SSRProps;
  * `FeatureConfig` (in core) is augmented by each side-effect feature import
  * (`libs/grid/src/lib/features/*.ts`). `FeatureProps` here must stay a
  * superset — every core feature should be exposed as a declarative Vue
- * prop. (Reverse direction is intentionally NOT enforced: Vue adds `ssr`,
- * and Vue props may use richer shorthand types than core configs.)
+ * prop. (Reverse direction is intentionally NOT enforced: Vue props may
+ * use richer shorthand types than core configs.)
  *
  * If this fails to compile, a feature was added to core but not yet wired
  * here. Add the matching prop above with appropriate Vue-specific types.

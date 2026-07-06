@@ -101,7 +101,6 @@ export type {
   PinnedRowSlot,
   PinnedRowsConfig,
   ResponsivePluginConfig,
-  SSRProps,
   // Deprecated framework-prefixed aliases — kept for backwards compatibility.
   VueColumnGroupDefinition,
   VueFilterConfig,

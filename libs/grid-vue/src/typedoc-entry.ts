@@ -40,7 +40,6 @@ export type {
   PinnedRowSlot,
   PinnedRowsConfig,
   ResponsivePluginConfig,
-  SSRProps,
   VueColumnGroupDefinition,
   VueFilterConfig,
   VueGroupingColumnsConfig,

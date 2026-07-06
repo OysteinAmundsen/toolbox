@@ -382,20 +382,6 @@ function createTeleportContainer(className: string): HTMLDivElement {
   return container;
 }
 
-/**
- * Returns a function that, when invoked, blurs the focused input/textarea/select
- * inside `container` (if any).
- *
- * Re-exported here for backwards compatibility with consumers that imported
- * `makeFlushFocusedInput` from this module before it moved to
- * `./editor-mount-hooks`.
- * @internal
- * @deprecated Import from `./editor-mount-hooks` instead. Kept as a
- * private re-export to avoid breaking internal callers; will be removed in
- * a future refactor.
- */
-export { makeFlushFocusedInput } from './editor-mount-hooks';
-
 // #endregion
 
 /**

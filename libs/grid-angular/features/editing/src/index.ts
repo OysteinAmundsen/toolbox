@@ -63,14 +63,15 @@ registerEditorSpecBridge(
   <TRow, TValue>(element: HTMLElement, adapter: GridAdapter): ColumnEditorSpec<TRow, TValue> | undefined => {
     // Resolve the editor template: structural `*tbwEditor` first, then the
     // nested `<tbw-grid-column-editor>` directive. The cast target is derived
-    // from `getEditorTemplate` (same package instance as the adapter), NOT from
-    // a local `import type { TemplateRef } from '@angular/core'` — the latter
-    // resolves through Bun's `.bun/` cache during ng-packagr build and produces
-    // a brand-incompatible `TemplateRef` vs the built adapter `.d.ts` (see the
-    // shell feature entry for the same guard). The cast also unifies the
-    // structural-vs-column context union into a single `TemplateRef`.
+    // from `getStructuralEditorTemplate` (same package instance as the adapter),
+    // NOT from a local `import type { TemplateRef } from '@angular/core'` — the
+    // latter resolves through Bun's `.bun/` cache during ng-packagr build and
+    // produces a brand-incompatible `TemplateRef` vs the built adapter `.d.ts`
+    // (see the shell feature entry for the same guard). `StructuralEditorContext`
+    // uses `any` type defaults, which preserves assignability with the generic
+    // `GridEditorContext<TValue, TRow>` at the `createEditorTemplateView` call.
     const template = (getStructuralEditorTemplate(element) ?? getEditorTemplate(element)) as
-      | ReturnType<typeof getEditorTemplate>
+      | ReturnType<typeof getStructuralEditorTemplate>
       | undefined;
 
     if (!template) {

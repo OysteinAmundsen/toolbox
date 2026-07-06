@@ -56,6 +56,7 @@ import {
   isComponentClass,
   registerFeatureConfigPreprocessor,
   registerFilterPanelTypeDefaultBridge,
+  type FilterPanel,
   type GridAdapter,
 } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/filtering';
@@ -64,7 +65,6 @@ import {
   type BlankMode,
   type FilterConfig as CoreFilterConfig,
   type FilterModel,
-  type FilterPanelParams,
 } from '@toolbox-web/grid/plugins/filtering';
 export type { _Augmentation as _FilteringAugmentation } from '@toolbox-web/grid/features/filtering';
 
@@ -79,6 +79,8 @@ export type { FilterConfig } from './grid-filtering.directive';
 // `BaseFilterPanel` is filtering-specific (implements `FilterPanel` from the
 // filtering plugin) and physically lives in this secondary entry.
 export { BaseFilterPanel } from './base-filter-panel';
+
+type FilterPanelParams = ReturnType<FilterPanel['params']>;
 
 // Bridge any Angular component classes used as `filterPanelRenderer` (in
 // `gridConfig.typeDefaults` or via `provideGridTypeDefaults`) to the

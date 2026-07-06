@@ -1,6 +1,7 @@
 import { Directive, input } from '@angular/core';
 import type { FilterPanel } from '@toolbox-web/grid-angular';
-import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
+
+type FilterPanelParams = ReturnType<FilterPanel['params']>;
 
 /**
  * Base class for Angular filter panel components.

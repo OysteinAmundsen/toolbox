@@ -57,17 +57,9 @@ export {
 } from './lib/feature-registry';
 export type { FeatureName, PluginFactory } from './lib/feature-registry';
 
-// Base classes for editors and filter panels
-//
-// NOTE: The re-exports below for filtering/master-detail/responsive/shell
-// directives are `@deprecated` from the main `@toolbox-web/grid-angular` entry.
-// Importing the same symbol from `@toolbox-web/grid-angular/features/<feature>`
-// does NOT trigger the deprecation warning — only this main-entry path does.
-// The source will physically move into the matching `features/<feature>`
-// secondary entry, and these re-exports will be removed at the same time.
-// Search the `libs/grid-angular/src/` tree for `MOVE-IN-V2` to enumerate
-// everything that still needs to move.
-
+// Core directives. Feature-owned directives (editors, filter panels,
+// master-detail, responsive cards, shell) live in their `features/<feature>`
+// secondary entries, not here.
 export { GridColumnView } from './lib/directives/grid-column-view.directive';
 export type { GridCellContext } from './lib/directives/grid-column-view.directive';
 export { TbwGridColumn } from './lib/directives/grid-column.directive';

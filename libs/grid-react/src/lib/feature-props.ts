@@ -672,38 +672,10 @@ export interface FeatureProps<TRow = unknown> {
 }
 
 /**
- * Props for controlling SSR behavior.
- *
- * @deprecated This prop is a no-op in any meaningful sense and will be removed
- * in a future major release. The original RFC introduced `ssr` to disable
- * dynamic feature imports during server-side rendering, but the React adapter
- * no longer uses dynamic imports — features are registered via synchronous
- * side-effect imports (`import '@toolbox-web/grid-react/features/...'`), which
- * are SSR-safe by construction. Setting `ssr={true}` today only skips plugin
- * instantiation on the React side; `<tbw-grid>` itself is a custom element
- * that requires a custom-elements polyfill to render anything server-side, and
- * upon client hydration the grid mounts and renders normally regardless of
- * this flag. If you need real SSR support (Next.js / Remix / Astro), open an
- * issue describing your hydration requirements so we can design a proper
- * cross-adapter story rather than relying on this flag.
- * @since 0.7.0
- */
-export interface SSRProps {
-  /**
-   * Enable SSR mode - skips React-side plugin instantiation.
-   *
-   * @deprecated No-op in practice — see {@link SSRProps} for details. Will be
-   * removed in a future major release.
-   * @default false
-   */
-  ssr?: boolean;
-}
-
-/**
  * All feature-related props combined.
  * @since 0.7.0
  */
-export type AllFeatureProps<TRow = unknown> = FeatureProps<TRow> & SSRProps;
+export type AllFeatureProps<TRow = unknown> = FeatureProps<TRow>;
 
 // #region Drift guard
 
@@ -713,8 +685,8 @@ export type AllFeatureProps<TRow = unknown> = FeatureProps<TRow> & SSRProps;
  * `FeatureConfig` (in core) is augmented by each side-effect feature import
  * (`libs/grid/src/lib/features/*.ts`). `FeatureProps` here must stay a
  * superset — every core feature should be exposed as a declarative React
- * prop. (Reverse direction is intentionally NOT enforced: React adds
- * `ssr`, and React props may use richer shorthand types than core configs.)
+ * prop. (Reverse direction is intentionally NOT enforced: React props may
+ * use richer shorthand types than core configs.)
  *
  * If this fails to compile, a feature was added to core but not yet wired
  * here. Add the matching prop above with appropriate React-specific types.

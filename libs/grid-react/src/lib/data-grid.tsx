@@ -1,15 +1,15 @@
 import type { BaseGridPlugin, ColumnInferenceMode, DataGridElement } from '@toolbox-web/grid';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import {
-    createElement,
-    forwardRef,
-    useContext,
-    useEffect,
-    useImperativeHandle,
-    useLayoutEffect,
-    useMemo,
-    useRef,
-    type ReactNode,
+  createElement,
+  forwardRef,
+  useContext,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  type ReactNode,
 } from 'react';
 import '../jsx.d.ts';
 import { detectChildFeatures, registerChildFeatureDetector } from './child-feature-detector';
@@ -107,7 +107,6 @@ export { GridElementContext };
  * - Core props (rows, columns, gridConfig)
  * - Feature props (selection, editing, filtering, etc.) - plugins loaded via side-effect imports
  * - Event props (onCellClick, onSelectionChange, etc.)
- * - SSR props (ssr)
  */
 export interface DataGridProps<TRow = unknown> extends AllFeatureProps<TRow>, EventProps<TRow> {
   /** Row data to display */
@@ -405,8 +404,6 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     children,
     // Plugin props
     plugins: manualPlugins,
-    // SSR mode (deprecated - see SSRProps)
-    ssr,
     // Legacy event handlers
     onRowsChange,
     // Feature props and event props are in ...rest
@@ -511,9 +508,9 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   //   import '@toolbox-web/grid-react/features/selection';
   // Unregistered features show a helpful warning in dev mode.
   const featurePlugins = useMemo(() => {
-    if (manualPlugins || ssr) return [];
+    if (manualPlugins) return [];
     return createPluginsFromFeatures(mergedFeatureProps) as BaseGridPlugin[];
-  }, [mergedFeatureProps, manualPlugins, ssr]);
+  }, [mergedFeatureProps, manualPlugins]);
 
   // Combine manual plugins with feature-based plugins
   const allPlugins = useMemo(() => {

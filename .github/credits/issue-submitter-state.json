@@ -1,5 +1,7 @@
 {
-  "maintainerLogins": [],
+  "issues": {},
   "skipLogins": [],
-  "issues": {}
+  "maintainerLogins": [
+    "oysteinamundsen"
+  ]
 }

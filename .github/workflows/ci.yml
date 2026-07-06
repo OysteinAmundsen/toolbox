@@ -683,80 +683,80 @@ jobs:
           # release PR + manifest independently.
           target-branch: ${{ github.ref_name }}
 
-  release-credits:
-    if: |
-      always() && !cancelled() &&
-      github.event_name == 'push' &&
-      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/2.x')
-    needs: [release-please]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
+  # release-credits:
+  #   if: |
+  #     always() && !cancelled() &&
+  #     github.event_name == 'push' &&
+  #     (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/2.x')
+  #   needs: [release-please]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #       with:
+  #         fetch-depth: 0
 
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "24"
+  #     - uses: actions/setup-node@v5
+  #       with:
+  #         node-version: "24"
 
-      - name: Resolve release branch
-        id: vars
-        shell: bash
-        run: |
-          BASE_BRANCH="${{ github.ref_name }}"
-          RELEASE_BRANCH="release-please--branches--${BASE_BRANCH}"
-          echo "base_branch=${BASE_BRANCH}" >> "$GITHUB_OUTPUT"
-          echo "release_branch=${RELEASE_BRANCH}" >> "$GITHUB_OUTPUT"
+  #     - name: Resolve release branch
+  #       id: vars
+  #       shell: bash
+  #       run: |
+  #         BASE_BRANCH="${{ github.ref_name }}"
+  #         RELEASE_BRANCH="release-please--branches--${BASE_BRANCH}"
+  #         echo "base_branch=${BASE_BRANCH}" >> "$GITHUB_OUTPUT"
+  #         echo "release_branch=${RELEASE_BRANCH}" >> "$GITHUB_OUTPUT"
 
-      - name: Prepare credits script
-        id: script
-        shell: bash
-        run: |
-          if [[ -f tools/update-release-credits.mjs ]]; then
-            cp tools/update-release-credits.mjs /tmp/update-release-credits.mjs
-            echo "path=/tmp/update-release-credits.mjs" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+  #     - name: Prepare credits script
+  #       id: script
+  #       shell: bash
+  #       run: |
+  #         if [[ -f tools/update-release-credits.mjs ]]; then
+  #           cp tools/update-release-credits.mjs /tmp/update-release-credits.mjs
+  #           echo "path=/tmp/update-release-credits.mjs" >> "$GITHUB_OUTPUT"
+  #           exit 0
+  #         fi
 
-          git show "origin/${{ github.ref_name }}:tools/update-release-credits.mjs" > /tmp/update-release-credits.mjs
-          echo "path=/tmp/update-release-credits.mjs" >> "$GITHUB_OUTPUT"
+  #         git show "origin/${{ github.ref_name }}:tools/update-release-credits.mjs" > /tmp/update-release-credits.mjs
+  #         echo "path=/tmp/update-release-credits.mjs" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout release branch if it exists
-        id: checkout_release
-        shell: bash
-        run: |
-          RELEASE_BRANCH="${{ steps.vars.outputs.release_branch }}"
-          if git fetch origin "${RELEASE_BRANCH}"; then
-            git checkout -B "${RELEASE_BRANCH}" "origin/${RELEASE_BRANCH}"
-            mkdir -p .github/credits
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "No release-please branch '${RELEASE_BRANCH}' found. Skipping credits update."
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
+  #     - name: Checkout release branch if it exists
+  #       id: checkout_release
+  #       shell: bash
+  #       run: |
+  #         RELEASE_BRANCH="${{ steps.vars.outputs.release_branch }}"
+  #         if git fetch origin "${RELEASE_BRANCH}"; then
+  #           git checkout -B "${RELEASE_BRANCH}" "origin/${RELEASE_BRANCH}"
+  #           mkdir -p .github/credits
+  #           echo "exists=true" >> "$GITHUB_OUTPUT"
+  #         else
+  #           echo "No release-please branch '${RELEASE_BRANCH}' found. Skipping credits update."
+  #           echo "exists=false" >> "$GITHUB_OUTPUT"
+  #         fi
 
-      - name: Update changelog credits
-        if: steps.checkout_release.outputs.exists == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
-          GITHUB_REPOSITORY_NAME: ${{ github.event.repository.name }}
-          BASE_REF: ${{ steps.vars.outputs.base_branch }}
-          CREDITS_CYCLE_KEY: ${{ steps.vars.outputs.release_branch }}
-        run: node "${{ steps.script.outputs.path }}"
+  #     - name: Update changelog credits
+  #       if: steps.checkout_release.outputs.exists == 'true'
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #         GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+  #         GITHUB_REPOSITORY_NAME: ${{ github.event.repository.name }}
+  #         BASE_REF: ${{ steps.vars.outputs.base_branch }}
+  #         CREDITS_CYCLE_KEY: ${{ steps.vars.outputs.release_branch }}
+  #       run: node "${{ steps.script.outputs.path }}"
 
-      - name: Commit credit updates
-        if: steps.checkout_release.outputs.exists == 'true'
-        run: |
-          if [[ -n "$(git status --porcelain)" ]]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add .github/credits libs/*/CHANGELOG.md
-            git commit -m "chore(tooling): update release changelog credits"
-            git push origin "HEAD:${{ steps.vars.outputs.release_branch }}"
-          else
-            echo "No credit updates to commit"
-          fi
+  #     - name: Commit credit updates
+  #       if: steps.checkout_release.outputs.exists == 'true'
+  #       run: |
+  #         if [[ -n "$(git status --porcelain)" ]]; then
+  #           git config user.name "github-actions[bot]"
+  #           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+  #           git add .github/credits libs/*/CHANGELOG.md
+  #           git commit -m "chore(tooling): update release changelog credits"
+  #           git push origin "HEAD:${{ steps.vars.outputs.release_branch }}"
+  #         else
+  #           echo "No credit updates to commit"
+  #         fi
 
   # ============================================
   # RELEASE JOBS (runs on release published, release-please creates a release, or manual workflow_dispatch with release=true)

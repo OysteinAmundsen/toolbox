@@ -57,7 +57,7 @@ const eventClaims = new WeakMap<HTMLElement, Set<ClaimableEventName>>();
 export function registerFeatureClaim(grid: HTMLElement, name: FeatureName, getConfig: FeatureConfigGetter): void {
   let map = featureClaims.get(grid);
   if (!map) {
-    map = new Map();
+    map = new Map<FeatureName, FeatureConfigGetter>();
     featureClaims.set(grid, map);
   }
   map.set(name, getConfig);

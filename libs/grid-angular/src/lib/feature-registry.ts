@@ -52,4 +52,9 @@ import './internal/feature-augmentations';
  *
  * @since 0.6.0
  */
-export type FeatureName = Exclude<keyof FeatureConfig, '__brand'>;
+type DerivedFeatureName = Exclude<keyof FeatureConfig, '__brand'>;
+
+// Defensive fallback for dist-linked builds where external FeatureConfig
+// augmentations fail to load under ng-packagr and `keyof FeatureConfig`
+// collapses to just `__brand`.
+export type FeatureName = [DerivedFeatureName] extends [never] ? string : DerivedFeatureName;

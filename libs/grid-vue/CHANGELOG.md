@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.0-beta](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.11.0...grid-vue-2.0.0-beta) (2026-07-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **grid-vue:** remove v1.x deprecations ([#262](https://github.com/OysteinAmundsen/toolbox/issues/262)) (#412)
+* **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400))
+
+### Features
+
+* **grid-vue:** remove v1.x deprecations ([#262](https://github.com/OysteinAmundsen/toolbox/issues/262)) ([#412](https://github.com/OysteinAmundsen/toolbox/issues/412)) ([cf17e8f](https://github.com/OysteinAmundsen/toolbox/commit/cf17e8f6a7a9dc4b9dc9a5a9955c43b97ce2ad83))
+* **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400)) ([c6fafe7](https://github.com/OysteinAmundsen/toolbox/commit/c6fafe73d4450c7aa57a58869da3b369e709bd43))
+
 ## [1.11.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.10.0...grid-vue-1.11.0) (2026-06-09)
 
 

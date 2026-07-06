@@ -1,6 +1,6 @@
 {
   "name": "@toolbox-web/grid",
-  "version": "2.17.4",
+  "version": "3.0.0-beta",
   "description": "Zero-dependency, framework-agnostic data grid web component with virtualization, sorting, filtering, editing, and 20+ plugins. Works in vanilla JS, React, Vue, Angular, and any framework.",
   "type": "module",
   "main": "./index.js",

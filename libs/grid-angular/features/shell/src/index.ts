@@ -24,5 +24,45 @@
  * @packageDocumentation
  */
 
+import { registerToolPanelRendererBridge, type GridAdapter } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid/features/shell';
+import { getToolPanelTemplate, type GridToolPanelContext } from './grid-tool-panel.directive';
+
 export type { _Augmentation as _ShellAugmentation } from '@toolbox-web/grid/features/shell';
+
+// ---------------------------------------------------------------------------
+// Shell-owned directives + helpers. These physically live in this secondary
+// entry (the runtime behaviour lives here too).
+// ---------------------------------------------------------------------------
+export { GridHeaderContent } from './grid-header-content.directive';
+export type { GridHeaderContentContext } from './grid-header-content.directive';
+export { getToolPanelElements, getToolPanelTemplate, GridToolPanel } from './grid-tool-panel.directive';
+export type { GridToolPanelContext } from './grid-tool-panel.directive';
+export { GridToolbarContent } from './grid-toolbar-content.directive';
+export type { GridToolbarContentContext } from './grid-toolbar-content.directive';
+
+// Install the tool-panel renderer bridge on the adapter. This is what
+// `adapter.createToolPanelRenderer(element)` delegates to. Without this import,
+// the method returns undefined and light-DOM `<tbw-grid-tool-panel>` Angular
+// templates are never mounted by the core ShellPlugin.
+registerToolPanelRendererBridge((element: HTMLElement, adapter: GridAdapter) => {
+  // Type inferred from `getToolPanelTemplate` (same package instance as the
+  // adapter), not from a local `import type { TemplateRef } from '@angular/core'`
+  // — the latter resolves through Bun's `.bun/` cache during ng-packagr build
+  // and produces a brand-incompatible TemplateRef vs the built adapter `.d.ts`.
+  const template = getToolPanelTemplate(element);
+  if (!template) return undefined;
+
+  // Find the parent grid element for context.
+  const gridElement = element.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
+
+  return (container: HTMLElement) => {
+    const context: GridToolPanelContext = {
+      $implicit: gridElement ?? container,
+      grid: gridElement ?? container,
+    };
+    const viewRef = adapter.createTrackedEmbeddedView(template, context);
+    viewRef.rootNodes.forEach((node: Node) => container.appendChild(node));
+    return () => viewRef.destroy();
+  };
+});

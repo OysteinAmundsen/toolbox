@@ -93,7 +93,7 @@
       },
       "peerDependencies": {
         "@angular/core": ">=17.0.0",
-        "@toolbox-web/grid": ">=1.0.0",
+        "@toolbox-web/grid": "^3.0.0",
       },
     },
     "libs/grid-react": {

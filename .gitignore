@@ -40,6 +40,10 @@ migrations.json
 # Wrangler local state
 .wrangler/
 
+# fallow churn/complexity analysis tool (cache + report output)
+.fallow/
+fallow-report.json
+
 # System Files
 .DS_Store
 Thumbs.db

@@ -23,19 +23,18 @@ import type {
   LoadingContext,
 } from '@toolbox-web/grid';
 import { isComponentClass, type ColumnConfig, type GridConfig, type TypeDefault } from './angular-column-config';
-import { getEditorTemplate, GridEditorContext } from './directives/grid-column-editor.directive';
 import { getViewTemplate, GridCellContext } from './directives/grid-column-view.directive';
-import { getFormArrayContext } from './directives/grid-form-array.directive';
-import { getToolPanelTemplate, GridToolPanelContext } from './directives/grid-tool-panel.directive';
-import { getStructuralEditorTemplate, getStructuralViewTemplate } from './directives/structural-directives';
+import { getStructuralViewTemplate } from './directives/structural-directives';
 import { notifyEditorMounted, registerEditorMountHook, type EditorMountHook } from './editor-mount-hooks';
 import { wireEditorCallbacks } from './editor-wiring';
 import type { FeatureName } from './feature-registry';
 import { GridTypeRegistry } from './grid-type-registry';
 import {
   getDetailRendererBridge,
+  getEditorSpecBridge,
   getFilterPanelTypeDefaultBridge,
   getResponsiveCardRendererBridge,
+  getToolPanelRendererBridge,
 } from './internal/feature-bridges';
 import { getFeatureConfigPreprocessor } from './internal/feature-extensions';
 
@@ -44,10 +43,17 @@ import { getFeatureConfigPreprocessor } from './internal/feature-extensions';
 export { makeFlushFocusedInput } from './editor-mount-hooks';
 export {
   registerDetailRendererBridge,
+  registerEditorSpecBridge,
   registerFilterPanelTypeDefaultBridge,
   registerResponsiveCardRendererBridge,
+  registerToolPanelRendererBridge,
 } from './internal/feature-bridges';
-export type { FilterPanelTypeDefaultBridge, RowRendererBridge } from './internal/feature-bridges';
+export type {
+  EditorSpecBridge,
+  FilterPanelTypeDefaultBridge,
+  RowRendererBridge,
+  ToolPanelRendererBridge,
+} from './internal/feature-bridges';
 export { registerEditorMountHook, type EditorMountHook };
 
 // #region Feature bridge registries
@@ -66,19 +72,6 @@ function getAnyViewTemplate(element: HTMLElement): TemplateRef<GridCellContext> 
 
   // Fall back to nested directive (for <tbw-grid-column-view> syntax)
   return getViewTemplate(element);
-}
-
-/**
- * Helper to get editor template from either structural directive or nested directive.
- */
-function getAnyEditorTemplate(element: HTMLElement): TemplateRef<GridEditorContext> | undefined {
-  // First check structural directive registry (for *tbwEditor syntax)
-  // The structural context uses `any` types for better ergonomics, but is compatible with GridEditorContext
-  const structuralTemplate = getStructuralEditorTemplate(element);
-  if (structuralTemplate) return structuralTemplate as unknown as TemplateRef<GridEditorContext>;
-
-  // Fall back to nested directive (for <tbw-grid-column-editor> syntax)
-  return getEditorTemplate(element);
 }
 
 /**
@@ -379,10 +372,11 @@ export class GridAdapter implements FrameworkAdapter {
 
   /**
    * Determines if this adapter can handle the given element.
-   * Checks if a template is registered for this element (structural or nested).
+   * Checks if a template is registered for this element (structural or nested
+   * view template, or a template-based editor resolved by the editing feature).
    */
   canHandle(element: HTMLElement): boolean {
-    return getAnyViewTemplate(element) !== undefined || getAnyEditorTemplate(element) !== undefined;
+    return getAnyViewTemplate(element) !== undefined || getEditorSpecBridge()?.(element, this) !== undefined;
   }
 
   /**
@@ -491,95 +485,13 @@ export class GridAdapter implements FrameworkAdapter {
    * As long as the component emits `(commit)` with the new value.
    */
   createEditor<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnEditorSpec<TRow, TValue> | undefined {
-    const template = getAnyEditorTemplate(element) as TemplateRef<GridEditorContext<TValue, TRow>> | undefined;
-
-    // Find the parent grid element for FormArray context access
-    const gridElement = element.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
-
-    if (!template) {
-      // No template registered - return undefined to let the grid use its default editor.
-      // This allows columns with only *tbwRenderer (no *tbwEditor) to still be editable
-      // using the built-in text/number/boolean editors.
-      return undefined;
-    }
-
-    return (ctx: ColumnEditorContext<TRow, TValue>) => {
-      // Create simple callback functions
-      const onCommit = (value: TValue) => ctx.commit(value);
-      const onCancel = () => ctx.cancel();
-
-      // Try to get the FormControl from the FormArrayContext
-      let control: GridEditorContext<TValue, TRow>['control'];
-      if (gridElement) {
-        const formContext = getFormArrayContext(gridElement);
-        if (formContext?.hasFormGroups) {
-          // Find the row index by looking up ctx.row in the grid's rows
-          const gridRows = (gridElement as { rows?: TRow[] }).rows;
-          if (gridRows) {
-            const rowIndex = gridRows.indexOf(ctx.row);
-            if (rowIndex >= 0) {
-              control = formContext.getControl(rowIndex, ctx.field);
-            }
-          }
-        }
-      }
-
-      // Create the context for the template
-      const context: GridEditorContext<TValue, TRow> = {
-        $implicit: ctx.value,
-        value: ctx.value,
-        row: ctx.row,
-        field: ctx.field as string,
-        column: ctx.column,
-        rowId: ctx.rowId ?? '',
-        onCommit,
-        onCancel,
-        updateRow: ctx.updateRow,
-        onValueChange: ctx.onValueChange,
-        // FormControl from FormArray (if available)
-        control,
-      };
-
-      // Create embedded view from template
-      const viewRef = this.viewContainerRef.createEmbeddedView(template, context);
-      // Track in editor-specific array for per-cell cleanup via releaseCell
-      this.editorViewRefs.push(viewRef);
-
-      // Trigger change detection
-      viewRef.detectChanges();
-
-      // Use a stable wrapper so Angular's rootNodes (which may include comment
-      // placeholders from <ng-container>) are always inside one element node.
-      const container = document.createElement('span');
-      container.style.display = 'contents';
-      syncRootNodes(viewRef, container);
-      this.runEditorMountHooks(container);
-
-      // Auto-wire: Listen for commit/cancel events on the rendered component.
-      // This allows components to just emit (commit) and (cancel) without
-      // requiring explicit template bindings like (commit)="onCommit($event)".
-      container.addEventListener('commit', (e: Event) => {
-        const customEvent = e as CustomEvent<TValue>;
-        ctx.commit(customEvent.detail);
-      });
-      container.addEventListener('cancel', () => {
-        ctx.cancel();
-      });
-
-      // Auto-update editor when value changes externally (e.g., via updateRow cascade
-      // or Escape-revert in grid mode). Update the template context and run synchronous
-      // detectChanges() — Angular's own bindings and control flow (@for, @if) handle
-      // re-rendering regardless of editor type (inputs, chips, contenteditable, etc.).
-      ctx.onValueChange?.((newVal: unknown) => {
-        context.$implicit = newVal as TValue;
-        context.value = newVal as TValue;
-        viewRef.detectChanges();
-        // Re-sync rootNodes in case Angular control flow changed them
-        syncRootNodes(viewRef, container);
-      });
-
-      return container;
-    };
+    // Template-based editors (`*tbwEditor` / `<tbw-grid-column-editor>`) are
+    // owned by `@toolbox-web/grid-angular/features/editing`. Delegate to its
+    // bridge, which returns undefined when the feature is not imported or no
+    // editor template is registered for this element. Component-class editors
+    // (column `editor` / type-default `editor`) are handled separately and do
+    // not require the editing feature import.
+    return getEditorSpecBridge()?.<TRow, TValue>(element, this);
   }
 
   /**
@@ -627,45 +539,13 @@ export class GridAdapter implements FrameworkAdapter {
   }
 
   /**
-   * Creates a tool panel renderer from a light DOM element.
-   * The renderer creates an Angular template-based panel content.
+   * Creates a tool panel renderer from a light DOM element. Tool-panel
+   * templates are owned by `@toolbox-web/grid-angular/features/shell`; delegate
+   * to its bridge, which returns undefined when the feature is not imported or
+   * no tool-panel template is registered for this element.
    */
   createToolPanelRenderer(element: HTMLElement): ((container: HTMLElement) => void | (() => void)) | undefined {
-    const template = getToolPanelTemplate(element) as TemplateRef<GridToolPanelContext> | undefined;
-
-    if (!template) {
-      return undefined;
-    }
-
-    // Find the parent grid element for context
-    const gridElement = element.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
-
-    return (container: HTMLElement) => {
-      // Create the context for the template
-      const context: GridToolPanelContext = {
-        $implicit: gridElement ?? container,
-        grid: gridElement ?? container,
-      };
-
-      // Create embedded view from template
-      const viewRef = this.viewContainerRef.createEmbeddedView(template, context);
-      this.viewRefs.push(viewRef);
-
-      // Trigger change detection
-      viewRef.detectChanges();
-
-      // Append all root nodes to the container
-      viewRef.rootNodes.forEach((node) => container.appendChild(node));
-
-      // Return cleanup function
-      return () => {
-        const index = this.viewRefs.indexOf(viewRef);
-        if (index > -1) {
-          this.viewRefs.splice(index, 1);
-        }
-        viewRef.destroy();
-      };
-    };
+    return getToolPanelRendererBridge()?.(element, this);
   }
 
   /**
@@ -929,6 +809,46 @@ export class GridAdapter implements FrameworkAdapter {
     this.viewRefs.push(viewRef);
     viewRef.detectChanges();
     return viewRef;
+  }
+
+  /**
+   * Create an editor embedded view from a `TemplateRef`: tracks it in the
+   * per-cell editor pool (swept by `releaseCell()` when the grid recycles the
+   * cell), wraps its root nodes in a stable `display:contents` span, and runs
+   * the registered editor-mount hooks against that span. Public so the editing
+   * feature secondary entry can mount `*tbwEditor` / `<tbw-grid-column-editor>`
+   * templates without reaching into the adapter's private view pools or
+   * mount-hook fan-out.
+   * @internal
+   * @since 3.0.0
+   */
+  createEditorTemplateView<TCtx>(
+    template: TemplateRef<TCtx>,
+    context: TCtx,
+  ): { container: HTMLElement; viewRef: EmbeddedViewRef<TCtx> } {
+    const viewRef = this.viewContainerRef.createEmbeddedView(template, context);
+    // Track in editor-specific pool for per-cell cleanup via releaseCell().
+    this.editorViewRefs.push(viewRef);
+    viewRef.detectChanges();
+    // Stable wrapper so Angular's rootNodes (which may include comment
+    // placeholders from <ng-container>/control flow) live inside one element.
+    const container = document.createElement('span');
+    container.style.display = 'contents';
+    syncRootNodes(viewRef, container);
+    this.runEditorMountHooks(container);
+    return { container, viewRef };
+  }
+
+  /**
+   * Re-sync an editor embedded view's root nodes into its `display:contents`
+   * container after an external `detectChanges()` (Angular control flow may
+   * have added/removed nodes). Public for the editing feature's external
+   * value-change handler.
+   * @internal
+   * @since 3.0.0
+   */
+  syncEditorTemplateView(viewRef: EmbeddedViewRef<unknown>, container: HTMLElement): void {
+    syncRootNodes(viewRef, container);
   }
 
   /**

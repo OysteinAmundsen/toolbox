@@ -23,7 +23,7 @@ import { BaseGridEditor } from './base-grid-editor';
  * ```typescript
  * import { Component, forwardRef } from '@angular/core';
  * import { NG_VALUE_ACCESSOR } from '@angular/forms';
- * import { BaseGridEditorCVA } from '@toolbox-web/grid-angular';
+ * import { BaseGridEditorCVA } from '@toolbox-web/grid-angular/features/editing';
  *
  * @Component({
  *   selector: 'app-date-picker',
@@ -52,10 +52,6 @@ import { BaseGridEditor } from './base-grid-editor';
  * @typeParam TRow - The row data type
  * @typeParam TValue - The cell/control value type
  *
- * MOVE-IN-V2: this class will physically move into
- * `@toolbox-web/grid-angular/features/editing` in v2.0.0; the deprecated
- * re-export from the main `@toolbox-web/grid-angular` entry will be removed at
- * the same time. Consumers should already be importing from the feature entry.
  * @since 0.13.0
  */
 @Directive()

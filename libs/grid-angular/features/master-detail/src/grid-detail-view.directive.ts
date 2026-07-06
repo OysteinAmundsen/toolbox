@@ -62,10 +62,6 @@ export function getDetailTemplate(gridElement: HTMLElement): TemplateRef<GridDet
  * })
  * ```
  *
- * > Note: `GridDetailView` is also re-exported from `@toolbox-web/grid-angular`
- * > for backwards compatibility, but that re-export is deprecated and will be
- * > removed in v2.0.0. Always import from the feature entry.
- *
  * @example
  * ```html
  * <tbw-grid [rows]="rows" [gridConfig]="config">

@@ -76,17 +76,9 @@ export type { _Augmentation as _FilteringAugmentation } from '@toolbox-web/grid/
 export { GridFilteringDirective } from './grid-filtering.directive';
 export type { FilterConfig } from './grid-filtering.directive';
 
-// ---------------------------------------------------------------------------
-// Re-exports from `@toolbox-web/grid-angular` (main entry).
-//
 // `BaseFilterPanel` is filtering-specific (implements `FilterPanel` from the
-// filtering plugin). It still physically lives in the main entry today, but
-// is re-exported here so consumers can import it from the feature entry that
-// owns the runtime behaviour. The same symbol is `@deprecated` on the main
-// entry; in v2.0.0 the source will physically move into this secondary entry
-// and the deprecated re-export on the main entry will be removed.
-// ---------------------------------------------------------------------------
-export { BaseFilterPanel } from '@toolbox-web/grid-angular';
+// filtering plugin) and physically lives in this secondary entry.
+export { BaseFilterPanel } from './base-filter-panel';
 
 // Bridge any Angular component classes used as `filterPanelRenderer` (in
 // `gridConfig.typeDefaults` or via `provideGridTypeDefaults`) to the

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "ignorePatterns": [
+    "**/*.generated.ts",
+    "dist/**",
+    ".fallow/**",
+    "fallow-report.json",
+    ".nx/**",
+    "coverage/**",
+    "tmp/**",
+    "playwright-report/**",
+    "test-results/**"
+  ],
+  "health": {
+    "maxCyclomatic": 20,
+    "maxCognitive": 15,
+    "maxCrap": 30,
+    "thresholdOverrides": [
+      {
+        "files": ["libs/grid/scripts/**", "tools/**"],
+        "maxCyclomatic": 40,
+        "maxCognitive": 50,
+        "maxCrap": 600,
+        "reason": "Build tooling and doc-generation scripts — not production runtime code"
+      },
+      {
+        "files": ["demos/**", ".github/skills/**"],
+        "maxCyclomatic": 40,
+        "maxCognitive": 50,
+        "maxCrap": 600,
+        "reason": "Demo code and CI scripts — not production runtime code"
+      },
+      {
+        "files": ["apps/docs/**"],
+        "maxCyclomatic": 35,
+        "maxCognitive": 30,
+        "maxCrap": 900,
+        "reason": "Docs site tooling (ShowSource.astro, DemoControls.astro) — not production library code"
+      }
+    ]
+  },
+  "rules": {
+    "unused-files": "warn",
+    "unused-exports": "warn",
+    "unused-types": "warn",
+    "circular-dependencies": "error"
+  }
+}

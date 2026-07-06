@@ -92,6 +92,45 @@ For each file (or each hunk, when reviewing a diff), check:
 - Stale or contradictory comments.
 - Bundle-budget risk for `libs/grid/**` changes — flag if change looks heavy.
 
+### Automated quality scan (fallow)
+
+Run the fallow codebase intelligence tool to get deterministic complexity, dead-code, and duplication findings. Use the `fallow` skill for the full command reference.
+
+**For `branch` or diff mode** (reviewing changed files):
+
+```bash
+bunx fallow audit --base <resolved-base-ref> --format json > tmp/fallow-audit.json
+```
+
+**For single-file or folder mode**:
+
+```bash
+bunx fallow health --file <path> --format json > tmp/fallow-audit.json
+# or for dead-code:
+bunx fallow dead-code --format json > tmp/fallow-audit.json
+```
+
+**For full working-tree scope** (uncommitted changes):
+
+```bash
+bunx fallow --format json > tmp/fallow-audit.json
+```
+
+After running, read `tmp/fallow-audit.json` and extract findings. Map to report severity:
+
+| fallow `severity`                                                       | Report tier                                     | Condition |
+| ----------------------------------------------------------------------- | ----------------------------------------------- | --------- |
+| `critical` and `introduced: true` (in audit)                            | **Blocking** if CRAP > 200, else **Should fix** |
+| `high` and `introduced: true`                                           | **Should fix**                                  |
+| `moderate`                                                              | **Nit**                                         |
+| dead-code (`unused-export`, `unused-file`) in `libs/grid/src/public.ts` | **Blocking**                                    |
+| dead-code elsewhere                                                     | **Should fix**                                  |
+| `circular-dependencies`                                                 | **Blocking**                                    |
+
+Filter out findings in `libs/grid/scripts/`, `tools/`, `demos/`, and `apps/docs/` with CRAP < 900 (these have relaxed thresholds per `.fallowrc.json`). Include all others.
+
+Each fallow finding becomes one report item with the fallow `path:line` as the location. Quote the fallow `description` as the Problem and use the `actions[0].description` as the Fix suggestion.
+
 ### Documentation accuracy (treat prose as untrusted)
 
 Any prose added or modified by the diff — code comments, JSDoc, README, knowledge `DECIDED` entries, `@deprecated`/`@since` notes — is **not** authoritative narration of the code. Verify each prose claim against the actual implementation. This is the defect class the GitHub Copilot reviewer catches most consistently.
@@ -169,10 +208,10 @@ After printing the report, delegate execution to `qa-apply-findings`:
 
 1. **Hard precondition — call `manage_todo_list` first.** Per the workspace's delivery checklist, you MUST register a todo list covering: read knowledge → apply fixes → run tests → run lint → docs check → retrospective → commit suggestion. Do not call any edit tool before this list exists.
 2. Convert findings into the normalized JSON shape expected by
-  `.github/skills/qa-apply-findings/findings.schema.json`.
+   `.github/skills/qa-apply-findings/findings.schema.json`.
 3. Run `qa-apply-findings` to apply `blocking` first, then `should-fix` findings.
 4. Reuse the skill's validation contract and summary template at
-  `.github/skills/qa-apply-findings/summary.template.md`.
+   `.github/skills/qa-apply-findings/summary.template.md`.
 5. If needed, append the existing human-readable recap:
 
    ```

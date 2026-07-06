@@ -23,8 +23,6 @@ import { shadowDomStyles } from '@demo/shared/employee-management/styles';
 import {
   CellCommitEvent,
   Grid,
-  GridResponsiveCard,
-  GridToolPanel,
   injectGrid,
   TbwGridColumn,
   TbwGridHeader,
@@ -39,6 +37,8 @@ import {
 import { injectGridExport } from '@toolbox-web/grid-angular/features/export';
 import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
 import { GridDetailView } from '@toolbox-web/grid-angular/features/master-detail';
+import { GridResponsiveCard } from '@toolbox-web/grid-angular/features/responsive';
+import { GridToolPanel } from '@toolbox-web/grid-angular/features/shell';
 import { createGridConfig } from './grid-config';
 
 // Import components so they're available in templates

@@ -24,14 +24,8 @@ import {
   WEEKDAY_HEADERS_MINI,
 } from '@demo/shared/calendar';
 import type { ColumnConfig, DataGridElement } from '@toolbox-web/grid';
-import {
-  Grid,
-  GridHeaderContent,
-  GridToolbarContent,
-  TbwGridColumn,
-  TbwRenderer,
-  type GridConfig,
-} from '@toolbox-web/grid-angular';
+import { Grid, TbwGridColumn, TbwRenderer, type GridConfig } from '@toolbox-web/grid-angular';
+import { GridHeaderContent, GridToolbarContent } from '@toolbox-web/grid-angular/features/shell';
 import { DayCellComponent } from './components/day-cell.component';
 import { EventDialogComponent } from './components/event-dialog.component';
 import { HeaderNavComponent } from './components/header-nav.component';

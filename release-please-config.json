@@ -8,7 +8,7 @@
       "prerelease-type": "beta"
     },
     {
-      "branch": "v2.x",
+      "branch": "2.x",
       "prerelease": false
     }
   ],

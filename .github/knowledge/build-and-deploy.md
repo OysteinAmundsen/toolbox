@@ -45,8 +45,9 @@ related: [build-css, grid-core]
 - INVARIANT: each library is an independent release-please component; major bumps are per-scope. A `feat(<scope>)!:` (or `BREAKING CHANGE:` footer) on one scope triggers a major for **only** that scope.
 - INVARIANT: `separate-pull-requests: false` ⇒ all pending bumps land in a single coordinated release PR.
 - INVARIANT (peer-dep cascade): release-please does NOT bump `peerDependencies` automatically. When `grid` jumps a major, every adapter's `peerDependencies."@toolbox-web/grid"` range must be widened **manually** in the same PR. That peer change is itself a breaking change, so adapters get a major even when they have no own deprecation removals.
-- DECIDED (#411, prerelease-inclusive peer): while `main` ships v3 as `3.0.0-beta.N` (adapters are published as betas too), the widened peer MUST be **prerelease-inclusive** — use `^3.0.0-beta.0` (= `>=3.0.0-beta.0 <4.0.0`), NOT `^3.0.0`. WHY: node-semver excludes prereleases from a range unless a comparator with the same `major.minor.patch` tuple carries a prerelease, so `^3.0.0` does NOT satisfy `3.0.0-beta.N` → beta consumers hit unmet-peer / ERESOLVE. `>=1.0.0` fails identically. `^3.0.0-beta.0` matches `3.0.0-beta.N`, `3.0.0`, and `3.x` but not `4.0.0` (verified with `semver@7.7.4 satisfies`), so it needs NO change at GA. FOLLOW-UP: grid-angular #402 shipped the defective `^3.0.0`; grid-vue #262 (pending) must use `^3.0.0-beta.0` — align both.
+- DECIDED (#411, prerelease-inclusive peer): while `main` ships v3 as `3.0.0-beta.N` (adapters are published as betas too), the widened peer MUST be **prerelease-inclusive** — all three adapters ship `^3.0.0-beta` (= `>=3.0.0-beta <4.0.0`), NOT `^3.0.0`. WHY: node-semver excludes prereleases from a range unless a comparator with the same `major.minor.patch` tuple carries a prerelease, so `^3.0.0` does NOT satisfy `3.0.0-beta.N` → beta consumers hit unmet-peer / ERESOLVE (`>=1.0.0` fails identically). `^3.0.0-beta` accepts `3.0.0-beta.N`, `3.0.0`, and all `3.x`, and excludes `2.17.x`/`4.0.0` — verified `semver@7.7.4 satisfies('3.0.0-beta.1','^3.0.0-beta') === true`. It needs NO change at GA. CANONICAL form across react/angular/vue is `^3.0.0-beta`; it is functionally identical to `^3.0.0-beta.0` for every publishable version (they differ ONLY on a bare `3.0.0-beta` tag, which release-please never emits), so do NOT "correct" it to `^3.0.0-beta.0` — that would break three-way peer parity for zero functional gain (PR #412 review).
 - DECIDED (#411, devDep floor stays permissive): adapter `devDependencies."@toolbox-web/grid"` stays `>=1.0.0`; do NOT align it to the peer v3 range. WHY: adapters compile against workspace SOURCE via `tsconfig.base.json` path mappings (`@toolbox-web/grid` → `libs/grid/src`), never the registry, so no grid major leaks into build/test/typedoc; the floor only keys the workspace symlink and must match the CURRENT local grid (`2.17.x`). Any v3 range excludes local `2.17.4`, so tightening the devDep would break install/linking. The peer/dev 'mismatch' a reviewer may flag is intentional.
+- DECIDED (#262, `@nx/dependency-checks` only bites grid-vue): the intentional peer/local mismatch (`^3.0.0-beta` peer vs installed `2.17.x`) trips `@nx/dependency-checks` ("version specifier does not contain the installed version") for **grid-vue only**. WHY: the rule version-checks deps surfaced by the project's `build` target inputs against the LOCAL installed version. Vite (grid-vue) surfaces `@toolbox-web/grid`; ng-packagr (grid-angular) does NOT (proven: even `^99.0.0` peer yields no error); grid-react has no project-level eslint config enabling the JSON rule. FIX: add `'@toolbox-web/grid'` to `ignoredDependencies` in `libs/grid-vue/eslint.config.mjs` (alongside `'vitest'`) — parity with the two adapters the rule never checks. The `devDependencies >=1.0.0` entry does NOT satisfy the rule; it wants the runtime/peer specifier itself to match.
 - DECIDED: publish order on a coordinated multi-major is `grid` first, then `grid-angular` / `grid-react` / `grid-vue` (peer-range satisfied at install time).
 - DECIDED: v1.x deprecation commits intentionally do NOT use `!`; the `!` is reserved for the major-bump PR itself.
 - DECIDED (Jun 2026, npm dist-tag is version-driven NOT branch-driven): the 4 `publish-*` jobs read `dist/libs/<pkg>/package.json` version — contains `-` (prerelease) → `--tag next`, else → `--tag latest`. WHY: under the maintenance-branch model the beta lives on `main`, so the old branch-name rule (`ref == next → next`) would have pushed betas to `latest`. File: [ci.yml](.github/workflows/ci.yml) `Determine npm tag` steps. AT v3 GA: v2 patches from `2.x` should move OFF `latest` to a `2.x`/`v2-lts` dist-tag — the only manual dist-tag change needed at the GA flip.
@@ -191,18 +192,18 @@ ng-packagr forbids primary→secondary imports, so the source must be **written 
 - Master-detail: `GridDetailView`, `GridDetailContext`, `getDetailTemplate` → `features/master-detail/`.
 - Strip every `@deprecated` re-export from `src/index.ts`.
 - Strip every `@deprecated` per-feature input/output shim prop from `directives/grid.directive.ts` (~lines 538–1098 in current file).
-- Bump `peerDependencies."@toolbox-web/grid"` to `^3.0.0-beta.0` (prerelease-inclusive — see peer-dep cascade DECIDED #411; shipped as `^3.0.0` in #402, needs align).
+- Bump `peerDependencies."@toolbox-web/grid"` to `^3.0.0-beta` (prerelease-inclusive — see peer-dep cascade DECIDED #411).
 
 ### grid-react → 2.0.0
 
 - Drop `reorderRows` alias (use `rowDragDrop`) and `SSRProps` + `ssr` prop entirely from `feature-props.ts`.
-- Bump `peerDependencies."@toolbox-web/grid"` to `^3.0.0-beta.0` (prerelease-inclusive — see peer-dep cascade DECIDED #411).
+- Bump `peerDependencies."@toolbox-web/grid"` to `^3.0.0-beta` (prerelease-inclusive — see peer-dep cascade DECIDED #411).
 
 ### grid-vue → 2.0.0
 
 - Drop `reorderRows` alias and `SSRProps` + `ssr` prop from `feature-props.ts`.
 - Remove the deprecated re-export in `vue-grid-adapter.ts` (consumers import from `./editor-mount-hooks`).
-- Bump `peerDependencies."@toolbox-web/grid"` to `^3.0.0-beta.0` (prerelease-inclusive — see peer-dep cascade DECIDED #411).
+- Bump `peerDependencies."@toolbox-web/grid"` to `^3.0.0-beta` (prerelease-inclusive — see peer-dep cascade DECIDED #411).
 
 ### Verification before tagging
 

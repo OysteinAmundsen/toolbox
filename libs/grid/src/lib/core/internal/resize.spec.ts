@@ -64,6 +64,50 @@ describe('resize controller', () => {
     expect(controller.isResizing).toBe(false);
   });
 
+  it('respects column minWidth during drag resize', () => {
+    const grid: any = {
+      _columns: [{ field: 'a', width: 150, minWidth: 100 }],
+      get _visibleColumns() {
+        return this._columns.filter((c: any) => !c.hidden);
+      },
+      updateTemplate: vi.fn(),
+      dispatchEvent: vi.fn(),
+    };
+    const controller = createResizeController(grid);
+    const cell = document.createElement('div');
+    Object.defineProperty(cell, 'getBoundingClientRect', {
+      value: () => ({ width: 150, height: 20, left: 0, top: 0, right: 150, bottom: 20 }),
+    });
+
+    controller.start(mockMouseEvent('mousedown', { clientX: 0 }), 0, cell);
+    window.dispatchEvent(mockMouseEvent('mousemove', { clientX: -80 }));
+    window.dispatchEvent(mockMouseEvent('mouseup', { clientX: -80 }));
+
+    expect(grid._columns[0].width).toBe(100);
+  });
+
+  it('falls back to 40px minimum for non-positive minWidth values', () => {
+    const grid: any = {
+      _columns: [{ field: 'a', width: 80, minWidth: 0 }],
+      get _visibleColumns() {
+        return this._columns.filter((c: any) => !c.hidden);
+      },
+      updateTemplate: vi.fn(),
+      dispatchEvent: vi.fn(),
+    };
+    const controller = createResizeController(grid);
+    const cell = document.createElement('div');
+    Object.defineProperty(cell, 'getBoundingClientRect', {
+      value: () => ({ width: 80, height: 20, left: 0, top: 0, right: 80, bottom: 20 }),
+    });
+
+    controller.start(mockMouseEvent('mousedown', { clientX: 0 }), 0, cell);
+    window.dispatchEvent(mockMouseEvent('mousemove', { clientX: -70 }));
+    window.dispatchEvent(mockMouseEvent('mouseup', { clientX: -70 }));
+
+    expect(grid._columns[0].width).toBe(40);
+  });
+
   it('resetColumn restores original configured width', () => {
     const grid: any = {
       _columns: [{ field: 'a', width: 150, __originalWidth: 100, __userResized: true, __renderedWidth: 150 }],

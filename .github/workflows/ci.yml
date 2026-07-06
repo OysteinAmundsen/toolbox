@@ -7,12 +7,10 @@ on:
   pull_request:
     branches:
       - main
-      - next
       - "2.x"
   push:
     branches:
       - main
-      - next
       - "2.x"
       - "release-please--*"
   release:
@@ -78,21 +76,21 @@ jobs:
           IS_RELEASE_MERGE="false"
           SHOULD_VALIDATE="false"
 
-          # Check if this is a release-please merge commit (main, next, or a maintenance branch like 2.x)
-          if [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/next" || "${{ github.ref }}" == "refs/heads/2.x" ]]; then
-            if [[ "$COMMIT_MSG" == "chore(main): release"* ]] || [[ "$COMMIT_MSG" == "chore(next): release"* ]] || [[ "$COMMIT_MSG" == "chore(2.x): release"* ]] || [[ "$COMMIT_MSG" == "chore: release"* ]]; then
+          # Check if this is a release-please merge commit (main or a maintenance branch like 2.x)
+          if [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/2.x" ]]; then
+            if [[ "$COMMIT_MSG" == "chore(main): release"* ]] || [[ "$COMMIT_MSG" == "chore(2.x): release"* ]] || [[ "$COMMIT_MSG" == "chore: release"* ]]; then
               IS_RELEASE_MERGE="true"
               echo "🚀 Detected release-please merge commit - skipping test/build"
             fi
           fi
 
           # Determine if we should run validation (test/build)
-          # Run on: PRs, release-please branches, or regular pushes to main/next (not release merges)
+          # Run on: PRs, release-please branches, or regular pushes to main/2.x (not release merges)
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             SHOULD_VALIDATE="true"
           elif [[ "${{ github.ref }}" == refs/heads/release-please--* ]]; then
             SHOULD_VALIDATE="true"
-          elif [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/next" || "${{ github.ref }}" == "refs/heads/2.x" ]] && [[ "$IS_RELEASE_MERGE" == "false" ]]; then
+          elif [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/2.x" ]] && [[ "$IS_RELEASE_MERGE" == "false" ]]; then
             SHOULD_VALIDATE="true"
           fi
 
@@ -379,7 +377,7 @@ jobs:
   #   shared CI runners are almost always SLOWER than reality (GC,
   #   scheduler, fs cache misses) — never faster — so the fastest of N
   #   runs is the most representative.
-  # - On push to `main`/`next`: bench is uploaded as an artifact for
+  # - On push to `main`: bench is uploaded as an artifact for
   #   offline trend tracking, but no comparison is performed (no baseline
   #   exists in this model — comparison is always against the PR's own
   #   base). Push runs benches for ALL projects (no affected filtering)
@@ -516,7 +514,7 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      # PUSH to main/next: bench once across ALL projects (no need for
+      # PUSH to main: bench once across ALL projects (no need for
       # max-of-N when there's no comparison; full project coverage so the
       # trend artifact is continuous), upload artifact only.
       - name: Install dependencies (push)
@@ -643,7 +641,7 @@ jobs:
     if: |
       always() && !cancelled() &&
       (github.event_name == 'release' || github.event_name == 'workflow_dispatch') ||
-      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/next' || github.ref == 'refs/heads/2.x') && (
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/2.x') && (
         needs.setup.outputs.is_release_merge == 'true' ||
         (needs.test.result == 'success' && needs.build.result == 'success' && (needs.e2e.result == 'success' || needs.e2e.result == 'skipped'))
       ))
@@ -668,7 +666,7 @@ jobs:
       # Any release created (for jobs that run on any release)
       releases_created: ${{ steps.release.outputs.releases_created }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         # Runs automatically on push events, and on manual `workflow_dispatch`
         # runs when the `run_release_please` input is checked. The manual
         # path exists so a flaky upstream CI gate (e.g. a runner-side
@@ -684,6 +682,81 @@ jobs:
           # line (main) and the v2 maintenance line (2.x) each keep their own
           # release PR + manifest independently.
           target-branch: ${{ github.ref_name }}
+
+  release-credits:
+    if: |
+      always() && !cancelled() &&
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/2.x')
+    needs: [release-please]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Resolve release branch
+        id: vars
+        shell: bash
+        run: |
+          BASE_BRANCH="${{ github.ref_name }}"
+          RELEASE_BRANCH="release-please--branches--${BASE_BRANCH}"
+          echo "base_branch=${BASE_BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "release_branch=${RELEASE_BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare credits script
+        id: script
+        shell: bash
+        run: |
+          if [[ -f tools/update-release-credits.mjs ]]; then
+            cp tools/update-release-credits.mjs /tmp/update-release-credits.mjs
+            echo "path=/tmp/update-release-credits.mjs" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git show "origin/${{ github.ref_name }}:tools/update-release-credits.mjs" > /tmp/update-release-credits.mjs
+          echo "path=/tmp/update-release-credits.mjs" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout release branch if it exists
+        id: checkout_release
+        shell: bash
+        run: |
+          RELEASE_BRANCH="${{ steps.vars.outputs.release_branch }}"
+          if git fetch origin "${RELEASE_BRANCH}"; then
+            git checkout -B "${RELEASE_BRANCH}" "origin/${RELEASE_BRANCH}"
+            mkdir -p .github/credits
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No release-please branch '${RELEASE_BRANCH}' found. Skipping credits update."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update changelog credits
+        if: steps.checkout_release.outputs.exists == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPOSITORY_NAME: ${{ github.event.repository.name }}
+          BASE_REF: ${{ steps.vars.outputs.base_branch }}
+          CREDITS_CYCLE_KEY: ${{ steps.vars.outputs.release_branch }}
+        run: node "${{ steps.script.outputs.path }}"
+
+      - name: Commit credit updates
+        if: steps.checkout_release.outputs.exists == 'true'
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .github/credits libs/*/CHANGELOG.md
+            git commit -m "chore(tooling): update release changelog credits"
+            git push origin "HEAD:${{ steps.vars.outputs.release_branch }}"
+          else
+            echo "No credit updates to commit"
+          fi
 
   # ============================================
   # RELEASE JOBS (runs on release published, release-please creates a release, or manual workflow_dispatch with release=true)

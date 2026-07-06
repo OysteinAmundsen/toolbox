@@ -16,24 +16,37 @@
     "libs/grid": {
       "release-type": "node",
       "component": "grid",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "versioning": "prerelease",
+      "prerelease": true,
+      "prerelease-type": "beta"
     },
     "libs/grid-angular": {
       "release-type": "node",
       "component": "grid-angular",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "versioning": "prerelease",
+      "prerelease": true,
+      "prerelease-type": "beta"
     },
     "libs/grid-react": {
       "release-type": "node",
       "component": "grid-react",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "versioning": "prerelease",
+      "prerelease": true,
+      "prerelease-type": "beta"
     },
     "libs/grid-vue": {
       "release-type": "node",
       "component": "grid-vue",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "versioning": "prerelease",
+      "prerelease": true,
+      "prerelease-type": "beta"
     }
   },
+  "group-pull-request-title-pattern": "chore(${branch}): release ${version}",
   "changelog-sections": [
     { "type": "feat", "section": "Features" },
     { "type": "fix", "section": "Bug Fixes" },

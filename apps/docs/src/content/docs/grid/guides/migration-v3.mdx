@@ -11,11 +11,8 @@ This guide covers the breaking changes in `@toolbox-web/grid` **v3**. Every remo
 symbol was `@deprecated` throughout the v2.x line, so if you kept up with IDE
 deprecation warnings you may have little to change.
 
-<Aside type="note">
-  This page covers the **grid core** package. Adapter-specific breaking changes
-  (Angular, React, Vue) are documented in each adapter's changelog and added to
-  this guide as their v3 majors land.
-</Aside>
+The main focus of this version was to improve core isolation from plugins/features to improve bundle size on both core and adapters.
+The adapter that benefitted most from this was the grid-angular package which halved its bundle size.
 
 ## The shell is now opt-in
 
@@ -93,6 +90,8 @@ import type { ShellConfig, ToolPanelConfig } from '@toolbox-web/grid/plugins/she
 | `PluginEvents`, `PluginEventName`                | String literals typed against `DataGridEventMap`                        |
 | `@toolbox-web/grid/plugins/reorder-rows` (`RowReorderPlugin`) | `@toolbox-web/grid/plugins/row-drag-drop` (`RowDragDropPlugin`) |
 | `RowDragDropConfig.canDragRow`                   | `RowDragDropConfig.canDrag`                                             |
+| `RowDragDropConfig.canMove`                      | `RowDragDropConfig.canDrag(row, index)` — no direct 1:1; the old `(row, from, to, direction)` signature is gone (veto now runs on drag start) |
+| `ServerSideConfig.cacheBlockSize`                | `ServerSideConfig.pageSize`                                            |
 | `ServerSidePlugin.getNodeCount()`                | `ServerSidePlugin.getTotalNodeCount()`                                  |
 | `ServerSidePlugin.isLoaded(index)`               | `ServerSidePlugin.isNodeLoaded(index)`                                  |
 | `PinnedRowsConfig.position`, `showRowCount`, `showSelectedCount`, `showFilteredCount`, `aggregationRows`, `customPanels` | `PinnedRowsConfig.slots[]` |
@@ -127,3 +126,243 @@ new PinnedRowsPlugin({
 
 The default `new PinnedRowsPlugin()` still seeds the familiar bottom info bar
 (row count, filtered count, selected count), so the no-argument case is unchanged.
+
+## Angular adapter (`@toolbox-web/grid-angular`)
+
+The Angular adapter's **v2** major ships alongside grid core v3 and applies the
+same core-isolation principle: **feature directives, editor/filter base classes,
+and inject helpers moved out of the package's main entry into per-feature
+subpaths** (`@toolbox-web/grid-angular/features/*`). This is what roughly halves
+the adapter's baseline bundle — the main entry now pulls in only the core `Grid`
+directive plus shared types, and every feature tree-shakes away unless you import
+its subpath.
+
+The main entry (`@toolbox-web/grid-angular`) still exports the core surface:
+`Grid`, `TbwGridColumn`, `TbwGridHeader`, `TbwGridToolButtons`, `TbwRenderer`,
+`GridColumnView`, `injectGrid`, `provideGrid` / `provideGridIcons` /
+`provideGridTypeDefaults`, and the shared types (`GridConfig`, `ColumnConfig`,
+`CellEditor`, `CellRenderer`, `FilterPanel`, `CellCommitEvent`, `RowCommitEvent`).
+Everything feature-specific moved. Most apps hit **three** mechanical changes.
+
+<Aside type="tip">
+  A pure import-path change on a base class surfaces as a cascade of
+  member errors (`Property 'commitValue' does not exist`, `'currentValue'`, …)
+  rather than a single "module has no exported member" — because the subclass
+  silently loses its base. Fix the **import first**; the member errors evaporate.
+</Aside>
+
+### 1. Import base classes & inject helpers from their feature subpath
+
+| v2 symbol(s)                                                                                     | Import from                                    |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| `BaseGridEditor`, `BaseGridEditorCVA`, `BaseOverlayEditor`, `TbwEditor`, `GridFormArray`, `GridColumnEditor`, `GridLazyForm` | `@toolbox-web/grid-angular/features/editing`   |
+| `BaseFilterPanel`, `injectGridFiltering`, `FilterConfig`                                          | `@toolbox-web/grid-angular/features/filtering` |
+| `injectGridSelection`                                                                             | `@toolbox-web/grid-angular/features/selection` |
+| `GridToolPanel`, `GridHeaderContent`, `GridToolbarContent`                                        | `@toolbox-web/grid-angular/features/shell`     |
+
+```ts
+// v1
+import { BaseGridEditor, BaseOverlayEditor, TbwEditor, GridToolPanel } from '@toolbox-web/grid-angular';
+
+// v2
+import { BaseGridEditor, BaseOverlayEditor, TbwEditor } from '@toolbox-web/grid-angular/features/editing';
+import { GridToolPanel } from '@toolbox-web/grid-angular/features/shell';
+```
+
+### 2. Import a feature directive for every feature you bind in a template
+
+In v1 the core `Grid` directive silently owned the feature inputs
+(`[filtering]`, `[editing]`, `[selection]`, …). In v2 each binding is owned by its
+**own directive** in the feature subpath. If your `<tbw-grid>` template binds a
+feature, add that directive to the standalone component's `imports` (importing it
+also registers the vanilla bridge as a side effect). Forget it and Angular fails
+the build with `NG8002: Can't bind to 'filtering' since it isn't a known property
+of 'tbw-grid'`.
+
+```ts
+import { Grid } from '@toolbox-web/grid-angular';
+import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
+import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
+
+@Component({
+  imports: [Grid, GridFilteringDirective, GridEditingDirective /* … */],
+  template: `<tbw-grid [filtering]="true" [editing]="editConfig" />`,
+})
+export class MyComponent {}
+```
+
+<Aside type="caution">
+  Match the binding to its **host element**. An `@Input()` named `filtering`,
+  `selection`, etc. on one of _your own_ components (e.g. a filter-panel wrapper)
+  is unrelated — adding the grid directive there triggers
+  `NG8113: <Directive> is not used within the template`. Only add the directive
+  to components that bind the feature on an actual `<tbw-grid>`.
+</Aside>
+
+Binding → directive → subpath (each subpath also exports the directive):
+
+| Template binding                                                | Directive                          | Subpath                          |
+| --------------------------------------------------------------- | ---------------------------------- | -------------------------------- |
+| `[filtering]`, `(filterChange)`                                 | `GridFilteringDirective`           | `features/filtering`             |
+| `[editing]`, `(cellCommit)`, `(rowCommit)`, `(cellCancel)`, …   | `GridEditingDirective`             | `features/editing`               |
+| `[selection]`, `(selectionChange)`                              | `GridSelectionDirective`           | `features/selection`             |
+| `[contextMenu]`, `(contextMenuOpen)`                            | `GridContextMenuDirective`         | `features/context-menu`          |
+| `[visibility]`                                                  | `GridVisibilityDirective`          | `features/visibility`            |
+| `[rowDragDrop]`, `(rowMove)`, `(rowDrop)`, …                    | `GridRowDragDropDirective`         | `features/row-drag-drop`         |
+| `[tree]`, `(treeExpand)`                                        | `GridTreeDirective`                | `features/tree`                  |
+| `[masterDetail]`, `(detailExpand)`                              | `GridMasterDetailDirective`        | `features/master-detail`         |
+| `[multiSort]`                                                   | `GridMultiSortDirective`           | `features/multi-sort`            |
+| `[pinnedRows]`                                                  | `GridPinnedRowsDirective`          | `features/pinned-rows`           |
+| `[pinnedColumns]`                                               | `GridPinnedColumnsDirective`       | `features/pinned-columns`        |
+| `[groupingRows]`, `(groupToggle)`, `(groupExpand)`, …           | `GridGroupingRowsDirective`        | `features/grouping-rows`         |
+| `[groupingColumns]`                                             | `GridGroupingColumnsDirective`     | `features/grouping-columns`      |
+| `[reorderColumns]`, `(columnMove)`                              | `GridReorderColumnsDirective`      | `features/reorder-columns`       |
+| `[clipboard]`, `(copy)`, `(paste)`                              | `GridClipboardDirective`           | `features/clipboard`             |
+| `[export]`, `(exportComplete)`                                  | `GridExportDirective`              | `features/export`                |
+| `[print]`, `(printStart)`, `(printComplete)`                    | `GridPrintDirective`               | `features/print`                 |
+| `[responsive]`, `(responsiveChange)`                            | `GridResponsiveDirective`          | `features/responsive`            |
+| `[stickyRows]`                                                  | `GridStickyRowsDirective`          | `features/sticky-rows`           |
+| `[serverSide]`                                                  | `GridServerSideDirective`          | `features/server-side`           |
+| `[pivot]`                                                       | `GridPivotDirective`               | `features/pivot`                 |
+| `[tooltip]`                                                     | `GridTooltipDirective`             | `features/tooltip`               |
+| `[undoRedo]`, `(undo)`, `(redo)`                                | `GridUndoRedoDirective`            | `features/undo-redo`             |
+| `[columnVirtualization]`                                        | `GridColumnVirtualizationDirective`| `features/column-virtualization` |
+
+Prefer configuring a feature in `gridConfig` (`features` / `plugins`) over a
+template binding when you don't need the two-way input — then no directive import
+is required at all.
+
+### 3. `reorder-rows` → `row-drag-drop`, and shell delegates
+
+Mirroring the core rename (`RowReorderPlugin` → `RowDragDropPlugin`), the Angular
+subpath and its template binding were renamed:
+
+```diff
+- import '@toolbox-web/grid-angular/features/reorder-rows';
++ import { GridRowDragDropDirective } from '@toolbox-web/grid-angular/features/row-drag-drop';
+
+- <tbw-grid [reorderRows]="true" />
++ <tbw-grid [rowDragDrop]="true" />
+```
+
+The removed shell element-delegates (see [Shell API access](#shell-api-access))
+apply to Angular too — reach the shell through the plugin instead of the element:
+
+```diff
+- this.grid.element()?.toggleToolPanel();
++ this.grid.element()?.getPluginByName('shell')?.toggleToolPanel();
+```
+
+### 4. Enable the shell for features that render in a tool panel
+
+The shell being [opt-in](#the-shell-is-now-opt-in) is the change most likely to
+bite an Angular grid at **runtime** (not build time), because v1 auto-registered
+it. Any feature that renders into a tool panel — most commonly `visibility` (its
+column list) — declares a hard dependency on the shell and **throws
+[`TBW020`](/grid/errors#tbw020)** if the shell is absent.
+
+There is **no `[shell]` template directive** (the shell subpath only exports the
+content directives `GridToolPanel`, `GridHeaderContent`, `GridToolbarContent`).
+Enable the shell through `gridConfig`, and register its feature with the usual
+side-effect import:
+
+```ts
+import '@toolbox-web/grid-angular/features/shell';
+```
+
+```diff
+  features: {
++   shell: true,
+    visibility: true,
+    // …
+  },
+```
+
+This holds even when the dependent feature is enabled through a **template
+directive** (`<tbw-grid [visibility]="true">`): the directive contributes the
+`visibility` feature, but the shell still has to come from `gridConfig.features`.
+
+<Aside type="caution">
+  **`TBW020` means the shell is genuinely missing — not misordered.**
+  `gridConfig.features` is topologically sorted by each plugin's declared
+  dependencies, so `shell` always attaches before `visibility` no matter where
+  you list it. The sort only reorders plugins that _exist_; it never injects a
+  missing dependency. When a dependent feature is enabled via `features`, prefer
+  enabling its dependency (the shell) via `features` too — feature-derived
+  plugins attach before any explicit `plugins: [...]`, so a shell supplied only
+  through `plugins: [new ShellPlugin()]` can still land _after_ `visibility` and
+  re-trigger `TBW020`.
+</Aside>
+
+## React (`@toolbox-web/grid-react`) & Vue (`@toolbox-web/grid-vue`)
+
+Like Angular, the React and Vue adapters ship a **v2** major alongside grid core
+v3 and now require `@toolbox-web/grid@^3.0.0` as a peer dependency. Their changes
+are identical, so the steps below apply to both — substitute `<DataGrid …>`
+(React) or `<TbwGrid …>` (Vue) as appropriate.
+
+<Aside type="tip">
+  React and Vue already register features through synchronous side-effect
+  subpath imports (`import '@toolbox-web/grid-{react,vue}/features/…'`), so there
+  is **no per-feature import split** to do here (unlike Angular). The v2
+  adapter migration is limited to the renames and removals below.
+</Aside>
+
+### 1. `reorderRows` prop → `rowDragDrop`
+
+Mirroring the core rename, the `reorderRows` prop and its `features/reorder-rows`
+subpath were removed. Use `rowDragDrop` and the `features/row-drag-drop` subpath:
+
+```diff
+- import '@toolbox-web/grid-react/features/reorder-rows';
++ import '@toolbox-web/grid-react/features/row-drag-drop';
+
+- <DataGrid reorderRows />
++ <DataGrid rowDragDrop />
+```
+
+### 2. Pinned-rows `customPanels` → `slots[]`
+
+The adapter-specific `pinnedRows.customPanels` array (which accepted a
+framework-component `render` function) was removed in favour of the unified
+`slots[]` API, matching the [core pinned-rows change](#pinned-rows). Move each
+custom panel into a `slots[]` entry:
+
+```diff
+  pinnedRows={{
+-   customPanels: [{ id: 'total', position: 'bottom', render: () => <Total /> }],
++   slots: [{ position: 'bottom', render: () => <Total /> }],
+  }}
+```
+
+### 3. `SSRProps` / `ssr` prop removed
+
+The deprecated `ssr` prop and the exported `SSRProps` type were removed from
+both adapters. The prop was a no-op — features register via SSR-safe side-effect
+imports, and `<tbw-grid>` is a custom element that hydrates normally on the
+client regardless of the flag. **Delete any `ssr` prop and `SSRProps` import;**
+no replacement is needed.
+
+```diff
+- import type { SSRProps } from '@toolbox-web/grid-react';
+- <DataGrid ssr rows={rows} columns={columns} />
++ <DataGrid rows={rows} columns={columns} />
+```
+
+If you need real server-side rendering (Next.js / Remix / Nuxt / Vike / Astro),
+[open an issue](https://github.com/OysteinAmundsen/toolbox/issues) describing
+your hydration requirements.
+
+### 4. Shell is opt-in here too
+
+The [shell being opt-in](#the-shell-is-now-opt-in) applies to React and Vue as
+well. Enable it with the `shell` prop (or via `gridConfig.features.shell`), and
+reach the shell instance through the grid element ref rather than removed
+element delegates — see [Shell API access](#shell-api-access). Features that
+render into a tool panel (e.g. `visibility`) throw
+[`TBW020`](/grid/errors#tbw020) at runtime when the shell is absent.
+
+```diff
+- <DataGrid visibility />
++ <DataGrid shell visibility />
+```

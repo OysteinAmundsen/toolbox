@@ -287,32 +287,26 @@ export interface HeaderRowContribution {
 }
 
 /**
- * Context passed in {@link PluginQuery.context} for the `'getEditableFields'`
- * query — used by consumers (e.g. the clipboard plugin's paste handler) to
- * discover which column fields may receive values, **without** importing the
+ * A predicate returned by the editing plugin's `'getCellEditableResolver'`
+ * query. Consumers (e.g. the clipboard plugin's paste handler) call it to ask
+ * whether a specific cell may receive a value — **without** importing the
  * editing plugin or depending on its column-config augmentations.
  *
- * The editing plugin declares `{ type: 'getEditableFields' }` in its manifest
- * and responds from `handleQuery` with a `string[]` of field names that are
- * unconditionally editable (`column.editable === true`). When the editing
- * plugin is absent, no plugin responds and consumers treat **no** field as
- * editable.
+ * The editing plugin declares `{ type: 'getCellEditableResolver' }` in its
+ * manifest and responds from `handleQuery` with a predicate that applies its
+ * full editability resolution: the `rowEditable` row-level gate and the
+ * column's `editable` value (`true` / `false` / `(row) => boolean`). When the
+ * editing plugin is absent, no plugin responds and consumers treat **no** cell
+ * as editable.
  *
- * Function-typed `editable` (row-conditional) is intentionally excluded — this
- * query carries no row context, so consumers needing per-row gating must
- * evaluate that separately.
+ * @param field - The column field being written to.
+ * @param row - The row object receiving the value.
+ * @returns `true` when the cell may receive a value.
  *
  * @category Plugin Development
- * @since 2.16.0
+ * @since 3.0.0
  */
-export interface GetEditableFieldsContext {
-  /**
-   * Columns the consumer is about to operate on (in display order). Optional:
-   * when omitted, the editing plugin falls back to the grid's resolved
-   * (`effectiveConfig`) columns.
-   */
-  columns?: ColumnConfig[];
-}
+export type CellEditablePredicate = (field: string, row: unknown) => boolean;
 // #endregion
 
 // #region Cell Renderer Types

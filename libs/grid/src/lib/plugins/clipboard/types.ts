@@ -5,6 +5,7 @@
  */
 
 import type { GridElement } from '../../core/plugin/base-plugin';
+import type { CellEditablePredicate } from '../../core/plugin/types';
 
 /**
  * Custom paste handler function.
@@ -76,6 +77,19 @@ export interface ClipboardConfig {
   /** Custom cell value processor for copy operations */
   processCell?: (value: unknown, field: string, row: unknown) => string;
   /**
+   * When `true`, pasting into a multi-cell selection larger than the clipboard
+   * source tiles (repeats) the source to fill the whole selection: a single
+   * copied cell fills every selected cell, a 1×2 source fills as
+   * `val1, val2, val1, val2`, and a 2×2 block tiles across the selection.
+   *
+   * Only applies when a bounded (multi-cell) selection is active — it never
+   * grows the grid. Defaults to `false` (paste writes only the source extent).
+   *
+   * @default false
+   * @since 3.0.0
+   */
+  fillSelection?: boolean;
+  /**
    * Custom paste handler. By default, the plugin applies pasted data to `grid.rows`
    * starting at the target cell.
    *
@@ -140,8 +154,16 @@ export interface PasteDetail {
    * Column fields for each column in the paste range, starting from target.col.
    * Useful for mapping parsed cell values to data fields.
    * Length matches the width of the pasted data (or available columns, whichever is smaller).
+   * When `fillSelection` is active, this spans the full selection width so the source can be tiled.
    */
   fields: string[];
+  /**
+   * When `true`, the paste handler tiles the clipboard source across the full
+   * selection bounds (see {@link ClipboardConfig.fillSelection}). Set by the
+   * plugin from config; only ever `true` when `target.bounds` is set.
+   * @since 3.0.0
+   */
+  fillSelection?: boolean;
 }
 
 /**
@@ -153,31 +175,61 @@ export interface PasteDetail {
  * Behavior:
  * - Single cell selection: paste expands freely, adds new rows if needed
  * - Range/row selection: paste is clipped to fit within selection bounds
- * - Non-editable columns: values are skipped (column alignment preserved)
+ * - Fill-selection: when `detail.fillSelection` is set, the source is tiled
+ *   (repeated via modulo indexing) to fill the whole selection bounds
+ * - Non-editable cells: values are skipped (column alignment preserved).
+ *   Editability is resolved by the editing plugin via the
+ *   `getCellEditableResolver` query — including row-conditional `editable`.
+ *   Without the editing plugin, no cell is editable and paste is a no-op.
  *
  * @param detail - The parsed paste data from clipboard
  * @param grid - The grid element to update
  * @since 0.4.2
  */
 export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): void {
-  const { rows: pastedRows, target, fields } = detail;
+  const { rows: pastedRows, target, fields, fillSelection } = detail;
 
   // No target = nothing to do
-  if (!target) return;
+  if (!target || pastedRows.length === 0) return;
 
   // Get current rows and columns from grid
   const currentRows = grid.rows as Record<string, unknown>[];
   const columns = grid.effectiveConfig.columns ?? [];
   const allFields = columns.map((col) => col.field);
 
-  // Ask plugins (the editing plugin) which fields are editable. We never read
-  // editing-owned column props (`editable`) directly here — that keeps clipboard
-  // decoupled from editing. With no editing plugin loaded, no plugin responds
-  // and nothing is treated as editable (paste becomes a no-op).
-  const editableFields = new Set(grid.query<string[]>('getEditableFields', { columns }).flat());
+  // Ask the editing plugin (via query) whether each target cell may receive a
+  // value. We never read editing-owned column props (`editable`/`rowEditable`)
+  // here — the editing plugin owns that resolution, including row-conditional
+  // `editable`. With no editing plugin loaded, no plugin responds and nothing
+  // is editable (paste becomes a no-op).
+  const [canEditCell = () => false] = grid.query<CellEditablePredicate>('getCellEditableResolver');
 
   // Clone data for immutability
   const newRows = [...currentRows];
+
+  // Fill-selection (tile) mode: repeat the clipboard source across the full
+  // selection bounds using modulo indexing. Never grows the grid.
+  if (fillSelection && target.bounds) {
+    const srcRows = pastedRows.length;
+    for (let rowIndex = target.row; rowIndex <= target.bounds.endRow; rowIndex++) {
+      // Don't paste beyond existing rows
+      if (rowIndex >= newRows.length) break;
+      const sourceRow = pastedRows[(rowIndex - target.row) % srcRows];
+      const srcCols = sourceRow.length;
+      if (srcCols === 0) continue;
+      // Editability is resolved against the pre-paste row state (bounded mode
+      // never grows, so the original row always exists).
+      const evalRow = currentRows[rowIndex];
+      const editRow = (newRows[rowIndex] = { ...newRows[rowIndex] });
+      fields.forEach((field, colOffset) => {
+        if (field && canEditCell(field, evalRow)) {
+          editRow[field] = sourceRow[colOffset % srcCols];
+        }
+      });
+    }
+    grid.rows = newRows;
+    return;
+  }
 
   // Calculate row bounds
   const maxPasteRow = target.bounds ? target.bounds.endRow : Infinity;
@@ -201,14 +253,18 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
       return;
     }
 
-    // Clone the target row and apply values
-    newRows[targetRowIndex] = { ...newRows[targetRowIndex] };
+    // Clone the target row and apply values. Editability is resolved against
+    // the pre-paste row state — the original row for existing rows, or an
+    // (empty) snapshot for rows grown by a single-cell expansion paste.
+    const originalRow = currentRows[targetRowIndex];
+    const editRow = (newRows[targetRowIndex] = { ...newRows[targetRowIndex] });
+    const evalRow = originalRow ?? { ...editRow };
     rowData.forEach((cellValue, colOffset) => {
       // fields array is already constrained by bounds in ClipboardPlugin
       const field = fields[colOffset];
-      if (field && editableFields.has(field)) {
-        // Only paste into editable columns
-        newRows[targetRowIndex][field] = cellValue;
+      if (field && canEditCell(field, evalRow)) {
+        // Only paste into editable cells
+        editRow[field] = cellValue;
       }
     });
   });

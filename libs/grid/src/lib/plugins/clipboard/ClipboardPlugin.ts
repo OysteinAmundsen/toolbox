@@ -62,6 +62,10 @@ import {
  * | Row selection | Paste is clipped to the selected rows |
  * | No selection | Paste starts at row 0, column 0 |
  *
+ * With `fillSelection: true`, pasting a smaller source into a larger bounded
+ * selection tiles the source to fill the whole selection (e.g. one cell fills
+ * all selected cells; a 1×2 source fills as `val1, val2, val1, val2`).
+ *
  * @example Basic Usage with Excel Compatibility
  * ```ts
  * import '@toolbox-web/grid';
@@ -260,21 +264,34 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     // Selection range indices are visible-column indices (from data-col)
     const maxCol = bounds?.endCol ?? this.visibleColumns.length - 1;
 
+    // Drop a copied header row so a round-trip paste writes only values into
+    // cells (never the header label). Only strips when this grid is configured
+    // to include headers AND the first parsed row matches the target columns'
+    // labels — external pastes without a matching header row are left intact.
+    this.#dropCopiedHeaderRow(parsed, targetCol, maxCol);
+
     // Build target info
     const column = this.visibleColumns[targetCol];
     const target: PasteTarget | null = column ? { row: targetRow, col: targetCol, field: column.field, bounds } : null;
 
-    // Build field list for paste width (constrained by bounds if set)
+    // Fill-selection tiling only applies to a bounded (multi-cell) selection.
+    const fillSelection = this.config.fillSelection === true && bounds !== null;
+
+    // Build field list for paste width (constrained by bounds if set). When
+    // filling the selection, extend fields across the full selection width so
+    // the source can be tiled to fill every selected column; otherwise cap at
+    // the clipboard's own width.
     const fields: string[] = [];
     const pasteWidth = parsed[0]?.length ?? 0;
-    for (let i = 0; i < pasteWidth && targetCol + i <= maxCol; i++) {
+    const fieldWidth = fillSelection ? maxCol - targetCol + 1 : pasteWidth;
+    for (let i = 0; i < fieldWidth && targetCol + i <= maxCol; i++) {
       const col = this.visibleColumns[targetCol + i];
       if (col) {
         fields.push(col.field);
       }
     }
 
-    const detail: PasteDetail = { rows: parsed, text, target, fields };
+    const detail: PasteDetail = { rows: parsed, text, target, fields, fillSelection };
 
     // Emit the event for any listeners
     this.emit<PasteDetail>('paste', detail);
@@ -300,6 +317,36 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     // Use custom handler or default
     const handler = pasteHandler ?? defaultPasteHandler;
     handler(detail, this.grid);
+  }
+
+  /**
+   * Drop a header row that this grid itself copied, so a round-trip paste
+   * never lands a header label in a data cell.
+   *
+   * Guarded on two conditions to avoid eating a legitimate first data row:
+   * 1. The grid is configured with `includeHeaders` (it copies headers), and
+   * 2. every cell of the first parsed row equals the corresponding target
+   *    column's label (`header || field`).
+   *
+   * When both hold, the first row is removed in place. External pastes (no
+   * matching header row) are left untouched.
+   */
+  #dropCopiedHeaderRow(parsed: string[][], targetCol: number, maxCol: number): void {
+    if (!this.config.includeHeaders) return;
+    // Never strip away the only row — that would make paste a no-op.
+    if (parsed.length <= 1) return;
+
+    const headerRow = parsed[0];
+    if (headerRow.length === 0) return;
+
+    for (let i = 0; i < headerRow.length && targetCol + i <= maxCol; i++) {
+      const col = this.visibleColumns[targetCol + i];
+      // Ran off the available columns, or a cell doesn't match its label →
+      // not a copied header, keep the row.
+      if (!col || headerRow[i] !== (col.header || col.field)) return;
+    }
+
+    parsed.shift();
   }
 
   /**

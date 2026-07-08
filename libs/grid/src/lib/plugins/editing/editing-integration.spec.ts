@@ -1458,7 +1458,7 @@ describe('EditingPlugin', () => {
       expect(results.includes(true)).toBe(true);
     });
 
-    it('reports editable field names via getEditableFields query', async () => {
+    it('resolves per-cell editability via getCellEditableResolver query', async () => {
       const plugin = new EditingPlugin();
       const cols = [
         { field: 'id', header: 'ID' },
@@ -1470,10 +1470,19 @@ describe('EditingPlugin', () => {
       grid.rows = [{ id: 1, name: 'Alice', role: 'Dev', age: 30 }];
       await waitUpgrade(grid);
 
-      // Only `editable === true` columns are reported; function-typed editable
-      // is row-conditional and intentionally excluded.
-      const results = grid.query<string[]>('getEditableFields', { columns: cols });
-      expect(results.flat()).toEqual(['name']);
+      const [canEditCell] = grid.query<(field: string, row: unknown) => boolean>('getCellEditableResolver');
+      expect(canEditCell).toBeDefined();
+      const row = { id: 1 };
+      // Unconditionally editable
+      expect(canEditCell!('name', row)).toBe(true);
+      // Explicitly not editable / no editable config
+      expect(canEditCell!('role', row)).toBe(false);
+      expect(canEditCell!('id', row)).toBe(false);
+      // Row-conditional editable is honored per row
+      expect(canEditCell!('age', { id: 1 })).toBe(true);
+      expect(canEditCell!('age', { id: 0 })).toBe(false);
+      // Unknown field → not editable
+      expect(canEditCell!('nope', row)).toBe(false);
     });
 
     it('reads the `editable` attribute from declarative light-DOM columns (issue #272)', async () => {
@@ -1491,8 +1500,9 @@ describe('EditingPlugin', () => {
       const nameCol = cfg.columns.find((c: any) => c.field === 'name');
       expect(nameCol.editable).toBe(true);
 
-      const results = grid.query<string[]>('getEditableFields', { columns: cfg.columns });
-      expect(results.flat()).toEqual(['name']);
+      const [canEditCell] = grid.query<(field: string, row: unknown) => boolean>('getCellEditableResolver');
+      expect(canEditCell!('name', { id: 1, name: 'Alice' })).toBe(true);
+      expect(canEditCell!('id', { id: 1, name: 'Alice' })).toBe(false);
     });
 
     it('keeps an explicit `editable: false` config over the declarative attribute (issue #272)', async () => {
@@ -1514,8 +1524,8 @@ describe('EditingPlugin', () => {
       const nameCol = cfg.columns.find((c: any) => c.field === 'name');
       expect(nameCol.editable).toBe(false);
 
-      const results = grid.query<string[]>('getEditableFields', { columns: cfg.columns });
-      expect(results.flat()).toEqual([]);
+      const [canEditCell] = grid.query<(field: string, row: unknown) => boolean>('getCellEditableResolver');
+      expect(canEditCell!('name', { id: 1, name: 'Alice' })).toBe(false);
     });
 
     describe('navigation vs edit mode (Excel-like)', () => {

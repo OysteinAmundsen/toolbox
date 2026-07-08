@@ -1923,6 +1923,8 @@ export interface CellContext<T = any> {
   value: unknown;
   field: string;
   column: ColumnInternal<T>;
+  /** Optional template context for declarative <tbw-grid-type> defaults. */
+  typeDefault?: Record<string, unknown> | null;
 }
 
 /**
@@ -4530,5 +4532,6 @@ export type DataGridCustomEvent<K extends keyof DataGridEventMap<unknown>, TRow 
 export interface EvalContext {
   value: unknown;
   row: Record<string, unknown> | null;
+  typeDefault?: Record<string, unknown> | null;
 }
 // #endregion

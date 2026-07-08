@@ -122,11 +122,46 @@ interface ColumnRegistry {
   editor?: (ctx: ColumnEditorContext<unknown, unknown>) => ReactNode;
 }
 
+interface TypeRegistry {
+  renderer?: (ctx: CellRenderContext<unknown, unknown>) => ReactNode;
+  editor?: (ctx: ColumnEditorContext<unknown, unknown>) => ReactNode;
+}
+
 const columnRegistries = new WeakMap<HTMLElement, ColumnRegistry>();
 
 // Secondary registry by field name to handle React element re-creation
 // React may create new DOM elements on re-render, so we also store by field
 const fieldRegistries = new Map<string, ColumnRegistry>();
+const typeRegistriesByGrid = new WeakMap<HTMLElement, Map<string, TypeRegistry>>();
+const fallbackTypeRegistries = new Map<string, TypeRegistry>();
+const registeredTypeNames = new Set<string>();
+
+function resolveOwningGrid(element: HTMLElement): HTMLElement | undefined {
+  return (element.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null) ?? undefined;
+}
+
+function getTypeRegistryMap(element: HTMLElement, create: boolean): Map<string, TypeRegistry> | undefined {
+  const gridEl = resolveOwningGrid(element);
+  if (!gridEl) {
+    return fallbackTypeRegistries;
+  }
+  const existing = typeRegistriesByGrid.get(gridEl);
+  if (existing || !create) {
+    return existing;
+  }
+  const created = new Map<string, TypeRegistry>();
+  typeRegistriesByGrid.set(gridEl, created);
+  return created;
+}
+
+function resolveTypeName(element: HTMLElement): string | null {
+  const tag = element.tagName.toLowerCase();
+  if (tag === 'tbw-grid-type') {
+    return element.getAttribute('name');
+  }
+  const parentType = element.closest('tbw-grid-type');
+  return parentType?.getAttribute('name') ?? null;
+}
 
 /**
  * Register a React cell renderer for a column element.
@@ -211,12 +246,63 @@ export function getColumnEditor(
   return editor;
 }
 
+export function registerTypeRenderer(
+  element: HTMLElement,
+  renderer: (ctx: CellRenderContext<unknown, unknown>) => ReactNode,
+): void {
+  const name = resolveTypeName(element);
+  if (!name) return;
+  const registries = getTypeRegistryMap(element, true);
+  if (!registries) return;
+  const registry = registries.get(name) ?? {};
+  registry.renderer = renderer;
+  registries.set(name, registry);
+  registeredTypeNames.add(name);
+}
+
+export function getTypeRenderer(
+  element: HTMLElement,
+): ((ctx: CellRenderContext<unknown, unknown>) => ReactNode) | undefined {
+  const name = resolveTypeName(element);
+  if (!name) return undefined;
+  const registries = getTypeRegistryMap(element, false);
+  return registries?.get(name)?.renderer;
+}
+
+export function registerTypeEditor(
+  element: HTMLElement,
+  editor: (ctx: ColumnEditorContext<unknown, unknown>) => ReactNode,
+): void {
+  const name = resolveTypeName(element);
+  if (!name) return;
+  const registries = getTypeRegistryMap(element, true);
+  if (!registries) return;
+  const registry = registries.get(name) ?? {};
+  registry.editor = editor;
+  registries.set(name, registry);
+  registeredTypeNames.add(name);
+}
+
+export function getTypeEditor(
+  element: HTMLElement,
+): ((ctx: ColumnEditorContext<unknown, unknown>) => ReactNode) | undefined {
+  const name = resolveTypeName(element);
+  if (!name) return undefined;
+  const registries = getTypeRegistryMap(element, false);
+  return registries?.get(name)?.editor;
+}
+
 /**
  * Debug helper: Get list of registered fields.
  * @internal
  */
 export function getRegisteredFields(): string[] {
   return Array.from(fieldRegistries.keys());
+}
+
+/** @internal */
+export function getRegisteredTypes(): string[] {
+  return Array.from(registeredTypeNames);
 }
 
 /**
@@ -340,7 +426,13 @@ export class GridAdapter implements FrameworkAdapter {
 
     const hasRenderer = registry?.renderer !== undefined;
     const hasEditor = registry?.editor !== undefined;
-    return registry !== undefined && (hasRenderer || hasEditor);
+    if (registry !== undefined && (hasRenderer || hasEditor)) {
+      return true;
+    }
+
+    const typeName = resolveTypeName(element);
+    const typeRegistry = typeName ? getTypeRegistryMap(element, false)?.get(typeName) : undefined;
+    return !!typeRegistry && (typeRegistry.renderer !== undefined || typeRegistry.editor !== undefined);
   }
 
   /**
@@ -355,7 +447,7 @@ export class GridAdapter implements FrameworkAdapter {
    * allowing the grid to use its default rendering.
    */
   createRenderer<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnViewRenderer<TRow, TValue> | undefined {
-    const renderFn = getColumnRenderer(element);
+    const renderFn = getColumnRenderer(element) ?? getTypeRenderer(element);
 
     if (!renderFn) {
       // Return undefined so the grid uses default rendering
@@ -430,7 +522,7 @@ export class GridAdapter implements FrameworkAdapter {
    * with commit/cancel callbacks passed as props.
    */
   createEditor<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnEditorSpec<TRow, TValue> {
-    const editorFn = getColumnEditor(element);
+    const editorFn = getColumnEditor(element) ?? getTypeEditor(element);
 
     if (!editorFn) {
       return () => document.createElement('div');
@@ -714,6 +806,8 @@ export class GridAdapter implements FrameworkAdapter {
     for (const unsub of this.editorBeforeCloseUnsubs.values()) unsub();
     this.editorBeforeCloseUnsubs.clear();
     fieldRegistries.clear();
+    // Type registries are scoped by grid element via WeakMap. Avoid global
+    // clears here so other mounted grids keep their type registrations.
   }
 
   /**

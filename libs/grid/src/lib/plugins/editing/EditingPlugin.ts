@@ -17,6 +17,7 @@
 
 import { announce, getA11yMessage } from '../../core/internal/aria';
 import { ensureCellVisible } from '../../core/internal/keyboard';
+import { compileTemplate } from '../../core/internal/sanitize';
 import { invalidateAccessorCache } from '../../core/internal/value-accessor';
 import type {
   AfterCellRenderContext,
@@ -26,7 +27,14 @@ import type {
 } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
 import type { GetEditableFieldsContext } from '../../core/plugin/types';
-import type { ColumnConfig, ColumnInternal, GridHost, InternalGrid, RowElementInternal } from '../../core/types';
+import type {
+  ColumnConfig,
+  ColumnInternal,
+  GridHost,
+  InternalGrid,
+  RowElementInternal,
+  TypeDefault,
+} from '../../core/types';
 import styles from './editing.css?inline';
 import { getInputValue } from './editors';
 import { CellValidationManager } from './internal/cell-validation';
@@ -1000,6 +1008,79 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   // #region Render Hooks
 
   /**
+   * Parse `data-*` attributes from a `<tbw-grid-type>` element into a camelCased map.
+   */
+  #readTypeParams(typeEl: HTMLElement): Record<string, unknown> {
+    const params: Record<string, unknown> = {};
+    for (const attr of Array.from(typeEl.attributes)) {
+      if (!attr.name.startsWith('data-')) continue;
+      const key = attr.name
+        .slice(5)
+        .replace(/-([a-z])/g, (_m, letter: string) => letter.toUpperCase())
+        .trim();
+      if (!key) continue;
+      params[key] = attr.value;
+    }
+    return params;
+  }
+
+  /**
+   * Seed type-level editor defaults from declarative `<tbw-grid-type>` light-DOM.
+   *
+   * This mirrors the column-level `<tbw-grid-column-editor>` behavior: editor
+   * templates are editing-plugin-owned and only become active when the editing
+   * plugin is imported.
+   */
+  #seedTypeEditorsFromLightDom(): void {
+    const internalGrid = this.#internalGrid;
+    const host = internalGrid._hostElement;
+    if (!host) return;
+
+    const effectiveConfig = internalGrid.effectiveConfig;
+    if (!effectiveConfig) return;
+
+    const typeElements = Array.from(host.children).filter((el) => el.tagName.toLowerCase() === 'tbw-grid-type');
+    if (!typeElements.length) return;
+
+    const adapter = internalGrid.__frameworkAdapter;
+    const typeDefaults = (effectiveConfig.typeDefaults ??= {});
+
+    for (let i = 0; i < typeElements.length; i++) {
+      const typeEl = typeElements[i] as HTMLElement;
+      const name = typeEl.getAttribute('name')?.trim();
+      if (!name) continue;
+
+      const existing = typeDefaults[name];
+      // Programmatic (or already-seeded) editor always wins.
+      if (existing?.editor) continue;
+
+      const editorTpl = typeEl.querySelector('tbw-grid-column-editor') as HTMLElement | null;
+      const editorTarget = (editorTpl ?? typeEl) as HTMLElement;
+
+      let editor: TypeDefault<T>['editor'] | undefined = adapter?.canHandle?.(editorTarget)
+        ? (adapter.createEditor?.(editorTarget) as TypeDefault<T>['editor'] | undefined)
+        : undefined;
+
+      if (!editor && editorTpl) {
+        const params = this.#readTypeParams(typeEl);
+        const compiled = compileTemplate(editorTpl.innerHTML);
+        editor = ((ctx) =>
+          compiled({
+            row: ctx.row as T,
+            value: ctx.value,
+            field: ctx.field,
+            column: ctx.column as ColumnInternal<T>,
+            typeDefault: params,
+          })) as TypeDefault<T>['editor'];
+      }
+
+      if (!editor) continue;
+
+      typeDefaults[name] = { ...(existing ?? {}), editor };
+    }
+  }
+
+  /**
    * Process columns to merge type-level editorParams with column-level and to
    * read editing-owned attributes from declarative `<tbw-grid-column>` markup.
    *
@@ -1011,6 +1092,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    */
   override processColumns(columns: ColumnConfig<T>[]): ColumnConfig<T>[] {
     const internalGrid = this.#internalGrid;
+    this.#seedTypeEditorsFromLightDom();
     const typeDefaults = (internalGrid as any).effectiveConfig?.typeDefaults;
     const adapter = internalGrid.__frameworkAdapter;
     const hasTypeDefaults = !!typeDefaults || !!adapter?.getTypeDefault;

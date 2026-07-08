@@ -65,6 +65,7 @@ export type { GridCellContext } from './lib/directives/grid-column-view.directiv
 export { TbwGridColumn } from './lib/directives/grid-column.directive';
 export { TbwGridHeader } from './lib/directives/grid-header.directive';
 export { TbwGridToolButtons } from './lib/directives/grid-tool-buttons.directive';
+export { TbwGridType } from './lib/directives/grid-type.directive';
 export { Grid } from './lib/directives/grid.directive';
 export type { CellCommitEvent, RowCommitEvent } from './lib/directives/grid.directive';
 

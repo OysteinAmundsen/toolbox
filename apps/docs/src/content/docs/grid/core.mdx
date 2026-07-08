@@ -16,6 +16,7 @@ import LoadingStatesDemo from '@components/demos/LoadingStatesDemo.astro';
 import RowAnimationDemo from '@components/demos/RowAnimationDemo.astro';
 import RowCellStylingDemo from '@components/demos/RowCellStylingDemo.astro';
 import RtlDemo from '@components/demos/RtlDemo.astro';
+import TypeDefaultsLightDomDemo from '@components/demos/TypeDefaultsLightDomDemo.astro';
 import VariableRowHeightDemo from '@components/demos/VariableRowHeightDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
@@ -941,6 +942,102 @@ export class AppComponent {
 </Tabs>
 
 Type defaults reduce repetition when many columns share the same presentation. Column-level `format` or `renderer` overrides type defaults when both are specified.
+
+#### Declarative Light DOM Type Defaults
+
+You can also define type defaults directly in light DOM with `<tbw-grid-type>`.
+
+<ShowSource file="demos/TypeDefaultsLightDomDemo.astro">
+  <TypeDefaultsLightDomDemo />
+</ShowSource>
+
+<Tabs syncKey="framework">
+  <TabItem label="TypeScript">
+```html
+<tbw-grid id="orders-grid">
+  <tbw-grid-type name="currency" data-currency="USD" data-locale="en-US">
+    <tbw-grid-column-view>
+      <span class="money-cell">{{ typeDefault.currency }} {{ value }}</span>
+    </tbw-grid-column-view>
+    <tbw-grid-column-editor>
+      <input type="number" value="{{ value }}" />
+    </tbw-grid-column-editor>
+  </tbw-grid-type>
+
+  <tbw-grid-column field="amount" type="currency" editable></tbw-grid-column>
+  <tbw-grid-column field="tax" type="currency" editable></tbw-grid-column>
+</tbw-grid>
+
+<script type="module">
+  import '@toolbox-web/grid/features/editing';
+
+  const grid = document.getElementById('orders-grid');
+  grid.gridConfig = {
+    features: { editing: { editOn: 'click' } },
+    // Programmatic typeDefaults win over declarative tbw-grid-type when both exist.
+    // typeDefaults: { currency: { renderer: ... } }
+  };
+</script>
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import { DataGrid, GridColumn, GridType } from '@toolbox-web/grid-react';
+
+<DataGrid rows={rows}>
+  <GridType
+    name="currency"
+    params={{ currency: 'USD', locale: 'en-US' }}
+  >
+    {({ value }) => <span className="money-cell">USD {value}</span>}
+  </GridType>
+
+  <GridColumn field="amount" type="currency" />
+  <GridColumn field="tax" type="currency" />
+</DataGrid>
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import { TbwGrid, TbwGridColumn, TbwGridType } from '@toolbox-web/grid-vue';
+</script>
+
+<template>
+  <TbwGrid :rows="rows">
+    <TbwGridType name="currency" :params="{ currency: 'USD', locale: 'en-US' }">
+      <template #cell="{ value }">
+        <span class="money-cell">USD {{ value }}</span>
+      </template>
+    </TbwGridType>
+
+    <TbwGridColumn field="amount" type="currency" />
+    <TbwGridColumn field="tax" type="currency" />
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```html
+<tbw-grid [rows]="rows" [editing]="'click'">
+  <tbw-grid-type name="currency">
+    <span *tbwRenderer="let value" class="money-cell">USD {{ value }}</span>
+    <input *tbwEditor="let value; onCommit as onCommit" [value]="value" (blur)="onCommit($any($event.target).value)" />
+  </tbw-grid-type>
+
+  <tbw-grid-column field="amount" type="currency" editable></tbw-grid-column>
+  <tbw-grid-column field="tax" type="currency" editable></tbw-grid-column>
+</tbw-grid>
+```
+  </TabItem>
+</Tabs>
+
+Notes:
+
+- `<tbw-grid-type>` applies defaults to every column whose `type` matches `name`.
+- `data-*` attributes on `<tbw-grid-type>` are exposed in templates as `typeDefault.*`.
+- Programmatic `gridConfig.typeDefaults` entries override declarative `<tbw-grid-type>` entries for the same type.
+- Type-level editors require the editing feature/plugin to be enabled in your runtime/framework package.
 
 ### Custom Header Renderers
 

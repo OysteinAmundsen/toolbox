@@ -49,6 +49,7 @@ export { default as TbwGridResponsiveCard } from './lib/TbwGridResponsiveCard.vu
 export { default as TbwGridToolbarContent } from './lib/TbwGridToolbarContent.vue';
 export { default as TbwGridToolButtons } from './lib/TbwGridToolButtons.vue';
 export { default as TbwGridToolPanel } from './lib/TbwGridToolPanel.vue';
+export { default as TbwGridType } from './lib/TbwGridType.vue';
 
 // Context types for slots
 export type { DetailPanelContext } from './lib/detail-panel-registry';

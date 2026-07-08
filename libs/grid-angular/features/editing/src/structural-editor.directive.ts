@@ -128,9 +128,9 @@ export class TbwEditor implements OnDestroy {
   }
 
   private registerTemplate(): void {
-    // Find the parent tbw-grid-column element
+    // Find the parent tbw-grid-column or tbw-grid-type element
     let parent = this.elementRef.nativeElement?.parentElement;
-    while (parent && parent.tagName !== 'TBW-GRID-COLUMN') {
+    while (parent && parent.tagName !== 'TBW-GRID-COLUMN' && parent.tagName !== 'TBW-GRID-TYPE') {
       parent = parent.parentElement;
     }
 

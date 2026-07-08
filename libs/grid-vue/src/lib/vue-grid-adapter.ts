@@ -123,10 +123,45 @@ interface ColumnRegistry {
   headerLabelRenderer?: (ctx: HeaderLabelContext<unknown>) => VNode;
 }
 
+interface TypeRegistry {
+  renderer?: (ctx: CellRenderContext<unknown, unknown>) => VNode;
+  editor?: (ctx: ColumnEditorContext<unknown, unknown>) => VNode;
+}
+
 const columnRegistries = new WeakMap<HTMLElement, ColumnRegistry>();
 
 // Secondary registry by field name to handle Vue component re-creation
 const fieldRegistries = new Map<string, ColumnRegistry>();
+const typeRegistriesByGrid = new WeakMap<HTMLElement, Map<string, TypeRegistry>>();
+const fallbackTypeRegistries = new Map<string, TypeRegistry>();
+const registeredTypeNames = new Set<string>();
+
+function resolveOwningGrid(element: HTMLElement): HTMLElement | undefined {
+  return (element.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null) ?? undefined;
+}
+
+function getTypeRegistryMap(element: HTMLElement, create: boolean): Map<string, TypeRegistry> | undefined {
+  const gridEl = resolveOwningGrid(element);
+  if (!gridEl) {
+    return fallbackTypeRegistries;
+  }
+  const existing = typeRegistriesByGrid.get(gridEl);
+  if (existing || !create) {
+    return existing;
+  }
+  const created = new Map<string, TypeRegistry>();
+  typeRegistriesByGrid.set(gridEl, created);
+  return created;
+}
+
+function resolveTypeName(element: HTMLElement): string | null {
+  const tag = element.tagName.toLowerCase();
+  if (tag === 'tbw-grid-type') {
+    return element.getAttribute('name');
+  }
+  const parentType = element.closest('tbw-grid-type');
+  return parentType?.getAttribute('name') ?? null;
+}
 
 /**
  * Register a Vue cell renderer for a column element.
@@ -285,6 +320,52 @@ export function getColumnHeaderLabelRenderer(
   return renderer;
 }
 
+export function registerTypeRenderer(
+  element: HTMLElement,
+  renderer: (ctx: CellRenderContext<unknown, unknown>) => VNode,
+): void {
+  const name = resolveTypeName(element);
+  if (!name) return;
+  const registries = getTypeRegistryMap(element, true);
+  if (!registries) return;
+  const registry = registries.get(name) ?? {};
+  registry.renderer = renderer;
+  registries.set(name, registry);
+  registeredTypeNames.add(name);
+}
+
+export function getTypeRenderer(
+  element: HTMLElement,
+): ((ctx: CellRenderContext<unknown, unknown>) => VNode) | undefined {
+  const name = resolveTypeName(element);
+  if (!name) return undefined;
+  const registries = getTypeRegistryMap(element, false);
+  return registries?.get(name)?.renderer;
+}
+
+export function registerTypeEditor(
+  element: HTMLElement,
+  editor: (ctx: ColumnEditorContext<unknown, unknown>) => VNode,
+): void {
+  const name = resolveTypeName(element);
+  if (!name) return;
+  const registries = getTypeRegistryMap(element, true);
+  if (!registries) return;
+  const registry = registries.get(name) ?? {};
+  registry.editor = editor;
+  registries.set(name, registry);
+  registeredTypeNames.add(name);
+}
+
+export function getTypeEditor(
+  element: HTMLElement,
+): ((ctx: ColumnEditorContext<unknown, unknown>) => VNode) | undefined {
+  const name = resolveTypeName(element);
+  if (!name) return undefined;
+  const registries = getTypeRegistryMap(element, false);
+  return registries?.get(name)?.editor;
+}
+
 /**
  * Get all registered field names.
  * @internal - for testing only
@@ -300,6 +381,8 @@ export function getRegisteredFields(): string[] {
  */
 export function clearFieldRegistries(): void {
   fieldRegistries.clear();
+  fallbackTypeRegistries.clear();
+  registeredTypeNames.clear();
 }
 
 // #region Vue Component Detection
@@ -1022,7 +1105,13 @@ export class GridAdapter implements FrameworkAdapter {
     const hasEditor = registry?.editor !== undefined;
     const hasHeaderRenderer = registry?.headerRenderer !== undefined;
     const hasHeaderLabelRenderer = registry?.headerLabelRenderer !== undefined;
-    return registry !== undefined && (hasRenderer || hasEditor || hasHeaderRenderer || hasHeaderLabelRenderer);
+    if (registry !== undefined && (hasRenderer || hasEditor || hasHeaderRenderer || hasHeaderLabelRenderer)) {
+      return true;
+    }
+
+    const typeName = resolveTypeName(element);
+    const typeRegistry = typeName ? getTypeRegistryMap(element, false)?.get(typeName) : undefined;
+    return !!typeRegistry && (typeRegistry.renderer !== undefined || typeRegistry.editor !== undefined);
   }
 
   /**
@@ -1030,7 +1119,7 @@ export class GridAdapter implements FrameworkAdapter {
    * and returns its container DOM element.
    */
   createRenderer<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnViewRenderer<TRow, TValue> | undefined {
-    const renderFn = getColumnRenderer(element);
+    const renderFn = getColumnRenderer(element) ?? getTypeRenderer(element);
 
     if (!renderFn) {
       return undefined;
@@ -1087,7 +1176,7 @@ export class GridAdapter implements FrameworkAdapter {
    * Returns a function that creates the editor DOM element.
    */
   createEditor<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnEditorSpec<TRow, TValue> | undefined {
-    const editorFn = getColumnEditor(element);
+    const editorFn = getColumnEditor(element) ?? getTypeEditor(element);
 
     if (!editorFn) {
       return undefined;
@@ -1356,6 +1445,8 @@ export class GridAdapter implements FrameworkAdapter {
     this.editorBeforeCloseUnsubs.clear();
 
     fieldRegistries.clear();
+    // Type registries are scoped by grid element via WeakMap. Avoid global
+    // clears here so other mounted grids keep their type registrations.
   }
 
   /**

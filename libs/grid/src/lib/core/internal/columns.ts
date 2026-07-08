@@ -155,6 +155,63 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
     })
     .filter((c): c is ColumnInternal => !!c);
 }
+
+/**
+ * Parse direct-child `<tbw-grid-type>` elements from the host light DOM into
+ * lightweight type-default template definitions.
+ */
+export function parseLightDomTypeDefaults(host: HTMLElement): Array<{
+  name: string;
+  params: Record<string, unknown>;
+  viewTemplate: HTMLElement | undefined;
+  viewRenderer: ((ctx: unknown) => Node | string | void) | undefined;
+}> {
+  type ParsedTypeDefault = {
+    name: string;
+    params: Record<string, unknown>;
+    viewTemplate: HTMLElement | undefined;
+    viewRenderer: ((ctx: unknown) => Node | string | void) | undefined;
+  };
+
+  const DataGridElementClassRef = (globalThis as { DataGridElement?: DataGridElementClass }).DataGridElement;
+  const adapters = DataGridElementClassRef?.getAdapters?.() ?? [];
+
+  const typeElements = Array.from(host.children).filter((el) => el.tagName.toLowerCase() === 'tbw-grid-type');
+
+  return typeElements
+    .map((el) => {
+      const name = el.getAttribute('name')?.trim();
+      if (!name) return null;
+
+      const children = Array.from(el.children) as HTMLElement[];
+      const viewTemplate = children.find((child) => child.tagName.toLowerCase() === 'tbw-grid-column-view');
+
+      // Match the column light-DOM path: adapters can source renderer
+      // from wrapper elements OR directly from the host element.
+      const viewTarget = (viewTemplate ?? el) as HTMLElement;
+      const viewAdapter = adapters.find((a) => a.canHandle(viewTarget));
+      const viewRenderer = viewAdapter?.createRenderer(viewTarget);
+
+      const params: Record<string, unknown> = {};
+      for (const attr of Array.from(el.attributes)) {
+        if (!attr.name.startsWith('data-')) continue;
+        const key = attr.name
+          .slice(5)
+          .replace(/-([a-z])/g, (_m, letter: string) => letter.toUpperCase())
+          .trim();
+        if (!key) continue;
+        params[key] = attr.value;
+      }
+
+      return {
+        name,
+        params,
+        viewTemplate,
+        viewRenderer,
+      } as ParsedTypeDefault;
+    })
+    .filter((def): def is ParsedTypeDefault => def !== null);
+}
 // #endregion
 
 // #region Column Ordering

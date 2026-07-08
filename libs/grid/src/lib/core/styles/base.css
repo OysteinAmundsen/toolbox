@@ -36,6 +36,22 @@
       box-sizing: border-box;
     }
 
+    /* Light-DOM configuration elements are parsed into grid config/templates
+       and must never render their own raw markup (e.g. an inline
+       `<tbw-grid-column-view>` `{{ }}` template would otherwise show literally
+       above the grid). Only CORE-owned config tags are hidden here. Plugin-owned
+       tags — `tbw-grid-detail` (master-detail) and the shell tags
+       `tbw-grid-header` / `tbw-grid-tool-buttons` / `tbw-grid-tool-panel` — are
+       intentionally left visible so that an un-imported plugin's leftover config
+       is a visible "you forgot to import it" signal (see the light-DOM
+       decoupling INVARIANT in grid-plugins-catalog). Hiding a config tag does
+       not affect parsing or framework-adapter template registration (both read
+       from `display:none` elements). */
+    & > tbw-grid-column,
+    & > tbw-grid-type {
+      display: none;
+    }
+
     /* ========== Grid Root Layout ========== */
 
     .tbw-grid-root {

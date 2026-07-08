@@ -1,0 +1,57 @@
+---
+/**
+ * Demo: Declarative Light DOM type defaults via <tbw-grid-type>.
+ */
+---
+
+<p class="grid-demo-description">
+  Define type-level renderer/editor defaults declaratively with <code>&lt;tbw-grid-type&gt;</code>.
+</p>
+<div class="grid-demo">
+  <tbw-grid id="demo-type-defaults-light-dom" style="height: 260px;">
+    <tbw-grid-type name="currency" data-currency="USD" data-locale="en-US">
+      <tbw-grid-column-view>
+        {/* Astro parses `{...}` in element content as a JS expression, so the
+            grid's `{{ }}` template must be emitted via a template-literal
+            expression (the quoted `value="{{ value }}"` attribute below is
+            already literal and needs no escaping). */}
+        <span class="money-cell">{`{{ typeDefault.currency }} {{ value }}`}</span>
+      </tbw-grid-column-view>
+      <tbw-grid-column-editor>
+        <input type="number" value="{{ value }}"/>
+      </tbw-grid-column-editor>
+    </tbw-grid-type>
+
+    <tbw-grid-column field="amount" type="currency" editable></tbw-grid-column>
+    <tbw-grid-column field="tax" type="currency" editable></tbw-grid-column>
+  </tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/editing';
+
+  const grid = queryGrid('#demo-type-defaults-light-dom');
+  if (grid) {
+    grid.gridConfig = {
+      features: { editing: { editOn: 'click' } },
+      // Programmatic typeDefaults win over declarative tbw-grid-type when both exist.
+      // typeDefaults: { currency: { renderer: ... } }
+    };
+
+    grid.rows = [
+      { amount: 1200, tax: 110 },
+      { amount: 980, tax: 95 },
+      { amount: 1575, tax: 142 },
+      { amount: 730, tax: 68 },
+    ];
+  }
+</script>
+
+<style is:global>
+  #demo-type-defaults-light-dom .money-cell {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+</style>

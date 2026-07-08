@@ -23,8 +23,15 @@ import type {
   GridColumnState,
   GridConfig,
   GridHost,
+  TypeDefault,
 } from '../types';
-import { applyInitialOrder, mergeColumns, parseLightDomColumns, updateTemplate } from './columns';
+import {
+  applyInitialOrder,
+  mergeColumns,
+  parseLightDomColumns,
+  parseLightDomTypeDefaults,
+  updateTemplate,
+} from './columns';
 import { renderHeader } from './header';
 import { inferColumns, overlayInferred } from './inference';
 import { RenderPhase } from './render-scheduler';
@@ -51,6 +58,7 @@ export class ConfigManager<T = unknown> {
 
   // Light DOM cache
   #lightDomColumnsCache?: ColumnInternal<T>[];
+  #lightDomTypeDefaultsCache?: Record<string, TypeDefault<T>>;
   #originalColumnNodes?: HTMLElement[];
   // #endregion
 
@@ -438,6 +446,31 @@ export class ConfigManager<T = unknown> {
       base.columns = columns as ColumnConfig<T>[];
     }
 
+    // Declarative light-DOM <tbw-grid-type> defaults are merged with
+    // programmatic `gridConfig.typeDefaults`.
+    //
+    // Precedence:
+    // - Types only in light DOM: included.
+    // - Types only in gridConfig: included.
+    // - Same type in both: shallow-merged, gridConfig keys win.
+    if (this.#lightDomTypeDefaultsCache && Object.keys(this.#lightDomTypeDefaultsCache).length > 0) {
+      const merged: Record<string, TypeDefault<T>> = { ...this.#lightDomTypeDefaultsCache };
+      const configured = base.typeDefaults ?? {};
+      for (const typeName of Object.keys(configured)) {
+        const fromConfig = configured[typeName];
+        const fromLightDom = merged[typeName];
+        if (fromLightDom) {
+          merged[typeName] = {
+            ...fromLightDom,
+            ...fromConfig,
+          };
+        } else {
+          merged[typeName] = fromConfig;
+        }
+      }
+      base.typeDefaults = merged;
+    }
+
     // Individual prop overrides
     if (this.#fitMode) base.fitMode = this.#fitMode;
     if (!base.fitMode) base.fitMode = 'stretch';
@@ -782,6 +815,38 @@ export class ConfigManager<T = unknown> {
       this.#originalColumnNodes = Array.from(host.querySelectorAll('tbw-grid-column')) as HTMLElement[];
       this.#lightDomColumnsCache = this.#originalColumnNodes.length ? parseLightDomColumns(host) : [];
     }
+
+    if (!this.#lightDomTypeDefaultsCache) {
+      const defs = parseLightDomTypeDefaults(host);
+      const typeDefaults: Record<string, TypeDefault<T>> = {};
+
+      for (const def of defs) {
+        const typeDefault: TypeDefault<T> = {};
+        let hasAnyDefault = false;
+
+        if (def.viewRenderer) {
+          typeDefault.renderer = def.viewRenderer as TypeDefault<T>['renderer'];
+          hasAnyDefault = true;
+        } else if (def.viewTemplate) {
+          const viewTemplate = compileTemplate(def.viewTemplate.innerHTML);
+          typeDefault.renderer = (ctx) =>
+            viewTemplate({
+              row: ctx.row as T,
+              value: ctx.value,
+              field: ctx.field,
+              column: ctx.column as ColumnInternal<T>,
+              typeDefault: def.params,
+            });
+          hasAnyDefault = true;
+        }
+
+        if (!hasAnyDefault) continue;
+
+        typeDefaults[def.name] = typeDefault;
+      }
+
+      this.#lightDomTypeDefaultsCache = typeDefaults;
+    }
   }
 
   /**
@@ -789,6 +854,7 @@ export class ConfigManager<T = unknown> {
    */
   clearLightDomCache(): void {
     this.#lightDomColumnsCache = undefined;
+    this.#lightDomTypeDefaultsCache = undefined;
   }
 
   /**
@@ -865,6 +931,17 @@ export class ConfigManager<T = unknown> {
           }
         }
 
+        // Check removed nodes
+        for (const node of mutation.removedNodes) {
+          if (node.nodeType !== Node.ELEMENT_NODE) continue;
+          const el = node as Element;
+          const tagName = el.tagName.toLowerCase();
+
+          if (this.#lightDomHandlers.has(tagName)) {
+            pendingCallbacks.add(tagName);
+          }
+        }
+
         // Check for attribute changes
         if (mutation.type === 'attributes' && mutation.target.nodeType === Node.ELEMENT_NODE) {
           const el = mutation.target as Element;
@@ -881,12 +958,34 @@ export class ConfigManager<T = unknown> {
       }
     });
 
-    // Observe children and their attributes
+    // Observe children and their attributes.
+    //
+    // The grid renders into light DOM (no Shadow DOM), so this subtree also
+    // contains every rendered row/cell. `attributeFilter` is a deliberate
+    // performance guard: without it, every class/aria-selected/tabindex/style
+    // mutation on every cell during scroll/selection/focus would generate a
+    // MutationRecord. The list is limited to the config-carrying attributes on
+    // light-DOM config elements (`<tbw-grid-column>`, `<tbw-grid-type>`, shell
+    // elements). Note: arbitrary `data-*` mutations are intentionally NOT
+    // reactive (mirrors columns) — swap the element (a childList mutation) to
+    // re-parse a declarative type/column definition.
     this.#lightDomObserver.observe(host, {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['title', 'field', 'header', 'width', 'hidden', 'id', 'icon', 'tooltip', 'order'],
+      attributeFilter: [
+        'title',
+        'field',
+        'header',
+        'width',
+        'hidden',
+        'id',
+        'icon',
+        'tooltip',
+        'order',
+        'name',
+        'type',
+      ],
     });
   }
   // #endregion

@@ -4315,7 +4315,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #setupLightDomHandlers(): void {
     // Handler for column element changes
     const handleColumnChange = () => {
-      this.__lightDomColumnsCache = undefined;
+      this.#configManager.clearLightDomCache();
       this.#setup();
     };
 
@@ -4327,6 +4327,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // generic observer infrastructure.
     this.#configManager.registerLightDomHandler('tbw-grid-column', handleColumnChange);
     this.#configManager.registerLightDomHandler('tbw-grid-detail', handleColumnChange);
+    this.#configManager.registerLightDomHandler('tbw-grid-type', handleColumnChange);
 
     // Start observing
     this.#configManager.observeLightDOM(this);
@@ -4340,7 +4341,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   refreshColumns(): void {
     // Clear the column cache to force re-parsing
-    this.__lightDomColumnsCache = undefined;
+    this.#configManager.clearLightDomCache();
 
     // Invalidate cell cache to reset __hasSpecialColumns flag
     // This is critical for frameworks like React where renderers are registered asynchronously

@@ -109,10 +109,10 @@ export class TbwRenderer implements OnDestroy {
   }
 
   private registerTemplate(): void {
-    // Find the parent tbw-grid-column element
+    // Find the parent tbw-grid-column or tbw-grid-type element
     // The template's host element may not be in the DOM yet, so we traverse from the comment node
     let parent = this.elementRef.nativeElement?.parentElement;
-    while (parent && parent.tagName !== 'TBW-GRID-COLUMN') {
+    while (parent && parent.tagName !== 'TBW-GRID-COLUMN' && parent.tagName !== 'TBW-GRID-TYPE') {
       parent = parent.parentElement;
     }
 

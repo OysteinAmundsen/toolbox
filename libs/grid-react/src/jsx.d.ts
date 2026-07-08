@@ -21,6 +21,16 @@ declare module 'react' {
         multi?: boolean;
         ref?: React.Ref<HTMLElement>;
       };
+      'tbw-grid-type': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+        name?: string;
+        ref?: React.Ref<HTMLElement>;
+      };
+      'tbw-grid-column-view': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+        ref?: React.Ref<HTMLElement>;
+      };
+      'tbw-grid-column-editor': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+        ref?: React.Ref<HTMLElement>;
+      };
       'tbw-grid-header': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
         title?: string;
       };

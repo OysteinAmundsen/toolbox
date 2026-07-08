@@ -273,8 +273,13 @@ function safeEval(expr: string, ctx: EvalContext): unknown {
       const key = name.slice(4);
       return ctx.row ? ctx.row[key] : undefined;
     }
+    if (name.startsWith('typeDefault.')) {
+      const key = name.slice('typeDefault.'.length);
+      return ctx.typeDefault ? ctx.typeDefault[key] : undefined;
+    }
     // bare 'row' reference
     if (name === 'row') return ctx.row;
+    if (name === 'typeDefault') return ctx.typeDefault;
     return undefined;
   }
 
@@ -458,6 +463,11 @@ function evalSingle(expr: string, ctx: EvalContext): string {
   if (expr.startsWith('row.') && !/[()?]/.test(expr) && !expr.includes(':')) {
     const key = expr.slice(4);
     const v = ctx.row ? ctx.row[key] : undefined;
+    return v == null ? EMPTY_SENTINEL : String(v);
+  }
+  if (expr.startsWith('typeDefault.') && !/[()?]/.test(expr) && !expr.includes(':')) {
+    const key = expr.slice('typeDefault.'.length);
+    const v = ctx.typeDefault ? ctx.typeDefault[key] : undefined;
     return v == null ? EMPTY_SENTINEL : String(v);
   }
   if (expr.length > 80) return EMPTY_SENTINEL;

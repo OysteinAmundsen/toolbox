@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { FitModeEnum } from '../types';
-import { applyInitialOrder, autoSizeColumns, mergeColumns, parseLightDomColumns, updateTemplate } from './columns';
+import {
+  applyInitialOrder,
+  autoSizeColumns,
+  mergeColumns,
+  parseLightDomColumns,
+  parseLightDomTypeDefaults,
+  updateTemplate,
+} from './columns';
 import { renderHeader } from './header';
 
 describe('parseLightDomColumns', () => {
@@ -217,6 +224,44 @@ describe('parseLightDomColumns', () => {
       expect(col.headerRenderer).toBeUndefined();
       expect(col.headerLabelRenderer).toBeUndefined();
     });
+  });
+});
+
+describe('parseLightDomTypeDefaults', () => {
+  it('parses direct-child tbw-grid-type entries with view templates and data-* params', () => {
+    const host = document.createElement('div');
+    host.innerHTML = `
+      <tbw-grid-type name="currency" data-currency="USD" data-locale="en-US">
+        <tbw-grid-column-view><span>{{ value }}</span></tbw-grid-column-view>
+      </tbw-grid-type>
+    `;
+
+    const defs = parseLightDomTypeDefaults(host as any);
+    expect(defs).toHaveLength(1);
+    expect(defs[0].name).toBe('currency');
+    expect(defs[0].params).toEqual({ currency: 'USD', locale: 'en-US' });
+    expect(defs[0].viewTemplate).toBeInstanceOf(HTMLElement);
+  });
+
+  it('ignores tbw-grid-type without name and ignores nested non-direct children', () => {
+    const host = document.createElement('div');
+    host.innerHTML = `
+      <tbw-grid-type>
+        <tbw-grid-column-view><span>{{ value }}</span></tbw-grid-column-view>
+      </tbw-grid-type>
+      <section>
+        <tbw-grid-type name="nested">
+          <tbw-grid-column-view><span>{{ value }}</span></tbw-grid-column-view>
+        </tbw-grid-type>
+      </section>
+      <tbw-grid-type name="status">
+        <tbw-grid-column-view><span>{{ value }}</span></tbw-grid-column-view>
+      </tbw-grid-type>
+    `;
+
+    const defs = parseLightDomTypeDefaults(host as any);
+    expect(defs).toHaveLength(1);
+    expect(defs[0].name).toBe('status');
   });
 });
 

@@ -33,6 +33,8 @@ export {
 export { GridToolButtons, type GridToolButtonsProps } from './lib/grid-tool-button';
 export { GridToolPanel, type GridToolPanelProps, type ToolPanelContext } from './lib/grid-tool-panel';
 export { GridToolbarContent, type GridToolbarContentProps } from './lib/grid-toolbar-content';
+export { GridType } from './lib/grid-type';
+export type { GridTypeProps } from './lib/grid-type';
 
 // Feature props types for declarative plugin configuration
 export type {

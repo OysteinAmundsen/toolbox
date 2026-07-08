@@ -575,3 +575,118 @@ describe('Type Defaults - Framework Adapter Integration', () => {
     expect(cell).toBeTruthy();
   }, 20000);
 });
+
+describe('Type Defaults - Light DOM tbw-grid-type', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('registers declarative type defaults and reuses one template across multiple columns', async () => {
+    const grid = document.createElement('tbw-grid') as any;
+    grid.innerHTML = `
+      <tbw-grid-type name="currency" data-currency="USD">
+        <tbw-grid-column-view>
+          <span class="currency-cell">{{ typeDefault.currency }} {{ value }}</span>
+        </tbw-grid-column-view>
+      </tbw-grid-type>
+      <tbw-grid-column field="price" type="currency"></tbw-grid-column>
+      <tbw-grid-column field="cost" type="currency"></tbw-grid-column>
+      <tbw-grid-column field="name" type="string"></tbw-grid-column>
+    `;
+    grid.rows = [
+      { id: 1, name: 'Alice', country: 'US', status: 'active', price: 100, cost: 50 },
+      { id: 2, name: 'Bob', country: 'UK', status: 'pending', price: 200, cost: 80 },
+    ];
+    document.body.appendChild(grid);
+
+    await customElements.whenDefined('tbw-grid');
+    await waitForUpgraded(grid);
+
+    const priceCell = grid.querySelector('[role="gridcell"][data-field="price"] .currency-cell');
+    const costCell = grid.querySelector('[role="gridcell"][data-field="cost"] .currency-cell');
+    expect(priceCell?.textContent).toContain('USD 100');
+    expect(costCell?.textContent).toContain('USD 50');
+  }, 20000);
+
+  it('lets programmatic typeDefaults override declarative tbw-grid-type', async () => {
+    const grid = document.createElement('tbw-grid') as any;
+    const programmaticRenderer = vi.fn((ctx) => {
+      const el = document.createElement('span');
+      el.className = 'programmatic-currency';
+      el.textContent = `OVERRIDE ${ctx.value}`;
+      return el;
+    });
+
+    grid.innerHTML = `
+      <tbw-grid-type name="currency" data-currency="USD">
+        <tbw-grid-column-view>
+          <span class="currency-cell">{{ typeDefault.currency }} {{ value }}</span>
+        </tbw-grid-column-view>
+      </tbw-grid-type>
+      <tbw-grid-column field="price" type="currency"></tbw-grid-column>
+    `;
+    grid.gridConfig = {
+      typeDefaults: {
+        currency: {
+          renderer: programmaticRenderer,
+        },
+      },
+    };
+    grid.rows = [{ id: 1, name: 'Alice', country: 'US', status: 'active', price: 100 }];
+    document.body.appendChild(grid);
+
+    await customElements.whenDefined('tbw-grid');
+    await waitForUpgraded(grid);
+
+    expect(programmaticRenderer).toHaveBeenCalled();
+    expect(grid.querySelector('.programmatic-currency')).toBeTruthy();
+    // The declarative template must NOT render into cells (programmatic won).
+    // Scope to rendered cells: the raw `<tbw-grid-type>` template markup stays
+    // in light DOM by design (config elements are hidden via CSS, not removed),
+    // so an unscoped `.currency-cell` query would match the inert template.
+    expect(grid.querySelector('[role="gridcell"] .currency-cell')).toBeFalsy();
+  }, 20000);
+
+  it('supports editor-only tbw-grid-type definitions for editing plugin', async () => {
+    const grid = document.createElement('tbw-grid') as any;
+    grid.innerHTML = `
+      <tbw-grid-type name="currency" data-currency="USD">
+        <tbw-grid-column-editor>
+          <input class="currency-editor" value="{{ value }}" />
+        </tbw-grid-column-editor>
+      </tbw-grid-type>
+      <tbw-grid-column field="price" type="currency" editable></tbw-grid-column>
+    `;
+    grid.gridConfig = {
+      plugins: [new EditingPlugin({ editOn: 'click' })],
+    };
+    grid.rows = [{ id: 1, name: 'Alice', country: 'US', status: 'active', price: 100 }];
+    document.body.appendChild(grid);
+
+    await customElements.whenDefined('tbw-grid');
+    await waitForUpgraded(grid);
+
+    const priceCell = grid.querySelector('[role="gridcell"][data-field="price"]') as HTMLElement;
+    expect(priceCell).toBeTruthy();
+    priceCell.click();
+    await vi.waitFor(() => {
+      const editor = grid.querySelector(
+        '[role="gridcell"][data-field="price"] .currency-editor',
+      ) as HTMLInputElement | null;
+      expect(editor).toBeTruthy();
+    });
+
+    // Scope to the rendered cell — the raw `<tbw-grid-column-editor>` template
+    // input stays in light DOM by design, so an unscoped `.currency-editor`
+    // query would match the inert template (value `{{ value }}`) first.
+    const editor = grid.querySelector(
+      '[role="gridcell"][data-field="price"] .currency-editor',
+    ) as HTMLInputElement | null;
+    expect(editor).toBeTruthy();
+    expect(editor?.value).toBe('100');
+  }, 20000);
+});

@@ -57,6 +57,26 @@ describe('tbw-grid integration: inference, sorting, editing', () => {
     expect(grid._columns.length).toBe(2);
   });
 
+  it('normalizes shorthand strings assigned via the columns setter (#276)', async () => {
+    grid.rows = [{ id: 1, name: 'A' }];
+    grid.columns = ['id:number', 'name'];
+    await waitUpgrade(grid);
+    expect(grid._columns.map((c: any) => ({ field: c.field, header: c.header, type: c.type }))).toEqual([
+      { field: 'id', header: 'ID', type: 'number' },
+      { field: 'name', header: 'Name', type: undefined },
+    ]);
+  });
+
+  it('normalizes shorthand strings from the columns JSON attribute (#276)', async () => {
+    grid.rows = [{ id: 1, name: 'A' }];
+    grid.setAttribute('columns', JSON.stringify(['id:number', 'name']));
+    await waitUpgrade(grid);
+    expect(grid._columns.map((c: any) => ({ field: c.field, header: c.header, type: c.type }))).toEqual([
+      { field: 'id', header: 'ID', type: 'number' },
+      { field: 'name', header: 'Name', type: undefined },
+    ]);
+  });
+
   it('emits sort-change cycling states', async () => {
     grid.rows = [{ id: 2 }, { id: 1 }];
     grid.columns = [{ field: 'id', sortable: true }];

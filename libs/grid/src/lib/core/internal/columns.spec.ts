@@ -36,6 +36,33 @@ describe('parseLightDomColumns', () => {
     expect(col.type).toBe('stars');
   });
 
+  it('expands `field="price:number"` shorthand into field + type + header (#276)', () => {
+    const host = document.createElement('div');
+    host.innerHTML = `
+      <tbw-grid-column field="price:number"></tbw-grid-column>
+    `;
+    const [col] = parseLightDomColumns(host as any);
+    expect(col).toMatchObject({ field: 'price', type: 'number', header: 'Price' });
+  });
+
+  it('lets explicit `type`/`header` attributes win over the shorthand (#276)', () => {
+    const host = document.createElement('div');
+    host.innerHTML = `
+      <tbw-grid-column field="price:number" type="currency" header="Amount"></tbw-grid-column>
+    `;
+    const [col] = parseLightDomColumns(host as any);
+    expect(col).toMatchObject({ field: 'price', type: 'currency', header: 'Amount' });
+  });
+
+  it('does not split a field whose colon suffix is not a known type (#276)', () => {
+    const host = document.createElement('div');
+    host.innerHTML = `
+      <tbw-grid-column field="ns:custom"></tbw-grid-column>
+    `;
+    const [col] = parseLightDomColumns(host as any);
+    expect(col.field).toBe('ns:custom');
+  });
+
   it('parses options attribute for select columns', () => {
     const host = document.createElement('div');
     host.innerHTML = `

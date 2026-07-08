@@ -1,5 +1,6 @@
 import type { ColumnConfig, ColumnInternal, ElementWithPart, GridHost } from '../types';
 import { FitModeEnum } from '../types';
+import { parseColumnShorthand } from './column-shorthand';
 import { INVALID_COLUMN_WIDTH, warnDiagnostic } from './diagnostics';
 
 // #region Light DOM Parsing
@@ -22,14 +23,21 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
   const domColumns = Array.from(host.querySelectorAll('tbw-grid-column')) as HTMLElement[];
   return domColumns
     .map((el) => {
-      const field = el.getAttribute('field') || '';
-      if (!field) return null;
+      const rawField = el.getAttribute('field') || '';
+      if (!rawField) return null;
+      // Support `field="price:number"` shorthand (issue #276). The suffix is
+      // only split off when it names a recognized primitive type. A non-empty
+      // `type`/`header` attribute wins over the shorthand-derived value; an
+      // empty attribute falls through to the shorthand, matching the truthy
+      // (`|| undefined`) checks used elsewhere in this parser.
+      const shorthand = rawField.includes(':') ? parseColumnShorthand(rawField) : undefined;
+      const field = shorthand?.field ?? rawField;
       // Core does not gate `type` to a fixed allowlist — any string passes
       // through so custom column types (resolved by plugins/typeDefaults)
       // work declaratively. `ColumnConfig.type` is `ColumnType`
       // (`PrimitiveColumnType | (string & {})`), so no cast is needed.
-      const type = el.getAttribute('type') || undefined;
-      const header = el.getAttribute('header') || undefined;
+      const type = el.getAttribute('type') || shorthand?.type || undefined;
+      const header = el.getAttribute('header') || shorthand?.header || undefined;
       // Treat `attr="false"` as false. Framework adapters (notably Vue)
       // serialize boolean props to string attributes on custom elements,
       // so a Vue template `:sortable="false"` reaches the DOM as

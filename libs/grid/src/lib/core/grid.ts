@@ -6,6 +6,7 @@ import {
   updateAriaLabels,
   type AriaState,
 } from './internal/aria';
+import { normalizeColumns, type ColumnShorthand } from './internal/column-shorthand';
 import { autoSizeColumns, updateTemplate } from './internal/columns';
 import { ConfigManager } from './internal/config-manager';
 import { INVALID_ATTRIBUTE_JSON, warnDiagnostic } from './internal/diagnostics';
@@ -545,10 +546,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   get columns(): ColumnConfig<T>[] {
     return [...this._columns] as ColumnConfig<T>[];
   }
-  set columns(value: ColumnConfig<T>[] | ColumnConfigMap<T> | undefined) {
+  set columns(value: ColumnConfig<T>[] | ColumnShorthand<T>[] | ColumnConfigMap<T> | undefined) {
+    // Expand shorthand strings (e.g. `['id:number', 'name']`) so the JSON
+    // `columns` attribute and JS assignment both accept the friendly form (#276).
+    const normalized = Array.isArray(value) ? normalizeColumns<T>(value) : value;
     const oldValue = this.#configManager?.getColumns();
-    this.#configManager?.setColumns(value);
-    if (oldValue !== value) {
+    this.#configManager?.setColumns(normalized);
+    // Compare against `normalized` (what was actually stored), not the raw
+    // `value` — `normalizeColumns()` returns a fresh array, so a re-render is
+    // scheduled whenever the stored reference changes (#276 review).
+    if (oldValue !== normalized) {
       this.#queueUpdate('columns');
     }
   }

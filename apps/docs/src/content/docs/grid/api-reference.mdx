@@ -103,7 +103,7 @@ Define column configuration declaratively.
 
 | Attribute      | Type      | Description                                                      |
 | -------------- | --------- | ---------------------------------------------------------------- |
-| `field`        | `string`  | **Required.** Data field key                                     |
+| `field`        | `string`  | **Required.** Data field key. Supports the `field:type` shorthand — e.g. `field="price:number"` expands to `field="price" type="number"` and an auto-generated `header` ("Price"). |
 | `header`       | `string`  | Column header text                                               |
 | `type`         | `string`  | Column type. Built-ins: `'string'`, `'number'`, `'boolean'`, `'date'`, `'select'`. Any custom/plugin-registered type string is also accepted. |
 | `width`        | `string`  | Column width (e.g., `"120"`, `"100px"`, `"20%"`)                 |
@@ -126,6 +126,9 @@ Define column configuration declaratively.
   <tbw-grid-column field="role" type="select" options="admin:Admin,user:User" order="2"></tbw-grid-column>
 </tbw-grid>
 ```
+
+> **Column shorthand.** The `field:type` shorthand keeps prototyping markup terse — `field="salary:number"` is equivalent to `field="salary" type="number"` with an auto-generated `header`. The recognized suffixes are `string`, `number`, `boolean`, `date`, `datetime`, and `currency`. Of these, only `string`/`number`/`boolean`/`date` are `PrimitiveColumnType` built-ins; `datetime` and `currency` are simply expanded to those type strings (accepted because custom type strings are allowed, but they only alter rendering when a matching `typeDefaults` entry or plugin is registered). Any other colon-containing value is treated as a literal field name. The same shorthand works in the JSON `columns` attribute: `<tbw-grid columns='["id:number", "name", "email"]'>`. A non-empty explicit `type`/`header` attribute wins over the shorthand-derived value.
+
 
 ##### `<tbw-grid-column-view>`
 

@@ -848,6 +848,7 @@ jobs:
       contents: write
       id-token: write
     steps:
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/publish
         with:
           package-name: "@toolbox-web/grid"
@@ -872,6 +873,7 @@ jobs:
       contents: write
       id-token: write
     steps:
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/publish
         with:
           package-name: "@toolbox-web/grid-angular"
@@ -895,6 +897,7 @@ jobs:
       contents: write
       id-token: write
     steps:
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/publish
         with:
           package-name: "@toolbox-web/grid-react"
@@ -918,6 +921,7 @@ jobs:
       contents: write
       id-token: write
     steps:
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/publish
         with:
           package-name: "@toolbox-web/grid-vue"

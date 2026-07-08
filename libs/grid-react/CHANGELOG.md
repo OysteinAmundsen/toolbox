@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.0-beta.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-2.0.0-beta...grid-react-2.0.0-beta.1) (2026-07-08)
+
+
+### Features
+
+* **grid:** move column shorthand parser into core, wire into light-DOM config ([#276](https://github.com/OysteinAmundsen/toolbox/issues/276)) ([#414](https://github.com/OysteinAmundsen/toolbox/issues/414)) ([333233a](https://github.com/OysteinAmundsen/toolbox/commit/333233aa6839d95a4339fc8767099d91e9414bad))
+* **grid:** support declarative tbw-grid-type light-dom typeDefaults ([#275](https://github.com/OysteinAmundsen/toolbox/issues/275)) ([a13d7cb](https://github.com/OysteinAmundsen/toolbox/commit/a13d7cb22fa9cdef94d6375b3431b39befbc3c10))
+
 ## [2.0.0-beta](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.10.0...grid-react-2.0.0-beta) (2026-07-06)
 
 

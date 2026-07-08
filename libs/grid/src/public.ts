@@ -229,6 +229,16 @@ export {
 // Re-export sorting utilities for custom sort handlers
 export { builtInSort, defaultComparator } from './lib/core/internal/sorting';
 
+// Re-export column-shorthand helpers so declarative light-DOM configs and the
+// framework adapters share one implementation (issue #276).
+export {
+  applyColumnDefaults,
+  hasColumnShorthands,
+  normalizeColumns,
+  parseColumnShorthand,
+} from './lib/core/internal/column-shorthand';
+export type { ColumnShorthand } from './lib/core/internal/column-shorthand';
+
 // Re-export adapter-conformance method list so every framework adapter spec
 // can assert its adapter implements every core-consumed FrameworkAdapter hook
 // against a single source of truth. (Helper functions stay internal.)

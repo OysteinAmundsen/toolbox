@@ -4,8 +4,14 @@ description: Install @toolbox-web/grid and render your first grid in under a min
 ---
 
 import { CardGrid, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+import ShowSource from '@components/ShowSource.astro';
+import HtmlOnlyUsageDemo from '@components/demos/HtmlOnlyUsageDemo.astro';
 
 **Using a framework?** Jump directly to [Angular](/grid/angular/getting-started/), [React](/grid/react/getting-started/), or [Vue](/grid/vue/getting-started/).
+
+:::tip[Prefer declarative HTML with almost no JS?]
+See [Plain JavaScript (No Build Step)](#plain-javascript-no-build-step) below for zero-JS setup with `@toolbox-web/grid/all`, declarative columns, template-based rendering/editing, and UMD script-tag usage.
+:::
 
 ## Quick Start
 
@@ -421,8 +427,101 @@ See the [Angular adapter docs](/grid/angular/getting-started/) for custom render
 
 ## Plain JavaScript (No Build Step)
 
-Don't use TypeScript or a bundler? The grid works with a single `<script>` tag using the UMD bundle.
-Everything is available on the global `TbwGrid` object:
+This section covers both no-build paths:
+
+- ES module `/all` for declarative HTML-first setup
+- UMD script tags with global `TbwGrid` for classic browser scripting
+
+### HTML-first with `/all` (zero handwritten setup code)
+
+Use this approach when you want a fully functional grid from plain HTML. The `/all` bundle auto-registers the grid plus all features/plugins, so you can configure everything with attributes and child elements.
+
+:::caution[/all is convenience-first]
+`@toolbox-web/grid/all` includes every plugin and feature. It is ideal for quick setup and HTML-first pages, but JS applications that care about bundle size should import only the features/plugins they use.
+:::
+
+#### Zero-JS Quickstart
+
+<Steps>
+1. Add the module script:
+
+   ```html
+   <script type="module" src="https://unpkg.com/@toolbox-web/grid/all.js"></script>
+   ```
+
+2. Add a grid with JSON attributes:
+
+   ```html
+   <tbw-grid
+     style="height: 320px;"
+     rows='[{"id":1,"name":"Alice","status":"active"},{"id":2,"name":"Bob","status":"inactive"}]'
+     grid-config='{"features":{"selection":"row","editing":"dblclick","filtering":true,"export":{"fileName":"employees","includeHeaders":true}}}'
+   >
+     <tbw-grid-column field="id" header="ID" type="number" sortable></tbw-grid-column>
+     <tbw-grid-column field="name" header="Name" sortable></tbw-grid-column>
+     <tbw-grid-column field="status" header="Status" editable></tbw-grid-column>
+   </tbw-grid>
+   ```
+
+3. Interact with the grid:
+
+   - Sort by clicking any sortable header.
+   - Filter from header filter controls.
+   - Select rows.
+   - Edit `editable` cells (double-click in this example).
+</Steps>
+
+#### Declarative columns
+
+Define columns with `<tbw-grid-column>` children. These attributes cover the full declarative column surface:
+
+| Attribute      | Type      | Description |
+| -------------- | --------- | ----------- |
+| `field`        | `string`  | Required field key. Supports `field:type` shorthand, for example `field="price:number"`. |
+| `header`       | `string`  | Header text. |
+| `type`         | `string`  | Column type, for example `string`, `number`, `boolean`, `date`, `select` or custom type names. |
+| `width`        | `string`  | Width such as `"120"`, `"100px"`, `"20%"`. |
+| `min-width`    | `number`  | Minimum width in pixels. |
+| `sortable`     | `boolean` | Enables sorting (presence means `true`). |
+| `resizable`    | `boolean` | Enables resizing (presence means `true`). |
+| `order`        | `number`  | Initial 0-based position. |
+| `editable`     | `boolean` | Enables inline editing (requires editing feature/plugin). |
+| `options`      | `string`  | Select options for `type="select"`, for example `"a:A,b:B"` or `"a,b"`. |
+| `pinned`       | `string`  | Initial pinning: `left`/`start` or `right`/`end` (requires pinned-columns plugin). |
+| `hidden`       | `boolean` | Initially hidden (requires visibility plugin). |
+| `lock-visible` | `boolean` | Prevents hiding via visibility controls (requires visibility plugin). |
+
+For related declarative elements (`<tbw-grid-column-header>`, shell/tool-panel elements), see [API reference: Light DOM elements](/grid/api-reference/#light-dom-elements).
+
+#### Template rendering
+
+Use `<tbw-grid-column-view>` for display and `<tbw-grid-column-editor>` for custom editors.
+
+Supported template expressions:
+
+- `{{ value }}` for the current cell value.
+- `{{ row.field }}` for other fields on the current row.
+- Ternaries and simple expressions, for example `{{ row.status === 'active' ? 'ok' : 'bad' }}`.
+
+Security boundaries:
+
+- Script execution and event-handler attributes are not allowed in template output.
+- HTML-string rendering is sanitized.
+- Keep behavior wiring out of templates; these templates are for safe markup/data interpolation.
+
+##### Live Demo
+
+<ShowSource file="demos/HtmlOnlyUsageDemo.astro">
+  <HtmlOnlyUsageDemo />
+</ShowSource>
+
+This demo uses only declarative HTML and one `/all` script import. It includes a conditional badge class and a `<select>` editor, both expressed entirely in HTML templates.
+
+### UMD script-tag usage (global `TbwGrid`)
+
+If you prefer classic script tags and a global API, use the UMD bundles and configure the grid through `window.TbwGrid`.
+
+#### Core UMD bundle
 
 ```html title="index.html"
 <!DOCTYPE html>
@@ -451,7 +550,7 @@ Everything is available on the global `TbwGrid` object:
 </html>
 ```
 
-To add plugins, use the all-in-one bundle and configure via `gridConfig`:
+#### All-in-one UMD bundle (core + plugins)
 
 ```html title="index.html (with plugins)"
 <script src="https://unpkg.com/@toolbox-web/grid/umd/grid.all.umd.js"></script>
@@ -479,10 +578,11 @@ To add plugins, use the all-in-one bundle and configure via `gridConfig`:
 </script>
 ```
 
-:::tip
-`grid.umd.js` includes core only (~168 kB raw, ~48 kB gzipped). `grid.all.umd.js` bundles core + all plugins (~514 kB raw, ~136 kB gzipped).
-You can also load individual plugin UMD files (e.g. `selection.umd.js`) for finer control over bundle size.
-:::
+### Bundle size notes
+
+`/all` is the easiest entry point for HTML-first usage and quick prototyping. For application builds where bundle size matters, prefer targeted imports (`@toolbox-web/grid` plus specific `features/*` and `plugins/*`) so your bundler can tree-shake unused modules.
+
+For script-tag usage, `grid.umd.js` includes core only (~168 kB raw, ~48 kB gzipped), while `grid.all.umd.js` bundles core + all plugins (~514 kB raw, ~136 kB gzipped). You can also load individual plugin UMD files (for example `selection.umd.js`) for finer control.
 
 ## TypeScript Support
 

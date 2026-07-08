@@ -1,0 +1,90 @@
+---
+/**
+ * Demo: HTML-only usage using @toolbox-web/grid/all.
+ * No handwritten JS besides the module import.
+ */
+---
+
+<p class="grid-demo-description">
+  Zero-JS grid setup with declarative columns, filtering, selection, editing, and template-driven rendering.
+</p>
+
+<div class="grid-demo html-only-usage-demo">
+  <Fragment
+    set:html={`
+      <tbw-grid
+        id="demo-html-only-usage"
+        style="height: 320px;"
+        rows='[
+          {"id":1,"name":"Alice","status":"active","department":"Engineering"},
+          {"id":2,"name":"Bob","status":"inactive","department":"Sales"},
+          {"id":3,"name":"Carla","status":"active","department":"Support"},
+          {"id":4,"name":"Dylan","status":"inactive","department":"Engineering"},
+          {"id":5,"name":"Erin","status":"active","department":"Marketing"}
+        ]'
+        grid-config='{
+          "features": {
+            "selection": "row",
+            "editing": "dblclick",
+            "filtering": true,
+            "export": { "fileName": "employees", "includeHeaders": true }
+          }
+        }'
+      >
+        <tbw-grid-column field="id" header="ID" type="number" width="80" sortable></tbw-grid-column>
+        <tbw-grid-column field="name" header="Name" sortable resizable></tbw-grid-column>
+
+        <tbw-grid-column field="status" header="Status" editable sortable>
+          <tbw-grid-column-view>
+            <span class="status-badge {{ row.status === 'active' ? 'ok' : 'bad' }}">{{ value }}</span>
+          </tbw-grid-column-view>
+          <tbw-grid-column-editor>
+            <select>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </tbw-grid-column-editor>
+        </tbw-grid-column>
+
+        <tbw-grid-column field="department" header="Department" sortable></tbw-grid-column>
+      </tbw-grid>
+    `}
+  />
+</div>
+
+<script>
+  import '@toolbox-web/grid/all';
+</script>
+
+<style is:global>
+  .html-only-usage-demo .status-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: capitalize;
+    letter-spacing: 0.01em;
+  }
+
+  .html-only-usage-demo .status-badge.ok {
+    background: color-mix(in oklab, #22c55e 20%, white);
+    color: #166534;
+  }
+
+  .html-only-usage-demo .status-badge.bad {
+    background: color-mix(in oklab, #ef4444 20%, white);
+    color: #991b1b;
+  }
+
+  .html-only-usage-demo select {
+    width: 100%;
+    border: 1px solid var(--sl-color-gray-4);
+    border-radius: 6px;
+    background: var(--sl-color-bg);
+    color: var(--sl-color-text);
+    padding: 2px 6px;
+    font: inherit;
+  }
+</style>

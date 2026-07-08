@@ -683,6 +683,80 @@ jobs:
           # release PR + manifest independently.
           target-branch: ${{ github.ref_name }}
 
+  # ============================================
+  # RELEASE GATE (self-healing core)
+  # Decides, per package, whether it still needs to be released. A release
+  # is only "done" when npm has the manifest version AND its GitHub release
+  # exists. This job compares the manifest against reality on every push to
+  # main/2.x, so ANY half-finished release — npm-published-but-untagged, or
+  # tagged-but-not-on-npm — is detected and retried on the next push until
+  # all three artifacts (npm + tag + GitHub release) match the manifest.
+  # It also honours release-please's fresh-release signal, release events,
+  # and the manual workflow_dispatch publish inputs.
+  # ============================================
+  release-gate:
+    if: |
+      always() && !cancelled() && (
+        github.event_name == 'release' ||
+        github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/2.x'))
+      )
+    needs: [release-please]
+    runs-on: ubuntu-latest
+    outputs:
+      grid: ${{ steps.gate.outputs.grid }}
+      grid_angular: ${{ steps.gate.outputs.grid_angular }}
+      grid_react: ${{ steps.gate.outputs.grid_react }}
+      grid_vue: ${{ steps.gate.outputs.grid_vue }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RP_GRID: ${{ needs.release-please.outputs.grid_release_created }}
+          RP_GRID_ANGULAR: ${{ needs.release-please.outputs.grid_angular_release_created }}
+          RP_GRID_REACT: ${{ needs.release-please.outputs.grid_react_release_created }}
+          RP_GRID_VUE: ${{ needs.release-please.outputs.grid_vue_release_created }}
+          DISPATCH_GRID: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_grid }}
+          DISPATCH_GRID_ANGULAR: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_grid_angular }}
+          DISPATCH_GRID_REACT: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_grid_react }}
+          DISPATCH_GRID_VUE: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_grid_vue }}
+          IS_RELEASE_EVENT: ${{ github.event_name == 'release' }}
+        run: |
+          set -euo pipefail
+
+          # Decide whether one package still needs the publish pipeline.
+          # A package is "done" only when npm has the manifest version AND
+          # its GitHub release exists; otherwise it needs (re)publishing.
+          decide() {
+            local key="$1" name="$2" path="$3" prefix="$4" explicit="$5"
+            local decision=false reason="up to date"
+            if [[ "$explicit" == "true" ]]; then
+              decision=true; reason="explicit trigger (release-please/dispatch/release)"
+            else
+              local version tag
+              version=$(node -p "require('./.release-please-manifest.json')['$path']")
+              tag="${prefix}-${version}"
+              if ! npm view "${name}@${version}" version >/dev/null 2>&1; then
+                decision=true; reason="npm missing ${name}@${version}"
+              elif ! gh release view "$tag" --json tagName >/dev/null 2>&1; then
+                decision=true; reason="GitHub release ${tag} missing"
+              fi
+            fi
+            echo "${key}: ${decision} (${reason})"
+            echo "${key}=${decision}" >> "$GITHUB_OUTPUT"
+          }
+
+          decide grid         "@toolbox-web/grid"         libs/grid         grid         "$([[ "$RP_GRID" == "true"         || "$DISPATCH_GRID" == "true"         || "$IS_RELEASE_EVENT" == "true" ]] && echo true || echo false)"
+          decide grid_angular "@toolbox-web/grid-angular" libs/grid-angular grid-angular "$([[ "$RP_GRID_ANGULAR" == "true" || "$DISPATCH_GRID_ANGULAR" == "true" || "$IS_RELEASE_EVENT" == "true" ]] && echo true || echo false)"
+          decide grid_react   "@toolbox-web/grid-react"   libs/grid-react   grid-react   "$([[ "$RP_GRID_REACT" == "true"   || "$DISPATCH_GRID_REACT" == "true"   || "$IS_RELEASE_EVENT" == "true" ]] && echo true || echo false)"
+          decide grid_vue     "@toolbox-web/grid-vue"     libs/grid-vue     grid-vue     "$([[ "$RP_GRID_VUE" == "true"     || "$DISPATCH_GRID_VUE" == "true"     || "$IS_RELEASE_EVENT" == "true" ]] && echo true || echo false)"
+
   # release-credits:
   #   if: |
   #     always() && !cancelled() &&
@@ -835,13 +909,8 @@ jobs:
         uses: actions/deploy-pages@v4
 
   publish-grid:
-    if: |
-      always() && !cancelled() && (
-        github.event_name == 'release' ||
-        needs.release-please.outputs.grid_release_created == 'true' ||
-        (github.event_name == 'workflow_dispatch' && inputs.publish_grid == true)
-      )
-    needs: [release-please]
+    if: always() && !cancelled() && needs.release-gate.outputs.grid == 'true'
+    needs: [release-gate]
     runs-on: ubuntu-latest
     environment: NPM
     permissions:
@@ -860,13 +929,8 @@ jobs:
           changelog-path: libs/grid/CHANGELOG.md
 
   publish-grid-angular:
-    if: |
-      always() && !cancelled() && (
-        github.event_name == 'release' ||
-        needs.release-please.outputs.grid_angular_release_created == 'true' ||
-        (github.event_name == 'workflow_dispatch' && inputs.publish_grid_angular == true)
-      )
-    needs: [release-please]
+    if: always() && !cancelled() && needs.release-gate.outputs.grid_angular == 'true'
+    needs: [release-gate]
     runs-on: ubuntu-latest
     environment: NPM
     permissions:
@@ -884,13 +948,8 @@ jobs:
           changelog-path: libs/grid-angular/CHANGELOG.md
 
   publish-grid-react:
-    if: |
-      always() && !cancelled() && (
-        github.event_name == 'release' ||
-        needs.release-please.outputs.grid_react_release_created == 'true' ||
-        (github.event_name == 'workflow_dispatch' && inputs.publish_grid_react == true)
-      )
-    needs: [release-please]
+    if: always() && !cancelled() && needs.release-gate.outputs.grid_react == 'true'
+    needs: [release-gate]
     runs-on: ubuntu-latest
     environment: NPM
     permissions:
@@ -908,13 +967,8 @@ jobs:
           changelog-path: libs/grid-react/CHANGELOG.md
 
   publish-grid-vue:
-    if: |
-      always() && !cancelled() && (
-        github.event_name == 'release' ||
-        needs.release-please.outputs.grid_vue_release_created == 'true' ||
-        (github.event_name == 'workflow_dispatch' && inputs.publish_grid_vue == true)
-      )
-    needs: [release-please]
+    if: always() && !cancelled() && needs.release-gate.outputs.grid_vue == 'true'
+    needs: [release-gate]
     runs-on: ubuntu-latest
     environment: NPM
     permissions:
@@ -930,42 +984,3 @@ jobs:
           release-tag-prefix: grid-vue
           release-title-prefix: grid-vue
           changelog-path: libs/grid-vue/CHANGELOG.md
-
-  reconcile-release-pr:
-    if: always() && !cancelled() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/2.x')
-    needs:
-      [publish-grid, publish-grid-angular, publish-grid-react, publish-grid-vue]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Reconcile merged release PR state
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_BRANCH: ${{ github.ref_name }}
-        run: |
-          mapfile -t expected_tags < <(node -e "const manifest=require('./.release-please-manifest.json'); for (const [path, version] of Object.entries(manifest)) console.log(path.replace(/^libs\//, '') + '-' + version);")
-
-          missing=()
-          for tag in "${expected_tags[@]}"; do
-            if ! gh release view "$tag" --json tagName >/dev/null 2>/dev/null; then
-              missing+=("$tag")
-            fi
-          done
-
-          if [[ ${#missing[@]} -ne 0 ]]; then
-            echo "Release reconciliation deferred; missing GitHub releases: ${missing[*]}"
-            exit 0
-          fi
-
-          pr_number=$(gh pr list --state merged --limit 1 --search "chore(${RELEASE_BRANCH}): release in:title" --json number --jq '.[0].number // empty')
-          if [[ -z "$pr_number" ]]; then
-            echo "No merged release PR found for ${RELEASE_BRANCH}."
-            exit 0
-          fi
-
-          gh pr edit "$pr_number" --remove-label "autorelease: pending" || true
-          gh pr edit "$pr_number" --add-label "autorelease: tagged" || true

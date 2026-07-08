@@ -92,9 +92,19 @@ runs:
       shell: bash
       run: |
         cd '${{ inputs.dist-path }}'
-        npm publish --provenance --tag '${{ steps.npm-tag.outputs.tag }}'
+        PKG='${{ inputs.package-name }}'
+        VERSION=$(node -p "require('./package.json').version")
+        # Idempotent publish: if this exact version is already on npm, skip
+        # instead of hard-failing. This makes the job safely re-runnable so a
+        # partially-completed release (e.g. one adapter published, the rest
+        # failed) converges to "all published" on the next run/dispatch.
+        if npm view "${PKG}@${VERSION}" version >/dev/null 2>&1; then
+          echo "npm already has ${PKG}@${VERSION}; skipping publish."
+        else
+          npm publish --provenance --tag '${{ steps.npm-tag.outputs.tag }}'
+        fi
 
-    - name: Ensure GitHub release exists
+    - name: Ensure tag and GitHub release exist
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
@@ -106,6 +116,18 @@ runs:
         if gh release view "$TAG" --json tagName >/dev/null 2>/dev/null; then
           echo "Release $TAG already exists."
           exit 0
+        fi
+
+        # release-please normally creates the tag + GitHub release together
+        # when the release PR merges. If we reach here the release is missing,
+        # so create the tag too if it is absent — this lets a partial or
+        # failed release-please run still converge to a complete release
+        # (tag + GitHub release) once npm has the package.
+        if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG"
         fi
 
         notes_file=$(mktemp)

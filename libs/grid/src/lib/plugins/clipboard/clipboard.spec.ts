@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GridElement } from '../../../public';
 import type { ColumnConfig } from '../../core/types';
 import { ClipboardPlugin } from './ClipboardPlugin';
+import { buildClipboardHtml, parseClipboardHtmlPayload } from './clipboard-payload';
 import { buildClipboardText, copyToClipboard, formatCellValue, type CopyParams } from './copy';
 import { parseClipboardText, readFromClipboard } from './paste';
 import type { ClipboardConfig, PasteDetail } from './types';
@@ -426,6 +427,45 @@ describe('clipboard', () => {
     });
   });
 
+  describe('clipboard HTML payload (cross-window round-trip)', () => {
+    it('round-trips a structured payload through buildClipboardHtml → parseClipboardHtmlPayload', () => {
+      const payload = {
+        v: 1 as const,
+        fields: ['owners', 'note'],
+        rows: [
+          [[{ id: '1', name: 'Å' }], 'unicode: café'],
+          [null, 42],
+        ],
+      };
+      const html = buildClipboardHtml(
+        ['Owners', 'Note'],
+        [
+          ['Å', 'café'],
+          ['', '42'],
+        ],
+        payload,
+      );
+
+      // Carries a real table (external targets get a table) + the marker attr.
+      expect(html).toContain('<table');
+      expect(html).toContain('data-tbw-clip="');
+      expect(html).toContain('<td>café</td>');
+
+      const parsed = parseClipboardHtmlPayload(html);
+      expect(parsed).toEqual(payload);
+    });
+
+    it('returns null for external HTML with no payload marker', () => {
+      expect(parseClipboardHtmlPayload('<table><tr><td>hi</td></tr></table>')).toBeNull();
+      expect(parseClipboardHtmlPayload('')).toBeNull();
+      expect(parseClipboardHtmlPayload(undefined)).toBeNull();
+    });
+
+    it('returns null for a corrupt payload attribute (never throws)', () => {
+      expect(parseClipboardHtmlPayload('<table data-tbw-clip="!!!not-base64!!!"></table>')).toBeNull();
+    });
+  });
+
   describe('defaultPasteHandler', () => {
     // Mock grid with the minimal surface defaultPasteHandler touches. Typed via
     // `satisfies Partial<GridElement>` so member shapes stay checked (unlike an
@@ -501,6 +541,55 @@ describe('clipboard', () => {
       expect(grid.rows[0]).toEqual({ col1: 'A1', col2: 'B1', col3: 'C1' });
       expect(grid.rows[1]).toEqual({ col1: 'X1', col2: 'Y1', col3: 'C2' });
       expect(grid.rows[2]).toEqual({ col1: 'X2', col2: 'Y2', col3: 'C3' });
+    });
+
+    it('applies raw structured values from rawRows (same-grid object round-trip)', () => {
+      const owners = [{ id: '1', name: 'A' }];
+      const rows = [
+        { col1: 'A1', col2: 'B1', col3: 'C1' },
+        { col1: 'A2', col2: 'B2', col3: 'C2' },
+      ];
+      const grid = createMockGrid(rows, columns);
+
+      const detail: PasteDetail = {
+        rows: [['A']], // lossy text (what an external target would see)
+        rawRows: [[owners]], // raw object payload (same-grid round-trip)
+        text: 'A',
+        target: { row: 1, col: 0, field: 'col1', bounds: null },
+        fields: ['col1'],
+      };
+
+      defaultPasteHandler(detail, grid);
+
+      // The raw object landed (not the text), and it's a distinct clone.
+      expect(grid.rows[1].col1).toEqual(owners);
+      expect(grid.rows[1].col1).not.toBe(owners);
+    });
+
+    it('clones structured values per target so tiled pastes never share a reference', () => {
+      const owners = [{ id: '1', name: 'A' }];
+      const rows = [{ col1: 'r0' }, { col1: 'r1' }, { col1: 'r2' }];
+      const grid = createMockGrid(rows, [{ field: 'col1', header: 'C1', editable: true }]);
+
+      const detail: PasteDetail = {
+        rows: [['A']],
+        rawRows: [[owners]],
+        text: 'A',
+        target: { row: 0, col: 0, field: 'col1', bounds: { endRow: 2, endCol: 0 } },
+        fields: ['col1'],
+        fillSelection: true,
+      };
+
+      defaultPasteHandler(detail, grid);
+
+      const a = grid.rows[0].col1 as { name: string }[];
+      const b = grid.rows[1].col1 as { name: string }[];
+      expect(a).toEqual(owners);
+      expect(b).toEqual(owners);
+      expect(a).not.toBe(b); // distinct clones
+      // Mutating one target must not affect another.
+      a[0].name = 'MUTATED';
+      expect((grid.rows[1].col1 as { name: string }[])[0].name).toBe('A');
     });
 
     it('should add new rows when pasting beyond current data (no bounds)', () => {
@@ -1131,9 +1220,10 @@ describe('clipboard', () => {
     const getPasteHandler = (grid: ReturnType<typeof createGridMockForPlugin>) =>
       grid.addEventListener.mock.calls.find((c: unknown[]) => c[0] === 'paste')?.[1] as (e: ClipboardEvent) => void;
 
-    const firePaste = (handler: (e: ClipboardEvent) => void, text: string) => {
+    const firePaste = (handler: (e: ClipboardEvent) => void, text: string, html?: string) => {
       const dt = new DataTransfer();
       dt.setData('text/plain', text);
+      if (html) dt.setData('text/html', html);
       const event = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
       Object.defineProperty(event, 'target', { value: document.createElement('div') });
       handler(event);
@@ -1335,6 +1425,66 @@ describe('clipboard', () => {
       plugin.onKeyDown(evt);
 
       expect(copySpy).toHaveBeenCalledWith({ rowIndices: [0], columns: ['blDate'] });
+    });
+    // #endregion
+
+    // #region Structured (same-grid) paste payload
+    it('carries raw structured values on a same-grid paste (copy → paste round-trip)', async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, writable: true, configurable: true });
+
+      const owners = [{ id: '1', name: 'A' }];
+      const columns: ColumnConfig[] = [{ field: 'owners', header: 'Owners' }];
+      const grid = createGridMockForPlugin([{ owners }], columns);
+      const plugin = new ClipboardPlugin({
+        includeHeaders: false,
+        processCell: (v) => (Array.isArray(v) ? v.map((o) => (o as { name: string }).name).join(', ') : String(v)),
+      });
+      plugin.attach(grid as any);
+
+      const text = await plugin.copy(); // no selection → copies the single cell, stashes raw payload
+
+      firePaste(getPasteHandler(grid), text); // exact same text → same-grid round-trip
+
+      const call = grid.dispatchEvent.mock.calls.find((c: unknown[]) => (c[0] as CustomEvent).type === 'paste');
+      const detail = (call![0] as CustomEvent).detail as { rawRows?: unknown[][] };
+      // The raw object payload is carried (a clone of the copied value), not the text.
+      expect(detail.rawRows).toEqual([[owners]]);
+      expect(detail.rawRows?.[0][0]).not.toBe(owners);
+    });
+
+    it('does NOT carry raw values for an external paste (text differs from last copy)', async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, writable: true, configurable: true });
+
+      const columns: ColumnConfig[] = [{ field: 'owners', header: 'Owners' }];
+      const grid = createGridMockForPlugin([{ owners: [{ id: '1', name: 'A' }] }], columns);
+      const plugin = new ClipboardPlugin({ includeHeaders: false, processCell: () => 'A' });
+      plugin.attach(grid as any);
+
+      await plugin.copy();
+      firePaste(getPasteHandler(grid), 'Some external text'); // different text
+
+      const call = grid.dispatchEvent.mock.calls.find((c: unknown[]) => (c[0] as CustomEvent).type === 'paste');
+      const detail = (call![0] as CustomEvent).detail as { rawRows?: unknown[][] };
+      expect(detail.rawRows).toBeUndefined();
+    });
+
+    it('recovers raw values from a cross-window paste via the text/html payload (no in-memory match)', () => {
+      const owners = [{ id: '1', name: 'A' }];
+      const columns: ColumnConfig[] = [{ field: 'owners', header: 'Owners' }];
+      // Fresh plugin with an EMPTY in-memory buffer (simulates another grid /
+      // window). The structured payload rides along in text/html.
+      const grid = createGridMockForPlugin([{ owners: null }], columns);
+      const plugin = new ClipboardPlugin({ includeHeaders: false });
+      plugin.attach(grid as any);
+
+      const html = buildClipboardHtml(null, [['A']], { v: 1, fields: ['owners'], rows: [[owners]] });
+      firePaste(getPasteHandler(grid), 'A', html);
+
+      const call = grid.dispatchEvent.mock.calls.find((c: unknown[]) => (c[0] as CustomEvent).type === 'paste');
+      const detail = (call![0] as CustomEvent).detail as { rawRows?: unknown[][] };
+      expect(detail.rawRows).toEqual([[owners]]);
     });
     // #endregion
 

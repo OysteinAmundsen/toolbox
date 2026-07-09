@@ -18,9 +18,11 @@ import {
 } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import { formatValueAsText, resolveColumns, resolveRows } from '../shared/data-collection';
+import { buildClipboardHtml, parseClipboardHtmlPayload } from './clipboard-payload';
 import { copyToClipboard } from './copy';
 import { parseClipboardText, readFromClipboard } from './paste';
 import {
+  cloneStructured,
   defaultPasteHandler,
   type ClipboardConfig,
   type CopyDetail,
@@ -140,6 +142,14 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
   // #region Internal State
   /** The last copied text (for reference/debugging) */
   private lastCopied: { text: string; timestamp: number } | null = null;
+  /**
+   * Raw (structured) values for the last copy, so a same-grid paste round-trips
+   * object cells losslessly instead of degrading to the copied display text.
+   * `text` is the exact clipboard text; a paste whose text matches restores
+   * `rawRows` (data rows only, aligned with the copied columns). Cleared on
+   * detach; a non-matching external paste simply ignores it.
+   */
+  #internalClipboard: { text: string; rawRows: unknown[][] } | null = null;
   // #endregion
 
   // #region Lifecycle
@@ -158,6 +168,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
   /** @internal */
   override detach(): void {
     this.lastCopied = null;
+    this.#internalClipboard = null;
   }
 
   /** @internal */
@@ -311,6 +322,27 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     // External pastes (first row ≠ labels) are left intact.
     this.#dropCopiedHeaderRow(parsed);
 
+    // Same-grid round-trip: when the pasted text is exactly what THIS grid last
+    // copied, restore the raw structured values (lossless object cells) aligned
+    // with the header-stripped text rows — this path preserves exact value types
+    // (e.g. Date) since it never serializes. For a cross-grid / cross-window
+    // paste the in-memory buffer misses, so fall back to the structured payload
+    // embedded in the clipboard's text/html. External pastes have neither and
+    // use the parsed text.
+    let rawRows: unknown[][] | undefined;
+    if (
+      this.#internalClipboard &&
+      this.#internalClipboard.text === text &&
+      this.#internalClipboard.rawRows.length === parsed.length
+    ) {
+      rawRows = this.#internalClipboard.rawRows;
+    } else {
+      const payload = parseClipboardHtmlPayload(event.clipboardData?.getData('text/html'));
+      if (payload && payload.rows.length === parsed.length) {
+        rawRows = payload.rows;
+      }
+    }
+
     // Build target info
     const column = this.visibleColumns[targetCol];
     const target: PasteTarget | null = column ? { row: targetRow, col: targetCol, field: column.field, bounds } : null;
@@ -332,7 +364,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
       }
     }
 
-    const detail: PasteDetail = { rows: parsed, text, target, fields, fillSelection };
+    const detail: PasteDetail = { rows: parsed, text, target, fields, fillSelection, rawRows };
 
     // Emit the event for any listeners
     this.emit<PasteDetail>('paste', detail);
@@ -499,28 +531,39 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    * 3. Raw value via `formatValueAsText` as final fallback
    */
   #buildText(columns: ColumnConfig[], rows: Record<string, unknown>[], options?: CopyOptions): string {
-    const delimiter = options?.delimiter ?? this.config.delimiter ?? '\t';
-    const newline = options?.newline ?? this.config.newline ?? '\n';
+    return this.#joinDisplayGrid(this.#buildDisplayGrid(columns, rows, options), options);
+  }
+
+  /**
+   * Build the 2D grid of DISPLAY strings for the given columns/rows (the same
+   * WYSIWYG text used for `text/plain` and the `text/html` table). Header is
+   * included only when configured.
+   */
+  #buildDisplayGrid(
+    columns: ColumnConfig[],
+    rows: Record<string, unknown>[],
+    options?: CopyOptions,
+  ): { header: string[] | null; rows: string[][] } {
     const includeHeaders = options?.includeHeaders ?? this.config.includeHeaders ?? false;
     const processCell = options?.processCell ?? this.config.processCell;
-
-    const lines: string[] = [];
-
-    // Header row
-    if (includeHeaders) {
-      lines.push(columns.map((c) => c.header || c.field).join(delimiter));
-    }
-
-    // Data rows
-    for (const row of rows) {
-      const cells = columns.map((col) => {
+    const header = includeHeaders ? columns.map((c) => c.header || c.field) : null;
+    const dataRows = rows.map((row) =>
+      columns.map((col) => {
         const value = resolveCellValue(row, col);
         if (processCell) return processCell(value, col.field, row);
         return this.#formatCellAsDisplayed(col, value, row);
-      });
-      lines.push(cells.join(delimiter));
-    }
+      }),
+    );
+    return { header, rows: dataRows };
+  }
 
+  /** Join a display grid into delimited text (header row first when present). */
+  #joinDisplayGrid(display: { header: string[] | null; rows: string[][] }, options?: CopyOptions): string {
+    const delimiter = options?.delimiter ?? this.config.delimiter ?? '\t';
+    const newline = options?.newline ?? this.config.newline ?? '\n';
+    const lines: string[] = [];
+    if (display.header) lines.push(display.header.join(delimiter));
+    for (const cells of display.rows) lines.push(cells.join(delimiter));
     return lines.join(newline);
   }
 
@@ -663,9 +706,18 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
       return '';
     }
 
-    const text = this.#buildText(columns, rows, options);
-    await copyToClipboard(text);
+    const display = this.#buildDisplayGrid(columns, rows, options);
+    const text = this.#joinDisplayGrid(display, options);
+    // Snapshot the RAW cell values (same column order as the text) for a
+    // structured round-trip. Cloned so later row mutations don't change it.
+    const rawRows = rows.map((row) => columns.map((col) => cloneStructured(resolveCellValue(row, col))));
+    const fields = columns.map((col) => col.field);
+    // Write BOTH text/plain (WYSIWYG for external targets) and text/html (a
+    // table that also embeds the structured payload) so a same-app paste — even
+    // cross-grid or cross-window — restores object cells losslessly.
+    await copyToClipboard(text, buildClipboardHtml(display.header, display.rows, { v: 1, fields, rows: rawRows }));
     this.lastCopied = { text, timestamp: Date.now() };
+    this.#internalClipboard = { text, rawRows };
     this.emit<CopyDetail>('copy', {
       text,
       rowCount: rows.length,

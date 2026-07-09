@@ -258,7 +258,17 @@ Rows **without** a resolvable `getRowId` (and freshly-created empty rows when a 
 
 ### Copied Headers
 
-When `includeHeaders: true`, copied text carries a header row so it round-trips cleanly to spreadsheets and text editors. Pasting **back into cells** drops that header row automatically — only values land in cells, never the header label. The header is stripped only when the pasted first row matches the target columns' labels, so external pastes without a header row are left intact.
+When `includeHeaders: true`, copied text carries a header row so it round-trips cleanly to spreadsheets and text editors. Pasting **back into cells** drops that header row automatically — only values land in cells, never the header label. The header is stripped when the pasted first row consists entirely of this grid's column labels, so it is removed even for a **cross-column** paste (copy one column, paste into another), while external pastes without a matching header row are left intact.
+
+### Structured Values (Same-Grid & Cross-Window Paste)
+
+Copy is **WYSIWYG for external targets** — `processCell` (or the column `format`) turns each cell into text, so pasting into a spreadsheet or editor looks right. At the same time the grid writes a **structured payload**: it keeps the raw cell values in memory _and_ embeds them in a `text/html` representation on the clipboard.
+
+When you paste **back into a grid** — the same grid, **another grid**, or **another browser window/tab** — those raw values are restored, so an **object-valued cell** (e.g. `{ id, name }`, arrays) round-trips **losslessly** instead of degrading to its display text. The same-grid path uses the in-memory snapshot (preserving exact value types such as `Date`); cross-grid / cross-window uses the `text/html` payload. Each pasted cell is cloned, so tiling one source across many cells (fill-selection) never shares a reference, and array→cells pastes (equal or unequal counts, expansion, and clipping) behave exactly like a text paste.
+
+For an **external** paste into an object column (e.g. from Excel), only text is available; the grid can't reconstruct an arbitrary object shape from a string, so your app decides how to handle it (e.g. reject via validation, or map the text to a lookup).
+
+
 
 ### Selection Bounds
 

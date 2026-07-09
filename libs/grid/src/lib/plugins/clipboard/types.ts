@@ -165,6 +165,17 @@ export interface PasteDetail {
    * @since 3.0.0
    */
   fillSelection?: boolean;
+  /**
+   * Raw (structured) cell values for a **same-grid** paste, aligned 1:1 with
+   * {@link rows} (same dimensions, data rows only). Present only when the paste
+   * text exactly matches what this grid last copied — so an object-valued cell
+   * (e.g. `{id,name}`, arrays) round-trips losslessly instead of degrading to
+   * the copied display text. `undefined` for external/cross-grid pastes, where
+   * only the text is available. The default handler prefers `rawRows` over
+   * `rows` for values (cloning each so targets don't share references).
+   * @since 3.0.0
+   */
+  rawRows?: unknown[][];
 }
 
 /**
@@ -193,10 +204,14 @@ export interface PasteDetail {
  * @since 0.4.2
  */
 export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): void {
-  const { rows: pastedRows, target, fields, fillSelection } = detail;
+  const { rows: pastedRows, rawRows, target, fields, fillSelection } = detail;
 
   // No target = nothing to do
   if (!target || pastedRows.length === 0) return;
+
+  // Prefer the raw structured values for a same-grid paste (lossless object
+  // round-trip); fall back to the parsed text for external/cross-grid pastes.
+  const valueRows: unknown[][] = rawRows ?? pastedRows;
 
   const currentRows = grid.rows as Record<string, unknown>[];
   const columns = grid.effectiveConfig.columns ?? [];
@@ -219,17 +234,20 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
       changes = {};
       editsByRow.set(rowIndex, changes);
     }
-    changes[field] = value;
+    // Clone structured values so tiled/multi-target pastes never share a
+    // reference (mutating one row's object would otherwise mutate the source
+    // and every other target). No-op for primitives (the text path).
+    changes[field] = cloneStructured(value);
   };
 
   if (fillSelection && target.bounds) {
     // Fill-selection (tile) mode: repeat the source across the selection bounds
     // using modulo indexing. Never grows the grid. Editability is resolved
     // against the pre-paste row (bounded mode never grows).
-    const srcRows = pastedRows.length;
+    const srcRows = valueRows.length;
     for (let rowIndex = target.row; rowIndex <= target.bounds.endRow; rowIndex++) {
       if (rowIndex >= currentRows.length) break;
-      const sourceRow = pastedRows[(rowIndex - target.row) % srcRows];
+      const sourceRow = valueRows[(rowIndex - target.row) % srcRows];
       const srcCols = sourceRow.length;
       if (srcCols === 0) continue;
       const evalRow = currentRows[rowIndex];
@@ -237,7 +255,7 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
     }
   } else {
     const maxPasteRow = target.bounds ? target.bounds.endRow : Infinity;
-    pastedRows.forEach((rowData, rowOffset) => {
+    valueRows.forEach((rowData, rowOffset) => {
       const targetRowIndex = target.row + rowOffset;
       if (targetRowIndex > maxPasteRow) return;
       if (target.bounds && targetRowIndex >= currentRows.length) return; // bounded: don't grow
@@ -298,6 +316,21 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
   } else if (directWrote && rowCountAfter === currentRows.length) {
     // Direct writes only, no structural grow above — trigger a render.
     grid.rows = [...rowsNow];
+  }
+}
+
+/**
+ * Deep-clone a structured cell value so tiled/multi-target pastes don't share a
+ * reference. Primitives (and `null`) are returned as-is. Falls back to the
+ * original value if it isn't structured-cloneable.
+ * @internal
+ */
+export function cloneStructured(value: unknown): unknown {
+  if (value === null || typeof value !== 'object') return value;
+  try {
+    return structuredClone(value);
+  } catch {
+    return value;
   }
 }
 

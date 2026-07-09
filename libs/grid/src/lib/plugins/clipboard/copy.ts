@@ -114,10 +114,30 @@ export function buildClipboardText(params: CopyParams): string {
  * Uses the modern Clipboard API when available, with fallback
  * to execCommand for older browsers.
  *
- * @param text - The text to copy
+ * When `html` is supplied, writes BOTH `text/plain` and `text/html` via
+ * `ClipboardItem` so a same-app paste (even cross-grid or cross-window) can
+ * recover a structured payload embedded in the HTML, while external targets
+ * (Excel, editors) still get the plain text. Silently falls back to text-only
+ * when `ClipboardItem` / `clipboard.write` is unavailable or rejects.
+ *
+ * @param text - The text to copy (`text/plain`)
+ * @param html - Optional rich `text/html` representation (may embed a payload)
  * @returns Promise resolving to true if successful, false otherwise
  */
-export async function copyToClipboard(text: string): Promise<boolean> {
+export async function copyToClipboard(text: string, html?: string): Promise<boolean> {
+  if (html && typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/plain': new Blob([text], { type: 'text/plain' }),
+          'text/html': new Blob([html], { type: 'text/html' }),
+        }),
+      ]);
+      return true;
+    } catch {
+      // Fall through to text-only write below.
+    }
+  }
   try {
     await navigator.clipboard.writeText(text);
     return true;

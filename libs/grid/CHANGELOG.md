@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.0.0-beta.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.2...grid-3.0.0-beta.3) (2026-07-09)
+
+
+### Features
+
+* **grid:** carry structured clipboard payload in text/html for cross-window paste ([1b161a1](https://github.com/OysteinAmundsen/toolbox/commit/1b161a1eb09d17b2ea0964656f9c9fdba4a75972))
+
+
+### Bug Fixes
+
+* **grid:** resolve copy target from selection anchor + fix stale cell attribute ([61e1a91](https://github.com/OysteinAmundsen/toolbox/commit/61e1a911cfeef6f62850564e6e4aff896388c202))
+* **grid:** strip copied header on cross-column paste ([5621121](https://github.com/OysteinAmundsen/toolbox/commit/56211210396abefc47f56da589f1a8ffb9892490))
+
 ## [3.0.0-beta.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.1...grid-3.0.0-beta.2) (2026-07-09)
 
 

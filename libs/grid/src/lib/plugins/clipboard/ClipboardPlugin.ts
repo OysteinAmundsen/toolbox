@@ -201,13 +201,28 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
   #handleCopy(target: HTMLElement): void {
     const selection = this.#getSelection();
 
-    // Selection plugin exists but nothing selected → try focused cell from DOM
+    // Selection plugin exists but has no ranges → resolve the single active cell.
+    // Range mode CLEARS `ranges` on plain keyboard navigation (arrow/Tab without
+    // Shift), keeping the focused cell only as the selection `anchor`, and DOM
+    // focus is NOT on a cell element after keyboard nav — so prefer the anchor
+    // (a visible-column index) and only fall back to the focused DOM cell for
+    // the mouse-focus / no-anchor edge. Without the anchor path, keyboard-nav
+    // copy silently no-ops.
     if (selection && selection.ranges.length === 0) {
-      const focused = this.#getFocusedCellFromDOM(target);
-      if (!focused) return;
-      const col = this.columns[focused.col];
-      if (!col) return;
-      this.copy({ rowIndices: [focused.row], columns: [col.field] });
+      let row: number | undefined;
+      let field: string | undefined;
+      if (selection.anchor) {
+        row = selection.anchor.row;
+        field = this.visibleColumns[selection.anchor.col]?.field;
+      } else {
+        const focused = this.#getFocusedCellFromDOM(target);
+        if (focused) {
+          row = focused.row;
+          field = this.columns[focused.col]?.field;
+        }
+      }
+      if (row == null || field == null) return;
+      this.copy({ rowIndices: [row], columns: [field] });
       return;
     }
 
@@ -267,9 +282,15 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
       selMaxCol = Math.max(selMaxCol, r.from.col, r.to.col);
     }
 
-    // Determine target cell (top-left of the whole selection)
-    const targetRow = firstRange ? selMinRow : 0;
-    const targetCol = firstRange ? selMinCol : 0;
+    // Determine target cell (top-left of the whole selection). Range mode
+    // CLEARS `ranges` on plain keyboard navigation (arrow/Tab without Shift),
+    // keeping the focused cell only as the selection `anchor`. So when there are
+    // no ranges, fall back to the anchor before defaulting to (0,0) — otherwise
+    // "copy, arrow to another cell, paste" always lands on cell (0,0) instead of
+    // the active cell. Mirrors the focused-cell fallback in #handleCopy.
+    const anchor = selection?.anchor ?? null;
+    const targetRow = firstRange ? selMinRow : (anchor?.row ?? 0);
+    const targetCol = firstRange ? selMinCol : (anchor?.col ?? 0);
 
     // Multi-cell when the selection spans more than one cell in total, whether
     // it's one large range or many single-cell ranges.
@@ -558,10 +579,13 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    * Used as fallback when SelectionPlugin has no selection.
    */
   #getFocusedCellFromDOM(target: HTMLElement): { row: number; col: number } | null {
-    const cell = target.closest('[data-field-cache]') as HTMLElement | null;
+    // Cells carry `data-field` + `data-row` (see `data-field-cache` was never a
+    // real attribute). Body cells have `data-row`; header cells don't, so the
+    // `data-row` guard below excludes headers.
+    const cell = target.closest('.cell[data-field]') as HTMLElement | null;
     if (!cell) return null;
 
-    const field = cell.dataset.fieldCache;
+    const field = cell.dataset.field;
     const rowIndexStr = cell.dataset.row;
     if (!field || !rowIndexStr) return null;
 

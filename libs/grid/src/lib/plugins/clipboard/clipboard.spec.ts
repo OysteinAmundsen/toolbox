@@ -1235,6 +1235,109 @@ describe('clipboard', () => {
     });
     // #endregion
 
+    // #region Paste target resolution
+    const emittedPasteTarget = (grid: ReturnType<typeof createGridMockForPlugin>) => {
+      const call = grid.dispatchEvent.mock.calls.find((c: unknown[]) => (c[0] as CustomEvent).type === 'paste');
+      return (call![0] as CustomEvent).detail.target as { row: number; col: number; field: string } | null;
+    };
+
+    it('should target the selection anchor when ranges are empty (keyboard nav in range mode)', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'month', header: 'Month' },
+        { field: 'blDate', header: 'BL Date' },
+      ];
+      const grid = createGridMockForPlugin(
+        [
+          { month: 'a', blDate: 'x' },
+          { month: 'b', blDate: 'y' },
+        ],
+        columns,
+      );
+      // Range mode clears `ranges` on plain arrow nav, leaving the focused cell
+      // only as the selection anchor. Paste must target that anchor, not (0,0).
+      (grid as { query: unknown }).query = <U>(type: string): U[] =>
+        type === 'getSelection'
+          ? ([{ mode: 'range', ranges: [], anchor: { row: 1, col: 1 } }] as unknown as U[])
+          : ([] as U[]);
+      const plugin = new ClipboardPlugin({ includeHeaders: true });
+      plugin.attach(grid as any);
+
+      firePaste(getPasteHandler(grid), 'BL Date\nz');
+
+      expect(emittedPasteTarget(grid)).toMatchObject({ row: 1, col: 1, field: 'blDate' });
+    });
+
+    it('should default the paste target to (0,0) when there is no selection or anchor', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'month', header: 'Month' },
+        { field: 'blDate', header: 'BL Date' },
+      ];
+      const grid = createGridMockForPlugin([{ month: 'a', blDate: 'x' }], columns);
+      const plugin = new ClipboardPlugin();
+      plugin.attach(grid as any);
+
+      firePaste(getPasteHandler(grid), 'z');
+
+      expect(emittedPasteTarget(grid)).toMatchObject({ row: 0, col: 0, field: 'month' });
+    });
+    // #endregion
+
+    // #region Copy target resolution (empty ranges)
+    it('should copy the anchor cell when ranges are empty (keyboard nav in range mode)', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'month', header: 'Month' },
+        { field: 'blDate', header: 'BL Date' },
+      ];
+      const grid = createGridMockForPlugin(
+        [
+          { month: 'm0', blDate: 'b0' },
+          { month: 'm1', blDate: 'b1' },
+        ],
+        columns,
+      );
+      // Range mode clears `ranges` on plain arrow nav, keeping the active cell
+      // only as `anchor`; DOM focus is not on a cell. Copy must use the anchor.
+      (grid as { query: unknown }).query = <U>(type: string): U[] =>
+        type === 'getSelection'
+          ? ([{ mode: 'range', ranges: [], anchor: { row: 1, col: 1 } }] as unknown as U[])
+          : ([] as U[]);
+      const plugin = new ClipboardPlugin();
+      plugin.attach(grid as any);
+      const copySpy = vi.spyOn(plugin, 'copy').mockResolvedValue('');
+
+      const evt = new KeyboardEvent('keydown', { key: 'c', ctrlKey: true });
+      Object.defineProperty(evt, 'target', { value: document.createElement('div') });
+      plugin.onKeyDown(evt);
+
+      expect(copySpy).toHaveBeenCalledWith({ rowIndices: [1], columns: ['blDate'] });
+    });
+
+    it('should copy the focused DOM cell when there is no anchor (mouse focus edge)', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'month', header: 'Month' },
+        { field: 'blDate', header: 'BL Date' },
+      ];
+      const grid = createGridMockForPlugin([{ month: 'm0', blDate: 'b0' }], columns);
+      (grid as { query: unknown }).query = <U>(type: string): U[] =>
+        type === 'getSelection' ? ([{ mode: 'range', ranges: [], anchor: null }] as unknown as U[]) : ([] as U[]);
+      const plugin = new ClipboardPlugin();
+      plugin.attach(grid as any);
+      const copySpy = vi.spyOn(plugin, 'copy').mockResolvedValue('');
+
+      // Focused cell carries the canonical `data-field` / `data-row` (NOT the
+      // stale `data-field-cache`).
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.setAttribute('data-field', 'blDate');
+      cell.setAttribute('data-row', '0');
+      const evt = new KeyboardEvent('keydown', { key: 'c', ctrlKey: true });
+      Object.defineProperty(evt, 'target', { value: cell });
+      plugin.onKeyDown(evt);
+
+      expect(copySpy).toHaveBeenCalledWith({ rowIndices: [0], columns: ['blDate'] });
+    });
+    // #endregion
+
     it('should copy specific rows via copyRows', async () => {
       Object.defineProperty(navigator, 'clipboard', {
         value: { writeText: vi.fn().mockResolvedValue(undefined) },

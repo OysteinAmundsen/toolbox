@@ -26,7 +26,7 @@ import type {
   PluginQuery,
 } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
-import type { CellEditablePredicate } from '../../core/plugin/types';
+import type { CellEditablePredicate, CommitCellValueContext } from '../../core/plugin/types';
 import type {
   ColumnConfig,
   ColumnInternal,
@@ -191,6 +191,11 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         type: 'getCellEditableResolver',
         description:
           'Returns a predicate (field, row) => boolean resolving per-cell editability (rowEditable gate + column.editable true/false/function), for consumers like clipboard paste',
+      },
+      {
+        type: 'commitCellValue',
+        description:
+          'Commits a single cell value coming from a core row mutation (updateRow/updateRows), running the full edit pipeline: cancelable cell-commit (validation/abortion), dirty tracking, history, and cascade. Returns true (applied), false (vetoed), or undefined (not handled).',
       },
     ],
   };
@@ -694,7 +699,55 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       };
       return resolver;
     }
+    if (query.type === 'commitCellValue') {
+      return this.#handleCommitCellValue(query.context as CommitCellValueContext);
+    }
     return undefined;
+  }
+
+  /**
+   * Answer the core `commitCellValue` query dispatched from `updateRow`/
+   * `updateRows`. Routes the change through the full edit pipeline so
+   * programmatic mutations participate in validation, dirty tracking, history,
+   * and cascade — exactly like an interactive edit.
+   *
+   * @returns `true` when applied, `false` when a `cell-commit` handler vetoed
+   *   it (abortion), or `undefined` when the field/row can't be resolved (core
+   *   then applies the value directly).
+   * @internal
+   */
+  #handleCommitCellValue(ctx: CommitCellValueContext): boolean | undefined {
+    const internalGrid = this.#internalGrid;
+    const columns = (internalGrid._visibleColumns as ColumnConfig<T>[] | undefined) ?? [];
+    const column =
+      columns.find((c) => c.field === ctx.field) ??
+      (internalGrid._columns as ColumnConfig<T>[] | undefined)?.find((c) => c.field === ctx.field);
+    const rowData =
+      (ctx.rowId != null ? internalGrid._getRowEntry(ctx.rowId)?.row : undefined) ??
+      (internalGrid._rows?.[ctx.rowIndex] as T | undefined);
+    if (!column || !rowData || !isSafePropertyKey(ctx.field)) return undefined; // core applies directly
+
+    if (ctx.source === 'history') {
+      // Undo/redo re-application: apply the value but DO NOT record a fresh
+      // history entry or mark the row changed — the undo stack owns this change.
+      // Recompute dirty so the row's changed flag reflects its baseline.
+      (rowData as Record<string, unknown>)[ctx.field] = ctx.newValue;
+      invalidateAccessorCache(rowData as object, ctx.field);
+      const rowId = this.#safeGetRowId(rowData);
+      if (rowId && this.config.dirtyTracking) {
+        const dirty = this.#dirty.isRowDirty(rowId, rowData);
+        if (!dirty) this.#dirty.changedRowIds.delete(rowId);
+        this.#emitDirtyChange(rowId, rowData, dirty ? 'modified' : 'pristine');
+      }
+      return true;
+    }
+
+    // Normal path: full commit pipeline (cancelable cell-commit for
+    // validation/abortion, dirty tracking, history via cell-edit-committed,
+    // cascade). #commitCellValue leaves the value unchanged when a handler
+    // vetoes, so compare to detect abortion.
+    this.#commitCellValue(ctx.rowIndex, column, ctx.newValue, rowData);
+    return (rowData as Record<string, unknown>)[ctx.field] === ctx.newValue;
   }
 
   // #endregion

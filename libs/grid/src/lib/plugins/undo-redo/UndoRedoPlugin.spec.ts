@@ -116,7 +116,7 @@ describe('UndoRedoPlugin', () => {
 
       plugin.undo();
 
-      expect(grid.updateRow).toHaveBeenCalledWith('1', { name: 'Alpha' });
+      expect(grid.updateRow).toHaveBeenCalledWith('1', { name: 'Alpha' }, 'history');
       expect(rows[0]['name']).toBe('Alpha');
     });
 
@@ -128,7 +128,7 @@ describe('UndoRedoPlugin', () => {
       plugin.redo();
 
       expect(grid.updateRow).toHaveBeenCalledTimes(2);
-      expect(grid.updateRow).toHaveBeenLastCalledWith('1', { name: 'Changed' });
+      expect(grid.updateRow).toHaveBeenLastCalledWith('1', { name: 'Changed' }, 'history');
       expect(rows[0]['name']).toBe('Changed');
     });
 
@@ -138,7 +138,7 @@ describe('UndoRedoPlugin', () => {
 
       plugin.onKeyDown(ctrlZ());
 
-      expect(grid.updateRow).toHaveBeenCalledWith('1', { price: 10 });
+      expect(grid.updateRow).toHaveBeenCalledWith('1', { price: 10 }, 'history');
     });
 
     it('should call grid.updateRow on Ctrl+Y keyboard redo', () => {
@@ -149,7 +149,7 @@ describe('UndoRedoPlugin', () => {
       plugin.onKeyDown(ctrlY()); // redo
 
       expect(grid.updateRow).toHaveBeenCalledTimes(2);
-      expect(grid.updateRow).toHaveBeenLastCalledWith('1', { price: 99 });
+      expect(grid.updateRow).toHaveBeenLastCalledWith('1', { price: 99 }, 'history');
     });
   });
 
@@ -263,7 +263,7 @@ describe('UndoRedoPlugin', () => {
       plugin.onKeyDown(ctrlShiftZ);
 
       expect(grid.updateRow).toHaveBeenCalledTimes(2);
-      expect(grid.updateRow).toHaveBeenLastCalledWith('1', { name: 'Changed' });
+      expect(grid.updateRow).toHaveBeenLastCalledWith('1', { name: 'Changed' }, 'history');
     });
   });
 
@@ -409,7 +409,7 @@ describe('UndoRedoPlugin', () => {
         // No beforeinput dispatched — browser had nothing to undo
         await Promise.resolve(); // flush microtask
 
-        expect(grid.updateRow).toHaveBeenCalledWith('1', { name: 'Alpha' });
+        expect(grid.updateRow).toHaveBeenCalledWith('1', { name: 'Alpha' }, 'history');
       } finally {
         input.remove();
       }
@@ -426,7 +426,7 @@ describe('UndoRedoPlugin', () => {
       try {
         plugin.onKeyDown(dispatchOn(input, 'y'));
         await Promise.resolve();
-        expect(grid.updateRow).toHaveBeenCalledWith('1', { name: 'Changed' });
+        expect(grid.updateRow).toHaveBeenCalledWith('1', { name: 'Changed' }, 'history');
       } finally {
         input.remove();
       }
@@ -671,10 +671,26 @@ describe('UndoRedoPlugin', () => {
       expect(plugin.getUndoStack()).toHaveLength(0);
     });
 
-    it('should throw if beginTransaction is called while already in a transaction', () => {
+    it('should nest re-entrant transactions and finalize once at depth 0', () => {
+      // A synchronous burst of commits (e.g. a multi-cell paste) brackets each
+      // commit with begin/end; nested begins must NOT throw and all edits must
+      // coalesce into a single compound action finalized at the outermost end.
       plugin.beginTransaction();
-      expect(() => plugin.beginTransaction()).toThrow(/already in progress/);
-      plugin.endTransaction(); // cleanup
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      plugin.beginTransaction(); // nested — must not throw
+      plugin.recordEdit(1, 'price', 10, 99);
+      plugin.endTransaction(); // inner — does not finalize yet
+      expect(plugin.getUndoStack()).toHaveLength(0);
+      plugin.recordEdit(2, 'qty', 1, 5);
+      plugin.endTransaction(); // outer — finalizes
+
+      const stack = plugin.getUndoStack();
+      expect(stack).toHaveLength(1);
+      const entry = stack[0];
+      expect(entry.type).toBe('compound');
+      if (entry.type === 'compound') {
+        expect(entry.actions).toHaveLength(3);
+      }
     });
 
     it('should throw if endTransaction is called without beginTransaction', () => {
@@ -744,8 +760,8 @@ describe('UndoRedoPlugin', () => {
       plugin.undo();
 
       // Both fields should be reverted via updateRow
-      expect(grid.updateRow).toHaveBeenCalledWith('1', { price: 10 });
-      expect(grid.updateRow).toHaveBeenCalledWith('1', { name: 'Alpha' });
+      expect(grid.updateRow).toHaveBeenCalledWith('1', { price: 10 }, 'history');
+      expect(grid.updateRow).toHaveBeenCalledWith('1', { name: 'Alpha' }, 'history');
     });
 
     it('should undo compound in reverse order', () => {

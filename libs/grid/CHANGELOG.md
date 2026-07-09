@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.0.0-beta.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.1...grid-3.0.0-beta.2) (2026-07-09)
+
+
+### Features
+
+* **grid/clipboard:** add fillSelection to tile clipboard source across a larger selection ([#418](https://github.com/OysteinAmundsen/toolbox/issues/418)) ([22ea287](https://github.com/OysteinAmundsen/toolbox/commit/22ea287ae93300d826b6ef07bbd68986c7199824))
+* **grid:** route updateRow/updateRows through data plugins via commitCellValue ([#420](https://github.com/OysteinAmundsen/toolbox/issues/420)) ([a3efd48](https://github.com/OysteinAmundsen/toolbox/commit/a3efd48824dea16d6e67551e4424aeef0f17634d))
+
 ## [3.0.0-beta.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta...grid-3.0.0-beta.1) (2026-07-08)
 
 

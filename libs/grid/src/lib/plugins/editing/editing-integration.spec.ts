@@ -11,6 +11,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { UndoRedoPlugin } from '../undo-redo/UndoRedoPlugin';
 import { EditingPlugin } from './EditingPlugin';
 
 // Test helpers
@@ -3157,6 +3158,86 @@ describe('EditingPlugin', () => {
 
         expect(events).toHaveLength(0);
       });
+    });
+  });
+
+  // #endregion
+
+  // #region Programmatic mutation routing (commitCellValue)
+
+  describe('programmatic mutation routing via updateRow', () => {
+    it('routes updateRow through editing → marks the row dirty and records history', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'click', dirtyTracking: true });
+      const undoPlugin = new UndoRedoPlugin();
+      grid.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name', editable: true },
+          { field: 'age', header: 'Age', type: 'number' },
+        ],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin, undoPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+      await waitUpgrade(grid);
+
+      expect(editingPlugin.isDirty('1')).toBe(false);
+      expect(undoPlugin.canUndo()).toBe(false);
+
+      // Programmatic mutation (default 'api' source) routes through EditingPlugin:
+      // apply the value, mark the row dirty, and record undo history.
+      grid.updateRow('1', { name: 'Alice-modified' });
+      await nextFrame();
+
+      expect(grid._rows[0].name).toBe('Alice-modified');
+      expect(editingPlugin.isDirty('1')).toBe(true);
+      expect(undoPlugin.canUndo()).toBe(true);
+    });
+
+    it('undo reverts a programmatic mutation and restores pristine state (no re-record loop)', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'click', dirtyTracking: true });
+      const undoPlugin = new UndoRedoPlugin();
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin, undoPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      await waitUpgrade(grid);
+
+      grid.updateRow('1', { name: 'Changed' });
+      await nextFrame();
+      expect(editingPlugin.isDirty('1')).toBe(true);
+      expect(undoPlugin.canUndo()).toBe(true);
+
+      // Undo re-applies the original via updateRow(..., 'history'); editing
+      // applies the value but does NOT re-record history (loop fix).
+      undoPlugin.undo();
+      await nextFrame();
+
+      expect(grid._rows[0].name).toBe('Alice');
+      expect(editingPlugin.isDirty('1')).toBe(false);
+      // The undone action moved to the redo stack, not back onto the undo stack.
+      expect(undoPlugin.canUndo()).toBe(false);
+      expect(undoPlugin.canRedo()).toBe(true);
+    });
+
+    it('a vetoed cell-commit (abortion) leaves the value unchanged', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'click' });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      await waitUpgrade(grid);
+
+      // Abort any commit coming from a programmatic mutation.
+      grid.addEventListener('cell-commit', (e: Event) => e.preventDefault());
+
+      grid.updateRow('1', { name: 'Blocked' });
+      await nextFrame();
+
+      expect(grid._rows[0].name).toBe('Alice');
     });
   });
 

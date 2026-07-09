@@ -234,6 +234,28 @@ If you paste `"1\t2\t3"` into this grid, only the `name` and `email` columns rec
 Paste editability is resolved by the **EditingPlugin** (via its `getCellEditableResolver` query), which also honors row-conditional `editable: (row) => boolean`. Load the EditingPlugin for paste to write into cells — marking a column `editable: true` gates paste without you having to trigger interactive editing, but with **no EditingPlugin loaded every cell is treated as non-editable and paste is a no-op.**
 :::
 
+### Dirty Tracking, Undo & Validation
+
+When your grid has a `getRowId` and the **EditingPlugin** loaded, paste routes each cell change through the same commit pipeline as an interactive edit. That means a paste automatically:
+
+- **marks rows dirty** (surfaces in `isDirty()` / `getDirtyRows()` when `dirtyTracking: true`),
+- **is undoable** with the **UndoRedoPlugin** (<kbd>Ctrl+Z</kbd> reverts the whole paste),
+- **emits `cell-commit`** per cell — a handler that calls `preventDefault()` **vetoes** that value, so you can coerce or reject pasted input,
+- **triggers cascades** and other editing side effects.
+
+```ts
+grid.addEventListener('cell-commit', (e) => {
+  // Reject a pasted value that fails validation.
+  if (e.detail.field === 'age' && Number.isNaN(Number(e.detail.value))) {
+    e.preventDefault();
+  }
+});
+```
+
+:::note
+Rows **without** a resolvable `getRowId` (and freshly-created empty rows when a paste grows the grid) fall back to a direct write that bypasses the pipeline. Configure `getRowId` to make paste fully dirty-tracked and undoable.
+:::
+
 ### Copied Headers
 
 When `includeHeaders: true`, copied text carries a header row so it round-trips cleanly to spreadsheets and text editors. Pasting **back into cells** drops that header row automatically — only values land in cells, never the header label. The header is stripped only when the pasted first row matches the target columns' labels, so external pastes without a header row are left intact.

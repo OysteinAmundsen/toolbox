@@ -309,6 +309,38 @@ export interface HeaderRowContribution {
 export type CellEditablePredicate = (field: string, row: unknown) => boolean;
 // #endregion
 
+// #region Commit Cell Value Query
+/**
+ * Context for the `'commitCellValue'` query that core `updateRow`/`updateRows`
+ * dispatch for each changed field. Data plugins (e.g. editing) answer it to run
+ * the change through their pipeline — validation (cancelable `cell-commit`),
+ * dirty tracking, history, and cascade — instead of the mutation being a silent
+ * in-place write.
+ *
+ * Handler response contract:
+ * - `true` → the plugin applied AND tracked the value; core must not re-apply.
+ * - `false` → a plugin vetoed the change (validation/abortion); core skips it.
+ * - `undefined` → not handled; core applies the value directly (legacy path).
+ *
+ * @category Plugin Development
+ * @since 3.0.0
+ */
+export interface CommitCellValueContext {
+  /** Index of the row in the current (processed) `rows` array. */
+  rowIndex: number;
+  /** Stable row ID (from `getRowId`), when available. */
+  rowId?: string;
+  /** The column field being written. */
+  field: string;
+  /** The value before the change. */
+  oldValue: unknown;
+  /** The value being written. */
+  newValue: unknown;
+  /** Origin of the mutation (see {@link UpdateSource}). */
+  source: UpdateSource;
+}
+// #endregion
+
 // #region Cell Renderer Types
 /**
  * Cell render context for plugin cell renderers.

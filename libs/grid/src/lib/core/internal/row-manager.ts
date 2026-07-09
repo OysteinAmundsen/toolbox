@@ -84,34 +84,60 @@ export class RowManager<T = any> {
 
   // --- Row updates ---
 
-  updateRow(id: string, changes: Partial<T>, source: UpdateSource = 'api'): void {
+  /**
+   * Apply a set of field changes to a single already-resolved row, routing each
+   * change through data plugins (e.g. editing) so validation, dirty tracking,
+   * history, and abortion all participate.
+   *
+   * Per-field plugin response contract (`commitCellValue` query):
+   * - `false` → a plugin vetoed the change (validation/abortion); skip the field.
+   * - `true` → a plugin applied AND tracked the value itself; core must not re-apply.
+   * - _(no response)_ → not handled; core applies the value in place (legacy path).
+   *
+   * Emits `cell-change` for each field that actually changed and returns the list
+   * so callers can decide whether to schedule a render.
+   */
+  #applyRowChanges(
+    id: string,
+    row: T,
+    index: number,
+    changes: Partial<T>,
+    source: UpdateSource,
+  ): Array<{ field: string; oldValue: unknown; newValue: unknown }> {
     const grid = this.#grid;
-    const entry = grid._getRowEntry(id);
-    if (!entry) {
-      throwDiagnostic(
-        ROW_NOT_FOUND,
-        `Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
-        grid.id,
-      );
-    }
-
-    const { row, index } = entry;
     const changedFields: Array<{ field: string; oldValue: unknown; newValue: unknown }> = [];
 
-    // Compute changes and apply in-place
     for (const [field, newValue] of Object.entries(changes)) {
+      // Guard against prototype-pollution keys before any read/query/write.
+      if (field === '__proto__' || field === 'constructor' || field === 'prototype') continue;
+
       const oldValue = (row as Record<string, unknown>)[field];
-      if (oldValue !== newValue) {
-        changedFields.push({ field, oldValue, newValue });
+      if (oldValue === newValue) continue;
+
+      const responses = grid.query?.<boolean>('commitCellValue', {
+        rowIndex: index,
+        rowId: id,
+        field,
+        oldValue,
+        newValue,
+        source,
+      });
+      // A veto (`false`) from ANY plugin wins regardless of response order; a
+      // `true` means a plugin applied AND tracked the value itself; otherwise
+      // (no boolean response) core applies the value directly.
+      if (responses?.includes(false)) continue; // vetoed (validation/abortion)
+
+      if (!responses?.includes(true)) {
+        // No data plugin handled it — apply in place (legacy behavior).
         (row as Record<string, unknown>)[field] = newValue;
         // valueAccessor cache is keyed by row identity; in-place mutations
         // need explicit invalidation per (row, field).
         invalidateAccessorCache(row as object, field);
       }
-    }
+      // else: a data plugin already applied (and tracked) the value.
 
-    // Emit cell-change for each changed field
-    for (const { field, oldValue, newValue } of changedFields) {
+      changedFields.push({ field, oldValue, newValue });
+
       grid.dispatchEvent(
         new CustomEvent('cell-change', {
           detail: {
@@ -129,6 +155,23 @@ export class RowManager<T = any> {
         }),
       );
     }
+
+    return changedFields;
+  }
+
+  updateRow(id: string, changes: Partial<T>, source: UpdateSource = 'api'): void {
+    const grid = this.#grid;
+    const entry = grid._getRowEntry(id);
+    if (!entry) {
+      throwDiagnostic(
+        ROW_NOT_FOUND,
+        `Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
+        grid.id,
+      );
+    }
+
+    const { row, index } = entry;
+    const changedFields = this.#applyRowChanges(id, row, index, changes, source);
 
     // Schedule re-render if anything changed.
     // Use VIRTUALIZATION (not ROWS) so the visible cells are re-rendered
@@ -159,34 +202,8 @@ export class RowManager<T = any> {
       }
 
       const { row, index } = entry;
-
-      // Compute changes and apply in-place
-      for (const [field, newValue] of Object.entries(changes)) {
-        const oldValue = (row as Record<string, unknown>)[field];
-        if (oldValue !== newValue) {
-          anyChanged = true;
-          (row as Record<string, unknown>)[field] = newValue;
-          invalidateAccessorCache(row as object, field);
-
-          // Emit cell-change for each changed field
-          grid.dispatchEvent(
-            new CustomEvent('cell-change', {
-              detail: {
-                row,
-                rowId: id,
-                rowIndex: index,
-                field,
-                oldValue,
-                newValue,
-                changes,
-                source,
-              } as CellChangeDetail<T>,
-              bubbles: true,
-              composed: true,
-            }),
-          );
-        }
-      }
+      const changedFields = this.#applyRowChanges(id, row, index, changes, source);
+      if (changedFields.length > 0) anyChanged = true;
     }
 
     // Schedule single re-render for all changes.

@@ -573,6 +573,14 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   /** @internal */ _adjustPluginVirtualStart(start: number, scrollTop: number, rowHeight: number): number | undefined;
   /** @internal */ _afterPluginRender(): void;
   /** @internal */ _emitPluginEvent(event: string, detail: unknown): void;
+  /**
+   * Dispatch a synchronous query to all plugins that declare it, collecting
+   * their responses. Used by core row mutations to let data plugins (e.g.
+   * editing) validate/apply/track a change. Returns `[]` when no plugin
+   * handles the query.
+   * @internal
+   */
+  query?<R>(type: string, context?: unknown): R[];
 
   // Scheduler pipeline callbacks
   /** @internal */ _schedulerMergeConfig(): void;
@@ -3312,6 +3320,9 @@ export interface TbwScrollDetail {
  * - `'user'`: Direct user interaction via EditingPlugin (typing, selecting)
  * - `'cascade'`: Triggered by `updateRow()` in an event handler
  * - `'api'`: External programmatic update via `grid.updateRow()`
+ * - `'history'`: Re-application of a value by the undo/redo plugin. Data
+ *   plugins (e.g. editing) apply the value but MUST NOT record a fresh
+ *   history entry or mark the row changed — the undo stack owns this change.
  *
  * @example
  * ```typescript
@@ -3335,7 +3346,7 @@ export interface TbwScrollDetail {
  * @category Data Management
  * @since 1.0.0
  */
-export type UpdateSource = 'user' | 'cascade' | 'api';
+export type UpdateSource = 'user' | 'cascade' | 'api' | 'history';
 
 /**
  * Detail for cell-change event (emitted by core after mutation).

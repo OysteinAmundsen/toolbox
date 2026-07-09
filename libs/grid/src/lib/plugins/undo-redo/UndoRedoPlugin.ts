@@ -6,7 +6,7 @@
  */
 
 import { GridClasses } from '../../core/constants';
-import { NO_TRANSACTION, TRANSACTION_IN_PROGRESS, throwDiagnostic } from '../../core/internal/diagnostics';
+import { NO_TRANSACTION, throwDiagnostic } from '../../core/internal/diagnostics';
 import { FOCUSABLE_EDITOR_SELECTOR } from '../../core/internal/rows';
 import { BaseGridPlugin, type GridElement, type PluginDependency } from '../../core/plugin/base-plugin';
 import type { GridHost } from '../../core/types';
@@ -103,6 +103,16 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   #transactionBuffer: EditAction[] | null = null;
 
   /**
+   * Open-transaction nesting depth. `beginTransaction` increments, `endTransaction`
+   * decrements; the buffer is only finalized when it returns to 0. Nesting lets a
+   * synchronous burst of commits (e.g. a multi-cell paste routed through
+   * `updateRows`, where each cell fires `cell-commit` and consumers bracket it
+   * with `beginTransaction()`/`queueMicrotask(endTransaction)`) coalesce into a
+   * single compound undo entry instead of throwing "already in progress".
+   */
+  #transactionDepth = 0;
+
+  /**
    * Apply a value to a row cell, using `updateRow()` when possible so that
    * active editors (during row-edit mode) are notified via the `cell-change`
    * → `onValueChange` pipeline. Falls back to direct mutation when the row
@@ -117,10 +127,15 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     // editors via their `onValueChange` callbacks. Without this, undo/redo
     // during row-edit mode is invisible because the render pipeline skips
     // cells that have active editors.
+    //
+    // The `'history'` source tells data plugins (editing) to apply the value
+    // and recompute dirty state WITHOUT recording a fresh history entry or
+    // re-marking the row changed — the undo stack owns this change. This is
+    // what breaks the updateRow→commit→cell-edit-committed→record feedback loop.
     try {
       const rowId = this.grid.getRowId(row);
       if (rowId) {
-        this.grid.updateRow(rowId, { [action.field]: value });
+        this.grid.updateRow(rowId, { [action.field]: value }, 'history');
         return;
       }
     } catch {
@@ -217,6 +232,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     this.undoStack = [];
     this.redoStack = [];
     this.#transactionBuffer = null;
+    this.#transactionDepth = 0;
   }
 
   /**
@@ -342,6 +358,13 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
    * and auto-recorded from `cell-edit-committed`) are buffered instead of
    * pushed to the undo stack. Call `endTransaction()` to finalize the group.
    *
+   * **Nesting:** transactions are re-entrant. Calling `beginTransaction()` while
+   * one is already open increments a depth counter rather than throwing; the
+   * buffer is finalized only when a matching `endTransaction()` returns the depth
+   * to 0. This lets a synchronous burst of commits (e.g. a multi-cell paste, where
+   * each `cell-commit` handler brackets itself with `beginTransaction()` +
+   * `queueMicrotask(endTransaction)`) coalesce into a single compound undo entry.
+   *
    * **Typical usage** — group a user edit with its cascaded side-effects:
    *
    * ```ts
@@ -358,14 +381,12 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
    *   queueMicrotask(() => undoRedo.endTransaction());
    * });
    * ```
-   *
-   * @throws Error if a transaction is already in progress
    */
   beginTransaction(): void {
-    if (this.#transactionBuffer) {
-      throwDiagnostic(TRANSACTION_IN_PROGRESS, 'Transaction already in progress. Call endTransaction() first.');
+    if (this.#transactionDepth === 0) {
+      this.#transactionBuffer = [];
     }
-    this.#transactionBuffer = [];
+    this.#transactionDepth++;
   }
 
   /**
@@ -379,16 +400,22 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
    * Undoing a compound action reverts all edits in reverse order; redoing
    * replays them in forward order.
    *
+   * When transactions are nested, only the outermost `endTransaction()` (the one
+   * that returns the depth to 0) finalizes the buffer; inner calls just decrement.
+   *
    * @throws Error if no transaction is in progress
    */
   endTransaction(): void {
-    const buffer = this.#transactionBuffer;
-    if (!buffer) {
+    if (this.#transactionDepth === 0) {
       throwDiagnostic(NO_TRANSACTION, 'No transaction in progress. Call beginTransaction() first.');
     }
-    this.#transactionBuffer = null;
 
-    if (buffer.length === 0) return;
+    this.#transactionDepth--;
+    if (this.#transactionDepth > 0) return; // still inside an outer transaction
+
+    const buffer = this.#transactionBuffer;
+    this.#transactionBuffer = null;
+    if (!buffer || buffer.length === 0) return;
 
     const action: UndoRedoAction = buffer.length === 1 ? buffer[0] : createCompoundAction(buffer);
     const newState = pushAction(
@@ -456,6 +483,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     this.undoStack = newState.undoStack;
     this.redoStack = newState.redoStack;
     this.#transactionBuffer = null;
+    this.#transactionDepth = 0;
   }
 
   /**

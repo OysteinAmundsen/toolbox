@@ -248,19 +248,37 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
     // Get target cell from selection via query
     const selection = this.#getSelection();
-    const firstRange = selection?.ranges?.[0];
+    const ranges = selection?.ranges ?? [];
+    const firstRange = ranges[0];
 
-    // Determine target cell and bounds
-    const targetRow = firstRange?.from.row ?? 0;
-    const targetCol = firstRange?.from.col ?? 0;
+    // Aggregate the bounding box across ALL selected ranges. A multi-cell
+    // selection is frequently expressed as several single-cell ranges (clicking
+    // or dragging cell-by-cell), so inspecting `ranges[0]` alone would treat it
+    // as a single cell and skip fill/clip — pasting into only the first cell.
+    // min/max also normalizes reversed (bottom-up / right-to-left) drags.
+    let selMinRow = Infinity;
+    let selMinCol = Infinity;
+    let selMaxRow = -Infinity;
+    let selMaxCol = -Infinity;
+    for (const r of ranges) {
+      selMinRow = Math.min(selMinRow, r.from.row, r.to.row);
+      selMaxRow = Math.max(selMaxRow, r.from.row, r.to.row);
+      selMinCol = Math.min(selMinCol, r.from.col, r.to.col);
+      selMaxCol = Math.max(selMaxCol, r.from.col, r.to.col);
+    }
 
-    // Check if multi-cell selection (range with different start/end)
+    // Determine target cell (top-left of the whole selection)
+    const targetRow = firstRange ? selMinRow : 0;
+    const targetCol = firstRange ? selMinCol : 0;
+
+    // Multi-cell when the selection spans more than one cell in total, whether
+    // it's one large range or many single-cell ranges.
     const isMultiCell =
-      firstRange &&
+      !!firstRange &&
       (selection?.mode === 'range' || selection?.mode === 'row') &&
-      (firstRange.from.row !== firstRange.to.row || firstRange.from.col !== firstRange.to.col);
+      (selMinRow !== selMaxRow || selMinCol !== selMaxCol);
 
-    const bounds = isMultiCell ? { endRow: firstRange.to.row, endCol: firstRange.to.col } : null;
+    const bounds = isMultiCell ? { endRow: selMaxRow, endCol: selMaxCol } : null;
     // Selection range indices are visible-column indices (from data-col)
     const maxCol = bounds?.endCol ?? this.visibleColumns.length - 1;
 

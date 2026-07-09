@@ -766,7 +766,7 @@ describe('clipboard', () => {
       expect(grid.rows[0]).toEqual({ col1: 'X', col2: 'B1', col3: 'C1' });
     });
 
-    it('should maintain immutability of original rows', () => {
+    it('should apply paste in place (mutates rows like an edit)', () => {
       const originalRow = { col1: 'A1', col2: 'B1', col3: 'C1' };
       const rows = [originalRow];
       const grid = createMockGrid(rows, columns);
@@ -780,11 +780,10 @@ describe('clipboard', () => {
 
       defaultPasteHandler(detail, grid);
 
-      // Original row object should be unchanged
-      expect(originalRow).toEqual({ col1: 'A1', col2: 'B1', col3: 'C1' });
-      // Grid should have new row object
+      // Paste now routes through the edit pipeline and mutates the row in place
+      // (consistent with interactive editing), rather than cloning.
       expect(grid.rows[0]).toEqual({ col1: 'X', col2: 'B1', col3: 'C1' });
-      expect(grid.rows[0]).not.toBe(originalRow);
+      expect(originalRow.col1).toBe('X');
     });
 
     it('should skip non-editable columns during paste', () => {

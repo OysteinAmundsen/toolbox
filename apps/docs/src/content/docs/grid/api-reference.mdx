@@ -383,10 +383,16 @@ grid.updateRows([
 ]);
 
 // Specify the update source (default: 'api')
-// Valid sources: 'user' | 'cascade' | 'api'
+// Valid sources: 'user' | 'cascade' | 'api' | 'history'
+// ('history' is reserved for undo/redo re-application — it applies the value
+//  but does not record a fresh history entry.)
 grid.updateRow('EMP-123', { status: 'inactive' }, 'api');
 grid.updateRows(updates, 'api');
 ```
+
+:::note
+When the **EditingPlugin** is loaded (and the grid has a `getRowId`), `updateRow()` / `updateRows()` route each changed cell through the edit commit pipeline — so programmatic updates participate in **dirty tracking**, **undo/redo**, **validation**, and **cascades**, and fire `cell-commit` per cell (a `preventDefault()` handler vetoes the change). Without the EditingPlugin the value is applied directly.
+:::
 
 #### Listening to Row Updates
 

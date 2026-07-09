@@ -4,6 +4,7 @@
  * Type definitions for clipboard copy/paste functionality.
  */
 
+import { invalidateAccessorCache } from '../../core/internal/value-accessor';
 import type { GridElement } from '../../core/plugin/base-plugin';
 import type { CellEditablePredicate } from '../../core/plugin/types';
 
@@ -167,10 +168,15 @@ export interface PasteDetail {
 }
 
 /**
- * Default paste handler that applies pasted data to grid.rows.
+ * Default paste handler that applies pasted data to the grid.
  *
  * This is the built-in handler used when no custom `pasteHandler` is configured.
- * It clones the rows array for immutability and applies values starting at the target cell.
+ *
+ * Edits are routed through `grid.updateRows(…, 'api')` so paste participates in
+ * the full edit pipeline — dirty tracking, cancelable validation, undo/redo
+ * history, and abortion — exactly like an interactive edit. Rows without a
+ * resolvable ID (no `getRowId`) fall back to a direct in-place write, which
+ * still updates values but does not track them.
  *
  * Behavior:
  * - Single cell selection: paste expands freely, adds new rows if needed
@@ -192,85 +198,107 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
   // No target = nothing to do
   if (!target || pastedRows.length === 0) return;
 
-  // Get current rows and columns from grid
   const currentRows = grid.rows as Record<string, unknown>[];
   const columns = grid.effectiveConfig.columns ?? [];
   const allFields = columns.map((col) => col.field);
 
-  // Ask the editing plugin (via query) whether each target cell may receive a
-  // value. We never read editing-owned column props (`editable`/`rowEditable`)
-  // here — the editing plugin owns that resolution, including row-conditional
-  // `editable`. With no editing plugin loaded, no plugin responds and nothing
-  // is editable (paste becomes a no-op).
+  // Editability is owned by the editing plugin (row-conditional included). With
+  // no editing plugin loaded, nothing is editable and paste is a no-op.
   const [canEditCell = () => false] = grid.query<CellEditablePredicate>('getCellEditableResolver');
 
-  // Clone data for immutability
-  const newRows = [...currentRows];
+  // Accumulate the intended edits per target row (honoring editability, tiling,
+  // and selection bounds). Rows beyond current data are only created for an
+  // unbounded (single-cell expansion) paste.
+  const editsByRow = new Map<number, Record<string, unknown>>();
+  let rowCountAfter = currentRows.length;
 
-  // Fill-selection (tile) mode: repeat the clipboard source across the full
-  // selection bounds using modulo indexing. Never grows the grid.
+  const addEdit = (rowIndex: number, field: string | undefined, value: unknown, evalRow: Record<string, unknown>) => {
+    if (!field || !canEditCell(field, evalRow)) return;
+    let changes = editsByRow.get(rowIndex);
+    if (!changes) {
+      changes = {};
+      editsByRow.set(rowIndex, changes);
+    }
+    changes[field] = value;
+  };
+
   if (fillSelection && target.bounds) {
+    // Fill-selection (tile) mode: repeat the source across the selection bounds
+    // using modulo indexing. Never grows the grid. Editability is resolved
+    // against the pre-paste row (bounded mode never grows).
     const srcRows = pastedRows.length;
     for (let rowIndex = target.row; rowIndex <= target.bounds.endRow; rowIndex++) {
-      // Don't paste beyond existing rows
-      if (rowIndex >= newRows.length) break;
+      if (rowIndex >= currentRows.length) break;
       const sourceRow = pastedRows[(rowIndex - target.row) % srcRows];
       const srcCols = sourceRow.length;
       if (srcCols === 0) continue;
-      // Editability is resolved against the pre-paste row state (bounded mode
-      // never grows, so the original row always exists).
       const evalRow = currentRows[rowIndex];
-      const editRow = (newRows[rowIndex] = { ...newRows[rowIndex] });
-      fields.forEach((field, colOffset) => {
-        if (field && canEditCell(field, evalRow)) {
-          editRow[field] = sourceRow[colOffset % srcCols];
-        }
-      });
+      fields.forEach((field, colOffset) => addEdit(rowIndex, field, sourceRow[colOffset % srcCols], evalRow));
     }
-    grid.rows = newRows;
-    return;
+  } else {
+    const maxPasteRow = target.bounds ? target.bounds.endRow : Infinity;
+    pastedRows.forEach((rowData, rowOffset) => {
+      const targetRowIndex = target.row + rowOffset;
+      if (targetRowIndex > maxPasteRow) return;
+      if (target.bounds && targetRowIndex >= currentRows.length) return; // bounded: don't grow
+      if (!target.bounds && targetRowIndex >= rowCountAfter) rowCountAfter = targetRowIndex + 1;
+      // Editability resolved against the pre-paste row (empty for grown rows).
+      const evalRow = currentRows[targetRowIndex] ?? {};
+      rowData.forEach((cellValue, colOffset) => addEdit(targetRowIndex, fields[colOffset], cellValue, evalRow));
+    });
   }
 
-  // Calculate row bounds
-  const maxPasteRow = target.bounds ? target.bounds.endRow : Infinity;
+  if (editsByRow.size === 0 && rowCountAfter === currentRows.length) return;
 
-  // Apply pasted data starting at target cell
-  pastedRows.forEach((rowData, rowOffset) => {
-    const targetRowIndex = target.row + rowOffset;
-
-    // Stop if we've exceeded the selection bounds
-    if (targetRowIndex > maxPasteRow) return;
-
-    // Only grow array if no bounds (single cell selection)
-    if (!target.bounds) {
-      while (targetRowIndex >= newRows.length) {
-        const emptyRow: Record<string, unknown> = {};
-        allFields.forEach((field) => (emptyRow[field] = ''));
-        newRows.push(emptyRow);
-      }
-    } else if (targetRowIndex >= newRows.length) {
-      // With bounds, don't paste beyond existing rows
-      return;
+  // Grow the grid first for unbounded pastes that extend past existing data.
+  // New rows start empty; their pasted values are applied in the write phase.
+  if (rowCountAfter > currentRows.length) {
+    const grown = [...currentRows];
+    while (grown.length < rowCountAfter) {
+      const emptyRow: Record<string, unknown> = {};
+      allFields.forEach((f) => (emptyRow[f] = ''));
+      grown.push(emptyRow);
     }
+    grid.rows = grown;
+  }
 
-    // Clone the target row and apply values. Editability is resolved against
-    // the pre-paste row state — the original row for existing rows, or an
-    // (empty) snapshot for rows grown by a single-cell expansion paste.
-    const originalRow = currentRows[targetRowIndex];
-    const editRow = (newRows[targetRowIndex] = { ...newRows[targetRowIndex] });
-    const evalRow = originalRow ?? { ...editRow };
-    rowData.forEach((cellValue, colOffset) => {
-      // fields array is already constrained by bounds in ClipboardPlugin
-      const field = fields[colOffset];
-      if (field && canEditCell(field, evalRow)) {
-        // Only paste into editable cells
-        editRow[field] = cellValue;
+  const rowsNow = grid.rows as Record<string, unknown>[];
+
+  // Route edits through updateRows so paste flows through the edit pipeline
+  // (dirty tracking, validation, history, abortion). Rows without a resolvable
+  // ID fall back to a direct in-place write.
+  const updates: Array<{ id: string; changes: Record<string, unknown> }> = [];
+  let directWrote = false;
+  for (const [rowIndex, changes] of editsByRow) {
+    const row = rowsNow[rowIndex];
+    if (!row) continue;
+    let id: string | undefined;
+    try {
+      id = grid.getRowId(row);
+    } catch {
+      id = undefined;
+    }
+    if (id == null) {
+      // No stable ID → can't route through updateRow; write directly. Invalidate
+      // the value-accessor cache per field (row identity is unchanged), matching
+      // RowManager.updateRow — otherwise a `column.valueAccessor` display can go
+      // stale after paste.
+      for (const [field, value] of Object.entries(changes)) {
+        (row as Record<string, unknown>)[field] = value;
+        invalidateAccessorCache(row as object, field);
       }
-    });
-  });
+      directWrote = true;
+    } else {
+      updates.push({ id, changes });
+    }
+  }
 
-  // Update grid with new data
-  grid.rows = newRows;
+  if (updates.length > 0) {
+    grid.updateRows(updates, 'api');
+  } else if (directWrote && rowCountAfter === currentRows.length) {
+    // Direct writes only, no structural grow above — trigger a render.
+    grid.rows = [...rowsNow];
+  }
 }
 
 // Module Augmentation - Register plugin name for type-safe getPluginByName()

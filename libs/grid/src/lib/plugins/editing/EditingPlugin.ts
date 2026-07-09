@@ -26,7 +26,7 @@ import type {
   PluginQuery,
 } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
-import type { GetEditableFieldsContext } from '../../core/plugin/types';
+import type { CellEditablePredicate } from '../../core/plugin/types';
 import type {
   ColumnConfig,
   ColumnInternal,
@@ -188,9 +188,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         description: 'Returns whether any cell is currently being edited',
       },
       {
-        type: 'getEditableFields',
+        type: 'getCellEditableResolver',
         description:
-          'Returns the field names of columns that are unconditionally editable (editable === true), for consumers like clipboard paste',
+          'Returns a predicate (field, row) => boolean resolving per-cell editability (rowEditable gate + column.editable true/false/function), for consumers like clipboard paste',
       },
     ],
   };
@@ -680,15 +680,19 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       // In grid mode, we're always editing
       return this.#isGridMode || this.#activeEditRow !== -1;
     }
-    if (query.type === 'getEditableFields') {
-      // Report fields that are unconditionally editable (`editable === true`).
-      // Function-typed `editable` is row-conditional and excluded here, since
-      // this query carries no row context. Falls back to the grid's resolved
-      // columns when the caller does not supply any.
-      const context = query.context as GetEditableFieldsContext | undefined;
-      const columns =
-        context?.columns ?? (this.#internalGrid.effectiveConfig?.columns as ColumnConfig<T>[] | undefined) ?? [];
-      return columns.filter((col) => col.editable === true).map((col) => col.field);
+    if (query.type === 'getCellEditableResolver') {
+      // Return a predicate that applies the plugin's full per-cell editability
+      // resolution (rowEditable gate + column.editable true/false/function).
+      // Fields are mapped to columns once; consumers (e.g. clipboard paste)
+      // then ask per cell without importing editing-owned config.
+      const columns = (this.#internalGrid.effectiveConfig?.columns as ColumnConfig<T>[] | undefined) ?? [];
+      const byField = new Map<string, ColumnConfig<T>>();
+      for (const col of columns) byField.set(col.field, col);
+      const resolver: CellEditablePredicate = (field, row) => {
+        const col = byField.get(field);
+        return col ? this.#isCellEditable(col, row as T) : false;
+      };
+      return resolver;
     }
     return undefined;
   }

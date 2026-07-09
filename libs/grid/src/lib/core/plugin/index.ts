@@ -27,7 +27,7 @@ export type {
   RowClickEvent,
   ScrollEvent,
 } from './base-plugin';
-export type { CollectHeaderRowsContext, GetEditableFieldsContext, HeaderRowCell, HeaderRowContribution } from './types';
+export type { CellEditablePredicate, CollectHeaderRowsContext, HeaderRowCell, HeaderRowContribution } from './types';
 // #endregion
 
 // #region Plugin Manager

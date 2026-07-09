@@ -208,6 +208,7 @@ Without a SelectionPlugin, the clipboard operates on a single focused cell — p
 | `delimiter`      | `string`                              | `'\t'`               | Column delimiter (tab for Excel compatibility)                                                           |
 | `newline`        | `string`                              | `'\n'`               | Row delimiter                                                                                            |
 | `quoteStrings`   | `boolean`                             | `false`              | Wrap string values in quotes                                                                             |
+| `fillSelection`  | `boolean`                             | `false`              | Tile the clipboard source to fill a larger multi-cell selection (see [Fill Selection](#fill-selection)) |
 | `processCell`    | `(value, field, row) => string`       | -                    | Custom cell value processor for copy operations                                                          |
 | `pasteHandler`   | `PasteHandler \| null`                | `defaultPasteHandler`| Custom paste handler. Set to `null` to disable auto-paste and handle the `paste` event manually         |
 
@@ -229,9 +230,13 @@ columns: [
 
 If you paste `"1\t2\t3"` into this grid, only the `name` and `email` columns receive values (`2` and `3`). The `id` column remains unchanged.
 
-:::tip
-This works independently of the EditingPlugin. You can use `editable: true` to control paste behavior even without enabling inline editing.
+:::note
+Paste editability is resolved by the **EditingPlugin** (via its `getCellEditableResolver` query), which also honors row-conditional `editable: (row) => boolean`. Load the EditingPlugin for paste to write into cells — marking a column `editable: true` gates paste without you having to trigger interactive editing, but with **no EditingPlugin loaded every cell is treated as non-editable and paste is a no-op.**
 :::
+
+### Copied Headers
+
+When `includeHeaders: true`, copied text carries a header row so it round-trips cleanly to spreadsheets and text editors. Pasting **back into cells** drops that header row automatically — only values land in cells, never the header label. The header is stripped only when the pasted first row matches the target columns' labels, so external pastes without a header row are left intact.
 
 ### Selection Bounds
 
@@ -243,6 +248,22 @@ This works independently of the EditingPlugin. You can use `editable: true` to c
 | No selection    | Paste starts at row 0, column 0                                                |
 
 **Example:** If you have a 2×2 range selected and paste 3×3 data, only the 2×2 portion that fits will be applied.
+
+### Fill Selection
+
+With `fillSelection: true`, pasting a source that is **smaller** than a bounded multi-cell selection tiles (repeats) the source to fill the whole selection. This is handy for applying one value across many cells without copying it repeatedly.
+
+```ts
+new ClipboardPlugin({ fillSelection: true });
+```
+
+| Copied source | Selection | Result                                  |
+| ------------- | --------- | --------------------------------------- |
+| 1 cell        | 4 cells   | value repeated in all 4 cells           |
+| `v1, v2`      | 4 cells   | `v1, v2, v1, v2`                        |
+| 2×2 block     | 4×4 range | the block tiled four times              |
+
+Fill only applies to a bounded (multi-cell) selection and never grows the grid. Non-editable columns are still skipped. When `fillSelection` is `false` (the default), paste writes only the source extent.
 
 ## Keyboard Shortcuts
 

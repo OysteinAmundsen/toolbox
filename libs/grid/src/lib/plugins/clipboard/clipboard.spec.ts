@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { GridElement } from '../../../public';
 import type { ColumnConfig } from '../../core/types';
 import { ClipboardPlugin } from './ClipboardPlugin';
 import { buildClipboardText, copyToClipboard, formatCellValue, type CopyParams } from './copy';
@@ -426,27 +427,30 @@ describe('clipboard', () => {
   });
 
   describe('defaultPasteHandler', () => {
-    // Mock grid element with minimal interface
-    const createMockGrid = (
-      rows: Record<string, unknown>[],
-      columns: ColumnConfig[],
-    ): {
-      rows: unknown[];
-      effectiveConfig: { columns: ColumnConfig[] };
-      query: <U>(type: string, context?: unknown) => U[];
-    } => ({
-      rows: [...rows],
-      effectiveConfig: { columns },
-      // Simulate the editing plugin responding to the `getEditableFields` query:
-      // it reports the field names of columns marked `editable === true`.
-      query: <U>(type: string, context?: unknown): U[] => {
-        if (type === 'getEditableFields') {
-          const cols = (context as { columns: ColumnConfig[] }).columns;
-          return [cols.filter((col) => col.editable === true).map((col) => col.field)] as U[];
-        }
-        return [];
-      },
-    });
+    // Mock grid with the minimal surface defaultPasteHandler touches. Typed via
+    // `satisfies Partial<GridElement>` so member shapes stay checked (unlike an
+    // `as unknown as` cast), then widened to GridElement for the call.
+    const createMockGrid = (rows: Record<string, unknown>[], columns: ColumnConfig[]): GridElement =>
+      ({
+        rows: [...rows],
+        effectiveConfig: { columns },
+        // Simulate the editing plugin responding to the `getCellEditableResolver`
+        // query: it returns a predicate that resolves per-cell editability from
+        // the column's `editable` value (`true` / `false` / `(row) => boolean`).
+        query: <U>(type: string): U[] => {
+          if (type === 'getCellEditableResolver') {
+            const resolver = (field: string, row: unknown): boolean => {
+              const col = columns.find((c) => c.field === field);
+              if (!col) return false;
+              const editable = col.editable as boolean | ((row: unknown) => boolean) | undefined;
+              if (typeof editable === 'function') return editable(row);
+              return editable === true;
+            };
+            return [resolver] as U[];
+          }
+          return [];
+        },
+      }) satisfies Partial<GridElement> as GridElement;
 
     const columns: ColumnConfig[] = [
       { field: 'col1', header: 'Column 1', editable: true },
@@ -468,7 +472,7 @@ describe('clipboard', () => {
         fields: ['col2', 'col3'],
       };
 
-      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+      defaultPasteHandler(detail, grid);
 
       expect(grid.rows[0]).toEqual({ col1: 'A1', col2: 'X', col3: 'Y' });
       expect(grid.rows[1]).toEqual({ col1: 'A2', col2: 'B2', col3: 'C2' });
@@ -492,7 +496,7 @@ describe('clipboard', () => {
         fields: ['col1', 'col2'],
       };
 
-      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+      defaultPasteHandler(detail, grid);
 
       expect(grid.rows[0]).toEqual({ col1: 'A1', col2: 'B1', col3: 'C1' });
       expect(grid.rows[1]).toEqual({ col1: 'X1', col2: 'Y1', col3: 'C2' });
@@ -514,7 +518,7 @@ describe('clipboard', () => {
         fields: ['col1', 'col2'],
       };
 
-      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+      defaultPasteHandler(detail, grid);
 
       expect(grid.rows).toHaveLength(3);
       expect(grid.rows[0]).toEqual({ col1: 'X1', col2: 'Y1', col3: 'C1' });
@@ -543,7 +547,7 @@ describe('clipboard', () => {
         fields: ['col2', 'col3'], // Only 2 fields because bounds.endCol = 2
       };
 
-      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+      defaultPasteHandler(detail, grid);
 
       // X3 and Y3 should be clipped (only col2 and col3 in selection)
       expect(grid.rows[0]).toEqual({ col1: 'A1', col2: 'X1', col3: 'X2' });
@@ -565,12 +569,167 @@ describe('clipboard', () => {
         fields: ['col1'],
       };
 
-      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+      defaultPasteHandler(detail, grid);
 
       // Only first 2 rows should be updated
       expect(grid.rows).toHaveLength(2);
       expect(grid.rows[0]).toEqual({ col1: 'X1', col2: 'B1', col3: 'C1' });
       expect(grid.rows[1]).toEqual({ col1: 'X2', col2: 'B2', col3: 'C2' });
+    });
+
+    it('should fill a single-cell source across the whole selection when fillSelection is set', () => {
+      const rows = [
+        { col1: 'A1', col2: 'B1', col3: 'C1' },
+        { col1: 'A2', col2: 'B2', col3: 'C2' },
+      ];
+      const grid = createMockGrid(rows, columns);
+
+      // 1 copied cell, selection 2 rows × 2 cols (col1:col2)
+      const detail: PasteDetail = {
+        rows: [['X']],
+        text: 'X',
+        target: { row: 0, col: 0, field: 'col1', bounds: { endRow: 1, endCol: 1 } },
+        fields: ['col1', 'col2'],
+        fillSelection: true,
+      };
+
+      defaultPasteHandler(detail, grid);
+
+      expect(grid.rows[0]).toEqual({ col1: 'X', col2: 'X', col3: 'C1' });
+      expect(grid.rows[1]).toEqual({ col1: 'X', col2: 'X', col3: 'C2' });
+    });
+
+    it('should tile a 1×2 source across a wider selection (val1,val2,val1,val2)', () => {
+      const cols4: ColumnConfig[] = [
+        { field: 'col1', header: 'Column 1', editable: true },
+        { field: 'col2', header: 'Column 2', editable: true },
+        { field: 'col3', header: 'Column 3', editable: true },
+        { field: 'col4', header: 'Column 4', editable: true },
+      ];
+      const rows4 = [{ col1: 'A1', col2: 'B1', col3: 'C1', col4: 'D1' }];
+      const grid = createMockGrid(rows4, cols4);
+
+      // 2 copied values, selection is 4 columns wide
+      const detail: PasteDetail = {
+        rows: [['v1', 'v2']],
+        text: 'v1\tv2',
+        target: { row: 0, col: 0, field: 'col1', bounds: { endRow: 0, endCol: 3 } },
+        fields: ['col1', 'col2', 'col3', 'col4'],
+        fillSelection: true,
+      };
+
+      defaultPasteHandler(detail, grid);
+
+      expect(grid.rows[0]).toEqual({ col1: 'v1', col2: 'v2', col3: 'v1', col4: 'v2' });
+    });
+
+    it('should tile a 2×2 block across a 4×4 selection', () => {
+      const rows = [
+        { col1: '', col2: '', col3: '', col4: '' },
+        { col1: '', col2: '', col3: '', col4: '' },
+        { col1: '', col2: '', col3: '', col4: '' },
+        { col1: '', col2: '', col3: '', col4: '' },
+      ];
+      const cols4: ColumnConfig[] = [
+        { field: 'col1', header: 'Column 1', editable: true },
+        { field: 'col2', header: 'Column 2', editable: true },
+        { field: 'col3', header: 'Column 3', editable: true },
+        { field: 'col4', header: 'Column 4', editable: true },
+      ];
+      const grid = createMockGrid(rows, cols4);
+
+      const detail: PasteDetail = {
+        rows: [
+          ['a', 'b'],
+          ['c', 'd'],
+        ],
+        text: 'a\tb\nc\td',
+        target: { row: 0, col: 0, field: 'col1', bounds: { endRow: 3, endCol: 3 } },
+        fields: ['col1', 'col2', 'col3', 'col4'],
+        fillSelection: true,
+      };
+
+      defaultPasteHandler(detail, grid);
+
+      expect(grid.rows[0]).toEqual({ col1: 'a', col2: 'b', col3: 'a', col4: 'b' });
+      expect(grid.rows[1]).toEqual({ col1: 'c', col2: 'd', col3: 'c', col4: 'd' });
+      expect(grid.rows[2]).toEqual({ col1: 'a', col2: 'b', col3: 'a', col4: 'b' });
+      expect(grid.rows[3]).toEqual({ col1: 'c', col2: 'd', col3: 'c', col4: 'd' });
+    });
+
+    it('should not tile when fillSelection is unset (default behavior preserved)', () => {
+      const rows = [
+        { col1: 'A1', col2: 'B1', col3: 'C1' },
+        { col1: 'A2', col2: 'B2', col3: 'C2' },
+      ];
+      const grid = createMockGrid(rows, columns);
+
+      const detail: PasteDetail = {
+        rows: [['X']],
+        text: 'X',
+        target: { row: 0, col: 0, field: 'col1', bounds: { endRow: 1, endCol: 1 } },
+        fields: ['col1'],
+      };
+
+      defaultPasteHandler(detail, grid);
+
+      // Only the single source cell is written; no tiling
+      expect(grid.rows[0]).toEqual({ col1: 'X', col2: 'B1', col3: 'C1' });
+      expect(grid.rows[1]).toEqual({ col1: 'A2', col2: 'B2', col3: 'C2' });
+    });
+
+    it('should skip non-editable columns when filling', () => {
+      const rows = [{ col1: 'A1', col2: 'B1', col3: 'C1' }];
+      const mixedCols: ColumnConfig[] = [
+        { field: 'col1', header: 'Column 1', editable: true },
+        { field: 'col2', header: 'Column 2', editable: false },
+        { field: 'col3', header: 'Column 3', editable: true },
+      ];
+      const grid = createMockGrid(rows, mixedCols);
+
+      const detail: PasteDetail = {
+        rows: [['X']],
+        text: 'X',
+        target: { row: 0, col: 0, field: 'col1', bounds: { endRow: 0, endCol: 2 } },
+        fields: ['col1', 'col2', 'col3'],
+        fillSelection: true,
+      };
+
+      defaultPasteHandler(detail, grid);
+
+      // col2 is not editable → left untouched
+      expect(grid.rows[0]).toEqual({ col1: 'X', col2: 'B1', col3: 'X' });
+    });
+
+    it('should honor row-conditional editable during paste', () => {
+      // col2 is editable only for rows where col1 === 'yes'. Editability is
+      // resolved against the pre-paste row state.
+      const conditionalCols: ColumnConfig[] = [
+        { field: 'col1', header: 'Column 1', editable: true },
+        { field: 'col2', header: 'Column 2', editable: (row) => (row as { col1?: string }).col1 === 'yes' },
+      ];
+      const rows = [
+        { col1: 'yes', col2: 'B1' },
+        { col1: 'no', col2: 'B2' },
+      ];
+      const grid = createMockGrid(rows, conditionalCols);
+
+      const detail: PasteDetail = {
+        rows: [
+          ['X1', 'Y1'],
+          ['X2', 'Y2'],
+        ],
+        text: 'X1\tY1\nX2\tY2',
+        target: { row: 0, col: 0, field: 'col1', bounds: null },
+        fields: ['col1', 'col2'],
+      };
+
+      defaultPasteHandler(detail, grid);
+
+      // Row 0 (col1 was 'yes'): col2 editable → both pasted
+      expect(grid.rows[0]).toEqual({ col1: 'X1', col2: 'Y1' });
+      // Row 1 (col1 was 'no'): col2 not editable → keeps original value
+      expect(grid.rows[1]).toEqual({ col1: 'X2', col2: 'B2' });
     });
 
     it('should do nothing when target is null', () => {
@@ -584,7 +743,7 @@ describe('clipboard', () => {
         fields: [],
       };
 
-      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+      defaultPasteHandler(detail, grid);
 
       // Should remain unchanged
       expect(grid.rows[0]).toEqual({ col1: 'A1', col2: 'B1', col3: 'C1' });
@@ -601,7 +760,7 @@ describe('clipboard', () => {
         fields: ['col1', 'col2'], // But two fields
       };
 
-      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+      defaultPasteHandler(detail, grid);
 
       // Only first field should be updated
       expect(grid.rows[0]).toEqual({ col1: 'X', col2: 'B1', col3: 'C1' });
@@ -619,7 +778,7 @@ describe('clipboard', () => {
         fields: ['col1'],
       };
 
-      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+      defaultPasteHandler(detail, grid);
 
       // Original row object should be unchanged
       expect(originalRow).toEqual({ col1: 'A1', col2: 'B1', col3: 'C1' });
@@ -652,7 +811,7 @@ describe('clipboard', () => {
         fields: ['col1', 'col2', 'col3'],
       };
 
-      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+      defaultPasteHandler(detail, grid);
 
       // col2 should remain unchanged (not editable)
       expect(grid.rows[0]).toEqual({ col1: 'X1', col2: 'B1', col3: 'X3' });
@@ -675,7 +834,7 @@ describe('clipboard', () => {
         fields: ['col1', 'col2'],
       };
 
-      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+      defaultPasteHandler(detail, grid);
 
       // Neither column should be updated (no editable: true)
       expect(grid.rows[0]).toEqual({ col1: 'A1', col2: 'B1' });
@@ -966,6 +1125,96 @@ describe('clipboard', () => {
       handler!(event);
 
       expect(preventSpy).toHaveBeenCalled();
+    });
+    // #endregion
+
+    // #region Header row stripping on paste
+    const getPasteHandler = (grid: ReturnType<typeof createGridMockForPlugin>) =>
+      grid.addEventListener.mock.calls.find((c: unknown[]) => c[0] === 'paste')?.[1] as (e: ClipboardEvent) => void;
+
+    const firePaste = (handler: (e: ClipboardEvent) => void, text: string) => {
+      const dt = new DataTransfer();
+      dt.setData('text/plain', text);
+      const event = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'target', { value: document.createElement('div') });
+      handler(event);
+    };
+
+    const emittedPasteRows = (grid: ReturnType<typeof createGridMockForPlugin>) => {
+      const call = grid.dispatchEvent.mock.calls.find((c: unknown[]) => (c[0] as CustomEvent).type === 'paste');
+      return (call![0] as CustomEvent).detail.rows as string[][];
+    };
+
+    it('should strip a copied header row on paste when includeHeaders is set', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+      ];
+      const plugin = new ClipboardPlugin({ includeHeaders: true });
+      const grid = createGridMockForPlugin([{ name: 'Alice', email: 'a@x' }], columns);
+      plugin.attach(grid as any);
+
+      firePaste(getPasteHandler(grid), 'Name\tEmail\nBob\tb@x');
+
+      // Header row dropped — only the value row remains
+      expect(emittedPasteRows(grid)).toEqual([['Bob', 'b@x']]);
+    });
+
+    it('should strip the header for a single-cell copy round-trip', () => {
+      const columns: ColumnConfig[] = [{ field: 'name', header: 'Name' }];
+      const plugin = new ClipboardPlugin({ includeHeaders: true });
+      const grid = createGridMockForPlugin([{ name: 'Alice' }], columns);
+      plugin.attach(grid as any);
+
+      firePaste(getPasteHandler(grid), 'Name\nBob');
+
+      expect(emittedPasteRows(grid)).toEqual([['Bob']]);
+    });
+
+    it('should keep the first row when it does not match the headers (external paste)', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+      ];
+      const plugin = new ClipboardPlugin({ includeHeaders: true });
+      const grid = createGridMockForPlugin([{ name: 'Alice', email: 'a@x' }], columns);
+      plugin.attach(grid as any);
+
+      firePaste(getPasteHandler(grid), 'Foo\tBar\nBob\tb@x');
+
+      expect(emittedPasteRows(grid)).toEqual([
+        ['Foo', 'Bar'],
+        ['Bob', 'b@x'],
+      ]);
+    });
+
+    it('should not strip any row when includeHeaders is off', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+      ];
+      const plugin = new ClipboardPlugin(); // includeHeaders defaults to false
+      const grid = createGridMockForPlugin([{ name: 'Alice', email: 'a@x' }], columns);
+      plugin.attach(grid as any);
+
+      firePaste(getPasteHandler(grid), 'Name\tEmail\nBob\tb@x');
+
+      // Even though the first row matches the headers, nothing is stripped
+      expect(emittedPasteRows(grid)).toEqual([
+        ['Name', 'Email'],
+        ['Bob', 'b@x'],
+      ]);
+    });
+
+    it('should not strip a header-only paste (would leave nothing)', () => {
+      const columns: ColumnConfig[] = [{ field: 'name', header: 'Name' }];
+      const plugin = new ClipboardPlugin({ includeHeaders: true });
+      const grid = createGridMockForPlugin([{ name: 'Alice' }], columns);
+      plugin.attach(grid as any);
+
+      firePaste(getPasteHandler(grid), 'Name');
+
+      expect(emittedPasteRows(grid)).toEqual([['Name']]);
     });
     // #endregion
 

@@ -1170,6 +1170,24 @@ describe('clipboard', () => {
       expect(emittedPasteRows(grid)).toEqual([['Bob']]);
     });
 
+    it('should strip a copied header from a different column (cross-column paste)', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+      ];
+      const plugin = new ClipboardPlugin({ includeHeaders: true });
+      const grid = createGridMockForPlugin([{ name: 'Alice', email: 'a@x' }], columns);
+      plugin.attach(grid as any);
+
+      // Copied the "Email" column (header "Email") but pasting at the "Name"
+      // column (col 0). The header must still be recognized as one of this
+      // grid's labels and stripped, even though it doesn't equal the TARGET
+      // column's own label — otherwise the header lands in a data cell.
+      firePaste(getPasteHandler(grid), 'Email\nb@x');
+
+      expect(emittedPasteRows(grid)).toEqual([['b@x']]);
+    });
+
     it('should keep the first row when it does not match the headers (external paste)', () => {
       const columns: ColumnConfig[] = [
         { field: 'name', header: 'Name' },

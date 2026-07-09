@@ -283,10 +283,12 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     const maxCol = bounds?.endCol ?? this.visibleColumns.length - 1;
 
     // Drop a copied header row so a round-trip paste writes only values into
-    // cells (never the header label). Only strips when this grid is configured
-    // to include headers AND the first parsed row matches the target columns'
-    // labels — external pastes without a matching header row are left intact.
-    this.#dropCopiedHeaderRow(parsed, targetCol, maxCol);
+    // cells (never the header label). Strips when this grid is configured to
+    // include headers AND every cell of the first parsed row is one of this
+    // grid's own column labels — independent of which column is pasted INTO, so
+    // cross-column pastes (e.g. "Source terminal" → "Terminal route") strip too.
+    // External pastes (first row ≠ labels) are left intact.
+    this.#dropCopiedHeaderRow(parsed);
 
     // Build target info
     const column = this.visibleColumns[targetCol];
@@ -341,15 +343,22 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    * Drop a header row that this grid itself copied, so a round-trip paste
    * never lands a header label in a data cell.
    *
-   * Guarded on two conditions to avoid eating a legitimate first data row:
-   * 1. The grid is configured with `includeHeaders` (it copies headers), and
-   * 2. every cell of the first parsed row equals the corresponding target
-   *    column's label (`header || field`).
+   * A row copied with `includeHeaders` consists entirely of this grid's own
+   * column labels (`header || field`). Detect that by matching every cell of the
+   * first parsed row against the full set of column labels — independent of
+   * which column the user pastes INTO. This is essential for **cross-column**
+   * paste (e.g. copying "Source terminal" and pasting into "Terminal route"):
+   * the copied header carries the SOURCE column's label, which does not equal
+   * the target column's label but is still one of this grid's labels. Matching
+   * the label set fixes cross-column paste while leaving external pastes (whose
+   * first row is data, not labels) untouched.
    *
-   * When both hold, the first row is removed in place. External pastes (no
-   * matching header row) are left untouched.
+   * Guarded to avoid eating a legitimate first data row:
+   * 1. The grid is configured with `includeHeaders` (it copies headers), and
+   * 2. there is more than one row (never strip the only row), and
+   * 3. every cell of the first row equals some column's label.
    */
-  #dropCopiedHeaderRow(parsed: string[][], targetCol: number, maxCol: number): void {
+  #dropCopiedHeaderRow(parsed: string[][]): void {
     if (!this.config.includeHeaders) return;
     // Never strip away the only row — that would make paste a no-op.
     if (parsed.length <= 1) return;
@@ -357,14 +366,27 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     const headerRow = parsed[0];
     if (headerRow.length === 0) return;
 
-    for (let i = 0; i < headerRow.length && targetCol + i <= maxCol; i++) {
-      const col = this.visibleColumns[targetCol + i];
-      // Ran off the available columns, or a cell doesn't match its label →
-      // not a copied header, keep the row.
-      if (!col || headerRow[i] !== (col.header || col.field)) return;
+    const labels = this.#columnLabels();
+    for (const cell of headerRow) {
+      // A cell that isn't a known column label → this is real data, keep the row.
+      if (!labels.has(cell)) return;
     }
 
     parsed.shift();
+  }
+
+  /**
+   * Set of this grid's column labels (`header || field`), matching how
+   * {@link buildClipboardText} serializes the copied header row. Used to detect
+   * a header row this grid copied, regardless of paste position.
+   */
+  #columnLabels(): Set<string> {
+    const labels = new Set<string>();
+    for (const col of this.columns) {
+      const label = col.header || col.field;
+      if (label) labels.add(label);
+    }
+    return labels;
   }
 
   /**

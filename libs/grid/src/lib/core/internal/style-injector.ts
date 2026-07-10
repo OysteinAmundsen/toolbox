@@ -16,8 +16,8 @@
  *
  * @module internal/style-injector
  */
-import { DataGridElement } from '../grid';
 import { STYLE_EXTRACT_FAILED, STYLE_NOT_FOUND, warnDiagnostic } from './diagnostics';
+import { GRID_TAG_NAME, getActiveGridTag } from './tag-registry';
 
 // #region State
 /** Base ID for the consolidated grid stylesheet in document.head */
@@ -37,8 +37,8 @@ const pluginStylesMap = new Map<string, string>();
  * bundles can coexist without overwriting each other's styles.
  */
 function getStyleElementId(): string {
-  const tag = DataGridElement.activeTag;
-  return tag === DataGridElement.tagName ? STYLE_ELEMENT_ID_BASE : `${STYLE_ELEMENT_ID_BASE}-${tag}`;
+  const tag = getActiveGridTag();
+  return tag === GRID_TAG_NAME ? STYLE_ELEMENT_ID_BASE : `${STYLE_ELEMENT_ID_BASE}-${tag}`;
 }
 
 /**
@@ -72,8 +72,8 @@ function getStyleElement(): HTMLStyleElement {
  * No-op when `activeTag === 'tbw-grid'` (the common single-version case).
  */
 function rewriteTagSelectors(css: string): string {
-  const tag = DataGridElement.activeTag;
-  if (tag === DataGridElement.tagName) return css;
+  const tag = getActiveGridTag();
+  if (tag === GRID_TAG_NAME) return css;
   return css.replace(/(?<![-\w])tbw-grid(?![-\w])/g, tag);
 }
 

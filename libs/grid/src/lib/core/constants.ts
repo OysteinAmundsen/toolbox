@@ -12,6 +12,15 @@
  * See each plugin's index.ts for plugin-specific exports.
  */
 
+/**
+ * CSS selector for focusable editor elements within a cell.
+ * Used by EditingPlugin, UndoRedoPlugin, and keyboard navigation. Defined here
+ * (a leaf module) rather than in `rows.ts` so `keyboard.ts` can consume it
+ * without creating a rows ↔ keyboard import cycle.
+ */
+export const FOCUSABLE_EDITOR_SELECTOR =
+  'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])';
+
 // #region CSS Classes
 
 /**

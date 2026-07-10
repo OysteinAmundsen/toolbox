@@ -1,5 +1,72 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+
+  // Reachability roots: files that are real but never `import`ed (CLI scripts,
+  // build/tooling, config, tests, and the Astro/MDX docs site whose components are
+  // referenced from .mdx that fallow's syntactic analysis cannot trace). Marking
+  // them `entry` clears the false "unused file"/"unused export" findings while KEEPING
+  // them in health/duplication analysis (unlike ignorePatterns, which drops them).
+  "entry": [
+    "tools/**/*.{ts,mts,mjs,js}",
+    ".github/skills/**/*.{ts,mts,mjs,js}",
+    "e2e/**/*.ts",
+    "apps/docs/**",
+    "apps/docs-e2e/**/*.ts",
+    "libs/*/scripts/**/*.ts",
+    "libs/*/custom-elements-manifest.config.mjs",
+    "**/*.config.{ts,mts,mjs,js}",
+    "**/test/setup.ts",
+    "**/*.bench.ts",
+    "demos/**/src/main.ts",
+    "demos/**/tools/**/*.{js,mjs}"
+  ],
+
+  // Dependencies fallow reports as unused/unlisted that are actually real:
+  //  - monorepo-hoisted peers used by demos/apps without a local package.json entry
+  //  - build/config-only packages imported from eslint/astro/vite config files
+  // New, genuinely-missing dependencies are still caught (this list is explicit).
+  "ignoreDependencies": [
+    "@angular/core",
+    "@angular/forms",
+    "@angular/router",
+    "react",
+    "react-dom",
+    "happy-dom",
+    "@toolbox-web/grid",
+    "@toolbox-web/grid-react",
+    "@toolbox-web/grid-vue",
+    "@demo/vanilla",
+    "@custom-elements-manifest/analyzer",
+    "jsonc-eslint-parser",
+    "rollup-plugin-cleanup",
+    "vite-plugin-dts",
+    "@astrojs/cloudflare",
+    "@astrojs/mdx",
+    "@astrojs/starlight",
+    "astro-expressive-code",
+    "astro-mermaid",
+    "remark-gfm",
+    "@eslint/js",
+    "@nx/devkit",
+    "@swc-node/register",
+    "@swc/helpers",
+    "eslint-config-prettier",
+    "eslint-plugin-import",
+    "eslint-plugin-playwright",
+    "pagefind"
+  ],
+
+  // Quiet exported helpers that are still referenced elsewhere in their own file;
+  // they are only reported once they become completely unreferenced.
+  "ignoreExportsUsedInFile": true,
+
+  // Score health against shippable library code only: exclude test/dev files so the
+  // score and complexity/unit-size metrics reflect production, not spec fixtures.
+  // (Dead-code and duplication passes still run over everything.)
+  "production": {
+    "health": true
+  },
+
   "ignorePatterns": [
     "**/*.generated.ts",
     "dist/**",
@@ -36,13 +103,32 @@
         "maxCognitive": 30,
         "maxCrap": 900,
         "reason": "Docs site tooling (ShowSource.astro, DemoControls.astro) — not production library code"
+      },
+      {
+        "files": ["**/*.spec.ts", "**/*.bench.ts"],
+        "maxCyclomatic": 100,
+        "maxCognitive": 100,
+        "maxCrap": 999,
+        "reason": "Test/bench files: large describe/it blocks and fixtures are expected, not production complexity"
       }
     ]
   },
   "rules": {
     "unused-files": "warn",
     "unused-exports": "warn",
-    "unused-types": "warn",
+    // Off: dominated by TypeScript declaration-merging augmentation interfaces
+    // (`_*Augmentation`) and intentional public-API re-export barrels
+    // (plugins/*/index.ts, features/*). Syntactic (no-type-info) analysis cannot
+    // resolve these as used. Flip to "warn" for a periodic manual audit.
+    "unused-types": "off",
+    // Warn (not error): most flagged members are library/plugin/adapter public API
+    // called by consumers, but the category can still contain genuinely dead members.
+    "unused-class-members": "warn",
+    // Warn: the Angular adapter emits @Output()/reads @Input() through its generic
+    // bridge, not inside each directive, so "emitted/read nowhere here" is expected.
+    "unused-component-inputs": "warn",
+    "unused-component-outputs": "warn",
+    "duplicate-exports": "warn",
     "circular-dependencies": "error"
   }
 }

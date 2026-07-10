@@ -10,6 +10,20 @@ import { describe, expect, it, vi } from 'vitest';
 import type { OverlayPosition } from './base-overlay-editor.js';
 import { BaseOverlayEditor } from './base-overlay-editor.js';
 
+/**
+ * Polls until `predicate` is true or the timeout elapses, resolving as soon as
+ * the condition is met. Use instead of a fixed `setTimeout` delay for async
+ * chains (e.g. MutationObserver → requestAnimationFrame) whose exact timing can
+ * race under load and cause flaky failures.
+ */
+async function waitForCondition(predicate: () => boolean, timeout = 1000, interval = 5): Promise<void> {
+  const start = Date.now();
+  while (!predicate()) {
+    if (Date.now() - start >= timeout) return;
+    await new Promise((r) => setTimeout(r, interval));
+  }
+}
+
 describe('BaseOverlayEditor', () => {
   it('should be importable and defined', () => {
     expect(BaseOverlayEditor).toBeDefined();
@@ -1198,7 +1212,7 @@ describe('BaseOverlayEditor', () => {
 
       // Gain focus
       cell.classList.add('cell-focus');
-      await new Promise((r) => setTimeout(r, 0));
+      await waitForCondition(() => instance['showOverlay'].mock.calls.length > 0);
       expect(instance['showOverlay']).toHaveBeenCalledOnce();
 
       // Wait for justOpened guard to clear
@@ -1208,9 +1222,9 @@ describe('BaseOverlayEditor', () => {
       cell.classList.remove('cell-focus');
       await new Promise((r) => setTimeout(r, 0));
 
-      // rAF fires — hideOverlay should be called
-      // happy-dom fires rAF synchronously in setTimeout
-      await new Promise((r) => setTimeout(r, 50));
+      // The deferred hide runs via MutationObserver → requestAnimationFrame; wait
+      // for the call rather than a fixed delay that can race the observer/rAF chain.
+      await waitForCondition(() => instance['hideOverlay'].mock.calls.length > 0);
       expect(instance['hideOverlay']).toHaveBeenCalledWith(true);
 
       instance['_focusObserver']?.disconnect();

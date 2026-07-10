@@ -47,6 +47,9 @@ function makeGrid(opts: Partial<any> = {}) {
     refreshVirtualWindow: () => {
       /* empty */
     },
+    _schedulerRenderHeader: () => {
+      /* header render is mocked via vi.mock('./header') above */
+    },
     requestStateChange: () => {
       /* empty */
     },

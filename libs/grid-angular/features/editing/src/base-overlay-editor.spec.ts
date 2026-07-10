@@ -10,20 +10,6 @@ import { describe, expect, it, vi } from 'vitest';
 import type { OverlayPosition } from './base-overlay-editor.js';
 import { BaseOverlayEditor } from './base-overlay-editor.js';
 
-/**
- * Polls until `predicate` is true or the timeout elapses, resolving as soon as
- * the condition is met. Use instead of a fixed `setTimeout` delay for async
- * chains (e.g. MutationObserver → requestAnimationFrame) whose exact timing can
- * race under load and cause flaky failures.
- */
-async function waitForCondition(predicate: () => boolean, timeout = 1000, interval = 5): Promise<void> {
-  const start = Date.now();
-  while (!predicate()) {
-    if (Date.now() - start >= timeout) return;
-    await new Promise((r) => setTimeout(r, interval));
-  }
-}
-
 describe('BaseOverlayEditor', () => {
   it('should be importable and defined', () => {
     expect(BaseOverlayEditor).toBeDefined();
@@ -1189,6 +1175,21 @@ describe('BaseOverlayEditor', () => {
 
   describe('_setupFocusObserver - deferred hide', () => {
     it('should call hideOverlay after focus-away past the flash guard', async () => {
+      // The deferred hide runs via MutationObserver → requestAnimationFrame. Capture
+      // the rAF callback and fire it explicitly so the test is fully deterministic and
+      // does not depend on happy-dom's real rAF timing (the previous flake source).
+      const rafCallbacks: FrameRequestCallback[] = [];
+      const rafSpy = vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
+        rafCallbacks.push(cb);
+        return rafCallbacks.length;
+      });
+      const cafSpy = vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation(() => {
+        /* deferred-hide callbacks are fired explicitly below */
+      });
+      // A setTimeout(0) macrotask runs only after the microtask queue drains, so it
+      // deterministically flushes MutationObserver delivery and the justOpened guard.
+      const flush = () => new Promise((r) => setTimeout(r, 0));
+
       const instance = Object.create(BaseOverlayEditor.prototype);
       const cell = document.createElement('div');
       cell.setAttribute('part', 'cell');
@@ -1210,24 +1211,24 @@ describe('BaseOverlayEditor', () => {
 
       instance['_setupFocusObserver']();
 
-      // Gain focus
+      // Gain focus → showOverlay() runs and arms the justOpened guard (setTimeout 0).
       cell.classList.add('cell-focus');
-      await waitForCondition(() => instance['showOverlay'].mock.calls.length > 0);
+      await flush(); // observer delivers → showOverlay(); guard timer scheduled
+      await flush(); // guard setTimeout(0) fires → justOpened = false
       expect(instance['showOverlay']).toHaveBeenCalledOnce();
 
-      // Wait for justOpened guard to clear
-      await new Promise((r) => setTimeout(r, 10));
-
-      // Lose focus
+      // Lose focus → observer schedules the deferred hide via requestAnimationFrame.
       cell.classList.remove('cell-focus');
-      await new Promise((r) => setTimeout(r, 0));
+      await flush(); // observer delivers → hide callback captured by the rAF spy
+      expect(rafCallbacks.length).toBeGreaterThan(0);
 
-      // The deferred hide runs via MutationObserver → requestAnimationFrame; wait
-      // for the call rather than a fixed delay that can race the observer/rAF chain.
-      await waitForCondition(() => instance['hideOverlay'].mock.calls.length > 0);
+      // Fire the captured rAF callback → hideOverlay(true), independent of real timing.
+      for (const cb of rafCallbacks.splice(0)) cb(0);
       expect(instance['hideOverlay']).toHaveBeenCalledWith(true);
 
       instance['_focusObserver']?.disconnect();
+      rafSpy.mockRestore();
+      cafSpy.mockRestore();
       document.body.removeChild(cell);
     });
   });

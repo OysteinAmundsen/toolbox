@@ -2,9 +2,8 @@
  * Central keyboard handler attached to the host element. Manages navigation, paging,
  * and edit lifecycle triggers while respecting active form field interactions.
  */
-import { GridClasses } from '../constants';
+import { FOCUSABLE_EDITOR_SELECTOR, GridClasses } from '../constants';
 import type { GridHost } from '../types';
-import { FOCUSABLE_EDITOR_SELECTOR } from './rows';
 import { clearCellFocus, isRTL } from './utils';
 import { fromVirtualScrollTop, toVirtualScrollTop } from './virtualization';
 

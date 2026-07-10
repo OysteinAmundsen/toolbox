@@ -1,4 +1,4 @@
-import { GridClasses } from '../constants';
+import { FOCUSABLE_EDITOR_SELECTOR, GridClasses } from '../constants';
 import type { ColumnInternal, ColumnViewRenderer, GridHost, InternalGrid, RowElementInternal } from '../types';
 import {
   CELL_CLASS_ERROR,
@@ -88,12 +88,9 @@ export function resolveFormat<TRow>(
 // #endregion
 
 // #region DOM State Helpers
-/**
- * CSS selector for focusable editor elements within a cell.
- * Used by EditingPlugin and keyboard navigation.
- */
-export const FOCUSABLE_EDITOR_SELECTOR =
-  'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])';
+// `FOCUSABLE_EDITOR_SELECTOR` now lives in `../constants` (a leaf module) to break
+// the rows ↔ keyboard cycle; re-exported here for backward-compatible importers.
+export { FOCUSABLE_EDITOR_SELECTOR };
 
 /**
  * Check if a row element has any cells in editing mode.

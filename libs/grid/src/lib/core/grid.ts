@@ -32,6 +32,7 @@ import { resolveRowIdOrThrow, RowManager, tryResolveRowId } from './internal/row
 import { invalidateCellCache, renderVisibleRows } from './internal/rows';
 import { applySort, reapplyCoreSort, toggleSort } from './internal/sorting';
 import { addPluginStyles, injectStyles } from './internal/style-injector';
+import { getActiveGridTag, GRID_TAG_NAME, setActiveGridTag } from './internal/tag-registry';
 import {
   cancelMomentum,
   createTouchScrollState,
@@ -143,7 +144,7 @@ declare const __GRID_VERSION__: string;
 /** @since 0.1.1 */
 export class DataGridElement<T = any> extends HTMLElement implements InternalGrid<T> {
   // TODO: Rename to 'data-grid' when migration is complete
-  static readonly tagName = 'tbw-grid';
+  static readonly tagName = GRID_TAG_NAME;
   /** Version of the grid component, injected at build time from package.json */
   static readonly version = typeof __GRID_VERSION__ !== 'undefined' ? __GRID_VERSION__ : 'dev';
   /**
@@ -167,8 +168,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    *
    * Adapters and consumers that need to construct or query for the grid
    * element MUST use this property, not the hard-coded `tagName` literal.
+   *
+   * Backed by `internal/tag-registry` (a leaf module) so `style-injector` and
+   * other internals can read the active tag without importing this class.
    */
-  static activeTag = 'tbw-grid';
+  static get activeTag(): string {
+    return getActiveGridTag();
+  }
+  static set activeTag(tag: string) {
+    setActiveGridTag(tag);
+  }
 
   /** Static counter for generating unique grid IDs */
   static #instanceCounter = 0;

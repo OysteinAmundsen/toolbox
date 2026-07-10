@@ -90,47 +90,6 @@ export interface ShellState {
 }
 
 /**
- * Runtime-only shell state (not configuration).
- *
- * Configuration (toolPanels, headerContents, toolbarContents, title) lives in
- * effectiveConfig.shell. This state holds runtime UI state and cleanup functions.
- */
-export interface ShellRuntimeState {
-  /** Whether the tool panel sidebar is currently open */
-  isPanelOpen: boolean;
-  /** Which accordion sections are currently expanded (by panel ID) */
-  expandedSections: Set<string>;
-  /** Cleanup functions for header content render returns */
-  headerContentCleanups: Map<string, () => void>;
-  /** Cleanup functions for each panel section's render return */
-  panelCleanups: Map<string, () => void>;
-  /** Cleanup functions for toolbar content render returns */
-  toolbarContentCleanups: Map<string, () => void>;
-  /** IDs of tool panels registered from light DOM (to avoid re-parsing) */
-  lightDomToolPanelIds: Set<string>;
-  /** IDs of tool panels registered via registerToolPanel API */
-  apiToolPanelIds: Set<string>;
-  /** Whether a <tbw-grid-tool-buttons> container was found in light DOM */
-  hasToolButtonsContainer: boolean;
-}
-
-/**
- * Create initial shell runtime state.
- */
-export function createShellRuntimeState(): ShellRuntimeState {
-  return {
-    isPanelOpen: false,
-    expandedSections: new Set(),
-    headerContentCleanups: new Map(),
-    panelCleanups: new Map(),
-    toolbarContentCleanups: new Map(),
-    lightDomToolPanelIds: new Set(),
-    apiToolPanelIds: new Set(),
-    hasToolButtonsContainer: false,
-  };
-}
-
-/**
  * Create initial shell state.
  */
 export function createShellState(): ShellState {
@@ -1291,33 +1250,6 @@ export function cleanupShellState(state: ShellState): void {
   // Reset move tracking flag (allow re-initialization)
   state.lightDomContentMoved = false;
 }
-// #endregion
-
-// #region Grid HTML Templates
-/**
- * Core grid content HTML template.
- * Uses faux scrollbar pattern for smooth virtualized scrolling.
- */
-export const GRID_CONTENT_HTML = `
-  <div class="tbw-scroll-area">
-    <div class="rows-body-wrapper">
-      <div class="rows-body" role="grid">
-        <div class="header" role="rowgroup">
-          <div class="header-row" role="row" part="header-row"></div>
-        </div>
-        <div class="rows-container" role="presentation">
-          <div class="rows-viewport" role="presentation">
-            <div class="rows"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="faux-vscroll">
-    <div class="faux-vscroll-spacer"></div>
-  </div>
-  <div class="tbw-sr-only" aria-live="polite" aria-atomic="true"></div>
-`;
 // #endregion
 
 // #region DOM Construction

@@ -6,7 +6,6 @@
 
 import type { ColumnConfig, GridHost, InternalGrid, SortHandler, SortState } from '../types';
 import { announce, getA11yMessage } from './aria';
-import { renderHeader } from './header';
 import { resolveCellValue } from './value-accessor';
 
 /**
@@ -203,7 +202,7 @@ function finalizeSortResult<T>(grid: GridHost<T>, sortedRows: T[], col: ColumnCo
   for (let i = 0; i < grid._rowPool.length; i++) {
     grid._rowPool[i].__epoch = -1;
   }
-  renderHeader(grid);
+  grid._schedulerRenderHeader();
   grid.refreshVirtualWindow(true);
   emitSortChange(grid, col, dir);
 }
@@ -282,7 +281,7 @@ export function toggleSort(grid: GridHost, col: ColumnConfig<any>): void {
     }
     grid._rows = grid.__originalOrder.slice();
     grid.__originalOrder = [];
-    renderHeader(grid);
+    grid._schedulerRenderHeader();
     // After re-render ensure cleared column shows aria-sort="none" baseline.
     const headers = grid._headerRowEl?.querySelectorAll('[role="columnheader"].sortable');
     if (headers) {

@@ -185,10 +185,10 @@ export function resolveAudienceRegions(body: string): string {
 
 /** Extract the first `<script>` block's inner content from a demo `.astro` file. */
 function extractDemoScript(astroSource: string): string | undefined {
-  // Allow whitespace/attributes before the closing `>` (e.g. `</script >`) so the
-  // pattern matches the same forgiving end tags a browser parser accepts
-  // (CodeQL js/bad-tag-filter).
-  const match = astroSource.match(/<script[^>]*>([\s\S]*?)<\/script\s*>/i);
+  // Allow any junk before the closing `>` (e.g. `</script >` or `</script foo="bar">`)
+  // so the pattern matches the same forgiving end tags a browser parser accepts —
+  // `\s*` alone misses `</script foo>` (CodeQL js/bad-tag-filter).
+  const match = astroSource.match(/<script[^>]*>([\s\S]*?)<\/script[^>]*>/i);
   if (!match) return undefined;
   return match[1].replace(/^\r?\n/, '').replace(/\s+$/, '');
 }

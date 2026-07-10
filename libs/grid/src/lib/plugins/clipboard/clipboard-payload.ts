@@ -69,8 +69,14 @@ export function buildClipboardHtml(
 export function parseClipboardHtmlPayload(html: string | undefined | null): ClipboardPayload | null {
   if (!html || html.indexOf(CLIPBOARD_PAYLOAD_ATTR) === -1) return null;
   try {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    const encoded = doc.querySelector(`[${CLIPBOARD_PAYLOAD_ATTR}]`)?.getAttribute(CLIPBOARD_PAYLOAD_ATTR);
+    // Extract only our own base64 payload attribute with a targeted match rather
+    // than parsing the whole (untrusted) clipboard HTML through a DOM sink
+    // (DOMParser) — the latter feeds attacker-controlled markup to the parser and
+    // trips CodeQL js/xss. The attribute value is base64 (btoa output), whose
+    // alphabet excludes quotes and tag characters, so a simple attribute match is
+    // both safe and sufficient.
+    const match = html.match(new RegExp(`${CLIPBOARD_PAYLOAD_ATTR}="([A-Za-z0-9+/=]*)"`));
+    const encoded = match?.[1];
     if (!encoded) return null;
     const payload = JSON.parse(decodeURIComponent(atob(encoded))) as ClipboardPayload;
     if (payload && Array.isArray(payload.rows) && Array.isArray(payload.fields)) {

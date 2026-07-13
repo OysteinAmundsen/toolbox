@@ -220,9 +220,16 @@ export function announce(gridEl: HTMLElement, message: string): void {
   if (!el) return;
   // Clear first so identical consecutive messages are still announced
   el.textContent = '';
-  requestAnimationFrame(() => {
+  // `requestAnimationFrame` can be undefined if a debounced announcement fires
+  // after the DOM/host environment is torn down (notably in unit tests). Fall
+  // back to a direct assignment so `announce` never throws out of band.
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => {
+      el.textContent = message;
+    });
+  } else {
     el.textContent = message;
-  });
+  }
 }
 
 /**

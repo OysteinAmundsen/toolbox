@@ -489,6 +489,14 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.pendingRowKeyUpdate = null;
     this.lastSyncedFocusRow = -1;
     this.lastSyncedFocusCol = -1;
+    // Cancel the debounced screen-reader announcement so it can't fire after
+    // teardown (the callback reaches `announce()` → `requestAnimationFrame`,
+    // which is undefined once the host/DOM env is gone — surfaces as an
+    // "Unhandled Error: requestAnimationFrame is not defined" in tests).
+    if (this.announceTimer) {
+      clearTimeout(this.announceTimer);
+      this.announceTimer = null;
+    }
   }
 
   /**

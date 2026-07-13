@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.0.0-rc.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.4...grid-3.0.0-rc.0) (2026-07-13)
+
+
+### Bug Fixes
+
+* **grid/selection:** clear announce timer on detach to prevent post-teardown rAF error ([5d12a95](https://github.com/OysteinAmundsen/toolbox/commit/5d12a9551bdbf12c715fd2b7f66c6fc69620a5f7))
+* **grid/selection:** retain range on right-click inside selection ([e882199](https://github.com/OysteinAmundsen/toolbox/commit/e8821995f5a80f8e2fb273f548dba97a25670f5d))
+
+
+### Miscellaneous
+
+* **grid:** bootstrap rc line ([2d9dab9](https://github.com/OysteinAmundsen/toolbox/commit/2d9dab902f77e041d21b1ffab58c375258e04a28))
+
 ## [3.0.0-beta.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.3...grid-3.0.0-beta.4) (2026-07-13)
 
 
@@ -1450,4 +1463,3 @@
 - scrolling moves selection ([db11353](https://github.com/OysteinAmundsen/toolbox/commit/db11353af52ae3dd65e95505a034c2db68dcf5df))
 - selection follows data during scroll, touch scrolling, sticky column drag ([e6aefa1](https://github.com/OysteinAmundsen/toolbox/commit/e6aefa103bf03454add13603f90a5f0f0d9c3702))
 - storybook preview works on github pages ([cc9efed](https://github.com/OysteinAmundsen/toolbox/commit/cc9efed12c59a418614200514caa88149fe91629))
-

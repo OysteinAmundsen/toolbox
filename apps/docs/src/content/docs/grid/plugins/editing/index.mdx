@@ -242,14 +242,19 @@ grid.updateRows([
   { id: 'emp-456', changes: { department: 'Engineering' } },
 ]);
 
-// Listen for programmatic updates
-grid.on('cell-change', ({ rowId, changes }) => {
-  console.log('Row updated:', rowId, changes);
+// Listen for per-cell commits (inline edit + updateRow/updateRows)
+grid.on('cell-commit', (e) => {
+  console.log('Committed from:', e.detail.source); // 'user' | 'api' | 'paste' | 'history'
+});
+
+// Listen for value-change notifications
+grid.on('cell-change', (e) => {
+  console.log('Cell changed:', e.detail.field, e.detail.value);
 });
 ```
 
 :::note
-The `cell-change` event fires for programmatic updates via `updateRow()`/`updateRows()`. The `cell-commit` event fires for inline edits made by users.
+Programmatic updates via `updateRow()`/`updateRows()` flow through the same commit pipeline as inline edits (validation, dirty tracking, undo/redo integration), then emit `cell-change` as the value-change notification.
 :::
 
 See the [API Reference](/grid/api-reference/#row-update-api) for full documentation.
@@ -989,7 +994,7 @@ The `ctx` object passed to custom editors contains:
 | `rowId` | `string` | Row ID (from `getRowId`) |
 | `commit(value)` | `function` | Call to save new value |
 | `cancel()` | `function` | Call to discard changes |
-| `updateRow(changes)` | `function` | Update other fields on the same row (triggers `cell-change` events) |
+| `updateRow(changes)` | `function` | Update other fields on the same row through the commit pipeline (emits `cell-commit` then `cell-change`) |
 | `onValueChange(cb)` | `function` | Register a callback to receive pushed values when the cell's value changes externally (e.g., via `updateRow` from another cell's commit) |
 
 :::tip[Preventing Row Height Growth]

@@ -321,6 +321,12 @@ features: {
 | `Ctrl/⌘ + Shift + ←/→` | Extend column selection (column mode) |
 | `Escape` | Clear current selection (whichever axis is active) |
 
+### Range Mouse Behavior
+
+In `mode: 'range'`, right-clicking **inside** an existing range keeps the current range selection. This lets context-menu actions target the full selected range without requiring Ctrl/⌘.
+
+Right-clicking outside the current range follows normal behavior and moves selection to the clicked cell.
+
 ## Programmatic API
 
 ```ts
@@ -409,7 +415,7 @@ tbw-grid {
 | [EditingPlugin](/grid/plugins/editing/) | Click-to-select + double-click-to-edit. In `mode: 'row'` the row entering edit is auto-added to the selection so `getSelectedRows()` always reflects the row the user is visibly editing. With `multiSelect: false` the selection is replaced; otherwise the edited row is added to the existing set. Selection is also automatically cleared when the host replaces the `rows` array with a different number of source rows, preventing stale indices from pointing at the wrong rows. |
 | [ClipboardPlugin](/grid/plugins/clipboard/) | Copy/paste selected cells (requires SelectionPlugin) |
 | [FilteringPlugin](/grid/plugins/filtering/) | Filter data, then select from results |
-| [ContextMenuPlugin](/grid/plugins/context-menu/) | Right-click selected rows for actions |
+| [ContextMenuPlugin](/grid/plugins/context-menu/) | Right-click selected rows for actions. In range mode, right-click inside the existing range preserves that range so actions apply to the full selection. |
 
 ## See Also
 

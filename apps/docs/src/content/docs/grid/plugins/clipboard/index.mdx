@@ -212,6 +212,36 @@ Without a SelectionPlugin, the clipboard operates on a single focused cell — p
 | `processCell`    | `(value, field, row) => string`       | -                    | Custom cell value processor for copy operations                                                          |
 | `pasteHandler`   | `PasteHandler \| null`                | `defaultPasteHandler`| Custom paste handler. Set to `null` to disable auto-paste and handle the `paste` event manually         |
 
+### Per-Column Paste Guard/Transform (`column.onPaste`)
+
+Use `column.onPaste` for cell-level paste rules without replacing the whole paste pipeline:
+
+- `false` rejects pastes into that column,
+- `(ctx) => false` rejects a specific cell,
+- `(ctx) => ({ value })` transforms the incoming value,
+- omitted / `true` accepts as-is.
+
+```ts
+columns: [
+  { field: 'id', onPaste: false },
+  {
+    field: 'price',
+    onPaste: ({ value, sourceField }) => {
+      // Reject cross-column pastes into this field.
+      if (sourceField && sourceField !== 'price') return false;
+      const n = Number(String(value).replace(/[^0-9.]/g, ''));
+      return Number.isFinite(n) ? { value: n } : false;
+    },
+  },
+];
+```
+
+Cells rejected by `onPaste` emit one `paste-rejected` event per paste with a list of rejected cells.
+
+:::note
+If you provide a custom `pasteHandler`, you should still call `resolveColumnPaste()` and `emitPasteRejected()` from `@toolbox-web/grid/plugins/clipboard` so `onPaste` and `paste-rejected` continue to work.
+:::
+
 ## Paste Behavior
 
 The clipboard plugin respects both selection bounds and the `editable` column property when pasting:
@@ -277,7 +307,7 @@ For an **external** paste into an object column (e.g. from Excel), only text is 
 | Single cell     | Paste expands freely from that cell, adding rows if needed                     |
 | Range selection | Paste is clipped to fit within the selected range                              |
 | Row selection   | Paste is clipped to the selected rows (all columns within those rows)          |
-| No selection    | Paste starts at row 0, column 0                                                |
+| No active range | Paste starts at the selection anchor/focused cell when available; otherwise row 0, column 0 |
 
 **Example:** If you have a 2×2 range selected and paste 3×3 data, only the 2×2 portion that fits will be applied.
 
@@ -397,7 +427,8 @@ features: {
 | Event   | Detail                                     | Description                   |
 | ------- | ------------------------------------------ | ----------------------------- |
 | `copy`  | `{ text, rowCount, columnCount }`          | Fired after cells are copied  |
-| `paste` | `{ rows, text, target, fields }`           | Fired after data is pasted    |
+| `paste` | `{ rows, text, target, fields, rawRows?, sourceFields?, fillSelection? }` | Fired before data is applied (default handler or custom `pasteHandler` can consume it) |
+| `paste-rejected` | `{ rejected: PasteRejectedCell[] }` | Fired when one or more cells are rejected by column `onPaste` |
 
 ## Styling
 

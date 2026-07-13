@@ -869,6 +869,14 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (event.rowIndex === undefined || event.colIndex === undefined) return;
     if (event.rowIndex < 0) return; // Header
 
+    // Right-click (secondary button) inside an existing range must NOT clear the
+    // selection: this lets the context menu act on the whole range without the
+    // user having to hold Ctrl. Outside any range, fall through to the normal
+    // behavior (clear + select the clicked cell so the menu targets it).
+    if (event.originalEvent.button === 2 && isCellInAnyRange(event.rowIndex, event.colIndex, this.ranges)) {
+      return; // keep selection, don't start a drag
+    }
+
     // Skip utility columns (expander columns, etc.)
     // event.column is already resolved from _visibleColumns in the event builder
     if (event.column && isUtilityColumn(event.column)) {

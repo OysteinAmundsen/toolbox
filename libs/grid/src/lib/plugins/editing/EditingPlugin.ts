@@ -330,6 +330,18 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   /** Manages all dirty tracking state: baselines, changed/new/committed sets. */
   readonly #dirty = new DirtyTrackingManager<T>();
 
+  /**
+   * Cells currently mid-`cell-commit`, keyed `` `${rowId ?? rowIndex}\0${field}` ``.
+   * A `cell-commit` listener commonly cascades by calling `updateRow`, which
+   * routes back through this commit pipeline synchronously. When such a nested
+   * update targets a cell already in this set, `#commitCellValue` returns early
+   * (the outer commit owns the single apply + `cell-edit-committed`), preventing
+   * the infinite `updateRow → cell-commit → updateRow` recursion WITHOUT any
+   * consumer-side re-entrancy guard and WITHOUT duplicating history or bypassing
+   * a pending `preventDefault()`.
+   */
+  readonly #committingCells = new Set<string>();
+
   // --- Editor Injection Deps (cached for #injectEditor delegation) ---
 
   /** Dependency bag created once in `attach()` and reused by every `#injectEditor` call. */
@@ -2435,20 +2447,46 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         }
       : () => {}; // eslint-disable-line @typescript-eslint/no-empty-function
 
-    // Emit cancelable event BEFORE applying the value
-    const cancelled = this.emitCancelable<CellCommitDetail<T>>('cell-commit', {
-      row: rowData,
-      rowId: rowId ?? '',
-      field,
-      oldValue,
-      value: newValue,
-      rowIndex,
-      changedRows: this.changedRows,
-      changedRowIds: this.changedRowIds,
-      firstTimeForRow: firstTime,
-      updateRow,
-      setInvalid,
-    });
+    // Emit cancelable event BEFORE applying the value.
+    //
+    // Re-entrancy guard: a `cell-commit` listener commonly cascades by calling
+    // `detail.updateRow()` / `grid.updateRow()` (which route back through this
+    // commit pipeline) or forces a row re-render the same way. If that nested
+    // update targets the SAME cell that is still mid-commit, re-emitting
+    // `cell-commit` would recurse until the call stack overflows
+    // (`RangeError: Maximum call stack size exceeded`).
+    //
+    // When we detect a re-entrant commit of a cell already in flight we RETURN
+    // EARLY rather than re-applying: the OUTER commit still owns this cell and
+    // will apply the value + emit `cell-edit-committed` exactly once when its
+    // own emit returns. Re-applying here would instead (a) fire a duplicate
+    // `cell-edit-committed` → a phantom UndoRedo history entry, and (b) sneak
+    // the value in even when the outer listener called `preventDefault()`,
+    // bypassing the cancelable-commit contract. Cascades to OTHER cells still
+    // emit normally, and the set is keyed per (row, field) so distinct fields
+    // can never form an unbounded chain.
+    const commitKey = `${rowId ?? rowIndex}\u0000${field}`;
+    if (this.#committingCells.has(commitKey)) return;
+
+    let cancelled = false;
+    this.#committingCells.add(commitKey);
+    try {
+      cancelled = this.emitCancelable<CellCommitDetail<T>>('cell-commit', {
+        row: rowData,
+        rowId: rowId ?? '',
+        field,
+        oldValue,
+        value: newValue,
+        rowIndex,
+        changedRows: this.changedRows,
+        changedRowIds: this.changedRowIds,
+        firstTimeForRow: firstTime,
+        updateRow,
+        setInvalid,
+      });
+    } finally {
+      this.#committingCells.delete(commitKey);
+    }
 
     // If consumer called preventDefault(), abort the commit
     if (cancelled) return;

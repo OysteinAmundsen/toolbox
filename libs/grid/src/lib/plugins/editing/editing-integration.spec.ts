@@ -3239,6 +3239,107 @@ describe('EditingPlugin', () => {
 
       expect(grid._rows[0].name).toBe('Alice');
     });
+
+    it('does not recurse when a cell-commit listener calls updateRow for the same cell', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'click', dirtyTracking: true });
+      grid.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name', editable: true },
+          { field: 'touched', header: 'Touched', type: 'number' },
+        ],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', touched: 0 }];
+      await waitUpgrade(grid);
+
+      let commitCount = 0;
+      // Re-entrant handler: on a `name` commit it cascades to `touched` AND
+      // re-writes the SAME cell via grid.updateRow (mirrors the real-world
+      // "force a re-render / sync dirty state" pattern). Before the plugin-side
+      // guard this recursed until the stack overflowed (RangeError).
+      grid.addEventListener('cell-commit', (e: Event) => {
+        commitCount++;
+        const detail = (e as CustomEvent).detail;
+        if (detail.field === 'name') {
+          grid.updateRow('1', { touched: (detail.row.touched as number) + 1, name: detail.value });
+        }
+      });
+
+      expect(() => grid.updateRow('1', { name: 'Alice-2' })).not.toThrow();
+      await nextFrame();
+
+      expect(grid._rows[0].name).toBe('Alice-2');
+      expect(grid._rows[0].touched).toBe(1);
+      // The top-level `name` commit + one cascaded `touched` commit fire; the
+      // re-entrant same-cell `name` re-commit is suppressed (no recursion).
+      expect(commitCount).toBe(2);
+    });
+
+    it('honors preventDefault when a listener cascades updateRow to the same cell', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'click', dirtyTracking: true });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      await waitUpgrade(grid);
+
+      // The listener vetoes the commit AND cascades updateRow back into the same
+      // cell. The re-entrant path must NOT sneak the value in: the outer commit
+      // owns the cell and its preventDefault() must win.
+      grid.addEventListener('cell-commit', (e: Event) => {
+        const detail = (e as CustomEvent).detail;
+        if (detail.field === 'name') {
+          e.preventDefault();
+          grid.updateRow('1', { name: detail.value });
+        }
+      });
+
+      expect(() => grid.updateRow('1', { name: 'Blocked' })).not.toThrow();
+      await nextFrame();
+
+      expect(grid._rows[0].name).toBe('Alice');
+    });
+
+    it('still cascades to a DIFFERENT cell when a cell-commit listener updates a sibling field', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'click', dirtyTracking: true });
+      grid.gridConfig = {
+        columns: [
+          { field: 'price', header: 'Price', type: 'number', editable: true },
+          { field: 'qty', header: 'Qty', type: 'number' },
+          { field: 'total', header: 'Total', type: 'number' },
+        ],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, price: 0, qty: 3, total: 0 }];
+      await waitUpgrade(grid);
+
+      // Classic auto-update use-case: committing `price` triggers a handler that
+      // recomputes a DIFFERENT cell (`total`) from the committed value. The
+      // re-entrancy self-guard must NOT suppress this cross-cell cascade — the
+      // sibling field has its own commit key, so it still emits `cell-commit`
+      // and applies exactly once.
+      const committed: string[] = [];
+      grid.addEventListener('cell-commit', (e: Event) => {
+        const detail = (e as CustomEvent).detail;
+        committed.push(detail.field as string);
+        if (detail.field === 'price') {
+          detail.updateRow({ total: (detail.value as number) * (detail.row.qty as number) });
+        }
+      });
+
+      grid.updateRow('1', { price: 10 });
+      await nextFrame();
+
+      expect(grid._rows[0].price).toBe(10);
+      expect(grid._rows[0].total).toBe(30); // cascade to the sibling cell applied
+      // Both the origin (`price`) and the cascaded sibling (`total`) commits
+      // fire once each — the cascade is not swallowed by the guard.
+      expect(committed).toEqual(['price', 'total']);
+    });
   });
 
   // #endregion

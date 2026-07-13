@@ -626,3 +626,4 @@ import { TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
 ## Changelog
 
 All notable changes to `@toolbox-web/grid-angular` will be documented in this file.
+

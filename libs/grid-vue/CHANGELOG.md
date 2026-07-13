@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.0-rc.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.0.0-beta.1...grid-vue-2.0.0-rc.0) (2026-07-13)
+
+
+### Miscellaneous
+
+* **adapters:** bootstrap rc line ([fceba7a](https://github.com/OysteinAmundsen/toolbox/commit/fceba7ac39fa9224a146bd5e817160fa9595c8bd))
+
 ## [2.0.0-beta.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.0.0-beta...grid-vue-2.0.0-beta.1) (2026-07-08)
 
 
@@ -337,4 +344,3 @@
 ### Features
 
 - **grid-vue:** [#72](https://github.com/OysteinAmundsen/toolbox/issues/72) vue 3 framework adapter toolbox webgrid vue ([#110](https://github.com/OysteinAmundsen/toolbox/issues/110)) ([d002329](https://github.com/OysteinAmundsen/toolbox/commit/d00232910d840e4dfe78b15ec9e1a6d2a1de66d8))
-

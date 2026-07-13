@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.0-rc.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.0.0-beta.1...grid-angular-3.0.0-rc.0) (2026-07-13)
+
+
+### Miscellaneous
+
+* **grid:** release 3.0.0-rc.0 ([f27bdb1](https://github.com/OysteinAmundsen/toolbox/commit/f27bdb1dca3927bb3e214121ccd9130fec8a7de2))
+
 ## [2.0.0-beta.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.0.0-beta...grid-angular-2.0.0-beta.1) (2026-07-08)
 
 

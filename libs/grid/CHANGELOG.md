@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.0.0-rc.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.3...grid-3.0.0-rc.0) (2026-07-13)
+
+
+### Bug Fixes
+
+* **grid/editing:** prevent cell-commit re-entrancy from duplicating history or bypassing preventDefault ([7bca625](https://github.com/OysteinAmundsen/toolbox/commit/7bca625d97edecb0ca29d193c970b3a641cf0631))
+* **security:** remove DOM/XSS sinks in clipboard payload and llm-markdown regex (code-scanning [#37](https://github.com/OysteinAmundsen/toolbox/issues/37), [#35](https://github.com/OysteinAmundsen/toolbox/issues/35)) ([a393a29](https://github.com/OysteinAmundsen/toolbox/commit/a393a296bc7859c1a46ffa68eacf292bd5555904))
+
+
+### Miscellaneous
+
+* **grid:** release 3.0.0-rc.0 ([f27bdb1](https://github.com/OysteinAmundsen/toolbox/commit/f27bdb1dca3927bb3e214121ccd9130fec8a7de2))
+
 ## [3.0.0-beta.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.2...grid-3.0.0-beta.3) (2026-07-09)
 
 

@@ -177,6 +177,23 @@ bumps only the intended packages before merging.** Full rationale + the trap tha
 once forced adapters to `3.0.0-rc.0`: `.github/knowledge/build-and-deploy.md`
 (release section).
 
+### Graduating a prerelease to the stable (GA) release
+
+Same bootstrap applies when promoting `X.Y.Z-rc.N` → `X.Y.Z`. Flipping the config
+alone doesn't deterministically land the clean GA version (pending `feat`/`fix`
+commits can push it past `3.0.0`). Do both:
+
+1. In `release-please-config.json` on `main`: set the branch `"prerelease": false`
+   (or drop `prerelease`/`prerelease-type`) and remove `"versioning": "prerelease"`,
+   `"prerelease": true`, `"prerelease-type"` from each package.
+2. Push per-package, path-scoped `Release-As` commits — grid `Release-As: 3.0.0`,
+   adapters `Release-As: 2.0.0` (separate commits, same path-routing rules as above).
+
+Also flip the GA-only, non-version items in the **same** window: npm dist-tag
+(move v2 off `latest` to `2.x`/`v2-lts`) and the `ci.yml` docs-deploy gate +
+`github-pages` environment branch policy (`2.x` → `main`). Details:
+`.github/knowledge/build-and-deploy.md` (release section).
+
 ## Post-Release
 
 - Verify npm packages published correctly

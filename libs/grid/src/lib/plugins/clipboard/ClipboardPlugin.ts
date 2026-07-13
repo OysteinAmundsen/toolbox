@@ -149,7 +149,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    * `rawRows` (data rows only, aligned with the copied columns). Cleared on
    * detach; a non-matching external paste simply ignores it.
    */
-  #internalClipboard: { text: string; rawRows: unknown[][] } | null = null;
+  #internalClipboard: { text: string; rawRows: unknown[][]; fields: string[] } | null = null;
   // #endregion
 
   // #region Lifecycle
@@ -330,16 +330,19 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     // embedded in the clipboard's text/html. External pastes have neither and
     // use the parsed text.
     let rawRows: unknown[][] | undefined;
+    let sourceFields: string[] | undefined;
     if (
       this.#internalClipboard &&
       this.#internalClipboard.text === text &&
       this.#internalClipboard.rawRows.length === parsed.length
     ) {
       rawRows = this.#internalClipboard.rawRows;
+      sourceFields = this.#internalClipboard.fields;
     } else {
       const payload = parseClipboardHtmlPayload(event.clipboardData?.getData('text/html'));
       if (payload && payload.rows.length === parsed.length) {
         rawRows = payload.rows;
+        sourceFields = payload.fields;
       }
     }
 
@@ -364,7 +367,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
       }
     }
 
-    const detail: PasteDetail = { rows: parsed, text, target, fields, fillSelection, rawRows };
+    const detail: PasteDetail = { rows: parsed, text, target, fields, fillSelection, rawRows, sourceFields };
 
     // Emit the event for any listeners
     this.emit<PasteDetail>('paste', detail);
@@ -717,7 +720,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     // cross-grid or cross-window — restores object cells losslessly.
     await copyToClipboard(text, buildClipboardHtml(display.header, display.rows, { v: 1, fields, rows: rawRows }));
     this.lastCopied = { text, timestamp: Date.now() };
-    this.#internalClipboard = { text, rawRows };
+    this.#internalClipboard = { text, rawRows, fields };
     this.emit<CopyDetail>('copy', {
       text,
       rowCount: rows.length,

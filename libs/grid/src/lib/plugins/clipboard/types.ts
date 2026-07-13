@@ -91,20 +91,39 @@ export interface ClipboardConfig {
    */
   fillSelection?: boolean;
   /**
-   * Custom paste handler. By default, the plugin applies pasted data to `grid.rows`
-   * starting at the target cell.
+   * Custom paste handler that **fully replaces** {@link defaultPasteHandler}.
    *
-   * - Set to a custom function to handle paste yourself
-   * - Set to `null` to disable auto-paste (event still fires)
-   * - Return `false` from handler to prevent default behavior
+   * ⚠️ **Prefer not to override this.** The default handler is no longer a thin
+   * "write text into cells" routine — it now implements substantial behavior
+   * that is easy to get subtly wrong when reimplemented:
    *
-   * **Custom handlers own per-column `onPaste`.** A custom handler completely
-   * replaces {@link defaultPasteHandler}, so the per-column
-   * {@link BaseColumnConfig.onPaste} guard/transform and the `paste-rejected`
-   * event are **not** applied automatically — you must honor them yourself if you
-   * want that behavior. Use the exported {@link resolveColumnPaste} to resolve
-   * each cell (reject / accept / transform) and {@link emitPasteRejected} to fire
-   * the same `paste-rejected` event the default handler does:
+   * - editability resolution via the editing plugin (`getCellEditableResolver`,
+   *   including row-conditional `editable`);
+   * - per-column {@link BaseColumnConfig.onPaste} reject / transform, plus the
+   *   `paste-rejected` event;
+   * - structured (`rawRows`) same-grid / cross-window values so object cells
+   *   round-trip losslessly (not degraded to display text);
+   * - fill-selection tiling of a smaller source across a bounded selection;
+   * - routing edits through `grid.updateRows(…, 'paste')` so paste participates
+   *   in dirty tracking, undo/redo history, cancelable validation, and the
+   *   `'paste'` commit source — with a direct-write fallback for id-less rows;
+   * - growing the grid for unbounded single-cell-expansion pastes.
+   *
+   * **Use an extension point instead of overriding, wherever possible:**
+   * - reject / transform per cell → column {@link BaseColumnConfig.onPaste};
+   * - coerce / veto committed values globally → the cancelable `cell-commit`
+   *   event (`detail.source === 'paste'` distinguishes a paste);
+   * - observe the raw paste → the `paste` event;
+   * - react to rejected cells → the `paste-rejected` event.
+   *
+   * Other values:
+   * - `null` — disable auto-paste entirely (the `paste` event still fires).
+   * - a function returning `false` — you handled it; skip the default.
+   *
+   * **If you must override** (e.g. bespoke target placement or side effects),
+   * you are responsible for re-implementing the behaviors above. At minimum,
+   * honor per-column `onPaste` with the exported {@link resolveColumnPaste} and
+   * fire {@link emitPasteRejected} so `onPaste` and `paste-rejected` keep working:
    *
    * ```ts
    * import { resolveColumnPaste, emitPasteRejected } from '@toolbox-web/grid/plugins/clipboard';
@@ -114,7 +133,7 @@ export interface ClipboardConfig {
    *   for (const cell of myCells(detail)) {
    *     const res = resolveColumnPaste(cell.column.onPaste, {
    *       value: cell.value, field: cell.field, row: cell.row,
-   *       rowIndex: cell.rowIndex, oldValue: cell.oldValue,
+   *       rowIndex: cell.rowIndex, oldValue: cell.oldValue, sourceField: cell.sourceField,
    *     });
    *     if (res.accepted) writeCell(cell, res.value);
    *     else rejected.push({ field: cell.field, rowIndex: cell.rowIndex, row: cell.row, value: cell.value, reason: res.reason });
@@ -202,6 +221,17 @@ export interface PasteDetail {
    * @since 3.0.0
    */
   rawRows?: unknown[][];
+  /**
+   * Source column fields the pasted data was copied FROM, in the copied column
+   * order (aligned with the columns of {@link rows} / {@link rawRows}). Lets a
+   * column's {@link BaseColumnConfig.onPaste} know the origin column so it can
+   * reject cross-column / cross-type pastes. Present for a **same-app** paste
+   * (same grid via the in-memory buffer, or cross-grid / cross-window via the
+   * structured `text/html` payload); `undefined` for external pastes (e.g. from
+   * Excel), where only the text is available.
+   * @since 3.0.0
+   */
+  sourceFields?: string[];
 }
 
 /**
@@ -221,6 +251,15 @@ export interface PasteCellContext<TRow = unknown, TValue = unknown> {
   rowIndex: number;
   /** The cell's current value before the paste. */
   oldValue: TValue;
+  /**
+   * The column field the value was copied FROM (the origin column), for a
+   * same-app paste. `undefined` for an external paste (e.g. from Excel) or when
+   * the source column is unknown. Use it to reject cross-column / cross-type
+   * pastes (e.g. refuse a value copied from a "car" column into a "fruit"
+   * column). To compare types, look up your own column config by this field.
+   * @since 3.0.0
+   */
+  sourceField?: string;
 }
 
 /**
@@ -276,7 +315,7 @@ export type PasteResolution = { accepted: true; value: unknown } | { accepted: f
  * pass to {@link emitPasteRejected}.
  *
  * @param onPaste - The column's `onPaste` config (`column.onPaste`), if any.
- * @param ctx - The cell context (value, field, row, rowIndex, oldValue).
+ * @param ctx - The cell context (value, field, row, rowIndex, oldValue, sourceField).
  * @returns `{ accepted: true, value }` (value possibly transformed) or
  *   `{ accepted: false, reason }`.
  *
@@ -346,7 +385,7 @@ export function emitPasteRejected(grid: GridElement, rejected: PasteRejectedCell
  * @since 0.4.2
  */
 export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): void {
-  const { rows: pastedRows, rawRows, target, fields, fillSelection } = detail;
+  const { rows: pastedRows, rawRows, target, fields, fillSelection, sourceFields } = detail;
 
   // No target = nothing to do
   if (!target || pastedRows.length === 0) return;
@@ -372,7 +411,13 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
   // Cells a column's `onPaste` guard rejected — reported via `paste-rejected`.
   const rejected: PasteRejectedCell[] = [];
 
-  const addEdit = (rowIndex: number, field: string | undefined, value: unknown, evalRow: Record<string, unknown>) => {
+  const addEdit = (
+    rowIndex: number,
+    field: string | undefined,
+    value: unknown,
+    evalRow: Record<string, unknown>,
+    sourceField?: string,
+  ) => {
     if (!field || !canEditCell(field, evalRow)) return;
     // Per-column paste guard/transform (clipboard-augmented `onPaste`). Runs
     // after the editability check so it only sees cells paste could write.
@@ -382,6 +427,7 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
       row: evalRow,
       rowIndex,
       oldValue: evalRow[field],
+      sourceField,
     });
     if (!resolution.accepted) {
       rejected.push({ field, rowIndex, row: evalRow, value, reason: resolution.reason });
@@ -409,7 +455,9 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
       const srcCols = sourceRow.length;
       if (srcCols === 0) continue;
       const evalRow = currentRows[rowIndex];
-      fields.forEach((field, colOffset) => addEdit(rowIndex, field, sourceRow[colOffset % srcCols], evalRow));
+      fields.forEach((field, colOffset) =>
+        addEdit(rowIndex, field, sourceRow[colOffset % srcCols], evalRow, sourceFields?.[colOffset % srcCols]),
+      );
     }
   } else {
     const maxPasteRow = target.bounds ? target.bounds.endRow : Infinity;
@@ -420,7 +468,9 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
       if (!target.bounds && targetRowIndex >= rowCountAfter) rowCountAfter = targetRowIndex + 1;
       // Editability resolved against the pre-paste row (empty for grown rows).
       const evalRow = currentRows[targetRowIndex] ?? {};
-      rowData.forEach((cellValue, colOffset) => addEdit(targetRowIndex, fields[colOffset], cellValue, evalRow));
+      rowData.forEach((cellValue, colOffset) =>
+        addEdit(targetRowIndex, fields[colOffset], cellValue, evalRow, sourceFields?.[colOffset]),
+      );
     });
   }
 
@@ -541,6 +591,11 @@ declare module '../../core/types' {
      * Synchronous only — the paste pipeline does not await. Rejected cells
      * (either form) are reported once per paste via the `paste-rejected` event
      * ({@link PasteRejectedDetail}), so a consumer can show a message.
+     *
+     * The callback context also carries `sourceField` — the column the value was
+     * copied FROM (for a same-app paste; `undefined` for external pastes) — so a
+     * column can reject cross-column / cross-type pastes (e.g. refuse a value
+     * copied from a "car" column into a "fruit" column).
      *
      * @example
      * ```typescript

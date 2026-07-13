@@ -98,6 +98,32 @@ export interface ClipboardConfig {
    * - Set to `null` to disable auto-paste (event still fires)
    * - Return `false` from handler to prevent default behavior
    *
+   * **Custom handlers own per-column `onPaste`.** A custom handler completely
+   * replaces {@link defaultPasteHandler}, so the per-column
+   * {@link BaseColumnConfig.onPaste} guard/transform and the `paste-rejected`
+   * event are **not** applied automatically — you must honor them yourself if you
+   * want that behavior. Use the exported {@link resolveColumnPaste} to resolve
+   * each cell (reject / accept / transform) and {@link emitPasteRejected} to fire
+   * the same `paste-rejected` event the default handler does:
+   *
+   * ```ts
+   * import { resolveColumnPaste, emitPasteRejected } from '@toolbox-web/grid/plugins/clipboard';
+   *
+   * pasteHandler: (detail, grid) => {
+   *   const rejected = [];
+   *   for (const cell of myCells(detail)) {
+   *     const res = resolveColumnPaste(cell.column.onPaste, {
+   *       value: cell.value, field: cell.field, row: cell.row,
+   *       rowIndex: cell.rowIndex, oldValue: cell.oldValue,
+   *     });
+   *     if (res.accepted) writeCell(cell, res.value);
+   *     else rejected.push({ field: cell.field, rowIndex: cell.rowIndex, row: cell.row, value: cell.value, reason: res.reason });
+   *   }
+   *   emitPasteRejected(grid, rejected);
+   *   return false; // handled
+   * }
+   * ```
+   *
    * @default defaultPasteHandler (auto-applies paste data)
    */
   pasteHandler?: PasteHandler | null;
@@ -179,15 +205,127 @@ export interface PasteDetail {
 }
 
 /**
+ * Context passed to a column's {@link BaseColumnConfig.onPaste} guard/transform
+ * for each cell a paste would write into.
+ *
+ * @since 3.0.0
+ */
+export interface PasteCellContext<TRow = unknown, TValue = unknown> {
+  /** The incoming pasted value (the raw structured value for a same-grid paste). */
+  value: TValue;
+  /** The column field receiving the value. */
+  field: string;
+  /** The target row object (pre-paste state). */
+  row: TRow;
+  /** Index of the target row in the current data set. */
+  rowIndex: number;
+  /** The cell's current value before the paste. */
+  oldValue: TValue;
+}
+
+/**
+ * A column's paste guard / transform (`onPaste`). See {@link BaseColumnConfig.onPaste}.
+ * @since 3.0.0
+ */
+export type ColumnPasteGuard<TRow = unknown, TValue = unknown> =
+  | boolean
+  | ((ctx: PasteCellContext<TRow, TValue>) => boolean | { value: TValue });
+
+/**
+ * Why a cell's paste was rejected: `'column'` = the column set `onPaste: false`;
+ * `'cell'` = an `onPaste` callback returned `false`.
+ * @since 3.0.0
+ */
+export type PasteRejectionReason = 'column' | 'cell';
+
+/** One cell whose paste a column's `onPaste` guard rejected. @since 3.0.0 */
+export interface PasteRejectedCell {
+  /** The column field. */
+  field: string;
+  /** Index of the target row in the current data set. */
+  rowIndex: number;
+  /** The target row object. */
+  row: unknown;
+  /** The incoming value that was rejected (before any transform). */
+  value: unknown;
+  /** Why it was rejected. */
+  reason: PasteRejectionReason;
+}
+
+/**
+ * Detail for the `paste-rejected` event: the cells a column's `onPaste` guard
+ * rejected during a paste. Fires once per paste, only when at least one cell was
+ * rejected, so a consumer can surface a message. Non-editable cells are skipped
+ * silently and are NOT reported here.
+ * @since 3.0.0
+ */
+export interface PasteRejectedDetail {
+  /** Cells rejected by a column `onPaste` guard. */
+  rejected: PasteRejectedCell[];
+}
+
+/** Result of {@link resolveColumnPaste}. @since 3.0.0 */
+export type PasteResolution = { accepted: true; value: unknown } | { accepted: false; reason: PasteRejectionReason };
+
+/**
+ * Resolve a column's {@link ColumnPasteGuard} (`onPaste`) for a single cell.
+ *
+ * Pure — never mutates or emits. Exposed so a **custom `pasteHandler`** can honor
+ * per-column `onPaste` identically to {@link defaultPasteHandler}: call it per
+ * cell, write `resolution.value` when accepted, and collect the rejected cells to
+ * pass to {@link emitPasteRejected}.
+ *
+ * @param onPaste - The column's `onPaste` config (`column.onPaste`), if any.
+ * @param ctx - The cell context (value, field, row, rowIndex, oldValue).
+ * @returns `{ accepted: true, value }` (value possibly transformed) or
+ *   `{ accepted: false, reason }`.
+ *
+ * @example
+ * ```ts
+ * // Inside a custom pasteHandler:
+ * const rejected: PasteRejectedCell[] = [];
+ * const res = resolveColumnPaste(column.onPaste, { value, field, row, rowIndex, oldValue });
+ * if (res.accepted) row[field] = res.value;
+ * else rejected.push({ field, rowIndex, row, value, reason: res.reason });
+ * // …after writing all cells:
+ * emitPasteRejected(grid, rejected);
+ * ```
+ * @since 3.0.0
+ */
+export function resolveColumnPaste(onPaste: ColumnPasteGuard | undefined, ctx: PasteCellContext): PasteResolution {
+  if (onPaste === false) return { accepted: false, reason: 'column' };
+  if (typeof onPaste === 'function') {
+    const result = onPaste(ctx);
+    if (result === false) return { accepted: false, reason: 'cell' };
+    if (result && typeof result === 'object' && 'value' in result) {
+      return { accepted: true, value: (result as { value: unknown }).value };
+    }
+  }
+  return { accepted: true, value: ctx.value };
+}
+
+/**
+ * Dispatch the `paste-rejected` event on the grid. No-op when `rejected` is empty.
+ * Exposed so a custom `pasteHandler` can emit the same event the default handler
+ * does, after resolving cells via {@link resolveColumnPaste}.
+ * @since 3.0.0
+ */
+export function emitPasteRejected(grid: GridElement, rejected: PasteRejectedCell[]): void {
+  if (rejected.length === 0) return;
+  grid.dispatchEvent?.(new CustomEvent<PasteRejectedDetail>('paste-rejected', { detail: { rejected }, bubbles: true }));
+}
+
+/**
  * Default paste handler that applies pasted data to the grid.
  *
  * This is the built-in handler used when no custom `pasteHandler` is configured.
  *
- * Edits are routed through `grid.updateRows(…, 'api')` so paste participates in
+ * Edits are routed through `grid.updateRows(…, 'paste')` so paste participates in
  * the full edit pipeline — dirty tracking, cancelable validation, undo/redo
- * history, and abortion — exactly like an interactive edit. Rows without a
- * resolvable ID (no `getRowId`) fall back to a direct in-place write, which
- * still updates values but does not track them.
+ * history, and abortion — exactly like an interactive edit, and so a
+ * `cell-commit` listener can tell a paste apart via `detail.source === 'paste'`.
+ * Rows without a resolvable ID (no `getRowId`) fall back to a direct in-place
+ * write, which still updates values but does not track them.
  *
  * Behavior:
  * - Single cell selection: paste expands freely, adds new rows if needed
@@ -198,6 +336,10 @@ export interface PasteDetail {
  *   Editability is resolved by the editing plugin via the
  *   `getCellEditableResolver` query — including row-conditional `editable`.
  *   Without the editing plugin, no cell is editable and paste is a no-op.
+ * - Per-column `onPaste`: after the editability check, a column's
+ *   {@link BaseColumnConfig.onPaste} may reject the cell (skipped, alignment
+ *   preserved) or transform the pasted value. Rejected cells are reported once
+ *   via the `paste-rejected` event ({@link PasteRejectedDetail}).
  *
  * @param detail - The parsed paste data from clipboard
  * @param grid - The grid element to update
@@ -216,6 +358,7 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
   const currentRows = grid.rows as Record<string, unknown>[];
   const columns = grid.effectiveConfig.columns ?? [];
   const allFields = columns.map((col) => col.field);
+  const columnByField = new Map(columns.map((col) => [col.field, col]));
 
   // Editability is owned by the editing plugin (row-conditional included). With
   // no editing plugin loaded, nothing is editable and paste is a no-op.
@@ -226,9 +369,24 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
   // unbounded (single-cell expansion) paste.
   const editsByRow = new Map<number, Record<string, unknown>>();
   let rowCountAfter = currentRows.length;
+  // Cells a column's `onPaste` guard rejected — reported via `paste-rejected`.
+  const rejected: PasteRejectedCell[] = [];
 
   const addEdit = (rowIndex: number, field: string | undefined, value: unknown, evalRow: Record<string, unknown>) => {
     if (!field || !canEditCell(field, evalRow)) return;
+    // Per-column paste guard/transform (clipboard-augmented `onPaste`). Runs
+    // after the editability check so it only sees cells paste could write.
+    const resolution = resolveColumnPaste(columnByField.get(field)?.onPaste, {
+      value,
+      field,
+      row: evalRow,
+      rowIndex,
+      oldValue: evalRow[field],
+    });
+    if (!resolution.accepted) {
+      rejected.push({ field, rowIndex, row: evalRow, value, reason: resolution.reason });
+      return; // reject this cell (alignment preserved, like a non-editable cell)
+    }
     let changes = editsByRow.get(rowIndex);
     if (!changes) {
       changes = {};
@@ -237,7 +395,7 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
     // Clone structured values so tiled/multi-target pastes never share a
     // reference (mutating one row's object would otherwise mutate the source
     // and every other target). No-op for primitives (the text path).
-    changes[field] = cloneStructured(value);
+    changes[field] = cloneStructured(resolution.value);
   };
 
   if (fillSelection && target.bounds) {
@@ -266,7 +424,11 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
     });
   }
 
-  if (editsByRow.size === 0 && rowCountAfter === currentRows.length) return;
+  if (editsByRow.size === 0 && rowCountAfter === currentRows.length) {
+    // Nothing accepted (e.g. every cell rejected) — still report the rejections.
+    emitPasteRejected(grid, rejected);
+    return;
+  }
 
   // Grow the grid first for unbounded pastes that extend past existing data.
   // New rows start empty; their pasted values are applied in the write phase.
@@ -312,11 +474,14 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
   }
 
   if (updates.length > 0) {
-    grid.updateRows(updates, 'api');
+    grid.updateRows(updates, 'paste');
   } else if (directWrote && rowCountAfter === currentRows.length) {
     // Direct writes only, no structural grow above — trigger a render.
     grid.rows = [...rowsNow];
   }
+
+  // Notify consumers of any cells a column's `onPaste` guard rejected.
+  emitPasteRejected(grid, rejected);
 }
 
 /**
@@ -341,9 +506,58 @@ declare module '../../core/types' {
     copy: CopyDetail;
     /** Fired after a paste operation. Provides parsed rows, target cell, and column fields. @group Clipboard Events */
     paste: PasteDetail;
+    /** Fired after a paste when one or more cells were rejected by a column's `onPaste` guard. @group Clipboard Events */
+    'paste-rejected': PasteRejectedDetail;
   }
 
   interface PluginNameMap {
     clipboard: import('./ClipboardPlugin').ClipboardPlugin;
+  }
+
+  /** Clipboard contributes its own edit-origin tag so a `cell-commit` listener
+   * can tell a paste from a user edit via `detail.source === 'paste'`. */
+  interface UpdateSourceMap {
+    /** A value written by a clipboard paste. @since 3.0.0 */
+    paste: true;
+  }
+
+  interface BaseColumnConfig<TRow, TValue> {
+    /**
+     * Per-column paste guard / transform. Requires the ClipboardPlugin.
+     *
+     * Runs for each cell a paste would write into (after the editing plugin's
+     * editability check), letting a consumer reject or rewrite pasted values
+     * **per column** — finer-grained than the whole-operation
+     * {@link ClipboardConfig.pasteHandler}.
+     *
+     * - `true` / omitted — accept pastes (default behavior).
+     * - `false` — this column never accepts pastes; matching cells are skipped
+     *   (column alignment is preserved, like a non-editable cell).
+     * - `(ctx) => …` — called per cell. Return `false` to reject just that cell,
+     *   `true` (or nothing) to accept as-is, or `{ value }` to write a
+     *   transformed value instead. Returning `{ value }` disambiguates a
+     *   transform from a boolean verdict, so boolean-valued columns stay safe.
+     *
+     * Synchronous only — the paste pipeline does not await. Rejected cells
+     * (either form) are reported once per paste via the `paste-rejected` event
+     * ({@link PasteRejectedDetail}), so a consumer can show a message.
+     *
+     * @example
+     * ```typescript
+     * // Reject pastes into a locked column
+     * { field: 'id', onPaste: false }
+     *
+     * // Reject invalid values, coerce the rest
+     * {
+     *   field: 'price',
+     *   onPaste: ({ value }) => {
+     *     const n = Number(String(value).replace(/[^0-9.]/g, ''));
+     *     return Number.isFinite(n) ? { value: n } : false;
+     *   },
+     * }
+     * ```
+     * @since 3.0.0
+     */
+    onPaste?: ColumnPasteGuard<TRow, TValue>;
   }
 }

@@ -34,6 +34,7 @@ import type {
   InternalGrid,
   RowElementInternal,
   TypeDefault,
+  UpdateSource,
 } from '../../core/types';
 import styles from './editing.css?inline';
 import { getInputValue } from './editors';
@@ -758,7 +759,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // validation/abortion, dirty tracking, history via cell-edit-committed,
     // cascade). #commitCellValue leaves the value unchanged when a handler
     // vetoes, so compare to detect abortion.
-    this.#commitCellValue(ctx.rowIndex, column, ctx.newValue, rowData);
+    this.#commitCellValue(ctx.rowIndex, column, ctx.newValue, rowData, ctx.source);
     return (rowData as Record<string, unknown>)[ctx.field] === ctx.newValue;
   }
 
@@ -2418,7 +2419,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * Commit a single cell value change.
    * Uses ID-based change tracking for stability when rows are reordered.
    */
-  #commitCellValue(rowIndex: number, column: ColumnConfig<T>, newValue: unknown, rowData: T): void {
+  #commitCellValue(
+    rowIndex: number,
+    column: ColumnConfig<T>,
+    newValue: unknown,
+    rowData: T,
+    source: UpdateSource = 'user',
+  ): void {
     const field = column.field;
     if (!isSafePropertyKey(field)) return;
     const oldValue = (rowData as Record<string, unknown>)[field];
@@ -2477,6 +2484,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         field,
         oldValue,
         value: newValue,
+        source,
         rowIndex,
         changedRows: this.changedRows,
         changedRowIds: this.changedRowIds,

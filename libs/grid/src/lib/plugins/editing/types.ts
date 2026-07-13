@@ -4,6 +4,7 @@
  * Configuration and event types for the EditingPlugin.
  */
 
+import type { UpdateSource } from '../../core/types';
 import type { BaselinesCapturedDetail, DirtyChangeDetail } from './internal/dirty-tracking';
 
 // ============================================================================
@@ -55,6 +56,16 @@ export interface CellCommitDetail<TRow = unknown> {
   oldValue: unknown;
   /** New value to be stored. */
   value: unknown;
+  /**
+   * Origin of this commit — lets a listener tell a user edit from a
+   * programmatic one. `'user'` for interactive edits, `'cascade'` for a
+   * cascade from another cell's commit, `'api'` for a generic `updateRow`/
+   * `updateRows` call, and plugin-contributed origins such as `'paste'`
+   * (clipboard). See {@link UpdateSource}.
+   *
+   * @since 3.0.0
+   */
+  source: UpdateSource;
   /** Index of the row in current data set. */
   rowIndex: number;
   /** All rows that have at least one committed change (snapshot list). */

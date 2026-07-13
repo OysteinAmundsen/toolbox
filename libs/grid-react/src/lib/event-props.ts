@@ -38,6 +38,7 @@ import type {
   GridColumnState,
   GroupToggleDetail,
   PasteDetail,
+  PasteRejectedDetail,
   PrintCompleteDetail,
   PrintStartDetail,
   RenderDetail,
@@ -496,6 +497,19 @@ export interface EventProps<TRow = unknown> {
    */
   onPaste?: EventHandler<PasteDetail>;
 
+  /**
+   * Fired after a paste when one or more cells were rejected by a column's
+   * `onPaste` guard.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/clipboard';`
+   *
+   * @example
+   * ```tsx
+   * onPasteRejected={(detail) => toast(`${detail.rejected.length} cell(s) rejected`)}
+   * ```
+   */
+  onPasteRejected?: EventHandler<PasteRejectedDetail>;
+
   // ═══════════════════════════════════════════════════════════════════
   // UNDO/REDO EVENTS
   // ═══════════════════════════════════════════════════════════════════
@@ -661,6 +675,7 @@ export const EVENT_PROP_MAP = {
   onContextMenuOpen: 'context-menu-open',
   onCopy: 'copy',
   onPaste: 'paste',
+  onPasteRejected: 'paste-rejected',
   onUndo: 'undo',
   onRedo: 'redo',
   onExportComplete: 'export-complete',

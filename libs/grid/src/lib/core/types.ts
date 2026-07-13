@@ -3346,7 +3346,40 @@ export interface TbwScrollDetail {
  * @category Data Management
  * @since 1.0.0
  */
-export type UpdateSource = 'user' | 'cascade' | 'api' | 'history';
+export type UpdateSource = keyof UpdateSourceMap;
+
+/**
+ * Extensible registry of edit-origin tags for {@link UpdateSource}.
+ *
+ * Core declares only its own generic origins here. Plugins contribute their own
+ * plugin-specific origin via module augmentation, so core never hardcodes a
+ * plugin-aware value (e.g. the clipboard plugin adds `paste`). This mirrors the
+ * `PluginNameMap` / `DataGridEventMap` augmentation pattern and keeps
+ * `UpdateSource` a type-safe, autocomplete-friendly string union rather than a
+ * bare `string`.
+ *
+ * @example
+ * ```ts
+ * // A plugin contributes its own origin:
+ * declare module '@toolbox-web/grid' {
+ *   interface UpdateSourceMap {
+ *     paste: true;
+ *   }
+ * }
+ * ```
+ * @category Data Management
+ * @since 3.0.0
+ */
+export interface UpdateSourceMap {
+  /** Direct user interaction (typing in an editor, toggling a checkbox). */
+  user: true;
+  /** A cascade update triggered from another cell's commit. */
+  cascade: true;
+  /** Generic programmatic mutation via the grid API (`updateRow`/`updateRows`). */
+  api: true;
+  /** Undo/redo re-application — the history stack owns the change. */
+  history: true;
+}
 
 /**
  * Detail for cell-change event (emitted by core after mutation).

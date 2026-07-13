@@ -43,6 +43,7 @@ import type {
   MasterDetailConfig,
   MultiSortConfig,
   PasteDetail,
+  PasteRejectedDetail,
   PinnedRowsConfig,
   PivotConfig,
   PrintCompleteDetail,
@@ -381,6 +382,7 @@ const EVENT_MAP = {
   'context-menu-open': '' as unknown as ContextMenuOpenDetail,
   copy: '' as unknown as CopyDetail,
   paste: '' as unknown as PasteDetail,
+  'paste-rejected': '' as unknown as PasteRejectedDetail,
   // The UndoRedoPlugin emits two distinct events: `undo` and `redo` (not the
   // combined `undo-redo` name). Listening to `undo-redo` would silently never
   // fire — keep these separate to mirror the React adapter and match the
@@ -433,6 +435,7 @@ const emit = defineEmits<{
   (e: 'context-menu-open', event: CustomEvent<ContextMenuOpenDetail>): void;
   (e: 'copy', event: CustomEvent<CopyDetail>): void;
   (e: 'paste', event: CustomEvent<PasteDetail>): void;
+  (e: 'paste-rejected', event: CustomEvent<PasteRejectedDetail>): void;
   (e: 'undo', event: CustomEvent<UndoRedoDetail>): void;
   (e: 'redo', event: CustomEvent<UndoRedoDetail>): void;
   (e: 'export-complete', event: CustomEvent<ExportCompleteDetail>): void;

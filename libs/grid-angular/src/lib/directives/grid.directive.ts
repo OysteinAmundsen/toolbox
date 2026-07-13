@@ -705,6 +705,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     | 'context-menu-open'
     | 'copy'
     | 'paste'
+    | 'paste-rejected'
     | 'undo'
     | 'redo'
     | 'export-complete'

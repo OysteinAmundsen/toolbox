@@ -1,21 +1,27 @@
 /**
- * `GridClipboardDirective` — owns `[clipboard]`, `(copy)`, `(paste)` on
- * `<tbw-grid>`. See `GridFilteringDirective` for the full rationale.
+ * `GridClipboardDirective` — owns `[clipboard]`, `(copy)`, `(paste)`,
+ * `(pasteRejected)` on `<tbw-grid>`. See `GridFilteringDirective` for the full
+ * rationale.
  *
  * @category Directive
  */
 import { Directive, ElementRef, inject, input, OnDestroy, OnInit, output } from '@angular/core';
 import type { DataGridElement } from '@toolbox-web/grid';
 import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim } from '@toolbox-web/grid-angular';
-import type { ClipboardConfig, CopyDetail, PasteDetail } from '@toolbox-web/grid/plugins/clipboard';
+import type {
+  ClipboardConfig,
+  CopyDetail,
+  PasteDetail,
+  PasteRejectedDetail,
+} from '@toolbox-web/grid/plugins/clipboard';
 
 /**
- * Owns the binding(s) `[clipboard], [copy], [paste]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
+ * Owns the binding(s) `[clipboard], [copy], [paste], [pasteRejected]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */
 @Directive({
-  selector: 'tbw-grid[clipboard], tbw-grid[copy], tbw-grid[paste]',
+  selector: 'tbw-grid[clipboard], tbw-grid[copy], tbw-grid[paste], tbw-grid[pasteRejected]',
   standalone: true,
 })
 export class GridClipboardDirective implements OnInit, OnDestroy {
@@ -24,6 +30,7 @@ export class GridClipboardDirective implements OnInit, OnDestroy {
   readonly clipboard = input<boolean | ClipboardConfig>();
   readonly copy = output<CopyDetail>();
   readonly paste = output<PasteDetail>();
+  readonly pasteRejected = output<PasteRejectedDetail>();
 
   private readonly listeners = new Map<string, (e: Event) => void>();
 
@@ -32,6 +39,7 @@ export class GridClipboardDirective implements OnInit, OnDestroy {
     registerFeatureClaim(grid, 'clipboard', () => this.clipboard());
     claimEvent(grid, 'copy');
     claimEvent(grid, 'paste');
+    claimEvent(grid, 'paste-rejected');
   }
 
   ngOnInit(): void {
@@ -43,6 +51,7 @@ export class GridClipboardDirective implements OnInit, OnDestroy {
     };
     wire<CopyDetail>('copy', this.copy);
     wire<PasteDetail>('paste', this.paste);
+    wire<PasteRejectedDetail>('paste-rejected', this.pasteRejected);
   }
 
   ngOnDestroy(): void {
@@ -52,5 +61,6 @@ export class GridClipboardDirective implements OnInit, OnDestroy {
     unregisterFeatureClaim(grid, 'clipboard');
     unclaimEvent(grid, 'copy');
     unclaimEvent(grid, 'paste');
+    unclaimEvent(grid, 'paste-rejected');
   }
 }

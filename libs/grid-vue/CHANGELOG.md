@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.0-rc.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.0.0-rc.0...grid-vue-2.0.0-rc.1) (2026-07-13)
+
+
+### Features
+
+* **clipboard:** add per-column onPaste guard/transform and 'paste' edit source ([47d0acf](https://github.com/OysteinAmundsen/toolbox/commit/47d0acf064851b1fdd4be8bfe1567ca08c88d45d))
+
 ## [2.0.0-rc.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.0.0-beta.1...grid-vue-2.0.0-rc.0) (2026-07-13)
 
 

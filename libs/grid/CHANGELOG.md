@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.0.0-rc.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-rc.0...grid-3.0.0-rc.1) (2026-07-13)
+
+
+### Features
+
+* **clipboard:** add per-column onPaste guard/transform and 'paste' edit source ([47d0acf](https://github.com/OysteinAmundsen/toolbox/commit/47d0acf064851b1fdd4be8bfe1567ca08c88d45d))
+* **clipboard:** expose sourceField on onPaste context for cross-column paste rejection ([e19bfff](https://github.com/OysteinAmundsen/toolbox/commit/e19bfff47d0ace73cecd51b9cdf5353bb8e049a4))
+
 ## [3.0.0-rc.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.4...grid-3.0.0-rc.0) (2026-07-13)
 
 

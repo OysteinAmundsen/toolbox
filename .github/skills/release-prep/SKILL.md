@@ -147,6 +147,36 @@ This project uses `release-please` for automated releases:
 - Merging to main triggers release PR generation
 - Approving the release PR publishes to npm
 
+### Switching the prerelease identifier (e.g. `beta` → `rc`) for a new major
+
+Changing `prerelease-type` in `release-please-config.json` does **NOT** relabel an
+in-progress prerelease line — while already on `X.Y.Z-beta.N` release-please only
+increments the existing identifier (`beta.4` → `beta.5`), ignoring the new type.
+To jump the identifier (or seed a fresh major's prerelease), push a **one-time,
+per-package, path-scoped** `Release-As` commit — attribution is by the **file
+paths the commit changes**, not the commit scope:
+
+```bash
+# grid → 3.0.0-rc.0 (commit must touch a file under libs/grid/**)
+printf '\n' >> libs/grid/CHANGELOG.md
+git add libs/grid/CHANGELOG.md
+git commit -m "chore(grid): bootstrap rc line" -m "Release-As: 3.0.0-rc.0"
+
+# adapters → 2.0.0-rc.0 (SEPARATE commit: one Release-As is written to EVERY
+# package the commit touches; a path-less/empty commit hits all 4 packages)
+printf '\n' >> libs/grid-angular/CHANGELOG.md
+printf '\n' >> libs/grid-react/CHANGELOG.md
+printf '\n' >> libs/grid-vue/CHANGELOG.md
+git add libs/grid-angular/CHANGELOG.md libs/grid-react/CHANGELOG.md libs/grid-vue/CHANGELOG.md
+git commit -m "chore(adapters): bootstrap rc line" -m "Release-As: 2.0.0-rc.0"
+```
+
+After the bootstrap tag exists, release-please auto-increments the new identifier
+(`rc.1`, `rc.2`…) — no further `Release-As` needed. **Verify the regenerated PR
+bumps only the intended packages before merging.** Full rationale + the trap that
+once forced adapters to `3.0.0-rc.0`: `.github/knowledge/build-and-deploy.md`
+(release section).
+
 ## Post-Release
 
 - Verify npm packages published correctly

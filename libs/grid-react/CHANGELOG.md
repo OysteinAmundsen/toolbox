@@ -1,521 +1,460 @@
 # Changelog
 
-## [2.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-2.0.0-rc.1...grid-react-2.0.0) (2026-07-14)
+## [2.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.10.0...grid-react-2.0.0) (2026-07-14)
 
+### ⚠ BREAKING CHANGES
 
-### Miscellaneous
+- **grid-react:** remove v1.x deprecations ([#411](https://github.com/OysteinAmundsen/toolbox/issues/411))
+- **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400))
 
-* **adapters:** graduate to stable 2.0.0 ([6ca887c](https://github.com/OysteinAmundsen/toolbox/commit/6ca887cd813cc1cbe574742e161dd4839c7894d9))
+### Features
+
+- **grid-react:** remove v1.x deprecations ([#411](https://github.com/OysteinAmundsen/toolbox/issues/411)) ([c89ac69](https://github.com/OysteinAmundsen/toolbox/commit/c89ac696a30319792ae8fc84dab51f089884fe2b)), closes [#261](https://github.com/OysteinAmundsen/toolbox/issues/261)
+- **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400)) ([c6fafe7](https://github.com/OysteinAmundsen/toolbox/commit/c6fafe73d4450c7aa57a58869da3b369e709bd43))
+- **grid:** move column shorthand parser into core, wire into light-DOM config ([#276](https://github.com/OysteinAmundsen/toolbox/issues/276)) ([#414](https://github.com/OysteinAmundsen/toolbox/issues/414)) ([333233a](https://github.com/OysteinAmundsen/toolbox/commit/333233aa6839d95a4339fc8767099d91e9414bad))
+- **grid:** support declarative tbw-grid-type light-dom typeDefaults ([#275](https://github.com/OysteinAmundsen/toolbox/issues/275)) ([a13d7cb](https://github.com/OysteinAmundsen/toolbox/commit/a13d7cb22fa9cdef94d6375b3431b39befbc3c10))
+- **clipboard:** add per-column onPaste guard/transform and 'paste' edit source ([47d0acf](https://github.com/OysteinAmundsen/toolbox/commit/47d0acf064851b1fdd4be8bfe1567ca08c88d45d))
 
 ## [2.0.0-rc.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-2.0.0-rc.0...grid-react-2.0.0-rc.1) (2026-07-13)
 
-
 ### Features
 
-* **clipboard:** add per-column onPaste guard/transform and 'paste' edit source ([47d0acf](https://github.com/OysteinAmundsen/toolbox/commit/47d0acf064851b1fdd4be8bfe1567ca08c88d45d))
+- **clipboard:** add per-column onPaste guard/transform and 'paste' edit source ([47d0acf](https://github.com/OysteinAmundsen/toolbox/commit/47d0acf064851b1fdd4be8bfe1567ca08c88d45d))
 
 ## [2.0.0-rc.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-2.0.0-beta.1...grid-react-2.0.0-rc.0) (2026-07-13)
 
-
 ### Miscellaneous
 
-* **adapters:** bootstrap rc line ([fceba7a](https://github.com/OysteinAmundsen/toolbox/commit/fceba7ac39fa9224a146bd5e817160fa9595c8bd))
+- **adapters:** bootstrap rc line ([fceba7a](https://github.com/OysteinAmundsen/toolbox/commit/fceba7ac39fa9224a146bd5e817160fa9595c8bd))
 
 ## [2.0.0-beta.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-2.0.0-beta...grid-react-2.0.0-beta.1) (2026-07-08)
 
-
 ### Features
 
-* **grid:** move column shorthand parser into core, wire into light-DOM config ([#276](https://github.com/OysteinAmundsen/toolbox/issues/276)) ([#414](https://github.com/OysteinAmundsen/toolbox/issues/414)) ([333233a](https://github.com/OysteinAmundsen/toolbox/commit/333233aa6839d95a4339fc8767099d91e9414bad))
-* **grid:** support declarative tbw-grid-type light-dom typeDefaults ([#275](https://github.com/OysteinAmundsen/toolbox/issues/275)) ([a13d7cb](https://github.com/OysteinAmundsen/toolbox/commit/a13d7cb22fa9cdef94d6375b3431b39befbc3c10))
+- **grid:** move column shorthand parser into core, wire into light-DOM config ([#276](https://github.com/OysteinAmundsen/toolbox/issues/276)) ([#414](https://github.com/OysteinAmundsen/toolbox/issues/414)) ([333233a](https://github.com/OysteinAmundsen/toolbox/commit/333233aa6839d95a4339fc8767099d91e9414bad))
+- **grid:** support declarative tbw-grid-type light-dom typeDefaults ([#275](https://github.com/OysteinAmundsen/toolbox/issues/275)) ([a13d7cb](https://github.com/OysteinAmundsen/toolbox/commit/a13d7cb22fa9cdef94d6375b3431b39befbc3c10))
 
 ## [2.0.0-beta](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.10.0...grid-react-2.0.0-beta) (2026-07-06)
 
-
 ### ⚠ BREAKING CHANGES
 
-* **grid-react:** remove v1.x deprecations ([#411](https://github.com/OysteinAmundsen/toolbox/issues/411))
-* **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400))
+- **grid-react:** remove v1.x deprecations ([#411](https://github.com/OysteinAmundsen/toolbox/issues/411))
+- **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400))
 
 ### Features
 
-* **grid-react:** remove v1.x deprecations ([#411](https://github.com/OysteinAmundsen/toolbox/issues/411)) ([c89ac69](https://github.com/OysteinAmundsen/toolbox/commit/c89ac696a30319792ae8fc84dab51f089884fe2b)), closes [#261](https://github.com/OysteinAmundsen/toolbox/issues/261)
-* **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400)) ([c6fafe7](https://github.com/OysteinAmundsen/toolbox/commit/c6fafe73d4450c7aa57a58869da3b369e709bd43))
+- **grid-react:** remove v1.x deprecations ([#411](https://github.com/OysteinAmundsen/toolbox/issues/411)) ([c89ac69](https://github.com/OysteinAmundsen/toolbox/commit/c89ac696a30319792ae8fc84dab51f089884fe2b)), closes [#261](https://github.com/OysteinAmundsen/toolbox/issues/261)
+- **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400)) ([c6fafe7](https://github.com/OysteinAmundsen/toolbox/commit/c6fafe73d4450c7aa57a58869da3b369e709bd43))
 
 ## [1.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.9.0...grid-react-1.10.0) (2026-06-09)
 
-
 ### Features
 
-* **grid:** add columnInference 'merge' mode to overlay provided columns onto inferred set ([#388](https://github.com/OysteinAmundsen/toolbox/issues/388)) ([1fe2929](https://github.com/OysteinAmundsen/toolbox/commit/1fe292928ffad5c1372510ef1d63c17266e1b741))
-* **grid:** declarative column order attribute for initial display ([#391](https://github.com/OysteinAmundsen/toolbox/issues/391)) ([3f47e90](https://github.com/OysteinAmundsen/toolbox/commit/3f47e904bf57ec28891e3611ad7d3e42ded052e9))
+- **grid:** add columnInference 'merge' mode to overlay provided columns onto inferred set ([#388](https://github.com/OysteinAmundsen/toolbox/issues/388)) ([1fe2929](https://github.com/OysteinAmundsen/toolbox/commit/1fe292928ffad5c1372510ef1d63c17266e1b741))
+- **grid:** declarative column order attribute for initial display ([#391](https://github.com/OysteinAmundsen/toolbox/issues/391)) ([3f47e90](https://github.com/OysteinAmundsen/toolbox/commit/3f47e904bf57ec28891e3611ad7d3e42ded052e9))
 
 ## [1.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.8.2...grid-react-1.9.0) (2026-06-03)
 
-
 ### Features
 
-* **adapters:** add opt-in shell feature side-effect imports for v3 ([566d717](https://github.com/OysteinAmundsen/toolbox/commit/566d717ed13d711217f7158a027c2da9dcf6cc00))
-
+- **adapters:** add opt-in shell feature side-effect imports for v3 ([566d717](https://github.com/OysteinAmundsen/toolbox/commit/566d717ed13d711217f7158a027c2da9dcf6cc00))
 
 ### Bug Fixes
 
-* **grid-react,grid-vue:** surface all FeatureConfig augmentations to published-dist consumers ([31b4263](https://github.com/OysteinAmundsen/toolbox/commit/31b426369ba59d598181ffc3b2cc91ab8579dfa8))
-* **grid-react,grid-vue:** surface filtering FeatureConfig augmentation to consumers ([9b68117](https://github.com/OysteinAmundsen/toolbox/commit/9b6811792bcaf7f1be6274a3346259692ece9184))
+- **grid-react,grid-vue:** surface all FeatureConfig augmentations to published-dist consumers ([31b4263](https://github.com/OysteinAmundsen/toolbox/commit/31b426369ba59d598181ffc3b2cc91ab8579dfa8))
+- **grid-react,grid-vue:** surface filtering FeatureConfig augmentation to consumers ([9b68117](https://github.com/OysteinAmundsen/toolbox/commit/9b6811792bcaf7f1be6274a3346259692ece9184))
 
 ## [1.8.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.8.1...grid-react-1.8.2) (2026-05-28)
 
-
 ### Bug Fixes
 
-* **grid-react:** bridge ReactNode for masterDetail.detailRenderer and responsive.cardRenderer; export canonical MasterDetailConfig/ResponsivePluginConfig ([1fe8831](https://github.com/OysteinAmundsen/toolbox/commit/1fe8831da2934b9627b09cebda53ba8e5e3da897))
-* **grid-react:** rename framework-prefixed widening types to canonical names, deprecate React* aliases ([1ba1435](https://github.com/OysteinAmundsen/toolbox/commit/1ba1435a3a033abca82e051bb5e180a95662d569))
-* **grid-react:** widen pinnedRows prop to accept React JSX slot/customPanel renderers ([d49cd58](https://github.com/OysteinAmundsen/toolbox/commit/d49cd5892e6123c6301699a7c39b2fc54d0bc5b8))
+- **grid-react:** bridge ReactNode for masterDetail.detailRenderer and responsive.cardRenderer; export canonical MasterDetailConfig/ResponsivePluginConfig ([1fe8831](https://github.com/OysteinAmundsen/toolbox/commit/1fe8831da2934b9627b09cebda53ba8e5e3da897))
+- **grid-react:** rename framework-prefixed widening types to canonical names, deprecate React* aliases ([1ba1435](https://github.com/OysteinAmundsen/toolbox/commit/1ba1435a3a033abca82e051bb5e180a95662d569))
+- **grid-react:** widen pinnedRows prop to accept React JSX slot/customPanel renderers ([d49cd58](https://github.com/OysteinAmundsen/toolbox/commit/d49cd5892e6123c6301699a7c39b2fc54d0bc5b8))
 
 ## [1.8.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.8.0...grid-react-1.8.1) (2026-05-25)
 
-
 ### Bug Fixes
 
-* **grid-react/grid-vue:** keep FeatureName honest under typedoc's strict program ([7bb5de0](https://github.com/OysteinAmundsen/toolbox/commit/7bb5de0719e3ae6bb2c88586def6cb21714f58fd))
+- **grid-react/grid-vue:** keep FeatureName honest under typedoc's strict program ([7bb5de0](https://github.com/OysteinAmundsen/toolbox/commit/7bb5de0719e3ae6bb2c88586def6cb21714f58fd))
 
 ## [1.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.7.0...grid-react-1.8.0) (2026-05-24)
 
-
 ### Features
 
-* **adapters:** add framework-native typing for grouping renderers (closes [#353](https://github.com/OysteinAmundsen/toolbox/issues/353)) ([#357](https://github.com/OysteinAmundsen/toolbox/issues/357)) ([74f002a](https://github.com/OysteinAmundsen/toolbox/commit/74f002a46312d6dd6d9ce20b96b5fcece3ee46e5))
-* **adapters:** cache pinned-rows slot host elements; document framework usage (closes [#354](https://github.com/OysteinAmundsen/toolbox/issues/354)) ([#358](https://github.com/OysteinAmundsen/toolbox/issues/358)) ([ef61827](https://github.com/OysteinAmundsen/toolbox/commit/ef6182712b7bba135db4c35c45cc7c35fbdbb699))
-* **grid-react,grid-vue,grid-angular:** adapter wrappers for shell-content APIs ([#355](https://github.com/OysteinAmundsen/toolbox/issues/355)) ([2baf8fa](https://github.com/OysteinAmundsen/toolbox/commit/2baf8fa086f9ff8521b3c8d43ed037bab0c531bb))
-* **grid:** add public 'render' event fired after every render-scheduler flush ([#345](https://github.com/OysteinAmundsen/toolbox/issues/345)) ([c7c8693](https://github.com/OysteinAmundsen/toolbox/commit/c7c8693112cb678c42b0c2e74d806458a5ad812c))
+- **adapters:** add framework-native typing for grouping renderers (closes [#353](https://github.com/OysteinAmundsen/toolbox/issues/353)) ([#357](https://github.com/OysteinAmundsen/toolbox/issues/357)) ([74f002a](https://github.com/OysteinAmundsen/toolbox/commit/74f002a46312d6dd6d9ce20b96b5fcece3ee46e5))
+- **adapters:** cache pinned-rows slot host elements; document framework usage (closes [#354](https://github.com/OysteinAmundsen/toolbox/issues/354)) ([#358](https://github.com/OysteinAmundsen/toolbox/issues/358)) ([ef61827](https://github.com/OysteinAmundsen/toolbox/commit/ef6182712b7bba135db4c35c45cc7c35fbdbb699))
+- **grid-react,grid-vue,grid-angular:** adapter wrappers for shell-content APIs ([#355](https://github.com/OysteinAmundsen/toolbox/issues/355)) ([2baf8fa](https://github.com/OysteinAmundsen/toolbox/commit/2baf8fa086f9ff8521b3c8d43ed037bab0c531bb))
+- **grid:** add public 'render' event fired after every render-scheduler flush ([#345](https://github.com/OysteinAmundsen/toolbox/issues/345)) ([c7c8693](https://github.com/OysteinAmundsen/toolbox/commit/c7c8693112cb678c42b0c2e74d806458a5ad812c))
 
 ## [1.7.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.6.1...grid-react-1.7.0) (2026-05-19)
 
-
 ### Features
 
-* **grid/adapters:** add sticky-rows wrappers for angular/react/vue and missing row-drag-drop entry for react ([74e9fa7](https://github.com/OysteinAmundsen/toolbox/commit/74e9fa749df798a154e03005dd286462a7f591fc))
-* **grid:** auto-suffix tag for multi-version coexistence ([#339](https://github.com/OysteinAmundsen/toolbox/issues/339)) ([#342](https://github.com/OysteinAmundsen/toolbox/issues/342)) ([5585171](https://github.com/OysteinAmundsen/toolbox/commit/558517172444bb7eaaaeac3ca18b5519a4ad79dd))
+- **grid/adapters:** add sticky-rows wrappers for angular/react/vue and missing row-drag-drop entry for react ([74e9fa7](https://github.com/OysteinAmundsen/toolbox/commit/74e9fa749df798a154e03005dd286462a7f591fc))
+- **grid:** auto-suffix tag for multi-version coexistence ([#339](https://github.com/OysteinAmundsen/toolbox/issues/339)) ([#342](https://github.com/OysteinAmundsen/toolbox/issues/342)) ([5585171](https://github.com/OysteinAmundsen/toolbox/commit/558517172444bb7eaaaeac3ca18b5519a4ad79dd))
 
 ## [1.6.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.6.0...grid-react-1.6.1) (2026-05-15)
 
-
 ### Bug Fixes
 
-* **grid-react:** batch portal teardown to silence flushSync warnings ([#330](https://github.com/OysteinAmundsen/toolbox/issues/330)) ([#333](https://github.com/OysteinAmundsen/toolbox/issues/333)) ([b6b586a](https://github.com/OysteinAmundsen/toolbox/commit/b6b586a227ba39f111edc2a930cda94233046c2a))
-* **grid-react:** drop pending portal flushes on host-tree unmount ([#332](https://github.com/OysteinAmundsen/toolbox/issues/332)) ([#334](https://github.com/OysteinAmundsen/toolbox/issues/334)) ([b5e2d45](https://github.com/OysteinAmundsen/toolbox/commit/b5e2d4576a56eeb18030bd310674ca90c8f52a8e))
+- **grid-react:** batch portal teardown to silence flushSync warnings ([#330](https://github.com/OysteinAmundsen/toolbox/issues/330)) ([#333](https://github.com/OysteinAmundsen/toolbox/issues/333)) ([b6b586a](https://github.com/OysteinAmundsen/toolbox/commit/b6b586a227ba39f111edc2a930cda94233046c2a))
+- **grid-react:** drop pending portal flushes on host-tree unmount ([#332](https://github.com/OysteinAmundsen/toolbox/issues/332)) ([#334](https://github.com/OysteinAmundsen/toolbox/issues/334)) ([b5e2d45](https://github.com/OysteinAmundsen/toolbox/commit/b5e2d4576a56eeb18030bd310674ca90c8f52a8e))
 
 ## [1.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.5.2...grid-react-1.6.0) (2026-05-13)
 
-
 ### Features
 
-* **grid:** add emptyRenderer config for no-rows / error overlay ([#321](https://github.com/OysteinAmundsen/toolbox/issues/321)) ([#322](https://github.com/OysteinAmundsen/toolbox/issues/322)) ([63118e3](https://github.com/OysteinAmundsen/toolbox/commit/63118e308557bdbedb083b0c1bb20a279782217b))
+- **grid:** add emptyRenderer config for no-rows / error overlay ([#321](https://github.com/OysteinAmundsen/toolbox/issues/321)) ([#322](https://github.com/OysteinAmundsen/toolbox/issues/322)) ([63118e3](https://github.com/OysteinAmundsen/toolbox/commit/63118e308557bdbedb083b0c1bb20a279782217b))
 
 ## [1.5.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.5.1...grid-react-1.5.2) (2026-05-10)
 
-
 ### Bug Fixes
 
-* **grid,grid-react,grid-angular:** honor gridConfig.features in dedup and template bridges ([45983a3](https://github.com/OysteinAmundsen/toolbox/commit/45983a3d0ca4957b7011a25c63bddadd001ed4fc))
-* **portal-bridge:** ensure correct type check for node in createNodeBridge function ([5703b79](https://github.com/OysteinAmundsen/toolbox/commit/5703b797d16648f99cb15411e4557cb811d82a57))
+- **grid,grid-react,grid-angular:** honor gridConfig.features in dedup and template bridges ([45983a3](https://github.com/OysteinAmundsen/toolbox/commit/45983a3d0ca4957b7011a25c63bddadd001ed4fc))
+- **portal-bridge:** ensure correct type check for node in createNodeBridge function ([5703b79](https://github.com/OysteinAmundsen/toolbox/commit/5703b797d16648f99cb15411e4557cb811d82a57))
 
 ## [1.5.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.5.0...grid-react-1.5.1) (2026-05-07)
 
-
 ### Bug Fixes
 
-* **grid-vue,grid-react:** default cell/editor TValue generic to any ([#289](https://github.com/OysteinAmundsen/toolbox/issues/289)) ([#290](https://github.com/OysteinAmundsen/toolbox/issues/290)) ([66ec863](https://github.com/OysteinAmundsen/toolbox/commit/66ec8635c9591244952b217a6a7ad2b5ff0f37f4))
+- **grid-vue,grid-react:** default cell/editor TValue generic to any ([#289](https://github.com/OysteinAmundsen/toolbox/issues/289)) ([#290](https://github.com/OysteinAmundsen/toolbox/issues/290)) ([66ec863](https://github.com/OysteinAmundsen/toolbox/commit/66ec8635c9591244952b217a6a7ad2b5ff0f37f4))
 
 ## [1.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.4.0...grid-react-1.5.0) (2026-05-02)
 
-
 ### Features
 
-* **adapters:** bring grid-react and grid-vue to full surface-area parity ([8a7314d](https://github.com/OysteinAmundsen/toolbox/commit/8a7314d61d424ffadabe803db1ed13c67897bd5f))
-* **grid/pinned-rows:** unified slots[] API (issue [#255](https://github.com/OysteinAmundsen/toolbox/issues/255)) ([#257](https://github.com/OysteinAmundsen/toolbox/issues/257)) ([8a84f0d](https://github.com/OysteinAmundsen/toolbox/commit/8a84f0dc27c64a68645a72ee6c1cda8ce59a6929))
-
+- **adapters:** bring grid-react and grid-vue to full surface-area parity ([8a7314d](https://github.com/OysteinAmundsen/toolbox/commit/8a7314d61d424ffadabe803db1ed13c67897bd5f))
+- **grid/pinned-rows:** unified slots[] API (issue [#255](https://github.com/OysteinAmundsen/toolbox/issues/255)) ([#257](https://github.com/OysteinAmundsen/toolbox/issues/257)) ([8a84f0d](https://github.com/OysteinAmundsen/toolbox/commit/8a84f0dc27c64a68645a72ee6c1cda8ce59a6929))
 
 ### Bug Fixes
 
-* **grid-angular,grid-react:** repair typedoc paths and React column-shorthand types ([3d22efe](https://github.com/OysteinAmundsen/toolbox/commit/3d22efe70566be8eb5ff48aa5b05e33cdca59aad))
-* **grid/pinned-rows:** render top slot wrappers when .header is nested in .rows-body ([d781366](https://github.com/OysteinAmundsen/toolbox/commit/d781366bf72bd52dc35dec74bacf56ac2692c9f8))
-* **grid:** preserve runtime column state when same gridConfig reference is re-assigned ([9652cd5](https://github.com/OysteinAmundsen/toolbox/commit/9652cd5b0828d0092d9a0a16296eca1bf3d571de))
-* **grid:** register column-visibility event; restore adapter props ([30dd280](https://github.com/OysteinAmundsen/toolbox/commit/30dd280ed8a0153eab030969d9a57ca6b681ccd5))
+- **grid-angular,grid-react:** repair typedoc paths and React column-shorthand types ([3d22efe](https://github.com/OysteinAmundsen/toolbox/commit/3d22efe70566be8eb5ff48aa5b05e33cdca59aad))
+- **grid/pinned-rows:** render top slot wrappers when .header is nested in .rows-body ([d781366](https://github.com/OysteinAmundsen/toolbox/commit/d781366bf72bd52dc35dec74bacf56ac2692c9f8))
+- **grid:** preserve runtime column state when same gridConfig reference is re-assigned ([9652cd5](https://github.com/OysteinAmundsen/toolbox/commit/9652cd5b0828d0092d9a0a16296eca1bf3d571de))
+- **grid:** register column-visibility event; restore adapter props ([30dd280](https://github.com/OysteinAmundsen/toolbox/commit/30dd280ed8a0153eab030969d9a57ca6b681ccd5))
 
 ## [1.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.3.0...grid-react-1.4.0) (2026-04-29)
 
-
 ### Features
 
-* **grid-vue:** overlay editor ([#253](https://github.com/OysteinAmundsen/toolbox/issues/253)) ([ca478ff](https://github.com/OysteinAmundsen/toolbox/commit/ca478ff162b8dd83b247ec28e8eaabeac7096127))
-
+- **grid-vue:** overlay editor ([#253](https://github.com/OysteinAmundsen/toolbox/issues/253)) ([ca478ff](https://github.com/OysteinAmundsen/toolbox/commit/ca478ff162b8dd83b247ec28e8eaabeac7096127))
 
 ### Bug Fixes
 
-* **grid-react,grid-vue:** flush focused editor on before-edit-close so Tab commits pending input ([9cafde1](https://github.com/OysteinAmundsen/toolbox/commit/9cafde17303e832bf02ce6749922ac1980cb969b))
-* **grid-react,grid/editing:** scope releaseCell cleanup by DOM and dedupe knowledge entry (PR [#249](https://github.com/OysteinAmundsen/toolbox/issues/249) review) ([f3f784a](https://github.com/OysteinAmundsen/toolbox/commit/f3f784a031dbfd38c9b6afaf3dc675aa020bd892))
-* **grid-react:** wrap portals in error boundaries to absorb commit-phase removeChild crashes ([#250](https://github.com/OysteinAmundsen/toolbox/issues/250)) ([8ef3883](https://github.com/OysteinAmundsen/toolbox/commit/8ef38831b464fa4765d4f4123c259508940c2a2a))
-* **grid,grid-react,grid-vue,grid-angular:** release renderers and flush editors on cell teardown ([#250](https://github.com/OysteinAmundsen/toolbox/issues/250)) ([3121b5f](https://github.com/OysteinAmundsen/toolbox/commit/3121b5f091663514692b53bc59863836637915bb))
-* **grid,grid-react:** release cells on pool shrink + clear, harden portal prune ([#250](https://github.com/OysteinAmundsen/toolbox/issues/250)) ([5c22293](https://github.com/OysteinAmundsen/toolbox/commit/5c22293d65fe39d79f50faa91c13f9b8a9bb3374))
+- **grid-react,grid-vue:** flush focused editor on before-edit-close so Tab commits pending input ([9cafde1](https://github.com/OysteinAmundsen/toolbox/commit/9cafde17303e832bf02ce6749922ac1980cb969b))
+- **grid-react,grid/editing:** scope releaseCell cleanup by DOM and dedupe knowledge entry (PR [#249](https://github.com/OysteinAmundsen/toolbox/issues/249) review) ([f3f784a](https://github.com/OysteinAmundsen/toolbox/commit/f3f784a031dbfd38c9b6afaf3dc675aa020bd892))
+- **grid-react:** wrap portals in error boundaries to absorb commit-phase removeChild crashes ([#250](https://github.com/OysteinAmundsen/toolbox/issues/250)) ([8ef3883](https://github.com/OysteinAmundsen/toolbox/commit/8ef38831b464fa4765d4f4123c259508940c2a2a))
+- **grid,grid-react,grid-vue,grid-angular:** release renderers and flush editors on cell teardown ([#250](https://github.com/OysteinAmundsen/toolbox/issues/250)) ([3121b5f](https://github.com/OysteinAmundsen/toolbox/commit/3121b5f091663514692b53bc59863836637915bb))
+- **grid,grid-react:** release cells on pool shrink + clear, harden portal prune ([#250](https://github.com/OysteinAmundsen/toolbox/issues/250)) ([5c22293](https://github.com/OysteinAmundsen/toolbox/commit/5c22293d65fe39d79f50faa91c13f9b8a9bb3374))
 
 ## [1.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.2.0...grid-react-1.3.0) (2026-04-25)
 
-
 ### Features
 
-* **grid:** RowDragDropPlugin — drag rows within and across grids ([#225](https://github.com/OysteinAmundsen/toolbox/issues/225)) ([#246](https://github.com/OysteinAmundsen/toolbox/issues/246)) ([4a22beb](https://github.com/OysteinAmundsen/toolbox/commit/4a22bebfcad0d26df2302290b73761b090f429d7))
+- **grid:** RowDragDropPlugin — drag rows within and across grids ([#225](https://github.com/OysteinAmundsen/toolbox/issues/225)) ([#246](https://github.com/OysteinAmundsen/toolbox/issues/246)) ([4a22beb](https://github.com/OysteinAmundsen/toolbox/commit/4a22bebfcad0d26df2302290b73761b090f429d7))
 
 ## [1.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.1.1...grid-react-1.2.0) (2026-04-22)
 
-
 ### Features
 
-* **grid-vue:** column shorthand + columnDefaults + plugin dep validation; add adapter-conformance ([#237](https://github.com/OysteinAmundsen/toolbox/issues/237)) ([1f84ecc](https://github.com/OysteinAmundsen/toolbox/commit/1f84ecc5240f3d33cf78c70600d3cc465fcf9bf4))
+- **grid-vue:** column shorthand + columnDefaults + plugin dep validation; add adapter-conformance ([#237](https://github.com/OysteinAmundsen/toolbox/issues/237)) ([1f84ecc](https://github.com/OysteinAmundsen/toolbox/commit/1f84ecc5240f3d33cf78c70600d3cc465fcf9bf4))
 
 ## [1.1.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.1.0...grid-react-1.1.1) (2026-04-21)
 
-
 ### Bug Fixes
 
-* **grid-react:** synchronous portal removal in tool panel cleanup ([#235](https://github.com/OysteinAmundsen/toolbox/issues/235)) ([0eaa9d8](https://github.com/OysteinAmundsen/toolbox/commit/0eaa9d8828636f673bef6219c6f0abcd9a32481f))
+- **grid-react:** synchronous portal removal in tool panel cleanup ([#235](https://github.com/OysteinAmundsen/toolbox/issues/235)) ([0eaa9d8](https://github.com/OysteinAmundsen/toolbox/commit/0eaa9d8828636f673bef6219c6f0abcd9a32481f))
 
 ## [1.1.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-1.0.0...grid-react-1.1.0) (2026-04-20)
 
-
 ### Features
 
-* **grid:** expose tbw-scroll CustomEvent for scroll-driven consumer use cases ([#234](https://github.com/OysteinAmundsen/toolbox/issues/234)) ([259171e](https://github.com/OysteinAmundsen/toolbox/commit/259171ed2e0f1735f4d277f6ad223987ee616390))
+- **grid:** expose tbw-scroll CustomEvent for scroll-driven consumer use cases ([#234](https://github.com/OysteinAmundsen/toolbox/issues/234)) ([259171e](https://github.com/OysteinAmundsen/toolbox/commit/259171ed2e0f1735f4d277f6ad223987ee616390))
 
 ## [1.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.18.5...grid-react-1.0.0) (2026-04-16)
 
-
 ### ⚠ BREAKING CHANGES
 
-* Remove ~106 deprecated APIs across grid core and all framework adapters.
+- Remove ~106 deprecated APIs across grid core and all framework adapters.
 
 ### Features
 
-* **grid:** accessibility hardening — axe-core, live announcements, A11yConfig ([#189](https://github.com/OysteinAmundsen/toolbox/issues/189)) ([d722e77](https://github.com/OysteinAmundsen/toolbox/commit/d722e77e2384f88a49c58ef21b3cc14c00187fd3))
-* remove deprecated APIs for v2 ([#186](https://github.com/OysteinAmundsen/toolbox/issues/186)) ([c1b4a95](https://github.com/OysteinAmundsen/toolbox/commit/c1b4a95fbf74950d168ea0df706d31d0d813c930))
-
+- **grid:** accessibility hardening — axe-core, live announcements, A11yConfig ([#189](https://github.com/OysteinAmundsen/toolbox/issues/189)) ([d722e77](https://github.com/OysteinAmundsen/toolbox/commit/d722e77e2384f88a49c58ef21b3cc14c00187fd3))
+- remove deprecated APIs for v2 ([#186](https://github.com/OysteinAmundsen/toolbox/issues/186)) ([c1b4a95](https://github.com/OysteinAmundsen/toolbox/commit/c1b4a95fbf74950d168ea0df706d31d0d813c930))
 
 ### Bug Fixes
 
-* **grid:** remove unused import and correct type casting for type defaults ([fe9de65](https://github.com/OysteinAmundsen/toolbox/commit/fe9de656026439da486ea49012d30113448a1c17))
+- **grid:** remove unused import and correct type casting for type defaults ([fe9de65](https://github.com/OysteinAmundsen/toolbox/commit/fe9de656026439da486ea49012d30113448a1c17))
 
 ## [0.18.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.18.4...grid-react-0.18.5) (2026-04-15)
 
-
 ### Bug Fixes
 
-* **grid-react:** replace createRoot with portals for React context preservation ([#211](https://github.com/OysteinAmundsen/toolbox/issues/211)) ([79186d9](https://github.com/OysteinAmundsen/toolbox/commit/79186d9d8b02b02b2d4eaa04042fe01e93240009))
-* **grid,grid-react:** thread gridEl for multi-grid portal resolution ([f18e397](https://github.com/OysteinAmundsen/toolbox/commit/f18e3975ccd22336bf65cbb44710dabe8781fe53))
+- **grid-react:** replace createRoot with portals for React context preservation ([#211](https://github.com/OysteinAmundsen/toolbox/issues/211)) ([79186d9](https://github.com/OysteinAmundsen/toolbox/commit/79186d9d8b02b02b2d4eaa04042fe01e93240009))
+- **grid,grid-react:** thread gridEl for multi-grid portal resolution ([f18e397](https://github.com/OysteinAmundsen/toolbox/commit/f18e3975ccd22336bf65cbb44710dabe8781fe53))
 
 ## [0.18.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.18.3...grid-react-0.18.4) (2026-04-13)
 
-
 ### Bug Fixes
 
-* **grid-react,grid-vue:** add missing tooltip feature build entry ([b7c586c](https://github.com/OysteinAmundsen/toolbox/commit/b7c586c987ffb71a6f6083a994fb2559f4304fb5))
+- **grid-react,grid-vue:** add missing tooltip feature build entry ([b7c586c](https://github.com/OysteinAmundsen/toolbox/commit/b7c586c987ffb71a6f6083a994fb2559f4304fb5))
 
 ## [0.18.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.18.2...grid-react-0.18.3) (2026-04-05)
 
-
 ### Bug Fixes
 
-* **grid-vue,grid-react:** close adapter API parity gaps ([3ff3e9a](https://github.com/OysteinAmundsen/toolbox/commit/3ff3e9a8ae0d9e03bfa4ef73f6637a344f4c7a02))
+- **grid-vue,grid-react:** close adapter API parity gaps ([3ff3e9a](https://github.com/OysteinAmundsen/toolbox/commit/3ff3e9a8ae0d9e03bfa4ef73f6637a344f4c7a02))
 
 ## [0.18.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.18.1...grid-react-0.18.2) (2026-03-29)
 
-
 ### Bug Fixes
 
-* **grid-angular:** re-export feature type anchors to preserve FeatureConfig augmentation ([8d47822](https://github.com/OysteinAmundsen/toolbox/commit/8d4782291fd2475611160713e2d5d39ae391a358))
-
+- **grid-angular:** re-export feature type anchors to preserve FeatureConfig augmentation ([8d47822](https://github.com/OysteinAmundsen/toolbox/commit/8d4782291fd2475611160713e2d5d39ae391a358))
 
 ### Enhancements
 
-* **grid-angular,grid-react,grid-vue:** add optional selector parameter to inject/use functions for multi-grid support ([c8e377d](https://github.com/OysteinAmundsen/toolbox/commit/c8e377d7c2af48ab865d77db97e873739bd46451))
+- **grid-angular,grid-react,grid-vue:** add optional selector parameter to inject/use functions for multi-grid support ([c8e377d](https://github.com/OysteinAmundsen/toolbox/commit/c8e377d7c2af48ab865d77db97e873739bd46451))
 
 ## [0.18.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.18.0...grid-react-0.18.1) (2026-03-26)
 
-
 ### Bug Fixes
 
-* **grid-react,grid-vue:** forward options parameter in filtering proxy methods ([1f2a35f](https://github.com/OysteinAmundsen/toolbox/commit/1f2a35f1110e36216fbdf601377d8c9833b67bee))
+- **grid-react,grid-vue:** forward options parameter in filtering proxy methods ([1f2a35f](https://github.com/OysteinAmundsen/toolbox/commit/1f2a35f1110e36216fbdf601377d8c9833b67bee))
 
 ## [0.18.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.17.5...grid-react-0.18.0) (2026-03-26)
 
-
 ### Features
 
-* **grid:** add TooltipPlugin with popover-based overflow tooltips ([61fc11c](https://github.com/OysteinAmundsen/toolbox/commit/61fc11c1b755b8eabbd019e37901e2a84ee8bf8a))
+- **grid:** add TooltipPlugin with popover-based overflow tooltips ([61fc11c](https://github.com/OysteinAmundsen/toolbox/commit/61fc11c1b755b8eabbd019e37901e2a84ee8bf8a))
 
 ## [0.17.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.17.4...grid-react-0.17.5) (2026-03-25)
 
-
 ### Enhancements
 
-* **grid:** add filtering UX helpers — stale detection, set helpers, data ranges, blank toggle ([#166](https://github.com/OysteinAmundsen/toolbox/issues/166), [#167](https://github.com/OysteinAmundsen/toolbox/issues/167), [#168](https://github.com/OysteinAmundsen/toolbox/issues/168), [#169](https://github.com/OysteinAmundsen/toolbox/issues/169)) ([b5452a8](https://github.com/OysteinAmundsen/toolbox/commit/b5452a8d04eb73caa96216004c1e50ae7c155309))
+- **grid:** add filtering UX helpers — stale detection, set helpers, data ranges, blank toggle ([#166](https://github.com/OysteinAmundsen/toolbox/issues/166), [#167](https://github.com/OysteinAmundsen/toolbox/issues/167), [#168](https://github.com/OysteinAmundsen/toolbox/issues/168), [#169](https://github.com/OysteinAmundsen/toolbox/issues/169)) ([b5452a8](https://github.com/OysteinAmundsen/toolbox/commit/b5452a8d04eb73caa96216004c1e50ae7c155309))
 
 ## [0.17.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.17.3...grid-react-0.17.4) (2026-03-17)
 
-
 ### Bug Fixes
 
-* **grid,grid-react,grid-vue:** plug memory leaks in adapters, cache, and global handlers ([c69c86d](https://github.com/OysteinAmundsen/toolbox/commit/c69c86d1a93d2653a45832c28021a40e5b1563c8))
+- **grid,grid-react,grid-vue:** plug memory leaks in adapters, cache, and global handlers ([c69c86d](https://github.com/OysteinAmundsen/toolbox/commit/c69c86d1a93d2653a45832c28021a40e5b1563c8))
 
 ## [0.17.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.17.2...grid-react-0.17.3) (2026-03-16)
 
-
 ### Enhancements
 
-* **grid,grid-react,grid-vue,grid-angular:** allow columnGroups and per-group renderer in plugin config ([91960a9](https://github.com/OysteinAmundsen/toolbox/commit/91960a9ae1c5920abcc5ceed30f3c5f94a19ca3e))
+- **grid,grid-react,grid-vue,grid-angular:** allow columnGroups and per-group renderer in plugin config ([91960a9](https://github.com/OysteinAmundsen/toolbox/commit/91960a9ae1c5920abcc5ceed30f3c5f94a19ca3e))
 
 ## [0.17.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.17.1...grid-react-0.17.2) (2026-03-16)
 
-
 ### Bug Fixes
 
-* **grid-react:** allow ReactNode in groupingColumns groupHeaderRenderer prop ([e10231f](https://github.com/OysteinAmundsen/toolbox/commit/e10231f980f349079199a9747857d280a96172b1))
+- **grid-react:** allow ReactNode in groupingColumns groupHeaderRenderer prop ([e10231f](https://github.com/OysteinAmundsen/toolbox/commit/e10231f980f349079199a9747857d280a96172b1))
 
 ## [0.17.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.17.0...grid-react-0.17.1) (2026-03-15)
 
-
 ### Enhancements
 
-* **grid-angular:** migrate addEventListener to .on() API ([0592112](https://github.com/OysteinAmundsen/toolbox/commit/059211291721f450ba51c4a9bd8699297cc0866b))
-* **grid-react:** migrate addEventListener to .on() API ([24ff2b2](https://github.com/OysteinAmundsen/toolbox/commit/24ff2b21dad39cc03f648e8365be5c4634190b6e))
+- **grid-angular:** migrate addEventListener to .on() API ([0592112](https://github.com/OysteinAmundsen/toolbox/commit/059211291721f450ba51c4a9bd8699297cc0866b))
+- **grid-react:** migrate addEventListener to .on() API ([24ff2b2](https://github.com/OysteinAmundsen/toolbox/commit/24ff2b21dad39cc03f648e8365be5c4634190b6e))
 
 ## [0.17.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.16.0...grid-react-0.17.0) (2026-03-14)
 
-
 ### Features
 
-* **grid-angular,grid-react,grid-vue:** bridge all custom renderer callbacks ([4c01a08](https://github.com/OysteinAmundsen/toolbox/commit/4c01a0877a55a0fe26ae48a7b9c433ff728a82bb))
+- **grid-angular,grid-react,grid-vue:** bridge all custom renderer callbacks ([4c01a08](https://github.com/OysteinAmundsen/toolbox/commit/4c01a0877a55a0fe26ae48a7b9c433ff728a82bb))
 
 ## [0.16.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.15.1...grid-react-0.16.0) (2026-03-12)
 
-
 ### Features
 
-* **grid:** add declarative features API for plugin configuration ([94fa3b4](https://github.com/OysteinAmundsen/toolbox/commit/94fa3b4fcfafb80f562d3458f369bfe9c5763b17))
-
+- **grid:** add declarative features API for plugin configuration ([94fa3b4](https://github.com/OysteinAmundsen/toolbox/commit/94fa3b4fcfafb80f562d3458f369bfe9c5763b17))
 
 ### Bug Fixes
 
-* **grid:** resolve adapter test aliases to source instead of dist ([deefc10](https://github.com/OysteinAmundsen/toolbox/commit/deefc1064d7f14364fc71b87682668fec047b236))
+- **grid:** resolve adapter test aliases to source instead of dist ([deefc10](https://github.com/OysteinAmundsen/toolbox/commit/deefc1064d7f14364fc71b87682668fec047b236))
 
 ## [0.15.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.15.0...grid-react-0.15.1) (2026-03-11)
 
-
 ### Bug Fixes
 
-* **grid-angular:** use getPluginByName in adapter features ([acfb512](https://github.com/OysteinAmundsen/toolbox/commit/acfb5128d324ef9abed16902d609d25da99df0cb))
-* **grid-react:** use getPluginByName in adapter features ([69d00bf](https://github.com/OysteinAmundsen/toolbox/commit/69d00bf7399e0b30f6fc5c54986482d9bc2ab52f))
-* **grid-vue:** use getPluginByName in adapter features and composable ([f51808b](https://github.com/OysteinAmundsen/toolbox/commit/f51808bc9aa8b021cb30c07b675c7475c3e714f5))
-* **grid:** recommend getPluginByName over getPlugin in docs and examples ([042b58b](https://github.com/OysteinAmundsen/toolbox/commit/042b58b2e429dc9cb7f4f278cbdd206d72b30ca3))
+- **grid-angular:** use getPluginByName in adapter features ([acfb512](https://github.com/OysteinAmundsen/toolbox/commit/acfb5128d324ef9abed16902d609d25da99df0cb))
+- **grid-react:** use getPluginByName in adapter features ([69d00bf](https://github.com/OysteinAmundsen/toolbox/commit/69d00bf7399e0b30f6fc5c54986482d9bc2ab52f))
+- **grid-vue:** use getPluginByName in adapter features and composable ([f51808b](https://github.com/OysteinAmundsen/toolbox/commit/f51808bc9aa8b021cb30c07b675c7475c3e714f5))
+- **grid:** recommend getPluginByName over getPlugin in docs and examples ([042b58b](https://github.com/OysteinAmundsen/toolbox/commit/042b58b2e429dc9cb7f4f278cbdd206d72b30ca3))
 
 ## [0.15.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.14.0...grid-react-0.15.0) (2026-02-27)
 
-
 ### Features
 
-* **grid:** add transaction API to UndoRedoPlugin for compound undo/redo ([b9d4132](https://github.com/OysteinAmundsen/toolbox/commit/b9d41326344969f8ba27542685833da5af8b5694))
+- **grid:** add transaction API to UndoRedoPlugin for compound undo/redo ([b9d4132](https://github.com/OysteinAmundsen/toolbox/commit/b9d41326344969f8ba27542685833da5af8b5694))
 
 ## [0.14.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.13.2...grid-react-0.14.0) (2026-02-25)
 
-
 ### Features
 
-* **grid:** make getPluginByName type-safe and preferred plugin access method ([a69afef](https://github.com/OysteinAmundsen/toolbox/commit/a69afef45c5ccdf976e5d4c3286bd36f7d402cc4))
+- **grid:** make getPluginByName type-safe and preferred plugin access method ([a69afef](https://github.com/OysteinAmundsen/toolbox/commit/a69afef45c5ccdf976e5d4c3286bd36f7d402cc4))
 
 ## [0.13.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.13.1...grid-react-0.13.2) (2026-02-22)
 
-
 ### Bug Fixes
 
-* **grid,grid-angular,grid-react,grid-vue:** add typesVersions for Jest/CommonJS type resolution ([#137](https://github.com/OysteinAmundsen/toolbox/issues/137)) ([cfdf327](https://github.com/OysteinAmundsen/toolbox/commit/cfdf3271916225926d27842569c0dbfdb0fb986c))
+- **grid,grid-angular,grid-react,grid-vue:** add typesVersions for Jest/CommonJS type resolution ([#137](https://github.com/OysteinAmundsen/toolbox/issues/137)) ([cfdf327](https://github.com/OysteinAmundsen/toolbox/commit/cfdf3271916225926d27842569c0dbfdb0fb986c))
 
 ## [0.13.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.13.0...grid-react-0.13.1) (2026-02-21)
 
-
 ### Bug Fixes
 
-* **grid:** plug memory leaks in framework adapter lifecycle ([0612c88](https://github.com/OysteinAmundsen/toolbox/commit/0612c8820441fd73caf725cff75dd68422eceedf))
+- **grid:** plug memory leaks in framework adapter lifecycle ([0612c88](https://github.com/OysteinAmundsen/toolbox/commit/0612c8820441fd73caf725cff75dd68422eceedf))
 
 ## [0.13.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.12.2...grid-react-0.13.0) (2026-02-20)
 
-
 ### Features
 
-* **grid, grid-angular, grid-react, grid-vue:** add getSelectedRows() to SelectionPlugin ([a0bb977](https://github.com/OysteinAmundsen/toolbox/commit/a0bb977f5e623149dc6a1b5a8f71aeeccc6466e5))
+- **grid, grid-angular, grid-react, grid-vue:** add getSelectedRows() to SelectionPlugin ([a0bb977](https://github.com/OysteinAmundsen/toolbox/commit/a0bb977f5e623149dc6a1b5a8f71aeeccc6466e5))
 
 ## [0.12.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.12.1...grid-react-0.12.2) (2026-02-16)
 
-
 ### Bug Fixes
 
-* **grid:** prevent editor memory leak via releaseCell lifecycle hook ([00d2ef5](https://github.com/OysteinAmundsen/toolbox/commit/00d2ef5a1803a5329713a728f031a466c9d7d824))
-* **grid:** route type/config editors to editorViews for releaseCell cleanup ([4be2a0d](https://github.com/OysteinAmundsen/toolbox/commit/4be2a0d278183cb47ddab1442e5b81b29985b276))
+- **grid:** prevent editor memory leak via releaseCell lifecycle hook ([00d2ef5](https://github.com/OysteinAmundsen/toolbox/commit/00d2ef5a1803a5329713a728f031a466c9d7d824))
+- **grid:** route type/config editors to editorViews for releaseCell cleanup ([4be2a0d](https://github.com/OysteinAmundsen/toolbox/commit/4be2a0d278183cb47ddab1442e5b81b29985b276))
 
 ## [0.12.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.12.0...grid-react-0.12.1) (2026-02-15)
 
-
 ### Bug Fixes
 
-* **grid:** fix test failures and update docs to use pinned property ([295a6c8](https://github.com/OysteinAmundsen/toolbox/commit/295a6c8dc0346ff1de700eca81b49732b17a17c0))
+- **grid:** fix test failures and update docs to use pinned property ([295a6c8](https://github.com/OysteinAmundsen/toolbox/commit/295a6c8dc0346ff1de700eca81b49732b17a17c0))
 
 ## [0.12.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.11.0...grid-react-0.12.0) (2026-02-11)
 
-
 ### Features
 
-* **grid-react:** bridge filterPanelRenderer in framework adapters ([47e0e7b](https://github.com/OysteinAmundsen/toolbox/commit/47e0e7bcd8f59a56f0c4675997f324d11a7c9613))
+- **grid-react:** bridge filterPanelRenderer in framework adapters ([47e0e7b](https://github.com/OysteinAmundsen/toolbox/commit/47e0e7bcd8f59a56f0c4675997f324d11a7c9613))
 
 ## [0.11.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.10.0...grid-react-0.11.0) (2026-02-07)
 
-
 ### Features
 
-* **grid-angular,grid-react,grid-vue:** add feature-scoped hooks for selection and export ([41a06b6](https://github.com/OysteinAmundsen/toolbox/commit/41a06b66480f1ec4531cf83e681a6b4858dd54b9))
-* **grid-angular,grid-react,grid-vue:** add feature-scoped hooks for undoRedo, filtering, print ([ee4f890](https://github.com/OysteinAmundsen/toolbox/commit/ee4f890ec2f55e8fc0bc766d25918a12f2e37d2f))
-* **grid-angular,grid-react,grid-vue:** unify type names across framework bridges ([68505cf](https://github.com/OysteinAmundsen/toolbox/commit/68505cfcdb35bdd37ed716da4c276060cd718be4))
-* **grid:** implement variable row height virtualization ([#55](https://github.com/OysteinAmundsen/toolbox/issues/55)) ([#119](https://github.com/OysteinAmundsen/toolbox/issues/119)) ([5b4efb7](https://github.com/OysteinAmundsen/toolbox/commit/5b4efb79f064e40ee3ed098805f5c7e655a6fc93))
+- **grid-angular,grid-react,grid-vue:** add feature-scoped hooks for selection and export ([41a06b6](https://github.com/OysteinAmundsen/toolbox/commit/41a06b66480f1ec4531cf83e681a6b4858dd54b9))
+- **grid-angular,grid-react,grid-vue:** add feature-scoped hooks for undoRedo, filtering, print ([ee4f890](https://github.com/OysteinAmundsen/toolbox/commit/ee4f890ec2f55e8fc0bc766d25918a12f2e37d2f))
+- **grid-angular,grid-react,grid-vue:** unify type names across framework bridges ([68505cf](https://github.com/OysteinAmundsen/toolbox/commit/68505cfcdb35bdd37ed716da4c276060cd718be4))
+- **grid:** implement variable row height virtualization ([#55](https://github.com/OysteinAmundsen/toolbox/issues/55)) ([#119](https://github.com/OysteinAmundsen/toolbox/issues/119)) ([5b4efb7](https://github.com/OysteinAmundsen/toolbox/commit/5b4efb79f064e40ee3ed098805f5c7e655a6fc93))
 
 ## [0.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.9.0...grid-react-0.10.0) (2026-02-06)
 
-
 ### Features
 
-* **grid,grid-angular,grid-react,grid-vue:** add onBeforeEditClose callback for overlay support ([6a83c02](https://github.com/OysteinAmundsen/toolbox/commit/6a83c02a09ab357d6d2d876f8635c4948f8352a7))
+- **grid,grid-angular,grid-react,grid-vue:** add onBeforeEditClose callback for overlay support ([6a83c02](https://github.com/OysteinAmundsen/toolbox/commit/6a83c02a09ab357d6d2d876f8635c4948f8352a7))
 
 ## [0.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.8.1...grid-react-0.9.0) (2026-01-30)
 
-
 ### Features
 
-* **grid-react,grid-angular:** add app-wide icon configuration providers ([731837b](https://github.com/OysteinAmundsen/toolbox/commit/731837bd1a308eaf6bb3404b7591042891327965))
-* **grid-react,grid-angular:** support for loading ([f883e13](https://github.com/OysteinAmundsen/toolbox/commit/f883e136f8d4167907e706c11fa0d30183e10670))
+- **grid-react,grid-angular:** add app-wide icon configuration providers ([731837b](https://github.com/OysteinAmundsen/toolbox/commit/731837bd1a308eaf6bb3404b7591042891327965))
+- **grid-react,grid-angular:** support for loading ([f883e13](https://github.com/OysteinAmundsen/toolbox/commit/f883e136f8d4167907e706c11fa0d30183e10670))
 
 ## [0.8.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.8.0...grid-react-0.8.1) (2026-01-29)
 
-
 ### Bug Fixes
 
-* **grid-react:** add missing multi-sort feature entry to vite build ([cf992c8](https://github.com/OysteinAmundsen/toolbox/commit/cf992c824484504a9804a4cbecf1826dbb9c2af3))
+- **grid-react:** add missing multi-sort feature entry to vite build ([cf992c8](https://github.com/OysteinAmundsen/toolbox/commit/cf992c824484504a9804a4cbecf1826dbb9c2af3))
 
 ## [0.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.7.0...grid-react-0.8.0) (2026-01-28)
 
-
 ### Features
 
-* **grid:** add gridConfig.filterable and gridConfig.selectable toggles ([8876b42](https://github.com/OysteinAmundsen/toolbox/commit/8876b42ea277f14b27dcb6d2e48d1e4e3b8c0315))
-
+- **grid:** add gridConfig.filterable and gridConfig.selectable toggles ([8876b42](https://github.com/OysteinAmundsen/toolbox/commit/8876b42ea277f14b27dcb6d2e48d1e4e3b8c0315))
 
 ### Bug Fixes
 
-* **grid-angular,grid-react:** fix TypeScript errors in typeDefaults editor assignment ([de84ad6](https://github.com/OysteinAmundsen/toolbox/commit/de84ad60938a61b08da725446846b1f922245f34))
-* **grid,grid-angular,grid-react:** add sortable config and rename sorting to multiSort ([4522bfc](https://github.com/OysteinAmundsen/toolbox/commit/4522bfc71bebd3907e31932001c2cf19f7e0a257))
+- **grid-angular,grid-react:** fix TypeScript errors in typeDefaults editor assignment ([de84ad6](https://github.com/OysteinAmundsen/toolbox/commit/de84ad60938a61b08da725446846b1f922245f34))
+- **grid,grid-angular,grid-react:** add sortable config and rename sorting to multiSort ([4522bfc](https://github.com/OysteinAmundsen/toolbox/commit/4522bfc71bebd3907e31932001c2cf19f7e0a257))
 
 ## [0.7.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.6.0...grid-react-0.7.0) (2026-01-27)
 
-
 ### Features
 
-* **grid-react:** Improving DX for react framework bridge ([#98](https://github.com/OysteinAmundsen/toolbox/issues/98)) ([19ab6ae](https://github.com/OysteinAmundsen/toolbox/commit/19ab6ae0816ae6d199a5b811bc7557a4e946ed05))
+- **grid-react:** Improving DX for react framework bridge ([#98](https://github.com/OysteinAmundsen/toolbox/issues/98)) ([19ab6ae](https://github.com/OysteinAmundsen/toolbox/commit/19ab6ae0816ae6d199a5b811bc7557a4e946ed05))
 
 ## [0.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.5.0...grid-react-0.6.0) (2026-01-26)
 
-
 ### Features
 
-* **grid-angular:** [#80](https://github.com/OysteinAmundsen/toolbox/issues/80) angular reactive forms integration ([#94](https://github.com/OysteinAmundsen/toolbox/issues/94)) ([487118f](https://github.com/OysteinAmundsen/toolbox/commit/487118fc6fcc4e983cb727a282dca223d9b86fe7))
+- **grid-angular:** [#80](https://github.com/OysteinAmundsen/toolbox/issues/80) angular reactive forms integration ([#94](https://github.com/OysteinAmundsen/toolbox/issues/94)) ([487118f](https://github.com/OysteinAmundsen/toolbox/commit/487118fc6fcc4e983cb727a282dca223d9b86fe7))
 
 ## [0.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.4.0...grid-react-0.5.0) (2026-01-24)
 
-
 ### Features
 
-* **grid:** add missing methods to PublicGrid interface for better DX ([d38f1b8](https://github.com/OysteinAmundsen/toolbox/commit/d38f1b84dee0e154a95112866328b460d5919e59))
-
+- **grid:** add missing methods to PublicGrid interface for better DX ([d38f1b8](https://github.com/OysteinAmundsen/toolbox/commit/d38f1b84dee0e154a95112866328b460d5919e59))
 
 ### Bug Fixes
 
-* **grid:** ensure column groups render after shell refresh ([70943ed](https://github.com/OysteinAmundsen/toolbox/commit/70943eddd25a690d9886ea900defc2a04ad1ebcf))
-* **grid:** preserve tbw-grid-detail and tbw-grid-responsive-card in shell rebuild ([70943ed](https://github.com/OysteinAmundsen/toolbox/commit/70943eddd25a690d9886ea900defc2a04ad1ebcf))
+- **grid:** ensure column groups render after shell refresh ([70943ed](https://github.com/OysteinAmundsen/toolbox/commit/70943eddd25a690d9886ea900defc2a04ad1ebcf))
+- **grid:** preserve tbw-grid-detail and tbw-grid-responsive-card in shell rebuild ([70943ed](https://github.com/OysteinAmundsen/toolbox/commit/70943eddd25a690d9886ea900defc2a04ad1ebcf))
 
 ## [0.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.3.1...grid-react-0.4.0) (2026-01-22)
 
-
 ### Features
 
-* **grid:** add ResponsivePlugin for card layout mode ([#56](https://github.com/OysteinAmundsen/toolbox/issues/56)) ([#62](https://github.com/OysteinAmundsen/toolbox/issues/62)) ([98d8057](https://github.com/OysteinAmundsen/toolbox/commit/98d8057fffd098ffdc5632603d5f2db03c435a2a))
+- **grid:** add ResponsivePlugin for card layout mode ([#56](https://github.com/OysteinAmundsen/toolbox/issues/56)) ([#62](https://github.com/OysteinAmundsen/toolbox/issues/62)) ([98d8057](https://github.com/OysteinAmundsen/toolbox/commit/98d8057fffd098ffdc5632603d5f2db03c435a2a))
 
 ## [0.3.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.3.0...grid-react-0.3.1) (2026-01-22)
 
-
 ### Bug Fixes
 
-* **grid-react:** [#57](https://github.com/OysteinAmundsen/toolbox/issues/57) correct package exports paths ([b101134](https://github.com/OysteinAmundsen/toolbox/commit/b101134c6ed5382c45ac0081944d36123a535929))
+- **grid-react:** [#57](https://github.com/OysteinAmundsen/toolbox/issues/57) correct package exports paths ([b101134](https://github.com/OysteinAmundsen/toolbox/commit/b101134c6ed5382c45ac0081944d36123a535929))
 
 ## [0.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.2.0...grid-react-0.3.0) (2026-01-21)
 
-
 ### Features
 
-* **grid:** add row update api ([#51](https://github.com/OysteinAmundsen/toolbox/issues/51)) ([c75010c](https://github.com/OysteinAmundsen/toolbox/commit/c75010c2128d54e6874a060375d8c1b540db1ac9))
-* **grid:** add type-level default renderers and editors ([b13421d](https://github.com/OysteinAmundsen/toolbox/commit/b13421d8abad014d3e3e486545db6c9ff7126d6e))
+- **grid:** add row update api ([#51](https://github.com/OysteinAmundsen/toolbox/issues/51)) ([c75010c](https://github.com/OysteinAmundsen/toolbox/commit/c75010c2128d54e6874a060375d8c1b540db1ac9))
+- **grid:** add type-level default renderers and editors ([b13421d](https://github.com/OysteinAmundsen/toolbox/commit/b13421d8abad014d3e3e486545db6c9ff7126d6e))
 
 ## [0.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.1.0...grid-react-0.2.0) (2026-01-19)
 
-
 ### Features
 
-* **grid:** add cellClass and rowClass callbacks for dynamic styling ([5a5121c](https://github.com/OysteinAmundsen/toolbox/commit/5a5121c3c1cec3666d646c4615d86e17d83c2a57))
+- **grid:** add cellClass and rowClass callbacks for dynamic styling ([5a5121c](https://github.com/OysteinAmundsen/toolbox/commit/5a5121c3c1cec3666d646c4615d86e17d83c2a57))
 
 ## [0.1.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.0.5...grid-react-0.1.0) (2026-01-18)
 
-
 ### Features
 
-* **grid:** removed shadowDom to allow for easier styling of the grid ([#42](https://github.com/OysteinAmundsen/toolbox/issues/42)) ([da1c6d4](https://github.com/OysteinAmundsen/toolbox/commit/da1c6d46d14fa338878253e1d52913aab381b17e))
+- **grid:** removed shadowDom to allow for easier styling of the grid ([#42](https://github.com/OysteinAmundsen/toolbox/issues/42)) ([da1c6d4](https://github.com/OysteinAmundsen/toolbox/commit/da1c6d46d14fa338878253e1d52913aab381b17e))
 
 ## [0.0.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.0.4...grid-react-0.0.5) (2026-01-16)
 
-
 ### Enhancements
 
-* **grid:** Added inter-plugin dependencies ([05f9f8e](https://github.com/OysteinAmundsen/toolbox/commit/05f9f8e2bc39be8ea9b39debfd09771542d21dbc))
+- **grid:** Added inter-plugin dependencies ([05f9f8e](https://github.com/OysteinAmundsen/toolbox/commit/05f9f8e2bc39be8ea9b39debfd09771542d21dbc))
 
 ## [0.0.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.0.3...grid-react-0.0.4) (2026-01-16)
 
-
 ### Bug Fixes
 
-* **rendering:** plugins did not render correctly after refactor ([4dd6d12](https://github.com/OysteinAmundsen/toolbox/commit/4dd6d120396a87f767c8bdaeba54a8ddfe65729e))
-
+- **rendering:** plugins did not render correctly after refactor ([4dd6d12](https://github.com/OysteinAmundsen/toolbox/commit/4dd6d120396a87f767c8bdaeba54a8ddfe65729e))
 
 ### Enhancements
 
-* **grid:** increased typesafety and documentation ([bd63078](https://github.com/OysteinAmundsen/toolbox/commit/bd630784ecf3043ecb1a37ca2a3498d91ef4a20b))
+- **grid:** increased typesafety and documentation ([bd63078](https://github.com/OysteinAmundsen/toolbox/commit/bd630784ecf3043ecb1a37ca2a3498d91ef4a20b))
 
 ## [0.0.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.0.2...grid-react-0.0.3) (2026-01-12)
 
-
 ### Bug Fixes
 
-* **docs:** update README files for grid-angular, grid-react, and grid with new features and sponsorship links ([6b12d8a](https://github.com/OysteinAmundsen/toolbox/commit/6b12d8a01e4da19ff602af6ce896170239c44367))
-* **shell:** escape HTML in shell header title to prevent XSS vulnerabilities ([6b12d8a](https://github.com/OysteinAmundsen/toolbox/commit/6b12d8a01e4da19ff602af6ce896170239c44367))
+- **docs:** update README files for grid-angular, grid-react, and grid with new features and sponsorship links ([6b12d8a](https://github.com/OysteinAmundsen/toolbox/commit/6b12d8a01e4da19ff602af6ce896170239c44367))
+- **shell:** escape HTML in shell header title to prevent XSS vulnerabilities ([6b12d8a](https://github.com/OysteinAmundsen/toolbox/commit/6b12d8a01e4da19ff602af6ce896170239c44367))
 
 ## [0.0.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.0.1...grid-react-0.0.2) (2026-01-12)
 
-
 ### Bug Fixes
 
-* **eslint:** resolve module-boundaries rule performance issue ([55f17fa](https://github.com/OysteinAmundsen/toolbox/commit/55f17fa03e12f3bc7199fcd8daf966a856d55b57))
-* resolve lint errors and improve package documentation ([2847835](https://github.com/OysteinAmundsen/toolbox/commit/2847835a3275e5df53a40e1868020d83c7a9406f))
+- **eslint:** resolve module-boundaries rule performance issue ([55f17fa](https://github.com/OysteinAmundsen/toolbox/commit/55f17fa03e12f3bc7199fcd8daf966a856d55b57))
+- resolve lint errors and improve package documentation ([2847835](https://github.com/OysteinAmundsen/toolbox/commit/2847835a3275e5df53a40e1868020d83c7a9406f))
 
 ## 0.0.1 (Unreleased)
 

@@ -525,3 +525,4 @@
 - Custom cell editor support with commit/cancel handlers
 - Support for injecting custom styles into grid shadow DOM
 - Automatic adapter registration
+

@@ -20,13 +20,17 @@
       "@demo/shared/employee-management": ["../shared/employee-management/index.ts"],
       "@demo/shared/booking-logs": ["../shared/booking-logs/index.ts"],
       "@demo/shared/calendar": ["../shared/calendar/index.ts"]
-    }
+    },
+    "noUncheckedSideEffectImports": false,
+    "types": ["*"],
+    "ignoreDeprecations": "6.0"
   },
-  "include": ["../shared/employee-management/**/*.ts", "../shared/booking-logs/**/*.ts", "../shared/calendar/**/*.ts", "src/**/*.ts"],
+  "include": [
+    "../shared/employee-management/**/*.ts",
+    "../shared/booking-logs/**/*.ts",
+    "../shared/calendar/**/*.ts",
+    "src/**/*.ts"
+  ],
   "exclude": ["node_modules", "dist"],
-  "references": [
-    {
-      "path": "../../libs/grid"
-    }
-  ]
+  "references": []
 }

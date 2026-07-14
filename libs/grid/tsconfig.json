@@ -11,7 +11,8 @@
     "declarationMap": false,
     "sourceMap": true,
     "experimentalDecorators": false,
-    "useDefineForClassFields": true
+    "useDefineForClassFields": true,
+    "ignoreDeprecations": "6.0"
   },
   "files": [],
   "include": [],

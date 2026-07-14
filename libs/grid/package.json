@@ -58,7 +58,12 @@
     "./index.js",
     "./all.js",
     "./lib/plugins/*/index.js",
-    "./lib/features/*.js"
+    "./lib/features/*.js",
+    "./src/index.ts",
+    "./src/all.ts",
+    "./src/lib/core/grid.ts",
+    "./src/lib/plugins/*/index.ts",
+    "./src/lib/features/*.ts"
   ],
   "keywords": [
     "data-grid",

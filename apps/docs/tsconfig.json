@@ -5,13 +5,10 @@
     "paths": {
       "@components/*": ["src/components/*"],
       "@data/*": ["src/data/*"]
-    }
+    },
+    "ignoreDeprecations": "6.0"
   },
   "include": ["src/**/*", "astro.config.mjs"],
   "exclude": ["node_modules", "dist"],
-  "references": [
-    {
-      "path": "../../libs/grid"
-    }
-  ]
+  "references": []
 }

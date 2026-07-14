@@ -44,16 +44,16 @@
     "typedoc": {
       "command": "bunx typedoc --options typedoc.json && bun run scripts/typedoc-to-mdx.ts",
       "dependsOn": ["grid:build"],
-      "options": {
-        "cwd": "libs/grid-vue"
-      },
       "inputs": [
         "{projectRoot}/src/**/*.ts",
         "{projectRoot}/src/**/*.vue",
         "{projectRoot}/typedoc.json",
         "{projectRoot}/scripts/typedoc-to-mdx.ts"
       ],
-      "outputs": ["{projectRoot}/docs/api-generated", "{workspaceRoot}/apps/docs/src/content/docs/grid/vue/api"]
+      "outputs": ["{projectRoot}/docs/api-generated", "{workspaceRoot}/apps/docs/src/content/docs/grid/vue/api"],
+      "options": {
+        "cwd": "libs/grid-vue"
+      }
     }
   }
 }

@@ -50,25 +50,23 @@
       }
     },
     "lint": {
-      "executor": "@nx/eslint:lint",
-      "outputs": ["{options.outputFile}"],
       "options": {
-        "lintFilePatterns": ["libs/grid-react/**/*.ts", "libs/grid-react/**/*.tsx"]
+        "args": ["**/*.ts", "**/*.tsx"]
       }
     },
     "typedoc": {
       "command": "bunx typedoc --options typedoc.json && bun run scripts/typedoc-to-mdx.ts",
       "dependsOn": ["grid:build"],
-      "options": {
-        "cwd": "libs/grid-react"
-      },
       "inputs": [
         "{projectRoot}/src/**/*.ts",
         "{projectRoot}/src/**/*.tsx",
         "{projectRoot}/typedoc.json",
         "{projectRoot}/scripts/typedoc-to-mdx.ts"
       ],
-      "outputs": ["{projectRoot}/docs/api-generated", "{workspaceRoot}/apps/docs/src/content/docs/grid/react/api"]
+      "outputs": ["{projectRoot}/docs/api-generated", "{workspaceRoot}/apps/docs/src/content/docs/grid/react/api"],
+      "options": {
+        "cwd": "libs/grid-react"
+      }
     }
   }
 }

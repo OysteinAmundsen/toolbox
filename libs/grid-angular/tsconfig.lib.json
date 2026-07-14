@@ -13,11 +13,18 @@
     "inlineSources": true,
     "types": ["node"],
     "composite": false,
-    "emitDeclarationOnly": false
+    "emitDeclarationOnly": false,
+    "ignoreDeprecations": "6.0"
   },
   "include": ["src/**/*.ts"],
   "angularCompilerOptions": {
     "strictTemplates": true,
+    "extendedDiagnostics": {
+      "checks": {
+        "nullishCoalescingNotNullable": "suppress",
+        "optionalChainNotNullable": "suppress"
+      }
+    },
     "compilationMode": "partial"
   },
   "exclude": [

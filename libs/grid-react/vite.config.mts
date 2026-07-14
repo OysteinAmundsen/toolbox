@@ -25,6 +25,24 @@ function copyReadme(): Plugin {
   };
 }
 
+/**
+ * Copy package.json to dist for npm publishing and `yalc push`.
+ * The inferred `@nx/vite/plugin` build does NOT emit a package.json (the old
+ * `@nx/vite:build` executor did), and `link:push` skips any dist dir without one.
+ */
+function copyPackageJson(): Plugin {
+  return {
+    name: 'copy-package-json',
+    writeBundle() {
+      try {
+        copyFileSync(path.resolve(import.meta.dirname, 'package.json'), path.resolve(outDir, 'package.json'));
+      } catch {
+        /* ignore */
+      }
+    },
+  };
+}
+
 export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/grid-react',
@@ -37,6 +55,7 @@ export default defineConfig(() => ({
       pathsToAliases: false,
     }),
     copyReadme(),
+    copyPackageJson(),
     bundleBudget({
       outDir,
       budgets: [{ path: 'index.js', maxSize: 50 * 1024 }],

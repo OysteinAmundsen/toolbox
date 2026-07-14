@@ -141,17 +141,4 @@
   @page {
     margin: 1cm;
   }
-
-  /* Orientation via class (set by plugin) */
-  tbw-grid.print-landscape {
-    @page {
-      size: landscape;
-    }
-  }
-
-  tbw-grid.print-portrait {
-    @page {
-      size: portrait;
-    }
-  }
 }

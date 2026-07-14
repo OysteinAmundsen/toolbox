@@ -31,7 +31,11 @@ const toolboxAliasPlugin = {
       console.log('🔧 Angular demo running in DIST mode - using built packages from dist/');
     }
 
-    // Handle ?inline CSS imports (Vite syntax) - load as text string
+    // Handle ?inline CSS imports (Vite syntax) - load as text string.
+    // NOTE: Angular 22's esbuild extracts imported `.css` as stylesheets before
+    // this runs, so the real fix is `loader: { ".css": "text" }` in the build
+    // options (see demos/angular/project.json). This stays as a belt-and-braces
+    // fallback for any `?inline` specifier that reaches the plugin.
     build.onResolve({ filter: /\.css\?inline$/ }, (args) => {
       // Remove the ?inline suffix to get the actual file path
       const cssPath = args.path.replace('?inline', '');

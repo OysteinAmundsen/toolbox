@@ -12,16 +12,11 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "noUncheckedSideEffectImports": false,
+    "ignoreDeprecations": "6.0"
   },
   "include": ["src/**/*", "*.ts", "*.tsx"],
   "exclude": ["node_modules"],
-  "references": [
-    {
-      "path": "../../libs/grid"
-    },
-    {
-      "path": "../../libs/grid-react"
-    }
-  ]
+  "references": []
 }

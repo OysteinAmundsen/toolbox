@@ -117,7 +117,9 @@ export class EmployeeManagementComponent {
       title: [employee.title],
       level: [employee.level, [Validators.min(1), Validators.max(10)]],
       salary: [employee.salary, [Validators.required, Validators.min(0)]],
-      bonus: [employee.bonus, [Validators.min(0), Validators.max(100)]],
+      // `bonus` is a currency amount (thousands), not a percentage — a max of 100
+      // would make every row's FormGroup invalid and block all commits.
+      bonus: [employee.bonus, [Validators.min(0)]],
       status: [employee.status],
       hireDate: [employee.hireDate],
       rating: [employee.rating, [Validators.min(0), Validators.max(5)]],

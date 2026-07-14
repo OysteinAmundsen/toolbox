@@ -32,10 +32,8 @@
       }
     },
     "lint": {
-      "executor": "@nx/eslint:lint",
-      "outputs": ["{options.outputFile}"],
       "options": {
-        "lintFilePatterns": ["demos/vanilla/**/*.ts"]
+        "args": ["**/*.ts"]
       }
     }
   }

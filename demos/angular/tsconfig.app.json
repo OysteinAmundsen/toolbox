@@ -15,13 +15,18 @@
       "@toolbox-web/grid/*": ["../../libs/grid/src/*"],
       "@toolbox-web/grid-angular": ["../../libs/grid-angular/src/index.ts"],
       "@toolbox-web/grid-angular/features/*": ["../../libs/grid-angular/features/*/src/index.ts"]
-    }
+    },
+    "rootDir": "../.."
   },
   "include": ["src/**/*.ts", "../../libs/grid-angular/features/*/src/index.ts"],
   "exclude": ["src/**/*.spec.ts"],
-  "references": [
-    {
-      "path": "../../libs/grid/tsconfig.lib.json"
+  "angularCompilerOptions": {
+    "extendedDiagnostics": {
+      "checks": {
+        "nullishCoalescingNotNullable": "suppress",
+        "optionalChainNotNullable": "suppress"
+      }
     }
-  ]
+  },
+  "references": []
 }

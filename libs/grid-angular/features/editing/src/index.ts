@@ -29,6 +29,7 @@ import {
 import '@toolbox-web/grid/features/editing';
 import { getEditorTemplate, type GridEditorContext } from './grid-column-editor.directive';
 import { getFormArrayContext } from './grid-form-array.directive';
+import { getLazyFormContext } from './grid-lazy-form.directive';
 import { getStructuralEditorTemplate } from './structural-editor.directive';
 
 export { GridEditingDirective } from './grid-editing.directive';
@@ -89,9 +90,13 @@ registerEditorSpecBridge(
       const onCancel = () => ctx.cancel();
 
       // Resolve the FormControl from the FormArrayContext, if available.
+      // Both GridFormArray and GridLazyForm expose a FormArrayContext, but each
+      // stores it under its own module-local Symbol. Check both so control-based
+      // template editors (`*tbwEditor="let _; control as control"`) receive the
+      // FormControl whether the grid uses `[formArray]` or `[lazyForm]`.
       let control: GridEditorContext<TValue, TRow>['control'];
       if (gridElement) {
-        const formContext = getFormArrayContext(gridElement);
+        const formContext = getFormArrayContext(gridElement) ?? getLazyFormContext(gridElement);
         if (formContext?.hasFormGroups) {
           const gridRows = (gridElement as { rows?: TRow[] }).rows;
           if (gridRows) {

@@ -3,7 +3,6 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "sourceRoot": "demos/angular/src",
-  "root": "demos/angular",
   "implicitDependencies": ["grid", "grid-angular"],
   "targets": {
     "test": {
@@ -12,6 +11,7 @@
     "build": {
       "dependsOn": ["grid:build", "grid-angular:build"],
       "executor": "@nx/angular:application",
+      "defaultConfiguration": "development",
       "options": {
         "outputPath": "dist/demos/angular",
         "browser": "demos/angular/src/main.ts",
@@ -26,7 +26,10 @@
           "demos/shared/employee-management/demo-styles.css",
           "demos/shared/demo-index.css"
         ],
-        "plugins": ["./demos/angular/tools/esbuild-alias-plugin.mjs"]
+        "plugins": ["./demos/angular/tools/esbuild-alias-plugin.mjs"],
+        "loader": {
+          ".css": "text"
+        }
       },
       "configurations": {
         "production": {
@@ -49,11 +52,11 @@
           "extractLicenses": false,
           "sourceMap": true
         }
-      },
-      "defaultConfiguration": "development"
+      }
     },
     "serve": {
-      "executor": "@nx/angular:dev-server",
+      "executor": "@angular/build:dev-server",
+      "defaultConfiguration": "development",
       "options": {
         "buildTarget": "demo-angular:build"
       },
@@ -64,8 +67,7 @@
         "development": {
           "buildTarget": "demo-angular:build:development"
         }
-      },
-      "defaultConfiguration": "development"
+      }
     },
     "serve:dist": {
       "executor": "nx:run-commands",
@@ -77,10 +79,8 @@
       }
     },
     "lint": {
-      "executor": "@nx/eslint:lint",
-      "outputs": ["{options.outputFile}"],
       "options": {
-        "lintFilePatterns": ["demos/angular/**/*.ts"]
+        "args": ["**/*.ts"]
       }
     }
   }

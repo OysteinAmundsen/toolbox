@@ -114,6 +114,24 @@ function copyReadme(): Plugin {
   };
 }
 
+/**
+ * Copy package.json to dist for npm publishing and `yalc push`.
+ * The inferred `@nx/vite/plugin` build does NOT emit a package.json (the old
+ * `@nx/vite:build` executor did), and `link:push` skips any dist dir without one.
+ */
+function copyPackageJson(): Plugin {
+  return {
+    name: 'copy-package-json',
+    writeBundle() {
+      try {
+        copyFileSync(resolve(__dirname, 'package.json'), resolve(outDir, 'package.json'));
+      } catch {
+        /* ignore */
+      }
+    },
+  };
+}
+
 /** Build each plugin as separate ES/CJS modules (parallel, no dts - types bundled in main) */
 function buildPluginModules(): Plugin {
   return {
@@ -358,6 +376,53 @@ function buildUmdBundles(): Plugin {
   };
 }
 
+/**
+ * Build the all-in-one ESM bundle (`all.js`) as a SEPARATE single-entry build.
+ *
+ * Vite 8 replaced Rollup with Rolldown, which — unlike Rollup with
+ * `preserveEntrySignatures: 'allow-extension'` — hoists code shared between the
+ * `index` and `all` entries into a common `aggregators-*.js` chunk when they are
+ * built together, collapsing `index.js` into a ~1 kB re-export stub. That breaks
+ * the self-contained-entry contract (multi-version `__GRID_VERSION__` isolation)
+ * AND defeats the `index.js` bundle-budget / forbidden-symbol checks. Building
+ * `all` on its own (one entry) leaves nothing to hoist, so both `index.js` and
+ * `all.js` stay self-contained.
+ */
+function buildAllBundle(): Plugin {
+  return {
+    name: 'build-all-bundle',
+    async writeBundle() {
+      await build({
+        configFile: false,
+        logLevel: 'warn',
+        define: gridDefine,
+        build: {
+          outDir,
+          emptyOutDir: false,
+          sourcemap: true,
+          minify: 'terser',
+          lib: {
+            entry: resolve(__dirname, 'src/all.ts'),
+            formats: ['es'],
+            fileName: () => 'all.js',
+          },
+          rollupOptions: {
+            plugins: [cleanup({ comments: 'none', extensions: ['ts', 'js'] })],
+          },
+          target: 'es2022',
+        },
+      });
+      const sizes = getFileSizes(resolve(outDir, 'all.js'));
+      if (sizes) {
+        console.log('\n\x1b[36mAll-in-one bundle:\x1b[0m');
+        console.log(
+          `  ${'all.js'.padEnd(20)} ${formatSize(sizes.size).padStart(10)} │ gzip: ${formatSize(sizes.gzip)}`,
+        );
+      }
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/libs/grid',
@@ -374,8 +439,10 @@ export default defineConfig(({ command }) => ({
       ? [
           copyThemes(),
           copyReadme(),
+          copyPackageJson(),
           buildPluginModules(),
           buildFeatureModules(),
+          buildAllBundle(),
           buildUmdBundles(),
           bundleBudget({
             outDir,
@@ -415,9 +482,13 @@ export default defineConfig(({ command }) => ({
     reportCompressedSize: true,
     commonjsOptions: { transformMixedEsModules: true },
     lib: {
+      // Build ONLY the `index` (core) entry in the main build. With a single
+      // entry Rolldown keeps it self-contained (no shared `aggregators-*` chunk),
+      // so `index.js` is the full core again and the bundle-budget / forbidden-
+      // symbol checks on it stay meaningful. The `all` bundle is built separately
+      // (buildAllBundle) for the same self-containment reason.
       entry: {
         index: resolve(__dirname, 'src/index.ts'),
-        all: resolve(__dirname, 'src/all.ts'),
       },
       formats: ['es'],
       fileName: (_format, name) => `${name}.js`,
@@ -430,7 +501,6 @@ export default defineConfig(({ command }) => ({
         }),
       ],
       output: {
-        compact: true,
         // Force each entry to be self-contained (duplicate shared code)
         manualChunks: undefined,
         chunkFileNames: undefined,

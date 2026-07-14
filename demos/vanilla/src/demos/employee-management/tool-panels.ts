@@ -7,7 +7,7 @@
 
 import { DEPARTMENTS, type Employee, type GridElement } from '@demo/shared/employee-management';
 import { shadowDomStyles } from '@demo/shared/employee-management/styles';
-import { FilteringPlugin } from '@toolbox-web/grid/all';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 
 /**
  * Injects all demo styles into the grid.

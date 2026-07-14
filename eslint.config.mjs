@@ -22,7 +22,14 @@ export default [
       '@nx/enforce-module-boundaries': [
         'error',
         {
-          enforceBuildableLibDependency: true,
+          // Disabled intentionally: every library here (grid + adapters + themes)
+          // is buildable/publishable, and the adapters depend on the grid via the
+          // published `@toolbox-web/grid` package whose tsconfig `paths` point at
+          // `dist/` (deliberate, for multi-version isolation). Since Nx 23's
+          // resolver treats those dist-pointing aliases as non-buildable, this
+          // sub-check false-positives on a genuinely buildable dependency. The
+          // tag-based `depConstraints` below still enforce the real boundaries.
+          enforceBuildableLibDependency: false,
           allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
           depConstraints: [
             {

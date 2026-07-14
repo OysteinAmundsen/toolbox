@@ -33,7 +33,7 @@
  * route module.
  */
 
-import '@toolbox-web/grid';
+import { createGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/filtering';
 import '@toolbox-web/grid/features/pinned-rows';
 import '@toolbox-web/grid/features/server-side';
@@ -41,13 +41,8 @@ import '@toolbox-web/grid/features/shell';
 
 import type { BookingLogEntry, BookingLogsResponse, BookingLogsScanProgress } from '@demo/shared/booking-logs';
 import { DATASET_SIZE, LEVELS, REGIONS, SERVICES } from '@demo/shared/booking-logs';
-import {
-  ContextMenuPlugin,
-  createGrid,
-  type ContextMenuItem,
-  type DataGridElement,
-  type InternalGrid,
-} from '@toolbox-web/grid/all';
+import type { ContextMenuItem, DataGridElement, InternalGrid } from '@toolbox-web/grid/all';
+import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
 
 import { renderDateTimePanel, renderStatusPanel, renderTraceIdPanel, type CustomPanelParams } from './filters';
 import { COLUMNS, escapeHtml } from './renderers';

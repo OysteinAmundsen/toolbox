@@ -9,11 +9,8 @@
 // Import shared demo styles (applies to document)
 import '@demo/shared/employee-management/demo-styles.css';
 
-// Import the grid component (registers <tbw-grid> custom element)
-import '@toolbox-web/grid';
-
-// Import grid factory and plugins
-import { createGrid, type DataGridElement } from '@toolbox-web/grid/all';
+// Import the grid factory (loading core also registers the <tbw-grid> custom element)
+import { createGrid, type DataGridElement } from '@toolbox-web/grid';
 
 // Import shared data generators and types
 import { generateEmployees, type Employee } from '@demo/shared/employee-management';

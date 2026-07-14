@@ -11,16 +11,10 @@
     "esModuleInterop": true,
     "lib": ["ESNext", "DOM"],
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "ignoreDeprecations": "6.0"
   },
   "include": ["src/**/*.ts", "src/**/*.vue", "../shared/employee-management/**/*.ts", "../shared/calendar/**/*.ts"],
   "exclude": ["node_modules"],
-  "references": [
-    {
-      "path": "../../libs/grid"
-    },
-    {
-      "path": "../../libs/grid-vue"
-    }
-  ]
+  "references": []
 }

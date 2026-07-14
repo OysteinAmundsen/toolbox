@@ -66,6 +66,10 @@
       "@demo/shared/booking-logs/demo-styles.css": ["demos/shared/booking-logs/demo-styles.css"],
       "@demo/shared/calendar": ["demos/shared/calendar/index.ts"],
       "@demo/shared/calendar/demo-styles.css": ["demos/shared/calendar/demo-styles.css"]
-    }
+    },
+    "noUncheckedSideEffectImports": false,
+    "types": ["*"],
+    "esModuleInterop": false,
+    "ignoreDeprecations": "6.0"
   }
 }

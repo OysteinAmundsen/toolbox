@@ -9,6 +9,7 @@
       "executor": "@nx/angular:package",
       "outputs": ["{workspaceRoot}/dist/libs/grid-angular"],
       "dependsOn": ["link-grid-dist"],
+      "defaultConfiguration": "production",
       "options": {
         "project": "libs/grid-angular/ng-package.json"
       },
@@ -19,8 +20,7 @@
         "production": {
           "tsConfig": "libs/grid-angular/tsconfig.lib.json"
         }
-      },
-      "defaultConfiguration": "production"
+      }
     },
     "bundle-check": {
       "executor": "nx:run-commands",
@@ -50,20 +50,18 @@
       }
     },
     "lint": {
-      "executor": "@nx/eslint:lint",
-      "outputs": ["{options.outputFile}"],
       "options": {
-        "lintFilePatterns": ["libs/grid-angular/**/*.ts"]
+        "args": ["**/*.ts"]
       }
     },
     "typedoc": {
       "command": "bunx typedoc --options typedoc.json && bun run scripts/typedoc-to-mdx.ts",
       "dependsOn": ["grid:build"],
+      "inputs": ["{projectRoot}/src/**/*.ts", "{projectRoot}/typedoc.json", "{projectRoot}/scripts/typedoc-to-mdx.ts"],
+      "outputs": ["{projectRoot}/docs/api-generated", "{workspaceRoot}/apps/docs/src/content/docs/grid/angular/api"],
       "options": {
         "cwd": "libs/grid-angular"
-      },
-      "inputs": ["{projectRoot}/src/**/*.ts", "{projectRoot}/typedoc.json", "{projectRoot}/scripts/typedoc-to-mdx.ts"],
-      "outputs": ["{projectRoot}/docs/api-generated", "{workspaceRoot}/apps/docs/src/content/docs/grid/angular/api"]
+      }
     }
   }
 }

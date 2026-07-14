@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { AfterViewInit, Component, effect, ElementRef, viewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, linkedSignal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import type { Employee } from '@demo/shared/employee-management';
 import { BaseGridEditor } from '@toolbox-web/grid-angular/features/editing';
@@ -30,7 +30,8 @@ interface StatusConfig {
         class="status-select-editor__select"
         [class.is-invalid]="isInvalid()"
         [class.is-dirty]="isDirty()"
-        [(ngModel)]="currentValueModel"
+        [ngModel]="currentValueModel()"
+        (ngModelChange)="currentValueModel.set($event)"
         (change)="onCommit()"
         (keydown)="onKeyDown($event)"
       >
@@ -68,7 +69,11 @@ export class StatusSelectEditorComponent
 {
   selectEl = viewChild.required<ElementRef<HTMLSelectElement>>('selectEl');
 
-  currentValueModel = 'Active';
+  // Writable signal seeded from the resolved cell value (control or `value` input).
+  // `linkedSignal` re-seeds when `currentValue()` changes (editor opens) and is
+  // written on user selection. Binding a signal directly avoids the change-
+  // detection ordering gap that a plain-property `[(ngModel)]` had under Angular.
+  protected readonly currentValueModel = linkedSignal(() => this.currentValue() ?? 'Active');
   readonly statuses = ['Active', 'Remote', 'On Leave', 'Contract', 'Terminated'];
   readonly statusConfig: Record<string, StatusConfig> = {
     Active: { bg: '#d4edda', text: '#155724', icon: '✓' },
@@ -77,15 +82,6 @@ export class StatusSelectEditorComponent
     Contract: { bg: '#e2e3e5', text: '#383d41', icon: '📄' },
     Terminated: { bg: '#f8d7da', text: '#721c24', icon: '✗' },
   };
-
-  constructor() {
-    super();
-    // Sync currentValueModel with the resolved value (from control or input)
-    effect(() => {
-      const value = this.currentValue();
-      this.currentValueModel = value || 'Active';
-    });
-  }
 
   /**
    * Override to provide custom error messages for status-specific validation.
@@ -100,7 +96,7 @@ export class StatusSelectEditorComponent
   }
 
   onCommit(): void {
-    this.commitValue(this.currentValueModel);
+    this.commitValue(this.currentValueModel());
   }
 
   onKeyDown(event: KeyboardEvent): void {

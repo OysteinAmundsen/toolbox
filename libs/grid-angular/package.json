@@ -49,6 +49,6 @@
   },
   "peerDependencies": {
     "@angular/core": ">=17.0.0",
-    "@toolbox-web/grid": "^3.0.0-beta"
+    "@toolbox-web/grid": "^3.0.0"
   }
 }

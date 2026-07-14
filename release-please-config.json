@@ -4,8 +4,7 @@
   "branches": [
     {
       "branch": "main",
-      "prerelease": true,
-      "prerelease-type": "rc"
+      "prerelease": false
     },
     {
       "branch": "2.x",
@@ -17,33 +16,25 @@
       "release-type": "node",
       "component": "grid",
       "changelog-path": "CHANGELOG.md",
-      "versioning": "prerelease",
-      "prerelease": true,
-      "prerelease-type": "rc"
+      "prerelease": false
     },
     "libs/grid-angular": {
       "release-type": "node",
       "component": "grid-angular",
       "changelog-path": "CHANGELOG.md",
-      "versioning": "prerelease",
-      "prerelease": true,
-      "prerelease-type": "rc"
+      "prerelease": false
     },
     "libs/grid-react": {
       "release-type": "node",
       "component": "grid-react",
       "changelog-path": "CHANGELOG.md",
-      "versioning": "prerelease",
-      "prerelease": true,
-      "prerelease-type": "rc"
+      "prerelease": false
     },
     "libs/grid-vue": {
       "release-type": "node",
       "component": "grid-vue",
       "changelog-path": "CHANGELOG.md",
-      "versioning": "prerelease",
-      "prerelease": true,
-      "prerelease-type": "rc"
+      "prerelease": false
     }
   },
   "group-pull-request-title-pattern": "chore(${branch}): release",

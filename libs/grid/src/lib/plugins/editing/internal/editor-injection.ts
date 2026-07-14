@@ -174,23 +174,23 @@ export function injectEditor<T>(
       }
     }
     if (e.key === 'Enter') {
+      // Native <select> open-popup guard — applies in BOTH grid and row mode.
+      // When Enter's target is a *descendant* of the editor (most notably an
+      // <option> inside an open native <select> popup), do nothing: let the
+      // browser commit the highlighted option and close the popup, which fires
+      // `change` on the editor (committing via the change listener wired below).
+      // Calling preventDefault / stopPropagation / exitRowEdit here would
+      // destroy the open popup and discard the selection. A subsequent Enter
+      // (popup closed → target IS the editor) then exits the row as usual.
+      // Row mode previously lacked this guard, so keyboard selection in custom
+      // <select> editors closed the row instead of picking the value (#427).
+      const enterTarget = e.target as Element | null;
+      const enterEditorAncestor = getEditorAncestor(enterTarget);
+      if (enterEditorAncestor && enterEditorAncestor !== enterTarget) {
+        return;
+      }
       // In grid mode, Enter just commits without exiting
       if (isGridMode) {
-        // If the event target is a *descendant* of the editor (most
-        // notably an <option> inside an open native <select> popup),
-        // do nothing: the browser will commit the popup and close it,
-        // then fire `change` on the editor (which already commits via
-        // the change listener wired below). Calling preventDefault or
-        // stopPropagation here would (a) block the popup commit and
-        // (b) starve the grid-level Enter handler from running its
-        // blur + return-to-grid logic. The keydown bubbles to the
-        // grid where EditingPlugin's grid-mode Enter clause finishes
-        // the interaction.
-        const tgt = e.target as Element | null;
-        const editorAncestor = getEditorAncestor(tgt);
-        if (editorAncestor && editorAncestor !== tgt) {
-          return;
-        }
         // Target IS the editor itself (SELECT with no popup open, or
         // INPUT/TEXTAREA): commit the current value. preventDefault
         // suppresses the browser opening the SELECT popup on Enter.

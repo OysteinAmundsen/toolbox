@@ -1,69 +1,76 @@
 # Changelog
 
-## [2.0.0-rc.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.0.0-rc.0...grid-vue-2.0.0-rc.1) (2026-07-13)
-
-
-### Features
-
-* **clipboard:** add per-column onPaste guard/transform and 'paste' edit source ([47d0acf](https://github.com/OysteinAmundsen/toolbox/commit/47d0acf064851b1fdd4be8bfe1567ca08c88d45d))
-
-## [2.0.0-rc.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.0.0-beta.1...grid-vue-2.0.0-rc.0) (2026-07-13)
-
-
-### Miscellaneous
-
-* **adapters:** bootstrap rc line ([fceba7a](https://github.com/OysteinAmundsen/toolbox/commit/fceba7ac39fa9224a146bd5e817160fa9595c8bd))
-
-## [2.0.0-beta.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.0.0-beta...grid-vue-2.0.0-beta.1) (2026-07-08)
-
-
-### Features
-
-* **grid:** move column shorthand parser into core, wire into light-DOM config ([#276](https://github.com/OysteinAmundsen/toolbox/issues/276)) ([#414](https://github.com/OysteinAmundsen/toolbox/issues/414)) ([333233a](https://github.com/OysteinAmundsen/toolbox/commit/333233aa6839d95a4339fc8767099d91e9414bad))
-* **grid:** support declarative tbw-grid-type light-dom typeDefaults ([#275](https://github.com/OysteinAmundsen/toolbox/issues/275)) ([a13d7cb](https://github.com/OysteinAmundsen/toolbox/commit/a13d7cb22fa9cdef94d6375b3431b39befbc3c10))
-
-## [2.0.0-beta](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.11.0...grid-vue-2.0.0-beta) (2026-07-06)
-
+## [2.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.11.0...grid-vue-2.0.0) (2026-07-14)
 
 ### ⚠ BREAKING CHANGES
 
-* **grid-vue:** remove v1.x deprecations ([#262](https://github.com/OysteinAmundsen/toolbox/issues/262)) (#412)
-* **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400))
+- **grid-vue:** remove v1.x deprecations ([#262](https://github.com/OysteinAmundsen/toolbox/issues/262)) (#412)
+- **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400))
 
 ### Features
 
-* **grid-vue:** remove v1.x deprecations ([#262](https://github.com/OysteinAmundsen/toolbox/issues/262)) ([#412](https://github.com/OysteinAmundsen/toolbox/issues/412)) ([cf17e8f](https://github.com/OysteinAmundsen/toolbox/commit/cf17e8f6a7a9dc4b9dc9a5a9955c43b97ce2ad83))
-* **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400)) ([c6fafe7](https://github.com/OysteinAmundsen/toolbox/commit/c6fafe73d4450c7aa57a58869da3b369e709bd43))
+- **grid-vue:** remove v1.x deprecations ([#262](https://github.com/OysteinAmundsen/toolbox/issues/262)) ([#412](https://github.com/OysteinAmundsen/toolbox/issues/412)) ([cf17e8f](https://github.com/OysteinAmundsen/toolbox/commit/cf17e8f6a7a9dc4b9dc9a5a9955c43b97ce2ad83))
+- **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400)) ([c6fafe7](https://github.com/OysteinAmundsen/toolbox/commit/c6fafe73d4450c7aa57a58869da3b369e709bd43))
+- **grid:** move column shorthand parser into core, wire into light-DOM config ([#276](https://github.com/OysteinAmundsen/toolbox/issues/276)) ([#414](https://github.com/OysteinAmundsen/toolbox/issues/414)) ([333233a](https://github.com/OysteinAmundsen/toolbox/commit/333233aa6839d95a4339fc8767099d91e9414bad))
+- **grid:** support declarative tbw-grid-type light-dom typeDefaults ([#275](https://github.com/OysteinAmundsen/toolbox/issues/275)) ([a13d7cb](https://github.com/OysteinAmundsen/toolbox/commit/a13d7cb22fa9cdef94d6375b3431b39befbc3c10))
+- **clipboard:** add per-column onPaste guard/transform and 'paste' edit source ([47d0acf](https://github.com/OysteinAmundsen/toolbox/commit/47d0acf064851b1fdd4be8bfe1567ca08c88d45d))
+
+## [2.0.0-rc.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.0.0-rc.0...grid-vue-2.0.0-rc.1) (2026-07-13)
+
+### Features
+
+- **clipboard:** add per-column onPaste guard/transform and 'paste' edit source ([47d0acf](https://github.com/OysteinAmundsen/toolbox/commit/47d0acf064851b1fdd4be8bfe1567ca08c88d45d))
+
+## [2.0.0-rc.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.0.0-beta.1...grid-vue-2.0.0-rc.0) (2026-07-13)
+
+### Miscellaneous
+
+- **adapters:** bootstrap rc line ([fceba7a](https://github.com/OysteinAmundsen/toolbox/commit/fceba7ac39fa9224a146bd5e817160fa9595c8bd))
+
+## [2.0.0-beta.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.0.0-beta...grid-vue-2.0.0-beta.1) (2026-07-08)
+
+### Features
+
+- **grid:** move column shorthand parser into core, wire into light-DOM config ([#276](https://github.com/OysteinAmundsen/toolbox/issues/276)) ([#414](https://github.com/OysteinAmundsen/toolbox/issues/414)) ([333233a](https://github.com/OysteinAmundsen/toolbox/commit/333233aa6839d95a4339fc8767099d91e9414bad))
+- **grid:** support declarative tbw-grid-type light-dom typeDefaults ([#275](https://github.com/OysteinAmundsen/toolbox/issues/275)) ([a13d7cb](https://github.com/OysteinAmundsen/toolbox/commit/a13d7cb22fa9cdef94d6375b3431b39befbc3c10))
+
+## [2.0.0-beta](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.11.0...grid-vue-2.0.0-beta) (2026-07-06)
+
+### ⚠ BREAKING CHANGES
+
+- **grid-vue:** remove v1.x deprecations ([#262](https://github.com/OysteinAmundsen/toolbox/issues/262)) (#412)
+- **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400))
+
+### Features
+
+- **grid-vue:** remove v1.x deprecations ([#262](https://github.com/OysteinAmundsen/toolbox/issues/262)) ([#412](https://github.com/OysteinAmundsen/toolbox/issues/412)) ([cf17e8f](https://github.com/OysteinAmundsen/toolbox/commit/cf17e8f6a7a9dc4b9dc9a5a9955c43b97ce2ad83))
+- **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400)) ([c6fafe7](https://github.com/OysteinAmundsen/toolbox/commit/c6fafe73d4450c7aa57a58869da3b369e709bd43))
 
 ## [1.11.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.10.0...grid-vue-1.11.0) (2026-06-09)
 
-
 ### Features
 
-* **grid:** add columnInference 'merge' mode to overlay provided columns onto inferred set ([#388](https://github.com/OysteinAmundsen/toolbox/issues/388)) ([1fe2929](https://github.com/OysteinAmundsen/toolbox/commit/1fe292928ffad5c1372510ef1d63c17266e1b741))
-* **grid:** declarative column order attribute for initial display ([#391](https://github.com/OysteinAmundsen/toolbox/issues/391)) ([3f47e90](https://github.com/OysteinAmundsen/toolbox/commit/3f47e904bf57ec28891e3611ad7d3e42ded052e9))
+- **grid:** add columnInference 'merge' mode to overlay provided columns onto inferred set ([#388](https://github.com/OysteinAmundsen/toolbox/issues/388)) ([1fe2929](https://github.com/OysteinAmundsen/toolbox/commit/1fe292928ffad5c1372510ef1d63c17266e1b741))
+- **grid:** declarative column order attribute for initial display ([#391](https://github.com/OysteinAmundsen/toolbox/issues/391)) ([3f47e90](https://github.com/OysteinAmundsen/toolbox/commit/3f47e904bf57ec28891e3611ad7d3e42ded052e9))
 
 ## [1.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.9.1...grid-vue-1.10.0) (2026-06-03)
 
-
 ### Features
 
-* **adapters:** add opt-in shell feature side-effect imports for v3 ([566d717](https://github.com/OysteinAmundsen/toolbox/commit/566d717ed13d711217f7158a027c2da9dcf6cc00))
-
+- **adapters:** add opt-in shell feature side-effect imports for v3 ([566d717](https://github.com/OysteinAmundsen/toolbox/commit/566d717ed13d711217f7158a027c2da9dcf6cc00))
 
 ### Bug Fixes
 
-* **grid-react,grid-vue:** surface all FeatureConfig augmentations to published-dist consumers ([31b4263](https://github.com/OysteinAmundsen/toolbox/commit/31b426369ba59d598181ffc3b2cc91ab8579dfa8))
-* **grid-react,grid-vue:** surface filtering FeatureConfig augmentation to consumers ([9b68117](https://github.com/OysteinAmundsen/toolbox/commit/9b6811792bcaf7f1be6274a3346259692ece9184))
+- **grid-react,grid-vue:** surface all FeatureConfig augmentations to published-dist consumers ([31b4263](https://github.com/OysteinAmundsen/toolbox/commit/31b426369ba59d598181ffc3b2cc91ab8579dfa8))
+- **grid-react,grid-vue:** surface filtering FeatureConfig augmentation to consumers ([9b68117](https://github.com/OysteinAmundsen/toolbox/commit/9b6811792bcaf7f1be6274a3346259692ece9184))
 
 ## [1.9.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.9.0...grid-vue-1.9.1) (2026-05-28)
 
-
 ### Bug Fixes
 
-* **grid-vue:** bridge VNode for masterDetail.detailRenderer and responsive.cardRenderer; export canonical MasterDetailConfig/ResponsivePluginConfig ([357de27](https://github.com/OysteinAmundsen/toolbox/commit/357de27fa473192bb4c5dbba37a6d0a0dbe2355f))
-* **grid-vue:** rename framework-prefixed widening types to canonical names, deprecate Vue* aliases ([1a9c490](https://github.com/OysteinAmundsen/toolbox/commit/1a9c490b8ad6515cea2357051a9e55207d6b74c1))
-* **grid-vue:** widen pinnedRows config types to allow framework-native renderers ([1368125](https://github.com/OysteinAmundsen/toolbox/commit/1368125f8d60a3d8a8b0943764ddf172e13cae9a))
+- **grid-vue:** bridge VNode for masterDetail.detailRenderer and responsive.cardRenderer; export canonical MasterDetailConfig/ResponsivePluginConfig ([357de27](https://github.com/OysteinAmundsen/toolbox/commit/357de27fa473192bb4c5dbba37a6d0a0dbe2355f))
+- **grid-vue:** rename framework-prefixed widening types to canonical names, deprecate Vue* aliases ([1a9c490](https://github.com/OysteinAmundsen/toolbox/commit/1a9c490b8ad6515cea2357051a9e55207d6b74c1))
+- **grid-vue:** widen pinnedRows config types to allow framework-native renderers ([1368125](https://github.com/OysteinAmundsen/toolbox/commit/1368125f8d60a3d8a8b0943764ddf172e13cae9a))
 
 ## [1.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-1.8.0...grid-vue-1.9.0) (2026-05-25)
 
@@ -351,4 +358,3 @@
 ### Features
 
 - **grid-vue:** [#72](https://github.com/OysteinAmundsen/toolbox/issues/72) vue 3 framework adapter toolbox webgrid vue ([#110](https://github.com/OysteinAmundsen/toolbox/issues/110)) ([d002329](https://github.com/OysteinAmundsen/toolbox/commit/d00232910d840e4dfe78b15ec9e1a6d2a1de66d8))
-

@@ -1,78 +1,96 @@
 # Changelog
 
-## [3.0.0-rc.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-rc.0...grid-3.0.0-rc.1) (2026-07-13)
-
-
-### Features
-
-* **clipboard:** add per-column onPaste guard/transform and 'paste' edit source ([47d0acf](https://github.com/OysteinAmundsen/toolbox/commit/47d0acf064851b1fdd4be8bfe1567ca08c88d45d))
-* **clipboard:** expose sourceField on onPaste context for cross-column paste rejection ([e19bfff](https://github.com/OysteinAmundsen/toolbox/commit/e19bfff47d0ace73cecd51b9cdf5353bb8e049a4))
-
-## [3.0.0-rc.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.4...grid-3.0.0-rc.0) (2026-07-13)
-
-
-### Bug Fixes
-
-* **grid/selection:** clear announce timer on detach to prevent post-teardown rAF error ([5d12a95](https://github.com/OysteinAmundsen/toolbox/commit/5d12a9551bdbf12c715fd2b7f66c6fc69620a5f7))
-* **grid/selection:** retain range on right-click inside selection ([e882199](https://github.com/OysteinAmundsen/toolbox/commit/e8821995f5a80f8e2fb273f548dba97a25670f5d))
-
-
-### Miscellaneous
-
-* **grid:** bootstrap rc line ([2d9dab9](https://github.com/OysteinAmundsen/toolbox/commit/2d9dab902f77e041d21b1ffab58c375258e04a28))
-
-## [3.0.0-beta.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.3...grid-3.0.0-beta.4) (2026-07-13)
-
-
-### Bug Fixes
-
-* **grid/editing:** prevent cell-commit re-entrancy from duplicating history or bypassing preventDefault ([7bca625](https://github.com/OysteinAmundsen/toolbox/commit/7bca625d97edecb0ca29d193c970b3a641cf0631))
-* **security:** remove DOM/XSS sinks in clipboard payload and llm-markdown regex (code-scanning [#37](https://github.com/OysteinAmundsen/toolbox/issues/37), [#35](https://github.com/OysteinAmundsen/toolbox/issues/35)) ([a393a29](https://github.com/OysteinAmundsen/toolbox/commit/a393a296bc7859c1a46ffa68eacf292bd5555904))
-
-## [3.0.0-beta.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.2...grid-3.0.0-beta.3) (2026-07-09)
-
-
-### Features
-
-* **grid:** carry structured clipboard payload in text/html for cross-window paste ([1b161a1](https://github.com/OysteinAmundsen/toolbox/commit/1b161a1eb09d17b2ea0964656f9c9fdba4a75972))
-
-
-### Bug Fixes
-
-* **grid:** resolve copy target from selection anchor + fix stale cell attribute ([61e1a91](https://github.com/OysteinAmundsen/toolbox/commit/61e1a911cfeef6f62850564e6e4aff896388c202))
-* **grid:** strip copied header on cross-column paste ([5621121](https://github.com/OysteinAmundsen/toolbox/commit/56211210396abefc47f56da589f1a8ffb9892490))
-
-## [3.0.0-beta.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.1...grid-3.0.0-beta.2) (2026-07-09)
-
-
-### Features
-
-* **grid/clipboard:** add fillSelection to tile clipboard source across a larger selection ([#418](https://github.com/OysteinAmundsen/toolbox/issues/418)) ([22ea287](https://github.com/OysteinAmundsen/toolbox/commit/22ea287ae93300d826b6ef07bbd68986c7199824))
-* **grid:** route updateRow/updateRows through data plugins via commitCellValue ([#420](https://github.com/OysteinAmundsen/toolbox/issues/420)) ([a3efd48](https://github.com/OysteinAmundsen/toolbox/commit/a3efd48824dea16d6e67551e4424aeef0f17634d))
-
-## [3.0.0-beta.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta...grid-3.0.0-beta.1) (2026-07-08)
-
-
-### Features
-
-* **grid:** move column shorthand parser into core, wire into light-DOM config ([#276](https://github.com/OysteinAmundsen/toolbox/issues/276)) ([#414](https://github.com/OysteinAmundsen/toolbox/issues/414)) ([333233a](https://github.com/OysteinAmundsen/toolbox/commit/333233aa6839d95a4339fc8767099d91e9414bad))
-* **grid:** support declarative tbw-grid-type light-dom typeDefaults ([#275](https://github.com/OysteinAmundsen/toolbox/issues/275)) ([a13d7cb](https://github.com/OysteinAmundsen/toolbox/commit/a13d7cb22fa9cdef94d6375b3431b39befbc3c10))
-
-## [3.0.0-beta](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.4...grid-3.0.0-beta) (2026-07-06)
-
+## [3.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.5...grid-3.0.0) (2026-07-14)
 
 ### ⚠ BREAKING CHANGES
 
-* **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400))
+- **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400))
 
 ### Features
 
-* **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400)) ([c6fafe7](https://github.com/OysteinAmundsen/toolbox/commit/c6fafe73d4450c7aa57a58869da3b369e709bd43))
-
+- **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400)) ([c6fafe7](https://github.com/OysteinAmundsen/toolbox/commit/c6fafe73d4450c7aa57a58869da3b369e709bd43))
+- **grid:** move column shorthand parser into core, wire into light-DOM config ([#276](https://github.com/OysteinAmundsen/toolbox/issues/276)) ([#414](https://github.com/OysteinAmundsen/toolbox/issues/414)) ([333233a](https://github.com/OysteinAmundsen/toolbox/commit/333233aa6839d95a4339fc8767099d91e9414bad))
+- **grid:** support declarative tbw-grid-type light-dom typeDefaults ([#275](https://github.com/OysteinAmundsen/toolbox/issues/275)) ([a13d7cb](https://github.com/OysteinAmundsen/toolbox/commit/a13d7cb22fa9cdef94d6375b3431b39befbc3c10))
+- **grid/clipboard:** add fillSelection to tile clipboard source across a larger selection ([#418](https://github.com/OysteinAmundsen/toolbox/issues/418)) ([22ea287](https://github.com/OysteinAmundsen/toolbox/commit/22ea287ae93300d826b6ef07bbd68986c7199824))
+- **grid:** route updateRow/updateRows through data plugins via commitCellValue ([#420](https://github.com/OysteinAmundsen/toolbox/issues/420)) ([a3efd48](https://github.com/OysteinAmundsen/toolbox/commit/a3efd48824dea16d6e67551e4424aeef0f17634d))
+- **grid:** carry structured clipboard payload in text/html for cross-window paste ([1b161a1](https://github.com/OysteinAmundsen/toolbox/commit/1b161a1eb09d17b2ea0964656f9c9fdba4a75972))
+- **clipboard:** add per-column onPaste guard/transform and 'paste' edit source ([47d0acf](https://github.com/OysteinAmundsen/toolbox/commit/47d0acf064851b1fdd4be8bfe1567ca08c88d45d))
+- **clipboard:** expose sourceField on onPaste context for cross-column paste rejection ([e19bfff](https://github.com/OysteinAmundsen/toolbox/commit/e19bfff47d0ace73cecd51b9cdf5353bb8e049a4))
 
 ### Bug Fixes
 
-* **grid:** honor column minWidth during drag resize and initial render ([#404](https://github.com/OysteinAmundsen/toolbox/issues/404)) ([fe6f104](https://github.com/OysteinAmundsen/toolbox/commit/fe6f104e92a880f401146914f27e90bf961edce2))
+- **grid:** honor column minWidth during drag resize and initial render ([#404](https://github.com/OysteinAmundsen/toolbox/issues/404)) ([fe6f104](https://github.com/OysteinAmundsen/toolbox/commit/fe6f104e92a880f401146914f27e90bf961edce2))
+- **grid:** resolve copy target from selection anchor + fix stale cell attribute ([61e1a91](https://github.com/OysteinAmundsen/toolbox/commit/61e1a911cfeef6f62850564e6e4aff896388c202))
+- **grid:** strip copied header on cross-column paste ([5621121](https://github.com/OysteinAmundsen/toolbox/commit/56211210396abefc47f56da589f1a8ffb9892490))
+- **grid/editing:** prevent cell-commit re-entrancy from duplicating history or bypassing preventDefault ([7bca625](https://github.com/OysteinAmundsen/toolbox/commit/7bca625d97edecb0ca29d193c970b3a641cf0631))
+- **security:** remove DOM/XSS sinks in clipboard payload and llm-markdown regex (code-scanning [#37](https://github.com/OysteinAmundsen/toolbox/issues/37), [#35](https://github.com/OysteinAmundsen/toolbox/issues/35)) ([a393a29](https://github.com/OysteinAmundsen/toolbox/commit/a393a296bc7859c1a46ffa68eacf292bd5555904))
+- **grid/selection:** clear announce timer on detach to prevent post-teardown rAF error ([5d12a95](https://github.com/OysteinAmundsen/toolbox/commit/5d12a9551bdbf12c715fd2b7f66c6fc69620a5f7))
+- **grid/selection:** retain range on right-click inside selection ([e882199](https://github.com/OysteinAmundsen/toolbox/commit/e8821995f5a80f8e2fb273f548dba97a25670f5d))
+- **grid:** defer row-mode Enter to open native &lt;select&gt; popup instead of exiting edit ([6d7f9e0](https://github.com/OysteinAmundsen/toolbox/commit/6d7f9e0af58cb47a7877e30f6265b10ae0349c1e))
+
+## [3.0.0-rc.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-rc.0...grid-3.0.0-rc.1) (2026-07-13)
+
+### Features
+
+- **clipboard:** add per-column onPaste guard/transform and 'paste' edit source ([47d0acf](https://github.com/OysteinAmundsen/toolbox/commit/47d0acf064851b1fdd4be8bfe1567ca08c88d45d))
+- **clipboard:** expose sourceField on onPaste context for cross-column paste rejection ([e19bfff](https://github.com/OysteinAmundsen/toolbox/commit/e19bfff47d0ace73cecd51b9cdf5353bb8e049a4))
+
+## [3.0.0-rc.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.4...grid-3.0.0-rc.0) (2026-07-13)
+
+### Bug Fixes
+
+- **grid/selection:** clear announce timer on detach to prevent post-teardown rAF error ([5d12a95](https://github.com/OysteinAmundsen/toolbox/commit/5d12a9551bdbf12c715fd2b7f66c6fc69620a5f7))
+- **grid/selection:** retain range on right-click inside selection ([e882199](https://github.com/OysteinAmundsen/toolbox/commit/e8821995f5a80f8e2fb273f548dba97a25670f5d))
+
+### Miscellaneous
+
+- **grid:** bootstrap rc line ([2d9dab9](https://github.com/OysteinAmundsen/toolbox/commit/2d9dab902f77e041d21b1ffab58c375258e04a28))
+
+## [3.0.0-beta.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.3...grid-3.0.0-beta.4) (2026-07-13)
+
+### Bug Fixes
+
+- **grid/editing:** prevent cell-commit re-entrancy from duplicating history or bypassing preventDefault ([7bca625](https://github.com/OysteinAmundsen/toolbox/commit/7bca625d97edecb0ca29d193c970b3a641cf0631))
+- **security:** remove DOM/XSS sinks in clipboard payload and llm-markdown regex (code-scanning [#37](https://github.com/OysteinAmundsen/toolbox/issues/37), [#35](https://github.com/OysteinAmundsen/toolbox/issues/35)) ([a393a29](https://github.com/OysteinAmundsen/toolbox/commit/a393a296bc7859c1a46ffa68eacf292bd5555904))
+
+## [3.0.0-beta.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.2...grid-3.0.0-beta.3) (2026-07-09)
+
+### Features
+
+- **grid:** carry structured clipboard payload in text/html for cross-window paste ([1b161a1](https://github.com/OysteinAmundsen/toolbox/commit/1b161a1eb09d17b2ea0964656f9c9fdba4a75972))
+
+### Bug Fixes
+
+- **grid:** resolve copy target from selection anchor + fix stale cell attribute ([61e1a91](https://github.com/OysteinAmundsen/toolbox/commit/61e1a911cfeef6f62850564e6e4aff896388c202))
+- **grid:** strip copied header on cross-column paste ([5621121](https://github.com/OysteinAmundsen/toolbox/commit/56211210396abefc47f56da589f1a8ffb9892490))
+
+## [3.0.0-beta.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta.1...grid-3.0.0-beta.2) (2026-07-09)
+
+### Features
+
+- **grid/clipboard:** add fillSelection to tile clipboard source across a larger selection ([#418](https://github.com/OysteinAmundsen/toolbox/issues/418)) ([22ea287](https://github.com/OysteinAmundsen/toolbox/commit/22ea287ae93300d826b6ef07bbd68986c7199824))
+- **grid:** route updateRow/updateRows through data plugins via commitCellValue ([#420](https://github.com/OysteinAmundsen/toolbox/issues/420)) ([a3efd48](https://github.com/OysteinAmundsen/toolbox/commit/a3efd48824dea16d6e67551e4424aeef0f17634d))
+
+## [3.0.0-beta.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-beta...grid-3.0.0-beta.1) (2026-07-08)
+
+### Features
+
+- **grid:** move column shorthand parser into core, wire into light-DOM config ([#276](https://github.com/OysteinAmundsen/toolbox/issues/276)) ([#414](https://github.com/OysteinAmundsen/toolbox/issues/414)) ([333233a](https://github.com/OysteinAmundsen/toolbox/commit/333233aa6839d95a4339fc8767099d91e9414bad))
+- **grid:** support declarative tbw-grid-type light-dom typeDefaults ([#275](https://github.com/OysteinAmundsen/toolbox/issues/275)) ([a13d7cb](https://github.com/OysteinAmundsen/toolbox/commit/a13d7cb22fa9cdef94d6375b3431b39befbc3c10))
+
+## [3.0.0-beta](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.4...grid-3.0.0-beta) (2026-07-06)
+
+### ⚠ BREAKING CHANGES
+
+- **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400))
+
+### Features
+
+- **grid:** remove v2.x deprecations (events, reorder-rows, server-side cacheBlockSize, canMove, pinned-rows legacy API) ([#400](https://github.com/OysteinAmundsen/toolbox/issues/400)) ([c6fafe7](https://github.com/OysteinAmundsen/toolbox/commit/c6fafe73d4450c7aa57a58869da3b369e709bd43))
+
+### Bug Fixes
+
+- **grid:** honor column minWidth during drag resize and initial render ([#404](https://github.com/OysteinAmundsen/toolbox/issues/404)) ([fe6f104](https://github.com/OysteinAmundsen/toolbox/commit/fe6f104e92a880f401146914f27e90bf961edce2))
 
 ## [2.17.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.4...grid-2.17.5) (2026-07-03)
 
@@ -1471,4 +1489,3 @@
 - scrolling moves selection ([db11353](https://github.com/OysteinAmundsen/toolbox/commit/db11353af52ae3dd65e95505a034c2db68dcf5df))
 - selection follows data during scroll, touch scrolling, sticky column drag ([e6aefa1](https://github.com/OysteinAmundsen/toolbox/commit/e6aefa103bf03454add13603f90a5f0f0d9c3702))
 - storybook preview works on github pages ([cc9efed](https://github.com/OysteinAmundsen/toolbox/commit/cc9efed12c59a418614200514caa88149fe91629))
-

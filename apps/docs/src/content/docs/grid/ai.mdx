@@ -6,6 +6,7 @@ llmsFull: false
 
 import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 import LlmFileSizes from '@components/LlmFileSizes.astro';
+import { GRID_STATS } from '@data/grid-stats';
 
 Building with an AI coding assistant — GitHub Copilot, Cursor, Claude, ChatGPT, or any agentic workflow? This documentation is designed to be **consumed by machines as well as humans**. Every page is published in a clean, machine-readable form so an agent can ground its answers in the _actual_ current API instead of guessing from stale training data.
 
@@ -57,7 +58,7 @@ Reach for the **smallest file that answers the question** — precision beats vo
 | **One blob, but you work in one framework**                   | **`llms-full-{react,vue,angular,vanilla}.txt`** | Same corpus, scoped to your stack — other frameworks' examples and adapter pages are dropped, cutting size substantially. |
 | **Work on one specific page/feature**                         | The page's **`.md`** companion        | Self-contained — the single most relevant document, nothing else.                                 |
 
-**Recommended default: `llms.txt`.** It is the curated map (overview, the agent steering rules, and a link to every page's `.md` companion). A capable agent reads it, then fetches just the handful of pages a task requires — e.g. the Editing and Selection plugin pages for an editable grid — instead of ingesting all ~25 plugins. Point at **`llms-full.txt` only** when your tool can't fetch on demand and you want everything in a single load. If your tool can't fetch but you only target one framework, prefer the scoped **`llms-full-{react,vue,angular,vanilla}.txt`** variant — it is the same corpus with the irrelevant framework variants removed.
+**Recommended default: `llms.txt`.** It is the curated map (overview, the agent steering rules, and a link to every page's `.md` companion). A capable agent reads it, then fetches just the handful of pages a task requires — e.g. the Editing and Selection plugin pages for an editable grid — instead of ingesting all {GRID_STATS.pluginCount} plugins. Point at **`llms-full.txt` only** when your tool can't fetch on demand and you want everything in a single load. If your tool can't fetch but you only target one framework, prefer the scoped **`llms-full-{react,vue,angular,vanilla}.txt`** variant — it is the same corpus with the irrelevant framework variants removed.
 
 :::note[`llms-full.txt` is large by design]
 The full corpus is sizeable (it inlines every prose page and its runnable demo code, four framework variants included). Two kinds of repetition are **intentional**, not waste:

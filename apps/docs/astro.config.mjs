@@ -163,6 +163,7 @@ export default defineConfig({
         ),
         '@demo/vanilla/calendar': resolve(rootDir, 'demos/vanilla/src/demos/calendar/grid-factory.ts'),
         '@components': resolve(import.meta.dirname, 'src/components'),
+        '@data': resolve(import.meta.dirname, 'src/data'),
       },
     },
   },

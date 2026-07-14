@@ -6,6 +6,14 @@ applyTo: 'apps/docs/**'
 
 Documentation lives in `apps/docs/` using Astro + Starlight. MDX content pages are in `src/content/docs/grid/`. Interactive demo components are in `src/components/demos/`. Run the docs site: `bun nx serve docs` (port 4401). See the `astro-demo` skill for demo component templates and the `docs-update` skill for the full documentation inventory.
 
+## Volatile numbers (plugin count, bundle size) — inject at build time via `@data/grid-stats`
+
+Never hardcode drift-prone stats (plugin count, core gzip size) in prose. `src/data/grid-stats.ts` computes them at build time — `pluginCount` from the `export * from './lib/plugins/…'` lines in `libs/grid/src/all.ts` (the canonical public-plugin list; `shell` is a feature, excluded → count is 24), and `coreGzipKb` by gzipping the built `dist/libs/grid/index.js` (the docs `build` target `dependsOn` `grid:build`, so dist exists; a fallback covers `astro dev`). Consume via `import { GRID_STATS } from '@data/grid-stats'` and interpolate `{GRID_STATS.pluginCount}` / `{GRID_STATS.coreGzipKb}` in MDX. Use expressions only in prose/JSX children, NOT in Starlight component attributes that the llms transform reads as quoted strings (`<LinkCard description>`), which would drop the value.
+
+## The `.md`/`llms.txt` corpus is a RAW-TEXT transform — MDX expressions do not evaluate
+
+`_llm-markdown.ts` (`mdxToAgentMarkdown`) turns MDX into agent markdown by regex text-munging the source — it does NOT render through Astro, so any `{expr}` in prose leaks literally into the corpus unless explicitly resolved. Build-time values must be plumbed as an option and substituted (see `gridStats` / `cssVarReference`), then passed from BOTH callers (`[...slug].md.ts` and `_llm-full-builder.ts`). When adding a new build-time value to docs prose, add a substitution step here or it will appear raw to agents.
+
 ## Key Components
 
 - `DemoControls.astro` — Reusable Storybook-like interactive controls panel (number/boolean/radio/select/check-group)

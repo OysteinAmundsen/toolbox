@@ -53,6 +53,14 @@ export interface AgentMarkdownOptions {
    */
   cssVarReference?: string;
   /**
+   * Build-time grid statistics used to resolve `{GRID_STATS.*}` expressions in
+   * prose (e.g. plugin count, core bundle size) to their literal values, so the
+   * agent markdown never leaks a raw MDX expression. Supplied by the endpoints
+   * from the shared `@data/grid-stats` module. When omitted, the tokens are
+   * stripped rather than left in place.
+   */
+  gridStats?: Readonly<Record<'pluginCount' | 'coreGzipKb', number>>;
+  /**
    * When set, produce a framework-scoped corpus: within framework tab groups
    * (those offering React/Vue/Angular alternatives), keep only the variant for
    * this framework and drop the rest. Neutral tab groups (e.g. npm/yarn/CDN) and
@@ -483,6 +491,15 @@ export function mdxToAgentMarkdown(raw: string, opts: AgentMarkdownOptions): str
     // 2. Drop ESM import lines and MDX comments.
     out = out.replace(/^import\s+.*$/gm, '');
     out = out.replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+
+    // 2a. Resolve build-time `{GRID_STATS.*}` expressions to their literal values
+    //     (plugin count, core bundle size). Runs in prose only, so an equivalent
+    //     token inside a code fence is preserved. Unknown/absent keys collapse to
+    //     an empty string so a raw expression can never leak into the corpus.
+    out = out.replace(/\{\s*GRID_STATS\.(\w+)\s*\}/g, (_full, key: string) => {
+      const value = opts.gridStats?.[key as 'pluginCount' | 'coreGzipKb'];
+      return value === undefined ? '' : String(value);
+    });
 
     // 2b. Flatten Starlight `<Tabs>` / `<TabItem label="…">` into `####` headings.
     //     Tabs render as interactive widgets in HTML but add noise in plain

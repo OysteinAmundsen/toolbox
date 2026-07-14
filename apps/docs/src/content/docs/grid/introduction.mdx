@@ -7,6 +7,7 @@ import { CardGrid, LinkCard, TabItem, Tabs } from '@astrojs/starlight/components
 import Audience from '@components/Audience.astro';
 import IntroBasicDemo from '@components/demos/IntroBasicDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
+import { GRID_STATS } from '@data/grid-stats';
 
 {/* Agent-only steering directives. Rendered as nothing on the HTML site; kept at
     the top of the agent corpus (introduction.md + llms-full.txt) so a
@@ -123,7 +124,7 @@ We built this grid because we needed something that works everywhere without fra
 | -------------------------- | ------------------------------------------------------------------- |
 | 🚀 **Enterprise Performance** | Virtualized rendering handles 100k+ rows at 60fps                |
 | 🔧 **True Framework Agnostic** | Single codebase works in vanilla JS, React, Vue, Angular, Svelte |
-| 📦 **Lightweight & Self-Contained** | ~50KB gzipped with zero runtime dependencies           |
+| 📦 **Lightweight & Self-Contained** | ~{GRID_STATS.coreGzipKb} kB gzipped with zero runtime dependencies           |
 | 🧩 **Extensible Plugin System** | Lifecycle hooks, dependency validation, type-safe config extension |
 | ⌨️ **Full Keyboard Support** | Arrow keys, Tab, Enter, Escape, Home/End, Page Up/Down            |
 | 🎨 **Themeable**           | CSS custom properties for complete visual customization             |

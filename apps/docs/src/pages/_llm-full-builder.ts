@@ -17,6 +17,8 @@
  * the dominant size driver — every code example shown four times — to a single
  * relevant copy per page.
  */
+import { GRID_STATS } from '@data/grid-stats';
+
 import { extractFrontmatter, type Framework, mdxToAgentMarkdown } from './_llm-markdown';
 import {
   API_AREA_ORDER,
@@ -208,6 +210,7 @@ export function buildFull(origin: string, framework: Framework | null = null): s
       resolveSource: resolveDemoSource,
       hasDoc,
       cssVarReference: cssVariableReferenceMarkdown,
+      gridStats: GRID_STATS,
       frameworkFilter: framework ?? undefined,
       omitDemoComponents,
       demoPageUrl: `${origin}/${p.slug}.md`,

@@ -7,6 +7,7 @@ llmsFull: false
 import { TabItem, Tabs } from '@astrojs/starlight/components';
 import Audience from '@components/Audience.astro';
 import PerformanceComparisonDemo from '@components/demos/PerformanceComparisonDemo.astro';
+import { GRID_STATS } from '@data/grid-stats';
 
 
 This page compares `@toolbox-web/grid` against three widely-used JavaScript data grids: **AG Grid**, **Tabulator**, and **SlickGrid**. The goal is an honest side-by-side on features, bundle size, and — below — measured performance in your own browser.
@@ -31,7 +32,7 @@ Together they span the realistic spectrum — enterprise, mainstream MIT, and mi
 |--------|:-----------------:|:------:|:---------:|:---------:|
 | **License** | MIT | MIT (Community) / Commercial (Enterprise) | MIT | MIT (6pac fork) |
 | **Cost** | Free | Free / $999+/dev/year | Free | Free |
-| **Bundle Size (gzipped)** | ~45 KB | ~200 KB+ (Community) · ~300 KB+ (Enterprise) | ~90 KB | ~30 KB + jQuery |
+| **Bundle Size (gzipped)** | ~{GRID_STATS.coreGzipKb} KB | ~200 KB+ (Community) · ~300 KB+ (Enterprise) | ~90 KB | ~30 KB + jQuery |
 | **Dependencies** | Zero | Zero | Zero | jQuery |
 | **Framework Support** | All (Web Component) | All (wrappers) | All (wrappers) | Vanilla / jQuery |
 | **TypeScript** | ✅ Bundled | ✅ Bundled | ✅ Bundled | Community types |
@@ -98,7 +99,7 @@ Legend: ✅ first-party support (built-in or official plugin/module) · ⚙️ r
 ### Performance That Scales
 
 - **100,000+ rows at 60fps** — Efficient row virtualization
-- **~45KB gzipped** — Half the size of AG Grid Community
+- **~{GRID_STATS.coreGzipKb} kB gzipped** — Half the size of AG Grid Community
 - **Zero dependencies** — Nothing to conflict or update
 - **DOM recycling** — Minimal garbage collection pressure
 

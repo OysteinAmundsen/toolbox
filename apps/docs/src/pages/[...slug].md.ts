@@ -22,6 +22,8 @@
  */
 import type { APIRoute, GetStaticPaths } from 'astro';
 
+import { GRID_STATS } from '@data/grid-stats';
+
 import { mdxToAgentMarkdown } from './_llm-markdown';
 import {
   cssVariableReferenceMarkdown,
@@ -50,6 +52,7 @@ export const GET: APIRoute = ({ params }) => {
     resolveSource: resolveDemoSource,
     hasDoc,
     cssVarReference: cssVariableReferenceMarkdown,
+    gridStats: GRID_STATS,
   });
   return new Response(markdown, {
     headers: { 'Content-Type': 'text/markdown; charset=utf-8' },

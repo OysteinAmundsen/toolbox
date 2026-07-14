@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-rc.1...grid-3.0.0) (2026-07-14)
+
+
+### Bug Fixes
+
+* **grid:** defer row-mode Enter to open native &lt;select&gt; popup instead of exiting edit ([6d7f9e0](https://github.com/OysteinAmundsen/toolbox/commit/6d7f9e0af58cb47a7877e30f6265b10ae0349c1e))
+
+
+### Miscellaneous
+
+* **grid:** graduate to stable 3.0.0 ([23cb3a7](https://github.com/OysteinAmundsen/toolbox/commit/23cb3a70fe484da8515e314d0201f901e98e2598))
+
 ## [3.0.0-rc.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0-rc.0...grid-3.0.0-rc.1) (2026-07-13)
 
 
@@ -1471,4 +1483,3 @@
 - scrolling moves selection ([db11353](https://github.com/OysteinAmundsen/toolbox/commit/db11353af52ae3dd65e95505a034c2db68dcf5df))
 - selection follows data during scroll, touch scrolling, sticky column drag ([e6aefa1](https://github.com/OysteinAmundsen/toolbox/commit/e6aefa103bf03454add13603f90a5f0f0d9c3702))
 - storybook preview works on github pages ([cc9efed](https://github.com/OysteinAmundsen/toolbox/commit/cc9efed12c59a418614200514caa88149fe91629))
-

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.0.0-rc.1...grid-angular-2.0.0) (2026-07-14)
+
+
+### Miscellaneous
+
+* **adapters:** graduate to stable 2.0.0 ([6ca887c](https://github.com/OysteinAmundsen/toolbox/commit/6ca887cd813cc1cbe574742e161dd4839c7894d9))
+
 ## [2.0.0-rc.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.0.0-rc.0...grid-angular-2.0.0-rc.1) (2026-07-13)
 
 
@@ -645,4 +652,3 @@ import { TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
 ## Changelog
 
 All notable changes to `@toolbox-web/grid-angular` will be documented in this file.
-

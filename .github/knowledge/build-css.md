@@ -35,6 +35,14 @@ related: [build-and-deploy, grid-core]
 - DECIDED (May 2026): drop the dedicated per-file `@demo/shared/<name>/demo-styles.css` alias and the regex-anchored bare alias. One directory alias per demo covers both bare and subpath cases and matches the existing `employee-management` pattern. Verified with `bun nx run-many -t build -p demo-vanilla,demo-react,demo-vue,docs`.
 - RULED OUT: regex-anchored `new RegExp(\`^@demo/shared/${name}$\`)` to disambiguate prefix-match. Works for Vite arrays but Astro's alias map is object-keyed, and the directory pattern is simpler and uniform across both consumers.
 
+## demo-css-leak (Astro prod-bundle gotcha)
+
+- INVARIANT: a demo's CSS MUST scope any `tbw-grid …` grid-override selector under the demo's container class (e.g. `.calendar-demo tbw-grid .data-grid-row > .cell`). A **bare** `tbw-grid .data-grid-row > .cell { … }` is a global rule that matches EVERY grid on EVERY page.
+- WHY dev hides it: Astro **dev** only loads a component's CSS on routes that use that component, so the leak is invisible locally. Astro **production** bundles component CSS into shared `_astro/*.css` files that load on other pages too — so the leak only appears in the built/deployed site.
+- SYMPTOM (gh: missing cell borders on `/grid/core/` in prod, fine locally): the calendar demo's unscoped `tbw-grid .data-grid-row > .cell { border: 1px solid var(--cal-color-cell-border) }` won the cascade over the grid's own equal-specificity `border-bottom: var(--tbw-row-divider)` rule. `--cal-color-cell-border` is only defined on `.calendar-demo`, so on other pages it was undefined → the whole `border` declaration invalid → cells rendered `0px none`.
+- DECIDED (gh): scope all four `tbw-grid` selectors in [demos/shared/calendar/demo-styles.css](demos/shared/calendar/demo-styles.css) under `.calendar-demo`. The file header already claimed the styles were "scoped under `.calendar-demo`"; the border rules simply weren't. Verify via a **production** docs build + preview (dev won't reproduce): `bun nx build docs && bun nx preview docs` then inspect `.data-grid-row > .cell` border on a non-calendar page.
+- NOTE: bare `tbw-grid …` selectors that end in a **demo-specific class** (e.g. booking-logs `tbw-grid .cell:focus-within .bl-trace-cell-show`) are harmless — that class exists on no other page — so they need no scoping.
+
 ## style-injection
 
 - Grid styles: concatenated partials → `<style>` tag in shadow DOM (connectedCallback)

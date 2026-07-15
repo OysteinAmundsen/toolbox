@@ -144,13 +144,13 @@
   --cal-color-cell-focus: light-dark(#2563eb, #3b82f6);
 }
 
-tbw-grid .data-grid-row > .cell {
+.calendar-demo tbw-grid .data-grid-row > .cell {
   border-top: 1px solid var(--cal-color-cell-border);
   border-right: 1px solid var(--cal-color-cell-border);
   border-bottom: 1px solid var(--cal-color-cell-border);
 }
 
-tbw-grid .data-grid-row > .cell:first-child {
+.calendar-demo tbw-grid .data-grid-row > .cell:first-child {
   border-left: 1px solid var(--cal-color-cell-border);
 }
 
@@ -158,7 +158,7 @@ tbw-grid .data-grid-row > .cell:first-child {
  * keyboard nav). A dotted outline reads as a focus affordance without
  * competing with the solid day-cell border; `outline-offset: -3px`
  * tucks it inside so it doesn't shift the matrix layout. */
-tbw-grid .data-grid-row > .cell.cell-focus {
+.calendar-demo tbw-grid .data-grid-row > .cell.cell-focus {
   outline: 2px dotted var(--cal-color-cell-focus);
   outline-offset: -3px;
   position: relative;
@@ -360,7 +360,7 @@ tbw-grid .data-grid-row > .cell.cell-focus {
    (which doesn't accept `cellClass` on `<GridColumn>`) gets the same
    look. Scoping to `.data-grid-row` keeps the header cell out. */
 .cal-week-cell,
-tbw-grid .data-grid-row .cell[data-field='weekNumber'] {
+.calendar-demo tbw-grid .data-grid-row .cell[data-field='weekNumber'] {
   text-align: center;
   font-size: 0.75rem;
   color: var(--demo-color-fg-muted);

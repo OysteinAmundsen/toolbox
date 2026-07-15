@@ -40,6 +40,14 @@ related: [build-and-deploy, grid-core]
 - Grid styles: concatenated partials → `<style>` tag in shadow DOM (connectedCallback)
 - Custom/plugin styles: CSSStyleSheet via document.adoptedStyleSheets (survives DOM rebuilds)
 - Plugin styles registered via `grid.registerStyles(id, css)` → creates sheet → replaceSync → add to adopted
+- INVARIANT: plugin CSS is transformed **in isolation** (each plugin's own `?inline` build) and injected as a **standalone** adopted stylesheet. Any CSS lowering that depends on a companion `:root` rule (see lightningcss-light-dark below) breaks, because that root rule lives in a _different_ stylesheet.
+
+## lightningcss-light-dark (build minifier gotcha)
+
+- INVARIANT: Vite 8 (rolldown-vite) minifies CSS with **lightningcss by default**. Given browser targets, lightningcss LOWERS `light-dark()` into `var(--lightningcss-light,a) var(--lightningcss-dark,b)` toggle vars, whose defining `:root {--lightningcss-light: …}` / `@media (prefers-color-scheme)` rule it emits **into the same stylesheet**. It is NOT emitted for a fragment that has no such context.
+- SYMPTOM: after the Vite 8 upgrade the tooltip lost its background, border, and arrow (all three use `light-dark()`) only in the **built/published** package — dev server was fine (unminified). Core grid looked OK only because theme CSS (copied as-is, not minified) supplied the colours; core's own `variables.css` light-dark defaults were equally broken but masked.
+- DECIDED (gh tooltip regression): exclude the LightDark lowering feature so `light-dark()` ships verbatim. `libs/grid/vite.config.ts` defines a shared `cssConfig = { transformer: 'lightningcss', lightningcss: { exclude: Features.LightDark } }` and spreads `css: cssConfig` into the main `defineConfig` **and every nested `build({ configFile: false })`** (libBuild, plugin/feature/umd/all builds) — those do NOT inherit the top-level `css`. WHY: the grid targets modern browsers that support `light-dark()` natively (it also relies on CSS anchor positioning / `@position-try`, which lightningcss passes through and cannot polyfill anyway). Verify: `grep -c lightningcss-light dist/libs/grid/**/index.js` must be 0.
+- RULED OUT: raising lightningcss `targets` (even Chrome 123 / Safari 17.4 / FF 120) — lightningcss 1.32 still treats `light-dark()` as not-yet-baseline and lowers it. Feature `exclude` is the only reliable lever. esbuild minify preserves it, but keep lightningcss for the rest of the pipeline.
 
 ## css-partials (libs/grid/src/lib/core/styles/)
 
@@ -66,4 +74,3 @@ related: [build-and-deploy, grid-core]
 - Source files (not built), copied as-is to dist
 - Optional — grid works without any theme using base variables only
 - Usage: `<link>` tag or `import '@toolbox-web/grid/themes/dg-theme-standard.css'`
-

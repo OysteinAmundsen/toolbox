@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 import { copyFileSync, mkdirSync, readdirSync, readFileSync } from 'fs';
+import { Features } from 'lightningcss';
 import { resolve } from 'path';
 import cleanup from 'rollup-plugin-cleanup';
 import { build, BuildOptions, defineConfig, LibraryOptions, Plugin } from 'vite';
@@ -18,6 +19,27 @@ const gridVersion = pkg.version;
 // and fall back to 'dev' at runtime, collapsing per-version registry isolation
 // into a single shared `@dev` symbol (gh: multi-version coexistence).
 const gridDefine = { __GRID_VERSION__: JSON.stringify(gridVersion) };
+
+/**
+ * Shared CSS config applied to the main build AND every nested programmatic
+ * build() below (those use `configFile: false`, so they do NOT inherit the
+ * top-level `css`).
+ *
+ * The default CSS minifier (lightningcss) LOWERS `light-dark()` into
+ * `var(--lightningcss-light,…) var(--lightningcss-dark,…)` toggle vars whose
+ * defining `:root` rule is only emitted alongside the CSS that declared them.
+ * Plugin styles are injected as STANDALONE adopted stylesheets
+ * (`grid.registerStyles` → `document.adoptedStyleSheets`), so that toggle root
+ * is absent and every `light-dark()` colour silently drops — the tooltip lost
+ * its background, border, and arrow after the Vite 8 upgrade. Excluding the
+ * LightDark feature keeps `light-dark()` verbatim; the grid targets modern
+ * browsers that support it natively (it also relies on CSS anchor positioning /
+ * `@position-try`, which cannot be polyfilled anyway).
+ */
+const cssConfig = {
+  transformer: 'lightningcss' as const,
+  lightningcss: { exclude: Features.LightDark },
+};
 
 const outDir = resolve(__dirname, '../../dist/libs/grid');
 const pluginsDir = resolve(__dirname, 'src/lib/plugins');
@@ -60,6 +82,7 @@ const libBuild = (opts: { entry: string; outDir: string; lib: LibraryOptions } &
     configFile: false,
     logLevel: 'warn',
     define: gridDefine,
+    css: cssConfig,
     build: { emptyOutDir: false, sourcemap: true, ...opts },
   });
 
@@ -157,6 +180,7 @@ function buildPluginModules(): Plugin {
             configFile: false,
             logLevel: 'silent',
             define: gridDefine,
+            css: cssConfig,
             plugins: [externalizeCore()],
             build: {
               outDir: dir,
@@ -231,6 +255,7 @@ function buildFeatureModules(): Plugin {
         configFile: false,
         logLevel: 'silent',
         define: gridDefine,
+        css: cssConfig,
         plugins: [externalizeForFeatures()],
         build: {
           outDir: featDir,
@@ -252,6 +277,7 @@ function buildFeatureModules(): Plugin {
             configFile: false,
             logLevel: 'silent',
             define: gridDefine,
+            css: cssConfig,
             plugins: [externalizeForFeatures()],
             build: {
               outDir: featDir,
@@ -330,6 +356,7 @@ function buildUmdBundles(): Plugin {
             configFile: false,
             logLevel: 'silent',
             define: gridDefine,
+            css: cssConfig,
             build: {
               outDir: umdPlugins,
               emptyOutDir: false,
@@ -396,6 +423,7 @@ function buildAllBundle(): Plugin {
         configFile: false,
         logLevel: 'warn',
         define: gridDefine,
+        css: cssConfig,
         build: {
           outDir,
           emptyOutDir: false,
@@ -427,6 +455,7 @@ export default defineConfig(({ command }) => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/libs/grid',
   define: gridDefine,
+  css: cssConfig,
   plugins: [
     dts({
       entryRoot: 'src',

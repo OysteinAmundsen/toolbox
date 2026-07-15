@@ -1,6 +1,6 @@
 ---
 name: release-prep
-description: Prepare a @toolbox-web library for release. Runs the full pre-release checklist including lint, test, build, bundle size check, CHANGELOG review, and documentation updates.
+description: Prepare a @toolbox-web library for release AND drive release-please versioning. Covers the pre-release checklist (lint, test, build, bundle size, CHANGELOG, docs) PLUS release-please version operations — graduating a prerelease to GA (rc → stable), switching the prerelease identifier (beta → rc), and the per-package path-scoped Release-As bootstrap commits. Use when cutting a release, promoting a prerelease line to stable, or whenever release-please proposes the wrong version (e.g. an rc/patch bump when you expect the clean GA version like 3.0.0).
 argument-hint: optional library name
 ---
 
@@ -180,18 +180,46 @@ once forced adapters to `3.0.0-rc.0`: `.github/knowledge/build-and-deploy.md`
 ### Graduating a prerelease to the stable (GA) release
 
 Same bootstrap applies when promoting `X.Y.Z-rc.N` → `X.Y.Z`. Flipping the config
-alone doesn't deterministically land the clean GA version (pending `feat`/`fix`
-commits can push it past `3.0.0`). Do both:
+alone does **not** deterministically land the clean GA version: the last tag is a
+prerelease, so any pending `feat`/`fix` in range makes release-please carry the
+`rc` identifier forward and bump within it — e.g. it proposed `3.0.1-rc.1` instead
+of `3.0.0`. Do both:
 
 1. In `release-please-config.json` on `main`: set the branch `"prerelease": false`
    (or drop `prerelease`/`prerelease-type`) and remove `"versioning": "prerelease"`,
    `"prerelease": true`, `"prerelease-type"` from each package.
-2. Push per-package, path-scoped `Release-As` commits — grid `Release-As: 3.0.0`,
-   adapters `Release-As: 2.0.0` (separate commits, same path-routing rules as above).
+2. Push per-package, path-scoped `Release-As` commits (verified recipe — grid to
+   `3.0.0`, adapters to `2.0.0`; separate commits because one `Release-As` value is
+   written to EVERY package the commit touches, so a path-less/empty commit would
+   force all four to the same version):
 
-Also flip the GA-only, non-version items in the **same** window: npm dist-tag
-(move v2 off `latest` to `2.x`/`v2-lts`) and the `ci.yml` docs-deploy gate +
-`github-pages` environment branch policy (`2.x` → `main`). Details:
+   ```bash
+   # grid → 3.0.0 (commit MUST touch a file under libs/grid/**)
+   printf '\n' >> libs/grid/CHANGELOG.md
+   git add libs/grid/CHANGELOG.md
+   git commit -m "chore(grid): graduate to stable 3.0.0" -m "Release-As: 3.0.0"
+
+   # adapters → 2.0.0 (SEPARATE commit touching all three adapter dirs)
+   printf '\n' >> libs/grid-angular/CHANGELOG.md
+   printf '\n' >> libs/grid-react/CHANGELOG.md
+   printf '\n' >> libs/grid-vue/CHANGELOG.md
+   git add libs/grid-angular/CHANGELOG.md libs/grid-react/CHANGELOG.md libs/grid-vue/CHANGELOG.md
+   git commit -m "chore(adapters): graduate to stable 2.0.0" -m "Release-As: 2.0.0"
+   ```
+
+   The trailing-newline on each package's `CHANGELOG.md` is a harmless routing
+   anchor (release-please prepends its section, so it never conflicts). After the
+   `3.0.0`/`2.0.0` tags exist, release-please resumes normal semver (`feat`→minor,
+   `fix`→patch) — no more `Release-As`. **Verify the regenerated release PR bumps
+   grid to exactly `3.0.0` and the adapters to `2.0.0` (and nothing else) before
+   merging.**
+
+Also flip the GA-only docs-deploy items in the **same** window so `main` stable
+releases publish toolboxjs.com docs: the `ci.yml` `build-docs`/`deploy-pages` gate
++ the `github-pages` environment branch policy (`2.x` → `main`). **No npm dist-tag /
+LTS move is needed** — this project does not maintain an LTS line on previous
+majors: once GA publishes (version has no `-`) it auto-takes the `latest` dist-tag,
+and the old major simply stops receiving releases. Details:
 `.github/knowledge/build-and-deploy.md` (release section).
 
 ## Post-Release

@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0...grid-3.0.1) (2026-07-15)
+
+
+### Bug Fixes
+
+* **grid:** preserve light-dark() in built CSS (exclude lightningcss LightDark lowering) ([916b7b7](https://github.com/OysteinAmundsen/toolbox/commit/916b7b720681e70c2eecb68dab2998b1c3679008))
+
 ## [3.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.17.5...grid-3.0.0) (2026-07-14)
 
 ### ⚠ BREAKING CHANGES

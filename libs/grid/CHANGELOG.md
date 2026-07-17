@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.1...grid-3.1.0) (2026-07-17)
+
+
+### Features
+
+* **shell:** make tool panel title optional ([#430](https://github.com/OysteinAmundsen/toolbox/issues/430)) ([f05ffc7](https://github.com/OysteinAmundsen/toolbox/commit/f05ffc703bdf8f613f83c6a946e1698380029cba))
+
 ## [3.0.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.0.0...grid-3.0.1) (2026-07-15)
 
 

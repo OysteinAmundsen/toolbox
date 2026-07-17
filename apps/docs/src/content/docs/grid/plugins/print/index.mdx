@@ -71,7 +71,7 @@ await plugin.print();
 import '@toolbox-web/grid-react/features/print';
 import { DataGrid } from '@toolbox-web/grid-react';
 import { useGridPrint } from '@toolbox-web/grid-react/features/print';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -113,7 +113,7 @@ You can instead pass `columns={[ … ]}` and `print={{ … }}` as individual pro
 <script setup>
 import '@toolbox-web/grid-vue/features/print';
 import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const data = [
   { name: 'Alice', department: 'Engineering', salary: 95000 },
@@ -157,7 +157,7 @@ Define everything inside `gridConfig.features`, exactly like the other framework
 import '@toolbox-web/grid-angular/features/print';
 import { Component } from '@angular/core';
 import { Grid, injectGrid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   selector: 'app-employee-grid',

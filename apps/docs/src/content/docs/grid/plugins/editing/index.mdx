@@ -65,7 +65,7 @@ grid.on('cell-commit', (detail) => {
 ```tsx
 import '@toolbox-web/grid-react/features/editing';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -98,7 +98,7 @@ You can instead pass `columns={[ … ]}` and `editing="dblclick"` as individual 
 <script setup>
 import '@toolbox-web/grid-vue/features/editing';
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const data = [
   { id: 1, name: 'Widget', price: 9.99, active: true },
@@ -136,7 +136,7 @@ Define everything inside `gridConfig.features`, exactly like the other framework
 import '@toolbox-web/grid-angular/features/editing';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid],
@@ -629,7 +629,7 @@ grid.gridConfig = {
 ```tsx
 import '@toolbox-web/grid-react/features/editing';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 // Type defaults with React components
 const gridConfig: GridConfig = {
@@ -673,7 +673,7 @@ function MyGrid({ data }) {
 import '@toolbox-web/grid-vue/features/editing';
 import { TbwGrid } from '@toolbox-web/grid-vue';
 import { h } from 'vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const data = [
   { name: 'Alice', country: 'USA', priority: 'high' },
@@ -720,7 +720,7 @@ const gridConfig: GridConfig = {
 import '@toolbox-web/grid-angular/features/editing';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid],
@@ -875,7 +875,7 @@ export const appConfig: ApplicationConfig = {
 import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid, GridEditingDirective],

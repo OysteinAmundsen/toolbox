@@ -47,12 +47,18 @@ This page covers React-specific setup and APIs (feature props, hooks, providers)
 
 ## Setup
 
-Register the grid web component in your application entry point:
+No bootstrap step is required. Importing anything from `@toolbox-web/grid-react` (the `DataGrid` component, a hook, or any `features/*` entry) registers the `<tbw-grid>` custom element as a side effect — so you do **not** need a global `import '@toolbox-web/grid';` in `main.tsx`.
 
-```typescript
-// main.tsx or index.tsx
-import '@toolbox-web/grid';
+Import runtime values (the component, hooks, providers) **and** the config types from `@toolbox-web/grid-react`. The adapter's `GridConfig` / `ColumnConfig` widen `renderer` / `editor` to accept JSX components — the base types in `@toolbox-web/grid` only accept `HTMLElement | string`, so importing them here breaks component renderers:
+
+```tsx
+import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig, ColumnConfig } from '@toolbox-web/grid-react';
 ```
+
+Reach into `@toolbox-web/grid` only for types the adapter doesn't re-export (event-detail types, enums, plugin option interfaces).
+
+Enable features with **co-located** side-effect imports — put them in the component file that renders the grid (see [Enabling Features with Props](#enabling-features-with-props) below), not in `main.tsx` or `App.tsx`.
 
 ## Basic Usage
 

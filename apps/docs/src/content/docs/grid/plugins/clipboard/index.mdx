@@ -56,7 +56,7 @@ grid.gridConfig = {
 import '@toolbox-web/grid-react/features/selection';
 import '@toolbox-web/grid-react/features/clipboard';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -85,7 +85,7 @@ You can instead pass `columns={[ … ]}`, `selection="range"`, and `clipboard={{
 import '@toolbox-web/grid-vue/features/selection';
 import '@toolbox-web/grid-vue/features/clipboard';
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const data = [
   { name: 'Alice', email: 'alice@example.com', department: 'Engineering' },
@@ -120,7 +120,7 @@ import '@toolbox-web/grid-angular/features/selection';
 import '@toolbox-web/grid-angular/features/clipboard';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   selector: 'app-my-grid',

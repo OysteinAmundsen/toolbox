@@ -113,7 +113,7 @@ import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selec
 import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
 import { GridMultiSortDirective } from '@toolbox-web/grid-angular/features/multi-sort';
 import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid-angular';
 
 interface Employee {
   id: number;
@@ -383,7 +383,7 @@ While feature inputs are recommended, you can instantiate plugins manually for c
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import { SelectionPlugin, EditingPlugin, ClipboardPlugin } from '@toolbox-web/grid/all';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   selector: 'app-employee-grid',
@@ -493,7 +493,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { map } from 'rxjs/operators';
 import { Grid } from '@toolbox-web/grid-angular';
 import { GridServerSideDirective } from '@toolbox-web/grid-angular/features/server-side';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 import type { ServerSideDataSource } from '@toolbox-web/grid/plugins/server-side';
 
 @Component({

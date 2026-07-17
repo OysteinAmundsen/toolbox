@@ -61,7 +61,7 @@ grid.gridConfig = {
 ```tsx
 import '@toolbox-web/grid-react/features/pinned-rows';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 import { rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 
 const gridConfig: GridConfig = {
@@ -99,7 +99,7 @@ You can instead pass `columns={[ … ]}` and `pinnedRows={{ … }}` as individua
 <script setup>
 import '@toolbox-web/grid-vue/features/pinned-rows';
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 import { rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 
 const orders = [
@@ -145,7 +145,7 @@ Define everything inside `gridConfig.features`, exactly like the other framework
 import '@toolbox-web/grid-angular/features/pinned-rows';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 import { rowCountPanel } from '@toolbox-web/grid/plugins/pinned-rows';
 
 @Component({
@@ -307,7 +307,7 @@ plain inline functions — no need for manual `useRef` / `ref` host caching:
 ```tsx
 import '@toolbox-web/grid-react/features/pinned-rows';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 function Legend() {
   return <span className="legend">Legend content</span>;
@@ -332,7 +332,7 @@ const gridConfig: GridConfig = {
 import '@toolbox-web/grid-vue/features/pinned-rows';
 import { h, shallowRef } from 'vue';
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 import Legend from './Legend.vue';
 
 const gridConfig = shallowRef<GridConfig>({
@@ -356,7 +356,7 @@ const gridConfig = shallowRef<GridConfig>({
 import '@toolbox-web/grid-angular/features/pinned-rows';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 import { LegendComponent } from './legend.component';
 
 @Component({

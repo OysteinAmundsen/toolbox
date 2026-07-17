@@ -339,10 +339,9 @@ npm install @toolbox-web/grid @toolbox-web/grid-angular
 ```
 
 ```typescript title="grid.component.ts"
-import '@toolbox-web/grid';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   selector: 'app-employee-grid',
@@ -376,10 +375,10 @@ That's a working grid. From here, add features as you need them — each is a on
 import { GridEditingDirective } from '@toolbox-web/grid-angular/features/editing';
 import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
 import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
-import '@toolbox-web/grid';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig, CellCommitDetail } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid-angular';
+import type { CellCommitDetail } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-employee-grid',

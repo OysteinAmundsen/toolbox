@@ -53,7 +53,7 @@ grid.on('column-move', ({ field, fromIndex, toIndex }) => {
 ```tsx
 import '@toolbox-web/grid-react/features/reorder-columns';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -88,7 +88,7 @@ You can instead pass `columns={[ … ]}` and `reorderColumns={{ … }}` as indiv
 <script setup>
 import '@toolbox-web/grid-vue/features/reorder-columns';
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const data = [
   { id: 1, name: 'Alice', email: 'alice@example.com', department: 'Engineering' },
@@ -124,7 +124,7 @@ Define everything inside `gridConfig.features`, exactly like the other framework
 import '@toolbox-web/grid-angular/features/reorder-columns';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   selector: 'app-my-grid',

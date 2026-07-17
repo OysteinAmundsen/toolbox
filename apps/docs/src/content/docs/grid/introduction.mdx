@@ -85,16 +85,28 @@ Default to `gridConfig.features` + side-effect feature imports. Treat manual plu
 
 If imperative access is needed after initialization, prefer `grid.getPluginByName('...')` over storing manually-created plugin instances in application code.
 
+_## RULE 0.3 — Import from the framework adapter, co-located, framework-scoped
+
+Inside a **React / Vue / Angular** project, get import hygiene right — these are the mistakes agents make most:
+
+1. **Import runtime values from the adapter package, never from core.** The component, hooks/composables, providers, directives, and any plugin classes come from `@toolbox-web/grid-{react,vue,angular}`. Do NOT import runtime values (components, `createGrid`, plugin classes) from `@toolbox-web/grid` in framework code.
+2. **Import `GridConfig` / `ColumnConfig` from the adapter — NEVER from core.** All three adapters (`@toolbox-web/grid-react`, `@toolbox-web/grid-vue`, `@toolbox-web/grid-angular`) re-export their OWN `GridConfig` / `ColumnConfig` (plus `CellRenderer` / `CellEditor`) that widen `renderer` / `editor` to accept framework components — JSX nodes (React), slots/components (Vue), or component classes (Angular: `{ field: 'x', renderer: MyComponent }`). The base types in `@toolbox-web/grid` type `renderer` as returning `HTMLElement | string` only, so importing them in framework code makes your component renderer/editor fail to type-check. So: `import type { GridConfig, ColumnConfig } from '@toolbox-web/grid-react';` (or `-vue` / `-angular`). Only reach into `@toolbox-web/grid` for types the adapter does not re-export (event-detail types like `CellCommitDetail`, enums, plugin option interfaces).
+3. **Never add a bare `import '@toolbox-web/grid';`.** It is redundant in React/Vue/Angular — importing the adapter (`@toolbox-web/grid-{react,vue,angular}`) or any of its `features/*` entries already registers the `<tbw-grid>` custom element as a side effect. A standalone grid-core import is only for vanilla JS/TS with no adapter.
+4. **Use the adapter's feature path, not core's.** Inside a framework, side-effect imports must be `@toolbox-web/grid-react/features/selection` (the adapter path), NOT `@toolbox-web/grid/features/selection`. The adapter entry installs the framework-native renderer/editor bridges on top of the core feature — the core path alone can silently drop framework support.
+5. **Co-locate feature imports with the grid.** Put `import '@toolbox-web/grid-react/features/…';` in the **same module that renders the grid**, right next to the component that uses it — NOT globally in `main.ts` / `main.tsx` / `App.tsx` / `app.config.ts`. Setup belongs beside its use; a global side-effect import hides which grid needs the feature and defeats per-route code-splitting.
+
+WHY: mixing `@toolbox-web/grid` and `@toolbox-web/grid-react` imports (especially the config types), or registering features globally, produces grids that build but silently miss framework-native rendering — or fail to type-check the moment you pass a component as a `renderer` — and makes the dependency graph impossible to reason about.
+
 _## CRITICAL RULES — read before generating any code
 
 These apply to ALL frameworks. Violating them produces broken grids.
 
 1. **Side-effect imports are always required.** `gridConfig.features.X` (or a feature prop) does NOT remove the need to import the feature factory — without the import the merge produces no plugin:
    ```ts
-   import '@toolbox-web/grid/features/selection';        // vanilla / any framework
-   import '@toolbox-web/grid-react/features/selection';  // or the adapter path
+   import '@toolbox-web/grid/features/selection';        // vanilla JS/TS only (no adapter)
+   import '@toolbox-web/grid-react/features/selection';  // inside a framework — use the adapter path (see RULE 0.3)
    ```
-   Vanilla JS must also register the element itself: `import '@toolbox-web/grid';` (adapters auto-import it).
+   Put this import in the same module that renders the grid, not in a global entry file. Vanilla JS must also register the element itself: `import '@toolbox-web/grid';` (adapters auto-import it, so never add it in framework code).
 2. **Height is required.** The grid needs an explicit height or it renders at zero height: `tbw-grid { height: 400px; }`. (`display: block` is set automatically — do not add it.)
 3. **Editing is opt-in.** `editable: true` on a column WITHOUT the editing feature/plugin throws. Load `@toolbox-web/grid/features/editing` and set `features: { editing: true }`.
 4. **Plugin load order matters when using plugin API directly.** `ClipboardPlugin` requires `SelectionPlugin`; `UndoRedoPlugin` requires `EditingPlugin` — load the dependency first. Prefer `features` so ordering/dependencies are handled automatically.

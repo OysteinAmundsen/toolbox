@@ -52,7 +52,7 @@ import '@toolbox-web/grid-react/features/selection';
 import '@toolbox-web/grid-react/features/filtering';
 import '@toolbox-web/grid-react/features/multi-sort';
 import { DataGrid, useGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -96,7 +96,7 @@ import '@toolbox-web/grid-vue/features/selection';
 import '@toolbox-web/grid-vue/features/filtering';
 import '@toolbox-web/grid-vue/features/multi-sort';
 import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const gridRef = useGrid<Employee>();
 
@@ -136,7 +136,7 @@ import '@toolbox-web/grid-angular/features/filtering';
 import '@toolbox-web/grid-angular/features/multi-sort';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid],
@@ -227,7 +227,8 @@ import '@toolbox-web/grid-react/features/editing';
 import '@toolbox-web/grid-react/features/undo-redo';
 import '@toolbox-web/grid-react/features/selection';
 import { DataGrid, useGrid } from '@toolbox-web/grid-react';
-import type { CellCommitDetail, GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
+import type { CellCommitDetail } from '@toolbox-web/grid';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -278,7 +279,8 @@ import '@toolbox-web/grid-vue/features/editing';
 import '@toolbox-web/grid-vue/features/undo-redo';
 import '@toolbox-web/grid-vue/features/selection';
 import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
-import type { CellCommitDetail, GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
+import type { CellCommitDetail } from '@toolbox-web/grid';
 
 const gridRef = useGrid<Employee>();
 const saveDisabled = ref(true);
@@ -328,7 +330,7 @@ import '@toolbox-web/grid-angular/features/undo-redo';
 import '@toolbox-web/grid-angular/features/selection';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid],
@@ -419,7 +421,7 @@ grid.gridConfig = {
 import '@toolbox-web/grid-react/features/grouping-rows';
 import '@toolbox-web/grid-react/features/selection';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -454,7 +456,7 @@ function DepartmentGrid({ rows }) {
 import '@toolbox-web/grid-vue/features/grouping-rows';
 import '@toolbox-web/grid-vue/features/selection';
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const formatSalary = (value) => `$${value.toLocaleString()}`;
 const gridConfig: GridConfig = {
@@ -486,7 +488,7 @@ import '@toolbox-web/grid-angular/features/grouping-rows';
 import '@toolbox-web/grid-angular/features/selection';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid],
@@ -558,7 +560,7 @@ import '@toolbox-web/grid-react/features/export';
 import '@toolbox-web/grid-react/features/selection';
 import '@toolbox-web/grid-react/features/filtering';
 import { DataGrid, useGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -597,7 +599,7 @@ import '@toolbox-web/grid-vue/features/export';
 import '@toolbox-web/grid-vue/features/selection';
 import '@toolbox-web/grid-vue/features/filtering';
 import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const gridRef = useGrid<Employee>();
 
@@ -632,7 +634,7 @@ import '@toolbox-web/grid-angular/features/selection';
 import '@toolbox-web/grid-angular/features/filtering';
 import { Component, ViewChild, ElementRef } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid],
@@ -838,7 +840,7 @@ import '@toolbox-web/grid-react/features/column-virtualization';
 import '@toolbox-web/grid-react/features/multi-sort';
 import '@toolbox-web/grid-react/features/filtering';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -868,7 +870,7 @@ import '@toolbox-web/grid-vue/features/column-virtualization';
 import '@toolbox-web/grid-vue/features/multi-sort';
 import '@toolbox-web/grid-vue/features/filtering';
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -899,7 +901,7 @@ import '@toolbox-web/grid-angular/features/multi-sort';
 import '@toolbox-web/grid-angular/features/filtering';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid],

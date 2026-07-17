@@ -48,7 +48,7 @@ grid.rows = data;
 ```tsx
 import '@toolbox-web/grid-react/features/filtering';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -75,7 +75,7 @@ You can instead pass `columns={[ … ]}` and `filtering={{ … }}` as individual
 <script setup>
 import '@toolbox-web/grid-vue/features/filtering';
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const data = [
   { name: 'Alice', status: 'active', email: 'alice@example.com' },
@@ -110,7 +110,7 @@ Define everything inside `gridConfig.features`, exactly like the other framework
 import '@toolbox-web/grid-angular/features/filtering';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   selector: 'app-my-grid',
@@ -240,7 +240,7 @@ grid.gridConfig = {
 ```tsx
 import '@toolbox-web/grid-react/features/filtering';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 // React filterPanelRenderer receives only params (no container)
 // and returns JSX — the adapter bridges it automatically
@@ -298,7 +298,7 @@ function MyGrid({ data }) {
 import '@toolbox-web/grid-vue/features/filtering';
 import { TbwGrid } from '@toolbox-web/grid-vue';
 import { h } from 'vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const data = [...];
 
@@ -394,7 +394,7 @@ export class StatusFilterComponent extends BaseFilterPanel {
 // In your grid component — pass the component class as filterPanelRenderer
 import '@toolbox-web/grid-angular/features/filtering';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 import { StatusFilterComponent } from './status-filter.component';
 
 @Component({

@@ -79,7 +79,7 @@ grid.on('row-move', ({ fromIndex, toIndex }) => {
 ```tsx
 import '@toolbox-web/grid-react/features/row-drag-drop';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -111,7 +111,7 @@ You can instead pass `columns={[ … ]}` and `rowDragDrop` as individual props o
 <script setup>
 import '@toolbox-web/grid-vue/features/row-drag-drop';
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const tasks = [
   { priority: 1, task: 'Review PR', status: 'Pending' },
@@ -147,7 +147,7 @@ You can instead bind `row-drag-drop` and declare columns with `<TbwGridColumn>` 
 import '@toolbox-web/grid-angular/features/row-drag-drop';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   selector: 'app-task-list',

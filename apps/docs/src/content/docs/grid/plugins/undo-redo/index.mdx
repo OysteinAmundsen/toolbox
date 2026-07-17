@@ -49,7 +49,7 @@ grid.gridConfig = {
 import '@toolbox-web/grid-react/features/editing';
 import '@toolbox-web/grid-react/features/undo-redo';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -78,7 +78,7 @@ You can instead pass `columns={[ … ]}`, `editing={{ … }}` and `undoRedo={{ �
 import '@toolbox-web/grid-vue/features/editing';
 import '@toolbox-web/grid-vue/features/undo-redo';
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const data = [
   { name: 'Widget', price: 9.99, quantity: 10 },
@@ -115,7 +115,7 @@ import '@toolbox-web/grid-angular/features/editing';
 import '@toolbox-web/grid-angular/features/undo-redo';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   selector: 'app-my-grid',

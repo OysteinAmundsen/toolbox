@@ -58,7 +58,7 @@ grid.gridConfig = {
 ```tsx
 import '@toolbox-web/grid-react/features/context-menu';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 function MyGrid({ data, onDelete }) {
   const gridConfig: GridConfig = {
@@ -91,7 +91,7 @@ You can instead pass `columns={[ … ]}` and `contextMenu={{ … }}` as individu
 <script setup>
 import '@toolbox-web/grid-vue/features/context-menu';
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const data = [
   { name: 'Alice', email: 'alice@example.com', status: 'active' },
@@ -130,7 +130,7 @@ You can instead bind `:context-menu="{ … }"` and declare columns with `<TbwGri
 import '@toolbox-web/grid-angular/features/context-menu';
 import { Component, output } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 import type { ContextMenuItem } from '@toolbox-web/grid/plugins/context-menu';
 
 @Component({

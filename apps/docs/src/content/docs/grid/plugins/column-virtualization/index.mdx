@@ -38,7 +38,7 @@ grid.rows = data;
 ```tsx
 import '@toolbox-web/grid-react/features/column-virtualization';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 const gridConfig: GridConfig = {
   columns: generateManyColumns(100),
@@ -60,7 +60,7 @@ You can instead pass `columns={[ … ]}` and `columnVirtualization={{ … }}` as
 <script setup>
 import '@toolbox-web/grid-vue/features/column-virtualization';
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const data = [{ col0: 'Row 1', col1: 'Value 1' }, { col0: 'Row 2', col1: 'Value 2' }];
 
@@ -91,7 +91,7 @@ Define everything inside `gridConfig.features`, exactly like the other framework
 import '@toolbox-web/grid-angular/features/column-virtualization';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig, GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig, GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   selector: 'app-wide-grid',

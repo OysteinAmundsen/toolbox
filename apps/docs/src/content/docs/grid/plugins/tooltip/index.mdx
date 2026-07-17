@@ -41,7 +41,7 @@ grid.gridConfig = {
 ```tsx
 import '@toolbox-web/grid-react/features/tooltip';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -66,7 +66,7 @@ You can instead pass `columns={[ … ]}` and `tooltip` as individual props on `<
 <script setup>
 import '@toolbox-web/grid-vue/features/tooltip';
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -92,7 +92,7 @@ You can instead bind `tooltip` and declare columns with `<TbwGridColumn>` childr
 import '@toolbox-web/grid-angular/features/tooltip';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({
   selector: 'app-grid',

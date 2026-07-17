@@ -79,7 +79,7 @@ grid.gridConfig = {
 ```tsx
 import '@toolbox-web/grid-react/features/server-side';
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-react';
 import type { GetRowsParams, ServerSideDataSource } from '@toolbox-web/grid/plugins/server-side';
 
 const dataSource: ServerSideDataSource = {
@@ -115,7 +115,7 @@ You can instead pass `columns={[ … ]}` and `serverSide={{ … }}` as individua
 <script setup lang="ts">
 import '@toolbox-web/grid-vue/features/server-side';
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-vue';
 import type { GetRowsParams, ServerSideDataSource } from '@toolbox-web/grid/plugins/server-side';
 
 const dataSource: ServerSideDataSource = {
@@ -154,7 +154,7 @@ Define everything inside `gridConfig.features`, exactly like the other framework
 import '@toolbox-web/grid-angular/features/server-side';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 import type { GetRowsParams, ServerSideDataSource } from '@toolbox-web/grid/plugins/server-side';
 
 @Component({
@@ -597,7 +597,8 @@ onUnmounted(() => ws?.close());
 import { GridServerSideDirective } from '@toolbox-web/grid-angular/features/server-side';
 import { Component, effect, OnDestroy } from '@angular/core';
 import { Grid, injectGrid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig, RowTransaction } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid-angular';
+import type { RowTransaction } from '@toolbox-web/grid';
 import type { GetRowsParams, ServerSideDataSource } from '@toolbox-web/grid/plugins/server-side';
 
 interface Employee {

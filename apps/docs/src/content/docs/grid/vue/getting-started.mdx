@@ -48,13 +48,21 @@ This page covers Vue-specific setup and APIs (feature props, composables, slot r
 
 ## Setup
 
-Register the grid web component and configure Vue to recognize custom elements:
+No grid bootstrap step is required. Importing anything from `@toolbox-web/grid-vue` (the `TbwGrid` component, a composable, or any `features/*` entry) registers the `<tbw-grid>` custom element as a side effect — so you do **not** need a global `import '@toolbox-web/grid';` in `main.ts`.
+
+Import runtime values (the component, composables, providers) **and** the config types from `@toolbox-web/grid-vue`. The adapter's `GridConfig` / `ColumnConfig` widen `renderer` / `editor` to accept Vue components/slots — the base types in `@toolbox-web/grid` only accept `HTMLElement | string`, so importing them here breaks component renderers:
 
 ```typescript
-// main.ts
-import '@toolbox-web/grid';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig, ColumnConfig } from '@toolbox-web/grid-vue';
+```
 
-// Enable features via side-effect imports
+Reach into `@toolbox-web/grid` only for types the adapter doesn't re-export (event-detail types, enums, plugin option interfaces).
+
+Enable features with **co-located** side-effect imports — put them in the `.vue` component that renders the grid, not in `main.ts`:
+
+```typescript
+// Inside the grid component's <script setup>
 // Only import the features you use - this keeps your bundle small!
 import '@toolbox-web/grid-vue/features/selection';
 import '@toolbox-web/grid-vue/features/editing';
@@ -62,7 +70,7 @@ import '@toolbox-web/grid-vue/features/multi-sort';
 import '@toolbox-web/grid-vue/features/filtering';
 ```
 
-**Important**: Configure Vue to treat `tbw-*` tags as custom elements in your `vite.config.ts`:
+**Important**: The one genuine global step is telling Vue to treat `tbw-*` tags as custom elements in your `vite.config.ts`:
 
 ```typescript
 // vite.config.ts
@@ -96,7 +104,7 @@ import '@toolbox-web/grid-vue/features/multi-sort';
 import '@toolbox-web/grid-vue/features/filtering';
 
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid-vue';
 import { ref } from 'vue';
 
 interface Employee {

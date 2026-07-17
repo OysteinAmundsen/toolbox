@@ -198,5 +198,61 @@ describe('dom-builder', () => {
       expect(closeBtn!.classList.contains('tbw-tool-panel-close--inline')).toBe(false);
       expect(body.querySelector('.tbw-accordion-header-row')).toBeNull();
     });
+
+    it('skips the accordion header for a single title-less panel', () => {
+      const body = buildShellBody({
+        ...baseOpts,
+        isPanelOpen: true,
+        panels: [{ id: 'only', isExpanded: true }],
+      });
+      // Section + content still render; the header button is omitted.
+      expect(body.querySelector('[data-section="only"]')).not.toBeNull();
+      expect(body.querySelector('.tbw-accordion-content')).not.toBeNull();
+      expect(body.querySelector('.tbw-accordion-header')).toBeNull();
+    });
+
+    it('still renders the header for a single panel with a title', () => {
+      const body = buildShellBody({
+        ...baseOpts,
+        isPanelOpen: true,
+        panels: [{ id: 'only', title: 'Only', isExpanded: true }],
+      });
+      const title = body.querySelector('.tbw-accordion-title');
+      expect(body.querySelector('.tbw-accordion-header')).not.toBeNull();
+      expect(title?.textContent).toBe('Only');
+    });
+
+    it('renders a title-less header (empty title span) when multiple panels exist', () => {
+      const body = buildShellBody({
+        ...baseOpts,
+        isPanelOpen: true,
+        panels: [
+          { id: 'a', isExpanded: true },
+          { id: 'b', title: 'Panel B', isExpanded: false },
+        ],
+      });
+      const sectionA = body.querySelector('[data-section="a"]') as HTMLElement;
+      const header = sectionA.querySelector('.tbw-accordion-header');
+      // Header still present so the section can be toggled…
+      expect(header).not.toBeNull();
+      // …with an empty title span acting as a flex spacer, plus the chevron.
+      expect(sectionA.querySelector('.tbw-accordion-title')?.textContent).toBe('');
+      expect(sectionA.querySelector('.tbw-accordion-chevron')).not.toBeNull();
+    });
+
+    it('renders a standalone close row for a single title-less panel with showCloseButton', () => {
+      const body = buildShellBody({
+        ...baseOpts,
+        isPanelOpen: true,
+        showCloseButton: true,
+        panels: [{ id: 'only', isExpanded: true }],
+      });
+      const closeBtn = body.querySelector('[data-panel-close]') as HTMLButtonElement | null;
+      expect(closeBtn).not.toBeNull();
+      // No header row to inline into, so the ✕ falls back to its own header row.
+      expect(closeBtn!.classList.contains('tbw-tool-panel-close--inline')).toBe(false);
+      expect(closeBtn!.closest('.tbw-tool-panel-header')).not.toBeNull();
+      expect(body.querySelector('.tbw-accordion-header')).toBeNull();
+    });
   });
 });

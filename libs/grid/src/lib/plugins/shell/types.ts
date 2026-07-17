@@ -317,8 +317,24 @@ export interface ToolbarContentDefinition {
 export interface ToolPanelDefinition {
   /** Unique panel ID */
   id: string;
-  /** Panel title shown in accordion header */
-  title: string;
+  /**
+   * Panel title shown in the accordion header.
+   *
+   * Optional — omit it when the panel's rendered content already provides its
+   * own heading. Rendering rules for the `.tbw-accordion-header` row:
+   *
+   * - **Title given** — the header row renders as usual (icon + title + chevron).
+   * - **No title, multiple panels registered** — the header row still renders
+   *   (with an empty title span) so the accordion expand/collapse chevron and
+   *   toggle button remain available.
+   * - **No title, single panel** — the entire header row is skipped; the panel
+   *   content is shown directly.
+   *
+   * Made optional in 3.1.0 (previously required).
+   *
+   * @since 3.1.0
+   */
+  title?: string;
   /** Icon for accordion section header (optional, emoji or SVG) */
   icon?: string;
   /** Tooltip for accordion section header */

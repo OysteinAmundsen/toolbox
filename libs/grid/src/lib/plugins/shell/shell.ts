@@ -285,13 +285,20 @@ export function renderShellBody(
       : `<span class="tbw-accordion-chevron" data-icon="expand">${expandIcon}</span>`;
     // Disable accordion toggle for single panel
     const sectionClasses = `tbw-accordion-section${isExpanded ? ' expanded' : ''}${isSinglePanel ? ' single' : ''}`;
+    // Skip the header row only for a single title-less panel. With multiple
+    // panels a title-less header still renders (empty title span) so the
+    // expand/collapse chevron and toggle button remain available.
+    const renderHeader = !!panel.title || !isSinglePanel;
+    const headerHtml = renderHeader
+      ? `<button type="button" class="tbw-accordion-header" aria-expanded="${isExpanded}" aria-controls="tbw-section-${panel.id}"${isSinglePanel ? ' aria-disabled="true"' : ''}>
+          ${iconHtml}
+          <span class="tbw-accordion-title">${escapeHtml(panel.title ?? '')}</span>
+          ${chevronHtml}
+        </button>`
+      : '';
     accordionHtml += `
       <div class="${sectionClasses}" data-section="${panel.id}">
-        <button type="button" class="tbw-accordion-header" aria-expanded="${isExpanded}" aria-controls="tbw-section-${panel.id}"${isSinglePanel ? ' aria-disabled="true"' : ''}>
-          ${iconHtml}
-          <span class="tbw-accordion-title">${panel.title}</span>
-          ${chevronHtml}
-        </button>
+        ${headerHtml}
         <div class="tbw-accordion-content" id="tbw-section-${panel.id}" role="presentation"></div>
       </div>
     `;

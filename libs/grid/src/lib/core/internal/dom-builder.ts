@@ -318,7 +318,7 @@ export interface ShellBodyOptions {
   /** Sorted panels for accordion */
   panels: Array<{
     id: string;
-    title: string;
+    title?: string;
     icon?: string;
     isExpanded: boolean;
   }>;
@@ -393,45 +393,61 @@ export function buildShellBody(options: ShellBodyOptions): HTMLDivElement {
     const accordion = div('tbw-accordion');
 
     for (const panel of options.panels) {
-      const sectionClasses = `tbw-accordion-section${panel.isExpanded ? ' expanded' : ''}${isSinglePanel ? ' single' : ''}${inlineClose ? ' has-inline-close' : ''}`;
+      // The accordion header row (icon + title + chevron/toggle) is skipped
+      // only when a single title-less panel is registered — there is nothing
+      // to show and no sibling to toggle between. With multiple panels a
+      // title-less header still renders (empty title span) so the chevron and
+      // toggle button stay available.
+      const renderHeader = !!panel.title || !isSinglePanel;
+      // Inline close shares the header row; only possible when a header exists.
+      const canInlineClose = inlineClose && renderHeader;
+      const sectionClasses = `tbw-accordion-section${panel.isExpanded ? ' expanded' : ''}${isSinglePanel ? ' single' : ''}${canInlineClose ? ' has-inline-close' : ''}`;
       const section = div(sectionClasses, { 'data-section': panel.id });
 
-      // Accordion header button
-      const headerBtn = button('tbw-accordion-header', {
-        'aria-expanded': String(panel.isExpanded),
-        'aria-controls': `tbw-section-${panel.id}`,
-      });
-      if (isSinglePanel) headerBtn.setAttribute('aria-disabled', 'true');
+      if (renderHeader) {
+        // Accordion header button
+        const headerBtn = button('tbw-accordion-header', {
+          'aria-expanded': String(panel.isExpanded),
+          'aria-controls': `tbw-section-${panel.id}`,
+        });
+        if (isSinglePanel) headerBtn.setAttribute('aria-disabled', 'true');
 
-      // Icon
-      if (panel.icon) {
-        const iconSpan = createElement('span', { class: 'tbw-accordion-icon' });
-        iconSpan.innerHTML = sanitizeHTML(panel.icon);
-        headerBtn.appendChild(iconSpan);
-      }
-
-      // Title
-      const titleSpan = createElement('span', { class: 'tbw-accordion-title' });
-      titleSpan.textContent = panel.title;
-      headerBtn.appendChild(titleSpan);
-
-      // Chevron (hidden for single panel) — always use expandIcon, CSS rotation handles state
-      if (!isSinglePanel) {
-        const chevronSpan = createElement('span', { class: 'tbw-accordion-chevron', 'data-icon': 'expand' });
-        if (options.expandIcon !== undefined) {
-          chevronSpan.innerHTML = sanitizeHTML(options.expandIcon);
+        // Icon
+        if (panel.icon) {
+          const iconSpan = createElement('span', { class: 'tbw-accordion-icon' });
+          iconSpan.innerHTML = sanitizeHTML(panel.icon);
+          headerBtn.appendChild(iconSpan);
         }
-        headerBtn.appendChild(chevronSpan);
-      }
 
-      // Single-panel close button shares the header row with the panel title.
-      if (inlineClose) {
-        const headerRow = div('tbw-accordion-header-row');
-        headerRow.appendChild(headerBtn);
-        headerRow.appendChild(makeCloseButton(true));
-        section.appendChild(headerRow);
-      } else {
-        section.appendChild(headerBtn);
+        // Title (empty span kept as a flex spacer so the chevron stays right-aligned)
+        const titleSpan = createElement('span', { class: 'tbw-accordion-title' });
+        titleSpan.textContent = panel.title ?? '';
+        headerBtn.appendChild(titleSpan);
+
+        // Chevron (hidden for single panel) — always use expandIcon, CSS rotation handles state
+        if (!isSinglePanel) {
+          const chevronSpan = createElement('span', { class: 'tbw-accordion-chevron', 'data-icon': 'expand' });
+          if (options.expandIcon !== undefined) {
+            chevronSpan.innerHTML = sanitizeHTML(options.expandIcon);
+          }
+          headerBtn.appendChild(chevronSpan);
+        }
+
+        // Single-panel close button shares the header row with the panel title.
+        if (canInlineClose) {
+          const headerRow = div('tbw-accordion-header-row');
+          headerRow.appendChild(headerBtn);
+          headerRow.appendChild(makeCloseButton(true));
+          section.appendChild(headerRow);
+        } else {
+          section.appendChild(headerBtn);
+        }
+      } else if (inlineClose) {
+        // Single title-less panel with the header suppressed: the inline close
+        // button has no header row to share, so render it as a standalone row.
+        const panelHeader = div('tbw-tool-panel-header', { part: 'tool-panel-header' });
+        panelHeader.appendChild(makeCloseButton(false));
+        section.appendChild(panelHeader);
       }
 
       // Accordion content (empty, will be filled by panel render functions)

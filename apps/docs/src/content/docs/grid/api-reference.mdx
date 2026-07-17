@@ -220,7 +220,7 @@ Define a custom tool panel for the sidebar.
 | Attribute | Type     | Description                                    |
 | --------- | -------- | ---------------------------------------------- |
 | `id`      | `string` | **Required.** Unique panel identifier          |
-| `title`   | `string` | **Required.** Panel title in accordion header  |
+| `title`   | `string` | Panel title in accordion header. Optional — omit when the panel content provides its own heading. When omitted for the only registered panel, the accordion header row is skipped entirely; with multiple panels a title-less header still renders (keeping the expand/collapse toggle) |
 | `icon`    | `string` | Icon for accordion header (emoji or text)      |
 | `tooltip` | `string` | Tooltip for accordion header                   |
 | `order`   | `number` | Panel order priority (lower = first, default: 100) |

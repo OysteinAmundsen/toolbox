@@ -563,6 +563,94 @@ describe('shell module', () => {
     });
   });
 
+  describe('renderShellBody — optional tool panel title', () => {
+    const gridContentHtml = '<div class="test-grid-content"></div>';
+
+    it('skips the accordion header entirely for a single title-less panel', () => {
+      state.toolPanels.set('columns', {
+        id: 'columns',
+        icon: '☰',
+        render: () => {
+          /* noop */
+        },
+      });
+      state.isPanelOpen = true;
+
+      const html = renderShellBody(undefined, state, gridContentHtml);
+
+      // Section still renders (content is shown directly)…
+      expect(html).toContain('data-section="columns"');
+      expect(html).toContain('tbw-accordion-content');
+      // …but the header button is omitted.
+      expect(html).not.toContain('tbw-accordion-header');
+    });
+
+    it('renders the accordion header for a single panel when a title is given', () => {
+      state.toolPanels.set('columns', {
+        id: 'columns',
+        title: 'Columns',
+        render: () => {
+          /* noop */
+        },
+      });
+      state.isPanelOpen = true;
+
+      const html = renderShellBody(undefined, state, gridContentHtml);
+
+      expect(html).toContain('tbw-accordion-header');
+      expect(html).toContain('Columns');
+    });
+
+    it('renders a title-less header (empty title span) when multiple panels are registered', () => {
+      state.toolPanels.set('columns', {
+        id: 'columns',
+        render: () => {
+          /* noop */
+        },
+      });
+      state.toolPanels.set('filters', {
+        id: 'filters',
+        title: 'Filters',
+        render: () => {
+          /* noop */
+        },
+      });
+      state.isPanelOpen = true;
+
+      const html = renderShellBody(undefined, state, gridContentHtml);
+
+      // Both headers render (chevron/toggle needed to switch sections)…
+      expect(html).toContain('data-section="columns"');
+      expect(html).toContain('data-section="filters"');
+      // …and the title-less panel keeps an empty title span plus a chevron.
+      expect(html).toContain('<span class="tbw-accordion-title"></span>');
+      expect(html).toContain('tbw-accordion-chevron');
+    });
+
+    it('escapes the panel title to prevent XSS', () => {
+      state.toolPanels.set('columns', {
+        id: 'columns',
+        title: '<img src=x onerror=alert(1)>',
+        render: () => {
+          /* noop */
+        },
+      });
+      state.toolPanels.set('filters', {
+        id: 'filters',
+        title: 'Filters',
+        render: () => {
+          /* noop */
+        },
+      });
+      state.isPanelOpen = true;
+
+      const html = renderShellBody(undefined, state, gridContentHtml);
+
+      expect(html).not.toContain('<img src=x onerror=alert(1)>');
+      expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+    });
+  });
+
   describe('cleanupShellState', () => {
     it('calls all cleanup functions', () => {
       let headerCleanupCalled = false;

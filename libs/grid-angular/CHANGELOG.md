@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.0.0...grid-angular-2.1.0) (2026-07-20)
+
+
+### Features
+
+* **grid:** implement smart row diffing for efficient updates across Angular, React, and Vue adapters ([#432](https://github.com/OysteinAmundsen/toolbox/issues/432)) ([db48de7](https://github.com/OysteinAmundsen/toolbox/commit/db48de7aa50076e4ad5475e2c4090213346df944))
+
 ## [2.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-1.9.1...grid-angular-2.0.0) (2026-07-14)
 
 ### ⚠ BREAKING CHANGES

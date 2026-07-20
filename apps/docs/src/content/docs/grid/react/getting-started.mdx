@@ -678,6 +678,32 @@ function EmployeeGrid() {
 }
 ```
 
+### Smart Row Diffing
+
+When `getRowId` is configured in `gridConfig`, the adapter automatically diffs the previous and incoming `rows` array on every update. If only **values** changed — the row count and every row ID are the same — the adapter routes through `updateRows()` internally rather than replacing the whole array:
+
+- **Lighter render** — only the `VIRTUALIZATION` phase runs instead of the full `ROWS` phase.
+- **Selection preserved** — the `SelectionPlugin` only clears selection when `sourceRowCount` changes, so value-only updates keep any active selection and scroll position intact.
+
+Structural changes — rows added, removed, or **reordered**, or an ID appearing/disappearing — fall back to full replacement as before. The smart diff only runs when the row IDs match in the same order.
+
+```tsx
+// ✅ Enable smart diffing via getRowId
+<DataGrid
+  rows={employees}
+  gridConfig={{ getRowId: (r) => r.id }}
+  selection="row"
+/>
+
+// When setEmployees() is called with the same count and same IDs,
+// the adapter calls updateRows() instead of replacing grid.rows — selection stays.
+setEmployees(prev =>
+  prev.map(e => e.id === 42 ? { ...e, status: 'inactive' } : e),
+);
+```
+
+Without `getRowId` the behaviour is unchanged — every update replaces `grid.rows`.
+
 ## Performance Tips
 
 ### Memoize Config and Columns

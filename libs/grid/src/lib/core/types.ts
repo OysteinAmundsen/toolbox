@@ -3320,6 +3320,10 @@ export interface TbwScrollDetail {
  * - `'user'`: Direct user interaction via EditingPlugin (typing, selecting)
  * - `'cascade'`: Triggered by `updateRow()` in an event handler
  * - `'api'`: External programmatic update via `grid.updateRow()`
+ * - `'sync'`: Declarative data replacement from the host (e.g. a framework
+ *   adapter syncing its `rows` prop in place). Applied to the grid data but
+ *   treated as authoritative external data, NOT a user edit: data plugins
+ *   (e.g. editing) MUST NOT mark the row dirty or record undo/redo history.
  * - `'history'`: Re-application of a value by the undo/redo plugin. Data
  *   plugins (e.g. editing) apply the value but MUST NOT record a fresh
  *   history entry or mark the row changed — the undo stack owns this change.
@@ -3377,6 +3381,14 @@ export interface UpdateSourceMap {
   cascade: true;
   /** Generic programmatic mutation via the grid API (`updateRow`/`updateRows`). */
   api: true;
+  /**
+   * Declarative data replacement from the host (framework adapter syncing its
+   * `rows` prop). Applied as authoritative external data — never marked dirty
+   * or recorded in undo/redo history.
+   *
+   * @since 3.2.0
+   */
+  sync: true;
   /** Undo/redo re-application — the history stack owns the change. */
   history: true;
 }

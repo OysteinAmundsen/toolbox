@@ -25,6 +25,7 @@ import { PortalManager, type PortalManagerHandle } from './portal-manager';
 import { notifyPostMount } from './post-mount-refresh-hooks';
 import { processGridConfig, type ColumnConfig, type GridConfig } from './react-column-config';
 import { GridAdapter } from './react-grid-adapter';
+import { computeRowDiff } from './row-diff';
 import { createPluginsFromFeatures } from './use-sync-plugins';
 
 /**
@@ -422,6 +423,14 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   // (visibility, width, sort) on the next merge. Ongoing prop changes are
   // synced by the dedicated useEffects below.
   const initialSyncDoneRef = useRef(false);
+  /** Rows from the previous render — used for in-place diffing in the rows sync effect. */
+  const prevRowsRef = useRef<TRow[]>([]);
+  /**
+   * Latest getRowId function kept in a ref so the rows effect doesn't need
+   * processedGridConfig in its dependency array (which would cause it to run
+   * on every config change, not just row changes).
+   */
+  const getRowIdRef = useRef<((row: TRow) => string) | undefined>(undefined);
 
   // Get type defaults from context
   const typeDefaults = useContext(GridTypeContextInternal);
@@ -582,17 +591,56 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     return processed;
   }, [gridConfig, allPlugins, sortable, filterable, selectable, iconOverrides]);
 
+  // Keep getRowId ref current so the rows diff effect uses the latest function
+  // without needing processedGridConfig in its own dependency array.
+  useEffect(() => {
+    getRowIdRef.current = processedGridConfig?.getRowId as ((row: TRow) => string) | undefined;
+  }, [processedGridConfig]);
+
   // Sync type defaults to the global adapter
   useEffect(() => {
     const adapter = ensureAdapterRegistered();
     adapter.setTypeDefaults(typeDefaults);
   }, [typeDefaults]);
 
-  // Sync rows
+  // Sync rows — with smart diffing when getRowId is configured.
+  //
+  // When the same rows appear in the same order and only their values changed,
+  // we route through updateRows() instead of replacing el.rows entirely. This
+  // triggers only RenderPhase.VIRTUALIZATION (patching visible cells in place)
+  // rather than the heavier ROWS phase, which rebuilds the row model and
+  // re-applies sort/filter. Scroll position and the row model are preserved.
+  //
+  // Any structural change — rows added, removed, or reordered, no getRowId, or
+  // the initial load — falls through to the full el.rows = rows path.
   useEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.rows = rows;
+    const el = gridRef.current;
+    if (!el) return;
+
+    const getId = getRowIdRef.current;
+    const diff = getId ? computeRowDiff(rows, prevRowsRef.current, getId) : null;
+    prevRowsRef.current = rows;
+
+    if (diff !== null) {
+      if (diff.length > 0) {
+        // 'sync' source: authoritative host data, not a user edit — editing
+        // plugin skips dirty marking / undo history for it.
+        try {
+          el.updateRows(diff, 'sync');
+        } catch {
+          // getRowId changed in the same render as rows (the grid's row-id map
+          // is still built from the previous resolver) or an id vanished, so
+          // updateRows() can't resolve the new ids. Fall back to a full
+          // replace, which reapplies the whole array under the current resolver.
+          el.rows = rows;
+        }
+      }
+      // Same rows in the same order — skip the full el.rows assignment.
+      return;
     }
+
+    // Structural change (adds/removes/reorder), no getRowId, or initial load — full replace.
+    el.rows = rows;
   }, [rows]);
 
   // Sync gridConfig (using processed version with React wrappers)

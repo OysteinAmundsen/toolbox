@@ -545,6 +545,29 @@ function removeFirst() {
 </template>
 ```
 
+### Smart Row Diffing
+
+When `getRowId` is configured in `:grid-config`, the adapter automatically diffs the previous and incoming `:rows` binding on every update. If only **values** changed — the row count and every row ID are the same — the adapter routes through `updateRows()` internally rather than replacing the whole array:
+
+- **Lighter render** — only the `VIRTUALIZATION` phase runs instead of the full `ROWS` phase.
+- **Selection preserved** — the `SelectionPlugin` only clears selection when `sourceRowCount` changes, so value-only updates keep any active selection and scroll position intact.
+
+Structural changes — rows added, removed, or **reordered**, or an ID appearing/disappearing — fall back to full replacement as before. The smart diff only runs when the row IDs match in the same order.
+
+```html
+<TbwGrid
+  :rows="employees"
+  :grid-config="{ getRowId: (r) => String(r.id) }"
+  selection="row"
+/>
+```
+
+When `employees.value` is replaced with the same count and same IDs, the adapter calls `updateRows()` instead — selection stays.
+
+:::tip[Mutable reactive updates]
+If you mutate row properties directly (e.g. `employees.value[0].status = 'inactive'`), Vue's deep watcher still fires the adapter, which falls through to a full `grid.rows` assignment to trigger a re-render. The diff path only runs when the array reference itself changes.
+:::
+
 ## Performance Tips
 
 ### Use `markRaw` for Config Objects

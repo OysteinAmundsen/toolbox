@@ -567,6 +567,40 @@ export class EmployeeGridComponent {
 
 > **Tip**: Use Angular signals for rows. The grid detects the new array reference and re-renders efficiently.
 
+### Smart Row Diffing
+
+When `getRowId` is configured in `gridConfig`, the adapter automatically diffs the previous and incoming `rows` signal value on every update. If only **values** changed — the row count and every row ID are the same — the adapter routes through `updateRows()` internally rather than replacing the whole array:
+
+- **Lighter render** — only the `VIRTUALIZATION` phase runs instead of the full `ROWS` phase.
+- **Selection preserved** — the `SelectionPlugin` only clears selection when `sourceRowCount` changes, so value-only updates keep any active selection and scroll position intact.
+
+Structural changes — rows added, removed, or **reordered**, or an ID appearing/disappearing — fall back to full replacement as before. The smart diff only runs when the row IDs match in the same order.
+
+```typescript
+@Component({
+  template: `<tbw-grid [rows]="employees()" [gridConfig]="config"></tbw-grid>`,
+})
+export class EmployeeGridComponent {
+  // ✅ Enable smart diffing via getRowId
+  config: GridConfig = { getRowId: (r: Employee) => String(r.id) };
+
+  employees = signal([
+    { id: 1, name: 'Alice', status: 'active' },
+    { id: 2, name: 'Bob',   status: 'active' },
+  ]);
+
+  // When update() produces the same count and same IDs,
+  // the adapter calls updateRows() — selection stays.
+  markInactive(id: number) {
+    this.employees.update(rows =>
+      rows.map(e => e.id === id ? { ...e, status: 'inactive' } : e)
+    );
+  }
+}
+```
+
+Without `gridConfig.getRowId` the behaviour is unchanged — every signal change replaces `grid.rows`.
+
 ## Performance Tips
 
 ### OnPush Change Detection

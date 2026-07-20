@@ -10,6 +10,7 @@ import {
   OnDestroy,
   OnInit,
   output,
+  untracked,
   ViewContainerRef,
 } from '@angular/core';
 import type {
@@ -40,6 +41,7 @@ import { createPluginFromFeature, type FeatureName } from '../feature-registry';
 import { GridIconRegistry } from '../grid-icon-registry';
 import { getFeatureClaim, isEventClaimed } from '../internal/feature-claims';
 import { getFeatureConfigPreprocessor, runTemplateBridges } from '../internal/feature-extensions';
+import { computeRowDiff } from './row-diff';
 
 /**
  * Event detail for cell commit events.
@@ -142,6 +144,12 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
 
   private adapter: GridAdapter | null = null;
 
+  /**
+   * Previous rows snapshot for in-place diffing — kept in sync by the rows
+   * effect. Plain field so Angular's signal tracking ignores it.
+   */
+  private prevRows: unknown[] = [];
+
   constructor() {
     // Effect to process gridConfig and apply to grid
     // This merges feature input plugins with the user's config plugins
@@ -214,11 +222,43 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     });
 
     // Effect to sync rows to the grid element
+    //
+    // Smart diff: when getRowId is configured and the same rows appear in the
+    // same order with only their values changed, route through updateRows() to
+    // patch in-place. This triggers only RenderPhase.VIRTUALIZATION instead of
+    // the heavier ROWS phase, which rebuilds the row model and re-applies
+    // sort/filter. Mirrors the React and Vue adapters.
     effect(() => {
       const rowsValue = this.rows();
       if (rowsValue === undefined) return;
 
       const grid = this.elementRef.nativeElement;
+      const prev = this.prevRows;
+      // Read getRowId without registering as a signal dependency so this effect
+      // only re-runs on rows changes, not on every gridConfig change.
+      const getId = untracked(() => this.gridConfig()?.getRowId) as ((row: unknown) => string) | undefined;
+      this.prevRows = rowsValue;
+
+      if (getId) {
+        const diff = computeRowDiff(rowsValue, prev, getId);
+        if (diff !== null) {
+          if (diff.length > 0) {
+            // 'sync' source: authoritative host data, not a user edit — editing
+            // plugin skips dirty marking / undo history for it.
+            try {
+              grid.updateRows(diff, 'sync');
+            } catch {
+              // getRowId changed alongside rows (grid still resolving ids with
+              // the previous resolver) or an id vanished — fall back to a full
+              // replace, which reapplies the whole array under the current resolver.
+              grid.rows = rowsValue;
+            }
+          }
+          return;
+        }
+      }
+
+      // Structural change (adds/removes/reorder), no getRowId, or initial load — full replace.
       grid.rows = rowsValue;
     });
 

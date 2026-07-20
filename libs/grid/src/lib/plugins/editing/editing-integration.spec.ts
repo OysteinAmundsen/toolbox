@@ -3193,6 +3193,34 @@ describe('EditingPlugin', () => {
       expect(undoPlugin.canUndo()).toBe(true);
     });
 
+    it("source 'sync' updates values but does NOT mark the row dirty or record undo history", async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'click', dirtyTracking: true });
+      const undoPlugin = new UndoRedoPlugin();
+      grid.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name', editable: true },
+          { field: 'age', header: 'Age', type: 'number' },
+        ],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin, undoPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+      await waitUpgrade(grid);
+
+      expect(editingPlugin.isDirty('1')).toBe(false);
+      expect(undoPlugin.canUndo()).toBe(false);
+
+      // Declarative host sync (a framework adapter replacing its `rows` prop).
+      // The value is applied but treated as authoritative external data — NOT a
+      // user edit — so the row is not marked dirty and no undo history is recorded.
+      grid.updateRows([{ id: '1', changes: { name: 'Alice-synced' } }], 'sync');
+      await nextFrame();
+
+      expect(grid._rows[0].name).toBe('Alice-synced');
+      expect(editingPlugin.isDirty('1')).toBe(false);
+      expect(undoPlugin.canUndo()).toBe(false);
+    });
+
     it('undo reverts a programmatic mutation and restores pristine state (no re-record loop)', async () => {
       const editingPlugin = new EditingPlugin({ editOn: 'click', dirtyTracking: true });
       const undoPlugin = new UndoRedoPlugin();

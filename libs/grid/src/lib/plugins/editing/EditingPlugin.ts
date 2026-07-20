@@ -738,6 +738,27 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const rowData =
       (ctx.rowId != null ? internalGrid._getRowEntry(ctx.rowId)?.row : undefined) ??
       (internalGrid._rows?.[ctx.rowIndex] as T | undefined);
+
+    if (ctx.source === 'sync') {
+      // Declarative host sync (a framework adapter replacing its `rows` prop in
+      // place). Authoritative external data, NOT a user edit: apply the value and
+      // re-baseline the cell so the new value is the pristine truth — the row is
+      // never marked dirty and no undo/redo history is recorded (and no cascade).
+      // Handled before the column guard so non-column fields (dirty tracking
+      // snapshots the whole row) are re-baselined too.
+      if (!rowData || !isSafePropertyKey(ctx.field)) return undefined;
+      (rowData as Record<string, unknown>)[ctx.field] = ctx.newValue;
+      invalidateAccessorCache(rowData as object, ctx.field);
+      const rowId = this.#safeGetRowId(rowData);
+      if (rowId && this.config.dirtyTracking) {
+        this.#dirty.rebaselineCell(rowId, ctx.field, ctx.newValue);
+        const stillDirty = this.#dirty.isRowDirty(rowId, rowData);
+        if (!stillDirty) this.#dirty.changedRowIds.delete(rowId);
+        this.#emitDirtyChange(rowId, rowData, stillDirty ? 'modified' : 'pristine');
+      }
+      return true;
+    }
+
     if (!column || !rowData || !isSafePropertyKey(ctx.field)) return undefined; // core applies directly
 
     if (ctx.source === 'history') {
@@ -1015,8 +1036,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           const field = column?.field ?? '';
           const value = field && row ? (row as Record<string, unknown>)[field] : undefined;
           const cellEl = this.gridElement.querySelector(`[data-row="${focusRow}"][data-col="${focusCol}"]`) as
-            | HTMLElement
-            | undefined;
+            HTMLElement | undefined;
 
           const activateEvent = new CustomEvent('cell-activate', {
             cancelable: true,
@@ -2266,10 +2286,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         }
 
         const input = cell.querySelector('input,textarea,select') as
-          | HTMLInputElement
-          | HTMLTextAreaElement
-          | HTMLSelectElement
-          | null;
+          HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
         if (input) {
           const field = col.field as keyof T;
           const originalValue = current[field];

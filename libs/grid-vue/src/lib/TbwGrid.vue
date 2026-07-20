@@ -83,6 +83,7 @@ import { setTeleportManager } from './teleport-bridge';
 import { TeleportManager, type TeleportManagerHandle } from './teleport-manager';
 import { GRID_ELEMENT_KEY } from './use-grid';
 import { notifyPostMount } from './post-mount-refresh-hooks';
+import { computeRowDiff } from './row-diff';
 import { GridAdapter } from './vue-grid-adapter';
 
 // Track if adapter is registered
@@ -529,9 +530,15 @@ const mergedConfig = computed<GridConfig<TRow> | undefined>(() => {
 // Unsubscribe functions for grid event listeners
 const eventCleanups: (() => void)[] = [];
 
+/**
+ * Previous rows snapshot for in-place diffing (see rows watcher below).
+ * Not reactive — plain variable so Vue doesn't track it.
+ */
+let prevRowsSnapshot: TRow[] = [];
+
 // Setup and cleanup
 onMounted(() => {
-  const grid = gridRef.value as unknown as HTMLElement & DataGridElement<TRow>;
+  const grid = gridRef.value;
   if (!grid) return;
 
   // Attach the framework adapter to the grid element
@@ -560,6 +567,7 @@ onMounted(() => {
   // Set initial data
   if (props.rows.length > 0) {
     grid.rows = props.rows;
+    prevRowsSnapshot = props.rows;
   }
   if (mergedConfig.value) {
     // Process through adapter before passing to grid
@@ -627,12 +635,53 @@ onBeforeUnmount(() => {
 });
 
 // Watch for prop changes
+//
+// Smart diff: when getRowId is configured and the same rows appear in the same
+// order with only their values changed, route through updateRows() to patch
+// in-place. This triggers only RenderPhase.VIRTUALIZATION instead of the
+// heavier ROWS phase (which rebuilds the row model and re-applies sort/filter).
+// Mirrors the React and Angular adapters.
+//
+// When Vue detects a deep mutation (newRows === oldRows — same array reference),
+// the grid objects already share the reference so values are current; we still
+// need to trigger a re-render via the normal rows setter.
 watch(
   () => props.rows,
-  (newRows) => {
-    if (gridRef.value) {
-      gridRef.value.rows = newRows;
+  (newRows, oldRows) => {
+    const grid = gridRef.value;
+    if (!grid) return;
+
+    // Deep in-place mutation: Vue fired the watcher but newRows/oldRows are the
+    // same reference. Grid row objects are shared, so just trigger a re-render.
+    if (newRows === oldRows) {
+      grid.rows = newRows;
+      prevRowsSnapshot = newRows;
+      return;
     }
+
+    // New array reference: attempt value-only diff.
+    const getId = mergedConfig.value?.getRowId as ((row: TRow) => string) | undefined;
+    const diff = getId ? computeRowDiff(newRows, prevRowsSnapshot, getId) : null;
+
+    if (diff !== null) {
+      if (diff.length > 0) {
+        // 'sync' source: authoritative host data, not a user edit — editing
+        // plugin skips dirty marking / undo history for it.
+        try {
+          grid.updateRows(diff, 'sync');
+        } catch {
+          // getRowId changed alongside rows (grid still resolving ids with the
+          // previous resolver) or an id vanished — fall back to a full replace.
+          grid.rows = newRows;
+        }
+      }
+      prevRowsSnapshot = newRows;
+      return;
+    }
+
+    // Structural change (adds/removes/reorder), no getRowId, or initial load — full replace.
+    grid.rows = newRows;
+    prevRowsSnapshot = newRows;
   },
   { deep: true },
 );

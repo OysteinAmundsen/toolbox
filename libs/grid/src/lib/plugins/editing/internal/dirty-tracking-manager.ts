@@ -135,6 +135,19 @@ export class DirtyTrackingManager<T> {
     this.committedDirtyRowIds.delete(rowId);
   }
 
+  /**
+   * Update a single field's baseline to an externally-synced value.
+   *
+   * Used for `source: 'sync'` (declarative host data replacement): the incoming
+   * value becomes the new pristine truth for that cell without touching other
+   * fields' baselines or the row's dirty membership sets. No-op when the row has
+   * no captured baseline (an untracked row is not dirty anyway).
+   */
+  rebaselineCell(rowId: string, field: string, value: unknown): void {
+    const baseline = this.baselines.get(rowId);
+    if (baseline) (baseline as Record<string, unknown>)[field] = value;
+  }
+
   /** Mark a row as newly inserted (no baseline). */
   markNew(rowId: string): void {
     this.newRowIds.add(rowId);

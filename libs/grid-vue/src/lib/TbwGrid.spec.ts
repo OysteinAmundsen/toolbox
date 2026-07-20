@@ -12,7 +12,7 @@
  * @vitest-environment happy-dom
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createApp, defineComponent, h, inject, nextTick, type App } from 'vue';
+import { createApp, defineComponent, h, inject, nextTick, ref, type App } from 'vue';
 import TbwGrid from './TbwGrid.vue';
 import { getTeleportManager, renderToContainer } from './teleport-bridge';
 
@@ -161,5 +161,111 @@ describe('TbwGrid integration', () => {
     expect(cols[0]).toMatchObject({ field: 'a', sortable: true, resizable: true });
     // Individual prop wins over default
     expect(cols[1]).toMatchObject({ field: 'b', sortable: false, resizable: true });
+  });
+});
+
+type DiffRow = { id: number; name: string };
+
+/**
+ * Smart row diffing: when `getRowId` is configured and only values changed
+ * (same count, same IDs, same order), the adapter routes through
+ * `grid.updateRows(..., 'sync')` instead of reassigning `grid.rows`. Structural
+ * changes (add / remove / reorder) fall back to the full `grid.rows` replace.
+ */
+describe('TbwGrid smart row diffing', () => {
+  let mountEl: HTMLElement;
+  let app: App;
+
+  beforeEach(() => {
+    mountEl = document.createElement('div');
+    document.body.appendChild(mountEl);
+  });
+
+  afterEach(() => {
+    try {
+      app?.unmount();
+    } catch {
+      /* ignore */
+    }
+    document.body.innerHTML = '';
+  });
+
+  async function mountWithSpies(initial: DiffRow[]) {
+    const gridConfig = {
+      columns: [{ field: 'id' }, { field: 'name' }],
+      getRowId: (r: DiffRow) => String(r.id),
+    };
+    const rowsRef = ref<DiffRow[]>(initial);
+    app = createApp({
+      setup() {
+        return () => h(TbwGrid, { rows: rowsRef.value, gridConfig });
+      },
+    });
+    app.mount(mountEl);
+    await nextTick();
+    await nextTick();
+
+    const gridEl = mountEl.querySelector('tbw-grid') as HTMLElement;
+    expect(gridEl).not.toBeNull();
+
+    // Record updateRows() calls (do not call through — we only assert routing).
+    const updateRowsCalls: Array<[unknown, unknown]> = [];
+    (gridEl as unknown as { updateRows: unknown }).updateRows = (updates: unknown, source?: unknown) => {
+      updateRowsCalls.push([updates, source]);
+    };
+
+    // Count writes to the `rows` setter from this point (post-mount).
+    let rowsSetCount = 0;
+    const proto = Object.getPrototypeOf(gridEl);
+    const desc = Object.getOwnPropertyDescriptor(proto, 'rows')!;
+    Object.defineProperty(gridEl, 'rows', {
+      configurable: true,
+      get: desc.get,
+      set(value) {
+        rowsSetCount++;
+        desc.set!.call(this, value);
+      },
+    });
+
+    return {
+      updateRowsCalls,
+      getRowsSetCount: () => rowsSetCount,
+      setRows: async (r: DiffRow[]) => {
+        rowsRef.value = r;
+        await nextTick();
+        await nextTick();
+      },
+    };
+  }
+
+  it("routes a value-only change through updateRows(..., 'sync') without reassigning grid.rows", async () => {
+    const spies = await mountWithSpies([
+      { id: 1, name: 'a' },
+      { id: 2, name: 'b' },
+    ]);
+
+    await spies.setRows([
+      { id: 1, name: 'A' },
+      { id: 2, name: 'b' },
+    ]);
+
+    expect(spies.updateRowsCalls.length).toBe(1);
+    expect(spies.updateRowsCalls[0][1]).toBe('sync');
+    expect(spies.getRowsSetCount()).toBe(0);
+  });
+
+  it('falls back to grid.rows assignment for a structural change (reorder)', async () => {
+    const spies = await mountWithSpies([
+      { id: 1, name: 'a' },
+      { id: 2, name: 'b' },
+    ]);
+
+    await spies.setRows([
+      { id: 2, name: 'b' },
+      { id: 1, name: 'a' },
+    ]);
+
+    expect(spies.updateRowsCalls.length).toBe(0);
+    expect(spies.getRowsSetCount()).toBeGreaterThan(0);
   });
 });

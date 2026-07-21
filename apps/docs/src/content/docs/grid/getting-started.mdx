@@ -613,6 +613,46 @@ grid.on('cell-commit', ({ row, field, value }) => {
 });
 ```
 
+### Nested fields
+
+A column `field` can be a **dotted path** into nested row data — it is read and
+written without a `valueAccessor`:
+
+```typescript
+interface Deal {
+  id: string;
+  deal: {
+    capture: { field: string; comments: string[] };
+    otherStuff: { other: string };
+  };
+}
+
+const columns: ColumnConfig<Deal>[] = [
+  { field: 'deal.capture.field' },
+  { field: 'deal.capture.comments', renderer: (ctx) => (ctx.value as string[]).join(', ') },
+  { field: 'deal.otherStuff.other' },
+];
+```
+
+Dotted paths work everywhere a plain field does — display, sort, filter, export,
+editing, and undo/redo. Rules worth knowing:
+
+- If a column defines a `valueAccessor`, it still wins over the dotted-path read.
+- If a row literally has an own property named `'deal.comments'` (a flat key
+  containing a dot), that flat value is used instead of traversing.
+- By default `field` accepts **any** string (dotted paths compile with zero
+  config) while still autocompleting top-level keys. For strict compile-time
+  validation of the full path, opt in with the `NestedPaths` helper:
+
+  ```typescript
+  import type { GridConfig, NestedPaths } from '@toolbox-web/grid';
+
+  // Typos anywhere in the path are now compile errors.
+  const config: GridConfig<Deal, NestedPaths<Deal>> = {
+    columns: [{ field: 'deal.capture.field' }],
+  };
+  ```
+
 ## Next Steps
 
 Now that you have the grid set up, explore:

@@ -12,6 +12,7 @@
  * @internal
  */
 
+import { writeCellField } from '../../../core/internal/value-accessor';
 import {
   captureBaselines,
   getOriginalRow,
@@ -145,7 +146,7 @@ export class DirtyTrackingManager<T> {
    */
   rebaselineCell(rowId: string, field: string, value: unknown): void {
     const baseline = this.baselines.get(rowId);
-    if (baseline) (baseline as Record<string, unknown>)[field] = value;
+    if (baseline) writeCellField(baseline, field, value);
   }
 
   /** Mark a row as newly inserted (no baseline). */

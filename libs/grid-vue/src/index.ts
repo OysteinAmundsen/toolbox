@@ -85,6 +85,9 @@ export type { ColumnShorthand } from './lib/column-shorthand';
 // Configuration types
 export type { CellEditor, CellRenderer, ColumnConfig, GridConfig } from './lib/vue-column-config';
 
+// Field-key types for nested dotted-path columns (issue #438)
+export type { ColumnFieldKey, NestedPaths } from '@toolbox-web/grid';
+
 // Feature props types for declarative plugin configuration
 export type {
   AllFeatureProps,

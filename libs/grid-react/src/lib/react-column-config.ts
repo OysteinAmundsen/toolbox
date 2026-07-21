@@ -3,6 +3,7 @@ import type {
   GridConfig as BaseGridConfig,
   CellRenderContext,
   ColumnEditorContext,
+  ColumnFieldKey,
   EmptyContext,
   HeaderCellContext,
   HeaderLabelContext,
@@ -41,8 +42,8 @@ import { removeFromContainer, renderToContainer } from './portal-bridge';
  * ```
  * @since 0.0.1
  */
-export interface ColumnConfig<TRow = unknown> extends Omit<
-  BaseColumnConfig<TRow>,
+export interface ColumnConfig<TRow = unknown, TField extends string = ColumnFieldKey<TRow>> extends Omit<
+  BaseColumnConfig<TRow, TField>,
   'renderer' | 'viewRenderer' | 'editor' | 'headerRenderer' | 'headerLabelRenderer'
 > {
   /**
@@ -98,8 +99,11 @@ export interface ColumnConfig<TRow = unknown> extends Omit<
  * ```
  * @since 0.0.1
  */
-export type GridConfig<TRow = unknown> = Omit<BaseGridConfig<TRow>, 'columns' | 'loadingRenderer' | 'emptyRenderer'> & {
-  columns?: ColumnConfig<TRow>[];
+export type GridConfig<TRow = unknown, TField extends string = ColumnFieldKey<TRow>> = Omit<
+  BaseGridConfig<TRow, TField>,
+  'columns' | 'loadingRenderer' | 'emptyRenderer'
+> & {
+  columns?: ColumnConfig<TRow, TField>[];
   /**
    * Custom loading renderer - can be a vanilla DOM function or a React render function returning JSX.
    */

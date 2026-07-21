@@ -35,6 +35,9 @@ export type {
   TypeDefault,
 } from './lib/angular-column-config';
 
+// Field-key types for nested dotted-path columns (issue #438)
+export type { ColumnFieldKey, NestedPaths } from '@toolbox-web/grid';
+
 // Type registry for application-wide type defaults
 export { GRID_TYPE_DEFAULTS, GridTypeRegistry, provideGridTypeDefaults } from './lib/grid-type-registry';
 export type { TypeDefaultRegistration } from './lib/grid-type-registry';

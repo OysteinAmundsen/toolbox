@@ -26,9 +26,133 @@ interface CacheBox {
 }
 const accessorCache = new WeakMap<object, Map<string, CacheBox>>();
 
+// #region Nested dotted-path field access (issue #438)
+
+// Prototype-pollution guard applied to every path segment on read AND write.
+// Uses explicit `===` comparisons (not a Set lookup) so static analyzers
+// recognize the barrier guarding the assignments in `setByPath`/`writeCellField`.
+function isUnsafeKey(key: string): boolean {
+  return key === '__proto__' || key === 'constructor' || key === 'prototype';
+}
+
+// Parsed dotted-path cache: field string → segments, or `null` when the field
+// is a plain (non-dotted) key. Field strings are few and heavily reused across
+// every row/render, so a module-level Map amortizes the split to once per
+// unique field. Plain fields resolve to a cached `null` after first parse, so
+// the hot path stays a single Map lookup with no per-cell string scanning.
+const fieldPathCache = new Map<string, readonly string[] | null>();
+
+/**
+ * Parse a column `field` into path segments, or `null` when it is a plain
+ * top-level key (contains no `.`). Result is memoized.
+ *
+ * @param field - The column field key (may be a dotted path like `a.b.c`).
+ * @returns Frozen segment array for dotted paths, else `null`.
+ * @since 3.3.0
+ */
+export function parseFieldPath(field: string): readonly string[] | null {
+  const cached = fieldPathCache.get(field);
+  if (cached !== undefined) return cached;
+  const segments = field.includes('.') ? Object.freeze(field.split('.')) : null;
+  fieldPathCache.set(field, segments);
+  return segments;
+}
+
+/**
+ * Read a nested value from `row` by pre-parsed path segments. Returns
+ * `undefined` on any nullish/non-object hop. Prototype-pollution safe.
+ *
+ * @since 3.3.0
+ */
+export function getByPath(row: unknown, path: readonly string[]): unknown {
+  let cur = row as Record<string, unknown> | null | undefined;
+  for (let i = 0; i < path.length; i++) {
+    if (cur == null || typeof cur !== 'object') return undefined;
+    const seg = path[i];
+    if (isUnsafeKey(seg)) return undefined;
+    cur = cur[seg] as Record<string, unknown>;
+  }
+  return cur;
+}
+
+/**
+ * Write `value` into `row` at the location described by pre-parsed path
+ * segments. Walks **existing** objects only — it does NOT fabricate missing
+ * intermediates — and returns `true` only when the write happened.
+ * Prototype-pollution safe (every segment is guarded).
+ *
+ * @since 3.3.0
+ */
+export function setByPath(row: unknown, path: readonly string[], value: unknown): boolean {
+  if (row == null || typeof row !== 'object') return false;
+  let cur = row as Record<string, unknown>;
+  for (let i = 0; i < path.length - 1; i++) {
+    const seg = path[i];
+    if (isUnsafeKey(seg)) return false;
+    const next = cur[seg];
+    if (next == null || typeof next !== 'object') return false;
+    cur = next as Record<string, unknown>;
+  }
+  const last = path[path.length - 1];
+  if (isUnsafeKey(last)) return false;
+  cur[last] = value;
+  return true;
+}
+
+/**
+ * Read the raw stored value for `field` from `row`, honoring nested dotted
+ * paths — the non-accessor counterpart to {@link resolveCellValue}.
+ *
+ * Resolution rules (back-compat critical, see `grid-core.md` DECIDED #438):
+ * 1. Plain field (no `.`) → direct `row[field]` (identical to legacy path),
+ *    except prototype-polluting keys (`__proto__`/`constructor`/`prototype`)
+ *    which return `undefined` — symmetric with {@link writeCellField}.
+ * 2. Dotted field whose literal key is an **own property** of `row` → that
+ *    flat value wins (preserves synthetic-key rows that really store `'a.b'`).
+ * 3. Otherwise → nested traversal via {@link getByPath}.
+ *
+ * @since 3.3.0
+ */
+export function readCellField(row: unknown, field: string): unknown {
+  if (row == null) return undefined;
+  const path = parseFieldPath(field);
+  const r = row as Record<string, unknown>;
+  if (path === null) return isUnsafeKey(field) ? undefined : r[field];
+  if (Object.prototype.hasOwnProperty.call(r, field)) return r[field];
+  return getByPath(r, path);
+}
+
+/**
+ * Write `value` into `row` for `field`, honoring nested dotted paths and the
+ * same back-compat precedence as {@link readCellField}. Returns `true` when a
+ * write occurred. Prototype-pollution safe.
+ *
+ * @since 3.3.0
+ */
+export function writeCellField(row: unknown, field: string, value: unknown): boolean {
+  if (row == null || typeof row !== 'object') return false;
+  const path = parseFieldPath(field);
+  const r = row as Record<string, unknown>;
+  if (path === null) {
+    if (isUnsafeKey(field)) return false;
+    r[field] = value;
+    return true;
+  }
+  // A literal own key containing a dot wins over traversal (symmetric with
+  // readCellField). Such a key always contains `.`, so it can never be an
+  // unsafe prototype key.
+  if (Object.prototype.hasOwnProperty.call(r, field)) {
+    r[field] = value;
+    return true;
+  }
+  return setByPath(r, path, value);
+}
+
+// #endregion
+
 /**
  * Resolve the cell value for a column, honoring `valueAccessor` if defined,
- * otherwise reading `row[column.field]`.
+ * otherwise reading `row[column.field]` (with nested dotted-path support).
  *
  * @param row - The row object
  * @param column - The column definition
@@ -43,7 +167,7 @@ const accessorCache = new WeakMap<object, Map<string, CacheBox>>();
  */
 export function resolveCellValue<TRow>(row: TRow, column: ColumnConfig<TRow>, rowIndex = -1): unknown {
   if (!column.valueAccessor) {
-    return (row as Record<string, unknown> | null | undefined)?.[column.field];
+    return readCellField(row, column.field);
   }
   // Non-object rows (primitives, null) bypass the cache.
   if (typeof row !== 'object' || row === null) {

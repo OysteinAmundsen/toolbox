@@ -8,6 +8,7 @@
 import { GridClasses } from '../../core/constants';
 import { NO_TRANSACTION, throwDiagnostic } from '../../core/internal/diagnostics';
 import { FOCUSABLE_EDITOR_SELECTOR } from '../../core/internal/rows';
+import { writeCellField } from '../../core/internal/value-accessor';
 import { BaseGridPlugin, type GridElement, type PluginDependency } from '../../core/plugin/base-plugin';
 import type { GridHost } from '../../core/types';
 import {
@@ -143,7 +144,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     }
 
     // Fallback: direct mutation (editors won't see the change during editing)
-    row[action.field] = value;
+    writeCellField(row, action.field, value);
   }
 
   /**

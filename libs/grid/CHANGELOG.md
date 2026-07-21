@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.2.1...grid-3.3.0) (2026-07-21)
+
+
+### Features
+
+* **grid:** make missing-plugin/dependency console hints match the user's config style (plugins vs features) ([67de6a0](https://github.com/OysteinAmundsen/toolbox/commit/67de6a035ae124363f72920d65e9f3c93c2632cf))
+* **grid:** support nested dotted-path field access ([#438](https://github.com/OysteinAmundsen/toolbox/issues/438)) ([#439](https://github.com/OysteinAmundsen/toolbox/issues/439)) ([21a0a58](https://github.com/OysteinAmundsen/toolbox/commit/21a0a58572bfd3511496cd3d6ca2dc07532c1a15))
+
+
+### Bug Fixes
+
+* **adapters:** support optional tool panel title ([#430](https://github.com/OysteinAmundsen/toolbox/issues/430) follow-up) ([8c7c7ed](https://github.com/OysteinAmundsen/toolbox/commit/8c7c7ed8cf2a925dadfd5545a8f35a3de1072a21))
+* **grid-angular:** enable OXC legacy decorators for vitest ([bc29434](https://github.com/OysteinAmundsen/toolbox/commit/bc29434f1bc24141d03a2dcc46c8863c21e1f0fe))
+* **grid:** invalidate whole-row valueAccessor cache on in-place updates so off-field accessors re-render ([#436](https://github.com/OysteinAmundsen/toolbox/issues/436)) ([bb46ca6](https://github.com/OysteinAmundsen/toolbox/commit/bb46ca6a7544f16955777a2bce98d6957651843e))
+
 ## [3.2.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.2.0...grid-3.2.1) (2026-07-21)
 
 

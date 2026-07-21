@@ -551,6 +551,12 @@ export default defineConfig(({ command }) => ({
       include: ['src/**/*.bench.ts'],
     },
     setupFiles: ['./test/setup.ts'],
+    // Some integration specs do an in-body `await import(...)` of a plugin/feature
+    // module to trigger lazy factory registration. Under a saturated CI run the
+    // cold OXC (vite 8) transform of that module can exceed the default 5s test
+    // timeout, causing spurious timeouts (e.g. empty-state / server-side specs).
+    // A higher ceiling absorbs that transform cost without masking real hangs.
+    testTimeout: 15000,
     reporters: process.env.CI
       ? [
           'default',

@@ -8,6 +8,13 @@ const gridSrcPath = path.resolve(import.meta.dirname, '../../libs/grid/src');
 export default defineConfig({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/grid-angular',
+  // Vite 8 transforms TS via OXC (rolldown), which — unlike the Angular compiler —
+  // does not read `experimentalDecorators` from tsconfig and defaults to the TC39
+  // standard-decorator semantics. That leaves Angular's `@Directive`/`@Component`
+  // decorators inline in the SSR module output, producing `SyntaxError: Invalid or
+  // unexpected token` when the spec loads. Enabling legacy decorators restores the
+  // experimental-decorator emit Angular expects at runtime.
+  oxc: { decorator: { legacy: true } },
   test: {
     name: '@toolbox-web/grid-angular',
     watch: false,

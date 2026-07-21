@@ -7,6 +7,10 @@ related: [adapters, adapters-react, adapters-vue, grid-core, grid-features, buil
 
 > Shared adapter facts (conformance, parity, bridge registries, event/feature wiring, shell-content wrappers) live in [adapters.md](adapters.md).
 
+## vitest transform (vite 8 = rolldown/oxc)
+
+- DECIDED (Jul 2026): `libs/grid-angular/vitest.config.mts` MUST set `oxc: { decorator: { legacy: true } }`. WHY: vite 8 (`rolldown-vite`) transforms TS with **OXC, not esbuild**, and OXC does NOT read `experimentalDecorators` from tsconfig (Angular's real build uses the Angular compiler, which does). Without `legacy: true`, OXC treats `@Directive`/`@Component` as TC39-standard decorators and leaves them **inline** in the SSR module output; vite's import-rewrite then mangles them into `@(0,__vite_ssr_import_0__.Directive)(...)` → every spec importing a decorated class dies at load with `SyntaxError: Invalid or unexpected token` (28 suites, 0 tests). RULED OUT: adding `experimentalDecorators` to tsconfig (OXC ignores it / resolves the wrong tsconfig — grid-angular `tsconfig.json` has `include: []`); `esbuild.tsconfigRaw` in the vitest config (vite 8's `convertEsbuildConfigToOxcConfig` maps only jsx/define/banner/footer, drops `tsconfigRaw`). Regression trigger: dep bump to vite 8.1.5 / rolldown (#439). Guard: whole grid-angular suite fails to load if removed.
+
 ## angular-adapter
 
 - OWNS: `viewRefs`, `componentRefs`, per-cell editor tracking

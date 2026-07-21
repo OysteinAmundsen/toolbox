@@ -11,7 +11,7 @@
  * can never live outside the grid).
  */
 import type { CellChangeDetail, GridHost, RowTransaction, TransactionResult, UpdateSource } from '../types';
-import { MISSING_ROW_ID, ROW_NOT_FOUND, throwDiagnostic } from './diagnostics';
+import { MISSING_ROW_ID, ROW_NOT_FOUND, throwDiagnostic, warnDiagnostic } from './diagnostics';
 import { RenderPhase } from './render-scheduler';
 import { animateRow } from './row-animation';
 import { invalidateCellCache } from './rows';
@@ -117,6 +117,7 @@ export class RowManager<T = any> {
       const responses = grid.query?.<boolean>('commitCellValue', {
         rowIndex: index,
         rowId: id,
+        row,
         field,
         oldValue,
         newValue,
@@ -161,13 +162,18 @@ export class RowManager<T = any> {
 
   updateRow(id: string, changes: Partial<T>, source: UpdateSource = 'api'): void {
     const grid = this.#grid;
-    const entry = grid._getRowEntry(id);
+    // Resolve from the full source dataset — not just the visible `_rows` — so a
+    // row that is filtered/paged out of view can still be updated.
+    const entry = grid._getSourceRowEntry(id);
     if (!entry) {
-      throwDiagnostic(
+      // The row exists in neither the view nor the source data. Warn instead of
+      // throwing so a single stale ID can never crash the grid.
+      warnDiagnostic(
         ROW_NOT_FOUND,
         `Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
         grid.id,
       );
+      return;
     }
 
     const { row, index } = entry;
@@ -192,13 +198,17 @@ export class RowManager<T = any> {
     let anyChanged = false;
 
     for (const { id, changes } of updates) {
-      const entry = grid._getRowEntry(id);
+      // Resolve from the full source dataset so filtered/paged-out rows update too.
+      const entry = grid._getSourceRowEntry(id);
       if (!entry) {
-        throwDiagnostic(
+        // Warn and skip this row instead of throwing — the rest of the batch
+        // (and the grid) must survive an unresolvable ID.
+        warnDiagnostic(
           ROW_NOT_FOUND,
           `Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
           grid.id,
         );
+        continue;
       }
 
       const { row, index } = entry;

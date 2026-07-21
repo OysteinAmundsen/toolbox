@@ -1185,8 +1185,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Returns a factory function that tries each adapter in order until one handles the element.
    */
   #getToolPanelRendererFactory():
-    | ((element: HTMLElement) => ((container: HTMLElement) => void | (() => void)) | undefined)
-    | undefined {
+    ((element: HTMLElement) => ((container: HTMLElement) => void | (() => void)) | undefined) | undefined {
     const adapters = DataGridElement.getAdapters();
     if (adapters.length === 0 && !this.__frameworkAdapter) return undefined;
 
@@ -1241,8 +1240,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * adapters. Generic adapter capability (not shell-specific).
    */
   _getToolPanelRendererFactory():
-    | ((element: HTMLElement) => ((container: HTMLElement) => void | (() => void)) | undefined)
-    | undefined {
+    ((element: HTMLElement) => ((container: HTMLElement) => void | (() => void)) | undefined) | undefined {
     return this.#getToolPanelRendererFactory();
   }
   // #endregion
@@ -3290,14 +3288,49 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
+   * Resolve a row by ID from the full source dataset, including rows that are
+   * filtered or paged out of the visible `_rows`.
+   *
+   * Fast path: returns the visible entry (with its `_rows` index) when the row
+   * is currently rendered. Slow path: linearly scans `sourceRows` and returns
+   * `{ row, index: -1 }` when the row exists only in the source data (the `-1`
+   * signals "not in the processed view"). Used by the row mutation APIs so a
+   * filtered-out row can still be updated instead of crashing.
+   * @internal
+   */
+  _getSourceRowEntry(id: string): { row: T; index: number } | undefined {
+    const visible = this._getRowEntry(id);
+    if (visible) return visible;
+
+    const getRowId = this.#effectiveConfig.getRowId;
+    const rows = this.#rows;
+    for (let index = 0; index < rows.length; index++) {
+      if (tryResolveRowId(rows[index], getRowId) === id) {
+        return { row: rows[index], index: -1 };
+      }
+    }
+    return undefined;
+  }
+
+  /**
    * Update a row by ID.
    * Mutates the row in-place and emits `cell-change` for each changed field.
+   *
+   * Resolves the row from the full dataset, so a row that is filtered or paged
+   * out of the visible view can still be updated. If the ID matches no row at
+   * all, a `TBW041` warning is logged and the call is a no-op (never throws).
+   *
+   * **Filtered/paged-out rows:** the emitted `cell-change.rowIndex` is `-1`
+   * (the row is not in the processed view). The update only schedules a
+   * VIRTUALIZATION refresh — it does **not** re-run the row pipeline, so
+   * changing a filtered/sorted/paged field will not move the row into or out
+   * of view until the next ROWS-phase refresh (e.g. re-applying the filter or
+   * reassigning `rows`).
    *
    * @group Data Management
    * @param id - Row identifier (from getRowId)
    * @param changes - Partial row data to merge
    * @param source - Origin of update (default: 'api')
-   * @throws Error if row is not found
    * @fires cell-change - For each field that changed
    *
    * @example
@@ -3316,10 +3349,19 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Batch update multiple rows.
    * More efficient than multiple `updateRow()` calls - single render cycle.
    *
+   * Each row is resolved from the full dataset, so filtered/paged-out rows are
+   * updated too. An unresolvable ID logs a `TBW041` warning and is skipped
+   * without aborting the rest of the batch (never throws).
+   *
+   * **Filtered/paged-out rows:** for a row resolved from the source dataset but
+   * not currently in the processed view, the emitted `cell-change.rowIndex` is
+   * `-1`. These updates do **not** re-run the row pipeline (sort/filter/paging),
+   * so a changed field won't move the row into or out of view until the next
+   * ROWS-phase refresh.
+   *
    * @group Data Management
    * @param updates - Array of { id, changes } objects
    * @param source - Origin of updates (default: 'api')
-   * @throws Error if any row is not found
    * @fires cell-change - For each field that changed on each row
    *
    * @example

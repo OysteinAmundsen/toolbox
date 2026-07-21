@@ -517,6 +517,12 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   getRow?: (id: string) => T | undefined;
   /** Get a row and its current index by ID. Returns undefined if not found. @internal */
   _getRowEntry: (id: string) => { row: T; index: number } | undefined;
+  /**
+   * Get a row and its index by ID from the full source dataset, including rows
+   * filtered/paged out of the visible view. Visible rows return their `_rows`
+   * index; source-only rows return `index: -1`. @internal
+   */
+  _getSourceRowEntry: (id: string) => { row: T; index: number } | undefined;
   /** Get the unique ID for a row. Implemented in grid.ts */
   getRowId?: (row: T) => string;
   /** Update a row by ID. Implemented in grid.ts */

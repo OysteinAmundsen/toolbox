@@ -736,6 +736,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       columns.find((c) => c.field === ctx.field) ??
       (internalGrid._columns as ColumnConfig<T>[] | undefined)?.find((c) => c.field === ctx.field);
     const rowData =
+      (ctx.row as T | undefined) ??
       (ctx.rowId != null ? internalGrid._getRowEntry(ctx.rowId)?.row : undefined) ??
       (internalGrid._rows?.[ctx.rowIndex] as T | undefined);
 

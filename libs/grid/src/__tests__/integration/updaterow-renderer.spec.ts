@@ -278,4 +278,55 @@ describe('updateRow with custom boolean renderer', () => {
     expect(getCell(0, 'confidential')?.querySelector('.confidential-icon')?.textContent).toBe('lock');
     expect(row1.classList.contains('confidential-cargo')).toBe(true);
   });
+
+  it('renders the fresh value after updateRows when valueAccessor reads a property other than column.field', async () => {
+    // Regression: the accessor cache is keyed by `column.field`, but an
+    // in-place mutation used to invalidate only the (row, changed-field) key.
+    // Here `column.field` ("deal.comments") differs from the property the
+    // accessor reads ("dealComment"), so updating `dealComment` left the stale
+    // entry under "deal.comments" untouched and the renderer received a stale
+    // `ctx.value`.
+    const grid = document.createElement('tbw-grid') as any;
+    document.body.appendChild(grid);
+
+    grid.gridConfig = {
+      getRowId: (row: any) => row.id,
+      columns: [
+        { field: 'id', width: 80 },
+        {
+          field: 'deal.comments',
+          width: 300,
+          valueAccessor: (ctx: { row: any }) => ctx.row.dealComment,
+          renderer: (ctx: { value: unknown }) => {
+            const span = document.createElement('span');
+            span.className = 'comments-cell';
+            span.textContent = ctx.value == null ? '' : String(ctx.value);
+            return span;
+          },
+        },
+      ],
+    };
+
+    grid.rows = [{ id: 'row-1', dealComment: undefined }];
+
+    await waitUpgrade(grid);
+    await nextFrame();
+    await nextFrame();
+
+    const getCommentsCell = () => {
+      const row = grid.querySelector('.data-grid-row');
+      const colIdx = grid._visibleColumns.findIndex((c: any) => c.field === 'deal.comments');
+      return row?.children[colIdx] as HTMLElement;
+    };
+
+    // Initially blank (dealComment undefined) — primes the accessor cache.
+    expect(getCommentsCell()?.querySelector('.comments-cell')?.textContent).toBe('');
+
+    // Update the property the accessor reads (NOT column.field).
+    grid.updateRows([{ id: 'row-1', changes: { dealComment: 'Looks good' } }]);
+    await nextFrame();
+    await nextFrame();
+
+    expect(getCommentsCell()?.querySelector('.comments-cell')?.textContent).toBe('Looks good');
+  });
 });

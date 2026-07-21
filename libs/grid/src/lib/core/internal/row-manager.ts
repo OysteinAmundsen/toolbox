@@ -131,9 +131,11 @@ export class RowManager<T = any> {
       if (!responses?.includes(true)) {
         // No data plugin handled it — apply in place (legacy behavior).
         (row as Record<string, unknown>)[field] = newValue;
-        // valueAccessor cache is keyed by row identity; in-place mutations
-        // need explicit invalidation per (row, field).
-        invalidateAccessorCache(row as object, field);
+        // Invalidate the WHOLE row's accessor cache, not just (row, field): a
+        // `valueAccessor` can read ANY property (e.g. field `deal.comments`
+        // reading `row.dealComment`), so the cache entry — keyed by
+        // `column.field` — need not match the mutated property name.
+        invalidateAccessorCache(row as object);
       }
       // else: a data plugin already applied (and tracked) the value.
 
@@ -390,7 +392,10 @@ export class RowManager<T = any> {
           if (oldValue !== newValue) {
             changed = true;
             (row as Record<string, unknown>)[field] = newValue;
-            invalidateAccessorCache(row as object, field);
+            // Whole-row invalidation: a `valueAccessor` may read a property
+            // other than `column.field`, so per-field invalidation can miss
+            // the stale cache entry keyed by `column.field`.
+            invalidateAccessorCache(row as object);
 
             grid.dispatchEvent(
               new CustomEvent('cell-change', {

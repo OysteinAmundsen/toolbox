@@ -61,7 +61,8 @@ export function getToolPanelElements(gridElement: HTMLElement): HTMLElement[] {
  * ### Attributes
  *
  * - `id` (required): Unique identifier for the panel
- * - `title` (required): Panel title shown in accordion header
+ * - `title` (optional): Panel title shown in accordion header. Omit it when the
+ *   panel content provides its own heading.
  * - `icon`: Icon for accordion section header (emoji or text)
  * - `tooltip`: Tooltip for accordion section header
  * - `order`: Panel order priority (lower = first, default: 100)
@@ -98,8 +99,17 @@ export class GridToolPanel {
   /** Unique panel identifier (required) */
   id = input.required<string>({ alias: 'id' });
 
-  /** Panel title shown in accordion header (required) */
-  title = input.required<string>({ alias: 'title' });
+  /**
+   * Panel title shown in accordion header (optional).
+   *
+   * Omit it when the panel content provides its own heading. With a single
+   * title-less panel the accordion header row is skipped; with multiple panels
+   * a title-less header still renders so the expand/collapse control stays
+   * available.
+   *
+   * @since 3.1.0 (previously required)
+   */
+  title = input<string>();
 
   /** Icon for accordion section header (emoji or text) */
   icon = input<string>();
@@ -123,7 +133,13 @@ export class GridToolPanel {
     if (template) {
       // Set attributes from inputs (for light DOM parsing to read)
       element.setAttribute('id', this.id());
-      element.setAttribute('title', this.title());
+
+      const title = this.title();
+      if (title != null) {
+        element.setAttribute('title', title);
+      } else {
+        element.removeAttribute('title');
+      }
 
       const icon = this.icon();
       if (icon) element.setAttribute('icon', icon);

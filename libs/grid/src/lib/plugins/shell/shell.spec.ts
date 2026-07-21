@@ -772,7 +772,7 @@ describe('shell module', () => {
       expect(panel?.order).toBe(10);
     });
 
-    it('skips tool panels without required id or title', async () => {
+    it('skips tool panels without a required id, but allows a missing title', async () => {
       const { parseLightDomToolPanels } = await import('./shell');
 
       host.innerHTML = `
@@ -780,14 +780,19 @@ describe('shell module', () => {
         <tbw-grid-tool-panel title="No ID">Content</tbw-grid-tool-panel>
       `;
 
-      // Suppress expected warning about missing attributes
+      // Suppress expected warning about the missing id
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
         /* intentionally empty */
       });
       parseLightDomToolPanels(host, state);
       warnSpy.mockRestore();
 
-      expect(state.toolPanels.size).toBe(0);
+      // The title-less panel registers (title is optional, #430); the id-less
+      // panel is skipped.
+      expect(state.toolPanels.size).toBe(1);
+      const panel = state.toolPanels.get('no-title');
+      expect(panel).toBeDefined();
+      expect(panel?.title).toBeUndefined();
     });
 
     it('hides parsed tool panel elements', async () => {

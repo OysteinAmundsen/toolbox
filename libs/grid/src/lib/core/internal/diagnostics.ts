@@ -118,7 +118,7 @@ export const VIEW_MOUNT_ERROR = 'TBW063' as const;
 export const VIEW_DISPATCH_ERROR = 'TBW064' as const;
 
 // --- Shell (070–079) ---
-/** Tool panel missing required id or title. */
+/** Tool panel missing required id. */
 export const TOOL_PANEL_MISSING_ATTR = 'TBW070' as const;
 /** No tool panels registered. */
 export const NO_TOOL_PANELS = 'TBW071' as const;

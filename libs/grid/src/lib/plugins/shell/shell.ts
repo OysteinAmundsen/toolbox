@@ -462,7 +462,8 @@ export type ToolPanelRendererFactory = (
  *
  * Attributes:
  * - `id` (required): Unique panel identifier
- * - `title` (required): Panel title shown in accordion header
+ * - `title` (optional): Panel title shown in accordion header. Omit it when the
+ *   panel content provides its own heading (see {@link ToolPanelDefinition.title}).
  * - `icon`: Icon for accordion section header (emoji or text)
  * - `tooltip`: Tooltip for accordion section header
  * - `order`: Panel order priority (lower = first, default: 100)
@@ -484,14 +485,13 @@ export function parseLightDomToolPanels(
   toolPanelElements.forEach((element) => {
     const panelEl = element as HTMLElement;
     const id = panelEl.getAttribute('id');
-    const title = panelEl.getAttribute('title');
+    const title = panelEl.getAttribute('title') ?? undefined;
 
-    // Skip if required attributes are missing
-    if (!id || !title) {
-      warnDiagnostic(
-        TOOL_PANEL_MISSING_ATTR,
-        `Tool panel missing required id or title attribute: id="${id ?? ''}", title="${title ?? ''}"`,
-      );
+    // Skip only if the required `id` is missing. `title` is optional (#430):
+    // a title-less panel renders its content without an accordion header row
+    // (single panel) or with an empty title span (multiple panels).
+    if (!id) {
+      warnDiagnostic(TOOL_PANEL_MISSING_ATTR, `Tool panel missing required id attribute: title="${title ?? ''}"`);
       return;
     }
 
@@ -557,12 +557,16 @@ export function parseLightDomToolPanels(
       if (adapterRenderer) {
         const firstAdapterAttach = !state.adapterBoundToolPanelIds.has(id);
         const attrsChanged =
-          existingPanel.order !== order || existingPanel.icon !== icon || existingPanel.tooltip !== tooltip;
+          existingPanel.title !== title ||
+          existingPanel.order !== order ||
+          existingPanel.icon !== icon ||
+          existingPanel.tooltip !== tooltip;
 
         // Always keep the render function fresh — adapter renderers capture
         // the current grid element / portal context and the most recent
         // children, so a stale reference would render against an old closure.
         existingPanel.render = render;
+        existingPanel.title = title;
         existingPanel.order = order;
         existingPanel.icon = icon;
         existingPanel.tooltip = tooltip;

@@ -62,8 +62,15 @@ export interface GridToolPanelProps {
 
   /**
    * Panel title shown in the accordion header.
+   *
+   * Optional — omit it when the panel's rendered content already provides its
+   * own heading. With a single title-less panel the accordion header row is
+   * skipped entirely; with multiple panels a title-less header still renders
+   * (empty title) so the expand/collapse control stays available.
+   *
+   * @since 3.1.0 (previously required)
    */
-  title: string;
+  title?: string;
 
   /**
    * Icon for the accordion section header.

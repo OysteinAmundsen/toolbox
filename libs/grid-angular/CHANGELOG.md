@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.1.0...grid-angular-2.2.0) (2026-07-21)
+
+
+### Features
+
+* **grid:** support nested dotted-path field access ([#438](https://github.com/OysteinAmundsen/toolbox/issues/438)) ([#439](https://github.com/OysteinAmundsen/toolbox/issues/439)) ([21a0a58](https://github.com/OysteinAmundsen/toolbox/commit/21a0a58572bfd3511496cd3d6ca2dc07532c1a15))
+
+
+### Bug Fixes
+
+* **adapters:** support optional tool panel title ([#430](https://github.com/OysteinAmundsen/toolbox/issues/430) follow-up) ([8c7c7ed](https://github.com/OysteinAmundsen/toolbox/commit/8c7c7ed8cf2a925dadfd5545a8f35a3de1072a21))
+* **grid-angular:** enable OXC legacy decorators for vitest ([bc29434](https://github.com/OysteinAmundsen/toolbox/commit/bc29434f1bc24141d03a2dcc46c8863c21e1f0fe))
+
 ## [2.1.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.0.0...grid-angular-2.1.0) (2026-07-20)
 
 

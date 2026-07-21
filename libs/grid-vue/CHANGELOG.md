@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.1.0...grid-vue-2.2.0) (2026-07-21)
+
+
+### Features
+
+* **grid:** support nested dotted-path field access ([#438](https://github.com/OysteinAmundsen/toolbox/issues/438)) ([#439](https://github.com/OysteinAmundsen/toolbox/issues/439)) ([21a0a58](https://github.com/OysteinAmundsen/toolbox/commit/21a0a58572bfd3511496cd3d6ca2dc07532c1a15))
+
 ## [2.1.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.0.0...grid-vue-2.1.0) (2026-07-20)
 
 

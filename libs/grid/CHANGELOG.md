@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.2.0...grid-3.2.1) (2026-07-21)
+
+
+### Bug Fixes
+
+* **grid:** update filtered-out rows via updateRow(s) and warn instead of throwing TBW041 ([#434](https://github.com/OysteinAmundsen/toolbox/issues/434)) ([636a287](https://github.com/OysteinAmundsen/toolbox/commit/636a287e95a4ea9866ca385c04019f7d400770c0))
+
 ## [3.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.1.0...grid-3.2.0) (2026-07-20)
 
 

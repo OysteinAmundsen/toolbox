@@ -14,20 +14,20 @@ import { PLUGIN_ALIAS_COLLAPSE, PLUGIN_EVENT_ERROR, errorDiagnostic, warnDiagnos
 import { validatePluginDependencies } from '../internal/validate-config';
 import type { ColumnConfig, GridConfig } from '../types';
 import type {
-  AfterCellRenderContext,
-  AfterRowRenderContext,
-  BaseGridPlugin,
-  CellClickEvent,
-  CellEditor,
-  CellMouseEvent,
-  CellRenderer,
-  GridElement,
-  HeaderClickEvent,
-  HeaderRenderer,
-  HookName,
-  PluginQuery,
-  RowClickEvent,
-  ScrollEvent,
+    AfterCellRenderContext,
+    AfterRowRenderContext,
+    BaseGridPlugin,
+    CellClickEvent,
+    CellEditor,
+    CellMouseEvent,
+    CellRenderer,
+    GridElement,
+    HeaderClickEvent,
+    HeaderRenderer,
+    HookName,
+    PluginQuery,
+    RowClickEvent,
+    ScrollEvent,
 } from './base-plugin';
 
 /**
@@ -164,7 +164,12 @@ export class PluginManager {
   attach(plugin: BaseGridPlugin): void {
     // Validate plugin dependencies BEFORE attaching
     // This throws if a required dependency is missing
-    validatePluginDependencies(plugin, this.plugins, this.grid.getAttribute('id') ?? undefined);
+    validatePluginDependencies(
+      plugin,
+      this.plugins,
+      this.grid.getAttribute('id') ?? undefined,
+      this.grid.effectiveConfig ?? this.grid.gridConfig,
+    );
 
     // Store by constructor for type-safe lookup
     this.pluginMap.set(plugin.constructor as new (...args: unknown[]) => BaseGridPlugin, plugin);

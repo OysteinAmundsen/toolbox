@@ -13,16 +13,16 @@
 import type { BaseGridPlugin, PluginManifest, PluginPropertyDefinition } from '../plugin';
 import type { ColumnConfig, GridConfig } from '../types';
 import {
-  CONFIG_RULE_ERROR,
-  CONFIG_RULE_WARN,
-  INCOMPATIBLE_PLUGINS,
-  MISSING_DEPENDENCY,
-  MISSING_PLUGIN,
-  MISSING_PLUGIN_CONFIG,
-  OPTIONAL_DEPENDENCY,
-  debugDiagnostic,
-  throwDiagnostic,
-  warnDiagnostic,
+    CONFIG_RULE_ERROR,
+    CONFIG_RULE_WARN,
+    INCOMPATIBLE_PLUGINS,
+    MISSING_DEPENDENCY,
+    MISSING_PLUGIN,
+    MISSING_PLUGIN_CONFIG,
+    OPTIONAL_DEPENDENCY,
+    debugDiagnostic,
+    throwDiagnostic,
+    warnDiagnostic,
 } from './diagnostics';
 import { isDevelopment } from './utils';
 
@@ -118,11 +118,37 @@ function toKebabCase(s: string): string {
 }
 
 /**
- * Generate the import hint for a plugin from its name.
+ * Generate the feature-based import hint for a plugin from its name. The
+ * feature-based API is the recommended approach: a side-effect import registers
+ * the plugin, then it is toggled on via `gridConfig.features`.
+ * e.g. 'editing' → "import '@toolbox-web/grid/features/editing';"
+ */
+function getFeatureImportHint(pluginName: string): string {
+  return `import '@toolbox-web/grid/features/${toKebabCase(pluginName)}';`;
+}
+
+/**
+ * Generate the plugin-based import hint for a plugin from its name.
  * e.g. 'editing' → "import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';"
  */
-function getImportHint(pluginName: string): string {
+function getPluginImportHint(pluginName: string): string {
   return `import { ${capitalize(pluginName)}Plugin } from '@toolbox-web/grid/plugins/${toKebabCase(pluginName)}';`;
+}
+
+/**
+ * Whether the user is configuring the grid via the declarative `features` API
+ * (as opposed to passing plugin instances through `plugins`). Diagnostics use
+ * this to phrase hints in the same style the user is already writing — and to
+ * nudge `plugins` users toward the recommended feature-based API.
+ *
+ * Note: the missing plugin's own config shape is intentionally NOT inspected
+ * here — the core must stay ignorant of plugin internals, and the missing
+ * plugin isn't loaded anyway. Hints show `true` (valid for toggle features) and
+ * point to the docs for features that take a config object.
+ */
+function usesFeatureConfig(config: { features?: unknown } | undefined | null): boolean {
+  const features = config?.features;
+  return !!features && typeof features === 'object' && Object.keys(features as object).length > 0;
 }
 // #endregion
 
@@ -163,21 +189,12 @@ export function validatePluginProperties<T>(
   const configProps = KNOWN_CONFIG_PROPERTIES;
 
   // Group errors by plugin to avoid spamming multiple errors
-  const missingPlugins = new Map<
-    string,
-    { description: string; importHint: string; fields: string[]; isConfigProperty?: boolean }
-  >();
+  const missingPlugins = new Map<string, { description: string; fields: string[]; isConfigProperty?: boolean }>();
 
   // Helper to add an error for a missing plugin
-  function addError(
-    pluginName: string,
-    description: string,
-    importHint: string,
-    field: string,
-    isConfigProperty = false,
-  ) {
+  function addError(pluginName: string, description: string, field: string, isConfigProperty = false) {
     if (!missingPlugins.has(pluginName)) {
-      missingPlugins.set(pluginName, { description, importHint, fields: [], isConfigProperty });
+      missingPlugins.set(pluginName, { description, fields: [], isConfigProperty });
     }
     // Entry is guaranteed to exist after the set above
     const entry = missingPlugins.get(pluginName)!;
@@ -203,7 +220,7 @@ export function validatePluginProperties<T>(
 
     if (isUsed && !hasPlugin(plugins, def.pluginName) && !isExplicitlyDisabled(def.pluginName)) {
       const desc = def.description || `the "${def.property}" ${def.level} property`;
-      addError(def.pluginName, desc, getImportHint(def.pluginName), def.property, true);
+      addError(def.pluginName, desc, def.property, true);
     }
   }
 
@@ -219,7 +236,7 @@ export function validatePluginProperties<T>(
         if (isUsed && !hasPlugin(plugins, def.pluginName) && !isExplicitlyDisabled(def.pluginName)) {
           const field = (column as ColumnConfig).field || '<unknown>';
           const desc = def.description || `the "${def.property}" ${def.level} property`;
-          addError(def.pluginName, desc, getImportHint(def.pluginName), field);
+          addError(def.pluginName, desc, field);
         }
       }
     }
@@ -227,24 +244,28 @@ export function validatePluginProperties<T>(
 
   // Throw a single consolidated error if any missing plugins
   if (missingPlugins.size > 0) {
+    const featureMode = usesFeatureConfig(config);
     const errors: string[] = [];
-    for (const [pluginName, { description, importHint, fields, isConfigProperty }] of missingPlugins) {
-      if (isConfigProperty) {
-        // Config-level property error
+    for (const [pluginName, { description, fields, isConfigProperty }] of missingPlugins) {
+      const fieldList = fields.slice(0, 3).join(', ') + (fields.length > 3 ? `, ... (${fields.length} total)` : '');
+      const subject = isConfigProperty ? `Config uses ${description}` : `Column(s) [${fieldList}] use ${description}`;
+
+      if (featureMode) {
+        // User is on the recommended features API — phrase the hint the same way.
         errors.push(
-          `Config uses ${description}, but the required plugin is not loaded.\n` +
-            `  → Add the plugin to your gridConfig.plugins array:\n` +
-            `    ${importHint}\n` +
-            `    plugins: [new ${capitalize(pluginName)}Plugin(), ...]`,
+          `${subject}, but the required feature is not enabled.\n` +
+            `  → Enable it in gridConfig.features (pass \`true\` for defaults, or a config object — see the docs):\n` +
+            `    ${getFeatureImportHint(pluginName)}\n` +
+            `    features: { ${pluginName}: true }`,
         );
       } else {
-        // Column-level property error
-        const fieldList = fields.slice(0, 3).join(', ') + (fields.length > 3 ? `, ... (${fields.length} total)` : '');
+        // User is passing plugin instances — match that style, then nudge to features.
         errors.push(
-          `Column(s) [${fieldList}] use ${description}, but the required plugin is not loaded.\n` +
-            `  → Add the plugin to your gridConfig.plugins array:\n` +
-            `    ${importHint}\n` +
-            `    plugins: [new ${capitalize(pluginName)}Plugin(), ...]`,
+          `${subject}, but the required plugin is not loaded.\n` +
+            `  → Add it to gridConfig.plugins:\n` +
+            `    ${getPluginImportHint(pluginName)}\n` +
+            `    plugins: [new ${capitalize(pluginName)}Plugin(), ...]\n` +
+            `  → Tip: the feature-based API is recommended — ${getFeatureImportHint(pluginName)} then features: { ${pluginName}: true }`,
         );
       }
     }
@@ -333,6 +354,7 @@ export function validatePluginDependencies(
   plugin: BaseGridPlugin,
   loadedPlugins: readonly BaseGridPlugin[],
   gridId?: string,
+  config?: { features?: unknown } | null,
 ): void {
   const pluginName = plugin.name;
   const PluginClass = plugin.constructor as typeof BaseGridPlugin;
@@ -362,16 +384,37 @@ export function validatePluginDependencies(
     const reasonText = reason ?? `${capitalize(pluginName)}Plugin ${verb} ${capitalize(requiredPlugin)}Plugin`;
 
     if (severity === 'error') {
-      const importHint = getImportHint(requiredPlugin);
-      throwDiagnostic(
-        MISSING_DEPENDENCY,
-        `Plugin dependency error:\n\n` +
-          `${reasonText}.\n\n` +
-          `  → Add the plugin to your gridConfig.plugins array BEFORE ${capitalize(pluginName)}Plugin:\n` +
-          `    ${importHint}\n` +
-          `    plugins: [new ${capitalize(requiredPlugin)}Plugin(), new ${capitalize(pluginName)}Plugin()]`,
-        gridId,
-      );
+      if (usesFeatureConfig(config)) {
+        // Feature API: order is irrelevant (topology sorts it), but keep the
+        // required feature first so the example reads naturally.
+        throwDiagnostic(
+          MISSING_DEPENDENCY,
+          `Plugin dependency error:\n\n` +
+            `${reasonText}.\n\n` +
+            `  → Enable the required feature in gridConfig.features ` +
+            `(pass \`true\` for defaults, or a config object — see the docs):\n` +
+            `    ${getFeatureImportHint(requiredPlugin)}\n` +
+            `    ${getFeatureImportHint(pluginName)}\n` +
+            `    features: {\n` +
+            `      ${requiredPlugin}: true,\n` +
+            `      ${pluginName}: true,\n` +
+            `    }`,
+          gridId,
+        );
+      } else {
+        // Plugin instances: order matters — the dependency must be listed first.
+        throwDiagnostic(
+          MISSING_DEPENDENCY,
+          `Plugin dependency error:\n\n` +
+            `${reasonText}.\n\n` +
+            `  → Add the required plugin to gridConfig.plugins BEFORE ${capitalize(pluginName)}Plugin:\n` +
+            `    ${getPluginImportHint(requiredPlugin)}\n` +
+            `    plugins: [new ${capitalize(requiredPlugin)}Plugin(), new ${capitalize(pluginName)}Plugin()]\n` +
+            `  → Tip: the feature-based API is recommended and orders dependencies for you — ` +
+            `features: { ${requiredPlugin}: true, ${pluginName}: true }`,
+          gridId,
+        );
+      }
     } else if (isDevelopment()) {
       // Soft notification — development only to avoid polluting production logs.
       // Use OPTIONAL_DEPENDENCY (TBW021), not the required-dependency code.

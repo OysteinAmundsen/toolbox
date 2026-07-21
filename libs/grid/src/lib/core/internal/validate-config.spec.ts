@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+import { PivotPlugin } from '../../plugins/pivot';
+import { VisibilityPlugin } from '../../plugins/visibility';
 import type { PluginDependency, PluginIncompatibility, PluginManifest } from '../plugin';
 import { BaseGridPlugin } from '../plugin';
 import type { GridConfig } from '../types';
-import { PivotPlugin } from '../../plugins/pivot';
-import { VisibilityPlugin } from '../../plugins/visibility';
 import {
   validatePluginConfigRules,
   validatePluginDependencies,
@@ -169,10 +169,11 @@ describe('validatePluginProperties', () => {
       expect(() => {
         validatePluginProperties(config, []);
       }).not.toThrow(/EditingPlugin/);
-      // groupingColumns is not opted out → still throws
+      // groupingColumns is not opted out → still throws. The config uses the
+      // `features` API (to opt editing out), so the hint is phrased for features.
       expect(() => {
         validatePluginProperties(config, []);
-      }).toThrow(/GroupingColumnsPlugin/);
+      }).toThrow(/groupingColumns/);
     });
   });
 

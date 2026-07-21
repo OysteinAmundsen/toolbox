@@ -9,6 +9,7 @@
  */
 
 import { EDITOR_MOUNT_ERROR, warnDiagnostic } from '../../../core/internal/diagnostics';
+import { readCellField, writeCellField } from '../../../core/internal/value-accessor';
 import type {
   ColumnConfig,
   ColumnEditorContext,
@@ -94,9 +95,7 @@ export function injectEditor<T>(
       (changes) => (grid as any).updateRow(rowId!, changes as Record<string, unknown>, 'cascade')
     : noopUpdateRow;
 
-  const originalValue = isSafePropertyKey(column.field)
-    ? (rowData as Record<string, unknown>)[column.field]
-    : undefined;
+  const originalValue = isSafePropertyKey(column.field) ? readCellField(rowData, column.field) : undefined;
 
   cell.classList.add('editing');
   editingCells.add(`${rowIndex}:${colIndex}`);
@@ -128,7 +127,7 @@ export function injectEditor<T>(
       // Same ID-first / captured-rowData fallback as commit — see comment above.
       const entry = rowId ? grid._getRowEntry(rowId) : undefined;
       const currentRowData = (entry?.row ?? rowData) as T;
-      (currentRowData as Record<string, unknown>)[column.field] = originalValue;
+      writeCellField(currentRowData, column.field, originalValue);
     }
   };
 
@@ -199,10 +198,7 @@ export function injectEditor<T>(
         // focus to the grid for cell navigation.
         e.preventDefault();
         const input = editorHost.querySelector('input,textarea,select') as
-          | HTMLInputElement
-          | HTMLTextAreaElement
-          | HTMLSelectElement
-          | null;
+          HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
         if (input) {
           commit(getInputValue(input, column as ColumnConfig<unknown>, originalValue));
         }

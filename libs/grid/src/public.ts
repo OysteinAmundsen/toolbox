@@ -150,6 +150,7 @@ export type {
   ColumnEditorContext,
   // Column features
   ColumnEditorSpec,
+  ColumnFieldKey,
   ColumnInferenceMode,
   ColumnResizeDetail,
   ColumnResizeResetDetail,
@@ -193,6 +194,7 @@ export type {
   LoadingContext,
   LoadingRenderer,
   LoadingSize,
+  NestedPaths,
   PrimitiveColumnType,
   // Public interface
   PublicGrid,
@@ -245,7 +247,15 @@ export type { ColumnShorthand } from './lib/core/internal/column-shorthand';
 export { CORE_CONSUMED_ADAPTER_METHODS } from './lib/core/adapter-conformance';
 
 // Re-export value-accessor utilities for custom plugins and manual cache invalidation
-export { invalidateAccessorCache, resolveCellValue } from './lib/core/internal/value-accessor';
+export {
+  getByPath,
+  invalidateAccessorCache,
+  parseFieldPath,
+  readCellField,
+  resolveCellValue,
+  setByPath,
+  writeCellField,
+} from './lib/core/internal/value-accessor';
 // #endregion
 
 // #region Plugin Development

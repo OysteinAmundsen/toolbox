@@ -3,6 +3,7 @@ import type {
   GridConfig as BaseGridConfig,
   CellRenderContext,
   ColumnEditorContext,
+  ColumnFieldKey,
   EmptyContext,
   HeaderCellContext,
   HeaderLabelContext,
@@ -35,8 +36,7 @@ import type { Component, VNode } from 'vue';
  * @since 0.3.0
  */
 export type CellRenderer<TRow = unknown, TValue = unknown> =
-  | ((ctx: CellRenderContext<TRow, TValue>) => VNode)
-  | Component;
+  ((ctx: CellRenderContext<TRow, TValue>) => VNode) | Component;
 
 // #endregion
 
@@ -61,8 +61,7 @@ export type CellRenderer<TRow = unknown, TValue = unknown> =
  * @since 0.3.0
  */
 export type CellEditor<TRow = unknown, TValue = unknown> =
-  | ((ctx: ColumnEditorContext<TRow, TValue>) => VNode)
-  | Component;
+  ((ctx: ColumnEditorContext<TRow, TValue>) => VNode) | Component;
 
 // #endregion
 
@@ -93,10 +92,11 @@ export type CellEditor<TRow = unknown, TValue = unknown> =
  * ```
  * @since 0.1.0
  */
-export interface ColumnConfig<TRow = unknown, TValue = unknown> extends Omit<
-  BaseColumnConfig<TRow>,
-  'renderer' | 'editor' | 'headerRenderer' | 'headerLabelRenderer'
-> {
+export interface ColumnConfig<
+  TRow = unknown,
+  TValue = unknown,
+  TField extends string = ColumnFieldKey<TRow>,
+> extends Omit<BaseColumnConfig<TRow, TField>, 'renderer' | 'editor' | 'headerRenderer' | 'headerLabelRenderer'> {
   /**
    * Vue component or render function for custom cell rendering.
    * Receives CellRenderContext with value, row, column, and indexes.
@@ -149,14 +149,14 @@ export interface ColumnConfig<TRow = unknown, TValue = unknown> extends Omit<
  * ```
  * @since 0.1.0
  */
-export interface GridConfig<TRow = unknown> extends Omit<
-  BaseGridConfig<TRow>,
+export interface GridConfig<TRow = unknown, TField extends string = ColumnFieldKey<TRow>> extends Omit<
+  BaseGridConfig<TRow, TField>,
   'columns' | 'loadingRenderer' | 'emptyRenderer'
 > {
   /**
    * Column definitions with Vue renderer/editor support.
    */
-  columns?: ColumnConfig<TRow>[];
+  columns?: ColumnConfig<TRow, unknown, TField>[];
 
   /**
    * Custom loading renderer - can be:

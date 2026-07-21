@@ -18,7 +18,7 @@
 import { announce, getA11yMessage } from '../../core/internal/aria';
 import { ensureCellVisible } from '../../core/internal/keyboard';
 import { compileTemplate } from '../../core/internal/sanitize';
-import { invalidateAccessorCache } from '../../core/internal/value-accessor';
+import { invalidateAccessorCache, readCellField, writeCellField } from '../../core/internal/value-accessor';
 import type {
   AfterCellRenderContext,
   AfterRowRenderContext,
@@ -579,7 +579,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
                   rowIndex: focusRow,
                   colIndex: focusCol,
                   field,
-                  value: (rowData as Record<string, unknown>)[field],
+                  value: readCellField(rowData, field),
                 };
               }
             }
@@ -748,7 +748,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       // Handled before the column guard so non-column fields (dirty tracking
       // snapshots the whole row) are re-baselined too.
       if (!rowData || !isSafePropertyKey(ctx.field)) return undefined;
-      (rowData as Record<string, unknown>)[ctx.field] = ctx.newValue;
+      writeCellField(rowData, ctx.field, ctx.newValue);
       invalidateAccessorCache(rowData as object);
       const rowId = this.#safeGetRowId(rowData);
       if (rowId && this.config.dirtyTracking) {
@@ -766,7 +766,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       // Undo/redo re-application: apply the value but DO NOT record a fresh
       // history entry or mark the row changed — the undo stack owns this change.
       // Recompute dirty so the row's changed flag reflects its baseline.
-      (rowData as Record<string, unknown>)[ctx.field] = ctx.newValue;
+      writeCellField(rowData, ctx.field, ctx.newValue);
       invalidateAccessorCache(rowData as object);
       const rowId = this.#safeGetRowId(rowData);
       if (rowId && this.config.dirtyTracking) {
@@ -782,7 +782,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // cascade). #commitCellValue leaves the value unchanged when a handler
     // vetoes, so compare to detect abortion.
     this.#commitCellValue(ctx.rowIndex, column, ctx.newValue, rowData, ctx.source);
-    return (rowData as Record<string, unknown>)[ctx.field] === ctx.newValue;
+    return readCellField(rowData, ctx.field) === ctx.newValue;
   }
 
   // #endregion
@@ -943,7 +943,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         ) {
           const field = column.field;
           if (isSafePropertyKey(field)) {
-            const currentValue = (rowData as Record<string, unknown>)[field];
+            const currentValue = readCellField(rowData, field);
             const newValue = !currentValue;
             this.#commitCellValue(focusRow, column, newValue, rowData);
             event.preventDefault();
@@ -1035,7 +1035,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           const column = internalGrid._visibleColumns[focusCol];
           const row = internalGrid._rows[focusRow];
           const field = column?.field ?? '';
-          const value = field && row ? (row as Record<string, unknown>)[field] : undefined;
+          const value = field && row ? readCellField(row, field) : undefined;
           const cellEl = this.gridElement.querySelector(`[data-row="${focusRow}"][data-col="${focusCol}"]`) as
             HTMLElement | undefined;
 
@@ -1395,7 +1395,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       // (e.g., after virtualization recycles a row element for different row data)
       if (this.#isGridMode && cellElement.classList.contains('editing')) {
         cellElement.classList.remove('editing');
-        const value = (row as Record<string, unknown>)[(column as ColumnConfig<T>).field as string];
+        const value = readCellField(row, (column as ColumnConfig<T>).field);
         cellElement.textContent = value == null ? '' : String(value);
       }
     } else {
@@ -2058,7 +2058,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const internalGrid = this.#internalGrid;
     const rowData = internalGrid._rows?.[snapshot.rowIndex];
     if (rowData) {
-      (rowData as Record<string, unknown>)[snapshot.field] = snapshot.value;
+      writeCellField(rowData, snapshot.field, snapshot.value);
     }
 
     // Push the reverted value to the editor's input element so that the
@@ -2446,7 +2446,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   ): void {
     const field = column.field;
     if (!isSafePropertyKey(field)) return;
-    const oldValue = (rowData as Record<string, unknown>)[field];
+    const oldValue = readCellField(rowData, field);
     if (oldValue === newValue) return;
 
     const internalGrid = this.#internalGrid;
@@ -2528,7 +2528,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // own key, but OTHER columns' `valueAccessor`s may derive from it while
     // being cached under their own `column.field`. Per-field invalidation would
     // refresh only this column and leave those dependent columns stale.
-    (rowData as Record<string, unknown>)[field] = newValue;
+    writeCellField(rowData, field, newValue);
     invalidateAccessorCache(rowData as object);
     if (rowId) {
       this.#dirty.changedRowIds.add(rowId);

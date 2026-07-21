@@ -686,6 +686,67 @@ export type PrimitiveColumnType = 'number' | 'string' | 'date' | 'boolean' | 'se
 export type ColumnType = PrimitiveColumnType | (string & {});
 // #endregion
 
+// #region Field key types (nested dotted-path support, issue #438)
+/**
+ * Default type for a column's `field`.
+ *
+ * Accepts any top-level key of `TRow` (with IntelliSense) **and** any dotted
+ * nested path string (e.g. `'deal.capture.field'`) with zero extra config. The
+ * `(string & {})` member keeps arbitrary path strings assignable while still
+ * surfacing the concrete top-level keys as autocomplete suggestions.
+ *
+ * For strict compile-time validation of the full nested path, opt in via the
+ * `TField` generic with {@link NestedPaths}, e.g.
+ * `GridConfig<Deal, NestedPaths<Deal>>`.
+ *
+ * @typeParam TRow - Row data shape.
+ * @since 3.3.0
+ */
+export type ColumnFieldKey<TRow> = (keyof TRow & string) | (string & {});
+
+// Depth limiter for NestedPaths to avoid `TS2589` on self-referential rows.
+type NestedPathDepth = [never, 0, 1, 2, 3, 4, 5];
+
+/**
+ * Strict, opt-in union of every valid nested dotted path through `TRow`.
+ *
+ * Descends through plain object properties only — it deliberately stops at
+ * arrays, `Date`, `RegExp`, and functions (which are leaf values for grid
+ * purposes) and is depth-capped to avoid `TS2589` ("excessively deep") on
+ * self-referential / tree row shapes.
+ *
+ * Plug it into a column/grid via the `TField` generic to get typo-checking on
+ * the full path instead of only the root key:
+ *
+ * ```typescript
+ * const config: GridConfig<Deal, NestedPaths<Deal>> = { columns: [...] };
+ * ```
+ *
+ * @typeParam T - Object type to enumerate paths for.
+ * @typeParam D - Internal recursion-depth guard (do not set manually).
+ * @since 3.3.0
+ */
+export type NestedPaths<T, D extends number = 5> = [D] extends [never]
+  ? never
+  : T extends readonly unknown[]
+    ? never
+    : T extends Date | RegExp | ((...args: never[]) => unknown)
+      ? never
+      : T extends object
+        ? {
+            [K in keyof T & string]:
+              | K
+              | (NonNullable<T[K]> extends infer V
+                  ? V extends readonly unknown[] | Date | RegExp | ((...args: never[]) => unknown)
+                    ? never
+                    : V extends object
+                      ? `${K}.${NestedPaths<V, NestedPathDepth[D]>}`
+                      : never
+                  : never);
+          }[keyof T & string]
+        : never;
+// #endregion
+
 // #region TypeDefault Interface
 /**
  * Type-level defaults for formatters and renderers.
@@ -817,9 +878,16 @@ export interface TypeDefault<TRow = unknown> {
  * @see {@link ColumnType} for type options
  * @since 0.1.1
  */
-export interface BaseColumnConfig<TRow = any, TValue = any> {
-  /** Unique field key referencing property in row objects */
-  field: keyof TRow & string;
+export interface BaseColumnConfig<TRow = any, TValue = any, TField extends string = ColumnFieldKey<TRow>> {
+  /**
+   * Unique field key referencing a property in row objects.
+   *
+   * Supports nested dotted paths (e.g. `'deal.capture.field'`) resolved against
+   * the row without a `valueAccessor`. See {@link ColumnFieldKey} for the
+   * default (zero-config) typing and {@link NestedPaths} for opt-in strict
+   * validation via the `TField` generic.
+   */
+  field: TField;
   /** Visible header label; defaults to capitalized field */
   header?: string;
   /**
@@ -1050,7 +1118,11 @@ export interface BaseColumnConfig<TRow = any, TValue = any> {
  * @see {@link HeaderRenderer} for custom header renderers
  * @since 0.1.1
  */
-export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
+export interface ColumnConfig<TRow = any, TField extends string = ColumnFieldKey<TRow>> extends BaseColumnConfig<
+  TRow,
+  any,
+  TField
+> {
   /**
    * Optional custom cell renderer function. Alias for `viewRenderer`.
    * Can return an HTMLElement, a Node, or an HTML string (which will be sanitized).
@@ -1170,7 +1242,7 @@ export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
  * @see {@link GridConfig.columns} for setting columns on the grid
  * @since 0.1.1
  */
-export type ColumnConfigMap<TRow = any> = ColumnConfig<TRow>[];
+export type ColumnConfigMap<TRow = any, TField extends string = ColumnFieldKey<TRow>> = ColumnConfig<TRow, TField>[];
 // #endregion
 
 // #region Editor Types
@@ -1281,8 +1353,8 @@ export interface ColumnEditorContext<TRow = any, TValue = any> {
   row: TRow;
   /** Current cell value (mutable only via commit). */
   value: TValue;
-  /** Field name being edited. */
-  field: keyof TRow & string;
+  /** Field name being edited (may be a nested dotted path, e.g. `a.b.c`). */
+  field: string;
   /** Column configuration reference. */
   column: ColumnConfig<TRow>;
   /**
@@ -1402,8 +1474,8 @@ export interface CellRenderContext<TRow = any, TValue = any> {
   row: TRow;
   /** Value at field. */
   value: TValue;
-  /** Field key. */
-  field: keyof TRow & string;
+  /** Field key (may be a nested dotted path, e.g. `a.b.c`). */
+  field: string;
   /** Column configuration reference. */
   column: ColumnConfig<TRow>;
   /**
@@ -2536,13 +2608,13 @@ export const DEFAULT_A11Y_MESSAGES: A11yMessages = {
  * ```
  * @since 0.1.1
  */
-export interface GridConfig<TRow = any> {
+export interface GridConfig<TRow = any, TField extends string = ColumnFieldKey<TRow>> {
   /**
    * Column definitions. Can also be set via `columns` prop or `<tbw-grid-column>` light DOM.
    * @see {@link ColumnConfig} for column options
    * @see {@link ColumnConfigMap}
    */
-  columns?: ColumnConfigMap<TRow>;
+  columns?: ColumnConfigMap<TRow, TField>;
   /**
    * Dynamic CSS class(es) for data rows.
    * Called for each row during rendering. Return class names to add to the row element.

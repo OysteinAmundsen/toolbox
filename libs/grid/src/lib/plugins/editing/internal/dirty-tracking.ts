@@ -7,6 +7,8 @@
  * @internal
  */
 
+import { readCellField } from '../../../core/internal/value-accessor';
+
 // #region Types
 
 /**
@@ -109,8 +111,8 @@ export function isRowDirty<T>(baselines: Map<string, T>, rowId: string, currentR
 export function isCellDirty<T>(baselines: Map<string, T>, rowId: string, currentRow: T, field: string): boolean {
   const baseline = baselines.get(rowId);
   if (!baseline) return false;
-  const baselineValue = (baseline as Record<string, unknown>)[field];
-  const currentValue = (currentRow as Record<string, unknown>)[field];
+  const baselineValue = readCellField(baseline, field);
+  const currentValue = readCellField(currentRow, field);
   return !deepEqual(baselineValue, currentValue);
 }
 

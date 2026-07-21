@@ -546,4 +546,37 @@ describe('Row Update API', () => {
       expect(grid.getRow('r2')).toBeDefined();
     });
   });
+
+  describe('nested dotted-path fields (issue #438)', () => {
+    interface NestedRow {
+      id: string;
+      deal: { capture: { field: string }; otherStuff: { other: string } };
+    }
+
+    const makeRows = (): NestedRow[] => [
+      { id: 'n1', deal: { capture: { field: 'Test' }, otherStuff: { other: 'x' } } },
+    ];
+
+    it('renders nested values without a valueAccessor', async () => {
+      const grid = await createGrid(makeRows(), {
+        columns: [{ field: 'deal.capture.field' }, { field: 'deal.otherStuff.other' }],
+      } as Partial<GridConfig<NestedRow>>);
+
+      const cells = [...grid.querySelectorAll('.cell[data-field="deal.capture.field"]')];
+      const texts = cells.map((c: Element) => c.textContent);
+      expect(texts).toContain('Test');
+    });
+
+    it('updateRow writes a nested field in place', async () => {
+      const rows = makeRows();
+      const grid = await createGrid(rows, {
+        columns: [{ field: 'deal.capture.field' }],
+      } as Partial<GridConfig<NestedRow>>);
+
+      grid.updateRow('n1', { 'deal.capture.field': 'Updated' });
+
+      expect(rows[0].deal.capture.field).toBe('Updated');
+      expect(rows[0].deal.otherStuff.other).toBe('x'); // sibling untouched
+    });
+  });
 });

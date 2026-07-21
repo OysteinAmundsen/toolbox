@@ -17,8 +17,8 @@ export interface GridCellContext<TValue = any, TRow = unknown> {
   row: TRow;
   /** The column configuration */
   column: ColumnConfig<TRow>;
-  /** Field key */
-  field: keyof TRow & string;
+  /** Field key (may be a nested dotted path, e.g. `a.b.c`) */
+  field: string;
 }
 
 /**
@@ -37,8 +37,8 @@ export interface GridEditorContext<TValue = any, TRow = unknown> {
   row: TRow;
   /** The column configuration */
   column: ColumnConfig<TRow>;
-  /** Field key */
-  field: keyof TRow & string;
+  /** Field key (may be a nested dotted path, e.g. `a.b.c`) */
+  field: string;
   /** Stable row identifier (from `getRowId`). Empty string if no `getRowId` is configured. */
   rowId: string;
   /** Commit the new value and close editor */

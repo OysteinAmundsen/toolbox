@@ -5,7 +5,7 @@
  * classes to be used directly as renderers and editors.
  */
 import type { Type } from '@angular/core';
-import type { ColumnConfig as BaseColumnConfig, GridConfig as BaseGridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig as BaseColumnConfig, GridConfig as BaseGridConfig, ColumnFieldKey } from '@toolbox-web/grid';
 import type { FilterPanelParams, FilterPanelRenderer } from '@toolbox-web/grid/plugins/filtering';
 
 // #region CellRenderer Interface
@@ -196,8 +196,8 @@ export interface TypeDefault<TRow = unknown> {
  * ```
  * @since 0.3.0
  */
-export interface ColumnConfig<TRow = unknown> extends Omit<
-  BaseColumnConfig<TRow>,
+export interface ColumnConfig<TRow = unknown, TField extends string = ColumnFieldKey<TRow>> extends Omit<
+  BaseColumnConfig<TRow, TField>,
   'renderer' | 'editor' | 'headerRenderer' | 'headerLabelRenderer'
 > {
   /**
@@ -249,11 +249,11 @@ export interface ColumnConfig<TRow = unknown> extends Omit<
  * ```
  * @since 0.3.0
  */
-export interface GridConfig<TRow = unknown> extends Omit<
-  BaseGridConfig<TRow>,
+export interface GridConfig<TRow = unknown, TField extends string = ColumnFieldKey<TRow>> extends Omit<
+  BaseGridConfig<TRow, TField>,
   'columns' | 'typeDefaults' | 'loadingRenderer' | 'emptyRenderer'
 > {
-  columns?: ColumnConfig<TRow>[];
+  columns?: ColumnConfig<TRow, TField>[];
   /** Type-level defaults that can use Angular component classes */
   typeDefaults?: Record<string, TypeDefault<TRow>>;
   /**

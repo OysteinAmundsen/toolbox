@@ -1,6 +1,6 @@
-export interface RowUpdate {
+export interface RowUpdate<T = Record<string, unknown>> {
   id: string;
-  changes: Record<string, unknown>;
+  changes: Partial<T>;
 }
 
 /**
@@ -17,10 +17,10 @@ export interface RowUpdate {
  *
  * @since 3.5.0
  */
-export function computeRowDiff<T>(next: T[], prev: T[], getId: (row: T) => string): RowUpdate[] | null {
+export function computeRowDiff<T>(next: T[], prev: T[], getId: (row: T) => string): RowUpdate<T>[] | null {
   if (prev.length === 0 || next.length !== prev.length) return null;
 
-  const updates: RowUpdate[] = [];
+  const updates: RowUpdate<T>[] = [];
   for (let i = 0; i < next.length; i++) {
     const nextRow = next[i];
     const prevRow = prev[i];
@@ -28,7 +28,7 @@ export function computeRowDiff<T>(next: T[], prev: T[], getId: (row: T) => strin
     const prevId = getId(prevRow);
     if (nextId !== prevId) return null;
     if (prevRow !== nextRow) {
-      updates.push({ id: nextId, changes: nextRow as Record<string, unknown> });
+      updates.push({ id: nextId, changes: nextRow as Partial<T> });
     }
   }
   return updates;

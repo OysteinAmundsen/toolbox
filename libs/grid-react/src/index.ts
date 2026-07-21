@@ -97,6 +97,9 @@ export { GridProvider, type GridProviderProps } from './lib/grid-provider';
 // Configuration types
 export type { ColumnConfig, GridConfig } from './lib/react-column-config';
 
+// Field-key types for nested dotted-path columns (issue #438)
+export type { ColumnFieldKey, NestedPaths } from '@toolbox-web/grid';
+
 // Hooks
 export { useGrid, type UseGridReturn } from './lib/use-grid';
 export { useGridOverlay, type UseGridOverlayOptions } from './lib/use-grid-overlay';

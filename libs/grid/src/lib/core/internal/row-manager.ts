@@ -15,7 +15,7 @@ import { MISSING_ROW_ID, ROW_NOT_FOUND, throwDiagnostic, warnDiagnostic } from '
 import { RenderPhase } from './render-scheduler';
 import { animateRow } from './row-animation';
 import { invalidateCellCache } from './rows';
-import { invalidateAccessorCache } from './value-accessor';
+import { invalidateAccessorCache, readCellField, writeCellField } from './value-accessor';
 
 // #region Standalone Row ID Helpers
 
@@ -111,7 +111,7 @@ export class RowManager<T = any> {
       // Guard against prototype-pollution keys before any read/query/write.
       if (field === '__proto__' || field === 'constructor' || field === 'prototype') continue;
 
-      const oldValue = (row as Record<string, unknown>)[field];
+      const oldValue = readCellField(row, field);
       if (oldValue === newValue) continue;
 
       const responses = grid.query?.<boolean>('commitCellValue', {
@@ -130,7 +130,7 @@ export class RowManager<T = any> {
 
       if (!responses?.includes(true)) {
         // No data plugin handled it — apply in place (legacy behavior).
-        (row as Record<string, unknown>)[field] = newValue;
+        writeCellField(row, field, newValue);
         // Invalidate the WHOLE row's accessor cache, not just (row, field): a
         // `valueAccessor` can read ANY property (e.g. field `deal.comments`
         // reading `row.dealComment`), so the cache entry — keyed by
@@ -388,10 +388,10 @@ export class RowManager<T = any> {
         let changed = false;
 
         for (const [field, newValue] of Object.entries(changes)) {
-          const oldValue = (row as Record<string, unknown>)[field];
+          const oldValue = readCellField(row, field);
           if (oldValue !== newValue) {
             changed = true;
-            (row as Record<string, unknown>)[field] = newValue;
+            writeCellField(row, field, newValue);
             // Whole-row invalidation: a `valueAccessor` may read a property
             // other than `column.field`, so per-field invalidation can miss
             // the stale cache entry keyed by `column.field`.

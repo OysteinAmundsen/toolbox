@@ -1,0 +1,87 @@
+---
+/**
+ * Demo: Nested fields vs. value accessors — complex/nested row shapes.
+ *
+ * Shows the distinction the "Value Accessors" section teaches:
+ * - dotted `field` paths read straight from a nested structure (no accessor)
+ * - `valueAccessor` is reserved for *computed / derived* values
+ */
+---
+
+<p class="grid-demo-description">
+  Rows are deeply nested objects. Columns bind straight to dotted paths
+  (<code>deal.capture.instrument</code>) — sorting, filtering and export all work
+  with no <code>valueAccessor</code>. The <strong>Total</strong> column is the
+  exception: it's <em>computed</em> from two nested numbers, so it uses a
+  <code>valueAccessor</code>.
+</p>
+<div class="grid-demo">
+  <tbw-grid id="demo-nested-fields" style="height: 300px;"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+  interface Deal {
+    id: number;
+    deal: {
+      capture: { instrument: string; comments: string[] };
+      counterparty: { name: string };
+      economics: { qty: number; price: number };
+    };
+  }
+
+  const rows: Deal[] = [
+    {
+      id: 1,
+      deal: {
+        capture: { instrument: 'Brent Crude', comments: ['priced', 'confirmed'] },
+        counterparty: { name: 'Acme Trading' },
+        economics: { qty: 1000, price: 82.5 },
+      },
+    },
+    {
+      id: 2,
+      deal: {
+        capture: { instrument: 'WTI', comments: ['pending'] },
+        counterparty: { name: 'Globex Energy' },
+        economics: { qty: 2500, price: 78.1 },
+      },
+    },
+    {
+      id: 3,
+      deal: {
+        capture: { instrument: 'Nat Gas', comments: [] },
+        counterparty: { name: 'Initech Power' },
+        economics: { qty: 500, price: 3.42 },
+      },
+    },
+  ];
+
+  const grid = queryGrid<Deal>('#demo-nested-fields');
+  if (grid) {
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', width: 60 },
+        // Dotted paths — read straight from the nested structure, no accessor.
+        { field: 'deal.capture.instrument', header: 'Instrument' },
+        { field: 'deal.counterparty.name', header: 'Counterparty' },
+        // Array leaf — a dotted path plus a renderer to present the array.
+        {
+          field: 'deal.capture.comments',
+          header: 'Comments',
+          renderer: (ctx) => (ctx.value as string[]).join(', ') || '—',
+        },
+        // Computed value — this is what `valueAccessor` is for.
+        {
+          field: 'total',
+          header: 'Total',
+          valueAccessor: ({ row }) => row.deal.economics.qty * row.deal.economics.price,
+          format: (v) => `$${Number(v).toLocaleString()}`,
+        },
+      ],
+    };
+    grid.rows = rows;
+  }
+</script>

@@ -1,7 +1,7 @@
 /**
  * Tests for the Row Update API (updateRow, updateRows, getRow, getRowId)
  */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import '../../index';
 import type { GridConfig } from '../../lib/core/types';
@@ -140,11 +140,14 @@ describe('Row Update API', () => {
       expect(changes).toHaveLength(0);
     });
 
-    it('throws for unknown row ID', async () => {
+    it('warns (does not throw) for unknown row ID', async () => {
       const rows: TestRow[] = [{ id: 'r1', name: 'Alice', status: 'active', count: 10 }];
       const grid = await createGrid(rows);
 
-      expect(() => grid.updateRow('unknown', { status: 'x' })).toThrow('Row with ID "unknown" not found');
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      expect(() => grid.updateRow('unknown', { status: 'x' })).not.toThrow();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('Row with ID "unknown" not found'));
+      warn.mockRestore();
     });
 
     it('respects source parameter', async () => {
@@ -209,16 +212,20 @@ describe('Row Update API', () => {
       expect(changes.map((c) => c.rowId)).toEqual(['r1', 'r2', 'r2']);
     });
 
-    it('throws for unknown row ID', async () => {
+    it('warns (does not throw) for unknown row ID and still updates the valid rows', async () => {
       const rows: TestRow[] = [{ id: 'r1', name: 'Alice', status: 'active', count: 10 }];
       const grid = await createGrid(rows);
 
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
       expect(() =>
         grid.updateRows([
           { id: 'r1', changes: { status: 'ok' } },
           { id: 'unknown', changes: { status: 'bad' } },
         ]),
-      ).toThrow('Row with ID "unknown" not found');
+      ).not.toThrow();
+      expect(rows[0].status).toBe('ok');
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('Row with ID "unknown" not found'));
+      warn.mockRestore();
     });
   });
 
@@ -460,6 +467,65 @@ describe('Row Update API', () => {
       expect(grid.rows.length).toBe(2);
       expect(grid.rows[1].status).toBe('inactive');
       expect(grid.rows.map((r: TestRow) => r.id)).toEqual(['r1', 'r2']);
+    });
+
+    it('updateRows updates a row that is filtered out of view (does not throw TBW041)', async () => {
+      const { FilteringPlugin } = await import('../../lib/plugins/filtering');
+
+      const rows: TestRow[] = [
+        { id: 'r1', name: 'Alice', status: 'active', count: 10 },
+        { id: 'r2', name: 'Bob', status: 'active', count: 20 },
+        { id: 'r3', name: 'Carol', status: 'inactive', count: 30 },
+      ];
+      const plugin = new FilteringPlugin({});
+      const grid = await createGrid(rows, {
+        columns: [
+          { field: 'name', header: 'Name' },
+          { field: 'status', header: 'Status', filterable: true },
+          { field: 'count', header: 'Count' },
+        ],
+        plugins: [plugin],
+      });
+
+      // Filter to only 'active' rows — r3 (Carol) is filtered out of the view.
+      plugin.setFilter('status', { type: 'text', operator: 'equals', value: 'active' });
+      await new Promise((r) => requestAnimationFrame(r));
+      expect(grid.rows.map((r: TestRow) => r.id)).toEqual(['r1', 'r2']);
+
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      // Updating the filtered-out row must NOT throw and must mutate the source data.
+      expect(() => grid.updateRows([{ id: 'r3', changes: { count: 99 } }])).not.toThrow();
+      expect(warn).not.toHaveBeenCalled();
+      expect(rows[2].count).toBe(99);
+      expect(grid.getRow('r3')).toBeUndefined(); // still filtered out of view
+
+      warn.mockRestore();
+    });
+
+    it('updateRow updates a row that is filtered out of view', async () => {
+      const { FilteringPlugin } = await import('../../lib/plugins/filtering');
+
+      const rows: TestRow[] = [
+        { id: 'r1', name: 'Alice', status: 'active', count: 10 },
+        { id: 'r2', name: 'Bob', status: 'inactive', count: 20 },
+      ];
+      const plugin = new FilteringPlugin({});
+      const grid = await createGrid(rows, {
+        columns: [
+          { field: 'name', header: 'Name' },
+          { field: 'status', header: 'Status', filterable: true },
+          { field: 'count', header: 'Count' },
+        ],
+        plugins: [plugin],
+      });
+
+      plugin.setFilter('status', { type: 'text', operator: 'equals', value: 'active' });
+      await new Promise((r) => requestAnimationFrame(r));
+      expect(grid.rows.map((r: TestRow) => r.id)).toEqual(['r1']);
+
+      expect(() => grid.updateRow('r2', { count: 42 })).not.toThrow();
+      expect(rows[1].count).toBe(42);
     });
   });
 

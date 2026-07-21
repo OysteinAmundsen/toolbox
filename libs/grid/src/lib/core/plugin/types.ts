@@ -326,10 +326,19 @@ export type CellEditablePredicate = (field: string, row: unknown) => boolean;
  * @since 3.0.0
  */
 export interface CommitCellValueContext {
-  /** Index of the row in the current (processed) `rows` array. */
+  /**
+   * Index of the row in the current (processed) `rows` array, or `-1` when the
+   * row is not in the visible view (e.g. filtered or paged out).
+   */
   rowIndex: number;
   /** Stable row ID (from `getRowId`), when available. */
   rowId?: string;
+  /**
+   * The resolved row object being mutated. Present even when the row is
+   * filtered/paged out of the visible `rows`, so plugins can operate on it
+   * without re-resolving via `rowIndex` (which may be `-1`).
+   */
+  row?: unknown;
   /** The column field being written. */
   field: string;
   /** The value before the change. */
@@ -509,8 +518,7 @@ export interface GridElementRef {
    * @internal Plugin API
    */
   _getToolPanelRendererFactory():
-    | ((element: HTMLElement) => ((container: HTMLElement) => void | (() => void)) | undefined)
-    | undefined;
+    ((element: HTMLElement) => ((container: HTMLElement) => void | (() => void)) | undefined) | undefined;
 
   /**
    * Tool-panel + header-content contributions gathered from all attached

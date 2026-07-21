@@ -241,9 +241,11 @@ grid.gridConfig = {
 
 ### TBW041 — Row Not Found
 
-A row update or delete operation referenced a row ID that doesn't exist in the grid.
+A row update operation (`updateRow` / `updateRows`) referenced a row ID that doesn't exist in the grid's dataset.
 
-**Fix:** Verify the row ID is correct and the row hasn't been removed. Use `grid.getRow(id)` to check if a row exists before updating.
+Rows that are merely filtered or paged **out of view** are still updatable — the grid resolves the ID against the full dataset, not just the visible rows. This code is only emitted (as a **warning**, never a thrown error) when the ID matches no row at all; the offending update is skipped so the rest of the batch and the grid keep working.
+
+**Fix:** Verify the row ID is correct and the row hasn't been removed. Validate the ID against your backing `rows` data (that's the full dataset the grid resolves against). Note that `grid.getRow(id)` is **view-scoped** — it returns `undefined` for rows that are merely filtered or paged out of view, so it is not a reliable "does this row exist in the dataset?" check.
 
 <LinkCard title="Core Features" href="/grid/core/" />
 

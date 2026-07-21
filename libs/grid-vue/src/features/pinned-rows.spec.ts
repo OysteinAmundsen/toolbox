@@ -19,7 +19,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { h } from 'vue';
 import { resetBridge } from '../lib/teleport-bridge';
 import './pinned-rows';
-import type { VuePinnedRowsConfig } from './pinned-rows';
+import type { PinnedRowsConfig as VuePinnedRowsConfig } from './pinned-rows';
 
 const sampleCtx: PinnedRowsContext = {
   totalRows: 10,

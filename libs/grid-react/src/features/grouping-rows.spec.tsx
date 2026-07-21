@@ -11,7 +11,7 @@ import { createPluginFromFeature } from '@toolbox-web/grid/features/registry';
 import type { GroupRowRenderParams } from '@toolbox-web/grid/plugins/grouping-rows';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
-import type { ReactGroupingRowsConfig } from '../lib/feature-props';
+import type { GroupingRowsConfig as ReactGroupingRowsConfig } from '../lib/feature-props';
 import { resetBridge } from '../lib/portal-bridge';
 import './grouping-rows';
 

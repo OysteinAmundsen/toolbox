@@ -59,8 +59,8 @@ import type { VNode } from 'vue';
 // Naming policy: each adapter-widened config is exported under the SAME
 // canonical name as its core counterpart (`FilterConfig`, `MasterDetailConfig`,
 // `PinnedRowsConfig`, ...). The colliding core import is renamed to `Core*`.
-// Historical `Vue*` aliases remain as `@deprecated` re-exports for one or two
-// minor cycles. See `.github/instructions/framework-adapters.instructions.md`.
+// The historical `Vue*` aliases were removed in the 3.0 deprecation cleanup.
+// See `.github/instructions/framework-adapters.instructions.md`.
 
 /**
  * Filter configuration widened to accept Vue render functions as
@@ -192,29 +192,6 @@ export type ResponsivePluginConfig<TRow = unknown> = Omit<CoreResponsivePluginCo
         column?: Parameters<NonNullable<CoreResponsivePluginConfig<TRow>['cardRenderer']>>[2],
       ) => VNode | null | undefined);
 };
-
-// ── Deprecated framework-prefixed aliases ──────────────────────────────────
-// Retained for backwards compatibility. New code should import the canonical
-// (unprefixed) names above.
-
-/** @deprecated Use {@link FilterConfig} from `@toolbox-web/grid-vue` instead. */
-export type VueFilterConfig<TRow = unknown> = FilterConfig<TRow>;
-/** @deprecated Use {@link ColumnGroupDefinition} from `@toolbox-web/grid-vue` instead. */
-export type VueColumnGroupDefinition = ColumnGroupDefinition;
-/** @deprecated Use {@link GroupingColumnsConfig} from `@toolbox-web/grid-vue` instead. */
-export type VueGroupingColumnsConfig = GroupingColumnsConfig;
-/** @deprecated Use {@link GroupingRowsConfig} from `@toolbox-web/grid-vue` instead. */
-export type VueGroupingRowsConfig = GroupingRowsConfig;
-/** @deprecated Use {@link PanelRender} from `@toolbox-web/grid-vue` instead. */
-export type VuePanelRender = PanelRender;
-/** @deprecated Use {@link ZonedPanelRender} from `@toolbox-web/grid-vue` instead. */
-export type VueZonedPanelRender = ZonedPanelRender;
-/** @deprecated Use {@link PanelSlot} from `@toolbox-web/grid-vue` instead. */
-export type VuePanelSlot = PanelSlot;
-/** @deprecated Use {@link PinnedRowSlot} from `@toolbox-web/grid-vue` instead. */
-export type VuePinnedRowSlot = PinnedRowSlot;
-/** @deprecated Use {@link PinnedRowsConfig} from `@toolbox-web/grid-vue` instead. */
-export type VuePinnedRowsConfig = PinnedRowsConfig;
 
 /**
  * Feature props for declarative plugin configuration.

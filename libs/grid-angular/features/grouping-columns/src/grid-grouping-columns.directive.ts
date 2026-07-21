@@ -38,15 +38,6 @@ export type GroupingColumnsConfig = Omit<CoreGroupingColumnsConfig, 'groupHeader
   groupHeaderRenderer?: CoreGroupingColumnsConfig['groupHeaderRenderer'] | Type<unknown>;
 };
 
-// ── Deprecated framework-prefixed aliases ────────────────────────────────
-// Retained for backwards compatibility. New code should use the canonical
-// (unprefixed) names above.
-
-/** @deprecated Use {@link ColumnGroupDefinition} instead. */
-export type AngularColumnGroupDefinition = ColumnGroupDefinition;
-/** @deprecated Use {@link GroupingColumnsConfig} instead. */
-export type AngularGroupingColumnsConfig = GroupingColumnsConfig;
-
 /**
  * Owns the binding(s) `[groupingColumns]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *

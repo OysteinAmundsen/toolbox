@@ -58,8 +58,8 @@ import type { ReactNode } from 'react';
 // Naming policy: each adapter-widened config is exported under the SAME
 // canonical name as its core counterpart (`FilterConfig`, `MasterDetailConfig`,
 // `PinnedRowsConfig`, ...). The colliding core import is renamed to `Core*`.
-// Historical `React*` aliases remain as `@deprecated` re-exports for one or
-// two minor cycles. See `.github/instructions/framework-adapters.instructions.md`.
+// The historical `React*` aliases were removed in the 3.0 deprecation cleanup.
+// See `.github/instructions/framework-adapters.instructions.md`.
 
 /**
  * Filter config widened to accept a React render function as `filterPanelRenderer`.
@@ -175,8 +175,7 @@ export type PinnedRowsConfig = Omit<CorePinnedRowsConfig, 'slots'> & {
  */
 export type MasterDetailConfig = Omit<CoreMasterDetailConfig, 'detailRenderer'> & {
   detailRenderer?:
-    | CoreMasterDetailConfig['detailRenderer']
-    | ((row: Record<string, unknown>, rowIndex: number) => ReactNode);
+    CoreMasterDetailConfig['detailRenderer'] | ((row: Record<string, unknown>, rowIndex: number) => ReactNode);
 };
 
 /**
@@ -201,28 +200,6 @@ export type ResponsivePluginConfig<TRow = unknown> = Omit<CoreResponsivePluginCo
       ) => ReactNode);
 };
 
-// ── Deprecated framework-prefixed aliases ──────────────────────────────────
-// Retained for backwards compatibility. New code should import the canonical
-// (unprefixed) names above.
-
-/** @deprecated Use {@link FilterConfig} from `@toolbox-web/grid-react` instead. */
-export type ReactFilterConfig<TRow = unknown> = FilterConfig<TRow>;
-/** @deprecated Use {@link ColumnGroupDefinition} from `@toolbox-web/grid-react` instead. */
-export type ReactColumnGroupDefinition = ColumnGroupDefinition;
-/** @deprecated Use {@link GroupingColumnsConfig} from `@toolbox-web/grid-react` instead. */
-export type ReactGroupingColumnsConfig = GroupingColumnsConfig;
-/** @deprecated Use {@link GroupingRowsConfig} from `@toolbox-web/grid-react` instead. */
-export type ReactGroupingRowsConfig = GroupingRowsConfig;
-/** @deprecated Use {@link PanelRender} from `@toolbox-web/grid-react` instead. */
-export type ReactPanelRender = PanelRender;
-/** @deprecated Use {@link ZonedPanelRender} from `@toolbox-web/grid-react` instead. */
-export type ReactZonedPanelRender = ZonedPanelRender;
-/** @deprecated Use {@link PanelSlot} from `@toolbox-web/grid-react` instead. */
-export type ReactPanelSlot = PanelSlot;
-/** @deprecated Use {@link PinnedRowSlot} from `@toolbox-web/grid-react` instead. */
-export type ReactPinnedRowSlot = PinnedRowSlot;
-/** @deprecated Use {@link PinnedRowsConfig} from `@toolbox-web/grid-react` instead. */
-export type ReactPinnedRowsConfig = PinnedRowsConfig;
 // #endregion
 
 /**

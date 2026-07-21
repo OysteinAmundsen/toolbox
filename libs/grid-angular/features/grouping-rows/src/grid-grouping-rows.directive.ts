@@ -29,10 +29,6 @@ export type GroupingRowsConfig = Omit<CoreGroupingRowsConfig, 'groupRowRenderer'
   groupRowRenderer?: CoreGroupingRowsConfig['groupRowRenderer'] | Type<unknown>;
 };
 
-// ── Deprecated framework-prefixed alias ─────────────────────────────────
-/** @deprecated Use {@link GroupingRowsConfig} instead. */
-export type AngularGroupingRowsConfig = GroupingRowsConfig;
-
 /**
  * Owns the binding(s) `[groupingRows], [groupToggle], [groupExpand], [groupCollapse]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *

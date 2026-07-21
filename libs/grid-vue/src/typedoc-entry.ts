@@ -40,15 +40,6 @@ export type {
   PinnedRowSlot,
   PinnedRowsConfig,
   ResponsivePluginConfig,
-  VueColumnGroupDefinition,
-  VueFilterConfig,
-  VueGroupingColumnsConfig,
-  VueGroupingRowsConfig,
-  VuePanelRender,
-  VuePanelSlot,
-  VuePinnedRowSlot,
-  VuePinnedRowsConfig,
-  VueZonedPanelRender,
   ZonedPanelRender,
 } from './lib/feature-props';
 

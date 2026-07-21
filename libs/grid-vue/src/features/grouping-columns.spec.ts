@@ -12,7 +12,10 @@ import { createPluginFromFeature } from '@toolbox-web/grid/features/registry';
 import type { GroupHeaderRenderParams } from '@toolbox-web/grid/plugins/grouping-columns';
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
 import { h, type VNode } from 'vue';
-import type { VueColumnGroupDefinition, VueGroupingColumnsConfig } from '../lib/feature-props';
+import type {
+  ColumnGroupDefinition as VueColumnGroupDefinition,
+  GroupingColumnsConfig as VueGroupingColumnsConfig,
+} from '../lib/feature-props';
 import { resetBridge } from '../lib/teleport-bridge';
 import './grouping-columns';
 

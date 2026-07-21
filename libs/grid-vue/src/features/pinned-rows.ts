@@ -58,19 +58,7 @@ import { removeFromContainer, renderToContainer } from '../lib/teleport-bridge';
 // Re-export Vue-typed pinned-rows types for back-compat. The canonical home is
 // `../lib/feature-props.ts` so all widening types live in one place (see
 // React adapter for the same pattern).
-export type {
-  PanelRender,
-  PanelSlot,
-  PinnedRowSlot,
-  PinnedRowsConfig,
-  // Deprecated framework-prefixed aliases (re-exported for back-compat).
-  VuePanelRender,
-  VuePanelSlot,
-  VuePinnedRowSlot,
-  VuePinnedRowsConfig,
-  VueZonedPanelRender,
-  ZonedPanelRender,
-} from '../lib/feature-props';
+export type { PanelRender, PanelSlot, PinnedRowSlot, PinnedRowsConfig, ZonedPanelRender } from '../lib/feature-props';
 
 /**
  * Cache entry for a single Vue-typed renderer. Reused across grid re-renders

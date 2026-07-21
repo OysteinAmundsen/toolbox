@@ -52,16 +52,6 @@ export type {
   PanelSlot,
   PinnedRowSlot,
   PinnedRowsConfig,
-  // Deprecated framework-prefixed aliases — kept for backwards compatibility.
-  ReactColumnGroupDefinition,
-  ReactFilterConfig,
-  ReactGroupingColumnsConfig,
-  ReactGroupingRowsConfig,
-  ReactPanelRender,
-  ReactPanelSlot,
-  ReactPinnedRowSlot,
-  ReactPinnedRowsConfig,
-  ReactZonedPanelRender,
   ResponsivePluginConfig,
   ZonedPanelRender,
 } from './lib/feature-props';

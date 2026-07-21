@@ -25,12 +25,6 @@ import type {
 import { buildCachedPanelRenderer } from './cached-panel-renderer';
 export { GridPinnedRowsDirective } from './grid-pinned-rows.directive';
 export type {
-  // Deprecated framework-prefixed aliases \u2014 kept for backwards compatibility.
-  AngularPanelRender,
-  AngularPanelSlot,
-  AngularPinnedRowsConfig,
-  AngularPinnedRowSlot,
-  AngularZonedPanelRender,
   // Canonical (unprefixed) widening types. Same names as the core types
   // from `@toolbox-web/grid` \u2014 these accept Angular component classes in
   // addition to the vanilla `HTMLElement`-returning renderer functions.

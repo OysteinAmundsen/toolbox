@@ -105,16 +105,6 @@ export type {
   PinnedRowSlot,
   PinnedRowsConfig,
   ResponsivePluginConfig,
-  // Deprecated framework-prefixed aliases — kept for backwards compatibility.
-  VueColumnGroupDefinition,
-  VueFilterConfig,
-  VueGroupingColumnsConfig,
-  VueGroupingRowsConfig,
-  VuePanelRender,
-  VuePanelSlot,
-  VuePinnedRowSlot,
-  VuePinnedRowsConfig,
-  VueZonedPanelRender,
   ZonedPanelRender,
 } from './lib/feature-props';
 

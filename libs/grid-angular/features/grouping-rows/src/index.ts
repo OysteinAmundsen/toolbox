@@ -19,11 +19,7 @@ import type {
   GroupingRowsConfig as CoreGroupingRowsConfig,
   GroupRowRenderParams,
 } from '@toolbox-web/grid/plugins/grouping-rows';
-export {
-  GridGroupingRowsDirective,
-  type AngularGroupingRowsConfig,
-  type GroupingRowsConfig,
-} from './grid-grouping-rows.directive';
+export { GridGroupingRowsDirective, type GroupingRowsConfig } from './grid-grouping-rows.directive';
 export type { _Augmentation as _GroupingRowsAugmentation } from '@toolbox-web/grid/features/grouping-rows';
 
 // Bridge any Angular component classes embedded in the user-supplied config

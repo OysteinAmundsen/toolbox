@@ -21,7 +21,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FeatureProps } from '../lib/feature-props';
 import { resetBridge } from '../lib/portal-bridge';
 import './pinned-rows';
-import type { ReactPinnedRowsConfig } from './pinned-rows';
+import type { PinnedRowsConfig as ReactPinnedRowsConfig } from './pinned-rows';
 
 const sampleCtx: PinnedRowsContext = {
   totalRows: 10,
@@ -165,16 +165,6 @@ describe('@toolbox-web/grid-react/features/pinned-rows', () => {
         },
       };
       expect(props.pinnedRows).toBeTruthy();
-    });
-
-    it('the `pinnedRows` feature prop accepts the deprecated `ReactPinnedRowsConfig` alias directly', () => {
-      // Back-compat: pre-existing consumers using the framework-prefixed
-      // alias still compile.
-      const cfg: ReactPinnedRowsConfig = {
-        slots: [{ position: 'top', render: (ctx) => <strong>{ctx.totalRows}</strong> }],
-      };
-      const props: FeatureProps = { pinnedRows: cfg };
-      expect(props.pinnedRows).toBe(cfg);
     });
 
     it('the `pinnedRows` feature prop still accepts the vanilla boolean shorthand', () => {

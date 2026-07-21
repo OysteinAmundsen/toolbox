@@ -22,9 +22,6 @@ import type {
 } from '@toolbox-web/grid/plugins/grouping-columns';
 export {
   GridGroupingColumnsDirective,
-  // Deprecated framework-prefixed aliases.
-  type AngularColumnGroupDefinition,
-  type AngularGroupingColumnsConfig,
   // Canonical (unprefixed) widening types.
   type ColumnGroupDefinition,
   type GroupingColumnsConfig,

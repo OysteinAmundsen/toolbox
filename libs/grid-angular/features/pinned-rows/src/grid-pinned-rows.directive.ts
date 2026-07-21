@@ -70,21 +70,6 @@ export type PinnedRowsConfig = Omit<CorePinnedRowsConfig, 'slots'> & {
   slots?: PinnedRowSlot[];
 };
 
-// ── Deprecated framework-prefixed aliases ──────────────────────────────────
-// Retained for backwards compatibility. New code should use the canonical
-// (unprefixed) names above.
-
-/** @deprecated Use {@link PanelRender} instead. */
-export type AngularPanelRender = PanelRender;
-/** @deprecated Use {@link ZonedPanelRender} instead. */
-export type AngularZonedPanelRender = ZonedPanelRender;
-/** @deprecated Use {@link PanelSlot} instead. */
-export type AngularPanelSlot = PanelSlot;
-/** @deprecated Use {@link PinnedRowSlot} instead. */
-export type AngularPinnedRowSlot = PinnedRowSlot;
-/** @deprecated Use {@link PinnedRowsConfig} instead. */
-export type AngularPinnedRowsConfig = PinnedRowsConfig;
-
 /**
  * Owns the binding(s) `[pinnedRows]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *

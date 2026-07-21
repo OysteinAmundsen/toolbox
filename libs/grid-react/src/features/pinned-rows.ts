@@ -53,19 +53,7 @@ import { removeFromContainer, renderToContainer } from '../lib/portal-bridge';
 
 // Re-export React-typed config shapes from their single source of truth in
 // `feature-props.ts`, so consumers can keep importing them from this module.
-export type {
-  PanelRender,
-  PanelSlot,
-  PinnedRowSlot,
-  PinnedRowsConfig,
-  // Deprecated framework-prefixed aliases (re-exported for back-compat).
-  ReactPanelRender,
-  ReactPanelSlot,
-  ReactPinnedRowSlot,
-  ReactPinnedRowsConfig,
-  ReactZonedPanelRender,
-  ZonedPanelRender,
-} from '../lib/feature-props';
+export type { PanelRender, PanelSlot, PinnedRowSlot, PinnedRowsConfig, ZonedPanelRender } from '../lib/feature-props';
 
 /**
  * Cache entry for a single React-typed renderer. Reused across grid re-renders
@@ -121,7 +109,7 @@ function createCachedReactRender(
 /**
  * Bridge a single slot. Aggregation slots (no `render`) pass through unchanged.
  * Panel slots with a function `render` get wrapped; panel slots with an array
- * of `ReactZonedPanelRender` get each entry's `render` wrapped individually.
+ * of `ZonedPanelRender` get each entry's `render` wrapped individually.
  */
 function bridgeSlot(slot: PinnedRowSlot, registerTeardown: (fn: () => void) => void): CorePinnedRowSlot {
   if (!('render' in slot) || slot.render == null) return slot;

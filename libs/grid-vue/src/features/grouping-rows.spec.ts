@@ -11,7 +11,7 @@ import { createPluginFromFeature } from '@toolbox-web/grid/features/registry';
 import type { GroupRowRenderParams } from '@toolbox-web/grid/plugins/grouping-rows';
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
 import { h, type VNode } from 'vue';
-import type { VueGroupingRowsConfig } from '../lib/feature-props';
+import type { GroupingRowsConfig as VueGroupingRowsConfig } from '../lib/feature-props';
 import { resetBridge } from '../lib/teleport-bridge';
 import './grouping-rows';
 

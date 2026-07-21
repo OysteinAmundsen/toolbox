@@ -749,7 +749,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       // snapshots the whole row) are re-baselined too.
       if (!rowData || !isSafePropertyKey(ctx.field)) return undefined;
       (rowData as Record<string, unknown>)[ctx.field] = ctx.newValue;
-      invalidateAccessorCache(rowData as object, ctx.field);
+      invalidateAccessorCache(rowData as object);
       const rowId = this.#safeGetRowId(rowData);
       if (rowId && this.config.dirtyTracking) {
         this.#dirty.rebaselineCell(rowId, ctx.field, ctx.newValue);
@@ -767,7 +767,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       // history entry or mark the row changed — the undo stack owns this change.
       // Recompute dirty so the row's changed flag reflects its baseline.
       (rowData as Record<string, unknown>)[ctx.field] = ctx.newValue;
-      invalidateAccessorCache(rowData as object, ctx.field);
+      invalidateAccessorCache(rowData as object);
       const rowId = this.#safeGetRowId(rowData);
       if (rowId && this.config.dirtyTracking) {
         const dirty = this.#dirty.isRowDirty(rowId, rowData);
@@ -2523,9 +2523,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       this.clearInvalid(rowId, field);
     }
 
-    // Apply the value and mark row as changed
+    // Apply the value and mark row as changed.
+    // Whole-row invalidation (not per-`field`): `field` here is this column's
+    // own key, but OTHER columns' `valueAccessor`s may derive from it while
+    // being cached under their own `column.field`. Per-field invalidation would
+    // refresh only this column and leave those dependent columns stale.
     (rowData as Record<string, unknown>)[field] = newValue;
-    invalidateAccessorCache(rowData as object, field);
+    invalidateAccessorCache(rowData as object);
     if (rowId) {
       this.#dirty.changedRowIds.add(rowId);
     }

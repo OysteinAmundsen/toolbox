@@ -66,6 +66,15 @@
       /* Position below header row, right-aligned to the filter button */
       top: anchor(bottom);
       right: anchor(right);
+      /* Explicitly reset the inset sides we do not use. Required because the
+         browser UA stylesheet for [popover] sets `inset: 0; margin: auto`,
+         leaving left: 0 and margin-inline: auto active unless we override them
+         here. Without these resets the panel is incorrectly stretched/centered
+         across the viewport when shown as a popover (used for top-layer
+         isolation so anchor positioning works inside CDK dialogs). */
+      left: auto;
+      bottom: auto;
+      margin-inline: 0;
       margin-top: 4px;
       /* Fallback positions when overflowing viewport */
       position-try-fallbacks:

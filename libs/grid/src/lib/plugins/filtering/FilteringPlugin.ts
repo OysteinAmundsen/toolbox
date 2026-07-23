@@ -196,8 +196,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
    * Used to pass array-aware value extraction to the pure filter functions.
    */
   private getFilterValues():
-    | Map<string, (value: unknown, row: Record<string, unknown>) => unknown | unknown[]>
-    | undefined {
+    Map<string, (value: unknown, row: Record<string, unknown>) => unknown | unknown[]> | undefined {
     const columns = this.grid.effectiveConfig?.columns;
     if (!columns) return undefined;
 
@@ -396,6 +395,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.columnLookupRef = null;
     this.openPanelField = null;
     if (this.panelElement) {
+      this.dismissTopLayer(this.panelElement);
       this.panelElement.remove();
       this.panelElement = null;
     }
@@ -896,6 +896,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     if (this.config.valuesHandler) {
       panel.innerHTML = '<div class="tbw-filter-loading">Loading...</div>';
       document.body.appendChild(panel);
+      this.promoteToTopLayer(panel);
       this.positionPanel(panel, buttonEl);
       this.setupPanelCloseHandler(panel, buttonEl);
 
@@ -913,8 +914,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     const uniqueValues = getUniqueValues(this.getDataRows(), field, this.getFilterExtractor(column));
 
     // Position and append to body BEFORE rendering content
-    // so getListItemHeight() can read CSS variables from computed styles
+    // so getListItemHeight() can read CSS variables from computed styles.
     document.body.appendChild(panel);
+    this.promoteToTopLayer(panel);
     this.positionPanel(panel, buttonEl);
 
     this.renderPanelContent(field, column, panel, uniqueValues);
@@ -1044,11 +1046,41 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   }
 
   /**
+   * Promote the (already-appended) panel into the top layer via the Popover
+   * API when available. Top-layer elements can resolve anchor-name from
+   * anywhere in the document (including inside dialog/overlay stacking
+   * contexts), fixing CSS anchor positioning when the grid is inside a CDK
+   * dialog. Uses `popover="manual"` so light-dismiss stays disabled and the
+   * plugin's own outside-click handler remains authoritative.
+   */
+  private promoteToTopLayer(panel: HTMLElement): void {
+    if (typeof panel.showPopover !== 'function') return;
+    panel.setAttribute('popover', 'manual');
+    try {
+      panel.showPopover();
+    } catch {
+      // Not connected or already open — ignore.
+    }
+  }
+
+  /** Hide a panel previously promoted with {@link promoteToTopLayer}. */
+  private dismissTopLayer(panel: HTMLElement): void {
+    if (panel.hasAttribute('popover') && typeof panel.hidePopover === 'function') {
+      try {
+        panel.hidePopover();
+      } catch {
+        // Not currently shown — ignore.
+      }
+    }
+  }
+
+  /**
    * Close the filter panel
    */
   private closeFilterPanel(): void {
     const panel = this.panelElement;
     if (panel) {
+      this.dismissTopLayer(panel);
       panel.remove();
       this.panelElement = null;
     }

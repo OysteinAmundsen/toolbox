@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.3.0...grid-3.3.1) (2026-07-23)
+
+
+### Bug Fixes
+
+* **grid/filtering:** render filter panel in top layer via Popover API for anchored positioning inside dialogs ([38d6f95](https://github.com/OysteinAmundsen/toolbox/commit/38d6f956ffc7d9c20963499dbf909fcbfbad6eb3))
+
 ## [3.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.2.1...grid-3.3.0) (2026-07-21)
 
 

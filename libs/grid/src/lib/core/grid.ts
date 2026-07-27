@@ -44,6 +44,7 @@ import {
   validatePluginIncompatibilities,
   validatePluginProperties,
 } from './internal/validate-config';
+import { readCellField } from './internal/value-accessor';
 import { getRowIndexAtOffset, toVirtualScrollTop } from './internal/virtualization';
 import { VirtualizationManager } from './internal/virtualization-manager';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent, ScrollEvent } from './plugin';
@@ -641,11 +642,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * // Use fixed widths with horizontal scroll
    * grid.fitMode = 'fixed';
    *
-   * // Stretch columns to fill container
+   * // Stretch columns to fill the container (default)
    * grid.fitMode = 'stretch';
-   *
-   * // Auto-size columns based on content
-   * grid.fitMode = 'auto';
    * ```
    */
   get fitMode(): FitMode {
@@ -2984,7 +2982,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (!row || !col) return false;
 
     const field = col.field;
-    const value = (row as Record<string, unknown>)[field];
+    const value = readCellField(row, field);
 
     // Emit cell-activate FIRST (cancelable) - consumers can prevent plugin behavior
     const activateEvent = new CustomEvent('cell-activate', {

@@ -120,12 +120,19 @@ export function builtInSort<T>(rows: T[], sortState: SortState, columns: ColumnC
  */
 function sortInPlace(rows: any[], field: string, direction: 1 | -1): void {
   // A plain top-level key is a monomorphic inline property load — cheaper read
-  // than any indirection we could add, so compare rows directly.
+  // than any indirection we could add. This comparator MUST stay fully inlined
+  // (no shared helper call): it runs ~2·N·log N times, so even one extra call
+  // per compare is measurable. See the INVARIANT in `.github/knowledge/grid-core.md`.
   if (isPlainField(field)) {
     rows.sort((rA: any, rB: any) => {
       const pinned = pinLoadingRows(rA, rB);
       if (pinned !== 0) return pinned;
-      return compareValues(rA[field], rB[field], direction);
+      const a = rA[field];
+      const b = rB[field];
+      if (a == null && b == null) return 0;
+      if (a == null) return -direction;
+      if (b == null) return direction;
+      return a > b ? direction : a < b ? -direction : 0;
     });
     return;
   }
@@ -133,17 +140,6 @@ function sortInPlace(rows: any[], field: string, direction: 1 | -1): void {
   // of the comparator (decorate-sort-undecorate). Touches every row once
   // instead of ~2·N·log N times.
   sortByExtractedKeys(rows, createFieldReader(field), direction);
-}
-
-/**
- * Compare two already-extracted values with `direction` folded in and
- * nullish values pushed to the end.
- */
-function compareValues(a: unknown, b: unknown, direction: 1 | -1): number {
-  if (a == null && b == null) return 0;
-  if (a == null) return -direction;
-  if (b == null) return direction;
-  return a > b ? direction : a < b ? -direction : 0;
 }
 
 /**
@@ -167,14 +163,21 @@ function sortByExtractedKeys(rows: any[], read: (row: unknown) => unknown, direc
     const row = rows[i];
     order[i] = i;
     keys[i] = read(row);
+    // Same test as `pinLoadingRows`, applied once per row instead of per compare.
     loading[i] = (row as { __loading?: unknown } | null)?.__loading === true ? 1 : 0;
   }
 
+  // Inlined for the same reason as `sortInPlace` — this runs ~2·N·log N times.
   order.sort((ia, ib) => {
     const la = loading[ia];
     const lb = loading[ib];
     if (la !== lb) return la ? 1 : -1;
-    return compareValues(keys[ia], keys[ib], direction);
+    const a = keys[ia];
+    const b = keys[ib];
+    if (a == null && b == null) return 0;
+    if (a == null) return -direction;
+    if (b == null) return direction;
+    return (a as number) > (b as number) ? direction : (a as number) < (b as number) ? -direction : 0;
   });
 
   const sorted = new Array<unknown>(n);

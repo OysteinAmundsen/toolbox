@@ -2370,8 +2370,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
       if (!input) return;
 
-      const field = col.field as keyof T;
-      const originalValue = current[field];
+      const field = col.field;
+      const originalValue = readCellField(current, field) as T[keyof T];
       const val = getInputValue(input, col, originalValue);
       if (originalValue !== val) {
         this.#commitCellValue(rowIndex, col, val, current);

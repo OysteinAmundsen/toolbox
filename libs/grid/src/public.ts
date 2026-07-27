@@ -275,6 +275,22 @@ export type {
   QueryDefinition,
 } from './lib/core/plugin';
 
+/**
+ * Hook payload types. Custom plugins receive these in `onCellClick`,
+ * `onRowClick`, `onHeaderClick` and `onScroll`, so they must be public for
+ * plugin code to type-check.
+ *
+ * @since 3.4.0
+ */
+export type {
+  CellClickEvent,
+  CellCoords,
+  HeaderClickEvent,
+  HookName,
+  RowClickEvent,
+  ScrollEvent,
+} from './lib/core/plugin';
+
 // DOM constants - for querying grid elements and styling
 export { GridClasses, GridCSSVars, GridDataAttrs, GridSelectors } from './lib/core/constants';
 export type { GridClassName, GridCSSVar, GridDataAttr } from './lib/core/constants';

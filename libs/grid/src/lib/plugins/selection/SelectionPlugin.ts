@@ -60,6 +60,19 @@ function primaryModeOf(mode: SelectionMode | SelectionMode[] | undefined): Selec
 /** Special field name for the selection checkbox column */
 const CHECKBOX_COLUMN_FIELD = '__tbw_checkbox';
 
+/** Keys that move grid focus — selection reacts to these in cell/range mode. */
+const NAV_KEYS: readonly string[] = [
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Tab',
+  'Home',
+  'End',
+  'PageUp',
+  'PageDown',
+];
+
 /**
  * Build the selection change event detail for the current state.
  *
@@ -532,158 +545,128 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // Skip all selection if disabled at grid level or plugin level
     if (!this.isSelectionEnabled()) return false;
 
-    const { rowIndex, colIndex, originalEvent } = event;
+    // Skip if event type doesn't match configured trigger.
+    // This allows dblclick mode to only select on double-click.
     const { triggerOn = 'click' } = this.config;
-    const mode = this.#mode.primary;
+    if (event.originalEvent.type !== triggerOn) return false;
 
-    // Skip if event type doesn't match configured trigger
-    // This allows dblclick mode to only select on double-click
-    if (originalEvent.type !== triggerOn) {
-      return false;
+    switch (this.#mode.primary) {
+      case 'cell':
+        return this.#clickSelectCell(event);
+      case 'row':
+        return this.#clickSelectRow(event);
+      case 'range':
+        return this.#clickSelectRange(event);
+      default:
+        return false;
     }
+  }
+
+  /**
+   * CELL MODE: single-cell selection. Skips utility columns and non-selectable
+   * cells, and only emits when the selection actually changed.
+   */
+  #clickSelectCell(event: CellClickEvent): boolean {
+    const { rowIndex, colIndex } = event;
 
     // Check if this is a utility column (expander columns, etc.)
-    // event.column is already resolved from _visibleColumns in the event builder
-    const column = event.column;
-    const isUtility = column && isUtilityColumn(column);
+    // event.column is already resolved from _visibleColumns in the event builder.
+    // Allow the event to propagate, but don't select utility cells.
+    if (event.column && isUtilityColumn(event.column)) return false;
+    if (!this.isCellSelectable(rowIndex, colIndex)) return false;
 
-    // CELL MODE: Single cell selection - skip utility columns and non-selectable cells
-    if (mode === 'cell') {
-      if (isUtility) {
-        return false; // Allow event to propagate, but don't select utility cells
+    const currentCell = this.selectedCell;
+    // Same cell already selected
+    if (currentCell && currentCell.row === rowIndex && currentCell.col === colIndex) return false;
+
+    this.selectedCell = { row: rowIndex, col: colIndex };
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
+    return false;
+  }
+
+  /** ROW MODE: multi-select with Shift/Ctrl, checkbox toggle, or single select. */
+  #clickSelectRow(event: CellClickEvent): boolean {
+    const { rowIndex, originalEvent, column } = event;
+    if (!this.isRowSelectable(rowIndex)) return false;
+
+    const multiSelect = this.config.multiSelect !== false;
+    const shiftKey = originalEvent.shiftKey && multiSelect;
+    const ctrlKey = (originalEvent.ctrlKey || originalEvent.metaKey) && multiSelect;
+    const isCheckbox = column?.checkboxColumn === true;
+
+    if (shiftKey && this.anchor !== null) {
+      // Shift+Click: Range select from anchor to clicked row
+      const start = Math.min(this.anchor, rowIndex);
+      const end = Math.max(this.anchor, rowIndex);
+      if (!ctrlKey) this.selected.clear();
+      for (let i = start; i <= end; i++) {
+        if (this.isRowSelectable(i)) this.selected.add(i);
       }
-      if (!this.isCellSelectable(rowIndex, colIndex)) {
-        return false; // Cell is not selectable
-      }
-      // Only emit if selection actually changed
-      const currentCell = this.selectedCell;
-      if (currentCell && currentCell.row === rowIndex && currentCell.col === colIndex) {
-        return false; // Same cell already selected
-      }
-      this.selectedCell = { row: rowIndex, col: colIndex };
-      this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
-      this.requestAfterRender();
-      return false;
+    } else if (ctrlKey || (isCheckbox && multiSelect)) {
+      // Ctrl+Click or checkbox click: Toggle individual row
+      if (this.selected.has(rowIndex)) this.selected.delete(rowIndex);
+      else this.selected.add(rowIndex);
+      this.anchor = rowIndex;
+    } else {
+      // Plain click (or any click when multiSelect is false): select only clicked row.
+      // Same row already selected → nothing to do.
+      if (this.selected.size === 1 && this.selected.has(rowIndex)) return false;
+      this.selected.clear();
+      this.selected.add(rowIndex);
+      this.anchor = rowIndex;
     }
 
-    // ROW MODE: Multi-select with Shift/Ctrl, checkbox toggle, or single select
-    if (mode === 'row') {
-      if (!this.isRowSelectable(rowIndex)) {
-        return false; // Row is not selectable
-      }
+    this.lastSelected = rowIndex;
+    this.explicitSelection = true;
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
+    return false;
+  }
 
-      const multiSelect = this.config.multiSelect !== false;
-      const shiftKey = originalEvent.shiftKey && multiSelect;
-      const ctrlKey = (originalEvent.ctrlKey || originalEvent.metaKey) && multiSelect;
-      const isCheckbox = column?.checkboxColumn === true;
+  /** RANGE MODE: Shift+click extends the selection, plain click starts a new one. */
+  #clickSelectRange(event: CellClickEvent): boolean {
+    const { rowIndex, colIndex, originalEvent } = event;
 
-      if (shiftKey && this.anchor !== null) {
-        // Shift+Click: Range select from anchor to clicked row
-        const start = Math.min(this.anchor, rowIndex);
-        const end = Math.max(this.anchor, rowIndex);
-        if (!ctrlKey) {
-          this.selected.clear();
-        }
-        for (let i = start; i <= end; i++) {
-          if (this.isRowSelectable(i)) {
-            this.selected.add(i);
-          }
-        }
-      } else if (ctrlKey || (isCheckbox && multiSelect)) {
-        // Ctrl+Click or checkbox click: Toggle individual row
-        if (this.selected.has(rowIndex)) {
-          this.selected.delete(rowIndex);
-        } else {
-          this.selected.add(rowIndex);
-        }
-        this.anchor = rowIndex;
-      } else {
-        // Plain click (or any click when multiSelect is false): select only clicked row
-        if (this.selected.size === 1 && this.selected.has(rowIndex)) {
-          return false; // Same row already selected
-        }
-        this.selected.clear();
-        this.selected.add(rowIndex);
-        this.anchor = rowIndex;
-      }
+    // Skip utility columns and non-selectable cells - don't start selection from them
+    if (event.column && isUtilityColumn(event.column)) return false;
+    if (!this.isCellSelectable(rowIndex, colIndex)) return false;
 
-      this.lastSelected = rowIndex;
-      this.explicitSelection = true;
-      this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
-      this.requestAfterRender();
-      return false;
-    }
+    const shiftKey = originalEvent.shiftKey;
+    const ctrlKey = (originalEvent.ctrlKey || originalEvent.metaKey) && this.config.multiSelect !== false;
 
-    // RANGE MODE: Shift+click extends selection, click starts new
-    if (mode === 'range') {
-      // Skip utility columns in range mode - don't start selection from them
-      if (isUtility) {
-        return false;
-      }
+    if (shiftKey && this.cellAnchor) {
+      // Extend selection from anchor
+      const newRange = createRangeFromAnchor(this.cellAnchor, { row: rowIndex, col: colIndex });
 
-      // Skip non-selectable cells in range mode
-      if (!this.isCellSelectable(rowIndex, colIndex)) {
-        return false;
-      }
+      // Check if range actually changed
+      const currentRange = this.ranges.length > 0 ? this.ranges[this.ranges.length - 1] : null;
+      if (currentRange && rangesEqual(currentRange, newRange)) return false;
 
-      const shiftKey = originalEvent.shiftKey;
-      const ctrlKey = (originalEvent.ctrlKey || originalEvent.metaKey) && this.config.multiSelect !== false;
-
-      if (shiftKey && this.cellAnchor) {
-        // Extend selection from anchor
-        const newRange = createRangeFromAnchor(this.cellAnchor, { row: rowIndex, col: colIndex });
-
-        // Check if range actually changed
-        const currentRange = this.ranges.length > 0 ? this.ranges[this.ranges.length - 1] : null;
-        if (currentRange && rangesEqual(currentRange, newRange)) {
-          return false; // Same range already selected
-        }
-
-        if (ctrlKey) {
-          if (this.ranges.length > 0) {
-            this.ranges[this.ranges.length - 1] = newRange;
-          } else {
-            this.ranges.push(newRange);
-          }
-        } else {
-          this.ranges = [newRange];
-        }
-        this.activeRange = newRange;
-      } else if (ctrlKey) {
-        const newRange: InternalCellRange = {
-          startRow: rowIndex,
-          startCol: colIndex,
-          endRow: rowIndex,
-          endCol: colIndex,
-        };
+      if (!ctrlKey) this.ranges = [newRange];
+      else if (this.ranges.length > 0) this.ranges[this.ranges.length - 1] = newRange;
+      else this.ranges.push(newRange);
+      this.activeRange = newRange;
+    } else {
+      const newRange: InternalCellRange = {
+        startRow: rowIndex,
+        startCol: colIndex,
+        endRow: rowIndex,
+        endCol: colIndex,
+      };
+      if (ctrlKey) {
         this.ranges.push(newRange);
-        this.activeRange = newRange;
-        this.cellAnchor = { row: rowIndex, col: colIndex };
       } else {
-        // Plain click - check if same single-cell range already selected
-        const newRange: InternalCellRange = {
-          startRow: rowIndex,
-          startCol: colIndex,
-          endRow: rowIndex,
-          endCol: colIndex,
-        };
-
-        // Only emit if selection actually changed
-        if (this.ranges.length === 1 && rangesEqual(this.ranges[0], newRange)) {
-          return false; // Same cell already selected
-        }
-
+        // Plain click - only emit if the same single-cell range isn't already selected
+        if (this.ranges.length === 1 && rangesEqual(this.ranges[0], newRange)) return false;
         this.ranges = [newRange];
-        this.activeRange = newRange;
-        this.cellAnchor = { row: rowIndex, col: colIndex };
       }
-
-      this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
-
-      this.requestAfterRender();
-      return false;
+      this.activeRange = newRange;
+      this.cellAnchor = { row: rowIndex, col: colIndex };
     }
 
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
     return false;
   }
 
@@ -692,180 +675,174 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // Skip all selection if disabled at grid level or plugin level
     if (!this.isSelectionEnabled()) return false;
 
-    const mode = this.#mode.primary;
-    const columnEnabled = this.#mode.columnEnabled;
-    const navKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End', 'PageUp', 'PageDown'];
-    const isNavKey = navKeys.includes(event.key);
+    if (this.#mode.columnEnabled && this.#keyColumnAxis(event)) return true;
 
-    // Ctrl+Space — WAI-ARIA Grid: toggle column selection for the focused column.
-    // Per-spec uses ' ' (Space). Some browsers report `key === 'Spacebar'` on
-    // older hosts; cover both.
-    if (columnEnabled && (event.ctrlKey || event.metaKey) && (event.key === ' ' || event.key === 'Spacebar')) {
-      const colIndex = this.grid._focusCol;
-      const column = this.visibleColumns[colIndex];
-      if (column && !isUtilityColumn(column) && typeof column.field === 'string') {
-        event.preventDefault();
-        event.stopPropagation();
-        this.selectColumn(column.field, { toggle: true });
-        return true;
-      }
+    const mode = this.#mode.primary;
+
+    // Escape clears selection in all modes
+    if (event.key === 'Escape') return this.#keyClearSelection(mode);
+
+    const isNavKey = NAV_KEYS.includes(event.key);
+    switch (mode) {
+      case 'cell':
+        return isNavKey ? this.#keyNavCellMode() : false;
+      case 'row':
+        return this.#keyRowMode(event);
+      case 'range':
+        return this.#keyRangeMode(event, isNavKey);
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Column-axis keyboard chords (only reachable when `columnEnabled`):
+   * - **Ctrl/⌘+Space** — WAI-ARIA Grid: toggle column selection for the focused
+   *   column. Per spec the key is `' '`; some older hosts report `'Spacebar'`.
+   * - **Ctrl/⌘+Shift+ArrowLeft/Right** — extend column selection along the
+   *   visible columns.
+   *
+   * @returns `true` when the chord was consumed.
+   */
+  #keyColumnAxis(event: KeyboardEvent): boolean {
+    const ctrlOrMeta = event.ctrlKey || event.metaKey;
+    if (!ctrlOrMeta) return false;
+
+    if (event.key === ' ' || event.key === 'Spacebar') {
+      const column = this.visibleColumns[this.grid._focusCol];
+      if (!column || isUtilityColumn(column) || typeof column.field !== 'string') return false;
+      event.preventDefault();
+      event.stopPropagation();
+      this.selectColumn(column.field, { toggle: true });
+      return true;
     }
 
-    // Ctrl+Shift+ArrowLeft / ArrowRight — extend column selection along visible columns.
     if (
-      columnEnabled &&
+      event.shiftKey &&
       this.activeAxis === 'column' &&
       this.config.multiSelect !== false &&
-      (event.ctrlKey || event.metaKey) &&
-      event.shiftKey &&
       (event.key === 'ArrowLeft' || event.key === 'ArrowRight')
     ) {
       const fields = selectableColumnFields(this.visibleColumns);
       const direction = event.key === 'ArrowLeft' ? 'left' : 'right';
       const newHead = computeKeyboardExtension(this.columnHead, fields, direction);
-      if (newHead !== null && this.columnAnchor !== null) {
-        event.preventDefault();
-        event.stopPropagation();
-        this.selectColumn(newHead, { range: true });
-        return true;
-      }
-    }
-
-    // Escape clears selection in all modes
-    // But if editing is active, let the EditingPlugin handle Escape first
-    if (event.key === 'Escape') {
-      const isEditing = this.grid.query<boolean>('isEditing');
-      if (isEditing.some(Boolean)) {
-        return false; // Defer to EditingPlugin to cancel the active edit
-      }
-
-      // Column axis — clear it; falls through to clear in-row when both axes
-      // are configured but we want a single Escape to clear the active axis only.
-      if (this.activeAxis === 'column') {
-        this.selectedColumns.clear();
-        this.columnAnchor = null;
-        this.columnHead = null;
-        this.activeAxis = 'none';
-        this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
-        this.requestAfterRender();
-        return true;
-      }
-
-      if (mode === 'cell') {
-        this.selectedCell = null;
-      } else if (mode === 'row') {
-        this.selected.clear();
-        this.anchor = null;
-      } else if (mode === 'range') {
-        this.ranges = [];
-        this.activeRange = null;
-        this.cellAnchor = null;
-      }
-      this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
-      this.requestAfterRender();
-      return true;
-    }
-
-    // CELL MODE: Selection follows focus (but respects selectability)
-    if (mode === 'cell' && isNavKey) {
-      // Use queueMicrotask so grid's handler runs first and updates focusRow/focusCol
-      queueMicrotask(() => {
-        const focusRow = this.grid._focusRow;
-        const focusCol = this.grid._focusCol;
-        // Only select if the cell is selectable
-        if (this.isCellSelectable(focusRow, focusCol)) {
-          this.selectedCell = { row: focusRow, col: focusCol };
-        } else {
-          // Clear selection when navigating to non-selectable cell
-          this.selectedCell = null;
-        }
-        this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
-        this.requestAfterRender();
-      });
-      return false; // Let grid handle navigation
-    }
-
-    // ROW MODE: Arrow/Page/Home/End keys move selection, Shift extends, Ctrl+A selects all
-    if (mode === 'row') {
-      const multiSelect = this.config.multiSelect !== false;
-      const isRowNavKey =
-        event.key === 'ArrowUp' ||
-        event.key === 'ArrowDown' ||
-        event.key === 'PageUp' ||
-        event.key === 'PageDown' ||
-        ((event.ctrlKey || event.metaKey) && (event.key === 'Home' || event.key === 'End'));
-
-      if (isRowNavKey) {
-        const shiftKey = event.shiftKey && multiSelect;
-
-        // Set anchor SYNCHRONOUSLY before grid moves focus
-        if (shiftKey && this.anchor === null) {
-          this.anchor = this.grid._focusRow;
-        }
-
-        // Mark explicit selection SYNCHRONOUSLY so #syncSelectionToFocus
-        // won't overwrite the anchor if afterRender fires before our update
-        this.explicitSelection = true;
-
-        // Store pending update — processed in afterRender when grid has updated focusRow
-        this.pendingRowKeyUpdate = { shiftKey };
-
-        // Schedule afterRender (grid's refreshVirtualWindow(false) may skip it)
-        queueMicrotask(() => this.requestAfterRender());
-        return false; // Let grid handle navigation
-      }
-
-      // Ctrl+A: Select all rows (skip when editing, skip when single-select)
-      if (multiSelect && event.key === 'a' && (event.ctrlKey || event.metaKey)) {
-        const isEditing = this.grid.query<boolean>('isEditing');
-        if (isEditing.some(Boolean)) return false;
-        event.preventDefault();
-        event.stopPropagation();
-        this.selectAll();
-        return true;
-      }
-    }
-
-    // RANGE MODE: Shift+Arrow extends, plain Arrow resets
-    // Tab key always navigates without extending (even with Shift)
-    if (mode === 'range' && isNavKey) {
-      // Tab should not extend selection - it just navigates to the next/previous cell
-      const isTabKey = event.key === 'Tab';
-      const shouldExtend = event.shiftKey && !isTabKey;
-
-      // Capture anchor BEFORE grid moves focus (synchronous)
-      // This ensures the anchor is the starting point, not the destination
-      if (shouldExtend && !this.cellAnchor) {
-        this.cellAnchor = { row: this.grid._focusRow, col: this.grid._focusCol };
-      }
-
-      // Mark pending update - will be processed in afterRender when grid updates focus
-      this.pendingKeyboardUpdate = { shiftKey: shouldExtend };
-
-      // Schedule afterRender to run after grid's keyboard handler completes
-      // Grid's refreshVirtualWindow(false) skips afterRender for performance,
-      // so we explicitly request it to process pendingKeyboardUpdate
-      queueMicrotask(() => this.requestAfterRender());
-
-      return false; // Let grid handle navigation
-    }
-
-    // Ctrl+A selects all in range mode (skip when editing, skip when single-select)
-    if (
-      mode === 'range' &&
-      this.config.multiSelect !== false &&
-      event.key === 'a' &&
-      (event.ctrlKey || event.metaKey)
-    ) {
-      const isEditing = this.grid.query<boolean>('isEditing');
-      if (isEditing.some(Boolean)) return false;
+      if (newHead === null || this.columnAnchor === null) return false;
       event.preventDefault();
       event.stopPropagation();
-      this.selectAll();
+      this.selectColumn(newHead, { range: true });
       return true;
     }
 
     return false;
+  }
+
+  /** Escape: clear the active axis. Defers to EditingPlugin while an edit is open. */
+  #keyClearSelection(mode: SelectionMode): boolean {
+    // If editing is active, let the EditingPlugin cancel the active edit first
+    if (this.grid.query<boolean>('isEditing').some(Boolean)) return false;
+
+    // Column axis — clear it only; a single Escape clears the *active* axis when
+    // both axes are configured.
+    if (this.activeAxis === 'column') {
+      this.selectedColumns.clear();
+      this.columnAnchor = null;
+      this.columnHead = null;
+      this.activeAxis = 'none';
+    } else if (mode === 'cell') {
+      this.selectedCell = null;
+    } else if (mode === 'row') {
+      this.selected.clear();
+      this.anchor = null;
+    } else if (mode === 'range') {
+      this.ranges = [];
+      this.activeRange = null;
+      this.cellAnchor = null;
+    }
+
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
+    return true;
+  }
+
+  /** CELL MODE: selection follows focus (but respects selectability). */
+  #keyNavCellMode(): boolean {
+    // Use queueMicrotask so grid's handler runs first and updates focusRow/focusCol
+    queueMicrotask(() => {
+      const focusRow = this.grid._focusRow;
+      const focusCol = this.grid._focusCol;
+      // Only select if the cell is selectable; clear when navigating to a non-selectable cell
+      this.selectedCell = this.isCellSelectable(focusRow, focusCol) ? { row: focusRow, col: focusCol } : null;
+      this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+      this.requestAfterRender();
+    });
+    return false; // Let grid handle navigation
+  }
+
+  /** ROW MODE: Arrow/Page/Ctrl+Home/End move selection, Shift extends, Ctrl+A selects all. */
+  #keyRowMode(event: KeyboardEvent): boolean {
+    const multiSelect = this.config.multiSelect !== false;
+    const isRowNavKey =
+      event.key === 'ArrowUp' ||
+      event.key === 'ArrowDown' ||
+      event.key === 'PageUp' ||
+      event.key === 'PageDown' ||
+      ((event.ctrlKey || event.metaKey) && (event.key === 'Home' || event.key === 'End'));
+
+    if (isRowNavKey) {
+      const shiftKey = event.shiftKey && multiSelect;
+
+      // Set anchor SYNCHRONOUSLY before grid moves focus
+      if (shiftKey && this.anchor === null) this.anchor = this.grid._focusRow;
+
+      // Mark explicit selection SYNCHRONOUSLY so #syncSelectionToFocus
+      // won't overwrite the anchor if afterRender fires before our update
+      this.explicitSelection = true;
+
+      // Store pending update — processed in afterRender when grid has updated focusRow
+      this.pendingRowKeyUpdate = { shiftKey };
+
+      // Schedule afterRender (grid's refreshVirtualWindow(false) may skip it)
+      queueMicrotask(() => this.requestAfterRender());
+      return false; // Let grid handle navigation
+    }
+
+    return this.#keySelectAll(event, multiSelect);
+  }
+
+  /**
+   * RANGE MODE: Shift+Arrow extends, plain Arrow resets, Ctrl+A selects all.
+   * Tab always navigates without extending (even with Shift).
+   */
+  #keyRangeMode(event: KeyboardEvent, isNavKey: boolean): boolean {
+    if (!isNavKey) return this.#keySelectAll(event, this.config.multiSelect !== false);
+
+    const shouldExtend = event.shiftKey && event.key !== 'Tab';
+
+    // Capture anchor BEFORE grid moves focus (synchronous)
+    // This ensures the anchor is the starting point, not the destination
+    if (shouldExtend && !this.cellAnchor) {
+      this.cellAnchor = { row: this.grid._focusRow, col: this.grid._focusCol };
+    }
+
+    // Mark pending update - will be processed in afterRender when grid updates focus
+    this.pendingKeyboardUpdate = { shiftKey: shouldExtend };
+
+    // Schedule afterRender to run after grid's keyboard handler completes.
+    // Grid's refreshVirtualWindow(false) skips afterRender for performance,
+    // so we explicitly request it to process pendingKeyboardUpdate.
+    queueMicrotask(() => this.requestAfterRender());
+
+    return false; // Let grid handle navigation
+  }
+
+  /** Ctrl/⌘+A: select all (skipped while editing, and when single-select). */
+  #keySelectAll(event: KeyboardEvent, multiSelect: boolean): boolean {
+    if (!multiSelect || event.key !== 'a' || !(event.ctrlKey || event.metaKey)) return false;
+    if (this.grid.query<boolean>('isEditing').some(Boolean)) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    this.selectAll();
+    return true;
   }
 
   /** @internal */

@@ -249,11 +249,7 @@ export class RowManager<T = any> {
     }
 
     // Refresh caches and trigger immediate re-render
-    invalidateCellCache(grid);
-    grid._rebuildRowIdMap();
-    grid.__rowRenderEpoch++;
-    for (let i = 0; i < grid._rowPool.length; i++) grid._rowPool[i].__epoch = -1;
-    grid.refreshVirtualWindow(true);
+    this.#invalidateAndRerender();
 
     // Notify plugins about the inserted row (e.g., editing dirty tracking)
     grid._emitPluginEvent('row-inserted', { row, index: idx });
@@ -303,23 +299,12 @@ export class RowManager<T = any> {
     }
 
     // Refresh caches and trigger immediate re-render
-    invalidateCellCache(grid);
-    grid._rebuildRowIdMap();
-    grid.__rowRenderEpoch++;
-    for (let i = 0; i < grid._rowPool.length; i++) grid._rowPool[i].__epoch = -1;
-    grid.refreshVirtualWindow(true);
+    this.#invalidateAndRerender();
 
     grid._emitDataChange();
 
     // Clean up stale remove animation attributes after re-render
-    if (animate) {
-      requestAnimationFrame(() => {
-        const els = grid.querySelectorAll('[data-animating="remove"]');
-        for (let i = 0; i < els.length; i++) {
-          els[i].removeAttribute('data-animating');
-        }
-      });
-    }
+    if (animate) this.#clearRemoveAnimations();
 
     return row;
   }
@@ -327,137 +312,151 @@ export class RowManager<T = any> {
   // --- Transaction API ---
 
   async applyTransaction(transaction: RowTransaction<T>, animate = true): Promise<TransactionResult<T>> {
-    const grid = this.#grid;
     const result: TransactionResult<T> = { added: [], updated: [], removed: [] };
 
     // 1. Process removes first (before indices shift from inserts)
-    if (transaction.remove?.length) {
-      for (const { id } of transaction.remove) {
-        const entry = grid._getRowEntry(id);
-        if (!entry) continue;
+    await this.#txRemove(transaction, result, animate);
+    // 2. Process updates (in-place mutation, no structural change).
+    //    Removed IDs are skipped so updates don't target removed rows.
+    this.#txUpdate(transaction, result);
+    // 3. Process adds (append to end)
+    this.#txAdd(transaction, result);
+    // 4. Single render pass for all mutations
+    this.#txRender(result);
+    // 5-7. Animations + stale-attribute cleanup
+    if (animate) await this.#txAnimate(result);
 
-        const { row } = entry;
+    return result;
+  }
 
-        if (animate) {
-          const idx = grid._rows.indexOf(row);
-          if (idx >= 0) await animateRow(grid, idx, 'remove');
-        }
+  /** Transaction phase 1 — remove rows from `_rows`, `sourceRows` and `__originalOrder`. */
+  async #txRemove(transaction: RowTransaction<T>, result: TransactionResult<T>, animate: boolean): Promise<void> {
+    if (!transaction.remove?.length) return;
+    const grid = this.#grid;
 
-        // Find current position (may have shifted during animation)
-        const currentIdx = grid._rows.indexOf(row);
-        if (currentIdx < 0) {
-          result.removed.push(row);
-          continue;
-        }
+    for (const { id } of transaction.remove) {
+      const entry = grid._getRowEntry(id);
+      if (!entry) continue;
 
-        const newRows = [...grid._rows];
-        newRows.splice(currentIdx, 1);
-        grid._rows = newRows;
+      const { row } = entry;
 
-        const srcIdx = grid.sourceRows.indexOf(row);
-        if (srcIdx >= 0) {
-          const newSource = [...grid.sourceRows];
-          newSource.splice(srcIdx, 1);
-          grid.sourceRows = newSource;
-        }
-
-        if (grid._sortState) {
-          const origIdx = grid.__originalOrder.indexOf(row);
-          if (origIdx >= 0) {
-            const newOrig = [...grid.__originalOrder];
-            newOrig.splice(origIdx, 1);
-            grid.__originalOrder = newOrig;
-          }
-        }
-
-        result.removed.push(row);
+      if (animate) {
+        const idx = grid._rows.indexOf(row);
+        if (idx >= 0) await animateRow(grid, idx, 'remove');
       }
-    }
 
-    // Collect removed IDs so updates don't target removed rows
+      // Find current position (may have shifted during animation)
+      const currentIdx = grid._rows.indexOf(row);
+      if (currentIdx < 0) {
+        result.removed.push(row);
+        continue;
+      }
+
+      const newRows = [...grid._rows];
+      newRows.splice(currentIdx, 1);
+      grid._rows = newRows;
+
+      const srcIdx = grid.sourceRows.indexOf(row);
+      if (srcIdx >= 0) {
+        const newSource = [...grid.sourceRows];
+        newSource.splice(srcIdx, 1);
+        grid.sourceRows = newSource;
+      }
+
+      if (grid._sortState) {
+        const origIdx = grid.__originalOrder.indexOf(row);
+        if (origIdx >= 0) {
+          const newOrig = [...grid.__originalOrder];
+          newOrig.splice(origIdx, 1);
+          grid.__originalOrder = newOrig;
+        }
+      }
+
+      result.removed.push(row);
+    }
+  }
+
+  /** Transaction phase 2 — in-place field writes, one `cell-change` per changed field. */
+  #txUpdate(transaction: RowTransaction<T>, result: TransactionResult<T>): void {
+    if (!transaction.update?.length) return;
+    const grid = this.#grid;
     const removedIds = new Set(transaction.remove?.map((r) => r.id));
 
-    // 2. Process updates (in-place mutation, no structural change)
-    if (transaction.update?.length) {
-      for (const { id, changes } of transaction.update) {
-        if (removedIds.has(id)) continue;
-        const entry = grid._getRowEntry(id);
-        if (!entry) continue;
+    for (const { id, changes } of transaction.update) {
+      if (removedIds.has(id)) continue;
+      const entry = grid._getRowEntry(id);
+      if (!entry) continue;
 
-        const { row, index } = entry;
-        let changed = false;
+      const { row, index } = entry;
+      let changed = false;
 
-        for (const [field, newValue] of Object.entries(changes)) {
-          const oldValue = readCellField(row, field);
-          if (oldValue !== newValue) {
-            changed = true;
-            writeCellField(row, field, newValue);
-            // Whole-row invalidation: a `valueAccessor` may read a property
-            // other than `column.field`, so per-field invalidation can miss
-            // the stale cache entry keyed by `column.field`.
-            invalidateAccessorCache(row as object);
+      for (const [field, newValue] of Object.entries(changes)) {
+        const oldValue = readCellField(row, field);
+        if (oldValue === newValue) continue;
 
-            grid.dispatchEvent(
-              new CustomEvent('cell-change', {
-                detail: {
-                  row,
-                  rowId: id,
-                  rowIndex: index,
-                  field,
-                  oldValue,
-                  newValue,
-                  changes,
-                  source: 'api',
-                } as CellChangeDetail<T>,
-                bubbles: true,
-                composed: true,
-              }),
-            );
-          }
-        }
+        changed = true;
+        writeCellField(row, field, newValue);
+        // Whole-row invalidation: a `valueAccessor` may read a property
+        // other than `column.field`, so per-field invalidation can miss
+        // the stale cache entry keyed by `column.field`.
+        invalidateAccessorCache(row as object);
 
-        if (changed) result.updated.push(row);
+        grid.dispatchEvent(
+          new CustomEvent('cell-change', {
+            detail: {
+              row,
+              rowId: id,
+              rowIndex: index,
+              field,
+              oldValue,
+              newValue,
+              changes,
+              source: 'api',
+            } as CellChangeDetail<T>,
+            bubbles: true,
+            composed: true,
+          }),
+        );
       }
+
+      if (changed) result.updated.push(row);
     }
+  }
 
-    // 3. Process adds (append to end)
-    if (transaction.add?.length) {
-      for (const row of transaction.add) {
-        grid.sourceRows = [...grid.sourceRows, row];
+  /** Transaction phase 3 — append new rows to `sourceRows`, `_rows` and `__originalOrder`. */
+  #txAdd(transaction: RowTransaction<T>, result: TransactionResult<T>): void {
+    if (!transaction.add?.length) return;
+    const grid = this.#grid;
 
-        const newRows = [...grid._rows];
-        newRows.push(row);
-        grid._rows = newRows;
-
-        if (grid._sortState) {
-          grid.__originalOrder = [...grid.__originalOrder, row];
-        }
-
-        result.added.push(row);
-      }
+    for (const row of transaction.add) {
+      grid.sourceRows = [...grid.sourceRows, row];
+      grid._rows = [...grid._rows, row];
+      if (grid._sortState) grid.__originalOrder = [...grid.__originalOrder, row];
+      result.added.push(row);
     }
+  }
 
-    // 4. Single render pass for all mutations
+  /** Transaction phase 4 — one render pass covering every mutation in the batch. */
+  #txRender(result: TransactionResult<T>): void {
+    const grid = this.#grid;
     const hasStructuralChange = result.added.length > 0 || result.removed.length > 0;
     const hasUpdates = result.updated.length > 0;
 
     if (hasStructuralChange) {
-      invalidateCellCache(grid);
-      grid._rebuildRowIdMap();
-      grid.__rowRenderEpoch++;
-      for (let i = 0; i < grid._rowPool.length; i++) grid._rowPool[i].__epoch = -1;
-      grid.refreshVirtualWindow(true);
+      this.#invalidateAndRerender();
     } else if (hasUpdates) {
       invalidateCellCache(grid);
       grid._requestSchedulerPhase(RenderPhase.VIRTUALIZATION, 'applyTransaction');
     }
 
-    if (hasStructuralChange || hasUpdates) {
-      grid._emitDataChange();
-    }
+    if (hasStructuralChange || hasUpdates) grid._emitDataChange();
+  }
 
-    // 5. Animate added rows
-    if (animate && result.added.length > 0) {
+  /** Transaction phases 5-7 — insert/change animations and stale remove-attribute cleanup. */
+  async #txAnimate(result: TransactionResult<T>): Promise<void> {
+    const grid = this.#grid;
+
+    if (result.added.length > 0) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       for (const row of result.added) {
         const idx = grid._rows.indexOf(row);
@@ -465,25 +464,34 @@ export class RowManager<T = any> {
       }
     }
 
-    // 6. Animate updated rows
-    if (animate && result.updated.length > 0) {
-      for (const row of result.updated) {
-        const idx = grid._rows.indexOf(row);
-        if (idx >= 0) await animateRow(grid, idx, 'change');
-      }
+    for (const row of result.updated) {
+      const idx = grid._rows.indexOf(row);
+      if (idx >= 0) await animateRow(grid, idx, 'change');
     }
 
-    // 7. Clean up stale remove animations
-    if (animate && result.removed.length > 0) {
-      requestAnimationFrame(() => {
-        const els = grid.querySelectorAll('[data-animating="remove"]');
-        for (let i = 0; i < els.length; i++) {
-          els[i].removeAttribute('data-animating');
-        }
-      });
-    }
+    if (result.removed.length > 0) this.#clearRemoveAnimations();
+  }
 
-    return result;
+  /**
+   * Structural mutation aftermath: drop caches, rebuild the id map, bump the
+   * render epoch so every pooled row is rebuilt, and re-render immediately.
+   */
+  #invalidateAndRerender(): void {
+    const grid = this.#grid;
+    invalidateCellCache(grid);
+    grid._rebuildRowIdMap();
+    grid.__rowRenderEpoch++;
+    for (let i = 0; i < grid._rowPool.length; i++) grid._rowPool[i].__epoch = -1;
+    grid.refreshVirtualWindow(true);
+  }
+
+  /** Drop `data-animating="remove"` markers left behind after the re-render. */
+  #clearRemoveAnimations(): void {
+    const grid = this.#grid;
+    requestAnimationFrame(() => {
+      const els = grid.querySelectorAll('[data-animating="remove"]');
+      for (let i = 0; i < els.length; i++) els[i].removeAttribute('data-animating');
+    });
   }
 
   #pendingTransaction: RowTransaction<T> | null = null;

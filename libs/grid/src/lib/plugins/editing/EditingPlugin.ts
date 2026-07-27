@@ -833,62 +833,81 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * @internal
    */
   override onKeyDown(event: KeyboardEvent): boolean | void {
-    const internalGrid = this.#internalGrid;
+    switch (event.key) {
+      case 'Escape':
+        return this.#onEscapeKey(event);
+      case 'ArrowUp':
+      case 'ArrowDown':
+      case 'ArrowLeft':
+      case 'ArrowRight':
+        return this.#onArrowKey(event);
+      case 'Tab':
+        return this.#onTabKey(event);
+      case ' ':
+      case 'Spacebar':
+        return this.#onSpaceKey(event);
+      case 'Enter':
+        // Modified Enter (Shift/Ctrl/Alt/Meta) is not ours — don't block it.
+        if (event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return false;
+        return this.#onEnterKey(event);
+      case 'F2':
+        return this.#onF2Key(event);
+      default:
+        // Don't block other keyboard events
+        return false;
+    }
+  }
 
-    // Escape: cancel current edit (row mode) or exit edit mode (grid mode)
-    if (event.key === 'Escape') {
-      // In grid mode: revert cell, blur input, enter navigation mode.
-      // NOTE: No onBeforeEditClose check here — the capture-phase handler
-      // is the authoritative overlay guard. If the event reaches this
-      // bubble-phase handler, either:
-      //   a) the capture handler already bailed (overlay was open) and the
-      //      template handler (e.g. select.close()) addressed it, or
-      //   b) no overlay was open.
-      // In both cases we should transition to navigation mode.
-      if (this.#isGridMode && this.#gridModeInputFocused) {
-        this.#enterGridModeNavigation();
-        // Update focus styling
-        this.requestAfterRender();
-        return true;
-      }
-
-      // In row mode: cancel edit
-      if (this.#activeEditRow !== -1 && !this.#isGridMode) {
-        if (shouldPreventEditClose(this.config, event)) return true;
-        this.#exitRowEdit(this.#activeEditRow, true);
-        return true;
-      }
+  /**
+   * Escape: cancel the current edit (row mode) or leave edit mode (grid mode).
+   *
+   * NOTE: No `onBeforeEditClose` check here — the capture-phase handler is the
+   * authoritative overlay guard. If the event reaches this bubble-phase handler,
+   * either (a) the capture handler already bailed (overlay was open) and the
+   * template handler (e.g. `select.close()`) addressed it, or (b) no overlay was
+   * open. In both cases we should transition to navigation mode.
+   */
+  #onEscapeKey(event: KeyboardEvent): boolean {
+    // In grid mode: revert cell, blur input, enter navigation mode.
+    if (this.#isGridMode && this.#gridModeInputFocused) {
+      this.#enterGridModeNavigation();
+      // Update focus styling
+      this.requestAfterRender();
+      return true;
     }
 
-    // Arrow keys in grid mode when not editing input: navigate cells.
-    // `#gridModeInputFocused` is a cached flag — keep `event.target` as a
-    // fallback check so a stale flag (e.g. between a native <select>
-    // popup opening and our focusout/focusin guard updating it) doesn't
-    // hijack ArrowUp/Down away from a focused editor. Use `closest()`
-    // (not `matches()`) so that descendants of an editor — most notably
-    // `<option>` children of an open native <select> popup — are also
-    // recognised as "keydown originating inside an editor".
+    // In row mode: cancel edit
+    if (this.#activeEditRow !== -1 && !this.#isGridMode) {
+      if (shouldPreventEditClose(this.config, event)) return true;
+      this.#exitRowEdit(this.#activeEditRow, true);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Arrow keys — decides whether the grid navigates or the editor keeps the key.
+   *
+   * `#gridModeInputFocused` is a cached flag, so `event.target` is used as a
+   * fallback: a stale flag (e.g. between a native `<select>` popup opening and
+   * our focusout/focusin guard updating it) must not hijack ArrowUp/Down away
+   * from a focused editor. Uses `closest()` (not `matches()`) so descendants of
+   * an editor — most notably `<option>` children of an open native `<select>`
+   * popup — also count as "keydown originating inside an editor".
+   */
+  #onArrowKey(event: KeyboardEvent): boolean {
     const arrowEditorAncestor = getEditorAncestor(event.target);
     const targetIsEditor = !!arrowEditorAncestor && arrowEditorAncestor !== this.gridElement;
-    if (
-      this.#isGridMode &&
-      !this.#gridModeInputFocused &&
-      !targetIsEditor &&
-      (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight')
-    ) {
-      // Let the grid's default keyboard navigation handle this
-      return false;
-    }
+    const isVertical = event.key === 'ArrowUp' || event.key === 'ArrowDown';
 
-    // Arrow Up/Down in grid mode when input is focused: let the editor handle it
-    // (e.g., ArrowDown opens autocomplete/datepicker overlays, ArrowUp/Down navigates options)
-    if (
-      this.#isGridMode &&
-      (this.#gridModeInputFocused || targetIsEditor) &&
-      (event.key === 'ArrowUp' || event.key === 'ArrowDown')
-    ) {
-      return true; // Handled: block grid navigation, let event reach editor
-    }
+    // Grid mode, no editor focused: let the grid's default navigation handle it.
+    if (this.#isGridMode && !this.#gridModeInputFocused && !targetIsEditor) return false;
+
+    // Grid mode with a focused editor: ArrowUp/Down belong to the editor
+    // (e.g. ArrowDown opens autocomplete/datepicker overlays, ArrowUp/Down
+    // navigates options). Handled: block grid navigation, let event reach editor.
+    if (this.#isGridMode && (this.#gridModeInputFocused || targetIsEditor) && isVertical) return true;
 
     // Arrow Up/Down while a row is in edit mode (row mode): the editor owns
     // the key. The grid does NOT commit + jump to an adjacent row — the user
@@ -904,194 +923,192 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // commit-and-navigate fallback (see `core/internal/keyboard.ts`'s
     // ArrowUp/Down switch case). The native event still reaches the focused
     // editor so it can consume it however it needs to.
-    if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && this.#activeEditRow !== -1 && !this.#isGridMode) {
-      return true;
-    }
+    if (isVertical && this.#activeEditRow !== -1 && !this.#isGridMode) return true;
 
-    // Tab/Shift+Tab while editing: move to next/prev editable cell
-    if (event.key === 'Tab' && (this.#activeEditRow !== -1 || this.#isGridMode)) {
-      event.preventDefault();
-
-      // In single-cell edit mode (F2), commit and close instead of navigating
-      if (this.#singleCellEdit) {
-        this.#exitRowEdit(this.#activeEditRow, false);
-        return true;
-      }
-
-      const forward = !event.shiftKey;
-      this.#handleTabNavigation(forward);
-      return true;
-    }
-
-    // Space: toggle boolean cells (only when not in edit mode - let editors handle their own space)
-    if (event.key === ' ' || event.key === 'Spacebar') {
-      // If we're in row edit mode, let the event pass through to the editor (e.g., checkbox)
-      if (this.#activeEditRow !== -1) {
-        return false;
-      }
-
-      const focusRow = internalGrid._focusRow;
-      const focusCol = internalGrid._focusCol;
-      if (focusRow >= 0 && focusCol >= 0) {
-        const column = internalGrid._visibleColumns[focusCol];
-        const rowData = internalGrid._rows[focusRow];
-        if (
-          column &&
-          rowData &&
-          this.#isCellEditable(column as ColumnConfig<T>, rowData as T) &&
-          column.type === 'boolean'
-        ) {
-          const field = column.field;
-          if (isSafePropertyKey(field)) {
-            const currentValue = readCellField(rowData, field);
-            const newValue = !currentValue;
-            this.#commitCellValue(focusRow, column, newValue, rowData);
-            event.preventDefault();
-            // Re-render to update the UI
-            this.requestRender();
-            return true;
-          }
-        }
-      }
-      // Space on non-boolean cell - don't block keyboard navigation
-      return false;
-    }
-
-    // Enter (unmodified): start row edit, commit, or enter edit mode in grid mode
-    if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
-      // In grid mode when not editing: focus the current cell's input
-      if (this.#isGridMode && !this.#gridModeInputFocused) {
-        this.#focusCurrentCellEditor();
-        return true;
-      }
-
-      // In grid mode while an editor (or its descendant — most notably an
-      // <option> inside an open native <select> popup) has focus: do NOT
-      // start row-based editing or re-render. Two sub-cases:
-      //   (a) target is a descendant of an editor (popup option): let the
-      //       browser's native commit-and-close run untouched — calling
-      //       beginBulkEdit / re-rendering would destroy the open popup
-      //       and abort the commit. We just bail.
-      //   (b) target IS the editor itself (focused SELECT after popup
-      //       closed, focused INPUT with no popup): commit the current
-      //       value, blur the editor, return focus to the grid so arrow
-      //       keys resume cell navigation. Mirrors Escape but accepts
-      //       the value instead of reverting.
-      if (this.#isGridMode && this.#gridModeInputFocused) {
-        const enterEditorAncestor = getEditorAncestor(event.target);
-        if (enterEditorAncestor && enterEditorAncestor !== event.target) {
-          // (a) descendant — let native commit fire; do not interfere.
-          // Return true so core's Enter handler (which would dispatch
-          // cell-activate) does not also run. We don't call
-          // preventDefault, so the browser still commits the popup.
-          return true;
-        }
-        // (b) editor itself — commit + blur + return to navigation mode.
-        this.#gridModeCellSnapshot = null;
-        const activeEl = document.activeElement as HTMLElement | null;
-        if (activeEl && this.gridElement.contains(activeEl)) {
-          activeEl.blur();
-          this.gridElement.focus();
-        }
-        this.#gridModeInputFocused = false;
-        this.#gridModeEditLocked = true;
-        this.requestAfterRender();
-        return true;
-      }
-
-      if (this.#activeEditRow !== -1) {
-        // ARIA-expanded fallback (#251): when the focused control declares
-        // an open overlay via aria-expanded="true" + aria-controls, defer
-        // Enter to the overlay so combobox confirmation does not exit the
-        // row. Mirrors the editor-injection.ts handler so the same guard
-        // applies whether the editor host or the grid receives the event.
-        const ariaTarget = event.target as HTMLElement | null;
-        if (
-          ariaTarget &&
-          ariaTarget.getAttribute?.('aria-expanded') === 'true' &&
-          ariaTarget.hasAttribute?.('aria-controls')
-        ) {
-          return false;
-        }
-        if (shouldPreventEditClose(this.config, event)) return true;
-        // Already editing - let cell handlers deal with it
-        return false;
-      }
-
-      // Start row-based editing (not just the focused cell)
-      const editOn = this.config.editOn ?? internalGrid.effectiveConfig?.editOn;
-      if (editOn === false || editOn === 'manual') return false;
-
-      const focusRow = internalGrid._focusRow;
-      const focusCol = internalGrid._focusCol;
-      if (focusRow >= 0) {
-        // Check if ANY column in the row is potentially editable
-        const hasEditableColumn = internalGrid._columns?.some((col) => this.#hasEditableConfig(col as ColumnConfig<T>));
-        // Row-level gate
-        const rowData = internalGrid._rows[focusRow];
-        if (hasEditableColumn && this.#isRowEditable(rowData as T | undefined)) {
-          // Emit cell-activate event BEFORE starting edit
-          // This ensures consumers always get the activation event
-          const column = internalGrid._visibleColumns[focusCol];
-          const row = internalGrid._rows[focusRow];
-          const field = column?.field ?? '';
-          const value = field && row ? readCellField(row, field) : undefined;
-          const cellEl = this.gridElement.querySelector(`[data-row="${focusRow}"][data-col="${focusCol}"]`) as
-            HTMLElement | undefined;
-
-          const activateEvent = new CustomEvent('cell-activate', {
-            cancelable: true,
-            bubbles: true,
-            detail: {
-              rowIndex: focusRow,
-              colIndex: focusCol,
-              field,
-              value,
-              row,
-              cellEl,
-              trigger: 'keyboard' as const,
-              originalEvent: event,
-            },
-          });
-          this.gridElement.dispatchEvent(activateEvent);
-
-          // If consumer canceled the activation, don't start editing
-          if (activateEvent.defaultPrevented) {
-            event.preventDefault();
-            return true;
-          }
-
-          this.beginBulkEdit(focusRow);
-          return true;
-        }
-      }
-      // No editable columns - don't block keyboard navigation
-      return false;
-    }
-
-    // F2: begin single-cell edit on the focused cell
-    if (event.key === 'F2') {
-      if (this.#activeEditRow !== -1 || this.#isGridMode) return false;
-
-      const editOn = this.config.editOn ?? internalGrid.effectiveConfig?.editOn;
-      if (editOn === false) return false;
-
-      const focusRow = internalGrid._focusRow;
-      const focusCol = internalGrid._focusCol;
-      if (focusRow >= 0 && focusCol >= 0) {
-        const column = internalGrid._visibleColumns[focusCol];
-        const rowData = internalGrid._rows[focusRow];
-        if (column && rowData && this.#isCellEditable(column as ColumnConfig<T>, rowData as T) && column.field) {
-          event.preventDefault();
-          this.beginCellEdit(focusRow, column.field);
-          return true;
-        }
-      }
-      return false;
-    }
-
-    // Don't block other keyboard events
     return false;
+  }
+
+  /** Tab/Shift+Tab while editing: move to the next/previous editable cell. */
+  #onTabKey(event: KeyboardEvent): boolean {
+    if (this.#activeEditRow === -1 && !this.#isGridMode) return false;
+
+    event.preventDefault();
+
+    // In single-cell edit mode (F2), commit and close instead of navigating
+    if (this.#singleCellEdit) {
+      this.#exitRowEdit(this.#activeEditRow, false);
+      return true;
+    }
+
+    this.#handleTabNavigation(!event.shiftKey);
+    return true;
+  }
+
+  /** Space: toggle boolean cells (only when not editing — editors own their own space). */
+  #onSpaceKey(event: KeyboardEvent): boolean {
+    // If we're in row edit mode, let the event pass through to the editor (e.g., checkbox)
+    if (this.#activeEditRow !== -1) return false;
+
+    const internalGrid = this.#internalGrid;
+    const focusRow = internalGrid._focusRow;
+    const focusCol = internalGrid._focusCol;
+    if (focusRow < 0 || focusCol < 0) return false;
+
+    const column = internalGrid._visibleColumns[focusCol];
+    const rowData = internalGrid._rows[focusRow];
+    if (!column || !rowData || column.type !== 'boolean') return false;
+    if (!this.#isCellEditable(column as ColumnConfig<T>, rowData as T)) return false;
+
+    const field = column.field;
+    // Space on a cell we cannot safely write - don't block keyboard navigation
+    if (!isSafePropertyKey(field)) return false;
+
+    this.#commitCellValue(focusRow, column, !readCellField(rowData, field), rowData);
+    event.preventDefault();
+    // Re-render to update the UI
+    this.requestRender();
+    return true;
+  }
+
+  /** Enter (unmodified): start row edit, commit, or enter edit mode in grid mode. */
+  #onEnterKey(event: KeyboardEvent): boolean {
+    // In grid mode when not editing: focus the current cell's input
+    if (this.#isGridMode && !this.#gridModeInputFocused) {
+      this.#focusCurrentCellEditor();
+      return true;
+    }
+
+    if (this.#isGridMode && this.#gridModeInputFocused) return this.#onEnterWhileEditorFocused(event);
+
+    if (this.#activeEditRow !== -1) {
+      // ARIA-expanded fallback (#251): when the focused control declares
+      // an open overlay via aria-expanded="true" + aria-controls, defer
+      // Enter to the overlay so combobox confirmation does not exit the
+      // row. Mirrors the editor-injection.ts handler so the same guard
+      // applies whether the editor host or the grid receives the event.
+      const ariaTarget = event.target as HTMLElement | null;
+      if (
+        ariaTarget &&
+        ariaTarget.getAttribute?.('aria-expanded') === 'true' &&
+        ariaTarget.hasAttribute?.('aria-controls')
+      ) {
+        return false;
+      }
+      if (shouldPreventEditClose(this.config, event)) return true;
+      // Already editing - let cell handlers deal with it
+      return false;
+    }
+
+    return this.#beginRowEditFromEnter(event);
+  }
+
+  /**
+   * Enter in grid mode while an editor (or its descendant — most notably an
+   * `<option>` inside an open native `<select>` popup) has focus. Does NOT start
+   * row-based editing or re-render. Two sub-cases:
+   * - target is a **descendant** of an editor (popup option): let the browser's
+   *   native commit-and-close run untouched — calling `beginBulkEdit` /
+   *   re-rendering would destroy the open popup and abort the commit.
+   * - target **is** the editor itself (focused SELECT after popup closed,
+   *   focused INPUT with no popup): commit the current value, blur the editor,
+   *   return focus to the grid so arrow keys resume cell navigation. Mirrors
+   *   Escape but accepts the value instead of reverting.
+   */
+  #onEnterWhileEditorFocused(event: KeyboardEvent): boolean {
+    const enterEditorAncestor = getEditorAncestor(event.target);
+    if (enterEditorAncestor && enterEditorAncestor !== event.target) {
+      // Descendant — let native commit fire; do not interfere. Return true so
+      // core's Enter handler (which would dispatch cell-activate) does not also
+      // run. We don't call preventDefault, so the browser still commits the popup.
+      return true;
+    }
+    // Editor itself — commit + blur + return to navigation mode.
+    this.#gridModeCellSnapshot = null;
+    const activeEl = document.activeElement as HTMLElement | null;
+    if (activeEl && this.gridElement.contains(activeEl)) {
+      activeEl.blur();
+      this.gridElement.focus();
+    }
+    this.#gridModeInputFocused = false;
+    this.#gridModeEditLocked = true;
+    this.requestAfterRender();
+    return true;
+  }
+
+  /**
+   * Enter on a focused cell with no edit in progress: start row-based editing
+   * (not just the focused cell), after giving consumers a cancelable
+   * `cell-activate` event.
+   */
+  #beginRowEditFromEnter(event: KeyboardEvent): boolean {
+    const internalGrid = this.#internalGrid;
+    const editOn = this.config.editOn ?? internalGrid.effectiveConfig?.editOn;
+    if (editOn === false || editOn === 'manual') return false;
+
+    const focusRow = internalGrid._focusRow;
+    const focusCol = internalGrid._focusCol;
+    if (focusRow < 0) return false;
+
+    // Check if ANY column in the row is potentially editable
+    const hasEditableColumn = internalGrid._columns?.some((col) => this.#hasEditableConfig(col as ColumnConfig<T>));
+    // Row-level gate. No editable columns - don't block keyboard navigation.
+    const row = internalGrid._rows[focusRow];
+    if (!hasEditableColumn || !this.#isRowEditable(row as T | undefined)) return false;
+
+    // Emit cell-activate event BEFORE starting edit
+    // This ensures consumers always get the activation event
+    const column = internalGrid._visibleColumns[focusCol];
+    const field = column?.field ?? '';
+    const value = field && row ? readCellField(row, field) : undefined;
+    const cellEl = this.gridElement.querySelector(`[data-row="${focusRow}"][data-col="${focusCol}"]`) as
+      HTMLElement | undefined;
+
+    const activateEvent = new CustomEvent('cell-activate', {
+      cancelable: true,
+      bubbles: true,
+      detail: {
+        rowIndex: focusRow,
+        colIndex: focusCol,
+        field,
+        value,
+        row,
+        cellEl,
+        trigger: 'keyboard' as const,
+        originalEvent: event,
+      },
+    });
+    this.gridElement.dispatchEvent(activateEvent);
+
+    // If consumer canceled the activation, don't start editing
+    if (activateEvent.defaultPrevented) {
+      event.preventDefault();
+      return true;
+    }
+
+    this.beginBulkEdit(focusRow);
+    return true;
+  }
+
+  /** F2: begin single-cell edit on the focused cell. */
+  #onF2Key(event: KeyboardEvent): boolean {
+    if (this.#activeEditRow !== -1 || this.#isGridMode) return false;
+
+    const internalGrid = this.#internalGrid;
+    const editOn = this.config.editOn ?? internalGrid.effectiveConfig?.editOn;
+    if (editOn === false) return false;
+
+    const focusRow = internalGrid._focusRow;
+    const focusCol = internalGrid._focusCol;
+    if (focusRow < 0 || focusCol < 0) return false;
+
+    const column = internalGrid._visibleColumns[focusCol];
+    const rowData = internalGrid._rows[focusRow];
+    if (!column || !rowData || !column.field) return false;
+    if (!this.#isCellEditable(column as ColumnConfig<T>, rowData as T)) return false;
+
+    event.preventDefault();
+    this.beginCellEdit(focusRow, column.field);
+    return true;
   }
 
   // #endregion

@@ -24,6 +24,23 @@ import styles from './grouping-columns.css?inline';
 import type { ColumnGroup, ColumnGroupDefinition, GroupingColumnsConfig } from './types';
 
 /**
+ * Fold a column's inline `group` property (string shorthand or object) into an
+ * id-keyed accumulator, appending the field to an existing entry when present.
+ * Columns without a `group` are ignored.
+ */
+function mergeInlineGroup(groupMap: Map<string, ColumnGroupInfo>, col: ColumnConfig): void {
+  if (!col.group) return;
+  const id = typeof col.group === 'string' ? col.group : col.group.id;
+  const label = typeof col.group === 'string' ? col.group : (col.group.label ?? col.group.id);
+  const existing = groupMap.get(id);
+  if (!existing) {
+    groupMap.set(id, { id, label, fields: [col.field] });
+  } else if (!existing.fields.includes(col.field)) {
+    existing.fields.push(col.field);
+  }
+}
+
+/**
  * Column Grouping Plugin for tbw-grid
  *
  * Enables visual grouping of columns under shared headers. Supports two approaches:
@@ -336,80 +353,67 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
    * Fields within each group are sorted by current display order.
    */
   #getStableColumnGrouping(): ColumnGroupInfo[] {
-    let result: ColumnGroupInfo[];
-
-    // 1. Prefer resolved declarative columnGroups (from plugin config or gridConfig)
-    if (this.#resolvedGroupDefs.length > 0) {
-      result = this.#resolvedGroupDefs
-        .filter((g) => g.children.length > 0)
-        .map((g) => ({
-          id: g.id,
-          label: g.header,
-          fields: [...g.children],
-        }));
-    } else if (this.isActive && this.groups.length > 0) {
-      // 2. If active groups exist from processColumns, use them.
-      // Aggregate fragments (same group id at non-contiguous positions) into one entry.
-      const groupMap = new Map<string, ColumnGroupInfo>();
-      for (const g of this.groups) {
-        if (g.id.startsWith('__implicit__')) continue;
-        const existing = groupMap.get(g.id);
-        if (existing) {
-          for (const c of g.columns) {
-            if (!existing.fields.includes(c.field)) existing.fields.push(c.field);
-          }
-        } else {
-          groupMap.set(g.id, {
-            id: g.id,
-            label: g.label ?? g.id,
-            fields: g.columns.map((c) => c.field),
-          });
-        }
-      }
-      result = Array.from(groupMap.values());
-      // Also check hidden columns for inline group properties not in active groups
-      const allCols = this.columns as ColumnConfig[];
-      for (const col of allCols) {
-        if ((col as any).hidden && col.group) {
-          const gId = typeof col.group === 'string' ? col.group : col.group.id;
-          const gLabel = typeof col.group === 'string' ? col.group : (col.group.label ?? col.group.id);
-          const existing = result.find((g) => g.id === gId);
-          if (existing) {
-            if (!existing.fields.includes(col.field)) existing.fields.push(col.field);
-          } else {
-            result.push({ id: gId, label: gLabel, fields: [col.field] });
-          }
-        }
-      }
-    } else {
-      // 3. Fall back: scan ALL columns (including hidden) for inline group properties
-      const allCols = this.columns as ColumnConfig[];
-      const groupMap = new Map<string, ColumnGroupInfo>();
-      for (const col of allCols) {
-        if (!col.group) continue;
-        const gId = typeof col.group === 'string' ? col.group : col.group.id;
-        const gLabel = typeof col.group === 'string' ? col.group : (col.group.label ?? col.group.id);
-        const existing = groupMap.get(gId);
-        if (existing) {
-          if (!existing.fields.includes(col.field)) existing.fields.push(col.field);
-        } else {
-          groupMap.set(gId, { id: gId, label: gLabel, fields: [col.field] });
-        }
-      }
-      result = Array.from(groupMap.values());
-    }
-
-    // Sort fields within each group by current display order so consumers
-    // (e.g. the visibility panel) render columns in their reordered positions.
-    const displayOrder = this.grid?.getColumnOrder();
-    if (displayOrder && displayOrder.length > 0) {
-      const orderIndex = new Map(displayOrder.map((f, i) => [f, i]));
-      for (const group of result) {
-        group.fields.sort((a, b) => (orderIndex.get(a) ?? Infinity) - (orderIndex.get(b) ?? Infinity));
-      }
-    }
-
+    // Precedence: resolved declarative defs → active computed groups → inline scan.
+    const result = this.#groupsFromResolvedDefs() ?? this.#groupsFromActiveGroups() ?? this.#groupsFromInlineColumns();
+    this.#sortGroupFieldsByDisplayOrder(result);
     return result;
+  }
+
+  /** Source 1 — resolved declarative `columnGroups` (from plugin config or gridConfig). */
+  #groupsFromResolvedDefs(): ColumnGroupInfo[] | undefined {
+    if (this.#resolvedGroupDefs.length === 0) return undefined;
+    return this.#resolvedGroupDefs
+      .filter((g) => g.children.length > 0)
+      .map((g) => ({ id: g.id, label: g.header, fields: [...g.children] }));
+  }
+
+  /**
+   * Source 2 — groups already computed by `processColumns`. Fragments (same group
+   * id at non-contiguous positions) are aggregated into one entry, and hidden
+   * columns carrying inline group properties are folded in afterwards.
+   */
+  #groupsFromActiveGroups(): ColumnGroupInfo[] | undefined {
+    if (!this.isActive || this.groups.length === 0) return undefined;
+
+    const groupMap = new Map<string, ColumnGroupInfo>();
+    for (const g of this.groups) {
+      if (g.id.startsWith('__implicit__')) continue;
+      const existing = groupMap.get(g.id);
+      if (existing) {
+        for (const c of g.columns) {
+          if (!existing.fields.includes(c.field)) existing.fields.push(c.field);
+        }
+      } else {
+        groupMap.set(g.id, { id: g.id, label: g.label ?? g.id, fields: g.columns.map((c) => c.field) });
+      }
+    }
+
+    // Hidden columns have no computed group, so pick up their inline `group` property
+    for (const col of this.columns as ColumnConfig[]) {
+      if ((col as { hidden?: boolean }).hidden) mergeInlineGroup(groupMap, col);
+    }
+
+    return Array.from(groupMap.values());
+  }
+
+  /** Source 3 — fall back to scanning ALL columns (including hidden) for inline `group`. */
+  #groupsFromInlineColumns(): ColumnGroupInfo[] {
+    const groupMap = new Map<string, ColumnGroupInfo>();
+    for (const col of this.columns as ColumnConfig[]) mergeInlineGroup(groupMap, col);
+    return Array.from(groupMap.values());
+  }
+
+  /**
+   * Sort fields within each group by current display order so consumers
+   * (e.g. the visibility panel) render columns in their reordered positions.
+   */
+  #sortGroupFieldsByDisplayOrder(groups: ColumnGroupInfo[]): void {
+    const displayOrder = this.grid?.getColumnOrder();
+    if (!displayOrder || displayOrder.length === 0) return;
+    const orderIndex = new Map(displayOrder.map((f, i) => [f, i]));
+    for (const group of groups) {
+      group.fields.sort((a, b) => (orderIndex.get(a) ?? Infinity) - (orderIndex.get(b) ?? Infinity));
+    }
   }
   // #endregion
 

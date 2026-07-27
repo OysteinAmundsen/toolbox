@@ -9,6 +9,7 @@ import type {
 } from '@toolbox-web/grid';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import type {
+  BaselinesCapturedDetail,
   BeforeEditCloseDetail,
   CellActivateDetail,
   CellCancelDetail,
@@ -26,6 +27,7 @@ import type {
   ContextMenuOpenDetail,
   CopyDetail,
   DataChangeDetail,
+  DataGridEventMap,
   DetailExpandDetail,
   DirtyChangeDetail,
   EditCloseDetail,
@@ -360,6 +362,7 @@ const EVENT_MAP = {
   'before-edit-close': '' as unknown as BeforeEditCloseDetail,
   'edit-close': '' as unknown as EditCloseDetail,
   'dirty-change': '' as unknown as DirtyChangeDetail,
+  'baselines-captured': '' as unknown as BaselinesCapturedDetail,
   'data-change': '' as unknown as DataChangeDetail,
   'sort-change': '' as unknown as SortChangeDetail,
   'filter-change': '' as unknown as FilterChangeDetail,
@@ -397,6 +400,35 @@ const EVENT_MAP = {
   render: '' as unknown as RenderDetail,
 } as const;
 
+// ──────────────────────────────────────────────────────────────────────
+// Forward-only event coverage guard (mirrors React `event-props.ts` and the
+// Angular `Grid` directive). If a new event lands in core's `DataGridEventMap`
+// — including via plugin module augmentation from `@toolbox-web/grid/all` — but
+// `EVENT_MAP` has no entry, the assignment below stops type-checking.
+//
+// `mount-external-editor` / `mount-external-view` are internal plumbing (the
+// adapter itself is the sole listener); `column-reorder-request` is an
+// inter-plugin request; the `tree-load-*` trio is declared by the tree plugin
+// but never emitted (deprecated, pending removal).
+//
+// NOTE: the `= true` assignment is load-bearing — a bare `type` alias is never
+// checked, which is how Angular's equivalent guard sat inert for releases.
+// ──────────────────────────────────────────────────────────────────────
+type _IntentionallyOmittedEvents =
+  | 'mount-external-editor'
+  | 'mount-external-view'
+  | 'column-reorder-request'
+  | 'tree-load-start'
+  | 'tree-load-end'
+  | 'tree-load-error';
+
+type _MissingEmits = Exclude<keyof DataGridEventMap<unknown>, keyof typeof EVENT_MAP | _IntentionallyOmittedEvents>;
+
+const _emitsCoverCore: [_MissingEmits] extends [never]
+  ? true
+  : ['Missing Vue emits for core grid events:', _MissingEmits] = true;
+void _emitsCoverCore;
+
 /**
  * Emits for TbwGrid — all grid events forwarded as Vue emits.
  */
@@ -413,6 +445,7 @@ const emit = defineEmits<{
   (e: 'before-edit-close', event: CustomEvent<BeforeEditCloseDetail<TRow>>): void;
   (e: 'edit-close', event: CustomEvent<EditCloseDetail<TRow>>): void;
   (e: 'dirty-change', event: CustomEvent<DirtyChangeDetail<TRow>>): void;
+  (e: 'baselines-captured', event: CustomEvent<BaselinesCapturedDetail>): void;
   (e: 'data-change', event: CustomEvent<DataChangeDetail>): void;
   (e: 'sort-change', event: CustomEvent<SortChangeDetail>): void;
   (e: 'filter-change', event: CustomEvent<FilterChangeDetail>): void;

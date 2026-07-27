@@ -751,6 +751,8 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     | 'export-complete'
     | 'print-start'
     | 'print-complete'
+    // Feature-owned, surfaced by `GridEditingDirective` as `(baselinesCaptured)`.
+    | 'baselines-captured'
     // Internal plumbing — never consumer-facing. `mount-external-*` is how core
     // asks the adapter to mount a framework component; the adapter itself is the
     // sole listener. `column-reorder-request` is an inter-plugin request that
@@ -758,14 +760,12 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     | 'mount-external-editor'
     | 'mount-external-view'
     | 'column-reorder-request'
-    // Known adapter gaps — these have no Angular output on `Grid` *or* on their
-    // feature directive yet. Tracked for a follow-up that adds them to all three
-    // adapters together (three-way parity). Consumers can subscribe via
-    // `gridEl.addEventListener(...)` in the meantime.
+    // Declared by the tree plugin but never emitted by any code path — the lazy
+    // tree-loading feature they were reserved for was never implemented. Marked
+    // @deprecated in core, pending removal in the next major.
     | 'tree-load-start'
     | 'tree-load-end'
-    | 'tree-load-error'
-    | 'baselines-captured';
+    | 'tree-load-error';
   /**
    * Compile-time assertion — assigning `true` only type-checks while the
    * conditional below resolves to `true`. Do not turn this back into a

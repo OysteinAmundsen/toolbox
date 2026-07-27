@@ -22,6 +22,7 @@ import {
   unregisterFeatureClaim,
 } from '@toolbox-web/grid-angular';
 import type {
+  BaselinesCapturedDetail,
   BeforeEditCloseDetail,
   CellCancelDetail,
   ChangedRowsResetDetail,
@@ -32,13 +33,13 @@ import type {
 } from '@toolbox-web/grid/plugins/editing';
 
 /**
- * Owns the binding(s) `[editing], [cellCommit], [cellCancel], [rowCommit], [changedRowsReset], [editOpen], [beforeEditClose], [editClose], [dirtyChange]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
+ * Owns the binding(s) `[editing], [cellCommit], [cellCancel], [rowCommit], [changedRowsReset], [editOpen], [beforeEditClose], [editClose], [dirtyChange], [baselinesCaptured]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */
 @Directive({
   selector:
-    'tbw-grid[editing], tbw-grid[cellCommit], tbw-grid[cellCancel], tbw-grid[rowCommit], tbw-grid[changedRowsReset], tbw-grid[editOpen], tbw-grid[beforeEditClose], tbw-grid[editClose], tbw-grid[dirtyChange]',
+    'tbw-grid[editing], tbw-grid[cellCommit], tbw-grid[cellCancel], tbw-grid[rowCommit], tbw-grid[changedRowsReset], tbw-grid[editOpen], tbw-grid[beforeEditClose], tbw-grid[editClose], tbw-grid[dirtyChange], tbw-grid[baselinesCaptured]',
   standalone: true,
 })
 export class GridEditingDirective implements OnInit, OnDestroy {
@@ -58,6 +59,14 @@ export class GridEditingDirective implements OnInit, OnDestroy {
   readonly editClose = output<EditCloseDetail<any>>();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly dirtyChange = output<DirtyChangeDetail<any>>();
+  /**
+   * Fired after the render pipeline captures new dirty-tracking baseline
+   * snapshots. `detail.count` is the **total** number of tracked baselines,
+   * not just the newly captured ones.
+   *
+   * @since 2.3.0
+   */
+  readonly baselinesCaptured = output<BaselinesCapturedDetail>();
 
   private readonly listeners = new Map<string, (e: Event) => void>();
   private static readonly EVENTS = [
@@ -69,6 +78,7 @@ export class GridEditingDirective implements OnInit, OnDestroy {
     'before-edit-close',
     'edit-close',
     'dirty-change',
+    'baselines-captured',
   ] as const;
 
   constructor() {
@@ -97,6 +107,7 @@ export class GridEditingDirective implements OnInit, OnDestroy {
     wire<EditCloseDetail<any>>('edit-close', this.editClose);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     wire<DirtyChangeDetail<any>>('dirty-change', this.dirtyChange);
+    wire<BaselinesCapturedDetail>('baselines-captured', this.baselinesCaptured);
   }
 
   ngOnDestroy(): void {

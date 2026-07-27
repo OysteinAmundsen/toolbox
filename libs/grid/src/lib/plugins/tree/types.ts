@@ -108,11 +108,24 @@ declare module '../../core/types' {
   interface DataGridEventMap {
     /** Fired when a tree node is expanded or collapsed. Provides the node key, row data, and depth level. @group Tree Events */
     'tree-expand': TreeExpandDetail;
-    /** Fired when lazy tree data starts loading. @group Tree Events */
+    /**
+     * Never emitted — reserved for a lazy-tree loading feature that was never
+     * implemented. No code path dispatches this event, so a listener can never fire.
+     *
+     * @deprecated Scheduled for removal in the next major. @group Tree Events
+     */
     'tree-load-start': void;
-    /** Fired when lazy tree data finishes loading. @group Tree Events */
+    /**
+     * Never emitted. See `tree-load-start`.
+     *
+     * @deprecated Scheduled for removal in the next major. @group Tree Events
+     */
     'tree-load-end': { totalTopLevelCount: number; loadedCount: number };
-    /** Fired when lazy tree data loading fails. @group Tree Events */
+    /**
+     * Never emitted. See `tree-load-start`.
+     *
+     * @deprecated Scheduled for removal in the next major. @group Tree Events
+     */
     'tree-load-error': { error: unknown };
   }
 

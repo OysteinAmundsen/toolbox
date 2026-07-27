@@ -103,26 +103,4 @@
       opacity: 1;
     }
   }
-
-  /* Loading state when lazy data source is fetching */
-  tbw-grid.tbw-tree-loading .rows-viewport::after {
-    content: '';
-    display: block;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--tbw-color-accent, #2563eb), transparent);
-    animation: tbw-tree-loading-bar 1s ease-in-out infinite;
-    position: sticky;
-    bottom: 0;
-    left: 0;
-    right: 0;
-  }
-
-  @keyframes tbw-tree-loading-bar {
-    0% {
-      transform: translateX(-100%);
-    }
-    100% {
-      transform: translateX(100%);
-    }
-  }
 } /* End @layer tbw-plugins */

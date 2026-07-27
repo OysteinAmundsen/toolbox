@@ -37,6 +37,11 @@ related: [adapters, adapters-vue, adapters-angular, grid-core, grid-features]
 - DECIDED (#251): React ships no `BaseOverlayEditor` equivalent (no React class idiom). `ColumnEditorContext.grid` covers class-style editors calling `registerExternalFocusContainer` directly.
 - DECIDED (#251): `EditingPlugin` ARIA-expanded fallback (see [grid-plugins.md](grid-plugins.md)) means most combobox/autocomplete editors work WITHOUT the hook — provided trigger sets `aria-expanded="true"` + `aria-controls="<panel-id>"`. Use hook for non-combobox overlays.
 
+## adapter drift guards
+
+- OWNS: `_eventPropsCoverCore` at EOF of `libs/grid-react/src/lib/event-props.ts` — forward-only complement to the `satisfies` clause. Catches a new `DataGridEventMap` key that has no `EVENT_PROP_MAP` entry. Widen `_IntentionallyOmittedEvents` there to consciously skip.
+- INVARIANT: `grid-react` has a `typecheck` target (`bunx tsc -p libs/grid-react/tsconfig.lib.json --noEmit`) wired into `build.dependsOn`, so both React guards actually FAIL the build. Do not remove it.
+
 ## adapter-feature-props (forward-only drift guard, React-only)
 
 - OWNS: `FeatureConfig` (in `@toolbox-web/grid/all`) is augmented by every side-effect feature import. Canonical core registry.

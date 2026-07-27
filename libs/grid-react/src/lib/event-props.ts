@@ -199,6 +199,18 @@ export interface EventProps<TRow = unknown> {
   onDirtyChange?: EventHandler<DataGridEventMap<TRow>['dirty-change']>;
 
   /**
+   * Fired after the render pipeline captures new dirty-tracking baseline
+   * snapshots (i.e. rows became eligible for change tracking).
+   *
+   * `detail.count` is the **total** number of tracked baselines, not just the
+   * newly captured ones.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/editing';`
+   * @since 2.3.0
+   */
+  onBaselinesCaptured?: EventHandler<DataGridEventMap<TRow>['baselines-captured']>;
+
+  /**
    * Fired when the row data is replaced (e.g. via the `data` property setter).
    */
   onDataChange?: EventHandler<DataGridEventMap<TRow>['data-change']>;
@@ -652,6 +664,7 @@ export const EVENT_PROP_MAP = {
   onBeforeEditClose: 'before-edit-close',
   onEditClose: 'edit-close',
   onDirtyChange: 'dirty-change',
+  onBaselinesCaptured: 'baselines-captured',
   onDataChange: 'data-change',
   onSortChange: 'sort-change',
   onFilterChange: 'filter-change',
@@ -684,6 +697,53 @@ export const EVENT_PROP_MAP = {
   onTbwScroll: 'tbw-scroll',
   onRender: 'render',
 } as const satisfies Readonly<Record<keyof EventProps, keyof DataGridEventMap<unknown>>>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Forward-only event coverage guard.
+//
+// The `satisfies` clause above only checks the reverse direction (no stale or
+// misspelled entries). This block checks the forward direction: if a new event
+// lands in core's `DataGridEventMap` — including via plugin module augmentation
+// from `@toolbox-web/grid/all` — but no `EVENT_PROP_MAP` entry covers it, the
+// assignment below stops type-checking and the build breaks.
+//
+// To consciously skip an event, add it to `_IntentionallyOmittedEvents` with a
+// comment explaining why.
+//
+// NOTE: the `= true` assignment is load-bearing. A bare `type _Assert = …`
+// alias (or a `declare`d property) is never checked by TypeScript, which is
+// exactly how the Angular adapter's equivalent guard sat inert for several
+// releases. Do not "simplify" it away.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Events deliberately not surfaced as `on*` props.
+ *
+ * `mount-external-editor` / `mount-external-view` are internal plumbing — core
+ * uses them to ask the adapter to mount a React component, and the adapter is
+ * the sole listener. `column-reorder-request` is an inter-plugin request that
+ * `VisibilityPlugin` emits for `ReorderPlugin` to service.
+ *
+ * `tree-load-start` / `tree-load-end` / `tree-load-error` are declared by the
+ * tree plugin but never emitted by any code path (deprecated, pending removal).
+ */
+type _IntentionallyOmittedEvents =
+  | 'mount-external-editor'
+  | 'mount-external-view'
+  | 'column-reorder-request'
+  | 'tree-load-start'
+  | 'tree-load-end'
+  | 'tree-load-error';
+
+type _MissingEventProps = Exclude<
+  keyof DataGridEventMap<unknown>,
+  (typeof EVENT_PROP_MAP)[keyof typeof EVENT_PROP_MAP] | _IntentionallyOmittedEvents
+>;
+
+const _eventPropsCoverCore: [_MissingEventProps] extends [never]
+  ? true
+  : ['Missing React event props for core grid events:', _MissingEventProps] = true;
+void _eventPropsCoverCore;
 
 /**
  * Gets all event prop names.

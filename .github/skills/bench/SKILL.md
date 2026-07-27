@@ -83,7 +83,7 @@ threshold (default `0.30` for vs-tag). When asked for a report, produce:
 - **Per-suite table** — `Suite | Baseline mean | Current mean | Δ | Regression?`, sorted by |Δ%|.
 - **Hotspots** — map each regressed suite to its `*.bench.ts` and the code under test; use
   `git log --oneline <baseline>..HEAD -- <path>` to surface suspect commits. For grid-core,
-  cross-reference `.github/knowledge/grid-core.md` and `.github/knowledge/data-flow-traces.md`.
+  cross-reference `.github/knowledge/grid-render-pipeline.md` and `.github/knowledge/data-flow-traces.md`.
 
 If regressions exist, hand off to the `debug-perf` skill (profiling + fix) and the `/perf-fix`
 prompt (execute one fix-plan item end-to-end).

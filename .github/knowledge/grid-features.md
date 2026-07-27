@@ -1,100 +1,90 @@
 ---
 domain: grid-features
-related: [grid-plugins, grid-core]
+related: [grid-plugins, grid-plugins-catalog-data, grid-plugins-catalog-ui, grid-core]
 ---
 
 # Grid Features — Mental Model
 
-## feature-vs-plugin distinction
+## feature vs plugin
 
-- FEATURE: declarative config wrapper. Thin module that registers a factory function. Provides tree-shakeable opt-in loading. Lives in `libs/grid/src/lib/features/`
-- PLUGIN: runtime behavior implementation (extends BaseGridPlugin). Hooks into grid lifecycle. Lives in `libs/grid/src/lib/plugins/`
-- RELATIONSHIP: 1:1 mapping. Each feature creates exactly one plugin via factory function
-- FLOW: user config `{ features: { selection: 'range' } }` → registry checks import → factory: `SelectionPlugin({ mode: 'range' })` → plugin added to gridConfig.plugins
+- FEATURE = declarative config wrapper: a thin module in `libs/grid/src/lib/features/` that registers a factory, giving tree-shakeable opt-in loading.
+- PLUGIN = runtime behavior (`extends BaseGridPlugin`) in `libs/grid/src/lib/plugins/`.
+- 1:1 mapping — each feature creates exactly one plugin.
+- FLOW: `{ features: { selection: 'range' } }` → registry checks the import → factory `SelectionPlugin({ mode: 'range' })` → plugin appended to `gridConfig.plugins`.
 
-## registry (features/registry.ts)
+## registry ([features/registry.ts](libs/grid/src/lib/features/registry.ts))
 
-- OWNS: featureRegistry Map<name, RegistryEntry>, warnedFeatures Set — persisted on `globalThis` under `Symbol.for('@toolbox-web/grid:feature-registry@<__GRID_VERSION__>/v1')` / `…-warned@<version>/v1` so every same-version bundled copy shares one instance; different versions stay isolated
-- READS FROM: user FeatureConfig object, PLUGIN_DEPENDENCIES declarations
-- WRITES TO: registry entries on import, console diagnostics in dev
-- INVARIANT: each feature name maps to exactly one factory
-- INVARIANT: factories only execute if feature module is imported (tree-shaking)
-- INVARIANT: registry is realm-global per grid version. Two micro-frontends each bundling their own copy of `@toolbox-web/grid` **at the same version** see one Map (`import '@toolbox-web/grid/features/tree'` from bundle B is visible to the running grid class from bundle A). Bundles at **different** versions get separate Maps — mirrors the version-suffixed tag isolation in `registerDataGrid()` so v2.14's grid can't end up calling v2.15's plugin factory.
-- API: registerFeature(name, factory, options?) | createPluginFromFeature(name, config) | createPluginsFromFeatures(obj) | isFeatureRegistered(name)
-- DECIDED (May 2026): `registerFeature(name, factory, { override: true })` suppresses the dev-mode TBW030 "re-registered" warning. WHY: framework adapters (`grid-{vue,react}/src/features/<name>.ts`) intentionally re-register `pinnedRows`, `filtering`, `groupingColumns`, `groupingRows` to wrap the vanilla factory with framework bridging. They side-effect-import the vanilla module first (so types/transitive deps land), then call `registerFeature(..., { override: true })`. Without the flag, the demo always tripped TBW030; muting the warn unconditionally would hide real accidental re-registrations.
-- DECIDED (planning #9): featureRegistry stored on `globalThis[Symbol.for('@toolbox-web/grid:feature-registry@<__GRID_VERSION__>/v1')]`, not module-local. WHY: Roma micro-frontends bundle their own `node_modules` copy of the grid. The custom-element class is realm-global (first-wins for same version, version-suffixed tag for different versions, via `registerDataGrid()` in `core/grid.ts`), so the running class came from one bundle but `import '…/features/<name>'` side-effects ran in every bundle. Module-local Maps fragmented the registry → spurious "Tree-plugin not available!" / TBW031. The key embeds `__GRID_VERSION__` so different versions stay isolated (same isolation `registerDataGrid()` enforces at the tag layer) — otherwise the last-loaded bundle's factories would overwrite earlier versions' entries and attach cross-version plugin instances. Trailing `/v1` is the slot-shape schema version. Tests: `features/registry.spec.ts` → "cross-bundle singleton".
-- DECIDED (planning, Jun 2026): `__GRID_VERSION__` define MUST be applied to EVERY nested programmatic `build()` in [vite.config.ts](libs/grid/vite.config.ts), not just the top-level `defineConfig`. WHY: secondary entries (`features/registry.ts`, `features/*.ts`, `plugins/*/index.ts`, UMD plugins) are built via `build({ configFile: false, … })` inside `writeBundle` hooks; `configFile: false` does NOT inherit the top-level `define`. Before the fix, the main `index.js` got the version baked (element `version`/tag correct) but `features/registry.js` + `plugins/*/index.js` shipped the LITERAL `__GRID_VERSION__` → `typeof __GRID_VERSION__ === 'undefined'` → fell back to `'dev'`. Result: ALL grid versions collapsed onto ONE shared `@dev` feature-registry symbol, defeating the per-version isolation above — two coexisting versions (e.g. 2.16.1 + 2.16.2 in split-view Roma) tripped TBW030 "pinnedColumns re-registered" and could cross-attach factories. Fix: shared `const gridDefine = { __GRID_VERSION__: JSON.stringify(gridVersion) }` referenced by the main config AND all nested builds + the `libBuild` helper. Verify after build: `grep 'const t=' dist/libs/grid/lib/features/registry.js` must show the real version, never `"dev"`. NOTE: `version='dev'` is the legitimate fallback ONLY when running from source (no define, e.g. consumer bundling `src/`), never in a published artifact.
-- DECIDED (May 2026, employee-management refactor): when both `gridConfig.features.<name>` and a manually-instantiated plugin in `gridConfig.plugins` resolve to the same plugin name, the **manual instance wins** and the feature-derived instance is dropped before `PluginManager.attachAll`. WHY: previously both were attached, tripping TBW023 "multiple instances" warnings — surfaced by the React adapter's `<GridDetailPanel>` / `<GridResponsiveCard>` auto-detection (`detectChildComponentFeatures` in `libs/grid-react/src/lib/data-grid.tsx`) which converts those children into feature props, then into manual plugins appended to `gridConfig.plugins`, while the user also lists `masterDetail` / `responsive` under `gridConfig.features`. Dedup lives in `Grid.#initializePlugins` (`libs/grid/src/lib/core/grid.ts`). Test: `src/__tests__/integration/features.spec.ts` "dedups when same plugin appears in both features and plugins (manual wins)".
-- DECIDED (#400, Jun 2026): `createPluginsFromFeatures` orders plugins via a programmatic topological sort (`orderPluginsByDependencies` in [registry.ts](libs/grid/src/lib/features/registry.ts)) reading each plugin's `static dependencies` off `plugin.constructor` — the SAME metadata `validatePluginDependencies` reads at attach time. WHY: replaces a hardcoded `HOISTED = ['shell','selection','editing']` list that didn't help third-party/custom plugins. Now `features` key order is irrelevant for ANY plugin that declares `static dependencies` (e.g. visibility→shell required = TBW020 if shell attaches second). DFS post-order, cycle-safe via `onStack` guard, independents keep config order, edges to non-enabled plugins ignored (validator handles missing required). Graph keyed by `plugin.name` (deps reference plugin names). Tests: `features/registry.spec.ts` → "orders selection/editing/shell before dependent plugins". GOTCHA: ordering happens AFTER instantiation (deps are read off instances), so factory CALL order = config order, not dependency order — tests must assert on the RETURNED array order, not factory side-effects. The React adapter delegates to core (`grid-react/src/lib/use-sync-plugins.ts`); its `feature-registry.spec.ts` "dependency order" test was updated to use class mocks with `static dependencies` and assert returned order.
-- TENSION: no hard validation of dependencies — relies on convention. Circular deps not prevented (ordering is cycle-tolerant but won't error)
+- OWNS: `featureRegistry: Map<name, RegistryEntry>` + `warnedFeatures: Set`, persisted on `globalThis` under `Symbol.for('@toolbox-web/grid:feature-registry@<__GRID_VERSION__>/v1')` (and `…-warned@<version>/v1`).
+- API: `registerFeature(name, factory, options?)` · `createPluginFromFeature(name, config)` · `createPluginsFromFeatures(obj)` · `isFeatureRegistered(name)`.
+- INVARIANT: one factory per feature name; factories run only if the feature module is imported (tree-shaking).
+- INVARIANT: the registry is realm-global **per grid version**. Two micro-frontends bundling their own copy at the SAME version share one Map (a side-effect `import '@toolbox-web/grid/features/tree'` from bundle B is visible to the grid class from bundle A); different versions get separate Maps — mirroring the version-suffixed tag isolation in `registerDataGrid()` so v2.14's grid cannot call v2.15's factory.
+- DECIDED (planning #9): the registry lives on `globalThis`, not module-local. WHY: the custom-element class is realm-global (first-wins per version) so the running class comes from ONE bundle while feature side-effect imports run in EVERY bundle; module-local Maps fragmented the registry → spurious "Tree-plugin not available!" / TBW031. The key embeds `__GRID_VERSION__`; trailing `/v1` is the slot-shape schema version. Test: `features/registry.spec.ts` → "cross-bundle singleton".
+- DECIDED (Jun 2026): the `__GRID_VERSION__` define MUST be applied to EVERY nested programmatic `build()` in [vite.config.ts](libs/grid/vite.config.ts), not just the top-level `defineConfig` — `build({ configFile: false })` does NOT inherit `define`. Before the fix, `features/registry.js` and `plugins/*/index.js` shipped the LITERAL `__GRID_VERSION__` → fell back to `'dev'` → ALL versions collapsed onto one shared `@dev` registry symbol (TBW030 "pinnedColumns re-registered", cross-version factory attach). Fix: a shared `const gridDefine = { __GRID_VERSION__: JSON.stringify(gridVersion) }` referenced by the main config, all nested builds and the `libBuild` helper. VERIFY after build: `grep 'const t=' dist/libs/grid/lib/features/registry.js` shows the real version, never `"dev"`. `version='dev'` is legitimate ONLY when running from source, never in a published artifact.
+- DECIDED (May 2026): `registerFeature(name, factory, { override: true })` suppresses the dev-mode TBW030 "re-registered" warning. WHY: adapters (`grid-{vue,react}/src/features/<name>.ts`) intentionally re-register `pinnedRows`, `filtering`, `groupingColumns`, `groupingRows` to wrap the vanilla factory with framework bridging — they side-effect-import the vanilla module first, then re-register with the flag. Muting the warning unconditionally would hide real accidental re-registrations.
+- DECIDED (May 2026, manual wins): when `gridConfig.features.<name>` and a manually-instantiated plugin in `gridConfig.plugins` resolve to the same plugin name, the **manual instance wins** and the feature-derived one is dropped before `PluginManager.attachAll` (previously both attached → TBW023 "multiple instances"). Surfaced by the React adapter's `detectChildComponentFeatures` (`libs/grid-react/src/lib/data-grid.tsx`) converting `<GridDetailPanel>`/`<GridResponsiveCard>` children into manual plugins while the user also lists `masterDetail`/`responsive` under `features`. Dedup lives in `Grid.#initializePlugins` ([grid.ts](libs/grid/src/lib/core/grid.ts)). Test: `src/__tests__/integration/features.spec.ts`.
+- DECIDED (#400): `createPluginsFromFeatures` orders plugins via a programmatic topological sort (`orderPluginsByDependencies`) reading each plugin's `static dependencies` off `plugin.constructor` — the same metadata `validatePluginDependencies` reads at attach time. Replaces a hardcoded `HOISTED = ['shell','selection','editing']` list that ignored third-party plugins. `features` key order is now irrelevant for any plugin declaring `static dependencies`. DFS post-order, cycle-safe via an `onStack` guard, independents keep config order, edges to non-enabled plugins ignored. Graph keyed by `plugin.name`. GOTCHA: ordering happens AFTER instantiation, so factory CALL order is still config order — tests must assert on the RETURNED array, not factory side-effects. The React adapter delegates to core (`grid-react/src/lib/use-sync-plugins.ts`). Tests: `features/registry.spec.ts`, `feature-registry.spec.ts` "dependency order".
+- TENSION: dependencies are convention-driven; the topological sort is cycle-TOLERANT but does not error on a cycle.
 
-## feature-module-pattern (every feature file follows this)
+## feature-module pattern
 
 ```typescript
-// 1. Import plugin + config type
 import { SelectionPlugin, type SelectionConfig } from '../plugins/selection';
 import { registerFeature } from './registry';
-// 2. Module augmentation (TypeScript knows feature exists on FeatureConfig)
+
 declare module '../core/types' {
-  interface FeatureConfig<TRow> { selection?: 'cell' | 'row' | 'range' | SelectionConfig<TRow>; }
+  interface FeatureConfig<TRow> {
+    selection?: 'cell' | 'row' | 'range' | SelectionConfig<TRow>;
+  }
 }
-// 3. Register factory (handles string shortcuts → config objects)
-registerFeature('selection', (config) => { ... });
-// 4. Type anchor export
-export type _Augmentation = true;
+
+registerFeature('selection', (config) => {
+  /* string shortcut → config object */
+});
+
+export type _Augmentation = true; // type anchor
 ```
 
-## dependency-ordering
+## enable / disable lifecycle
 
-- Hard-coded order ensures dependencies load first: `['selection', 'editing', ...rest]`
-- clipboard depends on selection; undoRedo depends on editing
-- Validated at creation time, not enforced at import time
+1. IMPORT-TIME — feature registered only if the module is imported (`import '@toolbox-web/grid/features/selection'`).
+2. CONFIG-TIME — enabled via `gridConfig.features`.
+3. RUNTIME — plugins cannot be disabled after grid creation (limitation).
 
-## enable/disable lifecycle
+- TENSION: users must remember the side-effect import; there are no IDE hints for which imports are needed.
 
-1. IMPORT-TIME: feature registered only if module imported (`import '@toolbox-web/grid/features/selection'`)
-2. CONFIG-TIME: feature enabled via gridConfig (`{ features: { selection: 'range' } }`)
-3. RUNTIME: cannot disable plugins after grid creation (limitation)
+## feature catalog (config shortcuts)
 
-- TENSION: user must remember to import features; no IDE hints for which imports are needed
+| Feature                | Config shortcut                     | Deps      |
+| ---------------------- | ----------------------------------- | --------- |
+| `selection`            | `'cell' \| 'row' \| 'range'`        | —         |
+| `editing`              | `'click' \| 'dblclick' \| 'manual'` | —         |
+| `clipboard`            | `ClipboardConfig`                   | selection |
+| `contextMenu`          | `ContextMenuConfig`                 | —         |
+| `multiSort`            | `MultiSortConfig`                   | —         |
+| `filtering`            | `boolean \| FilterConfig`           | —         |
+| `reorderColumns`       | `ReorderConfig`                     | —         |
+| `visibility`           | `boolean \| VisibilityConfig`       | shell     |
+| `pinnedColumns`        | `boolean`                           | —         |
+| `groupingColumns`      | `GroupingColumnsConfig`             | —         |
+| `columnVirtualization` | `ColumnVirtualizationConfig`        | —         |
+| `reorderRows`          | `RowReorderConfig` (deprecated)     | —         |
+| `groupingRows`         | `GroupingRowsConfig`                | —         |
+| `pinnedRows`           | `PinnedRowsConfig`                  | —         |
+| `tree`                 | `TreeConfig`                        | —         |
+| `masterDetail`         | `MasterDetailConfig`                | —         |
+| `responsive`           | `ResponsivePluginConfig`            | —         |
+| `undoRedo`             | `boolean \| UndoRedoConfig`         | editing   |
+| `export`               | `ExportConfig`                      | —         |
+| `print`                | `PrintConfig`                       | —         |
+| `pivot`                | `PivotConfig`                       | —         |
+| `serverSide`           | `ServerSideConfig`                  | —         |
+| `tooltip`              | `TooltipConfig`                     | —         |
+| `shell`                | `boolean \| ShellConfig`            | —         |
 
-## all-features (25 total)
+> Full plugin list (incl. `rowDragDrop`, `stickyRows`) → grid-plugins-catalog-data.md / grid-plugins-catalog-ui.md. Shell specifics → grid-plugins-shell.md.
 
-| Feature              | Config shortcuts                | Dependencies |
-| -------------------- | ------------------------------- | ------------ |
-| selection            | 'cell' / 'row' / 'range'        | —            |
-| editing              | 'click' / 'dblclick' / 'manual' | —            |
-| clipboard            | ClipboardConfig                 | selection    |
-| contextMenu          | ContextMenuConfig               | —            |
-| multiSort            | MultiSortConfig                 | —            |
-| filtering            | boolean / FilterConfig          | —            |
-| reorderColumns       | ReorderConfig                   | —            |
-| visibility           | boolean / VisibilityConfig      | —            |
-| pinnedColumns        | boolean                         | —            |
-| groupingColumns      | GroupingColumnsConfig           | —            |
-| columnVirtualization | ColumnVirtualizationConfig      | —            |
-| reorderRows          | RowReorderConfig                | —            |
-| groupingRows         | GroupingRowsConfig              | —            |
-| pinnedRows           | PinnedRowsConfig                | —            |
-| tree                 | TreeConfig                      | —            |
-| masterDetail         | MasterDetailConfig              | —            |
-| responsive           | ResponsivePluginConfig          | —            |
-| undoRedo             | boolean / UndoRedoConfig        | editing      |
-| export               | ExportConfig                    | —            |
-| print                | PrintConfig                     | —            |
-| pivot                | PivotConfig                     | —            |
-| serverSide           | ServerSideConfig                | —            |
-| tooltip              | TooltipConfig                   | —            |
+## explicit feature opt-out (validator)
 
-## shell-feature (extraction #370, in progress)
-
-- DECIDED (Jun 2026, #370 Phase 0): the shell ships `libs/grid/src/lib/features/shell.ts` mirroring `features/clipboard.ts` — augments `FeatureConfig.shell?: boolean | ShellConfig`, calls `registerFeature('shell', cfg => new ShellPlugin(typeof cfg === 'boolean' ? {} : (cfg ?? {})))`, exports `_Augmentation` anchor, exposed at `@toolbox-web/grid/features/shell` via the existing `./features/*` wildcard. `features: { shell }` is the **taught best-practice API** — every demo/doc uses it (plan invariant 10).
-- INVARIANT (#370): exactly **one** `shell` plugin instance must attach. Two registration channels coexist in v2.x: (1) `features.shell` / explicit `plugins[]` (user), (2) a static auto-register prepend in `Grid.#initializePlugins` (default-on fallback, marker `// SHELL-AUTOREGISTER-V3-370`). The auto-register MUST skip when a `shell`-named plugin already resolved (else TBW023 double-attach). Channel (2) is the single v3-deletion point; at v3 the feature (or explicit plugin) is the only path.
-- DECIDED (#370): shell config TYPES (`ShellConfig`, `ToolPanelConfig`, etc.) move to `plugins/shell/types.ts` and augment core (`FeatureConfig.shell`, `GridConfig.shell`) — same plugin-augmentation pattern as every other feature. The `GridConfig.shell` FIELD is **not** deprecated: it is the plugin's augmented config surface (present whenever the shell is in the type graph; auto-registered in v2, opt-in at v3). Only the old `core/types.ts`/`public.ts` TYPE re-exports become `@deprecated` re-export aliases (non-breaking, dropped at v3), so deep importers should import shell types from `@toolbox-web/grid/plugins/shell`.
-
-## explicit-feature-opt-out (validator behavior)
-
-- DECIDED: when `gridConfig.features[name] === false` (explicit, not just absent), `validatePluginProperties` skips all "missing plugin" diagnostics for that plugin's owned properties (e.g. `editor`, `editable`, `editorParams` for `editing`; `group` for `groupingColumns`; `pinned` for `pinnedColumns`).
-- RATIONALE: lets users keep plugin-owned column properties in place while toggling the feature off (e.g. read-only mode), without rewriting column configs each time. Absent feature still throws — only explicit `false` is treated as informed opt-out.
-- INVARIANT: feature name in `features` matches plugin `name` 1:1 (relied upon by validator). When adding a new plugin-owned property to `KNOWN_COLUMN_PROPERTIES` / `KNOWN_CONFIG_PROPERTIES`, ensure its `pluginName` equals the registered feature key.
-- LOCATION: `libs/grid/src/lib/core/internal/validate-config.ts` → `validatePluginProperties` → `isExplicitlyDisabled()` helper.
+- DECIDED: when `gridConfig.features[name] === false` (**explicit**, not merely absent), `validatePluginProperties` skips all "missing plugin" diagnostics for that plugin's owned properties (`editor`/`editable`/`editorParams` for `editing`, `group` for `groupingColumns`, `pinned` for `pinnedColumns`, …). Lets users keep plugin-owned column properties while toggling the feature off (e.g. read-only mode). An ABSENT feature still throws — only explicit `false` is an informed opt-out.
+- INVARIANT: feature name matches plugin `name` 1:1 (the validator relies on it). When adding a plugin-owned property to `KNOWN_COLUMN_PROPERTIES` / `KNOWN_CONFIG_PROPERTIES`, its `pluginName` MUST equal the registered feature key.
+- LOCATION: `core/internal/validate-config.ts` → `validatePluginProperties` → `isExplicitlyDisabled()`.

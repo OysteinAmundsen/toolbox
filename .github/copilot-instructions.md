@@ -46,7 +46,7 @@ This project's AI knowledge is organized in four tiers to minimize context windo
 > - **Compress, don't append.** When updating an existing entry, rewrite it. Do not stack a new "DECIDED (May 2026, follow-up to follow-up): ..." on top — fold the new fact into the existing entry.
 > - **No tier-by-tier history sections.** When a multi-pass refactor lands, replace the per-pass narrative with the post-refactor invariants. Keep at most one short paragraph of historical context if a future maintainer would otherwise be confused by the absence.
 > - **Move guidance to the right home.** Test-writing patterns belong in `.github/instructions/testing-patterns.instructions.md` (auto-applied to `*.spec.ts`), not in a knowledge file. Workflow recipes belong in `.github/skills/`. Knowledge files describe _how the code is and why_, not _how to write tests for it_.
-> - **Soft size budget per knowledge file: ≤200 lines.** Hard ceiling: 250. If you're past 200, condense before adding. If a single domain genuinely needs more, split (e.g. `adapters-react.md` / `adapters-vue.md` / `adapters-angular.md`) — but try condensing first.
+> - **Soft size budget per knowledge file: ≤25 kB (`wc -c`).** Hard ceiling: 30 kB. Line count is NOT the metric — these files use very long bullets, so a 150-line file can still be 60 kB (≈15k tokens) and blow the read gate's budget. If you're past 25 kB, condense before adding. If a single domain genuinely needs more, split by sub-domain (e.g. `grid-plugins-catalog-data` / `grid-plugins-catalog-ui`) — but try condensing first.
 > - **Write for yourself, not the user.** No "in this section we will...", no narrative tone, no marketing language. Bullets, tables, code fences, structured markers (`OWNS:`, `INVARIANT:`, `DECIDED:`).
 
 > **Continuous improvement:** After significant tasks, use the `retrospective` skill to capture lessons learned and update the knowledge base. See the "Scoped Instructions", "Knowledge Reference", and "Skills Reference" sections below.
@@ -74,19 +74,24 @@ Auto-applied from `.github/instructions/` when working on matching files:
 
 Loaded on demand from `.github/knowledge/` — read relevant files before starting work to rebuild the mental model:
 
-| Knowledge file         | Domain                      | Content                                                                                 |
-| ---------------------- | --------------------------- | --------------------------------------------------------------------------------------- |
-| `grid-core`            | Grid internals              | Config-manager, render-scheduler, virtualization, DOM structure, state ownership        |
-| `grid-plugins`         | Plugin system               | Plugin manager, lifecycle, hooks, inter-plugin communication, manifest, scroll dispatch |
-| `grid-plugins-catalog` | Plugin catalog              | Per-plugin OWNS/HOOKS/DECIDED for all 25 plugins + shell plugin                         |
-| `grid-features`        | Feature registry            | Feature vs plugin distinction, registry pattern, all 25 features                        |
-| `adapters`             | Framework adapters (shared) | Shared adapter conformance, shell-content wrappers, bridge registries, three-way parity |
-| `adapters-react`       | React adapter               | Portal manager, overlay editors, feature-prop coverage assertion                        |
-| `adapters-vue`         | Vue adapter                 | Teleport manager, overlay editors, typed slots                                          |
-| `adapters-angular`     | Angular adapter             | `mountComponentRenderer`, per-feature directives, ng-packagr secondary entries          |
-| `build-and-deploy`     | Build, release, CI          | Vite config, bundle budgets, release-please, CI pipeline, bench regression, v3 cleanup  |
-| `build-css`            | Styling & CSS               | CSS layers, custom properties, partials, themes, style injection, demo-asset aliases    |
-| `data-flow-traces`     | End-to-end operation maps   | First render, property change, sort, scroll, edit, tree expand, config merge            |
+| Knowledge file              | Domain                      | Content                                                                                                                            |
+| --------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `grid-core`                 | Grid internals              | Config-manager, column groups, grid.ts lifecycle, DOM structure, state ownership                                                   |
+| `grid-render-pipeline`      | Render & data pipeline      | Render-scheduler, virtualization, rows hot path, value-accessor, row-manager, sorting, aggregators                                 |
+| `grid-plugins`              | Plugin system               | Plugin manager, lifecycle, hooks, inter-plugin communication, manifest, scroll dispatch                                            |
+| `grid-plugins-catalog-data` | Plugin catalog (data)       | ServerSide, Tree, GroupingRows, Pivot, pinned/virtualized/grouped columns, sorting, filtering, pinned rows, clipboard/export/print |
+| `grid-plugins-catalog-ui`   | Plugin catalog (UI)         | Selection, Editing, UndoRedo, MasterDetail, reordering & drag-drop, Responsive, Tooltip, StickyRows, ContextMenu                   |
+| `grid-plugins-shell`        | Shell plugin                | v3 opt-in model, HARD RULE #370, tool panels, header/toolbar content, dropdown mode                                                |
+| `grid-features`             | Feature registry            | Feature vs plugin distinction, registry pattern, feature catalog, opt-out validation                                               |
+| `adapters`                  | Framework adapters (shared) | Shared adapter conformance, shell-content wrappers, bridge registries, three-way parity                                            |
+| `adapters-react`            | React adapter               | Portal manager, overlay editors, feature-prop coverage assertion                                                                   |
+| `adapters-vue`              | Vue adapter                 | Teleport manager, overlay editors, typed slots                                                                                     |
+| `adapters-angular`          | Angular adapter             | `mountComponentRenderer`, per-feature directives, ng-packagr secondary entries                                                     |
+| `build-and-deploy`          | Build, CI, tooling          | Vite config, bundle budgets, Nx/tsconfig, dependency clusters, CI pipeline, bench regression, demos layout                         |
+| `release-versioning`        | Release & versioning        | release-please branch model, `Release-As` recipes, peer-dep cascade, dist-tags, `@since`, v3 cleanup plan                          |
+| `docs-agent-endpoints`      | Agent doc endpoints         | llms.txt / llms-full.txt / per-framework variants, MDX→markdown transform, docs `outDir`                                           |
+| `build-css`                 | Styling & CSS               | CSS layers, custom properties, partials, themes, style injection, demo-asset aliases                                               |
+| `data-flow-traces`          | End-to-end operation maps   | First render, property change, sort, scroll, edit, tree expand, config merge                                                       |
 
 > **Schema:** Each entry uses structured notation — OWNS, READS FROM, WRITES TO, INVARIANT, FLOW, TENSION, DECIDED — optimized for fast scanning and mental model reconstruction.
 

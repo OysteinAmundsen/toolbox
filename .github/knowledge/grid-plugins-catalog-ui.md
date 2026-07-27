@@ -1,0 +1,112 @@
+---
+domain: grid-plugins-catalog-ui
+related: [grid-plugins, grid-plugins-catalog-data, grid-plugins-shell, adapters]
+---
+
+# Plugin Catalog — Interaction & Display Plugins
+
+> System architecture → grid-plugins.md. Shell → grid-plugins-shell.md. Row/column model, sorting, filtering, pinned rows and export plugins → grid-plugins-catalog-data.md.
+
+## Selection & Navigation
+
+### Selection
+
+OWNS: selected rows/cells/ranges/columns (`Set<field>`), `activeAxis`, normalized mode. HOOKS: onCellClick, onRowClick, onHeaderClick, onKeyDown, afterCellRender, processColumns (checkbox column), afterRender, onScrollRender. EVENTS: `selection-change`. MODES: `cell | row | range | column`, or an array containing `'column'` plus exactly one in-row axis.
+
+- DECIDED (#269): mode normalized at `attach()` into `NormalizedModeConfig { primary, columnEnabled, bothAxes }`. Validation throws on empty, 3+ items, 2-element without `'column'`, duplicates, unknown. RULED OUT `['cell','row']`. Column selection stores **field names** (survives pinning/reordering/virtualization/visibility); `clearSelectionSilent()` preserves `selectedColumns`; row↔column mutual exclusion handled in `#buildEvent()`. Header chord: plain and Shift+Click reserved for sort; **Ctrl/⌘+Click** toggles a column, **Ctrl/⌘+Shift+Click** extends. Keyboard: **Ctrl/⌘+Space** toggles the focused cell's column, **Ctrl/⌘+Shift+←/→** extends. Utility columns skip every column-axis path. Files: `column-selection.ts` (+ spec).
+- DECIDED (#308): `selection-change.detail.selectedColumns` + `getSelectedColumns()` emit in **visible-column order**, not Set-insertion order (would leak interaction history) — `buildSelectionEvent` filters `selectableColumnFields(visibleColumns)`. The `selectColumns` query batches via `#setColumnSelection(fields)` (filter unknowns, set/emit/render once). `#applySelectionClasses()` MUST reset stale `aria-selected` **scoped** to cells that previously carried `.selected`/`.column-selected` — clearing all wipes the active-cell focused marker (e2e `accessibility.spec.ts`).
+- DECIDED (#284): clears selection when the host swaps source `rows` to a DIFFERENT size, gated on `data-change` with a changed `sourceRowCount` (closure-cached `lastSourceRowCount = -1`); in-place edits (same count) preserve. RULED OUT: clearing on every `data-change`; deep equality. Also auto-selects the row entering edit in `mode:'row'` (listens `edit-open`, now `broadcast()`); skips if mode isn't row, `isRowSelectable` false, or already selected; `multiSelect:false` replaces. NO `edit-close` listener. Tests: `selection-editing-integration.spec.ts`.
+- DECIDED (Jul 2026): `onCellClick`/`onKeyDown` are thin dispatchers; semantics live in `#clickSelect{Cell,Row,Range}` and `#key{ColumnAxis,ClearSelection,NavCellMode,RowMode,RangeMode,SelectAll}`. `NAV_KEYS` is module-level. Do not re-inline — mode PRECEDENCE belongs to the dispatcher, mode SEMANTICS to the branch.
+- DECIDED (Jul 2026): range-mode right-click (`onCellMouseDown`, `button === 2`) INSIDE an existing range preserves the selection (early return, no drag) so the context menu acts on the whole range; outside any range falls through to normal clear+select. Uses `isCellInAnyRange`; left-click behavior unchanged.
+
+## Editing & Undo
+
+### Editing
+
+OWNS: active cell, editor snapshots, changed rows, dirty tracking. HOOKS: processColumns, processRows, afterCellRender, afterRowRender, onCellClick, onKeyDown. EVENTS: `cell-commit`, `row-commit`, `edit-open|close`. TENSION: caches the sort result during an edit so the edited row doesn't jump.
+
+- DECIDED (Jul 2026, key dispatcher): `onKeyDown` is a `switch (event.key)` dispatcher only; logic lives in `#onEscapeKey`/`#onArrowKey`/`#onTabKey`/`#onSpaceKey`/`#onEnterKey` (→ `#onEnterWhileEditorFocused`, `#beginRowEditFromEnter`)/`#onF2Key`. MUST NOT re-inline — the `#347`, `#427`, `#251` and `#250` guards each live in one specific branch.
+- DECIDED (Jul 2026, `#exitRowEdit` order is load-bearing): `#resolveEditedRow` (ID map → `#activeEditRowRef` → `_rows[rowIndex]`) → `#commitActiveEditors` (skips `data-editor-managed` cells) → `before-edit-close` → revert or `#finalizeRowCommit` (cancelable `row-commit`, dirty refresh, queue animation) → `#clearRowEditState` → `#pendingFocusRestore = true` → `#teardownRowEditors` → `edit-close`. `#pendingFocusRestore` MUST be set before `#teardownRowEditors` (its `refreshVirtualWindow(true)` calls `afterRender()` synchronously and reads the flag); `releaseCell` MUST run while editor DOM is still in the cell or overlay editors leak `<body>` panels.
+- DECIDED (Jul 2026, `getInputValue`): [editors.ts](libs/grid/src/lib/plugins/editing/editors.ts) `getInputValue` switches on `input.type` over `readNumericValue`/`readDateValue`/`readTextInputValue`, plus `readTextControlValue` for `<textarea>`/`<select>`. INVARIANT: every branch exists to PRESERVE THE ORIGINAL VALUE'S TYPE and to distinguish `nullable` empty → `null` from non-nullable empty → `''`/`min`. Do not "simplify" to `input.value`.
+- RULE: editor detection MUST use `closest(FOCUSABLE_EDITOR_SELECTOR)`, never `matches()` — non-focusable descendants (`<option>`, spans in `contenteditable`) fail `matches()`.
+- DECIDED (#347, popup-`<select>` keyboard): in `mode:'grid'`, ArrowUp/Down must not navigate cells when the keydown target is inside an editor descendant; Enter on a popup `<option>` must bail WITHOUT `preventDefault`/`stopPropagation`, in BOTH `editor-injection.ts` host-keydown AND `EditingPlugin.onKeyDown`. WHY: Chromium's `<select>` popup walks focus SELECT→OPTION (flipping `#gridModeInputFocused`), and `preventDefault` blocks the native commit. `focusout` keeps the flag when `related.closest(FOCUSABLE_EDITOR_SELECTOR)` is non-null; the arrow branch falls back to `event.target.closest(...)`. Enter on a focused editor with no popup still commits + blurs + focuses the grid (`#gridModeEditLocked = true`). RULE: editor-chain keydown handlers MUST NOT `stopPropagation` in grid mode.
+- DECIDED (#427): the `editor-injection.ts` Enter branch MUST apply the popup-`<option>` guard (`getEditorAncestor(target) !== target`) in BOTH modes — it was inside the `isGridMode` block only, so ROW mode fell through to `preventDefault` + `exitRowEdit` and DISCARDED the picked value. Guard hoisted above the mode split: Enter-on-open-popup defers to native (commits via `change`); a SECOND Enter (popup closed) exits the row. Only custom editors wrapping the `<select>` (`data-editor-managed`) hit it.
+- DECIDED (Apr 2026): row-mode ArrowUp/Down MUST NOT commit + jump to the adjacent row while a row is in edit mode — returns `true` (handled, no-op) so the focused editor consumes the key natively (number spinners, `<select>`, `<textarea>` caret, MUI combobox). Consistent with `mode:'grid'` when an input is focused and the `editing && colType === 'select'` early return in `core/internal/keyboard.ts`.
+- DECIDED (#250): the `editor-injection.ts` keydown handler MUST short-circuit on `e.defaultPrevented` BEFORE inspecting `e.key` — portal pickers (Downshift, MUI date) `preventDefault()` on option-confirming Enter; without the guard the plugin tears the editor down before the commit lands.
+- DECIDED (#251, overlay-editor parity): two mechanisms. (1) Generic `aria-expanded="true" + aria-controls=<id>` fallback — `editor-injection.ts` host keydown, `EditingPlugin.onKeyDown`, and the document-pointerdown outside-click all call `isInsideOpenAriaOverlay(target, scopeEl)`. (2) Explicit opt-in: `ColumnEditorContext.grid` (populated from `deps.grid`) → `ctx.grid.registerExternalFocusContainer(panel)` or `useGridOverlay(panelRef,{open})`. Tests: `editing-overlay-aria.spec.ts`, `use-grid-overlay.spec.tsx`.
+- DECIDED (Jul 2026, `commitCellValue`): EditingPlugin answers the core `commitCellValue` query (`#handleCommitCellValue`) so `grid.updateRow/updateRows` route programmatic mutations through the full edit pipeline. `source:'history'` applies + recomputes dirty but does NOT re-record history (undo-loop fix). Editing hit 50.80 kB raw with this surface → plugin bundle budget bumped 50 → 55 kB (editing is the outlier). Full contract: grid-plugins.md § inter-plugin-communication.
+- DECIDED (Jul 2026, `source:'sync'`): applies the value in place AND re-baselines the cell (`DirtyTrackingManager.rebaselineCell`) — no dirty marking, no undo history, no cascade. Re-baseline (not skip) is required because `dirtyTracking` deep-compares against a whole-row `structuredClone` baseline, so a plain mutation would read as dirty. Handled BEFORE the column guard so non-column fields re-baseline too. `cell-change` still fires (so an open editor reflects the value); `cell-edit-committed` does not, so UndoRedo stays clean. Adapters route value-only, same-order, same-count rows-prop updates through `updateRows(diff,'sync')` (try/catch → full `el.rows` replace on an unresolvable id): `grid-react/src/lib/data-grid.tsx`, `grid-angular/src/lib/directives/{grid.directive.ts,row-diff.ts}`, `grid-vue/src/lib/TbwGrid.vue`.
+
+### UndoRedo
+
+OWNS: undo/redo stacks. HOOKS: onKeyDown (Ctrl+Z/Y). DEPENDS: editing (required). Applies reverts via `grid.updateRow(id, {field: val}, 'history')` — the `'history'` source makes Editing apply-without-re-recording (`#suppressRecording` guards the buffered path).
+
+- DECIDED (Jul 2026, nestable transactions): `beginTransaction()`/`endTransaction()` are re-entrant via `#transactionDepth`; only the outermost `endTransaction` finalizes the buffer. WHY (TBW111): paste routes through `updateRows` → one synchronous `cell-commit` per cell; consumers bracketing each commit with `beginTransaction()` + `queueMicrotask(endTransaction)` hit a nested begin → the old `TRANSACTION_IN_PROGRESS` throw propagated out of the `updateRows` loop so only the FIRST cell committed ("paste only fills one cell"). Nesting also coalesces a paste into ONE compound undo entry. `endTransaction` still throws `NO_TRANSACTION` at depth 0. Depth reset in `detach()` + `clearHistory()`.
+
+## Row Details
+
+### MasterDetail
+
+OWNS: expanded rows, detail height, animation state. HOOKS: processColumns (expander), onCellClick, afterRowRender, getRowHeight, adjustVirtualStart. EVENTS: `master-detail-toggle`.
+
+- SHARED expander util `core/plugin/expander-column.ts`: `EXPANDER_COLUMN_FIELD`, `EXPANDER_COLUMN_WIDTH`, `isExpanderColumn`, `isUtilityColumn`, `findExpanderColumn`, `createExpanderColumnConfig`, `ExpanderColumnRenderer`. DECIDED (Jun 2026): `createExpanderContainer` + `EXPANDER_COLUMN_STYLES` removed (zero consumers) — do not reintroduce.
+- DECIDED (Jul 2026, `#syncDetailRows`): `#collectVisibleRowMap` (prefers the index-aligned `_rowPool`, `querySelectorAll` only as fallback) → `#pruneDetachedDetails` (adapter `unmount` BEFORE `remove()`) → per-row `#insertDetailRow`. INVARIANT: the `.tbw-row-expanded` toggle stays in the loop and MUST run on the collapsed branch too — pool recycling leaks the class onto a different row otherwise.
+
+## Reordering
+
+### ReorderColumns
+
+OWNS: column order, drag state, `BaseColumnConfig.lockPosition` augmentation. HOOKS: onCellMouseDown/Move/Up, afterRender. QUERIES: owns `canMoveColumn` (local check + aggregates vetoes from other plugins).
+
+- DECIDED: per-column lock is top-level `ColumnConfig.lockPosition` (augmented from `reorder-columns/types.ts`, NOT core). Legacy `meta.lockPosition`/`meta.suppressMovable` honored in `column-drag.ts#canMoveColumn` (top-level first).
+- DECIDED: ReorderColumns owns the authoritative `canMoveColumn` query — other plugins (Visibility panel-drag) MUST `grid.query<boolean>('canMoveColumn', column)` and treat any `false` as a veto. Without the plugin the query returns `[]` (treat as non-reorderable). The plugin keeps an eager local check so test mocks (`query: () => []`) work.
+- DECIDED: ALL column-level flags are top-level on `ColumnConfig` via module augmentation from the owning plugin's `types.ts` — never `meta.<flag>`, never directly in core. Flags: `lockVisible` (core), `lockPosition` (reorder-columns), `lockPinning`/`pinned` (pinned-columns), `utility` (public, core), `checkboxColumn` (`@internal`, selection), `group` (grouping-columns).
+- INVARIANT: plugin-owned flags MUST NOT appear on the `grid.getAllColumns()` projection — only grid-universal fields (`field`, `header`, `visible`, `lockVisible`, `utility`). Plugins read raw config via `this.grid.columns.find(...)`. A new query type costs ZERO core bytes (string-routed via `manifest.queries`).
+- DECIDED (Apr 2026): `ColumnConfig.utility` is PUBLIC — umbrella "system column" flag (selection checkbox, expander, drag handle, action menu). Honored by Visibility (chooser filter), Reorder (`canMoveColumn` false), Print (hidden unless `printHidden:false`), Clipboard/Export (`resolveColumns()` skips), Selection (clicks ignored), Filtering (no filter UI). Convention: prefix `__`.
+
+### ReorderRows
+
+OWNS: row order, drag state. HOOKS: onCellMouseDown/Move/Up. QUERIES: `canMoveRow`.
+
+### RowDragDrop (#225)
+
+OWNS: row order + cross-grid drag/drop session. ALIASES: `reorderRows`, `rowReorder`. HOOKS: processColumns (drag-handle col), onKeyDown (Ctrl+arrow), onCellClick, delegated dragstart/over/leave/drop/dragend. QUERIES: `canMoveRow`. EVENTS: `row-move`, `row-drag-start` (cancelable), `row-drag-end`, `row-drop` (cancelable), `row-transfer`. USES: `core/internal/drag-drop-registry.ts` (WeakRef session map shared across split bundles) + `plugins/shared/drag-drop-protocol.ts` (MIME constants, payload codec, drop-position math, auto-scroller, current-session tracker).
+
+- DECIDED (#225, aliases): `reorder-rows/index.ts` MUST NOT re-export `ROW_DRAG_HANDLE_FIELD`/`RowMoveDetail` (collides in `all.ts`) — only `RowReorderPlugin` + `RowReorderConfig`. Alias dedup in `PluginManager#collapseAliasDuplicates` is keyed by **constructor identity**, not plugin name. Configs merge via `BaseGridPlugin.mergeConfigsFrom`: silent on equal scalars/refs, TBW023 warn once on dedupe (silenced under `import.meta.env.PROD`), TBW025 throw on conflict.
+- DECIDED (#225, session lookup): same-window cross-grid uses the module-level `currentSession` singleton for synchronous `canDrop` during `dragover` (where `dataTransfer.getData()` returns `''`). Cross-window falls back to JSON via `getData(TBW_ROW_DRAG_MIME)` + `deserializeRow`. The WeakRef registry matters only for live-object recovery on **drop**.
+- DECIDED (Apr 2026, cross-window via `BroadcastChannel`): `document.getElementById(payload.sourceGridId)` returns null cross-window, so source-side removal + `row-transfer` silently no-op'd. Fix: module-level `BroadcastChannel('tbw-row-drag-drop')`; after a successful cross-grid drop where `findPeerOnGrid(sourceGridId) === null`, the target broadcasts `tbw-row-drag-drop:transfer` `{sourceGridId,toGridId,dropZone,rowIndices,toIndex,operation,serializedRows}`; instances filter by matching `sourceGridId` + `dropZone`. Channel is lazy, ref-counted, closed on last detach. INVARIANT: origin-scoped — cross-origin cannot coordinate; when unavailable the target receives rows but the source is untouched, so `row-transfer` is the authoritative success signal.
+- DECIDED (Apr 2026): `dragFrom?: 'handle'|'row'|'both'` (default `'handle'`); `'row'` hides the handle column unless `showDragHandle` is explicit. `applyRowDraggable()` MUST run from BOTH `afterRender` AND `onScrollRender` (recycling loses `draggable="true"`).
+- INVARIANT: interactive descendants (`button,input,select,textarea,a[href],[contenteditable]`) never start a drag — `INTERACTIVE_DRAG_SELECTORS` / `isInteractiveDragOrigin()`.
+- INVARIANT (CSS scoping): the row clone for `setDragImage` MUST be appended INSIDE `this.gridElement`, never `document.body` (all `core/styles/*.css` is scoped under `tbw-grid{…}` + `--tbw-column-template` lives on the host). Clone is `position:fixed; top/left:-10000px`, removed in `setTimeout(0)`. Do NOT add `opacity`/`box-shadow` (browser already applies ~70 % translucency; box-shadow blur captures as a horizontal fade).
+
+## Display
+
+### Responsive
+
+OWNS: breakpoint-based column visibility. HOOKS: processColumns, getRowHeight.
+
+- INVARIANT: the header ROW is ALWAYS hidden in card mode (unconditional `tbw-grid[data-responsive] .header { display: none }`). `hideHeader` does NOT control that — it gates per-card FIELD LABELS (the `Name:` `::before` prefix).
+- DECIDED (May 2026): `hideHeader` defaults to `false`. `#applyResponsiveState()` sets `data-responsive-hide-header` on the host only when `isResponsive && hideHeader === true`; CSS hides `.data-grid-row:not(.group-row) > .cell::before`. Attribute cleared on leaving card mode.
+
+### Tooltip
+
+OWNS: active tooltip + positioning. HOOKS: afterCellRender.
+
+### StickyRows (#279)
+
+OWNS: `.tbw-sticky-rows` overlay container, clone cache by row index, displayed indices, push displacement. HOOKS: afterRender, onScrollRender, onScroll. READS: `grid.rows`, `grid._virtualization.{container,positionCache,rowHeight}`. CONFIG: `isSticky` (field name or `(row,index)=>unknown`), `mode:'push'|'stack'` (default push), `maxStacked`, `className`.
+
+- INVARIANT: clones are decorative — `aria-hidden="true"`, no `tabindex`, focus classes stripped. The live row stays in the pool for keyboard + AT.
+- INVARIANT: the container is `position:absolute; top:0` INSIDE `.rows-viewport`, NOT a flex child of `.rows-body` (a flex child pushes the viewport down while rows are translated in scroll coords → visible duplicate during push). Viewport `overflow: clip` hides the live row underneath.
+- INVARIANT: `getCurrentScrollTop()` MUST read `_virtualization.container.scrollTop`, never derive from `start * rowHeight` (lags up to `rowHeight - 1` px → "invisible until row #3").
+- INVARIANT: the clone cache MUST be primed while the row is live (`findRenderedRow` returns null once scrolled out).
+- INVARIANT: sticky qualifies when `offsetOf(idx) < scrollTop` (STRICT — equality means the live row is at top and cloning would duplicate). `'stack'` mode: `offsetOf(idx) < scrollTop + cumulativeHeightOfStuck`. At `maxStacked`: stricter edge `offsetOf(idx) < scrollTop + sumStuck - heightOf(oldest)` so eviction happens after a full cross, while the container is translated `-distance` (capped at `heightOf(oldest)`) to animate. Push equivalent: `pushOffset = heightOfStuck - distance`. Do NOT add the incoming clone during anticipation.
+- INVARIANT: `refreshDisplay` tracks `displayedIndices` as the actually-appended set (missing clones retry next refresh).
+- DECIDED (Jun 2026, settle pass): clones are `cloneNode` SNAPSHOTS, but React/Vue portal managers flush cell content a microtask AFTER `data-row` is set — a clone captured in the synchronous `onScrollRender` holds the PREVIOUS row's content and is cached forever. FIX: `onScrollRender` calls `maybeScheduleSettlePass()` → `requestAfterRender()` (STYLE phase, rAF, post-microtask) which re-runs `afterRender`; scheduled only when a sticky row is in the window, coalesced via `settlePassScheduled` (cleared at `afterRender` start). Re-capturing a DISPLAYED clone (`refreshClonesInWindow`) MUST happen ONLY in `afterRender`, NEVER synchronously in `onScrollRender` — otherwise (1) `refreshDisplay`'s `sameSet` short-circuit leaves a stale displayed node until the user hits absolute top, and (2) the recycled row's not-yet-flushed content paints for one frame. `onScrollRender` keeps only `primeCloneCache` (cache-only) + `refreshDisplay` + `maybeScheduleSettlePass`. Test: `sticky-rows.spec.ts > never paints stale content on the displayed clone during a scroll-up recycle (no flash)`.
+- TENSION: a fast scroll-jump past the render window before `onScrollRender` fires leaves the clone unprimed until the user scrolls back. A fix would require synthesising from data (re-couples to `core/internal/rows.ts`).
+- DECIDED (#279): zero core bytes — the plugin reads `_virtualization` internals directly. RULED OUT: reusing `core/internal/rows.ts#renderInlineRow` (#240 — module-level `document.createElement('template')` crashes happy-dom-less tests). Bundle 4.01 kB gz ESM.
+
+### ContextMenu
+
+OWNS: menu items, open state. HOOKS: afterRender, onKeyDown. QUERIES: `getContextMenuItems` (collects contributions from all plugins).
+

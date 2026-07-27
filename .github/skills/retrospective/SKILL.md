@@ -85,14 +85,21 @@ Route to `.github/knowledge/` if the lesson describes:
 - A known tension or pressure point between subsystems
 - An end-to-end operation trace (what happens when X occurs)
 
-| Knowledge file     | Domain                | Route here when lesson is about...                           |
-| ------------------ | --------------------- | ------------------------------------------------------------ |
-| `grid-core`        | Grid internals        | config-manager, render-scheduler, virtualization, DOM, state |
-| `grid-plugins`     | Plugin system         | plugin lifecycle, hooks, inter-plugin communication          |
-| `grid-features`    | Feature registry      | feature registration, factory patterns, feature config       |
-| `adapters`         | Framework adapters    | React/Vue/Angular bridging, portals, event handling          |
-| `build-and-deploy` | Build, CSS, release   | Vite config, bundle budgets, CSS layers, CI pipeline         |
-| `data-flow-traces` | End-to-end operations | How a user action flows through the system                   |
+| Knowledge file                     | Domain                 | Route here when lesson is about...                                      |
+| ---------------------------------- | ---------------------- | ----------------------------------------------------------------------- |
+| `grid-core`                        | Grid internals         | config-manager, column groups, grid.ts lifecycle, DOM, state            |
+| `grid-render-pipeline`             | Render & data pipeline | render-scheduler, virtualization, rows hot path, value/sort/aggregation |
+| `grid-plugins`                     | Plugin system          | plugin lifecycle, hooks, inter-plugin communication                     |
+| `grid-plugins-catalog-data`        | Plugin catalog (data)  | a specific row/column-model, sorting, filtering, export plugin          |
+| `grid-plugins-catalog-ui`          | Plugin catalog (UI)    | a specific selection, editing, reordering, display plugin               |
+| `grid-plugins-shell`               | Shell plugin           | tool panels, header/toolbar content, shell opt-in model                 |
+| `grid-features`                    | Feature registry       | feature registration, factory patterns, feature config                  |
+| `adapters`(`-react/-vue/-angular`) | Framework adapters     | React/Vue/Angular bridging, portals, event handling                     |
+| `build-and-deploy`                 | Build, CI, tooling     | Vite config, bundle budgets, CI pipeline, deps, demos layout            |
+| `release-versioning`               | Release & versioning   | release-please, `Release-As`, peer deps, dist-tags, `@since`            |
+| `docs-agent-endpoints`             | Agent doc endpoints    | llms.txt / llms-full.txt generation, MDX→markdown transform             |
+| `build-css`                        | Styling & CSS          | CSS layers, custom properties, themes, style injection                  |
+| `data-flow-traces`                 | End-to-end operations  | How a user action flows through the system                              |
 
 **Use the structured notation** when adding to knowledge files:
 
@@ -195,12 +202,12 @@ Keep it as a **navigation hub**, not a knowledge dump.
 
 Before adding content, consider the cost:
 
-| File Type                 | Context Impact                                | Guideline                                             |
-| ------------------------- | --------------------------------------------- | ----------------------------------------------------- |
-| `copilot-instructions.md` | **Always loaded** — every token counts        | Keep under ~200 lines; extract to instructions/skills |
-| `.instructions.md`        | **Loaded per file match** — moderate cost     | Keep each under ~100 lines; split by concern          |
-| `knowledge/*.md`          | **Loaded on demand** — low cost when not used | Keep each under ~120 lines; use structured notation   |
-| `SKILL.md`                | **Loaded on demand** — low cost when not used | Can be longer (200-500 lines); include templates      |
+| File Type                 | Context Impact                                | Guideline                                                |
+| ------------------------- | --------------------------------------------- | -------------------------------------------------------- |
+| `copilot-instructions.md` | **Always loaded** — every token counts        | Keep under ~200 lines; extract to instructions/skills    |
+| `.instructions.md`        | **Loaded per file match** — moderate cost     | Keep each under ~100 lines; split by concern             |
+| `knowledge/*.md`          | **Loaded on demand** — low cost when not used | Keep each under 25 kB (`wc -c`); use structured notation |
+| `SKILL.md`                | **Loaded on demand** — low cost when not used | Can be longer (200-500 lines); include templates         |
 
 **Rules of thumb:**
 
@@ -229,10 +236,10 @@ For each knowledge file you touched, re-read the whole file end-to-end and apply
 3. **Strip prose.** Kill adjectives, transitions, "we will…", narrative tone, and explanations of obvious mechanics. Keep proper nouns (file paths, function/class names, PR/issue numbers, MUST/MUST NOT rules) — they are the navigation targets.
 4. **Collapse enumerations into tables.** Any list of ≥4 parallel items (plugins, features, hooks, bindings, options) belongs in a markdown table, not stacked bullets.
 5. **Delete dead history.** "We tried X, then Y, then Z" is git's job. Keep the conclusion; drop the path that got there. Exception: a single "RULED OUT:" line for alternatives that look obvious but don't work.
-6. **Check the size budget.** Run `wc -l .github/knowledge/<file>.md`. Soft cap: **≤200 lines**. Hard cap: **250 lines**.
-   - If you're still under 200 after condensing → done.
-   - If 200–250 → condense harder before finishing.
-   - If >250 or condensing isn't enough → **evaluate a split** (Step 5c).
+6. **Check the size budget.** Run `wc -c .github/knowledge/<file>.md`. Soft cap: **≤25 kB**. Hard cap: **30 kB**. Line count is NOT the metric — these files use very long bullets, so a 150-line file can still be 60 kB (≈15k tokens).
+   - If you're still under 25 kB after condensing → done.
+   - If 25–30 kB → condense harder before finishing.
+   - If >30 kB or condensing isn't enough → **evaluate a split** (Step 5c).
 7. **Sanity-scan headings.** Each `## name` heading should still have at least one of `OWNS:` / `READS FROM:` / `WRITES TO:` / `INVARIANT:` / `FLOW:` / `TENSION:` / `DECIDED:`. If a heading has degenerated into a prose dump with no structured markers, restructure it.
 
 End-state check: ask yourself, _"If I started a new session tomorrow and loaded only this file, could I rebuild the mental model of this domain in under a minute?"_ If no, condense more.
@@ -241,7 +248,7 @@ End-state check: ask yourself, _"If I started a new session tomorrow and loaded 
 
 A knowledge file should cover **one mental model**. Split when any of these are true:
 
-- File is >250 lines after a serious condense pass.
+- File is >30 kB after a serious condense pass.
 - The file has grown to cover two clearly separable subdomains (e.g. `adapters.md` describing React, Vue, _and_ Angular bridging in detail).
 - A future agent loading the file for question X would have to skip past >50% of the file that is irrelevant to X.
 - Two top-level sections share almost no `related:` cross-references with each other.

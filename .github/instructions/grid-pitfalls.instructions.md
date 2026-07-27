@@ -13,32 +13,32 @@ Counterintuitive behaviors and traps specific to the grid's DOM, rendering, and 
 
 Many former pitfalls were promoted to canonical locations because they describe contracts, not gotchas. When you hit one of these symptoms, check there first:
 
-| Symptom                                                                  | Where it lives now                                                             |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| Sort helper / indicator / `builtInSort` / `applySorts` / master-detail Set behavior | `grid-api.instructions.md` → "API & Plugin Conventions"                        |
-| External focus container / overlay editor focus contract                 | `grid-api.instructions.md` → "Custom Editor / Overlay Focus Contract"          |
-| User-string-to-`innerHTML` / `sanitizeHTML` rule                         | `grid-api.instructions.md` → "Security Contracts"                              |
-| `requestRender()` vs `requestColumnsRender()` phase choice               | `grid-architecture.instructions.md` → "Centralized Render Scheduler"           |
-| `background: currentColor` on `[data-icon]`                              | `css-conventions.instructions.md` → "Grid-Specific CSS Rules"                  |
-| Column groups fragmentation, pinned-implicit-group split                 | `.github/knowledge/grid-core.md` → "column-groups"                             |
-| Plugin hook ordering & `hookPriority`                                    | `.github/knowledge/grid-plugins.md` → "plugin-manager" INVARIANT               |
-| Custom `renderRow` skipping column-level features                        | `.github/knowledge/grid-plugins.md` → "hook-system" INVARIANT                  |
-| Scroll-driven DOM state surviving re-renders + virtualization            | `.github/knowledge/grid-core.md` → "scroll-driven-dom-state"                   |
-| `emit` vs `broadcast` vs `emitPluginEvent` / direct plugin access / query/manifest pairing | `grid-api.instructions.md` → "Inter-Plugin Communication Conventions"          |
+| Symptom                                                                                    | Where it lives now                                                      |
+| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| Sort helper / indicator / `builtInSort` / `applySorts` / master-detail Set behavior        | `grid-api.instructions.md` → "API & Plugin Conventions"                 |
+| External focus container / overlay editor focus contract                                   | `grid-api.instructions.md` → "Custom Editor / Overlay Focus Contract"   |
+| User-string-to-`innerHTML` / `sanitizeHTML` rule                                           | `grid-api.instructions.md` → "Security Contracts"                       |
+| `requestRender()` vs `requestColumnsRender()` phase choice                                 | `grid-architecture.instructions.md` → "Centralized Render Scheduler"    |
+| `background: currentColor` on `[data-icon]`                                                | `css-conventions.instructions.md` → "Grid-Specific CSS Rules"           |
+| Column groups fragmentation, pinned-implicit-group split                                   | `.github/knowledge/grid-core.md` → "column-groups"                      |
+| Plugin hook ordering & `hookPriority`                                                      | `.github/knowledge/grid-plugins.md` → "plugin-manager" INVARIANT        |
+| Custom `renderRow` skipping column-level features                                          | `.github/knowledge/grid-plugins.md` → "hook-system" INVARIANT           |
+| Scroll-driven DOM state surviving re-renders + virtualization                              | `.github/knowledge/grid-render-pipeline.md` → "scroll-driven DOM state" |
+| `emit` vs `broadcast` vs `emitPluginEvent` / direct plugin access / query/manifest pairing | `grid-api.instructions.md` → "Inter-Plugin Communication Conventions"   |
 
 ## Category Index
 
 Use this index to jump to the relevant pitfalls when something fails. Each entry is numbered to match the list below.
 
-| Category                          | Pitfalls |
-| --------------------------------- | -------- |
-| **DOM structure & containers**    | 1, 6     |
-| **Touch & scroll**                | 2        |
-| **Icons & CSS variables**         | 3        |
-| **Custom rendering & cells**      | 4        |
-| **Plugin hook ordering**          | 5        |
-| **Virtualized DOM recycling**     | 7        |
-| **Keyboard / clipboard / undo**   | 8, 9     |
+| Category                        | Pitfalls |
+| ------------------------------- | -------- |
+| **DOM structure & containers**  | 1, 6     |
+| **Touch & scroll**              | 2        |
+| **Icons & CSS variables**       | 3        |
+| **Custom rendering & cells**    | 4        |
+| **Plugin hook ordering**        | 5        |
+| **Virtualized DOM recycling**   | 7        |
+| **Keyboard / clipboard / undo** | 8, 9     |
 
 1. **Plugin container access — `children[0]` is unreliable** — Use `this.gridElement.querySelector('.tbw-grid-root')` to find the grid's root container. Light DOM children (e.g. `<tbw-grid-column>`) are re-appended before `.tbw-grid-root`, making `children[0]` unpredictable.
 2. **Touch scroll boundaries require `window.scrollBy`** — The grid sets `touch-action: none` on `.rows-viewport` and `.faux-vscroll`. Because this is evaluated at gesture start and cannot be changed mid-gesture, you **cannot** release scroll control back to the browser. Propagate surplus delta to the page via `window.scrollBy()`.

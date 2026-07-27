@@ -174,7 +174,7 @@ git commit -m "chore(adapters): bootstrap rc line" -m "Release-As: 2.0.0-rc.0"
 After the bootstrap tag exists, release-please auto-increments the new identifier
 (`rc.1`, `rc.2`…) — no further `Release-As` needed. **Verify the regenerated PR
 bumps only the intended packages before merging.** Full rationale + the trap that
-once forced adapters to `3.0.0-rc.0`: `.github/knowledge/build-and-deploy.md`
+once forced adapters to `3.0.0-rc.0`: `.github/knowledge/release-versioning.md`
 (release section).
 
 ### Graduating a prerelease to the stable (GA) release
@@ -216,11 +216,12 @@ of `3.0.0`. Do both:
 
 Also flip the GA-only docs-deploy items in the **same** window so `main` stable
 releases publish toolboxjs.com docs: the `ci.yml` `build-docs`/`deploy-pages` gate
-+ the `github-pages` environment branch policy (`2.x` → `main`). **No npm dist-tag /
-LTS move is needed** — this project does not maintain an LTS line on previous
-majors: once GA publishes (version has no `-`) it auto-takes the `latest` dist-tag,
-and the old major simply stops receiving releases. Details:
-`.github/knowledge/build-and-deploy.md` (release section).
+
+- the `github-pages` environment branch policy (`2.x` → `main`). **No npm dist-tag /
+  LTS move is needed** — this project does not maintain an LTS line on previous
+  majors: once GA publishes (version has no `-`) it auto-takes the `latest` dist-tag,
+  and the old major simply stops receiving releases. Details:
+  `.github/knowledge/release-versioning.md` (release section).
 
 ## Post-Release
 

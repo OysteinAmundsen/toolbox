@@ -57,6 +57,13 @@ related: [build-and-deploy, grid-core]
 - DECIDED (gh tooltip regression): exclude the LightDark lowering feature so `light-dark()` ships verbatim. `libs/grid/vite.config.ts` defines a shared `cssConfig = { transformer: 'lightningcss', lightningcss: { exclude: Features.LightDark } }` and spreads `css: cssConfig` into the main `defineConfig` **and every nested `build({ configFile: false })`** (libBuild, plugin/feature/umd/all builds) — those do NOT inherit the top-level `css`. WHY: the grid targets modern browsers that support `light-dark()` natively (it also relies on CSS anchor positioning / `@position-try`, which lightningcss passes through and cannot polyfill anyway). Verify: `grep -c lightningcss-light dist/libs/grid/**/index.js` must be 0.
 - RULED OUT: raising lightningcss `targets` (even Chrome 123 / Safari 17.4 / FF 120) — lightningcss 1.32 still treats `light-dark()` as not-yet-baseline and lowers it. Feature `exclude` is the only reliable lever. esbuild minify preserves it, but keep lightningcss for the rest of the pipeline.
 
+## touch-action policy (`base.css`, #307)
+
+- DECIDED (#307, Jul 2026): JS-managed scroll surfaces and drag affordances carry `touch-action: none`. Exhaustive list: `.tbw-grid-content` + `.rows-viewport` + `.faux-vscroll` (`base.css`), `.resize-handle` (`header.css`). The comment at the canonical declaration in `base.css` records the rationale. NOT applied to `.header-cell` — a header must stay swipe-scrollable.
+- MUST NOT use `pan-x pan-y` — delegates scroll to the browser compositor, bypasses the faux scrollbar.
+- MUST NOT use `manipulation` — suppresses double-tap-to-zoom; WCAG 1.4.4 violation.
+- `touch-action: none` is the only correct value for JS-managed scroll elements. Verified in touch-input audit #307 (Jul 2026): no plugin sets `pan-x pan-y` or `manipulation`.
+
 ## css-partials (libs/grid/src/lib/core/styles/)
 
 | File              | Layer    | Responsibility                             |

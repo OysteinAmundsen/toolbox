@@ -85,8 +85,16 @@
       display: flex;
       flex-direction: row;
       overflow: hidden;
-      /* Grid handles touch scrolling via JS (faux scrollbar pattern).
-         Prevent browser compositor from hijacking touch gestures mid-scroll. */
+      /* TOUCH-ACTION POLICY: The grid manages its own *scrolling* in JS (see
+         touch-scroll.ts + setupTouchScrollListeners) rather than delegating to the
+         browser compositor. Every element that would otherwise receive native touch
+         scroll, pan, or zoom must therefore declare touch-action: none, so the
+         compositor does not compete with or cancel the grid's handlers mid-gesture.
+         This policy covers scroll surfaces and JS-driven drag affordances only —
+         it is not a claim that every touch interaction in the grid is JS-managed.
+         MUST NOT use: pan-x pan-y (delegates scroll to browser, breaks faux scrollbar)
+         MUST NOT use: manipulation (suppresses double-tap-to-zoom, a WCAG violation).
+         touch-action: none is the only correct value for JS-managed scroll elements. */
       touch-action: none;
     }
 

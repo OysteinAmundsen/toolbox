@@ -586,6 +586,9 @@ test.describe('Promo — capability reel', () => {
   });
 
   test('Sticky section rows @promo', async ({ page }) => {
+    // Stack mode is reached by scrolling gently in short passes (see below),
+    // which needs more than the 30s default.
+    test.setTimeout(90_000);
     await openDemo(page, 'sticky-rows/StickyRowsDemo', 'Sticky rows', 'iOS-style section headers');
 
     const stickyHost = page.locator('tbw-grid .tbw-sticky-rows');
@@ -613,16 +616,21 @@ test.describe('Promo — capability reel', () => {
     // rebuild has landed. Wheel events dispatched before that are swallowed
     // by the old (about to be replaced) viewport and scroll nothing.
     await expect(stuck).toHaveCount(0);
-    // Scroll in bounded passes rather than one fixed delta: a slow runner can
-    // coalesce wheel events, and `maxStacked` (3) caps the result, so
-    // over-scrolling is harmless while under-scrolling fails the scene.
+    // Scroll GENTLY, in short passes. The plugin can only stack a section it
+    // has a clone of, and clones are captured from the live DOM in
+    // `afterRender` (`primeCloneCache`) — a section that scrolls past between
+    // two render frames is never cloned and is silently omitted from the
+    // stack. On a loaded CI runner a 75px-per-tick wheel outruns the render
+    // scheduler and skips whole sections, so the stack stays stuck at 1.
+    // 25px per tick keeps every section on screen for several frames.
+    // `maxStacked` (3) caps the result, so extra passes are harmless.
     await expect
       .poll(
         async () => {
-          await wheelScroll(page, grid(page), 0, 1200, 16);
+          await wheelScroll(page, grid(page), 0, 400, 16);
           return stuck.count();
         },
-        { message: 'stack mode accumulates more than one pinned section', timeout: 20_000 },
+        { message: 'stack mode accumulates more than one pinned section', timeout: 30_000 },
       )
       .toBeGreaterThan(1);
     expect(await stuck.count()).toBeLessThanOrEqual(3);

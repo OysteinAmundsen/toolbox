@@ -7,6 +7,12 @@
   "targets": {
     "typecheck": {
       "command": "bunx tsc -p libs/grid-react/tsconfig.lib.json --noEmit",
+      "dependsOn": [
+        {
+          "projects": ["grid"],
+          "target": "build"
+        }
+      ],
       "options": {
         "cwd": "{workspaceRoot}"
       }

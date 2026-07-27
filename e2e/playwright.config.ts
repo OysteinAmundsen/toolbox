@@ -19,10 +19,15 @@ const DEMO_PORTS = {
   vue: 4100, // From demos/vue/project.json
 };
 
-// Use GitHub summary reporter on CI, custom clean-list reporter locally
+// Use GitHub summary reporter on CI, custom clean-list reporter locally.
+// `list` + `github` are what make a CI failure readable in the job log and as a
+// commit annotation — the summary reporter alone writes only to
+// `$GITHUB_STEP_SUMMARY` and prints nothing to stdout.
 const reporters: Parameters<typeof defineConfig>[0]['reporter'] = process.env.CI
   ? [
-      ['html', { outputFolder: '../playwright-report' }],
+      ['list'],
+      ['github'],
+      ['html', { outputFolder: '../playwright-report', open: 'never' }],
       ['./reporters/github-summary-reporter.ts', { title: 'E2E Test Report' }],
     ]
   : [['html', { outputFolder: '../playwright-report' }], ['./reporters/clean-list-reporter.ts']];

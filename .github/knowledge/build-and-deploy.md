@@ -34,6 +34,8 @@ related: [build-css, release-versioning, docs-agent-endpoints, grid-core]
 - INVARIANT: e2e runs against `dist/` (validates release packaging).
 - INVARIANT: release-please merge commits skip validation (already passed on the feature branch).
 - INVARIANT: the `bench` job is parallel to `test`/`build`/`e2e`, gated only on `setup`, and is **NOT** in `release-please.needs` — bench is informational and must never block a release merge.
+- INVARIANT (e2e diagnosability): a failing Playwright task MUST print to stdout. Three things conspire to hide it: Nx buffers task output into a collapsed `##[group]` (→ `bun run e2e` passes `--output-style=stream`); `e2e/reporters/github-summary-reporter.ts` writes only to `$GITHUB_STEP_SUMMARY` (→ both configs keep `['list']` + `['github']` in the CI reporter array); and the `playwright-report` artifact used to upload only the root `playwright-report/` (→ it now also uploads `apps/docs-e2e/playwright-report/` and both `test-results/`). Removing any one of these makes a `docs-e2e` failure undiagnosable — CI reports only "exited with non-zero status code". `.github/skills/run-e2e/SKILL.md` → "Diagnosing a CI failure" has the retrieval recipe.
+- INVARIANT: `USE_DIST=true` affects only the **demo** apps (`demos/shared/resolve-aliases.ts`). `apps/docs` picks source-vs-dist from `isProductionBuild` in its own `gridAliases()`, and `docs-e2e` runs `astro dev` → docs-e2e always tests **source**, never `dist/`.
 
 ## bench regression ([tools/compare-benches.ts](tools/compare-benches.ts), [tools/merge-bench-runs.ts](tools/merge-bench-runs.ts))
 

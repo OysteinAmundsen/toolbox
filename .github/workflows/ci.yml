@@ -347,7 +347,15 @@ jobs:
         if: always()
         with:
           name: playwright-report
-          path: playwright-report/
+          # `playwright-report/` is only the cross-framework `e2e` project.
+          # `docs-e2e` writes its own report and trace/screenshot output under
+          # `apps/docs-e2e/` — without these paths a docs-e2e failure produces
+          # no downloadable evidence at all.
+          path: |
+            playwright-report/
+            apps/docs-e2e/playwright-report/
+            apps/docs-e2e/test-results/
+            test-results/
           retention-days: 30
 
   # ============================================

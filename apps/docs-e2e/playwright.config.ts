@@ -6,10 +6,17 @@ const _dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 4450;
 const baseURL = `http://localhost:${PORT}`;
 
-// Use GitHub summary reporter on CI, custom clean-list reporter locally
+// Use GitHub summary reporter on CI, custom clean-list reporter locally.
+// The summary reporter only writes to `$GITHUB_STEP_SUMMARY`, so on its own it
+// leaves the job log completely silent about *which* test failed. The built-in
+// `github` reporter is what turns a failure into a `::error` annotation (and
+// therefore into readable output in `gh run view --log-failed`), and `list`
+// keeps the raw expect diff in the log. Never drop these two.
 const reporters: Parameters<typeof defineConfig>[0]['reporter'] = process.env.CI
   ? [
-      ['html', { outputFolder: resolve(_dirname, 'playwright-report') }],
+      ['list'],
+      ['github'],
+      ['html', { outputFolder: resolve(_dirname, 'playwright-report'), open: 'never' }],
       [resolve(_dirname, '../../e2e/reporters/github-summary-reporter.ts'), { title: 'Docs E2E Test Report' }],
     ]
   : [

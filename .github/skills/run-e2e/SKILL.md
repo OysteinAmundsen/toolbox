@@ -120,3 +120,28 @@ Structural assertions against the vanilla demo (virtualization bounds, zero JS e
 | `e2e/tests/performance-regression.spec.ts` | Self-comparison benchmarks (no demo needed) |
 | `e2e/tests/grid-stability.spec.ts`         | Structural stability tests (vanilla demo)   |
 | `e2e/tests/perf-metrics-helper.ts`         | Metric accumulator + flush utility          |
+
+## Diagnosing a CI failure
+
+Both Playwright configs must keep the `['list']` and `['github']` reporters in their
+CI reporter arrays. `github-summary-reporter.ts` writes **only** to
+`$GITHUB_STEP_SUMMARY` and prints nothing to stdout, so with it alone the job log
+contains zero information about which test failed. `['github']` is what produces the
+`::error file=…` annotation.
+
+`bun run e2e` uses `--output-style=stream`; without it Nx buffers each task into a
+collapsed `##[group]` and a failing task's output never reaches the log.
+
+Retrieval recipe (Git Bash — write to a file, never pipe through `tail`/`head`):
+
+```bash
+gh run view <RUN_ID> --json jobs --jq '.jobs[] | select(.conclusion=="failure") | "\(.name) \(.databaseId)"'
+gh api repos/OysteinAmundsen/toolbox/check-runs/<JOB_ID>/annotations --jq '.[] | "\(.path):\(.start_line) \(.message)"'
+gh run view <RUN_ID> --job <JOB_ID> --log > tmp/ci.log   # then read_file the slice
+gh run download <RUN_ID> -n playwright-report -D tmp/pw-report
+```
+
+The `playwright-report` artifact covers **both** suites (root `playwright-report/`
+plus `apps/docs-e2e/playwright-report/` and both `test-results/` dirs) — keep all
+four paths in `.github/workflows/ci.yml`, otherwise a `docs-e2e` failure ships no
+traces or screenshots.

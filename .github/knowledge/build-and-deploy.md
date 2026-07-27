@@ -63,8 +63,12 @@ Compares Vitest `bench()` output (`hz`, `mean`, `moe`, `rme`) of PR head against
 ## nx config (nx.json)
 
 - Plugins: `@nx/js/typescript`, `@nx/vite/plugin`, `@nx/vitest`, `@nx/eslint/plugin`, `@nx/playwright/plugin`.
-- Named inputs: `production` excludes test files; `sharedGlobals` includes `ci.yml`.
+- Named inputs: `production` excludes test + `.bench.ts` files; `sharedGlobals` = `ci.yml`, `tsconfig.base.json`, `vitest.config.ts`, `bun.lock`.
 - TENSION: `ci.yml` in `sharedGlobals` means any CI change invalidates all caches.
+- DECIDED (Jul 2026): `targetDefaults` sets `cache: true` + `inputs` for `build` / `typecheck` / `test`; `bench` is `cache: false` (timings must be re-measured). WHY: `libs/*/project.json` hand-declares these targets with an explicit `executor`, which SHADOWS the inferred `@nx/vite/plugin` / `@nx/vitest` targets and silently drops the plugins' built-in `cache: true`. Symptom was zero cache hits on test/build while lint (inferred, not shadowed) cached fine. Measured: build 92s→13s, test 73s→9s, lint 24s→4s.
+- INVARIANT: a hand-written target in `project.json` inherits NOTHING from the matching inferred plugin target. If you add one, set `cache`/`inputs` explicitly or add a `targetDefaults` entry.
+- GOTCHA: CLI flags are part of the task hash, so `bun run test` (`--silent`) and a bare `nx test <proj>` keep SEPARATE cache entries. Alternating between the two looks like cache instability; it is not.
+- TODO: `@nx/vite:build` executor is deprecated (removed in Nx v24) while `@nx/vite/plugin` is already registered. Migrate with `nx g @nx/vite:convert-to-inferred` — needs re-verification of the custom `vite.config.ts` plugin chain + bundle-budget plugin.
 
 ## tsconfig paths (tsconfig.base.json)
 

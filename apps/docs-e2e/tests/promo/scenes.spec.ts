@@ -92,16 +92,23 @@ test.describe('Promo — capability reel', () => {
     await spotlight(page, panel);
 
     await say(page, 'Clear everything, then pick a single value.');
+    // Toggling "select all" re-creates every value checkbox, so wait for the
+    // rebuild before clicking one — a click on the detached node applies an
+    // empty filter and the scene proves nothing.
+    const alice = panel.locator('.tbw-filter-checkbox[data-value="Alice Johnson"]');
     await glideClick(page, panel.locator('.tbw-filter-checkbox').first());
-    await glideClick(page, panel.locator('.tbw-filter-checkbox[data-value="Alice Johnson"]'));
+    await expect(alice).not.toBeChecked();
+    await glideClick(page, alice);
+    await expect(alice).toBeChecked();
     await glideClick(page, panel.locator('button', { hasText: /apply/i }));
     await expect(panel).toBeHidden();
 
     await expect.poll(() => rowCount(page)).toBeLessThan(before);
     // Address the column by field — the first `[role="gridcell"]` is the id column.
-    const names = await page.locator('tbw-grid [role="gridcell"][data-field="name"]').allTextContents();
-    expect(names.length).toBeGreaterThan(0);
-    expect([...new Set(names.map((n) => n.trim()))]).toEqual(['Alice Johnson']);
+    const names = page.locator('tbw-grid [role="gridcell"][data-field="name"]');
+    await expect
+      .poll(async () => [...new Set((await names.allTextContents()).map((n) => n.trim()))])
+      .toEqual(['Alice Johnson']);
 
     await spotlight(page, null);
     await hush(page);

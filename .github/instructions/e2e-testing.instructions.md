@@ -166,14 +166,18 @@ Rules — these are what separate a promo scene from a smoke screen:
 
 Plugin-specific selector traps worth knowing before writing a scene:
 
-| Plugin                | Trap                                                                                                                                                                                      |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pivot                 | Pivot cells have **no `data-field`** — `cellByField`/`columnCells`/`numericColumn` are dead; use `cell()` or `.pivot-label`                                                               |
-| Tooltip               | The popover is appended to `document.body`, so the selector is page-level `.tbw-tooltip-popover`, never `tbw-grid .tbw-…`                                                                 |
-| Sticky rows           | Clones satisfy `dataRows()`/`rowCount()` — filter with `:not(.tbw-sticky-row)`. Switching `mode` rebuilds config and resets scroll                                                        |
-| Column virtualization | The plugin adds no classes — its signature is the inline `padding-left` on `.header-row` / `.data-grid-row`                                                                               |
-| Pinned rows           | Existing `pinned-and-virtualization.spec.ts` selectors `.pinned-row, [data-pinned]` are vacuous; the real ones are `.tbw-aggregation-row[data-aggregation-id]` and `[data-pinned-row-id]` |
-| Grouped columns       | `.group-end` closes **every** group, including the implicit one around ungrouped columns                                                                                                  |
+| Plugin                | Trap                                                                                                                                                                                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pivot                 | Pivot cells have **no `data-field`** — `cellByField`/`columnCells`/`numericColumn` are dead; use `cell()` or `.pivot-label`                                                                                                                         |
+| Tooltip               | The popover is appended to `document.body`, so the selector is page-level `.tbw-tooltip-popover`, never `tbw-grid .tbw-…`                                                                                                                           |
+| Sticky rows           | Clones satisfy `dataRows()`/`rowCount()` — filter with `:not(.tbw-sticky-row)`. Switching `mode` rebuilds config and resets scroll                                                                                                                  |
+| Column virtualization | The plugin adds no classes — its signature is the inline `padding-left` on `.header-row` / `.data-grid-row`                                                                                                                                         |
+| Pinned rows           | Existing `pinned-and-virtualization.spec.ts` selectors `.pinned-row, [data-pinned]` are vacuous; the real ones are `.tbw-aggregation-row[data-aggregation-id]` and `[data-pinned-row-id]`                                                           |
+| Grouped columns       | `.group-end` closes **every** group, including the implicit one around ungrouped columns                                                                                                                                                            |
+| Filtering             | Toggling "Select All" re-creates every `.tbw-filter-checkbox` (`innerHTML = ''` on the virtualized list). Assert `not.toBeChecked()` on the target **between** the two clicks, else the second click hits a detached node and Apply filters nothing |
+
+Related: after Apply, the rows re-render asynchronously. `await panel` being hidden is not enough —
+read the resulting cells through `expect.poll`, never a bare `allTextContents()`.
 
 ## Cross-Framework Tests (`e2e/`)
 

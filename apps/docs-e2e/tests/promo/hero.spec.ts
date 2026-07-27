@@ -77,14 +77,26 @@ test.describe('Promo — hero scenario', () => {
     await spotlight(page, panel);
 
     // First checkbox is "select all" — clearing it, then picking one value.
+    // Toggling "select all" re-creates every value checkbox (the list is
+    // virtualized and re-rendered wholesale), so the next click must wait for
+    // the rebuild — otherwise it lands on a detached node, nothing is excluded
+    // and Apply silently filters nothing.
+    const targetValue = panel.locator(`.tbw-filter-checkbox[data-value="${targetDept}"]`);
     await glideClick(page, panel.locator('.tbw-filter-checkbox').first());
-    await glideClick(page, panel.locator(`.tbw-filter-checkbox[data-value="${targetDept}"]`));
+    await expect(targetValue).not.toBeChecked();
+    await glideClick(page, targetValue);
+    await expect(targetValue).toBeChecked();
     await glideClick(page, panel.locator('button', { hasText: /apply/i }));
     await expect(panel).toBeHidden();
 
-    const visibleDepts = await page.locator('tbw-grid [role="gridcell"][data-field="department"]').allTextContents();
-    expect(visibleDepts.length).toBeGreaterThan(0);
-    expect([...new Set(visibleDepts.map((d) => d.trim()))]).toEqual([targetDept]);
+    // Applying the filter re-renders the rows asynchronously, so poll rather
+    // than reading the cells once.
+    const departmentCells = page.locator('tbw-grid [role="gridcell"][data-field="department"]');
+    await expect
+      .poll(async () => [...new Set((await departmentCells.allTextContents()).map((d) => d.trim()))], {
+        message: 'only the chosen department survives the filter',
+      })
+      .toEqual([targetDept]);
     expect(await rowCount(page)).toBeLessThan(totalRows);
 
     await say(page, 'Every row left is a match — aggregates recompute against the filtered set.');

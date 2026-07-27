@@ -198,5 +198,20 @@
         }
       }
     }
+
+    /* Coarse pointer (touch): widen resize handle hit area and ensure
+       sort indicator meets minimum touch-target size */
+    @media (pointer: coarse) {
+      .resize-handle {
+        /* Widen transparent hit area; absolute positioning avoids layout impact */
+        width: max(var(--tbw-resize-hit-area, 18px), var(--tbw-touch-target-min, 24px));
+        right: calc(max(var(--tbw-resize-hit-area, 18px), var(--tbw-touch-target-min, 24px)) / -2);
+      }
+
+      > .cell.sortable > span[part~='sort-indicator'] {
+        min-width: var(--tbw-touch-target-min, 24px);
+        min-height: var(--tbw-touch-target-min, 24px);
+      }
+    }
   }
 }

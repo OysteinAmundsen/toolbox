@@ -103,6 +103,13 @@
     color: var(--tbw-pivot-toggle-hover-color, var(--tbw-color-fg));
   }
 
+  @media (pointer: coarse) {
+    .pivot-toggle {
+      min-width: var(--tbw-touch-target-min, 24px);
+      min-height: var(--tbw-touch-target-min, 24px);
+    }
+  }
+
   .pivot-toggle:focus {
     outline: var(--tbw-focus-outline);
     outline-offset: var(--tbw-focus-outline-offset);

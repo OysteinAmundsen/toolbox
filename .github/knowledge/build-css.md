@@ -75,6 +75,14 @@ related: [build-and-deploy, grid-core]
 - INVARIANT: order matters — variables first, media queries last
 - Plugin CSS uses @layer tbw-plugins; theme CSS uses @layer tbw-theme
 
+## touch-pointer-a11y (#305)
+
+- OWNS: `--tbw-touch-target-min: 24px` in `variables.css`. 24px = WCAG 2.2 SC **2.5.8** Target Size (Minimum), Level **AA**. Override to 44px for SC **2.5.5** Target Size (Enhanced), Level **AAA**. (Do not swap these — the two SCs are easy to confuse.)
+- INVARIANT: all coarse-pointer `min-width`/`min-height` rules MUST live under `@media (pointer: coarse)`. Fine-pointer rendering is UNCHANGED.
+- INVARIANT: every `:hover`-*reveal* rule (opacity 0→1, display none→block, visibility hidden→visible) MUST have a sibling `@media (hover: none)` rule keeping the control visible. Hover *emphasis* (colour/opacity change on an already-visible control) is exempt.
+- DECIDED (Jul 2026 #305): "hover-emphasis stays hover-only" exception — `header.css` `.sortable:hover > span[part~='sort-indicator']` and `.resize-handle:hover::before/::after` are emphasis-only (the indicator/handle are always rendered); they stay hover-only on fine pointers and are NOT wrapped in `@media (hover: hover)`. Coarse-pointer hit-target rules are in a separate `@media (pointer: coarse)` block.
+- Controls patched (coarse min-size + hover-none reveal where applicable): `.tbw-filter-btn` (filtering.css), `.tbw-visibility-handle` (visibility.css), `.dg-row-drag-handle` (row-drag-drop.css), `.resize-handle` + sort `span[part~='sort-indicator']` (header.css), `.tbw-tool-panel-resize` (shell.css), `.group-toggle` (grouping-rows.css), `.master-detail-toggle` (master-detail.css), `.tree-toggle` + `.tree-spacer` (tree.css — the spacer holds the toggle slot on leaf rows and MUST grow with it, or leaf rows misalign), `.pivot-toggle` (pivot.css), `.tbw-select-row-checkbox` + `.tbw-select-all-checkbox` (selection.css).
+
 ## themes (libs/themes/)
 
 - 6 built-in: standard, material, bootstrap, contrast (a11y), vibrant, large (a11y)

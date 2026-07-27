@@ -134,6 +134,12 @@
     --tbw-header-letter-spacing: normal;
     --tbw-color-header-separator: var(--tbw-color-border-cell);
 
+    /* ========== Touch / Pointer ========== */
+    /* Minimum hit-target dimension for interactive controls.
+       24 × 24 px satisfies WCAG 2.2 SC 2.5.8 Target Size (Minimum), Level AA.
+       Override to 44px to also satisfy SC 2.5.5 Target Size (Enhanced), Level AAA. */
+    --tbw-touch-target-min: 24px;
+
     /* ========== Density Scaling ========== */
     --tbw-density-scale: 1;
 

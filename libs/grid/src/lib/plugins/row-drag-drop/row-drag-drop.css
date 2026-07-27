@@ -37,6 +37,20 @@
     }
   }
 
+  /* Coarse pointer (touch): handle always in active colour and large enough to tap */
+  @media (hover: none) {
+    .dg-row-drag-handle {
+      color: var(--tbw-row-reorder-handle-hover, var(--tbw-color-fg));
+    }
+  }
+
+  @media (pointer: coarse) {
+    .dg-row-drag-handle {
+      min-width: var(--tbw-touch-target-min, 24px);
+      min-height: var(--tbw-touch-target-min, 24px);
+    }
+  }
+
   /* ------------------------------------------------------------------ */
   /* Source row state                                                   */
   /* ------------------------------------------------------------------ */

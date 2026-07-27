@@ -173,6 +173,15 @@
       cursor: pointer;
     }
 
+    /* Coarse pointer (touch): expand checkbox hit area to touch-target minimum */
+    @media (pointer: coarse) {
+      .tbw-select-row-checkbox,
+      .tbw-select-all-checkbox {
+        min-width: var(--tbw-touch-target-min, 24px);
+        min-height: var(--tbw-touch-target-min, 24px);
+      }
+    }
+
     /* ---- Column-axis selection ----------------------------------------- */
     /* Background tint for selected columns. Applied to the matching header
        cell and every data cell whose data-col resolves to a selected field.

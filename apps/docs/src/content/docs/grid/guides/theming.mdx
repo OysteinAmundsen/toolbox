@@ -290,6 +290,29 @@ The grid ships `mask-image`, `mask-size`, `mask-repeat`, and `mask-position` for
 
 Each icon also has a `-mask` variant (e.g., `--tbw-icon-sort-asc-mask`) for SVG mask-based rendering with `currentColor`.
 
+## Touch & Pointer Input
+
+On coarse-pointer devices (touchscreens), interactive controls automatically meet a minimum hit-target
+size governed by `--tbw-touch-target-min`. The `24px` default satisfies
+[WCAG 2.2 SC 2.5.8 Target Size (Minimum)](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html),
+Level **AA**. Raise it to `44px` to also satisfy
+[SC 2.5.5 Target Size (Enhanced)](https://www.w3.org/WAI/WCAG21/Understanding/target-size.html), Level **AAA**:
+
+```css
+tbw-grid {
+  --tbw-touch-target-min: 44px;
+}
+```
+
+| Token | Default | Description |
+|-------|---------|-------------|
+| `--tbw-touch-target-min` | `24px` | Minimum `min-width` / `min-height` for interactive controls under `@media (pointer: coarse)`. Affects filter buttons, drag handles, resize handles, expand toggles, selection checkboxes. |
+
+Controls that are only visible on hover (filter button, drag handles) are kept visible at all times
+under `@media (hover: none)` so touch users can always reach them without a preceding hover event.
+Fine-pointer rendering is pixel-identical to before — all changes are scoped to coarse-pointer or
+hover-none media queries.
+
 ## See Also
 
 <CardGrid>

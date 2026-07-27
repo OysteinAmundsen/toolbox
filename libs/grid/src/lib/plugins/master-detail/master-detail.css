@@ -42,6 +42,13 @@
       opacity: 1;
     }
 
+    @media (pointer: coarse) {
+      .master-detail-toggle {
+        min-width: var(--tbw-touch-target-min, 24px);
+        min-height: var(--tbw-touch-target-min, 24px);
+      }
+    }
+
     .master-detail-row {
       grid-column: 1 / -1;
       display: grid;

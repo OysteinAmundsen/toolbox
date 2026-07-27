@@ -10,12 +10,55 @@ import DemoControls from '@components/DemoControls.astro';
       default: false, description: 'Wrap string values in quotes' },
   ]} />
   <tbw-grid id="demo-clipboard-default" style="height: 350px;"></tbw-grid>
+  <div class="external-clipboard-wrap">
+    <label for="clipboard-external-target">External Clipboard Target</label>
+    <textarea
+      id="clipboard-external-target"
+      placeholder="Click here and press Ctrl+V to paste clipboard data outside the grid"
+    ></textarea>
+  </div>
 </div>
+
+<style>
+  .external-clipboard-wrap {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    padding: 10px 12px;
+    background: rgba(246, 247, 249, 0.96);
+    border-top: 1px solid var(--sl-color-gray-5);
+    box-shadow: 0 -8px 18px rgba(0, 0, 0, 0.08);
+  }
+
+  .external-clipboard-wrap label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--sl-color-gray-2);
+  }
+
+  .external-clipboard-wrap textarea {
+    display: block;
+    width: 100%;
+    min-height: 86px;
+    resize: vertical;
+    font: 13px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--sl-color-gray-1);
+    border: 1px solid var(--sl-color-gray-4);
+    border-radius: 8px;
+    background: #fff;
+    padding: 10px;
+  }
+</style>
 
 <script>
 import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/clipboard';
+import '@toolbox-web/grid/features/editing';
 import '@toolbox-web/grid/features/selection';
 
 const container = document.getElementById('clipboard-default-demo');
@@ -28,9 +71,9 @@ if (container) {
   ];
   const columns = [
     { field: 'id', header: 'ID', type: 'number' },
-    { field: 'name', header: 'Name' },
-    { field: 'email', header: 'Email' },
-    { field: 'department', header: 'Department' },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'email', header: 'Email', editable: true },
+    { field: 'department', header: 'Department', editable: true },
   ];
 
   const grid = queryGrid('tbw-grid', container)!;
@@ -41,6 +84,7 @@ if (container) {
       features: {
         selection: 'range',
         clipboard: { includeHeaders, quoteStrings },
+        editing: true,
       },
     };
     grid.rows = sampleData;

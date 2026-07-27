@@ -26,6 +26,18 @@
         "command": "bunx playwright test --ui --config=apps/docs-e2e/playwright.config.ts",
         "cwd": "{workspaceRoot}"
       }
+    },
+    "e2e:promo": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/apps/docs-e2e/promo-output"],
+      "options": {
+        "commands": [
+          "cd apps/docs-e2e && bun astro build",
+          "bunx playwright test --config=apps/docs-e2e/playwright.promo.config.ts"
+        ],
+        "parallel": false,
+        "cwd": "{workspaceRoot}"
+      }
     }
   }
 }

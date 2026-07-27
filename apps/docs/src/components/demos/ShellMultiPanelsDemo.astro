@@ -45,6 +45,9 @@ import '@toolbox-web/grid/features/visibility';
       active: i % 3 !== 0,
     }));
 
+    // Plugins are instantiated when the grid renders, so the shell does not exist
+    // synchronously after assigning `gridConfig` — wait for the first render.
+    await grid.ready();
     const shell = grid.getPluginByName('shell');
 
     // Custom filter panel

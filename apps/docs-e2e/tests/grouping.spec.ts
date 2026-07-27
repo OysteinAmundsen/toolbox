@@ -1,25 +1,28 @@
 import { expect, test } from '@playwright/test';
 import { dataRows, openDemo } from './utils';
 
+/** The expander icon inside a group row — clicking the row itself does not toggle. */
+function groupToggles(page: import('@playwright/test').Page) {
+  return page.locator('tbw-grid .group-row .group-toggle, tbw-grid [data-group-key] .group-toggle');
+}
+
 test.describe('Row Grouping Demos', () => {
   test('GroupingRowsDefaultDemo — group headers render and are clickable', async ({ page }) => {
     await openDemo(page, 'grouping-rows/GroupingRowsDefaultDemo');
 
-    // Group headers should be visible
-    const groupHeaders = page.locator('tbw-grid .group-row, tbw-grid [data-group-key]');
-    await expect(groupHeaders.first()).toBeVisible({ timeout: 5000 });
+    const toggles = groupToggles(page);
+    await expect(toggles.first()).toBeVisible({ timeout: 5000 });
 
-    // Click a group header to toggle
-    await groupHeaders.first().click();
+    await toggles.first().click();
     await page.waitForTimeout(500);
   });
 
   test('GroupingRowsEventsDemo — toggle fires events', async ({ page }) => {
     await openDemo(page, 'grouping-rows/GroupingRowsEventsDemo');
 
-    const groupHeaders = page.locator('tbw-grid .group-row, tbw-grid [data-group-key]');
-    if ((await groupHeaders.count()) > 0) {
-      await groupHeaders.first().click();
+    const toggles = groupToggles(page);
+    if ((await toggles.count()) > 0) {
+      await toggles.first().click();
       await page.waitForTimeout(300);
 
       const logEl = page.locator('#grouping-events-log, [data-event-log]');
@@ -34,9 +37,9 @@ test.describe('Row Grouping Demos', () => {
     await openDemo(page, 'grouping-rows/GroupingRowsWithAggregatorsDemo');
 
     // Expand a group to see its footer row with aggregated salary sum
-    const groupHeaders = page.locator('tbw-grid .group-row, tbw-grid [data-group-key]');
-    await expect(groupHeaders.first()).toBeVisible({ timeout: 5000 });
-    await groupHeaders.first().click();
+    const toggles = groupToggles(page);
+    await expect(toggles.first()).toBeVisible({ timeout: 5000 });
+    await toggles.first().click();
     await page.waitForTimeout(500);
 
     // After expanding, look for a footer/aggregation row with a numeric value

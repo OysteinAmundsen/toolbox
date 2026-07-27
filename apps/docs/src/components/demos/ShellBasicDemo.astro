@@ -62,7 +62,7 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
     }
 
 
-    function rebuild(v: ShellValues) {
+    async function rebuild(v: ShellValues) {
       const shellConfig: ShellConfig = {
         header: v.showTitle ? { title: 'Employee Data' } : {},
         toolPanel: {
@@ -79,6 +79,9 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
       };
       grid.rows = sampleData;
 
+      // Plugins are instantiated on the first render, so the shell does not exist
+      // synchronously after assigning `gridConfig`.
+      await grid.ready();
       const shell = grid.getPluginByName('shell');
       if (v.showHeaderContent) {
         shell?.registerHeaderContent({
@@ -134,7 +137,7 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
       }
     }
 
-    rebuild({
+    void rebuild({
       showTitle: true,
       showHeaderContent: true,
       showToolbarButton: true,
@@ -145,7 +148,7 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
     });
 
     container.addEventListener('control-change', ((e: CustomEvent) => {
-      rebuild(e.detail.allValues as ShellValues);
+      void rebuild(e.detail.allValues as ShellValues);
     }) as EventListener);
   }
 </script>

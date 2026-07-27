@@ -104,6 +104,8 @@ OWNS: pinned row positions (top/bottom), info bar (counts/panels), aggregation r
 - DECIDED (#255, unified slots): `slots[]` replaces parallel `aggregationRows[]` + `customPanels[]`; each slot is one DOM row. Discriminator = presence of `render` → `PanelSlot`, else `AggregationSlot`. When `slots` is set, ALL legacy fields are ignored; legacy without `slots` keeps byte-identical DOM via `synthesizeLegacySlots`. `PanelRender` returns `HTMLElement | null` — null drops the contribution, and a panel whose renderers are all null is dropped entirely (how `selectedCountPanel()` self-hides). Top slots render in `.tbw-header-pinned` AFTER `.header`; bottom in `.tbw-footer`. Wrapper hidden under `tbw-grid[data-responsive]`. Adapters propagate null (React null/false/undefined; Vue null/undefined; Angular always rendered).
 - INVARIANT: built-in `rowCountPanel`/`selectedCountPanel`/`filteredCountPanel` are exported from `@toolbox-web/grid/plugins/pinned-rows` and are hardcoded English — i18n consumers build their own renderer (do NOT add locale options).
 - DECIDED (May 2026, demo-loop fix): `renderPanelSlot(slot, context, previousRow?)` is REF-CACHED — returns `previousRow` when every output is ref-equal; `populateSlotWrapper` diffs by ref and skips `replaceChildren`. WHY: framework consumers mounting components into the returned container were torn down + remounted every `afterRender` (~30 Hz), bouncing the rows viewport through ResizeObserver autosizing into an infinite loop. Built-in panels create a fresh element per call (so they keep updating). Consumer contract: return the same element ref across calls to opt into stable rendering.
+- TENSION (found while writing the `@promo` pinned-rows scene): the plugin only rebuilds panels in `afterRender` and subscribes to **no** selection event. Selecting a row updates `aria-selected`/`.selected` via the selection plugin's own DOM patch without a grid render, so `selectedCountPanel()` stays collapsed until some _other_ change forces a render. Repro: `pinned-rows/PinnedRowsDefaultDemo`, click a row — `[data-pinned-row-id="selected"]` never appears. Fix would be a `selection-change` subscription calling `requestRender()`.
+
 ## Export
 
 ### Clipboard
@@ -133,4 +135,3 @@ OWNS: export format/state. Download methods (`exportCsv`/`exportExcel`/`exportJs
 ### Print
 
 OWNS: print styling; exposes print methods. No shell dependency.
-

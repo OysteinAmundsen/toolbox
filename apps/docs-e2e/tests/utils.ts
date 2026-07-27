@@ -1,8 +1,29 @@
 import { type Locator, type Page, expect } from '@playwright/test';
+import { PROMO, beat, glidePointer, installOverlay, moveTo, titleCard } from './promo/overlay';
 
-/** Navigate to a demo page and wait for the grid to be ready. */
-export async function openDemo(page: Page, demoSlug: string) {
+export * from './promo/overlay';
+
+/** Human-readable fallback title for a demo slug, used on the promo title card. */
+function titleFromSlug(demoSlug: string): string {
+  return (demoSlug.split('/').pop() ?? demoSlug)
+    .replace(/\.[^.]+$/, '')
+    .replace(/Demo$/, '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[-_]+/g, ' ')
+    .trim();
+}
+
+/**
+ * Navigate to a demo page and wait for the grid to be ready.
+ *
+ * In promo mode this additionally installs the video overlay and pins a title
+ * card; both are no-ops in a normal run. Prefer passing an explicit `title` —
+ * slug-derived titles read like filenames, not like a product demo.
+ */
+export async function openDemo(page: Page, demoSlug: string, title?: string, subtitle?: string) {
+  if (PROMO) await installOverlay(page);
   await page.goto(`/demo/${demoSlug}`);
+  if (PROMO) await titleCard(page, title ?? titleFromSlug(demoSlug), subtitle);
   await waitForGrid(page);
 }
 
@@ -56,6 +77,51 @@ export function columnCells(page: Page, headerText: string): Locator {
   return page.locator(`tbw-grid [role="gridcell"][data-field="${headerText.toLowerCase()}"]`);
 }
 
+/**
+ * Get a data cell by row index + column `field`.
+ *
+ * Prefer this over {@link cell} whenever a demo has an expand column, a checkbox
+ * column, or reorderable columns — positional indices silently drift and the
+ * assertion starts checking the wrong column.
+ */
+export function cellByField(page: Page, rowIndex: number, field: string): Locator {
+  return dataRows(page).nth(rowIndex).locator(`[role="gridcell"][data-field="${field}"]`);
+}
+
+/** Read every visible cell value in a column as a number (strips currency/format chars). */
+export async function numericColumn(page: Page, field: string): Promise<number[]> {
+  const texts = await dataRows(page).locator(`[role="gridcell"][data-field="${field}"]`).allTextContents();
+  return texts.map((t) => Number(t.replace(/[^0-9.-]/g, '')));
+}
+
+/**
+ * Record every detail payload emitted by a grid event.
+ *
+ * Asserting on the public event is more meaningful — and far more stable — than
+ * asserting on internal DOM classes, which is why selection/grouping/tree scenes
+ * use this instead of poking at `.selected`.
+ */
+export async function captureGridEvent<T = unknown>(page: Page, eventName: string) {
+  const key = `__tbwEvt_${eventName.replace(/[^a-z0-9]/gi, '_')}`;
+  await page.evaluate(
+    ([name, k]) => {
+      const target = document.querySelector('tbw-grid');
+      (window as unknown as Record<string, unknown[]>)[k] = [];
+      target?.addEventListener(name, (e) => {
+        (window as unknown as Record<string, unknown[]>)[k].push((e as CustomEvent).detail);
+      });
+    },
+    [eventName, key],
+  );
+
+  const read = () => page.evaluate((k) => (window as unknown as Record<string, unknown[]>)[k] ?? [], key);
+  return {
+    all: () => read() as Promise<T[]>,
+    last: async () => ((await read()) as T[]).at(-1),
+    count: async () => (await read()).length,
+  };
+}
+
 /** Count visible data rows. */
 export async function rowCount(page: Page): Promise<number> {
   return page.locator(BODY_ROWS).count();
@@ -86,19 +152,41 @@ export async function assertNoErrors(page: Page) {
 
 /** Double-click a cell to start editing. */
 export async function dblClickCell(page: Page, rowIndex: number, colIndex: number) {
-  await cell(page, rowIndex, colIndex).dblclick();
+  const target = cell(page, rowIndex, colIndex);
+  await moveTo(page, target);
+  await target.dblclick();
   // Wait for editor to appear
   await page.waitForTimeout(200);
 }
 
 /** Click a cell once. */
-export async function clickCell(page: Page, rowIndex: number, colIndex: number) {
-  await cell(page, rowIndex, colIndex).click();
+export async function clickCell(
+  page: Page,
+  rowIndex: number,
+  colIndex: number,
+  options?: Parameters<Locator['click']>[0],
+) {
+  await moveTo(page, cell(page, rowIndex, colIndex));
+  await cell(page, rowIndex, colIndex).click(options);
 }
 
-/** Type into the currently active editor and press Enter. */
+/**
+ * Type into the currently active editor and press Enter.
+ *
+ * In promo mode the value is typed one character at a time. Playwright's
+ * default `type()` lands the whole string in a single frame, which reads as a
+ * paste rather than as somebody editing a cell.
+ */
 export async function typeAndCommit(page: Page, value: string) {
   await page.keyboard.press('Control+a');
+  if (PROMO) {
+    await beat(page, 300);
+    await page.keyboard.type(value, { delay: 85 });
+    await beat(page, 700);
+    await page.keyboard.press('Enter');
+    await beat(page, 800);
+    return;
+  }
   await page.keyboard.type(value);
   await page.keyboard.press('Enter');
   await page.waitForTimeout(200);
@@ -132,6 +220,104 @@ export async function filterColumn(page: Page, fieldName: string, value: string)
   const input = page.locator(`tbw-grid input[data-filter-field="${fieldName}"], tbw-grid .filter-row input`).first();
   await input.fill(value);
   await page.waitForTimeout(500); // debounce
+}
+
+/**
+ * Resolve a demo control (checkbox / select / text input) by its declared name.
+ *
+ * `DemoControls.astro` puts `data-ctrl` on the input and `data-ctrl-name` on the
+ * wrapper row, while `GridPlayground.astro` puts `data-ctrl-name` on the input
+ * itself. Specs must use this helper rather than hand-rolling the selector — and
+ * must never wrap the interaction in an `isVisible()` guard, which lets a broken
+ * demo pass silently.
+ */
+export function control(page: Page, name: string): Locator {
+  return page
+    .locator(`[data-ctrl="${name}"]`)
+    .or(page.locator(`input[data-ctrl-name="${name}"], select[data-ctrl-name="${name}"]`))
+    .or(page.locator(`[data-ctrl-name="${name}"]`).locator('input, select'))
+    .first();
+}
+
+/** Resolve one option of a radio-group control by name + value. */
+export function controlOption(page: Page, name: string, value: string): Locator {
+  return page
+    .locator(`[data-ctrl="${name}"][value="${value}"]`)
+    .or(page.locator(`[data-ctrl-name="${name}"] input[value="${value}"]`))
+    .or(page.locator(`input[type="radio"][value="${value}"]`))
+    .first();
+}
+
+/**
+ * Flip a boolean demo control and wait for it to settle.
+ *
+ * The underlying `<input type="checkbox">` in `DemoControls.astro` is styled
+ * `opacity: 0; width: 0; height: 0`, so `.check()` on it never becomes
+ * actionable and hangs until the test times out. Click the visible `.dc-toggle`
+ * track instead, then assert the input's state.
+ */
+export async function toggleControl(page: Page, name: string, on = true): Promise<void> {
+  const input = control(page, name);
+  if ((await input.isChecked()) === on) return;
+  const track = page
+    .locator(`.dc-row[data-ctrl-name="${name}"] .dc-toggle`)
+    .or(page.locator(`label.dc-toggle:has(input[data-ctrl="${name}"])`))
+    .first();
+  await track.click();
+  await expect(input).toBeChecked({ checked: on });
+}
+
+/**
+ * Smooth, human-looking drag from one element to another.
+ *
+ * On camera the pointer is glided frame by frame, with a beat on the grab and
+ * before the drop — `mouse.move(…, { steps })` alone fires every step instantly,
+ * so the drag reads as a teleport. In CI it stays a plain three-call drag.
+ *
+ * Throws when either end has no bounding box — a silent no-op drag is the most
+ * common way a reorder/range test stops testing anything.
+ */
+export async function dragBetween(page: Page, from: Locator, to: Locator, steps = 24) {
+  // Both ends must have settled first: a drag issued while the grid is still
+  // re-rendering resolves against a detached node and silently does nothing.
+  await expect(from).toBeVisible();
+  await expect(to).toBeVisible();
+  const a = await from.boundingBox();
+  const b = await to.boundingBox();
+  if (!a || !b) throw new Error('dragBetween: source or target element has no bounding box');
+  const [ax, ay] = [a.x + a.width / 2, a.y + a.height / 2];
+  const [bx, by] = [b.x + b.width / 2, b.y + b.height / 2];
+
+  if (PROMO) {
+    await glidePointer(page, ax, ay);
+    await beat(page, 350);
+    await page.mouse.down();
+    await beat(page, 250);
+    await glidePointer(page, bx, by, 20);
+    await beat(page, 450);
+    await page.mouse.up();
+    return;
+  }
+
+  await page.mouse.move(ax, ay, { steps: 8 });
+  await page.mouse.down();
+  await page.mouse.move(bx, by, { steps });
+  await page.mouse.up();
+}
+
+/**
+ * Scroll by wheel over `target` in small increments.
+ *
+ * Never assign `scrollLeft`/`scrollTop` directly in a spec: it teleports (hiding
+ * the smoothness virtualization is meant to demonstrate) and, if the container
+ * selector is wrong, it scrolls nothing while the test still passes.
+ */
+export async function wheelScroll(page: Page, target: Locator, deltaX: number, deltaY: number, steps = 20) {
+  await target.hover();
+  for (let i = 0; i < steps; i++) {
+    await page.mouse.wheel(deltaX / steps, deltaY / steps);
+    await page.waitForTimeout(16);
+  }
 }
 
 /**

@@ -34,23 +34,30 @@ test.describe('Feature Demos', () => {
 
 ### Shared Utilities (`apps/docs-e2e/tests/utils.ts`)
 
-| Helper                                                    | Purpose                                            |
-| --------------------------------------------------------- | -------------------------------------------------- |
-| `openDemo(page, slug)`                                    | Navigate to `/demo/{slug}` and wait for grid ready |
-| `grid(page)` / `gridIn(page, containerId)`                | Get grid locator, optionally scoped to container   |
-| `dataRows(page)`                                          | All visible data rows (excludes headers)           |
-| `cell(page, rowIdx, colIdx)`                              | Get cell by 0-based row/col index                  |
-| `cellText(page, rowIdx, colIdx)`                          | Get cell text content                              |
-| `headerCells(page)` / `headerCell(page, text)`            | Header locators                                    |
-| `clickCell(page, rowIdx, colIdx)`                         | Single click a cell                                |
-| `dblClickCell(page, rowIdx, colIdx)`                      | Double-click to activate editor (+200ms wait)      |
-| `rightClickCell(page, rowIdx, colIdx)`                    | Context menu trigger                               |
-| `typeAndCommit(page, value)`                              | Ctrl+A → type → Enter → 200ms wait                 |
-| `sortByColumn(page, headerText)`                          | Click header to sort (+300ms wait)                 |
-| `filterColumn(page, field, value)`                        | Fill filter input (+500ms debounce)                |
-| `rowCount(page)`                                          | Count visible data rows                            |
-| `getSortDirection(page, headerText)`                      | Read `aria-sort` attribute                         |
-| `collectConsoleErrors(page, fn)` / `assertNoErrors(page)` | Console error capture                              |
+| Helper                                                     | Purpose                                                                 |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `openDemo(page, slug)`                                     | Navigate to `/demo/{slug}` and wait for grid ready                      |
+| `grid(page)` / `gridIn(page, containerId)`                 | Get grid locator, optionally scoped to container                        |
+| `dataRows(page)`                                           | All visible data rows (excludes headers)                                |
+| `cell(page, rowIdx, colIdx)`                               | Get cell by 0-based row/col index                                       |
+| `cellText(page, rowIdx, colIdx)`                           | Get cell text content                                                   |
+| `headerCells(page)` / `headerCell(page, text)`             | Header locators                                                         |
+| `clickCell(page, rowIdx, colIdx)`                          | Single click a cell                                                     |
+| `dblClickCell(page, rowIdx, colIdx)`                       | Double-click to activate editor (+200ms wait)                           |
+| `rightClickCell(page, rowIdx, colIdx)`                     | Context menu trigger                                                    |
+| `typeAndCommit(page, value)`                               | Ctrl+A → type → Enter → 200ms wait (types per-character under `@promo`) |
+| `sortByColumn(page, headerText)`                           | Click header to sort (+300ms wait)                                      |
+| `filterColumn(page, field, value)`                         | Fill filter input (+500ms debounce)                                     |
+| `rowCount(page)`                                           | Count visible data rows                                                 |
+| `getSortDirection(page, headerText)`                       | Read `aria-sort` attribute                                              |
+| `cellByField(page, rowIdx, field)`                         | Cell by column `field` — immune to index drift                          |
+| `numericColumn(page, field)`                               | Column values as numbers (strips currency/format)                       |
+| `control(page, name)` / `controlOption(page, name, value)` | Demo control by name — works for both control components                |
+| `toggleControl(page, name, on)`                            | Flip a boolean demo control (clicks the visible track)                  |
+| `dragBetween(page, from, to)`                              | Smooth drag; throws if either end is missing                            |
+| `wheelScroll(page, target, dx, dy)`                        | Incremental wheel scroll (never assign `scrollLeft`)                    |
+| `captureGridEvent(page, eventName)`                        | Record public grid event details for assertions                         |
+| `collectConsoleErrors(page, fn)` / `assertNoErrors(page)`  | Console error capture                                                   |
 
 ### What to Test in Each Demo
 
@@ -117,6 +124,56 @@ Use ARIA roles and data attributes for robustness:
 Test files match feature names: `selection.spec.ts`, `editing.spec.ts`, `sorting.spec.ts`.
 
 Test names follow: `DemoComponentName — what the test verifies`
+
+### Promo scenes (`tests/promo/`, tag `@promo`)
+
+`tests/promo/hero.spec.ts` (one continuous analyst workflow on `EmployeeManagementAllFeaturesDemo`)
+and `tests/promo/scenes.spec.ts` (one scene per capability) are **real CI tests that also record the
+promo video**. They run in the normal suite at full speed; `playwright.promo.config.ts` only adds the
+visual layer. See the `run-e2e` skill for the run command and config table.
+
+The overlay/pacing API lives in `tests/promo/overlay.ts` and is **a no-op unless `PW_PROMO_OVERLAY=1`**:
+
+| Helper                       | Purpose                                                                                  |
+| ---------------------------- | ---------------------------------------------------------------------------------------- |
+| `beat(page, ms)`             | Camera pacing only — never a correctness wait                                            |
+| `say(page, text)`            | Caption band explaining the _intent_ of the next action                                  |
+| `hush(page)`                 | Hide the caption                                                                         |
+| `titleCard(page, main, sub)` | Scene title (set automatically by `openDemo`)                                            |
+| `spotlight(page, locator)`   | Dim the page, ring the region of interest **and glide the pointer to it**; `null` clears |
+
+Rules — these are what separate a promo scene from a smoke screen:
+
+1. **Assert the consequence, not the render.** `expect(grid(page)).toBeVisible()` as the only
+   assertion proves nothing. Assert the new cell text, the new row count, the emitted event.
+2. **No `if (await x.isVisible())` guards.** A missing control must fail. If a selector is
+   uncertain, that is a signal to use `control(page, name)` / add a stable hook to the demo —
+   not to skip the interaction.
+3. **No `waitForTimeout` for correctness.** Use web-first assertions and `expect.poll`.
+   `beat()` handles the camera.
+4. **Never assign `scrollLeft` / `scrollTop`.** Use `wheelScroll()` — a teleport hides the
+   smoothness virtualization is meant to demonstrate, and a wrong container selector scrolls
+   nothing while the test still passes.
+5. **Prefer public events over internal classes.** `captureGridEvent(page, 'selection-change')`
+   is more meaningful and more stable than asserting on `.selected`.
+6. **Use `cellByField()` over positional `cell()`** on demos with expand/checkbox/reorderable
+   columns — indices silently drift onto the wrong column.
+7. **Never call `.check()` on a `DemoControls.astro` boolean.** Its `<input type="checkbox">` is
+   styled `opacity: 0; width: 0; height: 0`, so it never becomes actionable and the test hangs
+   until timeout with no call log. Use `toggleControl()`, which clicks the visible `.dc-toggle`
+   track and then asserts the input state. `check-group` controls render `data-ctrl-group`, not
+   `data-ctrl` — only `controlOption(page, name, value)` reaches them.
+
+Plugin-specific selector traps worth knowing before writing a scene:
+
+| Plugin                | Trap                                                                                                                                                                                      |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pivot                 | Pivot cells have **no `data-field`** — `cellByField`/`columnCells`/`numericColumn` are dead; use `cell()` or `.pivot-label`                                                               |
+| Tooltip               | The popover is appended to `document.body`, so the selector is page-level `.tbw-tooltip-popover`, never `tbw-grid .tbw-…`                                                                 |
+| Sticky rows           | Clones satisfy `dataRows()`/`rowCount()` — filter with `:not(.tbw-sticky-row)`. Switching `mode` rebuilds config and resets scroll                                                        |
+| Column virtualization | The plugin adds no classes — its signature is the inline `padding-left` on `.header-row` / `.data-grid-row`                                                                               |
+| Pinned rows           | Existing `pinned-and-virtualization.spec.ts` selectors `.pinned-row, [data-pinned]` are vacuous; the real ones are `.tbw-aggregation-row[data-aggregation-id]` and `[data-pinned-row-id]` |
+| Grouped columns       | `.group-end` closes **every** group, including the implicit one around ungrouped columns                                                                                                  |
 
 ## Cross-Framework Tests (`e2e/`)
 

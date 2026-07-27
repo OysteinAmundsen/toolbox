@@ -1,20 +1,13 @@
 /**
  * Filtering feature for @toolbox-web/grid-angular
  *
- * Two ways to use:
+ * Add `GridFilteringDirective` to your component's `imports`. The directive
+ * owns the `[filtering]` input and `(filterChange)` output, so the typed
+ * surface tree-shakes away when the feature is not imported.
  *
- * 1. **Recommended (tree-shakeable surface):** add `GridFilteringDirective`
- *    to your component's `imports`. The directive owns the `[filtering]`
- *    input and `(filterChange)` output, so the typed surface tree-shakes
- *    away when the feature is not imported.
- * 2. **Legacy (non-breaking, deprecated):** side-effect import the feature
- *    entry; the matching `[filtering]` / `(filterChange)` bindings on the
- *    central `Grid` directive will work as in v1.x. These bindings on `Grid`
- *    are marked `@deprecated` and will be removed in v2.0.0.
+ * `injectGridFiltering()` is available for programmatic control.
  *
- * Either way `injectGridFiltering()` is available for programmatic control.
- *
- * @example Recommended (directive-owned binding)
+ * @example Directive-owned binding
  * ```typescript
  * import { Grid } from '@toolbox-web/grid-angular';
  * import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
@@ -23,14 +16,6 @@
  *   imports: [Grid, GridFilteringDirective],
  *   template: `<tbw-grid [filtering]="true" (filterChange)="onChange($event)" />`,
  * })
- * ```
- *
- * @example Legacy (deprecated; works without importing the directive)
- * ```typescript
- * import '@toolbox-web/grid-angular/features/filtering';
- *
- * <tbw-grid [filtering]="true" />
- * <tbw-grid [filtering]="{ debounceMs: 200 }" />
  * ```
  *
  * @example Using injectGridFiltering

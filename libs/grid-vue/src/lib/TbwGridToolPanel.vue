@@ -14,14 +14,15 @@ const props = withDefaults(
 
     /**
      * Display title for the panel tab/button. Mapped to the `title` attribute
-     * on the underlying `<tbw-grid-tool-panel>` element (matches React/Angular
-     * adapters and the core grid contract).
+     * on the underlying `<tbw-grid-tool-panel>` element. This is the canonical
+     * name — it matches the core grid contract and the React/Angular adapters.
      */
     title?: string;
 
     /**
-     * @deprecated Use `title` instead. Kept as a fallback for existing
-     * templates; will be removed in a future major version.
+     * Vue-only alias for {@link title}, accepted so existing templates keep
+     * working. `title` wins when both are supplied. Prefer `title` for parity
+     * with the core grid and the other adapters.
      */
     label?: string;
 

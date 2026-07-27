@@ -1,0 +1,298 @@
+---
+title: Platform Support
+description: Browser support matrix, security & CSP guidance, server-side rendering, and internationalization for @toolbox-web/grid.
+sidebar:
+  order: 11
+---
+
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Everything you need to know about the **environments** `@toolbox-web/grid` runs in: which
+browsers it supports and why, how to run it under a strict Content Security Policy, how it
+behaves during server-side rendering, and how to localize it.
+
+## Browser Support
+
+`@toolbox-web/grid` targets **modern evergreen browsers**. There is no transpilation to ES5
+and no polyfill bundle — the grid ships the same standards-based code it was written in.
+
+| Browser        | Minimum version | Released    |
+| -------------- | --------------- | ----------- |
+| Chrome / Edge  | **123**         | March 2024  |
+| Firefox        | **121**         | Dec 2023    |
+| Safari (macOS / iOS) | **17.5**  | May 2024    |
+
+Older versions may work for basic rendering but are **not tested and not supported**.
+
+### What sets the floor
+
+The minimums above are driven by the platform features the grid depends on. Each row is a
+hard requirement unless marked as progressively enhanced.
+
+| Platform feature | Used for | Chrome/Edge | Firefox | Safari |
+| ---------------- | -------- | ----------- | ------- | ------ |
+| [`light-dark()`](https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/light-dark) | Every themeable color token resolves light/dark in one declaration | 123 | 120 | 17.5 |
+| [`:has()`](https://developer.mozilla.org/en-US/docs/Web/CSS/:has) | Row/cell state styling, print isolation | 105 | 121 | 15.4 |
+| [CSS Nesting](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_nesting) | Authored style sheets | 120 | 117 | 17.2 |
+| [`@layer`](https://developer.mozilla.org/en-US/docs/Web/CSS/@layer) | `tbw-base` → `tbw-plugins` → `tbw-theme` cascade order | 99 | 97 | 15.4 |
+| [`adoptedStyleSheets`](https://developer.mozilla.org/en-US/docs/Web/API/Document/adoptedStyleSheets) | Style injection that survives DOM rebuilds | 73 | 101 | 16.4 |
+| [Custom Elements v1](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_custom_elements) | `<tbw-grid>` itself | 67 | 63 | 10.1 |
+| `ResizeObserver` / `IntersectionObserver` | Virtualization, column fitting, responsive layout | 64 | 69 | 13.1 |
+| [Popover API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API) | Tooltips, dropdown tool panel — **progressively enhanced** | 114 | 125 | 17 |
+| [CSS anchor positioning](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_anchor_positioning) | Tooltip placement — **progressively enhanced** | 125 | — | — |
+
+<Aside type="note" title="Why no `light-dark()` fallback?">
+The theme system defines each color once and lets the browser pick the light or dark value.
+Emitting a `prefers-color-scheme` fallback for every token would roughly double the size of
+the shipped CSS and reintroduce the flash-of-wrong-theme the token system exists to avoid.
+</Aside>
+
+### Progressive enhancement
+
+Two features degrade rather than break when the platform lacks support:
+
+- **Tooltip and dropdown tool panel** — the [Tooltip plugin](/grid/plugins/tooltip/) checks
+  `HTMLElement.prototype.showPopover` before using the top layer, and checks
+  `CSS.supports('anchor-name', '--x')` before using anchor positioning. Where either is
+  missing it falls back to absolute positioning computed from bounding rects.
+- **Print isolation** — the [Print plugin](/grid/plugins/print/) uses `:has()` to hide
+  everything outside the grid. This is a hard requirement; the plugin has no fallback.
+
+### Testing matrix
+
+The e2e suite runs against Chromium, Firefox, and WebKit via Playwright. Unit tests run in
+[happy-dom](https://github.com/capricorn86/happy-dom), which is a DOM emulation and **not** a
+browser — behaviour differences (layout, `getBoundingClientRect`, CSS cascade) are covered by
+e2e, not unit tests.
+
+<LinkCard title="Automated testing" description="Selectors and helpers for testing the grid" href="/grid/guides/automated-testing/" />
+
+---
+
+## Security
+
+The grid is a rendering engine for **your** data. It never fetches, never evaluates, and never
+persists anything on its own — but the extension points it gives you can introduce
+vulnerabilities if used carelessly.
+
+### What the grid sanitizes for you
+
+Every path where the grid turns a **string you returned** into markup runs through an internal
+sanitizer before it reaches `innerHTML`. The sanitizer strips dangerous tags (`script`,
+`iframe`, `object`, `embed`, `form`, `style`, `link`, `meta`, `base`, and friends), all `on*`
+event-handler attributes, and `javascript:` / `vbscript:` / `data:` / `blob:` URLs from
+`href`, `src`, `srcdoc`, `formaction`, `poster`, and `srcset`.
+
+This covers string-returning cell renderers, group-header renderers, `gridConfig.icons.*`
+(icon strings are usually inline SVG), and light-DOM tool panel fallback content.
+
+### What you must sanitize yourself
+
+Renderers that receive a DOM element and write to it directly **bypass** that sanitizer. Writing
+user-controlled data to `innerHTML` yourself is the single most likely way to introduce XSS.
+
+```ts
+// ❌ XSS: `row.notes` may contain <img src=x onerror=...>
+renderer: (cell, { row }) => {
+  cell.innerHTML = row.notes;
+}
+
+// ✅ Text is escaped by the DOM
+renderer: (cell, { row }) => {
+  cell.textContent = row.notes;
+}
+
+// ✅ Structured markup, still safe
+renderer: (cell, { row }) => {
+  const badge = document.createElement('span');
+  badge.className = 'badge';
+  badge.textContent = row.status;
+  cell.replaceChildren(badge);
+}
+```
+
+If you genuinely need rich HTML from an untrusted source, sanitize it with a hardened library
+such as [DOMPurify](https://github.com/cure53/DOMPurify) — do not hand-roll an escaper. The
+grid's built-in sanitizer is **defense in depth for its own render paths**, not a general-purpose
+sanitization service; it is not exported.
+
+<LinkCard title="Renderer security" description="The full rule in the core configuration guide" href="/grid/core/#renderer-security-avoid-innerhtml" />
+
+### Content Security Policy
+
+The grid injects its styles through
+[`document.adoptedStyleSheets`](https://developer.mozilla.org/en-US/docs/Web/API/Document/adoptedStyleSheets),
+built from `CSSStyleSheet` objects. Constructable style sheets are **not** governed by
+`style-src`, so a strict policy works without `'unsafe-inline'`:
+
+```
+Content-Security-Policy: default-src 'self'; style-src 'self'; script-src 'self';
+```
+
+Notes:
+
+- **No `'unsafe-eval'` is required.** The grid never calls `eval`, `new Function`, or
+  `setTimeout` with a string. `{{ }}` template expressions are evaluated by a purpose-built
+  recursive-descent parser over an allowlisted grammar, not by dynamic code generation.
+- **`img-src`** must allow whatever your renderers load. The grid's own icons are inline SVG
+  markup, not external images.
+- **Inline `style` attributes** are set imperatively (`element.style.width = …`) for column
+  widths and virtualization offsets. These are DOM property writes, not CSS text, so they are
+  not blocked by `style-src`. You do **not** need `style-src-attr 'unsafe-inline'`.
+- If styles silently fail to apply, see
+  [Styles not applying (CSP)](/grid/guides/troubleshooting/#styles-not-applying-csp).
+
+### Trusted Types
+
+`require-trusted-types-for 'script'` is **not** supported out of the box. The grid's sanitizer
+parses markup by assigning to a detached `<template>` element's `innerHTML`, which is a Trusted
+Types sink. If you enforce Trusted Types, install a default policy that runs your own sanitizer:
+
+```ts
+if (window.trustedTypes?.createPolicy) {
+  window.trustedTypes.createPolicy('default', {
+    createHTML: (input) => DOMPurify.sanitize(input),
+  });
+}
+```
+
+### Handling untrusted data
+
+- **Validate before assigning to `grid.rows`.** The grid trusts the shape you give it. Rows
+  with duplicate or missing IDs cause incorrect selection and edit tracking, not an error.
+- **Clipboard and paste.** The [Clipboard plugin](/grid/plugins/clipboard/) writes values into
+  your row objects. Use the `onPaste` column hook to validate and coerce incoming values before
+  they land in your model.
+- **Export.** The [Export plugin](/grid/plugins/export/) writes CSV and Excel XML. If your data
+  can contain values starting with `=`, `+`, `-`, or `@`, sanitize them to avoid
+  [CSV injection](https://owasp.org/www-community/attacks/CSV_Injection) when the file is
+  opened in a spreadsheet application.
+
+<LinkCard title="Production checklist" description="One-line pre-launch checks, including security" href="/grid/guides/production-checklist/" />
+
+---
+
+## Server-Side Rendering
+
+`<tbw-grid>` is a custom element. Custom elements are a **browser** API — there is no DOM to
+upgrade on the server, so the grid renders no markup during SSR.
+
+<Aside type="caution" title="Do not import the grid on the server">
+Importing `@toolbox-web/grid` registers the custom element at module-evaluation time, which
+touches `customElements`. That global does not exist in Node, so a top-level server import
+throws. Always load the grid behind a client-only boundary — the recipes below show how for
+each framework.
+</Aside>
+
+Beyond that one rule, there is nothing to reconcile:
+
+- **Hydration is automatic.** On the client the element upgrades and renders as soon as it is
+  connected. There is no hydration mismatch, because the server emitted no grid content.
+- **Feature side-effect imports follow the same rule.** `@toolbox-web/grid/features/selection`
+  only writes a factory into a module-scoped map, but it pulls in the core module — so keep it
+  inside the same client-only boundary as the grid itself.
+
+<Aside type="caution" title="`ssr` prop removed in v3">
+Both the React and Vue adapters used to accept an `ssr` prop (and export an `SSRProps` type).
+It was a no-op and was removed in v3 — see the
+[v3 migration guide](/grid/guides/migration-v3/#3-ssrprops--ssr-prop-removed).
+</Aside>
+
+### Framework recipes
+
+| Framework | Recommendation |
+| --------- | -------------- |
+| **Next.js (App Router)** | Mark the component `'use client'` **and** load it via `next/dynamic` with `{ ssr: false }` — `'use client'` alone still pre-renders on the server. |
+| **Remix / React Router** | Render inside a `ClientOnly` boundary, or gate on a `useEffect`-set `mounted` flag. |
+| **Nuxt** | Wrap the grid in `<ClientOnly>`. |
+| **Astro** | Use `client:only="react"` / `"vue"` (or `client:only` for the vanilla element). |
+| **Angular SSR** | Guard the import behind `isPlatformBrowser(...)`, or defer it with `@defer (on viewport)`. |
+
+Reserve the grid's height in your server-rendered markup (e.g. a wrapper with a fixed
+`height`) so hydration doesn't cause layout shift.
+
+---
+
+## Internationalization
+
+The grid ships **English defaults** and gives you an override point for every string it
+produces. There is no locale bundle to load and no i18n runtime — you supply strings from
+whatever i18n system your app already uses.
+
+### Screen reader announcements
+
+Live-region announcements are the grid's largest body of user-facing text. Override any subset
+via `a11y.messages`; anything you omit falls back to the English default.
+
+```ts
+grid.gridConfig = {
+  a11y: {
+    messages: {
+      sortApplied: (column, direction) => `Trié par ${column}, ${direction}`,
+      sortCleared: () => 'Tri effacé',
+      filterApplied: (column) => `Filtre appliqué sur ${column}`,
+      selectionChanged: (count) => `${count} ligne(s) sélectionnée(s)`,
+      dataLoaded: (count) => `${count} lignes chargées`,
+    },
+  },
+};
+```
+
+Every message is a function, so you can interpolate, pluralize, or delegate to `Intl.PluralRules`
+however your locale requires.
+
+<LinkCard title="A11yMessages" description="The full list of overridable announcements" href="/grid/api/core/interfaces/a11ymessages/" />
+
+### Other localizable surfaces
+
+| Surface | How to localize |
+| ------- | --------------- |
+| Column headers | `columns[].header` — pass an already-translated string |
+| Empty / loading state | A custom `emptyRenderer` / `loadingRenderer` returning translated markup |
+| Cell values (dates, numbers, currency) | `columns[].format` with `Intl.NumberFormat` / `Intl.DateTimeFormat` |
+| Filter panel labels | Filtering plugin config, or a custom `filterPanelRenderer` |
+| Context menu items | Context Menu plugin `items[].label` |
+| Tool panel titles | `title` on `<tbw-grid-tool-panel>` / the shell `toolPanel` config |
+| Export filenames and sheet names | Export plugin config |
+
+### Formatting values
+
+Use `Intl` in a column `format` function rather than pre-formatting your data — this keeps
+sorting and filtering operating on the underlying value:
+
+```ts
+{
+  field: 'salary',
+  type: 'number',
+  format: (value) => new Intl.NumberFormat('de-DE', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(value as number),
+}
+```
+
+### Right-to-left
+
+The grid's layout is built on flexbox and logical CSS properties, so it inherits direction from
+its ancestors. Set `dir="rtl"` on a container (or `<html>`) and the grid mirrors:
+
+```html
+<div dir="rtl">
+  <tbw-grid id="grid"></tbw-grid>
+</div>
+```
+
+Custom renderers and custom themes are your responsibility — prefer logical properties
+(`margin-inline-start`, `padding-inline`, `inset-inline-end`) over physical ones so your
+additions mirror too.
+
+---
+
+## See Also
+
+<CardGrid>
+  <LinkCard title="Accessibility" description="ARIA patterns, keyboard navigation, screen reader support" href="/grid/guides/accessibility/" />
+  <LinkCard title="Theming" description="Design tokens, light/dark, custom themes" href="/grid/guides/theming/" />
+  <LinkCard title="Troubleshooting" description="Common issues and their fixes" href="/grid/guides/troubleshooting/" />
+  <LinkCard title="Production checklist" description="Pre-launch checks" href="/grid/guides/production-checklist/" />
+</CardGrid>

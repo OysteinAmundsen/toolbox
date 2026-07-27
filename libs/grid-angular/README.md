@@ -77,18 +77,17 @@ export class MyGridComponent {
 
 ## Enabling Features
 
-`<tbw-grid>` supports three patterns for turning on plugins. Pick whichever fits the
+`<tbw-grid>` supports two patterns for turning on plugins. Pick whichever fits the
 component — they can be mixed.
 
-| Pattern                                                   | Best for                                                                         | v2 status                                                                              |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `gridConfig.features` (object literal)                    | Configuration-driven apps that prefer a single setup object                      | ✅ Unchanged — fully supported                                                         |
-| **Per-feature directive** (e.g. `GridFilteringDirective`) | Template-driven apps that want signal inputs/outputs **and** the smallest bundle | ✅ **Recommended** — the future-proof path                                             |
-| Inputs/outputs on `Grid` (e.g. `[filtering]`)             | v1.x apps already on this style                                                  | ⚠️ **Deprecated** — bindings remain for v1.x compatibility but will be removed in v2.0 |
+| Pattern                                                   | Best for                                                                         |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `gridConfig.features` (object literal)                    | Configuration-driven apps that prefer a single setup object                      |
+| **Per-feature directive** (e.g. `GridFilteringDirective`) | Template-driven apps that want signal inputs/outputs **and** the smallest bundle |
 
-> Apps that only use `gridConfig` are **not affected** by the v2 cleanup — only consumers
-> binding feature inputs directly on `<tbw-grid>` need to add the matching per-feature
-> directive to their component's `imports` before v2.
+> **Upgrading from v2?** The per-feature inputs/outputs that used to live on the central
+> `Grid` directive were removed in v3. The migration is a one-line `imports` addition per
+> feature with zero template changes.
 
 ### Recommended: Per-Feature Directives
 
@@ -126,54 +125,30 @@ import { GridMultiSortDirective } from '@toolbox-web/grid-angular/features/multi
 - **Compile-time safety** — Angular errors with `Can't bind to 'filtering' since it isn't
 a known property of 'tbw-grid'` if you forget the directive (stronger than React/Vue,
   which silently drop unknown props, and stronger than the runtime guard on the WC core).
-- **Same bindings, same demos** — the directive's selector matches the existing
-  attributes (`tbw-grid[filtering], tbw-grid[filterChange]`), so migrating from the
-  legacy style is a one-line `imports` addition per feature with **zero template
-  changes**.
-
-### Legacy: Inputs/Outputs on `Grid` (deprecated)
-
-The v1.x style — declaring `[filtering]`, `(filterChange)`, etc. directly on the
-`Grid` directive without importing a per-feature directive — still works for the entire
-v1.x line and is mediated by a per-element claims registry so the two styles can coexist
-on the same grid without duplicate plugins or double-emitted events. The bindings are
-marked `@deprecated` in JSDoc; v2.0 will remove them, at which point a one-line directive
-import per feature is the migration.
+- **Same bindings, same demos** — the directive's selector matches the plain
+  attributes (`tbw-grid[filtering], tbw-grid[filterChange]`), so the template markup is
+  identical no matter which pattern you came from.
 
 ### How the side-effect import works
 
 1. **Import the feature** — A side-effect import registers the feature factory with the
    core grid (`@toolbox-web/grid/features/<name>`).
-2. **Bind the input** — The per-feature directive (or, in legacy code, the input on
-   `Grid`) instantiates the plugin with the input value.
+2. **Bind the input** — The per-feature directive instantiates the plugin with the input
+   value.
 
 ```typescript
-// 1. Side-effect import — required for either pattern
+// 1. Side-effect import
 import '@toolbox-web/grid-angular/features/selection';
 import '@toolbox-web/grid-angular/features/multi-sort';
 import '@toolbox-web/grid-angular/features/filtering';
 
-// 2a. Recommended — per-feature directives in `imports`
+// 2. Per-feature directives in `imports`
 import { GridSelectionDirective } from '@toolbox-web/grid-angular/features/selection';
 import { GridMultiSortDirective } from '@toolbox-web/grid-angular/features/multi-sort';
 import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filtering';
 
 @Component({
   imports: [Grid, GridSelectionDirective, GridMultiSortDirective, GridFilteringDirective],
-  template: `
-    <tbw-grid
-      [rows]="rows"
-      [selection]="'range'"
-      [multiSort]="true"
-      [filtering]="true"
-      style="height: 400px; display: block;">
-    </tbw-grid>
-  `,
-})
-
-// 2b. Legacy / deprecated — same bindings on Grid alone (works in v1.x)
-@Component({
-  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="rows"
@@ -196,9 +171,7 @@ import { GridFilteringDirective } from '@toolbox-web/grid-angular/features/filte
 ### Available Features
 
 Import the **directive** from `@toolbox-web/grid-angular/features/<name>` and add it
-alongside `Grid` in your component's `imports` (recommended). The same `[input]` /
-`(output)` bindings on the `Grid` directive itself are still accepted in v1.x but are
-`@deprecated`.
+alongside `Grid` in your component's `imports`.
 
 | Per-Feature Directive (recommended)                                                                                         | Input                             | Example                                                                    |
 | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------- |
@@ -489,7 +462,8 @@ export class MyGridComponent {
 Add custom sidebar panels with `GridToolPanel`:
 
 ```typescript
-import { Grid, GridToolPanel } from '@toolbox-web/grid-angular';
+import { Grid } from '@toolbox-web/grid-angular';
+import { GridToolPanel } from '@toolbox-web/grid-angular/features/shell';
 
 @Component({
   imports: [Grid, GridToolPanel, QuickFiltersPanelComponent],
@@ -1157,11 +1131,10 @@ export class TextFilterComponent extends BaseFilterPanel {
 
 ### Grid Directive Inputs
 
-| Input           | Type               | Description                                       |
-| --------------- | ------------------ | ------------------------------------------------- |
-| `gridConfig`    | `GridConfig<TRow>` | Grid config with optional component class support |
-| `angularConfig` | `GridConfig<TRow>` | **Deprecated** - use `gridConfig` instead         |
-| `customStyles`  | `string`           | Custom CSS styles to inject into the grid         |
+| Input          | Type               | Description                                       |
+| -------------- | ------------------ | ------------------------------------------------- |
+| `gridConfig`   | `GridConfig<TRow>` | Grid config with optional component class support |
+| `customStyles` | `string`           | Custom CSS styles to inject into the grid         |
 
 ### Grid Directive Outputs
 
@@ -1223,12 +1196,6 @@ import type {
   CellRenderer,
   CellEditor,
   TypeDefault,
-  // Deprecated aliases
-  AngularGridConfig,
-  AngularColumnConfig,
-  AngularCellRenderer,
-  AngularCellEditor,
-  AngularTypeDefault,
 } from '@toolbox-web/grid-angular';
 
 // Reactive Forms types live with the editing feature

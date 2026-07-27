@@ -228,7 +228,7 @@ import '@toolbox-web/grid-react/features/undo-redo';
 import '@toolbox-web/grid-react/features/selection';
 import { DataGrid, useGrid } from '@toolbox-web/grid-react';
 import type { GridConfig } from '@toolbox-web/grid-react';
-import type { CellCommitDetail } from '@toolbox-web/grid';
+import type { CellCommitDetail } from '@toolbox-web/grid/plugins/editing';
 
 const gridConfig: GridConfig = {
   columns: [
@@ -280,7 +280,7 @@ import '@toolbox-web/grid-vue/features/undo-redo';
 import '@toolbox-web/grid-vue/features/selection';
 import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
 import type { GridConfig } from '@toolbox-web/grid-vue';
-import type { CellCommitDetail } from '@toolbox-web/grid';
+import type { CellCommitDetail } from '@toolbox-web/grid/plugins/editing';
 
 const gridRef = useGrid<Employee>();
 const saveDisabled = ref(true);
@@ -1024,7 +1024,8 @@ grid.on('cell-commit', (detail, e) => {
   <TabItem label="React">
 ```tsx
 import { DataGrid } from '@toolbox-web/grid-react';
-import type { CellClickDetail, CellCommitDetail } from '@toolbox-web/grid';
+import type { CellClickDetail } from '@toolbox-web/grid';
+import type { CellCommitDetail } from '@toolbox-web/grid/plugins/editing';
 
 function EmployeeGrid() {
   // Event props deliver the unwrapped detail directly
@@ -1052,7 +1053,8 @@ function EmployeeGrid() {
 ```html
 <script setup lang="ts">
 import { TbwGrid } from '@toolbox-web/grid-vue';
-import type { CellClickDetail, CellCommitDetail } from '@toolbox-web/grid';
+import type { CellClickDetail } from '@toolbox-web/grid';
+import type { CellCommitDetail } from '@toolbox-web/grid/plugins/editing';
 
 function onCellClick(event: CustomEvent<CellClickDetail>) {
   console.log(event.detail.row, event.detail.field);
@@ -1074,7 +1076,8 @@ function onCellCommit(event: CustomEvent<CellCommitDetail>) {
 ```typescript
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { CellClickDetail, CellCommitDetail } from '@toolbox-web/grid';
+import type { CellClickDetail } from '@toolbox-web/grid';
+import type { CellCommitDetail } from '@toolbox-web/grid/plugins/editing';
 
 @Component({
   imports: [Grid],

@@ -126,11 +126,11 @@ As of the latest release, `PinnedColumnsPlugin` and `GroupingColumnsPlugin` **ar
 
 <div id="tbw023" />
 
-### TBW023 — Deprecated Hook
+### TBW023 — Plugin Alias Collapse
 
-A plugin uses a deprecated API that will be removed in a future major version.
+Two entries in `plugins` resolve to the same canonical plugin — for example the same plugin class instantiated twice, or one instance passed by class and another by one of its registered aliases (`ReorderPlugin` also answers to `reorder`). Only one instance is kept; the others' configs are merged into it.
 
-**Fix:** Migrate to the recommended replacement described in the warning message.
+**Fix:** Pass the plugin once, with a single config object.
 
 <div id="tbw024" />
 
@@ -146,14 +146,14 @@ An error was thrown inside a plugin event handler. This doesn't crash the grid �
 
 ### TBW025 — Plugin Alias Config Conflict
 
-Two plugin instances resolve to the same canonical name (for example, both `RowReorderPlugin` and `RowDragDropPlugin` are passed in `plugins`), and they supply conflicting values for the same configuration key. The grid cannot decide which one wins.
+Two plugin instances resolve to the same canonical name (for example, the same plugin class instantiated twice), and they supply conflicting values for the same configuration key. The grid cannot decide which one wins.
 
-**Fix:** Pass the option on a single instance, or remove the duplicate plugin. If you only need the legacy API surface, keep `RowReorderPlugin`; if you need cross-grid drag, keep `RowDragDropPlugin`.
+**Fix:** Pass the option on a single instance, and remove the duplicate plugin.
 
 ```ts
 // ❌ Conflict: both instances configure `animation`
 plugins: [
-  new RowReorderPlugin({ animation: 'fade' }),
+  new RowDragDropPlugin({ animation: 'fade' }),
   new RowDragDropPlugin({ animation: 'flip' }),
 ]
 

@@ -557,10 +557,9 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   /**
    * Merge user-supplied configuration from other plugin instances into this
    * plugin's `userConfig`. Used by `PluginManager.attachAll()`'s alias-collapse
-   * pre-pass: when a consumer instantiates the same plugin under multiple
-   * names (e.g. `RowReorderPlugin` and `RowDragDropPlugin`, which are aliases
-   * after V2.x), only one instance is attached, and the other instances'
-   * configs are folded in via this method.
+   * pre-pass: when a consumer instantiates the same plugin more than once (or
+   * under an alias name), only one instance is attached, and the other
+   * instances' configs are folded in via this method.
    *
    * Merge rules (shallow):
    *

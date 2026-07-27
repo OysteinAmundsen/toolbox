@@ -54,28 +54,14 @@ Config: [release-please-config.json](release-please-config.json) + `.release-ple
 - FLOW (back-fill, once per cycle): `bun .github/skills/since-tag/build-since-map.ts` → `bun .github/skills/since-tag/apply-since-tags.ts` → `bun nx typedoc grid && … grid-angular && … grid-react && … grid-vue`.
 - DECIDED: `@since` lives in source JSDoc (survives refactors, visible in IDE hovers); the generator no-ops when absent. Plugin/Adapter splits of `DataGridElement` deliberately do NOT show the pill — only the Public API split. Version badges link to `/grid/<framework>/changelog/`.
 
-## v3.0.0 cleanup plan (deprecation removal)
+## v3.0.0 cleanup (COMPLETED — epic #263)
 
-Milestone `v3.0.0`, epic #263. Sub-issues: #259 (grid), #260 (grid-angular), #261 (grid-react), #262 (grid-vue), #228 (touch DnD). Enumerate at cut time with `grep -rn '@deprecated\|MOVE-IN-V2' libs/`.
+Shipped: grid **3.x**, adapters **2.x** (peer `^3.0.0`). Every item in #259/#260/#261/#262/#228 landed.
 
-**grid → 3.0.0**
-
-- Remove `DGEvents`, `DGEventName`, `PluginEvents`, `PluginEventName` from `public.ts` (use `keyof DataGridEventMap`).
-- Delete `plugins/reorder-rows/**` + `features/reorder-rows.ts` (superseded by `row-drag-drop`).
-- Prune legacy `PinnedRowsConfig` fields (`top`, `bottom`, `showRowCount`, `showSelectedCount`, `showFilteredCount`, `panels`, `aggregations`) + the legacy `PinnedRowSlot` type; keep only `slots[]`.
-- Drop `RowDragDropConfig.canDragRow` (use `canDrag`) and `ServerSidePlugin.getNodeCount`/`isLoaded` (use `getTotalNodeCount`/`isNodeLoaded`).
-
-**grid-angular → 2.0.0** — ng-packagr forbids primary→secondary imports, so each file must be WRITTEN IN the feature secondary entry and the primary-entry copy deleted in the SAME commit. Sources carry `MOVE-IN-V2:` markers (not `@deprecated`, which would warn correct consumers).
-
-- Move `base-filter-panel.ts` → `features/filtering/`; `base-grid-editor.ts`, `base-grid-editor-cva.ts`, `base-overlay-editor.ts` → `features/editing/`; `directives/{grid-column-editor,grid-form-array,grid-lazy-form}.directive.ts` → `features/editing/`.
-- Split `directives/structural-directives.ts`: `TbwEditor` → `features/editing/`; **`TbwRenderer` STAYS in core** (editor-agnostic).
-- Master-detail: `GridDetailView`, `GridDetailContext`, `getDetailTemplate` → `features/master-detail/`.
-- Strip every `@deprecated` re-export from `src/index.ts` and every `@deprecated` per-feature input/output shim from `directives/grid.directive.ts`.
-- Bump peer to `^3.0.0-beta`.
-
-**grid-react → 2.0.0** — drop the `reorderRows` alias (use `rowDragDrop`) and `SSRProps` + the `ssr` prop from `feature-props.ts`; bump peer to `^3.0.0-beta`.
-
-**grid-vue → 2.0.0** — drop the `reorderRows` alias and `SSRProps`/`ssr` from `feature-props.ts`; remove the deprecated re-export in `vue-grid-adapter.ts` (consumers import from `./editor-mount-hooks`); bump peer to `^3.0.0-beta`.
+- INVARIANT (Jun 2026 audit): `grep -rn '@deprecated' libs/grid/src libs/grid-{angular,react,vue}/src libs/grid-angular/features --include=*.ts --include=*.tsx --include=*.vue | grep -v '\.spec\.'` returns **ZERO**. Keep it that way — anything newly marked `@deprecated` must carry a removal milestone.
+- Removed in v3: `DGEvents`/`DGEventName`/`PluginEvents`/`PluginEventName`; `plugins/reorder-rows/**` + `features/reorder-rows.ts` (and, Jun 2026, the residual `['reorderRows','rowReorder']` aliases on `RowDragDropPlugin`); legacy `PinnedRowsConfig` fields; `RowDragDropConfig.canDragRow`; `ServerSidePlugin.getNodeCount`/`isLoaded`; `activate-cell` event; `SSRProps`/`ssr` prop (React + Vue); `Angular*`/`React*`/`Vue*` config type aliases; per-feature `@deprecated` inputs on `GridDirective`; the 6 shell type re-aliases in `core/types.ts`; the `grid.*` shell delegate methods; TBW076.
+- KEPT deliberately (NOT deprecated): `ToolPanelConfig.defaultOpen` (see grid-plugins-shell.md); Vue `TbwGridToolPanel.label` as an alias for the canonical `title` (see adapters-vue.md).
+- Angular `MOVE-IN-V2:` markers are resolved — feature code lives in its secondary entry point (ng-packagr forbids primary→secondary imports, so any future move must delete the primary copy in the SAME commit).
 
 **Verification before tagging**
 

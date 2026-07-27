@@ -14,20 +14,20 @@ import { PLUGIN_ALIAS_COLLAPSE, PLUGIN_EVENT_ERROR, errorDiagnostic, warnDiagnos
 import { validatePluginDependencies } from '../internal/validate-config';
 import type { ColumnConfig, GridConfig } from '../types';
 import type {
-    AfterCellRenderContext,
-    AfterRowRenderContext,
-    BaseGridPlugin,
-    CellClickEvent,
-    CellEditor,
-    CellMouseEvent,
-    CellRenderer,
-    GridElement,
-    HeaderClickEvent,
-    HeaderRenderer,
-    HookName,
-    PluginQuery,
-    RowClickEvent,
-    ScrollEvent,
+  AfterCellRenderContext,
+  AfterRowRenderContext,
+  BaseGridPlugin,
+  CellClickEvent,
+  CellEditor,
+  CellMouseEvent,
+  CellRenderer,
+  GridElement,
+  HeaderClickEvent,
+  HeaderRenderer,
+  HookName,
+  PluginQuery,
+  RowClickEvent,
+  ScrollEvent,
 } from './base-plugin';
 
 /**
@@ -95,10 +95,10 @@ export class PluginManager {
    * Attach all plugins from the config.
    *
    * Runs an alias-collapse pre-pass before per-instance attach: when multiple
-   * plugin instances resolve to the same canonical constructor (e.g.
-   * `RowReorderPlugin` and `RowDragDropPlugin`, which point to the same class
-   * after V2.x), only the first instance is attached, and the others' user
-   * configs are folded into it via `BaseGridPlugin.mergeConfigsFrom()`.
+   * plugin instances resolve to the same canonical constructor (e.g. the same
+   * plugin passed twice, or once under an alias name), only the first instance
+   * is attached, and the others' user configs are folded into it via
+   * `BaseGridPlugin.mergeConfigsFrom()`.
    *
    * Skipped duplicates trigger a one-time `console.warn` with diagnostic code
    * `TBW023` (suppressed in production builds via `import.meta.env.PROD`).
@@ -115,10 +115,9 @@ export class PluginManager {
    * instance, merge the trailing instances' user configs into the leading
    * instance and warn the developer once.
    *
-   * Constructor identity is used as the canonical key — when a plugin is
-   * deprecated as an alias (e.g. `RowReorderPlugin = RowDragDropPlugin`),
-   * both class references point to the same constructor, so duplicate
-   * instances collapse cleanly without any name table.
+   * Constructor identity is used as the canonical key — two class references
+   * that point to the same constructor collapse cleanly without any name
+   * table.
    */
   #collapseAliasDuplicates(plugins: BaseGridPlugin[]): BaseGridPlugin[] {
     if (plugins.length < 2) return plugins;
@@ -142,14 +141,14 @@ export class PluginManager {
     for (const [first, dupes] of seenDuplicates) {
       // Merge configs (may throw on conflict — propagate up to the caller)
       first.mergeConfigsFrom(dupes);
-      // Dev-time deprecation hint (skipped in production)
+      // Dev-time hint (skipped in production)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const env = (import.meta as any).env;
       if (env?.PROD) continue;
       const aliases = dupes.map((d) => d.name);
       warnDiagnostic(
         PLUGIN_ALIAS_COLLAPSE,
-        `Multiple instances of plugin "${first.name}" detected (${[first.name, ...aliases].join(', ')}). They resolve to the same class — merging configs and attaching once. Remove the duplicate instantiation; this warning will become an error in V3.`,
+        `Multiple instances of plugin "${first.name}" detected (${[first.name, ...aliases].join(', ')}). They resolve to the same class — merging configs and attaching once. Remove the duplicate instantiation.`,
         this.grid.getAttribute('id') ?? undefined,
         first.name,
       );

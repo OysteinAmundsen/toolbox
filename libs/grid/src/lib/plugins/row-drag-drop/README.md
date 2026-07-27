@@ -1,7 +1,7 @@
 # RowDragDropPlugin
 
 Drag rows within a grid (reorder) **and** between grids that share a
-`dropZone`. Strict superset of the deprecated `RowReorderPlugin`.
+`dropZone`. Replaces the pre-v3 `RowReorderPlugin`.
 
 ## Quick start
 

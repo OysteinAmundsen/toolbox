@@ -2,20 +2,16 @@
  * Row Drag-Drop Plugin Types
  *
  * Public types for {@link RowDragDropPlugin} — drag rows within a single grid
- * (parity with the deprecated `RowReorderPlugin`) **and** between grids that
- * share a `dropZone` identifier.
+ * **and** between grids that share a `dropZone` identifier.
  */
 
 /**
  * Configuration for {@link RowDragDropPlugin}.
  *
- * All keys not annotated as "cross-grid" are identical in name and default to
- * `RowReorderConfig`, so migration is `new RowReorderPlugin(cfg)` →
- * `new RowDragDropPlugin(cfg)` with zero changes.
  * @since 2.4.0
  */
 export interface RowDragDropConfig<T = unknown> {
-  // === Parity with RowReorderConfig ===
+  // === Intra-grid ===
 
   /**
    * Enable keyboard shortcuts (`Ctrl + ↑` / `Ctrl + ↓`) for moving rows.
@@ -38,8 +34,7 @@ export interface RowDragDropConfig<T = unknown> {
   /**
    * Where on a row a drag can be initiated.
    *
-   * - `'handle'` (default): only the grip column starts a drag. Backwards
-   *   compatible with `RowReorderPlugin`.
+   * - `'handle'` (default): only the grip column starts a drag.
    * - `'row'`: any cell starts a drag, and the grip column is hidden by
    *   default. Recommended for transfer-list / kanban-style UIs where a
    *   dedicated handle adds visual noise.
@@ -82,7 +77,6 @@ export interface RowDragDropConfig<T = unknown> {
   /**
    * Validation callback invoked once at `dragstart` (and on intra-grid
    * keyboard moves) to decide whether a row can be picked up.
-   * Replaces `RowReorderConfig.canMove` for the dragstart side.
    *
    * @param row   The row about to be dragged.
    * @param index The row's current index in the source grid's `_rows`.
@@ -94,8 +88,8 @@ export interface RowDragDropConfig<T = unknown> {
 
   /**
    * Shared zone identifier. Two grids that opt into the same zone may
-   * exchange rows. Omit to behave exactly like the legacy `RowReorderPlugin`
-   * — intra-grid only, no cross-grid affordances.
+   * exchange rows. Omit for intra-grid reordering only, with no cross-grid
+   * affordances.
    */
   dropZone?: string;
 
@@ -177,9 +171,8 @@ export interface RowDragPayload<T = unknown> {
 /**
  * Event detail emitted when a row is moved within a single grid.
  *
- * For backward compatibility this type matches `RowReorderPlugin`'s
- * `RowMoveDetail` exactly; the `row-move` event continues to fire only for
- * intra-grid moves. Cross-grid moves emit `row-transfer` instead.
+ * The `row-move` event fires only for intra-grid moves. Cross-grid moves emit
+ * `row-transfer` instead.
  * @since 2.4.0
  */
 export interface RowMoveDetail<T = unknown> {

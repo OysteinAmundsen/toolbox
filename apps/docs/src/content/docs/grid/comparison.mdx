@@ -323,13 +323,13 @@ export class MyGridComponent {}
 | `columns: [{ field, title, ... }]` | `columns: [{ field, header, ... }]` (rename `title` → `header`) |
 | `data` option / `setData(rows)` | `grid.rows = rows` |
 | `index: 'id'` | `getRowId: (row) => String(row.id)` |
-| `layout: 'fitColumns'` / `'fitDataFill'` | `fitMode: 'auto'` / `'fixed'` |
+| `layout: 'fitColumns'` / `'fitDataFill'` | `fitMode: 'stretch'` / `'fixed'` |
 | `setSort([{ column, dir }])` | `grid.sort(field, 'asc' \| 'desc')` |
 | `setFilter(field, type, value)` | `FilteringPlugin` + `filterPlugin.setFilterModel([...])` |
 | `cellEdited` callback | `cell-commit` event |
 | `rowSelected` callback | `selection-change` event |
-| `dataTree: true` | `TreeDataPlugin` |
-| `pagination: 'local'` | `PaginationPlugin` |
+| `dataTree: true` | `TreePlugin` |
+| `pagination: 'local'` | No pagination plugin — the grid virtualizes all rows instead |
 
 ```html
 <!-- Tabulator -->

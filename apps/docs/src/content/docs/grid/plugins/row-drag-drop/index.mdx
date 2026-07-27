@@ -12,8 +12,8 @@ import ShowSource from '@components/ShowSource.astro';
 
 The Row Drag-Drop plugin lets users rearrange rows by dragging a grip handle
 or using keyboard shortcuts, and — when opted in via `dropZone` — drag rows
-between separate grids. It is a strict superset of the (now deprecated)
-`RowReorderPlugin`: every existing intra-grid behaviour is preserved.
+between separate grids. It replaces the pre-v3 `RowReorderPlugin`: every
+intra-grid behaviour that plugin had is preserved.
 
 - **Intra-grid** — drag a row up or down to reorder, or use `Ctrl + ↑/↓`.
 - **Drag origin** — choose whether drags start from the dedicated handle
@@ -38,9 +38,6 @@ between separate grids. It is a strict superset of the (now deprecated)
 ```ts
 import '@toolbox-web/grid/features/row-drag-drop';
 ```
-
-The legacy `reorderRows` feature key continues to work and forwards to the
-same plugin instance.
 
 ## Basic Usage
 
@@ -266,7 +263,7 @@ features: {
 
 ## Configuration
 
-See [`RowDragDropConfig`](./Interfaces/RowDragDropConfig/) for the full list
+See [`RowDragDropConfig`](./interfaces/rowdragdropconfig/) for the full list
 of options and defaults. Key options:
 
 | Option              | Type                                              | Description                                                                          |
@@ -289,11 +286,11 @@ of options and defaults. Key options:
 
 | Event             | Detail                                                              | Cancelable | When                                                          |
 | ----------------- | ------------------------------------------------------------------- | ---------- | ------------------------------------------------------------- |
-| `row-move`        | [`RowMoveDetail`](./Interfaces/RowMoveDetail/)                      | Yes        | Intra-grid reorder committed (back-compat).                   |
-| `row-drag-start`  | [`RowDragStartDetail`](./Interfaces/RowDragStartDetail/)            | Yes        | A drag begins.                                                |
-| `row-drag-end`    | [`RowDragEndDetail`](./Interfaces/RowDragEndDetail/)                | No         | The drag ends, regardless of whether a drop succeeded.        |
-| `row-drop`        | [`RowDropDetail`](./Interfaces/RowDropDetail/)                      | Yes        | Rows are dropped on this grid from another grid.              |
-| `row-transfer`    | [`RowTransferDetail`](./Interfaces/RowTransferDetail/)              | No         | Successful cross-grid transfer (fired on **both** grids).     |
+| `row-move`        | [`RowMoveDetail`](./interfaces/rowmovedetail/)                      | Yes        | Intra-grid reorder committed (back-compat).                   |
+| `row-drag-start`  | [`RowDragStartDetail`](./interfaces/rowdragstartdetail/)            | Yes        | A drag begins.                                                |
+| `row-drag-end`    | [`RowDragEndDetail`](./interfaces/rowdragenddetail/)                | No         | The drag ends, regardless of whether a drop succeeded.        |
+| `row-drop`        | [`RowDropDetail`](./interfaces/rowdropdetail/)                      | Yes        | Rows are dropped on this grid from another grid.              |
+| `row-transfer`    | [`RowTransferDetail`](./interfaces/rowtransferdetail/)              | No         | Successful cross-grid transfer (fired on **both** grids).     |
 
 ## Keyboard Shortcuts
 
@@ -357,10 +354,8 @@ Override the default grip icon via CSS:
 
 ## Migration from `RowReorderPlugin`
 
-`RowReorderPlugin` is now an alias for `RowDragDropPlugin`. Existing code
-keeps working until V3 — both `reorderRows` and `rowDragDrop` feature keys
-resolve to the same plugin instance, and merging conflicting configs across
-the two keys will throw at attach time. To migrate:
+`RowReorderPlugin` and the `reorderRows` feature key were removed in v3. To
+migrate:
 
 ```diff
 - import { RowReorderPlugin } from '@toolbox-web/grid/plugins/reorder-rows';

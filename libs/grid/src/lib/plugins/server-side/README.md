@@ -124,13 +124,6 @@ const loaded = serverSide.isNodeLoaded(nodeIndex);
 const blockCount = serverSide.getLoadedBlockCount();
 ```
 
-### Deprecated Methods
-
-| Deprecated           | Replacement           |
-| -------------------- | --------------------- |
-| `getTotalRowCount()` | `getTotalNodeCount()` |
-| `isRowLoaded(index)` | `isNodeLoaded(index)` |
-
 ## Migration from v1
 
 | v1 Parameter    | v2 Parameter     |

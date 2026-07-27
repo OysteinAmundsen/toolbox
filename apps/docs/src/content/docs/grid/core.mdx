@@ -231,7 +231,7 @@ The columns will appear in order: `name`, `email`, `id`.
   </TabItem>
 </Tabs>
 
-Columns without an `order` attribute keep their relative order; columns with `order` are inserted at their target indices. The `order` attribute only affects the **initial render**; user interactions (drag-to-reorder via the [Reorder plugin](/grid/plugins/reorder-columns/)) take precedence after that. Use [`resetColumnOrder()`](/grid/api/plugins/reorder-columns/methods/resetcolumnorder/) to restore the order-attribute positioning.
+Columns without an `order` attribute keep their relative order; columns with `order` are inserted at their target indices. The `order` attribute only affects the **initial render**; user interactions (drag-to-reorder via the [Reorder plugin](/grid/plugins/reorder-columns/)) take precedence after that. Use [`resetColumnOrder()`](/grid/plugins/reorder-columns/classes/reorderplugin/#resetcolumnorder) to restore the order-attribute positioning.
 
 **Combining with `columnInference: 'merge'`** — The `order` attribute becomes especially powerful in `merge` mode. With inference enabled, the grid automatically displays all data fields, and you can use light-DOM `<tbw-grid-column>` elements to customize **only the columns you care about** — adding a custom `header`, overriding the `type`, adjusting `width`, and positioning via `order`, all without declaring the entire column set.
 
@@ -1318,7 +1318,7 @@ grid.columns = [...originalColumns];
 :::caution[The shell moved to a plugin]
 The shell (header bar, toolbar, and tool-panel sidebar) is **no longer part of core** — it is now the **[Shell plugin](/grid/plugins/shell/)**. See that page for the full guide, demos, and configuration reference.
 
-In **v2.x** the shell is **auto-registered**, so existing code keeps working without an import. That implicit auto-registration is **deprecated**: from **v3.0.0** the shell is opt-in — code that uses the header bar, toolbar, or tool panels **MUST** enable it explicitly:
+The shell is **opt-in**: code that uses the header bar, toolbar, or tool panels **MUST** enable it explicitly:
 
 ```ts
 import '@toolbox-web/grid/features/shell';
@@ -1328,7 +1328,7 @@ grid.gridConfig = {
 };
 ```
 
-The `grid.register*` / `openToolPanel` element delegates — and importing shell types from `@toolbox-web/grid` instead of `@toolbox-web/grid/plugins/shell` — are **deprecated** and removed at v3. The `shell` configuration object itself is augmented onto `gridConfig` by the plugin and is **not** deprecated. See [Migrating to the feature API](/grid/plugins/shell/#migrating-to-the-feature-api).
+The `grid.register*` / `openToolPanel` element delegates were removed in v3 — use `grid.getPluginByName('shell')` instead — and shell types are imported from `@toolbox-web/grid/plugins/shell`. The `shell` configuration object itself is augmented onto `gridConfig` by the plugin. See [Migrating from the core shell](/grid/plugins/shell/#migrating-from-the-core-shell-pre-v3).
 :::
 
 ---

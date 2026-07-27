@@ -1,11 +1,11 @@
 /**
  * Shell Plugin Types
  *
- * Extraction #370, Phase 1a (Task 1a.2): this file is now the **canonical**
- * home for the shell configuration types (`ShellConfig`, `ShellHeaderConfig`,
- * `ToolPanelConfig`, `ToolbarContentDefinition`, `ToolPanelDefinition`,
- * `HeaderContentDefinition`). `core/types.ts` keeps `@deprecated` `export type`
- * re-aliases so deep importers keep working; those aliases are dropped at v3.
+ * Extraction #370: this file is the **canonical** home for the shell
+ * configuration types (`ShellConfig`, `ShellHeaderConfig`, `ToolPanelConfig`,
+ * `ToolbarContentDefinition`, `ToolPanelDefinition`, `HeaderContentDefinition`).
+ * The `core/types.ts` re-aliases were removed in v3 — import them from
+ * `@toolbox-web/grid/plugins/shell`.
  *
  * The core `GridConfig.shell` field is provided here via module augmentation
  * (mirroring how feature plugins augment `FeatureConfig`) so core has no
@@ -143,22 +143,13 @@ export interface ToolPanelConfig {
   /**
    * Accordion section to auto-expand the first time the tool panel opens.
    *
-   * @deprecated **Behavior change planned for v3.0.0** — see [issue #259](https://github.com/OysteinAmundsen/toolbox/issues/259).
+   * Setting `defaultOpen` also **opens the sidebar** on grid load, unless
+   * {@link initialState} is set explicitly — `initialState` always wins.
+   * To pre-select a section without forcing the sidebar open, combine
+   * `defaultOpen` with `initialState: 'closed'`.
    *
-   * Today (v2.x, kept for backward compatibility): setting `defaultOpen` also
-   * **opens the sidebar** on grid load. This conflates "which section is
-   * pre-selected" with "is the sidebar open", and there is no way to
-   * pre-select a section without also forcing the sidebar open.
-   *
-   * In v3.0.0 (#259): `defaultOpen` will only pre-select which accordion
-   * section auto-expands the first time the sidebar opens, and will no
-   * longer open the sidebar by itself. Migrate by combining `defaultOpen`
-   * with `initialState: 'open'` (or `locked: true`) when you want both
-   * effects.
-   *
-   * Callers that want forward-compatible behavior today: prefer
-   * `initialState` / `locked` for sidebar open state, and use `defaultOpen`
-   * purely for section selection.
+   * See [issue #259](https://github.com/OysteinAmundsen/toolbox/issues/259)
+   * for the proposal to split these two concerns entirely.
    *
    * @since 0.1.1
    */
@@ -171,7 +162,7 @@ export interface ToolPanelConfig {
    * - `'open'` — sidebar starts open; the section named by {@link defaultOpen}
    *   (or the first registered panel) is expanded.
    *
-   * Takes precedence over the legacy v2 behavior of {@link defaultOpen}: if
+   * Takes precedence over {@link defaultOpen}'s open-on-load side effect: if
    * `initialState` is set explicitly, it wins.
    *
    * @default 'closed'
@@ -404,9 +395,7 @@ declare module '../../core/types' {
      *
      * Provided via module augmentation by the built-in `ShellPlugin` (#370), mirroring how
      * feature plugins augment `FeatureConfig`. Import the `ShellConfig` type from
-     * `@toolbox-web/grid/plugins/shell`. This augmented path is the supported configuration
-     * entry point — only the core delegate methods (`grid.registerToolPanel()`, etc.) and the
-     * `core/types` re-aliases are deprecated and dropped at v3.
+     * `@toolbox-web/grid/plugins/shell`.
      */
     shell?: ShellConfig;
   }

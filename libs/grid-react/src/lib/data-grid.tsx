@@ -1,4 +1,4 @@
-import type { BaseGridPlugin, ColumnInferenceMode, DataGridElement } from '@toolbox-web/grid';
+import type { BaseGridPlugin, ColumnInferenceMode, DataGridElement, FitMode } from '@toolbox-web/grid';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import {
   createElement,
@@ -160,8 +160,8 @@ export interface DataGridProps<TRow = unknown> extends AllFeatureProps<TRow>, Ev
    * ```
    */
   columnDefaults?: Partial<ColumnConfig<TRow>>;
-  /** Fit mode for column sizing */
-  fitMode?: 'stretch' | 'fit-columns' | 'auto-fit';
+  /** Fit mode for column sizing. Defaults to `'stretch'`. */
+  fitMode?: FitMode;
   /**
    * How automatic column inference combines with explicitly provided columns.
    *

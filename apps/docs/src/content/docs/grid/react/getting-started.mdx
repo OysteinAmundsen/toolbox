@@ -160,7 +160,6 @@ function EmployeeGrid() {
 | `features/print` | `print` | `print` |
 | `features/pinned-rows` | `pinnedRows` | `pinnedRows` or `pinnedRows={{ position: 'bottom' }}` |
 | `features/column-virtualization` | `columnVirtualization` | `columnVirtualization` |
-| `features/reorder-rows` | `reorderRows` | `reorderRows` |
 | `features/pivot` | `pivot` | `pivot={{ rowFields: ['category'], valueField: 'sales' }}` |
 | `features/server-side` | `serverSide` | `serverSide={{ pageSize: 50 }}` |
 | `features/sticky-rows` | `stickyRows` | `stickyRows={{ isSticky: 'isSection' }}` |
@@ -178,9 +177,8 @@ These props control core grid behaviour and don't require feature imports. See [
 | `gridConfig` | [`GridConfig`](/grid/api/core/interfaces/gridconfig/) | — | Full configuration object — always wrap in `useMemo` |
 | `ref` | [`Ref<DataGridRef>`](/grid/react/api/types/datagridref/) | — | Imperative handle (also returned by `useGrid()`) |
 | `loading` | `boolean` | `false` | Show the grid's loading overlay |
-| `fitMode` | `FitMode` | `'auto'` | Column-fit strategy |
+| `fitMode` | [`FitMode`](/grid/api/core/types/fitmode/) | `'stretch'` | Column-fit strategy: `'stretch'` or `'fixed'` |
 | `customStyles` | `string` | — | CSS injected into the grid (renderer/editor styling) |
-| `ssr` | `boolean` | `false` | **Deprecated** — no-op in practice; will be removed in a future major release |
 | `sortable` | `boolean` | `true` | Grid-wide sorting toggle. Set `false` to disable all sorting. |
 | `filterable` | `boolean` | `true` | Grid-wide filtering toggle. Requires FilteringPlugin. |
 | `selectable` | `boolean` | `true` | Grid-wide selection toggle. Requires SelectionPlugin. |
@@ -430,7 +428,7 @@ See the **API Reference > Hooks** section for detailed method signatures, return
 
 Custom React editors that open a popover, listbox, calendar, or other floating panel typically render that panel into a portal so it can escape the cell's overflow clipping. Without help, the grid sees a click into the portal as a click _outside_ the editor and commits-and-exits the row before the user can pick an option.
 
-The `useGridOverlay` hook bridges that gap by registering the panel with the grid as an external focus container — the React equivalent of Angular's `BaseOverlayEditor.initOverlay()`. Pair it with `aria-expanded` / `aria-controls` on the trigger so even editors that forget to call the hook get correct keyboard / pointer behaviour out of the box (the editing plugin honours those attributes as a generic fallback — see [issue #251](https://github.com/datafabric/toolbox-web/issues/251)).
+The `useGridOverlay` hook bridges that gap by registering the panel with the grid as an external focus container — the React equivalent of Angular's `BaseOverlayEditor.initOverlay()`. Pair it with `aria-expanded` / `aria-controls` on the trigger so even editors that forget to call the hook get correct keyboard / pointer behaviour out of the box (the editing plugin honours those attributes as a generic fallback — see [issue #251](https://github.com/OysteinAmundsen/toolbox/issues/251)).
 
 ```tsx
 import { createPortal } from 'react-dom';

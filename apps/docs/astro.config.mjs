@@ -143,6 +143,17 @@ export default defineConfig({
     // custom-elements registry, which applies to vanilla JS, Native Federation,
     // Module Federation, etc.). Keep the short-lived URL redirecting home.
     '/grid/framework-adapters/multi-version/': '/grid/guides/multi-version/',
+    // reorder-rows was folded into the row-drag-drop plugin in v3. The plugin,
+    // its feature key, and its aliases were all removed; keep the old URL
+    // working so inbound links land on the replacement.
+    '/grid/plugins/reorder-rows/': '/grid/plugins/row-drag-drop/',
+    // Browser support, security/CSP, SSR, and i18n are all "what environment
+    // does this run in" topics, so they share one guide page. Redirect the
+    // topic-specific URLs people are likely to guess at the right anchor.
+    '/grid/guides/browser-support/': '/grid/guides/platform/#browser-support',
+    '/grid/guides/security/': '/grid/guides/platform/#security',
+    '/grid/guides/ssr/': '/grid/guides/platform/#server-side-rendering',
+    '/grid/guides/i18n/': '/grid/guides/platform/#internationalization',
   },
 
   vite: {

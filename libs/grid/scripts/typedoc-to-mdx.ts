@@ -166,6 +166,12 @@ const getMemberGroup = (m: TypeDocNode): string | undefined => {
  * have no folder mapping today. */
 const VARIABLE_KIND = 32;
 
+/**
+ * Folder map extended with `Variables`. Enum-like variables are folded into their
+ * TypeAlias page (see the merge map below) and never reach the writer.
+ */
+const FOLDER_MAP: Record<number, string> = { ...KIND_FOLDER_MAP, [VARIABLE_KIND]: 'Variables' };
+
 /** Variable id → Variable node, populated by buildVariableMergeMap. */
 const variableNodeRegistry = new Map<number, TypeDocNode>();
 
@@ -397,7 +403,7 @@ function genPluginClass(node: TypeDocNode, title: string): string {
   out += formatSeeLinks(node.comment);
 
   // Add inheritance note
-  out += `> **Extends** [BaseGridPlugin](/docs/grid-api-plugin-development-classes-basegridplugin--docs)\n`;
+  out += `> **Extends** [BaseGridPlugin](/grid/api/plugin-development/classes/basegridplugin/)\n`;
   out += `>\n`;
   out += `> Inherited methods like \`attach()\`, \`detach()\`, \`afterRender()\`, etc. are documented in the base class.\n\n`;
 
@@ -771,6 +777,44 @@ function genEnum(node: TypeDocNode, title: string): string {
   return out;
 }
 
+/**
+ * Generate a page for an exported `const X = { ... } as const` object such as
+ * `GridSelectors` / `GridClasses` / `GridDataAttrs` / `GridCSSVars`.
+ *
+ * Returns an empty string for enum-like variables that are merged into their
+ * companion TypeAlias page — the caller skips writing empty output.
+ */
+function genVariable(node: TypeDocNode, title: string): string {
+  if (variableMergeTargets.has(node.id)) return '';
+
+  let out = mdxHeader(title);
+  out += sinceBlock(node.comment);
+  const desc = getTextWithLinks(node.comment, resolveTypeLink);
+  if (desc) out += `${escape(desc)}\n\n`;
+
+  const members = node.type?.declaration?.children ?? [];
+  if (members.length) {
+    out += `## Members\n\n| Key | Value | Description |\n| --- | ----- | ----------- |\n`;
+    for (const m of members) {
+      const literal = m.type?.value;
+      const value =
+        literal !== undefined
+          ? `\`${typeof literal === 'string' ? literal : String(literal)}\``
+          : m.signatures?.length
+            ? `\`(${m.signatures[0].parameters?.map((p) => p.name).join(', ') ?? ''}) => string\``
+            : formatType(m.type);
+      const comment = m.signatures?.[0]?.comment ?? m.comment;
+      out += `| \`${m.name}\` | ${value} | ${escape(getFirstParagraph(comment))}${sinceBadge(comment)} |\n`;
+    }
+    out += '\n';
+  } else {
+    out += `\`\`\`ts\nconst ${node.name}: ${formatType(node.type)}\n\`\`\`\n\n`;
+  }
+
+  out += formatAllExamples(node.comment);
+  return out;
+}
+
 // ============================================================================
 // DataGridElement Split
 // ============================================================================
@@ -1041,6 +1085,7 @@ const GENERATORS: Record<number, (n: TypeDocNode, t: string) => string> = {
   [KIND.TypeAlias]: genTypeAlias,
   [KIND.Function]: genFunction,
   [KIND.Enum]: genEnum,
+  [VARIABLE_KIND]: genVariable,
 };
 
 /** Get @category tag value from a node */
@@ -1086,8 +1131,10 @@ function buildTypeRegistry(json: TypeDocNode): void {
   // Register Core types
   if (coreModule) {
     for (const node of coreModule.children ?? []) {
-      const kindFolder = KIND_FOLDER_MAP[node.kind];
+      const kindFolder = FOLDER_MAP[node.kind];
       if (!kindFolder) continue;
+      // Enum-like variables are merged into their TypeAlias page and get no URL.
+      if (node.kind === VARIABLE_KIND && variableMergeTargets.has(node.id)) continue;
 
       // Determine the section (Core, Plugin Development, or Framework Adapters)
       let section = 'core';
@@ -1150,6 +1197,53 @@ interface ProcessedNode {
   gen: (n: TypeDocNode, t: string) => string;
 }
 
+/** Human-readable blurb for each generated API section index. */
+const SECTION_INDEX_META: Record<string, { title: string; description: string }> = {
+  core: {
+    title: 'Core API',
+    description: 'Typed reference for the grid element, configuration types, events, and DOM constants.',
+  },
+  'plugin-development': {
+    title: 'Plugin Development API',
+    description: 'Typed reference for BaseGridPlugin, the plugin manifest, hook payloads, and queries.',
+  },
+  'framework-adapters': {
+    title: 'Framework Adapters API',
+    description: 'Typed reference for the FrameworkAdapter contract and the renderer / editor bridges.',
+  },
+};
+
+/**
+ * Write an `index.mdx` for a generated API section so the section route resolves
+ * and Starlight's `autogenerate` sidebar has a landing page.
+ */
+function writeSectionIndex(outDir: string, section: string, nodes: ProcessedNode[]): void {
+  const meta = SECTION_INDEX_META[section];
+  if (!meta || !nodes.length) return;
+
+  const byFolder = new Map<string, string[]>();
+  for (const { node, kindFolder } of nodes) {
+    if (!byFolder.has(kindFolder)) byFolder.set(kindFolder, []);
+    byFolder.get(kindFolder)?.push(node.name);
+  }
+
+  let out = `---\ntitle: '${meta.title}'\ndescription: '${meta.description}'\n---\n\n`;
+  out += `{/* Generated by \`bun nx typedoc grid\` — do not edit by hand. */}\n\n`;
+  out += `${meta.description}\n\n`;
+  for (const folder of [...byFolder.keys()].sort()) {
+    const names = (byFolder.get(folder) ?? []).sort((a, b) => a.localeCompare(b));
+    out += `## ${folder}\n\n`;
+    for (const name of names) {
+      out += `- [\`${name}\`](/grid/api/${section}/${folder.toLowerCase()}/${name.toLowerCase()}/)\n`;
+    }
+    out += '\n';
+  }
+
+  mkdirSync(join(outDir, section), { recursive: true });
+  writeFileSync(join(outDir, section, 'index.mdx'), out);
+  console.log(`    ✓ ${section}/index.mdx`);
+}
+
 function processCoreModule(module: TypeDocNode, outDir: string): void {
   const coreNodes: ProcessedNode[] = [];
   const pluginDevNodes: ProcessedNode[] = [];
@@ -1162,7 +1256,7 @@ function processCoreModule(module: TypeDocNode, outDir: string): void {
       continue;
     }
 
-    const kindFolder = KIND_FOLDER_MAP[node.kind];
+    const kindFolder = FOLDER_MAP[node.kind];
     const gen = GENERATORS[node.kind];
     if (!kindFolder || !gen) continue;
 
@@ -1182,39 +1276,54 @@ function processCoreModule(module: TypeDocNode, outDir: string): void {
 
   // Write Core items to Grid/API/Core/{kindFolder}
   console.log('  Core API:');
-  for (const { node, kindFolder, gen } of coreNodes) {
+  const writtenCore: ProcessedNode[] = [];
+  for (const item of coreNodes) {
+    const { node, kindFolder, gen } = item;
     const title = node.name;
     const mdx = gen(node, title);
+    if (!mdx) continue;
     const outPath = join(outDir, 'core', kindFolder, `${node.name}.mdx`);
     mkdirSync(join(outDir, 'core', kindFolder), { recursive: true });
     writeFileSync(outPath, mdx);
+    writtenCore.push(item);
     console.log(`    ✓ core/${kindFolder}/${node.name}.mdx`);
   }
+  writeSectionIndex(outDir, 'core', writtenCore);
 
   // Write Plugin Development items to Grid/API/Plugin Development/{kindFolder}
   if (pluginDevNodes.length) {
     console.log('  Plugin Development:');
-    for (const { node, kindFolder, gen } of pluginDevNodes) {
+    const written: ProcessedNode[] = [];
+    for (const item of pluginDevNodes) {
+      const { node, kindFolder, gen } = item;
       const title = node.name;
       const mdx = gen(node, title);
+      if (!mdx) continue;
       const outPath = join(outDir, 'plugin-development', kindFolder, `${node.name}.mdx`);
       mkdirSync(join(outDir, 'plugin-development', kindFolder), { recursive: true });
       writeFileSync(outPath, mdx);
+      written.push(item);
       console.log(`    ✓ plugin-development/${kindFolder}/${node.name}.mdx`);
     }
+    writeSectionIndex(outDir, 'plugin-development', written);
   }
 
   // Write Framework Adapters items to Grid/API/Framework Adapters/{kindFolder}
   if (adapterNodes.length) {
     console.log('  Framework Adapters:');
-    for (const { node, kindFolder, gen } of adapterNodes) {
+    const written: ProcessedNode[] = [];
+    for (const item of adapterNodes) {
+      const { node, kindFolder, gen } = item;
       const title = node.name;
       const mdx = gen(node, title);
+      if (!mdx) continue;
       const outPath = join(outDir, 'framework-adapters', kindFolder, `${node.name}.mdx`);
       mkdirSync(join(outDir, 'framework-adapters', kindFolder), { recursive: true });
       writeFileSync(outPath, mdx);
+      written.push(item);
       console.log(`    ✓ framework-adapters/${kindFolder}/${node.name}.mdx`);
     }
+    writeSectionIndex(outDir, 'framework-adapters', written);
   }
 }
 
@@ -1230,12 +1339,13 @@ function processPluginModules(pluginModules: TypeDocNode[], _outDir: string): vo
 
     console.log(`  ${title}:`);
     for (const node of plugin.children ?? []) {
-      const kindFolder = KIND_FOLDER_MAP[node.kind];
+      const kindFolder = FOLDER_MAP[node.kind];
       // Use specialized generator for plugin classes to filter inherited members
       const gen = node.kind === KIND.Class ? genPluginClass : GENERATORS[node.kind];
       if (!kindFolder || !gen) continue;
 
       const mdx = gen(node, node.name);
+      if (!mdx) continue;
       const outPath = join(pluginApiDir, kindFolder, `${node.name}.mdx`);
       mkdirSync(join(pluginApiDir, kindFolder), { recursive: true });
       writeFileSync(outPath, mdx);
@@ -1259,11 +1369,12 @@ async function main(): Promise<void> {
 
   const json: TypeDocNode = JSON.parse(readFileSync(JSON_PATH, 'utf-8'));
 
-  // Build type registry first so @see/@link references can be resolved
-  buildTypeRegistry(json);
-
   // Identify enum-like Variable + TypeAlias pairs that should render as one page.
+  // Must run before buildTypeRegistry so merged variables are not given a URL.
   buildVariableMergeMap(json);
+
+  // Build type registry so @see/@link references can be resolved
+  buildTypeRegistry(json);
 
   // Clean output
   if (existsSync(OUTPUT_DIR)) rmSync(OUTPUT_DIR, { recursive: true });

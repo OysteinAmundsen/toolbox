@@ -21,6 +21,7 @@
     "features/row-drag-drop/src/index.ts",
     "features/selection/src/index.ts",
     "features/server-side/src/index.ts",
+    "features/shell/src/index.ts",
     "features/sticky-rows/src/index.ts",
     "features/tooltip/src/index.ts",
     "features/tree/src/index.ts",

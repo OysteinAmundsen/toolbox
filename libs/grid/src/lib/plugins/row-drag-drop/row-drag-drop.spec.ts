@@ -587,10 +587,9 @@ describe('RowDragDropPlugin', () => {
   });
 
   describe('aliases', () => {
-    it('should expose legacy aliases for back-compat', () => {
+    it('should not expose any legacy plugin-name aliases', () => {
       const plugin = new RowDragDropPlugin();
-      expect(plugin.aliases).toContain('rowReorder');
-      expect(plugin.aliases).toContain('reorderRows');
+      expect(plugin.aliases).toBeUndefined();
     });
   });
 

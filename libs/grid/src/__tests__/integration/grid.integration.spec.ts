@@ -1571,9 +1571,9 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(shell.expandedToolPanelSections).toContain('columns');
   });
 
-  // TOOLPANEL-OPEN-LEGACY-259: legacy v2 behavior — defaultOpen alone opens
-  // the sidebar. Remove this test (or invert its expectation) in v3.0.0.
-  it('legacy v2: defaultOpen alone opens the sidebar (deprecated, see #259)', async () => {
+  // TOOLPANEL-OPEN-259: `defaultOpen` alone implies the sidebar opens on load
+  // when `initialState` is not set. See issue #259.
+  it('defaultOpen alone opens the sidebar when initialState is unset (#259)', async () => {
     grid = document.createElement('tbw-grid');
     grid.gridConfig = {
       features: { shell: { toolPanel: { defaultOpen: 'columns' } } },

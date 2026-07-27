@@ -128,8 +128,8 @@ Import from `@toolbox-web/grid-react/features/<name>`:
 | `clipboard`             | `clipboard`            | `clipboard` (requires selection)                                     |
 | `undo-redo`             | `undoRedo`             | `undoRedo` (requires editing)                                        |
 | `context-menu`          | `contextMenu`          | `contextMenu`                                                        |
-| `reorder`               | `reorder`              | `reorder` (column drag-to-reorder)                                   |
-| `row-reorder`           | `rowReorder`           | `rowReorder` (row drag-to-reorder)                                   |
+| `reorder-columns`       | `reorderColumns`       | `reorderColumns` (column drag-to-reorder)                            |
+| `row-drag-drop`         | `rowDragDrop`          | `rowDragDrop` (row drag-to-reorder / cross-grid transfer)            |
 | `visibility`            | `visibility`           | `visibility` (column visibility panel)                               |
 | `pinned-columns`        | `pinnedColumns`        | `pinnedColumns`                                                      |
 | `pinned-rows`           | `pinnedRows`           | `pinnedRows`                                                         |
@@ -667,13 +667,9 @@ Inject custom CSS into the grid:
 
 ```typescript
 import type {
-  // Primary config exports (use these)
+  // Primary config exports
   GridConfig,
   ColumnConfig,
-  // Deprecated aliases (use GridConfig/ColumnConfig instead)
-  // Deprecated aliases
-  ReactGridConfig,
-  ReactColumnConfig,
   // Context types (React-specific wrappers)
   GridCellContext,
   GridEditorContext,
@@ -683,12 +679,10 @@ import type {
   DataGridProps,
   // Feature props
   FeatureProps,
-  // Type-level defaults (TypeDefault is primary)
+  // Type-level defaults
   TypeDefault,
   TypeDefaultsMap,
   GridTypeProviderProps,
-  // Deprecated
-  ReactTypeDefault,
   // Icon overrides
   GridIconProviderProps,
   GridProviderProps,
@@ -720,8 +714,8 @@ import type {
 | `clipboard`            | `boolean \| ClipboardConfig`                        | `features/clipboard`             |
 | `undoRedo`             | `boolean \| UndoRedoConfig`                         | `features/undo-redo`             |
 | `contextMenu`          | `boolean \| ContextMenuConfig`                      | `features/context-menu`          |
-| `reorder`              | `boolean \| ReorderConfig`                          | `features/reorder`               |
-| `rowReorder`           | `boolean \| RowReorderConfig`                       | `features/row-reorder`           |
+| `reorderColumns`       | `boolean \| ReorderConfig`                          | `features/reorder-columns`       |
+| `rowDragDrop`          | `boolean \| RowDragDropConfig`                      | `features/row-drag-drop`         |
 | `visibility`           | `boolean \| VisibilityConfig`                       | `features/visibility`            |
 | `pinnedColumns`        | `boolean`                                           | `features/pinned-columns`        |
 | `pinnedRows`           | `boolean \| PinnedRowsConfig`                       | `features/pinned-rows`           |

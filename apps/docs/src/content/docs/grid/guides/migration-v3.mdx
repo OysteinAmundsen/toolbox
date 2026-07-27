@@ -338,10 +338,9 @@ custom panel into a `slots[]` entry:
 ### 3. `SSRProps` / `ssr` prop removed
 
 The deprecated `ssr` prop and the exported `SSRProps` type were removed from
-both adapters. The prop was a no-op — features register via SSR-safe side-effect
-imports, and `<tbw-grid>` is a custom element that hydrates normally on the
-client regardless of the flag. **Delete any `ssr` prop and `SSRProps` import;**
-no replacement is needed.
+both adapters. The prop was a no-op — `<tbw-grid>` is a custom element that
+hydrates normally on the client regardless of the flag. **Delete any `ssr` prop
+and `SSRProps` import;** no replacement is needed.
 
 ```diff
 - import type { SSRProps } from '@toolbox-web/grid-react';
@@ -349,9 +348,9 @@ no replacement is needed.
 + <DataGrid rows={rows} columns={columns} />
 ```
 
-If you need real server-side rendering (Next.js / Remix / Nuxt / Vike / Astro),
-[open an issue](https://github.com/OysteinAmundsen/toolbox/issues) describing
-your hydration requirements.
+For per-framework client-only boundary recipes (Next.js, Remix, Nuxt, Astro,
+Angular SSR), see
+[Platform Support → Server-Side Rendering](/grid/guides/platform/#server-side-rendering).
 
 ### 4. Shell is opt-in here too
 

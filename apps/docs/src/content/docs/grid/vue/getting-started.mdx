@@ -160,7 +160,6 @@ Each feature prop enables a specific plugin with simplified configuration:
 | `grouping-columns` | `features/grouping-columns` | Multi-level column headers |
 | `grouping-rows` | `features/grouping-rows` | Row grouping |
 | `column-virtualization` | `features/column-virtualization` | Virtualize columns for wide grids |
-| `reorder-rows` | `features/reorder-rows` | Row drag-to-reorder |
 | `tree` | `features/tree` | Hierarchical tree view |
 | `master-detail` | `features/master-detail` | Expandable detail rows |
 | `responsive` | `features/responsive` | Card layout for narrow viewports |
@@ -170,6 +169,8 @@ Each feature prop enables a specific plugin with simplified configuration:
 | `pivot` | `features/pivot` | Pivot table functionality |
 | `server-side` | `features/server-side` | Server-side data loading |
 | `sticky-rows` | `features/sticky-rows` | Pin selected data rows below the header on scroll |
+| `row-drag-drop` | `features/row-drag-drop` | Row drag-to-reorder and cross-grid row transfer |
+| `tooltip` | `features/tooltip` | Popover tooltips for truncated cell / header text |
 | `row-drag-drop` | `features/row-drag-drop` | Row drag-and-drop (within and across grids) |
 | `tooltip` | `features/tooltip` | Cell / header tooltips |
 
@@ -295,7 +296,7 @@ const selection = useGridSelection('tbw-grid.primary');
 
 Custom Vue editors that open a popover, listbox, calendar, or other floating panel typically render that panel through `<Teleport>` so it can escape the cell's overflow clipping. Without help, the grid sees a click into the teleported panel as a click _outside_ the editor and commits-and-exits the row before the user can pick an option.
 
-The `useGridOverlay` composable bridges that gap by registering the panel with the grid as an external focus container — the Vue equivalent of Angular's `BaseOverlayEditor.initOverlay()` and React's `useGridOverlay`. Pair it with `aria-expanded` / `aria-controls` on the trigger so even editors that forget to call the composable get correct keyboard / pointer behaviour out of the box (the editing plugin honours those attributes as a generic fallback — see [issue #251](https://github.com/datafabric/toolbox-web/issues/251)).
+The `useGridOverlay` composable bridges that gap by registering the panel with the grid as an external focus container — the Vue equivalent of Angular's `BaseOverlayEditor.initOverlay()` and React's `useGridOverlay`. Pair it with `aria-expanded` / `aria-controls` on the trigger so even editors that forget to call the composable get correct keyboard / pointer behaviour out of the box (the editing plugin honours those attributes as a generic fallback — see [issue #251](https://github.com/OysteinAmundsen/toolbox/issues/251)).
 
 ```html
 <script setup lang="ts">

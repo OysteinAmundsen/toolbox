@@ -1,8 +1,8 @@
 /**
  * Row Drag-Drop Plugin
  *
- * Drag rows within a single grid (parity with the deprecated
- * `RowReorderPlugin`) **and** between grids that share a `dropZone`.
+ * Drag rows within a single grid **and** between grids that share a
+ * `dropZone`.
  *
  * Architecture overview is documented in the issue body and in
  * `.github/knowledge/grid-plugins.md`. Key invariants:
@@ -14,8 +14,8 @@
  *   `core/internal/drag-drop-registry` to recover live row references.
  *   Cross-window drops fall back to `JSON.parse(JSON.stringify(row))` (or the
  *   `serializeRow`/`deserializeRow` hooks for non-JSON values).
- * - `RowReorderPlugin` is an alias re-export of this class. The PluginManager
- *   alias-collapse pre-pass merges configs when both names are instantiated.
+ * - Duplicate instances of this plugin collapse via the PluginManager
+ *   alias-collapse pre-pass, which merges their configs.
  *
  * @see {@link RowDragDropConfig} for all configuration options.
  */
@@ -155,7 +155,7 @@ function broadcastRemoteTransfer(msg: RemoteTransferMessage): void {
 /**
  * Row Drag-Drop Plugin for `<tbw-grid>`.
  *
- * @example Intra-grid (parity with deprecated RowReorderPlugin)
+ * @example Intra-grid reordering
  * ```ts
  * import { RowDragDropPlugin } from '@toolbox-web/grid/plugins/row-drag-drop';
  *
@@ -178,14 +178,6 @@ function broadcastRemoteTransfer(msg: RemoteTransferMessage): void {
 export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropConfig<T>> {
   /** @internal */
   readonly name = 'rowDragDrop';
-
-  /**
-   * Backwards-compatible aliases. `RowReorderPlugin`'s legacy plugin name
-   * (`reorderRows`) and short alias (`rowReorder`) both resolve here so that
-   * `getPluginByName('reorderRows')` keeps working.
-   * @internal
-   */
-  override readonly aliases = ['reorderRows', 'rowReorder'] as const;
 
   /** @internal */
   override readonly styles = styles;
@@ -712,7 +704,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     const dropZone = this.config.dropZone ?? '';
 
     if (isIntra) {
-      // Intra-grid path — preserve `RowReorderPlugin` semantics: emit `row-move`.
+      // Intra-grid path — emit `row-move`.
       const fromIndex = payload.rowIndices[0];
       // Adjust toIndex when dropping after the dragged row (single-row only)
       if (payload.rowIndices.length === 1 && targetIndex > fromIndex) targetIndex--;
@@ -758,8 +750,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     // Remove from source grid's _rows when operation === 'move' (same-window)
     if (payload.operation === 'move' && sourcePlugin) {
       const sourceGrid = document.getElementById(payload.sourceGridId) as
-        | (HTMLElement & { rows?: unknown[]; _rows?: unknown[] })
-        | null;
+        (HTMLElement & { rows?: unknown[]; _rows?: unknown[] }) | null;
       if (sourceGrid) {
         const srcRows = (sourceGrid._rows ?? sourceGrid.rows ?? []).slice();
         // Remove from highest index down so earlier indices stay stable
@@ -879,8 +870,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   /** Find the peer `RowDragDropPlugin` instance on another grid by id. */
   private findPeerOnGrid(gridId: string): RowDragDropPlugin<T> | null {
     const peerEl = document.getElementById(gridId) as
-      | (HTMLElement & { getPluginByName?: (name: string) => RowDragDropPlugin<T> | undefined })
-      | null;
+      (HTMLElement & { getPluginByName?: (name: string) => RowDragDropPlugin<T> | undefined }) | null;
     if (!peerEl?.getPluginByName) return null;
     return peerEl.getPluginByName('rowDragDrop') ?? null;
   }
@@ -891,8 +881,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
     // If a selection plugin is loaded and the dragged row is selected, drag the whole selection.
     const selection = this.grid?.getPluginByName?.('selection') as
-      | { getSelectedRowIndices?: () => number[]; getSelectedRows?: <U>() => U[] }
-      | undefined;
+      { getSelectedRowIndices?: () => number[]; getSelectedRows?: <U>() => U[] } | undefined;
     if (selection?.getSelectedRowIndices) {
       const selectedIndices = selection.getSelectedRowIndices();
       if (selectedIndices.includes(originIndex) && selectedIndices.length > 1) {
@@ -961,7 +950,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
   // #endregion
 
-  // #region Intra-Grid Move (parity with RowReorderPlugin)
+  // #region Intra-Grid Move
 
   private handleKeyboardMove(row: T, fromIndex: number, toIndex: number, focusCol: number): void {
     if (!this.pendingMove) {

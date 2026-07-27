@@ -314,12 +314,6 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 | `changed-rows-reset` | `ChangedRowsResetDetail` | Change tracking cleared           |
 | `dirty-change`       | `DirtyChangeDetail`      | Row dirty state changed           |
 
-#### Deprecated Events
-
-| Event           | Detail               | Description                                |
-| --------------- | -------------------- | ------------------------------------------ |
-| `activate-cell` | `ActivateCellDetail` | ⚠️ Deprecated. Use `cell-activate` instead |
-
 Use the typed `grid.on()` API (recommended) or `addEventListener` with the
 event name as a string literal — both are type-checked against
 `DataGridEventMap`, so typos fail at compile time and `event.detail` is
@@ -870,7 +864,10 @@ Note: This includes all plugins in your bundle. For smaller bundles, import plug
 
 ## Browser Support
 
-Modern browsers with Web Components support (Chrome, Firefox, Safari, Edge).
+Modern evergreen browsers: **Chrome/Edge 123+, Firefox 120+, Safari 17.5+**.
+The baseline is driven by the CSS features the default theme relies on (notably
+`light-dark()`), not by the Web Components APIs. Popover, CSS anchor positioning
+and View Transitions are progressively enhanced with automatic fallbacks.
 
 ---
 

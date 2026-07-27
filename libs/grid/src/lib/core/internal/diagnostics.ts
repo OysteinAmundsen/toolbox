@@ -49,7 +49,7 @@ export function gridPrefix(gridId?: string, pluginName?: string): string {
  * Naming: TBW + 3-digit number.
  * Ranges:
  *   001–019  Configuration validation (missing plugins, bad config)
- *   020–029  Plugin lifecycle (dependencies, incompatibilities, deprecation)
+ *   020–029  Plugin lifecycle (dependencies, incompatibilities, alias collapse)
  *   030–039  Feature registry
  *   040–049  Row operations (row ID, row mutations)
  *   050–059  Column operations (width, template)
@@ -61,6 +61,7 @@ export function gridPrefix(gridId?: string, pluginName?: string): string {
  *   110–119  Plugin-specific (responsive, undo-redo, grouping-columns)
  *   120–129  Style injection
  *   130–139  Attribute parsing
+ *   140–149  DataSource / ServerSide
  */
 
 // --- Config validation (001–019) ---

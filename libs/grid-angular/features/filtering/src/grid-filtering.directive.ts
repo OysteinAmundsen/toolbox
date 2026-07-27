@@ -30,15 +30,11 @@
  * export class AppGridComponent {}
  * ```
  *
- * ## Backward compatibility (v1.x)
+ * ## Feature claims
  *
- * The matching `filtering` input and `filterChange` output also still exist
- * on `Grid` (marked `@deprecated`) so existing apps that bind them without
- * importing `GridFilteringDirective` continue to work — those will be
- * removed in v2.0.0. When both this directive and the deprecated bindings
- * are present, the directive wins via the per-grid claims registry in
- * `internal/feature-claims.ts`: `Grid` consults the registry and skips its
- * own plugin creation + event wiring for any claimed feature.
+ * The directive registers a per-grid feature claim (see
+ * `internal/feature-claims.ts`), so `Grid` skips its own plugin creation and
+ * event wiring for any feature that a per-feature directive has claimed.
  *
  * @category Directive
  */
@@ -89,8 +85,7 @@ export class GridFilteringDirective implements OnInit, OnDestroy {
   private readonly elementRef = inject(ElementRef<DataGridElement>);
 
   /**
-   * Enable column filtering. Identical semantics to the deprecated input on
-   * `Grid` — this directive owns the binding when both are present.
+   * Enable column filtering.
    *
    * @example
    * ```html

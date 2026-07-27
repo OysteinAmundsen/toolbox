@@ -14,6 +14,8 @@ Use this list **right before you ship**. Each item is one line; click through to
 - [ ] **Sanitize external data** before assigning to `grid.rows` — validate types, ensure unique row IDs, strip unexpected fields.
 - [ ] **No `innerHTML` from user input** in custom renderers. Use `textContent`, or sanitize with DOMPurify first. See [Renderer security](/grid/core/#renderer-security-avoid-innerhtml).
 - [ ] **CSP allows `style-src 'self'`** — the grid injects styles via `adoptedStyleSheets`. See [Styles not applying (CSP)](/grid/guides/troubleshooting/#styles-not-applying-csp).
+- [ ] **Target browsers meet the minimum** — Chrome/Edge 123, Firefox 121, Safari 17.5. See [Browser support](/grid/guides/platform/#browser-support).
+- [ ] **Trusted Types policy installed** if you enforce `require-trusted-types-for 'script'`. See [Trusted Types](/grid/guides/platform/#trusted-types).
 
 ## Performance
 

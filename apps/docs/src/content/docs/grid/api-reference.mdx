@@ -571,7 +571,7 @@ grid.resetColumnState();
 
 ### Shell Methods (Header/Toolbar)
 
-The header bar, toolbar content, and tool panels are owned by the built-in **shell plugin**. Access it via `grid.getPluginByName('shell')` rather than the deprecated `grid.*` element delegates (removed in v3):
+The header bar, toolbar content, and tool panels are owned by the built-in **shell plugin**. Access it via `grid.getPluginByName('shell')` — the old `grid.*` element delegates were removed in v3:
 
 ```typescript
 const shell = grid.getPluginByName('shell');
@@ -694,7 +694,8 @@ import { TbwGrid, TbwGridHeaderContent, TbwGridToolbarContent } from '@toolbox-w
   <TabItem label="Angular">
 ```typescript
 import { Component } from '@angular/core';
-import { Grid, GridHeaderContent, GridToolbarContent } from '@toolbox-web/grid-angular';
+import { Grid } from '@toolbox-web/grid-angular';
+import { GridHeaderContent, GridToolbarContent } from '@toolbox-web/grid-angular/features/shell';
 
 @Component({
   imports: [Grid, GridHeaderContent, GridToolbarContent],
@@ -851,7 +852,9 @@ For the full keyboard shortcut matrix, ARIA reference, screen-reader guidance, f
 
 ## Browser Support
 
-Modern evergreen browsers — Chrome/Edge 79+, Firefox 63+, Safari 13.1+. No polyfills required. See the [Production Checklist](/grid/guides/production-checklist/) for deployment guidance.
+Modern evergreen browsers — **Chrome/Edge 123+, Firefox 120+, Safari 17.5+**. No polyfills or build-time transpilation of CSS are required, but the baseline is set by the CSS features the default theme relies on (notably `light-dark()`). Popover, CSS anchor positioning, and View Transitions are progressively enhanced and fall back automatically when unsupported.
+
+See the [Browser Support matrix](/grid/guides/platform/#browser-support) for the per-feature breakdown, and the [Production Checklist](/grid/guides/production-checklist/) for deployment guidance.
 
 ## Related Documentation
 

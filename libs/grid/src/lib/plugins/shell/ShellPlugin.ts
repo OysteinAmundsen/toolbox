@@ -123,10 +123,9 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
 
   // #region Public Shell API
   // The shell plugin's public, programmatic API. Obtain the instance via
-  // `grid.getPluginByName('shell')`. These mirror the (now `@deprecated`)
-  // `<tbw-grid>` delegate methods, which forward here for the v2.x window and
-  // are removed in v3 (extraction #370). Each guards on `hasState` so a call
-  // before the shell has initialized is a safe no-op.
+  // `grid.getPluginByName('shell')`. The equivalent `<tbw-grid>` delegate
+  // methods were removed in v3 (extraction #370). Each guards on `hasState`
+  // so a call before the shell has initialized is a safe no-op.
 
   /** Whether the tool panel sidebar is currently open. */
   get isToolPanelOpen(): boolean {
@@ -644,14 +643,13 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
     }
 
     // Decide whether the sidebar should be open on load.
-    // NOTE: In v2.x `defaultOpen` alone also opens the sidebar (legacy
-    // behavior). v3.0.0 will drop that — see issue #259 and the
-    // @deprecated note on ToolPanelConfig.defaultOpen.
-    // Search marker: TOOLPANEL-OPEN-LEGACY-259
+    // `initialState` (or `locked`) is authoritative when set. Otherwise a
+    // `defaultOpen` section implies the sidebar opens on load. See issue #259
+    // for the proposal to split these two concerns.
+    // Search marker: TOOLPANEL-OPEN-259
     const shouldOpenOnLoad =
       toolPanelCfg?.locked === true ||
       toolPanelCfg?.initialState === 'open' ||
-      // Legacy v2 path — remove in v3.0.0 (#259)
       (toolPanelCfg?.initialState === undefined && defaultOpen !== undefined && state.toolPanels.has(defaultOpen));
     if (!state.isPanelOpen && state.toolPanels.size > 0 && shouldOpenOnLoad) {
       this.openToolPanel();

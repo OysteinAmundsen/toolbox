@@ -82,17 +82,17 @@ const employees = ref<Employee[]>([
 
 ## TbwGrid Props
 
-| Prop           | Type                                       | Description                                    |
-| -------------- | ------------------------------------------ | ---------------------------------------------- |
-| `rows`         | `TRow[]`                                   | Row data to display                            |
-| `columns`      | `ColumnConfig[]`                           | Column definitions                             |
-| `gridConfig`   | `GridConfig`                               | Full configuration object                      |
-| `fitMode`      | `'stretch' \| 'fit-columns' \| 'auto-fit'` | Column sizing mode                             |
-| `sortable`     | `boolean`                                  | Grid-wide sorting toggle (default: `true`)     |
-| `filterable`   | `boolean`                                  | Grid-wide filtering toggle (default: `true`)   |
-| `selectable`   | `boolean`                                  | Grid-wide selection toggle (default: `true`)   |
-| `loading`      | `boolean`                                  | Show loading overlay (default: `false`)        |
-| `customStyles` | `string`                                   | CSS injected via `document.adoptedStyleSheets` |
+| Prop           | Type                   | Description                                    |
+| -------------- | ---------------------- | ---------------------------------------------- |
+| `rows`         | `TRow[]`               | Row data to display                            |
+| `columns`      | `ColumnConfig[]`       | Column definitions                             |
+| `gridConfig`   | `GridConfig`           | Full configuration object                      |
+| `fitMode`      | `'stretch' \| 'fixed'` | Column sizing mode (default: `'stretch'`)      |
+| `sortable`     | `boolean`              | Grid-wide sorting toggle (default: `true`)     |
+| `filterable`   | `boolean`              | Grid-wide filtering toggle (default: `true`)   |
+| `selectable`   | `boolean`              | Grid-wide selection toggle (default: `true`)   |
+| `loading`      | `boolean`              | Show loading overlay (default: `false`)        |
+| `customStyles` | `string`               | CSS injected via `document.adoptedStyleSheets` |
 
 ## Enabling Features
 
@@ -583,24 +583,19 @@ const props = defineProps<{
 
 ### Types
 
-| Type                    | Description                          |
-| ----------------------- | ------------------------------------ |
-| `CellSlotProps`         | Props for `#cell` slot               |
-| `EditorSlotProps`       | Props for `#editor` slot             |
-| `DetailPanelContext`    | Props for detail panel slot          |
-| `ToolPanelContext`      | Props for tool panel slot            |
-| `ResponsiveCardContext` | Props for responsive card slot       |
-| `GridConfig`            | Grid configuration type (primary)    |
-| `ColumnConfig`          | Column configuration type (primary)  |
-| `CellRenderer`          | Cell renderer type (primary)         |
-| `CellEditor`            | Cell editor type (primary)           |
-| `TypeDefault`           | Type default configuration (primary) |
-| `TypeDefaultsMap`       | Type defaults registry type          |
-| `VueGridConfig`         | Deprecated - use `GridConfig`        |
-| `VueColumnConfig`       | Deprecated - use `ColumnConfig`      |
-| `VueCellRenderer`       | Deprecated - use `CellRenderer`      |
-| `VueCellEditor`         | Deprecated - use `CellEditor`        |
-| `VueTypeDefault`        | Deprecated - use `TypeDefault`       |
+| Type                    | Description                    |
+| ----------------------- | ------------------------------ |
+| `CellSlotProps`         | Props for `#cell` slot         |
+| `EditorSlotProps`       | Props for `#editor` slot       |
+| `DetailPanelContext`    | Props for detail panel slot    |
+| `ToolPanelContext`      | Props for tool panel slot      |
+| `ResponsiveCardContext` | Props for responsive card slot |
+| `GridConfig`            | Grid configuration type        |
+| `ColumnConfig`          | Column configuration type      |
+| `CellRenderer`          | Cell renderer type             |
+| `CellEditor`            | Cell editor type               |
+| `TypeDefault`           | Type default configuration     |
+| `TypeDefaultsMap`       | Type defaults registry type    |
 
 ## Requirements
 

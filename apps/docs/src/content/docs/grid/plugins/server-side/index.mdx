@@ -341,15 +341,15 @@ A request is considered **superseded** when the sort/filter model changes mid-fl
 
 ## Configuration Options
 
-See [`ServerSideConfig`](./Interfaces/ServerSideConfig/) for the full list of options and defaults.
+See [`ServerSideConfig`](./interfaces/serversideconfig/) for the full list of options and defaults.
 
 ## TypeScript Interfaces
 
-- [`ServerSideDataSource`](./Interfaces/ServerSideDataSource/) — Data source contract with `getRows()` and optional `getChildRows()`
-- [`GetRowsParams`](./Interfaces/GetRowsParams/) — Parameters passed to `getRows()` (startNode, endNode, sortModel, filterModel, signal)
-- [`GetRowsResult`](./Interfaces/GetRowsResult/) — Return type with `rows` and `totalNodeCount`
-- [`GetChildRowsParams`](./Interfaces/GetChildRowsParams/) — Parameters for `getChildRows()` with plugin context
-- [`GetChildRowsResult`](./Interfaces/GetChildRowsResult/) — Return type with `rows`
+- [`ServerSideDataSource`](./interfaces/serversidedatasource/) — Data source contract with `getRows()` and optional `getChildRows()`
+- [`GetRowsParams`](./interfaces/getrowsparams/) — Parameters passed to `getRows()` (startNode, endNode, sortModel, filterModel, signal)
+- [`GetRowsResult`](./interfaces/getrowsresult/) — Return type with `rows` and `totalNodeCount`
+- [`GetChildRowsParams`](./interfaces/getchildrowsparams/) — Parameters for `getChildRows()` with plugin context
+- [`GetChildRowsResult`](./interfaces/getchildrowsresult/) — Return type with `rows`
 
 ## Programmatic API
 

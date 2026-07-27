@@ -48,7 +48,7 @@ This page covers Angular-specific setup and APIs (feature inputs, inject functio
 
 ## Setup
 
-No bootstrap step is required. Importing `@toolbox-web/grid-angular` (or any of its `features/*` entries) registers the `<tbw-grid>` custom element as a side effect. Each feature is enabled per-component by importing its directive — see [Three Ways to Configure Features](#three-ways-to-configure-features) below.
+No bootstrap step is required. Importing `@toolbox-web/grid-angular` (or any of its `features/*` entries) registers the `<tbw-grid>` custom element as a side effect. Each feature is enabled per-component by importing its directive — see [Two Ways to Configure Features](#two-ways-to-configure-features) below.
 
 ```typescript
 // Optional: if you also want to use <tbw-grid> in plain HTML templates
@@ -56,17 +56,21 @@ No bootstrap step is required. Importing `@toolbox-web/grid-angular` (or any of 
 import '@toolbox-web/grid';
 ```
 
-## Three Ways to Configure Features
+## Two Ways to Configure Features
 
-You can enable plugins on `<tbw-grid>` with one of three patterns. Pick whichever fits the component — they can be mixed.
+You can enable plugins on `<tbw-grid>` with one of two patterns. Pick whichever fits the component — they can be mixed.
 
-| Pattern | Best for | v2 status |
-|---------|----------|-----------|
-| **`gridConfig.features`** (object literal) | Configuration-driven apps; the entire grid setup lives in one object | ✅ Unchanged — fully supported |
-| **Per-feature directive** (e.g. `GridFilteringDirective`) | Template-driven apps that want signal inputs/outputs **and** the smallest bundle | ✅ **Recommended** — the future-proof path |
-| **Inputs/outputs on `Grid`** (e.g. `[filtering]`, `(filterChange)`) | v1.x apps already on this style | ⚠️ **Deprecated** — bindings remain in v1.x for compatibility but will be removed in v2.0 |
+| Pattern | Best for |
+|---------|----------|
+| **`gridConfig.features`** (object literal) | Configuration-driven apps; the entire grid setup lives in one object |
+| **Per-feature directive** (e.g. `GridFilteringDirective`) | Template-driven apps that want signal inputs/outputs **and** the smallest bundle |
 
-> **`gridConfig` users are not affected by the v2 cleanup** — only consumers binding feature inputs directly on `<tbw-grid>` need to switch to per-feature directives before v2.
+:::note[Upgrading from v2?]
+The per-feature inputs/outputs that used to live on the central `Grid` directive (binding
+`[filtering]` without importing `GridFilteringDirective`) were **removed in v3**. The migration is
+a one-line `imports` addition per feature with zero template changes — see the
+[v3 migration guide](/grid/guides/migration-v3/).
+:::
 
 ### Recommended: Per-Feature Directives
 
@@ -96,11 +100,7 @@ export class MyGrid {/* … */}
 
 - **Tree-shakeable typed surface** — the feature's `input()` / `output()` definitions ship inside the feature's own bundle. Apps that don't import the directive don't pay for its compiled metadata in the core bundle.
 - **Compile-time safety** — Angular errors with `Can't bind to 'filtering' since it isn't a known property of 'tbw-grid'` if you forget the directive (stronger than React/Vue, which silently drop unknown props).
-- **Same bindings, same demos** — the directive's selector matches the existing attributes (`tbw-grid[filtering], tbw-grid[filterChange]`), so migrating from the deprecated style is a one-line `imports` addition per feature with **zero template changes**.
-
-### Legacy: Inputs/Outputs on `Grid` (deprecated)
-
-The v1.x style — declaring `[filtering]`, `(filterChange)`, etc. directly on the `Grid` directive without importing a per-feature directive — still works for the entire v1.x line but is `@deprecated` in JSDoc. v2.0 will remove these bindings from `Grid`, at which point a one-line directive import per feature is the migration.
+- **Same bindings, same demos** — the directive's selector matches the plain attributes (`tbw-grid[filtering], tbw-grid[filterChange]`), so the template markup is identical no matter which pattern you came from.
 
 ## Basic Usage
 
@@ -192,7 +192,7 @@ Each feature exposes an input + (optional) output. The recommended way to use th
 | `[columns]` | [`ColumnConfig`](/grid/api/core/interfaces/columnconfig/)`[]` | Column definitions (alternative to `gridConfig.columns`) |
 | `[gridConfig]` | [`GridConfig`](/grid/api/core/interfaces/gridconfig/) | Full grid configuration object |
 | `[loading]` | `boolean` | Show the grid's loading overlay |
-| `[fitMode]` | `FitMode` | Column-fit strategy (`'auto'`, `'fill'`, `'fill-rest'`, etc.) |
+| `[fitMode]` | [`FitMode`](/grid/api/core/types/fitmode/) | Column-fit strategy: `'stretch'` (default) or `'fixed'` |
 | `[customStyles]` | `string` | CSS injected into the grid — useful for custom renderer/editor styling |
 | `[sortable]` | `boolean` | Grid-wide sorting toggle (default: true) |
 | `[filterable]` | `boolean` | Grid-wide filtering toggle (default: true). Requires FilteringPlugin. |
@@ -417,7 +417,8 @@ Use the [`GridToolPanel`](/grid/angular/api/directives/gridtoolpanel/) directive
 
 ```typescript
 import { Component } from '@angular/core';
-import { Grid, GridToolPanel } from '@toolbox-web/grid-angular';
+import { Grid } from '@toolbox-web/grid-angular';
+import { GridToolPanel } from '@toolbox-web/grid-angular/features/shell';
 
 @Component({
   imports: [Grid, GridToolPanel],
@@ -453,7 +454,8 @@ Inject Angular components into the grid's shell header (left zone) or toolbar (r
 
 ```typescript
 import { Component, signal } from '@angular/core';
-import { Grid, GridHeaderContent, GridToolbarContent } from '@toolbox-web/grid-angular';
+import { Grid } from '@toolbox-web/grid-angular';
+import { GridHeaderContent, GridToolbarContent } from '@toolbox-web/grid-angular/features/shell';
 
 @Component({
   imports: [Grid, GridHeaderContent, GridToolbarContent, HeaderNavComponent, ToolbarNavComponent],

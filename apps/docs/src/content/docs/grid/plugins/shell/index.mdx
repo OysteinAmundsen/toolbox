@@ -14,11 +14,10 @@ The Shell plugin wraps the grid with an optional **header bar** (title + toolbar
 collapsible **tool panel** sidebar. Features like `visibility`, `filtering`, and `pivot`
 register their tool panels into this shell.
 
-:::note[On by default in v2.x — opt-in at v3]
-In **v2.x** the shell still ships **on by default**, so existing code keeps working without
-a code change. It is **deprecated** in that form: from **v3.0.0** the shell becomes opt-in and
-you must enable the feature explicitly (see [Migrating to the feature API](#migrating-to-the-feature-api)).
-New code should enable it now via `import '@toolbox-web/grid/features/shell'` + `features: { shell: true }`.
+:::note[Opt-in]
+The shell is opt-in and tree-shakeable. Enable it with
+`import '@toolbox-web/grid/features/shell'` + `features: { shell: true }` (or by registering
+`ShellPlugin` directly). Nothing shell-related is bundled unless you import it.
 :::
 
 ## Installation
@@ -55,8 +54,7 @@ grid.gridConfig = {
   <TabItem label="React">
 ```tsx
 import '@toolbox-web/grid-react/features/visibility';
-// Shell auto-registers in v2.x. For v3, opt in explicitly:
-// import '@toolbox-web/grid-react/features/shell';
+import '@toolbox-web/grid-react/features/shell';
 import { DataGrid } from '@toolbox-web/grid-react';
 import type { GridConfig } from '@toolbox-web/grid-react';
 
@@ -80,8 +78,7 @@ You can instead pass `visibility` and `shell={{ … }}` as individual props on `
 ```html
 <script setup lang="ts">
 import '@toolbox-web/grid-vue/features/visibility';
-// Shell auto-registers in v2.x. For v3, opt in explicitly:
-// import '@toolbox-web/grid-vue/features/shell';
+import '@toolbox-web/grid-vue/features/shell';
 import { TbwGrid } from '@toolbox-web/grid-vue';
 import type { GridConfig } from '@toolbox-web/grid-vue';
 
@@ -107,8 +104,7 @@ Define everything inside `gridConfig.features`, exactly like the other framework
 
 ```typescript
 import '@toolbox-web/grid-angular/features/visibility';
-// Shell auto-registers in v2.x. For v3, opt in explicitly:
-// import '@toolbox-web/grid-angular/features/shell';
+import '@toolbox-web/grid-angular/features/shell';
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { GridConfig } from '@toolbox-web/grid-angular';
@@ -321,8 +317,8 @@ All options live under `features.shell` and are typed by `ShellConfig`
 | `header.toolPanelToggle` | `boolean` | `true` | Render the built-in panel toggle button + separator |
 | `toolPanel.position` | `'left' \| 'right'` | `'right'` | Sidebar position |
 | `toolPanel.width` | `number` | `280` | Sidebar width in pixels |
-| `toolPanel.defaultOpen` | `string` | — | Accordion section to auto-expand on first open. **Deprecated:** in v2.x this also opens the sidebar; in v3.0.0 it will only pre-select the section (see [#259](https://github.com/OysteinAmundsen/toolbox/issues/259)). Combine with `initialState: 'open'` for forward-compatible behavior. |
-| `toolPanel.initialState` | `'open' \| 'closed'` | `'closed'` | Whether the sidebar starts open on grid load. Overrides the legacy `defaultOpen` open-on-load behavior when set. |
+| `toolPanel.defaultOpen` | `string` | — | Accordion section to auto-expand on first open. Also opens the sidebar on load — see [#259](https://github.com/OysteinAmundsen/toolbox/issues/259) for the planned split. Prefer `initialState` / `locked` to control the open state and `defaultOpen` purely for section selection. |
+| `toolPanel.initialState` | `'open' \| 'closed'` | `'closed'` | Whether the sidebar starts open on grid load. Takes precedence over `defaultOpen`'s open-on-load behavior when set. |
 | `toolPanel.locked` | `boolean` | `false` | Lock the sidebar open. Implies `initialState: 'open'`, makes `closeToolPanel()` a no-op, and hides the built-in toggle button. |
 | `toolPanel.persistState` | `boolean` | `false` | Remember open/closed state |
 | `toolPanel.closeOnClickOutside` | `boolean` | `false` | Close on outside click (ignored in `mode: 'push'` or when `locked: true`; `'dropdown'` always light-dismisses) |
@@ -495,16 +491,15 @@ When `header.visible: false`, tool panels remain fully functional and are opened
 
 `header.visible: false` keeps the shell active (the panel overlay still mounts); it only suppresses the header bar element. This is the supported alternative to hiding `.tbw-shell-header` with CSS.
 
-## Migrating to the Feature API
+## Migrating from the Core Shell (pre-v3)
 
 The shell used to be part of grid **core**: auto-registered with no import, driven by
 `grid.register*` / `openToolPanel` element delegates, with its config types exported from the
-package root. Those surfaces are **deprecated** and will be **removed in v3.0.0**. The `shell`
-configuration object itself is augmented onto `gridConfig` by the plugin and is **not** deprecated.
-Migrate as follows:
+package root. **Those surfaces were removed in v3.0.0.** The `shell` configuration object itself
+is still augmented onto `gridConfig` by the plugin. Migrate as follows:
 
-| Deprecated (v2.x, removed at v3) | Use instead |
-|----------------------------------|-------------|
+| Removed in v3 | Use instead |
+|---------------|-------------|
 | _Implicit_ shell (no import) | `import '@toolbox-web/grid/features/shell'` |
 | `grid.registerToolPanel(panel)` | `grid.getPluginByName('shell')?.registerToolPanel(panel)` |
 | `grid.unregisterToolPanel(id)` | `grid.getPluginByName('shell')?.unregisterToolPanel(id)` |
@@ -515,18 +510,12 @@ Migrate as follows:
 
 Notes:
 
-- In **v2.x** the shell is still auto-registered, so unmigrated code keeps working — the
-  imperative `grid.*` shell delegates emit a one-time **TBW076** deprecation warning. The
-  top-level `config.shell` field is a plugin augmentation (**not** deprecated) and
-  `refreshShellHeader()` is merged/handled silently.
 - For advanced/explicit control you can register the plugin directly:
   `plugins: [new ShellPlugin(shellConfig)]` (from `@toolbox-web/grid/plugins/shell`).
-- **Adapters auto-register** the `ShellPlugin` in **v2.x**, so React/Vue/Angular users need no
-  change; this auto-registration is removed at **v3.0.0** (opt-in). The forward-compatible opt-in
-  is the adapter-specific side-effect import
-  `import '@toolbox-web/grid-{react,vue,angular}/features/shell'`.
-- From **v3.0.0** the shell is opt-in: shell usage without the feature/plugin throws a clear
-  error with a migration link.
+- **Adapters no longer auto-register** the `ShellPlugin`. React/Vue/Angular users must add the
+  adapter side-effect import `import '@toolbox-web/grid-{react,vue,angular}/features/shell'`.
+- Shell usage without the feature/plugin enabled throws a clear error with a migration link.
+- See the [v3 migration guide](/grid/guides/migration-v3/) for the full change set.
 
 ## How the Shell Wraps the Grid
 

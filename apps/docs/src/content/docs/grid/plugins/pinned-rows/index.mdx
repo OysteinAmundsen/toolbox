@@ -211,11 +211,10 @@ same `slots[]` array.
 | `slots`     | `PinnedRowSlot[]`   | `[]`       | Unified ordered list of pinned-row slots (see [Slots API](#slots-api))       |
 | `fullWidth` | `boolean`           | `false`    | Default `fullWidth` mode applied to every aggregation slot                   |
 
-> **Legacy fields** — `position`, `showRowCount`, `showSelectedCount`,
-> `showFilteredCount`, `aggregationRows`, `customPanels` — are still accepted
-> for backwards compatibility but are deprecated and ignored when `slots` is
-> set. They will be removed in a future major release. New code should use
-> `slots`. See the [migration notes](#migrating-from-legacy-fields) below.
+> **Upgrading from v2?** The old top-level fields — `position`, `showRowCount`,
+> `showSelectedCount`, `showFilteredCount`, `aggregationRows`, `customPanels` —
+> were removed in v3. See [Migrating from v2 fields](#migrating-from-v2-fields)
+> below.
 
 ## Slots API
 
@@ -532,11 +531,11 @@ features: {
 },
 ```
 
-## Migrating from Legacy Fields
+## Migrating from v2 Fields
 
-The legacy top-level fields are deprecated. Map them to `slots` as follows:
+The v2 top-level fields were removed in v3. Map them to `slots` as follows:
 
-| Legacy field                    | Slots equivalent                                                         |
+| v2 field                        | Slots equivalent                                                         |
 | ------------------------------- | ------------------------------------------------------------------------ |
 | `position: 'top' \| 'bottom'`   | Per-slot `position` field                                                |
 | `showRowCount: true`            | `{ render: rowCountPanel() }`                                            |

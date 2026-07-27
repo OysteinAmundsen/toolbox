@@ -18,7 +18,7 @@ The `@toolbox-web/grid` plugin architecture allows you to extend the grid with p
 :::
 
 :::note[Angular: pair feature inputs with the per-feature directive]
-The Angular tabs in plugin docs often show the shorthand `[selection]`, `[filtering]`, `[editing]`, etc. on `<tbw-grid>`. In **v1.4+** the recommended way to use those bindings is to import the matching per-feature directive (e.g. [`GridSelectionDirective`](/grid/angular/api/directives/gridselectiondirective/) from `@toolbox-web/grid-angular/features/selection`) alongside `Grid` in the component's `imports`. The same bindings on the central `Grid` directive are still accepted for v1.x backward compatibility but are `@deprecated` and will be removed in v2.0. Apps that configure plugins through `[gridConfig]="{ features: { … } }"` are unaffected — see the [Angular getting-started guide](/grid/angular/getting-started/#three-ways-to-configure-features) for the full breakdown.
+The Angular tabs in plugin docs often show the shorthand `[selection]`, `[filtering]`, `[editing]`, etc. on `<tbw-grid>`. Import the matching per-feature directive (e.g. [`GridSelectionDirective`](/grid/angular/api/directives/gridselectiondirective/) from `@toolbox-web/grid-angular/features/selection`) alongside `Grid` in the component's `imports`. This keeps each feature tree-shakeable. Apps that configure plugins through `[gridConfig]="{ features: { … } }"` don't need the per-feature directives — see the [Angular getting-started guide](/grid/angular/getting-started/#two-ways-to-configure-features) for the full breakdown.
 :::
 
 ## Available Plugins
@@ -42,7 +42,7 @@ Editing is opt-in. To enable `editable` and `editor` column properties, you must
 | [Clipboard](/grid/plugins/clipboard/) | Copy/paste with Ctrl+C/V |
 | [Context Menu](/grid/plugins/context-menu/) | Right-click context menus with submenus |
 | [Reorder](/grid/plugins/reorder-columns/) | Drag-and-drop column reordering |
-| [Row Reorder](/grid/plugins/reorder-rows/) | Drag-and-drop row reordering with keyboard support |
+| [Row Drag & Drop](/grid/plugins/row-drag-drop/) | Drag-and-drop row reordering and cross-grid row transfer, with keyboard support |
 
 ### Filtering & Sorting
 
@@ -68,6 +68,7 @@ Editing is opt-in. To enable `editable` and `editor` column properties, you must
 | [Shell](/grid/plugins/shell/) | Header bar (title + toolbar) and collapsible tool-panel sidebar |
 | [Pinned Columns](/grid/plugins/pinned-columns/) | Pin columns to left or right edge |
 | [Pinned Rows](/grid/plugins/pinned-rows/) | Status bar with aggregations and custom panels |
+| [Sticky Rows](/grid/plugins/sticky-rows/) | Keep matching rows pinned in view while the rest of the grid scrolls |
 | [Visibility](/grid/plugins/visibility/) | Show/hide columns dynamically |
 | [Column Virtualization](/grid/plugins/column-virtualization/) | Performance optimization for many columns |
 | [Responsive](/grid/plugins/responsive/) | Card layout for narrow containers and mobile |
@@ -250,7 +251,6 @@ framework prop. Paths below use the core package; adapters mirror them — repla
 | `undoRedo` | `…/features/undo-redo` | `true` (requires editing) |
 | `contextMenu` | `…/features/context-menu` | `true`, `{ items: [...] }` |
 | `reorderColumns` | `…/features/reorder-columns` | `true` |
-| `reorderRows` | `…/features/reorder-rows` | `true` |
 | `rowDragDrop` | `…/features/row-drag-drop` | `true`, `{ dropZone: 'employees' }` |
 | `visibility` | `…/features/visibility` | `true` |
 | `pinnedColumns` | `…/features/pinned-columns` | `true` |

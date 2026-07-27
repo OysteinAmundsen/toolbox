@@ -113,7 +113,7 @@ These apply to ALL frameworks. Violating them produces broken grids.
 5. **Some plugins are mutually exclusive.** `GroupingRows` ✗ `Tree` ✗ `Pivot` (all rewrite the row model); `ServerSide` ✗ `Pivot`. A dev-mode warning fires on conflict. (`ServerSide` + `Tree` and `ServerSide` + `GroupingRows` DO coexist.)
 6. **Light DOM, no Shadow DOM.** CSS cascade works normally — no `::part()`/`::slotted()`.
 7. **Em-based sizing.** All dimensions use `em`; scale the whole grid by changing `font-size` on `tbw-grid`.
-8. **Type import:** `import type { DataGridElement } from '@toolbox-web/grid';` (the old `GridElement` alias is deprecated).
+8. **Type import:** `import type { DataGridElement } from '@toolbox-web/grid';` (`GridElement` is a legacy alias of the same type).
 
 _## ANTI-PATTERNS — don't reach for a plugin first
 

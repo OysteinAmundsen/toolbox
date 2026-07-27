@@ -183,6 +183,49 @@ Use `treeColumn` to control which column displays the tree toggle when combining
   <TreePinnedColumnsDemo />
 </ShowSource>
 
+### Lazy Loading Children
+
+Set `loadChildren` to fetch a node's children the first time it is expanded. No other plugin is required — use this when you only need on-demand children, not server-side pagination/sorting/filtering of the root nodes.
+
+Nodes whose children are not yet loaded are marked with a truthy non-array `children` value (e.g. `children: true`). When the data cannot express that, supply a `hasChildren` predicate instead.
+
+```ts
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/tree';
+
+const grid = queryGrid('tbw-grid');
+grid.gridConfig = {
+  columns: [{ field: 'name', header: 'Name' }],
+  features: {
+    tree: {
+      // Render an expand toggle for folders even before their children load
+      hasChildren: (row) => row.type === 'folder',
+      loadChildren: async ({ row, signal }) => {
+        const res = await fetch(`/api/nodes/${row.id}/children`, { signal });
+        return res.json();
+      },
+    },
+  },
+};
+grid.rows = [{ id: 1, name: 'Documents', type: 'folder' }];
+```
+
+While the request is in flight the node's toggle is replaced by the grid's small spinner and the row carries `aria-busy="true"`. On success the rows are written to `row[childrenField]`; on failure the node leaves its loading state so collapsing and re-expanding retries the fetch.
+
+`loadChildren` may also return a `Subscribable` (e.g. an Angular `HttpClient` observable) — the subscription is torn down when the grid disconnects, which cancels the underlying request:
+
+```ts
+features: {
+  tree: {
+    loadChildren: ({ row }) => this.http.get(`/api/nodes/${row.id}/children`),
+  },
+}
+```
+
+:::note
+`loadChildren` is ignored when `ServerSidePlugin` is active — child data then flows through `dataSource.getChildRows()` instead (see below). A node is fetched at most once; collapsing and re-expanding does not re-request.
+:::
+
 ### Server-Side Data
 
 > **Requires:** `ServerSidePlugin` — [see Server-Side Plugin](/grid/plugins/server-side/)
@@ -349,7 +392,7 @@ Child rows are fetched as a single batch — no pagination. If a tree node has m
 
 ## Configuration Options
 
-See [`TreeConfig`](./Interfaces/TreeConfig/) for the full list of options and defaults.
+See [`TreeConfig`](./interfaces/treeconfig/) for the full list of options and defaults.
 
 ### Animation Options
 
@@ -418,7 +461,27 @@ grid.on('tree-expand', ({ key, row, expanded, depth, expandedKeys }) => {
 });
 ```
 
-See [`TreeExpandDetail`](./Interfaces/TreeExpandDetail/) for the full event payload type.
+See [`TreeExpandDetail`](./interfaces/treeexpanddetail/) for the full event payload type.
+
+### tree-load-start / tree-load-end / tree-load-error
+
+Fired around lazy child loading — for both the `loadChildren` route and the `ServerSidePlugin` route:
+
+```ts
+grid.on('tree-load-start', ({ key, row, depth }) => {
+  console.log(`Loading children of ${key}…`);
+});
+
+grid.on('tree-load-end', ({ key, childCount }) => {
+  console.log(`Loaded ${childCount} children into ${key}`);
+});
+
+grid.on('tree-load-error', ({ key, error }) => {
+  console.error(`Failed to load children of ${key}`, error);
+});
+```
+
+See [`TreeLoadStartDetail`](./interfaces/treeloadstartdetail/), [`TreeLoadEndDetail`](./interfaces/treeloadenddetail/), and [`TreeLoadErrorDetail`](./interfaces/treeloaderrordetail/) for the payload types.
 
 ## Styling
 

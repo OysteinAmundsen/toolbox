@@ -82,3 +82,9 @@ related: [build-and-deploy, grid-core]
 - Source files (not built), copied as-is to dist
 - Optional — grid works without any theme using base variables only
 - Usage: `<link>` tag or `import '@toolbox-web/grid/themes/dg-theme-standard.css'`
+
+## browser support floor
+
+- DECIDED (Jun 2026): supported baseline is **Chrome/Edge 123, Firefox 121, Safari 17.5**. Driven by `light-dark()` (Chrome 123 / FF 120 / Safari 17.5 — 18 uses across `variables.css`, `loading.css`, `empty.css`) and `:has()` (FF 121). Also required: CSS Nesting, `@layer`, `adoptedStyleSheets` (Safari 16.4), `ResizeObserver`/`IntersectionObserver`. Documented in `apps/docs/src/content/docs/grid/guides/platform.mdx#browser-support` + `libs/grid/README.md`.
+- DECIDED: NO `prefers-color-scheme` fallback for `light-dark()`. WHY: would roughly double shipped CSS and reintroduce flash-of-wrong-theme. Raising the floor is the accepted trade.
+- Progressively enhanced (guarded, degrade gracefully): Popover API + CSS anchor positioning — `supportsPopover()` / `CSS.supports('anchor-name', '--test')` in `plugins/tooltip/TooltipPlugin.ts` L82-88. NOT guarded: `:has()` in `plugins/print/print-isolated.ts` (hard requirement).

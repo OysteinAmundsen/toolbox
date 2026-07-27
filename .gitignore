@@ -75,6 +75,8 @@ playwright-report/
 **/Functions/
 **/Types/
 **/Enums/
+**/Variables/
+**/Enumerations/
 
 # RFC and analysis documents (local only)
 **/RFC/*

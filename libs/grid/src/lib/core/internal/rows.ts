@@ -157,6 +157,231 @@ export function invalidateCellCache(grid: InternalGrid): void {
 }
 
 /**
+ * Remove the classes a previous `rowClass` / `cellClass` invocation applied.
+ * The applied set is recorded on the element as `data-dynamic-classes` so we can
+ * drop exactly those and leave structural classes (`cell`, `cell-focus`, …) alone.
+ */
+function clearDynamicClasses(el: HTMLElement): void {
+  const prev = el.getAttribute('data-dynamic-classes');
+  if (!prev) return;
+  const parts = prev.split(' ');
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i]) el.classList.remove(parts[i]);
+  }
+}
+
+/**
+ * Apply the result of a `rowClass` / `cellClass` callback and record the applied
+ * set so the next render can remove it. Accepts the raw callback return value
+ * (space-separated string or array).
+ */
+function applyDynamicClasses(el: HTMLElement, result: string | string[] | undefined | null): void {
+  const classes = typeof result === 'string' ? result.split(/\s+/) : result;
+  if (!classes || classes.length === 0) {
+    el.removeAttribute('data-dynamic-classes');
+    return;
+  }
+  let applied = '';
+  for (let i = 0; i < classes.length; i++) {
+    const c = classes[i];
+    if (c && typeof c === 'string') {
+      el.classList.add(c);
+      applied += (applied ? ' ' : '') + c;
+    }
+  }
+  el.setAttribute('data-dynamic-classes', applied);
+}
+
+/** Invoke the `afterCellRender` plugin hook for a freshly rendered/patched cell. */
+function emitAfterCellRender(
+  grid: GridHost,
+  rowEl: HTMLElement,
+  cell: HTMLElement,
+  col: ColumnInternal,
+  colIndex: number,
+  rowData: any,
+  rowIndex: number,
+  value: unknown,
+): void {
+  grid._afterCellRender?.({
+    row: rowData,
+    rowIndex,
+    column: col,
+    colIndex,
+    value,
+    cellElement: cell,
+    rowElement: rowEl,
+  });
+}
+
+/**
+ * Number of header rows above the data rows (1, or 2 when a column-group header
+ * row is present). Cached on the grid — used to offset `aria-rowindex`.
+ */
+function resolveHeaderRowCount(grid: GridHost): number {
+  let headerRowCount = grid.__cachedHeaderRowCount;
+  if (headerRowCount === undefined) {
+    headerRowCount = grid.querySelector('.header-group-row') ? 2 : 1;
+    grid.__cachedHeaderRowCount = headerRowCount;
+  }
+  return headerRowCount;
+}
+
+/**
+ * Grow / shrink the recyclable row pool to exactly `needed` elements.
+ *
+ * Excess elements are released BEFORE detaching so framework adapters (React
+ * portals, Vue teleports, Angular EmbeddedViewRefs) can unmount cleanly.
+ * Skipping this leaves portals tracked against detached containers, causing
+ * `removeChild` crashes on the next commit (#250). The whole shrink is wrapped
+ * in `beginBatch` / `endBatch` so adapters can defer per-cell sync commits to a
+ * single render at the end (#330).
+ */
+function syncRowPool(grid: GridHost, needed: number, bodyEl: HTMLElement | null): void {
+  // Note: click/dblclick handlers are delegated at grid level, so pooled rows
+  // need no per-element listeners. Template cloning beats createElement 3-4x.
+  while (grid._rowPool.length < needed) {
+    grid._rowPool.push(createRowFromTemplate());
+  }
+  if (grid._rowPool.length <= needed) return;
+
+  const adapter = grid.__frameworkAdapter;
+  const release = adapter?.releaseCell;
+  adapter?.beginBatch?.(grid);
+  try {
+    for (let i = needed; i < grid._rowPool.length; i++) {
+      const el = grid._rowPool[i];
+      if (release) {
+        const cells = el.children;
+        for (let c = 0; c < cells.length; c++) {
+          const cell = cells[c] as HTMLElement;
+          if (cell.firstElementChild) release.call(adapter, cell);
+        }
+      }
+      if (el.parentNode === bodyEl) el.remove();
+    }
+    grid._rowPool.length = needed;
+  } finally {
+    adapter?.endBatch?.(grid);
+  }
+}
+
+/** Restore a plugin-owned custom row element (group row, detail row, …) to the default row shape. */
+function resetCustomRow(rowEl: RowElementInternal): void {
+  if (!rowEl.__isCustomRow) return;
+  rowEl.className = 'data-grid-row';
+  rowEl.setAttribute('role', 'row');
+  rowEl.__isCustomRow = false;
+}
+
+/**
+ * True when the row's structure looks valid but an `externalView` placeholder has
+ * gone missing — the cell must be rebuilt so the placeholder can be re-mounted.
+ * Matches cells by their `data-col` attribute (the row may not have been rendered
+ * by the default path).
+ */
+function hasMissingExternalView(rowEl: HTMLElement, columns: ColumnInternal[], colLen: number): boolean {
+  for (let c = 0; c < colLen; c++) {
+    if (!columns[c].externalView) continue;
+    if (!rowEl.querySelector(`.cell[data-col="${c}"] [data-external-view]`)) return true;
+  }
+  return false;
+}
+
+/**
+ * Positional variant of {@link hasMissingExternalView} for the patch path, where
+ * the cell list is known to be in column order.
+ */
+function hasMissingExternalViewCell(children: HTMLCollection, columns: ColumnInternal[], len: number): boolean {
+  for (let i = 0; i < len; i++) {
+    if (!columns[i].externalView) continue;
+    if (!(children[i] as HTMLElement).querySelector('[data-external-view]')) return true;
+  }
+  return false;
+}
+
+/**
+ * Bring a pooled row element in sync with `rowData`, choosing between a full
+ * rebuild (`renderInlineRow`) and an in-place patch (`fastPatchRow`).
+ *
+ * Live editors are the complicating factor: a recycled element may still carry
+ * editors belonging to a *different* data row, in which case they must be cleared
+ * and the row rebuilt. If this IS the actively edited row, `EditingPlugin`'s
+ * `onScrollRender()` re-injects editors after this returns.
+ */
+function reconcileRow(
+  grid: GridHost,
+  rowEl: RowElementInternal,
+  rowData: any,
+  rowIndex: number,
+  epoch: number | undefined,
+  structureValid: boolean,
+  dataRefChanged: boolean,
+): void {
+  const hasEditing = hasEditingCells(rowEl);
+  // In grid edit mode every row carries editors — but only rows that were NOT
+  // recycled (same data ref) still own them. A recycled row must rebuild so
+  // afterCellRender can re-evaluate per-cell editability for the new row data.
+  const isActivelyEditedRow = (!!grid._isGridEditMode && !dataRefChanged) || grid._activeEditRows === rowIndex;
+
+  if (!structureValid) {
+    if (hasEditing && isActivelyEditedRow) {
+      // Correct row and it owns live editors — preserve them.
+      fastPatchRow(grid, rowEl, rowData, rowIndex);
+      rowEl.__rowDataRef = rowData;
+      return;
+    }
+    resetCustomRow(rowEl);
+    if (hasEditing) clearEditingState(rowEl);
+    renderInlineRow(grid, rowEl, rowData, rowIndex);
+    rowEl.__epoch = epoch;
+    rowEl.__rowDataRef = rowData;
+    return;
+  }
+
+  if (hasEditing && !isActivelyEditedRow) {
+    clearEditingState(rowEl);
+    renderInlineRow(grid, rowEl, rowData, rowIndex);
+    rowEl.__epoch = epoch;
+    rowEl.__rowDataRef = rowData;
+    return;
+  }
+
+  fastPatchRow(grid, rowEl, rowData, rowIndex);
+  if (dataRefChanged) rowEl.__rowDataRef = rowData;
+}
+
+/** Toggle the `changed` class from EditingPlugin's dirty-row id set. */
+function applyChangedClass(grid: GridHost, rowEl: HTMLElement, rowData: any): void {
+  let isChanged = false;
+  const changedRowIdSet = grid._changedRowIdSet;
+  if (changedRowIdSet && changedRowIdSet.size > 0) {
+    try {
+      const rowId = grid.getRowId?.(rowData);
+      if (rowId) isChanged = changedRowIdSet.has(rowId);
+    } catch {
+      // Row has no ID - not tracked as changed
+    }
+  }
+  if (isChanged !== rowEl.classList.contains('changed')) {
+    rowEl.classList.toggle('changed', isChanged);
+  }
+}
+
+/** Apply the configured `rowClass` callback, replacing any classes it added last render. */
+function applyRowClass(grid: GridHost, rowEl: HTMLElement, rowData: any): void {
+  const rowClassFn = grid.effectiveConfig?.rowClass;
+  if (!rowClassFn) return;
+  clearDynamicClasses(rowEl);
+  try {
+    applyDynamicClasses(rowEl, rowClassFn(rowData));
+  } catch (e) {
+    warnDiagnostic(ROW_CLASS_ERROR, `rowClass callback error: ${e}`, grid.id);
+    rowEl.removeAttribute('data-dynamic-classes');
+  }
+}
+
+/**
  * Render / patch the visible window of rows [start, end) using a recyclable DOM pool.
  * Newly required row elements are created and appended; excess are detached.
  * Uses an epoch counter to force full row rebuilds when structural changes (like columns) occur.
@@ -174,52 +399,9 @@ export function renderVisibleRows(
   const bodyEl = grid._bodyEl;
   const columns = grid._visibleColumns;
   const colLen = columns.length;
+  const headerRowCount = resolveHeaderRowCount(grid);
 
-  // Cache header row count once (check for group header row existence)
-  let headerRowCount = grid.__cachedHeaderRowCount;
-  if (headerRowCount === undefined) {
-    headerRowCount = grid.querySelector('.header-group-row') ? 2 : 1;
-    grid.__cachedHeaderRowCount = headerRowCount;
-  }
-
-  // Pool management: grow pool if needed
-  // Note: click/dblclick handlers are delegated at grid level for efficiency
-  while (grid._rowPool.length < needed) {
-    // Use template cloning - 3-4x faster than createElement + setAttribute
-    const rowEl = createRowFromTemplate();
-    grid._rowPool.push(rowEl);
-  }
-
-  // Remove excess pool elements from DOM and shrink pool.
-  // Release adapter-managed cells BEFORE detaching so framework adapters
-  // (React portals, Vue teleports, Angular EmbeddedViewRefs) can unmount
-  // cleanly. Skipping this leaves portals tracked against detached
-  // containers, causing `removeChild` crashes on the next commit (#250).
-  //
-  // Wrap in adapter.beginBatch / endBatch — once each row is `el.remove()`'d
-  // its cells are detached, so adapters can defer per-cell sync commits to
-  // a single render at the end (#330).
-  if (grid._rowPool.length > needed) {
-    const adapter = grid.__frameworkAdapter;
-    const release = adapter?.releaseCell;
-    adapter?.beginBatch?.(grid);
-    try {
-      for (let i = needed; i < grid._rowPool.length; i++) {
-        const el = grid._rowPool[i];
-        if (release) {
-          const cells = el.children;
-          for (let c = 0; c < cells.length; c++) {
-            const cell = cells[c] as HTMLElement;
-            if (cell.firstElementChild) release.call(adapter, cell);
-          }
-        }
-        if (el.parentNode === bodyEl) el.remove();
-      }
-      grid._rowPool.length = needed;
-    } finally {
-      adapter?.endBatch?.(grid);
-    }
-  }
+  syncRowPool(grid, needed, bodyEl);
 
   // Check if any plugin has a renderRow hook (cache this)
   const hasRenderRowPlugins = renderRowHook && grid.__hasRenderRowPlugins !== false;
@@ -249,162 +431,25 @@ export function renderVisibleRows(
       continue;
     }
 
-    const rowEpoch = rowEl.__epoch;
-    const prevRef = rowEl.__rowDataRef;
     let cellCount = rowEl.children.length;
-
     // Loading overlay is a non-cell child appended at the end — exclude from cell count
     // to avoid false structure-invalid detection that causes unnecessary full rebuilds.
     if (cellCount > colLen && rowEl.lastElementChild?.classList.contains('tbw-row-loading-overlay')) {
       cellCount--;
     }
 
-    // Check if we need a full rebuild vs fast update
-    const epochMatch = rowEpoch === epoch;
-    const structureValid = epochMatch && cellCount === colLen;
-    const dataRefChanged = prevRef !== rowData;
-    // In grid edit mode, all rows have editing cells that must be preserved
-    const isGridEditMode = !!grid._isGridEditMode;
-
-    // Need external view rebuild check when structure is valid but data changed
-    let needsExternalRebuild = false;
-    if (structureValid && dataRefChanged) {
-      for (let c = 0; c < colLen; c++) {
-        const col = columns[c];
-        if (col.externalView) {
-          const cellCheck = rowEl.querySelector(`.cell[data-col="${c}"] [data-external-view]`);
-          if (!cellCheck) {
-            needsExternalRebuild = true;
-            break;
-          }
-        }
-      }
+    const dataRefChanged = rowEl.__rowDataRef !== rowData;
+    let structureValid = rowEl.__epoch === epoch && cellCount === colLen;
+    // A valid-looking structure can still have lost an external-view placeholder
+    // when the element was recycled for a different row.
+    if (structureValid && dataRefChanged && hasMissingExternalView(rowEl, columns, colLen)) {
+      structureValid = false;
     }
 
-    if (!structureValid || needsExternalRebuild) {
-      // Full rebuild needed - epoch changed, cell count mismatch, or external view missing
-      // Use cached editing state for O(1) check instead of querySelector
-      const hasEditing = hasEditingCells(rowEl);
-      // In grid edit mode, treat recycled rows (different data ref) as needing a rebuild
-      // so afterCellRender can re-evaluate per-cell editability for the new row data.
-      const isActivelyEditedRow = (isGridEditMode && !dataRefChanged) || grid._activeEditRows === rowIndex;
+    reconcileRow(grid, rowEl, rowData, rowIndex, epoch, structureValid, dataRefChanged);
 
-      // If DOM element has editors but this is NOT the actively edited row, clear them
-      // (This happens when virtualization recycles the DOM element for a different row)
-      if (hasEditing && !isActivelyEditedRow) {
-        // Force full rebuild to clear stale editors
-        if (rowEl.__isCustomRow) {
-          rowEl.className = 'data-grid-row';
-          rowEl.setAttribute('role', 'row');
-          rowEl.__isCustomRow = false;
-        }
-        clearEditingState(rowEl); // Clear editing state before rebuild
-        renderInlineRow(grid, rowEl, rowData, rowIndex);
-        rowEl.__epoch = epoch;
-        rowEl.__rowDataRef = rowData;
-      } else if (hasEditing && isActivelyEditedRow) {
-        // Row is in editing mode AND this is the correct row - preserve editors
-        fastPatchRow(grid, rowEl, rowData, rowIndex);
-        rowEl.__rowDataRef = rowData;
-      } else {
-        if (rowEl.__isCustomRow) {
-          rowEl.className = 'data-grid-row';
-          rowEl.setAttribute('role', 'row');
-          rowEl.__isCustomRow = false;
-        }
-        renderInlineRow(grid, rowEl, rowData, rowIndex);
-        rowEl.__epoch = epoch;
-        rowEl.__rowDataRef = rowData;
-        // NOTE: If this is the actively edited row, EditingPlugin's onScrollRender() will inject editors
-      }
-    } else if (dataRefChanged) {
-      // Same structure, different row data - fast update
-      // Use cached editing state for O(1) check instead of querySelector
-      const hasEditing = hasEditingCells(rowEl);
-      // In grid edit mode with changed data ref, clear editors and rebuild
-      // so afterCellRender can re-evaluate per-cell editability for the new row.
-      const isActivelyEditedRow = grid._activeEditRows === rowIndex;
-
-      // If DOM element has editors but this is NOT the actively edited row, clear them
-      if (hasEditing && !isActivelyEditedRow) {
-        clearEditingState(rowEl); // Clear editing state before rebuild
-        renderInlineRow(grid, rowEl, rowData, rowIndex);
-        rowEl.__epoch = epoch;
-        rowEl.__rowDataRef = rowData;
-      } else {
-        fastPatchRow(grid, rowEl, rowData, rowIndex);
-        rowEl.__rowDataRef = rowData;
-        // NOTE: If this is the actively edited row, EditingPlugin's onScrollRender() will inject editors
-      }
-    } else {
-      // Same row data reference - just patch if any values changed
-      // Use cached editing state for O(1) check instead of querySelector
-      const hasEditing = hasEditingCells(rowEl);
-      // Same data ref means no recycling — safe to preserve editors in grid mode.
-      const isActivelyEditedRow = isGridEditMode || grid._activeEditRows === rowIndex;
-
-      // If DOM element has editors but this is NOT the actively edited row, clear them
-      if (hasEditing && !isActivelyEditedRow) {
-        clearEditingState(rowEl); // Clear editing state before rebuild
-        renderInlineRow(grid, rowEl, rowData, rowIndex);
-        rowEl.__epoch = epoch;
-        rowEl.__rowDataRef = rowData;
-      } else {
-        fastPatchRow(grid, rowEl, rowData, rowIndex);
-        // NOTE: If this is the actively edited row, EditingPlugin's onScrollRender() will inject editors
-      }
-    }
-
-    // Changed class toggle - check if row ID is in changedRowIds Set (EditingPlugin)
-    let isChanged = false;
-    const changedRowIdSet = grid._changedRowIdSet;
-    if (changedRowIdSet && changedRowIdSet.size > 0) {
-      try {
-        const rowId = grid.getRowId?.(rowData);
-        if (rowId) {
-          isChanged = changedRowIdSet.has(rowId);
-        }
-      } catch {
-        // Row has no ID - not tracked as changed
-      }
-    }
-    const hasChangedClass = rowEl.classList.contains('changed');
-    if (isChanged !== hasChangedClass) {
-      rowEl.classList.toggle('changed', isChanged);
-    }
-
-    // Apply rowClass callback if configured
-    const rowClassFn = grid.effectiveConfig?.rowClass;
-    if (rowClassFn) {
-      // Remove previous dynamic classes (stored in data attribute)
-      const prevClasses = rowEl.getAttribute('data-dynamic-classes');
-      if (prevClasses) {
-        const parts = prevClasses.split(' ');
-        for (let j = 0; j < parts.length; j++) {
-          if (parts[j]) rowEl.classList.remove(parts[j]);
-        }
-      }
-      try {
-        const result = rowClassFn(rowData);
-        const newClasses = typeof result === 'string' ? result.split(/\s+/) : result;
-        if (newClasses && newClasses.length > 0) {
-          let dynamicClassStr = '';
-          for (let j = 0; j < newClasses.length; j++) {
-            const c = newClasses[j];
-            if (c && typeof c === 'string') {
-              rowEl.classList.add(c);
-              dynamicClassStr += (dynamicClassStr ? ' ' : '') + c;
-            }
-          }
-          rowEl.setAttribute('data-dynamic-classes', dynamicClassStr);
-        } else {
-          rowEl.removeAttribute('data-dynamic-classes');
-        }
-      } catch (e) {
-        warnDiagnostic(ROW_CLASS_ERROR, `rowClass callback error: ${e}`, grid.id);
-        rowEl.removeAttribute('data-dynamic-classes');
-      }
-    }
+    applyChangedClass(grid, rowEl, rowData);
+    applyRowClass(grid, rowEl, rowData);
 
     // Apply per-row variable height via --tbw-row-height CSS custom property.
     // Cells bind to this variable (min-height: var(--tbw-row-height)), so setting
@@ -435,6 +480,236 @@ export function renderVisibleRows(
 
 // #region Row Patching
 /**
+ * True when at least one visible column needs the full render path (custom
+ * renderer, template, external view, formatter, cell class, or a `date`/`boolean`
+ * built-in). Cached on the grid — `invalidateCellCache()` resets it.
+ *
+ * NOTE: typeDefaults are applied to columns at config merge time by
+ * `ConfigManager.#applyTypeDefaultsToColumns()`, so a matching typeDefault already
+ * shows up as `col.renderer`/`col.format`. Only adapter-level defaults need a lookup.
+ */
+function hasSpecialColumns(grid: GridHost, columns: ColumnInternal[], colsLen: number): boolean {
+  const cached = grid.__hasSpecialColumns;
+  if (cached !== undefined) return cached;
+
+  let special = false;
+  const adapter = grid.__frameworkAdapter;
+  for (let i = 0; i < colsLen; i++) {
+    const col = columns[i];
+    if (
+      col.__viewTemplate ||
+      col.__compiledView ||
+      col.renderer ||
+      col.viewRenderer ||
+      col.externalView ||
+      col.format ||
+      col.cellClass ||
+      col.type === 'date' ||
+      col.type === 'boolean' ||
+      // Check for adapter-level type defaults (framework adapters)
+      (col.type && adapter?.getTypeDefault?.(col.type, grid._hostElement)?.renderer) ||
+      (col.type && adapter?.getTypeDefault?.(col.type, grid._hostElement)?.format)
+    ) {
+      special = true;
+      break;
+    }
+  }
+  grid.__hasSpecialColumns = special;
+  return special;
+}
+
+/**
+ * Sync a cell's focus ring. Must be data-driven (from `_focusRow`/`_focusCol`),
+ * never derived from the DOM element, because pooled elements are recycled.
+ */
+function patchCellFocus(cell: HTMLElement, shouldHaveFocus: boolean): void {
+  const hasFocus = cell.classList.contains('cell-focus');
+  if (shouldHaveFocus === hasFocus) return;
+  cell.classList.toggle('cell-focus', shouldHaveFocus);
+  cell.setAttribute('aria-selected', String(shouldHaveFocus));
+}
+
+/** Apply the column's `cellClass` callback, replacing any classes it added last render. */
+function applyCellClass(
+  grid: GridHost,
+  cell: HTMLElement,
+  col: ColumnInternal,
+  rowData: any,
+  rowIndex: number,
+): void {
+  const cellClassFn = col.cellClass;
+  if (!cellClassFn) return;
+  clearDynamicClasses(cell);
+  try {
+    const value = resolveCellValue(rowData, col, rowIndex);
+    applyDynamicClasses(cell, cellClassFn(value, rowData, col));
+  } catch (e) {
+    warnDiagnostic(CELL_CLASS_ERROR, `cellClass callback error for column '${col.field}': ${e}`, grid.id);
+    cell.removeAttribute('data-dynamic-classes');
+  }
+}
+
+/**
+ * Ultra-fast patch loop for grids with no special columns — plain `textContent`
+ * assignment with no renderer/format/template resolution at all.
+ */
+function patchPlainCells(
+  grid: GridHost,
+  rowEl: HTMLElement,
+  children: HTMLCollection,
+  columns: ColumnInternal[],
+  minLen: number,
+  rowData: any,
+  rowIndex: number,
+  rowIndexStr: string,
+  hasCellHook: boolean,
+): void {
+  const focusRow = grid._focusRow;
+  const focusCol = grid._focusCol;
+
+  for (let i = 0; i < minLen; i++) {
+    const cell = children[i] as HTMLElement;
+
+    // Skip cells in edit mode - they have editors that must be preserved
+    if (cell.classList.contains(GridClasses.EDITING)) continue;
+
+    // Release editor views if cell has element children (indicating prior editor/renderer DOM).
+    // Plain text cells (textContent-only) have no element children, so this is a fast O(1) skip.
+    if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
+
+    const col = columns[i];
+    const value = resolveCellValue(rowData, col, rowIndex);
+    cell.textContent = value == null ? '' : String(value);
+    // Update data-row for click handling
+    if (cell.getAttribute('data-row') !== rowIndexStr) {
+      cell.setAttribute('data-row', rowIndexStr);
+    }
+    // aria-selected only valid for gridcell, not checkbox (but this path has no special cols)
+    patchCellFocus(cell, focusRow === rowIndex && focusCol === i);
+
+    if (hasCellHook) emitAfterCellRender(grid, rowEl, cell, col, i, rowData, rowIndex, value);
+  }
+}
+
+/**
+ * Re-render a single cell's content on the standard (special-column) patch path.
+ * Handles the renderer → compiled template → inline template → external view →
+ * formatted/plain value priority chain, and fires `afterCellRender` for whichever
+ * branch produced the content.
+ */
+function patchCellContent(
+  grid: GridHost,
+  rowEl: HTMLElement,
+  cell: HTMLElement,
+  col: ColumnInternal,
+  colIndex: number,
+  rowData: any,
+  rowIndex: number,
+  hasCellHook: boolean,
+): void {
+  // Handle viewRenderer/renderer - must re-invoke to get updated content.
+  // Uses priority chain: column → typeDefaults → adapter → built-in
+  const cellRenderer = resolveRenderer(grid, col);
+  if (cellRenderer) {
+    const renderedValue = resolveCellValue(rowData, col, rowIndex);
+    // Pass cellEl for framework adapters that want to cache per-cell
+    const produced = cellRenderer({
+      row: rowData,
+      value: renderedValue,
+      field: col.field,
+      column: col,
+      grid: grid as any,
+      cellEl: cell,
+    });
+    if (typeof produced === 'string') {
+      // Release editor views before wiping cell content
+      grid.__frameworkAdapter?.releaseCell?.(cell);
+      cell.innerHTML = sanitizeHTML(produced);
+    } else if (produced instanceof Node) {
+      // Skip when the container is already a child of the cell — the framework
+      // adapter reused it and re-rendered in place.
+      if (produced.parentElement !== cell) {
+        grid.__frameworkAdapter?.releaseCell?.(cell);
+        cell.innerHTML = '';
+        cell.appendChild(produced);
+      }
+    } else if (produced == null) {
+      // Renderer returned null/undefined - show raw value
+      grid.__frameworkAdapter?.releaseCell?.(cell);
+      cell.textContent = renderedValue == null ? '' : String(renderedValue);
+    }
+    // If produced is truthy but not a string or Node, the framework handles it
+    if (hasCellHook) emitAfterCellRender(grid, rowEl, cell, col, colIndex, rowData, rowIndex, renderedValue);
+    return;
+  }
+
+  // Handle compiled view templates — re-evaluate with current row data
+  if (col.__compiledView) {
+    const value = resolveCellValue(rowData, col, rowIndex);
+    const output = col.__compiledView({ row: rowData, value, field: col.field, column: col });
+    if (col.__compiledView.__blocked) {
+      cell.textContent = '';
+    } else {
+      // Release any framework views before replacing innerHTML
+      if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
+      cell.innerHTML = sanitizeHTML(output);
+      finalCellScrub(cell);
+    }
+    if (hasCellHook) emitAfterCellRender(grid, rowEl, cell, col, colIndex, rowData, rowIndex, value);
+    return;
+  }
+
+  // Handle inline view templates — re-evaluate with current row data
+  if (col.__viewTemplate) {
+    const value = resolveCellValue(rowData, col, rowIndex);
+    const rawTpl = col.__viewTemplate.innerHTML;
+    if (/Reflect\.|\bProxy\b|ownKeys\(/.test(rawTpl)) {
+      cell.textContent = '';
+    } else {
+      if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
+      cell.innerHTML = sanitizeHTML(evalTemplateString(rawTpl, { row: rowData, value }));
+      finalCellScrub(cell);
+    }
+    if (hasCellHook) emitAfterCellRender(grid, rowEl, cell, col, colIndex, rowData, rowIndex, value);
+    return;
+  }
+
+  // Skip external view cells (mounted once, manages own state)
+  if (col.externalView) return;
+
+  // Compute and set display value
+  const value = resolveCellValue(rowData, col, rowIndex);
+
+  // Release editor views if cell has element children (indicating prior editor/renderer DOM).
+  // Plain text cells (textContent-only) have no element children, so this is a fast O(1) skip.
+  if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
+
+  // Resolve format using priority chain: column → typeDefaults → adapter
+  const formatFn = resolveFormat(grid, col);
+  if (formatFn) {
+    let displayStr: string;
+    try {
+      const formatted = formatFn(value, rowData);
+      displayStr = formatted == null ? '' : String(formatted);
+    } catch (e) {
+      // Log format errors as warnings (user configuration issue)
+      warnDiagnostic(FORMAT_ERROR, `Format error in column '${col.field}': ${e}`, grid.id);
+      displayStr = value == null ? '' : String(value);
+    }
+    cell.textContent = displayStr;
+  } else if (col.type === 'date') {
+    cell.textContent = formatDateValue(value);
+  } else if (col.type === 'boolean') {
+    // Boolean cells have inner span with checkbox role for ARIA compliance
+    cell.innerHTML = booleanCellHTML(!!value);
+  } else {
+    cell.textContent = value == null ? '' : String(value);
+  }
+
+  if (hasCellHook) emitAfterCellRender(grid, rowEl, cell, col, colIndex, rowData, rowIndex, value);
+}
+
+/**
  * Fast patch path for an already-rendered row: updates plain text cells whose data changed
  * while skipping cells with external views, templates, or active editors.
  *
@@ -446,103 +721,25 @@ function fastPatchRow(grid: GridHost, rowEl: HTMLElement, rowData: any, rowIndex
   const colsLen = columns.length;
   const childLen = children.length;
   const minLen = colsLen < childLen ? colsLen : childLen;
-  const focusRow = grid._focusRow;
-  const focusCol = grid._focusCol;
+  const rowIndexStr = String(rowIndex);
 
   // Check if any plugin wants cell-level hooks (avoid overhead when not needed)
   const hasCellHook = grid._hasAfterCellRenderHook?.() ?? false;
 
-  // Ultra-fast path: if no special columns (templates, formatters, etc.), use direct assignment
-  // Check is cached on grid to avoid repeated iteration
-  let hasSpecialCols = grid.__hasSpecialColumns;
-  if (hasSpecialCols === undefined) {
-    hasSpecialCols = false;
-    // NOTE: typeDefaults are now applied to columns at config merge time
-    // by ConfigManager.#applyTypeDefaultsToColumns(), so columns already have
-    // their renderer/format set if a typeDefault matched. No runtime lookup needed.
-    const adapter = grid.__frameworkAdapter;
-    for (let i = 0; i < colsLen; i++) {
-      const col = columns[i];
-      if (
-        col.__viewTemplate ||
-        col.__compiledView ||
-        col.renderer ||
-        col.viewRenderer ||
-        col.externalView ||
-        col.format ||
-        col.cellClass ||
-        col.type === 'date' ||
-        col.type === 'boolean' ||
-        // Check for adapter-level type defaults (framework adapters)
-        (col.type && adapter?.getTypeDefault?.(col.type, grid._hostElement)?.renderer) ||
-        (col.type && adapter?.getTypeDefault?.(col.type, grid._hostElement)?.format)
-      ) {
-        hasSpecialCols = true;
-        break;
-      }
-    }
-    grid.__hasSpecialColumns = hasSpecialCols;
-  }
-
-  const rowIndexStr = String(rowIndex);
-
-  // Ultra-fast path for plain text grids - just set textContent directly
-  if (!hasSpecialCols) {
-    for (let i = 0; i < minLen; i++) {
-      const cell = children[i] as HTMLElement;
-
-      // Skip cells in edit mode - they have editors that must be preserved
-      if (cell.classList.contains(GridClasses.EDITING)) continue;
-
-      // Release editor views if cell has element children (indicating prior editor/renderer DOM).
-      // Plain text cells (textContent-only) have no element children, so this is a fast O(1) skip.
-      if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
-
-      const col = columns[i];
-      const value = resolveCellValue(rowData, col, rowIndex);
-      cell.textContent = value == null ? '' : String(value);
-      // Update data-row for click handling
-      if (cell.getAttribute('data-row') !== rowIndexStr) {
-        cell.setAttribute('data-row', rowIndexStr);
-      }
-      // Update focus state - must be data-driven, not DOM-element-driven
-      const shouldHaveFocus = focusRow === rowIndex && focusCol === i;
-      const hasFocus = cell.classList.contains('cell-focus');
-      if (shouldHaveFocus !== hasFocus) {
-        cell.classList.toggle('cell-focus', shouldHaveFocus);
-        // aria-selected only valid for gridcell, not checkbox (but ultra-fast path has no special cols)
-        cell.setAttribute('aria-selected', String(shouldHaveFocus));
-      }
-
-      // Call cell-level plugin hook if any plugin registered it
-      if (hasCellHook) {
-        grid._afterCellRender?.({
-          row: rowData,
-          rowIndex,
-          column: col,
-          colIndex: i,
-          value,
-          cellElement: cell,
-          rowElement: rowEl,
-        });
-      }
-    }
+  if (!hasSpecialColumns(grid, columns, colsLen)) {
+    patchPlainCells(grid, rowEl, children, columns, minLen, rowData, rowIndex, rowIndexStr, hasCellHook);
     return;
   }
 
-  // Check if any external view placeholder is missing - if so, do full rebuild
-  for (let i = 0; i < minLen; i++) {
-    const col = columns[i];
-    if (col.externalView) {
-      const cell = children[i] as HTMLElement;
-      if (!cell.querySelector('[data-external-view]')) {
-        renderInlineRow(grid, rowEl, rowData, rowIndex);
-        return;
-      }
-    }
+  // A missing external-view placeholder means the row must be rebuilt wholesale.
+  if (hasMissingExternalViewCell(children, columns, minLen)) {
+    renderInlineRow(grid, rowEl, rowData, rowIndex);
+    return;
   }
 
-  // Standard path for grids with special columns
+  const focusRow = grid._focusRow;
+  const focusCol = grid._focusCol;
+
   for (let i = 0; i < minLen; i++) {
     const col = columns[i];
     const cell = children[i] as HTMLElement;
@@ -552,208 +749,21 @@ function fastPatchRow(grid: GridHost, rowEl: HTMLElement, rowData: any, rowIndex
       cell.setAttribute('data-row', rowIndexStr);
     }
 
-    // Check editing state once — reused for focus guard and content skip below.
+    // Check editing state once — reused for the focus guard and the content skip below.
     const isEditing = cell.classList.contains(GridClasses.EDITING);
 
-    // Update focus state - must be data-driven, not DOM-element-driven.
-    // Skip editing cells — their focus state is managed by the navigation
-    // system (ensureCellVisible), not the render pipeline. Toggling here
-    // would fire MutationObservers (e.g., overlay editors) causing
+    // Skip focus sync for editing cells — their focus state is managed by the
+    // navigation system (ensureCellVisible), not the render pipeline. Toggling
+    // here would fire MutationObservers (e.g., overlay editors) causing
     // premature overlay teardown during re-renders triggered by resize.
-    if (!isEditing) {
-      const shouldHaveFocus = focusRow === rowIndex && focusCol === i;
-      const hasFocus = cell.classList.contains('cell-focus');
-      if (shouldHaveFocus !== hasFocus) {
-        cell.classList.toggle('cell-focus', shouldHaveFocus);
-        cell.setAttribute('aria-selected', String(shouldHaveFocus));
-      }
-    }
+    if (!isEditing) patchCellFocus(cell, focusRow === rowIndex && focusCol === i);
 
-    // Apply cellClass callback if configured
-    const cellClassFn = col.cellClass;
-    if (cellClassFn) {
-      // Remove previous dynamic classes
-      const prevClasses = cell.getAttribute('data-dynamic-classes');
-      if (prevClasses) {
-        const parts = prevClasses.split(' ');
-        for (let j = 0; j < parts.length; j++) {
-          if (parts[j]) cell.classList.remove(parts[j]);
-        }
-      }
-      try {
-        const value = resolveCellValue(rowData, col, rowIndex);
-        const result = cellClassFn(value, rowData, col);
-        const cellClasses = typeof result === 'string' ? result.split(/\s+/) : result;
-        if (cellClasses && cellClasses.length > 0) {
-          let dynamicClassStr = '';
-          for (let j = 0; j < cellClasses.length; j++) {
-            const c = cellClasses[j];
-            if (c && typeof c === 'string') {
-              cell.classList.add(c);
-              dynamicClassStr += (dynamicClassStr ? ' ' : '') + c;
-            }
-          }
-          cell.setAttribute('data-dynamic-classes', dynamicClassStr);
-        } else {
-          cell.removeAttribute('data-dynamic-classes');
-        }
-      } catch (e) {
-        warnDiagnostic(CELL_CLASS_ERROR, `cellClass callback error for column '${col.field}': ${e}`, grid.id);
-        cell.removeAttribute('data-dynamic-classes');
-      }
-    }
+    applyCellClass(grid, cell, col, rowData, rowIndex);
 
-    // Skip cells in edit mode
+    // Skip content update for cells in edit mode — the editor owns the DOM.
     if (isEditing) continue;
 
-    // Handle viewRenderer/renderer - must re-invoke to get updated content
-    // Uses priority chain: column → typeDefaults → adapter → built-in
-    const cellRenderer = resolveRenderer(grid, col);
-    if (cellRenderer) {
-      const renderedValue = resolveCellValue(rowData, col, rowIndex);
-      // Pass cellEl for framework adapters that want to cache per-cell
-      const produced = cellRenderer({
-        row: rowData,
-        value: renderedValue,
-        field: col.field,
-        column: col,
-        grid: grid as any,
-        cellEl: cell,
-      });
-      if (typeof produced === 'string') {
-        // Release editor views before wiping cell content
-        grid.__frameworkAdapter?.releaseCell?.(cell);
-        cell.innerHTML = sanitizeHTML(produced);
-      } else if (produced instanceof Node) {
-        // Check if this container is already a child of the cell (reused by framework adapter)
-        if (produced.parentElement !== cell) {
-          // Release editor views before wiping cell content
-          grid.__frameworkAdapter?.releaseCell?.(cell);
-          cell.innerHTML = '';
-          cell.appendChild(produced);
-        }
-        // If already a child, the framework adapter has re-rendered in place
-      } else if (produced == null) {
-        // Renderer returned null/undefined - show raw value
-        grid.__frameworkAdapter?.releaseCell?.(cell);
-        cell.textContent = renderedValue == null ? '' : String(renderedValue);
-      }
-      // If produced is truthy but not a string or Node, the framework handles it
-      // Call cell-level plugin hook - cell was rendered
-      if (hasCellHook) {
-        grid._afterCellRender?.({
-          row: rowData,
-          rowIndex,
-          column: col,
-          colIndex: i,
-          value: renderedValue,
-          cellElement: cell,
-          rowElement: rowEl,
-        });
-      }
-      continue;
-    }
-
-    // Handle compiled view templates — re-evaluate with current row data
-    if (col.__compiledView) {
-      const value = resolveCellValue(rowData, col, rowIndex);
-      const output = col.__compiledView({ row: rowData, value, field: col.field, column: col });
-      const blocked = col.__compiledView.__blocked;
-      if (blocked) {
-        cell.textContent = '';
-      } else {
-        // Release any framework views before replacing innerHTML
-        if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
-        cell.innerHTML = sanitizeHTML(output);
-        finalCellScrub(cell);
-      }
-      if (hasCellHook) {
-        grid._afterCellRender?.({
-          row: rowData,
-          rowIndex,
-          column: col,
-          colIndex: i,
-          value,
-          cellElement: cell,
-          rowElement: rowEl,
-        });
-      }
-      continue;
-    }
-
-    // Handle inline view templates — re-evaluate with current row data
-    if (col.__viewTemplate) {
-      const value = resolveCellValue(rowData, col, rowIndex);
-      const rawTpl = col.__viewTemplate.innerHTML;
-      if (/Reflect\.|\bProxy\b|ownKeys\(/.test(rawTpl)) {
-        cell.textContent = '';
-      } else {
-        if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
-        cell.innerHTML = sanitizeHTML(evalTemplateString(rawTpl, { row: rowData, value }));
-        finalCellScrub(cell);
-      }
-      if (hasCellHook) {
-        grid._afterCellRender?.({
-          row: rowData,
-          rowIndex,
-          column: col,
-          colIndex: i,
-          value,
-          cellElement: cell,
-          rowElement: rowEl,
-        });
-      }
-      continue;
-    }
-
-    // Skip external view cells (mounted once, manages own state)
-    if (col.externalView) {
-      continue;
-    }
-
-    // Compute and set display value
-    const value = resolveCellValue(rowData, col, rowIndex);
-    let displayStr: string;
-
-    // Release editor views if cell has element children (indicating prior editor/renderer DOM).
-    // Plain text cells (textContent-only) have no element children, so this is a fast O(1) skip.
-    if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
-
-    // Resolve format using priority chain: column → typeDefaults → adapter
-    const formatFn = resolveFormat(grid, col);
-    if (formatFn) {
-      try {
-        const formatted = formatFn(value, rowData);
-        displayStr = formatted == null ? '' : String(formatted);
-      } catch (e) {
-        // Log format errors as warnings (user configuration issue)
-        warnDiagnostic(FORMAT_ERROR, `Format error in column '${col.field}': ${e}`, grid.id);
-        displayStr = value == null ? '' : String(value);
-      }
-      cell.textContent = displayStr;
-    } else if (col.type === 'date') {
-      displayStr = formatDateValue(value);
-      cell.textContent = displayStr;
-    } else if (col.type === 'boolean') {
-      // Boolean cells have inner span with checkbox role for ARIA compliance
-      cell.innerHTML = booleanCellHTML(!!value);
-    } else {
-      displayStr = value == null ? '' : String(value);
-      cell.textContent = displayStr;
-    }
-
-    // Call cell-level plugin hook - cell was rendered
-    if (hasCellHook) {
-      grid._afterCellRender?.({
-        row: rowData,
-        rowIndex,
-        column: col,
-        colIndex: i,
-        value,
-        cellElement: cell,
-        rowElement: rowEl,
-      });
-    }
+    patchCellContent(grid, rowEl, cell, col, i, rowData, rowIndex, hasCellHook);
   }
 }
 // #endregion
@@ -974,39 +984,10 @@ export function renderInlineRow(grid: GridHost, rowEl: HTMLElement, rowData: any
     }
 
     // Apply cellClass callback if configured
-    const cellClassFn = col.cellClass;
-    if (cellClassFn) {
-      try {
-        const cellValue = resolveCellValue(rowData, col, rowIndex);
-        const result = cellClassFn(cellValue, rowData, col);
-        const cellClasses = typeof result === 'string' ? result.split(/\s+/) : result;
-        if (cellClasses && cellClasses.length > 0) {
-          let dynamicClassStr = '';
-          for (const c of cellClasses) {
-            if (c && typeof c === 'string') {
-              cell.classList.add(c);
-              dynamicClassStr += (dynamicClassStr ? ' ' : '') + c;
-            }
-          }
-          cell.setAttribute('data-dynamic-classes', dynamicClassStr);
-        }
-      } catch (e) {
-        warnDiagnostic(CELL_CLASS_ERROR, `cellClass callback error for column '${col.field}': ${e}`, grid.id);
-      }
-    }
+    applyCellClass(grid, cell, col, rowData, rowIndex);
 
     // Call cell-level plugin hook if any plugin registered it
-    if (hasCellHook) {
-      grid._afterCellRender?.({
-        row: rowData,
-        rowIndex,
-        column: col,
-        colIndex,
-        value,
-        cellElement: cell,
-        rowElement: rowEl,
-      });
-    }
+    if (hasCellHook) emitAfterCellRender(grid, rowEl, cell, col, colIndex, rowData, rowIndex, value);
 
     fragment.appendChild(cell);
   }

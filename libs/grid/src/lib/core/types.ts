@@ -1,4 +1,5 @@
 import type { ToolPanelDefinition } from '../plugins/shell/types';
+import type { AggregatorRef } from './internal/aggregators';
 import type { RenderPhase } from './internal/render-scheduler';
 import type { RowPosition, ScrollMapping } from './internal/virtualization';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } from './plugin/types';
@@ -2251,34 +2252,12 @@ export interface RowGroupRenderConfig {
 /**
  * Reference to an aggregation function for footer/group summaries.
  *
- * Can be either:
- * - A built-in aggregator name: `'sum'`, `'avg'`, `'min'`, `'max'`, `'count'`
- * - A custom function that calculates the aggregate value
- *
- * Aggregators are not declared on a column directly — they are configured per
- * field on the consumer (e.g. {@link RowGroupRenderConfig.aggregators} for
- * group rows, keyed by column field name).
- *
- * @example
- * ```typescript
- * // Built-in aggregator on a group row config
- * { aggregators: { amount: 'sum' } }
- *
- * // Custom aggregator function
- * {
- *   aggregators: {
- *     price: (rows, field) => {
- *       const values = rows.map((r) => (r as any)[field]).filter((v) => v != null);
- *       return values.length ? Math.max(...values as number[]) : null;
- *     },
- *   },
- * }
- * ```
+ * Canonical declaration lives next to the aggregator registry it feeds; it is
+ * re-exported here so the public type surface stays in one place.
  *
  * @see {@link RowGroupRenderConfig} for using aggregators in group rows
- * @since 0.1.1
  */
-export type AggregatorRef = string | ((rows: unknown[], field: string, column?: unknown) => unknown);
+export type { AggregatorRef };
 
 /**
  * Result of automatic column inference from sample rows.

@@ -592,100 +592,81 @@ function patchPlainCells(
   }
 }
 
+/** Matches template source that tries to reach the prototype/proxy machinery. */
+const UNSAFE_TEMPLATE_RE = /Reflect\.|\bProxy\b|ownKeys\(/;
+
 /**
- * Re-render a single cell's content on the standard (special-column) patch path.
- * Handles the renderer → compiled template → inline template → external view →
- * formatted/plain value priority chain, and fires `afterCellRender` for whichever
- * branch produced the content.
+ * Write the output of a column renderer into the cell.
+ *
+ * Renderers may return a string (sanitized HTML), a `Node` (adopted directly),
+ * `null`/`undefined` (fall back to the raw value), or a framework-owned handle
+ * (left alone — the adapter has already rendered in place).
  */
-function patchCellContent(
+function applyRendererOutput(
   grid: GridHost,
-  rowEl: HTMLElement,
   cell: HTMLElement,
   col: ColumnInternal,
-  colIndex: number,
   rowData: any,
-  rowIndex: number,
-  hasCellHook: boolean,
+  value: unknown,
+  cellRenderer: ColumnViewRenderer<any, unknown>,
 ): void {
-  // Handle viewRenderer/renderer - must re-invoke to get updated content.
-  // Uses priority chain: column → typeDefaults → adapter → built-in
-  const cellRenderer = resolveRenderer(grid, col);
-  if (cellRenderer) {
-    const renderedValue = resolveCellValue(rowData, col, rowIndex);
-    // Pass cellEl for framework adapters that want to cache per-cell
-    const produced = cellRenderer({
-      row: rowData,
-      value: renderedValue,
-      field: col.field,
-      column: col,
-      grid: grid as any,
-      cellEl: cell,
-    });
-    if (typeof produced === 'string') {
-      // Release editor views before wiping cell content
+  // Pass cellEl for framework adapters that want to cache per-cell
+  const produced = cellRenderer({
+    row: rowData,
+    value,
+    field: col.field,
+    column: col,
+    grid: grid as any,
+    cellEl: cell,
+  });
+  if (typeof produced === 'string') {
+    // Release editor views before wiping cell content
+    grid.__frameworkAdapter?.releaseCell?.(cell);
+    cell.innerHTML = sanitizeHTML(produced);
+  } else if (produced instanceof Node) {
+    // Skip when the container is already a child of the cell — the framework
+    // adapter reused it and re-rendered in place.
+    if (produced.parentElement !== cell) {
       grid.__frameworkAdapter?.releaseCell?.(cell);
-      cell.innerHTML = sanitizeHTML(produced);
-    } else if (produced instanceof Node) {
-      // Skip when the container is already a child of the cell — the framework
-      // adapter reused it and re-rendered in place.
-      if (produced.parentElement !== cell) {
-        grid.__frameworkAdapter?.releaseCell?.(cell);
-        cell.innerHTML = '';
-        cell.appendChild(produced);
-      }
-    } else if (produced == null) {
-      // Renderer returned null/undefined - show raw value
-      grid.__frameworkAdapter?.releaseCell?.(cell);
-      cell.textContent = renderedValue == null ? '' : String(renderedValue);
+      cell.innerHTML = '';
+      cell.appendChild(produced);
     }
-    // If produced is truthy but not a string or Node, the framework handles it
-    if (hasCellHook) emitAfterCellRender(grid, rowEl, cell, col, colIndex, rowData, rowIndex, renderedValue);
+  } else if (produced == null) {
+    // Renderer returned null/undefined - show raw value
+    grid.__frameworkAdapter?.releaseCell?.(cell);
+    cell.textContent = value == null ? '' : String(value);
+  }
+  // If produced is truthy but not a string or Node, the framework handles it
+}
+
+/**
+ * Write the output of a compiled or inline view template into the cell.
+ *
+ * `html` is `null` when the template was rejected by the sanitizer's static
+ * analysis (compiled templates) or by {@link UNSAFE_TEMPLATE_RE} (inline
+ * templates); the cell is then blanked rather than rendered.
+ */
+function applyTemplateOutput(grid: GridHost, cell: HTMLElement, html: string | null): void {
+  if (html === null) {
+    cell.textContent = '';
     return;
   }
+  // Release any framework views before replacing innerHTML
+  if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
+  cell.innerHTML = sanitizeHTML(html);
+  finalCellScrub(cell);
+}
 
-  // Handle compiled view templates — re-evaluate with current row data
-  if (col.__compiledView) {
-    const value = resolveCellValue(rowData, col, rowIndex);
-    const output = col.__compiledView({ row: rowData, value, field: col.field, column: col });
-    if (col.__compiledView.__blocked) {
-      cell.textContent = '';
-    } else {
-      // Release any framework views before replacing innerHTML
-      if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
-      cell.innerHTML = sanitizeHTML(output);
-      finalCellScrub(cell);
-    }
-    if (hasCellHook) emitAfterCellRender(grid, rowEl, cell, col, colIndex, rowData, rowIndex, value);
-    return;
-  }
-
-  // Handle inline view templates — re-evaluate with current row data
-  if (col.__viewTemplate) {
-    const value = resolveCellValue(rowData, col, rowIndex);
-    const rawTpl = col.__viewTemplate.innerHTML;
-    if (/Reflect\.|\bProxy\b|ownKeys\(/.test(rawTpl)) {
-      cell.textContent = '';
-    } else {
-      if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
-      cell.innerHTML = sanitizeHTML(evalTemplateString(rawTpl, { row: rowData, value }));
-      finalCellScrub(cell);
-    }
-    if (hasCellHook) emitAfterCellRender(grid, rowEl, cell, col, colIndex, rowData, rowIndex, value);
-    return;
-  }
-
-  // Skip external view cells (mounted once, manages own state)
-  if (col.externalView) return;
-
-  // Compute and set display value
-  const value = resolveCellValue(rowData, col, rowIndex);
-
+/**
+ * Write a plain (non-rendered, non-templated) value into the cell using the
+ * format priority chain: `column.format` → `typeDefaults` → adapter → built-in
+ * type formatting.
+ */
+function applyFormattedValue(grid: GridHost, cell: HTMLElement, col: ColumnInternal, rowData: any, value: unknown) {
   // Release editor views if cell has element children (indicating prior editor/renderer DOM).
   // Plain text cells (textContent-only) have no element children, so this is a fast O(1) skip.
   if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
 
-  // Resolve format using priority chain: column → typeDefaults → adapter
   const formatFn = resolveFormat(grid, col);
   if (formatFn) {
     let displayStr: string;
@@ -705,6 +686,53 @@ function patchCellContent(
     cell.innerHTML = booleanCellHTML(!!value);
   } else {
     cell.textContent = value == null ? '' : String(value);
+  }
+}
+
+/**
+ * Re-render a single cell's content on the standard (special-column) patch path.
+ * Dispatches over the renderer → compiled template → inline template → external
+ * view → formatted/plain value priority chain, then fires `afterCellRender` once
+ * for whichever branch produced the content.
+ *
+ * Parameters are kept flat rather than bundled into a context object: this runs
+ * once per cell on the patch path, so an options object would allocate per cell.
+ */
+function patchCellContent(
+  grid: GridHost,
+  rowEl: HTMLElement,
+  cell: HTMLElement,
+  col: ColumnInternal,
+  colIndex: number,
+  rowData: any,
+  rowIndex: number,
+  hasCellHook: boolean,
+): void {
+  // Renderer priority chain: column → typeDefaults → adapter → built-in.
+  const cellRenderer = resolveRenderer(grid, col);
+  let value: unknown;
+
+  if (cellRenderer) {
+    // Must re-invoke to get updated content.
+    value = resolveCellValue(rowData, col, rowIndex);
+    applyRendererOutput(grid, cell, col, rowData, value, cellRenderer);
+  } else if (col.__compiledView) {
+    // Compiled view template — re-evaluate with current row data.
+    value = resolveCellValue(rowData, col, rowIndex);
+    const output = col.__compiledView({ row: rowData, value, field: col.field, column: col });
+    applyTemplateOutput(grid, cell, col.__compiledView.__blocked ? null : output);
+  } else if (col.__viewTemplate) {
+    // Inline view template — re-evaluate with current row data.
+    value = resolveCellValue(rowData, col, rowIndex);
+    const rawTpl = col.__viewTemplate.innerHTML;
+    const html = UNSAFE_TEMPLATE_RE.test(rawTpl) ? null : evalTemplateString(rawTpl, { row: rowData, value });
+    applyTemplateOutput(grid, cell, html);
+  } else if (col.externalView) {
+    // External view cells are mounted once and manage their own state.
+    return;
+  } else {
+    value = resolveCellValue(rowData, col, rowIndex);
+    applyFormattedValue(grid, cell, col, rowData, value);
   }
 
   if (hasCellHook) emitAfterCellRender(grid, rowEl, cell, col, colIndex, rowData, rowIndex, value);

@@ -16,6 +16,37 @@
 import { readCellField, resolveCellValue } from './value-accessor';
 
 export type AggregatorFn = (rows: any[], field: string, column?: any) => any;
+
+/**
+ * Reference to an aggregation function for footer/group summaries.
+ *
+ * Can be either:
+ * - A built-in aggregator name: `'sum'`, `'avg'`, `'min'`, `'max'`, `'count'`
+ * - A plugin-registered aggregator name
+ * - A custom {@link AggregatorFn}
+ *
+ * Aggregators are not declared on a column directly — they are configured per
+ * field on the consumer (e.g. `RowGroupRenderConfig.aggregators` for group
+ * rows, keyed by column field name).
+ *
+ * @example
+ * ```typescript
+ * // Built-in aggregator on a group row config
+ * { aggregators: { amount: 'sum' } }
+ *
+ * // Custom aggregator function
+ * {
+ *   aggregators: {
+ *     price: (rows, field) => {
+ *       const values = rows.map((r) => (r as any)[field]).filter((v) => v != null);
+ *       return values.length ? Math.max(...(values as number[])) : null;
+ *     },
+ *   },
+ * }
+ * ```
+ *
+ * @since 0.1.1
+ */
 export type AggregatorRef = string | AggregatorFn;
 
 /**

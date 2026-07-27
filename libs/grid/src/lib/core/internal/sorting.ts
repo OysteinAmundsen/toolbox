@@ -81,32 +81,8 @@ export function defaultComparator(a: unknown, b: unknown): number {
  * @since 0.2.7
  */
 export function builtInSort<T>(rows: T[], sortState: SortState, columns: ColumnConfig<T>[]): T[] {
-  const col = columns.find((c) => c.field === sortState.field);
-  const customComparator = col?.sortComparator;
-  const { field, direction } = sortState;
   const sorted = [...rows];
-
-  if (customComparator) {
-    // Custom comparator path — keep the indirect call.
-    // sortComparator wins over valueAccessor (per-column override).
-    if (col?.valueAccessor) {
-      sorted.sort(
-        (rA: any, rB: any) =>
-          customComparator(resolveCellValue(rA, col), resolveCellValue(rB, col), rA, rB) * direction,
-      );
-    } else {
-      const read = createFieldReader(field);
-      sorted.sort((rA: any, rB: any) => customComparator(read(rA), read(rB), rA, rB) * direction);
-    }
-  } else if (col?.valueAccessor) {
-    // valueAccessor path — extract values via the accessor.
-    sortInPlaceWithAccessor(sorted, col, direction);
-  } else {
-    // Fast path — inline default comparator and fold direction to avoid
-    // ~20M indirect function calls + multiplications at 1M rows.
-    sortInPlace(sorted, field, direction);
-  }
-
+  executeBuiltInSortInPlace(sorted, sortState.field, sortState.direction, columns as ColumnConfig<any>[]);
   return sorted;
 }
 
@@ -215,12 +191,16 @@ function pinLoadingRows(a: unknown, b: unknown): number {
 /**
  * Execute the built-in sort on rows in-place, using a column-level custom
  * comparator when present, otherwise the default comparator.
+ *
+ * Shared by the public {@link builtInSort} (which copies first) and the internal
+ * fast paths in `applySort` / `reapplyCoreSort` (which sort the live array).
  */
 function executeBuiltInSortInPlace(rows: any[], field: string, direction: 1 | -1, columns: ColumnConfig<any>[]): void {
   const col = columns.find((c) => c.field === field);
   const customComparator = col?.sortComparator;
   if (customComparator) {
-    // sortComparator wins over valueAccessor.
+    // Custom comparator path — keep the indirect call.
+    // sortComparator wins over valueAccessor (per-column override).
     if (col?.valueAccessor) {
       rows.sort(
         (rA: any, rB: any) =>
@@ -231,8 +211,11 @@ function executeBuiltInSortInPlace(rows: any[], field: string, direction: 1 | -1
       rows.sort((rA: any, rB: any) => customComparator(read(rA), read(rB), rA, rB) * direction);
     }
   } else if (col?.valueAccessor) {
+    // valueAccessor path — extract values via the accessor.
     sortInPlaceWithAccessor(rows, col, direction);
   } else {
+    // Fast path — inline default comparator and fold direction to avoid
+    // ~20M indirect function calls + multiplications at 1M rows.
     sortInPlace(rows, field, direction);
   }
 }

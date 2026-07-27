@@ -2272,48 +2272,11 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const internalGrid = this.#internalGrid;
     const snapshot = this.#rowEditSnapshots.get(rowIndex);
     const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
-
-    // Resolve the row being edited using the stored row ID.
-    // The _rows array may have been replaced (e.g. Angular pushing new rows
-    // via directive effect) since editing started, so _rows[rowIndex] could
-    // point to a completely different row. The ID map is always up-to-date.
-    // Without an ID we fall back to the stored row reference from edit-open
-    // (#activeEditRowRef) — safer than _rows[rowIndex] which may be stale.
-    let rowId = this.#activeEditRowId;
-    const entry = rowId ? internalGrid._getRowEntry(rowId) : undefined;
-    const current = entry?.row ?? this.#activeEditRowRef ?? internalGrid._rows[rowIndex];
-
-    if (!rowId && current) {
-      rowId = this.#safeGetRowId(current);
-    }
+    const { rowId, current } = this.#resolveEditedRow(rowIndex);
 
     // Collect and commit values from active editors before re-rendering
     if (!revert && rowEl && current) {
-      const editingCells = rowEl.querySelectorAll('.cell.editing');
-      editingCells.forEach((cell) => {
-        const colIndex = Number((cell as HTMLElement).getAttribute('data-col'));
-        if (isNaN(colIndex)) return;
-        const col = internalGrid._visibleColumns[colIndex];
-        if (!col) return;
-
-        // Skip cells with externally-managed editors (framework adapters like Angular/React/Vue).
-        // These editors handle their own commits via the commit() callback - we should NOT
-        // try to read values from their DOM inputs (which may contain formatted display values).
-        if ((cell as HTMLElement).hasAttribute('data-editor-managed')) {
-          return;
-        }
-
-        const input = cell.querySelector('input,textarea,select') as
-          HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
-        if (input) {
-          const field = col.field as keyof T;
-          const originalValue = current[field];
-          const val = getInputValue(input, col, originalValue);
-          if (originalValue !== val) {
-            this.#commitCellValue(rowIndex, col, val, current);
-          }
-        }
-      });
+      this.#commitActiveEditors(rowEl, rowIndex, current);
     }
 
     // Flush managed editors (framework adapters) before clearing state.
@@ -2331,70 +2294,10 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (revert && current) {
       this.#revertRowFromSnapshot(rowId, current, snapshot);
     } else if (!revert && current) {
-      // Compare snapshot vs current to detect if changes were made during THIS edit session
-      const changedThisSession = hasRowChanged(snapshot, current);
-
-      // Check if this row has any cumulative changes (via ID tracking)
-      // Fall back to session-based detection when no row ID is available
-      const changed = rowId ? this.#dirty.changedRowIds.has(rowId) : changedThisSession;
-
-      // Emit cancelable row-commit event
-      const cancelled = this.emitCancelable<RowCommitDetail<T>>('row-commit', {
-        rowIndex,
-        rowId: rowId ?? '',
-        row: current,
-        oldValue: snapshot,
-        newValue: current,
-        changed,
-        changedRows: this.changedRows,
-        changedRowIds: this.changedRowIds,
-      });
-
-      // If consumer called preventDefault(), revert the row
-      if (cancelled && snapshot) {
-        this.#revertRowFromSnapshot(rowId, current, snapshot);
-      } else if (!cancelled) {
-        // Mark row as committed-dirty if it has actual changes vs baseline
-        if (rowId && this.config.dirtyTracking) {
-          if (this.#dirty.isRowDirty(rowId, current)) {
-            this.#dirty.committedDirtyRowIds.add(rowId);
-          } else {
-            this.#dirty.committedDirtyRowIds.delete(rowId);
-          }
-        }
-
-        if (changedThisSession && this.isAnimationEnabled) {
-          // Animate the row only if changes were made during this edit session
-          // (deferred to afterRender so the row element exists after re-render)
-          this.#pendingRowAnimation = rowIndex;
-        }
-      }
+      this.#finalizeRowCommit(rowIndex, rowId, current, snapshot);
     }
 
-    // Clear editing state
-    this.#rowEditSnapshots.delete(rowIndex);
-    this.#activeEditRow = -1;
-    this.#activeEditRowId = undefined;
-    this.#activeEditRowRef = undefined;
-    this.#activeEditCol = -1;
-    this.#singleCellEdit = false;
-    this.#syncGridEditState();
-
-    // Remove all editing cells for this row.
-    // Note: these keys use the rowIndex captured at edit-open time. Even if _rows
-    // was replaced and the row moved to a different index, the keys still match
-    // what was inserted during this edit session (same captured rowIndex).
-    for (const cellKey of this.#editingCells) {
-      if (cellKey.startsWith(`${rowIndex}:`)) {
-        this.#editingCells.delete(cellKey);
-      }
-    }
-    // Remove value-change callbacks for this row (same captured-index rationale)
-    for (const callbackKey of this.#editorValueCallbacks.keys()) {
-      if (callbackKey.startsWith(`${rowIndex}:`)) {
-        this.#editorValueCallbacks.delete(callbackKey);
-      }
-    }
+    this.#clearRowEditState(rowIndex);
 
     // Mark that focus should be restored after the upcoming render completes.
     // This must be set BEFORE refreshVirtualWindow because it calls afterRender()
@@ -2403,32 +2306,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // Re-render the row to remove editors
     if (rowEl) {
-      // Release framework editor components (Angular/React/Vue) BEFORE clearing
-      // editing state. This ensures releaseCell runs while the editor DOM is
-      // still inside each cell, so the adapter can find and destroy ComponentRefs.
-      // Without this, overlay editors (BaseOverlayEditor) leak panels on <body>
-      // with active MutationObservers that react to cell-focus class changes.
-      const adapter = internalGrid.__frameworkAdapter;
-      const editingCells = rowEl.querySelectorAll('.cell.editing');
-      if (adapter?.releaseCell) {
-        editingCells.forEach((cell) => {
-          adapter.releaseCell!(cell as HTMLElement);
-        });
-      }
-
-      // Remove editing class and re-render cells
-      editingCells.forEach((cell) => {
-        cell.classList.remove('editing');
-        clearEditingState(cell.parentElement as RowElementInternal);
-      });
-
-      // Refresh the virtual window to restore cell content WITHOUT rebuilding
-      // the row model. requestRender() would trigger processRows (ROWS phase)
-      // which re-sorts — causing the edited row to jump to a new position and
-      // disappear from view. refreshVirtualWindow re-renders visible cells from
-      // the current _rows order, keeping the row in place until the user
-      // explicitly sorts again or new data arrives.
-      internalGrid.refreshVirtualWindow(true);
+      this.#teardownRowEditors(rowEl, internalGrid);
     } else {
       // Row not visible - restore focus immediately (no render will happen)
       this.#restoreCellFocus(internalGrid);
@@ -2448,6 +2326,164 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         announce(this.gridElement, getA11yMessage(this.gridElement, 'editingCommitted', rowIndex));
       }
     }
+  }
+
+  /**
+   * Resolve the row being edited using the stored row ID.
+   *
+   * The `_rows` array may have been replaced (e.g. Angular pushing new rows via
+   * directive effect) since editing started, so `_rows[rowIndex]` could point to
+   * a completely different row — the ID map is always up to date. Without an ID
+   * we fall back to the row reference stored at edit-open (`#activeEditRowRef`),
+   * which is safer than the possibly-stale `_rows[rowIndex]`.
+   */
+  #resolveEditedRow(rowIndex: number): { rowId: string | undefined; current: T | undefined } {
+    const internalGrid = this.#internalGrid;
+    let rowId = this.#activeEditRowId;
+    const entry = rowId ? internalGrid._getRowEntry(rowId) : undefined;
+    const current = entry?.row ?? this.#activeEditRowRef ?? internalGrid._rows[rowIndex];
+
+    if (!rowId && current) {
+      rowId = this.#safeGetRowId(current);
+    }
+    return { rowId, current };
+  }
+
+  /**
+   * Read pending values out of every native editor in the row and commit the
+   * ones that actually changed.
+   */
+  #commitActiveEditors(rowEl: HTMLElement, rowIndex: number, current: T): void {
+    const internalGrid = this.#internalGrid;
+    rowEl.querySelectorAll('.cell.editing').forEach((cell) => {
+      const colIndex = Number((cell as HTMLElement).getAttribute('data-col'));
+      if (isNaN(colIndex)) return;
+      const col = internalGrid._visibleColumns[colIndex];
+      if (!col) return;
+
+      // Skip cells with externally-managed editors (framework adapters like Angular/React/Vue).
+      // These editors handle their own commits via the commit() callback - we should NOT
+      // try to read values from their DOM inputs (which may contain formatted display values).
+      if ((cell as HTMLElement).hasAttribute('data-editor-managed')) return;
+
+      const input = cell.querySelector('input,textarea,select') as
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+      if (!input) return;
+
+      const field = col.field as keyof T;
+      const originalValue = current[field];
+      const val = getInputValue(input, col, originalValue);
+      if (originalValue !== val) {
+        this.#commitCellValue(rowIndex, col, val, current);
+      }
+    });
+  }
+
+  /**
+   * Emit the cancelable `row-commit` event and apply its outcome — revert on
+   * `preventDefault()`, otherwise refresh committed-dirty tracking and queue the
+   * change animation.
+   */
+  #finalizeRowCommit(rowIndex: number, rowId: string | undefined, current: T, snapshot: T | undefined): void {
+    // Compare snapshot vs current to detect if changes were made during THIS edit session
+    const changedThisSession = hasRowChanged(snapshot, current);
+
+    // Check if this row has any cumulative changes (via ID tracking)
+    // Fall back to session-based detection when no row ID is available
+    const changed = rowId ? this.#dirty.changedRowIds.has(rowId) : changedThisSession;
+
+    const cancelled = this.emitCancelable<RowCommitDetail<T>>('row-commit', {
+      rowIndex,
+      rowId: rowId ?? '',
+      row: current,
+      oldValue: snapshot,
+      newValue: current,
+      changed,
+      changedRows: this.changedRows,
+      changedRowIds: this.changedRowIds,
+    });
+
+    // If consumer called preventDefault(), revert the row
+    if (cancelled) {
+      if (snapshot) this.#revertRowFromSnapshot(rowId, current, snapshot);
+      return;
+    }
+
+    // Mark row as committed-dirty if it has actual changes vs baseline
+    if (rowId && this.config.dirtyTracking) {
+      if (this.#dirty.isRowDirty(rowId, current)) {
+        this.#dirty.committedDirtyRowIds.add(rowId);
+      } else {
+        this.#dirty.committedDirtyRowIds.delete(rowId);
+      }
+    }
+
+    if (changedThisSession && this.isAnimationEnabled) {
+      // Animate the row only if changes were made during this edit session
+      // (deferred to afterRender so the row element exists after re-render)
+      this.#pendingRowAnimation = rowIndex;
+    }
+  }
+
+  /**
+   * Clear all per-row editing bookkeeping.
+   *
+   * The `#editingCells` / `#editorValueCallbacks` keys use the rowIndex captured
+   * at edit-open time. Even if `_rows` was replaced and the row moved to a
+   * different index, the keys still match what was inserted during this session.
+   */
+  #clearRowEditState(rowIndex: number): void {
+    this.#rowEditSnapshots.delete(rowIndex);
+    this.#activeEditRow = -1;
+    this.#activeEditRowId = undefined;
+    this.#activeEditRowRef = undefined;
+    this.#activeEditCol = -1;
+    this.#singleCellEdit = false;
+    this.#syncGridEditState();
+
+    for (const cellKey of this.#editingCells) {
+      if (cellKey.startsWith(`${rowIndex}:`)) {
+        this.#editingCells.delete(cellKey);
+      }
+    }
+    for (const callbackKey of this.#editorValueCallbacks.keys()) {
+      if (callbackKey.startsWith(`${rowIndex}:`)) {
+        this.#editorValueCallbacks.delete(callbackKey);
+      }
+    }
+  }
+
+  /**
+   * Release framework editor components, drop the editing state from the cells
+   * and re-render the row so the display values come back.
+   */
+  #teardownRowEditors(rowEl: HTMLElement, internalGrid: InternalGrid<T>): void {
+    // Release framework editor components (Angular/React/Vue) BEFORE clearing
+    // editing state. This ensures releaseCell runs while the editor DOM is
+    // still inside each cell, so the adapter can find and destroy ComponentRefs.
+    // Without this, overlay editors (BaseOverlayEditor) leak panels on <body>
+    // with active MutationObservers that react to cell-focus class changes.
+    const adapter = internalGrid.__frameworkAdapter;
+    const editingCells = rowEl.querySelectorAll('.cell.editing');
+    if (adapter?.releaseCell) {
+      editingCells.forEach((cell) => {
+        adapter.releaseCell!(cell as HTMLElement);
+      });
+    }
+
+    // Remove editing class and re-render cells
+    editingCells.forEach((cell) => {
+      cell.classList.remove('editing');
+      clearEditingState(cell.parentElement as RowElementInternal);
+    });
+
+    // Refresh the virtual window to restore cell content WITHOUT rebuilding
+    // the row model. requestRender() would trigger processRows (ROWS phase)
+    // which re-sorts — causing the edited row to jump to a new position and
+    // disappear from view. refreshVirtualWindow re-renders visible cells from
+    // the current _rows order, keeping the row in place until the user
+    // explicitly sorts again or new data arrives.
+    internalGrid.refreshVirtualWindow(true);
   }
 
   /**

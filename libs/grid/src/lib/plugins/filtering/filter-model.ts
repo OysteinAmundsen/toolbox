@@ -14,6 +14,29 @@ import type { FilterModel } from './types';
  */
 export const BLANK_FILTER_VALUE = '(Blank)';
 
+/** A row object as seen by the filter engine. */
+type RowRecord = Record<string, unknown>;
+
+/** A compiled filter predicate. */
+type RowPredicate = (row: RowRecord) => boolean;
+
+/** Resolves the comparable cell value for a row (direct or via extractor). */
+type ValueGetter = (row: RowRecord) => unknown;
+
+/** Optional extractor for complex cell values (arrays, objects, computed columns). */
+type FilterValueExtractor = (value: unknown, row: RowRecord) => unknown | unknown[];
+
+/**
+ * Reject blanks before coercion. A value is blank when it is null, undefined,
+ * '' or NaN (NaN is strictly an error state but is treated as "no value" here).
+ * Kept intentionally loose (doesn't force a number type) so numeric strings,
+ * Date objects and ISO date strings keep flowing through the coercion in
+ * `>`/`<`/`toNumeric`.
+ */
+function isBlank(value: unknown): boolean {
+  return value == null || value === '' || (typeof value === 'number' && isNaN(value));
+}
+
 /**
  * Convert a value to a comparable number.
  * Handles Date objects, numeric values, and date/ISO strings.
@@ -53,94 +76,103 @@ export function matchesFilter(
 /**
  * Compile a single filter into a specialized predicate with pre-resolved values.
  * Avoids repeated type coercion and string conversion inside the hot loop.
+ *
+ * Delegates to one operator-family compiler at a time; the first that claims the
+ * operator wins. Unknown operators pass every row through.
  */
-function compileFilter(
-  filter: FilterModel,
-  caseSensitive: boolean,
-  filterValue?: (value: unknown, row: Record<string, unknown>) => unknown | unknown[],
-): (row: Record<string, unknown>) => boolean {
+function compileFilter(filter: FilterModel, caseSensitive: boolean, filterValue?: FilterValueExtractor): RowPredicate {
   const field = filter.field;
-  const op = filter.operator;
 
   // When a filterValue extractor is provided, use it instead of direct row[field]
   // access. This supports virtual/computed columns whose field doesn't exist on
   // the row data object.
-  const getValue = filterValue
-    ? (row: Record<string, unknown>) => filterValue(row[field], row)
-    : (row: Record<string, unknown>) => row[field];
+  const getValue: ValueGetter = filterValue ? (row) => filterValue(row[field], row) : (row) => row[field];
 
-  // blank / notBlank — no value needed.
-  // A value is considered blank when it is null, undefined, '', or NaN
-  // (NaN is strictly an error state but is treated as "no value" here).
-  if (op === 'blank')
+  return (
+    compileBlankPredicate(filter, getValue) ??
+    compileSetPredicate(filter, field, filterValue) ??
+    compileNumericPredicate(filter, field, getValue, filterValue === undefined) ??
+    compileTextPredicate(filter, caseSensitive, getValue) ??
+    // Unknown operator — pass row through
+    (() => true)
+  );
+}
+
+/**
+ * `blank` / `notBlank` — no filter value needed.
+ *
+ * The blank test is inlined rather than delegating to {@link isBlank}: these are
+ * the only predicates where the check IS the whole body, so the extra call would
+ * be pure overhead in the per-row hot loop.
+ */
+function compileBlankPredicate(filter: FilterModel, getValue: ValueGetter): RowPredicate | undefined {
+  if (filter.operator === 'blank')
     return (row) => {
       const v = getValue(row);
       return v == null || v === '' || (typeof v === 'number' && isNaN(v));
     };
-  if (op === 'notBlank')
+  if (filter.operator === 'notBlank')
     return (row) => {
       const v = getValue(row);
       return v != null && v !== '' && !(typeof v === 'number' && isNaN(v));
     };
+  return undefined;
+}
 
-  // Set operators with filterValue extractor — pre-convert to Set for O(1) lookups
-  if (filterValue && (op === 'notIn' || op === 'in')) {
-    const arr = filter.value;
-    if (op === 'notIn') {
-      if (!Array.isArray(arr)) return () => true;
-      const lookup = new Set(arr);
-      return (row) => {
-        const extracted = filterValue(row[field], row);
-        const values = Array.isArray(extracted) ? extracted : extracted != null ? [extracted] : [];
-        if (values.length === 0) return !lookup.has(BLANK_FILTER_VALUE);
-        return !values.some((v) => lookup.has(v));
-      };
-    }
-    // op === 'in'
-    if (!Array.isArray(arr)) return () => false;
-    const lookup = new Set(arr);
+/**
+ * Set operators (`in` / `notIn`) — pre-convert the filter value to a Set for
+ * O(1) lookups. With a `filterValue` extractor the extracted value may be an
+ * array (multi-value cells); a row that yields no values matches the
+ * {@link BLANK_FILTER_VALUE} sentinel.
+ */
+function compileSetPredicate(
+  filter: FilterModel,
+  field: string,
+  filterValue?: FilterValueExtractor,
+): RowPredicate | undefined {
+  const op = filter.operator;
+  if (op !== 'in' && op !== 'notIn') return undefined;
+
+  const negate = op === 'notIn';
+  if (!Array.isArray(filter.value)) return negate ? () => true : () => false;
+  const lookup = new Set(filter.value);
+
+  if (filterValue) {
     return (row) => {
       const extracted = filterValue(row[field], row);
       const values = Array.isArray(extracted) ? extracted : extracted != null ? [extracted] : [];
-      if (values.length === 0) return lookup.has(BLANK_FILTER_VALUE);
-      return values.some((v) => lookup.has(v));
+      const matched = values.length === 0 ? lookup.has(BLANK_FILTER_VALUE) : values.some((v) => lookup.has(v));
+      return negate ? !matched : matched;
     };
   }
+  return (row) => {
+    const v = row[field];
+    const matched = v == null || v === '' ? lookup.has(BLANK_FILTER_VALUE) : lookup.has(v);
+    return negate ? !matched : matched;
+  };
+}
 
-  // Set operators without extractor — pre-convert to Set for O(1) lookups
-  if (op === 'notIn') {
-    if (!Array.isArray(filter.value)) return () => true;
-    const lookup = new Set(filter.value);
-    return (row) => {
-      const v = row[field];
-      if (v == null || v === '') return !lookup.has(BLANK_FILTER_VALUE);
-      return !lookup.has(v);
-    };
-  }
-  if (op === 'in') {
-    if (!Array.isArray(filter.value)) return () => false;
-    const lookup = new Set(filter.value);
-    return (row) => {
-      const v = row[field];
-      if (v == null || v === '') return lookup.has(BLANK_FILTER_VALUE);
-      return lookup.has(v);
-    };
-  }
+/**
+ * Numeric / date operators — pre-resolve the threshold(s) once.
+ *
+ * When the filter type is `'number'` and there's no custom extractor, row values
+ * are expected to already be JS numbers — emit a tighter predicate that skips
+ * `toNumeric()`. When a `filterValue` extractor is present, always use the
+ * cautious path since the extracted value may need conversion.
+ *
+ * Numeric comparisons must always exclude blank values, otherwise JS coercion
+ * leaks them through (e.g. `null >= 0` is `true`, `Number('') === 0`). Blank rows
+ * are only matched by the explicit `blank` operator.
+ */
+function compileNumericPredicate(
+  filter: FilterModel,
+  field: string,
+  getValue: ValueGetter,
+  noExtractor: boolean,
+): RowPredicate | undefined {
+  const op = filter.operator;
+  const isNumType = filter.type === 'number' && noExtractor;
 
-  // Numeric / date operators — pre-resolve threshold(s) once.
-  // When the filter type is 'number' and there's no custom extractor, row values
-  // are expected to already be JS numbers — emit a tighter predicate that skips
-  // toNumeric(). When a filterValue extractor is present, always use the cautious
-  // path since the extracted value may need conversion.
-  //
-  // Numeric comparisons must always exclude blank values (null / undefined / '' / NaN),
-  // otherwise JS coercion leaks them through (e.g. `null >= 0` is `true`, `Number('') === 0`).
-  // Blank rows are only matched by the explicit `blank` operator.
-  const isNumType = filter.type === 'number' && !filterValue;
-  // Reject blanks before coercion. Kept intentionally loose (doesn't force a
-  // number type) so numeric strings, Date objects, and ISO date strings keep
-  // flowing through the existing coercion in `>`/`<`/`toNumeric`.
-  const isBlank = (v: unknown): boolean => v == null || v === '' || (typeof v === 'number' && isNaN(v));
   if (op === 'greaterThan') {
     const threshold = toNumeric(filter.value);
     return isNumType
@@ -214,9 +246,21 @@ function compileFilter(
           return !isNaN(n) && n >= lo && n <= hi;
         };
   }
+  return undefined;
+}
 
-  // Text operators — pre-resolve filter comparison value once
+/**
+ * Text operators — pre-resolve the filter comparison value (and its lower-cased
+ * form) once, then emit a case-sensitive or case-insensitive specialization.
+ */
+function compileTextPredicate(
+  filter: FilterModel,
+  caseSensitive: boolean,
+  getValue: ValueGetter,
+): RowPredicate | undefined {
+  const op = filter.operator;
   const compareFilterValue = caseSensitive ? String(filter.value) : String(filter.value).toLowerCase();
+
   if (op === 'contains') {
     return caseSensitive
       ? (row) => {
@@ -283,9 +327,7 @@ function compileFilter(
           return v != null && String(v).toLowerCase().endsWith(compareFilterValue);
         };
   }
-
-  // Unknown operator — pass row through
-  return () => true;
+  return undefined;
 }
 
 /**

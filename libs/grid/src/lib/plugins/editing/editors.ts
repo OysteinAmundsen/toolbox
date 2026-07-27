@@ -281,6 +281,76 @@ export function defaultEditorFor(column: AnyColumn): (ctx: ColumnEditorContext) 
 // ============================================================================
 
 /**
+ * Resolve a numeric editor value. Empty input falls back to `null` for nullable
+ * columns, otherwise to the configured `min` (or `0`).
+ */
+function readNumericValue(raw: string, column?: AnyColumn): unknown {
+  if (raw === '') {
+    if (column?.nullable) return null;
+    const params = column?.editorParams as NumberEditorParams | undefined;
+    return params?.min ?? 0;
+  }
+  return Number(raw);
+}
+
+/**
+ * Resolve a `<input type="date">` value, preserving the original value's type
+ * (string dates stay `YYYY-MM-DD` strings, Date objects stay `Date`).
+ */
+function readDateValue(input: HTMLInputElement, column?: AnyColumn, originalValue?: unknown): unknown {
+  if (!input.value) {
+    if (column?.nullable) return null;
+    // Non-nullable: preserve original or fall back to today
+    if (typeof originalValue === 'string') return originalValue || new Date().toISOString().slice(0, 10);
+    return (originalValue as Date) ?? new Date();
+  }
+  // Preserve original type: if original was a string, return string (YYYY-MM-DD format)
+  if (typeof originalValue === 'string') {
+    return input.value; // input.value is already in YYYY-MM-DD format
+  }
+  return input.valueAsDate;
+}
+
+/**
+ * Resolve a plain text `<input>` value, preserving numeric originals and values
+ * containing characters `<input>` cannot represent.
+ */
+function readTextInputValue(input: HTMLInputElement, column?: AnyColumn, originalValue?: unknown): unknown {
+  // For text inputs, check if original value was a number to preserve type
+  if (typeof originalValue === 'number') return readNumericValue(input.value, column);
+  // Nullable text: empty → null; non-nullable: empty → ''
+  if (input.value === '' && (originalValue === null || originalValue === undefined)) {
+    return column?.nullable ? null : '';
+  }
+  // Preserve values with characters <input> can't represent (newlines, etc.)
+  if (typeof originalValue === 'string' && input.value === originalValue.replace(/[\n\r]/g, '')) {
+    return originalValue;
+  }
+  return input.value;
+}
+
+/**
+ * Resolve a `<textarea>` / `<select>` value using the column type or the
+ * original value's type.
+ */
+function readTextControlValue(
+  input: HTMLTextAreaElement | HTMLSelectElement,
+  column?: AnyColumn,
+  originalValue?: unknown,
+): unknown {
+  // Check column type OR original value type — preserves numeric type for
+  // custom column types (e.g., currency).
+  if (input.value !== '' && (column?.type === 'number' || typeof originalValue === 'number')) {
+    return Number(input.value);
+  }
+  // Nullable: empty → null; non-nullable: empty → ''
+  if ((originalValue === null || originalValue === undefined) && input.value === '') {
+    return column?.nullable ? null : '';
+  }
+  return input.value;
+}
+
+/**
  * Get the typed value from an input element based on its type, column config, and original value.
  * Preserves the type of the original value (e.g., numeric currency values stay as numbers,
  * string dates stay as strings, null/undefined for empty fields).
@@ -290,59 +360,15 @@ export function getInputValue(
   column?: AnyColumn,
   originalValue?: unknown,
 ): unknown {
-  if (input instanceof HTMLInputElement) {
-    if (input.type === 'checkbox') return input.checked;
-    if (input.type === 'number') {
-      if (input.value === '') {
-        if (column?.nullable) return null;
-        const params = column?.editorParams as NumberEditorParams | undefined;
-        return params?.min ?? 0;
-      }
-      return Number(input.value);
-    }
-    if (input.type === 'date') {
-      if (!input.value) {
-        if (column?.nullable) return null;
-        // Non-nullable: preserve original or fall back to today
-        if (typeof originalValue === 'string') return originalValue || new Date().toISOString().slice(0, 10);
-        return (originalValue as Date) ?? new Date();
-      }
-      // Preserve original type: if original was a string, return string (YYYY-MM-DD format)
-      if (typeof originalValue === 'string') {
-        return input.value; // input.value is already in YYYY-MM-DD format
-      }
-      return input.valueAsDate;
-    }
-    // For text inputs, check if original value was a number to preserve type
-    if (typeof originalValue === 'number') {
-      if (input.value === '') {
-        if (column?.nullable) return null;
-        const params = column?.editorParams as NumberEditorParams | undefined;
-        return params?.min ?? 0;
-      }
-      return Number(input.value);
-    }
-    // Nullable text: empty → null; non-nullable: empty → ''
-    if (input.value === '' && (originalValue === null || originalValue === undefined)) {
-      return column?.nullable ? null : '';
-    }
-    // Preserve values with characters <input> can't represent (newlines, etc.)
-    if (typeof originalValue === 'string' && input.value === originalValue.replace(/[\n\r]/g, '')) {
-      return originalValue;
-    }
-    return input.value;
+  if (!(input instanceof HTMLInputElement)) return readTextControlValue(input, column, originalValue);
+  switch (input.type) {
+    case 'checkbox':
+      return input.checked;
+    case 'number':
+      return readNumericValue(input.value, column);
+    case 'date':
+      return readDateValue(input, column, originalValue);
+    default:
+      return readTextInputValue(input, column, originalValue);
   }
-  // For textarea/select, check column type OR original value type
-  if (column?.type === 'number' && input.value !== '') {
-    return Number(input.value);
-  }
-  // Preserve numeric type for custom column types (e.g., currency)
-  if (typeof originalValue === 'number' && input.value !== '') {
-    return Number(input.value);
-  }
-  // Nullable: empty → null; non-nullable: empty → ''
-  if ((originalValue === null || originalValue === undefined) && input.value === '') {
-    return column?.nullable ? null : '';
-  }
-  return input.value;
 }

@@ -267,77 +267,54 @@ export class VirtualizationManager<T = any> {
   // #region Core Virtual Window
 
   /**
-   * Core virtualization routine. Chooses between bypass (small datasets), grouped window rendering,
-   * or standard row window rendering.
-   * @param force - Whether to force a full refresh (not just scroll update)
-   * @param skipAfterRender - When true, skip calling afterRender (used by scheduler which calls it separately)
-   * @returns Whether the visible row window changed (start/end differ from previous)
+   * Render every row without a virtual window (virtualization disabled).
    */
-  refreshVirtualWindow(force = false, skipAfterRender = false): boolean {
+  #renderUnvirtualized(totalRows: number, skipAfterRender: boolean): boolean {
+    const grid = this.#grid;
+    grid._renderVisibleRows(0, totalRows);
+    if (!skipAfterRender) grid._afterPluginRender();
+    return true;
+  }
+
+  /**
+   * Small-dataset bypass — render every row but keep the spacer, position cache
+   * and ARIA counts in sync so a later growth past the threshold is seamless.
+   */
+  #renderBypassWindow(bodyEl: HTMLElement, totalRows: number, force: boolean, skipAfterRender: boolean): boolean {
     const s = this.state;
     const grid = this.#grid;
-    const bodyEl = grid._bodyEl;
-    if (!bodyEl) return false;
-
-    const totalRows = grid._rows.length;
-
-    if (!s.enabled) {
-      grid._renderVisibleRows(0, totalRows);
-      if (!skipAfterRender) {
-        grid._afterPluginRender();
-      }
-      return true;
+    s.start = 0;
+    s.end = totalRows;
+    if (force) {
+      bodyEl.style.transform = 'translateY(0px)';
     }
-
-    if (totalRows <= s.bypassThreshold) {
-      s.start = 0;
-      s.end = totalRows;
-      if (force) {
-        bodyEl.style.transform = 'translateY(0px)';
-      }
-      grid._renderVisibleRows(0, totalRows, grid.__rowRenderEpoch);
-      if (force && s.variableHeights) {
-        this.initializePositionCache();
-      }
-      if (force && s.totalHeightEl) {
-        s.totalHeightEl.style.height = `${this.calculateTotalSpacerHeight(totalRows, true)}px`;
-      }
-      grid._updateAriaCounts(totalRows, grid._visibleColumns.length);
-      if (!skipAfterRender) {
-        grid._afterPluginRender();
-      }
-      return true;
-    }
-
-    // --- Normal virtualization path with faux scrollbar pattern ---
-    const fauxScrollbar = s.container!;
-    const viewportEl = s.viewportEl ?? fauxScrollbar;
-
-    const viewportHeight = force
-      ? (s.cachedViewportHeight = viewportEl.clientHeight)
-      : s.cachedViewportHeight || (s.cachedViewportHeight = viewportEl.clientHeight);
-    const rowHeight = s.rowHeight;
-    const rawScrollTop = fauxScrollbar.scrollTop;
-    // Translate native scrollTop (clamped spacer space) into virtual row-content
-    // space. Identity for datasets within MAX_ELEMENT_HEIGHT_PX. See computeScrollMapping.
-    const scrollTop = toVirtualScrollTop(rawScrollTop, s.scrollMapping);
-
-    // On force refresh with variable heights, rebuild the position cache
-    // to pick up any height changes from plugins (e.g., ResponsivePlugin
-    // measuring actual card heights from DOM after first render).
+    grid._renderVisibleRows(0, totalRows, grid.__rowRenderEpoch);
     if (force && s.variableHeights) {
       this.initializePositionCache();
     }
+    if (force && s.totalHeightEl) {
+      s.totalHeightEl.style.height = `${this.calculateTotalSpacerHeight(totalRows, true)}px`;
+    }
+    grid._updateAriaCounts(totalRows, grid._visibleColumns.length);
+    if (!skipAfterRender) grid._afterPluginRender();
+    return true;
+  }
 
-    let start: number;
+  /**
+   * Resolve the first row index of the visible window, applying zebra-stripe
+   * parity, defensive clamping and any plugin-requested backwards extension.
+   */
+  #computeWindowStart(scrollTop: number, totalRows: number): number {
+    const s = this.state;
     const positionCache = s.positionCache;
 
+    let start: number;
     // Variable row heights: use binary search on position cache
     if (s.variableHeights && positionCache && positionCache.length > 0) {
       start = getRowIndexAtOffset(positionCache, scrollTop);
       if (start === -1) start = 0;
     } else {
-      start = Math.floor(scrollTop / rowHeight);
+      start = Math.floor(scrollTop / s.rowHeight);
     }
 
     // Round down to even number for zebra stripe parity
@@ -352,16 +329,23 @@ export class VirtualizationManager<T = any> {
     if (totalRows > 0 && start > totalRows - 1) start = totalRows - 1;
 
     // Allow plugins to extend the start index backwards
-    const pluginAdjustedStart = grid._adjustPluginVirtualStart(start, scrollTop, rowHeight);
+    const pluginAdjustedStart = this.#grid._adjustPluginVirtualStart(start, scrollTop, s.rowHeight);
     if (pluginAdjustedStart !== undefined && pluginAdjustedStart < start) {
-      start = pluginAdjustedStart;
-      start = start - (start % 2);
+      start = pluginAdjustedStart - (pluginAdjustedStart % 2);
       if (start < 0) start = 0;
     }
+    return start;
+  }
 
-    // Calculate end of visible window
+  /**
+   * Resolve the exclusive end index of the visible window (viewport + 3 rows overscan).
+   */
+  #computeWindowEnd(start: number, viewportHeight: number, totalRows: number): number {
+    const s = this.state;
+    const rowHeight = s.rowHeight;
+    const positionCache = s.positionCache;
+
     let end: number;
-
     if (s.variableHeights && positionCache && positionCache.length > 0) {
       const targetHeight = viewportHeight + rowHeight * 3; // 3 rows overscan
       let accumulatedHeight = 0;
@@ -377,18 +361,68 @@ export class VirtualizationManager<T = any> {
         end = Math.min(start + minRows, totalRows);
       }
     } else {
-      const visibleCount = Math.ceil(viewportHeight / rowHeight) + 3;
-      end = start + visibleCount;
+      end = start + Math.ceil(viewportHeight / rowHeight) + 3;
     }
 
-    if (end > totalRows) end = totalRows;
+    return end > totalRows ? totalRows : end;
+  }
+
+  /**
+   * Recalculate the spacer height in a microtask so DOM changes made by plugin
+   * `afterRender` hooks (expanded detail rows, cards) are reflected.
+   */
+  #scheduleSpacerRecalc(totalRows: number): void {
+    const s = this.state;
+    queueMicrotask(() => {
+      if (!s.totalHeightEl) return;
+      const newTotalHeight = this.calculateTotalSpacerHeight(totalRows);
+      if (s.cachedFauxHeight === 0 && s.cachedViewportHeight > 0) return;
+      s.totalHeightEl.style.height = `${newTotalHeight}px`;
+    });
+  }
+
+  /**
+   * Core virtualization routine. Chooses between bypass (small datasets), grouped window rendering,
+   * or standard row window rendering.
+   * @param force - Whether to force a full refresh (not just scroll update)
+   * @param skipAfterRender - When true, skip calling afterRender (used by scheduler which calls it separately)
+   * @returns Whether the visible row window changed (start/end differ from previous)
+   */
+  refreshVirtualWindow(force = false, skipAfterRender = false): boolean {
+    const s = this.state;
+    const grid = this.#grid;
+    const bodyEl = grid._bodyEl;
+    if (!bodyEl) return false;
+
+    const totalRows = grid._rows.length;
+
+    if (!s.enabled) return this.#renderUnvirtualized(totalRows, skipAfterRender);
+    if (totalRows <= s.bypassThreshold) return this.#renderBypassWindow(bodyEl, totalRows, force, skipAfterRender);
+
+    // --- Normal virtualization path with faux scrollbar pattern ---
+    const fauxScrollbar = s.container!;
+    const viewportEl = s.viewportEl ?? fauxScrollbar;
+
+    const viewportHeight = force
+      ? (s.cachedViewportHeight = viewportEl.clientHeight)
+      : s.cachedViewportHeight || (s.cachedViewportHeight = viewportEl.clientHeight);
+    const rawScrollTop = fauxScrollbar.scrollTop;
+    // Translate native scrollTop (clamped spacer space) into virtual row-content
+    // space. Identity for datasets within MAX_ELEMENT_HEIGHT_PX. See computeScrollMapping.
+    const scrollTop = toVirtualScrollTop(rawScrollTop, s.scrollMapping);
+
+    // On force refresh with variable heights, rebuild the position cache
+    // to pick up any height changes from plugins (e.g., ResponsivePlugin
+    // measuring actual card heights from DOM after first render).
+    if (force && s.variableHeights) {
+      this.initializePositionCache();
+    }
+
+    const start = this.#computeWindowStart(scrollTop, totalRows);
+    const end = this.#computeWindowEnd(start, viewportHeight, totalRows);
 
     // Early-exit: visible window unchanged and not force
-    const prevStart = s.start;
-    const prevEnd = s.end;
-    if (!force && start === prevStart && end === prevEnd) {
-      return false;
-    }
+    if (!force && start === s.start && end === s.end) return false;
 
     s.start = start;
     s.end = end;
@@ -398,11 +432,8 @@ export class VirtualizationManager<T = any> {
       ? (s.cachedFauxHeight = fauxScrollbar.clientHeight)
       : s.cachedFauxHeight || (s.cachedFauxHeight = fauxScrollbar.clientHeight);
 
-    if (force) {
-      const scrollAreaEl = s.scrollAreaEl;
-      if (scrollAreaEl) {
-        s.cachedScrollAreaHeight = scrollAreaEl.clientHeight;
-      }
+    if (force && s.scrollAreaEl) {
+      s.cachedScrollAreaHeight = s.scrollAreaEl.clientHeight;
     }
 
     // Guard: stale DOM references
@@ -413,20 +444,14 @@ export class VirtualizationManager<T = any> {
 
     // Recalculate spacer height on force refresh
     if (force && s.totalHeightEl) {
-      const totalHeight = this.calculateTotalSpacerHeight(totalRows);
-      s.totalHeightEl.style.height = `${totalHeight}px`;
+      s.totalHeightEl.style.height = `${this.calculateTotalSpacerHeight(totalRows)}px`;
     }
 
     // Calculate sub-pixel transform offset
-    let startRowOffset: number;
-    if (s.variableHeights && positionCache && positionCache[start]) {
-      startRowOffset = positionCache[start].offset;
-    } else {
-      startRowOffset = start * rowHeight;
-    }
-
-    const subPixelOffset = -(scrollTop - startRowOffset);
-    bodyEl.style.transform = `translateY(${subPixelOffset}px)`;
+    const positionCache = s.positionCache;
+    const startRowOffset =
+      s.variableHeights && positionCache && positionCache[start] ? positionCache[start].offset : start * s.rowHeight;
+    bodyEl.style.transform = `translateY(${-(scrollTop - startRowOffset)}px)`;
 
     grid._renderVisibleRows(start, end, grid.__rowRenderEpoch);
 
@@ -440,14 +465,7 @@ export class VirtualizationManager<T = any> {
     // Run plugin afterRender hooks on force refresh
     if (force && !skipAfterRender) {
       grid._afterPluginRender();
-
-      // Recalculate spacer height in microtask to catch plugin DOM changes
-      queueMicrotask(() => {
-        if (!s.totalHeightEl) return;
-        const newTotalHeight = this.calculateTotalSpacerHeight(totalRows);
-        if (s.cachedFauxHeight === 0 && s.cachedViewportHeight > 0) return;
-        s.totalHeightEl.style.height = `${newTotalHeight}px`;
-      });
+      this.#scheduleSpacerRecalc(totalRows);
     }
 
     return true;

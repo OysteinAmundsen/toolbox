@@ -559,73 +559,22 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    * virtual window, so pool[i] corresponds to row index (start + i).
    */
   #syncDetailRows(): void {
-    if (!this.config.detailRenderer) return;
+    const detailRenderer = this.config.detailRenderer;
+    if (!detailRenderer) return;
 
     const body = this.gridElement?.querySelector('.rows');
     if (!body) return;
 
-    // Use grid's virtualization state and row pool for O(1) lookups instead of querySelectorAll.
-    // The row pool is an array of DOM elements aligned to the virtual window:
-    // _rowPool[i] renders row data at index (_virtualization.start + i).
-    const gridInternal = this.grid as any;
-    const rowPool: HTMLElement[] | undefined = gridInternal._rowPool;
-    const vStart: number = gridInternal._virtualization?.start ?? 0;
-    const vEnd: number = gridInternal._virtualization?.end ?? 0;
-    const columnCount = this.columns.length;
-
-    // Build visible row index set from the virtual window range
-    const visibleStart = vStart;
-    const visibleEnd = vEnd;
-
-    // Build a map of row index -> row element using the pool (O(n) where n = visible rows)
-    const visibleRowMap = new Map<number, Element>();
-    if (rowPool) {
-      const poolLen = Math.min(rowPool.length, visibleEnd - visibleStart);
-      for (let i = 0; i < poolLen; i++) {
-        const rowEl = rowPool[i];
-        if (rowEl.parentNode === body) {
-          visibleRowMap.set(visibleStart + i, rowEl);
-        }
-      }
-    } else {
-      // Fallback: use querySelectorAll if pool is not accessible
-      const dataRows = body.querySelectorAll('.data-grid-row');
-      for (const rowEl of dataRows) {
-        const firstCell = rowEl.querySelector('.cell[data-row]');
-        const rowIndex = firstCell ? parseInt(firstCell.getAttribute('data-row') ?? '-1', 10) : -1;
-        if (rowIndex >= 0) {
-          visibleRowMap.set(rowIndex, rowEl);
-        }
-      }
-    }
-
-    // Remove detail rows whose parent row is no longer visible or no longer expanded.
-    // Iterate the detailElements map (which we own) instead of querySelectorAll.
-    for (const [row, detailEl] of this.detailElements) {
-      const rowIndex = this.rows.indexOf(row);
-      const isStillExpanded = this.expandedRows.has(row);
-      const isRowVisible = rowIndex >= 0 && visibleRowMap.has(rowIndex);
-
-      if (!isStillExpanded || !isRowVisible) {
-        // Clean up framework adapter resources (React root, Vue app, Angular view)
-        // before removing to prevent memory leaks.
-        const adapter = this.#internalGrid.__frameworkAdapter;
-        if (adapter?.unmount) {
-          const detailCell = detailEl.querySelector('.master-detail-cell');
-          const container = detailCell?.firstElementChild as HTMLElement | null;
-          if (container) adapter.unmount(container);
-        }
-        if (detailEl.parentNode) detailEl.remove();
-        this.detailElements.delete(row);
-      }
-    }
+    const visibleRowMap = this.#collectVisibleRowMap(body);
+    this.#pruneDetachedDetails(visibleRowMap);
 
     // Insert detail rows for expanded rows that are visible. We also toggle
     // `.tbw-row-expanded` on every visible master row (matches Tree /
     // GroupingRows) so devs can style expanded rows via CSS instead of
     // depending on `[aria-expanded="true"]` (which lives on the toggle
-    // button, not the row). MUST clear on the negative branch \u2014 the row
+    // button, not the row). MUST clear on the negative branch — the row
     // pool recycles elements as the virtual window slides.
+    const columnCount = this.columns.length;
     for (const [rowIndex, rowEl] of visibleRowMap) {
       const row = this.rows[rowIndex];
       if (!row) continue;
@@ -643,35 +592,103 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
         continue;
       }
 
-      // Create new detail element
-      const detailEl = createDetailElement(row, rowIndex, this.config.detailRenderer, columnCount);
-
-      if (typeof this.config.detailHeight === 'number') {
-        detailEl.style.height = `${this.config.detailHeight}px`;
-      }
-
-      // Insert as sibling after the row element (not as child)
-      rowEl.after(detailEl);
-      this.detailElements.set(row, detailEl);
-
-      // Only animate if this row was just expanded by a user action (click, keyboard, API).
-      // Rows re-appearing from scroll (virtualization) should not re-animate.
-      const shouldAnimate = this.rowsToAnimate.has(row);
-      if (shouldAnimate) {
-        this.rowsToAnimate.delete(row);
-      }
-
-      const willAnimate = shouldAnimate && this.animateExpand(detailEl, row, rowIndex);
-
-      if (!willAnimate) {
-        // No animation - measure height after layout settles via RAF
-        requestAnimationFrame(() => {
-          this.#measureAndCacheDetailHeight(detailEl, row, rowIndex);
-        });
-      }
-      // When animating, measurement is deferred to animationend callback
-      // (inside animateExpand) to avoid measuring during max-height: 0 constraint
+      this.#insertDetailRow(row, rowIndex, rowEl, columnCount, detailRenderer);
     }
+  }
+
+  /**
+   * Map visible row index → row element.
+   *
+   * PERF: prefers the grid's index-aligned row pool (`_rowPool[i]` renders row
+   * `_virtualization.start + i`) so no `querySelectorAll` runs per scroll frame;
+   * falls back to a DOM query when the pool is not accessible.
+   */
+  #collectVisibleRowMap(body: Element): Map<number, Element> {
+    const gridInternal = this.grid as any;
+    const rowPool: HTMLElement[] | undefined = gridInternal._rowPool;
+    const visibleStart: number = gridInternal._virtualization?.start ?? 0;
+    const visibleEnd: number = gridInternal._virtualization?.end ?? 0;
+
+    const visibleRowMap = new Map<number, Element>();
+    if (rowPool) {
+      const poolLen = Math.min(rowPool.length, visibleEnd - visibleStart);
+      for (let i = 0; i < poolLen; i++) {
+        const rowEl = rowPool[i];
+        if (rowEl.parentNode === body) {
+          visibleRowMap.set(visibleStart + i, rowEl);
+        }
+      }
+      return visibleRowMap;
+    }
+
+    for (const rowEl of body.querySelectorAll('.data-grid-row')) {
+      const firstCell = rowEl.querySelector('.cell[data-row]');
+      const rowIndex = firstCell ? parseInt(firstCell.getAttribute('data-row') ?? '-1', 10) : -1;
+      if (rowIndex >= 0) {
+        visibleRowMap.set(rowIndex, rowEl);
+      }
+    }
+    return visibleRowMap;
+  }
+
+  /**
+   * Remove detail rows whose master row is no longer visible or no longer
+   * expanded. Iterates the owned `detailElements` map instead of the DOM.
+   */
+  #pruneDetachedDetails(visibleRowMap: Map<number, Element>): void {
+    for (const [row, detailEl] of this.detailElements) {
+      const rowIndex = this.rows.indexOf(row);
+      const isRowVisible = rowIndex >= 0 && visibleRowMap.has(rowIndex);
+      if (this.expandedRows.has(row) && isRowVisible) continue;
+
+      // Clean up framework adapter resources (React root, Vue app, Angular view)
+      // before removing to prevent memory leaks.
+      const adapter = this.#internalGrid.__frameworkAdapter;
+      if (adapter?.unmount) {
+        const detailCell = detailEl.querySelector('.master-detail-cell');
+        const container = detailCell?.firstElementChild as HTMLElement | null;
+        if (container) adapter.unmount(container);
+      }
+      if (detailEl.parentNode) detailEl.remove();
+      this.detailElements.delete(row);
+    }
+  }
+
+  /**
+   * Create a detail element and insert it as the next sibling of its master row.
+   * Animates only when the row was just expanded by a user action — rows
+   * re-appearing from scroll (virtualization) must not re-animate.
+   */
+  #insertDetailRow(
+    row: object,
+    rowIndex: number,
+    rowEl: Element,
+    columnCount: number,
+    detailRenderer: NonNullable<MasterDetailConfig['detailRenderer']>,
+  ): void {
+    const detailEl = createDetailElement(row, rowIndex, detailRenderer, columnCount);
+
+    if (typeof this.config.detailHeight === 'number') {
+      detailEl.style.height = `${this.config.detailHeight}px`;
+    }
+
+    // Insert as sibling after the row element (not as child)
+    rowEl.after(detailEl);
+    this.detailElements.set(row, detailEl);
+
+    const shouldAnimate = this.rowsToAnimate.has(row);
+    if (shouldAnimate) {
+      this.rowsToAnimate.delete(row);
+    }
+
+    // When animating, measurement is deferred to the animationend callback
+    // (inside animateExpand) to avoid measuring during the max-height: 0 constraint.
+    if (shouldAnimate && this.animateExpand(detailEl, row, rowIndex)) return;
+
+    // No animation - measure height after layout settles via RAF
+    requestAnimationFrame(() => {
+      this.#measureAndCacheDetailHeight(detailEl, row, rowIndex);
+    });
   }
 
   /**
@@ -709,8 +726,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
     // Use position cache for accurate row positions when available (variable heights mode)
     const positionCache = (this.grid as any)?._virtualization?.positionCache as
-      | Array<{ offset: number; height: number }>
-      | undefined;
+      Array<{ offset: number; height: number }> | undefined;
 
     let minStart = start;
 

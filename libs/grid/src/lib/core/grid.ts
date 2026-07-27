@@ -1420,7 +1420,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
   }
 
-  #afterConnect(): void {
+  /**
+   * Re-resolve and cache the hot-path DOM references after a (re)build of the
+   * grid structure. Shared by `#afterConnect()` and `#afterShellRefresh()`.
+   *
+   * @returns The grid root element the refs were resolved from, or `null` when
+   *   the structure has not been rendered yet.
+   */
+  #cacheDomRefs(): Element | null {
     // Shell changes the DOM structure - need to find elements appropriately
     const gridContent = this.#renderRoot.querySelector('.tbw-grid-content');
     const gridRoot = gridContent ?? this.#renderRoot.querySelector('.tbw-grid-root');
@@ -1432,9 +1439,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this._virtualization.totalHeightEl = gridRoot?.querySelector('.faux-vscroll-spacer') as HTMLElement;
     this._virtualization.viewportEl = gridRoot?.querySelector('.rows-viewport') as HTMLElement;
     this._bodyEl = gridRoot?.querySelector('.rows') as HTMLElement;
-
     // Cache DOM refs for hot path (refreshVirtualWindow) - avoid querySelector per scroll
     this.__rowsBodyEl = gridRoot?.querySelector('.rows-body') as HTMLElement;
+
+    return gridRoot;
+  }
+
+  #afterConnect(): void {
+    const gridRoot = this.#cacheDomRefs();
 
     // Shell header content, custom toolbar buttons, default-open behavior, and
     // open-panel restoration are now rendered by the ShellPlugin in its
@@ -1447,6 +1459,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#connected = true;
 
     // Create resize controller BEFORE setup - renderHeader() needs it for resize handle mousedown events
+    // (afterConnect can run more than once — tear the previous one down first)
+    this._resizeController?.dispose();
     this._resizeController = createResizeController(this);
 
     // Run setup
@@ -4144,14 +4158,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #afterShellRefresh(): void {
     // Grid content was preserved by rebuildShellDOM, but the .tbw-grid-root
     // wrapper is new. Re-cache element references (same DOM nodes, new parent).
-    const gridContent = this.#renderRoot.querySelector('.tbw-grid-content');
-    const gridRoot = gridContent ?? this.#renderRoot.querySelector('.tbw-grid-root');
-
-    this._headerRowEl = gridRoot?.querySelector('.header-row') as HTMLElement;
-    this._virtualization.totalHeightEl = gridRoot?.querySelector('.faux-vscroll-spacer') as HTMLElement;
-    this._virtualization.viewportEl = gridRoot?.querySelector('.rows-viewport') as HTMLElement;
-    this._bodyEl = gridRoot?.querySelector('.rows') as HTMLElement;
-    this.__rowsBodyEl = gridRoot?.querySelector('.rows-body') as HTMLElement;
+    const gridRoot = this.#cacheDomRefs();
 
     // Shell header content, custom toolbar buttons, default-open behavior, and
     // open-panel restoration are rendered by the ShellPlugin in its
@@ -4160,6 +4167,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Step 1b.1.3).
 
     // Re-create resize controller (DOM elements changed)
+    this._resizeController?.dispose();
     this._resizeController = createResizeController(this);
 
     // Re-setup scroll listeners (DOM elements changed)

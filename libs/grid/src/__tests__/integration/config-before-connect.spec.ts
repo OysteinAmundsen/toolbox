@@ -255,14 +255,7 @@ describe('Vanilla Demo Pattern - Config Before Connect', () => {
     document.body.appendChild(grid);
     await waitForReady(grid);
 
-    // Debug output like E2E
-    console.log('=== Grid Internal State ===');
-    console.log('gridConfig columns count:', grid.gridConfig.columns?.length);
-    console.log('_columns count:', grid._columns.length);
-    console.log('_visibleColumns count:', grid._visibleColumns.length);
-
     const headerRow = grid.querySelector('.header-row');
-    console.log('Header row child count:', headerRow?.children.length);
 
     // Verify shell header is rendered
     const shellHeader = grid.querySelector('.tbw-shell-header');

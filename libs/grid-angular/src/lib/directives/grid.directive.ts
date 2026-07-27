@@ -750,8 +750,29 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     | 'redo'
     | 'export-complete'
     | 'print-start'
-    | 'print-complete';
-  declare private _assertEventOutputMapCoversCore: [
+    | 'print-complete'
+    // Internal plumbing — never consumer-facing. `mount-external-*` is how core
+    // asks the adapter to mount a framework component; the adapter itself is the
+    // sole listener. `column-reorder-request` is an inter-plugin request that
+    // VisibilityPlugin emits for ReorderPlugin to service.
+    | 'mount-external-editor'
+    | 'mount-external-view'
+    | 'column-reorder-request'
+    // Known adapter gaps — these have no Angular output on `Grid` *or* on their
+    // feature directive yet. Tracked for a follow-up that adds them to all three
+    // adapters together (three-way parity). Consumers can subscribe via
+    // `gridEl.addEventListener(...)` in the meantime.
+    | 'tree-load-start'
+    | 'tree-load-end'
+    | 'tree-load-error'
+    | 'baselines-captured';
+  /**
+   * Compile-time assertion — assigning `true` only type-checks while the
+   * conditional below resolves to `true`. Do not turn this back into a
+   * `declare`d property: a bare declaration is never checked, which silently
+   * disabled this guard for several releases.
+   */
+  private readonly _assertEventOutputMapCoversCore: [
     Exclude<
       keyof DataGridEventMap<unknown>,
       | (typeof Grid.prototype.eventOutputMap)[keyof typeof Grid.prototype.eventOutputMap]
@@ -766,7 +787,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
           | (typeof Grid.prototype.eventOutputMap)[keyof typeof Grid.prototype.eventOutputMap]
           | Grid['_intentionallyOmittedEvents']
         >,
-      ];
+      ] = true;
 
   // Store event listeners for cleanup
   private eventListeners: Map<string, (e: Event) => void> = new Map();

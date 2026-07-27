@@ -29,7 +29,13 @@ export type { ExpandCollapseAnimation } from '../../core/types';
  * @since 0.1.1
  */
 export interface MasterDetailConfig {
-  /** Renderer function that returns detail content for a row */
+  /**
+   * Renderer function that returns detail content for a row.
+   *
+   * Returned **strings** are passed through the grid's HTML sanitizer before
+   * insertion (same as cell renderers), so scripts and event-handler attributes
+   * are stripped. Return an `HTMLElement` if you need full control over the DOM.
+   */
   detailRenderer?: (row: Record<string, unknown>, rowIndex: number) => HTMLElement | string;
   /** Height of the detail row - number (pixels) or 'auto' (default: 'auto') */
   detailHeight?: number | 'auto';

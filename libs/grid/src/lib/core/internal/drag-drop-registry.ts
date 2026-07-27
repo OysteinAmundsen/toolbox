@@ -21,7 +21,6 @@ interface RegistryEntry {
   readonly refs: ReadonlyArray<WeakRef<object>>;
   /** True when one or more registered rows were primitives (not objects). */
   readonly hasPrimitives: boolean;
-  readonly meta?: unknown;
 }
 
 const registry = new Map<string, RegistryEntry>();
@@ -38,9 +37,8 @@ const registry = new Map<string, RegistryEntry>();
  *
  * @param sessionId - Unique drag session identifier (typically a UUID).
  * @param rows      - Rows being dragged.
- * @param meta      - Optional opaque metadata to associate with the session.
  */
-export function registerDragSession(sessionId: string, rows: readonly unknown[], meta?: unknown): void {
+export function registerDragSession(sessionId: string, rows: readonly unknown[]): void {
   const refs: WeakRef<object>[] = [];
   let hasPrimitives = false;
   for (const row of rows) {
@@ -50,7 +48,7 @@ export function registerDragSession(sessionId: string, rows: readonly unknown[],
       hasPrimitives = true;
     }
   }
-  registry.set(sessionId, { refs, hasPrimitives, meta });
+  registry.set(sessionId, { refs, hasPrimitives });
 }
 
 /**
@@ -73,13 +71,6 @@ export function lookupDragSession<T = unknown>(sessionId: string): T[] | undefin
     result.push(obj);
   }
   return result as T[];
-}
-
-/**
- * Get the metadata associated with a drag session, if any.
- */
-export function getDragSessionMeta<M = unknown>(sessionId: string): M | undefined {
-  return registry.get(sessionId)?.meta as M | undefined;
 }
 
 /**

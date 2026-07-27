@@ -114,6 +114,12 @@ export function createResizeController(grid: GridHost): ResizeController {
     },
     dispose() {
       onUp();
+      // Drop any in-flight template update — the grid (or its DOM) is going
+      // away, so the queued `updateTemplate()` would run against stale refs.
+      if (pendingRaf != null) {
+        cancelAnimationFrame(pendingRaf);
+        pendingRaf = null;
+      }
     },
   };
 }

@@ -3280,6 +3280,11 @@ export interface LoadingContext {
  * Used with the `loadingRenderer` property in {@link GridConfig} to replace
  * the default spinner with custom content.
  *
+ * When a **string** is returned it is passed through the grid's HTML sanitizer
+ * before being inserted (same as cell and empty-state renderers), so scripts
+ * and event-handler attributes are stripped. Return an `HTMLElement` if you
+ * need full control over the produced DOM.
+ *
  * @param context - Context containing size information
  * @returns HTMLElement or HTML string
  *

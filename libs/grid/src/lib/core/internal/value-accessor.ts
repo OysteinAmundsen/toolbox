@@ -35,26 +35,28 @@ function isUnsafeKey(key: string): boolean {
   return key === '__proto__' || key === 'constructor' || key === 'prototype';
 }
 
-// Parsed dotted-path cache: field string → segments, or `null` when the field
-// is a plain (non-dotted) key. Field strings are few and heavily reused across
-// every row/render, so a module-level Map amortizes the split to once per
-// unique field. Plain fields resolve to a cached `null` after first parse, so
-// the hot path stays a single Map lookup with no per-cell string scanning.
-const fieldPathCache = new Map<string, readonly string[] | null>();
+// Parsed dotted-path cache: field string → segments. Only **dotted** fields are
+// cached; a plain key is recognised by a single `indexOf` scan, which is cheaper
+// than hashing the string for a Map probe and — critically — keeps the cache
+// from growing without bound when a plugin mints synthetic field names at
+// runtime (PivotPlugin derives one column per distinct pivot value).
+const fieldPathCache = new Map<string, readonly string[]>();
 
 /**
  * Parse a column `field` into path segments, or `null` when it is a plain
- * top-level key (contains no `.`). Result is memoized.
+ * top-level key (contains no `.`). Dotted results are memoized.
  *
  * @param field - The column field key (may be a dotted path like `a.b.c`).
  * @returns Frozen segment array for dotted paths, else `null`.
  * @since 3.3.0
  */
 export function parseFieldPath(field: string): readonly string[] | null {
-  const cached = fieldPathCache.get(field);
-  if (cached !== undefined) return cached;
-  const segments = field.includes('.') ? Object.freeze(field.split('.')) : null;
-  fieldPathCache.set(field, segments);
+  if (field.indexOf('.') === -1) return null;
+  let segments = fieldPathCache.get(field);
+  if (segments === undefined) {
+    segments = Object.freeze(field.split('.'));
+    fieldPathCache.set(field, segments);
+  }
   return segments;
 }
 
@@ -120,6 +122,60 @@ export function readCellField(row: unknown, field: string): unknown {
   if (path === null) return isUnsafeKey(field) ? undefined : r[field];
   if (Object.prototype.hasOwnProperty.call(r, field)) return r[field];
   return getByPath(r, path);
+}
+
+/**
+ * A precompiled reader that extracts one column's raw value from a row.
+ *
+ * @since 3.4.0
+ */
+export type FieldReader = (row: unknown) => unknown;
+
+/**
+ * Build a {@link FieldReader} for `field`, resolving the plain / unsafe /
+ * dotted decision **once** instead of on every cell read.
+ *
+ * Hoist the reader out of any per-row loop (sort comparators, compiled filter
+ * predicates, aggregators, export writers). Semantics are identical to
+ * {@link readCellField}; only the dispatch is paid up front.
+ *
+ * @param field - The column field key (may be a dotted path like `a.b.c`).
+ * @returns A single-argument reader closure.
+ *
+ * @example
+ * ```typescript
+ * const read = createFieldReader(column.field);
+ * rows.sort((a, b) => compare(read(a), read(b)));
+ * ```
+ * @since 3.4.0
+ */
+export function createFieldReader(field: string): FieldReader {
+  const path = parseFieldPath(field);
+  if (path === null) {
+    if (isUnsafeKey(field)) return () => undefined;
+    return (row) => (row == null ? undefined : (row as Record<string, unknown>)[field]);
+  }
+  return (row) => {
+    if (row == null) return undefined;
+    const r = row as Record<string, unknown>;
+    // A literal own key containing a dot wins over traversal (see readCellField).
+    if (Object.prototype.hasOwnProperty.call(r, field)) return r[field];
+    return getByPath(r, path);
+  };
+}
+
+/**
+ * Whether `field` is a plain, safe top-level key — i.e. `row[field]` is exactly
+ * equivalent to {@link readCellField} and callers may inline the property read.
+ *
+ * Used by benchmarked hot loops (compiled filter predicates) that keep a
+ * hand-inlined fast path and only fall back to a {@link FieldReader} for the
+ * dotted/unsafe minority.
+ *
+ * @since 3.4.0
+ */
+export function isPlainField(field: string): boolean {
+  return field.indexOf('.') === -1 && !isUnsafeKey(field);
 }
 
 /**

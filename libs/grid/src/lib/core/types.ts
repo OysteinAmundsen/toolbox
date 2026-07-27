@@ -947,9 +947,14 @@ export interface BaseColumnConfig<TRow = any, TValue = any, TField extends strin
    * logic across `sortComparator`, `filterValue`, and per-renderer code.
    *
    * **Resolution precedence**:
-   * - **Sort**: `sortComparator` → `valueAccessor` → `row[field]`
-   * - **Filter**: `filterValue` → `valueAccessor` → `row[field]`
-   * - **Render / format / export / copy**: `valueAccessor` → `row[field]`
+   * - **Sort**: `sortComparator` → `valueAccessor` → field read
+   * - **Filter**: `filterValue` → `valueAccessor` → field read
+   * - **Render / format / export / copy**: `valueAccessor` → field read
+   *
+   * "Field read" means a literal own property named `field` when one exists,
+   * otherwise a nested dotted-path traversal (`'address.city'` reads
+   * `row.address.city`). Sorting, filtering, aggregation, export, clipboard and
+   * cell events all use the same rule.
    *
    * The accessor is the *default* value source — per-column escape hatches
    * (`sortComparator`, `filterValue`) still take precedence when set.
@@ -1958,6 +1963,8 @@ export interface RowElementInternal extends HTMLElement {
   __editingCellCount?: number;
   /** Flag indicating this is a custom-rendered row (group row, etc.) */
   __isCustomRow?: boolean;
+  /** Last `aria-rowindex` value written, so unchanged rows skip the attribute mutation */
+  __ariaRowIndex?: number;
 }
 
 /**

@@ -19,6 +19,7 @@ import type { GridHost, InternalGrid } from '../types';
 import { handleGridKeyDown } from './keyboard';
 import { handleRowClick } from './rows';
 import { clearCellFocus, getColIndexFromCell, getRowIndexFromCell } from './utils';
+import { readCellField } from './value-accessor';
 
 // #region Utilities
 // Track drag state per grid instance (avoids polluting InternalGrid interface)
@@ -119,7 +120,7 @@ function buildCellMouseEvent(
       // colIndex from data-col is a visible-column index (rendering uses _visibleColumns)
       column = grid._visibleColumns[colIndex];
       field = (column as { field?: string })?.field;
-      value = row && field ? (row as Record<string, unknown>)[field] : undefined;
+      value = row && field ? readCellField(row, field) : undefined;
     }
   }
 

@@ -8,8 +8,19 @@ import type { TreeRow } from './types';
 
 /**
  * Detects if the data has a tree structure by checking for children arrays.
+ *
+ * @param rows - The candidate root rows
+ * @param childrenField - Field holding the children array / lazy indicator
+ * @param hasChildren - Optional {@link TreeConfig.hasChildren} predicate. When
+ *   supplied, a row it reports as a parent marks the data as a tree even if it
+ *   carries no `childrenField` at all — the purely lazy case where children are
+ *   only ever fetched through `loadChildren`.
  */
-export function detectTreeStructure(rows: readonly TreeRow[], childrenField = 'children'): boolean {
+export function detectTreeStructure(
+  rows: readonly TreeRow[],
+  childrenField = 'children',
+  hasChildren?: (row: TreeRow) => boolean,
+): boolean {
   if (!Array.isArray(rows) || rows.length === 0) return false;
 
   // Check if any row has children (embedded array or lazy indicator)
@@ -20,6 +31,8 @@ export function detectTreeStructure(rows: readonly TreeRow[], childrenField = 'c
     if (Array.isArray(children) && children.length > 0) return true;
     // Lazy children: truthy non-array value (e.g. `true`, number > 0)
     if (children != null && !Array.isArray(children) && !!children) return true;
+    // Predicate-only lazy children: no `childrenField` on the row at all.
+    if (hasChildren?.(row)) return true;
   }
 
   return false;

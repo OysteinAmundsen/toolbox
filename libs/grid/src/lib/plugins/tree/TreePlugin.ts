@@ -382,7 +382,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
     const treeRows = rows as readonly TreeRow[];
 
-    if (treeRows.length === 0 || !detectTreeStructure(treeRows, childrenField)) {
+    if (treeRows.length === 0 || !detectTreeStructure(treeRows, childrenField, this.config.hasChildren)) {
       this.flattenedRows = [];
       this.rowKeyMap.clear();
       this.previousVisibleKeys.clear();
@@ -582,7 +582,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     if (this.loadingKeys.has(key)) return;
     if (!this.#needsChildFetch(row, key)) return;
 
-    const isServerSideActive = this.grid?.query?.('datasource:is-active', null);
+    const isServerSideActive = this.queryBoolean('datasource:is-active');
     const { loadChildren } = this.config;
     if (!isServerSideActive && !loadChildren) return;
 
@@ -641,8 +641,35 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     }
 
     if (result && isSubscribable(result)) {
-      const subscription = result.subscribe({ next: onSuccess, error: onError });
-      controller.signal.addEventListener('abort', () => subscription.unsubscribe(), { once: true });
+      // Take-one semantics: `onSuccess`/`onError` are single-shot (guarded by
+      // `finish()`), so hold the subscription only until the first emission.
+      // Without this, a source that never completes (a subject-like stream)
+      // stays subscribed forever once its value has been consumed, because
+      // `finish()` has already removed the controller that `detach()` aborts.
+      let settled = false;
+      let active: { unsubscribe(): void } | null = null;
+      const release = (): void => {
+        settled = true;
+        active?.unsubscribe();
+        active = null;
+      };
+      const subscription = result.subscribe({
+        next: (rows) => {
+          onSuccess(rows);
+          release();
+        },
+        error: (error) => {
+          onError(error);
+          release();
+        },
+      });
+      // A synchronous emission ran `release()` before `subscription` was bound.
+      if (settled) {
+        subscription.unsubscribe();
+        return;
+      }
+      active = subscription;
+      controller.signal.addEventListener('abort', release, { once: true });
       return;
     }
     Promise.resolve(result).then(onSuccess, onError);

@@ -6,7 +6,7 @@
 
 import type { ColumnConfig, GridHost, InternalGrid, SortHandler, SortState } from '../types';
 import { announce, getA11yMessage } from './aria';
-import { resolveCellValue } from './value-accessor';
+import { createFieldReader, isPlainField, resolveCellValue } from './value-accessor';
 
 /**
  * Default comparator used when no column-level `sortComparator` is configured.
@@ -95,7 +95,8 @@ export function builtInSort<T>(rows: T[], sortState: SortState, columns: ColumnC
           customComparator(resolveCellValue(rA, col), resolveCellValue(rB, col), rA, rB) * direction,
       );
     } else {
-      sorted.sort((rA: any, rB: any) => customComparator(rA[field], rB[field], rA, rB) * direction);
+      const read = createFieldReader(field);
+      sorted.sort((rA: any, rB: any) => customComparator(read(rA), read(rB), rA, rB) * direction);
     }
   } else if (col?.valueAccessor) {
     // valueAccessor path — extract values via the accessor.
@@ -118,16 +119,67 @@ export function builtInSort<T>(rows: T[], sortState: SortState, columns: ColumnC
  * to the end regardless of direction.
  */
 function sortInPlace(rows: any[], field: string, direction: 1 | -1): void {
-  rows.sort((rA: any, rB: any) => {
-    const pinned = pinLoadingRows(rA, rB);
-    if (pinned !== 0) return pinned;
-    const a = rA[field];
-    const b = rB[field];
-    if (a == null && b == null) return 0;
-    if (a == null) return -direction;
-    if (b == null) return direction;
-    return a > b ? direction : a < b ? -direction : 0;
+  // A plain top-level key is a monomorphic inline property load — cheaper read
+  // than any indirection we could add, so compare rows directly.
+  if (isPlainField(field)) {
+    rows.sort((rA: any, rB: any) => {
+      const pinned = pinLoadingRows(rA, rB);
+      if (pinned !== 0) return pinned;
+      return compareValues(rA[field], rB[field], direction);
+    });
+    return;
+  }
+  // Nested dotted path: each read walks the path, so hoist the extraction out
+  // of the comparator (decorate-sort-undecorate). Touches every row once
+  // instead of ~2·N·log N times.
+  sortByExtractedKeys(rows, createFieldReader(field), direction);
+}
+
+/**
+ * Compare two already-extracted values with `direction` folded in and
+ * nullish values pushed to the end.
+ */
+function compareValues(a: unknown, b: unknown, direction: 1 | -1): number {
+  if (a == null && b == null) return 0;
+  if (a == null) return -direction;
+  if (b == null) return direction;
+  return a > b ? direction : a < b ? -direction : 0;
+}
+
+/**
+ * Decorate-sort-undecorate: extract every row's sort key once, sort an index
+ * array, then permute the rows in place.
+ *
+ * Used when the key extraction is more than a single property load (nested
+ * dotted paths, `valueAccessor`). Sorting indices keeps the sort **stable**,
+ * because `Array.prototype.sort` is stable and equal keys fall back to
+ * ascending index order — i.e. the original row order.
+ */
+function sortByExtractedKeys(rows: any[], read: (row: unknown) => unknown, direction: 1 | -1): void {
+  const n = rows.length;
+  if (n < 2) return;
+
+  const keys = new Array<unknown>(n);
+  // `Uint8Array` keeps the placeholder flags off the JS heap's boxed path.
+  const loading = new Uint8Array(n);
+  const order = new Array<number>(n);
+  for (let i = 0; i < n; i++) {
+    const row = rows[i];
+    order[i] = i;
+    keys[i] = read(row);
+    loading[i] = (row as { __loading?: unknown } | null)?.__loading === true ? 1 : 0;
+  }
+
+  order.sort((ia, ib) => {
+    const la = loading[ia];
+    const lb = loading[ib];
+    if (la !== lb) return la ? 1 : -1;
+    return compareValues(keys[ia], keys[ib], direction);
   });
+
+  const sorted = new Array<unknown>(n);
+  for (let i = 0; i < n; i++) sorted[i] = rows[order[i]];
+  for (let i = 0; i < n; i++) rows[i] = sorted[i];
 }
 
 /**
@@ -138,16 +190,7 @@ function sortInPlace(rows: any[], field: string, direction: 1 | -1): void {
  * Pins `__loading` placeholder rows to the end regardless of direction.
  */
 function sortInPlaceWithAccessor(rows: any[], column: ColumnConfig<any>, direction: 1 | -1): void {
-  rows.sort((rA: any, rB: any) => {
-    const pinned = pinLoadingRows(rA, rB);
-    if (pinned !== 0) return pinned;
-    const a = resolveCellValue(rA, column);
-    const b = resolveCellValue(rB, column);
-    if (a == null && b == null) return 0;
-    if (a == null) return -direction;
-    if (b == null) return direction;
-    return a > b ? direction : a < b ? -direction : 0;
-  });
+  sortByExtractedKeys(rows, (row) => resolveCellValue(row, column), direction);
 }
 
 /**
@@ -181,7 +224,8 @@ function executeBuiltInSortInPlace(rows: any[], field: string, direction: 1 | -1
           customComparator(resolveCellValue(rA, col), resolveCellValue(rB, col), rA, rB) * direction,
       );
     } else {
-      rows.sort((rA: any, rB: any) => customComparator(rA[field], rB[field], rA, rB) * direction);
+      const read = createFieldReader(field);
+      rows.sort((rA: any, rB: any) => customComparator(read(rA), read(rB), rA, rB) * direction);
     }
   } else if (col?.valueAccessor) {
     sortInPlaceWithAccessor(rows, col, direction);

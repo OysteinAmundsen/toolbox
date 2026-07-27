@@ -276,6 +276,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   #scrollRaf = 0;
   #pendingScrollTop: number | null = null;
+  #hScrollRaf = 0;
   #hasScrollPlugins = false; // Cached flag for plugin scroll handlers
   #needsRowHeightMeasurement = false; // Flag to measure row height after render (for plugin-based variable heights)
   #scrollMeasureTimeout = 0; // Debounce timer for measuring rows after scroll settles
@@ -1798,15 +1799,23 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         scrollArea.addEventListener(
           'scroll',
           () => {
-            // Dispatch horizontal scroll to plugins
-            const scrollEvent = this.#pooledScrollEvent;
-            scrollEvent.scrollTop = fauxScrollbar.scrollTop;
-            scrollEvent.scrollLeft = scrollArea.scrollLeft;
-            scrollEvent.scrollHeight = fauxScrollbar.scrollHeight;
-            scrollEvent.scrollWidth = scrollArea.scrollWidth;
-            scrollEvent.clientHeight = fauxScrollbar.clientHeight;
-            scrollEvent.clientWidth = scrollArea.clientWidth;
-            this.#pluginManager?.onScroll(scrollEvent);
+            // Coalesce to one dispatch per frame. The browser can emit several
+            // scroll events per frame (wheel/trackpad), and each dispatch both
+            // forces layout (scrollHeight/scrollWidth/clientHeight/clientWidth)
+            // and drives plugin work such as column virtualization re-render.
+            // Reading inside the RAF also collapses those forced layouts to one.
+            if (this.#hScrollRaf) return;
+            this.#hScrollRaf = requestAnimationFrame(() => {
+              this.#hScrollRaf = 0;
+              const scrollEvent = this.#pooledScrollEvent;
+              scrollEvent.scrollTop = fauxScrollbar.scrollTop;
+              scrollEvent.scrollLeft = scrollArea.scrollLeft;
+              scrollEvent.scrollHeight = fauxScrollbar.scrollHeight;
+              scrollEvent.scrollWidth = scrollArea.scrollWidth;
+              scrollEvent.clientHeight = fauxScrollbar.clientHeight;
+              scrollEvent.clientWidth = scrollArea.clientWidth;
+              this.#pluginManager?.onScroll(scrollEvent);
+            });
           },
           { passive: true, signal: scrollSignal },
         );

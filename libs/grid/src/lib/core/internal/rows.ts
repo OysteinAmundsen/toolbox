@@ -420,8 +420,15 @@ export function renderVisibleRows(
     const rowData = grid._rows[rowIndex];
     const rowEl = grid._rowPool[i] as RowElementInternal;
 
-    // Always set aria-rowindex (1-based, accounting for header rows)
-    rowEl.setAttribute('aria-rowindex', String(rowIndex + headerRowCount + 1));
+    // aria-rowindex is 1-based and accounts for header rows. Pooled rows keep the
+    // same index across most renders (only scrolling shifts them), so guard the
+    // write — an unconditional `setAttribute` costs a string allocation plus an
+    // attribute mutation per row per frame.
+    const ariaRowIndex = rowIndex + headerRowCount + 1;
+    if (rowEl.__ariaRowIndex !== ariaRowIndex) {
+      rowEl.__ariaRowIndex = ariaRowIndex;
+      rowEl.setAttribute('aria-rowindex', String(ariaRowIndex));
+    }
 
     // Let plugins handle custom row rendering (e.g., group rows)
     if (hasRenderRowPlugins && renderRowHook!(rowData, rowEl, rowIndex)) {

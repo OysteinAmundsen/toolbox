@@ -4,7 +4,7 @@
  * Type definitions for clipboard copy/paste functionality.
  */
 
-import { invalidateAccessorCache } from '../../core/internal/value-accessor';
+import { invalidateAccessorCache, readCellField, writeCellField } from '../../core/internal/value-accessor';
 import type { GridElement } from '../../core/plugin/base-plugin';
 import type { CellEditablePredicate } from '../../core/plugin/types';
 
@@ -267,8 +267,7 @@ export interface PasteCellContext<TRow = unknown, TValue = unknown> {
  * @since 3.0.0
  */
 export type ColumnPasteGuard<TRow = unknown, TValue = unknown> =
-  | boolean
-  | ((ctx: PasteCellContext<TRow, TValue>) => boolean | { value: TValue });
+  boolean | ((ctx: PasteCellContext<TRow, TValue>) => boolean | { value: TValue });
 
 /**
  * Why a cell's paste was rejected: `'column'` = the column set `onPaste: false`;
@@ -426,7 +425,7 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
       field,
       row: evalRow,
       rowIndex,
-      oldValue: evalRow[field],
+      oldValue: readCellField(evalRow, field),
       sourceField,
     });
     if (!resolution.accepted) {
@@ -514,7 +513,7 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
       // RowManager.updateRow — otherwise a `column.valueAccessor` display can go
       // stale after paste.
       for (const [field, value] of Object.entries(changes)) {
-        (row as Record<string, unknown>)[field] = value;
+        writeCellField(row, field, value);
         invalidateAccessorCache(row as object, field);
       }
       directWrote = true;

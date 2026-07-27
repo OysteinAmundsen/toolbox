@@ -4,6 +4,7 @@
  * Pure functions for filtering operations.
  */
 
+import { createFieldReader, isPlainField } from '../../core/internal/value-accessor';
 import type { FilterModel } from './types';
 
 /**
@@ -19,6 +20,9 @@ type RowRecord = Record<string, unknown>;
 
 /** A compiled filter predicate. */
 type RowPredicate = (row: RowRecord) => boolean;
+
+/** Reads one column's raw value from a row (nested dotted paths included). */
+type FieldReader = (row: RowRecord) => unknown;
 
 /** Resolves the comparable cell value for a row (direct or via extractor). */
 type ValueGetter = (row: RowRecord) => unknown;
@@ -83,14 +87,20 @@ export function matchesFilter(
 function compileFilter(filter: FilterModel, caseSensitive: boolean, filterValue?: FilterValueExtractor): RowPredicate {
   const field = filter.field;
 
-  // When a filterValue extractor is provided, use it instead of direct row[field]
-  // access. This supports virtual/computed columns whose field doesn't exist on
-  // the row data object.
-  const getValue: ValueGetter = filterValue ? (row) => filterValue(row[field], row) : (row) => row[field];
+  // Precompiled once per filter: resolves the plain / unsafe / dotted-path
+  // decision up front so the per-row loop is a single monomorphic call.
+  // Using it (rather than a raw `row[field]`) is what makes nested dotted
+  // fields (`address.city`) filterable at all — see issue #438.
+  const read = createFieldReader(field);
+
+  // When a filterValue extractor is provided, use it instead of the direct
+  // field read. This supports virtual/computed columns whose field doesn't
+  // exist on the row data object.
+  const getValue: ValueGetter = filterValue ? (row) => filterValue(read(row), row) : read;
 
   return (
     compileBlankPredicate(filter, getValue) ??
-    compileSetPredicate(filter, field, filterValue) ??
+    compileSetPredicate(filter, read, filterValue) ??
     compileNumericPredicate(filter, field, getValue, filterValue === undefined) ??
     compileTextPredicate(filter, caseSensitive, getValue) ??
     // Unknown operator — pass row through
@@ -127,7 +137,7 @@ function compileBlankPredicate(filter: FilterModel, getValue: ValueGetter): RowP
  */
 function compileSetPredicate(
   filter: FilterModel,
-  field: string,
+  read: FieldReader,
   filterValue?: FilterValueExtractor,
 ): RowPredicate | undefined {
   const op = filter.operator;
@@ -139,14 +149,14 @@ function compileSetPredicate(
 
   if (filterValue) {
     return (row) => {
-      const extracted = filterValue(row[field], row);
+      const extracted = filterValue(read(row), row);
       const values = Array.isArray(extracted) ? extracted : extracted != null ? [extracted] : [];
       const matched = values.length === 0 ? lookup.has(BLANK_FILTER_VALUE) : values.some((v) => lookup.has(v));
       return negate ? !matched : matched;
     };
   }
   return (row) => {
-    const v = row[field];
+    const v = read(row);
     const matched = v == null || v === '' ? lookup.has(BLANK_FILTER_VALUE) : lookup.has(v);
     return negate ? !matched : matched;
   };
@@ -172,12 +182,23 @@ function compileNumericPredicate(
 ): RowPredicate | undefined {
   const op = filter.operator;
   const isNumType = filter.type === 'number' && noExtractor;
+  // Hot path: a declared-numeric column with no extractor and a plain top-level
+  // key reads the cell **inline**. These predicate bodies are two operations
+  // long, so routing the read through the reader closure measurably dominates
+  // them (~8% on `filter-model.bench`). Dotted paths keep the closure — they
+  // have to walk the path anyway. `plainField` non-null implies `isNumType`.
+  const plainField = isNumType && isPlainField(field) ? field : null;
 
   if (op === 'greaterThan') {
     const threshold = toNumeric(filter.value);
+    if (plainField)
+      return (row) => {
+        const v = row[plainField];
+        return !isBlank(v) && (v as number) > threshold;
+      };
     return isNumType
       ? (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return !isBlank(v) && (v as number) > threshold;
         }
       : (row) => {
@@ -189,9 +210,14 @@ function compileNumericPredicate(
   }
   if (op === 'greaterThanOrEqual') {
     const threshold = toNumeric(filter.value);
+    if (plainField)
+      return (row) => {
+        const v = row[plainField];
+        return !isBlank(v) && (v as number) >= threshold;
+      };
     return isNumType
       ? (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return !isBlank(v) && (v as number) >= threshold;
         }
       : (row) => {
@@ -203,9 +229,14 @@ function compileNumericPredicate(
   }
   if (op === 'lessThan') {
     const threshold = toNumeric(filter.value);
+    if (plainField)
+      return (row) => {
+        const v = row[plainField];
+        return !isBlank(v) && (v as number) < threshold;
+      };
     return isNumType
       ? (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return !isBlank(v) && (v as number) < threshold;
         }
       : (row) => {
@@ -217,9 +248,14 @@ function compileNumericPredicate(
   }
   if (op === 'lessThanOrEqual') {
     const threshold = toNumeric(filter.value);
+    if (plainField)
+      return (row) => {
+        const v = row[plainField];
+        return !isBlank(v) && (v as number) <= threshold;
+      };
     return isNumType
       ? (row) => {
-          const v = row[field];
+          const v = getValue(row);
           return !isBlank(v) && (v as number) <= threshold;
         }
       : (row) => {
@@ -232,9 +268,16 @@ function compileNumericPredicate(
   if (op === 'between') {
     const lo = toNumeric(filter.value);
     const hi = toNumeric(filter.valueTo);
+    if (plainField)
+      return (row) => {
+        const v = row[plainField];
+        if (isBlank(v)) return false;
+        const n = v as number;
+        return n >= lo && n <= hi;
+      };
     return isNumType
       ? (row) => {
-          const v = row[field];
+          const v = getValue(row);
           if (isBlank(v)) return false;
           const n = v as number;
           return n >= lo && n <= hi;
@@ -412,8 +455,9 @@ export function getUniqueValues<T extends Record<string, unknown>>(
 ): unknown[] {
   const values = new Set<unknown>();
   let hasBlank = false;
+  const read = createFieldReader(field);
   for (const row of rows) {
-    const cellValue = row[field];
+    const cellValue = read(row);
     if (filterValue) {
       const extracted = filterValue(cellValue, row);
       if (Array.isArray(extracted)) {
@@ -465,15 +509,17 @@ export function getUniqueValuesBatch<T extends Record<string, unknown>>(
 ): Map<string, unknown[]> {
   // Per-field accumulators
   const acc = new Map<string, { values: Set<unknown>; hasBlank: boolean; hasExtractor: boolean }>();
+  const readers = new Map<string, FieldReader>();
   for (const { field, filterValue } of fields) {
     acc.set(field, { values: new Set(), hasBlank: false, hasExtractor: !!filterValue });
+    readers.set(field, createFieldReader(field));
   }
 
   // Single pass through all rows
   for (const row of rows) {
     for (const { field, filterValue } of fields) {
       const entry = acc.get(field)!;
-      const cellValue = row[field];
+      const cellValue = readers.get(field)!(row);
       if (filterValue) {
         const extracted = filterValue(cellValue, row);
         if (Array.isArray(extracted)) {

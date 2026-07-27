@@ -5,6 +5,7 @@
 import { FOCUSABLE_EDITOR_SELECTOR, GridClasses } from '../constants';
 import type { GridHost } from '../types';
 import { clearCellFocus, isRTL } from './utils';
+import { readCellField } from './value-accessor';
 import { fromVirtualScrollTop, toVirtualScrollTop } from './virtualization';
 
 /** Commit active row edit if the editing plugin provides this method. */
@@ -123,7 +124,7 @@ function emitCellActivate(grid: GridHost, e: KeyboardEvent): boolean {
       colIndex,
       column,
       field,
-      value: field && row ? (row as Record<string, unknown>)[field] : undefined,
+      value: field && row ? readCellField(row, field) : undefined,
       row,
       cellEl: grid.querySelector(`[data-row="${rowIndex}"][data-col="${colIndex}"]`) as HTMLElement | undefined,
       trigger: 'keyboard' as const,

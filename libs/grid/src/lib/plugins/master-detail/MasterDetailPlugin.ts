@@ -376,7 +376,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
       // Request detail data from ServerSide if available and not already cached
       if (!this.detailDataMap.has(row)) {
-        const isServerSideActive = this.grid?.query?.('datasource:is-active', null);
+        const isServerSideActive = this.queryBoolean('datasource:is-active');
         if (isServerSideActive) {
           this.loadingDetails.add(row);
           this.grid.query('datasource:fetch-children', {

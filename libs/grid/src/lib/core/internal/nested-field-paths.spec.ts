@@ -5,7 +5,10 @@
  */
 
 import { describe, expect, expectTypeOf, it } from 'vitest';
+import { filterRows, getUniqueValues } from '../../plugins/filtering/filter-model';
 import type { ColumnConfig, ColumnFieldKey, GridConfig, NestedPaths } from '../types';
+import { aggregatorRegistry } from './aggregators';
+import { builtInSort } from './sorting';
 import {
   getByPath,
   parseFieldPath,
@@ -158,5 +161,70 @@ describe('type surface (issue #438)', () => {
       columns: [{ field: 'deal.capture.field' }, { field: 'flat' }],
     };
     expect(config.columns).toHaveLength(2);
+  });
+});
+
+/**
+ * Regression coverage for the consumers that used to read `row[field]` directly
+ * and therefore silently ignored dotted paths (issue #430).
+ */
+describe('nested dotted paths in sort, filter and aggregate', () => {
+  interface AddressRow extends Record<string, unknown> {
+    id: number;
+    address: { city: string; zip: number };
+  }
+
+  const rows: AddressRow[] = [
+    { id: 1, address: { city: 'Oslo', zip: 3 } },
+    { id: 2, address: { city: 'Bergen', zip: 1 } },
+    { id: 3, address: { city: 'Trondheim', zip: 2 } },
+  ];
+
+  const columns = [{ field: 'address.city' }, { field: 'address.zip' }] as unknown as ColumnConfig[];
+
+  it('sorts ascending by a nested path', () => {
+    const sorted = builtInSort(rows, { field: 'address.city', direction: 1 }, columns);
+    expect(sorted.map((r) => r.address.city)).toEqual(['Bergen', 'Oslo', 'Trondheim']);
+  });
+
+  it('sorts descending by a nested path', () => {
+    const sorted = builtInSort(rows, { field: 'address.zip', direction: -1 }, columns);
+    expect(sorted.map((r) => r.address.zip)).toEqual([3, 2, 1]);
+  });
+
+  it('leaves the source array untouched when sorting by a nested path', () => {
+    builtInSort(rows, { field: 'address.city', direction: 1 }, columns);
+    expect(rows.map((r) => r.id)).toEqual([1, 2, 3]);
+  });
+
+  it('sorting by a nested path is stable for equal keys', () => {
+    const tied = [
+      { id: 1, address: { city: 'Oslo', zip: 1 } },
+      { id: 2, address: { city: 'Oslo', zip: 1 } },
+      { id: 3, address: { city: 'Bergen', zip: 1 } },
+    ];
+    const sorted = builtInSort(tied, { field: 'address.city', direction: 1 }, columns);
+    expect(sorted.map((r) => r.id)).toEqual([3, 1, 2]);
+  });
+
+  it('filters by a nested path', () => {
+    const out = filterRows(rows, [{ field: 'address.city', operator: 'contains', value: 'os' } as never]);
+    expect(out.map((r) => (r as AddressRow).id)).toEqual([1]);
+  });
+
+  it('filters numerically by a nested path', () => {
+    const out = filterRows(rows, [
+      { field: 'address.zip', operator: 'greaterThan', value: 1, type: 'number' } as never,
+    ]);
+    expect(out).toHaveLength(2);
+  });
+
+  it('collects unique values from a nested path', () => {
+    expect(getUniqueValues(rows, 'address.city')).toEqual(expect.arrayContaining(['Oslo', 'Bergen', 'Trondheim']));
+  });
+
+  it('aggregates a nested path', () => {
+    expect(aggregatorRegistry.run('sum', rows, 'address.zip')).toBe(6);
+    expect(aggregatorRegistry.run('max', rows, 'address.zip')).toBe(3);
   });
 });

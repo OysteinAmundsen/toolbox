@@ -848,6 +848,34 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   }
 
   /**
+   * Run a yes/no plugin query and reduce the responses to a single boolean.
+   *
+   * `grid.query()` always returns an **array** of responses (empty when no
+   * plugin handles the query), and `[]` is truthy in JavaScript — so testing
+   * the raw result directly (`if (grid.query(...))`) is always `true` and
+   * silently takes the "some plugin said yes" branch even when nothing
+   * answered. Always route boolean queries through this helper.
+   *
+   * @category Plugin Development
+   * @param type - The query type to dispatch
+   * @param context - Optional query context passed to the handlers
+   * @returns `true` only when at least one plugin answered truthily
+   *
+   * @example
+   * ```typescript
+   * if (this.queryBoolean('datasource:is-active')) {
+   *   // A ServerSide data source really is installed
+   * }
+   * ```
+   * @since 3.4.0
+   */
+  protected queryBoolean(type: string, context: unknown = null): boolean {
+    const responses = this.grid?.query?.(type, context);
+    // Tolerate hosts/tests that hand back a bare value instead of the array.
+    return Array.isArray(responses) ? responses.some(Boolean) : !!responses;
+  }
+
+  /**
    * Request a re-render of the grid.
    * Uses ROWS phase - does NOT trigger processColumns hooks.
    */

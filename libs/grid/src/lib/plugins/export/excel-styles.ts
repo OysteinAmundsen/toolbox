@@ -6,6 +6,7 @@
  * and generates the corresponding XML.
  */
 
+import { createFieldReader } from '../../core/internal/value-accessor';
 import type { ExcelBorder, ExcelCellStyle, ExcelStyleConfig } from './types';
 
 // #region Style Hashing
@@ -255,9 +256,10 @@ export function buildColumnWidthsXml(
 function autoFitWidth(col: { field: string; header?: string }, rows: Record<string, unknown>[]): number {
   const sampleSize = Math.min(rows.length, 50);
   let maxLen = (col.header ?? col.field).length;
+  const read = createFieldReader(col.field);
 
   for (let i = 0; i < sampleSize; i++) {
-    const val = rows[i][col.field];
+    const val = read(rows[i]);
     const len = val == null ? 0 : String(val).length;
     if (len > maxLen) maxLen = len;
   }

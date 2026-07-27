@@ -13,7 +13,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { resolveCellValue } from './value-accessor';
+import { readCellField, resolveCellValue } from './value-accessor';
 
 export type AggregatorFn = (rows: any[], field: string, column?: any) => any;
 export type AggregatorRef = string | AggregatorFn;
@@ -25,7 +25,7 @@ export type AggregatorRef = string | AggregatorFn;
  */
 function readCell(row: any, field: string, column?: any): unknown {
   if (column?.valueAccessor) return resolveCellValue(row, column);
-  return row?.[field];
+  return readCellField(row, field);
 }
 
 /**

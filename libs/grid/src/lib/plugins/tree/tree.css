@@ -73,6 +73,15 @@
       flex-shrink: 0;
     }
 
+    /* Lazy-loading indicator — core's small spinner (`.tbw-spinner--small`)
+       resized to the toggle slot so swapping toggle ↔ spinner doesn't reflow
+       the row. Only the size token is overridden; all other spinner theming
+       (`--tbw-spinner-color`, `--tbw-spinner-track-color`) still applies. */
+    .tree-loading {
+      --tbw-spinner-size: var(--tbw-tree-toggle-size, 1.25em);
+      flex-shrink: 0;
+    }
+
     /* Slide animation for child rows appearing */
     .data-grid-row.tbw-tree-slide-in {
       animation: tbw-tree-slide-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;

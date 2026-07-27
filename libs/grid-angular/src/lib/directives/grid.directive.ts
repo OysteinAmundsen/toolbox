@@ -760,9 +760,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     | 'mount-external-editor'
     | 'mount-external-view'
     | 'column-reorder-request'
-    // Declared by the tree plugin but never emitted by any code path — the lazy
-    // tree-loading feature they were reserved for was never implemented. Marked
-    // @deprecated in core, pending removal in the next major.
+    // Tree lazy-loading events. Omitted for the same reason as `tree-expand`
+    // above — the Angular adapter has no per-feature tree directive yet, so
+    // consumers subscribe via `addEventListener` on the host element.
     | 'tree-load-start'
     | 'tree-load-end'
     | 'tree-load-error';

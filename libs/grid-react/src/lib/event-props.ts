@@ -54,6 +54,9 @@ import type {
   SortChangeDetail,
   TbwScrollDetail,
   TreeExpandDetail,
+  TreeLoadEndDetail,
+  TreeLoadErrorDetail,
+  TreeLoadStartDetail,
   UndoRedoDetail,
 } from '@toolbox-web/grid/all';
 
@@ -444,7 +447,26 @@ export interface EventProps<TRow = unknown> {
    * ```
    */
   onTreeExpand?: EventHandler<TreeExpandDetail<TRow>>;
+  /**
+   * Fired when lazy child loading starts for a tree node.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/tree';`
+   */
+  onTreeLoadStart?: EventHandler<TreeLoadStartDetail<TRow>>;
 
+  /**
+   * Fired when lazy child loading completes and children are merged into the parent row.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/tree';`
+   */
+  onTreeLoadEnd?: EventHandler<TreeLoadEndDetail<TRow>>;
+
+  /**
+   * Fired when lazy child loading fails. Re-expanding the node retries the fetch.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/tree';`
+   */
+  onTreeLoadError?: EventHandler<TreeLoadErrorDetail<TRow>>;
   // ═══════════════════════════════════════════════════════════════════
   // MASTER-DETAIL EVENTS
   // ═══════════════════════════════════════════════════════════════════
@@ -683,6 +705,9 @@ export const EVENT_PROP_MAP = {
   onGroupExpand: 'group-expand',
   onGroupCollapse: 'group-collapse',
   onTreeExpand: 'tree-expand',
+  onTreeLoadStart: 'tree-load-start',
+  onTreeLoadEnd: 'tree-load-end',
+  onTreeLoadError: 'tree-load-error',
   onDetailExpand: 'detail-expand',
   onResponsiveChange: 'responsive-change',
   onContextMenuOpen: 'context-menu-open',
@@ -723,17 +748,8 @@ export const EVENT_PROP_MAP = {
  * uses them to ask the adapter to mount a React component, and the adapter is
  * the sole listener. `column-reorder-request` is an inter-plugin request that
  * `VisibilityPlugin` emits for `ReorderPlugin` to service.
- *
- * `tree-load-start` / `tree-load-end` / `tree-load-error` are declared by the
- * tree plugin but never emitted by any code path (deprecated, pending removal).
  */
-type _IntentionallyOmittedEvents =
-  | 'mount-external-editor'
-  | 'mount-external-view'
-  | 'column-reorder-request'
-  | 'tree-load-start'
-  | 'tree-load-end'
-  | 'tree-load-error';
+type _IntentionallyOmittedEvents = 'mount-external-editor' | 'mount-external-view' | 'column-reorder-request';
 
 type _MissingEventProps = Exclude<
   keyof DataGridEventMap<unknown>,

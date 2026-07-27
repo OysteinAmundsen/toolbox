@@ -71,6 +71,9 @@ import type {
   TooltipConfig,
   TreeConfig,
   TreeExpandDetail,
+  TreeLoadEndDetail,
+  TreeLoadErrorDetail,
+  TreeLoadStartDetail,
   UndoRedoConfig,
   UndoRedoDetail,
   VisibilityConfig,
@@ -381,6 +384,9 @@ const EVENT_MAP = {
   'group-expand': '' as unknown as GroupExpandDetail,
   'group-collapse': '' as unknown as GroupCollapseDetail,
   'tree-expand': '' as unknown as TreeExpandDetail,
+  'tree-load-start': '' as unknown as TreeLoadStartDetail,
+  'tree-load-end': '' as unknown as TreeLoadEndDetail,
+  'tree-load-error': '' as unknown as TreeLoadErrorDetail,
   'detail-expand': '' as unknown as DetailExpandDetail,
   'responsive-change': '' as unknown as ResponsiveChangeDetail,
   'context-menu-open': '' as unknown as ContextMenuOpenDetail,
@@ -408,19 +414,12 @@ const EVENT_MAP = {
 //
 // `mount-external-editor` / `mount-external-view` are internal plumbing (the
 // adapter itself is the sole listener); `column-reorder-request` is an
-// inter-plugin request; the `tree-load-*` trio is declared by the tree plugin
-// but never emitted (deprecated, pending removal).
+// inter-plugin request.
 //
 // NOTE: the `= true` assignment is load-bearing — a bare `type` alias is never
 // checked, which is how Angular's equivalent guard sat inert for releases.
 // ──────────────────────────────────────────────────────────────────────
-type _IntentionallyOmittedEvents =
-  | 'mount-external-editor'
-  | 'mount-external-view'
-  | 'column-reorder-request'
-  | 'tree-load-start'
-  | 'tree-load-end'
-  | 'tree-load-error';
+type _IntentionallyOmittedEvents = 'mount-external-editor' | 'mount-external-view' | 'column-reorder-request';
 
 type _MissingEmits = Exclude<keyof DataGridEventMap<unknown>, keyof typeof EVENT_MAP | _IntentionallyOmittedEvents>;
 
@@ -464,6 +463,9 @@ const emit = defineEmits<{
   (e: 'group-expand', event: CustomEvent<GroupExpandDetail>): void;
   (e: 'group-collapse', event: CustomEvent<GroupCollapseDetail>): void;
   (e: 'tree-expand', event: CustomEvent<TreeExpandDetail<TRow>>): void;
+  (e: 'tree-load-start', event: CustomEvent<TreeLoadStartDetail<TRow>>): void;
+  (e: 'tree-load-end', event: CustomEvent<TreeLoadEndDetail<TRow>>): void;
+  (e: 'tree-load-error', event: CustomEvent<TreeLoadErrorDetail<TRow>>): void;
   (e: 'detail-expand', event: CustomEvent<DetailExpandDetail>): void;
   (e: 'responsive-change', event: CustomEvent<ResponsiveChangeDetail>): void;
   (e: 'context-menu-open', event: CustomEvent<ContextMenuOpenDetail>): void;

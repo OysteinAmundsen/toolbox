@@ -38,14 +38,16 @@ grid.rows = data;
 
 ## Configuration
 
-| Option            | Type                         | Default      | Description                     |
-| ----------------- | ---------------------------- | ------------ | ------------------------------- |
-| `childrenField`   | `string`                     | `'children'` | Property name for child nodes   |
-| `autoDetect`      | `boolean`                    | `true`       | Auto-detect tree structure      |
-| `defaultExpanded` | `boolean`                    | `false`      | Expand all nodes initially      |
-| `indentWidth`     | `number`                     | `20`         | Pixels of indentation per level |
-| `showExpandIcons` | `boolean`                    | `true`       | Show expand/collapse icons      |
-| `animation`       | `false \| 'slide' \| 'fade'` | `'slide'`    | Expand/collapse animation style |
+| Option            | Type                                                  | Default      | Description                                 |
+| ----------------- | ----------------------------------------------------- | ------------ | ------------------------------------------- |
+| `childrenField`   | `string`                                              | `'children'` | Property name for child nodes               |
+| `autoDetect`      | `boolean`                                             | `true`       | Auto-detect tree structure                  |
+| `defaultExpanded` | `boolean`                                             | `false`      | Expand all nodes initially                  |
+| `indentWidth`     | `number`                                              | `20`         | Pixels of indentation per level             |
+| `showExpandIcons` | `boolean`                                             | `true`       | Show expand/collapse icons                  |
+| `animation`       | `false \| 'slide' \| 'fade'`                          | `'slide'`    | Expand/collapse animation style             |
+| `loadChildren`    | `(params) => Promise<TreeRow[]> \| Subscribable<...>` | —            | Lazy-load a node's children on first expand |
+| `hasChildren`     | `(row) => boolean`                                    | —            | Predicate marking nodes that have children  |
 
 ## Auto-Detection
 
@@ -65,6 +67,42 @@ grid.addEventListener('tree-expand', (e) => {
   console.log('Depth:', e.detail.depth);
 });
 ```
+
+### `tree-load-start` / `tree-load-end` / `tree-load-error`
+
+Fired around lazy child loading (both the `loadChildren` and `ServerSidePlugin` routes).
+
+```typescript
+grid.addEventListener('tree-load-start', (e) => console.log('loading', e.detail.key));
+grid.addEventListener('tree-load-end', (e) => console.log('loaded', e.detail.childCount));
+grid.addEventListener('tree-load-error', (e) => console.error(e.detail.error));
+```
+
+## Lazy Loading Children (no ServerSidePlugin)
+
+Use `loadChildren` when you only need on-demand children — not server-side
+pagination/sorting/filtering of the root nodes. It is called once per node the
+first time that node is expanded while its children are unloaded.
+
+```typescript
+new TreePlugin({
+  // Show an expand toggle before the children are known
+  hasChildren: (row) => row.type === 'folder',
+  loadChildren: async ({ row, signal }) => {
+    const res = await fetch(`/api/nodes/${row.id}/children`, { signal });
+    return res.json();
+  },
+});
+```
+
+While the request is in flight the toggle is replaced by the grid's small
+spinner (`.tbw-spinner--small`) and the row carries `aria-busy="true"`. On
+failure the node leaves its loading state, so collapsing and re-expanding
+retries the fetch. `loadChildren` may also return a `Subscribable` (e.g. an
+Angular `HttpClient` observable); the subscription is torn down on detach.
+
+`loadChildren` is ignored when `ServerSidePlugin` is active — child data then
+flows through `dataSource.getChildRows()`.
 
 ## Server-Side Data (Unified DataSource)
 

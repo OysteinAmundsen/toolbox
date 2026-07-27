@@ -968,6 +968,62 @@ describe('tree plugin integration', () => {
       expect(Array.isArray(parentRow.children)).toBe(true);
     });
 
+    it('should clear loadingKeys and emit tree-load-error when datasource:error arrives', () => {
+      const plugin = new TreePlugin({ childrenField: 'children' });
+      const eventListeners = new Map<string, (detail: unknown) => void>();
+      const queryCalls: Array<{ type: string }> = [];
+      const emitted: Array<{ type: string; detail: unknown }> = [];
+      const mockGrid = {
+        dispatchEvent: (e: Event) => {
+          emitted.push({ type: e.type, detail: (e as CustomEvent).detail });
+          return true;
+        },
+        requestRender: () => {
+          /* noop */
+        },
+        rows: [],
+        _columns: [],
+        query: (type: string) => {
+          queryCalls.push({ type });
+          if (type === 'datasource:is-active') return true;
+          return undefined;
+        },
+        _pluginManager: {
+          subscribe(_p: unknown, eventType: string, callback: (detail: unknown) => void) {
+            eventListeners.set(eventType, callback);
+          },
+          unsubscribe: () => {
+            /* noop */
+          },
+          emitPluginEvent: () => {
+            /* noop */
+          },
+        },
+      };
+      plugin.attach(mockGrid as any);
+
+      const parentRow: Record<string, unknown> = { id: 1, name: 'Parent', children: true };
+      plugin.processRows([parentRow]);
+
+      const toggle = document.createElement('span');
+      toggle.classList.add('tree-toggle');
+      toggle.setAttribute('data-tree-key', '1');
+      plugin.onCellClick({ rowIndex: 0, colIndex: 0, originalEvent: { target: toggle } as any });
+      expect(queryCalls.filter((q) => q.type === 'datasource:fetch-children').length).toBe(1);
+
+      // The fetch fails
+      const error = new Error('server exploded');
+      eventListeners.get('datasource:error')?.({ error, context: { source: 'tree', parentNode: parentRow } });
+
+      expect(emitted.some((e) => e.type === 'tree-load-error' && (e.detail as any).error === error)).toBe(true);
+
+      // Loading state released — collapsing and re-expanding retries the fetch.
+      plugin.onCellClick({ rowIndex: 0, colIndex: 0, originalEvent: { target: toggle } as any });
+      plugin.processRows([parentRow]);
+      plugin.onCellClick({ rowIndex: 0, colIndex: 0, originalEvent: { target: toggle } as any });
+      expect(queryCalls.filter((q) => q.type === 'datasource:fetch-children').length).toBe(2);
+    });
+
     it('should detect lazy children with truthy non-array children field values', () => {
       const plugin = new TreePlugin({ childrenField: 'children' });
       const mockGrid = {
@@ -1138,6 +1194,185 @@ describe('tree plugin integration', () => {
       treePlugin.detach();
 
       expect(grid.querySelector('.rows-body')?.getAttribute('role')).toBe('grid');
+    });
+  });
+
+  describe('lazy child loading via loadChildren', () => {
+    /** Build a grid with a single lazy root node and the given tree config. */
+    async function setup(config: TreeConfig) {
+      const grid = document.createElement('tbw-grid') as GridElement;
+      document.body.appendChild(grid);
+      const plugin = new TreePlugin({ defaultExpanded: false, childrenField: 'children', ...config });
+      grid.gridConfig = { columns: [{ field: 'name', header: 'Name' }], plugins: [plugin] };
+      grid.rows = [{ id: 'p1', name: 'Parent', children: true }];
+      await waitUpgrade(grid);
+      return { grid, plugin };
+    }
+
+    const nextFrame = () => new Promise((r) => requestAnimationFrame(r));
+
+    it('fetches children on expand, merges them, and emits tree-load-start/end', async () => {
+      const calls: Array<{ key: string; depth: number }> = [];
+      const { grid, plugin } = await setup({
+        loadChildren: async ({ key, depth }) => {
+          calls.push({ key, depth });
+          return [{ id: 'c1', name: 'Child' }];
+        },
+      });
+
+      const events: string[] = [];
+      grid.addEventListener('tree-load-start', () => events.push('start'));
+      grid.addEventListener('tree-load-end', (e) => events.push(`end:${(e as CustomEvent).detail.childCount}`));
+
+      plugin.expand('p1');
+      await nextFrame();
+      await nextFrame();
+
+      expect(calls).toEqual([{ key: 'p1', depth: 0 }]);
+      expect(events).toEqual(['start', 'end:1']);
+      expect(grid.querySelectorAll('.data-grid-row')).toHaveLength(2);
+    });
+
+    it('shows the core spinner and aria-busy while the request is in flight', async () => {
+      let resolve!: (rows: Array<Record<string, unknown>>) => void;
+      const { grid, plugin } = await setup({
+        loadChildren: () => new Promise((r) => (resolve = r)),
+      });
+
+      plugin.expand('p1');
+      await nextFrame();
+
+      const row = grid.querySelector('.data-grid-row');
+      expect(row?.getAttribute('aria-busy')).toBe('true');
+      expect(grid.querySelector('.tree-cell-wrapper > .tbw-spinner--small')).not.toBeNull();
+      expect(grid.querySelector('.tree-toggle')).toBeNull();
+
+      resolve([{ id: 'c1', name: 'Child' }]);
+      await nextFrame();
+      await nextFrame();
+
+      expect(grid.querySelector('.tbw-spinner--small')).toBeNull();
+      expect(grid.querySelector('.data-grid-row')?.hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('emits tree-load-error on rejection and allows a retry', async () => {
+      let attempts = 0;
+      const { grid, plugin } = await setup({
+        loadChildren: async () => {
+          attempts++;
+          if (attempts === 1) throw new Error('boom');
+          return [{ id: 'c1', name: 'Child' }];
+        },
+      });
+
+      const errors: unknown[] = [];
+      grid.addEventListener('tree-load-error', (e) => errors.push((e as CustomEvent).detail.error));
+
+      plugin.expand('p1');
+      await nextFrame();
+      await nextFrame();
+
+      expect(errors).toHaveLength(1);
+      expect((errors[0] as Error).message).toBe('boom');
+      expect(grid.querySelector('.data-grid-row')?.hasAttribute('aria-busy')).toBe(false);
+
+      // The node left its loading state — re-expanding retries the fetch.
+      plugin.collapse('p1');
+      await nextFrame();
+      plugin.expand('p1');
+      await nextFrame();
+      await nextFrame();
+
+      expect(attempts).toBe(2);
+      expect(grid.querySelectorAll('.data-grid-row')).toHaveLength(2);
+    });
+
+    it('accepts a Subscribable result and unsubscribes on detach', async () => {
+      let unsubscribed = false;
+      const { grid, plugin } = await setup({
+        loadChildren: () => ({
+          subscribe: (observer: { next?: (rows: Array<Record<string, unknown>>) => void }) => {
+            queueMicrotask(() => observer.next?.([{ id: 'c1', name: 'Child' }]));
+            return { unsubscribe: () => (unsubscribed = true) };
+          },
+        }),
+      });
+
+      plugin.expand('p1');
+      await nextFrame();
+      await nextFrame();
+
+      expect(grid.querySelectorAll('.data-grid-row')).toHaveLength(2);
+
+      plugin.detach();
+      expect(unsubscribed).toBe(true);
+    });
+
+    it('does not re-fetch after the children resolve to an empty array', async () => {
+      let attempts = 0;
+      const { plugin } = await setup({
+        hasChildren: () => true, // always claims children exist
+        loadChildren: async () => {
+          attempts++;
+          return [];
+        },
+      });
+
+      plugin.expand('p1');
+      await nextFrame();
+      await nextFrame();
+
+      plugin.collapse('p1');
+      await nextFrame();
+      plugin.expand('p1');
+      await nextFrame();
+      await nextFrame();
+
+      expect(attempts).toBe(1);
+    });
+
+    it('renders a toggle for nodes reported by the hasChildren predicate', async () => {
+      const grid = document.createElement('tbw-grid') as GridElement;
+      document.body.appendChild(grid);
+      const plugin = new TreePlugin({
+        childrenField: 'children',
+        hasChildren: (row) => row.type === 'folder',
+        loadChildren: async () => [{ id: 'c1', name: 'Child', type: 'file' }],
+      });
+      grid.gridConfig = { columns: [{ field: 'name', header: 'Name' }], plugins: [plugin] };
+      // No `children` field at all — only the predicate marks this as a parent.
+      grid.rows = [
+        { id: 'p1', name: 'Folder', type: 'folder' },
+        { id: 'p2', name: 'File', type: 'file' },
+      ];
+      await waitUpgrade(grid);
+
+      const rows = grid.querySelectorAll('.data-grid-row');
+      expect(rows[0].querySelector('.tree-toggle')).not.toBeNull();
+      expect(rows[1].querySelector('.tree-toggle')).toBeNull();
+
+      plugin.expand('p1');
+      await nextFrame();
+      await nextFrame();
+
+      expect(grid.querySelectorAll('.data-grid-row')).toHaveLength(3);
+    });
+
+    it('does not call loadChildren when ServerSide is active', async () => {
+      let called = false;
+      const { grid, plugin } = await setup({ loadChildren: async () => ((called = true), []) });
+
+      // Simulate an active ServerSide plugin answering the is-active query.
+      const originalQuery = grid.query.bind(grid);
+      grid.query = ((type: string, context: unknown) =>
+        type === 'datasource:is-active' ? true : originalQuery(type, context)) as typeof grid.query;
+
+      plugin.expand('p1');
+      await nextFrame();
+      await nextFrame();
+
+      expect(called).toBe(false);
+      expect(grid.querySelector('.data-grid-row')?.getAttribute('aria-busy')).toBe('true');
     });
   });
 });

@@ -5,6 +5,7 @@
  */
 
 import { GridClasses } from '../../core/constants';
+import { createDefaultSpinner } from '../../core/internal/loading';
 import { builtInSort } from '../../core/internal/sorting';
 import type { GridElement } from '../../core/plugin/base-plugin';
 import {
@@ -18,7 +19,9 @@ import type { ColumnConfig, ColumnViewRenderer, GridHost, SortHandler } from '..
 import type {
   DataSourceChildrenDetail,
   DataSourceDataDetail,
+  DataSourceErrorDetail,
   FetchChildrenQuery,
+  Subscribable,
   ViewportMappingQuery,
   ViewportMappingResponse,
 } from '../server-side/datasource-types';
@@ -26,7 +29,21 @@ import { collapseAll, expandAll, expandToKey, toggleExpand } from './tree-data';
 import { countTopLevelNodes, getTopLevelNodeIndex } from './tree-datasource';
 import { detectTreeStructure, inferChildrenField } from './tree-detect';
 import styles from './tree.css?inline';
-import type { ExpandCollapseAnimation, FlattenedTreeRow, TreeConfig, TreeExpandDetail, TreeRow } from './types';
+import type {
+  ExpandCollapseAnimation,
+  FlattenedTreeRow,
+  TreeConfig,
+  TreeExpandDetail,
+  TreeLoadEndDetail,
+  TreeLoadErrorDetail,
+  TreeLoadStartDetail,
+  TreeRow,
+} from './types';
+
+/** Narrow a `loadChildren` result to the Subscribable branch. */
+function isSubscribable<T>(value: Promise<T> | Subscribable<T>): value is Subscribable<T> {
+  return typeof (value as Subscribable<T>).subscribe === 'function';
+}
 
 /**
  * Tree Data Plugin for tbw-grid
@@ -118,6 +135,18 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
         description:
           'Emitted when tree expansion state changes (toggle, expand all, collapse all). Broadcast to both DOM consumers and plugin bus.',
       },
+      {
+        type: 'tree-load-start',
+        description: 'Emitted when lazy child loading starts for a node whose children are not yet loaded.',
+      },
+      {
+        type: 'tree-load-end',
+        description: 'Emitted when lazy child loading completes and children have been merged into the parent row.',
+      },
+      {
+        type: 'tree-load-error',
+        description: 'Emitted when lazy child loading fails. The node leaves its loading state and can be retried.',
+      },
     ],
     queries: [
       {
@@ -167,8 +196,17 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   private previousVisibleKeys = new Set<string>();
   private keysToAnimate = new Set<string>();
   private sortState: { field: string; direction: 1 | -1 } | null = null;
-  /** Keys of nodes that are currently loading lazy children via ServerSide. */
+  /** Keys of nodes that are currently loading lazy children. */
   private loadingKeys = new Set<string>();
+  /**
+   * Keys whose children have already been fetched. Prevents a re-fetch on
+   * collapse → re-expand, and prevents an infinite retry loop when a node
+   * legitimately resolves to zero children but a custom `hasChildren`
+   * predicate keeps reporting `true`.
+   */
+  private loadedKeys = new Set<string>();
+  /** In-flight local `loadChildren` requests, keyed by node key. */
+  #childRequests = new Map<string, AbortController>();
 
   /**
    * Stable key cache keyed by row identity.
@@ -212,6 +250,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     this.keysToAnimate.clear();
     this.sortState = null;
     this.loadingKeys.clear();
+    this.loadedKeys.clear();
+    for (const controller of this.#childRequests.values()) controller.abort();
+    this.#childRequests.clear();
     this.originalTreeColumnRenderer = undefined;
     this.wrappedTreeColumnField = undefined;
     // WeakMaps GC themselves once row references are dropped — nothing to clear.
@@ -274,14 +315,36 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       // Merge children into the parent node
       const parentRow = d.context.parentNode as TreeRow | undefined;
       if (parentRow) {
-        const childrenField = this.config.childrenField ?? 'children';
-        (parentRow as Record<string, unknown>)[childrenField] = d.rows;
-        // Look up the stable key by row identity (was stored on row as __stableKey
-        // historically; now lives in a parallel WeakMap to keep row identity intact).
-        const key = this.#rowKeys.get(parentRow as object) ?? String(parentRow.id ?? '?');
+        const key = this.#keyOf(parentRow);
+        this.#mergeChildren(parentRow, (d.rows ?? []) as TreeRow[]);
         this.loadingKeys.delete(key);
+        this.broadcast<TreeLoadEndDetail>('tree-load-end', {
+          key,
+          row: parentRow,
+          depth: this.rowKeyMap.get(key)?.depth ?? 0,
+          childCount: d.rows?.length ?? 0,
+        });
         this.requestRender();
       }
+    });
+
+    // Listen for datasource:error — release the node's loading state so the
+    // user can retry by collapsing and re-expanding. Without this the key
+    // stays in `loadingKeys` forever and `requestLazyChildren` short-circuits.
+    this.on('datasource:error', (detail: unknown) => {
+      const d = detail as DataSourceErrorDetail;
+      if (d.context?.source !== 'tree') return;
+      const parentRow = d.context.parentNode as TreeRow | undefined;
+      if (!parentRow) return;
+      const key = this.#keyOf(parentRow);
+      if (!this.loadingKeys.delete(key)) return;
+      this.broadcast<TreeLoadErrorDetail>('tree-load-error', {
+        key,
+        row: parentRow,
+        depth: this.rowKeyMap.get(key)?.depth ?? 0,
+        error: d.error,
+      });
+      this.requestRender();
     });
   }
 
@@ -411,16 +474,19 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     }
     const ordered = sort ? this.#sortLevel(rows, sort.field, sort.direction) : rows;
     const result: FlattenedTreeRow[] = [];
+    const hasChildrenFn = this.config.hasChildren;
 
     for (let i = 0; i < ordered.length; i++) {
       const row = ordered[i];
       const key = this.#keyFor(row, i, parentKey);
       const children = row[childrenField];
       const embeddedChildren = Array.isArray(children) && children.length > 0;
-      // Lazy children: truthy non-array value (e.g. `children: true`) signals
-      // that children exist on the server but haven't been fetched yet.
-      const lazyChildren = children != null && !Array.isArray(children) && !!children;
-      const hasChildren = embeddedChildren || lazyChildren;
+      // Lazy children: either a custom `hasChildren` predicate reports the node
+      // has children, or (default heuristic) a truthy non-array value such as
+      // `children: true` signals children exist but haven't been fetched yet.
+      const hasChildren =
+        embeddedChildren ||
+        (hasChildrenFn ? hasChildrenFn(row) : children != null && !Array.isArray(children) && !!children);
       const isExpanded = expanded.has(key);
 
       result.push({
@@ -470,25 +536,116 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   }
 
   /**
-   * Request lazy children for a node via ServerSide's `datasource:fetch-children` query.
-   * Called when expanding a node whose children are not yet embedded (lazy indicator only).
-   * No-op if ServerSide is not active, children are already loading, or children are embedded.
+   * Look up the stable key by row identity (was stored on the row as
+   * `__stableKey` historically; now lives in a parallel WeakMap to keep row
+   * identity intact).
+   */
+  #keyOf(row: TreeRow): string {
+    return this.#rowKeys.get(row as object) ?? String(row.id ?? '?');
+  }
+
+  /** Write fetched children onto the parent row and mark the node as loaded. */
+  #mergeChildren(row: TreeRow, children: TreeRow[]): void {
+    (row as Record<string, unknown>)[this.config.childrenField ?? 'children'] = children;
+    this.loadedKeys.add(this.#keyOf(row));
+  }
+
+  /**
+   * Whether a node's children still need to be fetched — it reports having
+   * children (via the lazy indicator or a custom `hasChildren` predicate) but
+   * none are embedded yet, and no previous fetch has already resolved.
+   */
+  #needsChildFetch(row: TreeRow, key: string): boolean {
+    if (this.loadedKeys.has(key)) return false;
+    const children = row[this.config.childrenField ?? 'children'];
+    if (Array.isArray(children) && children.length > 0) return false;
+    const custom = this.config.hasChildren;
+    return custom ? custom(row) : children != null && !Array.isArray(children) && !!children;
+  }
+
+  /**
+   * Request lazy children for a node that is being expanded.
+   *
+   * Two routes, in precedence order:
+   * 1. **ServerSide** — when `ServerSidePlugin` is active, dispatch the
+   *    `datasource:fetch-children` query; the result arrives asynchronously as
+   *    a `datasource:children` (or `datasource:error`) broadcast.
+   * 2. **Local `loadChildren`** — invoke the config callback directly. Works
+   *    without `ServerSidePlugin` for grids that only need lazy tree children
+   *    and not server-side root pagination/sorting/filtering.
+   *
+   * No-op when neither route is configured, the node is already loading, or
+   * its children are already embedded.
    */
   private requestLazyChildren(flatRow: FlattenedTreeRow): void {
-    if (this.loadingKeys.has(flatRow.key)) return;
-
-    const childrenField = this.config.childrenField ?? 'children';
-    const children = flatRow.data[childrenField];
-    // Only fetch if children is a lazy indicator (truthy but not a non-empty array)
-    if (Array.isArray(children) && children.length > 0) return;
+    const { key, depth, data: row } = flatRow;
+    if (this.loadingKeys.has(key)) return;
+    if (!this.#needsChildFetch(row, key)) return;
 
     const isServerSideActive = this.grid?.query?.('datasource:is-active', null);
-    if (!isServerSideActive) return;
+    const { loadChildren } = this.config;
+    if (!isServerSideActive && !loadChildren) return;
 
-    this.loadingKeys.add(flatRow.key);
-    this.grid.query('datasource:fetch-children', {
-      context: { source: 'tree', parentNode: flatRow.data, nodePath: [flatRow.key] },
-    } satisfies FetchChildrenQuery);
+    this.loadingKeys.add(key);
+    this.broadcast<TreeLoadStartDetail>('tree-load-start', { key, row, depth });
+
+    if (isServerSideActive) {
+      this.grid.query('datasource:fetch-children', {
+        context: { source: 'tree', parentNode: row, nodePath: [key] },
+      } satisfies FetchChildrenQuery);
+      return;
+    }
+
+    this.#loadChildrenLocally(key, row, depth);
+  }
+
+  /**
+   * Drive the local `loadChildren` callback. Supports both `Promise` and
+   * `Subscribable` results; the subscription is torn down on abort so an
+   * Angular `HttpClient` request is cancelled natively.
+   */
+  #loadChildrenLocally(key: string, row: TreeRow, depth: number): void {
+    // A callback is guaranteed by the caller's guard.
+    const loadChildren = this.config.loadChildren as NonNullable<TreeConfig['loadChildren']>;
+    const controller = new AbortController();
+    this.#childRequests.set(key, controller);
+
+    const finish = (): boolean => {
+      // Superseded or detached — drop the result silently.
+      if (controller.signal.aborted) return false;
+      this.#childRequests.delete(key);
+      this.loadingKeys.delete(key);
+      return true;
+    };
+
+    const onSuccess = (rows: TreeRow[] | null | undefined) => {
+      if (!finish()) return;
+      const children = rows ?? [];
+      this.#mergeChildren(row, children);
+      this.broadcast<TreeLoadEndDetail>('tree-load-end', { key, row, depth, childCount: children.length });
+      this.requestRender();
+    };
+
+    const onError = (error: unknown) => {
+      if (!finish()) return;
+      this.broadcast<TreeLoadErrorDetail>('tree-load-error', { key, row, depth, error });
+      this.requestRender();
+    };
+
+    let result: Promise<TreeRow[]> | Subscribable<TreeRow[]>;
+    try {
+      result = loadChildren({ row, key, depth, signal: controller.signal });
+    } catch (error) {
+      onError(error);
+      return;
+    }
+
+    if (result && isSubscribable(result)) {
+      const subscription = result.subscribe({ next: onSuccess, error: onError });
+      controller.signal.addEventListener('abort', () => subscription.unsubscribe(), { once: true });
+      return;
+    }
+    Promise.resolve(result).then(onSuccess, onError);
   }
 
   /**
@@ -556,9 +713,15 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
         container.style.setProperty('--tbw-tree-indent-width', `${indentWidth}px`);
       }
 
-      // Add expand/collapse icon or spacer
+      // Add expand/collapse icon, loading spinner, or spacer
       if (showExpandIcons) {
-        if (meta && meta.hasChildren) {
+        if (meta && this.loadingKeys.has(meta.key)) {
+          // Reuse the core loading UI (`.tbw-spinner--small`) instead of a
+          // tree-specific indicator so custom spinner theming applies here too.
+          const spinner = createDefaultSpinner('small');
+          spinner.classList.add('tree-loading');
+          container.appendChild(spinner);
+        } else if (meta && meta.hasChildren) {
           const icon = document.createElement('span');
           icon.className = `${GridClasses.TREE_TOGGLE}${meta.isExpanded ? ` ${GridClasses.EXPANDED}` : ''}`;
           setIconFn(icon, meta.isExpanded ? 'collapse' : 'expand');
@@ -729,6 +892,15 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
         rowEl.removeAttribute('aria-expanded');
       }
       rowEl.classList.toggle('tbw-row-expanded', treeRow.hasChildren && treeRow.isExpanded);
+
+      // Announce in-flight lazy child loading. MUST clear on the negative
+      // branch — virtualization recycles row elements, so a row reusing a
+      // previously-loading element would inherit a stale `aria-busy`.
+      if (this.loadingKeys.has(treeRow.key)) {
+        rowEl.setAttribute('aria-busy', 'true');
+      } else if (rowEl.hasAttribute('aria-busy')) {
+        rowEl.removeAttribute('aria-busy');
+      }
 
       if (shouldAnimate && treeRow.key && this.keysToAnimate.has(treeRow.key)) {
         rowEl.classList.add(animClass);

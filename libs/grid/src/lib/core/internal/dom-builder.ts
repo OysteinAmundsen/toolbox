@@ -325,145 +325,164 @@ export interface ShellBodyOptions {
 }
 
 /**
+ * Panel close (✕) button. `data-panel-close` is wired by
+ * `setupShellEventListeners` to close the panel.
+ */
+function buildPanelCloseButton(inline: boolean): HTMLButtonElement {
+  const closeBtn = button(inline ? 'tbw-tool-panel-close tbw-tool-panel-close--inline' : 'tbw-tool-panel-close', {
+    part: 'tool-panel-close',
+    'data-panel-close': '',
+    title: 'Close panel',
+    'aria-label': 'Close panel',
+    'aria-controls': 'tbw-tool-panel',
+  });
+  closeBtn.textContent = '✕';
+  return closeBtn;
+}
+
+/** Slim standalone header row holding just the close button. */
+function buildPanelCloseRow(): HTMLDivElement {
+  const panelHeader = div('tbw-tool-panel-header', { part: 'tool-panel-header' });
+  panelHeader.appendChild(buildPanelCloseButton(false));
+  return panelHeader;
+}
+
+/** Accordion header button: icon + title + chevron. */
+function buildAccordionHeader(
+  panel: ShellBodyOptions['panels'][number],
+  options: ShellBodyOptions,
+  isSinglePanel: boolean,
+): HTMLButtonElement {
+  const headerBtn = button('tbw-accordion-header', {
+    'aria-expanded': String(panel.isExpanded),
+    'aria-controls': `tbw-section-${panel.id}`,
+  });
+  if (isSinglePanel) headerBtn.setAttribute('aria-disabled', 'true');
+
+  if (panel.icon) {
+    const iconSpan = createElement('span', { class: 'tbw-accordion-icon' });
+    iconSpan.innerHTML = sanitizeHTML(panel.icon);
+    headerBtn.appendChild(iconSpan);
+  }
+
+  // Title (empty span kept as a flex spacer so the chevron stays right-aligned)
+  const titleSpan = createElement('span', { class: 'tbw-accordion-title' });
+  titleSpan.textContent = panel.title ?? '';
+  headerBtn.appendChild(titleSpan);
+
+  // Chevron (hidden for single panel) — always use expandIcon, CSS rotation handles state
+  if (!isSinglePanel) {
+    const chevronSpan = createElement('span', { class: 'tbw-accordion-chevron', 'data-icon': 'expand' });
+    if (options.expandIcon !== undefined) {
+      chevronSpan.innerHTML = sanitizeHTML(options.expandIcon);
+    }
+    headerBtn.appendChild(chevronSpan);
+  }
+  return headerBtn;
+}
+
+/** One accordion section (header row + empty content slot). */
+function buildAccordionSection(
+  panel: ShellBodyOptions['panels'][number],
+  options: ShellBodyOptions,
+  isSinglePanel: boolean,
+  inlineClose: boolean,
+): HTMLDivElement {
+  // The accordion header row (icon + title + chevron/toggle) is skipped only
+  // when a single title-less panel is registered — there is nothing to show and
+  // no sibling to toggle between. With multiple panels a title-less header still
+  // renders (empty title span) so the chevron and toggle button stay available.
+  const renderHeader = !!panel.title || !isSinglePanel;
+  // Inline close shares the header row; only possible when a header exists.
+  const canInlineClose = inlineClose && renderHeader;
+  const sectionClasses = `tbw-accordion-section${panel.isExpanded ? ' expanded' : ''}${isSinglePanel ? ' single' : ''}${canInlineClose ? ' has-inline-close' : ''}`;
+  const section = div(sectionClasses, { 'data-section': panel.id });
+
+  if (renderHeader) {
+    const headerBtn = buildAccordionHeader(panel, options, isSinglePanel);
+    if (canInlineClose) {
+      // Single-panel close button shares the header row with the panel title.
+      const headerRow = div('tbw-accordion-header-row');
+      headerRow.appendChild(headerBtn);
+      headerRow.appendChild(buildPanelCloseButton(true));
+      section.appendChild(headerRow);
+    } else {
+      section.appendChild(headerBtn);
+    }
+  } else if (inlineClose) {
+    // Single title-less panel with the header suppressed: the inline close
+    // button has no header row to share, so render it as a standalone row.
+    section.appendChild(buildPanelCloseRow());
+  }
+
+  // Accordion content (empty, will be filled by panel render functions)
+  section.appendChild(
+    div('tbw-accordion-content', {
+      id: `tbw-section-${panel.id}`,
+      role: 'presentation',
+    }),
+  );
+  return section;
+}
+
+/** The `<aside>` tool panel: resize handle, optional close affordance, accordion. */
+function buildToolPanel(options: ShellBodyOptions, mode: 'overlay' | 'push' | 'dropdown'): HTMLElement {
+  const isSinglePanel = options.panels.length === 1;
+  const panelEl = createElement('aside', {
+    class: options.isPanelOpen ? 'tbw-tool-panel open' : 'tbw-tool-panel',
+    part: 'tool-panel',
+    'data-position': options.position,
+    role: 'presentation',
+    id: 'tbw-tool-panel',
+    // In dropdown mode the panel is a manually-controlled native popover
+    // (shown/hidden via showPopover()/hidePopover() from the controller).
+    ...(mode === 'dropdown' ? { popover: 'manual' } : {}),
+  });
+
+  // Resize handle
+  panelEl.appendChild(
+    div('tbw-tool-panel-resize', {
+      'data-resize-handle': '',
+      'data-handle-position': options.position === 'left' ? 'right' : 'left',
+      'aria-hidden': 'true',
+    }),
+  );
+
+  // Optional close (✕) button — rendered (overlay/push only) when the shell
+  // header bar is hidden, so the panel can always be dismissed. Dropdown mode
+  // never reaches here (showCloseButton is gated off upstream).
+  //
+  // Placement:
+  // - Multiple panels: a dedicated slim header row above the accordion.
+  // - Single panel: inlined onto the (only) accordion header row so it shares
+  //   the line with the panel title instead of wasting a full-width row.
+  const inlineClose = options.showCloseButton === true && isSinglePanel;
+  if (options.showCloseButton && !isSinglePanel) {
+    panelEl.appendChild(buildPanelCloseRow());
+  }
+
+  const panelContent = div('tbw-tool-panel-content', { role: 'presentation' });
+  const accordion = div('tbw-accordion');
+  for (const panel of options.panels) {
+    accordion.appendChild(buildAccordionSection(panel, options, isSinglePanel, inlineClose));
+  }
+  panelContent.appendChild(accordion);
+  panelEl.appendChild(panelContent);
+  return panelEl;
+}
+
+/**
  * Build shell body element directly without innerHTML.
  */
 export function buildShellBody(options: ShellBodyOptions): HTMLDivElement {
   const mode = options.mode ?? 'overlay';
   const body = div('tbw-shell-body', { 'data-mode': mode });
-  const hasPanel = options.panels.length > 0;
-  const isSinglePanel = options.panels.length === 1;
 
   // Grid content wrapper with cloned grid structure
   const gridContent = div('tbw-grid-content');
   gridContent.appendChild(cloneGridContent());
 
-  // Tool panel
-  let panelEl: HTMLElement | null = null;
-  if (hasPanel) {
-    panelEl = createElement('aside', {
-      class: options.isPanelOpen ? 'tbw-tool-panel open' : 'tbw-tool-panel',
-      part: 'tool-panel',
-      'data-position': options.position,
-      role: 'presentation',
-      id: 'tbw-tool-panel',
-      // In dropdown mode the panel is a manually-controlled native popover
-      // (shown/hidden via showPopover()/hidePopover() from the controller).
-      ...(mode === 'dropdown' ? { popover: 'manual' } : {}),
-    });
-
-    // Resize handle
-    const resizeHandlePosition = options.position === 'left' ? 'right' : 'left';
-    panelEl.appendChild(
-      div('tbw-tool-panel-resize', {
-        'data-resize-handle': '',
-        'data-handle-position': resizeHandlePosition,
-        'aria-hidden': 'true',
-      }),
-    );
-
-    // Optional close (✕) button — rendered (overlay/push only) when the shell
-    // header bar is hidden, so the panel can always be dismissed. Dropdown mode
-    // never reaches here (showCloseButton is gated off upstream). `data-panel-close`
-    // is wired by setupShellEventListeners to close the panel.
-    //
-    // Placement:
-    // - Multiple panels: a dedicated slim header row above the accordion.
-    // - Single panel: inlined onto the (only) accordion header row so it shares
-    //   the line with the panel title instead of wasting a full-width row.
-    const makeCloseButton = (inline: boolean): HTMLButtonElement => {
-      const closeBtn = button(inline ? 'tbw-tool-panel-close tbw-tool-panel-close--inline' : 'tbw-tool-panel-close', {
-        part: 'tool-panel-close',
-        'data-panel-close': '',
-        title: 'Close panel',
-        'aria-label': 'Close panel',
-        'aria-controls': 'tbw-tool-panel',
-      });
-      closeBtn.textContent = '✕';
-      return closeBtn;
-    };
-    const inlineClose = options.showCloseButton === true && isSinglePanel;
-    if (options.showCloseButton && !isSinglePanel) {
-      const panelHeader = div('tbw-tool-panel-header', { part: 'tool-panel-header' });
-      panelHeader.appendChild(makeCloseButton(false));
-      panelEl.appendChild(panelHeader);
-    }
-
-    // Panel content with accordion
-    const panelContent = div('tbw-tool-panel-content', { role: 'presentation' });
-    const accordion = div('tbw-accordion');
-
-    for (const panel of options.panels) {
-      // The accordion header row (icon + title + chevron/toggle) is skipped
-      // only when a single title-less panel is registered — there is nothing
-      // to show and no sibling to toggle between. With multiple panels a
-      // title-less header still renders (empty title span) so the chevron and
-      // toggle button stay available.
-      const renderHeader = !!panel.title || !isSinglePanel;
-      // Inline close shares the header row; only possible when a header exists.
-      const canInlineClose = inlineClose && renderHeader;
-      const sectionClasses = `tbw-accordion-section${panel.isExpanded ? ' expanded' : ''}${isSinglePanel ? ' single' : ''}${canInlineClose ? ' has-inline-close' : ''}`;
-      const section = div(sectionClasses, { 'data-section': panel.id });
-
-      if (renderHeader) {
-        // Accordion header button
-        const headerBtn = button('tbw-accordion-header', {
-          'aria-expanded': String(panel.isExpanded),
-          'aria-controls': `tbw-section-${panel.id}`,
-        });
-        if (isSinglePanel) headerBtn.setAttribute('aria-disabled', 'true');
-
-        // Icon
-        if (panel.icon) {
-          const iconSpan = createElement('span', { class: 'tbw-accordion-icon' });
-          iconSpan.innerHTML = sanitizeHTML(panel.icon);
-          headerBtn.appendChild(iconSpan);
-        }
-
-        // Title (empty span kept as a flex spacer so the chevron stays right-aligned)
-        const titleSpan = createElement('span', { class: 'tbw-accordion-title' });
-        titleSpan.textContent = panel.title ?? '';
-        headerBtn.appendChild(titleSpan);
-
-        // Chevron (hidden for single panel) — always use expandIcon, CSS rotation handles state
-        if (!isSinglePanel) {
-          const chevronSpan = createElement('span', { class: 'tbw-accordion-chevron', 'data-icon': 'expand' });
-          if (options.expandIcon !== undefined) {
-            chevronSpan.innerHTML = sanitizeHTML(options.expandIcon);
-          }
-          headerBtn.appendChild(chevronSpan);
-        }
-
-        // Single-panel close button shares the header row with the panel title.
-        if (canInlineClose) {
-          const headerRow = div('tbw-accordion-header-row');
-          headerRow.appendChild(headerBtn);
-          headerRow.appendChild(makeCloseButton(true));
-          section.appendChild(headerRow);
-        } else {
-          section.appendChild(headerBtn);
-        }
-      } else if (inlineClose) {
-        // Single title-less panel with the header suppressed: the inline close
-        // button has no header row to share, so render it as a standalone row.
-        const panelHeader = div('tbw-tool-panel-header', { part: 'tool-panel-header' });
-        panelHeader.appendChild(makeCloseButton(false));
-        section.appendChild(panelHeader);
-      }
-
-      // Accordion content (empty, will be filled by panel render functions)
-      section.appendChild(
-        div('tbw-accordion-content', {
-          id: `tbw-section-${panel.id}`,
-          role: 'presentation',
-        }),
-      );
-
-      accordion.appendChild(section);
-    }
-
-    panelContent.appendChild(accordion);
-    panelEl.appendChild(panelContent);
-  }
+  const panelEl = options.panels.length > 0 ? buildToolPanel(options, mode) : null;
 
   // Append in correct order based on position
   if (options.position === 'left' && panelEl) {

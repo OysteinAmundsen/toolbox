@@ -530,13 +530,7 @@ function patchCellFocus(cell: HTMLElement, shouldHaveFocus: boolean): void {
 }
 
 /** Apply the column's `cellClass` callback, replacing any classes it added last render. */
-function applyCellClass(
-  grid: GridHost,
-  cell: HTMLElement,
-  col: ColumnInternal,
-  rowData: any,
-  rowIndex: number,
-): void {
+function applyCellClass(grid: GridHost, cell: HTMLElement, col: ColumnInternal, rowData: any, rowIndex: number): void {
   const cellClassFn = col.cellClass;
   if (!cellClassFn) return;
   clearDynamicClasses(cell);
@@ -770,38 +764,236 @@ function fastPatchRow(grid: GridHost, rowEl: HTMLElement, rowData: any, rowIndex
 
 // #region Cell Rendering
 /**
+ * Wipe a pooled row's cells ahead of a full rebuild.
+ *
+ * Framework editor views are released BEFORE the DOM is wiped — without this,
+ * Angular EmbeddedViewRefs / React roots / Vue apps created by editor factories
+ * stay alive in the adapter's tracking arrays after their DOM is destroyed,
+ * leaking memory on every edit cycle. Wrapped in `beginBatch`/`endBatch` because
+ * `innerHTML = ''` detaches every cell as a group, letting adapters defer
+ * per-cell sync commits to a single render once detachment completes (#330).
+ */
+function clearRowForRebuild(grid: GridHost, rowEl: HTMLElement): void {
+  // Clear loading state before rebuild — grid re-applies it after render for
+  // actually-loading rows. Prevents a stale tbw-row-loading class from
+  // persisting when pool elements are recycled.
+  rowEl.classList.remove('tbw-row-loading');
+  rowEl.removeAttribute('aria-busy');
+
+  const adapter = grid.__frameworkAdapter;
+  if (!adapter?.releaseCell) {
+    rowEl.innerHTML = '';
+    return;
+  }
+  adapter.beginBatch?.(grid);
+  try {
+    const children = rowEl.children;
+    for (let i = children.length - 1; i >= 0; i--) {
+      adapter.releaseCell(children[i] as HTMLElement);
+    }
+    rowEl.innerHTML = '';
+  } finally {
+    adapter.endBatch?.(grid);
+  }
+}
+
+/** Clone the cell template and stamp the per-cell identity attributes. */
+function buildCellElement(col: ColumnInternal, colIndex: number, rowIndex: number): HTMLDivElement {
+  // Template cloning is 3-4x faster than createElement + setAttribute.
+  const cell = createCellFromTemplate();
+  // role/class/part are already set in the template; only dynamic attrs here.
+  cell.setAttribute('aria-colindex', String(colIndex + 1)); // aria-colindex is 1-based
+  cell.setAttribute('data-col', String(colIndex));
+  cell.setAttribute('data-row', String(rowIndex));
+  cell.setAttribute('data-field', col.field); // Field name for column identification
+  cell.setAttribute('data-header', col.header ?? col.field); // Header text for responsive CSS
+  if (col.type) cell.setAttribute('data-type', col.type);
+  return cell;
+}
+
+/** Render via a column/type/adapter view renderer. Returns true if innerHTML was used. */
+function renderViaRenderer(
+  grid: GridHost,
+  cell: HTMLElement,
+  col: ColumnInternal,
+  viewRenderer: ColumnViewRenderer<any>,
+  value: unknown,
+  rowData: any,
+): boolean {
+  // Pass cellEl for framework adapters that want to cache per-cell
+  const produced = viewRenderer({
+    row: rowData,
+    value,
+    field: col.field,
+    column: col,
+    grid: grid as any,
+    cellEl: cell,
+  });
+  if (typeof produced === 'string') {
+    // Sanitize HTML from viewRenderer to prevent XSS from user-controlled data
+    cell.innerHTML = sanitizeHTML(produced);
+    return true;
+  }
+  if (produced instanceof Node) {
+    // Skip when the container is already a child of the cell — the framework
+    // adapter reused it and has re-rendered in place.
+    if (produced.parentElement !== cell) {
+      cell.textContent = '';
+      cell.appendChild(produced);
+    }
+  } else if (produced == null) {
+    // Renderer returned null/undefined - show raw value
+    cell.textContent = value == null ? '' : String(value);
+  }
+  // If produced is truthy but not a string or Node (e.g., framework placeholder),
+  // don't modify the cell - the framework adapter handles rendering.
+  return false;
+}
+
+/** Insert an external-view placeholder and mount it (directly or via event). */
+function mountExternalView(grid: GridHost, cell: HTMLElement, col: ColumnInternal, value: unknown, rowData: any): void {
+  const spec = col.externalView!;
+  const placeholder = document.createElement('div');
+  placeholder.setAttribute('data-external-view', '');
+  placeholder.setAttribute('data-field', col.field);
+  cell.appendChild(placeholder);
+  const context = { row: rowData, value, field: col.field, column: col, grid: grid as any };
+
+  if (spec.mount) {
+    try {
+      spec.mount({ placeholder, context, spec });
+    } catch (e) {
+      // Log mount errors as warnings (user configuration issue)
+      warnDiagnostic(VIEW_MOUNT_ERROR, `External view mount error for column '${col.field}': ${e}`, grid.id);
+    }
+  } else {
+    queueMicrotask(() => {
+      try {
+        grid.dispatchEvent(
+          new CustomEvent('mount-external-view', {
+            bubbles: true,
+            composed: true,
+            detail: { placeholder, spec, context },
+          }),
+        );
+      } catch (e) {
+        // Log dispatch errors as warnings
+        warnDiagnostic(
+          VIEW_DISPATCH_ERROR,
+          `External view event dispatch error for column '${col.field}': ${e}`,
+          grid.id,
+        );
+      }
+    });
+  }
+  placeholder.setAttribute('data-mounted', '');
+}
+
+/** Plain value rendering — no renderer/template configured. */
+function renderPlainValue(cell: HTMLElement, col: ColumnInternal, value: unknown, formatted: boolean): void {
+  // A formatted value is already a display string; use it verbatim.
+  if (!formatted && col.type === 'date') {
+    cell.textContent = formatDateValue(value);
+  } else if (!formatted && col.type === 'boolean') {
+    // Wrap checkbox in span to satisfy ARIA: gridcell can contain checkbox
+    cell.innerHTML = booleanCellHTML(!!value);
+  } else {
+    cell.textContent = value == null ? '' : String(value);
+  }
+}
+
+/**
+ * Fill a freshly built cell with content. Precedence: view renderer → external
+ * view → compiled template → light-DOM template → plain value.
+ * Returns true when `innerHTML` was used and the cell needs scrubbing.
+ */
+function renderCellContent(
+  grid: GridHost,
+  cell: HTMLElement,
+  col: ColumnInternal,
+  value: unknown,
+  rowData: any,
+  formatted: boolean,
+): boolean {
+  // Resolve renderer using priority chain: column → typeDefaults → adapter → built-in
+  const viewRenderer = resolveRenderer(grid, col);
+  if (viewRenderer) return renderViaRenderer(grid, cell, col, viewRenderer, value, rowData);
+
+  if (col.externalView) {
+    mountExternalView(grid, cell, col, value, rowData);
+    return false;
+  }
+
+  const compiled = col.__compiledView;
+  if (compiled) {
+    const output = compiled({ row: rowData, value, field: col.field, column: col });
+    const blocked = compiled.__blocked;
+    // Sanitize compiled template output to prevent XSS
+    cell.innerHTML = blocked ? '' : sanitizeHTML(output);
+    if (blocked) {
+      // Forcefully clear any residual whitespace text nodes for deterministic emptiness
+      cell.textContent = '';
+      cell.setAttribute('data-blocked-template', '');
+    }
+    return true;
+  }
+
+  const tplHolder = col.__viewTemplate;
+  if (tplHolder) {
+    const rawTpl = tplHolder.innerHTML;
+    if (/Reflect\.|\bProxy\b|ownKeys\(/.test(rawTpl)) {
+      cell.textContent = '';
+      cell.setAttribute('data-blocked-template', '');
+      return false;
+    }
+    // Sanitize inline template output to prevent XSS
+    cell.innerHTML = sanitizeHTML(evalTemplateString(rawTpl, { row: rowData, value }));
+    return true;
+  }
+
+  renderPlainValue(cell, col, value, formatted);
+  return false;
+}
+
+/** Post-render scrub for cells whose content came from `innerHTML`. */
+function scrubRenderedCell(cell: HTMLElement, needsSanitization: boolean): void {
+  // Only run expensive sanitization when we used innerHTML with user content
+  if (needsSanitization) {
+    finalCellScrub(cell);
+    // Defensive: if forbidden tokens leaked via async or framework hydration, scrub again.
+    const textContent = cell.textContent || '';
+    if (/Proxy|Reflect\.ownKeys/.test(textContent)) {
+      cell.textContent = textContent.replace(/Proxy|Reflect\.ownKeys/g, '').trim();
+      if (/Proxy|Reflect\.ownKeys/.test(cell.textContent || '')) cell.textContent = '';
+    }
+  }
+  // If anything at all remains (e.g. 'function () { [native code] }'), blank it.
+  if (cell.hasAttribute('data-blocked-template') && (cell.textContent || '').trim().length) {
+    cell.textContent = '';
+  }
+}
+
+/**
+ * Mark keyboard-navigable cells. Event handlers are wired by delegation in
+ * `setupCellEventDelegation()`, so only tabindex is set here.
+ */
+function applyCellTabIndex(cell: HTMLElement, col: ColumnInternal, rowData: any): void {
+  const isEditable = typeof col.editable === 'function' ? col.editable(rowData) : col.editable;
+  if (isEditable) {
+    cell.tabIndex = 0;
+  } else if (col.type === 'boolean') {
+    // Non-editable boolean cells must NOT toggle on space; they are read-only
+    // and only need a tabindex for focus navigation.
+    if (!cell.hasAttribute('tabindex')) cell.tabIndex = 0;
+  }
+}
+
+/**
  * Full reconstruction of a row's set of cells including templated, external view, and formatted content.
  * Attaches event handlers for editing and accessibility per cell.
  */
 export function renderInlineRow(grid: GridHost, rowEl: HTMLElement, rowData: any, rowIndex: number): void {
-  // Clear loading state before rebuild — grid will re-apply after render for actually-loading rows.
-  // This prevents stale tbw-row-loading class from persisting when pool elements are recycled.
-  rowEl.classList.remove('tbw-row-loading');
-  rowEl.removeAttribute('aria-busy');
-
-  // Release framework editor views before wiping DOM to prevent memory leaks.
-  // Without this, Angular EmbeddedViewRefs / React roots / Vue apps created by
-  // editor factories would remain alive in the adapter's tracking arrays even
-  // after their DOM is destroyed, leaking memory on every edit cycle.
-  //
-  // Wrap in adapter.beginBatch / endBatch — `rowEl.innerHTML = ''` below
-  // detaches every cell as a group, so adapters can defer per-cell sync
-  // commits to a single render once detachment is complete (#330).
-  const adapter = grid.__frameworkAdapter;
-  if (adapter?.releaseCell) {
-    adapter.beginBatch?.(grid);
-    try {
-      const children = rowEl.children;
-      for (let i = children.length - 1; i >= 0; i--) {
-        adapter.releaseCell(children[i] as HTMLElement);
-      }
-      rowEl.innerHTML = '';
-    } finally {
-      adapter.endBatch?.(grid);
-    }
-  } else {
-    rowEl.innerHTML = '';
-  }
+  clearRowForRebuild(grid, rowEl);
 
   // Pre-cache values used in the loop
   const columns = grid._visibleColumns;
@@ -817,17 +1009,7 @@ export function renderInlineRow(grid: GridHost, rowEl: HTMLElement, rowData: any
 
   for (let colIndex = 0; colIndex < colsLen; colIndex++) {
     const col = columns[colIndex];
-    // Use template cloning - 3-4x faster than createElement + setAttribute
-    const cell = createCellFromTemplate();
-
-    // Only set dynamic attributes (role, class, part are already set in template)
-    // aria-colindex is 1-based
-    cell.setAttribute('aria-colindex', String(colIndex + 1));
-    cell.setAttribute('data-col', String(colIndex));
-    cell.setAttribute('data-row', String(rowIndex));
-    cell.setAttribute('data-field', col.field); // Field name for column identification
-    cell.setAttribute('data-header', col.header ?? col.field); // Header text for responsive CSS
-    if (col.type) cell.setAttribute('data-type', col.type);
+    const cell = buildCellElement(col, colIndex, rowIndex);
 
     let value = resolveCellValue(rowData, col, rowIndex);
     // Resolve format using priority chain: column → typeDefaults → adapter
@@ -841,139 +1023,9 @@ export function renderInlineRow(grid: GridHost, rowEl: HTMLElement, rowData: any
       }
     }
 
-    const compiled = col.__compiledView;
-    const tplHolder = col.__viewTemplate;
-    // Resolve renderer using priority chain: column → typeDefaults → adapter → built-in
-    const viewRenderer = resolveRenderer(grid, col);
-    const externalView = col.externalView;
-
-    // Track if we used a template that needs sanitization
-    let needsSanitization = false;
-
-    if (viewRenderer) {
-      // Pass cellEl for framework adapters that want to cache per-cell
-      const produced = viewRenderer({
-        row: rowData,
-        value,
-        field: col.field,
-        column: col,
-        grid: grid as any,
-        cellEl: cell,
-      });
-      if (typeof produced === 'string') {
-        // Sanitize HTML from viewRenderer to prevent XSS from user-controlled data
-        cell.innerHTML = sanitizeHTML(produced);
-        needsSanitization = true;
-      } else if (produced instanceof Node) {
-        // Check if this container is already a child of the cell (reused by framework adapter)
-        if (produced.parentElement !== cell) {
-          // Clear any existing content before appending new container
-          cell.textContent = '';
-          cell.appendChild(produced);
-        }
-        // If already a child, the framework adapter has re-rendered in place
-      } else if (produced == null) {
-        // Renderer returned null/undefined - show raw value
-        cell.textContent = value == null ? '' : String(value);
-      }
-      // If produced is truthy but not a string or Node (e.g., framework placeholder),
-      // don't modify the cell - the framework adapter handles rendering
-    } else if (externalView) {
-      const spec = externalView;
-      const placeholder = document.createElement('div');
-      placeholder.setAttribute('data-external-view', '');
-      placeholder.setAttribute('data-field', col.field);
-      cell.appendChild(placeholder);
-      const context = { row: rowData, value, field: col.field, column: col, grid: grid as any };
-      if (spec.mount) {
-        try {
-          spec.mount({ placeholder, context, spec });
-        } catch (e) {
-          // Log mount errors as warnings (user configuration issue)
-          warnDiagnostic(VIEW_MOUNT_ERROR, `External view mount error for column '${col.field}': ${e}`, grid.id);
-        }
-      } else {
-        queueMicrotask(() => {
-          try {
-            grid.dispatchEvent(
-              new CustomEvent('mount-external-view', {
-                bubbles: true,
-                composed: true,
-                detail: { placeholder, spec, context },
-              }),
-            );
-          } catch (e) {
-            // Log dispatch errors as warnings
-            warnDiagnostic(
-              VIEW_DISPATCH_ERROR,
-              `External view event dispatch error for column '${col.field}': ${e}`,
-              grid.id,
-            );
-          }
-        });
-      }
-      placeholder.setAttribute('data-mounted', '');
-    } else if (compiled) {
-      const output = compiled({ row: rowData, value, field: col.field, column: col });
-      const blocked = compiled.__blocked;
-      // Sanitize compiled template output to prevent XSS
-      cell.innerHTML = blocked ? '' : sanitizeHTML(output);
-      needsSanitization = true;
-      if (blocked) {
-        // Forcefully clear any residual whitespace text nodes for deterministic emptiness
-        cell.textContent = '';
-        cell.setAttribute('data-blocked-template', '');
-      }
-    } else if (tplHolder) {
-      const rawTpl = tplHolder.innerHTML;
-      if (/Reflect\.|\bProxy\b|ownKeys\(/.test(rawTpl)) {
-        cell.textContent = '';
-        cell.setAttribute('data-blocked-template', '');
-      } else {
-        // Sanitize inline template output to prevent XSS
-        cell.innerHTML = sanitizeHTML(evalTemplateString(rawTpl, { row: rowData, value }));
-        needsSanitization = true;
-      }
-    } else {
-      // Plain value rendering - compute display directly (matches Stencil performance)
-      // If formatFn was applied, value is already formatted - just use it
-      if (formatFn) {
-        cell.textContent = value == null ? '' : String(value);
-      } else if (col.type === 'date') {
-        cell.textContent = formatDateValue(value);
-      } else if (col.type === 'boolean') {
-        // Wrap checkbox in span to satisfy ARIA: gridcell can contain checkbox
-        cell.innerHTML = booleanCellHTML(!!value);
-      } else {
-        cell.textContent = value == null ? '' : String(value);
-      }
-    }
-
-    // Only run expensive sanitization when we used innerHTML with user content
-    if (needsSanitization) {
-      finalCellScrub(cell);
-      // Defensive: if forbidden tokens leaked via async or framework hydration, scrub again.
-      const textContent = cell.textContent || '';
-      if (/Proxy|Reflect\.ownKeys/.test(textContent)) {
-        cell.textContent = textContent.replace(/Proxy|Reflect\.ownKeys/g, '').trim();
-        if (/Proxy|Reflect\.ownKeys/.test(cell.textContent || '')) cell.textContent = '';
-      }
-    }
-
-    if (cell.hasAttribute('data-blocked-template')) {
-      // If anything at all remains (e.g., 'function () { [native code] }'), blank it completely.
-      if ((cell.textContent || '').trim().length) cell.textContent = '';
-    }
-    // Mark editable cells with tabindex for keyboard navigation
-    // Event handlers are set up via delegation in setupCellEventDelegation()
-    const isEditable = typeof col.editable === 'function' ? col.editable(rowData) : col.editable;
-    if (isEditable) {
-      cell.tabIndex = 0;
-    } else if (col.type === 'boolean') {
-      // Non-editable boolean cells should NOT toggle on space key
-      // They are read-only, only set tabindex for focus navigation
-      if (!cell.hasAttribute('tabindex')) cell.tabIndex = 0;
-    }
+    const needsSanitization = renderCellContent(grid, cell, col, value, rowData, !!formatFn);
+    scrubRenderedCell(cell, needsSanitization);
+    applyCellTabIndex(cell, col, rowData);
 
     // Initialize focus state (must match fastPatchRow for consistent behavior)
     if (focusRow === rowIndex && focusCol === colIndex) {

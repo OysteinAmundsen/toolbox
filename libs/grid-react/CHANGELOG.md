@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-2.2.0...grid-react-2.3.0) (2026-07-27)
+
+
+### Features
+
+* **adapters:** surface baselines-captured in all adapters, add React/Vue event drift guards, deprecate phantom tree-load events ([e8a2be2](https://github.com/OysteinAmundsen/toolbox/commit/e8a2be2bd83a671be00c883d99b7a9fbeaba4ba2))
+* **tree:** implement async lazy child loading via loadChildren ([50bff2d](https://github.com/OysteinAmundsen/toolbox/commit/50bff2d08f9425285504bb713611690013c49f41))
+
 ## [2.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-2.1.0...grid-react-2.2.0) (2026-07-21)
 
 

@@ -1157,6 +1157,9 @@ export class TextFilterComponent extends BaseFilterPanel {
 | `rowMove`           | `OutputEmitterRef<RowMoveDetail>`          | Row moved (drag & drop)      |
 | `groupToggle`       | `OutputEmitterRef<GroupToggleDetail>`      | Group expanded/collapsed     |
 | `treeExpand`        | `OutputEmitterRef<TreeExpandDetail>`       | Tree node expanded/collapsed |
+| `treeLoadStart`     | `OutputEmitterRef<TreeLoadStartDetail>`    | Lazy child loading started   |
+| `treeLoadEnd`       | `OutputEmitterRef<TreeLoadEndDetail>`      | Lazy child loading finished  |
+| `treeLoadError`     | `OutputEmitterRef<TreeLoadErrorDetail>`    | Lazy child loading failed    |
 | `detailExpand`      | `OutputEmitterRef<DetailExpandDetail>`     | Detail panel toggled         |
 | `responsiveChange`  | `OutputEmitterRef<ResponsiveChangeDetail>` | Responsive mode changed      |
 | `copy`              | `OutputEmitterRef<CopyDetail>`             | Data copied to clipboard     |

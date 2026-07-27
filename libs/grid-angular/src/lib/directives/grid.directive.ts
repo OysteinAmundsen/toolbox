@@ -740,6 +740,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     | 'group-expand'
     | 'group-collapse'
     | 'tree-expand'
+    | 'tree-load-start'
+    | 'tree-load-end'
+    | 'tree-load-error'
     | 'detail-expand'
     | 'responsive-change'
     | 'context-menu-open'
@@ -759,13 +762,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     // VisibilityPlugin emits for ReorderPlugin to service.
     | 'mount-external-editor'
     | 'mount-external-view'
-    | 'column-reorder-request'
-    // Tree lazy-loading events. Omitted for the same reason as `tree-expand`
-    // above — the Angular adapter has no per-feature tree directive yet, so
-    // consumers subscribe via `addEventListener` on the host element.
-    | 'tree-load-start'
-    | 'tree-load-end'
-    | 'tree-load-error';
+    | 'column-reorder-request';
   /**
    * Compile-time assertion — assigning `true` only type-checks while the
    * conditional below resolves to `true`. Do not turn this back into a

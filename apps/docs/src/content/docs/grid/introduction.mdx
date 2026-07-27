@@ -33,6 +33,8 @@ Five corpus variants are published. **Pick the one that covers your stack:**
 | `llms-full-vanilla.txt` | Plain TypeScript / JavaScript, no framework |
 | `llms-full.txt` | Framework unknown, or multiple frameworks in one session |
 
+Two smaller companions sit alongside them: `llms.txt` (curated link map of every prose page — read this first when you only need to find the right page) and `llms-api.txt` (every generated TypeDoc symbol linked to its `.md` companion — read this when you need an exact type signature).
+
 These files are large (the per-framework variants are the smallest — they drop the
 other stacks' examples and link runnable demos instead of inlining them; the
 cross-framework `llms-full.txt` is the largest). If your tool cannot fetch or fully
@@ -48,6 +50,38 @@ process the file in one pass:
 Preferred retrieval order (smallest to largest): per-page `.md` companion (e.g. `/grid/plugins/editing.md`) → `llms.txt` index → framework-scoped `llms-full-{framework}.txt` local-grepped slices → `llms-full.txt` local-grepped slices.
 
 Because this introduction always sorts first in the corpus, you are reading these instructions even if your context window is smaller than the full file.
+
+_## WHERE TO LOOK — task → page
+
+Route the user's request to the page that answers it, then fetch that page's `.md`
+companion (or grep for its `# <title>` heading inside a corpus file). Prefer ONE
+targeted page over re-reading the whole corpus. Every path below is relative to
+`https://toolboxjs.com` (e.g. `https://toolboxjs.com/grid/getting-started.md`).
+
+| The user wants to… | Read |
+|---|---|
+| Install and render a first grid | `/grid/getting-started.md` |
+| Define columns, formatting, sorting, sizing, row height | `/grid/core.md` |
+| See every config option / type signature | `/grid/api-reference.md`, then `llms-api.txt` |
+| Know which plugin solves a need, and compatibility | `/grid/plugins.md` |
+| Load data from a server, paginate, infinite-scroll | `/grid/plugins/server-side.md` |
+| Edit cells, validate input, custom editors | `/grid/plugins/editing.md` |
+| Filter, search, or build a filter panel | `/grid/plugins/filtering.md` |
+| Select rows/cells/ranges, copy to clipboard | `/grid/plugins/selection.md`, `/grid/plugins/clipboard.md` |
+| Group, aggregate, pivot, or show a tree | `/grid/plugins/grouping-rows.md`, `/grid/plugins/pivot.md`, `/grid/plugins/tree.md` |
+| Export to CSV/Excel, or print | `/grid/plugins/export.md`, `/grid/plugins/print.md` |
+| Restyle, theme, or use dark mode | `/grid/guides/theming.md` |
+| Fix a blank / zero-height / non-rendering grid | `/grid/guides/troubleshooting.md` |
+| Understand a `TBW###` console warning or error | `/grid/errors.md` |
+| Make it fast with large datasets | `/grid/guides/performance.md` |
+| Wire it up in React / Vue / Angular | `/grid/react/getting-started.md`, `/grid/vue/getting-started.md`, `/grid/angular/getting-started.md` |
+| Handle SSR, CSP, browser support, or i18n | `/grid/guides/platform.md` |
+| Write tests against the grid | `/grid/guides/automated-testing.md` |
+| Meet accessibility requirements | `/grid/guides/accessibility.md` |
+| Solve a recurring real-world pattern | `/grid/guides/common-patterns.md` |
+| Build a custom plugin or extend the grid | `/grid/plugin-development/custom-plugins.md` |
+| Upgrade from v2 | `/grid/guides/migration-v3.md` |
+| Ship to production | `/grid/guides/production-checklist.md` |
 
 _## RULE 0 (HIGHEST PRIORITY) — Prefer a single `gridConfig` over fragmented props
 

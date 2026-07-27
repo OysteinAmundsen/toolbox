@@ -107,6 +107,45 @@ interface ApiEntry {
   title: string;
 }
 
+interface ProsePage {
+  slug: string;
+  source: string;
+}
+
+/**
+ * Render the `## Contents` map that opens the corpus.
+ *
+ * WHY: the corpus is ~19k lines / ~190k tokens across ~50 pages, and the preamble
+ * explicitly tells agents to download it and grep. Without a map, a grep hit gives
+ * no clue which page it landed in and there is no way to see what the corpus even
+ * covers short of scanning it. Each entry is `- **<H1 title>** — <description>
+ * (<url>)`, so the SAME string an agent finds here (`# Getting Started`) is the
+ * heading it can jump to below, and the trailing `.md` URL lets it fetch that one
+ * page instead of the whole file. The frontmatter description doubles as a
+ * task → page routing hint ("server-side data" → Server-Side Plugin).
+ */
+function renderContents(origin: string, pages: ProsePage[]): string {
+  const bySection = new Map<string, string[]>();
+  for (const p of pages) {
+    const fm = extractFrontmatter(p.source);
+    const title = fm.title ?? titleFromSlug(p.slug);
+    const desc = fm.description ? ` — ${fm.description.replace(/\s+/g, ' ').trim()}` : '';
+    const section = sectionOf(p.slug);
+    const list = bySection.get(section) ?? [];
+    list.push(`- **${title}**${desc} (${origin}/${p.slug}.md)`);
+    bySection.set(section, list);
+  }
+  const blocks: string[] = [
+    '## Contents\n\nEvery entry below appears in full further down this file under an `# <title>` heading — grep for that exact heading to jump to it, or fetch the single-page `.md` URL instead of the whole corpus. Plugin pages appear here as a stub (intro + install + basic usage); their deep API lives at the linked `.md`.',
+  ];
+  for (const section of SECTION_ORDER) {
+    const entries = bySection.get(section);
+    if (!entries?.length) continue;
+    blocks.push(`### ${section}\n\n${entries.join('\n')}`);
+  }
+  return blocks.join('\n\n');
+}
+
 /**
  * H2 sections dropped from the concatenated corpus (but kept in each page's
  * standalone `.md` companion). These inline large demo `.astro` source dumps or
@@ -209,6 +248,7 @@ export function buildFull(origin: string, framework: Framework | null = null): s
       resolveDemo,
       resolveSource: resolveDemoSource,
       hasDoc,
+      origin,
       cssVarReference: cssVariableReferenceMarkdown,
       gridStats: GRID_STATS,
       frameworkFilter: framework ?? undefined,
@@ -226,6 +266,11 @@ export function buildFull(origin: string, framework: Framework | null = null): s
     .filter((p) => sectionOf(p.slug) === 'API')
     .map((p) => ({ slug: p.slug, title: titleFromSlug(p.slug) }));
 
-  const body = [buildHeader(framework).trim(), sections.join('\n\n---\n\n'), renderApiIndex(origin, apiEntries)];
+  const body = [
+    buildHeader(framework).trim(),
+    renderContents(origin, prosePages),
+    sections.join('\n\n---\n\n'),
+    renderApiIndex(origin, apiEntries),
+  ];
   return body.join('\n\n---\n\n') + '\n';
 }

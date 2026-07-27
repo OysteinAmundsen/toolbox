@@ -75,26 +75,32 @@ function renderLink(origin: string, e: Entry): string {
   return `- [${e.title}](${url})${e.description ? `: ${e.description}` : ''}`;
 }
 
-/** Render the exhaustive `## API Reference` section, grouped by area. */
+/**
+ * Render the compact `## API Reference` pointer.
+ *
+ * WHY a pointer and not the full list: the generated TypeDoc surface is ~400
+ * symbol links — roughly two thirds of this file's bytes — which turns the
+ * "cheap orientation read" into one of the most expensive fetches an agent can
+ * make. The exhaustive list now lives in `llms-api.txt`; here we keep only the
+ * per-area entry points and the counts, so an agent can still see the shape of
+ * the API surface and decide whether the extra fetch is worth it.
+ */
 function renderApiSection(origin: string, apiEntries: Entry[]): string {
-  const byArea = new Map<string, Entry[]>();
+  const counts = new Map<string, number>();
   for (const e of apiEntries) {
     const area = apiAreaOf(e.slug);
-    const list = byArea.get(area) ?? [];
-    list.push(e);
-    byArea.set(area, list);
+    counts.set(area, (counts.get(area) ?? 0) + 1);
   }
-  const blocks: string[] = [
+  const lines = API_AREA_ORDER.filter((area) => counts.has(area)).map(
+    (area) => `- **${area}** — ${counts.get(area)} symbols`,
+  );
+  return [
     '## API Reference',
     '',
-    'Complete, generated TypeDoc reference. Every symbol has a plain-markdown companion (the `.md` links below).',
-  ];
-  for (const area of API_AREA_ORDER) {
-    const entries = (byArea.get(area) ?? []).sort((a, b) => a.title.localeCompare(b.title));
-    if (entries.length === 0) continue;
-    blocks.push(`### ${area}\n\n${entries.map((e) => renderLink(origin, e)).join('\n')}`);
-  }
-  return blocks.join('\n\n');
+    `The complete generated TypeDoc reference (${apiEntries.length} symbols) is indexed separately to keep this file small: [API Reference Index](${origin}/llms-api.txt). Every symbol has a plain-markdown companion — fetch it from that index, or append \`.md\` to any symbol's page URL.`,
+    '',
+    lines.join('\n'),
+  ].join('\n');
 }
 
 /**
@@ -126,6 +132,7 @@ export function buildIndex(origin: string): string {
       `- [Full documentation — Vue](${origin}/llms-full-vue.txt): The full corpus scoped to Vue; code examples are narrowed to Vue and the React/Angular adapter pages are omitted.`,
       `- [Full documentation — Angular](${origin}/llms-full-angular.txt): The full corpus scoped to Angular; code examples are narrowed to Angular and the React/Vue adapter pages are omitted.`,
       `- [Full documentation — Vanilla](${origin}/llms-full-vanilla.txt): The full corpus scoped to vanilla TypeScript/JavaScript; the React, Vue and Angular adapter pages are omitted.`,
+      `- [API Reference Index](${origin}/llms-api.txt): Every generated TypeDoc symbol linked to its plain-markdown companion.`,
     ].join('\n'),
   );
 

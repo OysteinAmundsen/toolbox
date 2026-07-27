@@ -29,4 +29,26 @@ export const AGENT_PREAMBLE_SHORT = `**Agent rules (read before generating code)
 - **Use \`cell-activate\`** (pointer + keyboard, cancelable) for click-to-open, not \`cell-click\`/\`row-click\` (pointer-only). Don't add \`SelectionPlugin\` just to make a row clickable.
 - Light DOM (no Shadow DOM); em-based sizing (scale via \`font-size\`); \`await grid.ready()\` for post-render work.
 - **Large file?** If the corpus is too large to fetch in one pass, download the right variant locally and grep for the topic. Pick the smallest file that covers your stack: \`llms-full-angular.txt\` (Angular), \`llms-full-react.txt\` (React), \`llms-full-vue.txt\` (Vue), \`llms-full-vanilla.txt\` (plain JS/TS), or \`llms-full.txt\` (all frameworks). Example: \`curl -L https://toolboxjs.com/llms-full-angular.txt -o llms-full-angular.txt && rg -n 'your keyword' llms-full-angular.txt\`. Send only the matching slices. **Re-download at least weekly** — these files are regenerated on every docs build and a stale copy may reference removed APIs or wrong import paths.
+
+**Where to look (task → page).** Fetch the ONE page that answers the question before reaching for a corpus file. Paths are relative to \`https://toolboxjs.com\`:
+
+| The user wants to… | Read |
+|---|---|
+| Install and render a first grid | \`/grid/getting-started.md\` |
+| Define columns, formatting, sorting, sizing | \`/grid/core.md\` |
+| See an exact config option or type signature | \`/grid/api-reference.md\`, then \`llms-api.txt\` |
+| Pick a plugin / check plugin compatibility | \`/grid/plugins.md\` |
+| Load data from a server, paginate, infinite-scroll | \`/grid/plugins/server-side.md\` |
+| Edit cells, validate input, custom editors | \`/grid/plugins/editing.md\` |
+| Filter or search | \`/grid/plugins/filtering.md\` |
+| Group, aggregate, pivot, or show a tree | \`/grid/plugins/grouping-rows.md\`, \`/grid/plugins/pivot.md\`, \`/grid/plugins/tree.md\` |
+| Restyle, theme, or use dark mode | \`/grid/guides/theming.md\` |
+| Fix a blank / zero-height grid | \`/grid/guides/troubleshooting.md\` |
+| Understand a \`TBW###\` console message | \`/grid/errors.md\` |
+| Make it fast with large datasets | \`/grid/guides/performance.md\` |
+| Wire it up in React / Vue / Angular | \`/grid/{react,vue,angular}/getting-started.md\` |
+| Handle SSR, CSP, browser support, or i18n | \`/grid/guides/platform.md\` |
+| Write tests against the grid | \`/grid/guides/automated-testing.md\` |
+| Build a custom plugin | \`/grid/plugin-development/custom-plugins.md\` |
+
 For the full directives and copy-paste recipes, see \`llms-full.txt\`.`;

@@ -129,6 +129,43 @@ describe('mdxToAgentMarkdown — Audience integration', () => {
   });
 });
 
+describe('mdxToAgentMarkdown — internal link rewriting', () => {
+  const hasDoc = (slug: string) => slug === 'grid/core' || slug === 'grid/plugins/editing';
+  const page = (body: string) => ['---', 'title: T', '---', body, ''].join('\n');
+
+  it('rewrites a known doc link to an absolute `.md` URL', () => {
+    const md = mdxToAgentMarkdown(page('See [Core](/grid/core/).'), {
+      resolveDemo: () => undefined,
+      hasDoc,
+      origin: 'https://toolboxjs.com',
+    });
+    expect(md).toContain('[Core](https://toolboxjs.com/grid/core.md)');
+  });
+
+  it('preserves the anchor when absolutising', () => {
+    const md = mdxToAgentMarkdown(page('See [Editing](/grid/plugins/editing/#validation).'), {
+      resolveDemo: () => undefined,
+      hasDoc,
+      origin: 'https://toolboxjs.com',
+    });
+    expect(md).toContain('[Editing](https://toolboxjs.com/grid/plugins/editing.md#validation)');
+  });
+
+  it('leaves links to pages without a `.md` companion untouched', () => {
+    const md = mdxToAgentMarkdown(page('See [Nope](/grid/does-not-exist/).'), {
+      resolveDemo: () => undefined,
+      hasDoc,
+      origin: 'https://toolboxjs.com',
+    });
+    expect(md).toContain('[Nope](/grid/does-not-exist/)');
+  });
+
+  it('falls back to a root-relative link when no origin is supplied', () => {
+    const md = mdxToAgentMarkdown(page('See [Core](/grid/core/).'), { resolveDemo: () => undefined, hasDoc });
+    expect(md).toContain('[Core](/grid/core.md)');
+  });
+});
+
 describe('mdxToAgentMarkdown — AgentSource directive', () => {
   const sources: Record<string, string> = {
     'demos/app/config.ts': 'export const gridConfig = { columns: [] };\n',

@@ -42,7 +42,7 @@ export const getStaticPaths: GetStaticPaths = () =>
   // agent-markdown URL with no trailing slash, in BOTH dev and the static build.
   Object.keys(docSources).map((key) => ({ params: { slug: keyToSlug(key) } }));
 
-export const GET: APIRoute = ({ params }) => {
+export const GET: APIRoute = ({ params, site }) => {
   const slug = params.slug ?? '';
   const entry = Object.entries(docSources).find(([key]) => keyToSlug(key) === slug);
   if (!entry) return new Response('Not found', { status: 404 });
@@ -51,6 +51,7 @@ export const GET: APIRoute = ({ params }) => {
     resolveDemo,
     resolveSource: resolveDemoSource,
     hasDoc,
+    origin: site?.origin ?? 'https://toolboxjs.com',
     cssVarReference: cssVariableReferenceMarkdown,
     gridStats: GRID_STATS,
   });

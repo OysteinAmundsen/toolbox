@@ -532,6 +532,17 @@ static override readonly manifest: PluginManifest = {
 
 Available hooks: `processColumns`, `processRows`, `afterRender`, `afterCellRender`, `afterRowRender`, `onHeaderClick`, `onRowClick`, `onCellClick`, `onCellMouseDown`, `onCellMouseMove`, `onCellMouseUp`, `onKeyDown`, `onScroll`, `onScrollRender`.
 
+That list is exported as the [`HookName`](/grid/api/plugin-development/types/hookname/) union, so you can type your own hook-aware code against it instead of re-declaring the strings:
+
+```typescript
+import type { HookName } from '@toolbox-web/grid';
+
+// `hookPriority` is `Partial<Record<HookName, number>>` — a typo is a compile error.
+const priorities: Partial<Record<HookName, number>> = { processRows: 100 };
+```
+
+The payload types for the pointer/keyboard hooks are public too — [`CellClickEvent`](/grid/api/core/interfaces/cellclickevent/), [`RowClickEvent`](/grid/api/core/interfaces/rowclickevent/), [`HeaderClickEvent`](/grid/api/core/interfaces/headerclickevent/), [`ScrollEvent`](/grid/api/core/interfaces/scrollevent/), and [`CellCoords`](/grid/api/core/interfaces/cellcoords/) — so a plugin can annotate its hook signatures explicitly rather than relying on inference.
+
 ### Plugin Dependencies
 
 Declare required plugins via a static `dependencies` property:

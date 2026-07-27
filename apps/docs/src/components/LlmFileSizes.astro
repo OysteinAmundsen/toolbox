@@ -16,6 +16,7 @@
  */
 import { buildFull } from '../pages/_llm-full-builder';
 import type { Framework } from '../pages/_llm-markdown';
+import { buildApiIndex } from '../pages/llms-api.txt';
 import { buildIndex } from '../pages/llms.txt';
 
 // `site.origin` has no trailing slash (e.g. `https://toolboxjs.com`), matching
@@ -32,6 +33,12 @@ interface Row {
 
 const rows: Row[] = [
   { label: 'llms.txt', href: '/llms.txt', note: 'Curated index — smallest', text: buildIndex(origin) },
+  {
+    label: 'llms-api.txt',
+    href: '/llms-api.txt',
+    note: 'Every generated TypeDoc symbol, linked',
+    text: buildApiIndex(origin),
+  },
   { label: 'llms-full.txt', href: '/llms-full.txt', note: 'Full corpus, all frameworks', text: buildFull(origin, null) },
   ...(['vanilla', 'react', 'vue', 'angular'] as Framework[]).map((fw) => ({
     label: `llms-full-${fw}.txt`,

@@ -23,13 +23,18 @@ Pointing your assistant at the files below gives you:
 
 ## What we publish
 
-All three formats follow the [llms.txt standard](https://llmstxt.org/) and are served from the site root.
+All of these formats follow the [llms.txt standard](https://llmstxt.org/) and are served from the site root.
 
 <CardGrid>
   <LinkCard
     title="llms.txt"
-    description="A concise, curated index: a one-paragraph overview, the agent steering rules, and links to every documentation page (each pointing at its Markdown companion). Small enough to fit a modest context window."
+    description="A concise, curated index: a one-paragraph overview, the agent steering rules, a task-to-page routing table, and links to every documentation page (each pointing at its Markdown companion). Small enough to fit a modest context window."
     href="/llms.txt"
+  />
+  <LinkCard
+    title="llms-api.txt"
+    description="The exhaustive generated TypeDoc index: every class, interface, type, function, and variable linked to its Markdown companion. Split out of llms.txt so the index stays cheap to read; fetch this when you need an exact type signature."
+    href="/llms-api.txt"
   />
   <LinkCard
     title="Per-page Markdown"
@@ -40,7 +45,7 @@ All three formats follow the [llms.txt standard](https://llmstxt.org/) and are s
 
 <Card title="The full corpus and its sizes">
 
-`llms-full.txt` is the **full corpus**: every prose guide, plugin, and adapter page concatenated with demo code inlined, for one-shot ingestion. The per-symbol API reference is linked, not inlined. A per-framework variant drops the other stacks' examples to trim size.
+`llms-full.txt` is the **full corpus**: every prose guide, plugin, and adapter page concatenated with demo code inlined, for one-shot ingestion. It opens with a `## Contents` map — every page with a one-line summary and its single-page `.md` URL — so an agent that greps the file can tell where a hit landed and fetch just that page instead. The per-symbol API reference is linked, not inlined. A per-framework variant drops the other stacks' examples to trim size.
 
 The sizes below are **computed at build time by the same generators that emit the files**, so they never drift from reality. Don't be put off by the megabyte figures — most assistants retrieve only the sections a task needs rather than loading a file whole; size mainly bites if you paste verbatim, so when in doubt prefer `llms.txt` plus on-demand `.md` fetches.
 
@@ -57,6 +62,7 @@ Reach for the **smallest file that answers the question** — precision beats vo
 | **Only accept one pasted/loaded blob** (no fetching)          | **`llms-full.txt`**                   | One-shot ingestion of the whole corpus when on-demand retrieval isn't available.                  |
 | **One blob, but you work in one framework**                   | **`llms-full-{react,vue,angular,vanilla}.txt`** | Same corpus, scoped to your stack — other frameworks' examples and adapter pages are dropped, cutting size substantially. |
 | **Work on one specific page/feature**                         | The page's **`.md`** companion        | Self-contained — the single most relevant document, nothing else.                                 |
+| **Need an exact type signature**                              | **`llms-api.txt`**                    | Every generated TypeDoc symbol linked to its `.md` companion, grouped by area.                    |
 
 **Recommended default: `llms.txt`.** It is the curated map (overview, the agent steering rules, and a link to every page's `.md` companion). A capable agent reads it, then fetches just the handful of pages a task requires — e.g. the Editing and Selection plugin pages for an editable grid — instead of ingesting all {GRID_STATS.pluginCount} plugins. Point at **`llms-full.txt` only** when your tool can't fetch on demand and you want everything in a single load. If your tool can't fetch but you only target one framework, prefer the scoped **`llms-full-{react,vue,angular,vanilla}.txt`** variant — it is the same corpus with the irrelevant framework variants removed.
 

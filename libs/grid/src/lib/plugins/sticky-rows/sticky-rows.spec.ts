@@ -63,6 +63,8 @@ function createMockGrid(opts: MockGridOpts = {}): HTMLElement {
       cell.setAttribute('role', 'gridcell');
       cell.setAttribute('data-row', String(idx));
       cell.setAttribute('data-col', String(c));
+      const field = cols[c]?.field;
+      if (field) cell.setAttribute('data-field', field);
       cell.textContent = `R${idx}C${c}`;
       rowEl.appendChild(cell);
     }
@@ -290,6 +292,53 @@ describe('StickyRowsPlugin', () => {
       plugin.onScroll(scrollEvent(15 * 28 + 1));
       const stuck = grid.querySelectorAll('.tbw-sticky-rows .tbw-sticky-row');
       expect(Array.from(stuck).map((el) => (el as HTMLElement).dataset['stickyRow'])).toEqual(['8', '15']);
+    });
+
+    it('synthesizes a stand-in for a sticky row that was never rendered', () => {
+      // Repro for the stuck-at-one-row bug: a config/data change wipes the
+      // clone cache while the grid is scrolled deep, so only the sticky rows
+      // still inside the window get re-primed. Scrolling further DOWN never
+      // brings 3 and 8 back, so without a stand-in the stack under-renders
+      // permanently.
+      const data = Array.from({ length: 20 }, (_, i) => ({
+        flag: i === 3 || i === 8 || i === 15,
+        name: `row-${i}`,
+      }));
+      const plugin = new StickyRowsPlugin({ isSticky: 'flag', mode: 'stack' });
+      const grid = createMockGrid({ rows: data, renderedIndices: [15], columns: [{ field: 'name' }] });
+      plugin.attach(grid);
+      plugin.afterRender();
+      plugin.onScroll(scrollEvent(15 * 28 + 1));
+
+      const stuck = Array.from(grid.querySelectorAll<HTMLElement>('.tbw-sticky-rows .tbw-sticky-row'));
+      expect(stuck.map((el) => el.dataset['stickyRow'])).toEqual(['3', '8', '15']);
+      // The two stand-ins carry the row's own data, not the template's.
+      expect(stuck[0].dataset['syntheticStickyRow']).toBe('');
+      expect(stuck[0].querySelector('.cell')?.textContent).toBe('row-3');
+      expect(stuck[1].querySelector('.cell')?.textContent).toBe('row-8');
+      // The rendered one is a real DOM capture, not synthesized.
+      expect(stuck[2].dataset['syntheticStickyRow']).toBeUndefined();
+    });
+
+    it('omits rather than synthesizes when cells hold custom-renderer DOM', () => {
+      // Re-labelling a cell that contains element children would pin ANOTHER
+      // row's rendered content — worse than a gap, so we keep the old
+      // omit-the-row behaviour.
+      const data = Array.from({ length: 20 }, (_, i) => ({
+        flag: i === 3 || i === 8 || i === 15,
+        name: `row-${i}`,
+      }));
+      const plugin = new StickyRowsPlugin({ isSticky: 'flag', mode: 'stack' });
+      const grid = createMockGrid({ rows: data, renderedIndices: [15], columns: [{ field: 'name' }] });
+      const cell = grid.querySelector('.rows .data-grid-row .cell') as HTMLElement;
+      cell.textContent = '';
+      cell.appendChild(document.createElement('span'));
+      plugin.attach(grid);
+      plugin.afterRender();
+      plugin.onScroll(scrollEvent(15 * 28 + 1));
+
+      const stuck = Array.from(grid.querySelectorAll<HTMLElement>('.tbw-sticky-rows .tbw-sticky-row'));
+      expect(stuck.map((el) => el.dataset['stickyRow'])).toEqual(['15']);
     });
 
     it('stacks the next sticky as soon as its top reaches the bottom of the prior stuck row', () => {

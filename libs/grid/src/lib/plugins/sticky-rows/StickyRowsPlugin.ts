@@ -7,9 +7,11 @@
  * @module Plugins/Sticky Rows
  */
 
+import { resolveCellValue } from '../../core/internal/value-accessor';
 import type { RowPosition } from '../../core/internal/virtualization';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ScrollEvent } from '../../core/plugin/types';
+import type { ColumnConfig } from '../../core/types';
 import styles from './sticky-rows.css?inline';
 import type { StickyPredicate, StickyRowsConfig } from './types';
 
@@ -83,6 +85,11 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
    *  set hasn't changed between scroll ticks. */
   private displayedIndices: number[] = [];
 
+  /** Detached copy of the most recent clone captured from a LIVE row, used as
+   *  the structural template for {@link synthesizeClone}. Real captures only —
+   *  never a synthesized stand-in. */
+  private templateClone: HTMLElement | null = null;
+
   /** Last applied push-mode translation, to skip writes on no-op ticks. */
   private lastPushOffset = 0;
 
@@ -98,6 +105,7 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
     this.container?.remove();
     this.container = null;
     this.cloneCache.clear();
+    this.templateClone = null;
     this.stickyIndices = [];
     this.displayedIndices = [];
     this.lastPushOffset = 0;
@@ -443,8 +451,63 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
     clone.removeAttribute('tabindex');
     clone.querySelectorAll('[tabindex]').forEach((el) => el.removeAttribute('tabindex'));
 
+    // Keep a detached copy as the structural template for synthesized
+    // stand-ins. Captured post-sanitisation so a synthetic inherits the same
+    // classes / aria treatment.
+    this.templateClone = clone.cloneNode(true) as HTMLElement;
+
     this.cloneCache.set(index, clone);
     return clone;
+  }
+
+  /**
+   * Build a data-derived stand-in for a sticky row that has never been
+   * rendered in this session.
+   *
+   * WHY: clones are DOM captures, so a sticky row only becomes displayable
+   * after it has passed through the virtualization window. Two situations
+   * break that assumption, and in BOTH of them scrolling further down never
+   * brings the row back — the stack silently under-renders forever:
+   *
+   * 1. A config or data change wipes the cache (`detach` / index change in
+   *    `recomputeStickyIndices`) while the grid is scrolled deep. Only the
+   *    sticky rows still inside the window get re-primed.
+   * 2. The grid mounts (or restores a scroll position) already scrolled past
+   *    several sticky rows.
+   *
+   * Symptom: `'stack'` mode shows one pinned row instead of `maxStacked`.
+   *
+   * The stand-in reuses the last real capture for structure — so column
+   * widths, classes and alignment are exact — and rewrites the cell text from
+   * the row data. Returns `null` (caller omits the row, the pre-existing
+   * behaviour) when there is no template yet, or when any cell holds element
+   * children: those come from a custom cell renderer and re-labelling them
+   * would pin ANOTHER row's rendered content, which is worse than a gap.
+   */
+  private synthesizeClone(index: number): HTMLElement | null {
+    const template = this.templateClone;
+    const row = this.rows[index];
+    if (!template || row == null) return null;
+
+    const el = template.cloneNode(true) as HTMLElement;
+    const cells = Array.from(el.querySelectorAll<HTMLElement>('.cell'));
+    if (cells.some((cell) => cell.firstElementChild != null)) return null;
+
+    el.dataset['stickyRow'] = String(index);
+    // Marks the row as data-derived rather than DOM-captured. `refreshClones-
+    // InWindow` upgrades it to a real capture as soon as the row renders.
+    el.dataset['syntheticStickyRow'] = '';
+    el.removeAttribute('aria-rowindex');
+
+    const columns = this.visibleColumns;
+    for (const cell of cells) {
+      cell.setAttribute('data-row', String(index));
+      const field = cell.getAttribute('data-field');
+      const column: ColumnConfig | undefined = field ? columns.find((c) => c.field === field) : undefined;
+      const value = column ? resolveCellValue(row, column, index) : null;
+      cell.textContent = value == null ? '' : String(value);
+    }
+    return el;
   }
 
   /** Refresh cached clones for any displayed indices that are now in-window.
@@ -504,6 +567,14 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
         // Always try to refresh from live DOM if available.
         const fresh = this.buildClone(idx);
         clone = fresh ?? clone;
+        if (!clone) {
+          // Never captured — fall back to a data-derived stand-in, otherwise
+          // this index is dropped from the stack permanently (see
+          // `synthesizeClone`). Cached so the next tick reuses it; a real
+          // capture overwrites it the moment the row renders.
+          clone = this.synthesizeClone(idx);
+          if (clone) this.cloneCache.set(idx, clone);
+        }
         if (clone) {
           fragment.appendChild(clone);
           appended.push(idx);

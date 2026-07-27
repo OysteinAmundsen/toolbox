@@ -586,9 +586,6 @@ test.describe('Promo — capability reel', () => {
   });
 
   test('Sticky section rows @promo', async ({ page }) => {
-    // Stack mode is reached by scrolling gently in short passes (see below),
-    // which needs more than the 30s default.
-    test.setTimeout(90_000);
     await openDemo(page, 'sticky-rows/StickyRowsDemo', 'Sticky rows', 'iOS-style section headers');
 
     const stickyHost = page.locator('tbw-grid .tbw-sticky-rows');
@@ -611,29 +608,16 @@ test.describe('Promo — capability reel', () => {
     await say(page, 'Or stack them, up to a limit you choose.');
     await controlOption(page, 'mode', 'stack').check();
     await expect(stickyHost).toHaveAttribute('data-mode', 'stack');
-    // Changing a control rebuilds the dataset, which resets the scroll
-    // position — the clone count dropping back to 0 is the signal that the
-    // rebuild has landed. Wheel events dispatched before that are swallowed
-    // by the old (about to be replaced) viewport and scroll nothing.
-    await expect(stuck).toHaveCount(0);
-    // Scroll GENTLY, in short passes. The plugin can only stack a section it
-    // has a clone of, and clones are captured from the live DOM in
-    // `afterRender` (`primeCloneCache`) — a section that scrolls past between
-    // two render frames is never cloned and is silently omitted from the
-    // stack. On a loaded CI runner a 75px-per-tick wheel outruns the render
-    // scheduler and skips whole sections, so the stack stays stuck at 1.
-    // 25px per tick keeps every section on screen for several frames.
-    // `maxStacked` (3) caps the result, so extra passes are harmless.
+    // Switching the mode rebuilds the config but PRESERVES the scroll
+    // position, so the stack fills immediately from where we already are —
+    // capped by `maxStacked` (3). Before #1370 the rebuild wiped the clone
+    // cache and the stack was stuck at one row here.
     await expect
-      .poll(
-        async () => {
-          await wheelScroll(page, grid(page), 0, 400, 16);
-          return stuck.count();
-        },
-        { message: 'stack mode accumulates more than one pinned section', timeout: 30_000 },
-      )
+      .poll(() => stuck.count(), { message: 'stack mode accumulates more than one pinned section' })
       .toBeGreaterThan(1);
     expect(await stuck.count()).toBeLessThanOrEqual(3);
+    await wheelScroll(page, grid(page), 0, 400, 16);
+    await expect.poll(() => stuck.count()).toBeLessThanOrEqual(3);
 
     await hush(page);
   });

@@ -608,8 +608,23 @@ test.describe('Promo — capability reel', () => {
     await say(page, 'Or stack them, up to a limit you choose.');
     await controlOption(page, 'mode', 'stack').check();
     await expect(stickyHost).toHaveAttribute('data-mode', 'stack');
-    await wheelScroll(page, grid(page), 0, 2400, 32);
-    await expect.poll(() => stuck.count()).toBeGreaterThan(1);
+    // Changing a control rebuilds the dataset, which resets the scroll
+    // position — the clone count dropping back to 0 is the signal that the
+    // rebuild has landed. Wheel events dispatched before that are swallowed
+    // by the old (about to be replaced) viewport and scroll nothing.
+    await expect(stuck).toHaveCount(0);
+    // Scroll in bounded passes rather than one fixed delta: a slow runner can
+    // coalesce wheel events, and `maxStacked` (3) caps the result, so
+    // over-scrolling is harmless while under-scrolling fails the scene.
+    await expect
+      .poll(
+        async () => {
+          await wheelScroll(page, grid(page), 0, 1200, 16);
+          return stuck.count();
+        },
+        { message: 'stack mode accumulates more than one pinned section', timeout: 20_000 },
+      )
+      .toBeGreaterThan(1);
     expect(await stuck.count()).toBeLessThanOrEqual(3);
 
     await hush(page);

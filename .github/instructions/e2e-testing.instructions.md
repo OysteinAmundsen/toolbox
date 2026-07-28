@@ -192,6 +192,13 @@ These verify visual and functional parity across framework demos (vanilla as bas
 - **Vanilla = baseline** — visual comparisons use vanilla screenshots as reference
 - **Demo servers must be running** — tests don't auto-start servers
 
+### Grid DOM traps (employee-management demo)
+
+- `[role="gridcell"]`/`[role="columnheader"]` **`.first()` is the master-detail expander column** (`data-col="0"`), whose header is zero-width and which selection ignores. Never measure or long-press it — target `data-col="1"` or a known `data-field`.
+- **`.rows-viewport` never scrolls** (`overflow: clip`); the real scroller is `.faux-vscroll`. Assert scroll on that, or on the `.rows` transform.
+- The demo runs `selection: 'range'`, so a claimed long-press paints a range — it does **not** raise `.tbw-selection-toolbar` (that is row-mode only).
+- A fallback selector that also matches page chrome can mask a total failure: the `input[type="range"]` fallback in `custom-editors.spec.ts` matched the demo's "Rows" slider and kept passing while editing was completely broken.
+
 ### Utilities (`e2e/tests/utils.ts`)
 
 | Helper                                                 | Purpose                                                    |

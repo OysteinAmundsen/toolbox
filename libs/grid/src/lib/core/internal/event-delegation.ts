@@ -92,9 +92,11 @@ function buildCellMouseEvent(
     target = e.target as Element;
   }
 
-  // If target is not inside our element (e.g., for document-level events),
-  // use elementFromPoint to find the actual element under the mouse
-  if (target && !renderRoot.contains(target)) {
+  // Resolve the element actually under the pointer when the event target can't
+  // identify a cell — either because it is outside the grid (document-level
+  // events) or because pointer capture retargeted the event to the capture
+  // element. Without this a captured drag reports the same cell for every move.
+  if (!target || !renderRoot.contains(target) || !target.closest?.('[data-col]')) {
     const elAtPoint = document.elementFromPoint(e.clientX, e.clientY);
     if (elAtPoint) {
       target = elAtPoint;
@@ -154,6 +156,17 @@ function buildCellMouseEvent(
 const LONG_PRESS_MS = 400;
 
 /**
+ * Movement (px) a fine pointer must travel before a cell press becomes a
+ * range-paint drag.
+ *
+ * Must stay above zero: promotion takes pointer capture, and a captured
+ * pointer makes the browser retarget `mouseup` / `click` / `dblclick` to the
+ * capture element instead of the cell — which silently disables
+ * double-click-to-edit and every other click-driven cell feature.
+ */
+const DRAG_THRESHOLD_PX = 3;
+
+/**
  * True when the press came from a coarse pointer (finger or stylus).
  *
  * `pointerType` is per-event and therefore more accurate than the
@@ -181,6 +194,58 @@ function suppressTouchScroll(bodyEl: HTMLElement | undefined): () => void {
   return () => {
     bodyEl.style.touchAction = prev;
   };
+}
+
+/**
+ * How long a synthesised `contextmenu` is suppressed after a claimed long-press.
+ *
+ * Browsers fire their long-press `contextmenu` at roughly 500 ms, i.e. shortly
+ * after our own {@link LONG_PRESS_MS} promotion. The window only needs to span
+ * that gap.
+ */
+const CONTEXT_MENU_SUPPRESS_MS = 700;
+
+/**
+ * Swallow the browser's own long-press `contextmenu` for a short window.
+ *
+ * This is what makes the epic's long-press priority order real rather than
+ * aspirational: when a plugin (selection mode, range paint) has *claimed* a
+ * coarse long-press, the browser would otherwise still synthesise a
+ * `contextmenu` from the same gesture ~100 ms later and `ContextMenuPlugin`
+ * would pop a menu on top of it.
+ *
+ * The listener is registered on `document` in the capture phase so it always
+ * precedes `ContextMenuPlugin`'s own listener (bound on `.tbw-grid-root`), and
+ * removes itself on the first event *originating inside this grid* or when the
+ * window expires — whichever comes first. When nothing claims the press, this is
+ * never called and the native menu opens exactly as it does on the right-click
+ * path.
+ *
+ * Capture-phase on `document` is required (it must beat `ContextMenuPlugin`),
+ * but the suppression itself is scoped to `renderRoot`: a `contextmenu` raised
+ * anywhere else on the page — another grid, or the host application's own
+ * menu — passes through untouched, and does not consume the one-shot window.
+ */
+function suppressNextContextMenu(renderRoot: HTMLElement): void {
+  const doc = renderRoot.ownerDocument;
+  if (!doc) return;
+
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const onContextMenu = (e: Event): void => {
+    const target = e.target as Node | null;
+    if (!target || !renderRoot.contains(target)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    cleanup();
+  };
+  const cleanup = (): void => {
+    if (timer !== null) clearTimeout(timer);
+    timer = null;
+    doc.removeEventListener('contextmenu', onContextMenu, true);
+  };
+
+  doc.addEventListener('contextmenu', onContextMenu, true);
+  timer = setTimeout(cleanup, CONTEXT_MENU_SUPPRESS_MS);
 }
 
 /**
@@ -222,9 +287,13 @@ function handlePointerDown(grid: InternalGrid, renderRoot: HTMLElement, e: Point
       onPromote: () => {
         if (coarse) {
           // Long-press recognised — only now does the press become a drag.
+          // If no plugin claims it, we deliberately do nothing: the browser is
+          // then free to synthesise its own `contextmenu` from the same
+          // long-press, which is the documented fallback (see below).
           if (!dispatchDown()) return;
           dragState.set(grid, true);
           restoreTouchAction = suppressTouchScroll(grid._bodyEl);
+          suppressNextContextMenu(renderRoot);
         }
       },
       onMove: (moveEvent) => {
@@ -246,8 +315,8 @@ function handlePointerDown(grid: InternalGrid, renderRoot: HTMLElement, e: Point
         dragState.set(grid, false);
       },
     },
-    // Coarse presses must be held; fine presses promote on the first move.
-    coarse ? { longPressDuration: LONG_PRESS_MS } : undefined,
+    // Coarse presses must be held; fine presses promote after a small move.
+    coarse ? { longPressDuration: LONG_PRESS_MS } : { threshold: DRAG_THRESHOLD_PX },
   );
 }
 // #endregion

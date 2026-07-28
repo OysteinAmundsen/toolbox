@@ -120,23 +120,30 @@ Core = `libs/grid/src/lib/core/`. Shell chrome is a PLUGIN (see grid-plugins-she
 
 - OWNS: `startPointerDrag(startEvent, captureTarget, handlers, options?) => cancelFn`, `PointerDragHandlers` (`onMove`, `onEnd`, `onPromote?`, `onCancel?`), `PointerDragOptions` (`threshold?`, `longPressDuration?`, `longPressSlop?` default 8). **NOT in `public.ts`** — internal. `@since 3.5.0`.
 - INVARIANT: uses `setPointerCapture` ONLY — no `document`/`window` `pointermove`/`pointerup` listeners. The single exception is a capture-phase `document` `keydown` for Escape-to-abort. WHY: capture survives DOM virtualization re-renders that would otherwise detach the drag source mid-gesture.
-- INVARIANT: `captureTarget` must be a stable element (the resize *handle*, not the header cell). `ResizeController.start` therefore takes a 4th param `captureTarget?: Element`.
+- INVARIANT: `setPointerCapture` is claimed at **promotion**, never on `pointerdown`. WHY: a captured pointer makes the browser retarget the compatibility mouse events (`mouseup`, `click`, `dblclick`) to the capture element, so capturing on press silently kills every `closest()`-based click feature — dblclick-to-edit died this way in #303 (24 e2e failures). Capture failure at promotion → `cancel()` so callers can roll back UI state.
+- INVARIANT: `captureTarget` must be a stable element (the resize _handle_, not the header cell). `ResizeController.start` therefore takes a 4th param `captureTarget?: Element`.
 - INVARIANT: `touch-action: none` is applied to the capture target only inside `onPromote` — never on `pointerdown`. WHY: applying it at pointerdown would swallow a plain swipe-to-scroll over the grid. Restored in both `onEnd` and `onCancel`.
 - INVARIANT: re-entrancy guarded by a module-level `WeakMap<Element, Set<number>>` of active pointerIds; a second `pointerdown` with the same id on the same target is ignored.
 - FLOW (promotion): no threshold + no long-press → promoted synchronously at call time. `threshold > 0` → promoted on first move past distance. `longPressDuration > 0` → promoted by timer; any move beyond `longPressSlop` before the timer fires **cancels the whole drag** (it was a scroll, not a drag).
 - `onPromote` exists so callers can act at promotion time even when the pointer never moves (range-paint dispatches its `mousedown` hook there). Fired from all three promotion sites.
 - DECIDED (#303, Jul 2026): fine-vs-coarse branch uses per-event `e.pointerType` (`touch`/`pen` → coarse, `mouse` → fine) in preference to `getPrimaryPointer()`. WHY: hybrid devices (Surface) report `(pointer: coarse)` even while a mouse is in use. `getPrimaryPointer()` is only the fallback for synthetic events with no `pointerType`.
 - DECIDED (#303, Jul 2026): #228 never shipped this module, so #303 created it. It is deliberately generic so the DnD plugins (#228: column reorder, row drag-drop) can consume it later instead of growing a second drag primitive.
-- Consumers: `resize.ts` (column resize), `plugins/shell/shell.ts` (tool-panel splitter), `event-delegation.ts` (cell-range paint, `LONG_PRESS_MS = 400` on coarse pointers only).
+- Consumers: `resize.ts` (column resize), `plugins/shell/shell.ts` (tool-panel splitter), `event-delegation.ts` (cell-range paint, `LONG_PRESS_MS = 400` on coarse pointers, `DRAG_THRESHOLD_PX = 3` on fine pointers — the threshold is what keeps a plain click/dblclick from capturing).
+- INVARIANT: `buildCellMouseEvent` falls back to `document.elementFromPoint` whenever the resolved target has no `[data-col]` ancestor — not merely when it is outside `renderRoot`. WHY: pointer capture retargets moves to `renderRoot`, which _is_ inside `renderRoot`, so the old check never fired and every drag move reported the anchor cell (range paint stuck at 1 cell).
 - TENSION: listeners are typed `(event: Event)` and narrowed, not `(e: PointerEvent)` — `pointer*` lives on `HTMLElementEventMap`, not `ElementEventMap`, so a generic `Element.addEventListener` rejects the narrower signature.
 - Tests: `pointer-drag.spec.ts` (24), `resize.spec.ts` (8). happy-dom has `PointerEvent` but pointer capture does not route events — specs MUST stub `setPointerCapture`/`hasPointerCapture`/`releasePointerCapture` on the capture target and dispatch pointer events **directly on that target**.
+
 ## long-press priority policy (#307 / touch-input epic #302)
 
-- DECIDED (#307, Jul 2026): agreed priority chain for long-press on a touch device (shipped by #303–#306):
-  1. **Header long-press → Column header menu** (highest; tracked by #270).
-  2. **Row long-press + SelectionPlugin active → Selection mode** (enter touch multi-select; #304).
-  3. **Row/cell long-press + no SelectionPlugin → Context menu** (fallback; #305).
-- INVARIANT: every future long-press handler MUST honour this order. Documented in `apps/docs/src/content/docs/grid/guides/touch-input.mdx`.
+- DECIDED (#307, Jul 2026; implemented #303/#304/#306): priority chain for a coarse long-press:
+  1. **Header → column header menu** — highest; blocked on #270, falls through to context menu meanwhile.
+  2. **Row + `SelectionPlugin` `mode: 'row'` → selection mode** (#304).
+  3. **Cell + `SelectionPlugin` `mode: 'cell'|'range'` → range paint** (#303).
+  4. **Otherwise → `ContextMenuPlugin`** (#306).
+- DECIDED (#306): the fallback is **passive, not a polyfill**. Browsers already synthesise `contextmenu` from a long-press, so `ContextMenuPlugin` needs no touch code at all. Instead `handlePointerDown`'s `onPromote` calls `suppressNextContextMenu(renderRoot)` **only when `dispatchDown()` returned true** — i.e. only when a plugin claimed the press. WHY: inverting the check (opt-in per plugin) would need every future long-press consumer to remember to suppress; this way the default is correct. `core/internal/event-delegation.ts`.
+- INVARIANT: `suppressNextContextMenu` is one-shot and time-boxed (`CONTEXT_MENU_SUPPRESS_MS = 700`, vs browser synthesis at ~500 ms). It registers on `document` **capture phase** so it precedes `ContextMenuPlugin`'s listener (bound on `.tbw-grid-root`), and removes itself on first event _or_ timeout. It MUST NOT latch — a right-click seconds later must still open the menu. Guarded by 5 tests in `event-delegation.spec.ts` → `describe('long-press → contextmenu priority (#306)')`.
+- INVARIANT: every future long-press handler MUST honour this order. Documented in `apps/docs/src/content/docs/grid/guides/touch-input.mdx` and in the `ContextMenuPlugin` class JSDoc.
+- TENSION: suppression is invisible in happy-dom's favour — happy-dom never _synthesises_ a `contextmenu` from touch, so the unit tests dispatch one manually. Whether real browsers fire it inside the 700 ms window is only covered by `e2e/tests/touch-input.spec.ts` (unrun).
 
 ## type interfaces
 

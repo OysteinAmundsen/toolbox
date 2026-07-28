@@ -30,7 +30,10 @@
  *
  * ## Pointer capture
  * `setPointerCapture` / `releasePointerCapture` are called on `captureTarget`
- * only — **never** `document` / `window` listeners.
+ * only — **never** `document` / `window` listeners. Capture is claimed at
+ * **promotion**, not on `pointerdown`: a captured pointer makes the browser
+ * retarget the compatibility mouse events (`mouseup`, `click`, `dblclick`) to
+ * the capture element, which would break click-driven grid features.
  *
  * ## Re-entrancy
  * Simultaneous drags on the same element with the same `pointerId` are
@@ -156,8 +159,10 @@ function _releasePointer(el: Element, id: number): void {
  *
  * Attaches `pointermove`, `pointerup`, `pointercancel`, and
  * `lostpointercapture` listeners directly to `captureTarget` (never to
- * `document` / `window`). Calls `setPointerCapture` immediately so events
- * continue to route here regardless of DOM changes.
+ * `document` / `window`). `setPointerCapture` is called when the drag is
+ * promoted so events continue to route here regardless of DOM changes; an
+ * unpromoted press never captures and therefore leaves `click` / `dblclick`
+ * targeting the element actually under the pointer.
  *
  * Returns a `cancel()` dispose function. Calling it is idempotent.
  *
@@ -194,23 +199,46 @@ export function startPointerDrag(
   let promoted = threshold === 0 && longPressDuration === 0;
   let done = false;
   let longPressTimer: ReturnType<typeof setTimeout> | null = null;
-
-  // Set pointer capture immediately so pointermove/up route here
-  try {
-    captureTarget.setPointerCapture(pointerId);
-  } catch {
-    // setPointerCapture can fail in unit-test environments without full browser
-    // APIs, or if the element was detached between pointerdown and here.
-    // Callers typically flip UI state (cursor, user-select, `isResizing`)
-    // *before* calling us, so we must report the failure as a cancellation —
-    // otherwise that state is never rolled back and the UI sticks mid-drag.
-    _releasePointer(captureTarget, pointerId);
-    onCancel?.();
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
-    return () => {};
-  }
+  let captureFailed = false;
 
   // #region Internal helpers
+
+  /**
+   * Claim pointer capture — called at promotion, never at `pointerdown`.
+   *
+   * While an element holds pointer capture the browser retargets the
+   * compatibility mouse events (`mouseup`, `click`, `dblclick`) to that element
+   * instead of the element actually under the pointer. Capturing on press would
+   * therefore break every click-driven feature in the grid (cell editing,
+   * header sort, row click) because those handlers resolve their target with
+   * `event.target.closest(...)`. Promotion is the point where the gesture is
+   * known to be a drag, so capturing there keeps plain clicks intact.
+   */
+  function acquireCapture(): boolean {
+    try {
+      captureTarget.setPointerCapture(pointerId);
+      return true;
+    } catch {
+      // setPointerCapture can fail in unit-test environments without full
+      // browser APIs, or if the element was detached mid-gesture. Callers
+      // typically flip UI state (cursor, user-select, `isResizing`) *before*
+      // calling us, so report the failure as a cancellation — otherwise that
+      // state is never rolled back and the UI sticks mid-drag.
+      captureFailed = true;
+      return false;
+    }
+  }
+
+  /** Promote the gesture to a drag: take capture, then notify the caller. */
+  function promote(): boolean {
+    promoted = true;
+    if (!acquireCapture()) {
+      cancel();
+      return false;
+    }
+    onPromote?.();
+    return true;
+  }
 
   function teardown(): void {
     if (done) return;
@@ -264,8 +292,7 @@ export function startPointerDrag(
       }
       // Threshold promotion only (no long-press)
       if (threshold > 0 && dist < threshold) return;
-      promoted = true;
-      onPromote?.();
+      if (!promote()) return;
     }
 
     onMove(e);
@@ -310,15 +337,18 @@ export function startPointerDrag(
   document.addEventListener('keydown', onEscapeKey, true);
 
   // Drags with neither a threshold nor a long-press are promoted up front.
-  if (promoted) onPromote?.();
+  if (promoted) {
+    promote();
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    if (captureFailed) return () => {};
+  }
 
   // Start long-press timer after capture so the countdown is accurate
   if (longPressDuration > 0) {
     longPressTimer = setTimeout(() => {
       longPressTimer = null;
       if (done) return;
-      promoted = true;
-      onPromote?.();
+      promote();
     }, longPressDuration);
   }
 

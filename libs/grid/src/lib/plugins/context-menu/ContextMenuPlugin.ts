@@ -133,6 +133,31 @@ const defaultItems: ContextMenuItem[] = [
  * })
  * ```
  *
+ * ## Touch input and the long-press priority order
+ *
+ * The menu is opened by a native `contextmenu` event, which browsers already
+ * synthesise from a right-click, a trackpad two-finger tap **and** a touch
+ * long-press. There is therefore no long-press polyfill here — but a long-press
+ * is an overloaded gesture, so the grid resolves it in a fixed order:
+ *
+ * | Target | Long-press opens | Condition |
+ * |---|---|---|
+ * | Header cell | Column header menu | When the header-menu plugin is registered (#270, not yet built) |
+ * | Row | Touch selection mode | When `SelectionPlugin` runs in `mode: 'row'` |
+ * | Cell | Cell range painting | When `SelectionPlugin` runs in `mode: 'cell'` or `'range'` |
+ * | Row / cell | **This menu** | Otherwise |
+ *
+ * The mechanism is deliberately passive. `event-delegation.ts` promotes a
+ * coarse long-press after 400 ms and offers it to the plugins; if one *claims*
+ * it, the grid suppresses the browser's own `contextmenu` for a short window so
+ * a menu does not pop on top of the gesture that was just consumed. If nothing
+ * claims it, no suppression happens and this plugin opens exactly as it does
+ * for a right-click.
+ *
+ * When selection mode has consumed the long-press, these items remain reachable
+ * through the **More…** button in `SelectionPlugin`'s selection toolbar, so
+ * touch users never lose right-click parity.
+ *
  * @see {@link ContextMenuConfig} for configuration options
  * @see {@link ContextMenuItem} for menu item structure
  * @see {@link ContextMenuParams} for action callback parameters

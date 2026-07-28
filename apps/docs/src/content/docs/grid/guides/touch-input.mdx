@@ -11,7 +11,7 @@ The grid is **touch-friendly by default**. Native two-finger scrolling, tap-to-f
 
 ## Overview
 
-`@toolbox-web/grid` handles touch via the Web Pointer Events API (`pointerdown` / `pointermove` / `pointerup`) combined with `setPointerCapture`. This approach is robust under DOM virtualization — because virtualization recycles cell elements mid-gesture, touch events lose their target; pointer capture routes all events to the grid host element regardless of DOM changes.
+`@toolbox-web/grid` handles touch via the Web Pointer Events API (`pointerdown` / `pointermove` / `pointerup`) combined with `setPointerCapture`. This approach is robust under DOM virtualization — because virtualization recycles cell elements mid-gesture, touch events lose their target; pointer capture routes all events to the grid host element regardless of DOM changes. Capture is taken the moment a press turns into a drag rather than on the press itself, so a plain tap or click still reaches the cell underneath it.
 
 The grid renders into **light DOM** with a faux scrollbar pattern: a zero-opacity `div.faux-vscroll` acts as the scroll container, while the visible row area clips and translates. Touch scrolling drives this faux scrollbar via JS, which is why all scrollable elements carry `touch-action: none` (see [Known browser quirks](#known-browser-quirks)).
 
@@ -40,24 +40,42 @@ The table below shows how each action maps across input types.
 All drag interactions in the table above are driven by [Pointer Events](https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events) with
 [pointer capture](https://developer.mozilla.org/en-US/docs/Web/API/Element/setPointerCapture), so mouse, pen and touch follow one code path — there is no
 separate touch implementation to fall out of sync. Cell-range painting is the one gesture that behaves differently by modality: with a fine pointer (mouse,
-trackpad) the drag starts immediately, while with a coarse pointer (touch, pen) it requires a 400 ms long-press first, so that a plain swipe still scrolls the
-grid.
+trackpad) the drag starts as soon as the pointer moves a few pixels, while with a coarse pointer (touch, pen) it requires a 400 ms long-press first, so that a
+plain swipe still scrolls the grid.
 
 - **Multi-sort via touch** — secondary header sort will be accessible via the column header menu (long-press header → header menu → Sort → Add sort key).
 - **Multi-select via touch** — long-pressing a row enters *selection mode* (a toolbar appears). Subsequent taps toggle rows in that mode. Described further in [Selection-mode UX](#selection-mode-ux).
 - **Range-select rows via touch** — long-pressing a second row while in selection mode extends the range from the anchor.
 - **Range-select cells via touch** — long-press a cell, then drag to paint the range. Its corners can then be dragged with the range handles.
-- **Long-press cell (no SelectionPlugin)** — opens the context menu when no SelectionPlugin is active (same as right-click).
+- **Long-press cell / row (no SelectionPlugin)** — opens the context menu, exactly as right-click does.
 
 ## Long-press priority order
 
 When a long-press occurs, the grid resolves the action according to the following priority chain:
 
 1. **Header long-press → Column header menu** (highest priority) — opens the column header menu regardless of which plugins are active.
-2. **Row long-press + SelectionPlugin active → Selection mode** — enters touch selection mode; a toolbar appears at the top of the grid.
-3. **Row / cell long-press + no SelectionPlugin → Context menu** — falls back to the context menu if `ContextMenuPlugin` is active.
+2. **Row long-press + `SelectionPlugin` in `mode: 'row'` → Selection mode** — enters touch selection mode; a toolbar appears at the top of the grid.
+3. **Cell long-press + `SelectionPlugin` in `mode: 'cell'` / `'range'` → Range painting** — drag to paint the range.
+4. **Row / cell long-press, nothing above applies → Context menu** — falls back to `ContextMenuPlugin` if it is registered.
 
 This order is the agreed policy for the touch-input epic and applies to all future long-press handlers.
+
+### How the fall-through works
+
+There is no long-press polyfill for the context menu: browsers already synthesise a native `contextmenu` from a touch long-press, just as they do from a
+right-click. The grid instead resolves the conflict from the *other* direction — after 400 ms it offers the press to the plugins, and **only if one claims
+it** does it suppress the browser's `contextmenu` for a short window. When nothing claims the press, no suppression happens and the menu opens on its own.
+
+Two consequences worth knowing:
+
+- Long-press works with `ContextMenuPlugin` alone — no `SelectionPlugin` required, and no configuration.
+- When selection mode *has* claimed the press, the context-menu items are still one tap away via the **More…** button in the selection toolbar, so touch
+  users never lose right-click parity.
+
+:::note[No column header menu yet]
+There is no column header menu, so step 1 never fires: a header long-press falls through to the context menu with `isHeader: true`. Multi-sort and
+"Select column" are therefore not yet reachable by touch.
+:::
 
 ## Selection-mode UX
 
@@ -97,11 +115,6 @@ When a cell range is active in `mode: 'range'`, two draggable dots are rendered 
 Sheets idiom). Dragging one resizes the range. They are **not** touch-only — a mouse user gets them too.
 
 Because the grid virtualizes rows, a handle whose anchor cell has scrolled out of the rendered window is hidden until that cell returns.
-
-:::note[No column header menu yet]
-There is no column header menu, so long-pressing a **column header** falls through harmlessly. Multi-sort and "Select column" are therefore not yet
-reachable by touch.
-:::
 
 ## Hit-target sizing
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.2.0...grid-angular-2.3.0) (2026-07-27)
+
+
+### Features
+
+* **adapters:** surface baselines-captured in all adapters, add React/Vue event drift guards, deprecate phantom tree-load events ([e8a2be2](https://github.com/OysteinAmundsen/toolbox/commit/e8a2be2bd83a671be00c883d99b7a9fbeaba4ba2))
+* **grid-angular:** surface tree lazy-load events on GridTreeDirective ([0fbe357](https://github.com/OysteinAmundsen/toolbox/commit/0fbe357094af1ec29cb2174023282aa646d005e9))
+* **tree:** implement async lazy child loading via loadChildren ([50bff2d](https://github.com/OysteinAmundsen/toolbox/commit/50bff2d08f9425285504bb713611690013c49f41))
+
+
+### Bug Fixes
+
+* **grid:** sanitize loading/master-detail renderer HTML, fix resize disposal leaks, remove dead helpers ([712fc3a](https://github.com/OysteinAmundsen/toolbox/commit/712fc3a2a8c2806f5bde6cc1af83c2ee5f1a6f92))
+
 ## [2.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.1.0...grid-angular-2.2.0) (2026-07-21)
 
 

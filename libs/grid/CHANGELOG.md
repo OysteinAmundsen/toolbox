@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.3.1...grid-3.4.0) (2026-07-27)
+
+
+### Features
+
+* **adapters:** surface baselines-captured in all adapters, add React/Vue event drift guards, deprecate phantom tree-load events ([e8a2be2](https://github.com/OysteinAmundsen/toolbox/commit/e8a2be2bd83a671be00c883d99b7a9fbeaba4ba2))
+* **tree:** implement async lazy child loading via loadChildren ([50bff2d](https://github.com/OysteinAmundsen/toolbox/commit/50bff2d08f9425285504bb713611690013c49f41))
+
+
+### Bug Fixes
+
+* **grid:** lazy-tree queries, nested dotted paths, and hot-path reader precompilation ([381462c](https://github.com/OysteinAmundsen/toolbox/commit/381462cb7f5a4ef4d114a94d3b269d1d520ae00e))
+* **grid:** resolve remaining nested-path cell reads and restore the sort fast path ([6d9a220](https://github.com/OysteinAmundsen/toolbox/commit/6d9a220b07acca09ce27842a13ff8a56f4baba47))
+* **grid:** sanitize loading/master-detail renderer HTML, fix resize disposal leaks, remove dead helpers ([712fc3a](https://github.com/OysteinAmundsen/toolbox/commit/712fc3a2a8c2806f5bde6cc1af83c2ee5f1a6f92))
+* **sticky-rows:** keep stack-mode sticky rows rendered after a config rebuild ([d30cf5b](https://github.com/OysteinAmundsen/toolbox/commit/d30cf5bb9dac93b1ecd44be0f74b868e8b838c1d))
+
 ## [3.3.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.3.0...grid-3.3.1) (2026-07-23)
 
 

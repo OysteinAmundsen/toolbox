@@ -1,11 +1,47 @@
 import type { GridHost, ResizeController } from '../types';
+import { startPointerDrag } from './pointer-drag';
+
+/**
+ * Normalise the event that started a resize.
+ *
+ * `ResizeController.start` still accepts a plain `MouseEvent` for callers
+ * written before v3.5.0. Every `mousedown` in a modern browser is preceded by a
+ * `pointerdown` for the same physical pointer, and the primary mouse is always
+ * `pointerId: 1` — so re-describing the event that way keeps pointer capture
+ * working for legacy callers instead of silently dropping the drag.
+ */
+function toPointerEvent(e: MouseEvent | PointerEvent): PointerEvent {
+  if ('pointerId' in e) return e;
+  return new PointerEvent('pointerdown', {
+    pointerId: 1,
+    pointerType: 'mouse',
+    isPrimary: true,
+    clientX: e.clientX,
+    clientY: e.clientY,
+    button: e.button,
+    buttons: e.buttons,
+  });
+}
 
 export function createResizeController(grid: GridHost): ResizeController {
-  let resizeState: { startX: number; colIndex: number; startWidth: number } | null = null;
+  /**
+   * In-flight gesture state. The `start*` fields capture enough of the column to
+   * put it back exactly as it was if the drag is aborted (Escape / pointercancel).
+   */
+  let resizeState: {
+    startX: number;
+    colIndex: number;
+    startWidth: number;
+    startConfiguredWidth: number | string | undefined;
+    startRenderedWidth: number | undefined;
+    startUserResized: boolean;
+  } | null = null;
+  /** Teardown for the active `startPointerDrag`, so `dispose()` can abort mid-gesture. */
+  let cancelDrag: (() => void) | null = null;
   let pendingRaf: number | null = null;
   let prevCursor: string | null = null;
   let prevUserSelect: string | null = null;
-  const onMove = (e: MouseEvent) => {
+  const onMove = (e: PointerEvent) => {
     if (!resizeState) return;
     const delta = e.clientX - resizeState.startX;
     const col = grid._visibleColumns[resizeState.colIndex];
@@ -24,17 +60,14 @@ export function createResizeController(grid: GridHost): ResizeController {
     grid.dispatchEvent(new CustomEvent('column-resize', { detail: { field: col.field, width } }));
   };
   let justFinishedResize = false;
-  const onUp = () => {
-    const hadResize = resizeState !== null;
-    // Set flag to suppress click events that fire immediately after mouseup
+  const onUp = (hadResize: boolean) => {
+    // Set flag to suppress click events that fire immediately after pointerup
     if (hadResize) {
       justFinishedResize = true;
       requestAnimationFrame(() => {
         justFinishedResize = false;
       });
     }
-    window.removeEventListener('mousemove', onMove);
-    window.removeEventListener('mouseup', onUp);
     if (prevCursor !== null) {
       document.documentElement.style.cursor = prevCursor;
       prevCursor = null;
@@ -48,6 +81,36 @@ export function createResizeController(grid: GridHost): ResizeController {
     if (hadResize && grid.requestStateChange) {
       grid.requestStateChange();
     }
+  };
+
+  /**
+   * Abort an in-flight resize: put the column back exactly as it was at
+   * pointerdown and commit nothing.
+   *
+   * `onUp(true)` would persist the half-dragged width and fire
+   * `requestStateChange()`, which is the opposite of what Escape and
+   * `pointercancel` mean.
+   */
+  const onAbort = (): void => {
+    const state = resizeState;
+    if (state) {
+      const col = grid._visibleColumns[state.colIndex];
+      if (col) {
+        col.width = state.startConfiguredWidth;
+        col.__renderedWidth = state.startRenderedWidth;
+        col.__userResized = state.startUserResized;
+        grid.updateTemplate?.();
+        grid.dispatchEvent(new CustomEvent('column-resize', { detail: { field: col.field, width: state.startWidth } }));
+      }
+      // The user was dragging, not clicking — still swallow the trailing click
+      // so aborting on a header does not also trigger a sort.
+      justFinishedResize = true;
+      requestAnimationFrame(() => {
+        justFinishedResize = false;
+      });
+    }
+    // `false` — restore cursor/user-select and clear state without committing.
+    onUp(false);
   };
 
   /**
@@ -77,8 +140,14 @@ export function createResizeController(grid: GridHost): ResizeController {
     get isResizing() {
       return resizeState !== null || justFinishedResize;
     },
-    start(e, colIndex, cell) {
-      e.preventDefault();
+    start(rawEvent, colIndex, cell, captureTarget) {
+      const e = toPointerEvent(rawEvent);
+      rawEvent.preventDefault();
+
+      // A second start() while a drag is in flight would orphan the first
+      // gesture's listeners and pointer capture.
+      cancelDrag?.();
+      cancelDrag = null;
 
       // Freeze flexible columns before resizing so they hold their current width
       const headerRow = grid._headerRowEl ?? grid.findHeaderRow?.();
@@ -91,13 +160,31 @@ export function createResizeController(grid: GridHost): ResizeController {
       // Only use numeric widths; string widths (e.g., "100px", "20%") fall back to bounding rect
       const colWidth = typeof col?.width === 'number' ? col.width : undefined;
       const startWidth = col?.__renderedWidth ?? colWidth ?? cell.getBoundingClientRect().width;
-      resizeState = { startX: e.clientX, colIndex, startWidth };
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onUp);
+      resizeState = {
+        startX: e.clientX,
+        colIndex,
+        startWidth,
+        startConfiguredWidth: col?.width,
+        startRenderedWidth: col?.__renderedWidth,
+        startUserResized: col?.__userResized ?? false,
+      };
       if (prevCursor === null) prevCursor = document.documentElement.style.cursor;
       document.documentElement.style.cursor = 'e-resize';
       if (prevUserSelect === null) prevUserSelect = document.body.style.userSelect;
       document.body.style.userSelect = 'none';
+
+      const target = captureTarget ?? cell;
+      cancelDrag = startPointerDrag(e, target, {
+        onMove,
+        onEnd: () => {
+          cancelDrag = null;
+          onUp(true);
+        },
+        onCancel: () => {
+          cancelDrag = null;
+          onAbort();
+        },
+      });
     },
     resetColumn(colIndex) {
       const col = grid._visibleColumns[colIndex];
@@ -113,7 +200,11 @@ export function createResizeController(grid: GridHost): ResizeController {
       grid.dispatchEvent(new CustomEvent('column-resize-reset', { detail: { field: col.field, width: col.width } }));
     },
     dispose() {
-      onUp();
+      // Tear down an in-flight drag first, or its pointer capture and listeners
+      // outlive the grid. The returned canceller is idempotent.
+      cancelDrag?.();
+      cancelDrag = null;
+      onUp(resizeState !== null);
       // Drop any in-flight template update — the grid (or its DOM) is going
       // away, so the queued `updateTemplate()` would run against stale refs.
       if (pendingRaf != null) {

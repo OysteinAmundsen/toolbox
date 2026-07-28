@@ -279,6 +279,10 @@
       cursor: col-resize;
       background: transparent;
       z-index: 10;
+      /* The splitter drag is driven by pointer capture, so the browser must not
+         claim the gesture for panning on touch devices. */
+      touch-action: none;
+      user-select: none;
       transition: background var(--tbw-transition-duration) var(--tbw-transition-ease);
 
       &[data-handle-position='left'] {

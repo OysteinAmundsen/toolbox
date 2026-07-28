@@ -116,6 +116,20 @@ Core = `libs/grid/src/lib/core/`. Shell chrome is a PLUGIN (see grid-plugins-she
 - INVARIANT: unsubscribe is idempotent (`removed` flag guards double-call).
 - DECIDED (#307, Jul 2026): part of touch-input epic #302 cross-cutting infra. Plugins and features MUST use this module rather than calling `matchMedia` directly. `@since 3.5.0`. Tests: `pointer-modality.spec.ts`.
 
+## pointer-drag (`core/internal/pointer-drag.ts`)
+
+- OWNS: `startPointerDrag(startEvent, captureTarget, handlers, options?) => cancelFn`, `PointerDragHandlers` (`onMove`, `onEnd`, `onPromote?`, `onCancel?`), `PointerDragOptions` (`threshold?`, `longPressDuration?`, `longPressSlop?` default 8). **NOT in `public.ts`** — internal. `@since 3.5.0`.
+- INVARIANT: uses `setPointerCapture` ONLY — no `document`/`window` `pointermove`/`pointerup` listeners. The single exception is a capture-phase `document` `keydown` for Escape-to-abort. WHY: capture survives DOM virtualization re-renders that would otherwise detach the drag source mid-gesture.
+- INVARIANT: `captureTarget` must be a stable element (the resize *handle*, not the header cell). `ResizeController.start` therefore takes a 4th param `captureTarget?: Element`.
+- INVARIANT: `touch-action: none` is applied to the capture target only inside `onPromote` — never on `pointerdown`. WHY: applying it at pointerdown would swallow a plain swipe-to-scroll over the grid. Restored in both `onEnd` and `onCancel`.
+- INVARIANT: re-entrancy guarded by a module-level `WeakMap<Element, Set<number>>` of active pointerIds; a second `pointerdown` with the same id on the same target is ignored.
+- FLOW (promotion): no threshold + no long-press → promoted synchronously at call time. `threshold > 0` → promoted on first move past distance. `longPressDuration > 0` → promoted by timer; any move beyond `longPressSlop` before the timer fires **cancels the whole drag** (it was a scroll, not a drag).
+- `onPromote` exists so callers can act at promotion time even when the pointer never moves (range-paint dispatches its `mousedown` hook there). Fired from all three promotion sites.
+- DECIDED (#303, Jul 2026): fine-vs-coarse branch uses per-event `e.pointerType` (`touch`/`pen` → coarse, `mouse` → fine) in preference to `getPrimaryPointer()`. WHY: hybrid devices (Surface) report `(pointer: coarse)` even while a mouse is in use. `getPrimaryPointer()` is only the fallback for synthetic events with no `pointerType`.
+- DECIDED (#303, Jul 2026): #228 never shipped this module, so #303 created it. It is deliberately generic so the DnD plugins (#228: column reorder, row drag-drop) can consume it later instead of growing a second drag primitive.
+- Consumers: `resize.ts` (column resize), `plugins/shell/shell.ts` (tool-panel splitter), `event-delegation.ts` (cell-range paint, `LONG_PRESS_MS = 400` on coarse pointers only).
+- TENSION: listeners are typed `(event: Event)` and narrowed, not `(e: PointerEvent)` — `pointer*` lives on `HTMLElementEventMap`, not `ElementEventMap`, so a generic `Element.addEventListener` rejects the narrower signature.
+- Tests: `pointer-drag.spec.ts` (24), `resize.spec.ts` (8). happy-dom has `PointerEvent` but pointer capture does not route events — specs MUST stub `setPointerCapture`/`hasPointerCapture`/`releasePointerCapture` on the capture target and dispatch pointer events **directly on that target**.
 ## long-press priority policy (#307 / touch-input epic #302)
 
 - DECIDED (#307, Jul 2026): agreed priority chain for long-press on a touch device (shipped by #303–#306):

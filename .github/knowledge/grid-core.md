@@ -108,6 +108,22 @@ Core = `libs/grid/src/lib/core/`. Shell chrome is a PLUGIN (see grid-plugins-she
 | plugin instances               | PluginManager         | `Plugin.attach`                                  | registered in array order               |
 | accessor cache                 | value-accessor.ts     | `resolveCellValue`, `invalidateAccessorCache`    | `WeakMap<row, Map<field, box>>`         |
 
+## pointer-modality (`core/internal/pointer-modality.ts`)
+
+- OWNS: `PointerModality` type (`'fine' | 'coarse'`), `getPrimaryPointer()`, `onPointerModalityChange(cb)`. **NOT exported from `public.ts`** — internal use only.
+- INVARIANT: single shared `MediaQueryList` for `(pointer: coarse)` — one OS listener regardless of subscriber count. Created lazily on first call.
+- INVARIANT: SSR / happy-dom safe — guard `typeof globalThis.matchMedia !== 'function'`; returns `'fine'` as the safe default. Fallback also for legacy `addListener` API (old Safari / happy-dom).
+- INVARIANT: unsubscribe is idempotent (`removed` flag guards double-call).
+- DECIDED (#307, Jul 2026): part of touch-input epic #302 cross-cutting infra. Plugins and features MUST use this module rather than calling `matchMedia` directly. `@since 3.5.0`. Tests: `pointer-modality.spec.ts`.
+
+## long-press priority policy (#307 / touch-input epic #302)
+
+- DECIDED (#307, Jul 2026): agreed priority chain for long-press on a touch device (shipped by #303–#306):
+  1. **Header long-press → Column header menu** (highest; tracked by #270).
+  2. **Row long-press + SelectionPlugin active → Selection mode** (enter touch multi-select; #304).
+  3. **Row/cell long-press + no SelectionPlugin → Context menu** (fallback; #305).
+- INVARIANT: every future long-press handler MUST honour this order. Documented in `apps/docs/src/content/docs/grid/guides/touch-input.mdx`.
+
 ## type interfaces
 
 - `GridHost = InternalGrid & HTMLElement` (`core/types.ts`) — used by internal modules. `PluginGridApi` (`plugin/types.ts`) — used by plugins.

@@ -1,0 +1,109 @@
+---
+title: Touch Input
+description: How @toolbox-web/grid works on touch devices — gesture map, long-press interactions, hit-target sizing, and known browser quirks.
+sidebar:
+  order: 10
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+The grid is **touch-friendly by default**. Native two-finger scrolling, tap-to-focus, tap-header-to-sort, and drag-resize all work on touch screens without any configuration. This page explains how the grid maps gestures to features, which interactions require plugins, and how to tune hit-target sizing for accessibility.
+
+## Overview
+
+`@toolbox-web/grid` handles touch via the Web Pointer Events API (`pointerdown` / `pointermove` / `pointerup`) combined with `setPointerCapture`. This approach is robust under DOM virtualization — because virtualization recycles cell elements mid-gesture, touch events lose their target; pointer capture routes all events to the grid host element regardless of DOM changes.
+
+The grid renders into **light DOM** with a faux scrollbar pattern: a zero-opacity `div.faux-vscroll` acts as the scroll container, while the visible row area clips and translates. Touch scrolling drives this faux scrollbar via JS, which is why all scrollable elements carry `touch-action: none` (see [Known browser quirks](#known-browser-quirks)).
+
+## Gesture map
+
+The table below shows how each action maps across input types.
+
+| Action | Mouse | Trackpad | Touch |
+|---|---|---|---|
+| Focus a cell | Click cell | Click / tap | Tap cell |
+| Sort by column | Click header | Click header | Tap header |
+| Multi-sort (secondary key) | Shift+click header | Shift+click | See note below ↓ |
+| Scroll rows (vertical) | Scroll wheel / drag scrollbar | Two-finger swipe | One-finger swipe |
+| Scroll columns (horizontal) | Scroll wheel / drag scrollbar | Two-finger swipe | One-finger swipe |
+| Resize column | Drag resize handle | Drag resize handle | Drag resize handle |
+| Reorder column | Drag header | Drag header | Drag header |
+| Toggle row selection (single) | Click row | Click row | Tap row |
+| Toggle row multi-select | Ctrl+click row | Ctrl+click | See note below ↓ |
+| Range-select rows | Shift+click row | Shift+click | See note below ↓ |
+| Range-select cells | Ctrl+click / drag | Ctrl+click / drag | See note below ↓ |
+| Open context menu | Right-click | Two-finger tap | Long-press |
+| Header menu | — | — | Long-press header |
+
+- **Multi-sort via touch** — secondary header sort will be accessible via the column header menu (long-press header → header menu → Sort → Add sort key).
+- **Multi-select via touch** — long-pressing a row enters *selection mode* (a toolbar appears). Subsequent taps toggle rows in that mode. Described further in [Selection-mode UX](#selection-mode-ux).
+- **Range-select rows via touch** — long-pressing a second row while in selection mode extends the range.
+- **Range-select cells via touch** — long-pressing a second cell while in selection mode extends the cell range.
+- **Long-press cell (no SelectionPlugin)** — opens the context menu when no SelectionPlugin is active (same as right-click).
+
+## Long-press priority order
+
+When a long-press occurs, the grid resolves the action according to the following priority chain:
+
+1. **Header long-press → Column header menu** (highest priority) — opens the column header menu regardless of which plugins are active. *(Planned: #270)*
+2. **Row long-press + SelectionPlugin active → Selection mode** — enters touch selection mode; a toolbar appears at the top of the grid.
+3. **Row / cell long-press + no SelectionPlugin → Context menu** — falls back to the context menu if `ContextMenuPlugin` is active.
+
+This order is the agreed policy for the touch-input epic and applies to all future long-press handlers.
+
+## Selection-mode UX
+
+When a user long-presses a row on a touch device and `SelectionPlugin` is active, the grid enters **selection mode**:
+
+- A toolbar appears at the top of the grid (or shell header bar if the shell plugin is active) showing:
+  - **N selected** — count badge
+  - **Done** — commits selection and exits selection mode
+  - **Select all** — selects all rows in the current data set
+  - **Clear** — deselects all
+  - **More…** — overflow menu for less-common actions
+- Tapping a row toggles its selection.
+- Long-pressing a second row extends the selection range.
+- Tapping **Done** or navigating away exits selection mode.
+
+## Hit-target sizing
+
+The grid exposes the CSS custom property `--tbw-touch-target-min` to set the minimum interactive hit-target size across all pointer-interactive elements (resize handles, column headers, checkboxes).
+
+| Token | Default | Standard |
+|---|---|---|
+| `--tbw-touch-target-min` | `24px` | WCAG 2.2 SC 2.5.8 Target Size (Minimum), Level AA |
+
+You will be able to override the token in your theme to increase target sizes for your deployment:
+
+```css
+tbw-grid {
+  --tbw-touch-target-min: 44px; /* Apple HIG / WCAG SC 2.5.5 Target Size (Enhanced), AAA */
+}
+```
+
+The default of 24 px satisfies WCAG 2.2 SC 2.5.8 Target Size (Minimum) at Level AA. Raising it to 44 px also satisfies SC 2.5.5 Target Size (Enhanced) at Level AAA, and matches Apple's Human Interface Guidelines recommendation of 44 × 44 pt for primary touch targets.
+
+## Known browser quirks
+
+### `touch-action: none` policy
+
+The grid sets `touch-action: none` on all JS-managed scroll and interaction elements (`.tbw-grid-content`, `.rows-viewport`, `.faux-vscroll`, `.resize-handle`). This is intentional and correct: the grid's faux-scrollbar pattern drives scrolling via JS pointer-capture events, and the browser compositor must not compete with or cancel those handlers mid-gesture.
+
+**Why not `pan-x pan-y`?** That value delegates scrolling to the browser compositor, which bypasses the faux scrollbar entirely — the grid position would update but the custom scrollbar would not.
+
+**Why not `manipulation`?** That value suppresses double-tap-to-zoom, which is a [WCAG 1.4.4 violation](https://www.w3.org/WAI/WCAG21/Understanding/resize-text.html) and breaks pinch-zoom on pages where the grid is embedded.
+
+### Pointer capture and DOM virtualization
+
+Without `setPointerCapture`, a touch-scroll gesture over a grid would stop after ~2 rows because DOM virtualization recycles the original touch-target element. The grid uses `setPointerCapture` to route all pointer events to `.tbw-grid-content` regardless of DOM changes. If your environment disables `setPointerCapture` (some test harnesses or sandboxed iframes), touch scrolling may stop mid-gesture.
+
+### iOS Safari scroll momentum
+
+iOS Safari applies its own scroll momentum to elements with `overflow: auto`. Because the grid uses a faux scrollbar (not native overflow), momentum scrolling is implemented in JS (`touch-scroll.ts`). The momentum curve matches the CSS `ease-out` curve and stops naturally at content boundaries.
+
+## See also
+
+<CardGrid>
+  <LinkCard title="Accessibility" href="/grid/guides/accessibility/" description="WAI-ARIA roles, keyboard navigation, screen reader support, and WCAG 2.1 AA conformance." />
+  <LinkCard title="Theming" href="/grid/guides/theming/" description="CSS custom properties and how to override the grid's visual tokens." />
+</CardGrid>

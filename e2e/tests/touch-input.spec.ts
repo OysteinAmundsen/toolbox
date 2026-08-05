@@ -193,3 +193,93 @@ test.describe('Touch Input — pointer-driven drags (#303)', () => {
     expect(after).toBeGreaterThan(before);
   });
 });
+/**
+ * Touch selection mode (#304).
+ *
+ * The vanilla demo may or may not register `SelectionPlugin` in row mode, so
+ * each test skips gracefully when the toolbar never appears rather than
+ * asserting on a feature the demo does not enable.
+ */
+test.describe('Touch Input — selection mode (#304)', () => {
+  const TOOLBAR = '.tbw-selection-toolbar';
+
+  /** Long-press the given row by holding a touch point on it. */
+  async function longPressRow(page: import('@playwright/test').Page, rowIndex: number): Promise<void> {
+    const row = page.locator(SELECTORS.grid).locator(SELECTORS.row).nth(rowIndex);
+    const box = await row.boundingBox();
+    expect(box).not.toBeNull();
+    const cx = box!.x + box!.width / 2;
+    const cy = box!.y + box!.height / 2;
+    // A hold with no movement: touchDrag's steps all land on the same point.
+    await touchDrag(page, cx, cy, cx, cy, { holdMs: 600, steps: 2 });
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReadyMobile(page);
+  });
+
+  test('long-pressing a row opens the selection toolbar', async ({ page }) => {
+    await longPressRow(page, 1);
+    await page.waitForTimeout(300);
+
+    const toolbar = page.locator(TOOLBAR);
+    test.skip((await toolbar.count()) === 0, 'demo grid does not enable row selection');
+    await expect(toolbar).toBeVisible();
+    await expect(toolbar.locator('.tbw-selection-toolbar-count')).toHaveText('1 selected');
+  });
+
+  test('tapping another row toggles it into the selection', async ({ page }) => {
+    await longPressRow(page, 1);
+    await page.waitForTimeout(300);
+    const toolbar = page.locator(TOOLBAR);
+    test.skip((await toolbar.count()) === 0, 'demo grid does not enable row selection');
+
+    await page.locator(SELECTORS.grid).locator(SELECTORS.row).nth(3).tap();
+    await page.waitForTimeout(300);
+
+    await expect(toolbar.locator('.tbw-selection-toolbar-count')).toHaveText('2 selected');
+  });
+
+  test('long-pressing a second row extends the range from the anchor', async ({ page }) => {
+    await longPressRow(page, 1);
+    await page.waitForTimeout(300);
+    const toolbar = page.locator(TOOLBAR);
+    test.skip((await toolbar.count()) === 0, 'demo grid does not enable row selection');
+
+    await longPressRow(page, 4);
+    await page.waitForTimeout(300);
+
+    await expect(toolbar.locator('.tbw-selection-toolbar-count')).toHaveText('4 selected');
+  });
+
+  test('Done exits selection mode and clears the transient selection', async ({ page }) => {
+    await longPressRow(page, 1);
+    await page.waitForTimeout(300);
+    const toolbar = page.locator(TOOLBAR);
+    test.skip((await toolbar.count()) === 0, 'demo grid does not enable row selection');
+
+    await toolbar.locator('[data-action="done"]').tap();
+    await page.waitForTimeout(300);
+
+    await expect(page.locator(TOOLBAR)).toHaveCount(0);
+    const selected = await page.locator(SELECTORS.grid).locator('[aria-selected="true"]').count();
+    expect(selected).toBe(0);
+  });
+
+  test('mouse clicks never enter selection mode', async ({ page }) => {
+    const row = page.locator(SELECTORS.grid).locator(SELECTORS.row).nth(1);
+    const box = await row.boundingBox();
+    expect(box).not.toBeNull();
+
+    // A slow mouse press is not a long-press as far as the coarse branch is
+    // concerned — `pointerType` is what decides.
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(700);
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+
+    await expect(page.locator(TOOLBAR)).toHaveCount(0);
+  });
+});

@@ -14,4 +14,5 @@ export type {
   SelectionMode,
   SelectionResult,
   SelectionTrigger,
+  TouchSelectionMode,
 } from './types';

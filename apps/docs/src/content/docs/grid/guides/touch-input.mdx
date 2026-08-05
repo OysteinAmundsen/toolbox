@@ -45,8 +45,8 @@ grid.
 
 - **Multi-sort via touch** — secondary header sort will be accessible via the column header menu (long-press header → header menu → Sort → Add sort key).
 - **Multi-select via touch** — long-pressing a row enters *selection mode* (a toolbar appears). Subsequent taps toggle rows in that mode. Described further in [Selection-mode UX](#selection-mode-ux).
-- **Range-select rows via touch** — long-pressing a second row while in selection mode extends the range.
-- **Range-select cells via touch** — long-pressing a second cell while in selection mode extends the cell range.
+- **Range-select rows via touch** — long-pressing a second row while in selection mode extends the range from the anchor.
+- **Range-select cells via touch** — long-press a cell, then drag to paint the range. Its corners can then be dragged with the range handles.
 - **Long-press cell (no SelectionPlugin)** — opens the context menu when no SelectionPlugin is active (same as right-click).
 
 ## Long-press priority order
@@ -61,17 +61,47 @@ This order is the agreed policy for the touch-input epic and applies to all futu
 
 ## Selection-mode UX
 
-When a user long-presses a row on a touch device and `SelectionPlugin` is active, the grid enters **selection mode**:
+When a user long-presses a row on a touch device and `SelectionPlugin` is active in `mode: 'row'`, the grid enters **selection mode**:
 
-- A toolbar appears at the top of the grid (or shell header bar if the shell plugin is active) showing:
+- A toolbar appears at the top of the grid showing:
   - **N selected** — count badge
-  - **Done** — commits selection and exits selection mode
   - **Select all** — selects all rows in the current data set
   - **Clear** — deselects all
-  - **More…** — overflow menu for less-common actions
-- Tapping a row toggles its selection.
-- Long-pressing a second row extends the selection range.
-- Tapping **Done** or navigating away exits selection mode.
+  - **More…** — surfaces the `ContextMenuPlugin` items, so touch users keep parity with right-click. Hidden when no `ContextMenuPlugin` is registered.
+  - **Done** — exits selection mode
+- Tapping a row toggles its selection — no modifier key needed.
+- Long-pressing a second row extends the selection from the long-press anchor.
+- Tapping **Done**, or pressing `Escape` on an external keyboard, exits selection mode.
+
+Selection mode is **additive**. Mouse users keep `Ctrl+click` and `Shift+click` exactly as before, and the mode is entered from the *event's* `pointerType`
+rather than the `(pointer: coarse)` media query — so on a hybrid device such as a Surface, a finger gets selection mode while the mouse keeps its chords.
+
+### `touchMode`
+
+`SelectionConfig.touchMode` controls what happens to the selection when the mode is exited:
+
+| Value | Behaviour |
+|---|---|
+| `'transient'` (default) | Exiting clears the selection. The mode *is* the selection, as in Gmail. |
+| `'sticky'` | The selection survives, so a later round can build on it. |
+
+```ts
+new SelectionPlugin({ mode: 'row', touchMode: 'sticky' });
+```
+
+Read the current state with the `touchSelectionActive` getter, and exit programmatically with `exitTouchSelection()`.
+
+### Cell range corner handles
+
+When a cell range is active in `mode: 'range'`, two draggable dots are rendered at the range's top-left and bottom-right corners (the iOS Numbers / Google
+Sheets idiom). Dragging one resizes the range. They are **not** touch-only — a mouse user gets them too.
+
+Because the grid virtualizes rows, a handle whose anchor cell has scrolled out of the rendered window is hidden until that cell returns.
+
+:::note[No column header menu yet]
+There is no column header menu, so long-pressing a **column header** falls through harmlessly. Multi-sort and "Select column" are therefore not yet
+reachable by touch.
+:::
 
 ## Hit-target sizing
 

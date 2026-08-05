@@ -10,6 +10,7 @@
 
 import { GridClasses } from '../../core/constants';
 import { announce, getA11yMessage } from '../../core/internal/aria';
+import { getPrimaryPointer } from '../../core/internal/pointer-modality';
 import { clearCellFocus, getRowIndexFromCell } from '../../core/internal/utils';
 import type { GridElement, HeaderClickEvent, PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, CellClickEvent, CellMouseEvent } from '../../core/plugin/base-plugin';
@@ -31,6 +32,7 @@ import {
   toPublicRanges,
 } from './range-selection';
 import styles from './selection.css?inline';
+import { RangeCornerHandles, SelectionToolbar, type RangeCorner, type RangeRect } from './touch-selection';
 import type {
   CellRange,
   InternalCellRange,
@@ -282,8 +284,29 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       triggerOn: 'click',
       enabled: true,
       multiSelect: true,
+      touchMode: 'transient',
     };
   }
+
+  // #region Touch Selection State (#304)
+
+  /**
+   * True while touch selection mode is active — long-press entered it, plain
+   * taps now toggle instead of replacing, and the selection toolbar is shown.
+   *
+   * Read-only for consumers; drive it with {@link exitTouchSelection}.
+   *
+   * @since 3.5.0
+   */
+  get touchSelectionActive(): boolean {
+    return this.#touchActive;
+  }
+
+  #touchActive = false;
+  readonly #toolbar = new SelectionToolbar();
+  readonly #cornerHandles = new RangeCornerHandles();
+
+  // #endregion
 
   // #region Internal State
   /** Row selection state (row mode) */
@@ -488,6 +511,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     const rowsBodyEl = this.gridElement?.querySelector('.rows-body');
     rowsBodyEl?.removeAttribute('aria-multiselectable');
 
+    this.#toolbar.destroy();
+    this.#cornerHandles.destroy();
+    this.#touchActive = false;
+
     this.selected.clear();
     this.ranges = [];
     this.activeRange = null;
@@ -538,6 +565,181 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   // #endregion
 
+  // #region Touch Selection Mode (#304)
+
+  /**
+   * True when a press originated from a finger or stylus.
+   *
+   * Prefers the per-event `pointerType` over the `(pointer: coarse)` media
+   * query so that a hybrid device (e.g. a Surface with both a touchscreen and
+   * a mouse) keeps mouse chords working while touch gets the long-press idiom.
+   */
+  #isCoarseEvent(e: MouseEvent): boolean {
+    const pointerType = (e as PointerEvent).pointerType;
+    if (pointerType === 'touch' || pointerType === 'pen') return true;
+    if (pointerType === 'mouse') return false;
+    return getPrimaryPointer() === 'coarse';
+  }
+
+  /**
+   * Enter touch selection mode, seeding it with `rowIndex`.
+   *
+   * Long-pressing a row while already in the mode range-extends from the
+   * anchor instead — that branch is handled by the caller.
+   */
+  #enterTouchSelection(rowIndex: number): boolean {
+    if (!this.isRowSelectable(rowIndex)) return false;
+    this.#touchActive = true;
+    this.selected.clear();
+    this.selected.add(rowIndex);
+    this.anchor = rowIndex;
+    this.lastSelected = rowIndex;
+    this.explicitSelection = true;
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
+    return true;
+  }
+
+  /**
+   * Leave touch selection mode.
+   *
+   * With the default `touchMode: 'transient'` this also clears the selection —
+   * the mode *is* the selection, as in Gmail. With `touchMode: 'sticky'` the
+   * selection survives so a later round can build on it.
+   *
+   * No-op when the mode is not active.
+   *
+   * @since 3.5.0
+   */
+  exitTouchSelection(): void {
+    if (!this.#touchActive) return;
+    this.#touchActive = false;
+    if ((this.config.touchMode ?? 'transient') === 'transient') {
+      this.selected.clear();
+      this.anchor = null;
+      this.lastSelected = null;
+      this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    }
+    this.requestAfterRender();
+  }
+
+  /** Range-extend from the touch anchor to `rowIndex` (second long-press). */
+  #extendTouchSelection(rowIndex: number): void {
+    const anchor = this.anchor ?? rowIndex;
+    const start = Math.min(anchor, rowIndex);
+    const end = Math.max(anchor, rowIndex);
+    for (let i = start; i <= end; i++) {
+      if (this.isRowSelectable(i)) this.selected.add(i);
+    }
+    this.lastSelected = rowIndex;
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
+  }
+
+  /** The `ContextMenuPlugin` instance, when one is registered. */
+  #contextMenuPlugin(): { showMenu(x: number, y: number, params: Record<string, unknown>): void } | undefined {
+    const plugin = this.grid?.getPluginByName?.('contextMenu') ?? this.grid?.getPluginByName?.('context-menu');
+    const candidate = plugin as { showMenu?: unknown } | undefined;
+    return typeof candidate?.showMenu === 'function'
+      ? (candidate as { showMenu(x: number, y: number, params: Record<string, unknown>): void })
+      : undefined;
+  }
+
+  /** Resolve the rendered cell element for a (row, visible-col) pair. */
+  #cellFor(row: number, col: number): HTMLElement | null {
+    return this.gridElement?.querySelector<HTMLElement>(`.cell[data-row="${row}"][data-col="${col}"]`) ?? null;
+  }
+
+  /** Resolve the (row, col) of the cell under a viewport coordinate. */
+  #cellAtPoint(clientX: number, clientY: number): { row: number; col: number } | null {
+    const host = this.gridElement;
+    const doc = host?.ownerDocument;
+    const el = doc?.elementFromPoint?.(clientX, clientY);
+    const cell = (el as Element | null)?.closest?.('.cell[data-row][data-col]');
+    // `elementFromPoint` is document-wide: when several grids share a page the
+    // drag can wander over a *different* grid's cells. Only accept cells that
+    // belong to this grid instance.
+    if (!cell || !host?.contains?.(cell)) return null;
+    const row = parseInt(cell.getAttribute('data-row') ?? '-1', 10);
+    const col = parseInt(cell.getAttribute('data-col') ?? '-1', 10);
+    return row >= 0 && col >= 0 ? { row, col } : null;
+  }
+
+  /** Move one corner of the active range while its handle is dragged. */
+  #resizeRangeCorner(corner: RangeCorner, row: number, col: number): void {
+    const current = this.ranges[this.ranges.length - 1];
+    if (!current) return;
+    const normalized = normalizeRange(current);
+    const anchor =
+      corner === 'start'
+        ? { row: normalized.endRow, col: normalized.endCol }
+        : { row: normalized.startRow, col: normalized.startCol };
+    const next = createRangeFromAnchor(anchor, { row, col });
+    if (rangesEqual(current, next)) return;
+    this.ranges[this.ranges.length - 1] = next;
+    this.activeRange = next;
+    this.cellAnchor = anchor;
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
+  }
+
+  /**
+   * Render (or tear down) the touch chrome: the selection-mode toolbar and the
+   * range corner handles. Called from `afterRender()`.
+   *
+   * The toolbar follows `#touchActive`, which can only have been set by a
+   * coarse-pointer long-press — the modality check happens once, per event, at
+   * entry. Re-testing the `(pointer: coarse)` media query here would break
+   * hybrid devices (a Surface reports a fine primary pointer even while the
+   * user is touching the screen). The corner handles are additive: a mouse
+   * user gets them too.
+   */
+  #renderTouchChrome(container: HTMLElement | null): void {
+    if (!container) return;
+
+    if (this.#touchActive) {
+      this.#toolbar.show(container, this.selected.size, this.#contextMenuPlugin() !== undefined, {
+        selectAll: () => this.selectAll(),
+        clear: () => this.clearSelection(),
+        done: () => this.exitTouchSelection(),
+        more: (btn) => this.#openOverflowMenu(btn),
+      });
+    } else {
+      this.#toolbar.destroy();
+    }
+
+    const active = this.#mode.primary === 'range' && this.ranges.length > 0 ? this.ranges[this.ranges.length - 1] : null;
+    const rect: RangeRect | null = active ? normalizeRange(active) : null;
+    this.#cornerHandles.render(
+      container,
+      rect,
+      (row, col) => this.#cellFor(row, col),
+      {
+        cellAt: (x, y) => this.#cellAtPoint(x, y),
+        resize: (corner, row, col) => this.#resizeRangeCorner(corner, row, col),
+        commit: () => this.requestAfterRender(),
+      },
+    );
+  }
+
+  /**
+   * Surface the `ContextMenuPlugin` items from the toolbar's "More…" button, so
+   * touch users don't lose the actions a mouse user reaches by right-clicking.
+   */
+  #openOverflowMenu(anchorEl: HTMLElement): void {
+    const menu = this.#contextMenuPlugin();
+    if (!menu) return;
+    const rect = anchorEl.getBoundingClientRect?.();
+    const rowIndex = this.lastSelected ?? -1;
+    menu.showMenu(rect?.left ?? 0, rect?.bottom ?? 0, {
+      row: rowIndex >= 0 ? this.rows[rowIndex] : null,
+      rowIndex,
+      // ContextMenuParams.selectedRows is a list of row *indices*, not row objects.
+      selectedRows: this.getSelectedRowIndices(),
+    });
+  }
+
+  // #endregion
   // #region Event Handlers
 
   /** @internal */
@@ -592,7 +794,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
     const multiSelect = this.config.multiSelect !== false;
     const shiftKey = originalEvent.shiftKey && multiSelect;
-    const ctrlKey = (originalEvent.ctrlKey || originalEvent.metaKey) && multiSelect;
+    // While touch selection mode is active a plain tap toggles, exactly as if
+    // Ctrl were held — that is the whole point of the mode. Mouse chords are
+    // untouched, so a hybrid device supports both at once.
+    const ctrlKey = (originalEvent.ctrlKey || originalEvent.metaKey || this.#touchActive) && multiSelect;
     const isCheckbox = column?.checkboxColumn === true;
 
     if (shiftKey && this.anchor !== null) {
@@ -678,6 +883,13 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (this.#mode.columnEnabled && this.#keyColumnAxis(event)) return true;
 
     const mode = this.#mode.primary;
+
+    // Escape leaves touch selection mode first (an external keyboard is the
+    // documented escape hatch), and only clears selection on a second press.
+    if (event.key === 'Escape' && this.#touchActive) {
+      this.exitTouchSelection();
+      return true;
+    }
 
     // Escape clears selection in all modes
     if (event.key === 'Escape') return this.#keyClearSelection(mode);
@@ -849,6 +1061,24 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   override onCellMouseDown(event: CellMouseEvent): boolean | void {
     // Skip all selection if disabled at grid level or plugin level
     if (!this.isSelectionEnabled()) return;
+
+    // ROW MODE — touch selection entry (#304).
+    //
+    // `event-delegation.ts` only dispatches `mousedown` for a coarse pointer
+    // *after* a 400 ms long-press has elapsed, so reaching here with a coarse
+    // event already means "the user held the row down". Header presses are
+    // excluded — they belong to the column header menu (#270).
+    if (this.#mode.primary === 'row') {
+      if (event.rowIndex === undefined || event.rowIndex < 0) return;
+      if (this.config.multiSelect === false) return;
+      if (!this.#isCoarseEvent(event.originalEvent)) return;
+      if (event.column && isUtilityColumn(event.column)) return;
+      if (this.#touchActive) {
+        this.#extendTouchSelection(event.rowIndex);
+        return true;
+      }
+      return this.#enterTouchSelection(event.rowIndex) || undefined;
+    }
 
     if (this.#mode.primary !== 'range') return;
     if (event.rowIndex === undefined || event.colIndex === undefined) return;
@@ -1465,6 +1695,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
 
     this.#applySelectionClasses();
+    this.#renderTouchChrome(container as HTMLElement | null);
   }
 
   /**

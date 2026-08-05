@@ -5,6 +5,7 @@
  */
 
 import type { ColumnConfig } from '../../core/types';
+import type { TouchSelectionMode } from './touch-selection';
 
 // #region Module Augmentation
 // When this plugin is imported, GridConfig is augmented with selection-specific properties
@@ -97,6 +98,8 @@ declare module '../../core/types' {
  * @see Range Mode Demo — Drag to select ranges
  * @since 0.1.1
  */
+export type { TouchSelectionMode } from './touch-selection';
+
 export type SelectionMode = 'cell' | 'row' | 'column' | 'range';
 
 /**
@@ -273,6 +276,23 @@ export interface SelectionConfig<T = unknown> {
    * ```
    */
   isSelectable?: SelectableCallback<T>;
+
+  /**
+   * What happens to the selection when touch selection mode is exited.
+   *
+   * Touch selection mode is the long-press → tap-to-toggle → "Done" idiom used
+   * on coarse-pointer devices (see the
+   * [touch input guide](https://toolboxjs.com/grid/guides/touch-input/)). It is
+   * additive: mouse users keep `Ctrl+click` / `Shift+click` unchanged, and on a
+   * hybrid device both work at once.
+   *
+   * - `'transient'` (default) — exiting selection mode clears the selection.
+   * - `'sticky'` — the selection survives exiting the mode.
+   *
+   * @default 'transient'
+   * @since 3.5.0
+   */
+  touchMode?: TouchSelectionMode;
 }
 
 /** Internal state managed by the selection plugin */

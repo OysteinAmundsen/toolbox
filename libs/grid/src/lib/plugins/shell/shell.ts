@@ -8,6 +8,7 @@
  */
 
 import { TOOL_PANEL_DUPLICATE, TOOL_PANEL_MISSING_ATTR, warnDiagnostic } from '../../core/internal/diagnostics';
+import { startPointerDrag } from '../../core/internal/pointer-drag';
 import { escapeHtml, sanitizeHTML } from '../../core/internal/sanitize';
 import type { IconValue } from '../../core/types';
 import type { HeaderContentDefinition, ShellConfig, ToolbarContentDefinition, ToolPanelDefinition } from './types';
@@ -799,8 +800,9 @@ export function setupToolPanelResize(
   let startWidth = 0;
   let maxWidth = 0;
   let isResizing = false;
+  let cancelDrag: (() => void) | null = null;
 
-  const onMouseMove = (e: MouseEvent) => {
+  const onMove = (e: PointerEvent) => {
     if (!isResizing) return;
     e.preventDefault();
 
@@ -812,23 +814,32 @@ export function setupToolPanelResize(
     panel.style.width = `${newWidth}px`;
   };
 
-  const onMouseUp = () => {
+  /**
+   * Restore chrome after a drag. `commit` is false when the drag was aborted
+   * (pointercancel / Escape), in which case the caller has already restored the
+   * original width and no `onResize` notification should fire.
+   */
+  const finish = (commit: boolean) => {
     if (!isResizing) return;
     isResizing = false;
+    cancelDrag = null;
     handle.classList.remove('resizing');
     panel.style.transition = ''; // Re-enable transition
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
 
-    // Get final width and notify
-    const finalWidth = panel.getBoundingClientRect().width;
-    onResize(finalWidth);
-
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
+    if (commit) {
+      // Get final width and notify
+      const finalWidth = panel.getBoundingClientRect().width;
+      onResize(finalWidth);
+    }
   };
 
-  const onMouseDown = (e: MouseEvent) => {
+  const onPointerDown = (e: PointerEvent) => {
+    if (isResizing) return;
+    // Only the primary mouse button starts a splitter drag — a right-click must
+    // keep its context menu rather than being preventDefault()-ed away.
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
     isResizing = true;
     startX = e.clientX;
@@ -840,17 +851,24 @@ export function setupToolPanelResize(
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
 
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    cancelDrag = startPointerDrag(e, handle, {
+      onMove,
+      onEnd: () => finish(true),
+      onCancel: () => {
+        // Aborted (pointercancel / Escape) — snap back to the pre-drag width.
+        panel.style.width = `${startWidth}px`;
+        finish(false);
+      },
+    });
   };
 
-  handle.addEventListener('mousedown', onMouseDown);
+  handle.addEventListener('pointerdown', onPointerDown);
 
   // Return cleanup function
   return () => {
-    handle.removeEventListener('mousedown', onMouseDown);
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
+    handle.removeEventListener('pointerdown', onPointerDown);
+    cancelDrag?.();
+    cancelDrag = null;
   };
 }
 // #endregion

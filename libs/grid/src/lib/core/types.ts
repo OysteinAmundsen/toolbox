@@ -2083,7 +2083,20 @@ export interface EditorExecContext<T = any> extends CellContext<T> {
  * @since 0.1.1
  */
 export interface ResizeController {
-  start: (e: MouseEvent, colIndex: number, cell: HTMLElement) => void;
+  /**
+   * Begin a column resize drag.
+   *
+   * @param e - The originating `pointerdown` event. A `mousedown` `MouseEvent`
+   *   is still accepted for backwards compatibility (the grid used mouse events
+   *   before v3.5.0) and is treated as the primary mouse pointer, but new code
+   *   should pass a `PointerEvent` so pen and touch work too.
+   * @param colIndex - Index into `grid._visibleColumns`.
+   * @param cell - Header cell being resized (used as a width fallback).
+   * @param captureTarget - Element that holds pointer capture for the duration
+   *   of the drag. Defaults to `cell`. Pass the resize handle so the drag
+   *   keeps tracking once the pointer leaves the header.
+   */
+  start: (e: MouseEvent | PointerEvent, colIndex: number, cell: HTMLElement, captureTarget?: Element) => void;
   /** Reset a column to its configured width (or auto-size if none configured). */
   resetColumn: (colIndex: number) => void;
   dispose: () => void;

@@ -34,6 +34,14 @@ The table below shows how each action maps across input types.
 | Range-select cells | Ctrl+click / drag | Ctrl+click / drag | See note below ↓ |
 | Open context menu | Right-click | Two-finger tap | Long-press |
 | Header menu | — | — | Long-press header |
+| Resize a tool panel | Drag splitter | Drag splitter | Drag splitter |
+| Paint a cell range | Drag across cells | Drag across cells | Long-press cell, then drag |
+
+All drag interactions in the table above are driven by [Pointer Events](https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events) with
+[pointer capture](https://developer.mozilla.org/en-US/docs/Web/API/Element/setPointerCapture), so mouse, pen and touch follow one code path — there is no
+separate touch implementation to fall out of sync. Cell-range painting is the one gesture that behaves differently by modality: with a fine pointer (mouse,
+trackpad) the drag starts immediately, while with a coarse pointer (touch, pen) it requires a 400 ms long-press first, so that a plain swipe still scrolls the
+grid.
 
 - **Multi-sort via touch** — secondary header sort will be accessible via the column header menu (long-press header → header menu → Sort → Add sort key).
 - **Multi-select via touch** — long-pressing a row enters *selection mode* (a toolbar appears). Subsequent taps toggle rows in that mode. Described further in [Selection-mode UX](#selection-mode-ux).
@@ -45,7 +53,7 @@ The table below shows how each action maps across input types.
 
 When a long-press occurs, the grid resolves the action according to the following priority chain:
 
-1. **Header long-press → Column header menu** (highest priority) — opens the column header menu regardless of which plugins are active. *(Planned: #270)*
+1. **Header long-press → Column header menu** (highest priority) — opens the column header menu regardless of which plugins are active.
 2. **Row long-press + SelectionPlugin active → Selection mode** — enters touch selection mode; a toolbar appears at the top of the grid.
 3. **Row / cell long-press + no SelectionPlugin → Context menu** — falls back to the context menu if `ContextMenuPlugin` is active.
 

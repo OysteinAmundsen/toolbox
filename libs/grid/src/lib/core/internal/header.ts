@@ -79,10 +79,15 @@ function createResizeHandle(grid: InternalGrid, colIndex: number, cell: HTMLElem
   const handle = document.createElement('div');
   handle.className = 'resize-handle';
   handle.setAttribute('aria-hidden', 'true');
-  handle.addEventListener('mousedown', (e: MouseEvent) => {
+  handle.addEventListener('pointerdown', (e: PointerEvent) => {
+    // Only the primary mouse button starts a resize. Without this, a right-click
+    // on the handle would preventDefault() and swallow the context menu.
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.stopPropagation();
     e.preventDefault();
-    grid._resizeController.start(e, colIndex, cell);
+    // Capture on the handle itself so the drag keeps tracking once the pointer
+    // leaves the header cell, or the header is re-rendered mid-drag.
+    grid._resizeController.start(e, colIndex, cell, handle);
   });
   handle.addEventListener('dblclick', (e: MouseEvent) => {
     e.stopPropagation();

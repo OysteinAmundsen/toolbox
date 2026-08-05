@@ -17,6 +17,8 @@ import { GridClasses } from '../constants';
 import type { CellMouseEvent } from '../plugin/types';
 import type { GridHost, InternalGrid } from '../types';
 import { handleGridKeyDown } from './keyboard';
+import { startPointerDrag } from './pointer-drag';
+import { getPrimaryPointer } from './pointer-modality';
 import { handleRowClick } from './rows';
 import { clearCellFocus, getColIndexFromCell, getRowIndexFromCell } from './utils';
 import { readCellField } from './value-accessor';
@@ -146,37 +148,107 @@ function buildCellMouseEvent(
 
 // #region Drag Tracking
 /**
- * Handle mousedown events and dispatch to plugin system.
+ * Long-press duration (ms) before a coarse-pointer press promotes to a
+ * range-paint drag. Matches the iOS Numbers / Google Sheets idiom.
  */
-function handleMouseDown(grid: InternalGrid, renderRoot: HTMLElement, e: MouseEvent): void {
-  const event = buildCellMouseEvent(grid, renderRoot, e, 'mousedown');
-  const handled = grid._dispatchCellMouseDown?.(event) ?? false;
+const LONG_PRESS_MS = 400;
 
-  // If any plugin handled mousedown, start tracking for drag
-  if (handled) {
+/**
+ * True when the press came from a coarse pointer (finger or stylus).
+ *
+ * `pointerType` is per-event and therefore more accurate than the
+ * `(pointer: coarse)` media query on hybrid devices (e.g. a Surface with both
+ * a touchscreen and a mouse), so it is preferred here. `getPrimaryPointer()`
+ * is the fallback for synthetic events that omit `pointerType`.
+ */
+function isCoarsePointer(e: PointerEvent): boolean {
+  if (e.pointerType === 'touch' || e.pointerType === 'pen') return true;
+  if (e.pointerType === 'mouse') return false;
+  return getPrimaryPointer() === 'coarse';
+}
+
+/**
+ * Suppress native panning for the duration of a range-paint drag.
+ *
+ * Applied only once the drag is actually promoted — before that the browser
+ * must remain free to scroll, otherwise a simple swipe over the grid would be
+ * swallowed. Returns a restore function.
+ */
+function suppressTouchScroll(bodyEl: HTMLElement | undefined): () => void {
+  if (!bodyEl) return () => undefined;
+  const prev = bodyEl.style.touchAction;
+  bodyEl.style.touchAction = 'none';
+  return () => {
+    bodyEl.style.touchAction = prev;
+  };
+}
+
+/**
+ * Handle `pointerdown` and dispatch to the plugin system.
+ *
+ * Fine pointers (mouse / precision trackpad) keep the historical behaviour: the
+ * `mousedown` hook is dispatched immediately and any plugin that claims it
+ * starts a drag on the very next move.
+ *
+ * Coarse pointers (touch / stylus) defer the dispatch until a {@link LONG_PRESS_MS}
+ * long-press has elapsed, so that taps and scroll swipes are never mistaken for
+ * a range-paint. Movement beyond the slop before the timer fires aborts the
+ * gesture entirely and lets the browser scroll.
+ */
+function handlePointerDown(grid: InternalGrid, renderRoot: HTMLElement, e: PointerEvent): void {
+  // Only primary presses start a drag; secondary buttons belong to ContextMenuPlugin.
+  if (e.button !== 0 && e.pointerType === 'mouse') return;
+  if (dragState.get(grid)) return;
+
+  const coarse = isCoarsePointer(e);
+  let restoreTouchAction: (() => void) | null = null;
+
+  /** Dispatch the `mousedown` hook; returns whether a plugin claimed the press. */
+  const dispatchDown = (): boolean => {
+    const event = buildCellMouseEvent(grid, renderRoot, e, 'mousedown');
+    return grid._dispatchCellMouseDown?.(event) ?? false;
+  };
+
+  if (!coarse) {
+    // Fine pointer — dispatch up front, exactly as the mouse implementation did.
+    if (!dispatchDown()) return;
     dragState.set(grid, true);
   }
-}
 
-/**
- * Handle mousemove events (only when dragging).
- */
-function handleMouseMove(grid: InternalGrid, renderRoot: HTMLElement, e: MouseEvent): void {
-  if (!dragState.get(grid)) return;
-
-  const event = buildCellMouseEvent(grid, renderRoot, e, 'mousemove');
-  grid._dispatchCellMouseMove?.(event);
-}
-
-/**
- * Handle mouseup events.
- */
-function handleMouseUp(grid: InternalGrid, renderRoot: HTMLElement, e: MouseEvent): void {
-  if (!dragState.get(grid)) return;
-
-  const event = buildCellMouseEvent(grid, renderRoot, e, 'mouseup');
-  grid._dispatchCellMouseUp?.(event);
-  dragState.set(grid, false);
+  startPointerDrag(
+    e,
+    renderRoot,
+    {
+      onPromote: () => {
+        if (coarse) {
+          // Long-press recognised — only now does the press become a drag.
+          if (!dispatchDown()) return;
+          dragState.set(grid, true);
+          restoreTouchAction = suppressTouchScroll(grid._bodyEl);
+        }
+      },
+      onMove: (moveEvent) => {
+        if (!dragState.get(grid)) return;
+        const event = buildCellMouseEvent(grid, renderRoot, moveEvent, 'mousemove');
+        grid._dispatchCellMouseMove?.(event);
+      },
+      onEnd: (upEvent) => {
+        restoreTouchAction?.();
+        restoreTouchAction = null;
+        if (!dragState.get(grid)) return;
+        const event = buildCellMouseEvent(grid, renderRoot, upEvent, 'mouseup');
+        grid._dispatchCellMouseUp?.(event);
+        dragState.set(grid, false);
+      },
+      onCancel: () => {
+        restoreTouchAction?.();
+        restoreTouchAction = null;
+        dragState.set(grid, false);
+      },
+    },
+    // Coarse presses must be held; fine presses promote on the first move.
+    coarse ? { longPressDuration: LONG_PRESS_MS } : undefined,
+  );
 }
 // #endregion
 
@@ -281,11 +353,10 @@ export function setupRootEventDelegation(
   // Element-level keydown handler for keyboard navigation
   gridElement.addEventListener('keydown', (e) => handleGridKeyDown(grid, e), { signal });
 
-  // Central mouse event handling for plugins
-  renderRoot.addEventListener('mousedown', (e) => handleMouseDown(grid, renderRoot, e as MouseEvent), { signal });
-
-  // Track global mousemove/mouseup for drag operations (column resize, selection, etc.)
-  document.addEventListener('mousemove', (e: MouseEvent) => handleMouseMove(grid, renderRoot, e), { signal });
-  document.addEventListener('mouseup', (e: MouseEvent) => handleMouseUp(grid, renderRoot, e), { signal });
+  // Central pointer event handling for plugins. Pointer capture keeps the whole
+  // drag on the render root, so no document-level move/up listeners are needed.
+  renderRoot.addEventListener('pointerdown', (e) => handlePointerDown(grid, renderRoot, e as PointerEvent), {
+    signal,
+  });
 }
 // #endregion

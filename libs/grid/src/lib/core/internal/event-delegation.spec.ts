@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ColumnInternal, InternalGrid } from '../types';
-import { setupCellEventDelegation } from './event-delegation';
+import { setupCellEventDelegation, setupRootEventDelegation } from './event-delegation';
 
 /**
  * Create a mock grid for testing event delegation.
@@ -198,5 +198,164 @@ describe('event-delegation', () => {
       expect(grid._focusRow).toBe(1);
       expect(grid._focusCol).toBe(1);
     });
+  });
+});
+
+/**
+ * Long-press priority order (#306).
+ *
+ * A coarse long-press is an overloaded gesture: it may be claimed by touch
+ * selection mode or cell-range painting, and only falls through to the
+ * browser's native `contextmenu` when nothing claims it. These tests pin the
+ * two halves of that contract, because a regression here is invisible until
+ * someone tests on a real phone.
+ */
+describe('long-press → contextmenu priority (#306)', () => {
+  let renderRoot: HTMLElement;
+  let bodyEl: HTMLElement;
+  let cell: HTMLElement;
+  let abortController: AbortController;
+
+  /** Hold a coarse pointer on `cell` for long enough to promote the press. */
+  function longPress(): void {
+    const down = new PointerEvent('pointerdown', {
+      pointerId: 1,
+      pointerType: 'touch',
+      bubbles: true,
+      cancelable: true,
+      clientX: 10,
+      clientY: 10,
+    });
+    cell.dispatchEvent(down);
+    // LONG_PRESS_MS is 400; advance past it so the promotion timer fires.
+    vi.advanceTimersByTime(450);
+  }
+
+  /** Dispatch a `contextmenu` as the browser would after a long-press. */
+  function nativeContextMenu(): MouseEvent {
+    const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    cell.dispatchEvent(e);
+    return e;
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '';
+    renderRoot = document.createElement('div');
+    renderRoot.className = 'tbw-grid-root';
+    bodyEl = document.createElement('div');
+    bodyEl.className = 'rows';
+    renderRoot.appendChild(bodyEl);
+    bodyEl.appendChild(createRow(0, 3));
+    document.body.appendChild(renderRoot);
+
+    cell = bodyEl.querySelector('.cell[data-row="0"][data-col="0"]') as HTMLElement;
+    // happy-dom exposes the pointer-capture API but does not route through it.
+    renderRoot.setPointerCapture = vi.fn();
+    renderRoot.releasePointerCapture = vi.fn();
+    renderRoot.hasPointerCapture = vi.fn().mockReturnValue(true);
+
+    abortController = new AbortController();
+  });
+
+  afterEach(() => {
+    abortController.abort();
+    vi.useRealTimers();
+    document.body.innerHTML = '';
+  });
+
+  it('lets the native contextmenu through when no plugin claims the long-press', () => {
+    const grid = createMockGrid({
+      _bodyEl: bodyEl,
+      _dispatchCellMouseDown: vi.fn().mockReturnValue(false),
+    } as Partial<InternalGrid>);
+    setupRootEventDelegation(grid, renderRoot, renderRoot, abortController.signal);
+
+    longPress();
+    const menuEvent = nativeContextMenu();
+
+    expect(menuEvent.defaultPrevented).toBe(false);
+  });
+
+  it('suppresses the native contextmenu when a plugin claims the long-press', () => {
+    const grid = createMockGrid({
+      _bodyEl: bodyEl,
+      _dispatchCellMouseDown: vi.fn().mockReturnValue(true),
+    } as Partial<InternalGrid>);
+    setupRootEventDelegation(grid, renderRoot, renderRoot, abortController.signal);
+
+    longPress();
+    const menuEvent = nativeContextMenu();
+
+    expect(menuEvent.defaultPrevented).toBe(true);
+  });
+
+  it('leaves a contextmenu raised outside this grid alone', () => {
+    const grid = createMockGrid({
+      _bodyEl: bodyEl,
+      _dispatchCellMouseDown: vi.fn().mockReturnValue(true),
+    } as Partial<InternalGrid>);
+    setupRootEventDelegation(grid, renderRoot, renderRoot, abortController.signal);
+
+    // Something else on the page — a second grid, or the host app's own menu.
+    const outside = document.createElement('div');
+    document.body.appendChild(outside);
+
+    longPress();
+    const outsideEvent = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    outside.dispatchEvent(outsideEvent);
+    expect(outsideEvent.defaultPrevented).toBe(false);
+
+    // …and it must not have consumed the one-shot window either.
+    expect(nativeContextMenu().defaultPrevented).toBe(true);
+  });
+
+  it('only suppresses one contextmenu — a later right-click still opens the menu', () => {
+    const grid = createMockGrid({
+      _bodyEl: bodyEl,
+      _dispatchCellMouseDown: vi.fn().mockReturnValue(true),
+    } as Partial<InternalGrid>);
+    setupRootEventDelegation(grid, renderRoot, renderRoot, abortController.signal);
+
+    longPress();
+    nativeContextMenu();
+
+    expect(nativeContextMenu().defaultPrevented).toBe(false);
+  });
+
+  it('stops suppressing once the window expires', () => {
+    const grid = createMockGrid({
+      _bodyEl: bodyEl,
+      _dispatchCellMouseDown: vi.fn().mockReturnValue(true),
+    } as Partial<InternalGrid>);
+    setupRootEventDelegation(grid, renderRoot, renderRoot, abortController.signal);
+
+    longPress();
+    // CONTEXT_MENU_SUPPRESS_MS is 700.
+    vi.advanceTimersByTime(800);
+
+    expect(nativeContextMenu().defaultPrevented).toBe(false);
+  });
+
+  it('never suppresses for a fine pointer — right-click is untouched', () => {
+    const grid = createMockGrid({
+      _bodyEl: bodyEl,
+      _dispatchCellMouseDown: vi.fn().mockReturnValue(true),
+    } as Partial<InternalGrid>);
+    setupRootEventDelegation(grid, renderRoot, renderRoot, abortController.signal);
+
+    cell.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        pointerId: 1,
+        pointerType: 'mouse',
+        bubbles: true,
+        cancelable: true,
+        clientX: 10,
+        clientY: 10,
+      }),
+    );
+    vi.advanceTimersByTime(450);
+
+    expect(nativeContextMenu().defaultPrevented).toBe(false);
   });
 });

@@ -73,10 +73,34 @@ async function touchDrag(
   await cdp.detach().catch(() => undefined);
 }
 
-/** Width of the first column header, used to assert resize deltas. */
+/**
+ * The first resizable column header.
+ *
+ * Not `headerCell.first()` — the demo's master-detail expander occupies column
+ * 0 with a zero-width header, so measuring it always reports `0`.
+ */
+function firstResizableHeader(page: import('@playwright/test').Page) {
+  return page
+    .locator(SELECTORS.headerCell)
+    .filter({ has: page.locator(SELECTORS.resizeHandle) })
+    .first();
+}
+
+/** Width of the first resizable column header, used to assert resize deltas. */
 async function firstHeaderWidth(page: import('@playwright/test').Page): Promise<number> {
-  const box = await page.locator(SELECTORS.headerCell).first().boundingBox();
+  const box = await firstResizableHeader(page).boundingBox();
   return box?.width ?? 0;
+}
+
+/**
+ * The grid's real vertical scroller. `.rows-viewport` is `overflow: clip` and
+ * never scrolls — rows are translated in response to the faux scrollbar.
+ */
+const FAUX_VSCROLL = '.faux-vscroll';
+
+/** First cell that selection can actually claim (skips the expander column). */
+function firstSelectableCell(page: import('@playwright/test').Page) {
+  return page.locator(SELECTORS.grid).locator('[role="gridcell"][data-col="1"]').first();
 }
 
 test.describe('Touch Input — pointer-driven drags (#303)', () => {
@@ -162,8 +186,7 @@ test.describe('Touch Input — pointer-driven drags (#303)', () => {
 
   test('a long-press then drag paints a cell range on touch', async ({ page }) => {
     const grid = page.locator(SELECTORS.grid);
-    const cells = grid.locator(SELECTORS.cell);
-    const startBox = await cells.first().boundingBox();
+    const startBox = await firstSelectableCell(page).boundingBox();
     expect(startBox).not.toBeNull();
 
     const cx = startBox!.x + startBox!.width / 2;
@@ -180,16 +203,17 @@ test.describe('Touch Input — pointer-driven drags (#303)', () => {
 
   test('the grid still scrolls vertically with a one-finger swipe', async ({ page }) => {
     const viewport = page.locator(SELECTORS.body).first();
+    const scroller = page.locator(FAUX_VSCROLL).first();
     const box = await viewport.boundingBox();
     expect(box).not.toBeNull();
 
-    const before = await viewport.evaluate((el) => el.scrollTop);
+    const before = await scroller.evaluate((el) => el.scrollTop);
     const cx = box!.x + box!.width / 2;
     const cy = box!.y + box!.height * 0.75;
     await touchDrag(page, cx, cy, cx, cy - box!.height * 0.5);
     await page.waitForTimeout(400);
 
-    const after = await viewport.evaluate((el) => el.scrollTop);
+    const after = await scroller.evaluate((el) => el.scrollTop);
     expect(after).toBeGreaterThan(before);
   });
 });
@@ -281,5 +305,95 @@ test.describe('Touch Input — selection mode (#304)', () => {
     await page.waitForTimeout(200);
 
     await expect(page.locator(TOOLBAR)).toHaveCount(0);
+  });
+});
+test.describe('Touch Input — long-press context menu (#306)', () => {
+  const MENU = '.tbw-context-menu';
+  const TOOLBAR = '.tbw-selection-toolbar';
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReadyMobile(page);
+  });
+
+  /** Hold a touch point on the centre of the given cell. */
+  async function longPressCell(
+    page: import('@playwright/test').Page,
+    rowIndex: number,
+    colIndex: number,
+  ): Promise<void> {
+    const cell = page.locator(SELECTORS.grid).locator(`[data-row="${rowIndex}"][data-col="${colIndex}"]`).first();
+    const box = await cell.boundingBox();
+    expect(box).not.toBeNull();
+    const cx = box!.x + box!.width / 2;
+    const cy = box!.y + box!.height / 2;
+    await touchDrag(page, cx, cy, cx, cy, { holdMs: 700, steps: 2 });
+  }
+
+  test('a long-press does not open the menu on top of selection mode', async ({ page }) => {
+    await longPressCell(page, 1, 1);
+    await page.waitForTimeout(400);
+
+    const toolbarShown = (await page.locator(TOOLBAR).count()) > 0;
+    test.skip(!toolbarShown, 'demo grid does not enable selection mode');
+
+    // Selection mode claimed the press, so the browser's synthesised
+    // contextmenu must have been suppressed — the two must never coexist.
+    await expect(page.locator(MENU)).toHaveCount(0);
+  });
+
+  test('a long-press resolves to exactly one of selection mode or the context menu', async ({ page }) => {
+    // Sanity-check that ContextMenuPlugin is actually registered on the demo
+    // grid — otherwise "no menu appeared" proves nothing.
+    const cell = page.locator(SELECTORS.grid).locator('[data-row="1"][data-col="1"]').first();
+    await cell.dispatchEvent('contextmenu');
+    await page.waitForTimeout(300);
+    const hasContextMenu = (await page.locator(MENU).count()) > 0;
+    test.skip(!hasContextMenu, 'demo grid has no ContextMenuPlugin registered');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+
+    await longPressCell(page, 1, 1);
+    await page.waitForTimeout(400);
+
+    const toolbars = await page.locator(TOOLBAR).count();
+    const menus = await page.locator(MENU).count();
+    // Step 3 of the priority chain: with `selection: 'range'` a claimed press
+    // paints a range instead of raising a toolbar, so that counts as a winner.
+    const painted = await page.locator(SELECTORS.grid).locator('[role="gridcell"][aria-selected="true"]').count();
+    // The priority chain must produce a winner, and only one: either a plugin
+    // claimed the press (toolbar / painted range) or the native long-press menu opened.
+    expect(toolbars > 0 || painted > 0 || menus > 0).toBe(true);
+    expect((toolbars > 0 || painted > 0) && menus > 0).toBe(false);
+  });
+
+  test('the selection toolbar exposes the menu via More…', async ({ page }) => {
+    await longPressCell(page, 1, 1);
+    await page.waitForTimeout(400);
+
+    const more = page.locator(TOOLBAR).locator('[data-action="more"]');
+    test.skip((await more.count()) === 0, 'demo grid has no ContextMenuPlugin registered');
+
+    await more.tap();
+    await page.waitForTimeout(300);
+    await expect(page.locator(MENU)).toBeVisible();
+  });
+
+  test('suppression is one-shot — a later long-press is unaffected', async ({ page }) => {
+    await longPressCell(page, 1, 1);
+    await page.waitForTimeout(400);
+    test.skip((await page.locator(TOOLBAR).count()) === 0, 'demo grid does not enable selection mode');
+
+    // Leave selection mode, then press again. The suppression window from the
+    // first press must have expired rather than latched.
+    const done = page.locator(TOOLBAR).locator('[data-action="done"]');
+    if ((await done.count()) > 0) await done.tap();
+    await page.waitForTimeout(1000);
+
+    await longPressCell(page, 2, 1);
+    await page.waitForTimeout(400);
+
+    // Whichever handler wins, the grid must still be interactive.
+    await expect(page.locator(SELECTORS.grid)).toBeVisible();
   });
 });

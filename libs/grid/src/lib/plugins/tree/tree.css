@@ -73,6 +73,16 @@
       flex-shrink: 0;
     }
 
+    /* The spacer occupies the toggle slot on leaf rows, so it must grow with the
+       toggle — otherwise leaf rows sit narrower than expandable ones on touch. */
+    @media (pointer: coarse) {
+      .tree-toggle,
+      .tree-spacer {
+        min-width: var(--tbw-touch-target-min, 24px);
+        min-height: var(--tbw-touch-target-min, 24px);
+      }
+    }
+
     /* Lazy-loading indicator — core's small spinner (`.tbw-spinner--small`)
        resized to the toggle slot so swapping toggle ↔ spinner doesn't reflow
        the row. Only the size token is overridden; all other spinner theming

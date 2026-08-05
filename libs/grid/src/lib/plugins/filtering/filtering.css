@@ -72,5 +72,20 @@
       display: inline-flex;
       visibility: visible;
     }
+
+    /* Coarse pointer (touch): filter button always visible and large enough to tap */
+    @media (hover: none) {
+      .header-row .cell .tbw-filter-btn {
+        display: inline-flex;
+        visibility: visible;
+      }
+    }
+
+    @media (pointer: coarse) {
+      .tbw-filter-btn {
+        min-width: var(--tbw-touch-target-min, 24px);
+        min-height: var(--tbw-touch-target-min, 24px);
+      }
+    }
   }
 } /* End @layer tbw-plugins */

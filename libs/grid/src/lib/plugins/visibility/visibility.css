@@ -43,7 +43,6 @@
   .tbw-visibility-row.reorderable:hover .tbw-visibility-handle {
     color: var(--tbw-color-fg);
   }
-
   /* Label wrapper for checkbox and text */
   .tbw-visibility-label {
     display: flex;
@@ -127,6 +126,24 @@
   }
   .tbw-visibility-group-header.reorderable:hover .tbw-visibility-handle {
     color: var(--tbw-color-fg);
+  }
+
+  /* Coarse pointer (touch): handles always in active colour and large enough to tap */
+  @media (hover: none) {
+    .tbw-visibility-row.reorderable .tbw-visibility-handle,
+    .tbw-visibility-group-header.reorderable .tbw-visibility-handle {
+      color: var(--tbw-color-fg);
+    }
+  }
+
+  @media (pointer: coarse) {
+    .tbw-visibility-handle {
+      min-width: var(--tbw-touch-target-min, 24px);
+      min-height: var(--tbw-touch-target-min, 24px);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
   }
 
   /* Group drag states */

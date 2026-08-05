@@ -35,6 +35,13 @@
     background: var(--tbw-grouping-rows-toggle-hover, var(--tbw-color-row-hover));
     border-radius: var(--tbw-border-radius, 0.125rem);
   }
+
+  @media (pointer: coarse) {
+    .group-toggle {
+      min-width: var(--tbw-touch-target-min, 24px);
+      min-height: var(--tbw-touch-target-min, 24px);
+    }
+  }
   .group-label {
     display: inline-flex;
     align-items: center;

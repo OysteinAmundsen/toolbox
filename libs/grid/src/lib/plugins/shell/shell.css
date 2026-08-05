@@ -293,6 +293,13 @@
       &.resizing {
         background: var(--tbw-color-accent);
       }
+
+      /* Coarse pointer (touch): widen hit area; absolute positioning avoids layout impact */
+      @media (pointer: coarse) {
+        & {
+          width: var(--tbw-touch-target-min, 24px);
+        }
+      }
     }
 
     .tbw-tool-panel-header {

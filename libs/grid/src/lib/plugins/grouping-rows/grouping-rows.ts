@@ -35,7 +35,13 @@ interface BuildGroupingArgs {
  * @param args - The grouping arguments
  * @returns Flattened array of render rows (groups + data rows)
  */
-export function buildGroupedRowModel({ rows, config, expanded, initialExpanded, groupSortDirections }: BuildGroupingArgs): RenderRow[] {
+export function buildGroupedRowModel({
+  rows,
+  config,
+  expanded,
+  initialExpanded,
+  groupSortDirections,
+}: BuildGroupingArgs): RenderRow[] {
   const groupOn = config.groupOn;
   if (typeof groupOn !== 'function') {
     return [];
@@ -211,6 +217,9 @@ export function collapseAllGroups(): Set<string> {
 /**
  * Resolve a defaultExpanded value to a set of keys to expand.
  * This needs to be called AFTER building the group model to get all keys.
+ *
+ * Note: `plugins/pivot/pivot-engine.ts` has a same-named function with the
+ * opposite `undefined` default (expand-all). See the comment there.
  *
  * @param value - The defaultExpanded config value
  * @param allGroupKeys - All group keys from the model

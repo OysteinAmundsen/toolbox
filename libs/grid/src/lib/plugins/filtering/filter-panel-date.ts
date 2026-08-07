@@ -111,7 +111,7 @@ export function renderDateFilterPanel(
   fromGroup.className = 'tbw-filter-date-group';
 
   const fromLabel = document.createElement('label');
-  fromLabel.textContent = 'From';
+  fromLabel.textContent = params.t('filter.from', 'From');
   fromLabel.className = 'tbw-filter-range-label';
 
   const fromInput = document.createElement('input');
@@ -186,7 +186,7 @@ export function renderDateFilterPanel(
   const applyBtn = document.createElement('button');
   applyBtn.type = 'button';
   applyBtn.className = 'tbw-filter-apply-btn';
-  applyBtn.textContent = 'Apply';
+  applyBtn.textContent = params.t('filter.apply', 'Apply');
   applyBtn.addEventListener('click', () => {
     if (blankCheckbox.checked) {
       params.applyTextFilter('blank', '');
@@ -220,7 +220,7 @@ export function renderDateFilterPanel(
   const clearBtn = document.createElement('button');
   clearBtn.type = 'button';
   clearBtn.className = 'tbw-filter-clear-btn';
-  clearBtn.textContent = 'Clear Filter';
+  clearBtn.textContent = params.t('filter.clear', 'Clear Filter');
   clearBtn.addEventListener('click', () => {
     params.clearFilter();
   });

@@ -5,6 +5,13 @@
  * **and** between grids that share a `dropZone` identifier.
  */
 
+import type { RowDragPayload } from '../shared/drag-drop-protocol';
+
+// Re-exported so consumers can import it from the plugin's public entry point
+// without reaching into `plugins/shared`. The wire format is owned by the
+// protocol module because the encode/decode/validate pair lives there.
+export type { RowDragPayload };
+
 /**
  * Configuration for {@link RowDragDropPlugin}.
  *
@@ -146,26 +153,6 @@ export interface RowDragDropConfig<T = unknown> {
    * @default true
    */
   autoScroll?: boolean | { edgeSize?: number; speed?: number; maxSpeed?: number };
-}
-
-/**
- * Cross-grid drag payload, carried on `dataTransfer` and (for same-window
- * recovery) keyed in the WeakRef registry by `sessionId`.
- * @since 2.4.0
- */
-export interface RowDragPayload<T = unknown> {
-  /** Drag session id (matches the WeakRef registry key). */
-  sessionId: string;
-  /** Source grid id (`grid.id` or auto-generated UUID). */
-  sourceGridId: string;
-  /** Drop zone the source grid is participating in. */
-  dropZone: string;
-  /** Serialized row payload (JSON-safe). For same-window drops, recovered live via the registry. */
-  rows: T[];
-  /** Original indices in the source grid's `_rows` array. */
-  rowIndices: number[];
-  /** Move (default) removes from source; copy leaves source intact. */
-  operation: 'move' | 'copy';
 }
 
 /**

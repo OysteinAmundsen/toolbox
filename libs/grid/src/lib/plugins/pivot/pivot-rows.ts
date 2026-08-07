@@ -9,7 +9,7 @@
  * When adding new cell rendering logic, always check for `col.format` on value columns.
  */
 
-import type { ColumnConfig, GridIcons } from '../../core/types';
+import type { ColumnConfig, GridIcons, Translate } from '../../core/types';
 
 /** Row data with pivot metadata */
 export interface PivotRowData {
@@ -139,7 +139,12 @@ export function renderPivotLeafRow(
  * Render the grand total row.
  * Used both for the sticky footer and for in-row-model rendering.
  */
-export function renderPivotGrandTotalRow(row: PivotRowData, rowEl: HTMLElement, columns: ColumnConfig[]): boolean {
+export function renderPivotGrandTotalRow(
+  row: PivotRowData,
+  rowEl: HTMLElement,
+  columns: ColumnConfig[],
+  t: Translate = (_key, fallback) => fallback,
+): boolean {
   rowEl.className = 'data-grid-row pivot-grand-total-row';
   rowEl.innerHTML = '';
 
@@ -153,7 +158,7 @@ export function renderPivotGrandTotalRow(row: PivotRowData, rowEl: HTMLElement, 
       // First column: Grand Total label
       const label = document.createElement('span');
       label.className = 'pivot-label';
-      label.textContent = 'Grand Total';
+      label.textContent = t('pivot.grandTotal', 'Grand Total');
       cell.appendChild(label);
     } else {
       // Other columns: render totals, applying column format when available

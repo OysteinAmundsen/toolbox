@@ -260,7 +260,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       const items: HeaderContextMenuItem[] = [
         {
           id: 'visibility/hide-column',
-          label: 'Hide Column',
+          label: this.t('columns.hideColumn', 'Hide Column'),
           icon: '👁',
           order: 30,
           action: () => this.hideColumn(column.field),
@@ -282,7 +282,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   override getToolPanel(): ToolPanelDefinition | undefined {
     return {
       id: VisibilityPlugin.PANEL_ID,
-      title: 'Columns',
+      title: this.t('columns.panelTitle', 'Columns'),
       icon: '☰',
       tooltip: 'Column visibility',
       order: 100, // High order so it appears last
@@ -451,7 +451,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     const showAllBtn = document.createElement('button');
     showAllBtn.type = 'button';
     showAllBtn.className = 'tbw-visibility-show-all';
-    showAllBtn.textContent = 'Show All';
+    showAllBtn.textContent = this.t('columns.showAll', 'Show All');
     showAllBtn.addEventListener('click', () => {
       this.grid.showAllColumns();
       this.rebuildToggles(columnList);
@@ -655,7 +655,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       const handle = document.createElement('span');
       handle.className = 'tbw-visibility-handle';
       this.setIcon(handle, 'dragHandle');
-      handle.title = 'Drag to reorder group';
+      handle.title = this.t('columns.dragGroupHandle', 'Drag to reorder group');
       // Insert handle before the label
       header.insertBefore(handle, headerLabel);
     }
@@ -730,7 +730,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       const handle = document.createElement('span');
       handle.className = 'tbw-visibility-handle';
       this.setIcon(handle, 'dragHandle');
-      handle.title = 'Drag to reorder';
+      handle.title = this.t('columns.dragHandle', 'Drag to reorder');
       row.appendChild(handle);
     }
 
@@ -856,8 +856,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     // this calls updateColumnOrder which handles animation and forceLayout for
     // proper body cell rebuilds. Fall back to direct grid.setColumnOrder otherwise.
     const reorderPlugin = this.grid.getPluginByName?.('reorder') as
-      | { setColumnOrder?: (o: string[]) => void; gridElement?: unknown }
-      | undefined;
+      { setColumnOrder?: (o: string[]) => void; gridElement?: unknown } | undefined;
     if (reorderPlugin?.setColumnOrder && reorderPlugin.gridElement) {
       reorderPlugin.setColumnOrder(remaining);
     } else {

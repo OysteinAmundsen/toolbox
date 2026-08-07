@@ -467,7 +467,7 @@ export class PrintPlugin extends BaseGridPlugin<PrintConfig> {
       render: (container: HTMLElement) => {
         const button = document.createElement('button');
         button.className = 'tbw-toolbar-btn tbw-print-btn';
-        button.title = 'Print grid';
+        button.title = this.t('print.buttonTitle', 'Print grid');
         button.type = 'button';
 
         // Use print icon

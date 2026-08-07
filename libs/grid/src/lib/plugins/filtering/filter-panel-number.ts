@@ -90,7 +90,7 @@ export function renderNumberFilterPanel(
   minGroup.className = 'tbw-filter-range-group';
 
   const minLabel = document.createElement('label');
-  minLabel.textContent = 'Min';
+  minLabel.textContent = params.t('filter.min', 'Min');
   minLabel.className = 'tbw-filter-range-label';
 
   const minInput = document.createElement('input');
@@ -116,7 +116,7 @@ export function renderNumberFilterPanel(
   maxGroup.className = 'tbw-filter-range-group';
 
   const maxLabel = document.createElement('label');
-  maxLabel.textContent = 'Max';
+  maxLabel.textContent = params.t('filter.max', 'Max');
   maxLabel.className = 'tbw-filter-range-label';
 
   const maxInput = document.createElement('input');
@@ -251,7 +251,7 @@ export function renderNumberFilterPanel(
   const applyBtn = document.createElement('button');
   applyBtn.type = 'button';
   applyBtn.className = 'tbw-filter-apply-btn';
-  applyBtn.textContent = 'Apply';
+  applyBtn.textContent = params.t('filter.apply', 'Apply');
   applyBtn.addEventListener('click', () => {
     if (blankCheckbox.checked) {
       params.applyTextFilter('blank', '');
@@ -276,7 +276,7 @@ export function renderNumberFilterPanel(
   const clearBtn = document.createElement('button');
   clearBtn.type = 'button';
   clearBtn.className = 'tbw-filter-clear-btn';
-  clearBtn.textContent = 'Clear Filter';
+  clearBtn.textContent = params.t('filter.clear', 'Clear Filter');
   clearBtn.addEventListener('click', () => {
     params.clearFilter();
   });

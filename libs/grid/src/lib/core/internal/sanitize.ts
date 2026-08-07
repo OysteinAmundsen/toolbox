@@ -176,6 +176,13 @@ function sanitizeNode(root: DocumentFragment | Element): void {
         continue;
       }
 
+      // `is=` upgrades a plain tag into a registered customized built-in, so it
+      // can smuggle behaviour past the tag-name check above.
+      if (attrName === 'is') {
+        attrsToRemove.push(attr.name);
+        continue;
+      }
+
       // URL attributes with dangerous protocols
       if (URL_ATTRS.has(attrName) && DANGEROUS_URL_PROTOCOL.test(attr.value)) {
         attrsToRemove.push(attr.name);
@@ -218,10 +225,7 @@ function sanitizeNode(root: DocumentFragment | Element): void {
 //   primary     → NUMBER | STRING | IDENT ('.' IDENT)? | '(' ternary ')'
 
 type Token =
-  | { type: 'num'; v: number }
-  | { type: 'str'; v: string }
-  | { type: 'id'; v: string }
-  | { type: 'op'; v: string };
+  { type: 'num'; v: number } | { type: 'str'; v: string } | { type: 'id'; v: string } | { type: 'op'; v: string };
 
 function tokenize(expr: string): Token[] | null {
   const tokens: Token[] = [];

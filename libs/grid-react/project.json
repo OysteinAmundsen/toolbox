@@ -5,14 +5,21 @@
   "projectType": "library",
   "tags": ["type:lib", "scope:grid", "layer:adapter"],
   "targets": {
-    "typecheck": {
-      "command": "bunx tsc -p libs/grid-react/tsconfig.lib.json --noEmit",
+    "link-grid-dist": {
+      "executor": "nx:run-commands",
       "dependsOn": [
         {
           "projects": ["grid"],
           "target": "build"
         }
       ],
+      "options": {
+        "command": "bun run tools/link-grid-dist.ts libs/grid-react"
+      }
+    },
+    "typecheck": {
+      "command": "bunx tsc -p libs/grid-react/tsconfig.lib.json --noEmit",
+      "dependsOn": ["link-grid-dist"],
       "options": {
         "cwd": "{workspaceRoot}"
       }
@@ -23,6 +30,7 @@
       "defaultConfiguration": "production",
       "dependsOn": [
         "typecheck",
+        "link-grid-dist",
         {
           "projects": ["grid"],
           "target": "build"

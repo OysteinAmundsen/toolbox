@@ -451,7 +451,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       if (hasAnyFilter) {
         items.push({
           id: 'filtering/clear-all-filters',
-          label: 'Clear All Filters',
+          label: this.t('filter.clearAll', 'Clear All Filters'),
           icon: '✕',
           order: 21,
           disabled: !hasAnyFilter,
@@ -973,6 +973,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
         this.closeFilterPanel();
       },
       closePanel: () => this.closeFilterPanel(),
+      t: this.translate,
     };
 
     // Use custom renderer or default

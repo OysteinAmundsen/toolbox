@@ -1685,6 +1685,8 @@ export type HeaderLabelRenderer<TRow = unknown> = (ctx: HeaderLabelContext<TRow>
  * @see {@link HeaderLabelRenderer} for simpler label-only customization
  * @since 1.4.0
  */
+// Not the same as the plugin-scoped `HeaderRenderer` in `core/plugin/types.ts`,
+// which is keyed by column *type* and takes `{ column, colIndex }`.
 export type HeaderRenderer<TRow = unknown> = (ctx: HeaderCellContext<TRow>) => Node | string | void | null;
 // #endregion
 
@@ -2574,6 +2576,36 @@ export const DEFAULT_A11Y_MESSAGES: A11yMessages = {
 
 // #endregion
 
+// #region Locale
+
+/**
+ * Translation map for the grid's built-in UI chrome, keyed by namespaced
+ * message id (`filter.apply`, `columns.showAll`, …).
+ *
+ * There is no shipped default map: every call site passes its English string as
+ * an inline fallback, so an unloaded plugin costs nothing and an omitted key
+ * simply stays English. See {@link GridConfig.locale}.
+ *
+ * @group Configuration
+ * @since 3.5.0
+ */
+export type GridLocale = Record<string, string>;
+
+/**
+ * Resolves a namespaced message id to its localized text, falling back to the
+ * English string supplied by the call site.
+ *
+ * Handed to renderer callbacks (e.g. `FilterPanelParams.t`) so custom UI
+ * can be localized through the same {@link GridConfig.locale} map as the
+ * built-in chrome.
+ *
+ * @group Configuration
+ * @since 3.5.0
+ */
+export type Translate = (key: string, fallback: string) => string;
+
+// #endregion
+
 // #region Grid Config
 /**
  * Grid configuration object - the **single source of truth** for grid behavior.
@@ -3012,6 +3044,33 @@ export interface GridConfig<TRow = any, TField extends string = ColumnFieldKey<T
    * ```
    */
   a11y?: A11yConfig;
+
+  /**
+   * Translations for the built-in UI chrome rendered by plugins — filter panels,
+   * the column visibility panel, the pivot panel, context-menu items, and the
+   * print button.
+   *
+   * Keys are namespaced per plugin (`filter.apply`, `columns.showAll`,
+   * `pivot.removeField`, …). Any key you omit falls back to its English default,
+   * so a partial map is valid. Unknown keys are ignored.
+   *
+   * ARIA live-region announcements are configured separately via
+   * {@link A11yConfig.messages}, because those are functions of runtime values.
+   *
+   * @example
+   * ```ts
+   * gridConfig = {
+   *   locale: {
+   *     'filter.apply': 'Appliquer',
+   *     'filter.clear': 'Effacer le filtre',
+   *     'filter.search': 'Rechercher…',
+   *     'columns.showAll': 'Tout afficher',
+   *   },
+   * };
+   * ```
+   * @since 3.5.0
+   */
+  locale?: GridLocale;
 
   // #endregion
 

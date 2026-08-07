@@ -22,6 +22,21 @@ describe('setSanitizedHTML', () => {
     expect(img?.hasAttribute('onerror')).toBe(false);
   });
 
+  // `is=` upgrades a plain tag into a registered customized built-in, which
+  // would smuggle behaviour past the allow-listed tag-name check.
+  it('strips the `is=` attribute so customized built-ins cannot be summoned', () => {
+    setSanitizedHTML(host, '<div is="evil-element">x</div>');
+    const div = host.querySelector('div');
+    expect(div).not.toBeNull();
+    expect(div?.hasAttribute('is')).toBe(false);
+    expect(div?.textContent).toBe('x');
+  });
+
+  it('strips `is=` regardless of attribute casing', () => {
+    setSanitizedHTML(host, '<span IS="evil-element">y</span>');
+    expect(host.querySelector('span')?.hasAttribute('is')).toBe(false);
+  });
+
   it('strips script elements', () => {
     setSanitizedHTML(host, 'safe<script>alert(1)</script>');
     expect(host.querySelector('script')).toBeNull();

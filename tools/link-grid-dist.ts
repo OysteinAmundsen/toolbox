@@ -1,29 +1,40 @@
 /**
- * Script to symlink @toolbox-web/grid from dist/ instead of the published npm
- * package, so ng-packagr resolves the freshly-built grid (with subpath exports
- * and as-yet-unreleased types) rather than a stale copy.
+ * Repoint every `node_modules/@toolbox-web/grid` an adapter build might resolve
+ * at `dist/libs/grid`, so the build sees the freshly-built grid (subpath exports
+ * and as-yet-unreleased types) rather than the published copy.
  *
- * ng-packagr resolves `@toolbox-web/grid` through node module resolution, which
- * walks up from the source file and uses the NEAREST `node_modules`. Because the
- * adapter declares `@toolbox-web/grid` as a versioned dep (not `workspace:*`),
- * `bun install` drops a real (published, therefore stale) copy into the
- * adapter-local `libs/grid-angular/node_modules/@toolbox-web/grid`, which shadows
- * the workspace-root symlink. So we MUST repoint BOTH locations at dist —
+ * Node module resolution walks up from the source file and uses the NEAREST
+ * `node_modules`. Because each adapter declares `@toolbox-web/grid` as a
+ * versioned dep (not `workspace:*`), `bun install` drops a real — therefore
+ * stale — copy into `libs/<adapter>/node_modules/@toolbox-web/grid`, which
+ * shadows the workspace-root symlink. Both locations MUST be repointed;
  * otherwise a build fails to see any grid API added since the last publish
  * (e.g. `TS2305: has no exported member 'PasteRejectedDetail'`).
+ *
+ * Angular needs this to build at all (ng-packagr resolves through Node).
+ * React and Vue build fine without it because Vite honours the tsconfig
+ * `paths`, but the stale copy still confuses Node-resolution-based tooling
+ * (fallow, ESLint resolvers, IDE go-to-definition), so they run it too.
+ *
+ * Usage: `bun run tools/link-grid-dist.ts <adapter-dir>`
+ *   e.g. `bun run tools/link-grid-dist.ts libs/grid-react`
  */
 import { existsSync, lstatSync, mkdirSync, readlinkSync, rmSync, symlinkSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 
-// Script is at libs/grid-angular/scripts/link-grid-dist.ts
-const adapterRoot = resolve(import.meta.dirname, '..'); // libs/grid-angular
-const workspaceRoot = resolve(import.meta.dirname, '../../..');
+const adapterDirArg = process.argv[2];
+if (!adapterDirArg) {
+  console.error('❌ Usage: bun run tools/link-grid-dist.ts <adapter-dir>  (e.g. libs/grid-react)');
+  process.exit(1);
+}
+
+const workspaceRoot = resolve(import.meta.dirname, '..');
+const adapterRoot = resolve(workspaceRoot, adapterDirArg);
 const distGridPath = join(workspaceRoot, 'dist', 'libs', 'grid');
 
 console.log('Workspace root:', workspaceRoot);
 console.log('Looking for dist at:', distGridPath);
 
-// Ensure dist/libs/grid exists
 if (!existsSync(distGridPath)) {
   console.error('❌ dist/libs/grid does not exist. Run `bun nx build grid` first.');
   process.exit(1);
@@ -54,8 +65,8 @@ function linkToDist(gridPath: string): void {
   console.log(`✓ Linked ${gridPath} → dist/libs/grid`);
 }
 
-// Repoint every location ng-packagr / Node might resolve first. The adapter-local
-// copy is listed AFTER the root so the message order matches resolution order.
+// The adapter-local copy is listed AFTER the root so the message order matches
+// resolution order.
 for (const gridPath of [
   join(workspaceRoot, 'node_modules', '@toolbox-web', 'grid'),
   join(adapterRoot, 'node_modules', '@toolbox-web', 'grid'),

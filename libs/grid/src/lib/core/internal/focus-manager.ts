@@ -35,9 +35,6 @@ export class FocusManager<T = any> {
   // tracked so editing can resume after an overlay bounce.
   #lastFocused: HTMLElement | null = null;
 
-  // Always-on trap listener cleanup
-  #trapCleanup: (() => void) | null = null;
-
   constructor(grid: GridHost<T>) {
     this.#grid = grid;
     this.#installFocusTrap();
@@ -254,23 +251,18 @@ export class FocusManager<T = any> {
    */
   #installFocusTrap(): void {
     const grid = this.#grid;
-    const ac = new AbortController();
-    const signal = ac.signal;
+    // No teardown path: both listeners are attached to the grid host itself, so
+    // they are collected with the element on disconnect. There is deliberately
+    // no `destroy()` — an explicit one would only ever be called at a point
+    // where the host is already gone.
+    grid.addEventListener('focusin', (e) => this.#noteFocus(e.target), { capture: true });
 
-    grid.addEventListener('focusin', (e) => this.#noteFocus(e.target), { signal, capture: true });
-
-    grid.addEventListener(
-      'focusout',
-      (e) => {
-        const newFocus = (e as FocusEvent).relatedTarget as Node | null;
-        // Intentional movement (browser told us where focus is going) — don't fight it.
-        if (newFocus !== null) return;
-        this.#scheduleRestore();
-      },
-      { signal },
-    );
-
-    this.#trapCleanup = () => ac.abort();
+    grid.addEventListener('focusout', (e) => {
+      const newFocus = (e as FocusEvent).relatedTarget as Node | null;
+      // Intentional movement (browser told us where focus is going) — don't fight it.
+      if (newFocus !== null) return;
+      this.#scheduleRestore();
+    });
   }
 
   /**
@@ -356,25 +348,6 @@ export class FocusManager<T = any> {
    */
   get lastFocusedElement(): HTMLElement | null {
     return this.#lastFocused?.isConnected ? this.#lastFocused : null;
-  }
-
-  // #endregion
-
-  // #region Cleanup
-
-  /**
-   * Clean up all external focus container listeners.
-   * Called when the grid disconnects.
-   */
-  destroy(): void {
-    for (const cleanup of this.#externalFocusCleanups.values()) {
-      cleanup();
-    }
-    this.#externalFocusCleanups.clear();
-    this.#externalFocusContainers.clear();
-    this.#trapCleanup?.();
-    this.#trapCleanup = null;
-    this.#lastFocused = null;
   }
 
   // #endregion

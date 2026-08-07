@@ -4,11 +4,13 @@ Scope: `libs/grid`, `libs/grid-angular`, `libs/grid-react`, `libs/grid-vue` (the
 Method: `bunx fallow health|dead-code|dupes`, targeted source review, existing bench artifacts
 (`tmp/bench-current-grid-1.json`), coverage summaries (`coverage/libs/*`), knowledge base.
 
-> **Status: remediated 2026-08-07.** All security findings (S1–S5), the modularity enforcement
-> gaps (M1–M2), and the `formatCsvValue`/`escapeHtml` duplication (I2) have been fixed and are
-> **removed from this document**. What remains below is the current, unresolved state. See
-> "Remediation log" at the end for what changed and which findings were reclassified after
-> closer inspection.
+> **Status: remediated in two batches.** Batch 1 closed all security findings (S1–S5), the
+> modularity enforcement gaps (M1–M2) and the `formatCsvValue`/`escapeHtml` duplication. Batch 2
+> closed **D1** (i18n), **D3** (untested adapter entry points), the **S3** and **I2** residuals,
+> **M3**, and the dead `FocusManager.destroy` + 3 unused root devDependencies. Fixed findings are
+> **removed from this document**. What remains below is the current, unresolved state. See the
+> two "Remediation log" sections at the end for what changed and which findings were reclassified
+> after closer inspection.
 
 ---
 
@@ -16,12 +18,12 @@ Method: `bunx fallow health|dead-code|dupes`, targeted source review, existing b
 
 | Dimension               | Grade | One-line verdict                                                               |
 | ----------------------- | ----- | ------------------------------------------------------------------------------ |
-| Security                | A−    | Zero deps, structural sanitizer, machine-enforced `innerHTML` rule             |
+| Security                | A     | Zero deps, structural sanitizer, machine-enforced `innerHTML` rule             |
 | Modularity              | A     | Excellent core/plugin split, now enforced by lint rather than discipline       |
-| Code isolation          | B+    | Zero circular deps, clean core; adapter↔adapter duplication is the weak spot   |
-| API surface & DX        | A−    | Tiny, deprecation-free public surface; i18n is the notable gap                 |
+| Code isolation          | A−    | Zero circular deps, clean core; adapter↔adapter duplication is the weak spot   |
+| API surface & DX        | A     | Tiny, deprecation-free public surface; i18n gap now closed                     |
 | Performance             | A     | Architecturally competitive; measured numbers are good; harness already exists |
-| Dead code / duplication | B+    | 5.7 % duplication (concentrated in adapters); dead-code signal now configured  |
+| Dead code / duplication | A−    | 5.7 % duplication (concentrated in adapters); dead-code signal now configured  |
 
 **Fallow composite at time of audit: 73.5 / 100 (grade B).** Penalty breakdown: hotspots 10,
 unit size 10, maintainability 2.4, dead files 1.5, coupling 1.3, duplication 0.7, dead exports 0.6.
@@ -67,20 +69,16 @@ maintainability avg **90.2**, circular deps **0**, unused deps **0**, duplicatio
 
 ### Findings
 
-#### S3 (residual) — sanitizer hardening still available (LOW)
+#### S3 (residual) — Sanitizer API adoption still available (LOW)
 
 The mutation-XSS round trip is gone (`setSanitizedHTML` inserts nodes via `replaceChildren`
-instead of re-assigning a serialized string) and `math` is now blocked. Two optional hardening
-steps remain:
+instead of re-assigning a serialized string), `math` is blocked, `is=` is stripped, and the
+Trusted Types docs note now enumerates the sanitizer's guarantees. One optional hardening step
+remains:
 
-1. **Prefer the platform when available.** `Element.setHTML(html, { sanitizer })` (Sanitizer API,
-   Chrome 138+/Firefox 141+) with the current implementation as fallback would be
-   browser-maintained and mXSS-safe by construction. Not urgent now that the round trip is gone.
-2. **Trusted Types.** CSP-hardened apps still cannot use the grid's string-renderer paths without
-   a policy. This is a **docs** gap, not a code gap — add a note describing the required policy.
-
-Also still open: consider adding `is=` to the stripped-attribute list (custom-element upgrade
-vector).
+**Prefer the platform when available.** `Element.setHTML(html, { sanitizer })` (Sanitizer API,
+Chrome 138+/Firefox 141+) with the current implementation as fallback would be
+browser-maintained and mXSS-safe by construction. Not urgent now that the round trip is gone.
 
 #### S5 — `data:` URL blocking is coarser than necessary (LOW)
 
@@ -154,14 +152,6 @@ filtering.
 `libs/grid/src/lib/core/internal`. If that matters, add a `no-restricted-imports` pattern for
 `demos/**` rather than trying to fix it with tags.
 
-#### M3 — `libs/grid-react/node_modules/@toolbox-web/grid` shadowing copy (LOW)
-
-A stale published copy of the grid is installed inside the React adapter's own `node_modules`
-(same hazard already documented for `grid-angular`, which has `link-grid-dist.ts` to work around
-it). React is described as "immune" because Vite honours tsconfig `paths` — but the copy is real
-and will confuse any Node-resolution-based tool (including fallow, ESLint plugins, and IDE
-go-to-definition). Consider extending `link-grid-dist.ts` to React/Vue for uniformity.
-
 ---
 
 ## 3. Code isolation
@@ -213,16 +203,6 @@ return type. Same for `feature-prop-keys.ts` (a `Set` of string literals) and th
 3. At minimum, make the duplication _checked_: a spec that asserts the two `feature-props.ts`
    key sets are identical would turn silent drift into a red test.
 
-#### I2 — Duplicate type declarations under the same name (LOW)
-
-- `AggregatorFn` / `AggregatorRef` declared in both `core/internal/aggregators.ts` and
-  `plugins/pinned-rows/types.ts`. The knowledge base says the pinned-rows copy is _deliberate_
-  (stricter signature, separate entry point) — that rationale should be a code comment at both
-  sites, because `AggregatorRef` previously had exactly this problem and had to be de-duplicated.
-- `HeaderRenderer` in both `core/plugin/types.ts` and `core/types.ts`.
-- `RowDragPayload` in both `plugins/row-drag-drop/types.ts` and `plugins/shared/drag-drop-protocol.ts`.
-- `resolveDefaultExpanded` implemented twice (`grouping-rows.ts`, `pivot-engine.ts`).
-
 ---
 
 ## 4. API surface & DX
@@ -249,23 +229,6 @@ return type. Same for `feature-prop-keys.ts` (a `Set` of string literals) and th
 
 ### Findings
 
-#### D1 — No i18n / `localeText` mechanism (HIGH for adoption)
-
-UI strings are hardcoded English in the plugin panels:
-[filter-panel-default.ts](libs/grid/src/lib/plugins/filtering/filter-panel-default.ts#L111)
-(`'Select All'`), `'Apply'` ×3, `'Clear Filter'` ×3, plus context-menu, pivot-panel and
-visibility-panel labels. The only localisation hook is `A11yConfig.messages`, which covers ARIA
-announcements — not visible chrome.
-
-AG Grid's `localeText`, Handsontable's `language`, and TanStack's headless model all solve this.
-For a library positioning itself as an "ag-grid-alternative" (per its own `package.json` keywords),
-this is the most likely reason an enterprise evaluation stops.
-
-**Fix:** a `GridConfig.locale?: Record<string, string>` merged over a `DEFAULT_LOCALE` constant,
-with a `t(key, fallback)` helper on `BaseGridPlugin`. Keys namespaced per plugin
-(`filter.apply`, `filter.clear`, `filter.selectAll`). Bundle cost is a few hundred bytes; do it
-before v4 so it is not a breaking change later.
-
 #### D2 — Public API methods are invisible to static analysis (LOW, but worth a policy)
 
 Fallow reports 55 "unused class members" in `libs/`, and the large majority are **intentional
@@ -283,21 +246,6 @@ bug. Never delete a member on fallow's say-so without grepping for its name as a
 
 **Fix:** mark the real public API `@public` in JSDoc and extend `.fallowrc.json` so plugin
 `index.ts` public classes are roots, so the signal-to-noise ratio of future runs improves.
-
-#### D3 — Untested public entry points (LOW→MEDIUM, reclassified)
-
-`useGridPrint` (react/print.ts), `useGridSelection` (react/selection.ts),
-`useGridUndoRedo` (react/undo-redo.ts), `useGridFiltering` (vue/filtering.ts),
-`GridElementContext` (react/data-grid.tsx), `getFeatureFactory` (react/feature-registry.ts).
-
-Originally filed as "real unused exports — delete if not published". They **are** published: each
-is exported from a `@toolbox-web/grid-{react,vue}/features/*` subpath and carries full TSDoc with
-usage examples. Deleting them would be a breaking change. `.fallowrc.json` now declares those
-subpaths as entry points so they stop being reported.
-
-That leaves the real problem: these are **user-facing entry points with zero test coverage** — a
-worse signal than the dead-code one it was mistaken for. Each needs a spec that mounts a grid and
-exercises the hook.
 
 #### D4 — Test coverage is uneven (MEDIUM)
 
@@ -400,15 +348,15 @@ overlap checking, turning it hard for `libs/grid` core benches only would be low
 
 ## 6. Dead code & duplication
 
-| Signal                    | Count | Assessment                                                     |
-| ------------------------- | ----- | -------------------------------------------------------------- |
-| Unused files (in `libs/`) | 23    | **All false positives** — now declared as fallow entry points  |
-| Unused exports (`libs/`)  | 6     | Published adapter hooks; untested, not dead (D3)               |
-| Unused class members      | 55    | Public API (D2) or duck-typed seams; 5 genuinely dead, removed |
-| Duplicate exports         | 8     | 3 real (I2), 4 by-design (`_Augmentation` ×25 is the pattern)  |
-| Duplication               | 5.7 % | 8 165 / 142 819 lines; concentrated in adapters (I1)           |
-| Circular dependencies     | 0     | ✅                                                             |
-| Unused production deps    | 0     | ✅                                                             |
+| Signal                    | Count | Assessment                                                       |
+| ------------------------- | ----- | ---------------------------------------------------------------- |
+| Unused files (in `libs/`) | 23    | **All false positives** — now declared as fallow entry points    |
+| Unused exports (`libs/`)  | 6     | Published adapter hooks; now covered by specs                    |
+| Unused class members      | 55    | Public API (D2) or duck-typed seams; 6 genuinely dead, removed   |
+| Duplicate exports         | 8     | 1 real (fixed), 7 by-design (`_Augmentation` ×25 is the pattern) |
+| Duplication               | 5.7 % | 8 165 / 142 819 lines; concentrated in adapters (I1)             |
+| Circular dependencies     | 0     | ✅                                                               |
+| Unused production deps    | 0     | ✅                                                               |
 
 **Configured away:** the 23 "unused files" were `grid-{react,vue}/src/features/*.ts` and
 `grid-angular/src/lib/{directives,interfaces}/index.ts` — all published subpath entry points
@@ -417,14 +365,11 @@ overlap checking, turning it hard for `libs/grid` core benches only would be low
 `libs/themes/**` and `libs/*/node_modules/**` as ignore patterns. The 7.7 % `dead_file_pct`
 (a 1.5-point score penalty) should drop to near zero on the next run.
 
-**Still open:**
-
-- `FocusManager.destroy` — the knowledge base states calling it is a bug (constructor runs once;
-  reconnect would leave the trap uninstalled). A method that must never be called should not
-  exist. Verify no adapter calls it by name before deleting.
-- 3 unused devDependencies at the root: `typedoc-plugin-markdown`, `typescript-eslint`,
-  `vite-tsconfig-paths`. Verify against the ESLint/TypeDoc config before removing — these are the
-  kind that are loaded by name from a config file rather than imported.
+**Verification lesson:** fallow's "duplicate declaration" signal needs the same scrutiny as its
+"unused member" signal. Of the four same-name pairs it flagged, only `RowDragPayload` was a true
+clone. `resolveDefaultExpanded`, `HeaderRenderer` and `AggregatorFn`/`AggregatorRef` are
+deliberately distinct contracts — merging any of them would have been a silent behaviour or
+type-safety regression. Read both bodies before de-duplicating.
 
 ---
 
@@ -432,28 +377,26 @@ overlap checking, turning it hard for `libs/grid` core benches only would be low
 
 ### Now
 
-1. **D3** — add specs for the six untested published adapter entry points. They are user-facing
-   API with zero coverage.
-2. **D1** — ship an i18n/`localeText` mechanism. Biggest adoption blocker found.
+1. **I1** — codegen or extract the React↔Vue `feature-props.ts` / `feature-prop-keys.ts`
+   duplication (481 identical lines in the largest clone group).
+2. **D4** — raise branch coverage, starting with `core/internal/inference.ts`, `tree-detect.ts`,
+   and `grid-angular`.
 
 ### Next
 
-3. **I1** — codegen or extract the React↔Vue `feature-props.ts` / `feature-prop-keys.ts`
-   duplication (481 identical lines in the largest clone group).
-4. **D4** — raise branch coverage, starting with `core/internal/inference.ts`, `tree-detect.ts`,
-   and `grid-angular`.
-5. **S3 residual** — document the Trusted Types policy; optionally adopt the Sanitizer API where
-   available.
-6. Delete `FocusManager.destroy` and audit the 3 suspect root devDependencies (§6).
+3. **P1** — profile and optimise multi-key sort (3-key/100 K is 162.6 ms, super-linear in key
+   count); **P2** — turn the competitor harness into a tracked nightly metric.
+4. **D2** — adopt a `@public` JSDoc policy so fallow's "unused class member" signal becomes
+   usable.
+5. **S3 residual** — optionally adopt the Sanitizer API (`Element.setHTML`) where available.
 
 ### Then
 
-7. **P1** — profile and optimise multi-key sort (3-key/100 K is 162.6 ms, super-linear in key
-   count); **P2** — turn the competitor harness into a tracked nightly metric.
-8. **I2 residual** — comment or de-duplicate the remaining same-name type declarations.
-9. **M3** — extend `link-grid-dist.ts` to React/Vue to remove the shadowing `node_modules` copies.
-10. Watch the core bundle: at 45.81 kB gz it is already past the 45 kB soft-warning line, leaving
-    ~4 kB gz before the hard failure.
+6. **S5** — allow `data:image/(png|jpeg|gif|webp)` while continuing to block
+   `data:image/svg+xml`.
+7. **P3** — turn the bench regression gate hard for `libs/grid` core benches only.
+8. Watch the core bundle: at 45.82 kB gz it is already past the 45 kB soft-warning line, leaving
+   ~4 kB gz before the hard failure.
 
 ### Explicitly do NOT do
 
@@ -497,5 +440,35 @@ Validation: 0 lint errors; 3 873 grid + 381 react + 343 vue + 529 angular tests 
   **155.22 kB / 45.81 kB gz**, i.e. already past the soft-warning line.
 - "Genuinely removable" over-counted: `refreshDetailRenderer`, `emitTransfer` and
   `disposeShellState` are live via duck-typed plugin seams (see D2).
-- D3's hooks are published API, not dead exports (see D3).
+- D3's hooks are published API, not dead exports.
 - M2 as specified is not achievable (see M2).
+
+---
+
+## Remediation log — batch 2
+
+Fixed and removed from this document:
+
+| Finding         | What changed                                                                                                                                                                                                                                                               |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D1**          | `GridConfig.locale?: GridLocale` + `Translate` type; `t(key, fallback)` / `translate` on `BaseGridPlugin`; `FilterPanelParams.t` for custom panels. 37 keys wired across Filtering, Visibility, PinnedColumns, Print and Pivot. Documented in `guides/platform.mdx`.       |
+| **D3**          | Specs added for `useGridPrint`, `useGridSelection`, `useGridUndoRedo` (react), `useGridFiltering` (vue), and `getFeatureFactory` (react). `GridElementContext` is now exercised as a provider by four specs.                                                               |
+| **S3 residual** | `is=` added to the stripped-attribute list (customized-built-in upgrade vector), with two regression specs. Trusted Types docs section now enumerates every sanitizer guarantee; the stale "sanitize your CSV yourself" bullet replaced with the shipped `escapeFormulas`. |
+| **I2 residual** | `RowDragPayload` de-duplicated (`row-drag-drop/types.ts` now re-exports the protocol module's). `resolveDefaultExpanded`, `HeaderRenderer` and `AggregatorFn`/`AggregatorRef` documented at both sites as deliberately distinct — see the verification lesson in §6.       |
+| **M3**          | `link-grid-dist.ts` moved to `tools/` and parameterized (`bun run tools/link-grid-dist.ts <adapter-dir>`); a `link-grid-dist` target added to `grid-react` and `grid-vue`; the `grid-angular` copy deleted.                                                                |
+| —               | `FocusManager.destroy` removed (zero callers; calling it was documented as a bug). The now-orphaned `#trapCleanup` field and its `AbortController` went with it — the trap's listeners are host-scoped and die with the element.                                           |
+| —               | Root devDependencies removed: `typedoc-plugin-markdown` (no `plugin` key in `typedoc.json`), `typescript-eslint` (rules come from `@nx/eslint-plugin`), `vite-tsconfig-paths` (no vite config references it).                                                              |
+
+New specs: `core/plugin/locale.spec.ts`, `grid-react/src/features/{print,selection,undo-redo}.spec.ts`,
+`grid-vue/src/features/filtering.spec.ts`, plus additions to `sanitize-security.spec.ts` and
+`grid-react/src/lib/feature-registry.spec.ts`.
+
+Validation: 0 lint errors; 3 882 grid + 385 react + 360 vue + 529 angular tests pass;
+`index.js` 154.97 kB raw / 45.82 kB gz (baseline 155.05 / 45.81 — i18n cost is ~0.01 kB gz).
+
+**Design deviation from the D1 prescription:** the audit specified `locale` merged over a
+`DEFAULT_LOCALE` constant. Shipped instead with **inline English fallbacks at each call site and
+no default map**. WHY: a shipped `DEFAULT_LOCALE` would put every plugin's strings in the core
+bundle whether or not the plugin is loaded, and the core is already 0.8 kB gz past the soft
+warning line. Inline fallbacks are tree-shaken with their plugin, keep the English text adjacent
+to its usage, and make an unmapped key a silent no-op rather than a lookup miss.

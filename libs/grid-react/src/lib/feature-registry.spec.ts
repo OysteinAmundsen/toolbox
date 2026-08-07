@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearFeatureRegistry,
   createPluginFromFeature,
+  getFeatureFactory,
   getRegisteredFeatures,
   isFeatureRegistered,
   registerFeature,
@@ -271,5 +272,34 @@ describe('use-sync-plugins', () => {
       expect(unregistered).not.toContain('selection');
       expect(unregistered).toContain('editing');
     });
+  });
+});
+
+// Re-exported verbatim from `@toolbox-web/grid/features/registry`; all
+// adapters share one registry Map, so a broken re-export would silently
+// hand callers `undefined` instead of the registered factory.
+describe('getFeatureFactory', () => {
+  beforeEach(() => clearFeatureRegistry());
+
+  it('returns undefined for an unregistered feature', () => {
+    expect(getFeatureFactory('selection' as FeatureName)).toBeUndefined();
+  });
+
+  it('returns the exact factory that was registered', () => {
+    const factory = vi.fn(() => ({ name: 'selection' }));
+    registerFeature('selection' as FeatureName, factory);
+
+    const resolved = getFeatureFactory('selection' as FeatureName);
+
+    expect(resolved).toBe(factory);
+    expect(resolved!('row')).toEqual({ name: 'selection' });
+    expect(factory).toHaveBeenCalledWith('row');
+  });
+
+  it('reflects re-registration of the same feature name', () => {
+    registerFeature('selection' as FeatureName, () => ({ name: 'first' }));
+    registerFeature('selection' as FeatureName, () => ({ name: 'second' }));
+
+    expect((getFeatureFactory('selection' as FeatureName)!(true) as { name: string }).name).toBe('second');
   });
 });

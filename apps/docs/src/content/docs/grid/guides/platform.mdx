@@ -156,6 +156,24 @@ if (window.trustedTypes?.createPolicy) {
 }
 ```
 
+<Aside type="note" title="What the built-in sanitizer already does">
+The policy above is required only because the parse step itself is a Trusted Types sink — it is
+not a sign that the grid hands raw markup to the DOM. Every string returned by a `renderer`,
+`headerRenderer` or template is first passed through the grid's sanitizer, which:
+
+- drops non-allow-listed elements (`<script>`, `<iframe>`, `<object>`, `<embed>`, `<link>`,
+  `<meta>`, `<base>`, `<form>`);
+- strips every `on*` event-handler attribute;
+- strips the `is=` attribute, so markup cannot upgrade a plain tag into a registered
+  customized built-in and smuggle behaviour past the tag allow-list;
+- rejects `javascript:` / `vbscript:` / `data:` URLs in `href`, `src`, `action` and friends;
+- rejects `expression()`, `javascript:` and `behavior:` inside inline `style`;
+- HTML-escapes every `{{ }}` interpolation in template strings, so row data can never
+  contribute markup or break out of an attribute.
+
+Your default policy therefore runs **in addition to** those guarantees, not instead of them.
+</Aside>
+
 ### Handling untrusted data
 
 - **Validate before assigning to `grid.rows`.** The grid trusts the shape you give it. Rows
@@ -163,10 +181,12 @@ if (window.trustedTypes?.createPolicy) {
 - **Clipboard and paste.** The [Clipboard plugin](/grid/plugins/clipboard/) writes values into
   your row objects. Use the `onPaste` column hook to validate and coerce incoming values before
   they land in your model.
-- **Export.** The [Export plugin](/grid/plugins/export/) writes CSV and Excel XML. If your data
-  can contain values starting with `=`, `+`, `-`, or `@`, sanitize them to avoid
-  [CSV injection](https://owasp.org/www-community/attacks/CSV_Injection) when the file is
-  opened in a spreadsheet application.
+- **Export.** The [Export plugin](/grid/plugins/export/) writes CSV and Excel XML. Values that
+  start with `=`, `+`, `-`, `@`, a tab or a carriage return are prefixed with `'` so a
+  spreadsheet treats them as text — this guards against
+  [CSV injection](https://owasp.org/www-community/attacks/CSV_Injection) and is **on by
+  default**. Only turn it off (`escapeFormulas: false`) when the exported data is fully
+  trusted and the leading apostrophe is unacceptable.
 
 <LinkCard title="Production checklist" description="One-line pre-launch checks, including security" href="/grid/guides/production-checklist/" />
 
@@ -243,6 +263,94 @@ however your locale requires.
 
 <LinkCard title="A11yMessages" description="The full list of overridable announcements" href="/grid/api/core/interfaces/a11ymessages/" />
 
+### Built-in UI strings (`locale`)
+
+The buttons, labels and placeholders that plugins render into their own UI — the filter panel,
+the columns tool panel, the pivot builder — are localized through a single flat key/value map on
+`gridConfig.locale`.
+
+```ts
+grid.gridConfig = {
+  locale: {
+    'filter.search': 'Rechercher...',
+    'filter.apply': 'Appliquer',
+    'filter.clear': 'Effacer le filtre',
+    'columns.panelTitle': 'Colonnes',
+    'pivot.grandTotal': 'Total général',
+  },
+};
+```
+
+<Aside type="note" title="No locale bundle to load">
+The grid ships **no default locale map**. Each call site passes its English string inline as the
+fallback, so an omitted key stays English and a plugin you do not load contributes nothing to
+your bundle. `locale` is read live, so swapping the map at runtime re-localizes on the next
+render.
+</Aside>
+
+`locale` is separate from `a11y.messages` on purpose: these are static labels, while
+announcements are functions of runtime values (row counts, column names, sort direction).
+
+#### Key reference
+
+Keys are namespaced by the plugin that owns them. Only load-bearing UI text is keyed; anything
+you already supply (column headers, menu item labels, export filenames) stays under your control.
+
+| Key | English default | Plugin |
+| --- | --------------- | ------ |
+| `filter.search` | `Search...` | Filtering |
+| `filter.selectAll` | `Select All` | Filtering |
+| `filter.noMatches` | `No matching values` | Filtering |
+| `filter.apply` | `Apply` | Filtering |
+| `filter.clear` | `Clear Filter` | Filtering |
+| `filter.clearAll` | `Clear All Filters` | Filtering |
+| `filter.min` | `Min` | Filtering (number) |
+| `filter.max` | `Max` | Filtering (number) |
+| `filter.from` | `From` | Filtering (date) |
+| `columns.panelTitle` | `Columns` | Column Visibility |
+| `columns.hideColumn` | `Hide column` | Column Visibility |
+| `columns.showAll` | `Show all` | Column Visibility |
+| `columns.dragHandle` | `Drag to reorder` | Column Visibility |
+| `columns.dragGroupHandle` | `Drag to reorder group` | Column Visibility |
+| `pinnedColumns.pinLeft` | `Pin Left` | Pinned Columns |
+| `pinnedColumns.pinRight` | `Pin Right` | Pinned Columns |
+| `pinnedColumns.unpin` | `Unpin` | Pinned Columns |
+| `print.buttonTitle` | `Print grid` | Print |
+| `pivot.panelTitle` | `Pivot` | Pivot |
+| `pivot.options` | `Options` | Pivot |
+| `pivot.enable` | `Enable pivot` | Pivot |
+| `pivot.rowGroups` | `Row Groups` | Pivot |
+| `pivot.columnGroups` | `Column Groups` | Pivot |
+| `pivot.values` | `Values` | Pivot |
+| `pivot.availableFields` | `Available Fields` | Pivot |
+| `pivot.filterFields` | `Filter fields...` | Pivot |
+| `pivot.allFieldsUsed` | `All fields in use` | Pivot |
+| `pivot.dropFields` | `Drop fields here` | Pivot |
+| `pivot.dropNumericFields` | `Drop numeric fields here` | Pivot |
+| `pivot.removeField` | `Remove field` | Pivot |
+| `pivot.removeValueField` | `Remove value field` | Pivot |
+| `pivot.aggFunction` | `Aggregation function` | Pivot |
+| `pivot.customAgg` | `Custom` | Pivot |
+| `pivot.showRowTotals` | `Show row totals` | Pivot |
+| `pivot.showGrandTotal` | `Show grand total` | Pivot |
+| `pivot.grandTotal` | `Grand Total` | Pivot |
+
+#### In custom renderers and plugins
+
+A custom `filterPanelRenderer` receives the same lookup on its params, so your own panel
+localizes through the app's single map:
+
+```ts
+filterPanelRenderer: (container, params) => {
+  const apply = document.createElement('button');
+  apply.textContent = params.t('filter.apply', 'Apply');
+  container.appendChild(apply);
+},
+```
+
+Inside a custom plugin, `BaseGridPlugin` exposes the same helper as `this.t(key, fallback)`
+(and `this.translate` when you need to hand the function to a render module).
+
 ### Other localizable surfaces
 
 | Surface | How to localize |
@@ -250,7 +358,7 @@ however your locale requires.
 | Column headers | `columns[].header` — pass an already-translated string |
 | Empty / loading state | A custom `emptyRenderer` / `loadingRenderer` returning translated markup |
 | Cell values (dates, numbers, currency) | `columns[].format` with `Intl.NumberFormat` / `Intl.DateTimeFormat` |
-| Filter panel labels | Filtering plugin config, or a custom `filterPanelRenderer` |
+| Filter panel labels | `locale` keys (`filter.*`), or a custom `filterPanelRenderer` |
 | Context menu items | Context Menu plugin `items[].label` |
 | Tool panel titles | `title` on `<tbw-grid-tool-panel>` / the shell `toolPanel` config |
 | Export filenames and sheet names | Export plugin config |

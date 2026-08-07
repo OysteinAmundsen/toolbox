@@ -255,7 +255,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
     return {
       id: PivotPlugin.PANEL_ID,
-      title: 'Pivot',
+      title: this.t('pivot.panelTitle', 'Pivot'),
       icon: '⊞',
       tooltip: 'Configure pivot table',
       order: 90,
@@ -418,7 +418,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
     // Handle grand total row in row model (when grandTotalInRowModel is true)
     if (pivotRow.__pivotIsGrandTotal) {
-      return renderPivotGrandTotalRow(pivotRow, rowEl, this.gridColumns);
+      return renderPivotGrandTotalRow(pivotRow, rowEl, this.gridColumns, this.translate);
     }
 
     // Handle pivot group row (has children)
@@ -720,7 +720,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     };
 
     // Render the grand total row into the footer
-    renderPivotGrandTotalRow(grandTotalRow, this.grandTotalFooter, this.gridColumns);
+    renderPivotGrandTotalRow(grandTotalRow, this.grandTotalFooter, this.gridColumns, this.translate);
     // Footer is outside the grid's role=grid element — use presentation role
     this.grandTotalFooter.setAttribute('role', 'presentation');
   }
@@ -1104,7 +1104,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       getAvailableFields: () => this.getAvailableFields(),
     };
 
-    return renderPivotPanel(container, this.config, this.isActive, callbacks);
+    return renderPivotPanel(container, this.config, this.isActive, callbacks, this.translate);
   }
 
   private refreshPanel(): void {
@@ -1247,8 +1247,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
         if (origCol) {
           const allCols = this.grid.getAllColumns?.() ?? this.grid.columns ?? [];
           const col = allCols.find((c: { field: string }) => c.field === vf.field) as
-            | { field: string; format?: (value: unknown, row: unknown) => string }
-            | undefined;
+            { field: string; format?: (value: unknown, row: unknown) => string } | undefined;
           if (col?.format) {
             const fmt = col.format;
             this.valueFormatters.set(vf.field, (v: number) => fmt(v, {}));

@@ -180,6 +180,8 @@ export type {
   GridConfig,
   // Icons
   GridIcons,
+  // Localization
+  GridLocale,
   // Plugin interface (minimal shape for type-checking)
   GridPlugin,
   // Header renderer types
@@ -215,6 +217,8 @@ export type {
   SortState,
   TbwScrollDetail,
   TransactionResult,
+  // Localization
+  Translate,
   TypeDefault,
   UpdateSource,
 } from './lib/core/types';

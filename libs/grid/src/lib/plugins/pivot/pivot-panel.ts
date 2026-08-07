@@ -6,6 +6,7 @@
  */
 
 import { GridClasses } from '../../core/constants';
+import type { Translate } from '../../core/types';
 import type { AggFunc, CustomAggFunc, PivotConfig, PivotValueField } from './types';
 
 /** Built-in aggregation function names (excludes custom functions) */
@@ -43,6 +44,7 @@ interface RenderContext {
   config: PivotConfig;
   callbacks: PanelCallbacks;
   signal: AbortSignal;
+  t: Translate;
 }
 
 /**
@@ -54,28 +56,33 @@ export function renderPivotPanel(
   config: PivotConfig,
   isActive: boolean,
   callbacks: PanelCallbacks,
+  t: Translate = (_key, fallback) => fallback,
 ): () => void {
   // Create AbortController for automatic listener cleanup
   const controller = new AbortController();
-  const ctx: RenderContext = { config, callbacks, signal: controller.signal };
+  const ctx: RenderContext = { config, callbacks, signal: controller.signal, t };
 
   const wrapper = document.createElement('div');
   wrapper.className = 'tbw-pivot-panel';
 
   // Options section (at top, includes pivot toggle)
-  wrapper.appendChild(createSection('Options', () => createOptionsPanel(isActive, ctx)));
+  wrapper.appendChild(createSection(t('pivot.options', 'Options'), () => createOptionsPanel(isActive, ctx)));
 
   // Row Groups section
-  wrapper.appendChild(createSection('Row Groups', () => createFieldZone('rowGroups', ctx)));
+  wrapper.appendChild(createSection(t('pivot.rowGroups', 'Row Groups'), () => createFieldZone('rowGroups', ctx)));
 
   // Column Groups section
-  wrapper.appendChild(createSection('Column Groups', () => createFieldZone('columnGroups', ctx)));
+  wrapper.appendChild(
+    createSection(t('pivot.columnGroups', 'Column Groups'), () => createFieldZone('columnGroups', ctx)),
+  );
 
   // Values section
-  wrapper.appendChild(createSection('Values', () => createValuesZone(ctx)));
+  wrapper.appendChild(createSection(t('pivot.values', 'Values'), () => createValuesZone(ctx)));
 
   // Available fields section
-  wrapper.appendChild(createSection('Available Fields', () => createAvailableFieldsZone(ctx)));
+  wrapper.appendChild(
+    createSection(t('pivot.availableFields', 'Available Fields'), () => createAvailableFieldsZone(ctx)),
+  );
 
   container.appendChild(wrapper);
 
@@ -121,7 +128,7 @@ function createFieldZone(zoneType: 'rowGroups' | 'columnGroups', ctx: RenderCont
   if (currentFields.length === 0) {
     const placeholder = document.createElement('div');
     placeholder.className = 'tbw-pivot-placeholder';
-    placeholder.textContent = 'Drag fields here';
+    placeholder.textContent = ctx.t('pivot.dropFields', 'Drag fields here');
     zone.appendChild(placeholder);
   } else {
     for (const field of currentFields) {
@@ -203,7 +210,7 @@ function createFieldChip(field: string, zoneType: 'rowGroups' | 'columnGroups', 
   removeBtn.type = 'button';
   removeBtn.className = 'tbw-pivot-chip-remove';
   removeBtn.innerHTML = '×';
-  removeBtn.title = 'Remove field';
+  removeBtn.title = ctx.t('pivot.removeField', 'Remove field');
   removeBtn.addEventListener(
     'click',
     (e) => {
@@ -252,7 +259,7 @@ function createValuesZone(ctx: RenderContext): HTMLElement {
   if (currentValues.length === 0) {
     const placeholder = document.createElement('div');
     placeholder.className = 'tbw-pivot-placeholder';
-    placeholder.textContent = 'Drag numeric fields here';
+    placeholder.textContent = ctx.t('pivot.dropNumericFields', 'Drag numeric fields here');
     zone.appendChild(placeholder);
   } else {
     for (const valueField of currentValues) {
@@ -315,12 +322,12 @@ function createValueChip(valueField: PivotValueField, ctx: RenderContext): HTMLE
 
   const aggSelect = document.createElement('select');
   aggSelect.className = 'tbw-pivot-agg-select';
-  aggSelect.title = 'Aggregation function';
+  aggSelect.title = ctx.t('pivot.aggFunction', 'Aggregation function');
 
   if (isCustomAgg) {
     const option = document.createElement('option');
     option.value = '__custom__';
-    option.textContent = 'CUSTOM';
+    option.textContent = ctx.t('pivot.customAgg', 'CUSTOM');
     option.selected = true;
     aggSelect.appendChild(option);
     aggSelect.disabled = true;
@@ -346,7 +353,7 @@ function createValueChip(valueField: PivotValueField, ctx: RenderContext): HTMLE
   removeBtn.type = 'button';
   removeBtn.className = 'tbw-pivot-chip-remove';
   removeBtn.innerHTML = '×';
-  removeBtn.title = 'Remove value field';
+  removeBtn.title = ctx.t('pivot.removeValueField', 'Remove value field');
   removeBtn.addEventListener(
     'click',
     (e) => {
@@ -386,7 +393,7 @@ function createAvailableFieldsZone(ctx: RenderContext): HTMLElement {
   if (availableFields.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'tbw-pivot-placeholder';
-    empty.textContent = 'All fields are in use';
+    empty.textContent = ctx.t('pivot.allFieldsUsed', 'All fields are in use');
     zone.appendChild(empty);
   } else {
     // Search filter for available fields (only when 6+ fields)
@@ -396,7 +403,7 @@ function createAvailableFieldsZone(ctx: RenderContext): HTMLElement {
     if (availableFields.length >= 6) {
       const search = document.createElement('input');
       search.type = 'text';
-      search.placeholder = 'Filter fields\u2026';
+      search.placeholder = ctx.t('pivot.filterFields', 'Filter fields\u2026');
       search.className = 'tbw-pivot-field-search';
       search.addEventListener(
         'input',
@@ -449,14 +456,14 @@ function createAvailableFieldsZone(ctx: RenderContext): HTMLElement {
  * Create the options panel with pivot toggle and checkboxes for totals.
  */
 function createOptionsPanel(isActive: boolean, ctx: RenderContext): HTMLElement {
-  const { config, callbacks, signal } = ctx;
+  const { config, callbacks, signal, t } = ctx;
   const panel = document.createElement('div');
   panel.className = 'tbw-pivot-options';
 
   // Pivot Mode toggle
   panel.appendChild(
     createCheckbox(
-      'Enable Pivot View',
+      t('pivot.enable', 'Enable Pivot View'),
       isActive,
       (checked) => {
         callbacks.onTogglePivot(checked);
@@ -468,7 +475,7 @@ function createOptionsPanel(isActive: boolean, ctx: RenderContext): HTMLElement 
   // Show Totals checkbox
   panel.appendChild(
     createCheckbox(
-      'Show Row Totals',
+      t('pivot.showRowTotals', 'Show Row Totals'),
       config.showTotals ?? true,
       (checked) => {
         callbacks.onOptionChange('showTotals', checked);
@@ -480,7 +487,7 @@ function createOptionsPanel(isActive: boolean, ctx: RenderContext): HTMLElement 
   // Show Grand Total checkbox
   panel.appendChild(
     createCheckbox(
-      'Show Grand Total',
+      t('pivot.showGrandTotal', 'Show Grand Total'),
       config.showGrandTotal ?? true,
       (checked) => {
         callbacks.onOptionChange('showGrandTotal', checked);

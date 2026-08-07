@@ -441,7 +441,13 @@ export function sortPivotMulti(rows: PivotRow[], configs: PivotSortConfig[], val
 }
 
 /**
- * Resolve `defaultExpanded` config to a set of keys, similar to grouping-rows.
+ * Resolve `defaultExpanded` config to a set of keys.
+ *
+ * Deliberately NOT the same function as `resolveDefaultExpanded` in
+ * `plugins/grouping-rows/grouping-rows.ts`: pivot treats `undefined` as
+ * expand-all (a pivot with everything collapsed shows nothing useful), whereas
+ * grouping-rows treats it as collapse-all. Merging them would silently flip one
+ * plugin's default.
  */
 export function resolveDefaultExpanded(
   value: boolean | number | string | string[] | undefined,

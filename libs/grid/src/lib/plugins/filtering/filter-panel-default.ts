@@ -88,7 +88,7 @@ export function renderDefaultFilterPanel(
 
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
-  searchInput.placeholder = 'Search...';
+  searchInput.placeholder = params.t('filter.search', 'Search...');
   searchInput.className = 'tbw-filter-search-input';
   searchInput.value = searchTextMap.get(field) ?? '';
   searchContainer.appendChild(searchInput);
@@ -108,7 +108,7 @@ export function renderDefaultFilterPanel(
   selectAllCheckbox.className = 'tbw-filter-checkbox';
 
   const selectAllText = document.createElement('span');
-  selectAllText.textContent = 'Select All';
+  selectAllText.textContent = params.t('filter.selectAll', 'Select All');
 
   selectAllLabel.appendChild(selectAllCheckbox);
   selectAllLabel.appendChild(selectAllText);
@@ -262,7 +262,7 @@ export function renderDefaultFilterPanel(
       contentContainer.innerHTML = '';
       const noMatch = document.createElement('div');
       noMatch.className = 'tbw-filter-no-match';
-      noMatch.textContent = 'No matching values';
+      noMatch.textContent = params.t('filter.noMatches', 'No matching values');
       contentContainer.appendChild(noMatch);
       return;
     }
@@ -301,7 +301,7 @@ export function renderDefaultFilterPanel(
   const applyBtn = document.createElement('button');
   applyBtn.type = 'button';
   applyBtn.className = 'tbw-filter-apply-btn';
-  applyBtn.textContent = 'Apply';
+  applyBtn.textContent = params.t('filter.apply', 'Apply');
   applyBtn.addEventListener('click', () => {
     // Read from checkState map (works with virtualization)
     const excluded: unknown[] = [];
@@ -323,7 +323,7 @@ export function renderDefaultFilterPanel(
   const clearBtn = document.createElement('button');
   clearBtn.type = 'button';
   clearBtn.className = 'tbw-filter-clear-btn';
-  clearBtn.textContent = 'Clear Filter';
+  clearBtn.textContent = params.t('filter.clear', 'Clear Filter');
   clearBtn.addEventListener('click', () => {
     params.clearFilter();
   });

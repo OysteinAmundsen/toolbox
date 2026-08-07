@@ -378,7 +378,13 @@ export interface PluginCellRenderContext {
 export type CellRenderer = (ctx: PluginCellRenderContext) => string | HTMLElement;
 
 /**
- * Header renderer function type for plugins.
+ * Header renderer registered by a plugin against a column *type*, resolved via
+ * `PluginManager.getHeaderRenderer(type)`.
+ *
+ * Distinct from the same-named `HeaderRenderer` in `core/types.ts`,
+ * which is the per-column `column.headerRenderer` hook: that one receives a full
+ * `HeaderCellContext` and may render by mutating `ctx`, so the two signatures are
+ * not interchangeable. Do not merge them.
  */
 export type HeaderRenderer = (ctx: { column: ColumnConfig; colIndex: number }) => string | HTMLElement;
 

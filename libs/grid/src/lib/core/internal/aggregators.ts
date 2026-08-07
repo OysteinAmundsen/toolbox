@@ -15,6 +15,16 @@
 
 import { readCellField, resolveCellValue } from './value-accessor';
 
+/**
+ * Aggregation function as stored in the core registry.
+ *
+ * Loosely typed (`any`) on purpose: the registry holds aggregators contributed
+ * by any plugin for any row shape. `plugins/pinned-rows/types.ts` declares a
+ * same-named but *stricter* public alias (`unknown[]` / `ColumnConfig`) for
+ * users authoring an aggregator. The two must stay separate — tightening this
+ * one breaks registry storage, loosening that one loses user-facing type
+ * safety.
+ */
 export type AggregatorFn = (rows: any[], field: string, column?: any) => any;
 
 /**

@@ -17,6 +17,7 @@ function createParams(overrides: Partial<FilterPanelParams> = {}): FilterPanelPa
     applyTextFilter: vi.fn(),
     clearFilter: vi.fn(),
     closePanel: vi.fn(),
+    t: (_key: string, fallback: string) => fallback,
     ...overrides,
   } as FilterPanelParams;
 }

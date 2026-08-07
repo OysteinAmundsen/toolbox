@@ -16,7 +16,16 @@ import {
   gridPrefix,
 } from '../internal/diagnostics';
 import { setSanitizedHTML } from '../internal/sanitize';
-import type { ColumnConfig, ColumnState, GridConfig, GridIcons, GridPlugin, IconValue, PluginNameMap } from '../types';
+import type {
+  ColumnConfig,
+  ColumnState,
+  GridConfig,
+  GridIcons,
+  GridPlugin,
+  IconValue,
+  PluginNameMap,
+  Translate,
+} from '../types';
 import { DEFAULT_GRID_ICONS } from '../types';
 
 // Re-export shared plugin types for convenience
@@ -991,6 +1000,35 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   protected get gridIcons(): Required<GridIcons> {
     const userIcons = this.grid?.gridConfig?.icons ?? {};
     return { ...DEFAULT_GRID_ICONS, ...userIcons };
+  }
+
+  /**
+   * Resolve a user-visible string from {@link GridConfig.locale}, falling back to
+   * the English default supplied at the call site.
+   *
+   * The fallback is passed inline rather than read from a shipped default map so
+   * that a plugin's strings live in the plugin's own chunk.
+   *
+   * @param key - Namespaced message id, e.g. `'filter.apply'`.
+   * @param fallback - English text used when the key is not overridden.
+   * @since 3.5.0
+   *
+   * @example
+   * ```ts
+   * applyBtn.textContent = this.t('filter.apply', 'Apply');
+   * ```
+   */
+  protected t(key: string, fallback: string): string {
+    return this.grid?.effectiveConfig?.locale?.[key] ?? fallback;
+  }
+
+  /**
+   * A bound `t()` suitable for handing to standalone renderer
+   * helpers and public renderer callbacks.
+   * @since 3.5.0
+   */
+  protected get translate(): Translate {
+    return (key, fallback) => this.t(key, fallback);
   }
 
   // #region Animation Helpers

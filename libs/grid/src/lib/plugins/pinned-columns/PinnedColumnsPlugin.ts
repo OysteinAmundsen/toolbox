@@ -420,7 +420,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         if (isPinned) {
           items.push({
             id: 'pinned/unpin',
-            label: 'Unpin Column',
+            label: this.t('pinnedColumns.unpin', 'Unpin Column'),
             icon: '📌',
             order: 40,
             action: () => this.setPinPosition(column.field, undefined),
@@ -428,14 +428,14 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         } else {
           items.push({
             id: 'pinned/pin-left',
-            label: 'Pin Left',
+            label: this.t('pinnedColumns.pinLeft', 'Pin Left'),
             icon: '⬅',
             order: 40,
             action: () => this.setPinPosition(column.field, 'left'),
           });
           items.push({
             id: 'pinned/pin-right',
-            label: 'Pin Right',
+            label: this.t('pinnedColumns.pinRight', 'Pin Right'),
             icon: '➡',
             order: 41,
             action: () => this.setPinPosition(column.field, 'right'),

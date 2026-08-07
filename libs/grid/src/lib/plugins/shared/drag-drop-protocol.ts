@@ -95,6 +95,9 @@ export function hasAnyRowDragMime(types: readonly string[]): boolean {
 /**
  * Cross-grid drag payload, carried on `dataTransfer` and (for same-window
  * recovery) keyed in the WeakRef registry by `sessionId`.
+ *
+ * Re-exported as public API from `plugins/row-drag-drop`.
+ * @since 2.4.0
  */
 export interface RowDragPayload<T = unknown> {
   /** Drag session id (matches the WeakRef registry key). */

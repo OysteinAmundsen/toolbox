@@ -32,6 +32,9 @@ export type PinnedRowsPosition = 'top' | 'bottom';
  * };
  * ```
  */
+// Deliberately stricter than the same-named alias in `core/internal/aggregators.ts`,
+// which stays `any`-typed because the registry is shape-agnostic. Kept separate so
+// the pinned-rows entry point can be imported without pulling in core internals.
 export type AggregatorFn = (rows: unknown[], field: string, column?: ColumnConfig) => unknown;
 
 /**

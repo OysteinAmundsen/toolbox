@@ -4,7 +4,7 @@
  * Type definitions for the filtering feature.
  */
 
-import type { ColumnConfig } from '../../core/types';
+import type { ColumnConfig, Translate } from '../../core/types';
 
 // #region Module Augmentation
 // When this plugin is imported, ColumnConfig is augmented with filtering-specific properties
@@ -564,6 +564,19 @@ export interface FilterPanelParams {
    * the panel automatically — you only need `closePanel` for explicit dismiss.
    */
   closePanel: () => void;
+
+  /**
+   * Resolve a user-visible string against `gridConfig.locale`, falling back
+   * to the English text you pass in. Use it for any chrome a custom panel renders
+   * so it localizes through the same map as the built-in panels.
+   *
+   * @example
+   * ```typescript
+   * applyBtn.textContent = params.t('filter.apply', 'Apply');
+   * ```
+   * @since 3.5.0
+   */
+  t: Translate;
 }
 
 /** Custom filter panel renderer function. Return undefined to use default panel for this column. * @since 0.1.1

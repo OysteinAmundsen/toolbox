@@ -208,6 +208,7 @@ Without a SelectionPlugin, the clipboard operates on a single focused cell — p
 | `delimiter`      | `string`                              | `'\t'`               | Column delimiter (tab for Excel compatibility)                                                           |
 | `newline`        | `string`                              | `'\n'`               | Row delimiter                                                                                            |
 | `quoteStrings`   | `boolean`                             | `false`              | Wrap string values in quotes                                                                             |
+| `escapeFormulas` | `boolean`                             | `true`               | Prefix values starting with `=`, `+`, `-`, `@`, tab or CR with `'` so a spreadsheet treats them as text. **Since 3.5.0** |
 | `fillSelection`  | `boolean`                             | `false`              | Tile the clipboard source to fill a larger multi-cell selection (see [Fill Selection](#fill-selection)) |
 | `processCell`    | `(value, field, row) => string`       | -                    | Custom cell value processor for copy operations                                                          |
 | `pasteHandler`   | `PasteHandler \| null`                | `defaultPasteHandler`| Custom paste handler. Set to `null` to disable auto-paste and handle the `paste` event manually         |

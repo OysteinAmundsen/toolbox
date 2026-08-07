@@ -72,3 +72,71 @@ export function formatValueAsText(value: unknown): string {
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }
+
+/**
+ * Leading characters that make Excel / LibreOffice / Google Sheets treat a cell
+ * as a formula rather than text.
+ */
+const FORMULA_TRIGGER_RE = /^[=+\-@\t\r]/;
+
+/** Options for {@link formatDelimitedValue}. * @since 3.5.0 */
+export interface DelimitedFormatOptions {
+  /** Field separator (`,` for CSV, `\t` for clipboard). */
+  delimiter: string;
+  /** Row separator. */
+  newline: string;
+  /**
+   * `'auto'` (default) quotes only strings containing a separator or quote,
+   * `'always'` quotes every string, `'never'` disables quoting entirely.
+   */
+  quoting?: 'auto' | 'always' | 'never';
+  /**
+   * Prefix formula-triggering strings with `'` so spreadsheets treat them as
+   * text. Defaults to `true`.
+   */
+  escapeFormulas?: boolean;
+}
+
+/**
+ * Format a cell value for a delimiter-separated text format (CSV export or
+ * clipboard copy).
+ *
+ * Only string values are formula-escaped: numbers such as `-5` stringify to a
+ * leading `-` but are unambiguously numeric to a spreadsheet, and escaping them
+ * would turn every negative number into text.
+ *
+ * Dispatch order is `typeof`-first because string + number cover the vast
+ * majority of cell values; the cheap typeof check skips an `instanceof Date`
+ * probe (which V8 cannot fold into a fast path) for every plain string cell.
+ *
+ * @param value - The cell value to format
+ * @param opts  - Delimiter, newline, quoting and formula-escaping behaviour
+ * @returns The value as a delimiter-safe string
+ * @since 3.5.0
+ */
+export function formatDelimitedValue(value: unknown, opts: DelimitedFormatOptions): string {
+  // Hot path: strings (most cells).
+  if (typeof value === 'string') {
+    const text = opts.escapeFormulas !== false && FORMULA_TRIGGER_RE.test(value) ? `'${value}` : value;
+    const quoting = opts.quoting ?? 'auto';
+    if (
+      quoting === 'always' ||
+      (quoting === 'auto' &&
+        (text.includes(opts.delimiter) ||
+          text.includes(opts.newline) ||
+          text.includes('"') ||
+          text.includes('\n') ||
+          text.includes('\r')))
+    ) {
+      return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
+  }
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (value == null) return '';
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'object') return JSON.stringify(value);
+  // Symbols, bigints, etc.
+  return String(value);
+}

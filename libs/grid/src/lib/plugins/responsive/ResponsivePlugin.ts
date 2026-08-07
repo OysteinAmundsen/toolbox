@@ -27,7 +27,7 @@
 
 import { MISSING_BREAKPOINT } from '../../core/internal/diagnostics';
 import { ensureCellVisible } from '../../core/internal/keyboard';
-import { evalTemplateString, sanitizeHTML } from '../../core/internal/sanitize';
+import { evalTemplateString, setSanitizedHTML } from '../../core/internal/sanitize';
 import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { GridHost } from '../../core/types';
 import styles from './responsive.css?inline';
@@ -299,11 +299,10 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
       configUpdates.cardRenderer = (row: T): HTMLElement => {
         // Evaluate template expressions like {{ row.field }}
         const evaluated = evalTemplateString(templateHTML, { value: row, row: row as Record<string, unknown> });
-        // Sanitize the result to prevent XSS
-        const sanitized = sanitizeHTML(evaluated);
         const container = document.createElement('div');
         container.className = 'tbw-responsive-card-content';
-        container.innerHTML = sanitized;
+        // Sanitize the result to prevent XSS
+        setSanitizedHTML(container, evaluated);
         return container;
       };
     }

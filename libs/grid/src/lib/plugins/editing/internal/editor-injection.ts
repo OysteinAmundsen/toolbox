@@ -293,6 +293,12 @@ export function injectEditor<T>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const produced = (editorSpec as any)(ctx);
     if (typeof produced === 'string') {
+      // NOT sanitized on purpose: sanitizeHTML strips `input`/`select`/
+      // `textarea`/`button`, which is exactly what an editor is made of. The
+      // string comes from an author-supplied editor factory (code, not row
+      // data) — row values reach the DOM through the compiled-template path
+      // below, which escapes interpolated values.
+      // eslint-disable-next-line no-restricted-syntax
       editorHost.innerHTML = produced;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       wireEditorInputs(editorHost, column as any, commit, originalValue);
@@ -402,6 +408,10 @@ function renderTemplateEditor<T>(
   const compiledEditor = column.__compiledEditor;
 
   if (compiledEditor) {
+    // NOT sanitized: editor markup is author light-DOM (`<template editor>`) and
+    // contains form controls the sanitizer would strip. Row data interpolated
+    // via `{{ }}` is HTML-escaped by the compiled template itself.
+    // eslint-disable-next-line no-restricted-syntax
     clone.innerHTML = compiledEditor({
       row: rowData,
       value: originalValue,

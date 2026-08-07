@@ -10,6 +10,7 @@
  * Kept in its own module so `copy.ts` and `paste.ts` share the format without
  * importing each other.
  */
+import { escapeHtml } from '../../core/internal/sanitize';
 
 /**
  * Structured clipboard payload carried in `text/html`. `rows` are the RAW cell
@@ -32,9 +33,6 @@ export const CLIPBOARD_PAYLOAD_ATTR = 'data-tbw-clip';
 function encodePayload(payload: ClipboardPayload): string {
   return btoa(encodeURIComponent(JSON.stringify(payload)));
 }
-
-const escapeHtml = (s: string): string =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /**
  * Build the `text/html` clipboard representation: a real `<table>` of the

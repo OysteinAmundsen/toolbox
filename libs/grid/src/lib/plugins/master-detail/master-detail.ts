@@ -7,7 +7,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Uses `any` for maximum flexibility with user-defined row types.
 
-import { sanitizeHTML } from '../../core/internal/sanitize';
+import { setSanitizedHTML } from '../../core/internal/sanitize';
 
 /**
  * Toggle the expansion state of a detail row.
@@ -58,9 +58,9 @@ export function isDetailExpanded(expandedRows: Set<object>, row: object): boolea
  * Create a detail element for a given row.
  * The element spans all columns and contains the rendered content.
  *
- * Strings returned by the renderer are passed through `sanitizeHTML()` before
- * being assigned to `innerHTML` — mirroring the cell render path — so a detail
- * template interpolating row data cannot become an XSS sink.
+ * Strings returned by the renderer are passed through `setSanitizedHTML()` —
+ * mirroring the cell render path — so a detail template interpolating row data
+ * cannot become an XSS sink.
  */
 export function createDetailElement(
   row: any,
@@ -80,7 +80,7 @@ export function createDetailElement(
 
   const content = renderer(row, rowIndex);
   if (typeof content === 'string') {
-    detailCell.innerHTML = sanitizeHTML(content);
+    setSanitizedHTML(detailCell, content);
   } else if (content instanceof HTMLElement) {
     detailCell.appendChild(content);
   }

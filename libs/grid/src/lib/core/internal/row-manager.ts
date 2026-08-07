@@ -4,7 +4,7 @@
  *
  * Owns:
  * - Row ID resolution (tryResolveRowId, resolveRowIdOrThrow)
- * - Row lookup (getRow, getRowEntry)
+ * - Row lookup (getRow)
  * - Row mutation (updateRow, updateRows, insertRow, removeRow)
  *
  * Takes the grid reference directly (tightly coupled — this manager
@@ -66,20 +66,10 @@ export class RowManager<T = any> {
     this.#grid = grid;
   }
 
-  // --- Row ID resolution ---
-
-  resolveRowId(row: T): string {
-    return resolveRowIdOrThrow(row, this.#grid.id, this.#grid.effectiveConfig?.getRowId);
-  }
-
   // --- Row lookup ---
 
   getRow(id: string): T | undefined {
     return this.#grid._getRowEntry(id)?.row;
-  }
-
-  getRowEntry(id: string): { row: T; index: number } | undefined {
-    return this.#grid._getRowEntry(id);
   }
 
   // --- Row updates ---

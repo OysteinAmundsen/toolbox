@@ -3,7 +3,7 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "libs/grid-react/src",
   "projectType": "library",
-  "tags": ["type:lib", "scope:grid"],
+  "tags": ["type:lib", "scope:grid", "layer:adapter"],
   "targets": {
     "typecheck": {
       "command": "bunx tsc -p libs/grid-react/tsconfig.lib.json --noEmit",

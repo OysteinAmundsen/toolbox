@@ -8,7 +8,7 @@
  */
 
 import type { GridConfig, LoadingContext } from '../types';
-import { sanitizeHTML } from './sanitize';
+import { setSanitizedHTML } from './sanitize';
 
 /**
  * Create the default spinner element.
@@ -25,10 +25,10 @@ export function createDefaultSpinner(size: 'large' | 'small'): HTMLElement {
 /**
  * Create loading content using custom renderer or default spinner.
  *
- * Strings returned by a custom renderer are passed through `sanitizeHTML()`
- * before being assigned to `innerHTML` — mirroring the cell, header and
- * empty-state render paths — so a message interpolating server data
- * (e.g. `Loading ${dataset.name}…`) is not an XSS sink.
+ * Strings returned by a custom renderer are passed through `setSanitizedHTML()`
+ * — mirroring the cell, header and empty-state render paths — so a message
+ * interpolating server data (e.g. `Loading ${dataset.name}…`) is not an XSS
+ * sink.
  *
  * @param size - 'large' for grid overlay, 'small' for row/cell
  * @param renderer - Optional custom loading renderer from config
@@ -39,7 +39,7 @@ export function createLoadingContent(size: 'large' | 'small', renderer?: GridCon
     const result = renderer(context);
     if (typeof result === 'string') {
       const wrapper = document.createElement('div');
-      wrapper.innerHTML = sanitizeHTML(result);
+      setSanitizedHTML(wrapper, result);
       return wrapper;
     }
     return result;

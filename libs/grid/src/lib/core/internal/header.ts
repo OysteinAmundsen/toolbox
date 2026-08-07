@@ -10,7 +10,7 @@ import { GridClasses } from '../constants';
 import { toIconAttr } from '../plugin/base-plugin';
 import type { ColumnInternal, GridHost, GridIcons, HeaderCellContext, IconValue, InternalGrid } from '../types';
 import { addPart } from './columns';
-import { sanitizeHTML } from './sanitize';
+import { sanitizeToFragment, setSanitizedHTML } from './sanitize';
 import { toggleSort } from './sorting';
 
 // #region Helper Functions
@@ -42,10 +42,9 @@ function isColumnResizable(grid: InternalGrid, col: ColumnInternal): boolean {
  */
 function setIcon(element: HTMLElement, icon: IconValue): void {
   if (typeof icon === 'string') {
-    element.innerHTML = sanitizeHTML(icon);
+    setSanitizedHTML(element, icon);
   } else if (icon instanceof HTMLElement) {
-    element.innerHTML = '';
-    element.appendChild(icon.cloneNode(true));
+    element.replaceChildren(icon.cloneNode(true));
   }
 }
 
@@ -127,13 +126,7 @@ function setupSortHandlers(grid: GridHost, col: ColumnInternal, colIndex: number
 function appendRendererOutput(cell: HTMLElement, output: Node | string | void | null): void {
   if (output == null) return;
   if (typeof output === 'string') {
-    // sanitizeHTML returns a sanitized HTML string, use a container to convert to DOM
-    const container = document.createElement('span');
-    container.innerHTML = sanitizeHTML(output);
-    // Move all child nodes to the cell
-    while (container.firstChild) {
-      cell.appendChild(container.firstChild);
-    }
+    cell.appendChild(sanitizeToFragment(output));
   } else if (output instanceof Node) {
     cell.appendChild(output);
   }
@@ -220,7 +213,7 @@ export function renderHeader(grid: GridHost): void {
       if (output == null) {
         span.textContent = headerValue;
       } else if (typeof output === 'string') {
-        span.innerHTML = sanitizeHTML(output);
+        setSanitizedHTML(span, output);
       } else if (output instanceof Node) {
         span.appendChild(output);
       }

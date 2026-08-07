@@ -80,7 +80,6 @@ export class ConfigManager<T = unknown> {
 
   // #region State Tracking
   #sourcesChanged = true;
-  #changeListeners: Array<() => void> = [];
   #lightDomObserver?: MutationObserver;
   #stateChangeTimeoutId?: ReturnType<typeof setTimeout>;
   #lightDomDebounceTimer?: ReturnType<typeof setTimeout>;
@@ -990,31 +989,12 @@ export class ConfigManager<T = unknown> {
   }
   // #endregion
 
-  // #region Change Notification
-  /**
-   * Register a change listener.
-   */
-  onChange(callback: () => void): void {
-    this.#changeListeners.push(callback);
-  }
-
-  /**
-   * Notify all change listeners.
-   */
-  notifyChange(): void {
-    for (const cb of this.#changeListeners) {
-      cb();
-    }
-  }
-  // #endregion
-
   // #region Cleanup
   /**
    * Dispose of the ConfigManager and clean up resources.
    */
   dispose(): void {
     this.#lightDomObserver?.disconnect();
-    this.#changeListeners = [];
     if (this.#stateChangeTimeoutId) {
       clearTimeout(this.#stateChangeTimeoutId);
     }

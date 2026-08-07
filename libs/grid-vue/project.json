@@ -3,7 +3,7 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "libs/grid-vue/src",
   "projectType": "library",
-  "tags": ["type:lib", "scope:grid"],
+  "tags": ["type:lib", "scope:grid", "layer:adapter"],
   "targets": {
     "typecheck": {
       "command": "bunx vue-tsc -p libs/grid-vue/tsconfig.lib.json --noEmit",

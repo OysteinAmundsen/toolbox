@@ -9,7 +9,7 @@
 
 import { TOOL_PANEL_DUPLICATE, TOOL_PANEL_MISSING_ATTR, warnDiagnostic } from '../../core/internal/diagnostics';
 import { startPointerDrag } from '../../core/internal/pointer-drag';
-import { escapeHtml, sanitizeHTML } from '../../core/internal/sanitize';
+import { escapeHtml, sanitizeHTML, setSanitizedHTML } from '../../core/internal/sanitize';
 import type { IconValue } from '../../core/types';
 import type { HeaderContentDefinition, ShellConfig, ToolbarContentDefinition, ToolPanelDefinition } from './types';
 
@@ -507,13 +507,13 @@ export function parseLightDomToolPanels(
     if (adapterRenderer) {
       render = adapterRenderer;
     } else {
-      // Vanilla fallback: use sanitized innerHTML as static content.
+      // Vanilla fallback: use sanitized light-DOM markup as static content.
       // Light DOM authored markup is generally trusted, but we sanitize
       // defensively in case the panel content was server-rendered from data.
-      const content = sanitizeHTML(panelEl.innerHTML.trim());
+      const rawContent = panelEl.innerHTML.trim();
       render = (container: HTMLElement) => {
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = content;
+        setSanitizedHTML(wrapper, rawContent);
         container.appendChild(wrapper);
         return () => wrapper.remove();
       };

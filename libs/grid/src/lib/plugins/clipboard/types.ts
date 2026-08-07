@@ -75,6 +75,18 @@ export interface ClipboardConfig {
   newline?: string;
   /** Wrap string values with quotes (default: false) */
   quoteStrings?: boolean;
+  /**
+   * Neutralize spreadsheet formula injection (CWE-1236) by prefixing string
+   * values that start with `=`, `+`, `-`, `@`, TAB or CR with a single quote,
+   * so a paste into Excel / LibreOffice / Sheets renders them as text instead
+   * of evaluating them (default: `true`).
+   *
+   * Grid-to-grid paste is unaffected — that path uses the structured
+   * `text/html` payload, not the plain-text representation.
+   *
+   * @since 3.5.0
+   */
+  escapeFormulas?: boolean;
   /** Custom cell value processor for copy operations */
   processCell?: (value: unknown, field: string, row: unknown) => string;
   /**

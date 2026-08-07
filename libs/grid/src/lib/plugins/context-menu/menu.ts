@@ -4,7 +4,7 @@
  * Pure functions for building and positioning context menus.
  */
 
-import { sanitizeHTML } from '../../core/internal/sanitize';
+import { setSanitizedHTML } from '../../core/internal/sanitize';
 import { toIconAttr } from '../../core/plugin/base-plugin';
 import type { IconValue } from '../../core/types';
 import type { ContextMenuItem, ContextMenuParams } from './types';
@@ -111,7 +111,7 @@ export function createMenuElement(
     if (item.icon) {
       const icon = document.createElement('span');
       icon.className = 'tbw-context-menu-icon';
-      icon.innerHTML = sanitizeHTML(item.icon);
+      setSanitizedHTML(icon, item.icon);
       menuItem.appendChild(icon);
     } else if (hasAnyIcon) {
       // Add empty placeholder to align labels when other items have icons
@@ -151,7 +151,7 @@ export function createMenuElement(
       // Only inject content if a JS icon override was provided
       if (submenuArrow !== undefined) {
         if (typeof submenuArrow === 'string') {
-          arrow.innerHTML = sanitizeHTML(submenuArrow);
+          setSanitizedHTML(arrow, submenuArrow);
         } else if (submenuArrow instanceof HTMLElement) {
           arrow.appendChild(submenuArrow.cloneNode(true));
         }

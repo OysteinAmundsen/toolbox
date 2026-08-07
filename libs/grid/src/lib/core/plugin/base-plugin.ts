@@ -15,7 +15,7 @@ import {
   formatDiagnostic,
   gridPrefix,
 } from '../internal/diagnostics';
-import { sanitizeHTML } from '../internal/sanitize';
+import { setSanitizedHTML } from '../internal/sanitize';
 import type { ColumnConfig, ColumnState, GridConfig, GridIcons, GridPlugin, IconValue, PluginNameMap } from '../types';
 import { DEFAULT_GRID_ICONS } from '../types';
 
@@ -1083,10 +1083,9 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
     if (jsIcon !== undefined) {
       // JS override: inject content (suppresses CSS ::before via :empty)
       if (typeof jsIcon === 'string') {
-        element.innerHTML = sanitizeHTML(jsIcon);
+        setSanitizedHTML(element, jsIcon);
       } else if (jsIcon instanceof HTMLElement) {
-        element.innerHTML = '';
-        element.appendChild(jsIcon.cloneNode(true));
+        element.replaceChildren(jsIcon.cloneNode(true));
       }
     } else {
       // CSS path: ensure element is empty so ::before renders

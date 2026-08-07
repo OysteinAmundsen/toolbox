@@ -12,7 +12,7 @@
  */
 
 import type { EmptyContext, EmptyOverlay, EmptyRenderer, GridConfig } from '../types';
-import { sanitizeHTML } from './sanitize';
+import { setSanitizedHTML } from './sanitize';
 
 /** Default messages used when no `emptyRenderer` is configured. */
 export const DEFAULT_EMPTY_MESSAGE = 'No data to display';
@@ -33,9 +33,9 @@ export function defaultEmptyRenderer(ctx: EmptyContext): HTMLElement {
  * Create the rendered content for the empty overlay.
  * If a custom renderer is provided, use it; otherwise fall back to the default
  * message. Strings returned by user renderers are sanitized through
- * `sanitizeHTML()` before being assigned to `innerHTML` — mirroring the cell
- * render path — so consumers can safely embed values from API responses
- * (e.g. `Failed to load deals: ${error.message}`) without opening an XSS sink.
+ * `setSanitizedHTML()` — mirroring the cell render path — so consumers can
+ * safely embed values from API responses (e.g.
+ * `Failed to load deals: ${error.message}`) without opening an XSS sink.
  */
 export function createEmptyContent(ctx: EmptyContext, renderer?: EmptyRenderer): HTMLElement {
   const fn = renderer ?? defaultEmptyRenderer;
@@ -43,7 +43,7 @@ export function createEmptyContent(ctx: EmptyContext, renderer?: EmptyRenderer):
   if (typeof result === 'string') {
     const wrapper = document.createElement('div');
     wrapper.className = 'tbw-empty-message';
-    wrapper.innerHTML = sanitizeHTML(result);
+    setSanitizedHTML(wrapper, result);
     return wrapper;
   }
   return result;

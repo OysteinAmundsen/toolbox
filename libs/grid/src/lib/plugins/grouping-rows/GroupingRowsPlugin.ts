@@ -8,6 +8,7 @@ import { GridClasses } from '../../core/constants';
 import { aggregatorRegistry } from '../../core/internal/aggregators';
 import { announce, getA11yMessage } from '../../core/internal/aria';
 import { setRowLoadingState } from '../../core/internal/loading';
+import { setSanitizedHTML } from '../../core/internal/sanitize';
 import {
   BaseGridPlugin,
   CellClickEvent,
@@ -732,10 +733,9 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
         (rowEl as RowElementInternal).__isCustomRow = true; // Mark for proper class reset on recycle
         rowEl.setAttribute('data-group-depth', String(row.__groupDepth));
         if (typeof result === 'string') {
-          rowEl.innerHTML = result;
+          setSanitizedHTML(rowEl, result);
         } else {
-          rowEl.innerHTML = '';
-          rowEl.appendChild(result);
+          rowEl.replaceChildren(result);
         }
         return true;
       }

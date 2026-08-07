@@ -6,6 +6,7 @@
 
 import { resolveCellValue } from '../../core/internal/value-accessor';
 import type { ColumnConfig } from '../../core/types';
+import { formatDelimitedValue, type DelimitedFormatOptions } from '../shared/data-collection';
 import type { ExportParams } from './types';
 
 /** CSV export options * @since 0.1.1
@@ -19,31 +20,35 @@ export interface CsvOptions {
   quoteStrings?: boolean;
   /** Add UTF-8 BOM for Excel compatibility (default: false) */
   bom?: boolean;
+  /**
+   * Neutralize spreadsheet formula injection (CWE-1236) by prefixing string
+   * values that start with `=`, `+`, `-`, `@`, TAB or CR with a single quote,
+   * so Excel / LibreOffice / Sheets render them as text instead of evaluating
+   * them (default: `true`).
+   *
+   * Set to `false` only when the exported data is fully trusted AND the file is
+   * re-imported by a parser that must see the original characters.
+   *
+   * @since 3.5.0
+   */
+  escapeFormulas?: boolean;
 }
 
 /**
  * Format a value for CSV output.
  * Handles null, Date, objects, and strings with special characters.
  *
- * Dispatch order is `typeof`-first because string + number cover the vast
- * majority of cell values; the cheap typeof check skips an `instanceof Date`
- * probe (which V8 cannot fold into a fast path) for every plain string cell.
+ * @param value - The cell value to format
+ * @param quote - Quote strings containing `,`, `"`, CR or LF (default: `true`)
+ * @param escapeFormulas - Neutralize spreadsheet formula injection (default: `true`)
  */
-export function formatCsvValue(value: any, quote = true): string {
-  // Hot path: strings (most CSV cells).
-  if (typeof value === 'string') {
-    if (quote && (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r'))) {
-      return `"${value.replace(/"/g, '""')}"`;
-    }
-    return value;
-  }
-  if (typeof value === 'number') return String(value);
-  if (typeof value === 'boolean') return value ? 'true' : 'false';
-  if (value == null) return '';
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'object') return JSON.stringify(value);
-  // Symbols, bigints, etc.
-  return String(value);
+export function formatCsvValue(value: any, quote = true, escapeFormulas = true): string {
+  return formatDelimitedValue(value, {
+    delimiter: ',',
+    newline: '\n',
+    quoting: quote ? 'auto' : 'never',
+    escapeFormulas,
+  });
 }
 
 /**
@@ -52,7 +57,13 @@ export function formatCsvValue(value: any, quote = true): string {
 export function buildCsv(rows: any[], columns: ColumnConfig[], params: ExportParams, options: CsvOptions = {}): string {
   const delimiter = options.delimiter ?? ',';
   const newline = options.newline ?? '\n';
-  const quote = options.quoteStrings ?? true;
+  // Built once — buildCsv is a hot path (50K x 6 cells), so no per-cell alloc.
+  const format: DelimitedFormatOptions = {
+    delimiter,
+    newline,
+    quoting: (options.quoteStrings ?? true) ? 'auto' : 'never',
+    escapeFormulas: options.escapeFormulas,
+  };
   const lines: string[] = [];
 
   // UTF-8 BOM for Excel compatibility
@@ -63,7 +74,7 @@ export function buildCsv(rows: any[], columns: ColumnConfig[], params: ExportPar
     const headerRow = columns.map((col) => {
       const header = col.header || col.field;
       const processed = params.processHeader ? params.processHeader(header, col.field) : header;
-      return formatCsvValue(processed, quote);
+      return formatDelimitedValue(processed, format);
     });
     lines.push(headerRow.join(delimiter));
   }
@@ -75,7 +86,7 @@ export function buildCsv(rows: any[], columns: ColumnConfig[], params: ExportPar
       if (params.processCell) {
         value = params.processCell(value, col.field, row);
       }
-      return formatCsvValue(value, quote);
+      return formatDelimitedValue(value, format);
     });
     lines.push(cells.join(delimiter));
   }

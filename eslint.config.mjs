@@ -27,10 +27,16 @@ export default [
           // published `@toolbox-web/grid` package whose tsconfig `paths` point at
           // `dist/` (deliberate, for multi-version isolation). Since Nx 23's
           // resolver treats those dist-pointing aliases as non-buildable, this
-          // sub-check false-positives on a genuinely buildable dependency. The
-          // tag-based `depConstraints` below still enforce the real boundaries.
+          // sub-check false-positives on a genuinely buildable dependency.
           enforceBuildableLibDependency: false,
           allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
+          // Deliberately permissive. The same dist-pointing aliases above mean Nx
+          // cannot attribute `@toolbox-web/grid[/subpath]` back to the `grid`
+          // project, so ANY tag-based constraint here fires on every legitimate
+          // adapter -> core import. Projects still carry real `type:`/`scope:`/
+          // `layer:` tags (useful for `nx affected` filtering); the boundaries
+          // themselves are enforced by the graph-independent
+          // `no-restricted-imports` rules further down.
           depConstraints: [
             {
               sourceTag: '*',
@@ -111,24 +117,65 @@ export default [
   },
   {
     // HARD RULE (#370): the grid core MUST NOT depend on any plugin. Forbid
-    // value imports from the shell plugin in `libs/grid/src/lib/core/**`.
-    // `import type` is allowed (the deprecated `core/types` re-aliases shell
-    // types). The single sanctioned value import is the shell auto-register in
-    // `core/grid.ts`, which carries an inline `eslint-disable-next-line`.
+    // value imports from `plugins/**` in `libs/grid/src/lib/core/**`.
+    // `import type` is allowed (core/types re-aliases some plugin types, and
+    // the PluginManager seam is typed against plugin interfaces).
     files: ['libs/grid/src/lib/core/**/*.ts'],
-    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
           patterns: [
             {
-              group: ['**/plugins/shell', '**/plugins/shell/**'],
+              group: ['**/plugins/*', '**/plugins/*/**'],
               allowTypeImports: true,
               message:
-                'Core must not depend on the shell plugin (#370). Use `import type` only, or route through the PluginManager seam.',
+                'Core must not depend on any plugin (#370). Use `import type` only, or route through the PluginManager seam (`getPluginByName`/`getPlugin`).',
             },
           ],
+        },
+      ],
+    },
+  },
+  {
+    // Adapters are siblings: each one may depend on the core grid, but NEVER on
+    // another adapter (that would drag React into a Vue bundle, etc.). Enforced
+    // here rather than via Nx `depConstraints` because the dist-pointing
+    // tsconfig aliases stop Nx from resolving these specifiers to a project.
+    files: ['libs/grid-angular/**/*.ts', 'libs/grid-react/**/*.{ts,tsx}', 'libs/grid-vue/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@toolbox-web/grid-angular', '@toolbox-web/grid-react', '@toolbox-web/grid-vue', '**/grid-angular/**', '**/grid-react/**', '**/grid-vue/**'],
+              message:
+                'An adapter must not import another adapter. Depend on `@toolbox-web/grid` and duplicate the small amount of framework-specific glue instead.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Every string that reaches `innerHTML` in library source must go through
+    // the sanitizer. `setSanitizedHTML(el, html)` is the canonical sink. The
+    // only accepted right-hand sides are static markup (a string literal or a
+    // template literal with no interpolation) and a `sanitizeHTML()` call. The
+    // rare legitimate exception (editor markup, which is built from the very
+    // form controls the sanitizer strips) carries an inline disable + reason.
+    files: ['libs/grid/src/lib/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts', '**/internal/sanitize.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "AssignmentExpression[left.property.name='innerHTML']:not([right.type='Literal']):not([right.type='TemplateLiteral'][right.expressions.length=0]):not([right.callee.name='sanitizeHTML']):not([right.callee.name='booleanCellHTML'])",
+          message:
+            'Assigning a computed string to innerHTML is an XSS sink. Use `setSanitizedHTML(el, html)` from core/internal/sanitize.',
         },
       ],
     },

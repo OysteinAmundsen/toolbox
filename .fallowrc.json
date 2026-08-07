@@ -18,7 +18,16 @@
     "**/test/setup.ts",
     "**/*.bench.ts",
     "demos/**/src/main.ts",
-    "demos/**/tools/**/*.{js,mjs}"
+    "demos/**/tools/**/*.{js,mjs}",
+
+    // Published subpath entry points. Each of these is a real package export
+    // (`@toolbox-web/grid-vue/features/*`, `@toolbox-web/grid-angular/*`) that
+    // consumers import directly, so nothing inside the monorepo imports them.
+    // Without these roots fallow reports every adapter feature hook as dead.
+    "libs/grid-react/src/features/*.ts",
+    "libs/grid-vue/src/features/*.ts",
+    "libs/grid-angular/src/lib/directives/index.ts",
+    "libs/grid-angular/src/lib/interfaces/index.ts"
   ],
 
   // Dependencies fallow reports as unused/unlisted that are actually real:
@@ -53,7 +62,9 @@
     "eslint-config-prettier",
     "eslint-plugin-import",
     "eslint-plugin-playwright",
-    "pagefind"
+    "pagefind",
+    // Resolved by Vite/Astro internally, never imported by name.
+    "lightningcss"
   ],
 
   // Quiet exported helpers that are still referenced elsewhere in their own file;
@@ -76,7 +87,13 @@
     "coverage/**",
     "tmp/**",
     "playwright-report/**",
-    "test-results/**"
+    "test-results/**",
+    // Pure CSS package — no TS/JS for fallow to analyse; its presence only
+    // skews the duplication numbers.
+    "libs/themes/**",
+    // Nested installs of our own published packages (multi-version isolation
+    // testing). Analysing them double-counts every grid symbol.
+    "libs/*/node_modules/**"
   ],
   "health": {
     "maxCyclomatic": 20,

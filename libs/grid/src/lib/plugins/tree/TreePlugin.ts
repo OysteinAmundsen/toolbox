@@ -6,6 +6,7 @@
 
 import { GridClasses } from '../../core/constants';
 import { createDefaultSpinner } from '../../core/internal/loading';
+import { setSanitizedHTML } from '../../core/internal/sanitize';
 import { builtInSort } from '../../core/internal/sorting';
 import type { GridElement } from '../../core/plugin/base-plugin';
 import {
@@ -769,7 +770,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
         if (result instanceof Node) {
           content.appendChild(result);
         } else if (typeof result === 'string') {
-          content.innerHTML = result;
+          setSanitizedHTML(content, result);
         }
       } else {
         content.textContent = value != null ? String(value) : '';

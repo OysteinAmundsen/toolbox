@@ -10,7 +10,7 @@
  */
 
 import { GridClasses } from '../constants';
-import { sanitizeHTML } from './sanitize';
+import { setSanitizedHTML } from './sanitize';
 
 // #region Element Factories
 /**
@@ -283,7 +283,7 @@ export function buildShellHeader(options: ShellHeaderOptions): HTMLDivElement {
     });
     toggleBtn.dataset.icon = 'tool-panel';
     if (options.toolPanelIcon !== undefined) {
-      toggleBtn.innerHTML = sanitizeHTML(options.toolPanelIcon);
+      setSanitizedHTML(toggleBtn, options.toolPanelIcon);
     }
     toolbar.appendChild(toggleBtn);
   }
@@ -361,7 +361,7 @@ function buildAccordionHeader(
 
   if (panel.icon) {
     const iconSpan = createElement('span', { class: 'tbw-accordion-icon' });
-    iconSpan.innerHTML = sanitizeHTML(panel.icon);
+    setSanitizedHTML(iconSpan, panel.icon);
     headerBtn.appendChild(iconSpan);
   }
 
@@ -374,7 +374,7 @@ function buildAccordionHeader(
   if (!isSinglePanel) {
     const chevronSpan = createElement('span', { class: 'tbw-accordion-chevron', 'data-icon': 'expand' });
     if (options.expandIcon !== undefined) {
-      chevronSpan.innerHTML = sanitizeHTML(options.expandIcon);
+      setSanitizedHTML(chevronSpan, options.expandIcon);
     }
     headerBtn.appendChild(chevronSpan);
   }

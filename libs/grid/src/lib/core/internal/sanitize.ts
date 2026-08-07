@@ -42,7 +42,7 @@ export function escapeHtml(text: string): string {
  * These can execute scripts, load external resources, or manipulate the page.
  */
 const DANGEROUS_TAGS = new Set(
-  'script|iframe|object|embed|form|input|button|textarea|select|link|meta|base|style|template|slot|portal|frame|frameset|applet|noscript|noembed|plaintext|xmp|listing'.split(
+  'script|iframe|object|embed|form|input|button|textarea|select|link|meta|base|style|template|slot|portal|frame|frameset|applet|noscript|noembed|plaintext|xmp|listing|math'.split(
     '|',
   ),
 );
@@ -64,16 +64,13 @@ const DANGEROUS_URL_PROTOCOL = /^\s*(javascript|vbscript|data|blob):/i;
 
 /**
  * Sanitize an HTML string by removing dangerous tags and attributes.
- * This is a defense-in-depth measure for content rendered via innerHTML.
  *
- * **When to use:** ANY path that writes a user-supplied string to `innerHTML`
- * MUST pass through this function — `gridConfig.icons.*` (icon strings can be
- * SVG markup), cell renderer string returns, group-header renderer string
- * returns, light-DOM tool panel fallback content, plugin wrappers, and any new
- * extension point that turns a user string into markup. Using `textContent` is
- * wrong here (it renders HTML/SVG icon strings as literal text); using raw
- * `innerHTML` is wrong (it is an XSS sink). The canonical reference
- * implementation is `core/internal/rows.ts` (cell renderer path) — mirror it.
+ * Prefer {@link setSanitizedHTML} wherever the result is destined for an
+ * element: this function has to re-serialize the sanitized tree back to a
+ * string, and the caller's `innerHTML =` then re-parses it. That
+ * parse→serialize→parse round trip is the classic mutation-XSS vector, and it
+ * costs a second parse. Use this overload only when a string is genuinely
+ * required (e.g. the value is stored, compared, or handed to another API).
  *
  * @param html - Raw HTML string to sanitize
  * @returns Sanitized HTML string safe for innerHTML
@@ -90,6 +87,52 @@ export function sanitizeHTML(html: string): string {
   sanitizeNode(template.content);
 
   return template.innerHTML;
+}
+
+/**
+ * Parse and sanitize an HTML string into a detached {@link DocumentFragment}.
+ *
+ * This is the primitive {@link setSanitizedHTML} builds on, exposed for callers
+ * that need to inspect or relocate the nodes before insertion.
+ *
+ * @param html - Raw HTML string to sanitize
+ * @returns Fragment containing the sanitized nodes (empty for falsy input)
+ */
+export function sanitizeToFragment(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  if (html && typeof html === 'string') {
+    template.innerHTML = html;
+    sanitizeNode(template.content);
+  }
+  return template.content;
+}
+
+/**
+ * Replace an element's children with the sanitized parse of `html`.
+ *
+ * **This is the canonical sink for user-supplied markup** — cell/header/group
+ * renderer string returns, `gridConfig.icons.*`, light-DOM tool panel fallback
+ * content, and any new extension point that turns a user string into markup.
+ * `textContent` is wrong here (it renders SVG icon strings as literal text) and
+ * raw `innerHTML` is wrong (it is an XSS sink).
+ *
+ * Nodes are moved from the parse fragment rather than re-serialized, so the
+ * sanitized tree is exactly what lands in the document.
+ *
+ * @param el - Element whose children are replaced
+ * @param html - Raw HTML string to sanitize and insert
+ */
+export function setSanitizedHTML(el: Element, html: string): void {
+  if (!html || typeof html !== 'string') {
+    el.replaceChildren();
+    return;
+  }
+  // Nothing for the parser to do: no markup and no entities to decode.
+  if (html.indexOf('<') === -1 && html.indexOf('&') === -1) {
+    el.textContent = html;
+    return;
+  }
+  el.replaceChildren(sanitizeToFragment(html));
 }
 
 /**
@@ -443,7 +486,10 @@ export function evalTemplateString(raw: string, ctx: EvalContext): string {
   const evaluated = raw.replace(EXPR_RE, (_m, expr) => {
     const res = evalSingle(expr, ctx);
     parts.push({ expr: expr.trim(), result: res });
-    return res;
+    // The template markup is author-controlled; the interpolated data is not.
+    // Escaping here stops row data from injecting elements or breaking out of
+    // an attribute (sanitizeHTML downstream only strips *dangerous* markup).
+    return res === EMPTY_SENTINEL ? res : escapeHtml(res);
   });
   const finalStr = postProcess(evaluated);
   // If every part evaluated to EMPTY_SENTINEL we treat this as intentionally blank.

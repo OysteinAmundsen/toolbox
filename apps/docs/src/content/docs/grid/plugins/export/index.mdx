@@ -199,6 +199,23 @@ Export all visible data to CSV. Toggle "Selected only" and select some rows to e
 | `onlyVisible`    | `boolean` | `true`    | Export only visible columns                              |
 | `onlySelected`   | `boolean` | `false`   | Export only selected rows (requires SelectionPlugin)     |
 
+### CSV formula escaping
+
+By default, CSV export prefixes any string value beginning with `=`, `+`, `-`, `@`, a tab or a
+carriage return with a single quote (`'`). Spreadsheet applications interpret those characters as
+the start of a formula, so exporting untrusted row data without this guard lets a value such as
+`=cmd|'/c calc'!A1` execute when the file is opened. The quote is not displayed by the spreadsheet.
+
+Set `escapeFormulas: false` in the CSV export options if you are exporting trusted data and need
+values to round-trip byte-for-byte:
+
+```ts
+grid.exportCsv({ escapeFormulas: false });
+```
+
+Excel (SpreadsheetML) export is unaffected — it declares cells as `ss:Type="String"`, so formulas
+are never evaluated.
+
 ## Programmatic API
 
 The ExportPlugin provides methods for exporting data with fine-grained control over which columns and rows to include. Like the ClipboardPlugin, it accepts `columns` and `rowIndices` parameters so you can export exactly the data you need.
@@ -257,6 +274,7 @@ exportPlugin.exportExcel({
 | `processHeaderRow` | `(cell, rowIndex) => HeaderRowCell \| null` | -  | Custom processor for plugin-contributed header rows (e.g. column groups). Return `null` to blank a cell; if every cell in a row is blank the row is dropped. **Since 2.10.0** |
 | `mode`           | `'raw' \| 'formatted'`          | `'raw'`       | `'raw'` = underlying typed values; `'formatted'` = what the grid displays (`column.format` + type defaults applied) |
 | `fileExtension`  | `string`                        | `'.xls'`      | Override file extension for Excel export (e.g. `'.xml'`) |
+| `escapeFormulas` | `boolean`                       | `true`        | Neutralise spreadsheet formula injection in CSV output (CSV only). **Since 3.5.0** |
 | `excelStyles`    | `ExcelStyleConfig`              | -             | Excel style configuration (Excel only) |
 
 ## Column Groups in Exports

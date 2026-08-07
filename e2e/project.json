@@ -3,6 +3,7 @@
   "$schema": "../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "sourceRoot": "e2e",
+  "tags": ["type:e2e", "scope:demo"],
   "implicitDependencies": ["demo-vanilla", "demo-react", "demo-angular", "demo-vue", "docs"],
   "targets": {
     "e2e": {

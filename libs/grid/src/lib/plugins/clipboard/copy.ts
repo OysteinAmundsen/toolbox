@@ -7,6 +7,7 @@
 import { CLIPBOARD_FAILED, warnDiagnostic } from '../../core/internal/diagnostics';
 import { resolveCellValue } from '../../core/internal/value-accessor';
 import type { ColumnConfig } from '../../core/types';
+import { formatDelimitedValue, type DelimitedFormatOptions } from '../shared/data-collection';
 import type { ClipboardConfig } from './types';
 
 /** Parameters for building clipboard text */
@@ -30,10 +31,6 @@ export interface CopyParams {
  * - Object → JSON string
  * - Other → String conversion with optional quoting
  *
- * Dispatch order is `typeof`-first: string + number cover the vast majority
- * of cell values, so the cheap typeof check short-circuits before the
- * `instanceof Date` probe (which V8 can't fold into a fast path).
- *
  * @param value - The cell value to format
  * @param field - The field name
  * @param row - The full row object
@@ -44,23 +41,17 @@ export function formatCellValue(value: unknown, field: string, row: unknown, con
   if (config.processCell) {
     return config.processCell(value, field, row);
   }
+  return formatDelimitedValue(value, toFormatOptions(config));
+}
 
-  const delimiter = config.delimiter ?? '\t';
-  const newline = config.newline ?? '\n';
-
-  // Hot path: strings.
-  if (typeof value === 'string') {
-    if (config.quoteStrings || value.includes(delimiter) || value.includes(newline) || value.includes('"')) {
-      return `"${value.replace(/"/g, '""')}"`;
-    }
-    return value;
-  }
-  if (typeof value === 'number') return String(value);
-  if (typeof value === 'boolean') return value ? 'true' : 'false';
-  if (value == null) return '';
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
+/** Map the plugin config onto the shared delimited-format options. */
+function toFormatOptions(config: ClipboardConfig): DelimitedFormatOptions {
+  return {
+    delimiter: config.delimiter ?? '\t',
+    newline: config.newline ?? '\n',
+    quoting: config.quoteStrings ? 'always' : 'auto',
+    escapeFormulas: config.escapeFormulas,
+  };
 }
 
 /**
@@ -73,6 +64,8 @@ export function buildClipboardText(params: CopyParams): string {
   const { rows, columns, selectedIndices, config } = params;
   const delimiter = config.delimiter ?? '\t';
   const newline = config.newline ?? '\n';
+  // Built once — this runs per cell across the whole selection.
+  const format = toFormatOptions(config);
 
   // Filter to visible columns (not hidden, not internal __ prefixed)
   const visibleColumns = columns.filter((c) => !c.hidden && !c.field.startsWith('__'));
@@ -101,7 +94,12 @@ export function buildClipboardText(params: CopyParams): string {
     const row = rows[idx];
     if (!row) continue;
 
-    const cells = visibleColumns.map((col) => formatCellValue(resolveCellValue(row, col), col.field, row, config));
+    const cells = visibleColumns.map((col) => {
+      const value = resolveCellValue(row, col);
+      return config.processCell
+        ? config.processCell(value, col.field, row)
+        : formatDelimitedValue(value, format);
+    });
     lines.push(cells.join(delimiter));
   }
 

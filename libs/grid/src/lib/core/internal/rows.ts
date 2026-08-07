@@ -9,7 +9,7 @@ import {
   warnDiagnostic,
 } from './diagnostics';
 import { ensureCellVisible } from './keyboard';
-import { evalTemplateString, finalCellScrub, sanitizeHTML } from './sanitize';
+import { evalTemplateString, finalCellScrub, setSanitizedHTML } from './sanitize';
 import { booleanCellHTML, clearCellFocus, formatDateValue, getRowIndexFromCell } from './utils';
 import { resolveCellValue } from './value-accessor';
 
@@ -622,7 +622,7 @@ function applyRendererOutput(
   if (typeof produced === 'string') {
     // Release editor views before wiping cell content
     grid.__frameworkAdapter?.releaseCell?.(cell);
-    cell.innerHTML = sanitizeHTML(produced);
+    setSanitizedHTML(cell, produced);
   } else if (produced instanceof Node) {
     // Skip when the container is already a child of the cell — the framework
     // adapter reused it and re-rendered in place.
@@ -653,7 +653,7 @@ function applyTemplateOutput(grid: GridHost, cell: HTMLElement, html: string | n
   }
   // Release any framework views before replacing innerHTML
   if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
-  cell.innerHTML = sanitizeHTML(html);
+  setSanitizedHTML(cell, html);
   finalCellScrub(cell);
 }
 
@@ -866,7 +866,7 @@ function renderViaRenderer(
   });
   if (typeof produced === 'string') {
     // Sanitize HTML from viewRenderer to prevent XSS from user-controlled data
-    cell.innerHTML = sanitizeHTML(produced);
+    setSanitizedHTML(cell, produced);
     return true;
   }
   if (produced instanceof Node) {
@@ -964,11 +964,12 @@ function renderCellContent(
     const output = compiled({ row: rowData, value, field: col.field, column: col });
     const blocked = compiled.__blocked;
     // Sanitize compiled template output to prevent XSS
-    cell.innerHTML = blocked ? '' : sanitizeHTML(output);
     if (blocked) {
       // Forcefully clear any residual whitespace text nodes for deterministic emptiness
       cell.textContent = '';
       cell.setAttribute('data-blocked-template', '');
+    } else {
+      setSanitizedHTML(cell, output);
     }
     return true;
   }
@@ -982,7 +983,7 @@ function renderCellContent(
       return false;
     }
     // Sanitize inline template output to prevent XSS
-    cell.innerHTML = sanitizeHTML(evalTemplateString(rawTpl, { row: rowData, value }));
+    setSanitizedHTML(cell, evalTemplateString(rawTpl, { row: rowData, value }));
     return true;
   }
 

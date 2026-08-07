@@ -1,5 +1,24 @@
 # Changelog
 
+## [3.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.4.0...grid-3.5.0) (2026-08-07)
+
+
+### Features
+
+* **grid:** add locale/t() i18n mechanism for built-in plugin UI ([4992d2c](https://github.com/OysteinAmundsen/toolbox/commit/4992d2c5f3bb151c4d4e86e7317e87c808353166))
+* **grid:** add pointer-modality detection, touch-input guide and e2e scaffold ([#307](https://github.com/OysteinAmundsen/toolbox/issues/307)) ([155f83d](https://github.com/OysteinAmundsen/toolbox/commit/155f83dc1770b23374b857d693e5604a750fc2b5))
+* **grid:** convert non-DnD mouse drags to pointer events ([#303](https://github.com/OysteinAmundsen/toolbox/issues/303)) ([f468204](https://github.com/OysteinAmundsen/toolbox/commit/f468204bfec30327a5efd41bc7fe84f7c1f28bc8))
+* **grid:** route touch long-press to the context menu ([#306](https://github.com/OysteinAmundsen/toolbox/issues/306)) ([#446](https://github.com/OysteinAmundsen/toolbox/issues/446)) ([a7c8bfb](https://github.com/OysteinAmundsen/toolbox/commit/a7c8bfb88677267ece4b758f0bbdaeb1baf9bcfa))
+* **grid:** touch hit-target sizing and coarse-pointer visible controls ([#443](https://github.com/OysteinAmundsen/toolbox/issues/443)) ([52e4d0c](https://github.com/OysteinAmundsen/toolbox/commit/52e4d0cb572332104d17afec31bf6a165631c326))
+* **selection:** touch selection mode with corner range handles ([#304](https://github.com/OysteinAmundsen/toolbox/issues/304)) ([5e265eb](https://github.com/OysteinAmundsen/toolbox/commit/5e265eb22c88761f9be5aaf631a42b394e018d72))
+
+
+### Bug Fixes
+
+* **context-menu:** open menu for synthesised contextmenu events ([#302](https://github.com/OysteinAmundsen/toolbox/issues/302)) ([65ca12e](https://github.com/OysteinAmundsen/toolbox/commit/65ca12e2636380121d60efc87fe1cf39dea483fc))
+* **grid:** sanitize all renderer output and neutralise CSV/clipboard formula injection ([47fe586](https://github.com/OysteinAmundsen/toolbox/commit/47fe586f5aa5c898d13f7677337c455eb9cc2b4b))
+* **grid:** show range handles for tap-created touch ranges ([fd7a7bc](https://github.com/OysteinAmundsen/toolbox/commit/fd7a7bc07de1281258e6f8b62407e52512dc91da))
+
 ## [3.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.3.1...grid-3.4.0) (2026-07-27)
 
 

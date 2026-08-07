@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.3.0...grid-vue-2.4.0) (2026-08-07)
+
+
+### Features
+
+* **grid:** add locale/t() i18n mechanism for built-in plugin UI ([4992d2c](https://github.com/OysteinAmundsen/toolbox/commit/4992d2c5f3bb151c4d4e86e7317e87c808353166))
+
+
+### Bug Fixes
+
+* **adapters:** register rowDragDrop and stickyRows feature props in React and Vue ([b52c844](https://github.com/OysteinAmundsen/toolbox/commit/b52c8447136d4716073fe9aa11d597e74dddeb36))
+* **grid:** sanitize all renderer output and neutralise CSV/clipboard formula injection ([47fe586](https://github.com/OysteinAmundsen/toolbox/commit/47fe586f5aa5c898d13f7677337c455eb9cc2b4b))
+
 ## [2.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.2.0...grid-vue-2.3.0) (2026-07-27)
 
 

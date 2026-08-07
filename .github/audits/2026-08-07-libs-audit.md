@@ -4,13 +4,15 @@ Scope: `libs/grid`, `libs/grid-angular`, `libs/grid-react`, `libs/grid-vue` (the
 Method: `bunx fallow health|dead-code|dupes`, targeted source review, existing bench artifacts
 (`tmp/bench-current-grid-1.json`), coverage summaries (`coverage/libs/*`), knowledge base.
 
-> **Status: remediated in two batches.** Batch 1 closed all security findings (S1–S5), the
+> **Status: remediated in three batches.** Batch 1 closed all security findings (S1–S5), the
 > modularity enforcement gaps (M1–M2) and the `formatCsvValue`/`escapeHtml` duplication. Batch 2
 > closed **D1** (i18n), **D3** (untested adapter entry points), the **S3** and **I2** residuals,
-> **M3**, and the dead `FocusManager.destroy` + 3 unused root devDependencies. Fixed findings are
-> **removed from this document**. What remains below is the current, unresolved state. See the
-> two "Remediation log" sections at the end for what changed and which findings were reclassified
-> after closer inspection.
+> **M3**, and the dead `FocusManager.destroy` + 3 unused root devDependencies. Batch 3 closed
+> **S6** (editor trust boundary documented), turned **I1** into a machine-checked parity spec, and
+> covered the two functions **D4** flagged as untested. Fixed findings are **removed from this
+> document**. What remains below is the current, unresolved state. See the three "Remediation log"
+> sections at the end for what changed and which findings were reclassified after closer
+> inspection.
 
 ---
 
@@ -86,18 +88,6 @@ browser-maintained and mXSS-safe by construction. Not urgent now that the round 
 icons. Consider allowing `data:image/(png|jpeg|gif|webp)` explicitly — but **not**
 `data:image/svg+xml`, which is scriptable.
 
-#### S6 — Editor markup is deliberately not sanitized (ACCEPTED RISK, documented)
-
-`editor-injection.ts` assigns editor HTML to `innerHTML` without sanitizing, because the sanitizer
-strips `input`/`select`/`textarea`/`button` — i.e. everything an editor is made of. The strings
-come from author-supplied editor factories and light-DOM `<template editor>` markup (code, not row
-data), and interpolated row values are HTML-escaped by the compiled template. Both sites carry an
-inline `eslint-disable-next-line no-restricted-syntax` with that rationale.
-
-This is the correct trade-off today, but it means **a column editor is a code-trust boundary**. If
-editor specs ever become configurable from a serialized/remote source, this becomes a live
-vulnerability. Worth an explicit note in the editing docs.
-
 ### Not findings (verified clean)
 
 - No `eval`, `new Function`, `document.write`, or `insertAdjacentHTML` anywhere in `libs/`.
@@ -170,38 +160,22 @@ filtering.
 
 ### Findings
 
-#### I1 — React ↔ Vue adapters are ~1 100 lines of near-verbatim duplication (MEDIUM)
+#### I1 (residual) — adapter duplication is now guarded, not removed (LOW)
 
-Fallow's `mirrored_directories` detector names it directly:
+The drift risk is closed: `feature-prop-keys.parity.spec.ts` fails the build when the React and
+Vue `BUILTIN_FEATURE_PROP_KEYS` lists diverge outside a documented allowlist. The duplication
+itself remains and is mostly framework-shaped, so removing it is optional:
 
 | Mirror                                                | Shared files                                                                                  | Lines |
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------- | ----- |
 | `grid-react/src/lib/` ↔ `grid-vue/src/lib/`           | `feature-props.ts`, `feature-prop-keys.ts`, `post-mount-refresh-hooks.ts`, bench              | 707   |
 | `grid-react/src/features/` ↔ `grid-vue/src/features/` | `export`, `filtering`, `master-detail`, `pinned-rows`, `responsive`, `selection`, `undo-redo` | 421   |
 
-Largest single clone group: **481 lines** between `grid-react/src/lib/feature-props.ts:194` and
-`grid-vue/src/lib/feature-props.ts:187`. Then `filtering.ts` (107 L), `undo-redo.ts` (87 L),
-`selection.ts` (68 L), `export.ts` (62 L), `feature-prop-keys.ts` (59 L), and the
-adapter cores (`react-grid-adapter.ts` ↔ `vue-grid-adapter.ts`, three groups totalling ~125 L).
-`grid-angular` participates in three-way clones for `filtering`, `selection` and `export`.
-
-Some of this is _framework-shaped_ and correctly duplicated (the knowledge base explicitly rules
-out "ship-without-caller for API parity"). But `feature-props.ts` at 481 identical lines is not
-framework-shaped — it is a type-level catalogue that differs only in the `ReactNode` vs `VNode`
-return type. Same for `feature-prop-keys.ts` (a `Set` of string literals) and the
-`row-diff.ts` clone shared by Angular and React.
-
-**Options, cheapest first:**
-
-1. **Codegen** `feature-props.ts` / `feature-prop-keys.ts` from a single manifest. The three-way
-   `new-adapter-feature` skill already exists precisely because this drifts — codegen retires the
-   skill's most error-prone step.
-2. Extract a private `libs/grid-adapter-shared/` (unpublished, source-only) for the genuinely
-   framework-neutral helpers: `row-diff.ts`, `post-mount-refresh-hooks.ts`, `feature-prop-keys.ts`,
-   the `column-shorthand` re-export, and the `bridge`/`HTMLElement` helper clones in the adapter
-   cores. Generic over the node type where needed.
-3. At minimum, make the duplication _checked_: a spec that asserts the two `feature-props.ts`
-   key sets are identical would turn silent drift into a red test.
+Largest single clone group: **481 lines** between the two `feature-props.ts` files, which differ
+only in the `ReactNode` vs `VNode` return type. If this is ever worth removing, the options are
+codegen from a single manifest, or a private source-only `libs/grid-adapter-shared/` for the
+genuinely framework-neutral helpers (`row-diff.ts`, `post-mount-refresh-hooks.ts`, the
+`bridge`/`HTMLElement` helper clones). Neither is urgent now that drift is a red test.
 
 ---
 
@@ -247,7 +221,7 @@ bug. Never delete a member on fallow's say-so without grepping for its name as a
 **Fix:** mark the real public API `@public` in JSDoc and extend `.fallowrc.json` so plugin
 `index.ts` public classes are roots, so the signal-to-noise ratio of future runs improves.
 
-#### D4 — Test coverage is uneven (MEDIUM)
+#### D4 (residual) — branch coverage is uneven (LOW)
 
 | Package        | Lines  | Branches | Functions |
 | -------------- | ------ | -------- | --------- |
@@ -256,14 +230,13 @@ bug. Never delete a member on fallow's say-so without grepping for its name as a
 | `grid`         | 83.9 % | 71.0 %   | 83.6 %    |
 | `grid-angular` | 73.3 % | 71.9 %   | 76.1 %    |
 
-Branch coverage sits at ~71–74 % everywhere — that is where the bugs live in a config-precedence-
-heavy codebase. `grid-angular` at 73 % line / 76 % function coverage is the outlier and is also the
-adapter with no `typecheck` target (by design — ngc covers it) and the most bespoke wiring
-(`registerFeatureConfigPreprocessor`, `registerTemplateBridge`).
-
-Fallow flags two files as "complex functions with no test coverage path":
-`core/internal/inference.ts` (2 functions) and `plugins/tree/tree-detect.ts` (4 functions).
-`inference.ts` is `#384`-new and sits directly on the config-precedence path — prioritise it.
+The two files fallow flagged as "complex functions with no test coverage path" are now covered:
+`core/internal/inference.ts` (the config-precedence path, `#384`-new) and
+`plugins/tree/tree-detect.ts`. What remains is the broad ~71–74 % branch coverage — that is where
+the bugs live in a config-precedence-heavy codebase. `grid-angular` at 73 % line / 76 % function
+coverage is the outlier and is also the adapter with no `typecheck` target (by design — ngc covers
+it) and the most bespoke wiring (`registerFeatureConfigPreprocessor`, `registerTemplateBridge`).
+No specific hot spot identified; treat as ongoing rather than a task.
 
 ---
 
@@ -377,25 +350,26 @@ type-safety regression. Read both bodies before de-duplicating.
 
 ### Now
 
-1. **I1** — codegen or extract the React↔Vue `feature-props.ts` / `feature-prop-keys.ts`
-   duplication (481 identical lines in the largest clone group).
-2. **D4** — raise branch coverage, starting with `core/internal/inference.ts`, `tree-detect.ts`,
-   and `grid-angular`.
+1. **P1** — profile and optimise multi-key sort (3-key/100 K is 162.6 ms, super-linear in key
+   count).
 
 ### Next
 
-3. **P1** — profile and optimise multi-key sort (3-key/100 K is 162.6 ms, super-linear in key
-   count); **P2** — turn the competitor harness into a tracked nightly metric.
-4. **D2** — adopt a `@public` JSDoc policy so fallow's "unused class member" signal becomes
+2. **P2** — turn the competitor harness into a tracked nightly metric.
+3. **D2** — adopt a `@public` JSDoc policy so fallow's "unused class member" signal becomes
    usable.
-5. **S3 residual** — optionally adopt the Sanitizer API (`Element.setHTML`) where available.
+4. **S3 residual** — optionally adopt the Sanitizer API (`Element.setHTML`) where available.
 
 ### Then
 
-6. **S5** — allow `data:image/(png|jpeg|gif|webp)` while continuing to block
+5. **S5** — allow `data:image/(png|jpeg|gif|webp)` while continuing to block
    `data:image/svg+xml`.
-7. **P3** — turn the bench regression gate hard for `libs/grid` core benches only.
-8. Watch the core bundle: at 45.82 kB gz it is already past the 45 kB soft-warning line, leaving
+6. **P3** — turn the bench regression gate hard for `libs/grid` core benches only.
+7. **D4 residual** — chip away at branch coverage opportunistically; `grid-angular` is the
+   outlier. No specific hot spot; not worth a dedicated task.
+8. **I1 residual** — codegen or extract the React↔Vue adapter duplication. Optional now that
+   drift is caught by a spec.
+9. Watch the core bundle: at 45.82 kB gz it is already past the 45 kB soft-warning line, leaving
    ~4 kB gz before the hard failure.
 
 ### Explicitly do NOT do
@@ -472,3 +446,28 @@ no default map**. WHY: a shipped `DEFAULT_LOCALE` would put every plugin's strin
 bundle whether or not the plugin is loaded, and the core is already 0.8 kB gz past the soft
 warning line. Inline fallbacks are tree-shaken with their plugin, keep the English text adjacent
 to its usage, and make an unmapped key a silent no-op rather than a lookup miss.
+
+---
+
+## Remediation log — batch 3
+
+| Finding             | What changed                                                                                                                                                                                                                                                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S6** (removed)    | The accepted risk is now documented where authors will hit it: a `:::caution[Editor markup is a code-trust boundary]` aside under _Custom Editors_ in the editing docs. States that editor markup bypasses the sanitizer by necessity, that interpolated row values are still escaped, and that an `editor` must never be built from serialized config, a DB column, a URL parameter, or any remote source. |
+| **I1** (downgraded) | Option 3 shipped: `grid-react/src/lib/feature-prop-keys.parity.spec.ts` asserts the React and Vue `BUILTIN_FEATURE_PROP_KEYS` lists match modulo an explicit `ACCEPTED_DIVERGENCE` allowlist, that `BUILTIN ∪ _KnownBuiltinGaps` describes the same universe in both, and that no key appears in both lists in one adapter. Silent drift is now a red test. Codegen / `grid-adapter-shared` remain open but optional. |
+| **D4** (narrowed)   | The two files fallow flagged as having no coverage path are covered: new `plugins/tree/tree-detect.spec.ts` (all 4 exports — lazy indicators, custom `childrenField`, `hasChildren` predicate, depth/count with null rows) and 4 new cases in `core/internal/inference.spec.ts` (untyped provided columns, empty/absent `provided`, no sample data, date-shaped-but-unparseable string). Residual is the broad ~71–74 % branch coverage. |
+
+The parity spec reads both adapters' sources as **text** via `readFileSync` rather than importing
+them — adapter↔adapter imports are banned by a `no-restricted-imports` ESLint rule.
+
+**Not fixed, surfaced instead:** the spec's `ACCEPTED_DIVERGENCE` allowlist contains
+`rowDragDrop`, matching the existing `DECIDED` entry in `adapters.md`. Both adapters ship
+`src/features/row-drag-drop.ts`, but only React extracts it as a prop — so
+`<DataGrid rowDragDrop={…}>` works while `<TbwGrid :row-drag-drop="…">` does not. That is a real
+public-API parity gap, not a spec artifact, and needs its own decision.
+
+New specs: `grid/src/lib/plugins/tree/tree-detect.spec.ts`,
+`grid-react/src/lib/feature-prop-keys.parity.spec.ts`, plus additions to
+`grid/src/lib/core/internal/inference.spec.ts`.
+
+Validation: 31 tests pass across the two grid spec files; 3 tests pass in the parity spec.

@@ -25,6 +25,23 @@ describe('inference', () => {
     expect(columns).toBe(provided);
     expect(typeMap).toEqual({ x: 'number', y: 'boolean' });
   });
+  it('omits untyped provided columns from the typeMap', () => {
+    const provided: any = [{ field: 'x' }, { field: 'y', type: 'boolean' }];
+    const { typeMap } = inferColumns([{ x: 1, y: true }], provided);
+    expect(typeMap).toEqual({ y: 'boolean' });
+  });
+  it('falls back to inference when provided is empty or absent', () => {
+    expect(inferColumns([{ x: 1 }], []).columns.map((c) => c.field)).toEqual(['x']);
+    expect(inferColumns([{ x: 1 }], undefined).columns.map((c) => c.field)).toEqual(['x']);
+  });
+  it('yields no columns when there is no data to sample', () => {
+    const { columns, typeMap } = inferColumns([]);
+    expect(columns).toEqual([]);
+    expect(typeMap).toEqual({});
+  });
+  it('treats a date-shaped but unparseable string as a string', () => {
+    expect(inferType('2024-13-45')).toBe('string');
+  });
 });
 
 describe('overlayInferred', () => {

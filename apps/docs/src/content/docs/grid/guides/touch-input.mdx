@@ -111,8 +111,10 @@ Read the current state with the `touchSelectionActive` getter, and exit programm
 
 ### Cell range corner handles
 
-When a cell range is active in `mode: 'range'`, two draggable dots are rendered at the range's top-left and bottom-right corners (the iOS Numbers / Google
-Sheets idiom). Dragging one resizes the range. They are **not** touch-only — a mouse user gets them too.
+When a cell range is started by a **finger or stylus** in `mode: 'range'`, two draggable dots are rendered at the range's top-left and bottom-right corners (the iOS Numbers / Google
+Sheets idiom). Dragging one resizes the range.
+
+They are deliberately **touch-only**: touch has no Shift/Ctrl, so the handles are the only way to adjust a range. A mouse-started range never shows them — desktop users adjust with Shift+click and can hold multiple ranges at once, where handles sitting inside another range would only be in the way.
 
 Because the grid virtualizes rows, a handle whose anchor cell has scrolled out of the rendered window is hidden until that cell returns.
 

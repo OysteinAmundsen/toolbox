@@ -99,12 +99,7 @@ export class SelectionToolbar {
    *   when a `ContextMenuPlugin` is registered, so touch users keep parity with
    *   the right-click menu.
    */
-  show(
-    container: HTMLElement,
-    selectedCount: number,
-    showMore: boolean,
-    callbacks: SelectionToolbarCallbacks,
-  ): void {
+  show(container: HTMLElement, selectedCount: number, showMore: boolean, callbacks: SelectionToolbarCallbacks): void {
     this.#callbacks = callbacks;
     if (!this.#root) this.#mount(container);
     if (this.#count) {
@@ -183,6 +178,8 @@ const HANDLE_CLASS = 'tbw-range-handle';
  * cell range (the iOS Numbers / Google Sheets idiom).
  *
  * They are additive rather than touch-only: a mouse user can drag them too.
+ * Whether they are rendered at all is decided by `SelectionPlugin`, which only
+ * asks for them when the range was started by a coarse pointer.
  * Positioning is recomputed on every render because the grid recycles row DOM
  * during virtualization, so a handle's anchor cell may not exist at all after
  * a scroll — in that case the handle is simply hidden.
@@ -191,7 +188,6 @@ export class RangeCornerHandles {
   #start: HTMLElement | null = null;
   #end: HTMLElement | null = null;
   #callbacks: RangeHandleCallbacks | null = null;
-
 
   /**
    * Render (or hide) the handles for `rect`.

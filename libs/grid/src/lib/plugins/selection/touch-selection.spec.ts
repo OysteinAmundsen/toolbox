@@ -331,6 +331,8 @@ describe('touch selection mode (#304)', () => {
       const grid = createMockGrid();
       const plugin = new SelectionPlugin({ mode: 'range' });
       plugin.attach(grid);
+      // Handles only render for a coarse-pointer range, so seed one via touch.
+      plugin.onCellMouseDown!(mouseEvent(0, 'touch', 0));
       plugin.ranges = [{ startRow: 0, startCol: 0, endRow: 1, endCol: 1 }];
       plugin.afterRender!();
 
@@ -355,6 +357,28 @@ describe('touch selection mode (#304)', () => {
 
       expect(plugin.ranges[0]).toEqual(before);
       document.elementFromPoint = originalElementFromPoint;
+    });
+
+    it('does not render handles for a mouse-started range', () => {
+      const grid = createMockGrid();
+      const plugin = new SelectionPlugin({ mode: 'range' });
+      plugin.attach(grid);
+      plugin.onCellMouseDown!(mouseEvent(0, 'mouse', 0));
+      plugin.ranges = [{ startRow: 0, startCol: 0, endRow: 1, endCol: 1 }];
+      plugin.afterRender!();
+
+      expect(grid.querySelector('.tbw-range-handle')).toBeNull();
+    });
+
+    it('renders handles for a tap-created range (no long-press involved)', () => {
+      const grid = createMockGrid();
+      const plugin = new SelectionPlugin({ mode: 'range' });
+      plugin.attach(grid);
+      // A coarse tap never reaches onCellMouseDown — only onCellClick.
+      plugin.onCellClick!(clickEvent(0));
+      plugin.afterRender!();
+
+      expect(grid.querySelector('.tbw-range-handle')).not.toBeNull();
     });
   });
 

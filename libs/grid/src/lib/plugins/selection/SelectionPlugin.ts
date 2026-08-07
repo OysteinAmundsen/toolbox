@@ -19,9 +19,9 @@ import type { ColumnConfig } from '../../core/types';
 import {
   computeKeyboardExtension,
   fieldsBetween,
-  type NormalizedModeConfig,
   normalizeMode,
   selectableColumnFields,
+  type NormalizedModeConfig,
 } from './column-selection';
 import {
   createRangeFromAnchor,
@@ -303,6 +303,12 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   }
 
   #touchActive = false;
+  /**
+   * Whether the *current* range was started by a finger/stylus. Gates the
+   * corner handles: on desktop they would sit inside other ranges (multi-range
+   * is mouse-only) and get in the way of normal drag-selection.
+   */
+  #rangeFromCoarsePointer = false;
   readonly #toolbar = new SelectionToolbar();
   readonly #cornerHandles = new RangeCornerHandles();
 
@@ -691,8 +697,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * coarse-pointer long-press — the modality check happens once, per event, at
    * entry. Re-testing the `(pointer: coarse)` media query here would break
    * hybrid devices (a Surface reports a fine primary pointer even while the
-   * user is touching the screen). The corner handles are additive: a mouse
-   * user gets them too.
+   * user is touching the screen). The corner handles follow the same rule via
+   * `#rangeFromCoarsePointer`: they exist because touch has no Shift/Ctrl, so a
+   * mouse-started range never gets them.
    */
   #renderTouchChrome(container: HTMLElement | null): void {
     if (!container) return;
@@ -708,18 +715,16 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       this.#toolbar.destroy();
     }
 
-    const active = this.#mode.primary === 'range' && this.ranges.length > 0 ? this.ranges[this.ranges.length - 1] : null;
+    const active =
+      this.#rangeFromCoarsePointer && this.#mode.primary === 'range' && this.ranges.length > 0
+        ? this.ranges[this.ranges.length - 1]
+        : null;
     const rect: RangeRect | null = active ? normalizeRange(active) : null;
-    this.#cornerHandles.render(
-      container,
-      rect,
-      (row, col) => this.#cellFor(row, col),
-      {
-        cellAt: (x, y) => this.#cellAtPoint(x, y),
-        resize: (corner, row, col) => this.#resizeRangeCorner(corner, row, col),
-        commit: () => this.requestAfterRender(),
-      },
-    );
+    this.#cornerHandles.render(container, rect, (row, col) => this.#cellFor(row, col), {
+      cellAt: (x, y) => this.#cellAtPoint(x, y),
+      resize: (corner, row, col) => this.#resizeRangeCorner(corner, row, col),
+      commit: () => this.requestAfterRender(),
+    });
   }
 
   /**
@@ -836,6 +841,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // Skip utility columns and non-selectable cells - don't start selection from them
     if (event.column && isUtilityColumn(event.column)) return false;
     if (!this.isCellSelectable(rowIndex, colIndex)) return false;
+
+    // A tap never reaches `onCellMouseDown` (coarse presses only dispatch it
+    // after a long-press), so the handle gate has to be updated here too.
+    this.#rangeFromCoarsePointer = this.#isCoarseEvent(originalEvent);
 
     const shiftKey = originalEvent.shiftKey;
     const ctrlKey = (originalEvent.ctrlKey || originalEvent.metaKey) && this.config.multiSelect !== false;
@@ -1083,6 +1092,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (this.#mode.primary !== 'range') return;
     if (event.rowIndex === undefined || event.colIndex === undefined) return;
     if (event.rowIndex < 0) return; // Header
+
+    this.#rangeFromCoarsePointer = this.#isCoarseEvent(event.originalEvent);
 
     // Right-click (secondary button) inside an existing range must NOT clear the
     // selection: this lets the context menu act on the whole range without the

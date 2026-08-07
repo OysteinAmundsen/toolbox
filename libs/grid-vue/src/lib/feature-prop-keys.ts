@@ -92,8 +92,10 @@ const BUILTIN_FEATURE_PROP_KEYS: readonly FeatureName[] = [
   'pinnedColumns',
   'groupingColumns',
   'columnVirtualization',
+  'rowDragDrop',
   'groupingRows',
   'pinnedRows',
+  'stickyRows',
   'tree',
   'masterDetail',
   'responsive',
@@ -121,15 +123,12 @@ for (const key of BUILTIN_FEATURE_PROP_KEYS) {
  * forces both a `FeatureProps` field AND a `BUILTIN_FEATURE_PROP_KEYS`
  * entry, otherwise the build fails.
  *
- * Known pre-existing gaps (intentional, tracked for v3): `stickyRows`
- * and `rowDragDrop` are not yet wired through Vue's `TbwGrid.vue` prop
- * declarations — see the Phase 4 DECIDED entry in
- * `.github/knowledge/adapters.md`. `shell` is config-driven (enabled via
+ * Known gap: `shell` is config-driven (enabled via
  * `gridConfig.features.shell` or the shell-content wrappers, not a boolean
  * prop), so it is typed on `FeatureProps` for documentation but is
  * intentionally not runtime-extracted. Listed in the allowlist below.
  */
-type _KnownBuiltinGaps = 'stickyRows' | 'rowDragDrop' | 'shell';
+type _KnownBuiltinGaps = 'shell';
 type _MissingFromBuiltin = Exclude<
   keyof FeatureConfig,
   (typeof BUILTIN_FEATURE_PROP_KEYS)[number] | '__brand' | _KnownBuiltinGaps

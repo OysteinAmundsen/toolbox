@@ -69,6 +69,10 @@ describe('feature-prop-keys built-in pre-registration', () => {
     expect(keys).toContain('masterDetail');
     expect(keys).toContain('responsive');
     expect(keys).toContain('tooltip');
+    // Declared as a prop on TbwGrid.vue but missing from the registry until
+    // the React↔Vue parity fix, so it was silently dropped at runtime.
+    expect(keys).toContain('rowDragDrop');
+    expect(keys).toContain('stickyRows');
     expect(new Set(keys).size).toBe(keys.length);
   });
 });

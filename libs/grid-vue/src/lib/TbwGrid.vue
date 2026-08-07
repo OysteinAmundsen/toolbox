@@ -67,6 +67,7 @@ import type {
   SelectionConfig,
   ServerSideConfig,
   SortChangeDetail,
+  StickyRowsConfig,
   TbwScrollDetail,
   TooltipConfig,
   TreeConfig,
@@ -299,6 +300,11 @@ const props = defineProps({
   /** Enable pinned rows */
   pinnedRows: {
     type: [Boolean, Object] as PropType<boolean | PinnedRowsConfig>,
+    default: undefined,
+  },
+  /** Enable rows that stick to the viewport top while their section scrolls */
+  stickyRows: {
+    type: Object as PropType<StickyRowsConfig>,
     default: undefined,
   },
   /** Enable hierarchical tree view */

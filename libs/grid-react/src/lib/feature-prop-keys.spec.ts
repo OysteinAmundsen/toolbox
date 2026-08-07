@@ -75,6 +75,9 @@ describe('feature-prop-keys built-in pre-registration', () => {
     expect(keys).toContain('responsive');
     expect(keys).toContain('rowDragDrop');
     expect(keys).toContain('tooltip');
+    // Declared on FeatureProps but missing from the registry until the
+    // three-way parity fix, so it was silently dropped at runtime.
+    expect(keys).toContain('stickyRows');
     // No duplicates among built-ins
     expect(new Set(keys).size).toBe(keys.length);
   });

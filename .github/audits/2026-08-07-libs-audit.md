@@ -451,11 +451,11 @@ to its usage, and make an unmapped key a silent no-op rather than a lookup miss.
 
 ## Remediation log — batch 3
 
-| Finding             | What changed                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **S6** (removed)    | The accepted risk is now documented where authors will hit it: a `:::caution[Editor markup is a code-trust boundary]` aside under _Custom Editors_ in the editing docs. States that editor markup bypasses the sanitizer by necessity, that interpolated row values are still escaped, and that an `editor` must never be built from serialized config, a DB column, a URL parameter, or any remote source.                                       |
-| **I1** (downgraded) | Option 3 shipped: `grid-react/src/lib/feature-prop-keys.parity.spec.ts` asserts the React and Vue `BUILTIN_FEATURE_PROP_KEYS` lists match (allowlist is empty), that `BUILTIN ∪ _KnownBuiltinGaps` describes the same universe in both, and that no key appears in both lists in one adapter. It immediately caught three live parity bugs (see below). Silent drift is now a red test. Codegen / `grid-adapter-shared` remain open but optional. |
-| **D4** (narrowed)   | The two files fallow flagged as having no coverage path are covered: new `plugins/tree/tree-detect.spec.ts` (all 4 exports — lazy indicators, custom `childrenField`, `hasChildren` predicate, depth/count with null rows) and 4 new cases in `core/internal/inference.spec.ts` (untyped provided columns, empty/absent `provided`, no sample data, date-shaped-but-unparseable string). Residual is the broad ~71–74 % branch coverage.          |
+| Finding             | What changed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **S6** (removed)    | The accepted risk is now documented where authors will hit it: a `:::caution[Editor markup is a code-trust boundary]` aside under _Custom Editors_ in the editing docs. States that editor markup bypasses the sanitizer by necessity, that interpolated row values are still escaped, and that an `editor` must never be built from serialized config, a DB column, a URL parameter, or any remote source.                                                                                                                                                                                                                                |
+| **I1** (downgraded) | Option 3 shipped: `grid-react/src/lib/feature-prop-keys.parity.spec.ts` asserts that React, Vue **and Angular** extract the same feature key set (React/Vue from `BUILTIN_FEATURE_PROP_KEYS`, Angular from the `addPlugin('…')` calls in `grid.directive.ts`, since it has no registry), that no adapter enumerates a key twice, that React/Vue agree on `_KnownBuiltinGaps`, that no key sits in both lists, and that Angular does not extract a key the other two deliberately skip. It immediately caught three live parity bugs (see below). Silent drift is now a red test. Codegen / `grid-adapter-shared` remain open but optional. |
+| **D4** (narrowed)   | The two files fallow flagged as having no coverage path are covered: new `plugins/tree/tree-detect.spec.ts` (all 4 exports — lazy indicators, custom `childrenField`, `hasChildren` predicate, depth/count with null rows) and 4 new cases in `core/internal/inference.spec.ts` (untyped provided columns, empty/absent `provided`, no sample data, date-shaped-but-unparseable string). Residual is the broad ~71–74 % branch coverage.                                                                                                                                                                                                   |
 
 The parity spec reads both adapters' sources as **text** via `readFileSync` rather than importing
 them — adapter↔adapter imports are banned by a `no-restricted-imports` ESLint rule.
@@ -464,14 +464,14 @@ them — adapter↔adapter imports are banned by a `no-restricted-imports` ESLin
 (Vue) and `stickyRows` (React _and_ Vue). Both were typed on `FeatureProps` — and therefore already
 advertised by the generated `FeatureProps.mdx` — and both shipped a `features/<name>.ts` subpath,
 but neither was in `BUILTIN_FEATURE_PROP_KEYS`, so the prop was silently dropped at runtime.
-Angular bound both correctly. Fixed by registering the keys (plus a missing `stickyRows` prop
-declaration on `TbwGrid.vue`), which leaves `ACCEPTED_DIVERGENCE` **empty** and reduces
-`_KnownBuiltinGaps` to `'shell'` in both adapters — the one key that is deliberately never
-runtime-extracted.
+Angular bound both correctly, which is what made the three-way comparison worth adding. Fixed by
+registering the keys (plus a missing `stickyRows` prop declaration on `TbwGrid.vue`), which leaves
+`FRAMEWORK_SPECIFIC` **empty for all three adapters** and reduces `_KnownBuiltinGaps` to `'shell'`
+in React and Vue — the one key that is deliberately never runtime-extracted.
 
 New specs: `grid/src/lib/plugins/tree/tree-detect.spec.ts`,
 `grid-react/src/lib/feature-prop-keys.parity.spec.ts`, plus additions to
 `grid/src/lib/core/internal/inference.spec.ts`.
 
-Validation: 31 tests pass across the two grid spec files; 10 react + 7 vue feature-prop-key tests;
-full `grid-react` + `grid-vue` suites, typecheck and lint green.
+Validation: 31 tests pass across the two grid spec files; 5 parity tests across three adapters;
+full `grid-react` + `grid-vue` + `grid-angular` suites, typecheck and lint green.

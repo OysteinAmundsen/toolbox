@@ -1438,7 +1438,10 @@ describe('contextMenu', () => {
       queryPlugins: vi.fn().mockReturnValue([]),
       _hostElement: grid,
     });
-    grid.dispatchEvent = vi.fn();
+    // Spy without replacing the implementation: happy-dom bubbles by calling the
+    // ancestor's own `dispatchEvent`, so a stubbed one would swallow cell events
+    // before they reach the plugin's host-level `contextmenu` listener.
+    vi.spyOn(grid, 'dispatchEvent');
     document.body.appendChild(grid);
 
     plugin.attach(grid as never);
@@ -1564,18 +1567,46 @@ describe('contextMenu', () => {
       const { container, plugin } = createMockGrid();
       plugin.afterRender();
 
-      expect(container.getAttribute('data-context-menu-bound')).toBe('true');
+      const cell = container.querySelector('[data-row="0"][data-col="0"]')!;
+      cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+      expect(document.querySelectorAll('.tbw-context-menu')).toHaveLength(1);
 
       plugin.detach();
     });
 
     it('should not double-bind on repeated afterRender calls', () => {
-      const { container, plugin } = createMockGrid();
+      const { grid, container, plugin } = createMockGrid();
+      const cell = container.querySelector('[data-row="0"][data-col="0"]')!;
+      // Normalized against happy-dom's bubbling, which re-enters ancestor
+      // dispatchEvent per hop — only the delta between runs is meaningful.
+      const opens = () =>
+        (grid.dispatchEvent as ReturnType<typeof vi.fn>).mock.calls.filter(
+          ([e]) => (e as CustomEvent).type === 'context-menu-open',
+        ).length;
+
       plugin.afterRender();
+      cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      const baseline = opens();
+
+      plugin.afterRender();
+      plugin.afterRender();
+      cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+
+      expect(opens() - baseline).toBe(baseline);
+
+      plugin.detach();
+    });
+
+    it('should open menu at the focused cell for a synthesised contextmenu with no cell target', () => {
+      const { grid, plugin } = createMockGrid();
       plugin.afterRender();
 
-      // If double-bound, two context menus would appear; verify only one handler
-      expect(container.getAttribute('data-context-menu-bound')).toBe('true');
+      // DevTools touch emulation (and the ContextMenu key) dispatch the event at
+      // the focused host with button === -1 instead of at the cell under the pointer.
+      HTMLElement.prototype.dispatchEvent.call(grid, new MouseEvent('contextmenu', { bubbles: true, button: -1 }));
+
+      expect(document.querySelectorAll('.tbw-context-menu')).toHaveLength(1);
 
       plugin.detach();
     });

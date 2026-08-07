@@ -4,6 +4,8 @@ applyTo: '**/*.spec.ts'
 
 # Testing Patterns
 
+> **happy-dom bubbling re-enters ancestor `dispatchEvent`.** A mock grid element that stubs `grid.dispatchEvent = vi.fn()` swallows every event bubbling up from its children, so listeners bound on the host never fire — use `vi.spyOn(grid, 'dispatchEvent')` instead. For the same reason a host listener is invoked once per ancestor hop, so assert on the _delta_ between two dispatches rather than an absolute call count.
+
 Tests are co-located with source files (`feature.ts` → `feature.spec.ts`). Integration tests live in `src/__tests__/integration/`. Run via `bun nx test grid`. See the `test-coverage` skill for detailed patterns, mock grid templates, and library-specific guidance.
 
 ## Key Conventions
@@ -73,19 +75,20 @@ Co-located benchmark files (`feature.ts` → `feature.bench.ts`) measure pure co
 - **No DOM**: happy-dom has no layout engine — DOM timing is meaningless in Vitest
 
 Existing benchmark files:
-| File | Hot paths benchmarked |
-|------|----------------------|
-| `sorting.bench.ts` | `defaultComparator`, `builtInSort` (string/numeric/custom comparator) |
-| `filter-model.bench.ts` | `filterRows` (text/numeric/set/multi-AND), `matchesFilter` |
-| `virtualization.bench.ts` | `rebuildPositionCache`, `getRowIndexAtOffset`, `updateRowHeight`, `computeVirtualWindow` |
-| `aggregators.bench.ts` | `aggregatorRegistry.run`, `runValueAggregator` (sum/avg/min/max/count) |
-| `grouping-rows.bench.ts` | `buildGroupedRowModel` (single/multi-level, expanded, high cardinality) |
-| `config.bench.ts` | `inferColumns`, `mergeColumns` |
-| `pivot-engine.bench.ts` | `buildPivot`, `flattenPivotRows`, `sortPivotMulti` (single/multi-level, multiple value fields) |
-| `tree-data.bench.ts` | `flattenTree`, `expandAll` (balanced/wide trees, varying depth/expansion) |
-| `column-virtualization.bench.ts` | `computeColumnOffsets`, `getVisibleColumnRange`, `getColumnWidths` (50–500 columns) |
-| `pinned-columns.bench.ts` | `reorderColumnsForPinning`, `hasStickyColumns`, `getLeftStickyColumns` |
-| `grouping-columns.bench.ts` | `computeColumnGroups`, `resolveColumnGroupDefs`, `mergeGroups` |
-| `master-detail.bench.ts` | `toggleDetailRow`, `isDetailExpanded`, `expandDetailRow`, `collapseDetailRow` |
-| `datasource.bench.ts` | `getBlockNumber`, `getRequiredBlocks`, `getRowFromCache`, `isBlockLoaded` |
-| `render-pipeline.bench.ts` | Combined pipeline benchmarks: sort→filter→virtualization, sort→grouping, tree→virtualization, pivot→flatten→virtualization, column pinning→column-virtualization |
+
+| File                             | Hot paths benchmarked                                                                                                                                            |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sorting.bench.ts`               | `defaultComparator`, `builtInSort` (string/numeric/custom comparator)                                                                                            |
+| `filter-model.bench.ts`          | `filterRows` (text/numeric/set/multi-AND), `matchesFilter`                                                                                                       |
+| `virtualization.bench.ts`        | `rebuildPositionCache`, `getRowIndexAtOffset`, `updateRowHeight`, `computeVirtualWindow`                                                                         |
+| `aggregators.bench.ts`           | `aggregatorRegistry.run`, `runValueAggregator` (sum/avg/min/max/count)                                                                                           |
+| `grouping-rows.bench.ts`         | `buildGroupedRowModel` (single/multi-level, expanded, high cardinality)                                                                                          |
+| `config.bench.ts`                | `inferColumns`, `mergeColumns`                                                                                                                                   |
+| `pivot-engine.bench.ts`          | `buildPivot`, `flattenPivotRows`, `sortPivotMulti` (single/multi-level, multiple value fields)                                                                   |
+| `tree-data.bench.ts`             | `flattenTree`, `expandAll` (balanced/wide trees, varying depth/expansion)                                                                                        |
+| `column-virtualization.bench.ts` | `computeColumnOffsets`, `getVisibleColumnRange`, `getColumnWidths` (50–500 columns)                                                                              |
+| `pinned-columns.bench.ts`        | `reorderColumnsForPinning`, `hasStickyColumns`, `getLeftStickyColumns`                                                                                           |
+| `grouping-columns.bench.ts`      | `computeColumnGroups`, `resolveColumnGroupDefs`, `mergeGroups`                                                                                                   |
+| `master-detail.bench.ts`         | `toggleDetailRow`, `isDetailExpanded`, `expandDetailRow`, `collapseDetailRow`                                                                                    |
+| `datasource.bench.ts`            | `getBlockNumber`, `getRequiredBlocks`, `getRowFromCache`, `isBlockLoaded`                                                                                        |
+| `render-pipeline.bench.ts`       | Combined pipeline benchmarks: sort→filter→virtualization, sort→grouping, tree→virtualization, pivot→flatten→virtualization, column pinning→column-virtualization |

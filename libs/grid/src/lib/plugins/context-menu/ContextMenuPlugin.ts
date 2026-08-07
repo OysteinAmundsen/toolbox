@@ -194,6 +194,8 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
   private position = { x: 0, y: 0 };
   private params: ContextMenuParams | null = null;
   private menuElement: HTMLElement | null = null;
+  /** Host element the `contextmenu` listener is currently bound to (guards against double-binding). */
+  private boundHost: HTMLElement | null = null;
   // #endregion
 
   // #region Lifecycle
@@ -214,6 +216,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     }
     this.isOpen = false;
     this.params = null;
+    this.boundHost = null;
     activeInstances.delete(this);
     this.uninstallGlobalHandlers();
   }
@@ -530,73 +533,133 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     this.emit('context-menu-open', { params, items });
   }
 
+  /**
+   * Open the menu on the currently focused cell, positioned under it.
+   *
+   * Shared by the keyboard triggers and by `contextmenu` events that carry no
+   * usable target (see {@link handleContextMenu}).
+   */
+  private openMenuAtFocusedCell(event: MouseEvent | KeyboardEvent): boolean {
+    const grid = this.grid;
+    if (!grid) return false;
+
+    const rowIndex = grid._focusRow;
+    const colIndex = grid._focusCol;
+    if (rowIndex < 0 || colIndex < 0) return false;
+
+    const column = this.visibleColumns[colIndex];
+    const row = this.rows[rowIndex];
+
+    // Find the focused cell element to position the menu near it
+    const cellEl = this.gridElement?.querySelector<HTMLElement>(`[data-row="${rowIndex}"][data-col="${colIndex}"]`);
+    let x = 0;
+    let y = 0;
+    if (cellEl) {
+      const rect = cellEl.getBoundingClientRect();
+      x = rect.left + rect.width / 2;
+      y = rect.bottom;
+    }
+
+    const selectedRows = this.syncSelectionOnContextMenu(rowIndex);
+
+    this.openMenuAt(
+      {
+        row,
+        rowIndex,
+        column,
+        columnIndex: colIndex,
+        field: column?.field ?? '',
+        value: row?.[column?.field as keyof typeof row] ?? null,
+        isHeader: false,
+        event,
+        selectedRows,
+      },
+      x,
+      y,
+      true,
+    );
+    return true;
+  }
+
+  /**
+   * Open the menu for a `contextmenu` event.
+   *
+   * `event.target` is authoritative for a real right-click and for a real touch
+   * long-press. It is *not* for a synthesised menu (`button === -1` — the
+   * ContextMenu key, and DevTools touch emulation, which routes right-click and
+   * two-finger tap through that same path): Chrome discards the gesture
+   * position and dispatches at `document.activeElement`, with coordinates at
+   * that element's centre. Hit-testing those coordinates would therefore resolve
+   * an arbitrary cell, so the only safe fallback is the focused cell.
+   */
+  private handleContextMenu = (e: Event): void => {
+    const event = e as MouseEvent;
+    event.preventDefault();
+
+    const target = event.target as HTMLElement | null;
+    const cell = target?.closest('[data-row][data-col]');
+    const header = target?.closest('[part~="header-cell"]');
+
+    let params: ContextMenuParams;
+
+    if (cell) {
+      const rowIndex = parseInt(cell.getAttribute('data-row') ?? '-1', 10);
+      const colIndex = parseInt(cell.getAttribute('data-col') ?? '-1', 10);
+      const column = this.visibleColumns[colIndex];
+      const row = this.rows[rowIndex];
+
+      // Sync selection: if the right-clicked row is not already selected,
+      // select it (clearing multi-selection). If it IS selected, keep all.
+      const selectedRows = this.syncSelectionOnContextMenu(rowIndex);
+
+      params = {
+        row,
+        rowIndex,
+        column,
+        columnIndex: colIndex,
+        field: column?.field ?? '',
+        value: row?.[column?.field as keyof typeof row] ?? null,
+        isHeader: false,
+        event,
+        selectedRows,
+      };
+    } else if (header) {
+      const colIndex = parseInt(header.getAttribute('data-col') ?? '-1', 10);
+      const column = this.visibleColumns[colIndex];
+
+      params = {
+        row: null,
+        rowIndex: -1,
+        column,
+        columnIndex: colIndex,
+        field: column?.field ?? '',
+        value: null,
+        isHeader: true,
+        event,
+        selectedRows: [],
+      };
+    } else {
+      // Synthesised menu that hit nothing resolvable — treat it like the
+      // keyboard trigger and open on the focused cell.
+      if (event.button === -1 && event.target === this.boundHost) {
+        this.openMenuAtFocusedCell(event);
+      }
+      return;
+    }
+
+    this.openMenuAt(params, event.clientX, event.clientY);
+  };
+
   /** @internal */
   override afterRender(): void {
     const gridEl = this.gridElement;
-    if (!gridEl) return;
+    if (!gridEl || this.boundHost === gridEl) return;
+    this.boundHost = gridEl;
 
-    // Use querySelector instead of children[0] because light DOM children
-    // (e.g. <tbw-grid-column>) are re-appended before .tbw-grid-root, making
-    // children[0] point to a declarative element instead of the data container.
-    const container = gridEl.querySelector('.tbw-grid-root');
-    if (!container) return;
-
-    // Check if handler already attached
-    if (container.getAttribute('data-context-menu-bound') === 'true') return;
-    container.setAttribute('data-context-menu-bound', 'true');
-
-    container.addEventListener('contextmenu', (e: Event) => {
-      const event = e as MouseEvent;
-      event.preventDefault();
-
-      const target = event.target as HTMLElement;
-      const cell = target.closest('[data-row][data-col]');
-      const header = target.closest('[part~="header-cell"]');
-
-      let params: ContextMenuParams;
-
-      if (cell) {
-        const rowIndex = parseInt(cell.getAttribute('data-row') ?? '-1', 10);
-        const colIndex = parseInt(cell.getAttribute('data-col') ?? '-1', 10);
-        const column = this.visibleColumns[colIndex];
-        const row = this.rows[rowIndex];
-
-        // Sync selection: if the right-clicked row is not already selected,
-        // select it (clearing multi-selection). If it IS selected, keep all.
-        const selectedRows = this.syncSelectionOnContextMenu(rowIndex);
-
-        params = {
-          row,
-          rowIndex,
-          column,
-          columnIndex: colIndex,
-          field: column?.field ?? '',
-          value: row?.[column?.field as keyof typeof row] ?? null,
-          isHeader: false,
-          event,
-          selectedRows,
-        };
-      } else if (header) {
-        const colIndex = parseInt(header.getAttribute('data-col') ?? '-1', 10);
-        const column = this.visibleColumns[colIndex];
-
-        params = {
-          row: null,
-          rowIndex: -1,
-          column,
-          columnIndex: colIndex,
-          field: column?.field ?? '',
-          value: null,
-          isHeader: true,
-          event,
-          selectedRows: [],
-        };
-      } else {
-        return;
-      }
-
-      this.openMenuAt(params, event.clientX, event.clientY);
-    });
+    // Bound on the host rather than `.tbw-grid-root`: a synthesised
+    // `contextmenu` is dispatched at the focused element — which is the host
+    // itself — and would never reach a listener on the inner container.
+    gridEl.addEventListener('contextmenu', this.handleContextMenu, { signal: this.disconnectSignal });
   }
 
   /**
@@ -614,40 +677,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     // Prevent the browser's native context menu from appearing
     event.preventDefault();
 
-    const grid = this.grid;
-    if (!grid) return;
-
-    const rowIndex = grid._focusRow;
-    const colIndex = grid._focusCol;
-    const column = this.visibleColumns[colIndex];
-    const row = this.rows[rowIndex];
-
-    // Find the focused cell element to position the menu near it
-    const gridEl = this.gridElement;
-    const cellEl = gridEl?.querySelector<HTMLElement>(`[data-row="${rowIndex}"][data-col="${colIndex}"]`);
-    let x = 0;
-    let y = 0;
-    if (cellEl) {
-      const rect = cellEl.getBoundingClientRect();
-      x = rect.left + rect.width / 2;
-      y = rect.bottom;
-    }
-
-    const selectedRows = this.syncSelectionOnContextMenu(rowIndex);
-
-    const params: ContextMenuParams = {
-      row,
-      rowIndex,
-      column,
-      columnIndex: colIndex,
-      field: column?.field ?? '',
-      value: row?.[column?.field as keyof typeof row] ?? null,
-      isHeader: false,
-      event: event,
-      selectedRows,
-    };
-
-    this.openMenuAt(params, x, y, true);
+    if (!this.openMenuAtFocusedCell(event)) return;
     return true;
   }
   // #endregion

@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.3.0...grid-angular-2.4.0) (2026-08-07)
+
+
+### Features
+
+* **grid:** add locale/t() i18n mechanism for built-in plugin UI ([4992d2c](https://github.com/OysteinAmundsen/toolbox/commit/4992d2c5f3bb151c4d4e86e7317e87c808353166))
+
+
+### Bug Fixes
+
+* **grid:** sanitize all renderer output and neutralise CSV/clipboard formula injection ([47fe586](https://github.com/OysteinAmundsen/toolbox/commit/47fe586f5aa5c898d13f7677337c455eb9cc2b4b))
+
 ## [2.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.2.0...grid-angular-2.3.0) (2026-07-27)
 
 

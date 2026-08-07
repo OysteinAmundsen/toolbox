@@ -40,29 +40,40 @@ if (!existsSync(distGridPath)) {
   process.exit(1);
 }
 
+/** True when the entry is already a link resolving to dist/libs/grid. */
+function pointsAtDist(gridPath: string): boolean {
+  try {
+    if (!lstatSync(gridPath).isSymbolicLink()) return false;
+    const target = readlinkSync(gridPath);
+    return target.includes('dist/libs/grid') || target.includes('dist\\libs\\grid');
+  } catch {
+    return false; // nothing there, or a broken/unreadable entry
+  }
+}
+
 /** Point one `node_modules/@toolbox-web/grid` entry at dist/libs/grid via a junction. */
 function linkToDist(gridPath: string): void {
   mkdirSync(dirname(gridPath), { recursive: true }); // ensure …/node_modules/@toolbox-web exists
 
-  // Detect an existing entry (symlink, junction, or real dir), even if broken.
-  let existing = false;
-  try {
-    const stats = lstatSync(gridPath);
-    existing = true;
-    if (stats.isSymbolicLink()) {
-      const target = readlinkSync(gridPath);
-      if (target.includes('dist/libs/grid') || target.includes('dist\\libs\\grid')) {
-        console.log(`✓ ${gridPath} already points to dist`);
-        return;
-      }
+  // All three adapters link the SAME workspace-root path and Nx runs their
+  // link-grid-dist targets in parallel, so remove-then-symlink is racy: a peer
+  // can win between the two calls (EEXIST in CI). Re-check and retry instead.
+  for (let attempt = 0; ; attempt++) {
+    if (pointsAtDist(gridPath)) {
+      console.log(`✓ ${gridPath} already points to dist`);
+      return;
     }
-  } catch {
-    existing = false; // nothing there
+    try {
+      rmSync(gridPath, { recursive: true, force: true });
+      symlinkSync(distGridPath, gridPath, 'junction'); // 'junction' works on Windows without admin
+      console.log(`✓ Linked ${gridPath} → dist/libs/grid`);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      const racy = code === 'EEXIST' || code === 'ENOTEMPTY' || code === 'ENOENT' || code === 'EPERM';
+      if (!racy || attempt >= 4) throw error;
+    }
   }
-  if (existing) rmSync(gridPath, { recursive: true, force: true });
-
-  symlinkSync(distGridPath, gridPath, 'junction'); // 'junction' works on Windows without admin
-  console.log(`✓ Linked ${gridPath} → dist/libs/grid`);
 }
 
 // The adapter-local copy is listed AFTER the root so the message order matches

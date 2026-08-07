@@ -150,7 +150,10 @@ Rules — these are what separate a promo scene from a smoke screen:
    uncertain, that is a signal to use `control(page, name)` / add a stable hook to the demo —
    not to skip the interaction.
 3. **No `waitForTimeout` for correctness.** Use web-first assertions and `expect.poll`.
-   `beat()` handles the camera.
+   `beat()` handles the camera. In particular, never assert a scroll-geometry identity
+   (`scrollTop + clientHeight === scrollHeight`) after a fixed wait — with variable row heights
+   (master-detail, tree, grouping) `scrollHeight` keeps growing as rows are measured, so the
+   assertion is a race. Re-clamp inside `expect.poll` and assert the remaining gap instead.
 4. **Never assign `scrollLeft` / `scrollTop`.** Use `wheelScroll()` — a teleport hides the
    smoothness virtualization is meant to demonstrate, and a wrong container selector scrolls
    nothing while the test still passes.

@@ -257,18 +257,19 @@ test.describe('Variable Row Height Virtualization Stability', () => {
       // Get initial state
       const initialScrollHeight = await scrollable.evaluate((el) => el.scrollHeight);
 
-      // Scroll to bottom
-      await scrollable.evaluate((el) => {
-        el.scrollTop = el.scrollHeight - el.clientHeight;
-      });
-      await page.waitForTimeout(300);
-
-      // Verify we're at the bottom
-      const scrollTop = await scrollable.evaluate((el) => el.scrollTop);
-      const clientHeight = await scrollable.evaluate((el) => el.clientHeight);
-      const scrollHeight = await scrollable.evaluate((el) => el.scrollHeight);
-
-      expect(scrollTop + clientHeight).toBeCloseTo(scrollHeight, -1); // Within 10px
+      // Expanded detail rows are measured lazily, so scrollHeight keeps growing
+      // for a few frames after the first jump — re-clamp until the gap settles
+      // instead of asserting once after a fixed wait.
+      await expect
+        .poll(
+          () =>
+            scrollable.evaluate((el) => {
+              el.scrollTop = el.scrollHeight - el.clientHeight;
+              return el.scrollHeight - (el.scrollTop + el.clientHeight);
+            }),
+          { timeout: 5000 },
+        )
+        .toBeLessThanOrEqual(5);
 
       // Scroll back to top
       await scrollable.evaluate((el) => {

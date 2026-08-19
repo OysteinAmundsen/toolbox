@@ -6,8 +6,9 @@
  *
  * @vitest-environment happy-dom
  */
+import { signal } from '@angular/core';
 import { describe, expect, it, vi } from 'vitest';
-import { BaseGridEditorCVA } from './base-grid-editor-cva.js';
+import { BaseGridEditorCVA, resolveEditorDisplayValue } from './base-grid-editor-cva.js';
 
 describe('BaseGridEditorCVA', () => {
   it('should be importable and defined', () => {
@@ -35,6 +36,7 @@ describe('BaseGridEditorCVA', () => {
       // We need to manually create the cvaValue signal mock
       const values: unknown[] = [];
       instance.cvaValue = { set: (v: unknown) => values.push(v) };
+      instance['_committed'] = signal(null);
 
       instance.writeValue('hello');
       expect(values).toEqual(['hello']);
@@ -84,6 +86,7 @@ describe('BaseGridEditorCVA', () => {
       // Mock CVA state
       const cvaValues: unknown[] = [];
       instance.cvaValue = { set: (v: unknown) => cvaValues.push(v) };
+      instance['_committed'] = signal(null);
 
       const onChange = vi.fn();
       const onTouched = vi.fn();
@@ -111,6 +114,7 @@ describe('BaseGridEditorCVA', () => {
 
       const cvaValues: unknown[] = [];
       instance.cvaValue = { set: (v: unknown) => cvaValues.push(v) };
+      instance['_committed'] = signal(null);
       instance['_onChange'] = vi.fn();
       instance['_onTouched'] = vi.fn();
 
@@ -125,6 +129,78 @@ describe('BaseGridEditorCVA', () => {
 
       // Grid commitValue IS called for null (nullable column support)
       expect(commitValue).toHaveBeenCalledWith(null);
+    });
+  });
+
+  describe('displayValue resolution', () => {
+    it('should prefer the grid value over the form value', () => {
+      expect(resolveEditorDisplayValue(null, 'grid', 'form')).toBe('grid');
+    });
+
+    it('should fall back to the form value when there is no grid value', () => {
+      expect(resolveEditorDisplayValue(null, undefined, 'form')).toBe('form');
+    });
+
+    /**
+     * The grid never pushes a cell's own committed value back to the editor
+     * that produced it (EditingPlugin skips `source: 'user'`), so in row edit
+     * mode — where editors stay mounted after a commit — the `value` input goes
+     * stale. What this editor committed must win until something external
+     * overwrites it.
+     */
+    it('should prefer the committed value over a stale grid value', () => {
+      expect(resolveEditorDisplayValue({ value: 'committed' }, 'stale', null)).toBe('committed');
+    });
+
+    it('should honour a committed null over a stale grid value', () => {
+      expect(resolveEditorDisplayValue({ value: null }, 'stale', null)).toBeNull();
+    });
+  });
+
+  describe('committed value lifecycle', () => {
+    const makeInstance = () => {
+      const instance = Object.create(BaseGridEditorCVA.prototype);
+      instance['_committed'] = signal<{ value: unknown } | null>(null);
+      instance.cvaValue = signal<unknown>(null);
+      instance.commitValue = vi.fn();
+      instance['_onChange'] = vi.fn();
+      instance['_onTouched'] = vi.fn();
+      return instance;
+    };
+
+    it('should record the value passed to commitBoth', () => {
+      const instance = makeInstance();
+
+      instance['commitBoth']('committed');
+
+      expect(instance['_committed']()).toEqual({ value: 'committed' });
+    });
+
+    it('should record a committed null distinguishably', () => {
+      const instance = makeInstance();
+
+      instance['commitBoth'](null);
+
+      expect(instance['_committed']()).toEqual({ value: null });
+    });
+
+    it('should discard the committed value when an external value arrives', () => {
+      const instance = makeInstance();
+      instance['commitBoth']('committed');
+
+      instance.onExternalValueChange('from-grid');
+
+      expect(instance['_committed']()).toBeNull();
+    });
+
+    it('should discard the committed value when the form control writes', () => {
+      const instance = makeInstance();
+      instance['commitBoth']('committed');
+
+      instance.writeValue('from-form');
+
+      expect(instance['_committed']()).toBeNull();
+      expect(instance.cvaValue()).toBe('from-form');
     });
   });
 });

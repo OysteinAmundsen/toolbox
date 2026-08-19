@@ -80,6 +80,15 @@ related: [adapters, adapters-react, adapters-vue, grid-core, grid-features, buil
 - DECIDED (#234): scroll → DISMISS, not reposition (matches click-outside semantics, consumes the public `tbw-scroll`).
 - TENSION: anchor positioning uses CSS Anchor (`anchor-name`) when supported, else `_positionWithJs()` (only on open).
 
+## CVA editors (`BaseGridEditorCVA`)
+
+- INVARIANT: `displayValue` precedence = `_committed` → `currentValue()` → `cvaValue()`. `commitBoth()` sets `_committed = { value }` (wrapped so a committed `null` stays distinguishable); `onExternalValueChange()` (grid) and `writeValue()` (form) clear it. Subclasses overriding `onExternalValueChange()` MUST call `super` or it is never discarded.
+- DECIDED (2026-02): an editor's own commit outranks its `value` input. WHY: `EditingPlugin`'s `cell-change` listener does `if (source === 'user') return;`, so the grid never echoes a cell's own commit back; in `editing.config.mode === 'row'` editors stay mounted and the input goes permanently stale — normalising editors (day number → full date) reverted on tab-out and re-committed the stale value. `base-grid-editor-cva.ts` / `base-grid-editor-cva.spec.ts`.
+- RULED OUT: dropping the plugin's `source === 'user'` skip — it deliberately avoids clobbering in-progress typing in the originating editor.
+- INVARIANT: cell-cancel / cascade / undo-redo reach the editor through `EditingPlugin`'s `#editorValueCallbacks` directly (not the `cell-change` listener), so they bypass the `source === 'user'` skip and do clear `_committed`.
+- INVARIANT: precedence lives in the exported-but-not-barrelled `resolveEditorDisplayValue()` so it is unit-testable — this package avoids TestBed, so `BaseGridEditor` field initializers (`inject()`/`input()`) cannot run in specs.
+- TENSION: a direct `control.setValue()` in FormArray mode clears neither path (no `cell-change`, and `[control]` is a plain input, not an `NG_VALUE_ACCESSOR` binding, so no `writeValue`), so `_committed` can shadow it.
+
 ## feature bridges
 
 - DECIDED: Angular `registerTemplateBridge` callbacks (master-detail, responsive) MUST look up via `(grid as any).getPluginByName?.(name)`, NOT scan `gridConfig.plugins` — feature-resolver plugins live only in `PluginManager`, so scanning `gridConfig.plugins.find(...)` emitted spurious "is not configured" warnings.

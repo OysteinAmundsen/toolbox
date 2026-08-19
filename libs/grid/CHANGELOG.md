@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.5.0...grid-3.5.1) (2026-08-19)
+
+
+### Bug Fixes
+
+* **grid:** copy every range of a multi-range selection ([#453](https://github.com/OysteinAmundsen/toolbox/issues/453)) ([#457](https://github.com/OysteinAmundsen/toolbox/issues/457)) ([3aaab6f](https://github.com/OysteinAmundsen/toolbox/commit/3aaab6fc474569c5a2f6f2db12ff4c7d70a77212))
+
 ## [3.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.4.0...grid-3.5.0) (2026-08-07)
 
 

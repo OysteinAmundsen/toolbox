@@ -1434,13 +1434,12 @@ describe('clipboard', () => {
     ];
     const MULTI_RANGE_ROWS = [0, 1, 2, 3].map((i) => ({ a: `a${i}`, b: `b${i}`, c: `c${i}` }));
 
-    function createRangeSelectionGrid(
-      ranges: { from: { row: number; col: number }; to: { row: number; col: number } }[],
-      mode: 'cell' | 'row' | 'range' = 'range',
-    ) {
+    type MockCellRange = { from: { row: number; col: number }; to: { row: number; col: number } };
+
+    function createRangeSelectionGrid(ranges: MockCellRange[], mode: 'cell' | 'row' | 'range' = 'range') {
       const grid = createGridMockForPlugin(MULTI_RANGE_ROWS, MULTI_RANGE_COLUMNS);
-      (grid as { query: unknown }).query = <U>(type: string): U[] =>
-        type === 'getSelection' ? ([{ mode, ranges, anchor: null }] as unknown as U[]) : ([] as U[]);
+      const selection = [{ mode, ranges, anchor: null }];
+      (grid as { query: unknown }).query = (type: string) => (type === 'getSelection' ? selection : []);
       return grid;
     }
 
@@ -1480,6 +1479,22 @@ describe('clipboard', () => {
       plugin.attach(grid as any);
 
       expect(plugin.getSelectionAsText()).toBe(['a0\tb0\tc0', 'a1\tb1\tc1'].join('\n'));
+    });
+
+    it('drops unselected rows between disjoint row-mode ranges', () => {
+      // Row mode merges Ctrl+clicked indices into several ranges; whole rows are
+      // selected, so the gaps must be omitted, not copied (and not blanked).
+      const grid = createRangeSelectionGrid(
+        [
+          { from: { row: 0, col: 0 }, to: { row: 0, col: 2 } },
+          { from: { row: 3, col: 0 }, to: { row: 3, col: 2 } },
+        ],
+        'row',
+      );
+      const plugin = new ClipboardPlugin();
+      plugin.attach(grid as any);
+
+      expect(plugin.getSelectionAsText()).toBe(['a0\tb0\tc0', 'a3\tb3\tc3'].join('\n'));
     });
 
     it('does not mask when the caller supplies explicit rowIndices', async () => {

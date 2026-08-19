@@ -535,15 +535,20 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
       // Caller specified exact row indices
       rows = resolveRows(this.rows as Record<string, unknown>[], options.rowIndices);
     } else if (ranges.length) {
-      // Selection range: extract the union row span
+      // Selection range: extract the union row span. Row mode selects WHOLE
+      // rows and gets no column mask, so gaps between disjoint row ranges
+      // (Ctrl+click rows 0, 5, 9) must be dropped outright rather than copied.
+      const dropUnselectedRows = selection?.mode === 'row';
+      const rowIsSelected = (r: number) =>
+        ranges.some((g) => r >= Math.min(g.from.row, g.to.row) && r <= Math.max(g.from.row, g.to.row));
       rows = [];
       rowIndices = [];
       for (let r = minRow; r <= maxRow; r++) {
         const row = this.rows[r] as Record<string, unknown> | undefined;
-        if (row) {
-          rows.push(row);
-          rowIndices.push(r);
-        }
+        if (!row) continue;
+        if (dropUnselectedRows && !rowIsSelected(r)) continue;
+        rows.push(row);
+        rowIndices.push(r);
       }
     } else {
       // No selection: all rows

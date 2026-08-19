@@ -47,7 +47,9 @@ export const AGENT_PREAMBLE_SHORT = `**Agent rules (read before generating code)
 | Understand a \`TBW###\` console message | \`/grid/errors.md\` |
 | Make it fast with large datasets | \`/grid/guides/performance.md\` |
 | Wire it up in React / Vue / Angular | \`/grid/{react,vue,angular}/getting-started.md\` |
-| Handle SSR, CSP, browser support, or i18n | \`/grid/guides/platform.md\` |
+| Handle SSR, CSP, or browser support | \`/grid/guides/platform.md\` |
+| Check supported framework versions, deprecation policy, or release cadence | \`/grid/guides/platform.md\` |
+| Translate the grid, or lay it out right-to-left | \`/grid/guides/i18n.md\` |
 | Write tests against the grid | \`/grid/guides/automated-testing.md\` |
 | Build a custom plugin | \`/grid/plugin-development/custom-plugins.md\` |
 

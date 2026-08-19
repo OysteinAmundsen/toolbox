@@ -1,15 +1,76 @@
 ---
-title: Platform Support
-description: Browser support matrix, security & CSP guidance, server-side rendering, and internationalization for @toolbox-web/grid.
+title: Platform & Support
+description: What you can rely on when you depend on @toolbox-web/grid — adapter support matrix, browser baseline, CSP & security handling, server-side rendering, deprecation policy, and release cadence.
 sidebar:
   order: 11
 ---
 
 import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { GRID_STATS } from '@data/grid-stats';
 
-Everything you need to know about the **environments** `@toolbox-web/grid` runs in: which
-browsers it supports and why, how to run it under a strict Content Security Policy, how it
-behaves during server-side rendering, and how to localize it.
+Everything you need to know about depending on `@toolbox-web/grid`: which **environments** it
+runs in (browsers, frameworks, SSR), how it behaves under a strict Content Security Policy,
+and — in the second half — the **commitments** that govern what breaks, when, and how you find
+out.
+
+The grid is **feature-complete**. There is no public roadmap, because it already does what it
+set out to do — and "we plan to add X" is not something you should have to bet a production
+dependency on. What you _should_ be able to bet on is this page. Every statement below is
+checkable against the repository: the version and peer-range tables are generated at
+docs-build time from the packages' `package.json` files, and the policies describe what the
+project has actually done across v1, v2, and v3.
+
+## Support at a glance
+
+| | |
+| --- | --- |
+| **Current core version** | `@toolbox-web/grid` v{GRID_STATS.gridVersion} |
+| **Current adapter versions** | `grid-angular` v{GRID_STATS.angularAdapterVersion} · `grid-react` v{GRID_STATS.reactAdapterVersion} · `grid-vue` v{GRID_STATS.vueAdapterVersion} |
+| **Runtime dependencies (core)** | {GRID_STATS.coreDependencyCount} |
+| **License** | MIT |
+| **Versioning** | Semantic Versioning, per package |
+| **Release automation** | [release-please](https://github.com/googleapis/release-please) from Conventional Commits |
+| **Distribution** | npm, `latest` dist-tag (prereleases go to `next`) |
+
+## Framework Support
+
+The adapters are thin wrappers around the same web component. Their supported framework
+versions are whatever their published `peerDependencies` say — which is what npm, pnpm, and
+bun actually enforce at install time:
+
+| Package | Version | Framework peer | Requires |
+| ------- | ------- | -------------- | -------- |
+| `@toolbox-web/grid-angular` | {GRID_STATS.angularAdapterVersion} | `@angular/core` {GRID_STATS.angularPeer} | `@toolbox-web/grid` {GRID_STATS.gridPeer} |
+| `@toolbox-web/grid-react` | {GRID_STATS.reactAdapterVersion} | `react` and `react-dom` {GRID_STATS.reactPeer} | `@toolbox-web/grid` {GRID_STATS.gridPeer} |
+| `@toolbox-web/grid-vue` | {GRID_STATS.vueAdapterVersion} | `vue` {GRID_STATS.vuePeer} | `@toolbox-web/grid` {GRID_STATS.gridPeer} |
+
+The ranges are **open-ended on the upper bound** (`>=`) on purpose: a new framework major does
+not, by itself, invalidate the adapter. If one genuinely breaks it, that is a bug fix, not a
+support drop.
+
+### When a framework version is dropped
+
+- A framework major is supported **for as long as its own vendor supports it**. The adapters
+  do not drop a version the framework team still maintains.
+- Raising a `peerDependencies` floor is a **breaking change**, so it only happens in an
+  adapter **major** release, documented in that adapter's changelog.
+- **You do not need an adapter.** `<tbw-grid>` is a standard custom element; if an adapter
+  ever stops covering your framework version, the core package keeps working — you lose
+  template-level ergonomics, not functionality. See
+  [Framework Integration](/grid/framework-adapters/) for what the adapters add on top.
+- **Older adapter lines are not listed above.** This page always describes the current
+  release. If you are pinned to an older framework major, the previous adapter major still
+  has whatever range it published — ask npm rather than trusting a table:
+
+  ```sh
+  npm view @toolbox-web/grid-angular@2 peerDependencies
+  ```
+
+<Aside type="tip" title="Two grid versions on one page">
+Micro-frontend setups can run two different grid majors side by side without a conflict — see
+[Multi-version coexistence](/grid/guides/multi-version/). That makes an incremental upgrade
+possible without a big-bang migration across every team.
+</Aside>
 
 ## Browser Support
 
@@ -22,7 +83,8 @@ and no polyfill bundle — the grid ships the same standards-based code it was w
 | Firefox        | **121**         | Dec 2023    |
 | Safari (macOS / iOS) | **17.5**  | May 2024    |
 
-Older versions may work for basic rendering but are **not tested and not supported**.
+Older versions may work for basic rendering but are **not tested and not supported**. Raising
+this baseline is treated as a **breaking change** and lands only in a major.
 
 ### What sets the floor
 
@@ -74,6 +136,28 @@ e2e, not unit tests.
 The grid is a rendering engine for **your** data. It never fetches, never evaluates, and never
 persists anything on its own — but the extension points it gives you can introduce
 vulnerabilities if used carelessly.
+
+Its strongest security property is structural: the core declares
+**{GRID_STATS.coreDependencyCount} runtime dependencies**, and so do all three adapters. There
+is no transitive dependency tree to audit, and no supply-chain surface beyond the package
+itself.
+
+### Reporting a vulnerability
+
+| | |
+| --- | --- |
+| **Report privately** | [GitHub Security Advisories](https://github.com/OysteinAmundsen/toolbox/security/advisories/new) |
+| **Report publicly** | [A new issue](https://github.com/OysteinAmundsen/toolbox/issues/new) with the `security` label |
+| **Policy** | [`SECURITY.md`](https://github.com/OysteinAmundsen/toolbox/blob/main/SECURITY.md) |
+| **Advisories published to** | The repository [Security tab](https://github.com/OysteinAmundsen/toolbox/security/advisories) and, from there, the GitHub Advisory Database |
+| **Supported for fixes** | The current major only — fixes ship as a new patch release |
+| **Repository controls** | GitHub secret scanning and push protection are enabled |
+
+<Aside type="caution" title="Response time, honestly">
+This is a solo-maintained open-source project. There is no contractual response SLA: critical
+vulnerabilities are prioritised, everything else is handled as time allows. `SECURITY.md` says
+the same thing — this page does not upgrade that promise.
+</Aside>
 
 ### What the grid sanitizes for you
 
@@ -233,166 +317,133 @@ Reserve the grid's height in your server-rendered markup (e.g. a wrapper with a 
 
 ---
 
-## Internationalization
+## Versioning & Deprecation
 
-The grid ships **English defaults** and gives you an override point for every string it
-produces. There is no locale bundle to load and no i18n runtime — you supply strings from
-whatever i18n system your app already uses.
+Semantic Versioning is applied **per package**. `@toolbox-web/grid` and each adapter are
+independent release-please components, so a grid major does not force an adapter major unless
+the adapter's own API changes (its peer range widening usually does).
 
-### Screen reader announcements
+### What the JSDoc tags guarantee
 
-Live-region announcements are the grid's largest body of user-facing text. Override any subset
-via `a11y.messages`; anything you omit falls back to the English default.
+| Tag | Meaning |
+| --- | ------- |
+| `@since <version>` | The symbol has existed, with this behaviour, since that version. Rendered as a version pill in the [API reference](/grid/api-reference/). |
+| `@deprecated` | Still works, still tested, still shipped. Scheduled for removal in a future major, with the replacement named in the same comment. |
+| `@internal` | Exported for advanced plugin authors, **not** covered by SemVer. May change in a minor. |
 
-```ts
-grid.gridConfig = {
-  a11y: {
-    messages: {
-      sortApplied: (column, direction) => `Trié par ${column}, ${direction}`,
-      sortCleared: () => 'Tri effacé',
-      filterApplied: (column) => `Filtre appliqué sur ${column}`,
-      selectionChanged: (count) => `${count} ligne(s) sélectionnée(s)`,
-      dataLoaded: (count) => `${count} lignes chargées`,
-    },
-  },
-};
-```
+### The removal window
 
-Every message is a function, so you can interpolate, pluralize, or delegate to `Intl.PluralRules`
-however your locale requires.
+**A public symbol is deprecated for at least one full major before it is removed.** That is
+the practice v1 → v2 → v3 actually followed: symbols marked `@deprecated` during the v1 line
+were removed in v2, and the v2 deprecations were removed in v3.
 
-<LinkCard title="A11yMessages" description="The full list of overridable announcements" href="/grid/api/core/interfaces/a11ymessages/" />
+Removals are listed in the migration guide for that major, with the replacement for each one.
+The v3 guide is the precedent to look at:
 
-### Built-in UI strings (`locale`)
+<LinkCard
+  title="Migrating to v3"
+  description="Every removal in v3, why it happened, and the exact replacement"
+  href="/grid/guides/migration-v3/"
+/>
 
-The buttons, labels and placeholders that plugins render into their own UI — the filter panel,
-the columns tool panel, the pivot builder — are localized through a single flat key/value map on
-`gridConfig.locale`.
+At the time of writing there are **no `@deprecated` symbols** anywhere in the shipped source of
+the grid or the three adapters — v3 cleared the backlog. Anything newly deprecated must name
+its removal major in the same comment.
 
-```ts
-grid.gridConfig = {
-  locale: {
-    'filter.search': 'Rechercher...',
-    'filter.apply': 'Appliquer',
-    'filter.clear': 'Effacer le filtre',
-    'columns.panelTitle': 'Colonnes',
-    'pivot.grandTotal': 'Total général',
-  },
-};
-```
+### Maintenance branches
 
-<Aside type="note" title="No locale bundle to load">
-The grid ships **no default locale map**. Each call site passes its English string inline as the
-fallback, so an omitted key stays English and a plugin you do not load contributes nothing to
-your bundle. `locale` is read live, so swapping the map at runtime re-localizes on the next
-render.
+When work on the next major starts, the previous major gets a long-lived `<major>.x` branch
+(`2.x` today) which keeps its own release stream, so an important fix can be cherry-picked
+back. There is **no formal LTS window**: the previous major is maintained on a best-effort
+basis, and staying on the current major is the supported path.
+
+---
+
+## Plugin API Compatibility
+
+Every one of the {GRID_STATS.pluginCount} shipped plugins is built on the **same public API you
+get**. There is no privileged internal channel, no "enterprise" hook set, and no plugin that
+reaches into something you cannot reach into. If a first-party plugin can do it, a third-party
+plugin can do it — which is also why the plugin API cannot quietly rot: breaking it would break
+the grid's own feature set first.
+
+### What is covered by SemVer
+
+Everything exported from the package root `@toolbox-web/grid` and from
+`@toolbox-web/grid/plugins/*`:
+
+- `BaseGridPlugin` and its lifecycle (`init`, `afterRender`, `destroy`, …)
+- Hook payload types — `CellClickEvent`, `RowClickEvent`, `HeaderClickEvent`, `ScrollEvent`,
+  `CellCoords`, `HookName`
+- Render-context types — `AfterCellRenderContext`, `AfterRowRenderContext`,
+  `CollectHeaderRowsContext`, `HeaderRowCell`, `HeaderRowContribution`
+- The inter-plugin contract — `PluginManifest`, `PluginDependency`, `PluginQuery`,
+  `QueryDefinition`, `EventDefinition`
+- DOM contracts — `GridClasses`, `GridSelectors`, `GridDataAttrs`, `GridCSSVars`
+
+### What is not
+
+Types documented as `@internal` — `InternalGrid`, `ColumnInternal`, `VirtualState`,
+`CellContext`, `ResizeController`, and the underscore-prefixed members they expose — are
+exported so power users are not forced into `as any`, but they describe implementation details
+and **can change in a minor release**. A plugin built only on the list above will not be broken
+by a minor.
+
+### What a major obliges
+
+When the grid takes a major, third-party plugin authors get: the removals enumerated in the
+migration guide, a deprecation cycle that preceded them, and a `peerDependencies` range to
+widen. Plugins that stayed on the public API surface typically need only the range bump.
+
+<LinkCard
+  title="Writing a custom plugin"
+  description="The plugin lifecycle, hooks, manifest, and inter-plugin queries"
+  href="/grid/plugin-development/custom-plugins/"
+/>
+
+---
+
+## Release Cadence
+
+Releases are automated, not scheduled: every merge to `main` that carries a `feat`/`fix`/`perf`
+commit updates a release-please pull request, and merging that PR tags, publishes to npm, and
+deploys the docs. There is no release train to wait for.
+
+| | |
+| --- | --- |
+| **Patch** (`fix:`, `perf:`) | Bug fixes and optimisations. Always safe to take. |
+| **Minor** (`feat:`, `enhance:`) | Additive API. Existing code keeps compiling. |
+| **Major** (`!` / `BREAKING CHANGE:`) | Removals and behaviour changes, with a migration guide. |
+| **Prereleases** | Published under the `next` dist-tag, never `latest`. |
+
+For reference, the actual history: **over 120 stable `@toolbox-web/grid` releases** since
+2026-01-21, with majors on 2026-01-21 (v1), 2026-04-16 (v2), and 2026-07-14 (v3) — roughly one
+major per quarter, each with a written migration guide.
+
+Every release runs the same gate: unit tests, lint, build, bundle-size budget, Playwright e2e
+across three browser engines, and a performance benchmark suite. A regression in any of them
+blocks the release.
+
+<LinkCard title="Changelog" description="Every release, generated from the commit history" href="/grid/changelog/" />
+
+### What this page does not promise
+
+Being explicit about the gaps is the point of the exercise:
+
+- **No contractual SLA.** Solo-maintained MIT software. Response times are best-effort.
+- **No LTS.** Only the current major receives fixes as a matter of policy.
+- **No paid support tier.** If continuity matters to you, the mitigations are the MIT licence,
+  the zero-dependency footprint, and the fact that the whole thing is a standard custom element
+  you can vendor.
+- **No feature roadmap.** New features arrive when someone needs them and opens an issue.
+
+<Aside type="note" title="Verified as of">
+The support and stability sections reflect `@toolbox-web/grid` v{GRID_STATS.gridVersion} with
+the three adapters at v{GRID_STATS.angularAdapterVersion}. The version and peer-range tables
+are read from the packages at docs-build time, so they cannot drift — and where one cell stands
+for several packages (`react` with `react-dom`, the core range across all three adapters), the
+docs build **fails** if those ranges ever stop matching.
 </Aside>
-
-`locale` is separate from `a11y.messages` on purpose: these are static labels, while
-announcements are functions of runtime values (row counts, column names, sort direction).
-
-#### Key reference
-
-Keys are namespaced by the plugin that owns them. Only load-bearing UI text is keyed; anything
-you already supply (column headers, menu item labels, export filenames) stays under your control.
-
-| Key | English default | Plugin |
-| --- | --------------- | ------ |
-| `filter.search` | `Search...` | Filtering |
-| `filter.selectAll` | `Select All` | Filtering |
-| `filter.noMatches` | `No matching values` | Filtering |
-| `filter.apply` | `Apply` | Filtering |
-| `filter.clear` | `Clear Filter` | Filtering |
-| `filter.clearAll` | `Clear All Filters` | Filtering |
-| `filter.min` | `Min` | Filtering (number) |
-| `filter.max` | `Max` | Filtering (number) |
-| `filter.from` | `From` | Filtering (date) |
-| `columns.panelTitle` | `Columns` | Column Visibility |
-| `columns.hideColumn` | `Hide column` | Column Visibility |
-| `columns.showAll` | `Show all` | Column Visibility |
-| `columns.dragHandle` | `Drag to reorder` | Column Visibility |
-| `columns.dragGroupHandle` | `Drag to reorder group` | Column Visibility |
-| `pinnedColumns.pinLeft` | `Pin Left` | Pinned Columns |
-| `pinnedColumns.pinRight` | `Pin Right` | Pinned Columns |
-| `pinnedColumns.unpin` | `Unpin` | Pinned Columns |
-| `print.buttonTitle` | `Print grid` | Print |
-| `pivot.panelTitle` | `Pivot` | Pivot |
-| `pivot.options` | `Options` | Pivot |
-| `pivot.enable` | `Enable pivot` | Pivot |
-| `pivot.rowGroups` | `Row Groups` | Pivot |
-| `pivot.columnGroups` | `Column Groups` | Pivot |
-| `pivot.values` | `Values` | Pivot |
-| `pivot.availableFields` | `Available Fields` | Pivot |
-| `pivot.filterFields` | `Filter fields...` | Pivot |
-| `pivot.allFieldsUsed` | `All fields in use` | Pivot |
-| `pivot.dropFields` | `Drop fields here` | Pivot |
-| `pivot.dropNumericFields` | `Drop numeric fields here` | Pivot |
-| `pivot.removeField` | `Remove field` | Pivot |
-| `pivot.removeValueField` | `Remove value field` | Pivot |
-| `pivot.aggFunction` | `Aggregation function` | Pivot |
-| `pivot.customAgg` | `Custom` | Pivot |
-| `pivot.showRowTotals` | `Show row totals` | Pivot |
-| `pivot.showGrandTotal` | `Show grand total` | Pivot |
-| `pivot.grandTotal` | `Grand Total` | Pivot |
-
-#### In custom renderers and plugins
-
-A custom `filterPanelRenderer` receives the same lookup on its params, so your own panel
-localizes through the app's single map:
-
-```ts
-filterPanelRenderer: (container, params) => {
-  const apply = document.createElement('button');
-  apply.textContent = params.t('filter.apply', 'Apply');
-  container.appendChild(apply);
-},
-```
-
-Inside a custom plugin, `BaseGridPlugin` exposes the same helper as `this.t(key, fallback)`
-(and `this.translate` when you need to hand the function to a render module).
-
-### Other localizable surfaces
-
-| Surface | How to localize |
-| ------- | --------------- |
-| Column headers | `columns[].header` — pass an already-translated string |
-| Empty / loading state | A custom `emptyRenderer` / `loadingRenderer` returning translated markup |
-| Cell values (dates, numbers, currency) | `columns[].format` with `Intl.NumberFormat` / `Intl.DateTimeFormat` |
-| Filter panel labels | `locale` keys (`filter.*`), or a custom `filterPanelRenderer` |
-| Context menu items | Context Menu plugin `items[].label` |
-| Tool panel titles | `title` on `<tbw-grid-tool-panel>` / the shell `toolPanel` config |
-| Export filenames and sheet names | Export plugin config |
-
-### Formatting values
-
-Use `Intl` in a column `format` function rather than pre-formatting your data — this keeps
-sorting and filtering operating on the underlying value:
-
-```ts
-{
-  field: 'salary',
-  type: 'number',
-  format: (value) => new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(value as number),
-}
-```
-
-### Right-to-left
-
-The grid's layout is built on flexbox and logical CSS properties, so it inherits direction from
-its ancestors. Set `dir="rtl"` on a container (or `<html>`) and the grid mirrors:
-
-```html
-<div dir="rtl">
-  <tbw-grid id="grid"></tbw-grid>
-</div>
-```
-
-Custom renderers and custom themes are your responsibility — prefer logical properties
-(`margin-inline-start`, `padding-inline`, `inset-inline-end`) over physical ones so your
-additions mirror too.
 
 ---
 
@@ -400,7 +451,9 @@ additions mirror too.
 
 <CardGrid>
   <LinkCard title="Accessibility" description="ARIA patterns, keyboard navigation, screen reader support" href="/grid/guides/accessibility/" />
+  <LinkCard title="Internationalization" description="Translating announcements, plugin UI strings, and cell values" href="/grid/guides/i18n/" />
   <LinkCard title="Theming" description="Design tokens, light/dark, custom themes" href="/grid/guides/theming/" />
   <LinkCard title="Troubleshooting" description="Common issues and their fixes" href="/grid/guides/troubleshooting/" />
   <LinkCard title="Production checklist" description="Pre-launch checks" href="/grid/guides/production-checklist/" />
+  <LinkCard title="Compared to other grids" description="How the trade-offs stack up against AG Grid, Tabulator, SlickGrid" href="/grid/comparison/" />
 </CardGrid>

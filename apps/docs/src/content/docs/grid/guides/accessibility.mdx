@@ -163,35 +163,21 @@ The grid uses `aria-live` regions to announce dynamic changes to screen readers:
 
 ### Configuring Announcements
 
-You can disable or customize live region announcements via the [`a11y`](/grid/api/core/interfaces/a11yconfig/) config — see [`A11yMessages`](/grid/api/core/interfaces/a11ymessages/) for the full list of overridable messages and their signatures:
+Live region announcements are controlled by the [`a11y`](/grid/api/core/interfaces/a11yconfig/) config. Turn them off entirely if your app already announces these state changes itself:
 
 ```typescript
-// Disable all announcements
 grid.gridConfig = {
   a11y: { announcements: false },
 };
-
-// Override messages for internationalization
-grid.gridConfig = {
-  a11y: {
-    messages: {
-      sortApplied: (col, dir) => `Trié par ${col}, ${dir}`,
-      sortCleared: () => 'Tri effacé',
-      filterApplied: (col) => `Filtre appliqué sur ${col}`,
-      filterCleared: (col) => `Filtre effacé de ${col}`,
-      allFiltersCleared: () => 'Tous les filtres effacés',
-      groupExpanded: (name, count) => `Groupe ${name} développé, ${count} lignes`,
-      groupCollapsed: (name) => `Groupe ${name} réduit`,
-      selectionChanged: (count) => `${count} lignes sélectionnées`,
-      editingStarted: (rowIndex) => `Édition de la ligne ${rowIndex + 1}`,
-      editingCommitted: (rowIndex) => `Ligne ${rowIndex + 1} enregistrée`,
-      dataLoaded: (count) => `${count} lignes chargées`,
-    },
-  },
-};
 ```
 
-Only override the messages you need — defaults (English) are used for the rest.
+Individual messages are replaced through `a11y.messages` — see [`A11yMessages`](/grid/api/core/interfaces/a11ymessages/) for the full list and their signatures. Since the defaults are English, that override is also the translation hook:
+
+<LinkCard
+  title="Translating announcements"
+  description="Overriding a11y.messages, plus the locale map for plugin UI strings"
+  href="/grid/guides/i18n/#screen-reader-announcements"
+/>
 
 ### Column Headers
 
@@ -382,5 +368,6 @@ These require explicit action:
   <LinkCard title="Selection Plugin" description="Cell, row, and range selection with full keyboard support" href="/grid/plugins/selection/" />
   <LinkCard title="Editing Plugin" description="Inline cell editing with Tab/Enter/Escape navigation" href="/grid/plugins/editing/" />
   <LinkCard title="Theming" description="CSS custom properties, high contrast mode, and visual customization" href="/grid/guides/theming/" />
+  <LinkCard title="Internationalization" description="Translating announcements, plugin UI strings, and cell values" href="/grid/guides/i18n/" />
   <LinkCard title="WAI-ARIA Grid Pattern" description="The W3C specification this grid follows" href="https://www.w3.org/WAI/ARIA/apg/patterns/grid/" />
 </CardGrid>

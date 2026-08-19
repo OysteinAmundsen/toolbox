@@ -1175,8 +1175,7 @@ describe('clipboard', () => {
       plugin.attach(grid as any);
 
       const handler = grid.addEventListener.mock.calls.find((c: unknown[]) => c[0] === 'paste')?.[1] as
-        | ((e: ClipboardEvent) => void)
-        | undefined;
+        ((e: ClipboardEvent) => void) | undefined;
       expect(handler).toBeDefined();
 
       const input = document.createElement('input');
@@ -1198,8 +1197,7 @@ describe('clipboard', () => {
       plugin.attach(grid as any);
 
       const handler = grid.addEventListener.mock.calls.find((c: unknown[]) => c[0] === 'paste')?.[1] as
-        | ((e: ClipboardEvent) => void)
-        | undefined;
+        ((e: ClipboardEvent) => void) | undefined;
       expect(handler).toBeDefined();
 
       const cell = document.createElement('div');
@@ -1425,6 +1423,126 @@ describe('clipboard', () => {
       plugin.onKeyDown(evt);
 
       expect(copySpy).toHaveBeenCalledWith({ rowIndices: [0], columns: ['blDate'] });
+    });
+    // #endregion
+
+    // #region Multi-range copy (issue #453)
+    const MULTI_RANGE_COLUMNS: ColumnConfig[] = [
+      { field: 'a', header: 'A' },
+      { field: 'b', header: 'B' },
+      { field: 'c', header: 'C' },
+    ];
+    const MULTI_RANGE_ROWS = [0, 1, 2, 3].map((i) => ({ a: `a${i}`, b: `b${i}`, c: `c${i}` }));
+
+    function createRangeSelectionGrid(
+      ranges: { from: { row: number; col: number }; to: { row: number; col: number } }[],
+      mode: 'cell' | 'row' | 'range' = 'range',
+    ) {
+      const grid = createGridMockForPlugin(MULTI_RANGE_ROWS, MULTI_RANGE_COLUMNS);
+      (grid as { query: unknown }).query = <U>(type: string): U[] =>
+        type === 'getSelection' ? ([{ mode, ranges, anchor: null }] as unknown as U[]) : ([] as U[]);
+      return grid;
+    }
+
+    it('copies the union bounding box of two disjoint ranges, blanking the gaps', () => {
+      const grid = createRangeSelectionGrid([
+        { from: { row: 0, col: 0 }, to: { row: 1, col: 0 } },
+        { from: { row: 2, col: 2 }, to: { row: 3, col: 2 } },
+      ]);
+      const plugin = new ClipboardPlugin();
+      plugin.attach(grid as any);
+
+      expect(plugin.getSelectionAsText()).toBe(['a0\t\t', 'a1\t\t', '\t\tc2', '\t\tc3'].join('\n'));
+    });
+
+    it('does not duplicate or drop cells for overlapping ranges', () => {
+      const grid = createRangeSelectionGrid([
+        { from: { row: 0, col: 0 }, to: { row: 1, col: 1 } },
+        { from: { row: 1, col: 1 }, to: { row: 2, col: 2 } },
+      ]);
+      const plugin = new ClipboardPlugin();
+      plugin.attach(grid as any);
+
+      expect(plugin.getSelectionAsText()).toBe(['a0\tb0\t', 'a1\tb1\tc1', '\tb2\tc2'].join('\n'));
+    });
+
+    it('leaves a single range unchanged', () => {
+      const grid = createRangeSelectionGrid([{ from: { row: 0, col: 0 }, to: { row: 1, col: 1 } }]);
+      const plugin = new ClipboardPlugin();
+      plugin.attach(grid as any);
+
+      expect(plugin.getSelectionAsText()).toBe(['a0\tb0', 'a1\tb1'].join('\n'));
+    });
+
+    it('leaves row-mode selection unmasked (all columns, all selected rows)', () => {
+      const grid = createRangeSelectionGrid([{ from: { row: 0, col: 0 }, to: { row: 1, col: 2 } }], 'row');
+      const plugin = new ClipboardPlugin();
+      plugin.attach(grid as any);
+
+      expect(plugin.getSelectionAsText()).toBe(['a0\tb0\tc0', 'a1\tb1\tc1'].join('\n'));
+    });
+
+    it('does not mask when the caller supplies explicit rowIndices', async () => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: vi.fn().mockResolvedValue(undefined) },
+        writable: true,
+        configurable: true,
+      });
+      const grid = createRangeSelectionGrid([
+        { from: { row: 0, col: 0 }, to: { row: 1, col: 0 } },
+        { from: { row: 2, col: 2 }, to: { row: 3, col: 2 } },
+      ]);
+      const plugin = new ClipboardPlugin();
+      plugin.attach(grid as any);
+
+      await expect(plugin.copyRows([0, 3])).resolves.toBe(['a0\tb0\tc0', 'a3\tb3\tc3'].join('\n'));
+    });
+
+    it('does not mask when the caller supplies explicit columns', () => {
+      const grid = createRangeSelectionGrid([
+        { from: { row: 0, col: 0 }, to: { row: 1, col: 0 } },
+        { from: { row: 2, col: 2 }, to: { row: 3, col: 2 } },
+      ]);
+      const plugin = new ClipboardPlugin();
+      plugin.attach(grid as any);
+
+      expect(plugin.getSelectionAsText({ columns: ['a'] })).toBe(['a0', 'a1', 'a2', 'a3'].join('\n'));
+    });
+
+    it('masks the text/html payload identically to text/plain', async () => {
+      const write = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { write, writeText: vi.fn().mockResolvedValue(undefined) },
+        writable: true,
+        configurable: true,
+      });
+      class FakeClipboardItem {
+        constructor(readonly items: Record<string, Blob>) {}
+      }
+      vi.stubGlobal('ClipboardItem', FakeClipboardItem);
+
+      const grid = createRangeSelectionGrid([
+        { from: { row: 0, col: 0 }, to: { row: 1, col: 0 } },
+        { from: { row: 2, col: 2 }, to: { row: 3, col: 2 } },
+      ]);
+      const plugin = new ClipboardPlugin();
+      plugin.attach(grid as any);
+      await plugin.copy();
+
+      const item = write.mock.calls[0][0][0] as FakeClipboardItem;
+      const html = await item.items['text/html'].text();
+      expect(html).toContain('<td>a0</td><td></td><td></td>');
+      expect(html).toContain('<td></td><td></td><td>c3</td>');
+      expect(html).not.toContain('b0');
+
+      // The structured payload must not resurrect the masked cells either.
+      expect(parseClipboardHtmlPayload(html)?.rows).toEqual([
+        ['a0', '', ''],
+        ['a1', '', ''],
+        ['', '', 'c2'],
+        ['', '', 'c3'],
+      ]);
+      vi.unstubAllGlobals();
     });
     // #endregion
 

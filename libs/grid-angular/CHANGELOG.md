@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.4.0...grid-angular-2.4.1) (2026-08-19)
+
+
+### Bug Fixes
+
+* **grid-angular:** keep CVA editor display value after its own commit ([#453](https://github.com/OysteinAmundsen/toolbox/issues/453))([#454](https://github.com/OysteinAmundsen/toolbox/issues/454)) ([4787c95](https://github.com/OysteinAmundsen/toolbox/commit/4787c9542de5ea1b1011ec561cea7ec5ecabb3b3))
+
 ## [2.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.3.0...grid-angular-2.4.0) (2026-08-07)
 
 

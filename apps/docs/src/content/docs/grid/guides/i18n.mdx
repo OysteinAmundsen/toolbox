@@ -173,14 +173,20 @@ sorting and filtering operating on the underlying value:
 
 ## Right-to-left
 
-The grid's layout is built on flexbox and logical CSS properties, so it inherits direction from
-its ancestors. Set `dir="rtl"` on a container (or `<html>`) and the grid mirrors:
+Rows and headers are laid out with CSS Grid (a single `grid-template-columns` track list shared
+by every row), so column order follows the inline axis and mirrors automatically when the
+direction flips. Together with logical CSS properties, that means the grid inherits direction
+from its ancestors — set `dir="rtl"` on a container (or `<html>`) and it mirrors:
 
 ```html
 <div dir="rtl">
   <tbw-grid id="grid"></tbw-grid>
 </div>
 ```
+
+Behaviour that CSS alone cannot mirror resolves the direction at runtime: arrow-key navigation
+swaps left/right, and [pinned columns](/grid/plugins/pinned-columns/) accept the logical
+`'start'` / `'end'` values so the same config pins correctly in both directions.
 
 Custom renderers and custom themes are your responsibility — prefer logical properties
 (`margin-inline-start`, `padding-inline`, `inset-inline-end`) over physical ones so your

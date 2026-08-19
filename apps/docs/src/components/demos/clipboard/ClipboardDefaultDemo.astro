@@ -21,15 +21,11 @@ import DemoControls from '@components/DemoControls.astro';
 
 <style>
   .external-clipboard-wrap {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 20;
+    margin-top: 12px;
     padding: 10px 12px;
-    background: rgba(246, 247, 249, 0.96);
-    border-top: 1px solid var(--sl-color-gray-5);
-    box-shadow: 0 -8px 18px rgba(0, 0, 0, 0.08);
+    background: light-dark(rgba(246, 247, 249, 0.96), var(--sl-color-gray-6));
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 8px;
   }
 
   .external-clipboard-wrap label {
@@ -49,7 +45,7 @@ import DemoControls from '@components/DemoControls.astro';
     color: var(--sl-color-gray-1);
     border: 1px solid var(--sl-color-gray-4);
     border-radius: 8px;
-    background: #fff;
+    background: var(--sl-color-bg);
     padding: 10px;
   }
 </style>

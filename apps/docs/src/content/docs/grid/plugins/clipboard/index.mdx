@@ -243,6 +243,19 @@ Cells rejected by `onPaste` emit one `paste-rejected` event per paste with a lis
 If you provide a custom `pasteHandler`, you should still call `resolveColumnPaste()` and `emitPasteRejected()` from `@toolbox-web/grid/plugins/clipboard` so `onPaste` and `paste-rejected` continue to work.
 :::
 
+## Copy Behavior
+
+### Multi-Range Selections
+
+With `selection: 'range'`, holding <kbd>Ctrl</kbd> while dragging adds disjoint ranges to the selection. Copying such a selection produces the **union bounding box** of all ranges, exactly as Excel does:
+
+- cells inside at least one range carry their displayed value,
+- cells inside the bounding box but outside every range are emitted as blanks.
+
+Keeping the block rectangular means the paste lines up correctly in an external target such as Excel or a text editor.
+
+Explicit bounds bypass this masking — `copy({ columns })` and `copyRows(indices)` always emit every cell of the requested columns/rows.
+
 ## Paste Behavior
 
 The clipboard plugin respects both selection bounds and the `editable` column property when pasting:

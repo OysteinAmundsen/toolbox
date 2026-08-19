@@ -474,29 +474,55 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    *
    * Priority for columns:
    *   1. `options.columns` (explicit field list)
-   *   2. Selection range column bounds (range/cell mode only)
+   *   2. Selection union column bounds across ALL ranges (range/cell mode only)
    *   3. All visible non-utility columns
    *
    * Priority for rows:
    *   1. `options.rowIndices` (explicit indices)
-   *   2. Selection range row bounds
+   *   2. Selection union row bounds across ALL ranges
    *   3. All rows
+   *
+   * `contains(rowOffset, colOffset)` (when non-null) reports whether a cell of
+   * the resolved grid lies inside at least one selected range — callers use it
+   * to blank the gaps between disjoint ranges, matching Excel's rectangular
+   * multi-range copy.
    */
-  #resolveData(options?: CopyOptions): { columns: ColumnConfig[]; rows: Record<string, unknown>[] } {
+  #resolveData(options?: CopyOptions): {
+    columns: ColumnConfig[];
+    rows: Record<string, unknown>[];
+    contains: ((rowOffset: number, colOffset: number) => boolean) | null;
+  } {
     const selection = this.#getSelection();
+    const ranges = selection?.ranges ?? [];
+
+    // Union bounding box across ALL ranges. A multi-range selection (CTRL+drag
+    // repeatedly) must copy every range, not just the last one drawn; min/max
+    // also normalizes reversed (bottom-up / right-to-left) drags.
+    let minRow = Infinity;
+    let maxRow = -Infinity;
+    let minCol = Infinity;
+    let maxCol = -Infinity;
+    for (const r of ranges) {
+      minRow = Math.min(minRow, r.from.row, r.to.row);
+      maxRow = Math.max(maxRow, r.from.row, r.to.row);
+      minCol = Math.min(minCol, r.from.col, r.to.col);
+      maxCol = Math.max(maxCol, r.from.col, r.to.col);
+    }
 
     // --- Columns ---
     let columns: ColumnConfig[];
+    // Absolute visible-column index per resolved column (null when the columns
+    // did not come from the selection). `resolveColumns` may drop utility /
+    // hidden columns from the slice, so offsets can't be derived arithmetically.
+    let colIndices: number[] | null = null;
     if (options?.columns) {
       // Caller specified exact fields
       columns = resolveColumns(this.columns, options.columns);
-    } else if (selection?.ranges.length && selection.mode !== 'row') {
+    } else if (ranges.length && selection?.mode !== 'row') {
       // Range/cell selection: restrict to selection column bounds
       // Selection indices are visible-column indices (from data-col)
-      const range = selection.ranges[selection.ranges.length - 1];
-      const minCol = Math.min(range.from.col, range.to.col);
-      const maxCol = Math.max(range.from.col, range.to.col);
       columns = resolveColumns(this.visibleColumns.slice(minCol, maxCol + 1));
+      colIndices = columns.map((col) => this.visibleColumns.indexOf(col));
     } else {
       // Row selection or no selection: all visible columns
       columns = resolveColumns(this.columns);
@@ -504,25 +530,52 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
     // --- Rows ---
     let rows: Record<string, unknown>[];
+    let rowIndices: number[] | null = null;
     if (options?.rowIndices) {
       // Caller specified exact row indices
       rows = resolveRows(this.rows as Record<string, unknown>[], options.rowIndices);
-    } else if (selection?.ranges.length) {
-      // Selection range: extract contiguous row range
-      const range = selection.ranges[selection.ranges.length - 1];
-      const minRow = Math.min(range.from.row, range.to.row);
-      const maxRow = Math.max(range.from.row, range.to.row);
+    } else if (ranges.length) {
+      // Selection range: extract the union row span. Row mode selects WHOLE
+      // rows and gets no column mask, so gaps between disjoint row ranges
+      // (Ctrl+click rows 0, 5, 9) must be dropped outright rather than copied.
+      const dropUnselectedRows = selection?.mode === 'row';
+      const rowIsSelected = (r: number) =>
+        ranges.some((g) => r >= Math.min(g.from.row, g.to.row) && r <= Math.max(g.from.row, g.to.row));
       rows = [];
+      rowIndices = [];
       for (let r = minRow; r <= maxRow; r++) {
         const row = this.rows[r] as Record<string, unknown> | undefined;
-        if (row) rows.push(row);
+        if (!row) continue;
+        if (dropUnselectedRows && !rowIsSelected(r)) continue;
+        rows.push(row);
+        rowIndices.push(r);
       }
     } else {
       // No selection: all rows
       rows = this.rows as Record<string, unknown>[];
     }
 
-    return { columns, rows };
+    // Masking is only meaningful when BOTH axes came from the selection —
+    // explicit `options.columns` / `options.rowIndices` (e.g. `copyRows()`)
+    // would otherwise blank everything.
+    const rowAbs = rowIndices;
+    const colAbs = colIndices;
+    const contains =
+      rowAbs && colAbs
+        ? (rowOffset: number, colOffset: number): boolean => {
+            const row = rowAbs[rowOffset];
+            const col = colAbs[colOffset];
+            return ranges.some(
+              (r) =>
+                row >= Math.min(r.from.row, r.to.row) &&
+                row <= Math.max(r.from.row, r.to.row) &&
+                col >= Math.min(r.from.col, r.to.col) &&
+                col <= Math.max(r.from.col, r.to.col),
+            );
+          }
+        : null;
+
+    return { columns, rows, contains };
   }
 
   /**
@@ -533,25 +586,35 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    * 2. DOM cell textContent for columns with custom renderers (visible rows only)
    * 3. Raw value via `formatValueAsText` as final fallback
    */
-  #buildText(columns: ColumnConfig[], rows: Record<string, unknown>[], options?: CopyOptions): string {
-    return this.#joinDisplayGrid(this.#buildDisplayGrid(columns, rows, options), options);
+  #buildText(
+    columns: ColumnConfig[],
+    rows: Record<string, unknown>[],
+    options?: CopyOptions,
+    contains?: ((rowOffset: number, colOffset: number) => boolean) | null,
+  ): string {
+    return this.#joinDisplayGrid(this.#buildDisplayGrid(columns, rows, options, contains), options);
   }
 
   /**
    * Build the 2D grid of DISPLAY strings for the given columns/rows (the same
    * WYSIWYG text used for `text/plain` and the `text/html` table). Header is
    * included only when configured.
+   *
+   * `contains` blanks cells that sit inside the selection's union bounding box
+   * but outside every individual range, so a multi-range copy stays rectangular.
    */
   #buildDisplayGrid(
     columns: ColumnConfig[],
     rows: Record<string, unknown>[],
     options?: CopyOptions,
+    contains?: ((rowOffset: number, colOffset: number) => boolean) | null,
   ): { header: string[] | null; rows: string[][] } {
     const includeHeaders = options?.includeHeaders ?? this.config.includeHeaders ?? false;
     const processCell = options?.processCell ?? this.config.processCell;
     const header = includeHeaders ? columns.map((c) => c.header || c.field) : null;
-    const dataRows = rows.map((row) =>
-      columns.map((col) => {
+    const dataRows = rows.map((row, rowOffset) =>
+      columns.map((col, colOffset) => {
+        if (contains && !contains(rowOffset, colOffset)) return '';
         const value = resolveCellValue(row, col);
         if (processCell) return processCell(value, col.field, row);
         return this.#formatCellAsDisplayed(col, value, row);
@@ -669,9 +732,9 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    * ```
    */
   getSelectionAsText(options?: CopyOptions): string {
-    const { columns, rows } = this.#resolveData(options);
+    const { columns, rows, contains } = this.#resolveData(options);
     if (columns.length === 0 || rows.length === 0) return '';
-    return this.#buildText(columns, rows, options);
+    return this.#buildText(columns, rows, options, contains);
   }
 
   /**
@@ -704,16 +767,22 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    * ```
    */
   async copy(options?: CopyOptions): Promise<string> {
-    const { columns, rows } = this.#resolveData(options);
+    const { columns, rows, contains } = this.#resolveData(options);
     if (columns.length === 0 || rows.length === 0) {
       return '';
     }
 
-    const display = this.#buildDisplayGrid(columns, rows, options);
+    const display = this.#buildDisplayGrid(columns, rows, options, contains);
     const text = this.#joinDisplayGrid(display, options);
     // Snapshot the RAW cell values (same column order as the text) for a
     // structured round-trip. Cloned so later row mutations don't change it.
-    const rawRows = rows.map((row) => columns.map((col) => cloneStructured(resolveCellValue(row, col))));
+    // Masked gaps between disjoint ranges stay blank here too, so a same-app
+    // paste can't resurrect values the user never selected.
+    const rawRows = rows.map((row, rowOffset) =>
+      columns.map((col, colOffset) =>
+        contains && !contains(rowOffset, colOffset) ? '' : cloneStructured(resolveCellValue(row, col)),
+      ),
+    );
     const fields = columns.map((col) => col.field);
     // Write BOTH text/plain (WYSIWYG for external targets) and text/html (a
     // table that also embeds the structured payload) so a same-app paste — even

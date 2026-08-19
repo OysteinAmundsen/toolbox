@@ -124,7 +124,7 @@ Combines `BaseGridEditor` with Angular's `ControlValueAccessor` interface. Use t
 |--------|------|-------------|
 | `cvaValue` | `Signal<TValue \| null>` | Value written by the form control |
 | `disabledState` | `Signal<boolean>` | Tracks `setDisabledState()` calls |
-| `displayValue` | `Computed<TValue \| null>` | Prefers grid value, falls back to CVA value |
+| `displayValue` | `Computed<TValue \| null>` | Prefers the last `commitBoth()` value, then the grid value, then the CVA value |
 | `commitBoth(v)` | Method | Commits via both CVA `onChange` **and** grid `commitValue` |
 | `writeValue` / `registerOn*` / `setDisabledState` | CVA methods | Full `ControlValueAccessor` implementation |
 

@@ -3,6 +3,26 @@ import type { ControlValueAccessor } from '@angular/forms';
 import { BaseGridEditor } from './base-grid-editor';
 
 /**
+ * Resolves what a CVA editor should display.
+ *
+ * Precedence: a value this editor committed wins over the grid value (which
+ * goes stale after a commit — see `BaseGridEditorCVA.commitBoth`), which in
+ * turn wins over the value written by a form control.
+ *
+ * Exported for unit testing only — not re-exported from the package entry point.
+ *
+ * @internal
+ */
+export function resolveEditorDisplayValue<TValue>(
+  committed: { value: TValue | null } | null,
+  currentValue: TValue | undefined,
+  cvaValue: TValue | null,
+): TValue | null {
+  if (committed) return committed.value;
+  return currentValue ?? cvaValue;
+}
+
+/**
  * Base class for grid editors that also work as Angular form controls.
  *
  * Combines `BaseGridEditor` with `ControlValueAccessor` so the same component
@@ -14,7 +34,7 @@ import { BaseGridEditor } from './base-grid-editor';
  * |--------|---------|
  * | `cvaValue` | Signal holding the value written by the form control |
  * | `disabledState` | Signal tracking `setDisabledState` calls |
- * | `displayValue` | Computed that prefers grid value (`currentValue`) and falls back to `cvaValue` |
+ * | `displayValue` | Computed that prefers the last `commitBoth` value, then the grid value (`currentValue`), then `cvaValue` |
  * | `commitBoth(v)` | Commits via both CVA `onChange` and grid `commitValue` |
  * | `writeValue` / `registerOn*` / `setDisabledState` | Full CVA implementation |
  *
@@ -84,17 +104,31 @@ export abstract class BaseGridEditorCVA<TRow = unknown, TValue = unknown>
   readonly disabledState = signal(false);
 
   /**
+   * Value most recently passed to {@link commitBoth}, wrapped so a committed
+   * `null` stays distinguishable from "nothing committed yet".
+   *
+   * The grid never pushes a cell's own committed value back to the editor that
+   * produced it — `EditingPlugin` skips its editor value callbacks when
+   * `source === 'user'`. In row edit mode every cell editor stays mounted after
+   * a commit, so the `value` input goes stale for the rest of the session.
+   * Editors that normalise or derive what they commit (e.g. a day number to a
+   * full date) would otherwise keep rendering the pre-commit value.
+   */
+  private readonly _committed = signal<{ value: TValue | null } | null>(null);
+
+  /**
    * Resolved display value.
    *
-   * Prefers `currentValue()` (grid context — from `control.value` or `value` input)
+   * Prefers a value committed by this editor (see {@link commitBoth}), then
+   * `currentValue()` (grid context — from `control.value` or `value` input),
    * and falls back to `cvaValue()` (standalone form context — from `writeValue`).
    *
    * Use this in your template instead of reading `currentValue()` directly
    * so the component works in both grid and standalone form contexts.
    */
-  readonly displayValue = computed<TValue | null>(() => {
-    return (this.currentValue() as TValue | undefined) ?? this.cvaValue();
-  });
+  readonly displayValue = computed<TValue | null>(() =>
+    resolveEditorDisplayValue(this._committed(), this.currentValue() as TValue | undefined, this.cvaValue()),
+  );
 
   // ============================================================================
   // ControlValueAccessor Implementation
@@ -104,7 +138,19 @@ export abstract class BaseGridEditorCVA<TRow = unknown, TValue = unknown>
    * Called by Angular forms when the form control value changes programmatically.
    */
   writeValue(value: TValue | null): void {
+    this._committed.set(null);
     this.cvaValue.set(value);
+  }
+
+  /**
+   * Discards the value committed by this editor so a genuinely external value
+   * (cascade, undo/redo, cell cancel) wins.
+   *
+   * Subclasses that override this **must** call `super.onExternalValueChange()`.
+   */
+  override onExternalValueChange(newVal: TValue): void {
+    this._committed.set(null);
+    super.onExternalValueChange(newVal);
   }
 
   /**
@@ -144,6 +190,9 @@ export abstract class BaseGridEditorCVA<TRow = unknown, TValue = unknown>
    * @param value - The new value to commit
    */
   protected commitBoth(value: TValue | null): void {
+    // Keep the committed value visible: the grid will not push it back to us.
+    this._committed.set({ value });
+
     // Update CVA
     this.cvaValue.set(value);
     this._onChange(value);

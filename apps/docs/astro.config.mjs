@@ -147,13 +147,14 @@ export default defineConfig({
     // its feature key, and its aliases were all removed; keep the old URL
     // working so inbound links land on the replacement.
     '/grid/plugins/reorder-rows/': '/grid/plugins/row-drag-drop/',
-    // Browser support, security/CSP, SSR, and i18n are all "what environment
-    // does this run in" topics, so they share one guide page. Redirect the
+    // Browser support, security/CSP, and SSR are all "what environment does
+    // this run in" topics, so they share the platform guide. Redirect the
     // topic-specific URLs people are likely to guess at the right anchor.
+    // (i18n outgrew this page and now owns /grid/guides/i18n/ — no redirect.)
     '/grid/guides/browser-support/': '/grid/guides/platform/#browser-support',
     '/grid/guides/security/': '/grid/guides/platform/#security',
     '/grid/guides/ssr/': '/grid/guides/platform/#server-side-rendering',
-    '/grid/guides/i18n/': '/grid/guides/platform/#internationalization',
+    '/grid/guides/support-policy/': '/grid/guides/platform/#support-at-a-glance',
   },
 
   vite: {

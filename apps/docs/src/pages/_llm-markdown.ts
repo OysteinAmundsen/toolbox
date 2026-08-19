@@ -62,12 +62,12 @@ export interface AgentMarkdownOptions {
   cssVarReference?: string;
   /**
    * Build-time grid statistics used to resolve `{GRID_STATS.*}` expressions in
-   * prose (e.g. plugin count, core bundle size) to their literal values, so the
-   * agent markdown never leaks a raw MDX expression. Supplied by the endpoints
-   * from the shared `@data/grid-stats` module. When omitted, the tokens are
-   * stripped rather than left in place.
+   * prose (e.g. plugin count, core bundle size, adapter peer ranges) to their
+   * literal values, so the agent markdown never leaks a raw MDX expression.
+   * Supplied by the endpoints from the shared `@data/grid-stats` module. When
+   * omitted, the tokens are stripped rather than left in place.
    */
-  gridStats?: Readonly<Record<'pluginCount' | 'coreGzipKb', number>>;
+  gridStats?: Readonly<Record<string, string | number>>;
   /**
    * When set, produce a framework-scoped corpus: within framework tab groups
    * (those offering React/Vue/Angular alternatives), keep only the variant for
@@ -502,11 +502,12 @@ export function mdxToAgentMarkdown(raw: string, opts: AgentMarkdownOptions): str
     out = out.replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
     // 2a. Resolve build-time `{GRID_STATS.*}` expressions to their literal values
-    //     (plugin count, core bundle size). Runs in prose only, so an equivalent
-    //     token inside a code fence is preserved. Unknown/absent keys collapse to
-    //     an empty string so a raw expression can never leak into the corpus.
+    //     (plugin count, core bundle size, adapter peer ranges). Runs in prose
+    //     only, so an equivalent token inside a code fence is preserved.
+    //     Unknown/absent keys collapse to an empty string so a raw expression can
+    //     never leak into the corpus.
     out = out.replace(/\{\s*GRID_STATS\.(\w+)\s*\}/g, (_full, key: string) => {
-      const value = opts.gridStats?.[key as 'pluginCount' | 'coreGzipKb'];
+      const value = opts.gridStats?.[key];
       return value === undefined ? '' : String(value);
     });
 

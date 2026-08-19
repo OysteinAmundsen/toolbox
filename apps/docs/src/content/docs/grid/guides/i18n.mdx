@@ -1,0 +1,196 @@
+---
+title: Internationalization
+description: Translating @toolbox-web/grid — screen reader announcements, plugin UI strings, cell value formatting, and right-to-left layout.
+sidebar:
+  order: 5
+---
+
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+The grid ships **English defaults** and gives you an override point for every string it
+produces. There is no locale bundle to load and no i18n runtime — you supply strings from
+whatever i18n system your app already uses.
+
+There are two override surfaces, split by what the strings are:
+
+| Config | Covers | Shape |
+| ------ | ------ | ----- |
+| [`a11y.messages`](#screen-reader-announcements) | Live-region announcements read by screen readers | Functions of runtime values |
+| [`locale`](#built-in-ui-strings-locale) | Visible plugin UI — buttons, labels, placeholders | Flat key → string map |
+
+Everything else (column headers, menu labels, cell values) is text you already supply, so you
+translate it before it reaches the grid — see [Other localizable surfaces](#other-localizable-surfaces).
+
+## Screen reader announcements
+
+Live-region announcements — sort, filter, selection, grouping, editing — are the grid's largest
+body of user-facing text. Override any subset via `a11y.messages`; anything you omit falls back
+to the English default.
+
+```ts
+grid.gridConfig = {
+  a11y: {
+    messages: {
+      sortApplied: (column, direction) => `Trié par ${column}, ${direction}`,
+      sortCleared: () => 'Tri effacé',
+      filterApplied: (column) => `Filtre appliqué sur ${column}`,
+      filterCleared: (column) => `Filtre effacé de ${column}`,
+      allFiltersCleared: () => 'Tous les filtres effacés',
+      groupExpanded: (name, count) => `Groupe ${name} développé, ${count} lignes`,
+      groupCollapsed: (name) => `Groupe ${name} réduit`,
+      selectionChanged: (count) => `${count} ligne(s) sélectionnée(s)`,
+      editingStarted: (rowIndex) => `Édition de la ligne ${rowIndex + 1}`,
+      editingCommitted: (rowIndex) => `Ligne ${rowIndex + 1} enregistrée`,
+      dataLoaded: (count) => `${count} lignes chargées`,
+    },
+  },
+};
+```
+
+Every message is a function, so you can interpolate, pluralize, or delegate to
+`Intl.PluralRules` however your locale requires.
+
+<CardGrid>
+  <LinkCard title="A11yMessages" description="The full list of overridable announcements and their signatures" href="/grid/api/core/interfaces/a11ymessages/" />
+  <LinkCard title="What triggers each one" description="Live regions and the rest of the accessibility model" href="/grid/guides/accessibility/#live-regions" />
+</CardGrid>
+
+## Built-in UI strings (`locale`)
+
+The buttons, labels and placeholders that plugins render into their own UI — the filter panel,
+the columns tool panel, the pivot builder — are localized through a single flat key/value map on
+`gridConfig.locale`.
+
+```ts
+grid.gridConfig = {
+  locale: {
+    'filter.search': 'Rechercher...',
+    'filter.apply': 'Appliquer',
+    'filter.clear': 'Effacer le filtre',
+    'columns.panelTitle': 'Colonnes',
+    'pivot.grandTotal': 'Total général',
+  },
+};
+```
+
+<Aside type="note" title="No locale bundle to load">
+The grid ships **no default locale map**. Each call site passes its English string inline as the
+fallback, so an omitted key stays English and a plugin you do not load contributes nothing to
+your bundle. `locale` is read live, so swapping the map at runtime re-localizes on the next
+render.
+</Aside>
+
+`locale` is separate from `a11y.messages` on purpose: these are static labels, while
+announcements are functions of runtime values (row counts, column names, sort direction).
+
+### Key reference
+
+Keys are namespaced by the plugin that owns them. Only load-bearing UI text is keyed; anything
+you already supply (column headers, menu item labels, export filenames) stays under your control.
+
+| Key | English default | Plugin |
+| --- | --------------- | ------ |
+| `filter.search` | `Search...` | Filtering |
+| `filter.selectAll` | `Select All` | Filtering |
+| `filter.noMatches` | `No matching values` | Filtering |
+| `filter.apply` | `Apply` | Filtering |
+| `filter.clear` | `Clear Filter` | Filtering |
+| `filter.clearAll` | `Clear All Filters` | Filtering |
+| `filter.min` | `Min` | Filtering (number) |
+| `filter.max` | `Max` | Filtering (number) |
+| `filter.from` | `From` | Filtering (date) |
+| `columns.panelTitle` | `Columns` | Column Visibility |
+| `columns.hideColumn` | `Hide column` | Column Visibility |
+| `columns.showAll` | `Show all` | Column Visibility |
+| `columns.dragHandle` | `Drag to reorder` | Column Visibility |
+| `columns.dragGroupHandle` | `Drag to reorder group` | Column Visibility |
+| `pinnedColumns.pinLeft` | `Pin Left` | Pinned Columns |
+| `pinnedColumns.pinRight` | `Pin Right` | Pinned Columns |
+| `pinnedColumns.unpin` | `Unpin` | Pinned Columns |
+| `print.buttonTitle` | `Print grid` | Print |
+| `pivot.panelTitle` | `Pivot` | Pivot |
+| `pivot.options` | `Options` | Pivot |
+| `pivot.enable` | `Enable pivot` | Pivot |
+| `pivot.rowGroups` | `Row Groups` | Pivot |
+| `pivot.columnGroups` | `Column Groups` | Pivot |
+| `pivot.values` | `Values` | Pivot |
+| `pivot.availableFields` | `Available Fields` | Pivot |
+| `pivot.filterFields` | `Filter fields...` | Pivot |
+| `pivot.allFieldsUsed` | `All fields in use` | Pivot |
+| `pivot.dropFields` | `Drop fields here` | Pivot |
+| `pivot.dropNumericFields` | `Drop numeric fields here` | Pivot |
+| `pivot.removeField` | `Remove field` | Pivot |
+| `pivot.removeValueField` | `Remove value field` | Pivot |
+| `pivot.aggFunction` | `Aggregation function` | Pivot |
+| `pivot.customAgg` | `Custom` | Pivot |
+| `pivot.showRowTotals` | `Show row totals` | Pivot |
+| `pivot.showGrandTotal` | `Show grand total` | Pivot |
+| `pivot.grandTotal` | `Grand Total` | Pivot |
+
+### In custom renderers and plugins
+
+A custom `filterPanelRenderer` receives the same lookup on its params, so your own panel
+localizes through the app's single map:
+
+```ts
+filterPanelRenderer: (container, params) => {
+  const apply = document.createElement('button');
+  apply.textContent = params.t('filter.apply', 'Apply');
+  container.appendChild(apply);
+},
+```
+
+Inside a custom plugin, `BaseGridPlugin` exposes the same helper as `this.t(key, fallback)`
+(and `this.translate` when you need to hand the function to a render module).
+
+## Other localizable surfaces
+
+| Surface | How to localize |
+| ------- | --------------- |
+| Column headers | `columns[].header` — pass an already-translated string |
+| Empty / loading state | A custom `emptyRenderer` / `loadingRenderer` returning translated markup |
+| Cell values (dates, numbers, currency) | `columns[].format` with `Intl.NumberFormat` / `Intl.DateTimeFormat` |
+| Filter panel labels | `locale` keys (`filter.*`), or a custom `filterPanelRenderer` |
+| Context menu items | Context Menu plugin `items[].label` |
+| Tool panel titles | `title` on `<tbw-grid-tool-panel>` / the shell `toolPanel` config |
+| Export filenames and sheet names | Export plugin config |
+
+## Formatting values
+
+Use `Intl` in a column `format` function rather than pre-formatting your data — this keeps
+sorting and filtering operating on the underlying value:
+
+```ts
+{
+  field: 'salary',
+  type: 'number',
+  format: (value) => new Intl.NumberFormat('de-DE', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(value as number),
+}
+```
+
+## Right-to-left
+
+The grid's layout is built on flexbox and logical CSS properties, so it inherits direction from
+its ancestors. Set `dir="rtl"` on a container (or `<html>`) and the grid mirrors:
+
+```html
+<div dir="rtl">
+  <tbw-grid id="grid"></tbw-grid>
+</div>
+```
+
+Custom renderers and custom themes are your responsibility — prefer logical properties
+(`margin-inline-start`, `padding-inline`, `inset-inline-end`) over physical ones so your
+additions mirror too.
+
+## See Also
+
+<CardGrid>
+  <LinkCard title="Accessibility" description="ARIA patterns, keyboard navigation, and what the live regions announce" href="/grid/guides/accessibility/" />
+  <LinkCard title="Theming" description="Design tokens and custom themes — use logical properties so RTL mirrors" href="/grid/guides/theming/" />
+  <LinkCard title="Core configuration" description="Column format, renderers, and the rest of gridConfig" href="/grid/core/" />
+  <LinkCard title="Platform & Support" description="Browser baseline, SSR, security, and the support commitment" href="/grid/guides/platform/" />
+</CardGrid>

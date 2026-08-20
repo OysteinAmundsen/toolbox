@@ -18,7 +18,9 @@ Two core events, no plugin:
 
 `tbw-scroll` carries `scrollTop`, `scrollHeight`, `clientHeight`, and a `direction: 'vertical'` discriminator. The detail is a fresh object literal each tick, so it is safe to retain, freeze, copy into framework state, or post to a worker.
 
-## Infinite scroll / load more
+## Code
+
+### Infinite scroll / load more
 
 ```typescript
 grid.on('tbw-scroll', ({ scrollTop, scrollHeight, clientHeight }) => {
@@ -28,7 +30,7 @@ grid.on('tbw-scroll', ({ scrollTop, scrollHeight, clientHeight }) => {
 });
 ```
 
-## Sticky scroll-progress indicator
+### Sticky scroll-progress indicator
 
 For a progress bar living outside the grid:
 
@@ -39,7 +41,7 @@ grid.on('tbw-scroll', ({ scrollTop, scrollHeight, clientHeight }) => {
 });
 ```
 
-## Defer heavy cell content
+### Defer heavy cell content
 
 Mount charts, images, or embedded video only for rows near the viewport:
 
@@ -49,7 +51,7 @@ grid.on('tbw-scroll', ({ scrollTop, clientHeight }) => {
 });
 ```
 
-## Dismiss overlays on scroll
+### Dismiss overlays on scroll
 
 Tooltips, popovers, and context menus rendered outside the grid should generally close when the viewport moves:
 
@@ -57,7 +59,7 @@ Tooltips, popovers, and context menus rendered outside the grid should generally
 grid.on('tbw-scroll', () => closeOpenOverlays());
 ```
 
-## Focus the first input after `addRow`
+### Focus the first input after `addRow`
 
 With `editing: { mode: 'grid' }` every row is permanently in edit mode. After inserting a row you want its first cell focused — but that row does not exist in the DOM until the next render. The `render` event is the supported hook, so you never need a `setTimeout` or double-`requestAnimationFrame` hack:
 
@@ -74,7 +76,7 @@ function addEmployee() {
 }
 ```
 
-## Skip cheap scroll renders
+### Skip cheap scroll renders
 
 `render` also fires for virtualization-only re-renders. Gate on `phase` when you only care about row or column model changes:
 

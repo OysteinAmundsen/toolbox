@@ -6,23 +6,21 @@ sidebar:
   order: 5
 ---
 
-## Problem
+**Problem:** a column whose value is an expression over sibling fields — `qty * price * (1 - discount)` — that stays correct when the user edits the inputs, and that sorts, filters, aggregates and exports like any other column.
 
-A column whose value is an expression over sibling fields — `qty * price * (1 - discount)` — that stays correct when the user edits the inputs, and that sorts, filters, aggregates and exports like any other column.
+## What you need
 
-## Why it isn't in core
+A formula engine is a parser, an evaluator, a dependency graph and a function library. HyperFormula alone implements nearly 400 Excel functions; a useful subset is still an order of magnitude larger than the grid's entire bundle budget. The grid instead exposes [`valueAccessor`](/grid/core/#value-accessors), which answers one question — *"what is this cell's value?"* — as a function of the whole row. **Every** feature reads through it: sorting, filtering, aggregation, clipboard, export and display. So an accessor backed by an external engine gives you a computed column that behaves like a real one everywhere, not just visually.
 
-A formula engine is a parser, an evaluator, a dependency graph and a function library. HyperFormula alone implements nearly 400 Excel functions; a useful subset is still an order of magnitude larger than the grid's entire bundle budget.
-
-The grid instead exposes [`valueAccessor`](/grid/core/#value-accessors), which answers one question — *"what is this cell's value?"* — as a function of the whole row. **Every** feature reads through it: sorting, filtering, aggregation, clipboard, export and display. So an accessor backed by an external engine gives you a computed column that behaves like a real one everywhere, not just visually.
-
-## Library
-
-[HyperFormula](https://hyperformula.handsontable.com/) — a headless spreadsheet engine with an Excel-compatible function set, ~200 kB min+gz. Dual-licensed: GPLv3, or commercial.
+[HyperFormula](https://hyperformula.handsontable.com/) — a headless spreadsheet engine with an Excel-compatible function set, ~200 kB min+gz.
 
 ```sh
 npm install hyperformula
 ```
+
+:::caution[Licensing]
+HyperFormula is **GPL-3.0-only** or a paid commercial licence, and requires an explicit `licenseKey` at runtime (`'gpl-v3'` for the open-source terms). Check which applies to you before adopting it — GPLv3 is copyleft and will reach your application code.
+:::
 
 ## Code
 

@@ -6,17 +6,11 @@ sidebar:
   order: 7
 ---
 
-## Problem
+**Problem:** phone numbers, IBANs, postcodes and currency fields that guide the user as they type — and cell values that are checked against a schema before they're accepted.
 
-Phone numbers, IBANs, postcodes and currency fields that guide the user as they type — and cell values that are checked against a schema before they're accepted.
+## What you need
 
-## Why it isn't in core
-
-The [Editing plugin](/grid/plugins/editing/)'s built-in editors are deliberately plain `<input>` / `<select>` elements. Masking and schema validation are solved problems with mature, well-tested libraries; a grid-shaped subset of one would be worse than the real thing and would cost every consumer bytes.
-
-The seam is [`column.editor`](/grid/plugins/editing/#custom-editors) — it hands you a cell and takes back any element — plus the `cell-commit` event and the plugin's own `setInvalid()` API, so third-party validation lights up the standard invalid-cell styling.
-
-## Library
+The [Editing plugin](/grid/plugins/editing/)'s built-in editors are deliberately plain `<input>` / `<select>` elements. Masking and schema validation are solved problems with mature, well-tested libraries; a grid-shaped subset of one would be worse than the real thing and would cost every consumer bytes. The seam is [`column.editor`](/grid/plugins/editing/#custom-editors) — it hands you a cell and takes back any element — plus the `cell-commit` event and the plugin's own `setInvalid()` API, so third-party validation lights up the standard invalid-cell styling.
 
 | Library | Approx. size (min+gz) | Purpose |
 | --- | --- | --- |
@@ -42,7 +36,11 @@ import IMask from 'imask';
     const mask = IMask(input, { mask: '+{47} 000 00 000' });
     mask.unmaskedValue = String(ctx.value ?? '');
 
+    // One-shot: Escape fires cancel, then the removed input blurs and fires again.
+    let done = false;
     const finish = (commit: boolean) => {
+      if (done) return;
+      done = true;
       const value = mask.unmaskedValue;
       mask.destroy();
       commit ? ctx.commit(value) : ctx.cancel();
@@ -91,7 +89,7 @@ grid.addEventListener('cell-commit', (e) => {
 
 ## Caveats
 
-- **Always call `mask.destroy()`.** IMask attaches its own listeners to the input. The grid removes the editor element from the DOM after a commit or cancel, so tear the mask down on *both* paths — otherwise every edit leaks a mask instance.
+- **Always call `mask.destroy()`, exactly once.** IMask attaches its own listeners to the input. The grid removes the editor element after a commit or cancel, so tear the mask down on *both* paths — but guard against re-entry: pressing Escape calls `finish` once, and the resulting blur calls it again. `ctx.commit()` / `ctx.cancel()` are idempotent (the grid tracks an internal finalized flag), so a stray commit is harmless — `mask.destroy()` is not.
 - **Decide what you store.** `mask.value` is what the user sees; `mask.unmaskedValue` is the raw digits. Store the raw value and add a `format` function for display, or your exports and clipboard output will carry the mask characters.
 - **`setInvalid()` does not reject the value.** It stores the value and flags the cell, which is usually what you want for a form-style grid. To refuse the value outright, call `e.preventDefault()` in `cell-commit` — see [Cell Validation](/grid/plugins/editing/#cell-validation).
 - **Paste bypasses the editor, not the event.** Clipboard paste writes through the same commit pipeline, so `cell-commit` validation still fires — but the mask never runs. Validate the shape, don't assume the mask enforced it.

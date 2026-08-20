@@ -8,19 +8,13 @@ sidebar:
 
 import { TabItem, Tabs } from '@astrojs/starlight/components';
 
-## Problem
+**Problem:** users want a "Download PDF" button next to the CSV and Excel ones — a paginated, print-ready table that matches what they see on screen.
 
-Users want a "Download PDF" button next to the CSV and Excel ones — a paginated, print-ready table that matches what they see on screen.
+## What you need
 
-## Why it isn't in core
+The [Export plugin](/grid/plugins/export/) ships CSV, Excel XML and JSON because all three are string formats it can emit with no dependency. PDF is a binary format that needs a layout engine and embedded fonts: the smallest credible writer is larger than the entire grid. So the plugin instead exposes the same data accessors it uses internally, and a PDF export is a dozen lines against **public** API.
 
-The [Export plugin](/grid/plugins/export/) ships CSV, Excel XML and JSON because all three are string formats the plugin can emit with no dependency. PDF is a binary format that needs a layout engine and embedded fonts: the smallest credible writer is larger than the entire grid. Shipping one would cost every consumer bytes that only some of them want.
-
-Instead the plugin exposes the same data accessors it uses internally, so a PDF export is a dozen lines against **public** API.
-
-## Library
-
-Either works; pick on size and how much layout control you need.
+Either library works; pick on size and how much layout control you need.
 
 | Library | Approx. size (min+gz) | Notes |
 | --- | --- | --- |

@@ -1,0 +1,83 @@
+---
+title: In-cell sparklines
+description: Render trend lines inside grid cells with inline SVG, escalating to uPlot when you need axes and tooltips.
+llmsFull: false
+sidebar:
+  order: 6
+---
+
+import ShowSource from '@components/ShowSource.astro';
+import SparklineRendererDemo from '@components/demos/SparklineRendererDemo.astro';
+
+## Problem
+
+A column that shows the shape of a series — twelve months of revenue, a rolling error rate — as a small chart inside the cell rather than a number.
+
+## Why it isn't in core
+
+Charting is a domain of its own: scales, axes, tooltips, animation, accessibility. Any built-in version would be either too limited to use or too large to justify. The grid's [`renderer`](/grid/core/#renderers) returns a DOM node, which is all a chart needs.
+
+For a plain trend line you don't need a library at all — an inline `<svg>` is a few lines and costs nothing.
+
+## Library
+
+None required. If you outgrow the SVG below, [uPlot](https://github.com/leeoniya/uPlot) (~50 kB min+gz) is the usual pick because it's small and fast enough to instantiate per cell.
+
+## Code
+
+<ShowSource file="demos/SparklineRendererDemo.astro">
+  <SparklineRendererDemo />
+</ShowSource>
+
+```typescript
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function sparkline(values: number[], width = 96, height = 22): SVGSVGElement {
+  const min = Math.min(...values);
+  const span = Math.max(...values) - min || 1;
+  const step = width / Math.max(values.length - 1, 1);
+  const points = values
+    .map((v, i) => `${(i * step).toFixed(1)},${(height - ((v - min) / span) * height).toFixed(1)}`)
+    .join(' ');
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('width', String(width));
+  svg.setAttribute('height', String(height));
+  svg.setAttribute('aria-hidden', 'true');
+
+  const line = document.createElementNS(SVG_NS, 'polyline');
+  line.setAttribute('points', points);
+  line.setAttribute('fill', 'none');
+  line.setAttribute('stroke', values[values.length - 1] >= values[0] ? '#16a34a' : '#dc2626');
+  line.setAttribute('stroke-width', '1.5');
+  svg.appendChild(line);
+  return svg;
+}
+
+grid.columns = [
+  { field: 'name', header: 'Product' },
+  {
+    field: 'trend',
+    header: 'Trend (12 mo)',
+    width: 140,
+    sortable: false,
+    renderer: ({ value }) => sparkline(value as number[]),
+  },
+];
+```
+
+For axes, tooltips or interaction, create the chart instance inside the renderer against the node you return.
+
+## Caveats
+
+- **Renderers run for every visible cell on every render pass.** Inline SVG is cheap enough not to matter; a chart library that costs milliseconds per instance will show up as scroll jank. Measure before reaching for one.
+- **Chart libraries need teardown.** uPlot and friends attach listeners and observers. The grid discards cell content on re-render, so instances created in a renderer leak unless you destroy them — which the renderer API gives you no hook for. Prefer stateless output (SVG, canvas you draw yourself) for virtualized columns.
+- **An array-valued column is presentation only.** Set `sortable: false` — sorting or filtering on an array has no meaningful ordering. If you want to sort by trend direction, add a separate numeric column with a [`valueAccessor`](/grid/core/#value-accessors).
+- **Mark it `aria-hidden`.** A polyline conveys nothing to a screen reader. Put the meaning in an adjacent column, or set `aria-label` on the cell content with a text summary.
+- **Don't hardcode colours** if you support light and dark themes — use `currentColor` or a [theme custom property](/grid/guides/theming/).
+
+## See also
+
+- [Renderers](/grid/core/#renderers) — the seam this recipe plugs into
+- [Variable row heights](/grid/core/#variable-row-heights) — if a chart needs more vertical space

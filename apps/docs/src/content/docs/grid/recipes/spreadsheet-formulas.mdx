@@ -1,0 +1,99 @@
+---
+title: Spreadsheet formulas
+description: Wire HyperFormula through valueAccessor to get Excel-compatible computed columns in @toolbox-web/grid.
+llmsFull: false
+sidebar:
+  order: 5
+---
+
+## Problem
+
+A column whose value is an expression over sibling fields — `qty * price * (1 - discount)` — that stays correct when the user edits the inputs, and that sorts, filters, aggregates and exports like any other column.
+
+## Why it isn't in core
+
+A formula engine is a parser, an evaluator, a dependency graph and a function library. HyperFormula alone implements nearly 400 Excel functions; a useful subset is still an order of magnitude larger than the grid's entire bundle budget.
+
+The grid instead exposes [`valueAccessor`](/grid/core/#value-accessors), which answers one question — *"what is this cell's value?"* — as a function of the whole row. **Every** feature reads through it: sorting, filtering, aggregation, clipboard, export and display. So an accessor backed by an external engine gives you a computed column that behaves like a real one everywhere, not just visually.
+
+## Library
+
+[HyperFormula](https://hyperformula.handsontable.com/) — a headless spreadsheet engine with an Excel-compatible function set, ~200 kB min+gz. Dual-licensed: GPLv3, or commercial.
+
+```sh
+npm install hyperformula
+```
+
+## Code
+
+Keep HyperFormula as the source of truth for computed cells and let the accessor read the result.
+
+```typescript
+import { HyperFormula } from 'hyperformula';
+import { invalidateAccessorCache, queryGrid } from '@toolbox-web/grid';
+
+interface Line {
+  qty: number;
+  price: number;
+  discount: number;
+}
+
+const rows: Line[] = [
+  { qty: 3, price: 100, discount: 0.1 },
+  { qty: 5, price: 42.5, discount: 0 },
+];
+
+// One sheet column per input field, in a fixed order, plus the formula column.
+const INPUTS = ['qty', 'price', 'discount'] as const;
+const TOTAL_COL = INPUTS.length;
+const SHEET = 0;
+
+const hf = HyperFormula.buildFromArray(
+  rows.map((row, i) => [...INPUTS.map((f) => row[f]), `=A${i + 1}*B${i + 1}*(1-C${i + 1})`]),
+  { licenseKey: 'gpl-v3' },
+);
+
+// Map row identity → sheet row. Never use the accessor's `rowIndex`: it is the
+// *view* position and shifts when the user sorts, filters or groups.
+const sheetRow = new WeakMap<Line, number>();
+rows.forEach((row, i) => sheetRow.set(row, i));
+
+const grid = queryGrid<Line>('tbw-grid');
+grid.columns = [
+  { field: 'qty', header: 'Qty', type: 'number', editable: true },
+  { field: 'price', header: 'Price', type: 'number', editable: true },
+  { field: 'discount', header: 'Discount', type: 'number', editable: true },
+  {
+    field: 'lineTotal',
+    header: 'Line total',
+    type: 'number',
+    valueAccessor: ({ row }) =>
+      hf.getCellValue({ sheet: SHEET, row: sheetRow.get(row)!, col: TOTAL_COL }) as number,
+  },
+];
+grid.rows = rows;
+
+// Push edits back into the engine, then let the grid re-read the computed column.
+grid.addEventListener('cell-change', (e) => {
+  const { row, field, newValue } = e.detail;
+  const col = INPUTS.indexOf(field as (typeof INPUTS)[number]);
+  if (col === -1) return;
+  hf.setCellContents({ sheet: SHEET, row: sheetRow.get(row as Line)!, col }, [[newValue as number]]);
+  invalidateAccessorCache();
+  grid.requestRender();
+});
+```
+
+## Caveats
+
+- **Developer-authored, not end-user-typed.** You decide which columns are computed and what they compute. Nothing in the grid parses a formula a user types into a cell. If you want that, make the formula string itself an editable column and pass the user's input to `hf.setCellContents` — you own the validation and the security review of whatever expressions you accept.
+- **Never key on `rowIndex`.** The accessor's `rowIndex` is the position in the current sorted/filtered/grouped view. Map row *identity* to the sheet row, as above.
+- **Accessor results are cached** per `(row, field)` in a `WeakMap`. The cache doesn't know the engine recalculated, so call [`invalidateAccessorCache()`](/grid/core/#caching--invalidation) after every `setCellContents`.
+- **Computed columns are read-only.** `valueAccessor` has no write counterpart yet, so leave `editable` off on the formula column.
+- **Adding or removing rows means adding or removing sheet rows.** `buildFromArray` is a one-shot snapshot — keep the `WeakMap` and the sheet in step with `addRow` / `removeRow`, or rebuild both.
+- **Check the licence.** The `gpl-v3` key above is fine for GPL projects; commercial use needs a paid key.
+
+## See also
+
+- [Value accessors](/grid/core/#value-accessors) — the seam this recipe plugs into
+- [Aggregations](/grid/plugins/grouping-rows/) — `sum` / `avg` group totals read through the accessor

@@ -1,0 +1,105 @@
+---
+title: Input masks & validation
+description: Use IMask for masked cell editors and a schema library like Zod to drive the grid's invalid-cell state.
+llmsFull: false
+sidebar:
+  order: 7
+---
+
+## Problem
+
+Phone numbers, IBANs, postcodes and currency fields that guide the user as they type — and cell values that are checked against a schema before they're accepted.
+
+## Why it isn't in core
+
+The [Editing plugin](/grid/plugins/editing/)'s built-in editors are deliberately plain `<input>` / `<select>` elements. Masking and schema validation are solved problems with mature, well-tested libraries; a grid-shaped subset of one would be worse than the real thing and would cost every consumer bytes.
+
+The seam is [`column.editor`](/grid/plugins/editing/#custom-editors) — it hands you a cell and takes back any element — plus the `cell-commit` event and the plugin's own `setInvalid()` API, so third-party validation lights up the standard invalid-cell styling.
+
+## Library
+
+| Library | Approx. size (min+gz) | Purpose |
+| --- | --- | --- |
+| [IMask](https://imask.js.org/) | ~15 kB | Attaches a mask to a normal `<input>` |
+| [Zod](https://zod.dev/) | ~14 kB | Schema validation (or [Valibot](https://valibot.dev/) ~2 kB, [Yup](https://github.com/jquense/yup) ~12 kB) |
+
+## Code
+
+### Masked editor
+
+IMask attaches to a normal `<input>`, so the editor keeps the grid's own sizing and focus behaviour. Commit `mask.unmaskedValue` to keep the *stored* value clean while the user sees the mask.
+
+```ts
+import IMask from 'imask';
+
+{
+  field: 'phone',
+  header: 'Phone',
+  editable: true,
+  editor: (ctx) => {
+    const input = document.createElement('input');
+
+    const mask = IMask(input, { mask: '+{47} 000 00 000' });
+    mask.unmaskedValue = String(ctx.value ?? '');
+
+    const finish = (commit: boolean) => {
+      const value = mask.unmaskedValue;
+      mask.destroy();
+      commit ? ctx.commit(value) : ctx.cancel();
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') finish(true);
+      if (e.key === 'Escape') finish(false);
+    });
+    input.addEventListener('blur', () => finish(true));
+
+    return input;
+  },
+}
+```
+
+### Schema validation
+
+Validation stays outside the editor. Check the committed value in `cell-commit` and mark failures with `setInvalid()`, so they pick up the standard [invalid-cell styling](/grid/plugins/editing/#cell-validation).
+
+```ts
+import { z } from 'zod';
+
+const schema: Record<string, z.ZodTypeAny> = {
+  email: z.string().email('Not a valid email address'),
+  age: z.number().int().min(18, 'Must be 18 or older'),
+};
+
+const editing = grid.getPluginByName('editing');
+
+grid.addEventListener('cell-commit', (e) => {
+  const { rowId, field, value } = e.detail;
+  const rule = schema[field];
+  if (!rule) return;
+
+  const result = rule.safeParse(value);
+  if (result.success) {
+    editing?.clearInvalid(rowId, field);
+  } else {
+    editing?.setInvalid(rowId, field, result.error.issues[0].message);
+    // Use e.preventDefault() instead to reject the value outright rather than
+    // storing it and flagging the cell.
+  }
+});
+```
+
+## Caveats
+
+- **Always call `mask.destroy()`.** IMask attaches its own listeners to the input. The grid removes the editor element from the DOM after a commit or cancel, so tear the mask down on *both* paths — otherwise every edit leaks a mask instance.
+- **Decide what you store.** `mask.value` is what the user sees; `mask.unmaskedValue` is the raw digits. Store the raw value and add a `format` function for display, or your exports and clipboard output will carry the mask characters.
+- **`setInvalid()` does not reject the value.** It stores the value and flags the cell, which is usually what you want for a form-style grid. To refuse the value outright, call `e.preventDefault()` in `cell-commit` — see [Cell Validation](/grid/plugins/editing/#cell-validation).
+- **Paste bypasses the editor, not the event.** Clipboard paste writes through the same commit pipeline, so `cell-commit` validation still fires — but the mask never runs. Validate the shape, don't assume the mask enforced it.
+- **`rowId` requires `getRowId`.** `setInvalid()` is keyed by row id; without a configured `getRowId` there is nothing stable to key on.
+- **Overlay editors need registering.** If your third-party editor renders a dropdown or datepicker outside the cell, call `grid.registerExternalFocusContainer(overlay)` so the grid doesn't close the editor when the overlay takes focus.
+
+## See also
+
+- [Custom editors](/grid/plugins/editing/#custom-editors) — the seam this recipe plugs into
+- [Cell validation](/grid/plugins/editing/#cell-validation) — the built-in invalid-cell state and its CSS properties
+- [Type-level defaults](/grid/plugins/editing/#type-level-defaults) — apply one custom editor to every column of a type

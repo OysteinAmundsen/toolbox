@@ -1,0 +1,81 @@
+---
+title: Recipes
+description: Task-oriented how-to guides for @toolbox-web/grid — editable grids, streaming data, scroll-driven UI, PDF export, spreadsheet formulas, in-cell charts, and input masking.
+sidebar:
+  order: 0
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Feature pages tell you what each option does. Recipes answer the other question: **"how do I build _this_?"** Each one starts from a concrete goal and ends with runnable code and the failure modes we know about.
+
+## Recipe shape
+
+Every page follows the same four steps, so you can skim straight to the part you need:
+
+1. **Problem** — the concrete thing you're building.
+2. **What you need** — which grid features to enable, plus any external library and its approximate size.
+3. **Code** — one runnable block against public, versioned API.
+4. **Caveats** — the failure modes we know about.
+
+Recipes are written in vanilla TypeScript. `gridConfig` is byte-identical across React, Vue, and Angular, so the only thing that changes per framework is how you hand the config to the component and how you bind events — see [Framework Adapters](/grid/framework-adapters/) and [Listening to Events](/grid/api-reference/#listening-to-events).
+
+## Using the grid
+
+Built entirely from `@toolbox-web/grid` — supported, versioned, and covered by our tests.
+
+<CardGrid>
+  <LinkCard
+    title="Editable grid with undo"
+    href="/grid/recipes/editable-grid-with-undo/"
+    description="Inline editing with undo/redo, dirty tracking, and validation that rejects a bad value."
+  />
+  <LinkCard
+    title="Real-time streaming data"
+    href="/grid/recipes/real-time-streaming/"
+    description="Feed WebSocket or SSE deltas into the grid with row transactions."
+  />
+  <LinkCard
+    title="Scroll & render driven UI"
+    href="/grid/recipes/scroll-and-render/"
+    description="Infinite scroll, lazy cell hydration, and focusing a row you just added."
+  />
+</CardGrid>
+
+## Integrating a third-party library
+
+These reach a capability the grid deliberately does not ship. The grid holds a hard bundle budget — core stays under 50 kB gzipped, and anything that can be a plugin is a plugin. A PDF writer is larger than the entire grid; a formula engine is larger still. So rather than ship a mediocre built-in, the grid exposes the **seam** you can drive an external library from:
+
+| Capability | Seam |
+| --- | --- |
+| PDF export | `ExportPlugin.getResolvedColumns()` / `.export()` |
+| Computed & formula columns | `column.valueAccessor` |
+| Charts and rich cell content | `column.renderer` |
+| Masked, validated or exotic input | `column.editor` + the `cell-commit` event |
+
+<CardGrid>
+  <LinkCard
+    title="PDF export"
+    href="/grid/recipes/pdf-export/"
+    description="Drive pdfmake or jsPDF + AutoTable from the export plugin's public data accessors."
+  />
+  <LinkCard
+    title="Spreadsheet formulas"
+    href="/grid/recipes/spreadsheet-formulas/"
+    description="Wire HyperFormula through valueAccessor for Excel-compatible computed columns."
+  />
+  <LinkCard
+    title="In-cell sparklines"
+    href="/grid/recipes/sparklines/"
+    description="Trend lines in a cell with inline SVG, escalating to uPlot when you need axes."
+  />
+  <LinkCard
+    title="Input masks & validation"
+    href="/grid/recipes/input-masks-validation/"
+    description="IMask editors and Zod schema validation wired to the grid's invalid-cell state."
+  />
+</CardGrid>
+
+:::caution[Third-party recipes are not supported integrations]
+We don't test against these libraries, track their releases, or pin their versions. Treat the code as a starting point you own, not a dependency of the grid. The grid-side API every recipe uses **is** public and versioned — if a recipe needs something that isn't, that's a bug, please [open an issue](https://github.com/OysteinAmundsen/toolbox/issues).
+:::

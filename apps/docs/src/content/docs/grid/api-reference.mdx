@@ -794,7 +794,115 @@ The grid dispatches standard `CustomEvent`s that bubble up the DOM. All events u
 
 ### Listening to Events
 
-For framework-specific patterns (vanilla TypeScript, React, Vue, Angular) and the camelCase vs kebab-case binding rules, see [Common Patterns → Event Handling Recipes](/grid/guides/common-patterns/#listening-to-events-across-frameworks).
+Cancelable events honour `preventDefault()` to reject the action — see the [Cancelable Events table](#cancelable-events) below.
+
+<Tabs syncKey="framework">
+  <TabItem label="TypeScript">
+```typescript
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid<Employee>('#my-grid');
+
+// Type-safe event listening
+grid.on('cell-click', ({ row, field }) => {
+  console.log(row, field);
+});
+
+// Cancelable events — call preventDefault() to reject the action
+grid.on('cell-commit', (detail, e) => {
+  if (!isValid(detail.value)) {
+    e.preventDefault(); // Rejects the edit
+  }
+});
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import { DataGrid } from '@toolbox-web/grid-react';
+import type { CellClickDetail } from '@toolbox-web/grid';
+import type { CellCommitDetail } from '@toolbox-web/grid/plugins/editing';
+
+function EmployeeGrid() {
+  // Event props deliver the unwrapped detail directly
+  const handleCellClick = useCallback((detail: CellClickDetail<Employee>) => {
+    console.log(detail.row, detail.field);
+  }, []);
+
+  const handleCellCommit = useCallback((detail: CellCommitDetail<Employee>, e?: CustomEvent) => {
+    if (!isValid(detail.value)) {
+      e?.preventDefault(); // Rejects the edit
+    }
+  }, []);
+
+  return (
+    <DataGrid
+      rows={employees}
+      onCellClick={handleCellClick}
+      onCellCommit={handleCellCommit}
+    />
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { CellClickDetail } from '@toolbox-web/grid';
+import type { CellCommitDetail } from '@toolbox-web/grid/plugins/editing';
+
+function onCellClick(event: CustomEvent<CellClickDetail>) {
+  console.log(event.detail.row, event.detail.field);
+}
+
+function onCellCommit(event: CustomEvent<CellCommitDetail>) {
+  if (!isValid(event.detail.value)) {
+    event.preventDefault(); // Rejects the edit
+  }
+}
+</script>
+
+<template>
+  <TbwGrid :rows="employees" @cell-click="onCellClick" @cell-commit="onCellCommit" />
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { CellClickDetail } from '@toolbox-web/grid';
+import type { CellCommitDetail } from '@toolbox-web/grid/plugins/editing';
+
+@Component({
+  imports: [Grid],
+  template: `
+    <tbw-grid
+      [rows]="employees"
+      (cellClick)="onCellClick($event)"
+      (cellCommit)="onCellCommit($event)"
+    />
+  `,
+})
+export class EmployeeGridComponent {
+  onCellClick(detail: CellClickDetail<Employee>) {
+    console.log(detail.row, detail.field);
+  }
+
+  onCellCommit(detail: CellCommitDetail<Employee>) {
+    if (!isValid(detail.value)) {
+      // To cancel, use the native event via kebab-case binding:
+      // (cell-commit)="onCellCommit($event)" → event.preventDefault()
+    }
+  }
+}
+```
+
+:::note[camelCase vs kebab-case]
+Use **camelCase** outputs like `(cellClick)` for typed, unwrapped detail. Use kebab-case `(cell-commit)` when you need `preventDefault()` on the native `CustomEvent`.
+:::
+  </TabItem>
+</Tabs>
 
 ### Cancelable Events
 
@@ -812,7 +920,7 @@ Five events support `preventDefault()` to reject the action:
 
 ### Scroll & Render Recipes
 
-The `tbw-scroll` event fires (rAF-batched) on every viewport scroll; the `render` event fires once per render flush after all plugin `afterRender` hooks complete. Cookbook patterns — infinite scroll, sticky progress indicators, lazy cell hydration, post-`addRow` focus, phase-gated render handlers — live in [Common Patterns → Event Handling Recipes](/grid/guides/common-patterns/#scroll-driven-patterns-tbw-scroll).
+The `tbw-scroll` event fires (rAF-batched) on every viewport scroll; the `render` event fires once per render flush after all plugin `afterRender` hooks complete. Cookbook patterns — infinite scroll, sticky progress indicators, lazy cell hydration, post-`addRow` focus, phase-gated render handlers — live in [Recipes: Scroll & render driven UI](/grid/recipes/scroll-and-render/).
 
 For the typed event payloads, see [`DataGridEventMap`](/grid/api/core/interfaces/datagrideventmap/).
 

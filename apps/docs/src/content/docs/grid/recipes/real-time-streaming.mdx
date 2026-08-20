@@ -1,0 +1,56 @@
+---
+title: Real-time streaming data
+description: Push live WebSocket, SSE, or polling updates into the grid with row transactions, without re-assigning the whole dataset.
+sidebar:
+  order: 2
+---
+
+**Problem:** a WebSocket, SSE stream, or poll loop delivers row-level deltas, and re-assigning `grid.rows` on every message would rebuild the entire row model and destroy scroll position and selection.
+
+## What you need
+
+No external library and no plugin — `applyTransaction()` and `applyTransactionAsync()` are core grid API. See [Row Transactions](/grid/core/#row-transactions) for the payload shape and the sync/async trade-off.
+
+## Code
+
+```typescript
+import { createGrid } from '@toolbox-web/grid';
+
+const grid = createGrid<Trade>('#my-grid');
+
+// Low-to-moderate frequency: one transaction per message
+ws.onmessage = (e) => {
+  const msg = JSON.parse(e.data);
+  grid.applyTransaction({
+    add: msg.type === 'add' ? [msg.row] : undefined,
+    update: msg.type === 'update' ? [{ id: msg.id, changes: msg.changes }] : undefined,
+    remove: msg.type === 'remove' ? [{ id: msg.id }] : undefined,
+  });
+};
+```
+
+For a high-frequency ticker, switch to the async form — it merges every call made within the same animation frame into a single render:
+
+```typescript
+ws.onmessage = (e) => {
+  const msg = JSON.parse(e.data);
+  grid.applyTransactionAsync({
+    update: [{ id: msg.id, changes: msg.changes }],
+  });
+};
+```
+
+## Caveats
+
+- **`getRowId` is required.** `update` and `remove` match by row ID; without `getRowId` the grid has nothing to match against.
+- **`applyTransactionAsync()` disables row animations** by design — flashing every cell at 100 msg/s is noise, not feedback. Use the sync form when you want the change highlight.
+- **Operations apply in a fixed order** (removes → updates → adds), so a single transaction can safely remove and re-add the same ID.
+- **`add` appends to the end** of the row array. If the grid is sorted, the new row jumps to its sorted position on the next render — don't assume it lands where you appended it.
+- **Both methods return a `TransactionResult`** with the actual row objects touched. Use it for logging rather than re-deriving what changed.
+- **Over ~50k rows**, consider [ServerSidePlugin](/grid/plugins/server-side/) instead of streaming the full dataset into the client.
+
+## See also
+
+- [Row Transactions](/grid/core/#row-transactions) — `RowTransaction` shape, ordering rules, sync vs async
+- [Scroll & render events](/grid/recipes/scroll-and-render/) — react to the render a transaction triggers
+- [Server-Side plugin](/grid/plugins/server-side/) — block-based fetching for very large datasets

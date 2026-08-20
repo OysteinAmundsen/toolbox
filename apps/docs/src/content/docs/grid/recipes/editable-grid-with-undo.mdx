@@ -1,0 +1,70 @@
+---
+title: Editable grid with undo
+description: Inline cell editing with undo/redo, dirty tracking, and validation that rejects a bad value before it is committed.
+sidebar:
+  order: 1
+---
+
+**Problem:** users edit cells inline, can undo mistakes with `Ctrl+Z`, and a Save button stays disabled until something actually changed — with invalid values rejected before they reach your data.
+
+## What you need
+
+Three built-in features, no external library:
+
+| Feature | Why |
+| --- | --- |
+| `editing` | The inline editors themselves, plus dirty tracking |
+| `undoRedo` | `Ctrl+Z` / `Ctrl+Shift+Z` history |
+| `selection: 'cell'` | Gives the keyboard a cell to start editing from |
+
+## Code
+
+```typescript
+import '@toolbox-web/grid/features/editing';
+import '@toolbox-web/grid/features/undo-redo';
+import '@toolbox-web/grid/features/selection';
+
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'email', header: 'Email', editable: true },
+    { field: 'active', header: 'Active', type: 'boolean', editable: true },
+  ],
+  features: {
+    editing: { editOn: 'dblclick', dirtyTracking: true },
+    undoRedo: true,
+    selection: 'cell',
+  },
+  getRowId: (row) => row.id, // Required — dirty tracking is keyed by row ID
+};
+
+// Reject an invalid value before it is written back to the row
+grid.on('cell-commit', (detail, e) => {
+  if (detail.field === 'email' && !detail.value.includes('@')) {
+    e.preventDefault();
+  }
+});
+
+// Enable Save only while there is something to save
+grid.on('dirty-change', () => {
+  const editing = grid.getPluginByName('editing');
+  saveButton.disabled = (editing?.getDirtyRows() ?? []).length === 0;
+});
+```
+
+The `gridConfig` above is identical in React, Vue, and Angular — see [Framework Adapters](/grid/framework-adapters/) for how to hand it to each component, and [Listening to Events](/grid/api-reference/#listening-to-events) for the per-framework event binding syntax.
+
+## Caveats
+
+- **`getRowId` is not optional here.** Dirty tracking and undo both identify rows by ID, not by index. Without it, sorting or filtering makes the grid lose track of which row was edited.
+- **`cell-commit` is cancelable, `cell-change` is not.** Validate in `cell-commit` and call `preventDefault()`; by the time `cell-change` fires the value is already committed.
+- **`preventDefault()` reverts the cell**, it does not keep the editor open. To keep a bad value visible while flagging it, use [cell validation](/grid/plugins/editing/#cell-validation) instead.
+- **Feature dependencies resolve automatically.** If you drop to the plugin API directly, `EditingPlugin` must be registered **before** `UndoRedoPlugin`.
+- **Undo history is in-memory** and is cleared when `rows` is replaced wholesale.
+
+## See also
+
+- [Editing plugin](/grid/plugins/editing/) — the full editor, validation, and cascade-update reference
+- [Undo/Redo plugin](/grid/plugins/undo-redo/) — history depth and programmatic undo
+- [Input masks & validation](/grid/recipes/input-masks-validation/) — when a plain `<input>` isn't enough

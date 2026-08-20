@@ -104,6 +104,7 @@ export function sectionOf(slug: string): string {
   if (/\/(classes|interfaces|functions|types|variables|enumerations)\//.test(slug)) return 'API';
   if (slug.startsWith('grid/guides/')) return 'Guides';
   if (slug.startsWith('grid/plugins/')) return 'Plugins';
+  if (slug.startsWith('grid/recipes')) return 'Recipes';
   if (slug.startsWith('grid/plugin-development')) return 'Plugin Development';
   if (slug.startsWith('grid/framework-adapters')) return 'Framework Adapters';
   if (slug.startsWith('grid/angular/')) return 'Angular';
@@ -117,6 +118,7 @@ export const SECTION_ORDER = [
   'Core Documentation',
   'Guides',
   'Plugins',
+  'Recipes',
   'Plugin Development',
   'Framework Adapters',
   'Angular',

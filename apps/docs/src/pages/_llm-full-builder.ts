@@ -223,8 +223,9 @@ export function buildFull(origin: string, framework: Framework | null = null): s
     .filter((p) => !isForeignFrameworkPage(p.slug, framework));
 
   // Prose pages (everything except per-symbol API), grouped by section then slug.
-  // Pages whose frontmatter sets `llmsFull: false` (release-history changelogs and
-  // the AI-assistance meta page) are omitted here but stay linked in `llms.txt`.
+  // Pages whose frontmatter sets `llmsFull: false` (release-history changelogs, the
+  // AI-assistance meta page, and the third-party `grid/recipes/` section) are omitted
+  // here but stay linked in `llms.txt`.
   const prosePages = allPages
     .filter((p) => sectionOf(p.slug) !== 'API' && extractFrontmatter(p.source).llmsFull !== false)
     .sort((a, b) => {

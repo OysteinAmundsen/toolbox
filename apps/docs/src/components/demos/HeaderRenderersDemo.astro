@@ -6,7 +6,9 @@
 
 <p class="grid-demo-description">
   <strong>Name</strong> uses <code>headerLabelRenderer</code> (adds a red asterisk).
-  <strong>Email</strong> uses <code>headerRenderer</code> (full control with custom icon + sort icon).
+  <strong>Email</strong> uses <code>headerRenderer</code> (full control — a multi-line block with a
+  custom icon, a caption and the sort icon). A tall header shrinks the scrollable row viewport;
+  the grid accounts for that so the last row stays reachable.
 </p>
 <div class="grid-demo">
   <tbw-grid id="demo-header-renderers" style="height: 260px;"></tbw-grid>
@@ -39,28 +41,54 @@ import { queryGrid } from '@toolbox-web/grid';
         resizable: true,
         headerRenderer: (ctx) => {
           const wrapper = document.createElement('div');
-          wrapper.style.cssText = 'display:flex;align-items:center;gap:6px;width:100%;';
+          wrapper.style.cssText = 'display:flex;flex-direction:column;gap:4px;width:100%;padding:8px 0;';
+          const top = document.createElement('div');
+          top.style.cssText = 'display:flex;align-items:center;gap:6px;width:100%;';
           const icon = document.createElement('span');
           icon.textContent = '📧';
-          wrapper.appendChild(icon);
+          top.appendChild(icon);
           const label = document.createElement('span');
           label.textContent = ctx.value;
           label.style.flex = '1';
-          wrapper.appendChild(label);
+          top.appendChild(label);
           const sortIcon = ctx.renderSortIcon();
-          if (sortIcon) wrapper.appendChild(sortIcon);
+          if (sortIcon) top.appendChild(sortIcon);
+          wrapper.appendChild(top);
+          const caption = document.createElement('small');
+          caption.textContent = 'Primary contact';
+          caption.style.cssText = 'opacity:0.7;font-weight:400;';
+          wrapper.appendChild(caption);
+          const hint = document.createElement('small');
+          hint.textContent = 'Verified addresses only';
+          hint.style.cssText = 'opacity:0.7;font-weight:400;';
+          wrapper.appendChild(hint);
           return wrapper;
         },
       },
       { field: 'score', header: 'Score', sortable: true, type: 'number', width: 80 },
     ];
 
-    grid.rows = [
-      { id: 1, name: 'Alice', email: 'alice@example.com', score: 85 },
-      { id: 2, name: 'Bob', email: 'bob@example.com', score: 72 },
-      { id: 3, name: 'Carol', email: 'carol@example.com', score: 91 },
-      { id: 4, name: 'Dan', email: 'dan@example.com', score: 68 },
-      { id: 5, name: 'Eve', email: 'eve@example.com', score: 95 },
+    const names = [
+      'Alice',
+      'Bob',
+      'Carol',
+      'Dan',
+      'Eve',
+      'Frank',
+      'Grace',
+      'Heidi',
+      'Ivan',
+      'Judy',
+      'Mallory',
+      'Niaj',
+      'Olivia',
+      'Peggy',
     ];
+    grid.rows = names.map((name, i) => ({
+      id: i + 1,
+      name,
+      email: `${name.toLowerCase()}@example.com`,
+      score: 60 + ((i * 7) % 40),
+    }));
   }
 </script>

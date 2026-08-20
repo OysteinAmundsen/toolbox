@@ -283,21 +283,37 @@ export class VirtualizationManager<T = any> {
   #renderBypassWindow(bodyEl: HTMLElement, totalRows: number, force: boolean, skipAfterRender: boolean): boolean {
     const s = this.state;
     const grid = this.#grid;
+    // Bypass renders every row, so the window only ever changes on a force
+    // refresh or a row-count change — claiming a change on every scroll frame
+    // made callers re-run plugin onScrollRender() for nothing.
+    const windowChanged = force || s.start !== 0 || s.end !== totalRows;
     s.start = 0;
     s.end = totalRows;
-    if (force) {
-      bodyEl.style.transform = 'translateY(0px)';
-    }
     grid._renderVisibleRows(0, totalRows, grid.__rowRenderEpoch);
-    if (force && s.variableHeights) {
-      this.initializePositionCache();
-    }
-    if (force && s.totalHeightEl) {
-      s.totalHeightEl.style.height = `${this.calculateTotalSpacerHeight(totalRows, true)}px`;
+    if (force) {
+      if (s.variableHeights) this.initializePositionCache();
+      // Both layout reads happen before either write, so the whole force path
+      // costs a single reflow.
+      let offset = s.container?.scrollTop ?? 0;
+      if (s.totalHeightEl) {
+        const spacerHeight = this.calculateTotalSpacerHeight(totalRows, true);
+        s.totalHeightEl.style.height = `${spacerHeight}px`;
+        // The browser clamps scrollTop to the resized spacer, but not until the
+        // next layout — mirror that here rather than paying a second read.
+        const maxScroll = spacerHeight - s.cachedFauxHeight;
+        if (offset > maxScroll) offset = maxScroll > 0 ? maxScroll : 0;
+      }
+      // Re-apply the live scroll offset. Hard-coding translateY(0) desynced the
+      // rows from the faux scrollbar, which keeps its scrollTop across a force
+      // refresh — the tail rows became unreachable. Raw (un-mapped) scrollTop is
+      // correct here and matches grid.ts's bypass scroll listener: a dataset small
+      // enough to bypass is always far below MAX_ELEMENT_HEIGHT_PX, so the scroll
+      // mapping is identity.
+      bodyEl.style.transform = `translateY(${-offset}px)`;
     }
     grid._updateAriaCounts(totalRows, grid._visibleColumns.length);
     if (!skipAfterRender) grid._afterPluginRender();
-    return true;
+    return windowChanged;
   }
 
   /**

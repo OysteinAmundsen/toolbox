@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { cell, cellText, dataRows, grid, headerCell, headerCells, openDemo, sortByColumn } from './utils';
+import { cell, cellText, dataRows, grid, headerCell, headerCells, openDemo, sortByColumn, wheelScroll } from './utils';
 
 test.describe('Core & Basic Demos', () => {
   test('IntroBasicDemo — sorting by column header', async ({ page }) => {
@@ -115,6 +115,53 @@ test.describe('Core & Basic Demos', () => {
     const nameHeader = headerCell(page, 'Name');
     const nameHtml = await nameHeader.innerHTML();
     expect(nameHtml).toContain('*');
+  });
+
+  test('HeaderRenderersDemo — tall custom header still scrolls to the last row', async ({ page }) => {
+    await openDemo(page, 'HeaderRenderersDemo');
+
+    const g = grid(page);
+    const headerBox = await g.locator('.header').boundingBox();
+    const firstRowBox = await dataRows(page).first().boundingBox();
+    if (!headerBox || !firstRowBox) throw new Error('grid header / first row has no layout box');
+    // Guard the premise: the custom renderer must make the header several rows tall,
+    // otherwise the regression this test covers cannot manifest.
+    expect(headerBox.height).toBeGreaterThan(firstRowBox.height * 2);
+
+    await wheelScroll(page, g, 0, 3000);
+
+    const viewport = g.locator('.rows-viewport');
+    const lastRow = dataRows(page).last();
+    await expect(lastRow.locator('[role="gridcell"]').nth(1)).toHaveText('Peggy');
+
+    // Both rects are re-read on every poll: refreshColumns() re-renders the header,
+    // and a header height change moves the row viewport.
+    const lastRowOverflow = async () => {
+      const [rowBox, viewportBox] = await Promise.all([lastRow.boundingBox(), viewport.boundingBox()]);
+      if (!rowBox || !viewportBox) return Number.POSITIVE_INFINITY;
+      return Math.round(rowBox.y + rowBox.height - (viewportBox.y + viewportBox.height));
+    };
+
+    // Scrolled fully down, the last row must sit inside the row viewport.
+    await expect.poll(lastRowOverflow).toBeLessThanOrEqual(1);
+
+    // A force re-render while scrolled must NOT desync the rows from the faux
+    // scrollbar. A tall header makes this fire often in practice (the viewport
+    // ResizeObserver reacts to every header height change); the bypass path used
+    // to reset the row transform to translateY(0) while scrollTop stayed at max,
+    // stranding the tail rows below the viewport.
+    await g.evaluate((el) => (el as HTMLElement & { refreshColumns(): void }).refreshColumns());
+
+    await expect.poll(lastRowOverflow).toBeLessThanOrEqual(1);
+    // The rows transform must still track the scrollbar (1px sub-pixel tolerance).
+    const transformDrift = await g.evaluate((el) => {
+      const rows = el.querySelector('.rows') as HTMLElement | null;
+      const faux = el.querySelector('.faux-vscroll') as HTMLElement | null;
+      if (!rows || !faux) return Number.POSITIVE_INFINITY;
+      const applied = Math.abs(parseFloat(rows.style.transform.replace(/[^-\d.]/g, '') || '0'));
+      return Math.abs(applied - faux.scrollTop);
+    });
+    expect(transformDrift).toBeLessThanOrEqual(1);
   });
 
   test('LightDomColumnsDemo — columns from light DOM render', async ({ page }) => {

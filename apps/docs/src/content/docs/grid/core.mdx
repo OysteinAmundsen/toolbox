@@ -468,6 +468,10 @@ useEffect(() => {
 
 Accessors are **read-only**. Cells driven by a `valueAccessor` cannot currently be written back through the Editing plugin (a matching `valueSetter` API is planned). For now, gate them with `editable: false` or omit `editable`.
 
+:::tip[Need spreadsheet-style expressions?]
+The grid has no formula engine, but the accessor is the seam for one — [Recipes: Spreadsheet formulas](/grid/recipes/spreadsheet-formulas/) wires HyperFormula through `valueAccessor`.
+:::
+
 ---
 
 ### Formatters
@@ -667,6 +671,10 @@ For event-driven use cases, click and activation events (`cell-click`, `row-clic
   <CustomRenderersDemo />
 </ShowSource>
 
+:::tip[Charts in cells?]
+A renderer returns a DOM node, so an inline `<svg>` is enough for a trend column — see [Recipes: In-cell sparklines](/grid/recipes/sparklines/).
+:::
+
 #### Light DOM renderers
 
 You can also define a cell renderer **declaratively in your template** — favouring markup over an
@@ -798,6 +806,31 @@ grid.animateRowById(data.id, 'change');
 // Animate multiple rows at once
 grid.animateRows([0, 2, 5], 'change');
 ```
+
+### Row Transactions
+
+`applyTransaction()` batches add, update, and remove operations into a **single render cycle** instead of re-assigning the whole dataset. `applyTransactionAsync()` additionally merges every call made within one animation frame.
+
+```typescript
+interface RowTransaction<T> {
+  add?: T[]; // Appended to the end
+  update?: { id: string; changes: Partial<T> }[]; // In-place mutation by row ID
+  remove?: { id: string }[]; // Removed by row ID
+}
+```
+
+Operations apply in the order **removes → updates → adds**, so updates never target a row that is about to be removed and new rows never collide with existing IDs. Matching by ID requires a `getRowId` function on the grid config.
+
+| Scenario | Method | Animations |
+| --- | --- | --- |
+| User action, moderate stream (&lt; 10 msg/s) | `applyTransaction()` | Yes (configurable) |
+| High-frequency ticker (100+ msg/s) | `applyTransactionAsync()` | Disabled (batched) |
+
+Both return a `TransactionResult` carrying the actual `added`, `updated`, and `removed` row objects.
+
+:::tip[Wiring up a live feed?]
+[Recipes: Real-time streaming data](/grid/recipes/real-time-streaming/) shows the WebSocket and SSE plumbing end to end.
+:::
 
 **Customize appearance:**
 
@@ -1311,6 +1344,95 @@ grid.columns = [...originalColumns];
   <ColumnStatePersistenceDemo />
 </ShowSource>
 
+### Named Layout Profiles (Saved Views)
+
+What users usually ask for is not "column state" but **saved views**: _"give me my Q3 Review layout
+back"_. There is no `profiles` feature to enable — a profile is just a snapshot you assemble from the
+core column-state API plus the plugins that own the rest of the layout, stored under a name.
+
+| Part of the layout | Captured with | Restored with |
+| --- | --- | --- |
+| Order, width, visibility, sort | `grid.getColumnState()` | `grid.applyColumnState(state)` |
+| Filters | included in column state when [`filtering`](/grid/plugins/filtering/) runs with `trackColumnState: true`, otherwise `getFilterModel()` | `applyColumnState`, otherwise `setFilterModel()` |
+| Multi-column sort | `multiSort.getSortModel()` | `multiSort.setSortModel(model)` |
+| Pinning | `pinnedColumns.getLeftPinnedColumns()` / `getRightPinnedColumns()` | `pinnedColumns.setPinPosition(field, position)` |
+| Row grouping | the group-by fields **your app** chose (the `groupOn` callback is a function and cannot be serialized) + `groupingRows.getExpandedGroups()` | `groupingRows.setGroupOn(fn, expandedKeys)` |
+
+```typescript
+import { queryGrid } from '@toolbox-web/grid';
+import type { GridColumnState } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
+const STORE_KEY = 'employee-grid.profiles';
+
+interface LayoutProfile {
+  name: string;
+  columns: GridColumnState;
+  pinned: Record<string, 'left' | 'right'>;
+  sort: { field: string; direction: 'asc' | 'desc' }[];
+  groupBy: string[];
+  expandedGroups: string[];
+}
+
+function captureProfile(name: string, groupBy: string[]): LayoutProfile {
+  const pinnedPlugin = grid.getPluginByName('pinnedColumns');
+  const pinned: LayoutProfile['pinned'] = {};
+  pinnedPlugin?.getLeftPinnedColumns().forEach((c) => (pinned[c.field] = 'left'));
+  pinnedPlugin?.getRightPinnedColumns().forEach((c) => (pinned[c.field] = 'right'));
+
+  return {
+    name,
+    groupBy,
+    columns: grid.getColumnState(),
+    pinned,
+    sort: grid.getPluginByName('multiSort')?.getSortModel() ?? [],
+    expandedGroups: grid.getPluginByName('groupingRows')?.getExpandedGroups() ?? [],
+  };
+}
+
+function applyProfile(profile: LayoutProfile): void {
+  grid.applyColumnState(profile.columns);
+
+  const pinnedPlugin = grid.getPluginByName('pinnedColumns');
+  grid.columns.forEach((c) => pinnedPlugin?.setPinPosition(c.field, profile.pinned[c.field]));
+
+  grid.getPluginByName('multiSort')?.setSortModel(profile.sort);
+
+  const grouping = grid.getPluginByName('groupingRows');
+  grouping?.setGroupOn(
+    profile.groupBy.length
+      ? (row) => profile.groupBy.map((f) => (row as Record<string, unknown>)[f])
+      : undefined,
+    profile.expandedGroups,
+  );
+}
+
+// Storage is deliberately boring — swap localStorage for a `PUT /users/me/views` call
+// to make profiles follow the user across machines.
+function listProfiles(): Record<string, LayoutProfile> {
+  return JSON.parse(localStorage.getItem(STORE_KEY) ?? '{}');
+}
+
+function saveProfile(name: string, groupBy: string[] = []): void {
+  localStorage.setItem(
+    STORE_KEY,
+    JSON.stringify({ ...listProfiles(), [name]: captureProfile(name, groupBy) }),
+  );
+}
+
+function loadProfile(name: string): void {
+  const profile = listProfiles()[name];
+  if (profile) applyProfile(profile);
+}
+```
+
+:::tip
+`applyColumnState()` is a batch — pinning, sort and grouping are applied after it so they win over
+anything the restored column state implies. Reset to the shipped defaults by re-assigning
+`grid.columns = [...originalColumns]` before applying a profile, so a column added since the profile
+was saved doesn't inherit stale state.
+:::
+
 ---
 
 ## Shell Components
@@ -1596,7 +1718,7 @@ For the complete method reference — including signatures, return types, and fa
 ## See Also
 
 - [Getting Started](/grid/getting-started/) — Installation and setup
-- [Common Patterns](/grid/guides/common-patterns/) — Full application recipes
+- [Recipes](/grid/recipes/) — Task-oriented how-to guides
 - [Plugins](/grid/plugins/) — Extend with selection, filtering, editing, and more
 - [Theming](/grid/guides/theming/) — CSS custom properties, dark mode, themes
 - [Architecture](/grid/architecture/) — Render scheduler, Light DOM, design decisions

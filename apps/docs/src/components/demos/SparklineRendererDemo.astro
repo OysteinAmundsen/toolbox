@@ -1,0 +1,77 @@
+---
+/**
+ * Demo: In-cell sparklines drawn with inline SVG from a `renderer` — no charting library.
+ */
+---
+
+<p class="grid-demo-description">
+  A <code>renderer</code> returning an inline <code>&lt;svg&gt;</code> turns an array-valued field into a
+  trend line, with zero extra dependencies.
+</p>
+<div class="grid-demo">
+  <tbw-grid id="demo-sparkline" style="height: 280px;"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  interface Product {
+    name: string;
+    revenue: number;
+    trend: number[];
+  }
+
+  /** Build a fixed-size polyline sparkline scaled to the value range. */
+  function sparkline(values: number[], width = 96, height = 22): SVGSVGElement {
+    const min = Math.min(...values);
+    const span = Math.max(...values) - min || 1;
+    const step = width / Math.max(values.length - 1, 1);
+    const points = values
+      .map((v, i) => `${(i * step).toFixed(1)},${(height - ((v - min) / span) * height).toFixed(1)}`)
+      .join(' ');
+
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('width', String(width));
+    svg.setAttribute('height', String(height));
+    svg.setAttribute('aria-hidden', 'true');
+
+    const line = document.createElementNS(SVG_NS, 'polyline');
+    line.setAttribute('points', points);
+    line.setAttribute('fill', 'none');
+    line.setAttribute('stroke', values[values.length - 1] >= values[0] ? '#16a34a' : '#dc2626');
+    line.setAttribute('stroke-width', '1.5');
+    line.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(line);
+    return svg;
+  }
+
+  const series = (seed: number) =>
+    Array.from({ length: 12 }, (_, i) => Math.round(50 + Math.sin(i / 1.7 + seed) * 20 + i * seed));
+
+  const grid = queryGrid<Product>('#demo-sparkline');
+  if (grid) {
+    grid.columns = [
+      { field: 'name', header: 'Product', width: 160 },
+      { field: 'revenue', header: 'Revenue', width: 120, type: 'number', format: (v) => `$${(v as number).toLocaleString()}` },
+      {
+        field: 'trend',
+        header: 'Trend (12 mo)',
+        width: 140,
+        // Sparkline is presentation only — sorting/filtering an array column is meaningless.
+        sortable: false,
+        renderer: ({ value }) => sparkline(value as number[]),
+      },
+    ];
+    grid.rows = [
+      { name: 'Aurora Keyboard', revenue: 412_500, trend: series(1.2) },
+      { name: 'Nimbus Mouse', revenue: 288_100, trend: series(-0.8) },
+      { name: 'Vector Monitor', revenue: 954_300, trend: series(0.4) },
+      { name: 'Helix Dock', revenue: 176_900, trend: series(-1.5) },
+      { name: 'Orbit Webcam', revenue: 233_400, trend: series(0.9) },
+    ];
+  }
+</script>

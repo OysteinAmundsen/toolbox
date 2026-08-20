@@ -1,0 +1,110 @@
+---
+title: Scroll & render driven UI
+description: Infinite scroll, lazy cell hydration, and focusing a freshly added row using the grid's tbw-scroll and render events.
+sidebar:
+  order: 3
+---
+
+**Problem:** you need to react to the grid's viewport — load the next page as the user nears the bottom, hydrate expensive cell content only when visible, or touch the DOM of a row you just added programmatically.
+
+## What you need
+
+Two core events, no plugin:
+
+| Event | Fires |
+| --- | --- |
+| `tbw-scroll` | Once per animation frame while the vertical viewport scrolls |
+| `render` | Once at the end of every render flush, after all plugin `afterRender` hooks |
+
+`tbw-scroll` carries `scrollTop`, `scrollHeight`, `clientHeight`, and a `direction: 'vertical'` discriminator. The detail is a fresh object literal each tick, so it is safe to retain, freeze, copy into framework state, or post to a worker.
+
+## Code
+
+### Infinite scroll / load more
+
+```typescript
+grid.on('tbw-scroll', ({ scrollTop, scrollHeight, clientHeight }) => {
+  if (scrollTop + clientHeight >= scrollHeight - 200) {
+    loadNextPage();
+  }
+});
+```
+
+### Sticky scroll-progress indicator
+
+For a progress bar living outside the grid:
+
+```typescript
+grid.on('tbw-scroll', ({ scrollTop, scrollHeight, clientHeight }) => {
+  const max = scrollHeight - clientHeight;
+  progressBarEl.style.width = `${(max > 0 ? scrollTop / max : 0) * 100}%`;
+});
+```
+
+### Defer heavy cell content
+
+Mount charts, images, or embedded video only for rows near the viewport:
+
+```typescript
+grid.on('tbw-scroll', ({ scrollTop, clientHeight }) => {
+  hydrateHeavyCellsBetween(scrollTop, scrollTop + clientHeight);
+});
+```
+
+### Dismiss overlays on scroll
+
+Tooltips, popovers, and context menus rendered outside the grid should generally close when the viewport moves:
+
+```typescript
+grid.on('tbw-scroll', () => closeOpenOverlays());
+```
+
+### Focus the first input after `addRow`
+
+With `editing: { mode: 'grid' }` every row is permanently in edit mode. After inserting a row you want its first cell focused — but that row does not exist in the DOM until the next render. The `render` event is the supported hook, so you never need a `setTimeout` or double-`requestAnimationFrame` hack:
+
+```typescript
+function addEmployee() {
+  grid.addRow({ id: crypto.randomUUID(), name: '', email: '' });
+  grid.addEventListener(
+    'render',
+    () => {
+      grid.querySelector<HTMLInputElement>('[data-row="0"][data-col="0"] input')?.focus();
+    },
+    { once: true },
+  );
+}
+```
+
+### Skip cheap scroll renders
+
+`render` also fires for virtualization-only re-renders. Gate on `phase` when you only care about row or column model changes:
+
+```typescript
+import { RenderPhase } from '@toolbox-web/grid';
+
+grid.on('render', ({ phase, rowCount }) => {
+  if (phase < RenderPhase.ROWS) return; // ignore scroll/style-only flushes
+  statusBar.textContent = `${rowCount} rows rendered`;
+});
+```
+
+## Caveats
+
+- **`tbw-scroll` is not per-row visibility.** It fires at most once per frame, not when a row enters or leaves the viewport. For "row N just became visible", observe rendered rows in `afterRowRender` or use an `IntersectionObserver` from a custom plugin.
+- **Prefer the plugin for pagination.** [ServerSidePlugin](/grid/plugins/server-side/) already handles block fetching; `tbw-scroll` is the lower-level primitive for cases it doesn't cover.
+- **`ready()` is not the `render` event.** `grid.ready()` resolves once, after the first render; `render` fires on every flush. Attach with `{ once: true }` when you only care about one specific mutation.
+- **Pure visual effects may not need JS at all** — native `animation-timeline: scroll()` covers scroll-driven CSS on a separate scroller.
+- **Adapter event names are disambiguated** to avoid colliding with the native `scroll` event:
+
+| Adapter | Scroll | Render |
+| --- | --- | --- |
+| React | `<DataGrid onTbwScroll={...} />` | `<DataGrid onRender={...} />` |
+| Vue | `<TbwGrid @tbw-scroll="..." />` | `<TbwGrid @render="..." />` |
+| Angular | `<tbw-grid (tbwScroll)="..." />` | `<tbw-grid (render)="..." />` |
+
+## See also
+
+- [Events reference](/grid/api-reference/#events) — every event and its payload type
+- [Performance](/grid/guides/performance/) — virtualization and render-scheduler behaviour
+- [Real-time streaming data](/grid/recipes/real-time-streaming/) — what triggers the renders you're reacting to

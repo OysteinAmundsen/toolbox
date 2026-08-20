@@ -1023,6 +1023,10 @@ overflow: hidden;
 For editors that need overlays (datepickers, dropdown panels), render the overlay **outside** the cell using `position: fixed` or `position: absolute` on a `<body>`-appended element, and register it with `grid.registerExternalFocusContainer(overlay)` so the grid doesn't close the editor when the overlay receives focus.
 :::
 
+:::tip[Masked input and schema validation]
+Built-in editors are deliberately plain `<input>` / `<select>` elements. For phone/IBAN masks or Zod-style schemas, see [Recipes: Input masks & validation](/grid/recipes/input-masks-validation/).
+:::
+
 ### Cascade Updates (onValueChange)
 
 When one cell's commit updates other fields via `updateRow()`, any editors open on those fields
@@ -1510,5 +1514,5 @@ edit session is automatically canceled to prevent stale state.
 - **[Undo/Redo](/grid/plugins/undo-redo/)** — Track edit history with Ctrl+Z/Y
 - **[Clipboard](/grid/plugins/clipboard/)** — Copy/paste with Ctrl+C/V
 - **[Selection](/grid/plugins/selection/)** — Cell and row selection
-- **[Common Patterns](/grid/guides/common-patterns/)** — Full application recipes with editing
+- **[Recipes: Editable grid with undo](/grid/recipes/editable-grid-with-undo/)** — Editing, undo/redo, and dirty tracking wired together
 - **[Plugins Overview](/grid/plugins/)** — Plugin compatibility and combinations

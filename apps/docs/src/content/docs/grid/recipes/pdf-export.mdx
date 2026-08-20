@@ -1,0 +1,107 @@
+---
+title: PDF export
+description: Export grid data to PDF by driving pdfmake or jsPDF + AutoTable from the export plugin's public data accessors.
+llmsFull: false
+sidebar:
+  order: 4
+---
+
+import { TabItem, Tabs } from '@astrojs/starlight/components';
+
+**Problem:** users want a "Download PDF" button next to the CSV and Excel ones — a paginated, print-ready table that matches what they see on screen.
+
+## What you need
+
+The [Export plugin](/grid/plugins/export/) ships CSV, Excel XML and JSON because all three are string formats it can emit with no dependency. PDF is a binary format that needs a layout engine and embedded fonts: the smallest credible writer is larger than the entire grid. So the plugin instead exposes the same data accessors it uses internally, and a PDF export is a dozen lines against **public** API.
+
+Either library works; pick on size and how much layout control you need.
+
+| Library | Approx. size (min+gz) | Notes |
+| --- | --- | --- |
+| [pdfmake](https://pdfmake.github.io/docs/) | ~350 kB incl. default fonts | Declarative document definition; handles page breaks and repeated header rows for you |
+| [jsPDF](https://github.com/parallax/jsPDF) + [AutoTable](https://github.com/simonbengtsson/jsPDF-AutoTable) | ~150 kB | Smaller; per-column and per-cell style hooks |
+
+Both are large enough that you should load them lazily (`await import(...)`) from the button handler rather than at module scope.
+
+## Code
+
+Use `mode: 'formatted'` so the PDF shows the same strings the user sees on screen, and let `getResolvedColumns()` decide column order — that way `onlyVisible`, `onlySelected`, `columns` and `rowIndices` keep working for free.
+
+<Tabs syncKey="pdf-library">
+  <TabItem label="pdfmake">
+```ts
+import { queryGrid } from '@toolbox-web/grid';
+
+export async function exportPdf(fileName = 'employees.pdf') {
+  const exporter = queryGrid('tbw-grid').getPluginByName('export');
+  if (!exporter) return;
+
+  const { default: pdfMake } = await import('pdfmake/build/pdfmake');
+  const { default: pdfFonts } = await import('pdfmake/build/vfs_fonts');
+  pdfMake.vfs = pdfFonts.vfs;
+
+  const columns = exporter.getResolvedColumns();
+  const rows = exporter.export({ mode: 'formatted' });
+
+  pdfMake
+    .createPdf({
+      pageOrientation: 'landscape',
+      content: [
+        {
+          table: {
+            headerRows: 1,
+            widths: columns.map(() => '*'),
+            body: [
+              columns.map((c) => ({ text: c.header ?? c.field, bold: true })),
+              ...rows.map((row) => columns.map((c) => String(row[c.field] ?? ''))),
+            ],
+          },
+          layout: 'lightHorizontalLines',
+        },
+      ],
+    })
+    .download(fileName);
+}
+```
+  </TabItem>
+  <TabItem label="jsPDF + AutoTable">
+```ts
+import { queryGrid } from '@toolbox-web/grid';
+
+export async function exportPdf(fileName = 'employees.pdf') {
+  const exporter = queryGrid('tbw-grid').getPluginByName('export');
+  if (!exporter) return;
+
+  const { jsPDF } = await import('jspdf');
+  const { default: autoTable } = await import('jspdf-autotable');
+
+  const columns = exporter.getResolvedColumns();
+  const rows = exporter.export({ mode: 'formatted' });
+
+  const doc = new jsPDF({ orientation: 'landscape' });
+  autoTable(doc, {
+    head: [columns.map((c) => c.header ?? c.field)],
+    body: rows.map((row) => columns.map((c) => String(row[c.field] ?? ''))),
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [51, 65, 85] },
+  });
+  doc.save(fileName);
+}
+```
+  </TabItem>
+</Tabs>
+
+Wire it in like any other export — from a toolbar button, or with `exporter.export({ onlySelected: true, mode: 'formatted' })` for a "print selection" action.
+
+## Caveats
+
+- **`getResolvedColumns()` returns leaf columns.** If the [GroupingColumnsPlugin](/grid/plugins/grouping-columns/) is installed and you want the group band above the leaf headers in the PDF too, build that extra header row from your own group config — `processHeaderRow` only affects the plugin's own Excel and JSON output.
+- **Wide grids overflow.** Neither library reflows a table that's wider than the page. Cap the column count with `export({ columns: [...] })`, or shrink the font, before blaming the writer.
+- **Fonts are not free.** pdfmake's default VFS embeds Roboto; non-Latin scripts need a custom font bundle, which is usually larger than the writer itself.
+- **`mode: 'formatted'` runs your `column.format` functions.** If one of them returns a DOM node rather than a string you'll get `[object HTMLElement]` in the PDF — that's what `renderer` is for, and renderers never participate in export.
+
+## See also
+
+- [Export plugin](/grid/plugins/export/) — the built-in CSV, Excel and JSON formats
+- [Custom Output / `.xlsx` hand-off](/grid/plugins/export/#custom-output--xlsx-hand-off) — the same accessors driving ExcelJS
+- [Print plugin](/grid/plugins/print/) — browser print, when a real PDF isn't required

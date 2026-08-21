@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.5.1...grid-3.5.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* **grid:** preserve scroll offset on bypass-mode force refresh ([#460](https://github.com/OysteinAmundsen/toolbox/issues/460)) ([b739dd0](https://github.com/OysteinAmundsen/toolbox/commit/b739dd0ab7576e176343df08c916273b0cbac6ec))
+
 ## [3.5.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.5.0...grid-3.5.1) (2026-08-19)
 
 

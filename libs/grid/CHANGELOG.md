@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.5.2...grid-3.5.3) (2026-08-24)
+
+
+### Bug Fixes
+
+* **grid:** verify viewport geometry after force refresh to recover a short spacer ([#462](https://github.com/OysteinAmundsen/toolbox/issues/462)) ([1210800](https://github.com/OysteinAmundsen/toolbox/commit/121080093bbbe6207ef78d6f6c839f7925cf98c6))
+
 ## [3.5.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.5.1...grid-3.5.2) (2026-08-20)
 
 

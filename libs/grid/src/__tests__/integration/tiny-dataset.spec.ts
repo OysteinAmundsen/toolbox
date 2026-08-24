@@ -99,4 +99,44 @@ describe('tiny dataset virtualization bypass', () => {
     expect(grid.refreshVirtualWindow(false)).toBe(false);
     expect(grid.refreshVirtualWindow(true)).toBe(true);
   });
+
+  it('recovers the spacer height when the header collapses only during the render frame', async () => {
+    const grid = document.createElement('tbw-grid') as DataGridElement;
+    grid.style.display = 'block';
+    grid.style.height = '240px';
+
+    grid.columns = [{ field: 'id', header: 'ID' }];
+    grid.rows = Array.from({ length: 20 }, (_, i) => ({ id: i + 1 }));
+    document.body.appendChild(grid);
+
+    await grid.ready();
+    await nextFrame();
+
+    const stub = (selector: string, height: () => number) => {
+      const el = grid.querySelector<HTMLElement>(selector);
+      if (!el) throw new Error(`Expected ${selector} to exist in the rendered grid`);
+      Object.defineProperty(el, 'clientHeight', { configurable: true, get: height });
+    };
+    // A framework adapter (React portal / Angular embedded view) commits header
+    // renderers *after* the grid's own header pass, so the synchronous geometry
+    // read inside a force refresh can see a momentarily collapsed header.
+    let viewportHeight = 200;
+    stub('.rows-viewport', () => viewportHeight);
+    stub('.tbw-scroll-area', () => 240);
+    stub('.faux-vscroll', () => 240);
+
+    grid.refreshVirtualWindow(true);
+    const spacer = grid.querySelector('.faux-vscroll-spacer') as HTMLElement;
+    const collapsedSpacer = parseFloat(spacer.style.height);
+
+    // Header content lands, viewport shrinks back. The collapse and the restore
+    // net out within one frame, so the viewport ResizeObserver never fires.
+    viewportHeight = 100;
+
+    await nextFrame();
+    await nextFrame();
+    await nextFrame();
+
+    expect(parseFloat(spacer.style.height)).toBe(collapsedSpacer + 100);
+  });
 });

@@ -57,7 +57,13 @@ export const CSS_VARIABLES: Record<string, CSSVariableDefinition[]> = {
       description: 'Column group header text',
       type: 'color',
     },
-    { name: '--tbw-header-height', defaultValue: '1.875em', description: 'Header row height', type: 'size' },
+    {
+      name: '--tbw-header-height',
+      defaultValue: '1.875em',
+      description:
+        'Minimum height of the header row. Presentation only — the grid derives the header allowance for scroll math from live DOM geometry, so this never affects virtualization.',
+      type: 'size',
+    },
     { name: '--tbw-font-size-header', defaultValue: '1em', description: 'Header font size', type: 'size' },
     {
       name: '--tbw-font-weight-header',

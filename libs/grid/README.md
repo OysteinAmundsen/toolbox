@@ -590,23 +590,23 @@ For a complete list of available CSS variables, see [grid.css](./src/lib/core/gr
 
 ### Core CSS Variables
 
-| Variable                | Description                  |
-| ----------------------- | ---------------------------- |
-| `--tbw-color-bg`        | Grid background              |
-| `--tbw-color-fg`        | Text color                   |
-| `--tbw-color-fg-muted`  | Secondary text color         |
-| `--tbw-color-accent`    | Accent/primary color         |
-| `--tbw-color-border`    | Border color                 |
-| `--tbw-color-header-bg` | Header background            |
-| `--tbw-color-header-fg` | Header text color            |
-| `--tbw-color-selection` | Selected cell/row background |
-| `--tbw-color-row-hover` | Row hover background         |
-| `--tbw-row-height`      | Data row height              |
-| `--tbw-header-height`   | Header row height            |
-| `--tbw-font-family`     | Font family                  |
-| `--tbw-font-size`       | Base font size               |
-| `--tbw-border-radius`   | Corner radius                |
-| `--tbw-focus-outline`   | Focus ring style             |
+| Variable                | Description                               |
+| ----------------------- | ----------------------------------------- |
+| `--tbw-color-bg`        | Grid background                           |
+| `--tbw-color-fg`        | Text color                                |
+| `--tbw-color-fg-muted`  | Secondary text color                      |
+| `--tbw-color-accent`    | Accent/primary color                      |
+| `--tbw-color-border`    | Border color                              |
+| `--tbw-color-header-bg` | Header background                         |
+| `--tbw-color-header-fg` | Header text color                         |
+| `--tbw-color-selection` | Selected cell/row background              |
+| `--tbw-color-row-hover` | Row hover background                      |
+| `--tbw-row-height`      | Data row height                           |
+| `--tbw-header-height`   | Header row min-height (presentation only) |
+| `--tbw-font-family`     | Font family                               |
+| `--tbw-font-size`       | Base font size                            |
+| `--tbw-border-radius`   | Corner radius                             |
+| `--tbw-focus-outline`   | Focus ring style                          |
 
 ### Plugin CSS Variables
 

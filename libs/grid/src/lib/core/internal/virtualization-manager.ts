@@ -20,6 +20,9 @@ import {
   updateRowHeight,
 } from './virtualization';
 
+/** Safety valve for `#scheduleGeometryVerification` against a layout that never settles. */
+const MAX_GEOMETRY_VERIFY_PASSES = 3;
+
 // #region VirtualizationManager
 
 export class VirtualizationManager<T = any> {
@@ -28,6 +31,9 @@ export class VirtualizationManager<T = any> {
   // The full virtualization state — still a plain object so plugins can read
   // fields directly via `grid._virtualization` (they access the same reference).
   readonly state: VirtualState;
+
+  #geometryVerifyHandle = 0;
+  #geometryVerifyPasses = 0;
 
   constructor(grid: InternalGrid<T>, initialState?: Partial<VirtualState>) {
     this.#grid = grid;
@@ -58,6 +64,24 @@ export class VirtualizationManager<T = any> {
   }
 
   // #region Cached Geometry
+
+  /**
+   * Live geometry read shared by the force-path spacer calculation and the post-render
+   * verification, so a cache write and the check of that cache resolve element fallbacks
+   * identically. `updateCachedGeometry()` deliberately does not use it — it must keep the
+   * last known values rather than cache zeros when the elements are detached.
+   */
+  #readGeometry(): { fauxHeight: number; viewportHeight: number; scrollAreaHeight: number } {
+    const s = this.state;
+    const fauxScrollbar = s.container ?? this.#grid._hostElement;
+    const viewportEl = s.viewportEl ?? fauxScrollbar;
+    const fauxHeight = fauxScrollbar?.clientHeight ?? 0;
+    return {
+      fauxHeight,
+      viewportHeight: viewportEl?.clientHeight ?? 0,
+      scrollAreaHeight: s.scrollAreaEl ? s.scrollAreaEl.clientHeight : fauxHeight,
+    };
+  }
 
   /**
    * Update cached viewport and faux scrollbar geometry.
@@ -99,13 +123,7 @@ export class VirtualizationManager<T = any> {
     let scrollAreaHeight: number;
 
     if (forceRead) {
-      const fauxScrollbar = s.container ?? this.#grid._hostElement;
-      const viewportEl = s.viewportEl ?? fauxScrollbar;
-      const scrollAreaEl = s.scrollAreaEl;
-
-      fauxScrollHeight = fauxScrollbar?.clientHeight ?? 0;
-      viewportHeight = viewportEl?.clientHeight ?? 0;
-      scrollAreaHeight = scrollAreaEl ? scrollAreaEl.clientHeight : fauxScrollHeight;
+      ({ fauxHeight: fauxScrollHeight, viewportHeight, scrollAreaHeight } = this.#readGeometry());
 
       s.cachedFauxHeight = fauxScrollHeight;
       s.cachedViewportHeight = viewportHeight;
@@ -398,6 +416,53 @@ export class VirtualizationManager<T = any> {
   }
 
   /**
+   * Re-read viewport geometry on the next frame and re-run virtualization if it
+   * moved.
+   *
+   * A force refresh reads `viewportEl`/`scrollAreaEl` heights synchronously,
+   * immediately after the scheduler re-rendered the header. Framework adapters
+   * commit header renderers asynchronously (React portals, Angular embedded
+   * views), so at that instant the header can be momentarily collapsed to its
+   * CSS minimum — the spacer then gets `scrollAreaHeight - viewportHeight`
+   * short and the tail rows become unreachable. The viewport ResizeObserver
+   * cannot recover from this: the collapse and the restore happen within a
+   * single frame, so the observed size never nets a change and the callback
+   * never fires. A microtask (`#scheduleSpacerRecalc`) is also too early — it
+   * still runs before the adapter's commit.
+   */
+  #scheduleGeometryVerification(): void {
+    const s = this.state;
+    if (this.#geometryVerifyHandle) return;
+    this.#geometryVerifyHandle = requestAnimationFrame(() => {
+      this.#geometryVerifyHandle = 0;
+      const grid = this.#grid;
+      // Teardown ends the burst: a reconnect must start from a full budget.
+      if (!grid._schedulerIsConnected || !s.totalHeightEl) {
+        this.#geometryVerifyPasses = 0;
+        return;
+      }
+
+      const { fauxHeight, viewportHeight, scrollAreaHeight } = this.#readGeometry();
+      if (
+        viewportHeight === s.cachedViewportHeight &&
+        scrollAreaHeight === s.cachedScrollAreaHeight &&
+        fauxHeight === s.cachedFauxHeight
+      ) {
+        this.#geometryVerifyPasses = 0;
+        return;
+      }
+      // Give up on an oscillating layout. Not re-requesting is what breaks the loop, so the
+      // budget resets here — otherwise a later unrelated burst would skip a real correction.
+      if (this.#geometryVerifyPasses >= MAX_GEOMETRY_VERIFY_PASSES) {
+        this.#geometryVerifyPasses = 0;
+        return;
+      }
+      this.#geometryVerifyPasses++;
+      grid._requestSchedulerPhase(RenderPhase.VIRTUALIZATION, 'geometry-drift');
+    });
+  }
+
+  /**
    * Core virtualization routine. Chooses between bypass (small datasets), grouped window rendering,
    * or standard row window rendering.
    * @param force - Whether to force a full refresh (not just scroll update)
@@ -413,6 +478,7 @@ export class VirtualizationManager<T = any> {
     const totalRows = grid._rows.length;
 
     if (!s.enabled) return this.#renderUnvirtualized(totalRows, skipAfterRender);
+    if (force) this.#scheduleGeometryVerification();
     if (totalRows <= s.bypassThreshold) return this.#renderBypassWindow(bodyEl, totalRows, force, skipAfterRender);
 
     // --- Normal virtualization path with faux scrollbar pattern ---

@@ -44,7 +44,7 @@ Mark regressions above the script's threshold (default `0.30` for the vs-tag run
 
 For each regressed suite: map it to its `libs/*/src/**/*.bench.ts` and the code under test, then
 `git log --oneline <baseline-tag>..HEAD -- <path>` for the top 1-3 suspect commits. For grid-core
-regressions consult `.github/knowledge/grid-render-pipeline.md` and `.github/knowledge/data-flow-traces.md`.
+regressions consult `.github/knowledge/grid-render-pipeline.md`, `.github/knowledge/grid-data-pipeline.md` and `.github/knowledge/data-flow-traces.md`.
 
 ### Fix plan (skip if `report-only`)
 

@@ -1,6 +1,6 @@
 ---
 domain: grid-plugins-catalog-ui
-related: [grid-plugins, grid-plugins-catalog-data, grid-plugins-shell, adapters]
+related: [grid-plugins, grid-plugins-catalog-data, grid-plugins-shell, grid-input, adapters]
 ---
 
 # Plugin Catalog — Interaction & Display Plugins

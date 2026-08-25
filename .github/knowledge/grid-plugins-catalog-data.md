@@ -1,6 +1,6 @@
 ---
 domain: grid-plugins-catalog-data
-related: [grid-plugins, grid-plugins-catalog-ui, grid-core, grid-features]
+related: [grid-plugins, grid-plugins-catalog-ui, grid-core, grid-data-pipeline, grid-features]
 ---
 
 # Plugin Catalog — Data & Model Plugins

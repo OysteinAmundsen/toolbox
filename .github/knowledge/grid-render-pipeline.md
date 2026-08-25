@@ -1,11 +1,17 @@
 ---
 domain: grid-render-pipeline
-related: [grid-core, grid-plugins, data-flow-traces, build-and-deploy]
+related: [grid-data-pipeline, grid-core, grid-plugins, data-flow-traces, build-and-deploy]
 ---
 
-# Grid Render & Data Pipeline — Mental Model
+# Grid Render Pipeline — Mental Model
 
-`libs/grid/src/lib/core/internal/`. Lifecycle, config precedence, DOM structure, state ownership -> grid-core.md. Here: how rows/cells render, how cell values resolve/sort/aggregate.
+`libs/grid/src/lib/core/internal/`. How a frame is scheduled and how rows/cells reach the DOM — the render half only.
+
+- Resolving/mutating/sorting/aggregating cell VALUES → grid-data-pipeline.md.
+- Lifecycle, config precedence, DOM structure, state-ownership matrix → grid-core.md.
+- Pointer capture, drag promotion, long-press → grid-input.md.
+
+Read order for a "wrong pixels" bug: render-scheduler (did the phase run?) → virtualization-manager (is the window/spacer right?) → `rows.ts` (did the cell patch?).
 
 ## render-scheduler (`core/internal/render-scheduler.ts`)
 
@@ -39,12 +45,14 @@ related: [grid-core, grid-plugins, data-flow-traces, build-and-deploy]
 ## scroll-driven DOM state (cross-cutting plugin INVARIANT)
 
 - INVARIANT: any plugin holding scroll-derived DOM state (`translateX`, sticky offsets, classes from `scrollLeft`/`scrollTop`) MUST apply it from **three** sites: `onScroll` (no afterRender while scrolling), `afterRender` (re-renders don't replay scroll), `afterCellRender` (pool recycling drops per-cell state). Symptom: correct at first paint, gone after sort/filter/scroll.
+- DECIDED (#430): horizontal scroll dispatch to plugins is rAF-coalesced (`#hScrollRaf`), mirroring the vertical path — each dispatch forced layout (`scrollHeight`/`scrollWidth`/`clientHeight`/`clientWidth`); reads inside the rAF collapse to one per frame. Pooled `#pooledScrollEvent` still mutated in place.
 
 ## internal modules (`core/internal/`)
 
 `rows` · `dom-builder` · `event-delegation` · `columns` · `header` · `keyboard` · `sorting` · `row-manager` · `focus-manager` · `row-animation` · `resize` · `touch-scroll` · `idle-scheduler` · `sanitize` · `style-injector` · `aria` / `aria-labels` · `aggregators` (sum/avg/min/max/count/first/last) · `value-accessor` · `tag-registry` (`GRID_TAG_NAME`, `get/setActiveGridTag`; leaf) · `column-shorthand` (`field="price:number"`, #276) · `inference` (`overlayInferred`, #384) · `empty` / `loading` · `virtualization*`
 
 > `shell.ts`/`shell-controller.ts` live in `plugins/shell/` (#370).
+> `sorting` · `row-manager` · `aggregators` · `value-accessor` are documented in grid-data-pipeline.md; `touch-scroll` (pointer side) in grid-input.md.
 
 ### sanitize
 
@@ -68,34 +76,3 @@ related: [grid-core, grid-plugins, data-flow-traces, build-and-deploy]
 
 - INVARIANT: `createResizeController(grid).dispose()` MUST fully unwind an in-flight drag — `onUp()` (remove window listeners, restore `cursor` + `userSelect`) AND `cancelAnimationFrame(pendingRaf)`. `grid.ts` recreates it in `#afterConnect()` + `#afterShellRefresh()`, disposing the previous instance first.
 - `#cacheDomRefs()` = SINGLE place re-resolving hot-path refs (`_headerRowEl`, `_bodyEl`, `__rowsBodyEl`, `_virtualization.viewportEl`/`totalHeightEl`) from `.tbw-grid-content ?? .tbw-grid-root`, returning that root for `#setupScrollListeners()`. Called from `#afterConnect()` + `#afterShellRefresh()`; do not re-inline the querySelector block.
-
-## value-accessor & field paths (`core/internal/value-accessor.ts`)
-
-- DECIDED (#230): `column.valueAccessor({ row, column, rowIndex })` = single source of truth for cell value resolution; sort/filter/render/export/clipboard/aggregators go via `resolveCellValue(row, column, rowIndex)`. Precedence: `sortComparator` for sort, `filterValue` for filter; else `valueAccessor` wins over plain field reads. `resolveCellValue` + `invalidateAccessorCache` exported from `public.ts`.
-- DECIDED (#438, nested dotted paths): `column.field` supports `'deal.capture.field'` WITHOUT a `valueAccessor`. Read chokepoint `readCellField(row, field)` in `resolveCellValue`'s no-accessor branch (sort/filter/render/export/aggregate inherit it). Writes via `writeCellField(row, field, value)` at EVERY in-place mutation site: EditingPlugin `#commitCellValue`/sync/history, editor-injection revert, UndoRedo fallback, row-manager `#applyRowChanges`+`applyTransaction`, dirty `rebaselineCell`; `isCellDirty` compares via `readCellField`.
-  - RULES: (1) `valueAccessor` wins — nested read only in the no-accessor branch (preserves the #230 synthetic-key pattern). (2) A literal own key containing a dot wins over traversal (`hasOwnProperty`). (3) Only dotted fields pay any cost. (4) Prototype-pollution guard `isUnsafeKey` rejects `__proto__`/`constructor`/`prototype` per path segment AND on the plain-key read+write branches (symmetric); explicit `===`, NOT `Set.has`, so CodeQL sees the barrier (PR #439). `setByPath` walks EXISTING objects only — never fabricates intermediates.
-  - Types: default `field: ColumnFieldKey<TRow> = (keyof TRow & string) | (string & {})` (dotted strings compile, top-level autocomplete, no deep validation); opt-in strict via a 2nd generic + `NestedPaths<TRow>` (stops at array/Date/RegExp/fn, depth cap 5 avoids TS2589) — `GridConfig<Deal, NestedPaths<Deal>>`.
-- DECIDED (#430): `createFieldReader(field): FieldReader` compiles the plain/unsafe/dotted decision ONCE into a monomorphic closure; `isPlainField(field)` exposes the same decision to inlining call sites. `fieldPathCache` caches **dotted keys only** (`indexOf('.') === -1` short-circuits first) — PivotPlugin mints synthetic field names at runtime, growing the Map unbounded. TENSION: a closure call costs ~8 % on two-operation predicates, so `compileNumericPredicate` keeps a literal `row[plainField]` fast path gated on `isPlainField`.
-- INVARIANT (cache shape): memoized per `(row identity, column.field)` in `WeakMap<row, Map<field, CacheBox>>`, `CacheBox = { v: unknown }`. Box REQUIRED so a cached `undefined` differs from a miss with ONE `Map.get()` (`has()+get()` doubles probes on the hottest path). Immutable updates auto-invalidate; primitives bypass the cache.
-- INVARIANT (invalidation): in-place mutations MUST call **whole-row** `invalidateAccessorCache(row)`, never per-field. WHY: callers invalidate by the MUTATED key, which need not match any column's `field` (e.g. `dealComment` mutated while a column is `field:'deal.comments'` + accessor); other columns' accessors may derive from it yet cache under their own `field`. Whole-row delete is O(1). Per-field is valid ONLY when every affected column's `field` is invalidated. Wired into `RowManager.updateRow/updateRows/applyTransaction` + EditingPlugin commit. Test: `updaterow-renderer.spec.ts`.
-
-## row-manager (`core/internal/row-manager.ts`)
-
-- INVARIANT: `updateRow`/`updateRows` (`#applyRowChanges`) dispatch a `commitCellValue` query per changed field BEFORE mutating, so programmatic mutations inherit editing validation/dirty/history/cascade. Veto is ORDER-INDEPENDENT: `responses.includes(false)` → field skipped; `includes(true)` → a plugin applied+tracked; neither → core applies + `invalidateAccessorCache`. Always emits `cell-change` per changed field; schedules `RenderPhase.VIRTUALIZATION` (NOT ROWS — a ROWS rebuild re-sorts `insertRow`-added rows into ghost duplicates). `updateRow` MUST NOT gate editability. Full contract: grid-plugins.md § inter-plugin-communication.
-- INVARIANT (prototype pollution): `#applyRowChanges` skips `__proto__`/`constructor`/`prototype` BEFORE any read/query/write (caller-supplied `changes`). Guard is INLINED — row-manager is core and MUST NOT import the editing plugin's helper (PR #420).
-- DECIDED (Jul 2026, transactions): `applyTransaction` = 5 phases: `#txRemove` (async) → `#txUpdate` → `#txAdd` → `#txRender` → `#txAnimate` (async). `#invalidateAndRerender()` = SINGLE canonical aftermath of a structural row mutation (`invalidateCellCache` + `_rebuildRowIdMap` + `__rowRenderEpoch++` + reset every `_rowPool[i].__epoch = -1` + `refreshVirtualWindow(true)`), shared by `insertRow`/`removeRow`/`#txRender`; `#clearRemoveAnimations()` shared by `removeRow`/`#txAnimate`. Any NEW structural mutation MUST call `#invalidateAndRerender()` — skipping the pool-epoch reset leaves recycled rows rendering stale cells.
-- DECIDED (Jul 2026, resolve from full dataset + warn): `updateRow`/`updateRows` resolve IDs via `grid._getSourceRowEntry(id)` (NOT `_getRowEntry`), so a row filtered/paged OUT of `_rows` stays updatable. `_getSourceRowEntry` = visible fast path → else linear scan of `sourceRows`/`#rows` returning `{ row, index: -1 }` (not in the processed view). Unresolvable ID WARNS (`ROW_NOT_FOUND`) + skips, so `updateRows` finishes the batch. `CommitCellValueContext.row` is threaded so EditingPlugin prefers it over `_rows[ctx.rowIndex]`. A filtered-out update mutates the source but does NOT re-run the filter. Test: `row-update.spec.ts > updateRows updates a row that is filtered out of view`.
-- DECIDED (Jul 2026, extensible `UpdateSource`): `UpdateSource = keyof UpdateSourceMap`. Core declares only `'user' | 'cascade' | 'api' | 'history'` (+ `'sync'`); plugins add theirs via module augmentation (clipboard adds `'paste'`). RULED OUT: `'user'|'cascade'|(string & {})` (loses typo-safety + the `history` guarantee the edit pipeline branches on). Public `cell-commit` (`CellCommitDetail`) carries `source`; `'history'` never reaches `#commitCellValue`, so `cell-commit` never fires for undo/redo.
-
-## sort hot path (`core/internal/sorting.ts`)
-
-- INVARIANT: `Array.prototype.sort` callbacks MUST be allocation-free and MUST NOT re-extract row values per compare. V8 calls the comparator ~n·log n times (~130k for 10k rows × 2 keys) — a per-pair `valueAccessor` branch, `chain.some(...)` or `localeCompare()` (lazily allocates an `Intl.Collator`) multiplies it.
-- DECIDED (#430): decorate-sort-undecorate ONLY when the key read is non-trivial. `sortInPlace` keeps the inline `rA[field]` comparator for plain fields; dotted paths + `valueAccessor` columns go through `sortByExtractedKeys` (each key extracted once into a parallel array, sort an index array) — N reads instead of ~2·N·log N. Stability preserved (stable sort + tie → ascending index). `__loading` pinning uses a `Uint8Array`. INVARIANT: BOTH comparator bodies stay fully inlined — a shared `compareValues` helper was extracted once and reverted.
-- DECIDED (May 2026, MultiSort): `multi-sort.ts` uses a Schwartzian transform — keys extracted once per row into a flat `unknown[]`, sort a `Uint32Array` of indices, permute in one pass (~13× fewer extractions at 10k×2). Pre-compute config-derived flags at setup: pre-bind the per-link getter, pre-scan `__loading` rows once, cache a module-level `Intl.Collator`. RULED OUT: per-link `getValue` closures alone; per-shape comparator variants.
-- TENSION: the `multi-sort.spec.ts` wall-clock budget (was single-sample 50 ms, <2× headroom) is weak signal — now best-of-N; real perf signal = `e2e/tests/performance-regression.spec.ts`.
-- DECIDED (#430, scroll): horizontal scroll dispatch to plugins is rAF-coalesced (`#hScrollRaf`), mirroring the vertical path — each dispatch forced layout (`scrollHeight`/`scrollWidth`/`clientHeight`/`clientWidth`); reads inside the rAF collapse to one per frame. Pooled `#pooledScrollEvent` still mutated in place.
-
-## aggregators (`core/internal/aggregators.ts`)
-
-- INVARIANT: numeric aggregators (`sum`, `avg`, `min`, `max`) SKIP blank cells (`null`/`undefined`/`''`/`NaN`) — matches Excel. `Number('') || 0` would drag `min` down, inflate `avg`'s denominator, and let blanks beat all-negative `max`. `avg` divides by the non-blank count (0 if all blank). Pivot extraction applies the same filter; callers wanting zero-substitution supply a custom aggregator.
-- INVARIANT: `AggregatorRef` declared ONCE here (`string | AggregatorFn`); `core/types.ts` imports and re-exports it — do not re-declare (a second `unknown`-based declaration there was removed). `plugins/pinned-rows/types.ts` keeps its own stricter `AggregatorFn` (`column?: ColumnConfig`) on purpose — separate plugin entry point.

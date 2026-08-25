@@ -1,6 +1,6 @@
 ---
 domain: data-flow-traces
-related: [grid-core, grid-plugins, grid-features, adapters]
+related: [grid-core, grid-render-pipeline, grid-data-pipeline, grid-plugins, grid-features, adapters]
 ---
 
 # Data Flow Traces — Mental Model

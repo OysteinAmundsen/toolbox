@@ -1,5 +1,5 @@
 /**
- * Touch scrolling controller for mobile devices.
+ * Non-native scroll input for the faux-scrollbar pattern — touch gestures and wheel forwarding.
  *
  * Uses pointer events with setPointerCapture to ensure events are delivered
  * directly to the grid element, even when DOM virtualization replaces the
@@ -344,6 +344,53 @@ export function setupTouchScrollListeners(
       resetTouchState(state);
     },
     { passive: true, signal },
+  );
+}
+
+/**
+ * Forward wheel gestures from the content area to the faux scrollbar / scroll area.
+ *
+ * The content area never scrolls natively (rows are positioned via transforms), so
+ * without this the mouse wheel would do nothing over the grid. When the target axis
+ * is already at its limit the event is left to bubble so the page scrolls instead.
+ */
+export function setupWheelScrollListeners(
+  gridContentEl: HTMLElement,
+  elements: TouchScrollElements,
+  signal: AbortSignal,
+): void {
+  const { fauxScrollbar, scrollArea } = elements;
+  gridContentEl.addEventListener(
+    'wheel',
+    (e: WheelEvent) => {
+      // A native <select> picker renders in the top layer but its wheel events still
+      // target the grid content; scrolling the grid would close the picker.
+      try {
+        if (gridContentEl.querySelector('select:open')) return;
+      } catch {
+        /* :open pseudo-class not supported — ignore */
+      }
+
+      const isHorizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
+
+      if (isHorizontal && scrollArea) {
+        const delta = e.shiftKey ? e.deltaY : e.deltaX;
+        const { scrollLeft, scrollWidth, clientWidth } = scrollArea;
+        const canScroll = (delta > 0 && scrollLeft < scrollWidth - clientWidth) || (delta < 0 && scrollLeft > 0);
+        if (canScroll) {
+          e.preventDefault();
+          scrollArea.scrollLeft += delta;
+        }
+      } else if (!isHorizontal) {
+        const { scrollTop, scrollHeight, clientHeight } = fauxScrollbar;
+        const canScroll = (e.deltaY > 0 && scrollTop < scrollHeight - clientHeight) || (e.deltaY < 0 && scrollTop > 0);
+        if (canScroll) {
+          e.preventDefault();
+          fauxScrollbar.scrollTop += e.deltaY;
+        }
+      }
+    },
+    { passive: false, signal },
   );
 }
 // #endregion

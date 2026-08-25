@@ -127,8 +127,15 @@ export default [
     },
   },
   {
-    // TEMPORARY: files that predate the budget above. Shrink them and delete
-    // the entry — do NOT raise the limit or add new entries.
+    // Files that predate the budget above. Shrink them and delete the entry —
+    // do NOT raise the limit or add new entries.
+    //
+    // Caveat for the two plugins: splitting them across modules is bounded by the
+    // bundle budget, not by effort. Terser mangles `#private` members but CANNOT
+    // mangle names that cross a module boundary, so every member promoted to a
+    // shared seam is permanent bytes. `plugins/editing` measured 54.5 kB against a
+    // 55 kB budget, so extraction there must stay inside the class (private
+    // methods) or be limited to pure helpers whose parameters are all manglable.
     files: [
       'libs/grid/src/lib/core/grid.ts',
       'libs/grid/src/lib/plugins/editing/editing-plugin.ts',

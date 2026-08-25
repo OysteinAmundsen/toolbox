@@ -5,8 +5,6 @@
  * Supports CSV, Excel (XML), and JSON formats.
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { formatDateValue } from '../../core/internal/utils';
 import { resolveCellValue } from '../../core/internal/value-accessor';
 import { BaseGridPlugin, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
@@ -316,7 +314,7 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
     col: ColumnConfig,
     row: Record<string, unknown>,
     mode: ExportMode,
-    processCell?: (value: any, field: string, row: any) => any,
+    processCell?: ExportParams['processCell'],
   ): unknown {
     let out: unknown = value;
 

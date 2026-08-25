@@ -1,4 +1,5 @@
 import type { HeaderContentDefinition, ToolPanelDefinition } from '../plugins/shell/types';
+import { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS } from './defaults';
 import {
   announceDataLoaded,
   createAriaState,
@@ -14,7 +15,7 @@ import { buildBareGridDOMIntoElement } from './internal/dom-builder';
 import { updateEmptyOverlay, type EmptyOverlayState } from './internal/empty';
 import { setupCellEventDelegation, setupRootEventDelegation } from './internal/event-delegation';
 import { resolveFeatures } from './internal/feature-hook';
-import { FocusManager } from './internal/focus-manager';
+import { FocusManager, setupFocusTracking } from './internal/focus-manager';
 import { renderHeader } from './internal/header';
 import { cancelIdle, scheduleIdle } from './internal/idle-scheduler';
 import { ensureCellVisible } from './internal/keyboard';
@@ -37,6 +38,7 @@ import {
   cancelMomentum,
   createTouchScrollState,
   setupTouchScrollListeners,
+  setupWheelScrollListeners,
   type TouchScrollState,
 } from './internal/touch-scroll';
 import {
@@ -45,7 +47,7 @@ import {
   validatePluginProperties,
 } from './internal/validate-config';
 import { readCellField } from './internal/value-accessor';
-import { getRowIndexAtOffset, toVirtualScrollTop } from './internal/virtualization';
+import { computeRowsTranslateY } from './internal/virtualization';
 import { VirtualizationManager } from './internal/virtualization-manager';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent, ScrollEvent } from './plugin';
 import type { BaseGridPlugin, CellClickEvent, HeaderClickEvent, RowClickEvent } from './plugin/base-plugin';
@@ -76,7 +78,6 @@ import type {
   UpdateSource,
   VirtualState,
 } from './types';
-import { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS } from './types';
 
 /**
  * High-performance data grid web component.
@@ -1527,41 +1528,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           if (!this._virtualization.enabled && !this.#hasScrollPlugins) return;
 
           const rawScrollTop = fauxScrollbar.scrollTop;
-          // Translate native scrollTop (clamped spacer space) into virtual
-          // row-content space. Identity for datasets within MAX_ELEMENT_HEIGHT_PX —
-          // larger datasets need fractional mapping or the tail is unreachable.
-          const currentScrollTop = toVirtualScrollTop(rawScrollTop, this._virtualization.scrollMapping);
-          const rowHeight = this._virtualization.rowHeight;
-
-          // Bypass mode: all rows are rendered, just translate by scroll position
-          // No need for virtual window calculations
-          if (this._rows.length <= this._virtualization.bypassThreshold) {
-            rowsEl.style.transform = `translateY(${-rawScrollTop}px)`;
-          } else {
-            // Virtualized mode: calculate sub-pixel offset for smooth scrolling
-            // Even-aligned start preserves zebra stripe parity
-            // DOM nth-child(even) will always match data row parity
-            const positionCache = this._virtualization.positionCache;
-            let rawStart: number;
-            let startRowOffset: number;
-
-            if (this._virtualization.variableHeights && positionCache && positionCache.length > 0) {
-              // Variable heights: use binary search on position cache
-              rawStart = getRowIndexAtOffset(positionCache, currentScrollTop);
-              if (rawStart === -1) rawStart = 0;
-              const evenAlignedStart = rawStart - (rawStart % 2);
-              // Use actual offset from position cache for accurate transform
-              startRowOffset = positionCache[evenAlignedStart]?.offset ?? evenAlignedStart * rowHeight;
-            } else {
-              // Fixed heights: simple division
-              rawStart = Math.floor(currentScrollTop / rowHeight);
-              const evenAlignedStart = rawStart - (rawStart % 2);
-              startRowOffset = evenAlignedStart * rowHeight;
-            }
-
-            const subPixelOffset = -(currentScrollTop - startRowOffset);
-            rowsEl.style.transform = `translateY(${subPixelOffset}px)`;
-          }
+          rowsEl.style.transform = `translateY(${computeRowsTranslateY(
+            this._virtualization,
+            this._rows.length,
+            rawScrollTop,
+          )}px)`;
 
           // Batch content update with requestAnimationFrame
           // Old content stays visible with smooth offset until new content renders
@@ -1610,61 +1581,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         );
       }
 
-      // Forward wheel events from content area to faux scrollbar
-      // Without this, mouse wheel over content wouldn't scroll
-      // Listen on .tbw-grid-content to capture wheel events from entire grid area
-      // Note: gridRoot may already BE .tbw-grid-content when shell is active, so search from shadow root
+      // Forward wheel events from the content area to the faux scrollbar.
+      // gridRoot may already BE .tbw-grid-content when the shell is active, so search from the render root.
       const gridContentEl = this.#renderRoot.querySelector('.tbw-grid-content') as HTMLElement;
-      // Use the already-stored scrollArea reference
-      const scrollAreaForWheel = this.#scrollAreaEl;
       if (gridContentEl) {
-        gridContentEl.addEventListener(
-          'wheel',
-          (e: WheelEvent) => {
-            // Don't intercept wheel events when a native <select> picker is open.
-            // The picker (base-select) renders in the top layer but wheel events
-            // still target the grid content — intercepting them would scroll the
-            // grid and cause the browser to close the picker popup.
-            try {
-              if (gridContentEl.querySelector('select:open')) return;
-            } catch {
-              /* :open pseudo-class not supported — ignore */
-            }
-
-            // SHIFT+wheel or trackpad deltaX = horizontal scroll
-            const isHorizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
-
-            if (isHorizontal && scrollAreaForWheel) {
-              const delta = e.shiftKey ? e.deltaY : e.deltaX;
-              const { scrollLeft, scrollWidth, clientWidth } = scrollAreaForWheel;
-              const canScroll = (delta > 0 && scrollLeft < scrollWidth - clientWidth) || (delta < 0 && scrollLeft > 0);
-              if (canScroll) {
-                e.preventDefault();
-                scrollAreaForWheel.scrollLeft += delta;
-              }
-            } else if (!isHorizontal) {
-              const { scrollTop, scrollHeight, clientHeight } = fauxScrollbar;
-              const canScroll =
-                (e.deltaY > 0 && scrollTop < scrollHeight - clientHeight) || (e.deltaY < 0 && scrollTop > 0);
-              if (canScroll) {
-                e.preventDefault();
-                fauxScrollbar.scrollTop += e.deltaY;
-              }
-            }
-            // If can't scroll, event bubbles to scroll the page
-          },
-          { passive: false, signal: scrollSignal },
-        );
-
-        // Touch scrolling support for mobile devices
-        // Supports both vertical (via faux scrollbar) and horizontal (via scroll area) scrolling
-        // Includes momentum scrolling for natural "flick" behavior
-        setupTouchScrollListeners(
-          gridContentEl,
-          this.#touchState,
-          { fauxScrollbar, scrollArea: scrollAreaForWheel },
-          scrollSignal,
-        );
+        const scrollElements = { fauxScrollbar, scrollArea: this.#scrollAreaEl };
+        setupWheelScrollListeners(gridContentEl, scrollElements, scrollSignal);
+        setupTouchScrollListeners(gridContentEl, this.#touchState, scrollElements, scrollSignal);
       }
     }
 
@@ -1697,29 +1620,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Requesting it again here caused duplicate renders on initialization.
 
     // Track focus state via data attribute
-    // Listen on render root to catch focus events from child elements
-    (this.#renderRoot as EventTarget).addEventListener(
-      'focusin',
-      () => {
-        this.dataset.hasFocus = '';
-      },
-      { signal: scrollSignal },
-    );
-    (this.#renderRoot as EventTarget).addEventListener(
-      'focusout',
-      (e) => {
-        // Only remove if focus is leaving the grid entirely
-        // relatedTarget is null when focus leaves the document, or the new focus target
-        const newFocus = (e as FocusEvent).relatedTarget as Node | null;
-        if (
-          !newFocus ||
-          (!this.#renderRoot.contains(newFocus) && !this.#focusManager.isInExternalFocusContainer(newFocus))
-        ) {
-          delete this.dataset.hasFocus;
-        }
-      },
-      { signal: scrollSignal },
-    );
+    setupFocusTracking(this, this.#renderRoot, this.#focusManager, scrollSignal);
   }
 
   // #endregion

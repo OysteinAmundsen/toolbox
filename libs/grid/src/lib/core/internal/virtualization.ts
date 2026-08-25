@@ -555,6 +555,50 @@ export function createIdentityScrollMapping(): ScrollMapping {
 
 // #endregion
 
+// #region Scroll Transform
+
+/**
+ * Sub-pixel `translateY` for the `.rows` element at a given native scroll position.
+ *
+ * Bypass mode (all rows rendered) tracks the raw scroll offset directly. Virtualized mode
+ * offsets only the remainder past the window's first row, and rounds that start down to an
+ * even index so DOM `nth-child(even)` zebra parity keeps matching data-row parity.
+ *
+ * @param v Virtual state (structural subset of `VirtualState`).
+ * @param rawScrollTop Native `scrollTop` of the faux scrollbar (clamped spacer space).
+ */
+export function computeRowsTranslateY(
+  v: {
+    rowHeight: number;
+    bypassThreshold: number;
+    variableHeights: boolean;
+    positionCache: RowPosition[] | null;
+    scrollMapping: ScrollMapping;
+  },
+  totalRows: number,
+  rawScrollTop: number,
+): number {
+  if (totalRows <= v.bypassThreshold) return -rawScrollTop;
+
+  const currentScrollTop = toVirtualScrollTop(rawScrollTop, v.scrollMapping);
+  const cache = v.positionCache;
+  let startRowOffset: number;
+
+  if (v.variableHeights && cache && cache.length > 0) {
+    let rawStart = getRowIndexAtOffset(cache, currentScrollTop);
+    if (rawStart === -1) rawStart = 0;
+    const evenAlignedStart = rawStart - (rawStart % 2);
+    startRowOffset = cache[evenAlignedStart]?.offset ?? evenAlignedStart * v.rowHeight;
+  } else {
+    const rawStart = Math.floor(currentScrollTop / v.rowHeight);
+    startRowOffset = (rawStart - (rawStart % 2)) * v.rowHeight;
+  }
+
+  return -(currentScrollTop - startRowOffset);
+}
+
+// #endregion
+
 // #region Fixed-Height Virtual Window
 
 /**

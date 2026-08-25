@@ -5,7 +5,7 @@
  *
  * @module Plugins/Row Drag-Drop
  */
-export { ROW_DRAG_HANDLE_FIELD, RowDragDropPlugin } from './RowDragDropPlugin';
+export { ROW_DRAG_HANDLE_FIELD, RowDragDropPlugin } from './row-drag-drop-plugin';
 export type {
   RowDragDropConfig,
   RowDragEndDetail,

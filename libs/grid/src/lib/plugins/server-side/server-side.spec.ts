@@ -10,7 +10,7 @@ import {
   isBlockLoading,
   loadBlock,
 } from './datasource';
-import { ServerSidePlugin } from './ServerSidePlugin';
+import { ServerSidePlugin } from './server-side-plugin';
 import type { ServerSideDataSource } from './types';
 
 // #region Mock Grid

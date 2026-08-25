@@ -7,5 +7,5 @@
  * @packageDocumentation
  */
 
-export { ResponsivePlugin } from './ResponsivePlugin';
+export { ResponsivePlugin } from './responsive-plugin';
 export type { BreakpointConfig, HiddenColumnConfig, ResponsiveChangeDetail, ResponsivePluginConfig } from './types';

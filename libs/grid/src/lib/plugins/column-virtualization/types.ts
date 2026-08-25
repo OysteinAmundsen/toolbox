@@ -68,6 +68,6 @@ export interface ColumnVirtualizationViewport {
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
   interface PluginNameMap {
-    columnVirtualization: import('./ColumnVirtualizationPlugin').ColumnVirtualizationPlugin;
+    columnVirtualization: import('./column-virtualization-plugin').ColumnVirtualizationPlugin;
   }
 }

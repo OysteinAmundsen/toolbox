@@ -4,5 +4,5 @@
  *
  * @module Plugins/Pinned Columns
  */
-export { PinnedColumnsPlugin } from './PinnedColumnsPlugin';
+export { PinnedColumnsPlugin } from './pinned-columns-plugin';
 export type { PinnedColumnsConfig, PinnedPosition } from './types';

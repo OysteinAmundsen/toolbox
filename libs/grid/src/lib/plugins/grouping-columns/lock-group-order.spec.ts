@@ -8,7 +8,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 describe('GroupingColumnsPlugin.lockGroupOrder', async () => {
-  const { GroupingColumnsPlugin } = await import('./GroupingColumnsPlugin');
+  const { GroupingColumnsPlugin } = await import('./grouping-columns-plugin');
 
   const groupedColumns = [
     { field: 'name', header: 'Name', group: { id: 'personal', label: 'Personal' } },

@@ -5,7 +5,7 @@
  * @module Plugins/Pinned Rows
  */
 export { filteredCountPanel, rowCountPanel, selectedCountPanel } from './pinned-rows';
-export { PinnedRowsPlugin } from './PinnedRowsPlugin';
+export { PinnedRowsPlugin } from './pinned-rows-plugin';
 export type {
   AggregationRowConfig,
   AggregationSlot,

@@ -89,6 +89,6 @@ declare module '../../core/types' {
 
   interface PluginNameMap {
     /** Primary name for the column reorder plugin */
-    reorderColumns: import('./ReorderPlugin').ReorderPlugin;
+    reorderColumns: import('./reorder-plugin').ReorderPlugin;
   }
 }

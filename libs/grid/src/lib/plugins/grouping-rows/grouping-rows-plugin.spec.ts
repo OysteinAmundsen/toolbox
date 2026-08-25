@@ -8,7 +8,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ColumnConfig } from '../../core/types';
-import { GroupingRowsPlugin } from './GroupingRowsPlugin';
+import { GroupingRowsPlugin } from './grouping-rows-plugin';
 
 describe('GroupingRowsPlugin', () => {
   // Mock grid element (light DOM)

@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MultiSortPlugin } from './MultiSortPlugin';
+import { MultiSortPlugin } from './multi-sort-plugin';
 import type { SortModel } from './types';
 
 function createGridMock(rows: any[] = [], columns: any[] = []) {

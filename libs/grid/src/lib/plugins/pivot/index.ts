@@ -5,7 +5,7 @@
  * @module Plugins/Pivot
  */
 export type { PivotDataRow } from './pivot-engine';
-export { PivotPlugin } from './PivotPlugin';
+export { PivotPlugin } from './pivot-plugin';
 export type {
   AggFunc,
   CustomAggFunc,

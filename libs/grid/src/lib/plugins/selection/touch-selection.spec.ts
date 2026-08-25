@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SelectionPlugin } from './SelectionPlugin';
+import { SelectionPlugin } from './selection-plugin';
 import { RangeCornerHandles, SelectionToolbar } from './touch-selection';
 
 // Tests use `any` for flexibility with mock grid objects, matching the

@@ -490,6 +490,8 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
     emitPluginEvent?: <D>(eventType: string, detail: D) => void;
     /** Let plugins contribute to the effective config during merge (mutates in place). */
     processConfig?(config: GridConfig): void;
+    /** Whether any attached plugin implements `getRowHeight()`. */
+    hasRowHeightPlugin?(): boolean;
   };
   _gridTemplate: string;
   _virtualization: VirtualState;

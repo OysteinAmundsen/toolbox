@@ -111,6 +111,6 @@ declare module '../../core/types' {
   }
 
   interface PluginNameMap {
-    visibility: import('./VisibilityPlugin').VisibilityPlugin;
+    visibility: import('./visibility-plugin').VisibilityPlugin;
   }
 }

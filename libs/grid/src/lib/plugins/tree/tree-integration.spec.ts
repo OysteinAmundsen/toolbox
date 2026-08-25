@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { TreePlugin } from './TreePlugin';
+import { TreePlugin } from './tree-plugin';
 import type { TreeConfig } from './types';
 
 // Import grid for full integration test

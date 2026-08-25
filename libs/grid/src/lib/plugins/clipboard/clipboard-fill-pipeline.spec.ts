@@ -11,10 +11,10 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { GridElement } from '../../../public';
-import { EditingPlugin } from '../editing/EditingPlugin';
-import { SelectionPlugin } from '../selection/SelectionPlugin';
-import { UndoRedoPlugin } from '../undo-redo/UndoRedoPlugin';
-import { ClipboardPlugin } from './ClipboardPlugin';
+import { EditingPlugin } from '../editing/editing-plugin';
+import { SelectionPlugin } from '../selection/selection-plugin';
+import { UndoRedoPlugin } from '../undo-redo/undo-redo-plugin';
+import { ClipboardPlugin } from './clipboard-plugin';
 import { defaultPasteHandler, type PasteDetail } from './types';
 
 async function nextFrame(): Promise<void> {

@@ -80,6 +80,6 @@ declare module '../../core/types' {
   }
 
   interface PluginNameMap {
-    masterDetail: import('./MasterDetailPlugin').MasterDetailPlugin;
+    masterDetail: import('./master-detail-plugin').MasterDetailPlugin;
   }
 }

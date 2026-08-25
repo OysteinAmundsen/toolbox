@@ -289,6 +289,6 @@ declare module '../../core/types' {
   }
 
   interface PluginNameMap {
-    groupingRows: import('./GroupingRowsPlugin').GroupingRowsPlugin;
+    groupingRows: import('./grouping-rows-plugin').GroupingRowsPlugin;
   }
 }

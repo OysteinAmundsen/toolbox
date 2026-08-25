@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ResponsivePlugin } from './ResponsivePlugin';
+import { ResponsivePlugin } from './responsive-plugin';
 
 // Mock ResizeObserver
 const mockResizeObserverCallback = vi.fn();

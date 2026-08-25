@@ -4,7 +4,7 @@
  *
  * @module Plugins/Editing
  */
-export { EditingPlugin } from './EditingPlugin';
+export { EditingPlugin } from './editing-plugin';
 export { defaultEditorFor } from './editors';
 export type { BaselinesCapturedDetail, DirtyChangeDetail, DirtyRowEntry } from './internal/dirty-tracking';
 export type {

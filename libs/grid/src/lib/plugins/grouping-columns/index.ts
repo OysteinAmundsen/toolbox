@@ -4,5 +4,5 @@
  *
  * @module Plugins/Grouping Columns
  */
-export { GroupingColumnsPlugin } from './GroupingColumnsPlugin';
+export { GroupingColumnsPlugin } from './grouping-columns-plugin';
 export type { ColumnGroup, ColumnGroupDefinition, GroupHeaderRenderParams, GroupingColumnsConfig } from './types';

@@ -384,7 +384,7 @@ export interface HeaderContentDefinition {
 
 declare module '../../core/types' {
   interface PluginNameMap {
-    shell: import('./ShellPlugin').ShellPlugin;
+    shell: import('./shell-plugin').ShellPlugin;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- TRow matches the augmented GridConfig signature

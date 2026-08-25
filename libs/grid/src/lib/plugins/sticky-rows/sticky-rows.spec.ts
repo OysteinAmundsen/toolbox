@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ScrollEvent } from '../../core/plugin/types';
 import type { ColumnConfig } from '../../core/types';
-import { StickyRowsPlugin } from './StickyRowsPlugin';
+import { StickyRowsPlugin } from './sticky-rows-plugin';
 
 /**
  * Unit tests for StickyRowsPlugin.

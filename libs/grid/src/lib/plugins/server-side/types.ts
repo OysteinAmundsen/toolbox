@@ -133,6 +133,6 @@ export interface ServerSideState {
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
   interface PluginNameMap {
-    serverSide: import('./ServerSidePlugin').ServerSidePlugin;
+    serverSide: import('./server-side-plugin').ServerSidePlugin;
   }
 }

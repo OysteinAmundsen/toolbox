@@ -30,6 +30,10 @@ Core = `libs/grid/src/lib/core/`. Shell chrome is a PLUGIN (see grid-plugins-she
 
 ## grid.ts (main component)
 
+- DECIDED (Aug 2026, module-size budget): `max-lines` (max 1000, `skipBlankLines`+`skipComments`) in `eslint.config.mjs` covers `libs/**` + `tools/**`, companion to `tools/vite-bundle-budget.ts`. WHY code lines, not raw: this codebase is heavily JSDoc'd — `core/types.ts` is 4.7k raw but 645 code. A temporary `max-lines: 'off'` override lists `grid.ts`, `editing-plugin.ts`, `selection-plugin.ts`. **Shrink them and delete the entry — never raise the limit or add entries.**
+- DECIDED (Aug 2026, plugin filenames): every file under `libs/grid/src/lib/plugins/**` is kebab-case (`clipboard-plugin.ts`, not `ClipboardPlugin.ts`). Class names unchanged. 27 files renamed via `git mv`.
+- DECIDED (Aug 2026, `core/types.ts` MUST stay a single file): do NOT convert it to a `core/types/` folder + `index.ts` barrel. WHY: 52 files `declare module '../core/types'` / `'../../core/types'` to augment `FeatureConfig`, `BaseColumnConfig`, `ColumnConfig`, `GridConfig`, `TypeDefault`, `ColumnState`, `DataGridEventMap`, `PluginNameMap`, `UpdateSourceMap` — augmenting a re-exporting barrel creates NEW EMPTY interfaces instead of merging, silently breaking every feature/plugin config type. Secondary: submodules importing back from the barrel trip fallow's `circular-dependencies: error`. At 645 code lines it is not oversized anyway.
+
 - OWNS: lifecycle, static adapter registry, core state (`_rows`, `_columns`, `_visibleColumns`, `_sortState`, `_baseColumns`, `_rowIdMap`, `__rowRenderEpoch`), manager instances, DOM refs, row pool, batched update coalescing (`#pendingUpdate`/`#pendingUpdateFlags`).
 - INVARIANT (HARD RULE #370): **core MUST NOT reference any plugin.** All plugin access is `import type` or the PluginManager seam (`getPluginByName`/`getPlugin`).
 - ENFORCED: `no-restricted-imports` on `libs/grid/src/lib/core/**` blocks `['**/plugins/*','**/plugins/*/**']` with `allowTypeImports: true` (ignores specs/benches, which legitimately value-import plugins).

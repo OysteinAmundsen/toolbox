@@ -9,7 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { EditingPlugin } from './EditingPlugin';
+import { EditingPlugin } from './editing-plugin';
 
 async function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));

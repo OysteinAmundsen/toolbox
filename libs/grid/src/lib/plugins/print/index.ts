@@ -5,5 +5,5 @@
  * @module Plugins/Print
  */
 export { printGridIsolated, type PrintIsolatedOptions } from './print-isolated';
-export { PrintPlugin } from './PrintPlugin';
+export { PrintPlugin } from './print-plugin';
 export type { PrintCompleteDetail, PrintConfig, PrintOrientation, PrintParams, PrintStartDetail } from './types';

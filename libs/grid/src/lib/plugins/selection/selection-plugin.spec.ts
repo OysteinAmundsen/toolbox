@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { validatePluginConfigRules } from '../../core/internal/validate-config';
-import { SelectionPlugin } from './SelectionPlugin';
+import { SelectionPlugin } from './selection-plugin';
 
 // Tests use `any` for flexibility with mock grid objects.
 

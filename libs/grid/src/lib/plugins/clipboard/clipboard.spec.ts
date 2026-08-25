@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GridElement } from '../../../public';
 import type { ColumnConfig } from '../../core/types';
-import { ClipboardPlugin } from './ClipboardPlugin';
+import { ClipboardPlugin } from './clipboard-plugin';
 import { buildClipboardHtml, parseClipboardHtmlPayload } from './clipboard-payload';
 import { buildClipboardText, copyToClipboard, formatCellValue, type CopyParams } from './copy';
 import { parseClipboardText, readFromClipboard } from './paste';

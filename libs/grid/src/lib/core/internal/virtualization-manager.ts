@@ -554,6 +554,261 @@ export class VirtualizationManager<T = any> {
   }
 
   // #endregion
+
+  // #region Row Height Measurement
+
+  /** Set when a plugin drives variable heights but the user gave no `rowHeight` function. */
+  #needsRowHeightMeasurement = false;
+
+  /**
+   * Last value the `--tbw-row-height` CSS variable resolved to.
+   * Used by `measureRowHeight` to distinguish a real theme switch (resolved value changed)
+   * from natural drift between CSS-resolved height and `state.rowHeight` after content growth
+   * pushed the latter above the former. 0 means "never resolved" — first resolution seeds it.
+   */
+  #lastResolvedCssRowHeight = 0;
+
+  #rowHeightObserver?: ResizeObserver;
+  #rowHeightObserverSetup = false;
+
+  #hasRowHeightPlugin(): boolean {
+    return this.#grid._pluginManager?.hasRowHeightPlugin?.() ?? false;
+  }
+
+  /**
+   * Configure variable row heights based on plugins and user config.
+   *
+   * Handles three scenarios:
+   * 1. Variable heights needed (rowHeight function or plugin with getRowHeight) → enable + init cache
+   * 2. Fixed numeric rowHeight → set directly
+   * 3. No config → measure from DOM after first paint
+   */
+  configureVariableHeights(): void {
+    const s = this.state;
+    const userRowHeight = this.#grid.effectiveConfig?.rowHeight;
+    const hasRowHeightPlugin = this.#hasRowHeightPlugin();
+
+    if (typeof userRowHeight === 'function' || hasRowHeightPlugin) {
+      if (!s.variableHeights) {
+        s.variableHeights = true;
+        s.rowHeight = typeof userRowHeight === 'number' && userRowHeight > 0 ? userRowHeight : s.rowHeight || 28;
+        this.initializePositionCache();
+        if (typeof userRowHeight !== 'function') {
+          this.#needsRowHeightMeasurement = true;
+        }
+      }
+    } else if (!hasRowHeightPlugin && typeof userRowHeight !== 'function' && s.variableHeights) {
+      // Plugin was removed — revert to fixed heights
+      s.variableHeights = false;
+      s.positionCache = null;
+    } else if (typeof userRowHeight === 'number' && userRowHeight > 0) {
+      s.rowHeight = userRowHeight;
+      s.variableHeights = false;
+    } else {
+      // No config — measure from DOM after first paint.
+      // The ResizeObserver below handles subsequent dynamic changes.
+      requestAnimationFrame(() => this.#measureRowHeight());
+    }
+  }
+
+  /**
+   * Measure actual row height from DOM.
+   *
+   * Called from `requestAnimationFrame` after first paint (when no explicit rowHeight was
+   * configured) and from a ResizeObserver on the first row (which catches dynamic CSS loading,
+   * lazy images, font loading, etc.).
+   */
+  #measureRowHeight(): void {
+    const grid = this.#grid;
+    const s = this.state;
+
+    // Skip if a plugin is managing variable row heights (e.g., ResponsivePlugin
+    // with groups). The plugin handles height via getRowHeight() and we must
+    // not override the base row height — that would cause oscillation loops.
+    if (this.#hasRowHeightPlugin()) return;
+
+    // Skip if the user provided an explicit numeric `gridConfig.rowHeight`.
+    // The user has expressed intent ("rows are this tall") and the grid must
+    // honor it absolutely — overriding via DOM measurement turns the user's
+    // value into a no-op hint and creates the following nasty failure mode:
+    // when content rows render at one height and placeholder/loading rows at
+    // another (e.g. server-side plugin while a block is in flight), the
+    // ResizeObserver alternates between the two heights, the measure logic
+    // ratchets `state.rowHeight` to whichever is observed first, and the
+    // virtualization window mis-fits the viewport — visible as either flicker
+    // during scroll or a permanent gap before the pinned footer where the
+    // bottom of the body should be filled.
+    //
+    // Users who want measurement-driven sizing should either omit `rowHeight`
+    // (default branch below) or pass a function — both opt into the dynamic
+    // path. A numeric value is a contract; respect it.
+    const userRowHeight = grid.effectiveConfig?.rowHeight;
+    if (typeof userRowHeight === 'number' && userRowHeight > 0) return;
+
+    const bodyEl = grid._bodyEl;
+    if (!bodyEl?.querySelector('.data-grid-row')) return;
+
+    // Resolve the --tbw-row-height CSS variable to detect theme changes.
+    // When a theme is swapped, the computed value changes (e.g., 52px → 28px).
+    // Compared against the previously-resolved CSS value (NOT against the
+    // current `state.rowHeight`) so that natural drift between CSS-resolved
+    // height and a content-grown rowHeight doesn't masquerade as a theme
+    // switch on every observation.
+    const cssRowHeight = this.#resolveCssRowHeight();
+
+    // Sample every currently-rendered body row and take the MEDIAN height.
+    //
+    // The old "trust the first row" approach made `state.rowHeight` hostage to
+    // whatever the first row happened to look like at the moment the
+    // ResizeObserver fired. That broke as soon as a single row deviated:
+    //   - Editing the first row inflates it (framework form-field chrome)
+    //     for as long as the editor is open. Single-row measurement ratchets
+    //     `rowHeight` up to the inflated value, shrinks the virtual window
+    //     to half its rows, and never recovers because the ratchet doesn't
+    //     shrink.
+    //   - A custom renderer in row[0] (taller chip, wrapping text, image)
+    //     similarly poisons the global height for every other row.
+    //
+    // Median is robust to ~half of samples being outliers and degrades
+    // gracefully when only one row is rendered (returns that row).
+    //
+    // Rows with an explicit per-row `--tbw-row-height` override are excluded
+    // from the sample — they're intentional one-off heights (e.g. expanded
+    // master-detail rows) and would skew the global default.
+    const sampledHeights: number[] = [];
+    for (const row of bodyEl.querySelectorAll<HTMLElement>('.data-grid-row')) {
+      if (row.style.getPropertyValue('--tbw-row-height')) continue;
+      let maxCellHeight = 0;
+      row.querySelectorAll('.cell').forEach((cell) => {
+        const h = (cell as HTMLElement).offsetHeight;
+        if (h > maxCellHeight) maxCellHeight = h;
+      });
+      const h = Math.max(row.getBoundingClientRect().height, maxCellHeight);
+      if (h > 0) sampledHeights.push(h);
+    }
+    if (sampledHeights.length === 0) return;
+    sampledHeights.sort((a, b) => a - b);
+    const mid = sampledHeights.length >> 1;
+    const measuredHeight =
+      sampledHeights.length % 2 === 1 ? sampledHeights[mid] : (sampledHeights[mid - 1] + sampledHeights[mid]) / 2;
+
+    const currentHeight = s.rowHeight;
+    const lastCss = this.#lastResolvedCssRowHeight;
+    const cssChanged = cssRowHeight > 0 && lastCss > 0 && Math.abs(cssRowHeight - lastCss) > 1;
+    const cssFirstResolved = cssRowHeight > 0 && lastCss === 0;
+    const contentGrew = measuredHeight > 0 && measuredHeight - currentHeight > 1;
+
+    if (cssRowHeight > 0) {
+      this.#lastResolvedCssRowHeight = cssRowHeight;
+    }
+
+    if (cssChanged || cssFirstResolved || contentGrew) {
+      // For real CSS changes (theme switch) and first resolution, take the
+      // larger of CSS and measured so rows are never undersized. For content
+      // growth (only direction we ratchet automatically), use the measurement.
+      const next = cssChanged || cssFirstResolved ? Math.max(cssRowHeight, measuredHeight) : measuredHeight;
+      if (Math.abs(next - currentHeight) > 1) {
+        s.rowHeight = next;
+        grid._requestSchedulerPhase(RenderPhase.VIRTUALIZATION, 'measureRowHeight');
+      }
+    }
+  }
+
+  /**
+   * Resolve the --tbw-row-height CSS variable to a pixel value.
+   * Reads from an existing row cell (which uses min-height: var(--tbw-row-height))
+   * to avoid creating/removing temporary DOM elements.
+   * Returns 0 if no row is available or the variable is unset.
+   */
+  #resolveCssRowHeight(): number {
+    const host = this.#grid._hostElement;
+    if (!host) return 0;
+    const raw = getComputedStyle(host).getPropertyValue('--tbw-row-height').trim();
+    if (!raw) return 0;
+    // Pure pixel value — fast path, no DOM measurement needed
+    if (raw.endsWith('px')) return parseFloat(raw) || 0;
+    // Relative units (em, rem, etc.) — resolve from an existing cell's computed min-height.
+    // Cells bind to --tbw-row-height via CSS, so their resolved min-height gives the pixel value.
+    const cell = this.#grid._bodyEl?.querySelector(
+      '.data-grid-row:not([style*="--tbw-row-height"]) > .cell',
+    ) as HTMLElement | null;
+    if (!cell) return 0;
+    const minHeight = parseFloat(getComputedStyle(cell).minHeight);
+    return minHeight > 0 ? minHeight : 0;
+  }
+
+  /**
+   * Post-render hook for row-height bookkeeping. Installs the first-row observer once the rows
+   * exist in the DOM, then performs the one-shot base-height measurement that
+   * `configureVariableHeights` defers when a plugin drives heights but no `rowHeight` function
+   * was supplied.
+   */
+  afterRenderRowHeights(): void {
+    if (this.state.enabled) this.#setupRowHeightObserver();
+    if (!this.#needsRowHeightMeasurement) return;
+    this.#needsRowHeightMeasurement = false;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => this.#measureRowHeightForPlugins());
+    });
+  }
+
+  /**
+   * Like `#measureRowHeight`, but rebuilds the position cache afterwards — the cache may have been
+   * built with the wrong estimated height even if `rowHeight` was later corrected.
+   */
+  #measureRowHeightForPlugins(): void {
+    const firstRow = this.#grid._bodyEl?.querySelector('.data-grid-row');
+    if (!firstRow) return;
+
+    // Find the tallest cell in the row (custom renderers may push some cells taller)
+    let maxCellHeight = 0;
+    firstRow.querySelectorAll('.cell').forEach((cell) => {
+      const h = (cell as HTMLElement).offsetHeight;
+      if (h > maxCellHeight) maxCellHeight = h;
+    });
+
+    const measuredHeight = Math.max((firstRow as HTMLElement).getBoundingClientRect().height, maxCellHeight);
+    if (measuredHeight <= 0) return;
+
+    const s = this.state;
+    if (Math.abs(measuredHeight - s.rowHeight) > 1) {
+      s.rowHeight = measuredHeight;
+    }
+    this.initializePositionCache();
+    if (s.totalHeightEl) {
+      s.totalHeightEl.style.height = `${this.calculateTotalSpacerHeight(this.#grid._rows.length)}px`;
+    }
+  }
+
+  /**
+   * Observe the first row for height changes (dynamic CSS, lazy images, font loading,
+   * column virtualization). Self-guarding: only installs once per connected lifecycle.
+   */
+  #setupRowHeightObserver(): void {
+    if (this.#rowHeightObserverSetup) return;
+
+    const firstRow = this.#grid._bodyEl?.querySelector('.data-grid-row') as HTMLElement | null;
+    if (!firstRow) return;
+
+    this.#rowHeightObserverSetup = true;
+    this.#rowHeightObserver?.disconnect();
+
+    // Observe the row element itself, not individual cells — that catches every height change
+    // at once. ResizeObserver fires on initial observation, so no separate measure call.
+    this.#rowHeightObserver = new ResizeObserver(() => this.#measureRowHeight());
+    this.#rowHeightObserver.observe(firstRow);
+  }
+
+  /** Tear down row-height observation and measurement state on disconnect. */
+  disposeRowHeightObserver(): void {
+    if (!this.#rowHeightObserver) return;
+    this.#rowHeightObserver.disconnect();
+    this.#rowHeightObserver = undefined;
+    this.#rowHeightObserverSetup = false;
+    this.#lastResolvedCssRowHeight = 0;
+  }
+
+  // #endregion
 }
 
 // #endregion

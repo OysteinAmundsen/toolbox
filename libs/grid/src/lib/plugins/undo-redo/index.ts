@@ -5,4 +5,4 @@
  * @module Plugins/Undo-Redo
  */
 export type { CompoundEditAction, EditAction, UndoRedoAction, UndoRedoConfig, UndoRedoDetail } from './types';
-export { UndoRedoPlugin } from './UndoRedoPlugin';
+export { UndoRedoPlugin } from './undo-redo-plugin';

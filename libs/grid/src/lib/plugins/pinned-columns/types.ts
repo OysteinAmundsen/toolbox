@@ -71,7 +71,7 @@ declare module '../../core/types' {
   }
 
   interface PluginNameMap {
-    pinnedColumns: import('./PinnedColumnsPlugin').PinnedColumnsPlugin;
+    pinnedColumns: import('./pinned-columns-plugin').PinnedColumnsPlugin;
   }
 }
 

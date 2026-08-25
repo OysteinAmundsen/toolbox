@@ -5,7 +5,7 @@
  * Covers WAI-ARIA Treegrid role + aria-level/setsize/posinset emission (#264).
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { GroupingRowsPlugin } from './GroupingRowsPlugin';
+import { GroupingRowsPlugin } from './grouping-rows-plugin';
 
 import '../../../index';
 import type { GridElement } from '../../../public';

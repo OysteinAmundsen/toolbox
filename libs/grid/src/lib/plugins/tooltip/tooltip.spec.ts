@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ColumnConfig } from '../../core/types';
-import { TooltipPlugin } from './TooltipPlugin';
+import { TooltipPlugin } from './tooltip-plugin';
 
 // #region Mock Grid
 function createMockGrid(overrides: Record<string, unknown> = {}) {

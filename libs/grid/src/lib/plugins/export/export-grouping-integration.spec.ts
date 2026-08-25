@@ -16,8 +16,8 @@ import { nextFrame } from '../../../../test/helpers';
 import '../../../index';
 import type { GridElement } from '../../../public';
 import type { HeaderRowContribution } from '../../core/plugin/types';
-import { GroupingColumnsPlugin } from '../grouping-columns/GroupingColumnsPlugin';
-import { ExportPlugin } from './ExportPlugin';
+import { GroupingColumnsPlugin } from '../grouping-columns/grouping-columns-plugin';
+import { ExportPlugin } from './export-plugin';
 import { buildExcelXml } from './excel';
 
 // Suppress jsdom/happy-dom anchor-click side effects from downloadBlob.

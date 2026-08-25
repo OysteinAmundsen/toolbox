@@ -4,6 +4,6 @@
  *
  * @module Plugins/Multi-Sort
  */
-export { MultiSortPlugin } from './MultiSortPlugin';
+export { MultiSortPlugin } from './multi-sort-plugin';
 export type { MultiSortChangeDetail, MultiSortConfig, SortModel } from './types';
 

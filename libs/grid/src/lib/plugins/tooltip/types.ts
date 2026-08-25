@@ -5,7 +5,7 @@
  */
 
 import type { CellRenderContext, HeaderLabelContext } from '../../core/types';
-import { TooltipPlugin } from './TooltipPlugin';
+import { TooltipPlugin } from './tooltip-plugin';
 
 // #region Module Augmentation
 declare module '../../core/types' {

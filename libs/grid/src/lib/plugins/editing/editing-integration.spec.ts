@@ -11,8 +11,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { UndoRedoPlugin } from '../undo-redo/UndoRedoPlugin';
-import { EditingPlugin } from './EditingPlugin';
+import { UndoRedoPlugin } from '../undo-redo/undo-redo-plugin';
+import { EditingPlugin } from './editing-plugin';
 
 // Test helpers
 async function nextFrame(): Promise<void> {

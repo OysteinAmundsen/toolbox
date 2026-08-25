@@ -4,7 +4,7 @@
  *
  * @module Plugins/Clipboard
  */
-export { ClipboardPlugin } from './ClipboardPlugin';
+export { ClipboardPlugin } from './clipboard-plugin';
 export {
   defaultPasteHandler,
   emitPasteRejected,

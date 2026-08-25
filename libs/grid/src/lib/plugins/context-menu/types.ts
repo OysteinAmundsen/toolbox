@@ -151,6 +151,6 @@ declare module '../../core/types' {
   }
 
   interface PluginNameMap {
-    contextMenu: import('./ContextMenuPlugin').ContextMenuPlugin;
+    contextMenu: import('./context-menu-plugin').ContextMenuPlugin;
   }
 }

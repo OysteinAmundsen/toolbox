@@ -3,5 +3,5 @@
  *
  * @module Plugins/Sticky Rows
  */
-export { StickyRowsPlugin } from './StickyRowsPlugin';
+export { StickyRowsPlugin } from './sticky-rows-plugin';
 export type { StickyPredicate, StickyRowsConfig, StickyRowsMode } from './types';

@@ -7,7 +7,7 @@ import {
   getUniqueValuesBatch,
   matchesFilter,
 } from './filter-model';
-import { FilteringPlugin } from './FilteringPlugin';
+import { FilteringPlugin } from './filtering-plugin';
 import type { FilterModel } from './types';
 
 describe('filter-model', () => {

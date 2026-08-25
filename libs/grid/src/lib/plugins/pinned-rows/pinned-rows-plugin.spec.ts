@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ColumnConfig } from '../../core/types';
-import { PinnedRowsPlugin } from './PinnedRowsPlugin';
+import { PinnedRowsPlugin } from './pinned-rows-plugin';
 
 /**
  * Unit tests for PinnedRowsPlugin class

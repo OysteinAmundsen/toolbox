@@ -6,7 +6,7 @@
  *
  * @module Plugins/Shell
  */
-export { ShellPlugin } from './ShellPlugin';
+export { ShellPlugin } from './shell-plugin';
 export type {
   HeaderContentDefinition,
   OpenToolPanelOptions,

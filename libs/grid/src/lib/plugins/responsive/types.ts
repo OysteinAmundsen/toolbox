@@ -174,6 +174,6 @@ declare module '../../core/types' {
   }
 
   interface PluginNameMap {
-    responsive: import('./ResponsivePlugin').ResponsivePlugin;
+    responsive: import('./responsive-plugin').ResponsivePlugin;
   }
 }

@@ -4,7 +4,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GridElement } from '../../core/plugin/base-plugin';
 import type { InternalGrid } from '../../core/types';
-import { ShellPlugin } from './ShellPlugin';
+import { ShellPlugin } from './shell-plugin';
 
 /**
  * Smoke tests for the ShellPlugin skeleton (extraction #370, Phase 1a).

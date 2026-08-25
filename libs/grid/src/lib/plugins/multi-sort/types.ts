@@ -72,6 +72,6 @@ export interface MultiSortChangeDetail {
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
   interface PluginNameMap {
-    multiSort: import('./MultiSortPlugin').MultiSortPlugin;
+    multiSort: import('./multi-sort-plugin').MultiSortPlugin;
   }
 }

@@ -9,6 +9,7 @@
 declare const __GRID_VERSION__: string;
 
 import type { HeaderContentDefinition, ToolPanelDefinition } from '../../plugins/shell/types';
+import { DEFAULT_GRID_ICONS } from '../defaults';
 import {
   type DiagnosticCode,
   PLUGIN_ALIAS_CONFIG_CONFLICT,
@@ -26,7 +27,6 @@ import type {
   PluginNameMap,
   Translate,
 } from '../types';
-import { DEFAULT_GRID_ICONS } from '../types';
 
 // Re-export shared plugin types for convenience
 export type {

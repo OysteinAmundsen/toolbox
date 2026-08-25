@@ -1,4 +1,5 @@
 import type { HeaderContentDefinition, ToolPanelDefinition } from '../plugins/shell/types';
+import { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS } from './defaults';
 import {
   announceDataLoaded,
   createAriaState,
@@ -14,7 +15,7 @@ import { buildBareGridDOMIntoElement } from './internal/dom-builder';
 import { updateEmptyOverlay, type EmptyOverlayState } from './internal/empty';
 import { setupCellEventDelegation, setupRootEventDelegation } from './internal/event-delegation';
 import { resolveFeatures } from './internal/feature-hook';
-import { FocusManager } from './internal/focus-manager';
+import { FocusManager, setupFocusTracking } from './internal/focus-manager';
 import { renderHeader } from './internal/header';
 import { cancelIdle, scheduleIdle } from './internal/idle-scheduler';
 import { ensureCellVisible } from './internal/keyboard';
@@ -37,6 +38,7 @@ import {
   cancelMomentum,
   createTouchScrollState,
   setupTouchScrollListeners,
+  setupWheelScrollListeners,
   type TouchScrollState,
 } from './internal/touch-scroll';
 import {
@@ -45,7 +47,7 @@ import {
   validatePluginProperties,
 } from './internal/validate-config';
 import { readCellField } from './internal/value-accessor';
-import { getRowIndexAtOffset, toVirtualScrollTop } from './internal/virtualization';
+import { computeRowsTranslateY } from './internal/virtualization';
 import { VirtualizationManager } from './internal/virtualization-manager';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent, ScrollEvent } from './plugin';
 import type { BaseGridPlugin, CellClickEvent, HeaderClickEvent, RowClickEvent } from './plugin/base-plugin';
@@ -76,7 +78,6 @@ import type {
   UpdateSource,
   VirtualState,
 } from './types';
-import { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS } from './types';
 
 /**
  * High-performance data grid web component.
@@ -279,13 +280,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #pendingScrollTop: number | null = null;
   #hScrollRaf = 0;
   #hasScrollPlugins = false; // Cached flag for plugin scroll handlers
-  #needsRowHeightMeasurement = false; // Flag to measure row height after render (for plugin-based variable heights)
   #scrollMeasureTimeout = 0; // Debounce timer for measuring rows after scroll settles
   #renderRowHook?: (row: any, rowEl: HTMLElement, rowIndex: number) => boolean; // Cached hook to avoid closures
   #touchState: TouchScrollState = createTouchScrollState();
   #eventAbortController?: AbortController;
   #resizeObserver?: ResizeObserver;
-  #rowHeightObserver?: ResizeObserver; // Watches first row for size changes (CSS loading, custom renderers)
   #idleCallbackHandle?: number; // Handle for cancelling deferred idle work
 
   // Pooled scroll event object (reused to avoid GC pressure during scroll)
@@ -689,6 +688,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
   }
 
+  // #endregion
+
   // #region Loading API
 
   /**
@@ -840,6 +841,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   // #endregion
+
+  // #region State Access (internal plugin API)
 
   /**
    * Effective config accessor for internal modules and plugins.
@@ -1151,7 +1154,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // after initial setup (e.g., Angular/React set gridConfig asynchronously via effects).
     // Without this, variableHeights stays false and the scroll handler uses fixed-height math,
     // producing incorrect translateY when detail rows are expanded.
-    this.#configureVariableHeights();
+    this.#virtManager.configureVariableHeights();
 
     // Re-run the config merge so the ShellPlugin's `processConfig` re-collects
     // shell contributions from the freshly re-initialized plugin instances
@@ -1356,12 +1359,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#resizeObserver.disconnect();
       this.#resizeObserver = undefined;
     }
-    if (this.#rowHeightObserver) {
-      this.#rowHeightObserver.disconnect();
-      this.#rowHeightObserver = undefined;
-      this.#rowHeightObserverSetup = false;
-      this.#lastResolvedCssRowHeight = 0;
-    }
+    this.#virtManager.disposeRowHeightObserver();
 
     // Clear caches to prevent memory leaks
     invalidateCellCache(this);
@@ -1488,7 +1486,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // This consolidates all body-level delegated event handlers in one place (event-delegation.ts)
 
     // Configure variable row heights based on plugins and user config
-    this.#configureVariableHeights();
+    this.#virtManager.configureVariableHeights();
 
     // Initialize ARIA selection state
     queueMicrotask(() => this.#updateAriaSelection());
@@ -1498,212 +1496,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Framework adapters (React/Angular) will request COLUMNS phase via refreshColumns(),
     // which will be batched with this request - highest phase wins.
     this.#scheduler.requestPhase(RenderPhase.FULL, 'afterConnect');
-  }
-
-  /**
-   * Configure variable row heights based on plugins and user config.
-   * Called from both #afterConnect (initial setup) and #updatePluginConfigs (plugin changes).
-   *
-   * Handles three scenarios:
-   * 1. Variable heights needed (rowHeight function or plugin with getRowHeight) → enable + init cache
-   * 2. Fixed numeric rowHeight → set directly
-   * 3. No config → measure from DOM after first paint
-   */
-  #configureVariableHeights(): void {
-    const userRowHeight = this.#effectiveConfig.rowHeight;
-    const hasRowHeightPlugin = this.#pluginManager.hasRowHeightPlugin();
-
-    if (typeof userRowHeight === 'function' || hasRowHeightPlugin) {
-      if (!this._virtualization.variableHeights) {
-        this._virtualization.variableHeights = true;
-        this._virtualization.rowHeight =
-          typeof userRowHeight === 'number' && userRowHeight > 0 ? userRowHeight : this._virtualization.rowHeight || 28;
-        this.#virtManager.initializePositionCache();
-        if (typeof userRowHeight !== 'function') {
-          this.#needsRowHeightMeasurement = true;
-        }
-      }
-    } else if (!hasRowHeightPlugin && typeof userRowHeight !== 'function' && this._virtualization.variableHeights) {
-      // Plugin was removed — revert to fixed heights
-      this._virtualization.variableHeights = false;
-      this._virtualization.positionCache = null;
-    } else if (typeof userRowHeight === 'number' && userRowHeight > 0) {
-      this._virtualization.rowHeight = userRowHeight;
-      this._virtualization.variableHeights = false;
-    } else {
-      // No config — measure from DOM after first paint
-      // ResizeObserver in #setupScrollListeners handles subsequent dynamic changes
-      requestAnimationFrame(() => this.#measureRowHeight());
-    }
-  }
-
-  /**
-   * Measure actual row height from DOM.
-   * Finds the tallest cell to account for custom renderers that may push height.
-   *
-   * Called from `requestAnimationFrame` after first paint (when no explicit
-   * rowHeight was configured) and from a ResizeObserver on the first row
-   * (which catches dynamic CSS loading, lazy images, font loading, etc.).
-   */
-  #measureRowHeight(): void {
-    // Skip if a plugin is managing variable row heights (e.g., ResponsivePlugin
-    // with groups). The plugin handles height via getRowHeight() and we must
-    // not override the base row height — that would cause oscillation loops.
-    if (this.#pluginManager.hasRowHeightPlugin()) {
-      return;
-    }
-
-    // Skip if the user provided an explicit numeric `gridConfig.rowHeight`.
-    // The user has expressed intent ("rows are this tall") and the grid must
-    // honor it absolutely — overriding via DOM measurement turns the user's
-    // value into a no-op hint and creates the following nasty failure mode:
-    // when content rows render at one height and placeholder/loading rows at
-    // another (e.g. server-side plugin while a block is in flight), the
-    // ResizeObserver alternates between the two heights, the measure logic
-    // ratchets `_virtualization.rowHeight` to whichever is observed first,
-    // and the virtualization window mis-fits the viewport — visible as
-    // either flicker during scroll or a permanent gap before the pinned
-    // footer where the bottom of the body should be filled.
-    //
-    // Users who want measurement-driven sizing should either omit `rowHeight`
-    // (default branch below) or pass a function — both opt into the dynamic
-    // path. A numeric value is a contract; respect it.
-    const userRowHeight = this.#effectiveConfig.rowHeight;
-    if (typeof userRowHeight === 'number' && userRowHeight > 0) {
-      return;
-    }
-
-    const firstRow = this._bodyEl?.querySelector('.data-grid-row') as HTMLElement | null;
-    if (!firstRow) return;
-
-    // Resolve the --tbw-row-height CSS variable to detect theme changes.
-    // When a theme is swapped, the computed value changes (e.g., 52px → 28px).
-    // Compared against the previously-resolved CSS value (NOT against the
-    // current `_virtualization.rowHeight`) so that natural drift between
-    // CSS-resolved height and a content-grown rowHeight doesn't masquerade
-    // as a theme switch on every observation.
-    const cssRowHeight = this.#resolveCssRowHeight();
-
-    // Sample every currently-rendered body row and take the MEDIAN height.
-    //
-    // The old "trust the first row" approach made `_virtualization.rowHeight`
-    // hostage to whatever the first row happened to look like at the moment
-    // the ResizeObserver fired. That broke as soon as a single row deviated:
-    //   - Editing the first row inflates it (framework form-field chrome)
-    //     for as long as the editor is open. Single-row measurement ratchets
-    //     `rowHeight` up to the inflated value, shrinks the virtual window
-    //     to half its rows, and never recovers because the ratchet doesn't
-    //     shrink.
-    //   - A custom renderer in row[0] (taller chip, wrapping text, image)
-    //     similarly poisons the global height for every other row.
-    //
-    // Median is robust to ~half of samples being outliers and degrades
-    // gracefully when only one row is rendered (returns that row).
-    //
-    // Rows with an explicit per-row `--tbw-row-height` override are excluded
-    // from the sample — they're intentional one-off heights (e.g. expanded
-    // master-detail rows) and would skew the global default.
-    const sampledHeights: number[] = [];
-    const bodyRows = this._bodyEl?.querySelectorAll<HTMLElement>('.data-grid-row');
-    for (const row of bodyRows ?? []) {
-      if (row.style.getPropertyValue('--tbw-row-height')) continue;
-      let maxCellHeight = 0;
-      row.querySelectorAll('.cell').forEach((cell) => {
-        const h = (cell as HTMLElement).offsetHeight;
-        if (h > maxCellHeight) maxCellHeight = h;
-      });
-      const h = Math.max(row.getBoundingClientRect().height, maxCellHeight);
-      if (h > 0) sampledHeights.push(h);
-    }
-    if (sampledHeights.length === 0) return;
-    sampledHeights.sort((a, b) => a - b);
-    const mid = sampledHeights.length >> 1;
-    const measuredHeight =
-      sampledHeights.length % 2 === 1 ? sampledHeights[mid] : (sampledHeights[mid - 1] + sampledHeights[mid]) / 2;
-
-    const currentHeight = this._virtualization.rowHeight;
-    const lastCss = this.#lastResolvedCssRowHeight;
-    const cssChanged = cssRowHeight > 0 && lastCss > 0 && Math.abs(cssRowHeight - lastCss) > 1;
-    const cssFirstResolved = cssRowHeight > 0 && lastCss === 0;
-    const contentGrew = measuredHeight > 0 && measuredHeight - currentHeight > 1;
-
-    if (cssRowHeight > 0) {
-      this.#lastResolvedCssRowHeight = cssRowHeight;
-    }
-
-    if (cssChanged || cssFirstResolved || contentGrew) {
-      // For real CSS changes (theme switch) and first resolution, take the
-      // larger of CSS and measured so rows are never undersized. For content
-      // growth (only direction we ratchet automatically), use the measurement.
-      const next = cssChanged || cssFirstResolved ? Math.max(cssRowHeight, measuredHeight) : measuredHeight;
-      if (Math.abs(next - currentHeight) > 1) {
-        this._virtualization.rowHeight = next;
-        this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'measureRowHeight');
-      }
-    }
-  }
-
-  /**
-   * Resolve the --tbw-row-height CSS variable to a pixel value.
-   * Reads from an existing row cell (which uses min-height: var(--tbw-row-height))
-   * to avoid creating/removing temporary DOM elements.
-   * Returns 0 if no row is available or the variable is unset.
-   */
-  #resolveCssRowHeight(): number {
-    const raw = getComputedStyle(this).getPropertyValue('--tbw-row-height').trim();
-    if (!raw) return 0;
-    // Pure pixel value — fast path, no DOM measurement needed
-    if (raw.endsWith('px')) return parseFloat(raw) || 0;
-    // Relative units (em, rem, etc.) — resolve from an existing cell's computed min-height.
-    // Cells bind to --tbw-row-height via CSS, so their resolved min-height gives the pixel value.
-    const cell = this._bodyEl?.querySelector(
-      '.data-grid-row:not([style*="--tbw-row-height"]) > .cell',
-    ) as HTMLElement | null;
-    if (!cell) return 0;
-    const minHeight = parseFloat(getComputedStyle(cell).minHeight);
-    return minHeight > 0 ? minHeight : 0;
-  }
-
-  /**
-   * Measure actual row height from DOM for plugin-based variable heights.
-   * Similar to #measureRowHeight but rebuilds the position cache after measurement.
-   * Called after first render when a plugin implements getRowHeight() but user didn't provide a rowHeight function.
-   */
-  #measureRowHeightForPlugins(): void {
-    const firstRow = this._bodyEl?.querySelector('.data-grid-row');
-    if (!firstRow) return;
-
-    // Find the tallest cell in the row (custom renderers may push some cells taller)
-    const cells = firstRow.querySelectorAll('.cell');
-    let maxCellHeight = 0;
-    cells.forEach((cell) => {
-      const h = (cell as HTMLElement).offsetHeight;
-      if (h > maxCellHeight) maxCellHeight = h;
-    });
-
-    const rowRect = (firstRow as HTMLElement).getBoundingClientRect();
-
-    // Use the larger of row height or max cell height
-    const measuredHeight = Math.max(rowRect.height, maxCellHeight);
-
-    // Update rowHeight if measurement is valid and different
-    if (measuredHeight > 0) {
-      const heightChanged = Math.abs(measuredHeight - this._virtualization.rowHeight) > 1;
-      if (heightChanged) {
-        this._virtualization.rowHeight = measuredHeight;
-      }
-
-      // ALWAYS rebuild position cache when this method is called (first render with plugins)
-      // The position cache may have been built with the wrong estimated height (e.g., 28px)
-      // even if rowHeight was later updated by ResizeObserver (e.g., to 33px)
-      this.#virtManager.initializePositionCache();
-
-      // Update spacer height with the correct total
-      if (this._virtualization.totalHeightEl) {
-        const newHeight = this.#virtManager.calculateTotalSpacerHeight(this._rows.length);
-        this._virtualization.totalHeightEl.style.height = `${newHeight}px`;
-      }
-    }
   }
 
   /**
@@ -1736,41 +1528,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           if (!this._virtualization.enabled && !this.#hasScrollPlugins) return;
 
           const rawScrollTop = fauxScrollbar.scrollTop;
-          // Translate native scrollTop (clamped spacer space) into virtual
-          // row-content space. Identity for datasets within MAX_ELEMENT_HEIGHT_PX —
-          // larger datasets need fractional mapping or the tail is unreachable.
-          const currentScrollTop = toVirtualScrollTop(rawScrollTop, this._virtualization.scrollMapping);
-          const rowHeight = this._virtualization.rowHeight;
-
-          // Bypass mode: all rows are rendered, just translate by scroll position
-          // No need for virtual window calculations
-          if (this._rows.length <= this._virtualization.bypassThreshold) {
-            rowsEl.style.transform = `translateY(${-rawScrollTop}px)`;
-          } else {
-            // Virtualized mode: calculate sub-pixel offset for smooth scrolling
-            // Even-aligned start preserves zebra stripe parity
-            // DOM nth-child(even) will always match data row parity
-            const positionCache = this._virtualization.positionCache;
-            let rawStart: number;
-            let startRowOffset: number;
-
-            if (this._virtualization.variableHeights && positionCache && positionCache.length > 0) {
-              // Variable heights: use binary search on position cache
-              rawStart = getRowIndexAtOffset(positionCache, currentScrollTop);
-              if (rawStart === -1) rawStart = 0;
-              const evenAlignedStart = rawStart - (rawStart % 2);
-              // Use actual offset from position cache for accurate transform
-              startRowOffset = positionCache[evenAlignedStart]?.offset ?? evenAlignedStart * rowHeight;
-            } else {
-              // Fixed heights: simple division
-              rawStart = Math.floor(currentScrollTop / rowHeight);
-              const evenAlignedStart = rawStart - (rawStart % 2);
-              startRowOffset = evenAlignedStart * rowHeight;
-            }
-
-            const subPixelOffset = -(currentScrollTop - startRowOffset);
-            rowsEl.style.transform = `translateY(${subPixelOffset}px)`;
-          }
+          rowsEl.style.transform = `translateY(${computeRowsTranslateY(
+            this._virtualization,
+            this._rows.length,
+            rawScrollTop,
+          )}px)`;
 
           // Batch content update with requestAnimationFrame
           // Old content stays visible with smooth offset until new content renders
@@ -1819,61 +1581,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         );
       }
 
-      // Forward wheel events from content area to faux scrollbar
-      // Without this, mouse wheel over content wouldn't scroll
-      // Listen on .tbw-grid-content to capture wheel events from entire grid area
-      // Note: gridRoot may already BE .tbw-grid-content when shell is active, so search from shadow root
+      // Forward wheel events from the content area to the faux scrollbar.
+      // gridRoot may already BE .tbw-grid-content when the shell is active, so search from the render root.
       const gridContentEl = this.#renderRoot.querySelector('.tbw-grid-content') as HTMLElement;
-      // Use the already-stored scrollArea reference
-      const scrollAreaForWheel = this.#scrollAreaEl;
       if (gridContentEl) {
-        gridContentEl.addEventListener(
-          'wheel',
-          (e: WheelEvent) => {
-            // Don't intercept wheel events when a native <select> picker is open.
-            // The picker (base-select) renders in the top layer but wheel events
-            // still target the grid content — intercepting them would scroll the
-            // grid and cause the browser to close the picker popup.
-            try {
-              if (gridContentEl.querySelector('select:open')) return;
-            } catch {
-              /* :open pseudo-class not supported — ignore */
-            }
-
-            // SHIFT+wheel or trackpad deltaX = horizontal scroll
-            const isHorizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
-
-            if (isHorizontal && scrollAreaForWheel) {
-              const delta = e.shiftKey ? e.deltaY : e.deltaX;
-              const { scrollLeft, scrollWidth, clientWidth } = scrollAreaForWheel;
-              const canScroll = (delta > 0 && scrollLeft < scrollWidth - clientWidth) || (delta < 0 && scrollLeft > 0);
-              if (canScroll) {
-                e.preventDefault();
-                scrollAreaForWheel.scrollLeft += delta;
-              }
-            } else if (!isHorizontal) {
-              const { scrollTop, scrollHeight, clientHeight } = fauxScrollbar;
-              const canScroll =
-                (e.deltaY > 0 && scrollTop < scrollHeight - clientHeight) || (e.deltaY < 0 && scrollTop > 0);
-              if (canScroll) {
-                e.preventDefault();
-                fauxScrollbar.scrollTop += e.deltaY;
-              }
-            }
-            // If can't scroll, event bubbles to scroll the page
-          },
-          { passive: false, signal: scrollSignal },
-        );
-
-        // Touch scrolling support for mobile devices
-        // Supports both vertical (via faux scrollbar) and horizontal (via scroll area) scrolling
-        // Includes momentum scrolling for natural "flick" behavior
-        setupTouchScrollListeners(
-          gridContentEl,
-          this.#touchState,
-          { fauxScrollbar, scrollArea: scrollAreaForWheel },
-          scrollSignal,
-        );
+        const scrollElements = { fauxScrollbar, scrollArea: this.#scrollAreaEl };
+        setupWheelScrollListeners(gridContentEl, scrollElements, scrollSignal);
+        setupTouchScrollListeners(gridContentEl, this.#touchState, scrollElements, scrollSignal);
       }
     }
 
@@ -1906,67 +1620,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Requesting it again here caused duplicate renders on initialization.
 
     // Track focus state via data attribute
-    // Listen on render root to catch focus events from child elements
-    (this.#renderRoot as EventTarget).addEventListener(
-      'focusin',
-      () => {
-        this.dataset.hasFocus = '';
-      },
-      { signal: scrollSignal },
-    );
-    (this.#renderRoot as EventTarget).addEventListener(
-      'focusout',
-      (e) => {
-        // Only remove if focus is leaving the grid entirely
-        // relatedTarget is null when focus leaves the document, or the new focus target
-        const newFocus = (e as FocusEvent).relatedTarget as Node | null;
-        if (
-          !newFocus ||
-          (!this.#renderRoot.contains(newFocus) && !this.#focusManager.isInExternalFocusContainer(newFocus))
-        ) {
-          delete this.dataset.hasFocus;
-        }
-      },
-      { signal: scrollSignal },
-    );
+    setupFocusTracking(this, this.#renderRoot, this.#focusManager, scrollSignal);
   }
 
-  /**
-   * Set up ResizeObserver on first row to detect height changes.
-   * Called after rows are rendered to observe the actual content.
-   * Handles dynamic CSS loading, lazy images, font loading, column virtualization, etc.
-   */
-  #rowHeightObserverSetup = false; // Only set up once per lifecycle
-  /**
-   * Last value the `--tbw-row-height` CSS variable resolved to.
-   * Used by `#measureRowHeight` to distinguish a real theme switch
-   * (resolved value changed) from natural drift between CSS-resolved height
-   * and `_virtualization.rowHeight` after content growth pushed the latter
-   * above the former. 0 means "never resolved" — first resolution seeds it.
-   */
-  #lastResolvedCssRowHeight = 0;
-  #setupRowHeightObserver(): void {
-    // Only set up once - row height measurement is one-time during initialization
-    if (this.#rowHeightObserverSetup) return;
-
-    const firstRow = this._bodyEl?.querySelector('.data-grid-row') as HTMLElement | null;
-    if (!firstRow) return;
-
-    this.#rowHeightObserverSetup = true;
-    this.#rowHeightObserver?.disconnect();
-
-    // Observe the row element itself, not individual cells.
-    // This catches all height changes including:
-    // - Custom renderers that push cell height
-    // - Column virtualization adding/removing columns
-    // - Dynamic content loading (images, fonts)
-    // Note: ResizeObserver fires on initial observation in modern browsers,
-    // so no separate measurement call is needed.
-    this.#rowHeightObserver = new ResizeObserver(() => {
-      this.#measureRowHeight();
-    });
-    this.#rowHeightObserver.observe(firstRow);
-  }
   // #endregion
 
   // #region Event System
@@ -2285,7 +1941,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Re-check variable heights after config merge: rowHeight may have changed
     // from a number to a function (or vice versa) without any plugin changes.
-    this.#configureVariableHeights();
+    this.#virtManager.configureVariableHeights();
 
     // Second merge so plugin hooks re-fold any contributions parsed/collected
     // after plugin (re-)initialization.
@@ -2620,19 +2276,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this._restoreFocusAfterRender = false;
       ensureCellVisible(this);
     }
-    // Set up row height observer after first render (rows are now in DOM)
-    if (this._virtualization.enabled && !this.#rowHeightObserverSetup) {
-      this.#setupRowHeightObserver();
-    }
-    // Measure base row height for plugin-based variable heights on first render
-    if (this.#needsRowHeightMeasurement) {
-      this.#needsRowHeightMeasurement = false;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          this.#measureRowHeightForPlugins();
-        });
-      });
-    }
+    // Install the first-row height observer and run the deferred base-height measurement
+    // now that rows exist in the DOM.
+    this.#virtManager.afterRenderRowHeights();
 
     // Show loading overlay if loading was set before the grid root was created.
     if (this.#loading) {
@@ -3984,6 +3630,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return true;
   }
 
+  // #endregion
+
   // #region Sort API
   /**
    * Get the current single-column sort state.
@@ -4056,6 +3704,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
   }
   // #endregion
+
+  // #region Column State Persistence
 
   /**
    * Request a state change event to be emitted.

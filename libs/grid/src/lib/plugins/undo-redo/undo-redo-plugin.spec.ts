@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { UndoRedoPlugin } from './UndoRedoPlugin';
+import { UndoRedoPlugin } from './undo-redo-plugin';
 
 // #region Test Helpers
 

@@ -5,7 +5,7 @@
  * @module Plugins/Filtering
  */
 export { BLANK_FILTER_VALUE } from './filter-model';
-export { FilteringPlugin } from './FilteringPlugin';
+export { FilteringPlugin } from './filtering-plugin';
 export type {
   BlankMode,
   FilterChangeDetail,

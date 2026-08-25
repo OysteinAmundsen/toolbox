@@ -52,7 +52,7 @@ declare module '../../core/types' {
   }
 
   interface PluginNameMap {
-    selection: import('./SelectionPlugin').SelectionPlugin;
+    selection: import('./selection-plugin').SelectionPlugin;
   }
 }
 // #endregion

@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ROW_DRAG_HANDLE_FIELD, RowDragDropPlugin } from './RowDragDropPlugin';
+import { ROW_DRAG_HANDLE_FIELD, RowDragDropPlugin } from './row-drag-drop-plugin';
 import type { RowMoveDetail } from './types';
 
 // Helper to create a minimal grid mock

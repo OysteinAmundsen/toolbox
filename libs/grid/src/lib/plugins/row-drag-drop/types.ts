@@ -285,6 +285,6 @@ declare module '../../core/types' {
 
   interface PluginNameMap {
     /** Primary name for the row drag-drop plugin. */
-    rowDragDrop: import('./RowDragDropPlugin').RowDragDropPlugin;
+    rowDragDrop: import('./row-drag-drop-plugin').RowDragDropPlugin;
   }
 }

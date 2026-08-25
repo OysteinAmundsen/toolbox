@@ -7,8 +7,8 @@
  * @module internal/aria
  */
 
+import { DEFAULT_A11Y_MESSAGES } from '../defaults';
 import type { A11yMessages, GridConfig } from '../types';
-import { DEFAULT_A11Y_MESSAGES } from '../types';
 
 // #region Types
 

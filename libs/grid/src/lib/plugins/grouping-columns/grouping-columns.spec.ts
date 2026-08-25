@@ -548,7 +548,7 @@ describe('getColumnGroupId', () => {
 });
 
 describe('GroupingColumnsPlugin.handleQuery (getColumnGrouping)', async () => {
-  const { GroupingColumnsPlugin } = await import('./GroupingColumnsPlugin');
+  const { GroupingColumnsPlugin } = await import('./grouping-columns-plugin');
 
   function createPluginWithGroups(columns: any[]): InstanceType<typeof GroupingColumnsPlugin> {
     const plugin = new GroupingColumnsPlugin();

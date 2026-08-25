@@ -4,5 +4,5 @@
  *
  * @module Plugins/Reorder Columns
  */
-export { ReorderPlugin } from './ReorderPlugin';
+export { ReorderPlugin } from './reorder-plugin';
 export type { ColumnMoveDetail, ReorderAnimation, ReorderConfig } from './types';

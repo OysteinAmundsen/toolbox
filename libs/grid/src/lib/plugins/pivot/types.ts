@@ -272,6 +272,6 @@ export interface PivotConfigChangeDetail {
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
   interface PluginNameMap {
-    pivot: import('./PivotPlugin').PivotPlugin;
+    pivot: import('./pivot-plugin').PivotPlugin;
   }
 }

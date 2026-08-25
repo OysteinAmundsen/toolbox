@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ExportPlugin } from './ExportPlugin';
+import { ExportPlugin } from './export-plugin';
 import type { ExportCompleteDetail } from './types';
 
 // Mock download functions to prevent actual file downloads

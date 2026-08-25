@@ -4,5 +4,5 @@
  *
  * @module Plugins/Tooltip
  */
-export { TooltipPlugin } from './TooltipPlugin';
+export { TooltipPlugin } from './tooltip-plugin';
 export type { TooltipConfig } from './types';

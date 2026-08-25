@@ -10,7 +10,7 @@ import {
   toggleExpand,
 } from './tree-data';
 import { countNodes, detectTreeStructure, getMaxDepth, inferChildrenField } from './tree-detect';
-import { TreePlugin } from './TreePlugin';
+import { TreePlugin } from './tree-plugin';
 import type { FlattenedTreeRow, TreeConfig } from './types';
 
 describe('tree-data', () => {

@@ -572,7 +572,7 @@ declare module '../../core/types' {
   }
 
   interface PluginNameMap {
-    clipboard: import('./ClipboardPlugin').ClipboardPlugin;
+    clipboard: import('./clipboard-plugin').ClipboardPlugin;
   }
 
   /** Clipboard contributes its own edit-origin tag so a `cell-commit` listener

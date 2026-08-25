@@ -488,7 +488,7 @@ describe('sticky-columns', () => {
 
 describe('PinnedColumnsPlugin.handleQuery (CAN_MOVE_COLUMN)', async () => {
   // Import the plugin class for canMoveColumn tests
-  const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
+  const { PinnedColumnsPlugin } = await import('./pinned-columns-plugin');
 
   it('returns false for column with pinned: left', () => {
     const plugin = new PinnedColumnsPlugin();
@@ -539,7 +539,7 @@ describe('PinnedColumnsPlugin.handleQuery (CAN_MOVE_COLUMN)', async () => {
 });
 
 describe('PinnedColumnsPlugin.handleQuery (getContextMenuItems)', async () => {
-  const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
+  const { PinnedColumnsPlugin } = await import('./pinned-columns-plugin');
 
   it('returns pin-left and pin-right items for unpinned column', () => {
     const plugin = new PinnedColumnsPlugin();
@@ -607,16 +607,16 @@ describe('PinnedColumnsPlugin.handleQuery (getContextMenuItems)', async () => {
 });
 
 describe('PinnedColumnsPlugin lifecycle and API', () => {
-  let plugin: typeof import('./PinnedColumnsPlugin').PinnedColumnsPlugin.prototype;
+  let plugin: typeof import('./pinned-columns-plugin').PinnedColumnsPlugin.prototype;
 
   beforeEach(async () => {
-    const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
+    const { PinnedColumnsPlugin } = await import('./pinned-columns-plugin');
     plugin = new PinnedColumnsPlugin();
   });
 
   describe('static detect', () => {
     it('returns true when columns have sticky property', async () => {
-      const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
+      const { PinnedColumnsPlugin } = await import('./pinned-columns-plugin');
       const result = PinnedColumnsPlugin.detect([], {
         columns: [{ field: 'id', pinned: 'left' }, { field: 'name' }],
       });
@@ -624,7 +624,7 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
     });
 
     it('returns false when no columns have sticky property', async () => {
-      const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
+      const { PinnedColumnsPlugin } = await import('./pinned-columns-plugin');
       const result = PinnedColumnsPlugin.detect([], {
         columns: [{ field: 'id' }, { field: 'name' }],
       });
@@ -632,7 +632,7 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
     });
 
     it('returns false when columns is not an array', async () => {
-      const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
+      const { PinnedColumnsPlugin } = await import('./pinned-columns-plugin');
       const result = PinnedColumnsPlugin.detect([], {});
       expect(result).toBe(false);
     });
@@ -944,7 +944,7 @@ describe('setPinPosition with reordering', () => {
   let plugin: any;
 
   beforeEach(async () => {
-    const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
+    const { PinnedColumnsPlugin } = await import('./pinned-columns-plugin');
     plugin = new PinnedColumnsPlugin();
   });
 
@@ -1194,7 +1194,7 @@ describe('RTL support', () => {
 
   describe('manifest hookPriority', () => {
     it('has negative processColumns priority to run before other plugins', async () => {
-      const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
+      const { PinnedColumnsPlugin } = await import('./pinned-columns-plugin');
       const priority = PinnedColumnsPlugin.manifest?.hookPriority?.processColumns;
       expect(priority).toBeDefined();
       expect(priority).toBeLessThan(0);

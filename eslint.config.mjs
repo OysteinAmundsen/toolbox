@@ -116,6 +116,36 @@ export default [
     },
   },
   {
+    // Companion to the bundle-size budget (`tools/vite-bundle-budget.ts`): a
+    // module-size budget. Counts CODE lines only — these files are heavily
+    // JSDoc'd (core/types.ts is 4.7k raw lines but 645 of code), so measuring
+    // raw lines would punish documentation.
+    files: ['libs/**/*.ts', 'libs/**/*.tsx', 'tools/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.spec.tsx', '**/*.test.ts', '**/*.test.tsx', '**/*.bench.ts', '**/*.d.ts'],
+    rules: {
+      'max-lines': ['error', { max: 1000, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
+    // Files that predate the budget above. Shrink them and delete the entry —
+    // do NOT raise the limit or add new entries.
+    //
+    // Caveat for the two plugins: splitting them across modules is bounded by the
+    // bundle budget, not by effort. Terser mangles `#private` members but CANNOT
+    // mangle names that cross a module boundary, so every member promoted to a
+    // shared seam is permanent bytes. `plugins/editing` measured 54.5 kB against a
+    // 55 kB budget, so extraction there must stay inside the class (private
+    // methods) or be limited to pure helpers whose parameters are all manglable.
+    files: [
+      'libs/grid/src/lib/core/grid.ts',
+      'libs/grid/src/lib/plugins/editing/editing-plugin.ts',
+      'libs/grid/src/lib/plugins/selection/selection-plugin.ts',
+    ],
+    rules: {
+      'max-lines': 'off',
+    },
+  },
+  {
     // HARD RULE (#370): the grid core MUST NOT depend on any plugin. Forbid
     // value imports from `plugins/**` in `libs/grid/src/lib/core/**`.
     // `import type` is allowed (core/types re-aliases some plugin types, and
@@ -150,7 +180,14 @@ export default [
         {
           patterns: [
             {
-              group: ['@toolbox-web/grid-angular', '@toolbox-web/grid-react', '@toolbox-web/grid-vue', '**/grid-angular/**', '**/grid-react/**', '**/grid-vue/**'],
+              group: [
+                '@toolbox-web/grid-angular',
+                '@toolbox-web/grid-react',
+                '@toolbox-web/grid-vue',
+                '**/grid-angular/**',
+                '**/grid-react/**',
+                '**/grid-vue/**',
+              ],
               message:
                 'An adapter must not import another adapter. Depend on `@toolbox-web/grid` and duplicate the small amount of framework-specific glue instead.',
             },

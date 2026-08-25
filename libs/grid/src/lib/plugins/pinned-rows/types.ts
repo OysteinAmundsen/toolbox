@@ -240,6 +240,6 @@ export interface PinnedRowsState {
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
   interface PluginNameMap {
-    pinnedRows: import('./PinnedRowsPlugin').PinnedRowsPlugin;
+    pinnedRows: import('./pinned-rows-plugin').PinnedRowsPlugin;
   }
 }

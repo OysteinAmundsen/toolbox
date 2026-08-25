@@ -408,6 +408,24 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Inject resetChangedRows method
     (grid as any).resetChangedRows = (silent?: boolean) => this.resetChangedRows(silent);
 
+    this.#attachRowModeListeners(signal, internalGrid);
+
+    // In grid mode, request a full render to trigger afterCellRender hooks
+    if (this.#isGridMode) {
+      internalGrid._isGridEditMode = true;
+      this.gridElement.classList.add('tbw-grid-mode');
+      this.requestRender();
+      this.#attachGridModeListeners(signal, internalGrid);
+    }
+  }
+
+  /**
+   * Row-mode editing wiring: document-level Escape/click-outside exit, the optional
+   * focus trap, external `cell-change` push-down into open editors, and undo/redo
+   * dirty re-evaluation. Registered unconditionally — each handler self-guards on
+   * `#isGridMode` / its own config flag.
+   */
+  #attachRowModeListeners(signal: AbortSignal, internalGrid: GridHost<T>): void {
     // Document-level Escape to cancel editing (only in 'row' mode)
     document.addEventListener(
       'keydown',
@@ -541,131 +559,131 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         }
       });
     }
+  }
 
-    // In grid mode, request a full render to trigger afterCellRender hooks
-    if (this.#isGridMode) {
-      internalGrid._isGridEditMode = true;
-      this.gridElement.classList.add('tbw-grid-mode');
-      this.requestRender();
+  /**
+   * Grid-mode ("spreadsheet") editing wiring: focus/blur tracking that distinguishes
+   * navigation mode from edit mode, Escape-to-navigation, and click-to-unlock.
+   * Only registered when `editing.mode === 'grid'`.
+   */
+  #attachGridModeListeners(signal: AbortSignal, internalGrid: GridHost<T>): void {
+    // Track focus/blur on inputs to maintain navigation vs edit mode state
+    this.gridElement.addEventListener(
+      'focusin',
+      (e: FocusEvent) => {
+        const target = e.target as HTMLElement;
+        // Ignore focus on the grid element itself — it has tabindex=0 so it
+        // matches FOCUSABLE_EDITOR_SELECTOR, but blurring + re-focusing it
+        // would cause infinite recursion.
+        if (target === this.gridElement) return;
+        if (target.matches(FOCUSABLE_EDITOR_SELECTOR)) {
+          // If edit is locked (navigation mode), blur the input immediately
+          if (this.#gridModeEditLocked) {
+            target.blur();
+            this.gridElement.focus();
+            return;
+          }
 
-      // Track focus/blur on inputs to maintain navigation vs edit mode state
-      this.gridElement.addEventListener(
-        'focusin',
-        (e: FocusEvent) => {
-          const target = e.target as HTMLElement;
-          // Ignore focus on the grid element itself — it has tabindex=0 so it
-          // matches FOCUSABLE_EDITOR_SELECTOR, but blurring + re-focusing it
-          // would cause infinite recursion.
-          if (target === this.gridElement) return;
-          if (target.matches(FOCUSABLE_EDITOR_SELECTOR)) {
-            // If edit is locked (navigation mode), blur the input immediately
-            if (this.#gridModeEditLocked) {
-              target.blur();
-              this.gridElement.focus();
-              return;
+          // Snapshot cell value on initial focus or when moving to a different cell.
+          // This allows Escape to revert the cell to its pre-edit value.
+          const focusRow = internalGrid._focusRow;
+          const focusCol = internalGrid._focusCol;
+          const snap = this.#gridModeCellSnapshot;
+          if (!snap || snap.rowIndex !== focusRow || snap.colIndex !== focusCol) {
+            const column = internalGrid._visibleColumns?.[focusCol];
+            const rowData = internalGrid._rows?.[focusRow];
+            if (column?.field && rowData) {
+              const field = column.field as string;
+              this.#gridModeCellSnapshot = {
+                rowIndex: focusRow,
+                colIndex: focusCol,
+                field,
+                value: readCellField(rowData, field),
+              };
             }
+          }
 
-            // Snapshot cell value on initial focus or when moving to a different cell.
-            // This allows Escape to revert the cell to its pre-edit value.
-            const focusRow = internalGrid._focusRow;
-            const focusCol = internalGrid._focusCol;
-            const snap = this.#gridModeCellSnapshot;
-            if (!snap || snap.rowIndex !== focusRow || snap.colIndex !== focusCol) {
-              const column = internalGrid._visibleColumns?.[focusCol];
-              const rowData = internalGrid._rows?.[focusRow];
-              if (column?.field && rowData) {
-                const field = column.field as string;
-                this.#gridModeCellSnapshot = {
-                  rowIndex: focusRow,
-                  colIndex: focusCol,
-                  field,
-                  value: readCellField(rowData, field),
-                };
+          this.#gridModeInputFocused = true;
+        }
+      },
+      { signal },
+    );
+
+    this.gridElement.addEventListener(
+      'focusout',
+      (e: FocusEvent) => {
+        const target = e.target as HTMLElement | null;
+        const related = e.relatedTarget as HTMLElement | null;
+        // Intra-editor focus moves MUST NOT flip the flag — the editor
+        // is still logically focused. Cases observed in the wild:
+        //   - Native <select> opening: SELECT → child OPTION
+        //   - Native <select> popup ArrowDown: OPTION → sibling OPTION
+        //   - Framework editors moving focus to inner popup descendants
+        // Detect via two ancestry checks: (a) `target` contains `related`
+        // (parent-to-descendant), or (b) `related` lives inside an
+        // editor element (input/select/textarea/contenteditable) — this
+        // covers OPTION-to-OPTION and any other intra-editor traversal.
+        // Exclude `gridElement` itself: it has tabindex=0 and so matches
+        // FOCUSABLE_EDITOR_SELECTOR, but focus moving to the grid host
+        // means we ARE leaving the editor — the explicit Escape/Enter
+        // paths handle that by setting the flag to false themselves.
+        if (target && related) {
+          if (target.contains(related)) return;
+          const relatedEditor = getEditorAncestor(related);
+          if (relatedEditor && relatedEditor !== this.gridElement && this.gridElement.contains(relatedEditor)) {
+            return;
+          }
+        }
+        // Only clear if focus went outside grid (and external containers) or to a non-input element
+        if (
+          !related ||
+          (!this.gridElement.contains(related) && !this.grid.containsFocus?.(related)) ||
+          !related.matches(FOCUSABLE_EDITOR_SELECTOR)
+        ) {
+          this.#gridModeInputFocused = false;
+          // Clear cell snapshot when leaving edit mode normally (not via Escape)
+          this.#gridModeCellSnapshot = null;
+        }
+      },
+      { signal },
+    );
+
+    // Handle Escape key directly on the grid element (capture phase)
+    // This ensures we intercept Escape even when focus is inside an input
+    this.gridElement.addEventListener(
+      'keydown',
+      (e: KeyboardEvent) => {
+        if (e.key === 'Escape' && this.#gridModeInputFocused) {
+          // Check onBeforeEditClose to let overlays close first.
+          if (shouldPreventEditClose(this.config, e)) {
+            // Overlay is open — schedule deferred nav-mode transition
+            // after the overlay tears down.
+            queueMicrotask(() => {
+              if (this.#gridModeInputFocused) {
+                this.#enterGridModeNavigation();
               }
-            }
+            });
+            return;
+          }
+          this.#enterGridModeNavigation();
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      },
+      { capture: true, signal },
+    );
 
-            this.#gridModeInputFocused = true;
-          }
-        },
-        { signal },
-      );
-
-      this.gridElement.addEventListener(
-        'focusout',
-        (e: FocusEvent) => {
-          const target = e.target as HTMLElement | null;
-          const related = e.relatedTarget as HTMLElement | null;
-          // Intra-editor focus moves MUST NOT flip the flag — the editor
-          // is still logically focused. Cases observed in the wild:
-          //   - Native <select> opening: SELECT → child OPTION
-          //   - Native <select> popup ArrowDown: OPTION → sibling OPTION
-          //   - Framework editors moving focus to inner popup descendants
-          // Detect via two ancestry checks: (a) `target` contains `related`
-          // (parent-to-descendant), or (b) `related` lives inside an
-          // editor element (input/select/textarea/contenteditable) — this
-          // covers OPTION-to-OPTION and any other intra-editor traversal.
-          // Exclude `gridElement` itself: it has tabindex=0 and so matches
-          // FOCUSABLE_EDITOR_SELECTOR, but focus moving to the grid host
-          // means we ARE leaving the editor — the explicit Escape/Enter
-          // paths handle that by setting the flag to false themselves.
-          if (target && related) {
-            if (target.contains(related)) return;
-            const relatedEditor = getEditorAncestor(related);
-            if (relatedEditor && relatedEditor !== this.gridElement && this.gridElement.contains(relatedEditor)) {
-              return;
-            }
-          }
-          // Only clear if focus went outside grid (and external containers) or to a non-input element
-          if (
-            !related ||
-            (!this.gridElement.contains(related) && !this.grid.containsFocus?.(related)) ||
-            !related.matches(FOCUSABLE_EDITOR_SELECTOR)
-          ) {
-            this.#gridModeInputFocused = false;
-            // Clear cell snapshot when leaving edit mode normally (not via Escape)
-            this.#gridModeCellSnapshot = null;
-          }
-        },
-        { signal },
-      );
-
-      // Handle Escape key directly on the grid element (capture phase)
-      // This ensures we intercept Escape even when focus is inside an input
-      this.gridElement.addEventListener(
-        'keydown',
-        (e: KeyboardEvent) => {
-          if (e.key === 'Escape' && this.#gridModeInputFocused) {
-            // Check onBeforeEditClose to let overlays close first.
-            if (shouldPreventEditClose(this.config, e)) {
-              // Overlay is open — schedule deferred nav-mode transition
-              // after the overlay tears down.
-              queueMicrotask(() => {
-                if (this.#gridModeInputFocused) {
-                  this.#enterGridModeNavigation();
-                }
-              });
-              return;
-            }
-            this.#enterGridModeNavigation();
-            e.preventDefault();
-            e.stopPropagation();
-          }
-        },
-        { capture: true, signal },
-      );
-
-      // Handle click on inputs - unlock edit mode when user explicitly clicks
-      this.gridElement.addEventListener(
-        'mousedown',
-        (e: MouseEvent) => {
-          const target = e.target as HTMLElement;
-          if (target.matches(FOCUSABLE_EDITOR_SELECTOR)) {
-            this.#gridModeEditLocked = false; // User clicked input - allow edit
-          }
-        },
-        { signal },
-      );
-    }
+    // Handle click on inputs - unlock edit mode when user explicitly clicks
+    this.gridElement.addEventListener(
+      'mousedown',
+      (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (target.matches(FOCUSABLE_EDITOR_SELECTOR)) {
+          this.#gridModeEditLocked = false; // User clicked input - allow edit
+        }
+      },
+      { signal },
+    );
   }
 
   /** @internal */

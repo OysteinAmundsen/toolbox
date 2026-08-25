@@ -4,7 +4,7 @@
  *
  * @module Plugins/Server-Side
  */
-export { ServerSidePlugin } from './ServerSidePlugin';
+export { ServerSidePlugin } from './server-side-plugin';
 export type {
     DataRequestModel,
     DataSourceChildrenDetail,

@@ -461,7 +461,7 @@ export function renderVisibleRows(
     // Apply per-row variable height via --tbw-row-height CSS custom property.
     // Cells bind to this variable (min-height: var(--tbw-row-height)), so setting
     // it on the row element makes both the row and its cells respect the override.
-    // The #measureRowHeight guard in grid.ts prevents this from corrupting s.rowHeight.
+    // The `measureRowHeight` guard in virtualization-manager.ts prevents this from corrupting s.rowHeight.
     if (varHeightFn) {
       const h = varHeightFn(rowData, rowIndex);
       if (h !== undefined && h > 0) {

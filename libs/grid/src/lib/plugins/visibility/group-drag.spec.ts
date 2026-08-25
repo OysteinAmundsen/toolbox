@@ -12,8 +12,8 @@ import type { ColumnConfig } from '../../core/types';
 import type { ColumnGroupInfo } from '../grouping-columns/types';
 
 describe('VisibilityPlugin group drag-and-drop', async () => {
-  const { VisibilityPlugin } = await import('./VisibilityPlugin');
-  const { ReorderPlugin } = await import('../reorder-columns/ReorderPlugin');
+  const { VisibilityPlugin } = await import('./visibility-plugin');
+  const { ReorderPlugin } = await import('../reorder-columns/reorder-plugin');
 
   // Columns with two groups + one ungrouped
   const groupedColumns: ColumnConfig[] = [

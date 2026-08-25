@@ -148,7 +148,7 @@ declare module '../../core/types' {
   }
 
   interface PluginNameMap {
-    filtering: import('./FilteringPlugin').FilteringPlugin;
+    filtering: import('./filtering-plugin').FilteringPlugin;
   }
 }
 // #endregion

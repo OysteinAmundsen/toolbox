@@ -3,7 +3,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '../../../index';
-import { PrintPlugin } from './PrintPlugin';
+import { PrintPlugin } from './print-plugin';
 
 // Helper to wait for next frame
 function nextFrame() {

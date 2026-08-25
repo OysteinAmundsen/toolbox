@@ -36,7 +36,7 @@ declare module '../../core/types' {
   }
 
   interface PluginNameMap {
-    print: import('./PrintPlugin').PrintPlugin;
+    print: import('./print-plugin').PrintPlugin;
   }
 }
 

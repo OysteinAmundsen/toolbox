@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextFrame } from '../../../../test/helpers';
 import '../../../index';
 import type { GridElement } from '../../../public';
-import { GroupingColumnsPlugin } from './GroupingColumnsPlugin';
+import { GroupingColumnsPlugin } from './grouping-columns-plugin';
 
 describe('GroupingColumnsPlugin with gridConfig.columnGroups', () => {
   let grid: GridElement;

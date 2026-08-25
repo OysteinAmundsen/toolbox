@@ -41,7 +41,7 @@ declare module '../../core/types' {
   }
 
   interface PluginNameMap {
-    groupingColumns: import('./GroupingColumnsPlugin').GroupingColumnsPlugin;
+    groupingColumns: import('./grouping-columns-plugin').GroupingColumnsPlugin;
   }
 }
 

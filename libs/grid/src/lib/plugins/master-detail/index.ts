@@ -4,5 +4,5 @@
  *
  * @module Plugins/Master-Detail
  */
-export { MasterDetailPlugin } from './MasterDetailPlugin';
+export { MasterDetailPlugin } from './master-detail-plugin';
 export type { DetailExpandDetail, ExpandCollapseAnimation, MasterDetailConfig } from './types';

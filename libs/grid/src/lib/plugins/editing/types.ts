@@ -434,7 +434,7 @@ declare module '../../core/types' {
   }
 
   interface PluginNameMap {
-    editing: import('./EditingPlugin').EditingPlugin;
+    editing: import('./editing-plugin').EditingPlugin;
   }
 }
 

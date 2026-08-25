@@ -353,4 +353,38 @@ export class FocusManager<T = any> {
   // #endregion
 }
 
+/**
+ * Mirror "focus is somewhere inside the grid" onto `host.dataset.hasFocus`, used by CSS
+ * and by features that must not act on a grid the user isn't in.
+ *
+ * Listens on the render root so focus events from any descendant are caught. Focus moving
+ * into a registered external focus container (overlay editors, tool panels) counts as
+ * staying inside the grid.
+ */
+export function setupFocusTracking(
+  host: HTMLElement,
+  renderRoot: EventTarget & ParentNode,
+  focusManager: Pick<FocusManager, 'isInExternalFocusContainer'>,
+  signal: AbortSignal,
+): void {
+  renderRoot.addEventListener(
+    'focusin',
+    () => {
+      host.dataset.hasFocus = '';
+    },
+    { signal },
+  );
+  renderRoot.addEventListener(
+    'focusout',
+    (e) => {
+      // relatedTarget is null when focus leaves the document entirely.
+      const newFocus = (e as FocusEvent).relatedTarget as Node | null;
+      if (!newFocus || (!renderRoot.contains(newFocus) && !focusManager.isInExternalFocusContainer(newFocus))) {
+        delete host.dataset.hasFocus;
+      }
+    },
+    { signal },
+  );
+}
+
 // #endregion

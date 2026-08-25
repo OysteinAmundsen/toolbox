@@ -11,7 +11,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { EditingPlugin } from '../../lib/plugins/editing/EditingPlugin';
+import { EditingPlugin } from '../../lib/plugins/editing/editing-plugin';
 
 // Test helpers
 async function nextFrame(): Promise<void> {

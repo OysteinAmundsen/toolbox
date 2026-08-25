@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ColumnConfig } from '../../core/types';
 import { canMoveColumn, moveColumn } from './column-drag';
-import { ReorderPlugin } from './ReorderPlugin';
+import { ReorderPlugin } from './reorder-plugin';
 
 describe('column-drag', () => {
   describe('canMoveColumn', () => {

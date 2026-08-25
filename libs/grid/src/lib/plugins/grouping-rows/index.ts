@@ -4,8 +4,8 @@
  *
  * @module Plugins/Grouping Rows
  */
-export { GroupingRowsPlugin } from './GroupingRowsPlugin';
-export type { GroupState } from './GroupingRowsPlugin';
+export { GroupingRowsPlugin } from './grouping-rows-plugin';
+export type { GroupState } from './grouping-rows-plugin';
 export type {
   AggregatorMap,
   DataRowModelItem,

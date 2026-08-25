@@ -14,8 +14,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { EditingPlugin } from '../editing/EditingPlugin';
-import { SelectionPlugin } from './SelectionPlugin';
+import { EditingPlugin } from '../editing/editing-plugin';
+import { SelectionPlugin } from './selection-plugin';
 
 async function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));

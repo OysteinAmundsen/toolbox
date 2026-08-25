@@ -4,7 +4,7 @@
  *
  * @module Plugins/Selection
  */
-export { SelectionPlugin } from './SelectionPlugin';
+export { SelectionPlugin } from './selection-plugin';
 export type {
   CellRange,
   SelectableCallback,

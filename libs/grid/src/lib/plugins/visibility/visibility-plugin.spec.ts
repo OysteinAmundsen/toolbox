@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { VisibilityPlugin } from './VisibilityPlugin';
+import { VisibilityPlugin } from './visibility-plugin';
 
 function createGridMock(columns: any[] = []) {
   const gridEl = document.createElement('div');

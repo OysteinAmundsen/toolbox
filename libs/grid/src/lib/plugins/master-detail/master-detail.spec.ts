@@ -6,7 +6,7 @@ import {
   isDetailExpanded,
   toggleDetailRow,
 } from './master-detail';
-import { MasterDetailPlugin } from './MasterDetailPlugin';
+import { MasterDetailPlugin } from './master-detail-plugin';
 
 // Tests use `any` for flexibility with test row data.
 

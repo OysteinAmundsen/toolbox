@@ -89,6 +89,6 @@ declare module '../../core/types' {
   }
 
   interface PluginNameMap {
-    undoRedo: import('./UndoRedoPlugin').UndoRedoPlugin;
+    undoRedo: import('./undo-redo-plugin').UndoRedoPlugin;
   }
 }

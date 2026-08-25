@@ -12,7 +12,7 @@ import {
   sortPivotRows,
 } from './pivot-engine';
 import { createValueKey, getPivotAggregator, validatePivotConfig } from './pivot-model';
-import { PivotPlugin } from './PivotPlugin';
+import { PivotPlugin } from './pivot-plugin';
 import type {
   PivotConfig,
   PivotConfigChangeDetail,

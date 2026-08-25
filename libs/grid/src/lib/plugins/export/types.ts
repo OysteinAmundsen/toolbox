@@ -223,6 +223,6 @@ declare module '../../core/types' {
   }
 
   interface PluginNameMap {
-    export: import('./ExportPlugin').ExportPlugin;
+    export: import('./export-plugin').ExportPlugin;
   }
 }

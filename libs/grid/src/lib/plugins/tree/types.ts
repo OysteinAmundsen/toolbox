@@ -226,6 +226,6 @@ declare module '../../core/types' {
   }
 
   interface PluginNameMap {
-    tree: import('./TreePlugin').TreePlugin;
+    tree: import('./tree-plugin').TreePlugin;
   }
 }

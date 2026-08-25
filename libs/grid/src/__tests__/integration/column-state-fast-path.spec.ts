@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
-import { MultiSortPlugin } from '../../lib/plugins/multi-sort/MultiSortPlugin';
+import { MultiSortPlugin } from '../../lib/plugins/multi-sort/multi-sort-plugin';
 
 function nextFrame() {
   return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));

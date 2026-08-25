@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ReorderPlugin } from './ReorderPlugin';
+import { ReorderPlugin } from './reorder-plugin';
 import type { ColumnMoveDetail } from './types';
 
 function createGridMock(columns: any[] = []) {

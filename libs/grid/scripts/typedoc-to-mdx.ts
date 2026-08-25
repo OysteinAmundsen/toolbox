@@ -33,6 +33,7 @@ import {
   KIND,
   KIND_FOLDER_MAP,
   mdxHeader as mdxHeaderBase,
+  propertyRowAnchor,
   sinceBadge,
   sinceBlock,
   writeMdx as writeMdxBase,
@@ -301,7 +302,7 @@ function genPropertiesTable(props: TypeDocNode[]): string {
     const desc = getFirstParagraph(p.comment);
     const opt = p.flags?.isOptional ? '?' : '';
     const dep = isDeprecated(p.comment) ? '⚠️ ' : '';
-    out += `| \`${p.name}${opt}\` | ${type} | ${dep}${escape(desc)}${sinceBadge(p.comment)} |\n`;
+    out += `| ${propertyRowAnchor(p)}\`${p.name}${opt}\` | ${type} | ${dep}${escape(desc)}${sinceBadge(p.comment)} |\n`;
   }
   out += '\n';
   out += genPropertyDetailsSections(props, resolveSeeLink);
@@ -601,6 +602,12 @@ function genInterface(node: TypeDocNode, title: string): string {
     out += genPropertiesTable(props);
   }
 
+  const methods = node.children?.filter((m) => m.kind === KIND.Method && !isNodeInternal(m)) ?? [];
+  if (methods.length) {
+    out += `## Methods\n\n`;
+    for (const m of methods) out += genMethod(m);
+  }
+
   // Add @see links at the end
   out += formatSeeLinks(node.comment);
 
@@ -659,7 +666,7 @@ function genPropertiesTableInner(props: TypeDocNode[]): string {
     const desc = getFirstParagraph(p.comment);
     const opt = p.flags?.isOptional ? '?' : '';
     const dep = isDeprecated(p.comment) ? '⚠️ ' : '';
-    out += `| \`${p.name}${opt}\` | ${type} | ${dep}${escape(desc)}${sinceBadge(p.comment)} |\n`;
+    out += `| ${propertyRowAnchor(p)}\`${p.name}${opt}\` | ${type} | ${dep}${escape(desc)}${sinceBadge(p.comment)} |\n`;
   }
   return out + '\n';
 }
@@ -1135,6 +1142,8 @@ function buildTypeRegistry(json: TypeDocNode): void {
       if (!kindFolder) continue;
       // Enum-like variables are merged into their TypeAlias page and get no URL.
       if (node.kind === VARIABLE_KIND && variableMergeTargets.has(node.id)) continue;
+      // `@internal` nodes get no page — registering them would emit dead links.
+      if (isNodeInternal(node)) continue;
 
       // Determine the section (Core, Plugin Development, or Framework Adapters)
       let section = 'core';

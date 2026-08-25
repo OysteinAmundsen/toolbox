@@ -6,10 +6,10 @@ description: Overview of all @toolbox-web/grid plugins — editing, selection, f
 import { TabItem, Tabs } from '@astrojs/starlight/components';
 import Audience from '@components/Audience.astro';
 
-The `@toolbox-web/grid` plugin architecture allows you to extend the grid with powerful features while keeping the core bundle lightweight. Plugins are tree-shakeable — only import what you need.
+The `@toolbox-web/grid` plugin architecture lets you add capabilities without growing the core bundle. Plugins are tree-shakeable — only import what you need.
 
 :::tip[Features or Plugins? They do the same thing.]
-**Features** and **plugins** are two APIs for enabling the same capabilities. The end result is identical — features are simply a simpler, declarative wrapper around plugins.
+**Features** and **plugins** are two APIs for enabling the same capabilities. The end result is identical — features are a declarative wrapper around plugins.
 
 - **Features** (recommended) — Declare _what_ you want: `features: { selection: 'row' }`. Dependencies are auto-resolved, ordering is handled for you.
 - **Plugins** (advanced) — Instantiate classes yourself: `plugins: [new SelectionPlugin({ mode: 'row' })]`. Useful when building custom plugins or extending `BaseGridPlugin`.

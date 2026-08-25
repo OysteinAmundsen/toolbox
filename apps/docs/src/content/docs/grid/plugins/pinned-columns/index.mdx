@@ -144,7 +144,7 @@ You can instead import `GridPinnedColumnsDirective` and bind `[pinnedColumns]` d
   </TabItem>
 </Tabs>
 
-## Demo
+## Demos
 
 <ShowSource file="demos/pinned-columns/PinnedColumnsDefaultDemo.astro">
   <PinnedColumnsDefaultDemo />
@@ -213,7 +213,7 @@ to scroll.
   column group, the group header is automatically split so the pinned portion stays
   sticky while the rest scrolls normally. For explicit (named) groups, the group label
   scrolls with the non-pinned fragment until it reaches the pinned edge, then transfers
-  to the pinned fragment for a seamless experience.
+  to the pinned fragment.
 
 - **Header-only sticky in virtualized grids**: Due to the row virtualization architecture
   (`will-change: transform` on the rows container), `position: sticky` only works on

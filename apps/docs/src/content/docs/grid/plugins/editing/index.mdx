@@ -170,7 +170,7 @@ You can instead import `GridEditingDirective` and bind `[editing]` directly on `
   </TabItem>
 </Tabs>
 
-### Try It
+### Try basic editing
 
 <ShowSource file="demos/editing/EditingBasicEditingDemo.astro">
   <EditingBasicEditingDemo />
@@ -184,6 +184,10 @@ Double-click any cell to start editing. Press Enter to commit or Escape to cance
 
 The editor used for a cell is chosen from the column's `type`. No editor code is required for the common cases — set `type` and `editable: true`, and the matching native input is rendered:
 
+<ShowSource file="demos/editing/EditingAllColumnTypesDemo.astro">
+  <EditingAllColumnTypesDemo />
+</ShowSource>
+
 | Column `type`        | Built-in editor   | Configure via                                                          |
 | -------------------- | ----------------- | ---------------------------------------------------------------------- |
 | `'string'` (default) | Text `<input>`    | `editorParams`: `maxLength`, `pattern`, `placeholder`                  |
@@ -192,31 +196,9 @@ The editor used for a cell is chosen from the column's `type`. No editor code is
 | `'boolean'`          | Checkbox          | _(no params)_                                                          |
 | `'select'`           | Dropdown `<select>` | column `options`; `editorParams`: `includeEmpty`, `emptyLabel`       |
 
-`editorParams` is set on the column and tunes the built-in editor's HTML attributes:
+See [Editor Parameters](#editor-parameters) for the full `editorParams` shape per type. The select editor's choices come from the column-level `options` property (not `editorParams`); `editorParams.includeEmpty`/`emptyLabel` only control the leading blank entry.
 
-```ts
-grid.gridConfig = {
-  columns: [
-    { field: 'name', editable: true, editorParams: { maxLength: 50, placeholder: 'Full name' } },
-    { field: 'price', type: 'number', editable: true, editorParams: { min: 0, step: 0.01 } },
-    { field: 'hireDate', type: 'date', editable: true, editorParams: { min: '2020-01-01' } },
-    {
-      field: 'department',
-      type: 'select',
-      editable: true,
-      // `options` is a column property — an array of { label, value } (or a function returning one).
-      options: [
-        { label: 'Engineering', value: 'eng' },
-        { label: 'Sales', value: 'sales' },
-      ],
-      editorParams: { includeEmpty: true, emptyLabel: '-- Select --' },
-    },
-  ],
-  features: { editing: 'dblclick' },
-};
-```
-
-For anything beyond these — overlay pickers, multi-field composites, or framework components — provide a custom `editor` on the column (see [Custom Editors](#custom-editors) below) or, in a framework adapter, the adapter's editor base class. The select editor's choices come from the column-level `options` property (not `editorParams`); `editorParams.includeEmpty`/`emptyLabel` only control the leading blank entry.
+For anything beyond these — overlay pickers, multi-field composites, or framework components — provide a custom `editor` on the column (see [Custom Editors](#custom-editors) below) or, in a framework adapter, the adapter's editor base class.
 
 ## Add/Remove Rows
 
@@ -224,7 +206,7 @@ For anything beyond these — overlay pickers, multi-field composites, or framew
   <EditingAddRemoveRowsDemo />
 </ShowSource>
 
-To dynamically add or remove rows from the grid, simply assign a new array to the `rows` property. The grid reactively updates to display the new data. Use a custom `renderer` in an "Actions" column to provide a delete button for each row.
+To dynamically add or remove rows from the grid, assign a new array to the `rows` property. The grid reactively updates to display the new data. Use a custom `renderer` in an "Actions" column to provide a delete button for each row.
 
 
 
@@ -263,7 +245,7 @@ See the [API Reference](/grid/api-reference/#row-update-api) for full documentat
 
 By default, `editable: true` makes a column editable for **every** row. For more fine-grained control, use a **function** to decide per-row whether a cell can be edited.
 
-### Try It
+### Try conditional editing
 
 <ShowSource file="demos/editing/EditingConditionalDemo.astro">
   <EditingConditionalDemo />
@@ -409,26 +391,6 @@ Grid mode supports Excel-style keyboard interaction with two modes:
 - **Arrow Keys**: In navigation mode, use arrow keys to move between cells. In edit mode, arrows work within the input (e.g., moving cursor in text, incrementing numbers)
 
 This mimics Excel/Google Sheets behavior where you can quickly navigate a grid with arrows, then press Enter to edit a cell.
-
-
-
-## Built-in Editors
-
-<ShowSource file="demos/editing/EditingAllColumnTypesDemo.astro">
-  <EditingAllColumnTypesDemo />
-</ShowSource>
-
-The grid provides appropriate editors based on column `type`:
-
-| Column Type | Editor                              |
-| ----------- | ----------------------------------- |
-| `string`    | Text input                          |
-| `number`    | Number input with validation        |
-| `boolean`   | Checkbox                            |
-| `date`      | Date picker input                   |
-| `select`    | Dropdown (requires `options` array) |
-
-
 
 ## Editor Parameters
 

@@ -17,11 +17,22 @@ export type { CellSlotProps, EditorSlotProps, HeaderLabelSlotProps, HeaderSlotPr
 export type { ToolPanelContext } from './lib/tool-panel-registry';
 
 // Vue grid adapter
-export { GridAdapter } from './lib/vue-grid-adapter';
+export { GridAdapter, isVueComponent } from './lib/vue-grid-adapter';
 
 // Composables
 export { GRID_ELEMENT_KEY, useGrid } from './lib/use-grid';
 export type { UseGridReturn } from './lib/use-grid';
+export { useGridOverlay } from './lib/use-grid-overlay';
+export type { UseGridOverlayOptions } from './lib/use-grid-overlay';
+
+// Column shorthand utilities
+export {
+  applyColumnDefaults,
+  hasColumnShorthands,
+  normalizeColumns,
+  parseColumnShorthand,
+} from './lib/column-shorthand';
+export type { ColumnShorthand } from './lib/column-shorthand';
 
 // Vue-specific config types
 export type { CellEditor, CellRenderer, ColumnConfig, GridConfig } from './lib/vue-column-config';

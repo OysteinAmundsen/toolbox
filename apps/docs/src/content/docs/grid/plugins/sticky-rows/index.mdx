@@ -17,17 +17,6 @@ flow, remain interactive, and continue to participate in keyboard navigation.
 Clones are decorative, marked `aria-hidden="true"`, and inherit the row's
 column-template alignment so they line up perfectly with the data below.
 
-## Demo
-
-Scroll the grid below. Section-marker rows (`— A —`, `— B —`, …) pin under
-the header as they scroll past. Switch between **push** and **stack** mode
-in the controls to compare behaviors, and increase _Rows per section_ to
-see longer scroll runs between markers.
-
-<ShowSource component="sticky-rows/StickyRowsDemo">
-  <StickyRowsDemo />
-</ShowSource>
-
 ## Installation
 
 ```ts
@@ -151,6 +140,17 @@ You can instead import `GridStickyRowsDirective` and bind `[stickyRows]` directl
   </TabItem>
 </Tabs>
 
+## Demos
+
+Scroll the grid below. Section-marker rows (`— A —`, `— B —`, …) pin under
+the header as they scroll past. Switch between **push** and **stack** mode
+in the controls to compare behaviors, and increase _Rows per section_ to
+see longer scroll runs between markers.
+
+<ShowSource component="sticky-rows/StickyRowsDemo">
+  <StickyRowsDemo />
+</ShowSource>
+
 ## Modes
 
 ### `'push'` (default)
@@ -200,7 +200,7 @@ features: {
 The predicate runs once per row whenever the row set changes (via
 `afterRender`), so keep it cheap.
 
-## Configuration Reference
+## Configuration Options
 
 | Option       | Type                                              | Default      | Description                                                  |
 | ------------ | ------------------------------------------------- | ------------ | ------------------------------------------------------------ |

@@ -145,7 +145,11 @@ import { MyPlugin } from '@toolbox-web/grid/plugins/my-plugin';
   <PluginDefaultDemo />
 </ShowSource>
 
-## Configuration
+## Demos
+
+Additional interactive demos, one `###` subsection each.
+
+## Configuration Options
 
 Auto-generated from the plugin's config interface by \`genPluginConfigTable()\`.
 
@@ -154,10 +158,17 @@ Auto-generated from the plugin's config interface by \`genPluginConfigTable()\`.
 | Event | Detail | Description |
 | ----- | ------ | ----------- |
 
-## API
+## Styling
 
-Public methods and properties.
+## See Also
 ```
+
+> **Heading names are part of the contract.** Use exactly `## Installation`, `## Basic Usage`,
+> `## Demos`, `## Configuration Options`, `## Events`, `## Styling`, `## See Also` — not
+> `## Demo`, `## Interactive Demo`, `## Configuration`, or `## Configuration Reference`.
+> Uniform headings keep the sidebar, the agent corpus, and cross-page anchors predictable.
+> Every plugin page must end with `## See Also`. Heading text must be unique within a page;
+> duplicates get a `-1` anchor suffix and break inbound links.
 
 > **Plugin JSDoc conventions for auto-generated API docs:**
 >
@@ -377,28 +388,49 @@ Adapter scripts (`libs/grid-{angular,react,vue}/scripts/typedoc-to-mdx.ts`) do *
 
 **When adding a new export to an adapter**: check the script's categorization functions. If your export doesn't match an existing check (e.g., a new Angular directive), add its name to the corresponding list so it lands in the right folder instead of the catch-all `Utilities/`. After updating the categorization list, run `bun nx typedoc grid-<adapter>` (e.g., `bun nx typedoc grid-angular`) to regenerate the adapter API MDX pages.
 
+Adapter `export const` values (components built with `forwardRef`/`memo`, injection tokens, constant maps) are emitted by TypeDoc as **variables** and are rendered by `genVariable()` in `tools/typedoc-mdx-shared.ts`. Vue SFCs (`.vue`) cannot be parsed by TypeDoc at all — they are excluded from `libs/grid-vue/src/typedoc-entry.ts` and documented by hand in `apps/docs/src/content/docs/grid/vue/components.mdx`. When you add a Vue component, update that page; when you add a Vue `.ts` export, add it to `typedoc-entry.ts` as well as `index.ts`.
+
 ## Verification
 
-After updating docs:
+After updating docs, run all three gates:
 
 ```bash
-# Verify docs site builds cleanly
-bun nx build docs
+# 1. Internal links + anchors + redirects + casing (fast, no build needed)
+bun tools/docs-link-audit.ts        # must print "Total issues: 0"
 
-# Authoritative broken-link gate (NOT an nx target — Astro does NOT fail on broken links)
-node .github/skills/docs-update/check-doc-links.mjs
+# 2. Public-API doc coverage
+bun tools/docs-api-coverage.ts      # must print "0 exports without a page or reference section"
+
+# 3. Docs site builds cleanly
+bun nx build docs
 ```
 
-> `bun nx build docs` passing (EXIT=0) does **not** mean links are valid — Astro silently renders dead links. `node .github/skills/docs-update/check-doc-links.mjs` is the real gate; it must report "No broken internal links found." If the script reports broken links, fix every broken link in files you modified as part of this change before committing. For a broken link in a file you did **not** modify, treat it as pre-existing — do not fix it in this change; note the file and line in your PR description so it can be tracked separately.
+> `bun nx build docs` passing (EXIT=0) does **not** mean links are valid — Astro silently
+> renders dead links. `bun tools/docs-link-audit.ts` is the real gate. It walks every
+> `.md`/`.mdx` in the content collection and reports `missing-page`, `missing-anchor`,
+> `uppercase-link`, `relative-from-non-index`, and `via-redirect`. It understands the
+> `.md` companion-endpoint suffix and the `redirects` map in `astro.config.mjs`.
+> If it reports an issue in a file you did **not** modify, treat it as pre-existing —
+> note it in your PR description rather than fixing it in an unrelated change.
+>
+> `bun tools/docs-api-coverage.ts` compares every symbol exported from each library's
+> public entry points against the generated API pages. It counts a symbol as documented
+> when it has a generated page, is merged into a companion type-alias page, or appears as
+> a `## Symbol` heading or first table cell on a hand-written page. `@internal` symbols
+> are reported separately as intentional exclusions — **do not strip `@internal` to make
+> the report green**; that tag marks the plugin/framework-development surface on purpose.
+>
+> `node .github/skills/docs-update/check-doc-links.mjs` is the older, link-only checker
+> and is still available, but `docs-link-audit.ts` supersedes it.
 
 ### Internal-link rules (avoid the common 404s)
 
 - **`trailingSlash: 'always'`** — every internal link MUST end with `/` (`/grid/plugins/shell/`, not `/grid/plugins/shell`).
-- **Anchors must match a real heading slug** — grep the target page's `^#{1,4} ` headings before linking to `#some-anchor`; renamed/removed headings are a frequent source of dead anchors.
-- **TypeDoc generates NO page for area roots or `export const` objects.** `tools/typedoc-mdx-shared.ts` `KIND_FOLDER_MAP` only emits `Classes/`, `Interfaces/`, `Functions/`, `Types/` — there is **no** per-area index page and **no** `Variables/` folder.
-  - ❌ `/grid/api/framework-adapters/` (area root) · ❌ `/grid/api/plugin-development/` · ❌ `/grid/api/core/variables/gridclasses/`
-  - ✅ link to a concrete generated child page (`/grid/api/<area>/<kind>/<symbol>/`, slug lowercased), e.g. `/grid/api/framework-adapters/interfaces/frameworkadapter/` or `/grid/api/plugin-development/classes/basegridplugin/`.
-  - Exported const objects (`GridClasses`, `GridDataAttrs`, `GridSelectors`, `GridCSSVars` in `core/constants.ts`) are public API but have NO generated page — keep them as inline code, don't link. Only their TYPE aliases (`GridClassName`, `GridDataAttr`) get `Types/` pages.
+- **Anchors must match a real heading slug** — grep the target page's `^#{1,4} ` headings before linking to `#some-anchor`; renamed/removed headings are a frequent source of dead anchors. github-slugger replaces **each** whitespace character with `-`, so `## Local Sort & Filter Modes` → `#local-sort--filter-modes`.
+- **Relative links resolve from the page's own URL, not its directory** — every page is served with a trailing slash. From `/grid/core/`, `./foo/` is `/grid/core/foo/`. Prefer absolute paths.
+- **There is no per-area index page.** ❌ `/grid/api/framework-adapters/` · ❌ `/grid/api/plugin-development/` · ❌ `/grid/vue/api/`. Link to a concrete generated child page instead (`/grid/api/<area>/<kind>/<symbol>/`, slug lowercased).
+- **Enum-like const objects merge into their type-alias page.** `GridClasses`, `GridDataAttrs`, `GridSelectors`, `GridCSSVars`, `FitModeEnum`, and `ColumnInferenceModeEnum` are public but have no page of their own — they render as a `## Runtime Values` section on `GridClassName`, `FitMode`, etc. Keep them as inline code; link to the companion type page.
+- **`@internal` symbols are never registered in the type-link registry**, so `{@link SomeInternalType}` degrades to a plain code span instead of a dead link. That is intentional.
 
 ## Pre-Commit Documentation Review
 

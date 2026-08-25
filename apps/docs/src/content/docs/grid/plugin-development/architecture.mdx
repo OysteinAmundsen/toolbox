@@ -221,6 +221,43 @@ for the full hook contract.
 
 ---
 
+## PluginManager
+
+`PluginManager` owns the attached plugin instances and dispatches every lifecycle hook to
+them. The grid creates one per element; you never construct it yourself. Reach it from a
+plugin via `this.grid._pluginManager`:
+
+```ts
+import { PluginManager } from '@toolbox-web/grid/all';
+```
+
+Most of its surface is hook dispatch that the grid calls for you. The methods worth knowing
+when writing a plugin are:
+
+| Method                          | Returns                          | Purpose                                            |
+| ------------------------------- | -------------------------------- | -------------------------------------------------- |
+| `getPlugin(PluginClass)`        | `T \| undefined`                 | Look up a sibling plugin by constructor.           |
+| `getPluginByName(name)`         | `BaseGridPlugin \| undefined`    | Look up a sibling plugin by its registered name.   |
+| `hasPlugin(PluginClass)`        | `boolean`                        | Test for a sibling plugin without retrieving it.   |
+| `getAll()` / `getPlugins()`     | `readonly BaseGridPlugin[]`      | All attached plugins, in attachment order.         |
+| `getRegisteredPluginNames()`    | `string[]`                       | Names of all attached plugins.                     |
+| `queryPlugins(query)`           | `T[]`                            | Capability-based lookup — see below.               |
+| `subscribe(plugin, type, cb)`   | `void`                           | Listen for another plugin's events.                |
+| `unsubscribe(plugin, type)`     | `void`                           | Stop listening for one event type.                 |
+| `unsubscribeAll(plugin)`        | `void`                           | Drop all of a plugin's subscriptions.              |
+| `emitPluginEvent(type, detail)` | `void`                           | Broadcast to subscribed plugins (not the DOM).     |
+| `getCellRenderer(type)`         | `CellRenderer \| undefined`      | Resolve a plugin-registered renderer by type name. |
+| `getHeaderRenderer(type)`       | `HeaderRenderer \| undefined`    | Resolve a plugin-registered header renderer.       |
+| `getCellEditor(type)`           | `CellEditor \| undefined`        | Resolve a plugin-registered editor.                |
+
+Prefer `BaseGridPlugin`'s `on`, `off`, and `emitPluginEvent` helpers over calling
+`subscribe`/`emitPluginEvent` directly — they clean up automatically on detach.
+
+Grid consumers should use [`grid.getPlugin()`](/grid/api-reference/) and
+`grid.getPluginByName()` instead of reaching for the manager.
+
+---
+
 ## Feature Registry
 
 The **features API** is the recommended way to enable grid capabilities. It wraps the plugin system with declarative configuration and tree-shakeable side-effect imports.

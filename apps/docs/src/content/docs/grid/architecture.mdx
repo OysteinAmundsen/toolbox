@@ -634,7 +634,7 @@ background: var(--tbw-selection-bg, var(--tbw-color-selection));
 
 The grid dispatches `CustomEvent`s for every user-visible action (cell clicks, commits, sort changes, etc.). See the [Events section of the API Reference](/grid/api-reference/#events) for the full list and the auto-generated [`DataGridEventMap`](/grid/api/core/interfaces/datagrideventmap/) for payload types.
 
-Internally, plugins communicate through two mechanisms described in the [Plugin Communication](#plugin-communication) section above: the **Event Bus** (async, fire-and-forget) and the **Query System** (sync, request-response). Public `CustomEvent`s are dispatched by the core grid or by individual plugins after their internal processing completes.
+Internally, plugins communicate through two mechanisms described under [Plugin Development → Plugin Communication](/grid/plugin-development/architecture/#plugin-communication): the **Event Bus** (async, fire-and-forget) and the **Query System** (sync, request-response). Public `CustomEvent`s are dispatched by the core grid or by individual plugins after their internal processing completes.
 
 ### Data Flow Example: Sort
 

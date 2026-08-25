@@ -233,7 +233,7 @@ The columns will appear in order: `name`, `email`, `id`.
 
 Columns without an `order` attribute keep their relative order; columns with `order` are inserted at their target indices. The `order` attribute only affects the **initial render**; user interactions (drag-to-reorder via the [Reorder plugin](/grid/plugins/reorder-columns/)) take precedence after that. Use [`resetColumnOrder()`](/grid/plugins/reorder-columns/classes/reorderplugin/#resetcolumnorder) to restore the order-attribute positioning.
 
-**Combining with `columnInference: 'merge'`** — The `order` attribute becomes especially powerful in `merge` mode. With inference enabled, the grid automatically displays all data fields, and you can use light-DOM `<tbw-grid-column>` elements to customize **only the columns you care about** — adding a custom `header`, overriding the `type`, adjusting `width`, and positioning via `order`, all without declaring the entire column set.
+**Combining with `columnInference: 'merge'`** — The `order` attribute is most useful in `merge` mode. With inference enabled, the grid automatically displays all data fields, and you can use light-DOM `<tbw-grid-column>` elements to customize **only the columns you care about** — adding a custom `header`, overriding the `type`, adjusting `width`, and positioning via `order`, all without declaring the entire column set.
 
 ### Configuration Reference
 
@@ -320,7 +320,9 @@ Some columns exist to support grid behaviour rather than to display user data �
 
 **A `valueAccessor` is the single source of truth for a column's value.** Think of it as answering one question for the grid — _"what is this cell's value?"_ — as a function of the **whole row** instead of a single property.
 
-By default the grid answers that question itself by reading `row[field]` (and `field` may be a **dotted path** into a nested structure like `deal.capture.instrument`, resolved with no extra config). When you supply a `valueAccessor`, you answer it instead — and **every feature that needs a cell's value reads through your accessor, not just the renderer**: filtering, sorting, aggregation (`sum` / `avg` / … — including the totals shown on group rows), copy-to-clipboard, CSV / Excel export, and the default display all call it. You write the value logic once and the whole grid stays consistent.
+By default the grid reads `row[field]`. `field` may be a **dotted path** into a nested structure like `deal.capture.instrument`, resolved with no extra config.
+
+When you supply a `valueAccessor`, **every feature that needs a cell's value reads through it** — not just the renderer. That covers filtering, sorting, aggregation (`sum` / `avg` / …, including group-row totals), copy-to-clipboard, CSV/Excel export, and the default display. You write the value logic once and the whole grid stays consistent.
 
 <ShowSource file="demos/NestedFieldsDemo.astro">
   <NestedFieldsDemo />

@@ -73,6 +73,7 @@ export const KIND = {
   Method: 2048,
   Accessor: 262144,
   Constructor: 512,
+  Variable: 32,
 } as const;
 
 /** Map kind to subfolder name */
@@ -174,6 +175,16 @@ export const getFirstParagraph = (comment?: TypeDocComment): string => {
 /** Check whether a property comment has rich details (remarks, examples, default, see) worth rendering below the table */
 export const hasPropertyDetails = (comment?: TypeDocComment): boolean =>
   !!comment?.blockTags?.some((b) => ['@remarks', '@example', '@default', '@see'].includes(b.tag));
+
+/**
+ * Anchor to prepend to a property's row in a `## Properties` table.
+ *
+ * `{@link SomeInterface.prop}` references resolve to `#prop`, but a `#### prop`
+ * heading only exists for properties {@link hasPropertyDetails} accepts. Without
+ * this span those links 404 on the fragment.
+ */
+export const propertyRowAnchor = (p: TypeDocNode): string =>
+  hasPropertyDetails(p.comment) ? '' : `<span id="${p.name.toLowerCase()}"></span>`;
 
 /** Get a specific block tag value */
 export const getTag = (comment: TypeDocComment | undefined, tag: string): string =>
@@ -578,7 +589,7 @@ export function genInterface(node: TypeDocNode, title: string, options: Generato
       const propDesc = getFirstParagraph(p.comment);
       const opt = p.flags?.isOptional ? '?' : '';
       const dep = isDeprecated(p.comment) ? '⚠️ ' : '';
-      out += `| \`${p.name}${opt}\` | ${fmtType(p.type, typeRegistry)} | ${dep}${escape(propDesc)}${sinceBadge(p.comment)} |\n`;
+      out += `| ${propertyRowAnchor(p)}\`${p.name}${opt}\` | ${fmtType(p.type, typeRegistry)} | ${dep}${escape(propDesc)}${sinceBadge(p.comment)} |\n`;
     }
     out += '\n';
     out += genPropertyDetailsSections(props);
@@ -608,7 +619,7 @@ export function genClass(node: TypeDocNode, title: string, options: GeneratorOpt
     for (const p of props) {
       const propDesc = getFirstParagraph(p.comment);
       const opt = p.flags?.isOptional ? '?' : '';
-      out += `| \`${p.name}${opt}\` | ${fmtType(p.type, typeRegistry)} | ${escape(propDesc)}${sinceBadge(p.comment)} |\n`;
+      out += `| ${propertyRowAnchor(p)}\`${p.name}${opt}\` | ${fmtType(p.type, typeRegistry)} | ${escape(propDesc)}${sinceBadge(p.comment)} |\n`;
     }
     out += '\n';
     out += genPropertyDetailsSections(props);
@@ -721,6 +732,49 @@ export function genEnum(node: TypeDocNode, title: string, options: GeneratorOpti
   return out;
 }
 
+/**
+ * Generate MDX for a variable (`export const …`).
+ *
+ * Adapter components built with `forwardRef`/`memo` and shared constant maps are
+ * emitted by TypeDoc as variables, not functions. Without this generator they
+ * would be exported from the package but absent from the reference.
+ */
+export function genVariable(node: TypeDocNode, title: string, options: GeneratorOptions = {}): string {
+  const { regenerateCommand, typeRegistry } = options;
+  let out = mdxHeader(title, regenerateCommand);
+
+  const deprecationNote = getTag(node.comment, '@deprecated');
+  if (isDeprecated(node.comment)) {
+    out += `> ⚠️ **Deprecated**${deprecationNote ? `: ${deprecationNote.trim()}` : ''}\n\n`;
+  }
+
+  out += sinceBlock(node.comment);
+  const desc = getText(node.comment);
+  if (desc) out += `${escape(desc)}\n\n`;
+
+  const members = (node.type?.declaration?.children ?? []).filter((m) => !isInternal(m.comment));
+  if (members.length) {
+    out += `## Members\n\n| Key | Type | Description |\n| --- | ---- | ----------- |\n`;
+    for (const m of members) {
+      const literal = m.type?.value;
+      const value =
+        literal !== undefined
+          ? `<code>${escape(typeof literal === 'string' ? `'${literal}'` : String(literal))}</code>`
+          : fmtType(m.type, typeRegistry);
+      const comment = m.signatures?.[0]?.comment ?? m.comment;
+      out += `| \`${m.name}\` | ${value} | ${escape(getText(comment))}${sinceBadge(comment)} |\n`;
+    }
+    out += '\n';
+  } else {
+    out += `\`\`\`ts\nconst ${node.name}: ${formatType(node.type)}\n\`\`\`\n\n`;
+  }
+
+  const example = getTag(node.comment, '@example');
+  if (example) out += formatExample(example);
+
+  return out;
+}
+
 /** Standard generator registry */
 export const GENERATORS: Record<number, (n: TypeDocNode, t: string, o?: GeneratorOptions) => string> = {
   [KIND.Class]: genClass,
@@ -728,6 +782,7 @@ export const GENERATORS: Record<number, (n: TypeDocNode, t: string, o?: Generato
   [KIND.TypeAlias]: genTypeAlias,
   [KIND.Function]: genFunction,
   [KIND.Enum]: genEnum,
+  [KIND.Variable]: genVariable,
 };
 
 // #endregion

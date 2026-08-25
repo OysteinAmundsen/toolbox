@@ -323,6 +323,7 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { label: 'Vue Integration', slug: 'grid/vue/getting-started' },
+                { label: 'Components', slug: 'grid/vue/components' },
                 { label: 'Changelog', slug: 'grid/vue/changelog' },
                 {
                   label: 'API Reference',

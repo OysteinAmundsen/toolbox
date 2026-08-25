@@ -1,0 +1,241 @@
+---
+title: Vue Components
+description: Props, slots, emits and exposed members for every component exported by @toolbox-web/grid-vue.
+---
+
+TypeDoc cannot parse Vue Single File Components, so the nine `.vue` components in
+`@toolbox-web/grid-vue` are documented here instead of in the generated API Reference.
+Everything else the package exports — composables, adapters, registries, and types — is
+generated into that reference (see **Vue → API Reference** in the sidebar).
+
+For task-oriented guidance, see [Vue Integration](/grid/vue/getting-started/).
+
+## TbwGrid
+
+Wraps `<tbw-grid>`, binds row data and column definitions, converts feature props into
+plugins, and forwards every grid event as a Vue emit.
+
+Generic parameter: `TRow = unknown` — the row shape.
+
+### Props
+
+| Name              | Type                            | Default     |
+| ----------------- | ------------------------------- | ----------- |
+| `rows`            | `TRow[]`                        | `[]`        |
+| `columns`         | `ColumnShorthand<TRow>[]`       | `undefined` |
+| `columnDefaults`  | `Partial<ColumnConfig<TRow>>`   | `undefined` |
+| `gridConfig`      | `GridConfig<TRow>`              | `undefined` |
+| `fitMode`         | `FitMode`                       | `undefined` |
+| `columnInference` | `ColumnInferenceMode`           | `undefined` |
+| `sortable`        | `boolean`                       | `undefined` |
+| `filterable`      | `boolean`                       | `undefined` |
+| `selectable`      | `boolean`                       | `undefined` |
+| `loading`         | `boolean`                       | `undefined` |
+| `customStyles`    | `string`                        | `undefined` |
+
+In addition, one **feature prop** per plugin is accepted. All of them are optional and
+default to `undefined`; passing one enables the matching plugin. The full set and its
+exact types live in [`AllFeatureProps`](/grid/vue/api/types/allfeatureprops/):
+
+`selection`, `editing`, `clipboard`, `contextMenu`, `multiSort`, `filtering`,
+`reorderColumns`, `visibility`, `pinnedColumns`, `groupingColumns`,
+`columnVirtualization`, `rowDragDrop`, `groupingRows`, `pinnedRows`, `stickyRows`,
+`tree`, `masterDetail`, `responsive`, `undoRedo`, `export`, `print`, `pivot`,
+`serverSide`, `tooltip`.
+
+Each feature prop requires its side-effect import (for example
+`import '@toolbox-web/grid-vue/features/selection'`). See
+[Vue Integration](/grid/vue/getting-started/) for the import list.
+
+### Emits
+
+Every event in the core [`DataGridEventMap`](/grid/api-reference/#events) is re-emitted
+under its native name, with the original `CustomEvent` as the payload — for example
+`@cell-click`, `@sort-change`, `@selection-change`, `@row-commit`, `@tbw-scroll`,
+`@render`.
+
+### Slots
+
+| Name      | Slot props | Purpose                                                                       |
+| --------- | ---------- | ----------------------------------------------------------------------------- |
+| `default` | none       | Child declarations: `TbwGridColumn`, `TbwGridDetailPanel`, tool panels, types. |
+
+### Exposed members
+
+| Name          | Type                                    |
+| ------------- | --------------------------------------- |
+| `gridElement` | `Ref<DataGridElement<TRow> \| null>`    |
+| `forceLayout` | `() => void`                            |
+| `getConfig`   | `() => GridConfig<TRow> \| undefined`   |
+| `ready`       | `() => Promise<void> \| undefined`      |
+
+### Notes
+
+- `inheritAttrs` is `false`; unrecognised attributes are forwarded to the inner
+  `<tbw-grid>` via `v-bind="$attrs"`.
+- When `getRowId` is configured and `rows` is replaced with a new array reference, the
+  component diffs by value and calls `updateRows()` with source `'sync'` so unchanged
+  rows are not marked dirty.
+- A teleport manager mounts renderers with the parent component's context, so
+  `provide`/`inject`, Pinia, Vue Router, and i18n work inside cells, editors, detail
+  panels, and tool panels.
+
+## TbwGridColumn
+
+Declares one column and, optionally, its Vue-rendered cell, editor, and header content.
+Must be a child of `TbwGrid`.
+
+Generic parameters: `TRow = unknown`, `TValue = any`. Specify them
+(`<TbwGridColumn<Employee, string>>`) to get fully typed slot props.
+
+### Props
+
+| Name       | Type                             | Required |
+| ---------- | -------------------------------- | -------- |
+| `field`    | `string`                         | yes      |
+| `header`   | `string`                         | no       |
+| `width`    | `string \| number`               | no       |
+| `minWidth` | `string \| number`               | no       |
+| `maxWidth` | `string \| number`               | no       |
+| `order`    | `number`                         | no       |
+| `sortable` | `boolean`                        | no       |
+| `resizable`| `boolean`                        | no       |
+| `editable` | `boolean`                        | no       |
+| `type`     | `string`                         | no       |
+| `align`    | `'left' \| 'center' \| 'right'`  | no       |
+| `hidden`   | `boolean`                        | no       |
+
+### Slots
+
+| Name          | Slot props type                                                                     | Purpose                                                                                                              |
+| ------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `cell`        | [`CellSlotProps<TRow, TValue>`](/grid/vue/api/types/cellslotprops/)                 | Cell renderer.                                                                                                       |
+| `editor`      | [`EditorSlotProps<TRow, TValue>`](/grid/vue/api/types/editorslotprops/)             | Cell editor. Receives `commit`, `cancel`, `updateRow`, `onValueChange`.                                              |
+| `header`      | [`HeaderSlotProps<TRow>`](/grid/vue/api/types/headerslotprops/)                     | Whole header cell. You own sort icons and filter buttons via `renderSortIcon` / `renderFilterButton`. Resize handles are still appended by the grid. |
+| `headerLabel` | [`HeaderLabelSlotProps<TRow>`](/grid/vue/api/types/headerlabelslotprops/)           | Label only. The grid keeps sort icons, filter buttons, and resize handles.                                            |
+
+## TbwGridType
+
+Registers a renderer and/or editor for every column whose `type` matches `name`. Place
+it inside `TbwGrid`.
+
+Generic parameters: `TRow = unknown`, `TValue = any`.
+
+### Props
+
+| Name     | Type                                             | Required |
+| -------- | ------------------------------------------------ | -------- |
+| `name`   | `string`                                         | yes      |
+| `params` | `Record<string, string \| number \| boolean>`     | no       |
+
+`params` entries become kebab-cased `data-*` attributes on the underlying
+`<tbw-grid-type>` element (`statusCode: 'pending'` → `data-status-code="pending"`).
+
+### Slots
+
+| Name     | Slot props type                                                          | Purpose                                            |
+| -------- | ------------------------------------------------------------------------ | -------------------------------------------------- |
+| `cell`   | [`CellSlotProps<TRow, TValue>`](/grid/vue/api/types/cellslotprops/)      | Type-level cell renderer.                          |
+| `editor` | [`EditorSlotProps<TRow, TValue>`](/grid/vue/api/types/editorslotprops/)  | Type-level editor. Requires the editing feature.    |
+
+## TbwGridDetailPanel
+
+Registers a detail-panel renderer for expandable rows. Requires the
+[Master-Detail plugin](/grid/plugins/master-detail/).
+
+### Props
+
+| Name                | Type                          | Default   |
+| ------------------- | ----------------------------- | --------- |
+| `showExpandColumn`  | `boolean`                     | `true`    |
+| `animation`         | `'slide' \| 'fade' \| false`  | `'slide'` |
+
+### Slots
+
+| Name      | Slot props type                                                              | Purpose               |
+| --------- | ---------------------------------------------------------------------------- | --------------------- |
+| `default` | [`DetailPanelContext<TRow>`](/grid/vue/api/types/detailpanelcontext/)        | `{ row, rowIndex }`.  |
+
+## TbwGridResponsiveCard
+
+Registers a card renderer used by the [Responsive plugin](/grid/plugins/responsive/)
+when the grid switches to card layout.
+
+### Props
+
+| Name             | Type                | Default  |
+| ---------------- | ------------------- | -------- |
+| `cardRowHeight`  | `number \| 'auto'`  | `'auto'` |
+
+### Slots
+
+| Name      | Slot props type                                                                    | Purpose               |
+| --------- | ---------------------------------------------------------------------------------- | --------------------- |
+| `default` | [`ResponsiveCardContext<TRow>`](/grid/vue/api/types/responsivecardcontext/)        | `{ row, rowIndex }`.  |
+
+## TbwGridToolPanel
+
+Registers a collapsible side panel in the grid shell. Requires the
+[Shell plugin](/grid/plugins/shell/).
+
+### Props
+
+| Name       | Type                 | Required | Default   |
+| ---------- | -------------------- | -------- | --------- |
+| `id`       | `string`             | yes      | —         |
+| `title`    | `string`             | no       | `undefined` |
+| `label`    | `string`             | no       | `undefined` |
+| `icon`     | `string`             | no       | `undefined` |
+| `position` | `'left' \| 'right'`  | no       | `'right'` |
+| `width`    | `string`             | no       | `'250px'` |
+
+`title` is the canonical name and matches the React and Angular adapters. `label` is a
+Vue-only alias kept for backward compatibility; when both are set, `title` wins.
+
+### Slots
+
+| Name      | Slot props type                                                       | Purpose             |
+| --------- | --------------------------------------------------------------------- | ------------------- |
+| `default` | [`ToolPanelContext`](/grid/vue/api/types/toolpanelcontext/)           | `{ gridElement }`.  |
+
+## TbwGridHeaderContent
+
+Teleports reactive Vue content into the shell header. Must be a descendant of `TbwGrid`
+and requires the [Shell plugin](/grid/plugins/shell/).
+
+### Props
+
+| Name    | Type     | Default              |
+| ------- | -------- | -------------------- |
+| `id`    | `string` | auto-generated       |
+| `order` | `number` | `100`                |
+
+Changing `id` or `order` after mount unregisters and re-registers the content.
+
+### Slots
+
+| Name      | Slot props | Purpose                          |
+| --------- | ---------- | -------------------------------- |
+| `default` | none       | Content placed in the header bar. |
+
+## TbwGridToolbarContent
+
+Teleports reactive Vue content into the shell toolbar. Same props and slot as
+`TbwGridHeaderContent`. Use it when the toolbar content needs Vue state, props, or
+callbacks; use `TbwGridToolButtons` for static markup.
+
+## TbwGridToolButtons
+
+Light-DOM passthrough that renders its children inside `<tbw-grid-tool-buttons>`. No
+props, no emits, and no context preservation — the markup is moved verbatim.
+
+### Slots
+
+| Name      | Slot props | Purpose          |
+| --------- | ---------- | ---------------- |
+| `default` | none       | Button markup.   |
+
+## See Also
+
+- [Vue Integration](/grid/vue/getting-started/) — setup and usage guide
+- [Grid API Reference](/grid/api-reference/) — the underlying element, config, and events

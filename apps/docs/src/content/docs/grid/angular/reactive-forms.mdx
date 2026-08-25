@@ -4,7 +4,7 @@ description: Bind @toolbox-web/grid to Angular FormArray — cell-level validati
 ---
 
 
-The `@toolbox-web/grid-angular` package provides seamless integration with Angular Reactive Forms, allowing the grid to act as a form-bound component with cell-level validation.
+The `@toolbox-web/grid-angular` package integrates with Angular Reactive Forms, allowing the grid to act as a form-bound component with cell-level validation.
 
 > **Pair with the editing directive.** [`GridFormArray`](/grid/angular/api/directives/gridformarray/) and [`GridLazyForm`](/grid/angular/api/directives/gridlazyform/) are themselves form-binding directives — they do **not** turn editing on. To allow cell edits, also add [`GridEditingDirective`](/grid/angular/api/directives/grideditingdirective/) (from `@toolbox-web/grid-angular/features/editing`) to the component's `imports`, **or** configure editing through `[gridConfig]="{ features: { editing: … } }"`.
 
@@ -280,7 +280,7 @@ tbw-grid {
 }
 ```
 
-This integrates seamlessly with the EditingPlugin's validation system, meaning Angular's `Validators.required`, `Validators.email`, etc. automatically show visual feedback in the grid.
+This integrates with the EditingPlugin's validation system, meaning Angular's `Validators.required`, `Validators.email`, etc. automatically show visual feedback in the grid.
 
 ---
 

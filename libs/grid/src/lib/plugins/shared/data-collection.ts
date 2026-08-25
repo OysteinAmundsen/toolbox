@@ -79,7 +79,11 @@ export function formatValueAsText(value: unknown): string {
  */
 const FORMULA_TRIGGER_RE = /^[=+\-@\t\r]/;
 
-/** Options for {@link formatDelimitedValue}. * @since 3.5.0 */
+/**
+ * Options for {@link formatDelimitedValue}.
+ *
+ * @since 3.5.0
+ */
 export interface DelimitedFormatOptions {
   /** Field separator (`,` for CSV, `\t` for clipboard). */
   delimiter: string;

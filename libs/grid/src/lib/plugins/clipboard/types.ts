@@ -64,7 +64,10 @@ export interface CopyOptions {
   processCell?: (value: unknown, field: string, row: unknown) => string;
 }
 
-/** Configuration options for the clipboard plugin * @since 0.1.1
+/**
+ * Configuration options for the clipboard plugin
+ *
+ * @since 0.1.1
  */
 export interface ClipboardConfig {
   /** Include column headers in copied text (default: false) */
@@ -166,7 +169,10 @@ export interface ClipboardState {
   lastCopied: string | null;
 }
 
-/** Event detail emitted after a successful copy operation * @since 0.1.1
+/**
+ * Event detail emitted after a successful copy operation
+ *
+ * @since 0.1.1
  */
 export interface CopyDetail {
   /** The text that was copied to clipboard */
@@ -177,7 +183,10 @@ export interface CopyDetail {
   columnCount: number;
 }
 
-/** Target cell coordinates and bounds for paste operations * @since 0.4.2
+/**
+ * Target cell coordinates and bounds for paste operations
+ *
+ * @since 0.4.2
  */
 export interface PasteTarget {
   /** Target row index (top-left of paste area) */
@@ -199,7 +208,10 @@ export interface PasteTarget {
   } | null;
 }
 
-/** Event detail emitted after a paste operation * @since 0.1.1
+/**
+ * Event detail emitted after a paste operation
+ *
+ * @since 0.1.1
  */
 export interface PasteDetail {
   /** Parsed rows from clipboard (2D array of cell values) */

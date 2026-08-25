@@ -75,7 +75,10 @@ declare module '../../core/types' {
   }
 }
 
-/** Configuration options for the pinned columns plugin * @since 0.1.1
+/**
+ * Configuration options for the pinned columns plugin
+ *
+ * @since 0.1.1
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/no-empty-interface
 export interface PinnedColumnsConfig {

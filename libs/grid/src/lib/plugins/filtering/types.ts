@@ -353,7 +353,10 @@ export type FilterOperator =
   | 'in'
   | 'notIn';
 
-/** Filter model representing a single filter condition * @since 0.1.1
+/**
+ * Filter model representing a single filter condition
+ *
+ * @since 0.1.1
  */
 export interface FilterModel {
   /** The field/column to filter on */
@@ -579,7 +582,10 @@ export interface FilterPanelParams {
   t: Translate;
 }
 
-/** Custom filter panel renderer function. Return undefined to use default panel for this column. * @since 0.1.1
+/**
+ * Custom filter panel renderer function. Return undefined to use default panel for this column.
+ *
+ * @since 0.1.1
  */
 export type FilterPanelRenderer = (container: HTMLElement, params: FilterPanelParams) => void | undefined;
 
@@ -906,7 +912,10 @@ export interface FilterState {
   excludedValues: Map<string, Set<unknown>>;
 }
 
-/** Event detail emitted when filters change * @since 0.1.1
+/**
+ * Event detail emitted when filters change
+ *
+ * @since 0.1.1
  */
 export interface FilterChangeDetail {
   /** Current active filters */

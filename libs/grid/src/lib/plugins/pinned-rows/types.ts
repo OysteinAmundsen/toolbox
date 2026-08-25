@@ -62,7 +62,10 @@ export type AggregatorFormatter = (value: unknown, field: string, column?: Colum
  */
 export type AggregatorRef = string | AggregatorFn;
 
-/** Full aggregator config with optional formatter * @since 0.2.6
+/**
+ * Full aggregator config with optional formatter
+ *
+ * @since 0.2.6
  */
 export interface AggregatorConfig {
   /** The aggregator function or built-in key ('sum', 'avg', 'min', 'max', 'count', 'first', 'last') */
@@ -71,7 +74,10 @@ export interface AggregatorConfig {
   formatter?: AggregatorFormatter;
 }
 
-/** Aggregator definition - simple string/function or full config object * @since 0.2.6
+/**
+ * Aggregator definition - simple string/function or full config object
+ *
+ * @since 0.2.6
  */
 export type AggregatorDefinition = AggregatorRef | AggregatorConfig;
 
@@ -123,7 +129,10 @@ export interface AggregationRowConfig {
   aggregators?: Record<string, AggregatorDefinition>;
 }
 
-/** Configuration options for the status bar plugin * @since 0.1.1
+/**
+ * Configuration options for the status bar plugin
+ *
+ * @since 0.1.1
  */
 export interface PinnedRowsConfig {
   /**
@@ -165,7 +174,10 @@ export interface PinnedRowsConfig {
  */
 export type PinnedRowSlot = PanelSlot | AggregationSlot;
 
-/** Horizontal zone within a panel slot row. * @since 2.6.0
+/**
+ * Horizontal zone within a panel slot row.
+ *
+ * @since 2.6.0
  */
 export type PanelZone = 'left' | 'center' | 'right';
 
@@ -177,7 +189,10 @@ export type PanelZone = 'left' | 'center' | 'right';
  */
 export type PanelRender = (context: PinnedRowsContext) => HTMLElement | null;
 
-/** Render function plus optional zone within the panel row. * @since 2.6.0
+/**
+ * Render function plus optional zone within the panel row.
+ *
+ * @since 2.6.0
  */
 export interface ZonedPanelRender {
   /** Horizontal zone within the row (default: 'left') */
@@ -186,7 +201,10 @@ export interface ZonedPanelRender {
   render: PanelRender;
 }
 
-/** A status-panel slot. Each slot becomes its own `.tbw-pinned-rows` row. * @since 2.6.0
+/**
+ * A status-panel slot. Each slot becomes its own `.tbw-pinned-rows` row.
+ *
+ * @since 2.6.0
  */
 export interface PanelSlot {
   /** Optional identifier for diffing/targeted updates */
@@ -208,7 +226,10 @@ export interface PanelSlot {
  */
 export type AggregationSlot = AggregationRowConfig;
 
-/** Context provided to panel renderers * @since 0.1.1
+/**
+ * Context provided to panel renderers
+ *
+ * @since 0.1.1
  */
 export interface PinnedRowsContext {
   /** Total number of rows in the grid */

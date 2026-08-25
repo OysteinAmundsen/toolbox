@@ -61,7 +61,10 @@ export interface MasterDetailState {
   detailElements: Map<object, HTMLElement>;
 }
 
-/** Event detail for detail-expand event * @since 0.1.1
+/**
+ * Event detail for detail-expand event
+ *
+ * @since 0.1.1
  */
 export interface DetailExpandDetail {
   /** The row index that was expanded/collapsed */

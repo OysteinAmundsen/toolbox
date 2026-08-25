@@ -8,7 +8,10 @@ import type { ExpandCollapseAnimation } from '../../core/types';
 import type { Subscribable } from '../server-side/datasource-types';
 export type { ExpandCollapseAnimation } from '../../core/types';
 
-/** Generic tree row with dynamic property access * @since 0.4.0
+/**
+ * Generic tree row with dynamic property access
+ *
+ * @since 0.4.0
  */
 export type TreeRow = Record<string, unknown>;
 
@@ -135,7 +138,10 @@ export interface TreeState {
   rowKeyMap: Map<string, FlattenedTreeRow>;
 }
 
-/** A flattened tree row with hierarchy metadata * @since 0.1.1
+/**
+ * A flattened tree row with hierarchy metadata
+ *
+ * @since 0.1.1
  */
 export interface FlattenedTreeRow<T = TreeRow> {
   /** Unique key identifying this row */
@@ -156,7 +162,10 @@ export interface FlattenedTreeRow<T = TreeRow> {
   setSize: number;
 }
 
-/** Event detail emitted when a tree node is expanded or collapsed * @since 0.1.1
+/**
+ * Event detail emitted when a tree node is expanded or collapsed
+ *
+ * @since 0.1.1
  */
 export interface TreeExpandDetail<T = TreeRow> {
   /** The row key that was toggled */

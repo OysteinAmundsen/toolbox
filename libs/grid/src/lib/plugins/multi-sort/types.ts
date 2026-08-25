@@ -62,7 +62,10 @@ export interface MultiSortState {
   sortModel: SortModel[];
 }
 
-/** Event detail emitted by multi-sort's `sort-change` event. Replaces the core `SortChangeDetail` with the full sort model. * @since 1.25.0
+/**
+ * Event detail emitted by multi-sort's `sort-change` event. Replaces the core `SortChangeDetail` with the full sort model.
+ *
+ * @since 1.25.0
  */
 export interface MultiSortChangeDetail {
   /** The complete sort model — ordered list of sort columns by precedence. */

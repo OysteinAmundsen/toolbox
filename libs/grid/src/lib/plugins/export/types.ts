@@ -42,7 +42,10 @@ export type ExportFormat = 'csv' | 'excel' | 'json';
  */
 export type ExportMode = 'raw' | 'formatted';
 
-/** Configuration options for the export plugin * @since 0.1.1
+/**
+ * Configuration options for the export plugin
+ *
+ * @since 0.1.1
  */
 export interface ExportConfig {
   /** Default file name for exports (default: 'export') */
@@ -55,7 +58,10 @@ export interface ExportConfig {
   onlySelected?: boolean;
 }
 
-/** Parameters for a specific export operation * @since 0.1.1
+/**
+ * Parameters for a specific export operation
+ *
+ * @since 0.1.1
  */
 export interface ExportParams {
   /** Export format */
@@ -152,7 +158,10 @@ export interface ExcelStyleConfig {
   autoFitColumns?: boolean;
 }
 
-/** Style definition for an Excel cell. * @since 2.0.0
+/**
+ * Style definition for an Excel cell.
+ *
+ * @since 2.0.0
  */
 export interface ExcelCellStyle {
   /** Font configuration */
@@ -185,7 +194,10 @@ export interface ExcelCellStyle {
   };
 }
 
-/** Border definition for an Excel cell edge. * @since 2.0.0
+/**
+ * Border definition for an Excel cell edge.
+ *
+ * @since 2.0.0
  */
 export interface ExcelBorder {
   style: 'Thin' | 'Medium' | 'Thick';
@@ -202,7 +214,10 @@ export interface ExportState {
   lastExport: { format: ExportFormat; timestamp: Date } | null;
 }
 
-/** Event detail emitted when export completes * @since 0.1.1
+/**
+ * Event detail emitted when export completes
+ *
+ * @since 0.1.1
  */
 export interface ExportCompleteDetail {
   /** Format of the export */

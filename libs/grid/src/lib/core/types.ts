@@ -3795,7 +3795,10 @@ export interface AnimationConfig {
 
 // #region Grid Icons
 
-/** Icon value - can be a string (text/HTML) or HTMLElement * @since 0.1.1
+/**
+ * Icon value - can be a string (text/HTML) or HTMLElement
+ *
+ * @since 0.1.1
  */
 export type IconValue = string | HTMLElement;
 

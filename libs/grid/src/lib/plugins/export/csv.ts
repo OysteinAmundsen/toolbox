@@ -9,7 +9,10 @@ import type { ColumnConfig } from '../../core/types';
 import { formatDelimitedValue, type DelimitedFormatOptions } from '../shared/data-collection';
 import type { ExportParams } from './types';
 
-/** CSV export options * @since 0.1.1
+/**
+ * CSV export options
+ *
+ * @since 0.1.1
  */
 export interface CsvOptions {
   /** Field delimiter (default: ',') */

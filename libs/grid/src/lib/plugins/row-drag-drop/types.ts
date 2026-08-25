@@ -175,7 +175,10 @@ export interface RowMoveDetail<T = unknown> {
   source: 'keyboard' | 'drag';
 }
 
-/** Detail for the `row-drag-start` event (source grid). * @since 2.4.0
+/**
+ * Detail for the `row-drag-start` event (source grid).
+ *
+ * @since 2.4.0
  */
 export interface RowDragStartDetail<T = unknown> {
   /** Rows being dragged (single row, or whole selection if dragged row is selected). */
@@ -188,7 +191,10 @@ export interface RowDragStartDetail<T = unknown> {
   dropZone: string;
 }
 
-/** Detail for the `row-drag-end` event (source grid). * @since 2.4.0
+/**
+ * Detail for the `row-drag-end` event (source grid).
+ *
+ * @since 2.4.0
  */
 export interface RowDragEndDetail<T = unknown> {
   /** Rows that were being dragged. */
@@ -199,7 +205,10 @@ export interface RowDragEndDetail<T = unknown> {
   accepted: boolean;
 }
 
-/** Detail for the `row-drop` event (target grid, cancelable). * @since 2.4.0
+/**
+ * Detail for the `row-drop` event (target grid, cancelable).
+ *
+ * @since 2.4.0
  */
 export interface RowDropDetail<T = unknown> {
   /** Decoded payload from the source grid. */
@@ -212,7 +221,10 @@ export interface RowDropDetail<T = unknown> {
   operation: 'move' | 'copy';
 }
 
-/** Detail for the `row-transfer` event (fired on BOTH grids after success). * @since 2.4.0
+/**
+ * Detail for the `row-transfer` event (fired on BOTH grids after success).
+ *
+ * @since 2.4.0
  */
 export interface RowTransferDetail<T = unknown> {
   /** Rows that were transferred. */

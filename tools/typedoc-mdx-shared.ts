@@ -505,7 +505,9 @@ export function genPropertyDetailsSections(props: TypeDocNode[], resolveSeeLink?
 
   for (const p of richProps) {
     const comment = p.comment;
-    out += `#### ${p.name}\n\n`;
+    // Backticked so the heading reads as the identifier it is; the slug is unaffected
+    // (Astro derives it from text content), so `#prop` fragments keep resolving.
+    out += `#### \`${p.name}\`\n\n`;
 
     // Full summary (beyond the first paragraph already shown in the table)
     const fullText = getText(comment);

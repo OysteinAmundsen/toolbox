@@ -42,11 +42,17 @@ export type CustomAggFunc = (values: number[]) => number;
  */
 export type AggFunc = 'sum' | 'avg' | 'count' | 'min' | 'max' | 'first' | 'last' | CustomAggFunc;
 
-/** Sort direction for pivot rows or columns. * @since 1.31.0
+/**
+ * Sort direction for pivot rows or columns.
+ *
+ * @since 1.31.0
  */
 export type PivotSortDir = 'asc' | 'desc';
 
-/** Configuration for sorting pivot row groups. * @since 1.31.0
+/**
+ * Configuration for sorting pivot row groups.
+ *
+ * @since 1.31.0
  */
 export interface PivotSortConfig {
   /** Sort by `'label'` (group name) or `'value'` (aggregate value). Default: `'label'` */
@@ -236,7 +242,10 @@ export interface PivotRow {
 
 // #region Event Detail Types
 
-/** Detail for `pivot-toggle` event. Fired when a group is expanded/collapsed. * @since 1.31.0
+/**
+ * Detail for `pivot-toggle` event. Fired when a group is expanded/collapsed.
+ *
+ * @since 1.31.0
  */
 export interface PivotToggleDetail {
   /** The pivot row key that was toggled. */
@@ -249,14 +258,20 @@ export interface PivotToggleDetail {
   depth: number;
 }
 
-/** Detail for `pivot-state-change` event. Fired when pivot is enabled or disabled. * @since 1.31.0
+/**
+ * Detail for `pivot-state-change` event. Fired when pivot is enabled or disabled.
+ *
+ * @since 1.31.0
  */
 export interface PivotStateChangeDetail {
   /** Whether pivot is now active. */
   active: boolean;
 }
 
-/** Detail for `pivot-config-change` event. Fired when pivot configuration changes via the panel. * @since 1.31.0
+/**
+ * Detail for `pivot-config-change` event. Fired when pivot configuration changes via the panel.
+ *
+ * @since 1.31.0
  */
 export interface PivotConfigChangeDetail {
   /** The configuration property that changed. */

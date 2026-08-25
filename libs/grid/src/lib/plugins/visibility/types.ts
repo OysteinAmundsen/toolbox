@@ -34,7 +34,10 @@ export interface VisibilityState {
   columnList: HTMLElement | null;
 }
 
-/** Event detail emitted when column visibility changes * @since 0.1.1
+/**
+ * Event detail emitted when column visibility changes
+ *
+ * @since 0.1.1
  */
 export interface ColumnVisibilityDetail {
   /** The field that changed visibility (undefined for bulk operations) */

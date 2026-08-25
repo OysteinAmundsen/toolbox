@@ -158,7 +158,10 @@ export type SelectableCallback<T = unknown> = (
   colIndex?: number,
 ) => boolean;
 
-/** Configuration options for the selection plugin * @since 0.1.1
+/**
+ * Configuration options for the selection plugin
+ *
+ * @since 0.1.1
  */
 export interface SelectionConfig<T = unknown> {
   /**
@@ -319,7 +322,10 @@ export interface InternalCellRange {
   endCol: number;
 }
 
-/** Public representation of a cell range (for events) * @since 0.1.1
+/**
+ * Public representation of a cell range (for events)
+ *
+ * @since 0.1.1
  */
 export interface CellRange {
   /** Starting cell coordinates */

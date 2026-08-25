@@ -19,7 +19,10 @@
  */
 export type ReorderAnimation = false | 'flip' | 'fade';
 
-/** Configuration options for the reorder plugin * @since 1.24.0
+/**
+ * Configuration options for the reorder plugin
+ *
+ * @since 1.24.0
  */
 export interface ReorderConfig {
   /**
@@ -53,7 +56,10 @@ export interface ReorderState {
   columnOrder: string[];
 }
 
-/** Event detail emitted when a column is moved * @since 1.24.0
+/**
+ * Event detail emitted when a column is moved
+ *
+ * @since 1.24.0
  */
 export interface ColumnMoveDetail {
   /** The field name of the moved column */

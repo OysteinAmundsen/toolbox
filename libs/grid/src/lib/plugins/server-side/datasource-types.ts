@@ -1,6 +1,9 @@
 // #region Sort/Filter Model
 
-/** Sort/filter state passed through to the server. * @since 2.0.0
+/**
+ * Sort/filter state passed through to the server.
+ *
+ * @since 2.0.0
  */
 export interface DataRequestModel {
   /** Active sort columns, in priority order. Empty array when unsorted. */
@@ -212,7 +215,10 @@ export interface ServerSideDataSource<TRow = unknown> {
 
 // #region Event Detail Types
 
-/** Detail for `datasource:data` broadcast events. * @since 2.0.0
+/**
+ * Detail for `datasource:data` broadcast events.
+ *
+ * @since 2.0.0
  */
 export interface DataSourceDataDetail<TRow = unknown> {
   rows: TRow[];
@@ -223,7 +229,10 @@ export interface DataSourceDataDetail<TRow = unknown> {
   claimed: boolean;
 }
 
-/** Detail for `datasource:children` broadcast events. * @since 2.0.0
+/**
+ * Detail for `datasource:children` broadcast events.
+ *
+ * @since 2.0.0
  */
 export interface DataSourceChildrenDetail<TRow = unknown> {
   rows: TRow[];
@@ -232,14 +241,20 @@ export interface DataSourceChildrenDetail<TRow = unknown> {
   claimed: boolean;
 }
 
-/** Detail for `datasource:loading` broadcast events. * @since 2.0.0
+/**
+ * Detail for `datasource:loading` broadcast events.
+ *
+ * @since 2.0.0
  */
 export interface DataSourceLoadingDetail {
   loading: boolean;
   context?: { source: string; [key: string]: unknown };
 }
 
-/** Detail for `datasource:error` broadcast events. * @since 2.0.0
+/**
+ * Detail for `datasource:error` broadcast events.
+ *
+ * @since 2.0.0
  */
 export interface DataSourceErrorDetail {
   error: Error;
@@ -250,14 +265,20 @@ export interface DataSourceErrorDetail {
 
 // #region Query Types
 
-/** Context for `datasource:viewport-mapping` query. * @since 2.0.0
+/**
+ * Context for `datasource:viewport-mapping` query.
+ *
+ * @since 2.0.0
  */
 export interface ViewportMappingQuery {
   viewportStart: number;
   viewportEnd: number;
 }
 
-/** Response from `datasource:viewport-mapping` query. * @since 2.0.0
+/**
+ * Response from `datasource:viewport-mapping` query.
+ *
+ * @since 2.0.0
  */
 export interface ViewportMappingResponse {
   startNode: number;
@@ -265,7 +286,10 @@ export interface ViewportMappingResponse {
   totalLoadedNodes: number;
 }
 
-/** Context for `datasource:fetch-children` query. * @since 2.0.0
+/**
+ * Context for `datasource:fetch-children` query.
+ *
+ * @since 2.0.0
  */
 export interface FetchChildrenQuery {
   context: { source: string; [key: string]: unknown };

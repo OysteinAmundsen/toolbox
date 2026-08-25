@@ -12,7 +12,10 @@ export type { ExpandCollapseAnimation } from '../../core/types';
 
 import type { ExpandCollapseAnimation } from '../../core/types';
 
-/** Map of field names to aggregator references * @since 0.1.1
+/**
+ * Map of field names to aggregator references
+ *
+ * @since 0.1.1
  */
 export type AggregatorMap = Record<string, import('../../core/internal/aggregators').AggregatorRef>;
 
@@ -52,7 +55,10 @@ export interface GroupDefinition {
   aggregates?: Record<string, unknown>;
 }
 
-/** Detail payload for `group-expand` event (pre-defined group mode). * @since 2.0.0
+/**
+ * Detail payload for `group-expand` event (pre-defined group mode).
+ *
+ * @since 2.0.0
  */
 export interface GroupExpandDetail {
   /** The key of the group being expanded. */
@@ -61,7 +67,10 @@ export interface GroupExpandDetail {
   groupPath: string[];
 }
 
-/** Detail payload for `group-collapse` event (pre-defined group mode). * @since 2.0.0
+/**
+ * Detail payload for `group-collapse` event (pre-defined group mode).
+ *
+ * @since 2.0.0
  */
 export interface GroupCollapseDetail {
   /** The key of the group being collapsed. */
@@ -80,7 +89,10 @@ export interface GroupCollapseDetail {
  */
 export type DefaultExpandedValue = boolean | number | string | string[];
 
-/** Configuration options for the row grouping plugin * @since 0.1.1
+/**
+ * Configuration options for the row grouping plugin
+ *
+ * @since 0.1.1
  */
 export interface GroupingRowsConfig {
   /**
@@ -165,7 +177,10 @@ export interface GroupingRowsConfig {
   groupRowHeight?: number;
 }
 
-/** Parameters passed to custom group row renderer * @since 0.1.1
+/**
+ * Parameters passed to custom group row renderer
+ *
+ * @since 0.1.1
  */
 export interface GroupRowRenderParams {
   /** The group key */
@@ -260,7 +275,10 @@ export interface DataRowModelItem {
  */
 export type RenderRow = GroupRowModelItem | DataRowModelItem;
 
-/** Event detail for group toggle * @since 0.1.1
+/**
+ * Event detail for group toggle
+ *
+ * @since 0.1.1
  */
 export interface GroupToggleDetail {
   /** The group key that was toggled. Omitted for bulk operations

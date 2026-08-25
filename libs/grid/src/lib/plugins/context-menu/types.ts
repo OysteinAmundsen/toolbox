@@ -134,7 +134,10 @@ export interface ContextMenuState {
   menuElement: HTMLElement | null;
 }
 
-/** Event detail for the `context-menu-open` event. * @since 1.25.0
+/**
+ * Event detail for the `context-menu-open` event.
+ *
+ * @since 1.25.0
  */
 export interface ContextMenuOpenDetail {
   /** Context about what element triggered the menu */

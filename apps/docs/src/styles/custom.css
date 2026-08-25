@@ -18,9 +18,12 @@
   --sl-font-system: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --sl-color-gray-2: light-dark(hsl(224, 17.14%, 43%), hsl(224deg 17.14% 77.49%));
   --sl-content-width: 55rem;
-  --sl-text-4xl: 1.8875rem;
-  --sl-text-3xl: 1.2125rem;
-  --sl-text-2xl: 1rem;
+  /* Heading ramp. h2 = 4xl, h3 = 3xl, h4 = 2xl (Starlight's mapping for markdown
+     content). 2xl must stay above the 1rem body size or `#### member` sections on
+     the generated API pages are indistinguishable from a paragraph. */
+  --sl-text-4xl: 1.75rem;
+  --sl-text-3xl: 1.3125rem;
+  --sl-text-2xl: 1.0625rem;
 
   --sl-content-gap-y: 1rem;
   --ec-codeLineHt: 1.2;
@@ -33,11 +36,34 @@
 }
 
 .sl-markdown-content :is(h4):not(:where(.not-content *)) {
-  font-weight: 500;
+  font-weight: 600;
 }
 .sl-markdown-content th:not(:where(.not-content *)) {
   font-weight: 500;
   font-size: 0.8rem;
+}
+/* API reference tables: the Type column can hold a wrapped function signature or
+   object shape, so centre-aligned cells leave the property name floating mid-row. */
+.sl-markdown-content :is(td, th):not(:where(.not-content *)) {
+  vertical-align: top;
+}
+
+/* Property/member names are identifiers, so generated detail headings are backticked.
+   Drop the inline-code chip — at heading size the background reads as a button. */
+.sl-markdown-content :is(h3, h4) > code:not(:where(.not-content *)) {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 1em;
+  color: var(--sl-color-white);
+}
+/* Reference tables put a whole type signature in one cell. Shrink-to-fit keeps short
+   types (`boolean`) as small pills, while inline-block makes a long signature wrap as a
+   single padded box instead of a ragged stack of separately-rounded line fragments. */
+.sl-markdown-content :is(td, th) > code:only-child:not(:where(.not-content *)) {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: break-word;
 }
 
 /* Keyboard key styling */

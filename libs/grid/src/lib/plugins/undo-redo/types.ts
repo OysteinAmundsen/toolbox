@@ -24,7 +24,10 @@ export interface UndoRedoConfig {
   maxHistorySize?: number;
 }
 
-/** Represents a single edit action that can be undone/redone * @since 0.1.1
+/**
+ * Represents a single edit action that can be undone/redone
+ *
+ * @since 0.1.1
  */
 export interface EditAction {
   /** Type of action - currently only 'cell-edit' is supported */
@@ -58,7 +61,10 @@ export interface CompoundEditAction {
   timestamp: number;
 }
 
-/** A single edit or a compound group of edits on the undo/redo stack * @since 1.23.0
+/**
+ * A single edit or a compound group of edits on the undo/redo stack
+ *
+ * @since 1.23.0
  */
 export type UndoRedoAction = EditAction | CompoundEditAction;
 
@@ -70,7 +76,10 @@ export interface UndoRedoState {
   redoStack: UndoRedoAction[];
 }
 
-/** Event detail emitted when an undo or redo operation is performed * @since 0.1.1
+/**
+ * Event detail emitted when an undo or redo operation is performed
+ *
+ * @since 0.1.1
  */
 export interface UndoRedoDetail {
   /** The action that was undone or redone */

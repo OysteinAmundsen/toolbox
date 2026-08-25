@@ -52,7 +52,10 @@ declare module '../../core/types' {
  */
 export type PrintOrientation = 'portrait' | 'landscape';
 
-/** Configuration options for the print plugin * @since 1.4.0
+/**
+ * Configuration options for the print plugin
+ *
+ * @since 1.4.0
  */
 export interface PrintConfig {
   /**
@@ -134,7 +137,10 @@ export interface PrintConfig {
   isolate?: boolean;
 }
 
-/** Parameters for a specific print operation * @since 1.4.0
+/**
+ * Parameters for a specific print operation
+ *
+ * @since 1.4.0
  */
 export interface PrintParams {
   /** Override page orientation for this print */
@@ -161,7 +167,10 @@ export interface PrintParams {
   isolate?: boolean;
 }
 
-/** Detail for print-start event * @since 1.4.0
+/**
+ * Detail for print-start event
+ *
+ * @since 1.4.0
  */
 export interface PrintStartDetail {
   /** Total rows being printed */
@@ -174,7 +183,10 @@ export interface PrintStartDetail {
   originalRowCount: number;
 }
 
-/** Detail for print-complete event * @since 1.4.0
+/**
+ * Detail for print-complete event
+ *
+ * @since 1.4.0
  */
 export interface PrintCompleteDetail {
   /**

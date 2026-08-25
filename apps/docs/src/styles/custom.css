@@ -48,6 +48,13 @@
   vertical-align: top;
 }
 
+/* Give the Type column a floor so signatures like
+   `(value: unknown, field: string) => string` stop wrapping to 3-4 lines while
+   the Description column sits on unused slack. */
+.sl-markdown-content table:not(:where(.not-content *)) td:nth-child(2) {
+  min-width: 18ch;
+}
+
 /* Property/member names are identifiers, so generated detail headings are backticked.
    Drop the inline-code chip — at heading size the background reads as a button. */
 .sl-markdown-content :is(h3, h4) > code:not(:where(.not-content *)) {

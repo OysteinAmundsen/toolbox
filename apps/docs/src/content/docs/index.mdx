@@ -32,15 +32,31 @@ A **single `<tbw-grid>` element** that handles sorting, filtering, grouping, edi
 <CardGrid>
   <Card title="Framework Agnostic" icon="puzzle">
     Pure TypeScript web component. Works natively in vanilla JS, React, Angular, Vue, Svelte, and any other framework.
+
+    ```html
+    <tbw-grid></tbw-grid>
+    ```
   </Card>
   <Card title="High Performance" icon="rocket">
     Row virtualization, batched DOM updates, and a render scheduler keep scrolling smooth even with 100k+ rows.
+
+    ```js
+    grid.rows = rows; // 100k rows, still smooth
+    ```
   </Card>
   <Card title="Plugin Architecture" icon="setting">
     {GRID_STATS.pluginCount} built-in plugins for selection, editing, filtering, grouping, column reordering, export, and more. Tree-shakeable — only pay for what you use.
+
+    ```js
+    import '@toolbox-web/grid/features/selection';
+    ```
   </Card>
   <Card title="Tiny Footprint" icon="seti:zip">
     Core bundle ~{GRID_STATS.coreGzipKb} kB gzipped. Each plugin is a separate entry point — no bloat from unused features.
+
+    ```js
+    import '@toolbox-web/grid';
+    ```
   </Card>
 </CardGrid>
 

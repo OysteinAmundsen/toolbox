@@ -31,28 +31,20 @@ The foundation class for all Angular cell editors. Provides common inputs, outpu
 
 ### API
 
-| Member | Type | Description |
-|--------|------|-------------|
-| `value` | `input<TValue>()` | Cell value (fallback when no `FormControl`) |
-| `row` | `input<TRow>()` | Row data object |
-| `column` | `input<`[`ColumnConfig`](/grid/api/core/interfaces/columnconfig/)`>()` | Column configuration |
-| `control` | `input<AbstractControl>()` | Cell's `FormControl` (when using `FormArray`) |
-| `commit` | `output<TValue \| null>()` | Emitted when value is committed (`null` clears the field) |
-| `cancel` | `output<void>()` | Emitted when edit is cancelled |
-| `currentValue()` | `Signal<TValue \| undefined>` | Resolved value (prefers `control.value` over `value`) |
-| `isInvalid()` | `Signal<boolean>` | Mirrors `control.invalid` — `false` if no `control` is bound |
-| `isDirty()` | `Signal<boolean>` | Mirrors `control.dirty` — `false` if no `control` is bound |
-| `isTouched()` | `Signal<boolean>` | Mirrors `control.touched` — `false` if no `control` is bound |
-| `hasErrors()` | `Signal<boolean>` | True when `control.errors` has any keys — `false` if no `control` is bound |
-| `firstErrorMessage()` | `Signal<string>` | First validation error from `control.errors`, run through `getErrorMessage()` |
-| `allErrorMessages()` | `Signal<string[]>` | Every validation error from `control.errors`, each run through `getErrorMessage()` |
-| `commitValue(v)` | Method | Emit `commit` event + DOM `CustomEvent` (accepts `TValue \| null`) |
-| `cancelEdit()` | Method | Emit `cancel` event + DOM `CustomEvent` |
-| `isCellFocused()` | Method | Whether the parent cell has the `cell-focus` class |
-| `getErrorMessage(key, value?)` | Method (override) | Customise validation error messages |
-| `onBeforeEditClose()` | Hook (override) | Called before grid clears editing state — last chance to flush pending values |
-| `onEditClose()` | Hook (override) | Called after the editing session ends — cleanup overlays/dropdowns |
-| `onExternalValueChange(v)` | Hook (override) | Called when the cell value changes externally (cascade, undo/redo) |
+The class exposes four inputs (`value`, `row`, `column`, `control`), two outputs (`commit`,
+`cancel`), and a set of signals derived from the bound `FormControl` — `currentValue()`,
+`isInvalid()`, `isDirty()`, `isTouched()`, `hasErrors()`, `firstErrorMessage()` and
+`allErrorMessages()`. Every signal that mirrors control state returns `false` (or an empty
+value) when no `control` is bound, so an editor works unchanged outside a `FormArray`.
+
+Commit through `commitValue(v)` and abort through `cancelEdit()` — both emit the Angular output
+*and* the DOM `CustomEvent` the grid listens for. Override `getErrorMessage(key, value?)` to
+customise validation text, and the `onBeforeEditClose()` / `onEditClose()` /
+`onExternalValueChange(v)` hooks to flush pending values, tear down overlays, or react to
+cascading edits.
+
+See [`BaseGridEditor`](/grid/angular/api/utilities/basegrideditor/) for every member with its
+exact signature.
 
 ### Example
 
@@ -307,20 +299,14 @@ Base class for custom column filter panels used with the `FilteringPlugin`. Prov
 
 ### FilterPanelParams
 
-The `params` input provides these members (see [`FilterPanelParams`](/grid/plugins/filtering/interfaces/filterpanelparams/) for the full type):
+The `params` input carries the field being filtered, its column config, the available values
+(`uniqueValues`, `excludedValues`, `searchText`), the active `currentFilter` to restore UI state
+from, and the callbacks that write back: `applySetFilter(excludedValues, valueTo?)` — note it
+takes an **array**, not a `Set` — `applyTextFilter(operator, value, valueTo?)`, `clearFilter()`
+and `closePanel()`.
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `field` | `string` | Column field name |
-| `column` | [`ColumnConfig`](/grid/api/core/interfaces/columnconfig/) | Full column configuration |
-| `uniqueValues` | `unknown[]` | Distinct values in the column |
-| `excludedValues` | `Set<unknown>` | Currently excluded values (set filter) |
-| `searchText` | `string` | Current search text |
-| `currentFilter?` | `FilterModel` | Currently active filter for this column, if any |
-| `applySetFilter(excludedValues, valueTo?)` | Method | Apply include/exclude filter (pass an **array** of excluded values) |
-| `applyTextFilter(operator, value, valueTo?)` | Method | Apply text/number filter |
-| `clearFilter()` | Method | Clear column filter |
-| `closePanel()` | Method | Close filter panel |
+See [`FilterPanelParams`](/grid/plugins/filtering/interfaces/filterpanelparams/) for the full
+typed contract.
 
 ### Example: Text Filter
 

@@ -144,11 +144,9 @@ Use the **Column Count** slider to add up to 1000 columns, and toggle **Auto Ena
 
 ## Configuration Options
 
-| Option       | Type      | Default | Description                 |
-| ------------ | --------- | ------- | --------------------------- |
-| `autoEnable` | `boolean` | `true`  | Auto-enable above threshold |
-| `threshold`  | `number`  | `30`    | Column count threshold      |
-| `overscan`   | `number`  | `3`     | Extra columns to render     |
+See [`ColumnVirtualizationConfig`](./interfaces/columnvirtualizationconfig/) for the full list
+of options and defaults. By default the plugin activates itself once a grid exceeds 30 columns;
+set `autoEnable: false` to control activation yourself.
 
 ## Requirements
 

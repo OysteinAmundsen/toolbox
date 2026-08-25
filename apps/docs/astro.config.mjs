@@ -240,14 +240,14 @@ export default defineConfig({
               items: [{ autogenerate: { directory: 'grid/guides' } }],
             },
             {
-              label: 'Plugins',
-              collapsed: true,
-              items: [{ autogenerate: { directory: 'grid/plugins', collapsed: true } }],
-            },
-            {
               label: 'Recipes',
               collapsed: true,
               items: [{ autogenerate: { directory: 'grid/recipes' } }],
+            },
+            {
+              label: 'Plugins',
+              collapsed: true,
+              items: [{ autogenerate: { directory: 'grid/plugins', collapsed: true } }],
             },
             {
               label: 'API Docs',

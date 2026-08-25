@@ -336,12 +336,9 @@ await plugin.print({ isolate: true });
 
 ### Print Parameters
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `orientation` | `'portrait' \| 'landscape'` | Override page orientation |
-| `title` | `string` | Override print title |
-| `maxRows` | `number` | Override maximum rows |
-| `isolate` | `boolean` | Print with page isolation (hides all non-grid content) |
+Every option passed to `print()` overrides the plugin-level configuration for that one call.
+See [`PrintParams`](./interfaces/printparams/) for the full option list, and
+[`PrintConfig`](./interfaces/printconfig/) for the defaults those overrides apply on top of.
 
 ### Isolated Printing
 

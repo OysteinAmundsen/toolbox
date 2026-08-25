@@ -170,27 +170,13 @@ When the renderer returns `undefined`, the default panel is used for that column
 
 #### FilterPanelParams
 
-Your custom renderer receives a `params` object with:
+Your custom renderer receives a `params` object carrying the field being filtered, its column
+config, the available values (`uniqueValues`, `excludedValues`, `searchText`), the active
+`currentFilter` model to pre-populate your UI from, and four callbacks to write back:
+`applySetFilter`, `applyTextFilter`, `clearFilter` and `closePanel`.
 
-**Properties**
-
-| Property         | Type           | Description                            |
-| ---------------- | -------------- | -------------------------------------- |
-| `field`          | `string`       | The field being filtered               |
-| `column`         | `ColumnConfig` | Column configuration                   |
-| `uniqueValues`   | `unknown[]`    | All unique values for this field       |
-| `excludedValues` | `Set<unknown>` | Currently excluded values (set filter) |
-| `searchText`     | `string`       | Current search text                    |
-| `currentFilter`  | `FilterModel?` | Active filter model for this field (if any) — use to pre-populate custom UI |
-
-**Methods**
-
-| Method            | Signature                                                                           | Description                               |
-| ----------------- | ----------------------------------------------------------------------------------- | ----------------------------------------- |
-| `applySetFilter`  | `(excluded: unknown[], valueTo?: unknown) => void`                                  | Apply a set filter; optional `valueTo` stores metadata alongside the filter |
-| `applyTextFilter` | `(op: FilterOperator, val: string \| number, valueTo?: string \| number) => void` | Apply a text/number/date filter with operator |
-| `clearFilter`     | `() => void`                                                                        | Clear the filter for this field           |
-| `closePanel`      | `() => void`                                                                        | Close the filter panel                    |
+See [`FilterPanelParams`](./interfaces/filterpanelparams/) for the full property and method
+signatures.
 
 #### Example: Radio-button Filter
 
@@ -522,14 +508,11 @@ This is useful for toggling filtering on/off at runtime without removing the plu
 
 ### Plugin Options
 
-| Option                | Type                  | Default | Description                                                       |
-| --------------------- | --------------------- | ------- | ----------------------------------------------------------------- |
-| `debounceMs`          | `number`              | `300`   | Debounce delay for filter input                                   |
-| `caseSensitive`       | `boolean`             | `false` | Case-sensitive string matching                                    |
-| `trackColumnState`    | `boolean`             | `false` | Include filter state in column state persistence                  |
-| `filterPanelRenderer` | `FilterPanelRenderer` | -       | Custom filter panel renderer                                      |
-| `valuesHandler`       | `FilterValuesHandler` | -       | Async handler to fetch unique filter values                       |
-| `filterHandler`       | `FilterHandler<TRow>` | -       | Async handler to apply filters remotely                           |
+See [`FilterConfig`](./interfaces/filterconfig/) for the full list of options and defaults.
+
+`valuesHandler` and `filterHandler` are the server-side hooks — supply them to fetch unique
+values and apply filters remotely instead of in the browser. See
+[Server-Side Sorting & Filtering](/grid/plugins/server-side/#server-side-sorting--filtering).
 
 ## Column Configuration
 

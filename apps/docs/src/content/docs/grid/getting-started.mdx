@@ -472,25 +472,22 @@ Use this approach when you want a fully functional grid from plain HTML. The `/a
 
 #### Declarative columns
 
-Define columns with `<tbw-grid-column>` children. These attributes cover the full declarative column surface:
+Define columns with `<tbw-grid-column>` children. `field` is the only required attribute, and it
+accepts the `field:type` shorthand — `field="price:number"` expands to `field="price"`,
+`type="number"` and a generated header of "Price".
 
-| Attribute      | Type      | Description |
-| -------------- | --------- | ----------- |
-| `field`        | `string`  | Required field key. Supports `field:type` shorthand, for example `field="price:number"`. |
-| `header`       | `string`  | Header text. |
-| `type`         | `string`  | Column type, for example `string`, `number`, `boolean`, `date`, `select` or custom type names. |
-| `width`        | `string`  | Width such as `"120"`, `"100px"`, `"20%"`. |
-| `min-width`    | `number`  | Minimum width in pixels. |
-| `sortable`     | `boolean` | Enables sorting (presence means `true`). |
-| `resizable`    | `boolean` | Enables resizing (presence means `true`). |
-| `order`        | `number`  | Initial 0-based position. |
-| `editable`     | `boolean` | Enables inline editing (requires editing feature/plugin). |
-| `options`      | `string`  | Select options for `type="select"`, for example `"a:A,b:B"` or `"a,b"`. |
-| `pinned`       | `string`  | Initial pinning: `left`/`start` or `right`/`end` (requires pinned-columns plugin). |
-| `hidden`       | `boolean` | Initially hidden (requires visibility plugin). |
-| `lock-visible` | `boolean` | Prevents hiding via visibility controls (requires visibility plugin). |
+```html
+<tbw-grid>
+  <tbw-grid-column field="name" header="Name" width="200" sortable></tbw-grid-column>
+  <tbw-grid-column field="salary:number" editable></tbw-grid-column>
+</tbw-grid>
+```
 
-For related declarative elements (`<tbw-grid-column-header>`, shell/tool-panel elements), see [API reference: Light DOM elements](/grid/api-reference/#light-dom-elements).
+Boolean attributes (`sortable`, `resizable`, `editable`, `hidden`, `lock-visible`) are enabled by
+their presence. Some are contributed by plugins and only take effect when that plugin is
+registered. For the complete attribute list, and for related declarative elements such as
+`<tbw-grid-column-header>` and the shell/tool-panel elements, see
+[API reference: Light DOM elements](/grid/api-reference/#light-dom-elements).
 
 #### Template rendering
 

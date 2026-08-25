@@ -192,12 +192,9 @@ Export all visible data to CSV. Toggle "Selected only" and select some rows to e
 
 ## Configuration Options
 
-| Option           | Type      | Default   | Description                                              |
-| ---------------- | --------- | --------- | -------------------------------------------------------- |
-| `fileName`       | `string`  | `'export'`| Base filename (without extension)                        |
-| `includeHeaders` | `boolean` | `true`    | Include column headers in export                         |
-| `onlyVisible`    | `boolean` | `true`    | Export only visible columns                              |
-| `onlySelected`   | `boolean` | `false`   | Export only selected rows (requires SelectionPlugin)     |
+See [`ExportConfig`](./interfaces/exportconfig/) for the full list of options and defaults.
+These set the plugin-wide baseline; every option can be overridden per call via
+[`ExportParams`](./interfaces/exportparams/).
 
 ### CSV formula escaping
 
@@ -263,19 +260,16 @@ exportPlugin.exportExcel({
 
 ### `ExportParams` Reference
 
-| Option           | Type                            | Default       | Description                         |
-| ---------------- | ------------------------------- | ------------- | ----------------------------------- |
-| `fileName`       | `string`                        | config value  | File name (without extension)       |
-| `columns`        | `string[]`                      | -             | Specific column fields to export    |
-| `rowIndices`     | `number[]`                      | -             | Specific row indices to export      |
-| `includeHeaders` | `boolean`                       | config value  | Include column headers in export    |
-| `processCell`    | `(value, field, row) => any`    | -             | Custom cell value processor         |
-| `processHeader`  | `(header, field) => string`     | -             | Custom header processor             |
-| `processHeaderRow` | `(cell, rowIndex) => HeaderRowCell \| null` | -  | Custom processor for plugin-contributed header rows (e.g. column groups). Return `null` to blank a cell; if every cell in a row is blank the row is dropped. **Since 2.10.0** |
-| `mode`           | `'raw' \| 'formatted'`          | `'raw'`       | `'raw'` = underlying typed values; `'formatted'` = what the grid displays (`column.format` + type defaults applied) |
-| `fileExtension`  | `string`                        | `'.xls'`      | Override file extension for Excel export (e.g. `'.xml'`) |
-| `escapeFormulas` | `boolean`                       | `true`        | Neutralise spreadsheet formula injection in CSV output (CSV only). **Since 3.5.0** |
-| `excelStyles`    | `ExcelStyleConfig`              | -             | Excel style configuration (Excel only) |
+See [`ExportParams`](./interfaces/exportparams/) for every per-call option and its default.
+Any option omitted from the call falls back to the plugin's
+[`ExportConfig`](./interfaces/exportconfig/) value.
+
+Two options change what the export *contains* rather than how it is formatted:
+
+- **`mode`** — `'raw'` (default) writes the underlying typed values; `'formatted'` writes what
+  the grid displays, with `column.format` and type defaults applied.
+- **`processHeaderRow`** — rewrites plugin-contributed header rows such as column groups.
+  Return `null` to blank a cell; a row whose cells are all blank is dropped entirely.
 
 ## Column Groups in Exports
 
@@ -445,26 +439,13 @@ exportPlugin.exportExcel({
 });
 ```
 
-### `ExcelStyleConfig` Reference
+### Style reference
 
-| Option           | Type                                               | Default | Description                                     |
-| ---------------- | -------------------------------------------------- | ------- | ----------------------------------------------- |
-| `headerStyle`    | `ExcelCellStyle`                                   | -       | Style applied to all header cells               |
-| `defaultStyle`   | `ExcelCellStyle`                                   | -       | Default style for all data cells                |
-| `columnStyles`   | `Record<string, ExcelCellStyle>`                   | -       | Per-column style overrides (keyed by field)     |
-| `cellStyle`      | `(value, field, row) => ExcelCellStyle \| undefined` | -     | Callback for per-cell dynamic styling           |
-| `columnWidths`   | `Record<string, number>`                           | -       | Column widths in characters (keyed by field)    |
-| `autoFitColumns` | `boolean`                                          | `false` | Auto-fit column widths from content             |
-
-### `ExcelCellStyle` Properties
-
-| Property       | Type     | Description                                               |
-| -------------- | -------- | --------------------------------------------------------- |
-| `font`         | `object` | `{ name?, size?, bold?, italic?, color? }`                |
-| `fill`         | `object` | `{ color, pattern? }` — pattern defaults to `'Solid'`    |
-| `numberFormat` | `string` | Excel format code (e.g. `'#,##0.00'`, `'0%'`, `'yyyy-mm-dd'`) |
-| `alignment`    | `object` | `{ horizontal?, vertical?, wrapText? }`                   |
-| `borders`      | `object` | `{ top?, bottom?, left?, right? }` — each `{ style, color? }` |
+Styles resolve in order of increasing specificity: `defaultStyle` → `columnStyles[field]` →
+`cellStyle(value, field, row)`. Header cells use `headerStyle` only. See
+[`ExcelStyleConfig`](./interfaces/excelstyleconfig/) for the full option list and
+[`ExcelCellStyle`](./interfaces/excelcellstyle/) for the shape of an individual style
+(`font`, `fill`, `numberFormat`, `alignment`, `borders`).
 
 ## Events
 

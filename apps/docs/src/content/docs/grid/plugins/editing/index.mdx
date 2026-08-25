@@ -958,19 +958,13 @@ Double-click the Priority column to see button-based editing:
 
 ### Editor Context
 
-The `ctx` object passed to custom editors contains:
+The `ctx` object passed to custom editors carries the cell's `value`, `row`, `column`, `field`
+and `rowId`, plus the callbacks that drive the edit session: `commit(value)` to accept,
+`cancel()` to discard, `updateRow(changes)` to write other fields on the same row through the
+commit pipeline, and `onValueChange(cb)` to stay in sync when the value changes underneath you.
 
-| Property | Type | Description |
-| -------- | ---- | ----------- |
-| `value` | `unknown` | Current cell value |
-| `row` | `T` | Full row data |
-| `column` | `ColumnConfig` | Column configuration |
-| `field` | `string` | Field name |
-| `rowId` | `string` | Row ID (from `getRowId`) |
-| `commit(value)` | `function` | Call to save new value |
-| `cancel()` | `function` | Call to discard changes |
-| `updateRow(changes)` | `function` | Update other fields on the same row through the commit pipeline (emits `cell-commit` then `cell-change`) |
-| `onValueChange(cb)` | `function` | Register a callback to receive pushed values when the cell's value changes externally (e.g., via `updateRow` from another cell's commit) |
+See [`ColumnEditorContext`](/grid/api/core/interfaces/columneditorcontext/) for the full typed
+contract and worked examples.
 
 :::tip[Preventing Row Height Growth]
 Built-in editors are sized to match the cell exactly, so row height stays constant when entering edit mode. Custom editors inherit this behavior automatically if they return a standard `<input>`, `<select>`, or `<textarea>` element.

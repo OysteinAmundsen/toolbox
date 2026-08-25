@@ -172,9 +172,17 @@ export const getFirstParagraph = (comment?: TypeDocComment): string => {
   return first.replace(/\r?\n/g, ' ').trim();
 };
 
-/** Check whether a property comment has rich details (remarks, examples, default, see) worth rendering below the table */
-export const hasPropertyDetails = (comment?: TypeDocComment): boolean =>
-  !!comment?.blockTags?.some((b) => ['@remarks', '@example', '@default', '@see'].includes(b.tag));
+/**
+ * Check whether a property comment has details worth rendering below the table.
+ *
+ * Block tags (`@remarks`, `@example`, `@default`, `@see`) qualify, and so does a
+ * summary longer than one paragraph — the table only shows the first paragraph,
+ * so without a details section the rest would be silently dropped.
+ */
+export const hasPropertyDetails = (comment?: TypeDocComment): boolean => {
+  if (comment?.blockTags?.some((b) => ['@remarks', '@example', '@default', '@see'].includes(b.tag))) return true;
+  return getText(comment).search(/\r?\n\s*\r?\n/) > 0;
+};
 
 /**
  * Anchor to prepend to a property's row in a `## Properties` table.
@@ -239,6 +247,9 @@ export const getCategory = (node: TypeDocNode): string | undefined => {
 
 // #region Type Formatting
 
+/** Beyond this, an inline object literal is summarised as `object` rather than expanded. */
+const INLINE_SHAPE_MAX_MEMBERS = 8;
+
 /** Format a TypeDoc type for display */
 export function formatType(t?: TypeDocType): string {
   if (!t) return 'unknown';
@@ -265,6 +276,10 @@ export function formatType(t?: TypeDocType): string {
         const params = sig.parameters?.map((p) => `${p.name}: ${formatType(p.type)}`).join(', ') ?? '';
         const ret = formatType(sig.type);
         return `(${params}) => ${ret}`;
+      }
+      const members = t.declaration?.children;
+      if (members?.length && members.length <= INLINE_SHAPE_MAX_MEMBERS) {
+        return `{ ${members.map((m) => `${m.name}${m.flags?.isOptional ? '?' : ''}: ${formatType(m.type)}`).join('; ')} }`;
       }
       return 'object';
     }
@@ -324,6 +339,13 @@ function formatTypeHtml(type: TypeDocType | undefined, typeRegistry: Map<string,
           sig.parameters?.map((p) => `${p.name}: ${formatTypeHtml(p.type, typeRegistry)}`).join(', ') ?? '';
         const ret = formatTypeHtml(sig.type, typeRegistry);
         return `(${params}) =&gt; ${ret}`;
+      }
+      const members = type.declaration?.children;
+      if (members?.length && members.length <= INLINE_SHAPE_MAX_MEMBERS) {
+        const shape = members
+          .map((m) => `${m.name}${m.flags?.isOptional ? '?' : ''}: ${formatTypeHtml(m.type, typeRegistry)}`)
+          .join('; ');
+        return `&#123; ${shape} &#125;`;
       }
       return 'object';
     }

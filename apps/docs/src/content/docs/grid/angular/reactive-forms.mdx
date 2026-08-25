@@ -178,21 +178,17 @@ if (context?.hasFormGroups) {
 
 ## Editor Context Properties
 
-When using `*tbwEditor`, the following context is available (see [`GridEditorContext`](/grid/angular/api/types/grideditorcontext/) for the typed interface):
+`*tbwEditor` exposes the core [`ColumnEditorContext`](/grid/api/core/interfaces/columneditorcontext/)
+— `value`, `row`, `field`, `column`, `rowId`, `updateRow` and `onValueChange` — under the Angular
+names documented in [`GridEditorContext`](/grid/angular/api/types/grideditorcontext/), where the
+commit and cancel callbacks are `onCommit` / `onCancel`.
 
-| Property        | Type                              | Description |
-|-----------------|-----------------------------------|-------------|
-| `$implicit`     | `TValue`                          | Cell value (bound by `*tbwEditor="let value"`) |
-| `value`         | `TValue`                          | Cell value (explicit alias) |
-| `row`           | `TRow`                            | Full row data object |
-| `field`         | `string`                          | Field name being edited |
-| `column`        | [`ColumnConfig`](/grid/api/core/interfaces/columnconfig/) | Column configuration |
-| `rowId`         | `string`                          | Stable row id from `getRowId` (empty string when none configured) |
-| `onCommit`      | `(value: TValue) => void`         | Commit callback (rarely needed — see auto-wiring note below) |
-| `onCancel`      | `() => void`                      | Cancel callback (rarely needed) |
-| `updateRow`     | `(changes: Partial<TRow>) => void` | Update other fields in the same row while editing |
-| `onValueChange` | `(cb) => void`                    | Subscribe to external value changes (e.g. from `updateRow` cascades) |
-| `control`       | [`AbstractControl`](https://angular.dev/api/forms/AbstractControl) \| `undefined` | Cell `FormControl` (only when bound to `FormArray` + `FormGroup`) |
+Two properties exist only in the Angular adapter:
+
+| Property    | Type | Description |
+|-------------|------|-------------|
+| `$implicit` | `TValue` | Cell value, bound by `*tbwEditor="let value"` |
+| `control`   | [`AbstractControl`](https://angular.dev/api/forms/AbstractControl) \| `undefined` | Cell `FormControl`, present only when bound to a `FormArray` + `FormGroup` |
 
 > **Auto-wiring:** the adapter listens for native `commit` / `cancel` `CustomEvent`s on the rendered component. If your editor dispatches them (or extends [`BaseGridEditor`](/grid/angular/base-classes/) which does), you can omit the `(commit)="onCommit($event)"` binding entirely.
 

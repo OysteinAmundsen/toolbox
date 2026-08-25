@@ -202,12 +202,9 @@ The predicate runs once per row whenever the row set changes (via
 
 ## Configuration Options
 
-| Option       | Type                                              | Default      | Description                                                  |
-| ------------ | ------------------------------------------------- | ------------ | ------------------------------------------------------------ |
-| `isSticky`   | `string \| (row, index) => unknown`               | _required_   | Field name shorthand or predicate function.                  |
-| `mode`       | `'push' \| 'stack'`                               | `'push'`     | How concurrent sticky rows are presented.                    |
-| `maxStacked` | `number`                                          | `Infinity`   | Cap on stacked clones (only applies when `mode: 'stack'`).   |
-| `className`  | `string`                                          | _(none)_     | Optional class applied to the container and every clone.     |
+See [`StickyRowsConfig`](./interfaces/stickyrowsconfig/) for the full list of options and
+defaults. `isSticky` is the only required option — pass a field name as shorthand, or a
+predicate for anything more involved.
 
 ## Styling
 

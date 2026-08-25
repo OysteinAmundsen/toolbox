@@ -264,23 +264,19 @@ features: {
 ## Configuration Options
 
 See [`RowDragDropConfig`](./interfaces/rowdragdropconfig/) for the full list
-of options and defaults. Key options:
+of options and defaults. Three of them decide the plugin's overall shape:
 
-| Option              | Type                                              | Description                                                                          |
-| ------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `dropZone`          | `string`                                          | Opt-in identifier for cross-grid drops. Grids with the same value accept each other. |
-| `operation`         | `'move' \| 'copy'`                                | Whether the source grid keeps the rows after a successful cross-grid drop.           |
-| `canDrop`           | `(payload, targetIndex) => boolean`               | Reject specific drops on the target grid. Called synchronously during `dragover` and at drop time. |
-| `canDrag`           | `(row, index) => boolean`                         | Reject drags from the source. Called once at `dragstart` with the originating row.   |
-| `serializeRow`      | `(row) => unknown`                                | Override the JSON shape used in the cross-window fallback payload.                   |
-| `deserializeRow`    | `(serialized) => row`                             | Inverse of `serializeRow`.                                                           |
-| `enableKeyboard`    | `boolean`                                         | Keep keyboard reorder (`Ctrl + ↑/↓`) — defaults to `true`.                           |
-| `dragFrom`          | `'handle' \| 'row' \| 'both'`                     | Where a drag can be initiated. `'handle'` (default) keeps the handle column; `'row'` hides the handle and lets users drag anywhere on the row; `'both'` allows either. Interactive descendants (`button`, `input`, `select`, `textarea`, `a[href]`, `[contenteditable]`) never start a drag. |
-| `showDragHandle`    | `boolean`                                         | Render the drag-handle column. Defaults to `true` for `dragFrom: 'handle' \| 'both'` and `false` for `dragFrom: 'row'`. Set explicitly to override.            |
-| `dragHandlePosition`| `'left' \| 'right'`                               | Pin the handle column to either side.                                                |
-| `dragHandleWidth`   | `number`                                          | Pixel width of the handle column.                                                    |
-| `animation`         | `'flip' \| false`                                 | FLIP animation on intra-grid reorder.                                                |
-| `autoScroll`        | `boolean \| { edgeSize?: number; speed?: number; maxSpeed?: number }` | Tune the auto-scroll behaviour during drag.                          |
+- **`dropZone`** — opt-in identifier for cross-grid drops. Grids sharing a value accept each
+  other's rows; without it, dragging is confined to reordering within the grid.
+- **`operation`** — whether the source grid keeps (`'copy'`) or loses (`'move'`) the rows after
+  a successful cross-grid drop.
+- **`dragFrom`** — where a drag can start. `'handle'` (default) keeps the handle column, `'row'`
+  hides the handle and makes the whole row draggable, `'both'` allows either. Interactive
+  descendants (`button`, `input`, `select`, `textarea`, `a[href]`, `[contenteditable]`) never
+  start a drag.
+
+Use `canDrag` and `canDrop` to veto individual drags and drops; both are called synchronously,
+so keep them cheap.
 
 ## Events
 

@@ -170,6 +170,24 @@ Auto-generated from the plugin's config interface by \`genPluginConfigTable()\`.
 > Every plugin page must end with `## See Also`. Heading text must be unique within a page;
 > duplicates get a `-1` anchor suffix and break inbound links.
 
+> **Link, don't duplicate.** `## Configuration Options` on a curated plugin page must NOT
+> restate the config interface's member list. Write:
+>
+> ```md
+> See [`XConfig`](./interfaces/xconfig/) for the full list of options and defaults.
+> ```
+>
+> …optionally followed by a short **Key options** list covering only members whose _shape_ needs
+> prose (mutually exclusive modes, security-relevant defaults, cross-plugin interactions). The same
+> rule applies to any `### <Interface> Reference` section, editor-context tables, and adapter
+> base-class API tables. Hand-maintained exhaustive tables go stale — four were already wrong when
+> this rule was introduced, and one documented an option that did not exist.
+>
+> **Before deleting such a table, prove the generated page is equal or better for every row.** If it
+> isn't, enrich the source JSDoc or fix `tools/typedoc-mdx-shared.ts` and regenerate — never accept
+> a downgrade. Mechanical check: `git diff` the page, extract removed rows via `^-\|\s*` + a
+> backticked identifier, and assert each name appears on the target page.
+
 > **Plugin JSDoc conventions for auto-generated API docs:**
 >
 > - `## Configuration Options` tables are **auto-generated** from the constructor's config interface — do not hand-write them in JSDoc
@@ -404,6 +422,20 @@ bun tools/docs-api-coverage.ts      # must print "0 exports without a page or re
 # 3. Docs site builds cleanly
 bun nx build docs
 ```
+
+> **These gates replace the library test suites on a docs-only changeset.** Documentation
+> does not affect code output, so do **not** run `bun nx run-many -t lint test build --projects=<lib>`
+> when every modified file is prose/MDX. Mark the delivery checklist's **Test** step
+> "N/A — docs-only" and record which docs gates you ran for the **Build & lint** step.
+> See the "Docs-only changesets" section of `delivery-workflow.instructions.md` for the
+> exact definition and the borderline cases (`.astro` demos, `apps/docs/**/*.ts` endpoints,
+> and `astro.config.mjs` are executable docs-app code → still run
+> `bun nx run-many -t lint test build --projects=docs`).
+>
+> Scale the gates to the change: a pure prose/MDX edit only needs gate 1; gate 2 only when
+> API-reference pages changed; gate 3 only when `.astro`/`.ts`/config under `apps/docs/`
+> changed. Markdown outside `apps/docs/` (READMEs, `.github/**`) needs only
+> `bunx prettier --check <files>`.
 
 > `bun nx build docs` passing (EXIT=0) does **not** mean links are valid — Astro silently
 > renders dead links. `bun tools/docs-link-audit.ts` is the real gate. It walks every

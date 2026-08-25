@@ -250,7 +250,7 @@ for first:
 | `fitMode` | [`FitMode`](/grid/api/core/types/fitmode/) | How columns fill available width (`'stretch'` or `'fixed'`) |
 | `columnInference` | [`ColumnInferenceMode`](/grid/api/core/types/columninferencemode/) | How inference combines with provided columns (`'auto'` default, or `'merge'`) |
 | `rowHeight` | `number \| (row, index) => number \| undefined` | Fixed or variable row heights |
-| `typeDefaults` | `Record<string, `[`TypeDefault`](/grid/api/core/interfaces/typedefault/)`>` | Default format/renderer per column `type` |
+| `typeDefaults` | <code>Record&lt;string, <a href="/grid/api/core/interfaces/typedefault/">TypeDefault</a>&gt;</code> | Default format/renderer per column `type` |
 | `plugins` | [`GridPlugin[]`](/grid/api/plugin-development/interfaces/gridplugin/) | Plugin instances |
 | `features` | [`Partial<FeatureConfig>`](/grid/api/core/interfaces/featureconfig/) | Declarative feature config (alternative to `plugins`) |
 

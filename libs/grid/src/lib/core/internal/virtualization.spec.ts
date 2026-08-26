@@ -5,23 +5,23 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  calculateAverageHeight,
-  computeScrollMapping,
-  computeVirtualWindow,
-  createHeightCache,
-  fromVirtualScrollTop,
-  getCachedHeight,
-  getRowIndexAtOffset,
-  getTotalHeight,
-  MAX_ELEMENT_HEIGHT_PX,
-  rebuildPositionCache,
-  setCachedHeight,
-  shouldBypassVirtualization,
-  toVirtualScrollTop,
-  updateRowHeight,
-  updateRowHeights,
-  type HeightCache,
-  type RowPosition,
+    calculateAverageHeight,
+    computeScrollMapping,
+    computeVirtualWindow,
+    createHeightCache,
+    fromVirtualScrollTop,
+    getCachedHeight,
+    getRowIndexAtOffset,
+    getTotalHeight,
+    MAX_ELEMENT_HEIGHT_PX,
+    rebuildPositionCache,
+    setCachedHeight,
+    shouldBypassVirtualization,
+    toVirtualScrollTop,
+    updateRowHeight,
+    updateRowHeights,
+    type HeightCache,
+    type RowPosition,
 } from './virtualization';
 
 // #region HeightCache Tests
@@ -195,6 +195,18 @@ describe('PositionCache', () => {
       expect(positions[0]).toEqual({ offset: 0, height: 28, measured: false });
     });
 
+    it('marks the row measured when the height is unchanged', () => {
+      const positions: RowPosition[] = [
+        { offset: 0, height: 28, measured: false },
+        { offset: 28, height: 28, measured: false },
+      ];
+
+      updateRowHeight(positions, 0, 28);
+
+      expect(positions[0]).toEqual({ offset: 0, height: 28, measured: true });
+      expect(positions[1].offset).toBe(28);
+    });
+
     it('batches unsorted updates with the same result as sequential updates', () => {
       const sequential: RowPosition[] = Array.from({ length: 6 }, (_, index) => ({
         offset: index * 28,
@@ -211,6 +223,25 @@ describe('PositionCache', () => {
       for (const change of changes) updateRowHeight(sequential, change.index, change.height);
       updateRowHeights(batched, changes);
 
+      expect(batched).toEqual(sequential);
+    });
+
+    it('marks unchanged rows measured in a batch, matching sequential updates', () => {
+      const sequential: RowPosition[] = Array.from({ length: 4 }, (_, index) => ({
+        offset: index * 28,
+        height: 28,
+        measured: false,
+      }));
+      const batched = structuredClone(sequential);
+      const changes = [
+        { index: 0, height: 28 },
+        { index: 2, height: 40 },
+      ];
+
+      for (const change of changes) updateRowHeight(sequential, change.index, change.height);
+      updateRowHeights(batched, changes);
+
+      expect(batched[0].measured).toBe(true);
       expect(batched).toEqual(sequential);
     });
   });
@@ -412,6 +443,27 @@ describe('measureRenderedRowHeights', () => {
     );
 
     expect(result.hasChanges).toBe(false);
+  });
+
+  it('latches measured when the DOM height already matches, so the next pass is a no-op', () => {
+    const positionCache: RowPosition[] = [{ offset: 0, height: 40, measured: false }];
+    const heightCache = createHeightCache();
+    const rows = [{ id: 1 }];
+    const context = {
+      positionCache,
+      heightCache,
+      rows,
+      defaultHeight: 28,
+      start: 0,
+      end: 1,
+    };
+
+    const first = measureRenderedRowHeights(context, createMockRowElements([40]));
+    expect(first.hasChanges).toBe(true);
+    expect(positionCache[0].measured).toBe(true);
+
+    const second = measureRenderedRowHeights(context, createMockRowElements([40]));
+    expect(second.hasChanges).toBe(false);
   });
 });
 // #endregion

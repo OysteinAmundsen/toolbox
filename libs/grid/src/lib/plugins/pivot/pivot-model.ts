@@ -29,26 +29,24 @@ export function createValueKey(columnValues: string[], valueField: string): stri
 }
 
 export function createValueKeys(columnValues: string[], valueFields: PivotValueField[]): string[] {
+  const fieldCounts = new Map<string, number>();
+  for (const valueField of valueFields) {
+    fieldCounts.set(valueField.field, (fieldCounts.get(valueField.field) ?? 0) + 1);
+  }
+
+  // NUL-joined so a `|` inside a field name cannot collide with an aggregate key.
+  const seenFieldAggregates = new Set<string>();
+
   return valueFields.map((valueField, index) => {
     const baseKey = createValueKey(columnValues, valueField.field);
-    let duplicateField = false;
-    for (let otherIndex = 0; otherIndex < valueFields.length; otherIndex++) {
-      if (otherIndex !== index && valueFields[otherIndex].field === valueField.field) {
-        duplicateField = true;
-        break;
-      }
-    }
-    if (!duplicateField) return baseKey;
+    if ((fieldCounts.get(valueField.field) ?? 0) < 2) return baseKey;
 
     const aggregateKey = typeof valueField.aggFunc === 'string' ? valueField.aggFunc : 'custom';
     const key = `${baseKey}|${aggregateKey}`;
-    for (let previousIndex = 0; previousIndex < index; previousIndex++) {
-      const previous = valueFields[previousIndex];
-      const previousAggregateKey = typeof previous.aggFunc === 'string' ? previous.aggFunc : 'custom';
-      if (previous.field === valueField.field && previousAggregateKey === aggregateKey) {
-        return `${key}|${index + 1}`;
-      }
-    }
+    const pairKey = `${valueField.field}\u0000${aggregateKey}`;
+    if (seenFieldAggregates.has(pairKey)) return `${key}|${index + 1}`;
+
+    seenFieldAggregates.add(pairKey);
     return key;
   });
 }

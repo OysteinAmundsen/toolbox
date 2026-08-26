@@ -200,11 +200,14 @@ export function updateRowHeight(cache: RowPosition[], index: number, newHeight: 
   const entry = cache[index];
   const heightDiff = newHeight - entry.height;
 
+  // Latch `measured` even when the height is unchanged, otherwise callers that enqueue on
+  // `!measured` re-measure the same row on every render pass.
+  entry.measured = true;
+
   if (heightDiff === 0) return;
 
   // Update this row
   entry.height = newHeight;
-  entry.measured = true;
 
   // Recalculate offsets for all subsequent rows
   for (let i = index + 1; i < cache.length; i++) {
@@ -250,9 +253,9 @@ export function updateRowHeights(cache: RowPosition[], changes: RowHeightChange[
     while (changeIndex < sortedChanges.length && sortedChanges[changeIndex].index === index) {
       const height = sortedChanges[changeIndex].height;
       const heightDiff = height - entry.height;
+      entry.measured = true;
       if (heightDiff !== 0) {
         entry.height = height;
-        entry.measured = true;
         cumulativeDiff += heightDiff;
       }
       changeIndex++;

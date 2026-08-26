@@ -1,8 +1,16 @@
 ---
-applyTo: '{libs,apps,demos}/**'
+applyTo: '**'
 ---
 
 # Delivery Workflow
+
+> **Scope.** The checklist applies to **every** change in the repo, not just `libs/apps/demos` —
+> agent files (`.github/**`), tooling (`tools/**`), e2e suites, and root configs included. It does
+> not apply _uniformly_: for non-shipping files the gates collapse via the carve-outs below.
+> Markdown under `.github/**` is a **docs-only changeset** (Step 3/4 → prettier only); `.ts` under
+> `tools/**` or `.github/skills/**` is code (lint + typecheck, but `nx test/build` are usually N/A
+> because the file is invoked by path and belongs to no Nx project). Steps 1, 2, 6, and 7 always
+> apply.
 
 ## Issue Evaluation (Step 0)
 
@@ -42,15 +50,15 @@ If the answer to all three is **no**, the method/feature likely belongs in consu
 
 ### Quick reference
 
-| #   | Step                                  | Default action                                                                                                                                                    | Skip allowed only when…                                                |
-| --- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| 1   | Read knowledge files                  | Load relevant `.github/knowledge/*.md` files for the affected domain.                                                                                             | Pure typo / comment / formatting edit.                                 |
-| 2   | Implement                             | Write the code change.                                                                                                                                            | Never.                                                                 |
-| 3   | Test                                  | Add/update co-located unit and integration tests; rerun the suite.                                                                                                | Change is purely non-functional (comment-only, formatting, docs-only). |
-| 4   | Build & lint                          | Run all three targets in parallel: `bun nx run-many -t lint test build --projects=<project>` (or `bun nx affected -t lint test build` for cross-project changes). | Docs-only changeset — run the docs gates instead (see below).          |
-| 5   | Docs update                           | Apply the `docs-update` skill (MDX, READMEs, llms.txt, llms-full.txt, copilot-instructions, TypeDoc).                                                             | Change has zero user-visible impact.                                   |
-| 6   | Retrospective + knowledge-base update | Apply the `retrospective` skill; record any new INVARIANT/DECIDED/etc.                                                                                            | No new lesson emerged — state "no new knowledge" explicitly.           |
-| 7   | Suggest commit                        | End the final message with `📦 **Good commit point:** type(scope): … (#issue)` (drop `(#issue)` when there is no issue).                                          | Never.                                                                 |
+| #   | Step                                   | Default action                                                                                                                                                    | Skip allowed only when…                                                |
+| --- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 1   | Read knowledge files                   | Load relevant `.github/knowledge/*.md` files for the affected domain.                                                                                             | Pure typo / comment / formatting edit.                                 |
+| 2   | Implement                              | Write the code change.                                                                                                                                            | Never.                                                                 |
+| 3   | Test                                   | Add/update co-located unit and integration tests; rerun the suite.                                                                                                | Change is purely non-functional (comment-only, formatting, docs-only). |
+| 4   | Build & lint                           | Run all three targets in parallel: `bun nx run-many -t lint test build --projects=<project>` (or `bun nx affected -t lint test build` for cross-project changes). | Docs-only changeset — run the docs gates instead (see below).          |
+| 5   | Docs update                            | Apply the `docs-update` skill (MDX, READMEs, llms.txt, llms-full.txt, copilot-instructions, TypeDoc).                                                             | Change has zero user-visible impact.                                   |
+| 6   | Retrospective + knowledge/skill update | Apply the `retrospective` skill; record any new INVARIANT/DECIDED/etc., **and** promote any reusable procedure or script into a new or updated skill.             | No new lesson emerged — state "no new knowledge" explicitly.           |
+| 7   | Suggest commit                         | End the final message with `📦 **Good commit point:** type(scope): … (#issue)` (drop `(#issue)` when there is no issue).                                          | Never.                                                                 |
 
 Every feature, fix, or refactor must complete **all seven steps** before it is considered done. The detailed expectations for each step follow.
 
@@ -58,8 +66,18 @@ Every feature, fix, or refactor must complete **all seven steps** before it is c
 2. **Implement the code** — Write the feature or fix following the project's architecture and conventions.
 3. **Write/update tests** — If the change **can** be tested, it **must** be tested. Add unit tests (co-located) and integration tests as needed; ensure all existing tests still pass. The only valid reason to skip tests is when the change is purely non-functional (e.g., comment-only, formatting, or documentation-only changes).
 4. **Verify the build** — Run lint, test, and build **in parallel** with a single command: `bun nx run-many -t lint test build --projects=grid` (or `bun nx affected -t lint test build` when the change spans multiple projects). Nx parallelizes the targets, attributes each line of output to its project (`grid: …`), and returns one authoritative exit code plus an explicit `Failed tasks:` list — so you still get real, per-target results while overlapping the wall-clock time. The build target hard-enforces the bundle budget. Fix any failures. Do **not** pipe this command through `| tail`/`| head`/`2>&1` (it hangs the terminal here); let the tool capture output, then read the captured file if needed. **Exception:** for a docs-only changeset, skip this command entirely and run the docs gates instead — see [Docs-only changesets](#docs-only-changesets).
+
+   **Lint warnings are not covered by the exit code.** `lint` passes with 0 errors even though `grid` carries ~200 pre-existing warnings, so a refactor can add dead imports or fresh `any`s and still look green. For any change touching more than a couple of files, apply the `lint-baseline` skill — it diffs your warnings against the pre-change baseline. Every new warning must be fixed or explicitly justified in the self-audit.
+
 5. **Update documentation** — If the change affects behavior, API surface, CSS variables, defaults, or user-visible functionality, documentation **must** be updated. Use the `docs-update` skill for the full checklist (MDX pages, READMEs, llms.txt, llms-full.txt, copilot-instructions, TypeDoc regeneration). The only valid reason to skip docs is when the change has zero user-visible impact (e.g., internal refactor with no behavior change).
-6. **Retrospective + knowledge-base update** — Use the `retrospective` skill. If the task revealed a new invariant, state-ownership fact, data-flow edge, design decision, or tension, add it to the matching `.github/knowledge/*.md` file using the structured notation (`OWNS / READS FROM / WRITES TO / INVARIANT / FLOW / TENSION / DECIDED`). Cross-cutting lessons (conventions, workflows, tool tricks) go to the most appropriate instruction or skill file. Explicitly state "no new knowledge" if nothing emerged — never silently skip.
+6. **Retrospective + knowledge/skill update** — Apply the `retrospective` skill; it owns the routing rules, the knowledge-file notation and style budget, the instruction-vs-skill decision, and script placement. Two halves must both be considered and neither may be silently skipped:
+
+   **(a) Knowledge — what is now true about the repo.** A new invariant, state-ownership fact, data-flow edge, design decision, or tension goes into the matching `.github/knowledge/*.md` file.
+
+   **(b) Skills — what you would want to repeat.** A procedure, command sequence, diagnostic technique, or script that would save the next session real effort becomes a new skill, or extends the skill that already owns that domain.
+
+   If neither produced anything, state "no new knowledge" explicitly rather than skipping the step.
+
 7. **Suggest a commit** — End the final message with the `📦 **Good commit point:** ...` line described in the Commit Hygiene section. Do not run `git commit` yourself unless the user explicitly asked in the current turn.
 
 Do **not** consider work complete until all seven steps are finished. Skipping steps is not acceptable. When in doubt about whether tests or docs are needed, **default to including them**.
@@ -101,7 +119,7 @@ If you are unsure whether a changeset is docs-only, run `git status --short` and
 3. Test (write/update + run) — N/A for docs-only changesets
 4. Build & lint — run in parallel: `bun nx run-many -t lint test build --projects=<project>` (or `bun nx affected -t lint test build`). For docs-only changesets, run the docs gates instead (see [Docs-only changesets](#docs-only-changesets)).
 5. Docs check (apply `docs-update` skill, or explicitly note "no user-visible change")
-6. **Retrospective + knowledge-base update** — apply `retrospective` skill. If the task revealed a new invariant, state-ownership fact, data-flow, design decision, or tension, add it to the matching knowledge file using the structured notation (`OWNS / READS FROM / WRITES TO / INVARIANT / FLOW / TENSION / DECIDED`). If a lesson is cross-cutting, update instructions/skills. Explicitly state "no new knowledge" if nothing emerged.
+6. **Retrospective + knowledge/skill update** — apply the `retrospective` skill. Record any new invariant / design decision in the matching knowledge file, and promote any reusable procedure or script into a new or existing skill. Explicitly state "no new knowledge" if nothing emerged.
 7. Suggest commit
 
 If the todo list has not been created, you are **not allowed** to edit, create, or execute code. This applies to **every** task — one-line fixes, CSS tweaks, typos, and multi-file features alike. There is no "small enough to skip" threshold.
@@ -117,7 +135,7 @@ A step may be marked completed with "N/A" only in these specific cases:
 - **Test** — the change is purely non-functional (comment-only, formatting, pure documentation edit)
 - **Build & lint** — the changeset is **docs-only** (see [Docs-only changesets](#docs-only-changesets)); run the docs gates instead and say which ones
 - **Docs** — the change has zero user-visible impact (internal refactor, test-only change, build config)
-- **Retrospective** — no new lesson emerged (state this explicitly; do not silently skip)
+- **Retrospective** — no new lesson emerged **and** nothing reusable was produced (state this explicitly; do not silently skip)
 
 Additionally, when `ai_mode: saving` (see the "Saving mode" note above), **Test** and **Build & lint** may be marked completed with a "deferred to user (saving mode)" note instead of being executed — hand the user the exact command to run.
 

@@ -36,21 +36,11 @@ This project's AI knowledge is organized in four tiers to minimize context windo
 > - **Knowledge vs. memory — do not confuse them:** Anything that is true _about this repository_ (architecture facts, design decisions, gotchas, build/test recipes, release plans, deprecation inventories) belongs in `.github/knowledge/*.md` (or, for prescriptive rules, `.github/instructions/*.md`) so it is **committable, reviewable, and shared with every contributor and future agent session**. The `/memories/repo/` scope is for **agent-private, machine-local scratch only** — e.g. notes about an in-flight investigation that the user has not yet decided to formalize. If the fact would help a human contributor or another agent on a different machine, it goes in the knowledge base, not in repo memory. When in doubt, choose the knowledge base.
 > - **Rule of thumb:** If the user ever argues for a change that contradicts a `DECIDED` entry, cite the entry and ask them to justify overriding it before implementing. Past decisions have context; don't silently reverse them.
 
-> **Knowledge file style — keep them dense or they stop working:**
-> Knowledge files are an _agent_ tool. Their value is being scannable enough that you can rebuild a mental model in seconds without burning context window. They lose that value the moment they drift into changelog prose. Apply these rules every time you touch a `.github/knowledge/*.md` file:
->
-> - **`DECIDED` is one bullet, not a paragraph.** Format: `DECIDED (date/PR): <conclusion>. WHY: <one-line rationale>. <File / test reference>.` Aim for 1-4 lines. If you have more to say, the next bullet is `INVARIANT:` or `TENSION:`, not a continuation paragraph.
-> - **No history-as-DECIDED.** "We tried X, then Y, then settled on Z because A then B then C" is a commit message, not knowledge. Write the conclusion ("Use Z; X breaks because A") and let `git log` carry the story. The exception is a "RULED OUT:" line listing alternatives that look obvious but don't work — one line each, max.
-> - **Preserve every spec file path, PR/issue number, function/class name, and "MUST/MUST NOT" rule.** Those are the navigation targets. Drop adjectives, transitions, and explanation of obvious mechanics — keep proper nouns.
-> - **Tables beat prose for enumerations.** A 23-row feature/binding list is a 25-line table, not a 25-line paragraph. **But watch the byte cost:** Prettier re-pads every cell to the widest one, so a table with one long column (e.g. an event list) can cost 2× its content in whitespace. When one column is much wider than the rest, use a bullet list (`- name → a, b, c`) and state any uniform column as a single sentence above the list. Always re-run `bunx prettier --write` before measuring `wc -c`.
-> - **Compress, don't append.** When updating an existing entry, rewrite it. Do not stack a new "DECIDED (May 2026, follow-up to follow-up): ..." on top — fold the new fact into the existing entry.
-> - **No tier-by-tier history sections.** When a multi-pass refactor lands, replace the per-pass narrative with the post-refactor invariants. Keep at most one short paragraph of historical context if a future maintainer would otherwise be confused by the absence.
-> - **Move guidance to the right home.** Test-writing patterns belong in `.github/instructions/testing-patterns.instructions.md` (auto-applied to `*.spec.ts`), not in a knowledge file. Workflow recipes belong in `.github/skills/`. Knowledge files describe _how the code is and why_, not _how to write tests for it_.
-> - **Soft size budget per knowledge file: ≤25 kB (`wc -c`).** Hard ceiling: 30 kB. Line count is NOT the metric — these files use very long bullets, so a 150-line file can still be 60 kB (≈15k tokens) and blow the read gate's budget. If you're past 25 kB, condense before adding. If a single domain genuinely needs more, split by sub-domain (e.g. `grid-plugins-catalog-data` / `grid-plugins-catalog-ui`) — but try condensing first.
-> - **Split only where the boundary matches how tasks scope.** Condensing is exhausted once a filler census finds <5 % removable prose (measured Aug 2026: ~2.5 % in `grid-core.md`, 0.6 % in `grid-render-pipeline.md`) — at that point splitting is the only lever left. But an arbitrary split is a net loss: if a typical task needs both halves, you pay two lookups plus cross-file duplication drift. Split when one half is genuinely never read for the other's tasks (sorting work never needs virtualization internals). Do NOT split a file dominated by one section — `grid-core.md`'s `grid.ts` section is 51 % of the file, so splitting the file did nothing; extracting the self-contained pointer/touch trio into `grid-input.md` did. Do NOT split a file whose sections are all one concern (`adapters.md`).
-> - **Every knowledge file opens with an orientation header**, not just a title: a one-line scope statement, a bullet list of "X lives in <other-file>.md" redirects for adjacent domains, and a `Read order for <symptom>:` line naming which sections to hit in sequence. This is what makes a split cheap — an agent that opens the wrong half is redirected in one line instead of reading 15 kB to find out.
-> - **After splitting or condensing, prove no facts were lost** by diffing navigation tokens (file paths, `#NNN` issue numbers, symbol names) between the before and after — for a split, compare against the **union** of the halves. Include `mdx` in the extension alternation or `.mdx` paths truncate to `.md` and show as false losses.
-> - **Write for yourself, not the user.** No "in this section we will...", no narrative tone, no marketing language. Bullets, tables, code fences, structured markers (`OWNS:`, `INVARIANT:`, `DECIDED:`).
+> **Knowledge file style:** Knowledge files are an _agent_ tool — dense, scannable, structured
+> markers (`OWNS:` / `INVARIANT:` / `DECIDED:` …), never changelog prose. Soft budget **≤25 kB**
+> (`wc -c`), hard ceiling 30 kB. The full style rules — `DECIDED` formatting, compress-don't-append,
+> table vs. bullet byte costs, orientation headers, when to split — live in the **`retrospective`
+> skill** (Steps 5b/5c). Read it before writing to any `.github/knowledge/*.md` file.
 
 > **Continuous improvement:** After significant tasks, use the `retrospective` skill to capture lessons learned and update the knowledge base. See the "Scoped Instructions", "Knowledge Reference", and "Skills Reference" sections below.
 
@@ -61,7 +51,7 @@ Auto-applied from `.github/instructions/` when working on matching files:
 | Instruction file         | Applies to                         | Content                                                                 |
 | ------------------------ | ---------------------------------- | ----------------------------------------------------------------------- |
 | `development-principles` | `libs/**/*.ts`                     | Three pillars + troubleshooting: check pitfalls when stuck              |
-| `delivery-workflow`      | `{libs,apps,demos}/**`             | 5-step delivery checklist, commit hygiene, feature workflow             |
+| `delivery-workflow`      | `**`                               | 7-step delivery checklist, commit hygiene, Git safety, feature workflow |
 | `nx-workflow`            | `{libs,apps,demos,e2e}/**`         | Nx commands, path mappings, Vite build, CI                              |
 | `grid-architecture`      | `libs/grid/src/**`                 | Config precedence, render scheduler, virtualization, plugin DOM access  |
 | `grid-api`               | `libs/grid/**`                     | API stability, features vs plugins, plugin conventions, usage reference |
@@ -70,6 +60,7 @@ Auto-applied from `.github/instructions/` when working on matching files:
 | `css-conventions`        | `**/*.css`                         | Color guidelines, `light-dark()`, hover/sticky rules                    |
 | `testing-patterns`       | `**/*.spec.ts`                     | Test co-location, `waitUpgrade()`, DOM cleanup                          |
 | `e2e-testing`            | `{e2e,apps/docs-e2e}/**`           | Playwright patterns, docs demo e2e, cross-framework e2e, utilities      |
+| `e2e-promo`              | `apps/docs-e2e/tests/promo/**`     | Promo scene authoring rules, overlay API, plugin selector traps         |
 | `docs-site`              | `apps/docs/**`                     | Astro/Starlight docs, key components                                    |
 | `framework-adapters`     | `libs/grid-{angular,react,vue}/**` | Adapter conventions, key files                                          |
 
@@ -108,6 +99,7 @@ Loaded on demand from `.github/skills/` for task-specific workflows:
 | --------------------- | --------------------------------------------------------------------------------------------------- |
 | `new-plugin`          | Adding a grid plugin with hooks, styles, tests, demos                                               |
 | `bundle-check`        | After code changes that may affect bundle size                                                      |
+| `lint-baseline`       | After a refactor — diff lint warnings against the pre-change baseline                               |
 | `test-coverage`       | Writing tests, improving coverage for a file                                                        |
 | `new-adapter-feature` | Ensuring feature parity across framework adapters                                                   |
 | `new-adapter`         | Scaffolding a new framework adapter from scratch                                                    |
@@ -149,7 +141,7 @@ Constraints fall into three categories. Read the category summary first; the bul
 - **Strict TypeScript:** `strict: true`, no implicit any
 - **Code style:** ESLint flat config + Prettier defaults
 - **Web components:** All libraries use standard custom elements, `tbw-` prefix
-- **Terminal command shape (Windows / Git Bash):** Do **not** pipe long-running or Nx commands through `| tail -n …`, `| head -n …`, or redirect with `2>&1` in this workspace. On the user's setup these constructs frequently cause the terminal integration to hang indefinitely (the command never returns control). Run the command plainly and let the tool's automatic output truncation handle large output. If you must filter, prefer `grep`/`awk` without an `2>&1` redirect, or write to a file with `> out.log` and read it with `read_file`.
+- **Terminal command shape (Windows / Git Bash):** Do **not** pipe long-running or Nx commands through `| tail -n …`, `| head -n …`, or redirect with `2>&1` in this workspace. On the user's setup these constructs frequently cause the terminal integration to hang indefinitely (the command never returns control). Run the command plainly and let the tool's automatic output truncation handle large output. If you must filter, prefer `grep`/`awk` without an `2>&1` redirect, or write to a file with `> out.log` and read it with `read_file`. Note that Nx and `tsc` output is **ANSI-colored**, so anchored greps against a captured log silently match nothing — strip codes first (`sed 's/\x1b\[[0-9;]*m//g'`) or run `bunx tsc --pretty false` for plain text.
 
 ## Common Pitfalls
 

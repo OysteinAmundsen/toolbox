@@ -114,7 +114,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
 
   /** Typed internal grid accessor — centralizes the single required cast. */
   get #internalGrid(): GridHost {
-    return this.grid as unknown as GridHost;
+    return this.grid;
   }
 
   /**

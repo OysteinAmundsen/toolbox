@@ -156,7 +156,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
   /** Typed internal grid accessor. */
   get #internalGrid(): GridHost {
-    return this.grid as unknown as GridHost;
+    return this.grid;
   }
 
   /**

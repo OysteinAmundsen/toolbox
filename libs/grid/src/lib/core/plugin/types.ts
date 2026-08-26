@@ -6,7 +6,7 @@
  */
 
 import type { HeaderContentDefinition, ToolPanelDefinition } from '../../plugins/shell/types';
-import type { ColumnConfig, GridConfig, UpdateSource } from '../types';
+import type { ColumnConfig, GridConfig, InternalGrid, UpdateSource } from '../types';
 
 // #region Event Types
 /**
@@ -406,44 +406,21 @@ export interface CellEditor {
  * Member prefixes indicate accessibility:
  * - `_underscore` = protected members accessible to plugins (marked @internal in full interface)
  */
-export interface GridElementRef {
-  // =========================================================================
-  // HTMLElement-like Properties (avoid casting to HTMLElement)
-  // =========================================================================
+/**
+ * `GridConfig` keys that are also real accessors on the custom element.
+ * Every other config key lives only in `gridConfig`/`effectiveConfig` and is
+ * `undefined` when read off the element, so it is omitted below.
+ */
+type ElementBackedConfigKey = 'columns' | 'fitMode' | 'columnState' | 'columnInference';
 
-  /** Grid element width in pixels. */
-  readonly clientWidth: number;
-  /** Grid element height in pixels. */
-  readonly clientHeight: number;
-  /** Add an event listener to the grid element. */
-  addEventListener<K extends keyof HTMLElementEventMap>(
-    type: K,
-    listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => unknown,
-    options?: boolean | AddEventListenerOptions,
-  ): void;
-  addEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: boolean | AddEventListenerOptions,
-  ): void;
-  /** Remove an event listener from the grid element. */
-  removeEventListener<K extends keyof HTMLElementEventMap>(
-    type: K,
-    listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => unknown,
-    options?: boolean | EventListenerOptions,
-  ): void;
-  removeEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: boolean | EventListenerOptions,
-  ): void;
-  /** Set an attribute on the grid element. */
-  setAttribute(name: string, value: string): void;
-  /** Get an attribute from the grid element. */
-  getAttribute(name: string): string | null;
-  /** Remove an attribute from the grid element. */
-  removeAttribute(name: string): void;
+/**
+ * Members `InternalGrid` re-declares in a narrower form than the DOM does.
+ * They are omitted so the real `HTMLElement` signatures win.
+ */
+type DomRedeclaredKey = 'querySelector' | 'querySelectorAll';
 
+export interface GridElementRef<T = any>
+  extends Omit<InternalGrid<T>, Exclude<keyof GridConfig<T>, ElementBackedConfigKey> | DomRedeclaredKey>, HTMLElement {
   /**
    * The grid's host HTMLElement.
    * Use this instead of casting the grid to HTMLElement.
@@ -464,9 +441,9 @@ export interface GridElementRef {
   // =========================================================================
 
   /** Current rows (after plugin processing like grouping, filtering). */
-  rows: unknown[];
+  rows: T[];
   /** Original unfiltered/unprocessed rows. */
-  sourceRows: unknown[];
+  sourceRows: T[];
   /** Column configurations. */
   columns: ColumnConfig[];
   /** Visible columns only (excludes hidden). Use for rendering. @internal */
@@ -544,14 +521,14 @@ export interface GridElementRef {
    * Uses configured `getRowId` function or falls back to `row.id` / `row._id`.
    * @throws Error if no ID can be determined
    */
-  getRowId(row: unknown): string;
+  getRowId(row: T): string;
 
   /**
    * Get a row by its ID.
    * O(1) lookup via internal Map.
    * @returns The row object, or undefined if not found
    */
-  getRow(id: string): unknown | undefined;
+  getRow(id: string): T | undefined;
 
   /**
    * Update a row by ID.

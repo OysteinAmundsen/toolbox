@@ -16,7 +16,7 @@ import {
   type PluginManifest,
   type PluginQuery,
 } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, ColumnViewRenderer, GridHost, SortHandler } from '../../core/types';
+import type { ColumnConfig, ColumnViewRenderer, SortHandler } from '../../core/types';
 import type {
   DataSourceChildrenDetail,
   DataSourceDataDetail,
@@ -521,7 +521,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
    * any rejection so it doesn't surface as an unhandled promise rejection.
    */
   #sortLevel(rows: readonly TreeRow[], field: string, dir: 1 | -1): TreeRow[] {
-    const host = this.grid as unknown as GridHost<TreeRow> | undefined;
+    const host = this.grid;
     const columns = (host?._columns ?? []) as ColumnConfig<TreeRow>[];
     const handler: SortHandler<TreeRow> = host?.effectiveConfig?.sortHandler ?? builtInSort;
     const sortState = { field, direction: dir };
@@ -868,7 +868,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     }
 
     // Sync grid sort indicator
-    const gridEl = this.grid as unknown as GridHost;
+    const gridEl = this.grid;
     if (gridEl._sortState !== undefined) {
       gridEl._sortState = this.sortState ? { ...this.sortState } : null;
     }

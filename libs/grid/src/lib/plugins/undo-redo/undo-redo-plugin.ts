@@ -153,7 +153,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
    * the editor input is focused so the user can continue editing.
    */
   #focusActionCell(action: EditAction): void {
-    const internalGrid: GridHost = this.grid as unknown as GridHost;
+    const internalGrid: GridHost = this.grid;
 
     // Map field name → visible column index
     const colIdx = internalGrid._visibleColumns?.findIndex((c) => c.field === action.field) ?? -1;

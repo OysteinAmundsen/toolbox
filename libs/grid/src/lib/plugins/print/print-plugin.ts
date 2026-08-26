@@ -7,8 +7,7 @@
  */
 
 import { PRINT_FAILED, PRINT_IN_PROGRESS, PRINT_NO_GRID, errorDiagnostic } from '../../core/internal/diagnostics';
-import { BaseGridPlugin } from '../../core/plugin/base-plugin';
-import type { InternalGrid } from '../../core/types';
+import { BaseGridPlugin, type GridElement } from '../../core/plugin/base-plugin';
 import type { ToolbarContentDefinition } from '../shell/types';
 import { printGridIsolated } from './print-isolated';
 import styles from './print.css?inline';
@@ -19,7 +18,7 @@ import type { PrintCompleteDetail, PrintConfig, PrintParams, PrintStartDetail } 
  * Includes registerToolbarContent which is available on the grid class
  * but not exposed in the standard plugin API.
  */
-interface PrintGridRef extends InternalGrid {
+interface PrintGridRef extends GridElement {
   registerToolbarContent?(content: ToolbarContentDefinition): void;
   unregisterToolbarContent?(contentId: string): void;
 }
@@ -116,7 +115,7 @@ export class PrintPlugin extends BaseGridPlugin<PrintConfig> {
    * Get the grid typed as PrintGridRef for internal access.
    */
   get #internalGrid(): PrintGridRef {
-    return this.grid as unknown as PrintGridRef;
+    return this.grid;
   }
 
   /**

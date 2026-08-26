@@ -136,7 +136,7 @@ export interface PublicGrid<T = any> {
    * }
    * ```
    */
-  getPlugin?<P>(PluginClass: new (...args: any[]) => P): P | undefined;
+  getPlugin?<P extends GridPlugin>(PluginClass: new (...args: any[]) => P): P | undefined;
   /**
    * Get a plugin instance by its name.
    *

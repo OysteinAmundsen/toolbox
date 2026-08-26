@@ -70,7 +70,7 @@ import type {
  * Note: effectiveConfig is already available from GridElementRef.
  */
 export interface GridElement extends GridElementRef {
-  getPlugin<T extends BaseGridPlugin>(PluginClass: new (...args: any[]) => T): T | undefined;
+  getPlugin<T extends GridPlugin>(PluginClass: new (...args: any[]) => T): T | undefined;
   getPluginByName<K extends string>(
     name: K,
   ): (K extends keyof PluginNameMap ? PluginNameMap[K] : BaseGridPlugin) | undefined;

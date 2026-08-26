@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { validatePluginDependencies } from '../../core/internal/validate-config';
 import {
+  aggregateValues,
   buildPivot,
   calculateTotals,
   flattenPivotRows,
@@ -161,6 +162,45 @@ describe('pivot-model', () => {
 });
 
 describe('pivot-engine', () => {
+  describe('aggregateValues', () => {
+    it('preserves built-in aggregation semantics while skipping blanks', () => {
+      const rows = [{ value: null }, { value: 4 }, { value: '' }, { value: 2 }, { value: Number.NaN }, { value: 8 }];
+      const valueFields: PivotValueField[] = [
+        { field: 'value', aggFunc: 'sum' },
+        { field: 'value', aggFunc: 'avg' },
+        { field: 'value', aggFunc: 'count' },
+        { field: 'value', aggFunc: 'min' },
+        { field: 'value', aggFunc: 'max' },
+        { field: 'value', aggFunc: 'first' },
+        { field: 'value', aggFunc: 'last' },
+      ];
+
+      expect(aggregateValues(rows, [], ['value'], valueFields)).toEqual({
+        'value|value|sum': 14,
+        'value|value|avg': 14 / 3,
+        'value|value|count': 3,
+        'value|value|min': 2,
+        'value|value|max': 8,
+        'value|value|first': 4,
+        'value|value|last': 8,
+      });
+    });
+
+    it('passes the filtered numeric values to custom aggregators', () => {
+      const aggregator = vi.fn((values: number[]) => values.join('').length);
+
+      expect(
+        aggregateValues(
+          [{ value: 4 }, { value: null }, { value: '2' }, { value: Number.NaN }],
+          [],
+          ['value'],
+          [{ field: 'value', aggFunc: aggregator }],
+        ),
+      ).toEqual({ 'value|value': 2 });
+      expect(aggregator).toHaveBeenCalledWith([4, 2]);
+    });
+  });
+
   describe('getUniqueColumnKeys', () => {
     it('should return ["value"] when no column fields', () => {
       const rows = [{ a: 1 }, { a: 2 }];
@@ -472,6 +512,30 @@ describe('pivot-engine', () => {
       const categoryA = result.rows.find((r) => r.rowKey === 'A');
       expect(categoryA?.values['value|sales']).toBe(250);
       expect(categoryA?.values['value|profit']).toBe(25);
+    });
+
+    it('should keep different aggregations of the same value field distinct', () => {
+      const rows = [
+        { category: 'A', sales: 100 },
+        { category: 'A', sales: 300 },
+      ];
+
+      const result = buildPivot(rows, {
+        rowGroupFields: ['category'],
+        valueFields: [
+          { field: 'sales', aggFunc: 'sum' },
+          { field: 'sales', aggFunc: 'avg' },
+        ],
+      });
+
+      expect(result.rows[0].values).toEqual({
+        'value|sales|sum': 400,
+        'value|sales|avg': 200,
+      });
+      expect(result.totals).toEqual({
+        'value|sales|sum': 400,
+        'value|sales|avg': 200,
+      });
     });
 
     it('should handle missing field values gracefully', () => {
@@ -1288,6 +1352,27 @@ describe('PivotPlugin lifecycle and API', () => {
       expect(typeof valueCol?.format).toBe('function');
       // The format wraps the custom formatter
       expect((valueCol?.format as (v: unknown) => string)(100)).toBe('$100.00');
+    });
+
+    it('keeps a distinct formatter per value field when the field repeats', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [
+          { field: 'sales', aggFunc: 'sum', format: (v: number) => `sum:${v}` },
+          { field: 'sales', aggFunc: 'avg', format: (v: number) => `avg:${v}` },
+        ],
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [{ category: 'A', sales: 100 }];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+      plugin.processRows(mockGrid.rows);
+
+      const columns = plugin.processColumns([]);
+      const sumCol = columns.find((c) => c.field === 'value|sales|sum');
+      const avgCol = columns.find((c) => c.field === 'value|sales|avg');
+      expect((sumCol?.format as (v: unknown) => string)(1)).toBe('sum:1');
+      expect((avgCol?.format as (v: unknown) => string)(1)).toBe('avg:1');
     });
   });
 });

@@ -212,6 +212,54 @@ export function updateRowHeight(cache: RowPosition[], index: number, newHeight: 
   }
 }
 
+export interface RowHeightChange {
+  /** Row index into the position cache. */
+  index: number;
+  /** Measured height in pixels. */
+  height: number;
+}
+
+/**
+ * Update multiple row heights while recalculating the affected cache suffix once.
+ *
+ * @param cache - Position cache to update (mutated in place)
+ * @param changes - Height changes in any order; each row index should occur at most once
+ */
+export function updateRowHeights(cache: RowPosition[], changes: RowHeightChange[]): void {
+  if (changes.length === 0 || cache.length === 0) return;
+
+  // Callers usually collect in DOM order, which is already ascending — skip the copy then.
+  let sortedChanges = changes;
+  for (let i = 1; i < changes.length; i++) {
+    if (changes[i].index < changes[i - 1].index) {
+      sortedChanges = [...changes].sort((a, b) => a.index - b.index);
+      break;
+    }
+  }
+
+  let changeIndex = 0;
+  while (changeIndex < sortedChanges.length && sortedChanges[changeIndex].index < 0) changeIndex++;
+  if (changeIndex >= sortedChanges.length || sortedChanges[changeIndex].index >= cache.length) return;
+
+  let cumulativeDiff = 0;
+  const firstChangedIndex = sortedChanges[changeIndex].index;
+  for (let index = firstChangedIndex; index < cache.length; index++) {
+    const entry = cache[index];
+    entry.offset += cumulativeDiff;
+
+    while (changeIndex < sortedChanges.length && sortedChanges[changeIndex].index === index) {
+      const height = sortedChanges[changeIndex].height;
+      const heightDiff = height - entry.height;
+      if (heightDiff !== 0) {
+        entry.height = height;
+        entry.measured = true;
+        cumulativeDiff += heightDiff;
+      }
+      changeIndex++;
+    }
+  }
+}
+
 /**
  * Get total content height from position cache.
  *
@@ -354,6 +402,7 @@ export function measureRenderedRowHeights<T>(
   const { positionCache, heightCache, rows, start, end, getPluginHeight, getRowId } = context;
 
   let hasChanges = false;
+  const heightChanges: RowHeightChange[] = [];
 
   rowElements.forEach((rowEl) => {
     const rowIndexStr = (rowEl as HTMLElement).dataset.rowIndex;
@@ -371,7 +420,7 @@ export function measureRenderedRowHeights<T>(
       // Plugin provides height - use it for position cache
       const currentEntry = positionCache[rowIndex];
       if (!currentEntry.measured || Math.abs(currentEntry.height - pluginHeight) > 1) {
-        updateRowHeight(positionCache, rowIndex, pluginHeight);
+        heightChanges.push({ index: rowIndex, height: pluginHeight });
         hasChanges = true;
       }
       return; // Don't measure DOM for plugin-managed rows
@@ -385,12 +434,14 @@ export function measureRenderedRowHeights<T>(
 
       // Only update if height differs significantly (> 1px to avoid oscillation)
       if (!currentEntry.measured || Math.abs(currentEntry.height - measuredHeight) > 1) {
-        updateRowHeight(positionCache, rowIndex, measuredHeight);
+        heightChanges.push({ index: rowIndex, height: measuredHeight });
         setCachedHeight(heightCache, row, measuredHeight, getRowId);
         hasChanges = true;
       }
     }
   });
+
+  updateRowHeights(positionCache, heightChanges);
 
   // Recompute stats
   const measuredCount = hasChanges ? countMeasuredRows(positionCache) : 0;

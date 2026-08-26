@@ -1,4 +1,4 @@
-import { createValueKey, getPivotAggregator } from './pivot-model';
+import { createValueKeys } from './pivot-model';
 import type { PivotConfig, PivotResult, PivotRow, PivotSortConfig, PivotSortDir, PivotValueField } from './types';
 
 /** @since 0.1.1 */
@@ -101,6 +101,65 @@ export function groupByFields(rows: PivotDataRow[], fields: string[]): Map<strin
   return groups;
 }
 
+// Built-in branches must stay in sync with `builtInValueAggregators` in core/internal/aggregators.ts;
+// they are inlined here to aggregate without materializing a number[] per group.
+function aggregateValueField(rows: PivotDataRow[], valueField: PivotValueField): number | null {
+  const { aggFunc, field } = valueField;
+  if (typeof aggFunc === 'function') {
+    const numbers: number[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      const raw = rows[i][field];
+      if (raw == null || raw === '') continue;
+      const value = Number(raw);
+      if (!isNaN(value)) numbers.push(value);
+    }
+    return numbers.length > 0 ? aggFunc(numbers) : null;
+  }
+
+  if (aggFunc === 'first') {
+    for (let i = 0; i < rows.length; i++) {
+      const raw = rows[i][field];
+      if (raw == null || raw === '') continue;
+      const value = Number(raw);
+      if (!isNaN(value)) return value;
+    }
+    return null;
+  }
+
+  if (aggFunc === 'last') {
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const raw = rows[i][field];
+      if (raw == null || raw === '') continue;
+      const value = Number(raw);
+      if (!isNaN(value)) return value;
+    }
+    return null;
+  }
+
+  let result = aggFunc === 'min' ? Infinity : aggFunc === 'max' ? -Infinity : 0;
+  let count = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const raw = rows[i][field];
+    if (raw == null || raw === '') continue;
+    const value = Number(raw);
+    if (isNaN(value)) continue;
+
+    count++;
+    if (aggFunc === 'min') {
+      if (value < result) result = value;
+    } else if (aggFunc === 'max') {
+      if (value > result) result = value;
+    } else if (aggFunc !== 'count') {
+      result += value;
+    }
+  }
+
+  if (count === 0) return null;
+  if (aggFunc === 'avg') return result / count;
+  if (aggFunc === 'count') return count;
+  return result;
+}
+
 /**
  * Build hierarchical pivot rows recursively.
  * Each level of rowGroupFields creates a new depth level.
@@ -192,19 +251,10 @@ export function aggregateValues(
 
   if (columnFields.length === 0) {
     // No column grouping — all rows match every key
-    for (const vf of valueFields) {
-      // Skip blanks (null / undefined / '' / NaN) instead of coercing to 0;
-      // a blank cell would otherwise drag `min` down or inflate `avg`'s denominator.
-      const nums: number[] = [];
-      for (let i = 0; i < rows.length; i++) {
-        const raw = rows[i][vf.field];
-        if (raw == null || raw === '') continue;
-        const n = Number(raw);
-        if (!isNaN(n)) nums.push(n);
-      }
-      const aggregator = getPivotAggregator(vf.aggFunc);
-      const valueKey = createValueKey(['value'], vf.field);
-      values[valueKey] = nums.length > 0 ? aggregator(nums) : null;
+    const valueKeys = createValueKeys(['value'], valueFields);
+    for (let valueIndex = 0; valueIndex < valueFields.length; valueIndex++) {
+      const vf = valueFields[valueIndex];
+      values[valueKeys[valueIndex]] = aggregateValueField(rows, vf);
     }
     return values;
   }
@@ -227,25 +277,18 @@ export function aggregateValues(
   }
 
   for (const colKey of columnKeys) {
+    const valueKeys = createValueKeys([colKey], valueFields);
     const matchingRows = rowsByColKey.get(colKey);
     if (!matchingRows || matchingRows.length === 0) {
-      for (const vf of valueFields) {
-        values[createValueKey([colKey], vf.field)] = null;
+      for (const valueKey of valueKeys) {
+        values[valueKey] = null;
       }
       continue;
     }
 
-    for (const vf of valueFields) {
-      // Skip blanks — see rationale above.
-      const nums: number[] = [];
-      for (let i = 0; i < matchingRows.length; i++) {
-        const raw = matchingRows[i][vf.field];
-        if (raw == null || raw === '') continue;
-        const n = Number(raw);
-        if (!isNaN(n)) nums.push(n);
-      }
-      const aggregator = getPivotAggregator(vf.aggFunc);
-      values[createValueKey([colKey], vf.field)] = nums.length > 0 ? aggregator(nums) : null;
+    for (let valueIndex = 0; valueIndex < valueFields.length; valueIndex++) {
+      const vf = valueFields[valueIndex];
+      values[valueKeys[valueIndex]] = aggregateValueField(matchingRows, vf);
     }
   }
 
@@ -272,17 +315,15 @@ export function calculateTotals(
   valueFields: PivotValueField[],
 ): Record<string, number> {
   const totals: Record<string, number> = {};
+  const allValueKeys = columnKeys.flatMap((colKey) => createValueKeys([colKey], valueFields));
 
   // Recursively sum all rows (including nested children)
   function sumRows(rows: PivotRow[]) {
     for (const row of rows) {
       // Only count leaf rows to avoid double-counting
       if (!row.isGroup || !row.children?.length) {
-        for (const colKey of columnKeys) {
-          for (const vf of valueFields) {
-            const valueKey = createValueKey([colKey], vf.field);
-            totals[valueKey] = (totals[valueKey] ?? 0) + (row.values[valueKey] ?? 0);
-          }
+        for (const valueKey of allValueKeys) {
+          totals[valueKey] = (totals[valueKey] ?? 0) + (row.values[valueKey] ?? 0);
         }
       } else if (row.children) {
         sumRows(row.children);
@@ -474,15 +515,13 @@ export function getColumnTotals(
   valueFields: PivotValueField[],
 ): Record<string, number> {
   const totals: Record<string, number> = {};
+  const allValueKeys = columnKeys.flatMap((colKey) => createValueKeys([colKey], valueFields));
 
   function sumLeaves(rows: PivotRow[]) {
     for (const row of rows) {
       if (!row.isGroup || !row.children?.length) {
-        for (const colKey of columnKeys) {
-          for (const vf of valueFields) {
-            const valueKey = createValueKey([colKey], vf.field);
-            totals[valueKey] = (totals[valueKey] ?? 0) + (row.values[valueKey] ?? 0);
-          }
+        for (const valueKey of allValueKeys) {
+          totals[valueKey] = (totals[valueKey] ?? 0) + (row.values[valueKey] ?? 0);
         }
       } else if (row.children) {
         sumLeaves(row.children);

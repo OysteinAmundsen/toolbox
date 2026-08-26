@@ -48,6 +48,7 @@ OWNS: grouped row model, expanded keys, animation state. HOOKS: processRows(10),
 OWNS: pivot result, flattened pivot rows, expanded keys, column totals, sort state. HOOKS: onHeaderClick(-10), processRows(100). QUERIES: `sort:get-sort-config`. EVENTS: `pivot-toggle`, `pivot-config-change`.
 
 - INVARIANT: `PivotRow.isGroup` means "has sub-groups" (`remainingFields.length > 0`), NOT "is a group row". A single `rowGroupFields` yields `isGroup: false`; `getAllGroupKeys()` returns nothing.
+- DECIDED (Aug 2026, duplicate value fields + streaming): pivot value identity is `columnKey|field` for unique fields and adds `|aggFunc` (then config index for repeated identical aggregators) only when the field repeats. WHY: `PivotValueField` permits the same source field with multiple aggregators; field-only keys silently overwrote earlier results. Built-in aggregators stream filtered numeric values without `number[]`; custom functions retain the collected-array contract. Owners: `pivot-model.ts#createValueKeys`, `pivot-engine.ts#aggregateValueField`. Tests/bench: `pivot.spec.ts`, `pivot-engine.bench.ts`.
 
 ### row-identity (ALL row-model plugins)
 

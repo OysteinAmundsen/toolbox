@@ -19,6 +19,7 @@ import {
   shouldBypassVirtualization,
   toVirtualScrollTop,
   updateRowHeight,
+  updateRowHeights,
   type HeightCache,
   type RowPosition,
 } from './virtualization';
@@ -192,6 +193,25 @@ describe('PositionCache', () => {
       updateRowHeight(positions, -1, 50);
 
       expect(positions[0]).toEqual({ offset: 0, height: 28, measured: false });
+    });
+
+    it('batches unsorted updates with the same result as sequential updates', () => {
+      const sequential: RowPosition[] = Array.from({ length: 6 }, (_, index) => ({
+        offset: index * 28,
+        height: 28,
+        measured: false,
+      }));
+      const batched = structuredClone(sequential);
+      const changes = [
+        { index: 3, height: 50 },
+        { index: 0, height: 40 },
+        { index: 5, height: 60 },
+      ];
+
+      for (const change of changes) updateRowHeight(sequential, change.index, change.height);
+      updateRowHeights(batched, changes);
+
+      expect(batched).toEqual(sequential);
     });
   });
 

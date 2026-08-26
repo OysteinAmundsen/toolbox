@@ -2,15 +2,35 @@
 // Mostly pure functions; a small set of helpers (`injectCss`, `injectScript`)
 // mutate `document.head` to load CDN dependencies. No grid-specific code.
 
-import type { BenchmarkColumn, BenchmarkRow, MetricName } from './types.js';
-import { DOM_METRIC } from './types.js';
+import type { BenchmarkColumn, BenchmarkRow, MetricName, ScaleResult } from './types.js';
+import { DOM_METRIC, MACRO_METRICS } from './types.js';
 
 export const SCALE_POINTS = [5_000, 100_000, 500_000, 1_000_000];
 export const COL_COUNT = 10;
 /** Repeat each metric this many times and report trimmed mean. */
 export const ITERATIONS = 5;
 /** Single frame @ 60fps. Below this threshold, results are within measurement noise. */
-export const NOISE_FLOOR_MS = 17;
+export const FRAME_FLOOR_MS = 17;
+export const REPLACEMENT_MARKER = 'REPLACED';
+
+export function assertBenchmark(
+  gridName: string,
+  metric: MetricName,
+  rowCount: number,
+  condition: boolean,
+  detail: string,
+): void {
+  if (!condition) {
+    throw new Error(
+      `[benchmark:${gridName}] ${metric} validation failed at ${formatRowCount(rowCount)} rows: ${detail}`,
+    );
+  }
+}
+
+export function markReplacement(rows: BenchmarkRow[]): BenchmarkRow[] {
+  if (rows[0]) rows[0].col1 = REPLACEMENT_MARKER;
+  return rows;
+}
 
 export function generateColumns(count: number): BenchmarkColumn[] {
   const columns: BenchmarkColumn[] = [{ field: 'id', header: 'ID', width: 80 }];
@@ -32,11 +52,18 @@ export function generateRows(rowCount: number, columnCount: number): BenchmarkRo
   return rows;
 }
 
-/** Fisher-Yates shuffle (in-place). Used to randomize row order before sort
- *  benchmarks so we measure real O(n log n), not O(n) reverse-of-sorted. */
-export function shuffleRows(rows: BenchmarkRow[]): BenchmarkRow[] {
+/** Seeded Fisher-Yates shuffle (in-place), giving every adapter the same sort input. */
+export function shuffleRows(rows: BenchmarkRow[], seed = rows.length): BenchmarkRow[] {
+  let state = seed >>> 0;
+  const random = () => {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
+  };
   for (let i = rows.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [rows[i], rows[j]] = [rows[j], rows[i]];
   }
   return rows;
@@ -68,43 +95,118 @@ export function formatRowCount(n: number): string {
 export const nextFrame = (): Promise<void> =>
   new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
 
+/** Resolve in the first task after the browser has had an opportunity to paint. */
+export const afterNextPaint = (): Promise<void> =>
+  new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+
 export const cooldown = (ms = 500): Promise<void> => new Promise<void>((r) => setTimeout(r, ms));
 
 /**
- * Measure the full visual update cycle: API call + one rAF for deferred
- * rendering to complete. Uses identical methodology for every adapter so
- * the ~16ms frame cost applies equally. Always measures "time until the
- * DOM reflects the change", not "time to schedule work".
+ * Measure API invocation through the first post-paint task. Work scheduled
+ * into the next animation frame, plus that frame's style/layout/paint, is
+ * included for every adapter.
  */
 export const measureVisual = async (fn: () => void | Promise<void>): Promise<number> => {
   await nextFrame(); // settle before measuring
   const start = performance.now();
   await fn();
-  await new Promise<void>((r) => requestAnimationFrame(() => r())); // one frame to complete deferred work
+  await afterNextPaint();
   return performance.now() - start;
 };
+
+export function trimmedMean(samples: readonly number[]): number {
+  if (samples.length === 0) return 0;
+  if (samples.length < 4) return samples.reduce((sum, sample) => sum + sample, 0) / samples.length;
+  const sorted = [...samples].sort((a, b) => a - b).slice(1, -1);
+  return sorted.reduce((sum, sample) => sum + sample, 0) / sorted.length;
+}
 
 /**
  * Run a measurement ITERATIONS times and return the trimmed mean (drop min & max).
  * `measure` performs the operation and returns the time.
  * `reset` is called between iterations to restore state (e.g. clear filter).
  */
-export async function measureAvg(measure: () => Promise<number>, reset?: () => void | Promise<void>): Promise<number> {
+export async function measureAvg(
+  measure: (iteration: number) => Promise<number>,
+  reset?: () => void | Promise<void>,
+): Promise<number> {
   const samples: number[] = [];
   for (let i = 0; i < ITERATIONS; i++) {
-    samples.push(await measure());
+    samples.push(await measure(i));
     if (reset) {
       await reset();
       await nextFrame();
       await cooldown(30);
     }
   }
-  if (samples.length >= 4) {
-    samples.sort((a, b) => a - b);
-    const trimmed = samples.slice(1, -1);
-    return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+  return trimmedMean(samples);
+}
+
+/** Repeat setup while retaining the final live instance for subsequent metrics. */
+export async function measureRetained<T>(
+  measure: (iteration: number) => Promise<{ duration: number; value: T }>,
+  cleanup: (value: T) => void | Promise<void>,
+): Promise<{ duration: number; value: T }> {
+  const samples: number[] = [];
+  let retained: T | undefined;
+  for (let i = 0; i < ITERATIONS; i++) {
+    const result = await measure(i);
+    samples.push(result.duration);
+    if (i < ITERATIONS - 1) {
+      await cleanup(result.value);
+      await nextFrame();
+      await cooldown(30);
+    } else {
+      retained = result.value;
+    }
   }
-  return samples.reduce((a, b) => a + b, 0) / samples.length;
+  if (retained === undefined) throw new Error('Benchmark setup produced no retained instance');
+  return { duration: trimmedMean(samples), value: retained };
+}
+
+export interface MacroSummary {
+  baselineWins: number;
+  competitorWins: number;
+  ties: number;
+  geometricMean: number;
+  pairedPoints: number;
+}
+
+/** Summarize paired macro observations; ratio >1 means the baseline is faster. */
+export function summarizeMacroResults(allResults: readonly ScaleResult[]): MacroSummary {
+  let baselineWins = 0;
+  let competitorWins = 0;
+  let ties = 0;
+  const ratios: number[] = [];
+
+  for (const result of allResults) {
+    for (const metric of MACRO_METRICS) {
+      const baseline = result.tbw.get(metric);
+      const competitor = result.competitor.get(metric);
+      if (baseline === undefined || competitor === undefined || baseline <= 0 || competitor <= 0) continue;
+
+      const isTie = baseline < FRAME_FLOOR_MS && competitor < FRAME_FLOOR_MS;
+      if (isTie) ties++;
+      else if (baseline < competitor) baselineWins++;
+      else if (competitor < baseline) competitorWins++;
+      else ties++;
+      if (!isTie) ratios.push(competitor / baseline);
+    }
+  }
+
+  return {
+    baselineWins,
+    competitorWins,
+    ties,
+    geometricMean:
+      ratios.length > 0
+        ? Math.pow(
+            ratios.reduce((product, ratio) => product * ratio, 1),
+            1 / ratios.length,
+          )
+        : 1,
+    pairedPoints: baselineWins + competitorWins + ties,
+  };
 }
 
 /**

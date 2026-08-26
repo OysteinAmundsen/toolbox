@@ -110,13 +110,41 @@ Don't take our word for it — run the live benchmark below. Pick a competitor f
 <details>
 <summary>How this benchmark works</summary>
 
-1. The selected competitor (and its CSS theme) is loaded once from a CDN — always the latest published version
-2. At each scale point, Toolbox Grid benchmarks run first, then the grid is destroyed
-3. A cooldown period allows garbage collection
-4. The competitor runs the same tests on the same data
-5. Results build up progressively, showing the scaling curve. Switching the dropdown shows cached results instantly; you only re-run when you click the button again.
+1. The selected competitor and its CSS theme are loaded once from a CDN. The exact version is shown; SlickGrid is pinned to its last global-script release.
+2. Cold mount starts from an empty host for both grids and is measured through the browser's next paint opportunity.
+3. Each timed metric runs five times and reports a trimmed mean. Sort inputs use identical seeded permutations.
+4. Execution order alternates at each scale point to reduce systematic warmup, thermal, and garbage-collection bias. Cooldowns reduce immediate contention but do not guarantee garbage collection.
+5. Every sample has an untimed semantic postcondition. The run aborts instead of publishing a number when mounting, sorting, filtering, replacement, update, resize, navigation, or teardown does not produce the required outcome.
+6. Results build up progressively, showing the scaling curve. Switching the dropdown shows cached results instantly; you only re-run when you click the button again.
 
-Expand **Show Grid Configurations** in the benchmark to verify both grids use equivalent settings. Each competitor has its own adapter under `apps/docs/src/components/demos/competitors/` so the benchmark sequence is identical and only the per-grid API calls differ.
+Expand **Show Grid Configurations** in the benchmark to inspect the settings. Each competitor has its own adapter under `apps/docs/src/components/demos/competitors/`; adapters use the closest public API for the same user-visible outcome. Browser results remain indicative rather than controlled laboratory measurements.
+
+#### Portable benchmark contract
+
+The headline compares only operations with a meaningful public-API equivalent across all included grids:
+
+| Operation | Timed interval | Required postcondition |
+| --- | --- | --- |
+| Cold mount | Empty host to painted viewport | Full source count is modeled and at least one row is painted |
+| Sort | Request descending numeric sort to painted viewport | First and last model rows have the expected IDs |
+| Filter | Request `id > rowCount / 2` to painted viewport | Active count is exactly half and surviving IDs satisfy the predicate |
+| Replace | Assign marked replacement data to painted viewport | Full count is modeled and the marker is visible |
+| Update | Keyed row patch to painted viewport | The addressed model row contains the new value |
+| Resize | Set one column width to painted viewport | The public column state reports the requested width |
+| Navigate | Request the final row to painted viewport | The scrolling viewport reaches its end |
+| Destroy | Public teardown plus host removal to painted viewport | The benchmark host is disconnected |
+
+DOM-node count is a separate viewport-overhead statistic, not a memory measurement. Frame-bound update, resize, navigation, and destroy timings are reported separately from the macro headline.
+
+Features such as grouping, pivoting, editing, tree data, export, and multi-column sorting are not universal enough for the core score. They can become optional capability suites when adapters declare support and share the same fixtures, outcome contract, and disclosure. Unsupported capabilities must be shown as unsupported, never as zero-time or skipped wins.
+
+#### Relationship to the Vitest benchmarks
+
+The co-located `*.bench.ts` suites are internal regression tests for Toolbox algorithms such as comparators, filter predicates, row rendering, virtualization, grouping, and pivoting. They intentionally exclude browser layout and paint and often call private or library-specific functions. Their timings are therefore not comparable with AG Grid, Tabulator, or SlickGrid.
+
+The browser comparison reuses the same principles—deterministic fixtures, real work on every iteration, isolated setup, and explicit postconditions—but measures only public APIs and user-visible completion. Fixture generators and semantic scenarios can be shared between the two harnesses; timing results cannot be mixed.
+
+This separation also defines a future bring-your-own-grid adapter contract: load a versioned implementation, map each supported scenario to public APIs, expose model state for validation, clean up completely, and reject any sample whose postcondition fails.
 
 A few caveats per competitor:
 

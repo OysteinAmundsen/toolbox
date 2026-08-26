@@ -2,6 +2,8 @@
 
 import {
   COL_COUNT,
+  REPLACEMENT_MARKER,
+  assertBenchmark,
   cooldown,
   countDomNodes,
   fetchPackageVersion,
@@ -9,12 +11,14 @@ import {
   generateRows,
   injectCss,
   injectScript,
+  markReplacement,
   measureAvg,
+  measureRetained,
   measureVisual,
   nextFrame,
   shuffleRows,
 } from './shared.js';
-import type { CompetitorAdapter, MetricName } from './types.js';
+import type { BenchmarkRow, CompetitorAdapter, MetricName } from './types.js';
 
 interface AgGridApi {
   setGridOption(option: string, value: unknown): void;
@@ -22,6 +26,11 @@ interface AgGridApi {
   setFilterModel(model: unknown): void;
   applyTransaction(tx: unknown): void;
   ensureIndexVisible(index: number, position?: string): void;
+  getDisplayedRowCount(): number;
+  getDisplayedRowAtIndex(index: number): { data?: BenchmarkRow } | undefined;
+  getLastDisplayedRowIndex(): number;
+  getRowNode(id: string): { data?: BenchmarkRow } | undefined;
+  getColumnState(): Array<{ colId: string; width?: number }>;
   destroy(): void;
 }
 interface AgGridGlobal {
@@ -42,6 +51,7 @@ const AG_CONFIG_CODE = [
   '  ],',
   '  rowData: data, // 5K → 1M rows',
   '  getRowId: (params) => String(params.data.id),',
+  "  theme: 'legacy', // adapter loads the legacy Quartz CSS files",
   '  suppressColumnVirtualisation: false,',
   '  animateRows: false,',
   '});',
@@ -78,10 +88,6 @@ export const agGridAdapter: CompetitorAdapter = {
     // DOM node count after first paint. See toolbox.ts / `countDomNodes`
     // for rationale.
 
-    gridArea.innerHTML = '<div id="compare-ag-grid" class="ag-theme-quartz" style="width:100%;height:100%;"></div>';
-    const container = document.getElementById('compare-ag-grid')!;
-    await cooldown(100);
-
     const agColumnDefs = columns.map((c) => ({
       field: c.field,
       headerName: c.header,
@@ -90,21 +96,43 @@ export const agGridAdapter: CompetitorAdapter = {
       filter: c.field === 'id' ? 'agNumberColumnFilter' : true,
     }));
 
-    let gridApi: AgGridApi | undefined;
-    const renderTime = await measureVisual(() => {
-      gridApi = agGrid.createGrid(container, {
-        columnDefs: agColumnDefs,
-        rowData: rows,
-        suppressColumnVirtualisation: false,
-        animateRows: false,
-        getRowId: (params: { data: { id: number } }) => String(params.data.id),
-      });
-    });
-    results.set('Time to first paint', renderTime);
+    const initialRender = await measureRetained(
+      async () => {
+        let api: AgGridApi | undefined;
+        let container: HTMLElement | undefined;
+        const duration = await measureVisual(() => {
+          gridArea.innerHTML =
+            '<div id="compare-ag-grid" class="ag-theme-quartz" style="width:100%;height:100%;"></div>';
+          container = document.getElementById('compare-ag-grid')!;
+          api = agGrid.createGrid(container, {
+            columnDefs: agColumnDefs,
+            rowData: rows,
+            theme: 'legacy',
+            suppressColumnVirtualisation: false,
+            animateRows: false,
+            getRowId: (params: { data: { id: number } }) => String(params.data.id),
+          });
+        });
+        if (!api || !container) throw new Error('AG Grid createGrid did not return an api');
+        assertBenchmark(
+          'AG Grid Community',
+          'Cold mount to painted viewport',
+          rowCount,
+          api.getDisplayedRowCount() === rowCount && container.querySelector('.ag-row') !== null,
+          `expected ${rowCount} modeled rows and at least one painted row, got ${api.getDisplayedRowCount()} rows`,
+        );
+        return { duration, value: { api, container } };
+      },
+      ({ api, container }) => {
+        api.destroy();
+        container.remove();
+        gridArea.innerHTML = '';
+      },
+    );
+    results.set('Cold mount to painted viewport', initialRender.duration);
     await cooldown(200);
     results.set('DOM nodes', countDomNodes(gridArea));
-    if (!gridApi) throw new Error('AG Grid createGrid did not return an api');
-    const api = gridApi;
+    const { api, container } = initialRender.value;
 
     // Warmup scroll — timed per-frame metric removed (vsync floor).
     const agScrollViewport = container.querySelector('.ag-body-viewport');
@@ -125,14 +153,23 @@ export const agGridAdapter: CompetitorAdapter = {
 
     // Sort — shuffle first
     const sortTime = await measureAvg(
-      async () => {
-        const shuffled = shuffleRows([...rows]);
+      async (iteration) => {
+        const shuffled = shuffleRows([...rows], rowCount * 31 + iteration);
         api.setGridOption('rowData', shuffled);
         await nextFrame();
         await nextFrame();
-        return measureVisual(() => {
+        const duration = await measureVisual(() => {
           api.applyColumnState({ state: [{ colId: 'id', sort: 'desc' }] });
         });
+        assertBenchmark(
+          'AG Grid Community',
+          'Sort',
+          rowCount,
+          api.getDisplayedRowAtIndex(0)?.data?.id === rowCount &&
+            api.getDisplayedRowAtIndex(rowCount - 1)?.data?.id === 1,
+          `expected descending ids ${rowCount}..1, got ${api.getDisplayedRowAtIndex(0)?.data?.id}..${api.getDisplayedRowAtIndex(rowCount - 1)?.data?.id}`,
+        );
+        return duration;
       },
       () => {
         api.applyColumnState({ defaultState: { sort: null } });
@@ -145,12 +182,24 @@ export const agGridAdapter: CompetitorAdapter = {
     {
       const threshold = Math.floor(rowCount / 2);
       const filterTime = await measureAvg(
-        () =>
-          measureVisual(() => {
+        async () => {
+          const duration = await measureVisual(() => {
             api.setFilterModel({
               id: { filterType: 'number', type: 'greaterThan', filter: threshold },
             });
-          }),
+          });
+          const firstFilteredId = api.getDisplayedRowAtIndex(0)?.data?.id;
+          assertBenchmark(
+            'AG Grid Community',
+            'Filter',
+            rowCount,
+            api.getDisplayedRowCount() === rowCount - threshold &&
+              firstFilteredId !== undefined &&
+              firstFilteredId > threshold,
+            `expected ${rowCount - threshold} rows with id > ${threshold}, got ${api.getDisplayedRowCount()}`,
+          );
+          return duration;
+        },
         async () => {
           api.setFilterModel(null);
           await nextFrame();
@@ -163,24 +212,43 @@ export const agGridAdapter: CompetitorAdapter = {
     }
 
     // Data replacement
-    const replaceTime = await measureAvg(() => {
-      const fresh = generateRows(rowCount, COL_COUNT);
-      return measureVisual(() => {
+    const replaceTime = await measureAvg(async () => {
+      const fresh = markReplacement(generateRows(rowCount, COL_COUNT));
+      const duration = await measureVisual(() => {
         api.setGridOption('rowData', fresh);
       });
+      assertBenchmark(
+        'AG Grid Community',
+        'Replace data to painted viewport',
+        rowCount,
+        api.getDisplayedRowCount() === rowCount &&
+          api.getDisplayedRowAtIndex(0)?.data?.col1 === REPLACEMENT_MARKER &&
+          container.textContent?.includes(REPLACEMENT_MARKER) === true,
+        `expected ${rowCount} replacement rows and visible marker ${REPLACEMENT_MARKER}`,
+      );
+      return duration;
     });
-    results.set('Data replacement', replaceTime);
+    results.set('Replace data to painted viewport', replaceTime);
     await cooldown(50);
 
     // Update single row
     {
       const midId = Math.floor(rowCount / 2) + 1;
       let updateCounter = 0;
-      const updateTime = await measureAvg(() =>
-        measureVisual(() => {
-          api.applyTransaction({ update: [{ id: midId, col1: `UPDATED${++updateCounter}` }] });
-        }),
-      );
+      const updateTime = await measureAvg(async () => {
+        const expected = `UPDATED${++updateCounter}`;
+        const duration = await measureVisual(() => {
+          api.applyTransaction({ update: [{ ...rows[midId - 1], col1: expected }] });
+        });
+        assertBenchmark(
+          'AG Grid Community',
+          'Update single row',
+          rowCount,
+          api.getRowNode(String(midId))?.data?.col1 === expected,
+          `expected row ${midId} col1 to equal ${expected}`,
+        );
+        return duration;
+      });
       results.set('Update single row', updateTime);
       await cooldown(50);
     }
@@ -188,12 +256,22 @@ export const agGridAdapter: CompetitorAdapter = {
     // Column resize
     {
       let wide = true;
-      const resizeTime = await measureAvg(() =>
-        measureVisual(() => {
-          api.applyColumnState({ state: [{ colId: 'id', width: wide ? 200 : 80 }] });
+      const resizeTime = await measureAvg(async () => {
+        const expectedWidth = wide ? 200 : 80;
+        const duration = await measureVisual(() => {
+          api.applyColumnState({ state: [{ colId: 'id', width: expectedWidth }] });
           wide = !wide;
-        }),
-      );
+        });
+        const actualWidth = api.getColumnState().find((column) => column.colId === 'id')?.width;
+        assertBenchmark(
+          'AG Grid Community',
+          'Column resize',
+          rowCount,
+          actualWidth === expectedWidth,
+          `expected id column width ${expectedWidth}, got ${actualWidth}`,
+        );
+        return duration;
+      });
       results.set('Column resize', resizeTime);
       await cooldown(50);
     }
@@ -201,10 +279,19 @@ export const agGridAdapter: CompetitorAdapter = {
     // Scroll to end
     {
       const scrollEndTime = await measureAvg(
-        () =>
-          measureVisual(() => {
+        async () => {
+          const duration = await measureVisual(() => {
             api.ensureIndexVisible(rowCount - 1, 'bottom');
-          }),
+          });
+          assertBenchmark(
+            'AG Grid Community',
+            'Scroll to end',
+            rowCount,
+            api.getLastDisplayedRowIndex() === rowCount - 1,
+            `expected last displayed row index ${rowCount - 1}, got ${api.getLastDisplayedRowIndex()}`,
+          );
+          return duration;
+        },
         () => {
           api.ensureIndexVisible(0, 'top');
         },
@@ -213,32 +300,43 @@ export const agGridAdapter: CompetitorAdapter = {
       await cooldown(50);
     }
 
-    // Destroy — fresh instance
+    // Destroy — a fresh mounted instance per iteration
     {
-      gridArea.innerHTML +=
-        '<div id="compare-ag-destroy" class="ag-theme-quartz" style="width:100%;height:100%;position:absolute;top:0;left:0;right:0;bottom:0;"></div>';
-      const destroyContainer = document.getElementById('compare-ag-destroy')!;
-      const freshRows = generateRows(rowCount, COL_COUNT);
-      const destroyApi = agGrid.createGrid(destroyContainer, {
-        columnDefs: agColumnDefs,
-        rowData: freshRows,
-        suppressColumnVirtualisation: false,
-        animateRows: false,
-        getRowId: (params: { data: { id: number } }) => String(params.data.id),
-      });
-      await nextFrame();
-      await nextFrame();
-      await cooldown(100);
+      const destroyTime = await measureAvg(async () => {
+        gridArea.innerHTML =
+          '<div id="compare-ag-destroy" class="ag-theme-quartz" style="width:100%;height:100%;"></div>';
+        const destroyContainer = document.getElementById('compare-ag-destroy')!;
+        const destroyApi = agGrid.createGrid(destroyContainer, {
+          columnDefs: agColumnDefs,
+          rowData: rows,
+          theme: 'legacy',
+          suppressColumnVirtualisation: false,
+          animateRows: false,
+          getRowId: (params: { data: { id: number } }) => String(params.data.id),
+        });
+        await nextFrame();
+        await cooldown(30);
 
-      const destroyTime = await measureVisual(() => {
-        destroyApi.destroy();
+        const duration = await measureVisual(() => {
+          destroyApi.destroy();
+          destroyContainer.remove();
+        });
+        assertBenchmark(
+          'AG Grid Community',
+          'Grid destroy',
+          rowCount,
+          !destroyContainer.isConnected,
+          'expected benchmark grid host to be disconnected',
+        );
+        return duration;
       });
       results.set('Grid destroy', destroyTime);
-      destroyContainer.remove();
+      gridArea.innerHTML = '';
       await cooldown(50);
     }
 
     api.destroy();
+    container.remove();
     gridArea.innerHTML = '';
     await cooldown(300);
 

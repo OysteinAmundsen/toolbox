@@ -8,11 +8,15 @@ import '@toolbox-web/grid/features/filtering';
 
 import {
   COL_COUNT,
+  REPLACEMENT_MARKER,
+  assertBenchmark,
   cooldown,
   countDomNodes,
   generateColumns,
   generateRows,
+  markReplacement,
   measureAvg,
+  measureRetained,
   measureVisual,
   nextFrame,
   shuffleRows,
@@ -54,10 +58,6 @@ export const toolboxAdapter: CompetitorAdapter = {
     // DOM node count after first paint settles. Deterministic, exact —
     // see `countDomNodes` doc for rationale.
 
-    gridArea.innerHTML = '<tbw-grid id="compare-tbw-grid" style="width:100%;height:100%;"></tbw-grid>';
-    const grid = queryGrid('#compare-tbw-grid')!;
-    await cooldown(100);
-
     const tbwColumns: ColumnConfig[] = columns.map((c) => ({
       field: c.field,
       header: c.header,
@@ -67,16 +67,38 @@ export const toolboxAdapter: CompetitorAdapter = {
     }));
 
     // Initial render
-    const renderTime = await measureVisual(() => {
-      grid.gridConfig = {
-        columns: tbwColumns,
-        fitMode: 'fixed',
-        getRowId: (row) => String((row as { id: number }).id),
-        features: { filtering: true },
-      };
-      grid.rows = rows;
-    });
-    results.set('Time to first paint', renderTime);
+    const initialRender = await measureRetained(
+      async () => {
+        let createdGrid: ReturnType<typeof queryGrid>;
+        const duration = await measureVisual(() => {
+          gridArea.innerHTML = '<tbw-grid id="compare-tbw-grid" style="width:100%;height:100%;"></tbw-grid>';
+          createdGrid = queryGrid('#compare-tbw-grid');
+          if (!createdGrid) throw new Error('Toolbox Grid did not initialize');
+          createdGrid.gridConfig = {
+            columns: tbwColumns,
+            fitMode: 'fixed',
+            getRowId: (row) => String((row as { id: number }).id),
+            features: { filtering: true },
+          };
+          createdGrid.rows = rows;
+        });
+        if (!createdGrid!) throw new Error('Toolbox Grid did not initialize');
+        assertBenchmark(
+          'Toolbox Grid',
+          'Cold mount to painted viewport',
+          rowCount,
+          createdGrid.rows.length === rowCount && createdGrid.querySelector('.data-grid-row .cell') !== null,
+          `expected ${rowCount} modeled rows and at least one painted cell, got ${createdGrid.rows.length} rows`,
+        );
+        return { duration, value: createdGrid };
+      },
+      (instance) => {
+        instance.remove();
+        gridArea.innerHTML = '';
+      },
+    );
+    const grid = initialRender.value;
+    results.set('Cold mount to painted viewport', initialRender.duration);
     await cooldown(200);
     results.set('DOM nodes', countDomNodes(gridArea));
 
@@ -101,13 +123,21 @@ export const toolboxAdapter: CompetitorAdapter = {
 
     // Sort — shuffle data first so we measure real O(n log n)
     const sortTime = await measureAvg(
-      async () => {
-        grid.rows = shuffleRows([...rows]);
+      async (iteration) => {
+        grid.rows = shuffleRows([...rows], rowCount * 31 + iteration);
         await nextFrame();
         await nextFrame();
-        return measureVisual(() => {
+        const duration = await measureVisual(() => {
           grid.sort?.('id', 'desc');
         });
+        assertBenchmark(
+          'Toolbox Grid',
+          'Sort',
+          rowCount,
+          grid.rows[0]?.id === rowCount && grid.rows[rowCount - 1]?.id === 1,
+          `expected descending ids ${rowCount}..1, got ${grid.rows[0]?.id}..${grid.rows[rowCount - 1]?.id}`,
+        );
+        return duration;
       },
       () => {
         grid.sort?.(null);
@@ -121,10 +151,19 @@ export const toolboxAdapter: CompetitorAdapter = {
     if (filterPlugin) {
       const threshold = Math.floor(rowCount / 2);
       const filterTime = await measureAvg(
-        () =>
-          measureVisual(() => {
+        async () => {
+          const duration = await measureVisual(() => {
             filterPlugin.setFilterModel([{ field: 'id', type: 'number', operator: 'greaterThan', value: threshold }]);
-          }),
+          });
+          assertBenchmark(
+            'Toolbox Grid',
+            'Filter',
+            rowCount,
+            grid.rows.length === rowCount - threshold && grid.rows.every((row) => row.id > threshold),
+            `expected ${rowCount - threshold} rows with id > ${threshold}, got ${grid.rows.length}`,
+          );
+          return duration;
+        },
         async () => {
           filterPlugin.clearAllFilters();
           await grid.forceLayout?.();
@@ -137,25 +176,45 @@ export const toolboxAdapter: CompetitorAdapter = {
     }
 
     // Data replacement
-    const replaceTime = await measureAvg(() => {
-      const fresh = generateRows(rowCount, COL_COUNT);
-      return measureVisual(() => {
+    const replaceTime = await measureAvg(async () => {
+      const fresh = markReplacement(generateRows(rowCount, COL_COUNT));
+      const duration = await measureVisual(() => {
         grid.rows = fresh;
       });
+      assertBenchmark(
+        'Toolbox Grid',
+        'Replace data to painted viewport',
+        rowCount,
+        grid.rows.length === rowCount &&
+          grid.rows[0]?.col1 === REPLACEMENT_MARKER &&
+          grid.textContent?.includes(REPLACEMENT_MARKER) === true,
+        `expected ${rowCount} replacement rows and visible marker ${REPLACEMENT_MARKER}`,
+      );
+      return duration;
     });
-    results.set('Data replacement', replaceTime);
+    results.set('Replace data to painted viewport', replaceTime);
     await cooldown(50);
 
     // Update single row
     if (grid.updateRow) {
       let updateCounter = 0;
-      const updateTime = await measureAvg(() =>
-        measureVisual(() => {
+      const midId = Math.floor(rowCount / 2) + 1;
+      const updateTime = await measureAvg(async () => {
+        const expected = `UPDATED${++updateCounter}`;
+        const duration = await measureVisual(() => {
           grid.updateRow!(String(Math.floor(rowCount / 2) + 1), {
-            col1: `UPDATED${++updateCounter}`,
+            col1: expected,
           });
-        }),
-      );
+        });
+        assertBenchmark(
+          'Toolbox Grid',
+          'Update single row',
+          rowCount,
+          grid.getRow?.(String(midId))?.col1 === expected,
+          `expected row ${midId} col1 to equal ${expected}`,
+        );
+        return duration;
+      });
       results.set('Update single row', updateTime);
       await cooldown(50);
     }
@@ -163,16 +222,25 @@ export const toolboxAdapter: CompetitorAdapter = {
     // Column resize
     {
       let wide = true;
-      const resizeTime = await measureAvg(() =>
-        measureVisual(() => {
+      const resizeTime = await measureAvg(async () => {
+        const expectedWidth = wide ? 200 : 80;
+        const duration = await measureVisual(() => {
           const state = grid.getColumnState?.();
           if (state?.columns?.[0]) {
-            state.columns[0].width = wide ? 200 : 80;
+            state.columns[0].width = expectedWidth;
             wide = !wide;
             grid.applyColumnState(state);
           }
-        }),
-      );
+        });
+        assertBenchmark(
+          'Toolbox Grid',
+          'Column resize',
+          rowCount,
+          grid.getColumnState?.().columns[0]?.width === expectedWidth,
+          `expected first column width ${expectedWidth}, got ${grid.getColumnState?.().columns[0]?.width}`,
+        );
+        return duration;
+      });
       results.set('Column resize', resizeTime);
       await cooldown(50);
     }
@@ -180,10 +248,20 @@ export const toolboxAdapter: CompetitorAdapter = {
     // Scroll to end
     {
       const scrollEndTime = await measureAvg(
-        () =>
-          measureVisual(() => {
+        async () => {
+          const duration = await measureVisual(() => {
             grid.scrollToRow?.(rowCount - 1, { align: 'end' });
-          }),
+          });
+          const targetCell = grid.querySelector(`.cell[data-row="${rowCount - 1}"]`);
+          assertBenchmark(
+            'Toolbox Grid',
+            'Scroll to end',
+            rowCount,
+            targetCell !== null,
+            `expected row ${rowCount - 1} to be rendered`,
+          );
+          return duration;
+        },
         () => {
           grid.scrollToRow?.(0, { align: 'start' });
         },
@@ -192,22 +270,32 @@ export const toolboxAdapter: CompetitorAdapter = {
       await cooldown(50);
     }
 
-    // Grid destroy — fresh instance just for this measurement
+    // Grid destroy — a fresh mounted instance per iteration
     {
-      gridArea.innerHTML = '<tbw-grid id="compare-tbw-destroy" style="width:100%;height:100%;"></tbw-grid>';
-      const destroyGrid = queryGrid('#compare-tbw-destroy')!;
-      destroyGrid.gridConfig = {
-        columns: tbwColumns,
-        fitMode: 'fixed',
-        getRowId: (row) => String((row as { id: number }).id),
-      };
-      destroyGrid.rows = rows;
-      await nextFrame();
-      await nextFrame();
-      await cooldown(100);
+      const destroyTime = await measureAvg(async () => {
+        gridArea.innerHTML = '<tbw-grid id="compare-tbw-destroy" style="width:100%;height:100%;"></tbw-grid>';
+        const destroyGrid = queryGrid('#compare-tbw-destroy');
+        if (!destroyGrid) throw new Error('Toolbox Grid destroy fixture did not initialize');
+        destroyGrid.gridConfig = {
+          columns: tbwColumns,
+          fitMode: 'fixed',
+          getRowId: (row) => String((row as { id: number }).id),
+        };
+        destroyGrid.rows = rows;
+        await nextFrame();
+        await cooldown(30);
 
-      const destroyTime = await measureVisual(() => {
-        destroyGrid.remove();
+        const duration = await measureVisual(() => {
+          destroyGrid.remove();
+        });
+        assertBenchmark(
+          'Toolbox Grid',
+          'Grid destroy',
+          rowCount,
+          !destroyGrid.isConnected,
+          'expected benchmark grid host to be disconnected',
+        );
+        return duration;
       });
       results.set('Grid destroy', destroyTime);
       gridArea.innerHTML = '';
@@ -215,8 +303,7 @@ export const toolboxAdapter: CompetitorAdapter = {
     }
 
     // Cleanup
-    grid.rows = [];
-    grid.gridConfig = { columns: [] };
+    grid.remove();
     gridArea.innerHTML = '';
     await cooldown(300);
 

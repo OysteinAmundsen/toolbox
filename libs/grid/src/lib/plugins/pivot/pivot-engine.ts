@@ -160,6 +160,89 @@ function aggregateValueField(rows: PivotDataRow[], valueField: PivotValueField):
   return result;
 }
 
+function aggregateSharedBuiltIns(
+  rows: PivotDataRow[],
+  field: string,
+  valueFields: PivotValueField[],
+  valueKeys: string[],
+  values: Record<string, number | null>,
+): void {
+  let sum = 0;
+  let count = 0;
+  let min = Infinity;
+  let max = -Infinity;
+  let first: number | null = null;
+  let last: number | null = null;
+
+  for (let i = 0; i < rows.length; i++) {
+    const raw = rows[i][field];
+    if (raw == null || raw === '') continue;
+    const value = Number(raw);
+    if (isNaN(value)) continue;
+
+    if (count === 0) first = value;
+    last = value;
+    sum += value;
+    count++;
+    if (value < min) min = value;
+    if (value > max) max = value;
+  }
+
+  for (let i = 0; i < valueFields.length; i++) {
+    const valueField = valueFields[i];
+    if (valueField.field !== field || typeof valueField.aggFunc === 'function') continue;
+
+    let result: number | null;
+    if (count === 0) {
+      result = null;
+    } else if (valueField.aggFunc === 'avg') {
+      result = sum / count;
+    } else if (valueField.aggFunc === 'count') {
+      result = count;
+    } else if (valueField.aggFunc === 'min') {
+      result = min;
+    } else if (valueField.aggFunc === 'max') {
+      result = max;
+    } else if (valueField.aggFunc === 'first') {
+      result = first;
+    } else if (valueField.aggFunc === 'last') {
+      result = last;
+    } else {
+      result = sum;
+    }
+    values[valueKeys[i]] = result;
+  }
+}
+
+function aggregateValueFields(
+  rows: PivotDataRow[],
+  valueFields: PivotValueField[],
+  valueKeys: string[],
+  values: Record<string, number | null>,
+): void {
+  for (let i = 0; i < valueFields.length; i++) {
+    const valueField = valueFields[i];
+    let fieldHandled = false;
+    let builtInCount = 0;
+    for (let j = 0; j < valueFields.length; j++) {
+      if (valueFields[j].field !== valueField.field) continue;
+      if (j < i) fieldHandled = true;
+      if (typeof valueFields[j].aggFunc !== 'function') builtInCount++;
+    }
+    if (fieldHandled) continue;
+
+    if (builtInCount > 1) {
+      aggregateSharedBuiltIns(rows, valueField.field, valueFields, valueKeys, values);
+    }
+    for (let j = i; j < valueFields.length; j++) {
+      const candidate = valueFields[j];
+      if (candidate.field !== valueField.field) continue;
+      if (builtInCount > 1 && typeof candidate.aggFunc !== 'function') continue;
+      values[valueKeys[j]] = aggregateValueField(rows, candidate);
+    }
+  }
+}
+
 /**
  * Build hierarchical pivot rows recursively.
  * Each level of rowGroupFields creates a new depth level.
@@ -252,10 +335,7 @@ export function aggregateValues(
   if (columnFields.length === 0) {
     // No column grouping — all rows match every key
     const valueKeys = createValueKeys(['value'], valueFields);
-    for (let valueIndex = 0; valueIndex < valueFields.length; valueIndex++) {
-      const vf = valueFields[valueIndex];
-      values[valueKeys[valueIndex]] = aggregateValueField(rows, vf);
-    }
+    aggregateValueFields(rows, valueFields, valueKeys, values);
     return values;
   }
 
@@ -286,10 +366,7 @@ export function aggregateValues(
       continue;
     }
 
-    for (let valueIndex = 0; valueIndex < valueFields.length; valueIndex++) {
-      const vf = valueFields[valueIndex];
-      values[valueKeys[valueIndex]] = aggregateValueField(matchingRows, vf);
-    }
+    aggregateValueFields(matchingRows, valueFields, valueKeys, values);
   }
 
   return values;

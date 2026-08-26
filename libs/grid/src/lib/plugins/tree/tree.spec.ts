@@ -181,6 +181,26 @@ describe('tree-data', () => {
       expect(result[2]).toMatchObject({ posInSet: 2, setSize: 3, depth: 1 });
       expect(result[3]).toMatchObject({ posInSet: 3, setSize: 3, depth: 1 });
     });
+
+    it('should flatten a node wider than the spread argument limit', () => {
+      const childCount = 150_000;
+      const rows = [
+        {
+          id: 'root',
+          children: Array.from({ length: childCount }, (_, id) => ({ id: `child-${id}` })),
+        },
+      ];
+
+      const result = flattenTree(rows, defaultConfig, new Set(['root']));
+
+      expect(result).toHaveLength(childCount + 1);
+      expect(result[1]).toMatchObject({ key: 'child-0', posInSet: 1, setSize: childCount });
+      expect(result[childCount]).toMatchObject({
+        key: `child-${childCount - 1}`,
+        posInSet: childCount,
+        setSize: childCount,
+      });
+    });
   });
 
   describe('toggleExpand', () => {

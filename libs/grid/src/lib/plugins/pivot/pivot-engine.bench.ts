@@ -1,5 +1,12 @@
 import { bench, describe } from 'vitest';
-import { buildPivot, flattenPivotRows, getAllGroupKeys, sortPivotMulti } from './pivot-engine';
+import {
+  buildPivot,
+  calculateTotals,
+  flattenPivotRows,
+  getAllGroupKeys,
+  getColumnTotals,
+  sortPivotMulti,
+} from './pivot-engine';
 import type { PivotConfig, PivotValueField } from './types';
 
 // #region Data Generators
@@ -140,6 +147,33 @@ describe('buildPivot — high cardinality with blanks', () => {
 
   bench('100K rows — 1K groups × 20 cols × 4 values', () => {
     buildPivot(rows100K, config);
+  });
+});
+
+// #endregion
+
+// #region totals traversal
+
+describe('pivot totals traversal', () => {
+  const rows = generateHighCardinalityRows(100_000);
+  const valueFields: PivotValueField[] = [
+    { field: 'revenue', aggFunc: 'sum' },
+    { field: 'revenue', aggFunc: 'avg' },
+    { field: 'cost', aggFunc: 'max' },
+    { field: 'units', aggFunc: 'sum' },
+  ];
+  const result = buildPivot(rows, {
+    rowGroupFields: ['account'],
+    columnGroupFields: ['period'],
+    valueFields,
+  });
+
+  bench('calculateTotals — 1K rows × 80 value keys', () => {
+    calculateTotals(result.rows, result.columnKeys, valueFields);
+  });
+
+  bench('getColumnTotals — 1K rows × 80 value keys', () => {
+    getColumnTotals(result.rows, result.columnKeys, valueFields);
   });
 });
 

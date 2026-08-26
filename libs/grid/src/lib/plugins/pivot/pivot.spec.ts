@@ -186,6 +186,34 @@ describe('pivot-engine', () => {
       });
     });
 
+    it('reads a shared source field once per row for built-in aggregators', () => {
+      let valueReads = 0;
+      const rows = [2, 4, 8].map((value) => ({
+        get value() {
+          valueReads++;
+          return value;
+        },
+      }));
+
+      expect(
+        aggregateValues(
+          rows,
+          [],
+          ['value'],
+          [
+            { field: 'value', aggFunc: 'sum' },
+            { field: 'value', aggFunc: 'avg' },
+            { field: 'value', aggFunc: 'max' },
+          ],
+        ),
+      ).toEqual({
+        'value|value|sum': 14,
+        'value|value|avg': 14 / 3,
+        'value|value|max': 8,
+      });
+      expect(valueReads).toBe(rows.length);
+    });
+
     it('passes the filtered numeric values to custom aggregators', () => {
       const aggregator = vi.fn((values: number[]) => values.join('').length);
 

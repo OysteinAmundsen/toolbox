@@ -35,6 +35,7 @@ QUERIES: `canMoveRow`, `datasource:viewport-mapping`, `sort:get-model`. EVENTS: 
 - INVARIANT: lazy children are signalled by a truthy non-array `childrenField` or a `TreeConfig.hasChildren` predicate; single-batch (no pagination). `loadedKeys` (NOT `row[childrenField].length`) gates re-fetch; fetched at most once per attach, errors do NOT mark loaded. `datasource:error` MUST be handled — else the key stays in `loadingKeys` forever and retries short-circuit.
 - INVARIANT: loading UI reuses core `createDefaultSpinner('small')` (+ `.tree-loading` sizing in `@layer tbw-plugins`). `afterRender` sets AND removes `aria-busy` (explicit negative branch).
 - DECIDED (#264, WAI-ARIA treegrid): Tree or GroupingRows registered → `.rows-body` `role` swaps `grid` → `treegrid` + per-visible-row `aria-level`/`aria-setsize`/`aria-posinset`, set idempotently in `afterRender`, `role="grid"` restored in `detach()`. Tree carries `posInSet`/`setSize` on `FlattenedTreeRow`; GroupingRows uses a parallel `flatMeta` array (`computeFlatMeta`). INVARIANT: `posInSet`/`setSize` are 1-based PER PARENT, not global rowIndex.
+- INVARIANT (perf): `flattenTree` allocates one result array; recursive `appendFlattenedRows` appends preorder rows into it. Do NOT return/spread child arrays: wide expanded nodes can exceed the JS argument limit. Bench: `tree-data.bench.ts`.
 
 ### GroupingRows
 
@@ -48,7 +49,7 @@ OWNS: grouped row model, expanded keys, animation state. HOOKS: processRows(10),
 OWNS: pivot result, flattened pivot rows, expanded keys, column totals, sort state. HOOKS: onHeaderClick(-10), processRows(100). QUERIES: `sort:get-sort-config`. EVENTS: `pivot-toggle`, `pivot-config-change`.
 
 - INVARIANT: `PivotRow.isGroup` means "has sub-groups" (`remainingFields.length > 0`), NOT "is a group row". A single `rowGroupFields` yields `isGroup: false`; `getAllGroupKeys()` returns nothing.
-- DECIDED (Aug 2026, duplicate value fields + streaming): pivot value identity is `columnKey|field` for unique fields and adds `|aggFunc` (then config index for repeated identical aggregators) only when the field repeats. WHY: `PivotValueField` permits the same source field with multiple aggregators; field-only keys silently overwrote earlier results. Built-in aggregators stream filtered numeric values without `number[]`; custom functions retain the collected-array contract. Owners: `pivot-model.ts#createValueKeys`, `pivot-engine.ts#aggregateValueField`. Tests/bench: `pivot.spec.ts`, `pivot-engine.bench.ts`.
+- DECIDED (Aug 2026, duplicate value fields + streaming): pivot value identity is `columnKey|field` for unique fields and adds `|aggFunc` (then config index for repeated identical aggregators) only when the field repeats. WHY: `PivotValueField` permits the same source field with multiple aggregators; field-only keys silently overwrote earlier results. Built-ins stream filtered numbers without arrays; repeated built-ins for one field share one row scan. Custom functions retain separate collected arrays. Owners: `pivot-model.ts#createValueKeys`, `pivot-engine.ts#aggregateValueFields`. Tests/bench: `pivot.spec.ts`, `pivot-engine.bench.ts`.
 
 ### row-identity (ALL row-model plugins)
 

@@ -52,6 +52,13 @@ const ROW_COUNT = 500;
 const LARGE_ROW_COUNT = 1000;
 const WIDE_COL_ROW_COUNT = 200;
 
+/**
+ * Create/measure/destroy cycles per page for the wide-column render benchmark.
+ * A 200-column first render is the most warm-up-sensitive measurement in the
+ * suite, so it is sampled instead of taken from a single cold run.
+ */
+const WIDE_RENDER_SAMPLES = 4;
+
 const runId = process.env.PERF_RUN_ID ?? Date.now().toString();
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -422,8 +429,16 @@ function wideColumnConfigJson(colCount: number): string {
   return `[${cols.join(',')}]`;
 }
 
-/** Create a grid with many columns and fewer rows. */
-async function setupWideGrid(page: Page, colCount: number, rowCount: number): Promise<number> {
+/**
+ * Create a grid with many columns and fewer rows.
+ *
+ * Runs `samples` create/measure/destroy cycles and returns the fastest. A single
+ * cold render is dominated by JIT, GC sizing and style-engine warm-up, which
+ * systematically penalises whichever page is measured first — best-of-N removes
+ * that bias (noise can only inflate a sample, never deflate it). The final grid
+ * is left in the page so callers can keep benchmarking against it.
+ */
+async function setupWideGrid(page: Page, colCount: number, rowCount: number, samples = 1): Promise<number> {
   return page.evaluate(
     `(async () => {
       const rows = Array.from({length:${rowCount}}, (_,i) => {
@@ -431,31 +446,44 @@ async function setupWideGrid(page: Page, colCount: number, rowCount: number): Pr
         for (let c = 0; c < ${colCount}; c++) row['col' + c] = 'R' + i + 'C' + c;
         return row;
       });
-      const start = performance.now();
-      const grid = document.createElement('tbw-grid');
-      grid.style.cssText = 'width:100%;height:600px;display:block';
-      document.body.appendChild(grid);
-      grid.gridConfig = {
-        columns: ${wideColumnConfigJson(colCount)},
-        getRowId: (row) => String(row.id),
-      };
-      grid.rows = rows;
 
-      return new Promise(resolve => {
+      const build = () => new Promise(resolve => {
+        const start = performance.now();
+        const grid = document.createElement('tbw-grid');
+        grid.style.cssText = 'width:100%;height:600px;display:block';
+        document.body.appendChild(grid);
+        grid.gridConfig = {
+          columns: ${wideColumnConfigJson(colCount)},
+          getRowId: (row) => String(row.id),
+        };
+        grid.rows = rows;
+
         let n = 0;
         const check = () => {
           n++;
           const root = grid.shadowRoot || grid;
           if (root.querySelector('[role="row"]')) {
-            requestAnimationFrame(() => resolve(performance.now() - start));
+            requestAnimationFrame(() => resolve({ time: performance.now() - start, grid }));
           } else if (n > 300) {
-            resolve(-1);
+            resolve({ time: -1, grid });
           } else {
             requestAnimationFrame(check);
           }
         };
         requestAnimationFrame(check);
       });
+
+      let best = Infinity;
+      for (let s = 0; s < ${samples}; s++) {
+        const { time, grid } = await build();
+        if (time < 0) { grid.remove(); return -1; }
+        if (time < best) best = time;
+        if (s < ${samples} - 1) {
+          grid.remove();
+          await new Promise(r => setTimeout(r, 50));
+        }
+      }
+      return best;
     })()`,
   ) as Promise<number>;
 }
@@ -787,10 +815,14 @@ test.describe('Performance: Self-Comparison', () => {
   test('wide columns render', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    await runComparison(browser, 'wideColsRender', async (localPage, cdnPage) => ({
-      local: await setupWideGrid(localPage, 200, WIDE_COL_ROW_COUNT),
-      cdn: await setupWideGrid(cdnPage, 200, WIDE_COL_ROW_COUNT),
-    }));
+    await runComparison(browser, 'wideColsRender', async (localPage, cdnPage) => {
+      await warmUpGrid(localPage);
+      await warmUpGrid(cdnPage);
+      return {
+        local: await setupWideGrid(localPage, 200, WIDE_COL_ROW_COUNT, WIDE_RENDER_SAMPLES),
+        cdn: await setupWideGrid(cdnPage, 200, WIDE_COL_ROW_COUNT, WIDE_RENDER_SAMPLES),
+      };
+    });
   });
 
   test('wide columns horizontal scroll', async ({ browser }) => {

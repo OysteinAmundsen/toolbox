@@ -174,6 +174,17 @@ Automated benchmarks that catch performance regressions by comparing the **curre
 3. The test flags a regression if the current build is **>10% slower** than the released version
 4. **Retry on regression** — when a regression is detected, the benchmark re-runs up to 2 more times with fresh browser pages. Only fails if the regression reproduces consistently (absorbs transient CI noise)
 
+### Rule: every measurement must be warmed up AND sampled
+
+Retrying does **not** absorb a _systematic_ bias, only random noise. The local page is always created and measured before the CDN page, so a single cold measurement charges the local build for JIT compilation, GC heap sizing, and style-engine warm-up that the CDN page no longer pays — the same inflated ratio then reproduces on every retry and the test fails "consistently" without any real regression. This is what made `wideColsRender` flaky.
+
+Any new benchmark in this suite MUST therefore:
+
+- call `warmUpGrid(page)` on **both** pages before the first measured operation, and
+- take **several samples and return the minimum** (or a trimmed mean) — noise can only inflate a sample, never deflate it, so the minimum is the closest estimate of true cost.
+
+`setupWideGrid(page, colCount, rowCount, samples)` is the reference shape: it runs `samples` create/measure/destroy cycles and returns the fastest, leaving the last grid in the page for follow-on benchmarks.
+
 > See the **`run-e2e` skill** for the local run command and the `PERF_CDN_VERSION` / `PERF_RUN_ID` env vars.
 
 ## Grid Stability Tests (`e2e/tests/grid-stability.spec.ts`)

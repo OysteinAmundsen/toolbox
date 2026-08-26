@@ -214,7 +214,10 @@ describe('multiSort', () => {
     });
 
     describe('performance', () => {
-      it('should sort 10K rows within a constant factor of native multi-key sort', () => {
+      // Timing-based, so it can still lose a sampling window to a GC pause or a
+      // co-tenant process on a shared CI runner. A real algorithmic regression
+      // is deterministic (~10-20x) and fails every attempt; noise does not.
+      it('should sort 10K rows within a constant factor of native multi-key sort', { retry: 2 }, () => {
         const largeDataset = Array.from({ length: 10000 }, (_, i) => ({
           name: `Person ${i}`,
           age: Math.floor(Math.random() * 80),
@@ -236,24 +239,38 @@ describe('multiSort', () => {
             return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
           });
 
+        const runApply = () => {
+          applySorts(largeDataset, sorts, testColumns);
+        };
+        const runNative = () => {
+          nativeSort(largeDataset);
+        };
+        const measure = (fn: () => void) => {
+          const start = performance.now();
+          fn();
+          return performance.now() - start;
+        };
+
         // Warm up JIT for both sides so compilation cost doesn't pollute samples.
-        applySorts(largeDataset, sorts, testColumns);
-        nativeSort(largeDataset);
+        runApply();
+        runNative();
 
         // Best-of-N sampling — noise can only inflate a sample, never deflate it,
         // so the minimum is the closest estimate of true hot-path cost. Sampling
-        // both sides in the same loop keeps GC / scheduling pressure symmetrical.
-        const SAMPLES = 5;
+        // both sides in the same loop keeps GC / scheduling pressure symmetrical,
+        // and alternating which side runs first stops a GC triggered by one
+        // implementation from consistently landing on the other.
+        const SAMPLES = 9;
         let bestApply = Infinity;
         let bestNative = Infinity;
         for (let i = 0; i < SAMPLES; i++) {
-          const t0 = performance.now();
-          applySorts(largeDataset, sorts, testColumns);
-          const t1 = performance.now();
-          nativeSort(largeDataset);
-          const t2 = performance.now();
-          if (t1 - t0 < bestApply) bestApply = t1 - t0;
-          if (t2 - t1 < bestNative) bestNative = t2 - t1;
+          const applyFirst = i % 2 === 0;
+          const first = applyFirst ? measure(runApply) : measure(runNative);
+          const second = applyFirst ? measure(runNative) : measure(runApply);
+          const applyMs = applyFirst ? first : second;
+          const nativeMs = applyFirst ? second : first;
+          if (applyMs < bestApply) bestApply = applyMs;
+          if (nativeMs < bestNative) bestNative = nativeMs;
         }
 
         // Relative budget: `applySorts` must stay within a constant factor of
@@ -264,11 +281,10 @@ describe('multiSort', () => {
         //
         // Observed ratio is ~1.5–3x (Schwartzian key cache + per-comparator
         // dispatch + null-safe compare vs. native's inlined `<`/`-`). 8x leaves
-        // comfortable headroom for jitter on the smaller absolute timings (best-
-        // of-5 still occasionally lands at ~6x on a loaded shared CI runner)
-        // while still tripping on real algorithmic regressions: dropping the
-        // key cache would push this to ~10–20x; reintroducing `columns.find()`
-        // inside the comparator would push it to ~50x+.
+        // comfortable headroom for jitter on the smaller absolute timings while
+        // still tripping on real algorithmic regressions: dropping the key cache
+        // would push this to ~10–20x; reintroducing `columns.find()` inside the
+        // comparator would push it to ~50x+.
         const ratio = bestApply / bestNative;
         expect(
           ratio,

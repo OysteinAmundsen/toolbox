@@ -37,12 +37,19 @@ function slugOf(file: string): string {
     .replace(/\/$/, '');
 }
 
+/** Repeats until stable so a nested `<<b>script>` cannot reassemble into a tag. */
+function stripTags(text: string): string {
+  let previous: string;
+  let out = text;
+  do {
+    previous = out;
+    out = out.replace(/<[^>]+>/g, '');
+  } while (out !== previous);
+  return out;
+}
+
 function slugify(text: string): string {
-  return text
-    .trim()
-    .toLowerCase()
-    .replace(/`/g, '')
-    .replace(/<[^>]+>/g, '')
+  return stripTags(text.trim().toLowerCase().replace(/`/g, ''))
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/[*_]/g, '')
     .replace(/&[a-z]+;/g, '')

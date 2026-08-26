@@ -7,7 +7,7 @@ import { getBlockNumber, getBlockRange, getRequiredBlocks, getRowFromCache, isBl
 function buildCache(totalBlocks: number, blockSize: number, loadedRatio: number): Map<number, any[]> {
   const cache = new Map<number, any[]>();
   for (let b = 0; b < totalBlocks; b++) {
-    if (Math.random() < loadedRatio) {
+    if (b % 100 < loadedRatio * 100) {
       const block = Array.from({ length: blockSize }, (_, i) => ({
         id: b * blockSize + i,
         name: `Row ${b * blockSize + i}`,
@@ -64,13 +64,13 @@ describe('getRowFromCache', () => {
 
   bench('50% cache hit rate — 10K lookups', () => {
     for (let i = 0; i < 10_000; i++) {
-      getRowFromCache(Math.floor(Math.random() * 100_000), 100, cache50pct);
+      getRowFromCache((i * 7_919) % 100_000, 100, cache50pct);
     }
   });
 
   bench('90% cache hit rate — 10K lookups', () => {
     for (let i = 0; i < 10_000; i++) {
-      getRowFromCache(Math.floor(Math.random() * 100_000), 100, cache90pct);
+      getRowFromCache((i * 7_919) % 100_000, 100, cache90pct);
     }
   });
 });

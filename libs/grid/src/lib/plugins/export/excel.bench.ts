@@ -7,7 +7,6 @@
  * motivation for the original async-export refactor.
  */
 
-import { randomInt } from 'node:crypto';
 import { bench, describe } from 'vitest';
 import type { ColumnConfig } from '../../core/types';
 import { buildExcelXml } from './excel';
@@ -22,7 +21,7 @@ function generateRows(count: number) {
       id: i,
       name: `Employee ${i}`,
       department: ['Engineering', 'Sales', 'Marketing'][i % 3],
-      salary: randomInt(30_000, 200_001),
+      salary: 30_000 + ((Math.imul(i + 1, 2_654_435_761) >>> 0) % 170_001),
       hired: new Date(2020, 0, 1 + (i % 365)),
       active: i % 3 !== 0,
     });
@@ -46,6 +45,7 @@ const PARAMS: ExportParams = { format: 'excel', fileName: 'export.xls', includeH
 describe('buildExcelXml', () => {
   const rows1k = generateRows(1_000);
   const rows10k = generateRows(10_000);
+  const rows50k = generateRows(50_000);
 
   bench('1K rows × 6 cols (no styles)', () => {
     buildExcelXml(rows1k, COLUMNS, PARAMS);
@@ -53,5 +53,9 @@ describe('buildExcelXml', () => {
 
   bench('10K rows × 6 cols (no styles)', () => {
     buildExcelXml(rows10k, COLUMNS, PARAMS);
+  });
+
+  bench('50K rows × 6 cols (no styles)', () => {
+    buildExcelXml(rows50k, COLUMNS, PARAMS);
   });
 });

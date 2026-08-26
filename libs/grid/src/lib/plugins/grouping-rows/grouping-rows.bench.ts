@@ -1,4 +1,3 @@
-import { randomInt } from 'node:crypto';
 import { bench, describe } from 'vitest';
 import { buildGroupedRowModel } from './grouping-rows';
 import type { GroupingRowsConfig } from './types';
@@ -18,7 +17,7 @@ function generateRows(count: number) {
       department: departments[i % departments.length],
       team: teams[i % teams.length],
       location: locations[i % locations.length],
-      salary: randomInt(30_000, 200_001),
+      salary: 30_000 + ((Math.imul(i + 1, 2_654_435_761) >>> 0) % 170_001),
     });
   }
   return rows;

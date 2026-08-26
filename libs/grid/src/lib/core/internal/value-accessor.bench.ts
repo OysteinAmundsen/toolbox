@@ -13,7 +13,7 @@
 
 import { bench, describe } from 'vitest';
 import type { ColumnConfig } from '../types';
-import { resolveCellValue } from './value-accessor';
+import { invalidateAccessorCache, resolveCellValue } from './value-accessor';
 
 // #region Fixtures
 
@@ -51,9 +51,10 @@ describe('resolveCellValue', () => {
     for (const row of ROWS) resolveCellValue(row, accessorCol);
   });
 
-  bench('valueAccessor — cache miss (fresh rows)', () => {
-    // Fresh row objects → WeakMap miss → accessor invocation + insert.
-    const fresh = ROWS.map((r) => ({ ...r }));
-    for (const row of fresh) resolveCellValue(row, accessorCol);
+  bench('valueAccessor — invalidate + cache miss', () => {
+    for (const row of ROWS) {
+      invalidateAccessorCache(row);
+      resolveCellValue(row, accessorCol);
+    }
   });
 });

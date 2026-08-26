@@ -8,7 +8,6 @@
  * cached `main` baseline (see `tools/compare-benches.ts`).
  */
 
-import { randomInt } from 'node:crypto';
 import { bench, describe } from 'vitest';
 import type { ColumnConfig } from '../../core/types';
 import { applySorts, toggleSort } from './multi-sort';
@@ -29,9 +28,9 @@ function generateRows(count: number): Row[] {
   for (let i = 0; i < count; i++) {
     rows.push({
       name: `Person ${String(count - i).padStart(6, '0')}`,
-      age: randomInt(18, 80),
+      age: 18 + ((Math.imul(i + 1, 2_246_822_519) >>> 0) % 62),
       city: cities[i % cities.length],
-      salary: randomInt(30_000, 200_001),
+      salary: 30_000 + ((Math.imul(i + 1, 2_654_435_761) >>> 0) % 170_001),
     });
   }
   return rows;

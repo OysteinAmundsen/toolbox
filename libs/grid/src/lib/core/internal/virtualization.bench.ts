@@ -19,8 +19,8 @@ function buildRowsAndCache(count: number, cacheHitRate: number) {
   for (let i = 0; i < count; i++) {
     const row = { id: i, name: `Row ${i}` };
     rows.push(row);
-    if (Math.random() < cacheHitRate) {
-      setCachedHeight(heightCache, row, 30 + Math.round(Math.random() * 20));
+    if (i % 100 < cacheHitRate * 100) {
+      setCachedHeight(heightCache, row, 30 + (i % 21));
     }
   }
 
@@ -120,19 +120,28 @@ describe('getRowIndexAtOffset', () => {
 // #region updateRowHeight
 
 describe('updateRowHeight', () => {
+  function alternatingHeight(cache: ReturnType<typeof buildPositionCache>, index: number): number {
+    return cache[index].height === 40 ? 60 : 40;
+  }
+
+  const cache1K = buildPositionCache(1_000, false);
   bench('update middle row — 1K cache', () => {
-    const cache = buildPositionCache(1_000, false);
-    updateRowHeight(cache, 500, 60);
+    updateRowHeight(cache1K, 500, alternatingHeight(cache1K, 500));
   });
 
+  const cache10KMiddle = buildPositionCache(10_000, false);
   bench('update middle row — 10K cache', () => {
-    const cache = buildPositionCache(10_000, false);
-    updateRowHeight(cache, 5_000, 60);
+    updateRowHeight(cache10KMiddle, 5_000, alternatingHeight(cache10KMiddle, 5_000));
   });
 
+  const cache10KFirst = buildPositionCache(10_000, false);
   bench('update first row — 10K cache', () => {
-    const cache = buildPositionCache(10_000, false);
-    updateRowHeight(cache, 0, 60);
+    updateRowHeight(cache10KFirst, 0, alternatingHeight(cache10KFirst, 0));
+  });
+
+  const cache10KLast = buildPositionCache(10_000, false);
+  bench('update last row — 10K cache', () => {
+    updateRowHeight(cache10KLast, 9_999, alternatingHeight(cache10KLast, 9_999));
   });
 });
 

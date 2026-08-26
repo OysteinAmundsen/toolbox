@@ -6,15 +6,15 @@ import { collapseDetailRow, expandDetailRow, isDetailExpanded, toggleDetailRow }
 function generateRows(count: number) {
   const rows: object[] = [];
   for (let i = 0; i < count; i++) {
-    rows.push({ id: i, name: `Row ${i}`, value: Math.random() * 10_000 });
+    rows.push({ id: i, name: `Row ${i}`, value: (Math.imul(i + 1, 2_654_435_761) >>> 0) % 10_001 });
   }
   return rows;
 }
 
 function buildExpandedSet(rows: object[], expandedRatio: number): Set<object> {
   const expanded = new Set<object>();
-  for (const row of rows) {
-    if (Math.random() < expandedRatio) expanded.add(row);
+  for (let i = 0; i < rows.length; i++) {
+    if (i % 100 < expandedRatio * 100) expanded.add(rows[i]);
   }
   return expanded;
 }

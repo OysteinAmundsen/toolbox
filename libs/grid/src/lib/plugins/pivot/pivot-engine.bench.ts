@@ -18,12 +18,22 @@ function generateRows(count: number) {
       quarter: quarters[i % quarters.length],
       region: regions[i % regions.length],
       product: products[i % products.length],
-      revenue: 1000 + Math.round(Math.random() * 99_000),
-      cost: 500 + Math.round(Math.random() * 49_000),
-      units: Math.round(Math.random() * 1000),
+      revenue: 1_000 + ((Math.imul(i + 1, 2_654_435_761) >>> 0) % 99_001),
+      cost: 500 + ((Math.imul(i + 1, 2_246_822_519) >>> 0) % 49_001),
+      units: (Math.imul(i + 1, 3_266_489_917) >>> 0) % 1_001,
     });
   }
   return rows;
+}
+
+function generateHighCardinalityRows(count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    account: `Account ${i % 1_000}`,
+    period: `P${i % 20}`,
+    revenue: i % 17 === 0 ? null : (Math.imul(i + 1, 2_654_435_761) >>> 0) % 100_000,
+    cost: i % 23 === 0 ? '' : (Math.imul(i + 1, 2_246_822_519) >>> 0) % 50_000,
+    units: (Math.imul(i + 1, 3_266_489_917) >>> 0) % 1_001,
+  }));
 }
 
 // #endregion
@@ -107,6 +117,29 @@ describe('buildPivot — multiple value fields', () => {
 
   bench('10K rows — 4 value fields', () => {
     buildPivot(rows10K, config);
+  });
+});
+
+describe('buildPivot — high cardinality with blanks', () => {
+  const rows10K = generateHighCardinalityRows(10_000);
+  const rows100K = generateHighCardinalityRows(100_000);
+  const config: PivotConfig = {
+    rowGroupFields: ['account'],
+    columnGroupFields: ['period'],
+    valueFields: [
+      { field: 'revenue', aggFunc: 'sum' },
+      { field: 'revenue', aggFunc: 'avg' },
+      { field: 'cost', aggFunc: 'max' },
+      { field: 'units', aggFunc: 'sum' },
+    ],
+  };
+
+  bench('10K rows — 1K groups × 20 cols × 4 values', () => {
+    buildPivot(rows10K, config);
+  });
+
+  bench('100K rows — 1K groups × 20 cols × 4 values', () => {
+    buildPivot(rows100K, config);
   });
 });
 

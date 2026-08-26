@@ -26,7 +26,23 @@ Add or extend a benchmark as an integral part of issue development whenever you:
 Bench files live next to the code under test as `*.bench.ts` and are picked up by each project's
 `bench` target (`vitest bench`, `include: ['src/**/*.bench.ts']`). Keep each `bench()` case
 focused on one operation; avoid mixing setup cost into the measured body (use the bench harness's
-setup hooks). Mirror the style of existing benches under `libs/*/src/**/*.bench.ts`.
+setup hooks only for immutable fixture construction). Mirror the style of existing benches under
+`libs/*/src/**/*.bench.ts`.
+
+### Stateful benchmark rules
+
+- **Do not treat Tinybench `setup` as a per-invocation reset.** A stateful callback can become a
+  cache hit or no-op after its first invocation. Restore or alternate the relevant state inside
+  every timed invocation, and include that reset only when it is part of the operation being
+  measured. If reset cost would contaminate the result, use prebuilt alternating fixtures.
+- **Prove that every invocation performs real work.** Add a control case that exposes the expected
+  algorithmic shape where practical, such as first/middle/last position updates.
+- **Use deterministic fixtures.** Derive values and hit rates from indexes; never use
+  `Math.random()` or `node:crypto` in fixture construction or timed callbacks. Current-vs-tag
+  comparisons are meaningful only when both sides process the same data distribution.
+- **Keep unrelated work outside the callback.** Prebuild rows, caches, and column definitions. If
+  the operation under test requires invalidation, mutation, or cloning, include only the minimum
+  reset that preserves a real operation on every invocation.
 
 ## Two ways to run
 

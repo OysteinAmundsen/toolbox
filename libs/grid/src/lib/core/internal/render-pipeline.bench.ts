@@ -7,7 +7,6 @@
  * composition overhead that per-function benchmarks miss.
  */
 
-import { randomInt } from 'node:crypto';
 import { bench, describe } from 'vitest';
 import {
   computeColumnOffsets,
@@ -39,7 +38,7 @@ function generateRows(count: number) {
       name: `Employee ${i}`,
       department: departments[i % departments.length],
       team: teams[i % teams.length],
-      salary: randomInt(30_000, 200_001),
+      salary: 30_000 + ((Math.imul(i + 1, 2_654_435_761) >>> 0) % 170_001),
       active: i % 3 !== 0,
     });
   }
@@ -68,7 +67,7 @@ function generateTreeData(totalNodes: number, depth: number): Record<string, unk
         id: id++,
         name: `Node ${id}`,
         department: ['Engineering', 'Sales', 'Marketing'][id % 3],
-        value: randomInt(0, 10_001),
+        value: (Math.imul(id + 1, 2_246_822_519) >>> 0) % 10_001,
       };
       if (d < depth - 1) {
         node.children = buildLevel(d + 1, Math.floor((budget - id) / (count - i)));
@@ -207,7 +206,7 @@ describe('pipeline: infer + sort + filter + virtualization (10K rows × 20 cols)
   // Add extra fields for wider column inference
   for (const row of rows) {
     for (let c = 0; c < 15; c++) {
-      row[`extra${c}`] = randomInt(0, 1001);
+      row[`extra${c}`] = (Math.imul(Number(row['id']) + c + 1, 3_266_489_917) >>> 0) % 1_001;
     }
   }
   const filter: FilterModel[] = [{ field: 'salary', type: 'number', operator: 'greaterThan', value: 100_000 }];

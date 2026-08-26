@@ -1,4 +1,3 @@
-import { randomInt } from 'node:crypto';
 import { bench, describe } from 'vitest';
 import { aggregatorRegistry, runValueAggregator } from './aggregators';
 
@@ -9,8 +8,8 @@ function generateRows(count: number) {
   for (let i = 0; i < count; i++) {
     rows.push({
       id: i,
-      salary: randomInt(30_000, 200_001),
-      bonus: randomInt(0, 20_001),
+      salary: 30_000 + ((Math.imul(i + 1, 2_654_435_761) >>> 0) % 170_001),
+      bonus: (Math.imul(i + 1, 2_246_822_519) >>> 0) % 20_001,
     });
   }
   return rows;
@@ -19,7 +18,7 @@ function generateRows(count: number) {
 function generateValues(count: number) {
   const values: number[] = [];
   for (let i = 0; i < count; i++) {
-    values.push(randomInt(0, 200_001));
+    values.push((Math.imul(i + 1, 3_266_489_917) >>> 0) % 200_001);
   }
   return values;
 }

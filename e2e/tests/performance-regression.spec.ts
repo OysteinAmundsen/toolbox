@@ -19,11 +19,16 @@ import { flushMetrics, recordMetric } from './perf-metrics-helper';
  * - Vertical scroll (avg frame time)
  * - Sort
  * - Filter
+ * - Filter-model churn
  * - Single-row update
+ * - Bulk mixed transaction
+ * - Render request coalescing
  * - Column resize
  * - Scroll-to-end
  * - Grouping (row grouping with expand/collapse)
  * - Wide columns (100 columns with horizontal scroll)
+ * - Column replacement churn
+ * - Feature-dense vertical scroll
  * - Grid destroy (teardown cost)
  *
  * Flaky-test mitigation: When a regression is detected, the benchmark is
@@ -303,6 +308,38 @@ async function measureFilter(page: Page, rowCount: number): Promise<number> {
   ) as Promise<number>;
 }
 
+/** Measure a burst of incremental filter changes, as produced while typing. */
+async function measureFilterChurn(page: Page): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const grid = document.querySelector('tbw-grid');
+      if (!grid || !grid.getPluginByName) return -1;
+      const plugin = grid.getPluginByName('filtering');
+      if (!plugin || !plugin.setFilterModel) return -1;
+      const raf = () => new Promise(r => requestAnimationFrame(() => r()));
+      const samples = [];
+
+      for (let run = 0; run < 5; run++) {
+        await raf();
+        const start = performance.now();
+        for (let length = 1; length <= 8; length++) {
+          plugin.setFilterModel([
+            { field: 'firstName', type: 'text', operator: 'contains', value: ('First' + run + 'Value').slice(0, length) },
+          ]);
+        }
+        await raf(); await raf();
+        samples.push(performance.now() - start);
+        plugin.clearAllFilters();
+        await raf();
+        await new Promise(r => setTimeout(r, 30));
+      }
+      samples.sort((a, b) => a - b);
+      const trimmed = samples.slice(1, -1);
+      return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+    })()`,
+  ) as Promise<number>;
+}
+
 /** Measure single-row update via updateRow(). */
 async function measureRowUpdate(page: Page, rowCount: number): Promise<number> {
   return page.evaluate(
@@ -317,6 +354,80 @@ async function measureRowUpdate(page: Page, rowCount: number): Promise<number> {
         const start = performance.now();
         grid.updateRow(targetId, { firstName: 'Updated' + i });
         await raf();
+        samples.push(performance.now() - start);
+        await new Promise(r => setTimeout(r, 30));
+      }
+      samples.sort((a, b) => a - b);
+      const trimmed = samples.slice(1, -1);
+      return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+    })()`,
+  ) as Promise<number>;
+}
+
+/** Measure a bulk mixed transaction while keeping the row count stable. */
+async function measureBulkTransaction(page: Page): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const grid = document.querySelector('tbw-grid');
+      if (!grid || typeof grid.applyTransaction !== 'function') return -1;
+      const raf = () => new Promise(r => requestAnimationFrame(() => r()));
+      const originalRows = Array.from({length:500}, (_,i) => ({ id: i }));
+      const replacementRows = Array.from({length:500}, (_,i) => ({
+        id: 10000 + i,
+        firstName: 'Replacement' + i,
+        lastName: 'Last' + i,
+        email: 'replacement' + i + '@test.com',
+        department: ['Engineering','Marketing','Sales','HR','Finance'][i % 5],
+        salary: 75000 + i,
+      }));
+      const samples = [];
+      let replacementsActive = false;
+
+      for (let run = 0; run < 5; run++) {
+        const update = Array.from({length:1000}, (_,i) => ({
+          id: 1000 + i,
+          changes: { salary: 60000 + run * 1000 + i },
+        }));
+        const remove = replacementsActive ? replacementRows : originalRows;
+        const add = replacementsActive
+          ? originalRows.map(({ id }) => ({
+              id,
+              firstName: 'First' + id,
+              lastName: 'Last' + id,
+              email: 'e' + id + '@test.com',
+              department: ['Engineering','Marketing','Sales','HR','Finance'][id % 5],
+              salary: 50000 + id * 100,
+            }))
+          : replacementRows;
+
+        await raf();
+        const start = performance.now();
+        await grid.applyTransaction({ add, update, remove }, false);
+        await raf();
+        samples.push(performance.now() - start);
+        replacementsActive = !replacementsActive;
+        await new Promise(r => setTimeout(r, 30));
+      }
+      samples.sort((a, b) => a - b);
+      const trimmed = samples.slice(1, -1);
+      return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+    })()`,
+  ) as Promise<number>;
+}
+
+/** Measure scheduler coalescing for a burst of public render requests. */
+async function measureRenderCoalescing(page: Page): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const grid = document.querySelector('tbw-grid');
+      if (!grid || typeof grid.requestRender !== 'function') return -1;
+      const raf = () => new Promise(r => requestAnimationFrame(() => r()));
+      const samples = [];
+      for (let run = 0; run < 5; run++) {
+        await raf();
+        const start = performance.now();
+        for (let i = 0; i < 100; i++) grid.requestRender();
+        await raf(); await raf();
         samples.push(performance.now() - start);
         await new Promise(r => setTimeout(r, 30));
       }
@@ -529,6 +640,79 @@ async function measureHorizontalScroll(page: Page): Promise<number> {
       }
       scrollable.scrollLeft = 0;
       return times.reduce((a, b) => a + b, 0) / times.length;
+    })()`,
+  ) as Promise<number>;
+}
+
+/** Measure repeated replacement of a wide column configuration. */
+async function measureColumnChurn(page: Page, colCount: number): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const grid = document.querySelector('tbw-grid');
+      if (!grid) return -1;
+      const raf = () => new Promise(r => requestAnimationFrame(() => r()));
+      const samples = [];
+      for (let run = 0; run < 5; run++) {
+        await raf();
+        const start = performance.now();
+        for (let update = 0; update < 10; update++) {
+          grid.columns = Array.from({length:${colCount}}, (_,i) => ({
+            field: 'col' + i,
+            header: 'Column ' + i + ' run ' + run + ' update ' + update,
+            width: 100 + ((i + update) % 5) * 10,
+            sortable: true,
+          }));
+        }
+        await raf(); await raf();
+        samples.push(performance.now() - start);
+        await new Promise(r => setTimeout(r, 30));
+      }
+      samples.sort((a, b) => a - b);
+      const trimmed = samples.slice(1, -1);
+      return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+    })()`,
+  ) as Promise<number>;
+}
+
+/** Enable several hook-bearing features before measuring vertical scroll. */
+async function setupFeatureDenseGrid(page: Page, rowCount: number): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const rows = ${rowGeneratorScript(rowCount)};
+      const start = performance.now();
+      const grid = document.createElement('tbw-grid');
+      grid.style.cssText = 'width:100%;height:600px;display:block';
+      document.body.appendChild(grid);
+      grid.gridConfig = {
+        columns: ${BENCH_COLUMNS_JSON},
+        features: {
+          selection: 'range',
+          filtering: true,
+          editing: 'dblclick',
+          multiSort: true,
+          pinnedColumns: true,
+          groupingColumns: true,
+          export: true,
+        },
+        getRowId: (row) => String(row.id),
+      };
+      grid.rows = rows;
+
+      return new Promise(resolve => {
+        let attempts = 0;
+        const check = () => {
+          attempts++;
+          const root = grid.shadowRoot || grid;
+          if (root.querySelector('[role="row"]')) {
+            requestAnimationFrame(() => resolve(performance.now() - start));
+          } else if (attempts > 300) {
+            resolve(-1);
+          } else {
+            requestAnimationFrame(check);
+          }
+        };
+        requestAnimationFrame(check);
+      });
     })()`,
   ) as Promise<number>;
 }
@@ -760,6 +944,21 @@ test.describe('Performance: Self-Comparison', () => {
     });
   });
 
+  test('filter-model churn', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    await runComparison(browser, 'filterChurn', async (localPage, cdnPage) => {
+      await warmUpGrid(localPage);
+      await warmUpGrid(cdnPage);
+      await setupGrid(localPage, 10_000);
+      await setupGrid(cdnPage, 10_000);
+      return {
+        local: await measureFilterChurn(localPage),
+        cdn: await measureFilterChurn(cdnPage),
+      };
+    });
+  });
+
   test('single-row update', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
@@ -769,6 +968,36 @@ test.describe('Performance: Self-Comparison', () => {
       return {
         local: await measureRowUpdate(localPage, ROW_COUNT),
         cdn: await measureRowUpdate(cdnPage, ROW_COUNT),
+      };
+    });
+  });
+
+  test('bulk mixed transaction', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    await runComparison(browser, 'bulkTransaction', async (localPage, cdnPage) => {
+      await warmUpGrid(localPage);
+      await warmUpGrid(cdnPage);
+      await setupGrid(localPage, 10_000);
+      await setupGrid(cdnPage, 10_000);
+      return {
+        local: await measureBulkTransaction(localPage),
+        cdn: await measureBulkTransaction(cdnPage),
+      };
+    });
+  });
+
+  test('render request coalescing', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    await runComparison(browser, 'renderCoalescing', async (localPage, cdnPage) => {
+      await warmUpGrid(localPage);
+      await warmUpGrid(cdnPage);
+      await setupGrid(localPage, LARGE_ROW_COUNT);
+      await setupGrid(cdnPage, LARGE_ROW_COUNT);
+      return {
+        local: await measureRenderCoalescing(localPage),
+        cdn: await measureRenderCoalescing(cdnPage),
       };
     });
   });
@@ -834,6 +1063,36 @@ test.describe('Performance: Self-Comparison', () => {
       return {
         local: await measureHorizontalScroll(localPage),
         cdn: await measureHorizontalScroll(cdnPage),
+      };
+    });
+  });
+
+  test('wide column replacement churn', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    await runComparison(browser, 'columnChurn', async (localPage, cdnPage) => {
+      await warmUpGrid(localPage);
+      await warmUpGrid(cdnPage);
+      await setupWideGrid(localPage, 100, WIDE_COL_ROW_COUNT);
+      await setupWideGrid(cdnPage, 100, WIDE_COL_ROW_COUNT);
+      return {
+        local: await measureColumnChurn(localPage, 100),
+        cdn: await measureColumnChurn(cdnPage, 100),
+      };
+    });
+  });
+
+  test('feature-dense vertical scroll', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    await runComparison(browser, 'featureDenseScroll', async (localPage, cdnPage) => {
+      await warmUpGrid(localPage);
+      await warmUpGrid(cdnPage);
+      await setupFeatureDenseGrid(localPage, LARGE_ROW_COUNT);
+      await setupFeatureDenseGrid(cdnPage, LARGE_ROW_COUNT);
+      return {
+        local: await measureScroll(localPage),
+        cdn: await measureScroll(cdnPage),
       };
     });
   });

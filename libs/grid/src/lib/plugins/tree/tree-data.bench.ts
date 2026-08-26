@@ -17,7 +17,7 @@ function generateTree(totalNodes: number, depth: number, branchFactor = 5): Tree
         id: id++,
         name: `Node ${id}`,
         department: ['Engineering', 'Sales', 'Marketing', 'HR', 'Finance'][id % 5],
-        value: Math.round(Math.random() * 10_000),
+        value: (Math.imul(id + 1, 2_654_435_761) >>> 0) % 10_001,
       };
 
       if (currentDepth < depth - 1) {
@@ -41,9 +41,9 @@ function generateWideTree(rootCount: number, childrenPerRoot: number): TreeRow[]
   for (let r = 0; r < rootCount; r++) {
     const children: TreeRow[] = [];
     for (let c = 0; c < childrenPerRoot; c++) {
-      children.push({ id: id++, name: `Child ${id}`, value: Math.random() * 1000 });
+      children.push({ id: id++, name: `Child ${id}`, value: (Math.imul(id + 1, 2_246_822_519) >>> 0) % 1_001 });
     }
-    rows.push({ id: id++, name: `Root ${r}`, children, value: Math.random() * 10_000 });
+    rows.push({ id: id++, name: `Root ${r}`, children, value: (Math.imul(id + 1, 3_266_489_917) >>> 0) % 10_001 });
   }
   return rows;
 }

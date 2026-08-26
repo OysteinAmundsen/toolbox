@@ -6,7 +6,6 @@
  * function blocks the main thread — a regression here directly hurts UX.
  */
 
-import { randomInt } from 'node:crypto';
 import { bench, describe } from 'vitest';
 import type { ColumnConfig } from '../../core/types';
 import { buildCsv, formatCsvValue } from './csv';
@@ -21,7 +20,7 @@ function generateRows(count: number) {
       id: i,
       name: `Employee, ${i}`, // contains comma → triggers quoting path
       department: ['Engineering', 'Sales', 'Marketing'][i % 3],
-      salary: randomInt(30_000, 200_001),
+      salary: 30_000 + ((Math.imul(i + 1, 2_654_435_761) >>> 0) % 170_001),
       hired: new Date(2020, 0, 1 + (i % 365)),
       notes: i % 5 === 0 ? `Multi\nline\nnote ${i}` : `Note ${i}`, // newlines → quoting
     });
@@ -64,6 +63,7 @@ describe('buildCsv', () => {
   const rows1k = generateRows(1_000);
   const rows10k = generateRows(10_000);
   const rows50k = generateRows(50_000);
+  const rows100k = generateRows(100_000);
 
   bench('1K rows × 6 cols', () => {
     buildCsv(rows1k, COLUMNS, PARAMS);
@@ -75,5 +75,9 @@ describe('buildCsv', () => {
 
   bench('50K rows × 6 cols', () => {
     buildCsv(rows50k, COLUMNS, PARAMS);
+  });
+
+  bench('100K rows × 6 cols', () => {
+    buildCsv(rows100k, COLUMNS, PARAMS);
   });
 });

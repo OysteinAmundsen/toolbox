@@ -44,7 +44,7 @@
 
   <div id="compare-results" class="perf-compare-results">
     <p>Pick a competitor and click <strong>Run Comparison</strong> to benchmark both grids at increasing data sizes.</p>
-    <p style="opacity:0.7;font-size:12px;">Scale points: 5K → 100K → 500K → 1M rows × 10 columns. <strong>Macro</strong> ops (real scaling work): time-to-first-paint, sort, filter, data replacement — these drive the headline speedup. <strong>Round-trip</strong> sums the macro times. <strong>Micro</strong> ops (within-frame interactions): single-row update, column resize, scroll-to-end, destroy — reported separately because most ties cluster at the ~16 ms vsync floor on every virtualized grid. <strong>Viewport overhead</strong>: DOM node count after first paint. Each metric runs 5× per scale point (trimmed mean).</p>
+    <p style="opacity:0.7;font-size:12px;">Scale points: 5K → 100K → 500K → 1M rows × 10 columns. <strong>Macro</strong> ops: cold mount to painted viewport, full-dataset sort and filter, and replacement to painted viewport — these drive the headline speedup. <strong>Round-trip</strong> sums the macro times. <strong>Micro</strong> ops (within-frame interactions): single-row update, column resize, scroll-to-end, destroy — reported separately because most ties cluster at the ~16 ms frame floor on every virtualized grid. <strong>Viewport overhead</strong>: DOM node count after first paint. Every sample is accepted only after an untimed outcome validation; each timed metric runs 5× per scale point (trimmed mean).</p>
   </div>
 </div>
 
@@ -62,13 +62,14 @@ getCompetitor,
 } from './competitors/index.js';
 import {
 COL_COUNT,
+FRAME_FLOOR_MS,
 ITERATIONS,
-NOISE_FLOOR_MS,
 SCALE_POINTS,
 cooldown,
 formatCount,
 formatMetric,
 formatRowCount,
+summarizeMacroResults,
 } from './competitors/shared.js';
 
   // #region Config + Cache
@@ -183,7 +184,7 @@ formatRowCount,
     for (const r of allResults) {
       const v = valueGetter(r);
       if (v.tbw !== undefined && v.other !== undefined && v.tbw > 0 && v.other > 0) {
-        const isTieCheck = !isCount && v.tbw < NOISE_FLOOR_MS && v.other < NOISE_FLOOR_MS;
+        const isTieCheck = !isCount && v.tbw < FRAME_FLOOR_MS && v.other < FRAME_FLOOR_MS;
         if (!isTieCheck) cardRatios.push(v.other / v.tbw);
       }
     }
@@ -211,7 +212,7 @@ formatRowCount,
       const otherDone = other !== undefined;
       const bothDone = tbwDone && otherDone;
 
-      const isTie = !isCount && bothDone && (tbw!) < NOISE_FLOOR_MS && (other!) < NOISE_FLOOR_MS;
+      const isTie = !isCount && bothDone && (tbw!) < FRAME_FLOOR_MS && (other!) < FRAME_FLOOR_MS;
       const tbwWins = !isTie && bothDone && (tbw!) < (other!);
       const otherWins = !isTie && bothDone && (other!) < (tbw!);
 
@@ -370,40 +371,24 @@ formatRowCount,
     }
 
     if (done) {
-      // Headline: count wins and compute geo-mean speedup using MACRO only.
-      let baseWins = 0;
-      let otherWins = 0;
-      let ties = 0;
-      const overallRatios: number[] = [];
-      for (const r of allResults) {
-        for (const metric of activeMacro) {
-          const t = r.tbw.get(metric);
-          const c = r.competitor.get(metric);
-          if (t !== undefined && c !== undefined && t > 0 && c > 0) {
-            const isTieResult = t < NOISE_FLOOR_MS && c < NOISE_FLOOR_MS;
-            if (isTieResult) ties++;
-            else if (t < c) baseWins++;
-            else if (c < t) otherWins++;
-            else ties++;
-            if (!isTieResult) overallRatios.push(c / t);
-          }
-        }
-      }
-      const overallGeoMean = overallRatios.length > 0
-        ? Math.pow(overallRatios.reduce((p, r) => p * r, 1), 1 / overallRatios.length)
-        : 1;
-      const overallWinnerIsBase = baseWins >= otherWins;
-      const overallSpeedup = overallGeoMean >= 1 ? overallGeoMean : 1 / overallGeoMean;
-      const speedupLabel = overallSpeedup >= 1.05 ? ` — <strong>${overallSpeedup.toFixed(1)}× faster on macro ops</strong>` : '';
+      const summary = summarizeMacroResults(allResults);
+      const overallWinnerIsBase = summary.geometricMean >= 1;
+      const overallSpeedup = overallWinnerIsBase ? summary.geometricMean : 1 / summary.geometricMean;
       const winnerName = overallWinnerIsBase ? baselineAdapter.name : competitor.name;
       const winnerColor = overallWinnerIsBase ? COLOR_BASELINE : competitorColor;
+      const headline = overallSpeedup >= 1.05
+        ? `<span style="color:${winnerColor}">▎${winnerName}</span> is <strong>${overallSpeedup.toFixed(1)}× faster on macro ops</strong> by geometric mean`
+        : '<strong>No material overall difference</strong> on macro ops by geometric mean';
 
       html += `
         <div class="perf-summary">
-          <span style="color:${winnerColor}">▎${winnerName}</span> wins <strong>${Math.max(baseWins, otherWins)}/${baseWins + otherWins + ties}</strong> macro data points${ties > 0 ? ` · ${ties} noise-floor ties` : ''}${speedupLabel}
+          ${headline}
+          <div style="font-size:12px;margin-top:4px;">
+            Lower time: ${baselineAdapter.shortLabel} ${summary.baselineWins}/${summary.pairedPoints} · ${competitor.shortLabel} ${summary.competitorWins}/${summary.pairedPoints}${summary.ties > 0 ? ` · ${summary.ties} frame-floor ties` : ''}
+          </div>
           <div style="color:#888;font-size:12px;margin-top:6px;line-height:1.5;">
             Tested at ${SCALE_POINTS.map(formatRowCount).join(', ')} rows × ${COL_COUNT} columns · ${ITERATIONS}× iterations per metric (trimmed mean).
-            <br/><strong>Honest framing:</strong> Toolbox materializes per-row internals lazily; AG Grid and Tabulator build their full row model up front. The “Time to first paint” gap therefore reflects deferred work as much as render speed — but the “Sort” metric forces every grid to touch every row, and the speedup there is the most defensible single number. Micro-operation ties at ~16 ms are a vsync floor effect, not a bug in either grid.
+            <br/><strong>Method:</strong> each initial render starts from an empty host and ends after the browser receives a paint opportunity. Run order alternates by scale, and every adapter sorts the same seeded permutations. Toolbox materializes per-row internals lazily; AG Grid and Tabulator build their full row model up front, so “Sort” remains the clearest full-dataset comparison. Results are indicative browser measurements, not controlled laboratory confidence intervals.
           </div>
         </div>
       `;
@@ -433,9 +418,10 @@ formatRowCount,
       return;
     }
     versionsEl.textContent = competitor.version
-      ? `${competitor.name} v${competitor.version} (latest from CDN)`
+      ? `${competitor.name} v${competitor.version}`
       : '';
 
+    try {
     // Warmup: run both grids at the smallest scale point to JIT-compile
     // virtualization and row-pool code paths. Skipped for the competitor if
     // even the smallest scale exceeds its `maxRowCount`.
@@ -464,34 +450,48 @@ formatRowCount,
       const rowCount = SCALE_POINTS[i];
       const label = formatRowCount(rowCount);
 
-      // Phase 1: baseline at this scale point
-      statusEl.textContent = `${baselineAdapter.name} — ${label} rows (${i + 1}/${SCALE_POINTS.length})`;
-      gridArea.innerHTML = `<p style="text-align:center;opacity:0.6;padding:20px 0;">⏱ ${baselineAdapter.name} — ${label} rows...</p>`;
-      await cooldown(200);
-      allResults[i].tbw = await baselineAdapter.runAtScale(gridArea, rowCount);
-      completedSteps++;
-      updateProgress();
-      resultsEl.innerHTML = renderScaleTable(allResults, competitor, false);
-
-      statusEl.textContent = `Cooldown before ${competitor.name} — ${label} rows...`;
-      gridArea.innerHTML = '<p style="text-align:center;opacity:0.4;padding:20px 0;">Cooldown...</p>';
-      await cooldown(1000);
-
-      // Phase 2: competitor at this scale point (skip if too large)
-      const tooLarge = competitor.maxRowCount !== undefined && rowCount > competitor.maxRowCount;
-      if (tooLarge) {
-        statusEl.textContent = `${competitor.name} skipped at ${label} rows (cap: ${formatRowCount(competitor.maxRowCount!)})`;
-        gridArea.innerHTML = `<p style="text-align:center;opacity:0.5;padding:20px 0;">${competitor.name} skipped — exceeds its ${formatRowCount(competitor.maxRowCount!)}-row cap</p>`;
-        await cooldown(300);
-      } else {
-        statusEl.textContent = `${competitor.name} — ${label} rows (${i + 1}/${SCALE_POINTS.length})`;
-        gridArea.innerHTML = `<p style="text-align:center;opacity:0.6;padding:20px 0;">⏱ ${competitor.name} — ${label} rows...</p>`;
+      const runBaseline = async () => {
+        statusEl.textContent = `${baselineAdapter.name} — ${label} rows (${i + 1}/${SCALE_POINTS.length})`;
+        gridArea.innerHTML = `<p style="text-align:center;opacity:0.6;padding:20px 0;">⏱ ${baselineAdapter.name} — ${label} rows...</p>`;
         await cooldown(200);
-        allResults[i].competitor = await competitor.runAtScale(gridArea, rowCount);
+        allResults[i].tbw = await baselineAdapter.runAtScale(gridArea, rowCount);
+        completedSteps++;
+        updateProgress();
+        resultsEl.innerHTML = renderScaleTable(allResults, competitor, false);
+      };
+
+      const runCompetitor = async () => {
+        const tooLarge = competitor.maxRowCount !== undefined && rowCount > competitor.maxRowCount;
+        if (tooLarge) {
+          statusEl.textContent = `${competitor.name} skipped at ${label} rows (cap: ${formatRowCount(competitor.maxRowCount!)})`;
+          gridArea.innerHTML = `<p style="text-align:center;opacity:0.5;padding:20px 0;">${competitor.name} skipped — exceeds its ${formatRowCount(competitor.maxRowCount!)}-row cap</p>`;
+          await cooldown(300);
+        } else {
+          statusEl.textContent = `${competitor.name} — ${label} rows (${i + 1}/${SCALE_POINTS.length})`;
+          gridArea.innerHTML = `<p style="text-align:center;opacity:0.6;padding:20px 0;">⏱ ${competitor.name} — ${label} rows...</p>`;
+          await cooldown(200);
+          allResults[i].competitor = await competitor.runAtScale(gridArea, rowCount);
+        }
+        completedSteps++;
+        updateProgress();
+        resultsEl.innerHTML = renderScaleTable(allResults, competitor, false);
+      };
+
+      const pauseBefore = async (name: string) => {
+        statusEl.textContent = `Cooldown before ${name} — ${label} rows...`;
+        gridArea.innerHTML = '<p style="text-align:center;opacity:0.4;padding:20px 0;">Cooldown...</p>';
+        await cooldown(1000);
+      };
+
+      if (i % 2 === 0) {
+        await runBaseline();
+        await pauseBefore(competitor.name);
+        await runCompetitor();
+      } else {
+        await runCompetitor();
+        await pauseBefore(baselineAdapter.name);
+        await runBaseline();
       }
-      completedSteps++;
-      updateProgress();
-      resultsEl.innerHTML = renderScaleTable(allResults, competitor, false);
 
       if (i < SCALE_POINTS.length - 1) {
         statusEl.textContent = `Cooldown before ${formatRowCount(SCALE_POINTS[i + 1])} rows...`;
@@ -525,6 +525,24 @@ formatRowCount,
       }
       console.log(`📊 Benchmark Results — ${baselineAdapter.name} vs ${competitor.name}` + (competitor.version ? ` v${competitor.version}` : ''));
       console.table(tableData);
+    }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      cache.delete(competitor.id);
+      statusEl.textContent = 'Validation failed';
+      resultsEl.replaceChildren();
+      const heading = document.createElement('p');
+      const detail = document.createElement('p');
+      heading.innerHTML = '<strong>Benchmark aborted:</strong> an operation did not produce the required outcome.';
+      detail.textContent = message;
+      detail.style.cssText = 'opacity:0.8;font-size:12px;';
+      resultsEl.append(heading, detail);
+      gridArea.innerHTML = '';
+      progressContainer.style.display = 'none';
+      console.error(error);
+    } finally {
+      runBtn.disabled = false;
+      competitorSelect.disabled = false;
     }
   });
   // #endregion

@@ -95,6 +95,12 @@ Read the JSON / comparison-Markdown artifacts directly for precise numbers — d
 output. For each suite compare current vs baseline mean and flag any regression above the script's
 threshold (default `0.30` for vs-tag). When asked for a report, produce:
 
+- **Check comparability before diagnosing a flagged row.** Diff the benchmark file and compare the
+  Git blob hashes of the implementation and dependency lockfile against the baseline. If the
+  implementation and lockfile are identical but fixture generation, lookup order, or measured work
+  changed, classify the row as non-comparable benchmark drift rather than a code regression. Confirm
+  with `--iterations 3`; do not optimize unchanged production code to compensate for fixture noise.
+
 - **Verdict** — one line: Faster / Slower / Mixed vs the named baseline, with the headline delta.
 - **Per-suite table** — `Suite | Baseline mean | Current mean | Δ | Regression?`, sorted by |Δ%|.
 - **Hotspots** — map each regressed suite to its `*.bench.ts` and the code under test; use

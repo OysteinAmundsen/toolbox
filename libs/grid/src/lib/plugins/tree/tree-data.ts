@@ -28,7 +28,18 @@ export function flattenTree(
 ): FlattenedTreeRow[] {
   const childrenField = config.childrenField ?? 'children';
   const result: FlattenedTreeRow[] = [];
+  appendFlattenedRows(rows, childrenField, expandedKeys, parentKey, depth, result);
+  return result;
+}
 
+function appendFlattenedRows(
+  rows: readonly TreeRow[],
+  childrenField: string,
+  expandedKeys: Set<string>,
+  parentKey: string | null,
+  depth: number,
+  result: FlattenedTreeRow[],
+): void {
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const key = generateRowKey(row, i, parentKey);
@@ -49,12 +60,9 @@ export function flattenTree(
 
     // Recursively add children if expanded
     if (hasChildren && isExpanded) {
-      const childRows = flattenTree(children as TreeRow[], config, expandedKeys, key, depth + 1);
-      result.push(...childRows);
+      appendFlattenedRows(children as TreeRow[], childrenField, expandedKeys, key, depth + 1, result);
     }
   }
-
-  return result;
 }
 
 /**

@@ -6,6 +6,7 @@ import {
   rebuildPositionCache,
   setCachedHeight,
   updateRowHeight,
+  updateRowHeights,
   type PositionCacheConfig,
 } from './virtualization';
 
@@ -142,6 +143,22 @@ describe('updateRowHeight', () => {
   const cache10KLast = buildPositionCache(10_000, false);
   bench('update last row — 10K cache', () => {
     updateRowHeight(cache10KLast, 9_999, alternatingHeight(cache10KLast, 9_999));
+  });
+
+  const sequentialCache100K = buildPositionCache(100_000, false);
+  bench('update 50 early rows sequentially — 100K cache', () => {
+    for (let index = 0; index < 50; index++) {
+      updateRowHeight(sequentialCache100K, index, alternatingHeight(sequentialCache100K, index));
+    }
+  });
+
+  const batchedCache100K = buildPositionCache(100_000, false);
+  const changes = Array.from({ length: 50 }, (_, index) => ({ index, height: 60 }));
+  bench('update 50 early rows in one batch — 100K cache', () => {
+    for (let index = 0; index < changes.length; index++) {
+      changes[index].height = alternatingHeight(batchedCache100K, index);
+    }
+    updateRowHeights(batchedCache100K, changes);
   });
 });
 

@@ -8,7 +8,12 @@
  * as the geometric mean of these ratios only — mixing in noise-floor
  * micro-ops would dilute the comparison and exaggerate the win.
  */
-export const MACRO_METRICS = ['Time to first paint', 'Sort', 'Filter', 'Data replacement'] as const;
+export const MACRO_METRICS = [
+  'Cold mount to painted viewport',
+  'Sort',
+  'Filter',
+  'Replace data to painted viewport',
+] as const;
 
 /**
  * "Micro" metrics: per-interaction operations whose cost is bounded by one
@@ -101,7 +106,9 @@ export interface CompetitorAdapter {
   load(): Promise<void>;
   /**
    * Run the full benchmark sequence at one scale point. Implementations
-   * mount their grid into `gridArea`, run each metric, and clean up.
+   * mount their grid into `gridArea`, run each metric, validate the expected
+   * outcome outside the timed interval, and clean up. A failed validation
+   * must reject the run rather than publish a timing for a no-op or partial update.
    */
   runAtScale(gridArea: HTMLElement, rowCount: number): Promise<Map<MetricName, number>>;
 }

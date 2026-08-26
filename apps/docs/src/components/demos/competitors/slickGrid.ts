@@ -6,6 +6,8 @@
 
 import {
   COL_COUNT,
+  REPLACEMENT_MARKER,
+  assertBenchmark,
   cooldown,
   countDomNodes,
   fetchPackageVersion,
@@ -13,7 +15,9 @@ import {
   generateRows,
   injectCss,
   injectScript,
+  markReplacement,
   measureAvg,
+  measureRetained,
   measureVisual,
   nextFrame,
   shuffleRows,
@@ -32,6 +36,7 @@ interface SlickGridInstance {
   getColumns(): SlickColumn[];
   scrollRowIntoView(row: number, doPaging?: boolean): void;
   scrollRowToTop(row: number): void;
+  getViewport(): { top: number; bottom: number };
   invalidateAllRows(): void;
   invalidateRows(rows: number[]): void;
   render(): void;
@@ -46,6 +51,8 @@ interface SlickDataView {
   setItems(items: BenchmarkRow[], idProperty?: string): void;
   getItems(): BenchmarkRow[];
   getLength(): number;
+  getItem(index: number): BenchmarkRow | undefined;
+  getItemById(id: string | number): BenchmarkRow | undefined;
   sort(comparer: (a: BenchmarkRow, b: BenchmarkRow) => number, ascending?: boolean): void;
   setFilter(fn: ((item: BenchmarkRow) => boolean) | null): void;
   refresh(): void;
@@ -130,10 +137,6 @@ export const slickGridAdapter: CompetitorAdapter = {
 
     // DOM node count after first paint. See toolbox.ts for rationale.
 
-    gridArea.innerHTML = '<div id="compare-slick-host" style="width:100%;height:100%;"></div>';
-    const host = document.getElementById('compare-slick-host')!;
-    await cooldown(100);
-
     const slickColumns: SlickColumn[] = columns.map((c) => ({
       id: c.field,
       name: c.header,
@@ -154,38 +157,49 @@ export const slickGridAdapter: CompetitorAdapter = {
       forceSyncScrolling: true,
     };
 
-    let grid: SlickGridInstance | null = null;
-    let dataView: SlickDataView | null = null;
-    const renderTime = await measureVisual(() => {
-      dataView = new Slick.Data.DataView();
-      grid = new Slick.Grid(host, dataView, slickColumns, baseOptions);
-      // SlickGrid + DataView is decoupled by design: the grid does NOT
-      // automatically observe the dataView. Without these subscriptions
-      // setItems() updates the DataView but the grid renders nothing,
-      // making every benchmark measure an empty grid.
-      dataView.onRowCountChanged.subscribe(() => {
-        grid!.updateRowCount();
-        grid!.render();
-      });
-      dataView.onRowsChanged.subscribe((_e, args) => {
-        grid!.invalidateRows(args.rows);
-        grid!.render();
-      });
-      dataView.setItems(rows, 'id');
-      // SlickGrid caches viewport dimensions at construction time. When the
-      // host element was just inserted via innerHTML it can be 0×0 for one
-      // frame, leaving the viewport blank even after setItems(). Force a
-      // resize + full invalidation so rows actually paint.
-      grid.resizeCanvas();
-      grid.invalidateAllRows();
-      grid.render();
-    });
-    results.set('Time to first paint', renderTime);
+    const initialRender = await measureRetained(
+      async () => {
+        let grid: SlickGridInstance | null = null;
+        let dataView: SlickDataView | null = null;
+        let host: HTMLElement | null = null;
+        const duration = await measureVisual(() => {
+          gridArea.innerHTML = '<div id="compare-slick-host" style="width:100%;height:100%;"></div>';
+          host = document.getElementById('compare-slick-host');
+          dataView = new Slick.Data.DataView();
+          grid = new Slick.Grid(host!, dataView, slickColumns, baseOptions);
+          dataView.onRowCountChanged.subscribe(() => {
+            grid!.updateRowCount();
+            grid!.render();
+          });
+          dataView.onRowsChanged.subscribe((_e, args) => {
+            grid!.invalidateRows(args.rows);
+            grid!.render();
+          });
+          dataView.setItems(rows, 'id');
+          grid.resizeCanvas();
+          grid.invalidateAllRows();
+          grid.render();
+        });
+        if (!grid || !dataView || !host) throw new Error('SlickGrid did not initialize');
+        assertBenchmark(
+          'SlickGrid',
+          'Cold mount to painted viewport',
+          rowCount,
+          dataView.getLength() === rowCount && host.querySelector('.slick-row') !== null,
+          `expected ${rowCount} modeled rows and at least one painted row, got ${dataView.getLength()} rows`,
+        );
+        return { duration, value: { grid, dataView, host } };
+      },
+      ({ grid, host }) => {
+        grid.destroy();
+        host.remove();
+        gridArea.innerHTML = '';
+      },
+    );
+    results.set('Cold mount to painted viewport', initialRender.duration);
     await cooldown(200);
     results.set('DOM nodes', countDomNodes(gridArea));
-    if (!grid || !dataView) throw new Error('SlickGrid did not initialize');
-    const g = grid as SlickGridInstance;
-    const dv = dataView as SlickDataView;
+    const { grid: g, dataView: dv, host } = initialRender.value;
 
     // Warmup scroll — timed per-frame metric removed (vsync floor).
     const slickScrollViewport = host.querySelector('.slick-viewport') as HTMLElement | null;
@@ -206,13 +220,21 @@ export const slickGridAdapter: CompetitorAdapter = {
 
     // Sort
     const sortTime = await measureAvg(
-      async () => {
-        dv.setItems(shuffleRows([...rows]), 'id');
+      async (iteration) => {
+        dv.setItems(shuffleRows([...rows], rowCount * 31 + iteration), 'id');
         await nextFrame();
         await nextFrame();
-        return measureVisual(() => {
+        const duration = await measureVisual(() => {
           dv.sort((a, b) => (b.id as number) - (a.id as number), false);
         });
+        assertBenchmark(
+          'SlickGrid',
+          'Sort',
+          rowCount,
+          dv.getItem(0)?.id === rowCount && dv.getItem(rowCount - 1)?.id === 1,
+          `expected descending ids ${rowCount}..1, got ${dv.getItem(0)?.id}..${dv.getItem(rowCount - 1)?.id}`,
+        );
+        return duration;
       },
       () => {
         dv.sort((a, b) => (a.id as number) - (b.id as number), true);
@@ -225,11 +247,22 @@ export const slickGridAdapter: CompetitorAdapter = {
     {
       const threshold = Math.floor(rowCount / 2);
       const filterTime = await measureAvg(
-        () =>
-          measureVisual(() => {
+        async () => {
+          const duration = await measureVisual(() => {
             dv.setFilter((item) => (item.id as number) > threshold);
             dv.refresh();
-          }),
+          });
+          assertBenchmark(
+            'SlickGrid',
+            'Filter',
+            rowCount,
+            dv.getLength() === rowCount - threshold &&
+              dv.getItem(0)!.id > threshold &&
+              dv.getItem(dv.getLength() - 1)!.id > threshold,
+            `expected ${rowCount - threshold} rows with id > ${threshold}, got ${dv.getLength()}`,
+          );
+          return duration;
+        },
         async () => {
           dv.setFilter(null);
           dv.refresh();
@@ -244,13 +277,23 @@ export const slickGridAdapter: CompetitorAdapter = {
     }
 
     // Data replacement
-    const replaceTime = await measureAvg(() => {
-      const fresh = generateRows(rowCount, COL_COUNT);
-      return measureVisual(() => {
+    const replaceTime = await measureAvg(async () => {
+      const fresh = markReplacement(generateRows(rowCount, COL_COUNT));
+      const duration = await measureVisual(() => {
         dv.setItems(fresh, 'id');
       });
+      assertBenchmark(
+        'SlickGrid',
+        'Replace data to painted viewport',
+        rowCount,
+        dv.getLength() === rowCount &&
+          dv.getItem(0)?.col1 === REPLACEMENT_MARKER &&
+          host.textContent?.includes(REPLACEMENT_MARKER) === true,
+        `expected ${rowCount} replacement rows and visible marker ${REPLACEMENT_MARKER}`,
+      );
+      return duration;
     });
-    results.set('Data replacement', replaceTime);
+    results.set('Replace data to painted viewport', replaceTime);
     await cooldown(50);
 
     // Update single row
@@ -261,15 +304,24 @@ export const slickGridAdapter: CompetitorAdapter = {
       // every benchmark iteration.
       const items = dv.getItems();
       let updateCounter = 0;
-      const updateTime = await measureAvg(() =>
-        measureVisual(() => {
+      const updateTime = await measureAvg(async () => {
+        const expected = `UPDATED${++updateCounter}`;
+        const duration = await measureVisual(() => {
           const idx = midId - 1;
           if (items[idx]?.id === midId) {
-            const item = { ...items[idx], col1: `UPDATED${++updateCounter}` };
+            const item = { ...items[idx], col1: expected };
             dv.updateItem(midId, item);
           }
-        }),
-      );
+        });
+        assertBenchmark(
+          'SlickGrid',
+          'Update single row',
+          rowCount,
+          dv.getItemById(midId)?.col1 === expected,
+          `expected row ${midId} col1 to equal ${expected}`,
+        );
+        return duration;
+      });
       results.set('Update single row', updateTime);
       await cooldown(50);
     }
@@ -277,14 +329,23 @@ export const slickGridAdapter: CompetitorAdapter = {
     // Column resize
     {
       let wide = true;
-      const resizeTime = await measureAvg(() =>
-        measureVisual(() => {
+      const resizeTime = await measureAvg(async () => {
+        const expectedWidth = wide ? 200 : 80;
+        const duration = await measureVisual(() => {
           const cols = g.getColumns();
-          cols[0] = { ...cols[0], width: wide ? 200 : 80 };
+          cols[0] = { ...cols[0], width: expectedWidth };
           g.setColumns(cols);
           wide = !wide;
-        }),
-      );
+        });
+        assertBenchmark(
+          'SlickGrid',
+          'Column resize',
+          rowCount,
+          g.getColumns()[0]?.width === expectedWidth,
+          `expected first column width ${expectedWidth}, got ${g.getColumns()[0]?.width}`,
+        );
+        return duration;
+      });
       results.set('Column resize', resizeTime);
       await cooldown(50);
     }
@@ -292,10 +353,20 @@ export const slickGridAdapter: CompetitorAdapter = {
     // Scroll to end
     {
       const scrollEndTime = await measureAvg(
-        () =>
-          measureVisual(() => {
+        async () => {
+          const duration = await measureVisual(() => {
             g.scrollRowIntoView(rowCount - 1, false);
-          }),
+          });
+          const viewport = g.getViewport();
+          assertBenchmark(
+            'SlickGrid',
+            'Scroll to end',
+            rowCount,
+            viewport.bottom === rowCount - 1,
+            `expected viewport bottom ${rowCount - 1}, got ${viewport.bottom}`,
+          );
+          return duration;
+        },
         () => {
           g.scrollRowToTop(0);
         },
@@ -304,39 +375,48 @@ export const slickGridAdapter: CompetitorAdapter = {
       await cooldown(50);
     }
 
-    // Destroy — fresh instance.
+    // Destroy — a fresh mounted instance per iteration.
     {
-      gridArea.innerHTML +=
-        '<div id="compare-slick-destroy" style="width:100%;height:100%;position:absolute;top:0;left:0;right:0;bottom:0;"></div>';
-      const destroyContainer = document.getElementById('compare-slick-destroy')!;
-      const freshRows = generateRows(rowCount, COL_COUNT);
-      const destroyDataView = new Slick.Data.DataView();
-      const destroyGrid = new Slick.Grid(destroyContainer, destroyDataView, slickColumns, baseOptions);
-      destroyDataView.onRowCountChanged.subscribe(() => {
-        destroyGrid.updateRowCount();
+      const destroyTime = await measureAvg(async () => {
+        gridArea.innerHTML = '<div id="compare-slick-destroy" style="width:100%;height:100%;"></div>';
+        const destroyContainer = document.getElementById('compare-slick-destroy')!;
+        const destroyDataView = new Slick.Data.DataView();
+        const destroyGrid = new Slick.Grid(destroyContainer, destroyDataView, slickColumns, baseOptions);
+        destroyDataView.onRowCountChanged.subscribe(() => {
+          destroyGrid.updateRowCount();
+          destroyGrid.render();
+        });
+        destroyDataView.onRowsChanged.subscribe((_e, args) => {
+          destroyGrid.invalidateRows(args.rows);
+          destroyGrid.render();
+        });
+        destroyDataView.setItems(rows, 'id');
+        destroyGrid.resizeCanvas();
+        destroyGrid.invalidateAllRows();
         destroyGrid.render();
-      });
-      destroyDataView.onRowsChanged.subscribe((_e, args) => {
-        destroyGrid.invalidateRows(args.rows);
-        destroyGrid.render();
-      });
-      destroyDataView.setItems(freshRows, 'id');
-      destroyGrid.resizeCanvas();
-      destroyGrid.invalidateAllRows();
-      destroyGrid.render();
-      await nextFrame();
-      await nextFrame();
-      await cooldown(100);
+        await nextFrame();
+        await cooldown(30);
 
-      const destroyTime = await measureVisual(() => {
-        destroyGrid.destroy();
+        const duration = await measureVisual(() => {
+          destroyGrid.destroy();
+          destroyContainer.remove();
+        });
+        assertBenchmark(
+          'SlickGrid',
+          'Grid destroy',
+          rowCount,
+          !destroyContainer.isConnected,
+          'expected benchmark grid host to be disconnected',
+        );
+        return duration;
       });
       results.set('Grid destroy', destroyTime);
-      destroyContainer.remove();
+      gridArea.innerHTML = '';
       await cooldown(50);
     }
 
     g.destroy();
+    host.remove();
     gridArea.innerHTML = '';
     await cooldown(300);
 

@@ -25,7 +25,7 @@ import {
   sortPivotMulti,
   type PivotDataRow,
 } from './pivot-engine';
-import { createValueKey, validatePivotConfig } from './pivot-model';
+import { createValueKeys, validatePivotConfig } from './pivot-model';
 import { renderPivotPanel, type FieldInfo, type PanelCallbacks } from './pivot-panel';
 import { renderPivotGrandTotalRow, renderPivotGroupRow, renderPivotLeafRow, type PivotRowData } from './pivot-rows';
 import type {
@@ -194,7 +194,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   private previousVisibleKeys = new Set<string>();
   private keysToAnimate = new Set<string>();
   /** Cached value formatters keyed by value field name */
-  private valueFormatters: Map<string, (value: number) => string> = new Map();
+  private valueFormatters: Map<number, (value: number) => string> = new Map();
   /** Column totals for percentage mode */
   private columnTotals: Record<string, number> = {};
   /** Current interactive sort state for pivot columns (managed by onHeaderClick) */
@@ -381,12 +381,15 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     });
 
     // Value columns for each column key
+    const valueFields = this.config.valueFields ?? [];
     for (const colKey of this.pivotResult.columnKeys) {
-      for (const vf of this.config.valueFields ?? []) {
-        const valueKey = createValueKey([colKey], vf.field);
+      const valueKeys = createValueKeys([colKey], valueFields);
+      for (let valueIndex = 0; valueIndex < valueFields.length; valueIndex++) {
+        const vf = valueFields[valueIndex];
+        const valueKey = valueKeys[valueIndex];
         const valueHeader = vf.header || this.fieldHeaderMap.get(vf.field) || vf.field;
         const aggLabel = typeof vf.aggFunc === 'function' ? 'custom' : vf.aggFunc;
-        const formatter = this.valueFormatters.get(vf.field);
+        const formatter = this.valueFormatters.get(valueIndex);
         pivotColumns.push({
           field: valueKey,
           header: `${colKey} - ${valueHeader} (${aggLabel})`,
@@ -603,7 +606,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     if (field === '__pivotTotal') {
       return { by: 'value' };
     }
-    // Value columns use format: colKey|valueField (from createValueKey).
+    // Value columns use format: colKey|field[|aggFunc[|n]] (from createValueKeys).
     // Preserve the full value key so sorting targets the exact pivot column
     // the user clicked, rather than collapsing distinct columns like
     // "Q1|sales" and "Q2|sales" into the same "sales" config.
@@ -1234,13 +1237,16 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
   /**
    * Build value formatters from PivotValueField.format or original column format.
+   * Keyed by `valueFields` index — the same field may appear multiple times with
+   * different aggregators and formatters.
    */
   private buildValueFormatters(): void {
     this.valueFormatters.clear();
     const valueFields = this.config.valueFields ?? [];
-    for (const vf of valueFields) {
+    for (let index = 0; index < valueFields.length; index++) {
+      const vf = valueFields[index];
       if (vf.format) {
-        this.valueFormatters.set(vf.field, vf.format);
+        this.valueFormatters.set(index, vf.format);
       } else {
         // Check if the original column had a format function
         const origCol = this.originalColumns.find((c) => c.field === vf.field);
@@ -1250,7 +1256,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
             { field: string; format?: (value: unknown, row: unknown) => string } | undefined;
           if (col?.format) {
             const fmt = col.format;
-            this.valueFormatters.set(vf.field, (v: number) => fmt(v, {}));
+            this.valueFormatters.set(index, (v: number) => fmt(v, {}));
           }
         }
       }

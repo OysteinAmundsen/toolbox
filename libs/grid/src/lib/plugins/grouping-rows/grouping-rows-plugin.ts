@@ -489,9 +489,9 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       }
 
       if (activeSorts.size === 0) {
-        const gridHost = this.grid as unknown as { _sortState?: { field: string; direction: 1 | -1 } | null };
-        if (gridHost._sortState) {
-          activeSorts.set(gridHost._sortState.field, gridHost._sortState.direction);
+        const sortState = this.grid._sortState;
+        if (sortState) {
+          activeSorts.set(sortState.field, sortState.direction);
         }
       }
 
@@ -1221,8 +1221,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
         } else {
           // Check depth - only keep groups at different depths
           const existingGroup = this.flattenedRows.find((r) => r.kind === 'group' && r.key === existingKey) as
-            | GroupRowModelItem
-            | undefined;
+            GroupRowModelItem | undefined;
           if (existingGroup && existingGroup.depth !== group.depth) {
             newKeys.add(existingKey);
           }

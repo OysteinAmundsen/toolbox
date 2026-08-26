@@ -349,11 +349,11 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   #editorDeps!: EditorInjectionDeps<T>;
 
   /**
-   * Typed accessor for `InternalGrid` — avoids repeating `as unknown as` at every call site.
-   * Safe because `DataGridElement` implements `InternalGrid` at runtime.
+   * Narrows the grid to its row type `T`. `GridElement` is intentionally
+   * non-generic, so this accessor re-applies the plugin's own `T`.
    */
   get #internalGrid(): GridHost<T> {
-    return this.grid as unknown as GridHost<T>;
+    return this.grid;
   }
 
   // #endregion

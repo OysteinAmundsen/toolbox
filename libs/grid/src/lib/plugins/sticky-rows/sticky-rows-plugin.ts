@@ -285,7 +285,7 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
   }
 
   private getVirtualState(): VirtualStateLike | undefined {
-    return (this.grid as unknown as { _virtualization?: VirtualStateLike })?._virtualization;
+    return this.grid?._virtualization;
   }
 
   private getCurrentScrollTop(): number {

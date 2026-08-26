@@ -114,7 +114,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
 
   /** Typed internal grid accessor. */
   get #internalGrid(): GridHost {
-    return this.grid as unknown as GridHost;
+    return this.grid;
   }
 
   /**

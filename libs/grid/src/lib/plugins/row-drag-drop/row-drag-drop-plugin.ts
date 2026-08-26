@@ -257,7 +257,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
   /** Typed internal grid accessor. */
   private get internalGrid(): GridHost {
-    return this.grid as unknown as GridHost;
+    return this.grid;
   }
   // #endregion
 

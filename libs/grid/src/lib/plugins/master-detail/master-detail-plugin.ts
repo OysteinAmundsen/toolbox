@@ -101,7 +101,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
   /** Typed internal grid accessor. */
   get #internalGrid(): GridHost {
-    return this.grid as unknown as GridHost;
+    return this.grid;
   }
 
   /** @internal */

@@ -16,14 +16,8 @@ import {
   warnDiagnostic,
 } from '../../core/internal/diagnostics';
 import { builtInSort } from '../../core/internal/sorting';
-import {
-  BaseGridPlugin,
-  ScrollEvent,
-  type GridElement,
-  type PluginManifest,
-  type PluginQuery,
-} from '../../core/plugin/base-plugin';
-import type { ColumnConfig, GridHost } from '../../core/types';
+import { BaseGridPlugin, ScrollEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
+import type { ColumnConfig } from '../../core/types';
 import { createUrlDataSource, getBlockNumber, getRequiredBlocks, getRowFromCache, loadBlock } from './datasource';
 import type {
   DataSourceChildrenDetail,
@@ -238,8 +232,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     const sortResults = sortLocal
       ? undefined
       : (this.grid?.query?.('sort:get-model', null) as
-          | Array<{ field: string; direction: 'asc' | 'desc' }>[]
-          | undefined);
+          Array<{ field: string; direction: 'asc' | 'desc' }>[] | undefined);
     const filterResults = filterLocal
       ? undefined
       : (this.grid?.query?.('filter:get-model', null) as Record<string, unknown>[] | undefined);
@@ -248,7 +241,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     // 'sort:get-model' query (e.g. MultiSortPlugin not loaded). Translate the
     // numeric direction (1/-1) to the public 'asc'/'desc' string form.
     let sortModel = sortResults?.[0];
-    const host = this.grid as unknown as GridHost | undefined;
+    const host = this.grid;
     if (!sortLocal && !sortModel && host?._sortState) {
       const { field, direction } = host._sortState;
       sortModel = [{ field, direction: direction === 1 ? 'asc' : 'desc' }];
@@ -342,7 +335,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   private loadRequiredBlocks(): void {
     if (!this.dataSource) return;
 
-    const { _virtualization } = this.grid as GridElement & Pick<GridHost, '_virtualization'>;
+    const { _virtualization } = this.grid;
     const blockSize = this.config.pageSize ?? 100;
 
     // Translate viewport to node space via structural plugins
@@ -509,7 +502,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     // managedNodes so the user sees in-place sorting without a refetch.
     // Note: any plugin sort that runs after us (priority > -10, e.g. multi-sort)
     // will further re-sort our output, which is the intended chain.
-    const host = this.grid as unknown as GridHost | undefined;
+    const host = this.grid;
     if (this.config.sortMode === 'local' && host?._sortState) {
       const columns = (host._columns ?? []) as ColumnConfig[];
       // Honor user's gridConfig.sortHandler when provided — same resolution

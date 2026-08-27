@@ -49,12 +49,18 @@ related: [grid-plugins-catalog-data, grid-plugins-catalog-ui, grid-plugins-shell
 
 ### Virtualization hooks
 
-| Hook                         | Purpose                                        |
-| ---------------------------- | ---------------------------------------------- |
-| `getRowHeight`               | synthetic row height (detail panels, tree)     |
-| `adjustVirtualStart`         | render extra rows above the viewport           |
-| `renderRow`                  | custom row DOM (bypasses the default renderer) |
-| `getHorizontalScrollOffsets` | pinned-column spacing for keyboard navigation  |
+| Hook                         | Purpose                                                             |
+| ---------------------------- | ------------------------------------------------------------------- |
+| `getRowHeight`               | synthetic row height (detail panels, tree)                          |
+| `adjustVirtualStart`         | render extra rows above the viewport                                |
+| `renderRow`                  | custom row DOM (bypasses the default renderer)                      |
+| `getHorizontalScrollOffsets` | pinned-column spacing for keyboard navigation (PinnedColumnsPlugin) |
+| `getVerticalScrollOffsets`   | overlay height above/below rows viewport (StickyRowsPlugin)         |
+
+- INVARIANT (scroll-boundary hooks, #449): report ONLY space painted **over** the scrollable rows. Normal-flow content (pinned-row bars, `.tbw-footer`, header, shell header) already shrinks the viewport via `flex-shrink: 0` — reporting it scrolls twice as far. Only `.tbw-sticky-rows` (`absolute; top:0; z-index:22` inside `.rows-viewport`) qualifies today.
+- FLOW (`getVerticalScrollOffsets`, 5 files, mirrors the horizontal chain): `BaseGridPlugin` hook → `PluginManager` sums `top`/`bottom`, ORs `skipScroll` → `InternalGrid._getVerticalScrollOffsets` (types.ts) → `grid.ts` delegator → `keyboard.ts scrollFocusedRowIntoView` **and** `focus-manager.ts scrollToRow`. A new boundary hook = all five files.
+- `skipScroll: true` = "already visible by other means, don't move the viewport" (StickyRows returns it when the focused row IS a stuck clone).
+- Consumers clamp with `Math.max(0, …)` and bail when `usableHeight <= 0` — a malformed report can't invert the band or yield NaN.
 
 - INVARIANT (`renderRow` contract): when a plugin's `renderRow` takes over cell creation (Pivot, GroupingRows, Tree custom rows, MasterDetail panels), the grid's normal cell pipeline is **skipped entirely** — `format`, `cellRenderer`, `cellClass`, value-accessor caching and sanitize wrapping MUST be re-applied manually. Canonical pattern: the cell render path in [rows.ts](libs/grid/src/lib/core/internal/rows.ts). Forgetting = silent formatter loss inside grouped/pivot rows.
 

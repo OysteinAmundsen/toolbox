@@ -91,5 +91,30 @@ export interface TooltipConfig {
    * @default true
    */
   cell?: boolean;
+
+  /**
+   * Show the tooltip for the focused cell during keyboard navigation, so
+   * truncated content is reachable without a pointer — WCAG 2.2 SC 1.4.13
+   * Content on Hover or Focus.
+   *
+   * Only keyboard navigation triggers this; clicking a cell with a pointer
+   * never does, so mouse users see no change. Set to `false` to opt out —
+   * note that doing so forfeits the SC 1.4.13 "focus" path.
+   *
+   * @default true
+   * @since 3.6.0
+   */
+  focus?: boolean;
+
+  /**
+   * Grace period in milliseconds before a tooltip hides once the pointer
+   * leaves its cell. Gives the pointer time to travel onto the tooltip
+   * itself, which SC 1.4.13 requires so its content can be read, magnified,
+   * or selected. Set to `0` to hide immediately.
+   *
+   * @default 120
+   * @since 3.6.0
+   */
+  hideDelay?: number;
 }
 // #endregion

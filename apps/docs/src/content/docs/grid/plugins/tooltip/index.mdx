@@ -138,6 +138,8 @@ Hover over truncated column headers or cell values to see tooltips. Toggle heade
 | ------ | ---- | ------- | ----------- |
 | `header` | `boolean` | `true` | Enable automatic tooltips on overflowing header text |
 | `cell` | `boolean` | `true` | Enable automatic tooltips on overflowing cell text |
+| `focus` | `boolean` | `true` | Show the tooltip for the focused cell during **keyboard** navigation. Pointer interaction is unaffected. |
+| `hideDelay` | `number` | `120` | Grace period in milliseconds before the tooltip hides once the pointer leaves the cell, so it can be moved onto the tooltip itself. `0` hides immediately. |
 
 ## Per-Column Overrides
 
@@ -177,6 +179,17 @@ The tooltip popover includes a directional arrow that automatically flips when t
 | `--tbw-tooltip-shadow` | `0 2px 8px rgba(0,0,0,.15)` | Tooltip box shadow |
 | `--tbw-tooltip-radius` | `var(--tbw-border-radius)` | Border radius |
 | `--tbw-tooltip-arrow-offset` | `12px` | Horizontal offset of the arrow from the left edge |
+
+## Accessibility
+
+The plugin satisfies [WCAG 2.2 SC 1.4.13 Content on Hover or Focus](https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html):
+
+- **Dismissible** — <kbd>Escape</kbd> hides a visible tooltip from anywhere on the page, without moving the pointer. The key is not consumed, so it still cancels an in-progress cell edit.
+- **Hoverable** — the tooltip stays up for `hideDelay` milliseconds after the pointer leaves the cell, and indefinitely while the pointer rests on the tooltip itself. Its text is selectable, so long content can be read with a screen magnifier or copied.
+- **Persistent** — the tooltip is never dismissed on a timer; it hides only when the pointer or keyboard focus moves away, or on <kbd>Escape</kbd>.
+- **Focus-triggered** — arrowing onto a truncated cell shows its tooltip, so keyboard users can read content a mouse user would hover for. The anchor cell is linked to the popover via `aria-describedby`, and the popover carries `role="tooltip"`.
+
+The focus path is driven by key presses, so it only ever runs for keyboard navigation — clicking a cell with a pointer never triggers it. Set `focus: false` to opt out entirely (this forfeits the SC 1.4.13 "focus" path).
 
 ## See Also
 

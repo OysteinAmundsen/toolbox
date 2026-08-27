@@ -1807,6 +1807,39 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
     focusedCell?: HTMLElement,
   ): { left: number; right: number; skipScroll?: boolean } | undefined;
 
+  /**
+   * Report vertical scroll boundary offsets for this plugin.
+   * Plugins that overlay the top or bottom of the rows viewport (e.g. sticky
+   * row clones) should return how much space they obscure on each edge, so
+   * keyboard navigation can scroll a focused row clear of the overlay rather
+   * than leaving it hidden underneath — WCAG 2.2 SC 2.4.11 Focus Not Obscured.
+   *
+   * Only report space that is painted *over* the scrollable rows. Content that
+   * takes part in normal flow (pinned-row bars, the column header) already
+   * shrinks the viewport and must NOT be reported here, or rows would scroll
+   * twice as far as needed.
+   *
+   * @param focusedRowIndex - Index of the row being scrolled into view, so a plugin can report `skipScroll` when it already renders that row in a permanently visible overlay
+   * @returns Object with top/bottom pixel offsets and optional skipScroll flag, or undefined if plugin obscures nothing
+   *
+   * @example
+   * ```ts
+   * getVerticalScrollOffsets(focusedRowIndex?: number): { top: number; bottom: number; skipScroll?: boolean } | undefined {
+   *   if (!this.overlayEl) return undefined;
+   *   // The row is already pinned in the overlay — it is visible where it is.
+   *   if (focusedRowIndex != null && this.stuckIndices.includes(focusedRowIndex)) {
+   *     return { top: 0, bottom: 0, skipScroll: true };
+   *   }
+   *   return { top: this.overlayEl.offsetHeight, bottom: 0 };
+   * }
+   * ```
+   *
+   * @since 3.6.0
+   */
+  getVerticalScrollOffsets?(
+    focusedRowIndex?: number,
+  ): { top: number; bottom: number; skipScroll?: boolean } | undefined;
+
   // #endregion
 
   // #region Shell Integration Hooks

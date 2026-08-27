@@ -535,4 +535,111 @@ describe('keyboard navigation', () => {
       expect(scrollEl.scrollTop).toBeGreaterThanOrEqual(0);
     });
   });
+
+  // WCAG 2.2 SC 2.4.11 Focus Not Obscured (Minimum)
+  describe('vertical scroll offsets (#449)', () => {
+    const ROW_H = 30;
+    const VIEWPORT_H = 300; // 10 rows
+
+    function makeVirtualGrid(focusRow: number, offsets?: Record<string, unknown>) {
+      const scrollEl = { scrollTop: 0, clientHeight: VIEWPORT_H } as unknown as HTMLElement;
+      const grid: any = {
+        _rows: Array.from({ length: 100 }, (_, i) => ({ id: i })),
+        _columns: [{ field: 'c0' }],
+        get _visibleColumns() {
+          return this._columns;
+        },
+        _focusRow: focusRow,
+        _focusCol: 0,
+        _virtualization: {
+          enabled: true,
+          rowHeight: ROW_H,
+          container: scrollEl,
+          viewportEl: { clientHeight: VIEWPORT_H } as unknown as HTMLElement,
+          start: 0,
+          end: 100,
+        },
+        _bodyEl: document.createElement('div'),
+        refreshVirtualWindow: () => {
+          /* empty */
+        },
+        dispatchEvent: () => true,
+        querySelector: () => null,
+        _getVerticalScrollOffsets: () => offsets ?? { top: 0, bottom: 0 },
+      };
+      return { grid, scrollEl };
+    }
+
+    it('scrolls a row clear of an overlay covering the top of the viewport', () => {
+      // Sticky-rows overlay is 60px (2 rows) tall. Focus row 4 sits at y=120.
+      const { grid, scrollEl } = makeVirtualGrid(5, { top: 60, bottom: 0 });
+      scrollEl.scrollTop = 150; // rows 0-4 scrolled off; row 5 (y=150) is under the overlay
+
+      key(grid, 'ArrowUp'); // → row 4, y = 120
+
+      // Without the offset the grid would scroll to 120 and leave the row
+      // hidden beneath the 60px overlay. It must land at 120 - 60 = 60.
+      expect(grid._focusRow).toBe(4);
+      expect(scrollEl.scrollTop).toBe(60);
+    });
+
+    it('leaves scroll untouched when the row is already below the overlay', () => {
+      const { grid, scrollEl } = makeVirtualGrid(4, { top: 60, bottom: 0 });
+      scrollEl.scrollTop = 60; // visible band is y 120..360; row 5 at y=150 is clear
+
+      key(grid, 'ArrowDown'); // → row 5
+
+      expect(grid._focusRow).toBe(5);
+      expect(scrollEl.scrollTop).toBe(60);
+    });
+
+    it('accounts for a bottom offset when scrolling downward', () => {
+      const { grid, scrollEl } = makeVirtualGrid(9, { top: 0, bottom: 45 });
+      scrollEl.scrollTop = 0; // usable band is y 0..255, so row 9 (150..180) is fine
+
+      key(grid, 'ArrowDown'); // → row 10, y = 300..330, past the 255 usable bottom
+
+      expect(grid._focusRow).toBe(10);
+      // target = y - usableHeight + rowHeight = 300 - 255 + 30 = 75
+      expect(scrollEl.scrollTop).toBe(75);
+    });
+
+    it('honours skipScroll from a plugin that already renders the row', () => {
+      const { grid, scrollEl } = makeVirtualGrid(5, { top: 60, bottom: 0, skipScroll: true });
+      scrollEl.scrollTop = 500;
+
+      key(grid, 'ArrowUp');
+
+      expect(grid._focusRow).toBe(4);
+      expect(scrollEl.scrollTop).toBe(500);
+    });
+
+    it('behaves as before when no plugin reports an offset', () => {
+      const { grid, scrollEl } = makeVirtualGrid(5);
+      scrollEl.scrollTop = 150;
+
+      key(grid, 'ArrowUp'); // → row 4 at y=120
+
+      expect(scrollEl.scrollTop).toBe(120);
+    });
+
+    it('ignores offsets that would leave no usable viewport', () => {
+      const { grid, scrollEl } = makeVirtualGrid(5, { top: 400, bottom: 0 });
+      scrollEl.scrollTop = 150;
+
+      key(grid, 'ArrowUp');
+
+      expect(grid._focusRow).toBe(4);
+      expect(scrollEl.scrollTop).toBe(150);
+    });
+
+    it('never writes a negative scrollTop for rows near the top', () => {
+      const { grid, scrollEl } = makeVirtualGrid(1, { top: 60, bottom: 0 });
+      scrollEl.scrollTop = 30;
+
+      key(grid, 'ArrowUp'); // → row 0 at y=0; 0 - 60 would be negative
+
+      expect(scrollEl.scrollTop).toBe(0);
+    });
+  });
 });

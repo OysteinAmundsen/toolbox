@@ -2740,6 +2740,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
+   * Get vertical scroll boundary offsets from plugins.
+   * Used by keyboard navigation so a focused row is not left hidden beneath an
+   * overlay such as the sticky-rows clones (WCAG 2.2 SC 2.4.11).
+   */
+  _getVerticalScrollOffsets(focusedRowIndex?: number): { top: number; bottom: number; skipScroll?: boolean } {
+    return this.#pluginManager?.getVerticalScrollOffsets(focusedRowIndex) ?? { top: 0, bottom: 0 };
+  }
+
+  /**
    * Query plugins with a simplified API.
    * This is a convenience wrapper around `queryPlugins` that uses a flat signature.
    *

@@ -15,7 +15,12 @@
     white-space: pre-wrap;
     word-wrap: break-word;
     overflow-wrap: break-word;
-    pointer-events: none;
+    /* WCAG 2.2 SC 1.4.13 "Hoverable": the pointer must be able to rest on the
+       tooltip without dismissing it, so long or truncated content can be read,
+       magnified, and selected. The plugin's grace-period hide covers the gap
+       between the cell and the popover. */
+    pointer-events: auto;
+    user-select: text;
     z-index: 10001;
   }
 

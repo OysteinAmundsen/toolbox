@@ -167,6 +167,25 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
   }
 
   /**
+   * @internal Report how much of the rows viewport the clone overlay covers so
+   * keyboard navigation can scroll a focused row clear of it (WCAG 2.2 SC
+   * 2.4.11 Focus Not Obscured). The container is `position: absolute; top: 0`
+   * over `.rows-viewport`, so a row scrolled to the exact top would otherwise
+   * land underneath it.
+   */
+  override getVerticalScrollOffsets(
+    focusedRowIndex?: number,
+  ): { top: number; bottom: number; skipScroll?: boolean } | undefined {
+    if (!this.container || this.displayedIndices.length === 0) return undefined;
+    // The row IS one of the stuck clones — it is already pinned in view, and
+    // scrolling to it would only push the row it is stuck above out of reach.
+    if (focusedRowIndex != null && this.displayedIndices.includes(focusedRowIndex)) {
+      return { top: 0, bottom: 0, skipScroll: true };
+    }
+    return { top: this.container.offsetHeight, bottom: 0 };
+  }
+
+  /**
    * Queue a single deferred style pass that re-captures sticky clones once
    * async framework cell content has settled.
    *

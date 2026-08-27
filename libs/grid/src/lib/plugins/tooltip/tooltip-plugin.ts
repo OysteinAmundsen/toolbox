@@ -87,6 +87,25 @@ function supportsPopover(): boolean {
 function supportsAnchor(): boolean {
   return typeof CSS !== 'undefined' && CSS.supports?.('anchor-name', '--test') === true;
 }
+
+/** Keys that move the virtual cell focus and should therefore re-target the tooltip. */
+const NAVIGATION_KEYS = new Set([
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Home',
+  'End',
+  'PageUp',
+  'PageDown',
+  'Tab',
+]);
+
+/** Default grace period (ms) allowing the pointer to travel onto the tooltip. */
+const DEFAULT_HIDE_DELAY_MS = 120;
+
+/** `id` of the shared popover, referenced by `aria-describedby` on the anchor. */
+const POPOVER_ID = 'tbw-tooltip-popover';
 // #endregion
 
 // #region TooltipPlugin
@@ -129,6 +148,15 @@ function supportsAnchor(): boolean {
  * };
  * ```
  *
+ * ## Accessibility
+ *
+ * Conforms to WCAG 2.2 SC 1.4.13 (Content on Hover or Focus) out of the box:
+ * the tooltip is **dismissible** with `Escape`, **hoverable** (the pointer can
+ * rest on it to read or copy the text), **persistent** (never hidden on a
+ * timer), and appears on **keyboard focus** as cell focus moves. Pointer
+ * interaction never triggers the focus path, so mouse behaviour is unchanged.
+ * See {@link TooltipConfig.focus} and {@link TooltipConfig.hideDelay} to tune it.
+ *
  * @category Plugins
  * @since 1.28.0
  */
@@ -153,6 +181,12 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
   /** Whether delegated listeners are bound. */
   #bound = false;
 
+  /** Pending grace-period hide, cancelled when the pointer enters the tooltip. */
+  #hideTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Pending focus-driven retarget, so rapid arrow-key repeats coalesce. */
+  #focusFrame: number | null = null;
+
   /** Whether header tooltips are enabled globally. */
   get #headerEnabled(): boolean {
     return this.config.header !== false;
@@ -163,11 +197,26 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
     return this.config.cell !== false;
   }
 
+  /** Whether keyboard focus shows a tooltip (WCAG 2.2 SC 1.4.13). */
+  get #focusEnabled(): boolean {
+    return this.config.focus !== false;
+  }
+
+  /** Grace period before hiding, allowing the pointer to reach the tooltip. */
+  get #hideDelay(): number {
+    return this.config.hideDelay ?? DEFAULT_HIDE_DELAY_MS;
+  }
+
   override attach(grid: GridElement): void {
     super.attach(grid);
   }
 
   override detach(): void {
+    this.#cancelPendingHide();
+    if (this.#focusFrame !== null) {
+      cancelAnimationFrame(this.#focusFrame);
+      this.#focusFrame = null;
+    }
     this.#hideTooltip();
     this.#popoverEl?.remove();
     this.#popoverEl = null;
@@ -188,20 +237,29 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
     const el = document.createElement('div');
     el.className = 'tbw-tooltip-popover';
     el.setAttribute('popover', 'hint');
+    el.id = POPOVER_ID;
+    el.setAttribute('role', 'tooltip');
     // Override UA popover defaults that @layer CSS cannot beat
     el.style.overflow = 'visible';
     el.style.margin = '0';
     document.body.appendChild(el);
     this.#popoverEl = el;
+
+    // SC 1.4.13 "Hoverable" — the pointer must be able to rest on the tooltip
+    // without dismissing it, so its content can be read, magnified, or copied.
+    el.addEventListener('mouseenter', () => this.#cancelPendingHide(), { signal: this.disconnectSignal });
+    el.addEventListener('mouseleave', () => this.#scheduleHide(), { signal: this.disconnectSignal });
   }
 
   /** Show the popover anchored to `cell` with the given `text`. */
   #showTooltip(cell: HTMLElement, text: string): void {
     if (!this.#popoverEl) return;
+    this.#cancelPendingHide();
 
     // Move the CSS anchor to the hovered cell
     this.#clearAnchor();
     cell.style.setProperty('anchor-name', '--tbw-tooltip-anchor');
+    cell.setAttribute('aria-describedby', POPOVER_ID);
     this.#anchorCell = cell;
 
     // Set content (always textContent — safe, no XSS).
@@ -230,6 +288,7 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
 
   /** Hide the popover and clear the anchor reference. */
   #hideTooltip(): void {
+    this.#cancelPendingHide();
     if (this.#popoverEl) {
       if (supportsPopover()) {
         try {
@@ -243,11 +302,42 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
     this.#clearAnchor();
   }
 
+  /** Whether the popover is currently anchored to a cell (i.e. visible). */
+  get #isVisible(): boolean {
+    return this.#anchorCell !== null;
+  }
+
+  /**
+   * Hide after the configured grace period rather than immediately, so the
+   * pointer can travel from the cell onto the tooltip (SC 1.4.13 Hoverable).
+   */
+  #scheduleHide(): void {
+    this.#cancelPendingHide();
+    if (this.#hideDelay <= 0) {
+      this.#hideTooltip();
+      return;
+    }
+    this.#hideTimer = setTimeout(() => {
+      this.#hideTimer = null;
+      this.#hideTooltip();
+    }, this.#hideDelay);
+  }
+
+  #cancelPendingHide(): void {
+    if (this.#hideTimer !== null) {
+      clearTimeout(this.#hideTimer);
+      this.#hideTimer = null;
+    }
+  }
+
   /** Remove the CSS anchor-name from the previous cell, but only if it's still our tooltip anchor. */
   #clearAnchor(): void {
     if (this.#anchorCell) {
       if (this.#anchorCell.style.getPropertyValue('anchor-name') === '--tbw-tooltip-anchor') {
         this.#anchorCell.style.removeProperty('anchor-name');
+      }
+      if (this.#anchorCell.getAttribute('aria-describedby') === POPOVER_ID) {
+        this.#anchorCell.removeAttribute('aria-describedby');
       }
       this.#anchorCell = null;
     }
@@ -306,6 +396,20 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
     container.addEventListener('mouseout', (e: Event) => this.#onMouseOut(e as MouseEvent), {
       signal: this.disconnectSignal,
     });
+
+    // SC 1.4.13 "Dismissible" — Escape must hide the tooltip without moving the
+    // pointer. Bound on `document` because a hover-triggered tooltip can be
+    // visible while focus sits entirely outside the grid, where the grid's own
+    // key handling never runs. The event is deliberately NOT consumed: Escape
+    // also cancels an in-progress edit, and swallowing it here would break that.
+    document.addEventListener('keydown', (e: Event) => this.#onKeyDownGlobal(e as KeyboardEvent), {
+      capture: true,
+      signal: this.disconnectSignal,
+    });
+
+    container.addEventListener('keydown', (e: Event) => this.#onKeyDownGrid(e as KeyboardEvent), {
+      signal: this.disconnectSignal,
+    });
   }
 
   #onMouseOver(e: MouseEvent): void {
@@ -338,7 +442,50 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
     const related = e.relatedTarget as HTMLElement | null;
     if (related && cell.contains(related)) return;
 
-    this.#hideTooltip();
+    // Grace period, not an immediate hide, so the pointer can reach the tooltip.
+    this.#scheduleHide();
+  }
+
+  /** Escape dismisses a visible tooltip from anywhere on the page. */
+  #onKeyDownGlobal(e: KeyboardEvent): void {
+    if (e.key === 'Escape' && this.#isVisible) {
+      this.#hideTooltip();
+    }
+  }
+
+  /**
+   * Retarget the tooltip after keyboard navigation moves the virtual cell
+   * focus (SC 1.4.13 "focus" trigger). Only key-driven focus qualifies —
+   * pointer interaction never reaches here, so mouse users are unaffected.
+   */
+  #onKeyDownGrid(e: KeyboardEvent): void {
+    if (!this.#focusEnabled || !this.#cellEnabled) return;
+    if (e.key === 'Escape') return;
+    if (!NAVIGATION_KEYS.has(e.key)) {
+      // Any other key (typing, Enter to edit) means the user has moved on.
+      this.#hideTooltip();
+      return;
+    }
+    // Cell focus is virtual and moves in the grid's own keydown handler, which
+    // runs after this one — read the resulting `.cell-focus` on the next frame.
+    if (this.#focusFrame !== null) cancelAnimationFrame(this.#focusFrame);
+    this.#focusFrame = requestAnimationFrame(() => {
+      this.#focusFrame = null;
+      this.#syncTooltipToFocusedCell();
+    });
+  }
+
+  /** Show (or clear) the tooltip for the cell that currently holds focus. */
+  #syncTooltipToFocusedCell(): void {
+    const cell = this.gridElement?.querySelector('.cell-focus') as HTMLElement | null;
+    if (!cell || !cell.hasAttribute('data-row') || cell.style.getPropertyValue('anchor-name')) {
+      this.#hideTooltip();
+      return;
+    }
+    const before = this.#anchorCell;
+    this.#showCellTooltip(cell);
+    // No tooltip text for this cell — drop whatever the previous cell showed.
+    if (this.#anchorCell === before) this.#hideTooltip();
   }
   // #endregion
 

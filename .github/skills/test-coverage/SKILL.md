@@ -145,6 +145,28 @@ function createMockGrid(overrides = {}) {
 5. **Run tests through Nx**: `bun nx test grid --testFile=path/to/spec.ts`
 6. **Never use `npx vitest`** directly — always use `bun nx test <project>`
 
+### happy-dom gotchas (layout, timers, plugin identity)
+
+happy-dom does **no layout**: `clientHeight` / `offsetHeight` / `getBoundingClientRect()` all
+report `0`. Any code that measures the viewport short-circuits, so **scroll/positioning math is
+unreachable through the integration suite**. Test it as a unit with a hand-built mock host:
+
+- Stub element metrics with `Object.defineProperty(el, 'offsetHeight', { value: 28, configurable: true })`
+  (plain assignment is ignored — the property is a getter).
+- A mock `grid._virtualization` **must** carry a valid `scrollMapping`
+  (`{ capped: false, spacerHeight, rawContentHeight, viewportHeight }`). `fromVirtualScrollTop`
+  dereferences `mapping.capped` unconditionally and throws on `undefined`.
+- Test doubles registered via `attachAll` need **distinct classes** — `PluginManager` collapses
+  alias duplicates keyed on `plugin.constructor`, so three instances of one class become one.
+- Code with a debounce/grace period: either expose the delay as config and pass `0`, or use
+  `vi.useFakeTimers()`. Pre-existing specs that asserted the old synchronous path must be updated
+  to the `0` form rather than deleted.
+
+**Diagnosing failures:** the repo's Nx test reporter suppresses assertion diffs. When a spec fails
+with no useful message, re-run it through the `runTests` VS Code tool to get the real
+expected/received output. Filtering with `--testPathPattern=` is **not** honoured — pass positional
+patterns instead: `bun nx test grid -- <pattern1> <pattern2>`.
+
 ## Step 4: Verify
 
 Run the tests to ensure they pass:

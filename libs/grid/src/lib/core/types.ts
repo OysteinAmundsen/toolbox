@@ -567,6 +567,8 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
     rowEl?: HTMLElement,
     focusedCell?: HTMLElement,
   ) => { left: number; right: number; skipScroll?: boolean };
+  /** Get vertical scroll boundary offsets from plugins that overlay the rows viewport */
+  _getVerticalScrollOffsets?: (focusedRowIndex?: number) => { top: number; bottom: number; skipScroll?: boolean };
   /** Request emission of column-state-change event (debounced) */
   requestStateChange?: () => void;
 

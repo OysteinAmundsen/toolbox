@@ -379,7 +379,9 @@ describe('TooltipPlugin', () => {
       const columns: ColumnConfig[] = [{ field: 'name' }];
       const rows = [{ name: 'Long text' }];
       grid = createMockGrid({ _visibleColumns: columns, rows });
-      plugin = new TooltipPlugin();
+      // hideDelay: 0 opts out of the SC 1.4.13 "Hoverable" grace period so the
+      // teardown is observable synchronously.
+      plugin = new TooltipPlugin({ hideDelay: 0 });
       plugin.attach(grid as any);
 
       const cell = createDataCell(0, 0, 'Long text', true);
@@ -421,7 +423,7 @@ describe('TooltipPlugin', () => {
       const columns: ColumnConfig[] = [{ field: 'name' }];
       const rows = [{ name: 'Long text that overflows the cell container' }];
       grid = createMockGrid({ _visibleColumns: columns, rows });
-      plugin = new TooltipPlugin();
+      plugin = new TooltipPlugin({ hideDelay: 0 });
       plugin.attach(grid as any);
 
       const cell = createDataCell(0, 0, 'Long text that overflows the cell container', true);
@@ -449,7 +451,7 @@ describe('TooltipPlugin', () => {
       const columns: ColumnConfig[] = [{ field: 'name' }];
       const rows = [{ name: 'Alice Anderson' }];
       grid = createMockGrid({ _visibleColumns: columns, rows });
-      plugin = new TooltipPlugin();
+      plugin = new TooltipPlugin({ hideDelay: 0 });
       plugin.attach(grid as any);
 
       const cell = createDataCell(0, 0, 'Alice Anderson', true);
@@ -498,6 +500,171 @@ describe('TooltipPlugin', () => {
       singleCell.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
       expect(popover.textContent).toBe('single line');
       expect(popover.classList.contains('tbw-tooltip-multiline')).toBe(false);
+    });
+  });
+  // #endregion
+
+  // #region Accessibility (WCAG 2.2 SC 1.4.13)
+  describe('accessibility — content on hover or focus (#449)', () => {
+    /** Set up a grid with one overflowing data cell and show its tooltip. */
+    function showCellTooltip(config?: ConstructorParameters<typeof TooltipPlugin>[0]) {
+      const columns: ColumnConfig[] = [{ field: 'name' }];
+      const rows = [{ name: 'Alice Anderson' }];
+      grid = createMockGrid({ _visibleColumns: columns, rows });
+      plugin = new TooltipPlugin(config);
+      plugin.attach(grid as any);
+
+      const cell = createDataCell(0, 0, 'Alice Anderson', true);
+      (grid as any)._root.appendChild(cell);
+
+      plugin.afterRender();
+      cell.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      return { cell, root: (grid as any)._root as HTMLElement };
+    }
+
+    it('marks the popover as a tooltip so assistive tech announces it', () => {
+      showCellTooltip();
+      const popover = getPopover()!;
+      expect(popover.id).toBe('tbw-tooltip-popover');
+      expect(popover.getAttribute('role')).toBe('tooltip');
+    });
+
+    it('associates the anchor cell with the popover via aria-describedby', () => {
+      const { cell } = showCellTooltip({ hideDelay: 0 });
+      expect(cell.getAttribute('aria-describedby')).toBe('tbw-tooltip-popover');
+
+      cell.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: (grid as any)._root }));
+      expect(cell.hasAttribute('aria-describedby')).toBe(false);
+    });
+
+    // "Dismissible"
+    it('hides on Escape pressed anywhere on the page', () => {
+      const { cell } = showCellTooltip();
+      expect(getPopover()!.textContent).toBe('Alice Anderson');
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+      expect(cell.style.getPropertyValue('anchor-name')).toBe('');
+      expect(cell.hasAttribute('aria-describedby')).toBe(false);
+    });
+
+    it('does not consume Escape, so an in-progress edit can still cancel', () => {
+      showCellTooltip();
+      const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+      document.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    // "Hoverable"
+    it('keeps the tooltip up during the grace period after the pointer leaves', () => {
+      vi.useFakeTimers();
+      try {
+        const { cell } = showCellTooltip();
+
+        cell.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: (grid as any)._root }));
+        // Still anchored — the pointer has time to travel onto the popover.
+        expect(cell.style.getPropertyValue('anchor-name')).toBe('--tbw-tooltip-anchor');
+
+        vi.advanceTimersByTime(200);
+        expect(cell.style.getPropertyValue('anchor-name')).toBe('');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('cancels the pending hide when the pointer enters the popover', () => {
+      vi.useFakeTimers();
+      try {
+        const { cell } = showCellTooltip();
+
+        cell.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: (grid as any)._root }));
+        getPopover()!.dispatchEvent(new MouseEvent('mouseenter'));
+
+        vi.advanceTimersByTime(1000);
+        expect(cell.style.getPropertyValue('anchor-name')).toBe('--tbw-tooltip-anchor');
+
+        // Leaving the popover restarts the grace period.
+        getPopover()!.dispatchEvent(new MouseEvent('mouseleave'));
+        vi.advanceTimersByTime(200);
+        expect(cell.style.getPropertyValue('anchor-name')).toBe('');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('hides immediately when hideDelay is 0', () => {
+      const { cell } = showCellTooltip({ hideDelay: 0 });
+      cell.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: (grid as any)._root }));
+      expect(cell.style.getPropertyValue('anchor-name')).toBe('');
+    });
+
+    // Focus-triggered path — keyboard only, so mouse users see no change.
+    describe('keyboard focus', () => {
+      function makeFocusGrid(config?: ConstructorParameters<typeof TooltipPlugin>[0]) {
+        const columns: ColumnConfig[] = [{ field: 'name' }];
+        const rows = [{ name: 'Alice Anderson' }];
+        grid = createMockGrid({ _visibleColumns: columns, rows });
+        plugin = new TooltipPlugin(config);
+        plugin.attach(grid as any);
+
+        const cell = createDataCell(0, 0, 'Alice Anderson', true);
+        cell.classList.add('cell-focus');
+        (grid as any)._root.appendChild(cell);
+        plugin.afterRender();
+        return { cell, root: (grid as any)._root as HTMLElement };
+      }
+
+      /** Dispatch a key on the grid container and flush the rAF the plugin queues. */
+      function pressKey(root: HTMLElement, k: string): Promise<void> {
+        root.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+        return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+      }
+
+      it('shows the tooltip for the focused cell after arrow navigation', async () => {
+        const { cell, root } = makeFocusGrid();
+        await pressKey(root, 'ArrowDown');
+
+        expect(getPopover()!.textContent).toBe('Alice Anderson');
+        expect(cell.getAttribute('aria-describedby')).toBe('tbw-tooltip-popover');
+      });
+
+      it('hides the tooltip when a non-navigation key is pressed', async () => {
+        const { cell, root } = makeFocusGrid();
+        await pressKey(root, 'ArrowDown');
+        expect(cell.style.getPropertyValue('anchor-name')).toBe('--tbw-tooltip-anchor');
+
+        await pressKey(root, 'a');
+        expect(cell.style.getPropertyValue('anchor-name')).toBe('');
+      });
+
+      it('does nothing when focus tooltips are disabled', async () => {
+        const { root } = makeFocusGrid({ focus: false });
+        await pressKey(root, 'ArrowDown');
+        expect(getPopover()!.textContent).toBe('');
+      });
+
+      it('does nothing when cell tooltips are disabled', async () => {
+        const { root } = makeFocusGrid({ cell: false });
+        await pressKey(root, 'ArrowDown');
+        expect(getPopover()!.textContent).toBe('');
+      });
+
+      it('hides when navigation lands on a cell with nothing to show', async () => {
+        const { cell, root } = makeFocusGrid();
+        await pressKey(root, 'ArrowDown');
+        expect(cell.style.getPropertyValue('anchor-name')).toBe('--tbw-tooltip-anchor');
+
+        // Move focus to a cell whose content is not truncated.
+        cell.classList.remove('cell-focus');
+        const short = createDataCell(1, 0, 'Al', false);
+        short.classList.add('cell-focus');
+        (grid as any)._root.appendChild(short);
+
+        await pressKey(root, 'ArrowDown');
+        expect(cell.style.getPropertyValue('anchor-name')).toBe('');
+        expect(short.style.getPropertyValue('anchor-name')).toBe('');
+        expect(short.hasAttribute('aria-describedby')).toBe(false);
+      });
     });
   });
   // #endregion

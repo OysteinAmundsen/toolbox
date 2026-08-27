@@ -855,6 +855,31 @@ export class PluginManager {
     }
     return { left, right, skipScroll };
   }
+
+  /**
+   * Collect vertical scroll boundary offsets from all plugins.
+   * Combines offsets from every plugin that overlays the rows viewport.
+   *
+   * @param focusedRowIndex - Index of the row being scrolled into view (optional, lets a plugin report that the row needs no scrolling)
+   * @returns Combined top and bottom pixel offsets, plus skipScroll if any plugin requests it
+   * @since 3.6.0
+   */
+  getVerticalScrollOffsets(focusedRowIndex?: number): { top: number; bottom: number; skipScroll?: boolean } {
+    let top = 0;
+    let bottom = 0;
+    let skipScroll = false;
+    for (const plugin of this.plugins) {
+      const offsets = plugin.getVerticalScrollOffsets?.(focusedRowIndex);
+      if (offsets) {
+        top += offsets.top;
+        bottom += offsets.bottom;
+        if (offsets.skipScroll) {
+          skipScroll = true;
+        }
+      }
+    }
+    return { top, bottom, skipScroll };
+  }
   // #endregion
 
   // #region Shell Integration Hooks

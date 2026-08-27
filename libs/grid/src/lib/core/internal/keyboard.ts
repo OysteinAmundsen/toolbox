@@ -216,6 +216,10 @@ interface EnsureCellVisibleOptions {
  * coordinate systems are not interchangeable, so translate scrollTop into
  * virtual space for the comparison and back into native space when writing.
  * For sub-cap datasets the mapping is identity, so this is a no-op.
+ *
+ * Plugins that paint over the viewport (sticky rows) report the space they
+ * obscure via `_getVerticalScrollOffsets`, so the row lands clear of the
+ * overlay instead of underneath it — WCAG 2.2 SC 2.4.11 Focus Not Obscured.
  */
 function scrollFocusedRowIntoView(grid: GridHost): void {
   if (!grid._virtualization?.enabled) return;
@@ -226,12 +230,21 @@ function scrollFocusedRowIntoView(grid: GridHost): void {
   const visibleHeight = viewportEl?.clientHeight ?? scrollEl?.clientHeight ?? 0;
   if (!scrollEl || visibleHeight <= 0) return;
 
+  const offsets = grid._getVerticalScrollOffsets?.(grid._focusRow) ?? { top: 0, bottom: 0 };
+  if (offsets.skipScroll) return;
+  // A malformed or oversized report must never invert the visible band.
+  const top = Math.max(0, offsets.top);
+  const bottom = Math.max(0, offsets.bottom);
+  const usableHeight = visibleHeight - top - bottom;
+  if (usableHeight <= 0) return;
+
   const y = grid._focusRow * rowHeight;
   const virtualScrollTop = scrollMapping ? toVirtualScrollTop(scrollEl.scrollTop, scrollMapping) : scrollEl.scrollTop;
-  if (y < virtualScrollTop) {
-    scrollEl.scrollTop = scrollMapping ? fromVirtualScrollTop(y, scrollMapping) : y;
-  } else if (y + rowHeight > virtualScrollTop + visibleHeight) {
-    const target = y - visibleHeight + rowHeight;
+  if (y < virtualScrollTop + top) {
+    const target = Math.max(0, y - top);
+    scrollEl.scrollTop = scrollMapping ? fromVirtualScrollTop(target, scrollMapping) : target;
+  } else if (y + rowHeight > virtualScrollTop + top + usableHeight) {
+    const target = Math.max(0, y - usableHeight + rowHeight - top);
     scrollEl.scrollTop = scrollMapping ? fromVirtualScrollTop(target, scrollMapping) : target;
   }
 }

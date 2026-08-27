@@ -22,6 +22,7 @@ We target **WCAG 2.1 Level AA** out of the box, with no configuration required. 
 - **Windows High Contrast / forced-colors** is supported automatically — the grid maps every themable surface to system colors via `@media (forced-colors: active)`.
 - **Reduced motion** is respected — animations, expand/collapse transitions, and scroll smoothing disable under `prefers-reduced-motion: reduce`.
 - **Focus is never lost** — after editing, deleting, sorting, or filtering, the grid restores focus to a sensible cell.
+- **Focus is never hidden** — plugins that paint over the rows viewport (sticky rows, pinned columns) report the space they obscure, so keyboard navigation scrolls the focused cell clear of them rather than underneath.
 
 See the [full WCAG 2.1 AA conformance table](#wcag-compliance-checklist) below for the criteria we test against.
 
@@ -334,10 +335,12 @@ The grid implements the [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/
 | 1.4.1 Use of Color | A | ✅ | Status not conveyed by color alone |
 | 1.4.3 Contrast (Min) | AA | ✅ | Default theme meets 4.5:1 ratio |
 | 1.4.11 Non-text Contrast | AA | ✅ | Focus indicators visible at 3:1 |
+| 1.4.13 Content on Hover or Focus | AA | ✅ | [Tooltips](/grid/plugins/tooltip/#accessibility) are dismissible (<kbd>Escape</kbd>), hoverable, persistent, and shown on keyboard focus |
 | 2.1.1 Keyboard | A | ✅ | All functions accessible via keyboard |
 | 2.1.2 No Keyboard Trap | A | ✅ | Tab exits the grid; Escape exits editors |
 | 2.4.3 Focus Order | A | ✅ | Logical focus order follows grid structure |
 | 2.4.7 Focus Visible | AA | ✅ | Clear focus indicators |
+| 2.4.11 Focus Not Obscured (Min) | AA (2.2) | ✅ | Keyboard navigation scrolls the focused row clear of overlays such as [sticky rows](/grid/plugins/sticky-rows/), and the focused cell clear of [pinned columns](/grid/plugins/pinned-columns/) |
 | 4.1.2 Name, Role, Value | A | ✅ | ARIA attributes on all interactive elements |
 
 ## What's Automatic

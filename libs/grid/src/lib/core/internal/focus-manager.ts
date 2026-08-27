@@ -113,27 +113,37 @@ export class FocusManager<T = any> {
     const viewportH = virt.viewportEl?.clientHeight ?? scrollEl.clientHeight ?? 0;
     if (viewportH <= 0) return;
 
+    // Plugins that paint over the viewport (sticky rows) shrink the band a row
+    // can legally land in — WCAG 2.2 SC 2.4.11.
+    const offsets = this.#grid._getVerticalScrollOffsets?.(idx) ?? { top: 0, bottom: 0 };
+    if (offsets.skipScroll) return;
+    const obscuredTop = Math.max(0, offsets.top);
+    const obscuredBottom = Math.max(0, offsets.bottom);
+    const usableH = viewportH - obscuredTop - obscuredBottom;
+    if (usableH <= 0) return;
+
     const currentTop = scrollEl.scrollTop;
     const rowBottom = rowTop + rowH;
-    const viewBottom = currentTop + viewportH;
+    const viewTop = currentTop + obscuredTop;
+    const viewBottom = currentTop + obscuredTop + usableH;
 
     let target: number;
     switch (align) {
       case 'start':
-        target = rowTop;
+        target = rowTop - obscuredTop;
         break;
       case 'center':
-        target = rowTop - viewportH / 2 + rowH / 2;
+        target = rowTop - obscuredTop - usableH / 2 + rowH / 2;
         break;
       case 'end':
-        target = rowBottom - viewportH;
+        target = rowBottom - usableH - obscuredTop;
         break;
       case 'nearest':
       default:
         // Already fully visible — no scroll needed
-        if (rowTop >= currentTop && rowBottom <= viewBottom) return;
+        if (rowTop >= viewTop && rowBottom <= viewBottom) return;
         // Scroll up or down to bring row into view (minimum movement)
-        target = rowTop < currentTop ? rowTop : rowBottom - viewportH;
+        target = rowTop < viewTop ? rowTop - obscuredTop : rowBottom - usableH - obscuredTop;
         break;
     }
 

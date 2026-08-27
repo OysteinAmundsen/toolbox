@@ -602,4 +602,59 @@ describe('StickyRowsPlugin', () => {
   });
 
   // #endregion
+
+  // #region vertical scroll offsets (WCAG 2.2 SC 2.4.11)
+
+  describe('getVerticalScrollOffsets (#449)', () => {
+    const rows = Array.from({ length: 20 }, (_, i) => ({ flag: i === 3 || i === 8 }));
+    const rendered = Array.from({ length: 20 }, (_, i) => i);
+
+    /** happy-dom reports 0 for every layout box, so fake the overlay height. */
+    function stubOverlayHeight(grid: HTMLElement, height: number): void {
+      const container = grid.querySelector('.tbw-sticky-rows') as HTMLElement;
+      Object.defineProperty(container, 'offsetHeight', { value: height, configurable: true });
+    }
+
+    it('reports nothing before the container exists', () => {
+      const plugin = new StickyRowsPlugin({ isSticky: 'flag' });
+      const grid = createMockGrid({ rows, renderedIndices: rendered });
+      plugin.attach(grid);
+      expect(plugin.getVerticalScrollOffsets()).toBeUndefined();
+    });
+
+    it('reports nothing while no row is stuck', () => {
+      const plugin = new StickyRowsPlugin({ isSticky: 'flag' });
+      const grid = createMockGrid({ rows, renderedIndices: rendered });
+      plugin.attach(grid);
+      plugin.afterRender();
+      plugin.onScroll(scrollEvent(0));
+      expect(plugin.getVerticalScrollOffsets()).toBeUndefined();
+    });
+
+    it('reports the overlay height as obscured space at the top', () => {
+      const plugin = new StickyRowsPlugin({ isSticky: 'flag', mode: 'push' });
+      const grid = createMockGrid({ rows, renderedIndices: rendered });
+      plugin.attach(grid);
+      plugin.afterRender();
+      plugin.onScroll(scrollEvent(5 * 28 + 1)); // row 3 is stuck
+      stubOverlayHeight(grid, 28);
+
+      expect(plugin.getVerticalScrollOffsets(10)).toEqual({ top: 28, bottom: 0 });
+    });
+
+    it('asks the grid to skip scrolling when the focused row is itself a clone', () => {
+      const plugin = new StickyRowsPlugin({ isSticky: 'flag', mode: 'push' });
+      const grid = createMockGrid({ rows, renderedIndices: rendered });
+      plugin.attach(grid);
+      plugin.afterRender();
+      plugin.onScroll(scrollEvent(5 * 28 + 1)); // row 3 is stuck
+      stubOverlayHeight(grid, 28);
+
+      // Row 3 is pinned in view already — scrolling to it would only push the
+      // row it is stuck above out of reach.
+      expect(plugin.getVerticalScrollOffsets(3)).toEqual({ top: 0, bottom: 0, skipScroll: true });
+    });
+  });
+
+  // #endregion
 });

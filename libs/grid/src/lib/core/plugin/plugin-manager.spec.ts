@@ -267,4 +267,61 @@ describe('PluginManager hookPriority', () => {
       expect(executionOrder).toEqual(['A', 'B']);
     });
   });
+
+  // WCAG 2.2 SC 2.4.11 Focus Not Obscured — plugins that paint over the rows
+  // viewport report how much space they obscure so keyboard navigation can
+  // scroll a focused row clear of them.
+  describe('getVerticalScrollOffsets (#449)', () => {
+    // Distinct classes: `attachAll` collapses instances sharing a constructor.
+    class StickyOverlay extends BaseGridPlugin {
+      readonly name = 'stickyOverlay';
+      override getVerticalScrollOffsets() {
+        return { top: 30, bottom: 0 };
+      }
+    }
+    class BannerOverlay extends BaseGridPlugin {
+      readonly name = 'bannerOverlay';
+      override getVerticalScrollOffsets() {
+        return { top: 12, bottom: 8 };
+      }
+    }
+    class SilentOverlay extends BaseGridPlugin {
+      readonly name = 'silentOverlay';
+      override getVerticalScrollOffsets() {
+        return undefined;
+      }
+    }
+    class SkippingOverlay extends BaseGridPlugin {
+      readonly name = 'skippingOverlay';
+      override getVerticalScrollOffsets() {
+        return { top: 0, bottom: 0, skipScroll: true };
+      }
+    }
+
+    it('returns zero offsets when no plugin implements the hook', () => {
+      manager.attachAll([new PluginA()]);
+      expect(manager.getVerticalScrollOffsets()).toEqual({ top: 0, bottom: 0, skipScroll: false });
+    });
+
+    it('sums the offsets reported by every overlaying plugin', () => {
+      manager.attachAll([new StickyOverlay(), new BannerOverlay(), new SilentOverlay()]);
+      expect(manager.getVerticalScrollOffsets()).toEqual({ top: 42, bottom: 8, skipScroll: false });
+    });
+
+    it('propagates skipScroll when any plugin asks to suppress the scroll', () => {
+      manager.attachAll([new StickyOverlay(), new SkippingOverlay()]);
+      expect(manager.getVerticalScrollOffsets(4).skipScroll).toBe(true);
+    });
+
+    it('forwards the focused row index to each plugin', () => {
+      const spy = vi.fn(() => undefined);
+      class SpyPlugin extends BaseGridPlugin {
+        readonly name = 'spy';
+        override getVerticalScrollOffsets = spy;
+      }
+      manager.attachAll([new SpyPlugin()]);
+      manager.getVerticalScrollOffsets(7);
+      expect(spy).toHaveBeenCalledWith(7);
+    });
+  });
 });

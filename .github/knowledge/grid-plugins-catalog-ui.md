@@ -97,7 +97,13 @@ OWNS: breakpoint-based column visibility. HOOKS: processColumns, getRowHeight.
 
 ### Tooltip
 
-OWNS: active tooltip + positioning. HOOKS: afterCellRender.
+OWNS: active tooltip + positioning, shared `#tbw-tooltip-popover`. HOOKS: afterCellRender, getVerticalScrollOffsets(no). CONFIG adds `focus` (default true), `hideDelay` (default 120ms).
+
+- DECIDED (#449, WCAG 2.2 SC 1.4.13): popover carries `id=tbw-tooltip-popover` + `role="tooltip"`; anchor cell gets `aria-describedby` while shown. `pointer-events: auto` + `user-select: text` in `tooltip.css` (was `none`) so the pointer can rest on it — "Hoverable".
+- INVARIANT: `mouseout` schedules a **delayed** hide (`hideDelay`, default 120 ms), cancelled by `mouseenter` on the popover; only `hideDelay: 0` hides synchronously. Specs asserting immediate teardown MUST construct with `{ hideDelay: 0 }` or use fake timers.
+- DECIDED (#449, Escape): the `keydown` listener is on **`document`** with `capture: true` because a hover-triggered tooltip can be visible while focus sits outside the grid. It deliberately does NOT `preventDefault`/`stopPropagation` — Escape also cancels an in-progress edit.
+- DECIDED (#449, focus path): grid cell focus is **virtual** (host holds DOM focus, cell gets `.cell-focus`; no `aria-activedescendant` anywhere), so `:focus-visible` is unusable. Focus tooltips are driven from a container `keydown` on a `NAVIGATION_KEYS` allow-list → `requestAnimationFrame` → `querySelector('.cell-focus')`. Side benefit: this is keyboard-only by construction, so pointer users see zero change — the closest available substitute for the AT-detection flag browsers refuse to expose (fingerprinting vector).
+- TENSION: no browser API reports "user needs a11y features". Only `prefers-reduced-motion` / `prefers-contrast` / `forced-colors` exist. Input-modality inference is the standards-blessed substitute; of SC 1.4.13's four sub-requirements only "focus-triggered" is modality-gateable ("Hoverable" is specifically a mouse-user requirement).
 
 ### StickyRows (#279)
 
@@ -113,6 +119,7 @@ OWNS: `.tbw-sticky-rows` overlay container, clone cache by row index, displayed 
 - DECIDED (Feb 2026, #1370): `refreshDisplay` falls back to a **synthesized clone** when a desired index has no DOM capture — `synthesizeClone(index)` deep-clones `templateClone` (detached copy of the last real capture, from `buildClone`) and rewrites each `.cell[data-field]` via `resolveCellValue(row, column, index)` from `visibleColumns`; marked `data-synthetic-sticky-row`, cached, replaced by a real capture later. WHY: clones exist only after a row has passed the render window, and scrolling **down** never brings a missed row back. Guard: bail (omit the row) if any template cell has `firstElementChild` — custom-renderer DOM cannot be re-targeted. `sticky-rows.spec.ts` → `'synthesizes a stand-in…'`, `'omits rather than synthesizes…'`.
 - INVARIANT: any config/data change (`detach`, or a sticky-index change in `recomputeStickyIndices`) clears `cloneCache` while **scroll position is preserved**; only sticky rows inside the render window can be re-primed — this, not fast scrolling, caused the `'stack'`-mode "stuck at 1 row" bug (same on mount-while-scrolled).
 - DECIDED (#279): zero core bytes — reads `_virtualization` internals directly. RULED OUT: `core/internal/rows.ts#renderInlineRow` (#240 — module-level `document.createElement('template')` crashes happy-dom-less tests).
+- DECIDED (#449, SC 2.4.11): implements `getVerticalScrollOffsets(focusedRowIndex?)` → `{ top: container.offsetHeight, bottom: 0 }` while any clone is displayed, so keyboard navigation scrolls a focused row clear of the overlay instead of under it. Returns `{ top: 0, bottom: 0, skipScroll: true }` when `displayedIndices.includes(focusedRowIndex)` (the row is already pinned in view). Returns `undefined` before the container exists or when nothing is stuck.
 
 ### ContextMenu
 

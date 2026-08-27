@@ -23,6 +23,7 @@ We target **WCAG 2.1 Level AA** out of the box, with no configuration required. 
 - **Reduced motion** is respected — animations, expand/collapse transitions, and scroll smoothing disable under `prefers-reduced-motion: reduce`.
 - **Focus is never lost** — after editing, deleting, sorting, or filtering, the grid restores focus to a sensible cell.
 - **Focus is never hidden** — plugins that paint over the rows viewport (sticky rows, pinned columns) report the space they obscure, so keyboard navigation scrolls the focused cell clear of them rather than underneath.
+- **Two themes go further than AA** — `dg-theme-contrast.css` and `dg-theme-large.css` meet **Level AAA** contrast (7:1) on every text pair, in both light and dark mode. See [Accessibility themes](#accessibility-themes-aaa-contrast).
 
 See the [full WCAG 2.1 AA conformance table](#wcag-compliance-checklist) below for the criteria we test against.
 
@@ -258,6 +259,30 @@ tbw-grid.high-contrast {
 ```typescript
 import '@toolbox-web/grid/themes/dg-theme-contrast.css';
 ```
+
+### Accessibility themes (AAA contrast)
+
+The default theme targets Level AA (4.5:1). Two shipped themes are held to the stricter
+**Level AAA** bar of 7:1 for *all* text — not just body text — in both light and dark mode:
+
+| Theme | Import | Aimed at |
+|-------|--------|----------|
+| Contrast | `@toolbox-web/grid/themes/dg-theme-contrast.css` | Low vision, glare, and users who need maximum separation |
+| Large | `@toolbox-web/grid/themes/dg-theme-large.css` | Low vision and motor impairment — 18px base text and larger hit targets |
+
+Every foreground/background pair these themes produce — body text, muted text, header text,
+alternating rows, hovered rows, selected rows, and text on the accent colour — clears 7:1.
+Non-text UI colours (focus ring, borders) clear SC 1.4.11's 3:1 against the grid background.
+The ratios are asserted in a browser on every CI run by
+`apps/docs-e2e/tests/theme-contrast.spec.ts`, so a token edit that drops a pair below AAA
+fails the build.
+
+:::caution[Overriding tokens can break the guarantee]
+The AAA guarantee covers the tokens as shipped. If you override `--tbw-color-fg`,
+`--tbw-color-accent`, `--tbw-color-header-fg`, or any background token on top of these themes,
+re-check the pairs yourself — the
+[Theme Builder's contrast panel](/grid/guides/theming/#interactive-theme-builder) reports every pair live.
+:::
 
 ### Windows High Contrast Mode
 

@@ -56,6 +56,10 @@ export default defineConfig({
   webServer: {
     command: `bun astro dev --port ${PORT}`,
     cwd: resolve(_dirname),
+    // Astro 7 daemonizes `dev` when it detects an AI-agent environment
+    // (TERM_PROGRAM=vscode + GIT_PAGER=cat); clearing GIT_PAGER keeps it in
+    // the foreground so Playwright can track and kill the process.
+    env: { GIT_PAGER: '' },
     port: PORT,
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,

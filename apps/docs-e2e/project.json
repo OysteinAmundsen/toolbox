@@ -9,7 +9,10 @@
     "serve": {
       "command": "astro dev --port 4450",
       "options": {
-        "cwd": "apps/docs-e2e"
+        "cwd": "apps/docs-e2e",
+        "env": {
+          "GIT_PAGER": ""
+        }
       }
     },
     "e2e": {

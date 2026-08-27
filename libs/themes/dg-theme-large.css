@@ -7,22 +7,31 @@
    - Increased horizontal & vertical cell padding
    - Larger resize handle width for easier grabbing
    - Stronger focus outline for visibility
-   - Slightly higher contrast for muted fg & borders (within WCAG AA)
+   - Every foreground/background pair meets WCAG 2.1 Level AAA (>= 7:1) in both
+     light and dark mode. Guarded by apps/docs-e2e/tests/theme-contrast.spec.ts —
+     re-run it after changing any colour here.
 */
 @layer tbw-theme {
   [data-tbw-grid] {
     /* Reuse core color tokens from standard theme with a few tweaks */
     --tbw-color-bg: light-dark(#ffffff, #1f2125);
     --tbw-color-fg: light-dark(#1b1e23, #e7e9ed); /* a bit darker/lighter */
-    --tbw-color-fg-muted: light-dark(#4c5660, #a3adb7); /* slightly higher contrast */
+    --tbw-color-fg-muted: light-dark(#434c56, #aab4be); /* AAA against panel bg */
     --tbw-color-border: light-dark(#c4c9cf, #444950);
-    --tbw-color-border-strong: light-dark(#7c828a, #5f646c);
-    --tbw-color-accent: light-dark(#1d4ed8, #3b82f6); /* slightly deeper blue in light */
-    --tbw-color-accent-fg: #ffffff;
+    /* Strong borders are non-text UI, so they only owe SC 1.4.11's 3:1 against
+       the grid background — the dark value had to lift from #5f646c (2.71:1). */
+    --tbw-color-border-strong: light-dark(#7c828a, #6f757e);
+    /* Accent flips polarity per scheme so its own foreground clears 7:1:
+       white on deep blue (7.8:1) / black on light blue (8.0:1). */
+    --tbw-color-accent: light-dark(#1b45c4, #63a0ff);
+    --tbw-color-accent-fg: light-dark(#ffffff, #000000);
     --tbw-color-selection: light-dark(#fff3c2, #303640);
     --tbw-color-row-alt: light-dark(#f5f7f9, #272c34);
     --tbw-color-row-hover: light-dark(#e6f2ff, #313741);
     --tbw-color-header-bg: light-dark(#eef1f5, #262a30);
+    /* Set explicitly rather than inheriting the core color-mix() derivation,
+       which lands at only ~7.05:1 — no margin against AAA. */
+    --tbw-color-header-fg: light-dark(#1b1e23, #e7e9ed);
     --tbw-color-border-cell: light-dark(#e4e7eb, #363a41);
     --tbw-color-border-header: light-dark(#bbbbc2, #454a52);
 

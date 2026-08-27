@@ -154,22 +154,33 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
     const light: Record<string, string> = {};
     const dark: Record<string, string> = {};
 
+    const toHex = (r: number, g: number, b: number): string =>
+      `#${[r, g, b].map((x) => Math.round(x).toString(16).padStart(2, '0')).join('')}`;
+
     const normalize = (computed: string): string => {
+      // color-mix() — which the core header/border tokens use — computes to
+      // `color(srgb r g b)` with 0-1 components, never to `rgb()`.
+      const srgbMatch = computed.match(/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)/i);
+      if (srgbMatch) {
+        if (srgbMatch[4] !== undefined && parseFloat(srgbMatch[4]) < 1) return computed;
+        return toHex(parseFloat(srgbMatch[1]) * 255, parseFloat(srgbMatch[2]) * 255, parseFloat(srgbMatch[3]) * 255);
+      }
       const rgbaMatch = computed.match(/rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/i);
       if (rgbaMatch) {
         if (parseFloat(rgbaMatch[4]) < 1) return computed;
-        const [, r, g, b] = rgbaMatch;
-        return `#${[r, g, b].map((x) => parseInt(x).toString(16).padStart(2, '0')).join('')}`;
+        return toHex(parseInt(rgbaMatch[1]), parseInt(rgbaMatch[2]), parseInt(rgbaMatch[3]));
       }
       const rgbMatch = computed.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
       if (rgbMatch) {
-        const [, r, g, b] = rgbMatch;
-        return `#${[r, g, b].map((x) => parseInt(x).toString(16).padStart(2, '0')).join('')}`;
+        return toHex(parseInt(rgbMatch[1]), parseInt(rgbMatch[2]), parseInt(rgbMatch[3]));
       }
       return '';
     };
 
-    const isValid = (c: string) => c && c.length > 0 && c !== '#000000' && c !== 'rgba(0, 0, 0, 0)';
+    // `#000000` is a legitimate token value (the contrast theme's light-mode
+    // foreground) — only an unresolvable var, which computes to transparent,
+    // should fall back to the registry default.
+    const isValid = (c: string) => c.length > 0 && c !== 'rgba(0, 0, 0, 0)';
 
     const probe = document.createElement('span');
     probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;';
@@ -296,6 +307,15 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
     if (rgbaMatch) return { r: parseInt(rgbaMatch[1]), g: parseInt(rgbaMatch[2]), b: parseInt(rgbaMatch[3]), a: parseFloat(rgbaMatch[4]) };
     const rgbMatch = color.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
     if (rgbMatch) return { r: parseInt(rgbMatch[1]), g: parseInt(rgbMatch[2]), b: parseInt(rgbMatch[3]), a: 1 };
+    const srgbMatch = color.match(/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)/i);
+    if (srgbMatch) {
+      return {
+        r: Math.round(parseFloat(srgbMatch[1]) * 255),
+        g: Math.round(parseFloat(srgbMatch[2]) * 255),
+        b: Math.round(parseFloat(srgbMatch[3]) * 255),
+        a: srgbMatch[4] === undefined ? 1 : parseFloat(srgbMatch[4]),
+      };
+    }
     return null;
   }
 
@@ -587,8 +607,8 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
       document.body.appendChild(probe);
       const comp = getComputedStyle(probe).color;
       document.body.removeChild(probe);
-      const m = comp.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-      return m ? `#${[m[1], m[2], m[3]].map(x => parseInt(x).toString(16).padStart(2, '0')).join('')}` : css;
+      const rgba = parseColorToRGBA(comp);
+      return rgba ? `#${[rgba.r, rgba.g, rgba.b].map(x => x.toString(16).padStart(2, '0')).join('')}` : css;
     };
 
     const createBadge = (ratio: number | null, level: WCAGLevel | null, mode: string): HTMLElement => {

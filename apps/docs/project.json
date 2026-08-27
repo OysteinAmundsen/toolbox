@@ -9,7 +9,10 @@
       "command": "astro dev --port 4400",
       "dependsOn": ["grid:typedoc", "grid-angular:typedoc", "grid-react:typedoc", "grid-vue:typedoc"],
       "options": {
-        "cwd": "apps/docs"
+        "cwd": "apps/docs",
+        "env": {
+          "GIT_PAGER": ""
+        }
       }
     },
     "build": {

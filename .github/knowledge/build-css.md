@@ -97,6 +97,11 @@ related: [build-and-deploy, grid-core]
 - Source files (not built), copied as-is to dist
 - Optional — grid works without any theme using base variables only
 - Usage: `<link>` tag or `import '@toolbox-web/grid/themes/dg-theme-standard.css'`
+- INVARIANT (Jul 2026 #449): `dg-theme-contrast.css` + `dg-theme-large.css` must clear **WCAG AAA (7:1)** on every text pair and SC 1.4.11 (3:1) on `--tbw-color-accent`/`--tbw-color-border-strong` vs `--tbw-color-bg`, in **both** schemes. Guarded by `apps/docs-e2e/tests/theme-contrast.spec.ts` (measures live via a probe span, not by parsing CSS — `light-dark()`/`color-mix()` only resolve in the engine). Core default stays AA.
+- DECIDED (Jul 2026 #449): a11y themes flip `--tbw-color-accent-fg` polarity per scheme (`light-dark(#ffffff, #000000)`). WHY: the dark-mode accent must stay bright to clear 3:1 against the dark grid bg (focus ring / sort indicator), and a bright accent can never carry white text at 7:1. Darkening the dark accent instead fails 1.4.11 (`#1b45c4` on `#1f2125` = 2.07:1).
+- DECIDED (Jul 2026 #449): a11y themes set `--tbw-color-header-fg` explicitly instead of inheriting core's `color-mix(in hsl, fg 75%, panel-bg)`. WHY: the mix dilutes header text toward the panel bg — `large` landed at 7.05:1, i.e. zero margin.
+- INVARIANT: `color-mix()` computes in Chrome to `color(srgb r g b)` with **0-1** components, never `rgb()`. Any JS reading computed colours (`ThemeBuilder.astro` contrast panel, e2e contrast probe) must parse that form or every derived token reads as unresolved. Also: `#000000` is a legitimate token value (contrast theme light `--tbw-color-fg`) — don't treat it as "unset".
+- GOTCHA: on the theming guide page `document.querySelector('[data-tbw-grid]')` matches the injected `<style id="tbw-grid-styles">` first. Scope colour probes to a real `<tbw-grid>` (`#css-var-probe`).
 
 ## browser support floor
 

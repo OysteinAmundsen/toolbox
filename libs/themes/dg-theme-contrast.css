@@ -1,4 +1,8 @@
-/* High contrast accessibility-focused theme */
+/* High contrast accessibility-focused theme
+   Every foreground/background pair below meets WCAG 2.1 Level AAA (>= 7:1) in
+   both light and dark mode. Guarded by apps/docs-e2e/tests/theme-contrast.spec.ts —
+   re-run it after changing any colour here.
+*/
 @layer tbw-theme {
   [data-tbw-grid] {
     --tbw-color-bg: light-dark(#ffffff, #000000);
@@ -6,12 +10,17 @@
     --tbw-color-fg-muted: light-dark(#222222, #dddddd);
     --tbw-color-border: light-dark(#000000, #ffffff);
     --tbw-color-border-strong: light-dark(#000000, #ffffff);
-    --tbw-color-accent: light-dark(#c00000, #ff4d4d);
-    --tbw-color-accent-fg: #ffffff;
+    /* Accent flips polarity per scheme so its own foreground clears 7:1:
+       white on dark red (8.2:1) / black on light red (8.7:1). */
+    --tbw-color-accent: light-dark(#a30000, #ff8080);
+    --tbw-color-accent-fg: light-dark(#ffffff, #000000);
     --tbw-color-selection: light-dark(#ffe9a8, #333333);
     --tbw-color-row-alt: light-dark(#f2f2f2, #111111);
     --tbw-color-row-hover: light-dark(#e6f2ff, #1c1c1c);
     --tbw-color-header-bg: light-dark(#e8e8e8, #141414);
+    /* Set explicitly rather than inheriting the core color-mix() derivation,
+       which dilutes header text toward the panel background. */
+    --tbw-color-header-fg: light-dark(#000000, #ffffff);
     --tbw-color-border-cell: light-dark(#333, #eee);
     --tbw-color-border-header: light-dark(#444, #ccc);
     --tbw-resize-handle-color-hover: var(--tbw-color-accent);

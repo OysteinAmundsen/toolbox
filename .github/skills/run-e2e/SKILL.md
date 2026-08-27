@@ -62,10 +62,13 @@ then the winget install location (`%LOCALAPPDATA%/Microsoft/WinGet/Packages/Gyan
 Install with `winget install Gyan.FFmpeg` or `bun add -d ffmpeg-static`. Without it the script still
 prints the ordered clip list and exits 1.
 
-**"http://localhost:4450 is already used"** — Astro 7's `astro dev` backgrounds itself when it
-has no TTY (as when Playwright spawns it), so a previous `bun nx e2e docs-e2e` can leave a daemon
-holding the port. The promo config deliberately refuses to reuse it, because recording against a
-dev server would capture the HMR client. Stop the daemon and re-run:
+**"http://localhost:4450 is already used"** — Astro 7's `astro dev` daemonizes itself when it
+detects an AI-agent environment (`am-i-vibing`: `TERM_PROGRAM=vscode` **and** `GIT_PAGER=cat`, which
+every VS Code integrated terminal sets), so a previous run could leave a daemon holding the port.
+Both `docs-e2e:serve` and the Playwright `webServer` now clear `GIT_PAGER` to force the foreground
+path, but a daemon started before that fix (or by a bare `bunx astro dev`) still needs stopping.
+The promo config deliberately refuses to reuse a dev server, because recording against one would
+capture the HMR client. Stop the daemon and re-run:
 
 ```bash
 cd apps/docs-e2e && bunx astro dev stop

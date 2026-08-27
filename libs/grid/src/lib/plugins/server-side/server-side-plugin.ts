@@ -423,8 +423,13 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
           // in-place writes above are no-ops in that case (length is 0).
           // Without this, sort/filter changes leave the grid permanently blank
           // until something else triggers a ROWS phase.
+          // A structural plugin (Tree, GroupingRows) that claimed the data derives
+          // its own row model from `managedNodes`. The in-place element swap above
+          // is invisible to that derived model — it still references the discarded
+          // placeholder objects — so processRows MUST re-run for it to re-derive.
           const needsRowModelRebuild =
             previousManagedLength === 0 ||
+            detail.claimed ||
             this.managedNodes.length < (Number.isFinite(this.totalNodeCount) ? this.totalNodeCount : 0);
 
           if (needsRowModelRebuild) {

@@ -254,9 +254,17 @@ grid.gridConfig = {
           const res = await fetch(`/api/tree?start=${params.startNode}&end=${params.endNode}`);
           const data = await res.json();
           return {
-            rows: data.nodes,             // Top-level nodes with embedded children
+            // Nodes may embed `children`, or set it to a truthy non-array
+            // marker (e.g. `children: true`) so the expand toggle renders
+            // before the children have been fetched.
+            rows: data.nodes,
             totalNodeCount: data.total,   // Total top-level nodes on server
           };
+        },
+        async getChildRows(params) {
+          // Called the first time a node is expanded (lazy children only).
+          const res = await fetch(`/api/tree/${params.context.parentNode.id}/children`);
+          return { rows: await res.json() };
         },
       },
     },

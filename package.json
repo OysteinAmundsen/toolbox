@@ -16,7 +16,7 @@
     "start": "nx serve docs",
     "build": "nx run-many --target=build --exclude=docs --output-style=stream && bun run cem",
     "cem": "cd libs/grid && bunx cem analyze",
-    "test": "nx run-many --target=test --exclude=demo-angular --output-style=stream --silent",
+    "test": "nx run-many --target=test --exclude=demo-angular --parallel=2 --output-style=stream --silent",
     "e2e": "nx run-many --target=e2e --parallel=1 --output-style=stream",
     "e2e:update": "nx e2e:update-snapshots e2e",
     "e2e:full": "bun run build && concurrently --kill-others --success first -n servers,e2e -c gray,magenta \"bun run demo:dist\" \"bunx wait-on http://localhost:4000 http://localhost:4300 http://localhost:4200 http://localhost:4100 -t 60000 && bun run e2e\"",

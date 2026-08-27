@@ -234,6 +234,10 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   private originalTreeColumnRenderer: ColumnViewRenderer | undefined;
   /** Field name of the column currently wrapped with tree decorations. */
   private wrappedTreeColumnField: string | undefined;
+  /** True while `processColumns` has the tree renderer installed on the tree column. */
+  #treeColumnWrapped = false;
+  /** Guards `#syncTreeColumn` against queueing more than one microtask. */
+  #treeColumnSyncScheduled = false;
 
   /** @internal */
   override detach(): void {
@@ -256,6 +260,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     this.#childRequests.clear();
     this.originalTreeColumnRenderer = undefined;
     this.wrappedTreeColumnField = undefined;
+    this.#treeColumnWrapped = false;
     // WeakMaps GC themselves once row references are dropped — nothing to clear.
   }
 
@@ -387,6 +392,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       this.flattenedRows = [];
       this.rowKeyMap.clear();
       this.previousVisibleKeys.clear();
+      this.#syncTreeColumn();
       // _rows[i] must remain the user's row reference. Return a shallow array
       // copy (so callers can't mutate the input array via the returned ref)
       // but DO NOT spread/clone the row objects themselves.
@@ -426,11 +432,38 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     }
     this.previousVisibleKeys = currentKeys;
 
+    this.#syncTreeColumn();
+
     // Return source row references directly. Tree metadata (depth/key/etc.)
     // is read by the renderer via `getRowMeta(row)` instead of being spread
     // onto cloned row objects \u2014 this keeps `_rows[i]` === user's row so that
     // `grid.updateRow(s)` mutations survive the next ROWS-phase rebuild.
     return this.flattenedRows.map((r) => r.data);
+  }
+
+  /**
+   * Keep the tree column decoration in sync with whether the current data is a
+   * tree.
+   *
+   * `processColumns` bails out while `flattenedRows` is empty, and a ROWS-only
+   * render (async `grid.rows` assignment, a ServerSide block landing) never
+   * re-runs the COLUMNS phase — so without this the toggle/indent renderer is
+   * never installed for data that arrives after the first render.
+   *
+   * The comparison is deferred to a microtask so that a COLUMNS-phase render —
+   * whose `processColumns` runs later in the same synchronous scheduler flush —
+   * settles the flag first and costs no extra frame.
+   */
+  #syncTreeColumn(): void {
+    if (this.#treeColumnSyncScheduled) return;
+    this.#treeColumnSyncScheduled = true;
+    queueMicrotask(() => {
+      this.#treeColumnSyncScheduled = false;
+      if (!this.grid) return;
+      if (this.#treeColumnWrapped !== this.flattenedRows.length > 0) {
+        this.requestColumnsRender();
+      }
+    });
   }
 
   /**
@@ -700,7 +733,20 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
-    if (this.flattenedRows.length === 0) return [...columns];
+    if (this.flattenedRows.length === 0) {
+      const cols = [...columns] as ColumnConfig[];
+      // The wrapper cannot simply be dropped: `_schedulerMergeConfig` reseeds
+      // `#baseColumns` from `_columns`, so a previously wrapped renderer is
+      // already baked into the columns handed to us. Put the original back.
+      if (this.#treeColumnWrapped) {
+        const idx = cols.findIndex((c) => c.field === this.wrappedTreeColumnField);
+        if (idx >= 0) cols[idx] = { ...cols[idx], viewRenderer: this.originalTreeColumnRenderer };
+      }
+      this.#treeColumnWrapped = false;
+      this.originalTreeColumnRenderer = undefined;
+      this.wrappedTreeColumnField = undefined;
+      return cols;
+    }
 
     const cols = [...columns] as ColumnConfig[];
     if (cols.length === 0) return cols;
@@ -781,6 +827,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     };
 
     cols[targetIndex] = { ...targetCol, viewRenderer: wrappedRenderer };
+    this.#treeColumnWrapped = true;
     return cols;
   }
 

@@ -6,14 +6,14 @@ import DemoControls from '@components/DemoControls.astro';
   <DemoControls controls={[
     { section: 'SERVER', name: 'pageSize', label: 'Page size', type: 'number',
       min: 10, max: 100, step: 10, default: 20, description: 'Top-level nodes fetched per request' },
+    { section: 'SERVER', name: 'latency', label: 'Latency (ms)', type: 'number',
+      min: 0, max: 2000, step: 100, default: 400, description: 'Simulated round-trip for both callbacks' },
     { section: 'TREE', name: 'animation', label: 'Animation', type: 'select',
       options: ['slide', 'fade', 'false'], default: 'slide', description: 'Expand/collapse animation' },
-    { section: 'TREE', name: 'defaultExpanded', label: 'Default expanded', type: 'boolean',
-      default: false, description: 'Expand all nodes by default' },
   ]} />
   <tbw-grid style="height: 400px;"></tbw-grid>
   <p class="load-status" style="margin-top: 0.5rem; font-size: 0.85em; color: var(--sl-color-gray-3);">
-    Scroll down to load more nodes…
+    Scroll to load more nodes — expand a team to fetch its members.
   </p>
 </div>
 
@@ -27,43 +27,51 @@ const container = document.getElementById('tree-lazy-loading-demo');
 if (container) {
   const statusEl = container.querySelector('.load-status')!;
 
-  // Generate a large hierarchical dataset on the client to simulate a server
-  function generateTreeData(count: number) {
-    const departments = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'];
-    const data = [];
-    for (let i = 0; i < count; i++) {
-      const dept = departments[i % departments.length];
-      const teamSize = 2 + (i % 4);
-      const children = [];
-      for (let j = 0; j < teamSize; j++) {
-        children.push({
-          id: `${i + 1}-${j + 1}`,
-          name: `${dept} Member ${j + 1}`,
-          role: j === 0 ? 'Lead' : 'Member',
-          department: dept,
-        });
-      }
-      data.push({
-        id: `${i + 1}`,
-        name: `${dept} Team ${Math.floor(i / departments.length) + 1}`,
-        role: 'Manager',
-        department: dept,
-        children,
-      });
-    }
-    return data;
+  const DEPARTMENTS = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'];
+  const TOTAL_NODES = 200;
+
+  // `children: true` marks a node whose children are not loaded yet — that is
+  // what makes the grid render an expand toggle before any child data exists.
+  function makeNode(i: number) {
+    const dept = DEPARTMENTS[i % DEPARTMENTS.length];
+    return {
+      id: `${i + 1}`,
+      name: `${dept} Team ${Math.floor(i / DEPARTMENTS.length) + 1}`,
+      role: 'Manager',
+      department: dept,
+      children: true,
+    };
   }
 
-  const allTopLevelNodes = generateTreeData(200);
+  const allTopLevelNodes = Array.from({ length: TOTAL_NODES }, (_, i) => makeNode(i));
 
-  // Simulated data source — returns a page of top-level nodes with children embedded
-  function createDataSource(pageSize: number) {
+  function makeMembers(node: { id: string; department: string }) {
+    const teamSize = 2 + (Number(node.id) % 4);
+    return Array.from({ length: teamSize }, (_, j) => ({
+      id: `${node.id}-${j + 1}`,
+      name: `${node.department} Member ${j + 1}`,
+      role: j === 0 ? 'Lead' : 'Member',
+      department: node.department,
+    }));
+  }
+
+  const delay = (ms: number, signal?: AbortSignal) =>
+    new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(resolve, ms);
+      signal?.addEventListener('abort', () => {
+        clearTimeout(timer);
+        reject(new DOMException('Aborted', 'AbortError'));
+      });
+    });
+
+  // Simulated server: `getRows` pages the top-level nodes, `getChildRows`
+  // resolves one node's children the first time it is expanded.
+  function createDataSource(latency: number) {
     return {
       async getRows(params: any) {
-        // Simulate network latency
-        await new Promise((r) => setTimeout(r, 300));
+        await delay(latency, params.signal);
 
-        let data = [...allTopLevelNodes];
+        const data = [...allTopLevelNodes];
         if (params.sortModel?.length) {
           const { field, direction } = params.sortModel[0];
           data.sort((a: any, b: any) => {
@@ -72,11 +80,15 @@ if (container) {
           });
         }
 
-        const page = data.slice(params.startNode, params.endNode);
         return {
-          rows: page,
+          rows: data.slice(params.startNode, params.endNode),
           totalNodeCount: data.length,
         };
+      },
+
+      async getChildRows(params: any) {
+        await delay(latency);
+        return { rows: makeMembers(params.context.parentNode) };
       },
     };
   }
@@ -91,6 +103,8 @@ if (container) {
 
   function rebuild(opts: Record<string, unknown>) {
     const pageSize = (opts.pageSize as number) ?? 20;
+    const latency = (opts.latency as number) ?? 400;
+
     grid.gridConfig = {
       columns,
       features: {
@@ -98,31 +112,30 @@ if (container) {
         tree: {
           childrenField: 'children',
           animation: opts.animation === 'false' ? false : (opts.animation as string) ?? 'slide',
-          defaultExpanded: opts.defaultExpanded as boolean ?? false,
         },
       },
     };
 
     grid.ready().then(() => {
-      const serverSide = grid.getPluginByName('serverSide');
-      serverSide?.setDataSource(createDataSource(pageSize));
-      statusEl.textContent = 'Scroll down to load more nodes…';
+      grid.getPluginByName('serverSide')?.setDataSource(createDataSource(latency));
     });
   }
 
-  rebuild({ pageSize: 20, animation: 'slide', defaultExpanded: false });
+  rebuild({ pageSize: 20, latency: 400, animation: 'slide' });
 
   grid.on('datasource:loading' as any, (e: any) => {
     if (e.detail?.loading) {
-      statusEl.textContent = 'Loading…';
-    } else {
-      const serverSide = grid.getPluginByName('serverSide') as any;
-      if (serverSide) {
-        const tree = grid.getPluginByName('tree') as any;
-        const loaded = tree?.getFlattenedRows?.()?.length ?? '?';
-        statusEl.textContent = `Loaded ${loaded} rows (${serverSide.getTotalRowCount() ?? '?'} top-level nodes total)`;
-      }
+      statusEl.textContent = e.detail.context?.source === 'tree' ? 'Loading team members…' : 'Loading nodes…';
+      return;
     }
+    // The row model is rebuilt on the next render — wait for it before counting.
+    grid.ready().then(() => {
+      const serverSide = grid.getPluginByName('serverSide') as any;
+      const tree = grid.getPluginByName('tree') as any;
+      const visible = tree?.getFlattenedRows?.()?.length ?? 0;
+      const total = serverSide?.getTotalNodeCount?.() ?? 0;
+      statusEl.textContent = `${visible} rows shown · ${total} top-level nodes on the server`;
+    });
   });
 
   container.addEventListener('control-change', ((e: CustomEvent) => {

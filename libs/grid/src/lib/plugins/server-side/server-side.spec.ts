@@ -1098,6 +1098,83 @@ describe('ServerSidePlugin', () => {
     });
   });
 
+  describe('claimed data (structural plugin) rebuilds the row model', () => {
+    it('should requestRender, not requestVirtualRefresh, when a plugin claimed the block', async () => {
+      const requestVirtualRefresh = vi.fn();
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
+      const grid = createServerSideMockGrid({
+        requestVirtualRefresh,
+        _virtualization: { enabled: true, start: 0, end: 10 },
+      });
+      plugin.attach(grid as any);
+
+      // Stand in for Tree/GroupingRows, which derive their own row model from
+      // managedNodes and therefore keep referencing the discarded placeholders.
+      grid._pluginManager.subscribe({}, 'datasource:data', (detail: any) => {
+        detail.claimed = true;
+      });
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockImplementation(({ startNode }: { startNode: number }) =>
+          Promise.resolve({
+            rows: Array.from({ length: 10 }, (_, i) => ({ id: startNode + i })),
+            totalNodeCount: 100,
+          }),
+        ),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      // Size managedNodes so the second block would otherwise take the cheap
+      // in-place path (previousManagedLength > 0, length === totalNodeCount).
+      plugin.processRows([]);
+      (grid.requestRender as any).mockClear();
+
+      grid._virtualization.start = 20;
+      grid._virtualization.end = 30;
+      plugin.onScroll({ scrollTop: 800, scrollLeft: 0, direction: 'vertical' } as any);
+
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(2));
+      expect(grid.requestRender).toHaveBeenCalled();
+      expect(requestVirtualRefresh).not.toHaveBeenCalled();
+
+      plugin.detach();
+    });
+
+    it('should use requestVirtualRefresh when no plugin claims the block', async () => {
+      const requestVirtualRefresh = vi.fn();
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
+      const grid = createServerSideMockGrid({
+        requestVirtualRefresh,
+        _virtualization: { enabled: true, start: 0, end: 10 },
+      });
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockImplementation(({ startNode }: { startNode: number }) =>
+          Promise.resolve({
+            rows: Array.from({ length: 10 }, (_, i) => ({ id: startNode + i })),
+            totalNodeCount: 100,
+          }),
+        ),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      plugin.processRows([]);
+      (grid.requestRender as any).mockClear();
+
+      grid._virtualization.start = 20;
+      grid._virtualization.end = 30;
+      plugin.onScroll({ scrollTop: 800, scrollLeft: 0, direction: 'vertical' } as any);
+
+      await vi.waitFor(() => expect(requestVirtualRefresh).toHaveBeenCalled());
+      expect(grid.requestRender).not.toHaveBeenCalled();
+
+      plugin.detach();
+    });
+  });
+
   describe('loadThreshold', () => {
     it('should prefetch the next block when viewport is within threshold of an unloaded block', async () => {
       vi.useFakeTimers();

@@ -22,7 +22,7 @@ We target **WCAG 2.1 Level AA** out of the box, with no configuration required. 
 - **Windows High Contrast / forced-colors** is supported automatically — the grid maps every themable surface to system colors via `@media (forced-colors: active)`.
 - **Reduced motion** is respected — animations, expand/collapse transitions, and scroll smoothing disable under `prefers-reduced-motion: reduce`.
 - **Focus is never lost** — after editing, deleting, sorting, or filtering, the grid restores focus to a sensible cell.
-- **Focus is never hidden** — plugins that paint over the rows viewport (sticky rows, pinned columns) report the space they obscure, so keyboard navigation scrolls the focused cell clear of them rather than underneath.
+- **Focus is never hidden** — plugins that overlay the rows viewport report the band they obscure, so keyboard navigation scrolls the focused cell clear of them rather than underneath. [Sticky rows](/grid/plugins/sticky-rows/) report the top/bottom band they cover (vertical scrolling); [pinned columns](/grid/plugins/pinned-columns/) report the left/right band (horizontal scrolling).
 - **Two themes go further than AA** — `dg-theme-contrast.css` and `dg-theme-large.css` meet **Level AAA** contrast (7:1) on every text pair, in both light and dark mode. See [Accessibility themes](#accessibility-themes-aaa-contrast).
 
 See the [full WCAG 2.1 AA conformance table](#wcag-compliance-checklist) below for the criteria we test against.

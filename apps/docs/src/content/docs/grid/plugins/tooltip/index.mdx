@@ -169,16 +169,18 @@ If the cell value itself isn't a plain `row[field]` read (for example, a "Full N
 
 ## Styling
 
-The tooltip popover includes a directional arrow that automatically flips when the tooltip appears above the cell. It supports CSS custom properties:
+The tooltip is placed **above** the anchor cell whenever it fits there, and drops below only when the space above the cell is too small. A directional arrow points at the anchor and flips with the placement. It supports CSS custom properties:
 
 | Property | Default | Description |
 | --- | --- | --- |
-| `--tbw-tooltip-bg` | `var(--tbw-color-panel-bg)` | Tooltip background color |
-| `--tbw-tooltip-fg` | `var(--tbw-color-panel-fg)` | Tooltip text color |
-| `--tbw-tooltip-border` | `var(--tbw-color-border)` | Tooltip border and arrow color |
-| `--tbw-tooltip-shadow` | `0 2px 8px rgba(0,0,0,.15)` | Tooltip box shadow |
+| `--tbw-tooltip-bg` | `light-dark(#333338, #484850)` | Tooltip background color |
+| `--tbw-tooltip-fg` | `light-dark(#f5f5f5, #f0f0f0)` | Tooltip text color |
+| `--tbw-tooltip-border` | `light-dark(#222226, #6a6a72)` | Tooltip border and arrow color |
+| `--tbw-tooltip-shadow` | `drop-shadow(0 4px 4px rgba(0,0,0,.45))` | Tooltip shadow (a `filter` value, so it follows the arrow) |
 | `--tbw-tooltip-radius` | `var(--tbw-border-radius)` | Border radius |
-| `--tbw-tooltip-arrow-offset` | `12px` | Horizontal offset of the arrow from the left edge |
+| `--tbw-tooltip-max-width` | `300px` | Maximum width before the text wraps |
+| `--tbw-tooltip-arrow-size` | `14px` | Size of the arrow's (pre-rotation) box |
+| `--tbw-tooltip-arrow-offset` | `16px` | Horizontal offset of the arrow from the left edge |
 
 ## Accessibility
 
@@ -190,6 +192,10 @@ The plugin satisfies [WCAG 2.2 SC 1.4.13 Content on Hover or Focus](https://www.
 - **Focus-triggered** — arrowing onto a truncated cell shows its tooltip, so keyboard users can read content a mouse user would hover for. The anchor cell is linked to the popover via `aria-describedby`, and the popover carries `role="tooltip"`.
 
 The focus path is driven by key presses, so it only ever runs for keyboard navigation — clicking a cell with a pointer never triggers it. Set `focus: false` to opt out entirely (this forfeits the SC 1.4.13 "focus" path).
+
+:::note[No browser configuration required]
+Nothing has to be enabled in the browser or the operating system. There is deliberately no web API that reports whether a visitor uses assistive technology (browsers refuse to expose one because it is a fingerprinting and discrimination vector), so the plugin infers intent from **input modality** instead: the tooltip appears whenever a navigation key moves the cell focus. Just click into the grid and press an arrow key.
+:::
 
 ## See Also
 

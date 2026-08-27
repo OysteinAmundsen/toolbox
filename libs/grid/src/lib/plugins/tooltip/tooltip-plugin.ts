@@ -104,6 +104,9 @@ const NAVIGATION_KEYS = new Set([
 /** Default grace period (ms) allowing the pointer to travel onto the tooltip. */
 const DEFAULT_HIDE_DELAY_MS = 120;
 
+/** Gap (px) between the anchor cell and the popover, leaving room for the arrow. */
+const ARROW_GAP_PX = 11;
+
 /** `id` of the shared popover, referenced by `aria-describedby` on the anchor. */
 const POPOVER_ID = 'tbw-tooltip-popover';
 // #endregion
@@ -279,8 +282,7 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
     }
 
     if (supportsAnchor()) {
-      // Detect flip after the browser resolves position-try-fallbacks
-      requestAnimationFrame(() => this.#detectFlip(cell));
+      this.#popoverEl.classList.toggle('tbw-tooltip-above', this.#prefersAbove(cell));
     } else {
       this.#positionFallback(cell);
     }
@@ -344,38 +346,44 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
   }
 
   /**
+   * Decide whether the popover sits above the cell. Above is preferred so the
+   * tooltip never covers the rows the pointer is heading toward; it drops below
+   * only when the popover does not fit in the space above the cell.
+   *
+   * Placement is resolved here rather than left to `position-try-fallbacks` so
+   * the arrow-direction class can never disagree with where the browser
+   * actually painted the popover.
+   */
+  #prefersAbove(cell: HTMLElement): boolean {
+    if (!this.#popoverEl) return false;
+    const cellRect = cell.getBoundingClientRect();
+    const spaceAbove = cellRect.top - ARROW_GAP_PX;
+    const spaceBelow = window.innerHeight - cellRect.bottom - ARROW_GAP_PX;
+    // Popover is already shown and filled, so its box is measurable.
+    const height = this.#popoverEl.offsetHeight;
+    return height <= spaceAbove || spaceAbove >= spaceBelow;
+  }
+
+  /**
    * Fallback positioning for browsers without CSS anchor support.
-   * Places the popover below or above the cell using fixed coordinates.
+   * Places the popover above or below the cell using fixed coordinates.
    */
   #positionFallback(cell: HTMLElement): void {
     if (!this.#popoverEl) return;
     const cellRect = cell.getBoundingClientRect();
-    const arrowGap = 11;
+    const above = this.#prefersAbove(cell);
 
     this.#popoverEl.style.position = 'fixed';
     this.#popoverEl.style.left = `${cellRect.left}px`;
 
-    // Check if there's space below
-    const spaceBelow = window.innerHeight - cellRect.bottom;
-    if (spaceBelow < 80) {
-      // Place above the cell
+    if (above) {
       this.#popoverEl.style.top = '';
-      this.#popoverEl.style.bottom = `${window.innerHeight - cellRect.top + arrowGap}px`;
-      this.#popoverEl.classList.add('tbw-tooltip-above');
+      this.#popoverEl.style.bottom = `${window.innerHeight - cellRect.top + ARROW_GAP_PX}px`;
     } else {
-      this.#popoverEl.style.top = `${cellRect.bottom + arrowGap}px`;
+      this.#popoverEl.style.top = `${cellRect.bottom + ARROW_GAP_PX}px`;
       this.#popoverEl.style.bottom = '';
-      this.#popoverEl.classList.remove('tbw-tooltip-above');
     }
-  }
-
-  /** Toggle the arrow direction class after CSS anchor positioning resolves. */
-  #detectFlip(cell: HTMLElement): void {
-    if (!this.#popoverEl) return;
-    const cellRect = cell.getBoundingClientRect();
-    const popoverRect = this.#popoverEl.getBoundingClientRect();
-    // If the popover's bottom edge is above the cell's top, it flipped
-    this.#popoverEl.classList.toggle('tbw-tooltip-above', popoverRect.bottom <= cellRect.top);
+    this.#popoverEl.classList.toggle('tbw-tooltip-above', above);
   }
   // #endregion
 
@@ -407,7 +415,11 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
       signal: this.disconnectSignal,
     });
 
-    container.addEventListener('keydown', (e: Event) => this.#onKeyDownGrid(e as KeyboardEvent), {
+    // Keyboard navigation keeps DOM focus on the grid HOST (`tabindex=0`), so
+    // keydown never travels through `.tbw-grid-root` — a child of the host.
+    // Bind on the host, exactly where `setupRootEventDelegation` binds the
+    // grid's own navigation handler.
+    this.gridElement.addEventListener('keydown', (e: Event) => this.#onKeyDownGrid(e as KeyboardEvent), {
       signal: this.disconnectSignal,
     });
   }
@@ -478,7 +490,17 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
   /** Show (or clear) the tooltip for the cell that currently holds focus. */
   #syncTooltipToFocusedCell(): void {
     const cell = this.gridElement?.querySelector('.cell-focus') as HTMLElement | null;
-    if (!cell || !cell.hasAttribute('data-row') || cell.style.getPropertyValue('anchor-name')) {
+    if (!cell || !cell.hasAttribute('data-row')) {
+      this.#hideTooltip();
+      return;
+    }
+    // Focus was clamped rather than moved (ArrowUp on the first row, ArrowDown
+    // on the last, …) — the tooltip already describes this cell.
+    if (cell === this.#anchorCell) return;
+    // A foreign anchor means an overlay editor owns this cell's positioning, so
+    // we cannot re-anchor here; drop the previous cell's tooltip rather than
+    // leave it pointing somewhere focus has left.
+    if (cell.style.getPropertyValue('anchor-name')) {
       this.#hideTooltip();
       return;
     }

@@ -568,12 +568,21 @@ test.describe('Promo — capability reel', () => {
     await expect(tip).toHaveText('The official job title and primary area of responsibility');
     await beat(page);
 
+    // The popover is hoverable (WCAG 2.2 SC 1.4.13), so it takes pointer events
+    // and would intercept a hover on whatever it currently covers. Escape — the
+    // documented dismissal — clears it before each new target.
+    await page.keyboard.press('Escape');
+    await expect(tip).toBeHidden();
+
     await say(page, 'Cell tooltips are functions of the row, not fixed strings.');
     const roleCell = cellByField(page, 0, 'role');
     await moveTo(page, roleCell);
     await roleCell.hover();
     await expect(tip).toHaveText('Alice Johnson — Senior Software Engineer');
     await beat(page);
+
+    await page.keyboard.press('Escape');
+    await expect(tip).toBeHidden();
 
     await say(page, 'Turn the feature off and they stop entirely.');
     await toggleControl(page, 'cell', false);

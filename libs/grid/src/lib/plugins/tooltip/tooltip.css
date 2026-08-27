@@ -78,17 +78,20 @@
     clip-path: polygon(100% 0, 100% 100%, 0 100%);
   }
 
-  /* CSS Anchor Positioning — modern browsers */
+  /* CSS Anchor Positioning — modern browsers.
+     Placement is chosen in JS (`#prefersAbove`) rather than by
+     `position-try-fallbacks`: the browser's flip is invisible to script, so the
+     arrow-direction class could disagree with where the popover was painted —
+     most visibly when re-hovering while a previous tooltip is still open. */
   @supports (anchor-name: --test) {
     .tbw-tooltip-popover {
       position-anchor: --tbw-tooltip-anchor;
       top: calc(anchor(bottom) + 11px);
+      bottom: auto;
       left: anchor(left);
-      position-try-fallbacks: --tbw-tooltip-flip-above;
     }
 
-    /* Flip above the anchor when no space below */
-    @position-try --tbw-tooltip-flip-above {
+    .tbw-tooltip-popover.tbw-tooltip-above {
       top: auto;
       bottom: calc(anchor(top) + 11px);
     }

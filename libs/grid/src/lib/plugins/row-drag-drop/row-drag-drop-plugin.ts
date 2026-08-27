@@ -46,6 +46,7 @@ import {
   mimeForZone,
   setCurrentDragSession,
 } from '../shared/drag-drop-protocol';
+import { type DragAlternativeAction, type DragAlternativeMenu, createDragAlternativeMenu } from '../shared/drag-alternative-menu';
 import styles from './row-drag-drop.css?inline';
 import type {
   PendingMove,
@@ -131,6 +132,18 @@ function registerRemoteTransferListener(listener: RemoteTransferListener): void 
   remoteListeners.add(listener);
   ensureCrossWindowChannel();
 }
+
+/**
+ * Every plugin instance attached in this window.
+ *
+ * Drag-and-drop discovers its target from the pointer position, so it never
+ * needed a registry. The click-only transfer control (WCAG 2.2 SC 2.5.7) does:
+ * it has to *list* the grids a row can be sent to before the user picks one.
+ *
+ * Typed as `unknown` because the class is generic over the row type and every
+ * instance in the window may have a different one; `peersInDropZone()` narrows.
+ */
+const attachedPlugins = new Set<unknown>();
 
 function unregisterRemoteTransferListener(listener: RemoteTransferListener): void {
   remoteListeners.delete(listener);
@@ -255,6 +268,9 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   /** Bound listener so we can register/unregister the same reference. */
   private readonly remoteTransferListener: RemoteTransferListener = (msg) => this.onRemoteTransfer(msg);
 
+  /** Click-only move menu (WCAG 2.2 SC 2.5.7), created lazily on first tap. */
+  private moveMenu: DragAlternativeMenu | null = null;
+
   /** Typed internal grid accessor. */
   private get internalGrid(): GridHost {
     return this.grid;
@@ -271,6 +287,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
       if (!host.id) host.id = this.gridId;
       this.setupDelegatedDragListeners();
       registerRemoteTransferListener(this.remoteTransferListener);
+      attachedPlugins.add(this);
     }
   }
 
@@ -280,6 +297,9 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     this.autoScroller?.stop();
     this.autoScroller = null;
     unregisterRemoteTransferListener(this.remoteTransferListener);
+    attachedPlugins.delete(this);
+    this.moveMenu?.dispose();
+    this.moveMenu = null;
     if (this.dragSessionId) clearDragSession(this.dragSessionId);
     clearCurrentDragSession();
     this.resetDragState();
@@ -305,10 +325,18 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
       viewRenderer: () => {
         const container = document.createElement('div');
         container.className = 'dg-row-drag-handle';
-        container.setAttribute('aria-label', 'Drag to reorder');
+        container.setAttribute('aria-label', 'Drag to reorder, or activate for move options');
         container.setAttribute('role', 'button');
         container.setAttribute('tabindex', '-1');
         container.draggable = true;
+        // Press-and-release without moving is a tap, not a drag — HTML5 DnD
+        // only fires `dragstart` on a real drag, so a plain `click` here means
+        // the pointer user could not (or chose not to) drag. Offer the
+        // click-only alternative instead (WCAG 2.2 SC 2.5.7).
+        container.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.openMoveMenu(container);
+        });
         this.setIcon(container, 'dragHandle');
         return container;
       },
@@ -877,6 +905,151 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     if (!peerEl?.getPluginByName) return null;
     return peerEl.getPluginByName('rowDragDrop') ?? null;
   }
+
+  // #region Click-only move menu (WCAG 2.2 SC 2.5.7)
+
+  /** Grids in this window sharing our (non-empty) `dropZone`. */
+  private peersInDropZone(): RowDragDropPlugin<T>[] {
+    const dropZone = this.config.dropZone ?? '';
+    if (!dropZone) return [];
+    const peers: RowDragDropPlugin<T>[] = [];
+    for (const candidate of attachedPlugins) {
+      const peer = candidate as RowDragDropPlugin<T>;
+      if (peer === this) continue;
+      if ((peer.config.dropZone ?? '') === dropZone) peers.push(peer);
+    }
+    return peers;
+  }
+
+  /** Human-readable name for this grid, used in the transfer menu. */
+  private get gridLabel(): string {
+    const host = this.gridElement;
+    return host?.getAttribute('aria-label') || host?.id || 'grid';
+  }
+
+  /**
+   * Open the click-only alternative to dragging a row: reorder within this grid
+   * and, when a `dropZone` is configured, send the row to a peer grid — all
+   * with single clicks or taps, no press-hold-move gesture.
+   */
+  private openMoveMenu(handle: HTMLElement): void {
+    const rowEl = handle.closest('.data-grid-row') as HTMLElement | null;
+    if (!rowEl) return;
+    const rowIndex = this.getRowIndex(rowEl);
+    if (rowIndex < 0) return;
+
+    const rows = this.internalGrid._rows ?? this.sourceRows;
+    const actions: DragAlternativeAction[] = [
+      {
+        label: 'Move up',
+        disabled: rowIndex === 0 || !this.canMoveRow(rowIndex, rowIndex - 1),
+        run: () => this.moveRow(rowIndex, rowIndex - 1),
+      },
+      {
+        label: 'Move down',
+        disabled: rowIndex >= rows.length - 1 || !this.canMoveRow(rowIndex, rowIndex + 1),
+        run: () => this.moveRow(rowIndex, rowIndex + 1),
+      },
+      {
+        label: 'Move to top',
+        disabled: rowIndex === 0 || !this.canMoveRow(rowIndex, 0),
+        run: () => this.moveRow(rowIndex, 0),
+      },
+      {
+        label: 'Move to bottom',
+        disabled: rowIndex >= rows.length - 1 || !this.canMoveRow(rowIndex, rows.length - 1),
+        run: () => this.moveRow(rowIndex, rows.length - 1),
+      },
+    ];
+
+    const verb = (this.config.operation ?? 'move') === 'copy' ? 'Copy to' : 'Send to';
+    for (const peer of this.peersInDropZone()) {
+      actions.push({
+        label: `${verb} ${peer.gridLabel}`,
+        run: () => this.transferToPeer(peer, rowIndex),
+      });
+    }
+
+    this.moveMenu ??= createDragAlternativeMenu('tbw-row-move-menu', 'tbw-row-move-menu');
+    this.moveMenu.open(handle, `Move row ${rowIndex + 1}`, actions);
+  }
+
+  /**
+   * Click-only equivalent of dropping the row onto `peer`. Runs the same vetoes
+   * and emits the same events as the drag path (`row-drag-start`, `row-drop`,
+   * `row-transfer`) so consumers cannot tell the two apart.
+   */
+  private transferToPeer(peer: RowDragDropPlugin<T>, rowIndex: number): void {
+    const dropZone = this.config.dropZone ?? '';
+    if (!dropZone) return;
+
+    const { rows, indices } = this.resolveDraggedRows(rowIndex);
+    if (rows.length === 0) return;
+    if (this.config.canDrag && !this.config.canDrag(rows[0], rowIndex)) return;
+
+    const operation = this.config.operation ?? 'move';
+    if (this.emitCancelable('row-drag-start', { rows, indices, operation, dropZone } as RowDragStartDetail<T>)) return;
+
+    const serialize = this.config.serializeRow ?? ((r: T) => r);
+    const payload: RowDragPayload<T> = {
+      sessionId: newDragSessionId(),
+      sourceGridId: this.gridId,
+      dropZone,
+      rows: rows.map(serialize) as T[],
+      rowIndices: indices,
+      operation,
+    };
+
+    const toIndex = peer.acceptTransfer(payload, rows);
+    if (toIndex < 0) return;
+
+    if (operation === 'move') {
+      const srcRows = [...(this.internalGrid._rows ?? this.sourceRows)];
+      for (const idx of [...indices].sort((a, b) => b - a)) {
+        if (idx >= 0 && idx < srcRows.length) srcRows.splice(idx, 1);
+      }
+      this.grid.rows = srcRows as unknown[];
+    }
+
+    const detail: RowTransferDetail<T> = {
+      rows,
+      fromGridId: this.gridId,
+      toGridId: peer.gridId,
+      fromIndices: indices,
+      toIndex,
+      operation,
+    };
+    peer.emitTransfer(detail);
+    this.emit('row-transfer', detail);
+  }
+
+  /**
+   * Target half of {@link RowDragDropPlugin.transferToPeer}. Returns the insert
+   * index, or `-1` when the transfer was rejected (zone mismatch, `canDrop`
+   * veto, or a cancelled `row-drop`).
+   *
+   * @internal
+   */
+  acceptTransfer(payload: RowDragPayload<T>, liveRows: readonly T[]): number {
+    const dropZone = this.config.dropZone ?? '';
+    if (!dropZone || dropZone !== payload.dropZone) return -1;
+
+    const rows = this.internalGrid._rows ?? this.sourceRows;
+    const targetIndex = rows.length;
+    if (this.config.canDrop && !this.config.canDrop(payload, targetIndex)) return -1;
+
+    const dropDetail: RowDropDetail<T> = {
+      payload,
+      sourceGridId: payload.sourceGridId,
+      targetIndex,
+      operation: payload.operation,
+    };
+    if (this.emitCancelable('row-drop', dropDetail)) return -1;
+
+    this.grid.rows = [...(rows as unknown[]), ...(liveRows as unknown[])];
+    return targetIndex;
+  }
+  // #endregion
 
   private resolveDraggedRows(originIndex: number): { rows: T[]; indices: number[] } {
     const rows = this.internalGrid._rows ?? this.sourceRows;

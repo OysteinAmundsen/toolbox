@@ -581,8 +581,217 @@ describe('RowDragDropPlugin', () => {
       const el = dragCol!.viewRenderer!({} as any);
       expect(el.draggable).toBe(true);
       expect(el.getAttribute('role')).toBe('button');
-      expect(el.getAttribute('aria-label')).toBe('Drag to reorder');
+      expect(el.getAttribute('aria-label')).toBe('Drag to reorder, or activate for move options');
       expect(el.getAttribute('tabindex')).toBe('-1');
+    });
+  });
+
+  /**
+   * WCAG 2.2 SC 2.5.7 "Dragging Movements". `Ctrl + Arrow` satisfies SC 2.1.1
+   * but not 2.5.7 — that criterion needs controls a pointer user can click or
+   * tap. HTML5 DnD only fires `dragstart` on a real drag, so a plain `click` on
+   * the handle means the user pressed and released without dragging.
+   */
+  describe('click-only move menu (SC 2.5.7)', () => {
+    let plugin: RowDragDropPlugin;
+    let grid: ReturnType<typeof createGridMock>;
+    let gridEl: HTMLElement;
+
+    function mountHandles(p: RowDragDropPlugin, host: HTMLElement, count: number): HTMLElement[] {
+      const dragCol = p.processColumns([{ field: 'id' }]).find((c) => c.field === ROW_DRAG_HANDLE_FIELD)!;
+      const handles: HTMLElement[] = [];
+      for (let i = 0; i < count; i++) {
+        const row = document.createElement('div');
+        row.className = 'data-grid-row';
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.setAttribute('data-row', String(i));
+        cell.appendChild(dragCol.viewRenderer!({} as any));
+        row.appendChild(cell);
+        host.appendChild(row);
+        handles.push(cell.querySelector('.dg-row-drag-handle') as HTMLElement);
+      }
+      return handles;
+    }
+
+    const menu = () => document.getElementById('tbw-row-move-menu');
+    const items = () => Array.from(menu()?.querySelectorAll('button') ?? []);
+    const item = (label: string) => items().find((b) => b.textContent === label);
+
+    beforeEach(() => {
+      gridEl = document.createElement('div');
+      gridEl.id = 'grid-a';
+      document.body.appendChild(gridEl);
+      grid = createGridMock([{ id: 1 }, { id: 2 }, { id: 3 }]);
+      grid._bodyEl = gridEl;
+      (grid as any)._hostElement = gridEl;
+      grid.dispatchEvent = vi.fn(() => true);
+    });
+
+    afterEach(() => {
+      plugin.detach();
+      document.body.innerHTML = '';
+    });
+
+    it('opens a named menu of plain buttons when the handle is clicked', () => {
+      plugin = new RowDragDropPlugin({ animation: false });
+      plugin.attach(grid as any);
+      const handles = mountHandles(plugin, gridEl, 3);
+
+      handles[1].click();
+
+      expect(menu()).toBeTruthy();
+      expect(menu()!.getAttribute('aria-label')).toBe('Move row 2');
+      expect(items().map((b) => b.textContent)).toEqual(['Move up', 'Move down', 'Move to top', 'Move to bottom']);
+    });
+
+    it('disables the directions that would run past the ends', () => {
+      plugin = new RowDragDropPlugin({ animation: false });
+      plugin.attach(grid as any);
+      const handles = mountHandles(plugin, gridEl, 3);
+
+      handles[0].click();
+      expect(item('Move up')!.disabled).toBe(true);
+      expect(item('Move down')!.disabled).toBe(false);
+
+      handles[2].click();
+      expect(item('Move up')!.disabled).toBe(false);
+      expect(item('Move down')!.disabled).toBe(true);
+    });
+
+    it('reorders the rows from a plain click, no gesture involved', () => {
+      plugin = new RowDragDropPlugin({ animation: false });
+      plugin.attach(grid as any);
+      const handles = mountHandles(plugin, gridEl, 3);
+
+      handles[0].click();
+      item('Move down')!.click();
+
+      expect(grid.rows).toEqual([{ id: 2 }, { id: 1 }, { id: 3 }]);
+    });
+
+    it('"Move to bottom" jumps the full distance in one click', () => {
+      plugin = new RowDragDropPlugin({ animation: false });
+      plugin.attach(grid as any);
+      const handles = mountHandles(plugin, gridEl, 3);
+
+      handles[0].click();
+      item('Move to bottom')!.click();
+
+      expect(grid.rows).toEqual([{ id: 2 }, { id: 3 }, { id: 1 }]);
+    });
+
+    it('honours the canDrag veto', () => {
+      plugin = new RowDragDropPlugin({ animation: false, canDrag: () => false });
+      plugin.attach(grid as any);
+      const handles = mountHandles(plugin, gridEl, 3);
+
+      handles[0].click();
+      expect(item('Move down')!.disabled).toBe(true);
+    });
+
+    it('offers no transfer entries without a dropZone', () => {
+      plugin = new RowDragDropPlugin({ animation: false });
+      plugin.attach(grid as any);
+      const handles = mountHandles(plugin, gridEl, 3);
+
+      handles[0].click();
+      expect(items().some((b) => b.textContent?.startsWith('Send to'))).toBe(false);
+    });
+
+    describe('cross-grid transfer', () => {
+      let peer: RowDragDropPlugin;
+      let peerGrid: ReturnType<typeof createGridMock>;
+      let peerEl: HTMLElement;
+
+      beforeEach(() => {
+        peerEl = document.createElement('div');
+        peerEl.id = 'grid-b';
+        peerEl.setAttribute('aria-label', 'Archive');
+        document.body.appendChild(peerEl);
+        peerGrid = createGridMock([{ id: 9 }]);
+        peerGrid._bodyEl = peerEl;
+        (peerGrid as any)._hostElement = peerEl;
+        peerGrid.dispatchEvent = vi.fn(() => true);
+        peer = new RowDragDropPlugin({ animation: false, dropZone: 'zone-1' });
+        peer.attach(peerGrid as any);
+      });
+
+      afterEach(() => {
+        peer.detach();
+      });
+
+      it('lists peer grids sharing the dropZone', () => {
+        plugin = new RowDragDropPlugin({ animation: false, dropZone: 'zone-1' });
+        plugin.attach(grid as any);
+        const handles = mountHandles(plugin, gridEl, 3);
+
+        handles[0].click();
+        expect(item('Send to Archive')).toBeTruthy();
+      });
+
+      it('does not list grids in a different dropZone', () => {
+        plugin = new RowDragDropPlugin({ animation: false, dropZone: 'zone-2' });
+        plugin.attach(grid as any);
+        const handles = mountHandles(plugin, gridEl, 3);
+
+        handles[0].click();
+        expect(item('Send to Archive')).toBeUndefined();
+      });
+
+      it('moves the row across grids and emits row-transfer on both', () => {
+        plugin = new RowDragDropPlugin({ animation: false, dropZone: 'zone-1' });
+        plugin.attach(grid as any);
+        const handles = mountHandles(plugin, gridEl, 3);
+
+        handles[0].click();
+        item('Send to Archive')!.click();
+
+        expect(peerGrid.rows).toEqual([{ id: 9 }, { id: 1 }]);
+        expect(grid.rows).toEqual([{ id: 2 }, { id: 3 }]);
+
+        const emitted = (evts: any) => evts.mock.calls.map((c: any[]) => (c[0] as CustomEvent).type);
+        expect(emitted(grid.dispatchEvent)).toContain('row-transfer');
+        expect(emitted(peerGrid.dispatchEvent)).toContain('row-transfer');
+      });
+
+      it('keeps the source rows when the operation is copy', () => {
+        plugin = new RowDragDropPlugin({ animation: false, dropZone: 'zone-1', operation: 'copy' });
+        plugin.attach(grid as any);
+        const handles = mountHandles(plugin, gridEl, 3);
+
+        handles[0].click();
+        item('Copy to Archive')!.click();
+
+        expect(peerGrid.rows).toEqual([{ id: 9 }, { id: 1 }]);
+        expect(grid.rows).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }]);
+      });
+
+      it('respects a cancelled row-drop on the target', () => {
+        peerGrid.dispatchEvent = vi.fn((e: Event) => {
+          if (e.type === 'row-drop') e.preventDefault();
+          return !e.defaultPrevented;
+        });
+        plugin = new RowDragDropPlugin({ animation: false, dropZone: 'zone-1' });
+        plugin.attach(grid as any);
+        const handles = mountHandles(plugin, gridEl, 3);
+
+        handles[0].click();
+        item('Send to Archive')!.click();
+
+        expect(peerGrid.rows).toEqual([{ id: 9 }]);
+        expect(grid.rows).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }]);
+      });
+
+      it('drops the peer from the list once it detaches', () => {
+        plugin = new RowDragDropPlugin({ animation: false, dropZone: 'zone-1' });
+        plugin.attach(grid as any);
+        const handles = mountHandles(plugin, gridEl, 3);
+
+        peer.detach();
+        handles[0].click();
+        expect(item('Send to Archive')).toBeUndefined();
+      });
     });
   });
 

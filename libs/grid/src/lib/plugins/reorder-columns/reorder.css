@@ -48,4 +48,102 @@
   .cell.fade-animating {
     animation: reorder-fade-in var(--tbw-animation-duration, 200ms) ease-out backwards;
   }
+
+  /* ========== Click-only move control (WCAG 2.2 SC 2.5.7) ==========
+     Dragging a header is the primary gesture; the single-pointer alternative is
+     always available from the header's context menu. This button is the *extra*
+     affordance, and the plugin only puts it in the DOM under
+     `a11y.dragAlternatives: 'inline'` or on a hover-less pointer — because as a
+     flex sibling it permanently reserves ~24px of every header cell, which is
+     real estate width-critical grids cannot spare.
+
+     It is a sibling rather than an absolute overlay on purpose: an overlay sits
+     on top of the header's own click-to-sort target, so on any column narrower
+     than ~135px a click aimed at the middle of the header would land on the
+     button and silently not sort.
+
+     Once present it stays in the a11y tree at all times so speech- and
+     switch-control users can target it, which is why it is dimmed with
+     `opacity` rather than `display: none` / `visibility: hidden` (both of those
+     also remove it from the accessibility tree, defeating the point). */
+  .header-row > .cell > .tbw-col-move-btn {
+    flex-shrink: 0;
+    min-width: var(--tbw-touch-target-min, 24px);
+    min-height: var(--tbw-touch-target-min, 24px);
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--tbw-color-header-bg);
+    color: var(--tbw-color-header-fg, inherit);
+    font: inherit;
+    line-height: 1;
+    border: 1px solid var(--tbw-color-border);
+    border-radius: var(--tbw-border-radius, 0.25rem);
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--tbw-transition-duration, 120ms) var(--tbw-transition-ease, ease);
+
+    &:hover {
+      border-color: var(--tbw-color-accent);
+    }
+  }
+
+  .header-row > .cell:hover > .tbw-col-move-btn,
+  .header-row > .cell:focus-within > .tbw-col-move-btn,
+  .header-row > .cell.cell-focus > .tbw-col-move-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* No hover to reveal it (touch, most switch devices): keep it visible. */
+  @media (hover: none) {
+    .header-row > .cell > .tbw-col-move-btn {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
+  /* Menu opened by the move button. Lives on document.body (top layer), so every
+     custom property needs a literal fallback. */
+  .tbw-col-move-menu {
+    position: fixed;
+    margin: 0;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    min-width: 10rem;
+    background: var(--tbw-color-panel-bg, light-dark(#fff, #1e1e1e));
+    color: var(--tbw-color-panel-fg, light-dark(#1a1a1a, #eaeaea));
+    border: 1px solid var(--tbw-color-border, light-dark(#d0d0d0, #3a3a3a));
+    border-radius: var(--tbw-border-radius, 0.25rem);
+    box-shadow: var(--tbw-shadow-panel, 0 4px 12px light-dark(rgb(0 0 0 / 20%), rgb(0 0 0 / 50%)));
+    z-index: 10001;
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  .tbw-col-move-menu-item {
+    min-height: var(--tbw-touch-target-min, 24px);
+    padding: 4px 8px;
+    text-align: start;
+    background: none;
+    color: inherit;
+    font: inherit;
+    border: 0;
+    border-radius: var(--tbw-border-radius, 0.25rem);
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background: var(--tbw-color-hover-bg, light-dark(#00000010, #ffffff14));
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+  }
 } /* End @layer tbw-plugins */

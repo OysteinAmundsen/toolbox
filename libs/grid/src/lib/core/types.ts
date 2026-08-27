@@ -2105,6 +2105,22 @@ export interface ResizeController {
   start: (e: MouseEvent | PointerEvent, colIndex: number, cell: HTMLElement, captureTarget?: Element) => void;
   /** Reset a column to its configured width (or auto-size if none configured). */
   resetColumn: (colIndex: number) => void;
+  /**
+   * Set a column's width directly, without a drag gesture.
+   *
+   * Clamps to the column's `minWidth` (or 40px), commits the same state the
+   * drag path commits, and emits `column-resize`. This is the primitive behind
+   * the click-only width control required by WCAG 2.2 SC 2.5.7.
+   *
+   * @since 3.6.0
+   */
+  setColumnWidth: (colIndex: number, width: number) => void;
+  /**
+   * Current rendered width of a column in px.
+   *
+   * @since 3.6.0
+   */
+  getColumnWidth: (colIndex: number) => number;
   dispose: () => void;
   /** True while a resize drag is in progress (used to suppress header click/sort). */
   isResizing: boolean;
@@ -2550,6 +2566,30 @@ export interface A11yConfig {
    * Partial — only override the messages you need; defaults are used for the rest.
    */
   messages?: Partial<A11yMessages>;
+  /**
+   * How the pointer alternatives to dragging (WCAG 2.2 SC 2.5.7) are surfaced.
+   *
+   * The criterion requires every drag operation to *also* be achievable with a
+   * single pointer that never drags — it does not require that alternative to
+   * be permanently visible.
+   *
+   * - `'menu'` — the alternative is reached through the affordance you would
+   *   have dragged anyway: tap (don't drag) a column resize handle or a row
+   *   drag handle, or open a column's context menu with right-click,
+   *   long-press, or `Shift + F10`. Adds no chrome and costs no header width.
+   * - `'inline'` — the same actions additionally get a dedicated button that is
+   *   revealed on hover or focus. More discoverable, at the cost of ~24px of
+   *   width reserved in every affected header cell.
+   *
+   * Pointers that cannot hover (touch, most switch devices) always get the
+   * inline controls regardless of this setting: there is nothing for them to
+   * hover in order to reveal a control, and a long-press is a poor alternative
+   * for the tremor and low-dexterity users this criterion exists for.
+   *
+   * @defaultValue `'menu'`
+   * @since 3.6.0
+   */
+  dragAlternatives?: 'menu' | 'inline';
 }
 
 // #endregion

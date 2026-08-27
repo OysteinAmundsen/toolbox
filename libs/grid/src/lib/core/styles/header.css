@@ -183,7 +183,11 @@
         z-index: 1000;
       }
 
-      &:hover {
+      /* `[data-tbw-width-open]` keeps the indicator up while the width popover
+         is open, so the popover stays visually tied to its border without
+         having to follow it. */
+      &:hover,
+      &[data-tbw-width-open] {
         &::before {
           background: var(--tbw-resize-handle-color-hover);
         }
@@ -212,6 +216,62 @@
         min-width: var(--tbw-touch-target-min, 24px);
         min-height: var(--tbw-touch-target-min, 24px);
       }
+    }
+  }
+
+  /* ========== Column width popover (WCAG 2.2 SC 2.5.7) ==========
+     Click-only alternative to dragging the resize handle. Mounted inside the
+     grid host (light DOM) so theme tokens cascade in; the top layer keeps it
+     clear of ancestor overflow. Fallbacks stay for the `document.body` path
+     used when no host is available. */
+  .tbw-column-width-popover {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    padding: var(--tbw-spacing-xs, 0.25rem);
+    display: flex;
+    align-items: center;
+    gap: var(--tbw-spacing-xs, 0.25rem);
+    background: var(--tbw-color-panel-bg, light-dark(#eeeeee, #222222));
+    color: var(--tbw-color-fg, light-dark(#222222, #eeeeee));
+    border: 1px solid var(--tbw-color-border, light-dark(#d0d0d4, #454545));
+    border-radius: var(--tbw-border-radius, 0.25rem);
+    box-shadow: 0 4px 12px var(--tbw-color-shadow, rgba(0, 0, 0, 0.3));
+    font-family: var(--tbw-font-family, system-ui, sans-serif);
+    font-size: var(--tbw-font-size-sm, 0.9285em);
+    z-index: 10001;
+
+    &[hidden] {
+      display: none;
+    }
+
+    button {
+      min-width: var(--tbw-touch-target-min, 24px);
+      min-height: var(--tbw-touch-target-min, 24px);
+      padding: 0 var(--tbw-spacing-xs, 0.25rem);
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      line-height: 1;
+      border: 1px solid transparent;
+      border-radius: var(--tbw-border-radius, 0.25rem);
+      cursor: pointer;
+
+      &:hover {
+        border-color: var(--tbw-color-border-strong, light-dark(#777777, #666666));
+      }
+    }
+
+    input {
+      width: 6ch;
+      min-height: var(--tbw-touch-target-min, 24px);
+      padding: 0 var(--tbw-spacing-xs, 0.25rem);
+      background: var(--tbw-color-bg, transparent);
+      color: inherit;
+      font: inherit;
+      text-align: right;
+      border: 1px solid var(--tbw-color-border, light-dark(#d0d0d4, #454545));
+      border-radius: var(--tbw-border-radius, 0.25rem);
     }
   }
 }

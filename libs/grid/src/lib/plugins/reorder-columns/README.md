@@ -108,6 +108,15 @@ Dragging a group header moves all columns in that fragment as a block. If a grou
 
 Implicit groups (auto-generated for ungrouped column spans) are not draggable.
 
+## Accessibility
+
+Conforms to WCAG 2.2 SC 2.5.7 Dragging Movements: every move available by dragging is also
+available from the header's context menu (right-click, long-press, or <kbd>Shift</kbd> +
+<kbd>F10</kbd>) as **Move left**, **Move right**, **Move to start** and **Move to end**. The
+entries merge into the `ContextMenuPlugin` when it is registered, otherwise the plugin opens its
+own `role="group"` menu. No header width is reserved; set `a11y.dragAlternatives: 'inline'` to
+also render a hover-revealed move button per header (hover-less pointers always get it).
+
 ## API Methods
 
 Access via `grid.getPluginByName('reorder')`:

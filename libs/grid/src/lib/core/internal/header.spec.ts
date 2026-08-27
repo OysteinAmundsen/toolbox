@@ -296,11 +296,17 @@ describe('renderHeader', () => {
       expect(handle).toBeTruthy();
     });
 
-    it('resize handle has aria-hidden', () => {
-      const g = makeGrid({ columns: [{ field: 'name', resizable: true }] });
+    // The handle is an interactive control, not decoration: tapping it opens the
+    // click-only width popover (WCAG 2.2 SC 2.5.7), so it must carry a name and
+    // a role. `tabindex="-1"` keeps it out of the tab order.
+    it('resize handle is exposed as a named button outside the tab order', () => {
+      const g = makeGrid({ columns: [{ field: 'name', header: 'Name', resizable: true }] });
       renderHeader(g);
       const handle = g._headerRowEl.querySelector('.resize-handle');
-      expect(handle.getAttribute('aria-hidden')).toBe('true');
+      expect(handle.hasAttribute('aria-hidden')).toBe(false);
+      expect(handle.getAttribute('role')).toBe('button');
+      expect(handle.getAttribute('tabindex')).toBe('-1');
+      expect(handle.getAttribute('aria-label')).toBe('Width of column Name');
     });
 
     it('adds resizable class on resizable cells for positioning context', () => {

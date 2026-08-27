@@ -235,6 +235,22 @@ tbw-grid .tbw-sticky-row {
 - The originals retain their `aria-rowindex`, `role="row"`, and full cell
   semantics, so screen readers describe row position relative to the dataset.
 
+### Focus Not Obscured
+
+The plugin satisfies [WCAG 2.2 SC 2.4.11 Focus Not Obscured (Minimum)](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html).
+
+The clone overlay is absolutely positioned over the top of the rows viewport, so
+a row scrolled to the exact top would land underneath it and its focus indicator
+would be completely hidden. The plugin reports the overlay's height to the grid,
+which offsets keyboard scrolling by that much — arrowing upwards always brings
+the focused row clear of the stuck clones.
+
+When the focused row **is** one of the stuck clones it is already pinned in view,
+so the grid is told to skip scrolling entirely: scrolling to it would only push
+the row it is stuck above out of reach.
+
+This is automatic and needs no configuration.
+
 ## Bundle Size
 
 The plugin is **≈4 kB gzipped** (ESM) / **≈2 kB gzipped** (UMD). It does

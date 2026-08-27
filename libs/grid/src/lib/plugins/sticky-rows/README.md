@@ -51,3 +51,11 @@ interface StickyRowsConfig {
 Stuck rows are rendered as **clones** of the real rows. The originals stay in
 the row pool and remain interactive — clones are decorative and marked
 `aria-hidden="true"` so screen readers traverse the underlying row in flow.
+
+## Accessibility
+
+Conforms to WCAG 2.2 SC 2.4.11 Focus Not Obscured (Minimum): the clone overlay sits over the top
+of the rows viewport, so the plugin reports its height to the grid and keyboard scrolling offsets
+by that much — a focused row is never left hidden underneath the stuck clones. When the focused
+row _is_ a stuck clone it is already in view, so scrolling is skipped entirely. Automatic; no
+configuration.

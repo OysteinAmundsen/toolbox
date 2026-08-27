@@ -29,9 +29,9 @@ function createGridMock(columns: any[] = []) {
     _focusRow: 0,
     _focusCol: 0,
     gridConfig: {},
-    effectiveConfig: {},
+    effectiveConfig: {} as { a11y?: { dragAlternatives?: 'menu' | 'inline' } },
     getPlugin: () => undefined,
-    getPluginByName: () => undefined,
+    getPluginByName: (() => undefined) as (name: string) => unknown,
     query: vi.fn(() => []),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
@@ -321,6 +321,226 @@ describe('ReorderPlugin (class)', () => {
 
       const nameCell = grid._hostElement.querySelector('.cell[data-field="name"]') as HTMLElement;
       expect(nameCell.draggable).toBe(true);
+    });
+  });
+
+  /**
+   * WCAG 2.2 SC 2.5.7 "Dragging Movements". The `Alt + Arrow` shortcuts satisfy
+   * SC 2.1.1 but not 2.5.7 — that criterion needs controls a pointer user can
+   * click or tap, not a keyboard equivalent. The criterion does not require the
+   * alternative to be *visible*, so the default path is the header's context
+   * menu (right-click, long-press, Shift+F10) and no header width is spent.
+   */
+  describe('click-only move controls (SC 2.5.7)', () => {
+    const moveButton = (grid: ReturnType<typeof createGridMock>, field: string) =>
+      grid._hostElement.querySelector<HTMLButtonElement>(`.cell[data-field="${field}"] > .tbw-col-move-btn`);
+
+    const menu = () => document.getElementById('tbw-col-move-menu');
+
+    const items = () => Array.from(menu()?.querySelectorAll<HTMLButtonElement>('button') ?? []);
+
+    const item = (label: string) => items().find((b) => b.textContent === label);
+
+    const headerCell = (grid: ReturnType<typeof createGridMock>, field: string) =>
+      grid._hostElement.querySelector(`.cell[data-field="${field}"]`) as HTMLElement;
+
+    /** Right-click a header — the always-available pointer alternative. */
+    const openMenu = (grid: ReturnType<typeof createGridMock>, field: string) => {
+      headerCell(grid, field).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+      return items();
+    };
+
+    const inlineGrid = (columns: any[] = sampleColumns) => {
+      const grid = createGridMock(columns);
+      grid.effectiveConfig.a11y = { dragAlternatives: 'inline' };
+      return grid;
+    };
+
+    afterEach(() => {
+      menu()?.remove();
+    });
+
+    it('spends no header width by default', () => {
+      const plugin = new ReorderPlugin();
+      const grid = createGridMock(sampleColumns);
+      plugin.attach(grid as any);
+
+      plugin.afterRender();
+
+      expect(moveButton(grid, 'name')).toBeNull();
+    });
+
+    it('opens a named menu of plain buttons from the header context menu', () => {
+      const plugin = new ReorderPlugin();
+      const grid = createGridMock(sampleColumns);
+      plugin.attach(grid as any);
+      plugin.afterRender();
+
+      const actions = openMenu(grid, 'name');
+
+      expect(menu()?.getAttribute('aria-label')).toBe('Move column Name');
+      expect(actions.map((b) => b.textContent)).toEqual(['Move left', 'Move right', 'Move to start', 'Move to end']);
+    });
+
+    it('moves the column one position per activation', () => {
+      const plugin = new ReorderPlugin();
+      const grid = createGridMock(sampleColumns);
+      plugin.attach(grid as any);
+      plugin.afterRender();
+
+      openMenu(grid, 'name');
+      item('Move right')!.click();
+      expect(grid.getColumnOrder()).toEqual(['id', 'email', 'name', 'city']);
+
+      openMenu(grid, 'name');
+      item('Move left')!.click();
+      expect(grid.getColumnOrder()).toEqual(['id', 'name', 'email', 'city']);
+    });
+
+    it('jumps to either end', () => {
+      const plugin = new ReorderPlugin();
+      const grid = createGridMock(sampleColumns);
+      plugin.attach(grid as any);
+      plugin.afterRender();
+
+      openMenu(grid, 'name');
+      item('Move to end')!.click();
+      expect(grid.getColumnOrder()).toEqual(['id', 'email', 'city', 'name']);
+    });
+
+    it('disables the directions that would run off the edge', () => {
+      const plugin = new ReorderPlugin();
+      const grid = createGridMock(sampleColumns);
+      plugin.attach(grid as any);
+      plugin.afterRender();
+
+      openMenu(grid, 'id');
+      expect(item('Move left')!.disabled).toBe(true);
+      expect(item('Move to start')!.disabled).toBe(true);
+      expect(item('Move right')!.disabled).toBe(false);
+
+      openMenu(grid, 'city');
+      expect(item('Move right')!.disabled).toBe(true);
+      expect(item('Move to end')!.disabled).toBe(true);
+    });
+
+    it('offers nothing for a locked column', () => {
+      const plugin = new ReorderPlugin();
+      const grid = createGridMock([{ field: 'id', header: 'ID', meta: { lockPosition: true } }, ...sampleColumns]);
+      plugin.attach(grid as any);
+      plugin.afterRender();
+
+      openMenu(grid, 'id');
+
+      expect(menu()).toBeNull();
+    });
+
+    it('yields to the context menu plugin rather than stacking a second menu', () => {
+      const plugin = new ReorderPlugin();
+      const grid = createGridMock(sampleColumns);
+      plugin.attach(grid as any);
+      plugin.afterRender();
+      grid.getPluginByName = () => ({});
+
+      const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+      headerCell(grid, 'name').dispatchEvent(event);
+
+      expect(menu()).toBeNull();
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it('contributes the same actions to the context menu plugin', () => {
+      const plugin = new ReorderPlugin();
+      const grid = createGridMock(sampleColumns);
+      plugin.attach(grid as any);
+      plugin.afterRender();
+
+      const contributed = plugin.handleQuery({
+        type: 'getContextMenuItems',
+        context: { isHeader: true, field: 'name' },
+      } as any) as Array<{ label: string; disabled?: boolean }>;
+
+      expect(contributed.map((i) => i.label)).toEqual(['Move left', 'Move right', 'Move to start', 'Move to end']);
+      // A cell right-click is not a column operation.
+      expect(plugin.handleQuery({ type: 'getContextMenuItems', context: { isHeader: false } } as any)).toBeUndefined();
+    });
+
+    describe("a11y.dragAlternatives: 'inline'", () => {
+      it('renders a labelled move button on every movable header', () => {
+        const plugin = new ReorderPlugin();
+        const grid = inlineGrid();
+        plugin.attach(grid as any);
+
+        plugin.afterRender();
+
+        const btn = moveButton(grid, 'name');
+        expect(btn).not.toBeNull();
+        expect(btn!.getAttribute('aria-label')).toBe('Move column Name');
+        // Out of the tab order — Alt+Arrow is the keyboard path, and one extra
+        // tab stop per column would swamp header navigation.
+        expect(btn!.tabIndex).toBe(-1);
+      });
+
+      it('places the button in the header flow so it cannot cover the sort target', () => {
+        const plugin = new ReorderPlugin();
+        const grid = inlineGrid();
+        plugin.attach(grid as any);
+
+        plugin.afterRender();
+
+        const cell = headerCell(grid, 'name');
+        // The button is the last child, a sibling of the label — not an overlay.
+        expect(cell.lastElementChild).toBe(moveButton(grid, 'name'));
+      });
+
+      it('does not render a control for a locked column', () => {
+        const plugin = new ReorderPlugin();
+        const grid = inlineGrid([{ field: 'id', header: 'ID', meta: { lockPosition: true } }, ...sampleColumns]);
+        plugin.attach(grid as any);
+
+        plugin.afterRender();
+
+        expect(moveButton(grid, 'id')).toBeNull();
+      });
+
+      it('is idempotent across renders', () => {
+        const plugin = new ReorderPlugin();
+        const grid = inlineGrid();
+        plugin.attach(grid as any);
+
+        plugin.afterRender();
+        plugin.afterRender();
+        plugin.afterRender();
+
+        expect(grid._hostElement.querySelectorAll('.cell[data-field="name"] > .tbw-col-move-btn').length).toBe(1);
+      });
+
+      it('reclaims the header width when the mode is turned off again', () => {
+        const plugin = new ReorderPlugin();
+        const grid = inlineGrid();
+        plugin.attach(grid as any);
+        plugin.afterRender();
+
+        grid.effectiveConfig.a11y = { dragAlternatives: 'menu' };
+        plugin.afterRender();
+
+        expect(moveButton(grid, 'name')).toBeNull();
+      });
+
+      it('opens the same menu, and does not let the click reach the header sort handler', () => {
+        const plugin = new ReorderPlugin();
+        const grid = inlineGrid();
+        plugin.attach(grid as any);
+        plugin.afterRender();
+
+        const onCellClick = vi.fn();
+        headerCell(grid, 'name').addEventListener('click', onCellClick);
+
+        moveButton(grid, 'name')!.click();
+
+        expect(items().map((b) => b.textContent)).toEqual(['Move left', 'Move right', 'Move to start', 'Move to end']);
+        expect(onCellClick).not.toHaveBeenCalled();
+      });
     });
   });
 

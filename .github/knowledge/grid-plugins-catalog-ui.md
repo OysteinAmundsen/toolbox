@@ -127,3 +127,4 @@ OWNS: `.tbw-sticky-rows` overlay container, clone cache by row index, displayed 
 ### ContextMenu
 
 OWNS: menu items, open state. HOOKS: afterRender, onKeyDown. QUERIES: `getContextMenuItems` (collects contributions from all plugins).
+INVARIANT: contributions sort by `order` (default 100); `insertGroupSeparators` groups by the TENS digit. Bands: sort 10s, filter 20s, visibility 30s, pinning 40s, column move 50-53 (reorder-columns, #449). A plugin that contributes AND self-hosts its own menu MUST bail when `grid.getPluginByName('contextMenu')` is truthy, else two menus stack.

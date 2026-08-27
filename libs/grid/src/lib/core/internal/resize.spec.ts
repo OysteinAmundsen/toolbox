@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createResizeController } from './resize';
 
 /**
@@ -41,17 +41,24 @@ function makeCell(width: number): HTMLElement {
   return cell;
 }
 
+/**
+ * A real element, because the width popover mounts inside the grid host to
+ * inherit the theme's custom properties.
+ */
 function makeGrid(columns: unknown[]) {
-  return {
-    _columns: columns,
-    get _visibleColumns() {
-      return this._columns.filter((c: any) => !c.hidden);
-    },
-    updateTemplate: vi.fn(),
-    dispatchEvent: vi.fn(),
-    requestStateChange: vi.fn(),
-  } as any;
+  const el = document.createElement('div') as any;
+  el._columns = columns;
+  Object.defineProperty(el, '_visibleColumns', {
+    get: () => el._columns.filter((c: any) => !c.hidden),
+  });
+  el.updateTemplate = vi.fn();
+  el.dispatchEvent = vi.fn();
+  el.requestStateChange = vi.fn();
+  document.body.appendChild(el);
+  return el;
 }
+
+afterEach(() => document.body.replaceChildren());
 
 describe('resize controller', () => {
   it('updates column width & dispatches events', async () => {
@@ -262,5 +269,199 @@ describe('resize controller', () => {
     expect(grid._columns[0].__userResized).toBe(false);
     expect(grid._columns[0].__renderedWidth).toBeUndefined();
     expect(grid.updateTemplate).toHaveBeenCalled();
+  });
+
+  /**
+   * WCAG 2.2 SC 2.5.7 "Dragging Movements" — every drag must have a
+   * single-pointer alternative that is not itself a drag. A keyboard equivalent
+   * would *not* satisfy the criterion; the alternative has to be clickable.
+   */
+  describe('non-drag width control (SC 2.5.7)', () => {
+    const popover = () => document.querySelector<HTMLElement>('.tbw-column-width-popover');
+    const buttonLabelled = (label: string) =>
+      popover()?.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+    const widthInput = () => popover()?.querySelector<HTMLInputElement>('input');
+
+    /** Press and release the handle without moving — a tap, not a drag. */
+    function tap(controller: ReturnType<typeof createResizeController>, cell: HTMLElement, handle: HTMLElement) {
+      controller.start(mockPointerEvent('pointerdown', { clientX: 10 }), 0, cell, handle);
+      handle.dispatchEvent(mockPointerEvent('pointerup', { clientX: 10 }));
+    }
+
+    it('setColumnWidth commits without a gesture and clamps to minWidth', () => {
+      const grid = makeGrid([{ field: 'a', width: 150, minWidth: 100 }]);
+      const controller = createResizeController(grid);
+
+      controller.setColumnWidth(0, 200);
+      expect(grid._columns[0].width).toBe(200);
+      expect(grid._columns[0].__userResized).toBe(true);
+      expect(grid.dispatchEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'column-resize', detail: { field: 'a', width: 200 } }),
+      );
+      expect(grid.requestStateChange).toHaveBeenCalled();
+
+      controller.setColumnWidth(0, 10);
+      expect(grid._columns[0].width).toBe(100);
+
+      controller.dispose();
+    });
+
+    it('getColumnWidth prefers the rendered width', () => {
+      const grid = makeGrid([{ field: 'a', width: 150, __renderedWidth: 175 }]);
+      const controller = createResizeController(grid);
+
+      expect(controller.getColumnWidth(0)).toBe(175);
+
+      controller.dispose();
+    });
+
+    it('tapping the handle opens a click-only width popover', () => {
+      const grid = makeGrid([{ field: 'a', header: 'Alpha', width: 100 }]);
+      const controller = createResizeController(grid);
+      const cell = makeCell(100);
+      const handle = makeHandle();
+
+      expect(popover()).toBeNull();
+      tap(controller, cell, handle);
+
+      const el = popover();
+      expect(el).toBeTruthy();
+      expect(el!.hidden).toBe(false);
+      expect(el!.getAttribute('aria-label')).toBe('Width of column Alpha');
+      // The width did not change — a tap commits nothing.
+      expect(grid._columns[0].width).toBe(100);
+
+      controller.dispose();
+    });
+
+    it('dragging the handle does not open the popover', () => {
+      const grid = makeGrid([{ field: 'a', width: 100 }]);
+      const controller = createResizeController(grid);
+      const cell = makeCell(100);
+      const handle = makeHandle();
+
+      controller.start(mockPointerEvent('pointerdown', { clientX: 0 }), 0, cell, handle);
+      handle.dispatchEvent(mockPointerEvent('pointermove', { clientX: 30 }));
+      handle.dispatchEvent(mockPointerEvent('pointerup', { clientX: 30 }));
+
+      expect(popover()).toBeNull();
+      expect(grid._columns[0].width).toBe(130);
+
+      controller.dispose();
+    });
+
+    it('step buttons and the numeric input resize the column with plain clicks', () => {
+      const grid = makeGrid([{ field: 'a', width: 100 }]);
+      const controller = createResizeController(grid);
+      const cell = makeCell(100);
+      const handle = makeHandle();
+
+      tap(controller, cell, handle);
+
+      buttonLabelled('Wider')!.click();
+      expect(grid._columns[0].width).toBe(116);
+
+      buttonLabelled('Narrower')!.click();
+      expect(grid._columns[0].width).toBe(100);
+
+      const input = widthInput()!;
+      expect(input.value).toBe('100');
+      input.value = '240';
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      expect(grid._columns[0].width).toBe(240);
+      expect(input.value).toBe('240');
+
+      controller.dispose();
+    });
+
+    it('reset restores the configured width from the popover', () => {
+      const grid = makeGrid([{ field: 'a', width: 100, __originalWidth: 100 }]);
+      const controller = createResizeController(grid);
+      const cell = makeCell(100);
+      const handle = makeHandle();
+
+      tap(controller, cell, handle);
+      buttonLabelled('Wider')!.click();
+      expect(grid._columns[0].width).toBe(116);
+
+      buttonLabelled('Reset column width')!.click();
+      expect(grid._columns[0].width).toBe(100);
+      expect(grid._columns[0].__userResized).toBe(false);
+
+      controller.dispose();
+    });
+
+    it('Escape closes the popover and dispose() removes it', () => {
+      const grid = makeGrid([{ field: 'a', width: 100 }]);
+      const controller = createResizeController(grid);
+      const cell = makeCell(100);
+      const handle = makeHandle();
+
+      tap(controller, cell, handle);
+      expect(popover()!.hidden).toBe(false);
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      expect(popover()!.hidden).toBe(true);
+
+      controller.dispose();
+      expect(popover()).toBeNull();
+    });
+
+    it('mounts inside the grid host so theme custom properties cascade in', () => {
+      const grid = makeGrid([{ field: 'a', width: 100 }]);
+      const controller = createResizeController(grid);
+      const cell = makeCell(100);
+      const handle = makeHandle();
+
+      tap(controller, cell, handle);
+      expect(popover()!.parentElement).toBe(grid);
+
+      controller.dispose();
+    });
+
+    it('keeps a stable position and marks the handle it belongs to', () => {
+      const grid = makeGrid([{ field: 'a', width: 100 }]);
+      const controller = createResizeController(grid);
+      const cell = makeCell(100);
+      const handle = makeHandle();
+
+      tap(controller, cell, handle);
+      expect(handle.hasAttribute('data-tbw-width-open')).toBe(true);
+
+      // Repeated clicks must not walk the button out from under the pointer.
+      const { left, top } = popover()!.style;
+      buttonLabelled('Wider')!.click();
+      buttonLabelled('Wider')!.click();
+      expect(grid._columns[0].width).toBe(132);
+      expect(popover()!.style.left).toBe(left);
+      expect(popover()!.style.top).toBe(top);
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      expect(handle.hasAttribute('data-tbw-width-open')).toBe(false);
+
+      controller.dispose();
+    });
+
+    it('closes when focus tabs out, since there is no trigger to tab back to', () => {
+      const grid = makeGrid([{ field: 'a', width: 100 }]);
+      const controller = createResizeController(grid);
+      const cell = makeCell(100);
+      const handle = makeHandle();
+      const outside = document.createElement('button');
+      document.body.appendChild(outside);
+
+      tap(controller, cell, handle);
+      const el = popover()!;
+      expect(el.hidden).toBe(false);
+
+      // Focus staying inside must not dismiss it.
+      el.dispatchEvent(new FocusEvent('focusout', { relatedTarget: el.querySelector('button') }));
+      expect(el.hidden).toBe(false);
+
+      el.dispatchEvent(new FocusEvent('focusout', { relatedTarget: outside }));
+      expect(el.hidden).toBe(true);
+
+      controller.dispose();
+    });
   });
 });

@@ -364,6 +364,19 @@ migrate:
 The legacy `canMove` callback continues to work — it is mapped internally to
 `canDrop` with a synthesised intra-grid payload.
 
+## Accessibility
+
+The plugin satisfies [WCAG 2.2 SC 2.5.7 Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html): every row move — within the grid **and** across grids — can also be made with a single pointer that never drags.
+
+- **Tap the handle you would have dragged** — pressing and releasing the drag handle without moving is a tap, not a drag. HTML5 drag-and-drop only fires `dragstart` on a real drag, so a plain click on the handle means the pointer user could not (or chose not to) drag, and the plugin opens a menu of click-only actions instead.
+- **Intra-grid moves** — the menu offers **Move up**, **Move down**, **Move to top** and **Move to bottom**. Entries that would run off the end of the list are rendered disabled rather than hidden.
+- **Cross-grid transfers** — every other grid sharing the same `dropZone` gets its own **Send to _grid_** entry (**Copy to _grid_** when `operation: 'copy'`). The click path fires the same `row-drag-start`, `row-drop` and `row-transfer` events, and honours the same `canDrop` vetoes, as a real drag — so nothing has to be re-implemented to stay conformant.
+- **No reserved chrome** — the alternative reuses the existing drag handle, so it costs no extra column width and stays out of the way until it is asked for. SC 2.5.7 requires the alternative to _exist_ and be pointer-operable, not to be permanently on screen.
+- **Handle semantics** — the handle is `role="button"` with the accessible name _"Drag to reorder, or activate for move options"_, so its dual purpose is announced. The menu itself is a `role="group"` of plain buttons; focus moves to the first enabled entry on open, <kbd>Escape</kbd> closes it, and moving focus outside dismisses it.
+- **Keyboard** — <kbd>Ctrl</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> move the focused row, satisfying [SC 2.1.1 Keyboard](https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html). Per the W3C, a keyboard equivalent alone does **not** satisfy SC 2.5.7 — that is why the click path exists as well.
+
+See [Pointer Alternatives to Dragging](/grid/guides/accessibility/#pointer-alternatives-to-dragging) for how this fits the grid-wide `a11y.dragAlternatives` setting.
+
 ## See Also
 
 - **[Column Reorder](../reorder-columns/)** — Drag-to-reorder columns

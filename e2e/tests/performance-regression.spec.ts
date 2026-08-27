@@ -64,6 +64,14 @@ const WIDE_COL_ROW_COUNT = 200;
  */
 const WIDE_RENDER_SAMPLES = 4;
 
+/**
+ * Column-churn sampling. Each in-page sample runs {@link CHURN_RUNS_PER_SAMPLE}
+ * replacement cycles and returns their median; {@link CHURN_SAMPLES} of those are
+ * interleaved between the two pages and the best of each side is compared.
+ */
+const CHURN_RUNS_PER_SAMPLE = 3;
+const CHURN_SAMPLES = 3;
+
 const runId = process.env.PERF_RUN_ID ?? Date.now().toString();
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -559,6 +567,7 @@ async function setupWideGrid(page: Page, colCount: number, rowCount: number, sam
       });
 
       const build = () => new Promise(resolve => {
+        document.querySelectorAll('tbw-grid').forEach(g => g.remove());
         const start = performance.now();
         const grid = document.createElement('tbw-grid');
         grid.style.cssText = 'width:100%;height:600px;display:block';
@@ -597,6 +606,40 @@ async function setupWideGrid(page: Page, colCount: number, rowCount: number, sam
       return best;
     })()`,
   ) as Promise<number>;
+}
+
+/**
+ * Best-of-N comparison that alternates between the two pages sample by sample.
+ *
+ * Running all local samples and then all CDN samples means the two bursts sit
+ * in different ~2 s windows of wall clock. CI runs the `e2e` and `docs-e2e`
+ * Playwright projects concurrently, so a load spike from the other project can
+ * land entirely inside one burst and inflate that side alone — which is how
+ * the wide-column benchmarks produced 1.5x "regressions" in CI that do not
+ * reproduce locally. The retry loop does not help: a sustained spike covers
+ * every attempt. Interleaving exposes both builds to the same load window, and
+ * flipping which page goes first on odd samples cancels the within-pair
+ * ordering bias too.
+ */
+async function measureInterleaved(
+  localPage: Page,
+  cdnPage: Page,
+  measure: (page: Page) => Promise<number>,
+  samples: number,
+): Promise<{ local: number; cdn: number }> {
+  let local = Infinity;
+  let cdn = Infinity;
+  for (let s = 0; s < samples; s++) {
+    const [first, second] = s % 2 === 0 ? [localPage, cdnPage] : [cdnPage, localPage];
+    const firstSample = await measure(first);
+    const secondSample = await measure(second);
+    const localSample = first === localPage ? firstSample : secondSample;
+    const cdnSample = first === localPage ? secondSample : firstSample;
+    if (localSample < 0 || cdnSample < 0) return { local: localSample, cdn: cdnSample };
+    local = Math.min(local, localSample);
+    cdn = Math.min(cdn, cdnSample);
+  }
+  return { local, cdn };
 }
 
 /** Measure horizontal scroll avg frame time. */
@@ -645,14 +688,14 @@ async function measureHorizontalScroll(page: Page): Promise<number> {
 }
 
 /** Measure repeated replacement of a wide column configuration. */
-async function measureColumnChurn(page: Page, colCount: number): Promise<number> {
+async function measureColumnChurn(page: Page, colCount: number, runs = 5): Promise<number> {
   return page.evaluate(
     `(async () => {
       const grid = document.querySelector('tbw-grid');
       if (!grid) return -1;
       const raf = () => new Promise(r => requestAnimationFrame(() => r()));
       const samples = [];
-      for (let run = 0; run < 5; run++) {
+      for (let run = 0; run < ${runs}; run++) {
         await raf();
         const start = performance.now();
         for (let update = 0; update < 10; update++) {
@@ -668,7 +711,7 @@ async function measureColumnChurn(page: Page, colCount: number): Promise<number>
         await new Promise(r => setTimeout(r, 30));
       }
       samples.sort((a, b) => a - b);
-      const trimmed = samples.slice(1, -1);
+      const trimmed = samples.length >= 3 ? samples.slice(1, -1) : samples;
       return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
     })()`,
   ) as Promise<number>;
@@ -1047,10 +1090,12 @@ test.describe('Performance: Self-Comparison', () => {
     await runComparison(browser, 'wideColsRender', async (localPage, cdnPage) => {
       await warmUpGrid(localPage);
       await warmUpGrid(cdnPage);
-      return {
-        local: await setupWideGrid(localPage, 200, WIDE_COL_ROW_COUNT, WIDE_RENDER_SAMPLES),
-        cdn: await setupWideGrid(cdnPage, 200, WIDE_COL_ROW_COUNT, WIDE_RENDER_SAMPLES),
-      };
+      return measureInterleaved(
+        localPage,
+        cdnPage,
+        (page) => setupWideGrid(page, 200, WIDE_COL_ROW_COUNT),
+        WIDE_RENDER_SAMPLES,
+      );
     });
   });
 
@@ -1075,10 +1120,12 @@ test.describe('Performance: Self-Comparison', () => {
       await warmUpGrid(cdnPage);
       await setupWideGrid(localPage, 100, WIDE_COL_ROW_COUNT);
       await setupWideGrid(cdnPage, 100, WIDE_COL_ROW_COUNT);
-      return {
-        local: await measureColumnChurn(localPage, 100),
-        cdn: await measureColumnChurn(cdnPage, 100),
-      };
+      return measureInterleaved(
+        localPage,
+        cdnPage,
+        (page) => measureColumnChurn(page, 100, CHURN_RUNS_PER_SAMPLE),
+        CHURN_SAMPLES,
+      );
     });
   });
 

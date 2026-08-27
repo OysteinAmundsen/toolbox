@@ -73,11 +73,22 @@ function createSortIndicator(grid: InternalGrid, col: ColumnInternal): HTMLEleme
 
 /**
  * Create a resize handle element.
+ *
+ * The handle is both a drag target and a click target: dragging resizes
+ * continuously, while a plain tap opens the click-only width control. That
+ * second path is what satisfies WCAG 2.2 SC 2.5.7 "Dragging Movements", so the
+ * handle must be exposed to assistive tech (a pointer user driving a speech or
+ * head-pointer emulator needs an accessible name to target it) rather than
+ * hidden with `aria-hidden`. `tabindex="-1"` keeps it out of the tab order —
+ * one extra tab stop per column would swamp keyboard header navigation.
  */
 function createResizeHandle(grid: InternalGrid, colIndex: number, cell: HTMLElement): HTMLElement {
   const handle = document.createElement('div');
   handle.className = 'resize-handle';
-  handle.setAttribute('aria-hidden', 'true');
+  handle.setAttribute('role', 'button');
+  handle.setAttribute('tabindex', '-1');
+  const col = grid._visibleColumns[colIndex];
+  handle.setAttribute('aria-label', `Width of column ${String(col?.header ?? col?.field ?? colIndex + 1)}`);
   handle.addEventListener('pointerdown', (e: PointerEvent) => {
     // Only the primary mouse button starts a resize. Without this, a right-click
     // on the handle would preventDefault() and swallow the context menu.

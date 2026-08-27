@@ -53,7 +53,11 @@ function formatViolations(violations: Awaited<ReturnType<typeof scanGrid>>) {
 async function sortByHeader(page: Page) {
   // Use :not([data-field^="__tbw_"]) to skip internal columns (like selection checkbox)
   const header = page.locator('[role="columnheader"]:not([data-field^="__tbw_"])').first();
-  await header.click();
+  // Click the header label, not the cell centre. A header hosts a trailing
+  // cluster of controls (filter button, move button, resize handle) that is
+  // pushed to the inline end, so on a narrow column the geometric centre can
+  // land on one of those buttons instead of the sort target.
+  await header.locator('span').first().click();
   await page.waitForTimeout(300);
 }
 

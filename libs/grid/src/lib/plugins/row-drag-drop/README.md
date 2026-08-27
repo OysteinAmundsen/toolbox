@@ -39,6 +39,15 @@ grid.gridConfig = {
 - **TSV / plain-text** — every drag also exposes a tab-separated text payload
   on the clipboard MIME so rows can be pasted into spreadsheets.
 
+## Accessibility
+
+Conforms to WCAG 2.2 SC 2.5.7 Dragging Movements: tapping the drag handle (press and release
+without moving — no `dragstart` fires) opens a `role="group"` menu with **Move up**, **Move
+down**, **Move to top**, **Move to bottom**, plus one **Send to _grid_** entry per peer sharing
+the `dropZone` (**Copy to _grid_** under `operation: 'copy'`). The click path fires the same
+`row-drag-start` / `row-drop` / `row-transfer` events and honours the same `canDrop` vetoes as a
+real drag. The handle is `role="button"` named _"Drag to reorder, or activate for move options"_.
+
 ## Migration from `RowReorderPlugin`
 
 ```diff

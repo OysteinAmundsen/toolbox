@@ -218,6 +218,44 @@ The grid is tested against NVDA, VoiceOver, and JAWS in CI-adjacent environments
 - Sort/filter changes never announced (live region not wired up)
 - Editing committed without any feedback
 
+## Pointer Alternatives to Dragging
+
+WCAG 2.2 [SC 2.5.7 Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html)
+(Level AA) requires every operation that uses a dragging movement to *also* be achievable with a
+single pointer that never drags. It targets people who cannot reliably press, hold, move and
+release in one uninterrupted gesture — tremor, limited dexterity, head pointers, eye-gaze, switch
+devices and speech-driven mouse emulation.
+
+A keyboard shortcut does not satisfy it. The W3C is explicit that keyboard equivalence only counts
+when the same operation is *also* exposed through controls a pointer can click or tap. The grid
+therefore ships a pointer path for every drag:
+
+| Drag operation      | Pointer alternative                                                            |
+| ------------------- | ------------------------------------------------------------------------------ |
+| Resize a column     | **Tap** (don't drag) the resize handle → a popover with − / width / + / Reset  |
+| [Reorder a column](/grid/plugins/reorder-columns/#accessibility) | Right-click, long-press or <kbd>Shift</kbd> + <kbd>F10</kbd> the header → Move left / right / to start / to end |
+| [Reorder a row](/grid/plugins/row-drag-drop/#accessibility) | **Tap** the row drag handle → Move up / down / to top / to bottom              |
+| [Move a row to another grid](/grid/plugins/row-drag-drop/#accessibility) | Same menu → Copy to / Send to, one entry per connected grid             |
+
+### Keeping it out of the way
+
+By design these alternatives reuse an affordance that already exists, so they cost no extra header
+width or visual noise. If you would rather trade density for discoverability, switch them to
+dedicated buttons that are revealed on hover or focus:
+
+```ts
+gridConfig = {
+  a11y: {
+    // 'menu' (default) — reached through the existing handle or context menu
+    // 'inline'         — also render a dedicated button per affected header
+    dragAlternatives: 'inline',
+  },
+};
+```
+
+Pointers that cannot hover (touch, most switch devices) always get the inline controls regardless
+of this setting — there is nothing for them to hover in order to reveal a control.
+
 ## Reduced Motion
 
 The grid respects the `prefers-reduced-motion: reduce` user preference automatically. When set, the grid:

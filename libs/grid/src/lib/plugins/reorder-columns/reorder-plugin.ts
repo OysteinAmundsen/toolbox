@@ -12,11 +12,22 @@ import { GridClasses } from '../../core/constants';
 import { ensureCellVisible } from '../../core/internal/keyboard';
 import { BaseGridPlugin, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, GridHost } from '../../core/types';
+import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
+import {
+  type DragAlternativeAction,
+  type DragAlternativeMenu,
+  createDragAlternativeMenu,
+  prefersInlineDragAlternative,
+} from '../shared/drag-alternative-menu';
 import { canMoveColumn, moveColumn } from './column-drag';
 import styles from './reorder.css?inline';
 import type { ColumnMoveDetail, ReorderConfig } from './types';
 
 const QUERY_CAN_MOVE_COLUMN = 'canMoveColumn';
+const QUERY_GET_CONTEXT_MENU_ITEMS = 'getContextMenuItems';
+
+/** Menu order band for column moving — after pinning (40-49). */
+const MOVE_ITEM_ORDER = 50;
 
 /**
  * Column Reorder Plugin for tbw-grid
@@ -99,6 +110,10 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
         type: QUERY_CAN_MOVE_COLUMN,
         description: 'Authoritative check for whether a column may be reordered (honors lockPosition).',
       },
+      {
+        type: QUERY_GET_CONTEXT_MENU_ITEMS,
+        description: 'Contributes the click-only column move actions (WCAG 2.2 SC 2.5.7) to the header context menu.',
+      },
     ],
   };
 
@@ -107,6 +122,17 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     if (query.type === QUERY_CAN_MOVE_COLUMN) {
       const column = query.context as ColumnConfig | undefined;
       return column ? canMoveColumn(column) : undefined;
+    }
+    if (query.type === QUERY_GET_CONTEXT_MENU_ITEMS) {
+      const params = query.context as ContextMenuParams | undefined;
+      if (!params?.isHeader) return undefined;
+      return this.#moveActions(params.field)?.map((action, i): HeaderContextMenuItem => ({
+        id: `reorder-${i}`,
+        label: action.label,
+        disabled: action.disabled,
+        action: action.run,
+        order: MOVE_ITEM_ORDER + i,
+      }));
     }
     return undefined;
   }
@@ -153,6 +179,8 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   private draggedGroupFields: string[] = [];
   /** Initial column order (captured after order-attribute reordering). Used by resetColumnOrder(). */
   private originalColumnOrder: string[] | null = null;
+  /** Lazily created click-only move menu (WCAG 2.2 SC 2.5.7). */
+  private moveMenu: DragAlternativeMenu | null = null;
 
   /** Typed internal grid accessor. */
   get #internalGrid(): GridHost {
@@ -171,6 +199,114 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     if (!column || !canMoveColumn(column)) return false;
     const responses = this.grid.query<boolean>(QUERY_CAN_MOVE_COLUMN, column);
     return !responses.includes(false);
+  }
+
+  /**
+   * Add the click-only move control to a movable header cell.
+   *
+   * WCAG 2.2 SC 2.5.7 "Dragging Movements" is **not** satisfied by the
+   * `Alt + Arrow` shortcuts: the criterion is about pointer input, and the W3C
+   * Understanding text is explicit that a keyboard equivalent only counts when
+   * it also exposes controls that can be clicked or tapped. The alternative is
+   * always reachable from the header's context menu; this button is the extra,
+   * opt-in affordance for `a11y.dragAlternatives: 'inline'`.
+   *
+   * It costs ~24px of every header cell — it is a flex sibling of the label
+   * rather than an overlay, because an overlay would swallow the header's own
+   * click-to-sort target on narrow columns — so it is removed again as soon as
+   * the mode no longer calls for it.
+   */
+  #syncMoveControl(headerEl: HTMLElement, field: string, column: ColumnConfig | undefined): void {
+    const existing = headerEl.querySelector<HTMLElement>(':scope > .tbw-col-move-btn');
+    if (!prefersInlineDragAlternative(this.grid)) {
+      existing?.remove();
+      return;
+    }
+    if (existing) return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tbw-col-move-btn';
+    btn.tabIndex = -1;
+    // Not draggable, or a press on the button would start an HTML5 column drag.
+    btn.draggable = false;
+    btn.textContent = '\u2194';
+    btn.setAttribute('aria-label', `Move column ${String(column?.header ?? field)}`);
+    // Stop the press from reaching the header's sort handler or the drag start.
+    btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      this.#openMoveMenu(btn, field);
+    });
+    headerEl.appendChild(btn);
+  }
+
+  /**
+   * The single-click move actions for `field`, or `null` when the column
+   * cannot be moved. Shared by the standalone menu and the `getContextMenuItems`
+   * contribution so the two can never drift apart.
+   */
+  #moveActions(field: string): DragAlternativeAction[] | null {
+    const column = this.columns.find((c) => c.field === field);
+    if (!this.canMoveColumnWithPlugins(column)) return null;
+
+    const order = this.getColumnOrder();
+    const fromIndex = order.indexOf(field);
+    if (fromIndex === -1) return null;
+
+    const firstMovable = order.findIndex((f) => this.#isMoveTarget(f));
+    let lastMovable = -1;
+    for (let i = order.length - 1; i >= 0; i--) {
+      if (this.#isMoveTarget(order[i])) {
+        lastMovable = i;
+        break;
+      }
+    }
+    return [
+      {
+        label: 'Move left',
+        disabled: !this.#canStep(order, fromIndex, -1),
+        run: () => this.moveColumn(field, fromIndex - 1),
+      },
+      {
+        label: 'Move right',
+        disabled: !this.#canStep(order, fromIndex, 1),
+        run: () => this.moveColumn(field, fromIndex + 1),
+      },
+      {
+        label: 'Move to start',
+        disabled: firstMovable === -1 || firstMovable === fromIndex,
+        run: () => this.moveColumn(field, firstMovable),
+      },
+      {
+        label: 'Move to end',
+        disabled: lastMovable === -1 || lastMovable === fromIndex,
+        run: () => this.moveColumn(field, lastMovable),
+      },
+    ];
+  }
+
+  /** Open the click-only move menu anchored to a header cell or its move button. */
+  #openMoveMenu(anchor: HTMLElement, field: string): void {
+    const actions = this.#moveActions(field);
+    if (!actions) return;
+    const column = this.columns.find((c) => c.field === field);
+
+    this.moveMenu ??= createDragAlternativeMenu('tbw-col-move-menu', 'tbw-col-move-menu');
+    this.moveMenu.open(anchor, `Move column ${String(column?.header ?? field)}`, actions);
+  }
+
+  /** Whether `field` names a column this plugin is allowed to move past or onto. */
+  #isMoveTarget(field: string): boolean {
+    return this.canMoveColumnWithPlugins(this.columns.find((c) => c.field === field));
+  }
+
+  /** Whether stepping one position toward `dir` lands on a movable neighbour. */
+  #canStep(order: string[], fromIndex: number, dir: -1 | 1): boolean {
+    const toIndex = fromIndex + dir;
+    if (toIndex < 0 || toIndex >= order.length) return false;
+    return this.#isMoveTarget(order[toIndex]);
   }
 
   /**
@@ -210,6 +346,8 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     this.draggedIndex = null;
     this.dropIndex = null;
     this.draggedGroupFields = [];
+    this.moveMenu?.dispose();
+    this.moveMenu = null;
   }
   // #endregion
 
@@ -235,14 +373,26 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
       const column = this.columns.find((c) => c.field === field);
       if (!this.canMoveColumnWithPlugins(column)) {
         headerEl.draggable = false;
+        headerEl.querySelector(':scope > .tbw-col-move-btn')?.remove();
         return;
       }
 
       headerEl.draggable = true;
+      this.#syncMoveControl(headerEl, field, column);
 
       // Remove existing listeners to prevent duplicates
       if (headerEl.getAttribute('data-dragstart-bound')) return;
       headerEl.setAttribute('data-dragstart-bound', 'true');
+
+      // The always-available pointer alternative (WCAG 2.2 SC 2.5.7): right-click,
+      // long-press, and Shift+F10 all raise `contextmenu`. Skipped when the context
+      // menu plugin is loaded, since it renders the same actions itself from the
+      // `getContextMenuItems` contribution and two stacked menus help nobody.
+      headerEl.addEventListener('contextmenu', (e: MouseEvent) => {
+        if (this.grid.getPluginByName('contextMenu')) return;
+        e.preventDefault();
+        this.#openMoveMenu(headerEl, field);
+      });
 
       headerEl.addEventListener('dragstart', (e: DragEvent) => {
         const currentOrder = this.getColumnOrder();

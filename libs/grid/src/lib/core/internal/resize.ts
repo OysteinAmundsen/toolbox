@@ -1,5 +1,16 @@
-import type { GridHost, ResizeController } from '../types';
+import type { ColumnInternal, GridHost, ResizeController } from '../types';
+import { createColumnWidthPopover, type ColumnWidthPopover } from './column-width-popover';
 import { startPointerDrag } from './pointer-drag';
+
+/** Floor applied to every width commit when the column declares no `minWidth`. */
+const FALLBACK_MIN_WIDTH = 40;
+
+/** Smallest width a column may be resized to, drag or click alike. */
+function minWidthFor(col: ColumnInternal | undefined): number {
+  return typeof col?.minWidth === 'number' && Number.isFinite(col.minWidth) && col.minWidth > 0
+    ? col.minWidth
+    : FALLBACK_MIN_WIDTH;
+}
 
 /**
  * Normalise the event that started a resize.
@@ -38,16 +49,39 @@ export function createResizeController(grid: GridHost): ResizeController {
   } | null = null;
   /** Teardown for the active `startPointerDrag`, so `dispose()` can abort mid-gesture. */
   let cancelDrag: (() => void) | null = null;
+  /**
+   * Whether the current gesture ever moved the pointer. `startPointerDrag`
+   * promotes immediately when it has neither a threshold nor a long-press, so
+   * promotion cannot distinguish a tap from a drag — actual movement can.
+   */
+  let moved = false;
   let pendingRaf: number | null = null;
   let prevCursor: string | null = null;
   let prevUserSelect: string | null = null;
-  const onMove = (e: PointerEvent) => {
-    if (!resizeState) return;
-    const delta = e.clientX - resizeState.startX;
-    const col = grid._visibleColumns[resizeState.colIndex];
-    const minResizeWidth =
-      typeof col?.minWidth === 'number' && Number.isFinite(col.minWidth) && col.minWidth > 0 ? col.minWidth : 40;
-    const width = Math.max(minResizeWidth, resizeState.startWidth + delta);
+  /** Lazily created on the first handle tap — most sessions never build it. */
+  let widthPopover: ColumnWidthPopover | null = null;
+
+  /** Header cell for a visible column index, used to read a rendered width. */
+  const headerCellAt = (colIndex: number): HTMLElement | undefined => {
+    const headerRow = grid._headerRowEl ?? grid.findHeaderRow?.();
+    return headerRow?.querySelectorAll<HTMLElement>('.cell')[colIndex];
+  };
+
+  const widthOf = (colIndex: number): number => {
+    const col = grid._visibleColumns[colIndex];
+    if (col?.__renderedWidth != null) return col.__renderedWidth;
+    if (typeof col?.width === 'number') return col.width;
+    return headerCellAt(colIndex)?.getBoundingClientRect().width ?? 0;
+  };
+
+  /**
+   * Single commit path shared by the drag, the step buttons and the numeric
+   * input, so all three clamp identically and emit the same `column-resize`.
+   */
+  const commitWidth = (colIndex: number, requested: number): number | null => {
+    const col = grid._visibleColumns[colIndex];
+    if (!col) return null;
+    const width = Math.max(minWidthFor(col), requested);
     col.width = width;
     col.__userResized = true;
     col.__renderedWidth = width;
@@ -58,16 +92,29 @@ export function createResizeController(grid: GridHost): ResizeController {
       });
     }
     grid.dispatchEvent(new CustomEvent('column-resize', { detail: { field: col.field, width } }));
+    return width;
+  };
+
+  const onMove = (e: PointerEvent) => {
+    if (!resizeState) return;
+    const delta = e.clientX - resizeState.startX;
+    if (delta !== 0) moved = true;
+    commitWidth(resizeState.colIndex, resizeState.startWidth + delta);
   };
   let justFinishedResize = false;
+  /**
+   * Swallow the `click` that follows a pointer gesture on the handle, so
+   * resizing (or opening the width popover) never also sorts the column.
+   */
+  const suppressNextClick = (): void => {
+    justFinishedResize = true;
+    requestAnimationFrame(() => {
+      justFinishedResize = false;
+    });
+  };
   const onUp = (hadResize: boolean) => {
     // Set flag to suppress click events that fire immediately after pointerup
-    if (hadResize) {
-      justFinishedResize = true;
-      requestAnimationFrame(() => {
-        justFinishedResize = false;
-      });
-    }
+    if (hadResize) suppressNextClick();
     if (prevCursor !== null) {
       document.documentElement.style.cursor = prevCursor;
       prevCursor = null;
@@ -104,10 +151,7 @@ export function createResizeController(grid: GridHost): ResizeController {
       }
       // The user was dragging, not clicking — still swallow the trailing click
       // so aborting on a header does not also trigger a sort.
-      justFinishedResize = true;
-      requestAnimationFrame(() => {
-        justFinishedResize = false;
-      });
+      suppressNextClick();
     }
     // `false` — restore cursor/user-select and clear state without committing.
     onUp(false);
@@ -136,6 +180,42 @@ export function createResizeController(grid: GridHost): ResizeController {
     }
   }
 
+  function resetColumn(colIndex: number): void {
+    const col = grid._visibleColumns[colIndex];
+    if (!col) return;
+
+    // Reset to original configured width (or undefined for auto-sizing)
+    col.__userResized = false;
+    col.__renderedWidth = undefined;
+    col.width = col.__originalWidth;
+
+    grid.updateTemplate?.();
+    grid.requestStateChange?.();
+    grid.dispatchEvent(new CustomEvent('column-resize-reset', { detail: { field: col.field, width: col.width } }));
+  }
+
+  /**
+   * Open the non-drag width control (WCAG 2.2 SC 2.5.7). Reached by *tapping*
+   * the resize handle instead of dragging it, so a single-pointer user gets the
+   * same capability without a press-hold-move-release gesture.
+   */
+  function openWidthPopover(colIndex: number, anchor: HTMLElement): void {
+    widthPopover ??= createColumnWidthPopover({
+      getWidth: widthOf,
+      setWidth: (index, width) => {
+        commitWidth(index, width);
+        grid.requestStateChange?.();
+      },
+      reset: resetColumn,
+      getLabel: (index) => {
+        const col = grid._visibleColumns[index];
+        return String(col?.header ?? col?.field ?? index + 1);
+      },
+      getHost: () => grid,
+    });
+    widthPopover.open(colIndex, anchor);
+  }
+
   return {
     get isResizing() {
       return resizeState !== null || justFinishedResize;
@@ -148,6 +228,7 @@ export function createResizeController(grid: GridHost): ResizeController {
       // gesture's listeners and pointer capture.
       cancelDrag?.();
       cancelDrag = null;
+      moved = false;
 
       // Freeze flexible columns before resizing so they hold their current width
       const headerRow = grid._headerRowEl ?? grid.findHeaderRow?.();
@@ -178,7 +259,16 @@ export function createResizeController(grid: GridHost): ResizeController {
         onMove,
         onEnd: () => {
           cancelDrag = null;
-          onUp(true);
+          if (moved) {
+            onUp(true);
+            return;
+          }
+          // Pressed and released without moving — a tap, not a drag. Nothing
+          // changed, so commit nothing and offer the click-only width control
+          // instead (WCAG 2.2 SC 2.5.7).
+          suppressNextClick();
+          onUp(false);
+          openWidthPopover(colIndex, target as HTMLElement);
         },
         onCancel: () => {
           cancelDrag = null;
@@ -186,25 +276,20 @@ export function createResizeController(grid: GridHost): ResizeController {
         },
       });
     },
-    resetColumn(colIndex) {
-      const col = grid._visibleColumns[colIndex];
-      if (!col) return;
-
-      // Reset to original configured width (or undefined for auto-sizing)
-      col.__userResized = false;
-      col.__renderedWidth = undefined;
-      col.width = col.__originalWidth;
-
-      grid.updateTemplate?.();
+    resetColumn,
+    setColumnWidth(colIndex, width) {
+      if (commitWidth(colIndex, width) == null) return;
       grid.requestStateChange?.();
-      grid.dispatchEvent(new CustomEvent('column-resize-reset', { detail: { field: col.field, width: col.width } }));
     },
+    getColumnWidth: widthOf,
     dispose() {
       // Tear down an in-flight drag first, or its pointer capture and listeners
       // outlive the grid. The returned canceller is idempotent.
       cancelDrag?.();
       cancelDrag = null;
       onUp(resizeState !== null);
+      widthPopover?.dispose();
+      widthPopover = null;
       // Drop any in-flight template update — the grid (or its DOM) is going
       // away, so the queued `updateTemplate()` would run against stale refs.
       if (pendingRaf != null) {

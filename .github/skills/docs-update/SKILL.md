@@ -55,6 +55,13 @@ The matrix is grouped by change category. If your change spans multiple categori
 | -------------------- | ------------------------------------------------- |
 | New plugin           | Plugin README, plugin `.mdx`, `plugins/index.mdx` |
 | Plugin config change | Plugin `.mdx`, plugin README, plugin JSDoc        |
+| Accessibility fix    | `## Accessibility` in plugin `.mdx` **and** README, plus `guides/accessibility.mdx` |
+
+A plugin that gains or changes accessible behaviour MUST carry an `## Accessibility` section in
+both its docs page and its README. Name the success criterion and link its W3C Understanding page
+(`https://www.w3.org/WAI/WCAG22/Understanding/<slug>.html`), then say **how** the plugin satisfies
+it in user-facing terms — the interaction, the ARIA it emits, and what is automatic vs. opt-in.
+`plugins/tooltip/index.mdx` (SC 1.4.13) is the reference shape.
 
 ### Adapter changes
 

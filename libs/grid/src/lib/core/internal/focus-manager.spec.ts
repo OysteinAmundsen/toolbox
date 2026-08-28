@@ -19,7 +19,7 @@ const VIEWPORT_H = 300; // 10 rows
 
 interface ScrollStub {
   scrollTop: number;
-  scrollTo: ReturnType<typeof vi.fn>;
+  scrollTo: (options: ScrollToOptions) => void;
 }
 
 function createManager(
@@ -51,7 +51,7 @@ function createManager(
       },
     },
     _getVerticalScrollOffsets: offsets ? () => offsets : undefined,
-  } as unknown as GridHost;
+  } as GridHost;
 
   return { manager: new FocusManager(grid), scrollEl };
 }

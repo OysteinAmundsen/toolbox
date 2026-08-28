@@ -190,7 +190,9 @@
     text-align: start;
     background: none;
     border: none;
-    border-radius: var(--tbw-border-radius, 0.25rem);
+    /* Themes set radii for much larger surfaces (Material uses 12px), which
+       turns a 24px row into a lozenge. */
+    border-radius: min(var(--tbw-border-radius, 0.25rem), 6px);
     color: inherit;
     font: inherit;
     cursor: pointer;

@@ -241,7 +241,9 @@
       min-height: var(--tbw-touch-target-min, 24px);
       padding: 0 10px;
       border: 0;
-      border-radius: var(--tbw-border-radius, 4px);
+      /* Themes set radii for much larger surfaces (Material uses 12px), which
+         turns a 24px control into a lozenge. */
+      border-radius: min(var(--tbw-border-radius, 4px), 6px);
       background: transparent;
       color: inherit;
       font: inherit;

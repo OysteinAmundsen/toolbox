@@ -174,4 +174,49 @@
   .tbw-visibility-row--grouped {
     padding-left: calc(var(--tbw-panel-padding, var(--tbw-spacing-md, 0.5rem)) + 0.75rem);
   }
+
+  /* ===== Handle move menu (WCAG 2.2 SC 2.5.7) ===== */
+
+  .tbw-visibility-move-menu {
+    position: fixed;
+    margin: 0;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    min-width: 10rem;
+    background: var(--tbw-color-panel-bg, light-dark(#fff, #1e1e1e));
+    color: var(--tbw-color-panel-fg, light-dark(#1a1a1a, #eaeaea));
+    border: 1px solid var(--tbw-color-border, light-dark(#d0d0d0, #3a3a3a));
+    border-radius: var(--tbw-border-radius, 0.25rem);
+    box-shadow: var(--tbw-shadow-panel, 0 4px 12px light-dark(rgb(0 0 0 / 20%), rgb(0 0 0 / 50%)));
+    font: inherit;
+    z-index: 10001;
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  .tbw-visibility-move-menu-item {
+    min-height: var(--tbw-touch-target-min, 24px);
+    padding: 4px 8px;
+    text-align: start;
+    background: none;
+    color: inherit;
+    font: inherit;
+    border: 0;
+    /* Themes set radii for much larger surfaces (Material uses 12px), which
+       turns a 24px row into a lozenge. */
+    border-radius: min(var(--tbw-border-radius, 0.25rem), 6px);
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background: var(--tbw-color-row-hover, light-dark(#00000010, #ffffff14));
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+  }
 } /* End @layer tbw-plugins */

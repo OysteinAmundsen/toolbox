@@ -541,8 +541,15 @@ describe('keyboard navigation', () => {
     const ROW_H = 30;
     const VIEWPORT_H = 300; // 10 rows
 
+    /** happy-dom has no layout engine, so `clientHeight` must be stubbed explicitly. */
+    function makeViewportEl(clientHeight: number): HTMLElement {
+      const el = document.createElement('div');
+      Object.defineProperty(el, 'clientHeight', { value: clientHeight });
+      return el;
+    }
+
     function makeVirtualGrid(focusRow: number, offsets?: Record<string, unknown>) {
-      const scrollEl = { scrollTop: 0, clientHeight: VIEWPORT_H } as unknown as HTMLElement;
+      const scrollEl = makeViewportEl(VIEWPORT_H);
       const grid: any = {
         _rows: Array.from({ length: 100 }, (_, i) => ({ id: i })),
         _columns: [{ field: 'c0' }],
@@ -555,7 +562,7 @@ describe('keyboard navigation', () => {
           enabled: true,
           rowHeight: ROW_H,
           container: scrollEl,
-          viewportEl: { clientHeight: VIEWPORT_H } as unknown as HTMLElement,
+          viewportEl: makeViewportEl(VIEWPORT_H),
           start: 0,
           end: 100,
         },

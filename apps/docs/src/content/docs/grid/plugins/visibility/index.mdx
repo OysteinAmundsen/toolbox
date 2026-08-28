@@ -226,6 +226,25 @@ The visibility panel uses these class names for advanced customization:
 | `.tbw-visibility-group-header.reorderable` | Draggable group header |
 | `.tbw-visibility-handle` | Drag handle element |
 | `.tbw-visibility-label` | Checkbox + text wrapper |
+| `.tbw-visibility-move-menu` | Click-only move menu (SC 2.5.7) |
+| `.tbw-visibility-move-menu-item` | An entry in that menu |
+
+## Accessibility
+
+Reordering from the panel is drag-and-drop, which
+[WCAG 2.2 SC 2.5.7 Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html)
+requires a single-pointer alternative for. **Clicking** a drag handle — instead of dragging it —
+opens a menu with **Move up**, **Move down**, **Move to top** and **Move to bottom**. Entries that
+would be a no-op, or that would land on a column the grid refuses to move, are disabled.
+
+Both handle kinds are covered:
+
+- A **column row** handle moves that one column.
+- A **group header** handle moves the whole fragment as a block, exactly as dragging it would.
+
+The handles stay draggable, so nothing changes for mouse users: a press-and-release without
+movement never starts a drag, so the click and the drag never conflict. See the
+[accessibility guide](/grid/guides/accessibility/) for every drag surface and its alternative.
 
 ## See Also
 

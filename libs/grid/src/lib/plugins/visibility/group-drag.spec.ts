@@ -154,7 +154,7 @@ describe('VisibilityPlugin group drag-and-drop', async () => {
 
     const handle = personal.querySelector('.tbw-visibility-handle');
     expect(handle).not.toBeNull();
-    expect(handle!.getAttribute('title')).toBe('Drag to reorder group');
+    expect(handle!.getAttribute('title')).toBe('Drag to reorder group, or click for move options');
   });
 
   it('moves group before another group', () => {
@@ -421,6 +421,74 @@ describe('VisibilityPlugin group drag-and-drop', async () => {
       expect(setColumnOrderSpy).toHaveBeenCalledTimes(1);
       // email moves before name, re-consolidating the group
       expect(setColumnOrderSpy).toHaveBeenCalledWith(['email', 'name', 'dept', 'title', 'notes']);
+    });
+  });
+
+  // #endregion
+
+  // #region Click-only move menu (WCAG 2.2 SC 2.5.7)
+
+  describe('click-only group move menu (SC 2.5.7)', () => {
+    function groupHandle(panelContainer: HTMLElement, groupId: string): HTMLElement {
+      return getGroupHeader(panelContainer, groupId)!.querySelector('.tbw-visibility-handle') as HTMLElement;
+    }
+
+    function menuItems(): HTMLButtonElement[] {
+      const menu = document.getElementById('tbw-visibility-move-menu');
+      if (!menu || menu.hidden) return [];
+      return [...menu.querySelectorAll<HTMLButtonElement>('button')];
+    }
+
+    it('exposes the group handle as an activatable control', () => {
+      const { panelContainer } = createPlugin();
+      const handle = groupHandle(panelContainer, 'work');
+
+      expect(handle.getAttribute('role')).toBe('button');
+      expect(handle.tabIndex).toBe(-1);
+      expect(handle.getAttribute('aria-label')).toContain('Work');
+    });
+
+    it('opens a move menu when the group handle is clicked', () => {
+      const { panelContainer } = createPlugin();
+      groupHandle(panelContainer, 'work').click();
+
+      expect(menuItems().map((b) => b.textContent)).toEqual([
+        'Move up',
+        'Move down',
+        'Move to top',
+        'Move to bottom',
+      ]);
+    });
+
+    it('disables the upward moves for the first fragment', () => {
+      const { panelContainer } = createPlugin();
+      groupHandle(panelContainer, 'personal').click();
+
+      expect(menuItems().map((b) => b.disabled)).toEqual([true, false, true, false]);
+    });
+
+    it('moves a group block up as a unit', () => {
+      const { panelContainer, setColumnOrderSpy } = createPlugin();
+      groupHandle(panelContainer, 'work').click();
+      menuItems()[0].click();
+
+      expect(setColumnOrderSpy).toHaveBeenCalledWith(['dept', 'title', 'name', 'email', 'notes']);
+    });
+
+    it('moves a group block down as a unit', () => {
+      const { panelContainer, setColumnOrderSpy } = createPlugin();
+      groupHandle(panelContainer, 'personal').click();
+      menuItems()[1].click();
+
+      expect(setColumnOrderSpy).toHaveBeenCalledWith(['dept', 'title', 'name', 'email', 'notes']);
+    });
+
+    it('moves a group block to the bottom', () => {
+      const { panelContainer, setColumnOrderSpy } = createPlugin();
+      groupHandle(panelContainer, 'personal').click();
+      menuItems()[3].click();
+
+      expect(setColumnOrderSpy).toHaveBeenCalledWith(['dept', 'title', 'notes', 'name', 'email']);
     });
   });
 

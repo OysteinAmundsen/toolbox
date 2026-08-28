@@ -22,6 +22,11 @@ import {
 } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ColumnInternal } from '../../core/types';
 import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
+import {
+  createDragAlternativeMenu,
+  type DragAlternativeAction,
+  type DragAlternativeMenu,
+} from '../shared/drag-alternative-menu';
 import type { ToolPanelDefinition } from '../shell/types';
 import type { ColumnGroupInfo, ColumnReorderRequestDetail, VisibilityConfig } from './types';
 import styles from './visibility.css?inline';
@@ -34,6 +39,9 @@ type ColumnEntry = {
   lockVisible?: boolean;
   utility?: boolean;
 };
+
+/** A contiguous run of same-group columns, or a single ungrouped column. */
+type PanelFragment = { group: ColumnGroupInfo | null; columns: ColumnEntry[] };
 
 /**
  * Column Visibility Plugin for tbw-grid
@@ -161,6 +169,8 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   private draggedGroupId: string | null = null;
   /** Fields belonging to the group currently being dragged. */
   private draggedGroupFields: string[] = [];
+  /** Click-only move menu (SC 2.5.7). One instance shared by every drag handle. */
+  private moveMenu: DragAlternativeMenu | null = null;
 
   /** Clear drag-related classes from all rows and group headers in a list. */
   private clearDragClasses(container: HTMLElement): void {
@@ -206,6 +216,8 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     this.draggedField = null;
     this.draggedIndex = null;
     this.dropIndex = null;
+    this.moveMenu?.dispose();
+    this.moveMenu = null;
   }
   // #endregion
 
@@ -470,6 +482,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     // Return cleanup function
     return () => {
       this.columnListElement = null;
+      this.moveMenu?.close();
       wrapper.remove();
     };
   }
@@ -514,28 +527,13 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     // getAllColumns() returns columns in their effective display order
     // Filter out utility columns (e.g., expander column) as they're internal
     const allColumns = this.grid.getAllColumns().filter((c) => !c.utility);
+    const fragments = this.currentFragments();
 
-    // Query for column grouping info from GroupingColumnsPlugin (or any responder)
-    const groupResults = this.grid.query<ColumnGroupInfo[]>('getColumnGrouping');
-    const groups: ColumnGroupInfo[] = groupResults?.flat().filter((g) => g && g.fields.length > 0) ?? [];
-
-    if (groups.length === 0) {
+    if (fragments.every((f) => !f.group)) {
       // No grouping — render flat list (original behavior)
       this.renderFlatColumnList(allColumns, reorderEnabled, columnList);
       return;
     }
-
-    // Build field → group lookup (field name → group membership info)
-    const fieldToGroup = new Map<string, ColumnGroupInfo>();
-    for (const group of groups) {
-      for (const field of group.fields) fieldToGroup.set(field, group);
-    }
-
-    // Walk columns in display order and detect contiguous fragments.
-    // A fragment is a run of consecutive columns belonging to the same group.
-    // Fragmented groups (same group ID at non-contiguous positions) produce
-    // separate sections so the panel matches the grid's visual layout.
-    const fragments = this.computeFragments(allColumns, fieldToGroup);
 
     for (const fragment of fragments) {
       if (fragment.group) {
@@ -549,6 +547,31 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   }
 
   /**
+   * The panel's current top-level rows, in display order: one entry per group
+   * fragment plus one per ungrouped column. Recomputed from live grid state on
+   * every call so the move menu can never act on a stale panel.
+   *
+   * Walks columns in display order and detects contiguous fragments. A fragment
+   * is a run of consecutive columns belonging to the same group. Fragmented
+   * groups (same group ID at non-contiguous positions) produce separate sections
+   * so the panel matches the grid's visual layout.
+   */
+  private currentFragments(): PanelFragment[] {
+    const allColumns = this.grid.getAllColumns().filter((c) => !c.utility);
+
+    // Query for column grouping info from GroupingColumnsPlugin (or any responder)
+    const groupResults = this.grid.query<ColumnGroupInfo[]>('getColumnGrouping');
+    const groups: ColumnGroupInfo[] = groupResults?.flat().filter((g) => g && g.fields.length > 0) ?? [];
+    if (groups.length === 0) return allColumns.map((c) => ({ group: null, columns: [c] }));
+
+    const fieldToGroup = new Map<string, ColumnGroupInfo>();
+    for (const group of groups) {
+      for (const field of group.fields) fieldToGroup.set(field, group);
+    }
+    return this.computeFragments(allColumns, fieldToGroup);
+  }
+
+  /**
    * Compute contiguous column fragments from display-order columns.
    * Each fragment is either a group section (contiguous run of same-group columns)
    * or a single ungrouped column.
@@ -556,8 +579,8 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   private computeFragments(
     allColumns: ColumnEntry[],
     fieldToGroup: Map<string, ColumnGroupInfo>,
-  ): Array<{ group: ColumnGroupInfo | null; columns: ColumnEntry[] }> {
-    const fragments: Array<{ group: ColumnGroupInfo | null; columns: ColumnEntry[] }> = [];
+  ): PanelFragment[] {
+    const fragments: PanelFragment[] = [];
     let currentGroup: ColumnGroupInfo | null = null;
     let currentCols: ColumnEntry[] = [];
 
@@ -655,7 +678,8 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       const handle = document.createElement('span');
       handle.className = 'tbw-visibility-handle';
       this.setIcon(handle, 'dragHandle');
-      handle.title = this.t('columns.dragGroupHandle', 'Drag to reorder group');
+      handle.title = this.t('columns.dragGroupHandle', 'Drag to reorder group, or click for move options');
+      this.wireMoveHandle(handle, group.label, () => this.groupMoveActions(fragmentFields));
       // Insert handle before the label
       header.insertBefore(handle, headerLabel);
     }
@@ -730,12 +754,115 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       const handle = document.createElement('span');
       handle.className = 'tbw-visibility-handle';
       this.setIcon(handle, 'dragHandle');
-      handle.title = this.t('columns.dragHandle', 'Drag to reorder');
+      handle.title = this.t('columns.dragHandle', 'Drag to reorder, or click for move options');
+      this.wireMoveHandle(handle, label, () => this.columnMoveActions(col.field));
       row.appendChild(handle);
     }
 
     row.appendChild(labelWrapper);
     return row;
+  }
+
+  /**
+   * Turn a drag handle into the pointer alternative required by WCAG 2.2
+   * SC 2.5.7: a press-and-release without movement never fires `dragstart`, so
+   * a plain click on the handle is the tap the criterion asks us to honour.
+   *
+   * The handle stays part of the row's drag surface — it is deliberately not
+   * marked `draggable="false"` — so dragging by the handle keeps working.
+   * Actions are resolved on click, never at render time, so a stale panel can
+   * never move the wrong column.
+   */
+  private wireMoveHandle(handle: HTMLElement, name: string, actions: () => DragAlternativeAction[]): void {
+    handle.setAttribute('role', 'button');
+    handle.tabIndex = -1;
+    handle.setAttribute('aria-label', `${name} — ${this.t('columns.moveHandleHint', 'drag, or activate for move options')}`);
+    handle.addEventListener('click', () => {
+      this.moveMenu ??= createDragAlternativeMenu('tbw-visibility-move-menu', 'tbw-visibility-move-menu');
+      this.moveMenu.open(handle, name, actions());
+    });
+  }
+
+  /**
+   * Emit the reorder request a drop at `dropIndex` would have produced.
+   * `fromIndex`/`dropIndex` are positions in the panel's non-utility list;
+   * `toIndex` is converted to the full column order the way the drop handler
+   * does it, so the click path and the drag path can never diverge.
+   */
+  private requestColumnMove(field: string, fromIndex: number, dropIndex: number): void {
+    const effectiveToIndex = dropIndex > fromIndex ? dropIndex - 1 : dropIndex;
+    if (effectiveToIndex === fromIndex) return;
+
+    const allColumns = this.grid.getAllColumns();
+    const nonUtilityColumns = allColumns.filter((c) => !c.utility);
+    const targetField = nonUtilityColumns[effectiveToIndex]?.field;
+    const toIndex = targetField ? allColumns.findIndex((c) => c.field === targetField) : allColumns.length;
+
+    this.emit<ColumnReorderRequestDetail>('column-reorder-request', { field, fromIndex, toIndex });
+  }
+
+  /** Click-only move actions for a single column row. */
+  private columnMoveActions(field: string): DragAlternativeAction[] {
+    const columns = this.grid.getAllColumns().filter((c) => !c.utility);
+    const from = columns.findIndex((c) => c.field === field);
+    const landable = (i: number) => i >= 0 && i < columns.length && this.canMoveColumn(columns[i]);
+
+    return [
+      {
+        label: this.t('columns.moveUp', 'Move up'),
+        disabled: !landable(from - 1),
+        run: () => this.requestColumnMove(field, from, from - 1),
+      },
+      {
+        label: this.t('columns.moveDown', 'Move down'),
+        // The drop path takes an insert-before index, so stepping down one
+        // place means aiming past the row that follows.
+        disabled: !landable(from + 1),
+        run: () => this.requestColumnMove(field, from, from + 2),
+      },
+      {
+        label: this.t('columns.moveToTop', 'Move to top'),
+        disabled: from <= 0 || !landable(0),
+        run: () => this.requestColumnMove(field, from, 0),
+      },
+      {
+        label: this.t('columns.moveToBottom', 'Move to bottom'),
+        disabled: from < 0 || from >= columns.length - 1 || !landable(columns.length - 1),
+        run: () => this.requestColumnMove(field, from, columns.length),
+      },
+    ];
+  }
+
+  /** Click-only move actions for a group fragment header. */
+  private groupMoveActions(fragmentFields: string[]): DragAlternativeAction[] {
+    const fragments = this.currentFragments();
+    const at = fragments.findIndex((f) => f.columns[0]?.field === fragmentFields[0]);
+    const fieldsAt = (i: number) => fragments[i].columns.map((c) => c.field);
+    const first = at <= 0;
+    const last = at < 0 || at >= fragments.length - 1;
+
+    return [
+      {
+        label: this.t('columns.moveUp', 'Move up'),
+        disabled: first,
+        run: () => this.executeGroupDrop(fragmentFields, fieldsAt(at - 1), true),
+      },
+      {
+        label: this.t('columns.moveDown', 'Move down'),
+        disabled: last,
+        run: () => this.executeGroupDrop(fragmentFields, fieldsAt(at + 1), false),
+      },
+      {
+        label: this.t('columns.moveToTop', 'Move to top'),
+        disabled: first,
+        run: () => this.executeGroupDrop(fragmentFields, fieldsAt(0), true),
+      },
+      {
+        label: this.t('columns.moveToBottom', 'Move to bottom'),
+        disabled: last,
+        run: () => this.executeGroupDrop(fragmentFields, fieldsAt(fragments.length - 1), false),
+      },
+    ];
   }
 
   /**

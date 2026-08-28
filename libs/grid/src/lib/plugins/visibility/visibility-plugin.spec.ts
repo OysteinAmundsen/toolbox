@@ -2,6 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ColumnReorderRequestDetail } from './types';
 import { VisibilityPlugin } from './visibility-plugin';
 
 function createGridMock(columns: any[] = []) {
@@ -82,7 +83,7 @@ function createGridMock(columns: any[] = []) {
     }),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(() => true),
+    dispatchEvent: vi.fn((_event: Event) => true),
     requestRender: vi.fn(),
     requestStateChange: vi.fn(),
     children: [document.createElement('div')],
@@ -791,6 +792,144 @@ describe('VisibilityPlugin', () => {
 
       const nameRow = container.querySelector('[data-field="name"]') as HTMLElement;
       expect(nameRow.draggable).toBe(true);
+    });
+  });
+
+  // #endregion
+
+  // #region Click-only move menu (WCAG 2.2 SC 2.5.7)
+
+  describe('click-only move menu (SC 2.5.7)', () => {
+    /** Render the panel with a reorder plugin present. */
+    function renderWithReorder(columns = defaultColumns) {
+      const g = createGridMock(columns);
+      g.getPluginByName.mockImplementation((name: string) => {
+        if (name === 'reorder') return { moveColumn: vi.fn() };
+        return undefined;
+      });
+      const p = new VisibilityPlugin();
+      p.attach(g as any);
+      const container = document.createElement('div');
+      const cleanup = p.getToolPanel()!.render(container);
+      return { grid: g, plugin: p, container, cleanup };
+    }
+
+    function handleFor(container: HTMLElement, field: string): HTMLElement {
+      return container.querySelector(`[data-field="${field}"] .tbw-visibility-handle`) as HTMLElement;
+    }
+
+    function menuItems(): HTMLButtonElement[] {
+      const menu = document.getElementById('tbw-visibility-move-menu');
+      if (!menu || menu.hidden) return [];
+      return [...menu.querySelectorAll<HTMLButtonElement>('button')];
+    }
+
+    /** The detail of the last `column-reorder-request` the plugin emitted. */
+    function lastRequest(grid: ReturnType<typeof createGridMock>) {
+      const events = grid.dispatchEvent.mock.calls
+        .map(([event]) => event as CustomEvent<ColumnReorderRequestDetail>)
+        .filter((event) => event.type === 'column-reorder-request');
+      return events.pop()?.detail;
+    }
+
+    it('exposes the drag handle as an activatable control', () => {
+      const { container } = renderWithReorder();
+      const handle = handleFor(container, 'age');
+
+      expect(handle.getAttribute('role')).toBe('button');
+      expect(handle.tabIndex).toBe(-1);
+      expect(handle.getAttribute('aria-label')).toContain('Age');
+      // The handle stays part of the row's drag surface.
+      expect(handle.draggable).not.toBe(true);
+    });
+
+    it('opens a move menu when the handle is clicked', () => {
+      const { container } = renderWithReorder();
+      handleFor(container, 'age').click();
+
+      expect(menuItems().map((b) => b.textContent)).toEqual([
+        'Move up',
+        'Move down',
+        'Move to top',
+        'Move to bottom',
+      ]);
+    });
+
+    it('disables the upward moves for the first column', () => {
+      const { container } = renderWithReorder();
+      handleFor(container, 'name').click();
+
+      const items = menuItems();
+      expect(items.map((b) => b.disabled)).toEqual([true, false, true, false]);
+    });
+
+    it('disables the downward moves for the last column', () => {
+      const { container } = renderWithReorder();
+      handleFor(container, 'city').click();
+
+      const items = menuItems();
+      expect(items.map((b) => b.disabled)).toEqual([false, true, false, true]);
+    });
+
+    it('emits the same reorder request a drop one row up would produce', () => {
+      const { grid: g, container } = renderWithReorder();
+      handleFor(container, 'city').click();
+      menuItems()[0].click();
+
+      expect(lastRequest(g)).toEqual({ field: 'city', fromIndex: 2, toIndex: 1 });
+    });
+
+    it('emits the same reorder request a drop one row down would produce', () => {
+      const { grid: g, container } = renderWithReorder();
+      handleFor(container, 'name').click();
+      menuItems()[1].click();
+
+      expect(lastRequest(g)).toEqual({ field: 'name', fromIndex: 0, toIndex: 1 });
+    });
+
+    it('moves a column to the top', () => {
+      const { grid: g, container } = renderWithReorder();
+      handleFor(container, 'city').click();
+      menuItems()[2].click();
+
+      expect(lastRequest(g)).toEqual({ field: 'city', fromIndex: 2, toIndex: 0 });
+    });
+
+    it('moves a column to the bottom', () => {
+      const { grid: g, container } = renderWithReorder();
+      handleFor(container, 'name').click();
+      menuItems()[3].click();
+
+      expect(lastRequest(g)).toEqual({ field: 'name', fromIndex: 0, toIndex: 2 });
+    });
+
+    it('skips immovable neighbours when deciding what is reachable', () => {
+      const { container } = renderWithReorder([
+        { field: 'id', header: 'ID', lockPosition: true },
+        { field: 'name', header: 'Name' },
+        { field: 'city', header: 'City' },
+      ]);
+      // `id` has no handle at all — it cannot be dragged either.
+      expect(handleFor(container, 'id')).toBeNull();
+
+      handleFor(container, 'name').click();
+      const items = menuItems();
+      // Moving up would land on the locked `id` column.
+      expect(items[0].disabled).toBe(true);
+      expect(items[2].disabled).toBe(true);
+      expect(items[1].disabled).toBe(false);
+    });
+
+    it('closes the menu when the panel is torn down and disposes it on detach', () => {
+      const { plugin: p, container, cleanup } = renderWithReorder();
+      handleFor(container, 'age').click();
+      expect(menuItems().length).toBe(4);
+
+      cleanup?.();
+      expect(document.getElementById('tbw-visibility-move-menu')!.hidden).toBe(true);
+
+      p.detach();
+      expect(document.getElementById('tbw-visibility-move-menu')).toBeNull();
     });
   });
 

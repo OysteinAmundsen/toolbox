@@ -77,6 +77,22 @@ fragment appears as a separate section in the panel, matching the grid's actual 
 When `ReorderPlugin` is also active, group headers in the panel are draggable. Dragging a group
 header moves only the columns in that fragment, not the entire group.
 
+## Accessibility
+
+Reordering from the panel is drag-and-drop, which
+[WCAG 2.2 SC 2.5.7 Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html)
+requires a single-pointer alternative for. **Clicking** a drag handle — instead of dragging it —
+opens a menu with **Move up**, **Move down**, **Move to top** and **Move to bottom**. Entries that
+would be a no-op, or that would land on a column the grid refuses to move, are disabled.
+
+Both handle kinds are covered:
+
+- A **column row** handle moves that one column.
+- A **group header** handle moves the whole fragment as a block, exactly as dragging it would.
+
+The handles stay draggable, so nothing changes for mouse users: a press-and-release without
+movement never starts a drag, so the click and the drag never conflict.
+
 ## Events
 
 ### `column-visibility`

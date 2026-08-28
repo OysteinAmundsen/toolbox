@@ -57,6 +57,12 @@ export interface RangeHandleCallbacks {
   resize(corner: RangeCorner, row: number, col: number): void;
   /** The drag finished (pointerup) or was aborted (Escape / pointercancel). */
   commit(): void;
+  /**
+   * The handle was pressed and released without moving — a tap, not a drag.
+   * The non-dragging path required by WCAG 2.2 SC 2.5.7: the plugin arms this
+   * corner and the next cell tap places it.
+   */
+  arm(corner: RangeCorner): void;
 }
 
 // #endregion
@@ -188,6 +194,7 @@ export class RangeCornerHandles {
   #start: HTMLElement | null = null;
   #end: HTMLElement | null = null;
   #callbacks: RangeHandleCallbacks | null = null;
+  #armed: RangeCorner | null = null;
 
   /**
    * Render (or hide) the handles for `rect`.
@@ -214,6 +221,24 @@ export class RangeCornerHandles {
 
     this.#place(container, this.#start, cellFor(rect.startRow, rect.startCol), 'start');
     this.#place(container, this.#end, cellFor(rect.endRow, rect.endCol), 'end');
+    this.setArmed(this.#armed);
+  }
+
+  /**
+   * Mark one corner as waiting for the tap that will place it, or clear the
+   * marking with `null`. Purely presentational — the plugin owns the state.
+   */
+  setArmed(corner: RangeCorner | null): void {
+    this.#armed = corner;
+    for (const [handle, name] of [
+      [this.#start, 'start'],
+      [this.#end, 'end'],
+    ] as const) {
+      if (!handle) continue;
+      const on = corner === name;
+      handle.classList.toggle('armed', on);
+      handle.setAttribute('aria-pressed', String(on));
+    }
   }
 
   /** Remove both handles from the DOM. Safe to call when not rendered. */
@@ -223,6 +248,7 @@ export class RangeCornerHandles {
     this.#start = null;
     this.#end = null;
     this.#callbacks = null;
+    this.#armed = null;
   }
 
   #hide(): void {
@@ -252,7 +278,17 @@ export class RangeCornerHandles {
     const el = container.ownerDocument.createElement('div');
     el.className = `${HANDLE_CLASS} ${HANDLE_CLASS}-${corner}`;
     el.dataset.corner = corner;
-    el.setAttribute('role', 'presentation');
+    // A real button, not decoration: it is tappable as well as draggable, so it
+    // needs a name and a pressed state for the armed (tap-to-place) mode.
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '-1');
+    el.setAttribute('aria-pressed', 'false');
+    el.setAttribute(
+      'aria-label',
+      corner === 'start'
+        ? 'Selection start corner — drag, or activate to place it with a tap'
+        : 'Selection end corner — drag, or activate to place it with a tap',
+    );
     el.addEventListener('pointerdown', (e) => this.#onPointerDown(e as PointerEvent, el, corner));
     container.appendChild(el);
     return el;
@@ -266,18 +302,26 @@ export class RangeCornerHandles {
     if (!callbacks) return;
 
     handle.classList.add('dragging');
+    // `startPointerDrag` promotes immediately with these options, so `onMove`
+    // firing at least once is the only reliable signal that this was a drag.
+    let moved = false;
     const finish = (): void => {
       handle.classList.remove('dragging');
       callbacks.commit();
     };
     startPointerDrag(e, handle, {
       onMove: (moveEvent) => {
+        moved = true;
         const target = callbacks.cellAt(moveEvent.clientX, moveEvent.clientY);
         if (target) callbacks.resize(corner, target.row, target.col);
       },
-      // Commit on both paths: an aborted drag still leaves the range wherever
-      // the last move put it, so the plugin must re-render either way.
-      onEnd: finish,
+      onEnd: () => {
+        handle.classList.remove('dragging');
+        if (moved) callbacks.commit();
+        else callbacks.arm(corner);
+      },
+      // An aborted drag still leaves the range wherever the last move put it,
+      // so the plugin must re-render — but it is never a tap.
       onCancel: finish,
     });
   }

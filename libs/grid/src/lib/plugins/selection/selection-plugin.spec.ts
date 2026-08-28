@@ -1533,6 +1533,143 @@ describe('SelectionPlugin', () => {
     });
   });
 
+  describe('non-dragging range extension (WCAG 2.2 SC 2.5.7)', () => {
+    const rows = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+    const columns = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
+
+    /** Build the `ContextMenuParams` shape the ContextMenuPlugin passes along. */
+    const params = (rowIndex: number, columnIndex: number, extra: Record<string, unknown> = {}): any => ({
+      row: rows[rowIndex],
+      rowIndex,
+      column: columns[columnIndex],
+      columnIndex,
+      field: columns[columnIndex]?.field,
+      value: null,
+      isHeader: false,
+      event: new MouseEvent('contextmenu'),
+      selectedRows: [],
+      ...extra,
+    });
+
+    const clickCell = (plugin: any, rowIndex: number, colIndex: number) =>
+      plugin.onCellClick({
+        type: 'click',
+        rowIndex,
+        colIndex,
+        isHeader: false,
+        column: columns[colIndex],
+        originalEvent: new MouseEvent('click', { bubbles: true }),
+      });
+
+    const items = (plugin: any, rowIndex: number, columnIndex: number) =>
+      plugin.handleQuery({ type: 'getContextMenuItems', context: params(rowIndex, columnIndex) }) as
+        | { id: string; label: string; order?: number; action: () => void }[]
+        | undefined;
+
+    it('contributes nothing until a cell has been anchored', () => {
+      const plugin = new SelectionPlugin({ mode: 'range' });
+      plugin.attach(createMockGrid(rows, columns));
+
+      expect(items(plugin, 2, 1)).toBeUndefined();
+    });
+
+    it('offers a single-pointer extension once an anchor exists', () => {
+      const plugin = new SelectionPlugin({ mode: 'range' });
+      plugin.attach(createMockGrid(rows, columns));
+      clickCell(plugin, 0, 0);
+
+      const menu = items(plugin, 2, 1);
+      expect(menu?.map((i) => i.label)).toEqual(['Extend selection to here']);
+      // Own order band, below column move (50-59).
+      expect(menu?.[0].order).toBe(60);
+    });
+
+    it('extends the range from the anchor to the targeted cell', () => {
+      const plugin = new SelectionPlugin({ mode: 'range' });
+      plugin.attach(createMockGrid(rows, columns));
+      clickCell(plugin, 0, 0);
+
+      items(plugin, 2, 1)![0].action();
+
+      expect(plugin['ranges']).toEqual([{ startRow: 0, startCol: 0, endRow: 2, endCol: 1 }]);
+    });
+
+    it('keeps the anchor when a right-click re-targets the menu outside the range', () => {
+      const plugin = new SelectionPlugin({ mode: 'range' });
+      plugin.attach(createMockGrid(rows, columns));
+      clickCell(plugin, 0, 0);
+
+      // Right-click outside the range clears + selects the clicked cell so the
+      // menu targets it — but must not become the extension anchor.
+      plugin.onCellMouseDown!({
+        type: 'mousedown',
+        rowIndex: 2,
+        colIndex: 1,
+        isHeader: false,
+        column: columns[1],
+        originalEvent: new MouseEvent('mousedown', { button: 2, bubbles: true }),
+      } as any);
+
+      items(plugin, 2, 1)![0].action();
+      expect(plugin['ranges']).toEqual([{ startRow: 0, startCol: 0, endRow: 2, endCol: 1 }]);
+    });
+
+    it('offers nothing on the anchor itself, on headers, or outside range mode', () => {
+      const rangePlugin = new SelectionPlugin({ mode: 'range' });
+      rangePlugin.attach(createMockGrid(rows, columns));
+      clickCell(rangePlugin, 1, 1);
+      expect(items(rangePlugin, 1, 1)).toBeUndefined();
+      expect(
+        rangePlugin.handleQuery({ type: 'getContextMenuItems', context: params(-1, 1, { isHeader: true }) }),
+      ).toBeUndefined();
+
+      const cellPlugin = new SelectionPlugin({ mode: 'cell' });
+      cellPlugin.attach(createMockGrid(rows, columns));
+      clickCell(cellPlugin, 0, 0);
+      expect(items(cellPlugin, 2, 1)).toBeUndefined();
+    });
+
+    it('hosts its own menu when no context menu plugin is registered', () => {
+      const mockGrid = createMockGrid(rows, columns);
+      // happy-dom bubbles by re-dispatching on ancestors, so the mocked
+      // `dispatchEvent` would swallow the event before the delegated listener.
+      delete mockGrid.dispatchEvent;
+      const plugin = new SelectionPlugin({ mode: 'range' });
+      plugin.attach(mockGrid);
+      clickCell(plugin, 0, 0);
+
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.setAttribute('data-row', '2');
+      cell.setAttribute('data-col', '1');
+      mockGrid.querySelector('.tbw-grid-root').appendChild(cell);
+      cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+
+      const menu = document.querySelector('.tbw-range-extend-menu');
+      expect(menu).not.toBeNull();
+      expect(menu?.getAttribute('role')).toBe('group');
+      expect([...menu!.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Extend selection to here']);
+    });
+
+    it('yields to the context menu plugin rather than stacking a second menu', () => {
+      const mockGrid = createMockGrid(rows, columns);
+      delete mockGrid.dispatchEvent;
+      mockGrid.getPluginByName = vi.fn((name: string) => (name === 'contextMenu' ? { showMenu: vi.fn() } : undefined));
+      const plugin = new SelectionPlugin({ mode: 'range' });
+      plugin.attach(mockGrid);
+      clickCell(plugin, 0, 0);
+
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.setAttribute('data-row', '2');
+      cell.setAttribute('data-col', '1');
+      mockGrid.querySelector('.tbw-grid-root').appendChild(cell);
+      cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+
+      expect(document.querySelector('.tbw-range-extend-menu')).toBeNull();
+    });
+  });
+
   describe('getSelectedRows', () => {
     it('should return selected row objects in row mode', () => {
       const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];

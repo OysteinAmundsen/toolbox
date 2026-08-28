@@ -417,6 +417,18 @@ tbw-grid {
 | [FilteringPlugin](/grid/plugins/filtering/) | Filter data, then select from results |
 | [ContextMenuPlugin](/grid/plugins/context-menu/) | Right-click selected rows for actions. In range mode, right-click inside the existing range preserves that range so actions apply to the full selection. |
 
+## Accessibility
+
+Range selection is built on a drag: press one cell, sweep to the opposite corner, release. WCAG 2.2 [SC 2.5.7 Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) requires a single-pointer alternative for every such gesture, so `mode: 'range'` ships two.
+
+- **Extend selection to here** — click the first cell as usual, then open the context menu on the opposite corner and pick *Extend selection to here*. The context menu opens on right-click, long-press, or `Shift+F10`, so it is reachable with one pointer and no keyboard. Right-clicking outside the current range still re-targets the menu at the clicked cell; the extension anchor is the last cell you selected with a **primary** click, so the action always extends from where you started.
+- **Tap a corner handle** — the two dots on an active range are buttons as well as drag targets. Tap one and it arms (`aria-pressed="true"`); the next cell you tap becomes that corner. Tap the handle again, or press `Escape`, to cancel. Handles only appear for a range that was started with a finger or stylus — on a mouse they would sit inside other ranges and block drag-select.
+- **Merges with the Context Menu plugin** — when [ContextMenuPlugin](/grid/plugins/context-menu/) is installed, the action is contributed to the normal menu (its own order band, below the column-move group). Without it, the plugin hosts a minimal `role="group"` menu of plain buttons instead, so the alternative exists either way. The two never stack.
+- **No reserved chrome** — nothing extra is drawn in the grid body. The alternative reuses affordances that already exist: the cell you would have dragged from and the handle you would have dragged.
+- **Keyboard** — `Shift+Arrow`, `Shift+Page Up/Down` and `Shift+Ctrl/⌘+Home/End` also extend a range. Note that keyboard equivalence alone does **not** satisfy SC 2.5.7: the success criterion is about single-pointer operation, which is why the pointer paths above exist. `Shift+Click` needs a modifier key and does not count either.
+
+Selection also announces the armed corner through the grid's live region, and marks selected cells with `aria-selected` so assistive technology reports the current range.
+
 ## See Also
 
 - [Recipes](/grid/recipes/) — Task-oriented how-to guides

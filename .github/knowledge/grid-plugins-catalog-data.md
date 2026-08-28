@@ -5,7 +5,7 @@ related: [grid-plugins, grid-plugins-catalog-ui, grid-core, grid-data-pipeline, 
 
 # Plugin Catalog — Data & Model Plugins
 
-> Plugin system (manager, lifecycle, hooks, manifest) → grid-plugins.md. Shell → grid-plugins-shell.md. Interaction/display plugins (Selection, Editing, UndoRedo, MasterDetail, Reordering, Responsive, Tooltip, StickyRows, ContextMenu) → grid-plugins-catalog-ui.md.
+> Plugin system (manager, lifecycle, hooks, manifest) → grid-plugins.md. Shell → grid-plugins-shell.md. Interaction/display plugins (Selection, MasterDetail, Reordering, Responsive, Tooltip, StickyRows, ContextMenu) → grid-plugins-catalog-ui.md. Editing/UndoRedo → grid-plugins-editing.md.
 
 ## Row-Transforming (`modifiesRowStructure: true`)
 

@@ -4,7 +4,7 @@ applyTo: '**/*.spec.ts'
 
 # Testing Patterns
 
-> **happy-dom bubbling re-enters ancestor `dispatchEvent`.** A mock grid element that stubs `grid.dispatchEvent = vi.fn()` swallows every event bubbling up from its children, so listeners bound on the host never fire — use `vi.spyOn(grid, 'dispatchEvent')` instead. For the same reason a host listener is invoked once per ancestor hop, so assert on the _delta_ between two dispatches rather than an absolute call count.
+> **happy-dom bubbling re-enters ancestor `dispatchEvent`.** A mock grid element that stubs `grid.dispatchEvent = vi.fn()` swallows every event bubbling up from its children, so listeners bound on the host never fire — use `vi.spyOn(grid, 'dispatchEvent')` instead, or `delete mockGrid.dispatchEvent` when the test does not need to observe emissions at all. For the same reason a host listener is invoked once per ancestor hop, so assert on the _delta_ between two dispatches rather than an absolute call count.
 
 Tests are co-located with source files (`feature.ts` → `feature.spec.ts`). Integration tests live in `src/__tests__/integration/`. Run via `bun nx test grid`. See the `test-coverage` skill for detailed patterns, mock grid templates, and library-specific guidance.
 

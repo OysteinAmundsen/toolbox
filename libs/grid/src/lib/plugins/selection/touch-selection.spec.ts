@@ -382,6 +382,61 @@ describe('touch selection mode (#304)', () => {
     });
   });
 
+  describe('range corner taps (SC 2.5.7)', () => {
+    /** Seed a coarse range, render the chrome and return grid + plugin + end handle. */
+    const armedSetup = () => {
+      const grid = createMockGrid();
+      const plugin = new SelectionPlugin({ mode: 'range' });
+      plugin.attach(grid);
+      plugin.onCellClick!(clickEvent(0));
+      plugin.ranges = [{ startRow: 0, startCol: 0, endRow: 1, endCol: 1 }];
+      plugin.afterRender!();
+
+      const handle = grid.querySelector('.tbw-range-handle-end') as HTMLElement;
+      handle.setPointerCapture = vi.fn();
+      handle.releasePointerCapture = vi.fn();
+      handle.hasPointerCapture = vi.fn().mockReturnValue(true);
+      handle.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, bubbles: true, clientX: 0, clientY: 0 }));
+      handle.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, bubbles: true, clientX: 0, clientY: 0 }));
+      plugin.afterRender!();
+      return { grid, plugin, handle };
+    };
+
+    it('places the corner on the next cell tap instead of starting a new selection', () => {
+      const { plugin } = armedSetup();
+
+      plugin.onCellClick!(clickEvent(3));
+
+      expect(plugin.ranges).toEqual([{ startRow: 0, startCol: 0, endRow: 3, endCol: 0 }]);
+    });
+
+    it('swallows the press so no drag selection starts', () => {
+      const { plugin } = armedSetup();
+
+      expect(plugin.onCellMouseDown!(mouseEvent(3, 'touch', 0))).toBe(true);
+      expect(plugin.isDragging).toBe(false);
+    });
+
+    it('disarms on a second tap of the same handle', () => {
+      const { plugin, handle } = armedSetup();
+      expect(handle.classList.contains('armed')).toBe(true);
+
+      handle.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 2, bubbles: true, clientX: 0, clientY: 0 }));
+      handle.dispatchEvent(new PointerEvent('pointerup', { pointerId: 2, bubbles: true, clientX: 0, clientY: 0 }));
+      plugin.afterRender!();
+
+      expect(handle.classList.contains('armed')).toBe(false);
+    });
+
+    it('disarms on Escape before clearing the selection', () => {
+      const { plugin, handle } = armedSetup();
+
+      expect(plugin.onKeyDown!(new KeyboardEvent('keydown', { key: 'Escape' }))).toBe(true);
+      expect(handle.classList.contains('armed')).toBe(false);
+      expect(plugin.ranges.length).toBe(1);
+    });
+  });
+
   describe('teardown', () => {
     it('removes the toolbar on detach', () => {
       const grid = createMockGrid();
@@ -460,6 +515,7 @@ describe('RangeCornerHandles', () => {
     cellAt: vi.fn().mockReturnValue({ row: 4, col: 2 }),
     resize: vi.fn(),
     commit: vi.fn(),
+    arm: vi.fn(),
   });
 
   beforeEach(() => {
@@ -527,5 +583,73 @@ describe('RangeCornerHandles', () => {
     handles.destroy();
     expect(() => handles.destroy()).not.toThrow();
     expect(container.querySelector('.tbw-range-handle')).toBeNull();
+  });
+
+  describe('WCAG 2.2 SC 2.5.7 — tap instead of drag', () => {
+    /** Render one range and return the `end` handle, pointer-capture stubbed. */
+    const renderEndHandle = (handles: RangeCornerHandles, cb: ReturnType<typeof callbacks>) => {
+      handles.render(container, { startRow: 0, startCol: 0, endRow: 2, endCol: 3 }, makeCellFor(), cb);
+      const handle = container.querySelector('.tbw-range-handle-end') as HTMLElement;
+      handle.setPointerCapture = vi.fn();
+      handle.releasePointerCapture = vi.fn();
+      handle.hasPointerCapture = vi.fn().mockReturnValue(true);
+      return handle;
+    };
+
+    it('exposes each handle as a named button rather than decoration', () => {
+      const handles = new RangeCornerHandles();
+      handles.render(container, { startRow: 0, startCol: 0, endRow: 2, endCol: 3 }, makeCellFor(), callbacks());
+
+      container.querySelectorAll('.tbw-range-handle').forEach((el) => {
+        expect(el.getAttribute('role')).toBe('button');
+        expect(el.getAttribute('aria-label')).toBeTruthy();
+        expect(el.getAttribute('aria-pressed')).toBe('false');
+      });
+    });
+
+    it('arms the corner when the handle is pressed and released without moving', () => {
+      const handles = new RangeCornerHandles();
+      const cb = callbacks();
+      const handle = renderEndHandle(handles, cb);
+
+      handle.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, bubbles: true, clientX: 0, clientY: 0 }));
+      handle.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, bubbles: true, clientX: 0, clientY: 0 }));
+
+      expect(cb.arm).toHaveBeenCalledWith('end');
+      expect(cb.commit).not.toHaveBeenCalled();
+    });
+
+    it('does not arm when the pointer actually moved', () => {
+      const handles = new RangeCornerHandles();
+      const cb = callbacks();
+      const handle = renderEndHandle(handles, cb);
+
+      handle.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, bubbles: true, clientX: 0, clientY: 0 }));
+      handle.dispatchEvent(new PointerEvent('pointermove', { pointerId: 1, bubbles: true, clientX: 40, clientY: 40 }));
+      handle.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, bubbles: true, clientX: 40, clientY: 40 }));
+
+      expect(cb.arm).not.toHaveBeenCalled();
+      expect(cb.commit).toHaveBeenCalledTimes(1);
+    });
+
+    it('reflects the armed corner and survives a re-render', () => {
+      const handles = new RangeCornerHandles();
+      const cb = callbacks();
+      handles.render(container, { startRow: 0, startCol: 0, endRow: 2, endCol: 3 }, makeCellFor(), cb);
+
+      handles.setArmed('end');
+      const end = container.querySelector('.tbw-range-handle-end') as HTMLElement;
+      const start = container.querySelector('.tbw-range-handle-start') as HTMLElement;
+      expect(end.classList.contains('armed')).toBe(true);
+      expect(end.getAttribute('aria-pressed')).toBe('true');
+      expect(start.getAttribute('aria-pressed')).toBe('false');
+
+      handles.render(container, { startRow: 0, startCol: 0, endRow: 2, endCol: 3 }, makeCellFor(), cb);
+      expect(end.classList.contains('armed')).toBe(true);
+
+      handles.setArmed(null);
+      expect(end.classList.contains('armed')).toBe(false);
+      expect(end.getAttribute('aria-pressed')).toBe('false');
+    });
   });
 });

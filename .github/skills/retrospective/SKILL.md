@@ -93,7 +93,8 @@ Route to `.github/knowledge/` if the lesson describes:
 | `grid-input`                       | Input & pointer       | pointer modality, pointer-drag, long-press priority policy     |
 | `grid-plugins`                     | Plugin system         | plugin lifecycle, hooks, inter-plugin communication            |
 | `grid-plugins-catalog-data`        | Plugin catalog (data) | a specific row/column-model, sorting, filtering, export plugin |
-| `grid-plugins-catalog-ui`          | Plugin catalog (UI)   | a specific selection, editing, reordering, display plugin      |
+| `grid-plugins-catalog-ui`          | Plugin catalog (UI)   | a specific selection, reordering, or display plugin            |
+| `grid-plugins-editing`             | Editing & UndoRedo    | editors, commit/cancel, dirty tracking, undo transactions      |
 | `grid-plugins-shell`               | Shell plugin          | tool panels, header/toolbar content, shell opt-in model        |
 | `grid-features`                    | Feature registry      | feature registration, factory patterns, feature config         |
 | `adapters`(`-react/-vue/-angular`) | Framework adapters    | React/Vue/Angular bridging, portals, event handling            |

@@ -279,6 +279,15 @@
       &.dragging {
         scale: 1.3;
       }
+
+      /* Tapped rather than dragged: the handle is waiting for the cell that
+         will receive this corner (WCAG 2.2 SC 2.5.7). */
+      &.armed {
+        scale: 1.3;
+        outline: 2px solid var(--tbw-color-accent);
+        outline-offset: -4px;
+        border-radius: 50%;
+      }
     }
   }
 } /* End @layer tbw-plugins */

@@ -76,7 +76,8 @@ Loaded on demand from `.github/knowledge/` — read relevant files before starti
 | `grid-input`                | Input & pointer             | Pointer modality, pointer-drag capture/promotion, coarse long-press priority policy (#302)                                         |
 | `grid-plugins`              | Plugin system               | Plugin manager, lifecycle, hooks, inter-plugin communication, manifest, scroll dispatch                                            |
 | `grid-plugins-catalog-data` | Plugin catalog (data)       | ServerSide, Tree, GroupingRows, Pivot, pinned/virtualized/grouped columns, sorting, filtering, pinned rows, clipboard/export/print |
-| `grid-plugins-catalog-ui`   | Plugin catalog (UI)         | Selection, Editing, UndoRedo, MasterDetail, reordering & drag-drop, Responsive, Tooltip, StickyRows, ContextMenu                   |
+| `grid-plugins-catalog-ui`   | Plugin catalog (UI)         | Selection, MasterDetail, reordering & drag-drop, Responsive, Tooltip, StickyRows, ContextMenu                                      |
+| `grid-plugins-editing`      | Editing & UndoRedo          | Editor injection, commit/cancel flow, keyboard guards, dirty tracking, undo transactions                                           |
 | `grid-plugins-shell`        | Shell plugin                | v3 opt-in model, HARD RULE #370, tool panels, header/toolbar content, dropdown mode                                                |
 | `grid-features`             | Feature registry            | Feature vs plugin distinction, registry pattern, feature catalog, opt-out validation                                               |
 | `adapters`                  | Framework adapters (shared) | Shared adapter conformance, shell-content wrappers, bridge registries, three-way parity                                            |

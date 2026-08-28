@@ -115,7 +115,8 @@ export interface HeaderContextMenuItem {
   /**
    * Sort order for positioning within the menu.
    * Lower values appear first. Default is `100`.
-   * Built-in ranges: sort (10-19), filter (20-29), visibility (30-39), pinning (40-49).
+   * Built-in ranges: sort (10-19), filter (20-29), visibility (30-39),
+   * pinning (40-49), column move (50-59), selection (60-69).
    */
   order?: number;
 }

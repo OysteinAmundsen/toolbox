@@ -1,11 +1,13 @@
 ---
 domain: grid-plugins-catalog-ui
-related: [grid-plugins, grid-plugins-catalog-data, grid-plugins-shell, grid-input, adapters]
+related: [grid-plugins, grid-plugins-catalog-data, grid-plugins-editing, grid-plugins-shell, grid-input, adapters]
 ---
 
 # Plugin Catalog — Interaction & Display Plugins
 
-> Architecture → grid-plugins.md · Shell → grid-plugins-shell.md · row/column model, sorting, filtering, pinned rows, export → grid-plugins-catalog-data.md.
+> Architecture → grid-plugins.md · Shell → grid-plugins-shell.md · Editing/UndoRedo → grid-plugins-editing.md · row/column model, sorting, filtering, pinned rows, export → grid-plugins-catalog-data.md.
+>
+> Read order for "a pointer gesture does the wrong thing": Selection dispatchers → the drag-alternative `DECIDED` bullets (#449) → ContextMenu order bands.
 
 ## Selection & Navigation
 
@@ -24,30 +26,8 @@ OWNS: selected rows/cells/ranges/columns (`Set<field>`), `activeAxis`, normalize
   - DECIDED (Aug 2026): range corner handles are **touch-only** — `#rangeFromCoarsePointer` (set from `#isCoarseEvent(originalEvent)` in BOTH `onCellMouseDown` range branch and `#clickSelectRange`) gates `#renderTouchChrome`'s `rect`. WHY: on desktop only the most recent Ctrl-range carries handles, so they sit inside other ranges and obstruct drag-select.
   - TENSION: selection chunk +2.39 kB gz — `pointer-drag.ts` inlines (plugin entries are self-contained, `manualChunks: undefined`); ≤50 kB gz/plugin passes.
   - Tests: `touch-selection.spec.ts` → "does not render handles for a mouse-started range" / "renders handles for a tap-created range". Stubbing `matchMedia` per-test does NOT work for `getPrimaryPointer()` — `pointer-modality.ts` caches one shared MediaQueryList module-level; assert via `pointerType`.
-
-## Editing & Undo
-
-### Editing
-
-OWNS: active cell, editor snapshots, changed rows, dirty tracking. HOOKS: processColumns, processRows, afterCellRender, afterRowRender, onCellClick, onKeyDown. EVENTS: `cell-commit`, `row-commit`, `edit-open|close`. TENSION: caches the sort result during an edit so the edited row doesn't jump.
-
-- DECIDED (Jul 2026): `onKeyDown` is a `switch (event.key)` dispatcher only; logic lives in `#onEscapeKey`/`#onArrowKey`/`#onTabKey`/`#onSpaceKey`/`#onEnterKey` (→ `#onEnterWhileEditorFocused`, `#beginRowEditFromEnter`)/`#onF2Key`. MUST NOT re-inline — the `#347`, `#427`, `#251`, `#250` guards each live in one specific branch.
-- FLOW (`#exitRowEdit`, order is load-bearing): `#resolveEditedRow` (ID map → `#activeEditRowRef` → `_rows[rowIndex]`) → `#commitActiveEditors` (skips `data-editor-managed`) → `before-edit-close` → revert | `#finalizeRowCommit` (cancelable `row-commit`, dirty refresh, queue animation) → `#clearRowEditState` → `#pendingFocusRestore = true` → `#teardownRowEditors` → `edit-close`. MUST set `#pendingFocusRestore` before `#teardownRowEditors` (its `refreshVirtualWindow(true)` runs `afterRender()` synchronously and reads it); `releaseCell` MUST run while editor DOM is still in the cell or overlay editors leak `<body>` panels.
-- DECIDED (Jul 2026, `getInputValue`): `libs/grid/src/lib/plugins/editing/editors.ts` switches on `input.type` over `readNumericValue`/`readDateValue`/`readTextInputValue`, plus `readTextControlValue` for `<textarea>`/`<select>`. INVARIANT: every branch PRESERVES THE ORIGINAL VALUE'S TYPE and distinguishes `nullable` empty → `null` from non-nullable empty → `''`/`min`; MUST NOT be "simplified" to `input.value`.
-- RULE: editor detection MUST use `closest(FOCUSABLE_EDITOR_SELECTOR)`, never `matches()` — non-focusable descendants (`<option>`, spans in `contenteditable`) fail it.
-- DECIDED (#347 + #427, popup-`<select>` keyboard): in `mode:'grid'` ArrowUp/Down MUST NOT navigate cells when the keydown target is inside an editor descendant; Enter on a popup `<option>` MUST bail WITHOUT `preventDefault`/`stopPropagation` — in BOTH `editor-injection.ts` host-keydown AND `EditingPlugin.onKeyDown`. #427: that guard (`getEditorAncestor(target) !== target`) MUST sit ABOVE the mode split — inside `isGridMode` only, ROW mode fell through and DISCARDED the picked value. WHY: Chromium's popup walks focus SELECT→OPTION (flips `#gridModeInputFocused`) and `preventDefault` blocks the native commit; Enter-on-open-popup defers to native (`change`), a SECOND Enter exits the row. Enter with no popup: commit + blur + focus grid (`#gridModeEditLocked = true`). RULE: editor-chain keydown handlers MUST NOT `stopPropagation` in grid mode.
-- DECIDED (Apr 2026): row-mode ArrowUp/Down MUST NOT commit + jump to the adjacent row while a row is in edit mode — returns `true` (handled, no-op) so the focused editor consumes the key natively; same rationale as the `editing && colType === 'select'` early return in `core/internal/keyboard.ts`.
-- DECIDED (#250): the `editor-injection.ts` keydown handler MUST short-circuit on `e.defaultPrevented` BEFORE inspecting `e.key` — portal pickers (Downshift, MUI date) `preventDefault()` on option-confirming Enter; without it the editor tears down first.
-- INVARIANT (`ColumnEditorContext` idempotency): `ctx.commit`/`ctx.cancel` are one-shot — `libs/grid/src/lib/plugins/editing/internal/editor-injection.ts` L119-120 `commit` returns early when `editFinalized` is set, L135-143 `cancel` sets it unconditionally, so the built-in `Escape→cancel` + `blur→commit` pair is safe. Custom editors MUST guard their OWN teardown (e.g. `mask.destroy()`) and MUST NOT `preventDefault`/`stopPropagation` on Enter/Escape — the host keydown listener (L306-308) needs them to drive `exitRowEdit()`. Recipe: `apps/docs/src/content/docs/grid/recipes/input-masks-validation.mdx`.
-- DECIDED (#251, overlay-editor parity): (1) generic `aria-expanded="true" + aria-controls=<id>` fallback via `isInsideOpenAriaOverlay(target, scopeEl)`, called from `editor-injection.ts` host keydown, `EditingPlugin.onKeyDown` and document-pointerdown outside-click; (2) opt-in `ColumnEditorContext.grid` → `registerExternalFocusContainer(panel)` or `useGridOverlay(panelRef,{open})`. Tests: `editing-overlay-aria.spec.ts`, `use-grid-overlay.spec.tsx`.
-- DECIDED (Jul 2026, `commitCellValue`): EditingPlugin answers the core `commitCellValue` query (`#handleCommitCellValue`) so `grid.updateRow/updateRows` route programmatic mutations through the full edit pipeline; `source:'history'` applies + recomputes dirty but does NOT re-record history (undo-loop fix). Plugin bundle budget 50 → 55 kB for editing (the outlier). Contract: grid-plugins.md § inter-plugin-communication.
-- DECIDED (Jul 2026, `source:'sync'`): applies the value in place AND re-baselines the cell (`DirtyTrackingManager.rebaselineCell`) — no dirty marking, no undo history, no cascade. Re-baseline (not skip) because `dirtyTracking` deep-compares a whole-row `structuredClone` baseline. Runs BEFORE the column guard so non-column fields re-baseline too. `cell-change` still fires; `cell-edit-committed` does not, so UndoRedo stays clean. Adapters route value-only, same-order/count rows-prop updates through `updateRows(diff,'sync')` (unresolvable id → full `el.rows` replace): `grid-react/src/lib/data-grid.tsx`, `grid-angular/src/lib/directives/{grid.directive.ts,row-diff.ts}`, `grid-vue/src/lib/TbwGrid.vue`.
-
-### UndoRedo
-
-OWNS: undo/redo stacks. HOOKS: onKeyDown (Ctrl+Z/Y). DEPENDS: editing (required). Applies reverts via `grid.updateRow(id, {field: val}, 'history')` — the `'history'` source makes Editing apply-without-re-recording (`#suppressRecording` guards the buffered path).
-
-- DECIDED (Jul 2026, TBW111): `beginTransaction()`/`endTransaction()` are re-entrant via `#transactionDepth`; only the outermost `endTransaction` finalizes the buffer, and nesting coalesces a paste into ONE compound undo entry. WHY: paste emits one synchronous `cell-commit` per cell; consumers bracketing each with `beginTransaction()` + `queueMicrotask(endTransaction)` hit a nested begin and the old `TRANSACTION_IN_PROGRESS` throw escaped the loop ("paste only fills one cell"). `endTransaction` still throws `NO_TRANSACTION` at depth 0; depth reset in `detach()` + `clearHistory()`.
+- DECIDED (#449, SC 2.5.7): range paint-drag gets TWO pointer alternatives, both reusing existing affordances (zero new chrome). (1) `getContextMenuItems` contributes **"Extend selection to here"** at `EXTEND_ITEM_ORDER = 60` (own tens band, below column move 50s); extends from `#extendAnchor` → `params.rowIndex/columnIndex` (`ContextMenuParams.columnIndex` IS `data-col`, same space as `colIndex`). `#extendAnchor` is SEPARATE from `cellAnchor` because right-click outside the range re-anchors `cellAnchor` at the clicked cell — `#setExtendAnchor` skips `button === 2`. (2) `RangeCornerHandles` handles are now `role="button"` + `aria-label` + `aria-pressed`; `#onPointerDown` tracks `moved` inside `onMove` and branches in `onEnd` (tap → `callbacks.arm(corner)`, drag → `commit()`), because `startPointerDrag` promotes immediately. Armed corner: `onCellMouseDown` returns `true` early (swallow, no drag reset), `#clickSelectRange` places it, `Escape` disarms BEFORE the touch-mode/clear branches.
+  - INVARIANT: the fallback `createDragAlternativeMenu('tbw-range-extend-menu', …)` is bound as ONE delegated `contextmenu` listener on the grid host (cells are recycled every render) and MUST bail when `#contextMenuPlugin()` is truthy — else two menus stack.
 
 ## Row Details
 
@@ -127,4 +107,4 @@ OWNS: `.tbw-sticky-rows` overlay container, clone cache by row index, displayed 
 ### ContextMenu
 
 OWNS: menu items, open state. HOOKS: afterRender, onKeyDown. QUERIES: `getContextMenuItems` (collects contributions from all plugins).
-INVARIANT: contributions sort by `order` (default 100); `insertGroupSeparators` groups by the TENS digit. Bands: sort 10s, filter 20s, visibility 30s, pinning 40s, column move 50-53 (reorder-columns, #449). A plugin that contributes AND self-hosts its own menu MUST bail when `grid.getPluginByName('contextMenu')` is truthy, else two menus stack.
+INVARIANT: contributions sort by `order` (default 100); `insertGroupSeparators` groups by the TENS digit. Bands: sort 10s, filter 20s, visibility 30s, pinning 40s, column move 50-53 (reorder-columns, #449), selection 60 (range extend, #449). A plugin that contributes AND self-hosts its own menu MUST bail when `grid.getPluginByName('contextMenu')` is truthy, else two menus stack.

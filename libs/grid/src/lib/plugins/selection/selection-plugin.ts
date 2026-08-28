@@ -16,6 +16,12 @@ import type { GridElement, HeaderClickEvent, PluginManifest, PluginQuery } from 
 import { BaseGridPlugin, CellClickEvent, CellMouseEvent } from '../../core/plugin/base-plugin';
 import { isExpanderColumn, isUtilityColumn } from '../../core/plugin/expander-column';
 import type { ColumnConfig } from '../../core/types';
+import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
+import {
+  type DragAlternativeAction,
+  type DragAlternativeMenu,
+  createDragAlternativeMenu,
+} from '../shared/drag-alternative-menu';
 import {
   computeKeyboardExtension,
   fieldsBetween,
@@ -61,6 +67,13 @@ function primaryModeOf(mode: SelectionMode | SelectionMode[] | undefined): Selec
 
 /** Special field name for the selection checkbox column */
 const CHECKBOX_COLUMN_FIELD = '__tbw_checkbox';
+
+/**
+ * Order band for the range-extension item contributed to the context menu.
+ * `insertGroupSeparators` groups by the tens digit, so 60 keeps it in its own
+ * group below column move (50-53).
+ */
+const EXTEND_ITEM_ORDER = 60;
 
 /** Keys that move grid focus — selection reacts to these in cell/range mode. */
 const NAV_KEYS: readonly string[] = [
@@ -250,6 +263,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       { type: 'getSelectedRows', description: 'Get actual row objects for the current selection (works in all modes)' },
       { type: 'getSelectedColumns', description: 'Get field names of selected columns (column mode only)' },
       { type: 'selectColumns', description: 'Select specific columns by field name (column mode only)' },
+      {
+        type: 'getContextMenuItems',
+        description: 'Contribute the non-dragging range-extension action (WCAG 2.2 SC 2.5.7)',
+      },
     ],
     configRules: [
       {
@@ -311,6 +328,21 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   #rangeFromCoarsePointer = false;
   readonly #toolbar = new SelectionToolbar();
   readonly #cornerHandles = new RangeCornerHandles();
+
+  // #endregion
+
+  // #region Non-dragging range alternatives (WCAG 2.2 SC 2.5.7)
+
+  /** Corner waiting for the tap that will place it, set by tapping its handle. */
+  #armedCorner: RangeCorner | null = null;
+  /**
+   * Last cell the user deliberately anchored with a *primary* interaction.
+   * Kept separate from {@link cellAnchor} because a right-click outside the
+   * range re-anchors that one so the menu targets the clicked cell — which
+   * would leave "Extend selection to here" with nothing to extend from.
+   */
+  #extendAnchor: { row: number; col: number } | null = null;
+  #extendMenu: DragAlternativeMenu | null = null;
 
   // #endregion
 
@@ -479,6 +511,25 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       }) as EventListener,
       { signal: this.disconnectSignal },
     );
+
+    // SC 2.5.7 fallback: without a ContextMenuPlugin there is no menu to
+    // contribute "Extend selection to here" to, so host a bare one. Delegated
+    // rather than per-cell — cells are recycled on every render.
+    grid.addEventListener(
+      'contextmenu',
+      ((event: MouseEvent) => {
+        if (this.#contextMenuPlugin()) return; // the real menu owns this gesture
+        const cell = (event.target as Element | null)?.closest?.<HTMLElement>('.cell[data-row][data-col]');
+        if (!cell) return;
+        const row = parseInt(cell.getAttribute('data-row') ?? '-1', 10);
+        const col = parseInt(cell.getAttribute('data-col') ?? '-1', 10);
+        const actions = this.#extendActions(row, col);
+        if (!actions) return;
+        event.preventDefault();
+        this.#openExtendMenu(cell, actions);
+      }) as EventListener,
+      { signal: this.disconnectSignal },
+    );
   }
 
   /**
@@ -507,6 +558,21 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       this.#setColumnSelection(fields);
       return true;
     }
+    if (query.type === 'getContextMenuItems') {
+      const params = query.context as ContextMenuParams | undefined;
+      if (!params || params.isHeader) return undefined;
+      const actions = this.#extendActions(params.rowIndex, params.columnIndex);
+      if (!actions) return undefined;
+      return actions.map(
+        (action, i): HeaderContextMenuItem => ({
+          id: `selection-extend-${i}`,
+          label: action.label,
+          disabled: action.disabled,
+          action: () => action.run(),
+          order: EXTEND_ITEM_ORDER + i,
+        }),
+      );
+    }
     return undefined;
   }
 
@@ -519,6 +585,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
     this.#toolbar.destroy();
     this.#cornerHandles.destroy();
+    this.#extendMenu?.dispose();
+    this.#extendMenu = null;
+    this.#armedCorner = null;
+    this.#extendAnchor = null;
     this.#touchActive = false;
 
     this.selected.clear();
@@ -689,6 +759,81 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.requestAfterRender();
   }
 
+  // #endregion
+  // #region Non-dragging range alternatives (WCAG 2.2 SC 2.5.7)
+
+  /**
+   * The single-pointer alternative to paint-dragging a range: click the first
+   * cell as usual, then open the context menu on the opposite corner and pick
+   * "Extend selection to here".
+   *
+   * Returns `null` — not an empty array — when the action does not apply, so
+   * the plugin contributes nothing rather than a dead entry.
+   */
+  #extendActions(rowIndex: number, colIndex: number): DragAlternativeAction[] | null {
+    if (this.#mode.primary !== 'range') return null;
+    if (!this.isSelectionEnabled()) return null;
+    if (rowIndex < 0 || colIndex < 0) return null;
+    if (!this.isCellSelectable(rowIndex, colIndex)) return null;
+    const anchor = this.#extendAnchor;
+    if (!anchor) return null;
+    if (anchor.row === rowIndex && anchor.col === colIndex) return null;
+    return [
+      {
+        label: 'Extend selection to here',
+        run: () => this.#extendSelectionTo(rowIndex, colIndex),
+      },
+    ];
+  }
+
+  /** Replace the active range with the rectangle from {@link #extendAnchor} to (row, col). */
+  #extendSelectionTo(row: number, col: number): void {
+    const anchor = this.#extendAnchor;
+    if (!anchor) return;
+    const next = createRangeFromAnchor(anchor, { row, col });
+    this.ranges = [next];
+    this.activeRange = next;
+    this.cellAnchor = anchor;
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
+  }
+
+  /**
+   * Fallback menu for when no `ContextMenuPlugin` is registered. The alternative
+   * to a drag must exist whether or not an optional plugin is installed, so the
+   * shared bare menu stands in — but it must never stack on top of the real one.
+   */
+  #openExtendMenu(anchor: HTMLElement, actions: DragAlternativeAction[]): void {
+    this.#extendMenu ??= createDragAlternativeMenu('tbw-range-extend-menu', 'tbw-range-extend-menu');
+    this.#extendMenu.open(anchor, 'Selection', actions);
+  }
+
+  /**
+   * Arm (or disarm) a range corner after its handle was tapped rather than
+   * dragged. The next cell click places the corner.
+   */
+  #armRangeCorner(corner: RangeCorner): void {
+    this.#armedCorner = this.#armedCorner === corner ? null : corner;
+    this.#cornerHandles.setArmed(this.#armedCorner);
+    if (this.gridElement) {
+      announce(
+        this.gridElement,
+        this.#armedCorner ? 'Select a cell to place the selection corner' : 'Selection corner placement cancelled',
+      );
+    }
+  }
+
+  /** Clear any armed corner. Returns `true` when something was actually cleared. */
+  #disarmRangeCorner(): boolean {
+    if (!this.#armedCorner) return false;
+    this.#armedCorner = null;
+    this.#cornerHandles.setArmed(null);
+    return true;
+  }
+
+  // #endregion
+  // #region Touch chrome
+
   /**
    * Render (or tear down) the touch chrome: the selection-mode toolbar and the
    * range corner handles. Called from `afterRender()`.
@@ -720,10 +865,12 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         ? this.ranges[this.ranges.length - 1]
         : null;
     const rect: RangeRect | null = active ? normalizeRange(active) : null;
+    if (!rect) this.#disarmRangeCorner();
     this.#cornerHandles.render(container, rect, (row, col) => this.#cellFor(row, col), {
       cellAt: (x, y) => this.#cellAtPoint(x, y),
       resize: (corner, row, col) => this.#resizeRangeCorner(corner, row, col),
       commit: () => this.requestAfterRender(),
+      arm: (corner) => this.#armRangeCorner(corner),
     });
   }
 
@@ -842,6 +989,15 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (event.column && isUtilityColumn(event.column)) return false;
     if (!this.isCellSelectable(rowIndex, colIndex)) return false;
 
+    // A tapped (not dragged) corner handle is waiting for a destination — this
+    // click places it instead of starting a new selection (SC 2.5.7).
+    if (this.#armedCorner) {
+      const corner = this.#armedCorner;
+      this.#disarmRangeCorner();
+      this.#resizeRangeCorner(corner, rowIndex, colIndex);
+      return true;
+    }
+
     // A tap never reaches `onCellMouseDown` (coarse presses only dispatch it
     // after a long-press), so the handle gate has to be updated here too.
     this.#rangeFromCoarsePointer = this.#isCoarseEvent(originalEvent);
@@ -877,6 +1033,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       }
       this.activeRange = newRange;
       this.cellAnchor = { row: rowIndex, col: colIndex };
+      this.#extendAnchor = { row: rowIndex, col: colIndex };
     }
 
     this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
@@ -892,6 +1049,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (this.#mode.columnEnabled && this.#keyColumnAxis(event)) return true;
 
     const mode = this.#mode.primary;
+
+    // Escape unwinds one step at a time: an armed range corner first, then
+    // touch selection mode, then the selection itself.
+    if (event.key === 'Escape' && this.#disarmRangeCorner()) return true;
 
     // Escape leaves touch selection mode first (an external keyboard is the
     // documented escape hatch), and only clears selection on a second press.
@@ -1093,6 +1254,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (event.rowIndex === undefined || event.colIndex === undefined) return;
     if (event.rowIndex < 0) return; // Header
 
+    // A tapped corner handle owns the next press: swallow it so no drag starts
+    // and the range is not reset before `onCellClick` places the corner.
+    if (this.#armedCorner) return true;
+
     this.#rangeFromCoarsePointer = this.#isCoarseEvent(event.originalEvent);
 
     // Right-click (secondary button) inside an existing range must NOT clear the
@@ -1138,10 +1303,12 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (!ctrlKey && this.ranges.length === 1 && rangesEqual(this.ranges[0], newRange)) {
       // Same cell already selected, just update anchor for potential drag
       this.cellAnchor = { row: rowIndex, col: colIndex };
+      this.#setExtendAnchor(event, rowIndex, colIndex);
       return true;
     }
 
     this.cellAnchor = { row: rowIndex, col: colIndex };
+    this.#setExtendAnchor(event, rowIndex, colIndex);
 
     if (!ctrlKey) {
       this.ranges = [];
@@ -1153,6 +1320,17 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
     this.requestAfterRender();
     return true;
+  }
+
+  /**
+   * Remember where a *primary* press anchored the range. A secondary press is
+   * deliberately ignored: right-clicking outside the range re-anchors
+   * {@link cellAnchor} so the menu targets the clicked cell, and reusing that
+   * would make "Extend selection to here" extend from itself.
+   */
+  #setExtendAnchor(event: CellMouseEvent, row: number, col: number): void {
+    if (event.originalEvent.button === 2) return;
+    this.#extendAnchor = { row, col };
   }
 
   /** @internal */

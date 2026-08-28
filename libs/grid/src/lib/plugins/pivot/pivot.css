@@ -280,6 +280,51 @@
     color: var(--tbw-pivot-chip-remove-hover-fg, var(--tbw-color-accent-fg));
   }
 
+  /* ===== Chip move menu (WCAG 2.2 SC 2.5.7) ===== */
+
+  .tbw-pivot-chip-menu {
+    position: fixed;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    min-width: 12rem;
+    padding: var(--tbw-spacing-xs, 0.25rem);
+    background: var(--tbw-color-panel-bg, light-dark(#ffffff, #1f1f1f));
+    color: var(--tbw-color-fg, light-dark(#1a1a1a, #f0f0f0));
+    border: 1px solid var(--tbw-color-border, light-dark(#d0d0d0, #3a3a3a));
+    border-radius: var(--tbw-border-radius, 0.25rem);
+    box-shadow: var(--tbw-shadow-md, 0 4px 12px rgb(0 0 0 / 25%));
+    font: inherit;
+    z-index: 10001;
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  .tbw-pivot-chip-menu-item {
+    min-height: var(--tbw-touch-target-min, 24px);
+    padding: var(--tbw-spacing-xs, 0.25rem) var(--tbw-spacing-sm, 0.5rem);
+    text-align: start;
+    background: none;
+    border: none;
+    /* Themes set radii for much larger surfaces (Material uses 12px), which
+       turns a 24px row into a lozenge. */
+    border-radius: min(var(--tbw-border-radius, 0.25rem), 6px);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background: var(--tbw-color-row-hover, light-dark(#f0f0f0, #2a2a2a));
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+  }
+
   /* ===== Value Chips ===== */
 
   .tbw-pivot-value-chip {

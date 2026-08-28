@@ -14,6 +14,8 @@ describe('pivot-panel', () => {
     onTogglePivot: ReturnType<typeof vi.fn>;
     onAddFieldToZone: ReturnType<typeof vi.fn>;
     onRemoveFieldFromZone: ReturnType<typeof vi.fn>;
+    onReorderFieldInZone: ReturnType<typeof vi.fn>;
+    onMoveFieldBetweenZones: ReturnType<typeof vi.fn>;
     onAddValueField: ReturnType<typeof vi.fn>;
     onRemoveValueField: ReturnType<typeof vi.fn>;
     onUpdateValueAggFunc: ReturnType<typeof vi.fn>;
@@ -36,6 +38,8 @@ describe('pivot-panel', () => {
       onTogglePivot: vi.fn(),
       onAddFieldToZone: vi.fn(),
       onRemoveFieldFromZone: vi.fn(),
+      onReorderFieldInZone: vi.fn(),
+      onMoveFieldBetweenZones: vi.fn(),
       onAddValueField: vi.fn(),
       onRemoveValueField: vi.fn(),
       onUpdateValueAggFunc: vi.fn(),
@@ -405,6 +409,136 @@ describe('pivot-panel', () => {
 
       const chipLabel = container.querySelector('[data-zone="rowGroups"] .tbw-pivot-chip-label');
       expect(chipLabel?.textContent).toBe('unknownField');
+    });
+  });
+
+  describe('click-only chip menu (SC 2.5.7)', () => {
+    let cleanup: () => void;
+
+    const render = (config: PivotConfig) => {
+      cleanup = renderPivotPanel(container, config, false, callbacks);
+    };
+
+    const menu = () => document.querySelector<HTMLElement>('#tbw-pivot-chip-menu');
+    const items = () => [...(menu()?.querySelectorAll<HTMLButtonElement>('.tbw-pivot-chip-menu-item') ?? [])];
+    const item = (label: string) => items().find((b) => b.textContent === label);
+
+    const groupChip = (zone: string, header: string) =>
+      [...container.querySelectorAll<HTMLElement>(`[data-zone="${zone}"] .tbw-pivot-field-chip`)].find(
+        (c) => c.querySelector('.tbw-pivot-chip-label')?.textContent === header,
+      ) as HTMLElement;
+
+    const availableChip = (header: string) =>
+      [...container.querySelectorAll<HTMLElement>('.tbw-pivot-available-fields .tbw-pivot-field-chip')].find(
+        (c) => c.textContent === header,
+      ) as HTMLElement;
+
+    afterEach(() => cleanup?.());
+
+    it('names the group chip without hiding its remove button', () => {
+      render({ rowGroupFields: ['category'] });
+
+      const label = groupChip('rowGroups', 'Category').querySelector('.tbw-pivot-chip-label') as HTMLElement;
+      expect(label.getAttribute('role')).toBe('button');
+      expect(label.tabIndex).toBe(-1);
+      expect(label.getAttribute('aria-label')).toBe('Category — drag, or activate for move options');
+      // The role sits on the label so the remove button stays a real button.
+      expect(groupChip('rowGroups', 'Category').querySelector('.tbw-pivot-chip-remove')).not.toBeNull();
+    });
+
+    it('opens a move menu when a group chip is clicked', () => {
+      render({ rowGroupFields: ['category', 'region'] });
+
+      groupChip('rowGroups', 'Category').click();
+
+      expect(menu()?.hidden).toBe(false);
+      expect(menu()?.getAttribute('aria-label')).toBe('Category');
+      expect(items().map((b) => b.textContent)).toEqual([
+        'Move up',
+        'Move down',
+        'Move to Column Groups',
+        'Move to Values',
+        'Remove field',
+      ]);
+    });
+
+    it('disables the step that would leave the zone', () => {
+      render({ rowGroupFields: ['category', 'region'] });
+
+      groupChip('rowGroups', 'Category').click();
+      expect(item('Move up')?.disabled).toBe(true);
+      expect(item('Move down')?.disabled).toBe(false);
+
+      groupChip('rowGroups', 'Region').click();
+      expect(item('Move up')?.disabled).toBe(false);
+      expect(item('Move down')?.disabled).toBe(true);
+    });
+
+    it('steps a field up within its zone', () => {
+      render({ rowGroupFields: ['category', 'region'] });
+
+      groupChip('rowGroups', 'Region').click();
+      item('Move up')?.click();
+
+      expect(callbackSpies.onReorderFieldInZone).toHaveBeenCalledWith('region', 'rowGroups', 0);
+    });
+
+    it('steps a field down past the one that follows it', () => {
+      render({ rowGroupFields: ['category', 'region'] });
+
+      groupChip('rowGroups', 'Category').click();
+      item('Move down')?.click();
+
+      expect(callbackSpies.onReorderFieldInZone).toHaveBeenCalledWith('category', 'rowGroups', 2);
+    });
+
+    it('moves a field to the opposite group zone', () => {
+      render({ columnGroupFields: ['region'] });
+
+      groupChip('columnGroups', 'Region').click();
+      expect(item('Move to Row Groups')).toBeDefined();
+      item('Move to Row Groups')?.click();
+
+      expect(callbackSpies.onMoveFieldBetweenZones).toHaveBeenCalledWith('region', 'columnGroups', 'rowGroups');
+    });
+
+    it('moves a field to the values zone the same way a drop does', () => {
+      render({ rowGroupFields: ['category'] });
+
+      groupChip('rowGroups', 'Category').click();
+      item('Move to Values')?.click();
+
+      expect(callbackSpies.onAddValueField).toHaveBeenCalledWith('category', 'sum');
+    });
+
+    it('removes a field from its zone', () => {
+      render({ rowGroupFields: ['category'] });
+
+      groupChip('rowGroups', 'Category').click();
+      item('Remove field')?.click();
+
+      expect(callbackSpies.onRemoveFieldFromZone).toHaveBeenCalledWith('category', 'rowGroups');
+    });
+
+    it('offers every zone from an unused field', () => {
+      render({ rowGroupFields: ['category'] });
+
+      availableChip('Region').click();
+
+      expect(items().map((b) => b.textContent)).toEqual(['Add to Row Groups', 'Add to Column Groups', 'Add to Values']);
+
+      item('Add to Column Groups')?.click();
+      expect(callbackSpies.onAddFieldToZone).toHaveBeenCalledWith('region', 'columnGroups');
+    });
+
+    it('removes the menu on cleanup', () => {
+      render({ rowGroupFields: ['category'] });
+      groupChip('rowGroups', 'Category').click();
+      expect(menu()).not.toBeNull();
+
+      cleanup();
+
+      expect(menu()).toBeNull();
     });
   });
 

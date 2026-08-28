@@ -249,7 +249,7 @@
 
       &:hover,
       &:focus-visible {
-        background: var(--tbw-color-hover-bg);
+        background: var(--tbw-color-row-hover, light-dark(#f0f0f0, #2a2a2a));
       }
 
       &[data-action='done'] {

@@ -128,6 +128,16 @@ The pivot plugin registers a tool panel for interactive configuration:
 - **Values**: Aggregated value fields with selectable aggregation function
 - **Options**: Toggle totals, grand total, and default expansion state
 
+## Accessibility
+
+Conforms to WCAG 2.2 SC 2.5.7 Dragging Movements: clicking a field chip (press and release
+without moving — no `dragstart` fires) opens a menu of the same moves a drag would make. A chip
+in Row Groups or Column Groups offers **Move up**, **Move down**, **Move to Column Groups** /
+**Move to Row Groups**, **Move to Values** and **Remove field**; a chip in Available Fields
+offers **Add to Row Groups**, **Add to Column Groups** and **Add to Values**. Steps that would
+run off the end of a zone are rendered disabled rather than hidden. Each chip is named
+_"&lt;field&gt; — drag, or activate for move options"_.
+
 ## Sorting
 
 Click any pivot column header to sort. When the [Multi-Sort plugin](../multi-sort/) is also loaded, shift-click adds secondary sort columns with numbered priority badges. Pivot translates the sort model into hierarchical sorting that respects the group structure.

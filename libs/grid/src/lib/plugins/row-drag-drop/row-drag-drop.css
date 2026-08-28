@@ -196,7 +196,7 @@
     cursor: pointer;
 
     &:hover:not(:disabled) {
-      background: var(--tbw-color-hover-bg, light-dark(#f0f0f0, #2a2a2a));
+      background: var(--tbw-color-row-hover, light-dark(#f0f0f0, #2a2a2a));
     }
 
     &:disabled {

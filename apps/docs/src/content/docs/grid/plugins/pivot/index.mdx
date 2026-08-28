@@ -263,6 +263,18 @@ When `showToolPanel: true` (default), the pivot panel lets users configure the p
 
 The panel fires `pivot-config-change` events when users modify the configuration.
 
+## Accessibility
+
+The pivot panel satisfies [WCAG 2.2 SC 2.5.7 Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html): every field move that can be made by dragging a chip can also be made with a single pointer that never drags.
+
+- **Click the chip you would have dragged** — pressing and releasing a field chip without moving is a tap, not a drag. HTML5 drag-and-drop only fires `dragstart` on a real drag, so a plain click means the pointer user could not (or chose not to) drag, and the panel opens a menu of click-only actions instead.
+- **Chips already in a zone** — the menu offers **Move up**, **Move down**, **Move to Column Groups** (or **Move to Row Groups** from the column zone), **Move to Values** and **Remove field**. Steps that would run off the end of the zone are rendered disabled rather than hidden. Every entry calls the same panel callback a drop does, so the resulting `pivot-config-change` event is identical.
+- **Chips in Available Fields** — the menu offers **Add to Row Groups**, **Add to Column Groups** and **Add to Values**, matching the three zones a chip can be dropped on.
+- **No reserved chrome** — the alternative reuses the chip itself, so it costs no extra panel width. SC 2.5.7 requires the alternative to _exist_ and be pointer-operable, not to be permanently on screen.
+- **Chip semantics** — the accessible name is _"&lt;field&gt; — drag, or activate for move options"_ so the dual purpose is announced. On a chip that owns a remove button, the name and `role="button"` sit on the chip's label rather than the chip, because `role="button"` would make the remove button presentational. The menu itself is a `role="group"` of plain buttons; focus moves to the first enabled entry on open, <kbd>Escape</kbd> closes it, and moving focus outside dismisses it.
+
+See [Pointer Alternatives to Dragging](/grid/guides/accessibility/#pointer-alternatives-to-dragging) for how this fits the grid-wide `a11y.dragAlternatives` setting.
+
 ## Animation
 
 The plugin supports animated expand/collapse transitions. Animation respects the grid-level

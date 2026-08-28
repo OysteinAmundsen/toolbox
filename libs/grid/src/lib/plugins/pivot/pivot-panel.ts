@@ -7,10 +7,24 @@
 
 import { GridClasses } from '../../core/constants';
 import type { Translate } from '../../core/types';
+import {
+  createDragAlternativeMenu,
+  type DragAlternativeAction,
+  type DragAlternativeMenu,
+} from '../shared/drag-alternative-menu';
 import type { AggFunc, CustomAggFunc, PivotConfig, PivotValueField } from './types';
 
 /** Built-in aggregation function names (excludes custom functions) */
 type BuiltInAggFunc = Exclude<AggFunc, CustomAggFunc>;
+
+/** Zones a field can be dragged into. */
+type GroupZone = 'rowGroups' | 'columnGroups';
+
+/**
+ * One menu shared by every chip. Each action re-renders the whole panel, so a
+ * menu owned by a chip would be torn out from under itself mid-click.
+ */
+let chipMenu: DragAlternativeMenu | null = null;
 
 /** All available built-in aggregation functions for the panel UI */
 export const AGG_FUNCS: BuiltInAggFunc[] = ['sum', 'avg', 'count', 'min', 'max', 'first', 'last'];
@@ -89,8 +103,89 @@ export function renderPivotPanel(
   // Cleanup: abort all listeners, then remove DOM
   return () => {
     controller.abort();
+    chipMenu?.dispose();
+    chipMenu = null;
     wrapper.remove();
   };
+}
+
+/**
+ * Show the click-only alternative to dragging `chip` (WCAG 2.2 SC 2.5.7).
+ */
+function openChipMenu(chip: HTMLElement, label: string, actions: readonly DragAlternativeAction[]): void {
+  chipMenu ??= createDragAlternativeMenu('tbw-pivot-chip-menu', 'tbw-pivot-chip-menu');
+  chipMenu.open(chip, label, actions);
+}
+
+/**
+ * Mark a chip as the pointer trigger for its move menu.
+ *
+ * The role goes on `target`, which for group chips is the label rather than the
+ * chip itself — `role="button"` makes descendants presentational, which would
+ * hide the chip's own remove button from assistive technology.
+ */
+function markAsMenuTrigger(target: HTMLElement, name: string, t: Translate): void {
+  target.setAttribute('role', 'button');
+  target.tabIndex = -1;
+  target.setAttribute('aria-label', `${name} — ${t('pivot.chipHint', 'drag, or activate for move options')}`);
+}
+
+/** Menu entries mirroring every drag the chip supports, plus its remove button. */
+function fieldChipActions(field: string, zoneType: GroupZone, ctx: RenderContext): DragAlternativeAction[] {
+  const { config, callbacks, t } = ctx;
+  const fields = zoneType === 'rowGroups' ? (config.rowGroupFields ?? []) : (config.columnGroupFields ?? []);
+  const index = fields.indexOf(field);
+  const otherZone: GroupZone = zoneType === 'rowGroups' ? 'columnGroups' : 'rowGroups';
+
+  return [
+    {
+      label: t('pivot.moveUp', 'Move up'),
+      disabled: index <= 0,
+      run: () => callbacks.onReorderFieldInZone(field, zoneType, index - 1),
+    },
+    {
+      label: t('pivot.moveDown', 'Move down'),
+      disabled: index < 0 || index >= fields.length - 1,
+      // The callback takes an insert-before index in the pre-move list, so
+      // stepping down one place means aiming past the field that follows.
+      run: () => callbacks.onReorderFieldInZone(field, zoneType, index + 2),
+    },
+    {
+      label:
+        otherZone === 'columnGroups'
+          ? t('pivot.moveToColumnGroups', 'Move to Column Groups')
+          : t('pivot.moveToRowGroups', 'Move to Row Groups'),
+      run: () => callbacks.onMoveFieldBetweenZones(field, zoneType, otherZone),
+    },
+    {
+      // Matches dropping the chip on the values zone, which also only adds.
+      label: t('pivot.moveToValues', 'Move to Values'),
+      run: () => callbacks.onAddValueField(field, 'sum'),
+    },
+    {
+      label: t('pivot.removeField', 'Remove field'),
+      run: () => callbacks.onRemoveFieldFromZone(field, zoneType),
+    },
+  ];
+}
+
+/** Menu entries for an unused field, mirroring a drag into each zone. */
+function availableChipActions(field: string, ctx: RenderContext): DragAlternativeAction[] {
+  const { callbacks, t } = ctx;
+  return [
+    {
+      label: t('pivot.addToRowGroups', 'Add to Row Groups'),
+      run: () => callbacks.onAddFieldToZone(field, 'rowGroups'),
+    },
+    {
+      label: t('pivot.addToColumnGroups', 'Add to Column Groups'),
+      run: () => callbacks.onAddFieldToZone(field, 'columnGroups'),
+    },
+    {
+      label: t('pivot.addToValues', 'Add to Values'),
+      run: () => callbacks.onAddValueField(field, 'sum'),
+    },
+  ];
 }
 
 /**
@@ -195,16 +290,18 @@ function createFieldZone(zoneType: 'rowGroups' | 'columnGroups', ctx: RenderCont
 /**
  * Create a field chip for row/column zones.
  */
-function createFieldChip(field: string, zoneType: 'rowGroups' | 'columnGroups', ctx: RenderContext): HTMLElement {
+function createFieldChip(field: string, zoneType: GroupZone, ctx: RenderContext): HTMLElement {
   const { callbacks, signal } = ctx;
   const chip = document.createElement('div');
   chip.className = 'tbw-pivot-field-chip';
   chip.draggable = true;
 
   const fieldInfo = callbacks.getAvailableFields().find((f) => f.field === field);
+  const name = fieldInfo?.header ?? field;
   const label = document.createElement('span');
   label.className = 'tbw-pivot-chip-label';
-  label.textContent = fieldInfo?.header ?? field;
+  label.textContent = name;
+  markAsMenuTrigger(label, name, ctx.t);
 
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
@@ -241,6 +338,10 @@ function createFieldChip(field: string, zoneType: 'rowGroups' | 'columnGroups', 
     },
     { signal },
   );
+
+  // A press-and-release without movement never fires `dragstart`, so a plain
+  // click is the tap that SC 2.5.7 asks us to honour.
+  chip.addEventListener('click', () => openChipMenu(chip, name, fieldChipActions(field, zoneType, ctx)), { signal });
 
   return chip;
 }
@@ -424,7 +525,8 @@ function createAvailableFieldsZone(ctx: RenderContext): HTMLElement {
       chip.className = 'tbw-pivot-field-chip available';
       chip.textContent = field.header;
       chip.draggable = true;
-      chip.title = `Drag to add "${field.field}" to a zone`;
+      chip.title = ctx.t('pivot.availableChipHint', 'Drag into a zone, or click to choose one');
+      markAsMenuTrigger(chip, field.header, ctx.t);
 
       chip.addEventListener(
         'dragstart',
@@ -442,6 +544,10 @@ function createAvailableFieldsZone(ctx: RenderContext): HTMLElement {
         },
         { signal },
       );
+
+      chip.addEventListener('click', () => openChipMenu(chip, field.header, availableChipActions(field.field, ctx)), {
+        signal,
+      });
 
       fieldsContainer.appendChild(chip);
     }

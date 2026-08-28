@@ -102,6 +102,7 @@ related: [build-and-deploy, grid-core]
 - DECIDED (Jul 2026 #449): a11y themes set `--tbw-color-header-fg` explicitly instead of inheriting core's `color-mix(in hsl, fg 75%, panel-bg)`. WHY: the mix dilutes header text toward the panel bg — `large` landed at 7.05:1, i.e. zero margin.
 - INVARIANT: `color-mix()` computes in Chrome to `color(srgb r g b)` with **0-1** components, never `rgb()`. Any JS reading computed colours (`ThemeBuilder.astro` contrast panel, e2e contrast probe) must parse that form or every derived token reads as unresolved. Also: `#000000` is a legitimate token value (contrast theme light `--tbw-color-fg`) — don't treat it as "unset".
 - GOTCHA: on the theming guide page `document.querySelector('[data-tbw-grid]')` matches the injected `<style id="tbw-grid-styles">` first. Scope colour probes to a real `<tbw-grid>` (`#css-var-probe`).
+- INVARIANT (#449): `--tbw-color-hover-bg` DOES NOT EXIST in any theme or `variables.css` — hover backgrounds use `--tbw-color-row-hover` + a `light-dark()` fallback. `--tbw-border-radius` varies wildly per theme (`0` contrast … `12px` material), so controls under ~30px MUST cap it: `min(var(--tbw-border-radius, 0.25rem), 6px)`.
 
 ## browser support floor
 

@@ -10,8 +10,12 @@
 import { TOOL_PANEL_DUPLICATE, TOOL_PANEL_MISSING_ATTR, warnDiagnostic } from '../../core/internal/diagnostics';
 import { startPointerDrag } from '../../core/internal/pointer-drag';
 import { escapeHtml, sanitizeHTML, setSanitizedHTML } from '../../core/internal/sanitize';
+import { createSizePopover, type SizePopover } from '../../core/internal/size-popover';
 import type { IconValue } from '../../core/types';
 import type { HeaderContentDefinition, ShellConfig, ToolbarContentDefinition, ToolPanelDefinition } from './types';
+
+/** Tool-panel width change per click of the size popover's − / + buttons, in px. */
+const RESIZE_STEP_PX = 32;
 
 // #region Types & State
 /**
@@ -311,7 +315,7 @@ export function renderShellBody(
   const panelHtml = hasPanel
     ? `
     <aside class="tbw-tool-panel${isOpen ? ' open' : ''}" part="tool-panel" data-position="${position}" role="presentation" id="tbw-tool-panel"${mode === 'dropdown' ? ' popover="manual"' : ''}>
-      <div class="tbw-tool-panel-resize" data-resize-handle data-handle-position="${resizeHandlePosition}" aria-hidden="true"></div>
+      <div class="tbw-tool-panel-resize" data-resize-handle data-handle-position="${resizeHandlePosition}" role="button" tabindex="-1" aria-label="Tool panel width — drag, or activate to set a width"></div>
       <div class="tbw-tool-panel-content" role="presentation">
         <div class="tbw-accordion">
           ${accordionHtml}
@@ -779,6 +783,9 @@ export function setupEscapeDismiss(
 /**
  * Set up resize handle for tool panel.
  * Returns a cleanup function to remove event listeners.
+ *
+ * The handle is draggable **and** tappable: pressing and releasing without
+ * moving opens a click-only size menu (WCAG 2.2 SC 2.5.7).
  */
 export function setupToolPanelResize(
   renderRoot: Element,
@@ -800,11 +807,37 @@ export function setupToolPanelResize(
   let startWidth = 0;
   let maxWidth = 0;
   let isResizing = false;
+  let moved = false;
   let cancelDrag: (() => void) | null = null;
+  let sizePopover: SizePopover<HTMLElement> | null = null;
+
+  const availableMax = () => shellBody.getBoundingClientRect().width - 20;
+
+  const openSizePopover = () => {
+    sizePopover ??= createSizePopover<HTMLElement>({
+      id: 'tbw-tool-panel-width-popover',
+      step: RESIZE_STEP_PX,
+      getSize: (el) => el.getBoundingClientRect().width,
+      // Same clamp as `onMove`, so no pointer path can reach a size the drag cannot.
+      setSize: (el, width) => {
+        const clamped = Math.min(availableMax(), Math.max(minWidth, width));
+        el.style.width = `${clamped}px`;
+        onResize(clamped);
+      },
+      reset: (el) => {
+        el.style.width = '';
+        onResize(el.getBoundingClientRect().width);
+      },
+      getLabel: () => 'Tool panel width',
+      getHost: (el) => el.closest<HTMLElement>('tbw-grid, [data-tbw-grid]'),
+    });
+    sizePopover.open(panel, handle);
+  };
 
   const onMove = (e: PointerEvent) => {
     if (!isResizing) return;
     e.preventDefault();
+    moved = true;
 
     // For right-positioned panel: dragging left (negative clientX change) should expand
     // For left-positioned panel: dragging right (positive clientX change) should expand
@@ -842,10 +875,11 @@ export function setupToolPanelResize(
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
     isResizing = true;
+    moved = false;
     startX = e.clientX;
     startWidth = panel.getBoundingClientRect().width;
     // Calculate max width dynamically based on grid container width
-    maxWidth = shellBody.getBoundingClientRect().width - 20; // Leave 20px margin
+    maxWidth = availableMax(); // Leave 20px margin
     handle.classList.add('resizing');
     panel.style.transition = 'none'; // Disable transition for smooth resize
     document.body.style.cursor = 'col-resize';
@@ -853,7 +887,13 @@ export function setupToolPanelResize(
 
     cancelDrag = startPointerDrag(e, handle, {
       onMove,
-      onEnd: () => finish(true),
+      onEnd: () => {
+        // `startPointerDrag` promotes immediately, so tap-vs-drag can only be
+        // told apart by whether `onMove` ever ran.
+        const wasTap = !moved;
+        finish(!wasTap);
+        if (wasTap) openSizePopover();
+      },
       onCancel: () => {
         // Aborted (pointercancel / Escape) — snap back to the pre-drag width.
         panel.style.width = `${startWidth}px`;
@@ -869,6 +909,8 @@ export function setupToolPanelResize(
     handle.removeEventListener('pointerdown', onPointerDown);
     cancelDrag?.();
     cancelDrag = null;
+    sizePopover?.dispose();
+    sizePopover = null;
   };
 }
 // #endregion

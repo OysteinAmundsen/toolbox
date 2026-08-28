@@ -406,6 +406,42 @@ For operations that need to wait for render cycles:
 3. `take_screenshot` for visual state
 4. `take_snapshot` to see what DOM was actually rendered
 
+### "New UI element looks wrong in some themes"
+
+Run this for **any** new overlay, popover, or control before calling it done — a control
+tuned against the default theme routinely breaks under another one's `--tbw-border-radius`
+or flat surfaces.
+
+1. `navigate_page` to `http://localhost:4400/grid/guides/theming/` — the theme builder page
+   has a live grid plus two `<select>`s: theme (`bootstrap|contrast|large|material|standard|vibrant`)
+   and colour mode (`dark|light|auto`).
+2. `evaluate_script` once to install helpers, then loop themes:
+   ```javascript
+   () => {
+     const sel = [...document.querySelectorAll('select')].find((s) =>
+       [...s.options].some((o) => o.value === 'material'),
+     );
+     window.__go = async (t) => {
+       sel.value = t;
+       sel.dispatchEvent(new Event('change', { bubbles: true }));
+       await new Promise((r) => setTimeout(r, 500));
+       document.querySelector('tbw-grid').scrollIntoView({ block: 'center' });
+       /* …open your control here… */
+     };
+   };
+   ```
+3. `resize_page` to ~820×560 first — the control occupies more of the screenshot and small
+   defects (clipping, misalignment) become visible.
+4. Check at minimum **material** (largest radius, 12px) and **contrast** (radius 0, both
+   colour modes). Those two bracket the range.
+5. `take_snapshot` as well as `take_screenshot`: the a11y tree surfaces defects the eye
+   misses — e.g. `spinbutton … invalid="true"` revealed that `<input type="number">` with a
+   `step` that the current value isn't a multiple of exposes `aria-invalid`.
+
+Recurring fixes: cap inner radii at `min(var(--tbw-border-radius), 6px)`, suppress native
+number spinners (`appearance: textfield`), and tint hover backgrounds rather than only
+changing a border colour — border-only hover is invisible in flat and high-contrast themes.
+
 ## MCP Tool Reference
 
 Tools are grouped by category. Pick a category first based on what you are trying to learn, then choose a tool within it.

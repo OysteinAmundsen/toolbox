@@ -439,12 +439,14 @@ function buildToolPanel(options: ShellBodyOptions, mode: 'overlay' | 'push' | 'd
     ...(mode === 'dropdown' ? { popover: 'manual' } : {}),
   });
 
-  // Resize handle
+  // Resize handle — draggable, and tappable for the SC 2.5.7 size menu.
   panelEl.appendChild(
     div('tbw-tool-panel-resize', {
       'data-resize-handle': '',
       'data-handle-position': options.position === 'left' ? 'right' : 'left',
-      'aria-hidden': 'true',
+      role: 'button',
+      tabindex: '-1',
+      'aria-label': 'Tool panel width — drag, or activate to set a width',
     }),
   );
 

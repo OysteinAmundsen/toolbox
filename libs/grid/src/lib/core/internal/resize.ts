@@ -1,6 +1,6 @@
 import type { ColumnInternal, GridHost, ResizeController } from '../types';
-import { createColumnWidthPopover, type ColumnWidthPopover } from './column-width-popover';
 import { startPointerDrag } from './pointer-drag';
+import { createSizePopover, type SizePopover } from './size-popover';
 
 /** Floor applied to every width commit when the column declares no `minWidth`. */
 const FALLBACK_MIN_WIDTH = 40;
@@ -59,7 +59,7 @@ export function createResizeController(grid: GridHost): ResizeController {
   let prevCursor: string | null = null;
   let prevUserSelect: string | null = null;
   /** Lazily created on the first handle tap — most sessions never build it. */
-  let widthPopover: ColumnWidthPopover | null = null;
+  let widthPopover: SizePopover<number> | null = null;
 
   /** Header cell for a visible column index, used to read a rendered width. */
   const headerCellAt = (colIndex: number): HTMLElement | undefined => {
@@ -200,16 +200,17 @@ export function createResizeController(grid: GridHost): ResizeController {
    * same capability without a press-hold-move-release gesture.
    */
   function openWidthPopover(colIndex: number, anchor: HTMLElement): void {
-    widthPopover ??= createColumnWidthPopover({
-      getWidth: widthOf,
-      setWidth: (index, width) => {
+    widthPopover ??= createSizePopover<number>({
+      id: 'tbw-column-size-popover',
+      getSize: widthOf,
+      setSize: (index, width) => {
         commitWidth(index, width);
         grid.requestStateChange?.();
       },
       reset: resetColumn,
       getLabel: (index) => {
         const col = grid._visibleColumns[index];
-        return String(col?.header ?? col?.field ?? index + 1);
+        return `Width of column ${String(col?.header ?? col?.field ?? index + 1)}`;
       },
       getHost: () => grid,
     });

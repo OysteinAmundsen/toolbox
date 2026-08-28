@@ -15,6 +15,7 @@ import {
   repairDropdownAnchor,
   setupClickOutsideDismiss,
   setupEscapeDismiss,
+  setupToolPanelResize,
   shouldRenderHeaderBar,
   shouldRenderShellHeader,
   showToolPanelDropdown,
@@ -1295,6 +1296,148 @@ describe('shell module', () => {
       } finally {
         CSS.supports = realSupports;
       }
+    });
+  });
+
+  describe('setupToolPanelResize — click-only size popover (SC 2.5.7)', () => {
+    let renderRoot: HTMLElement;
+    let panel: HTMLElement;
+    let handle: HTMLElement;
+    let onResize: ReturnType<typeof vi.fn>;
+    let cleanup: () => void;
+
+    /**
+     * happy-dom has no layout engine, so both boxes need explicit widths. The
+     * stub honours an inline `width` so the popover's step buttons, which read
+     * the measured width back on every click, actually accumulate.
+     */
+    const stubWidth = (el: HTMLElement, width: number) => {
+      el.getBoundingClientRect = () => {
+        const w = parseFloat(el.style.width) || width;
+        return { width: w, height: 0, top: 0, left: 0, right: w, bottom: 0 } as DOMRect;
+      };
+    };
+
+    const press = (clientX = 0) =>
+      handle.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, bubbles: true, clientX, clientY: 0 }));
+    const release = (clientX = 0) =>
+      handle.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, bubbles: true, clientX, clientY: 0 }));
+    const popover = () => document.querySelector<HTMLElement>('#tbw-tool-panel-width-popover');
+    const input = () => popover()?.querySelector<HTMLInputElement>('.tbw-size-popover-input') ?? null;
+    const clickButton = (label: string) =>
+      popover()!.querySelector<HTMLButtonElement>(`.tbw-size-popover-btn[aria-label="${label}"]`)!.click();
+
+    beforeEach(() => {
+      renderRoot = document.createElement('div');
+      renderRoot.innerHTML = `
+        <div class="tbw-shell-body">
+          <aside class="tbw-tool-panel">
+            <div class="tbw-tool-panel-resize" data-resize-handle></div>
+          </aside>
+        </div>`;
+      document.body.appendChild(renderRoot);
+      panel = renderRoot.querySelector('.tbw-tool-panel')!;
+      handle = renderRoot.querySelector('[data-resize-handle]')!;
+      handle.setPointerCapture = vi.fn();
+      handle.releasePointerCapture = vi.fn();
+      handle.hasPointerCapture = vi.fn().mockReturnValue(true);
+      stubWidth(panel, 300);
+      stubWidth(renderRoot.querySelector('.tbw-shell-body')!, 1000);
+      onResize = vi.fn();
+      cleanup = setupToolPanelResize(renderRoot, undefined, onResize);
+    });
+
+    afterEach(() => {
+      cleanup();
+      document.body.innerHTML = '';
+    });
+
+    it('exposes the splitter as a named button rather than decoration', () => {
+      state.toolPanels.set('columns', {
+        id: 'columns',
+        title: 'Columns',
+        render: () => {
+          /* noop */
+        },
+      });
+      const built = document.createElement('div');
+      built.innerHTML = renderShellBody(undefined, state, '<div></div>');
+      const splitter = built.querySelector('[data-resize-handle]')!;
+
+      expect(splitter.getAttribute('aria-hidden')).toBeNull();
+      expect(splitter.getAttribute('role')).toBe('button');
+      expect(splitter.getAttribute('aria-label')).toContain('Tool panel width');
+    });
+
+    it('opens the shared size popover when the splitter is pressed and released without moving', () => {
+      press();
+      release();
+
+      expect(popover()!.hidden).toBe(false);
+      expect(popover()!.getAttribute('aria-label')).toBe('Tool panel width');
+      expect(input()!.value).toBe('300');
+      expect(handle.hasAttribute('data-tbw-size-open')).toBe(true);
+      expect(onResize).not.toHaveBeenCalled();
+    });
+
+    it('does not open the popover when the pointer actually moved', () => {
+      press(0);
+      handle.dispatchEvent(new PointerEvent('pointermove', { pointerId: 1, bubbles: true, clientX: -40, clientY: 0 }));
+      release(-40);
+
+      expect(popover()).toBeNull();
+      expect(onResize).toHaveBeenCalled();
+    });
+
+    it('steps the width while staying open, so repeated clicks work', () => {
+      press();
+      release();
+      clickButton('Wider');
+      clickButton('Wider');
+
+      expect(panel.style.width).toBe('364px');
+      expect(onResize).toHaveBeenLastCalledWith(364);
+      expect(input()!.value).toBe('364');
+      expect(popover()!.hidden).toBe(false);
+    });
+
+    it('accepts a typed width and clamps it to the same limits as the drag', () => {
+      press();
+      release();
+      input()!.value = '20';
+      input()!.dispatchEvent(new Event('change', { bubbles: true }));
+
+      expect(panel.style.width).toBe('200px');
+      expect(input()!.value).toBe('200');
+    });
+
+    it('clamps stepping to the panel minimum', () => {
+      stubWidth(panel, 210);
+      press();
+      release();
+      clickButton('Narrower');
+
+      expect(panel.style.width).toBe('200px');
+    });
+
+    it('drops the explicit width on reset', () => {
+      press();
+      release();
+      panel.style.width = '400px';
+      clickButton('Reset size');
+
+      expect(panel.style.width).toBe('');
+      expect(onResize).toHaveBeenLastCalledWith(300);
+    });
+
+    it('removes the popover on cleanup', () => {
+      press();
+      release();
+      expect(popover()).not.toBeNull();
+
+      cleanup();
+
+      expect(popover()).toBeNull();
     });
   });
 

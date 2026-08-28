@@ -517,6 +517,17 @@ Notes:
 - Shell usage without the feature/plugin enabled throws a clear error with a migration link.
 - See the [v3 migration guide](/grid/guides/migration-v3/) for the full change set.
 
+## Accessibility
+
+The tool panel is resized by dragging the splitter between the panel and the grid. WCAG 2.2 [SC 2.5.7 Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) requires a single-pointer alternative for every such gesture, so the splitter is a button as well as a drag target.
+
+- **Tap the splitter** — press and release without moving and the size popover opens against it, with − / a width field / + / *Reset*. Dragging behaves exactly as before; the two are told apart by whether the pointer moved.
+- **The same popover used for columns** — it is the shared control from [column resizing](/grid/guides/accessibility/#pointer-alternatives-to-dragging), so the gesture, keyboard behaviour, and appearance are identical wherever something is resizable. − and + step by 32px, the field takes an exact pixel value, and *Reset* drops the explicit width. `Escape`, or a press anywhere outside, dismisses it.
+- **Same limits as the drag** — every path through the popover clamps to the same 200px minimum and the same available maximum, so no pointer alternative can produce a size the drag could not.
+- **No reserved chrome** — nothing extra is drawn. The alternative reuses the affordance you would have dragged, and the splitter carries `role="button"` with an accessible name instead of `aria-hidden`.
+
+See the [accessibility guide](/grid/guides/accessibility/#pointer-alternatives-to-dragging) for the full inventory of drag alternatives across the grid.
+
 ## How the Shell Wraps the Grid
 
 The shell is unusual among plugins: most plugins **enrich** the grid (tagging rows, decorating

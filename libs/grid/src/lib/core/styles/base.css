@@ -222,4 +222,94 @@
       box-shadow: -1px 0 0 var(--tbw-color-border);
     }
   }
+
+  /* ========== Size popover (WCAG 2.2 SC 2.5.7) ==========
+     Click-only alternative to dragging a resize handle — shared by core column
+     resizing and the shell's tool-panel splitter. Mounted inside the grid host
+     (light DOM) so theme tokens cascade in; the top layer keeps it clear of
+     ancestor overflow. Fallbacks stay for the `document.body` path used when no
+     host is available. Lives here rather than in a plugin stylesheet so plugins
+     that reuse the popover need no CSS of their own. */
+  .tbw-size-popover {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    padding: var(--tbw-spacing-xs, 0.25rem);
+    display: flex;
+    align-items: center;
+    gap: var(--tbw-spacing-xs, 0.25rem);
+    background: var(--tbw-color-panel-bg, light-dark(#ffffff, #232528));
+    color: var(--tbw-color-fg, light-dark(#1a1a1a, #f0f0f0));
+    border: 1px solid var(--tbw-color-border, light-dark(#d0d0d4, #454545));
+    border-radius: var(--tbw-border-radius, 0.25rem);
+    box-shadow: 0 4px 12px var(--tbw-color-shadow, rgba(0, 0, 0, 0.3));
+    font-family: var(--tbw-font-family, system-ui, sans-serif);
+    font-size: var(--tbw-font-size-sm, 0.9285em);
+    line-height: 1;
+    z-index: 10001;
+
+    /* Themes set radii for row-height controls (Material uses 12px), which turns
+       a ~26px control into a lozenge and clips its content. Cap the inner radius
+       while the container keeps the theme's own value. */
+    --tbw-size-popover-radius: min(var(--tbw-border-radius, 0.25rem), 6px);
+
+    &[hidden] {
+      display: none;
+    }
+
+    button,
+    input {
+      min-height: var(--tbw-touch-target-min, 26px);
+      border-radius: var(--tbw-size-popover-radius);
+      color: inherit;
+      font: inherit;
+      line-height: 1;
+
+      &:focus-visible {
+        outline: var(--tbw-focus-outline, 2px solid var(--tbw-color-accent, #4a90d9));
+        outline-offset: var(--tbw-focus-outline-offset, 1px);
+      }
+    }
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: var(--tbw-touch-target-min, 26px);
+      padding: 0 var(--tbw-spacing-sm, 0.5rem);
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+
+      /* Border-only hover disappears in flat and high-contrast themes, so tint
+         the surface as well. */
+      &:hover {
+        background: var(--tbw-color-row-hover, light-dark(#f0f0f0, #2a2a2a));
+        border-color: var(--tbw-color-border-strong, light-dark(#777777, #666666));
+      }
+
+      &:active {
+        background: var(--tbw-color-accent, #4a90d9);
+        color: var(--tbw-color-accent-fg, #ffffff);
+      }
+    }
+
+    input {
+      width: 5ch;
+      padding: 0 var(--tbw-spacing-xs, 0.25rem);
+      background: var(--tbw-color-bg, light-dark(#ffffff, #1a1c20));
+      text-align: center;
+      border: 1px solid var(--tbw-color-border, light-dark(#d0d0d4, #454545));
+
+      /* The − / + buttons already do what the native spinner does, and the UA
+         widget overlaps the value at this size and ignores the theme. */
+      appearance: textfield;
+
+      &::-webkit-outer-spin-button,
+      &::-webkit-inner-spin-button {
+        appearance: none;
+        margin: 0;
+      }
+    }
+  }
 }

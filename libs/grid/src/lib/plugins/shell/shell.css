@@ -293,8 +293,11 @@
         right: 0;
       }
 
+      /* `[data-tbw-size-open]` keeps the splitter lit while the size popover is
+         open, so the popover stays visually tied to the edge it is sizing. */
       &:hover,
-      &.resizing {
+      &.resizing,
+      &[data-tbw-size-open] {
         background: var(--tbw-color-accent);
       }
 

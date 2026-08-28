@@ -277,7 +277,7 @@ describe('resize controller', () => {
    * would *not* satisfy the criterion; the alternative has to be clickable.
    */
   describe('non-drag width control (SC 2.5.7)', () => {
-    const popover = () => document.querySelector<HTMLElement>('.tbw-column-width-popover');
+    const popover = () => document.querySelector<HTMLElement>('.tbw-size-popover');
     const buttonLabelled = (label: string) =>
       popover()?.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
     const widthInput = () => popover()?.querySelector<HTMLInputElement>('input');
@@ -384,7 +384,7 @@ describe('resize controller', () => {
       buttonLabelled('Wider')!.click();
       expect(grid._columns[0].width).toBe(116);
 
-      buttonLabelled('Reset column width')!.click();
+      buttonLabelled('Reset size')!.click();
       expect(grid._columns[0].width).toBe(100);
       expect(grid._columns[0].__userResized).toBe(false);
 
@@ -426,7 +426,7 @@ describe('resize controller', () => {
       const handle = makeHandle();
 
       tap(controller, cell, handle);
-      expect(handle.hasAttribute('data-tbw-width-open')).toBe(true);
+      expect(handle.hasAttribute('data-tbw-size-open')).toBe(true);
 
       // Repeated clicks must not walk the button out from under the pointer.
       const { left, top } = popover()!.style;
@@ -437,7 +437,7 @@ describe('resize controller', () => {
       expect(popover()!.style.top).toBe(top);
 
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      expect(handle.hasAttribute('data-tbw-width-open')).toBe(false);
+      expect(handle.hasAttribute('data-tbw-size-open')).toBe(false);
 
       controller.dispose();
     });

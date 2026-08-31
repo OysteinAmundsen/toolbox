@@ -1,5 +1,33 @@
 # Changelog
 
+## [3.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.5.3...grid-3.6.0) (2026-08-31)
+
+
+### Features
+
+* **grid/sticky-rows/tooltip:** WCAG 2.2 SC 1.4.13 + 2.4.11 conformance ([#449](https://github.com/OysteinAmundsen/toolbox/issues/449)) ([c1d61aa](https://github.com/OysteinAmundsen/toolbox/commit/c1d61aafeb0dc47a96d4aac2c64ff1fd650dc023))
+* implement click-only column and row move controls for WCAG 2.2 compliance ([1fe1b71](https://github.com/OysteinAmundsen/toolbox/commit/1fe1b717a78229afcd479d3ff342e62da3ef625d))
+* **pivot:** add a click-only move menu to pivot field chips ([#449](https://github.com/OysteinAmundsen/toolbox/issues/449)) ([51f8a78](https://github.com/OysteinAmundsen/toolbox/commit/51f8a78275b0232cc6a2e1466c635fc5598cff4d))
+* **reorder-columns:** add a click-only move menu to group headers ([#449](https://github.com/OysteinAmundsen/toolbox/issues/449)) ([ce20506](https://github.com/OysteinAmundsen/toolbox/commit/ce20506c09bbf7e9d428877fe41b8babb05ab7d6))
+* **selection:** add single-pointer alternatives to range drag ([#449](https://github.com/OysteinAmundsen/toolbox/issues/449)) ([7fb2a4a](https://github.com/OysteinAmundsen/toolbox/commit/7fb2a4a094e32285ec7d4c467825f08c0c1a5fb8))
+* **shell:** add a click-only size menu to the tool-panel splitter ([#449](https://github.com/OysteinAmundsen/toolbox/issues/449)) ([0d400c1](https://github.com/OysteinAmundsen/toolbox/commit/0d400c102a6dd49986e48bdbf27f67baea4045f7))
+* **visibility:** add a click-only move menu to the column panel ([#449](https://github.com/OysteinAmundsen/toolbox/issues/449)) ([88c7fa9](https://github.com/OysteinAmundsen/toolbox/commit/88c7fa96ff393bde161ac3a78f094643c2fef660))
+
+
+### Bug Fixes
+
+* **editing:** name editors and expose validation errors to assistive tech ([#449](https://github.com/OysteinAmundsen/toolbox/issues/449)) ([e86fe1e](https://github.com/OysteinAmundsen/toolbox/commit/e86fe1e40203d08bba2cad576ea3d424fc0596f9))
+* **grid/filtering/grouping-rows/master-detail/pivot/row-drag-drop/selection/shell/tree:** meet SC 2.5.8 target size on every pointer ([#449](https://github.com/OysteinAmundsen/toolbox/issues/449)) ([8f78f22](https://github.com/OysteinAmundsen/toolbox/commit/8f78f22e82ffdded7b6d485c5cad711a4cd53f57))
+* **grid/server-side/tree:** rebuild the row model for claimed blocks and decorate the tree column for async rows ([d34a034](https://github.com/OysteinAmundsen/toolbox/commit/d34a034295018f0094fdbb3fb25c590d04b1f97b))
+* **grid/shell:** clamp the tool panel and reveal ellipsised cell text ([#449](https://github.com/OysteinAmundsen/toolbox/issues/449)) ([39a015c](https://github.com/OysteinAmundsen/toolbox/commit/39a015c4da4f28ea2b966cf6898c89398575abec))
+* **tooltip:** prefer above placement and bind focus keydown on the grid host ([#449](https://github.com/OysteinAmundsen/toolbox/issues/449)) ([ba01ff0](https://github.com/OysteinAmundsen/toolbox/commit/ba01ff0bf1c67dba8b410f92a32d5c874ab6aab6))
+
+
+### Performance Improvements
+
+* **grid:** measure cell truncation once per pointer entry ([#449](https://github.com/OysteinAmundsen/toolbox/issues/449)) ([71c2a87](https://github.com/OysteinAmundsen/toolbox/commit/71c2a8701c89619293fa0bfa79f845d225945d1a))
+* **grid:** performance enhancements ([c9e1008](https://github.com/OysteinAmundsen/toolbox/commit/c9e1008ccf4785ca6621a6491a1b3ebe9d08f23c))
+
 ## [3.5.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.5.2...grid-3.5.3) (2026-08-24)
 
 

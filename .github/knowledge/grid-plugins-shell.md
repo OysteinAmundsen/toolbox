@@ -78,6 +78,14 @@ Validated by `validatePluginDependencies`. Tests: `validate-config.spec.ts` "she
 - INVARIANT: the popover's `setSize` clamps through the SAME `minWidth` (200) and `availableMax()` (`shellBody` width − 20) as `onMove`, so no pointer path can reach a size the drag cannot. `availableMax()` is re-measured per call (the shell body resizes). Safe to leave open across clicks because `onResize` here only sets `--tbw-tool-panel-width` on the host (`shell-plugin.ts#setupListeners`) — no re-render, so the anchor handle survives.
 - The splitter is a FULL-HEIGHT anchor, which is why `place()` has a `tall` branch (anchor > 3× popover height ⇒ center on the anchor); the default below/above flip would land past the bottom of the grid. `shell.css` only adds `.tbw-tool-panel-resize[data-tbw-size-open]` to keep the seam lit while it is open.
 
+## tool-panel width clamp (#449, SC 1.4.10)
+
+- INVARIANT (#449): the docked panel's `&.open` rule carries BOTH `width: min(var(--tbw-tool-panel-width), 100% - 20px)` AND `max-width: calc(100% - 20px)`. The `width` clamps the auto-open size; only the `max-width` can rein in a **dragged** width, which `setupToolPanelResize` writes as an INLINE `el.style.width` that no ordinary declaration outranks. Dropping either half reopens the bug.
+- INVARIANT: the `- 20px` reserve MUST equal the JS `availableMax()` reserve in `setupToolPanelResize` (`shellBody.width − 20`). Two clamps, one number — if they diverge, one path reaches a size the other rejects.
+- WHY: `.tbw-tool-panel` is `overflow: clip`, so an over-wide panel is silently cut with NO scrollbar to reach what was lost. Observed at a 220px grid with the default 280px panel: "Quick Filters" rendered as "ck Filters", "DEPARTMENT" as "MENT", the Junior/Principal chips half gone. Content AND functionality lost ⇒ SC 1.4.10 failure. Push mode inherits the same rule and would additionally squeeze the grid body to a negative width.
+- Dropdown mode is unaffected — `.tbw-tool-panel[popover]` already had `max-width: calc(100vw - 16px)`, and its rule sorts later so it wins.
+- e2e gate: `accessibility.spec.ts` › "the tool panel stays inside the grid it docks into". It runs at the DEFAULT viewport and shrinks the grid element instead — at 320px the ResponsivePlugin toggles card mode and `waitForGridReady`'s `[role="row"]` visibility check races. Do not re-add `test.use({ viewport: 320 })` to that test.
+
 ## dropdown mode (#375)
 
 Third `toolPanel.mode` beside `'overlay'`/`'push'` — the whole sidebar as an anchored popover.

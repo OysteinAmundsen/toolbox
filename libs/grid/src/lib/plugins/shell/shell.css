@@ -152,7 +152,16 @@
       }
 
       &.open {
-        width: var(--tbw-tool-panel-width);
+        /* Never wider than the grid it docks into. An overflowing panel is cut
+           off by the clip above with no way to scroll to what is missing — the
+           labels and the left half of every chip simply vanish (SC 1.4.10
+           Reflow). The 20px reserve matches the drag clamp in
+           `setupToolPanelResize`, so no path can reach a size the other cannot.
+           `max-width` as well as `width`: a dragged width lands as an inline
+           style, which only a max-width can rein back in when the grid later
+           narrows under it. */
+        width: min(var(--tbw-tool-panel-width), 100% - 20px);
+        max-width: calc(100% - 20px);
       }
     }
 

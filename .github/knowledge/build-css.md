@@ -105,6 +105,19 @@ related: [build-and-deploy, grid-core]
 - INVARIANT (#449): CSS target size is **untestable in happy-dom** (no layout engine). The gate is `e2e/tests/accessibility.spec.ts` → `Accessibility: target size (WCAG 2.2 SC 2.5.8)`, which probes the four corners of a 24px square with `document.elementFromPoint` and requires the hit to be the control or a descendant. Do NOT accept `hit.contains(el)` — an ancestor cell match makes the assertion vacuous.
 - TENSION (#449): a resizable column narrower than ~48px loses most of its header sort target to the two neighbouring resize handles. Accepted: consumer-chosen density, and the same trade already applied on coarse pointers.
 
+## text-spacing & reflow (#449, SC 1.4.12 / 1.4.10)
+
+- VERTICAL is already conformant, by accident of virtualization: `rows.css > .cell` uses `min-height: var(--tbw-row-height)` (NOT `height`), and `virtualization-manager.ts#setupRowHeightObserver` `ResizeObserver`s the first ROW (not its cells), so a taller line box re-measures the whole layout. Measured with the SC's own override at 1280px and at 320px card mode: rows 96 → 120/124px, zero clipping, zero overlap. Do not swap that `min-height` for a fixed `height`.
+- HORIZONTAL is not: `rows.css > .cell` sets `white-space: var(--tbw-cell-white-space, nowrap)` + `text-overflow: ellipsis`. Applying the four SC 1.4.12 properties took the employee demo from 32 to **59** truncated cells — 27 cells lost content purely to user spacing.
+- DECIDED (#449): W3C `understanding/21/text-spacing.html#ellipses` permits the ellipsis ONLY while "the content is still available", and states outright: _"Where text is not truncated but it is when text is spaced, if there is no mechanism to show the truncated text, it fails this success criterion."_ The Tooltip PLUGIN was the only reveal, and conformance may not depend on an optional plugin (same rule as the SC 2.5.7 drag alternatives). So CORE now owns a minimal reveal and the plugin upgrades it.
+- Mechanism: `event-delegation.ts#syncTruncationTitle`, called from a delegated `mouseover` on `renderRoot` in `setupRootEventDelegation`. Sets `cell.title = textContent` when `scrollWidth > clientWidth`, marks it `data-tbw-truncated`, and removes both once the cell fits again.
+- INVARIANT (#449): resolve the title on HOVER, never at render time. A render-path `title` write would touch every cell and would make non-truncated cells sprout tooltips (intrusive). `scrollWidth` forces sync layout, but only on pointer entry — the cost the Tooltip plugin already accepts.
+- INVARIANT (#449): the `data-tbw-truncated` marker exists so an author's / renderer's own `title` is never clobbered and never deleted. Only a title core set may be removed.
+- INVARIANT (#449): the handler bails when `grid.getPluginByName('tooltip')` resolves — otherwise the native tooltip and the plugin popover stack. Layering: core = conformant native `title` (no popover, no positioning, no CSS, ~0 gz); plugin = styled, hoverable, focus-triggered, Escape-dismissible.
+- REJECTED (#449): a pure-CSS hover "peek" (`overflow: visible; width: max-content; z-index`) — zero JS, but it moves layout on EVERY truncated cell the pointer crosses. Fails the project's non-intrusive bar.
+- `--tbw-cell-white-space: normal` is the documented opt-in for consumers who want wrapping instead of any truncation; it composes with virtualization because of the row observer above.
+- SC 1.4.10: the grid table itself uses the SC's explicit **data-table exception** (two-dimensional layout). Nothing else does — see grid-plugins-shell.md › tool-panel width clamp. There are NO viewport `@media` queries anywhere in grid CSS; reflow of the table is the ResponsivePlugin's element-width-driven card mode.
+
 ## themes (libs/themes/)
 
 - 6 built-in: standard, material, bootstrap, contrast (a11y), vibrant, large (a11y)

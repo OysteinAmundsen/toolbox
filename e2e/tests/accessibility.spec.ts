@@ -610,3 +610,135 @@ test.describe('Accessibility: target size (WCAG 2.2 SC 2.5.8)', () => {
 });
 
 // #endregion
+
+// #region Reflow & Text Spacing (SC 1.4.10 / SC 1.4.12)
+
+/**
+ * A grid is a data table, which SC 1.4.10 exempts from reflowing away its own
+ * two-dimensional layout — the table may keep scrolling horizontally. Nothing
+ * *around* the table is exempt, so what these tests police is the chrome: the
+ * page must not gain a horizontal scrollbar at 320px, and no panel or popover
+ * may be cut off by a container it has outgrown.
+ */
+const REFLOW_VIEWPORT = { width: 320, height: 640 };
+
+/** The four properties SC 1.4.12 lets a user impose, exactly as the SC states them. */
+const TEXT_SPACING_CSS = `* {
+  line-height: 1.5 !important;
+  letter-spacing: 0.12em !important;
+  word-spacing: 0.16em !important;
+}
+p { margin-block-end: 2em !important; }`;
+
+test.describe('Accessibility: reflow (WCAG 2.2 SC 1.4.10)', () => {
+  test('the page does not scroll horizontally at 320px', async ({ page }) => {
+    await page.setViewportSize(REFLOW_VIEWPORT);
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+
+    const doc = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+
+    expect(doc.scrollWidth, 'the document itself must not scroll sideways').toBeLessThanOrEqual(doc.clientWidth + 1);
+  });
+
+  test('the tool panel stays inside the grid it docks into', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+
+    const toggle = page.locator('tbw-grid [data-panel-toggle]');
+    if ((await toggle.count()) === 0) test.skip(true, 'shell plugin not enabled in this demo');
+
+    await toggle.first().click();
+    await expect(page.locator('tbw-grid .tbw-tool-panel.open')).toBeVisible();
+
+    // Squeeze the grid narrower than the panel's natural width, so the clamp has
+    // to do the work. A dragged width lands inline, which only a max-width can
+    // rein back in — set one explicitly to prove that path is covered too.
+    const overflow = await page.evaluate(async () => {
+      const grid = document.querySelector('tbw-grid') as HTMLElement;
+      const panel = document.querySelector('tbw-grid .tbw-tool-panel.open') as HTMLElement;
+      grid.style.width = '220px';
+      panel.style.width = '400px';
+      await new Promise((r) => setTimeout(r, 400));
+      const g = grid.getBoundingClientRect();
+      const p = panel.getBoundingClientRect();
+      return { leadingOverhang: Math.round(g.left - p.left), trailingOverhang: Math.round(p.right - g.right) };
+    });
+
+    expect(overflow.leadingOverhang, 'panel overflows the grid on the leading edge').toBeLessThanOrEqual(1);
+    expect(overflow.trailingOverhang, 'panel overflows the grid on the trailing edge').toBeLessThanOrEqual(1);
+  });
+});
+
+test.describe('Accessibility: text spacing (WCAG 2.2 SC 1.4.12)', () => {
+  test('user text spacing neither clips nor overlaps grid content', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+
+    await page.addStyleTag({ content: TEXT_SPACING_CSS });
+    await page.waitForTimeout(500);
+
+    const result = await page.evaluate(() => {
+      const grid = document.querySelector('tbw-grid') as HTMLElement;
+      const rows = [...grid.querySelectorAll<HTMLElement>('.data-grid-row')].slice(0, 12);
+
+      // Vertical clipping: a cell whose content is taller than the box it is
+      // allowed to occupy. This is the failure the SC illustrates with figure 1.
+      const clipped = rows
+        .flatMap((row) => [...row.querySelectorAll<HTMLElement>('.cell')])
+        .filter((cell) => cell.scrollHeight > cell.clientHeight + 1)
+        .map((cell) => cell.getAttribute('data-field') ?? '(unnamed)');
+
+      // Overlap: figure 3's failure. Virtualized rows are positioned from a
+      // measured row height, so a taller line box would run into its neighbour.
+      const boxes = rows.map((row) => row.getBoundingClientRect());
+      const overlaps: string[] = [];
+      for (let i = 1; i < boxes.length; i++) {
+        if (boxes[i].top < boxes[i - 1].bottom - 1) overlaps.push(`row ${i - 1} → ${i}`);
+      }
+
+      return { clipped: [...new Set(clipped)], overlaps };
+    });
+
+    expect(result.clipped, `cells clipped vertically: ${result.clipped.join(', ')}`).toHaveLength(0);
+    expect(result.overlaps, `rows overlapping: ${result.overlaps.join(', ')}`).toHaveLength(0);
+  });
+
+  test('text the spacing pushes out of view is still readable in full', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+
+    await page.addStyleTag({ content: TEXT_SPACING_CSS });
+    await page.waitForTimeout(500);
+
+    // The SC permits an ellipsis only while a mechanism reveals the rest. Core
+    // resolves a native `title` on hover; the Tooltip plugin supersedes it with
+    // a styled popover, so either one satisfies the requirement.
+    const result = await page.evaluate(() => {
+      const grid = document.querySelector('tbw-grid') as HTMLElement & {
+        getPluginByName?: (name: string) => unknown;
+      };
+      if (grid.getPluginByName?.('tooltip')) return { pluginProvidesReveal: true, truncated: 0, revealed: 0 };
+
+      const truncated = [...grid.querySelectorAll<HTMLElement>('.data-grid-row .cell')].filter(
+        (cell) => cell.scrollWidth > cell.clientWidth + 1,
+      );
+      for (const cell of truncated) cell.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+
+      return {
+        pluginProvidesReveal: false,
+        truncated: truncated.length,
+        revealed: truncated.filter((cell) => cell.title.length > 0).length,
+      };
+    });
+
+    if (result.pluginProvidesReveal) return;
+    expect(result.truncated, 'no truncated cells to check — the assertion would be vacuous').toBeGreaterThan(0);
+    expect(result.revealed, 'truncated cells left with no way to read the rest').toBe(result.truncated);
+  });
+});
+
+// #endregion

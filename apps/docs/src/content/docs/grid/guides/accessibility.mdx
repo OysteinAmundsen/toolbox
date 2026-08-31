@@ -14,7 +14,7 @@ import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 ## Our accessibility commitment
 
-We target **WCAG 2.1 Level AA** out of the box, with no configuration required. That means:
+We target **WCAG 2.2 Level AA** out of the box, with no configuration required. That means:
 
 - **Every interactive operation** (sort, filter, select, edit, expand, reorder, resize, group, paste) is reachable from the keyboard alone — no mouse-only paths.
 - **Every state change** (sort applied, filter cleared, row selected, edit committed) is announced to assistive technology via the grid's built-in `aria-live` region.
@@ -25,7 +25,7 @@ We target **WCAG 2.1 Level AA** out of the box, with no configuration required. 
 - **Focus is never hidden** — plugins that overlay the rows viewport report the band they obscure, so keyboard navigation scrolls the focused cell clear of them rather than underneath. [Sticky rows](/grid/plugins/sticky-rows/) report the top/bottom band they cover (vertical scrolling); [pinned columns](/grid/plugins/pinned-columns/) report the left/right band (horizontal scrolling).
 - **Two themes go further than AA** — `dg-theme-contrast.css` and `dg-theme-large.css` meet **Level AAA** contrast (7:1) on every text pair, in both light and dark mode. See [Accessibility themes](#accessibility-themes-aaa-contrast).
 
-See the [full WCAG 2.1 AA conformance table](#wcag-compliance-checklist) below for the criteria we test against.
+See the [full WCAG 2.2 AA conformance table](#wcag-compliance-checklist) below for the criteria we test against.
 
 > **Filing accessibility issues:** If you find an a11y bug, please open an issue with the screen reader / browser / OS you used and what was announced (or wasn't). A11y bugs are treated as P0.
 
@@ -97,7 +97,7 @@ Keyboard shortcuts that depend on a plugin being installed are documented on eac
 
 ### Focus Indicators
 
-The grid uses visible focus indicators that meet WCAG 2.1 Level AA requirements:
+The grid uses visible focus indicators that meet WCAG 2.2 Level AA requirements:
 
 ```css
 tbw-grid {
@@ -308,6 +308,62 @@ tbw-grid {
 See [Hit-target sizing](/grid/guides/touch-input/#hit-target-sizing) for why the splitter needs its
 own token.
 
+## Reflow and text spacing
+
+Two criteria govern what happens when the page gets narrow or the reader makes the text roomier.
+Both come down to the same promise: **nothing may become unreachable.**
+
+### Reflow (SC 1.4.10)
+
+[SC 1.4.10 Reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html) asks that content
+survive a 320 CSS-pixel viewport without a second scrollbar — but it exempts content that "requires
+two-dimensional layout for usage or meaning", and it names data tables as the example. A grid is
+that exemption: the table keeps its horizontal scrollbar, because collapsing columns into a single
+file would destroy the row-to-column relationships that make it a table at all.
+
+The exemption covers the table and nothing else. Everything the grid puts *around* the table has to
+reflow properly:
+
+- **The tool panel is clamped to the grid it docks into.** A panel wider than its container would be
+  clipped with no scrollbar to reach what was cut off — the chip labels and half the section
+  headings would simply be gone. Both the auto-open width and a width you dragged yourself are held
+  to the container.
+- **The header collapses gracefully.** The title truncates before the toolbar buttons do, so the
+  controls stay reachable no matter how narrow the grid gets.
+- **Card mode is available for the table itself.** If you would rather the table reflowed than
+  scrolled, the [Responsive plugin](/grid/plugins/responsive/) restacks each row as a card below a
+  breakpoint you choose. It watches the grid element, not the viewport, so a grid in a narrow
+  sidebar reflows on a wide screen too.
+
+### Text spacing (SC 1.4.12)
+
+[SC 1.4.12 Text Spacing](https://www.w3.org/WAI/WCAG22/Understanding/text-spacing.html) lets a
+reader override line height, letter spacing and word spacing, and requires that no content or
+function be lost as a result. Text set that way needs roughly a third more room, which is exactly
+the room a grid does not have.
+
+Vertically the grid gives way. Rows are sized from a measurement of the rendered content rather than
+a fixed height, so a taller line box makes the row taller and the virtualized layout follows it —
+text never overflows its row or collides with the row below.
+
+Horizontally a column has a fixed width, so wider text runs past it and picks up an ellipsis. The SC
+permits that, on one condition: the hidden text must still be available. So **hovering a cell whose
+text does not fit reveals the whole value**. The title is resolved on hover rather than at render
+time, so cells that fit stay tooltip-free and the render path is untouched. Install the
+[Tooltip plugin](/grid/plugins/tooltip/) and it takes over with a styled popover that is
+keyboard-reachable, hoverable and dismissible with <kbd>Escape</kbd>.
+
+If you would rather nothing truncated at all, let cells wrap:
+
+```css
+tbw-grid {
+  --tbw-cell-white-space: normal;
+}
+```
+
+Rows then grow to fit their tallest cell. This costs vertical space on every row, so it is a choice
+rather than the default — but it composes with everything else, including virtualization.
+
 ## Reduced Motion
 
 The grid respects the `prefers-reduced-motion: reduce` user preference automatically. When set, the grid:
@@ -449,7 +505,9 @@ The grid implements the [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/
 | 1.3.2 Meaningful Sequence | A | ✅ | DOM order matches visual order |
 | 1.4.1 Use of Color | A | ✅ | Status not conveyed by color alone |
 | 1.4.3 Contrast (Min) | AA | ✅ | Default theme meets 4.5:1 ratio |
+| 1.4.10 Reflow | AA | ✅ | Nothing around the table needs a second scrollbar at 320 px; the table itself uses the data-table exception — see [Reflow and text spacing](#reflow-and-text-spacing) |
 | 1.4.11 Non-text Contrast | AA | ✅ | Focus indicators visible at 3:1 |
+| 1.4.12 Text Spacing | AA | ✅ | Rows grow to fit user spacing, and text an ellipsis hides stays readable — see [Reflow and text spacing](#reflow-and-text-spacing) |
 | 1.4.13 Content on Hover or Focus | AA | ✅ | [Tooltips](/grid/plugins/tooltip/#accessibility) are dismissible (<kbd>Escape</kbd>), hoverable, persistent, and shown on keyboard focus |
 | 2.1.1 Keyboard | A | ✅ | All functions accessible via keyboard |
 | 2.1.2 No Keyboard Trap | A | ✅ | Tab exits the grid; Escape exits editors |

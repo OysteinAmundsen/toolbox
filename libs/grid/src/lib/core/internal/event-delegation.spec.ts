@@ -359,3 +359,91 @@ describe('long-press → contextmenu priority (#306)', () => {
     expect(nativeContextMenu().defaultPrevented).toBe(false);
   });
 });
+
+describe('event-delegation: truncated text reveal (SC 1.4.12)', () => {
+  let renderRoot: HTMLElement;
+  let cell: HTMLElement;
+  let abortController: AbortController;
+
+  /** happy-dom reports 0 for both metrics, so overflow has to be staged by hand. */
+  function stageWidths(el: HTMLElement, scrollWidth: number, clientWidth: number): void {
+    Object.defineProperty(el, 'scrollWidth', { value: scrollWidth, configurable: true });
+    Object.defineProperty(el, 'clientWidth', { value: clientWidth, configurable: true });
+  }
+
+  function hover(): void {
+    cell.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+  }
+
+  function setup(overrides: Partial<InternalGrid> = {}): void {
+    setupRootEventDelegation(createMockGrid(overrides), renderRoot, renderRoot, abortController.signal);
+  }
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    renderRoot = document.createElement('div');
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'rows';
+    renderRoot.appendChild(bodyEl);
+    bodyEl.appendChild(createRow(0, 3));
+    document.body.appendChild(renderRoot);
+    cell = bodyEl.querySelector('.cell[data-row="0"][data-col="0"]') as HTMLElement;
+    cell.textContent = 'a value too long to fit';
+    abortController = new AbortController();
+  });
+
+  afterEach(() => {
+    abortController.abort();
+    document.body.innerHTML = '';
+  });
+
+  it('titles a cell whose text does not fit', () => {
+    setup();
+    stageWidths(cell, 200, 100);
+
+    hover();
+
+    expect(cell.title).toBe('a value too long to fit');
+  });
+
+  it('leaves a cell that fits without a tooltip', () => {
+    setup();
+    stageWidths(cell, 100, 100);
+
+    hover();
+
+    expect(cell.hasAttribute('title')).toBe(false);
+  });
+
+  it('drops its own title once the cell fits again', () => {
+    setup();
+    stageWidths(cell, 200, 100);
+    hover();
+    expect(cell.title).toBe('a value too long to fit');
+
+    // A column resize, a shorter value — either way the ellipsis is gone.
+    stageWidths(cell, 100, 100);
+    hover();
+
+    expect(cell.hasAttribute('title')).toBe(false);
+  });
+
+  it('never clobbers a title a renderer put there', () => {
+    setup();
+    cell.title = 'author supplied';
+    stageWidths(cell, 200, 100);
+
+    hover();
+
+    expect(cell.title).toBe('author supplied');
+  });
+
+  it('stands down when the Tooltip plugin is doing the job', () => {
+    setup({ getPluginByName: ((name: string) => (name === 'tooltip' ? {} : undefined)) as never });
+    stageWidths(cell, 200, 100);
+
+    hover();
+
+    expect(cell.hasAttribute('title')).toBe(false);
+  });
+});

@@ -26,6 +26,33 @@ import { readCellField } from './value-accessor';
 // #region Utilities
 // Track drag state per grid instance (avoids polluting InternalGrid interface)
 const dragState = new WeakMap<InternalGrid, boolean>();
+
+/** Marks a `title` the grid put there itself, so an author's own title is never clobbered. */
+const OWNED_TITLE_ATTR = 'data-tbw-truncated';
+
+/**
+ * Give an ellipsised cell a way to be read in full.
+ *
+ * WCAG 2.2 SC 1.4.12 Text Spacing allows truncation only while "the content is
+ * still available" — user-applied letter/word spacing pushes text past a fixed
+ * column width, so cells that fit before the override stop fitting after it.
+ * The native `title` is that mechanism, and it costs nothing until a pointer
+ * actually rests on a cell: resolving it here rather than at render time keeps
+ * the hot path untouched and leaves cells that do fit tooltip-free.
+ */
+function syncTruncationTitle(cell: HTMLElement): void {
+  const owned = cell.hasAttribute(OWNED_TITLE_ATTR);
+  if (cell.title && !owned) return;
+
+  const text = cell.scrollWidth > cell.clientWidth ? (cell.textContent ?? '').trim() : '';
+  if (text) {
+    cell.title = text;
+    cell.setAttribute(OWNED_TITLE_ATTR, '');
+  } else if (owned) {
+    cell.removeAttribute('title');
+    cell.removeAttribute(OWNED_TITLE_ATTR);
+  }
+}
 // #endregion
 
 // #region Cell Mouse Handlers
@@ -427,5 +454,18 @@ export function setupRootEventDelegation(
   renderRoot.addEventListener('pointerdown', (e) => handlePointerDown(grid, renderRoot, e as PointerEvent), {
     signal,
   });
+
+  // Reveal text the cell had to ellipsise (SC 1.4.12). The Tooltip plugin does
+  // the same job with a styled, keyboard-reachable, Escape-dismissible popover,
+  // so stand down whenever it is installed rather than stacking two tooltips.
+  renderRoot.addEventListener(
+    'mouseover',
+    (e) => {
+      if (grid.getPluginByName?.('tooltip')) return;
+      const cell = (e.target as HTMLElement).closest('.cell') as HTMLElement | null;
+      if (cell) syncTruncationTitle(cell);
+    },
+    { signal, passive: true },
+  );
 }
 // #endregion

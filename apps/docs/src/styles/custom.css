@@ -318,3 +318,49 @@ kbd {
   vertical-align: 0.15em;
   white-space: nowrap;
 }
+
+/* ── Print ──────────────────────────────────────────────────────────────────
+   Starlight already forces light colours and tags the sidebar nav, right
+   sidebar, pagination and edit link with its `print:hidden` utility. Three
+   things it does not do are what these rules cover: the fixed top bar still
+   prints, the space the hidden chrome reserved is never reclaimed, and tables
+   stay `display: block; overflow: auto`.
+
+   The last one is the reason this block exists at all. Print has no scroll, so
+   an overflowing table is simply cut off — on the Accessibility Conformance
+   Report that silently drops the evidence column. That report is meant to be
+   self-printed as a procurement PDF, so it has to survive Ctrl+P intact. */
+@media print {
+  /* Top toolbar — site title, search, theme select, version select — and the
+     narrow-viewport table-of-contents bar that sits under it. */
+  .header,
+  mobile-starlight-toc {
+    display: none;
+  }
+
+  /* Offsets that existed only to clear the fixed header and the sidebar. */
+  .main-frame {
+    padding-top: 0;
+    padding-inline-start: 0;
+  }
+
+  /* Capped on screen to leave room for two sidebars that are now both hidden. */
+  .main-pane,
+  [data-has-sidebar][data-has-toc] .main-pane {
+    width: 100%;
+  }
+
+  /* Restoring a real table both stops the clipping and lets `thead` repeat —
+     `display: block` suppresses table-header-group. */
+  .sl-markdown-content table:not(:where(.not-content *)) {
+    display: table;
+    width: 100%;
+    overflow: visible;
+  }
+  .sl-markdown-content thead:not(:where(.not-content *)) {
+    display: table-header-group;
+  }
+  .sl-markdown-content tr:not(:where(.not-content *)) {
+    break-inside: avoid;
+  }
+}

@@ -122,10 +122,18 @@ related: [build-and-deploy, grid-core]
 ## wcag-conformance-report (#449)
 
 - `apps/docs/src/content/docs/grid/guides/conformance-report.mdx` is the AUTHORITY for the conformance claim (VPAT 2.5 shape, every Level A + AA criterion of WCAG 2.2). `guides/accessibility.mdx` keeps an ABRIDGED checklist and links to it — do not let the two drift into two competing full lists.
-- Sidebar + agent endpoints need NO manual registration: the Starlight sidebar `autogenerate`s from `grid/guides`, and `_llm-sources.ts` derives sections from the slug (`grid/guides/*` → "Guides", alphabetical). Verified: `dist/docs/llms.txt` 1 hit, `llms-full.txt` 3 hits, route built.
+- DECIDED (#449): the page is `sidebar: hidden` + `llmsFull: false`, discovered via three in-page links from `accessibility.mdx` (top See-also, mid-page, bottom CardGrid). It STAYS in the `llms.txt` index (~20 tokens, answers "do you have a VPAT / are you EAA compliant?") but is OUT of the `llms-full.txt` corpus — the 89-row criterion table is noise for code-writing agents. Same split as `ai`, `demos`, `comparison`, `changelog` (`_llm-sources.ts` L187).
+- DECIDED (#449): NO checked-in PDF. A `public/*.pdf` goes stale the moment the product moves; the page carries a **Report date** row and tells procurement to print-to-PDF from the browser. Issue #449's PDF acceptance criterion is deliberately declined — amend the issue, don't silently drop it.
+- INVARIANT (#449): the **Status** column is ITI's closed four-value vocabulary — `Supports` / `Partially Supports` / `Does Not Support` / `Not Applicable`, exact capitalization, nothing else. "Supports" means the PRODUCT has ≥1 conforming method, so consumer content that breaks a criterion does NOT downgrade it; that qualifier goes in the remark as `**Author responsibility:** …`. Never invent a hybrid like "Supports (with author responsibility)".
 - INVARIANT (#449): axe tags are ADDITIVE. `.withTags(['wcag22aa'])` alone checks only the handful of rules 2.2 introduced. The full target is `['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']` — see `WCAG22AA_TAGS` in `e2e/tests/accessibility.spec.ts`.
 - The conformance scan asserts ZERO violations at ANY impact (a published claim has no "minor" tier) and runs across ALL FOUR demos, because adapters render their own cell content and could regress alone. The older `default grid has no critical ARIA violations` test keeps the untagged, best-practice-inclusive scan on vanilla — both are wanted.
 - Two axe rules stay disabled with reasons in the scan config: `scrollable-region-focusable` (virtualization) and `aria-required-children` (`role="presentation"` layout wrappers between `grid` and `rowgroup`). Document any third one in the report's "How this report is verified" section too.
+
+## docs-site print CSS (`apps/docs/src/styles/custom.css`)
+
+- Starlight ALREADY tags `nav.sidebar`, `.right-sidebar-container`, `.pagination-links`, `EditLink` and the header right-group with its `print:hidden` utility. Only two pieces of chrome lack it: `header.header` (fixed, `--sl-nav-height`) and `<mobile-starlight-toc>`. Hiding them is not enough \u2014 `.main-frame` padding and the `.main-pane` width cap still reserve the space, so both must be reset.
+- GOTCHA: `markdown.css` gives content tables `display: block; overflow: auto`. Print has no scroll, so a wide table is CUT OFF at the page edge and `thead` never repeats across pages. Any docs page with a wide table (the conformance report's 4th \"Verified by\" column is the live case) needs the `display: table / overflow: visible` + `display: table-header-group` override.
+- DECIDED: do NOT expand link `href`s in print. 89 long GitHub URLs inline would destroy the tables, and Chrome/Edge \"Save as PDF\" keeps hyperlinks as clickable annotations anyway.
 
 ## themes (libs/themes/)
 

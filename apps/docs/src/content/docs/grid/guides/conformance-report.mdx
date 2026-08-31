@@ -27,19 +27,27 @@ If you are looking for *how to use* the accessibility features, read
 | **Conformance claim** | Supports |
 | **Evaluation methods** | Automated ([axe-core](https://github.com/dequelabs/axe-core) via Playwright, run against all four framework demos on every commit), unit and integration tests asserting specific ARIA and interaction behaviour, and manual review with NVDA, JAWS and VoiceOver |
 | **Applies from** | v3.6.0 |
+| **Report date** | 31 August 2026 |
+
+This page is the authoritative copy and is revised with the product. Print it to PDF from your
+browser if you need a file to attach to a procurement pack — that way the copy you hand over
+carries the report date above and can never be a stale snapshot of an older release.
 
 ### What "the product" means here
 
 A grid is a component, not a page. Several success criteria are about things a component cannot
 control — the document's language, the page title, whether there is more than one way to find a
-page. Those are marked **Not applicable** with a note about where the responsibility actually sits.
+page. Those are marked **Not Applicable** with a note about where the responsibility actually sits.
 
-Two other categories appear below:
+The **Status** column carries one of the four VPAT® 2.5 values and nothing else — *Supports*,
+*Partially Supports*, *Does Not Support*, *Not Applicable* — so the report can be read straight
+against the standard's own checklist.
 
-- **Supports** — the grid meets the criterion with no work on your part.
-- **Supports (with author responsibility)** — the grid supplies the mechanism, but your content can
-  still fail the criterion. A custom cell renderer that emits an image without `alt` text is the
-  clearest example. Each row says exactly what is expected of you.
+Where the grid provides a conforming mechanism but your content can still break the criterion, the
+status stays **Supports**: the term means the product has at least one method that meets the
+criterion, and it does. The remark then opens with **Author responsibility** and says exactly which
+part is yours. A custom cell renderer that emits an image without `alt` text is the clearest
+example.
 
 <Aside type="tip" title="No opt-out">
 None of this is configurable, because none of it should be a decision. There is no
@@ -53,36 +61,36 @@ than being stamped onto every cell.
 
 | Criterion | Status | How it is met | Verified by |
 |---|---|---|---|
-| 1.1.1 Non-text Content | Supports (with author responsibility) | Every icon the grid renders is either labelled or marked `aria-hidden` with adjacent text. Images you render from your own data need their own `alt` text. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — axe `image-alt`, `svg-img-alt` |
-| 1.2.1 Audio-only and Video-only | Not applicable | The grid renders no time-based media. | — |
-| 1.2.2 Captions (Prerecorded) | Not applicable | The grid renders no time-based media. | — |
-| 1.2.3 Audio Description or Media Alternative | Not applicable | The grid renders no time-based media. | — |
+| 1.1.1 Non-text Content | Supports | Every icon the grid renders is either labelled or marked `aria-hidden` with adjacent text. **Author responsibility:** images you render from your own data need their own `alt` text. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — axe `image-alt`, `svg-img-alt` |
+| 1.2.1 Audio-only and Video-only | Not Applicable | The grid renders no time-based media. | — |
+| 1.2.2 Captions (Prerecorded) | Not Applicable | The grid renders no time-based media. | — |
+| 1.2.3 Audio Description or Media Alternative | Not Applicable | The grid renders no time-based media. | — |
 | 1.3.1 Info and Relationships | Supports | The [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/) throughout: `role="grid"` with `aria-rowcount`/`aria-colcount`, `rowgroup`, `row`, `columnheader`, `gridcell`, and `aria-rowindex`/`aria-colindex` on virtualized rows so position survives recycling. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "grid has proper ARIA roles structure"; [aria.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/aria.spec.ts) |
 | 1.3.2 Meaningful Sequence | Supports | DOM order matches visual order, including pinned columns and grouped headers. | [pinned-columns.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/pinned-columns/pinned-columns.spec.ts) |
 | 1.3.3 Sensory Characteristics | Supports | No instruction depends on shape, size or position. | Manual review — no automated check is meaningful |
-| 1.4.1 Use of Color | Supports (with author responsibility) | Sort direction, selection, dirty state and validation errors all carry a non-colour cue. Status encoded purely as colour in your own renderers is yours to fix. | [header.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/header.spec.ts) — sort indicator; [editing-integration.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/editing/editing-integration.spec.ts) — invalid state |
-| 1.4.2 Audio Control | Not applicable | The grid plays no audio. | — |
+| 1.4.1 Use of Color | Supports | Sort direction, selection, dirty state and validation errors all carry a non-colour cue. **Author responsibility:** status encoded purely as colour in your own renderers is yours to fix. | [header.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/header.spec.ts) — sort indicator; [editing-integration.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/editing/editing-integration.spec.ts) — invalid state |
+| 1.4.2 Audio Control | Not Applicable | The grid plays no audio. | — |
 | 2.1.1 Keyboard | Supports | Every operation — sort, filter, select, edit, expand, reorder, resize, group, copy, paste — has a keyboard path. Drag-only interactions each have a single-pointer *and* keyboard alternative; see [Pointer Alternatives to Dragging](/grid/guides/accessibility/#pointer-alternatives-to-dragging). | [keyboard.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/keyboard.spec.ts) |
 | 2.1.2 No Keyboard Trap | Supports | <kbd>Tab</kbd> leaves the grid, <kbd>Escape</kbd> leaves an editor and closes any popover. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "focus trap does NOT fight intentional outward Tab" |
-| 2.1.4 Character Key Shortcuts | Not applicable | The grid defines no single-character shortcuts. Every binding uses a modifier or a non-printing key. | — |
-| 2.2.1 Timing Adjustable | Not applicable | The grid imposes no time limit. | — |
-| 2.2.2 Pause, Stop, Hide | Not applicable | Nothing moves, blinks or auto-updates on its own. Row animations are transitions triggered by your data changing, and they disable under `prefers-reduced-motion`. | [row-animation.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/row-animation.spec.ts) |
+| 2.1.4 Character Key Shortcuts | Not Applicable | The grid defines no single-character shortcuts. Every binding uses a modifier or a non-printing key. | — |
+| 2.2.1 Timing Adjustable | Not Applicable | The grid imposes no time limit. | — |
+| 2.2.2 Pause, Stop, Hide | Not Applicable | Nothing moves, blinks or auto-updates on its own. Row animations are transitions triggered by your data changing, and they disable under `prefers-reduced-motion`. | [row-animation.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/row-animation.spec.ts) |
 | 2.3.1 Three Flashes or Below Threshold | Supports | Nothing in the grid flashes. | Manual review — no automated check is meaningful |
-| 2.4.1 Bypass Blocks | Not applicable | Page-level. Worth noting that the grid is a *single* tab stop — a roving-tabindex grid does not become a block of hundreds of stops that a user needs to bypass. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "tab order moves through grid regions correctly" |
-| 2.4.2 Page Titled | Not applicable | Page-level; supplied by your application. | — |
+| 2.4.1 Bypass Blocks | Not Applicable | Page-level. Worth noting that the grid is a *single* tab stop — a roving-tabindex grid does not become a block of hundreds of stops that a user needs to bypass. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "tab order moves through grid regions correctly" |
+| 2.4.2 Page Titled | Not Applicable | Page-level; supplied by your application. | — |
 | 2.4.3 Focus Order | Supports | Focus follows grid structure, and is deliberately restored after sorting, filtering, editing and row deletion rather than being dropped to `<body>`. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "focus survives sort reorder", "focus survives scroll (virtualization)"; [focus-manager.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/focus-manager.spec.ts) |
-| 2.4.4 Link Purpose (In Context) | Not applicable | The grid renders no links of its own. Links inside your renderers are yours. | — |
+| 2.4.4 Link Purpose (In Context) | Not Applicable | The grid renders no links of its own. Links inside your renderers are yours. | — |
 | 2.5.1 Pointer Gestures | Supports | Every path-based gesture (column resize, column and row reorder, tool-panel resize, range selection) has a single-pointer, non-path alternative. | [reorder-plugin.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/reorder-columns/reorder-plugin.spec.ts), [row-drag-drop.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/row-drag-drop/row-drag-drop.spec.ts), [resize.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/resize.spec.ts), [range-selection.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/selection/range-selection.spec.ts) |
 | 2.5.2 Pointer Cancellation | Supports | Actions fire on the up-event. The down-event only moves focus, which is reversible and has no side effect. | [pointer-drag.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/pointer-drag.spec.ts) |
 | 2.5.3 Label in Name | Supports | Where a control has visible text, its accessible name starts with that text. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — axe `label-content-name-mismatch` |
-| 2.5.4 Motion Actuation | Not applicable | No function is operated by device motion. | — |
-| 3.1.1 Language of Page | Not applicable | Page-level; supplied by your application. | — |
+| 2.5.4 Motion Actuation | Not Applicable | No function is operated by device motion. | — |
+| 3.1.1 Language of Page | Not Applicable | Page-level; supplied by your application. | — |
 | 3.2.1 On Focus | Supports | Moving focus never changes context. | [focus-manager.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/focus-manager.spec.ts) |
 | 3.2.2 On Input | Supports | Changing a value commits it to the row; it never navigates or reconfigures the page. | [editing-integration.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/editing/editing-integration.spec.ts) |
-| 3.2.6 Consistent Help | Not applicable | Page-level; the grid provides no help mechanism. | — |
+| 3.2.6 Consistent Help | Not Applicable | Page-level; the grid provides no help mechanism. | — |
 | 3.3.1 Error Identification | Supports | A cell that fails validation gets `aria-invalid="true"` and a `title` carrying the message, alongside the visual state — so the error reaches assistive technology, not only CSS. | [editing-integration.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/editing/editing-integration.spec.ts) — "invalid cells" |
 | 3.3.2 Labels or Instructions | Supports | An injected editor takes its accessible name from its column header unless it already names itself, so it is never announced as a bare "edit text". | [editor-injection.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/editing/internal/editor-injection.spec.ts) — "Accessible name" |
-| 3.3.7 Redundant Entry | Not applicable | The grid runs no multi-step process. | — |
+| 3.3.7 Redundant Entry | Not Applicable | The grid runs no multi-step process. | — |
 | 4.1.2 Name, Role, Value | Supports | Verified by the axe-core scan on all four framework demos, plus targeted tests for sort state, expansion state, selection state and editor naming. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "no WCAG 2.2 AA violations axe can detect"; [editor-injection.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/editing/internal/editor-injection.spec.ts) |
 
 <Aside type="note">
@@ -93,29 +101,29 @@ SC 4.1.1 Parsing is not listed: it was removed in WCAG 2.2 and is always conside
 
 | Criterion | Status | How it is met | Verified by |
 |---|---|---|---|
-| 1.2.4 Captions (Live) | Not applicable | The grid renders no time-based media. | — |
-| 1.2.5 Audio Description | Not applicable | The grid renders no time-based media. | — |
+| 1.2.4 Captions (Live) | Not Applicable | The grid renders no time-based media. | — |
+| 1.2.5 Audio Description | Not Applicable | The grid renders no time-based media. | — |
 | 1.3.4 Orientation | Supports | Nothing is locked to portrait or landscape. | Manual review — the grid sets no orientation lock |
-| 1.3.5 Identify Input Purpose | Supports (with author responsibility) | The grid edits arbitrary records, not information about the user. Where a column *does* collect the user's own data, set `autocomplete` on your editor. | — author responsibility |
-| 1.4.3 Contrast (Minimum) | Supports (with author responsibility) | The default light and dark themes meet 4.5:1 on every text pair, and `dg-theme-contrast.css` / `dg-theme-large.css` reach the Level AAA 7:1. A theme of your own is yours to verify. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — axe `color-contrast` runs against the shipped default theme. The AAA figure for the contrast and large themes is from computed-ratio review, not CI |
+| 1.3.5 Identify Input Purpose | Supports | The grid edits arbitrary records, not information about the user. **Author responsibility:** where a column *does* collect the user's own data, set `autocomplete` on your editor. | — author responsibility |
+| 1.4.3 Contrast (Minimum) | Supports | The default light and dark themes meet 4.5:1 on every text pair, and `dg-theme-contrast.css` / `dg-theme-large.css` reach the Level AAA 7:1. **Author responsibility:** a theme of your own is yours to verify. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — axe `color-contrast` runs against the shipped default theme. The AAA figure for the contrast and large themes is from computed-ratio review, not CI |
 | 1.4.4 Resize Text | Supports | All internal sizing is `em`-based off a single `--tbw-font-size`, so the grid scales with the user's font size without clipping. | [variables.css](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/styles/variables.css) plus the text-spacing e2e below, which resizes text and asserts no clipping |
 | 1.4.5 Images of Text | Supports | The grid renders text as text; its icons are SVG or glyphs, not pictures of words. | Manual review — no automated check is meaningful |
 | 1.4.10 Reflow | Supports | Nothing around the table needs a second scrollbar at 320 px: the tool panel is clamped to its container, the header truncates its title before its controls. The table itself uses the SC's explicit two-dimensional-layout exception for data tables, and the [Responsive plugin](/grid/plugins/responsive/) offers card mode where you would rather it reflowed. See [Reflow and text spacing](/grid/guides/accessibility/#reflow-and-text-spacing). | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "the page does not scroll horizontally at 320px", "the tool panel stays inside the grid it docks into" |
 | 1.4.11 Non-text Contrast | Supports | Focus ring, borders, and other non-text UI clear 3:1 against the grid background in both light and dark. | Computed-ratio review of the theme tokens in [variables.css](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/styles/variables.css); axe does not check non-text contrast |
 | 1.4.12 Text Spacing | Supports | Rows measure their rendered content, so user spacing overrides make rows taller instead of clipping them. Horizontally, a cell whose text no longer fits reveals the full value on hover; `--tbw-cell-white-space: normal` removes truncation entirely. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "user text spacing neither clips nor overlaps grid content", "text the spacing pushes out of view is still readable in full"; [event-delegation.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/event-delegation.spec.ts) — "truncated text reveal" |
 | 1.4.13 Content on Hover or Focus | Supports | Tooltips are dismissible with <kbd>Escape</kbd>, hoverable, persistent, and appear on keyboard focus. | [tooltip.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/tooltip/tooltip.spec.ts) |
-| 2.4.5 Multiple Ways | Not applicable | Page-level; supplied by your application. | — |
+| 2.4.5 Multiple Ways | Not Applicable | Page-level; supplied by your application. | — |
 | 2.4.6 Headings and Labels | Supports | Column headers describe their columns; every control has a descriptive accessible name. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — axe `button-name`, `aria-command-name` |
 | 2.4.7 Focus Visible | Supports | A 2 px `outline` focus ring that survives forced-colors mode. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "focus-visible indicators exist on focusable elements" |
 | 2.4.11 Focus Not Obscured (Minimum) | Supports | Plugins that overlay the rows viewport report the band they cover, and keyboard navigation scrolls the focused cell clear of it rather than underneath — [sticky rows](/grid/plugins/sticky-rows/) vertically, [pinned columns](/grid/plugins/pinned-columns/) horizontally. | [sticky-rows.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/sticky-rows/sticky-rows.spec.ts), [pinned-columns.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/pinned-columns/pinned-columns.spec.ts), [keyboard.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/keyboard.spec.ts) |
 | 2.5.7 Dragging Movements | Supports | All ten drag surfaces have a single-pointer alternative, shipped in the same bundle unit as the drag it replaces so conformance never depends on an optional plugin. | [reorder-plugin.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/reorder-columns/reorder-plugin.spec.ts), [row-drag-drop.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/row-drag-drop/row-drag-drop.spec.ts), [range-selection.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/selection/range-selection.spec.ts), [resize.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/resize.spec.ts), [pivot-panel.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/pivot/pivot-panel.spec.ts) |
 | 2.5.8 Target Size (Minimum) | Supports | Every control answers a pointer across at least 24 × 24 px, on a mouse as well as a finger. Small controls reach it with a transparent overlay, so visual density is unchanged. Raise `--tbw-touch-target-min` to 44 px for the Level AAA criterion. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "small grid controls answer a pointer across a 24px square", "the tool panel splitter answers a pointer across a 24px square" |
-| 3.1.2 Language of Parts | Not applicable | The grid introduces no language changes of its own. | — |
-| 3.2.3 Consistent Navigation | Not applicable | Page-level; supplied by your application. | — |
+| 3.1.2 Language of Parts | Not Applicable | The grid introduces no language changes of its own. | — |
+| 3.2.3 Consistent Navigation | Not Applicable | Page-level; supplied by your application. | — |
 | 3.2.4 Consistent Identification | Supports | The same control means the same thing in every column, plugin and framework adapter. | [cross-framework-visual.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/cross-framework-visual.spec.ts) — parity across all four adapters |
-| 3.3.3 Error Suggestion | Supports (with author responsibility) | The grid displays and announces whatever your validator returns; writing a message that suggests a correction is your part. | [editing-integration.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/editing/editing-integration.spec.ts) — "invalid cells" |
-| 3.3.4 Error Prevention | Supports (with author responsibility) | Edits are cancelable via the `cell-commit` event, and the [UndoRedo plugin](/grid/plugins/undo-redo/) reverses committed changes. Confirmation for legal, financial or data-deleting actions belongs in your application. | [undo-redo.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/undo-redo/undo-redo.spec.ts) |
-| 3.3.8 Accessible Authentication (Minimum) | Not applicable | The grid performs no authentication. | — |
+| 3.3.3 Error Suggestion | Supports | The grid displays and announces whatever your validator returns. **Author responsibility:** writing a message that suggests a correction is your part. | [editing-integration.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/editing/editing-integration.spec.ts) — "invalid cells" |
+| 3.3.4 Error Prevention | Supports | Edits are cancelable via the `cell-commit` event, and the [UndoRedo plugin](/grid/plugins/undo-redo/) reverses committed changes. **Author responsibility:** confirmation for legal, financial or data-deleting actions belongs in your application. | [undo-redo.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/undo-redo/undo-redo.spec.ts) |
+| 3.3.8 Accessible Authentication (Minimum) | Not Applicable | The grid performs no authentication. | — |
 | 4.1.3 Status Messages | Supports | Sort applied, filter cleared, rows selected, data loaded, edit committed — all announced through the grid's built-in `aria-live` region without moving focus. Configurable and translatable; see [Configuring Announcements](/grid/guides/accessibility/#configuring-announcements). | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "sort action populates aria-live region", "row selection populates aria-live region", "data reload populates aria-live region"; [aria.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/aria.spec.ts) |
 
 ## EN 301 549 — EU edition
@@ -126,25 +134,25 @@ the Web Accessibility Directive enforce. It incorporates WCAG by reference, so t
 carry most of it — but it adds requirements WCAG has no equivalent for, and those are what this
 section covers.
 
-Clauses are listed as **Supports**, **Not applicable**, or **Supports (with author responsibility)**
-on the same basis as above. Clauses that do not apply to a software component at all — two-way
-voice (6), video capabilities (7), hardware (8), non-web documents (10), relay and emergency
-services (13) — are omitted rather than padded out with repetition.
+Clauses carry the same statuses, and the same **Author responsibility** marker, as the tables
+above. Clauses that do not apply to a software component at all — two-way voice (6), video
+capabilities (7), hardware (8), non-web documents (10), relay and emergency services (13) — are
+omitted rather than padded out with repetition.
 
 ### Clause 5 — Generic requirements
 
 | Clause | Status | Notes |
 |---|---|---|
-| 5.1 Closed functionality | Not applicable | The grid runs in a browser with the user's own assistive technology attached. Nothing about it is closed. |
+| 5.1 Closed functionality | Not Applicable | The grid runs in a browser with the user's own assistive technology attached. Nothing about it is closed. |
 | 5.2 Activation of accessibility features | Supports | There is nothing to activate. Every accessibility feature is on, unconditionally, with no configuration flag that turns it off. |
-| 5.3 Biometrics | Not applicable | The grid uses no biological characteristic. |
-| 5.4 Preservation of accessibility information during conversion | Not applicable | The grid performs no format conversion. Export to CSV and Excel emits data, not a presentation format with accessibility information to preserve. |
+| 5.3 Biometrics | Not Applicable | The grid uses no biological characteristic. |
+| 5.4 Preservation of accessibility information during conversion | Not Applicable | The grid performs no format conversion. Export to CSV and Excel emits data, not a presentation format with accessibility information to preserve. |
 | 5.5.1 Operable parts — means of operation | Supports | Every operable part is reachable and operable by keyboard, and by a single pointer without a path-based gesture. |
 | 5.5.2 Operable parts — discernibility | Supports | Operable parts are discernible visually and non-visually: each has an accessible name and role, and none relies on colour alone. |
-| 5.6.1 Locking or toggle controls — tactile or auditory status | Not applicable | The grid presents no physical locking control. |
+| 5.6.1 Locking or toggle controls — tactile or auditory status | Not Applicable | The grid presents no physical locking control. |
 | 5.6.2 Locking or toggle controls — visual status | Supports | Toggle state is exposed programmatically (`aria-pressed`, `aria-expanded`, `aria-sort`, `aria-selected`) and visually, not by colour alone. |
-| 5.7 Key repeat | Not applicable | The grid neither implements nor overrides key repeat; the platform's own setting applies. |
-| 5.8 Double-strike key acceptance | Not applicable | Platform-level. |
+| 5.7 Key repeat | Not Applicable | The grid neither implements nor overrides key repeat; the platform's own setting applies. |
+| 5.8 Double-strike key acceptance | Not Applicable | Platform-level. |
 | 5.9 Simultaneous user actions | Supports | No operation requires more than one simultaneous action. Multi-select accelerators (<kbd>Ctrl</kbd>-click, <kbd>Shift</kbd>-click) are shortcuts, never the only path — the same selections are reachable by single keypresses and by the selection checkbox column. |
 
 ### Clause 9 — Web
@@ -153,7 +161,7 @@ services (13) — are omitted rather than padded out with repetition.
 |---|---|---|
 | 9.1 Perceivable · 9.2 Operable · 9.3 Understandable · 9.4 Robust | Supports | These clauses restate the WCAG Level A and AA success criteria one for one. See the [Level A](#level-a) and [Level AA](#level-aa) tables above for the criterion-by-criterion status and evidence. |
 | 9.5 Non-interference | Supports | The four non-interference criteria — 1.4.2 Audio Control, 2.1.2 No Keyboard Trap, 2.2.2 Pause Stop Hide, 2.3.1 Three Flashes — are met even on pages where the grid is embedded in content that does not itself conform. The grid plays no audio, traps no focus, animates nothing autonomously, and flashes nothing. |
-| 9.6 WCAG conformance requirements | Supports (with author responsibility) | The grid satisfies the conformance requirements it can: complete processes, only accessibility-supported technologies, and no interference. "Full pages" is by definition a property of your page, not of a component on it. |
+| 9.6 WCAG conformance requirements | Supports | The grid satisfies the conformance requirements it can: complete processes, only accessibility-supported technologies, and no interference. **Author responsibility:** "full pages" is by definition a property of your page, not of a component on it. |
 
 ### Clause 11 — Software
 
@@ -177,7 +185,7 @@ clause 9, so only the software-specific additions are listed.
 | 11.5.2.15 Change notification | Supports | The `aria-live` region announces sort, filter, selection, load and commit; see SC 4.1.3 above. |
 | 11.6 Documented accessibility usage | Supports | Every keyboard path, pointer alternative and announcement is documented in [Accessibility](/grid/guides/accessibility/) and in the per-plugin pages. |
 | 11.7 User preferences | Supports | The grid inherits the platform's colour scheme, contrast, font size and reduced-motion preferences rather than overriding them: `light-dark()` for scheme, `em`-based sizing off the inherited font size, `prefers-reduced-motion` on every transition, and `forced-colors` support on the focus ring. |
-| 11.8 Authoring tool | Not applicable | The grid edits records in your data model. It does not author ICT content, so 11.8.1–11.8.5 do not apply. |
+| 11.8 Authoring tool | Not Applicable | The grid edits records in your data model. It does not author ICT content, so 11.8.1–11.8.5 do not apply. |
 
 ### Clause 12 — Documentation and support services
 
@@ -186,7 +194,7 @@ clause 9, so only the software-specific additions are listed.
 | 12.1.1 Accessibility and compatibility features | Supports | Documented in [Accessibility](/grid/guides/accessibility/) and in this report, both published as ordinary web pages. |
 | 12.1.2 Accessible documentation | Supports | The documentation site is HTML built by [Starlight](https://starlight.astro.build/), navigable by keyboard and screen reader, and is also published in plain markdown at [`/llms.txt`](/llms.txt) and [`/llms-full.txt`](/llms-full.txt). |
 | 12.2.2 Information on accessibility and compatibility features | Supports | Support runs through [GitHub issues](https://github.com/OysteinAmundsen/toolbox/issues), which is a public, accessible channel. Accessibility defects are treated as P0. |
-| 12.2.3 Effective communication · 12.2.4 Accessible documentation | Supports (with author responsibility) | The project communicates in writing through GitHub, which supports assistive technology. A commercial support desk, where you offer one, is yours. |
+| 12.2.3 Effective communication · 12.2.4 Accessible documentation | Supports | The project communicates in writing through GitHub, which supports assistive technology. **Author responsibility:** a commercial support desk, where you offer one, is yours. |
 
 <Aside type="caution" title="A conformance report is not a certification">
 This is a self-assessment, published in the VPAT® structure because that is what procurement asks

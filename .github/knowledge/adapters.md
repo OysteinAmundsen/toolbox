@@ -96,6 +96,12 @@ related: [adapters-react, adapters-vue, adapters-angular, grid-core, grid-featur
 - KNOWN WEAKNESS: `GroupingRowsPlugin.ts` and `pinned-rows.ts` have `rowEl.innerHTML=''` paths that do NOT call `releaseCell` first (rely on `PortalBoundary`).
 - TESTS: `rows.spec.ts > releases cells when pool shrinks`, plus per-adapter coverage.
 
+## a11y tree is core-only (adapters emit none)
+
+- INVARIANT: no adapter sets `role`, `aria-*` or `tabindex` — grep all three, zero hits. Renderer content mounts INSIDE the core-built, already-labelled `role="gridcell"` behind a semantics-free `display:contents` wrapper (React `div.react-cell-renderer`, Vue `div.vue-cell-renderer`, Angular bare `span`), so it can NOT break `aria-required-parent`/`-children`.
+- DECIDED (Aug 2026): the axe gate `e2e/tests/accessibility.spec.ts` runs on the **vanilla demo only** — the other three re-scan byte-identical core DOM. Do NOT "fix" this with per-adapter axe suites. The only adapter-added a11y behaviour is `registerExternalFocusContainer` for overlay editors, which is behavioural (axe cannot see it) and is gated by `use-grid-overlay.spec.{tsx,ts}` + `base-overlay-editor.spec.ts`.
+- INVARIANT: `conformance-report.mdx` is a procurement doc — every coverage claim MUST name a spec that asserts it (it twice claimed all four demos were scanned; never true).
+
 ## feature-prop bridging (gh #356)
 
 Feature props auto-load plugins (React `<DataGrid selection="range" editing="dblclick" />`, Vue `:selection="'range'"`, Angular `[selection]="'range'"`). MECHANISM: feature props → `createPluginsFromFeatures()` → factories → `gridConfig.plugins`.

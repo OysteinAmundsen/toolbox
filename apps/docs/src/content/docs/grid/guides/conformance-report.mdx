@@ -25,7 +25,7 @@ If you are looking for *how to use* the accessibility features, read
 | **Standards** | [WCAG 2.2](https://www.w3.org/TR/WCAG22/) Level A and Level AA; [EN 301 549](https://www.etsi.org/deliver/etsi_en/301500_301599/301549/) clauses 5, 9, 11 and 12 |
 | **Report editions** | VPAT® 2.5 WCAG edition and EU edition |
 | **Conformance claim** | Supports |
-| **Evaluation methods** | Automated ([axe-core](https://github.com/dequelabs/axe-core) via Playwright, run against all four framework demos on every commit), unit and integration tests asserting specific ARIA and interaction behaviour, and manual review with NVDA, JAWS and VoiceOver |
+| **Evaluation methods** | Automated ([axe-core](https://github.com/dequelabs/axe-core) via Playwright, run against the vanilla demo on every commit), unit and integration tests asserting specific ARIA and interaction behaviour, and manual review with NVDA, JAWS and VoiceOver |
 | **Applies from** | v3.6.0 |
 | **Report date** | 31 August 2026 |
 
@@ -207,14 +207,30 @@ this report gives an auditor a starting point rather than replacing them.
 Claims in this report are not self-assessed prose. Each one is backed by a check that runs in CI:
 
 - **`e2e/tests/accessibility.spec.ts`** — the axe-core scan under the WCAG 2.2 AA ruleset, run
-  against the vanilla, React, Angular and Vue demos, asserting zero violations at any impact. The
-  same file holds the targeted gates: focus management and focus-trap behaviour, target size
-  probed by hit-testing the four corners of a 24 px square, reflow at 320 px, and text spacing
-  applied exactly as the success criterion states it.
+  against the vanilla demo, asserting zero violations at any impact. The same file holds the
+  targeted gates: focus management and focus-trap behaviour, target size probed by hit-testing the
+  four corners of a 24 px square, reflow at 320 px, and text spacing applied exactly as the success
+  criterion states it.
 - **Unit and integration tests** co-located with the source — ARIA attribute correctness, live-region
   announcements, keyboard handling, editor naming, and validation state.
 - **Manual review** — NVDA on Windows, JAWS on Windows, VoiceOver on macOS and iOS. Automated tools
   find roughly a third of accessibility defects; the rest need a person.
+
+### Why one demo covers the adapters
+
+The scan runs against the vanilla demo because that is where the accessibility tree is produced.
+The Angular, React and Vue packages contribute none of it: they set no `role`, no `aria-*` and no
+`tabindex` anywhere in their source. What they do is mount framework-rendered content *inside* the
+cell the grid has already built and labelled, behind a `display: contents` wrapper that carries no
+role and no accessible name. The roles, indices, sort state and live-region announcements an
+assistive technology sees are byte-identical across all four demos, because one implementation
+emits them.
+
+The one behaviour the adapters do add is registering overlay editors as external focus containers,
+so the grid's focus trap treats a date picker or dropdown as part of the grid. A static scan cannot
+observe that, so it is gated by unit tests co-located with each adapter instead —
+`use-grid-overlay.spec.tsx` (React), `use-grid-overlay.spec.ts` (Vue) and
+`base-overlay-editor.spec.ts` (Angular).
 
 Automated scanning has known blind spots, and two rules are deliberately suppressed in the scan
 config for reasons documented there: `scrollable-region-focusable` (virtualization recycles rows

@@ -135,7 +135,9 @@
     --tbw-color-header-separator: var(--tbw-color-border-cell);
 
     /* ========== Touch / Pointer ========== */
-    /* Minimum hit-target dimension for interactive controls.
+    /* Minimum hit-target dimension for interactive controls, on every pointer
+       type — SC 2.5.8 is not conditional on touch. Small controls reach it with
+       a transparent overlay rather than a bigger box, so density is unchanged.
        24 × 24 px satisfies WCAG 2.2 SC 2.5.8 Target Size (Minimum), Level AA.
        Override to 44px to also satisfy SC 2.5.5 Target Size (Enhanced), Level AAA. */
     --tbw-touch-target-min: 24px;

@@ -65,6 +65,23 @@
       color: var(--tbw-tree-accent, var(--tbw-color-accent));
     }
 
+    /* SC 2.5.8 Target Size (Minimum) applies to every pointer type, but a 24px
+       box would widen every indentation level. The overlay grows the target
+       instead of the box, so density is untouched. */
+    .tree-toggle {
+      position: relative;
+
+      &::after {
+        content: '';
+        position: absolute;
+        inset-block-start: 50%;
+        inset-inline-start: 50%;
+        translate: -50% -50%;
+        inline-size: var(--tbw-touch-target-min, 24px);
+        block-size: var(--tbw-touch-target-min, 24px);
+      }
+    }
+
     .tree-spacer {
       /* Must match tree-toggle width and height for alignment */
       width: var(--tbw-tree-toggle-size, 1.25em);

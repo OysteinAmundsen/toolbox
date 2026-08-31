@@ -292,8 +292,8 @@ Each icon also has a `-mask` variant (e.g., `--tbw-icon-sort-asc-mask`) for SVG 
 
 ## Touch & Pointer Input
 
-On coarse-pointer devices (touchscreens), interactive controls automatically meet a minimum hit-target
-size governed by `--tbw-touch-target-min`. The `24px` default satisfies
+Interactive controls meet a minimum hit-target size governed by `--tbw-touch-target-min` — on a
+mouse just as much as on a touchscreen. The `24px` default satisfies
 [WCAG 2.2 SC 2.5.8 Target Size (Minimum)](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html),
 Level **AA**. Raise it to `44px` to also satisfy
 [SC 2.5.5 Target Size (Enhanced)](https://www.w3.org/WAI/WCAG21/Understanding/target-size.html), Level **AAA**:
@@ -301,12 +301,14 @@ Level **AA**. Raise it to `44px` to also satisfy
 ```css
 tbw-grid {
   --tbw-touch-target-min: 44px;
+  --tbw-tool-panel-resize-overhang: 22px;
 }
 ```
 
 | Token | Default | Description |
 |-------|---------|-------------|
-| `--tbw-touch-target-min` | `24px` | Minimum `min-width` / `min-height` for interactive controls under `@media (pointer: coarse)`. Affects filter buttons, drag handles, resize handles, expand toggles, selection checkboxes. |
+| `--tbw-touch-target-min` | `24px` | Minimum pointer target for interactive controls. Affects filter buttons, drag handles, resize handles, expand toggles, selection checkboxes. Small controls grow a transparent hit area rather than their box, so density is unchanged. |
+| `--tbw-tool-panel-resize-overhang` | `12px` | Half the tool-panel splitter's target width. Kept separate because browsers reject a calculated `overflow-clip-margin`; raise it alongside `--tbw-touch-target-min`. |
 
 Controls that are only visible on hover (filter button, drag handles) are kept visible at all times
 under `@media (hover: none)` so touch users can always reach them without a preceding hover event.

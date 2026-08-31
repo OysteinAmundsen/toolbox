@@ -103,6 +103,21 @@
     color: var(--tbw-pivot-toggle-hover-color, var(--tbw-color-fg));
   }
 
+  /* SC 2.5.8: grow the target, not the box, so the pivot row keeps its height. */
+  .pivot-toggle {
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset-block-start: 50%;
+      inset-inline-start: 50%;
+      translate: -50% -50%;
+      inline-size: var(--tbw-touch-target-min, 24px);
+      block-size: var(--tbw-touch-target-min, 24px);
+    }
+  }
+
   @media (pointer: coarse) {
     .pivot-toggle {
       min-width: var(--tbw-touch-target-min, 24px);

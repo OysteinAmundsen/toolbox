@@ -313,6 +313,21 @@ describe('SelectionPlugin', () => {
       expect(result[0].checkboxColumn).toBe(true);
     });
 
+    it('should render the select-all checkbox inside a label so the whole cell is a target', () => {
+      const columns = [{ field: 'name' }];
+      const mockGrid = createMockGrid([], columns);
+      const plugin = new SelectionPlugin({ mode: 'row', checkbox: true });
+      plugin.attach(mockGrid);
+
+      const [checkboxColumn] = plugin.processColumns(columns);
+      const header = checkboxColumn.headerRenderer?.({} as never) as HTMLElement;
+
+      // A label forwards the pointer to the checkbox natively, which is what
+      // gives the control a 24px target without inflating the box (SC 2.5.8).
+      expect(header.tagName).toBe('LABEL');
+      expect(header.querySelector('.tbw-select-all-checkbox')).not.toBeNull();
+    });
+
     it('should toggle row on checkbox column click', () => {
       const rows = [{ id: 1 }, { id: 2 }];
       const columns = [{ field: 'name', checkboxColumn: true }];
@@ -1563,8 +1578,7 @@ describe('SelectionPlugin', () => {
 
     const items = (plugin: any, rowIndex: number, columnIndex: number) =>
       plugin.handleQuery({ type: 'getContextMenuItems', context: params(rowIndex, columnIndex) }) as
-        | { id: string; label: string; order?: number; action: () => void }[]
-        | undefined;
+        { id: string; label: string; order?: number; action: () => void }[] | undefined;
 
     it('contributes nothing until a cell has been anchored', () => {
       const plugin = new SelectionPlugin({ mode: 'range' });

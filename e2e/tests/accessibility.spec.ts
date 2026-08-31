@@ -497,3 +497,116 @@ test.describe('Accessibility: axe-core scans', () => {
 
   // #endregion
 });
+
+// #region Target Size (SC 2.5.8)
+
+/**
+ * WCAG 2.2 SC 2.5.8 Target Size (Minimum) — every pointer target must offer at
+ * least 24×24 CSS pixels, on a mouse just as much as on a finger.
+ *
+ * A data grid earns its keep on density, so most of these controls keep their
+ * small box and grow only their hit area (a transparent `::after` overlay, or
+ * an absolutely positioned handle). `getBoundingClientRect()` would report the
+ * box and miss the overlay, so the target is measured the way a pointer sees
+ * it: probe the four corners of a 24px square centred on the control and check
+ * that each one still resolves to that control.
+ */
+const TARGET_SIZE_MIN = 24;
+
+/** Controls that must answer a pointer anywhere in a 24px square. */
+const TARGET_SELECTORS = [
+  '.resize-handle',
+  '.tbw-filter-btn',
+  '.tbw-checkbox-header',
+  '.tree-toggle',
+  '.group-toggle',
+  '.master-detail-toggle',
+  '.dg-row-drag-handle',
+  '.pivot-toggle',
+  '.tbw-col-move-btn',
+];
+
+/**
+ * Probe the corners of the minimum target square around the first visible match
+ * for each selector. Returns one result per selector actually present.
+ */
+async function probeTargets(page: Page, selectors: string[], min: number) {
+  return page.evaluate(
+    ({ selectors, min }) => {
+      const results: { selector: string; misses: string[] }[] = [];
+
+      for (const selector of selectors) {
+        const el = [...document.querySelectorAll<HTMLElement>(`tbw-grid ${selector}`)].find((candidate) => {
+          const box = candidate.getBoundingClientRect();
+          return box.width > 0 && box.height > 0 && getComputedStyle(candidate).pointerEvents !== 'none';
+        });
+        if (!el) continue;
+
+        const box = el.getBoundingClientRect();
+        const cx = box.left + box.width / 2;
+        const cy = box.top + box.height / 2;
+        // Stay a pixel inside the square so sub-pixel rounding cannot flip it.
+        const reach = min / 2 - 1;
+        const corners: [string, number, number][] = [
+          ['top-left', cx - reach, cy - reach],
+          ['top-right', cx + reach, cy - reach],
+          ['bottom-left', cx - reach, cy + reach],
+          ['bottom-right', cx + reach, cy + reach],
+        ];
+
+        const misses = corners
+          .filter(([, x, y]) => {
+            // Only the control itself (or its own children, or its `::after`
+            // overlay, which resolves to it) counts. Landing on the ancestor
+            // cell means the target ends there.
+            const hit = document.elementFromPoint(x, y);
+            return !hit || !(hit === el || el.contains(hit));
+          })
+          .map(([name]) => name);
+
+        results.push({ selector, misses });
+      }
+
+      return results;
+    },
+    { selectors, min },
+  );
+}
+
+test.describe('Accessibility: target size (WCAG 2.2 SC 2.5.8)', () => {
+  test('small grid controls answer a pointer across a 24px square', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+
+    // Several controls only materialise while their cell is hovered. Hovering a
+    // header cell reveals the filter and move buttons alongside the handle.
+    await page.locator('[role="columnheader"]:not([data-field^="__tbw_"])').first().hover();
+    await page.waitForTimeout(200);
+
+    const results = await probeTargets(page, TARGET_SELECTORS, TARGET_SIZE_MIN);
+
+    expect(results.length, 'no target-size candidates were found on the page').toBeGreaterThan(0);
+
+    const failures = results.filter((r) => r.misses.length > 0);
+    const report = failures.map((r) => `${r.selector} misses: ${r.misses.join(', ')}`).join('\n');
+    expect(failures, report).toHaveLength(0);
+  });
+
+  test('the tool panel splitter answers a pointer across a 24px square', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+
+    const toggle = page.locator('tbw-grid [data-panel-toggle]');
+    if ((await toggle.count()) === 0) test.skip(true, 'shell plugin not enabled in this demo');
+
+    // The splitter is clipped to zero width until the panel is docked open.
+    await toggle.first().click();
+    await expect(page.locator('tbw-grid .tbw-tool-panel.open')).toBeVisible();
+    await page.waitForTimeout(300);
+
+    const [result] = await probeTargets(page, ['.tbw-tool-panel-resize'], TARGET_SIZE_MIN);
+    expect(result?.misses ?? ['not found'], `splitter misses: ${result?.misses.join(', ')}`).toHaveLength(0);
+  });
+});
+
+// #endregion

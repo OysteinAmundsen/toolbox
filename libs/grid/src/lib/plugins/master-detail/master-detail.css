@@ -42,6 +42,21 @@
       opacity: 1;
     }
 
+    /* SC 2.5.8: grow the target, not the box, so the row keeps its height. */
+    .master-detail-toggle {
+      position: relative;
+
+      &::after {
+        content: '';
+        position: absolute;
+        inset-block-start: 50%;
+        inset-inline-start: 50%;
+        translate: -50% -50%;
+        inline-size: var(--tbw-touch-target-min, 24px);
+        block-size: var(--tbw-touch-target-min, 24px);
+      }
+    }
+
     @media (pointer: coarse) {
       .master-detail-toggle {
         min-width: var(--tbw-touch-target-min, 24px);

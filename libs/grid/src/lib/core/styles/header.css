@@ -113,6 +113,10 @@
 
         &.resizable {
           position: relative;
+          /* The resize handle's target reaches half its width into the cell.
+             Keep the trailing controls clear of it, or they would lose part of
+             their own target to it (SC 2.5.8). */
+          padding-inline-end: max(var(--tbw-cell-padding-h, 0.5em), calc(var(--tbw-touch-target-min, 24px) / 2));
         }
 
         &.sticky-left,
@@ -141,9 +145,10 @@
     .resize-handle {
       position: absolute;
       top: 0;
-      /* Wide transparent hit area for easy grabbing */
-      right: calc(var(--tbw-resize-hit-area, 18px) / -2);
-      width: var(--tbw-resize-hit-area, 18px);
+      /* Transparent hit area, never narrower than the 24px SC 2.5.8 target.
+         Absolutely positioned, so widening it costs no layout. */
+      right: calc(max(var(--tbw-resize-hit-area, 18px), var(--tbw-touch-target-min, 24px)) / -2);
+      width: max(var(--tbw-resize-hit-area, 18px), var(--tbw-touch-target-min, 24px));
       height: 100%;
       cursor: e-resize;
       user-select: none;
@@ -203,15 +208,9 @@
       }
     }
 
-    /* Coarse pointer (touch): widen resize handle hit area and ensure
-       sort indicator meets minimum touch-target size */
+    /* Coarse pointer (touch): ensure the sort indicator meets the minimum
+       touch-target size. The resize handle is already sized for it above. */
     @media (pointer: coarse) {
-      .resize-handle {
-        /* Widen transparent hit area; absolute positioning avoids layout impact */
-        width: max(var(--tbw-resize-hit-area, 18px), var(--tbw-touch-target-min, 24px));
-        right: calc(max(var(--tbw-resize-hit-area, 18px), var(--tbw-touch-target-min, 24px)) / -2);
-      }
-
       > .cell.sortable > span[part~='sort-indicator'] {
         min-width: var(--tbw-touch-target-min, 24px);
         min-height: var(--tbw-touch-target-min, 24px);

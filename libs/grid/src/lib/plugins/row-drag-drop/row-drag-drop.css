@@ -28,6 +28,19 @@
     font-size: var(--tbw-font-size, 1em);
     letter-spacing: -2px;
 
+    /* SC 2.5.8: grow the target, not the box, so the row keeps its height. */
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset-block-start: 50%;
+      inset-inline-start: 50%;
+      translate: -50% -50%;
+      inline-size: var(--tbw-touch-target-min, 24px);
+      block-size: var(--tbw-touch-target-min, 24px);
+    }
+
     &:hover {
       color: var(--tbw-row-reorder-handle-hover, var(--tbw-color-fg));
     }

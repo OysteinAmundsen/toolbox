@@ -36,6 +36,21 @@
     border-radius: var(--tbw-border-radius, 0.125rem);
   }
 
+  /* SC 2.5.8: grow the target, not the box, so the group row keeps its height. */
+  .group-toggle {
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset-block-start: 50%;
+      inset-inline-start: 50%;
+      translate: -50% -50%;
+      inline-size: var(--tbw-touch-target-min, 24px);
+      block-size: var(--tbw-touch-target-min, 24px);
+    }
+  }
+
   @media (pointer: coarse) {
     .group-toggle {
       min-width: var(--tbw-touch-target-min, 24px);

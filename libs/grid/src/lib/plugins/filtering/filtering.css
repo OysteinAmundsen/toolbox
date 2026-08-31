@@ -81,11 +81,12 @@
       }
     }
 
-    @media (pointer: coarse) {
-      .tbw-filter-btn {
-        min-width: var(--tbw-touch-target-min, 24px);
-        min-height: var(--tbw-touch-target-min, 24px);
-      }
+    /* WCAG 2.2 SC 2.5.8 Target Size (Minimum) is not pointer-conditional — the
+       button carries its 24px target on a mouse too. It sits in a ~30px header,
+       so this costs 4px of label width and no height. */
+    .tbw-filter-btn {
+      min-width: var(--tbw-touch-target-min, 24px);
+      min-height: var(--tbw-touch-target-min, 24px);
     }
   }
 } /* End @layer tbw-plugins */

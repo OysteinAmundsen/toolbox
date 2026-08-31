@@ -18,9 +18,9 @@ import { isExpanderColumn, isUtilityColumn } from '../../core/plugin/expander-co
 import type { ColumnConfig } from '../../core/types';
 import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
 import {
+  createDragAlternativeMenu,
   type DragAlternativeAction,
   type DragAlternativeMenu,
-  createDragAlternativeMenu,
 } from '../shared/drag-alternative-menu';
 import {
   computeKeyboardExtension,
@@ -563,15 +563,13 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       if (!params || params.isHeader) return undefined;
       const actions = this.#extendActions(params.rowIndex, params.columnIndex);
       if (!actions) return undefined;
-      return actions.map(
-        (action, i): HeaderContextMenuItem => ({
-          id: `selection-extend-${i}`,
-          label: action.label,
-          disabled: action.disabled,
-          action: () => action.run(),
-          order: EXTEND_ITEM_ORDER + i,
-        }),
-      );
+      return actions.map((action, i): HeaderContextMenuItem => ({
+        id: `selection-extend-${i}`,
+        label: action.label,
+        disabled: action.disabled,
+        action: () => action.run(),
+        order: EXTEND_ITEM_ORDER + i,
+      }));
     }
     return undefined;
   }
@@ -1456,7 +1454,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       utility: true,
       checkboxColumn: true,
       headerRenderer: () => {
-        const container = document.createElement('div');
+        // A label, not a div: it forwards the pointer to the checkbox natively,
+        // so the target is the whole 32px cell without inflating the box (SC 2.5.8).
+        const container = document.createElement('label');
         container.className = 'tbw-checkbox-header';
         // Hide "select all" checkbox in single-select mode
         if (this.config.multiSelect === false) return container;
@@ -1471,6 +1471,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
             this.clearSelection();
           }
         });
+        // The label's own click keeps bubbling after it forwards to the
+        // checkbox; stop it so the header cell sees nothing.
+        container.addEventListener('click', (e) => e.stopPropagation());
         container.appendChild(checkbox);
         return container;
       },

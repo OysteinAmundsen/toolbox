@@ -85,10 +85,25 @@ related: [build-and-deploy, grid-core]
 ## touch-pointer-a11y (#305)
 
 - OWNS: `--tbw-touch-target-min: 24px` in `variables.css`. 24px = WCAG 2.2 SC **2.5.8** Target Size (Minimum), Level **AA**. Override to 44px for SC **2.5.5** Target Size (Enhanced), Level **AAA**. (Do not swap these — the two SCs are easy to confuse.)
-- INVARIANT: all coarse-pointer `min-width`/`min-height` rules MUST live under `@media (pointer: coarse)`. Fine-pointer rendering is UNCHANGED.
+- SUPERSEDED (#449): #305's "all `min-width`/`min-height` hit-target rules live under `@media (pointer: coarse)`; fine-pointer rendering is UNCHANGED" was WRONG — SC 2.5.8 is not pointer-conditional. Coarse blocks now only enlarge the **visible box** (comfort); the 24px **target** is unconditional. See touch-target-min-fine-pointer below.
 - INVARIANT: every `:hover`-_reveal_ rule (opacity 0→1, display none→block, visibility hidden→visible) MUST have a sibling `@media (hover: none)` rule keeping the control visible. Hover _emphasis_ (colour/opacity change on an already-visible control) is exempt.
 - DECIDED (Jul 2026 #305): "hover-emphasis stays hover-only" exception — `header.css` `.sortable:hover > span[part~='sort-indicator']` and `.resize-handle:hover::before/::after` are emphasis-only (the indicator/handle are always rendered); they stay hover-only on fine pointers and are NOT wrapped in `@media (hover: hover)`. Coarse-pointer hit-target rules are in a separate `@media (pointer: coarse)` block.
 - Controls patched (coarse min-size + hover-none reveal where applicable): `.tbw-filter-btn` (filtering.css), `.tbw-visibility-handle` (visibility.css), `.dg-row-drag-handle` (row-drag-drop.css), `.resize-handle` + sort `span[part~='sort-indicator']` (header.css), `.tbw-tool-panel-resize` (shell.css), `.group-toggle` (grouping-rows.css), `.master-detail-toggle` (master-detail.css), `.tree-toggle` + `.tree-spacer` (tree.css — the spacer holds the toggle slot on leaf rows and MUST grow with it, or leaf rows misalign), `.pivot-toggle` (pivot.css), `.tbw-select-row-checkbox` + `.tbw-select-all-checkbox` (selection.css).
+
+## touch-target-min-fine-pointer (#449, SC 2.5.8)
+
+- DECIDED (#449): **grow the target, not the box.** SC 2.5.8 applies to every pointer type, but a density-critical grid cannot raise row height / column width / tree indent to reach it. Five mechanisms, in order of preference:
+  1. transparent centred `::after` overlay (`inline-size`/`block-size: var(--tbw-touch-target-min, 24px)`, `translate: -50% -50%`) on a `position: relative` control — `.tree-toggle`, `.group-toggle`, `.master-detail-toggle`, `.pivot-toggle`, `.dg-row-drag-handle`;
+  2. already-absolute handle simply widened — `.resize-handle` (`width: max(var(--tbw-resize-hit-area, 18px), var(--tbw-touch-target-min, 24px))`, moved OUT of the coarse block);
+  3. `min-width`/`min-height` on the box where 4px of width is affordable — `.tbw-filter-btn`, `.tbw-col-move-btn`;
+  4. `<label>` wrapper, for **replaced elements that cannot take a pseudo-element** — `.tbw-checkbox-header` is a `<label>` so the whole 32px cell activates `.tbw-select-all-checkbox`;
+  5. nothing, when the row/cell click already performs the action — `.tbw-select-row-checkbox` has no listener of its own.
+- INVARIANT (#449): a small target may overlap a LARGE one (icon inside a cell), never another small one. `.resize-handle` reaches 12px into the cell, so `header.css > .cell.resizable` carries `padding-inline-end: max(var(--tbw-cell-padding-h, 0.5em), calc(var(--tbw-touch-target-min, 24px) / 2))` (8px → 12px) to keep `.tbw-filter-btn` clear.
+- INVARIANT (#449): `.tbw-tool-panel-resize` straddles the panel's docked edge (`left/right: calc(3px - var(--tbw-tool-panel-resize-overhang, 12px))`, width = overhang × 2) so it never covers panel controls. This needs `.tbw-tool-panel { overflow: clip; overflow-clip-margin: var(--tbw-tool-panel-resize-overhang, 12px) }` (was `hidden`) + `display:none` on `:not(.open)`, or the splitter hangs over the grid while closed.
+- INVARIANT (#449, Chromium): `overflow-clip-margin` silently DROPS a `calc()` value. `var()` works, a bare length works, `calc(var(--x)/2)` does not. Hence the separate `--tbw-tool-panel-resize-overhang` token rather than deriving it from `--tbw-touch-target-min`.
+- INVARIANT (#449): the visible 6px splitter bar moved to `::before` (the element itself is now the 24px hit area) — inset from the outer side by `calc(var(--tbw-tool-panel-resize-overhang, 12px) - 3px)`.
+- INVARIANT (#449): CSS target size is **untestable in happy-dom** (no layout engine). The gate is `e2e/tests/accessibility.spec.ts` → `Accessibility: target size (WCAG 2.2 SC 2.5.8)`, which probes the four corners of a 24px square with `document.elementFromPoint` and requires the hit to be the control or a descendant. Do NOT accept `hit.contains(el)` — an ancestor cell match makes the assertion vacuous.
+- TENSION (#449): a resizable column narrower than ~48px loses most of its header sort target to the two neighbouring resize handles. Accepted: consumer-chosen density, and the same trade already applied on coarse pointers.
 
 ## themes (libs/themes/)
 

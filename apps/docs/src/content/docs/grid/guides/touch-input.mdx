@@ -126,7 +126,11 @@ The grid exposes the CSS custom property `--tbw-touch-target-min` to set the min
 |---|---|---|
 | `--tbw-touch-target-min` | `24px` | WCAG 2.2 SC 2.5.8 Target Size (Minimum), Level AA |
 
-You will be able to override the token in your theme to increase target sizes for your deployment:
+SC 2.5.8 is not conditional on the pointer type, so the minimum applies to a mouse exactly as it does to a finger. A data grid earns its keep on density, though, so the grid grows the **hit area** rather than the **box**: small controls such as the tree, grouping, pivot, and master-detail toggles carry a transparent 24 px overlay centred on the icon, and handles such as the column resizer and the tool-panel splitter are absolutely positioned. Row heights, column widths, and indentation are identical to what they were before the target minimum existed.
+
+A coarse pointer additionally enlarges the visible box of several controls. That is a comfort choice on top of the target minimum, not the thing that satisfies it.
+
+You can override the token in your theme to increase target sizes for your deployment:
 
 ```css
 tbw-grid {
@@ -135,6 +139,19 @@ tbw-grid {
 ```
 
 The default of 24 px satisfies WCAG 2.2 SC 2.5.8 Target Size (Minimum) at Level AA. Raising it to 44 px also satisfies SC 2.5.5 Target Size (Enhanced) at Level AAA, and matches Apple's Human Interface Guidelines recommendation of 44 × 44 pt for primary touch targets.
+
+One control is sized separately. The [Shell](/grid/plugins/shell/) tool-panel splitter straddles the panel's docked edge so its target never covers the panel's own controls, which means it also has to widen the panel's clip region. Browsers reject a calculated `overflow-clip-margin`, so it reads its own token:
+
+| Token | Default | Notes |
+|---|---|---|
+| `--tbw-tool-panel-resize-overhang` | `12px` | Half the splitter's target width. Raise it alongside `--tbw-touch-target-min`. |
+
+```css
+tbw-grid {
+  --tbw-touch-target-min: 44px;
+  --tbw-tool-panel-resize-overhang: 22px;
+}
+```
 
 ## Known browser quirks
 

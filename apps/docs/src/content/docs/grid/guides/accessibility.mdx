@@ -275,6 +275,39 @@ gridConfig = {
 Pointers that cannot hover (touch, most switch devices) always get the inline controls regardless
 of this setting — there is nothing for them to hover in order to reveal a control.
 
+## Target size
+
+WCAG 2.2 SC 2.5.8 asks that every pointer target measure at least 24 × 24 CSS pixels. It says
+nothing about the pointer type, so the minimum has to hold for a mouse as much as for a finger —
+and a grid whose whole value is density cannot answer that by making every row taller.
+
+So the grid grows the **target**, not the **box**. Row heights, column widths, tree indentation and
+icon sizes are exactly what they were before the minimum existed:
+
+| Control | How it reaches 24 px |
+|---|---|
+| Tree, row-group, pivot and master-detail toggles; the row drag handle; the filter button | A transparent overlay centred on the icon |
+| Column resize handle | Absolutely positioned over the column border, so its width costs no layout |
+| Select-all checkbox | Wrapped in a `<label>`, which makes the whole header cell the target |
+| Row checkbox | The row click already selects, so the target is the cell |
+| Tool-panel splitter | Straddles the panel's docked edge, half outside, so it never covers the panel's own controls |
+
+One small target is never allowed to overlap another. Where a resize handle would reach into the
+filter button beside it, the header cell's trailing padding grows instead — by about four pixels,
+once, on resizable columns.
+
+Everything is driven from one token, so raising the minimum raises every target at once:
+
+```css
+tbw-grid {
+  --tbw-touch-target-min: 44px; /* SC 2.5.5 Target Size (Enhanced), AAA */
+  --tbw-tool-panel-resize-overhang: 22px; /* half of it, for the splitter */
+}
+```
+
+See [Hit-target sizing](/grid/guides/touch-input/#hit-target-sizing) for why the splitter needs its
+own token.
+
 ## Reduced Motion
 
 The grid respects the `prefers-reduced-motion: reduce` user preference automatically. When set, the grid:
@@ -423,6 +456,8 @@ The grid implements the [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/
 | 2.4.3 Focus Order | A | ✅ | Logical focus order follows grid structure |
 | 2.4.7 Focus Visible | AA | ✅ | Clear focus indicators |
 | 2.4.11 Focus Not Obscured (Min) | AA (2.2) | ✅ | Keyboard navigation scrolls the focused row clear of overlays such as [sticky rows](/grid/plugins/sticky-rows/), and the focused cell clear of [pinned columns](/grid/plugins/pinned-columns/) |
+| 2.5.7 Dragging Movements | AA (2.2) | ✅ | Every drag has a single-pointer alternative — see [Pointer Alternatives to Dragging](#pointer-alternatives-to-dragging) |
+| 2.5.8 Target Size (Minimum) | AA (2.2) | ✅ | Every control answers a pointer across at least 24 × 24 px, on a mouse as well as a finger — see [Target size](#target-size) |
 | 4.1.2 Name, Role, Value | A | ✅ | ARIA attributes on all interactive elements |
 
 ## What's Automatic

@@ -128,7 +128,13 @@
       bottom: 0;
       right: 0;
       width: 0;
-      overflow: hidden;
+      /* `clip` rather than `hidden` so the clip region can be widened: the
+         splitter's hit area straddles the docked edge and has to survive it.
+         `overflow-clip-margin` is the one place `calc()` is avoided — Chromium
+         drops the declaration when the value is calculated, so the overhang is
+         its own token and the splitter geometry is derived from it. */
+      overflow: clip;
+      overflow-clip-margin: var(--tbw-tool-panel-resize-overhang, 12px);
       background: var(--tbw-tool-panel-bg);
       border-left: 1px solid var(--tbw-tool-panel-border);
       transition: width var(--tbw-tool-panel-transition);
@@ -275,7 +281,10 @@
       position: absolute;
       top: 0;
       bottom: 0;
-      width: 6px;
+      /* Transparent hit area, twice the overhang wide (24px by default, the
+         SC 2.5.8 minimum) and centred on the docked edge, so half of it falls
+         outside the panel and it never covers the panel's own controls. */
+      width: calc(var(--tbw-tool-panel-resize-overhang, 12px) * 2);
       cursor: col-resize;
       background: transparent;
       z-index: 10;
@@ -283,30 +292,48 @@
          claim the gesture for panning on touch devices. */
       touch-action: none;
       user-select: none;
-      transition: background var(--tbw-transition-duration) var(--tbw-transition-ease);
+
+      /* The visible bar is only the 6px at the docked edge; the rest of the
+         width is invisible hit area. */
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        background: transparent;
+        transition: background var(--tbw-transition-duration) var(--tbw-transition-ease);
+      }
 
       &[data-handle-position='left'] {
-        left: 0;
+        left: calc(3px - var(--tbw-tool-panel-resize-overhang, 12px));
+
+        &::before {
+          left: calc(var(--tbw-tool-panel-resize-overhang, 12px) - 3px);
+        }
       }
 
       &[data-handle-position='right'] {
-        right: 0;
+        right: calc(3px - var(--tbw-tool-panel-resize-overhang, 12px));
+
+        &::before {
+          right: calc(var(--tbw-tool-panel-resize-overhang, 12px) - 3px);
+        }
       }
 
       /* `[data-tbw-size-open]` keeps the splitter lit while the size popover is
          open, so the popover stays visually tied to the edge it is sizing. */
-      &:hover,
-      &.resizing,
-      &[data-tbw-size-open] {
+      &:hover::before,
+      &.resizing::before,
+      &[data-tbw-size-open]::before {
         background: var(--tbw-color-accent);
       }
+    }
 
-      /* Coarse pointer (touch): widen hit area; absolute positioning avoids layout impact */
-      @media (pointer: coarse) {
-        & {
-          width: var(--tbw-touch-target-min, 24px);
-        }
-      }
+    /* A closed panel is zero-width, so the splitter would hang over the grid
+       inside the clip margin. It has nothing to size until the panel is open. */
+    .tbw-tool-panel:not(.open) .tbw-tool-panel-resize {
+      display: none;
     }
 
     .tbw-tool-panel-header {

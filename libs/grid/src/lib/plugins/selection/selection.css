@@ -166,6 +166,7 @@
       justify-content: center;
       align-items: center;
       height: 100%;
+      cursor: pointer;
     }
 
     .tbw-select-all-checkbox {
@@ -173,7 +174,10 @@
       cursor: pointer;
     }
 
-    /* Coarse pointer (touch): expand checkbox hit area to touch-target minimum */
+    /* SC 2.5.8: the row checkbox is not itself a target — the row click selects,
+       so the whole cell accepts the pointer. Select-all has its own handler, and
+       gets a cell-sized target from the `<label>` wrapper instead of a 24px box.
+       Coarse pointers still grow the boxes, which is a comfort choice. */
     @media (pointer: coarse) {
       .tbw-select-row-checkbox,
       .tbw-select-all-checkbox {

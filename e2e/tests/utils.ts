@@ -277,6 +277,17 @@ export function snapshotExists(testInfo: TestInfo, snapshotName: string): boolea
 }
 
 /**
+ * Visual regression mode, set by CI (see `.github/workflows/ci.yml`).
+ *
+ * - `compare` (default) — compare against the baseline restored from the cache
+ *   that the last trunk run seeded; skip snapshots the cache doesn't contain.
+ * - `write` — trunk run: capture every snapshot so the cache can be re-seeded.
+ * - `skip` — PR labelled `skip-visual`; the visual change is intentional and the
+ *   baseline is knowingly stale.
+ */
+const VISUAL_MODE = process.env.TBW_VISUAL_MODE ?? 'compare';
+
+/**
  * Perform visual comparison if baseline exists, otherwise skip gracefully.
  * This prevents CI failures on first run when no baselines exist.
  *
@@ -304,12 +315,19 @@ export async function expectScreenshotIfBaselineExists(
     timeout?: number;
   },
 ): Promise<boolean> {
+  if (VISUAL_MODE === 'skip') {
+    console.log(`⏭️  Skipping visual comparison: TBW_VISUAL_MODE=skip ("${snapshotName}")`);
+    return false;
+  }
+
   // Build the platform-specific snapshot name (Playwright adds browser and OS suffix)
   const project = testInfo.project.name; // e.g., 'chromium'
   const platform = process.platform === 'win32' ? 'win32' : process.platform === 'darwin' ? 'darwin' : 'linux';
   const platformSnapshotName = snapshotName.replace('.png', `-${project}-${platform}.png`);
 
-  if (!snapshotExists(testInfo, platformSnapshotName)) {
+  // In 'write' mode the point is to capture what isn't there yet, so the
+  // existence guard must not short-circuit.
+  if (VISUAL_MODE !== 'write' && !snapshotExists(testInfo, platformSnapshotName)) {
     // Log skip reason for visibility in test output
     console.log(`⏭️  Skipping visual comparison: no baseline exists for "${snapshotName}"`);
     console.log(`   Run with --update-snapshots to generate baselines.`);

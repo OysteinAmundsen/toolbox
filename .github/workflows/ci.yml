@@ -269,6 +269,18 @@ jobs:
       NX_DAEMON: "false"
       # Run demos against built dist packages
       USE_DIST: "true"
+      # Visual regression mode (see e2e/tests/utils.ts):
+      #   write   - re-seed the baseline cache from this run (pushes to main/2.x
+      #             only; whatever is on the trunk is the new reference)
+      #   skip    - PR is labelled `skip-visual`, i.e. the visual change is
+      #             intentional and the baseline is knowingly stale. NOTE: adding
+      #             the label does not re-trigger CI — re-run the job afterwards.
+      #   compare - default; compare against the restored trunk baseline, and
+      #             skip gracefully for any snapshot the cache doesn't contain.
+      TBW_VISUAL_MODE: ${{ (github.event_name == 'push' && (github.ref ==
+        'refs/heads/main' || github.ref == 'refs/heads/2.x')) && 'write' ||
+        contains(github.event.pull_request.labels.*.name, 'skip-visual') &&
+        'skip' || 'compare' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -297,6 +309,7 @@ jobs:
         run: bun run build
 
       - name: Verify system Chrome
+        id: chrome
         # We run e2e against the system Google Chrome preinstalled on
         # the ubuntu-24.04 runner image (Playwright configs use
         # `channel: 'chrome'` on CI). This avoids the
@@ -306,7 +319,14 @@ jobs:
         # below are kept as best-effort warm-up for the bundled
         # Chromium cache; if they hang or fail, e2e still runs via the
         # system Chrome channel.
-        run: google-chrome --version
+        #
+        # The major version is exported because it keys the visual
+        # baseline cache below: a runner-image Chrome bump changes text
+        # rendering, so baselines captured on the old major must not be
+        # compared against the new one.
+        run: |
+          google-chrome --version
+          echo "major=$(google-chrome --version | grep -oE '[0-9]+' | head -n1)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
         # Cheap insurance: if the bundled Chromium install step below
@@ -339,8 +359,43 @@ jobs:
           # Wait for all servers to be ready
           bunx wait-on http://localhost:4000 http://localhost:4300 http://localhost:4200 http://localhost:4100 --timeout 120000
 
+      - name: Restore visual regression baselines
+        # Visual baselines are NOT committed (they must be captured on
+        # the CI runner to be comparable). Instead the trunk seeds them:
+        # every push to main/2.x saves `e2e/snapshots` under a
+        # SHA-suffixed key, and PRs restore the newest one via
+        # `restore-keys` prefix matching. Cache scoping means a PR can
+        # read main's caches but never another PR's, so the baseline is
+        # always "the trunk as of its last run".
+        #
+        # A miss (first run, cache eviction after 7 idle days, Chrome
+        # major bump) is harmless: `expectScreenshotIfBaselineExists`
+        # skips comparisons it has no baseline for, exactly as before.
+        uses: actions/cache/restore@v5
+        with:
+          path: e2e/snapshots
+          key:
+            visual-baseline-${{ runner.os }}-chrome${{ steps.chrome.outputs.major
+            }}-${{ github.sha }}
+          restore-keys: |
+            visual-baseline-${{ runner.os }}-chrome${{ steps.chrome.outputs.major }}-
+
       - name: Run E2E tests
         run: bun run e2e
+
+      - name: Save visual regression baselines
+        # Trunk only. Cache entries are immutable, so the key carries the
+        # commit SHA and `restore-keys` above resolves to the newest
+        # match — this is the "overwrite the previous baseline" step.
+        # `always()` so a functional e2e failure still refreshes whatever
+        # snapshots were captured, rather than freezing a stale baseline.
+        if: always() && env.TBW_VISUAL_MODE == 'write'
+        uses: actions/cache/save@v5
+        with:
+          path: e2e/snapshots
+          key:
+            visual-baseline-${{ runner.os }}-chrome${{ steps.chrome.outputs.major
+            }}-${{ github.sha }}
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v5

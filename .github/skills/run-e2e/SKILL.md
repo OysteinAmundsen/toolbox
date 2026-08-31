@@ -97,6 +97,24 @@ Only after intentionally changing rendered output. Review the regenerated PNGs b
 bun nx e2e:update-snapshots e2e
 ```
 
+`e2e/snapshots/` is **gitignored** — local baselines never leave your machine, because a
+snapshot is only comparable to one captured on the same OS + Chrome build.
+
+On CI the baseline comes from the Actions cache instead, driven by `TBW_VISUAL_MODE`:
+
+| Context                   | Mode      | Behaviour                                                   |
+| ------------------------- | --------- | ----------------------------------------------------------- |
+| push to `main` / `2.x`    | `write`   | `updateSnapshots: 'changed'`, then saves the baseline cache |
+| pull request              | `compare` | restores the newest trunk baseline and compares against it  |
+| PR labelled `skip-visual` | `skip`    | bypasses all visual comparisons                             |
+
+So a PR that intentionally changes rendering **will fail** the visual checks: inspect the
+diff in the `playwright-report` artifact, then add the `skip-visual` label and **re-run the
+job** (labelling alone does not re-trigger CI). The trunk run after merge overwrites the
+baseline. Cache misses (first run, 7-day eviction, Chrome major bump) are graceful —
+comparisons are skipped, not failed. Details: [e2e/README.md](../../../e2e/README.md) →
+"Visual Baselines on CI".
+
 ## Performance-regression tests
 
 Part of the regular `e2e` suite. Compares the **current build** against the **latest published release** (loaded from CDN) in the same browser session, so runner variance cancels out. Flags a regression if the current build is **>10% slower**; auto-retries up to 2× to absorb CI noise.

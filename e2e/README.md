@@ -187,6 +187,36 @@ The CI workflow:
 
 See `.github/workflows/ci.yml` for the full configuration.
 
+### Visual Baselines on CI
+
+Baselines are **not committed** — browser rendering differs per OS/Chrome build, so
+a snapshot captured on a dev machine is meaningless to the Linux runner. Instead
+the trunk seeds them through the Actions cache:
+
+| Context                   | `TBW_VISUAL_MODE` | Behaviour                                                                                         |
+| ------------------------- | ----------------- | ------------------------------------------------------------------------------------------------- |
+| Push to `main` / `2.x`    | `write`           | Runs with `updateSnapshots: 'changed'`, then **saves** `e2e/snapshots` as the new baseline cache. |
+| Pull request              | `compare`         | **Restores** the newest trunk baseline and compares against it.                                   |
+| PR labelled `skip-visual` | `skip`            | All visual comparisons are bypassed.                                                              |
+
+Cache key: `visual-baseline-<os>-chrome<major>-<sha>`, restored by prefix so PRs
+always pick up the most recent trunk entry. Because GitHub scopes caches to the
+current branch plus the base/default branch, a PR can read `main`'s baseline but
+never another PR's.
+
+**A cache miss is not a failure.** On a first run, after a 7-day eviction, or
+after a runner-image Chrome major bump, nothing is restored and
+`expectScreenshotIfBaselineExists` skips every comparison — the next trunk push
+re-seeds it.
+
+**Intentional visual changes** will fail the PR, since the baseline still shows
+the old rendering. Review the diff in the uploaded Playwright report, then add the
+`skip-visual` label and re-run the job (labelling alone does not re-trigger CI).
+Once merged, the trunk run overwrites the baseline.
+
+**Caveat:** a regression merged to trunk becomes the new baseline. The PR check is
+the gate; trunk runs record, they don't judge.
+
 ## Troubleshooting
 
 ### Tests Timeout

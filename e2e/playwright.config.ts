@@ -32,6 +32,12 @@ const reporters: Parameters<typeof defineConfig>[0]['reporter'] = process.env.CI
     ]
   : [['html', { outputFolder: '../playwright-report' }], ['./reporters/clean-list-reporter.ts']];
 
+// Visual regression mode, set by CI (see `.github/workflows/ci.yml`):
+//   'write'   - re-seed the baseline cache (pushes to main/2.x)
+//   'skip'    - bypass visual comparisons entirely
+//   'compare' - default; compare against the restored baseline
+const visualMode = process.env.TBW_VISUAL_MODE ?? 'compare';
+
 export default defineConfig({
   testDir: './tests',
   /* Exclude virtualization-stability tests from CI — they involve heavy scrolling
@@ -46,9 +52,10 @@ export default defineConfig({
    * where appropriate. This acts as a fallback for any test files that
    * don't set their own retry policy. */
   retries: 0,
-  /* Run tests in parallel - since visual baselines are not committed and
-   * expectScreenshotIfBaselineExists skips comparisons when no baseline exists,
-   * we can safely parallelize even in CI */
+  /* Run tests in parallel - visual baselines are not committed; on CI they are
+   * restored from the cache seeded by the last trunk run, and
+   * expectScreenshotIfBaselineExists skips comparisons for snapshots the cache
+   * doesn't contain, so we can safely parallelize even in CI */
   workers: process.env.CI ? 4 : undefined,
   /* Reporter to use - GitHub Actions on CI, custom clean-list locally */
   reporter: reporters,
@@ -110,6 +117,12 @@ export default defineConfig({
 
   /* Folder for snapshot baselines (visual regression) */
   snapshotDir: './snapshots',
+
+  /* Only the trunk re-seeds baselines. 'changed' writes missing snapshots and
+   * overwrites the ones that drifted, without failing the run; every other
+   * context is read-only so a PR can never rewrite the reference it is being
+   * measured against. Local `--update-snapshots` still wins (CLI > config). */
+  updateSnapshots: visualMode === 'write' ? 'changed' : 'none',
 
   /* Snapshot settings for visual regression */
   expect: {

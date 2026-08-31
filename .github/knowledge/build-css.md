@@ -117,6 +117,15 @@ related: [build-and-deploy, grid-core]
 - REJECTED (#449): a pure-CSS hover "peek" (`overflow: visible; width: max-content; z-index`) — zero JS, but it moves layout on EVERY truncated cell the pointer crosses. Fails the project's non-intrusive bar.
 - `--tbw-cell-white-space: normal` is the documented opt-in for consumers who want wrapping instead of any truncation; it composes with virtualization because of the row observer above.
 - SC 1.4.10: the grid table itself uses the SC's explicit **data-table exception** (two-dimensional layout). Nothing else does — see grid-plugins-shell.md › tool-panel width clamp. There are NO viewport `@media` queries anywhere in grid CSS; reflow of the table is the ResponsivePlugin's element-width-driven card mode.
+- INVARIANT (#449): `GridDataAttrs.TRUNCATED` (`data-tbw-truncated`) is a HANDOVER CONTRACT, not a private flag. Anything that writes a cell `title` must clear it, or core reclaims the title on the next hover. Only known other writer: `EditingPlugin.#syncInvalidCellAttribute` (validation messages).
+
+## wcag-conformance-report (#449)
+
+- `apps/docs/src/content/docs/grid/guides/conformance-report.mdx` is the AUTHORITY for the conformance claim (VPAT 2.5 shape, every Level A + AA criterion of WCAG 2.2). `guides/accessibility.mdx` keeps an ABRIDGED checklist and links to it — do not let the two drift into two competing full lists.
+- Sidebar + agent endpoints need NO manual registration: the Starlight sidebar `autogenerate`s from `grid/guides`, and `_llm-sources.ts` derives sections from the slug (`grid/guides/*` → "Guides", alphabetical). Verified: `dist/docs/llms.txt` 1 hit, `llms-full.txt` 3 hits, route built.
+- INVARIANT (#449): axe tags are ADDITIVE. `.withTags(['wcag22aa'])` alone checks only the handful of rules 2.2 introduced. The full target is `['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']` — see `WCAG22AA_TAGS` in `e2e/tests/accessibility.spec.ts`.
+- The conformance scan asserts ZERO violations at ANY impact (a published claim has no "minor" tier) and runs across ALL FOUR demos, because adapters render their own cell content and could regress alone. The older `default grid has no critical ARIA violations` test keeps the untagged, best-practice-inclusive scan on vanilla — both are wanted.
+- Two axe rules stay disabled with reasons in the scan config: `scrollable-region-focusable` (virtualization) and `aria-required-children` (`role="presentation"` layout wrappers between `grid` and `rowgroup`). Document any third one in the report's "How this report is verified" section too.
 
 ## themes (libs/themes/)
 

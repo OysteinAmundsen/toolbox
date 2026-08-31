@@ -14,12 +14,22 @@ import { DEMOS, waitForGridReady } from './utils';
 // #region Helpers
 
 /**
+ * The tag set axe-core uses for "WCAG 2.2 Level AA". The 2.2 tags are additive —
+ * `wcag22aa` alone covers only the criteria 2.2 introduced, so the 2.0 and 2.1
+ * tags have to ride along or the scan quietly checks a handful of rules.
+ */
+const WCAG22AA_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+
+/**
  * Run axe-core scan scoped to the grid element with sensible rule config.
  * Returns the violations array for assertion.
+ *
+ * Runs every rule axe knows by default. Pass `tags` to narrow the scan to a
+ * published conformance target instead.
  */
-async function scanGrid(page: Page, disableRules: string[] = []) {
+async function scanGrid(page: Page, disableRules: string[] = [], tags?: string[]) {
   // Scope scan to the grid element to avoid flagging the demo page chrome
-  const results = await new AxeBuilder({ page })
+  let builder = new AxeBuilder({ page })
     .include('tbw-grid')
     .disableRules([
       // Virtualization recycles rows outside the visible viewport —
@@ -33,8 +43,11 @@ async function scanGrid(page: Page, disableRules: string[] = []) {
       // can produce false positives when theme vars are applied externally.
       // We test contrast separately per theme below.
       ...disableRules,
-    ])
-    .analyze();
+    ]);
+
+  if (tags) builder = builder.withTags(tags);
+
+  const results = await builder.analyze();
 
   return results.violations;
 }
@@ -100,6 +113,30 @@ test.describe('Accessibility: axe-core scans', () => {
     const cells = grid.locator('[role="gridcell"]');
     await expect(cells.first()).toBeAttached();
   });
+
+  // #endregion
+
+  // #region Published Conformance Ruleset
+
+  /**
+   * The scan the conformance report cites. Narrowed to the published target so
+   * an axe best-practice rule can never be mistaken for a conformance failure,
+   * and widened to every framework adapter because the report claims the whole
+   * matrix — an adapter that renders its own cell content could regress alone.
+   *
+   * Asserts zero violations at ANY impact, not just critical/serious: a
+   * conformance claim has no "minor" tier.
+   */
+  for (const [demoName, url] of Object.entries(DEMOS)) {
+    test(`${demoName}: no WCAG 2.2 AA violations axe can detect`, async ({ page }) => {
+      await page.goto(url);
+      await waitForGridReady(page);
+
+      const violations = await scanGrid(page, [], WCAG22AA_TAGS);
+
+      expect(violations, formatViolations(violations)).toHaveLength(0);
+    });
+  }
 
   // #endregion
 

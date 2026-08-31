@@ -25,7 +25,10 @@ We target **WCAG 2.2 Level AA** out of the box, with no configuration required. 
 - **Focus is never hidden** — plugins that overlay the rows viewport report the band they obscure, so keyboard navigation scrolls the focused cell clear of them rather than underneath. [Sticky rows](/grid/plugins/sticky-rows/) report the top/bottom band they cover (vertical scrolling); [pinned columns](/grid/plugins/pinned-columns/) report the left/right band (horizontal scrolling).
 - **Two themes go further than AA** — `dg-theme-contrast.css` and `dg-theme-large.css` meet **Level AAA** contrast (7:1) on every text pair, in both light and dark mode. See [Accessibility themes](#accessibility-themes-aaa-contrast).
 
-See the [full WCAG 2.2 AA conformance table](#wcag-compliance-checklist) below for the criteria we test against.
+See the [full WCAG 2.2 AA conformance table](#wcag-compliance-checklist) below for the criteria we test against, or the
+[Accessibility Conformance Report](/grid/guides/conformance-report/) for the criterion-by-criterion
+VPAT-style breakdown, the evidence behind each claim, and the boundary between what the grid
+guarantees and what your application must supply.
 
 > **Filing accessibility issues:** If you find an a11y bug, please open an issue with the screen reader / browser / OS you used and what was announced (or wasn't). A11y bugs are treated as P0.
 
@@ -498,6 +501,11 @@ The grid implements the [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/
 
 ## WCAG Compliance Checklist
 
+The criteria most often asked about, abridged. The
+[Accessibility Conformance Report](/grid/guides/conformance-report/) is the authority: it covers
+*every* Level A and AA criterion in WCAG 2.2, including the ones that are not applicable to a
+component and the ones where your own content decides the outcome.
+
 | Criterion | Level | Status | Notes |
 |-----------|-------|--------|-------|
 | 1.1.1 Non-text Content | A | ✅ | Icons have text alternatives |
@@ -516,7 +524,10 @@ The grid implements the [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/
 | 2.4.11 Focus Not Obscured (Min) | AA (2.2) | ✅ | Keyboard navigation scrolls the focused row clear of overlays such as [sticky rows](/grid/plugins/sticky-rows/), and the focused cell clear of [pinned columns](/grid/plugins/pinned-columns/) |
 | 2.5.7 Dragging Movements | AA (2.2) | ✅ | Every drag has a single-pointer alternative — see [Pointer Alternatives to Dragging](#pointer-alternatives-to-dragging) |
 | 2.5.8 Target Size (Minimum) | AA (2.2) | ✅ | Every control answers a pointer across at least 24 × 24 px, on a mouse as well as a finger — see [Target size](#target-size) |
+| 3.3.1 Error Identification | A | ✅ | An invalid cell carries `aria-invalid` and the validation message, not just a red border |
+| 3.3.2 Labels or Instructions | A | ✅ | An injected editor is named after its column header unless it already names itself |
 | 4.1.2 Name, Role, Value | A | ✅ | ARIA attributes on all interactive elements |
+| 4.1.3 Status Messages | AA | ✅ | Sort, filter, selection, load and commit are announced via `aria-live` without moving focus |
 
 ## What's Automatic
 

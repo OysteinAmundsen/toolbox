@@ -16,6 +16,7 @@
  */
 
 import { announce, getA11yMessage } from '../../core/internal/aria';
+import { GridDataAttrs } from '../../core/constants';
 import { ensureCellVisible } from '../../core/internal/keyboard';
 import { compileTemplate } from '../../core/internal/sanitize';
 import { invalidateAccessorCache, readCellField, writeCellField } from '../../core/internal/value-accessor';
@@ -2001,12 +2002,19 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     if (invalid) {
       cellEl.setAttribute('data-invalid', 'true');
+      // `data-invalid` is styling only; `aria-invalid` is what actually reaches a
+      // screen reader (SC 3.3.1 Error Identification).
+      cellEl.setAttribute('aria-invalid', 'true');
       const message = this.#validation.getInvalidMessage(rowId, field);
       if (message) {
         cellEl.setAttribute('title', message);
+        // Hand the title over: core would otherwise reclaim it as its own
+        // truncation tooltip on the next hover and overwrite the message.
+        cellEl.removeAttribute(GridDataAttrs.TRUNCATED);
       }
     } else {
       cellEl.removeAttribute('data-invalid');
+      cellEl.removeAttribute('aria-invalid');
       cellEl.removeAttribute('title');
     }
   }

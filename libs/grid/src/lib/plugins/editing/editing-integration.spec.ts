@@ -4090,5 +4090,60 @@ describe('EditingPlugin', () => {
   });
   // #endregion
 
+  // #region Invalid cells
+  describe('invalid cells', () => {
+    async function setupWithInvalidCell() {
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        plugins: [new EditingPlugin({ editOn: 'click' })],
+      };
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      await waitUpgrade(grid);
+      const plugin = grid.getPluginByName('editing');
+      return {
+        plugin,
+        cell: grid.querySelector('.data-grid-row .cell[data-col="0"]') as HTMLElement,
+      };
+    }
+
+    it('exposes the error to assistive technology, not just to CSS (SC 3.3.1)', async () => {
+      const { plugin, cell } = await setupWithInvalidCell();
+
+      plugin.setInvalid('1', 'name', 'Name is required');
+      await nextFrame();
+
+      expect(cell.getAttribute('aria-invalid')).toBe('true');
+      expect(cell.getAttribute('data-invalid')).toBe('true');
+      expect(cell.title).toBe('Name is required');
+    });
+
+    it('clears both attributes once the value validates', async () => {
+      const { plugin, cell } = await setupWithInvalidCell();
+      plugin.setInvalid('1', 'name', 'Name is required');
+      await nextFrame();
+
+      plugin.clearInvalid('1', 'name');
+      await nextFrame();
+
+      expect(cell.hasAttribute('aria-invalid')).toBe(false);
+      expect(cell.hasAttribute('data-invalid')).toBe(false);
+      expect(cell.hasAttribute('title')).toBe(false);
+    });
+
+    it('takes the title over from the truncation tooltip rather than fighting it', async () => {
+      const { plugin, cell } = await setupWithInvalidCell();
+      // Core marks a title it owns when the text does not fit its column.
+      cell.title = 'Alice';
+      cell.setAttribute('data-tbw-truncated', '');
+
+      plugin.setInvalid('1', 'name', 'Name is required');
+      await nextFrame();
+
+      expect(cell.title).toBe('Name is required');
+      expect(cell.hasAttribute('data-tbw-truncated')).toBe(false);
+    });
+  });
+  // #endregion
+
   // #endregion
 });

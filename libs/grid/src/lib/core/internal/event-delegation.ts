@@ -13,7 +13,7 @@
  * onCellClick and onKeyDown hooks.
  */
 
-import { GridClasses } from '../constants';
+import { GridClasses, GridDataAttrs } from '../constants';
 import type { CellMouseEvent } from '../plugin/types';
 import type { GridHost, InternalGrid } from '../types';
 import { handleGridKeyDown } from './keyboard';
@@ -28,7 +28,7 @@ import { readCellField } from './value-accessor';
 const dragState = new WeakMap<InternalGrid, boolean>();
 
 /** Marks a `title` the grid put there itself, so an author's own title is never clobbered. */
-const OWNED_TITLE_ATTR = 'data-tbw-truncated';
+const OWNED_TITLE_ATTR = GridDataAttrs.TRUNCATED;
 
 /**
  * Give an ellipsised cell a way to be read in full.

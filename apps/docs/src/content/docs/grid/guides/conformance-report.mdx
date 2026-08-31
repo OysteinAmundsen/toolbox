@@ -1,0 +1,157 @@
+---
+title: Accessibility Conformance Report
+description: WCAG 2.2 Level AA conformance report for @toolbox-web/grid — criterion-by-criterion status, evidence, and the boundary between what the grid guarantees and what your application must supply.
+sidebar:
+  order: 5
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+This is the accessibility conformance report for `@toolbox-web/grid`. It follows the structure of a
+VPAT® 2.5 WCAG edition, adapted for a component library: every Level A and Level AA success
+criterion in WCAG 2.2 is listed, with the grid's status and how that status was arrived at.
+
+If you are looking for *how to use* the accessibility features, read
+[Accessibility](/grid/guides/accessibility/) instead. This page is the evidence.
+
+## Report summary
+
+| | |
+|---|---|
+| **Product** | `@toolbox-web/grid` — the `<tbw-grid>` custom element, its bundled features, and its first-party plugins |
+| **Also covers** | `@toolbox-web/grid-angular`, `@toolbox-web/grid-react`, `@toolbox-web/grid-vue` |
+| **Standard** | [WCAG 2.2](https://www.w3.org/TR/WCAG22/), Level A and Level AA |
+| **Conformance claim** | Supports |
+| **Evaluation methods** | Automated ([axe-core](https://github.com/dequelabs/axe-core) via Playwright, run against all four framework demos on every commit), unit and integration tests asserting specific ARIA and interaction behaviour, and manual review with NVDA, JAWS and VoiceOver |
+| **Applies from** | v3.6.0 |
+
+### What "the product" means here
+
+A grid is a component, not a page. Several success criteria are about things a component cannot
+control — the document's language, the page title, whether there is more than one way to find a
+page. Those are marked **Not applicable** with a note about where the responsibility actually sits.
+
+Two other categories appear below:
+
+- **Supports** — the grid meets the criterion with no work on your part.
+- **Supports (with author responsibility)** — the grid supplies the mechanism, but your content can
+  still fail the criterion. A custom cell renderer that emits an image without `alt` text is the
+  clearest example. Each row says exactly what is expected of you.
+
+<Aside type="tip" title="No opt-out">
+None of this is configurable, because none of it should be a decision. There is no
+`accessibility: false`. Where a requirement risked getting in the way of everyday use, the answer
+was to find a less intrusive implementation rather than to add a switch — the 24 px hit targets are
+invisible overlays rather than larger buttons, and the truncation tooltip resolves on hover rather
+than being stamped onto every cell.
+</Aside>
+
+## Level A
+
+| Criterion | Status | How it is met |
+|---|---|---|
+| 1.1.1 Non-text Content | Supports (with author responsibility) | Every icon the grid renders is either labelled or marked `aria-hidden` with adjacent text. Images you render from your own data need their own `alt` text. |
+| 1.2.1 Audio-only and Video-only | Not applicable | The grid renders no time-based media. |
+| 1.2.2 Captions (Prerecorded) | Not applicable | The grid renders no time-based media. |
+| 1.2.3 Audio Description or Media Alternative | Not applicable | The grid renders no time-based media. |
+| 1.3.1 Info and Relationships | Supports | The [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/) throughout: `role="grid"` with `aria-rowcount`/`aria-colcount`, `rowgroup`, `row`, `columnheader`, `gridcell`, and `aria-rowindex`/`aria-colindex` on virtualized rows so position survives recycling. |
+| 1.3.2 Meaningful Sequence | Supports | DOM order matches visual order, including pinned columns and grouped headers. |
+| 1.3.3 Sensory Characteristics | Supports | No instruction depends on shape, size or position. |
+| 1.4.1 Use of Color | Supports (with author responsibility) | Sort direction, selection, dirty state and validation errors all carry a non-colour cue. Status encoded purely as colour in your own renderers is yours to fix. |
+| 1.4.2 Audio Control | Not applicable | The grid plays no audio. |
+| 2.1.1 Keyboard | Supports | Every operation — sort, filter, select, edit, expand, reorder, resize, group, copy, paste — has a keyboard path. Drag-only interactions each have a single-pointer *and* keyboard alternative; see [Pointer Alternatives to Dragging](/grid/guides/accessibility/#pointer-alternatives-to-dragging). |
+| 2.1.2 No Keyboard Trap | Supports | <kbd>Tab</kbd> leaves the grid, <kbd>Escape</kbd> leaves an editor and closes any popover. Covered by the focus-trap e2e suite. |
+| 2.1.4 Character Key Shortcuts | Not applicable | The grid defines no single-character shortcuts. Every binding uses a modifier or a non-printing key. |
+| 2.2.1 Timing Adjustable | Not applicable | The grid imposes no time limit. |
+| 2.2.2 Pause, Stop, Hide | Not applicable | Nothing moves, blinks or auto-updates on its own. Row animations are transitions triggered by your data changing, and they disable under `prefers-reduced-motion`. |
+| 2.3.1 Three Flashes or Below Threshold | Supports | Nothing in the grid flashes. |
+| 2.4.1 Bypass Blocks | Not applicable | Page-level. Worth noting that the grid is a *single* tab stop — a roving-tabindex grid does not become a block of hundreds of stops that a user needs to bypass. |
+| 2.4.2 Page Titled | Not applicable | Page-level; supplied by your application. |
+| 2.4.3 Focus Order | Supports | Focus follows grid structure, and is deliberately restored after sorting, filtering, editing and row deletion rather than being dropped to `<body>`. |
+| 2.4.4 Link Purpose (In Context) | Not applicable | The grid renders no links of its own. Links inside your renderers are yours. |
+| 2.5.1 Pointer Gestures | Supports | Every path-based gesture (column resize, column and row reorder, tool-panel resize, range selection) has a single-pointer, non-path alternative. |
+| 2.5.2 Pointer Cancellation | Supports | Actions fire on the up-event. The down-event only moves focus, which is reversible and has no side effect. |
+| 2.5.3 Label in Name | Supports | Where a control has visible text, its accessible name starts with that text. |
+| 2.5.4 Motion Actuation | Not applicable | No function is operated by device motion. |
+| 3.1.1 Language of Page | Not applicable | Page-level; supplied by your application. |
+| 3.2.1 On Focus | Supports | Moving focus never changes context. |
+| 3.2.2 On Input | Supports | Changing a value commits it to the row; it never navigates or reconfigures the page. |
+| 3.2.6 Consistent Help | Not applicable | Page-level; the grid provides no help mechanism. |
+| 3.3.1 Error Identification | Supports | A cell that fails validation gets `aria-invalid="true"` and a `title` carrying the message, alongside the visual state — so the error reaches assistive technology, not only CSS. |
+| 3.3.2 Labels or Instructions | Supports | An injected editor takes its accessible name from its column header unless it already names itself, so it is never announced as a bare "edit text". |
+| 3.3.7 Redundant Entry | Not applicable | The grid runs no multi-step process. |
+| 4.1.2 Name, Role, Value | Supports | Verified by the axe-core scan on all four framework demos, plus targeted tests for sort state, expansion state, selection state and editor naming. |
+
+<Aside type="note">
+SC 4.1.1 Parsing is not listed: it was removed in WCAG 2.2 and is always considered satisfied.
+</Aside>
+
+## Level AA
+
+| Criterion | Status | How it is met |
+|---|---|---|
+| 1.2.4 Captions (Live) | Not applicable | The grid renders no time-based media. |
+| 1.2.5 Audio Description | Not applicable | The grid renders no time-based media. |
+| 1.3.4 Orientation | Supports | Nothing is locked to portrait or landscape. |
+| 1.3.5 Identify Input Purpose | Supports (with author responsibility) | The grid edits arbitrary records, not information about the user. Where a column *does* collect the user's own data, set `autocomplete` on your editor. |
+| 1.4.3 Contrast (Minimum) | Supports (with author responsibility) | The default light and dark themes meet 4.5:1 on every text pair, and `dg-theme-contrast.css` / `dg-theme-large.css` reach the Level AAA 7:1. A theme of your own is yours to verify. |
+| 1.4.4 Resize Text | Supports | All internal sizing is `em`-based off a single `--tbw-font-size`, so the grid scales with the user's font size without clipping. |
+| 1.4.5 Images of Text | Supports | The grid renders text as text; its icons are SVG or glyphs, not pictures of words. |
+| 1.4.10 Reflow | Supports | Nothing around the table needs a second scrollbar at 320 px: the tool panel is clamped to its container, the header truncates its title before its controls. The table itself uses the SC's explicit two-dimensional-layout exception for data tables, and the [Responsive plugin](/grid/plugins/responsive/) offers card mode where you would rather it reflowed. See [Reflow and text spacing](/grid/guides/accessibility/#reflow-and-text-spacing). |
+| 1.4.11 Non-text Contrast | Supports | Focus ring, borders, and other non-text UI clear 3:1 against the grid background in both light and dark. |
+| 1.4.12 Text Spacing | Supports | Rows measure their rendered content, so user spacing overrides make rows taller instead of clipping them. Horizontally, a cell whose text no longer fits reveals the full value on hover; `--tbw-cell-white-space: normal` removes truncation entirely. |
+| 1.4.13 Content on Hover or Focus | Supports | Tooltips are dismissible with <kbd>Escape</kbd>, hoverable, persistent, and appear on keyboard focus. |
+| 2.4.5 Multiple Ways | Not applicable | Page-level; supplied by your application. |
+| 2.4.6 Headings and Labels | Supports | Column headers describe their columns; every control has a descriptive accessible name. |
+| 2.4.7 Focus Visible | Supports | A 2 px `outline` focus ring that survives forced-colors mode. |
+| 2.4.11 Focus Not Obscured (Minimum) | Supports | Plugins that overlay the rows viewport report the band they cover, and keyboard navigation scrolls the focused cell clear of it rather than underneath — [sticky rows](/grid/plugins/sticky-rows/) vertically, [pinned columns](/grid/plugins/pinned-columns/) horizontally. |
+| 2.5.7 Dragging Movements | Supports | All ten drag surfaces have a single-pointer alternative, shipped in the same bundle unit as the drag it replaces so conformance never depends on an optional plugin. |
+| 2.5.8 Target Size (Minimum) | Supports | Every control answers a pointer across at least 24 × 24 px, on a mouse as well as a finger. Small controls reach it with a transparent overlay, so visual density is unchanged. Raise `--tbw-touch-target-min` to 44 px for the Level AAA criterion. |
+| 3.1.2 Language of Parts | Not applicable | The grid introduces no language changes of its own. |
+| 3.2.3 Consistent Navigation | Not applicable | Page-level; supplied by your application. |
+| 3.2.4 Consistent Identification | Supports | The same control means the same thing in every column, plugin and framework adapter. |
+| 3.3.3 Error Suggestion | Supports (with author responsibility) | The grid displays and announces whatever your validator returns; writing a message that suggests a correction is your part. |
+| 3.3.4 Error Prevention | Supports (with author responsibility) | Edits are cancelable via the `cell-commit` event, and the [UndoRedo plugin](/grid/plugins/undo-redo/) reverses committed changes. Confirmation for legal, financial or data-deleting actions belongs in your application. |
+| 3.3.8 Accessible Authentication (Minimum) | Not applicable | The grid performs no authentication. |
+| 4.1.3 Status Messages | Supports | Sort applied, filter cleared, rows selected, data loaded, edit committed — all announced through the grid's built-in `aria-live` region without moving focus. Configurable and translatable; see [Configuring Announcements](/grid/guides/accessibility/#configuring-announcements). |
+
+## How this report is verified
+
+Claims in this report are not self-assessed prose. Each one is backed by a check that runs in CI:
+
+- **`e2e/tests/accessibility.spec.ts`** — the axe-core scan under the WCAG 2.2 AA ruleset, run
+  against the vanilla, React, Angular and Vue demos, asserting zero violations at any impact. The
+  same file holds the targeted gates: focus management and focus-trap behaviour, target size
+  probed by hit-testing the four corners of a 24 px square, reflow at 320 px, and text spacing
+  applied exactly as the success criterion states it.
+- **Unit and integration tests** co-located with the source — ARIA attribute correctness, live-region
+  announcements, keyboard handling, editor naming, and validation state.
+- **Manual review** — NVDA on Windows, JAWS on Windows, VoiceOver on macOS and iOS. Automated tools
+  find roughly a third of accessibility defects; the rest need a person.
+
+Automated scanning has known blind spots, and two rules are deliberately suppressed in the scan
+config for reasons documented there: `scrollable-region-focusable` (virtualization recycles rows
+outside the viewport) and `aria-required-children` (the grid uses `role="presentation"` layout
+wrappers between `role="grid"` and `role="rowgroup"`, which is spec-legal but confuses the rule).
+
+## What is still on you
+
+Conformance is a property of the finished page, and a component can only get you most of the way:
+
+1. **Cell renderers** — the grid cannot add `alt` text to an image it did not create, or a name to a
+   button you rendered yourself.
+2. **Custom themes** — if you override the colour tokens, re-check contrast. Start from
+   `dg-theme-contrast.css` if you need a guaranteed floor.
+3. **Validation messages** — the grid announces what your validator returns. Make it say how to fix
+   the problem.
+4. **Page-level criteria** — title, language, landmarks, skip links, and consistent navigation.
+5. **Column widths** — a column narrow enough to truncate most of its values is technically
+   conformant (the text is still reachable) but is a poor experience. Prefer widths that fit, or let
+   cells wrap.
+
+## Feedback
+
+Accessibility bugs are treated as P0. If something here is wrong, or you hit a barrier this report
+does not mention, please
+[open an issue](https://github.com/OysteinAmundsen/toolbox/issues/new) and include the assistive
+technology, browser and operating system you used, and what was announced — or what wasn't.

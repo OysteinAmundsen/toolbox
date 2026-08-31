@@ -770,4 +770,72 @@ describe('editor-injection', () => {
   });
 
   // #endregion
+
+  // #region Accessible name (SC 4.1.2 / 3.3.2)
+
+  describe('accessible name', () => {
+    /** `nameEditorFromHeader` defers a microtask so async editors are covered. */
+    const flush = () => new Promise<void>((r) => queueMicrotask(() => r()));
+
+    it('names the editor after its column header', async () => {
+      const deps = createDeps();
+      const { cell } = createCellInRow();
+      const column = col('name', { header: 'Full name' });
+
+      injectEditor(deps, { id: '1', name: 'Alice' }, 0, column, 0, cell, true);
+      await flush();
+
+      const input = cell.querySelector('input') as HTMLInputElement;
+      expect(input.getAttribute('aria-label')).toBe('Full name');
+    });
+
+    it('falls back to the field when the column has no header', async () => {
+      const deps = createDeps();
+      const { cell } = createCellInRow();
+
+      injectEditor(deps, { id: '1', name: 'Alice' }, 0, col('name'), 0, cell, true);
+      await flush();
+
+      expect(cell.querySelector('input')?.getAttribute('aria-label')).toBe('name');
+    });
+
+    it('leaves an editor that already names itself alone', async () => {
+      const deps = createDeps();
+      const { cell } = createCellInRow();
+      const column = col('name', {
+        header: 'Full name',
+        editor: () => {
+          const input = document.createElement('input');
+          input.setAttribute('aria-label', 'Employee name');
+          return input;
+        },
+      });
+
+      injectEditor(deps, { id: '1', name: 'Alice' }, 0, column, 0, cell, true);
+      await flush();
+
+      expect(cell.querySelector('input')?.getAttribute('aria-label')).toBe('Employee name');
+    });
+
+    it('respects a wrapping <label> instead of adding a second name', async () => {
+      const deps = createDeps();
+      const { cell } = createCellInRow();
+      const column = col('name', {
+        header: 'Full name',
+        editor: () => {
+          const label = document.createElement('label');
+          label.textContent = 'Employee name';
+          label.appendChild(document.createElement('input'));
+          return label;
+        },
+      });
+
+      injectEditor(deps, { id: '1', name: 'Alice' }, 0, column, 0, cell, true);
+      await flush();
+
+      expect(cell.querySelector('input')?.hasAttribute('aria-label')).toBe(false);
+    });
+  });
+
+  // #endregion
 });

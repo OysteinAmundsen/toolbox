@@ -111,6 +111,15 @@ export const GridDataAttrs = {
   // ─── Core Attributes ──────────────────────────────────────────────
   FIELD: 'data-field',
 
+  /**
+   * Marks a `title` the grid itself put on a cell to reveal ellipsised text
+   * (WCAG SC 1.4.12). Anything that sets its own `title` on a cell must clear
+   * this, or the grid will later mistake that title for its own and replace it.
+   *
+   * @since 3.6.0
+   */
+  TRUNCATED: 'data-tbw-truncated',
+
   // ─── Shared Attributes (used by plugins) ──────────────────────────
   GROUP_KEY: 'data-group-key', // GroupingRowsPlugin
 } as const;

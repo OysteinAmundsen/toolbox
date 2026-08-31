@@ -381,6 +381,34 @@ export function injectEditor<T>(
       );
     }
   }
+
+  nameEditorFromHeader(editorHost, column);
+}
+
+/**
+ * Give the editor an accessible name taken from its column header.
+ *
+ * A screen reader announces the header when focus lands on a *gridcell*, but an
+ * `<input>` inside that cell is a control in its own right and needs its own
+ * name (SC 4.1.2 / SC 3.3.2) — otherwise it is announced as a bare "edit text".
+ * Deferred a microtask so editors that mount asynchronously are covered, and
+ * skipped entirely whenever the control already has a name of any kind.
+ */
+function nameEditorFromHeader<T>(editorHost: HTMLElement, column: ColumnConfig<T>): void {
+  const label = typeof column.header === 'string' ? column.header : column.field;
+  if (!label) return;
+
+  queueMicrotask(() => {
+    const control = editorHost.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
+    if (!control) return;
+    const named =
+      control.hasAttribute('aria-label') ||
+      control.hasAttribute('aria-labelledby') ||
+      control.hasAttribute('title') ||
+      (control.id && editorHost.querySelector(`label[for="${CSS.escape(control.id)}"]`)) ||
+      control.closest('label');
+    if (!named) control.setAttribute('aria-label', label);
+  });
 }
 
 // #endregion

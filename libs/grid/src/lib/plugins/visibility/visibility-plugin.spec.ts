@@ -847,12 +847,7 @@ describe('VisibilityPlugin', () => {
       const { container } = renderWithReorder();
       handleFor(container, 'age').click();
 
-      expect(menuItems().map((b) => b.textContent)).toEqual([
-        'Move up',
-        'Move down',
-        'Move to top',
-        'Move to bottom',
-      ]);
+      expect(menuItems().map((b) => b.textContent)).toEqual(['Move up', 'Move down', 'Move to top', 'Move to bottom']);
     });
 
     it('disables the upward moves for the first column', () => {

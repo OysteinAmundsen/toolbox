@@ -217,7 +217,18 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
    * the mode no longer calls for it.
    */
   #syncMoveControl(headerEl: HTMLElement, field: string, column: ColumnConfig | undefined): void {
-    const existing = headerEl.querySelector<HTMLElement>(':scope > .tbw-col-move-btn');
+    this.#syncInlineMoveButton(headerEl, `Move column ${String(column?.header ?? field)}`, (btn) =>
+      this.#openMoveMenu(btn, field),
+    );
+  }
+
+  /**
+   * Add or remove the inline `\u2194` button on `hostEl` according to the current
+   * drag-alternative mode. Shared by header cells and group header cells so the
+   * two affordances can never drift apart.
+   */
+  #syncInlineMoveButton(hostEl: HTMLElement, ariaLabel: string, open: (btn: HTMLElement) => void): void {
+    const existing = hostEl.querySelector<HTMLElement>(':scope > .tbw-col-move-btn');
     if (!prefersInlineDragAlternative(this.grid)) {
       existing?.remove();
       return;
@@ -231,15 +242,15 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     // Not draggable, or a press on the button would start an HTML5 column drag.
     btn.draggable = false;
     btn.textContent = '\u2194';
-    btn.setAttribute('aria-label', `Move column ${String(column?.header ?? field)}`);
+    btn.setAttribute('aria-label', ariaLabel);
     // Stop the press from reaching the header's sort handler or the drag start.
     btn.addEventListener('pointerdown', (e) => e.stopPropagation());
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
-      this.#openMoveMenu(btn, field);
+      open(btn);
     });
-    headerEl.appendChild(btn);
+    hostEl.appendChild(btn);
   }
 
   /**
@@ -295,6 +306,95 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
     this.moveMenu ??= createDragAlternativeMenu('tbw-col-move-menu', 'tbw-col-move-menu');
     this.moveMenu.open(anchor, `Move column ${String(column?.header ?? field)}`, actions);
+  }
+
+  /**
+   * The group-row fragments in visual order, each as the fields it spans.
+   *
+   * Read back from the DOM rather than from the group config because a fragment
+   * is what the user actually sees and drags: `mergeGroups` splits one configured
+   * group into several cells when pinning or an interleaved utility column breaks
+   * its span, and each of those cells moves independently.
+   */
+  #groupFragments(gridEl: HTMLElement): { id: string; fields: string[] }[] {
+    const visible = this.visibleColumns;
+    const fragments: { id: string; fields: string[] }[] = [];
+
+    gridEl.querySelectorAll<HTMLElement>('.header-group-row > .cell[data-group]').forEach((cell) => {
+      const id = cell.getAttribute('data-group');
+      if (!id) return;
+      const fields = this.getGroupFragmentFields(cell, id);
+      if (fields.length > 0) fragments.push({ id, fields });
+    });
+
+    // The cells are appended in span order, but a plugin may re-parent them.
+    return fragments.sort(
+      (a, b) => visible.findIndex((c) => c.field === a.fields[0]) - visible.findIndex((c) => c.field === b.fields[0]),
+    );
+  }
+
+  /**
+   * The single-click move actions for a group fragment, or `null` when the
+   * fragment cannot be moved.
+   *
+   * A step moves the whole fragment past its whole neighbour — landing *inside*
+   * a neighbouring group would split that group, which dragging cannot do either.
+   * A neighbour that holds even one locked column disables the step rather than
+   * being skipped, since moving past it would still shift its index.
+   */
+  #groupMoveActions(gridEl: HTMLElement, fragmentFields: string[]): DragAlternativeAction[] | null {
+    if (!fragmentFields.every((f) => this.#isMoveTarget(f))) return null;
+
+    const fragments = this.#groupFragments(gridEl);
+    const at = fragments.findIndex((f) => f.fields[0] === fragmentFields[0]);
+    if (at === -1) return null;
+
+    const movable = (fragment: { fields: string[] } | undefined): boolean =>
+      !!fragment && fragment.fields.every((f) => this.#isMoveTarget(f));
+    const spanMovable = (from: number, to: number): boolean =>
+      from <= to && fragments.slice(from, to + 1).every(movable);
+    const move = (target: { fields: string[] }, before: boolean) => () =>
+      this.executeGroupBlockMove(fragmentFields, target.fields, before);
+
+    return [
+      {
+        label: 'Move left',
+        disabled: !movable(fragments[at - 1]),
+        run: move(fragments[at - 1] ?? { fields: fragmentFields }, true),
+      },
+      {
+        label: 'Move right',
+        disabled: !movable(fragments[at + 1]),
+        run: move(fragments[at + 1] ?? { fields: fragmentFields }, false),
+      },
+      {
+        label: 'Move to start',
+        disabled: at === 0 || !spanMovable(0, at - 1),
+        run: move(fragments[0], true),
+      },
+      {
+        label: 'Move to end',
+        disabled: at === fragments.length - 1 || !spanMovable(at + 1, fragments.length - 1),
+        run: move(fragments[fragments.length - 1], false),
+      },
+    ];
+  }
+
+  /** Open the click-only move menu for a group fragment. */
+  #openGroupMoveMenu(anchor: HTMLElement, groupHeaderEl: HTMLElement, fragmentFields: string[]): void {
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
+    const actions = this.#groupMoveActions(gridEl, fragmentFields);
+    if (!actions) return;
+
+    this.moveMenu ??= createDragAlternativeMenu('tbw-col-move-menu', 'tbw-col-move-menu');
+    this.moveMenu.open(anchor, `Move group ${this.#groupLabel(groupHeaderEl)}`, actions);
+  }
+
+  /** The visible group label, falling back to its id when a renderer drew no text. */
+  #groupLabel(groupHeaderEl: HTMLElement): string {
+    const text = groupHeaderEl.textContent?.replace('\u2194', '').trim();
+    return text || (groupHeaderEl.getAttribute('data-group') ?? '');
   }
 
   /** Whether `field` names a column this plugin is allowed to move past or onto. */
@@ -517,10 +617,6 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
       const groupId = groupHeaderEl.getAttribute('data-group');
       if (!groupId || groupId.startsWith('__implicit__')) return;
 
-      // Already bound?
-      if (groupHeaderEl.getAttribute('data-group-drag-bound')) return;
-      groupHeaderEl.setAttribute('data-group-drag-bound', 'true');
-
       // Determine which columns are in this fragment by reading the grid-column style
       const fragmentFields = this.getGroupFragmentFields(groupHeaderEl, groupId);
       if (fragmentFields.length === 0) return;
@@ -534,6 +630,25 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
       groupHeaderEl.draggable = true;
       groupHeaderEl.style.cursor = 'grab';
+
+      // Re-synced every render so a change of drag-alternative mode is picked up.
+      this.#syncInlineMoveButton(groupHeaderEl, `Move group ${this.#groupLabel(groupHeaderEl)}`, (btn) =>
+        this.#openGroupMoveMenu(btn, groupHeaderEl, fragmentFields),
+      );
+
+      // Already bound?
+      if (groupHeaderEl.getAttribute('data-group-drag-bound')) return;
+      groupHeaderEl.setAttribute('data-group-drag-bound', 'true');
+
+      // The always-available pointer alternative (WCAG 2.2 SC 2.5.7). Unlike a
+      // header cell this is not skipped when the context menu plugin is loaded:
+      // that plugin resolves neither a cell nor a `header-cell` part here, so it
+      // already swallows the native menu on a group header without offering one.
+      groupHeaderEl.addEventListener('contextmenu', (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.#openGroupMoveMenu(groupHeaderEl, groupHeaderEl, fragmentFields);
+      });
 
       groupHeaderEl.addEventListener('dragstart', (e: DragEvent) => {
         this.isDragging = true;

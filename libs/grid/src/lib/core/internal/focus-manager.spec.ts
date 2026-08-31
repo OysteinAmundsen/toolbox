@@ -22,10 +22,7 @@ interface ScrollStub {
   scrollTo: (options: ScrollToOptions) => void;
 }
 
-function createManager(
-  offsets?: { top: number; bottom: number; skipScroll?: boolean },
-  initialScrollTop = 0,
-) {
+function createManager(offsets?: { top: number; bottom: number; skipScroll?: boolean }, initialScrollTop = 0) {
   const scrollEl: ScrollStub = { scrollTop: initialScrollTop, scrollTo: vi.fn() };
 
   const grid = {

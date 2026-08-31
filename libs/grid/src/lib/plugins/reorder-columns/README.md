@@ -117,6 +117,11 @@ entries merge into the `ContextMenuPlugin` when it is registered, otherwise the 
 own `role="group"` menu. No header width is reserved; set `a11y.dragAlternatives: 'inline'` to
 also render a hover-revealed move button per header (hover-less pointers always get it).
 
+Group header cells carry the same menu, moving the whole fragment past its whole neighbour so a
+step can never land inside — and therefore split — a neighbouring group. A neighbour holding a
+locked column disables that step rather than being skipped over. Group headers always host their
+own menu: the `ContextMenuPlugin` resolves neither a cell nor a header there.
+
 ## API Methods
 
 Access via `grid.getPluginByName('reorder')`:

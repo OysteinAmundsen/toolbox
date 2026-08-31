@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createResizeController } from './resize';
 
 /**
@@ -277,15 +277,28 @@ describe('resize controller', () => {
    * would *not* satisfy the criterion; the alternative has to be clickable.
    */
   describe('non-drag width control (SC 2.5.7)', () => {
+    /** Mirrors `DOUBLE_CLICK_WINDOW_MS` in resize.ts. */
+    const TAP_DELAY_MS = 300;
+
+    // Only the timer the tap defers on — faking rAF would strand `commitWidth`.
+    beforeEach(() => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] }));
+    afterEach(() => vi.useRealTimers());
+
     const popover = () => document.querySelector<HTMLElement>('.tbw-size-popover');
     const buttonLabelled = (label: string) =>
       popover()?.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
     const widthInput = () => popover()?.querySelector<HTMLInputElement>('input');
 
     /** Press and release the handle without moving — a tap, not a drag. */
-    function tap(controller: ReturnType<typeof createResizeController>, cell: HTMLElement, handle: HTMLElement) {
+    function press(controller: ReturnType<typeof createResizeController>, cell: HTMLElement, handle: HTMLElement) {
       controller.start(mockPointerEvent('pointerdown', { clientX: 10 }), 0, cell, handle);
       handle.dispatchEvent(mockPointerEvent('pointerup', { clientX: 10 }));
+    }
+
+    /** A tap, then the wait that lets the popover through. */
+    function tap(controller: ReturnType<typeof createResizeController>, cell: HTMLElement, handle: HTMLElement) {
+      press(controller, cell, handle);
+      vi.advanceTimersByTime(TAP_DELAY_MS);
     }
 
     it('setColumnWidth commits without a gesture and clamps to minWidth', () => {
@@ -343,9 +356,43 @@ describe('resize controller', () => {
       controller.start(mockPointerEvent('pointerdown', { clientX: 0 }), 0, cell, handle);
       handle.dispatchEvent(mockPointerEvent('pointermove', { clientX: 30 }));
       handle.dispatchEvent(mockPointerEvent('pointerup', { clientX: 30 }));
+      vi.advanceTimersByTime(TAP_DELAY_MS);
 
       expect(popover()).toBeNull();
       expect(grid._columns[0].width).toBe(130);
+
+      controller.dispose();
+    });
+
+    it('holds the popover back until the double-click window has passed', () => {
+      const grid = makeGrid([{ field: 'a', width: 100 }]);
+      const controller = createResizeController(grid);
+      const cell = makeCell(100);
+      const handle = makeHandle();
+
+      press(controller, cell, handle);
+      // A reset may still arrive as the second half of a double-click.
+      expect(popover()).toBeNull();
+
+      vi.advanceTimersByTime(TAP_DELAY_MS);
+      expect(popover()).toBeTruthy();
+
+      controller.dispose();
+    });
+
+    it('a double-click reset cancels the pending popover instead of flashing it', () => {
+      const grid = makeGrid([{ field: 'a', width: 100, __originalWidth: 100 }]);
+      const controller = createResizeController(grid);
+      const cell = makeCell(100);
+      const handle = makeHandle();
+
+      // What the handle's own `dblclick` listener does: two taps, then a reset.
+      press(controller, cell, handle);
+      press(controller, cell, handle);
+      controller.resetColumn(0);
+
+      vi.advanceTimersByTime(TAP_DELAY_MS * 2);
+      expect(popover()).toBeNull();
 
       controller.dispose();
     });

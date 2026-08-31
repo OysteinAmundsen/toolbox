@@ -66,7 +66,8 @@
      switch-control users can target it, which is why it is dimmed with
      `opacity` rather than `display: none` / `visibility: hidden` (both of those
      also remove it from the accessibility tree, defeating the point). */
-  .header-row > .cell > .tbw-col-move-btn {
+  .header-row > .cell > .tbw-col-move-btn,
+  .header-group-row > .cell > .tbw-col-move-btn {
     flex-shrink: 0;
     min-width: var(--tbw-touch-target-min, 24px);
     min-height: var(--tbw-touch-target-min, 24px);
@@ -92,14 +93,17 @@
 
   .header-row > .cell:hover > .tbw-col-move-btn,
   .header-row > .cell:focus-within > .tbw-col-move-btn,
-  .header-row > .cell.cell-focus > .tbw-col-move-btn {
+  .header-row > .cell.cell-focus > .tbw-col-move-btn,
+  .header-group-row > .cell:hover > .tbw-col-move-btn,
+  .header-group-row > .cell:focus-within > .tbw-col-move-btn {
     opacity: 1;
     pointer-events: auto;
   }
 
   /* No hover to reveal it (touch, most switch devices): keep it visible. */
   @media (hover: none) {
-    .header-row > .cell > .tbw-col-move-btn {
+    .header-row > .cell > .tbw-col-move-btn,
+    .header-group-row > .cell > .tbw-col-move-btn {
       opacity: 1;
       pointer-events: auto;
     }

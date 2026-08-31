@@ -5,6 +5,13 @@ import { createSizePopover, type SizePopover } from './size-popover';
 /** Floor applied to every width commit when the column declares no `minWidth`. */
 const FALLBACK_MIN_WIDTH = 40;
 
+/**
+ * How long a tap on the resize handle waits before offering the width control.
+ * Matches the ~300 ms most platforms allow between the two clicks of a
+ * double-click, which the handle answers with a reset.
+ */
+const DOUBLE_CLICK_WINDOW_MS = 300;
+
 /** Smallest width a column may be resized to, drag or click alike. */
 function minWidthFor(col: ColumnInternal | undefined): number {
   return typeof col?.minWidth === 'number' && Number.isFinite(col.minWidth) && col.minWidth > 0
@@ -60,6 +67,19 @@ export function createResizeController(grid: GridHost): ResizeController {
   let prevUserSelect: string | null = null;
   /** Lazily created on the first handle tap — most sessions never build it. */
   let widthPopover: SizePopover<number> | null = null;
+  /**
+   * Pending {@link openWidthPopover} from a tap. The handle also answers
+   * `dblclick` with a reset, and the first half of that double-click is
+   * indistinguishable from a tap — so the popover waits out the double-click
+   * window and any second press cancels it.
+   */
+  let pendingTapTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const cancelPendingTap = (): void => {
+    if (pendingTapTimer === null) return;
+    clearTimeout(pendingTapTimer);
+    pendingTapTimer = null;
+  };
 
   /** Header cell for a visible column index, used to read a rendered width. */
   const headerCellAt = (colIndex: number): HTMLElement | undefined => {
@@ -184,6 +204,9 @@ export function createResizeController(grid: GridHost): ResizeController {
     const col = grid._visibleColumns[colIndex];
     if (!col) return;
 
+    // A `dblclick` reset lands while the second tap's popover is still pending.
+    cancelPendingTap();
+
     // Reset to original configured width (or undefined for auto-sizing)
     col.__userResized = false;
     col.__renderedWidth = undefined;
@@ -229,6 +252,7 @@ export function createResizeController(grid: GridHost): ResizeController {
       // gesture's listeners and pointer capture.
       cancelDrag?.();
       cancelDrag = null;
+      cancelPendingTap();
       moved = false;
 
       // Freeze flexible columns before resizing so they hold their current width
@@ -269,7 +293,10 @@ export function createResizeController(grid: GridHost): ResizeController {
           // instead (WCAG 2.2 SC 2.5.7).
           suppressNextClick();
           onUp(false);
-          openWidthPopover(colIndex, target as HTMLElement);
+          pendingTapTimer = setTimeout(() => {
+            pendingTapTimer = null;
+            openWidthPopover(colIndex, target as HTMLElement);
+          }, DOUBLE_CLICK_WINDOW_MS);
         },
         onCancel: () => {
           cancelDrag = null;
@@ -289,6 +316,7 @@ export function createResizeController(grid: GridHost): ResizeController {
       cancelDrag?.();
       cancelDrag = null;
       onUp(resizeState !== null);
+      cancelPendingTap();
       widthPopover?.dispose();
       widthPopover = null;
       // Drop any in-flight template update — the grid (or its DOM) is going

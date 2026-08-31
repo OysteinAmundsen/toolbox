@@ -756,6 +756,97 @@ describe('ReorderPlugin (class)', () => {
 
       expect(lockedCell.draggable).toBeFalsy();
     });
+
+    describe('click-only group move (SC 2.5.7)', () => {
+      const menu = () => document.getElementById('tbw-col-move-menu');
+      const items = () => Array.from(menu()?.querySelectorAll<HTMLButtonElement>('button') ?? []);
+      const item = (label: string) => items().find((b) => b.textContent === label);
+
+      afterEach(() => menu()?.remove());
+
+      /** Mount the plugin and wait out the microtask the group setup defers on. */
+      async function mount(grid: ReturnType<typeof createGroupedGridMock>['grid']) {
+        const plugin = new ReorderPlugin();
+        plugin.attach(grid as any);
+        plugin.afterRender();
+        await new Promise<void>((resolve) => queueMicrotask(resolve));
+        return plugin;
+      }
+
+      const groupCell = (grid: ReturnType<typeof createGroupedGridMock>['grid'], id: string) =>
+        grid._hostElement.querySelector(`.cell[data-group="${id}"]`) as HTMLElement;
+
+      /** Right-click a group header — the always-available pointer alternative. */
+      const openMenu = (grid: ReturnType<typeof createGroupedGridMock>['grid'], id: string) => {
+        groupCell(grid, id).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+        return items();
+      };
+
+      it('spends no group-header width by default', async () => {
+        const { grid } = createGroupedGridMock();
+        await mount(grid);
+
+        expect(groupCell(grid, 'personal').querySelector('.tbw-col-move-btn')).toBeNull();
+      });
+
+      it('opens a menu named after the group', async () => {
+        const { grid } = createGroupedGridMock();
+        await mount(grid);
+
+        const actions = openMenu(grid, 'personal');
+
+        expect(menu()?.getAttribute('aria-label')).toBe('Move group Personal');
+        expect(actions.map((b) => b.textContent)).toEqual(['Move left', 'Move right', 'Move to start', 'Move to end']);
+      });
+
+      it('moves the whole fragment past its whole neighbour', async () => {
+        const { grid } = createGroupedGridMock();
+        grid.dispatchEvent = vi.fn(() => true);
+        await mount(grid);
+
+        openMenu(grid, 'personal');
+        item('Move right')!.click();
+
+        const event = grid.dispatchEvent.mock.calls[0][0] as CustomEvent<ColumnMoveDetail>;
+        // The org group is not split — personal lands past both of its columns.
+        expect(event.detail.columnOrder).toEqual(['id', 'dept', 'title', 'firstName', 'lastName']);
+      });
+
+      it('jumps to either end', async () => {
+        const { grid } = createGroupedGridMock();
+        grid.dispatchEvent = vi.fn(() => true);
+        await mount(grid);
+
+        openMenu(grid, 'org');
+        item('Move to start')!.click();
+
+        const event = grid.dispatchEvent.mock.calls[0][0] as CustomEvent<ColumnMoveDetail>;
+        expect(event.detail.columnOrder).toEqual(['dept', 'title', 'id', 'firstName', 'lastName']);
+      });
+
+      it('disables the steps that would run off the row', async () => {
+        const { grid } = createGroupedGridMock();
+        await mount(grid);
+
+        openMenu(grid, 'org');
+
+        expect(item('Move right')!.disabled).toBe(true);
+        expect(item('Move to end')!.disabled).toBe(true);
+        expect(item('Move left')!.disabled).toBe(false);
+      });
+
+      it("shows the inline handle only for a11y.dragAlternatives: 'inline'", async () => {
+        const { grid } = createGroupedGridMock();
+        grid.effectiveConfig.a11y = { dragAlternatives: 'inline' };
+        await mount(grid);
+
+        const btn = groupCell(grid, 'personal').querySelector<HTMLButtonElement>(':scope > .tbw-col-move-btn');
+        expect(btn?.getAttribute('aria-label')).toBe('Move group Personal');
+
+        btn!.click();
+        expect(menu()?.getAttribute('aria-label')).toBe('Move group Personal');
+      });
+    });
   });
   // #endregion
 

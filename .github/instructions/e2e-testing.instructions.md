@@ -150,6 +150,9 @@ These verify visual and functional parity across framework demos (vanilla as bas
 - **`.rows-viewport` never scrolls** (`overflow: clip`); the real scroller is `.faux-vscroll`. Assert scroll on that, or on the `.rows` transform.
 - The demo runs `selection: 'range'`, so a claimed long-press paints a range — it does **not** raise `.tbw-selection-toolbar` (that is row-mode only).
 - A fallback selector that also matches page chrome can mask a total failure: the `input[type="range"]` fallback in `custom-editors.spec.ts` matched the demo's "Rows" slider and kept passing while editing was completely broken.
+- **`[data-field="x"]` alone is ambiguous** — the column header, every data cell, and the visibility tool-panel row all carry it. `.first()` lands on the header, where a double-click just sorts. Always qualify: `[role="gridcell"][data-field="x"]`.
+- **Don't probe for "any editor" with `tbw-grid input, tbw-grid select`** — the master-detail expander opens a detail pane full of inputs, so the assertion passes with no editor on screen. Assert on the editor inside the cell you double-clicked.
+- **Below the 700px responsive breakpoint** the header rows collapse to 0×0 and data rows become `.responsive-card`s. `waitForGridReady` waits for the _first_ `[role="row"]` to be visible — a header — so it only passes if it happens to catch the frame before the responsive plugin swaps modes. Use `waitForGridReadyMobile` for any narrow-viewport test.
 
 ### Utilities (`e2e/tests/utils.ts`)
 
@@ -158,6 +161,7 @@ These verify visual and functional parity across framework demos (vanilla as bas
 | `DEMOS`                                                | Port map: vanilla=4000, react=4300, angular=4200, vue=4100 |
 | `SELECTORS`                                            | Shared CSS/ARIA selectors for grid elements                |
 | `waitForGridReady(page)`                               | Wait for grid + rows + 500ms animation buffer              |
+| `waitForGridReadyMobile(page)`                         | Same, but for viewports below the responsive breakpoint    |
 | `getMaskLocators(page)`                                | Locators to mask in visual comparisons                     |
 | `captureGridScreenshot(page)`                          | Grid-scoped screenshot with title hidden                   |
 | `activateCellEditor(page, field)`                      | Double-click cell by field name                            |

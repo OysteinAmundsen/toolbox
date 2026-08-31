@@ -503,6 +503,88 @@ describe('TooltipPlugin', () => {
   });
   // #endregion
 
+  // #region Pointer Entry Tests
+  describe('measures once per pointer entry (#449)', () => {
+    /**
+     * `mouseover` bubbles once per child boundary crossed, and the show path
+     * reads `scrollWidth` then re-anchors the popover — so the read count is
+     * the thing worth pinning.
+     */
+    function countScrollWidth(el: HTMLElement, scrollWidth: number, clientWidth: number): () => number {
+      let reads = 0;
+      Object.defineProperty(el, 'scrollWidth', { get: () => (reads++, scrollWidth), configurable: true });
+      Object.defineProperty(el, 'clientWidth', { value: clientWidth, configurable: true });
+      return () => reads;
+    }
+
+    it('skips a header mouseover that never left the cell', () => {
+      const columns: ColumnConfig[] = [{ field: 'name', header: 'Full Name' }];
+      grid = createMockGrid({ _visibleColumns: columns });
+      plugin = new TooltipPlugin();
+      plugin.attach(grid as any);
+
+      const headerCell = createHeaderCell('name', 0, 'Full Name');
+      const label = headerCell.firstElementChild as HTMLElement;
+      const reads = countScrollWidth(label, 200, 100);
+      (grid as any)._root.appendChild(headerCell);
+      plugin.afterRender();
+
+      label.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      expect(getPopover()!.textContent).toBe('Full Name');
+      expect(reads()).toBe(1);
+
+      // Pointer crossed into a child of the same header cell — not a new entry.
+      label.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: label }));
+      expect(reads()).toBe(1);
+    });
+
+    it('measures again when the pointer arrives from another header cell', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'name', header: 'Full Name' },
+        { field: 'email', header: 'Email Address' },
+      ];
+      grid = createMockGrid({ _visibleColumns: columns });
+      plugin = new TooltipPlugin();
+      plugin.attach(grid as any);
+
+      const headerCell = createHeaderCell('name', 0, 'Full Name');
+      const neighbour = createHeaderCell('email', 1, 'Email Address');
+      const label = headerCell.firstElementChild as HTMLElement;
+      const reads = countScrollWidth(label, 200, 100);
+      (grid as any)._root.appendChild(headerCell);
+      (grid as any)._root.appendChild(neighbour);
+      plugin.afterRender();
+
+      label.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      label.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: neighbour }));
+
+      expect(reads()).toBe(2);
+    });
+
+    it('skips a data-cell mouseover that never left the cell', () => {
+      const columns: ColumnConfig[] = [{ field: 'name' }];
+      grid = createMockGrid({ _visibleColumns: columns, rows: [{ name: 'Alice' }] });
+      plugin = new TooltipPlugin();
+      plugin.attach(grid as any);
+
+      // Not overflowing — the common case, where no tooltip is shown and so no
+      // `anchor-name` is left behind to accidentally suppress the re-measure.
+      const cell = createDataCell(0, 0, 'Alice');
+      const child = document.createElement('span');
+      cell.appendChild(child);
+      const reads = countScrollWidth(cell, 100, 100);
+      (grid as any)._root.appendChild(cell);
+      plugin.afterRender();
+
+      child.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      expect(reads()).toBe(1);
+
+      child.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: child }));
+      expect(reads()).toBe(1);
+    });
+  });
+  // #endregion
+
   // #region Cleanup Tests
   describe('cleanup', () => {
     it('should clear popover content on mouseout', () => {

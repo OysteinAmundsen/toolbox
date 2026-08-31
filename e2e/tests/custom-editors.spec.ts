@@ -50,36 +50,20 @@ test.describe('Custom Editors', () => {
         await page.goto(url);
         await waitForGridReady(page);
 
-        // Find first data row (skip header rows)
-        const firstDataRow = page.locator('[role="row"]:has([role="gridcell"])').first();
-        await expect(firstDataRow).toBeVisible();
+        // Aim at a cell that is actually editable in every demo. `role=gridcell`
+        // is load-bearing: the column header carries the same `data-field`, and
+        // the first column is a master-detail expander whose detail pane is full
+        // of inputs — either would make this assertion pass without an editor.
+        const statusCell = page.locator('[role="gridcell"][data-field="status"]').first();
+        await expect(statusCell).toBeVisible();
+        await statusCell.dblclick();
 
-        // Double-click the first cell to enter edit mode (should be ID or name field)
-        const firstCell = firstDataRow.locator('[role="gridcell"]').first();
-        await firstCell.dblclick();
-        await page.waitForTimeout(300);
-
-        // Check if we're in edit mode by looking for any input/editor
-        const anyEditor = page
-          .locator(`${SELECTORS.grid} input, ${SELECTORS.grid} select, ${SELECTORS.grid} .editing`)
+        // Editors mount in the cell, but a framework adapter may portal them out.
+        const editor = statusCell
+          .locator('select, input, .status-select-editor')
+          .or(page.locator('.status-select-editor'))
           .first();
-        const editorVisible = await anyEditor.isVisible().catch(() => false);
-
-        // If first cell isn't editable, try an editable cell (status)
-        if (!editorVisible) {
-          const statusCell = page.locator('[data-field="status"]').first();
-          await statusCell.dblclick();
-          await page.waitForTimeout(300);
-        }
-
-        // Verify at least one editor is visible
-        const hasEditor = await page
-          .locator(`${SELECTORS.grid} input, ${SELECTORS.grid} select, .status-select-editor`)
-          .first()
-          .isVisible()
-          .catch(() => false);
-
-        expect(hasEditor, 'Should have an editor visible after double-click').toBe(true);
+        await expect(editor, 'Should have an editor visible after double-click').toBeVisible();
 
         // Press Escape to exit edit mode
         await page.keyboard.press('Escape');

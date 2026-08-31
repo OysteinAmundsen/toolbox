@@ -463,7 +463,12 @@ export function setupRootEventDelegation(
     (e) => {
       if (grid.getPluginByName?.('tooltip')) return;
       const cell = (e.target as HTMLElement).closest('.cell') as HTMLElement | null;
-      if (cell) syncTruncationTitle(cell);
+      if (!cell) return;
+      // mouseover re-fires for every child boundary crossed inside the cell, and
+      // `scrollWidth` forces layout — so measure only on a genuine cell entry.
+      const from = e.relatedTarget as Node | null;
+      if (from && cell.contains(from)) return;
+      syncTruncationTitle(cell);
     },
     { signal, passive: true },
   );

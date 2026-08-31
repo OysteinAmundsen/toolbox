@@ -23,6 +23,19 @@ function isOverflowing(el: HTMLElement): boolean {
 }
 
 /**
+ * True when a delegated pointer event merely crossed a child boundary *inside*
+ * `cell` rather than entering or leaving it.
+ *
+ * `mouseover`/`mouseout` fire on every element boundary and bubble, so a
+ * delegated handler sees one event per child. `relatedTarget` is what recovers
+ * `mouseenter`/`mouseleave` semantics from that stream.
+ */
+function isSameCellCrossing(cell: HTMLElement, related: EventTarget | null): boolean {
+  const node = related as Node | null;
+  return !!node && cell.contains(node);
+}
+
+/**
  * Resolve the tooltip text for a cell.
  * Returns the text to show, or `null` to suppress.
  */
@@ -431,7 +444,11 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
     // Check for header cell
     const headerCell = target.closest('[part~="header-cell"]') as HTMLElement | null;
     if (headerCell && this.#headerEnabled) {
-      this.#showHeaderTooltip(headerCell);
+      // Re-showing on every child boundary would re-measure (scrollWidth,
+      // getBoundingClientRect) and re-anchor the popover, thrashing layout.
+      if (!isSameCellCrossing(headerCell, e.relatedTarget)) {
+        this.#showHeaderTooltip(headerCell);
+      }
       return;
     }
 
@@ -439,6 +456,7 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
     // to avoid overwriting their anchor-name and breaking their positioning.
     const dataCell = target.closest('[data-row][data-col]') as HTMLElement | null;
     if (dataCell && this.#cellEnabled && !dataCell.style.getPropertyValue('anchor-name')) {
+      if (isSameCellCrossing(dataCell, e.relatedTarget)) return;
       this.#showCellTooltip(dataCell);
     }
   }
@@ -451,8 +469,7 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
     if (!cell) return;
 
     // Keep tooltip if pointer moved to a child still inside the same cell
-    const related = e.relatedTarget as HTMLElement | null;
-    if (related && cell.contains(related)) return;
+    if (isSameCellCrossing(cell, e.relatedTarget)) return;
 
     // Grace period, not an immediate hide, so the pointer can reach the tooltip.
     this.#scheduleHide();

@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { DEMOS, waitForGridReady } from './utils';
+import { DEMOS, waitForGridReady, waitForGridReadyMobile } from './utils';
 
 /**
  * Accessibility Tests — Phase 1 of #189
@@ -669,7 +669,9 @@ test.describe('Accessibility: reflow (WCAG 2.2 SC 1.4.10)', () => {
   test('the page does not scroll horizontally at 320px', async ({ page }) => {
     await page.setViewportSize(REFLOW_VIEWPORT);
     await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
+    // Below the responsive breakpoint the grid swaps rows for cards, so the
+    // desktop "a row is visible" wait never settles.
+    await waitForGridReadyMobile(page);
 
     const doc = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,

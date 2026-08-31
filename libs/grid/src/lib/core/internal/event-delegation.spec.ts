@@ -446,4 +446,41 @@ describe('event-delegation: truncated text reveal (SC 1.4.12)', () => {
 
     expect(cell.hasAttribute('title')).toBe(false);
   });
+
+  describe('measures once per cell entry', () => {
+    /** `scrollWidth` forces layout, so the read count is the thing worth pinning. */
+    function countReads(el: HTMLElement): () => number {
+      let reads = 0;
+      Object.defineProperty(el, 'scrollWidth', { get: () => (reads++, 200), configurable: true });
+      Object.defineProperty(el, 'clientWidth', { value: 100, configurable: true });
+      return () => reads;
+    }
+
+    it('skips a mouseover that never left the cell', () => {
+      setup();
+      const reads = countReads(cell);
+      const child = document.createElement('span');
+      cell.appendChild(child);
+
+      hover();
+      expect(reads()).toBe(1);
+
+      // Crossing into a child re-fires mouseover, but the pointer is still on the cell.
+      child.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: cell }));
+
+      expect(reads()).toBe(1);
+      expect(cell.title).toBe('a value too long to fit');
+    });
+
+    it('measures again when the pointer arrives from another cell', () => {
+      setup();
+      const reads = countReads(cell);
+      const neighbour = renderRoot.querySelector('.cell[data-row="0"][data-col="1"]') as HTMLElement;
+
+      hover();
+      cell.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: neighbour }));
+
+      expect(reads()).toBe(2);
+    });
+  });
 });

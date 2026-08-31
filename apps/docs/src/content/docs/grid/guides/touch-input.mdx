@@ -7,7 +7,7 @@ sidebar:
 
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
-The grid is **touch-friendly by default**. Native two-finger scrolling, tap-to-focus, tap-header-to-sort, and drag-resize all work on touch screens without any configuration. This page explains how the grid maps gestures to features, which interactions require plugins, and how to tune hit-target sizing for accessibility.
+The grid is **touch-friendly by default**. Native two-finger scrolling, tap-to-focus, tap-header-to-sort, and drag-resize all work on touch screens without any configuration. This page explains how the grid maps gestures to features and which interactions require plugins. For hit-target sizing, keyboard equivalents and the rest of the accessibility surface, see [Accessibility](/grid/guides/accessibility/).
 
 ## Overview
 
@@ -120,38 +120,15 @@ Because the grid virtualizes rows, a handle whose anchor cell has scrolled out o
 
 ## Hit-target sizing
 
-The grid exposes the CSS custom property `--tbw-touch-target-min` to set the minimum interactive hit-target size across all pointer-interactive elements (resize handles, column headers, checkboxes).
+Every interactive element in the grid answers a pointer across at least 24 × 24 CSS pixels, which
+is WCAG 2.2 SC 2.5.8 Target Size (Minimum). Because the criterion is not conditional on pointer
+type, this is an accessibility guarantee rather than a touch feature, and it is documented with the
+rest of them: see [Target size](/grid/guides/accessibility/#target-size) for how the grid reaches
+the minimum without giving up density, and for the `--tbw-touch-target-min` and
+`--tbw-tool-panel-resize-overhang` tokens that raise it.
 
-| Token | Default | Standard |
-|---|---|---|
-| `--tbw-touch-target-min` | `24px` | WCAG 2.2 SC 2.5.8 Target Size (Minimum), Level AA |
-
-SC 2.5.8 is not conditional on the pointer type, so the minimum applies to a mouse exactly as it does to a finger. A data grid earns its keep on density, though, so the grid grows the **hit area** rather than the **box**: small controls such as the tree, grouping, pivot, and master-detail toggles carry a transparent 24 px overlay centred on the icon, and handles such as the column resizer and the tool-panel splitter are absolutely positioned. Row heights, column widths, and indentation are identical to what they were before the target minimum existed.
-
-A coarse pointer additionally enlarges the visible box of several controls. That is a comfort choice on top of the target minimum, not the thing that satisfies it.
-
-You can override the token in your theme to increase target sizes for your deployment:
-
-```css
-tbw-grid {
-  --tbw-touch-target-min: 44px; /* Apple HIG / WCAG SC 2.5.5 Target Size (Enhanced), AAA */
-}
-```
-
-The default of 24 px satisfies WCAG 2.2 SC 2.5.8 Target Size (Minimum) at Level AA. Raising it to 44 px also satisfies SC 2.5.5 Target Size (Enhanced) at Level AAA, and matches Apple's Human Interface Guidelines recommendation of 44 × 44 pt for primary touch targets.
-
-One control is sized separately. The [Shell](/grid/plugins/shell/) tool-panel splitter straddles the panel's docked edge so its target never covers the panel's own controls, which means it also has to widen the panel's clip region. Browsers reject a calculated `overflow-clip-margin`, so it reads its own token:
-
-| Token | Default | Notes |
-|---|---|---|
-| `--tbw-tool-panel-resize-overhang` | `12px` | Half the splitter's target width. Raise it alongside `--tbw-touch-target-min`. |
-
-```css
-tbw-grid {
-  --tbw-touch-target-min: 44px;
-  --tbw-tool-panel-resize-overhang: 22px;
-}
-```
+What is specific to touch is that a coarse pointer also enlarges the *visible* box of several
+controls. That is a comfort choice on top of the target minimum, not the thing that satisfies it.
 
 ## Known browser quirks
 
@@ -174,6 +151,6 @@ iOS Safari applies its own scroll momentum to elements with `overflow: auto`. Be
 ## See also
 
 <CardGrid>
-  <LinkCard title="Accessibility" href="/grid/guides/accessibility/" description="WAI-ARIA roles, keyboard navigation, screen reader support, and WCAG 2.1 AA conformance." />
+  <LinkCard title="Accessibility" href="/grid/guides/accessibility/" description="WAI-ARIA roles, keyboard navigation, screen reader support, target sizing, and WCAG 2.2 AA conformance." />
   <LinkCard title="Theming" href="/grid/guides/theming/" description="CSS custom properties and how to override the grid's visual tokens." />
 </CardGrid>

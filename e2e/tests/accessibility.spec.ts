@@ -29,21 +29,19 @@ const WCAG22AA_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
  */
 async function scanGrid(page: Page, disableRules: string[] = [], tags?: string[]) {
   // Scope scan to the grid element to avoid flagging the demo page chrome
-  let builder = new AxeBuilder({ page })
-    .include('tbw-grid')
-    .disableRules([
-      // Virtualization recycles rows outside the visible viewport —
-      // axe may flag hidden content that is intentionally aria-hidden or off-screen.
-      'scrollable-region-focusable',
-      // The grid uses role="presentation" wrappers (.rows-container, .rows-viewport)
-      // between role="grid" and role="rowgroup" for layout. Per ARIA spec, presentation
-      // is semantically transparent, but axe-core still flags the intermediate elements.
-      'aria-required-children',
-      // The grid uses light DOM, so color-contrast checks on the host element
-      // can produce false positives when theme vars are applied externally.
-      // We test contrast separately per theme below.
-      ...disableRules,
-    ]);
+  let builder = new AxeBuilder({ page }).include('tbw-grid').disableRules([
+    // Virtualization recycles rows outside the visible viewport —
+    // axe may flag hidden content that is intentionally aria-hidden or off-screen.
+    'scrollable-region-focusable',
+    // The grid uses role="presentation" wrappers (.rows-container, .rows-viewport)
+    // between role="grid" and role="rowgroup" for layout. Per ARIA spec, presentation
+    // is semantically transparent, but axe-core still flags the intermediate elements.
+    'aria-required-children',
+    // The grid uses light DOM, so color-contrast checks on the host element
+    // can produce false positives when theme vars are applied externally.
+    // We test contrast separately per theme below.
+    ...disableRules,
+  ]);
 
   if (tags) builder = builder.withTags(tags);
 

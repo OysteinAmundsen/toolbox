@@ -15,8 +15,8 @@
  * is fully functional without any core changes.
  */
 
-import { announce, getA11yMessage } from '../../core/internal/aria';
 import { GridDataAttrs } from '../../core/constants';
+import { announce, getA11yMessage } from '../../core/internal/aria';
 import { ensureCellVisible } from '../../core/internal/keyboard';
 import { compileTemplate } from '../../core/internal/sanitize';
 import { invalidateAccessorCache, readCellField, writeCellField } from '../../core/internal/value-accessor';

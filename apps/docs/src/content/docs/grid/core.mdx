@@ -1461,8 +1461,11 @@ The grid supports loading indicators at three levels: grid-wide, per-row, and pe
 
 ```typescript
 grid.loading = true;
-// ... fetch data ...
-grid.loading = false;
+try {
+  grid.rows = await fetchRows();
+} finally {
+  grid.loading = false; // in `finally`, or a rejected fetch leaves the overlay up forever
+}
 ```
 
 The `loading` attribute also works in HTML: `<tbw-grid loading></tbw-grid>`.

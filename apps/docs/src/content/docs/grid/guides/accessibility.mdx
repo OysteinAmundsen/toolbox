@@ -7,10 +7,15 @@ sidebar:
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
+import Audience from '@components/Audience.astro';
+
 
 `@toolbox-web/grid` follows the [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/) to provide an accessible data grid experience. This page documents the ARIA attributes, keyboard interactions, and best practices.
 
-**See also:** [Touch Input](/grid/guides/touch-input/) — gesture map, long-press priority order, hit-target sizing (`--tbw-touch-target-min`), and touch browser quirks.
+**See also:** [Accessibility Conformance Report](/grid/guides/conformance-report/) — the VPAT-style
+document for procurement, covering every WCAG 2.2 criterion and the EN 301 549 mapping ·
+[Touch Input](/grid/guides/touch-input/) — gesture map, long-press priority order, and touch browser
+quirks.
 
 ## Our accessibility commitment
 
@@ -299,6 +304,10 @@ One small target is never allowed to overlap another. Where a resize handle woul
 filter button beside it, the header cell's trailing padding grows instead — by about four pixels,
 once, on resizable columns.
 
+A coarse pointer additionally enlarges the *visible* box of several controls. That is a comfort
+choice layered on top of the target minimum, not the thing that satisfies it — the 24 px holds on a
+mouse either way.
+
 Everything is driven from one token, so raising the minimum raises every target at once:
 
 ```css
@@ -308,8 +317,18 @@ tbw-grid {
 }
 ```
 
-See [Hit-target sizing](/grid/guides/touch-input/#hit-target-sizing) for why the splitter needs its
-own token.
+44 px also matches Apple's Human Interface Guidelines recommendation for primary touch targets.
+
+The [Shell](/grid/plugins/shell/) tool-panel splitter is the one control that needs a second token.
+Because its target straddles the panel's docked edge, half of it sits outside the panel — which
+means the panel's clip region has to widen to match. Browsers reject a calculated
+`overflow-clip-margin`, so the overhang cannot be derived from `--tbw-touch-target-min` and has to
+be stated separately:
+
+| Token | Default | Notes |
+|---|---|---|
+| `--tbw-touch-target-min` | `24px` | Every pointer target in the grid |
+| `--tbw-tool-panel-resize-overhang` | `12px` | Half the splitter's target width. Raise it alongside the token above. |
 
 ## Reflow and text spacing
 
@@ -499,35 +518,41 @@ A bare emoji or icon has no name; screen readers announce `"button"` and the use
 
 The grid implements the [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/). If you stop event propagation in a `keydown` handler on a cell, you may break navigation. If you really need to override (rare), do it only for the specific keys you care about and let the rest bubble.
 
+<Audience only="human">
+
 ## WCAG Compliance Checklist
 
 The criteria most often asked about, abridged. The
 [Accessibility Conformance Report](/grid/guides/conformance-report/) is the authority: it covers
-*every* Level A and AA criterion in WCAG 2.2, including the ones that are not applicable to a
-component and the ones where your own content decides the outcome.
+*every* Level A and AA criterion in WCAG 2.2, maps them onto EN 301 549 for the EU, and includes the
+ones that are not applicable to a component and the ones where your own content decides the outcome.
+
+Each ✅ links to the test that verifies it.
 
 | Criterion | Level | Status | Notes |
 |-----------|-------|--------|-------|
-| 1.1.1 Non-text Content | A | ✅ | Icons have text alternatives |
-| 1.3.1 Info and Relationships | A | ✅ | ARIA roles convey structure |
-| 1.3.2 Meaningful Sequence | A | ✅ | DOM order matches visual order |
-| 1.4.1 Use of Color | A | ✅ | Status not conveyed by color alone |
-| 1.4.3 Contrast (Min) | AA | ✅ | Default theme meets 4.5:1 ratio |
-| 1.4.10 Reflow | AA | ✅ | Nothing around the table needs a second scrollbar at 320 px; the table itself uses the data-table exception — see [Reflow and text spacing](#reflow-and-text-spacing) |
-| 1.4.11 Non-text Contrast | AA | ✅ | Focus indicators visible at 3:1 |
-| 1.4.12 Text Spacing | AA | ✅ | Rows grow to fit user spacing, and text an ellipsis hides stays readable — see [Reflow and text spacing](#reflow-and-text-spacing) |
-| 1.4.13 Content on Hover or Focus | AA | ✅ | [Tooltips](/grid/plugins/tooltip/#accessibility) are dismissible (<kbd>Escape</kbd>), hoverable, persistent, and shown on keyboard focus |
-| 2.1.1 Keyboard | A | ✅ | All functions accessible via keyboard |
-| 2.1.2 No Keyboard Trap | A | ✅ | Tab exits the grid; Escape exits editors |
-| 2.4.3 Focus Order | A | ✅ | Logical focus order follows grid structure |
-| 2.4.7 Focus Visible | AA | ✅ | Clear focus indicators |
-| 2.4.11 Focus Not Obscured (Min) | AA (2.2) | ✅ | Keyboard navigation scrolls the focused row clear of overlays such as [sticky rows](/grid/plugins/sticky-rows/), and the focused cell clear of [pinned columns](/grid/plugins/pinned-columns/) |
-| 2.5.7 Dragging Movements | AA (2.2) | ✅ | Every drag has a single-pointer alternative — see [Pointer Alternatives to Dragging](#pointer-alternatives-to-dragging) |
-| 2.5.8 Target Size (Minimum) | AA (2.2) | ✅ | Every control answers a pointer across at least 24 × 24 px, on a mouse as well as a finger — see [Target size](#target-size) |
-| 3.3.1 Error Identification | A | ✅ | An invalid cell carries `aria-invalid` and the validation message, not just a red border |
-| 3.3.2 Labels or Instructions | A | ✅ | An injected editor is named after its column header unless it already names itself |
-| 4.1.2 Name, Role, Value | A | ✅ | ARIA attributes on all interactive elements |
-| 4.1.3 Status Messages | AA | ✅ | Sort, filter, selection, load and commit are announced via `aria-live` without moving focus |
+| 1.1.1 Non-text Content | A | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) | Icons have text alternatives |
+| 1.3.1 Info and Relationships | A | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/aria.spec.ts) | ARIA roles convey structure |
+| 1.3.2 Meaningful Sequence | A | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/pinned-columns/pinned-columns.spec.ts) | DOM order matches visual order |
+| 1.4.1 Use of Color | A | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/header.spec.ts) | Status not conveyed by color alone |
+| 1.4.3 Contrast (Min) | AA | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) | Default theme meets 4.5:1 ratio |
+| 1.4.10 Reflow | AA | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) | Nothing around the table needs a second scrollbar at 320 px; the table itself uses the data-table exception — see [Reflow and text spacing](#reflow-and-text-spacing) |
+| 1.4.11 Non-text Contrast | AA | [✅](/grid/guides/conformance-report/#level-aa) | Focus indicators visible at 3:1 — verified by computed-ratio review, since axe does not check non-text contrast |
+| 1.4.12 Text Spacing | AA | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) | Rows grow to fit user spacing, and text an ellipsis hides stays readable — see [Reflow and text spacing](#reflow-and-text-spacing) |
+| 1.4.13 Content on Hover or Focus | AA | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/tooltip/tooltip.spec.ts) | [Tooltips](/grid/plugins/tooltip/#accessibility) are dismissible (<kbd>Escape</kbd>), hoverable, persistent, and shown on keyboard focus |
+| 2.1.1 Keyboard | A | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/keyboard.spec.ts) | All functions accessible via keyboard |
+| 2.1.2 No Keyboard Trap | A | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) | Tab exits the grid; Escape exits editors |
+| 2.4.3 Focus Order | A | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/focus-manager.spec.ts) | Logical focus order follows grid structure |
+| 2.4.7 Focus Visible | AA | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) | Clear focus indicators |
+| 2.4.11 Focus Not Obscured (Min) | AA (2.2) | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/sticky-rows/sticky-rows.spec.ts) | Keyboard navigation scrolls the focused row clear of overlays such as [sticky rows](/grid/plugins/sticky-rows/), and the focused cell clear of [pinned columns](/grid/plugins/pinned-columns/) |
+| 2.5.7 Dragging Movements | AA (2.2) | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/reorder-columns/reorder-plugin.spec.ts) | Every drag has a single-pointer alternative — see [Pointer Alternatives to Dragging](#pointer-alternatives-to-dragging) |
+| 2.5.8 Target Size (Minimum) | AA (2.2) | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) | Every control answers a pointer across at least 24 × 24 px, on a mouse as well as a finger — see [Target size](#target-size) |
+| 3.3.1 Error Identification | A | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/editing/editing-integration.spec.ts) | An invalid cell carries `aria-invalid` and the validation message, not just a red border |
+| 3.3.2 Labels or Instructions | A | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/editing/internal/editor-injection.spec.ts) | An injected editor is named after its column header unless it already names itself |
+| 4.1.2 Name, Role, Value | A | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) | ARIA attributes on all interactive elements |
+| 4.1.3 Status Messages | AA | [✅](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) | Sort, filter, selection, load and commit are announced via `aria-live` without moving focus |
+
+</Audience>
 
 ## What's Automatic
 

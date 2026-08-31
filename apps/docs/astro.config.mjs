@@ -179,6 +179,11 @@ export default defineConfig({
     '/grid/guides/security/': '/grid/guides/platform/#security',
     '/grid/guides/ssr/': '/grid/guides/platform/#server-side-rendering',
     '/grid/guides/support-policy/': '/grid/guides/platform/#support-at-a-glance',
+    // production-checklist.mdx was a link index with no content of its own —
+    // every item was already documented (better, and with the caveats intact)
+    // in platform, performance, core, accessibility and automated-testing.
+    // Point the old URL at platform, which carried most of its security core.
+    '/grid/guides/production-checklist/': '/grid/guides/platform/',
   },
 
   vite: {

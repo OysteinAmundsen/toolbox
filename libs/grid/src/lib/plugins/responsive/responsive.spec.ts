@@ -66,6 +66,7 @@ describe('ResponsivePlugin', () => {
       disconnectSignal: new AbortController().signal,
       requestRender: vi.fn(),
       requestAfterRender: vi.fn(),
+      forceLayout: vi.fn().mockResolvedValue(undefined),
       getPlugin: vi.fn(),
       getPluginByName: vi.fn(),
       _hostElement: grid,
@@ -184,22 +185,52 @@ describe('ResponsivePlugin', () => {
       );
     });
 
-    it('should debounce resize events', () => {
+    it('should apply the first width change immediately', () => {
       const plugin = new ResponsivePlugin({ breakpoint: 500, debounceMs: 200 });
       const mockGrid = createMockGrid();
       plugin.attach(mockGrid as never);
 
-      // Multiple rapid resizes
-      resizeObserverInstance?.callback([{ contentRect: { width: 600 } }]);
-      resizeObserverInstance?.callback([{ contentRect: { width: 550 } }]);
       resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
 
-      // Before debounce timeout
-      expect(plugin.isResponsive()).toBe(false);
-
-      // After debounce timeout - only last value should matter
-      vi.runAllTimers();
+      // No timer advance — a settled width must not wait out the debounce.
       expect(plugin.isResponsive()).toBe(true);
+    });
+
+    it('should ignore resizes that only change height', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, debounceMs: 200 });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 600, height: 100 } }]);
+      vi.runAllTimers();
+
+      const callsAfterFirst = mockGrid.dispatchEvent.mock.calls.length;
+
+      // Height animating while width stays put must not schedule any work.
+      resizeObserverInstance?.callback([{ contentRect: { width: 600, height: 200 } }]);
+      resizeObserverInstance?.callback([{ contentRect: { width: 600, height: 300 } }]);
+      vi.runAllTimers();
+
+      expect(mockGrid.dispatchEvent.mock.calls.length).toBe(callsAfterFirst);
+    });
+
+    it('should rate-limit rapid width changes to one switch per window', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, debounceMs: 200 });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      // First crossing applies on the leading edge.
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      expect(plugin.isResponsive()).toBe(true);
+
+      // Crossings back and forth inside the window are deferred, not applied.
+      resizeObserverInstance?.callback([{ contentRect: { width: 600 } }]);
+      resizeObserverInstance?.callback([{ contentRect: { width: 550 } }]);
+      expect(plugin.isResponsive()).toBe(true);
+
+      // The trailing evaluation settles on the final width.
+      vi.runAllTimers();
+      expect(plugin.isResponsive()).toBe(false);
     });
   });
 
@@ -338,6 +369,28 @@ describe('ResponsivePlugin', () => {
 
       const cell = mockGrid.querySelector('.cell[data-field="name"]');
       expect(cell?.hasAttribute('data-responsive-hidden')).toBe(false);
+    });
+
+    it('should release hidden cells when the table layout returns', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, hiddenColumns: ['name'] });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      vi.runAllTimers();
+      plugin.afterRender();
+
+      const cell = mockGrid.querySelector('.cell[data-field="name"]');
+      expect(cell?.hasAttribute('data-responsive-hidden')).toBe(true);
+
+      // Cells come from a recycled pool, so the attribute written in card mode
+      // survives the switch unless the table render explicitly clears it.
+      resizeObserverInstance?.callback([{ contentRect: { width: 600 } }]);
+      vi.runAllTimers();
+      plugin.afterRender();
+
+      expect(cell?.hasAttribute('data-responsive-hidden')).toBe(false);
+      expect(cell?.hasAttribute('aria-hidden')).toBe(false);
     });
   });
 
@@ -958,6 +1011,38 @@ describe('ResponsivePlugin', () => {
       // Stale attribute should be removed
       expect(nameCell?.hasAttribute('data-responsive-hidden')).toBe(false);
     });
+
+    it('should not fade columns out while the table shows every column', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, hiddenColumns: ['secondary'] });
+      const mockGrid = createMockGridWithMultipleCells();
+      const secondary = mockGrid.querySelector<HTMLElement>('.cell[data-field="secondary"]');
+      const animate = vi.fn(() => ({ id: '', currentTime: 0, cancel: vi.fn() }));
+      Object.assign(secondary as object, { animate, getAnimations: () => [] });
+
+      // Attaching in table layout must not start a fade: the column stays
+      // visible, so a forwards-filling fade-out would strand it at opacity 0.
+      plugin.attach(mockGrid as never);
+      plugin.afterRender();
+
+      expect(animate).not.toHaveBeenCalled();
+      expect(mockGrid.hasAttribute('data-responsive-column-fade')).toBe(false);
+    });
+
+    it('should restore the card layout attributes when re-attached in card mode', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, hideHeader: true });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+      plugin.setResponsive(true);
+
+      // A `gridConfig` rebuild detaches and re-attaches the same instance.
+      plugin.detach();
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(false);
+      plugin.attach(mockGrid as never);
+
+      expect(plugin.isResponsive()).toBe(true);
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(true);
+      expect(mockGrid.hasAttribute('data-responsive-hide-header')).toBe(true);
+    });
   });
 
   describe('animation', () => {
@@ -981,6 +1066,26 @@ describe('ResponsivePlugin', () => {
       expect(mockGrid.hasAttribute('data-responsive-animate')).toBe(false);
     });
 
+    it('should disable animations when animation: false', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animation: false });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      expect(mockGrid.hasAttribute('data-responsive-animate')).toBe(false);
+    });
+
+    it('should let animation win over the deprecated animate flag', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animate: false, animation: 'fade' });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      expect(mockGrid.hasAttribute('data-responsive-animate')).toBe(true);
+    });
+
     it('should set custom animation duration CSS variable', () => {
       const plugin = new ResponsivePlugin({
         breakpoint: 500,
@@ -992,6 +1097,358 @@ describe('ResponsivePlugin', () => {
       plugin.setResponsive(true);
 
       expect(mockGrid.style.getPropertyValue('--tbw-responsive-duration')).toBe('350ms');
+    });
+
+    it('should fade only the column whose visibility changed', () => {
+      const plugin = new ResponsivePlugin({
+        debounceMs: 0,
+        breakpoints: [
+          { maxWidth: 800, hiddenColumns: ['secondary'] },
+          { maxWidth: 500, hiddenColumns: ['secondary', 'tertiary'] },
+        ],
+      });
+      const mockGrid = createMockGridWithMultipleCells();
+      plugin.attach(mockGrid as never);
+
+      // happy-dom implements neither of these.
+      const animate = vi.fn(() => ({ id: '', currentTime: 0 }));
+      for (const cell of mockGrid.querySelectorAll('.cell[data-field]')) {
+        Object.assign(cell, { animate, getAnimations: () => [] });
+      }
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 800 } }]);
+      plugin.afterRender();
+
+      // `secondary` is the only column that changed, so it is the only one that moves.
+      expect(animate).toHaveBeenCalledTimes(1);
+      expect(animate.mock.instances[0]).toBe(mockGrid.querySelector('.cell[data-field="secondary"]'));
+      expect(animate).toHaveBeenCalledWith([{ opacity: 1 }, { opacity: 0 }], {
+        duration: 200,
+        easing: 'ease-out',
+        fill: 'forwards',
+      });
+      // The cell collapses with its track straight away; the track transition carries it.
+      expect(mockGrid.querySelector('.cell[data-field="secondary"]')?.hasAttribute('data-responsive-hidden')).toBe(
+        true,
+      );
+      expect(mockGrid.hasAttribute('data-responsive-column-fade')).toBe(true);
+
+      // Once the window closes the column stops animating and the transition is lifted.
+      animate.mockClear();
+      vi.advanceTimersByTime(200);
+      plugin.afterRender();
+      expect(animate).not.toHaveBeenCalled();
+      expect(mockGrid.hasAttribute('data-responsive-column-fade')).toBe(false);
+      expect(mockGrid.querySelector('.cell[data-field="secondary"]')?.hasAttribute('data-responsive-hidden')).toBe(
+        true,
+      );
+
+      // Hiding `tertiary` must not drag the already-hidden `secondary` back into view.
+      resizeObserverInstance?.callback([{ contentRect: { width: 500 } }]);
+      plugin.afterRender();
+
+      expect(animate).toHaveBeenCalledTimes(1);
+      expect(animate.mock.instances[0]).toBe(mockGrid.querySelector('.cell[data-field="tertiary"]'));
+      expect(mockGrid.querySelector('.cell[data-field="secondary"]')?.hasAttribute('data-responsive-hidden')).toBe(
+        true,
+      );
+    });
+
+    it('should fade a reappearing column back in', () => {
+      const plugin = new ResponsivePlugin({
+        debounceMs: 0,
+        breakpoints: [{ maxWidth: 800, hiddenColumns: ['secondary'] }],
+      });
+      const mockGrid = createMockGridWithMultipleCells();
+      plugin.attach(mockGrid as never);
+
+      const animate = vi.fn(() => ({ id: '', currentTime: 0 }));
+      for (const cell of mockGrid.querySelectorAll('.cell[data-field]')) {
+        Object.assign(cell, { animate, getAnimations: () => [] });
+      }
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 800 } }]);
+      vi.advanceTimersByTime(200);
+      plugin.afterRender();
+      animate.mockClear();
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 1000 } }]);
+      plugin.afterRender();
+
+      expect(animate).toHaveBeenCalledTimes(1);
+      expect(animate.mock.instances[0]).toBe(mockGrid.querySelector('.cell[data-field="secondary"]'));
+      expect(animate).toHaveBeenCalledWith([{ opacity: 0 }, { opacity: 1 }], {
+        duration: 200,
+        easing: 'ease-out',
+        fill: 'none',
+      });
+      expect(mockGrid.querySelector('.cell[data-field="secondary"]')?.hasAttribute('data-responsive-hidden')).toBe(
+        false,
+      );
+    });
+
+    it('should collapse the grid track of a hidden column and restore it', () => {
+      const plugin = new ResponsivePlugin({
+        debounceMs: 0,
+        breakpoints: [{ maxWidth: 800, hiddenColumns: ['secondary'] }],
+      });
+      const mockGrid = createMockGridWithMultipleCells();
+      const template = '60px 150px 1fr 100px minmax(80px, 1fr)';
+      Object.assign(mockGrid, {
+        _gridTemplate: template,
+        _visibleColumns: [
+          { field: 'name' },
+          { field: 'email' },
+          { field: 'secondary' },
+          { field: 'tertiary' },
+          { field: 'fallback' },
+        ],
+      });
+      plugin.attach(mockGrid as never);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 800 } }]);
+      plugin.afterRender();
+
+      // Only the hidden track collapses, and it keeps its unit family so the
+      // track list still interpolates pairwise.
+      expect(mockGrid.style.getPropertyValue('--tbw-column-template')).toBe('60px 150px 0fr 100px minmax(80px, 1fr)');
+
+      // The collapse outlives the fade window — it is the resting state.
+      vi.advanceTimersByTime(200);
+      plugin.afterRender();
+      expect(mockGrid.style.getPropertyValue('--tbw-column-template')).toBe('60px 150px 0fr 100px minmax(80px, 1fr)');
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 1000 } }]);
+      plugin.afterRender();
+      expect(mockGrid.style.getPropertyValue('--tbw-column-template')).toBe(template);
+    });
+  });
+
+  describe('view transitions', () => {
+    /** Stand in for `Element.startViewTransition()`, which happy-dom does not implement. */
+    const stubViewTransition = (grid: HTMLElement) => {
+      const finishers: Array<() => void> = [];
+      const state = {
+        calls: 0,
+        update: undefined as (() => Promise<void>) | undefined,
+        /** Settle the transition started by the nth call, or every pending one. */
+        finish: (index?: number) => {
+          if (index === undefined) finishers.forEach((resolve) => resolve());
+          else finishers[index]?.();
+        },
+      };
+      Object.assign(grid, {
+        startViewTransition: (update: () => Promise<void>) => {
+          state.calls++;
+          state.update = update;
+          let resolveFinished = (): void => undefined;
+          const finished = new Promise<void>((resolve) => {
+            resolveFinished = resolve;
+          });
+          finishers.push(resolveFinished);
+          return { finished };
+        },
+      });
+      return state;
+    };
+
+    it('should switch synchronously when view transitions are unsupported', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500 });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(true);
+      expect(mockGrid.hasAttribute('data-responsive-transition')).toBe(false);
+    });
+
+    it('should drive the layout switch through a view transition when supported', async () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500 });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+      const transition = stubViewTransition(mockGrid);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+
+      expect(transition.calls).toBe(1);
+      expect(mockGrid.hasAttribute('data-responsive-transition')).toBe(true);
+      // The DOM change is deferred into the transition's update callback...
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(false);
+      // ...but the observable state flips immediately.
+      expect(plugin.isResponsive()).toBe(true);
+
+      await transition.update?.();
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(true);
+
+      transition.finish();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(mockGrid.hasAttribute('data-responsive-transition')).toBe(false);
+    });
+
+    it('should not use a view transition when animate is false', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animate: false });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+      const transition = stubViewTransition(mockGrid);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+
+      expect(transition.calls).toBe(0);
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(true);
+    });
+
+    it('should withhold the keyframe fade when a view transition drives the switch', async () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500 });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+      const transition = stubViewTransition(mockGrid);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      await transition.update?.();
+
+      // Leaving it on would replay `responsive-card-enter` once the transition
+      // ends and `data-responsive-transition` is removed.
+      expect(mockGrid.hasAttribute('data-responsive-animate')).toBe(false);
+    });
+
+    it("should name rows for morphing only when animation is 'morph-rows'", async () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animation: 'morph-rows' });
+      const mockGrid = createMockGrid();
+      const row = mockGrid.querySelector<HTMLElement>('.data-grid-row');
+      row?.setAttribute('aria-rowindex', '2');
+      plugin.attach(mockGrid as never);
+      const transition = stubViewTransition(mockGrid);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+
+      expect(row?.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-row-\d+-2$/);
+
+      await transition.update?.();
+      transition.finish();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(row?.style.getPropertyValue('view-transition-name')).toBe('');
+    });
+
+    it('should leave rows unnamed by default', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500 });
+      const mockGrid = createMockGrid();
+      const row = mockGrid.querySelector<HTMLElement>('.data-grid-row');
+      row?.setAttribute('aria-rowindex', '2');
+      plugin.attach(mockGrid as never);
+      stubViewTransition(mockGrid);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+
+      expect(row?.style.getPropertyValue('view-transition-name')).toBe('');
+    });
+
+    it("should name cells instead of rows when animation is 'morph-cells'", async () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animation: 'morph-cells' });
+      const mockGrid = createMockGrid();
+      const row = mockGrid.querySelector<HTMLElement>('.data-grid-row');
+      const cell = mockGrid.querySelector<HTMLElement>('.data-grid-row > .cell');
+      row?.setAttribute('aria-rowindex', '2');
+      cell?.setAttribute('aria-colindex', '3');
+      plugin.attach(mockGrid as never);
+      const transition = stubViewTransition(mockGrid);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+
+      expect(cell?.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-cell-\d+-2-3$/);
+      // Naming the row too would lift the cell out of the row's own snapshot.
+      expect(row?.style.getPropertyValue('view-transition-name')).toBe('');
+
+      await transition.update?.();
+      transition.finish();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(cell?.style.getPropertyValue('view-transition-name')).toBe('');
+    });
+
+    it('should fall back to row morphing when the cell count exceeds the budget', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animation: 'morph-cells' });
+      const mockGrid = createMockGrid();
+      const row = mockGrid.querySelector<HTMLElement>('.data-grid-row');
+      row?.setAttribute('aria-rowindex', '2');
+      for (let i = 0; i < 151; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.setAttribute('aria-colindex', String(i + 1));
+        row?.appendChild(cell);
+      }
+      plugin.attach(mockGrid as never);
+      stubViewTransition(mockGrid);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+
+      expect(row?.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-row-\d+-2$/);
+      const cells = row?.querySelectorAll<HTMLElement>('.cell[aria-colindex]') ?? [];
+      for (const cell of cells) {
+        expect(cell.style.getPropertyValue('view-transition-name')).toBe('');
+      }
+    });
+
+    it('should keep the newest transition intact when a superseded one settles', async () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, debounceMs: 0, animation: 'morph-cells' });
+      const mockGrid = createMockGrid();
+      const row = mockGrid.querySelector<HTMLElement>('.data-grid-row');
+      row?.setAttribute('aria-rowindex', '2');
+      row?.querySelector('.cell')?.setAttribute('aria-colindex', '3');
+      plugin.attach(mockGrid as never);
+      const transition = stubViewTransition(mockGrid);
+
+      // Dragging across the breakpoint starts a second switch before the first
+      // one has settled.
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      resizeObserverInstance?.callback([{ contentRect: { width: 800 } }]);
+      expect(transition.calls).toBe(2);
+
+      transition.finish(0);
+      await vi.advanceTimersByTimeAsync(0);
+
+      const cell = row?.querySelector<HTMLElement>('.cell[aria-colindex]');
+      expect(mockGrid.hasAttribute('data-responsive-transition')).toBe(true);
+      expect(cell?.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-cell-\d+-2-3$/);
+
+      transition.finish(1);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(mockGrid.hasAttribute('data-responsive-transition')).toBe(false);
+      expect(cell?.style.getPropertyValue('view-transition-name')).toBe('');
+    });
+
+    it('should not snapshot the grid when only the hidden-column set changed', () => {
+      const plugin = new ResponsivePlugin({
+        debounceMs: 0,
+        breakpoints: [
+          { maxWidth: 900, hiddenColumns: ['startDate'] },
+          { maxWidth: 700, hiddenColumns: ['startDate', 'email'] },
+          { maxWidth: 400, cardLayout: true },
+        ],
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+      const transition = stubViewTransition(mockGrid);
+
+      // Crossing 900 then 700 only changes which columns are hidden. Nothing
+      // moves, so a whole-grid cross-fade would make every column shimmer.
+      resizeObserverInstance?.callback([{ contentRect: { width: 800 } }]);
+      resizeObserverInstance?.callback([{ contentRect: { width: 600 } }]);
+      expect(transition.calls).toBe(0);
+      expect(mockGrid.hasAttribute('data-responsive-transition')).toBe(false);
+
+      // Crossing into card layout is a real layout switch.
+      resizeObserverInstance?.callback([{ contentRect: { width: 300 } }]);
+      expect(transition.calls).toBe(1);
+    });
+
+    it('should collapse the motion duration to zero when animation is off', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animate: false, animationDuration: 300 });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+
+      expect(mockGrid.style.getPropertyValue('--tbw-responsive-duration')).toBe('0ms');
     });
   });
 

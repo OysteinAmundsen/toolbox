@@ -1,28 +1,97 @@
 ---
-// ResponsiveDefaultDemo.astro
+// ResponsiveDefaultDemo.astro — the playground for every single-breakpoint option.
 import DemoControls from '@components/DemoControls.astro';
 ---
 <div class="grid-demo not-content" id="responsive-default-demo">
   <DemoControls controls={[
-    { section: 'RESPONSIVE', name: 'breakpoint', label: 'Breakpoint (px)', type: 'number',
-      min: 200, max: 1000, step: 50, default: 500, description: 'Width threshold for card layout' },
-    { section: 'RESPONSIVE', name: 'hideHeader', label: 'Hide field labels', type: 'boolean',
-      default: false, description: 'Hide per-card field labels (e.g. "Name:") in card layout' },
-    { section: 'RESPONSIVE', name: 'animate', label: 'Animate', type: 'boolean',
-      default: true, description: 'Smooth transitions between modes' },
-    { section: 'RESPONSIVE', name: 'hiddenColumns', label: 'Hidden columns', type: 'check-group',
-      options: ['email', 'startDate', 'salary'], default: [], description: 'Columns to hide in card mode' },
-    { section: 'RESPONSIVE', name: 'debounceMs', label: 'Debounce (ms)', type: 'number',
-      min: 0, max: 500, step: 50, default: 100, description: 'Resize debounce delay' },
+    { section: 'LAYOUT', name: 'mode', label: 'Mode', type: 'radio',
+      options: ['auto', 'table', 'card'], default: 'auto',
+      description: 'Auto follows the breakpoint; table/card force it via setResponsive()' },
+    { section: 'LAYOUT', name: 'breakpoint', label: 'Breakpoint (px)', type: 'number',
+      min: 200, max: 1000, step: 50, default: 500, description: 'Card layout applies below this width' },
+    { section: 'LAYOUT', name: 'debounceMs', label: 'Debounce (ms)', type: 'number',
+      min: 0, max: 500, step: 50, default: 100, description: 'Minimum interval between layout switches' },
+    { section: 'CARD', name: 'hideHeader', label: 'Hide field labels', type: 'boolean',
+      default: false, description: 'Drop the per-card "Name:" prefix' },
+    { section: 'CARD', name: 'hiddenColumns', label: 'Hidden columns', type: 'check-group',
+      options: ['email', 'startDate', 'salary'], default: [], description: 'Columns to drop in card mode' },
+    { section: 'CARD', name: 'hiddenStyle', label: 'Hidden column style', type: 'radio',
+      options: ['hide', 'value only'], default: 'hide',
+      description: 'Remove the cell entirely, or keep the value without its label' },
+    { section: 'MOTION', name: 'animation', label: 'Animation', type: 'radio',
+      options: ['off', 'fade', 'morph-rows', 'morph-cells'], default: 'fade',
+      description: 'Cross-fade the grid, or travel each row — or each cell — into place' },
+    { section: 'MOTION', name: 'animationDuration', label: 'Duration (ms)', type: 'number',
+      min: 50, max: 800, step: 50, default: 200 },
   ]} />
-  <div class="responsive-instruction" style="margin-bottom: 8px; padding: 0 8px; color: var(--sl-color-gray-3); font-size: 14px;">
-    ↔ Drag the right edge to resize the container
-  </div>
-  <div class="responsive-resize-wrap" style="resize: horizontal; overflow: auto; width: 700px; min-width: 250px; max-width: 100%; border: 2px dashed var(--sl-color-gray-5); padding: 8px;">
+  <div class="responsive-instruction">↔ Drag the right edge to resize the container</div>
+  <div class="responsive-resize-wrap">
     <tbw-grid style="height: 350px;"></tbw-grid>
-    <div class="responsive-status" style="margin-top: 8px; font-size: 12px; color: var(--sl-color-gray-3);"></div>
+    <div class="responsive-status"></div>
+  </div>
+  <div class="log-panel">
+    <div class="log-header">
+      <strong>responsive-change log</strong>
+      <button type="button" id="responsive-default-clear">Clear</button>
+    </div>
+    <div class="event-log" id="responsive-default-log"></div>
   </div>
 </div>
+
+<style>
+  #responsive-default-demo .responsive-instruction {
+    margin-bottom: 8px;
+    padding: 0 8px;
+    color: var(--sl-color-gray-3);
+    font-size: 14px;
+  }
+  #responsive-default-demo .responsive-resize-wrap {
+    resize: horizontal;
+    overflow: auto;
+    width: 700px;
+    min-width: 250px;
+    max-width: 100%;
+    border: 2px dashed var(--sl-color-gray-5);
+    padding: 8px;
+  }
+  #responsive-default-demo .responsive-status {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--sl-color-gray-3);
+  }
+  #responsive-default-demo .log-panel {
+    margin-top: 8px;
+    padding: 12px;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 4px;
+    background: var(--sl-color-gray-6);
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  #responsive-default-demo .log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  #responsive-default-demo .log-header button {
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  #responsive-default-demo .event-log {
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--sl-color-gray-2);
+  }
+  #responsive-default-demo .event-log > div {
+    padding: 2px 0;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+  #responsive-default-demo .event-log .event-type {
+    color: var(--sl-color-accent);
+  }
+</style>
 
 <script>
 import '@toolbox-web/grid';
@@ -50,31 +119,85 @@ if (container) {
 
   const grid = queryGrid('tbw-grid', container)!;
   const status = container.querySelector('.responsive-status')!;
-  let currentBreakpoint = 500;
+  const log = container.querySelector('#responsive-default-log')!;
+  container.querySelector('#responsive-default-clear')!.addEventListener('click', () => (log.innerHTML = ''));
 
-  function rebuild(breakpoint = 500, hideHeader = false, animate = true, hiddenColumns: string[] = [], debounceMs = 100) {
-    currentBreakpoint = breakpoint;
-    grid.gridConfig = {
-      columns,
-      features: { responsive: { breakpoint, hideHeader, animate, hiddenColumns, debounceMs } },
-    };
-    grid.rows = sampleData;
+  interface Values {
+    mode: string;
+    breakpoint: number;
+    debounceMs: number;
+    hideHeader: boolean;
+    hiddenColumns: string[];
+    hiddenStyle: string;
+    animation: string;
+    animationDuration: number;
   }
 
-  rebuild();
+  let current: Values = {
+    mode: 'auto', breakpoint: 500, debounceMs: 100, hideHeader: false, hiddenColumns: [],
+    hiddenStyle: 'hide', animation: 'fade', animationDuration: 200,
+  };
 
-  container.addEventListener('control-change', ((e: CustomEvent) => {
-    const v = e.detail.allValues;
-    rebuild(v.breakpoint as number, v.hideHeader as boolean, v.animate as boolean, v.hiddenColumns as string[], v.debounceMs as number);
-  }) as EventListener);
+  function apply(v: Values) {
+    current = v;
+    grid.gridConfig = {
+      columns,
+      features: {
+        responsive: {
+          breakpoint: v.breakpoint,
+          debounceMs: v.debounceMs,
+          hideHeader: v.hideHeader,
+          hiddenColumns:
+            v.hiddenStyle === 'value only'
+              ? v.hiddenColumns.map((field) => ({ field, showValue: true }))
+              : v.hiddenColumns,
+          animation: v.animation === 'off' ? false : v.animation,
+          animationDuration: v.animationDuration,
+        },
+      },
+    };
+    grid.rows = sampleData;
+
+    requestAnimationFrame(() => {
+      forceMode();
+      render();
+    });
+  }
+
+  /**
+   * Forcing a mode is a plugin-API call, not config — and a `gridConfig` rebuild
+   * detaches and re-attaches the plugin, whose ResizeObserver then re-evaluates
+   * the breakpoint and undoes the override. So re-assert it from the
+   * `responsive-change` handler too; the loop settles after one correction.
+   */
+  function forceMode() {
+    if (current.mode === 'auto') return;
+    const want = current.mode === 'card';
+    const plugin = grid.getPluginByName('responsive');
+    if (plugin && plugin.isResponsive() !== want) plugin.setResponsive(want);
+  }
+
+  function render() {
+    const plugin = grid.getPluginByName('responsive');
+    const isCard = plugin?.isResponsive() ?? false;
+    const width = Math.round(plugin?.getWidth() ?? grid.clientWidth);
+    const forced = current.mode === 'auto' ? '' : ` | forced via setResponsive(${current.mode === 'card'})`;
+    status.textContent = `Mode: ${isCard ? '📱 Card' : '📊 Table'} | Width: ${width}px | Breakpoint: ${current.breakpoint}px${forced}`;
+  }
+
+  apply(current);
+
+  container.addEventListener('control-change', ((e: CustomEvent) => apply(e.detail.allValues as Values)) as EventListener);
 
   grid.on('responsive-change', ({ isResponsive, width, breakpoint }) => {
-    status.textContent = `Mode: ${isResponsive ? '📱 Card' : '📊 Table'} | Width: ${Math.round(width)}px | Breakpoint: ${breakpoint}px`;
-  });
-
-  requestAnimationFrame(() => {
-    const width = grid.clientWidth;
-    status.textContent = `Mode: ${width < currentBreakpoint ? '📱 Card' : '📊 Table'} | Width: ${Math.round(width)}px | Breakpoint: ${currentBreakpoint}px`;
+    const entry = document.createElement('div');
+    entry.innerHTML =
+      `<span class="event-type">[responsive-change]</span> isResponsive: ${isResponsive}, ` +
+      `width: ${Math.round(width)}px, breakpoint: ${breakpoint}px`;
+    log.insertBefore(entry, log.firstChild);
+    while (log.children.length > 15) log.lastChild?.remove();
+    forceMode();
+    render();
   });
 }
 </script>

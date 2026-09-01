@@ -2385,7 +2385,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     } else if (mode === true || mode === 'on') {
       enabled = 1;
     }
-    // For 'reduced-motion', we leave enabled=1 and let CSS @media query handle it
+    // 'reduced-motion' stays 1 here and is flipped to 0 by the media query in
+    // media-queries.css, which needs `!important` to outrank these inline writes.
 
     // Set CSS custom properties
     this.style.setProperty('--tbw-animation-duration', `${config.duration}ms`);

@@ -24,8 +24,10 @@
     /* ========== Animation Mode Attributes ========== */
 
     &[data-animation-mode='off'] {
-      --tbw-animation-enabled: 0;
-      --tbw-animation-duration: 0ms;
+      /* `!important` is load-bearing: `_applyAnimationConfig` writes both properties as
+         inline styles, which a normal declaration here could never outrank. */
+      --tbw-animation-enabled: 0 !important;
+      --tbw-animation-duration: 0ms !important;
 
       /* Disable row animations */
       .data-grid-row[data-animating] {

@@ -49,6 +49,24 @@ export interface BreakpointConfig {
 }
 
 /**
+ * How the switch between table and card layout is animated.
+ *
+ * - `false` — no animation; the layout swaps instantly.
+ * - `'fade'` — cross-fade the grid as a whole.
+ * - `'morph-rows'` — travel each row from its table position to its card position.
+ * - `'morph-cells'` — travel each cell from its column to its stacked position in
+ *   the card. Falls back to `'morph-rows'` above 150 rendered cells.
+ *
+ * The morph styles require element-scoped view transitions
+ * (`Element.startViewTransition()`); browsers without support fall back to the
+ * CSS keyframe fade.
+ *
+ * @see {@link ExpandCollapseAnimation} for the expand/collapse equivalent
+ * @since 3.7.0
+ */
+export type ResponsiveAnimation = false | 'fade' | 'morph-rows' | 'morph-cells';
+
+/**
  * Configuration options for the responsive plugin.
  * @since 1.1.0
  */
@@ -120,7 +138,11 @@ export interface ResponsivePluginConfig<T = unknown> {
   cardRowHeight?: number | 'auto';
 
   /**
-   * Debounce delay in ms for resize events.
+   * Minimum interval in ms between layout switches.
+   *
+   * The first width change after this interval applies immediately; further
+   * changes inside the window are collapsed into a single trailing evaluation.
+   * Resizes that only change the grid's height are ignored entirely.
    * @default 100
    */
   debounceMs?: number;
@@ -141,7 +163,22 @@ export interface ResponsivePluginConfig<T = unknown> {
   hiddenColumns?: HiddenColumnConfig[];
 
   /**
+   * How the switch between table and card layout is animated.
+   *
+   * Each element named for a morph becomes its own compositor layer, so
+   * `'morph-cells'` costs the most: reach for it on compact grids where the
+   * column-to-label movement is the point, and stay on `'morph-rows'` for dense
+   * ones.
+   * @default 'fade'
+   * @since 3.7.0
+   */
+  animation?: ResponsiveAnimation;
+
+  /**
    * Enable smooth animations when transitioning between modes.
+   *
+   * @deprecated Since 3.7.0 — use {@link animation} instead; `animate: false` is
+   * equivalent to `animation: false`. Ignored when `animation` is set.
    * @default true
    */
   animate?: boolean;

@@ -10,7 +10,7 @@
  * `clientHeight: 0` for every element, so the real grid bails out of
  * `scrollToRow` before the offset math runs.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GridHost } from '../types';
 import { FocusManager } from './focus-manager';
 
@@ -131,6 +131,60 @@ describe('FocusManager.scrollToRow — vertical offsets (#449)', () => {
 
     manager.scrollToRow(20, { align: 'start' });
 
+    expect(scrollEl.scrollTop).toBe(600);
+  });
+});
+
+describe('FocusManager.scrollToRow — reduced motion', () => {
+  afterEach(() => {
+    document.body.replaceChildren();
+  });
+
+  // Needs a real, attached element: the guard reads `--tbw-animation-enabled` off
+  // the host, and happy-dom only resolves custom properties once it is in the tree.
+  function createHostBackedManager(animationEnabled: string) {
+    const scrollEl: ScrollStub = { scrollTop: 0, scrollTo: vi.fn() };
+    const host = document.createElement('div');
+    host.style.setProperty('--tbw-animation-enabled', animationEnabled);
+    document.body.append(host);
+
+    const grid = Object.assign(host, {
+      _rows: Array.from({ length: 100 }, (_, i) => ({ id: i })),
+      _columns: [{ field: 'c0' }],
+      _visibleColumns: [{ field: 'c0' }],
+      _virtualization: {
+        enabled: true,
+        rowHeight: ROW_H,
+        container: scrollEl,
+        viewportEl: { clientHeight: VIEWPORT_H },
+        positionCache: null,
+        variableHeights: false,
+        scrollMapping: {
+          capped: false,
+          spacerHeight: 100 * ROW_H,
+          rawContentHeight: 100 * ROW_H,
+          viewportHeight: VIEWPORT_H,
+        },
+      },
+    }) as GridHost;
+
+    return { manager: new FocusManager(grid), scrollEl };
+  }
+
+  it('honours an explicit smooth request while animations are enabled', () => {
+    const { manager, scrollEl } = createHostBackedManager('1');
+
+    manager.scrollToRow(20, { align: 'start', behavior: 'smooth' });
+
+    expect(scrollEl.scrollTo).toHaveBeenCalledWith({ top: 600, behavior: 'smooth' });
+  });
+
+  it('jumps instead of animating when animations are disabled', () => {
+    const { manager, scrollEl } = createHostBackedManager('0');
+
+    manager.scrollToRow(20, { align: 'start', behavior: 'smooth' });
+
+    expect(scrollEl.scrollTo).not.toHaveBeenCalled();
     expect(scrollEl.scrollTop).toBe(600);
   });
 });

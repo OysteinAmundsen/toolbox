@@ -16,6 +16,51 @@
    Animation / Transition Support
    ============================================ */
 
+/* View transition path: the compositor cross-fades the whole grid (or, with
+   `animation: 'morph-rows' | 'morph-cells'`, each row or cell) between the table
+   and card layouts. While this is active the plugin withholds
+   `data-responsive-animate`, so the keyframe fade below never runs alongside it. */
+tbw-grid[data-responsive-transition]::view-transition-group(*) {
+  animation-duration: var(--tbw-responsive-duration, 200ms);
+}
+
+/* `morph-cells` names every cell individually. One `view-transition-class` keeps
+   that a single style rule instead of one rule per generated name — the class
+   does NOT capture anything on its own, the plugin still authors the names.
+   Cells travel a real distance between the two layouts, so they get an
+   ease-in-out curve rather than the root's cross-fade. */
+tbw-grid[data-responsive-transition] .data-grid-row > .cell {
+  view-transition-class: tbw-responsive-cell;
+}
+
+tbw-grid[data-responsive-transition]::view-transition-group(.tbw-responsive-cell) {
+  animation-timing-function: ease-in-out;
+}
+
+/* A cell's box grows from one column to a full card row, and the UA stretches
+   both snapshots to fill that box — so the text visibly zooms while it travels.
+   Drawing them at natural size keeps the glyphs the size they actually are at
+   both ends; the group still animates the box, so the cell still moves.
+   Anchoring right lands the value on the card's right-aligned value slot rather
+   than on the `Header:` label, and lets the label reveal as the box widens. */
+tbw-grid[data-responsive-transition]::view-transition-old(.tbw-responsive-cell),
+tbw-grid[data-responsive-transition]::view-transition-new(.tbw-responsive-cell) {
+  width: 100%;
+  height: 100%;
+  object-fit: none;
+  object-position: right center;
+}
+
+/* The old bitmap holds its value left-aligned in a column, the new one holds it
+   right-aligned in a card — so the two can never line up exactly, and the gap
+   varies with the text length. Front-load the cross-fade instead: the swap is
+   over while the boxes are still visibly apart, and the rest of the travel runs
+   on a single crisp copy. */
+tbw-grid[data-responsive-transition]::view-transition-old(.tbw-responsive-cell),
+tbw-grid[data-responsive-transition]::view-transition-new(.tbw-responsive-cell) {
+  animation-duration: calc(var(--tbw-responsive-duration, 200ms) * 0.35);
+}
+
 /* Base transition setup for animated mode switching */
 tbw-grid[data-responsive-animate] {
   .data-grid-row,
@@ -77,8 +122,6 @@ tbw-grid[data-responsive] {
     padding: var(--tbw-cell-padding);
     padding-inline-start: var(--tbw-spacing-xl);
     border-bottom: 1px solid var(--tbw-color-border);
-    min-height: auto !important;
-    height: auto !important;
     /* Disable containment so row can grow to fit stacked cells */
     contain: none !important;
     content-visibility: visible !important;
@@ -107,6 +150,13 @@ tbw-grid[data-responsive] {
         background: var(--tbw-color-accent);
       }
     }
+  }
+
+  /* The default stacked-cell card grows to fit its cells. A custom `cardRenderer`
+     row sets its own height from `cardRowHeight`, so it must not be forced open. */
+  .data-grid-row:not(.group-row, .responsive-card) {
+    min-height: auto !important;
+    height: auto !important;
   }
 
   /* Stack cells vertically as label: value pairs */
@@ -175,14 +225,27 @@ tbw-grid[data-responsive][data-responsive-hide-header] .data-grid-row:not(.group
   display: none !important;
 }
 
-/* Non-responsive mode: progressive column hiding still works */
+/* Non-responsive mode: a hidden column collapses its grid track to zero width
+   rather than leaving layout. The cell must stay in flow — cells are auto-placed,
+   so dropping one would pull every later cell into the wrong track. Padding and
+   border are zeroed too, or the cell would floor at ~17px and the track could
+   never reach zero. Opacity is deliberately not `!important`: the plugin fades
+   the changed cells with WAAPI, and `!important` outranks animations. */
 tbw-grid:not([data-responsive]) .cell[data-responsive-hidden] {
-  display: none !important;
+  padding-inline: 0 !important;
+  border-inline-width: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none;
+  opacity: 0;
 }
 
-tbw-grid:not([data-responsive]) .cell[data-responsive-value-only] {
-  /* In table mode, value-only just hides the cell like normal */
-  /* Actually no - in table mode headers are in header row, so this has no effect */
+/* `grid-template-columns` is animatable, and a row element survives a render
+   (only its cells are rebuilt), so the collapse is a plain transition. Gated on
+   the fade window so column resizing stays instant. A track list only
+   interpolates pairwise, which holds here — collapsing never changes the number
+   of tracks. */
+tbw-grid[data-responsive-column-fade] :is(.header-row, .data-grid-row) {
+  transition: grid-template-columns var(--tbw-responsive-duration, 200ms) ease-out;
 }
 
 /* Hide pinned/aggregation rows in responsive mode - they don't make sense in card layout */

@@ -2,20 +2,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ResponsivePlugin } from './responsive-plugin';
 
 // Mock ResizeObserver
+/** Only `width` is read by the plugin; `height` exists so tests can express a height-only resize. */
+type MockResizeEntry = { contentRect: { width: number; height?: number } };
+
 const mockResizeObserverCallback = vi.fn();
 let resizeObserverInstance: {
   observe: ReturnType<typeof vi.fn>;
   disconnect: ReturnType<typeof vi.fn>;
-  callback: (entries: { contentRect: { width: number } }[]) => void;
+  callback: (entries: MockResizeEntry[]) => void;
 } | null = null;
 
 class MockResizeObserver {
-  callback: (entries: { contentRect: { width: number } }[]) => void;
+  callback: (entries: MockResizeEntry[]) => void;
   observe = vi.fn();
   disconnect = vi.fn();
   unobserve = vi.fn();
 
-  constructor(callback: (entries: { contentRect: { width: number } }[]) => void) {
+  constructor(callback: (entries: MockResizeEntry[]) => void) {
     this.callback = callback;
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     resizeObserverInstance = this;
@@ -131,6 +134,27 @@ describe('ResponsivePlugin', () => {
 
       plugin.detach();
       expect(mockGrid.hasAttribute('data-responsive')).toBe(false);
+    });
+
+    it('should leave no responsive styling hooks behind on detach', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, hideHeader: true, hiddenColumns: ['name'] });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      vi.runAllTimers();
+      plugin.afterRender();
+
+      expect(mockGrid.hasAttribute('data-responsive-hide-header')).toBe(true);
+      expect(mockGrid.querySelector('.cell[data-responsive-hidden]')).not.toBeNull();
+
+      plugin.detach();
+
+      // `[data-responsive-animate]` transitions rows even without `[data-responsive]`.
+      expect(mockGrid.hasAttribute('data-responsive-animate')).toBe(false);
+      expect(mockGrid.hasAttribute('data-responsive-hide-header')).toBe(false);
+      expect(mockGrid.hasAttribute('data-responsive-transition')).toBe(false);
+      expect(mockGrid.querySelector('[data-responsive-hidden], [data-responsive-value-only]')).toBeNull();
     });
   });
 

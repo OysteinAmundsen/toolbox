@@ -93,6 +93,8 @@ Compares Vitest `bench()` output (`hz`, `mean`, `moe`, `rme`) of PR head against
 - DECIDED (Jul 2026): added `grid-vue:typecheck` via `vue-tsc` (devDep `vue-tsc@3`, TS 6.0.3) + wired `"typecheck"` into `grid-vue:build.dependsOn`. WHY: `grid-vue` was the only vite-built lib with zero type checking — errors surfaced only via vitest or the editor. Passed clean on first run.
 - INVARIANT: `libs/grid-vue/tsconfig.lib.json` MUST keep `"src/**/*.vue"` in `include` or `vue-tsc` silently checks nothing but the `.ts` files.
 
+- INVARIANT (#470): NO gate type-checks SPEC files. `grid:typecheck` runs `tsc -p tsconfig.lib.json`, which `exclude`s `src/**/*.spec.ts` / `*.bench.ts` / `__tests__/**`; vitest transpiles without checking and ESLint's rules are not `tsc`. A spec can carry a hard `TS2353`/`TS2322` while lint+test+build all pass. To check one by hand: `bunx tsc --noEmit --pretty false --ignoreConfig --strict --target ES2022 --module ESNext --moduleResolution bundler --lib ES2022,DOM,DOM.Iterable --types node <file>` (`--ignoreConfig` is REQUIRED or tsc errors TS5112; expect a benign `TS2307` for `?inline` CSS imports).
+
 ## tsconfig paths (tsconfig.base.json)
 
 - All map to `dist/` (built artifacts) for CI type checking: `@toolbox-web/grid` → `dist/libs/grid/index.d.ts`; `@toolbox-web/grid/plugins/*` → `dist/libs/grid/lib/plugins/*/index.d.ts`; `@toolbox-web/grid/features/*` → `dist/libs/grid/lib/features/*.d.ts`; `@toolbox/themes/*` → `libs/themes/*` (source).

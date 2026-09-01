@@ -232,7 +232,6 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
         width: this.#currentWidth,
         breakpoint: this.config.breakpoint ?? 0,
       } satisfies ResponsiveChangeDetail);
-      this.requestRender();
     }
   }
 
@@ -601,12 +600,25 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     this.#lastCheckedWidth = undefined;
     this.#lastSwitchAt = Number.NEGATIVE_INFINITY;
 
-    // Clean up attributes
+    // Every attribute `#syncLayoutAttributes()` writes styles the grid on its own
+    // — `[data-responsive-animate]` transitions rows even in table mode — so a
+    // detached plugin that leaves one behind keeps styling a grid it no longer owns.
     if (this.gridElement) {
       this.gridElement.removeAttribute('data-responsive');
+      this.gridElement.removeAttribute('data-responsive-animate');
+      this.gridElement.removeAttribute('data-responsive-hide-header');
       this.gridElement.removeAttribute('data-responsive-transition');
+      for (const cell of this.gridElement.querySelectorAll(
+        '.cell[data-responsive-hidden], .cell[data-responsive-value-only]',
+      )) {
+        cell.removeAttribute('data-responsive-hidden');
+        cell.removeAttribute('data-responsive-value-only');
+        cell.removeAttribute('aria-hidden');
+      }
       this.#clearMorphNames();
     }
+    this.#appliedHiddenFields = EMPTY_FIELD_SET;
+    this.#appliedValueOnlyFields = EMPTY_FIELD_SET;
 
     super.detach();
   }

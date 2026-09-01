@@ -154,7 +154,11 @@ export class FocusManager<T = any> {
     // this, scrollToRow(N) above the cap would silently clamp to the row at the cap.
     const nativeTarget = fromVirtualScrollTop(target, virt.scrollMapping);
 
-    if (behavior === 'smooth') {
+    // An explicit `behavior: 'smooth'` still yields to the user's motion preference.
+    const smooth =
+      behavior === 'smooth' && getComputedStyle(this.#grid).getPropertyValue('--tbw-animation-enabled').trim() !== '0';
+
+    if (smooth) {
       scrollEl.scrollTo({ top: nativeTarget, behavior: 'smooth' });
     } else {
       scrollEl.scrollTop = nativeTarget;

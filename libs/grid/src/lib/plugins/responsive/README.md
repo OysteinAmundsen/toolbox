@@ -31,9 +31,10 @@ grid.gridConfig = {
 | `cardRenderer`      | `(row, index) => HTMLElement` | —        | Custom card renderer                                                                                     |
 | `hideHeader`        | `boolean`                     | `false`  | Hide per-card field labels (`Name:` prefix). Column header row is always hidden in card mode regardless. |
 | `cardRowHeight`     | `number \| 'auto'`            | `'auto'` | Card row height (with custom renderer)                                                                   |
-| `debounceMs`        | `number`                      | `100`    | Resize event debounce delay (ms)                                                                         |
+| `debounceMs`        | `number`                      | `100`    | Minimum interval between layout switches; the first width change applies immediately                     |
 | `hiddenColumns`     | `HiddenColumnConfig[]`        | —        | Columns to hide in responsive mode                                                                       |
-| `animate`           | `boolean`                     | `true`   | Smooth transitions between modes                                                                         |
+| `animation`         | `ResponsiveAnimation`         | `'fade'` | `false`, `'fade'`, `'morph-rows'`, or `'morph-cells'` (falls back to rows above 150 rendered cells)      |
+| `animate`           | `boolean`                     | `true`   | **Deprecated** since 3.7.0 — use `animation`; ignored when `animation` is set                            |
 | `animationDuration` | `number`                      | `200`    | Animation duration (ms)                                                                                  |
 
 ### `BreakpointConfig`

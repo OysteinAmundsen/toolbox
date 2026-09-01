@@ -82,6 +82,15 @@ related: [build-and-deploy, grid-core]
 - INVARIANT: order matters — variables first, media queries last
 - Plugin CSS uses @layer tbw-plugins; theme CSS uses @layer tbw-theme
 
+## animation vars are INLINE — overrides need `!important` (Jul 2026)
+
+- OWNS: `_applyAnimationConfig` (`grid.ts` ~L2385) writes `--tbw-animation-duration` / `--tbw-animation-easing` / `--tbw-animation-enabled` as **inline styles** on the host.
+- INVARIANT: any stylesheet rule overriding them MUST carry `!important` or it is **silently dead** — the `prefers-reduced-motion` block (`media-queries.css`) and the `[data-animation-mode='off']` block (`animations.css`). `!important` beats inline regardless of `@layer` (importance/origin resolves before layer order).
+- Proven in-browser: injecting the media block's exact declarations left `--tbw-animation-enabled` at `1`; the same rule with `!important` gave `0`.
+- Blast radius: `isAnimationEnabled` (`base-plugin.ts`) reads the **computed** value and is the single reduced-motion gate for 9 plugins (editing, filtering, grouping-rows, master-detail, pivot, reorder-columns, responsive, row-drag-drop, tree). Before the fix, `reduced-motion` (the default mode) never took effect, and `off` mode left `duration` at the configured value so keyframe-driven plugin CSS still animated.
+- `focus-manager.ts` `scrollToRow` gates an explicit `behavior: 'smooth'` on the same computed var (jumps instead) — the claim `accessibility.mdx` already made.
+- TESTING: `prefers-reduced-motion` is untestable in happy-dom. Playwright's `test.use({ reducedMotion })` did NOT reach the context here — call `await page.emulateMedia({ reducedMotion: 'reduce' })` inside the test (`apps/docs-e2e/tests/responsive.spec.ts` → `reduced motion`). Minified CSS emits `0s` where source emits `0ms`; normalise with `parseFloat`. Unit-testing the computed var needs the host **attached** to `document` — happy-dom returns `''` for custom properties on a detached element.
+
 ## touch-pointer-a11y (#305)
 
 - OWNS: `--tbw-touch-target-min: 24px` in `variables.css`. 24px = WCAG 2.2 SC **2.5.8** Target Size (Minimum), Level **AA**. Override to 44px for SC **2.5.5** Target Size (Enhanced), Level **AAA**. (Do not swap these — the two SCs are easy to confuse.)

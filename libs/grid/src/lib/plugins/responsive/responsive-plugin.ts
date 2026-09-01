@@ -31,7 +31,78 @@ import { evalTemplateString, setSanitizedHTML } from '../../core/internal/saniti
 import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { GridHost } from '../../core/types';
 import styles from './responsive.css?inline';
-import type { BreakpointConfig, HiddenColumnConfig, ResponsiveChangeDetail, ResponsivePluginConfig } from './types';
+import type {
+  BreakpointConfig,
+  HiddenColumnConfig,
+  ResponsiveAnimation,
+  ResponsiveChangeDetail,
+  ResponsivePluginConfig,
+} from './types';
+
+/**
+ * The subset of the View Transition API this plugin depends on.
+ *
+ * `Element.startViewTransition()` is not yet in the TypeScript DOM lib, so the
+ * shape is declared locally rather than widening the global `Element`.
+ */
+type ViewTransitionStarter = (update: () => Promise<void>) => {
+  readonly finished: Promise<void>;
+  /** Rejects when the UA skips the transition — routine while dragging a resize. */
+  readonly ready?: Promise<void>;
+};
+type ViewTransitionCapableElement = HTMLElement & { startViewTransition?: ViewTransitionStarter };
+
+/** How finely the layout switch is broken up for the compositor. */
+type MorphGranularity = 'cells' | 'rows' | 'none';
+
+/** Disambiguates row morph names when several grids transition at once. */
+let morphInstanceCounter = 0;
+
+/**
+ * Above this, per-cell morphing costs more in compositor layers than it buys.
+ * Each named cell is 3 animations and 2 snapshot textures, and rows are
+ * virtualized — so this bounds the switch by viewport size, not by dataset size.
+ */
+const MAX_MORPH_CELLS = 150;
+
+/** Stands in for a column set that is not currently applied, without allocating. */
+const EMPTY_FIELD_SET: ReadonlySet<string> = new Set<string>();
+
+/** Tags the column fade so a re-render can cancel its own leftovers and nothing else. */
+const COLUMN_FADE_ID = 'tbw-responsive-column-fade';
+
+/** Present only while columns are collapsing, so column resizing stays instant. */
+const COLUMN_FADE_ATTR = 'data-responsive-column-fade';
+
+/** Split a grid track list on top-level spaces, keeping `minmax(a, b)` intact. */
+function splitTrackList(template: string): string[] {
+  const tracks: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < template.length; i++) {
+    const char = template[i];
+    if (char === '(') depth++;
+    else if (char === ')') depth--;
+    else if (char === ' ' && depth === 0) {
+      if (i > start) tracks.push(template.slice(start, i));
+      start = i + 1;
+    }
+  }
+  if (start < template.length) tracks.push(template.slice(start));
+  return tracks;
+}
+
+/**
+ * The zero-width form of `track`. A track list only interpolates pairwise, so the
+ * collapsed track has to keep the same unit family — `1fr` has to become `0fr`,
+ * not `0px`. Keywords (`auto`, `max-content`) have no interpolable zero and snap.
+ */
+function collapsedTrack(track: string): string {
+  if (track.startsWith('minmax(')) return track.includes('fr') ? 'minmax(0px, 0fr)' : 'minmax(0px, 0px)';
+  if (track.endsWith('fr')) return '0fr';
+  if (track.endsWith('%')) return '0%';
+  return '0px';
+}
 
 /**
  * Responsive Plugin for tbw-grid
@@ -103,10 +174,32 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
   #debounceTimer?: ReturnType<typeof setTimeout>;
   #warnedAboutMissingBreakpoint = false;
   #currentWidth = 0;
+  /** Width the last `#checkBreakpoint()` ran against — guards height-only resizes. */
+  #lastCheckedWidth?: number;
+  /** Timestamp of the last applied layout switch, for the post-switch cooldown. */
+  #lastSwitchAt = Number.NEGATIVE_INFINITY;
+  /** Unique `view-transition-name` prefixes for this instance's rows and cells. */
+  readonly #morphInstance = ++morphInstanceCounter;
+  readonly #morphPrefix = `tbw-responsive-row-${this.#morphInstance}-`;
+  readonly #cellMorphPrefix = `tbw-responsive-cell-${this.#morphInstance}-`;
+  /** Identifies the newest view transition, so superseded ones skip their cleanup. */
+  #transitionToken = 0;
   /** Set of column fields to completely hide */
   #hiddenColumnSet: Set<string> = new Set();
+  /** The subset of the above that the last render actually hid. */
+  #appliedHiddenFields: ReadonlySet<string> = EMPTY_FIELD_SET;
   /** Set of column fields to show value only (no header label) */
   #valueOnlyColumnSet: Set<string> = new Set();
+  /** The subset of the above that the last render actually stripped labels from. */
+  #appliedValueOnlyFields: ReadonlySet<string> = EMPTY_FIELD_SET;
+  /** Fields currently fading out of the table, and the ones fading in. */
+  #fadeOutFields: Set<string> = new Set();
+  #fadeInFields: Set<string> = new Set();
+  /** When the in-flight column fade ends, so a mid-fade re-render can resume it. */
+  #fadeEndsAt = 0;
+  #fadeTimer?: ReturnType<typeof setTimeout>;
+  /** Whether the grid template currently carries this plugin's collapsed tracks. */
+  #templateOverridden = false;
   /** Currently active breakpoint, or null if none */
   #activeBreakpoint: BreakpointConfig | null = null;
   /** Sorted breakpoints from largest to smallest */
@@ -133,13 +226,12 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
   setResponsive(enabled: boolean): void {
     if (enabled !== this.#isResponsive) {
       this.#isResponsive = enabled;
-      this.#applyResponsiveState();
+      this.#commitLayoutSwitch();
       this.emit('responsive-change', {
         isResponsive: enabled,
         width: this.#currentWidth,
         breakpoint: this.config.breakpoint ?? 0,
       } satisfies ResponsiveChangeDetail);
-      this.requestRender();
     }
   }
 
@@ -149,6 +241,8 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    */
   setBreakpoint(width: number): void {
     this.config.breakpoint = width;
+    // The guard keys off width alone, so a config change must invalidate it.
+    this.#lastCheckedWidth = undefined;
     this.#checkBreakpoint(this.#currentWidth);
   }
 
@@ -195,20 +289,65 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
       this.#sortedBreakpoints = [...this.config.breakpoints].sort((a, b) => b.maxWidth - a.maxWidth);
     }
 
+    this.#syncMotionDuration();
+
+    // A `gridConfig` rebuild detaches and re-attaches this same instance, which
+    // strips the attributes but keeps the layout state — so re-assert them here or
+    // the grid sits in card mode with none of the card CSS until the next resize.
+    this.#syncLayoutAttributes();
+
+    // Card height is measured from the DOM and outranks the config, so a rebuild
+    // carrying a new `cardRowHeight` would keep serving the previous measurement.
+    this.#measuredCardHeight = undefined;
+    this.#measuredGroupRowHeight = undefined;
+
+    // The cards on screen were rendered under the previous config.
+    if (this.#isResponsive) this.requestRender();
+
     // Observe the grid element itself (not internal viewport)
     // This captures the container width including when shell panels open/close
     this.#resizeObserver = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? 0;
-      this.#currentWidth = width;
-
-      // Debounce to avoid thrashing during resize drag
-      clearTimeout(this.#debounceTimer);
-      this.#debounceTimer = setTimeout(() => {
-        this.#checkBreakpoint(width);
-      }, this.config.debounceMs ?? 100);
+      this.#onResize(entries[0]?.contentRect.width ?? 0);
     });
 
     this.#resizeObserver.observe(this.gridElement);
+  }
+
+  /**
+   * React to an observed size change.
+   *
+   * ResizeObserver also fires for HEIGHT changes, and host apps commonly animate
+   * a container's height (or load content into it) while the width is already
+   * final. A trailing-only debounce is reset by every one of those, delaying the
+   * layout switch long past the moment the final width was known. So:
+   *
+   * 1. Height-only notifications are dropped — they cannot change the outcome.
+   * 2. A width change switches on the LEADING edge when no switch happened in
+   *    the last `debounceMs`, so a settled width applies within one frame.
+   * 3. Further width changes inside that window are deferred to a single
+   *    trailing evaluation, which rate-limits thrash during a resize drag.
+   */
+  #onResize(width: number): void {
+    this.#currentWidth = width;
+
+    // Height-only resize — nothing the breakpoint logic reads has changed.
+    if (width === this.#lastCheckedWidth) return;
+
+    const debounceMs = this.config.debounceMs ?? 100;
+    const sinceLastSwitch = performance.now() - this.#lastSwitchAt;
+
+    clearTimeout(this.#debounceTimer);
+
+    if (sinceLastSwitch >= debounceMs) {
+      this.#lastCheckedWidth = width;
+      this.#checkBreakpoint(width);
+      return;
+    }
+
+    this.#debounceTimer = setTimeout(() => {
+      this.#lastCheckedWidth = this.#currentWidth;
+      this.#checkBreakpoint(this.#currentWidth);
+    }, debounceMs - sinceLastSwitch);
   }
 
   // #region Light DOM Parsing
@@ -319,12 +458,10 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    * Build the hidden and value-only column sets from config.
    */
   #buildHiddenColumnSets(hiddenColumns?: HiddenColumnConfig[]): void {
-    this.#hiddenColumnSet.clear();
+    this.#hiddenColumnSet = new Set();
     this.#valueOnlyColumnSet.clear();
 
-    if (!hiddenColumns) return;
-
-    for (const col of hiddenColumns) {
+    for (const col of hiddenColumns ?? []) {
       if (typeof col === 'string') {
         this.#hiddenColumnSet.add(col);
       } else if (col.showValue) {
@@ -333,18 +470,155 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
         this.#hiddenColumnSet.add(col.field);
       }
     }
+
+    this.#queueHiddenColumnFades();
+  }
+
+  /**
+   * Whether `hiddenColumns` is in effect right now: card mode drops the column
+   * from the card, and in progressive degradation a matched breakpoint drops it
+   * from the table. A plain table with no matching breakpoint shows everything.
+   */
+  get #hiddenColumnsApply(): boolean {
+    return this.#sortedBreakpoints.length > 0 ? this.#activeBreakpoint !== null : this.#isResponsive;
+  }
+
+  /**
+   * Queue a fade for every column whose visibility actually changed. The diff is
+   * against what the last render hid rather than against the previous config,
+   * because `hiddenColumns` is inert in a plain table — fading a column out there
+   * would strand it invisible in a track that is never collapsed.
+   */
+  #queueHiddenColumnFades(): void {
+    const applied = this.#hiddenColumnsApply ? this.#hiddenColumnSet : EMPTY_FIELD_SET;
+
+    for (const field of this.#appliedHiddenFields) {
+      if (!applied.has(field)) this.#markColumnFade(field, false);
+    }
+    for (const field of applied) {
+      if (!this.#appliedHiddenFields.has(field)) this.#markColumnFade(field, true);
+    }
+    this.#openFadeWindow();
+  }
+
+  /** Queue `field` for the next fade, dropping any opposite direction still pending for it. */
+  #markColumnFade(field: string, out: boolean): void {
+    (out ? this.#fadeInFields : this.#fadeOutFields).delete(field);
+    (out ? this.#fadeOutFields : this.#fadeInFields).add(field);
+  }
+
+  /**
+   * Start the window during which queued columns animate. The track collapse is a
+   * CSS transition on the row, which survives a render, but the opacity fade is
+   * not: cells are rebuilt on every render, so a hidden column's cell would be
+   * re-inserted visible and transition to hidden all over again — exactly the
+   * flash of every hidden column reappearing. Cells are animated explicitly
+   * instead, and only the fields that actually changed are queued.
+   */
+  #openFadeWindow(): void {
+    const duration = this.#motionDurationMs;
+    if (duration <= 0 || (this.#fadeOutFields.size === 0 && this.#fadeInFields.size === 0)) {
+      this.#endFadeWindow();
+      return;
+    }
+
+    this.#fadeEndsAt = performance.now() + duration;
+    this.gridElement?.setAttribute(COLUMN_FADE_ATTR, '');
+    clearTimeout(this.#fadeTimer);
+    this.#fadeTimer = setTimeout(() => this.#endFadeWindow(), duration);
+  }
+
+  #endFadeWindow(): void {
+    clearTimeout(this.#fadeTimer);
+    this.#fadeTimer = undefined;
+    this.#fadeEndsAt = 0;
+    this.#fadeOutFields.clear();
+    this.#fadeInFields.clear();
+    this.gridElement?.removeAttribute(COLUMN_FADE_ATTR);
+
+    // The fade-out fills forwards to hold the cell at zero until the render that
+    // hides it lands. Past the window CSS owns visibility, so releasing the fill
+    // is what stops an abandoned fade from stranding a visible column invisible.
+    for (const cell of this.gridElement?.querySelectorAll<HTMLElement>('.cell[data-field]') ?? []) {
+      for (const animation of cell.getAnimations?.() ?? []) {
+        if (animation.id === COLUMN_FADE_ID) animation.cancel();
+      }
+    }
+  }
+
+  /** Animate one cell, seeking to `elapsed` so a cell created mid-fade joins in progress. */
+  #playColumnFade(cell: HTMLElement, out: boolean, duration: number, elapsed: number): void {
+    for (const animation of cell.getAnimations?.() ?? []) {
+      if (animation.id === COLUMN_FADE_ID) animation.cancel();
+    }
+    const frames = out ? [{ opacity: 1 }, { opacity: 0 }] : [{ opacity: 0 }, { opacity: 1 }];
+    // A fade-out has to hold at zero until the closing render hides the cell for real.
+    const animation = cell.animate?.(frames, { duration, easing: 'ease-out', fill: out ? 'forwards' : 'none' });
+    if (!animation) return;
+    animation.id = COLUMN_FADE_ID;
+    animation.currentTime = elapsed;
+  }
+
+  /**
+   * Collapse the tracks of hidden columns to zero width. Cells are auto-placed, so
+   * a hidden cell has to stay in layout — dropping it would pull every later cell
+   * into the wrong track. Collapsing the track instead is what lets the row, and
+   * therefore the horizontal scroll width, shrink to the visible columns.
+   *
+   * Core rewrites `--tbw-column-template` from the full column list on every
+   * template update, so this override is re-applied after each render.
+   */
+  #applyColumnTemplate(hidden: ReadonlySet<string>): void {
+    const base = this.#internalGrid?._gridTemplate ?? '';
+    if (!base) return;
+
+    const columns = this.visibleColumns;
+    const tracks = splitTrackList(base);
+    let collapsed = false;
+
+    if (hidden.size > 0 && tracks.length === columns.length) {
+      for (let i = 0; i < columns.length; i++) {
+        const field = columns[i]?.field;
+        if (field && hidden.has(field)) {
+          tracks[i] = collapsedTrack(tracks[i]);
+          collapsed = true;
+        }
+      }
+    }
+
+    if (!collapsed && !this.#templateOverridden) return;
+    this.gridElement.style.setProperty('--tbw-column-template', collapsed ? tracks.join(' ') : base);
+    this.#templateOverridden = collapsed;
   }
 
   override detach(): void {
     this.#resizeObserver?.disconnect();
     this.#resizeObserver = undefined;
+    this.#endFadeWindow();
     clearTimeout(this.#debounceTimer);
     this.#debounceTimer = undefined;
+    this.#lastCheckedWidth = undefined;
+    this.#lastSwitchAt = Number.NEGATIVE_INFINITY;
 
-    // Clean up attribute
+    // Every attribute `#syncLayoutAttributes()` writes styles the grid on its own
+    // — `[data-responsive-animate]` transitions rows even in table mode — so a
+    // detached plugin that leaves one behind keeps styling a grid it no longer owns.
     if (this.gridElement) {
       this.gridElement.removeAttribute('data-responsive');
+      this.gridElement.removeAttribute('data-responsive-animate');
+      this.gridElement.removeAttribute('data-responsive-hide-header');
+      this.gridElement.removeAttribute('data-responsive-transition');
+      for (const cell of this.gridElement.querySelectorAll(
+        '.cell[data-responsive-hidden], .cell[data-responsive-value-only]',
+      )) {
+        cell.removeAttribute('data-responsive-hidden');
+        cell.removeAttribute('data-responsive-value-only');
+        cell.removeAttribute('aria-hidden');
+      }
+      this.#clearMorphNames();
     }
+    this.#appliedHiddenFields = EMPTY_FIELD_SET;
+    this.#appliedValueOnlyFields = EMPTY_FIELD_SET;
 
     super.detach();
   }
@@ -373,37 +647,57 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     // In multi-breakpoint mode, apply when there's an active breakpoint
     const shouldApply = this.#sortedBreakpoints.length > 0 ? this.#activeBreakpoint !== null : this.#isResponsive;
 
-    if (!shouldApply) {
+    const hidden = shouldApply ? this.#hiddenColumnSet : EMPTY_FIELD_SET;
+    const valueOnly = shouldApply ? this.#valueOnlyColumnSet : EMPTY_FIELD_SET;
+    const fading = this.#fadeOutFields.size > 0 || this.#fadeInFields.size > 0;
+
+    // Cells live in a recycled row pool, so an attribute written in card mode
+    // outlives the switch back to table — one clearing pass is still owed.
+    const stale = this.#appliedHiddenFields.size > 0 || this.#appliedValueOnlyFields.size > 0;
+
+    // A layout switch changes which columns are hidden without going through the
+    // config, and the switch animation already covers it — so record the new
+    // truth here rather than letting the next config change diff against a stale set.
+    this.#appliedHiddenFields = hidden;
+    this.#appliedValueOnlyFields = valueOnly;
+
+    // Card mode stacks cells vertically, so the track list is meaningless there.
+    this.#applyColumnTemplate(this.#isResponsive ? EMPTY_FIELD_SET : hidden);
+
+    if (hidden.size === 0 && valueOnly.size === 0 && !fading && !stale) {
       return;
     }
 
-    const hasHiddenColumns = this.#hiddenColumnSet.size > 0;
-    const hasValueOnlyColumns = this.#valueOnlyColumnSet.size > 0;
-
-    if (!hasHiddenColumns && !hasValueOnlyColumns) {
-      return;
-    }
+    const duration = this.#motionDurationMs;
+    const elapsed = fading ? Math.min(duration, Math.max(0, duration - (this.#fadeEndsAt - performance.now()))) : 0;
 
     // Mark cells for hidden columns and value-only columns
-    const cells = this.gridElement.querySelectorAll('.cell[data-field]');
+    const cells = this.gridElement.querySelectorAll<HTMLElement>('.cell[data-field]');
     for (const cell of cells) {
       const field = cell.getAttribute('data-field');
       if (!field) continue;
 
-      // Apply hidden attribute
-      if (this.#hiddenColumnSet.has(field)) {
+      const fadingOut = this.#fadeOutFields.has(field);
+      if (fadingOut || this.#fadeInFields.has(field)) this.#playColumnFade(cell, fadingOut, duration, elapsed);
+
+      // The cell keeps its box and collapses with its track, so it stays out of
+      // the accessibility tree the way `display: none` used to keep it.
+      if (hidden.has(field)) {
         cell.setAttribute('data-responsive-hidden', '');
+        cell.setAttribute('aria-hidden', 'true');
         cell.removeAttribute('data-responsive-value-only');
       }
       // Apply value-only attribute (shows value without header label)
-      else if (this.#valueOnlyColumnSet.has(field)) {
+      else if (valueOnly.has(field)) {
         cell.setAttribute('data-responsive-value-only', '');
         cell.removeAttribute('data-responsive-hidden');
+        cell.removeAttribute('aria-hidden');
       }
       // Clear any previous responsive attributes
       else {
         cell.removeAttribute('data-responsive-hidden');
         cell.removeAttribute('data-responsive-value-only');
+        cell.removeAttribute('aria-hidden');
       }
     }
   }
@@ -435,13 +729,13 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
 
     if (shouldBeResponsive !== this.#isResponsive) {
       this.#isResponsive = shouldBeResponsive;
-      this.#applyResponsiveState();
+      this.#lastSwitchAt = performance.now();
+      this.#commitLayoutSwitch();
       this.emit('responsive-change', {
         isResponsive: shouldBeResponsive,
         width,
         breakpoint,
       } satisfies ResponsiveChangeDetail);
-      this.requestRender();
     }
   }
 
@@ -466,6 +760,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
 
     if (breakpointChanged) {
       this.#activeBreakpoint = newActiveBreakpoint;
+      this.#lastSwitchAt = performance.now();
 
       // Update hidden column sets from active breakpoint
       if (newActiveBreakpoint?.hiddenColumns) {
@@ -477,11 +772,15 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
 
       // Determine if we should be in card layout
       const shouldBeResponsive = newActiveBreakpoint?.cardLayout === true;
+      const layoutChanged = shouldBeResponsive !== this.#isResponsive;
 
-      if (shouldBeResponsive !== this.#isResponsive) {
+      if (layoutChanged) {
         this.#isResponsive = shouldBeResponsive;
-        this.#applyResponsiveState();
       }
+
+      // A hidden-column change still needs a re-render even when the card
+      // layout itself did not flip, so always commit through the same path.
+      this.#commitLayoutSwitch(layoutChanged);
 
       // Emit event for any breakpoint change
       this.emit('responsive-change', {
@@ -489,37 +788,185 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
         width,
         breakpoint: newActiveBreakpoint?.maxWidth ?? 0,
       } satisfies ResponsiveChangeDetail);
+    }
+  }
 
+  /**
+   * Commit a layout switch, driving it through a view transition when the
+   * browser supports element-scoped transitions.
+   *
+   * The switch is a wholesale layout change (table rows become cards), so the
+   * compositor cross-fade is both cheaper and more legible than animating the
+   * DOM. Where `Element.startViewTransition()` is unavailable the grid falls
+   * back to the CSS keyframe fade driven by `data-responsive-animate`.
+   *
+   * A hidden-column change is deliberately excluded from the transition. Only the
+   * affected column moves in that case — its grid track collapses to zero width
+   * while every other track keeps its size — so the leaving cell can fade and
+   * shrink in place. Snapshotting the whole grid for it makes all columns shimmer,
+   * and because the change is driven by a resize the frozen snapshot is scaled
+   * against a container that is still being dragged.
+   * @param layoutChanged - Whether the table/card layout itself flipped. `false`
+   *   when only the hidden-column set changed.
+   */
+  #commitLayoutSwitch(layoutChanged = true): void {
+    this.#syncMotionDuration();
+
+    // The view transition already cross-fades everything, so per-column fades
+    // would only fight it.
+    if (layoutChanged) this.#endFadeWindow();
+
+    const startViewTransition = layoutChanged ? this.#viewTransitionStarter() : null;
+    if (!startViewTransition) {
+      if (layoutChanged) this.#applyResponsiveState();
       this.requestRender();
+      return;
+    }
+
+    const host = this.gridElement;
+    const morph = this.#resolveMorphGranularity();
+    const token = ++this.#transitionToken;
+
+    // Names must exist on the outgoing rows before the snapshot is taken.
+    if (morph !== 'none') this.#setMorphNames(morph);
+    host.setAttribute('data-responsive-transition', '');
+
+    const transition = startViewTransition(async () => {
+      this.#applyResponsiveState();
+      // The render scheduler batches into rAF, which still runs inside the
+      // update callback — so awaiting here captures the finished new layout.
+      await this.#internalGrid.forceLayout?.();
+      if (morph !== 'none') this.#setMorphNames(morph);
+    });
+
+    const cleanup = (): void => {
+      // A superseded transition still settles, and tearing down the names and
+      // attribute its successor is mid-flight on would abort that successor.
+      if (token !== this.#transitionToken) return;
+      host.removeAttribute('data-responsive-transition');
+      if (morph !== 'none') this.#clearMorphNames();
+    };
+    transition.finished.then(cleanup, cleanup);
+    // A drag across the breakpoint supersedes the transition in flight; the UA
+    // skips it and rejects `ready`, which is expected rather than an error.
+    transition.ready?.catch(() => undefined);
+  }
+
+  /** Animation style in effect, resolving the deprecated `animate` flag. */
+  get #animation(): ResponsiveAnimation {
+    const { animation, animate } = this.config;
+    if (animation !== undefined) return animation;
+    return animate === false ? false : 'fade';
+  }
+
+  /** Duration every responsive animation runs at; `0` when motion is suppressed. */
+  get #motionDurationMs(): number {
+    const enabled = this.#animation !== false && this.isAnimationEnabled;
+    return enabled ? (this.config.animationDuration ?? 200) : 0;
+  }
+
+  /**
+   * Publish the single duration every responsive animation reads. Collapsing it
+   * to `0ms` is how `animation: false` and `prefers-reduced-motion` silence the
+   * CSS-driven paths (the column fade, the card-enter keyframe, and the view
+   * transition groups), none of which can see the plugin config.
+   */
+  #syncMotionDuration(): void {
+    this.gridElement.style.setProperty('--tbw-responsive-duration', `${this.#motionDurationMs}ms`);
+  }
+
+  /**
+   * Resolve the element-scoped view transition entry point, or `null` when
+   * animation is disabled or the browser does not support it.
+   */
+  #viewTransitionStarter(): ViewTransitionStarter | null {
+    if (this.#animation === false || !this.isAnimationEnabled) return null;
+
+    const host: ViewTransitionCapableElement = this.gridElement;
+    const start = host.startViewTransition;
+    return typeof start === 'function' ? start.bind(host) : null;
+  }
+
+  /** Whether the browser can drive the layout switch on the compositor. */
+  get #supportsViewTransition(): boolean {
+    const host: ViewTransitionCapableElement | undefined = this.gridElement;
+    return typeof host?.startViewTransition === 'function';
+  }
+
+  /**
+   * Give every rendered row a stable `view-transition-name` so the compositor
+   * animates each row from its table position to its card position.
+   */
+  #setMorphNames(granularity: MorphGranularity): void {
+    const rows = this.gridElement.querySelectorAll<HTMLElement>('.data-grid-row[aria-rowindex]');
+    for (const row of rows) {
+      const rowIndex = row.getAttribute('aria-rowindex');
+      if (granularity === 'rows') {
+        row.style.setProperty('view-transition-name', `${this.#morphPrefix}${rowIndex}`);
+        continue;
+      }
+      // Only the leaves are named — naming the row too would lift its cells out
+      // of the row's own snapshot and animate both against each other.
+      for (const cell of row.querySelectorAll<HTMLElement>(':scope > .cell[aria-colindex]')) {
+        const name = `${this.#cellMorphPrefix}${rowIndex}-${cell.getAttribute('aria-colindex')}`;
+        cell.style.setProperty('view-transition-name', name);
+      }
+    }
+  }
+
+  /**
+   * Pick the morph granularity for this switch.
+   *
+   * Cell identity is NOT stable across a layout switch (the row renderer
+   * rebuilds cells whenever the visible column set changes), so names are
+   * authored rather than left to `view-transition-name: match-element`.
+   */
+  #resolveMorphGranularity(): MorphGranularity {
+    const animation = this.#animation;
+    if (animation === 'morph-cells') {
+      const cells = this.gridElement.querySelectorAll('.data-grid-row > .cell[aria-colindex]').length;
+      if (cells > 0 && cells <= MAX_MORPH_CELLS) return 'cells';
+      return 'rows';
+    }
+    return animation === 'morph-rows' ? 'rows' : 'none';
+  }
+
+  /** Remove morph names so recycled rows and cells do not carry stale identities. */
+  #clearMorphNames(): void {
+    const named = this.gridElement.querySelectorAll<HTMLElement>('.data-grid-row, .data-grid-row > .cell');
+    for (const el of named) {
+      el.style.removeProperty('view-transition-name');
     }
   }
 
   /** Original row height before entering responsive mode, for restoration on exit */
   #originalRowHeight?: number;
 
-  /**
-   * Apply the responsive state to the grid element.
-   * Handles scroll reset when entering responsive mode and row height restoration on exit.
-   */
-  #applyResponsiveState(): void {
+  /** The host attributes every responsive CSS rule keys off. */
+  #syncLayoutAttributes(): void {
     this.gridElement.toggleAttribute('data-responsive', this.#isResponsive);
 
-    // Apply animation attribute if enabled (default: true)
-    const animate = this.config.animate !== false;
-    this.gridElement.toggleAttribute('data-responsive-animate', animate);
+    // The keyframe fade is the no-view-transition path only. Leaving it on
+    // would replay the card-enter animation the moment the transition ends.
+    this.gridElement.toggleAttribute(
+      'data-responsive-animate',
+      this.#animation !== false && !this.#supportsViewTransition,
+    );
 
-    // Toggle per-card label visibility based on hideHeader config.
     // Attribute only meaningful while in card mode; clear it otherwise so
     // the CSS rule cannot accidentally apply to non-responsive layouts.
     this.gridElement.toggleAttribute(
       'data-responsive-hide-header',
       this.#isResponsive && this.config.hideHeader === true,
     );
+  }
 
-    // Set custom animation duration if provided
-    if (this.config.animationDuration) {
-      this.gridElement.style.setProperty('--tbw-responsive-duration', `${this.config.animationDuration}ms`);
-    }
+  /**
+   * Apply the responsive state to the grid element.
+   * Handles scroll reset when entering responsive mode and row height restoration on exit.
+   */
+  #applyResponsiveState(): void {
+    this.#syncLayoutAttributes();
 
     // Cast to internal type for virtualization access
     const internalGrid = this.#internalGrid;
@@ -726,20 +1173,19 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
 
   /**
    * Get the effective card height for virtualization calculations.
-   * Prioritizes DOM-measured height (actual rendered size) over config,
-   * since content can overflow the configured height.
    */
   #getCardHeight(): number {
-    // Prefer measured height - it reflects actual rendered size including overflow
-    if (this.#measuredCardHeight && this.#measuredCardHeight > 0) {
-      return this.#measuredCardHeight;
-    }
-    // Fall back to explicit config
     const configHeight = this.config.cardRowHeight;
+    const measured = this.#measuredCardHeight;
+
+    // A fixed height is the answer unless the content overflows it; only `auto`
+    // hands the decision to the measurement outright.
     if (typeof configHeight === 'number' && configHeight > 0) {
-      return configHeight;
+      return measured && measured > configHeight ? measured : configHeight;
     }
-    // Default fallback
+    if (measured && measured > 0) {
+      return measured;
+    }
     return 80;
   }
 

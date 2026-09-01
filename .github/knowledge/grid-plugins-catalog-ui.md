@@ -1,11 +1,20 @@
 ---
 domain: grid-plugins-catalog-ui
-related: [grid-plugins, grid-plugins-catalog-data, grid-plugins-editing, grid-plugins-shell, grid-input, adapters]
+related:
+  [
+    grid-plugins,
+    grid-plugins-catalog-data,
+    grid-plugin-responsive,
+    grid-plugins-editing,
+    grid-plugins-shell,
+    grid-input,
+    adapters,
+  ]
 ---
 
 # Plugin Catalog — Interaction & Display Plugins
 
-> Architecture → grid-plugins.md · Shell → grid-plugins-shell.md · Editing/UndoRedo → grid-plugins-editing.md · row/column model, sorting, filtering, pinned rows, export → grid-plugins-catalog-data.md.
+> Architecture → grid-plugins.md · Shell → grid-plugins-shell.md · Editing/UndoRedo → grid-plugins-editing.md · Responsive → grid-plugin-responsive.md · row/column model, sorting, filtering, pinned rows, export → grid-plugins-catalog-data.md.
 >
 > Read order for "a pointer gesture does the wrong thing": Selection dispatchers → the drag-alternative `DECIDED` bullets (#449) → ContextMenu order bands.
 
@@ -70,10 +79,7 @@ OWNS: row order + cross-grid drag/drop session. ALIASES: none. HOOKS: processCol
 
 ### Responsive
 
-OWNS: breakpoint-based column visibility. HOOKS: processColumns, getRowHeight.
-
-- INVARIANT: the header ROW is ALWAYS hidden in card mode (unconditional `tbw-grid[data-responsive] .header { display: none }`). `hideHeader` does NOT control that — it gates per-card FIELD LABELS (the `Name:` `::before` prefix).
-- DECIDED (May 2026): `hideHeader` defaults to `false`; `#applyResponsiveState()` sets `data-responsive-hide-header` on the host only when `isResponsive && hideHeader === true` (CSS hides `.data-grid-row:not(.group-row) > .cell::before`), cleared on leaving card mode.
+Moved to grid-plugin-responsive.md (breakpoints, card layout, view transitions, column fades, card height).
 
 ### Tooltip
 

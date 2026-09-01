@@ -5,7 +5,7 @@ related: [grid-plugins-catalog-data, grid-plugins-catalog-ui, grid-plugins-shell
 
 # Grid Plugin System — Mental Model
 
-> Per-plugin OWNS/HOOKS/DECIDED → grid-plugins-catalog-data.md (row/column model, sorting, filtering, pinned rows, clipboard/export/print), grid-plugins-catalog-ui.md (selection, master-detail, reordering, display) and grid-plugins-editing.md (editing, undo). Shell plugin → grid-plugins-shell.md. This file = the SYSTEM (manager, lifecycle, hooks, communication, manifest, scroll, compatibility).
+> Per-plugin OWNS/HOOKS/DECIDED → grid-plugins-catalog-data.md (row/column model, sorting, filtering, pinned rows, clipboard/export/print), grid-plugins-catalog-ui.md (selection, master-detail, reordering, display), grid-plugin-responsive.md (responsive/card layout) and grid-plugins-editing.md (editing, undo). Shell plugin → grid-plugins-shell.md. This file = the SYSTEM (manager, lifecycle, hooks, communication, manifest, scroll, compatibility).
 
 ## plugin-manager
 
@@ -29,6 +29,7 @@ related: [grid-plugins-catalog-data, grid-plugins-catalog-ui, grid-plugins-shell
 - INVARIANT: a scratch/probe `.ts` file **cannot** verify grid type-compatibility. `InternalGrid extends GridConfig`, and 52 files `declare module '../core/types'`, so its shape depends on which augmentations the compilation loaded — a probe reported "no error" for a cast that fails in real plugin files. Verify via `bun nx build grid`, never an isolated file.
 - DECIDED: prefer config-driven init over post-ready imperative setup. Known-at-config-time resources accept a config prop and auto-init in `attach()` (pattern: `ServerSidePlugin` reads `config.dataSource`). Reserve imperative setters (`setDataSource()`) for runtime swaps.
 - DECIDED (Feb 2026, dead-config audit): a key declared on `*PluginConfig` + set in `defaultConfig` + documented, with ZERO consumers, is **dead and MUST be removed** — never "reserved for future use". Sweep with grep for `this.config.<key>`, `config.<key>`, `gridConfig.<key>` across the plugin dir + core. Removed: `visibility.allowHideAll`, `master-detail.collapseOnClickOutside`, `filtering.{trimInput,useWorker}`. PENDING: `pinned-rows.{showRowCount,showSelectedCount,showFilteredCount}` (removal needs a synthesized default `slots: []`).
+- INVARIANT (Sep 2026): imperative plugin state set via a plugin-API call does **NOT** survive a `gridConfig` reassignment. `set gridConfig` → `#queueUpdate` → (scheduler rAF) `#syncPlugins()` → `pluginManager.detachAll()` + `#initializePlugins()`, so the instance returned by `getPluginByName()` **before** the flush is discarded. Worse for observer-driven plugins: the fresh `attach()` re-`observe()`s, and RO callbacks are delivered **after** rAF callbacks in the same frame — so even `requestAnimationFrame(() => plugin.setX())` is undone. Callers that must pin state across a config rebuild have to re-assert from the plugin's own change event (converges in one correction), not from a one-shot rAF. Hit by `ResponsiveDefaultDemo` (`setResponsive()` reverted by the re-attached `ResizeObserver`).
 
 ## hook-system
 

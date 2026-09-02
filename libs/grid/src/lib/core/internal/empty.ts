@@ -12,6 +12,7 @@
  */
 
 import type { EmptyContext, EmptyOverlay, EmptyRenderer, GridConfig } from '../types';
+import { announce } from './aria';
 import { setSanitizedHTML } from './sanitize';
 
 /** Default messages used when no `emptyRenderer` is configured. */
@@ -51,11 +52,19 @@ export function createEmptyContent(ctx: EmptyContext, renderer?: EmptyRenderer):
 
 /**
  * Create the empty-state overlay element.
- * Always carries `role="status"` + `aria-live="polite"` so screen readers
- * announce the state on transition; the `data-overlay-target` attribute is
- * informational only. CSS positions absolutely against the closest positioned
- * ancestor — `.tbw-grid-root` is positioned by `base.css`, and `.rows-container`
- * is given `position: relative` for `target='rows'` for the same reason.
+ *
+ * The overlay is **presentational**: for `target='rows'` it mounts inside
+ * `.rows-container`, which is `role="presentation"` and therefore transparent
+ * to ARIA — a `role="status"` there would be promoted to a direct child of
+ * `role="grid"`, which only owns `row`/`rowgroup` (axe `aria-required-children`).
+ * The message is instead announced through the grid's `.tbw-sr-only`
+ * `aria-live` region by `updateEmptyOverlay()`, which sits outside the grid
+ * role and is honoured consistently by screen readers.
+ *
+ * The `data-overlay-target` attribute is informational only. CSS positions
+ * absolutely against the closest positioned ancestor — `.tbw-grid-root` is
+ * positioned by `base.css`, and `.rows-container` is given `position: relative`
+ * for `target='rows'` for the same reason.
  */
 export function createEmptyOverlay(
   ctx: EmptyContext,
@@ -64,8 +73,7 @@ export function createEmptyOverlay(
 ): HTMLElement {
   const overlay = document.createElement('div');
   overlay.className = 'tbw-empty-overlay';
-  overlay.setAttribute('role', 'status');
-  overlay.setAttribute('aria-live', 'polite');
+  overlay.setAttribute('role', 'presentation');
   overlay.setAttribute('data-overlay-target', target);
   overlay.appendChild(createEmptyContent(ctx, renderer));
   return overlay;
@@ -141,6 +149,7 @@ export function updateEmptyOverlay(
   renderer: GridConfig['emptyRenderer'] | undefined,
   target: EmptyOverlay,
   state: EmptyOverlayState,
+  host?: HTMLElement,
 ): void {
   if (!gridRoot) return;
 
@@ -182,4 +191,9 @@ export function updateEmptyOverlay(
   state.target = target;
   state.sourceRows = sourceRows;
   state.filteredOut = filteredOut;
+
+  // The overlay itself is presentational (see `createEmptyOverlay`), so the
+  // transition is voiced through the grid's live region instead.
+  const message = state.el.textContent?.trim();
+  if (host && message) announce(host, message);
 }

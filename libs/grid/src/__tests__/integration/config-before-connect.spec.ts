@@ -340,8 +340,10 @@ describe('Vanilla Demo Pattern - Config Before Connect', () => {
     expect(groupRow, 'After refresh: Should have column group header row').not.toBeNull();
     expect(groupRow!.children.length, 'After refresh: Should have group cells').toBeGreaterThan(0);
 
-    // Verify column headers
-    const columnHeaders = grid.querySelectorAll('[role="columnheader"]');
+    // Verify column headers. Scoped to `.header-row` — the group row above it
+    // also carries `role="columnheader"` cells (required for `role="row"` to
+    // have valid children), and those are not data columns.
+    const columnHeaders = grid.querySelectorAll('.header-row > [role="columnheader"]');
     expect(columnHeaders.length, 'After refresh: Should have columnheader elements').toBe(5);
   });
 });

@@ -1050,6 +1050,14 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     }
 
     // Append the custom card content
+    // The row keeps `role="row"`, which may only own cell-ish children (WCAG
+    // 1.3.1 / axe `aria-required-children`). A card collapses the whole record
+    // into one box, so it is exposed as a single spanning gridcell — unless the
+    // renderer already assigned its own role.
+    if (!cardContent.hasAttribute('role')) {
+      cardContent.setAttribute('role', 'gridcell');
+      cardContent.setAttribute('aria-colindex', '1');
+    }
     rowEl.appendChild(cardContent);
 
     return true; // We handled rendering

@@ -685,6 +685,44 @@ describe('ResponsivePlugin', () => {
       expect(rowEl.classList.contains('responsive-card')).toBe(true);
     });
 
+    it('should expose the card as a gridcell so role="row" keeps valid children', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        cardRenderer: () => document.createElement('div'),
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      const rowEl = document.createElement('div');
+      plugin.renderRow({ id: 1 }, rowEl, 0);
+
+      const card = rowEl.firstElementChild as HTMLElement;
+      expect(card.getAttribute('role')).toBe('gridcell');
+      expect(card.getAttribute('aria-colindex')).toBe('1');
+    });
+
+    it('should not override a role the card renderer already assigned', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        cardRenderer: () => {
+          const card = document.createElement('div');
+          card.setAttribute('role', 'rowheader');
+          return card;
+        },
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      const rowEl = document.createElement('div');
+      plugin.renderRow({ id: 1 }, rowEl, 0);
+
+      expect((rowEl.firstElementChild as HTMLElement).getAttribute('role')).toBe('rowheader');
+    });
+
     it('should clear existing content before rendering card', () => {
       const plugin = new ResponsivePlugin({
         breakpoint: 500,

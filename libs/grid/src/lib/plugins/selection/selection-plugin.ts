@@ -1463,6 +1463,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'tbw-select-all-checkbox';
+        // The wrapping label names the checkbox implicitly AND gives the
+        // otherwise-empty `columnheader` cell screen-reader-visible text.
+        const labelText = document.createElement('span');
+        labelText.className = 'tbw-sr-only';
+        labelText.textContent = getA11yMessage(this.gridElement, 'selectAllRows');
         checkbox.addEventListener('click', (e) => {
           e.stopPropagation(); // Prevent header sort
           if ((e.target as HTMLInputElement).checked) {
@@ -1474,7 +1479,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         // The label's own click keeps bubbling after it forwards to the
         // checkbox; stop it so the header cell sees nothing.
         container.addEventListener('click', (e) => e.stopPropagation());
-        container.appendChild(checkbox);
+        container.append(checkbox, labelText);
         return container;
       },
       renderer: (ctx) => {
@@ -1483,12 +1488,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         checkbox.className = 'tbw-select-row-checkbox';
         // Set initial checked state from current selection
         const cellEl = ctx.cellEl;
-        if (cellEl) {
-          const rowIndex = parseInt(cellEl.getAttribute('data-row') ?? '-1', 10);
-          if (rowIndex >= 0) {
-            checkbox.checked = this.selected.has(rowIndex);
-          }
+        const rowIndex = cellEl ? parseInt(cellEl.getAttribute('data-row') ?? '-1', 10) : -1;
+        if (rowIndex >= 0) {
+          checkbox.checked = this.selected.has(rowIndex);
         }
+        checkbox.setAttribute('aria-label', getA11yMessage(this.gridElement, 'selectRow', Math.max(rowIndex, 0)));
         return checkbox;
       },
     };

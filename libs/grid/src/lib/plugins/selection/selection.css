@@ -113,10 +113,14 @@
       }
     }
 
-    /* Non-selectable row styling (row mode) */
+    /* Non-selectable row styling (row mode).
+       The row is dimmed to signal "not selectable", but its *data* is still
+       content the user has to read, so the exception WCAG 1.4.3 grants inactive
+       UI components does not apply. 0.6 pushed the text to 4.24:1 on white;
+       0.65 is the lowest value that clears AA (5.02:1). */
     .data-grid-row[data-selectable='false'] {
       cursor: not-allowed;
-      opacity: 0.6;
+      opacity: var(--tbw-selection-disabled-opacity, 0.65);
 
       /* Muted selection indicator */
       &.row-focus {
@@ -127,7 +131,7 @@
     /* Non-selectable cell styling (cell/range mode) */
     .data-grid-row > .cell[data-selectable='false'] {
       cursor: not-allowed;
-      opacity: 0.6;
+      opacity: var(--tbw-selection-disabled-opacity, 0.65);
 
       /* Prevent selection highlight on non-selectable cells */
       &.selected {
@@ -260,7 +264,7 @@
 
       &[data-action='done'] {
         font-weight: 600;
-        color: var(--tbw-color-accent);
+        color: var(--tbw-color-accent-text, var(--tbw-color-accent));
       }
     }
 

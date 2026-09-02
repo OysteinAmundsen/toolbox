@@ -23,7 +23,8 @@
     /* Modern blue accent */
     --tbw-color-accent: light-dark(#2563eb, #3b82f6);
     --tbw-color-accent-fg: #ffffff;
-    --tbw-color-success: light-dark(#059669, #34d399);
+    /* emerald-700 rather than -600: #059669 is only 3.77:1 on white (WCAG AA fail). */
+    --tbw-color-success: light-dark(#047857, #34d399);
     --tbw-color-error: light-dark(#dc2626, #f87171);
 
     /* Selection & interaction */

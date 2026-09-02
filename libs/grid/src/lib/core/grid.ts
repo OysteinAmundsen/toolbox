@@ -2438,6 +2438,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#effectiveConfig?.emptyRenderer,
       this.#effectiveConfig?.emptyOverlay ?? 'rows',
       this.#emptyOverlay,
+      this,
     );
   }
 

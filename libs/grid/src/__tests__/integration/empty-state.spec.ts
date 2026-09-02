@@ -56,7 +56,13 @@ describe('emptyRenderer integration (#321)', () => {
     const overlay = getOverlay(grid);
     expect(overlay).not.toBeNull();
     expect(overlay?.textContent).toBe(DEFAULT_EMPTY_MESSAGE);
-    expect(overlay?.getAttribute('role')).toBe('status');
+    // The overlay is presentational — it mounts inside `.rows-container`, which
+    // is `role="presentation"` and therefore promotes its children into
+    // `role="grid"` (which only owns rows/rowgroups). The message is announced
+    // through the grid's `.tbw-sr-only` live region instead.
+    expect(overlay?.getAttribute('role')).toBe('presentation');
+    await nextFrame();
+    expect(grid.querySelector('.tbw-sr-only')?.textContent).toBe(DEFAULT_EMPTY_MESSAGE);
   });
 
   it('hides the overlay once rows are populated', async () => {

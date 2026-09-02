@@ -191,6 +191,24 @@ describe('buildGroupHeaderRow', () => {
     expect(row!.getAttribute('role')).toBe('row');
     expect(row!.children.length).toBe(1);
     expect(row!.children[0].textContent).toBe('Group One');
+    expect(row!.children[0].getAttribute('role')).toBe('columnheader');
+  });
+
+  it('marks implicit spacer cells as presentational', () => {
+    const cols = [
+      { field: 'a', header: 'A' },
+      { field: 'b', header: 'B' },
+    ];
+    const groups: ColumnGroup[] = [
+      { id: '__implicit__0', columns: [cols[0]], firstIndex: 0 },
+      { id: 'G1', label: 'Group One', columns: [cols[1]], firstIndex: 1 },
+    ];
+    const row = buildGroupHeaderRow(groups, cols);
+
+    // `role="row"` may only own cell-ish children; unlabelled spacers are
+    // removed from the a11y tree rather than posing as empty column headers.
+    const implicit = row!.querySelector('.implicit-group');
+    expect(implicit?.getAttribute('role')).toBe('presentation');
   });
 
   it('uses id as label when label not provided', () => {

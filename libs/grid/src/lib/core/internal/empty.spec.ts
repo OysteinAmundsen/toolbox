@@ -65,8 +65,11 @@ describe('empty', () => {
     it('creates an overlay with the right classes and a11y attributes', () => {
       const overlay = createEmptyOverlay({ sourceRowCount: 0, filteredOut: false });
       expect(overlay.className).toBe('tbw-empty-overlay');
-      expect(overlay.getAttribute('role')).toBe('status');
-      expect(overlay.getAttribute('aria-live')).toBe('polite');
+      // Presentational: `role="status"` here would be promoted into `role="grid"`
+      // (the mount point `.rows-container` is `role="presentation"`), which only
+      // owns rows/rowgroups. The message goes through the live region instead.
+      expect(overlay.getAttribute('role')).toBe('presentation');
+      expect(overlay.hasAttribute('aria-live')).toBe(false);
       expect(overlay.getAttribute('data-overlay-target')).toBe('rows');
       expect(overlay.querySelector('.tbw-empty-message')?.textContent).toBe(DEFAULT_EMPTY_MESSAGE);
     });

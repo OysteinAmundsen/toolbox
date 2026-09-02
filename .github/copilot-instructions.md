@@ -81,6 +81,7 @@ Loaded on demand from `.github/knowledge/` — read relevant files before starti
 | `grid-plugins-editing`      | Editing & UndoRedo          | Editor injection, commit/cancel flow, keyboard guards, dirty tracking, undo transactions                                           |
 | `grid-plugins-shell`        | Shell plugin                | v3 opt-in model, HARD RULE #370, tool panels, header/toolbar content, dropdown mode                                                |
 | `grid-features`             | Feature registry            | Feature vs plugin distinction, registry pattern, feature catalog, opt-out validation                                               |
+| `a11y`                      | Accessibility (WCAG 2.2 AA) | Role tree & `presentation` promotion, `A11yMessages` naming, surface-vs-text colour tokens, landmarks, SC 2.5.8, test gates        |
 | `adapters`                  | Framework adapters (shared) | Shared adapter conformance, shell-content wrappers, bridge registries, three-way parity                                            |
 | `adapters-react`            | React adapter               | Portal manager, overlay editors, feature-prop coverage assertion                                                                   |
 | `adapters-vue`              | Vue adapter                 | Teleport manager, overlay editors, typed slots                                                                                     |

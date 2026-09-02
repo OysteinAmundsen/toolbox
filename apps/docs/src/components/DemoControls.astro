@@ -47,6 +47,11 @@ interface Props {
 
 const { controls } = Astro.props;
 
+// Per-instance prefix so the label ids stay unique when a page renders more than
+// one control panel. Evaluated at build time, so the emitted HTML is stable.
+const uid = Math.random().toString(36).slice(2, 8);
+const labelId = (name: string) => `dc-${uid}-${name}-label`;
+
 // Group controls by section
 const sections = new Map<string, ControlDef[]>();
 for (const ctrl of controls) {
@@ -63,7 +68,7 @@ for (const ctrl of controls) {
       {ctrls.map((ctrl) => (
         <div class="dc-row" data-ctrl-name={ctrl.name}>
           <div class="dc-label-cell">
-            <span class="dc-name">{ctrl.label}</span>
+            <span class="dc-name" id={labelId(ctrl.name)}>{ctrl.label}</span>
             {ctrl.description && <span class="dc-desc">{ctrl.description}</span>}
           </div>
           <div class="dc-widget-cell">
@@ -73,6 +78,7 @@ for (const ctrl of controls) {
                   type="range"
                   data-ctrl={ctrl.name}
                   data-type="number"
+                  aria-labelledby={labelId(ctrl.name)}
                   min={ctrl.min ?? 0}
                   max={ctrl.max ?? 100}
                   step={ctrl.step ?? 1}
@@ -87,18 +93,19 @@ for (const ctrl of controls) {
                   type="checkbox"
                   data-ctrl={ctrl.name}
                   data-type="boolean"
+                  aria-labelledby={labelId(ctrl.name)}
                   checked={ctrl.default === true ? true : undefined}
                 />
                 <span class="dc-toggle-track"></span>
               </label>
             )}
             {ctrl.type === 'radio' && ctrl.options && (
-              <div class="dc-radio-group">
+              <div class="dc-radio-group" role="radiogroup" aria-labelledby={labelId(ctrl.name)}>
                 {ctrl.options.map((opt) => (
                   <label>
                     <input
                       type="radio"
-                      name={`dc-${ctrl.name}`}
+                      name={`dc-${uid}-${ctrl.name}`}
                       value={opt}
                       data-ctrl={ctrl.name}
                       data-type="radio"
@@ -110,14 +117,14 @@ for (const ctrl of controls) {
               </div>
             )}
             {ctrl.type === 'select' && ctrl.options && (
-              <select data-ctrl={ctrl.name} data-type="select">
+              <select data-ctrl={ctrl.name} data-type="select" aria-labelledby={labelId(ctrl.name)}>
                 {ctrl.options.map((opt) => (
                   <option value={opt} selected={ctrl.default === opt ? true : undefined}>{opt}</option>
                 ))}
               </select>
             )}
             {ctrl.type === 'check-group' && ctrl.options && (
-              <div class="dc-check-group">
+              <div class="dc-check-group" role="group" aria-labelledby={labelId(ctrl.name)}>
                 {ctrl.options.map((opt) => (
                   <label>
                     <input
@@ -239,7 +246,8 @@ for (const ctrl of controls) {
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--sl-color-gray-3);
+    /* gray-3 on gray-6 is only 4.48:1 in dark mode — one notch lighter clears AA. */
+    color: var(--sl-color-gray-2);
     background: var(--sl-color-gray-6);
     border-bottom: 1px solid var(--sl-color-gray-5);
   }
@@ -287,6 +295,8 @@ for (const ctrl of controls) {
   }
   .dc-range-wrap input[type="range"] {
     width: 120px;
+    /* WCAG 2.2 SC 2.5.8 — a native range renders ~16px tall. */
+    min-height: 24px;
   }
   .dc-range-wrap output {
     min-width: 3ch;
@@ -296,12 +306,14 @@ for (const ctrl of controls) {
     font-weight: 600;
   }
 
-  /* Slide-toggle for boolean controls */
+  /* Slide-toggle for boolean controls.
+     The label is 24px tall for WCAG 2.2 SC 2.5.8; the 18px track is centred
+     inside it rather than filling it, so the switch keeps its visual size. */
   .dc-toggle {
     position: relative;
     display: inline-block;
     width: 34px;
-    height: 18px;
+    height: 24px;
     cursor: pointer;
   }
   .dc-toggle input[type="checkbox"] {
@@ -312,7 +324,7 @@ for (const ctrl of controls) {
   }
   .dc-toggle-track {
     position: absolute;
-    inset: 0;
+    inset: 3px 0;
     border-radius: 9px;
     background: var(--sl-color-gray-5);
     transition: background 0.2s;
@@ -350,6 +362,8 @@ for (const ctrl of controls) {
     gap: 3px;
     cursor: pointer;
     white-space: nowrap;
+    /* The label is the pointer target for its 13px native input (SC 2.5.8). */
+    min-height: 24px;
   }
 
   select[data-ctrl] {
@@ -359,6 +373,7 @@ for (const ctrl of controls) {
     background: var(--sl-color-gray-7);
     color: var(--sl-color-gray-2);
     font-size: 0.8125rem;
+    min-height: 24px;
   }
 
   @media (max-width: 640px) {

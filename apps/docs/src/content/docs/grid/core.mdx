@@ -505,7 +505,9 @@ grid.gridConfig = {
 Then define the CSS class in your stylesheet:
 
 ```css
-.row-inactive { opacity: 0.5; }
+/* Dim with a surface tint rather than `opacity` — `opacity` fades text as
+   well as chrome and quickly drops it below the 4.5:1 WCAG 1.4.3 minimum. */
+.row-inactive { background: light-dark(#f1f2f4, #26282d); font-style: italic; }
 ```
 
 ### Cell Styling
@@ -565,6 +567,8 @@ grid.columns = [
       checkbox.type = 'checkbox';
       checkbox.checked = !!ctx.value;
       checkbox.disabled = true;
+      // A disabled control still needs an accessible name.
+      checkbox.setAttribute('aria-label', 'Active');
       return checkbox;
     },
   },
@@ -589,7 +593,7 @@ function EmployeeGrid({ rows }) {
         field="active"
         header="Active"
         renderer={({ value }) => (
-          <input type="checkbox" checked={!!value} disabled />
+          <input type="checkbox" checked={!!value} disabled aria-label="Active" />
         )}
       />
     </DataGrid>
@@ -612,7 +616,7 @@ import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
     </TbwGridColumn>
     <TbwGridColumn field="active" header="Active">
       <template #cell="{ value }">
-        <input type="checkbox" :checked="!!value" disabled />
+        <input type="checkbox" :checked="!!value" disabled aria-label="Active" />
       </template>
     </TbwGridColumn>
   </TbwGrid>
@@ -634,7 +638,7 @@ import { Grid, TbwRenderer } from '@toolbox-web/grid-angular';
         </span>
       </tbw-grid-column>
       <tbw-grid-column field="active" header="Active">
-        <input *tbwRenderer="let value" type="checkbox" [checked]="!!value" disabled />
+        <input *tbwRenderer="let value" type="checkbox" [checked]="!!value" disabled aria-label="Active" />
       </tbw-grid-column>
     </tbw-grid>
   `,
@@ -771,7 +775,7 @@ When a cell renderer or group header renderer returns an **HTML string** (rather
 
 Now that you've seen both, here's a quick reference for picking the right one:
 
-| | Formatter (`format`) | Renderer (`renderer`) |
+| Aspect | Formatter (`format`) | Renderer (`renderer`) |
 |---|---|---|
 | **Returns** | String | DOM element |
 | **Use for** | Currency, dates, percentages, text formatting | Checkboxes, badges, buttons, links, images |
@@ -898,7 +902,7 @@ const typeDefaults: TypeDefaultsMap = {
       new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value),
   },
   boolean: {
-    renderer: ({ value }) => <input type="checkbox" checked={!!value} disabled />,
+    renderer: ({ value }) => <input type="checkbox" checked={!!value} disabled aria-label="Active" />,
   },
   status: {
     renderer: ({ value }) => (

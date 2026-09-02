@@ -67,7 +67,23 @@ if (container) {
           const icon = icons[params.id] ?? '📁';
           const el = document.createElement('span');
           el.style.cssText = 'display: flex; align-items: center; gap: 0.4em;';
-          el.innerHTML = `<span>${icon}</span> <strong>${params.label}</strong> <span style="opacity: 0.6; font-size: 0.85em;">(${params.columns.length} columns)</span>`;
+
+          // Decorative — hidden from assistive tech so the group is announced as
+          // "Personal Info", not "bust in silhouette Personal Info".
+          const iconEl = document.createElement('span');
+          iconEl.setAttribute('aria-hidden', 'true');
+          iconEl.textContent = icon;
+
+          const labelEl = document.createElement('strong');
+          labelEl.textContent = params.label;
+
+          // `opacity: 0.6` dropped the count to 2.37:1 — use the muted foreground
+          // token instead so it stays subordinate but readable (WCAG 1.4.3).
+          const countEl = document.createElement('span');
+          countEl.style.cssText = 'font-size: 0.85em; color: var(--tbw-color-fg-muted);';
+          countEl.textContent = `(${params.columns.length} columns)`;
+
+          el.append(iconEl, ' ', labelEl, ' ', countEl);
           return el;
         },
       },

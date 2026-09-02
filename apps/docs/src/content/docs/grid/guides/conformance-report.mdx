@@ -211,6 +211,12 @@ Claims in this report are not self-assessed prose. Each one is backed by a check
   targeted gates: focus management and focus-trap behaviour, target size probed by hit-testing the
   four corners of a 24 px square, reflow at 320 px, and text spacing applied exactly as the success
   criterion states it.
+- **`apps/docs-e2e/tests/a11y.spec.ts`** — the same ruleset, but scanning the **whole document** of
+  six documentation pages rather than just the `<tbw-grid>` subtree, and with none of the structural
+  rules suppressed. It is the check that catches role-tree defects a grid-scoped scan cannot see —
+  an overlay promoted into `role="grid"`, a card row without a cell role, an unnamed checkbox in a
+  custom renderer. It also carries the SC 2.5.8 measurement, which models the criterion's
+  *effective target* and *spacing* exceptions instead of relying on axe's `target-size`.
 - **Unit and integration tests** co-located with the source — ARIA attribute correctness, live-region
   announcements, keyboard handling, editor naming, and validation state.
 - **Manual review** — NVDA on Windows, JAWS on Windows, VoiceOver on macOS and iOS. Automated tools

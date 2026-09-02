@@ -50,6 +50,23 @@ grid.gridConfig = {
 Every message is a function, so you can interpolate, pluralize, or delegate to
 `Intl.PluralRules` however your locale requires.
 
+:::note[Not every message is announced]
+Two keys — `selectAllRows` and `selectRow` — are **accessible names** rather than live-region
+announcements. The [Selection plugin](/grid/plugins/selection/) uses them to label its checkbox
+column, which would otherwise be read as a bare "checkbox":
+
+```ts
+a11y: {
+  messages: {
+    selectAllRows: () => 'Sélectionner toutes les lignes',
+    selectRow: (rowIndex) => `Sélectionner la ligne ${rowIndex + 1}`,
+  },
+}
+```
+
+`rowIndex` is zero-based, so add 1 for a human-facing position.
+:::
+
 <CardGrid>
   <LinkCard title="A11yMessages" description="The full list of overridable announcements and their signatures" href="/grid/api/core/interfaces/a11ymessages/" />
   <LinkCard title="What triggers each one" description="Live regions and the rest of the accessibility model" href="/grid/guides/accessibility/#live-regions" />

@@ -11,10 +11,10 @@ import FullscreenButton from './FullscreenButton.astro';
 <div class="theme-builder-container not-content" id="theme-builder">
   <div class="theme-builder-toolbar" id="tb-toolbar" style="display:none;">
     <span class="theme-builder-toolbar__label">Export Theme:</span>
-    <button class="theme-builder-btn" id="tb-copy">📋 Copy CSS</button>
-    <button class="theme-builder-btn" id="tb-download">💾 Download CSS</button>
-    <button class="theme-builder-btn" id="tb-preview">👁 Preview CSS</button>
-    <button class="theme-builder-btn" id="tb-reset" style="margin-left:auto;">↺ Reset</button>
+    <button class="theme-builder-btn" id="tb-copy" type="button"><span aria-hidden="true">📋</span> Copy CSS</button>
+    <button class="theme-builder-btn" id="tb-download" type="button"><span aria-hidden="true">💾</span> Download CSS</button>
+    <button class="theme-builder-btn" id="tb-preview" type="button"><span aria-hidden="true">👁</span> Preview CSS</button>
+    <button class="theme-builder-btn" id="tb-reset" type="button" style="margin-left:auto;"><span aria-hidden="true">↺</span> Reset</button>
     <FullscreenButton target=".theme-builder-container" label="Open theme builder in fullscreen" />
   </div>
   <div class="theme-builder-main">
@@ -409,6 +409,11 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
 
     const content = document.createElement('div');
     content.className = 'theme-builder-panel__content';
+    // The panel scrolls, so it must be reachable by keyboard alone (WCAG 2.1.1).
+    // A focusable scroll container needs a role + name to stay meaningful.
+    content.tabIndex = 0;
+    content.setAttribute('role', 'group');
+    content.setAttribute('aria-label', 'Theme variables');
 
     for (const [category, variables] of Object.entries(CSS_VARIABLES)) {
       const categoryEl = document.createElement('div');
@@ -792,24 +797,39 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
     });
     document.getElementById('tb-preview')!.addEventListener('click', () => {
       const css = generateCSSFromState(state);
-      const modal = document.createElement('div');
+      // A native <dialog> gives the focus trap, Escape-to-close, inert
+      // background and focus restore that a hand-rolled overlay never had.
+      const modal = document.createElement('dialog');
       modal.className = 'theme-builder-modal';
-      modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+      modal.setAttribute('aria-labelledby', 'tb-preview-title');
+      // Light-dismiss: the backdrop is painted by the dialog itself, so a click
+      // whose target IS the dialog landed outside the content box.
+      modal.addEventListener('click', (e) => { if (e.target === modal) modal.close(); });
+      modal.addEventListener('close', () => modal.remove());
       const mc = document.createElement('div');
       mc.className = 'theme-builder-modal__content';
-      mc.innerHTML = `<h3 class="theme-builder-modal__title">Generated CSS</h3>`;
+      const title = document.createElement('h3');
+      title.className = 'theme-builder-modal__title';
+      title.id = 'tb-preview-title';
+      title.textContent = 'Generated CSS';
+      mc.appendChild(title);
       const pre = document.createElement('pre');
       pre.className = 'theme-builder-modal__code';
+      pre.tabIndex = 0;
+      pre.setAttribute('role', 'group');
+      pre.setAttribute('aria-label', 'Generated CSS');
       pre.textContent = css;
       mc.appendChild(pre);
       const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
       closeBtn.textContent = 'Close';
       closeBtn.className = 'theme-builder-btn theme-builder-btn--primary';
       closeBtn.style.marginTop = '12px';
-      closeBtn.addEventListener('click', () => modal.remove());
+      closeBtn.addEventListener('click', () => modal.close());
       mc.appendChild(closeBtn);
       modal.appendChild(mc);
       document.body.appendChild(modal);
+      modal.showModal();
     });
     document.getElementById('tb-reset')!.addEventListener('click', resetToBaseline);
 
@@ -944,15 +964,29 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
     overflow: auto;
   }
 
-  /* Modal overlay */
+  /* Modal overlay — a native <dialog>, so the backdrop is `::backdrop`, not a
+     painted parent, and `[open]` is what makes it a flex box. */
   .theme-builder-modal {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    max-height: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    overflow: hidden;
+  }
+
+  .theme-builder-modal[open] {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10000;
+  }
+
+  .theme-builder-modal::backdrop {
+    background: rgba(0, 0, 0, 0.5);
   }
 
   .theme-builder-modal__content {
@@ -1098,7 +1132,8 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
 
   .theme-builder-category__count {
     font-size: 11px;
-    color: var(--sl-color-gray-3);
+    /* gray-3 on gray-6 is only 4.48:1 in dark mode — one notch lighter clears AA. */
+    color: var(--sl-color-gray-2);
     background: var(--sl-color-gray-6);
     padding: 2px 6px;
     border-radius: 10px;
@@ -1137,7 +1172,7 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
 
   .theme-builder-color-row__label code {
     font-size: 11px;
-    color: var(--sl-color-accent);
+    color: var(--sl-color-text-accent);
     background: var(--sl-color-gray-6);
     padding: 1px 4px;
     border-radius: 3px;
@@ -1241,7 +1276,7 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
 
   .theme-builder-var-row__label code {
     font-size: 11px;
-    color: var(--sl-color-accent);
+    color: var(--sl-color-text-accent);
     background: var(--sl-color-gray-6);
     padding: 1px 4px;
     border-radius: 3px;

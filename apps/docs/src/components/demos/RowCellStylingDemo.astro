@@ -12,10 +12,16 @@
 </div>
 
 <style is:global>
-  .row-inactive { opacity: 0.5; }
-  .cell-success { background: #16a34a22; color: #16a34a; font-weight: 600; }
-  .cell-danger { background: #dc262622; color: #dc2626; font-weight: 600; }
-  .cell-warning { background: #d9770622; color: #d97706; font-weight: 600; }
+  /* Dim with a background tint, not `opacity`. `opacity` fades the text too, so
+     it compounds with the tinted status cells below — at 0.5 the row text was
+     3.15:1 and even 0.85 left the tinted cells under 4.5:1 (WCAG 1.4.3).
+     A surface tint keeps every foreground at full strength.
+     The tinted cells also need a per-scheme foreground: one hue cannot clear
+     4.5:1 on both a pale and a dark tint of itself. */
+  .row-inactive { background: light-dark(#f1f2f4, #26282d); font-style: italic; }
+  .cell-success { background: #16a34a22; color: light-dark(#166534, #4ade80); font-weight: 600; }
+  .cell-danger { background: #dc262622; color: light-dark(#991b1b, #fca5a5); font-weight: 600; }
+  .cell-warning { background: #d9770622; color: light-dark(#92400e, #fbbf24); font-weight: 600; }
 </style>
 
 <script>

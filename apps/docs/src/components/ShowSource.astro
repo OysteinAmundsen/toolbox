@@ -410,6 +410,10 @@ const htmlLineCount = htmlSource ? htmlSource.split('\n').length : 0;
 const isSimpleHtml = htmlSource && htmlLineCount <= 2 && !htmlSource.includes('<tbw-grid-column');
 const complexHtml = htmlSource && !isSimpleHtml ? htmlSource : '';
 const inlineHtml = isSimpleHtml ? htmlSource : '';
+
+// Per-instance prefix for the id wiring (aria-controls / aria-labelledby).
+// Evaluated at build time, so the emitted HTML is stable.
+const sid = Math.random().toString(36).slice(2, 8);
 ---
 
 {source ? (
@@ -417,7 +421,7 @@ const inlineHtml = isSimpleHtml ? htmlSource : '';
     <FullscreenButton target=".show-source-wrapper" label="Open demo in fullscreen" />
     <slot />
     <div class="demo-source-panel">
-      <button class="demo-source-toggle" type="button" aria-expanded="false">
+      <button class="demo-source-toggle" type="button" aria-expanded="false" aria-controls={`ss-${sid}-content`}>
         <svg class="demo-source-chevron" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
           <polyline
             points="9 18 15 12 9 6"
@@ -430,19 +434,51 @@ const inlineHtml = isSimpleHtml ? htmlSource : '';
         </svg>
         <span>Show source</span>
       </button>
-      <div class="demo-source-content" hidden>
+      <div class="demo-source-content" id={`ss-${sid}-content`} hidden>
         {complexHtml ? (
           <div class="demo-source-tabs">
-            <div class="demo-source-tab-bar" role="tablist">
-              <button class="demo-source-tab active" role="tab" aria-selected="true" data-tab="js" type="button">JavaScript</button>
-              <button class="demo-source-tab" role="tab" aria-selected="false" data-tab="html" type="button">HTML</button>
+            <div class="demo-source-tab-bar" role="tablist" aria-label="Demo source">
+              <button
+                class="demo-source-tab active"
+                role="tab"
+                id={`ss-${sid}-tab-js`}
+                aria-selected="true"
+                aria-controls={`ss-${sid}-panel-js`}
+                data-tab="js"
+                type="button"
+              >JavaScript</button>
+              <button
+                class="demo-source-tab"
+                role="tab"
+                id={`ss-${sid}-tab-html`}
+                aria-selected="false"
+                aria-controls={`ss-${sid}-panel-html`}
+                data-tab="html"
+                type="button"
+                tabindex="-1"
+              >HTML</button>
             </div>
-            <div class="demo-source-tab-panel" data-panel="js">
+            <div
+              class="demo-source-tab-panel"
+              id={`ss-${sid}-panel-js`}
+              role="tabpanel"
+              aria-labelledby={`ss-${sid}-tab-js`}
+              tabindex="0"
+              data-panel="js"
+            >
               <div class="demo-source-code-wrap">
                 <Code code={source} lang={lang} />
               </div>
             </div>
-            <div class="demo-source-tab-panel" data-panel="html" hidden>
+            <div
+              class="demo-source-tab-panel"
+              id={`ss-${sid}-panel-html`}
+              role="tabpanel"
+              aria-labelledby={`ss-${sid}-tab-html`}
+              tabindex="0"
+              data-panel="html"
+              hidden
+            >
               <div class="demo-source-code-wrap">
                 <Code code={complexHtml} lang="html" />
               </div>
@@ -468,6 +504,26 @@ const inlineHtml = isSimpleHtml ? htmlSource : '';
 )}
 
 <script>
+  /** Activate a tab and reveal its panel (APG "tabs with automatic activation"). */
+  function selectTab(tab: HTMLElement) {
+    const tabBar = tab.parentElement;
+    const wrapper = tabBar?.closest('.demo-source-tabs');
+    if (!tabBar || !wrapper) return;
+    const targetKey = tab.dataset.tab;
+
+    tabBar.querySelectorAll<HTMLElement>('.demo-source-tab').forEach((t) => {
+      const selected = t === tab;
+      t.classList.toggle('active', selected);
+      t.setAttribute('aria-selected', String(selected));
+      // Roving tabindex: only the selected tab is in the tab sequence, so Tab
+      // moves out of the tablist instead of through every tab.
+      t.tabIndex = selected ? 0 : -1;
+    });
+    wrapper.querySelectorAll<HTMLElement>('.demo-source-tab-panel').forEach((p) => {
+      p.hidden = p.dataset.panel !== targetKey;
+    });
+  }
+
   document.addEventListener('click', (e) => {
     const toggle = (e.target as HTMLElement).closest('.demo-source-toggle');
     if (toggle) {
@@ -483,23 +539,26 @@ const inlineHtml = isSimpleHtml ? htmlSource : '';
 
     // Tab switching for HTML/JS tabs
     const tab = (e.target as HTMLElement).closest('.demo-source-tab') as HTMLElement | null;
-    if (tab) {
-      const tabBar = tab.parentElement;
-      if (!tabBar) return;
-      const tabs = tabBar.querySelectorAll('.demo-source-tab');
-      const wrapper = tabBar.closest('.demo-source-tabs');
-      if (!wrapper) return;
-      const panels = wrapper.querySelectorAll('.demo-source-tab-panel');
-      const targetKey = tab.dataset.tab;
+    if (tab) selectTab(tab);
+  });
 
-      tabs.forEach((t) => {
-        t.classList.toggle('active', t === tab);
-        t.setAttribute('aria-selected', String(t === tab));
-      });
-      panels.forEach((p: Element) => {
-        (p as HTMLElement).hidden = (p as HTMLElement).dataset.panel !== targetKey;
-      });
-    }
+  document.addEventListener('keydown', (e) => {
+    const tab = (e.target as HTMLElement).closest?.('.demo-source-tab') as HTMLElement | null;
+    if (!tab) return;
+    const tabs = Array.from(tab.parentElement?.querySelectorAll<HTMLElement>('.demo-source-tab') ?? []);
+    const current = tabs.indexOf(tab);
+    if (current < 0) return;
+
+    let next = -1;
+    if (e.key === 'ArrowRight') next = (current + 1) % tabs.length;
+    else if (e.key === 'ArrowLeft') next = (current - 1 + tabs.length) % tabs.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = tabs.length - 1;
+    if (next < 0) return;
+
+    e.preventDefault();
+    selectTab(tabs[next]);
+    tabs[next].focus();
   });
 </script>
 
@@ -581,6 +640,8 @@ const inlineHtml = isSimpleHtml ? htmlSource : '';
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    /* WCAG 2.2 SC 2.5.8 Target Size (Minimum) — the intrinsic height was 23.5px. */
+    min-height: 24px;
     border: 1px solid var(--sl-color-gray-5);
     border-radius: 8px;
     background: var(--sl-color-gray-6);

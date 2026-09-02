@@ -170,6 +170,11 @@ The grid uses `aria-live` regions to announce dynamic changes to screen readers:
 - Group expand/collapse ("Group Engineering expanded, 5 rows")
 - Selection changes ("3 rows selected")
 - Editing lifecycle ("Editing row 1", "Row 1 saved")
+- Empty state ("No data to display")
+
+The empty-state overlay is itself `role="presentation"`. It renders inside the grid's row
+container, and `role="grid"` may only own rows and rowgroups — so the message is voiced through the
+grid's own live region instead of being marked up as a status of its own.
 
 ### Configuring Announcements
 
@@ -295,7 +300,7 @@ icon sizes are exactly what they were before the minimum existed:
 | Control | How it reaches 24 px |
 |---|---|
 | Tree, row-group, pivot and master-detail toggles; the row drag handle; the filter button | A transparent overlay centred on the icon |
-| Column resize handle | Absolutely positioned over the column border, so its width costs no layout |
+| Column resize handle | Absolutely positioned over the column border, so its width costs no layout. On the **last** column there is no neighbouring column to reach into, so the handle sits fully inside the cell instead and the cell's trailing padding grows to match |
 | Select-all checkbox | Wrapped in a `<label>`, which makes the whole header cell the target |
 | Row checkbox | The row click already selects, so the target is the cell |
 | Tool-panel splitter | Straddles the panel's docked edge, half outside, so it never covers the panel's own controls |

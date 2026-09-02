@@ -89,7 +89,7 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
           order: 10,
           render: (el) => {
             const span = document.createElement('span');
-            span.style.cssText = 'font-size:13px;color:var(--sl-color-gray-3);padding:4px 8px;background:var(--sl-color-gray-6);border-radius:4px;';
+            span.style.cssText = 'font-size:13px;color:var(--sl-color-gray-2);padding:4px 8px;background:var(--sl-color-gray-6);border-radius:4px;';
             const update = () => { span.textContent = `${grid.rows.length} rows`; };
             const unsub = grid.on('data-change', update);
             el.appendChild(span);

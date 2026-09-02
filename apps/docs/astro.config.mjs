@@ -4,6 +4,7 @@ import { defineConfig } from 'astro/config';
 import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join, resolve } from 'path';
 import remarkGfm from 'remark-gfm';
+import { rehypeAsideRole } from './src/plugins/rehype-aside-role.mjs';
 
 const rootDir = resolve(import.meta.dirname, '../..');
 // The docs site builds into the workspace-wide `dist/docs` output (alongside
@@ -152,6 +153,9 @@ export default defineConfig({
   // table/strikethrough/autolink support (.md files are unaffected).
   markdown: {
     remarkPlugins: [remarkGfm],
+    // Demote Starlight callouts from `complementary` landmarks to `role="note"`;
+    // see src/plugins/rehype-aside-role.mjs.
+    rehypePlugins: [rehypeAsideRole],
   },
 
   redirects: {

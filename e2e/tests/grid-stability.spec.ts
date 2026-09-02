@@ -93,7 +93,7 @@ test.describe('Stability: Error Budget', () => {
     });
     await page.waitForTimeout(100);
 
-    const header = page.locator('[role="columnheader"]:not([data-field^="__tbw_"])').first();
+    const header = page.locator('[role="columnheader"][data-field]:not([data-field^="__tbw_"])').first();
     await header.click();
     await page.waitForTimeout(200);
 

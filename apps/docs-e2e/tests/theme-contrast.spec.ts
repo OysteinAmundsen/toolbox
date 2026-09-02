@@ -32,6 +32,7 @@ const TEXT_PAIRS: ReadonlyArray<readonly [name: string, fg: string, bg: string]>
   ['text on hovered row', '--tbw-color-fg', '--tbw-color-row-hover'],
   ['text on selected row', '--tbw-color-fg', '--tbw-color-selection'],
   ['text on accent', '--tbw-color-accent-fg', '--tbw-color-accent'],
+  ['accent text on grid bg', '--tbw-color-accent-text', '--tbw-color-bg'],
 ];
 
 /** Non-text UI pairs — must reach SC 1.4.11's 3:1. */

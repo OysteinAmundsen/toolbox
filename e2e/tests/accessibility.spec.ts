@@ -60,10 +60,22 @@ function formatViolations(violations: Awaited<ReturnType<typeof scanGrid>>) {
     .join('\n\n');
 }
 
+/**
+ * The first real data-column header.
+ *
+ * `[data-field]` is required, not just `:not([data-field^="__tbw_"])` — column
+ * *group* header cells also carry `role="columnheader"`, sit above the header
+ * row in the DOM, and have `data-group` instead of `data-field`. Without the
+ * attribute-presence guard, `.first()` resolves to a group cell, which renders
+ * its label as bare text and has none of the sort/filter affordances.
+ */
+function dataColumnHeader(page: Page) {
+  return page.locator('[role="columnheader"][data-field]:not([data-field^="__tbw_"])').first();
+}
+
 /** Click a sortable header column to trigger sort. */
 async function sortByHeader(page: Page) {
-  // Use :not([data-field^="__tbw_"]) to skip internal columns (like selection checkbox)
-  const header = page.locator('[role="columnheader"]:not([data-field^="__tbw_"])').first();
+  const header = dataColumnHeader(page);
   // Click the header label, not the cell centre. A header hosts a trailing
   // cluster of controls (filter button, move button, resize handle) that is
   // pushed to the inline end, so on a narrow column the geometric centre can
@@ -615,7 +627,7 @@ test.describe('Accessibility: target size (WCAG 2.2 SC 2.5.8)', () => {
 
     // Several controls only materialise while their cell is hovered. Hovering a
     // header cell reveals the filter and move buttons alongside the handle.
-    await page.locator('[role="columnheader"]:not([data-field^="__tbw_"])').first().hover();
+    await dataColumnHeader(page).hover();
     await page.waitForTimeout(200);
 
     const results = await probeTargets(page, TARGET_SELECTORS, TARGET_SIZE_MIN);

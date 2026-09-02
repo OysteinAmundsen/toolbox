@@ -25,6 +25,9 @@
     /* M3 Primary - Purple/Violet */
     --tbw-color-accent: light-dark(#6750a4, #d0bcff);
     --tbw-color-accent-fg: light-dark(#ffffff, #381e72);
+    /* M3 primary already clears 4.5:1 as text on both surfaces (6.29:1 on
+       #fffbff / 10.05:1 on #1c1b1f), so the text token stays on-palette. */
+    --tbw-color-accent-text: light-dark(#6750a4, #d0bcff);
     --tbw-color-success: light-dark(#146c2e, #6dd58c);
     --tbw-color-error: light-dark(#b3261e, #f2b8b5);
 

@@ -18,6 +18,9 @@
     /* Vibrant purple accent with glow potential */
     --tbw-color-accent: light-dark(#7c3aed, #a78bfa);
     --tbw-color-accent-fg: #ffffff;
+    /* Accent used as *text* owes 4.5:1 (WCAG 1.4.3). Violet-700/-300 keep the
+       purple hue: 6.83:1 on #fafaff / 9.96:1 on #12141c. */
+    --tbw-color-accent-text: light-dark(#6d28d9, #c4b5fd);
     /* emerald-700 rather than -600: #059669 is only 3.77:1 on white (WCAG AA fail). */
     --tbw-color-success: light-dark(#047857, #34d399);
     --tbw-color-error: light-dark(#dc2626, #f87171);

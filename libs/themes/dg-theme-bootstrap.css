@@ -23,6 +23,10 @@
     /* Bootstrap primary (blue) */
     --tbw-color-accent: light-dark(#0d6efd, #6ea8fe);
     --tbw-color-accent-fg: #ffffff;
+    /* Accent used as *text* owes 4.5:1 (WCAG 1.4.3); $blue-600 lands exactly on
+       4.50:1 with no margin, so text uses Bootstrap's $blue-700 emphasis stop.
+       6.44:1 on #ffffff / 6.39:1 on #212529. */
+    --tbw-color-accent-text: light-dark(#0a58ca, #6ea8fe);
     --tbw-color-success: light-dark(#198754, #75b798);
     --tbw-color-error: light-dark(#dc3545, #ea868f);
 

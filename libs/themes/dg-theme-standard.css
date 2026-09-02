@@ -23,6 +23,10 @@
     /* Modern blue accent */
     --tbw-color-accent: light-dark(#2563eb, #3b82f6);
     --tbw-color-accent-fg: #ffffff;
+    /* Accent used as *text* owes 4.5:1 (WCAG 1.4.3), which the surface accent
+       does not guarantee — blue-500 is 4.64:1 on this dark bg with no margin.
+       6.70:1 on #ffffff / 9.46:1 on #1a1c20. */
+    --tbw-color-accent-text: light-dark(#1d4ed8, #93c5fd);
     /* emerald-700 rather than -600: #059669 is only 3.77:1 on white (WCAG AA fail). */
     --tbw-color-success: light-dark(#047857, #34d399);
     --tbw-color-error: light-dark(#dc2626, #f87171);

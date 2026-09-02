@@ -1,7 +1,7 @@
 # @toolbox-web/grid
 
 [![npm](https://img.shields.io/npm/v/@toolbox-web/grid)](https://www.npmjs.com/package/@toolbox-web/grid)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../../LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-❤-ea4aaa?logo=github)](https://github.com/sponsors/OysteinAmundsen)
 
 A high-performance, framework-agnostic data grid built with pure TypeScript and native Web Components. Zero runtime dependencies.

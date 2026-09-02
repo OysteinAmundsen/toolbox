@@ -137,6 +137,16 @@ function copyReadme(): Plugin {
   };
 }
 
+/** Copy LICENSE to dist — MIT requires the notice to ship with every copy of the software. */
+function copyLicense(): Plugin {
+  return {
+    name: 'copy-license',
+    writeBundle() {
+      copyFileSync(resolve(__dirname, 'LICENSE'), resolve(outDir, 'LICENSE'));
+    },
+  };
+}
+
 /**
  * Copy package.json to dist for npm publishing and `yalc push`.
  * The inferred `@nx/vite/plugin` build does NOT emit a package.json (the old
@@ -468,6 +478,7 @@ export default defineConfig(({ command }) => ({
       ? [
           copyThemes(),
           copyReadme(),
+          copyLicense(),
           copyPackageJson(),
           buildPluginModules(),
           buildFeatureModules(),

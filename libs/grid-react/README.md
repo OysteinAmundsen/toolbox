@@ -1,7 +1,7 @@
 # @toolbox-web/grid-react
 
 [![npm](https://img.shields.io/npm/v/@toolbox-web/grid-react.svg)](https://www.npmjs.com/package/@toolbox-web/grid-react)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../../LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-❤-ea4aaa?logo=github)](https://github.com/sponsors/OysteinAmundsen)
 
 React adapter for `@toolbox-web/grid` data grid component. Provides components and hooks for declarative React integration with custom cell renderers and editors.

@@ -1,7 +1,7 @@
 # @toolbox-web/grid-vue
 
 [![npm](https://img.shields.io/npm/v/@toolbox-web/grid-vue.svg)](https://www.npmjs.com/package/@toolbox-web/grid-vue)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../../LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-❤-ea4aaa?logo=github)](https://github.com/sponsors/OysteinAmundsen)
 
 Vue 3 adapter for `@toolbox-web/grid` data grid component. Provides components and composables for declarative Vue integration with custom cell renderers and editors.

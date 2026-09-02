@@ -26,6 +26,16 @@ function copyReadme(): Plugin {
   };
 }
 
+/** Copy LICENSE to dist — MIT requires the notice to ship with every copy of the software. */
+function copyLicense(): Plugin {
+  return {
+    name: 'copy-license',
+    writeBundle() {
+      copyFileSync(path.resolve(import.meta.dirname, 'LICENSE'), path.resolve(outDir, 'LICENSE'));
+    },
+  };
+}
+
 export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/grid-vue',
@@ -50,6 +60,7 @@ export default defineConfig(() => ({
       },
     }),
     copyReadme(),
+    copyLicense(),
     bundleBudget({
       outDir,
       budgets: [{ path: 'index.js', maxSize: 50 * 1024 }],

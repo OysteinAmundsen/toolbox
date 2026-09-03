@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.7.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.6.0...grid-3.7.0) (2026-09-03)
+
+
+### Features
+
+* **responsive:** drive card/table layout switch with element-scoped view transitions ([#470](https://github.com/OysteinAmundsen/toolbox/issues/470)) ([ab07a62](https://github.com/OysteinAmundsen/toolbox/commit/ab07a62ed16c029ac171c74cf3423a8a22c3c8cf))
+
+
+### Bug Fixes
+
+* bring every shipped theme to WCAG AA contrast ([#472](https://github.com/OysteinAmundsen/toolbox/issues/472)) ([26a34d2](https://github.com/OysteinAmundsen/toolbox/commit/26a34d2e452ebcc0783b38cf676621f06c20913d))
+
 ## [3.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.5.3...grid-3.6.0) (2026-08-31)
 
 

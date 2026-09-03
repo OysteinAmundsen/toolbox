@@ -9,11 +9,14 @@
     --tbw-color-bg: light-dark(#ffffff, #212529);
     --tbw-color-panel-bg: light-dark(#f8f9fa, #2b3035);
     --tbw-color-fg: light-dark(#212529, #dee2e6);
-    --tbw-color-fg-muted: light-dark(#6c757d, #adb5bd);
+    /* $gray-600 (#6c757d) lands on 4.45:1 over $gray-100 — 0.05 short of AA. */
+    --tbw-color-fg-muted: light-dark(#6a737b, #adb5bd);
 
     /* Bootstrap border colors */
     --tbw-color-border: light-dark(#dee2e6, #495057);
-    --tbw-color-border-strong: light-dark(#adb5bd, #6c757d);
+    /* Bounds the cell editor's input, so it owes SC 1.4.11's 3:1 — $gray-500
+       (#adb5bd) only reaches 2.07:1 on white. */
+    --tbw-color-border-strong: light-dark(#8e959d, #6c757d);
     --tbw-color-border-cell: light-dark(#dee2e6, #495057);
     --tbw-color-border-header: light-dark(#dee2e6, #495057);
 
@@ -22,7 +25,9 @@
 
     /* Bootstrap primary (blue) */
     --tbw-color-accent: light-dark(#0d6efd, #6ea8fe);
-    --tbw-color-accent-fg: #ffffff;
+    /* $blue-300 is a light fill, so dark mode flips the label to $blue-900 the
+       way Bootstrap's own dark .btn-primary does — white would be 2.42:1. */
+    --tbw-color-accent-fg: light-dark(#ffffff, #052c65);
     /* Accent used as *text* owes 4.5:1 (WCAG 1.4.3); $blue-600 lands exactly on
        4.50:1 with no margin, so text uses Bootstrap's $blue-700 emphasis stop.
        6.44:1 on #ffffff / 6.39:1 on #212529. */
@@ -226,7 +231,7 @@
     --tbw-color-bg: light-dark(#ffffff, #212529);
     --tbw-color-fg: light-dark(#212529, #dee2e6);
     --tbw-color-border: light-dark(#dee2e6, #495057);
-    --tbw-color-border-strong: light-dark(#adb5bd, #6c757d);
+    --tbw-color-border-strong: light-dark(#8e959d, #6c757d);
     --tbw-color-panel-bg: light-dark(#f8f9fa, #2b3035);
     --tbw-color-row-hover: light-dark(rgba(0, 0, 0, 0.075), rgba(255, 255, 255, 0.05));
     --tbw-filter-item-height: 32px;

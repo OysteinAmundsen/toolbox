@@ -1,0 +1,14 @@
+- button "Tool panel width — drag, or activate to set a width"
+- button "🔍 Filter ▶" [expanded]
+- text: Name contains
+- textbox "Name contains":
+  - /placeholder: Search...
+- text: Department
+- combobox "Department":
+  - option "All" [selected]
+  - option "Engineering"
+  - option "Sales"
+  - option "Marketing"
+  - option "Support"
+- button "⚙ Settings ▶"
+- button "☰ Columns ▶"

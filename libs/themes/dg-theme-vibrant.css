@@ -11,13 +11,16 @@
     --tbw-color-fg: light-dark(#1e2430, #f1f5f9);
     --tbw-color-fg-muted: light-dark(#5d6473, #9ba4b4);
     --tbw-color-border: light-dark(#ddddf8, #2e3344);
-    --tbw-color-border-strong: light-dark(#9093c5, #505878);
+    /* Bounds the cell editor's input, so it owes SC 1.4.11's 3:1 in both modes. */
+    --tbw-color-border-strong: light-dark(#8a8dbf, #596181);
     --tbw-color-border-cell: light-dark(#e8e8f8, #252838);
     --tbw-color-border-header: light-dark(#d0d0ec, #3a3f55);
 
     /* Vibrant purple accent with glow potential */
     --tbw-color-accent: light-dark(#7c3aed, #a78bfa);
-    --tbw-color-accent-fg: #ffffff;
+    /* violet-400 is a light fill, so dark mode flips the label to violet-950 —
+       white would be 2.72:1. */
+    --tbw-color-accent-fg: light-dark(#ffffff, #1e1b4b);
     /* Accent used as *text* owes 4.5:1 (WCAG 1.4.3). Violet-700/-300 keep the
        purple hue: 6.83:1 on #fafaff / 9.96:1 on #12141c. */
     --tbw-color-accent-text: light-dark(#6d28d9, #c4b5fd);

@@ -49,6 +49,30 @@ criterion, and it does. The remark then opens with **Author responsibility** and
 part is yours. A custom cell renderer that emits an image without `alt` text is the clearest
 example.
 
+### How each criterion was verified
+
+The **Verified by** column names the evidence, and the evidence is one of four kinds. They are not
+equally strong, and the report does not pretend otherwise:
+
+- **Automated, in CI** — a unit, integration or Playwright test that fails the build on regression.
+  This covers axe-core rule scans on all four framework adapters, computed-style measurement of
+  focus indicators, contrast and target size, and ARIA-tree snapshots that pin the exposed
+  semantics of the grid skeleton and its transient surfaces.
+- **Computed-ratio review** — colour pairs measured in a browser. Where a criterion says so, the
+  measurement is asserted in CI; where it does not, it was measured once at the report date.
+- **Manual review** — a criterion for which no automated check is meaningful (nothing flashes, no
+  instruction depends on shape). Re-checked when the relevant code changes.
+- **Author responsibility** — the grid supplies a conforming mechanism; your content can still
+  break it.
+
+**No assistive technology is driven in CI.** Announcements depend on the AT, the browser and the
+user's verbosity settings, none of which a headless browser models — so a green axe run is evidence
+that the semantics are correct, not that a screen reader says something useful. Screen-reader
+verification is a manual procedure run against release candidates, using the
+[manual verification checklist](/grid/guides/accessibility/#manual-verification-checklist). Where a
+criterion's claim rests on what a user *hears* rather than on what is in the DOM — 1.3.1, 3.3.1,
+3.3.2, 4.1.2, 4.1.3 in particular — read the automated evidence as necessary but not sufficient.
+
 <Aside type="tip" title="No opt-out">
 None of this is configurable, because none of it should be a decision. There is no
 `accessibility: false`. Where a requirement risked getting in the way of everyday use, the answer
@@ -91,7 +115,7 @@ than being stamped onto every cell.
 | 3.3.1 Error Identification | Supports | A cell that fails validation gets `aria-invalid="true"` and a `title` carrying the message, alongside the visual state — so the error reaches assistive technology, not only CSS. | [editing-integration.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/editing/editing-integration.spec.ts) — "invalid cells" |
 | 3.3.2 Labels or Instructions | Supports | An injected editor takes its accessible name from its column header unless it already names itself, so it is never announced as a bare "edit text". | [editor-injection.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/editing/internal/editor-injection.spec.ts) — "Accessible name" |
 | 3.3.7 Redundant Entry | Not Applicable | The grid runs no multi-step process. | — |
-| 4.1.2 Name, Role, Value | Supports | Verified by the axe-core scan on all four framework demos, plus targeted tests for sort state, expansion state, selection state and editor naming. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "no WCAG 2.2 AA violations axe can detect"; [editor-injection.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/editing/internal/editor-injection.spec.ts) |
+| 4.1.2 Name, Role, Value | Supports | Verified by the axe-core scan on all four framework demos, plus targeted tests for sort state, expansion state, selection state and editor naming. Transient surfaces — filter panel, context menu and submenu, overlay editor, export dialog, expanded detail and tree rows, open tool panel — are scanned *after* the interaction that creates them, and the exposed accessibility tree is pinned by snapshot so a silent naming regression fails the build. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "no WCAG 2.2 AA violations axe can detect"; [a11y.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/apps/docs-e2e/tests/a11y.spec.ts) — transient surfaces; [aria-snapshot.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/apps/docs-e2e/tests/aria-snapshot.spec.ts); [editor-injection.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/editing/internal/editor-injection.spec.ts) |
 
 <Aside type="note">
 SC 4.1.1 Parsing is not listed: it was removed in WCAG 2.2 and is always considered satisfied.
@@ -105,7 +129,7 @@ SC 4.1.1 Parsing is not listed: it was removed in WCAG 2.2 and is always conside
 | 1.2.5 Audio Description | Not Applicable | The grid renders no time-based media. | — |
 | 1.3.4 Orientation | Supports | Nothing is locked to portrait or landscape. | Manual review — the grid sets no orientation lock |
 | 1.3.5 Identify Input Purpose | Supports | The grid edits arbitrary records, not information about the user. **Author responsibility:** where a column *does* collect the user's own data, set `autocomplete` on your editor. | — author responsibility |
-| 1.4.3 Contrast (Minimum) | Supports | The default light and dark themes meet 4.5:1 on every text pair, and `dg-theme-contrast.css` / `dg-theme-large.css` reach the Level AAA 7:1. **Author responsibility:** a theme of your own is yours to verify. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — axe `color-contrast` runs against the shipped default theme. The AAA figure for the contrast and large themes is from computed-ratio review, not CI |
+| 1.4.3 Contrast (Minimum) | Supports | All six shipped themes meet 4.5:1 on every text pair in both light and dark mode; `dg-theme-contrast.css` / `dg-theme-large.css` reach the Level AAA 7:1. Translucent row tints are composited over the grid background before scoring, so the ratio is the one actually painted. **Author responsibility:** a theme of your own is yours to verify. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — axe `color-contrast` runs against the shipped default theme; [theme-contrast.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/apps/docs-e2e/tests/theme-contrast.spec.ts) asserts the ratio for every theme × both modes in a browser on every run |
 | 1.4.4 Resize Text | Supports | All internal sizing is `em`-based off a single `--tbw-font-size`, so the grid scales with the user's font size without clipping. | [variables.css](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/styles/variables.css) plus the text-spacing e2e below, which resizes text and asserts no clipping |
 | 1.4.5 Images of Text | Supports | The grid renders text as text; its icons are SVG or glyphs, not pictures of words. | Manual review — no automated check is meaningful |
 | 1.4.10 Reflow | Supports | Nothing around the table needs a second scrollbar at 320 px: the tool panel is clamped to its container, the header truncates its title before its controls. The table itself uses the SC's explicit two-dimensional-layout exception for data tables, and the [Responsive plugin](/grid/plugins/responsive/) offers card mode where you would rather it reflowed. See [Reflow and text spacing](/grid/guides/accessibility/#reflow-and-text-spacing). | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "the page does not scroll horizontally at 320px", "the tool panel stays inside the grid it docks into" |
@@ -117,7 +141,7 @@ SC 4.1.1 Parsing is not listed: it was removed in WCAG 2.2 and is always conside
 | 2.4.7 Focus Visible | Supports | A 2 px `outline` focus ring that survives forced-colors mode. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "focus-visible indicators exist on focusable elements" |
 | 2.4.11 Focus Not Obscured (Minimum) | Supports | Plugins that overlay the rows viewport report the band they cover, and keyboard navigation scrolls the focused cell clear of it rather than underneath — [sticky rows](/grid/plugins/sticky-rows/) vertically, [pinned columns](/grid/plugins/pinned-columns/) horizontally. | [sticky-rows.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/sticky-rows/sticky-rows.spec.ts), [pinned-columns.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/pinned-columns/pinned-columns.spec.ts), [keyboard.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/keyboard.spec.ts) |
 | 2.5.7 Dragging Movements | Supports | All ten drag surfaces have a single-pointer alternative, shipped in the same bundle unit as the drag it replaces so conformance never depends on an optional plugin. | [reorder-plugin.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/reorder-columns/reorder-plugin.spec.ts), [row-drag-drop.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/row-drag-drop/row-drag-drop.spec.ts), [range-selection.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/selection/range-selection.spec.ts), [resize.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/core/internal/resize.spec.ts), [pivot-panel.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/src/lib/plugins/pivot/pivot-panel.spec.ts) |
-| 2.5.8 Target Size (Minimum) | Supports | Every control answers a pointer across at least 24 × 24 px, on a mouse as well as a finger. Small controls reach it with a transparent overlay, so visual density is unchanged. Raise `--tbw-touch-target-min` to 44 px for the Level AAA criterion. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "small grid controls answer a pointer across a 24px square", "the tool panel splitter answers a pointer across a 24px square" |
+| 2.5.8 Target Size (Minimum) | Supports | Every control answers a pointer across at least 24 × 24 px, on a mouse as well as a finger. Small controls reach it with a transparent overlay, so visual density is unchanged. Raise `--tbw-touch-target-min` to 44 px for the Level AAA criterion. | [accessibility.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/accessibility.spec.ts) — "small grid controls answer a pointer across a 24px square", "the tool panel splitter answers a pointer across a 24px square"; [a11y.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/apps/docs-e2e/tests/a11y.spec.ts) measures in-cell controls too, discounting only the part of a control a scroller actually clips |
 | 3.1.2 Language of Parts | Not Applicable | The grid introduces no language changes of its own. | — |
 | 3.2.3 Consistent Navigation | Not Applicable | Page-level; supplied by your application. | — |
 | 3.2.4 Consistent Identification | Supports | The same control means the same thing in every column, plugin and framework adapter. | [cross-framework-visual.spec.ts](https://github.com/OysteinAmundsen/toolbox/blob/main/e2e/tests/cross-framework-visual.spec.ts) — parity across all four adapters |

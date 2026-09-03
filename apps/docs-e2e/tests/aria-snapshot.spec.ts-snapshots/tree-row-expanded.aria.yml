@@ -1,0 +1,4 @@
+- row "▼ Documents folder -" [expanded] [level=1]:
+  - gridcell "▼ Documents" [selected]
+  - gridcell "folder"
+  - gridcell "-"

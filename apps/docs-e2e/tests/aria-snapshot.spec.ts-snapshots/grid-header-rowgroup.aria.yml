@@ -1,0 +1,17 @@
+- rowgroup:
+  - row "ID Name Department Salary Email":
+    - columnheader "ID":
+      - text: ""
+      - button "Width of column ID"
+    - columnheader "Name":
+      - text: ""
+      - button "Width of column Name"
+    - columnheader "Department":
+      - text: ""
+      - button "Width of column Department"
+    - columnheader "Salary":
+      - text: ""
+      - button "Width of column Salary"
+    - columnheader "Email":
+      - text: ""
+      - button "Width of column Email"

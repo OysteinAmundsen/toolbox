@@ -18,31 +18,27 @@ import { DEMOS, waitForGridReady, waitForGridReadyMobile } from './utils';
  * `wcag22aa` alone covers only the criteria 2.2 introduced, so the 2.0 and 2.1
  * tags have to ride along or the scan quietly checks a handful of rules.
  */
-const WCAG22AA_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+const WCAG22AA_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa'];
 
 /**
- * Run axe-core scan scoped to the grid element with sensible rule config.
+ * Run axe-core scan scoped to the grid element.
  * Returns the violations array for assertion.
  *
- * Runs every rule axe knows by default. Pass `tags` to narrow the scan to a
- * published conformance target instead.
+ * Runs every rule axe knows, with **nothing disabled by default**. This gate
+ * previously suppressed `aria-required-children` and `scrollable-region-focusable`
+ * for the whole suite on the theory that the `role="presentation"` wrapper chain
+ * and row virtualization produced false positives. They did not — they produced
+ * real defects that the suppression hid until a manual audit found them. Any
+ * exclusion now has to be argued per test, at the call site, next to the
+ * assertion it weakens.
+ *
+ * Pass `tags` to narrow the scan to a published conformance target.
  */
 async function scanGrid(page: Page, disableRules: string[] = [], tags?: string[]) {
   // Scope scan to the grid element to avoid flagging the demo page chrome
-  let builder = new AxeBuilder({ page }).include('tbw-grid').disableRules([
-    // Virtualization recycles rows outside the visible viewport —
-    // axe may flag hidden content that is intentionally aria-hidden or off-screen.
-    'scrollable-region-focusable',
-    // The grid uses role="presentation" wrappers (.rows-container, .rows-viewport)
-    // between role="grid" and role="rowgroup" for layout. Per ARIA spec, presentation
-    // is semantically transparent, but axe-core still flags the intermediate elements.
-    'aria-required-children',
-    // The grid uses light DOM, so color-contrast checks on the host element
-    // can produce false positives when theme vars are applied externally.
-    // We test contrast separately per theme below.
-    ...disableRules,
-  ]);
+  let builder = new AxeBuilder({ page }).include('tbw-grid');
 
+  if (disableRules.length) builder = builder.disableRules(disableRules);
   if (tags) builder = builder.withTags(tags);
 
   const results = await builder.analyze();

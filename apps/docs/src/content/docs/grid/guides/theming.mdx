@@ -64,8 +64,8 @@ import '@toolbox-web/grid/themes/dg-theme-material.css';
 | **Material** | Material Design 3 inspired |
 | **Bootstrap** | Bootstrap 5 styling |
 | **Vibrant** | Bold purple accents |
-| **Contrast** | High contrast for accessibility — [WCAG AAA](/grid/guides/accessibility/#accessibility-themes-aaa-contrast) text contrast |
-| **Large** | Larger fonts and spacing — [WCAG AAA](/grid/guides/accessibility/#accessibility-themes-aaa-contrast) text contrast |
+| **Contrast** | High contrast for accessibility — [WCAG AAA](/grid/guides/accessibility/#theme-contrast) text contrast |
+| **Large** | Larger fonts and spacing — [WCAG AAA](/grid/guides/accessibility/#theme-contrast) text contrast |
 
 ## Dark Mode Support
 
@@ -101,9 +101,15 @@ Use the theme builder below to customize every CSS variable in real-time — inc
 
 ## CSS Variable Reference
 
-The tables below list **all 228 CSS custom properties** across core styles and every plugin, with their **live computed values** in this page. Toggle between light and dark mode to see how values change.
+The tables below list **all 230 CSS custom properties** across core styles and every plugin, with their **live computed values** in this page. Toggle between light and dark mode to see how values change.
 
 <CSSVariableReference />
+
+:::caution[Accent is a surface token, not a text token]
+`--tbw-color-accent` is tuned for focus rings, borders and fills, where WCAG only requires 3:1.
+When you apply accent to **text**, use `--tbw-color-accent-text` instead — it is the AA-safe
+(4.5:1) counterpart. Overriding one does not change the other, so set both when you re-brand.
+:::
 
 ## Building a Custom Theme
 

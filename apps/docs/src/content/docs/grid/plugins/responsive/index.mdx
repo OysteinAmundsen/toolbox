@@ -340,7 +340,7 @@ Angular uses `<ng-template>` with implicit context binding (`let-row`, `let-inde
 | `hide-header` | `'true' \| 'false'` | Hide the per-card field label (e.g. `Name:`). Default `'false'`. Does not affect the column header row, which is always hidden in card mode. |
 | `debounce-ms` | `number` | Minimum interval in ms between layout switches |
 
-:::note
+:::note[Attribute precedence]
 Light DOM attributes override constructor config when both are present.
 :::
 
@@ -376,7 +376,7 @@ The breakpoint should be based on your grid's column count and content:
 | 6-10 columns | 600-800px |
 | 10+ columns | 900-1200px |
 
-:::note
+:::note[breakpoint is required]
 If no breakpoint is configured (or set to 0), a warning is logged and responsive mode is effectively disabled.
 :::
 

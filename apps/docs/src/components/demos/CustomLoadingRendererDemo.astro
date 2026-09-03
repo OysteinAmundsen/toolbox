@@ -53,6 +53,15 @@
         0% { transform: translateX(-100%); }
         100% { transform: translateX(400%); }
       }
+      /* WCAG 2.2.2: the loop runs for as long as the grid is loading, so under
+         reduced motion fall back to a static full-width bar rather than a
+         sliver frozen mid-travel. */
+      @media (prefers-reduced-motion: reduce) {
+        .progress-bar {
+          animation: none;
+          width: 100%;
+        }
+      }
     `);
 
     grid.gridConfig = {

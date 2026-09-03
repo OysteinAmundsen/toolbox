@@ -100,10 +100,27 @@
         &:last-child {
           border-right: 0;
 
-          /* Clip resize handle on last column to prevent horizontal overflow */
+          /* The last column has no neighbour to bleed into, so the handle is
+             pulled fully inside the cell instead of overflowing it. Keep the
+             full target width rather than clipping to half — a 9px-wide handle
+             fails SC 2.5.8, and it is the one handle with no adjacent column
+             header to fall back on for spacing. */
           .resize-handle {
             right: 0;
-            width: calc(var(--tbw-resize-hit-area, 18px) / 2);
+            width: max(var(--tbw-resize-hit-area, 18px), var(--tbw-touch-target-min, 24px));
+
+            /* Hit area grew inward; pin the visible bar back to the cell edge
+               so it still reads as the column boundary. */
+            &::before {
+              left: auto;
+              right: 0;
+              transform: none;
+            }
+          }
+
+          /* Matching reservation for the now full-width handle (see below). */
+          &.resizable {
+            padding-inline-end: max(var(--tbw-cell-padding-h, 0.5em), var(--tbw-touch-target-min, 24px));
           }
         }
 

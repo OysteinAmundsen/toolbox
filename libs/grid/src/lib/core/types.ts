@@ -2518,6 +2518,10 @@ export interface A11yMessages {
   groupCollapsed: (name: string) => string;
   /** Announced when row selection changes. */
   selectionChanged: (count: number) => string;
+  /** Accessible name for the header "select all rows" checkbox. @since 3.7.0 */
+  selectAllRows: () => string;
+  /** Accessible name for a row's selection checkbox. `rowIndex` is zero-based. @since 3.7.0 */
+  selectRow: (rowIndex: number) => string;
   /** Announced when a single column is selected. @since 2.8.0 */
   columnSelected: (label: string) => string;
   /** Announced when multiple columns are selected. @since 2.8.0 */

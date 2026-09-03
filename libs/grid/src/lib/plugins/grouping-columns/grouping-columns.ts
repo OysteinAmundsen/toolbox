@@ -336,6 +336,10 @@ export function buildGroupHeaderRow(
     const cell = document.createElement('div');
     cell.className = 'cell header-group-cell';
     if (isImplicit) cell.classList.add('implicit-group');
+    // `role="row"` only permits cell-ish owned children (WCAG 1.3.1 / axe
+    // `aria-required-children`). Real groups are column headers; the implicit
+    // spacers carry no label, so they are removed from the a11y tree instead.
+    cell.setAttribute('role', isImplicit ? 'presentation' : 'columnheader');
     cell.setAttribute('data-group', gid);
     cell.style.gridColumn = `${startIndex + 1} / span ${span}`;
 

@@ -56,6 +56,11 @@ function setIcon(element: HTMLElement, icon: IconValue): void {
 function createSortIndicator(grid: InternalGrid, col: ColumnInternal): HTMLElement {
   const icon = document.createElement('span');
   addPart(icon, 'sort-indicator');
+  // Decorative. The sort state is carried by `aria-sort` on the cell, so the
+  // glyph adds nothing but noise — and because it is drawn with a CSS
+  // `::before`, Chrome folds its content into the header's name-from-content,
+  // announcing "Name ⇅" instead of "Name".
+  icon.setAttribute('aria-hidden', 'true');
   const active = grid._sortState?.field === col.field ? grid._sortState.direction : 0;
   const iconKey: keyof GridIcons = active === 1 ? 'sortAsc' : active === -1 ? 'sortDesc' : 'sortNone';
 
@@ -259,6 +264,19 @@ export function renderHeader(grid: GridHost): void {
       const span = document.createElement('span');
       span.textContent = headerValue;
       cell.appendChild(span);
+
+      // Pin the accessible name to the column label.
+      //
+      // `columnheader` takes its name from content, and "content" includes every
+      // descendant's text alternative — so the resize handle (a `role="button"`
+      // with `aria-label="Width of column Name"`, deliberately exposed for SC
+      // 2.5.7) and the filter button plugins inject here both get concatenated
+      // in. Without this, every header in the grid announces as
+      // "Name ⇅ Width of column Name". An explicit label stops the traversal;
+      // it is safe against SC 2.5.3 Label in Name because it is character-for-
+      // character the visible text. Only the default branch does this — a
+      // consumer-supplied `headerRenderer` owns its own naming.
+      cell.setAttribute('aria-label', headerValue);
 
       // Standard affordances
       if (isColumnSortable(grid, col)) {

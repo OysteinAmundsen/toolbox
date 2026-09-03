@@ -14,6 +14,9 @@
        white on dark red (8.2:1) / black on light red (8.7:1). */
     --tbw-color-accent: light-dark(#a30000, #ff8080);
     --tbw-color-accent-fg: light-dark(#ffffff, #000000);
+    /* Accent already clears this theme's AAA bar as text (8.21:1 / 8.65:1);
+       pinned so it tracks the red palette instead of the core blue default. */
+    --tbw-color-accent-text: light-dark(#a30000, #ff8080);
     --tbw-color-selection: light-dark(#ffe9a8, #333333);
     --tbw-color-row-alt: light-dark(#f2f2f2, #111111);
     --tbw-color-row-hover: light-dark(#e6f2ff, #1c1c1c);

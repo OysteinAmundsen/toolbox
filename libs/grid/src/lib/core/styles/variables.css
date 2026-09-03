@@ -48,9 +48,16 @@
     --tbw-color-fg-muted: light-dark(#555555, #aaaaaa);
     --tbw-color-accent: light-dark(#3b82f6, #3b82f6);
     --tbw-color-accent-fg: light-dark(#ffffff, #000000);
-    --tbw-color-success: light-dark(hsl(122, 39%, 40%), hsl(122, 39%, 49%));
+    /* `--tbw-color-accent` is a *surface* token (focus rings, borders, fills) and
+       is deliberately vivid — at ~3:1 on white it is not safe as a text color.
+       Use `--tbw-color-accent-text` when accent is applied to text (WCAG 1.4.3). */
+    --tbw-color-accent-text: light-dark(#1d4ed8, #93c5fd);
+    /* Status colors double as text colors (e.g. context-menu danger items, cell
+       renderers), so both stops must clear WCAG 1.4.3 AA (4.5:1) against the
+       light and dark surfaces. success 5.33:1 on #fff, error 4.95:1 on #222. */
+    --tbw-color-success: light-dark(hsl(122, 39%, 34%), hsl(122, 39%, 49%));
     --tbw-color-warning: light-dark(hsl(38, 92%, 50%), hsl(38, 92%, 50%));
-    --tbw-color-error: light-dark(hsl(0, 65%, 51%), hsl(0, 65%, 55%));
+    --tbw-color-error: light-dark(hsl(0, 65%, 51%), hsl(0, 65%, 65%));
     --tbw-color-danger: var(--tbw-color-error);
     --tbw-color-selection: light-dark(#fff7d6, #333333);
     --tbw-color-row-alt: var(--tbw-color-bg);

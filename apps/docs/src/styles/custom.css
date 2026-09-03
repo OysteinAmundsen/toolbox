@@ -10,7 +10,10 @@
  */
 @layer tbw-base, tbw-plugins, tbw-theme;
 
-/* Accent color — matches the grid's brand blue */
+/* Accent color — matches the grid's brand blue.
+   `--sl-color-accent` is a BACKGROUND/BORDER token; `--sl-color-text-accent` is
+   the text one. Anything that colours text must use the latter, or dark mode
+   renders brand blue on a near-black chip (2.9:1). */
 :root {
   --sl-color-accent-low: #1e3a5f;
   --sl-color-accent: #2563eb;
@@ -31,7 +34,10 @@
 
 :root[data-theme='light'] {
   --sl-color-accent-low: #dbeafe;
-  --sl-color-accent: #2563eb;
+  /* #1d4ed8, not #2563eb: light mode uses the accent as text, and #2563eb only
+     reaches 4.46:1 on the inline-code chip background. #1d4ed8 gives 5.78:1
+     there and 6.70:1 on white, while staying AA with white text as a button fill. */
+  --sl-color-accent: #1d4ed8;
   --sl-color-accent-high: #1e3a5f;
 }
 
@@ -198,7 +204,7 @@ kbd {
 }
 
 .framework-tabs [role='tab'][aria-selected='true'] {
-  color: var(--sl-color-accent);
+  color: var(--sl-color-text-accent);
   border-bottom-color: var(--sl-color-accent);
 }
 
@@ -217,6 +223,14 @@ kbd {
 
 .framework-tabs [role='tabpanel'][hidden] {
   display: none;
+}
+
+/* Starlight's own <Tabs> uses --sl-color-gray-3 for unselected tab labels.
+   That is 4.48:1 on the page background and drops to ~4:1 when a <Tabs> is
+   nested inside a callout (`:::tip` etc.), failing WCAG 1.4.3. gray-1 is the
+   near-text token and clears 4.5:1 on every aside tint in both schemes. */
+starlight-tabs [role='tab']:not([aria-selected='true']) {
+  color: var(--sl-color-gray-1);
 }
 
 /* Override Starlight's right-sidebar / main-pane sizing so the TOC sidebar
@@ -317,6 +331,22 @@ kbd {
   border-radius: 999px;
   vertical-align: 0.15em;
   white-space: nowrap;
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────────────────
+   WCAG 2.3.3 (AAA) plus 2.2.2 for the indefinite loaders. Scoped to the docs
+   chrome and demo shells; the grid ships its own reduced-motion handling via
+   `animation: { mode: 'reduced-motion' }`. `revert-layer` is deliberately not
+   used — these have to beat component-scoped Astro styles too. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ── Print ──────────────────────────────────────────────────────────────────

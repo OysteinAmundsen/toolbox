@@ -24,8 +24,10 @@ export const SELECTORS = {
   grid: 'tbw-grid',
   container: '.tbw-grid-root',
   header: '.header[role="rowgroup"]',
-  headerRow: '[role="row"]:has([role="columnheader"])',
-  headerCell: '[role="columnheader"]',
+  // Column *group* header cells also carry `role="columnheader"` and sit in
+  // their own row above the real header, so both selectors exclude them.
+  headerRow: '[role="row"]:not(.header-group-row):has([role="columnheader"])',
+  headerCell: '[role="columnheader"]:not(.header-group-cell)',
   body: '.rows-viewport',
   row: '[role="row"]:has([role="gridcell"])',
   cell: '[role="gridcell"]',

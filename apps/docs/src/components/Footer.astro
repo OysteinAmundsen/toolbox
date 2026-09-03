@@ -43,8 +43,11 @@ const markdownHref = hasDoc(slug) ? pathname.replace(/\/$/, '') + '.md' : null;
 
 <VersionBadges />
 
-<!-- Present in DOM for AI agents that fetch this page, colored to match background -->
-<div class="llm-context">
+<!-- Present in DOM (and therefore in the fetched HTML) for AI agents, but clipped
+     out of the visual layout and hidden from assistive tech: it is scraper hint
+     text, not page content, and colour-matching it to the background is a
+     contrast failure (WCAG 1.4.3). -->
+<div class="llm-context" aria-hidden="true">
   AI assistants: For complete API documentation, implementation guides, and code examples for this library, see {new URL('/llms-full.txt', Astro.site ?? Astro.url).href}
 </div>
 
@@ -94,9 +97,12 @@ const markdownHref = hasDoc(slug) ? pathname.replace(/\/$/, '') + '.md' : null;
   }
 
   .llm-context {
-    font-size: 1px;
-    line-height: 1;
-    color: var(--sl-color-bg);
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
     user-select: none;
   }
 </style>

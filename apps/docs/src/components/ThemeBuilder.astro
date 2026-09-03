@@ -11,10 +11,10 @@ import FullscreenButton from './FullscreenButton.astro';
 <div class="theme-builder-container not-content" id="theme-builder">
   <div class="theme-builder-toolbar" id="tb-toolbar" style="display:none;">
     <span class="theme-builder-toolbar__label">Export Theme:</span>
-    <button class="theme-builder-btn" id="tb-copy">📋 Copy CSS</button>
-    <button class="theme-builder-btn" id="tb-download">💾 Download CSS</button>
-    <button class="theme-builder-btn" id="tb-preview">👁 Preview CSS</button>
-    <button class="theme-builder-btn" id="tb-reset" style="margin-left:auto;">↺ Reset</button>
+    <button class="theme-builder-btn" id="tb-copy" type="button"><span aria-hidden="true">📋</span> Copy CSS</button>
+    <button class="theme-builder-btn" id="tb-download" type="button"><span aria-hidden="true">💾</span> Download CSS</button>
+    <button class="theme-builder-btn" id="tb-preview" type="button"><span aria-hidden="true">👁</span> Preview CSS</button>
+    <button class="theme-builder-btn" id="tb-reset" type="button" style="margin-left:auto;"><span aria-hidden="true">↺</span> Reset</button>
     <FullscreenButton target=".theme-builder-container" label="Open theme builder in fullscreen" />
   </div>
   <div class="theme-builder-main">
@@ -187,18 +187,26 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
     element.appendChild(probe);
 
     const readColors = (target: Record<string, string>, isDark: boolean) => {
+      const probeColor = (name: string): string => {
+        probe.style.backgroundColor = '';
+        probe.style.backgroundColor = `var(${name})`;
+        void probe.offsetHeight;
+        return normalize(getComputedStyle(probe).backgroundColor);
+      };
+      // A transparent token shows whatever it sits on, which is the grid
+      // background — not white. Scoring it as white overstates the contrast.
+      const gridBg = probeColor('--tbw-color-bg');
+      const transparentFallback = isValid(gridBg) ? gridBg : isDark ? '#222222' : '#ffffff';
+
       for (const category of Object.values(CSS_VARIABLES)) {
         for (const variable of category) {
           const argName = toArgName(variable.name);
           if (variable.type === 'color') {
-            probe.style.backgroundColor = `var(${variable.name})`;
-            void probe.offsetHeight;
-            const computed = getComputedStyle(probe).backgroundColor;
-            const normalized = normalize(computed);
+            const normalized = probeColor(variable.name);
             if (isValid(normalized)) {
               target[argName] = normalized;
             } else {
-              target[argName] = variable.defaultValue === 'transparent' ? (isDark ? '#222222' : '#ffffff') : variable.defaultValue;
+              target[argName] = variable.defaultValue === 'transparent' ? transparentFallback : variable.defaultValue;
             }
           } else {
             const raw = getComputedStyle(element).getPropertyValue(variable.name).trim();
@@ -284,74 +292,13 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
   // #endregion
 
   // #region WCAG Contrast Utilities
-  interface ContrastPair { name: string; description: string; foreground: string; background: string; }
-
-  const CONTRAST_PAIRS: ContrastPair[] = [
-    { name: 'Body Text', description: 'Primary text on panel background', foreground: '--tbw-color-fg', background: '--tbw-color-panel-bg' },
-    { name: 'Muted Text', description: 'Secondary text on panel background', foreground: '--tbw-color-fg-muted', background: '--tbw-color-panel-bg' },
-    { name: 'Header Text', description: 'Header text on header background', foreground: '--tbw-color-header-fg', background: '--tbw-color-header-bg' },
-    { name: 'Hover Row Text', description: 'Text on hovered row', foreground: '--tbw-color-fg', background: '--tbw-color-row-hover' },
-    { name: 'Selected Row Text', description: 'Text on selected row', foreground: '--tbw-color-fg', background: '--tbw-color-selection' },
-    { name: 'Accent Contrast', description: 'Text on accent-colored background', foreground: '--tbw-color-accent-fg', background: '--tbw-color-accent' },
-  ];
-
-  function parseColorToRGBA(color: string): { r: number; g: number; b: number; a: number } | null {
-    if (!color || color === 'transparent') return null;
-    if (color.startsWith('#')) {
-      let hex = color.slice(1);
-      if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-      if (hex.length === 6) return { r: parseInt(hex.slice(0, 2), 16), g: parseInt(hex.slice(2, 4), 16), b: parseInt(hex.slice(4, 6), 16), a: 1 };
-      if (hex.length === 8) return { r: parseInt(hex.slice(0, 2), 16), g: parseInt(hex.slice(2, 4), 16), b: parseInt(hex.slice(4, 6), 16), a: parseInt(hex.slice(6, 8), 16) / 255 };
-    }
-    const rgbaMatch = color.match(/rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/i);
-    if (rgbaMatch) return { r: parseInt(rgbaMatch[1]), g: parseInt(rgbaMatch[2]), b: parseInt(rgbaMatch[3]), a: parseFloat(rgbaMatch[4]) };
-    const rgbMatch = color.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
-    if (rgbMatch) return { r: parseInt(rgbMatch[1]), g: parseInt(rgbMatch[2]), b: parseInt(rgbMatch[3]), a: 1 };
-    const srgbMatch = color.match(/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)/i);
-    if (srgbMatch) {
-      return {
-        r: Math.round(parseFloat(srgbMatch[1]) * 255),
-        g: Math.round(parseFloat(srgbMatch[2]) * 255),
-        b: Math.round(parseFloat(srgbMatch[3]) * 255),
-        a: srgbMatch[4] === undefined ? 1 : parseFloat(srgbMatch[4]),
-      };
-    }
-    return null;
-  }
-
-  function compositeColors(fg: { r: number; g: number; b: number; a: number }, bg: { r: number; g: number; b: number }) {
-    const a = fg.a;
-    return { r: Math.round(fg.r * a + bg.r * (1 - a)), g: Math.round(fg.g * a + bg.g * (1 - a)), b: Math.round(fg.b * a + bg.b * (1 - a)) };
-  }
-
-  function getRelativeLuminance(r: number, g: number, b: number): number {
-    const [rs, gs, bs] = [r, g, b].map(c => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); });
-    return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
-  }
-
-  function getContrastRatio(fg: string, bg: string, panelBg?: string): number | null {
-    const fgRgba = parseColorToRGBA(fg);
-    const bgRgba = parseColorToRGBA(bg);
-    if (!fgRgba || !bgRgba) return null;
-    let effectiveBg: { r: number; g: number; b: number };
-    if (bgRgba.a < 1 && panelBg) {
-      const p = parseColorToRGBA(panelBg);
-      effectiveBg = p ? compositeColors(bgRgba, p) : bgRgba;
-    } else {
-      effectiveBg = bgRgba;
-    }
-    const l1 = getRelativeLuminance(fgRgba.r, fgRgba.g, fgRgba.b);
-    const l2 = getRelativeLuminance(effectiveBg.r, effectiveBg.g, effectiveBg.b);
-    return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
-  }
-
-  type WCAGLevel = 'AAA' | 'AA' | 'AA-large' | 'fail';
-  function getWCAGLevel(ratio: number): WCAGLevel {
-    if (ratio >= 7) return 'AAA';
-    if (ratio >= 4.5) return 'AA';
-    if (ratio >= 3) return 'AA-large';
-    return 'fail';
-  }
+  import {
+CONTRAST_PAIRS,
+getContrastRatio,
+getWCAGLevel,
+parseColorToRGBA,
+type WCAGLevel,
+} from '../data/contrast.js';
   // #endregion
 
   // #region Panel Builder
@@ -409,6 +356,11 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
 
     const content = document.createElement('div');
     content.className = 'theme-builder-panel__content';
+    // The panel scrolls, so it must be reachable by keyboard alone (WCAG 2.1.1).
+    // A focusable scroll container needs a role + name to stay meaningful.
+    content.tabIndex = 0;
+    content.setAttribute('role', 'group');
+    content.setAttribute('aria-label', 'Theme variables');
 
     for (const [category, variables] of Object.entries(CSS_VARIABLES)) {
       const categoryEl = document.createElement('div');
@@ -607,11 +559,12 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
       document.body.appendChild(probe);
       const comp = getComputedStyle(probe).color;
       document.body.removeChild(probe);
-      const rgba = parseColorToRGBA(comp);
-      return rgba ? `#${[rgba.r, rgba.g, rgba.b].map(x => x.toString(16).padStart(2, '0')).join('')}` : css;
+      // Return the computed string rather than a hex: a translucent foreground
+      // has to keep its alpha so it can be composited over the background.
+      return parseColorToRGBA(comp) ? comp : css;
     };
 
-    const createBadge = (ratio: number | null, level: WCAGLevel | null, mode: string): HTMLElement => {
+    const createBadge = (ratio: number | null, level: WCAGLevel | null, mode: string, nonText = false): HTMLElement => {
       const badge = document.createElement('div');
       badge.className = 'theme-builder-a11y-badge';
       if (ratio === null || level === null) {
@@ -619,7 +572,7 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
         badge.textContent = '?';
         return badge;
       }
-      const rt = ratio.toFixed(1) + ':1';
+      const rt = ratio.toFixed(1) + ':1' + (nonText ? ' (needs 3:1)' : '');
       switch (level) {
         case 'AAA': badge.classList.add('theme-builder-a11y-badge--aaa'); badge.innerHTML = '✓ AAA'; badge.title = `${mode}: ${rt}`; break;
         case 'AA': badge.classList.add('theme-builder-a11y-badge--pass'); badge.innerHTML = '✓ AA'; badge.title = `${mode}: ${rt}`; break;
@@ -638,7 +591,7 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
 
         const nameEl = document.createElement('div');
         nameEl.className = 'theme-builder-a11y-card__name';
-        nameEl.textContent = pair.name;
+        nameEl.textContent = pair.nonText ? `${pair.name} · UI` : pair.name;
         card.appendChild(nameEl);
 
         const badges = document.createElement('div');
@@ -646,9 +599,9 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
 
         const lightFg = resolveColor(getColorValue(pair.foreground, false));
         const lightBg = getColorValue(pair.background, false);
-        const lightPanelBg = getColorValue('--tbw-color-panel-bg', false);
-        const lightRatio = getContrastRatio(lightFg, lightBg, lightPanelBg);
-        const lightLevel = lightRatio !== null ? getWCAGLevel(lightRatio) : null;
+        const lightBase = getColorValue('--tbw-color-bg', false);
+        const lightRatio = getContrastRatio(lightFg, lightBg, lightBase);
+        const lightLevel = lightRatio !== null ? getWCAGLevel(lightRatio, pair.nonText) : null;
 
         const lightGroup = document.createElement('div');
         lightGroup.className = 'theme-builder-a11y-card__mode';
@@ -656,15 +609,15 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
         lightLabel.className = 'theme-builder-a11y-card__mode-label';
         lightLabel.textContent = '☀';
         lightGroup.appendChild(lightLabel);
-        lightGroup.appendChild(createBadge(lightRatio, lightLevel, 'Light'));
+        lightGroup.appendChild(createBadge(lightRatio, lightLevel, 'Light', pair.nonText));
         badges.appendChild(lightGroup);
 
         if (state.darkModeSupport) {
           const darkFg = resolveColor(getColorValue(pair.foreground, true));
           const darkBg = getColorValue(pair.background, true);
-          const darkPanelBg = getColorValue('--tbw-color-panel-bg', true);
-          const darkRatio = getContrastRatio(darkFg, darkBg, darkPanelBg);
-          const darkLevel = darkRatio !== null ? getWCAGLevel(darkRatio) : null;
+          const darkBase = getColorValue('--tbw-color-bg', true);
+          const darkRatio = getContrastRatio(darkFg, darkBg, darkBase);
+          const darkLevel = darkRatio !== null ? getWCAGLevel(darkRatio, pair.nonText) : null;
 
           const darkGroup = document.createElement('div');
           darkGroup.className = 'theme-builder-a11y-card__mode';
@@ -672,7 +625,7 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
           darkLabel.className = 'theme-builder-a11y-card__mode-label';
           darkLabel.textContent = '🌙';
           darkGroup.appendChild(darkLabel);
-          darkGroup.appendChild(createBadge(darkRatio, darkLevel, 'Dark'));
+          darkGroup.appendChild(createBadge(darkRatio, darkLevel, 'Dark', pair.nonText));
           badges.appendChild(darkGroup);
         }
 
@@ -792,24 +745,39 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
     });
     document.getElementById('tb-preview')!.addEventListener('click', () => {
       const css = generateCSSFromState(state);
-      const modal = document.createElement('div');
+      // A native <dialog> gives the focus trap, Escape-to-close, inert
+      // background and focus restore that a hand-rolled overlay never had.
+      const modal = document.createElement('dialog');
       modal.className = 'theme-builder-modal';
-      modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+      modal.setAttribute('aria-labelledby', 'tb-preview-title');
+      // Light-dismiss: the backdrop is painted by the dialog itself, so a click
+      // whose target IS the dialog landed outside the content box.
+      modal.addEventListener('click', (e) => { if (e.target === modal) modal.close(); });
+      modal.addEventListener('close', () => modal.remove());
       const mc = document.createElement('div');
       mc.className = 'theme-builder-modal__content';
-      mc.innerHTML = `<h3 class="theme-builder-modal__title">Generated CSS</h3>`;
+      const title = document.createElement('h3');
+      title.className = 'theme-builder-modal__title';
+      title.id = 'tb-preview-title';
+      title.textContent = 'Generated CSS';
+      mc.appendChild(title);
       const pre = document.createElement('pre');
       pre.className = 'theme-builder-modal__code';
+      pre.tabIndex = 0;
+      pre.setAttribute('role', 'group');
+      pre.setAttribute('aria-label', 'Generated CSS');
       pre.textContent = css;
       mc.appendChild(pre);
       const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
       closeBtn.textContent = 'Close';
       closeBtn.className = 'theme-builder-btn theme-builder-btn--primary';
       closeBtn.style.marginTop = '12px';
-      closeBtn.addEventListener('click', () => modal.remove());
+      closeBtn.addEventListener('click', () => modal.close());
       mc.appendChild(closeBtn);
       modal.appendChild(mc);
       document.body.appendChild(modal);
+      modal.showModal();
     });
     document.getElementById('tb-reset')!.addEventListener('click', resetToBaseline);
 
@@ -944,15 +912,29 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
     overflow: auto;
   }
 
-  /* Modal overlay */
+  /* Modal overlay — a native <dialog>, so the backdrop is `::backdrop`, not a
+     painted parent, and `[open]` is what makes it a flex box. */
   .theme-builder-modal {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    max-height: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    overflow: hidden;
+  }
+
+  .theme-builder-modal[open] {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10000;
+  }
+
+  .theme-builder-modal::backdrop {
+    background: rgba(0, 0, 0, 0.5);
   }
 
   .theme-builder-modal__content {
@@ -1098,7 +1080,8 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
 
   .theme-builder-category__count {
     font-size: 11px;
-    color: var(--sl-color-gray-3);
+    /* gray-3 on gray-6 is only 4.48:1 in dark mode — one notch lighter clears AA. */
+    color: var(--sl-color-gray-2);
     background: var(--sl-color-gray-6);
     padding: 2px 6px;
     border-radius: 10px;
@@ -1137,7 +1120,7 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
 
   .theme-builder-color-row__label code {
     font-size: 11px;
-    color: var(--sl-color-accent);
+    color: var(--sl-color-text-accent);
     background: var(--sl-color-gray-6);
     padding: 1px 4px;
     border-radius: 3px;
@@ -1241,7 +1224,7 @@ import type { ShellConfig } from '@toolbox-web/grid/plugins/shell';
 
   .theme-builder-var-row__label code {
     font-size: 11px;
-    color: var(--sl-color-accent);
+    color: var(--sl-color-text-accent);
     background: var(--sl-color-gray-6);
     padding: 1px 4px;
     border-radius: 3px;

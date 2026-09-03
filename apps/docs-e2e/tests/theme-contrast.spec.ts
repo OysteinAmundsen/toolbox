@@ -4,13 +4,14 @@ import { fileURLToPath } from 'url';
 import { openDemo } from './utils';
 
 /**
- * WCAG contrast guard for the two accessibility themes.
+ * WCAG contrast guard for every shipped theme.
  *
- * `dg-theme-contrast.css` and `dg-theme-large.css` are the grid's a11y-focused
- * themes, so every text/background pair they produce must clear WCAG 2.1
- * Level **AAA** (7:1) in both light and dark mode. Non-text UI colours (the
- * accent used for focus outlines, resize handles and sort indicators) only
- * need SC 1.4.11's 3:1.
+ * All six themes must clear WCAG **AA** (4.5:1) on every text/background pair
+ * they produce, in both light and dark mode. `dg-theme-contrast.css` and
+ * `dg-theme-large.css` are the a11y-focused themes and are held to the
+ * stricter **AAA** bar of 7:1 instead. Non-text UI colours (the accent used
+ * for focus outlines, and the strong border that bounds the cell editor's
+ * input) only need SC 1.4.11's 3:1, in every theme.
  *
  * The ratios are measured in a real browser rather than by parsing the CSS,
  * because the tokens use `light-dark()` and `color-mix()` — only the engine
@@ -19,10 +20,21 @@ import { openDemo } from './utils';
 
 const THEMES_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../../libs/themes');
 
+const AA = 4.5;
 const AAA = 7;
 const NON_TEXT_MIN = 3;
 
-/** Text foreground/background pairs — all must reach AAA. */
+/** Every shipped theme, with the text bar it is held to. */
+const THEMES = {
+  standard: AA,
+  vibrant: AA,
+  bootstrap: AA,
+  material: AA,
+  contrast: AAA,
+  large: AAA,
+} as const;
+
+/** Text foreground/background pairs — all must reach the theme's bar. */
 const TEXT_PAIRS: ReadonlyArray<readonly [name: string, fg: string, bg: string]> = [
   ['body text on panel', '--tbw-color-fg', '--tbw-color-panel-bg'],
   ['body text on grid bg', '--tbw-color-fg', '--tbw-color-bg'],
@@ -32,6 +44,7 @@ const TEXT_PAIRS: ReadonlyArray<readonly [name: string, fg: string, bg: string]>
   ['text on hovered row', '--tbw-color-fg', '--tbw-color-row-hover'],
   ['text on selected row', '--tbw-color-fg', '--tbw-color-selection'],
   ['text on accent', '--tbw-color-accent-fg', '--tbw-color-accent'],
+  ['accent text on grid bg', '--tbw-color-accent-text', '--tbw-color-bg'],
 ];
 
 /** Non-text UI pairs — must reach SC 1.4.11's 3:1. */
@@ -60,12 +73,13 @@ async function measure(
       host.style.colorScheme = scheme;
       void host.offsetHeight;
 
-      const toRGB = (value: string): [number, number, number] | null => {
-        const rgb = value.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/);
-        if (rgb) return [+rgb[1], +rgb[2], +rgb[3]];
+      type RGBA = [number, number, number, number];
+      const toRGB = (value: string): RGBA | null => {
+        const rgb = value.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/);
+        if (rgb) return [+rgb[1], +rgb[2], +rgb[3], rgb[4] === undefined ? 1 : +rgb[4]];
         // color-mix() resolves to color(srgb …) with 0-1 components.
-        const srgb = value.match(/^color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)/);
-        if (srgb) return [+srgb[1] * 255, +srgb[2] * 255, +srgb[3] * 255];
+        const srgb = value.match(/^color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?:\s*\/\s*([\d.]+))?/);
+        if (srgb) return [+srgb[1] * 255, +srgb[2] * 255, +srgb[3] * 255, srgb[4] === undefined ? 1 : +srgb[4]];
         return null;
       };
       const read = (name: string) => {
@@ -74,7 +88,12 @@ async function measure(
         void probe.offsetHeight;
         return toRGB(getComputedStyle(probe).backgroundColor);
       };
-      const luminance = ([r, g, b]: [number, number, number]) => {
+      /** Row tints are translucent overlays; score what is painted, not the token. */
+      const over = ([r, g, b, a]: RGBA, bottom: RGBA): RGBA =>
+        a >= 1
+          ? [r, g, b, a]
+          : [r * a + bottom[0] * (1 - a), g * a + bottom[1] * (1 - a), b * a + bottom[2] * (1 - a), 1];
+      const luminance = ([r, g, b]: RGBA) => {
         const channel = (c: number) => {
           const s = c / 255;
           return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
@@ -82,14 +101,17 @@ async function measure(
         return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
       };
 
+      const base = read('--tbw-color-bg');
       const out: Record<string, number> = {};
       for (const [name, fgVar, bgVar] of pairs) {
-        const fg = read(fgVar);
-        const bg = read(bgVar);
-        if (!fg || !bg) {
+        const rawFg = read(fgVar);
+        const rawBg = read(bgVar);
+        if (!rawFg || !rawBg || !base) {
           out[name] = -1;
           continue;
         }
+        const bg = over(rawBg, base);
+        const fg = over(rawFg, bg);
         const l1 = luminance(fg);
         const l2 = luminance(bg);
         out[name] = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
@@ -103,16 +125,17 @@ async function measure(
   );
 }
 
-for (const theme of ['contrast', 'large'] as const) {
+for (const [theme, textMin] of Object.entries(THEMES)) {
+  const level = textMin === AAA ? 'AAA' : 'AA';
   test.describe(`dg-theme-${theme} — WCAG contrast`, () => {
     for (const scheme of ['light', 'dark'] as const) {
-      test(`${scheme} mode meets AAA for text and 3:1 for non-text`, async ({ page }) => {
+      test(`${scheme} mode meets ${level} for text and 3:1 for non-text`, async ({ page }) => {
         await openDemo(page, 'IntroBasicDemo');
         await page.addStyleTag({ path: resolve(THEMES_DIR, `dg-theme-${theme}.css`) });
 
         const text = await measure(page, scheme, TEXT_PAIRS);
         for (const [name] of TEXT_PAIRS) {
-          expect(text[name], `${name} (${scheme}) contrast ratio`).toBeGreaterThanOrEqual(AAA);
+          expect(text[name], `${name} (${scheme}) contrast ratio`).toBeGreaterThanOrEqual(textMin);
         }
 
         const nonText = await measure(page, scheme, NON_TEXT_PAIRS);

@@ -159,6 +159,16 @@ describe('renderHeader', () => {
       expect(indicator).toBeTruthy();
     });
 
+    it('hides the sort indicator from assistive tech', () => {
+      // The glyph is decorative — `aria-sort` on the cell carries the state.
+      // Left exposed, its CSS `::before` content is folded into the header's
+      // name-from-content and announced as "Name ⇅".
+      const g = makeGrid({ columns: [{ field: 'id', sortable: true }] });
+      renderHeader(g);
+      const indicator = g._headerRowEl.querySelector('[part="sort-indicator"]');
+      expect(indicator.getAttribute('aria-hidden')).toBe('true');
+    });
+
     it('shows neutral indicator when not sorted', () => {
       const g = makeGrid({ columns: [{ field: 'id', sortable: true }] });
       renderHeader(g);
@@ -307,6 +317,32 @@ describe('renderHeader', () => {
       expect(handle.getAttribute('role')).toBe('button');
       expect(handle.getAttribute('tabindex')).toBe('-1');
       expect(handle.getAttribute('aria-label')).toBe('Width of column Name');
+    });
+
+    // …but a named descendant is exactly what name-from-content picks up, so the
+    // cell has to declare its own name or every column announces as
+    // "Name ⇅ Width of column Name".
+    it('resize handle label does not leak into the column header name', () => {
+      const g = makeGrid({ columns: [{ field: 'name', header: 'Name', resizable: true, sortable: true }] });
+      renderHeader(g);
+      const cell = g._headerRowEl.querySelector('.cell');
+      expect(cell.getAttribute('aria-label')).toBe('Name');
+    });
+
+    it('falls back to the field when no header text is configured', () => {
+      const g = makeGrid({ columns: [{ field: 'name', resizable: true }] });
+      renderHeader(g);
+      const cell = g._headerRowEl.querySelector('.cell');
+      expect(cell.getAttribute('aria-label')).toBe('name');
+    });
+
+    it('leaves naming to the consumer when a headerRenderer is supplied', () => {
+      const g = makeGrid({
+        columns: [{ field: 'name', header: 'Name', resizable: true, headerRenderer: () => 'Custom' }],
+      });
+      renderHeader(g);
+      const cell = g._headerRowEl.querySelector('.cell');
+      expect(cell.hasAttribute('aria-label')).toBe(false);
     });
 
     it('adds resizable class on resizable cells for positioning context', () => {

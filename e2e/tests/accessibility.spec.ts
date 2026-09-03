@@ -18,31 +18,27 @@ import { DEMOS, waitForGridReady, waitForGridReadyMobile } from './utils';
  * `wcag22aa` alone covers only the criteria 2.2 introduced, so the 2.0 and 2.1
  * tags have to ride along or the scan quietly checks a handful of rules.
  */
-const WCAG22AA_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+const WCAG22AA_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa'];
 
 /**
- * Run axe-core scan scoped to the grid element with sensible rule config.
+ * Run axe-core scan scoped to the grid element.
  * Returns the violations array for assertion.
  *
- * Runs every rule axe knows by default. Pass `tags` to narrow the scan to a
- * published conformance target instead.
+ * Runs every rule axe knows, with **nothing disabled by default**. This gate
+ * previously suppressed `aria-required-children` and `scrollable-region-focusable`
+ * for the whole suite on the theory that the `role="presentation"` wrapper chain
+ * and row virtualization produced false positives. They did not — they produced
+ * real defects that the suppression hid until a manual audit found them. Any
+ * exclusion now has to be argued per test, at the call site, next to the
+ * assertion it weakens.
+ *
+ * Pass `tags` to narrow the scan to a published conformance target.
  */
 async function scanGrid(page: Page, disableRules: string[] = [], tags?: string[]) {
   // Scope scan to the grid element to avoid flagging the demo page chrome
-  let builder = new AxeBuilder({ page }).include('tbw-grid').disableRules([
-    // Virtualization recycles rows outside the visible viewport —
-    // axe may flag hidden content that is intentionally aria-hidden or off-screen.
-    'scrollable-region-focusable',
-    // The grid uses role="presentation" wrappers (.rows-container, .rows-viewport)
-    // between role="grid" and role="rowgroup" for layout. Per ARIA spec, presentation
-    // is semantically transparent, but axe-core still flags the intermediate elements.
-    'aria-required-children',
-    // The grid uses light DOM, so color-contrast checks on the host element
-    // can produce false positives when theme vars are applied externally.
-    // We test contrast separately per theme below.
-    ...disableRules,
-  ]);
+  let builder = new AxeBuilder({ page }).include('tbw-grid');
 
+  if (disableRules.length) builder = builder.disableRules(disableRules);
   if (tags) builder = builder.withTags(tags);
 
   const results = await builder.analyze();
@@ -60,10 +56,22 @@ function formatViolations(violations: Awaited<ReturnType<typeof scanGrid>>) {
     .join('\n\n');
 }
 
+/**
+ * The first real data-column header.
+ *
+ * `[data-field]` is required, not just `:not([data-field^="__tbw_"])` — column
+ * *group* header cells also carry `role="columnheader"`, sit above the header
+ * row in the DOM, and have `data-group` instead of `data-field`. Without the
+ * attribute-presence guard, `.first()` resolves to a group cell, which renders
+ * its label as bare text and has none of the sort/filter affordances.
+ */
+function dataColumnHeader(page: Page) {
+  return page.locator('[role="columnheader"][data-field]:not([data-field^="__tbw_"])').first();
+}
+
 /** Click a sortable header column to trigger sort. */
 async function sortByHeader(page: Page) {
-  // Use :not([data-field^="__tbw_"]) to skip internal columns (like selection checkbox)
-  const header = page.locator('[role="columnheader"]:not([data-field^="__tbw_"])').first();
+  const header = dataColumnHeader(page);
   // Click the header label, not the cell centre. A header hosts a trailing
   // cluster of controls (filter button, move button, resize handle) that is
   // pushed to the inline end, so on a narrow column the geometric centre can
@@ -615,7 +623,7 @@ test.describe('Accessibility: target size (WCAG 2.2 SC 2.5.8)', () => {
 
     // Several controls only materialise while their cell is hovered. Hovering a
     // header cell reveals the filter and move buttons alongside the handle.
-    await page.locator('[role="columnheader"]:not([data-field^="__tbw_"])').first().hover();
+    await dataColumnHeader(page).hover();
     await page.waitForTimeout(200);
 
     const results = await probeTargets(page, TARGET_SELECTORS, TARGET_SIZE_MIN);

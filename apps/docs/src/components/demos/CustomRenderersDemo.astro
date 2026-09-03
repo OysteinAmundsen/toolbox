@@ -34,13 +34,16 @@ import { queryGrid } from '@toolbox-web/grid';
         header: 'Status',
         width: 110,
         renderer: ({ value, cellEl }) => {
+          // Solid pill rather than a 13%-alpha tint: the tinted variant left the
+          // label at 2.8:1 in light mode and 4.1:1 in dark (WCAG 1.4.3 needs 4.5).
+          // These shades all clear 5:1 against white text in either scheme.
           const colors: Record<string, string> = {
-            active: '#16a34a', inactive: '#dc2626', 'on-leave': '#d97706',
+            active: '#15803d', inactive: '#b91c1c', 'on-leave': '#b45309',
           };
           const badge = document.createElement('span');
           badge.style.cssText = `
             display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;
-            background: ${colors[value as string] || '#888'}22; color: ${colors[value as string] || '#888'};
+            background: ${colors[value as string] ?? '#4b5563'}; color: #ffffff;
             font-weight: 600;
           `;
           badge.textContent = (value as string).charAt(0).toUpperCase() + (value as string).slice(1);
@@ -57,6 +60,9 @@ import { queryGrid } from '@toolbox-web/grid';
           checkbox.type = 'checkbox';
           checkbox.checked = !!value;
           checkbox.disabled = true;
+          // A control still needs an accessible name even when it is disabled;
+          // without it the cell is announced as a bare "checkbox".
+          checkbox.setAttribute('aria-label', 'Active');
           return checkbox;
         },
       },

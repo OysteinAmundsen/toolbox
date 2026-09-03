@@ -29,6 +29,12 @@ export const CSS_VARIABLES: Record<string, CSSVariableDefinition[]> = {
       type: 'color',
     },
     { name: '--tbw-color-accent-fg', defaultValue: '#ffffff', description: 'Text on accent', type: 'color' },
+    {
+      name: '--tbw-color-accent-text',
+      defaultValue: '#1d4ed8',
+      description: 'Accent color for text (AA-contrast safe)',
+      type: 'color',
+    },
     { name: '--tbw-color-success', defaultValue: '#4caf50', description: 'Success state', type: 'color' },
     { name: '--tbw-color-warning', defaultValue: '#e6a200', description: 'Warning state', type: 'color' },
     { name: '--tbw-color-error', defaultValue: '#f44336', description: 'Error state', type: 'color' },
@@ -534,6 +540,12 @@ export const CSS_VARIABLES: Record<string, CSSVariableDefinition[]> = {
       defaultValue: 'rgba(244,67,54,0.5)',
       description: 'Invalid selection background',
       type: 'color',
+    },
+    {
+      name: '--tbw-selection-disabled-opacity',
+      defaultValue: '0.65',
+      description: 'Dimming applied to non-selectable rows/cells',
+      type: 'number',
     },
   ],
 

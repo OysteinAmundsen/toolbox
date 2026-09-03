@@ -28,7 +28,7 @@ We target **WCAG 2.2 Level AA** out of the box, with no configuration required. 
 - **Reduced motion** is respected — animations, expand/collapse transitions, and scroll smoothing disable under `prefers-reduced-motion: reduce`.
 - **Focus is never lost** — after editing, deleting, sorting, or filtering, the grid restores focus to a sensible cell.
 - **Focus is never hidden** — plugins that overlay the rows viewport report the band they obscure, so keyboard navigation scrolls the focused cell clear of them rather than underneath. [Sticky rows](/grid/plugins/sticky-rows/) report the top/bottom band they cover (vertical scrolling); [pinned columns](/grid/plugins/pinned-columns/) report the left/right band (horizontal scrolling).
-- **Two themes go further than AA** — `dg-theme-contrast.css` and `dg-theme-large.css` meet **Level AAA** contrast (7:1) on every text pair, in both light and dark mode. See [Accessibility themes](#accessibility-themes-aaa-contrast).
+- **Every shipped theme meets AA, and two meet AAA** — all six themes clear 4.5:1 on every text pair in both light and dark mode; `dg-theme-contrast.css` and `dg-theme-large.css` go further to **Level AAA** (7:1). See [Theme contrast](#theme-contrast).
 
 See the [full WCAG 2.2 AA conformance table](#wcag-compliance-checklist) below for the criteria we test against, or the
 [Accessibility Conformance Report](/grid/guides/conformance-report/) for the criterion-by-criterion
@@ -170,6 +170,11 @@ The grid uses `aria-live` regions to announce dynamic changes to screen readers:
 - Group expand/collapse ("Group Engineering expanded, 5 rows")
 - Selection changes ("3 rows selected")
 - Editing lifecycle ("Editing row 1", "Row 1 saved")
+- Empty state ("No data to display")
+
+The empty-state overlay is itself `role="presentation"`. It renders inside the grid's row
+container, and `role="grid"` may only own rows and rowgroups — so the message is voiced through the
+grid's own live region instead of being marked up as a status of its own.
 
 ### Configuring Announcements
 
@@ -198,7 +203,47 @@ Column headers include:
 
 ### Testing with screen readers
 
-The grid is tested against NVDA, VoiceOver, and JAWS in CI-adjacent environments. When testing in your own app, here's what a screen-reader user should hear for the core flows. If your output diverges substantially from this, that's likely an a11y bug worth filing.
+**What is automated, and what is not.** Every pull request runs three kinds of automated
+accessibility check: [axe-core](https://github.com/dequelabs/axe-core) scans of the grid and of the
+documentation site, computed-style measurement of focus indicators, contrast and target size, and
+[ARIA tree snapshots](https://playwright.dev/docs/aria-snapshots) that pin the accessibility tree of
+the grid skeleton, the disclosure controls, and transient surfaces such as the filter panel and
+context menu. Those catch rule violations and silent regressions in the exposed semantics.
+
+They do **not** tell you what a screen reader actually says. No assistive technology is driven in
+CI — announcements depend on the AT, the browser, and the user's verbosity settings, none of which a
+headless browser models. Screen-reader verification is therefore a **manual** procedure, run against
+a release candidate. The checklist below is that procedure; it is also the one to follow when
+validating your own app.
+
+#### Manual verification checklist
+
+Run each row in at least one Windows pairing (NVDA + Chrome or Firefox) and one macOS pairing
+(VoiceOver + Safari). A flow passes when the announcement carries the information in the last
+column — the exact wording varies by AT and is not itself a defect.
+
+| # | Flow | Steps | Must be announced |
+| - | ---- | ----- | ----------------- |
+| 1 | Enter the grid | Tab to the grid | Accessible name, `grid` (or `treegrid`) role, row and column counts |
+| 2 | Move between cells | <kbd>↓</kbd> / <kbd>→</kbd> | Cell value, its column header, and the row/column position |
+| 3 | Sort a column | Focus a header, press <kbd>Enter</kbd> | New sort direction — and the header name **without** the sort glyph or the resize handle's label |
+| 4 | Resize a column | Tab to the resize handle, <kbd>←</kbd>/<kbd>→</kbd> | The handle's own name (`Width of column <name>`) and the resulting width |
+| 5 | Select a row | <kbd>Space</kbd>, or activate the row checkbox | Selected/unselected state, and the new selection count if a status region is enabled |
+| 6 | Select all | Activate the header checkbox | `Select all rows`, and the resulting checked/mixed state |
+| 7 | Open the filter panel | Activate a column's filter button | That a panel opened, its name, and the first control inside it receiving focus |
+| 8 | Apply a filter | Change a value, activate **Apply** | The filtered row count, via the live region |
+| 9 | Expand a tree node | <kbd>→</kbd> on a parent row | Expanded state and the new child count; the row's name must not be swallowed by the glyph |
+| 10 | Expand a detail row | Activate the row's toggle | The button's name flipping between `Expand details` and `Collapse details`, plus its expanded state |
+| 11 | Edit a cell | <kbd>Enter</kbd> to open the editor | The editor's role and current value, and that focus moved into it |
+| 12 | Commit an edit | <kbd>Enter</kbd> | Confirmation of the committed value; on <kbd>Escape</kbd>, that the edit was discarded |
+| 13 | Open the context menu | <kbd>Shift</kbd>+<kbd>F10</kbd> or the menu key | `menu` role, item count, and each item as you arrow through |
+| 14 | Escape every transient surface | <kbd>Escape</kbd> from 7, 11, 13 | That the surface closed **and** where focus landed |
+
+Record the AT + browser + version for each run. A flow that regresses between releases is a bug
+worth filing even when axe still scores the page clean — that is precisely the class of defect
+automation cannot see.
+
+#### Expected announcements, by AT
 
 **NVDA (Windows, Firefox or Chrome):**
 1. Download [NVDA](https://www.nvaccess.org/download/) (free) and start it.
@@ -295,7 +340,7 @@ icon sizes are exactly what they were before the minimum existed:
 | Control | How it reaches 24 px |
 |---|---|
 | Tree, row-group, pivot and master-detail toggles; the row drag handle; the filter button | A transparent overlay centred on the icon |
-| Column resize handle | Absolutely positioned over the column border, so its width costs no layout |
+| Column resize handle | Absolutely positioned over the column border, so its width costs no layout. On the **last** column there is no neighbouring column to reach into, so the handle sits fully inside the cell instead and the cell's trailing padding grows to match |
 | Select-all checkbox | Wrapped in a `<label>`, which makes the whole header cell the target |
 | Row checkbox | The row click already selects, so the target is the cell |
 | Tool-panel splitter | Straddles the panel's docked edge, half outside, so it never covers the panel's own controls |
@@ -428,28 +473,42 @@ tbw-grid.high-contrast {
 import '@toolbox-web/grid/themes/dg-theme-contrast.css';
 ```
 
-### Accessibility themes (AAA contrast)
+### Theme contrast
 
-The default theme targets Level AA (4.5:1). Two shipped themes are held to the stricter
-**Level AAA** bar of 7:1 for *all* text — not just body text — in both light and dark mode:
+**Every shipped theme clears WCAG Level AA**, and two clear Level AAA. There is no theme in the box
+that you have to trade accessibility for.
 
-| Theme | Import | Aimed at |
-|-------|--------|----------|
-| Contrast | `@toolbox-web/grid/themes/dg-theme-contrast.css` | Low vision, glare, and users who need maximum separation |
-| Large | `@toolbox-web/grid/themes/dg-theme-large.css` | Low vision and motor impairment — 18px base text and larger hit targets |
+| Theme | Import | Text bar | Aimed at |
+|-------|--------|----------|----------|
+| Contrast | `dg-theme-contrast.css` | **AAA** (7:1) | Low vision, glare, and users who need maximum separation |
+| Large | `dg-theme-large.css` | **AAA** (7:1) | Low vision and motor impairment — 18px base text and larger hit targets |
+| Standard | `dg-theme-standard.css` | AA (4.5:1) | A neutral, modern default |
+| Bootstrap | `dg-theme-bootstrap.css` | AA (4.5:1) | Matching a Bootstrap 5 application |
+| Material | `dg-theme-material.css` | AA (4.5:1) | Matching a Material 3 application |
+| Vibrant | `dg-theme-vibrant.css` | AA (4.5:1) | A saturated, high-energy identity |
 
-Every foreground/background pair these themes produce — body text, muted text, header text,
-alternating rows, hovered rows, selected rows, and text on the accent colour — clears 7:1.
-Non-text UI colours (focus ring, borders) clear SC 1.4.11's 3:1 against the grid background.
-The ratios are asserted in a browser on every CI run by
-`apps/docs-e2e/tests/theme-contrast.spec.ts`, so a token edit that drops a pair below AAA
-fails the build.
+The bar applies to *every* foreground/background pair the theme produces — body text, muted text,
+header text, alternating rows, hovered rows, selected rows, and text on the accent colour — in both
+light and dark mode. Translucent row tints are composited over the grid background before they are
+scored, so the ratio reflects what is actually painted. Non-text UI colours (the focus ring, and the
+strong border that bounds the cell editor's input) clear SC 1.4.11's 3:1.
+
+All of it is asserted in a real browser on every CI run by
+`apps/docs-e2e/tests/theme-contrast.spec.ts`, so a token edit that drops any pair below its theme's
+bar fails the build.
 
 :::caution[Overriding tokens can break the guarantee]
-The AAA guarantee covers the tokens as shipped. If you override `--tbw-color-fg`,
-`--tbw-color-accent`, `--tbw-color-header-fg`, or any background token on top of these themes,
-re-check the pairs yourself — the
+The guarantee covers the tokens as shipped. If you override `--tbw-color-fg`,
+`--tbw-color-accent`, `--tbw-color-header-fg`, or any background token, re-check the pairs
+yourself — the
 [Theme Builder's contrast panel](/grid/guides/theming/#interactive-theme-builder) reports every pair live.
+:::
+
+:::tip[Accent labels flip in dark mode]
+Several themes use a light accent in dark mode, so the text drawn *on* the accent is dark rather
+than white — the same thing Bootstrap and Material do in their own dark palettes. If you override
+`--tbw-color-accent`, override `--tbw-color-accent-fg` to match, using `light-dark()` so each mode
+gets the readable label.
 :::
 
 ### Windows High Contrast Mode

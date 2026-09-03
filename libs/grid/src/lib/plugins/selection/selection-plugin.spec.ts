@@ -328,6 +328,34 @@ describe('SelectionPlugin', () => {
       expect(header.querySelector('.tbw-select-all-checkbox')).not.toBeNull();
     });
 
+    it('should give the select-all checkbox an accessible name via the wrapping label', () => {
+      const columns = [{ field: 'name' }];
+      const mockGrid = createMockGrid([], columns);
+      const plugin = new SelectionPlugin({ mode: 'row', checkbox: true });
+      plugin.attach(mockGrid);
+
+      const [checkboxColumn] = plugin.processColumns(columns);
+      const header = checkboxColumn.headerRenderer?.({} as never) as HTMLElement;
+
+      // Doubles as the columnheader's screen-reader text (axe `empty-table-header`).
+      const srText = header.querySelector('.tbw-sr-only');
+      expect(srText?.textContent).toBe('Select all rows');
+    });
+
+    it('should give each row checkbox an accessible name', () => {
+      const columns = [{ field: 'name' }];
+      const mockGrid = createMockGrid([{ id: 1 }], columns);
+      const plugin = new SelectionPlugin({ mode: 'row', checkbox: true });
+      plugin.attach(mockGrid);
+
+      const [checkboxColumn] = plugin.processColumns(columns);
+      const cellEl = document.createElement('div');
+      cellEl.setAttribute('data-row', '4');
+      const checkbox = checkboxColumn.renderer?.({ cellEl } as never) as HTMLElement;
+
+      expect(checkbox.getAttribute('aria-label')).toBe('Select row 5');
+    });
+
     it('should toggle row on checkbox column click', () => {
       const rows = [{ id: 1 }, { id: 2 }];
       const columns = [{ field: 'name', checkboxColumn: true }];

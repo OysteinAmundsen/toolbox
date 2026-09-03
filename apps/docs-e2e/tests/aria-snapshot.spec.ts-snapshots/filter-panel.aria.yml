@@ -1,0 +1,25 @@
+- textbox "Search..."
+- checkbox "Select All" [checked]
+- text: Select All
+- checkbox "Alice Johnson" [checked]
+- text: Alice Johnson
+- checkbox "Bob Smith" [checked]
+- text: Bob Smith
+- checkbox "Carol Williams" [checked]
+- text: Carol Williams
+- checkbox "Dan Brown" [checked]
+- text: Dan Brown
+- checkbox "Eve Davis" [checked]
+- text: Eve Davis
+- checkbox "Frank Miller" [checked]
+- text: Frank Miller
+- checkbox "Grace Lee" [checked]
+- text: Grace Lee
+- checkbox "Henry Wilson" [checked]
+- text: Henry Wilson
+- checkbox "Ivy Chen" [checked]
+- text: Ivy Chen
+- checkbox "Jack Taylor" [checked]
+- text: Jack Taylor
+- button "Apply"
+- button "Clear Filter"

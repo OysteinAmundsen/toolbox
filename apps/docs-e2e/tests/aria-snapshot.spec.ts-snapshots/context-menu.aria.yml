@@ -1,0 +1,7 @@
+- menu:
+  - menuitem "📋 Copy Row Ctrl+C"
+  - menuitem "✏️ Edit Row"
+  - separator
+  - menuitem "📄 Duplicate"
+  - separator
+  - menuitem "🗑️ Delete"

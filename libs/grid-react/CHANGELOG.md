@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-2.4.0...grid-react-2.5.0) (2026-09-03)
+
+
+### Features
+
+* **grid-react/grid-vue/grid-angular:** close adapter API parity gaps ([#473](https://github.com/OysteinAmundsen/toolbox/issues/473)) ([cfcfac7](https://github.com/OysteinAmundsen/toolbox/commit/cfcfac76ba5df524ed7dc77bed27545416f20d14))
+
 ## [2.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-2.3.0...grid-react-2.4.0) (2026-08-07)
 
 

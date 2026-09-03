@@ -1,5 +1,6 @@
 import type { ColumnConfig, DataGridElement, GridConfig } from '@toolbox-web/grid';
 import { inject, onMounted, ref, type InjectionKey, type Ref } from 'vue';
+import { useGridIsReady } from './use-grid-is-ready';
 
 /**
  * Injection key for the grid element.
@@ -13,17 +14,24 @@ export const GRID_ELEMENT_KEY: InjectionKey<Ref<DataGridElement | null>> = Symbo
  */
 export interface UseGridReturn<TRow = unknown> {
   /** The grid element reference */
+  element: Ref<DataGridElement<TRow> | null>;
+  /**
+   * The grid element reference.
+   * @deprecated Use {@link UseGridReturn.element} instead, which matches the
+   * React and Angular adapters. This alias points at the same `Ref` and will
+   * be removed in a future major.
+   */
   gridElement: Ref<DataGridElement<TRow> | null>;
   /** Whether the grid is ready */
   isReady: Ref<boolean>;
   /** Current grid configuration (reactive) */
   config: Ref<GridConfig<TRow> | null>;
+  /** Get the effective configuration */
+  getConfig: () => Promise<GridConfig<TRow> | null>;
+  /** Wait for the grid to finish its first render */
+  ready: () => Promise<void>;
   /** Force a layout recalculation */
   forceLayout: () => Promise<void>;
-  /** Get current grid configuration */
-  getConfig: () => ReturnType<DataGridElement['getConfig']> | undefined;
-  /** Wait for grid to be ready */
-  ready: () => Promise<void>;
   /** Get a plugin by its class */
   getPlugin: <T>(pluginClass: new (...args: unknown[]) => T) => T | undefined;
   /**
@@ -62,10 +70,12 @@ export interface UseGridReturn<TRow = unknown> {
  * @since 0.1.0
  */
 export function useGrid<TRow = unknown>(selector?: string): UseGridReturn<TRow> {
-  const gridElement = selector
+  const element = selector
     ? (ref(null) as Ref<DataGridElement<TRow> | null>)
-    : (inject(GRID_ELEMENT_KEY, ref(null)) as Ref<DataGridElement<TRow> | null>);
-  const isReady = ref(false) as Ref<boolean>;
+    : // Outside a component instance Vue's `inject` returns `undefined` rather
+      // than the default, so fall back explicitly.
+      ((inject(GRID_ELEMENT_KEY, ref(null)) ?? ref(null)) as Ref<DataGridElement<TRow> | null>);
+  const isReady = useGridIsReady(() => getGrid() as DataGridElement | null);
   const config = ref<GridConfig<TRow> | null>(null) as Ref<GridConfig<TRow> | null>;
 
   /**
@@ -75,19 +85,18 @@ export function useGrid<TRow = unknown>(selector?: string): UseGridReturn<TRow> 
   const getGrid = (): DataGridElement<TRow> | null => {
     if (selector) {
       const el = document.querySelector(selector) as DataGridElement<TRow> | null;
-      if (el && !gridElement.value) gridElement.value = el;
+      if (el && !element.value) element.value = el;
       return el;
     }
-    return gridElement.value;
+    return element.value;
   };
 
-  // Track ready state
+  // `isReady` is owned by `useGridIsReady`; this only resolves the effective config.
   onMounted(async () => {
     try {
       const grid = getGrid();
       if (!grid) return;
       await grid.ready?.();
-      isReady.value = true;
       const effectiveConfig = await grid.getConfig?.();
       if (effectiveConfig) {
         config.value = effectiveConfig as GridConfig<TRow>;
@@ -98,17 +107,20 @@ export function useGrid<TRow = unknown>(selector?: string): UseGridReturn<TRow> 
   });
 
   return {
-    gridElement,
+    element,
+    // Same `Ref` instance, not a copy — see the `@deprecated` note on the type.
+    gridElement: element,
     isReady,
     config,
     forceLayout: async () => {
       await getGrid()?.forceLayout();
     },
-    getConfig: () => {
-      return getGrid()?.getConfig();
+    getConfig: async () => {
+      const effectiveConfig = await getGrid()?.getConfig?.();
+      return (effectiveConfig as GridConfig<TRow>) ?? null;
     },
     ready: async () => {
-      await getGrid()?.ready();
+      await getGrid()?.ready?.();
     },
     getPlugin: <T>(pluginClass: new (...args: unknown[]) => T) => {
       return getGrid()?.getPlugin(pluginClass);
@@ -127,10 +139,11 @@ export function useGrid<TRow = unknown>(selector?: string): UseGridReturn<TRow> 
       getGrid()?.unregisterStyles?.(id);
     },
     getVisibleColumns: () => {
-      const grid = getGrid();
-      if (!grid) return [];
-      const cfg = grid.gridConfig;
-      const columns = cfg?.columns ?? [];
+      // Reads the *effective* config resolved on mount (light-DOM columns and
+      // inferred columns included), matching React/Angular. `grid.gridConfig`
+      // would only expose the raw user-supplied config.
+      const columns = config.value?.columns;
+      if (!columns) return [];
       return columns.filter((col: ColumnConfig<TRow>) => !col.hidden) as ColumnConfig<TRow>[];
     },
   };

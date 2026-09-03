@@ -339,6 +339,23 @@ const gridConfig = {
 
 > **Important:** Always wrap plugin arrays with `markRaw()`. Vue's reactivity proxy breaks plugin internal state.
 
+You can also pass plugins through the dedicated `:plugins` prop, matching
+`<DataGrid plugins={...}>` in React and `[plugins]` in Angular. When `:plugins` is set,
+feature props are ignored — the array is the full plugin list:
+
+```vue
+<script setup lang="ts">
+import { markRaw } from 'vue';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+const plugins = markRaw([new SelectionPlugin({ mode: 'range' })]);
+</script>
+
+<template>
+  <TbwGrid :rows="rows" :plugins="plugins" />
+</template>
+```
+
 ## Composables
 
 ### useGrid
@@ -368,10 +385,11 @@ const {
 | ------------------------- | -------------------------------------------- | ----------------------------------------- |
 | `isReady`                 | `Ref<boolean>`                               | Reactive flag — `true` once grid is ready |
 | `config`                  | `Ref<GridConfig \| null>`                    | Reactive effective grid configuration     |
-| `gridElement`             | `Ref<DataGridElement \| null>`               | Raw grid element reference                |
+| `element`                 | `Ref<DataGridElement \| null>`               | Raw grid element reference                |
+| `gridElement`             | `Ref<DataGridElement \| null>`               | Deprecated alias for `element`            |
 | `ready()`                 | `() => Promise<void>`                        | Wait for grid to finish initializing      |
 | `forceLayout()`           | `() => Promise<void>`                        | Force layout recalculation                |
-| `getConfig()`             | `() => GridConfig \| undefined`              | Get effective configuration snapshot      |
+| `getConfig()`             | `() => Promise<GridConfig \| null>`          | Get effective configuration snapshot      |
 | `getPlugin(pluginClass)`  | `<T>(cls: new (...) => T) => T \| undefined` | Get plugin by class                       |
 | `getPluginByName(name)`   | `(name: string) => Plugin \| undefined`      | Get plugin by name                        |
 | `toggleGroup(key)`        | `(key: string) => Promise<void>`             | Toggle group expansion                    |

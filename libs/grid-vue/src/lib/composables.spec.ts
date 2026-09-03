@@ -24,7 +24,7 @@ describe('use-grid', () => {
       const result = useGrid();
 
       expect(result).toBeDefined();
-      expect(result).toHaveProperty('gridElement');
+      expect(result).toHaveProperty('element');
       expect(result).toHaveProperty('forceLayout');
       expect(result).toHaveProperty('getConfig');
       expect(result).toHaveProperty('ready');
@@ -37,6 +37,13 @@ describe('use-grid', () => {
       expect(result).toHaveProperty('getVisibleColumns');
     });
 
+    it('should expose the deprecated gridElement alias as the same ref as element', () => {
+      const result = useGrid();
+
+      expect(result).toHaveProperty('gridElement');
+      expect(result.gridElement).toBe(result.element);
+    });
+
     it('should return async functions for forceLayout and ready', () => {
       const result = useGrid();
 
@@ -46,18 +53,17 @@ describe('use-grid', () => {
       expect(typeof result.getPlugin).toBe('function');
     });
 
-    it('should delegate forceLayout to gridElement value', async () => {
+    it('should delegate forceLayout to element value', async () => {
       const result = useGrid();
-      // gridElement.value is undefined outside component context (inject returns raw default, not a ref)
+      // element.value is undefined outside component context (inject returns raw default, not a ref)
       // forceLayout uses optional chaining, so calling it may throw if ref shape is missing
       // This validates the function exists and is callable
       expect(typeof result.forceLayout).toBe('function');
     });
 
-    it('should delegate getConfig returning undefined when no grid element', () => {
+    it('should resolve getConfig to null when no grid element', async () => {
       const result = useGrid();
-      // getConfig uses optional chaining on gridElement.value
-      expect(typeof result.getConfig).toBe('function');
+      await expect(result.getConfig()).resolves.toBeNull();
     });
 
     it('should delegate ready as an async function', () => {
@@ -70,11 +76,11 @@ describe('use-grid', () => {
       expect(typeof result.getPlugin).toBe('function');
     });
 
-    it('should have gridElement in return object', () => {
+    it('should have element in return object', () => {
       const result = useGrid();
 
-      // gridElement is returned (may be undefined ref outside component context)
-      expect(result).toHaveProperty('gridElement');
+      // element is returned (may be undefined ref outside component context)
+      expect(result).toHaveProperty('element');
     });
   });
 
@@ -124,12 +130,12 @@ describe('use-grid', () => {
       container.remove();
     });
 
-    it('should delegate getConfig to grid element', () => {
+    it('should delegate getConfig to grid element', async () => {
       const mockConfig = { columns: [{ field: 'a' }] };
-      const getConfig = vi.fn().mockReturnValue(mockConfig);
+      const getConfig = vi.fn().mockResolvedValue(mockConfig);
       const { result, app, container } = mountWithGrid({ getConfig });
 
-      const config = result.getConfig();
+      const config = await result.getConfig();
       expect(getConfig).toHaveBeenCalled();
       expect(config).toBe(mockConfig);
 
@@ -208,11 +214,18 @@ describe('use-grid', () => {
       container.remove();
     });
 
-    it('should return visible columns excluding hidden ones', () => {
-      const gridConfig = {
+    it('should return visible columns excluding hidden ones', async () => {
+      // `getVisibleColumns()` reads the *effective* config resolved on mount
+      // (light-DOM + inferred columns included), matching React/Angular.
+      const effectiveConfig = {
         columns: [{ field: 'a', hidden: false }, { field: 'b', hidden: true }, { field: 'c' }],
       };
-      const { result, app, container } = mountWithGrid({ gridConfig });
+      const { result, app, container } = mountWithGrid({
+        ready: vi.fn().mockResolvedValue(undefined),
+        getConfig: vi.fn().mockResolvedValue(effectiveConfig),
+      });
+
+      await vi.waitFor(() => expect(result.config.value).not.toBeNull());
 
       const visible = result.getVisibleColumns();
       expect(visible).toHaveLength(2);
@@ -234,8 +247,8 @@ describe('use-grid', () => {
       expect(result.config.value).toBe(null);
     });
 
-    it('should return empty array for getVisibleColumns when gridConfig has no columns', () => {
-      const { result, app, container } = mountWithGrid({ gridConfig: {} });
+    it('should return empty array for getVisibleColumns when the effective config has no columns', () => {
+      const { result, app, container } = mountWithGrid({ getConfig: vi.fn().mockResolvedValue({}) });
 
       const visible = result.getVisibleColumns();
       expect(visible).toEqual([]);
@@ -244,8 +257,8 @@ describe('use-grid', () => {
       container.remove();
     });
 
-    it('should return empty array for getVisibleColumns when gridConfig is null', () => {
-      const { result, app, container } = mountWithGrid({ gridConfig: null });
+    it('should return empty array for getVisibleColumns when no effective config resolves', () => {
+      const { result, app, container } = mountWithGrid({});
 
       const visible = result.getVisibleColumns();
       expect(visible).toEqual([]);
@@ -289,12 +302,13 @@ describe('use-grid', () => {
       document.body.innerHTML = '';
     });
 
-    it('should find grid via DOM selector instead of inject', () => {
+    it('should find grid via DOM selector instead of inject', async () => {
       // Set up a grid element in the DOM
       const gridElement = document.createElement('tbw-grid');
       gridElement.classList.add('my-grid');
       (gridElement as any).forceLayout = vi.fn().mockResolvedValue(undefined);
-      (gridElement as any).gridConfig = { columns: [{ field: 'a' }] };
+      (gridElement as any).ready = vi.fn().mockResolvedValue(undefined);
+      (gridElement as any).getConfig = vi.fn().mockResolvedValue({ columns: [{ field: 'a' }] });
       document.body.appendChild(gridElement);
 
       let result!: ReturnType<typeof useGrid>;
@@ -311,6 +325,9 @@ describe('use-grid', () => {
       );
       app.mount(container);
 
+      // `onMounted` resolves the effective config asynchronously.
+      await vi.waitFor(() => expect(result.config.value).not.toBeNull());
+
       // Calling a method should work via DOM lookup
       const visible = result.getVisibleColumns();
       expect(visible).toHaveLength(1);
@@ -321,7 +338,7 @@ describe('use-grid', () => {
       gridElement.remove();
     });
 
-    it('should return empty results when selector does not match any element', () => {
+    it('should return empty results when selector does not match any element', async () => {
       let result!: ReturnType<typeof useGrid>;
       const container = document.createElement('div');
       document.body.appendChild(container);
@@ -337,7 +354,7 @@ describe('use-grid', () => {
       app.mount(container);
 
       expect(result.getVisibleColumns()).toEqual([]);
-      expect(result.getConfig()).toBeUndefined();
+      await expect(result.getConfig()).resolves.toBeNull();
 
       app.unmount();
       container.remove();

@@ -2,7 +2,7 @@
  * Tests for TbwGridToolPanel SFC wrapper.
  *
  * Covers:
- * - mounts a `<tbw-grid-tool-panel>` with id/title/icon/position/width
+ * - mounts a `<tbw-grid-tool-panel>` with id/title/icon/tooltip/order
  *   forwarded to the underlying element
  * - `resolvedTitle` three-way fallback: `title` wins, then `label`
  *   (deprecated), else empty string
@@ -56,10 +56,21 @@ describe('TbwGridToolPanel.vue', () => {
   });
 
   describe('default props', () => {
-    it('mounts with default position="right" and width="250px"', () => {
+    it('mounts with the default order=100 the shell plugin reads', () => {
       const el = mount({ id: 'p1' });
-      expect(el.getAttribute('position')).toBe('right');
-      expect(el.getAttribute('width')).toBe('250px');
+      expect(el.getAttribute('order')).toBe('100');
+    });
+
+    it('forwards tooltip and an explicit order', () => {
+      const el = mount({ id: 'p1', tooltip: 'Open filters', order: 5 });
+      expect(el.getAttribute('tooltip')).toBe('Open filters');
+      expect(el.getAttribute('order')).toBe('5');
+    });
+
+    it('does not emit position/width — the shell plugin never reads them', () => {
+      const el = mount({ id: 'p1' });
+      expect(el.hasAttribute('position')).toBe(false);
+      expect(el.hasAttribute('width')).toBe(false);
     });
 
     it('forwards id and icon to the underlying element', () => {

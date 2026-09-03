@@ -45,6 +45,7 @@ import { registerFeature } from '../lib/feature-registry';
 import { GridElementContext } from '../lib/grid-element-context';
 import { removeFromContainer, renderToContainer } from '../lib/portal-bridge';
 import { registerFilterPanelTypeDefaultBridge } from '../lib/react-grid-adapter';
+import { useGridIsReady } from '../lib/use-grid-is-ready';
 
 // Pull the core feature's `FeatureConfig` type augmentation (`filtering?`) onto
 // the consumer's type graph. The React registration below overrides the factory
@@ -179,6 +180,13 @@ export interface FilteringMethods {
    * Toggle blank filter mode for a field.
    */
   toggleBlankFilter: (field: string, mode: BlankMode) => void;
+
+  /**
+   * Whether the grid has finished its first render.
+   *
+   * @since 2.5.0
+   */
+  isReady: boolean;
 }
 
 /**
@@ -212,10 +220,15 @@ export interface FilteringMethods {
 export function useGridFiltering(selector?: string): FilteringMethods {
   const gridRef = useContext(GridElementContext);
 
-  const getPlugin = useCallback((): FilteringPlugin | undefined => {
-    const grid = (selector ? document.querySelector(selector) : gridRef?.current) as DataGridElement | null;
-    return grid?.getPluginByName('filtering');
+  const getGrid = useCallback((): DataGridElement | null => {
+    return (selector ? document.querySelector(selector) : gridRef?.current) as DataGridElement | null;
   }, [gridRef, selector]);
+
+  const getPlugin = useCallback((): FilteringPlugin | undefined => {
+    return getGrid()?.getPluginByName('filtering');
+  }, [getGrid]);
+
+  const isReady = useGridIsReady(getGrid);
 
   const setFilter = useCallback(
     (field: string, filter: Omit<FilterModel, 'field'> | null, options?: { silent?: boolean }) => {
@@ -327,5 +340,6 @@ export function useGridFiltering(selector?: string): FilteringMethods {
     getStaleFilters,
     getBlankMode,
     toggleBlankFilter,
+    isReady,
   };
 }

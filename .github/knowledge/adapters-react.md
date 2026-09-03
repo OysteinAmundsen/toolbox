@@ -54,3 +54,4 @@ related: [adapters, adapters-vue, adapters-angular, grid-core, grid-features]
 
 - `createPortalContainer(className)` in `react-column-config.ts`; `makeFlushFocusedInput(container)` (shared shape with Vue, separately implemented). NOT extracted to shared package — keeps each adapter tree-shakeable.
 - `FEATURE_KEYS` hoisted to module scope in `data-grid.tsx` (was per-render 24-element alloc).
+- GOTCHA (2026-08 parity sweep): in `react-grid-adapter.ts` the core `HeaderRenderer`/`HeaderLabelRenderer` aliases resolve **non-generic** (`TS2315: Type 'HeaderRenderer' is not generic`). Use structural fn types instead: `(ctx: HeaderCellContext<TRow>) => HTMLElement`.

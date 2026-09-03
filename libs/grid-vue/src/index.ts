@@ -41,6 +41,7 @@
  */
 
 // Main components
+export type { ColumnOptions } from './lib/column-options';
 export { default as TbwGrid } from './lib/TbwGrid.vue';
 export { default as TbwGridColumn } from './lib/TbwGridColumn.vue';
 export { default as TbwGridDetailPanel } from './lib/TbwGridDetailPanel.vue';

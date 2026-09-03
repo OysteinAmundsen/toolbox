@@ -163,6 +163,22 @@ const props = defineProps({
     type: Object as PropType<GridConfig<TRow>>,
     default: undefined,
   },
+  /**
+   * Manually instantiated plugins (escape hatch for advanced configuration).
+   * When provided, feature props are ignored — only plugins from this list
+   * plus any declared in `gridConfig.plugins` are used.
+   *
+   * @example
+   * ```ts
+   * import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+   * const plugins = [new SelectionPlugin({ mode: 'range', checkbox: true })];
+   * // <TbwGrid :rows="rows" :plugins="plugins" />
+   * ```
+   */
+  plugins: {
+    type: Array as PropType<BaseGridPlugin[]>,
+    default: undefined,
+  },
   /** Fit mode shorthand */
   fitMode: {
     type: String as PropType<FitMode>,
@@ -519,6 +535,9 @@ const iconOverrides = useGridIcons();
  * without forking `<TbwGrid>`.
  */
 function createFeaturePlugins(): BaseGridPlugin[] {
+  // Manual `plugins` prop is an escape hatch: when present it takes over
+  // entirely, matching `<DataGrid plugins={...}>` in the React adapter.
+  if (props.plugins) return [];
   const featureProps: Record<string, unknown> = {};
   for (const feature of getFeaturePropKeys()) {
     const propValue = props[feature as keyof typeof props];
@@ -534,9 +553,10 @@ const mergedConfig = computed<GridConfig<TRow> | undefined>(() => {
   const baseConfig = props.gridConfig ?? {};
   const featurePlugins = createFeaturePlugins();
   const configPlugins = (baseConfig.plugins as BaseGridPlugin[]) ?? [];
+  const manualPlugins = props.plugins ?? [];
 
-  // Merge: feature plugins first, then config plugins
-  const mergedPlugins = [...featurePlugins, ...configPlugins];
+  // Merge: manual plugins first, then feature plugins, then config plugins
+  const mergedPlugins = [...manualPlugins, ...featurePlugins, ...configPlugins];
 
   // Apply icon overrides if provided
   const icons = iconOverrides ? { ...baseConfig.icons, ...iconOverrides } : baseConfig.icons;

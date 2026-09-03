@@ -118,3 +118,25 @@ Class is `Grid<Name>Directive`; selector input is `[<name>]` — EXCEPT `export`
 ## column shorthand
 
 - DECIDED (#276): the shorthand helpers (`parseColumnShorthand`/`normalizeColumns`/`hasColumnShorthands`/`applyColumnDefaults` + type `ColumnShorthand`) moved to core `core/internal/column-shorthand.ts` and are exported from `public.ts`. grid-angular's `column-shorthand.ts` is now a THIN RE-EXPORT from `@toolbox-web/grid` — type-identical, since Angular never consumed them internally and its shorthand API already typed against core `ColumnConfig`. Only React keeps typed wrappers (widened `ColumnConfig`).
+
+## broken targets
+
+- GOTCHA: `grid-angular:typecheck` is pre-existing-broken and unused — it typechecks spec files under `moduleResolution: node16` and emits ~40 `TS2835`/`TS2307` in files nobody touched. It is NOT part of the `lint test build` gate, and `grid-angular:build:production` passes. Do not try to fix it incidentally as part of unrelated work.
+
+## testing directives without TestBed
+
+- INVARIANT: this project has NO TestBed. Directives that use `inject()` are constructed directly in specs by mocking Angular's primitives:
+  ```ts
+  vi.mock('@angular/core', async () => ({
+    ...(await vi.importActual('@angular/core')),
+    inject: (t) => injectResolver(t),
+    effect: (cb) => {
+      cb();
+      return { destroy: () => undefined };
+    },
+  }));
+  ```
+  `import '@angular/compiler';` must come first. `injectResolver` switches on the real token identity (`token === TemplateRef`), so import the real `ElementRef`/`TemplateRef` AFTER the `vi.mock` call. Established by `inject-grid.spec.ts`; now also `grid-column-header.directive.spec.ts` and `structural-directives.spec.ts`.
+- GOTCHA: `effect(cb)` mocked as "run immediately" is sufficient for registration-style directives (`TbwRenderer`, `TbwHeader`, `TbwHeaderLabel`) because their effect body only reads the DOM, not signals. Do NOT reuse this mock for a directive whose effect depends on `input()` — `input()` values cannot be set outside TestBed, which is why `grid.directive.ts` (990 lines, 30+ inputs) is still ~1% covered.
+- INVARIANT: `bun nx test grid-angular --coverage` enforces a 70% threshold on all four metrics. `grid.directive.ts` alone holds ~180 uncovered statements / ~77 branches, so the project sits within ~1pp of the line at all times — ANY new uncovered file tips it red. Measure with `coverage/libs/grid-angular/coverage-summary.json` (per-file `total - covered`) rather than reading the truncated terminal table.
+- DECIDED (2026-09): the 70% gate was already failing on `main` at `grid-3.7.0` (69.66/69.26). It was cleared by fully covering the structural-directive family (register / walk-up through wrappers / `<tbw-grid-type>` owner / destroy-unregister / no-ancestor no-op) rather than by lowering the threshold. `grid.directive.ts` remains the standing debt.

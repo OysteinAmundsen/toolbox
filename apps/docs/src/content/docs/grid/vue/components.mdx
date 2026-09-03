@@ -62,12 +62,13 @@ under its native name, with the original `CustomEvent` as the payload — for ex
 
 ### Exposed members
 
-| Name          | Type                                    |
-| ------------- | --------------------------------------- |
-| `gridElement` | `Ref<DataGridElement<TRow> \| null>`    |
-| `forceLayout` | `() => void`                            |
-| `getConfig`   | `() => GridConfig<TRow> \| undefined`   |
-| `ready`       | `() => Promise<void> \| undefined`      |
+| Name          | Type                                     |
+| ------------- | ---------------------------------------- |
+| `element`     | `Ref<DataGridElement<TRow> \| null>`     |
+| `gridElement` | `Ref<DataGridElement<TRow> \| null>` — deprecated alias for `element` |
+| `forceLayout` | `() => void`                             |
+| `getConfig`   | `() => Promise<GridConfig<TRow> \| null>` |
+| `ready`       | `() => Promise<void> \| undefined`       |
 
 ### Notes
 
@@ -94,16 +95,33 @@ Generic parameters: `TRow = unknown`, `TValue = any`. Specify them
 | ---------- | -------------------------------- | -------- |
 | `field`    | `string`                         | yes      |
 | `header`   | `string`                         | no       |
+| `type`     | `ColumnType`                     | no       |
 | `width`    | `string \| number`               | no       |
 | `minWidth` | `string \| number`               | no       |
-| `maxWidth` | `string \| number`               | no       |
 | `order`    | `number`                         | no       |
 | `sortable` | `boolean`                        | no       |
 | `resizable`| `boolean`                        | no       |
 | `editable` | `boolean`                        | no       |
-| `type`     | `string`                         | no       |
-| `align`    | `'left' \| 'center' \| 'right'`  | no       |
 | `hidden`   | `boolean`                        | no       |
+| `lockVisible` | `boolean`                     | no       |
+| `options`  | [`ColumnOptions`](#columnoptions) | no      |
+
+#### ColumnOptions
+
+`options` supplies the choice list for `select` / `typeahead` column types. Pass either
+bare values or `{ label, value }` pairs; the component serializes them into the `options`
+attribute the core column parser reads. Values and labels must not contain `,` or `:`.
+
+```vue
+<TbwGridColumn field="role" type="select" :options="['admin', 'user']" />
+<TbwGridColumn
+  field="role"
+  type="select"
+  :options="[{ label: 'Administrator', value: 'admin' }, { label: 'User', value: 'user' }]"
+/>
+```
+
+The React adapter accepts the identical shape via `<GridColumn options={...} />`.
 
 ### Slots
 
@@ -186,11 +204,12 @@ Registers a collapsible side panel in the grid shell. Requires the
 | `title`    | `string`             | no       | `undefined` |
 | `label`    | `string`             | no       | `undefined` |
 | `icon`     | `string`             | no       | `undefined` |
-| `position` | `'left' \| 'right'`  | no       | `'right'` |
-| `width`    | `string`             | no       | `'250px'` |
+| `tooltip`  | `string`             | no       | `undefined` |
+| `order`    | `number`             | no       | `100`     |
 
 `title` is the canonical name and matches the React and Angular adapters. `label` is a
 Vue-only alias kept for backward compatibility; when both are set, `title` wins.
+`order` controls the tool-button position in the shell rail (lower comes first).
 
 ### Slots
 

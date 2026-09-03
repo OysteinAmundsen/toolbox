@@ -63,6 +63,8 @@ export type { FeatureName, PluginFactory } from './lib/feature-registry';
 // Core directives. Feature-owned directives (editors, filter panels,
 // master-detail, responsive cards, shell) live in their `features/<feature>`
 // secondary entries, not here.
+export { TbwHeader, TbwHeaderLabel } from './lib/directives/grid-column-header.directive';
+export type { GridHeaderContext, GridHeaderLabelContext } from './lib/directives/grid-column-header.directive';
 export { GridColumnView } from './lib/directives/grid-column-view.directive';
 export type { GridCellContext } from './lib/directives/grid-column-view.directive';
 export { TbwGridColumn } from './lib/directives/grid-column.directive';

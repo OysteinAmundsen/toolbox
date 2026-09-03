@@ -33,6 +33,7 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { type PrintParams, type PrintPlugin } from '@toolbox-web/grid/plugins/print';
 import { useCallback, useContext } from 'react';
 import { GridElementContext } from '../lib/grid-element-context';
+import { useGridIsReady } from '../lib/use-grid-is-ready';
 
 // Delegate to core feature registration
 import '@toolbox-web/grid/features/print';
@@ -56,6 +57,13 @@ export interface PrintMethods {
    * Check if a print operation is currently in progress.
    */
   isPrinting: () => boolean;
+
+  /**
+   * Whether the grid has finished its first render.
+   *
+   * @since 2.5.0
+   */
+  isReady: boolean;
 }
 
 /**
@@ -89,10 +97,15 @@ export interface PrintMethods {
 export function useGridPrint(selector?: string): PrintMethods {
   const gridRef = useContext(GridElementContext);
 
-  const getPlugin = useCallback((): PrintPlugin | undefined => {
-    const grid = (selector ? document.querySelector(selector) : gridRef?.current) as DataGridElement | null;
-    return grid?.getPluginByName('print');
+  const getGrid = useCallback((): DataGridElement | null => {
+    return (selector ? document.querySelector(selector) : gridRef?.current) as DataGridElement | null;
   }, [gridRef, selector]);
+
+  const getPlugin = useCallback((): PrintPlugin | undefined => {
+    return getGrid()?.getPluginByName('print');
+  }, [getGrid]);
+
+  const isReady = useGridIsReady(getGrid);
 
   const print = useCallback(
     async (params?: PrintParams) => {
@@ -110,5 +123,5 @@ export function useGridPrint(selector?: string): PrintMethods {
 
   const isPrinting = useCallback(() => getPlugin()?.isPrinting() ?? false, [getPlugin]);
 
-  return { print, isPrinting };
+  return { print, isPrinting, isReady };
 }

@@ -14,6 +14,8 @@ export interface InjectGridReturn<TRow = unknown> {
   config: Signal<GridConfig<TRow> | null>;
   /** Get the effective configuration */
   getConfig: () => Promise<GridConfig<TRow> | null>;
+  /** Wait for the grid to finish its first render */
+  ready: () => Promise<void>;
   /** Force a layout recalculation */
   forceLayout: () => Promise<void>;
   /** Toggle a group row */
@@ -133,8 +135,12 @@ export function injectGrid<TRow = unknown>(selector = 'tbw-grid'): InjectGridRet
   const getConfig = async (): Promise<GridConfig<TRow> | null> => {
     const gridElement = element();
     if (!gridElement) return null;
-    const effectiveConfig = gridElement.getConfig?.();
+    const effectiveConfig = await gridElement.getConfig?.();
     return (effectiveConfig as GridConfig<TRow>) ?? null;
+  };
+
+  const ready = async (): Promise<void> => {
+    await element()?.ready?.();
   };
 
   const forceLayout = async (): Promise<void> => {
@@ -172,6 +178,7 @@ export function injectGrid<TRow = unknown>(selector = 'tbw-grid'): InjectGridRet
     config,
     visibleColumns,
     getConfig,
+    ready,
     forceLayout,
     toggleGroup,
     registerStyles,

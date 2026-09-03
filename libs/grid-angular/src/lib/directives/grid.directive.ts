@@ -15,6 +15,7 @@ import {
 } from '@angular/core';
 import type {
   ColumnConfig as BaseColumnConfig,
+  BaseGridPlugin,
   CellActivateDetail,
   CellChangeDetail,
   CellClickDetail,
@@ -159,8 +160,11 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
       const angularCfg = userGridConfig;
       if (!this.adapter) return;
 
-      // Create plugins from feature inputs
-      const featurePlugins = this.createFeaturePlugins();
+      // Create plugins from feature inputs. The manual `plugins` input is an
+      // escape hatch: when present it takes over entirely, matching
+      // `<DataGrid plugins={...}>` (React) and `<TbwGrid :plugins>` (Vue).
+      const manualPlugins = this.plugins();
+      const featurePlugins = manualPlugins ? [] : this.createFeaturePlugins();
 
       // Build core config overrides from individual inputs
       const sortableValue = this.sortable();
@@ -189,17 +193,21 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
 
       // Nothing to do if there's no config input and no feature inputs
       const hasFeaturePlugins = featurePlugins.length > 0;
+      // Provided-vs-not, not non-empty: `[plugins]="[]"` is a deliberate "no
+      // plugins" override, and `.length > 0` would early-return and leave a
+      // previously applied set active. Matches React's `if (manualPlugins)`.
+      const hasManualPlugins = manualPlugins !== undefined;
       const hasConfigOverrides = Object.keys(coreConfigOverrides).length > 0;
 
-      if (!angularCfg && !hasFeaturePlugins && !hasConfigOverrides) {
+      if (!angularCfg && !hasFeaturePlugins && !hasManualPlugins && !hasConfigOverrides) {
         return;
       }
 
       const userConfig = angularCfg || {};
 
-      // Merge feature-input plugins with the user's own plugins
+      // Merge manual + feature-input plugins with the user's own plugins
       const configPlugins = userConfig.plugins || [];
-      const mergedPlugins = [...featurePlugins, ...configPlugins];
+      const mergedPlugins = [...(manualPlugins ?? []), ...featurePlugins, ...configPlugins];
 
       // The interceptor on element.gridConfig (installed in ngOnInit)
       // handles converting component classes → functions via processGridConfig,
@@ -208,7 +216,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
       grid.gridConfig = {
         ...userConfig,
         ...coreConfigOverrides,
-        plugins: mergedPlugins.length > 0 ? mergedPlugins : userConfig.plugins,
+        // Only fall back to the user's own list when `plugins` was not provided;
+        // an explicit empty input must win over it.
+        plugins: hasManualPlugins || mergedPlugins.length > 0 ? mergedPlugins : userConfig.plugins,
       };
     });
 
@@ -537,6 +547,26 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   gridConfig = input<GridConfig<any>>();
+
+  /**
+   * Manually instantiated plugins (escape hatch for advanced configuration).
+   * When provided, per-feature directive inputs are ignored — only plugins
+   * from this list plus any declared in `gridConfig.plugins` are used.
+   *
+   * @example
+   * ```ts
+   * import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+   *
+   * plugins = [new SelectionPlugin({ mode: 'range', checkbox: true })];
+   * ```
+   *
+   * ```html
+   * <tbw-grid [rows]="employees()" [plugins]="plugins"></tbw-grid>
+   * ```
+   *
+   * @since 2.5.0
+   */
+  plugins = input<BaseGridPlugin[]>();
 
   // ═══════════════════════════════════════════════════════════════════════════
   // EVENT OUTPUTS - All grid events

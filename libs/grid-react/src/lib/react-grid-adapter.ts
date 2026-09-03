@@ -6,6 +6,8 @@ import type {
   GridConfig as CoreGridConfig,
   DataGridElement,
   FrameworkAdapter,
+  HeaderCellContext,
+  HeaderLabelContext,
   TypeDefault,
 } from '@toolbox-web/grid';
 import type { ReactNode } from 'react';
@@ -16,7 +18,12 @@ import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
 import type { TypeDefault as ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { beginPortalBatch, endPortalBatch, removeFromContainer, renderToContainer } from './portal-bridge';
 import { registerPostMountRefresh, type PostMountRefreshHook } from './post-mount-refresh-hooks';
-import { cleanupConfigRootsIn, processGridConfig } from './react-column-config';
+import {
+  cleanupConfigRootsIn,
+  processGridConfig,
+  wrapReactHeaderLabelRenderer,
+  wrapReactHeaderRenderer,
+} from './react-column-config';
 
 // Re-export so feature secondary entries can install editor-mount hooks
 // via `import { registerEditorMountHook } from '@toolbox-web/grid-react'`.
@@ -120,6 +127,8 @@ export function registerFilterPanelTypeDefaultBridge(bridge: FilterPanelTypeDefa
 interface ColumnRegistry {
   renderer?: (ctx: CellRenderContext<unknown, unknown>) => ReactNode;
   editor?: (ctx: ColumnEditorContext<unknown, unknown>) => ReactNode;
+  headerRenderer?: (ctx: HeaderCellContext<unknown>) => ReactNode;
+  headerLabelRenderer?: (ctx: HeaderLabelContext<unknown>) => ReactNode;
 }
 
 interface TypeRegistry {
@@ -204,6 +213,80 @@ export function registerColumnEditor(
     fieldRegistry.editor = editor;
     fieldRegistries.set(field, fieldRegistry);
   }
+}
+
+/**
+ * Register a React header-cell renderer for a column element.
+ * Called by GridColumn when it has a `headerRenderer` render prop.
+ */
+export function registerColumnHeaderRenderer(
+  element: HTMLElement,
+  renderer: (ctx: HeaderCellContext<unknown>) => ReactNode,
+): void {
+  const field = element.getAttribute('field');
+  const registry = columnRegistries.get(element) ?? {};
+  registry.headerRenderer = renderer;
+  columnRegistries.set(element, registry);
+
+  if (field) {
+    const fieldRegistry = fieldRegistries.get(field) ?? {};
+    fieldRegistry.headerRenderer = renderer;
+    fieldRegistries.set(field, fieldRegistry);
+  }
+}
+
+/**
+ * Register a React header-label renderer for a column element.
+ * Called by GridColumn when it has a `headerLabelRenderer` render prop.
+ */
+export function registerColumnHeaderLabelRenderer(
+  element: HTMLElement,
+  renderer: (ctx: HeaderLabelContext<unknown>) => ReactNode,
+): void {
+  const field = element.getAttribute('field');
+  const registry = columnRegistries.get(element) ?? {};
+  registry.headerLabelRenderer = renderer;
+  columnRegistries.set(element, registry);
+
+  if (field) {
+    const fieldRegistry = fieldRegistries.get(field) ?? {};
+    fieldRegistry.headerLabelRenderer = renderer;
+    fieldRegistries.set(field, fieldRegistry);
+  }
+}
+
+/**
+ * Get the header renderer registered for a column element.
+ * Falls back to field-based lookup if WeakMap lookup fails.
+ */
+export function getColumnHeaderRenderer(
+  element: HTMLElement,
+): ((ctx: HeaderCellContext<unknown>) => ReactNode) | undefined {
+  let renderer = columnRegistries.get(element)?.headerRenderer;
+  if (!renderer) {
+    const field = element.getAttribute('field');
+    if (field) {
+      renderer = fieldRegistries.get(field)?.headerRenderer;
+    }
+  }
+  return renderer;
+}
+
+/**
+ * Get the header label renderer registered for a column element.
+ * Falls back to field-based lookup if WeakMap lookup fails.
+ */
+export function getColumnHeaderLabelRenderer(
+  element: HTMLElement,
+): ((ctx: HeaderLabelContext<unknown>) => ReactNode) | undefined {
+  let renderer = columnRegistries.get(element)?.headerLabelRenderer;
+  if (!renderer) {
+    const field = element.getAttribute('field');
+    if (field) {
+      renderer = fieldRegistries.get(field)?.headerLabelRenderer;
+    }
+  }
+  return renderer;
 }
 
 /**
@@ -417,7 +500,13 @@ export class GridAdapter implements FrameworkAdapter {
     // This handles the case where React re-renders and creates new elements
     if (!registry && field) {
       const fieldRegistry = fieldRegistries.get(field);
-      if (fieldRegistry && (fieldRegistry.renderer || fieldRegistry.editor)) {
+      if (
+        fieldRegistry &&
+        (fieldRegistry.renderer ||
+          fieldRegistry.editor ||
+          fieldRegistry.headerRenderer ||
+          fieldRegistry.headerLabelRenderer)
+      ) {
         // Copy registration to new element for future WeakMap lookups
         registry = fieldRegistry;
         columnRegistries.set(element, registry);
@@ -426,7 +515,9 @@ export class GridAdapter implements FrameworkAdapter {
 
     const hasRenderer = registry?.renderer !== undefined;
     const hasEditor = registry?.editor !== undefined;
-    if (registry !== undefined && (hasRenderer || hasEditor)) {
+    const hasHeaderRenderer = registry?.headerRenderer !== undefined;
+    const hasHeaderLabelRenderer = registry?.headerLabelRenderer !== undefined;
+    if (registry !== undefined && (hasRenderer || hasEditor || hasHeaderRenderer || hasHeaderLabelRenderer)) {
       return true;
     }
 
@@ -557,6 +648,36 @@ export class GridAdapter implements FrameworkAdapter {
 
       return container;
     };
+  }
+
+  /**
+   * Creates a DOM-returning header renderer for a `<tbw-grid-column>` element
+   * that registered a render prop via `<GridColumn headerRenderer={...} />`.
+   * Returns undefined when none was registered, letting the grid fall back to
+   * its built-in header.
+   *
+   * Reuses the same portal infrastructure as the config-path `headerRenderer`.
+   */
+  createHeaderRenderer<TRow = unknown>(
+    element: HTMLElement,
+  ): ((ctx: HeaderCellContext<TRow>) => HTMLElement) | undefined {
+    const renderFn = getColumnHeaderRenderer(element);
+    if (!renderFn) return undefined;
+    return wrapReactHeaderRenderer(renderFn as (ctx: HeaderCellContext<TRow>) => ReactNode);
+  }
+
+  /**
+   * Creates a DOM-returning header *label* renderer for a `<tbw-grid-column>`
+   * element that registered a render prop via
+   * `<GridColumn headerLabelRenderer={...} />`. Returns undefined when none
+   * was registered.
+   */
+  createHeaderLabelRenderer<TRow = unknown>(
+    element: HTMLElement,
+  ): ((ctx: HeaderLabelContext<TRow>) => HTMLElement) | undefined {
+    const renderFn = getColumnHeaderLabelRenderer(element);
+    if (!renderFn) return undefined;
+    return wrapReactHeaderLabelRenderer(renderFn as (ctx: HeaderLabelContext<TRow>) => ReactNode);
   }
 
   /**

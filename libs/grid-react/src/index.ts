@@ -19,6 +19,7 @@
 import './jsx.d.ts';
 
 // Main components
+export type { ColumnOptions } from './lib/column-options';
 export { DataGrid } from './lib/data-grid';
 export type { DataGridProps, DataGridRef } from './lib/data-grid';
 export { GridColumn } from './lib/grid-column';
@@ -89,6 +90,17 @@ export type { ColumnConfig, GridConfig } from './lib/react-column-config';
 
 // Field-key types for nested dotted-path columns (issue #438)
 export type { ColumnFieldKey, NestedPaths } from '@toolbox-web/grid';
+
+// Feature registry for tree-shakeable plugin registration
+export {
+  clearFeatureRegistry,
+  createPluginFromFeature,
+  getFeatureFactory,
+  getRegisteredFeatures,
+  isFeatureRegistered,
+  registerFeature,
+} from './lib/feature-registry';
+export type { FeatureName, PluginFactory } from './lib/feature-registry';
 
 // Hooks
 export { useGrid, type UseGridReturn } from './lib/use-grid';

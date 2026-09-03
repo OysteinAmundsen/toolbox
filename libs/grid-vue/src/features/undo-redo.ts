@@ -34,8 +34,9 @@
 
 import type { DataGridElement } from '@toolbox-web/grid';
 import { type UndoRedoAction, type UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
-import { inject, ref } from 'vue';
+import { inject, onBeforeUnmount, onMounted, ref, type Ref } from 'vue';
 import { GRID_ELEMENT_KEY } from '../lib/use-grid';
+import { useGridIsReady } from '../lib/use-grid-is-ready';
 
 // Delegate to core feature registration
 import '@toolbox-web/grid/features/undo-redo';
@@ -105,6 +106,13 @@ export interface UndoRedoMethods {
    * @throws If no transaction is active
    */
   endTransaction: () => void;
+
+  /**
+   * Whether the grid has finished its first render.
+   *
+   * @since 2.5.0
+   */
+  isReady: Ref<boolean>;
 }
 
 /**
@@ -135,12 +143,36 @@ export interface UndoRedoMethods {
 export function useGridUndoRedo(selector?: string): UndoRedoMethods {
   const gridElement = selector ? ref(null) : inject(GRID_ELEMENT_KEY, ref(null));
 
+  const getGrid = (): DataGridElement | null =>
+    (selector ? document.querySelector(selector) : gridElement.value) as DataGridElement | null;
+
   const getPlugin = (): UndoRedoPlugin | undefined => {
-    const grid = (selector ? document.querySelector(selector) : gridElement.value) as DataGridElement | null;
-    return grid?.getPluginByName('undoRedo');
+    return getGrid()?.getPluginByName('undoRedo');
   };
 
+  const isReady = useGridIsReady(getGrid);
+
+  // Re-evaluate `canUndo()` / `canRedo()` in templates whenever the undo/redo
+  // history changes, so they behave like the Angular adapter's signals.
+  const historyVersion = ref(0);
+  let unsubHistory: (() => void) | undefined;
+
+  onMounted(() => {
+    const grid = getGrid();
+    if (!grid?.on) return;
+
+    const bump = () => historyVersion.value++;
+    const unsubs = [grid.on('undo', bump), grid.on('redo', bump), grid.on('cell-commit', bump)];
+    unsubHistory = () => unsubs.forEach((fn) => fn());
+  });
+
+  onBeforeUnmount(() => {
+    unsubHistory?.();
+    unsubHistory = undefined;
+  });
+
   return {
+    isReady,
     undo: () => {
       const plugin = getPlugin();
       if (!plugin) {
@@ -167,9 +199,16 @@ export function useGridUndoRedo(selector?: string): UndoRedoMethods {
       return plugin.redo();
     },
 
-    canUndo: () => getPlugin()?.canUndo() ?? false,
+    canUndo: () => {
+      // Touch the version ref so Vue tracks this call as a reactive dependency.
+      void historyVersion.value;
+      return getPlugin()?.canUndo() ?? false;
+    },
 
-    canRedo: () => getPlugin()?.canRedo() ?? false,
+    canRedo: () => {
+      void historyVersion.value;
+      return getPlugin()?.canRedo() ?? false;
+    },
 
     clearHistory: () => {
       const plugin = getPlugin();

@@ -344,6 +344,38 @@ export class MyGridComponent {}
 
 > **Auto-wiring:** If your editor component emits a `commit` event with the new value, the adapter automatically calls the grid's commit function. Similarly for `cancel`. This means you can skip the explicit `onCommit`/`onCancel` bindings!
 
+### Custom Header Templates
+
+`*tbwHeader` and `*tbwHeaderLabel` are the Angular equivalent of React's
+`<GridColumn headerRenderer>` render prop and Vue's `#header` / `#headerLabel` slots.
+
+```typescript
+import { Grid, TbwHeader, TbwHeaderLabel } from '@toolbox-web/grid-angular';
+
+@Component({
+  imports: [Grid, TbwHeader, TbwHeaderLabel],
+  template: `
+    <tbw-grid [rows]="rows">
+      <!-- Label only — the grid keeps sort icons, filter buttons, resize handles -->
+      <tbw-grid-column field="name">
+        <strong *tbwHeaderLabel="let value">{{ value }}</strong>
+      </tbw-grid-column>
+
+      <!-- Whole header cell — you own the affordances -->
+      <tbw-grid-column field="salary" sortable>
+        <span *tbwHeader="let value; column as column">💰 {{ value }}</span>
+      </tbw-grid-column>
+    </tbw-grid>
+  `,
+})
+export class MyGridComponent {}
+```
+
+**`*tbwHeader` context:** `$implicit` / `value` (header text), `column`, `sortState`,
+`filterActive`, `cellEl`, `renderSortIcon()`, `renderFilterButton()`.
+
+**`*tbwHeaderLabel` context:** `$implicit` / `value`, `column`.
+
 ## Nested Directive Syntax (Alternative)
 
 For more explicit control, you can use the nested directive syntax with `<ng-template>`:
@@ -726,6 +758,20 @@ export class MyGridComponent {
 
 > **Tip:** Prefer feature props (see [Enabling Features](#enabling-features) above) for simpler code and tree-shaking.
 
+There is also a dedicated `[plugins]` input, matching `<DataGrid plugins={...}>` in React
+and `:plugins` in Vue. When `[plugins]` is set, feature directives are ignored — the array
+is the full plugin list:
+
+```typescript
+@Component({
+  imports: [Grid],
+  template: `<tbw-grid [rows]="rows" [plugins]="plugins" />`,
+})
+export class MyGridComponent {
+  plugins = [new SelectionPlugin({ mode: 'row' })];
+}
+```
+
 Or import all plugins at once (larger bundle, but convenient):
 
 ```typescript
@@ -1097,6 +1143,8 @@ export class TextFilterComponent extends BaseFilterPanel {
 | `GridFormArray`      | `tbw-grid[formControlName]`, `tbw-grid[formControl]` | Reactive Forms integration                      |
 | `TbwRenderer`        | `*tbwRenderer`                                       | Structural directive for cell views             |
 | `TbwEditor`          | `*tbwEditor`                                         | Structural directive for cell editors           |
+| `TbwHeader`          | `*tbwHeader`                                         | Structural directive for the whole header cell  |
+| `TbwHeaderLabel`     | `*tbwHeaderLabel`                                    | Structural directive for the header label only  |
 | `GridColumnView`     | `tbw-grid-column-view`                               | Nested directive for cell views                 |
 | `GridColumnEditor`   | `tbw-grid-column-editor`                             | Nested directive for cell editors               |
 | `GridDetailView`     | `tbw-grid-detail`                                    | Master-detail panel template                    |

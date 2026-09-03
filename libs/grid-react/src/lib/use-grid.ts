@@ -1,6 +1,7 @@
 import type { ColumnConfig, DataGridElement, GridConfig } from '@toolbox-web/grid';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DataGridRef } from './data-grid';
+import { useGridIsReady } from './use-grid-is-ready';
 
 /**
  * Return type for useGrid hook.
@@ -17,6 +18,8 @@ export interface UseGridReturn<TRow = unknown> {
   config: GridConfig<TRow> | null;
   /** Get the effective configuration */
   getConfig: () => Promise<GridConfig<TRow> | null>;
+  /** Wait for the grid to finish its first render */
+  ready: () => Promise<void>;
   /** Force a layout recalculation */
   forceLayout: () => Promise<void>;
   /** Toggle a group row */
@@ -73,7 +76,6 @@ export interface UseGridReturn<TRow = unknown> {
  */
 export function useGrid<TRow = unknown>(selector?: string): UseGridReturn<TRow> {
   const ref = useRef<DataGridRef<TRow>>(null);
-  const [isReady, setIsReady] = useState(false);
   const [config, setConfig] = useState<GridConfig<TRow> | null>(null);
   const selectorElementRef = useRef<DataGridElement<TRow> | null>(null);
 
@@ -89,47 +91,27 @@ export function useGrid<TRow = unknown>(selector?: string): UseGridReturn<TRow> 
     return (ref.current?.element as DataGridElement<TRow>) ?? null;
   }, [selector]);
 
-  // Wait for grid ready
+  const isReady = useGridIsReady(getGridElement as () => DataGridElement | null);
+
+  // `isReady` is owned by `useGridIsReady`; this only resolves the effective config.
   useEffect(() => {
+    if (!isReady) return;
     let mounted = true;
+    const el = getGridElement();
+    if (!el) return;
 
-    const checkReady = async () => {
-      try {
-        if (selector) {
-          const el = document.querySelector(selector) as DataGridElement<TRow>;
-          if (!el) return;
-          selectorElementRef.current = el;
-          await el.ready?.();
-          if (mounted) {
-            setIsReady(true);
-            const effectiveConfig = await el.getConfig?.();
-            if (mounted && effectiveConfig) {
-              setConfig(effectiveConfig as GridConfig<TRow>);
-            }
-          }
-        } else {
-          const gridRef = ref.current;
-          if (!gridRef) return;
-          await gridRef.ready?.();
-          if (mounted) {
-            setIsReady(true);
-            const effectiveConfig = await gridRef.getConfig?.();
-            if (mounted && effectiveConfig) {
-              setConfig(effectiveConfig as GridConfig<TRow>);
-            }
-          }
-        }
-      } catch {
+    Promise.resolve(el.getConfig?.())
+      .then((effectiveConfig) => {
+        if (mounted && effectiveConfig) setConfig(effectiveConfig as GridConfig<TRow>);
+      })
+      .catch(() => {
         // Grid not ready yet
-      }
-    };
-
-    checkReady();
+      });
 
     return () => {
       mounted = false;
     };
-  }, [selector]);
+  }, [isReady, getGridElement]);
 
   const getConfig = useCallback(async () => {
     const el = getGridElement();
@@ -152,6 +134,15 @@ export function useGrid<TRow = unknown>(selector?: string): UseGridReturn<TRow> 
     const gridRef = ref.current;
     if (!gridRef) return;
     await gridRef.forceLayout?.();
+  }, [getGridElement]);
+
+  const ready = useCallback(async () => {
+    const el = getGridElement();
+    if (el) {
+      await el.ready?.();
+      return;
+    }
+    await ref.current?.ready?.();
   }, [getGridElement]);
 
   const toggleGroup = useCallback(
@@ -221,6 +212,7 @@ export function useGrid<TRow = unknown>(selector?: string): UseGridReturn<TRow> 
     isReady,
     config,
     getConfig,
+    ready,
     forceLayout,
     toggleGroup,
     getPlugin,

@@ -1,7 +1,19 @@
-import type { CellRenderContext, ColumnEditorContext } from '@toolbox-web/grid';
+import type {
+  CellRenderContext,
+  ColumnEditorContext,
+  ColumnType,
+  HeaderCellContext,
+  HeaderLabelContext,
+} from '@toolbox-web/grid';
 import { useCallback, useRef, type ReactNode } from 'react';
 import '../jsx.d.ts';
-import { registerColumnEditor, registerColumnRenderer } from './react-grid-adapter';
+import { serializeColumnOptions, type ColumnOptions } from './column-options';
+import {
+  registerColumnEditor,
+  registerColumnHeaderLabelRenderer,
+  registerColumnHeaderRenderer,
+  registerColumnRenderer,
+} from './react-grid-adapter';
 
 /**
  * Props for the GridColumn component.
@@ -12,7 +24,7 @@ export interface GridColumnProps<TRow = unknown, TValue = unknown> {
   /** Column header text (defaults to capitalized field) */
   header?: string;
   /** Column data type */
-  type?: 'string' | 'number' | 'date' | 'boolean' | 'select' | 'typeahead';
+  type?: ColumnType;
   /** Whether the column is editable */
   editable?: boolean;
   /** Whether the column is sortable */
@@ -29,6 +41,12 @@ export interface GridColumnProps<TRow = unknown, TValue = unknown> {
   hidden?: boolean;
   /** Prevent column from being hidden */
   lockVisible?: boolean;
+  /**
+   * Select/typeahead options. Serialized onto the element's `options`
+   * attribute, so values and labels must not contain `,` or `:` — pass
+   * richer option objects through `gridConfig.columns[].options` instead.
+   */
+  options?: ColumnOptions;
   /**
    * Custom cell renderer (render prop pattern).
    * Receives cell context and returns React node.
@@ -61,12 +79,18 @@ export interface GridColumnProps<TRow = unknown, TValue = unknown> {
    * ```
    */
   editor?: (ctx: ColumnEditorContext<TRow, TValue>) => ReactNode;
-  /** Select/typeahead options */
-  options?: Array<{ label: string; value: unknown }>;
-  /** Allow multiple selection (for select/typeahead) */
-  multi?: boolean;
-  /** Custom formatter function */
-  format?: (value: TValue, row: TRow) => string;
+  /**
+   * Full header cell renderer. Consumer owns sort icons and filter buttons —
+   * use the `renderSortIcon` / `renderFilterButton` helpers on the context to
+   * opt in. Resize handles are appended automatically by the grid for
+   * resizable columns; do not render one yourself.
+   */
+  headerRenderer?: (ctx: HeaderCellContext<TRow>) => ReactNode;
+  /**
+   * Header label renderer. The grid keeps ownership of sort icons, filter
+   * buttons, and resize handles; this only replaces the label text.
+   */
+  headerLabelRenderer?: (ctx: HeaderLabelContext<TRow>) => ReactNode;
 }
 
 /**
@@ -131,11 +155,11 @@ export function GridColumn<TRow = unknown, TValue = unknown>(props: GridColumnPr
     order,
     hidden,
     lockVisible,
+    options,
     children,
     editor,
-    options,
-    multi,
-    format,
+    headerRenderer,
+    headerLabelRenderer,
   } = props;
 
   // Store a direct reference to the DOM element for debugging
@@ -156,8 +180,19 @@ export function GridColumn<TRow = unknown, TValue = unknown>(props: GridColumnPr
       if (editor) {
         registerColumnEditor(element, editor as (ctx: ColumnEditorContext<unknown, unknown>) => ReactNode);
       }
+
+      if (headerRenderer) {
+        registerColumnHeaderRenderer(element, headerRenderer as (ctx: HeaderCellContext<unknown>) => ReactNode);
+      }
+
+      if (headerLabelRenderer) {
+        registerColumnHeaderLabelRenderer(
+          element,
+          headerLabelRenderer as (ctx: HeaderLabelContext<unknown>) => ReactNode,
+        );
+      }
     },
-    [children, editor],
+    [children, editor, headerRenderer, headerLabelRenderer],
   );
 
   // Convert width to string if number
@@ -179,17 +214,10 @@ export function GridColumn<TRow = unknown, TValue = unknown>(props: GridColumnPr
   if (order !== undefined) attrs['order'] = order;
   if (hidden !== undefined) attrs['hidden'] = hidden;
   if (lockVisible !== undefined) attrs['lock-visible'] = lockVisible;
-  if (multi !== undefined) attrs['multi'] = multi;
 
-  // Store format and options in data attributes for the adapter to pick up
-  // These are handled by the grid's column parsing logic
-  if (format) {
-    // Format function needs to be stored on the element
-    // The grid will access it during column parsing
-    attrs['data-has-format'] = 'true';
-  }
   if (options) {
-    attrs['data-has-options'] = 'true';
+    const serialized = serializeColumnOptions(options);
+    if (serialized !== undefined) attrs['options'] = serialized;
   }
 
   return <tbw-grid-column {...attrs} />;

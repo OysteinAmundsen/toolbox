@@ -1,6 +1,13 @@
 <script setup lang="ts" generic="TRow = unknown, TValue = any">
-import type { CellRenderContext, ColumnEditorContext, HeaderCellContext, HeaderLabelContext } from '@toolbox-web/grid';
-import { h, onMounted, ref, type VNode } from 'vue';
+import type {
+  CellRenderContext,
+  ColumnEditorContext,
+  ColumnType,
+  HeaderCellContext,
+  HeaderLabelContext,
+} from '@toolbox-web/grid';
+import { computed, h, onMounted, ref, type VNode } from 'vue';
+import { serializeColumnOptions, type ColumnOptions } from './column-options';
 import type { CellSlotProps, EditorSlotProps, HeaderLabelSlotProps, HeaderSlotProps } from './slot-types';
 import {
   registerColumnEditor,
@@ -23,12 +30,12 @@ const props = defineProps<{
   field: string;
   /** Column header text */
   header?: string;
+  /** Data type for the column */
+  type?: ColumnType;
   /** Column width */
   width?: string | number;
   /** Minimum column width */
   minWidth?: string | number;
-  /** Maximum column width */
-  maxWidth?: string | number;
   /** Initial column display index */
   order?: number;
   /** Whether the column is sortable */
@@ -37,14 +44,28 @@ const props = defineProps<{
   resizable?: boolean;
   /** Whether the column is editable */
   editable?: boolean;
-  /** Data type for the column */
-  type?: string;
-  /** Column alignment */
-  align?: 'left' | 'center' | 'right';
   /** Whether the column is hidden */
   hidden?: boolean;
+  /** Prevent the column from being hidden */
+  lockVisible?: boolean;
+  /**
+   * Select/typeahead options. Serialized onto the element's `options`
+   * attribute, so values and labels must not contain `,` or `:` — pass
+   * richer option objects through `gridConfig.columns[].options` instead.
+   */
+  options?: ColumnOptions;
 }>();
 
+// The core light-DOM parser reads select/typeahead options from an `options`
+// CSV attribute. Bound via `v-bind` (not `:options`) because the template's
+// `<tbw-grid-column>` self-resolves to this component, whose `options` prop is
+// the rich array form.
+const attrOverrides = computed<Record<string, string>>(() => {
+  const serialized = props.options ? serializeColumnOptions(props.options) : undefined;
+  const attrs: Record<string, string> = {};
+  if (serialized !== undefined) attrs['options'] = serialized;
+  return attrs;
+});
 // Define slots with proper typing and get the slots object
 const slots = defineSlots<{
   /** Custom cell renderer slot */
@@ -152,16 +173,16 @@ onMounted(() => {
     ref="columnRef"
     :field="field"
     :header="header"
+    :type="type"
     :width="width"
     :min-width="minWidth"
-    :max-width="maxWidth"
     :order="order"
     :sortable="sortable"
     :resizable="resizable"
     :editable="editable"
-    :type="type"
-    :align="align"
     :hidden="hidden"
+    :lock-visible="lockVisible"
+    v-bind="attrOverrides"
   >
     <!-- Hidden slot to capture slot definitions -->
   </tbw-grid-column>

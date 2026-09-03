@@ -78,6 +78,15 @@ export interface SelectionMethods<TRow = unknown> {
   setRanges: (ranges: CellRange[]) => void;
 
   /**
+   * Get actual row objects for the current selection (imperative, point-in-time
+   * snapshot). Works in all selection modes (row, cell, range) — resolves
+   * indices against the grid's processed (sorted/filtered) rows.
+   *
+   * For reactive selected rows, use the `selectedRows` signal instead.
+   */
+  getSelectedRows: () => TRow[];
+
+  /**
    * Reactive selection state. Updates automatically whenever the selection changes.
    * Null when no SelectionPlugin is active or no selection has been made yet.
    *
@@ -357,6 +366,10 @@ export function injectGridSelection<TRow = unknown>(selector = 'tbw-grid'): Sele
 
     setRanges: (ranges: CellRange[]) => {
       getPlugin()?.setRanges(ranges);
+    },
+
+    getSelectedRows: () => {
+      return getPlugin()?.getSelectedRows<TRow>() ?? [];
     },
   };
 }

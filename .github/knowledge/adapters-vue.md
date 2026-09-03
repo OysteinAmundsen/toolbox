@@ -57,3 +57,16 @@ related: [adapters, adapters-react, adapters-angular, grid-core, grid-features]
 ## vue-only prop aliases
 
 - DECIDED (Jun 2026): `TbwGridToolPanel` — **`title` is canonical**, `label` is a retained Vue-only alias. WHY: `title` matches core (`ToolPanelConfig.title`, `plugins/shell/types.ts`), Angular (`title = input<string>()`), and React (`title?: string`); when adapters disagree, pick the name the core grid uses. `label` keeps working (`props.title ?? props.label ?? ''`) and is NOT `@deprecated` — removing it would be a breaking change with no upside. Docs never use `label`.
+
+## vue SFC gotchas (2026-08 parity sweep)
+
+- SELF-RESOLUTION: when an SFC's template root tag equals the component's own kebab tag (`TbwGridColumn.vue` rendering `<tbw-grid-column>`), vue-tsc resolves it to the COMPONENT, not the custom element — so `:options="serializedString"` typechecks against the rich `ColumnOptions` prop and fails `TS2322`. Bind DOM-only attributes via `v-bind="attrOverrides"` where `attrOverrides` is a `computed<Record<string, string>>` built imperatively (an inline ternary yields a union that fails the annotation).
+- `onScopeDispose` is INVALID inside `onMounted` — use a scope-level `let unsub` + `onBeforeUnmount` (hit in `features/selection.ts` and `features/undo-redo.ts`).
+- A literal `</script>` inside a JSDoc `@example` terminates the SFC's script block. Write the example as a plain ```ts fence.
+
+## composables outside a component instance
+
+- INVARIANT: Vue's `inject(KEY, defaultValue)` returns `undefined` — NOT the default — when called outside a component instance (it also logs a warning). Any composable reachable via the documented `selector` escape hatch is by definition callable outside `setup()`, so every injected ref MUST be defended: `(inject(GRID_ELEMENT_KEY, ref(null)) ?? ref(null))`. Without the `??` fallback, `useGrid()` threw `Cannot read properties of undefined (reading 'value')` in `getGrid()`. React's `useContext` DOES return its default, so this hazard is Vue-only and will not surface in a parity diff.
+- INVARIANT: unwrap optional custom-element methods with `Promise.resolve(el.method?.())`, never `el.method?.().then(...)`. Optional chaining short-circuits the CALL but not the `.then()`, so the latter throws `TypeError` until the element upgrades. Applies to every `ready()` call site. Same rule for `await el.ready?.()` inside an `async` wrapper.
+- DECIDED (2026-09): do NOT add `.catch()` to `ready()` chains, in ANY adapter. Core's promise is `new Promise((res) => (this.#readyResolve = res))` (`core/grid.ts` l.883, the ONLY assignment to `#readyPromise`) — the executor never captures `reject`, so rejection is structurally impossible, not merely unlikely. `async ready()` just returns it. A `.catch()` would be permanently-dead, permanently-uncoverable code, and grid-angular sits ~1pp above its 70% coverage gate. Re-raised and re-rejected on PR #473 (4 separate review threads); cite the executor signature when it comes up again.
+- INVARIANT: every composable that mutates a ref from an async continuation needs a `let disposed = false` flag set in `onBeforeUnmount`, checked before each `.value =`. `useGridIsReady` and the selection composable both do this; it mirrors React's existing `disposed` guard.

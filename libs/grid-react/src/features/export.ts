@@ -33,6 +33,7 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import { type ExportFormat, type ExportParams, type ExportPlugin } from '@toolbox-web/grid/plugins/export';
 import { useCallback, useContext } from 'react';
 import { GridElementContext } from '../lib/grid-element-context';
+import { useGridIsReady } from '../lib/use-grid-is-ready';
 
 // Delegate to core feature registration
 import '@toolbox-web/grid/features/export';
@@ -75,6 +76,13 @@ export interface ExportMethods {
    * Get information about the last export.
    */
   getLastExport: () => { format: ExportFormat; timestamp: Date } | null;
+
+  /**
+   * Whether the grid has finished its first render.
+   *
+   * @since 2.5.0
+   */
+  isReady: boolean;
 }
 
 /**
@@ -105,10 +113,15 @@ export interface ExportMethods {
 export function useGridExport(selector?: string): ExportMethods {
   const gridRef = useContext(GridElementContext);
 
-  const getPlugin = useCallback((): ExportPlugin | undefined => {
-    const grid = (selector ? document.querySelector(selector) : gridRef?.current) as DataGridElement | null;
-    return grid?.getPluginByName('export');
+  const getGrid = useCallback((): DataGridElement | null => {
+    return (selector ? document.querySelector(selector) : gridRef?.current) as DataGridElement | null;
   }, [gridRef, selector]);
+
+  const getPlugin = useCallback((): ExportPlugin | undefined => {
+    return getGrid()?.getPluginByName('export');
+  }, [getGrid]);
+
+  const isReady = useGridIsReady(getGrid);
 
   const exportToCsv = useCallback(
     (filename?: string, params?: Partial<ExportParams>) => {
@@ -172,5 +185,6 @@ export function useGridExport(selector?: string): ExportMethods {
     exportToJson,
     isExporting,
     getLastExport,
+    isReady,
   };
 }

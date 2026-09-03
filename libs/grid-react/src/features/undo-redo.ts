@@ -34,8 +34,9 @@
 
 import type { DataGridElement } from '@toolbox-web/grid';
 import { type UndoRedoAction, type UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
-import { useCallback, useContext } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 import { GridElementContext } from '../lib/grid-element-context';
+import { useGridIsReady } from '../lib/use-grid-is-ready';
 
 // Delegate to core feature registration
 import '@toolbox-web/grid/features/undo-redo';
@@ -105,6 +106,13 @@ export interface UndoRedoMethods {
    * @throws If no transaction is active
    */
   endTransaction: () => void;
+
+  /**
+   * Whether the grid has finished its first render.
+   *
+   * @since 2.5.0
+   */
+  isReady: boolean;
 }
 
 /**
@@ -135,10 +143,30 @@ export interface UndoRedoMethods {
 export function useGridUndoRedo(selector?: string): UndoRedoMethods {
   const gridRef = useContext(GridElementContext);
 
-  const getPlugin = useCallback((): UndoRedoPlugin | undefined => {
-    const grid = (selector ? document.querySelector(selector) : gridRef?.current) as DataGridElement | null;
-    return grid?.getPluginByName('undoRedo');
+  const getGrid = useCallback((): DataGridElement | null => {
+    return (selector ? document.querySelector(selector) : gridRef?.current) as DataGridElement | null;
   }, [gridRef, selector]);
+
+  const getPlugin = useCallback((): UndoRedoPlugin | undefined => {
+    return getGrid()?.getPluginByName('undoRedo');
+  }, [getGrid]);
+
+  const isReady = useGridIsReady(getGrid);
+
+  // Re-render the consuming component whenever the undo/redo history changes,
+  // so `canUndo()` / `canRedo()` read fresh values during render. This mirrors
+  // the Angular adapter, where they are signals.
+  const [historyVersion, setHistoryVersion] = useState(0);
+
+  useEffect(() => {
+    const grid = getGrid();
+    if (!grid?.on) return;
+
+    const bump = () => setHistoryVersion((v) => v + 1);
+    const unsubs = [grid.on('undo', bump), grid.on('redo', bump), grid.on('cell-commit', bump)];
+
+    return () => unsubs.forEach((fn) => fn());
+  }, [getGrid]);
 
   const undo = useCallback(() => {
     const plugin = getPlugin();
@@ -166,9 +194,9 @@ export function useGridUndoRedo(selector?: string): UndoRedoMethods {
     return plugin.redo();
   }, [getPlugin]);
 
-  const canUndo = useCallback(() => getPlugin()?.canUndo() ?? false, [getPlugin]);
+  const canUndo = useCallback(() => getPlugin()?.canUndo() ?? false, [getPlugin, historyVersion]);
 
-  const canRedo = useCallback(() => getPlugin()?.canRedo() ?? false, [getPlugin]);
+  const canRedo = useCallback(() => getPlugin()?.canRedo() ?? false, [getPlugin, historyVersion]);
 
   const clearHistory = useCallback(() => {
     const plugin = getPlugin();
@@ -240,5 +268,6 @@ export function useGridUndoRedo(selector?: string): UndoRedoMethods {
     recordEdit,
     beginTransaction,
     endTransaction,
+    isReady,
   };
 }

@@ -39,10 +39,11 @@ import {
   type FilterModel,
   type FilterPanelParams,
 } from '@toolbox-web/grid/plugins/filtering';
-import { createApp, inject, ref, type VNode } from 'vue';
+import { createApp, inject, ref, type Ref, type VNode } from 'vue';
 import { registerFeature } from '../lib/feature-registry';
 import { renderToContainer } from '../lib/teleport-bridge';
 import { GRID_ELEMENT_KEY } from '../lib/use-grid';
+import { useGridIsReady } from '../lib/use-grid-is-ready';
 import { registerFilterPanelTypeDefaultBridge } from '../lib/vue-grid-adapter';
 
 // Pull the core feature's `FeatureConfig` type augmentation (`filtering?`) onto
@@ -180,6 +181,13 @@ export interface FilteringMethods {
    * Toggle blank filter mode for a field.
    */
   toggleBlankFilter: (field: string, mode: BlankMode) => void;
+
+  /**
+   * Whether the grid has finished its first render.
+   *
+   * @since 2.5.0
+   */
+  isReady: Ref<boolean>;
 }
 
 /**
@@ -212,12 +220,17 @@ export interface FilteringMethods {
 export function useGridFiltering(selector?: string): FilteringMethods {
   const gridElement = selector ? ref(null) : inject(GRID_ELEMENT_KEY, ref(null));
 
+  const getGrid = (): DataGridElement | null =>
+    (selector ? document.querySelector(selector) : gridElement.value) as DataGridElement | null;
+
   const getPlugin = (): FilteringPlugin | undefined => {
-    const grid = (selector ? document.querySelector(selector) : gridElement.value) as DataGridElement | null;
-    return grid?.getPluginByName('filtering');
+    return getGrid()?.getPluginByName('filtering');
   };
 
+  const isReady = useGridIsReady(getGrid);
+
   return {
+    isReady,
     setFilter: (field: string, filter: Omit<FilterModel, 'field'> | null, options?: { silent?: boolean }) => {
       const plugin = getPlugin();
       if (!plugin) {

@@ -23,6 +23,12 @@ import type {
   LoadingContext,
 } from '@toolbox-web/grid';
 import { isComponentClass, type ColumnConfig, type GridConfig, type TypeDefault } from './angular-column-config';
+import {
+  getHeaderLabelTemplate,
+  getHeaderTemplate,
+  type GridHeaderContext,
+  type GridHeaderLabelContext,
+} from './directives/grid-column-header.directive';
 import { getViewTemplate, GridCellContext } from './directives/grid-column-view.directive';
 import { getStructuralViewTemplate } from './directives/structural-directives';
 import { notifyEditorMounted, registerEditorMountHook, type EditorMountHook } from './editor-mount-hooks';
@@ -376,7 +382,78 @@ export class GridAdapter implements FrameworkAdapter {
    * view template, or a template-based editor resolved by the editing feature).
    */
   canHandle(element: HTMLElement): boolean {
-    return getAnyViewTemplate(element) !== undefined || getEditorSpecBridge()?.(element, this) !== undefined;
+    return (
+      getAnyViewTemplate(element) !== undefined ||
+      getHeaderTemplate(element) !== undefined ||
+      getHeaderLabelTemplate(element) !== undefined ||
+      getEditorSpecBridge()?.(element, this) !== undefined
+    );
+  }
+
+  /**
+   * Creates a DOM-returning header renderer for a `<tbw-grid-column>` element
+   * that declared a `*tbwHeader` template. Returns undefined when none was
+   * declared, letting the grid fall back to its built-in header.
+   *
+   * Angular counterpart of React's `<GridColumn headerRenderer>` render prop
+   * and Vue's `#header` slot.
+   */
+  createHeaderRenderer<TRow = unknown>(
+    element: HTMLElement,
+  ): ((ctx: HeaderCellContext<TRow>) => HTMLElement) | undefined {
+    const template = getHeaderTemplate(element);
+    if (!template) return undefined;
+
+    return (ctx: HeaderCellContext<TRow>) => {
+      const context: GridHeaderContext = {
+        $implicit: ctx.value,
+        value: ctx.value,
+        column: ctx.column,
+        sortState: ctx.sortState,
+        filterActive: ctx.filterActive,
+        cellEl: ctx.cellEl,
+        renderSortIcon: ctx.renderSortIcon,
+        renderFilterButton: ctx.renderFilterButton,
+      };
+      return this.renderTemplateToContainer(template, context);
+    };
+  }
+
+  /**
+   * Creates a DOM-returning header *label* renderer for a `<tbw-grid-column>`
+   * element that declared a `*tbwHeaderLabel` template. Returns undefined when
+   * none was declared.
+   */
+  createHeaderLabelRenderer<TRow = unknown>(
+    element: HTMLElement,
+  ): ((ctx: HeaderLabelContext<TRow>) => HTMLElement) | undefined {
+    const template = getHeaderLabelTemplate(element);
+    if (!template) return undefined;
+
+    return (ctx: HeaderLabelContext<TRow>) => {
+      const context: GridHeaderLabelContext = {
+        $implicit: ctx.value,
+        value: ctx.value,
+        column: ctx.column,
+      };
+      return this.renderTemplateToContainer(template, context);
+    };
+  }
+
+  /**
+   * Create an embedded view from `template` and return a stable
+   * `display: contents` wrapper holding its root nodes. Headers re-render from
+   * scratch on every grid render, so no per-cell caching is needed here.
+   */
+  private renderTemplateToContainer<TCtx extends object>(template: TemplateRef<TCtx>, context: TCtx): HTMLElement {
+    const viewRef = this.viewContainerRef.createEmbeddedView(template, context);
+    this.viewRefs.push(viewRef);
+    viewRef.detectChanges();
+
+    const container = document.createElement('span');
+    container.style.display = 'contents';
+    syncRootNodes(viewRef, container);
+    return container;
   }
 
   /**

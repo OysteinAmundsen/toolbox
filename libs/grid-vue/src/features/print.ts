@@ -33,8 +33,9 @@
 
 import type { DataGridElement } from '@toolbox-web/grid';
 import { type PrintParams, type PrintPlugin } from '@toolbox-web/grid/plugins/print';
-import { inject, ref } from 'vue';
+import { inject, ref, type Ref } from 'vue';
 import { GRID_ELEMENT_KEY } from '../lib/use-grid';
+import { useGridIsReady } from '../lib/use-grid-is-ready';
 
 // Delegate to core feature registration
 import '@toolbox-web/grid/features/print';
@@ -58,6 +59,13 @@ export interface PrintMethods {
    * Check if a print operation is currently in progress.
    */
   isPrinting: () => boolean;
+
+  /**
+   * Whether the grid has finished its first render.
+   *
+   * @since 2.5.0
+   */
+  isReady: Ref<boolean>;
 }
 
 /**
@@ -91,12 +99,17 @@ export interface PrintMethods {
 export function useGridPrint(selector?: string): PrintMethods {
   const gridElement = selector ? ref(null) : inject(GRID_ELEMENT_KEY, ref(null));
 
+  const getGrid = (): DataGridElement | null =>
+    (selector ? document.querySelector(selector) : gridElement.value) as DataGridElement | null;
+
   const getPlugin = (): PrintPlugin | undefined => {
-    const grid = (selector ? document.querySelector(selector) : gridElement.value) as DataGridElement | null;
-    return grid?.getPluginByName('print');
+    return getGrid()?.getPluginByName('print');
   };
 
+  const isReady = useGridIsReady(getGrid);
+
   return {
+    isReady,
     print: async (params?: PrintParams) => {
       const plugin = getPlugin();
       if (!plugin) {

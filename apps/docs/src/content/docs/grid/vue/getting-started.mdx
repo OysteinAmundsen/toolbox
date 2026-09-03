@@ -222,14 +222,14 @@ interface Employee {
 }
 
 const employees = ref<Employee[]>([/* ... */]);
-const { gridElement, forceLayout } = useGrid();
+const { element, forceLayout } = useGrid();
 
 function refreshGrid() {
   forceLayout();
 }
 
 async function exportCsv() {
-  const grid = gridElement.value;
+  const grid = element.value;
   if (!grid) return;
 
   const exportPlugin = grid.getPluginByName('export');

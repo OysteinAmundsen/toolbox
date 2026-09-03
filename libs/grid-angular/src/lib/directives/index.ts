@@ -1,3 +1,5 @@
+export { TbwHeader, TbwHeaderLabel } from './grid-column-header.directive';
+export type { GridHeaderContext, GridHeaderLabelContext } from './grid-column-header.directive';
 export { GridColumnView } from './grid-column-view.directive';
 export { TbwGridColumn } from './grid-column.directive';
 export { TbwGridHeader } from './grid-header.directive';

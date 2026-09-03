@@ -33,8 +33,9 @@
 
 import type { DataGridElement } from '@toolbox-web/grid';
 import { type ExportFormat, type ExportParams, type ExportPlugin } from '@toolbox-web/grid/plugins/export';
-import { inject, ref } from 'vue';
+import { inject, ref, type Ref } from 'vue';
 import { GRID_ELEMENT_KEY } from '../lib/use-grid';
+import { useGridIsReady } from '../lib/use-grid-is-ready';
 
 // Delegate to core feature registration
 import '@toolbox-web/grid/features/export';
@@ -77,6 +78,13 @@ export interface ExportMethods {
    * Get information about the last export.
    */
   getLastExport: () => { format: ExportFormat; timestamp: Date } | null;
+
+  /**
+   * Whether the grid has finished its first render.
+   *
+   * @since 2.5.0
+   */
+  isReady: Ref<boolean>;
 }
 
 /**
@@ -109,12 +117,17 @@ export interface ExportMethods {
 export function useGridExport(selector?: string): ExportMethods {
   const gridElement = selector ? ref(null) : inject(GRID_ELEMENT_KEY, ref(null));
 
+  const getGrid = (): DataGridElement | null =>
+    (selector ? document.querySelector(selector) : gridElement.value) as DataGridElement | null;
+
   const getPlugin = (): ExportPlugin | undefined => {
-    const grid = (selector ? document.querySelector(selector) : gridElement.value) as DataGridElement | null;
-    return grid?.getPluginByName('export');
+    return getGrid()?.getPluginByName('export');
   };
 
+  const isReady = useGridIsReady(getGrid);
+
   return {
+    isReady,
     exportToCsv: (filename?: string, params?: Partial<ExportParams>) => {
       const plugin = getPlugin();
       if (!plugin) {

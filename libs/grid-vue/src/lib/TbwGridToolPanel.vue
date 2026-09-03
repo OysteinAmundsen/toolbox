@@ -32,20 +32,18 @@ const props = withDefaults(
     icon?: string;
 
     /**
-     * Position of the panel.
-     * @default 'right'
+     * Tooltip text for the accordion header.
      */
-    position?: 'left' | 'right';
+    tooltip?: string;
 
     /**
-     * Width of the panel when open.
-     * @default '250px'
+     * Panel order priority. Lower values appear first.
+     * @default 100
      */
-    width?: string;
+    order?: number;
   }>(),
   {
-    position: 'right',
-    width: '250px',
+    order: 100,
   },
 );
 
@@ -73,12 +71,5 @@ onMounted(() => {
 </script>
 
 <template>
-  <tbw-grid-tool-panel
-    ref="panelRef"
-    :id="id"
-    :title="resolvedTitle"
-    :icon="icon"
-    :position="position"
-    :width="width"
-  />
+  <tbw-grid-tool-panel ref="panelRef" :id="id" :title="resolvedTitle" :icon="icon" :tooltip="tooltip" :order="order" />
 </template>

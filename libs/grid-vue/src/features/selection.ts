@@ -32,8 +32,13 @@
  */
 
 import type { DataGridElement } from '@toolbox-web/grid';
-import { type CellRange, type SelectionPlugin, type SelectionResult } from '@toolbox-web/grid/plugins/selection';
-import { inject, ref } from 'vue';
+import {
+  type CellRange,
+  type SelectionChangeDetail,
+  type SelectionPlugin,
+  type SelectionResult,
+} from '@toolbox-web/grid/plugins/selection';
+import { inject, onBeforeUnmount, onMounted, ref, type Ref } from 'vue';
 import { GRID_ELEMENT_KEY } from '../lib/use-grid';
 
 // Delegate to core feature registration
@@ -84,8 +89,44 @@ export interface SelectionMethods<TRow = unknown> {
    * This is the recommended way to get selected rows. Unlike manual
    * index mapping, it correctly resolves rows even when the grid is
    * sorted or filtered.
+   *
+   * For reactive selected rows, use the `selectedRows` ref instead.
    */
   getSelectedRows: () => TRow[];
+
+  /**
+   * Reactive selection state. Updates automatically whenever the selection
+   * changes. `null` when no SelectionPlugin is active or nothing is selected.
+   *
+   * @since 2.5.0
+   */
+  selection: Ref<SelectionResult | null>;
+
+  /**
+   * Reactive selected row indices (sorted ascending). Empty in cell/range
+   * modes or when nothing is selected.
+   *
+   * **Prefer `selectedRows`** for getting actual row objects — it handles
+   * index-to-object resolution correctly regardless of sorting/filtering.
+   *
+   * @since 2.5.0
+   */
+  selectedRowIndices: Ref<number[]>;
+
+  /**
+   * Reactive selected row objects. Works in all selection modes.
+   *
+   * @since 2.5.0
+   */
+  selectedRows: Ref<TRow[]>;
+
+  /**
+   * Whether the grid has finished its first render and the selection plugin
+   * has been discovered.
+   *
+   * @since 2.5.0
+   */
+  isReady: Ref<boolean>;
 }
 
 /**
@@ -124,7 +165,53 @@ export function useGridSelection<TRow = unknown>(selector?: string): SelectionMe
     return getGrid()?.getPluginByName('selection');
   };
 
+  // ── Reactive state (parity with Angular's selection signals) ──────────
+  const isReady = ref(false) as Ref<boolean>;
+  const selection = ref<SelectionResult | null>(null) as Ref<SelectionResult | null>;
+  const selectedRowIndices = ref<number[]>([]) as Ref<number[]>;
+  const selectedRows = ref<TRow[]>([]) as Ref<TRow[]>;
+  let unsubSelectionChange: (() => void) | undefined;
+  let disposed = false;
+
+  // `mode` may be a single mode or an array (multi-mode selection).
+  const sync = (mode?: SelectionChangeDetail['mode']): void => {
+    const plugin = getPlugin();
+    if (!plugin || disposed) return;
+    const resolvedMode = mode ?? ((plugin as any).config?.mode as SelectionChangeDetail['mode'] | undefined);
+    const isRowMode = Array.isArray(resolvedMode) ? resolvedMode.includes('row') : resolvedMode === 'row';
+    selection.value = plugin.getSelection();
+    selectedRowIndices.value = isRowMode ? plugin.getSelectedRowIndices() : [];
+    selectedRows.value = plugin.getSelectedRows<TRow>();
+  };
+
+  onMounted(() => {
+    const grid = getGrid();
+    if (!grid) return;
+
+    unsubSelectionChange = grid.on?.('selection-change', (detail: unknown) => {
+      sync((detail as SelectionChangeDetail).mode);
+    });
+
+    // `ready` is optional on the element type and genuinely absent until the
+    // custom element upgrades, so unwrap through `Promise.resolve`.
+    Promise.resolve(grid.ready?.()).then(() => {
+      if (disposed) return;
+      isReady.value = true;
+      sync();
+    });
+  });
+
+  onBeforeUnmount(() => {
+    disposed = true;
+    unsubSelectionChange?.();
+    unsubSelectionChange = undefined;
+  });
+
   return {
+    isReady,
+    selection,
+    selectedRowIndices,
+    selectedRows,
     selectAll: () => {
       const plugin = getPlugin();
       if (!plugin) {

@@ -21,17 +21,38 @@ const ASTRO_CLI = resolve(_dirname, '../../node_modules/astro/bin/astro.mjs');
 process.env.PW_PROMO_OVERLAY = '1';
 
 /**
- * The recording resolution. It has to be declared on the *project* as well as
- * the top-level `use`, because `devices['Desktop Chrome']` pins a project-level
- * 1280x720 viewport and project-level `use` always wins.
+ * The recording resolution, and the CSS viewport that produces it.
+ *
+ * The demos are authored for a docs page — a 350px-tall grid inside a 1080px
+ * frame reads as a screenshot of a spec, not as a product. So the viewport is
+ * deliberately *small*: at 1280x720 every element occupies 1.5× more of the
+ * frame than it would at 1920x1080, and `tools/stitch-promo.ts` upscales the
+ * clips to 1080p on the way into the reel.
+ *
+ * `video.size` MUST match the viewport. Playwright does not scale the screencast
+ * up to a larger `video.size` — it pastes the 1280x720 capture into the top-left
+ * of the bigger canvas and leaves the rest grey. `deviceScaleFactor` does not
+ * change that; it only sharpens the raster that gets captured.
+ *
+ * Both have to be declared on the *project* as well as the top-level `use`,
+ * because `devices['Desktop Chrome']` pins a project-level 1280x720 viewport at
+ * `deviceScaleFactor: 1`, and project-level `use` always wins.
+ *
+ * The width is 1280 plus the 312px control rail. Scenes have to be able to
+ * click the demo controls, so the rail cannot be hidden or moved off-screen —
+ * it is parked in the overhang instead, and `tools/stitch-promo.ts` crops the
+ * same 312px away. The delivered frame is a clean 1280x720 of grid only.
  */
-const VIEWPORT = { width: 1920, height: 1080 };
+const RAIL = 312;
+const VIEWPORT = { width: 1280 + RAIL, height: 720 };
+const SCALE = 1.5;
+const VIDEO = { ...VIEWPORT };
 
 /**
  * Watch the run by default — seeing the browser drive itself is half the point
  * of the promo suite. Set `PROMO_HEADLESS=1` (or run on CI) when you want the
- * viewport guaranteed at exactly 1920x1080: a headed window is clamped to the
- * host display, so on a smaller screen the page renders smaller and the clip is
+ * frame guaranteed at exactly 1920x1080: a headed window is clamped to the host
+ * display, so on a smaller screen the page renders smaller and the clip is
  * upscaled to `video.size`.
  */
 const HEADLESS = process.env.PROMO_HEADLESS === '1' || !!process.env.CI;
@@ -55,6 +76,7 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         ...(process.env.CI ? { channel: 'chrome' as const } : {}),
         viewport: VIEWPORT,
+        deviceScaleFactor: SCALE,
       },
     },
   ],
@@ -63,16 +85,17 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     headless: HEADLESS,
     viewport: VIEWPORT,
+    deviceScaleFactor: SCALE,
     // Per-protocol-call delay. Kept modest because it is also the frame time for
     // `glidePointer()` — crank it up and every cursor glide becomes glacial.
-    // Scene pacing belongs in `beat()` / `say()`.
+    // Scene pacing belongs in `beat()` / `clip()`.
     launchOptions: {
-      slowMo: 70,
-      // Put the window somewhere predictable and size it to the viewport so the
-      // browser chrome does not eat into the recorded area.
-      args: HEADLESS ? [] : ['--window-position=0,0', `--window-size=${VIEWPORT.width},${VIEWPORT.height}`],
+      slowMo: 60,
+      // Put the window somewhere predictable and size it to the device-pixel
+      // frame so the browser chrome does not eat into the recorded area.
+      args: HEADLESS ? [] : ['--window-position=0,0', `--window-size=${VIDEO.width},${VIDEO.height}`],
     },
-    video: { mode: 'on', size: VIEWPORT },
+    video: { mode: 'on', size: VIDEO },
     screenshot: 'off',
     trace: 'off',
   },

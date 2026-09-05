@@ -1,5 +1,5 @@
 import { type Locator, type Page, expect } from '@playwright/test';
-import { PROMO, beat, glidePointer, installOverlay, moveTo, titleCard } from './promo/overlay';
+import { PROMO, aim, beat, glidePointer, installOverlay, titleCard } from './promo/overlay';
 
 export * from './promo/overlay';
 
@@ -19,10 +19,23 @@ function titleFromSlug(demoSlug: string): string {
  * In promo mode this additionally installs the video overlay and pins a title
  * card; both are no-ops in a normal run. Prefer passing an explicit `title` —
  * slug-derived titles read like filenames, not like a product demo.
+ *
+ * `intro` raises the full-frame brand card before the grid is waited for, so the
+ * unedited recording opens on the card instead of on a demo booting up. The
+ * caller still has to hold and record it with `card()`.
  */
-export async function openDemo(page: Page, demoSlug: string, title?: string, subtitle?: string) {
+export async function openDemo(
+  page: Page,
+  demoSlug: string,
+  title?: string,
+  subtitle?: string,
+  intro?: { main: string; sub?: string },
+) {
   if (PROMO) await installOverlay(page);
   await page.goto(`/demo/${demoSlug}`);
+  if (PROMO && intro) {
+    await page.evaluate(([m, s]) => window.__tbwPromo?.card(m as string, s), [intro.main, intro.sub ?? null]);
+  }
   if (PROMO) await titleCard(page, title ?? titleFromSlug(demoSlug), subtitle);
   await waitForGrid(page);
 }
@@ -153,8 +166,7 @@ export async function assertNoErrors(page: Page) {
 /** Double-click a cell to start editing. */
 export async function dblClickCell(page: Page, rowIndex: number, colIndex: number) {
   const target = cell(page, rowIndex, colIndex);
-  await moveTo(page, target);
-  await target.dblclick();
+  await aim(page, target, () => target.dblclick());
   // Wait for editor to appear
   await page.waitForTimeout(200);
 }
@@ -166,8 +178,8 @@ export async function clickCell(
   colIndex: number,
   options?: Parameters<Locator['click']>[0],
 ) {
-  await moveTo(page, cell(page, rowIndex, colIndex));
-  await cell(page, rowIndex, colIndex).click(options);
+  const target = cell(page, rowIndex, colIndex);
+  await aim(page, target, () => target.click(options));
 }
 
 /**
@@ -199,7 +211,8 @@ export async function cellText(page: Page, rowIndex: number, colIndex: number): 
 
 /** Right-click a cell to trigger context menu. */
 export async function rightClickCell(page: Page, rowIndex: number, colIndex: number) {
-  await cell(page, rowIndex, colIndex).click({ button: 'right' });
+  const target = cell(page, rowIndex, colIndex);
+  await aim(page, target, () => target.click({ button: 'right' }));
   await page.waitForTimeout(300);
 }
 

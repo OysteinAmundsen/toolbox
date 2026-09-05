@@ -28,7 +28,7 @@ the promo config only layers on the visual/pacing extras.
 
 ```bash
 bun run promo            # → nx run docs-e2e:e2e:promo
-PROMO_HEADLESS=1 bun run promo   # no visible window; guarantees an exact 1920×1080 viewport
+PROMO_HEADLESS=1 bun run promo   # no visible window; the reliable way to record
 ```
 
 What the promo config changes (`apps/docs-e2e/playwright.promo.config.ts`):
@@ -37,10 +37,22 @@ What the promo config changes (`apps/docs-e2e/playwright.promo.config.ts`):
 | ------------------------------------ | ---------------------------------------------------------------------------------- |
 | `process.env.PW_PROMO_OVERLAY = '1'` | Set in the config, not a shell prefix, so Git Bash / cmd.exe / Nx all behave       |
 | `grep: /@promo/`, `workers: 1`       | Scenes record in declaration order so clips can be stitched                        |
-| viewport + video `1920×1080`         | Default video size downscales to an 800px box — unusable for a promo               |
+| `video.size` **equal to** `viewport` | See below — a larger `video.size` does not upscale, it letterboxes                 |
+| `viewport: 1592x720` (`1280 + 312`)  | The 312px control rail is parked in the overhang and cropped by the stitcher       |
 | headed by default                    | The run is meant to be watched; `PROMO_HEADLESS=1` forces headless                 |
-| `slowMo: 70`                         | Also the frame time for `glidePointer()`; scene pacing lives in `beat()` / `say()` |
+| `slowMo: 60`                         | Also the frame time for `glidePointer()`; scene pacing lives in `beat()` / `say()` |
 | `astro build && astro preview`       | Records the built site — no HMR client, no dev overlay, minified assets            |
+
+> **`video.size` must equal the viewport.** Playwright does not scale the screencast up to a
+> larger `video.size` — it pastes the captured frame into the top-left of the bigger canvas and
+> leaves the rest grey. `deviceScaleFactor` does not change this. Record at the viewport size and
+> let the stitcher upscale to 1080p.
+
+> **The delivered frame is 1280 wide, the recording is 1592.** The demo control rail has to stay
+> clickable, so it is parked in a 312px overhang instead of being hidden, and `RAIL_PX` in
+> `tools/stitch-promo.ts` crops it away before the scale/pad. Changing one of the three numbers
+> (config `RAIL`, the stage `padding-right` in `overlay.ts`, stitcher `RAIL_PX`) without the other
+> two either leaks the rail into the frame or clips the grid.
 
 Clips land in `apps/docs-e2e/promo-output/<test>/video.webm` — one per test.
 
@@ -49,12 +61,35 @@ Clips land in `apps/docs-e2e/promo-output/<test>/video.webm` — one per test.
 ### Stitching the clips into one video
 
 ```bash
-bun run promo:stitch     # → promo-output/promo.webm
+bun run promo:stitch     # → promo-output/promo-reel.mp4  (≤30s, marketing cut)
+bun run promo:full       # → promo-output/promo-full.mp4  (every scene, untrimmed)
 ```
 
+The reel is **not** the recording concatenated. Each scene marks its single most persuasive moment
+with `clip()` (see `e2e-promo.instructions.md`); the stitcher extracts just those windows,
+water-fills them to a 30-second budget by `weight`, upscales to 1920×1080 and hard-cuts them
+together — intro card, features in declaration order, outro card.
+
+Use `--max <seconds>` to change the budget and `--clip <seconds>` to change the per-clip ceiling.
+
 Clip order comes from `promo-output/report.json` (the JSON reporter in the promo config), not from
-globbing — the output directory names are hashed and unordered. The result is hero first, then the
-capability reel in declaration order.
+globbing — the output directory names are hashed and unordered. The stitcher warns about any scene
+that recorded no `clip()` window, which almost always means the spec imported `test` from
+`@playwright/test` instead of `./fixture`.
+
+### Reviewing the result
+
+A 30-second reel is faster to review as a contact sheet than as a video:
+
+```bash
+cd apps/docs-e2e/promo-output
+ffmpeg -y -v error -i promo-reel.mp4 -vf "fps=1,scale=440:-1,tile=6x5" -frames:v 1 ../../../tmp/reel-sheet.png
+ffmpeg -y -v error -ss 17.9 -i promo-reel.mp4 -frames:v 1 ../../../tmp/frame.png   # one full-res frame
+```
+
+What to look for: every tile filled edge to edge (grey bands mean the `video.size` trap above), the
+grid centred with dark margins, and each tile's caption matching what the frame actually shows — a
+caption from the _next_ beat means the clip anchoring drifted, see `TAIL_S` in the stitcher.
 
 Requires ffmpeg, which is **not** a project dependency. The script looks at `$FFMPEG`, then `PATH`,
 then the winget install location (`%LOCALAPPDATA%/Microsoft/WinGet/Packages/Gyan.FFmpeg*/*/bin`

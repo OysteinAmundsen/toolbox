@@ -22,6 +22,7 @@
  *   bun run promo                 # record the clips
  *   bun run promo:stitch          # → promo-output/promo-reel.mp4  (≤30 s)
  *   bun run promo:stitch --max=45 # a longer cut
+ *   bun run promo:stitch --xfade=0 # hard cuts instead of dissolves
  *   bun run promo:stitch --full   # every scene end to end, untrimmed
  */
 import { spawnSync } from 'node:child_process';
@@ -54,6 +55,18 @@ const BUDGET = option('max', 30);
 const MIN_CLIP = option('min', 1.4);
 /** Above this a single feature starts to outstay its welcome in a montage. */
 const MAX_CLIP = option('clip', 2.8);
+/**
+ * Length of the dissolve between clips. Long enough to read as an edit, short
+ * enough that no clip loses its payoff to it; `--xfade=0` gives hard cuts back.
+ *
+ * The overlap eats `(n-1) * XFADE` seconds, so the budget handed to
+ * {@link allocate} is grown by exactly that much and the reel still lands on
+ * {@link BUDGET}. Only the reel dissolves — `--full` stays a stream copy, which
+ * is the whole reason it can concatenate five minutes of footage in seconds.
+ */
+const XFADE = FULL ? 0 : Math.max(0, option('xfade', 0.28));
+/** Opening fade up from black and closing fade down to it. */
+const BOOKEND = FULL ? 0 : 0.4;
 /** Output frame size. Matches `video.size` in `playwright.promo.config.ts`. */
 const [WIDTH, HEIGHT] = [1920, 1080];
 /**
@@ -225,8 +238,8 @@ if (!existsSync(reportPath)) {
   process.exit(1);
 }
 
-const ffmpeg = resolveFfmpeg();
-if (!ffmpeg) {
+const ffmpegBin = resolveFfmpeg();
+if (!ffmpegBin) {
   console.error(
     [
       'ffmpeg was not found. Install it either way:',
@@ -236,6 +249,8 @@ if (!ffmpeg) {
   );
   process.exit(1);
 }
+// Hoisted helpers below cannot see the guard above, so re-bind it as a plain string.
+const ffmpeg: string = ffmpegBin;
 
 const report = JSON.parse(readFileSync(reportPath, 'utf8')) as { suites?: PwSuite[] };
 const segments: Segment[] = [];
@@ -323,7 +338,9 @@ segments.sort((a, b) => rank[a.role] - rank[b.role]);
 
 // #region Cut
 
-const durations = FULL ? segments.map((s) => s.to - s.from) : allocate(segments, BUDGET);
+const durations = FULL
+  ? segments.map((s) => s.to - s.from)
+  : allocate(segments, BUDGET + (segments.length - 1) * XFADE);
 
 rmSync(workDir, { recursive: true, force: true });
 mkdirSync(workDir, { recursive: true });
@@ -384,20 +401,92 @@ for (const [i, segment] of segments.entries()) {
   );
 }
 
-const listPath = join(workDir, 'concat.txt');
-writeFileSync(listPath, parts.map((p) => `file '${p.replace(/\\/g, '/')}'`).join('\n'), 'utf8');
+/** Hard cuts, stream-copied. Fast enough to be the only option for `--full`. */
+function joinByCut(): number {
+  const listPath = join(workDir, 'concat.txt');
+  writeFileSync(listPath, parts.map((p) => `file '${p.replace(/\\/g, '/')}'`).join('\n'), 'utf8');
+  const concat = spawnSync(
+    ffmpeg,
+    [
+      '-y',
+      '-v',
+      'error',
+      '-f',
+      'concat',
+      '-safe',
+      '0',
+      '-i',
+      listPath,
+      '-c',
+      'copy',
+      '-movflags',
+      '+faststart',
+      target,
+    ],
+    { stdio: 'inherit' },
+  );
+  if (concat.status !== 0) process.exit(concat.status ?? 1);
+  return durations.reduce((sum, d) => sum + d, 0);
+}
 
-const concat = spawnSync(
-  ffmpeg,
-  ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', '-movflags', '+faststart', target],
-  { stdio: 'inherit' },
-);
-if (concat.status !== 0) process.exit(concat.status ?? 1);
+/**
+ * Dissolve between clips, and open and close on black.
+ *
+ * `xfade` overlaps a pair at a time, so the chain has to carry a running offset
+ * measured on the *composite* — each transition starts one dissolve before the
+ * end of everything joined so far. The lengths are re-probed rather than taken
+ * from `durations`: `-t` lands on a frame boundary, and a chain of 15 clips
+ * accumulates enough rounding to drift a dissolve off its cut.
+ */
+function joinByDissolve(): number {
+  const lengths = parts.map((p) => durationOf(ffmpeg, p));
+  const chain: string[] = [];
+  let stream = '0:v';
+  let offset = 0;
+  for (let i = 1; i < parts.length; i++) {
+    offset += lengths[i - 1] - XFADE;
+    chain.push(`[${stream}][${i}:v]xfade=transition=fade:duration=${XFADE}:offset=${offset.toFixed(3)}[x${i}]`);
+    stream = `x${i}`;
+  }
+  const total = offset + lengths[lengths.length - 1];
+  chain.push(`[${stream}]fade=t=in:st=0:d=${BOOKEND},fade=t=out:st=${(total - BOOKEND).toFixed(3)}:d=${BOOKEND}[v]`);
+
+  const render = spawnSync(
+    ffmpeg,
+    [
+      '-y',
+      '-v',
+      'error',
+      ...parts.flatMap((p) => ['-i', p]),
+      '-filter_complex',
+      chain.join(';'),
+      '-map',
+      '[v]',
+      '-c:v',
+      'libx264',
+      '-preset',
+      'veryfast',
+      '-crf',
+      '19',
+      '-pix_fmt',
+      'yuv420p',
+      '-an',
+      '-movflags',
+      '+faststart',
+      target,
+    ],
+    { stdio: 'inherit' },
+  );
+  if (render.status !== 0) process.exit(render.status ?? 1);
+  return total;
+}
+
+const runtime = XFADE > 0 && parts.length > 1 ? joinByDissolve() : joinByCut();
 
 if (scenesWithoutClips.length) {
   console.warn(`\n! ${scenesWithoutClips.length} scene(s) marked no clip() and are missing from the reel:`);
   for (const scene of scenesWithoutClips) console.warn(`    ${scene}`);
 }
-console.log(`\n${target}  —  ${durations.reduce((sum, d) => sum + d, 0).toFixed(1)}s`);
+console.log(`\n${target}  —  ${runtime.toFixed(1)}s`);
 
 // #endregion

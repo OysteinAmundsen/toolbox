@@ -90,6 +90,27 @@ window per `clip()` mark, and concatenates them into `promo-reel.mp4` under a ha
   second between a trivial demo and one that loads 200 rows — only the teardown tail is stable
   enough to anchor on. If clips start landing on the caption _after_ the one they should show,
   re-measure `TAIL_S` in `tools/stitch-promo.ts`.
+- **Clips are joined with a cross-dissolve** (`XFADE`, 0.28 s), and the reel opens and closes on
+  black. `xfade` overlaps its inputs, so the budget handed to `allocate()` is grown by
+  `(n-1) * XFADE` to still land on 30 s. Only the reel dissolves — `--full` stays a stream copy,
+  which is why it can join five minutes of footage in seconds. `--xfade=0` gives hard cuts back.
+
+## Motion has to survive 30 fps
+
+`slowMo: 60` delays **every** Playwright input round-trip, which caps real input at ~16 events a
+second. Anything animated by repeated input therefore moves in 70 ms hops — two video frames of
+nothing, then a jump — and reads as judder no matter how smooth the component itself is.
+
+- **Never drive a scroll with a loop of `page.mouse.wheel`.** `wheelScroll()` switches to a rAF
+  ramp dispatched inside the page when `PROMO` is set: one round-trip, then eased `WheelEvent`s at
+  frame rate. The grid's own handler (`core/internal/touch-scroll.ts`) adds `deltaY` straight to
+  the faux scrollbar, so the synthetic events take exactly the same path — the judder was never
+  the grid. Outside promo mode the helper keeps the trusted-input loop so CI still tests real
+  wheel events.
+- **The promo cursor is interpolated by CSS**, not by more `mouse.move` calls. `left`/`top` carry
+  a 90 ms linear transition so the slowMo-spaced hops smooth into a glide. Adding frames to
+  `glidePointer` cannot help — each extra frame costs another 60 ms.
+
 
 ## Promo stage CSS (`overlay.ts`)
 

@@ -324,13 +324,54 @@ export async function dragBetween(page: Page, from: Locator, to: Locator, steps 
  * Never assign `scrollLeft`/`scrollTop` directly in a spec: it teleports (hiding
  * the smoothness virtualization is meant to demonstrate) and, if the container
  * selector is wrong, it scrolls nothing while the test still passes.
+ *
+ * In promo mode the wheel is driven from inside the page instead. `slowMo`
+ * delays every `page.mouse.wheel` round-trip, capping real input at ~16 events
+ * a second, so a long scroll lands as a 70px jump every third video frame. A
+ * rAF loop dispatching the same `wheel` events pays the round-trip once and
+ * moves a few pixels per frame — the grid's own handler (`touch-scroll.ts`)
+ * runs either way, it just finally gets asked to scroll at frame rate.
  */
 export async function wheelScroll(page: Page, target: Locator, deltaX: number, deltaY: number, steps = 20) {
   await target.hover();
+  if (PROMO) {
+    await smoothWheel(target, deltaX, deltaY);
+    return;
+  }
   for (let i = 0; i < steps; i++) {
     await page.mouse.wheel(deltaX / steps, deltaY / steps);
     await page.waitForTimeout(16);
   }
+}
+
+/** Eased, frame-rate wheel ramp dispatched inside the page. See {@link wheelScroll}. */
+async function smoothWheel(target: Locator, deltaX: number, deltaY: number) {
+  const distance = Math.hypot(deltaX, deltaY);
+  const ms = Math.min(2600, Math.max(700, distance * 1.6));
+  await target.evaluate(
+    (host, { dx, dy, duration }) => {
+      // The wheel listener sits on the content element, and events bubble up, not down.
+      const el = host.querySelector('.tbw-grid-content') ?? host.querySelector('.tbw-grid-root') ?? host;
+      return new Promise<void>((done) => {
+        const start = performance.now();
+        let sentX = 0;
+        let sentY = 0;
+        const step = (now: number) => {
+          const t = Math.min(1, (now - start) / duration);
+          const eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+          const [x, y] = [dx * eased, dy * eased];
+          el.dispatchEvent(
+            new WheelEvent('wheel', { deltaX: x - sentX, deltaY: y - sentY, bubbles: true, cancelable: true }),
+          );
+          [sentX, sentY] = [x, y];
+          if (t < 1) requestAnimationFrame(step);
+          else done();
+        };
+        requestAnimationFrame(step);
+      });
+    },
+    { dx: deltaX, dy: deltaY, duration: ms },
+  );
 }
 
 /**

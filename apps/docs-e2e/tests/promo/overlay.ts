@@ -290,7 +290,13 @@ export async function installOverlay(page: Page) {
           clip-path: polygon(0 0, 0 85%, 27% 64%, 43% 100%, 57% 92%, 42% 57%, 100% 57%);
           box-shadow: 0 0 0 2px rgba(255,255,255,0.95), 0 8px 18px rgba(0,0,0,0.34);
           transform: translate(-2px, -2px); transform-origin: 0 0;
-          z-index: 2147483646; transition: transform 85ms ease;
+          z-index: 2147483646;
+          /*
+           * left/top are set from a mousemove listener, and slowMo spaces those
+           * ~70ms apart — two video frames of nothing, then a jump. Interpolating
+           * between the hops is what makes the pointer read as a glide.
+           */
+          transition: transform 85ms ease, left 90ms linear, top 90ms linear;
         }
         .tbw-promo-cursor.down { transform: translate(-2px, -2px) scale(0.86); }
         .tbw-promo-click {

@@ -13,6 +13,19 @@ and `tests/promo/scenes.spec.ts` (one scene per capability) are **real CI tests 
 promo video**. They run in the normal suite at full speed; `playwright.promo.config.ts` only adds the
 visual layer. See the `run-e2e` skill for the run command and config table.
 
+## New scene checklist
+
+Satisfy these seven first; the sections below explain why each one exists.
+
+1. Import `test`/`expect` from `./fixture`, never from `@playwright/test`.
+2. Open with `openDemo(page, slug, title, sub, intro)`.
+3. Wrap the money shot in **exactly one** `clip()`.
+4. Drive every interaction through `aim` / `glideClick` / `clickCell` / `dblClickCell` /
+   `rightClickCell` — never a bare `locator.click()`.
+5. Never ring anything in the control rail (`control`, `controlOption`, `toggleControl`).
+6. Put the assertions **inside** the clip body, and assert the consequence, not the render.
+7. Decide `reel: true` / `reel: false` — the 30 s budget only holds ~13 features.
+
 The overlay/pacing API lives in `tests/promo/overlay.ts` and is **a no-op unless `PW_PROMO_OVERLAY=1`**:
 
 | Helper                        | Purpose                                                                                  |
@@ -63,7 +76,9 @@ window per `clip()` mark, and concatenates them into `promo-reel.mp4` under a ha
   tool reading `report.json` sees an attachment it cannot open.
 - **Exactly one `clip()` per scene**, wrapping the single most persuasive moment. Everything else
   in the scene still runs and still asserts — it just does not reach the reel. Twenty-five scenes
-  share 30 seconds; a second clip steals time from another feature.
+  share 30 seconds; a second clip steals time from another feature. If a scene has two candidate
+  moments, pick the one that lands the claim in the caption and extend `holdMs` to include the
+  setup; if both are genuinely essential, split them into two scenes and mark one `reel: false`.
 - **The reel is curated, not exhaustive.** Thirty seconds only holds ~13 features at a watchable
   pace, so most scenes carry `reel: false` — they stay in CI and in `promo-full.mp4` but spend no
   reel seconds. Adding a scene back means taking one out. Do **not** try to buy pacing by raising
@@ -77,8 +92,10 @@ window per `clip()` mark, and concatenates them into `promo-reel.mp4` under a ha
   click will sit at the floor no matter what weight it declares — lengthen `holdMs` instead.
 - **`align`** picks which part of a long window survives the trim — `'end'` (default) keeps the
   result, `'start'` keeps the gesture. Use `'start'` only when the gesture _is_ the story.
-- **`minMs` is a guaranteed floor**, reserved before weights are shared out. Only the brand cards
-  use it (2000 ms each); every extra second here is a second taken from the features.
+- **`minMs` is a guaranteed floor**, reserved before weights are shared out. Only the cards use it
+  (2200–3200 ms), and they set it from `readMs` because a code block or a three-line claim cannot
+  be read in the ~2 s a feature clip gets. Every extra second here is a second taken from the
+  features.
 - **Both reels open on the brand card.** `openDemo(page, slug, title, sub, intro)` raises the
   full-frame card right after `goto()` — before the grid is waited for. `--full` then starts that
   recording _at_ the card rather than prepending a copy of it; a prepended copy cuts back to the
@@ -94,6 +111,43 @@ window per `clip()` mark, and concatenates them into `promo-reel.mp4` under a ha
   black. `xfade` overlaps its inputs, so the budget handed to `allocate()` is grown by
   `(n-1) * XFADE` to still land on 30 s. Only the reel dissolves — `--full` stays a stream copy,
   which is why it can join five minutes of footage in seconds. `--xfade=0` gives hard cuts back.
+
+## The reel is an argument, not a spec sheet
+
+A montage of features only proves the grid _has_ them. Every competitor also has them, so a viewer
+who already uses one has been given no reason to switch. The differentiators — MIT licence, no
+wrapper package, under 50 kB gzipped — are invisible on screen and must be **stated**, or nobody
+derives them from watching a table sort.
+
+The reel is therefore three acts, enforced by `ClipRole` and the `rank` map in `stitch-promo.ts`
+(`intro` → `feature` → `punch` → `outro`; features keep declaration order within their band):
+
+- **Act 1 — the hook.** The brand card, then a `code` card showing the entire integration. "One
+  component" is a claim until the viewer sees how little markup it takes; that frame is the one
+  people screenshot.
+- **Act 2 — the evidence.** The feature clips. Their `label` is the caption, so write it as a
+  **claim, not a description of what is on screen** — the viewer can already see the click. Every
+  feature that is commonly paywalled carries the same `— usually a paid add-on` suffix; the
+  repetition is the point, and it sets up Act 3.
+- **Act 3 — the argument.** One `punch` card that names what the drumbeat was doing, then the
+  outro with the install line.
+
+- **Never name a competitor.** Comparative claims about a named product invite a legal argument we
+  have no interest in having, and the reel does not need one — "usually a paid add-on" is an
+  accurate statement about the market and lands the same point. Keep it descriptive of the
+  category, never of a vendor.
+
+- **A `main` line must survive being read alone.** Most viewers read the headline and nothing else,
+  so it can never be the half of a sentence that the `sub` reverses. "All of that is paid." is
+  factually about the competition and disastrous in isolation — it reads as our price. State the
+  claim about _us_ in `main` ("All of that is free.") and leave the contrast to `sub`.
+
+- **Captions live under ~44 characters.** Longer wraps to two lines and steals reading time from a
+  ~2 s clip. `— usually a paid add-on` is 23 of those, so the feature name gets the rest.
+- **`card(page, role, content, readMs)`** takes a `CardContent`: `main`, `sub`, `kicker` (small
+  uppercase line, defaults to the package name) and `code` (rendered as a syntax-tinted `<pre>` by
+  a three-token regex — tags orange, attribute names white, string values blue). No highlighter is
+  pulled in for this; if the code card ever needs real highlighting, it is the wrong card.
 
 ## Motion has to survive 30 fps
 
@@ -111,7 +165,6 @@ nothing, then a jump — and reads as judder no matter how smooth the component 
   a 90 ms linear transition so the slowMo-spaced hops smooth into a glide. Adding frames to
   `glidePointer` cannot help — each extra frame costs another 60 ms.
 
-
 ## Promo stage CSS (`overlay.ts`)
 
 Promo mode restyles the bare demo page into a product shot. Four constraints are load-bearing:
@@ -119,9 +172,14 @@ Promo mode restyles the bare demo page into a product shot. Four constraints are
 1. **Never put a raw backtick in the stage CSS** — including inside a comment. The whole
    stylesheet is a JS template literal, so one unescaped backtick breaks the file at parse time
    and every promo test errors with `Missing semicolon` before a single one runs.
-2. **Body-level rules must exclude `[popover]` and `dialog`.** The filter panel, context menu and
-   tooltip are appended to `<body>`, so a bare `body > *` rule gives them stage padding and
-   `display: flex` — they balloon and swallow the clicks aimed at the grid underneath.
+2. **Body-level rules must exclude `[popover]`, `dialog` and `[class^='tbw-']`.** The filter panel,
+   context menu, tooltip and row-drag badge are all appended to `<body>`, so a bare `body > *` rule
+   treats them as demo roots: they inherit `display: flex` and the 336px rail reservation, and
+   render as a mostly-empty box with the content crammed into one corner. Popovers additionally
+   balloon and swallow the clicks aimed at the grid underneath. Match the `tbw-` class prefix
+   rather than naming each surface — the next plugin to park something on `<body>` would otherwise
+   reintroduce the bug silently, and no demo root carries a `tbw-` class (`tbw-grid` is an element
+   name, not one).
 3. **The stage element must stay stretched.** An `auto` inline margin makes it shrink-to-fit its
    max-content width, which removes the horizontal overflow the column-virtualization and
    pinned-column scenes depend on — those tests then fail with `scrollLeft` stuck at 0. A scene

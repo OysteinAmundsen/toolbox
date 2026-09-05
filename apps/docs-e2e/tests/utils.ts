@@ -1,5 +1,5 @@
 import { type Locator, type Page, expect } from '@playwright/test';
-import { PROMO, aim, beat, glidePointer, installOverlay, titleCard } from './promo/overlay';
+import { type CardContent, PROMO, aim, beat, glidePointer, installOverlay, titleCard } from './promo/overlay';
 
 export * from './promo/overlay';
 
@@ -24,18 +24,10 @@ function titleFromSlug(demoSlug: string): string {
  * unedited recording opens on the card instead of on a demo booting up. The
  * caller still has to hold and record it with `card()`.
  */
-export async function openDemo(
-  page: Page,
-  demoSlug: string,
-  title?: string,
-  subtitle?: string,
-  intro?: { main: string; sub?: string },
-) {
+export async function openDemo(page: Page, demoSlug: string, title?: string, subtitle?: string, intro?: CardContent) {
   if (PROMO) await installOverlay(page);
   await page.goto(`/demo/${demoSlug}`);
-  if (PROMO && intro) {
-    await page.evaluate(([m, s]) => window.__tbwPromo?.card(m as string, s), [intro.main, intro.sub ?? null]);
-  }
+  if (PROMO && intro) await page.evaluate((c) => window.__tbwPromo?.card(c), intro);
   if (PROMO) await titleCard(page, title ?? titleFromSlug(demoSlug), subtitle);
   await waitForGrid(page);
 }

@@ -22,7 +22,7 @@ export const PROMO = process.env.PW_PROMO_OVERLAY === '1';
 // #region Timeline (money-shot markers)
 
 /** Where a clip lands in the stitched reel. Features keep declaration order. */
-export type ClipRole = 'intro' | 'feature' | 'outro';
+export type ClipRole = 'intro' | 'feature' | 'punch' | 'outro';
 
 export interface ClipOptions {
   /** Short, punchy label. It is on screen for barely a second in the reel — keep it under ~44 chars. */
@@ -145,10 +145,22 @@ declare global {
     __tbwPromo?: {
       caption(text: string | null): void;
       title(main: string, sub?: string | null): void;
-      card(main: string | null, sub?: string | null): void;
+      card(content: CardContent | null): void;
       spotlight(rect: { x: number; y: number; width: number; height: number } | null): void;
     };
   }
+}
+
+/** A full-frame card. Everything is optional except that it must show *something*. */
+export interface CardContent {
+  /** Headline, in the display face. */
+  main?: string;
+  /** Supporting line under the headline (or under the code block). */
+  sub?: string;
+  /** Small uppercase line above the headline. Defaults to the package name. */
+  kicker?: string;
+  /** Markup to render as a syntax-tinted code block. */
+  code?: string;
 }
 
 /**
@@ -193,15 +205,21 @@ export async function installOverlay(page: Page) {
           font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
         }
         /*
-         * The demo root — everything at body level that is not ours.
+         * The demo root — everything at body level that is not ours and is not
+         * a transient surface the grid parked there.
          *
-         * The [popover] and dialog exclusions MUST stay. The filter panel, the
-         * context menu and the tooltip are all popovers parented to <body>, so
-         * without them a popover inherits the stage's flex + padding, balloons
-         * to fill the frame and then swallows the clicks aimed at its own
-         * contents ("<div popover> intercepts pointer events").
+         * Three exclusions, all load-bearing. [popover] and dialog: a popover
+         * that inherits the stage's flex + padding balloons to fill the frame
+         * and then swallows the clicks aimed at its own contents ("<div popover>
+         * intercepts pointer events"). [class^='tbw-']: the context menu, filter
+         * panel, tooltip and row-drag badge are appended to <body> as plain
+         * elements, so they are demo roots as far as this selector can tell —
+         * they would each pick up 336px of rail reservation and render as a
+         * mostly-empty box. Matching the prefix rather than naming them keeps
+         * the next such surface from reintroducing the bug; no demo root
+         * carries a tbw- class (tbw-grid is an element name, not one).
          */
-        body > :not(.tbw-promo-root):not(.tbw-promo-title):not(script):not(style):not([popover]):not(dialog) {
+        body > :not(.tbw-promo-root):not(.tbw-promo-title):not(script):not(style):not([popover]):not(dialog):not([class^='tbw-']) {
           flex: 1 1 auto;
           display: flex; flex-direction: column; justify-content: center;
           /*
@@ -229,7 +247,7 @@ export async function installOverlay(page: Page) {
          * so the demo stays a *composition* — grid centred, dark bands above and
          * below — rather than edge-to-edge table.
          */
-        body > :not(.tbw-promo-root):not(.tbw-promo-title):not([popover]):not(dialog) tbw-grid {
+        body > :not(.tbw-promo-root):not(.tbw-promo-title):not([popover]):not(dialog):not([class^='tbw-']) tbw-grid {
           flex: 0 1 auto; height: 100%; min-height: 0; max-height: 560px;
           border-radius: 10px; overflow: hidden;
           box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
@@ -406,6 +424,17 @@ export async function installOverlay(page: Page) {
           font: 600 16px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
           letter-spacing: 0.24em; text-transform: uppercase; color: rgba(255,119,67,0.92);
         }
+        /* The integration shot. Type is large enough to read at a glance on a phone. */
+        .tbw-promo-card pre {
+          margin: 4px 0 0; padding: 26px 34px; text-align: left; white-space: pre;
+          border-radius: 14px; border: 1px solid rgba(255,255,255,0.10);
+          background: rgba(4,6,10,0.74); box-shadow: 0 26px 64px rgba(0,0,0,0.55);
+          font: 500 25px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          color: rgba(255,255,255,0.62);
+        }
+        .tbw-promo-card pre .tag { color: #ff7743; }
+        .tbw-promo-card pre .attr { color: rgba(255,255,255,0.92); }
+        .tbw-promo-card pre .str { color: #7fd1ff; }
       `;
       document.head?.appendChild(style);
 
@@ -597,20 +626,45 @@ export async function installOverlay(page: Page) {
           titleEl.appendChild(brand);
           titleEl.classList.add('show');
         },
-        card(main, sub) {
-          if (!main) {
+        card(content) {
+          if (!content) {
             cardEl.classList.remove('show');
             return;
           }
           cardEl.innerHTML = '';
           const kicker = document.createElement('em');
-          kicker.textContent = '@toolbox-web/grid';
-          const b = document.createElement('b');
-          b.textContent = main;
-          cardEl.append(kicker, b);
-          if (sub) {
+          kicker.textContent = content.kicker ?? '@toolbox-web/grid';
+          cardEl.appendChild(kicker);
+          if (content.main) {
+            const b = document.createElement('b');
+            b.textContent = content.main;
+            cardEl.appendChild(b);
+          }
+          if (content.code) {
+            // Tags orange, attribute names white, string values blue — enough
+            // colour to read as code without pulling in a highlighter.
+            const token = /(<\/?[a-zA-Z-]+|\/?>|[a-zA-Z-]+(?==)|"[^"]*")/g;
+            const pre = document.createElement('pre');
+            for (const raw of content.code.split('\n')) {
+              const line = document.createElement('div');
+              let last = 0;
+              for (const match of raw.matchAll(token)) {
+                const at = match.index ?? 0;
+                if (at > last) line.appendChild(document.createTextNode(raw.slice(last, at)));
+                const piece = document.createElement('span');
+                piece.className = match[0].startsWith('"') ? 'str' : /[<>]/.test(match[0]) ? 'tag' : 'attr';
+                piece.textContent = match[0];
+                line.appendChild(piece);
+                last = at + match[0].length;
+              }
+              line.appendChild(document.createTextNode(raw.slice(last) || '\u200b'));
+              pre.appendChild(line);
+            }
+            cardEl.appendChild(pre);
+          }
+          if (content.sub) {
             const s = document.createElement('span');
-            s.textContent = sub;
+            s.textContent = content.sub;
             cardEl.appendChild(s);
           }
           cardEl.classList.add('show');
@@ -687,24 +741,37 @@ export async function titleCard(page: Page, main: string, sub?: string) {
 }
 
 /**
- * Full-frame branded card, recorded as an `intro`/`outro` clip so the stitcher
- * can bookend the reel with it.
+ * Full-frame card, recorded as its own clip so the stitcher can place it.
+ *
+ * `intro` opens the reel, `outro` closes it, and `punch` lands after the last
+ * feature — it is where the montage stops showing and starts arguing. A reel
+ * that is only features is a spec sheet; the punch card is what a viewer
+ * repeats to a colleague.
  *
  * The card stays up for roughly a second either side of the recorded window.
  * Clip windows are mapped onto the video by arithmetic, not by a frame-accurate
  * timestamp, so without that padding a few hundred milliseconds of drift puts
- * the demo page — rather than the brand card — at the head of the reel.
+ * the demo page — rather than the card — at the head of the reel.
+ *
+ * `readMs` is the guaranteed screen time. A headline is legible in 2 s; a code
+ * block or a three-line claim is not, and the allocator will happily starve it
+ * down to `MIN_CLIP` unless told otherwise.
  *
  * No-op outside promo mode — which is why the caller must still assert something
  * real around it, exactly like any other scene.
  */
-export async function card(page: Page, role: 'intro' | 'outro', main: string, sub?: string) {
+export async function card(page: Page, role: 'intro' | 'punch' | 'outro', content: CardContent, readMs = 2000) {
   if (!PROMO) return;
-  await page.evaluate(([m, s]) => window.__tbwPromo?.card(m as string, s), [main, sub ?? null]);
+  await page.evaluate((c) => window.__tbwPromo?.card(c), content);
   await beat(page, 950);
-  await clip(page, { label: '', role, weight: 1.3, align: 'middle', minMs: 2000, leadMs: 0, holdMs: 900 }, async () => {
-    await beat(page, 1500);
-  });
+  const hold = Math.max(1500, readMs - 900);
+  await clip(
+    page,
+    { label: '', role, weight: 1.3, align: 'middle', minMs: readMs, leadMs: 0, holdMs: 900 },
+    async () => {
+      await beat(page, hold);
+    },
+  );
   await beat(page, 950);
   await page.evaluate(() => window.__tbwPromo?.card(null));
   await beat(page, 250);

@@ -41,7 +41,10 @@ test.describe('Promo — hero scenario', () => {
   test('Analyst workflow: sort, filter, select, drill in, edit, undo, group @promo', async ({ page }) => {
     test.setTimeout(240_000);
 
-    const INTRO = { main: 'Every feature. One component.', sub: 'Framework-agnostic. Under 50 kB gzipped.' };
+    const INTRO = {
+      main: 'One grid. No licence.',
+      sub: 'Every feature. Every framework. Under 50 kB gzipped.',
+    };
     await openDemo(
       page,
       'EmployeeManagementAllFeaturesDemo',
@@ -55,12 +58,29 @@ test.describe('Promo — hero scenario', () => {
     const totalRows = await rowCount(page);
     expect(totalRows).toBeGreaterThan(10);
 
-    await card(page, 'intro', INTRO.main, INTRO.sub);
+    await card(page, 'intro', INTRO, 2200);
+
+    // The integration shot. "One component" is a claim until the viewer sees
+    // how little markup it takes; this is the frame people screenshot.
+    await card(
+      page,
+      'intro',
+      {
+        kicker: 'the whole integration',
+        code: [
+          '<script type="module" src="@toolbox-web/grid"></script>',
+          '',
+          '<tbw-grid features="sort,filter,group,pivot"></tbw-grid>',
+        ].join('\n'),
+        sub: 'No wrapper package. No licence key. No build step.',
+      },
+      2800,
+    );
 
     // ── Establishing shot: the dataset at scale ─────────────────────────────
     // Row virtualization is the one thing a still frame cannot show, so the
     // opening beat is motion: 200 records streaming past a fixed DOM budget.
-    await clip(page, { label: '200 records. Virtualized, not paginated.', weight: 1.5, holdMs: 500 }, async () => {
+    await clip(page, { label: 'Sort, filter, group — nothing to wire up', weight: 1.5, holdMs: 500 }, async () => {
       const firstBefore = ((await dataRows(page).first().textContent()) ?? '').trim();
       const domRowsBefore = await rowCount(page);
       await wheelScroll(page, grid(page), 0, 2600, 34);
@@ -116,7 +136,7 @@ test.describe('Promo — hero scenario', () => {
     await glideClick(page, targetValue);
     await expect(targetValue).toBeChecked();
 
-    await clip(page, { label: 'Filter — without losing the sort', weight: 1.5 }, async () => {
+    await clip(page, { label: 'Filter and sort compose. Always.', weight: 1.5 }, async () => {
       await glideClick(page, panel.locator('button', { hasText: /apply/i }));
       await expect(panel).toBeHidden();
 
@@ -189,12 +209,34 @@ test.describe('Promo — hero scenario', () => {
     await aim(page, firstGroupToggle, async () => {
       await firstGroupToggle.click();
       await expect.poll(() => rowCount(page)).toBeGreaterThan(rowsBeforeExpand);
+      // The expanded members are the whole point of the gesture; collapsing on
+      // the next line leaves nothing on screen long enough to read.
+      await beat(page, 1100);
       await firstGroupToggle.click();
       await expect.poll(() => rowCount(page)).toBe(rowsBeforeExpand);
     });
 
     await hush(page);
     await beat(page, 300);
-    await card(page, 'outro', 'toolboxjs.com', 'npm i @toolbox-web/grid');
+
+    // The argument. Everything before this is evidence for it.
+    // The headline has to be readable alone: most viewers never reach the
+    // sub-line, so it must not be the thing that flips the meaning.
+    await card(
+      page,
+      'punch',
+      {
+        kicker: 'no tiers, no licence keys',
+        main: 'All of that is free.',
+        sub: 'Grouping, master-detail, range copy, tool panels, pivot — usually paid enterprise add-ons. Here they are MIT.',
+      },
+      3200,
+    );
+    await card(
+      page,
+      'outro',
+      { main: 'toolboxjs.com', sub: 'npm i @toolbox-web/grid — MIT, under 50 kB gzipped' },
+      2200,
+    );
   });
 });

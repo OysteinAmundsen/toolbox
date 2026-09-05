@@ -119,7 +119,7 @@ interface PwSuite {
 /** Mirrors `ClipMark` in `tests/promo/overlay.ts`. */
 interface ClipMark {
   label: string;
-  role: 'intro' | 'feature' | 'outro';
+  role: 'intro' | 'feature' | 'punch' | 'outro';
   weight: number;
   align: 'start' | 'middle' | 'end';
   minMs?: number;
@@ -330,8 +330,8 @@ if (!segments.length) {
   process.exit(1);
 }
 
-// Intros first, outros last, features in declaration order.
-const rank = { intro: 0, feature: 1, outro: 2 };
+// Intros first, then features in declaration order, then the punchline, then the outro.
+const rank = { intro: 0, feature: 1, punch: 2, outro: 3 };
 segments.sort((a, b) => rank[a.role] - rank[b.role]);
 
 // #endregion

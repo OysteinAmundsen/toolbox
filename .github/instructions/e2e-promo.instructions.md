@@ -142,6 +142,12 @@ The reel is therefore three acts, enforced by `ClipRole` and the `rank` map in `
   factually about the competition and disastrous in isolation — it reads as our price. State the
   claim about _us_ in `main` ("All of that is free.") and leave the contrast to `sub`.
 
+- **Every claim has to be literally true, not just directionally true.** A card is the one place
+  in the reel with no demo behind it to keep it honest, and a punchy line is exactly where an
+  inaccuracy hides. "No licence" was shorthand for "no licence fee" and read as "unlicensed" —
+  which is both false and the opposite of the selling point, since MIT _is_ the selling point.
+  Say "no licence fee", "no licence key", "MIT".
+
 - **Captions live under ~44 characters.** Longer wraps to two lines and steals reading time from a
   ~2 s clip. `— usually a paid add-on` is 23 of those, so the feature name gets the rest.
 - **`card(page, role, content, readMs)`** takes a `CardContent`: `main`, `sub`, `kicker` (small

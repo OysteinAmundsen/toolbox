@@ -42,8 +42,8 @@ test.describe('Promo — hero scenario', () => {
     test.setTimeout(240_000);
 
     const INTRO = {
-      main: 'One grid. No licence.',
-      sub: 'Every feature. Every framework. Under 50 kB gzipped.',
+      main: 'One grid. No license fee.',
+      sub: 'Every feature. Every framework. MIT, under 50 kB gzipped.',
     };
     await openDemo(
       page,
@@ -72,7 +72,7 @@ test.describe('Promo — hero scenario', () => {
           '',
           '<tbw-grid features="sort,filter,group,pivot"></tbw-grid>',
         ].join('\n'),
-        sub: 'No wrapper package. No licence key. No build step.',
+        sub: 'No wrapper package. No license key. No build step.',
       },
       2800,
     );

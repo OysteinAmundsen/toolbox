@@ -74,6 +74,19 @@ const COLUMN_FADE_ID = 'tbw-responsive-column-fade';
 /** Present only while columns are collapsing, so column resizing stays instant. */
 const COLUMN_FADE_ATTR = 'data-responsive-column-fade';
 
+/**
+ * Cancel this plugin's fades on `cell` and nothing else. Cancelling REJECTS
+ * `Animation.finished` with an `AbortError`, and nothing awaits it, so without a
+ * sink it surfaces as an unhandled rejection.
+ */
+function cancelColumnFades(cell: HTMLElement): void {
+  for (const animation of cell.getAnimations?.() ?? []) {
+    if (animation.id !== COLUMN_FADE_ID) continue;
+    animation.finished?.catch(() => undefined);
+    animation.cancel();
+  }
+}
+
 /** Split a grid track list on top-level spaces, keeping `minmax(a, b)` intact. */
 function splitTrackList(template: string): string[] {
   const tracks: string[] = [];
@@ -540,17 +553,13 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     // hides it lands. Past the window CSS owns visibility, so releasing the fill
     // is what stops an abandoned fade from stranding a visible column invisible.
     for (const cell of this.gridElement?.querySelectorAll<HTMLElement>('.cell[data-field]') ?? []) {
-      for (const animation of cell.getAnimations?.() ?? []) {
-        if (animation.id === COLUMN_FADE_ID) animation.cancel();
-      }
+      cancelColumnFades(cell);
     }
   }
 
   /** Animate one cell, seeking to `elapsed` so a cell created mid-fade joins in progress. */
   #playColumnFade(cell: HTMLElement, out: boolean, duration: number, elapsed: number): void {
-    for (const animation of cell.getAnimations?.() ?? []) {
-      if (animation.id === COLUMN_FADE_ID) animation.cancel();
-    }
+    cancelColumnFades(cell);
     const frames = out ? [{ opacity: 1 }, { opacity: 0 }] : [{ opacity: 0 }, { opacity: 1 }];
     // A fade-out has to hold at zero until the closing render hides the cell for real.
     const animation = cell.animate?.(frames, { duration, easing: 'ease-out', fill: out ? 'forwards' : 'none' });

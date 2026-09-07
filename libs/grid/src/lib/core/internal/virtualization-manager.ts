@@ -742,23 +742,36 @@ export class VirtualizationManager<T = any> {
    * exist in the DOM, then performs the one-shot base-height measurement that
    * `configureVariableHeights` defers when a plugin drives heights but no `rowHeight` function
    * was supplied.
+   *
+   * The measurement latch is only spent once rows are actually renderable. Nothing re-arms it —
+   * `configureVariableHeights` sets it inside `if (!s.variableHeights)`, and the ResizeObserver
+   * path bails on `#hasRowHeightPlugin()` — so burning it on an empty body (async data lands on a
+   * later render) would leave `state.rowHeight` at its 28px default forever.
    */
   afterRenderRowHeights(): void {
     if (this.state.enabled) this.#setupRowHeightObserver();
     if (!this.#needsRowHeightMeasurement) return;
+    if (!this.#grid._bodyEl?.querySelector('.data-grid-row')) return;
     this.#needsRowHeightMeasurement = false;
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => this.#measureRowHeightForPlugins());
+      requestAnimationFrame(() => {
+        // No usable height two frames later (rows gone again, or a zero-height/hidden layout) —
+        // re-arm rather than lose the one-shot.
+        if (!this.#measureRowHeightForPlugins()) this.#needsRowHeightMeasurement = true;
+      });
     });
   }
 
   /**
    * Like `#measureRowHeight`, but rebuilds the position cache afterwards — the cache may have been
    * built with the wrong estimated height even if `rowHeight` was later corrected.
+   *
+   * @returns Whether a usable height was measured — `false` when no row is rendered or the
+   * rendered row measures 0px.
    */
-  #measureRowHeightForPlugins(): void {
+  #measureRowHeightForPlugins(): boolean {
     const firstRow = this.#grid._bodyEl?.querySelector('.data-grid-row');
-    if (!firstRow) return;
+    if (!firstRow) return false;
 
     // Find the tallest cell in the row (custom renderers may push some cells taller)
     let maxCellHeight = 0;
@@ -768,7 +781,7 @@ export class VirtualizationManager<T = any> {
     });
 
     const measuredHeight = Math.max((firstRow as HTMLElement).getBoundingClientRect().height, maxCellHeight);
-    if (measuredHeight <= 0) return;
+    if (measuredHeight <= 0) return false;
 
     const s = this.state;
     if (Math.abs(measuredHeight - s.rowHeight) > 1) {
@@ -778,6 +791,7 @@ export class VirtualizationManager<T = any> {
     if (s.totalHeightEl) {
       s.totalHeightEl.style.height = `${this.calculateTotalSpacerHeight(this.#grid._rows.length)}px`;
     }
+    return true;
   }
 
   /**

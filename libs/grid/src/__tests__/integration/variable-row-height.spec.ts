@@ -375,4 +375,110 @@ describe('variable row height with plugins', () => {
       }
     });
   });
+
+  describe('deferred base-height measurement with async data', () => {
+    // happy-dom reports height 0 for every element, so the measurement path needs
+    // a stubbed value to pick up. Only `.data-grid-row` is faked; everything else
+    // keeps its real (zero) geometry so the rest of the grid behaves as before.
+    function stubRowHeight(height: number) {
+      const original = Element.prototype.getBoundingClientRect;
+      vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+        if (this.classList?.contains('data-grid-row')) {
+          return {
+            height,
+            width: 800,
+            top: 0,
+            left: 0,
+            right: 800,
+            bottom: height,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+          } as DOMRect;
+        }
+        return original.call(this) as DOMRect;
+      });
+    }
+
+    function connectWithPlugin() {
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: (row: TestRow) => {
+          const div = document.createElement('div');
+          div.textContent = `Detail for ${row.name}`;
+          return div;
+        },
+      });
+      grid.rows = [];
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+        ],
+        plugins: [plugin],
+      };
+      document.body.appendChild(grid);
+      return plugin;
+    }
+
+    async function frames(count: number) {
+      for (let i = 0; i < count; i++) await nextFrame();
+    }
+
+    it('measures the base row height when rows arrive after the first render', async () => {
+      stubRowHeight(36);
+      connectWithPlugin();
+      await waitUpgrade(grid);
+      await frames(3);
+
+      // Precondition: plugin drives heights, but the first render had no rows to measure.
+      expect(grid._virtualization.variableHeights).toBe(true);
+      expect(grid.querySelectorAll('.data-grid-row').length).toBe(0);
+
+      grid.rows = createRows(10);
+      await frames(6);
+
+      expect(grid.querySelectorAll('.data-grid-row').length).toBeGreaterThan(0);
+      expect(grid._virtualization.rowHeight).toBe(36);
+    });
+
+    it('rebuilds the position cache from the measured height so the last row stays reachable', async () => {
+      stubRowHeight(36);
+      connectWithPlugin();
+      await waitUpgrade(grid);
+      await frames(3);
+
+      grid.rows = createRows(10);
+      await frames(6);
+
+      const cache = grid._virtualization.positionCache;
+      expect(cache).not.toBeNull();
+      // Ten collapsed rows at the measured height — a stale 28px default would
+      // leave the cache 80px short and strand the tail rows.
+      expect(cache![9].offset).toBe(9 * 36);
+    });
+
+    it('still measures when rows are present on the very first render', async () => {
+      stubRowHeight(36);
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: (row: TestRow) => {
+          const div = document.createElement('div');
+          div.textContent = `Detail for ${row.name}`;
+          return div;
+        },
+      });
+      grid.rows = createRows(10);
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+        ],
+        plugins: [plugin],
+      };
+      document.body.appendChild(grid);
+      await waitUpgrade(grid);
+      await frames(6);
+
+      expect(grid._virtualization.rowHeight).toBe(36);
+    });
+  });
 });

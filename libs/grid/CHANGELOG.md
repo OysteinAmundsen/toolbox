@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.7.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.7.0...grid-3.7.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* **grid:** re-arm deferred base-height latch when rows render late ([84ac147](https://github.com/OysteinAmundsen/toolbox/commit/84ac1471ba166e5fe45ca33956c21aa0907e4a4c))
+
 ## [3.7.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.6.0...grid-3.7.0) (2026-09-03)
 
 

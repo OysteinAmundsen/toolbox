@@ -6,6 +6,26 @@ applyTo: 'apps/docs/**'
 
 Documentation lives in `apps/docs/` using Astro + Starlight. MDX content pages are in `src/content/docs/grid/`. Interactive demo components are in `src/components/demos/`. Run the docs site: `bun nx serve docs` (port 4401). See the `astro-demo` skill for demo component templates and the `docs-update` skill for the full documentation inventory.
 
+## Voice — factual, not promotional
+
+Docs are reference material. A reader is looking something up, usually while blocked. Give them the fact and what to do about it, then stop. Prose that performs enthusiasm is noise they have to read past, and it reads as machine-generated.
+
+**Cut these on sight:**
+
+- Framing sentences that delay the answer. Open with the fact. `Not supported.` / `There's no formula engine.` beats `It's worth noting that cell spanning is an area where we've made a deliberate trade-off.`
+- Editorialising adverbs and intensifiers: _genuinely, truly, simply, seamlessly, effortlessly, powerful, robust, comprehensive, blazing, first-class, out of the box_ (when it means nothing), _permanently, fundamentally, absolutely._
+- Self-congratulation about design choices: _deliberate rather than accidental_, _by design_, _we've thoughtfully_, _this is intentional_. If it needs defending, state the constraint instead: "HyperFormula is ~4× the size of the whole grid."
+- The "not X, but Y" reveal: _not because it would lose, but because…_ Say the thing once.
+- Three-part em-dash flourishes and rule-of-three lists padded to reach three.
+- Rhetorical questions as headings, and "Let's dive in" / "You might be wondering".
+- Restating the heading in the first sentence of the section.
+
+**Keep:** contractions, second person, short sentences, one idea per sentence, concrete numbers, exact API names, and a named alternative when the answer is "we don't do that."
+
+**Comparative or limitation claims must be checked against source before writing.** Read the plugin or the vendor's own page — don't infer a `❌` from the absence of a docs page. Getting a competitor's capability wrong is worse than omitting the row. See the `docs-update` skill's `comparison.mdx` notes.
+
+**Spelling — prose leans British; identifiers never change.** Established usage is `behaviour`, `colour`, `organisation`, and the noun `licence`. The verb keeps `-se` in British English too, so `licensed` / `licensing` are correct as-is. Never "correct" a `license` that is a proper noun (`MIT License`), a code identifier (`licenseKey` — HyperFormula's API), or a verb form. Reviewers (including automated ones) regularly flag `licence` as a typo; it is not.
+
 ## Volatile numbers (plugin count, bundle size) — inject at build time via `@data/grid-stats`
 
 Never hardcode drift-prone stats (plugin count, core gzip size) in prose. `src/data/grid-stats.ts` computes them at build time — `pluginCount` from the `export * from './lib/plugins/…'` lines in `libs/grid/src/all.ts` (the canonical public-plugin list; `shell` is a feature, excluded → count is 24), and `coreGzipKb` by gzipping the built `dist/libs/grid/index.js` (the docs `build` target `dependsOn` `grid:build`, so dist exists; a fallback covers `astro dev`). Consume via `import { GRID_STATS } from '@data/grid-stats'` and interpolate `{GRID_STATS.pluginCount}` / `{GRID_STATS.coreGzipKb}` in MDX. Use expressions only in prose/JSX children, NOT in Starlight component attributes that the llms transform reads as quoted strings (`<LinkCard description>`), which would drop the value.

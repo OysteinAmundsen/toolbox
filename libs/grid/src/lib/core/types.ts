@@ -935,9 +935,27 @@ export interface BaseColumnConfig<TRow = any, TValue = any, TField extends strin
    * @default Inferred from first row data
    */
   type?: ColumnType;
-  /** Column width in pixels; fixed size (no flexibility) */
+  /**
+   * Column width as a CSS grid track size. A number is treated as pixels.
+   *
+   * A string accepts any single track value — `'2fr'`, `'30%'`, `'max-content'`,
+   * `'minmax(120px, 1fr)'`, `'calc(...)'`, `'auto'`. An unrecognised string still
+   * reaches the layout but emits a dev-mode diagnostic.
+   *
+   * Omit to let `fitMode` size the column: `1fr` (or `minmax(minWidth, 1fr)`) in
+   * `'stretch'`, `max-content` in `'fixed'`.
+   *
+   * A user resize replaces the value with a pixel number, so non-pixel units do
+   * not survive a drag.
+   */
   width?: string | number;
-  /** Minimum column width in pixels; in stretch mode uses minmax(minWidth, 1fr), and in fixed mode is used as implicit width when width is omitted */
+  /**
+   * Minimum column width in pixels. Pixels only — the value doubles as the
+   * numeric clamp applied during drag-resize (40px when unset).
+   *
+   * Applies only when `width` is omitted: `'stretch'` mode renders the column as
+   * `minmax(minWidth, 1fr)`, `'fixed'` mode uses it as the implicit width.
+   */
   minWidth?: number;
   /**
    * Initial column display index.

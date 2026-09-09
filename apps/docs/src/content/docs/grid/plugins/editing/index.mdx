@@ -866,6 +866,13 @@ When resolving a renderer or editor, the grid checks in this order:
 
 A column-level renderer/editor always takes precedence, allowing overrides when needed.
 
+:::note
+`editor`, `editorParams`, `editable`, `multi` and `nullable` are contributed to `TypeDefault` by
+this plugin. They appear on `gridConfig.typeDefaults` entries only when the editing plugin's types
+are in scope — importing `@toolbox-web/grid/features/editing` (or the matching adapter feature entry)
+is what makes them type-check.
+:::
+
 ### Editor Parameters Merging
 
 When using type defaults with `editorParams`, parameters are merged with column-level params taking precedence:

@@ -314,61 +314,12 @@ declare module '../../core/types' {
     nullable?: boolean;
   }
 
-  interface TypeDefault {
-    /**
-     * Default editor for all columns of this type. Requires EditingPlugin.
-     *
-     * Use type-level editors when multiple columns share the same editing behavior.
-     * Column-level `editor` takes precedence over type-level.
-     *
-     * **Resolution Priority**: Column `editor` → Type `editor` → Built-in
-     *
-     * @example
-     * ```typescript
-     * // All 'date' columns use a custom datepicker
-     * typeDefaults: {
-     *   date: {
-     *     editor: (ctx) => {
-     *       const picker = new MyDatePicker();
-     *       picker.value = ctx.value;
-     *       picker.onSelect = (d) => ctx.commit(d);
-     *       picker.onCancel = () => ctx.cancel();
-     *       return picker;
-     *     }
-     *   }
-     * }
-     * ```
-     */
-    editor?: ColumnEditorSpec<unknown, unknown>;
-
-    /**
-     * Default editor parameters for all columns of this type. Requires EditingPlugin.
-     *
-     * Applied to built-in editors when no column-level `editorParams` is set.
-     * Useful for setting consistent constraints across columns (e.g., all currency
-     * fields should have `min: 0` and `step: 0.01`).
-     *
-     * **Resolution Priority**: Column `editorParams` → Type `editorParams` → Built-in defaults
-     *
-     * @example
-     * ```typescript
-     * // All 'currency' columns use these number editor params
-     * typeDefaults: {
-     *   currency: {
-     *     editorParams: { min: 0, step: 0.01 }
-     *   }
-     * }
-     *
-     * // Column can still override:
-     * columns: [
-     *   { field: 'price', type: 'currency', editable: true },  // Uses type defaults
-     *   { field: 'discount', type: 'currency', editable: true,
-     *     editorParams: { min: -100, max: 100 } }  // Overrides type defaults
-     * ]
-     * ```
-     */
-    editorParams?: Record<string, unknown>;
-  }
+  // NOTE: `TypeDefault` deliberately has NO augmentation here. It extends
+  // `Partial<Omit<ColumnConfig, …>>`, so `editor`, `editorParams`, `editable`,
+  // `multi` and `nullable` reach `gridConfig.typeDefaults` through the
+  // `BaseColumnConfig` augmentation above — present exactly when this plugin's
+  // types are imported, and typed identically to their column-level form.
+  // Re-declaring them here would collide (TS2717).
 
   interface GridConfig<TRow = any> {
     /**
@@ -668,8 +619,4 @@ export interface SelectEditorParams {
  * @since 1.0.0
  */
 export type EditorParams =
-  | NumberEditorParams
-  | TextEditorParams
-  | DateEditorParams
-  | SelectEditorParams
-  | Record<string, unknown>;
+  NumberEditorParams | TextEditorParams | DateEditorParams | SelectEditorParams | Record<string, unknown>;

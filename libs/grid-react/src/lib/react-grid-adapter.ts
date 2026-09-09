@@ -814,7 +814,7 @@ export class GridAdapter implements FrameworkAdapter {
     // Create editor function that renders React component
     if (reactDefault.editor) {
       // Type assertion needed: adapter bridges TRow to core's unknown
-      typeDefault.editor = this.createTypeEditor<TRow>(reactDefault.editor, gridEl) as TypeDefault['editor'];
+      typeDefault.editor = this.createTypeEditor<TRow>(reactDefault.editor, gridEl) as TypeDefault<TRow>['editor'];
     }
 
     // Create filterPanelRenderer function that renders React component into filter panel.

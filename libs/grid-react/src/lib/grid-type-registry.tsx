@@ -12,14 +12,17 @@ import { createContext, useContext, type FC, type ReactNode } from 'react';
 /**
  * Type default configuration for React applications.
  *
- * Defines default renderer, editor, and editorParams for a data type
- * using React function components.
+ * Inherits every core {@link BaseTypeDefault} property (which is itself a
+ * partial `ColumnConfig` — `format`, `width`, `sortable`, `cellClass`,
+ * `filterable`, …) and widens the renderer/editor slots to accept React
+ * function components.
  *
  * @example
  * ```tsx
  * import type { TypeDefault } from '@toolbox-web/grid-react';
  *
  * const countryDefault: TypeDefault<Employee, string> = {
+ *   width: 140,
  *   renderer: (ctx) => <CountryFlag code={ctx.value} />,
  *   editor: (ctx) => (
  *     <CountrySelect value={ctx.value} onSelect={ctx.commit} />
@@ -27,7 +30,10 @@ import { createContext, useContext, type FC, type ReactNode } from 'react';
  * };
  * ```
  */
-export interface TypeDefault<TRow = unknown, TValue = unknown> {
+export interface TypeDefault<TRow = unknown, TValue = unknown> extends Omit<
+  BaseTypeDefault<TRow>,
+  'renderer' | 'editor' | 'editorParams' | 'filterPanelRenderer'
+> {
   /** React component/function for rendering cells of this type */
   renderer?: (ctx: CellRenderContext<TRow, TValue>) => ReactNode;
   /** React component/function for editing cells of this type */
@@ -196,7 +202,7 @@ export function typeDefaultToBaseTypeDefault<TRow = unknown>(
     baseTypeDefault.editor = ((ctx) => {
       const node = reactEditor(ctx as ColumnEditorContext<TRow, unknown>);
       return renderReactNode(node);
-    }) as BaseTypeDefault['editor'];
+    }) as BaseTypeDefault<TRow>['editor'];
   }
 
   if (typeDefault.filterPanelRenderer) {

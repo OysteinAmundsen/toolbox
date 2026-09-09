@@ -41,6 +41,43 @@ import { compileTemplate } from './sanitize';
 const STATE_CHANGE_DEBOUNCE_MS = 100;
 
 /**
+ * Column properties that are never inherited from `gridConfig.typeDefaults` —
+ * they identify or position a single column rather than describe its type.
+ * Mirrors the `NonInheritableTypeDefaultKey` union in `core/types.ts`.
+ */
+const NON_INHERITABLE_TYPE_DEFAULT_KEYS = new Set(['field', 'header', 'order', 'group', 'hidden', 'utility']);
+
+/**
+ * Copy every own key of the matching type default onto each column that does
+ * not already define it.
+ *
+ * Property-agnostic by design: plugin-augmented column properties (`editor`,
+ * `filterable`, …) work without core knowing about them. Runs before the
+ * per-column defaults so a type default can override `sortable`/`resizable`.
+ */
+function applyTypeDefaults(columns: Record<string, unknown>[], typeDefaults: Record<string, unknown>): void {
+  for (const col of columns) {
+    const type = col['type'] as string | undefined;
+    if (!type) continue;
+
+    const typeDefault = typeDefaults[type] as Record<string, unknown> | undefined;
+    if (!typeDefault) continue;
+
+    for (const key of Object.keys(typeDefault)) {
+      if (NON_INHERITABLE_TYPE_DEFAULT_KEYS.has(key)) continue;
+      const value = typeDefault[key];
+      if (value === undefined) continue;
+      if (col[key] != null) continue;
+      // `renderer` and `viewRenderer` are aliases — either one on the column
+      // suppresses both type-level forms.
+      if ((key === 'renderer' || key === 'viewRenderer') && (col['renderer'] != null || col['viewRenderer'] != null))
+        continue;
+      col[key] = value;
+    }
+  }
+}
+
+/**
  * ConfigManager handles all configuration lifecycle for the grid.
  *
  * Manages:
@@ -297,10 +334,6 @@ export class ConfigManager<T = unknown> {
   #applyPostMergeOperations(): void {
     const config = this.#effectiveConfig;
 
-    // Apply typeDefaults to columns that have a type but no explicit renderer/format
-    // This is done at config time for performance - no runtime lookup needed
-    this.#applyTypeDefaultsToColumns();
-
     // Apply rowHeight from config if specified (only for numeric values)
     // Function-based rowHeight is handled by variable height virtualization
     if (typeof config.rowHeight === 'number' && config.rowHeight > 0) {
@@ -320,50 +353,6 @@ export class ConfigManager<T = unknown> {
 
     // Apply animation configuration to host element
     this.#grid._applyAnimationConfig(config);
-  }
-
-  /**
-   * Apply typeDefaults from gridConfig to columns.
-   * For each column with a `type` property that matches a key in `typeDefaults`,
-   * copy the renderer/format to the column if not already set.
-   *
-   * This is done at config merge time for performance - avoids runtime lookups.
-   */
-  #applyTypeDefaultsToColumns(): void {
-    const typeDefaults = this.#effectiveConfig.typeDefaults;
-    if (!typeDefaults) return;
-
-    const columns = this.columns;
-    for (const col of columns) {
-      if (!col.type) continue;
-
-      const typeDefault = typeDefaults[col.type];
-      if (!typeDefault) continue;
-
-      // Apply renderer if column doesn't have one
-      // Priority: column.renderer > column.viewRenderer > typeDefault.renderer
-      if (!col.renderer && !col.viewRenderer && typeDefault.renderer) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        col.renderer = typeDefault.renderer as any;
-      }
-
-      // Apply format if column doesn't have one
-      if (!col.format && typeDefault.format) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        col.format = typeDefault.format as any;
-      }
-
-      // Apply editor if column doesn't have one
-      if (!col.editor && typeDefault.editor) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        col.editor = typeDefault.editor as any;
-      }
-
-      // Apply editorParams if column doesn't have them
-      if (!col.editorParams && typeDefault.editorParams) {
-        col.editorParams = typeDefault.editorParams;
-      }
-    }
   }
 
   /**
@@ -419,32 +408,6 @@ export class ConfigManager<T = unknown> {
       columns = result.columns as ColumnInternal<T>[];
     }
 
-    if (columns.length) {
-      // Apply initial column ordering (before defaults and compilation)
-      applyInitialOrder(columns);
-
-      // Apply per-column defaults
-      columns.forEach((c) => {
-        if (c.sortable === undefined) c.sortable = true;
-        if (c.resizable === undefined) c.resizable = true;
-        if (c.__originalWidth === undefined && typeof c.width === 'number') {
-          c.__originalWidth = c.width;
-        }
-      });
-
-      // Compile inline templates (from light DOM <template> elements)
-      columns.forEach((c) => {
-        if (c.__viewTemplate && !c.__compiledView) {
-          c.__compiledView = compileTemplate((c.__viewTemplate as HTMLElement).innerHTML);
-        }
-        if (c.__editorTemplate && !c.__compiledEditor) {
-          c.__compiledEditor = compileTemplate(c.__editorTemplate.innerHTML);
-        }
-      });
-
-      base.columns = columns as ColumnConfig<T>[];
-    }
-
     // Declarative light-DOM <tbw-grid-type> defaults are merged with
     // programmatic `gridConfig.typeDefaults`.
     //
@@ -468,6 +431,38 @@ export class ConfigManager<T = unknown> {
         }
       }
       base.typeDefaults = merged;
+    }
+
+    if (columns.length) {
+      // Apply initial column ordering (before defaults and compilation)
+      applyInitialOrder(columns);
+
+      // Type defaults fill gaps before the per-column defaults below, so a type
+      // default can still override `sortable` / `resizable`.
+      if (base.typeDefaults) {
+        applyTypeDefaults(columns as unknown as Record<string, unknown>[], base.typeDefaults);
+      }
+
+      // Apply per-column defaults
+      columns.forEach((c) => {
+        if (c.sortable === undefined) c.sortable = true;
+        if (c.resizable === undefined) c.resizable = true;
+        if (c.__originalWidth === undefined && typeof c.width === 'number') {
+          c.__originalWidth = c.width;
+        }
+      });
+
+      // Compile inline templates (from light DOM <template> elements)
+      columns.forEach((c) => {
+        if (c.__viewTemplate && !c.__compiledView) {
+          c.__compiledView = compileTemplate((c.__viewTemplate as HTMLElement).innerHTML);
+        }
+        if (c.__editorTemplate && !c.__compiledEditor) {
+          c.__compiledEditor = compileTemplate(c.__editorTemplate.innerHTML);
+        }
+      });
+
+      base.columns = columns as ColumnConfig<T>[];
     }
 
     // Individual prop overrides

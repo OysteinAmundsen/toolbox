@@ -434,7 +434,7 @@ interface GridConfig {
   icons?: GridIcons; // Centralized icon configuration
   shell?: ShellConfig; // Optional header bar and tool panels
   getRowId?: (row: T) => string; // Custom row ID resolver
-  typeDefaults?: Record<string, TypeDefault<T>>; // Type-level renderers/editors
+  typeDefaults?: Record<string, TypeDefault<T>>; // Type-level column defaults
 }
 ```
 
@@ -473,7 +473,13 @@ Icons can be strings (text or HTML) or `HTMLElement` instances. Plugins use grid
 
 ### Type-Level Defaults
 
-Define renderers and editors at the type level that apply to all columns with matching `type`:
+Define column config at the type level that applies to all columns with a matching `type`. A type
+default accepts **any** `ColumnConfig` property, plus the column properties contributed by whichever
+plugins you import (`editor` / `editorParams` from the editing plugin, `filterType` from the
+filtering plugin, and so on).
+
+These six properties are never inherited, because they identify or position a single column:
+`field`, `header`, `order`, `group`, `hidden`, `utility`.
 
 ```typescript
 grid.gridConfig = {
@@ -499,16 +505,23 @@ grid.gridConfig = {
     },
     currency: {
       editorParams: { min: 0, step: 0.01 },
+      width: 120,
+      cellClass: 'numeric',
     },
   },
   columns: [
     { field: 'country', type: 'country', editable: true }, // Uses country renderer/editor
-    { field: 'salary', type: 'currency', editable: true }, // Uses currency editorParams
+    { field: 'salary', type: 'currency', editable: true }, // Uses currency editorParams, width, cellClass
+    { field: 'bonus', type: 'currency', width: 200 }, // Column-level width wins
   ],
 };
 ```
 
 **Resolution Priority:** Column-level → `gridConfig.typeDefaults` → Framework adapter → Built-in
+
+Resolution is per-property and shallow: a column keeps any value it defines itself (including falsy
+ones such as `sortable: false`), and inherits the type-level value only where it left the property
+`undefined` or `null`.
 
 Framework adapters (`@toolbox-web/grid-react`, `@toolbox-web/grid-angular`) provide app-level type registries for React/Angular components.
 

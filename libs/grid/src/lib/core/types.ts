@@ -754,22 +754,51 @@ export type NestedPaths<T, D extends number = 5> = [D] extends [never]
 
 // #region TypeDefault Interface
 /**
- * Type-level defaults for formatters and renderers.
- * Applied to all columns of a given type unless overridden at column level.
+ * Keys a column never inherits from a {@link TypeDefault}.
  *
- * Note: `editor` and `editorParams` are added via module augmentation when
- * EditingPlugin is imported. `filterPanelRenderer` is added by FilteringPlugin.
+ * These identify or position an individual column rather than describe its
+ * data type, so a shared type-level value would be meaningless (`field`,
+ * `header`) or actively harmful (`order`/`group` would stack every column of
+ * the type into one slot; `hidden`/`utility` would remove them all from the
+ * grid at once).
+ *
+ * @since 3.8.0
+ */
+export type NonInheritableTypeDefaultKey = 'field' | 'header' | 'order' | 'group' | 'hidden' | 'utility';
+
+/**
+ * Type-level defaults applied to every column that declares a matching `type`.
+ *
+ * Accepts (almost) any {@link ColumnConfig} property — `format`, `renderer`,
+ * `width`, `minWidth`, `sortable`, `resizable`, `sortComparator`,
+ * `valueAccessor`, `options`, `cellClass`, `headerRenderer`, `meta`, … — plus
+ * every property that plugins augment onto the column config. Plugin
+ * properties therefore appear here **only when that plugin's types are
+ * imported**: `editor` / `editorParams` / `editable` / `nullable` / `multi`
+ * come from EditingPlugin, `filterable` / `filterParams` / `filterType` /
+ * `filterValue` from FilteringPlugin, and so on.
+ *
+ * See {@link NonInheritableTypeDefaultKey} for the properties that are
+ * deliberately excluded.
+ *
+ * **Resolution**: a column property that is already set (non-nullish) always
+ * wins — the type default only fills gaps. Merging is shallow and
+ * per-property: object values such as `editorParams` and `meta` are copied by
+ * reference, not deep-merged.
  *
  * @example
  * ```typescript
  * typeDefaults: {
  *   currency: {
+ *     width: 120,
  *     format: (value) => new Intl.NumberFormat('en-US', {
  *       style: 'currency',
  *       currency: 'USD',
  *     }).format(value as number),
+ *     editorParams: { min: 0, step: 0.01 }, // requires EditingPlugin
  *   },
  *   country: {
+ *     sortable: true,
  *     renderer: (ctx) => {
  *       const span = document.createElement('span');
  *       span.innerHTML = `<img src="/flags/${ctx.value}.svg" /> ${ctx.value}`;
@@ -784,7 +813,7 @@ export type NestedPaths<T, D extends number = 5> = [D] extends [never]
  * @see {@link GridConfig.typeDefaults} for registering type defaults
  * @since 1.0.0
  */
-export interface TypeDefault<TRow = unknown> {
+export interface TypeDefault<TRow = unknown> extends Partial<Omit<ColumnConfig<TRow>, NonInheritableTypeDefaultKey>> {
   /**
    * Default formatter for all columns of this type.
    *

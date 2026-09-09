@@ -159,35 +159,35 @@ _## ANTI-PATTERNS — don't reach for a plugin first
 
 </Audience>
 
-A **high-performance, framework-agnostic data grid** web component built with pure TypeScript. No runtime dependencies—just drop it into any project and start rendering data.
+A **framework-agnostic data grid** web component written in pure TypeScript, with no runtime dependencies. Import it, give it a height, and assign an array of rows.
 
 <Audience only="human">
 
-## Why Choose @toolbox-web/grid?
+## What you get
 
-We built this grid because we needed something that works everywhere without framework lock-in or expensive licensing. Whether you're building a vanilla JavaScript prototype, a React dashboard, or an Angular enterprise application, you get the same grid with a single codebase.
+It exists because we wanted one grid that works in every framework, with no licence tier. The same codebase and the same API serve a vanilla prototype and an Angular enterprise app.
 
 | Feature                    | Description                                                         |
 | -------------------------- | ------------------------------------------------------------------- |
-| 🚀 **Enterprise Performance** | Virtualized rendering handles 100k+ rows at 60fps                |
-| 🔧 **True Framework Agnostic** | Single codebase works in vanilla JS, React, Vue, Angular, Svelte |
-| 📦 **Lightweight & Self-Contained** | ~{GRID_STATS.coreGzipKb} kB gzipped with zero runtime dependencies           |
-| 🧩 **Extensible Plugin System** | Lifecycle hooks, dependency validation, type-safe config extension |
-| ⌨️ **Full Keyboard Support** | Arrow keys, Tab, Enter, Escape, Home/End, Page Up/Down            |
-| 🎨 **Themeable**           | CSS custom properties for complete visual customization             |
-| 💡 **Developer-Friendly Errors** | Actionable error messages with import hints and fix suggestions |
-| 🆓 **Free & Open Source**  | MIT licensed—no enterprise tiers or feature gates                   |
+| 🚀 **Performance** | Virtualized rendering handles 100k+ rows at 60fps                |
+| 🔧 **Framework agnostic** | One codebase for vanilla JS, React, Vue, Angular, Svelte |
+| 📦 **Bundle size** | ~{GRID_STATS.coreGzipKb} kB gzipped, zero runtime dependencies           |
+| 🧩 **Plugins** | Lifecycle hooks, dependency validation, type-safe config extension |
+| ⌨️ **Keyboard** | Arrow keys, Tab, Enter, Escape, Home/End, Page Up/Down            |
+| 🎨 **Theming**           | CSS custom properties, six built-in themes             |
+| 💡 **Errors** | Actionable messages with import hints and fix suggestions |
+| 🆓 **Licence**  | MIT — no enterprise tier, no feature gates                   |
 
-:::tip[Looking for an AG Grid alternative?]
-Many features that require AG Grid Enterprise (paid) are **free** in Toolbox Grid: range selection, clipboard, Excel export, row grouping, pivot tables, tree data, master-detail, server-side data, and more.
+:::tip[Paid in AG Grid, free here]
+Range selection, clipboard, Excel export, row grouping, pivot tables, tree data, master-detail and the server-side row model all require AG Grid Enterprise. They're MIT here.
 
-See our [full feature comparison](/grid/comparison/).
+See the [full feature comparison](/grid/comparison/).
 :::
 
-:::note[Built to Last]
-This grid is built entirely on **stable web standards**—Custom Elements, CSS Custom Properties, and standard DOM APIs. No framework abstractions, no compile-time magic, no dependencies that can break.
+:::note[Built on stable web standards]
+Custom Elements, CSS custom properties and standard DOM APIs. No framework runtime underneath, nothing in `dependencies`, so the grid doesn't inherit anyone else's breaking changes or upgrade schedule.
 
-What does that mean for you? **It will never stop working.** Even if development ceased tomorrow, your grid would continue to function in every browser, forever.
+That matters most if you're weighing abandonment risk. Browser vendors treat removing a shipped, interoperable API as a last resort — it has happened, but on a timescale of decades and with a replacement shipped years ahead. So even if development here stopped tomorrow, a grid you ship today keeps working, through framework majors you never adopt.
 :::
 
 </Audience>
@@ -261,9 +261,9 @@ See the [Getting Started guide](/grid/getting-started/) for framework integratio
   <IntroBasicDemo />
 </ShowSource>
 
-## Architecture Highlights
+## Architecture
 
-Under the hood, the grid employs patterns typically found in enterprise-grade solutions:
+Six patterns do most of the work:
 
 | Pattern | What It Does |
 | ------- | ------------ |
@@ -278,7 +278,7 @@ Read the full [Architecture deep-dive](/grid/architecture/) for implementation d
 
 ## Plugin System
 
-The core grid is intentionally minimal. Advanced features are delivered through tree-shakeable plugins — import only what you need:
+The core grid is small. Everything beyond rendering, sorting and virtualization ships as a tree-shakeable plugin — import only what you need:
 
 - **SelectionPlugin** — Cell, row, or range selection
 - **FilteringPlugin** — Column header filters with custom panels
@@ -290,7 +290,7 @@ The core grid is intentionally minimal. Advanced features are delivered through 
 - **ClipboardPlugin** — Copy/paste with Excel-compatible formatting
 - ...and [many more](/grid/plugins/)
 
-Plugins benefit from **dependency validation**, **type-safe config extension**, **auto-cleanup** via `AbortSignal`, and a **third-party friendly** API so you can [build and distribute your own](/grid/plugin-development/custom-plugins/).
+Plugins get dependency validation, type-safe config extension, and auto-cleanup via `AbortSignal`. They use the same public API third parties do, so you can [build and distribute your own](/grid/plugin-development/custom-plugins/).
 
 <Audience only="human">
 
@@ -303,8 +303,6 @@ See **[AI-Assisted Development](/grid/ai/)** for what we publish, where it comes
 </Audience>
 
 ## Next Steps
-
-Ready to dive in?
 
 <CardGrid>
   <LinkCard title="Getting Started" description="Detailed setup for Vanilla JS, React, Vue, and Angular" href="/grid/getting-started/" />

@@ -51,10 +51,10 @@ The matrix is grouped by change category. If your change spans multiple categori
 
 ### Plugin changes
 
-| What Changed         | Update These Docs                                 |
-| -------------------- | ------------------------------------------------- |
-| New plugin           | Plugin README, plugin `.mdx`, `plugins/index.mdx` |
-| Plugin config change | Plugin `.mdx`, plugin README, plugin JSDoc        |
+| What Changed         | Update These Docs                                                                   |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| New plugin           | Plugin README, plugin `.mdx`, `plugins/index.mdx`                                   |
+| Plugin config change | Plugin `.mdx`, plugin README, plugin JSDoc                                          |
 | Accessibility fix    | `## Accessibility` in plugin `.mdx` **and** README, plus `guides/accessibility.mdx` |
 
 A plugin that gains or changes accessible behaviour MUST carry an `## Accessibility` section in
@@ -318,6 +318,26 @@ Individual event descriptions, payload types, and code examples are auto-generat
 | `demos.mdx`           | Full-featured demo applications                    |
 | `comparison.mdx`      | Feature comparison table                           |
 | `architecture.mdx`    | Internal architecture documentation                |
+
+### `comparison.mdx` carries perishable third-party claims
+
+This page is the only doc that asserts facts about **other vendors' products** — feature matrices for
+AG Grid / Tabulator / SlickGrid / Handsontable / TreeGrid, and a list-price table. Those rot silently:
+a competitor moves a feature from Enterprise to Community, or changes its pricing, and our page becomes
+a false claim rather than a stale one.
+
+- The page carries a **verified-on date** in the disclaimer blockquote and again under the pricing table.
+  Re-verify against each vendor's own public page at least every six months and bump both dates together.
+- Never quote a price that is not currently on the vendor's own pricing page. There is a `{/* MAINTENANCE: … */}`
+  comment above the pricing table stating this — keep it.
+- **A wrong ❌ against a competitor is the worst error on the page.** When you cannot source a cell, leave
+  the product out of that table and link to its feature docs in prose instead of guessing.
+- The page also drifts in _our_ favour-losing direction: it understated our own styled Excel export and
+  overstated pagination for a long time. When a plugin gains or loses a capability, check whether a
+  `comparison.mdx` row asserts the opposite.
+- Whenever a limitation row says ❌ but a [recipe](../../../apps/docs/src/content/docs/grid/recipes/) covers
+  the seam, mark it ⚙️ and link the recipe. "We don't ship it, here's how you wire it" is the honest answer,
+  not ❌.
 
 ## Regenerating API Docs
 

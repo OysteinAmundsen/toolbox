@@ -24,14 +24,14 @@ We picked grids that bracket the realistic alternatives a team evaluates today, 
 
 Together they span the realistic spectrum — enterprise, mainstream MIT, and minimalist — so the numbers below are meaningful regardless of which corner of the market you're shopping in. Grids that are tied to a single framework (e.g. MUI DataGrid, PrimeNG Table, Vuetify DataTable) are intentionally out of scope: `@toolbox-web/grid` is framework-agnostic, and comparing it only against framework-locked grids would skew the picture.
 
-> *Disclaimer: Feature availability based on publicly available documentation as of May 2026 for AG Grid, Tabulator, and SlickGrid (6pac fork v2.x). AG Grid is a trademark of AG Grid Ltd. This is an independent comparison and is not affiliated with, endorsed by, or sponsored by any of the listed projects. We encourage you to verify current feature availability on each project's site.*
+> *Disclaimer: Feature availability and prices are based on each vendor's publicly available documentation, last verified 9 September 2026, for AG Grid, Tabulator, SlickGrid (6pac fork v2.x), Handsontable, and TreeGrid. AG Grid is a trademark of AG Grid Ltd; Handsontable is a trademark of Handsoncode; TreeGrid and FastGrid are products of Coqsoft. This is an independent comparison and is not affiliated with, endorsed by, or sponsored by any of the listed projects. We encourage you to verify current feature availability and pricing on each project's site.*
 
 ## Quick Summary
 
 | Aspect | @toolbox-web/grid | AG Grid | Tabulator | SlickGrid |
 |--------|:-----------------:|:------:|:---------:|:---------:|
 | **License** | MIT | MIT (Community) / Commercial (Enterprise) | MIT | MIT (6pac fork) |
-| **Cost** | Free | Free / $999+/dev/year | Free | Free |
+| **Cost** | Free | Free / $999 per developer (Enterprise) | Free | Free |
 | **Bundle Size (gzipped)** | ~{GRID_STATS.coreGzipKb} KB | ~200 KB+ (Community) · ~300 KB+ (Enterprise) | ~90 KB | ~30 KB + jQuery |
 | **Dependencies** | Zero | Zero | Zero | jQuery |
 | **Framework Support** | All (Web Component) | All (wrappers) | All (wrappers) | Vanilla / jQuery |
@@ -60,7 +60,7 @@ Legend: ✅ first-party support (built-in or official plugin/module) · ⚙️ r
 | **Themes/Styling** | ✅ (6 built-in) | ✅ | ✅ (5 built-in) | Minimal |
 | **CSV Export** | ✅ | ✅ | ✅ | ✅ |
 | **Filtering** | ✅ | ✅ | ✅ | ✅ |
-| **Pagination** | ✅ | ✅ | ✅ | ⚙️ |
+| **Pagination** | ⚙️ (virtualized by default — no pager UI) | ✅ | ✅ | ⚙️ |
 | **Column Visibility** | ✅ | ✅ | ✅ | ✅ |
 | **Row Animations** | ✅ | ✅ | Limited | ❌ |
 | **Range Selection** | ✅ | ❌ / ✅ Paid | ✅ | ⚙️ |
@@ -72,38 +72,43 @@ Legend: ✅ first-party support (built-in or official plugin/module) · ⚙️ r
 | **Tree Data** | ✅ | ❌ / ✅ Paid | ✅ | ✅ |
 | **Master-Detail** | ✅ | ❌ / ✅ Paid | ✅ | ⚙️ |
 | **Server-Side Row Model** | ✅ | ❌ / ✅ Paid | ✅ (progressive) | Manual |
-| **Infinite Scrolling** | ✅ | ❌ / ✅ Paid | ✅ | Manual |
+| **Infinite Scrolling** | ✅ | ✅ | ✅ | Manual |
 | **Context Menu** | ✅ | ❌ / ✅ Paid | ⚙️ | ⚙️ |
-| **Column Groups (Spanning)** | ✅ | ❌ / ✅ Paid | ✅ | ✅ |
-| **Row Drag & Drop** | ✅ | ❌ / ✅ Paid | ✅ | ⚙️ |
+| **Column Groups (spanning headers)** | ✅ | ✅ | ✅ | ✅ |
+| **Cell Spanning (row/col span in the body)** | ❌ | ✅ | ❌ | ⚙️ (`getItemMetadata`) |
+| **Row Drag & Drop** | ✅ | ✅ | ✅ | ⚙️ |
 | **Print** | ✅ | ❌ / ✅ Paid | ✅ | ❌ |
-| **Undo/Redo** | ✅ | ❌ / ✅ Paid | ✅ (history) | ❌ |
+| **Undo/Redo** | ✅ | ✅ | ✅ (history) | ❌ |
 | **Responsive/Mobile Layout** | ✅ (card layout) | Manual | ✅ (collapse) | Manual |
 | **Framework Agnostic** | ✅ Native Web Component | Wrapper-based | Wrapper-based | jQuery-based |
 | **Tree-Shakeable Plugins** | ✅ | Partial | Partial (modules) | ❌ |
-| **Integrated Charts** | ❌ | ❌ / ✅ Paid | ❌ | ❌ |
-| **Built-in Sparklines** | ❌ (via custom renderer) | ❌ / ✅ Paid | ❌ | ❌ |
-| **Excel-like Cell Formulas** | ❌ | ❌ / ✅ Paid | ❌ | ❌ |
-| **Advanced Excel Export** | ❌ (basic) | ❌ / ✅ Paid (styles & formulas) | ❌ | ❌ |
+| **Styled Excel Export** (fonts, fills, number formats, merges) | ✅ | ❌ / ✅ Paid | ❌ | ❌ |
+| **Integrated Charts** | ⚙️ (bring your own chart library) | ❌ / ✅ Paid | ❌ | ❌ |
+| **Built-in Sparklines** | ⚙️ ([recipe](/grid/recipes/sparklines/)) | ❌ / ✅ Paid | ❌ | ❌ |
+| **End-user Cell Formulas** | ⚙️ ([recipe](/grid/recipes/spreadsheet-formulas/)) | ❌ / ✅ Paid | ❌ | ❌ |
 | **Dedicated Support with SLAs** | ❌ | ❌ / ✅ Paid | ❌ | ❌ |
 
-## Why Choose Toolbox Grid?
+## The case for Toolbox Grid
 
-### Truly Free, Forever
+### Free, with no paid tier
 
 - **MIT License** — Use commercially, modify, redistribute
 - **No "Enterprise" tier** — All features available to everyone
 - **No per-developer pricing** — Scale your team without scaling costs
-- **No watermarks or nag screens** — Production-ready from day one
+- **No watermarks or nag screens**
 
-### Performance That Scales
+### Performance
 
 - **100,000+ rows at 60fps** — Efficient row virtualization
-- **~{GRID_STATS.coreGzipKb} kB gzipped** — Half the size of AG Grid Community
+- **~{GRID_STATS.coreGzipKb} kB gzipped** — Roughly a quarter of AG Grid Community
 - **Zero dependencies** — Nothing to conflict or update
 - **DOM recycling** — Minimal garbage collection pressure
 
 Don't take our word for it — run the live benchmark below. Pick a competitor from the dropdown — AG Grid Community, Tabulator, or SlickGrid — then click **Run Comparison**. It iterates through increasing data sizes (5K → 1M rows), testing Toolbox Grid and the chosen competitor sequentially in your browser with equivalent data and configuration. Results are cached per competitor for the lifetime of the page, so you can switch back without re-running.
+
+:::note[Nothing here is pre-recorded]
+Competitors are pulled from a public CDN when you press the button, at whatever version is current, and run in your browser on your hardware. The version that actually loaded is printed with the results. SlickGrid is the exception: it's pinned to its last release with a global-script bundle, because newer ones don't ship one.
+:::
 
 <PerformanceComparisonDemo />
 
@@ -152,7 +157,7 @@ A few caveats per competitor:
 
 </details>
 
-### True Framework Freedom
+### Framework freedom
 
 Unlike wrapper-based grids, `@toolbox-web/grid` is a **native Web Component** that works identically in:
 
@@ -171,16 +176,94 @@ One component, same API, everywhere.
 - **Plugin validation** — Dependencies checked at runtime with actionable guidance
 - **Type-safe configuration** — Full TypeScript support with IntelliSense
 
-## When another grid is the better choice
+## Coming from a commercial grid
 
-Be fair — each of the compared grids is excellent in its own niche. Pick another grid if you need:
+Most per-developer grid licences are justified by the same handful of features: row grouping with aggregation, pivot, tree data, master-detail, a server-side row model, range selection and clipboard, context menus, tool panels, styled Excel export. All of those are MIT here. No licence key, no seat count.
 
-- **Integrated charting** — AG Grid Enterprise includes deep AG Charts integration with chart-from-grid workflows
-- **Built-in sparklines** — Pre-built mini-chart cell renderers (Toolbox supports this via custom renderers)
-- **Excel-like formulas** — Spreadsheet-style cell formulas like `=SUM(A1:A10)` (AG Grid Enterprise)
-- **Dedicated support** — Paid support contracts with SLAs and guaranteed response times (AG Grid Enterprise)
-- **A jQuery-native stack** — SlickGrid (6pac fork) is still a great fit if your app already lives in that world and you want minimum surface area
-- **Long-term commercial backing** — VC-funded company with enterprise support infrastructure (AG Grid)
+### What the paid tier gates
+
+AG Grid publishes its own Community/Enterprise split, so this table comes straight from their pricing page:
+
+| Capability | AG Grid Community | AG Grid Enterprise | Toolbox Grid |
+|---|:---:|:---:|:---:|
+| Row grouping + aggregation | ❌ | ✅ | ✅ free |
+| Pivot table | ❌ | ✅ | ✅ free |
+| Tree data | ❌ | ✅ | ✅ free |
+| Master-detail | ❌ | ✅ | ✅ free |
+| Server-side row model | ❌ | ✅ | ✅ free |
+| Range selection | ❌ | ✅ | ✅ free |
+| Clipboard copy/paste | ❌ | ✅ | ✅ free |
+| Styled Excel export | ❌ | ✅ | ✅ free |
+| Context menu | ❌ | ✅ | ✅ free |
+| Column & filter tool panels | ❌ | ✅ | ✅ free |
+| Set / multi-value filters | ❌ | ✅ | ✅ free |
+| Print layout | ❌ | ✅ | ✅ free |
+| Integrated charting | ❌ | ✅ (Bundle) | ⚙️ — [see below](#when-not-to-choose-toolbox-grid) |
+| Sparkline cell renderers | ❌ | ✅ | ⚙️ [recipe](/grid/recipes/sparklines/) |
+| End-user cell formulas | ❌ | ✅ | ⚙️ [recipe](/grid/recipes/spreadsheet-formulas/) |
+| Cell spanning (row/col span) | ✅ | ✅ | ❌ |
+| Support with an SLA | ❌ | ✅ | ❌ |
+
+Handsontable and TreeGrid split things differently. Both are spreadsheet products first, so a row-for-row comparison doesn't really hold up — check [Handsontable's feature list](https://handsontable.com/docs/javascript-data-grid/) and [TreeGrid's](https://www.treegrid.com/Doc/Index.htm) yourself rather than trusting our summary of them. Short version: if your users type formulas, you want one of those, not this.
+
+### What the licences cost
+
+{/* Vendor prices change. Re-check every figure against the linked source roughly every six months and bump the date below. */}
+
+| Product | Licence | Published list price | Source |
+|---|---|---|---|
+| **Toolbox Grid** | MIT | **$0** — no tiers, no seats, no licence key | [LICENSE](https://github.com/OysteinAmundsen/toolbox/blob/main/LICENSE) |
+| AG Grid Community | MIT | $0 | [ag-grid.com/license-pricing](https://www.ag-grid.com/license-pricing/) |
+| AG Grid Enterprise | Commercial | $999 per developer (perpetual, incl. 1 year of updates & support) | [ag-grid.com/license-pricing](https://www.ag-grid.com/license-pricing/) |
+| AG Grid + AG Charts Enterprise Bundle | Commercial | $1,498 per developer | [ag-grid.com/license-pricing](https://www.ag-grid.com/license-pricing/) |
+| Handsontable | Commercial | from $999 per developer / year | [handsontable.com/pricing](https://handsontable.com/pricing) |
+| TreeGrid Standard | Commercial (perpetual) | from $1,300 for the first developer, plus per-developer additions and 30 %/year maintenance | [treegrid.com/Prices](https://www.treegrid.com/Prices) |
+
+*Prices verified 9 September 2026. List prices in USD, excluding tax, volume discounts, OEM/SaaS redistribution terms, and negotiated enterprise agreements. Confirm on the vendor's own pricing page before budgeting.*
+
+The recurring cost usually matters more than the first invoice. Ten developers on an Enterprise tier is a five-figure yearly line item that grows with the team, plus a licence key to renew and keep out of your public bundle.
+
+### Why the benchmark only includes the free grids
+
+The benchmark loads each competitor from a CDN at runtime. AG Grid Enterprise, Handsontable and TreeGrid all need a licence key, and re-hosting a build so your browser could run it would break the terms of the products we'd be comparing against. So they're not in the chart. AG Grid Community is, and Enterprise is modules layered on the same rendering core.
+
+## When *not* to choose Toolbox Grid
+
+Here's what we don't do. Where there's a documented way to get there yourself, it's linked. Where there isn't, there's the name of something that does it properly.
+
+Most of these come down to the same trade-off. The grid has a hard [bundle budget](/grid/guides/performance/#bundle-size-optimization) and no opinion about which libraries you use. A `renderer` returns a DOM node and a `valueAccessor` returns a value, so the charting library, the formula engine and the PDF writer are your call rather than ours. You get to pick, but you also have to wire it up. Plenty of teams would rather it came in the box.
+
+### Spreadsheet workloads where users write the formulas
+
+There's no formula engine and we're not adding one — HyperFormula on its own is roughly four times the size of the whole grid. `valueAccessor` covers developer-defined computed columns, and those sort, filter, aggregate and export like any other column. The [spreadsheet formulas recipe](/grid/recipes/spreadsheet-formulas/) goes further and wires HyperFormula in behind it, including letting users type `=SUM(...)` into an editable column. It works; it's just not something we ship and support. If the product you're building *is* a spreadsheet, buy a spreadsheet: [Handsontable](https://handsontable.com/) or [FastSheet](https://www.treegrid.com/FastSheet).
+
+### Charts and Gantt
+
+We don't ship a chart library, and we won't. AG Grid bundles AG Charts because they own both; we'd be picking a winner on your behalf and paying for it in the bundle.
+
+The chart-from-grid workflow itself is buildable on public API. `selectionPlugin.getSelection().ranges` gives you the selected `CellRange[]`, `contextMenu.items` takes a function so you can add a "Chart selection" entry, and `shell.registerToolPanel({ render })` hosts the chart — `render` returns an optional cleanup function, so Highcharts, ECharts or Chart.js can be destroyed properly when the panel closes. `selection-change` and `cell-commit` keep it in sync. For charts inside cells, the [sparklines recipe](/grid/recipes/sparklines/) covers inline SVG and uPlot.
+
+What you're doing yourself is the wiring, the chart-type picker, and the settings UI. There's no recipe for the full workflow yet. Gantt is a flat no — [TreeGrid GanttChart](https://www.treegrid.com/GanttChart) does scheduling, and [AG Grid Enterprise Bundle](https://www.ag-grid.com/license-pricing/) has AG Charts built in if you'd rather it came assembled.
+
+### Cell spanning
+
+Not supported. Columns can be grouped under a spanning header, and those spans carry through to the Excel export as merged cells, but a body cell can't span rows or columns. Row spanning in particular fights the recycled-row virtualization the numbers above depend on, so it's unlikely to change. [AG Grid](https://www.ag-grid.com/) has it in Community, [Handsontable](https://handsontable.com/) has `mergeCells`, and SlickGrid does it through `getItemMetadata`.
+
+### Full control over the markup
+
+The grid renders. It owns the viewport, the row recycler, the row and cell elements and their ARIA roles. You control what goes inside them through `renderer`, `editor`, slots and CSS custom properties, but not the elements themselves. If you need to own every node — a non-tabular layout, server-rendered rows, a design system that has to emit its own markup — use something headless. [TanStack Table](https://tanstack.com/table) is the obvious one.
+
+### Pagination-first UX
+
+No pager component, no page-size dropdown, no `paginationPageSize`. The grid virtualizes, so showing everything is the normal case even at a million rows. [`ServerSidePlugin`](/grid/plugins/server-side/) fetches in blocks and you can drive it from a pager you build, but you're building and styling that yourself. If page numbers are a requirement, [AG Grid](https://www.ag-grid.com/) and [Tabulator](https://tabulator.info/) ship one.
+
+### A jQuery-native stack
+
+If the app already runs on jQuery and you want the smallest possible footprint, [SlickGrid (6pac fork)](https://github.com/6pac/SlickGrid) is a good answer. A web component works there too, but you'd be adding a second paradigm instead of removing one.
+
+### Support you can escalate
+
+No support contract, no SLA, no response-time guarantee. Issues and discussions on GitHub, answered when maintainers get to them. For some organisations that's a procurement blocker regardless of the feature list. [AG Grid Enterprise](https://www.ag-grid.com/license-pricing/), [Handsontable](https://handsontable.com/pricing) and [TreeGrid](https://www.treegrid.com/Prices) all sell support.
 
 </Audience>
 

@@ -27,7 +27,7 @@ import { GRID_STATS } from '@data/grid-stats';
 
 ## The Grid
 
-A **single `<tbw-grid>` element** that handles sorting, filtering, grouping, editing, virtualization, and more — out of the box. No framework wrappers required.
+A **single `<tbw-grid>` element** for sorting, filtering, grouping, editing and virtualization. No framework wrapper required.
 
 <CardGrid>
   <Card title="Framework Agnostic" icon="puzzle">
@@ -52,7 +52,7 @@ A **single `<tbw-grid>` element** that handles sorting, filtering, grouping, edi
     ```
   </Card>
   <Card title="Tiny Footprint" icon="seti:zip">
-    Core bundle ~{GRID_STATS.coreGzipKb} kB gzipped. Each plugin is a separate entry point — no bloat from unused features.
+    Core bundle ~{GRID_STATS.coreGzipKb} kB gzipped. Each plugin is a separate entry point, so unused ones never reach your bundle.
 
     ```js
     import '@toolbox-web/grid';
@@ -62,7 +62,7 @@ A **single `<tbw-grid>` element** that handles sorting, filtering, grouping, edi
 
 ## Framework Adapters
 
-Optional adapters provide enhanced DX for your framework of choice — template-driven renderers, type-safe props, and idiomatic patterns.
+Optional. They add template-driven renderers, typed props, and patterns idiomatic to each framework. The grid works without them.
 
 <CardGrid>
   <Card title="Angular" icon="seti:angular">

@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.7.1...grid-3.8.0) (2026-09-09)
+
+
+### Features
+
+* **grid:** allow any column property in typeDefaults ([#476](https://github.com/OysteinAmundsen/toolbox/issues/476)) ([96057a0](https://github.com/OysteinAmundsen/toolbox/commit/96057a0922b937f3d985003eeef29e05bf3cc874))
+
+
+### Bug Fixes
+
+* **grid:** apply rowClass to plugin-rendered rows ([69f3ffc](https://github.com/OysteinAmundsen/toolbox/commit/69f3ffc9ad47c7e70dd514852a8c04904288887d))
+
 ## [3.7.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.7.0...grid-3.7.1) (2026-09-07)
 
 

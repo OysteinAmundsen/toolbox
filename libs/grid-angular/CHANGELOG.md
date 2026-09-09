@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.5.0...grid-angular-2.6.0) (2026-09-09)
+
+
+### Features
+
+* **grid:** allow any column property in typeDefaults ([#476](https://github.com/OysteinAmundsen/toolbox/issues/476)) ([96057a0](https://github.com/OysteinAmundsen/toolbox/commit/96057a0922b937f3d985003eeef29e05bf3cc874))
+
 ## [2.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.4.1...grid-angular-2.5.0) (2026-09-03)
 
 

@@ -55,24 +55,23 @@ const NON_INHERITABLE_TYPE_DEFAULT_KEYS = new Set(['field', 'header', 'order', '
  * `filterable`, …) work without core knowing about them. Runs before the
  * per-column defaults so a type default can override `sortable`/`resizable`.
  */
-function applyTypeDefaults(columns: Record<string, unknown>[], typeDefaults: Record<string, unknown>): void {
-  for (const col of columns) {
-    const type = col['type'] as string | undefined;
-    if (!type) continue;
-
-    const typeDefault = typeDefaults[type] as Record<string, unknown> | undefined;
+function applyTypeDefaults<T>(columns: ColumnInternal<T>[], typeDefaults: Record<string, TypeDefault<T>>): void {
+  for (const column of columns) {
+    const typeDefault = column.type ? typeDefaults[column.type] : undefined;
     if (!typeDefault) continue;
 
+    // Reflect, not an indexed cast: the copy is key-driven, so neither side can
+    // be walked through its declared shape.
     for (const key of Object.keys(typeDefault)) {
       if (NON_INHERITABLE_TYPE_DEFAULT_KEYS.has(key)) continue;
-      const value = typeDefault[key];
+      const value: unknown = Reflect.get(typeDefault, key);
       if (value === undefined) continue;
-      if (col[key] != null) continue;
+      if (Reflect.get(column, key) != null) continue;
       // `renderer` and `viewRenderer` are aliases — either one on the column
       // suppresses both type-level forms.
-      if ((key === 'renderer' || key === 'viewRenderer') && (col['renderer'] != null || col['viewRenderer'] != null))
+      if ((key === 'renderer' || key === 'viewRenderer') && (column.renderer != null || column.viewRenderer != null))
         continue;
-      col[key] = value;
+      Reflect.set(column, key, value);
     }
   }
 }
@@ -440,7 +439,7 @@ export class ConfigManager<T = unknown> {
       // Type defaults fill gaps before the per-column defaults below, so a type
       // default can still override `sortable` / `resizable`.
       if (base.typeDefaults) {
-        applyTypeDefaults(columns as unknown as Record<string, unknown>[], base.typeDefaults);
+        applyTypeDefaults(columns, base.typeDefaults);
       }
 
       // Apply per-column defaults

@@ -9,7 +9,7 @@ Only the current major receives security updates. When a new major is released, 
 | 3.x     | :white_check_mark: |
 | < 3.0   | :x:                |
 
-See the [Platform & Support policy](https://toolboxjs.com/grid/guides/platform/) for the full commitment: adapter support matrix, browser baseline, deprecation window, and release cadence.
+See the [Platform & Support policy](https://toolboxjs.com/grid/platform/) for the full commitment: adapter support matrix, browser baseline, deprecation window, and release cadence.
 
 ## Reporting a Vulnerability
 

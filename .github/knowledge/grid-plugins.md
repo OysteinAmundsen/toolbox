@@ -93,7 +93,7 @@ related: [grid-plugins-catalog-data, grid-plugins-catalog-ui, grid-plugins-shell
 - INVARIANT: `locale` is read live on every call (no snapshot), so swapping `gridConfig.locale` re-localizes on the next render.
 - INVARIANT: `locale` is for STATIC labels only. `A11yConfig.messages` stays separate because announcements are functions of runtime values (counts, column names, direction). Do not merge them.
 - Render modules with no plugin handle receive the function explicitly: `FilterPanelParams.t` (also makes third-party `filterPanelRenderer`s localizable), `renderPivotPanel(..., t)`, `renderPivotGrandTotalRow(..., t)` — each defaults to `(_key, fallback) => fallback`.
-- Keys namespaced by owning plugin: `filter.*` (Filtering), `columns.*` (Visibility), `pinnedColumns.*`, `print.*`, `pivot.*`. Full catalogue: `apps/docs/src/content/docs/grid/guides/platform.mdx` → "Built-in UI strings".
+- Keys namespaced by owning plugin: `filter.*` (Filtering), `columns.*` (Visibility), `pinnedColumns.*`, `print.*`, `pivot.*`. Full catalogue: `apps/docs/src/content/docs/grid/guides/i18n.mdx` → "Built-in UI strings".
 
 ## event registry (`DataGridEventMap`)
 

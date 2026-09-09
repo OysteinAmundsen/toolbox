@@ -67,7 +67,7 @@ function sharedRange(label: string, ranges: Record<string, string | undefined>):
     const seen = entries.map(([name, range]) => `${name}=${range ?? 'missing'}`).join(', ');
     throw new Error(
       `grid-stats: ${label} peer ranges diverged (${seen}). Update the Framework Support table in ` +
-        `apps/docs/src/content/docs/grid/guides/platform.mdx to show them separately.`,
+        `apps/docs/src/content/docs/grid/platform.mdx to show them separately.`,
     );
   }
   return expected;

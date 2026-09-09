@@ -198,6 +198,7 @@ export const CORE_ORDER = [
   'grid/architecture',
   'grid/api-reference',
   'grid/errors',
+  'grid/platform',
   'grid/comparison',
   'grid/changelog',
 ] as const;

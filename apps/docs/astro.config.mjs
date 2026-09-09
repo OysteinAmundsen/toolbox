@@ -176,18 +176,22 @@ export default defineConfig({
     // working so inbound links land on the replacement.
     '/grid/plugins/reorder-rows/': '/grid/plugins/row-drag-drop/',
     // Browser support, security/CSP, and SSR are all "what environment does
-    // this run in" topics, so they share the platform guide. Redirect the
+    // this run in" topics, so they share the platform page. Redirect the
     // topic-specific URLs people are likely to guess at the right anchor.
     // (i18n outgrew this page and now owns /grid/guides/i18n/ — no redirect.)
-    '/grid/guides/browser-support/': '/grid/guides/platform/#browser-support',
-    '/grid/guides/security/': '/grid/guides/platform/#security',
-    '/grid/guides/ssr/': '/grid/guides/platform/#server-side-rendering',
-    '/grid/guides/support-policy/': '/grid/guides/platform/#support-at-a-glance',
+    '/grid/guides/browser-support/': '/grid/platform/#browser-support',
+    '/grid/guides/security/': '/grid/platform/#security',
+    '/grid/guides/ssr/': '/grid/platform/#server-side-rendering',
+    '/grid/guides/support-policy/': '/grid/platform/#support-at-a-glance',
     // production-checklist.mdx was a link index with no content of its own —
     // every item was already documented (better, and with the caveats intact)
     // in platform, performance, core, accessibility and automated-testing.
     // Point the old URL at platform, which carried most of its security core.
-    '/grid/guides/production-checklist/': '/grid/guides/platform/',
+    '/grid/guides/production-checklist/': '/grid/platform/',
+    // platform.mdx left guides/ — it documents commitments (support matrix,
+    // browser baseline, deprecation window, cadence) rather than a task, so it
+    // sits next to the comparison page as adoption-decision material.
+    '/grid/guides/platform/': '/grid/platform/',
   },
 
   vite: {
@@ -365,6 +369,7 @@ export default defineConfig({
                 },
               ],
             },
+            { label: 'Platform & Support', slug: 'grid/platform' },
             { label: 'Compared to other grids', slug: 'grid/comparison' },
             { label: 'Changelog', slug: 'grid/changelog' },
           ],

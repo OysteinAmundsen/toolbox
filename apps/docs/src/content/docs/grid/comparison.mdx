@@ -16,15 +16,16 @@ This page compares `@toolbox-web/grid` against three widely-used JavaScript data
 
 ### Why these three?
 
-We picked grids that bracket the realistic alternatives a team evaluates today, rather than a long tail of niche libraries:
+They bracket the market. AG Grid sets the upper bound on feature breadth and bundle size, Tabulator is the mainstream MIT option, and SlickGrid (the maintained 6pac fork) the minimalist, virtualization-first one. Framework-locked grids — MUI DataGrid, PrimeNG Table, Vuetify DataTable — are out of scope: `@toolbox-web/grid` is framework-agnostic, and comparing it only against those would skew the picture.
 
-- **AG Grid** is the de-facto enterprise data grid and the one most often raised as the benchmark to beat. Including it sets the upper bound on feature breadth (especially with the paid Enterprise tier) and the upper bound on bundle size.
-- **Tabulator** is the most popular MIT-licensed, framework-agnostic option with broad feature coverage. It's the natural mid-point: free, full-featured, but built on a more traditional rendering model.
-- **SlickGrid** (the maintained 6pac fork) represents the lightweight, virtualization-first lineage that many "fast" grids descend from. It anchors the lower bound on bundle size and shows what a minimal, performance-focused grid looks like.
+<details>
+<summary>Sources and disclaimer</summary>
 
-Together they span the realistic spectrum — enterprise, mainstream MIT, and minimalist — so the numbers below are meaningful regardless of which corner of the market you're shopping in. Grids that are tied to a single framework (e.g. MUI DataGrid, PrimeNG Table, Vuetify DataTable) are intentionally out of scope: `@toolbox-web/grid` is framework-agnostic, and comparing it only against framework-locked grids would skew the picture.
+Feature availability comes from each vendor's public documentation — AG Grid, Tabulator, and SlickGrid (6pac fork v2.x). Handsontable and TreeGrid are not in the feature table; they appear only in the pricing table and the alternatives named further down. All figures last verified 9 September 2026.
 
-> *Disclaimer: Feature availability is based on each vendor's publicly available documentation for the grids in the comparison table below — AG Grid, Tabulator, and SlickGrid (6pac fork v2.x). Handsontable and TreeGrid are not in that table; they appear only in the pricing table and the alternatives named further down, and their prices come from the same sources. All figures last verified 9 September 2026. AG Grid is a trademark of AG Grid Ltd; Handsontable is a trademark of Handsoncode; TreeGrid and FastGrid are products of Coqsoft. This is an independent comparison and is not affiliated with, endorsed by, or sponsored by any of the listed projects. We encourage you to verify current feature availability and pricing on each project's site.*
+AG Grid is a trademark of AG Grid Ltd; Handsontable is a trademark of Handsoncode; TreeGrid and FastGrid are products of Coqsoft. This is an independent comparison, not affiliated with, endorsed by, or sponsored by any listed project. Verify current features and pricing on each project's own site.
+
+</details>
 
 ## Quick Summary
 
@@ -60,8 +61,10 @@ Legend: ✅ first-party support (built-in or official plugin/module) · ⚙️ r
 | **Themes/Styling** | ✅ (6 built-in) | ✅ | ✅ (5 built-in) | Minimal |
 | **CSV Export** | ✅ | ✅ | ✅ | ✅ |
 | **Filtering** | ✅ | ✅ | ✅ | ✅ |
+| **Set / Multi-value Filters** | ✅ | ❌ / ✅ Paid | ✅ | ⚙️ |
 | **Pagination** | ⚙️ (virtualized by default — no pager UI) | ✅ | ✅ | ⚙️ |
 | **Column Visibility** | ✅ | ✅ | ✅ | ✅ |
+| **Column & Filter Tool Panels** | ✅ | ❌ / ✅ Paid | ⚙️ | ⚙️ |
 | **Row Animations** | ✅ | ✅ | Limited | ❌ |
 | **Range Selection** | ✅ | ❌ / ✅ Paid | ✅ | ⚙️ |
 | **Clipboard (Copy/Paste)** | ✅ | ❌ / ✅ Paid | ✅ | ⚙️ |
@@ -88,23 +91,9 @@ Legend: ✅ first-party support (built-in or official plugin/module) · ⚙️ r
 | **End-user Cell Formulas** | ⚙️ ([recipe](/grid/recipes/spreadsheet-formulas/)) | ❌ / ✅ Paid | ❌ | ❌ |
 | **Dedicated Support with SLAs** | ❌ | ❌ / ✅ Paid | ❌ | ❌ |
 
-## The case for Toolbox Grid
+## Performance
 
-### Free, with no paid tier
-
-- **MIT License** — Use commercially, modify, redistribute
-- **No "Enterprise" tier** — All features available to everyone
-- **No per-developer pricing** — Scale your team without scaling costs
-- **No watermarks or nag screens**
-
-### Performance
-
-- **100,000+ rows at 60fps** — Efficient row virtualization
-- **~{GRID_STATS.coreGzipKb} kB gzipped** — Roughly a quarter of AG Grid Community
-- **Zero dependencies** — Nothing to conflict or update
-- **DOM recycling** — Minimal garbage collection pressure
-
-Don't take our word for it — run the live benchmark below. Pick a competitor from the dropdown — AG Grid Community, Tabulator, or SlickGrid — then click **Run Comparison**. It iterates through increasing data sizes (5K → 1M rows), testing Toolbox Grid and the chosen competitor sequentially in your browser with equivalent data and configuration. Results are cached per competitor for the lifetime of the page, so you can switch back without re-running.
+Pick a competitor from the dropdown, then click **Run Comparison**. It iterates through increasing data sizes (5K → 1M rows), running Toolbox Grid and the chosen competitor sequentially in your browser with equivalent data and configuration. Results are cached per competitor for the lifetime of the page, so you can switch back without re-running.
 
 :::note[Nothing here is pre-recorded]
 Competitors are pulled from a public CDN when you press the button, at whatever version is current, and run in your browser on your hardware. The version that actually loaded is printed with the results. SlickGrid is the exception: it's pinned to its last release with a global-script bundle, because newer ones don't ship one.
@@ -139,70 +128,21 @@ The headline compares only operations with a meaningful public-API equivalent ac
 | Navigate | Request the final row to painted viewport | The scrolling viewport reaches its end |
 | Destroy | Public teardown plus host removal to painted viewport | The benchmark host is disconnected |
 
-DOM-node count is a separate viewport-overhead statistic, not a memory measurement. Frame-bound update, resize, navigation, and destroy timings are reported separately from the macro headline.
+DOM-node count is a separate viewport-overhead statistic, not a memory measurement. Frame-bound update, resize, navigation, and destroy timings are reported separately from the macro headline. Grouping, pivoting, editing, tree data, export, and multi-column sorting are excluded — they are not universal enough across the four grids to score fairly, and showing an unsupported capability as a zero-time win would be dishonest.
 
-Features such as grouping, pivoting, editing, tree data, export, and multi-column sorting are not universal enough for the core score. They can become optional capability suites when adapters declare support and share the same fixtures, outcome contract, and disclosure. Unsupported capabilities must be shown as unsupported, never as zero-time or skipped wins.
+Only free grids are in the chart. AG Grid Enterprise, Handsontable, and TreeGrid all need a licence key, and re-hosting a build so your browser could run it would break the terms of the products we'd be comparing against. AG Grid Community is included, and Enterprise is modules layered on the same rendering core.
 
-#### Relationship to the Vitest benchmarks
-
-The co-located `*.bench.ts` suites are internal regression tests for Toolbox algorithms such as comparators, filter predicates, row rendering, virtualization, grouping, and pivoting. They intentionally exclude browser layout and paint and often call private or library-specific functions. Their timings are therefore not comparable with AG Grid, Tabulator, or SlickGrid.
-
-The browser comparison reuses the same principles—deterministic fixtures, real work on every iteration, isolated setup, and explicit postconditions—but measures only public APIs and user-visible completion. Fixture generators and semantic scenarios can be shared between the two harnesses; timing results cannot be mixed.
-
-This separation also defines a future bring-your-own-grid adapter contract: load a versioned implementation, map each supported scenario to public APIs, expose model state for validation, clean up completely, and reject any sample whose postcondition fails.
-
-A few caveats per competitor:
-
-- **SlickGrid** is pinned to v2.4.x (the last release with the global `Slick` namespace) and pulls jQuery from CDN. Column reorder and drag are disabled to keep the dependency surface minimal.
+SlickGrid is pinned to v2.4.x (the last release with the global `Slick` namespace) and pulls jQuery from CDN. Column reorder and drag are disabled to keep the dependency surface minimal.
 
 </details>
 
-### Framework freedom
+## Framework freedom
 
-Unlike wrapper-based grids, `@toolbox-web/grid` is a **native Web Component** that works identically in:
-
-- Vanilla JavaScript/TypeScript
-- React (with optional adapter for JSX renderers)
-- Angular (with optional adapter for template renderers)
-- Vue
-- Svelte
-- Any JavaScript environment
-
-One component, same API, everywhere.
-
-### Developer Experience
-
-- **Helpful error messages** — Missing a plugin? Get an import hint, not a cryptic error
-- **Plugin validation** — Dependencies checked at runtime with actionable guidance
-- **Type-safe configuration** — Full TypeScript support with IntelliSense
+`@toolbox-web/grid` is a native Web Component, not a wrapper around a framework-specific core. The same element and the same API work in vanilla JS/TypeScript, React, Angular, Vue, and Svelte. The optional adapters exist so you can write renderers and editors in your framework's own idiom — JSX, Angular templates, Vue slots — not to make the grid work at all.
 
 ## Coming from a commercial grid
 
-Most per-developer grid licences are justified by the same handful of features: row grouping with aggregation, pivot, tree data, master-detail, a server-side row model, range selection and clipboard, context menus, tool panels, styled Excel export. All of those are MIT here. No licence key, no seat count.
-
-### What the paid tier gates
-
-AG Grid publishes its own Community/Enterprise split, so this table comes straight from their pricing page:
-
-| Capability | AG Grid Community | AG Grid Enterprise | Toolbox Grid |
-|---|:---:|:---:|:---:|
-| Row grouping + aggregation | ❌ | ✅ | ✅ free |
-| Pivot table | ❌ | ✅ | ✅ free |
-| Tree data | ❌ | ✅ | ✅ free |
-| Master-detail | ❌ | ✅ | ✅ free |
-| Server-side row model | ❌ | ✅ | ✅ free |
-| Range selection | ❌ | ✅ | ✅ free |
-| Clipboard copy/paste | ❌ | ✅ | ✅ free |
-| Styled Excel export | ❌ | ✅ | ✅ free |
-| Context menu | ❌ | ✅ | ✅ free |
-| Column & filter tool panels | ❌ | ✅ | ✅ free |
-| Set / multi-value filters | ❌ | ✅ | ✅ free |
-| Print layout | ❌ | ✅ | ✅ free |
-| Integrated charting | ❌ | ✅ (Bundle) | ⚙️ — [see below](#when-not-to-choose-toolbox-grid) |
-| Sparkline cell renderers | ❌ | ✅ | ⚙️ [recipe](/grid/recipes/sparklines/) |
-| End-user cell formulas | ❌ | ✅ | ⚙️ [recipe](/grid/recipes/spreadsheet-formulas/) |
-| Cell spanning (row/col span) | ✅ | ✅ | ❌ |
-| Support with an SLA | ❌ | ✅ | ❌ |
+Most per-developer grid licences are justified by the same handful of features: row grouping with aggregation, pivot, tree data, master-detail, a server-side row model, range selection and clipboard, context menus, tool panels, styled Excel export. Those are the rows marked **❌ / ✅ Paid** in the feature table above, and all of them are MIT here. No licence key, no seat count. Two rows run the other way — cell spanning and an SLA — and both are covered under [When *not* to choose Toolbox Grid](#when-not-to-choose-toolbox-grid).
 
 Handsontable and TreeGrid split things differently. Both are spreadsheet products first, so a row-for-row comparison doesn't really hold up — check [Handsontable's feature list](https://handsontable.com/docs/javascript-data-grid/) and [TreeGrid's](https://www.treegrid.com/Doc/Index.htm) yourself rather than trusting our summary of them. Short version: if your users type formulas, you want one of those, not this.
 
@@ -222,10 +162,6 @@ Handsontable and TreeGrid split things differently. Both are spreadsheet product
 *Prices verified 9 September 2026. List prices in USD, excluding tax, volume discounts, OEM/SaaS redistribution terms, and negotiated enterprise agreements. Confirm on the vendor's own pricing page before budgeting.*
 
 The recurring cost usually matters more than the first invoice. Ten developers on an Enterprise tier is a five-figure yearly line item that grows with the team, plus a licence key to renew and keep out of your public bundle.
-
-### Why the benchmark only includes the free grids
-
-The benchmark loads each competitor from a CDN at runtime. AG Grid Enterprise, Handsontable and TreeGrid all need a licence key, and re-hosting a build so your browser could run it would break the terms of the products we'd be comparing against. So they're not in the chart. AG Grid Community is, and Enterprise is modules layered on the same rendering core.
 
 ## When *not* to choose Toolbox Grid
 
@@ -634,29 +570,6 @@ ngx-datatable is Angular-only. Toolbox Grid's Angular adapter mirrors its declar
 ```
 
 </Audience>
-
-## Get Started
-
-```bash
-npm install @toolbox-web/grid
-```
-
-```typescript
-import '@toolbox-web/grid';
-
-const grid = document.createElement('tbw-grid');
-grid.columns = [
-  { field: 'name', header: 'Name', sortable: true },
-  { field: 'email', header: 'Email' },
-];
-grid.rows = [
-  { name: 'Alice', email: 'alice@example.com' },
-  { name: 'Bob', email: 'bob@example.com' },
-];
-document.body.appendChild(grid);
-```
-
-**Ready to switch?** Check out our [Getting Started guide](/grid/getting-started/) or [live demos](/grid/demos/).
 
 ## See Also
 

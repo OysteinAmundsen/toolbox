@@ -326,8 +326,9 @@ AG Grid / Tabulator / SlickGrid / Handsontable / TreeGrid, and a list-price tabl
 a competitor moves a feature from Enterprise to Community, or changes its pricing, and our page becomes
 a false claim rather than a stale one.
 
-- The page carries a **verified-on date** in the disclaimer blockquote and again under the pricing table.
-  Re-verify against each vendor's own public page at least every six months and bump both dates together.
+- The page carries a **verified-on date** in the `<details>Sources and disclaimer</details>` block near the top
+  and again under the pricing table. Re-verify against each vendor's own public page at least every six months
+  and bump both dates together.
 - Never quote a price that is not currently on the vendor's own pricing page. There is a `{/* MAINTENANCE: … */}`
   comment above the pricing table stating this — keep it.
 - **A wrong ❌ against a competitor is the worst error on the page.** When you cannot source a cell, leave
@@ -338,6 +339,12 @@ a false claim rather than a stale one.
 - Whenever a limitation row says ❌ but a [recipe](../../../apps/docs/src/content/docs/grid/recipes/) covers
   the seam, mark it ⚙️ and link the recipe. "We don't ship it, here's how you wire it" is the honest answer,
   not ❌.
+- **One capability claim lives in exactly one place: the Feature Comparison table.** The page previously
+  carried a second "What the paid tier gates" table whose 17 rows were 15/17 duplicates of that table's
+  AG Grid column, plus bullet lists restating the Quick Summary. Two tables asserting the same fact drift
+  apart and double the re-verification cost. If a section needs to reference a capability, link or point at
+  the row ("the rows marked **❌ / ✅ Paid** above") instead of restating it. Prose sections should add
+  reasoning the tables cannot express — "When _not_ to choose Toolbox Grid" is the model.
 
 ## Regenerating API Docs
 

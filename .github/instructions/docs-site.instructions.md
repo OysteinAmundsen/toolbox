@@ -24,6 +24,8 @@ Docs are reference material. A reader is looking something up, usually while blo
 
 **Comparative or limitation claims must be checked against source before writing.** Read the plugin or the vendor's own page — don't infer a `❌` from the absence of a docs page. Getting a competitor's capability wrong is worse than omitting the row. See the `docs-update` skill's `comparison.mdx` notes.
 
+**Spelling — prose leans British; identifiers never change.** Established usage is `behaviour`, `colour`, `organisation`, and the noun `licence`. The verb keeps `-se` in British English too, so `licensed` / `licensing` are correct as-is. Never "correct" a `license` that is a proper noun (`MIT License`), a code identifier (`licenseKey` — HyperFormula's API), or a verb form. Reviewers (including automated ones) regularly flag `licence` as a typo; it is not.
+
 ## Volatile numbers (plugin count, bundle size) — inject at build time via `@data/grid-stats`
 
 Never hardcode drift-prone stats (plugin count, core gzip size) in prose. `src/data/grid-stats.ts` computes them at build time — `pluginCount` from the `export * from './lib/plugins/…'` lines in `libs/grid/src/all.ts` (the canonical public-plugin list; `shell` is a feature, excluded → count is 24), and `coreGzipKb` by gzipping the built `dist/libs/grid/index.js` (the docs `build` target `dependsOn` `grid:build`, so dist exists; a fallback covers `astro dev`). Consume via `import { GRID_STATS } from '@data/grid-stats'` and interpolate `{GRID_STATS.pluginCount}` / `{GRID_STATS.coreGzipKb}` in MDX. Use expressions only in prose/JSX children, NOT in Starlight component attributes that the llms transform reads as quoted strings (`<LinkCard description>`), which would drop the value.

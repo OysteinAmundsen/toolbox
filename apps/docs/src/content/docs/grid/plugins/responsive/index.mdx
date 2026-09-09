@@ -179,6 +179,9 @@ A few things worth trying:
 `cardRenderer` takes over card rendering completely — avatars, badges, whatever layout you need. Pair
 it with a fixed `cardRowHeight` so virtualization can skip measuring every card.
 
+The renderer owns the card content, but not the row element: the grid still applies your
+[`rowClass`](/grid/core/#row-styling) on top, so a row highlight looks the same in both layouts.
+
 <ShowSource file="demos/responsive/ResponsiveCustomCardRendererDemo.astro">
   <ResponsiveCustomCardRendererDemo />
 </ShowSource>
@@ -592,6 +595,10 @@ cardRenderer: (row: T, rowIndex: number) => HTMLElement
 | `row` | `T` | The row data object |
 | `rowIndex` | `number` | Index of the row in the data array |
 | **Returns** | `HTMLElement` | The element to render as the card content |
+
+The returned element becomes the card's content. The surrounding row element is still the grid's,
+so `gridConfig.rowClass` classes are applied to it after the renderer runs — do not try to set them
+from inside the card.
 
 ### cardRowHeight
 

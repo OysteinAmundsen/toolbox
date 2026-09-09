@@ -471,6 +471,85 @@ describe('rowClass callback', () => {
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('rowClass callback error'));
     warnSpy.mockRestore();
   });
+
+  it('applies rowClass to rows a plugin renderRow hook took over', () => {
+    const g = makeGrid();
+    g.effectiveConfig = {
+      rowClass: (row: any) => (row.active ? ['active-row'] : ['inactive-row']),
+    };
+    // Mirrors ResponsivePlugin.renderRow: replaces the content and assigns className wholesale.
+    const hook = (_row: any, rowEl: HTMLElement) => {
+      rowEl.replaceChildren();
+      rowEl.className = 'data-grid-row responsive-card';
+      return true;
+    };
+    renderVisibleRows(g, 0, 2, 1, hook);
+    const rows = g._bodyEl.querySelectorAll('.data-grid-row');
+    expect(rows[0].classList.contains('responsive-card')).toBe(true);
+    expect(rows[0].classList.contains('active-row')).toBe(true);
+    expect(rows[1].classList.contains('inactive-row')).toBe(true);
+  });
+
+  it('re-evaluates rowClass on plugin-rendered rows when the data changes', () => {
+    const g = makeGrid();
+    g.effectiveConfig = {
+      rowClass: (row: any) => (row.active ? ['active'] : ['inactive']),
+    };
+    const hook = (_row: any, rowEl: HTMLElement) => {
+      rowEl.className = 'data-grid-row responsive-card';
+      return true;
+    };
+    renderVisibleRows(g, 0, 1, 1, hook);
+    const row = g._bodyEl.querySelector('.data-grid-row')!;
+    expect(row.classList.contains('active')).toBe(true);
+
+    g._rows[0] = { ...g._rows[0], active: false };
+    renderVisibleRows(g, 0, 1, 2, hook);
+    expect(row.classList.contains('active')).toBe(false);
+    expect(row.classList.contains('inactive')).toBe(true);
+  });
+
+  it('removes the previous rowClass output when the hook keeps the existing className', () => {
+    const g = makeGrid();
+    g.effectiveConfig = {
+      rowClass: (row: any) => (row.active ? ['active'] : ['inactive']),
+    };
+    // Unlike ResponsivePlugin, this hook leaves `className` alone — only `clearDynamicClasses`
+    // can drop the stale class here.
+    const hook = (_row: any, rowEl: HTMLElement) => {
+      rowEl.classList.add('custom-chrome');
+      return true;
+    };
+    renderVisibleRows(g, 0, 1, 1, hook);
+    const row = g._bodyEl.querySelector('.data-grid-row')!;
+    expect(row.classList.contains('active')).toBe(true);
+
+    g._rows[0] = { ...g._rows[0], active: false };
+    renderVisibleRows(g, 0, 1, 2, hook);
+    expect(row.classList.contains('active')).toBe(false);
+    expect(row.classList.contains('inactive')).toBe(true);
+    expect(row.classList.contains('custom-chrome')).toBe(true);
+  });
+
+  it('does not invoke rowClass for plugin-synthesized rows', () => {
+    const g = makeGrid();
+    g._rows = [
+      { __isGroupRow: true, __groupKey: 'a' },
+      { __loading: true, __groupKey: 'b' },
+      { __pivotRowKey: 'x' },
+      { __pivotIsGrandTotal: true },
+    ];
+    const rowClass = vi.fn(() => ['tagged']);
+    g.effectiveConfig = { rowClass };
+    renderVisibleRows(g, 0, 4, 1, (_row: any, rowEl: HTMLElement) => {
+      rowEl.className = 'data-grid-row group-row';
+      return true;
+    });
+    expect(rowClass).not.toHaveBeenCalled();
+    g._bodyEl.querySelectorAll('.data-grid-row').forEach((el: Element) => {
+      expect(el.classList.contains('tagged')).toBe(false);
+    });
+  });
 });
 
 describe('cellClass callback', () => {

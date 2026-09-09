@@ -510,6 +510,18 @@ Then define the CSS class in your stylesheet:
 .row-inactive { background: light-dark(#f1f2f4, #26282d); font-style: italic; }
 ```
 
+:::note
+`rowClass` is applied to custom-rendered rows too — a Responsive `cardRenderer` card gets the
+same classes as the table row it replaces. It is only skipped for rows a plugin both synthesizes
+**and** renders itself (group headers, pivot rows, grouped loading placeholders), since those are
+not your data. Server-side `{ __loading: true }` placeholder rows are *not* skipped, so guard on
+`__loading` if your callback reads fields off the row.
+
+The callback runs during rendering, so a class that depends on state outside the row object
+(a selected id, for example) only updates on the next render — call `grid.requestRender()` when
+that state changes.
+:::
+
 ### Cell Styling
 
 **Style individual cells** based on their value using `cellClass` on a column:

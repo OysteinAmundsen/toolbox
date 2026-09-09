@@ -11,7 +11,7 @@ import DemoControls from '@components/DemoControls.astro';
   <div style="margin-bottom: 8px; color: var(--sl-color-gray-2); font-size: 14px;">
     ↔ Resize to see custom card layout
   </div>
-  <div style="resize: horizontal; overflow: auto; width: 400px; min-width: 300px; max-width: 100%; border: 2px dashed var(--sl-color-gray-5); padding: 8px; padding-bottom: 16px;">
+  <div class="resize-box" style="resize: horizontal; overflow: auto; width: 400px; min-width: 300px; max-width: 100%; border: 2px dashed var(--sl-color-gray-5); padding: 8px; padding-bottom: 16px;">
     <tbw-grid style="height: 400px;"></tbw-grid>
     <div class="responsive-status" style="margin-top: 8px; font-size: 12px; color: var(--sl-color-gray-2);"></div>
   </div>
@@ -67,6 +67,10 @@ import DemoControls from '@components/DemoControls.astro';
   #responsive-custom-card-renderer-demo .employee-card .badge.engineering { background: #e3f2fd; color: #1565c0; }
   #responsive-custom-card-renderer-demo .employee-card .badge.marketing { background: #f3e5f5; color: #7b1fa2; }
   #responsive-custom-card-renderer-demo .employee-card .badge.sales { background: #e8f5e9; color: #2e7d32; }
+  /* rowClass output — must survive the switch into card layout */
+  #responsive-custom-card-renderer-demo .top-earner {
+    border-inline-start: 3px solid var(--tbw-color-accent, #4a90d9);
+  }
 </style>
 
 <script>
@@ -126,6 +130,7 @@ if (container) {
         { field: 'email', header: 'Email', width: 200 },
         { field: 'startDate', header: 'Start Date', width: 120 },
       ],
+      rowClass: (value: unknown) => ((value as Employee).salary >= 95000 ? 'top-earner' : ''),
       features: { responsive: { breakpoint: 600, cardRowHeight, cardRenderer } },
     };
     grid.rows = rows;

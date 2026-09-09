@@ -2719,6 +2719,11 @@ export interface GridConfig<TRow = any, TField extends string = ColumnFieldKey<T
    * Dynamic CSS class(es) for data rows.
    * Called for each row during rendering. Return class names to add to the row element.
    *
+   * Applies to custom-rendered rows too (e.g. a Responsive `cardRenderer` card), but not to rows
+   * a plugin both synthesizes and renders itself — group headers, pivot rows and grouped loading
+   * placeholders are skipped because they are not `TRow` values. ServerSide's
+   * `{ __loading: true }` placeholders take the default render path and are NOT skipped.
+   *
    * @example
    * ```typescript
    * // Highlight inactive rows

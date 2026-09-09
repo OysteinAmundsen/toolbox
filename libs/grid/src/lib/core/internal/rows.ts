@@ -382,6 +382,20 @@ function applyRowClass(grid: GridHost, rowEl: HTMLElement, rowData: any): void {
 }
 
 /**
+ * Rows a plugin synthesized (group headers, pivot aggregates, loading placeholders) are not
+ * consumer data, so `rowClass` — typed as `(row: TRow) => …` — must never be invoked with them.
+ */
+function isSyntheticRow(row: any): boolean {
+  return (
+    row != null &&
+    (row.__isGroupRow === true ||
+      row.__loading === true ||
+      row.__pivotIsGrandTotal === true ||
+      row.__pivotRowKey !== undefined)
+  );
+}
+
+/**
  * Render / patch the visible window of rows [start, end) using a recyclable DOM pool.
  * Newly required row elements are created and appended; excess are detached.
  * Uses an epoch counter to force full row rebuilds when structural changes (like columns) occur.
@@ -409,6 +423,9 @@ export function renderVisibleRows(
   // Check if any plugin wants row-level hooks (avoid overhead when not needed)
   const hasRowHook = grid._hasAfterRowRenderHook?.() ?? false;
 
+  // Plugin-rendered rows need rowClass re-applied after the hook, so hoist the check.
+  const hasRowClass = !!grid.effectiveConfig?.rowClass;
+
   // Cache variable-height function for per-row CSS variable override
   const varHeightFn =
     grid._virtualization?.variableHeights && typeof grid.effectiveConfig?.rowHeight === 'function'
@@ -434,6 +451,9 @@ export function renderVisibleRows(
     if (hasRenderRowPlugins && renderRowHook!(rowData, rowEl, rowIndex)) {
       rowEl.__epoch = epoch;
       rowEl.__rowDataRef = rowData;
+      // Custom renderers assign `className` wholesale (responsive cards, pivot rows), so
+      // rowClass has to run AFTER the hook — it would otherwise be wiped, or never applied.
+      if (hasRowClass && !isSyntheticRow(rowData)) applyRowClass(grid, rowEl, rowData);
       if (rowEl.parentNode !== bodyEl) bodyEl.appendChild(rowEl);
       continue;
     }

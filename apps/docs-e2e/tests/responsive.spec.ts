@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { controlOption, grid, openDemo } from './utils';
+import { controlOption, dataRows, grid, openDemo } from './utils';
 
 /** The demos cap their container at 100% of the viewport, so the viewport drives the breakpoint. */
 const CARD_WIDTH = { width: 400, height: 700 };
@@ -84,6 +84,37 @@ test.describe('Responsive Demos', () => {
 
     await controlOption(page, 'cardRowHeight', '120').check();
     await expect.poll(() => card.evaluate((el: HTMLElement) => el.style.height)).toMatch(/^\d+px$/);
+  });
+
+  test('ResponsiveCustomCardRendererDemo — rowClass survives the switch into card layout', async ({ page }) => {
+    await openDemo(page, 'responsive/ResponsiveCustomCardRendererDemo');
+    await page.setViewportSize(TABLE_WIDTH);
+    // The demo pins its container to 400px, so the layout follows the box, not the viewport.
+    const box = page.locator('#responsive-custom-card-renderer-demo .resize-box');
+    const setBoxWidth = (px: number) => box.evaluate((el: HTMLElement, w) => (el.style.width = `${w}px`), px);
+
+    // Alice (95k) and Carol (105k) clear the `top-earner` threshold, Bob (75k) does not.
+    const rows = dataRows(page);
+
+    await setBoxWidth(1000);
+    await expect(grid(page)).not.toHaveAttribute('data-responsive', '');
+    await expect(rows.nth(0)).toHaveClass(/top-earner/);
+    await expect(rows.nth(1)).not.toHaveClass(/top-earner/);
+    await expect(rows.nth(2)).toHaveClass(/top-earner/);
+
+    // `cardRenderer` rows go through ResponsivePlugin.renderRow, which assigns className
+    // wholesale — rowClass must still be applied on top of it.
+    await setBoxWidth(400);
+    await expect(grid(page)).toHaveAttribute('data-responsive', '');
+    await expect(rows.nth(0)).toHaveClass(/responsive-card/);
+    await expect(rows.nth(0)).toHaveClass(/top-earner/);
+    await expect(rows.nth(1)).not.toHaveClass(/top-earner/);
+    await expect(rows.nth(2)).toHaveClass(/top-earner/);
+
+    await setBoxWidth(1000);
+    await expect(grid(page)).not.toHaveAttribute('data-responsive', '');
+    await expect(rows.nth(0)).toHaveClass(/top-earner/);
+    await expect(rows.nth(1)).not.toHaveClass(/top-earner/);
   });
 
   test('ResponsiveProgressiveDegradationDemo — columns hide before card layout kicks in', async ({ page }) => {

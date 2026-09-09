@@ -61,6 +61,7 @@ import type {
   EditCloseDetail,
   EditingConfig,
   EditOpenDetail,
+  EditorParams,
   RowCommitDetail,
 } from './types';
 
@@ -1247,7 +1248,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       if (!col.type || !hasTypeDefaults) return col;
 
       // Get type-level editorParams
-      let typeEditorParams: Record<string, unknown> | undefined;
+      let typeEditorParams: EditorParams | undefined;
 
       // Check grid-level typeDefaults first
       if (typeDefaults?.[col.type]?.editorParams) {

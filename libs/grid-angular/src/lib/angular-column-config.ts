@@ -5,7 +5,12 @@
  * classes to be used directly as renderers and editors.
  */
 import type { Type } from '@angular/core';
-import type { ColumnConfig as BaseColumnConfig, GridConfig as BaseGridConfig, ColumnFieldKey } from '@toolbox-web/grid';
+import type {
+  ColumnConfig as BaseColumnConfig,
+  GridConfig as BaseGridConfig,
+  TypeDefault as BaseTypeDefault,
+  ColumnFieldKey,
+} from '@toolbox-web/grid';
 import type { FilterPanelParams, FilterPanelRenderer } from '@toolbox-web/grid/plugins/filtering';
 
 // #region CellRenderer Interface
@@ -121,7 +126,10 @@ export interface FilterPanel {
 /**
  * Type default configuration.
  *
- * Allows Angular component classes for renderers and editors in typeDefaults.
+ * Inherits every core {@link BaseTypeDefault} property (which is itself a
+ * partial `ColumnConfig` — `format`, `width`, `sortable`, `cellClass`,
+ * `editorParams`, `filterable`, …) and widens the renderer/editor slots to
+ * accept Angular component classes.
  *
  * @example
  * ```typescript
@@ -134,6 +142,7 @@ export interface FilterPanel {
  *       editor: CheckboxEditorComponent, // Angular component
  *     },
  *     date: {
+ *       width: 140,
  *       editor: DatePickerComponent, // Angular component
  *     }
  *   }
@@ -141,9 +150,10 @@ export interface FilterPanel {
  * ```
  * @since 0.10.0
  */
-export interface TypeDefault<TRow = unknown> {
-  /** Format function for cell display */
-  format?: (value: unknown, row: TRow) => string;
+export interface TypeDefault<TRow = unknown> extends Omit<
+  BaseTypeDefault<TRow>,
+  'renderer' | 'editor' | 'editorParams' | 'filterPanelRenderer'
+> {
   /** Cell renderer - can be vanilla JS function or Angular component */
   renderer?: BaseColumnConfig<TRow>['renderer'] | Type<CellRenderer<TRow, unknown>>;
   /** Cell editor - can be vanilla JS function or Angular component */

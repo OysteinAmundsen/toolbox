@@ -674,7 +674,7 @@ export class GridAdapter implements FrameworkAdapter {
     // Create editor function that instantiates the Angular component
     if (config.editor) {
       // Type assertion needed: adapter bridges TRow to core's unknown
-      typeDefault.editor = this.createComponentEditor<TRow, unknown>(config.editor) as BaseTypeDefault['editor'];
+      typeDefault.editor = this.createComponentEditor<TRow, unknown>(config.editor) as BaseTypeDefault<TRow>['editor'];
     }
 
     // Create filterPanelRenderer function that instantiates the Angular component

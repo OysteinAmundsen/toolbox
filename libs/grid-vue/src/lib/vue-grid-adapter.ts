@@ -659,11 +659,11 @@ export class GridAdapter implements FrameworkAdapter {
         if (isVueComponent(config.editor)) {
           processedConfig.editor = this.createConfigComponentEditor(
             config.editor as Component,
-          ) as BaseTypeDefault['editor'];
+          ) as BaseTypeDefault<TRow>['editor'];
         } else if (isVNodeRenderFunction(config.editor)) {
           processedConfig.editor = this.createTypeEditor(
             config.editor as (ctx: ColumnEditorContext<TRow>) => VNode,
-          ) as BaseTypeDefault['editor'];
+          ) as BaseTypeDefault<TRow>['editor'];
         }
       }
 
@@ -1369,7 +1369,7 @@ export class GridAdapter implements FrameworkAdapter {
 
     // Create editor function that renders Vue component
     if (vueDefault.editor) {
-      typeDefault.editor = this.createTypeEditor<TRow>(vueDefault.editor) as BaseTypeDefault['editor'];
+      typeDefault.editor = this.createTypeEditor<TRow>(vueDefault.editor) as BaseTypeDefault<TRow>['editor'];
     }
 
     // Create filterPanelRenderer function that renders Vue component.

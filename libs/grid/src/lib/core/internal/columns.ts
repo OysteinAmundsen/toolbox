@@ -424,8 +424,8 @@ export function autoSizeColumns(grid: GridHost): void {
 // #region Template Generation
 /**
  * Compute and apply the CSS grid template string that drives column layout.
- * Uses `fr` units for flexible (non user-resized) columns in stretch mode, otherwise
- * explicit pixel widths or auto sizing.
+ * A column's `width` is emitted verbatim as its track; width-less columns fall
+ * back to a `fitMode`-specific flexible or content-based track.
  */
 // Valid CSS grid track size patterns: numbers with units (px, %, fr, em, rem, etc.),
 // calc(), min-content, max-content, minmax(), fit-content(), auto
@@ -445,12 +445,9 @@ function resolveWidth(width: string | number, field?: string): string {
 }
 
 export function updateTemplate(grid: GridHost): void {
-  // Modes:
-  //  - 'stretch': columns with explicit width use that width; columns without width are flexible
-  //               Uses minmax(minWidth, maxWidth) when both min/max specified (bounded flex)
-  //               Uses minmax(minWidth, 1fr) when only min specified (grows unbounded)
-  //               Uses minmax(defaultMin, maxWidth) when only max specified (capped growth)
-  //  - 'fixed': columns with explicit width use that width; columns without width use max-content
+  // An explicit `width` always wins; the mode only decides the width-less track:
+  //  - 'stretch': minmax(minWidth, 1fr) when minWidth is set, else 1fr
+  //  - 'fixed':   max-content
   const mode = grid.effectiveConfig?.fitMode || grid.fitMode || FitModeEnum.STRETCH;
 
   if (mode === FitModeEnum.STRETCH) {

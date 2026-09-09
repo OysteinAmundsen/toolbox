@@ -159,6 +159,105 @@ describe('ConfigManager', () => {
     });
   });
 
+  describe('Type Defaults', () => {
+    const merge = (config: GridConfig<any>) => {
+      configManager.setGridConfig(config as GridConfig<{ id: number; name: string }>);
+      configManager.merge();
+      return (field: string) => configManager.columns.find((c) => c.field === field) as any;
+    };
+
+    it('inherits arbitrary column properties from the matching type default', () => {
+      const cellClass = () => 'money';
+      const sortComparator = (a: number, b: number) => a - b;
+      const col = merge({
+        columns: [{ field: 'price', type: 'currency' }],
+        typeDefaults: {
+          currency: { width: 120, minWidth: 90, sortable: true, resizable: false, cellClass, sortComparator },
+        } as any,
+      })('price');
+
+      expect(col.width).toBe(120);
+      expect(col.minWidth).toBe(90);
+      expect(col.sortable).toBe(true);
+      expect(col.resizable).toBe(false);
+      expect(col.cellClass).toBe(cellClass);
+      expect(col.sortComparator).toBe(sortComparator);
+    });
+
+    it('inherits plugin-augmented properties without core knowing about them', () => {
+      const editor = () => document.createElement('input');
+      const col = merge({
+        columns: [{ field: 'price', type: 'currency' }],
+        typeDefaults: {
+          currency: { editor, editorParams: { min: 0 }, editable: true, filterable: false, filterType: 'set' },
+        } as any,
+      })('price');
+
+      expect(col.editor).toBe(editor);
+      expect(col.editorParams).toEqual({ min: 0 });
+      expect(col.editable).toBe(true);
+      expect(col.filterable).toBe(false);
+      expect(col.filterType).toBe('set');
+    });
+
+    it('lets an explicit column value win, including falsy ones', () => {
+      const get = merge({
+        columns: [
+          { field: 'price', type: 'currency', width: 200, sortable: false },
+          { field: 'cost', type: 'currency' },
+        ],
+        typeDefaults: { currency: { width: 120, sortable: true } } as any,
+      });
+
+      expect(get('price').width).toBe(200);
+      expect(get('price').sortable).toBe(false);
+      expect(get('cost').width).toBe(120);
+      expect(get('cost').sortable).toBe(true);
+    });
+
+    it('never inherits identity or positioning properties', () => {
+      const col = merge({
+        columns: [{ field: 'price', type: 'currency' }],
+        typeDefaults: {
+          currency: { field: 'nope', header: 'Nope', order: 5, group: 'g', hidden: true, utility: true },
+        } as any,
+      })('price');
+
+      expect(col.field).toBe('price');
+      expect(col.header).toBeUndefined();
+      expect(col.order).toBeUndefined();
+      expect(col.group).toBeUndefined();
+      expect(col.hidden).toBeUndefined();
+      expect(col.utility).toBeUndefined();
+    });
+
+    it('treats column renderer and viewRenderer as aliases that both suppress the type renderer', () => {
+      const typeRenderer = () => document.createElement('span');
+      const viewRenderer = () => document.createElement('div');
+      const get = merge({
+        columns: [
+          { field: 'price', type: 'currency', viewRenderer },
+          { field: 'cost', type: 'currency' },
+        ],
+        typeDefaults: { currency: { renderer: typeRenderer } } as any,
+      });
+
+      expect(get('price').renderer).toBeUndefined();
+      expect(get('price').viewRenderer).toBe(viewRenderer);
+      expect(get('cost').renderer).toBe(typeRenderer);
+    });
+
+    it('ignores columns without a type and types without a default', () => {
+      const get = merge({
+        columns: [{ field: 'price', type: 'currency' }, { field: 'name' }],
+        typeDefaults: { other: { width: 120 } } as any,
+      });
+
+      expect(get('price').width).toBeUndefined();
+      expect(get('name').width).toBeUndefined();
+    });
+  });
+
   describe('Column Visibility', () => {
     beforeEach(() => {
       configManager.setGridConfig({

@@ -76,6 +76,12 @@ Read order for a "wrong pixels" bug: render-scheduler (did the phase run?) → v
 - Regression gate: `rows.bench.ts` (`bunx vitest bench --run rows.bench`) — 3 scenarios × plain/rich columns. `render-pipeline.bench.ts` does NOT cover `rows.ts` DOM work. rme ~8–12 %; median of 3 runs.
 - DECIDED (#430): `renderVisibleRows` guards the `aria-rowindex` write behind a `RowElementInternal.__ariaRowIndex` cache — pooled rows usually keep their index; the unconditional write cost ~40 wasted mutations/frame. Safe: only StickyRows else touches it (detached clones).
 
+### columns.ts (track generation)
+
+- `ColumnConfig.width` is a full CSS **grid track**, not a pixel number — `updateTemplate` emits strings verbatim (`'2fr'`, `'30%'`, `'minmax(120px,1fr)'`, `'calc()'`, `'min/max-content'`, `'auto'`, validated by `VALID_CSS_WIDTH`; a miss warns `INVALID_COLUMN_WIDTH` but still renders) and appends `px` to numbers. `width` wins in BOTH fit modes; the mode only picks the width-less track (`stretch` → `minmax(minWidth,1fr)` else `1fr`; `fixed` → `max-content`). `minWidth` is px-only (interpolated into `minmax()` + reused as the drag clamp).
+- TENSION: a drag-resize commits a numeric px width and `__originalWidth` is only captured `typeof width === 'number'`, so non-px units are destroyed by the first resize and reset-to-original cannot restore them. `autoSizeColumns` skips any truthy `width`, so strings survive auto-size.
+- There is NO `maxWidth` column property (a stale comment claimed `minmax(minWidth,maxWidth)` support; removed Sep 2026).
+
 ### resize.ts / DOM refs
 
 - INVARIANT: `createResizeController(grid).dispose()` MUST fully unwind an in-flight drag — `onUp()` (remove window listeners, restore `cursor` + `userSelect`) AND `cancelAnimationFrame(pendingRaf)`. `grid.ts` recreates it in `#afterConnect()` + `#afterShellRefresh()`, disposing the previous instance first.

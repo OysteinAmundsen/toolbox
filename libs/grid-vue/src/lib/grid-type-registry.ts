@@ -4,7 +4,7 @@
  * Provides application-wide type defaults for renderers and editors
  * that all grids inherit automatically via Vue's provide/inject.
  */
-import type { CellRenderContext, ColumnEditorContext } from '@toolbox-web/grid';
+import type { TypeDefault as BaseTypeDefault, CellRenderContext, ColumnEditorContext } from '@toolbox-web/grid';
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import { defineComponent, inject, provide, type InjectionKey, type PropType, type VNode } from 'vue';
 
@@ -12,8 +12,10 @@ import { defineComponent, inject, provide, type InjectionKey, type PropType, typ
 /**
  * Type default configuration for Vue applications.
  *
- * Defines default renderer, editor, and editorParams for a data type
- * using Vue render functions.
+ * Inherits every core {@link BaseTypeDefault} property (which is itself a
+ * partial `ColumnConfig` — `format`, `width`, `sortable`, `cellClass`,
+ * `filterable`, …) and widens the renderer/editor slots to accept Vue render
+ * functions.
  *
  * @example
  * ```ts
@@ -22,6 +24,7 @@ import { defineComponent, inject, provide, type InjectionKey, type PropType, typ
  * import CountrySelect from './CountrySelect.vue';
  *
  * const countryDefault: TypeDefault<Employee, string> = {
+ *   width: 140,
  *   renderer: (ctx) => h(CountryFlag, { code: ctx.value }),
  *   editor: (ctx) => h(CountrySelect, {
  *     modelValue: ctx.value,
@@ -31,7 +34,10 @@ import { defineComponent, inject, provide, type InjectionKey, type PropType, typ
  * ```
  * @since 0.3.0
  */
-export interface TypeDefault<TRow = unknown, TValue = unknown> {
+export interface TypeDefault<TRow = unknown, TValue = unknown> extends Omit<
+  BaseTypeDefault<TRow>,
+  'renderer' | 'editor' | 'editorParams' | 'filterPanelRenderer'
+> {
   /** Vue render function for rendering cells of this type */
   renderer?: (ctx: CellRenderContext<TRow, TValue>) => VNode;
   /** Vue render function for editing cells of this type */

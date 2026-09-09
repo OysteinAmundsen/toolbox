@@ -250,7 +250,7 @@ for first:
 | `fitMode` | [`FitMode`](/grid/api/core/types/fitmode/) | How columns fill available width (`'stretch'` or `'fixed'`) |
 | `columnInference` | [`ColumnInferenceMode`](/grid/api/core/types/columninferencemode/) | How inference combines with provided columns (`'auto'` default, or `'merge'`) |
 | `rowHeight` | `number \| (row, index) => number \| undefined` | Fixed or variable row heights |
-| `typeDefaults` | <code>Record&lt;string, <a href="/grid/api/core/interfaces/typedefault/">TypeDefault</a>&gt;</code> | Default format/renderer per column `type` |
+| `typeDefaults` | <code>Record&lt;string, <a href="/grid/api/core/interfaces/typedefault/">TypeDefault</a>&gt;</code> | Default column config per column `type` |
 | `plugins` | [`GridPlugin[]`](/grid/api/plugin-development/interfaces/gridplugin/) | Plugin instances |
 | `features` | [`Partial<FeatureConfig>`](/grid/api/core/interfaces/featureconfig/) | Declarative feature config (alternative to `plugins`) |
 
@@ -851,7 +851,20 @@ When using the [**EditingPlugin**](/grid/plugins/editing/), rows are automatical
 
 ### Type-Level Defaults
 
-Define default formatters and renderers for all columns of a specific `type`:
+Define defaults for all columns of a specific `type`. A type default accepts **any**
+[`ColumnConfig`](/grid/api/core/interfaces/columnconfig/) property — `format`, `renderer`, `width`,
+`sortable`, `cellClass`, `sortComparator`, and so on — plus the column properties contributed by
+whichever plugins you import (for example `editor` and `editorParams` from the
+[EditingPlugin](/grid/plugins/editing/), or `filterType` from the
+[FilteringPlugin](/grid/plugins/filtering/)).
+
+Six properties are **never** inherited from a type default, because they identify or position a
+single column rather than describe its type: `field`, `header`, `order`, `group`, `hidden` and
+`utility`.
+
+Resolution is per-property and shallow: a column keeps any value it defines itself (including
+falsy ones such as `sortable: false` or `width: 0`), and inherits the type-level value only where it
+left the property `undefined` or `null`.
 
 <Tabs syncKey="framework">
   <TabItem label="TypeScript">
@@ -882,11 +895,20 @@ grid.gridConfig = {
         return badge;
       },
     },
+    // Any column property works, not just format/renderer:
+    percent: {
+      width: 110,
+      cellClass: 'numeric',
+      sortComparator: (a, b) => (a as number) - (b as number),
+    },
   },
   columns: [
     { field: 'salary', type: 'currency' },
     { field: 'active', type: 'boolean' },
     { field: 'status', type: 'status' },
+    { field: 'margin', type: 'percent' },
+    // Column-level values always win — this one stays 220px wide.
+    { field: 'growth', type: 'percent', width: 220 },
   ],
 };
 ```
@@ -1087,7 +1109,7 @@ Notes:
 - `<tbw-grid-type>` applies defaults to every column whose `type` matches `name`.
 - `data-*` attributes on `<tbw-grid-type>` are exposed in templates as `typeDefault.*`.
 - Programmatic `gridConfig.typeDefaults` entries override declarative `<tbw-grid-type>` entries for the same type.
-- Type-level editors require the editing feature/plugin to be enabled in your runtime/framework package.
+- Type-level editors require the editing feature/plugin to be enabled in your runtime/framework package. `editor` and `editorParams` only appear on the `TypeDefault` type once the editing plugin's types are in scope.
 
 ### Custom Header Renderers
 

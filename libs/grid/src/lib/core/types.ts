@@ -754,22 +754,51 @@ export type NestedPaths<T, D extends number = 5> = [D] extends [never]
 
 // #region TypeDefault Interface
 /**
- * Type-level defaults for formatters and renderers.
- * Applied to all columns of a given type unless overridden at column level.
+ * Keys a column never inherits from a {@link TypeDefault}.
  *
- * Note: `editor` and `editorParams` are added via module augmentation when
- * EditingPlugin is imported. `filterPanelRenderer` is added by FilteringPlugin.
+ * These identify or position an individual column rather than describe its
+ * data type, so a shared type-level value would be meaningless (`field`,
+ * `header`) or actively harmful (`order`/`group` would stack every column of
+ * the type into one slot; `hidden`/`utility` would remove them all from the
+ * grid at once).
+ *
+ * @since 3.8.0
+ */
+export type NonInheritableTypeDefaultKey = 'field' | 'header' | 'order' | 'group' | 'hidden' | 'utility';
+
+/**
+ * Type-level defaults applied to every column that declares a matching `type`.
+ *
+ * Accepts (almost) any {@link ColumnConfig} property — `format`, `renderer`,
+ * `width`, `minWidth`, `sortable`, `resizable`, `sortComparator`,
+ * `valueAccessor`, `options`, `cellClass`, `headerRenderer`, `meta`, … — plus
+ * every property that plugins augment onto the column config. Plugin
+ * properties therefore appear here **only when that plugin's types are
+ * imported**: `editor` / `editorParams` / `editable` / `nullable` / `multi`
+ * come from EditingPlugin, `filterable` / `filterParams` / `filterType` /
+ * `filterValue` from FilteringPlugin, and so on.
+ *
+ * See {@link NonInheritableTypeDefaultKey} for the properties that are
+ * deliberately excluded.
+ *
+ * **Resolution**: a column property that is already set (non-nullish) always
+ * wins — the type default only fills gaps. Merging is shallow and
+ * per-property: object values such as `editorParams` and `meta` are copied by
+ * reference, not deep-merged.
  *
  * @example
  * ```typescript
  * typeDefaults: {
  *   currency: {
+ *     width: 120,
  *     format: (value) => new Intl.NumberFormat('en-US', {
  *       style: 'currency',
  *       currency: 'USD',
  *     }).format(value as number),
+ *     editorParams: { min: 0, step: 0.01 }, // requires EditingPlugin
  *   },
  *   country: {
+ *     sortable: true,
  *     renderer: (ctx) => {
  *       const span = document.createElement('span');
  *       span.innerHTML = `<img src="/flags/${ctx.value}.svg" /> ${ctx.value}`;
@@ -784,7 +813,7 @@ export type NestedPaths<T, D extends number = 5> = [D] extends [never]
  * @see {@link GridConfig.typeDefaults} for registering type defaults
  * @since 1.0.0
  */
-export interface TypeDefault<TRow = unknown> {
+export interface TypeDefault<TRow = unknown> extends Partial<Omit<ColumnConfig<TRow>, NonInheritableTypeDefaultKey>> {
   /**
    * Default formatter for all columns of this type.
    *
@@ -906,9 +935,27 @@ export interface BaseColumnConfig<TRow = any, TValue = any, TField extends strin
    * @default Inferred from first row data
    */
   type?: ColumnType;
-  /** Column width in pixels; fixed size (no flexibility) */
+  /**
+   * Column width as a CSS grid track size. A number is treated as pixels.
+   *
+   * A string accepts any single track value — `'2fr'`, `'30%'`, `'max-content'`,
+   * `'minmax(120px, 1fr)'`, `'calc(...)'`, `'auto'`. An unrecognised string still
+   * reaches the layout but emits a dev-mode diagnostic.
+   *
+   * Omit to let `fitMode` size the column: `1fr` (or `minmax(minWidth, 1fr)`) in
+   * `'stretch'`, `max-content` in `'fixed'`.
+   *
+   * A user resize replaces the value with a pixel number, so non-pixel units do
+   * not survive a drag.
+   */
   width?: string | number;
-  /** Minimum column width in pixels; in stretch mode uses minmax(minWidth, 1fr), and in fixed mode is used as implicit width when width is omitted */
+  /**
+   * Minimum column width in pixels. Pixels only — the value doubles as the
+   * numeric clamp applied during drag-resize (40px when unset).
+   *
+   * Applies only when `width` is omitted: `'stretch'` mode renders the column as
+   * `minmax(minWidth, 1fr)`, `'fixed'` mode uses it as the implicit width.
+   */
   minWidth?: number;
   /**
    * Initial column display index.

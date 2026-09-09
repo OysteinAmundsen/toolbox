@@ -123,8 +123,8 @@ Define column configuration declaratively.
 | `field`        | `string`  | **Required.** Data field key. Supports the `field:type` shorthand — e.g. `field="price:number"` expands to `field="price" type="number"` and an auto-generated `header` ("Price"). |
 | `header`       | `string`  | Column header text                                               |
 | `type`         | `string`  | Column type. Built-ins: `'string'`, `'number'`, `'boolean'`, `'date'`, `'select'`. Any custom/plugin-registered type string is also accepted. |
-| `width`        | `string`  | Column width (e.g., `"120"`, `"100px"`, `"20%"`)                 |
-| `min-width`    | `number`  | Minimum column width in pixels                                   |
+| `width`        | `string`  | Column width as a CSS grid track — `"120"` (px), `"100px"`, `"20%"`, `"2fr"`, `"minmax(120px, 1fr)"`, `"max-content"` |
+| `min-width`    | `number`  | Minimum column width in pixels (pixels only). Applies when `width` is omitted, and floors drag-resize. |
 | `sortable`     | `boolean` | Enable sorting (presence = true)                                 |
 | `resizable`    | `boolean` | Enable resizing (presence = true)                                |
 | `order`        | `number`  | Initial column position (0-based index; must be non-negative integer). Columns without `order` fill positions in declaration order. Only affects initial render; user reorder takes precedence. |

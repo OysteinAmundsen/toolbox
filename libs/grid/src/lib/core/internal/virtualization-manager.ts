@@ -171,7 +171,13 @@ export class VirtualizationManager<T = any> {
     const grid = this.#grid;
     const rows = grid._rows;
     const estimatedHeight = s.rowHeight || 28;
-    const rowHeightFn = grid.effectiveConfig?.rowHeight as ((row: T, index: number) => number | undefined) | undefined;
+    // `rowHeight` may be a number — a plugin with `getRowHeight()` enables variable heights
+    // regardless of its form, so the callable form must be checked, not assumed.
+    const userRowHeight = grid.effectiveConfig?.rowHeight;
+    const rowHeightFn =
+      typeof userRowHeight === 'function'
+        ? (userRowHeight as (row: T, index: number) => number | undefined)
+        : undefined;
     const getRowId = grid.effectiveConfig?.getRowId;
     const rowIdFn = getRowId ? (row: T) => getRowId(row) : undefined;
 
@@ -560,6 +566,9 @@ export class VirtualizationManager<T = any> {
   /** Set when a plugin drives variable heights but the user gave no `rowHeight` function. */
   #needsRowHeightMeasurement = false;
 
+  /** Last positive numeric `gridConfig.rowHeight` seen, so merges can detect a mode change. */
+  #configuredRowHeight: number | null = null;
+
   /**
    * Last value the `--tbw-row-height` CSS variable resolved to.
    * Used by `measureRowHeight` to distinguish a real theme switch (resolved value changed)
@@ -587,28 +596,33 @@ export class VirtualizationManager<T = any> {
     const s = this.state;
     const userRowHeight = this.#grid.effectiveConfig?.rowHeight;
     const hasRowHeightPlugin = this.#hasRowHeightPlugin();
+    const fixedHeight = typeof userRowHeight === 'number' && userRowHeight > 0 ? userRowHeight : null;
 
     if (typeof userRowHeight === 'function' || hasRowHeightPlugin) {
-      if (!s.variableHeights) {
+      // Re-run on every merge, not just the first: `rowHeight` can gain, change or lose its
+      // numeric form long after a plugin turned variable heights on.
+      if (!s.variableHeights || fixedHeight !== this.#configuredRowHeight) {
         s.variableHeights = true;
-        s.rowHeight = typeof userRowHeight === 'number' && userRowHeight > 0 ? userRowHeight : s.rowHeight || 28;
+        s.rowHeight = fixedHeight ?? (s.rowHeight || 28);
         this.initializePositionCache();
-        if (typeof userRowHeight !== 'function') {
-          this.#needsRowHeightMeasurement = true;
-        }
+        // A numeric `rowHeight` is a contract, not a hint — never measure over it.
+        this.#needsRowHeightMeasurement = typeof userRowHeight !== 'function' && fixedHeight === null;
       }
     } else if (!hasRowHeightPlugin && typeof userRowHeight !== 'function' && s.variableHeights) {
       // Plugin was removed — revert to fixed heights
       s.variableHeights = false;
       s.positionCache = null;
-    } else if (typeof userRowHeight === 'number' && userRowHeight > 0) {
-      s.rowHeight = userRowHeight;
+      this.#needsRowHeightMeasurement = false;
+    } else if (fixedHeight !== null) {
+      s.rowHeight = fixedHeight;
       s.variableHeights = false;
     } else {
       // No config — measure from DOM after first paint.
       // The ResizeObserver below handles subsequent dynamic changes.
       requestAnimationFrame(() => this.#measureRowHeight());
     }
+
+    this.#configuredRowHeight = fixedHeight;
   }
 
   /**
@@ -770,6 +784,9 @@ export class VirtualizationManager<T = any> {
    * rendered row measures 0px.
    */
   #measureRowHeightForPlugins(): boolean {
+    // Same contract as `#measureRowHeight`: a numeric `rowHeight` is never measured over.
+    if (this.#configuredRowHeight !== null) return true;
+
     const firstRow = this.#grid._bodyEl?.querySelector('.data-grid-row');
     if (!firstRow) return false;
 

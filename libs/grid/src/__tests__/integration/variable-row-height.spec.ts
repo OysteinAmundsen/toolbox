@@ -481,4 +481,129 @@ describe('variable row height with plugins', () => {
       expect(grid._virtualization.rowHeight).toBe(36);
     });
   });
+
+  describe('numeric rowHeight combined with a getRowHeight plugin (#479)', () => {
+    function makePlugin() {
+      return new MasterDetailPlugin({
+        detailRenderer: (row: TestRow) => {
+          const div = document.createElement('div');
+          div.textContent = `Detail for ${row.name}`;
+          return div;
+        },
+      });
+    }
+
+    // happy-dom reports height 0 everywhere, so the measurement path needs a stub to pick up.
+    function stubRowHeight(height: number) {
+      const original = Element.prototype.getBoundingClientRect;
+      vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+        if (this.classList?.contains('data-grid-row')) {
+          return { height, width: 800, top: 0, left: 0, right: 800, bottom: height, x: 0, y: 0, toJSON: () => ({}) };
+        }
+        return original.call(this);
+      } as typeof Element.prototype.getBoundingClientRect);
+    }
+
+    it('does not throw when rowHeight is a number', async () => {
+      grid.rows = createRows(20);
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+        ],
+        rowHeight: 36,
+        plugins: [makePlugin()],
+      };
+      document.body.appendChild(grid);
+      await waitUpgrade(grid);
+      await nextFrame();
+      await nextFrame();
+
+      const virt = grid._virtualization;
+      expect(virt.variableHeights).toBe(true);
+      expect(virt.rowHeight).toBe(36);
+      expect(virt.positionCache?.length).toBe(20);
+      expect(virt.positionCache?.[1].offset).toBe(36);
+    });
+
+    it('reflects a numeric rowHeight onto the --tbw-row-height custom property', async () => {
+      grid.rows = createRows(5);
+      grid.gridConfig = {
+        columns: [{ field: 'id', header: 'ID' }],
+        rowHeight: 36,
+      };
+      document.body.appendChild(grid);
+      await waitUpgrade(grid);
+      await nextFrame();
+
+      expect(grid.style.getPropertyValue('--tbw-row-height')).toBe('36px');
+
+      grid.gridConfig = { columns: [{ field: 'id', header: 'ID' }] };
+      await nextFrame();
+
+      expect(grid.style.getPropertyValue('--tbw-row-height')).toBe('');
+    });
+
+    it('leaves a consumer-set --tbw-row-height alone when rowHeight is not numeric', async () => {
+      grid.style.setProperty('--tbw-row-height', '44px');
+      grid.rows = createRows(5);
+      grid.gridConfig = { columns: [{ field: 'id', header: 'ID' }] };
+      document.body.appendChild(grid);
+      await waitUpgrade(grid);
+      await nextFrame();
+
+      expect(grid.style.getPropertyValue('--tbw-row-height')).toBe('44px');
+
+      grid.gridConfig = { columns: [{ field: 'id', header: 'ID' }], sortable: false };
+      await nextFrame();
+
+      expect(grid.style.getPropertyValue('--tbw-row-height')).toBe('44px');
+    });
+
+    it('adopts a numeric rowHeight applied after a plugin enabled variable heights', async () => {
+      stubRowHeight(28);
+      grid.rows = createRows(10);
+      const base = {
+        columns: [
+          { field: 'id' as const, header: 'ID' },
+          { field: 'name' as const, header: 'Name' },
+        ],
+        plugins: [makePlugin()],
+      };
+      grid.gridConfig = base;
+      document.body.appendChild(grid);
+      await waitUpgrade(grid);
+      await nextFrame();
+
+      grid.gridConfig = { ...base, rowHeight: 48 };
+      // Enough frames for the deferred plugin measurement to fire if it were still armed.
+      for (let i = 0; i < 6; i++) await nextFrame();
+
+      expect(grid._virtualization.rowHeight).toBe(48);
+      expect(grid.style.getPropertyValue('--tbw-row-height')).toBe('48px');
+    });
+
+    it('re-arms measurement when a numeric rowHeight is removed but the plugin stays', async () => {
+      stubRowHeight(36);
+      grid.rows = createRows(10);
+      const base = {
+        columns: [
+          { field: 'id' as const, header: 'ID' },
+          { field: 'name' as const, header: 'Name' },
+        ],
+        plugins: [makePlugin()],
+      };
+      grid.gridConfig = { ...base, rowHeight: 48 };
+      document.body.appendChild(grid);
+      await waitUpgrade(grid);
+      await nextFrame();
+      expect(grid._virtualization.rowHeight).toBe(48);
+
+      grid.gridConfig = { ...base };
+      for (let i = 0; i < 6; i++) await nextFrame();
+
+      expect(grid.style.getPropertyValue('--tbw-row-height')).toBe('');
+      expect(grid._virtualization.rowHeight).toBe(36);
+    });
+  });
 });

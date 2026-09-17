@@ -40,6 +40,9 @@ import { compileTemplate } from './sanitize';
 /** Debounce timeout for state change events */
 const STATE_CHANGE_DEBOUNCE_MS = 100;
 
+/** Custom property the row/cell CSS binds its `min-height` to. */
+const ROW_HEIGHT_VAR = '--tbw-row-height';
+
 /**
  * Column properties that are never inherited from `gridConfig.typeDefaults` —
  * they identify or position a single column rather than describe its type.
@@ -121,6 +124,8 @@ export class ConfigManager<T = unknown> {
   #lightDomDebounceTimer?: ReturnType<typeof setTimeout>;
   #initialColumnState?: GridColumnState;
   #grid: GridHost<T>;
+  /** Whether the inline `--tbw-row-height` on the host was written by us and may be cleared. */
+  #ownsRowHeightVar = false;
 
   constructor(grid: GridHost<T>) {
     this.#grid = grid;
@@ -337,6 +342,15 @@ export class ConfigManager<T = unknown> {
     // Function-based rowHeight is handled by variable height virtualization
     if (typeof config.rowHeight === 'number' && config.rowHeight > 0) {
       this.#grid._virtualization.rowHeight = config.rowHeight;
+      // Also drive the CSS variable: without it rows keep the theme height while
+      // virtualization positions them at the configured one, leaving gaps.
+      this.#grid.style.setProperty(ROW_HEIGHT_VAR, `${config.rowHeight}px`);
+      this.#ownsRowHeightVar = true;
+    } else if (this.#ownsRowHeightVar) {
+      // Only ours is cleared — `--tbw-row-height` is a public theme variable and
+      // consumers set it inline on the host (e.g. the calendar demos).
+      this.#grid.style.removeProperty(ROW_HEIGHT_VAR);
+      this.#ownsRowHeightVar = false;
     }
 
     // If fixed mode and width not specified: use minWidth when available,

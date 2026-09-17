@@ -1703,6 +1703,8 @@ grid.gridConfig = {
 
 If your function returns `undefined` for a row, the grid **auto-measures** that row's actual DOM height after rendering.
 
+A **numeric** `rowHeight` is authoritative: the grid writes it to the `--tbw-row-height` custom property on the host element (overriding the theme value) and never replaces it with a measured height — including when a plugin such as **MasterDetailPlugin** enables variable-height virtualization.
+
 ### How Auto-Measurement Works
 
 1. The grid renders rows with an estimated height.

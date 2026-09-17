@@ -2962,6 +2962,33 @@ describe('MasterDetailPlugin + GroupingRowsPlugin integration', () => {
     document.body.innerHTML = '';
   });
 
+  it('keeps the master-detail expander first when a source column is hidden', async () => {
+    const { MasterDetailPlugin } = await import('../../lib/plugins/master-detail');
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'orderId', header: 'Order ID' },
+        { field: 'customer', header: 'Customer', hidden: true },
+        { field: 'total', header: 'Total' },
+      ],
+      plugins: [
+        new MasterDetailPlugin({
+          detailRenderer: () => '<div>details</div>',
+          showExpandColumn: true,
+        }),
+      ],
+    };
+    grid.rows = [{ orderId: '1', customer: 'Ada', total: 100 }];
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    expect(grid._visibleColumns.map((column: any) => column.field)).toEqual([
+      '__tbw_expander',
+      'orderId',
+      'total',
+    ]);
+  });
+
   it('renders expander toggle on data rows within expanded groups', async () => {
     const { MasterDetailPlugin } = await import('../../lib/plugins/master-detail');
 

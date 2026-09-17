@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.8.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.8.0...grid-3.8.1) (2026-09-17)
+
+
+### Bug Fixes
+
+* **grid:** honor numeric rowHeight alongside getRowHeight plugins ([#479](https://github.com/OysteinAmundsen/toolbox/issues/479)) ([#480](https://github.com/OysteinAmundsen/toolbox/issues/480)) ([996f3f5](https://github.com/OysteinAmundsen/toolbox/commit/996f3f5d947efb79774117f5c2b6e53bac258295))
+
 ## [3.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.7.1...grid-3.8.0) (2026-09-09)
 
 

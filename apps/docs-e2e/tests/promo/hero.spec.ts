@@ -35,7 +35,7 @@ import { expect, test } from './fixture';
  * Reel budget: this scene owns the **bookends** (intro/outro cards) plus the two
  * shots no single-feature scene can produce — the dataset at scale, and two
  * plugins composing. Per-feature money shots belong in `scenes.spec.ts`;
- * duplicating one here would spend the 30-second budget twice on the same idea.
+ * duplicating one here would spend the reel budget twice on the same idea.
  */
 test.describe('Promo — hero scenario', () => {
   test('Analyst workflow: sort, filter, select, drill in, edit, undo, group @promo', async ({ page }) => {
@@ -58,7 +58,9 @@ test.describe('Promo — hero scenario', () => {
     const totalRows = await rowCount(page);
     expect(totalRows).toBeGreaterThan(10);
 
-    await card(page, 'intro', INTRO, 2200);
+    // Chained: the integration card follows immediately, so this one fades to
+    // black rather than dropping the frame and flashing the grid between titles.
+    await card(page, 'intro', INTRO, 2200, { chain: true });
 
     // The integration shot. "One component" is a claim until the viewer sees
     // how little markup it takes; this is the frame people screenshot.
@@ -80,7 +82,7 @@ test.describe('Promo — hero scenario', () => {
     // ── Establishing shot: the dataset at scale ─────────────────────────────
     // Row virtualization is the one thing a still frame cannot show, so the
     // opening beat is motion: 200 records streaming past a fixed DOM budget.
-    await clip(page, { label: 'Sort, filter, group — nothing to wire up', weight: 1.5, holdMs: 500 }, async () => {
+    await clip(page, { label: 'Sort, filter, group — nothing to wire up', holdMs: 500 }, async () => {
       const firstBefore = ((await dataRows(page).first().textContent()) ?? '').trim();
       const domRowsBefore = await rowCount(page);
       await wheelScroll(page, grid(page), 0, 2600, 34);
@@ -136,7 +138,7 @@ test.describe('Promo — hero scenario', () => {
     await glideClick(page, targetValue);
     await expect(targetValue).toBeChecked();
 
-    await clip(page, { label: 'Filter and sort compose. Always.', weight: 1.5 }, async () => {
+    await clip(page, { label: 'Filter and sort compose. Always.' }, async () => {
       await glideClick(page, panel.locator('button', { hasText: /apply/i }));
       await expect(panel).toBeHidden();
 
@@ -231,6 +233,7 @@ test.describe('Promo — hero scenario', () => {
         sub: 'Grouping, master-detail, range copy, tool panels, pivot — usually paid enterprise add-ons. Here they are MIT.',
       },
       3200,
+      { chain: true },
     );
     await card(
       page,

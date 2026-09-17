@@ -1,0 +1,200 @@
+{
+  "$comment": "The promo edit. Array order is playback order; in/out are seconds into that scene’s video.webm. Edit freely — `bun run promo:stitch` reads this file as written. `--init` regenerates it from the recorded clip() marks and discards manual changes.",
+  "sequence": [
+    {
+      "scene": "Analyst workflow: sort, filter, select, drill in, edit, undo, group",
+      "in": 0.33,
+      "out": 2.75,
+      "note": "[intro card]"
+    },
+    {
+      "scene": "Analyst workflow: sort, filter, select, drill in, edit, undo, group",
+      "in": 5.19,
+      "out": 8.02,
+      "note": "[intro card]"
+    },
+    {
+      "scene": "Analyst workflow: sort, filter, select, drill in, edit, undo, group",
+      "in": 9.24,
+      "out": 15.86,
+      "note": "Sort, filter, group — nothing to wire up"
+    },
+    {
+      "scene": "Analyst workflow: sort, filter, select, drill in, edit, undo, group",
+      "in": 27.6,
+      "out": 31.47,
+      "note": "Filter and sort compose. Always."
+    },
+    {
+      "scene": "Multi-column sort",
+      "in": 1.39,
+      "out": 4.63,
+      "note": "Sort by many columns at once",
+      "skip": true
+    },
+    {
+      "scene": "Column filtering",
+      "in": 8.49,
+      "out": 12.35,
+      "note": "Excel-style column filters",
+      "skip": true
+    },
+    {
+      "scene": "Selection modes",
+      "in": 17.07,
+      "out": 22.79,
+      "note": "Range selection — usually a paid add-on"
+    },
+    {
+      "scene": "Copy straight into a spreadsheet",
+      "in": 4.77,
+      "out": 10.27,
+      "note": "Range copy to Excel — usually paid"
+    },
+    {
+      "scene": "Inline editing with undo history",
+      "in": 0,
+      "out": 9.19,
+      "note": "Inline edit with real undo history"
+    },
+    {
+      "scene": "Row grouping with aggregates",
+      "in": 0.44,
+      "out": 3.63,
+      "note": "Grouping + totals — usually a paid add-on"
+    },
+    {
+      "scene": "Hierarchical tree data",
+      "in": 0.41,
+      "out": 3.58,
+      "note": "Tree data — usually a paid add-on"
+    },
+    {
+      "scene": "Master-detail drill-down",
+      "in": 0.39,
+      "out": 3.56,
+      "note": "Master-detail — usually a paid add-on"
+    },
+    {
+      "scene": "Drag to reorder columns",
+      "in": 0,
+      "out": 3.98,
+      "note": "Drag columns into place",
+      "skip": true
+    },
+    {
+      "scene": "Drag to reorder rows",
+      "in": 0,
+      "out": 3.99,
+      "note": "Drag rows into place",
+      "skip": true
+    },
+    {
+      "scene": "Pinned columns while scrolling",
+      "in": 0,
+      "out": 3.19,
+      "note": "Pinned columns stay put",
+      "skip": true
+    },
+    {
+      "scene": "Context menu with submenus",
+      "in": 0,
+      "out": 3.22,
+      "note": "Nested context menus",
+      "skip": true
+    },
+    {
+      "scene": "Responsive card mode",
+      "in": 0,
+      "out": 2.19,
+      "note": "Table → cards. No rewrite."
+    },
+    {
+      "scene": "Export to CSV",
+      "in": 4.02,
+      "out": 7.67,
+      "note": "Export CSV & Excel",
+      "skip": true
+    },
+    {
+      "scene": "Server-side paging",
+      "in": 1.21,
+      "out": 3.31,
+      "note": "Server-side paging",
+      "skip": true
+    },
+    {
+      "scene": "Print-ready output",
+      "in": 0,
+      "out": 0.54,
+      "note": "Print the whole dataset",
+      "skip": true
+    },
+    {
+      "scene": "Grouped column headers",
+      "in": 0,
+      "out": 1.97,
+      "note": "Multi-level column headers",
+      "skip": true
+    },
+    {
+      "scene": "Column visibility panel",
+      "in": 6.58,
+      "out": 12.25,
+      "note": "Show, hide and lock columns",
+      "skip": true
+    },
+    {
+      "scene": "Shell with stacked tool panels",
+      "in": 9.78,
+      "out": 15.19,
+      "note": "Tool panels — usually a paid add-on"
+    },
+    {
+      "scene": "Tooltips",
+      "in": 7.6,
+      "out": 9.73,
+      "note": "Tooltips that know the row",
+      "skip": true
+    },
+    {
+      "scene": "Sticky section rows",
+      "in": 0,
+      "out": 3.17,
+      "note": "Sticky section headers",
+      "skip": true
+    },
+    {
+      "scene": "Column virtualization",
+      "in": 3.15,
+      "out": 7.92,
+      "note": "Columns are virtualized too",
+      "skip": true
+    },
+    {
+      "scene": "Pivot tables",
+      "in": 13.03,
+      "out": 15.12,
+      "note": "Pivot — usually a paid add-on"
+    },
+    {
+      "scene": "Pinned summary rows",
+      "in": 12.18,
+      "out": 14.29,
+      "note": "Totals that never scroll away",
+      "skip": true
+    },
+    {
+      "scene": "Analyst workflow: sort, filter, select, drill in, edit, undo, group",
+      "in": 57.41,
+      "out": 60.65,
+      "note": "[punch card]"
+    },
+    {
+      "scene": "Analyst workflow: sort, filter, select, drill in, edit, undo, group",
+      "in": 63.11,
+      "out": 65.53,
+      "note": "[outro card]"
+    }
+  ]
+}

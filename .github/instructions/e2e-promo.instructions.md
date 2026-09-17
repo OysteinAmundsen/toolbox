@@ -24,7 +24,7 @@ Satisfy these seven first; the sections below explain why each one exists.
    `rightClickCell` — never a bare `locator.click()`.
 5. Never ring anything in the control rail (`control`, `controlOption`, `toggleControl`).
 6. Put the assertions **inside** the clip body, and assert the consequence, not the render.
-7. Decide `reel: true` / `reel: false` — the 30 s budget only holds ~13 features.
+7. Give the clip enough `holdMs` to be watchable — the edit can trim a window, never extend it.
 
 The overlay/pacing API lives in `tests/promo/overlay.ts` and is **a no-op unless `PW_PROMO_OVERLAY=1`**:
 
@@ -36,7 +36,7 @@ The overlay/pacing API lives in `tests/promo/overlay.ts` and is **a no-op unless
 | `titleCard(page, main, sub)`  | Scene title (set automatically by `openDemo`)                                            |
 | `aim(page, locator, body)`    | Ring `locator`, run `body`, drop the ring — the only sanctioned way to show intent       |
 | `spotlight(page, locator)`    | Dim the page, ring the region of interest **and glide the pointer to it**; `null` clears |
-| `clip(page, opts, body)`      | Mark `body` as a **money shot** — the window the stitcher cuts into the 30 s reel        |
+| `clip(page, opts, body)`      | Mark `body` as a **money shot** — the window offered to `promo-cut.json`                 |
 | `card(page, role, main, sub)` | Full-frame intro/outro title, recorded as its own clip                                   |
 
 ## The spotlight ring is action-scoped
@@ -51,7 +51,13 @@ lifetime must equal the lifetime of the action it announces.
   clicks, or sits over a filter panel that has already closed, and the reel reads as unedited.
 - A bare `spotlight()` is only for holding a **result** on screen, not an intent.
 - **Every click gets a ring, or none do.** An unringed click next to a ringed one reads as a bug.
-  Route new interactions through the helpers rather than calling `locator.click()` directly.
+  Route new interactions through the helpers rather than calling `locator.click()` directly. This
+  includes the mundane ones — a `radio.check()` or a bare `target.click()` on a plain `<input>`
+  jumps the cursor across the frame in a single protocol move, and reads as a teleport.
+- **Never travel away from a result the viewer has not seen yet.** The cursor leaving for the next
+  target is what ends a shot, so the beat that lets the last action register has to come _before_
+  the next `glideClick`, not after it. A `Ctrl+click` whose fifth selected row is on screen for two
+  frames because the pointer immediately left for a mode switch has shown the viewer nothing.
 - **Never ring anything in the control rail** (`control`, `controlOption`, `toggleControl`). The rail
   lives in the cropped overhang, so the ring would land off-frame and the viewer would see the whole
   picture dim with no visible hole.
@@ -62,55 +68,74 @@ lifetime must equal the lifetime of the action it announces.
 - Outside promo mode `aim` is a transparent pass-through, so CI keeps the assertions and none of the
   pauses.
 
-## The 30-second reel
+## The edit list
 
-`tools/stitch-promo.ts` (`bun run promo:stitch`) reads `promo-output/report.json`, extracts one
-window per `clip()` mark, and concatenates them into `promo-reel.mp4` under a hard 30 s budget.
-`--full` instead concatenates the untrimmed scene videos into `promo-full.mp4`.
+`tools/stitch-promo.ts` produces two videos, and only one of them is an editorial decision:
+
+| Command                | Output           | Contains                                             |
+| ---------------------- | ---------------- | ---------------------------------------------------- |
+| `bun run promo:stitch` | `promo-reel.mp4` | exactly what `apps/docs-e2e/promo-cut.json` says     |
+| `bun run promo:full`   | `promo-full.mp4` | every scene recording, untrimmed, stream-copied      |
+| `bun run promo:init`   | —                | re-derives `promo-cut.json`, **discarding the edit** |
+
+**`promo-cut.json` is the edit, and it is checked in.** It is a flat `sequence` of
+`{ scene, in, out, note?, skip? }`: play that scene's recording from `in` to `out` seconds, in
+array order. Cards and feature clips are the same kind of entry — a card is just a window of the
+hero recording — so reordering the reel, retiming a shot, or pointing two entries at different
+moments of one recording is a JSON edit and **needs no re-record**. `scene` is the test title
+(minus ` @promo`), because Playwright hashes the output directory names.
+
+The stitcher derives the file on first run from the recorded `clip()` marks — cards first,
+features in declaration order, punch and outro last, each entry spanning the full window its
+`clip()` measured, pre-`skip`ped where the scene said `reel: false`. After that the JSON wins;
+nothing about the reel is computed at stitch time. `--init` throws your edit away and starts over,
+so treat it as destructive.
 
 - **Import `test`/`expect` from `./fixture`, not `@playwright/test`.** The fixture calls
   `markPageStart` before the page is used and writes the clip timeline afterwards. Without it
-  `clip()` records nothing and the scene is silently dropped from the reel.
+  `clip()` records nothing and the scene never appears in a derived edit list.
 - The timeline is attached **by `path`**, written via `testInfo.outputPath()`. An attachment
   created with `body:` is inlined as base64 by the JSON reporter and its `path` is omitted, so any
   tool reading `report.json` sees an attachment it cannot open.
 - **Exactly one `clip()` per scene**, wrapping the single most persuasive moment. Everything else
-  in the scene still runs and still asserts — it just does not reach the reel. Twenty-five scenes
-  share 30 seconds; a second clip steals time from another feature. If a scene has two candidate
-  moments, pick the one that lands the claim in the caption and extend `holdMs` to include the
-  setup; if both are genuinely essential, split them into two scenes and mark one `reel: false`.
-- **The reel is curated, not exhaustive.** Thirty seconds only holds ~13 features at a watchable
-  pace, so most scenes carry `reel: false` — they stay in CI and in `promo-full.mp4` but spend no
-  reel seconds. Adding a scene back means taking one out. Do **not** try to buy pacing by raising
-  `MIN_CLIP`; that only redistributes the same 30 seconds.
+  in the scene still runs and still asserts — it just is not offered to the edit. A second clip is
+  not free: it is one more thing for whoever cuts the reel to triage.
+- **A recorded window is raw material, not the edit.** `leadMs`/`holdMs` widen what gets filmed,
+  and that is the only lever the specs have: no amount of retiming in `promo-cut.json` can extend
+  a shot past the window `clip()` measured. If a moment always feels rushed, lengthen `holdMs` and
+  re-record — do not expect the edit to rescue it. Two failures look identical on screen but are
+  fixed in different places: a shot that _starts late_ is usually the edit, a shot that _ends before
+  the result registers_ is always the recording.
+- **Re-recording invalidates the timings.** `in`/`out` are offsets into a specific `video.webm`; a
+  new run shifts them. After changing pacing in a spec, re-derive with `bun run promo:init` and
+  re-apply manual trims. Hand-tune the JSON _after_ the recording is right, not before.
+- **`reel: false` only seeds `skip`.** It is a hint for the _first_ derivation, not a permanent
+  exclusion; after that the JSON decides. Deleting an entry and setting `"skip": true` differ only
+  in whether the timings survive for later.
 - **Assertions go inside the clip body.** `clip()` is a pass-through when `PROMO` is off, so the
-  reel window and the CI assertion are the same code. A clip that wraps nothing but `beat()` is a
-  bug.
-- **`weight` is relative screen time**, not importance-as-you-feel-it. The allocator water-fills
-  `MIN_CLIP`…`MAX_CLIP` by weight, so raising one weight shortens every other clip. A clip can
-  never be given more than the window it actually recorded, so a scene whose action is a single
-  click will sit at the floor no matter what weight it declares — lengthen `holdMs` instead.
-- **`align`** picks which part of a long window survives the trim — `'end'` (default) keeps the
-  result, `'start'` keeps the gesture. Use `'start'` only when the gesture _is_ the story.
-- **`minMs` is a guaranteed floor**, reserved before weights are shared out. Only the cards use it
-  (2200–3200 ms), and they set it from `readMs` because a code block or a three-line claim cannot
-  be read in the ~2 s a feature clip gets. Every extra second here is a second taken from the
-  features.
-- **Both reels open on the brand card.** `openDemo(page, slug, title, sub, intro)` raises the
+  recorded window and the CI assertion are the same code. A clip that wraps nothing but `beat()`
+  is a bug.
+- **Consecutive cards must chain.** `card(..., { chain: true })` fades the card's _content_ out and
+  holds the black frame, so a pair reads card → black → card. Without it the whole frame drops
+  between the two titles and the demo page flashes through for a few hundred milliseconds — the
+  most visible blemish in the long cut, and the one thing a title sequence cannot get away with.
+  The **last** card of a chain leaves `chain` unset: it is the one that cuts to the demo.
+- **Every cut opens on the brand card.** `openDemo(page, slug, title, sub, intro)` raises the
   full-frame card right after `goto()` — before the grid is waited for. `--full` then starts that
   recording _at_ the card rather than prepending a copy of it; a prepended copy cuts back to the
   same card a beat later and reads as a stutter. `card()` holds it ~1 s either side of the
-  recorded window, because the window is mapped by arithmetic rather than a frame-accurate
+  recorded window, because the derived window is mapped by arithmetic rather than a frame-accurate
   timestamp and may drift.
-- Clip windows are mapped onto the recording with `duration - spanMs - TAIL_S`. The recording's
+- Derived windows are mapped onto the recording with `duration - spanMs - TAIL_S`. The recording's
   first frame is written at **first paint**, not at page creation, so the head offset varies by a
   second between a trivial demo and one that loads 200 rows — only the teardown tail is stable
-  enough to anchor on. If clips start landing on the caption _after_ the one they should show,
-  re-measure `TAIL_S` in `tools/stitch-promo.ts`.
-- **Clips are joined with a cross-dissolve** (`XFADE`, 0.28 s), and the reel opens and closes on
-  black. `xfade` overlaps its inputs, so the budget handed to `allocate()` is grown by
-  `(n-1) * XFADE` to still land on 30 s. Only the reel dissolves — `--full` stays a stream copy,
-  which is why it can join five minutes of footage in seconds. `--xfade=0` gives hard cuts back.
+  enough to anchor on. This only affects `--init`; once the numbers are in `promo-cut.json` they
+  are used as written. If a _freshly derived_ list lands on the caption _after_ the one it should
+  show, re-measure `TAIL_S` in `tools/stitch-promo.ts`.
+- **Clips are joined with a cross-dissolve** (`XFADE`, 0.3 s), and the reel opens and closes on
+  black. `xfade` overlaps its inputs, so the reel runs `(n-1) * XFADE` seconds shorter than the sum
+  of its `in`/`out` spans. Only the reel dissolves — `--full` stays a stream copy, which is why it
+  can join five minutes of footage in seconds. `--xfade=0` gives hard cuts back.
 
 ## The reel is an argument, not a spec sheet
 

@@ -61,29 +61,45 @@ Clips land in `apps/docs-e2e/promo-output/<test>/video.webm` — one per test.
 ### Stitching the clips into one video
 
 ```bash
-bun run promo:stitch     # → promo-output/promo-reel.mp4  (≤30s, marketing cut)
+bun run promo:stitch     # → promo-output/promo-reel.mp4  (whatever promo-cut.json says)
 bun run promo:full       # → promo-output/promo-full.mp4  (every scene, untrimmed)
+bun run promo:init       # re-derive promo-cut.json from the recording — DISCARDS the edit
 ```
 
-The reel is **not** the recording concatenated. Each scene marks its single most persuasive moment
-with `clip()` (see `e2e-promo.instructions.md`); the stitcher extracts just those windows,
-water-fills them to a 30-second budget by `weight`, upscales to 1920×1080 and hard-cuts them
-together — intro card, features in declaration order, outro card.
+The reel is **not** the recording concatenated, and it is **not** computed. It is assembled from
+`apps/docs-e2e/promo-cut.json`, a checked-in edit list:
 
-Use `--max <seconds>` to change the budget and `--clip <seconds>` to change the per-clip ceiling.
+```jsonc
+{
+  "sequence": [
+    { "scene": "Selection modes", "in": 12.4, "out": 18.15, "note": "Range selection" },
+    { "scene": "Column filtering", "in": 8.46, "out": 12.39, "note": "…", "skip": true },
+  ],
+}
+```
 
-Clip order comes from `promo-output/report.json` (the JSON reporter in the promo config), not from
-globbing — the output directory names are hashed and unordered. The stitcher warns about any scene
-that recorded no `clip()` window, which almost always means the spec imported `test` from
-`@playwright/test` instead of `./fixture`.
+Each entry is "play this scene's recording from `in` to `out` seconds"; array order is playback
+order. `scene` is the **test title** minus ` @promo` (Playwright hashes the output directory names,
+so titles are the only stable handle). Cards and feature clips are the same kind of entry — a card
+is just a window of the hero recording.
+
+**Retiming, reordering or dropping a shot is a JSON edit and needs no re-record.** Iterating is
+`edit promo-cut.json` → `bun run promo:stitch` → watch. The one thing the JSON cannot do is extend
+a shot past the window its `clip()` filmed; that needs a bigger `holdMs` and a new recording.
+
+The file is derived on first run from the recorded `clip()` marks (cards first, features in
+declaration order, punch and outro last, `reel: false` pre-`skip`ped). After that the JSON wins.
+`--init` regenerates it and **throws the current edit away** — it is destructive by design.
+
+`--xfade=<seconds>` overrides the 0.3 s dissolve; `--xfade=0` gives hard cuts.
 
 ### Reviewing the result
 
-A 30-second reel is faster to review as a contact sheet than as a video:
+A reel is faster to review as a contact sheet than as a video:
 
 ```bash
 cd apps/docs-e2e/promo-output
-ffmpeg -y -v error -i promo-reel.mp4 -vf "fps=1,scale=440:-1,tile=6x5" -frames:v 1 ../../../tmp/reel-sheet.png
+ffmpeg -y -v error -i promo-reel.mp4 -vf "fps=1,scale=440:-1,tile=7x7" -frames:v 1 ../../../tmp/reel-sheet.png
 ffmpeg -y -v error -ss 17.9 -i promo-reel.mp4 -frames:v 1 ../../../tmp/frame.png   # one full-res frame
 ```
 

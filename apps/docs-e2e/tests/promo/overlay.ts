@@ -14,8 +14,10 @@ import { writeFile } from 'fs/promises';
  *  - the **timeline** ({@link clip}) — the `{label, startMs, endMs}` windows
  *    marking the money shots inside that video.
  *
- * `tools/stitch-promo.ts` reads the timeline to cut a ≤30 s reel out of several
- * minutes of footage. A scene without a `clip()` contributes nothing to the reel.
+ * `tools/stitch-promo.ts` reads the timeline to cut a ~45 s reel (or a ~110 s
+ * social cut) out of several minutes of footage. A scene without a `clip()`
+ * contributes nothing to either of those; `--full` needs no timeline and
+ * concatenates every recording regardless.
  */
 export const PROMO = process.env.PW_PROMO_OVERLAY === '1';
 
@@ -27,17 +29,13 @@ export type ClipRole = 'intro' | 'feature' | 'punch' | 'outro';
 export interface ClipOptions {
   /** Short, punchy label. It is on screen for barely a second in the reel — keep it under ~44 chars. */
   label: string;
-  /** Relative share of the reel's time budget. 1 = normal, 2 = twice as long. */
-  weight?: number;
-  /** Ordering bucket. Intros play first, outros last, features in declaration order. */
+  /** Ordering bucket for a freshly derived edit list. Intros first, outros last. */
   role?: ClipRole;
-  /** Which end of the window survives when the reel budget is tighter than the window. */
-  align?: 'start' | 'middle' | 'end';
-  /** Guaranteed screen time in the reel, taken off the top before weights are applied. */
-  minMs?: number;
   /**
-   * Set `false` to keep the clip out of the short reel. The scene still runs, still
-   * asserts, and still appears in `--full` — it just does not spend reel seconds.
+   * Set `false` to have the clip start out `skip`ped when the edit list is
+   * derived. It costs nothing after that — `promo-cut.json` decides what is in
+   * the reel, and the scene still runs, still asserts and still appears in
+   * `--full`.
    */
   reel?: boolean;
   /** Extra hold after the action — for transitions that keep animating. */
@@ -104,8 +102,11 @@ export async function attachPromoTimeline(page: Page, testInfo: TestInfo) {
  * });
  * ```
  *
- * One clip per scene is the target: the 30-second budget is split across every
- * clip in the run, so a second clip halves what the first one gets.
+ * The recorded window is the *raw material*, not the edit: it becomes one entry
+ * in `apps/docs-e2e/promo-cut.json`, which is where its final mark-in and
+ * mark-out are decided. Widening it with `leadMs`/`holdMs` is therefore the
+ * only way to give an editor more footage to choose from — no amount of
+ * retiming in the JSON can extend a window past what was filmed.
  */
 export async function clip<T>(page: Page, label: string | ClipOptions, body: () => Promise<T>): Promise<T> {
   if (!PROMO) return body();
@@ -115,7 +116,7 @@ export async function clip<T>(page: Page, label: string | ClipOptions, body: () 
 
   // The lead-in is inside the window on purpose: the caption needs to be
   // readable before the action starts, and a window barely longer than the
-  // gesture leaves the stitcher nothing to spend the reel budget on.
+  // gesture leaves the editor nothing to trim into.
   if (opts.label) await setCaption(page, opts.label);
   const startMs = Date.now();
   await beat(page, opts.leadMs ?? 600);
@@ -126,9 +127,6 @@ export async function clip<T>(page: Page, label: string | ClipOptions, body: () 
   timeline?.marks.push({
     label: opts.label,
     role: opts.role ?? 'feature',
-    weight: opts.weight ?? 1,
-    align: opts.align ?? 'end',
-    minMs: opts.minMs ?? 0,
     reel: opts.reel ?? true,
     startMs: startMs - timeline.startedAt,
     endMs: Date.now() - timeline.startedAt,
@@ -146,6 +144,8 @@ declare global {
       caption(text: string | null): void;
       title(main: string, sub?: string | null): void;
       card(content: CardContent | null): void;
+      /** Fade the card content out but hold the full-frame backdrop, so the next card cuts in from black. */
+      cardToBlack(): void;
       spotlight(rect: { x: number; y: number; width: number; height: number } | null): void;
     };
   }
@@ -394,13 +394,24 @@ export async function installOverlay(page: Page) {
         .tbw-promo-keys.show { opacity: 1; }
         /* Full-frame card — the opening and closing titles of the stitched reel. */
         .tbw-promo-card {
-          inset: 0; display: flex; flex-direction: column;
-          align-items: center; justify-content: center; gap: 16px;
+          inset: 0;
           background: radial-gradient(115% 110% at 50% 32%, #1e2839 0%, #0a0d14 58%, #05070b 100%);
-          color: #fff; text-align: center;
           opacity: 0; z-index: 2147483644; transition: opacity 260ms ease;
         }
         .tbw-promo-card.show { opacity: 1; }
+        /*
+         * The content fades independently of the frame it sits on. Two cards in
+         * a row therefore go card → black → card: without this the frame drops
+         * with the text and the demo page flashes through for a few hundred
+         * milliseconds between two title screens, which reads as a mistake.
+         */
+        .tbw-promo-card-body {
+          position: absolute; inset: 0; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; gap: 16px;
+          color: #fff; text-align: center;
+          opacity: 0; transition: opacity 260ms ease;
+        }
+        .tbw-promo-card-body.lit { opacity: 1; }
         /*
          * A card is a full-frame title, so nothing from the demo underneath may
          * bleed through — including the synthetic cursor, which otherwise parks
@@ -480,6 +491,9 @@ export async function installOverlay(page: Page) {
       const spot = make('tbw-promo-spot');
       spotWrap.appendChild(spot);
       const cardEl = make('tbw-promo-card');
+      const cardBodyEl = document.createElement('div');
+      cardBodyEl.className = 'tbw-promo-card-body';
+      cardEl.appendChild(cardBodyEl);
       const captionEl = make('tbw-promo-caption');
       const keysEl = make('tbw-promo-keys');
 
@@ -628,17 +642,19 @@ export async function installOverlay(page: Page) {
         },
         card(content) {
           if (!content) {
+            // Drops the frame *and* the content — this is the cut back to the demo.
             cardEl.classList.remove('show');
+            cardBodyEl.classList.remove('lit');
             return;
           }
-          cardEl.innerHTML = '';
+          cardBodyEl.innerHTML = '';
           const kicker = document.createElement('em');
           kicker.textContent = content.kicker ?? '@toolbox-web/grid';
-          cardEl.appendChild(kicker);
+          cardBodyEl.appendChild(kicker);
           if (content.main) {
             const b = document.createElement('b');
             b.textContent = content.main;
-            cardEl.appendChild(b);
+            cardBodyEl.appendChild(b);
           }
           if (content.code) {
             // Tags orange, attribute names white, string values blue — enough
@@ -660,14 +676,18 @@ export async function installOverlay(page: Page) {
               line.appendChild(document.createTextNode(raw.slice(last) || '\u200b'));
               pre.appendChild(line);
             }
-            cardEl.appendChild(pre);
+            cardBodyEl.appendChild(pre);
           }
           if (content.sub) {
             const s = document.createElement('span');
             s.textContent = content.sub;
-            cardEl.appendChild(s);
+            cardBodyEl.appendChild(s);
           }
           cardEl.classList.add('show');
+          cardBodyEl.classList.add('lit');
+        },
+        cardToBlack() {
+          cardBodyEl.classList.remove('lit');
         },
         spotlight(rect) {
           if (!rect) {
@@ -716,7 +736,7 @@ async function setCaption(page: Page, text: string | null) {
  *
  * This is connective narration for the long-form cut. The **reel** only ever
  * shows {@link clip} labels, so a `say()` outside a clip window costs wall-clock
- * without appearing in the 30-second edit — keep them short and few.
+ * without appearing in the trimmed cuts — keep them short and few.
  */
 export async function say(page: Page, text: string, holdMs?: number) {
   if (!PROMO) return;
@@ -757,22 +777,38 @@ export async function titleCard(page: Page, main: string, sub?: string) {
  * block or a three-line claim is not, and the allocator will happily starve it
  * down to `MIN_CLIP` unless told otherwise.
  *
+ * Set `chain` when another card follows immediately. The card then fades its
+ * *content* out and holds the black frame, so the pair reads card → black →
+ * card. Without it the whole frame drops between the two and the demo page
+ * flashes through for a few hundred milliseconds — the reel's most visible
+ * blemish, and the one thing a title sequence cannot get away with. The last
+ * card of a chain must leave `chain` unset; it is the one that cuts to the demo.
+ *
  * No-op outside promo mode — which is why the caller must still assert something
  * real around it, exactly like any other scene.
  */
-export async function card(page: Page, role: 'intro' | 'punch' | 'outro', content: CardContent, readMs = 2000) {
+export async function card(
+  page: Page,
+  role: 'intro' | 'punch' | 'outro',
+  content: CardContent,
+  readMs = 2000,
+  { chain = false } = {},
+) {
   if (!PROMO) return;
   await page.evaluate((c) => window.__tbwPromo?.card(c), content);
   await beat(page, 950);
   const hold = Math.max(1500, readMs - 900);
-  await clip(
-    page,
-    { label: '', role, weight: 1.3, align: 'middle', minMs: readMs, leadMs: 0, holdMs: 900 },
-    async () => {
-      await beat(page, hold);
-    },
-  );
+  await clip(page, { label: '', role, leadMs: 0, holdMs: 900 }, async () => {
+    await beat(page, hold);
+  });
   await beat(page, 950);
+  if (chain) {
+    await page.evaluate(() => window.__tbwPromo?.cardToBlack());
+    // Long enough that the black frame reads as a deliberate beat rather than a
+    // dropped frame, short enough that it is not dead air.
+    await beat(page, 520);
+    return;
+  }
   await page.evaluate(() => window.__tbwPromo?.card(null));
   await beat(page, 250);
 }

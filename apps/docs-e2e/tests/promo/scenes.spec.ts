@@ -45,10 +45,10 @@ import { expect, test } from './fixture';
  *    `say()` are camera pacing only and are no-ops in CI.
  * 4. Exactly **one** `clip()` per scene, wrapping the single most persuasive
  *    moment. Everything outside a clip still runs (and still asserts) but never
- *    reaches the 30-second reel — the stitcher only cuts marked windows, and a
+ *    reaches the stitched cuts — the stitcher only cuts marked windows, and a
  *    second clip halves what the first one gets.
- * 5. `reel: false` keeps a scene out of the short reel while leaving it in the
- *    long cut. Thirty seconds only holds a dozen features at a watchable pace,
+ * 5. `reel: false` keeps a scene out of the curated reel while leaving it in the
+ *    social and full cuts. The reel only holds ~14 clips at a watchable pace,
  *    so a scene has to displace another one to earn a place.
  */
 
@@ -164,7 +164,9 @@ test.describe('Promo — capability reel', () => {
     await expect(output).toContainText(/row|cell|range/i);
 
     await say(page, 'Row mode: Shift+click selects a contiguous run.');
-    await page.locator('input[type="radio"][value="row"]').check();
+    const rowMode = page.locator('input[type="radio"][value="row"]');
+    await glideClick(page, rowMode);
+    await expect(rowMode).toBeChecked();
     await clickCell(page, 1, 0);
     await clickCell(page, 4, 0, { modifiers: ['Shift'] });
     await expect(page.locator('tbw-grid .data-grid-row.selected')).toHaveCount(4);
@@ -172,9 +174,14 @@ test.describe('Promo — capability reel', () => {
     await say(page, 'Ctrl+click extends the selection anywhere else.');
     await clickCell(page, 7, 0, { modifiers: ['Control'] });
     await expect(page.locator('tbw-grid .data-grid-row.selected')).toHaveCount(5);
+    // Hold the disjoint selection. The next step travels to the mode switch,
+    // and without this the result of the Ctrl+click is never once on screen.
+    await beat(page, 1300);
 
-    await page.locator('input[type="radio"][value="range"]').check();
-    await clip(page, { label: 'Range selection — usually a paid add-on', weight: 1.2 }, async () => {
+    const rangeMode = page.locator('input[type="radio"][value="range"]');
+    await glideClick(page, rangeMode);
+    await expect(rangeMode).toBeChecked();
+    await clip(page, { label: 'Range selection — usually a paid add-on' }, async () => {
       await dragBetween(page, cell(page, 1, 1), cell(page, 4, 4));
       await expect.poll(async () => (await selection.last())?.ranges?.length ?? 0).toBeGreaterThan(0);
     });
@@ -189,12 +196,16 @@ test.describe('Promo — capability reel', () => {
     await clickCell(page, 0, 1);
     await clickCell(page, 2, 3, { modifiers: ['Shift'] });
     await page.keyboard.press('Control+c');
+    await beat(page, 900);
 
     const target = page.locator('#clipboard-external-target');
     await expect(target).toBeVisible();
 
-    await clip(page, { label: 'Range copy to Excel — usually paid', weight: 1.2 }, async () => {
-      await target.click();
+    // The paste itself is instantaneous, so the whole shot is the approach and
+    // the hold: the cursor has to be seen travelling *out of the grid* into
+    // another field, and the pasted block has to stay up long enough to read.
+    await clip(page, { label: 'Range copy to Excel — usually paid', holdMs: 3000 }, async () => {
+      await glideClick(page, target);
       await page.keyboard.press('Control+v');
 
       await expect(target).toHaveValue(/alice@example\.com/);
@@ -212,17 +223,21 @@ test.describe('Promo — capability reel', () => {
     const original = ((await target.textContent()) ?? '').trim();
     expect(original).not.toBe('');
 
-    await say(page, 'Double-click to edit in place.');
-    await dblClickCell(page, 0, 1);
-    await expect(page.locator('tbw-grid input, tbw-grid [contenteditable]').first()).toBeVisible();
-    await typeAndCommit(page, 'Renamed by promo');
-    await expect(target).toHaveText('Renamed by promo');
+    // One window over the whole story — type, undo, redo. The edit is the setup
+    // for the undo: cut it out and the reel shows a value changing back to
+    // something the viewer never saw it leave. Wide on purpose; `promo-cut.json`
+    // can split it into two shots or trim to either half.
+    await clip(page, { label: 'Inline edit with real undo history', holdMs: 1800 }, async () => {
+      await dblClickCell(page, 0, 1);
+      await expect(page.locator('tbw-grid input, tbw-grid [contenteditable]').first()).toBeVisible();
+      await typeAndCommit(page, 'Renamed by promo');
+      await expect(target).toHaveText('Renamed by promo');
+      await beat(page, 1000);
 
-    await target.click();
-    await clip(page, { label: 'Inline edit with real undo history', weight: 1.2 }, async () => {
+      await target.click();
       await page.keyboard.press('Control+z');
       await expect(target).toHaveText(original);
-      await beat(page, 500);
+      await beat(page, 1100);
       await page.keyboard.press('Control+y');
       await expect(target).toHaveText('Renamed by promo');
     });
@@ -288,7 +303,7 @@ test.describe('Promo — capability reel', () => {
     await expect(expander).toBeVisible();
 
     const detail = page.locator('tbw-grid .master-detail-row').first();
-    await clip(page, { label: 'Master-detail — usually a paid add-on', weight: 1.1 }, async () => {
+    await clip(page, { label: 'Master-detail — usually a paid add-on' }, async () => {
       await aim(page, expander, async () => {
         await expander.click();
         await expect(detail).toBeVisible();
@@ -367,7 +382,7 @@ test.describe('Promo — capability reel', () => {
     const freeBefore = await freeHeader.boundingBox();
     const pinnedRightBefore = await pinnedRight.boundingBox();
 
-    await clip(page, { label: 'Pinned columns stay put', weight: 1.2, reel: false }, async () => {
+    await clip(page, { label: 'Pinned columns stay put', reel: false }, async () => {
       await wheelScroll(page, grid(page), 1200, 0, 30);
       await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
 
@@ -421,7 +436,7 @@ test.describe('Promo — capability reel', () => {
     // The single most persuasive shot in the reel: a layout change nobody wrote
     // a media query for. Weighted up so the morph is legible at 30 fps.
     let startWidth = 0;
-    await clip(page, { label: 'Table → cards. No rewrite.', weight: 1.6, align: 'end' }, async () => {
+    await clip(page, { label: 'Table → cards. No rewrite.' }, async () => {
       startWidth = await animateWidth(page, '.responsive-resize-wrap', 380);
       // Card layout is driven by the `data-responsive` attribute the plugin sets.
       await expect(grid(page)).toHaveAttribute('data-responsive', /.*/);
@@ -455,7 +470,7 @@ test.describe('Promo — capability reel', () => {
     expect(lines[0].split(',').length).toBeGreaterThan(1);
 
     // A download is invisible on camera, so the clip is the payload readout.
-    await clip(page, { label: 'Export CSV & Excel', weight: 0.8, holdMs: 1200, reel: false }, async () => {
+    await clip(page, { label: 'Export CSV & Excel', holdMs: 1200, reel: false }, async () => {
       await say(page, `${download.suggestedFilename()} — ${lines[0]}`, 900);
       await say(page, lines[1], 900);
     });
@@ -471,7 +486,7 @@ test.describe('Promo — capability reel', () => {
 
     const firstBefore = ((await dataRows(page).first().textContent()) ?? '').trim();
 
-    await clip(page, { label: 'Server-side paging', weight: 0.8, reel: false }, async () => {
+    await clip(page, { label: 'Server-side paging', reel: false }, async () => {
       await page
         .locator('button')
         .filter({ hasText: /next|→|›/i })
@@ -486,7 +501,7 @@ test.describe('Promo — capability reel', () => {
   test('Print-ready output @promo', async ({ page }) => {
     await openDemo(page, 'print/PrintBasicDemo', 'Printing', 'Full dataset, print stylesheet included');
 
-    await clip(page, { label: 'Print the whole dataset', weight: 0.8, holdMs: 700, reel: false }, async () => {
+    await clip(page, { label: 'Print the whole dataset', holdMs: 700, reel: false }, async () => {
       await page.emulateMedia({ media: 'print' });
       await expect(dataRows(page).first()).toBeVisible();
       expect(await rowCount(page)).toBeGreaterThan(0);
@@ -509,7 +524,7 @@ test.describe('Promo — capability reel', () => {
     const personal = page.locator('tbw-grid .header-group-cell[data-group="personal"]');
     await expect(groupRow).toBeVisible();
 
-    await clip(page, { label: 'Multi-level column headers', weight: 0.9, holdMs: 700, reel: false }, async () => {
+    await clip(page, { label: 'Multi-level column headers', holdMs: 700, reel: false }, async () => {
       await aim(page, personal, async () => {
         // Prove the span is computed rather than decorative: the group cell must
         // start where its first member starts and be as wide as all three together.
@@ -557,7 +572,7 @@ test.describe('Promo — capability reel', () => {
     await expect(panel).toHaveClass(/open/);
 
     await say(page, 'Tick a column back on — headers and cells both return.');
-    await clip(page, { label: 'Show, hide and lock columns', weight: 0.9, reel: false }, async () => {
+    await clip(page, { label: 'Show, hide and lock columns', reel: false }, async () => {
       await glideClick(page, panel.locator('.tbw-visibility-row[data-field="email"] label'));
       await expect(headerCells(page)).toHaveCount(5);
       await expect(page.locator('tbw-grid [role="gridcell"][data-field="email"]').first()).toBeVisible();
@@ -594,7 +609,7 @@ test.describe('Promo — capability reel', () => {
     await expect(page.locator('tbw-grid [data-section="filter"]')).not.toHaveClass(/expanded/);
 
     await say(page, 'Panels drive the grid, not just themselves.');
-    await clip(page, { label: 'Tool panels — usually a paid add-on', weight: 1.1 }, async () => {
+    await clip(page, { label: 'Tool panels — usually a paid add-on', holdMs: 3000 }, async () => {
       await glideClick(
         page,
         page.locator('tbw-grid #tbw-section-columns .tbw-visibility-row[data-field="salary"] label'),
@@ -627,7 +642,7 @@ test.describe('Promo — capability reel', () => {
     await say(page, 'Cell tooltips are functions of the row, not fixed strings.');
     const roleCell = cellByField(page, 0, 'role');
     await moveTo(page, roleCell);
-    await clip(page, { label: 'Tooltips that know the row', weight: 0.9, reel: false }, async () => {
+    await clip(page, { label: 'Tooltips that know the row', reel: false }, async () => {
       await roleCell.hover();
       await expect(tip).toHaveText('Alice Johnson — Senior Software Engineer');
     });
@@ -653,7 +668,7 @@ test.describe('Promo — capability reel', () => {
     await expect(stickyHost).toHaveAttribute('data-mode', 'push');
     await expect(stuck).toHaveCount(0);
 
-    await clip(page, { label: 'Sticky section headers', weight: 1.1, reel: false }, async () => {
+    await clip(page, { label: 'Sticky section headers', reel: false }, async () => {
       await wheelScroll(page, grid(page), 0, 900, 24);
       await expect(stuck).toHaveCount(1);
       await expect(stuck.first()).toHaveClass(/row-section/);
@@ -700,7 +715,7 @@ test.describe('Promo — capability reel', () => {
     expect(rendered).toBeLessThan(50);
 
     const before = await fields();
-    await clip(page, { label: 'Columns are virtualized too', weight: 1.1, reel: false }, async () => {
+    await clip(page, { label: 'Columns are virtualized too', reel: false }, async () => {
       await wheelScroll(page, grid(page), 2500, 0, 30);
       await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
 
@@ -749,7 +764,7 @@ test.describe('Promo — capability reel', () => {
     await expect.poll(() => leafRows.count()).toBe(leavesBefore);
 
     await say(page, 'Change the aggregation and every column relabels and recomputes.');
-    await clip(page, { label: 'Pivot — usually a paid add-on', weight: 1.3 }, async () => {
+    await clip(page, { label: 'Pivot — usually a paid add-on' }, async () => {
       await control(page, 'aggFunc').selectOption('avg');
       await expect(headerCells(page).filter({ hasText: 'Q1 - Avg Sales (avg)' })).toHaveCount(1);
       await expect(headerCells(page).filter({ hasText: /Total Sales \(sum\)/ })).toHaveCount(0);
@@ -793,7 +808,7 @@ test.describe('Promo — capability reel', () => {
     await expect(page.locator('tbw-grid [data-pinned-row-id="custom"]')).toHaveCount(0);
 
     await say(page, 'Stack several summaries — sum, average, min and max.');
-    await clip(page, { label: 'Totals that never scroll away', weight: 0.9, reel: false }, async () => {
+    await clip(page, { label: 'Totals that never scroll away', reel: false }, async () => {
       await toggleControl(page, 'multipleRows', true);
       await expect(page.locator('tbw-grid .tbw-aggregation-row')).toHaveCount(3);
     });

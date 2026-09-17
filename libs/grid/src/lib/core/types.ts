@@ -2812,6 +2812,10 @@ export interface GridConfig<TRow = any, TField extends string = ColumnFieldKey<T
    * **Variable Row Heights**: When a function is provided, the grid enables variable height
    * virtualization. Heights are measured on first render and cached by row identity.
    *
+   * **Numeric form**: the value is written to the `--tbw-row-height` custom property on the host
+   * element (overriding the theme) and is never replaced by a measured height, even when a plugin
+   * enables variable-height virtualization.
+   *
    * @default Auto-measured from first row (respects --tbw-row-height CSS variable)
    *
    * @example

@@ -25,7 +25,7 @@ describe('ConfigManager', () => {
       _gridTemplate: '',
       _resizeController: { onColumnResizeStart: vi.fn() } as any,
       effectiveConfig: {},
-      style: { setProperty: vi.fn() } as any,
+      style: { setProperty: vi.fn(), removeProperty: vi.fn() } as any,
     };
     configManager = new ConfigManager(mockGrid as InternalGrid<{ id: number; name: string }>);
   });

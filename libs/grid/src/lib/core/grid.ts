@@ -2087,8 +2087,27 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       // else: column was removed by plugins — skip
     }
 
-    // Append any plugin-added columns (e.g., expander) at the end
-    result.push(...pluginAdded);
+    // Reinsert plugin-added columns at the position chosen by the plugin.
+    // Anchor each added column before the next source column in the processed
+    // visible order; if there is no following source column, it belongs at the end.
+    for (const added of pluginAdded) {
+      const processedIndex = processedVisible.indexOf(added);
+      const nextSource = processedVisible
+        .slice(processedIndex + 1)
+        .find((col) => sourceFields.has(col.field));
+
+      if (!nextSource) {
+        result.push(added);
+        continue;
+      }
+
+      const anchorIndex = result.findIndex((col) => col.field === nextSource.field);
+      if (anchorIndex === -1) {
+        result.push(added);
+      } else {
+        result.splice(anchorIndex, 0, added);
+      }
+    }
 
     return result;
   }

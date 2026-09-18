@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.8.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.8.1...grid-3.8.2) (2026-09-18)
+
+
+### Bug Fixes
+
+* **grid:** preserve plugin column order with hidden columns ([#483](https://github.com/OysteinAmundsen/toolbox/issues/483)) ([9677138](https://github.com/OysteinAmundsen/toolbox/commit/9677138edc1f81b56af4637c2a5ad2c6064c0dbe)), closes [#482](https://github.com/OysteinAmundsen/toolbox/issues/482)
+
 ## [3.8.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.8.0...grid-3.8.1) (2026-09-17)
 
 

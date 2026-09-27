@@ -112,8 +112,8 @@ describe('clipboard fillSelection over updateRows pipeline', () => {
     expect(grid._rows[2].terminal).toBe('Mongstad');
   });
 
-  it.each([['spreadsheet'], [['range', 'column']]] as const)(
-    'fills a multi-cell selection when mode is %j (keyed on activeAxis, not mode)',
+  it.each([[['range', 'column']]] as const)(
+    'fills a multi-cell selection when mode is the array %j (keyed on activeAxis, not mode)',
     async (mode) => {
       grid.gridConfig = {
         columns: [

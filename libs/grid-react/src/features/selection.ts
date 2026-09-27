@@ -214,7 +214,7 @@ export function useGridSelection<TRow = unknown>(selector?: string): SelectionMe
       );
       return;
     }
-    // The plugin resolves every mode (incl. array modes and 'spreadsheet'),
+    // The plugin resolves every mode (including array modes),
     // honors isSelectable/multiSelect and emits selection-change.
     plugin.selectAll();
   }, [getPlugin]);

@@ -865,8 +865,8 @@ interface SelectionQueryResult {
 
 /**
  * The axis a selection lives on. Prefers `activeAxis`: the configured `mode`
- * may be an array (`['range','column']`) or `'spreadsheet'`, both of which
- * select on the range axis. Falls back to a plain string `mode`.
+ * may be an array (e.g. `['range','column']`), which a string comparison
+ * would miss. Falls back to a plain string `mode`.
  */
 function selectionAxis(selection: SelectionQueryResult | undefined): string | undefined {
   if (selection?.activeAxis) return selection.activeAxis;

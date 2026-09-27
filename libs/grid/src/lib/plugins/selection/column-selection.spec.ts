@@ -10,90 +10,25 @@ import {
 describe('column-selection helpers', () => {
   describe('normalizeMode', () => {
     it('normalizes single-string modes', () => {
-      expect(normalizeMode('cell')).toEqual({
-        primary: 'cell',
-        columnEnabled: false,
-        bothAxes: false,
-        spreadsheet: false,
-      });
-      expect(normalizeMode('row')).toEqual({
-        primary: 'row',
-        columnEnabled: false,
-        bothAxes: false,
-        spreadsheet: false,
-      });
-      expect(normalizeMode('range')).toEqual({
-        primary: 'range',
-        columnEnabled: false,
-        bothAxes: false,
-        spreadsheet: false,
-      });
+      expect(normalizeMode('cell')).toEqual({ primary: 'cell', columnEnabled: false, bothAxes: false });
+      expect(normalizeMode('row')).toEqual({ primary: 'row', columnEnabled: false, bothAxes: false });
+      expect(normalizeMode('range')).toEqual({ primary: 'range', columnEnabled: false, bothAxes: false });
     });
 
     it('marks column-only mode as columnEnabled', () => {
-      expect(normalizeMode('column')).toEqual({
-        primary: 'column',
-        columnEnabled: true,
-        bothAxes: false,
-        spreadsheet: false,
-      });
+      expect(normalizeMode('column')).toEqual({ primary: 'column', columnEnabled: true, bothAxes: false });
     });
 
     it('handles two-element arrays containing column', () => {
-      expect(normalizeMode(['column', 'row'])).toEqual({
-        primary: 'row',
-        columnEnabled: true,
-        bothAxes: true,
-        spreadsheet: false,
-      });
-      expect(normalizeMode(['row', 'column'])).toEqual({
-        primary: 'row',
-        columnEnabled: true,
-        bothAxes: true,
-        spreadsheet: false,
-      });
-      expect(normalizeMode(['column', 'cell'])).toEqual({
-        primary: 'cell',
-        columnEnabled: true,
-        bothAxes: true,
-        spreadsheet: false,
-      });
-      expect(normalizeMode(['column', 'range'])).toEqual({
-        primary: 'range',
-        columnEnabled: true,
-        bothAxes: true,
-        spreadsheet: false,
-      });
+      expect(normalizeMode(['column', 'row'])).toEqual({ primary: 'row', columnEnabled: true, bothAxes: true });
+      expect(normalizeMode(['row', 'column'])).toEqual({ primary: 'row', columnEnabled: true, bothAxes: true });
+      expect(normalizeMode(['column', 'cell'])).toEqual({ primary: 'cell', columnEnabled: true, bothAxes: true });
+      expect(normalizeMode(['column', 'range'])).toEqual({ primary: 'range', columnEnabled: true, bothAxes: true });
     });
 
     it('treats single-element arrays as the contained string', () => {
-      expect(normalizeMode(['row'])).toEqual({
-        primary: 'row',
-        columnEnabled: false,
-        bothAxes: false,
-        spreadsheet: false,
-      });
-      expect(normalizeMode(['column'])).toEqual({
-        primary: 'column',
-        columnEnabled: true,
-        bothAxes: false,
-        spreadsheet: false,
-      });
-    });
-
-    it("maps 'spreadsheet' onto the range axis with the spreadsheet flag", () => {
-      expect(normalizeMode('spreadsheet')).toEqual({
-        primary: 'range',
-        columnEnabled: false,
-        bothAxes: false,
-        spreadsheet: true,
-      });
-      expect(normalizeMode(['spreadsheet']).spreadsheet).toBe(true);
-    });
-
-    it("rejects 'spreadsheet' inside a multi-mode array", () => {
-      expect(() => normalizeMode(['spreadsheet', 'column'])).toThrow(/use it on its own/);
-      expect(() => normalizeMode(['row', 'spreadsheet'])).toThrow(/use it on its own/);
+      expect(normalizeMode(['row'])).toEqual({ primary: 'row', columnEnabled: false, bothAxes: false });
+      expect(normalizeMode(['column'])).toEqual({ primary: 'column', columnEnabled: true, bothAxes: false });
     });
 
     it('throws on invalid mode strings', () => {

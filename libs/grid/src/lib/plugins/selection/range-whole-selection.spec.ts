@@ -1,13 +1,14 @@
 /**
- * SelectionPlugin `mode: 'spreadsheet'` — range selection plus whole rows and
- * whole columns, all expressed as ranges (Excel / Google Sheets muscle memory).
+ * SelectionPlugin range mode — whole rows (Shift+Space) and whole columns
+ * (Ctrl/⌘+Space, Ctrl/⌘+click header), expressed as ranges (Excel / Google
+ * Sheets muscle memory).
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import { EditingPlugin } from '../editing/editing-plugin';
 import { SelectionPlugin } from './selection-plugin';
-import type { SelectionChangeDetail } from './types';
+import type { SelectionChangeDetail, SelectionMode } from './types';
 
 async function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
@@ -44,13 +45,17 @@ const columns = [
 ];
 const makeRows = (n: number) => Array.from({ length: n }, (_, i) => ({ a: i, b: i * 10, c: i * 100, d: `r${i}` }));
 
-describe("SelectionPlugin mode: 'spreadsheet'", () => {
+describe('SelectionPlugin range mode — whole rows and columns', () => {
   let grid: any;
   let plugin: SelectionPlugin;
   let events: SelectionChangeDetail[];
 
-  async function setup(extraPlugins: unknown[] = [], rows = makeRows(6)) {
-    plugin = new SelectionPlugin({ mode: 'spreadsheet' });
+  async function setup(
+    extraPlugins: unknown[] = [],
+    rows = makeRows(6),
+    mode: SelectionMode | SelectionMode[] = 'range',
+  ) {
+    plugin = new SelectionPlugin({ mode });
     grid.gridConfig = { columns, plugins: [plugin, ...extraPlugins] };
     grid.rows = rows;
     await waitUpgrade(grid);
@@ -240,7 +245,7 @@ describe("SelectionPlugin mode: 'spreadsheet'", () => {
     it('Shift+Space on a boolean cell selects the row instead of toggling the value', async () => {
       const editing = new EditingPlugin();
       const rows = makeRows(3).map((r) => ({ ...r, flag: false }));
-      plugin = new SelectionPlugin({ mode: 'spreadsheet' });
+      plugin = new SelectionPlugin({ mode: 'range' });
       // Editing first, so it would see the key before selection if it didn't bail.
       grid.gridConfig = {
         columns: [...columns, { field: 'flag', type: 'boolean', editable: true }],
@@ -269,11 +274,64 @@ describe("SelectionPlugin mode: 'spreadsheet'", () => {
     expect(plugin.getSelectedRowIndices()).toEqual([]);
   });
 
-  it('warns nothing and sets the range selection-mode attribute for CSS', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  it('a whole column follows its column when columns are reordered', async () => {
     await setup();
-    expect(grid.getAttribute('data-selection-mode')).toBe('range');
-    expect(warn).not.toHaveBeenCalled();
-    warn.mockRestore();
+    grid._focusCol = 1; // 'b'
+    press(grid, ' ', { ctrlKey: true });
+    await settle();
+    expect(plugin.getSelectedColumns()).toEqual(['b']);
+
+    grid.setColumnOrder(['c', 'a', 'd', 'b']);
+    await settle();
+
+    expect(plugin.getSelectedColumns()).toEqual(['b']);
+    expect(plugin.getSelection().ranges).toEqual([{ from: { row: 0, col: 3 }, to: { row: 5, col: 3 } }]);
+    expect(headerCell(grid, 'b').classList.contains('column-selected')).toBe(true);
+    expect(headerCell(grid, 'a').classList.contains('column-selected')).toBe(false);
+  });
+
+  describe("with ['range', 'column'] the column axis keeps its chords", () => {
+    it('Ctrl/⌘+Space and Ctrl/⌘+click header select on the column axis', async () => {
+      await setup([], makeRows(6), ['range', 'column']);
+      grid._focusCol = 1;
+      press(grid, ' ', { ctrlKey: true });
+      await settle();
+
+      expect(events.at(-1)?.activeAxis).toBe('column');
+      expect(plugin.getSelection().ranges).toEqual([]);
+      expect(plugin.getSelectedColumns()).toEqual(['b']);
+
+      headerCell(grid, 'd').dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+      await settle();
+      expect(events.at(-1)?.activeAxis).toBe('column');
+      expect(plugin.getSelectedColumns()).toEqual(['b', 'd']);
+    });
+
+    it('Shift+Space still selects whole rows as a range (and clears the column axis)', async () => {
+      await setup([], makeRows(6), ['range', 'column']);
+      grid._focusCol = 1;
+      press(grid, ' ', { ctrlKey: true });
+      await settle();
+      grid._focusRow = 2;
+      press(grid, ' ', { shiftKey: true });
+      await settle();
+
+      expect(events.at(-1)?.activeAxis).toBe('range');
+      expect(plugin.getSelection().ranges).toEqual([{ from: { row: 2, col: 0 }, to: { row: 2, col: 3 } }]);
+      expect(plugin.getSelectedColumns()).toEqual([]);
+      expect(plugin.getSelectedRowIndices()).toEqual([2]);
+    });
+  });
+
+  it('row and cell modes do not gain the Space chords', async () => {
+    for (const mode of ['row', 'cell'] as const) {
+      await setup([], makeRows(6), mode);
+      grid._focusRow = 1;
+      grid._focusCol = 1;
+      const e = press(grid, ' ', { ctrlKey: true });
+      await settle();
+      expect(e.defaultPrevented).toBe(false);
+      expect(plugin.getSelectedColumns()).toEqual([]);
+    }
   });
 });

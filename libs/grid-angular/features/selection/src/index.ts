@@ -333,7 +333,7 @@ export function injectGridSelection<TRow = unknown>(selector = 'tbw-grid'): Sele
         );
         return;
       }
-      // The plugin resolves every mode (incl. array modes and 'spreadsheet'),
+      // The plugin resolves every mode (including array modes),
       // honors isSelectable/multiSelect and emits selection-change.
       plugin.selectAll();
     },

@@ -14,13 +14,13 @@ import { registerFeature } from './registry';
 
 declare module '../core/types' {
   interface FeatureConfig<TRow> {
-    /** Enable cell/row/range/spreadsheet selection. */
-    selection?: 'cell' | 'row' | 'range' | 'spreadsheet' | SelectionConfig<TRow>;
+    /** Enable cell/row/range selection. */
+    selection?: 'cell' | 'row' | 'range' | SelectionConfig<TRow>;
   }
 }
 
 registerFeature('selection', (config) => {
-  if (config === 'cell' || config === 'row' || config === 'range' || config === 'spreadsheet') {
+  if (config === 'cell' || config === 'row' || config === 'range') {
     return new SelectionPlugin({ mode: config });
   }
   return new SelectionPlugin(config ?? undefined);

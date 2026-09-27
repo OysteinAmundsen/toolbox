@@ -243,15 +243,9 @@ Invalid combinations (`['cell', 'row']`, `['cell', 'range']`, `['row', 'range']`
 
 Utility columns (checkbox, expander, etc.) are never selectable. With `multiSelect: false`, only one column can be selected at a time and `selectAllColumns()` is a no-op.
 
-### Spreadsheet Selection
+### Whole Rows and Columns
 
-Set `mode: 'spreadsheet'` for Excel / Google Sheets muscle memory: cells, ranges, whole rows and whole columns all work at once, with no mode switching.
-
-```ts
-features: { selection: 'spreadsheet' }
-```
-
-Everything that works in `'range'` mode still works (click, drag, `Shift + Click`, `Shift + Arrow`, `Ctrl/⌘ + A`). On top of that:
+In `mode: 'range'`, spreadsheet shortcuts select whole rows and whole columns on top of ordinary ranges:
 
 | Input | Action |
 | ----- | ------ |
@@ -265,9 +259,9 @@ Everything that works in `'range'` mode still works (click, drag, `Shift + Click
 
 Whole rows and whole columns are ordinary **ranges**, so copy, paste and fill treat them like any other selection. `selection-change` reports them in `ranges`, and also lists whole-column fields in `selectedColumns`; `getSelectedRowIndices()` returns the rows of whole-row ranges.
 
-A whole column always spans every row in the grid's row model, including rows that arrive later — with the [Server-Side plugin](/grid/plugins/server-side/) that means it keeps growing as blocks load. Rows that are still loading are part of the range but have no data yet.
+A whole column stays on the same column when columns are reordered, pinned or hidden, and always spans every row in the grid's row model — including rows that arrive later. With the [Server-Side plugin](/grid/plugins/server-side/) it keeps growing as blocks load; rows still loading are part of the range but have no data yet.
 
-`'spreadsheet'` already covers every axis, so it can't be combined with other modes in an array.
+Like every range, a whole-row or whole-column selection is cleared by sorting, filtering or grouping. If you need a column selection that survives those — for example to drive your own "hide / pin selected columns" actions — use the [column axis](#column-selection) (`mode: ['range', 'column']`), which keeps `Ctrl/⌘ + Space` and `Ctrl/⌘ + Click` on headers for itself; `Shift + Space` still selects whole rows.
 
 ## Configuration Options
 
@@ -347,9 +341,9 @@ features: {
 | `Ctrl/⌘ + Shift + Click` (header) | Extend column selection from anchor |
 | `Ctrl/⌘ + Space` | Toggle column at the focused column (column mode) |
 | `Ctrl/⌘ + Shift + ←/→` | Extend column selection (column mode) |
-| `Shift + Space` | Select whole rows (spreadsheet mode) |
-| `Ctrl/⌘ + Space` | Select whole columns (spreadsheet mode) |
-| `Ctrl/⌘ + Shift + Space` | Select all (spreadsheet mode) |
+| `Shift + Space` | Select whole rows (range mode) |
+| `Ctrl/⌘ + Space` | Select whole columns (range mode) |
+| `Ctrl/⌘ + Shift + Space` | Select all (range mode) |
 | `Escape` | Clear current selection (whichever axis is active) |
 
 ### Range Mouse Behavior

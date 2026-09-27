@@ -5,8 +5,8 @@ import DemoControls from '@components/DemoControls.astro';
 <div class="grid-playground not-content" id="playground-selection-demo">
   <DemoControls controls={[
     { section: 'SELECTION', name: 'mode', label: 'Mode', type: 'radio',
-      options: ['cell', 'row', 'range', 'column', 'row+column', 'spreadsheet'], default: 'cell',
-      description: 'Selection mode. "row+column" enables both axes (mutually exclusive at runtime). Use Ctrl/⌘+Click on a header (or Ctrl/⌘+Space) to select a column. "spreadsheet" adds Shift+Space (whole rows) and Ctrl/⌘+Space (whole columns) on top of range selection.' },
+      options: ['cell', 'row', 'range', 'column', 'row+column'], default: 'cell',
+      description: 'Selection mode. "row+column" enables both axes (mutually exclusive at runtime). Use Ctrl/⌘+Click on a header (or Ctrl/⌘+Space) to select a column.' },
   ]} />
   <tbw-grid style="height: 350px;"></tbw-grid>
   <div class="grid-playground-output" data-output-id="selection-demo">
@@ -56,12 +56,12 @@ import '@toolbox-web/grid/features/selection';
           const modeLabel = Array.isArray(sel.mode) ? '[' + sel.mode.join(', ') + ']' : sel.mode;
           const lines = ['<b>mode:</b> ' + modeLabel, '<b>activeAxis:</b> ' + sel.activeAxis];
 
-          if (sel.activeAxis === 'column' || sel.selectedColumns.length > 0) {
+          if (sel.activeAxis === 'column') {
             const cols = plugin.getSelectedColumns();
             lines.push('<b>selectedColumns:</b> [' + cols.map((c: string) => '"' + c + '"').join(', ') + ']');
           }
 
-          if (sel.activeAxis === 'row' || (sel.mode === 'spreadsheet' && plugin.getSelectedRowIndices().length > 0)) {
+          if (sel.activeAxis === 'row') {
             const indices = plugin.getSelectedRowIndices();
             lines.push('<b>selectedRows:</b> [' + indices.join(', ') + ']');
             if (indices.length > 0) {
@@ -76,7 +76,7 @@ import '@toolbox-web/grid/features/selection';
                 '{ from: {row:' + r.from.row + ', col:' + r.from.col + '}, to: {row:' + r.to.row + ', col:' + r.to.col + '} }'
             );
             lines.push('<b>ranges:</b> [' + rangeStrs.join(', ') + ']');
-            if (sel.mode === 'range' || sel.mode === 'spreadsheet') {
+            if (sel.mode === 'range') {
               lines.push('<b>cellCount:</b> ' + plugin.getSelectedCells().length);
             }
           } else {

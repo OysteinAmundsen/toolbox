@@ -15,7 +15,7 @@ or using keyboard shortcuts, and — when opted in via `dropZone` — drag rows
 between separate grids. It replaces the pre-v3 `RowReorderPlugin`: every
 intra-grid behaviour that plugin had is preserved.
 
-- **Intra-grid** — drag a row up or down to reorder, or use `Ctrl + ↑/↓`.
+- **Intra-grid** — drag a row up or down to reorder, or use `Alt + ↑/↓`.
 - **Drag origin** — choose whether drags start from the dedicated handle
   column (`dragFrom: 'handle'`, default), from anywhere on the row
   (`dragFrom: 'row'` — handle column hidden), or from both
@@ -42,7 +42,7 @@ import '@toolbox-web/grid/features/row-drag-drop';
 ## Basic Usage
 
 Enable the feature and a drag handle column appears automatically. Users can
-drag rows to new positions or use `Ctrl + ↑/↓` to move the focused row.
+drag rows to new positions or use `Alt + ↑/↓` to move the focused row.
 
 <Tabs syncKey="framework">
   <TabItem label="TypeScript">
@@ -193,7 +193,7 @@ You can instead import `GridRowDragDropDirective` and bind `[rowDragDrop]` direc
   <RowDragDropDefaultDemo />
 </ShowSource>
 
-Drag the grip handle (☰) to reorder rows. Use `Ctrl + ↑/↓` to move the
+Drag the grip handle (☰) to reorder rows. Use `Alt + ↑/↓` to move the
 focused row with the keyboard.
 
 ### Cancelable `row-move`
@@ -292,8 +292,8 @@ so keep them cheap.
 
 | Key          | Action                    |
 | ------------ | ------------------------- |
-| `Ctrl + ↑`   | Move focused row up       |
-| `Ctrl + ↓`   | Move focused row down     |
+| `Alt + ↑`    | Move focused row up       |
+| `Alt + ↓`    | Move focused row down     |
 
 ## Styling
 

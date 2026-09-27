@@ -259,11 +259,11 @@ describe('RowDragDropPlugin', () => {
       plugin.detach();
     });
 
-    it('should handle Ctrl+ArrowUp to move row up', () => {
+    it('should handle Alt+ArrowUp to move row up', () => {
       grid._focusRow = 1;
       const event = new KeyboardEvent('keydown', {
         key: 'ArrowUp',
-        ctrlKey: true,
+        altKey: true,
         bubbles: true,
       });
       Object.defineProperty(event, 'preventDefault', { value: vi.fn() });
@@ -275,11 +275,11 @@ describe('RowDragDropPlugin', () => {
       expect(event.preventDefault).toHaveBeenCalled();
     });
 
-    it('should handle Ctrl+ArrowDown to move row down', () => {
+    it('should handle Alt+ArrowDown to move row down', () => {
       grid._focusRow = 1;
       const event = new KeyboardEvent('keydown', {
         key: 'ArrowDown',
-        ctrlKey: true,
+        altKey: true,
         bubbles: true,
       });
       Object.defineProperty(event, 'preventDefault', { value: vi.fn() });
@@ -291,11 +291,11 @@ describe('RowDragDropPlugin', () => {
       expect(event.preventDefault).toHaveBeenCalled();
     });
 
-    it('should not handle when Ctrl is not pressed', () => {
+    it('should not handle when Alt is not pressed', () => {
       grid._focusRow = 1;
       const event = new KeyboardEvent('keydown', {
         key: 'ArrowUp',
-        ctrlKey: false,
+        altKey: false,
         bubbles: true,
       });
 
@@ -304,11 +304,19 @@ describe('RowDragDropPlugin', () => {
       expect(result).toBeUndefined();
     });
 
+    it('should not handle Ctrl/Cmd+Arrow (reserved for core jump-to-edge navigation)', () => {
+      grid._focusRow = 1;
+      for (const mod of [{ ctrlKey: true }, { metaKey: true }]) {
+        const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, ...mod });
+        expect(plugin.onKeyDown(event)).toBeUndefined();
+      }
+    });
+
     it('should not handle non-arrow keys', () => {
       grid._focusRow = 1;
       const event = new KeyboardEvent('keydown', {
         key: 'ArrowLeft',
-        ctrlKey: true,
+        altKey: true,
         bubbles: true,
       });
 
@@ -321,7 +329,7 @@ describe('RowDragDropPlugin', () => {
       grid._focusRow = 0;
       const event = new KeyboardEvent('keydown', {
         key: 'ArrowUp',
-        ctrlKey: true,
+        altKey: true,
         bubbles: true,
       });
 
@@ -334,7 +342,7 @@ describe('RowDragDropPlugin', () => {
       grid._focusRow = 2;
       const event = new KeyboardEvent('keydown', {
         key: 'ArrowDown',
-        ctrlKey: true,
+        altKey: true,
         bubbles: true,
       });
 
@@ -350,7 +358,7 @@ describe('RowDragDropPlugin', () => {
 
       const event = new KeyboardEvent('keydown', {
         key: 'ArrowUp',
-        ctrlKey: true,
+        altKey: true,
         bubbles: true,
       });
 
@@ -376,15 +384,15 @@ describe('RowDragDropPlugin', () => {
       grid.dispatchEvent = vi.fn(() => true);
       plugin.attach(grid as any);
 
-      // Simulate rapid Ctrl+Down presses
+      // Simulate rapid Alt+Down presses
       grid._focusRow = 0;
-      const event1 = new KeyboardEvent('keydown', { key: 'ArrowDown', ctrlKey: true });
+      const event1 = new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true });
       Object.defineProperty(event1, 'preventDefault', { value: vi.fn() });
       Object.defineProperty(event1, 'stopPropagation', { value: vi.fn() });
       plugin.onKeyDown(event1);
 
       grid._focusRow = 1;
-      const event2 = new KeyboardEvent('keydown', { key: 'ArrowDown', ctrlKey: true });
+      const event2 = new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true });
       Object.defineProperty(event2, 'preventDefault', { value: vi.fn() });
       Object.defineProperty(event2, 'stopPropagation', { value: vi.fn() });
       plugin.onKeyDown(event2);
@@ -424,7 +432,7 @@ describe('RowDragDropPlugin', () => {
 
       // Start a keyboard move to create a pending debounce timer
       grid._focusRow = 0;
-      const event = new KeyboardEvent('keydown', { key: 'ArrowDown', ctrlKey: true });
+      const event = new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true });
       Object.defineProperty(event, 'preventDefault', { value: vi.fn() });
       Object.defineProperty(event, 'stopPropagation', { value: vi.fn() });
       plugin.onKeyDown(event);
@@ -499,7 +507,7 @@ describe('RowDragDropPlugin', () => {
 
       // Move a row via keyboard (creates a pending move)
       grid._focusRow = 0;
-      const event = new KeyboardEvent('keydown', { key: 'ArrowDown', ctrlKey: true });
+      const event = new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true });
       Object.defineProperty(event, 'preventDefault', { value: vi.fn() });
       Object.defineProperty(event, 'stopPropagation', { value: vi.fn() });
       plugin.onKeyDown(event);
@@ -535,7 +543,7 @@ describe('RowDragDropPlugin', () => {
       plugin.attach(grid as any);
 
       grid._focusRow = 0;
-      const event = new KeyboardEvent('keydown', { key: 'ArrowDown', ctrlKey: true });
+      const event = new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true });
 
       const result = plugin.onKeyDown(event);
 
@@ -922,7 +930,7 @@ describe('RowDragDropPlugin', () => {
       grid._focusRow = 0;
       const event = {
         key: 'ArrowDown',
-        ctrlKey: true,
+        altKey: true,
         preventDefault: vi.fn(),
         stopPropagation: vi.fn(),
       } as unknown as KeyboardEvent;

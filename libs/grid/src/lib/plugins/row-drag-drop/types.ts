@@ -21,7 +21,7 @@ export interface RowDragDropConfig<T = unknown> {
   // === Intra-grid ===
 
   /**
-   * Enable keyboard shortcuts (`Ctrl + ↑` / `Ctrl + ↓`) for moving rows.
+   * Enable keyboard shortcuts (`Alt + ↑` / `Alt + ↓`, mirroring `Alt + ←/→` column reorder) for moving rows.
    * Keyboard moves are intra-grid only.
    * @default true
    */

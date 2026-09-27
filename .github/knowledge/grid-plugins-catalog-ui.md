@@ -65,7 +65,9 @@ OWNS: row order, drag state. HOOKS: onCellMouseDown/Move/Up. QUERIES: `canMoveRo
 
 ### RowDragDrop (#225)
 
-OWNS: row order + cross-grid drag/drop session. ALIASES: none. HOOKS: processColumns (drag-handle col), onKeyDown (Ctrl+arrow), onCellClick, delegated dragstart/over/leave/drop/dragend. QUERIES: `canMoveRow`. EVENTS: `row-move`, `row-drag-start` (cancelable), `row-drag-end`, `row-drop` (cancelable), `row-transfer`. USES: `core/internal/drag-drop-registry.ts` (WeakRef session map, shared across split bundles) + `plugins/shared/drag-drop-protocol.ts` (MIME constants, payload codec, drop-position math, auto-scroller, session tracker).
+OWNS: row order + cross-grid drag/drop session. ALIASES: none. HOOKS: processColumns (drag-handle col), onKeyDown (Alt+↑/↓), onCellClick, delegated dragstart/over/leave/drop/dragend. QUERIES: `canMoveRow`. EVENTS: `row-move`, `row-drag-start` (cancelable), `row-drag-end`, `row-drop` (cancelable), `row-transfer`. USES: `core/internal/drag-drop-registry.ts` (WeakRef session map, shared across split bundles) + `plugins/shared/drag-drop-protocol.ts` (MIME constants, payload codec, drop-position math, auto-scroller, session tracker).
+
+- DECIDED (Sep 2026): keyboard move is `Alt+↑/↓` (was Ctrl-only, which broke on macOS and shadowed core's Ctrl/⌘+Arrow edge jump). Pairs with ReorderColumns `Alt+←/→`. Test: `row-drag-drop.spec.ts > should not handle Ctrl/Cmd+Arrow`.
 
 - DECIDED (v3, Jun 2026): `RowReorderPlugin`, the `reorderRows` feature key and the `['reorderRows','rowReorder']` aliases are ALL REMOVED (they pointed at a v3-deleted plugin); `RowDragDropPlugin.aliases` is `undefined` — asserted by `row-drag-drop.spec.ts > aliases`. Docs redirect `/grid/plugins/reorder-rows/` → `/grid/plugins/row-drag-drop/`.
 - DECIDED (#225, alias dedup — still live for OTHER plugins, e.g. `ReorderPlugin`↔`reorder`): `PluginManager#collapseAliasDuplicates` keys on **constructor identity**, not plugin name; `BaseGridPlugin.mergeConfigsFrom` — silent on equal scalars/refs, TBW023 on dedupe (silent in PROD), TBW025 throw on conflict.

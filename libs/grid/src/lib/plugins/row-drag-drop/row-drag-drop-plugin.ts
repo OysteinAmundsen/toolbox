@@ -378,7 +378,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   /** @internal */
   override onKeyDown(event: KeyboardEvent): boolean | void {
     if (!this.config.enableKeyboard) return;
-    if (!event.ctrlKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
+    if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
 
     const grid = this.internalGrid;
     const focusRow = grid._focusRow;

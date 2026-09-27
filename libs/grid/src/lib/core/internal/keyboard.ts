@@ -90,13 +90,41 @@ function navigateTab(grid: GridHost, e: KeyboardEvent, maxRow: number, maxCol: n
 }
 
 /**
- * ArrowLeft/ArrowRight. `towardEnd` is the LOGICAL direction (ArrowRight); in
- * RTL the physical arrow maps to the opposite column index.
+ * ArrowUp/ArrowDown. Ctrl/Cmd long-jumps to the first/last row (AG Grid
+ * semantics — the grid edge, not Excel's data-region edge). The last row is
+ * `_rows.length - 1`, which under ServerSidePlugin is the known total or, in
+ * infinite mode, the loaded rows plus one block of placeholders — so each
+ * press lands on unloaded rows and the scroll triggers the next block fetch.
  */
-function navigateHorizontal(grid: GridHost, e: KeyboardEvent, maxCol: number, towardEnd: boolean): void {
+function navigateVertical(grid: GridHost, e: KeyboardEvent, maxRow: number, towardEnd: boolean): void {
+  if (isRowEditing(grid)) tryCommitEdit(grid);
+  const jump = e.ctrlKey || e.metaKey;
+  if (towardEnd) grid._focusRow = jump ? maxRow : Math.min(maxRow, grid._focusRow + 1);
+  else grid._focusRow = jump ? 0 : Math.max(0, grid._focusRow - 1);
+  e.preventDefault();
+}
+
+/**
+ * ArrowLeft/ArrowRight. `towardEnd` is the LOGICAL direction (ArrowRight); in
+ * RTL the physical arrow maps to the opposite column index. Ctrl/Cmd
+ * long-jumps to the first/last column, like Home/End.
+ */
+function navigateHorizontal(grid: GridHost, e: KeyboardEvent, maxCol: number, towardEnd: boolean): boolean {
   const forward = isRTL(grid) ? !towardEnd : towardEnd;
+  if (e.ctrlKey || e.metaKey) {
+    jumpToColumnEdge(grid, e, maxCol, forward);
+    return true;
+  }
   grid._focusCol = forward ? Math.min(maxCol, grid._focusCol + 1) : Math.max(0, grid._focusCol - 1);
   e.preventDefault();
+  return false;
+}
+
+/** Move focus to the first/last column and force-scroll that edge into view. */
+function jumpToColumnEdge(grid: GridHost, e: KeyboardEvent, maxCol: number, toEnd: boolean): void {
+  grid._focusCol = toEnd ? maxCol : 0;
+  e.preventDefault();
+  ensureCellVisible(grid, toEnd ? { forceScrollRight: true } : { forceScrollLeft: true });
 }
 
 /** Home/End (plus Ctrl/Cmd variants which also jump to the first/last row). */
@@ -105,9 +133,7 @@ function navigateRowEdge(grid: GridHost, e: KeyboardEvent, maxRow: number, maxCo
     if (isRowEditing(grid)) tryCommitEdit(grid);
     grid._focusRow = toEnd ? maxRow : 0;
   }
-  grid._focusCol = toEnd ? maxCol : 0;
-  e.preventDefault();
-  ensureCellVisible(grid, toEnd ? { forceScrollRight: true } : { forceScrollLeft: true });
+  jumpToColumnEdge(grid, e, maxCol, toEnd);
 }
 
 /** Dispatch the unified `cell-activate` event. Returns true when cancelled. */
@@ -151,20 +177,17 @@ export function handleGridKeyDown(grid: GridHost, e: KeyboardEvent): void {
       navigateTab(grid, e, maxRow, maxCol);
       break;
     case 'ArrowDown':
-      if (isRowEditing(grid)) tryCommitEdit(grid);
-      grid._focusRow = Math.min(maxRow, grid._focusRow + 1);
-      e.preventDefault();
+      navigateVertical(grid, e, maxRow, true);
       break;
     case 'ArrowUp':
-      if (isRowEditing(grid)) tryCommitEdit(grid);
-      grid._focusRow = Math.max(0, grid._focusRow - 1);
-      e.preventDefault();
+      navigateVertical(grid, e, maxRow, false);
       break;
+    // A Ctrl/Cmd column jump already ran ensureCellVisible with a forced scroll.
     case 'ArrowRight':
-      navigateHorizontal(grid, e, maxCol, true);
+      if (navigateHorizontal(grid, e, maxCol, true)) return;
       break;
     case 'ArrowLeft':
-      navigateHorizontal(grid, e, maxCol, false);
+      if (navigateHorizontal(grid, e, maxCol, false)) return;
       break;
     case 'Home':
       navigateRowEdge(grid, e, maxRow, maxCol, false);

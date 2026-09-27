@@ -86,6 +86,8 @@ The grid implements full keyboard navigation following the WAI-ARIA grid pattern
 | <kbd>End</kbd> | Move to last cell in row |
 | <kbd>Ctrl</kbd> + <kbd>Home</kbd> | Move to first cell in grid |
 | <kbd>Ctrl</kbd> + <kbd>End</kbd> | Move to last cell in grid |
+| <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> | Jump to first / last row (same column) |
+| <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>←</kbd> / <kbd>→</kbd> | Jump to first / last cell in row |
 | <kbd>PgUp</kbd> | Scroll up one viewport |
 | <kbd>PgDn</kbd> | Scroll down one viewport |
 | <kbd>⇥ Tab</kbd> | Move to next cell (wraps to next row) |
@@ -95,7 +97,7 @@ The grid implements full keyboard navigation following the WAI-ARIA grid pattern
 
 Keyboard shortcuts that depend on a plugin being installed are documented on each plugin's own page — that's the source of truth and stays in sync with the implementation:
 
-- [**Selection**](/grid/plugins/selection/#keyboard-shortcuts) — <kbd>Space</kbd>, <kbd>Shift</kbd> + arrows / <kbd>PgUp</kbd> / <kbd>PgDn</kbd> / <kbd>Ctrl</kbd> + <kbd>Home</kbd>/<kbd>End</kbd>, <kbd>Ctrl</kbd> + <kbd>A</kbd>, <kbd>Esc</kbd>
+- [**Selection**](/grid/plugins/selection/#keyboard-shortcuts) — <kbd>Space</kbd>, <kbd>Shift</kbd> + arrows / <kbd>PgUp</kbd> / <kbd>PgDn</kbd> / <kbd>Ctrl</kbd> + <kbd>Home</kbd>/<kbd>End</kbd> / <kbd>Ctrl</kbd> + arrows, <kbd>Ctrl</kbd> + <kbd>A</kbd>, <kbd>Esc</kbd>
 - [**Editing**](/grid/plugins/editing/#keyboard-shortcuts-row-mode) — <kbd>Enter</kbd> (start row edit / commit), <kbd>F2</kbd> (single-cell edit), <kbd>Tab</kbd> / <kbd>Shift</kbd> + <kbd>Tab</kbd>, <kbd>Esc</kbd> (cancel)
 - [**Clipboard**](/grid/plugins/clipboard/#keyboard-shortcuts) — <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>C</kbd> / <kbd>X</kbd> / <kbd>V</kbd>
 - [**Context Menu**](/grid/plugins/context-menu/) — <kbd>Shift</kbd> + <kbd>F10</kbd> or the dedicated <kbd>☰ Menu</kbd> key opens the menu at the focused cell; <kbd>↑</kbd>/<kbd>↓</kbd> navigates, <kbd>Enter</kbd>/<kbd>Space</kbd> activates, <kbd>Esc</kbd> closes
@@ -618,7 +620,7 @@ Each ✅ links to the test that verifies it.
 The grid handles most accessibility concerns out of the box:
 
 - **ARIA roles & attributes** — `role="grid"`, `role="row"`, `role="gridcell"`, `aria-rowcount`, `aria-colcount`, `aria-rowindex`, `aria-colindex` are always set. When the [Tree](/grid/plugins/tree/) or [Row Grouping](/grid/plugins/grouping-rows/) plugin is active, the rows-body upgrades to `role="treegrid"` and every row carries `aria-level` / `aria-setsize` / `aria-posinset` per the [WAI-ARIA Treegrid pattern](https://www.w3.org/WAI/ARIA/apg/patterns/treegrid/) so screen readers can announce hierarchical position.
-- **Keyboard navigation** — Arrow keys, Tab, Enter, Home/End, PgUp/PgDn all work by default (core feature, not a plugin)
+- **Keyboard navigation** — Arrow keys, Ctrl/⌘ + arrows, Tab, Enter, Home/End, PgUp/PgDn all work by default (core feature, not a plugin)
 - **Column headers** — Always rendered with `role="columnheader"`; cannot be hidden
 - **Column type inference** — Types (`number`, `date`, `boolean`) are auto-detected from the first data row
 - **Grid label** — Auto-derived from the shell title (`<tbw-grid-header title="...">` or `shell.header.title` config)

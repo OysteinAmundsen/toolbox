@@ -107,7 +107,7 @@ When the same property is set via multiple methods, higher precedence wins:
 <table>
 <tr><th colspan="2">Core Capabilities</th></tr>
 <tr><td>Virtualization</td><td>Row and column virtualization for datasets with 100k+ rows</td></tr>
-<tr><td>Keyboard Navigation</td><td>Full keyboard support including arrow keys, Tab, Enter, Home/End, PageUp/PageDown</td></tr>
+<tr><td>Keyboard Navigation</td><td>Full keyboard support including arrow keys, Ctrl/Cmd+arrow jump-to-edge, Tab, Enter, Home/End, PageUp/PageDown</td></tr>
 <tr><td>Accessibility</td><td>ARIA attributes and screen reader support</td></tr>
 <tr><td>Theming</td><td>CSS custom properties with 6 built-in themes</td></tr>
 <tr><td>Column Inference</td><td>Automatic column type detection from data</td></tr>

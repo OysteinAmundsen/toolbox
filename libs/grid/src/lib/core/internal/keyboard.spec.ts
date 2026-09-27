@@ -108,6 +108,82 @@ describe('keyboard navigation', () => {
     key(g, 'End', { ctrlKey: true });
     expect(g.commitActiveRowEdit).toHaveBeenCalledTimes(2);
   });
+  describe('Ctrl/Cmd+Arrow long-jump to grid edge', () => {
+    it('Ctrl+ArrowDown / Ctrl+ArrowUp jump to the last / first row, keeping the column', () => {
+      const g = makeGrid(10, 5);
+      g._focusRow = 3;
+      g._focusCol = 2;
+      const down = key(g, 'ArrowDown', { ctrlKey: true });
+      expect(g._focusRow).toBe(9);
+      expect(g._focusCol).toBe(2);
+      expect(down.defaultPrevented).toBe(true);
+      key(g, 'ArrowUp', { ctrlKey: true });
+      expect(g._focusRow).toBe(0);
+      expect(g._focusCol).toBe(2);
+    });
+    it('Cmd (metaKey) behaves the same as Ctrl', () => {
+      const g = makeGrid(10, 5);
+      g._focusRow = 3;
+      g._focusCol = 2;
+      key(g, 'ArrowDown', { metaKey: true });
+      expect(g._focusRow).toBe(9);
+      key(g, 'ArrowRight', { metaKey: true });
+      expect(g._focusCol).toBe(4);
+    });
+    it('Ctrl+ArrowRight / Ctrl+ArrowLeft jump to the last / first column, keeping the row', () => {
+      const g = makeGrid(10, 5);
+      g._focusRow = 4;
+      g._focusCol = 2;
+      const right = key(g, 'ArrowRight', { ctrlKey: true });
+      expect(g._focusCol).toBe(4);
+      expect(g._focusRow).toBe(4);
+      expect(right.defaultPrevented).toBe(true);
+      key(g, 'ArrowLeft', { ctrlKey: true });
+      expect(g._focusCol).toBe(0);
+      expect(g._focusRow).toBe(4);
+    });
+    it('Ctrl+ArrowRight / Ctrl+ArrowLeft flip in RTL', () => {
+      const g = makeGrid(10, 5);
+      g.closest = (sel: string) => (sel === '[dir]' ? { getAttribute: () => 'rtl' } : null);
+      g._focusCol = 2;
+      key(g, 'ArrowRight', { ctrlKey: true });
+      expect(g._focusCol).toBe(0);
+      key(g, 'ArrowLeft', { ctrlKey: true });
+      expect(g._focusCol).toBe(4);
+    });
+    it('Ctrl+ArrowDown lands on the last row of _rows (server-side placeholders included)', () => {
+      // ServerSidePlugin pads _rows with loading placeholders up to the known
+      // total (or loaded + one block in infinite mode); the jump targets that
+      // last placeholder so the scroll triggers the block fetch.
+      const g = makeGrid(3, 2);
+      g._rows = [...g._rows, { __loading: true, __index: 3 }, { __loading: true, __index: 4 }];
+      key(g, 'ArrowDown', { ctrlKey: true });
+      expect(g._focusRow).toBe(4);
+    });
+    it('Ctrl+ArrowUp/Down commit an active row edit before jumping', () => {
+      const g = makeGrid(10, 5);
+      g._focusRow = 5;
+      g._activeEditRows = 5;
+      g.commitActiveRowEdit = vi.fn();
+      key(g, 'ArrowDown', { ctrlKey: true });
+      expect(g.commitActiveRowEdit).toHaveBeenCalledTimes(1);
+    });
+    it('Ctrl+ArrowLeft/Right inside a text editor are left to the input (word jump)', () => {
+      const g = makeGrid(10, 5);
+      g._focusCol = 2;
+      const input = document.createElement('input');
+      const e = key(g, 'ArrowRight', { ctrlKey: true, target: input });
+      expect(g._focusCol).toBe(2);
+      expect(e.defaultPrevented).toBe(false);
+    });
+    it('a plugin that consumes Ctrl+Arrow wins over the core jump', () => {
+      const g = makeGrid(10, 5);
+      g._focusRow = 3;
+      g._dispatchKeyDown = () => true;
+      key(g, 'ArrowDown', { ctrlKey: true });
+      expect(g._focusRow).toBe(3);
+    });
+  });
   // NEW TESTS FOR ADDITIONAL BRANCHES
   it('shift+tab simple decrement without wrap and no commit', () => {
     const g = makeGrid(2, 3);

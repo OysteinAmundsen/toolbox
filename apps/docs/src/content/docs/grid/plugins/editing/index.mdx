@@ -354,6 +354,25 @@ The demo above uses `editOn: 'click'` — a single click enters edit mode.
 Use **F2** when you only need to edit one cell without activating editors on the entire row.
 :::
 
+## Cell Mode (Spreadsheet-style Editing)
+
+`mode: 'cell'` edits one cell at a time, the way Excel, Google Sheets and AG Grid do:
+
+```ts
+features: { editing: { mode: 'cell' } }
+```
+
+| Key / input | Behavior |
+| ----------- | -------- |
+| **Typing** on a focused cell | Starts editing it, replacing the value with what you type |
+| **Enter** / **F2** / double-click | Start editing the focused cell, keeping its value |
+| **Enter** (while editing) | Commit; focus stays on the cell |
+| **Tab** / **Shift+Tab** (while editing) | Commit, then open the next / previous editable cell (wraps across rows) |
+| **Escape** | Cancel the edit and restore the original value |
+| Pressing another cell | Commits the open cell |
+
+`editOn` defaults to `'dblclick'` in cell mode, so a single click still selects (and can start a [range selection](/grid/plugins/selection/)). Set `editOn: 'click'` to open cells on a single click. `row-commit` fires after every cell edit, because each cell edit is its own session.
+
 ## Grid Mode (Spreadsheet-like Editing)
 
 For data entry forms or spreadsheet-like interfaces, use `mode: 'grid'` to make all editable cells show their editors at all times:
@@ -365,6 +384,7 @@ features: { editing: { mode: 'grid' } }
 | Mode    | Behavior                                                    |
 | ------- | ----------------------------------------------------------- |
 | `'row'` | Default. Click/dblclick to enter edit mode, Escape to exit |
+| `'cell'`| One cell at a time; typing starts editing. See [Cell Mode](#cell-mode-spreadsheet-style-editing). |
 | `'grid'`| All editors visible immediately. Excel-like navigation.     |
 
 In **grid mode**:
@@ -1201,11 +1221,13 @@ export class MyGridComponent {
 
 | Key | Action |
 | --- | ------ |
-| **Enter** (not editing) | Start editing focused row |
+| **Enter** (not editing) | Start editing the focused row (or cell, in cell mode) |
 | **Enter** (while editing) | Commit edit and move down |
 | **Tab** | Commit and move to next editable cell |
 | **Shift+Tab** | Commit and move to previous editable cell |
 | **Escape** | Cancel edit, restore original value |
+| **Typing** (not editing) | Start editing the focused cell with the typed character as its value |
+| **Delete** / **Backspace** (not editing) | Clear the selected editable cells, or the focused cell. Nullable columns become `null`; otherwise `''`, `false`, or the number editor's `min` (else `0`). Non-nullable dates keep their value. Rows still loading are skipped. With the [Undo/Redo plugin](/grid/plugins/undo-redo/), one undo restores them all. |
 
 ## Events
 

@@ -351,6 +351,20 @@ function readTextControlValue(
 }
 
 /**
+ * The value a cell holds after its content is deleted (Delete / Backspace), using
+ * the same rules as clearing a built-in editor: `null` for nullable columns,
+ * otherwise `false` for booleans, `editorParams.min ?? 0` for numbers, `''` for
+ * text. A non-nullable date cannot be emptied, so it keeps its value.
+ */
+export function clearedCellValue(column: AnyColumn, originalValue: unknown): unknown {
+  if (column.nullable) return null;
+  if (column.type === 'boolean' || typeof originalValue === 'boolean') return false;
+  if (column.type === 'number' || typeof originalValue === 'number') return readNumericValue('', column);
+  if (column.type === 'date' || originalValue instanceof Date) return originalValue;
+  return '';
+}
+
+/**
  * Get the typed value from an input element based on its type, column config, and original value.
  * Preserves the type of the original value (e.g., numeric currency values stay as numbers,
  * string dates stay as strings, null/undefined for empty fields).

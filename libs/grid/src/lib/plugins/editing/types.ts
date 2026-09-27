@@ -408,9 +408,19 @@ export interface EditingConfig {
    *   display their editors immediately. Commit/cancel affects individual cells
    *   but does not exit edit mode. Useful for spreadsheet-like data entry.
    *
+   * - `'cell'`: One cell at a time, like a spreadsheet. Typing on a focused cell
+   *   starts editing it with the typed character, Enter / F2 / double-click open
+   *   the focused cell, Enter commits, Escape cancels, and Tab / Shift+Tab commit
+   *   and open the next / previous editable cell. `row-commit` fires after every
+   *   cell edit. `editOn` defaults to `'dblclick'` so a single click can still
+   *   start a range selection.
+   *
+   * In every mode, Delete / Backspace on a focused (not editing) cell clears the
+   * selected editable cells, or the focused cell when nothing is selected.
+   *
    * @default 'row'
    */
-  mode?: 'row' | 'grid';
+  mode?: 'row' | 'grid' | 'cell';
 
   /**
    * Enable per-row dirty tracking against deep-cloned baselines.
@@ -447,9 +457,9 @@ export interface EditingConfig {
   dirtyTracking?: boolean;
 
   /**
-   * Controls when editing is triggered (only applies to `mode: 'row'`).
-   * - 'click': Edit on single click (default)
-   * - 'dblclick': Edit on double click
+   * Controls when editing is triggered (applies to `mode: 'row'` and `'cell'`).
+   * - 'click': Edit on single click (default in `'row'` mode)
+   * - 'dblclick': Edit on double click (default in `'cell'` mode)
    * - 'manual': Only via programmatic API (beginEdit)
    * - false: Disable editing entirely
    */

@@ -22,7 +22,7 @@ related: [build-css, release-versioning, docs-agent-endpoints, grid-core]
 ## bundle budget ([tools/vite-bundle-budget.ts](tools/vite-bundle-budget.ts))
 
 - RUNS IN: Vite `closeBundle` (after all sub-builds). Raw + gzip via zlib.
-- BUDGETS: core `index.js` ≤170 kB raw / ≤50 kB gz hard fail, ≤45 kB gz soft warn; plugins ≤50 kB each (**editing 55 kB** — the `commitCellValue` surface); adapters react ≤50 kB, vue ≤50 kB; grid-angular fesm ≤276 kB (`libs/grid-angular/project.json` `bundle-check`).
+- BUDGETS: core `index.js` ≤170 kB raw / ≤50 kB gz hard fail, ≤45 kB gz soft warn; plugins ≤55 kB each; **editing ≤60 kB** via its own entry + `exclude` on the shared wildcard (`BudgetEntry.exclude`, Sep 2026 — `commitCellValue` surface + cell mode/spreadsheet keys); adapters react ≤50 kB, vue ≤50 kB; grid-angular fesm ≤276 kB (`libs/grid-angular/project.json` `bundle-check`).
 - INVARIANT: `warnSize`/`warnGzip` never fail the build; `maxSize`/`maxGzip` fail with exit 1 under `severity: 'error'`.
 - POLICY: design target 45 kB gz, hard ceiling 50 kB. Any new code pushing core toward 50 kB MUST first try a plugin extraction — land in core only if a plugin would damage performance (hot path, render scheduler, virtualization).
 - CURRENT (#370 v3 landed): `index.js` **145.11 kB raw / 42.46 kB gz**; shell chunk 40.72 kB / 10.99 gz. (Pre-extraction baseline was 172.46 kB / 49.25 kB gz — the shell cut reclaimed ~27 kB raw / 6.7 kB gz. All `TEMP-BUDGET-370` thresholds reverted.)

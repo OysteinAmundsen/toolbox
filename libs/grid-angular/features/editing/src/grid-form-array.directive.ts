@@ -19,7 +19,7 @@ interface EditingPluginValidation {
  * Interface for EditingPlugin config to check mode.
  */
 interface EditingPluginConfig {
-  config?: { mode?: 'row' | 'grid' };
+  config?: { mode?: 'row' | 'grid' | 'cell' };
 }
 
 /**

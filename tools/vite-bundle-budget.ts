@@ -6,6 +6,11 @@ import type { Plugin } from 'vite';
 export interface BudgetEntry {
   /** Path pattern relative to outDir. Use `*` for single-level directory wildcard. */
   path: string;
+  /**
+   * Paths (same pattern syntax) this entry skips — for giving one file its own
+   * budget entry without the shared wildcard entry also applying to it.
+   */
+  exclude?: string[];
   /** Maximum raw file size in bytes (hard fail) */
   maxSize?: number;
   /** Maximum gzip compressed size in bytes (hard fail) */
@@ -59,7 +64,8 @@ export function checkBudgets(options: BundleBudgetOptions): BudgetCheckResult {
   const warnings: string[] = [];
 
   for (const budget of budgets) {
-    const files = resolveGlob(outDir, budget.path);
+    const excluded = new Set((budget.exclude ?? []).flatMap((pattern) => resolveGlob(outDir, pattern)));
+    const files = resolveGlob(outDir, budget.path).filter((file) => !excluded.has(file));
     if (files.length === 0) {
       violations.push(`No files matched pattern "${budget.path}"`);
       continue;

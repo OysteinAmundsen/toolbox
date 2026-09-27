@@ -38,7 +38,7 @@ import type {
   UpdateSource,
 } from '../../core/types';
 import styles from './editing.css?inline';
-import { getInputValue } from './editors';
+import { clearedCellValue, getInputValue } from './editors';
 import { CellValidationManager } from './internal/cell-validation';
 import { type BaselinesCapturedDetail, type DirtyChangeDetail, type DirtyRowEntry } from './internal/dirty-tracking';
 import { DirtyTrackingManager } from './internal/dirty-tracking-manager';
@@ -68,6 +68,48 @@ import type {
 // ============================================================================
 // EditingPlugin
 // ============================================================================
+
+/** Printable, unmodified key that should start editing (type-to-replace). Space is a toggle, not text. */
+function isTypeToEditKey(event: KeyboardEvent): boolean {
+  return (
+    event.key.length === 1 &&
+    event.key !== ' ' &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.altKey &&
+    !event.isComposing
+  );
+}
+
+/** Text-like `<input>` types whose value can be replaced by a typed character. */
+const SEEDABLE_INPUT_TYPES = new Set(['text', 'search', 'number', 'email', 'tel', 'url', 'password', '']);
+
+/**
+ * Replace the content of the editor inside `cellEl` with `text` and put the
+ * caret at the end, firing `input` so framework editors see the change. Editors
+ * that mount asynchronously (framework adapters) are retried once on the next
+ * task. Non-text editors (select, date, checkbox) are left untouched.
+ */
+function seedEditor(cellEl: HTMLElement, text: string): void {
+  const apply = (): boolean => {
+    const el = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR);
+    if (!el) return false;
+    const isText =
+      el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && SEEDABLE_INPUT_TYPES.has(el.type));
+    if (!isText) return true;
+    const input = el as HTMLInputElement | HTMLTextAreaElement;
+    input.focus({ preventScroll: true });
+    input.value = text;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    try {
+      input.setSelectionRange(text.length, text.length);
+    } catch {
+      // <input type="number"> has no selection API; the caret is already at the end.
+    }
+    return true;
+  };
+  if (!apply()) setTimeout(apply, 0);
+}
 
 /**
  * Editing Plugin for tbw-grid
@@ -212,7 +254,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   protected override get defaultConfig(): Partial<EditingConfig> {
     return {
       mode: 'row',
-      editOn: 'click',
+      // Cell mode edits on double-click so a single click can still select (and
+      // start a range drag) — the spreadsheet convention.
+      editOn: this.userConfig?.mode === 'cell' ? 'dblclick' : 'click',
     };
   }
 
@@ -221,6 +265,14 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    */
   get #isGridMode(): boolean {
     return this.config.mode === 'grid';
+  }
+
+  /**
+   * Whether the grid is in 'cell' mode (one cell at a time, spreadsheet-style).
+   * Runs on the row-edit session machinery with a single injected editor.
+   */
+  get #isCellMode(): boolean {
+    return this.config.mode === 'cell';
   }
 
   /**
@@ -321,6 +373,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * Tab and Arrow keys commit and close the editor instead of navigating to adjacent cells.
    */
   #singleCellEdit = false;
+
+  /**
+   * Cell-mode edit waiting for its row to render (Tab / type-to-edit onto a row
+   * outside the virtual window). Started from `afterRender`.
+   */
+  #pendingCellEdit: { row: number; col: number; seed?: string } | null = null;
 
   /**
    * In grid mode, snapshot of the focused cell's value when the editor first
@@ -454,8 +512,10 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         if (this.#activeEditRow === -1) return;
         const rowEl = internalGrid.findRenderedRowElement?.(this.#activeEditRow);
         if (!rowEl) return;
+        // Cell mode commits as soon as the press leaves the editing cell.
+        const editScopeEl = this.#isCellMode ? this.#getCell(this.#activeEditRow, this.#activeEditCol) : rowEl;
         const path = (e.composedPath && e.composedPath()) || [];
-        if (path.includes(rowEl)) return;
+        if (editScopeEl && path.includes(editScopeEl)) return;
 
         // Check if click is inside a registered external focus container
         // (e.g., overlays, datepickers, dropdowns at <body> level).
@@ -821,6 +881,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     const internalGrid = this.#internalGrid;
     const editOn = this.config.editOn ?? internalGrid.effectiveConfig?.editOn;
+    if (this.#isCellMode) return this.#onCellClickCellMode(event, editOn);
 
     // Check if editing is disabled
     if (editOn === false || editOn === 'manual') return false;
@@ -848,12 +909,28 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     return true; // Handled
   }
 
+  /** CELL MODE click: open just the clicked cell when the click type matches `editOn`. */
+  #onCellClickCellMode(event: CellClickEvent, editOn: EditingConfig['editOn']): boolean {
+    if (editOn !== 'click' && editOn !== 'dblclick') return false;
+    const isDoubleClick = event.originalEvent.type === 'dblclick';
+    if ((editOn === 'click') === isDoubleClick) return false;
+    const { rowIndex, colIndex } = event;
+    if (this.#activeEditRow === rowIndex && this.#activeEditCol === colIndex) return false; // already open
+    if (!this.#canEditCell(rowIndex, colIndex)) return false;
+    event.originalEvent.stopPropagation();
+    return this.#startCellModeEdit(rowIndex, colIndex);
+  }
+
   /**
    * Handle keyboard events for edit lifecycle.
    * @internal
    */
   override onKeyDown(event: KeyboardEvent): boolean | void {
+    if (isTypeToEditKey(event)) return this.#onTypeToEdit(event);
     switch (event.key) {
+      case 'Delete':
+      case 'Backspace':
+        return this.#onClearKey(event);
       case 'Escape':
         return this.#onEscapeKey(event);
       case 'ArrowUp':
@@ -953,6 +1030,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (this.#activeEditRow === -1 && !this.#isGridMode) return false;
 
     event.preventDefault();
+
+    // Cell mode: commit, move to the next/previous editable cell, open it.
+    if (this.#isCellMode) {
+      this.#handleCellModeTab(!event.shiftKey);
+      return true;
+    }
 
     // In single-cell edit mode (F2), commit and close instead of navigating
     if (this.#singleCellEdit) {
@@ -1070,6 +1153,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const focusRow = internalGrid._focusRow;
     const focusCol = internalGrid._focusCol;
     if (focusRow < 0) return false;
+    // Cell mode opens only the focused cell; a read-only cell falls through to
+    // core, which emits `cell-activate` itself.
+    if (this.#isCellMode && !this.#canEditCell(focusRow, focusCol)) return false;
 
     // Check if ANY column in the row is potentially editable
     const hasEditableColumn = internalGrid._columns?.some((col) => this.#hasEditableConfig(col as ColumnConfig<T>));
@@ -1107,8 +1193,183 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       return true;
     }
 
-    this.beginBulkEdit(focusRow);
+    if (this.#isCellMode) this.#startCellModeEdit(focusRow, focusCol);
+    else this.beginBulkEdit(focusRow);
     return true;
+  }
+
+  /**
+   * A printable key on a focused, editable cell that is not being edited opens
+   * it with the key as its new content (spreadsheet type-to-replace). Cell mode
+   * opens just the cell, row mode opens the row, grid mode focuses the cell's
+   * always-present editor.
+   */
+  #onTypeToEdit(event: KeyboardEvent): boolean {
+    if (!this.#isNavigationKeyTarget(event)) return false;
+    const internalGrid = this.#internalGrid;
+    const editOn = this.config.editOn ?? internalGrid.effectiveConfig?.editOn;
+    if (editOn === false) return false;
+    const row = internalGrid._focusRow;
+    const col = internalGrid._focusCol;
+    if (!this.#canEditCell(row, col)) return false;
+    // Space / checkboxes are toggles, not text.
+    if (internalGrid._visibleColumns[col]?.type === 'boolean') return false;
+
+    if (this.#isGridMode) {
+      if (this.#gridModeInputFocused) return false;
+      event.preventDefault();
+      this.#focusCurrentCellEditor();
+      const cellEl = this.#getCell(row, col);
+      if (cellEl) seedEditor(cellEl, event.key);
+      return true;
+    }
+    if (this.#activeEditRow !== -1) return false;
+
+    event.preventDefault();
+    if (this.#isCellMode) return this.#startCellModeEdit(row, col, event.key);
+    this.beginBulkEdit(row);
+    const cellEl = this.#getCell(row, col);
+    if (cellEl) seedEditor(cellEl, event.key);
+    return true;
+  }
+
+  /**
+   * Delete / Backspace while navigating (not editing): clear every editable cell
+   * in the selection, or the focused cell when nothing is selected. Loading
+   * placeholder rows (ServerSidePlugin) and read-only cells are skipped. With
+   * UndoRedoPlugin loaded the whole clear is one undo step.
+   */
+  #onClearKey(event: KeyboardEvent): boolean {
+    if (!this.#isNavigationKeyTarget(event)) return false;
+    if (this.#isGridMode ? this.#gridModeInputFocused : this.#activeEditRow !== -1) return false;
+    const internalGrid = this.#internalGrid;
+    const editOn = this.config.editOn ?? internalGrid.effectiveConfig?.editOn;
+    if (editOn === false) return false;
+
+    const targets = this.#clearTargets();
+    if (targets.length === 0) return false;
+    event.preventDefault();
+
+    const undo = this.grid.getPluginByName?.('undoRedo') as
+      { beginTransaction?: () => void; endTransaction?: () => void } | undefined;
+    const batch = targets.length > 1 ? undo : undefined;
+    batch?.beginTransaction?.();
+    try {
+      for (const { row, column, rowData } of targets) {
+        const value = clearedCellValue(column, readCellField(rowData, column.field));
+        this.#commitCellValue(row, column, value, rowData);
+      }
+    } finally {
+      batch?.endTransaction?.();
+    }
+    this.requestRender();
+    return true;
+  }
+
+  /** Editable, loaded cells covered by the current selection (or the focused cell). */
+  #clearTargets(): Array<{ row: number; column: ColumnConfig<T>; rowData: T }> {
+    const internalGrid = this.#internalGrid;
+    type Range = { from: { row: number; col: number }; to: { row: number; col: number } };
+    const selection = this.grid.query<{ ranges?: Range[] } | undefined>('getSelection')[0];
+    const focus = { row: internalGrid._focusRow, col: internalGrid._focusCol };
+    const ranges: Range[] = selection?.ranges?.length ? selection.ranges : [{ from: focus, to: focus }];
+
+    const seen = new Set<string>();
+    const targets: Array<{ row: number; column: ColumnConfig<T>; rowData: T }> = [];
+    for (const range of ranges) {
+      const [r0, r1] = [Math.min(range.from.row, range.to.row), Math.max(range.from.row, range.to.row)];
+      const [c0, c1] = [Math.min(range.from.col, range.to.col), Math.max(range.from.col, range.to.col)];
+      for (let row = r0; row <= r1; row++) {
+        for (let col = c0; col <= c1; col++) {
+          const key = `${row}:${col}`;
+          if (seen.has(key) || !this.#canEditCell(row, col)) continue;
+          seen.add(key);
+          targets.push({
+            row,
+            column: internalGrid._visibleColumns[col] as ColumnConfig<T>,
+            rowData: internalGrid._rows[row] as T,
+          });
+        }
+      }
+    }
+    return targets;
+  }
+
+  /**
+   * True when the key event comes from the grid itself or a cell (navigation),
+   * not from a form field such as an editor, filter input or toolbar control.
+   */
+  #isNavigationKeyTarget(event: KeyboardEvent): boolean {
+    const path = event.composedPath?.() ?? [];
+    const target = (path.length ? path[0] : event.target) as HTMLElement | null;
+    if (!target || target === this.gridElement) return true;
+    if (typeof target.closest !== 'function' || !target.closest('.rows-body')) return false;
+    return !/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) && !target.isContentEditable;
+  }
+
+  /** Editable, loaded (non-placeholder) cell at visible coordinates. */
+  #canEditCell(row: number, col: number): boolean {
+    const internalGrid = this.#internalGrid;
+    const column = internalGrid._visibleColumns[col] as ColumnConfig<T> | undefined;
+    const rowData = internalGrid._rows[row] as T | undefined;
+    if (!column || !rowData || !isSafePropertyKey(column.field)) return false;
+    if ((rowData as { __loading?: unknown }).__loading === true) return false;
+    return this.#isCellEditable(column, rowData);
+  }
+
+  /**
+   * CELL MODE: open a single-cell editor at `row`/`col`, optionally replacing its
+   * content with `seed` (type-to-edit). Defers to `afterRender` when the row is
+   * not rendered yet. Returns false when the cell is not editable.
+   */
+  #startCellModeEdit(row: number, col: number, seed?: string): boolean {
+    if (!this.#canEditCell(row, col)) return false;
+    const cellEl = this.#getCell(row, col);
+    if (!cellEl) {
+      this.#pendingCellEdit = { row, col, seed };
+      this.requestAfterRender();
+      return true;
+    }
+    this.#singleCellEdit = true;
+    this.#beginCellEdit(row, col, cellEl);
+    if (seed !== undefined) seedEditor(cellEl, seed);
+    return true;
+  }
+
+  /**
+   * CELL MODE Tab / Shift+Tab: commit the open cell, move focus to the
+   * next/previous editable cell (wrapping across rows) and open it. At the
+   * last/first editable cell the edit just commits.
+   */
+  #handleCellModeTab(forward: boolean): void {
+    const internalGrid = this.#internalGrid;
+    const row = this.#activeEditRow;
+    const col = this.#activeEditCol !== -1 ? this.#activeEditCol : internalGrid._focusCol;
+    this.#exitRowEdit(row, false);
+
+    const next = this.#nextEditableCell(row, col, forward);
+    if (!next) return;
+    internalGrid._focusRow = next.row;
+    internalGrid._focusCol = next.col;
+    ensureCellVisible(internalGrid, { forceHorizontalScroll: true });
+    this.#startCellModeEdit(next.row, next.col);
+  }
+
+  /** Next/previous editable cell in reading order after `row`/`col`, or null. */
+  #nextEditableCell(row: number, col: number, forward: boolean): { row: number; col: number } | null {
+    const internalGrid = this.#internalGrid;
+    const lastCol = internalGrid._visibleColumns.length - 1;
+    const step = forward ? 1 : -1;
+    let r = row;
+    let c = col + step;
+    while (r >= 0 && r < internalGrid._rows.length) {
+      for (; c >= 0 && c <= lastCol; c += step) {
+        if (this.#canEditCell(r, c)) return { row: r, col: c };
+      }
+      r += step;
+      c = forward ? 0 : lastCol;
+    }
+    return null;
   }
 
   /** F2: begin single-cell edit on the focused cell. */
@@ -1375,6 +1636,15 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (this.#pendingFocusRestore) {
       this.#pendingFocusRestore = false;
       this.#restoreCellFocus(internalGrid);
+    }
+
+    // Cell mode: open an edit that was waiting for its row to render.
+    if (this.#pendingCellEdit && this.#activeEditRow === -1) {
+      const { row, col, seed } = this.#pendingCellEdit;
+      if (this.#getCell(row, col)) {
+        this.#pendingCellEdit = null;
+        this.#startCellModeEdit(row, col, seed);
+      }
     }
 
     // Animate the row after render completes (so the row element exists)

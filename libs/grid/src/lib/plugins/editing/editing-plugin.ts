@@ -968,6 +968,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   #onSpaceKey(event: KeyboardEvent): boolean {
     // If we're in row edit mode, let the event pass through to the editor (e.g., checkbox)
     if (this.#activeEditRow !== -1) return false;
+    // Modified Space is a selection chord (Shift+Space rows, Ctrl/⌘+Space columns), not a toggle.
+    if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return false;
 
     const internalGrid = this.#internalGrid;
     const focusRow = internalGrid._focusRow;

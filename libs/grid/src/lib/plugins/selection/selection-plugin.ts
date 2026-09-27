@@ -56,6 +56,7 @@ import type {
  * `attach()` will throw the proper error message later.
  */
 function primaryModeOf(mode: SelectionMode | SelectionMode[] | undefined): SelectionMode {
+  if (mode === 'spreadsheet') return 'range';
   if (typeof mode === 'string') return mode;
   if (Array.isArray(mode)) {
     const other = mode.find((m) => m !== 'column');
@@ -87,6 +88,24 @@ const NAV_KEYS: readonly string[] = [
   'PageUp',
   'PageDown',
 ];
+
+/**
+ * Copy the spreadsheet whole-row / whole-column flags from `from` onto `range`,
+ * so extending a whole-row selection (Shift+Arrow, Shift+click) keeps whole rows.
+ */
+function withWholeFlags(range: InternalCellRange, from: InternalCellRange | null): InternalCellRange {
+  if (from?.wholeRows) range.wholeRows = true;
+  if (from?.wholeCols) range.wholeCols = true;
+  return range;
+}
+
+/** True when the keydown came from a text field, select or contenteditable. */
+function isFormFieldTarget(event: KeyboardEvent): boolean {
+  const path = event.composedPath?.() ?? [];
+  const target = (path.length ? path[0] : event.target) as HTMLElement | null;
+  if (!target || typeof target.tagName !== 'string') return false;
+  return /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable === true;
+}
 
 /**
  * Build the selection change event detail for the current state.
@@ -187,6 +206,8 @@ function buildSelectionEvent(
  * - **`'cell'`** - Single cell selection (default). Click cells to select individually.
  * - **`'row'`** - Full row selection. Click anywhere in a row to select the entire row.
  * - **`'range'`** - Rectangular selection. Click and drag or Shift+Click to select ranges.
+ * - **`'spreadsheet'`** - Range selection plus whole rows (`Shift+Space`) and whole
+ *   columns (`Ctrl/⌘+Space`, `Ctrl/⌘+Click` header), all expressed as ranges.
  *
  * ## Keyboard Shortcuts
  *
@@ -197,6 +218,8 @@ function buildSelectionEvent(
  * | `Ctrl/Cmd + Click` | Toggle selection (multi-select) |
  * | `Shift + Click` | Extend to clicked cell/row |
  * | `Ctrl/Cmd + A` | Select all (range mode) |
+ * | `Shift + Space` | Whole rows (spreadsheet mode) |
+ * | `Ctrl/Cmd + Space` | Whole columns (spreadsheet mode) |
  * | `Escape` | Clear selection |
  *
  * > **Note:** When `multiSelect: false`, Ctrl/Shift modifiers are ignored —
@@ -385,7 +408,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * plugin go through `this.#mode` rather than `this.config.mode` so the
    * single-string vs. array distinction is resolved in exactly one place.
    */
-  #mode: NormalizedModeConfig = { primary: 'cell', columnEnabled: false, bothAxes: false };
+  #mode: NormalizedModeConfig = { primary: 'cell', columnEnabled: false, bothAxes: false, spreadsheet: false };
 
   /** Last synced focus row — used to detect when grid focus moves so selection follows */
   private lastSyncedFocusRow = -1;
@@ -1004,8 +1027,12 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     const ctrlKey = (originalEvent.ctrlKey || originalEvent.metaKey) && this.config.multiSelect !== false;
 
     if (shiftKey && this.cellAnchor) {
-      // Extend selection from anchor
-      const newRange = createRangeFromAnchor(this.cellAnchor, { row: rowIndex, col: colIndex });
+      // Extend selection from anchor (whole rows/columns stay whole)
+      const newRange = withWholeFlags(
+        createRangeFromAnchor(this.cellAnchor, { row: rowIndex, col: colIndex }),
+        this.activeRange,
+      );
+      this.#refreshWholeRange(newRange);
 
       // Check if range actually changed
       const currentRange = this.ranges.length > 0 ? this.ranges[this.ranges.length - 1] : null;
@@ -1045,6 +1072,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (!this.isSelectionEnabled()) return false;
 
     if (this.#mode.columnEnabled && this.#keyColumnAxis(event)) return true;
+    if (this.#mode.spreadsheet && this.#keySpreadsheet(event)) return true;
 
     const mode = this.#mode.primary;
 
@@ -1114,6 +1142,92 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
 
     return false;
+  }
+
+  /**
+   * Spreadsheet-mode Space chords (Excel / Google Sheets muscle memory):
+   * - **Shift+Space** — expand the active range to whole rows.
+   * - **Ctrl/⌘+Space** — expand the active range to whole columns.
+   * - **Ctrl/⌘+Shift+Space** — select all.
+   *
+   * Plain Space is left alone (editors type it, EditingPlugin toggles boolean
+   * cells with it). Skipped while an edit is open or when the key comes from
+   * a form field, so Shift+Space still types a space into an editor.
+   *
+   * @returns `true` when the chord was consumed.
+   */
+  #keySpreadsheet(event: KeyboardEvent): boolean {
+    if (event.key !== ' ' && event.key !== 'Spacebar') return false;
+    const ctrlOrMeta = event.ctrlKey || event.metaKey;
+    if (event.altKey || (!ctrlOrMeta && !event.shiftKey)) return false;
+    if (isFormFieldTarget(event)) return false;
+    if (this.grid.query<boolean>('isEditing').some(Boolean)) return false;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (ctrlOrMeta && event.shiftKey) this.selectAll();
+    else this.#expandToWhole(ctrlOrMeta ? 'cols' : 'rows');
+    return true;
+  }
+
+  /**
+   * Replace the selection with the whole rows (or columns) spanned by the
+   * active range, or by the focused cell when nothing is selected. The anchor
+   * moves to the far end from the focused cell, so a following Shift+Arrow
+   * extends the whole rows/columns exactly like Excel.
+   */
+  #expandToWhole(axis: 'rows' | 'cols'): void {
+    const focus = { row: this.grid._focusRow, col: this.grid._focusCol };
+    const base: InternalCellRange = this.activeRange
+      ? normalizeRange(this.activeRange)
+      : { startRow: focus.row, endRow: focus.row, startCol: focus.col, endCol: focus.col };
+    const range: InternalCellRange = {
+      ...base,
+      wholeRows: axis === 'rows' || this.activeRange?.wholeRows,
+      wholeCols: axis === 'cols' || this.activeRange?.wholeCols,
+    };
+    this.ranges = [range];
+    this.activeRange = range;
+    this.cellAnchor = {
+      row: focus.row === base.startRow ? base.endRow : base.startRow,
+      col: focus.col === base.startCol ? base.endCol : base.startCol,
+    };
+    this.#extendAnchor = { ...this.cellAnchor };
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
+  }
+
+  /**
+   * Re-derive the open axis of every whole-row / whole-column range from the
+   * current grid extents. Runs before each render and emit, so a whole column
+   * keeps covering rows appended later (e.g. ServerSidePlugin infinite mode)
+   * and a whole row follows column visibility changes.
+   */
+  #refreshWholeRanges(): void {
+    if (!this.#mode.spreadsheet) return;
+    for (const range of this.ranges) this.#refreshWholeRange(range);
+  }
+
+  #refreshWholeRange(range: InternalCellRange): void {
+    if (range.wholeRows) {
+      range.startCol = 0;
+      range.endCol = Math.max(0, this.visibleColumns.length - 1);
+    }
+    if (range.wholeCols) {
+      range.startRow = 0;
+      range.endRow = Math.max(0, this.rows.length - 1);
+    }
+  }
+
+  /** Visible-column indices covered by whole-column ranges (spreadsheet mode). */
+  #wholeColumnIndices(): Set<number> {
+    const indices = new Set<number>();
+    for (const range of this.ranges) {
+      if (!range.wholeCols) continue;
+      const { startCol, endCol } = normalizeRange(range);
+      for (let c = startCol; c <= endCol; c++) indices.add(c);
+    }
+    return indices;
   }
 
   /** Escape: clear the active axis. Defers to EditingPlugin while an edit is open. */
@@ -1401,6 +1515,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    */
   override onHeaderClick(event: HeaderClickEvent): boolean | void {
     if (!this.isSelectionEnabled()) return false;
+    if (this.#mode.spreadsheet) return this.#headerClickSpreadsheet(event);
     if (!this.#mode.columnEnabled) return false;
     if (event.column && isUtilityColumn(event.column)) return false;
 
@@ -1416,6 +1531,51 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
     const range = e.shiftKey === true && this.config.multiSelect !== false && this.columnAnchor !== null;
     this.selectColumn(field, range ? { range: true } : { toggle: true });
+    return true; // Handled — suppress sort
+  }
+
+  /**
+   * Spreadsheet-mode header chords — same keys as the column axis, but the
+   * result is a whole-column range so copy/paste/fill see ordinary ranges:
+   * - **Ctrl/⌘+click** — add the column (or remove it if it is already a
+   *   whole-column range on its own); replaces when `multiSelect: false`.
+   * - **Ctrl/⌘+Shift+click** — extend the active whole-column range to here.
+   *
+   * Plain and Shift clicks stay with sorting.
+   */
+  #headerClickSpreadsheet(event: HeaderClickEvent): boolean {
+    if (event.column && isUtilityColumn(event.column)) return false;
+    const e = event.originalEvent;
+    if (!(e.ctrlKey || e.metaKey)) return false;
+    const col = this.visibleColumns.findIndex((c) => c.field === event.field);
+    if (col < 0) return false;
+
+    e.preventDefault();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+
+    const multiSelect = this.config.multiSelect !== false;
+    const active = this.activeRange;
+    if (e.shiftKey && multiSelect && active?.wholeCols && this.cellAnchor) {
+      const extended: InternalCellRange = { ...active, startCol: this.cellAnchor.col, endCol: col };
+      this.ranges[this.ranges.length - 1] = extended;
+      this.activeRange = extended;
+    } else {
+      const existing = this.ranges.findIndex((r) => r.wholeCols && r.startCol === col && r.endCol === col);
+      if (multiSelect && existing >= 0) {
+        this.ranges.splice(existing, 1);
+        this.activeRange = this.ranges[this.ranges.length - 1] ?? null;
+      } else {
+        const range: InternalCellRange = { startRow: 0, endRow: 0, startCol: col, endCol: col, wholeCols: true };
+        if (multiSelect) this.ranges.push(range);
+        else this.ranges = [range];
+        this.activeRange = range;
+        this.cellAnchor = { row: this.grid._focusRow, col };
+        this.#extendAnchor = { ...this.cellAnchor };
+      }
+    }
+
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
     return true; // Handled — suppress sort
   }
 
@@ -1623,7 +1783,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
     const mode = this.#mode.primary;
     const columnEnabled = this.#mode.columnEnabled;
+    const spreadsheet = this.#mode.spreadsheet;
     const hasSelectableCallback = !!this.config.isSelectable;
+    this.#refreshWholeRanges();
 
     // Reflect multi-select capability on the role=grid element so screen readers
     // announce the grid as multi-selectable. WAI-ARIA requires aria-multiselectable
@@ -1672,7 +1834,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     });
 
     // Clear column-selected from header cells too
-    if (columnEnabled) {
+    if (columnEnabled || spreadsheet) {
       const headerCells = gridEl.querySelectorAll('.header-row > .cell');
       headerCells.forEach((cell) => {
         cell.classList.remove('column-selected');
@@ -1766,6 +1928,12 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       });
     }
 
+    // SPREADSHEET: mark headers of whole columns and rows of whole rows, so the
+    // axis the user picked is visible and announced (cells are handled above).
+    if (spreadsheet && this.ranges.length > 0) {
+      this.#applyWholeRangeMarkers(gridEl, allRows);
+    }
+
     // CELL MODE: Let the grid's native .cell-focus styling handle cell highlighting
     // No additional action needed - the grid already manages focus styling
 
@@ -1807,6 +1975,28 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         }
       });
     }
+  }
+
+  #applyWholeRangeMarkers(gridEl: HTMLElement, allRows: NodeListOf<Element>): void {
+    const wholeCols = this.#wholeColumnIndices();
+    if (wholeCols.size > 0) {
+      gridEl.querySelectorAll<HTMLElement>('.header-row > .cell[data-col]').forEach((cell) => {
+        const colIndex = parseInt(cell.getAttribute('data-col') ?? '-1', 10);
+        const column = this.visibleColumns[colIndex];
+        if (!column || isUtilityColumn(column) || !wholeCols.has(colIndex)) return;
+        cell.classList.add('column-selected');
+        cell.setAttribute('aria-selected', 'true');
+      });
+    }
+
+    const wholeRows = this.ranges.filter((r) => r.wholeRows).map(normalizeRange);
+    if (wholeRows.length === 0) return;
+    allRows.forEach((row) => {
+      const rowIndex = getRowIndexFromCell(row.querySelector('.cell[data-row]'));
+      if (wholeRows.some((r) => rowIndex >= r.startRow && rowIndex <= r.endRow)) {
+        row.setAttribute('aria-selected', 'true');
+      }
+    });
   }
 
   /** @internal */
@@ -1864,7 +2054,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
       if (shiftKey && this.cellAnchor) {
         // Extend selection from anchor to current focus
-        const newRange = createRangeFromAnchor(this.cellAnchor, { row: currentRow, col: currentCol });
+        const newRange = withWholeFlags(
+          createRangeFromAnchor(this.cellAnchor, { row: currentRow, col: currentCol }),
+          this.activeRange,
+        );
         this.ranges = [newRange];
         this.activeRange = newRange;
       } else if (!shiftKey) {
@@ -1964,7 +2157,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * ```
    */
   selectAll(): void {
-    const { mode, multiSelect } = this.config;
+    const { multiSelect } = this.config;
+    const mode = this.#mode.primary;
 
     // Single-select mode: selectAll is a no-op
     if (multiSelect === false) return;
@@ -1988,6 +2182,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
           startCol: 0,
           endRow: rowCount - 1,
           endCol: colCount - 1,
+          ...(this.#mode.spreadsheet && { wholeRows: true, wholeCols: true }),
         };
         this.ranges = [allRange];
         this.activeRange = allRange;
@@ -2038,6 +2233,17 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * ```
    */
   getSelectedRowIndices(): number[] {
+    if (this.#mode.spreadsheet) {
+      // Whole rows only — a partial range is a cell selection, not a row one.
+      this.#refreshWholeRanges();
+      const indices = new Set<number>();
+      for (const range of this.ranges) {
+        if (!range.wholeRows) continue;
+        const { startRow, endRow } = normalizeRange(range);
+        for (let r = startRow; r <= endRow; r++) indices.add(r);
+      }
+      return [...indices].sort((a, b) => a - b);
+    }
     return [...this.selected].sort((a, b) => a - b);
   }
 
@@ -2238,6 +2444,14 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * @since 2.8.0
    */
   getSelectedColumns(): readonly string[] {
+    if (this.#mode.spreadsheet) {
+      const indices = this.#wholeColumnIndices();
+      const fields: string[] = [];
+      this.visibleColumns.forEach((col, i) => {
+        if (indices.has(i) && !isUtilityColumn(col) && typeof col.field === 'string') fields.push(col.field);
+      });
+      return fields;
+    }
     if (this.selectedColumns.size === 0) return [];
     const fields = selectableColumnFields(this.visibleColumns);
     return fields.filter((f) => this.selectedColumns.has(f));
@@ -2281,6 +2495,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   // #region Private Helpers
 
   #buildEvent(): SelectionChangeDetail {
+    this.#refreshWholeRanges();
     // Derive the axis from current state so all existing in-row code paths
     // (which mutate state then emit) report the correct axis without needing
     // to pre-set `this.activeAxis` themselves. Mutual exclusion is enforced
@@ -2333,6 +2548,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       this.columns.length,
       selectableColumnFields(this.visibleColumns),
     );
+    if (this.#mode.spreadsheet) event.selectedColumns = this.getSelectedColumns();
     // Debounced screen reader announcement for selection changes
     if (this.announceTimer) clearTimeout(this.announceTimer);
     this.announceTimer = setTimeout(() => {

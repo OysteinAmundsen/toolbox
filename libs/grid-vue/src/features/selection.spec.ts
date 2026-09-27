@@ -17,6 +17,7 @@ function makeStubPlugin(mode: 'row' | 'range' = 'row') {
     config: { mode },
     selected: new Set<number>(),
     requestAfterRender: vi.fn(),
+    selectAll: vi.fn(),
     clearSelection: vi.fn(),
     getSelection: vi.fn().mockReturnValue({ ranges: [], rows: [] }),
     isCellSelected: vi.fn().mockReturnValue(true),
@@ -109,25 +110,14 @@ describe('@toolbox-web/grid-vue/features/selection', () => {
     cleanup();
   });
 
-  it('selectAll fills every row index in row mode', () => {
-    const plugin = makeStubPlugin('row');
+  it.each(['row', 'range'] as const)('selectAll delegates to SelectionPlugin.selectAll in %s mode', (mode) => {
+    const plugin = makeStubPlugin(mode);
     const { api, cleanup } = mountComposable(undefined, makeGridEl(plugin).grid);
 
     api().selectAll();
 
-    expect([...plugin.selected]).toEqual([0, 1, 2]);
-    expect(plugin.requestAfterRender).toHaveBeenCalled();
-
-    cleanup();
-  });
-
-  it('selectAll spans the full grid as one range in range mode', () => {
-    const plugin = makeStubPlugin('range');
-    const { api, cleanup } = mountComposable(undefined, makeGridEl(plugin).grid);
-
-    api().selectAll();
-
-    expect(plugin.setRanges).toHaveBeenCalledWith([{ from: { row: 0, col: 0 }, to: { row: 2, col: 1 } }]);
+    expect(plugin.selectAll).toHaveBeenCalledTimes(1);
+    expect(plugin.setRanges).not.toHaveBeenCalled();
 
     cleanup();
   });

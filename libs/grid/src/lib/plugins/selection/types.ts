@@ -68,6 +68,7 @@ declare module '../../core/types' {
  * | `'row'` | Record-based operations | Full row selection. Click anywhere to select the entire row. |
  * | `'column'` | Spreadsheet-style column operations | Full column selection. Activated via `Ctrl+Click` on header or `Ctrl+Space` on a focused cell. |
  * | `'range'` | Bulk operations, export | Rectangular selection. Drag or Shift+Click to select ranges. |
+ * | `'spreadsheet'` | Spreadsheet muscle memory | Range selection plus whole rows (`Shift+Space`) and whole columns (`Ctrl/⌘+Space`, `Ctrl/⌘+Click` header), all expressed as ranges. |
  *
  * `mode` may also be an **array** to enable column selection alongside one in-row mode
  * (`['row', 'column']`, `['cell', 'column']`, or `['range', 'column']`). When both axes
@@ -91,7 +92,13 @@ declare module '../../core/types' {
  *
  * // Both row and column - mutually exclusive at runtime
  * new SelectionPlugin({ mode: ['row', 'column'] })
+ *
+ * // Spreadsheet - cells, ranges, whole rows and whole columns in one mode
+ * new SelectionPlugin({ mode: 'spreadsheet' })
  * ```
+ *
+ * `'spreadsheet'` is standalone: it already covers every axis, so it cannot be
+ * combined in an array.
  *
  * @see Cell Mode Demo — Click cells to select
  * @see Row Mode Demo — Full row selection
@@ -100,7 +107,7 @@ declare module '../../core/types' {
  */
 export type { TouchSelectionMode } from './touch-selection';
 
-export type SelectionMode = 'cell' | 'row' | 'column' | 'range';
+export type SelectionMode = 'cell' | 'row' | 'column' | 'range' | 'spreadsheet';
 
 /**
  * The axis of the active selection. Used in {@link SelectionChangeDetail} to disambiguate
@@ -320,6 +327,17 @@ export interface InternalCellRange {
   endRow: number;
   /** Ending column index */
   endCol: number;
+  /**
+   * Spreadsheet mode: the range spans every column (selected with `Shift+Space`).
+   * `startCol`/`endCol` are re-derived from the visible columns on every render.
+   */
+  wholeRows?: boolean;
+  /**
+   * Spreadsheet mode: the range spans every row (selected with `Ctrl/⌘+Space`).
+   * `startRow`/`endRow` are re-derived from the row count on every render, so a
+   * whole column keeps covering rows that ServerSidePlugin loads later.
+   */
+  wholeCols?: boolean;
 }
 
 /**
@@ -351,7 +369,8 @@ export interface SelectionChangeDetail {
   /** Selected cell ranges. For cell mode, contains a single-cell range. For row mode, contains full-row ranges. Empty when the active axis is `'column'`. */
   ranges: CellRange[];
   /**
-   * Field names of selected columns (column axis only). Empty when the active axis is row/cell/range.
+   * Field names of selected columns. Populated on the column axis, and in `'spreadsheet'` mode for
+   * every whole-column range (alongside `ranges`). Empty otherwise.
    * @since 2.8.0
    */
   selectedColumns: readonly string[];

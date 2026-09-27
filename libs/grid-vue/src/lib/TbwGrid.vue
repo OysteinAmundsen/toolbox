@@ -250,7 +250,7 @@ const props = defineProps({
 
   /** Enable cell/row/range selection */
   selection: {
-    type: [String, Object] as PropType<'cell' | 'row' | 'range' | SelectionConfig<TRow>>,
+    type: [String, Object] as PropType<'cell' | 'row' | 'range' | 'spreadsheet' | SelectionConfig<TRow>>,
     default: undefined,
   },
   /** Enable inline cell editing */

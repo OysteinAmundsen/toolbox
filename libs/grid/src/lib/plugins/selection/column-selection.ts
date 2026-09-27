@@ -25,11 +25,15 @@ import type { SelectionMode } from './types';
  *   on header, Ctrl+Space on focused cell, and the column-selection render pass.
  * - `bothAxes`: shorthand for "column AND a non-column axis are configured" —
  *   this is the only state where the row↔column mutual-exclusion logic kicks in.
+ * - `spreadsheet`: `mode: 'spreadsheet'`. Runs on the range machinery
+ *   (`primary: 'range'`) and adds whole-row / whole-column ranges, so the
+ *   separate column axis stays off.
  */
 export interface NormalizedModeConfig {
   primary: SelectionMode;
   columnEnabled: boolean;
   bothAxes: boolean;
+  spreadsheet: boolean;
 }
 
 /**
@@ -49,18 +53,22 @@ export interface NormalizedModeConfig {
  * - Unknown mode strings
  */
 export function normalizeMode(mode: SelectionMode | SelectionMode[]): NormalizedModeConfig {
-  const validModes: ReadonlySet<string> = new Set(['cell', 'row', 'column', 'range']);
+  const validModes: ReadonlySet<string> = new Set(['cell', 'row', 'column', 'range', 'spreadsheet']);
 
   if (typeof mode === 'string') {
     if (!validModes.has(mode)) {
       throw new Error(
-        `[SelectionPlugin] Invalid selection mode: "${mode}". Expected one of: 'cell' | 'row' | 'column' | 'range'.`,
+        `[SelectionPlugin] Invalid selection mode: "${mode}". Expected one of: 'cell' | 'row' | 'column' | 'range' | 'spreadsheet'.`,
       );
+    }
+    if (mode === 'spreadsheet') {
+      return { primary: 'range', columnEnabled: false, bothAxes: false, spreadsheet: true };
     }
     return {
       primary: mode,
       columnEnabled: mode === 'column',
       bothAxes: false,
+      spreadsheet: false,
     };
   }
 
@@ -75,9 +83,17 @@ export function normalizeMode(mode: SelectionMode | SelectionMode[]): Normalized
   for (const m of mode) {
     if (!validModes.has(m)) {
       throw new Error(
-        `[SelectionPlugin] Invalid selection mode in array: "${m}". Expected one of: 'cell' | 'row' | 'column' | 'range'.`,
+        `[SelectionPlugin] Invalid selection mode in array: "${m}". Expected one of: 'cell' | 'row' | 'column' | 'range' | 'spreadsheet'.`,
       );
     }
+  }
+
+  // 'spreadsheet' already spans every axis — combining it means nothing.
+  if (mode.length > 1 && mode.includes('spreadsheet')) {
+    throw new Error(
+      `[SelectionPlugin] Invalid selection mode: [${mode.join(', ')}]. ` +
+        `'spreadsheet' already includes row, column and range selection — use it on its own.`,
+    );
   }
 
   // Reject duplicates
@@ -116,6 +132,7 @@ export function normalizeMode(mode: SelectionMode | SelectionMode[]): Normalized
     primary: other,
     columnEnabled: true,
     bothAxes: true,
+    spreadsheet: false,
   };
 }
 

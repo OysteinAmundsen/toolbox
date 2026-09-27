@@ -304,10 +304,11 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     const targetCol = firstRange ? selMinCol : (anchor?.col ?? 0);
 
     // Multi-cell when the selection spans more than one cell in total, whether
-    // it's one large range or many single-cell ranges.
+    // it's one large range or many single-cell ranges. Keyed on the active
+    // axis, not the configured `mode` (see `selectionAxis`).
     const isMultiCell =
       !!firstRange &&
-      (selection?.mode === 'range' || selection?.mode === 'row') &&
+      (selectionAxis(selection) === 'range' || selectionAxis(selection) === 'row') &&
       (selMinRow !== selMaxRow || selMinCol !== selMaxCol);
 
     const bounds = isMultiCell ? { endRow: selMaxRow, endCol: selMaxCol } : null;
@@ -538,7 +539,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
       // Selection range: extract the union row span. Row mode selects WHOLE
       // rows and gets no column mask, so gaps between disjoint row ranges
       // (Ctrl+click rows 0, 5, 9) must be dropped outright rather than copied.
-      const dropUnselectedRows = selection?.mode === 'row';
+      const dropUnselectedRows = selectionAxis(selection) === 'row';
       const rowIsSelected = (r: number) =>
         ranges.some((g) => r >= Math.min(g.from.row, g.to.row) && r <= Math.max(g.from.row, g.to.row));
       rows = [];
@@ -855,9 +856,21 @@ interface CellRange {
  * Matches the SelectionResult type from SelectionPlugin.
  */
 interface SelectionQueryResult {
-  mode: 'cell' | 'row' | 'range';
+  mode: string | string[];
+  /** Axis owning the selection (SelectionPlugin ≥ 2.8). */
+  activeAxis?: 'cell' | 'row' | 'column' | 'range' | 'none';
   ranges: CellRange[];
   anchor: { row: number; col: number } | null;
+}
+
+/**
+ * The axis a selection lives on. Prefers `activeAxis`: the configured `mode`
+ * may be an array (`['range','column']`) or `'spreadsheet'`, both of which
+ * select on the range axis. Falls back to a plain string `mode`.
+ */
+function selectionAxis(selection: SelectionQueryResult | undefined): string | undefined {
+  if (selection?.activeAxis) return selection.activeAxis;
+  return typeof selection?.mode === 'string' ? selection.mode : undefined;
 }
 // #endregion
 

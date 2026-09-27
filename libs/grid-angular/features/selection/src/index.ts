@@ -333,23 +333,9 @@ export function injectGridSelection<TRow = unknown>(selector = 'tbw-grid'): Sele
         );
         return;
       }
-      const grid = getGrid();
-      // Cast to any to access protected config
-      const mode = (plugin as any).config?.mode;
-
-      if (mode === 'row') {
-        const rowCount = grid?.rows?.length ?? 0;
-        const allIndices = new Set<number>();
-        for (let i = 0; i < rowCount; i++) allIndices.add(i);
-        (plugin as any).selected = allIndices;
-        (plugin as any).requestAfterRender?.();
-      } else if (mode === 'range') {
-        const rowCount = grid?.rows?.length ?? 0;
-        const colCount = (grid as any)?._columns?.length ?? 0;
-        if (rowCount > 0 && colCount > 0) {
-          plugin.setRanges([{ from: { row: 0, col: 0 }, to: { row: rowCount - 1, col: colCount - 1 } }]);
-        }
-      }
+      // The plugin resolves every mode (incl. array modes and 'spreadsheet'),
+      // honors isSelectable/multiSelect and emits selection-change.
+      plugin.selectAll();
     },
 
     clearSelection: () => {

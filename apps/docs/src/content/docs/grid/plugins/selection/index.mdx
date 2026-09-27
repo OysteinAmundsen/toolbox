@@ -243,6 +243,32 @@ Invalid combinations (`['cell', 'row']`, `['cell', 'range']`, `['row', 'range']`
 
 Utility columns (checkbox, expander, etc.) are never selectable. With `multiSelect: false`, only one column can be selected at a time and `selectAllColumns()` is a no-op.
 
+### Spreadsheet Selection
+
+Set `mode: 'spreadsheet'` for Excel / Google Sheets muscle memory: cells, ranges, whole rows and whole columns all work at once, with no mode switching.
+
+```ts
+features: { selection: 'spreadsheet' }
+```
+
+Everything that works in `'range'` mode still works (click, drag, `Shift + Click`, `Shift + Arrow`, `Ctrl/⌘ + A`). On top of that:
+
+| Input | Action |
+| ----- | ------ |
+| `Shift + Space` | Select the whole row(s) spanned by the current selection |
+| `Ctrl/⌘ + Space` | Select the whole column(s) spanned by the current selection |
+| `Ctrl/⌘ + Shift + Space` | Select all |
+| `Shift + Arrow` after either of the above | Extend by whole rows / whole columns |
+| `Ctrl/⌘ + Click` on column header | Add the column (click again to remove it) |
+| `Ctrl/⌘ + Shift + Click` on column header | Extend the column selection from the anchor column |
+| Plain header click | Still sorts |
+
+Whole rows and whole columns are ordinary **ranges**, so copy, paste and fill treat them like any other selection. `selection-change` reports them in `ranges`, and also lists whole-column fields in `selectedColumns`; `getSelectedRowIndices()` returns the rows of whole-row ranges.
+
+A whole column always spans every row in the grid's row model, including rows that arrive later — with the [Server-Side plugin](/grid/plugins/server-side/) that means it keeps growing as blocks load. Rows that are still loading are part of the range but have no data yet.
+
+`'spreadsheet'` already covers every axis, so it can't be combined with other modes in an array.
+
 ## Configuration Options
 
 ### Grid-Level Toggle
@@ -321,6 +347,9 @@ features: {
 | `Ctrl/⌘ + Shift + Click` (header) | Extend column selection from anchor |
 | `Ctrl/⌘ + Space` | Toggle column at the focused column (column mode) |
 | `Ctrl/⌘ + Shift + ←/→` | Extend column selection (column mode) |
+| `Shift + Space` | Select whole rows (spreadsheet mode) |
+| `Ctrl/⌘ + Space` | Select whole columns (spreadsheet mode) |
+| `Ctrl/⌘ + Shift + Space` | Select all (spreadsheet mode) |
 | `Escape` | Clear current selection (whichever axis is active) |
 
 ### Range Mouse Behavior

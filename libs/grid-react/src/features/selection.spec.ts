@@ -2,7 +2,7 @@
  * Tests for `@toolbox-web/grid-react/features/selection`.
  *
  * Covers the `useGridSelection` hook's plugin discovery, delegation to
- * `SelectionPlugin`, the mode-dependent `selectAll` behaviour, and the safe
+ * `SelectionPlugin` (including `selectAll`), and the safe
  * fallbacks when the plugin is absent.
  *
  * @vitest-environment jsdom
@@ -19,6 +19,7 @@ interface StubSelectionPlugin {
   config: { mode: 'row' | 'range' | 'cell' };
   selected?: Set<number>;
   requestAfterRender: ReturnType<typeof vi.fn>;
+  selectAll: ReturnType<typeof vi.fn>;
   clearSelection: ReturnType<typeof vi.fn>;
   getSelection: ReturnType<typeof vi.fn>;
   isCellSelected: ReturnType<typeof vi.fn>;
@@ -31,6 +32,7 @@ function makeStubPlugin(mode: 'row' | 'range' | 'cell' = 'range'): StubSelection
     name: 'selection',
     config: { mode },
     requestAfterRender: vi.fn(),
+    selectAll: vi.fn(),
     clearSelection: vi.fn(),
     getSelection: vi.fn().mockReturnValue({ ranges: [], rowIndices: [1] }),
     isCellSelected: vi.fn().mockReturnValue(true),
@@ -90,24 +92,14 @@ describe('@toolbox-web/grid-react/features/selection', () => {
     document.body.innerHTML = '';
   });
 
-  it('selectAll in range mode sets one range spanning every row and column', () => {
-    const plugin = makeStubPlugin('range');
+  it.each(['row', 'range', 'cell'] as const)('selectAll delegates to SelectionPlugin.selectAll in %s mode', (mode) => {
+    const plugin = makeStubPlugin(mode);
     const { api, cleanup } = renderHook(undefined, makeGridEl(plugin, 3, 2));
 
     api().selectAll();
 
-    expect(plugin.setRanges).toHaveBeenCalledWith([{ from: { row: 0, col: 0 }, to: { row: 2, col: 1 } }]);
-    cleanup();
-  });
-
-  it('selectAll in row mode fills the selected index set and requests a render', () => {
-    const plugin = makeStubPlugin('row');
-    const { api, cleanup } = renderHook(undefined, makeGridEl(plugin, 3));
-
-    api().selectAll();
-
-    expect([...(plugin.selected ?? [])]).toEqual([0, 1, 2]);
-    expect(plugin.requestAfterRender).toHaveBeenCalled();
+    expect(plugin.selectAll).toHaveBeenCalledTimes(1);
+    expect(plugin.setRanges).not.toHaveBeenCalled();
     cleanup();
   });
 

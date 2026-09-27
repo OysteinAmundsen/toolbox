@@ -112,6 +112,41 @@ describe('clipboard fillSelection over updateRows pipeline', () => {
     expect(grid._rows[2].terminal).toBe('Mongstad');
   });
 
+  it.each([['spreadsheet'], [['range', 'column']]] as const)(
+    'fills a multi-cell selection when mode is %j (keyed on activeAxis, not mode)',
+    async (mode) => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'terminal', header: 'Source terminal', editable: true },
+        ],
+        getRowId: (row: any) => String(row.id),
+        plugins: [
+          new SelectionPlugin({ mode: mode as any }),
+          new ClipboardPlugin({ fillSelection: true }),
+          new EditingPlugin({ editOn: 'click', dirtyTracking: true }),
+        ],
+      };
+      grid.rows = [
+        { id: 1, terminal: '' },
+        { id: 2, terminal: '' },
+        { id: 3, terminal: '' },
+      ];
+      await waitUpgrade(grid);
+
+      const selection = grid.getPluginByName('selection') as SelectionPlugin;
+      selection.setRanges([{ from: { row: 0, col: 1 }, to: { row: 2, col: 1 } }]);
+      await nextFrame();
+
+      const pasteEvent = new Event('paste', { bubbles: true }) as Event & { clipboardData: unknown };
+      pasteEvent.clipboardData = { getData: () => 'Mongstad' };
+      grid.dispatchEvent(pasteEvent);
+      await nextFrame();
+
+      expect(grid._rows.map((r: any) => r.terminal)).toEqual(['Mongstad', 'Mongstad', 'Mongstad']);
+    },
+  );
+
   it('fills when the selection is several single-cell ranges (cell-by-cell multi-select)', async () => {
     // Regression: real grids express a multi-cell selection as MANY single-cell
     // ranges (clicking/dragging cell-by-cell). The paste handler used to inspect

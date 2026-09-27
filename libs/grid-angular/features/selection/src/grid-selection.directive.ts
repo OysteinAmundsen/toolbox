@@ -23,7 +23,7 @@ export class GridSelectionDirective implements OnInit, OnDestroy {
   private readonly elementRef = inject(ElementRef<DataGridElement>);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  readonly selection = input<'cell' | 'row' | 'range' | SelectionConfig<any>>();
+  readonly selection = input<'cell' | 'row' | 'range' | 'spreadsheet' | SelectionConfig<any>>();
   readonly selectionChange = output<SelectionChangeDetail>();
 
   private listener?: (e: Event) => void;

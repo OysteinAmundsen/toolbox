@@ -228,7 +228,7 @@ export interface FeatureProps<TRow = unknown> {
    * <DataGrid selection={{ mode: 'range', checkbox: true }} />
    * ```
    */
-  selection?: 'cell' | 'row' | 'range' | SelectionConfig<TRow>;
+  selection?: 'cell' | 'row' | 'range' | 'spreadsheet' | SelectionConfig<TRow>;
 
   /**
    * Enable inline cell editing.

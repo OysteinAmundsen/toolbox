@@ -208,8 +208,8 @@ Two options are worth calling out:
 
 - **`escapeFormulas`** — on by default. Values starting with `=`, `+`, `-`, `@`, tab or CR are
   prefixed with `'` so a spreadsheet treats them as text instead of evaluating them (CWE-1236).
-- **`fillSelection`** — tiles the clipboard source across a larger multi-cell selection
-  (see [Fill Selection](#fill-selection)).
+- **`fillSelection`** — on by default. Tiles the clipboard source across a larger multi-cell
+  selection (see [Fill Selection](#fill-selection)).
 
 ### Per-Column Paste Guard/Transform (`column.onPaste`)
 
@@ -325,11 +325,7 @@ For an **external** paste into an object column (e.g. from Excel), only text is 
 
 ### Fill Selection
 
-With `fillSelection: true`, pasting a source that is **smaller** than a bounded multi-cell selection tiles (repeats) the source to fill the whole selection. This is handy for applying one value across many cells without copying it repeatedly.
-
-```ts
-new ClipboardPlugin({ fillSelection: true });
-```
+Pasting a source that is **smaller** than a bounded multi-cell selection tiles (repeats) the source to fill the whole selection, like Excel and Google Sheets. This is handy for applying one value across many cells without copying it repeatedly.
 
 | Copied source | Selection | Result                                  |
 | ------------- | --------- | --------------------------------------- |
@@ -337,7 +333,11 @@ new ClipboardPlugin({ fillSelection: true });
 | `v1, v2`      | 4 cells   | `v1, v2, v1, v2`                        |
 | 2×2 block     | 4×4 range | the block tiled four times              |
 
-Fill only applies to a bounded (multi-cell) selection and never grows the grid. Non-editable columns are still skipped. When `fillSelection` is `false` (the default), paste writes only the source extent.
+Fill only applies to a bounded (multi-cell) selection and never grows the grid. Non-editable columns are still skipped. To write only the source extent instead, turn it off:
+
+```ts
+new ClipboardPlugin({ fillSelection: false });
+```
 
 ## Keyboard Shortcuts
 

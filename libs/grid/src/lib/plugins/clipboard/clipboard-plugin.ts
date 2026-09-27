@@ -136,6 +136,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
       delimiter: '\t',
       newline: '\n',
       quoteStrings: false,
+      fillSelection: true,
     };
   }
 

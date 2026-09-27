@@ -112,6 +112,41 @@ describe('clipboard fillSelection over updateRows pipeline', () => {
     expect(grid._rows[2].terminal).toBe('Mongstad');
   });
 
+  it.each([
+    ['fills by default', {}, ['Mongstad', 'Mongstad', 'Mongstad']],
+    ['writes only the source extent with fillSelection: false', { fillSelection: false }, ['Mongstad', '', '']],
+  ] as const)('pasting one cell into a 3-row selection %s', async (_label, clipboardConfig, expected) => {
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID' },
+        { field: 'terminal', header: 'Source terminal', editable: true },
+      ],
+      getRowId: (row: any) => String(row.id),
+      plugins: [
+        new SelectionPlugin({ mode: 'range' }),
+        new ClipboardPlugin(clipboardConfig),
+        new EditingPlugin({ editOn: 'click' }),
+      ],
+    };
+    grid.rows = [
+      { id: 1, terminal: '' },
+      { id: 2, terminal: '' },
+      { id: 3, terminal: '' },
+    ];
+    await waitUpgrade(grid);
+
+    (grid.getPluginByName('selection') as SelectionPlugin).setRanges([
+      { from: { row: 0, col: 1 }, to: { row: 2, col: 1 } },
+    ]);
+    await nextFrame();
+    const pasteEvent = new Event('paste', { bubbles: true }) as Event & { clipboardData: unknown };
+    pasteEvent.clipboardData = { getData: () => 'Mongstad' };
+    grid.dispatchEvent(pasteEvent);
+    await nextFrame();
+
+    expect(grid._rows.map((r: any) => r.terminal)).toEqual(expected);
+  });
+
   it.each([[['range', 'column']]] as const)(
     'fills a multi-cell selection when mode is the array %j (keyed on activeAxis, not mode)',
     async (mode) => {

@@ -99,9 +99,10 @@ export interface ClipboardConfig {
    * `val1, val2, val1, val2`, and a 2×2 block tiles across the selection.
    *
    * Only applies when a bounded (multi-cell) selection is active — it never
-   * grows the grid. Defaults to `false` (paste writes only the source extent).
+   * grows the grid. Set to `false` to write only the source extent (a single
+   * copied cell then lands in the selection's top-left cell only).
    *
-   * @default false
+   * @default true
    * @since 3.0.0
    */
   fillSelection?: boolean;

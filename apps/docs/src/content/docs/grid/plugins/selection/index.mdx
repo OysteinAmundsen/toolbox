@@ -312,6 +312,7 @@ features: {
 | `Shift + Arrow` | Extend selection (row and range modes) |
 | `Shift + Page Up/Down` | Extend selection by page (row and range modes) |
 | `Shift + Ctrl/⌘ + Home/End` | Extend selection to first/last row (row and range modes) |
+| `Shift + Ctrl/⌘ + ↑/↓` | Extend selection to first/last row, same column (row and range modes) |
 | `Ctrl/⌘ + Click` | Toggle row/cell (multi-select) |
 | `Shift + Click` | Extend selection from anchor |
 | `Ctrl/⌘ + A` | Select all (row and range modes) |
@@ -356,6 +357,8 @@ const cols = plugin.getSelectedColumns(); // string[]
 plugin.selectAll();
 plugin.clearSelection();
 ```
+
+`selectAll()` selects every selectable row in row mode, or one range over all rows and every non-hidden column in range mode. With a combined mode (`['row', 'column']`, `['range', 'column']`) it acts on the row/range axis. It does nothing in cell mode, in pure `'column'` mode (use `selectAllColumns()`), or with `multiSelect: false`. The adapters' `selectAll` (`useGridSelection`, `injectGridSelection`) calls this method.
 
 :::tip
 Use `getSelectedRows()` to retrieve actual row data objects rather than resolving indices manually. Row indices refer to positions in the grid's current (sorted/filtered) row array, which may differ from your original data array.
@@ -425,7 +428,7 @@ Range selection is built on a drag: press one cell, sweep to the opposite corner
 - **Tap a corner handle** — the two dots on an active range are buttons as well as drag targets. Tap one and it arms (`aria-pressed="true"`); the next cell you tap becomes that corner. Tap the handle again, or press `Escape`, to cancel. Handles only appear for a range that was started with a finger or stylus — on a mouse they would sit inside other ranges and block drag-select.
 - **Merges with the Context Menu plugin** — when [ContextMenuPlugin](/grid/plugins/context-menu/) is installed, the action is contributed to the normal menu (its own order band, below the column-move group). Without it, the plugin hosts a minimal `role="group"` menu of plain buttons instead, so the alternative exists either way. The two never stack.
 - **No reserved chrome** — nothing extra is drawn in the grid body. The alternative reuses affordances that already exist: the cell you would have dragged from and the handle you would have dragged.
-- **Keyboard** — `Shift+Arrow`, `Shift+Page Up/Down` and `Shift+Ctrl/⌘+Home/End` also extend a range. Note that keyboard equivalence alone does **not** satisfy SC 2.5.7: the success criterion is about single-pointer operation, which is why the pointer paths above exist. `Shift+Click` needs a modifier key and does not count either.
+- **Keyboard** — `Shift+Arrow`, `Shift+Page Up/Down` and `Shift+Ctrl/⌘+Home/End` and `Shift+Ctrl/⌘+↑/↓` also extend a range. Note that keyboard equivalence alone does **not** satisfy SC 2.5.7: the success criterion is about single-pointer operation, which is why the pointer paths above exist. `Shift+Click` needs a modifier key and does not count either.
 
 Selection also announces the armed corner through the grid's live region, and marks selected cells with `aria-selected` so assistive technology reports the current range.
 

@@ -829,6 +829,7 @@ The Server-Side plugin **cannot** be used with:
 - **Child rows are not paginated.** `getChildRows()` returns all children in a single batch. For tree nodes, group rows, or detail data with many children, limit the response server-side.
 - **One structural claim per data event.** Only one of Tree or Row Grouping can claim `datasource:data`. They remain mutually incompatible. When neither is active, data is rendered as flat rows.
 - **Master-Detail is not a structural plugin.** It does not claim `datasource:data` — master rows are managed by ServerSide with full virtual scrolling and pagination support. MasterDetail only uses the child data path (`datasource:fetch-children` / `datasource:children`) for on-demand detail loading.
+- **Jumping to the last row loads its block.** <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>End</kbd> or <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>↓</kbd> focuses the last row index, which in infinite mode is a loading placeholder. That triggers a fetch for its block rather than the "true" end of an unbounded dataset.
 
 ## See Also
 

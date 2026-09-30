@@ -245,7 +245,7 @@ If you provide a custom `pasteHandler`, you should still call `resolveColumnPast
 
 ### Multi-Range Selections
 
-With `selection: 'range'`, holding <kbd>Ctrl</kbd> while dragging adds disjoint ranges to the selection. Copying such a selection produces the **union bounding box** of all ranges, exactly as Excel does:
+With `selection: 'range'`, holding <kbd>Ctrl</kbd>/<kbd>⌘</kbd> while dragging adds disjoint ranges to the selection. Copying such a selection produces the **union bounding box** of all ranges, exactly as Excel does:
 
 - cells inside at least one range carry their displayed value,
 - cells inside the bounding box but outside every range are emitted as blanks.
@@ -322,6 +322,8 @@ For an **external** paste into an object column (e.g. from Excel), only text is 
 | No active range | Paste starts at the selection anchor/focused cell when available; otherwise row 0, column 0 |
 
 **Example:** If you have a 2×2 range selected and paste 3×3 data, only the 2×2 portion that fits will be applied.
+
+With a combined selection mode such as `mode: ['row', 'column']` or `['range', 'column']`, copy and paste follow the axis that currently holds the selection, so the row and range rules above apply unchanged.
 
 ### Fill Selection
 

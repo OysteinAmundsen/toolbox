@@ -36,6 +36,12 @@ When one `GRID_STATS` field stands in for **several** packages (e.g. one range p
 
 `_llm-markdown.ts` (`mdxToAgentMarkdown`) turns MDX into agent markdown by regex text-munging the source — it does NOT render through Astro, so any `{expr}` in prose leaks literally into the corpus unless explicitly resolved. Build-time values must be plumbed as an option and substituted (see `gridStats` / `cssVarReference`), then passed from BOTH callers (`[...slug].md.ts` and `_llm-full-builder.ts`). When adding a new build-time value to docs prose, add a substitution step here or it will appear raw to agents.
 
+## Modifier keys — write `<kbd>Ctrl</kbd>/<kbd>⌘</kbd>` when the handler checks `ctrlKey || metaKey`
+
+Every grid shortcut that accepts both modifiers is written `<kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>X</kbd>` — not `Ctrl`, not `Cmd`, not a trailing "(⌘ on macOS)". Check the handler first: a Ctrl-only chord (the deprecated row-drag-drop `Ctrl + ↑/↓`) stays `Ctrl`, and screen-reader keys (NVDA/JAWS `Ctrl+Alt+arrows`) are not grid shortcuts.
+
+Starlight's content-gap rule (`.sl-markdown-content :not(a, strong, em, del, span, input, code, br) + :not(…)`) adds `margin-top` to any non-exempt element after a sibling — `kbd` is not exempt, so chords sank below the text line. `custom.css` resets `kbd + kbd`; add the same reset for any new inline element used in prose.
+
 ## Key Components
 
 - `DemoControls.astro` — Reusable Storybook-like interactive controls panel (number/boolean/radio/select/check-group)

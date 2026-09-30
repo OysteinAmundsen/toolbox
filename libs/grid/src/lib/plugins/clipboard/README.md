@@ -42,7 +42,6 @@ grid.gridConfig = {
 | ------------------ | ------------------------ |
 | `Ctrl+C` / `Cmd+C` | Copy selected cells/rows |
 | `Ctrl+V` / `Cmd+V` | Paste into grid          |
-| `Ctrl+X` / `Cmd+X` | Cut selected cells       |
 
 ## Events
 

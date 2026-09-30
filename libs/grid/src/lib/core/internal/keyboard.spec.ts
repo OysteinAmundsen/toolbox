@@ -108,6 +108,33 @@ describe('keyboard navigation', () => {
     key(g, 'End', { ctrlKey: true });
     expect(g.commitActiveRowEdit).toHaveBeenCalledTimes(2);
   });
+  it.each([
+    ['ctrlKey', { ctrlKey: true }],
+    ['metaKey', { metaKey: true }],
+  ])('%s+ArrowDown/Up jumps to last/first row in the same column (#493)', (_label, mod) => {
+    const g = makeGrid(10, 5);
+    g._focusRow = 4;
+    g._focusCol = 2;
+    const down = key(g, 'ArrowDown', mod);
+    expect(g._focusRow).toBe(9);
+    expect(g._focusCol).toBe(2);
+    expect(down.defaultPrevented).toBe(true);
+    const up = key(g, 'ArrowUp', mod);
+    expect(g._focusRow).toBe(0);
+    expect(g._focusCol).toBe(2);
+    expect(up.defaultPrevented).toBe(true);
+  });
+  it('CTRL+ArrowUp/Down commits active row edit', () => {
+    const g = makeGrid(10, 5);
+    g._focusRow = 5;
+    g._activeEditRows = 5;
+    g.commitActiveRowEdit = vi.fn();
+    key(g, 'ArrowDown', { ctrlKey: true });
+    expect(g.commitActiveRowEdit).toHaveBeenCalledTimes(1);
+    g._activeEditRows = 9;
+    key(g, 'ArrowUp', { ctrlKey: true });
+    expect(g.commitActiveRowEdit).toHaveBeenCalledTimes(2);
+  });
   // NEW TESTS FOR ADDITIONAL BRANCHES
   it('shift+tab simple decrement without wrap and no commit', () => {
     const g = makeGrid(2, 3);
@@ -167,7 +194,7 @@ describe('keyboard navigation', () => {
     key(g, 'ArrowUp', { target: input });
     expect(g._focusRow).toBe(3);
   });
-  it('PageDown and PageUp move by 20 and clamp', () => {
+  it('PageDown and PageUp fall back to 20 rows before layout and clamp', () => {
     const g = makeGrid(50, 2);
     g._focusRow = 0;
     key(g, 'PageDown');
@@ -576,6 +603,58 @@ describe('keyboard navigation', () => {
       };
       return { grid, scrollEl };
     }
+
+    it('PageDown/PageUp move one viewport of rows', () => {
+      const { grid } = makeVirtualGrid(5);
+      key(grid, 'PageDown');
+      expect(grid._focusRow).toBe(15); // 300px / 30px = 10 rows
+      key(grid, 'PageUp');
+      expect(grid._focusRow).toBe(5);
+    });
+
+    it('PageDown excludes the band an overlay obscures', () => {
+      const { grid } = makeVirtualGrid(0, { top: 60, bottom: 30 });
+      key(grid, 'PageDown');
+      expect(grid._focusRow).toBe(7); // (300 - 90) / 30
+    });
+
+    it('PageDown reaches the last row when the viewport shows every row', () => {
+      const { grid } = makeVirtualGrid(0);
+      grid._virtualization.viewportEl = makeViewportEl(100 * ROW_H);
+      key(grid, 'PageDown');
+      expect(grid._focusRow).toBe(99);
+    });
+
+    it('PageDown/PageUp page by pixel height with variable row heights', () => {
+      const { grid } = makeVirtualGrid(0);
+      // Rows alternate 30px / 90px; a 300px page from row 0 lands inside row 5 (270-360px).
+      let offset = 0;
+      grid._virtualization.variableHeights = true;
+      grid._virtualization.positionCache = grid._rows.map((_: unknown, i: number) => {
+        const height = i % 2 ? 90 : 30;
+        const entry = { offset, height, measured: true };
+        offset += height;
+        return entry;
+      });
+      key(grid, 'PageDown');
+      expect(grid._focusRow).toBe(5);
+      key(grid, 'PageUp');
+      expect(grid._focusRow).toBe(0);
+    });
+
+    it('PageDown still advances when a row is taller than the viewport', () => {
+      const { grid } = makeVirtualGrid(3);
+      grid._virtualization.variableHeights = true;
+      grid._virtualization.positionCache = grid._rows.map((_: unknown, i: number) => ({
+        offset: i * 1000,
+        height: 1000,
+        measured: true,
+      }));
+      key(grid, 'PageDown');
+      expect(grid._focusRow).toBe(4);
+      key(grid, 'PageUp');
+      expect(grid._focusRow).toBe(3);
+    });
 
     it('scrolls a row clear of an overlay covering the top of the viewport', () => {
       // Sticky-rows overlay is 60px (2 rows) tall. Focus row 4 sits at y=120.

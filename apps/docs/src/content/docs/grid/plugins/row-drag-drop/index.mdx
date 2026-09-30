@@ -298,6 +298,13 @@ so keep them cheap.
 `Ctrl + ↑/↓` still works but is **deprecated** — macOS reserves it for Mission Control, so it
 never reaches the page there. It will be removed in the next major version.
 
+While `enableKeyboard` is on, this deprecated alias usually takes priority over the core
+`Ctrl/⌘ + ↑/↓` jump to the first/last row on Windows and Linux — plugins handle keys first.
+When the row can't move (it is already at the top/bottom, or `canMoveRow` rejects the move), the
+plugin leaves the key alone and core navigation runs instead, so focus jumps to the first/last row.
+`⌘ + ↑/↓` on macOS is unaffected. Once the alias is removed, `Ctrl + ↑/↓` always falls through to
+core navigation.
+
 ## Styling
 
 The plugin adds these CSS classes you can customise:

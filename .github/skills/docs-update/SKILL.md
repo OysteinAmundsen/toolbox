@@ -509,3 +509,15 @@ Before each commit, quickly scan:
 5. Did I change **conventions**? → Update `copilot-instructions.md`
 
 The `llms.txt` / `llms-full.txt` files are regenerated from the above sources at docs-build time — there is nothing to hand-edit for them.
+
+## Post-Release Documentation Audit
+
+Use when asked "is everything since the last release documented?".
+
+1. `git tag --sort=-creatordate | head` → last `grid-*` and adapter tags.
+2. `git log --oneline --no-merges <tag>..HEAD | grep -vE '^[0-9a-f]+ (chore|ci|build|test|docs)(\(|:)'` → user-facing commits.
+3. Per commit: `git show --stat --format= <sha>` — no `apps/docs/**` or README in the list is a gap candidate; read the source diff and grep the plugin page for the changed behaviour.
+4. Keyboard changes also belong in `guides/accessibility.mdx` (core table + "Plugin-Specific Shortcuts" list) and `core.mdx`.
+5. Verify every documented shortcut against its `onKeyDown` handler — docs have claimed keys that were never implemented (clipboard Ctrl+X).
+
+Perf-only and pure bug fixes that restore already-documented behaviour need no docs.

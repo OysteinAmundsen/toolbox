@@ -94,6 +94,11 @@ kbd {
   box-shadow: 0 1px 0 var(--sl-color-gray-5);
   white-space: nowrap;
 }
+/* Starlight's block-gap rule adds margin-top to an element following another; on an
+   inline-block kbd chord (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>) that pushes the line down. */
+.sl-markdown-content kbd + kbd {
+  margin-top: 0;
+}
 
 /* Grid demo container styling */
 .grid-demo {

@@ -1954,8 +1954,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * Select all selectable rows (row mode) or all cells (range mode).
    *
    * In row mode, selects every row where `isSelectable` returns true (or all rows if no callback).
-   * In range mode, creates a single range spanning all rows and columns.
-   * Has no effect in cell mode.
+   * In range mode, creates a single range spanning all rows and visible columns.
+   * Array modes resolve to their row/range axis. Has no effect in cell mode.
    *
    * @example
    * ```ts
@@ -1964,10 +1964,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * ```
    */
   selectAll(): void {
-    const { mode, multiSelect } = this.config;
+    const mode = this.#mode.primary;
 
     // Single-select mode: selectAll is a no-op
-    if (multiSelect === false) return;
+    if (this.config.multiSelect === false) return;
 
     if (mode === 'row') {
       this.selected.clear();
@@ -1981,7 +1981,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       this.requestAfterRender();
     } else if (mode === 'range') {
       const rowCount = this.rows.length;
-      const colCount = this.columns.length;
+      const colCount = this.visibleColumns.length;
       if (rowCount > 0 && colCount > 0) {
         const allRange: InternalCellRange = {
           startRow: 0,

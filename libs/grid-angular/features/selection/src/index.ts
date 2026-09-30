@@ -208,17 +208,21 @@ export function injectGridSelection<TRow = unknown>(selector = 'tbw-grid'): Sele
   let listenerAttached = false;
 
   /**
-   * Handle selection-change events from the grid.
-   * Updates both reactive signals.
+   * Refresh the reactive signals from the plugin. `mode` may be a single mode
+   * or an array (multi-mode selection); falls back to the plugin's config.
    */
-  const onSelectionChange = (detail: unknown): void => {
-    const selectionDetail = detail as SelectionChangeDetail;
+  const sync = (mode?: SelectionChangeDetail['mode']): void => {
     const plugin = getPlugin();
-    if (plugin) {
-      selectionSignal.set(plugin.getSelection());
-      selectedRowIndicesSignal.set(selectionDetail.mode === 'row' ? plugin.getSelectedRowIndices() : []);
-      selectedRowsSignal.set(plugin.getSelectedRows<TRow>());
-    }
+    if (!plugin) return;
+    const resolvedMode = mode ?? ((plugin as any).config?.mode as SelectionChangeDetail['mode'] | undefined);
+    const isRowMode = Array.isArray(resolvedMode) ? resolvedMode.includes('row') : resolvedMode === 'row';
+    selectionSignal.set(plugin.getSelection());
+    selectedRowIndicesSignal.set(isRowMode ? plugin.getSelectedRowIndices() : []);
+    selectedRowsSignal.set(plugin.getSelectedRows<TRow>());
+  };
+
+  const onSelectionChange = (detail: unknown): void => {
+    sync((detail as SelectionChangeDetail).mode);
   };
 
   /**
@@ -270,15 +274,7 @@ export function injectGridSelection<TRow = unknown>(selector = 'tbw-grid'): Sele
    * Sync reactive signals with the current plugin state.
    * Called once when the grid is first discovered and ready.
    */
-  const syncSignals = (): void => {
-    const plugin = getPlugin();
-    if (plugin) {
-      selectionSignal.set(plugin.getSelection());
-      const mode = (plugin as any).config?.mode;
-      selectedRowIndicesSignal.set(mode === 'row' ? plugin.getSelectedRowIndices() : []);
-      selectedRowsSignal.set(plugin.getSelectedRows<TRow>());
-    }
-  };
+  const syncSignals = (): void => sync();
 
   // Discover the grid after the first render so the selection-change
   // listener is attached without requiring a programmatic method call.
@@ -333,23 +329,7 @@ export function injectGridSelection<TRow = unknown>(selector = 'tbw-grid'): Sele
         );
         return;
       }
-      const grid = getGrid();
-      // Cast to any to access protected config
-      const mode = (plugin as any).config?.mode;
-
-      if (mode === 'row') {
-        const rowCount = grid?.rows?.length ?? 0;
-        const allIndices = new Set<number>();
-        for (let i = 0; i < rowCount; i++) allIndices.add(i);
-        (plugin as any).selected = allIndices;
-        (plugin as any).requestAfterRender?.();
-      } else if (mode === 'range') {
-        const rowCount = grid?.rows?.length ?? 0;
-        const colCount = (grid as any)?._columns?.length ?? 0;
-        if (rowCount > 0 && colCount > 0) {
-          plugin.setRanges([{ from: { row: 0, col: 0 }, to: { row: rowCount - 1, col: colCount - 1 } }]);
-        }
-      }
+      plugin.selectAll();
     },
 
     clearSelection: () => {

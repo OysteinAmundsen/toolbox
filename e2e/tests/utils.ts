@@ -283,20 +283,30 @@ export function snapshotExists(testInfo: TestInfo, snapshotName: string): boolea
  *
  * - `compare` (default) — compare against the baseline restored from the cache
  *   that the last trunk run seeded; skip snapshots the cache doesn't contain.
- * - `write` — trunk run: capture every snapshot so the cache can be re-seeded.
+ * - `write` — trunk run: reference captures (`isReference`) rewrite their baseline;
+ *   every other capture still compares, so a parity mismatch fails the trunk too.
  * - `skip` — PR labelled `skip-visual`; the visual change is intentional and the
  *   baseline is knowingly stale.
  */
 const VISUAL_MODE = process.env.TBW_VISUAL_MODE ?? 'compare';
 
+/** The demo whose rendering is the baseline for cross-framework parity snapshots. */
+export const REFERENCE_DEMO = 'vanilla';
+
 /**
  * Perform visual comparison if baseline exists, otherwise skip gracefully.
  * This prevents CI failures on first run when no baselines exist.
  *
+ * Parity tests share one snapshot name across demos. Only the capture flagged
+ * `isReference` may (re)write it (`TBW_VISUAL_MODE=write`); all others compare,
+ * because Playwright's `updateSnapshots` is global and would let each demo
+ * silently overwrite the previous one.
+ *
  * @param locator - Element to screenshot
  * @param snapshotName - Name of the snapshot file
  * @param testInfo - Playwright test info object
- * @param options - Screenshot options (mask, animations, etc.)
+ * @param options - Screenshot options (mask, animations, etc.). `isReference` defaults to `true`;
+ *   pass `demoName === REFERENCE_DEMO` when the snapshot name is shared across demos.
  * @returns true if comparison was performed, false if skipped
  */
 export async function expectScreenshotIfBaselineExists(
@@ -312,9 +322,9 @@ export async function expectScreenshotIfBaselineExists(
     maxDiffPixels?: number;
     omitBackground?: boolean;
     scale?: 'css' | 'device';
-    stylePath?: string | string[];
     threshold?: number;
     timeout?: number;
+    isReference?: boolean;
   },
 ): Promise<boolean> {
   if (VISUAL_MODE === 'skip') {
@@ -326,17 +336,37 @@ export async function expectScreenshotIfBaselineExists(
   const project = testInfo.project.name; // e.g., 'chromium'
   const platform = process.platform === 'win32' ? 'win32' : process.platform === 'darwin' ? 'darwin' : 'linux';
   const platformSnapshotName = snapshotName.replace('.png', `-${project}-${platform}.png`);
+  const { isReference = true, ...expectOptions } = options ?? {};
 
-  // In 'write' mode the point is to capture what isn't there yet, so the
-  // existence guard must not short-circuit.
-  if (VISUAL_MODE !== 'write' && !snapshotExists(testInfo, platformSnapshotName)) {
+  if (VISUAL_MODE === 'write' && isReference) {
+    // Same capture defaults as toHaveScreenshot, so the follow-up comparison is like-for-like.
+    const {
+      animations = 'disabled',
+      caret = 'hide',
+      scale = 'css',
+      mask,
+      maskColor,
+      omitBackground,
+      timeout,
+    } = expectOptions;
+    await locator.screenshot({
+      path: resolve(testInfo.snapshotDir, platformSnapshotName),
+      animations,
+      caret,
+      scale,
+      mask,
+      maskColor,
+      omitBackground,
+      timeout,
+    });
+  } else if (!snapshotExists(testInfo, platformSnapshotName)) {
     // Log skip reason for visibility in test output
     console.log(`⏭️  Skipping visual comparison: no baseline exists for "${snapshotName}"`);
-    console.log(`   Run with --update-snapshots to generate baselines.`);
+    console.log(`   Run \`bun nx e2e:update-snapshots e2e\` to generate baselines.`);
     return false;
   }
 
-  // Baseline exists, perform the comparison
-  await expect(locator).toHaveScreenshot(snapshotName, options);
+  // Also verifies a freshly written reference is stable (it must match itself).
+  await expect(locator).toHaveScreenshot(snapshotName, expectOptions);
   return true;
 }

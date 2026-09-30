@@ -17,6 +17,7 @@ function makeStubPlugin(mode: 'row' | 'range' = 'row') {
     config: { mode },
     selected: new Set<number>(),
     requestAfterRender: vi.fn(),
+    selectAll: vi.fn(),
     clearSelection: vi.fn(),
     getSelection: vi.fn().mockReturnValue({ ranges: [], rows: [] }),
     isCellSelected: vi.fn().mockReturnValue(true),
@@ -40,7 +41,11 @@ function makeGridEl(plugin: ReturnType<typeof makeStubPlugin> | undefined, id?: 
     on: (type: string, listener: Listener) => {
       const existing = listeners.get(type) ?? [];
       listeners.set(type, [...existing, listener]);
-      return () => listeners.set(type, (listeners.get(type) ?? []).filter((l) => l !== listener));
+      return () =>
+        listeners.set(
+          type,
+          (listeners.get(type) ?? []).filter((l) => l !== listener),
+        );
     },
   });
   document.body.appendChild(grid);
@@ -109,25 +114,15 @@ describe('@toolbox-web/grid-vue/features/selection', () => {
     cleanup();
   });
 
-  it('selectAll fills every row index in row mode', () => {
+  it('selectAll delegates to SelectionPlugin.selectAll without touching internals (#489)', () => {
     const plugin = makeStubPlugin('row');
     const { api, cleanup } = mountComposable(undefined, makeGridEl(plugin).grid);
 
     api().selectAll();
 
-    expect([...plugin.selected]).toEqual([0, 1, 2]);
-    expect(plugin.requestAfterRender).toHaveBeenCalled();
-
-    cleanup();
-  });
-
-  it('selectAll spans the full grid as one range in range mode', () => {
-    const plugin = makeStubPlugin('range');
-    const { api, cleanup } = mountComposable(undefined, makeGridEl(plugin).grid);
-
-    api().selectAll();
-
-    expect(plugin.setRanges).toHaveBeenCalledWith([{ from: { row: 0, col: 0 }, to: { row: 2, col: 1 } }]);
+    expect(plugin.selectAll).toHaveBeenCalledTimes(1);
+    expect(plugin.selected.size).toBe(0);
+    expect(plugin.setRanges).not.toHaveBeenCalled();
 
     cleanup();
   });

@@ -3,6 +3,7 @@ import {
   DEMOS,
   expectScreenshotIfBaselineExists,
   getMaskLocators,
+  REFERENCE_DEMO,
   SELECTORS,
   waitForGridReady,
   waitForGridReadyMobile,
@@ -45,6 +46,7 @@ test.describe('Cross-Framework Visual Parity', () => {
         await expectScreenshotIfBaselineExists(page.locator(SELECTORS.grid), 'initial-grid-baseline.png', testInfo, {
           mask: getMaskLocators(page),
           animations: 'disabled',
+          isReference: demoName === REFERENCE_DEMO,
         });
       });
     }
@@ -105,7 +107,9 @@ test.describe('Cross-Framework Visual Parity', () => {
           await expect(firstBadge).toBeVisible();
 
           // Visual comparison - skips gracefully if no baseline exists
-          await expectScreenshotIfBaselineExists(firstBadge, `status-badge-baseline.png`, testInfo);
+          await expectScreenshotIfBaselineExists(firstBadge, `status-badge-baseline.png`, testInfo, {
+            isReference: demoName === REFERENCE_DEMO,
+          });
         });
       }
     });
@@ -125,7 +129,9 @@ test.describe('Cross-Framework Visual Parity', () => {
             await expect(firstRating).toBeVisible();
 
             // Visual comparison - skips gracefully if no baseline exists
-            await expectScreenshotIfBaselineExists(firstRating, `rating-cell-baseline.png`, testInfo);
+            await expectScreenshotIfBaselineExists(firstRating, `rating-cell-baseline.png`, testInfo, {
+              isReference: demoName === REFERENCE_DEMO,
+            });
           }
         });
       }
@@ -150,7 +156,9 @@ test.describe('Cross-Framework Visual Parity', () => {
               await expect(badge).toBeVisible();
 
               // Visual comparison - skips gracefully if no baseline exists
-              await expectScreenshotIfBaselineExists(badge, `top-performer-baseline.png`, testInfo);
+              await expectScreenshotIfBaselineExists(badge, `top-performer-baseline.png`, testInfo, {
+                isReference: demoName === REFERENCE_DEMO,
+              });
             }
           }
         });
@@ -178,7 +186,9 @@ test.describe('Cross-Framework Visual Parity', () => {
 
           if (editorVisible) {
             // Visual comparison - skips gracefully if no baseline exists
-            await expectScreenshotIfBaselineExists(statusCell, `status-editor-baseline.png`, testInfo);
+            await expectScreenshotIfBaselineExists(statusCell, `status-editor-baseline.png`, testInfo, {
+              isReference: demoName === REFERENCE_DEMO,
+            });
 
             // Press Escape to cancel
             await page.keyboard.press('Escape');
@@ -207,7 +217,9 @@ test.describe('Cross-Framework Visual Parity', () => {
 
             if (editorVisible) {
               // Visual comparison - skips gracefully if no baseline exists
-              await expectScreenshotIfBaselineExists(ratingCell, `rating-editor-baseline.png`, testInfo);
+              await expectScreenshotIfBaselineExists(ratingCell, `rating-editor-baseline.png`, testInfo, {
+                isReference: demoName === REFERENCE_DEMO,
+              });
 
               await page.keyboard.press('Escape');
             }
@@ -239,6 +251,7 @@ test.describe('Cross-Framework Visual Parity', () => {
             // Visual comparison - skips gracefully if no baseline exists
             await expectScreenshotIfBaselineExists(detailRow, `detail-panel-baseline.png`, testInfo, {
               animations: 'disabled',
+              isReference: demoName === REFERENCE_DEMO,
             });
 
             // Collapse the detail
@@ -276,6 +289,7 @@ test.describe('Cross-Framework Visual Parity', () => {
               mask: getMaskLocators(page),
               animations: 'disabled',
               maxDiffPixelRatio: 0.07, // Allow up to 7% difference for responsive cards
+              isReference: demoName === REFERENCE_DEMO,
             },
           );
         } else {
@@ -284,6 +298,7 @@ test.describe('Cross-Framework Visual Parity', () => {
             mask: getMaskLocators(page),
             animations: 'disabled',
             maxDiffPixelRatio: 0.07, // Allow up to 7% difference for mobile layouts
+            isReference: demoName === REFERENCE_DEMO,
           });
         }
       });

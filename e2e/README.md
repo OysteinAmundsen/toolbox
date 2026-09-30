@@ -80,7 +80,7 @@ When intentionally changing visual appearance:
 bun nx e2e:update-snapshots e2e
 
 # Or directly
-cd e2e && bunx playwright test --update-snapshots
+cd e2e && TBW_VISUAL_MODE=write bunx playwright test
 ```
 
 ### Run Specific Test File
@@ -193,16 +193,21 @@ Baselines are **not committed** — browser rendering differs per OS/Chrome buil
 a snapshot captured on a dev machine is meaningless to the Linux runner. Instead
 the trunk seeds them through the Actions cache:
 
-| Context                   | `TBW_VISUAL_MODE` | Behaviour                                                                                         |
-| ------------------------- | ----------------- | ------------------------------------------------------------------------------------------------- |
-| Push to `main` / `2.x`    | `write`           | Runs with `updateSnapshots: 'changed'`, then **saves** `e2e/snapshots` as the new baseline cache. |
-| Pull request              | `compare`         | **Restores** the newest trunk baseline and compares against it.                                   |
-| PR labelled `skip-visual` | `skip`            | All visual comparisons are bypassed.                                                              |
+| Context                   | `TBW_VISUAL_MODE` | Behaviour                                                                                    |
+| ------------------------- | ----------------- | -------------------------------------------------------------------------------------------- |
+| Push to `main` / `2.x`    | `write`           | Reference captures rewrite their baseline, the rest compare; then **saves** `e2e/snapshots`. |
+| Pull request              | `compare`         | **Restores** the newest trunk baseline and compares against it.                              |
+| PR labelled `skip-visual` | `skip`            | All visual comparisons are bypassed.                                                         |
 
 Cache key: `visual-baseline-<os>-chrome<major>-<sha>`, restored by prefix so PRs
 always pick up the most recent trunk entry. Because GitHub scopes caches to the
 current branch plus the base/default branch, a PR can read `main`'s baseline but
 never another PR's.
+
+**Parity snapshots have one writer.** Cross-framework specs share a snapshot name
+across all demos. Only the capture flagged `isReference` (`demoName === REFERENCE_DEMO`,
+i.e. vanilla) writes it; the other demos always compare, so a parity mismatch fails
+the trunk run as well as PRs. `updateSnapshots` is `'none'` everywhere for this reason.
 
 **A cache miss is not a failure.** On a first run, after a 7-day eviction, or
 after a runner-image Chrome major bump, nothing is restored and
@@ -230,7 +235,7 @@ If demos don't start in time:
 
 If screenshots fail:
 
-1. Run with `--update-snapshots` if changes are intentional
+1. Run `bun nx e2e:update-snapshots e2e` if changes are intentional (not `--update-snapshots`)
 2. Check if framework-specific styling leaked through
 3. Increase `maxDiffPixelRatio` for more tolerance
 

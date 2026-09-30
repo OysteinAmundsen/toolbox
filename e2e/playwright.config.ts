@@ -32,12 +32,6 @@ const reporters: Parameters<typeof defineConfig>[0]['reporter'] = process.env.CI
     ]
   : [['html', { outputFolder: '../playwright-report' }], ['./reporters/clean-list-reporter.ts']];
 
-// Visual regression mode, set by CI (see `.github/workflows/ci.yml`):
-//   'write'   - re-seed the baseline cache (pushes to main/2.x)
-//   'skip'    - bypass visual comparisons entirely
-//   'compare' - default; compare against the restored baseline
-const visualMode = process.env.TBW_VISUAL_MODE ?? 'compare';
-
 export default defineConfig({
   testDir: './tests',
   /* Exclude virtualization-stability tests from CI — they involve heavy scrolling
@@ -118,11 +112,11 @@ export default defineConfig({
   /* Folder for snapshot baselines (visual regression) */
   snapshotDir: './snapshots',
 
-  /* Only the trunk re-seeds baselines. 'changed' writes missing snapshots and
-   * overwrites the ones that drifted, without failing the run; every other
-   * context is read-only so a PR can never rewrite the reference it is being
-   * measured against. Local `--update-snapshots` still wins (CLI > config). */
-  updateSnapshots: visualMode === 'write' ? 'changed' : 'none',
+  /* Always read-only: in `TBW_VISUAL_MODE=write` only reference captures rewrite
+   * their baseline (see `expectScreenshotIfBaselineExists`). A global 'changed'
+   * let every demo overwrite the shared parity baseline, so mismatches never failed.
+   * Do not pass `--update-snapshots` — it re-enables that; use `e2e:update-snapshots`. */
+  updateSnapshots: 'none',
 
   /* Snapshot settings for visual regression */
   expect: {

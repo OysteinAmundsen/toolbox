@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { expectScreenshotIfBaselineExists, getMaskLocators, SELECTORS, waitForGridReady } from './utils';
+import {
+  expectScreenshotIfBaselineExists,
+  getMaskLocators,
+  REFERENCE_DEMO,
+  SELECTORS,
+  waitForGridReady,
+} from './utils';
 
 /**
  * Cross-Framework Calendar Parity
@@ -51,6 +57,7 @@ test.describe('Cross-Framework Calendar Parity', () => {
       await expectScreenshotIfBaselineExists(grid, 'calendar-baseline.png', testInfo, {
         mask: getMaskLocators(page),
         animations: 'disabled',
+        isReference: demoName === REFERENCE_DEMO,
       });
     });
   }

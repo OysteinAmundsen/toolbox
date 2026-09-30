@@ -288,6 +288,29 @@ describe('SelectionPlugin', () => {
       expect(plugin.getSelectedRowIndices()).toEqual([0, 1, 2]);
     });
 
+    it('selectAll() resolves the row axis for array modes and honours isSelectable (#489)', () => {
+      const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+      const plugin = new SelectionPlugin({ mode: ['row', 'column'], isSelectable: (row: any) => row.id !== 2 });
+      plugin.attach(mockGrid);
+
+      plugin.selectAll();
+
+      expect(plugin.getSelectedRowIndices()).toEqual([0, 2]);
+      expect(mockGrid.dispatchEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'selection-change' }));
+    });
+
+    it('selectAll() spans only visible columns for [range, column] mode (#489)', () => {
+      const rows = [{ id: 1 }, { id: 2 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'a' }, { field: 'b', hidden: true }, { field: 'c' }]);
+      const plugin = new SelectionPlugin({ mode: ['range', 'column'] });
+      plugin.attach(mockGrid);
+
+      plugin.selectAll();
+
+      expect(plugin.getSelection().ranges).toEqual([{ from: { row: 0, col: 0 }, to: { row: 1, col: 1 } }]);
+    });
+
     it('should select specific rows with selectRows()', () => {
       const rows = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
       const mockGrid = createMockGrid(rows, [{ field: 'name' }]);

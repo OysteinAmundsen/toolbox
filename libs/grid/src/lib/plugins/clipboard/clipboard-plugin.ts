@@ -305,10 +305,9 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
     // Multi-cell when the selection spans more than one cell in total, whether
     // it's one large range or many single-cell ranges.
+    const axis = selectionAxis(selection);
     const isMultiCell =
-      !!firstRange &&
-      (selection?.mode === 'range' || selection?.mode === 'row') &&
-      (selMinRow !== selMaxRow || selMinCol !== selMaxCol);
+      !!firstRange && (axis === 'range' || axis === 'row') && (selMinRow !== selMaxRow || selMinCol !== selMaxCol);
 
     const bounds = isMultiCell ? { endRow: selMaxRow, endCol: selMaxCol } : null;
     // Selection range indices are visible-column indices (from data-col)
@@ -494,6 +493,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
   } {
     const selection = this.#getSelection();
     const ranges = selection?.ranges ?? [];
+    const isRowAxis = selectionAxis(selection) === 'row';
 
     // Union bounding box across ALL ranges. A multi-range selection (CTRL+drag
     // repeatedly) must copy every range, not just the last one drawn; min/max
@@ -518,7 +518,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     if (options?.columns) {
       // Caller specified exact fields
       columns = resolveColumns(this.columns, options.columns);
-    } else if (ranges.length && selection?.mode !== 'row') {
+    } else if (ranges.length && !isRowAxis) {
       // Range/cell selection: restrict to selection column bounds
       // Selection indices are visible-column indices (from data-col)
       columns = resolveColumns(this.visibleColumns.slice(minCol, maxCol + 1));
@@ -538,7 +538,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
       // Selection range: extract the union row span. Row mode selects WHOLE
       // rows and gets no column mask, so gaps between disjoint row ranges
       // (Ctrl+click rows 0, 5, 9) must be dropped outright rather than copied.
-      const dropUnselectedRows = selection?.mode === 'row';
+      const dropUnselectedRows = isRowAxis;
       const rowIsSelected = (r: number) =>
         ranges.some((g) => r >= Math.min(g.from.row, g.to.row) && r <= Math.max(g.from.row, g.to.row));
       rows = [];
@@ -855,9 +855,18 @@ interface CellRange {
  * Matches the SelectionResult type from SelectionPlugin.
  */
 interface SelectionQueryResult {
-  mode: 'cell' | 'row' | 'range';
+  mode: string | string[];
+  activeAxis?: string;
   ranges: CellRange[];
   anchor: { row: number; col: number } | null;
+}
+
+/**
+ * Axis that owns the current selection. `mode` may be an array (e.g.
+ * `['range', 'column']`), so prefer `activeAxis` and fall back to a string `mode`.
+ */
+function selectionAxis(sel: SelectionQueryResult | undefined): string | undefined {
+  return sel?.activeAxis ?? (typeof sel?.mode === 'string' ? sel.mode : undefined);
 }
 // #endregion
 

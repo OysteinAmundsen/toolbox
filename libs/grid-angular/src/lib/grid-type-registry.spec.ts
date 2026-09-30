@@ -9,8 +9,29 @@
  *
  * @vitest-environment happy-dom
  */
-import { describe, expect, it } from 'vitest';
-import { GridTypeRegistry, provideGridTypeDefaults, GRID_TYPE_DEFAULTS } from './grid-type-registry';
+import { describe, expect, it, vi } from 'vitest';
+
+let injectResolver: (token: unknown) => unknown = () => null;
+
+vi.mock('@angular/core', async () => {
+  const actual = await vi.importActual<typeof import('@angular/core')>('@angular/core');
+  return { ...actual, inject: (token: unknown) => injectResolver(token) };
+});
+
+import { GRID_TYPE_DEFAULTS, GridTypeRegistry, provideGridTypeDefaults } from './grid-type-registry';
+
+describe('GridTypeRegistry constructor', () => {
+  it('starts empty when no GRID_TYPE_DEFAULTS are provided', () => {
+    injectResolver = () => null;
+    expect(new GridTypeRegistry().getRegisteredTypes()).toEqual([]);
+  });
+
+  it('seeds defaults from GRID_TYPE_DEFAULTS', () => {
+    const cfg = { editorParams: { a: 1 } };
+    injectResolver = (token) => (token === GRID_TYPE_DEFAULTS ? { country: cfg } : null);
+    expect(new GridTypeRegistry().get('country')).toBe(cfg);
+  });
+});
 
 function createRegistry(): GridTypeRegistry {
   const r = Object.create(GridTypeRegistry.prototype) as GridTypeRegistry;

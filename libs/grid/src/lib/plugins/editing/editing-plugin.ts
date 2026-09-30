@@ -966,6 +966,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
   /** Space: toggle boolean cells (only when not editing — editors own their own space). */
   #onSpaceKey(event: KeyboardEvent): boolean {
+    // Modified Space is a selection chord (Shift/Ctrl/⌘+Space) — never mutate data on it.
+    if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return false;
     // If we're in row edit mode, let the event pass through to the editor (e.g., checkbox)
     if (this.#activeEditRow !== -1) return false;
 

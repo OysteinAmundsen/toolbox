@@ -4086,6 +4086,43 @@ describe('EditingPlugin', () => {
 
         expect(grid.rows[0].active).toBe(true); // Unchanged
       });
+
+      describe('modified Space (#490)', () => {
+        async function setupBooleanCell() {
+          grid.gridConfig = {
+            columns: [{ field: 'active', header: 'Active', type: 'boolean', editable: true }],
+            plugins: [new EditingPlugin({ editOn: 'click' })],
+          };
+          grid.rows = [{ active: true }];
+          await waitUpgrade(grid);
+          grid.focusCell(0, 0);
+          await nextFrame();
+          return grid.querySelector('.data-grid-row .cell[data-col="0"]') as HTMLElement;
+        }
+
+        it.each([
+          ['Shift', { shiftKey: true }],
+          ['Ctrl', { ctrlKey: true }],
+          ['Meta', { metaKey: true }],
+          ['Alt', { altKey: true }],
+        ])('%s+Space does not toggle a focused editable boolean cell', async (_name, modifiers) => {
+          const cell = await setupBooleanCell();
+
+          cell.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, ...modifiers }));
+          await nextFrame();
+
+          expect(grid.rows[0].active).toBe(true);
+        });
+
+        it('plain Space still toggles a focused editable boolean cell', async () => {
+          const cell = await setupBooleanCell();
+
+          cell.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+          await nextFrame();
+
+          expect(grid.rows[0].active).toBe(false);
+        });
+      });
     });
   });
   // #endregion

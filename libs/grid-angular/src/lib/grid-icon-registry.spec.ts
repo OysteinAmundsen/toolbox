@@ -9,8 +9,30 @@
  * We test individual methods by calling them on a manually constructed instance.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+let injectResolver: (token: unknown) => unknown = () => null;
+
+vi.mock('@angular/core', async () => {
+  const actual = await vi.importActual<typeof import('@angular/core')>('@angular/core');
+  return { ...actual, inject: (token: unknown) => injectResolver(token) };
+});
+
 import { GRID_ICONS, GridIconRegistry, provideGridIcons } from './grid-icon-registry';
+
+describe('GridIconRegistry constructor', () => {
+  it('starts empty when no GRID_ICONS are provided', () => {
+    injectResolver = () => null;
+    expect(new GridIconRegistry().getAll()).toEqual({});
+  });
+
+  it('seeds icons from GRID_ICONS', () => {
+    injectResolver = (token) => (token === GRID_ICONS ? { expand: '+', collapse: '-' } : null);
+    const registry = new GridIconRegistry();
+    expect(registry.get('expand')).toBe('+');
+    expect(registry.get('collapse')).toBe('-');
+  });
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GRID ICON REGISTRY TESTS

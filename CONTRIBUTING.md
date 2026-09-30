@@ -77,19 +77,20 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). This enable
 
 ### Scopes
 
-- `grid` - Changes to @toolbox-web/grid
+- `grid` - Core grid changes outside plugins
+- `<plugin-name>` - Changes to a grid plugin (use its directory name)
 - `grid-angular` - Changes to @toolbox-web/grid-angular
 - `grid-react` - Changes to @toolbox-web/grid-react
 - `grid-vue` - Changes to @toolbox-web/grid-vue
-- `themes` - Changes to shared themes
-- `demos` - Changes to demo applications
+
+Omit the scope for documentation, themes, demos, tooling, and other changes outside the grid and adapters. Documentation-only commits use `docs:` with no scope. For changes spanning multiple scoped areas, join the scopes with `/` rather than `,`.
 
 ### Examples
 
 ```bash
 feat(grid): add column auto-sizing on double-click
-fix(grid): selection persists after data refresh
-docs(grid): update TreePlugin README with examples
+fix(selection): selection persists after data refresh
+docs: update TreePlugin README with examples
 test(grid): add integration tests for row grouping
 chore: update dependencies
 ```
@@ -119,6 +120,15 @@ chore: update dependencies
 5. **Commit**: Use conventional commit format
 
 6. **Push & PR**: Open a pull request against `main`
+
+### Before Proposing a Feature
+
+- Check whether the public API already supports the behavior or makes it straightforward for consumers to implement. Explain what new capability the proposal adds.
+- Preserve documented behavior and defaults for existing consumers. When a change must break compatibility, explain the impact and migration path; prefer a deprecation period for existing shortcuts or APIs.
+- Prefer an opt-in plugin for specialized interactions over expanding core or changing behavior for every consumer. Avoid parallel state models or new modes when existing ones can serve the use case.
+- Account for bundle size and hot-path costs. Do not raise enforced budgets solely to accommodate a feature; discuss tooling or budget changes separately with maintainers.
+- Keep independently useful bug fixes in focused PRs rather than bundling them with a larger feature or breaking change.
+- Leave `.github/knowledge/` decisions, including `DECIDED` entries, to maintainers. Describe proposed design decisions in the PR instead.
 
 ## Code Guidelines
 

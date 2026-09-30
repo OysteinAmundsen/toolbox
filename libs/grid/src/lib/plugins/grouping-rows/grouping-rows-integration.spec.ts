@@ -4,7 +4,7 @@
  * Integration tests for GroupingRowsPlugin against a real `<tbw-grid>` element.
  * Covers WAI-ARIA Treegrid role + aria-level/setsize/posinset emission (#264).
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GroupingRowsPlugin } from './grouping-rows-plugin';
 
 import '../../../index';
@@ -73,6 +73,37 @@ describe('grouping-rows plugin integration', () => {
       expect(rows[4].getAttribute('aria-level')).toBe('2');
       expect(rows[4].getAttribute('aria-posinset')).toBe('1');
       expect(rows[4].getAttribute('aria-setsize')).toBe('1');
+    });
+
+    it('does not re-write unchanged aria position attributes on subsequent renders', async () => {
+      const grid = document.createElement('tbw-grid') as GridElement;
+      document.body.appendChild(grid);
+
+      const plugin = new GroupingRowsPlugin({
+        groupOn: (row: any) => row.category,
+        defaultExpanded: true,
+      });
+
+      grid.gridConfig = {
+        columns: [{ field: 'category', header: 'Category' }],
+        plugins: [plugin],
+      };
+      grid.rows = [
+        { id: 1, category: 'A' },
+        { id: 2, category: 'A' },
+      ];
+
+      await waitUpgrade(grid);
+
+      const dataRow = grid.querySelector('.data-grid-row:not(.group-row)') as HTMLElement;
+      expect(dataRow.getAttribute('aria-level')).toBe('2');
+
+      const setAttribute = vi.spyOn(dataRow, 'setAttribute');
+      plugin.afterRender();
+
+      const ariaWrites = setAttribute.mock.calls.filter(([name]) => String(name).startsWith('aria-'));
+      expect(ariaWrites).toEqual([]);
+      setAttribute.mockRestore();
     });
 
     it('restores rows-body role to grid on detach()', async () => {

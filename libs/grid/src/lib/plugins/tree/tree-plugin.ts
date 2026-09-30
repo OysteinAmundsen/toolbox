@@ -46,6 +46,12 @@ function isSubscribable<T>(value: Promise<T> | Subscribable<T>): value is Subscr
   return typeof (value as Subscribable<T>).subscribe === 'function';
 }
 
+/** Attribute write that skips the DOM mutation when the value is unchanged (per-frame hot path). */
+function setAttrIfChanged(el: Element, name: string, value: number): void {
+  const next = String(value);
+  if (el.getAttribute(name) !== next) el.setAttribute(name, next);
+}
+
 /**
  * Tree Data Plugin for tbw-grid
  *
@@ -950,10 +956,12 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       if (!treeRow) continue;
 
       // WAI-ARIA Treegrid: every row carries level/setsize/posinset so screen
-      // readers can announce "level 2, item 3 of 5" while navigating.
-      rowEl.setAttribute('aria-level', String(treeRow.depth + 1));
-      rowEl.setAttribute('aria-setsize', String(treeRow.setSize));
-      rowEl.setAttribute('aria-posinset', String(treeRow.posInSet));
+      // readers can announce "level 2, item 3 of 5" while navigating. Pooled
+      // row elements keep their position across most frames — skip the
+      // attribute mutation unless the value actually changed.
+      setAttrIfChanged(rowEl, 'aria-level', treeRow.depth + 1);
+      setAttrIfChanged(rowEl, 'aria-setsize', treeRow.setSize);
+      setAttrIfChanged(rowEl, 'aria-posinset', treeRow.posInSet);
 
       // Set aria-expanded on parent rows for screen readers. MUST clear it
       // on leaf rows: virtualization recycles row DOM elements, so a leaf

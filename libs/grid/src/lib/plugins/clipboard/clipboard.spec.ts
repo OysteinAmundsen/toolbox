@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GridElement } from '../../../public';
 import type { ColumnConfig } from '../../core/types';
-import { ClipboardPlugin } from './clipboard-plugin';
 import { buildClipboardHtml, parseClipboardHtmlPayload } from './clipboard-payload';
+import { ClipboardPlugin } from './clipboard-plugin';
 import { buildClipboardText, copyToClipboard, formatCellValue, type CopyParams } from './copy';
 import { parseClipboardText, readFromClipboard } from './paste';
 import type { ClipboardConfig, PasteDetail } from './types';
@@ -1436,9 +1436,9 @@ describe('clipboard', () => {
 
     type MockCellRange = { from: { row: number; col: number }; to: { row: number; col: number } };
 
-    function createRangeSelectionGrid(ranges: MockCellRange[], mode: 'cell' | 'row' | 'range' = 'range') {
+    function createRangeSelectionGrid(ranges: MockCellRange[], mode: string | string[] = 'range', activeAxis?: string) {
       const grid = createGridMockForPlugin(MULTI_RANGE_ROWS, MULTI_RANGE_COLUMNS);
-      const selection = [{ mode, ranges, anchor: null }];
+      const selection = [{ mode, activeAxis, ranges, anchor: null }];
       (grid as { query: unknown }).query = (type: string) => (type === 'getSelection' ? selection : []);
       return grid;
     }
@@ -1495,6 +1495,35 @@ describe('clipboard', () => {
       plugin.attach(grid as any);
 
       expect(plugin.getSelectionAsText()).toBe(['a0\tb0\tc0', 'a3\tb3\tc3'].join('\n'));
+    });
+
+    it('drops unselected rows for array mode [row, column] with the row axis active (#488)', () => {
+      const grid = createRangeSelectionGrid(
+        [
+          { from: { row: 0, col: 0 }, to: { row: 0, col: 2 } },
+          { from: { row: 3, col: 0 }, to: { row: 3, col: 2 } },
+        ],
+        ['row', 'column'],
+        'row',
+      );
+      const plugin = new ClipboardPlugin();
+      plugin.attach(grid as any);
+
+      expect(plugin.getSelectionAsText()).toBe(['a0\tb0\tc0', 'a3\tb3\tc3'].join('\n'));
+    });
+
+    it('bounds a multi-cell paste for array mode [range, column] with the range axis active (#488)', () => {
+      const grid = createRangeSelectionGrid(
+        [{ from: { row: 1, col: 0 }, to: { row: 2, col: 1 } }],
+        ['range', 'column'],
+        'range',
+      );
+      const plugin = new ClipboardPlugin();
+      plugin.attach(grid as any);
+
+      firePaste(getPasteHandler(grid), 'z');
+
+      expect(emittedPasteTarget(grid)).toMatchObject({ row: 1, col: 0, bounds: { endRow: 2, endCol: 1 } });
     });
 
     it('does not mask when the caller supplies explicit rowIndices', async () => {

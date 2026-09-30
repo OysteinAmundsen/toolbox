@@ -254,6 +254,33 @@ describe('TooltipPlugin', () => {
       expect(getPopover()!.textContent).toBe('Alice Anderson');
     });
 
+    it('should forward wheel over the popover to the anchor cell and hide the tooltip', () => {
+      const columns: ColumnConfig[] = [{ field: 'name' }];
+      const rows = [{ name: 'Alice Anderson' }];
+      grid = createMockGrid({ _visibleColumns: columns, rows });
+      plugin = new TooltipPlugin();
+      plugin.attach(grid as any);
+
+      const cell = createDataCell(0, 0, 'Alice Anderson', true);
+      (grid as any)._root.appendChild(cell);
+      const received: number[] = [];
+      (grid as any)._root.addEventListener('wheel', (e: WheelEvent) => {
+        received.push(e.deltaY);
+        e.preventDefault();
+      });
+
+      plugin.afterRender();
+      cell.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      expect(cell.getAttribute('aria-describedby')).toBe('tbw-tooltip-popover');
+
+      const wheel = new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true });
+      getPopover()!.dispatchEvent(wheel);
+
+      expect(received).toEqual([100]);
+      expect(wheel.defaultPrevented).toBe(true);
+      expect(cell.hasAttribute('aria-describedby')).toBe(false);
+    });
+
     it('should not show tooltip on non-overflowing cell', () => {
       const columns: ColumnConfig[] = [{ field: 'name' }];
       const rows = [{ name: 'Ali' }];

@@ -265,6 +265,32 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
     // without dismissing it, so its content can be read, magnified, or copied.
     el.addEventListener('mouseenter', () => this.#cancelPendingHide(), { signal: this.disconnectSignal });
     el.addEventListener('mouseleave', () => this.#scheduleHide(), { signal: this.disconnectSignal });
+    // Scrolling slides the anchored popover under a stationary cursor; without this the
+    // popover (in <body>) would swallow every wheel tick and the grid would stop scrolling.
+    el.addEventListener('wheel', (e) => this.#forwardWheel(e), { passive: false, signal: this.disconnectSignal });
+  }
+
+  /** Dismiss the tooltip and re-dispatch the wheel on its anchor cell so the grid scrolls. */
+  #forwardWheel(e: WheelEvent): void {
+    const target = this.#anchorCell;
+    this.#hideTooltip();
+    if (!target?.isConnected) return;
+    const forwarded = new WheelEvent('wheel', {
+      deltaX: e.deltaX,
+      deltaY: e.deltaY,
+      deltaZ: e.deltaZ,
+      deltaMode: e.deltaMode,
+      clientX: e.clientX,
+      clientY: e.clientY,
+      shiftKey: e.shiftKey,
+      ctrlKey: e.ctrlKey,
+      altKey: e.altKey,
+      metaKey: e.metaKey,
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    });
+    if (!target.dispatchEvent(forwarded)) e.preventDefault();
   }
 
   /** Show the popover anchored to `cell` with the given `text`. */

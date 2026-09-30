@@ -110,6 +110,7 @@ function resolveDayFromCell(rows: readonly CalendarWeek[], cell: HTMLElement): C
 export function Calendar() {
   const [state, dispatch] = useReducer(calendarReducer, undefined, initialState);
   const [dialogDay, setDialogDay] = useState<CalendarDay | null>(null);
+  const [rowHeight, setRowHeight] = useState(DEFAULT_ROW_HEIGHT_PX);
   const grid = useGrid<CalendarWeek>();
   const pendingFocusRef = useRef<PendingFocus | null>(null);
 
@@ -120,10 +121,33 @@ export function Calendar() {
     dispatch({ type: 'set-view', year, month });
   }, []);
 
+  const columns = useMemo<GridConfig<CalendarWeek>['columns']>(
+    () => [
+      {
+        field: 'weekNumber',
+        header: 'W',
+        width: 44,
+        sortable: false,
+        resizable: false,
+        cellClass: () => 'cal-week-cell',
+      },
+      ...WEEKDAY_FIELDS.map((field: WeekdayField) => ({
+        field,
+        header: WEEKDAY_HEADERS_FULL[field],
+        headerLabelRenderer: () => <WeekdayHeader field={field} />,
+        minWidth: 60,
+        sortable: false,
+        resizable: false,
+        renderer: (ctx: { value: CalendarDay }) => <DayCell day={ctx.value} />,
+      })),
+    ],
+    [],
+  );
+
   const gridConfig = useMemo<GridConfig<CalendarWeek>>(
     () => ({
       fitMode: 'stretch',
-      rowHeight: DEFAULT_ROW_HEIGHT_PX,
+      rowHeight,
       features: {
         shell: { header: { toolPanelToggle: false } },
         pinnedRows: {
@@ -139,27 +163,9 @@ export function Calendar() {
           ],
         },
       },
-      columns: [
-        {
-          field: 'weekNumber',
-          header: 'W',
-          width: 44,
-          sortable: false,
-          resizable: false,
-          cellClass: () => 'cal-week-cell',
-        },
-        ...WEEKDAY_FIELDS.map((field: WeekdayField) => ({
-          field,
-          header: WEEKDAY_HEADERS_FULL[field],
-          headerLabelRenderer: () => <WeekdayHeader field={field} />,
-          minWidth: 60,
-          sortable: false,
-          resizable: false,
-          renderer: (ctx: { value: CalendarDay }) => <DayCell day={ctx.value} />,
-        })),
-      ],
+      columns,
     }),
-    [],
+    [columns, rowHeight],
   );
 
   useEffect(() => {
@@ -182,7 +188,7 @@ export function Calendar() {
   const openDialog = useCallback((day: CalendarDay) => setDialogDay(day), []);
 
   useKeyboardNav({ gridRef: grid.ref, enabled: grid.isReady, rows, view: state, setView, openDialog });
-  useDynamicRowHeight(grid.ref, grid.isReady, rows.length, gridConfig);
+  useDynamicRowHeight(grid.ref, grid.isReady, rows.length, setRowHeight);
   useDoubleClick(
     grid.ref,
     grid.isReady,

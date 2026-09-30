@@ -1,17 +1,19 @@
-import { useEffect, useRef } from 'react';
-import type { DataGridRef, GridConfig } from '@toolbox-web/grid-react';
 import type { CalendarWeek } from '@demo/shared/calendar';
+import type { DataGridRef } from '@toolbox-web/grid-react';
+import { useEffect, useRef } from 'react';
 
 const DEFAULT_ROW_HEIGHT_PX = 110;
 
+// The height must flow back through the gridConfig prop: the adapter re-applies that
+// prop, and the grid resets `--tbw-row-height` from `rowHeight` on every config merge.
 export function useDynamicRowHeight(
   gridRef: React.RefObject<DataGridRef<CalendarWeek> | null>,
   enabled: boolean,
   weekCount: number,
-  gridConfig: GridConfig<CalendarWeek>,
+  onRowHeight: (height: number) => void,
 ): void {
-  const configRef = useRef(gridConfig);
-  configRef.current = gridConfig;
+  const onRowHeightRef = useRef(onRowHeight);
+  onRowHeightRef.current = onRowHeight;
 
   useEffect(() => {
     if (!enabled) return;
@@ -30,8 +32,7 @@ export function useDynamicRowHeight(
 
       lastRowHeight = next;
       grid.style.setProperty('--tbw-row-height', `${next}px`);
-      configRef.current = { ...configRef.current, rowHeight: next };
-      grid.gridConfig = configRef.current;
+      onRowHeightRef.current(next);
     };
 
     apply();

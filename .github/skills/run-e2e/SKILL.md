@@ -153,11 +153,15 @@ snapshot is only comparable to one captured on the same OS + Chrome build.
 
 On CI the baseline comes from the Actions cache instead, driven by `TBW_VISUAL_MODE`:
 
-| Context                   | Mode      | Behaviour                                                   |
-| ------------------------- | --------- | ----------------------------------------------------------- |
-| push to `main` / `2.x`    | `write`   | `updateSnapshots: 'changed'`, then saves the baseline cache |
-| pull request              | `compare` | restores the newest trunk baseline and compares against it  |
-| PR labelled `skip-visual` | `skip`    | bypasses all visual comparisons                             |
+| Context                   | Mode      | Behaviour                                                  |
+| ------------------------- | --------- | ---------------------------------------------------------- |
+| push to `main` / `2.x`    | `write`   | reference captures rewrite, the rest compare; saves cache  |
+| pull request              | `compare` | restores the newest trunk baseline and compares against it |
+| PR labelled `skip-visual` | `skip`    | bypasses all visual comparisons                            |
+
+Parity specs share one snapshot name across demos; only the `isReference` capture
+(`demoName === REFERENCE_DEMO`, vanilla) may write it. Never pass `--update-snapshots` —
+it lets every demo overwrite the shared baseline and hides parity drift.
 
 So a PR that intentionally changes rendering **will fail** the visual checks: inspect the
 diff in the `playwright-report` artifact, then add the `skip-visual` label and **re-run the

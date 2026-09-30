@@ -35,8 +35,9 @@
     "e2e:update-snapshots": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "bunx playwright test --update-snapshots",
-        "cwd": "e2e"
+        "command": "bunx playwright test",
+        "cwd": "e2e",
+        "env": { "TBW_VISUAL_MODE": "write" }
       }
     }
   }

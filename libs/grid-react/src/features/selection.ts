@@ -52,7 +52,9 @@ export type { _Augmentation as _SelectionAugmentation } from '@toolbox-web/grid/
  */
 export interface SelectionMethods<TRow = unknown> {
   /**
-   * Select all rows (row mode) or all cells (range mode).
+   * Select all selectable rows (row mode) or one range over every row and all
+   * non-hidden columns (range mode).
+   * Array modes use their row/range axis.
    */
   selectAll: () => void;
 

@@ -84,10 +84,11 @@ The grid implements full keyboard navigation following the WAI-ARIA grid pattern
 | <kbd>←</kbd> / <kbd>→</kbd> | Move focus between cells |
 | <kbd>Home</kbd> | Move to first cell in row |
 | <kbd>End</kbd> | Move to last cell in row |
-| <kbd>Ctrl</kbd> + <kbd>Home</kbd> | Move to first cell in grid |
-| <kbd>Ctrl</kbd> + <kbd>End</kbd> | Move to last cell in grid |
-| <kbd>PgUp</kbd> | Scroll up one viewport |
-| <kbd>PgDn</kbd> | Scroll down one viewport |
+| <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Home</kbd> | Move to first cell in grid |
+| <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>End</kbd> | Move to last cell in grid |
+| <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> | Move to first/last row, same column |
+| <kbd>PgUp</kbd> | Move focus up one page (the rows visible in the viewport) |
+| <kbd>PgDn</kbd> | Move focus down one page (the rows visible in the viewport) |
 | <kbd>⇥ Tab</kbd> | Move to next cell (wraps to next row) |
 | <kbd>⇧ Shift</kbd> + <kbd>⇥ Tab</kbd> | Move to previous cell (wraps to previous row) |
 
@@ -95,9 +96,11 @@ The grid implements full keyboard navigation following the WAI-ARIA grid pattern
 
 Keyboard shortcuts that depend on a plugin being installed are documented on each plugin's own page — that's the source of truth and stays in sync with the implementation:
 
-- [**Selection**](/grid/plugins/selection/#keyboard-shortcuts) — <kbd>Space</kbd>, <kbd>Shift</kbd> + arrows / <kbd>PgUp</kbd> / <kbd>PgDn</kbd> / <kbd>Ctrl</kbd> + <kbd>Home</kbd>/<kbd>End</kbd>, <kbd>Ctrl</kbd> + <kbd>A</kbd>, <kbd>Esc</kbd>
-- [**Editing**](/grid/plugins/editing/#keyboard-shortcuts-row-mode) — <kbd>Enter</kbd> (start row edit / commit), <kbd>F2</kbd> (single-cell edit), <kbd>Tab</kbd> / <kbd>Shift</kbd> + <kbd>Tab</kbd>, <kbd>Esc</kbd> (cancel)
-- [**Clipboard**](/grid/plugins/clipboard/#keyboard-shortcuts) — <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>C</kbd> / <kbd>X</kbd> / <kbd>V</kbd>
+- [**Selection**](/grid/plugins/selection/#keyboard-shortcuts) — <kbd>Space</kbd>, <kbd>Shift</kbd> + arrows / <kbd>PgUp</kbd> / <kbd>PgDn</kbd> / <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Home</kbd>/<kbd>End</kbd>/<kbd>↑</kbd>/<kbd>↓</kbd>, <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>A</kbd>, <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Space</kbd> (column mode), <kbd>Esc</kbd>
+- [**Editing**](/grid/plugins/editing/#keyboard-shortcuts-row-mode) — <kbd>Enter</kbd> (start row edit / commit), <kbd>F2</kbd> (single-cell edit), <kbd>Tab</kbd> / <kbd>Shift</kbd> + <kbd>Tab</kbd>, <kbd>Esc</kbd> (cancel), <kbd>Space</kbd> (toggle a boolean cell)
+- [**Clipboard**](/grid/plugins/clipboard/#keyboard-shortcuts) — <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>C</kbd> / <kbd>V</kbd>
+- [**Row Drag & Drop**](/grid/plugins/row-drag-drop/#keyboard-shortcuts) — <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> moves the focused row (requires `enableKeyboard`)
+- [**Reorder Columns**](/grid/plugins/reorder-columns/#keyboard-shortcuts) — <kbd>Alt</kbd> + <kbd>←</kbd> / <kbd>→</kbd> moves the focused column
 - [**Context Menu**](/grid/plugins/context-menu/) — <kbd>Shift</kbd> + <kbd>F10</kbd> or the dedicated <kbd>☰ Menu</kbd> key opens the menu at the focused cell; <kbd>↑</kbd>/<kbd>↓</kbd> navigates, <kbd>Enter</kbd>/<kbd>Space</kbd> activates, <kbd>Esc</kbd> closes
 - [**Row Grouping**](/grid/plugins/grouping-rows/) — <kbd>Space</kbd> toggles expand/collapse on a group or tree node
 

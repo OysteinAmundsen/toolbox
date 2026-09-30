@@ -116,7 +116,7 @@ OWNS: pinned row positions (top/bottom), info bar (counts/panels), aggregation r
 
 ### Clipboard
 
-OWNS: clipboard buffer. HOOKS: onKeyDown (Ctrl+C/V/X). DEPENDS: selection (optional).
+OWNS: clipboard buffer. HOOKS: onKeyDown (Ctrl/⌘+C only); paste = native `paste` listener on the host. NO cut (Ctrl+X) — never document it until implemented. DEPENDS: selection (optional).
 
 - DECIDED (Jul 2026, structured payload): copy writes WYSIWYG `text/plain` (via `processCell`), snapshots RAW values in `#internalClipboard = {text, rawRows, fields}`, and writes `text/html` — a `<table>` whose root carries a base64 `data-tbw-clip` payload. Paste value precedence: (1) in-memory match on `text` (preserves `Date`), (2) `parseClipboardHtmlPayload(getData('text/html'))`, (3) parsed text. Winner → `PasteDetail.rawRows`; `defaultPasteHandler` uses `rawRows ?? rows` + `cloneStructured` per value so tiled pastes never share a ref. Codec MUST live in [clipboard-payload.ts](libs/grid/src/lib/plugins/clipboard/clipboard-payload.ts), NOT copy.ts/paste.ts (circular import → TDZ at test load).
 - DECIDED (Jul 2026, `fillSelection`): default `false`; tiles a smaller source across a larger **bounded** selection by modulo indexing. `#handleNativePaste` sets `PasteDetail.fillSelection` (only when `bounds != null`) and widens `fields` to the selection width; `defaultPasteHandler` iterates bounds with `pastedRows[r%srcRows]` / `sourceRow[c%srcCols]`. Never grows the grid; non-editable columns still skipped; `detail.rows` stays the source. RULED OUT: pre-tiling `parsed` in the plugin.

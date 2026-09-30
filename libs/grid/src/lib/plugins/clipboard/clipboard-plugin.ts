@@ -34,8 +34,8 @@ import {
 /**
  * Clipboard Plugin for tbw-grid
  *
- * Brings familiar copy/cut/paste functionality with full keyboard shortcut support
- * (Ctrl+C, Ctrl+X, Ctrl+V). Handles single cells, multi-cell selections, and integrates
+ * Brings familiar copy/paste functionality with full keyboard shortcut support
+ * (Ctrl/Cmd+C, Ctrl/Cmd+V). Handles single cells, multi-cell selections, and integrates
  * seamlessly with Excel and other spreadsheet applications via tab-delimited output.
  *
  * > **Optional Dependency:** Works best with SelectionPlugin for copying/pasting selected
@@ -53,7 +53,6 @@ import {
  * |----------|--------|
  * | `Ctrl+C` / `Cmd+C` | Copy selected cells |
  * | `Ctrl+V` / `Cmd+V` | Paste into selected cells |
- * | `Ctrl+X` / `Cmd+X` | Cut selected cells |
  *
  * ## Paste Behavior by Selection Type
  *

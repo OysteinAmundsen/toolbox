@@ -49,6 +49,7 @@ Row selection. Clicking any cell selects the entire row.
 - **Shift+Arrow Up/Down**: Extend selection from anchor row
 - **Shift+Page Up/Down**: Extend selection by page
 - **Shift+Ctrl+Home/End**: Extend selection to first/last row
+- **Shift+Ctrl/⌘+Arrow Up/Down**: Extend selection to first/last row (same column)
 
 ### Range Mode (`'range'`)
 

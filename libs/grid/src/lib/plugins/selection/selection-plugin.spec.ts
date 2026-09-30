@@ -861,6 +861,38 @@ describe('SelectionPlugin', () => {
       expect(plugin['anchor']).toBe(5);
     });
 
+    it('should extend row selection to the last row with Shift+Ctrl+ArrowDown (#493)', () => {
+      const rows = Array.from({ length: 10 }, (_, i) => ({ id: i }));
+      const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+      mockGrid._focusRow = 5;
+      const plugin = new SelectionPlugin({ mode: 'row' });
+      plugin.attach(mockGrid);
+
+      plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowDown', shiftKey: true, ctrlKey: true }));
+      expect(plugin['pendingRowKeyUpdate']).toEqual({ shiftKey: true });
+      expect(plugin['anchor']).toBe(5);
+
+      // Core keyboard handler jumps focus to the last row
+      mockGrid._focusRow = 9;
+      plugin.afterRender();
+      expect([...plugin['selected']].sort((a, b) => a - b)).toEqual([5, 6, 7, 8, 9]);
+      expect(plugin['anchor']).toBe(5);
+    });
+
+    it('should extend range selection with Shift+Meta+ArrowUp (#493)', () => {
+      const rows = [{ id: 1 }, { id: 2 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'a' }]);
+      mockGrid._focusRow = 1;
+      mockGrid._focusCol = 0;
+      const plugin = new SelectionPlugin({ mode: 'range' });
+      plugin.attach(mockGrid);
+
+      plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowUp', shiftKey: true, metaKey: true }));
+
+      expect(plugin['pendingKeyboardUpdate']).toEqual({ shiftKey: true });
+      expect(plugin['cellAnchor']).toEqual({ row: 1, col: 0 });
+    });
+
     it('should not set pendingRowKeyUpdate for non-nav keys in row mode', () => {
       const rows = [{ id: 1 }, { id: 2 }];
       const mockGrid = createMockGrid(rows, [{ field: 'name' }]);

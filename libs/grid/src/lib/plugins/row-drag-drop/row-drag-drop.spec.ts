@@ -291,7 +291,19 @@ describe('RowDragDropPlugin', () => {
       expect(event.preventDefault).toHaveBeenCalled();
     });
 
-    it('should not handle when Ctrl is not pressed', () => {
+    it.each(['ArrowUp', 'ArrowDown'])('should handle Alt+%s to move row', (key) => {
+      grid._focusRow = 1;
+      const event = new KeyboardEvent('keydown', { key, altKey: true, bubbles: true });
+      Object.defineProperty(event, 'preventDefault', { value: vi.fn() });
+      Object.defineProperty(event, 'stopPropagation', { value: vi.fn() });
+
+      const result = plugin.onKeyDown(event);
+
+      expect(result).toBe(true);
+      expect(event.preventDefault).toHaveBeenCalled();
+    });
+
+    it('should not handle when neither Alt nor Ctrl is pressed', () => {
       grid._focusRow = 1;
       const event = new KeyboardEvent('keydown', {
         key: 'ArrowUp',
@@ -357,6 +369,77 @@ describe('RowDragDropPlugin', () => {
       const result = disabledPlugin.onKeyDown(event);
 
       expect(result).toBeUndefined();
+    });
+
+    describe('event target guards', () => {
+      let rowsBody: HTMLElement;
+      let cell: HTMLElement;
+
+      beforeEach(() => {
+        rowsBody = document.createElement('div');
+        rowsBody.className = 'rows-body';
+        cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.tabIndex = 0;
+        rowsBody.appendChild(cell);
+        document.body.appendChild(rowsBody);
+        grid._focusRow = 1;
+      });
+
+      afterEach(() => {
+        document.body.innerHTML = '';
+      });
+
+      /** Dispatch a real Alt+ArrowDown from `target` so composedPath() is populated. */
+      function pressFrom(target: HTMLElement): boolean | void {
+        let result: boolean | void;
+        target.addEventListener('keydown', (e) => (result = plugin.onKeyDown(e)), { once: true });
+        target.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true, bubbles: true }));
+        return result;
+      }
+
+      it('moves the row when the keydown comes from a body cell', () => {
+        expect(pressFrom(cell)).toBe(true);
+      });
+
+      it('ignores Alt+ArrowDown from a <select> in a cell', () => {
+        const select = document.createElement('select');
+        cell.appendChild(select);
+
+        expect(pressFrom(select)).toBeUndefined();
+        expect(grid.dispatchEvent).not.toHaveBeenCalled();
+      });
+
+      it('defers while another plugin answers the isEditing query with true', () => {
+        const query = vi.fn((type: string) => (type === 'isEditing' ? [true] : []));
+        Object.assign(grid, { query });
+        const combo = document.createElement('div');
+        combo.setAttribute('role', 'combobox');
+        cell.appendChild(combo);
+
+        expect(pressFrom(combo)).toBeUndefined();
+        expect(query).toHaveBeenCalledWith('isEditing', null);
+      });
+
+      it('moves the row when the isEditing query is answered with false', () => {
+        Object.assign(grid, { query: (type: string) => (type === 'isEditing' ? [false] : []) });
+
+        expect(pressFrom(cell)).toBe(true);
+      });
+
+      it('ignores a form control rendered in a non-editing cell', () => {
+        const input = document.createElement('input');
+        cell.appendChild(input);
+
+        expect(pressFrom(input)).toBeUndefined();
+      });
+
+      it('ignores controls outside the rows body (toolbar, tool panel)', () => {
+        const button = document.createElement('button');
+        document.body.appendChild(button);
+
+        expect(pressFrom(button)).toBeUndefined();
+      });
     });
   });
 
@@ -587,7 +670,7 @@ describe('RowDragDropPlugin', () => {
   });
 
   /**
-   * WCAG 2.2 SC 2.5.7 "Dragging Movements". `Ctrl + Arrow` satisfies SC 2.1.1
+   * WCAG 2.2 SC 2.5.7 "Dragging Movements". `Alt + Arrow` satisfies SC 2.1.1
    * but not 2.5.7 — that criterion needs controls a pointer user can click or
    * tap. HTML5 DnD only fires `dragstart` on a real drag, so a plain `click` on
    * the handle means the user pressed and released without dragging.

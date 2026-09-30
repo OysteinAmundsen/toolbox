@@ -31,6 +31,11 @@ import { ensureCellVisible } from '../../core/internal/keyboard';
 import { BaseGridPlugin, type GridElement, type PluginManifest } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, GridHost } from '../../core/types';
 import {
+  type DragAlternativeAction,
+  type DragAlternativeMenu,
+  createDragAlternativeMenu,
+} from '../shared/drag-alternative-menu';
+import {
   type AutoScroller,
   type RowDragPayload,
   TBW_ROW_DRAG_MIME,
@@ -46,7 +51,6 @@ import {
   mimeForZone,
   setCurrentDragSession,
 } from '../shared/drag-drop-protocol';
-import { type DragAlternativeAction, type DragAlternativeMenu, createDragAlternativeMenu } from '../shared/drag-alternative-menu';
 import styles from './row-drag-drop.css?inline';
 import type {
   PendingMove,
@@ -378,7 +382,9 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   /** @internal */
   override onKeyDown(event: KeyboardEvent): boolean | void {
     if (!this.config.enableKeyboard) return;
-    if (!event.ctrlKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
+    // Ctrl is deprecated (macOS reserves Ctrl+↑/↓); remove in the next major.
+    if (!(event.altKey || event.ctrlKey) || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
+    if (this.#isKeyboardMoveBlocked(event)) return;
 
     const grid = this.internalGrid;
     const focusRow = grid._focusRow;
@@ -396,6 +402,16 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     event.preventDefault();
     event.stopPropagation();
     return true;
+  }
+
+  /** Editors, form controls and non-body chrome own the chord (e.g. `<select>` Alt+↓ opens it). */
+  #isKeyboardMoveBlocked(event: KeyboardEvent): boolean {
+    if (this.queryBoolean('isEditing')) return true;
+    const target = (event.composedPath?.()[0] ?? event.target) as HTMLElement | null;
+    if (!target?.closest || target === this.gridElement) return false;
+    if (!target.closest('.rows-body')) return true;
+    const tag = target.tagName;
+    return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || target.isContentEditable;
   }
 
   /** @internal */

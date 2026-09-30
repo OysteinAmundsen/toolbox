@@ -15,7 +15,7 @@ or using keyboard shortcuts, and — when opted in via `dropZone` — drag rows
 between separate grids. It replaces the pre-v3 `RowReorderPlugin`: every
 intra-grid behaviour that plugin had is preserved.
 
-- **Intra-grid** — drag a row up or down to reorder, or use `Ctrl + ↑/↓`.
+- **Intra-grid** — drag a row up or down to reorder, or use `Alt + ↑/↓`.
 - **Drag origin** — choose whether drags start from the dedicated handle
   column (`dragFrom: 'handle'`, default), from anywhere on the row
   (`dragFrom: 'row'` — handle column hidden), or from both
@@ -42,7 +42,7 @@ import '@toolbox-web/grid/features/row-drag-drop';
 ## Basic Usage
 
 Enable the feature and a drag handle column appears automatically. Users can
-drag rows to new positions or use `Ctrl + ↑/↓` to move the focused row.
+drag rows to new positions or use `Alt + ↑/↓` to move the focused row.
 
 <Tabs syncKey="framework">
   <TabItem label="TypeScript">
@@ -193,7 +193,7 @@ You can instead import `GridRowDragDropDirective` and bind `[rowDragDrop]` direc
   <RowDragDropDefaultDemo />
 </ShowSource>
 
-Drag the grip handle (☰) to reorder rows. Use `Ctrl + ↑/↓` to move the
+Drag the grip handle (☰) to reorder rows. Use `Alt + ↑/↓` to move the
 focused row with the keyboard.
 
 ### Cancelable `row-move`
@@ -290,10 +290,13 @@ so keep them cheap.
 
 ## Keyboard Shortcuts
 
-| Key          | Action                    |
-| ------------ | ------------------------- |
-| `Ctrl + ↑`   | Move focused row up       |
-| `Ctrl + ↓`   | Move focused row down     |
+| Key       | Action                |
+| --------- | --------------------- |
+| `Alt + ↑` | Move focused row up   |
+| `Alt + ↓` | Move focused row down |
+
+`Ctrl + ↑/↓` still works but is **deprecated** — macOS reserves it for Mission Control, so it
+never reaches the page there. It will be removed in the next major version.
 
 ## Styling
 
@@ -373,7 +376,7 @@ The plugin satisfies [WCAG 2.2 SC 2.5.7 Dragging Movements](https://www.w3.org/W
 - **Cross-grid transfers** — every other grid sharing the same `dropZone` gets its own **Send to _grid_** entry (**Copy to _grid_** when `operation: 'copy'`). The click path fires the same `row-drag-start`, `row-drop` and `row-transfer` events, and honours the same `canDrop` vetoes, as a real drag — so nothing has to be re-implemented to stay conformant.
 - **No reserved chrome** — the alternative reuses the existing drag handle, so it costs no extra column width and stays out of the way until it is asked for. SC 2.5.7 requires the alternative to _exist_ and be pointer-operable, not to be permanently on screen.
 - **Handle semantics** — the handle is `role="button"` with the accessible name _"Drag to reorder, or activate for move options"_, so its dual purpose is announced. The menu itself is a `role="group"` of plain buttons; focus moves to the first enabled entry on open, <kbd>Escape</kbd> closes it, and moving focus outside dismisses it.
-- **Keyboard** — <kbd>Ctrl</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> move the focused row, satisfying [SC 2.1.1 Keyboard](https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html). Per the W3C, a keyboard equivalent alone does **not** satisfy SC 2.5.7 — that is why the click path exists as well.
+- **Keyboard** — <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> move the focused row, satisfying [SC 2.1.1 Keyboard](https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html). Per the W3C, a keyboard equivalent alone does **not** satisfy SC 2.5.7 — that is why the click path exists as well.
 
 See [Pointer Alternatives to Dragging](/grid/guides/accessibility/#pointer-alternatives-to-dragging) for how this fits the grid-wide `a11y.dragAlternatives` setting.
 

@@ -26,6 +26,24 @@ import { findDayPosition, useKeyboardNav, type PendingFocus } from './hooks/useK
 
 const DEFAULT_ROW_HEIGHT_PX = 110;
 
+// Module-level so its reference is stable: a new `features` object makes the grid
+// detach/re-attach every plugin, and the legend's removal re-triggers the row-height
+// ResizeObserver (endless loop).
+const features: GridConfig<CalendarWeek>['features'] = {
+  shell: { header: { toolPanelToggle: false } },
+  pinnedRows: {
+    slots: [
+      {
+        id: 'calendar-legend',
+        position: 'bottom',
+        // The grid-react pinned-rows feature module caches the host element
+        // across calls (#354), so returning JSX directly is safe.
+        render: () => <Legend />,
+      },
+    ],
+  },
+};
+
 type UserEvents = Record<string, CalendarEvent[]>;
 
 interface CalendarState {
@@ -148,21 +166,7 @@ export function Calendar() {
     () => ({
       fitMode: 'stretch',
       rowHeight,
-      features: {
-        shell: { header: { toolPanelToggle: false } },
-        pinnedRows: {
-          slots: [
-            {
-              id: 'calendar-legend',
-              position: 'bottom',
-              // The grid-react pinned-rows feature module caches the host element
-              // across calls (#354), so returning JSX directly is safe — no
-              // unmount-loop workaround needed.
-              render: () => <Legend />,
-            },
-          ],
-        },
-      },
+      features,
       columns,
     }),
     [columns, rowHeight],

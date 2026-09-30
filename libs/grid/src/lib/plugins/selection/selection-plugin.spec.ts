@@ -947,6 +947,171 @@ describe('SelectionPlugin', () => {
     });
   });
 
+  describe('APG Shift+Space / Ctrl+Space in range mode (#492)', () => {
+    const rows = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+    const columns = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
+    const space = (init: KeyboardEventInit = {}) =>
+      new KeyboardEvent('keydown', { key: ' ', cancelable: true, ...init });
+
+    const setup = (mode: any = 'range', focus = { row: 1, col: 1 }) => {
+      const mockGrid = createMockGrid(rows, columns);
+      mockGrid._focusRow = focus.row;
+      mockGrid._focusCol = focus.col;
+      const plugin = new SelectionPlugin({ mode });
+      plugin.attach(mockGrid);
+      return { mockGrid, plugin };
+    };
+
+    it('Shift+Space selects the focused row across all visible columns', () => {
+      const { plugin } = setup();
+      const event = space({ shiftKey: true });
+
+      expect(plugin.onKeyDown(event)).toBe(true);
+      expect(event.defaultPrevented).toBe(true);
+      expect(plugin.getSelection().ranges).toEqual([{ from: { row: 1, col: 0 }, to: { row: 1, col: 2 } }]);
+    });
+
+    it('Shift+Space widens every row spanned by the active range', () => {
+      const { plugin } = setup();
+      plugin['activeRange'] = { startRow: 2, startCol: 1, endRow: 0, endCol: 1 };
+
+      plugin.onKeyDown(space({ shiftKey: true }));
+
+      expect(plugin.getSelection().ranges).toEqual([{ from: { row: 0, col: 0 }, to: { row: 2, col: 2 } }]);
+    });
+
+    it('Shift+Arrow after Shift+Space extends from the far corner', () => {
+      const { mockGrid, plugin } = setup('range', { row: 1, col: 2 });
+      plugin.onKeyDown(space({ shiftKey: true }));
+
+      plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowDown', shiftKey: true }));
+      mockGrid._focusRow = 2;
+      plugin.afterRender();
+
+      expect(plugin.getSelection().ranges).toEqual([{ from: { row: 1, col: 0 }, to: { row: 2, col: 2 } }]);
+    });
+
+    it('Shift+Arrow after Shift+Space from an interior column keeps every column', () => {
+      const { mockGrid, plugin } = setup('range', { row: 1, col: 1 });
+      plugin.onKeyDown(space({ shiftKey: true }));
+
+      plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowDown', shiftKey: true }));
+      mockGrid._focusRow = 2;
+      plugin.afterRender();
+      plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowDown', shiftKey: true }));
+      mockGrid._focusRow = 3;
+      plugin.afterRender();
+
+      expect(plugin.getSelection().ranges).toEqual([{ from: { row: 1, col: 0 }, to: { row: 3, col: 2 } }]);
+    });
+
+    it('Shift+Arrow after Ctrl+Space from an interior row keeps every row', () => {
+      const { mockGrid, plugin } = setup('range', { row: 1, col: 1 });
+      plugin.onKeyDown(space({ ctrlKey: true }));
+
+      plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true }));
+      mockGrid._focusCol = 2;
+      plugin.afterRender();
+
+      expect(plugin.getSelection().ranges).toEqual([{ from: { row: 0, col: 1 }, to: { row: 3, col: 2 } }]);
+    });
+
+    it('Ctrl+Space selects the focused column across all rows', () => {
+      const { plugin } = setup();
+
+      expect(plugin.onKeyDown(space({ ctrlKey: true }))).toBe(true);
+      expect(plugin.getSelection().ranges).toEqual([{ from: { row: 0, col: 1 }, to: { row: 3, col: 1 } }]);
+    });
+
+    it('Cmd+Space widens every column spanned by the active range', () => {
+      const { plugin } = setup();
+      plugin['activeRange'] = { startRow: 1, startCol: 0, endRow: 1, endCol: 1 };
+
+      plugin.onKeyDown(space({ metaKey: true }));
+
+      expect(plugin.getSelection().ranges).toEqual([{ from: { row: 0, col: 0 }, to: { row: 3, col: 1 } }]);
+    });
+
+    it('Ctrl+Space defers to the column axis in [range, column] mode', () => {
+      const { plugin } = setup(['range', 'column']);
+
+      expect(plugin.onKeyDown(space({ ctrlKey: true }))).toBe(true);
+      expect(plugin.getSelection().ranges).toEqual([]);
+      expect(plugin.getSelectedColumns()).toEqual(['b']);
+    });
+
+    it('Shift+Space still selects rows in [range, column] mode', () => {
+      const { plugin } = setup(['range', 'column']);
+
+      expect(plugin.onKeyDown(space({ shiftKey: true }))).toBe(true);
+      expect(plugin.getSelection().ranges).toEqual([{ from: { row: 1, col: 0 }, to: { row: 1, col: 2 } }]);
+    });
+
+    it('ignores the chords when the key comes from a form field', () => {
+      const { plugin } = setup();
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+      const event = space({ shiftKey: true, bubbles: true });
+      input.addEventListener('keydown', (e) => plugin.onKeyDown(e as KeyboardEvent));
+      input.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(plugin.getSelection().ranges).toEqual([]);
+    });
+
+    it('ignores the chords while an edit is open', () => {
+      const { mockGrid, plugin } = setup();
+      mockGrid.query = vi.fn().mockReturnValue([true]);
+
+      expect(plugin.onKeyDown(space({ shiftKey: true }))).toBe(false);
+      expect(plugin.onKeyDown(space({ ctrlKey: true }))).toBe(false);
+      expect(plugin.getSelection().ranges).toEqual([]);
+    });
+
+    it('[range, column] mode: column chords defer to form fields and open edits', () => {
+      const { mockGrid, plugin } = setup(['range', 'column']);
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+      const event = space({ ctrlKey: true, bubbles: true });
+      input.addEventListener('keydown', (e) => plugin.onKeyDown(e as KeyboardEvent));
+      input.dispatchEvent(event);
+      input.remove();
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(plugin.getSelectedColumns()).toEqual([]);
+
+      mockGrid.query = vi.fn().mockReturnValue([true]);
+      expect(plugin.onKeyDown(space({ ctrlKey: true }))).toBe(false);
+      expect(plugin.getSelectedColumns()).toEqual([]);
+    });
+
+    it('does not handle Space in other modes or Ctrl+Shift+Space', () => {
+      const { plugin } = setup();
+      expect(plugin.onKeyDown(space({ ctrlKey: true, shiftKey: true }))).toBe(false);
+      expect(plugin.onKeyDown(space())).toBe(false);
+
+      const cell = setup('cell').plugin;
+      expect(cell.onKeyDown(space({ shiftKey: true }))).toBe(false);
+    });
+
+    it('announces through the rangeSpanSelected message', () => {
+      vi.useFakeTimers();
+      try {
+        const { mockGrid, plugin } = setup();
+        const rangeSpanSelected = vi.fn().mockReturnValue('msg');
+        mockGrid.effectiveConfig = { a11y: { messages: { rangeSpanSelected } } };
+        plugin['activeRange'] = { startRow: 0, startCol: 0, endRow: 2, endCol: 0 };
+
+        plugin.onKeyDown(space({ shiftKey: true }));
+        vi.advanceTimersByTime(200);
+
+        expect(rangeSpanSelected).toHaveBeenCalledWith('row', 3);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   describe('mouse drag selection (range mode)', () => {
     it('should start drag on mousedown', () => {
       const rows = [{ id: 1 }];

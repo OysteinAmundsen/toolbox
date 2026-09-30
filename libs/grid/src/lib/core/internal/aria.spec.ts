@@ -470,6 +470,8 @@ describe('ARIA Helpers', () => {
       expect(getA11yMessage(gridEl, 'groupExpanded', 'Engineering', 5)).toBe('Group Engineering expanded, 5 rows');
       expect(getA11yMessage(gridEl, 'groupCollapsed', 'Engineering')).toBe('Group Engineering collapsed');
       expect(getA11yMessage(gridEl, 'selectionChanged', 3)).toBe('3 rows selected');
+      expect(getA11yMessage(gridEl, 'rangeSpanSelected', 'row', 1)).toBe('Row selected');
+      expect(getA11yMessage(gridEl, 'rangeSpanSelected', 'column', 2)).toBe('2 columns selected');
       expect(getA11yMessage(gridEl, 'editingStarted', 0)).toBe('Editing row 1');
       expect(getA11yMessage(gridEl, 'editingCommitted', 0)).toBe('Row 1 saved');
       expect(getA11yMessage(gridEl, 'dataLoaded', 100)).toBe('100 rows loaded');

@@ -13,7 +13,7 @@ import type { A11yMessages, AnimationConfig, GridIcons } from './types';
  * Used when no custom messages are provided via {@link A11yConfig.messages}.
  * @since 2.0.0
  */
-export const DEFAULT_A11Y_MESSAGES: A11yMessages = {
+export const DEFAULT_A11Y_MESSAGES: Required<A11yMessages> = {
   sortApplied: (column, direction) => `Sorted by ${column}, ${direction}`,
   sortCleared: () => 'Sort cleared',
   filterApplied: (column) => `Filter applied on ${column}`,
@@ -31,6 +31,8 @@ export const DEFAULT_A11Y_MESSAGES: A11yMessages = {
     toAxis === 'column'
       ? 'Row selection cleared, column selection active'
       : 'Column selection cleared, row selection active',
+  rangeSpanSelected: (axis, count) =>
+    count === 1 ? `${axis === 'row' ? 'Row' : 'Column'} selected` : `${count} ${axis}s selected`,
   editingStarted: (rowIndex) => `Editing row ${rowIndex + 1}`,
   editingCommitted: (rowIndex) => `Row ${rowIndex + 1} saved`,
   dataLoaded: (count) => `${count} rows loaded`,

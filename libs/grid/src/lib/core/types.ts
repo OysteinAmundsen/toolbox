@@ -2577,6 +2577,12 @@ export interface A11yMessages {
   columnSelectionCleared: () => string;
   /** Announced when the active selection axis flips between row and column. @since 2.8.0 */
   selectionAxisChanged: (toAxis: 'row' | 'column') => string;
+  /**
+   * Announced when `Shift+Space` / `Ctrl+Space` in range mode selects whole rows or columns.
+   * Optional so existing full `A11yMessages` objects keep compiling; the English default applies when omitted.
+   * @since 3.9.0
+   */
+  rangeSpanSelected?: (axis: 'row' | 'column', count: number) => string;
   /** Announced when row editing starts. */
   editingStarted: (rowIndex: number) => string;
   /** Announced when row editing is committed. */

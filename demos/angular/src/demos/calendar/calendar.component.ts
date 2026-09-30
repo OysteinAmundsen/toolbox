@@ -109,21 +109,25 @@ export class CalendarComponent implements AfterViewInit, OnDestroy {
 
   readonly rows = computed(() => makeRows(this.year(), this.monthSignal(), this.userEvents()));
 
+  // Stable reference: a new `features` object makes the grid detach/re-attach every
+  // plugin, and the legend's removal re-triggers the row-height ResizeObserver (endless loop).
+  private readonly features: GridConfig<CalendarWeek>['features'] = {
+    shell: { header: { toolPanelToggle: false } },
+    pinnedRows: {
+      slots: [
+        {
+          id: 'calendar-legend',
+          position: 'bottom',
+          render: () => this.renderLegend(),
+        },
+      ],
+    },
+  };
+
   readonly gridConfig = computed<GridConfig<CalendarWeek>>(() => ({
     fitMode: 'stretch',
     rowHeight: this.rowHeight(),
-    features: {
-      shell: { header: { toolPanelToggle: false } },
-      pinnedRows: {
-        slots: [
-          {
-            id: 'calendar-legend',
-            position: 'bottom',
-            render: () => this.renderLegend(),
-          },
-        ],
-      },
-    },
+    features: this.features,
     columns: [
       {
         field: 'weekNumber',

@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.6.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-2.6.0...grid-react-2.6.1) (2026-09-30)
+
+
+### Bug Fixes
+
+* **grid-angular/grid-react/grid-vue:** delegate selectAll to SelectionPlugin and resolve array modes ([#489](https://github.com/OysteinAmundsen/toolbox/issues/489)) ([#497](https://github.com/OysteinAmundsen/toolbox/issues/497)) ([8d41b8c](https://github.com/OysteinAmundsen/toolbox/commit/8d41b8c697db04266da93f60c00776e0b627241c))
+
+
+### Enhancements
+
+* **grid:** Ctrl/Cmd+Up/Down jumps to first/last row, reusing Ctrl+Home/End logic ([#493](https://github.com/OysteinAmundsen/toolbox/issues/493)) ([#501](https://github.com/OysteinAmundsen/toolbox/issues/501)) ([68cc1ac](https://github.com/OysteinAmundsen/toolbox/commit/68cc1acb72eef03e109e46231cb5ea74ea966245))
+
 ## [2.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-2.5.0...grid-react-2.6.0) (2026-09-09)
 
 

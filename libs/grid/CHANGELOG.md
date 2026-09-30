@@ -1,5 +1,27 @@
 # Changelog
 
+## [3.8.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.8.2...grid-3.8.3) (2026-09-30)
+
+
+### Bug Fixes
+
+* **clipboard:** honor array selection modes via activeAxis for paste/copy ([#488](https://github.com/OysteinAmundsen/toolbox/issues/488)) ([#500](https://github.com/OysteinAmundsen/toolbox/issues/500)) ([595d43a](https://github.com/OysteinAmundsen/toolbox/commit/595d43aa4288269353b288b3bfe31157246ff830))
+* **editing:** ignore modified Space when toggling boolean cells ([#490](https://github.com/OysteinAmundsen/toolbox/issues/490)) ([#498](https://github.com/OysteinAmundsen/toolbox/issues/498)) ([78acbb9](https://github.com/OysteinAmundsen/toolbox/commit/78acbb981dbfcd20bb71df854613391e2ad22d68))
+* **grid-angular/grid-react/grid-vue:** delegate selectAll to SelectionPlugin and resolve array modes ([#489](https://github.com/OysteinAmundsen/toolbox/issues/489)) ([#497](https://github.com/OysteinAmundsen/toolbox/issues/497)) ([8d41b8c](https://github.com/OysteinAmundsen/toolbox/commit/8d41b8c697db04266da93f60c00776e0b627241c))
+* **row-drag-drop:** accept Alt+↑/↓ for keyboard reorder, deprecate Ctrl ([#491](https://github.com/OysteinAmundsen/toolbox/issues/491)) ([#499](https://github.com/OysteinAmundsen/toolbox/issues/499)) ([c10f419](https://github.com/OysteinAmundsen/toolbox/commit/c10f419a88b0ca5ea16267f90d954f16381790f0))
+* **tooltip:** forward wheel from popover so it no longer blocks grid scrolling ([5d7a3fe](https://github.com/OysteinAmundsen/toolbox/commit/5d7a3fe4056ea77004deb523e2d808da446ea295))
+
+
+### Enhancements
+
+* **grid:** Ctrl/Cmd+Up/Down jumps to first/last row, reusing Ctrl+Home/End logic ([#493](https://github.com/OysteinAmundsen/toolbox/issues/493)) ([#501](https://github.com/OysteinAmundsen/toolbox/issues/501)) ([68cc1ac](https://github.com/OysteinAmundsen/toolbox/commit/68cc1acb72eef03e109e46231cb5ea74ea966245))
+* **selection:** APG Shift+Space / Ctrl+Space row & column selection in range mode ([#492](https://github.com/OysteinAmundsen/toolbox/issues/492)) ([#502](https://github.com/OysteinAmundsen/toolbox/issues/502)) ([6033304](https://github.com/OysteinAmundsen/toolbox/commit/603330429587ec54bd6683940a7b92694515d1e1))
+
+
+### Performance Improvements
+
+* **grouping-rows/tree:** single-pass afterRender with compare-before-write ARIA updates ([#495](https://github.com/OysteinAmundsen/toolbox/issues/495)) ([58127da](https://github.com/OysteinAmundsen/toolbox/commit/58127da79189c7039278d74d9657913a6efec8f8))
+
 ## [3.8.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.8.1...grid-3.8.2) (2026-09-18)
 
 

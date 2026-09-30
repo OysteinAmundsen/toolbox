@@ -21,8 +21,9 @@ export interface RowDragDropConfig<T = unknown> {
   // === Intra-grid ===
 
   /**
-   * Enable keyboard shortcuts (`Ctrl + ↑` / `Ctrl + ↓`) for moving rows.
-   * Keyboard moves are intra-grid only.
+   * Enable keyboard shortcuts (`Alt + ↑` / `Alt + ↓`) for moving rows.
+   * Keyboard moves are intra-grid only. `Ctrl + ↑/↓` is also accepted but
+   * deprecated (unavailable on macOS) and will be removed in the next major.
    * @default true
    */
   enableKeyboard?: boolean;

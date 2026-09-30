@@ -55,3 +55,8 @@ related: [adapters, adapters-vue, adapters-angular, grid-core, grid-features]
 - `createPortalContainer(className)` in `react-column-config.ts`; `makeFlushFocusedInput(container)` (shared shape with Vue, separately implemented). NOT extracted to shared package — keeps each adapter tree-shakeable.
 - `FEATURE_KEYS` hoisted to module scope in `data-grid.tsx` (was per-render 24-element alloc).
 - GOTCHA (2026-08 parity sweep): in `react-grid-adapter.ts` the core `HeaderRenderer`/`HeaderLabelRenderer` aliases resolve **non-generic** (`TS2315: Type 'HeaderRenderer' is not generic`). Use structural fn types instead: `(ctx: HeaderCellContext<TRow>) => HTMLElement`.
+
+## consumer-gridconfig-pitfalls
+
+- TENSION: a NEW `gridConfig.features` reference makes core `#updatePluginConfigs` `detachAll()` + re-attach every plugin (`featuresChanged` is a ref check). PinnedRows `detach()` removes its footer → viewport grows → a ResizeObserver row-height fitter changes `rowHeight` → new `useMemo` config with inline `features` → loop (calendar demo "shiver", e2e `cross-framework-calendar` legend missing, only under CPU load). Consumers MUST keep `features` referentially stable (module const / separate memo) when other config keys are reactive. Same applies to Angular `computed()`.
+- GOTCHA: `DataGrid` applies `gridConfig` in a passive `useEffect`, so `setState` from a ResizeObserver lands ≥1 frame (≈100 ms in dev with many cell portals) late. If the observer also writes `--tbw-row-height` directly, the faux-vscroll spacer (config `rowHeight`) and the painted rows disagree → transient scrollbar. Fix: `flushSync(() => setRowHeight(h))` inside the RO callback (not in effects). See `demos/react/src/demos/calendar/hooks/useDynamicRowHeight.ts`.

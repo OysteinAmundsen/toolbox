@@ -16,5 +16,12 @@
   },
   "include": ["src/**/*.ts", "src/**/*.vue", "../shared/employee-management/**/*.ts", "../shared/calendar/**/*.ts"],
   "exclude": ["node_modules"],
-  "references": []
+  "references": [
+    {
+      "path": "../../libs/grid-vue"
+    },
+    {
+      "path": "../../libs/grid"
+    }
+  ]
 }

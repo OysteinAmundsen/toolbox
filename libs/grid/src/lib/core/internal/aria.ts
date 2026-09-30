@@ -243,15 +243,16 @@ export function announce(gridEl: HTMLElement, message: string): void {
 export function getA11yMessage<K extends keyof A11yMessages>(
   gridEl: HTMLElement,
   key: K,
-  ...args: Parameters<A11yMessages[K]>
+  ...args: Parameters<Required<A11yMessages>[K]>
 ): string {
+  type MessageFn = (...a: Parameters<Required<A11yMessages>[K]>) => string;
   const config =
     gridEl && 'effectiveConfig' in gridEl
       ? (gridEl as HTMLElement & { effectiveConfig?: GridConfig }).effectiveConfig
       : undefined;
-  const customFn = config?.a11y?.messages?.[key] as ((...a: Parameters<A11yMessages[K]>) => string) | undefined;
+  const customFn = config?.a11y?.messages?.[key] as MessageFn | undefined;
   if (customFn) return customFn(...args);
-  return (DEFAULT_A11Y_MESSAGES[key] as (...a: Parameters<A11yMessages[K]>) => string)(...args);
+  return (DEFAULT_A11Y_MESSAGES[key] as MessageFn)(...args);
 }
 
 /**

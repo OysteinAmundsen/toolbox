@@ -319,8 +319,12 @@ features: {
 | `Ctrl/⌘ + Click` (header) | Toggle column selection (column mode) |
 | `Ctrl/⌘ + Shift + Click` (header) | Extend column selection from anchor |
 | `Ctrl/⌘ + Space` | Toggle column at the focused column (column mode) |
+| `Shift + Space` | Select the row(s) spanned by the active range, across all columns (range mode) |
+| `Ctrl/⌘ + Space` | Select the column(s) spanned by the active range, across all rows (range mode without the column axis) |
 | `Ctrl/⌘ + Shift + ←/→` | Extend column selection (column mode) |
 | `Escape` | Clear current selection (whichever axis is active) |
+
+In range mode, `Shift + Space` and `Ctrl/⌘ + Space` follow the [WAI-ARIA grid pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/). They replace the selection with a normal range, so a following `Shift + Arrow` extends it while keeping the selected rows full width (or columns full height). With `mode: ['range', 'column']`, `Ctrl/⌘ + Space` keeps its column-axis meaning. Both are ignored while a cell editor is open, so editors still type spaces. The result is announced via the `rangeSpanSelected` [`A11yMessages`](/grid/api/core/interfaces/a11ymessages/) key.
 
 ### Range Mouse Behavior
 
@@ -431,6 +435,9 @@ Range selection is built on a drag: press one cell, sweep to the opposite corner
 - **Keyboard** — `Shift+Arrow`, `Shift+Page Up/Down` and `Shift+Ctrl/⌘+Home/End` and `Shift+Ctrl/⌘+↑/↓` also extend a range. Note that keyboard equivalence alone does **not** satisfy SC 2.5.7: the success criterion is about single-pointer operation, which is why the pointer paths above exist. `Shift+Click` needs a modifier key and does not count either.
 
 Selection also announces the armed corner through the grid's live region, and marks selected cells with `aria-selected` so assistive technology reports the current range.
+
+- **Whole rows and columns from the keyboard** — in range mode, `Shift+Space` selects the rows spanned by the active range (or the focused row) and `Ctrl/⌘+Space` the spanned columns, following the [WAI-ARIA grid pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/) so keyboard users get the same whole-row/column selection as header or row-edge clicks ([SC 2.1.1 Keyboard](https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html)). A following `Shift+Arrow` extends the span and keeps it full width (or full height). Both chords — and the column-axis `Ctrl/⌘+Space` / `Ctrl/⌘+Shift+Arrow` in `mode: ['range', 'column']` — are ignored while focus is in a form field or a cell editor is open, so editors keep their own keys.
+- **Announced** — the result ("Row selected", "3 columns selected") is sent to the grid's live region through the `rangeSpanSelected` [`A11yMessages`](/grid/api/core/interfaces/a11ymessages/) key, so screen-reader users hear the change without moving focus ([SC 4.1.3 Status Messages](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html)). Override it via `a11y.messages` to localize.
 
 ## See Also
 

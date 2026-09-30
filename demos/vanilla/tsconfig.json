@@ -32,5 +32,9 @@
     "src/**/*.ts"
   ],
   "exclude": ["node_modules", "dist"],
-  "references": []
+  "references": [
+    {
+      "path": "../../libs/grid"
+    }
+  ]
 }

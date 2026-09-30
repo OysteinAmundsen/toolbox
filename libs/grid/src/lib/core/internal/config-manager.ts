@@ -186,13 +186,6 @@ export class ConfigManager<T = unknown> {
 
   // #region Source Management
   /**
-   * Check if sources have changed since last merge.
-   */
-  get sourcesChanged(): boolean {
-    return this.#sourcesChanged;
-  }
-
-  /**
    * Mark that sources have changed and need re-merging.
    * Call this when external state (shell maps, etc.) that feeds into
    * collectAllSources() has been updated.

@@ -28,6 +28,32 @@ for this monorepo. It is run on demand via `bunx` and is not a project dependenc
 | Single-file deep dive                    | `bunx fallow health --file <path> --format json`                |
 | Per-package scores (monorepo)            | `bunx fallow health --group-by package --score --format json`   |
 
+### Scoped summary (monorepo triage)
+
+The raw JSON is 1.5 MB per subcommand and mixes `apps/docs`, `demos/`, `tools/` with
+library code. Write each subcommand to `tmp/` (never pipe through `tail`/`head`), then
+summarise one path prefix with the bundled script:
+
+```bash
+bunx fallow health --score --targets --hotspots --complexity --min-severity high --top 150 --format json --quiet > tmp/fallow-health.json
+bunx fallow dead-code --format json --quiet > tmp/fallow-deadcode.json
+bunx fallow dupes --skip-local --format json --quiet > tmp/fallow-dupes.json
+bun .github/skills/fallow/scripts/summarize.ts --scope libs/ --top 60
+```
+
+It prints per-function findings sorted by CRAP, refactor targets, hotspots, in-scope
+dead-code hits, and non-test clone groups. Caveats the script cannot resolve for you:
+
+- Without `--coverage <istanbul.json>` the `coverage_model` is `static_estimated` and every
+  function reads `cov=none`, so CRAP is inflated (`CC² + CC`). Generate real coverage first
+  (`bun nx test grid -- --coverage`, add `'json'` to the reporter list if only `json-summary`
+  is configured) before treating CRAP as a refactor trigger.
+- `unused_class_members` / `unused_exports` are syntactic. In this repo they are almost
+  always documented plugin/adapter public API or members reached via `this.#manager.x()`.
+  Verify against `apps/docs/src/content/docs/grid/**` and a `grep -rn '\bname\b'` before deleting.
+- Cross-adapter clone groups (`grid-react` ↔ `grid-vue` feature files) are intentional
+  parity code; consolidating them would create a shared runtime dependency between adapters.
+
 ---
 
 ## When to use each subcommand
@@ -69,7 +95,7 @@ bunx fallow health \
 - `findings[].severity` — `critical | high | moderate`
 - `findings[].coverage_tier` — `high | partial | none`
 - `findings[].actions[]` — machine-actionable `refactor-function`, `increase-coverage`, `add-tests`
-- `summary.score` — overall health score 0–100 (letter grade A–F)
+- `health_score.score` / `health_score.grade` — overall health score 0–100 (letter grade A–F); requires `--score`. Older schemas exposed this as `summary.score`.
 
 **What the CRAP score means:**
 `CRAP = CC² × (1 − coverage)³ + CC`. A function with CC=20 and zero coverage

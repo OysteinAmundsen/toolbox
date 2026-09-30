@@ -51,6 +51,12 @@ import type {
   RenderRow,
 } from './types';
 
+/** Attribute write that skips the DOM mutation when the value is unchanged (per-frame hot path). */
+function setAttrIfChanged(el: Element, name: string, value: number): void {
+  const next = String(value);
+  if (el.getAttribute(name) !== next) el.setAttribute(name, next);
+}
+
 /**
  * Group state information returned by getGroupState()
  * @since 0.1.1
@@ -797,28 +803,25 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
     // Apply ARIA position metadata to every visible DATA row (group rows are
     // populated by `renderRow` directly since they bypass the default cell
-    // template that exposes `data-row`).
+    // template that exposes `data-row`). Single pass shared with the
+    // expand/collapse animation so the hot path queries each row once.
+    const style = this.animationStyle;
+    const animate = style !== false && this.keysToAnimate.size > 0;
+    const animClass = style === 'fade' ? 'tbw-group-fade-in' : 'tbw-group-slide-in';
+
     for (const rowEl of body.querySelectorAll('.data-grid-row:not(.group-row)')) {
       const cell = rowEl.querySelector('.cell[data-row]');
       const idx = cell ? parseInt(cell.getAttribute('data-row') ?? '-1', 10) : -1;
       const meta = this.flatMeta[idx];
-      if (!meta) continue;
-      rowEl.setAttribute('aria-level', String(meta.level));
-      rowEl.setAttribute('aria-setsize', String(meta.setSize));
-      rowEl.setAttribute('aria-posinset', String(meta.posInSet));
-    }
+      if (meta) {
+        // Pooled row elements keep their position across most frames — skip
+        // the attribute mutation unless the value actually changed.
+        setAttrIfChanged(rowEl, 'aria-level', meta.level);
+        setAttrIfChanged(rowEl, 'aria-setsize', meta.setSize);
+        setAttrIfChanged(rowEl, 'aria-posinset', meta.posInSet);
+      }
 
-    const style = this.animationStyle;
-    if (style === false || this.keysToAnimate.size === 0) return;
-
-    const animClass = style === 'fade' ? 'tbw-group-fade-in' : 'tbw-group-slide-in';
-    for (const rowEl of body.querySelectorAll('.data-grid-row:not(.group-row)')) {
-      const cell = rowEl.querySelector('.cell[data-row]');
-      const idx = cell ? parseInt(cell.getAttribute('data-row') ?? '-1', 10) : -1;
-      const item = this.flattenedRows[idx];
-      const key = item?.kind === 'data' ? `data-${idx}` : undefined;
-
-      if (key && this.keysToAnimate.has(key)) {
+      if (animate && this.flattenedRows[idx]?.kind === 'data' && this.keysToAnimate.has(`data-${idx}`)) {
         rowEl.classList.add(animClass);
         rowEl.addEventListener('animationend', () => rowEl.classList.remove(animClass), { once: true });
       }

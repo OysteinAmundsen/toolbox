@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TreePlugin } from './tree-plugin';
 import type { TreeConfig } from './types';
 
@@ -307,6 +307,28 @@ describe('tree plugin integration', () => {
 
     // The name should appear in the first column (tree wraps first column)
     expect(nameCells).toEqual(['Documents', 'Resume.pdf', 'Cover Letter.docx', 'Projects', 'Pictures', 'readme.md']);
+  });
+
+  it('does not re-write unchanged aria position attributes on subsequent renders', async () => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    document.body.appendChild(grid);
+
+    const treePlugin = new TreePlugin({ childrenField: 'children', defaultExpanded: true });
+    grid.gridConfig = { columns: [{ field: 'name', header: 'Name' }], plugins: [treePlugin] };
+    grid.rows = [{ name: 'Root', children: [{ name: 'Child' }] }];
+
+    await waitUpgrade(grid);
+
+    const rows = grid.querySelectorAll('.data-grid-row');
+    expect(rows.length).toBe(2);
+    expect(rows[1].getAttribute('aria-level')).toBe('2');
+
+    const setAttribute = vi.spyOn(rows[1], 'setAttribute');
+    treePlugin.afterRender();
+
+    const ariaWrites = setAttribute.mock.calls.filter(([name]) => String(name).startsWith('aria-'));
+    expect(ariaWrites).toEqual([]);
+    setAttribute.mockRestore();
   });
 
   describe('TreePlugin public API', () => {

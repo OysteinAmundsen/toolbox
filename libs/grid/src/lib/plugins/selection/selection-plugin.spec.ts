@@ -336,6 +336,21 @@ describe('SelectionPlugin', () => {
       expect(result[0].checkboxColumn).toBe(true);
     });
 
+    it('pins the checkbox after existing left-pinned utility columns', () => {
+      const columns = [
+        { field: 'expand', header: ' ', width: 40, pinned: 'left', utility: true },
+        { field: 'settlementId', header: 'Settlement ID' },
+      ];
+      const mockGrid = createMockGrid([], columns);
+      const plugin = new SelectionPlugin({ mode: 'row', checkbox: true });
+      plugin.attach(mockGrid);
+
+      const result = plugin.processColumns(columns);
+
+      expect(result.map((column) => column.field)).toEqual(['expand', '__tbw_checkbox', 'settlementId']);
+      expect(result[1].pinned).toBe('left');
+    });
+
     it('should render the select-all checkbox inside a label so the whole cell is a target', () => {
       const columns = [{ field: 'name' }];
       const mockGrid = createMockGrid([], columns);

@@ -262,6 +262,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * @internal
    */
   static override readonly manifest: PluginManifest<SelectionConfig> = {
+    hookPriority: {
+      // Inject the checkbox before pinned-columns reorders and applies sticky offsets.
+      processColumns: -20,
+    },
     queries: [
       { type: 'getSelection', description: 'Get the current selection state' },
       { type: 'selectRows', description: 'Select specific rows by index (row mode only)' },
@@ -1498,9 +1502,13 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         return columns;
       }
       const checkboxCol = this.#createCheckboxColumn();
-      // Insert after expander column if present, otherwise first
+      // Insert after the expander or any leading left-pinned columns.
       const expanderIdx = columns.findIndex(isExpanderColumn);
-      const insertAt = expanderIdx >= 0 ? expanderIdx + 1 : 0;
+      const firstUnpinnedIdx = columns.findIndex(
+        (column) => (column as ColumnConfig & { pinned?: string }).pinned !== 'left',
+      );
+      const leftPinnedEnd = firstUnpinnedIdx < 0 ? columns.length : firstUnpinnedIdx;
+      const insertAt = expanderIdx >= 0 ? Math.max(expanderIdx + 1, leftPinnedEnd) : leftPinnedEnd;
       return [...columns.slice(0, insertAt), checkboxCol, ...columns.slice(insertAt)];
     }
     return columns;
@@ -1509,11 +1517,12 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   /**
    * Create the checkbox utility column configuration.
    */
-  #createCheckboxColumn(): ColumnConfig {
+  #createCheckboxColumn(): ColumnConfig & { pinned: 'left' } {
     return {
       field: CHECKBOX_COLUMN_FIELD,
       header: '',
       width: 32,
+      pinned: 'left',
       resizable: false,
       sortable: false,
       lockPosition: true,

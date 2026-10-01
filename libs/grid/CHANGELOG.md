@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.8.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.8.3...grid-3.8.4) (2026-10-01)
+
+
+### Enhancements
+
+* **selection:** adjust checkbox column insertion for left-pinned columns ([46e5bd0](https://github.com/OysteinAmundsen/toolbox/commit/46e5bd0767a17e783cbe9bfa513f752eddcb5d6a))
+
 ## [3.8.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.8.2...grid-3.8.3) (2026-09-30)
 
 

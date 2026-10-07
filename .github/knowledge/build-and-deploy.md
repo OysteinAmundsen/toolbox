@@ -14,6 +14,7 @@ related: [build-css, release-versioning, docs-agent-endpoints, grid-core]
 - OUTPUT: `dist/libs/grid/` → `index.js`, `all.js`, `lib/plugins/*/index.js`, `lib/features/*.js`, `umd/*.umd.js`, `themes/*.css`.
 - INVARIANT: plugin scan auto-discovers from `src/lib/plugins/` (excludes `all/`, `shared/`).
 - INVARIANT: plugins externalize core imports (`@toolbox-web/grid`) to prevent duplication.
+- DECIDED (#504): a plugin's HARD dependency on another plugin is imported statically from that plugin's INDEX (`import { HierarchyPlugin } from '../hierarchy'`). ESM: `externalizeCore()` maps it to external `@toolbox-web/grid/plugins/<dep>` (resolved path must be `lib/plugins/<dep>` ≠ own, ≠ `shared`) — consumer bundler includes it once, no runtime load step. UMD: it matches neither external regex, so it is INLINED into the dependent `.umd.js` (tree/grouping-rows +~1.2–1.7 kB) — deprecated, removal tracked in release-versioning.md. Optional deps are never imported.
 - INVARIANT: UMD global naming `"pinned-rows"` → `TbwGridPlugin_pinnedRows`.
 - DECIDED: parallel plugin/feature builds in the `writeBundle` hook with pre-created directories (race avoidance); ES only for plugins (no CJS); each entry self-contained (`manualChunks: undefined`); all comments stripped.
 - DECIDED: terser inlines constant property accesses (`GridClasses.CELL_FOCUS` → `"cell-focus"`) — using `constants.ts` has ZERO bundle overhead vs raw strings.

@@ -14,6 +14,7 @@ export type {
   GroupDefinition,
   GroupExpandDetail,
   GroupingRowsConfig,
+  GroupOnContext,
   GroupRowModelItem,
   GroupRowRenderParams,
   GroupToggleDetail,

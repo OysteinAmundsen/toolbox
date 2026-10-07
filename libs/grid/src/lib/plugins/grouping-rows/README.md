@@ -28,20 +28,20 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option             | Type                                        | Default   | Description                            |
-| ------------------ | ------------------------------------------- | --------- | -------------------------------------- |
-| `groupOn`          | `(row) => any[] \| any \| null \| false`    | -         | Function returning group key(s)        |
-| `groups`           | `GroupDefinition[]`                         | -         | Pre-defined group structure            |
-| `aggregators`      | `Record<string, AggregatorRef>`             | `{}`      | Aggregation functions per field        |
-| `fullWidth`        | `boolean`                                   | `true`    | Group rows span full width             |
-| `defaultExpanded`  | `boolean \| number \| string \| string[]`   | `false`   | Start groups expanded                  |
-| `showRowCount`     | `boolean`                                   | `true`    | Show row count in group headers        |
-| `indentWidth`      | `number`                                    | `20`      | Indent width per depth level in pixels |
-| `animation`        | `false \| 'slide' \| 'fade'`                | `'slide'` | Expand/collapse animation style        |
-| `accordion`        | `boolean`                                   | `false`   | Only one group open at a time          |
-| `groupRowHeight`   | `number`                                    | -         | Height of group header rows (px)       |
-| `groupRowRenderer` | `(params) => HTMLElement \| string \| void` | -         | Custom group row renderer              |
-| `formatLabel`      | `(value, depth, key) => string`             | -         | Custom format function for group label |
+| Option             | Type                                                        | Default   | Description                                          |
+| ------------------ | ----------------------------------------------------------- | --------- | ---------------------------------------------------- |
+| `groupOn`          | `(row, { parent, depth }) => any[] \| any \| null \| false` | -         | Function returning group key(s)                      |
+| `groups`           | `GroupDefinition[]`                                         | -         | Pre-defined group structure                          |
+| `aggregators`      | `Record<string, AggregatorRef>`                             | `{}`      | Aggregation functions per field                      |
+| `fullWidth`        | `boolean`                                                   | `true`    | Group rows span full width                           |
+| `defaultExpanded`  | `boolean \| number \| string \| string[]`                   | `false`   | Start groups expanded                                |
+| `showRowCount`     | `boolean`                                                   | `true`    | Show row count in group headers                      |
+| `indentWidth`      | `number`                                                    | `20`      | Indent width per depth level in pixels               |
+| `animation`        | `false \| 'slide' \| 'fade'`                                | `'slide'` | Expand/collapse animation style                      |
+| `accordion`        | `boolean \| (depth) => boolean`                             | `false`   | Only one group open at a time (optionally per depth) |
+| `groupRowHeight`   | `number`                                                    | -         | Height of group header rows (px)                     |
+| `groupRowRenderer` | `(params) => HTMLElement \| string \| void`                 | -         | Custom group row renderer                            |
+| `formatLabel`      | `(value, depth, key) => string`                             | -         | Custom format function for group label               |
 
 ## Multi-Level Grouping
 
@@ -52,6 +52,19 @@ new GroupingRowsPlugin({
   groupOn: (row) => [row.region, row.country, row.city],
 });
 ```
+
+## Grouping Tree Children
+
+Combined with `TreePlugin`, grouping applies to the root rows and to the children of every expanded tree node. The second `groupOn` argument tells which list is being grouped (`parent` is the tree row, or `null` for the root rows); return `null` to leave a level ungrouped:
+
+```typescript
+plugins: [
+  new TreePlugin({ childrenField: 'children' }),
+  new GroupingRowsPlugin({ groupOn: (row, { depth }) => (depth > 0 ? row.kind : null) }),
+];
+```
+
+Groups under a tree node get keys prefixed with its tree key (`'plan-1::Cargo'`). Both plugins depend on `HierarchyPlugin`, which the grid attaches automatically.
 
 ## Aggregators
 

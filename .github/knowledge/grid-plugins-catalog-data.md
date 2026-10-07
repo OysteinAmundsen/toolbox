@@ -5,7 +5,7 @@ related: [grid-plugins, grid-plugins-catalog-ui, grid-core, grid-data-pipeline, 
 
 # Plugin Catalog — Data & Model Plugins
 
-> Plugin system (manager, lifecycle, hooks, manifest) → grid-plugins.md. Shell → grid-plugins-shell.md. Interaction/display plugins (Selection, MasterDetail, Reordering, Responsive, Tooltip, StickyRows, ContextMenu) → grid-plugins-catalog-ui.md. Editing/UndoRedo → grid-plugins-editing.md.
+> Plugin system (manager, lifecycle, hooks, manifest) → grid-plugins.md. Row hierarchy (Hierarchy, Tree, GroupingRows) → grid-plugins-hierarchy.md. Shell → grid-plugins-shell.md. Interaction/display plugins (Selection, MasterDetail, Reordering, Responsive, Tooltip, StickyRows, ContextMenu) → grid-plugins-catalog-ui.md. Editing/UndoRedo → grid-plugins-editing.md.
 
 ## Row-Transforming (`modifiesRowStructure: true`)
 
@@ -24,28 +24,9 @@ EVENTS: `datasource:data|children|loading|error`. QUERIES: `datasource:fetch-chi
 - TENSION: tall grid + small `pageSize` + no threshold needs a scroll to fill the viewport.
 - Tests: `server-side.spec.ts` (AbortSignal, Subscribable, `loadBlock`, `createUrlDataSource`, `data-src`, boolean shorthand).
 
-### Tree
+### Hierarchy, Tree, GroupingRows
 
-OWNS: expanded keys, flattened rows, `rowKeyMap`, `#rowMeta` `WeakMap<row,FlattenedTreeRow>`, `#rowKeys` `WeakMap<row,string>`, animation state, `loadingKeys`/`loadedKeys`, `#childRequests: Map<key,AbortController>`.
-HOOKS: processRows(10), processColumns, afterCellRender, afterRender, onCellClick, onHeaderClick, renderRow, getRowHeight, adjustVirtualStart.
-QUERIES: `canMoveRow`, `datasource:viewport-mapping`, `sort:get-model`. EVENTS: `tree-expand`, `tree-load-start|end|error`. FIRES: `datasource:fetch-children`. LISTENS: `datasource:children|error` (filtered on `context.source === 'tree'`).
-
-- DECIDED (v3.4.0, lazy loading): two routes, ServerSide wins. `requestLazyChildren` checks `datasource:is-active` **via `queryBoolean`** (#430 — raw `query()` returns a truthy `[]`). Else `TreeConfig.loadChildren` (Promise or `Subscribable`, per-request `AbortController`, aborted on `detach()`). `Subscribable` is **take-one** — `finish()` removes the controller `detach()` would abort; a `settled` flag covers synchronous emission. Ref: `TreePlugin.#loadChildrenLocally`, `tree-integration.spec.ts`.
-- INVARIANT (#430): `detectTreeStructure(rows, childrenField, hasChildren)` MUST receive `config.hasChildren` (predicate-only lazy trees have no `children` field), else detection returns false. File: [tree-detect.ts](libs/grid/src/lib/plugins/tree/tree-detect.ts).
-- INVARIANT: lazy children are signalled by a truthy non-array `childrenField` or a `TreeConfig.hasChildren` predicate; single-batch (no pagination). `loadedKeys` (NOT `row[childrenField].length`) gates re-fetch; fetched at most once per attach, errors do NOT mark loaded. `datasource:error` MUST be handled — else the key stays in `loadingKeys` forever and retries short-circuit.
-- INVARIANT: loading UI reuses core `createDefaultSpinner('small')` (+ `.tree-loading` sizing in `@layer tbw-plugins`). `afterRender` sets AND removes `aria-busy` (explicit negative branch).
-- DECIDED (#264, WAI-ARIA treegrid): Tree or GroupingRows registered → `.rows-body` `role` swaps `grid` → `treegrid` + per-visible-row `aria-level`/`aria-setsize`/`aria-posinset`, set idempotently in `afterRender`, `role="grid"` restored in `detach()`. Tree carries `posInSet`/`setSize` on `FlattenedTreeRow`; GroupingRows uses a parallel `flatMeta` array (`computeFlatMeta`). INVARIANT: `posInSet`/`setSize` are 1-based PER PARENT, not global rowIndex.
-- INVARIANT (perf, Sep 2026): the per-row `aria-level`/`aria-setsize`/`aria-posinset` writes in Tree + GroupingRows `afterRender` compare-before-write (module-local `setAttrIfChanged`, mirroring core's `__ariaRowIndex` guard in rows.ts), and each plugin queries the row list ONCE per frame — GroupingRows previously ran two `querySelectorAll` passes (ARIA + animation). Tree's `aria-expanded` / `aria-busy` / `.tbw-row-expanded` writes are NOT guarded (set unconditionally, removed only when present) — extend the guard there before adding new per-frame writes. DECIDED: the helper is duplicated per plugin, not hoisted to core or `plugins/shared` — no core bytes for plugin concerns, no cross-plugin runtime dependency for non-bundler users.
-- INVARIANT (async rows): `processColumns` is a no-op while `flattenedRows` is empty, and a ROWS-only render never re-runs COLUMNS — so rows arriving asynchronously (`grid.rows = …` after `ready()`, or a ServerSide block) would leave the tree column undecorated. `processRows` (BOTH branches) calls `#syncTreeColumn()`, which microtask-defers a `#treeColumnWrapped !== flattenedRows.length > 0` check and `requestColumnsRender()`s on mismatch.
-- INVARIANT: `_schedulerMergeConfig` reseeds `#baseColumns` from `_columns`, so a plugin-installed `viewRenderer` is **already baked in** by the time `processColumns` runs — columns handed to a plugin are NOT pristine. To un-decorate, the plugin MUST actively restore `originalTreeColumnRenderer` (dropping the cache alone leaks the wrapper, and re-wrapping nests it).
-- INVARIANT (perf): `flattenTree` allocates one result array; recursive `appendFlattenedRows` appends preorder rows into it. Do NOT return/spread child arrays: wide expanded nodes can exceed the JS argument limit. Bench: `tree-data.bench.ts`.
-
-### GroupingRows
-
-OWNS: grouped row model, expanded keys, animation state. HOOKS: processRows(10), onHeaderClick(-1), renderRow. QUERIES: `canMoveRow`, `grouping:get-grouped-fields`, `datasource:viewport-mapping`. EVENTS: `group-toggle|expand|collapse`.
-
-- DECIDED (#335, deferred expansion): `setGroupOn(fn, expanded?)` takes `DefaultExpandedValue: boolean|number|string|string[]` seeding expansion against the NEW group set on the next rebuild (sets `groupConfigDirty`); `expandAll`/`collapseAll` called right after it ALSO defer via `pendingExpansion`. `processRows` snapshots+clears `pendingExpansion` at the top, resolves against fresh `getGroupKeys(initialBuild)` and broadcasts `group-toggle` once.
-- INVARIANT: bulk `group-toggle` emissions MUST use `broadcast<GroupToggleDetail>`, not `emitPluginEvent`. `GroupToggleDetail.{key,expanded,value,depth}` are optional (bulk carries only `expandedKeys`).
+→ grid-plugins-hierarchy.md (shared row hierarchy, contributor contract, treegrid ARIA).
 
 ### Pivot
 

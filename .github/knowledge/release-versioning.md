@@ -55,6 +55,10 @@ Config: [release-please-config.json](release-please-config.json) + `.release-ple
 - FLOW (back-fill, once per cycle): `bun .github/skills/since-tag/build-since-map.ts` → `bun .github/skills/since-tag/apply-since-tags.ts` → `bun nx typedoc grid && … grid-angular && … grid-react && … grid-vue`.
 - DECIDED: `@since` lives in source JSDoc (survives refactors, visible in IDE hovers); the generator no-ops when absent. Plugin/Adapter splits of `DataGridElement` deliberately do NOT show the pill — only the Public API split. Version badges link to `/grid/<framework>/changelog/`.
 
+## next major (v4) cleanup — planned
+
+- PENDING (#504): stop inlining plugin hard dependencies into per-plugin UMD files — externalize `../<dep>` to the `TbwGridPlugin_<dep>` global in `buildUmdBundles` (`DEPRECATED (remove in v4)` comment in [vite.config.ts](libs/grid/vite.config.ts)), then drop the deprecation notes in `umd-readme.md`, `plugins/hierarchy/README.md` and `grid/plugins/hierarchy/index.mdx` ("CDN (UMD) Builds").
+
 ## v3.0.0 cleanup (COMPLETED — epic #263)
 
 Shipped: grid **3.x**, adapters **2.x** (peer `^3.0.0`). Every item in #259/#260/#261/#262/#228 landed.

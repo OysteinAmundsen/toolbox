@@ -42,6 +42,6 @@ export const PLUGIN_KIND_INFO: Record<PluginKind, { label: string; description: 
   },
   composite: {
     label: 'Composite',
-    description: 'Bundles several plugins into one.',
+    description: 'Coordinates other plugins so they work together, without replacing them.',
   },
 };

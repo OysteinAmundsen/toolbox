@@ -59,6 +59,7 @@ Editing is opt-in. To enable `editable` and `editor` column properties, you must
 | [Row Grouping](/grid/plugins/grouping-rows/) | Group rows by field values with expand/collapse |
 | [Column Grouping](/grid/plugins/grouping-columns/) | Visual column grouping with nested headers |
 | [Tree](/grid/plugins/tree/) | Hierarchical tree data display |
+| [Hierarchy](/grid/plugins/hierarchy/) | Combines Tree and Row Grouping output into one row hierarchy (attached automatically) |
 | [Master-Detail](/grid/plugins/master-detail/) | Expandable detail rows |
 | [Pivot](/grid/plugins/pivot/) | Pivot table transformation with aggregations |
 
@@ -89,13 +90,13 @@ Each plugin page shows one or more chips beside its title, describing what the p
 
 | Type | What the plugin adds | Plugins |
 | ---- | -------------------- | ------- |
-| <PluginKindChip kind="structural" /> | Changes the shape of the grid: which rows or columns exist, how they nest, or where they sit. | [Column Grouping](/grid/plugins/grouping-columns/), [Master-Detail](/grid/plugins/master-detail/), [Pinned Columns](/grid/plugins/pinned-columns/), [Pinned Rows](/grid/plugins/pinned-rows/), [Pivot](/grid/plugins/pivot/), [Row Grouping](/grid/plugins/grouping-rows/), [Tree](/grid/plugins/tree/) |
+| <PluginKindChip kind="structural" /> | Changes the shape of the grid: which rows or columns exist, how they nest, or where they sit. | [Column Grouping](/grid/plugins/grouping-columns/), [Hierarchy](/grid/plugins/hierarchy/), [Master-Detail](/grid/plugins/master-detail/), [Pinned Columns](/grid/plugins/pinned-columns/), [Pinned Rows](/grid/plugins/pinned-rows/), [Pivot](/grid/plugins/pivot/), [Row Grouping](/grid/plugins/grouping-rows/), [Tree](/grid/plugins/tree/) |
 | <PluginKindChip kind="functional" /> | Adds behaviour, interaction, or data operations without changing the shape of the grid. | [Clipboard](/grid/plugins/clipboard/), [Context Menu](/grid/plugins/context-menu/), [Editing](/grid/plugins/editing/), [Export](/grid/plugins/export/), [Filtering](/grid/plugins/filtering/), [Master-Detail](/grid/plugins/master-detail/), [Multi-Sort](/grid/plugins/multi-sort/), [Pivot](/grid/plugins/pivot/), [Print](/grid/plugins/print/), [Reorder](/grid/plugins/reorder-columns/), [Row Drag & Drop](/grid/plugins/row-drag-drop/), [Row Grouping](/grid/plugins/grouping-rows/), [Selection](/grid/plugins/selection/), [Tree](/grid/plugins/tree/), [Undo/Redo](/grid/plugins/undo-redo/), [Visibility](/grid/plugins/visibility/) |
 | <PluginKindChip kind="visual" /> | Changes presentation only. Data and behaviour stay the same. | [Column Grouping](/grid/plugins/grouping-columns/), [Pinned Columns](/grid/plugins/pinned-columns/), [Pinned Rows](/grid/plugins/pinned-rows/), [Responsive](/grid/plugins/responsive/), [Selection](/grid/plugins/selection/), [Sticky Rows](/grid/plugins/sticky-rows/), [Tooltip](/grid/plugins/tooltip/) |
 | <PluginKindChip kind="performance" /> | Changes how the grid renders, with no visible effect on the result. | [Column Virtualization](/grid/plugins/column-virtualization/) |
 | <PluginKindChip kind="data-source" /> | Changes where rows come from, not how they look or behave. | [Server-Side](/grid/plugins/server-side/) |
 | <PluginKindChip kind="chrome" /> | Adds UI around the grid, such as a toolbar or tool panels. | [Shell](/grid/plugins/shell/) |
-| <PluginKindChip kind="composite" /> | Bundles several plugins into one. | None yet |
+| <PluginKindChip kind="composite" /> | Coordinates other plugins so they work together, without replacing them. | [Hierarchy](/grid/plugins/hierarchy/) |
 
 A plugin that rewrites the grid's DOM on its own is structural, even when the result looks like a visual change — Pinned Columns is both. Reorder and Row Drag & Drop only move columns or rows when the user drags them, so they count as functional. Filtering and Visibility hide rows or columns but keep the grid's shape, so they count as functional too. A utility column added as a side effect — the selection checkbox, the drag handle, the detail expander — doesn't make a plugin structural.
 
@@ -115,6 +116,8 @@ Some plugins depend on other plugins to function. Dependencies can be **hard** (
 | Plugin | Depends On | Type | Reason |
 | ------ | ---------- | ---- | ------ |
 | **UndoRedoPlugin** | EditingPlugin | Hard | Tracks cell edit history for undo/redo |
+| **TreePlugin** | HierarchyPlugin | Hard (provided) | Builds the hierarchical row model — attached automatically |
+| **GroupingRowsPlugin** | HierarchyPlugin | Hard (provided) | Builds the hierarchical row model — attached automatically |
 | **ClipboardPlugin** | SelectionPlugin | Soft | Enables copy/paste of selected cells instead of entire grid |
 | **VisibilityPlugin** | ReorderPlugin | Soft | Enables drag-to-reorder columns in visibility panel |
 
@@ -139,6 +142,8 @@ plugins: [
 ```
 
 For declaring dependencies in your own custom plugins, see [Custom Plugins → Plugin Dependencies](/grid/plugin-development/custom-plugins/#plugin-dependencies).
+
+A **provided** dependency is never your concern: when it is missing, the grid creates and attaches it before the plugin that needs it, with either API. If you add it yourself, your instance is used instead.
 
 ## Using Features (Recommended)
 
@@ -450,7 +455,6 @@ Some plugin combinations conflict and should not be used together. A development
 
 | Plugin A | Plugin B | Reason |
 |----------|----------|--------|
-| GroupingRowsPlugin | TreePlugin | Both transform the entire row model in different ways |
 | GroupingRowsPlugin | PivotPlugin | Pivot creates its own aggregated row/column structure |
 | TreePlugin | PivotPlugin | Pivot replaces the data structure; tree hierarchy cannot coexist |
 | ServerSidePlugin | GroupingRowsPlugin | Grouping needs the full dataset; server-side loads blocks lazily |

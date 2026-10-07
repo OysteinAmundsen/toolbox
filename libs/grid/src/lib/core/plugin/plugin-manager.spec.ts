@@ -324,4 +324,71 @@ describe('PluginManager hookPriority', () => {
       expect(spy).toHaveBeenCalledWith(7);
     });
   });
+
+  describe('provided dependencies', () => {
+    class ProvidedPlugin extends BaseGridPlugin {
+      readonly name = 'provided';
+    }
+    class NeedsProvided extends BaseGridPlugin {
+      static override readonly dependencies = [{ name: 'provided', provide: () => new ProvidedPlugin() }];
+      readonly name = 'needsProvided';
+    }
+    class AlsoNeedsProvided extends BaseGridPlugin {
+      static override readonly dependencies = [{ name: 'provided', provide: () => new ProvidedPlugin() }];
+      readonly name = 'alsoNeedsProvided';
+    }
+    class ConditionallyNeedsProvided extends BaseGridPlugin<{ enabled?: boolean }> {
+      static override readonly dependencies = [
+        {
+          name: 'provided',
+          provide: () => new ProvidedPlugin(),
+          when: (cfg: unknown) => (cfg as { enabled?: boolean }).enabled === true,
+        },
+      ];
+      readonly name = 'conditional';
+    }
+
+    const names = () => manager.getPlugins().map((p) => p.name);
+
+    it('attaches a missing dependency once, before its first dependent', () => {
+      manager.attachAll([new PluginA(), new NeedsProvided(), new AlsoNeedsProvided()]);
+      expect(names()).toEqual(['pluginA', 'provided', 'needsProvided', 'alsoNeedsProvided']);
+    });
+
+    it('keeps an explicitly configured instance instead of providing one', () => {
+      const explicit = new ProvidedPlugin();
+      manager.attachAll([explicit, new NeedsProvided()]);
+      expect(names()).toEqual(['provided', 'needsProvided']);
+      expect(manager.getPluginByName('provided')).toBe(explicit);
+    });
+
+    it('routes the provided instance through the gate', () => {
+      const canonical = new ProvidedPlugin();
+      const gate = vi.fn((p: BaseGridPlugin) => (p.name === 'provided' ? canonical : p));
+      manager.attachAll([new NeedsProvided()], gate);
+      expect(gate).toHaveBeenCalledTimes(1);
+      expect(manager.getPluginByName('provided')).toBe(canonical);
+    });
+
+    it('skips a dependency whose `when` predicate is not satisfied', () => {
+      manager.attachAll([new ConditionallyNeedsProvided({ enabled: false })]);
+      expect(names()).toEqual(['conditional']);
+    });
+
+    it('expands the dependencies of a provided instance recursively', () => {
+      class Leaf extends BaseGridPlugin {
+        readonly name = 'leaf';
+      }
+      class Middle extends BaseGridPlugin {
+        static override readonly dependencies = [{ name: 'leaf', provide: () => new Leaf() }];
+        readonly name = 'middle';
+      }
+      class Top extends BaseGridPlugin {
+        static override readonly dependencies = [{ name: 'middle', provide: () => new Middle() }];
+        readonly name = 'top';
+      }
+      manager.attachAll([new Top()]);
+      expect(names()).toEqual(['leaf', 'middle', 'top']);
+    });
+  });
 });

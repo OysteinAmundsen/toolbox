@@ -59,6 +59,7 @@ export * from './lib/plugins/export';
 export * from './lib/plugins/filtering';
 export * from './lib/plugins/grouping-columns';
 export * from './lib/plugins/grouping-rows';
+export * from './lib/plugins/hierarchy';
 export * from './lib/plugins/master-detail';
 export * from './lib/plugins/multi-sort';
 export * from './lib/plugins/pinned-columns';

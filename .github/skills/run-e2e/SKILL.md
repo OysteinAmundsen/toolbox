@@ -18,7 +18,11 @@ Auto-starts the Astro dev server — no manual setup:
 
 ```bash
 bun nx e2e docs-e2e
+# Agent / scripted runs: one spec, no HTML report server, stderr captured separately
+PLAYWRIGHT_HTML_OPEN=never bun nx e2e docs-e2e -- tests/<file>.spec.ts > tmp/e2e.txt 2> tmp/e2e.err
 ```
+
+On a local failure Playwright serves the HTML report on :9323 and waits for Ctrl+C. The command never returns, and an interrupted run can leave the port busy for the next one, which then exits 1 with no tests run. `PLAYWRIGHT_HTML_OPEN=never` prevents both.
 
 ## Promo recording (`@promo`)
 

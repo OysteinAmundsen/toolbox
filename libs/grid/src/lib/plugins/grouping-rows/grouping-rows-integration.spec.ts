@@ -99,14 +99,14 @@ describe('grouping-rows plugin integration', () => {
       expect(dataRow.getAttribute('aria-level')).toBe('2');
 
       const setAttribute = vi.spyOn(dataRow, 'setAttribute');
-      plugin.afterRender();
+      grid.getPluginByName('hierarchy')?.afterRender();
 
       const ariaWrites = setAttribute.mock.calls.filter(([name]) => String(name).startsWith('aria-'));
       expect(ariaWrites).toEqual([]);
       setAttribute.mockRestore();
     });
 
-    it('restores rows-body role to grid on detach()', async () => {
+    it('restores rows-body role to grid when the hierarchy detaches', async () => {
       const grid = document.createElement('tbw-grid') as GridElement;
       document.body.appendChild(grid);
 
@@ -124,7 +124,7 @@ describe('grouping-rows plugin integration', () => {
 
       expect(grid.querySelector('.rows-body')?.getAttribute('role')).toBe('treegrid');
 
-      plugin.detach();
+      grid.getPluginByName('hierarchy')?.detach();
 
       expect(grid.querySelector('.rows-body')?.getAttribute('role')).toBe('grid');
     });

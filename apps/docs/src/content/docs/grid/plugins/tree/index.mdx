@@ -541,11 +541,23 @@ The tree plugin uses these class names:
 :::caution[Incompatible Plugins]
 The Tree plugin **cannot** be used with the following plugins:
 
-- **[Row Grouping](/grid/plugins/grouping-rows/)** — Both plugins transform the entire row model. Tree flattens nested hierarchies while Row Grouping groups flat rows with synthetic headers. Use one approach per grid.
 - **[Pivot](/grid/plugins/pivot/)** — Pivot replaces the entire row and column structure with aggregated pivot data. Tree hierarchy cannot coexist with pivot aggregation.
 :::
 
 A development-mode warning is shown if incompatible plugins are loaded together.
+
+### Grouping child rows
+
+Tree combines with [Row Grouping](/grid/plugins/grouping-rows/): add both and the children of each tree node can be grouped, level by level. See [Grouping Tree Children](/grid/plugins/grouping-rows/#grouping-tree-children), or try it in the [Hierarchy plugin demo](/grid/plugins/hierarchy/#basic-usage).
+
+```ts
+features: {
+  tree: { childrenField: 'children' },
+  groupingRows: { groupOn: (row, { depth }) => (depth > 0 ? row.kind : null) },
+},
+```
+
+In that combination a tree row's depth (indentation, `getRowMeta(row).depth`, event `depth`) counts the group levels above it.
 
 ## See Also
 

@@ -1,0 +1,76 @@
+---
+// HierarchyTreeGroupingDemo.astro — Tree + Row Grouping composed by the Hierarchy plugin
+import DemoControls from '@components/DemoControls.astro';
+---
+<div class="grid-demo not-content" id="hierarchy-tree-grouping-demo">
+  <DemoControls controls={[
+    { section: 'ROW GROUPING', name: 'groupLevels', label: 'Group', type: 'radio',
+      options: ['children', 'every level', 'off'], default: 'children',
+      description: 'children: group each plan\'s rows by kind. every level: also group the plans by region.' },
+  ]} />
+  <tbw-grid style="height: 450px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/grouping-rows';
+import '@toolbox-web/grid/features/tree';
+
+type PlanRow = { name: string; region?: string; kind?: string };
+
+const container = document.getElementById('hierarchy-tree-grouping-demo');
+if (container) {
+  const deliveryPlans = [
+    {
+      id: 'plan-1', name: 'Rotterdam Q3', region: 'Europe',
+      children: [
+        { id: 'p1-a', name: 'Brent cargo 0712', kind: 'Cargo', counterparty: 'Northsea Oil', volume: 600000 },
+        { id: 'p1-b', name: 'Fixed-price swap', kind: 'Deal', counterparty: 'Fjord Trading', volume: 250000 },
+        { id: 'p1-c', name: 'Forties cargo 0719', kind: 'Cargo', counterparty: 'Baltic Energy', volume: 450000 },
+      ],
+    },
+    {
+      id: 'plan-2', name: 'Houston Q3', region: 'Americas',
+      children: [
+        { id: 'p2-a', name: 'WTI forward', kind: 'Deal', counterparty: 'Gulf Partners', volume: 300000 },
+        { id: 'p2-b', name: 'LNG cargo 0802', kind: 'Cargo', counterparty: 'Coastal Gas', volume: 150000 },
+      ],
+    },
+    {
+      id: 'plan-3', name: 'Hamburg Q3', region: 'Europe',
+      children: [
+        { id: 'p3-a', name: 'Diesel option', kind: 'Deal', counterparty: 'Elbe Fuels', volume: 80000 },
+        { id: 'p3-b', name: 'Diesel cargo 0725', kind: 'Cargo', counterparty: 'Elbe Fuels', volume: 120000 },
+      ],
+    },
+  ];
+
+  const groupOnFor = (levels: string) => {
+    if (levels === 'every level') {
+      return (row: PlanRow, { depth }: { depth: number }) => (depth === 0 ? row.region : row.kind);
+    }
+    if (levels === 'children') return (row: PlanRow, { depth }: { depth: number }) => (depth > 0 ? row.kind : null);
+    return () => null;
+  };
+
+  const grid = queryGrid('tbw-grid', container)!;
+  grid.gridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'kind', header: 'Kind', width: 90 },
+      { field: 'counterparty', header: 'Counterparty' },
+      { field: 'volume', header: 'Volume (bbl)', type: 'number', align: 'right' },
+    ],
+    features: {
+      tree: { childrenField: 'children', defaultExpanded: true },
+      groupingRows: { groupOn: groupOnFor('children'), defaultExpanded: true, showRowCount: true } as any,
+    },
+  };
+  grid.rows = deliveryPlans;
+
+  container.addEventListener('control-change', ((e: CustomEvent) => {
+    grid.getPluginByName('groupingRows')?.setGroupOn(groupOnFor(e.detail.allValues.groupLevels) as any, true);
+  }) as EventListener);
+}
+</script>

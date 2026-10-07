@@ -589,6 +589,8 @@ export interface GridElementRef<T = any>
     subscribe(plugin: unknown, eventType: string, callback: (detail: unknown) => void): void;
     unsubscribe(plugin: unknown, eventType: string): void;
     emitPluginEvent<T>(eventType: string, detail: T): void;
+    /** Attached plugins in attach order. */
+    getPlugins?(): readonly unknown[];
     /** Whether any attached plugin injects/removes rows (group headers, tree nodes, etc.). */
     _hasRowStructurePlugins: boolean;
   };

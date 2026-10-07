@@ -162,6 +162,21 @@ export interface PluginDependency {
   when?: (pluginConfig: unknown) => boolean;
 
   /**
+   * Factory for a default instance of the dependency. When the dependency is
+   * missing, the grid attaches the instance this returns (once per grid,
+   * before the depending plugin) instead of reporting an error, so consumers
+   * never have to add it themselves. An explicitly configured instance always
+   * wins.
+   *
+   * Import the dependency's plugin module statically so it ships with the
+   * depending plugin's module graph — never with `import()`.
+   *
+   * @example provide: () => new HierarchyPlugin()
+   * @since 3.9.0
+   */
+  provide?: () => BaseGridPlugin;
+
+  /**
    * Human-readable reason for this dependency.
    * Shown in error/info messages to help users understand why.
    * @example "UndoRedoPlugin needs EditingPlugin to track cell edits"

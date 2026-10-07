@@ -19,6 +19,8 @@ import {
 } from '../../core/plugin/base-plugin';
 import { isExpanderColumn } from '../../core/plugin/expander-column';
 import type { RowElementInternal } from '../../core/types';
+import type { HierarchyContributor, HierarchyNode, HierarchySiblingContext } from '../hierarchy';
+import { buildHierarchy, HierarchyPlugin } from '../hierarchy';
 import type {
   DataSourceChildrenDetail,
   DataSourceDataDetail,
@@ -50,12 +52,6 @@ import type {
   GroupToggleDetail,
   RenderRow,
 } from './types';
-
-/** Attribute write that skips the DOM mutation when the value is unchanged (per-frame hot path). */
-function setAttrIfChanged(el: Element, name: string, value: number): void {
-  const next = String(value);
-  if (el.getAttribute(name) !== next) el.setAttribute(name, next);
-}
 
 /**
  * Group state information returned by getGroupState()
@@ -131,7 +127,7 @@ export interface GroupState {
  * @internal Extends BaseGridPlugin
  * @since 0.1.1
  */
-export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
+export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> implements HierarchyContributor {
   /**
    * Plugin manifest - declares configuration validation rules and events.
    * @internal
@@ -144,12 +140,6 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       onHeaderClick: -1,
     },
     incompatibleWith: [
-      {
-        name: 'tree',
-        reason:
-          'Both plugins transform the entire row model. TreePlugin flattens nested hierarchies while ' +
-          'GroupingRowsPlugin groups flat rows with synthetic headers. Use one approach per grid.',
-      },
       {
         name: 'pivot',
         reason:
@@ -214,12 +204,20 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
    * group header ordering. Without it, falls back to core sort state.
    */
   static override readonly dependencies = [
+    {
+      name: 'hierarchy',
+      required: true,
+      reason: 'Builds the hierarchical row model',
+      provide: () => new HierarchyPlugin(),
+    },
     { name: 'multiSort', required: false, reason: 'Queries sort model for coordinated group sorting' },
     { name: 'serverSide', required: false, reason: 'Consumes datasource events for lazy-loaded grouped data' },
   ];
 
   /** @internal */
   readonly name = 'groupingRows';
+  /** @internal */
+  readonly hierarchyStage = 'transform';
   /** @internal */
   override readonly styles = styles;
 
@@ -269,13 +267,17 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
   /** User-specified sort directions per group depth level. Toggled via
    *  header clicks on grouped columns. */
   private userGroupSortDirections = new Map<number, 1 | -1>();
-  /**
-   * Per-flatten-index ARIA position metadata for `aria-level` /
-   * `aria-setsize` / `aria-posinset` (WAI-ARIA Treegrid pattern). Computed
-   * once per `flattenedRows` rebuild by {@link computeFlatMeta}; consumed
-   * by {@link afterRender} on every visible row.
-   */
-  private flatMeta: Array<{ level: number; setSize: number; posInSet: number }> = [];
+
+  // Per-rebuild state, set in `beginHierarchy`.
+  #mode: 'groupOn' | 'predefined' = 'groupOn';
+  #pending: DefaultExpandedValue | undefined;
+  #pendingApplied = false;
+  #groupSortDirections: Map<number, 1 | -1> | undefined;
+  /** Render-model item of every row emitted by this rebuild, keyed by row object. */
+  #renderItems = new WeakMap<object, RenderRow>();
+  #anyGroup = false;
+  /** Top-level keys of nested (tree child) lists already seen, for `defaultExpanded: true`. */
+  #seenNestedKeys = new Set<string>();
   // #endregion
 
   // #region Animation
@@ -295,15 +297,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   /** @internal */
   override detach(): void {
-    // Restore default `role="grid"` on the rows-body so the grid stays
-    // ARIA-valid after the plugin is removed (template default lives in
-    // `core/internal/dom-builder.ts`). See WAI-ARIA Treegrid pattern.
-    const rowsBody = this.gridElement?.querySelector('.rows-body');
-    rowsBody?.setAttribute('role', 'grid');
-
     this.expandedKeys.clear();
     this.flattenedRows = [];
-    this.flatMeta = [];
     this.isActive = false;
     this.previousVisibleKeys.clear();
     this.keysToAnimate.clear();
@@ -315,6 +310,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     this.loadingGroups.clear();
     this.groupedFields = [];
     this.userGroupSortDirections.clear();
+    this.#seenNestedKeys.clear();
   }
 
   /**
@@ -532,54 +528,112 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   /** @internal */
   override processRows(rows: readonly any[]): any[] {
+    const hierarchy = this.grid?.getPluginByName?.('hierarchy');
+    return hierarchy ? hierarchy.process(rows, this) : buildHierarchy(rows, [this]);
+  }
+
+  /** @internal Hierarchy contributor hook */
+  beginHierarchy(rows: readonly unknown[]): boolean {
     // Snapshot + clear deferred-expansion state at the top so any early-return
     // (no groupOn, empty rows, etc.) doesn't leave a stale `pendingExpansion`
     // behind to be (mis-)applied to the next unrelated rebuild.
-    const pendingExpansion = this.pendingExpansion;
+    this.#pending = this.pendingExpansion;
     this.pendingExpansion = undefined;
     this.groupConfigDirty = false;
+    this.#pendingApplied = false;
+    this.#anyGroup = false;
+    this.#renderItems = new WeakMap();
 
     // Pre-defined groups path — use external group structure instead of groupOn analysis
     if (this.preDefinedGroups.length > 0 || Array.isArray(this.config.groups)) {
-      if (this.preDefinedGroups.length > 0 || (Array.isArray(this.config.groups) && this.config.groups.length > 0)) {
-        return this.processPreDefinedGroups();
-      }
+      this.#mode = 'predefined';
+      return true;
+    }
+
+    if (typeof this.config.groupOn !== 'function') {
       this.isActive = false;
       this.flattenedRows = [];
-      return [];
+      return false;
     }
+    this.#mode = 'groupOn';
+    this.#groupSortDirections = this.resolveGroupSortDirections(rows);
+    return true;
+  }
+
+  /** @internal Hierarchy contributor hook */
+  processSiblings(nodes: HierarchyNode[], context: HierarchySiblingContext): HierarchyNode[] {
+    const isRoot = context.parentKey === null && context.parent === null;
+    if (this.#mode === 'predefined') return isRoot ? this.#preDefinedNodes(context.depth) : nodes;
 
     const config = this.config;
+    const rows = nodes.map((node) => node.row);
+    const build = (expanded: Set<string>, initialExpanded?: Set<string>) =>
+      buildGroupedRowModel({
+        rows,
+        config,
+        expanded,
+        initialExpanded,
+        groupSortDirections: this.#groupSortDirections,
+        context: { parent: context.parent, depth: context.depth },
+        keyPrefix: isRoot ? '' : `${context.parentKey ?? ''}::`,
+      });
 
-    // Check if grouping is configured
-    if (typeof config.groupOn !== 'function') {
+    const grouped = isRoot ? this.#buildRootGroups(build) : this.#buildNestedGroups(build);
+    if (grouped.length === 0) return nodes;
+
+    const byRow = new Map<unknown, HierarchyNode>();
+    for (const node of nodes) byRow.set(node.row, node);
+    return this.#nest(grouped, context.depth, (row) => byRow.get(row) ?? { row }, getGroupRowCount);
+  }
+
+  /** @internal Hierarchy contributor hook */
+  endHierarchy(rows: readonly unknown[]): void {
+    if (!this.#anyGroup) {
       this.isActive = false;
       this.flattenedRows = [];
-      return [...rows];
+      return;
+    }
+    this.isActive = true;
+    this.flattenedRows = rows.map((row) => this.#renderItems.get(row as object) ?? { kind: 'data', row, rowIndex: -1 });
+
+    // Notify subscribers when a deferred expansion has been applied so React/
+    // host code can mirror the new state without a follow-up call. Use
+    // `broadcast` so DOM listeners (`grid.addEventListener('group-toggle')`)
+    // see the change too — matches the manifest contract for `group-toggle`
+    // and `toggle()`'s emit pattern.
+    if (this.#pendingApplied) {
+      this.broadcast<GroupToggleDetail>('group-toggle', { expandedKeys: [...this.expandedKeys] });
     }
 
+    // Track which data rows are newly visible (for animation)
+    this.keysToAnimate.clear();
+    const currentVisibleKeys = new Set<string>();
+    this.flattenedRows.forEach((item, idx) => {
+      if (item.kind === 'data') {
+        const key = `data-${idx}`;
+        currentVisibleKeys.add(key);
+        if (!this.previousVisibleKeys.has(key)) {
+          this.keysToAnimate.add(key);
+        }
+      }
+    });
+    this.previousVisibleKeys = currentVisibleKeys;
+  }
+
+  /** Group the root rows, resolving `defaultExpanded` / a pending expansion against the fresh group keys. */
+  #buildRootGroups(build: (expanded: Set<string>, initialExpanded?: Set<string>) => RenderRow[]): RenderRow[] {
+    const config = this.config;
     // First build: get structure to know all group keys
     // (needed for index-based defaultExpanded)
-    const groupSortDirections = this.resolveGroupSortDirections(rows);
-    const initialBuild = buildGroupedRowModel({
-      rows: [...rows],
-      config: config,
-      expanded: new Set(), // Empty to get all root groups
-      groupSortDirections,
-    });
-
-    // If no grouping produced, return original rows
-    if (initialBuild.length === 0) {
-      this.isActive = false;
-      this.flattenedRows = [];
-      return [...rows];
-    }
+    const initialBuild = build(new Set());
+    if (initialBuild.length === 0) return initialBuild;
 
     // Determine which expansion config to resolve against the *fresh* group
     // keys. A pending value (from `setGroupOn(fn, expanded)` or a deferred
     // `expandAll`/`collapseAll` after `setGroupOn`) takes priority and is
     // applied unconditionally — including the empty case (collapseAll). Falls
     // back to the first-render `defaultExpanded` resolution.
+    const pendingExpansion = this.#pending;
     let expansionConfig: DefaultExpandedValue | undefined;
     const isPendingApply = pendingExpansion !== undefined;
     if (isPendingApply) {
@@ -601,61 +655,66 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
         this.hasAppliedDefaultExpanded = true;
       }
     }
+    this.#pendingApplied = isPendingApply;
 
     // Build with proper expanded state
-    const grouped = buildGroupedRowModel({
-      rows: [...rows],
-      config: config,
-      expanded: this.expandedKeys,
-      initialExpanded,
-      groupSortDirections,
-    });
+    return build(this.expandedKeys, initialExpanded);
+  }
 
-    this.isActive = true;
-    this.flattenedRows = grouped;
-    this.computeFlatMeta();
-
-    // Notify subscribers when a deferred expansion has been applied so React/
-    // host code can mirror the new state without a follow-up call. Use
-    // `broadcast` so DOM listeners (`grid.addEventListener('group-toggle')`)
-    // see the change too — matches the manifest contract for `group-toggle`
-    // and `toggle()`'s emit pattern.
-    if (isPendingApply) {
-      this.broadcast<GroupToggleDetail>('group-toggle', { expandedKeys: [...this.expandedKeys] });
+  /** Group a tree node's children; `defaultExpanded: true` opens each list's new top-level groups. */
+  #buildNestedGroups(build: (expanded: Set<string>) => RenderRow[]): RenderRow[] {
+    const grouped = build(this.expandedKeys);
+    if (this.config.defaultExpanded !== true) return grouped;
+    let added = false;
+    for (const item of grouped) {
+      if (item.kind === 'group' && item.depth === 0 && !this.#seenNestedKeys.has(item.key)) {
+        this.#seenNestedKeys.add(item.key);
+        this.expandedKeys.add(item.key);
+        added = true;
+      }
     }
+    return added ? build(this.expandedKeys) : grouped;
+  }
 
-    // Track which data rows are newly visible (for animation)
-    this.keysToAnimate.clear();
-    const currentVisibleKeys = new Set<string>();
-    grouped.forEach((item, idx) => {
+  /**
+   * Re-nest a flat group model (visible rows only) into hierarchy nodes,
+   * creating the synthetic group-header row objects.
+   */
+  #nest(
+    flat: RenderRow[],
+    baseDepth: number,
+    dataNode: (row: unknown) => HierarchyNode,
+    rowCount: (item: GroupRowModelItem) => number,
+  ): HierarchyNode[] {
+    this.#anyGroup = true;
+    const roots: HierarchyNode[] = [];
+    const open: HierarchyNode[] = [];
+    for (const item of flat) {
       if (item.kind === 'data') {
-        const key = `data-${idx}`;
-        currentVisibleKeys.add(key);
-        if (!this.previousVisibleKeys.has(key)) {
-          this.keysToAnimate.add(key);
-        }
+        const node = dataNode(item.row);
+        (open.length > 0 ? (open[open.length - 1].children as HierarchyNode[]) : roots).push(node);
+        if (typeof item.row === 'object' && item.row !== null) this.#renderItems.set(item.row, item);
+        continue;
       }
-    });
-    this.previousVisibleKeys = currentVisibleKeys;
-
-    // Return flattened rows for rendering
-    // The grid will need to handle group rows specially
-    return grouped.map((item) => {
-      if (item.kind === 'group') {
-        return {
-          __isGroupRow: true,
-          __groupKey: item.key,
-          __groupValue: item.value,
-          __groupDepth: item.depth,
-          __groupRows: item.rows,
-          __groupExpanded: item.expanded,
-          __groupRowCount: getGroupRowCount(item),
-          // Cache key for variable row height support - survives expand/collapse
-          __rowCacheKey: `group:${item.key}`,
-        };
-      }
-      return item.row;
-    });
+      const groupItem: GroupRowModelItem = baseDepth === 0 ? item : { ...item, depth: baseDepth + item.depth };
+      const row = {
+        __isGroupRow: true,
+        __groupKey: item.key,
+        __groupValue: item.value,
+        __groupDepth: groupItem.depth,
+        __groupRows: item.rows,
+        __groupExpanded: item.expanded,
+        __groupRowCount: rowCount(item),
+        // Cache key for variable row height support - survives expand/collapse
+        __rowCacheKey: `group:${item.key}`,
+      };
+      this.#renderItems.set(row, groupItem);
+      const node: HierarchyNode = { row, key: item.key, expanded: item.expanded, shaped: true, children: [] };
+      open.length = item.depth;
+      (item.depth > 0 ? (open[item.depth - 1].children as HierarchyNode[]) : roots).push(node);
+      open.push(node);
+    }
+    return roots;
   }
 
   /** @internal */
@@ -760,13 +819,6 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     rowEl.setAttribute('aria-expanded', String(row.__groupExpanded));
     // Public theming hook — see also TreePlugin / MasterDetailPlugin.
     rowEl.classList.toggle('tbw-row-expanded', !!row.__groupExpanded);
-    // WAI-ARIA Treegrid: group rows announce their hierarchical position.
-    const groupMeta = this.flatMeta[_rowIndex];
-    if (groupMeta) {
-      rowEl.setAttribute('aria-level', String(groupMeta.level));
-      rowEl.setAttribute('aria-setsize', String(groupMeta.setSize));
-      rowEl.setAttribute('aria-posinset', String(groupMeta.posInSet));
-    }
     // Use CSS variable for depth-based indentation
     rowEl.style.setProperty('--tbw-group-depth', String(row.__groupDepth || 0));
     if (config.indentWidth !== undefined) {
@@ -793,120 +845,32 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     const body = this.gridElement?.querySelector('.rows');
     if (!body) return;
 
-    // Hierarchy is now in play \u2192 swap the rows-body role from `grid` to
-    // `treegrid` per WAI-ARIA so per-row level/setsize/posinset are valid
-    // in context. Idempotent on the hot path.
-    const rowsBody = this.gridElement?.querySelector('.rows-body');
-    if (rowsBody && rowsBody.getAttribute('role') !== 'treegrid') {
-      rowsBody.setAttribute('role', 'treegrid');
-    }
-
-    // Apply ARIA position metadata to every visible DATA row (group rows are
-    // populated by `renderRow` directly since they bypass the default cell
-    // template that exposes `data-row`). Single pass shared with the
-    // expand/collapse animation so the hot path queries each row once.
     const style = this.animationStyle;
     const animate = style !== false && this.keysToAnimate.size > 0;
+    if (!animate) return;
     const animClass = style === 'fade' ? 'tbw-group-fade-in' : 'tbw-group-slide-in';
 
     for (const rowEl of body.querySelectorAll('.data-grid-row:not(.group-row)')) {
       const cell = rowEl.querySelector('.cell[data-row]');
       const idx = cell ? parseInt(cell.getAttribute('data-row') ?? '-1', 10) : -1;
-      const meta = this.flatMeta[idx];
-      if (meta) {
-        // Pooled row elements keep their position across most frames — skip
-        // the attribute mutation unless the value actually changed.
-        setAttrIfChanged(rowEl, 'aria-level', meta.level);
-        setAttrIfChanged(rowEl, 'aria-setsize', meta.setSize);
-        setAttrIfChanged(rowEl, 'aria-posinset', meta.posInSet);
-      }
-
-      if (animate && this.flattenedRows[idx]?.kind === 'data' && this.keysToAnimate.has(`data-${idx}`)) {
+      if (this.flattenedRows[idx]?.kind === 'data' && this.keysToAnimate.has(`data-${idx}`)) {
         rowEl.classList.add(animClass);
         rowEl.addEventListener('animationend', () => rowEl.classList.remove(animClass), { once: true });
       }
     }
     this.keysToAnimate.clear();
   }
-
-  /**
-   * Compute per-row ARIA hierarchy metadata (`aria-level` / `aria-setsize` /
-   * `aria-posinset`) from `flattenedRows`. Two-pass over the flat list:
-   * first pass tallies group siblings per (parent-prefix, depth) and counts
-   * the data rows that follow each group header; second pass assigns per-row
-   * meta. Called once per `flattenedRows` rebuild (not per render).
-   */
-  private computeFlatMeta(): void {
-    const flat = this.flattenedRows;
-    const meta: Array<{ level: number; setSize: number; posInSet: number }> = new Array(flat.length);
-
-    // Pass 1: count group siblings per (parent-prefix, depth) and direct
-    // data-row children per group (used as `setSize` for data rows).
-    const groupSiblingCount = new Map<string, number>();
-    const groupDataCount = new Map<string, number>();
-    let activeGroup: GroupRowModelItem | null = null;
-    let activeDataCount = 0;
-    for (const item of flat) {
-      if (item.kind === 'group') {
-        if (activeGroup) groupDataCount.set(activeGroup.key, activeDataCount);
-        activeGroup = item;
-        activeDataCount = 0;
-        const parts = item.key.split('||');
-        const parent = parts.slice(0, -1).join('||');
-        const k = `${parent}@${item.depth}`;
-        groupSiblingCount.set(k, (groupSiblingCount.get(k) ?? 0) + 1);
-      } else {
-        activeDataCount++;
-      }
-    }
-    if (activeGroup) groupDataCount.set(activeGroup.key, activeDataCount);
-
-    // Pass 2: assign per-row level/setsize/posinset.
-    const groupSiblingPos = new Map<string, number>();
-    let currentGroup: GroupRowModelItem | null = null;
-    let dataPos = 0;
-    for (let i = 0; i < flat.length; i++) {
-      const item = flat[i];
-      if (item.kind === 'group') {
-        const parts = item.key.split('||');
-        const parent = parts.slice(0, -1).join('||');
-        const k = `${parent}@${item.depth}`;
-        const pos = (groupSiblingPos.get(k) ?? 0) + 1;
-        groupSiblingPos.set(k, pos);
-        meta[i] = { level: item.depth + 1, setSize: groupSiblingCount.get(k) ?? 1, posInSet: pos };
-        currentGroup = item;
-        dataPos = 0;
-      } else {
-        dataPos++;
-        const baseDepth = currentGroup?.depth ?? -1;
-        const setSize = currentGroup ? (groupDataCount.get(currentGroup.key) ?? 1) : flat.length;
-        meta[i] = { level: baseDepth + 2, setSize, posInSet: dataPos };
-      }
-    }
-
-    this.flatMeta = meta;
-  }
   // #endregion
 
   // #region Pre-Defined Groups
 
   /**
-   * Build the row model from pre-defined group definitions.
+   * Build the root nodes from pre-defined group definitions.
    * Used when `groups` config or `setGroups()` provides external group structure.
    */
-  private processPreDefinedGroups(): any[] {
-    const groups =
-      this.preDefinedGroups.length > 0
-        ? this.preDefinedGroups
-        : Array.isArray(this.config.groups)
-          ? this.config.groups
-          : [];
-
-    if (groups.length === 0) {
-      this.isActive = false;
-      this.flattenedRows = [];
-      return [];
-    }
+  #preDefinedNodes(baseDepth: number): HierarchyNode[] {
+    const groups = this.getActiveGroups();
+    if (groups.length === 0) return [];
 
     // Resolve defaultExpanded on first render only
     if (!this.hasAppliedDefaultExpanded && this.expandedKeys.size === 0 && this.config.defaultExpanded !== false) {
@@ -924,44 +888,13 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       groupRows: this.groupRowsMap,
       loadingGroups: this.loadingGroups,
     });
-
-    this.isActive = true;
-    this.flattenedRows = grouped;
-    this.computeFlatMeta();
-
-    // Track visible data rows for animation
-    this.keysToAnimate.clear();
-    const currentVisibleKeys = new Set<string>();
-    grouped.forEach((item, idx) => {
-      if (item.kind === 'data') {
-        const key = `data-${idx}`;
-        currentVisibleKeys.add(key);
-        if (!this.previousVisibleKeys.has(key)) {
-          this.keysToAnimate.add(key);
-        }
-      }
-    });
-    this.previousVisibleKeys = currentVisibleKeys;
-
-    // Return flattened rows for rendering
-    return grouped.map((item) => {
-      if (item.kind === 'group') {
-        // Look up the pre-defined group to get rowCount from server
-        const groupDef = this.findGroupDefinition(groups, item.key);
-        const rowCount = groupDef?.rowCount ?? item.rows.length;
-        return {
-          __isGroupRow: true,
-          __groupKey: item.key,
-          __groupValue: item.value,
-          __groupDepth: item.depth,
-          __groupRows: item.rows,
-          __groupExpanded: item.expanded,
-          __groupRowCount: rowCount,
-          __rowCacheKey: `group:${item.key}`,
-        };
-      }
-      return item.row;
-    });
+    // Prefer the server-reported row count over the loaded rows.
+    return this.#nest(
+      grouped,
+      baseDepth,
+      (row) => ({ row }),
+      (item) => this.findGroupDefinition(groups, item.key)?.rowCount ?? item.rows.length,
+    );
   }
 
   /**
@@ -1208,9 +1141,11 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
     // Find the group to get its depth for accordion mode
     const group = this.flattenedRows.find((r) => r.kind === 'group' && r.key === key) as GroupRowModelItem | undefined;
+    const accordion =
+      typeof config.accordion === 'function' ? !!group && config.accordion(group.depth) : config.accordion;
 
     // In accordion mode, collapse sibling groups when expanding
-    if (config.accordion && isExpanding && group) {
+    if (accordion && isExpanding && group) {
       const newKeys = new Set<string>();
       // Keep only ancestors (keys that are prefixes of the current key) and the current key
       for (const existingKey of this.expandedKeys) {
@@ -1397,7 +1332,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
    * plugin.setGroupOn((row) => row.region, false);
    * ```
    */
-  setGroupOn(fn: ((row: any) => any[] | any | null | false) | undefined, expanded?: DefaultExpandedValue): void {
+  setGroupOn(fn: GroupingRowsConfig['groupOn'], expanded?: DefaultExpandedValue): void {
     (this.config as GroupingRowsConfig).groupOn = fn;
     this.groupConfigDirty = true;
     if (expanded !== undefined) {

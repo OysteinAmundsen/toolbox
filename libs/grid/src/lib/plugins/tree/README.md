@@ -177,6 +177,10 @@ const flatRows = tree.getFlattenedRows();
 const row = tree.getRowByKey(key);
 ```
 
+## Grouping Child Rows
+
+`TreePlugin` combines with `GroupingRowsPlugin` to group the children of each tree node. See the Row Grouping README ("Grouping Tree Children"). Both plugins depend on `HierarchyPlugin`, which the grid attaches automatically.
+
 ## CSS Variables
 
 | Variable                   | Default                       | Description                        |

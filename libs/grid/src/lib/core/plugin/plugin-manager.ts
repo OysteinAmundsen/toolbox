@@ -31,6 +31,27 @@ import type {
 } from './base-plugin';
 
 /**
+ * Insert a provided instance of every missing dependency that declares
+ * `provide`, right before the first plugin that needs it.
+ */
+function provideDependencies(
+  plugins: BaseGridPlugin[],
+  gate: (plugin: BaseGridPlugin) => BaseGridPlugin,
+): BaseGridPlugin[] {
+  const names = new Set(plugins.map((p) => p.name));
+  const result: BaseGridPlugin[] = [];
+  for (const plugin of plugins) {
+    for (const dep of (plugin.constructor as typeof BaseGridPlugin).dependencies ?? []) {
+      if (!dep.provide || names.has(dep.name) || (dep.when && !dep.when(plugin.resolvedConfig))) continue;
+      names.add(dep.name);
+      result.push(gate(dep.provide()));
+    }
+    result.push(plugin);
+  }
+  return result;
+}
+
+/**
  * Manages plugins for a single grid instance.
  *
  * Plugins are executed in array order by default. Use `manifest.hookPriority`
@@ -102,9 +123,13 @@ export class PluginManager {
    *
    * Skipped duplicates trigger a one-time `console.warn` with diagnostic code
    * `TBW023` (suppressed in production builds via `import.meta.env.PROD`).
+   *
+   * Missing dependencies that declare `provide` are created first and attached
+   * before their dependents. `gate` maps each provided instance to the
+   * canonical per-grid instance so it survives plugin re-initialization.
    */
-  attachAll(plugins: BaseGridPlugin[]): void {
-    const collapsed = this.#collapseAliasDuplicates(plugins);
+  attachAll(plugins: BaseGridPlugin[], gate: (plugin: BaseGridPlugin) => BaseGridPlugin = (p) => p): void {
+    const collapsed = this.#collapseAliasDuplicates(provideDependencies(plugins, gate));
     for (const plugin of collapsed) {
       this.attach(plugin);
     }

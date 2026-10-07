@@ -340,7 +340,6 @@ Plugins process columns and rows in registration order. If two plugins manipulat
 
 | Plugin A | Plugin B | Issue |
 |----------|----------|-------|
-| GroupingRowsPlugin | TreePlugin | Both transform the entire row model |
 | GroupingRowsPlugin | PivotPlugin | Pivot creates its own row/column structure |
 | TreePlugin | PivotPlugin | Pivot replaces the data structure |
 | ServerSidePlugin | GroupingRows/Tree/Pivot | These require the full dataset; server-side loads lazily |

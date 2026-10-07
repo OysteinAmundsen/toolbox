@@ -85,25 +85,26 @@ Route to `.github/knowledge/` if the lesson describes:
 - A known tension or pressure point between subsystems
 - An end-to-end operation trace (what happens when X occurs)
 
-| Knowledge file                     | Domain                | Route here when lesson is about...                             |
-| ---------------------------------- | --------------------- | -------------------------------------------------------------- |
-| `grid-core`                        | Grid internals        | config-manager, column groups, grid.ts lifecycle, DOM, state   |
-| `grid-render-pipeline`             | Render pipeline       | render-scheduler, virtualization, rows hot path, sanitize      |
-| `grid-data-pipeline`               | Data pipeline         | value-accessor, row-manager, sorting, aggregators              |
-| `grid-input`                       | Input & pointer       | pointer modality, pointer-drag, long-press priority policy     |
-| `grid-plugins`                     | Plugin system         | plugin lifecycle, hooks, inter-plugin communication            |
-| `grid-plugins-catalog-data`        | Plugin catalog (data) | a specific row/column-model, sorting, filtering, export plugin |
-| `grid-plugins-catalog-ui`          | Plugin catalog (UI)   | a specific selection, reordering, or display plugin            |
-| `grid-plugin-responsive`           | Responsive plugin     | breakpoints, card layout, view transitions, hidden columns     |
-| `grid-plugins-editing`             | Editing & UndoRedo    | editors, commit/cancel, dirty tracking, undo transactions      |
-| `grid-plugins-shell`               | Shell plugin          | tool panels, header/toolbar content, shell opt-in model        |
-| `grid-features`                    | Feature registry      | feature registration, factory patterns, feature config         |
-| `adapters`(`-react/-vue/-angular`) | Framework adapters    | React/Vue/Angular bridging, portals, event handling            |
-| `build-and-deploy`                 | Build, CI, tooling    | Vite config, bundle budgets, CI pipeline, deps, demos layout   |
-| `release-versioning`               | Release & versioning  | release-please, `Release-As`, peer deps, dist-tags, `@since`   |
-| `docs-agent-endpoints`             | Agent doc endpoints   | llms.txt / llms-full.txt generation, MDX→markdown transform    |
-| `build-css`                        | Styling & CSS         | CSS layers, custom properties, themes, style injection         |
-| `data-flow-traces`                 | End-to-end operations | How a user action flows through the system                     |
+| Knowledge file                     | Domain                | Route here when lesson is about...                                |
+| ---------------------------------- | --------------------- | ----------------------------------------------------------------- |
+| `grid-core`                        | Grid internals        | config-manager, column groups, grid.ts lifecycle, DOM, state      |
+| `grid-render-pipeline`             | Render pipeline       | render-scheduler, virtualization, rows hot path, sanitize         |
+| `grid-data-pipeline`               | Data pipeline         | value-accessor, row-manager, sorting, aggregators                 |
+| `grid-input`                       | Input & pointer       | pointer modality, pointer-drag, long-press priority policy        |
+| `grid-plugins`                     | Plugin system         | plugin lifecycle, hooks, inter-plugin communication               |
+| `grid-plugins-catalog-data`        | Plugin catalog (data) | a specific row/column-model, sorting, filtering, export plugin    |
+| `grid-plugins-hierarchy`           | Row hierarchy plugins | Hierarchy contributor contract, Tree, GroupingRows, treegrid ARIA |
+| `grid-plugins-catalog-ui`          | Plugin catalog (UI)   | a specific selection, reordering, or display plugin               |
+| `grid-plugin-responsive`           | Responsive plugin     | breakpoints, card layout, view transitions, hidden columns        |
+| `grid-plugins-editing`             | Editing & UndoRedo    | editors, commit/cancel, dirty tracking, undo transactions         |
+| `grid-plugins-shell`               | Shell plugin          | tool panels, header/toolbar content, shell opt-in model           |
+| `grid-features`                    | Feature registry      | feature registration, factory patterns, feature config            |
+| `adapters`(`-react/-vue/-angular`) | Framework adapters    | React/Vue/Angular bridging, portals, event handling               |
+| `build-and-deploy`                 | Build, CI, tooling    | Vite config, bundle budgets, CI pipeline, deps, demos layout      |
+| `release-versioning`               | Release & versioning  | release-please, `Release-As`, peer deps, dist-tags, `@since`      |
+| `docs-agent-endpoints`             | Agent doc endpoints   | llms.txt / llms-full.txt generation, MDX→markdown transform       |
+| `build-css`                        | Styling & CSS         | CSS layers, custom properties, themes, style injection            |
+| `data-flow-traces`                 | End-to-end operations | How a user action flows through the system                        |
 
 **Use the structured notation** when adding to knowledge files:
 

@@ -6,7 +6,17 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { DefaultExpandedValue, GroupDefinition, GroupingRowsConfig, GroupRowModelItem, RenderRow } from './types';
+import type {
+  DefaultExpandedValue,
+  GroupDefinition,
+  GroupingRowsConfig,
+  GroupOnContext,
+  GroupRowModelItem,
+  RenderRow,
+} from './types';
+
+/** Context for the root row list (no parent). */
+const ROOT_CONTEXT: GroupOnContext = { parent: null, depth: 0 };
 
 interface GroupNode {
   key: string; // composite key
@@ -26,6 +36,10 @@ interface BuildGroupingArgs {
   /** Sort direction per group depth level. 1 = ascending, -1 = descending.
    *  When omitted, groups at all levels sort ascending. */
   groupSortDirections?: Map<number, 1 | -1>;
+  /** Passed to `groupOn` as its second argument (default: the root list). */
+  context?: GroupOnContext;
+  /** Prepended to every top-level group key so nested lists get unique keys. */
+  keyPrefix?: string;
 }
 
 /**
@@ -41,6 +55,8 @@ export function buildGroupedRowModel({
   expanded,
   initialExpanded,
   groupSortDirections,
+  context = ROOT_CONTEXT,
+  keyPrefix = '',
 }: BuildGroupingArgs): RenderRow[] {
   const groupOn = config.groupOn;
   if (typeof groupOn !== 'function') {
@@ -53,14 +69,14 @@ export function buildGroupedRowModel({
   // so that each group's `rows` array contains ALL data rows in its subtree.
   // This is required for correct counts and aggregations on multi-level groups.
   rows.forEach((r) => {
-    let path: any = groupOn(r);
+    let path: any = groupOn(r, context);
     if (path == null || path === false) path = ['__ungrouped__'];
     else if (!Array.isArray(path)) path = [path];
 
     let parent = root;
     path.forEach((rawVal: any, depthIdx: number) => {
       const seg = rawVal == null ? '∅' : String(rawVal);
-      const composite = parent.key === '__root__' ? seg : parent.key + '||' + seg;
+      const composite = parent.key === '__root__' ? keyPrefix + seg : parent.key + '||' + seg;
       let node = parent.children.get(seg);
       if (!node) {
         node = { key: composite, value: rawVal, depth: depthIdx, rows: [], children: new Map(), parent };
@@ -149,14 +165,14 @@ export function buildGroupedRowModel({
  */
 export function resolveGroupFields(
   rows: any[],
-  groupOn: (row: any) => any[] | any | null | false,
+  groupOn: NonNullable<GroupingRowsConfig['groupOn']>,
   columnFields: string[],
 ): Map<number, string> {
   const depthToField = new Map<number, string>();
   if (rows.length === 0) return depthToField;
 
   const sampleRow = rows[0];
-  let path: any = groupOn(sampleRow);
+  let path: any = groupOn(sampleRow, ROOT_CONTEXT);
   if (path == null || path === false) return depthToField;
   if (!Array.isArray(path)) path = [path];
 

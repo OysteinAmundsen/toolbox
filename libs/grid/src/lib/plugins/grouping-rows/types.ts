@@ -91,6 +91,22 @@ export interface GroupCollapseDetail {
 export type DefaultExpandedValue = boolean | number | string | string[];
 
 /**
+ * Second argument passed to {@link GroupingRowsConfig.groupOn}.
+ *
+ * Grouping applies to every list of sibling rows. Without TreePlugin there is
+ * only the root list (`parent: null`, `depth: 0`); with TreePlugin the
+ * children of every expanded tree node form their own list.
+ *
+ * @since 3.9.0
+ */
+export interface GroupOnContext {
+  /** The tree row whose children are being grouped, or `null` for the root rows. */
+  parent: any;
+  /** Nesting depth of the rows being grouped (0 = root rows). */
+  depth: number;
+}
+
+/**
  * Configuration options for the row grouping plugin
  *
  * @since 0.1.1
@@ -100,9 +116,19 @@ export interface GroupingRowsConfig {
    * Callback to determine group path for a row.
    * Return an array of group keys, a single key, null/false to skip grouping.
    *
+   * The second argument tells which list of sibling rows is being grouped.
+   * Combined with TreePlugin, `groupOn` runs for the children of every
+   * expanded tree node — return `null` for a whole list to leave that level
+   * ungrouped.
+   *
    * Mutually exclusive with `groups` — when `groups` is provided, `groupOn` is ignored.
+   *
+   * @example Group only the children of tree nodes
+   * ```ts
+   * groupOn: (row, { depth }) => (depth > 0 ? row.kind : null)
+   * ```
    */
-  groupOn?: (row: any) => any[] | any | null | false;
+  groupOn?: (row: any, context: GroupOnContext) => any[] | any | null | false;
   /**
    * Pre-defined group structure for server-side grouping.
    *
@@ -156,9 +182,11 @@ export interface GroupingRowsConfig {
   /**
    * Accordion mode - only one group can be expanded at a time.
    * Expanding a group will automatically collapse all other groups at the same depth.
+   *
+   * Pass a function to choose per depth, e.g. `(depth) => depth === 0`.
    * @default false
    */
-  accordion?: boolean;
+  accordion?: boolean | ((depth: number) => boolean);
   /**
    * Height of group header rows in pixels.
    * Used by the variable row height system to provide consistent heights

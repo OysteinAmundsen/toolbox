@@ -613,6 +613,24 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
 When `severity` is omitted, a missing **hard** dependency (`required !== false`) throws and a missing **soft** dependency (`required: false`) stays silent — preserving backward-compatible behavior. Opt into a message by setting `severity` explicitly.
 
+#### Provided dependencies
+
+When consumers should never have to add a dependency themselves, give it a `provide` factory. If the dependency is missing, the grid attaches the instance it returns — once per grid, before the first plugin that needs it — instead of throwing. An instance the consumer configured always wins.
+
+```typescript
+import { HierarchyPlugin } from '@toolbox-web/grid/plugins/hierarchy';
+
+export class OrgChartPlugin extends BaseGridPlugin<OrgChartConfig> {
+  static override readonly dependencies: PluginDependency[] = [
+    { name: 'hierarchy', required: true, provide: () => new HierarchyPlugin() },
+  ];
+
+  readonly name = 'orgChart';
+}
+```
+
+Import the dependency statically (never with `import()`), so it ships with your plugin's module graph and the consumer's bundler includes it once. `TreePlugin` and `GroupingRowsPlugin` provide the [Hierarchy plugin](/grid/plugins/hierarchy/) this way.
+
 ## Plugin Communication
 
 ### Event Bus (Plugin-to-Plugin)

@@ -5,7 +5,7 @@ related: [grid-plugins-catalog-data, grid-plugins-catalog-ui, grid-plugins-shell
 
 # Grid Plugin System — Mental Model
 
-> Per-plugin OWNS/HOOKS/DECIDED → grid-plugins-catalog-data.md (row/column model, sorting, filtering, pinned rows, clipboard/export/print), grid-plugins-catalog-ui.md (selection, master-detail, reordering, display), grid-plugin-responsive.md (responsive/card layout) and grid-plugins-editing.md (editing, undo). Shell plugin → grid-plugins-shell.md. This file = the SYSTEM (manager, lifecycle, hooks, communication, manifest, scroll, compatibility).
+> Per-plugin OWNS/HOOKS/DECIDED → grid-plugins-catalog-data.md (row/column model, sorting, filtering, pinned rows, clipboard/export/print), grid-plugins-hierarchy.md (Hierarchy, Tree, GroupingRows), grid-plugins-catalog-ui.md (selection, master-detail, reordering, display), grid-plugin-responsive.md (responsive/card layout) and grid-plugins-editing.md (editing, undo). Shell plugin → grid-plugins-shell.md. This file = the SYSTEM (manager, lifecycle, hooks, communication, manifest, scroll, compatibility).
 
 ## plugin-manager
 
@@ -118,6 +118,7 @@ modifiesRowStructure — affects the render scheduler
 - DECIDED (#372, conditional/soft dependencies): `PluginDependency` gained `when?: (pluginConfig: unknown) => boolean` and `severity?: 'error'|'warn'|'info'` alongside `name`/`required`/`reason`. `validatePluginDependencies` (`core/internal/validate-config.ts`) evaluates `dep.when(plugin.resolvedConfig)` FIRST, then `severity ?? (required ? 'error' : undefined)`. Dispatch: error → `throwDiagnostic(MISSING_DEPENDENCY/TBW020)`, warn → `warnDiagnostic(OPTIONAL_DEPENDENCY/TBW021)`, info → `debugDiagnostic(TBW021)`. Default reason verb: error → "requires", warn/info → "recommends". Use case: Pivot needs a shell host only when `showToolPanel === true`.
   - INVARIANT: validation runs BEFORE `plugin.attach()`, so `plugin.config` is not merged yet — `when` reads the `@internal` `BaseGridPlugin.resolvedConfig` getter, which returns `this.config` only while ATTACHED (gated on `#abortController`) and otherwise recomputes `{...defaultConfig, ...userConfig}`. `detach()` does NOT clear `this.config`, so trusting it when detached would leak stale config.
   - INVARIANT: omitted `severity` preserves legacy behavior — hard dep throws, `required:false` stays SILENT (not 'info'); warn/info are dev-only (`isDevelopment()`). Tests: `validate-config.spec.ts` (`config-conditional dependencies`, `explicit severity`).
+- DECIDED (#504, provided dependencies): `PluginDependency.provide?: () => BaseGridPlugin`. `PluginManager.attachAll(plugins, gate)` runs `provideDependencies` FIRST: a missing dep (by name, `when` honored) is created once and inserted before its first dependent; an explicit instance always wins. `grid.ts` passes `#gateFeatureInstance` as `gate`, so the provided instance is cached per grid and survives plugin re-init. WHY: hard deps must not break plugin-API users (`new TreePlugin()` alone) — the provider must be a STATIC import (no `import()`). Core cost ~80 B gz. Tests: `plugin-manager.spec.ts > provided dependencies`.
 - DECIDED (contextMenu): `BaseGridPlugin.refreshUserConfigFrom(other)` (used by the FEATURE-INSTANCE-GATE-370 in `grid.ts` `#gateFeatureInstance`) MUST SNAPSHOT `{...other.userConfig}` BEFORE the delete-all-keys loop on `this.userConfig`. WHY: a feature factory stores the consumer's config BY REFERENCE, so when `gridConfig` is a recomputed Angular `computed()` passing the same object, `cached.userConfig === fresh.userConfig` — clearing the target empties the shared object first and `Object.assign` copies back nothing → config silently wiped (context menu fell back to default Copy/Export items on the feature path only). Tests: `base-plugin.spec.ts` shared-object case + `context-menu-feature-path.spec.ts`.
 
 ## hook-priority map
@@ -142,5 +143,5 @@ modifiesRowStructure — affects the render scheduler
 
 ## compatibility
 
-- INCOMPATIBLE: GroupingRows ↔ Tree (both transform the whole row array) · GroupingRows ↔ Pivot · Tree ↔ Pivot · ServerSide ↔ Pivot (lazy load vs full dataset).
-- COMPATIBLE: ServerSide + GroupingRows **only** in pre-defined-groups mode (`setGroups()`/`setGroupRows()`) · ServerSide + Tree (Tree has its own `dataSource`) · MasterDetail + GroupingRows (skips `__isGroupRow`) · Responsive + GroupingRows (same) · Pivot + MultiSort (Pivot queries the sort model, `processRows` at priority 100).
+- INCOMPATIBLE: GroupingRows ↔ Pivot · Tree ↔ Pivot · ServerSide ↔ Pivot (lazy load vs full dataset).
+- COMPATIBLE: GroupingRows + Tree via HierarchyPlugin (#504, grid-plugins-hierarchy.md) · ServerSide + GroupingRows **only** in pre-defined-groups mode (`setGroups()`/`setGroupRows()`) · ServerSide + Tree (Tree has its own `dataSource`) · MasterDetail + GroupingRows (skips `__isGroupRow`) · Responsive + GroupingRows (same) · Pivot + MultiSort (Pivot queries the sort model, `processRows` at priority 100).

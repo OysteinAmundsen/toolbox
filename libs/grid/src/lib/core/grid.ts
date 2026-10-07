@@ -1079,8 +1079,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Attach all plugins. The shell is opt-in (extraction #370): when present
     // it resolves from `features: { shell }` or `plugins: [ShellPlugin]` like
     // any other plugin and self-activates on attach — core never constructs or
-    // registers it.
-    this.#pluginManager.attachAll(allPlugins);
+    // registers it. Provided dependencies go through the same per-grid gate.
+    this.#pluginManager.attachAll(allPlugins, (p) => this.#gateFeatureInstance(p));
   }
 
   /**

@@ -68,29 +68,30 @@ Auto-applied from `.github/instructions/` when working on matching files:
 
 Loaded on demand from `.github/knowledge/` — read relevant files before starting work to rebuild the mental model:
 
-| Knowledge file              | Domain                      | Content                                                                                                                            |
-| --------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `grid-core`                 | Grid internals              | Config-manager, column groups, grid.ts lifecycle, DOM structure, state ownership                                                   |
-| `grid-render-pipeline`      | Render pipeline             | Render-scheduler, virtualization, rows hot path, sanitize, `core/internal/` module index                                           |
-| `grid-data-pipeline`        | Data pipeline               | value-accessor & field paths, row-manager & transactions, sort hot path, aggregators                                               |
-| `grid-input`                | Input & pointer             | Pointer modality, pointer-drag capture/promotion, coarse long-press priority policy (#302)                                         |
-| `grid-plugins`              | Plugin system               | Plugin manager, lifecycle, hooks, inter-plugin communication, manifest, scroll dispatch                                            |
-| `grid-plugins-catalog-data` | Plugin catalog (data)       | ServerSide, Tree, GroupingRows, Pivot, pinned/virtualized/grouped columns, sorting, filtering, pinned rows, clipboard/export/print |
-| `grid-plugins-catalog-ui`   | Plugin catalog (UI)         | Selection, MasterDetail, reordering & drag-drop, Responsive, Tooltip, StickyRows, ContextMenu                                      |
-| `grid-plugin-responsive`    | Responsive plugin           | Breakpoints, card layout, view transitions & morph, column fades/`hiddenColumns`, card height                                      |
-| `grid-plugins-editing`      | Editing & UndoRedo          | Editor injection, commit/cancel flow, keyboard guards, dirty tracking, undo transactions                                           |
-| `grid-plugins-shell`        | Shell plugin                | v3 opt-in model, HARD RULE #370, tool panels, header/toolbar content, dropdown mode                                                |
-| `grid-features`             | Feature registry            | Feature vs plugin distinction, registry pattern, feature catalog, opt-out validation                                               |
-| `a11y`                      | Accessibility (WCAG 2.2 AA) | Role tree & `presentation` promotion, `A11yMessages` naming, surface-vs-text colour tokens, landmarks, SC 2.5.8, test gates        |
-| `adapters`                  | Framework adapters (shared) | Shared adapter conformance, shell-content wrappers, bridge registries, three-way parity                                            |
-| `adapters-react`            | React adapter               | Portal manager, overlay editors, feature-prop coverage assertion                                                                   |
-| `adapters-vue`              | Vue adapter                 | Teleport manager, overlay editors, typed slots                                                                                     |
-| `adapters-angular`          | Angular adapter             | `mountComponentRenderer`, per-feature directives, ng-packagr secondary entries                                                     |
-| `build-and-deploy`          | Build, CI, tooling          | Vite config, bundle budgets, Nx/tsconfig, dependency clusters, CI pipeline, bench regression, demos layout                         |
-| `release-versioning`        | Release & versioning        | release-please branch model, `Release-As` recipes, peer-dep cascade, dist-tags, `@since`, v3 cleanup plan                          |
-| `docs-agent-endpoints`      | Agent doc endpoints         | llms.txt / llms-full.txt / per-framework variants, MDX→markdown transform, docs `outDir`                                           |
-| `build-css`                 | Styling & CSS               | CSS layers, custom properties, partials, themes, style injection, demo-asset aliases                                               |
-| `data-flow-traces`          | End-to-end operation maps   | First render, property change, sort, scroll, edit, tree expand, config merge                                                       |
+| Knowledge file              | Domain                      | Content                                                                                                                     |
+| --------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `grid-core`                 | Grid internals              | Config-manager, column groups, grid.ts lifecycle, DOM structure, state ownership                                            |
+| `grid-render-pipeline`      | Render pipeline             | Render-scheduler, virtualization, rows hot path, sanitize, `core/internal/` module index                                    |
+| `grid-data-pipeline`        | Data pipeline               | value-accessor & field paths, row-manager & transactions, sort hot path, aggregators                                        |
+| `grid-input`                | Input & pointer             | Pointer modality, pointer-drag capture/promotion, coarse long-press priority policy (#302)                                  |
+| `grid-plugins`              | Plugin system               | Plugin manager, lifecycle, hooks, inter-plugin communication, manifest, scroll dispatch                                     |
+| `grid-plugins-catalog-data` | Plugin catalog (data)       | ServerSide, Pivot, pinned/virtualized/grouped columns, sorting, filtering, pinned rows, clipboard/export/print              |
+| `grid-plugins-hierarchy`    | Row hierarchy plugins       | HierarchyPlugin contributor contract, Tree, GroupingRows, treegrid ARIA, Tree + GroupingRows composition                    |
+| `grid-plugins-catalog-ui`   | Plugin catalog (UI)         | Selection, MasterDetail, reordering & drag-drop, Responsive, Tooltip, StickyRows, ContextMenu                               |
+| `grid-plugin-responsive`    | Responsive plugin           | Breakpoints, card layout, view transitions & morph, column fades/`hiddenColumns`, card height                               |
+| `grid-plugins-editing`      | Editing & UndoRedo          | Editor injection, commit/cancel flow, keyboard guards, dirty tracking, undo transactions                                    |
+| `grid-plugins-shell`        | Shell plugin                | v3 opt-in model, HARD RULE #370, tool panels, header/toolbar content, dropdown mode                                         |
+| `grid-features`             | Feature registry            | Feature vs plugin distinction, registry pattern, feature catalog, opt-out validation                                        |
+| `a11y`                      | Accessibility (WCAG 2.2 AA) | Role tree & `presentation` promotion, `A11yMessages` naming, surface-vs-text colour tokens, landmarks, SC 2.5.8, test gates |
+| `adapters`                  | Framework adapters (shared) | Shared adapter conformance, shell-content wrappers, bridge registries, three-way parity                                     |
+| `adapters-react`            | React adapter               | Portal manager, overlay editors, feature-prop coverage assertion                                                            |
+| `adapters-vue`              | Vue adapter                 | Teleport manager, overlay editors, typed slots                                                                              |
+| `adapters-angular`          | Angular adapter             | `mountComponentRenderer`, per-feature directives, ng-packagr secondary entries                                              |
+| `build-and-deploy`          | Build, CI, tooling          | Vite config, bundle budgets, Nx/tsconfig, dependency clusters, CI pipeline, bench regression, demos layout                  |
+| `release-versioning`        | Release & versioning        | release-please branch model, `Release-As` recipes, peer-dep cascade, dist-tags, `@since`, v3 cleanup plan                   |
+| `docs-agent-endpoints`      | Agent doc endpoints         | llms.txt / llms-full.txt / per-framework variants, MDX→markdown transform, docs `outDir`                                    |
+| `build-css`                 | Styling & CSS               | CSS layers, custom properties, partials, themes, style injection, demo-asset aliases                                        |
+| `data-flow-traces`          | End-to-end operation maps   | First render, property change, sort, scroll, edit, tree expand, config merge                                                |
 
 > **Schema:** Each entry uses structured notation — OWNS, READS FROM, WRITES TO, INVARIANT, FLOW, TENSION, DECIDED — optimized for fast scanning and mental model reconstruction.
 

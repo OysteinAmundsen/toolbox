@@ -1,0 +1,154 @@
+---
+title: "Hierarchy Plugin"
+description: "Combines the row structure of Tree and Row Grouping into one hierarchy, and announces each row's position to assistive technology."
+pluginKinds: [structural]
+---
+
+import { TabItem, Tabs } from '@astrojs/starlight/components';
+
+The Hierarchy plugin builds one hierarchical row model from every plugin that adds structure to the rows. [Tree](/grid/plugins/tree/) adds each row's children and [Row Grouping](/grid/plugins/grouping-rows/) groups lists of sibling rows. The two plugins never talk to each other, so they combine: with both enabled, the children of every tree node can be grouped.
+
+You don't add this plugin yourself. Tree and Row Grouping depend on it, and the grid attaches it automatically. It has no configuration.
+
+## Installation
+
+Nothing to install. Importing Tree or Row Grouping brings the Hierarchy plugin along:
+
+```ts
+import '@toolbox-web/grid/features/tree';
+import '@toolbox-web/grid/features/grouping-rows';
+```
+
+## Basic Usage
+
+Group the children of each tree node by a property, and leave the root rows ungrouped:
+
+<Tabs syncKey="framework">
+  <TabItem label="TypeScript">
+```ts
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/tree';
+import '@toolbox-web/grid/features/grouping-rows';
+
+const grid = queryGrid('tbw-grid');
+grid.gridConfig = {
+  columns: [{ field: 'name', header: 'Name' }],
+  features: {
+    tree: { childrenField: 'children', defaultExpanded: true },
+    groupingRows: {
+      groupOn: (row, { depth }) => (depth > 0 ? row.kind : null),
+      defaultExpanded: true,
+    },
+  },
+};
+grid.rows = deliveryPlans;
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/tree';
+import '@toolbox-web/grid-react/features/grouping-rows';
+import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid-react';
+
+const gridConfig: GridConfig = {
+  columns: [{ field: 'name', header: 'Name' }],
+  features: {
+    tree: { childrenField: 'children', defaultExpanded: true },
+    groupingRows: { groupOn: (row, { depth }) => (depth > 0 ? row.kind : null), defaultExpanded: true },
+  },
+};
+
+function PlanGrid({ plans }) {
+  return <DataGrid rows={plans} gridConfig={gridConfig} style={{ height: '400px' }} />;
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/tree';
+import '@toolbox-web/grid-vue/features/grouping-rows';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { GridConfig } from '@toolbox-web/grid-vue';
+
+defineProps<{ plans: unknown[] }>();
+
+const gridConfig: GridConfig = {
+  columns: [{ field: 'name', header: 'Name' }],
+  features: {
+    tree: { childrenField: 'children', defaultExpanded: true },
+    groupingRows: { groupOn: (row, { depth }) => (depth > 0 ? row.kind : null), defaultExpanded: true },
+  },
+};
+</script>
+
+<template>
+  <TbwGrid :rows="plans" :grid-config="gridConfig" style="height: 400px" />
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import '@toolbox-web/grid-angular/features/tree';
+import '@toolbox-web/grid-angular/features/grouping-rows';
+import { Component, input } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { GridConfig } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-plan-grid',
+  imports: [Grid],
+  template: `<tbw-grid [rows]="plans()" [gridConfig]="gridConfig" style="height: 400px; display: block;" />`,
+})
+export class PlanGridComponent {
+  plans = input<unknown[]>([]);
+
+  gridConfig: GridConfig = {
+    columns: [{ field: 'name', header: 'Name' }],
+    features: {
+      tree: { childrenField: 'children', defaultExpanded: true },
+      groupingRows: { groupOn: (row: any, { depth }) => (depth > 0 ? row.kind : null), defaultExpanded: true },
+    },
+  };
+}
+```
+  </TabItem>
+</Tabs>
+
+See [Grouping Tree Children](/grid/plugins/grouping-rows/#grouping-tree-children) for how `groupOn` receives the tree level and how nested group keys are formed.
+
+## How It Works
+
+On every row-model rebuild the Hierarchy plugin walks the rows one sibling list at a time — the root rows first, then the children of each expanded node:
+
+1. **Structure plugins** run first. Tree sorts the list and attaches the children of expanded nodes.
+2. **Transform plugins** run next. Row Grouping replaces the list with group headers that contain the rows.
+3. The result is flattened in display order.
+
+Each plugin keeps ownership of its own expand/collapse state, events and API. `grid.getPluginByName('tree').toggle(key)` and `grid.getPluginByName('groupingRows').toggle(key)` keep working as before.
+
+Read a row's position in the combined hierarchy with `getRowMeta`:
+
+```ts
+const meta = grid.getPluginByName('hierarchy')?.getRowMeta(grid.rows[0]);
+// { level: 1, setSize: 2, posInSet: 1 }
+```
+
+## Accessibility
+
+**[WCAG 2.2 SC 1.3.1 Info and Relationships](https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html)** — nesting is conveyed to assistive technology, not only visually. While Tree or Row Grouping is active, the rows container uses `role="treegrid"`, and every rendered row — tree rows, group headers and grouped rows — carries `aria-level`, `aria-setsize` and `aria-posinset` for its position in the combined hierarchy. Rows that scroll into view get the same attributes. This is automatic; there is nothing to configure.
+
+## CDN (UMD) Builds
+
+`tree.umd.js` and `grouping-rows.umd.js` each bundle a copy of this plugin, so loading either one is enough.
+
+:::caution[Deprecated]
+The next major release stops bundling the Hierarchy plugin into those files. From then on, load `hierarchy.umd.js` first, or use `grid.all.umd.js`.
+:::
+
+## See Also
+
+- [Tree](/grid/plugins/tree/) — Hierarchical tree data
+- [Row Grouping](/grid/plugins/grouping-rows/) — Group rows by field values
+- [Custom Plugins → Provided dependencies](/grid/plugin-development/custom-plugins/#provided-dependencies) — How a plugin declares a dependency the grid attaches automatically

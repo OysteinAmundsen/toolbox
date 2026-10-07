@@ -16,7 +16,9 @@ import {
   type PluginManifest,
   type PluginQuery,
 } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, ColumnViewRenderer, SortHandler } from '../../core/types';
+import type { ColumnConfig, ColumnViewRenderer, RowElementInternal, SortHandler } from '../../core/types';
+import type { HierarchyContributor, HierarchyNode, HierarchyRowMeta, HierarchySiblingContext } from '../hierarchy';
+import { buildHierarchy, HierarchyPlugin } from '../hierarchy';
 import type {
   DataSourceChildrenDetail,
   DataSourceDataDetail,
@@ -44,12 +46,6 @@ import type {
 /** Narrow a `loadChildren` result to the Subscribable branch. */
 function isSubscribable<T>(value: Promise<T> | Subscribable<T>): value is Subscribable<T> {
   return typeof (value as Subscribable<T>).subscribe === 'function';
-}
-
-/** Attribute write that skips the DOM mutation when the value is unchanged (per-frame hot path). */
-function setAttrIfChanged(el: Element, name: string, value: number): void {
-  const next = String(value);
-  if (el.getAttribute(name) !== next) el.setAttribute(name, next);
 }
 
 /**
@@ -116,19 +112,13 @@ function setAttrIfChanged(el: Element, name: string, value: number): void {
  * @internal Extends BaseGridPlugin
  * @since 0.1.1
  */
-export class TreePlugin extends BaseGridPlugin<TreeConfig> {
+export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyContributor {
   static override readonly manifest: PluginManifest = {
     modifiesRowStructure: true,
     hookPriority: {
       processRows: 10, // Run after ServerSide (-10) so we receive managedNodes[]
     },
     incompatibleWith: [
-      {
-        name: 'groupingRows',
-        reason:
-          'Both plugins transform the entire row model. TreePlugin flattens nested hierarchies while ' +
-          'GroupingRowsPlugin groups flat rows with synthetic headers. Use one approach per grid.',
-      },
       {
         name: 'pivot',
         reason:
@@ -173,12 +163,20 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
    * sort model in processRows. When MultiSort is absent, Tree uses its own sort state.
    */
   static override readonly dependencies = [
+    {
+      name: 'hierarchy',
+      required: true,
+      reason: 'Builds the hierarchical row model',
+      provide: () => new HierarchyPlugin(),
+    },
     { name: 'multiSort', required: false, reason: 'Queries sort model for coordinated tree sorting' },
     { name: 'serverSide', required: false, reason: 'Consumes datasource events for lazy-loaded tree data' },
   ];
 
   /** @internal */
   readonly name = 'tree';
+  /** @internal */
+  readonly hierarchyStage = 'structure';
   /** @internal */
   override readonly styles = styles;
 
@@ -203,6 +201,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   private previousVisibleKeys = new Set<string>();
   private keysToAnimate = new Set<string>();
   private sortState: { field: string; direction: 1 | -1 } | null = null;
+  /** Sort applied to every sibling list during the current rebuild. */
+  #levelSort: { field: string; direction: 1 | -1 } | null = null;
   /** Keys of nodes that are currently loading lazy children. */
   private loadingKeys = new Set<string>();
   /**
@@ -247,12 +247,6 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   /** @internal */
   override detach(): void {
-    // Restore default `role="grid"` on the rows-body so the grid stays
-    // ARIA-valid after the plugin is removed (template default lives in
-    // `core/internal/dom-builder.ts`). See WAI-ARIA Treegrid pattern.
-    const rowsBody = this.gridElement?.querySelector('.rows-body');
-    rowsBody?.setAttribute('role', 'grid');
-
     this.expandedKeys.clear();
     this.initialExpansionDone = false;
     this.flattenedRows = [];
@@ -260,6 +254,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     this.previousVisibleKeys.clear();
     this.keysToAnimate.clear();
     this.sortState = null;
+    this.#levelSort = null;
     this.loadingKeys.clear();
     this.loadedKeys.clear();
     for (const controller of this.#childRequests.values()) controller.abort();
@@ -390,61 +385,118 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   /** @internal */
   override processRows(rows: readonly unknown[]): TreeRow[] {
-    const childrenField = this.config.childrenField ?? 'children';
+    const hierarchy = this.grid?.getPluginByName?.('hierarchy');
+    return (hierarchy ? hierarchy.process(rows, this) : buildHierarchy(rows, [this])) as TreeRow[];
+  }
 
+  /** @internal Hierarchy contributor hook */
+  beginHierarchy(rows: readonly unknown[]): boolean {
     const treeRows = rows as readonly TreeRow[];
-
-    if (treeRows.length === 0 || !detectTreeStructure(treeRows, childrenField, this.config.hasChildren)) {
+    if (
+      treeRows.length === 0 ||
+      !detectTreeStructure(treeRows, this.config.childrenField ?? 'children', this.config.hasChildren)
+    ) {
       this.flattenedRows = [];
       this.rowKeyMap.clear();
       this.previousVisibleKeys.clear();
       this.#syncTreeColumn();
-      // _rows[i] must remain the user's row reference. Return a shallow array
-      // copy (so callers can't mutate the input array via the returned ref)
-      // but DO NOT spread/clone the row objects themselves.
-      return [...rows] as TreeRow[];
+      return false;
     }
 
-    // Initialize expansion if needed.
     // When MultiSort is active, use its model instead of local sort state so
     // Tree and MultiSort don't fight over sort ownership.
-    const effectiveSortState = this.resolveEffectiveSortState();
+    this.#levelSort = this.resolveEffectiveSortState();
 
     if (this.config.defaultExpanded && !this.initialExpansionDone) {
       this.expandedKeys = expandAll(treeRows, this.config);
       this.initialExpansionDone = true;
     }
-
-    // Single pass: sort + flatten in one walk, never cloning row objects.
-    // `data` on each FlattenedTreeRow stays === the user's source row.
-    this.flattenedRows = this.#flattenWithSort(treeRows, this.expandedKeys, effectiveSortState, null, 0);
-
-    // Reset per-row metadata so rows that are no longer in the flattened
-    // output (e.g. children of a now-collapsed parent) don't keep returning
-    // stale entries via getRowMeta(). WeakMap reassignment is cheap and the
-    // old map becomes GC-eligible immediately.
     this.#rowMeta = new WeakMap();
+    return true;
+  }
+
+  /**
+   * Sort one sibling list and attach each expanded node's children, never
+   * cloning row objects — `data` on each FlattenedTreeRow stays `===` the
+   * user's source row.
+   * @internal Hierarchy contributor hook
+   */
+  processSiblings(nodes: HierarchyNode[], context: HierarchySiblingContext): HierarchyNode[] {
+    const { parentKey, depth } = context;
+    const childrenField = this.config.childrenField ?? 'children';
+    const hasChildrenFn = this.config.hasChildren;
+    // Assign stable keys using the ORIGINAL (unsorted) index so that
+    // path-based keys match those produced by `expandAll` (which walks the
+    // tree in source order). `#keyFor` caches by row identity, so the
+    // subsequent lookup in the post-sort loop returns the same key.
+    for (let i = 0; i < nodes.length; i++) {
+      this.#keyFor(nodes[i].row as TreeRow, i, parentKey);
+    }
+    const sort = this.#levelSort;
+    const ordered = sort ? this.#sortNodes(nodes, sort.field, sort.direction) : nodes;
+
+    for (let i = 0; i < ordered.length; i++) {
+      const node = ordered[i];
+      const row = node.row as TreeRow;
+      const key = this.#keyFor(row, i, parentKey);
+      const children = row[childrenField];
+      const embeddedChildren = Array.isArray(children) && children.length > 0;
+      // Lazy children: either a custom `hasChildren` predicate reports the node
+      // has children, or (default heuristic) a truthy non-array value such as
+      // `children: true` signals children exist but haven't been fetched yet.
+      const hasChildren =
+        embeddedChildren ||
+        (hasChildrenFn ? hasChildrenFn(row) : children != null && !Array.isArray(children) && !!children);
+      const isExpanded = this.expandedKeys.has(key);
+
+      this.#rowMeta.set(row as object, {
+        key,
+        data: row,
+        depth,
+        hasChildren,
+        isExpanded,
+        parentKey,
+        posInSet: i + 1,
+        setSize: ordered.length,
+      });
+
+      node.key = key;
+      if (embeddedChildren && isExpanded) {
+        node.expanded = true;
+        node.children = (children as TreeRow[]).map((child) => ({ row: child }));
+      }
+    }
+    return ordered;
+  }
+
+  /** @internal Hierarchy contributor hook */
+  endHierarchy(rows: readonly unknown[], positionOf: (row: unknown) => HierarchyRowMeta | undefined): void {
+    // Keep metadata for rendered rows only, so rows hidden by a collapsed
+    // ancestor don't return stale entries via getRowMeta().
+    const processed = this.#rowMeta;
+    this.#rowMeta = new WeakMap();
+    this.flattenedRows = [];
     this.rowKeyMap.clear();
     this.keysToAnimate.clear();
     const currentKeys = new Set<string>();
 
-    for (const row of this.flattenedRows) {
-      this.rowKeyMap.set(row.key, row);
-      this.#rowMeta.set(row.data as object, row);
-      currentKeys.add(row.key);
-      if (!this.previousVisibleKeys.has(row.key) && row.depth > 0) {
-        this.keysToAnimate.add(row.key);
+    for (const row of rows) {
+      const meta = processed.get(row as object);
+      if (!meta) continue;
+      // Indent below any levels another contributor (e.g. grouping) inserted above this row.
+      const level = positionOf(row)?.level;
+      if (level !== undefined) meta.depth = level - 1;
+      this.flattenedRows.push(meta);
+      this.rowKeyMap.set(meta.key, meta);
+      this.#rowMeta.set(row as object, meta);
+      currentKeys.add(meta.key);
+      if (!this.previousVisibleKeys.has(meta.key) && meta.depth > 0) {
+        this.keysToAnimate.add(meta.key);
       }
     }
     this.previousVisibleKeys = currentKeys;
 
     this.#syncTreeColumn();
-
-    // Return source row references directly. Tree metadata (depth/key/etc.)
-    // is read by the renderer via `getRowMeta(row)` instead of being spread
-    // onto cloned row objects \u2014 this keeps `_rows[i]` === user's row so that
-    // `grid.updateRow(s)` mutations survive the next ROWS-phase rebuild.
-    return this.flattenedRows.map((r) => r.data);
   }
 
   /**
@@ -490,61 +542,16 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     return key;
   }
 
-  /**
-   * Recursive single-pass sort + flatten.
-   * - Per-level sort uses `[...rows].sort(...)` which produces a new array of
-   *   the SAME row references in a new order \u2014 never spreads the row objects.
-   * - Children arrays are NOT mutated on the source rows; the sort produces a
-   *   transient ordering used only for traversal.
-   */
-  #flattenWithSort(
-    rows: readonly TreeRow[],
-    expanded: Set<string>,
-    sort: { field: string; direction: 1 | -1 } | null,
-    parentKey: string | null,
-    depth: number,
-  ): FlattenedTreeRow[] {
-    const childrenField = this.config.childrenField ?? 'children';
-    // Assign stable keys using the ORIGINAL (unsorted) index so that
-    // path-based keys match those produced by `expandAll` (which walks the
-    // tree in source order). `#keyFor` caches by row identity, so the
-    // subsequent lookup in the post-sort loop returns the same key.
-    for (let i = 0; i < rows.length; i++) {
-      this.#keyFor(rows[i], i, parentKey);
-    }
-    const ordered = sort ? this.#sortLevel(rows, sort.field, sort.direction) : rows;
-    const result: FlattenedTreeRow[] = [];
-    const hasChildrenFn = this.config.hasChildren;
-
-    for (let i = 0; i < ordered.length; i++) {
-      const row = ordered[i];
-      const key = this.#keyFor(row, i, parentKey);
-      const children = row[childrenField];
-      const embeddedChildren = Array.isArray(children) && children.length > 0;
-      // Lazy children: either a custom `hasChildren` predicate reports the node
-      // has children, or (default heuristic) a truthy non-array value such as
-      // `children: true` signals children exist but haven't been fetched yet.
-      const hasChildren =
-        embeddedChildren ||
-        (hasChildrenFn ? hasChildrenFn(row) : children != null && !Array.isArray(children) && !!children);
-      const isExpanded = expanded.has(key);
-
-      result.push({
-        key,
-        data: row,
-        depth,
-        hasChildren,
-        isExpanded,
-        parentKey,
-        posInSet: i + 1,
-        setSize: ordered.length,
-      });
-
-      if (embeddedChildren && isExpanded) {
-        result.push(...this.#flattenWithSort(children as TreeRow[], expanded, sort, key, depth + 1));
-      }
-    }
-    return result;
+  /** Order a sibling list's nodes by their rows via {@link #sortLevel}. */
+  #sortNodes(nodes: HierarchyNode[], field: string, dir: 1 | -1): HierarchyNode[] {
+    const byRow = new Map<unknown, HierarchyNode>();
+    for (const node of nodes) byRow.set(node.row, node);
+    const sorted = this.#sortLevel(
+      nodes.map((node) => node.row as TreeRow),
+      field,
+      dir,
+    );
+    return sorted.map((row) => byRow.get(row) ?? { row });
   }
 
   /**
@@ -876,7 +883,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     if (event.key !== ' ') return;
 
     const focusRow = this.grid._focusRow;
-    const flatRow = this.flattenedRows[focusRow];
+    const flatRow = this.#rowMeta.get(this.rows[focusRow] as object);
     if (!flatRow?.hasChildren) return;
 
     event.preventDefault();
@@ -933,15 +940,6 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   /** @internal */
   override afterRender(): void {
-    // Tree introduces hierarchy → switch the rows-body role from `grid` to
-    // `treegrid` per WAI-ARIA so `aria-expanded` / `aria-level` /
-    // `aria-setsize` / `aria-posinset` are valid in context. Idempotent
-    // setAttribute call; cheap on the hot path.
-    const rowsBody = this.gridElement?.querySelector('.rows-body');
-    if (rowsBody && rowsBody.getAttribute('role') !== 'treegrid') {
-      rowsBody.setAttribute('role', 'treegrid');
-    }
-
     const body = this.gridElement?.querySelector('.rows');
     if (!body) return;
 
@@ -950,18 +948,10 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     const animClass = style === 'fade' ? 'tbw-tree-fade-in' : 'tbw-tree-slide-in';
 
     for (const rowEl of body.querySelectorAll('.data-grid-row')) {
-      const cell = rowEl.querySelector('.cell[data-row]');
-      const idx = cell ? parseInt(cell.getAttribute('data-row') ?? '-1', 10) : -1;
-      const treeRow = this.flattenedRows[idx];
+      // Look up by row identity: other hierarchy contributors (group rows)
+      // may be interleaved with tree rows in the rendered list.
+      const treeRow = this.#rowMeta.get((rowEl as RowElementInternal).__rowDataRef as object);
       if (!treeRow) continue;
-
-      // WAI-ARIA Treegrid: every row carries level/setsize/posinset so screen
-      // readers can announce "level 2, item 3 of 5" while navigating. Pooled
-      // row elements keep their position across most frames — skip the
-      // attribute mutation unless the value actually changed.
-      setAttrIfChanged(rowEl, 'aria-level', treeRow.depth + 1);
-      setAttrIfChanged(rowEl, 'aria-setsize', treeRow.setSize);
-      setAttrIfChanged(rowEl, 'aria-posinset', treeRow.posInSet);
 
       // Set aria-expanded on parent rows for screen readers. MUST clear it
       // on leaf rows: virtualization recycles row DOM elements, so a leaf

@@ -1197,7 +1197,7 @@ describe('tree plugin integration', () => {
       expect(dataRows[5].classList.contains('tbw-row-expanded')).toBe(false);
     });
 
-    it('restores rows-body role to grid on detach()', async () => {
+    it('restores rows-body role to grid when the hierarchy detaches', async () => {
       const grid = document.createElement('tbw-grid') as GridElement;
       document.body.appendChild(grid);
 
@@ -1213,7 +1213,7 @@ describe('tree plugin integration', () => {
 
       expect(grid.querySelector('.rows-body')?.getAttribute('role')).toBe('treegrid');
 
-      treePlugin.detach();
+      grid.getPluginByName('hierarchy')?.detach();
 
       expect(grid.querySelector('.rows-body')?.getAttribute('role')).toBe('grid');
     });

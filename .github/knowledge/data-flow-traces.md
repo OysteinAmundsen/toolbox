@@ -57,7 +57,7 @@ NEXT RAF:
   │   ├─ start with _rows (copy of input)
   │   ├─ reapplyCoreSort (maintain existing sort)
   │   └─ pluginManager.processRows() — priority order:
-  │       ServerSide(-10) → Tree/GroupingRows(10) → MultiSort(0) → Filtering(0) → others
+  │       ServerSide(-10) → Tree/GroupingRows(10, forward to HierarchyPlugin.process — last one builds) → MultiSort(0) → Filtering(0) → others
   ├─ _schedulerProcessColumns() (if COLUMNS phase also requested)
   ├─ _schedulerUpdateTemplate() → _schedulerRenderHeader()
   ├─ refreshVirtualWindow() → renderVisibleRows(start, end) — reuse pooled row elements

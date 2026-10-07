@@ -10,14 +10,15 @@
 export type { AggregatorFn, AggregatorRef } from '../../core/internal/aggregators';
 export type { ExpandCollapseAnimation } from '../../core/types';
 
+import type { AggregatorRef } from '../../core/internal/aggregators';
 import type { ExpandCollapseAnimation } from '../../core/types';
 
 /**
- * Map of field names to aggregator references
+ * Map of field names to {@link AggregatorRef} values
  *
  * @since 0.1.1
  */
-export type AggregatorMap = Record<string, import('../../core/internal/aggregators').AggregatorRef>;
+export type AggregatorMap = Record<string, AggregatorRef>;
 
 /**
  * Pre-defined group definition for server-side grouping.

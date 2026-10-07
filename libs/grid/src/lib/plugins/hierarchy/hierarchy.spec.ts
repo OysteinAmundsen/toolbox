@@ -23,7 +23,7 @@ function treeLike(): HierarchyContributor & { contexts: HierarchySiblingContext[
       }
       return nodes;
     },
-    endHierarchy: () => undefined,
+    endHierarchy: () => true,
   };
 }
 
@@ -46,7 +46,7 @@ function groupLike(): HierarchyContributor {
       }
       return [...groups.values()];
     },
-    endHierarchy: () => undefined,
+    endHierarchy: () => true,
   };
 }
 
@@ -118,10 +118,29 @@ describe('buildHierarchy', () => {
     const collapse: HierarchyContributor = {
       hierarchyStage: 'structure',
       beginHierarchy: () => true,
-      processSiblings: (nodes) =>
-        nodes.map((n) => ({ ...n, expanded: false, children: [{ row: child }] })),
-      endHierarchy: () => undefined,
+      processSiblings: (nodes) => nodes.map((n) => ({ ...n, expanded: false, children: [{ row: child }] })),
+      endHierarchy: () => true,
     };
     expect(buildHierarchy([{ id: 'p' }], [collapse])).toEqual([{ id: 'p' }]);
+  });
+
+  it('keeps no positions when every contributor reports no structure', () => {
+    const a = { id: 'a' };
+    const meta = new WeakMap<object, HierarchyRowMeta>();
+    const seen: Array<HierarchyRowMeta | undefined> = [];
+    const noop: HierarchyContributor = {
+      hierarchyStage: 'transform',
+      beginHierarchy: () => true,
+      processSiblings: (nodes) => nodes,
+      endHierarchy: (_rows, positionOf) => {
+        seen.push(positionOf(a));
+        return false;
+      },
+    };
+
+    expect(buildHierarchy([a], [noop], meta)).toEqual([a]);
+    // Positions are still visible to contributors during endHierarchy, then dropped.
+    expect(seen).toEqual([{ level: 1, setSize: 1, posInSet: 1 }]);
+    expect(meta.has(a)).toBe(false);
   });
 });

@@ -67,8 +67,12 @@ export interface HierarchyContributor {
    * Called once per rebuild (only if {@link beginHierarchy} returned `true`) with the flattened
    * rows. `positionOf` returns a row's final position — its depth can exceed the
    * `context.depth` seen in {@link processSiblings} when a transform inserted levels above it.
+   *
+   * Return `false` when this rebuild produced no structure from this contributor (e.g. no
+   * list was grouped). When every contributor returns `false`, the rows are announced as a
+   * flat `grid` — no `treegrid` role, no `aria-level` / `aria-setsize` / `aria-posinset`.
    */
-  endHierarchy(rows: readonly unknown[], positionOf: (row: unknown) => HierarchyRowMeta | undefined): void;
+  endHierarchy(rows: readonly unknown[], positionOf: (row: unknown) => HierarchyRowMeta | undefined): boolean;
 }
 
 /**

@@ -374,5 +374,21 @@ describe('PluginManager hookPriority', () => {
       manager.attachAll([new ConditionallyNeedsProvided({ enabled: false })]);
       expect(names()).toEqual(['conditional']);
     });
+
+    it('expands the dependencies of a provided instance recursively', () => {
+      class Leaf extends BaseGridPlugin {
+        readonly name = 'leaf';
+      }
+      class Middle extends BaseGridPlugin {
+        static override readonly dependencies = [{ name: 'leaf', provide: () => new Leaf() }];
+        readonly name = 'middle';
+      }
+      class Top extends BaseGridPlugin {
+        static override readonly dependencies = [{ name: 'middle', provide: () => new Middle() }];
+        readonly name = 'top';
+      }
+      manager.attachAll([new Top()]);
+      expect(names()).toEqual(['leaf', 'middle', 'top']);
+    });
   });
 });

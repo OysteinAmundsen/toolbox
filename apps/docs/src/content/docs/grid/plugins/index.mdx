@@ -96,7 +96,7 @@ Each plugin page shows one or more chips beside its title, describing what the p
 | <PluginKindChip kind="performance" /> | Changes how the grid renders, with no visible effect on the result. | [Column Virtualization](/grid/plugins/column-virtualization/) |
 | <PluginKindChip kind="data-source" /> | Changes where rows come from, not how they look or behave. | [Server-Side](/grid/plugins/server-side/) |
 | <PluginKindChip kind="chrome" /> | Adds UI around the grid, such as a toolbar or tool panels. | [Shell](/grid/plugins/shell/) |
-| <PluginKindChip kind="composite" /> | Bundles several plugins into one. | None yet |
+| <PluginKindChip kind="composite" /> | Coordinates other plugins so they work together, without replacing them. | [Hierarchy](/grid/plugins/hierarchy/) |
 
 A plugin that rewrites the grid's DOM on its own is structural, even when the result looks like a visual change — Pinned Columns is both. Reorder and Row Drag & Drop only move columns or rows when the user drags them, so they count as functional. Filtering and Visibility hide rows or columns but keep the grid's shape, so they count as functional too. A utility column added as a side effect — the selection checkbox, the drag handle, the detail expander — doesn't make a plugin structural.
 

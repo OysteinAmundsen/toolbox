@@ -9,6 +9,7 @@ import GroupingRowsDefaultDemo from '@components/demos/grouping-rows/GroupingRow
 import GroupingRowsEventsDemo from '@components/demos/grouping-rows/GroupingRowsEventsDemo.astro';
 import GroupingRowsMultiLevelDemo from '@components/demos/grouping-rows/GroupingRowsMultiLevelDemo.astro';
 import GroupingRowsWithAggregatorsDemo from '@components/demos/grouping-rows/GroupingRowsWithAggregatorsDemo.astro';
+import HierarchyTreeGroupingDemo from '@components/demos/hierarchy/HierarchyTreeGroupingDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
 
@@ -443,7 +444,13 @@ features: {
 },
 ```
 
-Groups under a tree node get keys prefixed with that node's tree key (`'plan-1::Cargo'`), so the same group value under different parents expands independently. `defaultExpanded: true` also opens the top-level groups of each child list the first time it appears.
+Groups under a tree node get keys prefixed with that node's tree key (`'plan-1::Cargo'`), so the same group value under different parents expands independently. `defaultExpanded: true` also opens the top-level groups of each child list the first time it appears. `setGroupOn(fn, true)` opens the top-level groups of every list, the root rows and each child list.
+
+<ShowSource file="demos/hierarchy/HierarchyTreeGroupingDemo.astro">
+  <HierarchyTreeGroupingDemo />
+</ShowSource>
+
+With **Group** set to `every level`, `groupOn` returns `row.region` at depth 0 and `row.kind` below it, so the plans are grouped too.
 
 The two plugins don't know about each other. The [Hierarchy plugin](/grid/plugins/hierarchy/), which both depend on and which the grid attaches automatically, combines their output.
 

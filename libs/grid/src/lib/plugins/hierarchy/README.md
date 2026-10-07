@@ -34,7 +34,7 @@ const meta = grid.getPluginByName('hierarchy')?.getRowMeta(grid.rows[0]);
 
 ## Accessibility
 
-[WCAG 2.2 SC 1.3.1 Info and Relationships](https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html): while a contributor is attached the rows container uses `role="treegrid"`, and every rendered row (including group headers and rows scrolled into view) carries `aria-level`, `aria-setsize` and `aria-posinset`.
+[WCAG 2.2 SC 1.3.1 Info and Relationships](https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html): while a contributor shapes the rows (Tree data detected, or at least one list grouped) the rows container uses `role="treegrid"`, and every rendered row (including group headers and rows scrolled into view) carries `aria-level`, `aria-setsize` and `aria-posinset`. Otherwise it stays a flat `role="grid"` with no position attributes.
 
 ## Writing a Contributor
 

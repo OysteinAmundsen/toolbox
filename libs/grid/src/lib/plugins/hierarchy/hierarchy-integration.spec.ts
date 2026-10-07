@@ -4,17 +4,18 @@
  * Composition of TreePlugin + GroupingRowsPlugin through the HierarchyPlugin (#504).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { HeaderClickEvent } from '../../core/plugin/types';
 import { GroupingRowsPlugin } from '../grouping-rows/grouping-rows-plugin';
 import type { GroupingRowsConfig } from '../grouping-rows/types';
 import { TreePlugin } from '../tree/tree-plugin';
 import { HierarchyPlugin } from './hierarchy-plugin';
 
 import '../../../index';
-import type { GridElement } from '../../../public';
+import type { ColumnConfig, GridElement } from '../../../public';
 
 async function waitUpgrade(el: GridElement): Promise<void> {
   await customElements.whenDefined('tbw-grid');
-  await (el as unknown as { ready?: () => Promise<void> }).ready?.();
+  await el.ready();
   await new Promise((r) => requestAnimationFrame(r));
 }
 
@@ -36,11 +37,15 @@ function plans() {
   ];
 }
 
-async function setup(grouping: GroupingRowsConfig, rows: unknown[] = plans()) {
+async function setup(
+  grouping: GroupingRowsConfig,
+  rows: unknown[] = plans(),
+  columns: ColumnConfig[] = [{ field: 'name', header: 'Name' }],
+) {
   const grid = document.createElement('tbw-grid') as GridElement;
   document.body.appendChild(grid);
   grid.gridConfig = {
-    columns: [{ field: 'name', header: 'Name' }],
+    columns,
     plugins: [new TreePlugin({ defaultExpanded: true }), new GroupingRowsPlugin(grouping)],
   };
   grid.rows = rows;
@@ -69,9 +74,7 @@ describe('hierarchy: Tree + GroupingRows', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const grid = await setup({ groupOn: (row, { depth }) => (depth > 0 ? row.kind : null) });
 
-    const names = (grid as unknown as { _pluginManager: { getPlugins(): Array<{ name: string }> } })._pluginManager
-      .getPlugins()
-      .map((p) => p.name);
+    const names = (grid._pluginManager?.getPlugins() ?? []).map((p) => p.name);
     expect(names.filter((n) => n === 'hierarchy')).toHaveLength(1);
     expect(names.indexOf('hierarchy')).toBeLessThan(names.indexOf('tree'));
     expect(grid.getPluginByName('hierarchy')).toBeInstanceOf(HierarchyPlugin);
@@ -122,9 +125,7 @@ describe('hierarchy: Tree + GroupingRows', () => {
       defaultExpanded: true,
     });
 
-    const levels = Array.from(grid.querySelectorAll('.rows .data-grid-row')).map((el) =>
-      el.getAttribute('aria-level'),
-    );
+    const levels = Array.from(grid.querySelectorAll('.rows .data-grid-row')).map((el) => el.getAttribute('aria-level'));
     // Plan 1, [Cargo], Cargo A, Cargo C, [Deal], Deal B, Plan 2, [Deal], Deal A
     expect(levels).toEqual(['1', '2', '3', '3', '2', '3', '1', '2', '3']);
     expect(grid.querySelector('.rows-body')?.getAttribute('role')).toBe('treegrid');
@@ -147,6 +148,20 @@ describe('hierarchy: Tree + GroupingRows', () => {
     expect(grid.getPluginByName('tree')?.isExpanded('p1')).toBe(true);
   });
 
+  it('applies setGroupOn(fn, true) to nested groups seen in an earlier grouping', async () => {
+    const byKind = (row: Record<string, unknown>, { depth }: { depth: number }) => (depth > 0 ? row.kind : null);
+    const grid = await setup({ groupOn: byKind, defaultExpanded: true });
+    const grouping = grid.getPluginByName('groupingRows');
+    const expanded = labels(grid);
+
+    grouping?.setGroupOn(() => null, true);
+    await nextFrame();
+    grouping?.setGroupOn(byKind, true);
+    await nextFrame();
+
+    expect(labels(grid)).toEqual(expanded);
+  });
+
   it('applies accordion only at the depths the predicate selects', async () => {
     const grid = await setup({
       groupOn: (row, { depth }) => (depth > 0 ? row.kind : null),
@@ -167,5 +182,88 @@ describe('hierarchy: Tree + GroupingRows', () => {
 
     expect(labels(grid)).toEqual(['Plan 1', 'Cargo A', 'Deal B', 'Cargo C', 'Plan 2', 'Deal A']);
     expect(grid.getPluginByName('groupingRows')?.isGroupingActive()).toBe(false);
+  });
+
+  it('maps viewport rows to tree roots across interleaved group headers', async () => {
+    const grid = await setup({ groupOn: (row, { depth }) => (depth > 0 ? row.kind : null), defaultExpanded: true });
+    // Plan 1, [Cargo], Cargo A, Cargo C, [Deal], Deal B, Plan 2, [Deal], Deal A
+    const map = (viewportStart: number, viewportEnd: number) =>
+      grid
+        .getPluginByName('tree')
+        ?.handleQuery({ type: 'datasource:viewport-mapping', context: { viewportStart, viewportEnd } });
+
+    expect(map(4, 5)).toEqual({ startNode: 0, endNode: 1, totalLoadedNodes: 2 });
+    expect(map(4, 7)).toEqual({ startNode: 0, endNode: 2, totalLoadedNodes: 2 });
+  });
+
+  it('sorts nested groups from a header click when only child levels are grouped', async () => {
+    const grid = await setup(
+      { groupOn: (row, { depth }) => (depth > 0 ? row.kind : null), defaultExpanded: true },
+      plans(),
+      [
+        { field: 'name', header: 'Name' },
+        { field: 'kind', header: 'Kind', sortable: true },
+      ],
+    );
+    const grouping = grid.getPluginByName('groupingRows');
+    expect(grouping?.handleQuery({ type: 'grouping:get-grouped-fields', context: null })).toEqual(['kind']);
+
+    const column = { field: 'kind', sortable: true };
+    expect(grouping?.onHeaderClick({ field: 'kind', column } as HeaderClickEvent)).toBe(true);
+    await nextFrame();
+
+    expect(labels(grid).slice(0, 6)).toEqual(['Plan 1', '[Deal]', 'Deal B', '[Cargo]', 'Cargo A', 'Cargo C']);
+  });
+});
+
+describe('hierarchy: ARIA when nothing is hierarchical', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  const items = () => [
+    { id: 1, name: 'A', kind: 'Cargo' },
+    { id: 2, name: 'B', kind: 'Deal' },
+  ];
+
+  async function groupingGrid(groupOn: GroupingRowsConfig['groupOn']) {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    document.body.appendChild(grid);
+    grid.gridConfig = {
+      columns: [{ field: 'name', header: 'Name' }],
+      plugins: [new GroupingRowsPlugin({ groupOn, defaultExpanded: true })],
+    };
+    grid.rows = items();
+    await waitUpgrade(grid);
+    return grid;
+  }
+
+  const rowEls = (grid: GridElement) => Array.from(grid.querySelectorAll('.rows .data-grid-row'));
+  const hasPosition = (el: Element) =>
+    el.hasAttribute('aria-level') || el.hasAttribute('aria-setsize') || el.hasAttribute('aria-posinset');
+
+  it('announces a flat grid when groupOn groups no row', async () => {
+    const grid = await groupingGrid(() => null);
+
+    expect(grid.querySelector('.rows-body')?.getAttribute('role')).toBe('grid');
+    expect(rowEls(grid).some(hasPosition)).toBe(false);
+    expect(grid.getPluginByName('hierarchy')?.getRowMeta(grid.rows[0])).toBeUndefined();
+  });
+
+  it('clears pooled row positions when grouping turns off', async () => {
+    const grid = await groupingGrid((row) => row.kind);
+    expect(rowEls(grid).every(hasPosition)).toBe(true);
+
+    grid.getPluginByName('groupingRows')?.setGroupOn(() => null);
+    await nextFrame();
+    await nextFrame();
+
+    expect(rowEls(grid).length).toBeGreaterThan(0);
+    expect(rowEls(grid).some(hasPosition)).toBe(false);
+    expect(grid.querySelector('.rows-body')?.getAttribute('role')).toBe('grid');
   });
 });

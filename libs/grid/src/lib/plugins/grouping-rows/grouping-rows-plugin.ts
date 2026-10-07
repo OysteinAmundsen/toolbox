@@ -48,6 +48,7 @@ import type {
   GroupDefinition,
   GroupExpandDetail,
   GroupingRowsConfig,
+  GroupOnContext,
   GroupRowModelItem,
   GroupToggleDetail,
   RenderRow,
@@ -273,6 +274,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
   #pending: DefaultExpandedValue | undefined;
   #pendingApplied = false;
   #groupSortDirections: Map<number, 1 | -1> | undefined;
+  /** Set once a sibling list yielded the grouped column fields (nested-only grouping skips the root list). */
+  #groupFieldsResolved = false;
   /** Render-model item of every row emitted by this rebuild, keyed by row object. */
   #renderItems = new WeakMap<object, RenderRow>();
   #anyGroup = false;
@@ -457,7 +460,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
    * 2. MultiSort plugin model (for backwards compatibility / state restore)
    * 3. Core single-column sort state
    */
-  private resolveGroupSortDirections(rows: readonly any[]): Map<number, 1 | -1> | undefined {
+  private resolveGroupSortDirections(rows: readonly any[], context: GroupOnContext): Map<number, 1 | -1> | undefined {
     const config = this.config;
     if (typeof config.groupOn !== 'function' || rows.length === 0) {
       this.groupedFields = [];
@@ -466,7 +469,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
 
     // Discover depth → field mapping by sampling rows
     const columnFields = this.columns.map((c) => c.field);
-    const depthToField = resolveGroupFields([...rows], config.groupOn, columnFields);
+    const depthToField = resolveGroupFields([...rows], config.groupOn, columnFields, context);
 
     // Cache grouped field names for the grouping:get-grouped-fields query
     this.groupedFields = [...depthToField.values()];
@@ -533,7 +536,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
   }
 
   /** @internal Hierarchy contributor hook */
-  beginHierarchy(rows: readonly unknown[]): boolean {
+  beginHierarchy(_rows: readonly unknown[]): boolean {
     // Snapshot + clear deferred-expansion state at the top so any early-return
     // (no groupOn, empty rows, etc.) doesn't leave a stale `pendingExpansion`
     // behind to be (mis-)applied to the next unrelated rebuild.
@@ -553,10 +556,13 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
     if (typeof this.config.groupOn !== 'function') {
       this.isActive = false;
       this.flattenedRows = [];
+      this.groupedFields = [];
       return false;
     }
     this.#mode = 'groupOn';
-    this.#groupSortDirections = this.resolveGroupSortDirections(rows);
+    this.groupedFields = [];
+    this.#groupSortDirections = undefined;
+    this.#groupFieldsResolved = false;
     return true;
   }
 
@@ -567,6 +573,11 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
 
     const config = this.config;
     const rows = nodes.map((node) => node.row);
+    const groupOnContext = { parent: context.parent, depth: context.depth };
+    if (!this.#groupFieldsResolved) {
+      this.#groupSortDirections = this.resolveGroupSortDirections(rows, groupOnContext);
+      this.#groupFieldsResolved = this.groupedFields.length > 0;
+    }
     const build = (expanded: Set<string>, initialExpanded?: Set<string>) =>
       buildGroupedRowModel({
         rows,
@@ -574,7 +585,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
         expanded,
         initialExpanded,
         groupSortDirections: this.#groupSortDirections,
-        context: { parent: context.parent, depth: context.depth },
+        context: groupOnContext,
         keyPrefix: isRoot ? '' : `${context.parentKey ?? ''}::`,
       });
 
@@ -587,11 +598,11 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
   }
 
   /** @internal Hierarchy contributor hook */
-  endHierarchy(rows: readonly unknown[]): void {
+  endHierarchy(rows: readonly unknown[]): boolean {
     if (!this.#anyGroup) {
       this.isActive = false;
       this.flattenedRows = [];
-      return;
+      return false;
     }
     this.isActive = true;
     this.flattenedRows = rows.map((row) => this.#renderItems.get(row as object) ?? { kind: 'data', row, rowIndex: -1 });
@@ -618,6 +629,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
       }
     });
     this.previousVisibleKeys = currentVisibleKeys;
+    return true;
   }
 
   /** Group the root rows, resolving `defaultExpanded` / a pending expansion against the fresh group keys. */
@@ -661,15 +673,27 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
     return build(this.expandedKeys, initialExpanded);
   }
 
-  /** Group a tree node's children; `defaultExpanded: true` opens each list's new top-level groups. */
+  /**
+   * Group a tree node's children. A pending expansion (`setGroupOn(fn, expanded)`, deferred
+   * `expandAll`/`collapseAll`) resolves against each list's own groups; otherwise
+   * `defaultExpanded: true` opens each list's new top-level groups.
+   */
   #buildNestedGroups(build: (expanded: Set<string>) => RenderRow[]): RenderRow[] {
     const grouped = build(this.expandedKeys);
-    if (this.config.defaultExpanded !== true) return grouped;
+    const pending = this.#pending;
+    if (pending === undefined && this.config.defaultExpanded !== true) return grouped;
+    const listKeys: string[] = [];
+    for (const item of grouped) if (item.kind === 'group' && item.depth === 0) listKeys.push(item.key);
+    const open =
+      pending !== undefined
+        ? resolveDefaultExpanded(pending, listKeys)
+        : new Set(listKeys.filter((key) => !this.#seenNestedKeys.has(key)));
+    if (pending !== undefined) this.#pendingApplied = true;
     let added = false;
-    for (const item of grouped) {
-      if (item.kind === 'group' && item.depth === 0 && !this.#seenNestedKeys.has(item.key)) {
-        this.#seenNestedKeys.add(item.key);
-        this.expandedKeys.add(item.key);
+    for (const key of listKeys) {
+      this.#seenNestedKeys.add(key);
+      if (open.has(key) && !this.expandedKeys.has(key)) {
+        this.expandedKeys.add(key);
         added = true;
       }
     }

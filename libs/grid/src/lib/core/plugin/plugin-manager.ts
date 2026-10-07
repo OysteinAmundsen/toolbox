@@ -32,22 +32,25 @@ import type {
 
 /**
  * Insert a provided instance of every missing dependency that declares
- * `provide`, right before the first plugin that needs it.
+ * `provide`, right before the first plugin that needs it. Provided instances
+ * are expanded recursively, so their own provided dependencies precede them.
  */
 function provideDependencies(
   plugins: BaseGridPlugin[],
   gate: (plugin: BaseGridPlugin) => BaseGridPlugin,
 ): BaseGridPlugin[] {
+  // Also the cycle guard: a name is claimed before its provider is expanded.
   const names = new Set(plugins.map((p) => p.name));
   const result: BaseGridPlugin[] = [];
-  for (const plugin of plugins) {
+  const add = (plugin: BaseGridPlugin): void => {
     for (const dep of (plugin.constructor as typeof BaseGridPlugin).dependencies ?? []) {
       if (!dep.provide || names.has(dep.name) || (dep.when && !dep.when(plugin.resolvedConfig))) continue;
       names.add(dep.name);
-      result.push(gate(dep.provide()));
+      add(gate(dep.provide()));
     }
     result.push(plugin);
-  }
+  };
+  for (const plugin of plugins) add(plugin);
   return result;
 }
 

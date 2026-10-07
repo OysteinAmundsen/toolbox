@@ -1,10 +1,12 @@
 ---
 title: "Hierarchy Plugin"
 description: "Combines the row structure of Tree and Row Grouping into one hierarchy, and announces each row's position to assistive technology."
-pluginKinds: [structural]
+pluginKinds: [structural, composite]
 ---
 
 import { TabItem, Tabs } from '@astrojs/starlight/components';
+import HierarchyTreeGroupingDemo from '@components/demos/hierarchy/HierarchyTreeGroupingDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
 
 The Hierarchy plugin builds one hierarchical row model from every plugin that adds structure to the rows. [Tree](/grid/plugins/tree/) adds each row's children and [Row Grouping](/grid/plugins/grouping-rows/) groups lists of sibling rows. The two plugins never talk to each other, so they combine: with both enabled, the children of every tree node can be grouped.
 
@@ -22,6 +24,12 @@ import '@toolbox-web/grid/features/grouping-rows';
 ## Basic Usage
 
 Group the children of each tree node by a property, and leave the root rows ungrouped:
+
+<ShowSource file="demos/hierarchy/HierarchyTreeGroupingDemo.astro">
+  <HierarchyTreeGroupingDemo />
+</ShowSource>
+
+Switch **Group** to `every level` to group the plans by region as well, or to `off` to see the plain tree.
 
 <Tabs syncKey="framework">
   <TabItem label="TypeScript">

@@ -89,6 +89,8 @@ export class HierarchyPlugin extends BaseGridPlugin {
    *   return this.grid.getPluginByName('hierarchy')?.process(rows, this) ?? [...rows];
    * }
    * ```
+   *
+   * @since 3.9.0
    */
   process(rows: readonly unknown[], caller: HierarchyContributor): unknown[] {
     const contributors = this.#contributors();
@@ -110,6 +112,8 @@ export class HierarchyPlugin extends BaseGridPlugin {
    * const meta = grid.getPluginByName('hierarchy')?.getRowMeta(grid.rows[0]);
    * console.log(meta?.level, meta?.posInSet, meta?.setSize);
    * ```
+   *
+   * @since 3.9.0
    */
   getRowMeta(row: unknown): HierarchyRowMeta | undefined {
     return typeof row === 'object' && row !== null ? this.#meta.get(row) : undefined;
@@ -133,18 +137,28 @@ export class HierarchyPlugin extends BaseGridPlugin {
 
   #applyAria(): void {
     if (this.#contributors().length === 0) return;
-    // Hierarchy is in play → `treegrid`, so per-row level/setsize/posinset are valid in context.
-    const rowsBody = this.gridElement?.querySelector('.rows-body');
-    if (rowsBody && rowsBody.getAttribute('role') !== 'treegrid') rowsBody.setAttribute('role', 'treegrid');
-
     const body = this.gridElement?.querySelector('.rows');
     if (!body) return;
+
+    let hierarchical = false;
     for (const rowEl of body.querySelectorAll('.data-grid-row')) {
       const meta = this.getRowMeta((rowEl as RowElementInternal).__rowDataRef);
-      if (!meta) continue;
+      if (!meta) {
+        // Pooled row elements may carry a position from a previous row model.
+        rowEl.removeAttribute('aria-level');
+        rowEl.removeAttribute('aria-setsize');
+        rowEl.removeAttribute('aria-posinset');
+        continue;
+      }
+      hierarchical = true;
       setAttrIfChanged(rowEl, 'aria-level', meta.level);
       setAttrIfChanged(rowEl, 'aria-setsize', meta.setSize);
       setAttrIfChanged(rowEl, 'aria-posinset', meta.posInSet);
     }
+
+    // `treegrid` only while the model has hierarchy, so per-row level/setsize/posinset are valid in context.
+    const role = hierarchical ? 'treegrid' : 'grid';
+    const rowsBody = this.gridElement?.querySelector('.rows-body');
+    if (rowsBody && rowsBody.getAttribute('role') !== role) rowsBody.setAttribute('role', role);
   }
 }

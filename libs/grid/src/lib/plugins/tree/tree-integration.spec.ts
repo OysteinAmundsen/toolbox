@@ -1207,7 +1207,7 @@ describe('tree plugin integration', () => {
         columns: [{ field: 'name', header: 'Name' }],
         plugins: [treePlugin],
       };
-      grid.rows = [{ id: 'r1', name: 'Root' }];
+      grid.rows = [{ id: 'r1', name: 'Root', children: [{ id: 'c1', name: 'Child' }] }];
 
       await waitUpgrade(grid);
 

@@ -11,9 +11,26 @@ import type { HierarchyContributor, HierarchyNode, HierarchyRowMeta } from './ty
  * transforms, recording each emitted row's ARIA position in `meta`.
  *
  * Contributors whose `beginHierarchy` returns `false` sit out the rebuild.
- * With no active contributor the rows pass through unchanged.
+ * With no active contributor the rows pass through unchanged. When every
+ * active contributor's `endHierarchy` returns `false`, no position is kept in `meta`.
  *
- * @internal Used by contributors when no HierarchyPlugin is attached.
+ * This is what `HierarchyPlugin.process()` runs for all attached contributors.
+ * Call it directly to run a contributor without a grid — e.g. as the
+ * `processRows` fallback when no HierarchyPlugin is attached, or in unit tests.
+ *
+ * @example
+ * ```ts
+ * override processRows(rows: readonly unknown[]): unknown[] {
+ *   const hierarchy = this.grid?.getPluginByName('hierarchy');
+ *   return hierarchy ? hierarchy.process(rows, this) : buildHierarchy(rows, [this]);
+ * }
+ * ```
+ *
+ * @param rows - The root rows.
+ * @param contributors - Contributors to run, in `processRows` hook order.
+ * @param meta - Receives each emitted row's position. Pass a fresh map per rebuild.
+ * @returns The flattened rows, in render order.
+ * @since 3.9.0
  */
 export function buildHierarchy(
   rows: readonly unknown[],
@@ -54,6 +71,10 @@ export function buildHierarchy(
   emit(process(roots, null, 0), 0);
 
   const positionOf = (row: unknown) => (typeof row === 'object' && row !== null ? meta.get(row) : undefined);
-  for (const c of active) c.endHierarchy(out, positionOf);
+  let shaped = false;
+  for (const c of active) if (c.endHierarchy(out, positionOf)) shaped = true;
+  if (!shaped) {
+    for (const row of out) if (typeof row === 'object' && row !== null) meta.delete(row);
+  }
   return out;
 }

@@ -26,10 +26,9 @@ import type {
   FetchChildrenQuery,
   Subscribable,
   ViewportMappingQuery,
-  ViewportMappingResponse,
 } from '../server-side/datasource-types';
 import { collapseAll, expandAll, expandToKey, toggleExpand } from './tree-data';
-import { countTopLevelNodes, getTopLevelNodeIndex } from './tree-datasource';
+import { mapViewportToRoots } from './tree-datasource';
 import { detectTreeStructure, inferChildrenField } from './tree-detect';
 import styles from './tree.css?inline';
 import type {
@@ -200,6 +199,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
   private rowKeyMap = new Map<string, FlattenedTreeRow>();
   private previousVisibleKeys = new Set<string>();
   private keysToAnimate = new Set<string>();
+  /** Root-node ordinal per row of the FINAL row list — group rows interleave with tree rows when composed. */
+  #rootOwners: number[] = [];
+  #rootCount = 0;
   private sortState: { field: string; direction: 1 | -1 } | null = null;
   /** Sort applied to every sibling list during the current rebuild. */
   #levelSort: { field: string; direction: 1 | -1 } | null = null;
@@ -250,6 +252,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     this.expandedKeys.clear();
     this.initialExpansionDone = false;
     this.flattenedRows = [];
+    this.#rootOwners = [];
+    this.#rootCount = 0;
     this.rowKeyMap.clear();
     this.previousVisibleKeys.clear();
     this.keysToAnimate.clear();
@@ -284,12 +288,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       // Translate visible flat row indices → top-level node indices for ServerSide pagination
       const { viewportStart, viewportEnd } = query.context as ViewportMappingQuery;
       if (this.flattenedRows.length === 0) return undefined;
-
-      const startNode = getTopLevelNodeIndex(this.flattenedRows, viewportStart);
-      const endNode = getTopLevelNodeIndex(this.flattenedRows, viewportEnd) + 1; // exclusive
-      const totalLoadedNodes = countTopLevelNodes(this.flattenedRows);
-
-      return { startNode, endNode, totalLoadedNodes } satisfies ViewportMappingResponse;
+      return mapViewportToRoots(this.#rootOwners, this.#rootCount, viewportStart, viewportEnd);
     }
 
     return undefined;
@@ -397,6 +396,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       !detectTreeStructure(treeRows, this.config.childrenField ?? 'children', this.config.hasChildren)
     ) {
       this.flattenedRows = [];
+      this.#rootOwners = [];
+      this.#rootCount = 0;
       this.rowKeyMap.clear();
       this.previousVisibleKeys.clear();
       this.#syncTreeColumn();
@@ -470,7 +471,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
   }
 
   /** @internal Hierarchy contributor hook */
-  endHierarchy(rows: readonly unknown[], positionOf: (row: unknown) => HierarchyRowMeta | undefined): void {
+  endHierarchy(rows: readonly unknown[], positionOf: (row: unknown) => HierarchyRowMeta | undefined): boolean {
     // Keep metadata for rendered rows only, so rows hidden by a collapsed
     // ancestor don't return stale entries via getRowMeta().
     const processed = this.#rowMeta;
@@ -479,9 +480,14 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     this.rowKeyMap.clear();
     this.keysToAnimate.clear();
     const currentKeys = new Set<string>();
+    const rootOwners = new Array<number>(rows.length);
+    let rootOrdinal = -1;
 
-    for (const row of rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
       const meta = processed.get(row as object);
+      if (meta?.parentKey === null) rootOrdinal++;
+      rootOwners[i] = rootOrdinal;
       if (!meta) continue;
       // Indent below any levels another contributor (e.g. grouping) inserted above this row.
       const level = positionOf(row)?.level;
@@ -495,8 +501,11 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       }
     }
     this.previousVisibleKeys = currentKeys;
+    this.#rootOwners = rootOwners;
+    this.#rootCount = rootOrdinal + 1;
 
     this.#syncTreeColumn();
+    return true;
   }
 
   /**

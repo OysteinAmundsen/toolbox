@@ -156,24 +156,31 @@ export function buildGroupedRowModel({
 /**
  * Discover which column field produces the group value at each depth level.
  *
- * Samples the first row's `groupOn` output to get the group path, then checks
+ * Samples the first grouped row's `groupOn` output to get the group path, then checks
  * which column fields produce matching values for that row. This mapping allows
  * the plugin to apply user-invoked column sort directions to the correct group
  * depth levels.
  *
+ * @param context - Passed to `groupOn` (default: the root list).
  * @returns Map from depth index to column field name, or empty map if unmappable
  */
 export function resolveGroupFields(
   rows: any[],
   groupOn: NonNullable<GroupingRowsConfig['groupOn']>,
   columnFields: string[],
+  context: GroupOnContext = ROOT_CONTEXT,
 ): Map<number, string> {
   const depthToField = new Map<number, string>();
-  if (rows.length === 0) return depthToField;
-
-  const sampleRow = rows[0];
-  let path: any = groupOn(sampleRow, ROOT_CONTEXT);
-  if (path == null || path === false) return depthToField;
+  let sampleRow: any;
+  let path: any = null;
+  for (const row of rows) {
+    path = groupOn(row, context);
+    if (path != null && path !== false) {
+      sampleRow = row;
+      break;
+    }
+  }
+  if (sampleRow === undefined) return depthToField;
   if (!Array.isArray(path)) path = [path];
 
   for (let depth = 0; depth < path.length; depth++) {

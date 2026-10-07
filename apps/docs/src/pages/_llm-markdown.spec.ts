@@ -166,6 +166,25 @@ describe('mdxToAgentMarkdown — internal link rewriting', () => {
   });
 });
 
+describe('mdxToAgentMarkdown — PluginKindChip', () => {
+  it('replaces each chip with its bold label instead of stripping it', () => {
+    const raw = [
+      '---',
+      'title: T',
+      '---',
+      "import PluginKindChip from '@components/PluginKindChip.astro';",
+      '',
+      '| Type | Plugins |',
+      '| ---- | ------- |',
+      '| <PluginKindChip kind="data-source" /> | Server-Side |',
+      '',
+    ].join('\n');
+    const md = mdxToAgentMarkdown(raw, noop);
+    expect(md).toContain('| **Data source** | Server-Side |');
+    expect(md).not.toContain('PluginKindChip');
+  });
+});
+
 describe('mdxToAgentMarkdown — AgentSource directive', () => {
   const sources: Record<string, string> = {
     'demos/app/config.ts': 'export const gridConfig = { columns: [] };\n',

@@ -246,6 +246,8 @@ Create an interactive Astro demo in `apps/docs/src/components/demos/<plugin-name
 
 Create a plugin MDX page at `apps/docs/src/content/docs/grid/plugins/<plugin-name>.mdx`. Import the demo component and wrap it in `<ShowSource>`. See the `docs-update` skill for templates.
 
+Declare the plugin's kinds in the page frontmatter (`pluginKinds: [structural, functional]` — inline list; see `PLUGIN_KIND_NAMES` in `apps/docs/src/data/plugin-kinds.ts`) and add it to the matching rows of the **Plugin types** table in `grid/plugins/index.mdx` as a `[Name](/grid/plugins/<slug>/)` link — `plugin-kinds.spec.ts` fails until both are done.
+
 ## 13. Verify Documentation Build
 
 Build the docs site to verify the new plugin page renders correctly:

@@ -1,7 +1,7 @@
 /// <reference types="vitest" />
 import { copyFileSync, mkdirSync, readdirSync, readFileSync } from 'fs';
 import { Features } from 'lightningcss';
-import { resolve } from 'path';
+import { dirname, resolve } from 'path';
 import cleanup from 'rollup-plugin-cleanup';
 import { build, BuildOptions, defineConfig, LibraryOptions, Plugin } from 'vite';
 import dts from 'vite-plugin-dts';
@@ -98,6 +98,16 @@ function externalizeCore(): Plugin {
       if (source.endsWith('core/internal/utils') || source.endsWith('core/internal/diagnostics')) return null;
       if (source.startsWith('../../components/') || source.startsWith('../../../')) {
         return { id: '@toolbox-web/grid', external: true };
+      }
+      // A hard dependency on another plugin (`import { HierarchyPlugin } from '../hierarchy'`)
+      // stays a separate module so the consumer's bundler includes it once.
+      if (importer && source.startsWith('../')) {
+        const target = resolve(dirname(importer), source).replace(/\\/g, '/');
+        const dep = target.match(/\/lib\/plugins\/([\w-]+)$/)?.[1];
+        const own = norm.match(/\/lib\/plugins\/([\w-]+)\//)?.[1];
+        if (dep && dep !== own && dep !== 'shared') {
+          return { id: `@toolbox-web/grid/plugins/${dep}`, external: true };
+        }
       }
       return null;
     },
@@ -360,6 +370,10 @@ function buildUmdBundles(): Plugin {
       });
 
       // Individual plugin UMDs (parallel)
+      // DEPRECATED (remove in v4): a plugin's hard dependency on another plugin
+      // (`../hierarchy`) matches neither external pattern below, so it is INLINED
+      // into the dependent UMD file. v4 externalizes it to the dependency's own
+      // `TbwGridPlugin_<name>` global instead (documented in umd-readme.md).
       await Promise.all(
         pluginNames.map((name) =>
           build({

@@ -1,0 +1,46 @@
+---
+/**
+ * PageTitle override — shows plugin-kind chips beside the title of pages that
+ * declare `pluginKinds` in their frontmatter.
+ */
+import Default from '@astrojs/starlight/components/PageTitle.astro';
+import PluginKindChip from './PluginKindChip.astro';
+
+const kinds = Astro.locals.starlightRoute.entry.data.pluginKinds;
+---
+
+{
+  kinds ? (
+    <div class="plugin-title">
+      <Default />
+      <ul class="plugin-kinds" aria-label="Plugin types">
+        {kinds.map((kind) => (
+          <li>
+            <PluginKindChip kind={kind} href="/grid/plugins/#plugin-types" />
+          </li>
+        ))}
+      </ul>
+    </div>
+  ) : (
+    <Default />
+  )
+}
+
+<style>
+  .plugin-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    column-gap: 1rem;
+  }
+
+  .plugin-kinds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+</style>

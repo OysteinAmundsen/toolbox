@@ -42,6 +42,10 @@ Every grid shortcut that accepts both modifiers is written `<kbd>Ctrl</kbd>/<kbd
 
 Starlight's content-gap rule (`.sl-markdown-content :not(a, strong, em, del, span, input, code, br) + :not(…)`) adds `margin-top` to any non-exempt element after a sibling — `kbd` is not exempt, so chords sank below the text line. `custom.css` resets `kbd + kbd`; add the same reset for any new inline element used in prose.
 
+## Plugin-kind chips — `pluginKinds` frontmatter
+
+Every `grid/plugins/<slug>/index.mdx` declares `pluginKinds: […]` (inline list; schema in `content.config.ts`, names/labels/descriptions in `@data/plugin-kinds`). The `PageTitle` override renders them as chips beside the title, linking to the hand-written **Plugin types** table in `grid/plugins/index.mdx` (hand-written so the agent markdown carries it; each row starts with `<PluginKindChip kind="…" />`, which `_llm-markdown.ts` turns into `**Label**`, and lists plugins as `[Name](/grid/plugins/<slug>/)` links). Colours live in `styles/plugin-kinds.css` as `.plugin-kind.<kind>` with `light-dark()` pairs. `plugin-kinds.spec.ts` enforces: every plugin page has the field, the table matches the frontmatter, and every chip is AAA (≥ 7:1) in both modes.
+
 ## Key Components
 
 - `DemoControls.astro` — Reusable Storybook-like interactive controls panel (number/boolean/radio/select/check-group)

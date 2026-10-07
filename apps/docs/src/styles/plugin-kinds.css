@@ -1,0 +1,62 @@
+/* Plugin-kind chips (PageTitle.astro). Every pair is AAA (≥ 7:1) in both modes — see plugin-kinds.spec.ts. */
+
+.plugin-kind {
+  display: inline-block;
+  padding: 0.125rem 0.625rem;
+  border: 1px solid var(--plugin-kind-border);
+  border-radius: 999px;
+  background: var(--plugin-kind-bg);
+  color: var(--plugin-kind-fg);
+  font-size: var(--sl-text-xs);
+  font-weight: 600;
+  line-height: 1.5;
+  text-decoration: none;
+}
+
+.plugin-kind:hover,
+.plugin-kind:focus-visible {
+  color: var(--plugin-kind-fg);
+  text-decoration: underline;
+}
+
+.plugin-kind.structural {
+  --plugin-kind-fg: light-dark(#4c1d95, #ede9fe);
+  --plugin-kind-bg: light-dark(#ede9fe, #3b1a78);
+  --plugin-kind-border: light-dark(#c4b5fd, #6d28d9);
+}
+
+.plugin-kind.functional {
+  --plugin-kind-fg: light-dark(#1e3a8a, #dbeafe);
+  --plugin-kind-bg: light-dark(#dbeafe, #1e3a8a);
+  --plugin-kind-border: light-dark(#93c5fd, #2563eb);
+}
+
+.plugin-kind.visual {
+  --plugin-kind-fg: light-dark(#831843, #fce7f3);
+  --plugin-kind-bg: light-dark(#fce7f3, #831843);
+  --plugin-kind-border: light-dark(#f9a8d4, #be185d);
+}
+
+.plugin-kind.performance {
+  --plugin-kind-fg: light-dark(#78350f, #fef3c7);
+  --plugin-kind-bg: light-dark(#fef3c7, #713f12);
+  --plugin-kind-border: light-dark(#fcd34d, #b45309);
+}
+
+.plugin-kind.data-source {
+  --plugin-kind-fg: light-dark(#064e3b, #d1fae5);
+  --plugin-kind-bg: light-dark(#d1fae5, #064e3b);
+  --plugin-kind-border: light-dark(#6ee7b7, #047857);
+}
+
+.plugin-kind.chrome {
+  --plugin-kind-fg: light-dark(#1e293b, #f1f5f9);
+  --plugin-kind-bg: light-dark(#e2e8f0, #334155);
+  --plugin-kind-border: light-dark(#94a3b8, #64748b);
+}
+
+.plugin-kind.composite {
+  --plugin-kind-fg: light-dark(#164e63, #cffafe);
+  --plugin-kind-bg: light-dark(#cffafe, #164e63);
+  --plugin-kind-border: light-dark(#67e8f9, #0e7490);
+}

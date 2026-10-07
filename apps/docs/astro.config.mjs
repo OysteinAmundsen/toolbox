@@ -380,6 +380,7 @@ export default defineConfig({
         Search: './src/components/Search.astro',
         Header: './src/components/Header.astro',
         Footer: './src/components/Footer.astro',
+        PageTitle: './src/components/PageTitle.astro',
       },
       pagefind: true, // Built-in search via Pagefind
     }),

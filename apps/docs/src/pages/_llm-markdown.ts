@@ -13,6 +13,8 @@
  * demo back to its `.astro` source and inline the script as a fenced code block.
  */
 
+import { PLUGIN_KIND_INFO } from '../data/plugin-kinds.js';
+
 // #region Types
 
 /**
@@ -553,6 +555,12 @@ export function mdxToAgentMarkdown(raw: string, opts: AgentMarkdownOptions): str
     //     (`<CardGrid>`, `<Steps>`, `<FileTree>`) and `<Icon />` carry no textual
     //     value, so strip the tags and keep any inner Markdown.
     out = out.replace(/<Badge\b[^>]*\btext=["']([^"']*)["'][^>]*\/?>/g, (_full, text: string) => `(${text})`);
+    //   - `<PluginKindChip kind="…" />` → the kind's label in bold (runs before
+    //     step 4b, which would otherwise strip the imported component).
+    out = out.replace(/<PluginKindChip\b[^>]*\bkind=["']([^"']*)["'][^>]*\/>/g, (_full, kind: string) => {
+      const label = (PLUGIN_KIND_INFO as Record<string, { label: string } | undefined>)[kind]?.label ?? kind;
+      return `**${label}**`;
+    });
     out = out.replace(/<Icon\b[^>]*\/?>/g, '');
     out = out.replace(/<\/?(?:CardGrid|Steps|FileTree)\b[^>]*>/g, '');
 

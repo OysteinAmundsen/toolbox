@@ -1,0 +1,26 @@
+---
+/**
+ * One plugin-kind chip. Renders a link when `href` is set, otherwise a static label.
+ * `_llm-markdown.ts` rewrites `<PluginKindChip kind="…" />` to `**Label**` for the agent corpus.
+ */
+import { PLUGIN_KIND_INFO, type PluginKind } from '@data/plugin-kinds';
+import '../styles/plugin-kinds.css';
+
+interface Props {
+  kind: PluginKind;
+  href?: string;
+}
+
+const { kind, href } = Astro.props;
+const { label, description } = PLUGIN_KIND_INFO[kind];
+---
+
+{
+  href ? (
+    <a class:list={['plugin-kind', kind]} href={href} title={description}>
+      {label}
+    </a>
+  ) : (
+    <span class:list={['plugin-kind', kind]}>{label}</span>
+  )
+}

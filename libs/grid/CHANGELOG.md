@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.8.3...grid-3.9.0) (2026-10-07)
+
+
+### Features
+
+* **hierarchy:** compose Tree and GroupingRows through a shared row hierarchy ([#504](https://github.com/OysteinAmundsen/toolbox/issues/504)) ([#506](https://github.com/OysteinAmundsen/toolbox/issues/506)) ([5c94b76](https://github.com/OysteinAmundsen/toolbox/commit/5c94b76103a7e74c7b96fea6c22e63f2054460a7))
+
+
+### Enhancements
+
+* **selection:** adjust checkbox column insertion for left-pinned columns ([46e5bd0](https://github.com/OysteinAmundsen/toolbox/commit/46e5bd0767a17e783cbe9bfa513f752eddcb5d6a))
+
 ## [3.8.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.8.2...grid-3.8.3) (2026-09-30)
 
 

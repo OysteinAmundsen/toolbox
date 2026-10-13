@@ -1,17 +1,18 @@
 ---
-description: 'Execute one item from a `/bench` fix plan end-to-end: profile the regression, apply a targeted patch, re-run the benchmark, and confirm the delta. Pairs with `/bench`.'
+name: perf-fix
+description: Execute one item from a `/bench` fix plan end-to-end: profile the regression, apply a targeted patch, re-run the benchmark, and confirm the delta. Pairs with `/bench`.
+disable-model-invocation: true
 argument-hint: '[optional hotspot name or suite] [optional baseline tag, e.g. 2.7.0]'
-agent: 'agent'
 ---
 
 # Performance Fix Loop
 
 Take one regression surfaced by `/bench` and drive it to a measurable improvement. This is the action half of the bench → analyze → fix cycle.
 
-The argument `${input:target}` may contain:
+The text after `/perf-fix` may contain:
 
 - **A hotspot name, suite name, or file path** (e.g. `render-scheduler`, `grid-sort.bench.ts`, `libs/grid/src/lib/core/internal/render-scheduler.ts`) → focus on that hotspot.
-- **A baseline tag or version** (e.g. `2.7.0`, `grid-2.7.0`) → use this as the comparison baseline for re-bench. Resolution rules match `/bench` (bare semver → `grid-` prefix; ambiguous → ask).
+- **A baseline tag or version** (e.g. `2.7.0`, `grid-2.7.0`) → use this as the comparison baseline for re-bench. Resolution rules: `bench` skill → "Tag resolution" (bare semver → `grid-` prefix; ambiguous → ask).
 - **Empty** → re-read the most recent bench artifacts in the conversation or under the bench output directory, pick the highest-impact regression from the fix plan, and confirm the choice with the user before patching.
 
 If both a hotspot and a tag are present, order doesn't matter — parse by shape (semver vs. identifier/path).
@@ -34,7 +35,7 @@ If the hotspot maps cleanly to a recent commit (visible via `git log <baseline>.
 
 Otherwise, use the `debug-perf` skill:
 
-- Read [.github/skills/debug-perf/SKILL.md](.github/skills/debug-perf/SKILL.md) before profiling.
+- Read `.github/skills/debug-perf/SKILL.md` before profiling.
 - Capture a trace of the relevant demo or bench scenario.
 - Report the top frames by self-time, the hot call path, and any unexpected allocations / layout thrash.
 
@@ -58,7 +59,7 @@ After the edit:
 
 Re-run the same bench command `/bench` would use for this baseline:
 
-- With a tag: `bun .github/skills/bench/bench-vs-tag.ts --ref <resolved-tag> --fail-on-regression=false` (add `--iterations 3` if the original run was noisy).
+- With a tag: `bun .github/skills/bench/bench-vs-tag.ts --ref <resolved-tag>` (add `--iterations 3` if the original run was noisy).
 - Without a tag: `bun run bench` and compare to the pre-patch artifacts.
 
 Read the resulting comparison artifacts. Do not eyeball console output.

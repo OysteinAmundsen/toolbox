@@ -89,28 +89,15 @@ Individual plugins are separate entry points. The `tools/build-size-report.ts` t
 
 ## Dead Code Removal
 
-Actively identify and remove dead code to minimize bundle size.
-
-### Before each commit, check for:
-
-- Unused imports (ESLint will flag these)
-- Unused functions, variables, or type definitions
-- Commented-out code blocks (remove or convert to documentation)
-- Deprecated code that's no longer referenced
-- Unused CSS classes or variables
-
-### Tools to identify dead code:
+Actively identify and remove dead code to minimize bundle size. Use the `fallow` skill for
+deterministic detection instead of hand-grepping exports:
 
 ```bash
-# TypeScript compiler flags unused locals
-bun nx build grid
-
-# ESLint checks unused variables/imports
-bun nx lint grid
-
-# Search for potentially unused exports
-grep -r "export.*functionName" --include="*.ts"
+bunx fallow dead-code --format json > tmp/fallow-dead-code.json   # unused exports/files, circular deps
+bun nx lint grid                                                 # unused imports/locals
 ```
+
+Also remove commented-out code blocks and deprecated code with no remaining references.
 
 ### When removing code:
 

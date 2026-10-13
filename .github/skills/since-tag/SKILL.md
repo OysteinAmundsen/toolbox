@@ -9,12 +9,13 @@ description: Determine the correct `@since` JSDoc version for new public API in 
 
 All scripts for this concern live in this skill folder (nothing else in the repo calls them):
 
-| File                  | Purpose                                                                  |
-| --------------------- | ------------------------------------------------------------------------ |
-| `resolve-since.mjs`   | Compute the `@since` version for ONE new symbol you're adding now        |
-| `build-since-map.ts`  | Bulk: scan git history → `since-map.json` (first release tag per export) |
-| `apply-since-tags.ts` | Bulk: write `@since` tags from `since-map.json` into source              |
-| `since-map.json`      | Generated map consumed by `apply-since-tags.ts`                          |
+| File                  | Purpose                                                                      |
+| --------------------- | ---------------------------------------------------------------------------- |
+| `resolve-since.mjs`   | Compute the `@since` version for ONE new symbol you're adding now            |
+| `build-since-map.ts`  | Bulk: scan git history → `tmp/since-map.json` (first release tag per export) |
+| `apply-since-tags.ts` | Bulk: write `@since` tags from `tmp/since-map.json` into source              |
+
+The map is a generated, gitignored artifact — always regenerate it with `build-since-map.ts` before `apply-since-tags.ts`.
 
 ## Single new symbol (the common case)
 

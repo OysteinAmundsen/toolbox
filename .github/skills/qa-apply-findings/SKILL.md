@@ -1,14 +1,15 @@
 ---
 name: qa-apply-findings
-description: Shared execution core for QA workflows. Apply a normalized findings list, validate changes, and produce a structured result that can be used by both local `/qa` and reactive `/pr-qa` flows.
+description: Shared execution core for QA workflows. Apply a normalized findings list, validate changes, and produce a structured result. Used by the `qa` skill (local review) and the `qa-pr` skill (PR thread triage).
+user-invocable: false
 ---
 
 # Apply QA Findings (Shared Core)
 
 Use this skill when findings already exist and the goal is execution, not discovery.
 
-- `/qa` flow: local review discovers findings -> this skill applies them.
-- `/pr-qa` flow: PR comment triage produces findings -> this skill applies them.
+- `qa` flow: local review discovers findings -> this skill applies them.
+- `qa-pr` flow: PR comment triage produces findings -> this skill applies them.
 
 ## Input Contract
 
@@ -43,7 +44,7 @@ Return:
 - `applied`: list of finding IDs fixed
 - `deferred`: list of finding IDs not fixed + reason
 - `validation`: commands run + pass/fail
-- `replyItems` (optional): array matching `.github/skills/pr-comments/reply-items` shape for PR thread replies
+- `replyItems` (optional): array matching the `reply-resolve.mjs` items shape (`.github/skills/qa-pr/SKILL.md` → "Reply and resolve") for PR thread replies
 
 Use `.github/skills/qa-apply-findings/summary.template.md` as the summary structure.
 

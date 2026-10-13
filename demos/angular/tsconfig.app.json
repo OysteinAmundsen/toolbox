@@ -28,9 +28,5 @@
       }
     }
   },
-  "references": [
-    {
-      "path": "../../libs/grid/tsconfig.lib.json"
-    }
-  ]
+  "references": []
 }

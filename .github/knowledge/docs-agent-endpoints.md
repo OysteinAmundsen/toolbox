@@ -92,7 +92,7 @@ Three Astro endpoints serve plain markdown for agents, all driven by ONE source-
 
 ## docs audit tooling
 
-- `bun tools/docs-link-audit.ts` — internal-link/anchor gate over the content collection. Reports `missing-page`, `missing-anchor`, `uppercase-link`, `relative-from-non-index`, `via-redirect`. Must print `Total issues: 0`. Supersedes `.github/skills/docs-update/check-doc-links.mjs`.
+- `bun tools/docs-link-audit.ts` — internal-link/anchor gate over the content collection. Reports `missing-page`, `missing-anchor`, `uppercase-link`, `relative-from-non-index`, `via-redirect`. Must print `Total issues: 0`. (The old `docs-update/check-doc-links.mjs` checker was deleted.)
 - `bun tools/docs-api-coverage.ts` — public-API coverage gate. Must print `0 exports without a page or reference section`.
 - INVARIANT: `slugify` in the link audit replaces **each** whitespace char with `-` (github-slugger semantics, NOT `\s+`). `"Local Sort & Filter Modes"` → `local-sort--filter-modes`.
 - INVARIANT: relative links resolve from the page's **own URL** (`'/' + join(selfSlug, path)`), not `dirname(selfSlug)` — every page is served with a trailing slash, index or not.

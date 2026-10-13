@@ -1,28 +1,29 @@
 ---
-description: 'Token-budget mode system. `setup` installs a portable AI-usage-mode flag into this project (one-time), `saving` persists the bare-minimum/credit-saving mode, and `full` restores full autonomy. Designed to be copied into any project to govern how aggressively the agent spends tokens/credits.'
+name: ai-mode
+description: Token-budget mode system. `setup` installs a portable AI-usage-mode flag into this project (one-time), `saving` persists the bare-minimum/credit-saving mode, and `full` restores full autonomy. Designed to be copied into any project to govern how aggressively the agent spends tokens/credits.
+disable-model-invocation: true
 argument-hint: '[setup | saving | full]'
-agent: 'agent'
 ---
 
 # AI Usage Mode (token budget)
 
 A portable, project-scoped flag (`full` | `saving`) that governs how aggressively the agent
-spends tokens/credits. This single prompt owns three subcommands:
+spends tokens/credits. This single skill owns three subcommands:
 
 | Subcommand        | Effect                                                                                |
 | ----------------- | ------------------------------------------------------------------------------------- |
-| `/ai_mode setup`  | One-time install of the mode system into this project's instruction files.            |
-| `/ai_mode saving` | Persist the **saving** flag for this project (bare minimum; hand heavy work back).    |
-| `/ai_mode full`   | Restore **full** mode for this project (full autonomy; the default when no flag set). |
+| `/ai-mode setup`  | One-time install of the mode system into this project's instruction files.            |
+| `/ai-mode saving` | Persist the **saving** flag for this project (bare minimum; hand heavy work back).    |
+| `/ai-mode full`   | Restore **full** mode for this project (full autonomy; the default when no flag set). |
 
 The active flag lives in a project-scoped instruction file so it is portable: copying this
-prompt + the generated instruction file into another repo carries the whole system with it.
+skill + the generated instruction file into another repo carries the whole system with it.
 
 ---
 
 ## Parse the argument
 
-`${input:target}` is one of `setup`, `saving`, or `full`. If it is exactly one of those, jump to
+The argument is the text typed after `/ai-mode`. If it is exactly `setup`, `saving`, or `full`, jump to
 the matching section below. Otherwise (empty or unrecognized) → **do not change anything** and
 follow the `## Default / no-argument behavior` section.
 
@@ -34,13 +35,13 @@ Run these steps in order; do not modify any file.
 
 1. Read `.github/instructions/ai-mode.instructions.md`.
 2. If the file does not exist, respond exactly: "The AI mode system is not installed. Run
-   `/ai_mode setup` to install it." Then stop.
+   `/ai-mode setup` to install it." Then stop.
 3. If the file exists but contains neither `**Current mode: full**` nor `**Current mode: saving**`,
    respond that the file appears corrupted, show its current contents, and ask whether to re-run
-   `/ai_mode setup` to restore it. Then stop.
+   `/ai-mode setup` to restore it. Then stop.
 4. If the file exists and contains a valid flag line, extract its value and respond:
-   "Current mode: [value]. Available subcommands: `/ai_mode saving`, `/ai_mode full` (and
-   `/ai_mode setup` to reinstall)." Then stop.
+   "Current mode: [value]. Available subcommands: `/ai-mode saving`, `/ai-mode full` (and
+   `/ai-mode setup` to reinstall)." Then stop.
 
 ---
 
@@ -51,7 +52,7 @@ machine-global user memory, so the system is portable.
 
 1. **Check for an existing install.** If `.github/instructions/ai-mode.instructions.md` already
    exists, report that the system is already installed, show its `Current mode:` line, and stop
-   (do not overwrite). Offer `/ai_mode saving` / `/ai_mode full` to toggle instead.
+   (do not overwrite). Offer `/ai-mode saving` / `/ai-mode full` to toggle instead.
 
 2. **Create the always-on instruction file.** If the directory `.github/instructions/` does not
    exist, create it first (report the directory creation in the final summary). Then create
@@ -66,7 +67,7 @@ machine-global user memory, so the system is portable.
 
    # AI Usage Mode — active flag
 
-   <!-- Toggle with the /ai_mode prompt. Keeping this change uncommitted makes the flag
+   <!-- Toggle with the /ai-mode skill. Keeping this change uncommitted makes the flag
         machine-local; committing it shares the mode with the whole team. -->
 
    **Current mode: full**
@@ -123,7 +124,7 @@ machine-global user memory, so the system is portable.
       above." Report this in the final summary so the user can add deferrals manually.
 
 4. **Add a pointer (optional, only if a hub file exists).** If `.github/copilot-instructions.md`
-   exists and does not already contain the exact string `ai_mode` (case-sensitive substring
+   exists and does not already contain the exact string `/ai-mode` (case-sensitive substring
    search), append the following exact block to the end of the file verbatim (the heading is part
    of the block):
 
@@ -131,7 +132,7 @@ machine-global user memory, so the system is portable.
    ## AI Usage Mode
 
    The active token-budget flag lives in `.github/instructions/ai-mode.instructions.md`. Toggle it
-   with `/ai_mode saving` or `/ai_mode full`.
+   with `/ai-mode saving` or `/ai-mode full`.
    ```
 
    Otherwise skip this step. If the append fails for any reason (e.g. the file is read-only), skip
@@ -145,7 +146,7 @@ machine-global user memory, so the system is portable.
 ## `saving` — persist the saving flag
 
 1. Ensure `.github/instructions/ai-mode.instructions.md` exists. If not, tell the user to run
-   `/ai_mode setup` first and stop.
+   `/ai-mode setup` first and stop.
 2. Find the line matching `**Current mode: full**` or `**Current mode: saving**` and replace it in
    its entirety with `**Current mode: saving**`. If no such line is found, insert
    `**Current mode: saving**` immediately after the `# AI Usage Mode — active flag` heading and
@@ -158,7 +159,7 @@ machine-global user memory, so the system is portable.
 ## `full` — restore full mode
 
 1. Ensure `.github/instructions/ai-mode.instructions.md` exists. If not, tell the user to run
-   `/ai_mode setup` first and stop.
+   `/ai-mode setup` first and stop.
 2. Find the line matching `**Current mode: full**` or `**Current mode: saving**` and replace it in
    its entirety with `**Current mode: full**`. If no such line is found, insert
    `**Current mode: full**` immediately after the `# AI Usage Mode — active flag` heading and
@@ -173,5 +174,5 @@ machine-global user memory, so the system is portable.
   that file uses `applyTo: '**'` and is auto-loaded.
 - Persistence is project-scoped by design: each repo carries its own flag. Toggling here never
   affects other projects.
-- Portability: to install on another project, copy this prompt file into its `.github/prompts/`
-  and run `/ai_mode setup` there.
+- Portability: to install on another project, copy this skill folder into its `.github/skills/`
+  and run `/ai-mode setup` there.

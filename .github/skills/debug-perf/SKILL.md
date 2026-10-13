@@ -175,28 +175,12 @@ bun nx e2e e2e --grep="scroll performance"
 
 These tests enforce budgets for initial render, scrolling, sorting, filtering, and editing — and fail CI if a regression is detected.
 
-### Performance API in Unit Tests
+### Micro-benchmarks (`.bench.ts`), not timing assertions
 
-Use `performance.mark()` / `performance.measure()` in Vitest tests for micro-benchmarks:
-
-```typescript
-import { describe, it, expect } from 'vitest';
-
-it('should render 10k rows within budget', async () => {
-  const grid = document.createElement('tbw-grid');
-  document.body.appendChild(grid);
-  await waitUpgrade(grid);
-
-  performance.mark('render-start');
-  grid.rows = generateRows(10000);
-  await grid.ready();
-  performance.mark('render-end');
-
-  performance.measure('render-time', 'render-start', 'render-end');
-  const duration = performance.getEntriesByName('render-time')[0].duration;
-  expect(duration).toBeLessThan(100); // ms budget
-});
-```
+Do **not** assert wall-clock budgets (`expect(duration).toBeLessThan(100)`) in Vitest unit tests —
+happy-dom timing is not representative and such tests flake across machines. Measure a hot path
+with a co-located `*.bench.ts` and compare against a baseline via the `bench` skill
+(`bun run bench` or `bench-vs-tag.ts --ref <tag>`), which runs both sides on the same machine.
 
 ### Browser DevTools (Manual)
 
@@ -257,31 +241,10 @@ The grid has known hot paths that must be kept fast:
 ### Render Scheduler
 
 - Location: `libs/grid/src/lib/core/internal/render-scheduler.ts`
-- All rendering goes through a **single RenderScheduler** — single RAF per frame.
-
-#### Rules at a glance
-
-| Rule                                                      | Why it matters                                                                                | Example                                                                       |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Single RAF per frame (batched)                            | Prevents multiple layout/paint passes per frame.                                              | Scheduler coalesces all requests into one RAF callback.                       |
-| Highest phase wins                                        | A `FULL` request supersedes a `STYLE` request in the same frame, so work is never duplicated. | If `STYLE` and `ROWS` are requested, the scheduler runs from `ROWS` downward. |
-| Always go through the scheduler                           | Guarantees deterministic phase order and merging.                                             | `this.#scheduler.requestPhase(RenderPhase.ROWS, 'source')`.                   |
-| Never call `requestAnimationFrame` directly for rendering | Bypasses batching and breaks phase ordering.                                                  | Exception: the scroll hot path, which is documented in `render-scheduler.ts`. |
-
-#### Render phases (deterministic execution order)
-
-| Phase            | Value | Work Performed                            |
-| ---------------- | ----- | ----------------------------------------- |
-| `STYLE`          | 1     | Plugin `afterRender()` hooks only         |
-| `VIRTUALIZATION` | 2     | Recalculate virtual window                |
-| `HEADER`         | 3     | Re-render header row                      |
-| `ROWS`           | 4     | Rebuild row model                         |
-| `COLUMNS`        | 5     | Process columns, update CSS template      |
-| `FULL`           | 6     | Merge effective config + all lower phases |
-
-#### Pipeline order
-
-`mergeConfig → processRows → processColumns → renderHeader → virtualWindow → afterRender`
+- Single RAF per frame; highest requested phase wins; always `requestPhase(...)`, never a direct
+  `requestAnimationFrame` for rendering (scroll hot path is the documented exception).
+- Phase table, pipeline order and invariants: `.github/knowledge/grid-render-pipeline.md` and the
+  "Centralized Render Scheduler" section of `grid-architecture.instructions.md` — read those, not a copy here.
 
 ## Step 4: Common Fixes
 
@@ -346,15 +309,16 @@ class MyPlugin {
 }
 ```
 
-## Step 5: Benchmark
+## Step 5: Verify the Fix
 
 After fixing, verify the improvement:
 
-1. **Playwright trace comparison** — Capture traces before/after the fix and compare with `node .github/skills/debug-perf/analyze-trace.mjs`
-2. **Run e2e performance tests** — `bun nx e2e e2e --grep="Performance"` (enforces budgets, catches regressions)
-3. **Run unit tests** to verify no regressions — `bun nx test grid`
-4. **Check bundle size** hasn't increased — `bun nx build grid` (core ≤ 170 kB raw, ≤ 50 kB gzip with warning at 45 kB)
-5. **Add a performance test** if the fix addresses a new hot path not yet covered by `e2e/tests/performance-regression.spec.ts`
+1. **Micro-benchmark** — run the `bench` skill (`bun run bench`, or `bench-vs-tag.ts --ref <tag>`) and add a `.bench.ts` if the hot path had none. For a single bench regression end-to-end (profile → patch → re-bench → revert if no gain), use `/perf-fix`.
+2. **Playwright trace comparison** — Capture traces before/after the fix and compare with `node .github/skills/debug-perf/analyze-trace.mjs`
+3. **Run e2e performance tests** — `bun nx e2e e2e --grep="Performance"` (enforces budgets, catches regressions)
+4. **Run unit tests** to verify no regressions — `bun nx test grid`
+5. **Check bundle size** hasn't increased — `bundle-check` skill
+6. **Add a performance test** if the fix addresses a new hot path not yet covered by `e2e/tests/performance-regression.spec.ts`
 
 ## Performance Budget Summary
 

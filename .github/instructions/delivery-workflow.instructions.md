@@ -102,7 +102,7 @@ For a docs-only changeset:
   bun nx build docs                # only when .astro/.ts/config under apps/docs changed
   ```
 
-  For a pure prose/MDX edit, `docs-link-audit.ts` alone is a sufficient gate. For markdown outside `apps/docs/` (READMEs, `.github/**`), run `bunx prettier --check <files>` and nothing else.
+  For a pure prose/MDX edit, `docs-link-audit.ts` alone is a sufficient gate. For markdown outside `apps/docs/` (READMEs, `.github/**`), run `bunx prettier --check --end-of-line auto <files>` and nothing else (`--end-of-line auto`: with `core.autocrlf=true` the Windows working tree is CRLF, and a plain `--check` flags every touched file even though the committed LF blobs are clean).
 
 If you are unsure whether a changeset is docs-only, run `git status --short` and check the file list against the rules above before deciding.
 

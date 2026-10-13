@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Reads `.github/skills/since-tag/since-map.json` and inserts `@since
+ * Reads `tmp/since-map.json` (written by `build-since-map.ts`) and inserts `@since
  * X.Y.Z` JSDoc tags on the corresponding declarations in source.
  * Idempotent: skips symbols that already have a `@since` tag.
  *
@@ -15,12 +15,16 @@
  *     above (matching the indentation of the declaration).
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import * as ts from 'typescript';
 
 const repoRoot = resolve(import.meta.dirname, '../../..');
-const mapPath = resolve(import.meta.dirname, 'since-map.json');
+const mapPath = resolve(repoRoot, 'tmp/since-map.json');
+if (!existsSync(mapPath)) {
+  console.error(`Missing ${mapPath} — run \`bun .github/skills/since-tag/build-since-map.ts\` first.`);
+  process.exit(1);
+}
 
 /**
  * `--force` rewrites existing `@since X.Y.Z` tags to match the regenerated

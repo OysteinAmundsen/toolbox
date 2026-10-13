@@ -17,13 +17,13 @@
 // Each element needs: commentId (number), threadId (string), body (string).
 //
 // Usage:
-//   bun .github/skills/pr-comments/reply-resolve.mjs <pr> <items.json> [options]
+//   bun .github/skills/qa-pr/reply-resolve.mjs <pr> <items.json> [options]
 //     --no-resolve   post replies but leave threads open
 //     --dry-run      print what would happen; make no API calls
 //     --repo o/n     target repo (default: auto-detected via `gh repo view`)
 //
 // Example:
-//   bun .github/skills/pr-comments/reply-resolve.mjs 347 tmp/pr347-replies.json
+//   bun .github/skills/qa-pr/reply-resolve.mjs 347 tmp/pr347-replies.json
 //
 // Requires: gh (authenticated). No jq needed.
 import { execFileSync } from 'node:child_process';

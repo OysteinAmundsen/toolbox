@@ -5,7 +5,7 @@ description: 'AI usage mode (token budget). Auto-loaded every session; the Curre
 
 # AI Usage Mode — active flag
 
-<!-- Toggle with the /ai_mode prompt. Keeping this change uncommitted makes the flag
+<!-- Toggle with the /ai-mode skill. Keeping this change uncommitted makes the flag
      machine-local; committing it shares the mode with the whole team. -->
 
 **Current mode: full**

@@ -199,23 +199,10 @@ relaxed thresholds in `.fallowrc.json`. Flag them but don't block work on them.
 
 ## Integrating with `/qa`
 
-When running `/qa` on a branch or PR scope, include a fallow audit step:
-
-```bash
-bunx fallow audit --base origin/main --format json > tmp/fallow-audit.json
-```
-
-Map fallow JSON findings to `qa-apply-findings` format:
-
-- `severity: critical` → `blocking`
-- `severity: high` → `should-fix`
-- `severity: moderate` → `nit`
-
-For dead-code findings (`unused-export`, `unused-file`): always `blocking` on
-`libs/grid/src/public.ts` (public API surface), `should-fix` elsewhere.
-
-For complexity findings in **changed functions only** (filter by `introduced: true`
-in audit output): `blocking` if CRAP > 200, `should-fix` if CRAP 50–200.
+The `qa` skill runs fallow as part of its review checklist and **owns the fallow → report-severity
+mapping** (CRAP thresholds, dead-code-on-`public.ts` rule, circular deps, relaxed-path filter).
+See `.github/skills/qa/SKILL.md` → "Automated quality scan (fallow)". Do not duplicate the mapping
+here — edit it there.
 
 ---
 

@@ -10,9 +10,5 @@
   },
   "include": ["src/**/*", "astro.config.mjs"],
   "exclude": ["node_modules", "dist"],
-  "references": [
-    {
-      "path": "../../libs/grid"
-    }
-  ]
+  "references": []
 }

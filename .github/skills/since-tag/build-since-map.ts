@@ -2,7 +2,7 @@
 /**
  * Map every public top-level export of each library to the first published
  * version tag that contains it. Writes the result to
- * `.github/skills/since-tag/since-map.json` for the companion
+ * `tmp/since-map.json` (gitignored scratch) for the companion
  * `apply-since-tags.ts` script to consume.
  *
  * For each library:
@@ -21,8 +21,8 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, writeFileSync } from 'node:fs';
-import { relative, resolve } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { dirname, relative, resolve } from 'node:path';
 import * as ts from 'typescript';
 
 interface LibConfig {
@@ -287,6 +287,7 @@ for (const lib of libs) {
   out[lib.label] = libMap;
 }
 
-const outPath = resolve(import.meta.dirname, 'since-map.json');
+const outPath = resolve(repoRoot, 'tmp/since-map.json');
+mkdirSync(dirname(outPath), { recursive: true });
 writeFileSync(outPath, JSON.stringify(out, null, 2) + '\n', 'utf-8');
 console.log(`\nResolved ${totalResolved}/${totalExports} exports → ${relative(repoRoot, outPath).replace(/\\/g, '/')}`);

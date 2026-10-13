@@ -1,0 +1,16 @@
+{
+	"mcpServers": {
+		"chrome-devtools": {
+			"type": "local",
+			"command": "npx",
+			"args": [
+				"-y",
+				"chrome-devtools-mcp@latest",
+				"--cdp-url=http://localhost:9222"
+			],
+			"tools": [
+				"*"
+			]
+		}
+	}
+}

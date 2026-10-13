@@ -1,7 +1,8 @@
 ---
-description: 'Local pre-commit code review **and fix**. Reviews the target scope (file, folder, uncommitted changes, or the whole branch vs its base), produces an actionable findings list, then applies the fixes — same loop as opening a PR, getting Copilot review comments, and having an agent address them, but entirely local. Append `report-only` to skip the fix step.'
+name: qa
+description: Local pre-commit code review **and fix**. Reviews the target scope (file, folder, uncommitted changes, or the whole branch vs its base), produces an actionable findings list, then applies the fixes — same loop as opening a PR, getting Copilot review comments, and having an agent address them, but entirely local. Append `report-only` to skip the fix step.
+disable-model-invocation: true
 argument-hint: '[optional file/folder path | "branch [base-ref]"] [optional "report-only"]'
-agent: 'agent'
 ---
 
 # QA Review + Fix
@@ -10,16 +11,17 @@ End-to-end local quality loop:
 
 1. **Review** the target scope with the same rigor as the GitHub Copilot PR reviewer.
 2. **Report** findings in a normalized format that can be executed by the shared `qa-apply-findings` skill.
-3. **Fix + validate** by delegating to `qa-apply-findings` (execution core shared with `/pr-qa`).
+3. **Fix + validate** by delegating to `qa-apply-findings` (execution core shared with the `qa-pr` triage flow).
 4. **Summarize** what was changed, what was left, and why.
 
 The user runs this _before_ committing so problems are caught locally instead of waiting for the PR reviewer.
+Once a PR exists and has review comments, use `/qa-pr <PR number>` instead (the remote half of QA).
 
 ---
 
 ## 1. Parse the argument
 
-`${input:target}` may contain:
+The text after `/qa` may contain:
 
 - A file path → review that file.
 - A folder path → review every source file under it (recursive; exclude `node_modules`, `dist`, `build`, `coverage`, `.nx`, generated code).
@@ -118,8 +120,8 @@ bunx fallow --format json > tmp/fallow-audit.json
 
 After running, read `tmp/fallow-audit.json` and extract findings. Map to report severity:
 
-| fallow `severity`                                                       | Report tier                                     | Condition |
-| ----------------------------------------------------------------------- | ----------------------------------------------- | --------- |
+| fallow finding                                                          | Report tier                                     |
+| ----------------------------------------------------------------------- | ----------------------------------------------- |
 | `critical` and `introduced: true` (in audit)                            | **Blocking** if CRAP > 200, else **Should fix** |
 | `high` and `introduced: true`                                           | **Should fix**                                  |
 | `moderate`                                                              | **Nit**                                         |

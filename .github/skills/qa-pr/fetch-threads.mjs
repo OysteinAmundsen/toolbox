@@ -10,13 +10,13 @@
 //   { threadId, commentId, author, path, line, isResolved, isOutdated, body }
 //
 // Usage:
-//   bun .github/skills/pr-comments/fetch-threads.mjs <pr> [--all] [--repo owner/name]
+//   bun .github/skills/qa-pr/fetch-threads.mjs <pr> [--all] [--repo owner/name]
 //     --all          include resolved threads too (default: unresolved only)
 //     --repo o/n     target repo (default: auto-detected via `gh repo view`)
 //
 // Examples:
-//   bun .github/skills/pr-comments/fetch-threads.mjs 347
-//   bun .github/skills/pr-comments/fetch-threads.mjs 347 --all > tmp/pr347-threads.json
+//   bun .github/skills/qa-pr/fetch-threads.mjs 347
+//   bun .github/skills/qa-pr/fetch-threads.mjs 347 --all > tmp/pr347-threads.json
 //
 // Requires: gh (authenticated). No jq needed.
 import { execFileSync } from 'node:child_process';

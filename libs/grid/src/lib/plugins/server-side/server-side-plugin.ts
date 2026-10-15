@@ -143,6 +143,12 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   private blockControllers = new Map<number, AbortController>();
   private lastRequestId = 0;
   private scrollDebounceTimer?: ReturnType<typeof setTimeout>;
+  /**
+   * One-shot flag set when a block lands; consumed in `afterRender()` to re-check
+   * required blocks against the viewport produced by the render that the new data
+   * triggered (a synchronous check would see the pre-render virtual window).
+   */
+  private pendingViewportCheck = false;
   /** Persistent node array with stable placeholder references to avoid unnecessary DOM rebuilds. */
   private managedNodes: unknown[] = [];
   // #endregion
@@ -198,6 +204,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.abortAllBlocks();
     this.managedNodes = [];
     this.lastRequestId = 0;
+    this.pendingViewportCheck = false;
     if (this.scrollDebounceTimer) {
       clearTimeout(this.scrollDebounceTimer);
       this.scrollDebounceTimer = undefined;
@@ -433,6 +440,8 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
             this.managedNodes.length < (Number.isFinite(this.totalNodeCount) ? this.totalNodeCount : 0);
 
           if (needsRowModelRebuild) {
+            // Scheduled render: re-check against its viewport in afterRender().
+            this.pendingViewportCheck = true;
             this.requestRender();
           } else {
             // Re-render visible rows without force geometry recalculation.
@@ -442,7 +451,8 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
             this.requestVirtualRefresh();
           }
 
-          // Re-check with fresh viewport: user may have scrolled further
+          // Re-check now in case the user scrolled while the block was in flight
+          // (requestVirtualRefresh() is synchronous, so the window is current).
           this.loadRequiredBlocks();
         })
         .catch((error: unknown) => {
@@ -526,6 +536,13 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     }
 
     return this.managedNodes;
+  }
+
+  /** @internal */
+  override afterRender(): void {
+    if (!this.pendingViewportCheck) return;
+    this.pendingViewportCheck = false;
+    this.loadRequiredBlocks();
   }
 
   /** @internal */
@@ -616,6 +633,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.managedNodes = [];
     this.totalNodeCount = 0;
     this.infiniteScrollMode = false;
+    this.pendingViewportCheck = false;
 
     // Load first block with enrichment params
     const blockSize = this.config.pageSize ?? 100;
@@ -647,15 +665,11 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
         };
         this.broadcast('datasource:data', detail);
         this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
+        // Fill the rest of the viewport (plus loadThreshold) once block 0 has
+        // rendered — see afterRender(). Checking here would use the empty
+        // pre-data virtual window and request nothing.
+        this.pendingViewportCheck = true;
         this.requestRender();
-
-        // When loadThreshold is configured, re-check the viewport so the
-        // prefetch can pull in additional blocks immediately rather than
-        // waiting for the user's first scroll. Gated on the threshold to
-        // preserve the historical "first fetch loads block 0 only" behavior.
-        if ((this.config.loadThreshold ?? 0) > 0) {
-          this.loadRequiredBlocks();
-        }
       })
       .catch((error: unknown) => {
         this.blockControllers.delete(0);
@@ -695,6 +709,8 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.abortAllBlocks();
     this.loadedBlocks.clear();
     this.managedNodes = [];
+    // Drop a deferred viewport fill so the purge doesn't refetch on the next render.
+    this.pendingViewportCheck = false;
   }
 
   /**

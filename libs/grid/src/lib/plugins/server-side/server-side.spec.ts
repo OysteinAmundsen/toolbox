@@ -1193,6 +1193,10 @@ describe('ServerSidePlugin', () => {
           .mockResolvedValue({ rows: Array.from({ length: 10 }, (_, i) => ({ id: i })), totalNodeCount: 100 }),
       };
       plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      // Simulate the render that block 0 requested — the prefetch check runs there.
+      plugin.afterRender();
 
       await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(2));
 
@@ -1263,6 +1267,128 @@ describe('ServerSidePlugin', () => {
       expect((mockDS.getRows as any).mock.calls.length).toBe(1);
 
       vi.useRealTimers();
+    });
+  });
+
+  describe('viewport taller than one block (#507)', () => {
+    const pagedDS = (total: number): ServerSideDataSource => ({
+      getRows: vi.fn().mockImplementation(({ startNode, endNode }: { startNode: number; endNode: number }) =>
+        Promise.resolve({
+          rows: Array.from({ length: Math.max(0, Math.min(total, endNode) - startNode) }, (_, i) => ({
+            id: startNode + i,
+          })),
+          totalNodeCount: total,
+        }),
+      ),
+    });
+
+    it('should load further visible blocks after the post-data render, without loadThreshold or scroll', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
+      // Before data arrives the grid has no rows, so the virtual window is empty.
+      const grid = createServerSideMockGrid({
+        _virtualization: { enabled: true, start: 0, end: 0 },
+      });
+      plugin.attach(grid as any);
+
+      const ds = pagedDS(100);
+      plugin.setDataSource(ds);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+      expect(ds.getRows).toHaveBeenCalledTimes(1);
+
+      // Simulate the render that block 0 requested: rows exist now and the
+      // virtual window spans 28 rows (blocks 0, 1 and 2).
+      plugin.processRows([]);
+      grid._virtualization.end = 28;
+      plugin.afterRender();
+
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(3));
+      const starts = (ds.getRows as any).mock.calls.map((c: any[]) => c[0].startNode);
+      expect(starts).toEqual([0, 10, 20]);
+
+      plugin.detach();
+    });
+
+    it('should keep filling the viewport as each block lands (respecting maxConcurrentRequests)', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 10, maxConcurrentRequests: 1 });
+      const grid = createServerSideMockGrid({
+        _virtualization: { enabled: true, start: 0, end: 0 },
+      });
+      plugin.attach(grid as any);
+
+      let inFlight = 0;
+      let maxInFlight = 0;
+      const inner = pagedDS(100);
+      const ds: ServerSideDataSource = {
+        getRows: vi.fn().mockImplementation(async (params) => {
+          maxInFlight = Math.max(maxInFlight, ++inFlight);
+          try {
+            return await inner.getRows(params);
+          } finally {
+            inFlight--;
+          }
+        }),
+      };
+      plugin.setDataSource(ds);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      grid._virtualization.end = 28;
+      plugin.afterRender();
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(3));
+
+      expect(ds.getRows).toHaveBeenCalledTimes(3);
+      expect(maxInFlight).toBe(1);
+
+      plugin.detach();
+    });
+
+    it('should only re-check once per data load (scroll renders do not re-run it)', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
+      const grid = createServerSideMockGrid({
+        _virtualization: { enabled: true, start: 0, end: 0 },
+      });
+      plugin.attach(grid as any);
+
+      const ds = pagedDS(100);
+      plugin.setDataSource(ds);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      grid._virtualization.end = 10;
+      plugin.afterRender(); // consumes the pending check; block 0 already covers 0..10
+
+      grid._virtualization.start = 50;
+      grid._virtualization.end = 60;
+      plugin.afterRender(); // no pending check → no fetch (onScroll owns this path)
+
+      expect(ds.getRows).toHaveBeenCalledTimes(1);
+
+      plugin.detach();
+    });
+
+    it('should not refetch when purgeCache() runs between block resolution and afterRender()', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
+      const grid = createServerSideMockGrid({
+        _virtualization: { enabled: true, start: 0, end: 0 },
+      });
+      plugin.attach(grid as any);
+
+      const ds = pagedDS(100);
+      plugin.setDataSource(ds);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      // Block 0 landed and scheduled a render; the consumer purges before it runs.
+      plugin.purgeCache();
+
+      // The scheduled render rebuilds placeholders from the retained total count.
+      plugin.processRows([]);
+      grid._virtualization.end = 28;
+      plugin.afterRender();
+      await Promise.resolve();
+
+      // purgeCache() clears without refreshing — nothing is requested until the next scroll.
+      expect(ds.getRows).toHaveBeenCalledTimes(1);
+      expect(plugin.getLoadedBlockCount()).toBe(0);
+
+      plugin.detach();
     });
   });
 

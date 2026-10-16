@@ -406,6 +406,31 @@ For operations that need to wait for render cycles:
 3. `take_screenshot` for visual state
 4. `take_snapshot` to see what DOM was actually rendered
 
+### "Is the plugin CSS / row height actually right?" (headless, scripted)
+
+Vitest cannot answer this — happy-dom has no layout and `?inline` plugin CSS is empty in
+specs. When a fix depends on CSS or measured heights (e.g. a row's drawn height vs. the
+height virtualization reserved), check the **built** bundles in a real Chromium:
+
+1. `bun nx build grid`, then a throwaway page under `tmp/` (gitignored) that loads
+   `../dist/libs/grid/umd/grid.umd.js` + the needed `umd/plugins/<name>.umd.js` with plain
+   `<script>` tags. Built bundles inline plugin CSS, so styles apply exactly as shipped.
+   Open it via `file://` (`pathToFileURL`) — no dev server needed.
+2. Drive it from a Node script with `playwright`'s `chromium`; read
+   `getBoundingClientRect()`, `getComputedStyle(el, '::before').content` and
+   `grid._virtualization.positionCache[i].height` in one `page.evaluate`.
+3. **Assert the precondition, not just the result.** A check that finds nothing to compare
+   passes vacuously. Example: Responsive's `ResizeObserver` overrides `setResponsive(true)`
+   when the host is wider than `breakpoint`, so set a breakpoint above the host width and
+   assert `[data-responsive]` is present before measuring.
+4. **Prove the check can fail:** `git stash push -- libs tools`, rebuild, run it (it must
+   FAIL), `git stash pop`, rebuild. Select elements by something that exists on BOTH sides
+   (e.g. `.tbw-row-loading`, not a class the fix introduced) or the old build just times out.
+
+If `chromium.launch()` fails with "Executable doesn't exist … chromium_headless_shell-NNNN",
+the installed Playwright expects a newer browser build. Rather than downloading one, pass an
+installed build: `chromium.launch({ executablePath: '<LOCALAPPDATA>/ms-playwright/chromium-<ver>/chrome-win64/chrome.exe' })`.
+
 ### "New UI element looks wrong in some themes"
 
 Run this for **any** new overlay, popover, or control before calling it done — a control

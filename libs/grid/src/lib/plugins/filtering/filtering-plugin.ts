@@ -219,7 +219,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   private getFilterExtractor(
     col: ColumnConfig,
   ): ((value: unknown, row: Record<string, unknown>) => unknown | unknown[]) | undefined {
-    if (col.filterValue) return col.filterValue;
+    const { filterValue } = col;
+    // Loading placeholders (ServerSide under `filterMode: 'local'`) hold no data; give
+    // them the same `undefined` a plain field read would, without calling consumer code.
+    if (filterValue) return (v, row) => (row.__loading === true ? undefined : filterValue(v, row));
     if (col.valueAccessor) return (_v, row) => resolveCellValue(row, col);
     return undefined;
   }

@@ -25,7 +25,8 @@ export function detectTreeStructure(
 
   // Check if any row has children (embedded array or lazy indicator)
   for (const row of rows) {
-    if (!row) continue;
+    // Loading placeholders (ServerSide) hold no data; never pass them to `hasChildren`.
+    if (!row || row.__loading === true) continue;
     const children = row[childrenField];
     // Embedded children: non-empty array
     if (Array.isArray(children) && children.length > 0) return true;

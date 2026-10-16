@@ -36,12 +36,25 @@ serverSide.setDataSource({
 
 ## Configuration
 
-| Option                  | Type     | Default | Description                                                    |
-| ----------------------- | -------- | ------- | -------------------------------------------------------------- |
-| `pageSize`              | `number` | `100`   | Rows per `getRows()` call (also surfaced as `params.pageSize`) |
-| `maxConcurrentRequests` | `number` | `2`     | Max concurrent block loads                                     |
+| Option                  | Type                         | Default         | Description                                                                                     |
+| ----------------------- | ---------------------------- | --------------- | ----------------------------------------------------------------------------------------------- |
+| `pageSize`              | `number`                     | `100`           | Rows per `getRows()` call (also surfaced as `params.pageSize`)                                  |
+| `maxConcurrentRequests` | `number`                     | `2`             | Max concurrent block loads                                                                      |
+| `placeholderRendering`  | `'loading-row' \| 'columns'` | `'loading-row'` | How rows still loading render: the grid's row-loading spinner, or through your column renderers |
 
 > **Note:** `dataSource` is set via the `setDataSource()` method, not as a config option.
+
+## Loading Placeholders
+
+Rows whose block hasn't arrived are placeholder objects (`{ __loading: true, __index }`). By default the grid renders them itself in the core row-loading state (`.tbw-row-loading`, `aria-busy`, spinner overlay, `loadingRenderer({ size: 'small' })`). Column renderers, `format`, `cellClass`, `rowClass` and context menus (mouse or keyboard) never see them. In every mode `valueAccessor`, `filterValue` and a `rowHeight` function are never called with a placeholder, so local sort/filter is safe mid-load, and `getRowId` is never called with one: placeholders get an internal id `__loading:<index>`.
+
+Set `placeholderRendering: 'columns'` to render placeholders through your own column renderers instead, and detect them with the exported guard:
+
+```ts
+import { isLoadingPlaceholder } from '@toolbox-web/grid/plugins/server-side';
+
+renderer: ({ row, value }) => (isLoadingPlaceholder(row) ? 'Loading…' : value);
+```
 
 ## Data Source Interface
 

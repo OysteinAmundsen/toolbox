@@ -80,6 +80,16 @@ describe('value-accessor', () => {
       resolveCellValue(42 as unknown as Row, c as unknown as ColumnConfig<Row>);
       expect(accessor).toHaveBeenCalledTimes(2);
     });
+
+    it('never invokes the accessor for loading placeholders (#508)', () => {
+      const accessor = vi.fn(({ row: r }: { row: Row }) => r.first.toUpperCase());
+      const c = col({ field: 'firstUpper', valueAccessor: accessor });
+      const serverSide = { __loading: true, __index: 4 } as unknown as Row;
+      const grouped = { __loading: true, __groupKey: 'dept=Sales' } as unknown as Row;
+      expect(resolveCellValue(serverSide, c)).toBeUndefined();
+      expect(resolveCellValue(grouped, c)).toBeUndefined();
+      expect(accessor).not.toHaveBeenCalled();
+    });
   });
 
   describe('invalidateAccessorCache', () => {

@@ -7,7 +7,7 @@
 import { GridClasses } from '../../core/constants';
 import { aggregatorRegistry } from '../../core/internal/aggregators';
 import { announce, getA11yMessage } from '../../core/internal/aria';
-import { setRowLoadingState } from '../../core/internal/loading';
+import { renderLoadingPlaceholderRow } from '../shared/loading-placeholder';
 import { setSanitizedHTML } from '../../core/internal/sanitize';
 import {
   BaseGridPlugin,
@@ -778,20 +778,11 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
    * Render a row. Returns true if we handled the row (group row or loading placeholder), false otherwise.
    * @internal
    */
-  override renderRow(row: any, rowEl: HTMLElement, _rowIndex: number): boolean {
+  override renderRow(row: any, rowEl: HTMLElement, rowIndex: number): boolean {
     // Handle loading placeholder rows for pre-defined groups
     // Uses the grid's built-in row loading API for consistent, customizable spinners
     if (row?.__loading === true && row?.__groupKey) {
-      rowEl.className = 'data-grid-row';
-      (rowEl as RowElementInternal).__isCustomRow = true;
-      rowEl.innerHTML = '';
-      const cell = document.createElement('div');
-      cell.className = 'cell';
-      cell.style.gridColumn = '1 / -1';
-      cell.setAttribute('role', 'gridcell');
-      cell.textContent = '\u00A0'; // &nbsp; for row height
-      rowEl.appendChild(cell);
-      setRowLoadingState(rowEl, true);
+      renderLoadingPlaceholderRow(this.grid, rowEl, row, rowIndex);
       return true;
     }
 

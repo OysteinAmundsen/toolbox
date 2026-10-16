@@ -30,6 +30,7 @@ import { ensureCellVisible } from '../../core/internal/keyboard';
 import { evalTemplateString, setSanitizedHTML } from '../../core/internal/sanitize';
 import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { GridHost } from '../../core/types';
+import { PLACEHOLDER_ROW_CLASS } from '../shared/loading-placeholder';
 import styles from './responsive.css?inline';
 import type {
   BreakpointConfig,
@@ -1240,10 +1241,20 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    * @returns The row height in pixels, or undefined if not in responsive mode
    */
   override getRowHeight(row: unknown, _index: number): number | undefined {
-    // Only applies when in responsive mode with cardRenderer
-    if (!this.#isResponsive || !this.config.cardRenderer) {
-      return undefined;
+    if (!this.#isResponsive) return undefined;
+
+    // A loading placeholder (ServerSide block / grouped rows in flight) is drawn by
+    // the plugin that owns it at the height reported here, so it reserves the slot
+    // the real card will fill — no layout shift when the data arrives. A
+    // `cardRenderer` card is sized by `cardRowHeight`; a CSS-only card grows to fit
+    // its cells, so there the placeholder takes the MEASURED card height (until the
+    // first measurement it falls back to the grid's estimate).
+    if ((row as { __loading?: boolean }).__loading === true) {
+      return this.config.cardRenderer ? this.#getCardHeight() : this.#measuredCardHeight;
     }
+
+    // Otherwise only applies with a cardRenderer
+    if (!this.config.cardRenderer) return undefined;
 
     // Check if this is a group row
     if ((row as { __isGroupRow?: boolean }).__isGroupRow) {
@@ -1317,8 +1328,11 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     // With cardRenderer, rows have the `.responsive-card` class.
     // Without cardRenderer (CSS-only card mode), rows are plain `.data-grid-row`
     // elements whose CSS height is `auto` — we need to measure their actual
-    // rendered height so the faux scrollbar spacer is sized correctly.
-    const cardSelector = this.config.cardRenderer ? '.data-grid-row.responsive-card' : '.data-grid-row:not(.group-row)';
+    // rendered height so the faux scrollbar spacer is sized correctly. Loading
+    // placeholders are sized FROM this measurement, so they must not feed it.
+    const cardSelector = this.config.cardRenderer
+      ? '.data-grid-row.responsive-card'
+      : `.data-grid-row:not(.group-row, .${PLACEHOLDER_ROW_CLASS})`;
     const cardRow = this.gridElement.querySelector(cardSelector) as HTMLElement | null;
     if (cardRow) {
       const height = cardRow.getBoundingClientRect().height;

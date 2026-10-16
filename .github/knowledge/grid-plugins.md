@@ -54,7 +54,7 @@ related: [grid-plugins-catalog-data, grid-plugins-catalog-ui, grid-plugins-shell
 | ---------------------------- | ------------------------------------------------------------------- |
 | `getRowHeight`               | synthetic row height (detail panels, tree)                          |
 | `adjustVirtualStart`         | render extra rows above the viewport                                |
-| `renderRow`                  | custom row DOM (bypasses the default renderer)                      |
+| `renderRow`                  | custom row DOM, bypasses default renderer; `hookPriority` order     |
 | `getHorizontalScrollOffsets` | pinned-column spacing for keyboard navigation (PinnedColumnsPlugin) |
 | `getVerticalScrollOffsets`   | overlay height above/below rows viewport (StickyRowsPlugin)         |
 

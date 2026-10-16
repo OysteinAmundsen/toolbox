@@ -627,11 +627,11 @@ export class PluginManager {
   }
 
   /**
-   * Execute renderRow hook on all plugins.
+   * Execute renderRow hook on all plugins, in `hookPriority` order.
    * Returns true if any plugin handled the row.
    */
   renderRow(row: any, rowEl: HTMLElement, rowIndex: number): boolean {
-    for (const plugin of this.plugins) {
+    for (const plugin of this.#getPluginsForHook('renderRow')) {
       if (plugin.renderRow?.(row, rowEl, rowIndex)) {
         return true;
       }

@@ -7,6 +7,7 @@ import { build, BuildOptions, defineConfig, LibraryOptions, Plugin } from 'vite'
 import dts from 'vite-plugin-dts';
 import { gzipSync } from 'zlib';
 import { bundleBudget } from '../../tools/vite-bundle-budget';
+import { assertSingleStateCopy, coreImports } from '../../tools/vite-core-imports';
 
 // Read package.json version for build-time injection
 const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'));
@@ -86,7 +87,7 @@ const libBuild = (opts: { entry: string; outDir: string; lib: LibraryOptions } &
     build: { emptyOutDir: false, sourcemap: true, ...opts },
   });
 
-/** Externalize core imports in plugin builds */
+/** Externalize plugin hard dependencies in per-plugin ESM builds (core imports: see `coreImports`). */
 function externalizeCore(): Plugin {
   return {
     name: 'externalize-core',
@@ -94,11 +95,6 @@ function externalizeCore(): Plugin {
     resolveId(source, importer) {
       const norm = importer?.replace(/\\/g, '/');
       if (!norm?.includes('/plugins/')) return null;
-      // Don't externalize utils/diagnostics — small utilities that should be inlined.
-      if (source.endsWith('core/internal/utils') || source.endsWith('core/internal/diagnostics')) return null;
-      if (source.startsWith('../../components/') || source.startsWith('../../../')) {
-        return { id: '@toolbox-web/grid', external: true };
-      }
       // A hard dependency on another plugin (`import { HierarchyPlugin } from '../hierarchy'`)
       // stays a separate module so the consumer's bundler includes it once.
       if (importer && source.startsWith('../')) {
@@ -113,6 +109,23 @@ function externalizeCore(): Plugin {
     },
   };
 }
+
+/**
+ * Per-symbol core import routing for per-plugin bundles (ESM + UMD): public API
+ * comes from `@toolbox-web/grid` (one shared instance), internal helpers inline.
+ * See tools/vite-core-imports.ts.
+ */
+const pluginCoreImports = (group: string, allowedExternals?: (id: string) => boolean) =>
+  coreImports({
+    publicEntry: resolve(__dirname, 'src/index.ts'),
+    publicId: '@toolbox-web/grid',
+    srcRoot: resolve(__dirname, 'src'),
+    coreRoot: resolve(__dirname, 'src/lib/core'),
+    tsconfig: resolve(__dirname, 'tsconfig.lib.json'),
+    coreBundle: resolve(outDir, 'index.js'),
+    group,
+    allowedExternals,
+  });
 
 /** Copy theme CSS files to dist/themes from shared libs/themes */
 function copyThemes(): Plugin {
@@ -201,7 +214,10 @@ function buildPluginModules(): Plugin {
             logLevel: 'silent',
             define: gridDefine,
             css: cssConfig,
-            plugins: [externalizeCore()],
+            plugins: [
+              pluginCoreImports('esm-plugins', (id) => id.startsWith('@toolbox-web/grid/plugins/')),
+              externalizeCore(),
+            ],
             build: {
               outDir: dir,
               emptyOutDir: false,
@@ -216,6 +232,7 @@ function buildPluginModules(): Plugin {
           });
         }),
       );
+      assertSingleStateCopy('esm-plugins');
 
       // Print plugin sizes summary
       console.log('\n\x1b[36mPlugin modules:\x1b[0m');
@@ -369,10 +386,11 @@ function buildUmdBundles(): Plugin {
         },
       });
 
-      // Individual plugin UMDs (parallel)
+      // Individual plugin UMDs (parallel). Public core API resolves to the
+      // `TbwGrid` global; internal helpers are inlined (see pluginCoreImports).
       // DEPRECATED (remove in v4): a plugin's hard dependency on another plugin
-      // (`../hierarchy`) matches neither external pattern below, so it is INLINED
-      // into the dependent UMD file. v4 externalizes it to the dependency's own
+      // (`../hierarchy`) is not externalized, so it is INLINED into the
+      // dependent UMD file. v4 externalizes it to the dependency's own
       // `TbwGridPlugin_<name>` global instead (documented in umd-readme.md).
       await Promise.all(
         pluginNames.map((name) =>
@@ -381,6 +399,7 @@ function buildUmdBundles(): Plugin {
             logLevel: 'silent',
             define: gridDefine,
             css: cssConfig,
+            plugins: [pluginCoreImports('umd-plugins')],
             build: {
               outDir: umdPlugins,
               emptyOutDir: false,
@@ -393,15 +412,15 @@ function buildUmdBundles(): Plugin {
                 fileName: () => `${name}.umd.js`,
               },
               rollupOptions: {
-                external: [/\.\.\/.*core/, /\.\.\/.*plugin/],
                 output: {
-                  globals: (id: string) => (id.includes('core') || id.includes('plugin') ? 'TbwGrid' : id),
+                  globals: { '@toolbox-web/grid': 'TbwGrid' },
                 },
               },
             },
           }),
         ),
       );
+      assertSingleStateCopy('umd-plugins');
 
       // Print UMD sizes summary
       console.log('\n\x1b[36mUMD bundles:\x1b[0m');

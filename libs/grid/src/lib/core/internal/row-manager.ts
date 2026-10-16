@@ -27,12 +27,20 @@ import { invalidateAccessorCache, readCellField, writeCellField } from './value-
  * through the RowManager instance.
  */
 export function tryResolveRowId<T>(row: T, getRowId?: (row: T) => string): string | undefined {
+  const r = row as Record<string, unknown>;
+  // Plugin loading placeholders (ServerSide blocks / GroupingRows groups in flight) are
+  // not consumer rows — give them a stable internal id instead of calling `getRowId`.
+  if (r?.__loading === true) {
+    if (r.__index != null) return `__loading:${r.__index}`;
+    if (r.__groupKey != null) return `__loading:group:${r.__groupKey}`;
+    return undefined;
+  }
+
   if (getRowId) {
     return getRowId(row);
   }
 
   // Fallback: common ID fields
-  const r = row as Record<string, unknown>;
   if ('id' in r && r.id != null) return String(r.id);
   if ('_id' in r && r._id != null) return String(r._id);
 

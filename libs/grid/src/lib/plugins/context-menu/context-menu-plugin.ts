@@ -552,6 +552,10 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
 
     // Find the focused cell element to position the menu near it
     const cellEl = this.gridElement?.querySelector<HTMLElement>(`[data-row="${rowIndex}"][data-col="${colIndex}"]`);
+    // A loading placeholder rendered as a loading row has no cells, and right-clicking
+    // it opens nothing — keep the keyboard path in line so consumer `items(params)`
+    // never receives one. (`placeholderRendering: 'columns'` renders real cells.)
+    if (!cellEl && (row as { __loading?: unknown } | undefined)?.__loading === true) return false;
     let x = 0;
     let y = 0;
     if (cellEl) {

@@ -119,7 +119,8 @@ export interface TreeConfig {
    * `children: true`) means children exist but are not loaded yet.
    *
    * A node with a non-empty embedded children array always counts as having
-   * children regardless of what this predicate returns.
+   * children regardless of what this predicate returns. Never called for
+   * ServerSide loading placeholders, which are always leaves.
    *
    * @since 3.4.0
    */

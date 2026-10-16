@@ -147,6 +147,7 @@ export type FieldReader = (row: unknown) => unknown;
  * const read = createFieldReader(column.field);
  * rows.sort((a, b) => compare(read(a), read(b)));
  * ```
+ * @internal
  * @since 3.4.0
  */
 export function createFieldReader(field: string): FieldReader {
@@ -172,6 +173,7 @@ export function createFieldReader(field: string): FieldReader {
  * hand-inlined fast path and only fall back to a {@link FieldReader} for the
  * dotted/unsafe minority.
  *
+ * @internal
  * @since 3.4.0
  */
 export function isPlainField(field: string): boolean {
@@ -239,6 +241,12 @@ export function resolveCellValue<TRow>(row: TRow, column: ColumnConfig<TRow>, ro
     const box = cellMap.get(key);
     if (box !== undefined) return box.v;
   } else {
+    // Plugin loading placeholders (ServerSide blocks / grouped rows in flight) hold no
+    // data. This is the single chokepoint for every accessor call — render, sort,
+    // filter, export, clipboard — so a consumer accessor never receives one (#508).
+    // Checked only on a row's first lookup: a placeholder never gets a cache entry,
+    // so cache hits pay nothing.
+    if ((row as { __loading?: unknown }).__loading === true) return undefined;
     cellMap = new Map();
     accessorCache.set(rowKey, cellMap);
   }

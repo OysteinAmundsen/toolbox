@@ -294,7 +294,7 @@ Local filtering only filters rows currently in the cache. With virtual scrolling
 :::
 
 :::note
-A column with a custom `sortComparator` is treated as user-owned: loading placeholder rows are **not** auto-pinned. Pin them yourself in your comparator if you want the same behaviour.
+A column with a custom `sortComparator` is treated as user-owned: loading placeholder rows are **not** auto-pinned. Pin them yourself in your comparator (detect them with `isLoadingPlaceholder()`) if you want the same behaviour.
 :::
 
 ### Prefetching with `loadThreshold`
@@ -394,16 +394,34 @@ The plugin uses a **block-based caching strategy**:
 5. Grid re-renders with new data
 
 **Loading state:**
-Rows that haven't loaded yet are represented with placeholder objects:
-```ts
-{ __loading: true, __index: 42 }
-```
+Rows that haven't loaded yet are placeholder objects (`{ __loading: true, __index: 42 }`). By default the
+grid renders each one itself, as a full-width row in the core [row-loading state](/grid/core/#loading-states):
+the `.tbw-row-loading` class, `aria-busy="true"` and the row spinner overlay. A custom `loadingRenderer` styles
+it too. When the block arrives the row is rebuilt with real data and the loading state is cleared.
 
-You can detect loading rows via a custom cell renderer and style them accordingly:
+Your code does not have to know about placeholders:
+
+- Column renderers, `format`, `cellClass`, `rowClass` and a Responsive `cardRenderer` are never called for them.
+- `valueAccessor` and `filterValue` are never called for them, so local sorting and filtering (`sortMode: 'local'`, `filterMode: 'local'`) are safe while a block is still loading. Placeholders resolve to `undefined` and sort to the end.
+- A `rowHeight` function is never called for them either; a placeholder uses the default row height. In Responsive card mode it takes the height of a real card, so nothing shifts when the data arrives.
+- The context menu does not open on them, whether by right-click or by keyboard (<kbd>Shift</kbd>+<kbd>F10</kbd>, the <kbd>ContextMenu</kbd> key).
+- `getRowId` is never called with one. The grid gives each placeholder an internal id, `__loading:<index>`.
+
+Placeholders still appear in `grid.rows`, and in a custom `sortComparator` under `sortMode: 'local'`, where
+they arrive with an `undefined` value. Use the exported `isLoadingPlaceholder()` guard to detect them there.
+
+To draw your own loading look instead, set `placeholderRendering: 'columns'`. Placeholders then take the
+normal cell render path, as they did before 3.9.1. `valueAccessor` and `filterValue` are still never called with one, so read placeholder state from `row`, not `value`:
+
 ```ts
+import { isLoadingPlaceholder } from '@toolbox-web/grid/plugins/server-side';
+
+features: {
+  serverSide: { dataSource, placeholderRendering: 'columns' },
+},
 columns: [{
   field: 'name',
-  renderer: (value, row) => row.__loading ? '<span class="loading">Loading…</span>' : value,
+  renderer: ({ row, value }) => (isLoadingPlaceholder(row) ? 'Loading…' : value),
 }]
 ```
 

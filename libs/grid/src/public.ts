@@ -452,4 +452,15 @@ export { RenderPhase } from './lib/core/internal/render-scheduler';
  * @internal
  */
 export { setFeatureResolver } from './lib/core/internal/feature-hook';
+
+/**
+ * Core helpers that per-plugin bundles import from the core entry instead of
+ * inlining: their modules hold module-level state (accessor/field-path caches,
+ * active-pointer tracking, the pointer-modality media query) that MUST exist
+ * once at runtime. Not for external use. See tools/vite-core-imports.ts.
+ * @internal
+ */
+export { startPointerDrag } from './lib/core/internal/pointer-drag';
+export { getPrimaryPointer } from './lib/core/internal/pointer-modality';
+export { createFieldReader, isPlainField } from './lib/core/internal/value-accessor';
 // #endregion

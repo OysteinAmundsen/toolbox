@@ -87,6 +87,26 @@ The build will hard-fail. Work through the **Over-budget investigation checklist
 
 Individual plugins are separate entry points. The `tools/build-size-report.ts` table from step 2 already lists every plugin's raw/gzip size (one row per plugin) — read those rows rather than re-listing files by hand. Plugins don't have strict budgets but should be as small as possible.
 
+## Bundle Composition (build-enforced + runtime smoke)
+
+Where code lives is a global rule (`development-principles.instructions.md` → "Bundle Composition"). The build enforces the structural half via `tools/vite-core-imports.ts`, which runs in the per-plugin ESM and UMD builds:
+
+| Build failure                                           | Meaning                                                                           | Fix                                                                                       |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `[core-imports] … inlines module state from X`          | A plugin inlined a core module that keeps module-level state, and core has it too | Export the plugin's entry point into that module from `public.ts` (`@internal` if needed) |
+| `[core-imports] module state exists more than once`     | Two plugin bundles each carry the same stateful core module                       | Same fix: export it from `public.ts` so both share core's instance                        |
+| `[core-imports] … which the built core does not export` | A plugin imports a public name that `index.js` doesn't export                     | Check `src/index.ts` re-exports                                                           |
+| `[core-imports] … unexpected external import`           | Something other than `@toolbox-web/grid` (or a plugin dep, ESM) went external     | Find the import; plugin-shared code belongs in `plugins/shared/`                          |
+
+A green build does not prove the bundles **run**. After touching `vite.config.ts`, `tools/vite-core-imports.ts`, `public.ts`, or a plugin's core imports, run the dist smoke test. It loads core and every plugin bundle (ESM and UMD) in happy-dom and drives a real grid:
+
+```bash
+bun nx build grid
+bun .github/skills/bundle-check/smoke-dist.mjs   # exit 1 + ✗ lines on failure
+```
+
+It catches what the build cannot: a UMD plugin reading an undefined `TbwGrid.<name>`, a plugin carrying its own `BaseGridPlugin` copy, and module state that is not shared with core (`aggregatorRegistry`). To prove a fix, build once with the old config (`git show HEAD:libs/grid/vite.config.ts`) and confirm the script fails there.
+
 ## Dead Code Removal
 
 Actively identify and remove dead code to minimize bundle size. Use the `fallow` skill for

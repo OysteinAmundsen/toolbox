@@ -37,6 +37,7 @@ related: [grid-plugins-catalog-data, grid-plugins-catalog-ui, grid-plugins-shell
 
 | Hook              | Phase        | Purpose                                  | Returns          |
 | ----------------- | ------------ | ---------------------------------------- | ---------------- |
+| `orderColumns`    | COLUMNS      | reorder FULL list, hidden incl. (#512)   | `ColumnConfig[]` |
 | `processColumns`  | COLUMNS      | transform column array                   | `ColumnConfig[]` |
 | `processRows`     | ROWS         | transform row array (filter/sort/expand) | `any[]`          |
 | `afterCellRender` | per-cell     | cell styling, badges                     | void             |

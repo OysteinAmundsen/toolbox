@@ -8,7 +8,7 @@ import {
   type AriaState,
 } from './internal/aria';
 import { normalizeColumns, type ColumnShorthand } from './internal/column-shorthand';
-import { autoSizeColumns, updateTemplate } from './internal/columns';
+import { autoSizeColumns, interleaveHiddenColumns, updateTemplate } from './internal/columns';
 import { ConfigManager } from './internal/config-manager';
 import { INVALID_ATTRIBUTE_JSON, warnDiagnostic } from './internal/diagnostics';
 import { buildBareGridDOMIntoElement } from './internal/dom-builder';
@@ -2005,8 +2005,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Let plugins process visible columns (column grouping, etc.)
     // Start from base columns (before any plugin transformation) - like #rebuildRowModel uses #rows
     if (this.#pluginManager) {
-      // Use base columns as source of truth, falling back to current _columns if not set
-      const sourceColumns = this.#baseColumns.length > 0 ? this.#baseColumns : this._columns;
+      // Use base columns as source of truth, falling back to current _columns if not set.
+      // Plugins that MOVE columns do so here on the full list (hidden included), so a hidden
+      // column already sits where it will appear once shown (#512).
+      const sourceColumns = this.#pluginManager.orderColumns(
+        this.#baseColumns.length > 0 ? this.#baseColumns : this._columns,
+      );
       const visibleCols = sourceColumns.filter((c) => !c.hidden);
       const hiddenCols = sourceColumns.filter((c) => c.hidden);
       const processedColumns = this.#pluginManager.processColumns([...visibleCols]);
@@ -2024,90 +2028,19 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           // Complete replacement: use processed columns directly (pivot mode)
           // Preserve hidden columns at the end
           this._columns = [...processedColumns, ...hiddenCols] as ColumnInternal<T>[];
+        } else if (hiddenCols.length === 0) {
+          this._columns = processedColumns as ColumnInternal<T>[];
         } else {
-          // Plugins may have modified, added, or reordered visible columns.
-          // Re-interleave hidden columns at their original positions (from sourceColumns)
-          // so that showing a column later restores it to its correct position.
-          this._columns = this.#mergeColumnsPreservingOrder(
-            sourceColumns,
-            processedColumns as ColumnInternal<T>[],
-            hiddenCols,
-          );
+          // Plugins may have modified, added, or dropped visible columns — their order is
+          // authoritative. Hidden columns are interleaved next to their unmoved source
+          // neighbours so showing one later restores it where it belongs (#512).
+          this._columns = interleaveHiddenColumns(sourceColumns, processedColumns as ColumnInternal<T>[]);
         }
       } else {
         // Plugins returned columns unchanged, but we may need to restore from base
         this._columns = [...sourceColumns] as ColumnInternal<T>[];
       }
     }
-  }
-
-  /**
-   * Merge plugin-processed visible columns with hidden columns, preserving original order.
-   * Hidden columns are re-inserted at their original positions (from sourceColumns) so that
-   * showing a column later restores it to the correct position instead of appending at end.
-   *
-   * @param sourceColumns - The original columns in correct order (from #baseColumns)
-   * @param processedVisible - Plugin-processed visible columns
-   * @param hiddenCols - Hidden columns to re-interleave
-   * @returns Merged columns array preserving original ordering for hidden columns
-   */
-  #mergeColumnsPreservingOrder(
-    sourceColumns: ColumnInternal<T>[],
-    processedVisible: ColumnInternal<T>[],
-    hiddenCols: ColumnInternal<T>[],
-  ): ColumnInternal<T>[] {
-    if (hiddenCols.length === 0) return processedVisible;
-
-    // Build a map of processed visible columns by field for O(1) lookup
-    const processedMap = new Map<string, ColumnInternal<T>>();
-    for (const col of processedVisible) {
-      processedMap.set(col.field, col);
-    }
-
-    // Collect plugin-added columns (not in source) — these go at the end
-    const sourceFields = new Set(sourceColumns.map((c) => c.field));
-    const pluginAdded: ColumnInternal<T>[] = [];
-    for (const col of processedVisible) {
-      if (!sourceFields.has(col.field)) {
-        pluginAdded.push(col);
-      }
-    }
-
-    // Walk sourceColumns in original order, picking from processed (visible) or hidden
-    const result: ColumnInternal<T>[] = [];
-    for (const srcCol of sourceColumns) {
-      const processed = processedMap.get(srcCol.field);
-      if (processed) {
-        // Visible column — use the plugin-processed version
-        result.push(processed);
-      } else if (srcCol.hidden) {
-        // Hidden column — keep at original position
-        result.push(srcCol);
-      }
-      // else: column was removed by plugins — skip
-    }
-
-    // Reinsert plugin-added columns at the position chosen by the plugin.
-    // Anchor each added column before the next source column in the processed
-    // visible order; if there is no following source column, it belongs at the end.
-    for (const added of pluginAdded) {
-      const processedIndex = processedVisible.indexOf(added);
-      const nextSource = processedVisible.slice(processedIndex + 1).find((col) => sourceFields.has(col.field));
-
-      if (!nextSource) {
-        result.push(added);
-        continue;
-      }
-
-      const anchorIndex = result.findIndex((col) => col.field === nextSource.field);
-      if (anchorIndex === -1) {
-        result.push(added);
-      } else {
-        result.splice(anchorIndex, 0, added);
-      }
-    }
-
-    return result;
   }
 
   /** Recompute row model via plugin hooks. */

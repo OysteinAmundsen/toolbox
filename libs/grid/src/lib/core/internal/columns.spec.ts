@@ -3,6 +3,7 @@ import { FitModeEnum } from '../types';
 import {
   applyInitialOrder,
   autoSizeColumns,
+  interleaveHiddenColumns,
   mergeColumns,
   parseLightDomColumns,
   parseLightDomTypeDefaults,
@@ -500,5 +501,51 @@ describe('applyInitialOrder', () => {
     // Unordered columns (a, c, d) should stay in relative order
     // b goes to index 2: a, c, b, d
     expect(cols.map((c: any) => c.field)).toEqual(['a', 'c', 'b', 'd']);
+  });
+});
+
+describe('interleaveHiddenColumns', () => {
+  // `!x` marks a hidden source column; plain names are visible.
+  const src = (...fields: string[]) =>
+    fields.map((f) => (f.startsWith('!') ? { field: f.slice(1), hidden: true } : { field: f }));
+  const cols = (...fields: string[]) => fields.map((field) => ({ field }));
+  const run = (source: string[], processed: string[]) =>
+    interleaveHiddenColumns(src(...source), cols(...processed)).map((c) => c.field);
+
+  it('keeps hidden columns at their source position when plugins did not reorder', () => {
+    expect(run(['a', 'b', '!c', 'd'], ['a', 'b', 'd'])).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('keeps the plugin order of visible columns (#512)', () => {
+    expect(run(['a', 'b', '!c', 'd'], ['d', 'a', 'b'])).toEqual(['d', 'a', 'b', 'c']);
+  });
+
+  it('anchors a hidden column to the unmoved neighbour, not the moved one', () => {
+    expect(run(['a', 'b', '!c', 'd', 'e'], ['a', 'd', 'e', 'b'])).toEqual(['a', 'c', 'd', 'e', 'b']);
+  });
+
+  it('keeps consecutive hidden columns in source order', () => {
+    expect(run(['a', '!x', '!y', 'b'], ['a', 'b'])).toEqual(['a', 'x', 'y', 'b']);
+  });
+
+  it('places leading hidden columns after plugin-prepended columns (#483)', () => {
+    expect(run(['!c', 'a', 'b'], ['__expander', 'a', 'b'])).toEqual(['__expander', 'c', 'a', 'b']);
+    expect(run(['a', '!c', 'b'], ['__expander', 'a', 'b'])).toEqual(['__expander', 'a', 'c', 'b']);
+  });
+
+  it('places trailing hidden columns before plugin-appended columns', () => {
+    expect(run(['a', 'b', '!c'], ['a', 'b', '__actions'])).toEqual(['a', 'b', 'c', '__actions']);
+  });
+
+  it('keeps hidden columns when plugins dropped every visible source column', () => {
+    expect(run(['!c', 'a'], ['__added'])).toEqual(['__added', 'c']);
+  });
+
+  it('does not re-insert a column a plugin hid during processing', () => {
+    // `b` was visible going in, then VisibilityPlugin seeded `hidden` on it in place.
+    const source = src('a', 'b', '!c');
+    const processed = [source[0], source[1]];
+    source[1].hidden = true;
+    expect(interleaveHiddenColumns(source, processed).map((c) => c.field)).toEqual(['a', 'b', 'c']);
   });
 });

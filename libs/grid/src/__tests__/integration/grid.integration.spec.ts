@@ -761,6 +761,122 @@ describe('tbw-grid integration: setPinPosition with ColumnVirtualizationPlugin',
   });
 });
 
+describe('tbw-grid integration: pinned columns with hidden columns (#512)', () => {
+  let grid: any;
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    grid = document.createElement('tbw-grid');
+    grid.style.display = 'block';
+    grid.style.height = '300px';
+    document.body.appendChild(grid);
+  });
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  async function render(columns: any[], extra: Record<string, unknown> = {}) {
+    grid.gridConfig = { columns, fitMode: 'fixed' as const, plugins: [new PinnedColumnsPlugin()], ...extra };
+    grid.rows = [{ a: 1, b: 2, c: 3, d: 4, e: 5 }];
+    await waitUpgrade(grid);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => setTimeout(r, 50));
+  }
+
+  const headerOrder = () =>
+    Array.from(grid.querySelectorAll('.header-row [role="columnheader"]')).map((el: any) =>
+      el.getAttribute('data-field'),
+    );
+
+  it.each([
+    [
+      'right-pinned before a hidden column',
+      [{ field: 'a' }, { field: 'b', pinned: 'right' }, { field: 'c', hidden: true }, { field: 'd' }],
+      ['a', 'd', 'b'],
+    ],
+    [
+      'leading hidden column',
+      [{ field: 'c', hidden: true }, { field: 'a' }, { field: 'b', pinned: 'right' }, { field: 'd' }],
+      ['a', 'd', 'b'],
+    ],
+    [
+      'logical end pin',
+      [{ field: 'a' }, { field: 'b', pinned: 'end' }, { field: 'c', hidden: true }, { field: 'd' }],
+      ['a', 'd', 'b'],
+    ],
+    [
+      'left-pinned last column',
+      [{ field: 'a' }, { field: 'b' }, { field: 'c', hidden: true }, { field: 'd', pinned: 'left' }],
+      ['d', 'a', 'b'],
+    ],
+  ])('moves pinned columns to the edge with a %s', async (_label, columns, expected) => {
+    await render(columns);
+    expect(grid._visibleColumns.map((c: any) => c.field)).toEqual(expected);
+    expect(headerOrder()).toEqual(expected);
+  });
+
+  it('keeps a hidden column where it would appear once shown', async () => {
+    await render([
+      { field: 'a' },
+      { field: 'b', pinned: 'right' },
+      { field: 'c', hidden: true },
+      { field: 'd' },
+      { field: 'e' },
+    ]);
+    // `b` is the column the plugin moved; `c` stays anchored to its unmoved neighbours.
+    expect(grid.getColumnOrder()).toEqual(['a', 'c', 'd', 'e', 'b']);
+
+    grid.toggleColumnVisibility('c');
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    expect(headerOrder()).toEqual(['a', 'c', 'd', 'e', 'b']);
+  });
+
+  it.each([
+    [
+      'right',
+      [{ field: 'a' }, { field: 'b', pinned: 'right' }, { field: 'c', hidden: true }, { field: 'd' }],
+      ['a', 'c', 'd', 'b'],
+    ],
+    [
+      'left',
+      [{ field: 'a' }, { field: 'b' }, { field: 'c', hidden: true }, { field: 'd', pinned: 'left' }],
+      ['d', 'a', 'b', 'c'],
+    ],
+  ])('reveals a hidden column next to its source neighbours (%s pin, 4 columns)', async (_label, columns, expected) => {
+    await render(columns);
+    expect(grid.getColumnOrder()).toEqual(expected);
+
+    grid.toggleColumnVisibility('c');
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    expect(headerOrder()).toEqual(expected);
+  });
+
+  it('makes the group header above a right-pinned column sticky while a column is hidden', async () => {
+    grid.gridConfig = {
+      columns: [
+        { field: 'a', pinned: 'left' },
+        { field: 'b' },
+        { field: 'c', hidden: true },
+        { field: 'd', pinned: 'right' },
+      ],
+      columnGroups: [{ id: 'g', header: 'G', children: ['b', 'c'] }],
+      fitMode: 'fixed' as const,
+      plugins: [new GroupingColumnsPlugin(), new PinnedColumnsPlugin()],
+    };
+    grid.rows = [{ a: 1, b: 2, c: 3, d: 4 }];
+    await waitUpgrade(grid);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => setTimeout(r, 50));
+
+    const groupCells = Array.from(grid.querySelectorAll('.header-group-row .header-group-cell')) as HTMLElement[];
+    const first = groupCells[0];
+    const last = groupCells[groupCells.length - 1];
+    expect(first.classList.contains('sticky-left')).toBe(true);
+    expect(last.classList.contains('implicit-group')).toBe(true);
+    expect(last.classList.contains('sticky-right')).toBe(true);
+    expect(last.style.position).toBe('sticky');
+  });
+});
+
 describe('tbw-grid integration: aria row/col indices', () => {
   it('applies correct aria-rowindex / aria-colindex values', async () => {
     const grid = document.createElement('tbw-grid') as any;
@@ -2982,11 +3098,7 @@ describe('MasterDetailPlugin + GroupingRowsPlugin integration', () => {
     await waitUpgrade(grid);
     await nextFrame();
 
-    expect(grid._visibleColumns.map((column: any) => column.field)).toEqual([
-      '__tbw_expander',
-      'orderId',
-      'total',
-    ]);
+    expect(grid._visibleColumns.map((column: any) => column.field)).toEqual(['__tbw_expander', 'orderId', 'total']);
   });
 
   it('renders expander toggle on data rows within expanded groups', async () => {

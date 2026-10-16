@@ -388,6 +388,18 @@ export class PluginManager {
   }
 
   /**
+   * Execute the internal orderColumns hook on all plugins (full column list, hidden included).
+   * Returns the input array unchanged when no plugin reorders.
+   */
+  orderColumns<C extends ColumnConfig>(columns: readonly C[]): readonly C[] {
+    let result = columns;
+    for (const plugin of this.plugins) {
+      if (plugin.orderColumns) result = plugin.orderColumns(result) as C[];
+    }
+    return result;
+  }
+
+  /**
    * Execute processColumns hook on all plugins.
    */
   processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {

@@ -153,14 +153,16 @@ tbw-grid[data-responsive] {
   }
 
   /* The default stacked-cell card grows to fit its cells. A custom `cardRenderer`
-     row sets its own height from `cardRowHeight`, so it must not be forced open. */
-  .data-grid-row:not(.group-row, .responsive-card) {
+     row sets its own height from `cardRowHeight`, and a loading placeholder takes
+     the card height the plugin reports for it, so neither may be forced open. */
+  .data-grid-row:not(.group-row, .responsive-card, .placeholder-row) {
     min-height: auto !important;
     height: auto !important;
   }
 
-  /* Stack cells vertically as label: value pairs */
-  .data-grid-row:not(.group-row) > .cell {
+  /* Stack cells vertically as label: value pairs. A placeholder's single spinner
+     cell has no field, so it gets no `Header:` label. */
+  .data-grid-row:not(.group-row, .placeholder-row) > .cell {
     display: flex !important;
     justify-content: space-between;
     align-items: center;

@@ -16,6 +16,7 @@ import {
   warnDiagnostic,
 } from '../../core/internal/diagnostics';
 import { builtInSort } from '../../core/internal/sorting';
+import { renderLoadingPlaceholderRow } from '../shared/loading-placeholder';
 import { BaseGridPlugin, ScrollEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import { createUrlDataSource, getBlockNumber, getRequiredBlocks, getRowFromCache, loadBlock } from './datasource';
@@ -31,6 +32,7 @@ import type {
   ViewportMappingQuery,
   ViewportMappingResponse,
 } from './datasource-types';
+import { createLoadingPlaceholder, isLoadingPlaceholder } from './placeholder';
 import type { ServerSideConfig } from './types';
 
 /** Scroll debounce delay in ms */
@@ -97,6 +99,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     modifiesRowStructure: true,
     hookPriority: {
       processRows: -10, // Run before structural plugins (Tree, GroupingRows)
+      renderRow: -10, // Claim placeholders before row renderers (e.g. Responsive cardRenderer) see them
     },
     incompatibleWith: [
       {
@@ -497,8 +500,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
 
     // Grow array with stable placeholder objects (created once, reused across renders)
     while (this.managedNodes.length < nodeCount) {
-      const i = this.managedNodes.length;
-      this.managedNodes.push({ __loading: true, __index: i });
+      this.managedNodes.push(createLoadingPlaceholder(this.managedNodes.length));
     }
     // Shrink if total decreased
     this.managedNodes.length = nodeCount;
@@ -536,6 +538,13 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     }
 
     return this.managedNodes;
+  }
+
+  /** @internal */
+  override renderRow(row: unknown, rowEl: HTMLElement, rowIndex: number): boolean {
+    if (!isLoadingPlaceholder(row) || this.config.placeholderRendering === 'columns') return false;
+    renderLoadingPlaceholderRow(this.grid, rowEl, row, rowIndex);
+    return true;
   }
 
   /** @internal */

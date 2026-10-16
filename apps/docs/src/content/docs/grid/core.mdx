@@ -514,9 +514,9 @@ Then define the CSS class in your stylesheet:
 :::note
 `rowClass` is applied to custom-rendered rows too — a Responsive `cardRenderer` card gets the
 same classes as the table row it replaces. It is only skipped for rows a plugin both synthesizes
-**and** renders itself (group headers, pivot rows, grouped loading placeholders), since those are
-not your data. Server-side `{ __loading: true }` placeholder rows are *not* skipped, so guard on
-`__loading` if your callback reads fields off the row.
+**and** renders itself (group headers, pivot rows, loading placeholders), since those are not your
+data. Server-side placeholders reach `rowClass` only if you opt in with
+`placeholderRendering: 'columns'`.
 
 The callback runs during rendering, so a class that depends on state outside the row object
 (a selected id, for example) only updates on the next render — call `grid.requestRender()` when
@@ -1509,7 +1509,7 @@ try {
 
 The `loading` attribute also works in HTML: `<tbw-grid loading></tbw-grid>`.
 
-**Row-level** — Shows a spinner on a specific row (requires `getRowId`):
+**Row-level** — Shows a spinner on a specific row, or your `loadingRenderer` with `size: 'small'` (requires `getRowId`):
 
 ```typescript
 grid.setRowLoading('row-42', true);
@@ -1640,7 +1640,7 @@ export class MyGridComponent {
   </TabItem>
 </Tabs>
 
-The `LoadingContext` provides a `size` property: `'large'` for the grid-wide overlay (up to 48×48 px) and `'small'` for row/cell indicators (sized to the row height).
+The `LoadingContext` provides a `size` property: `'large'` for the grid-wide overlay (up to 48×48 px) and `'small'` for row indicators (`setRowLoading()` and Server-Side loading placeholders). Cell-level loading always uses the built-in spinner.
 
 <ShowSource file="demos/CustomLoadingRendererDemo.astro">
   <CustomLoadingRendererDemo />

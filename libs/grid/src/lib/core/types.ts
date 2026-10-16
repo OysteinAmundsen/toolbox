@@ -1019,6 +1019,9 @@ export interface BaseColumnConfig<TRow = any, TValue = any, TField extends strin
    * Note: a `valueAccessor` without a paired `valueSetter` (planned API)
    * implies the column is read-only — editors will not commit through it.
    *
+   * Never called for plugin loading placeholders (ServerSide rows whose block
+   * has not loaded, grouped rows being fetched): they resolve to `undefined`.
+   *
    * @example
    * ```typescript
    * // Computed value from nested data
@@ -2726,9 +2729,10 @@ export interface GridConfig<TRow = any, TField extends string = ColumnFieldKey<T
    * Called for each row during rendering. Return class names to add to the row element.
    *
    * Applies to custom-rendered rows too (e.g. a Responsive `cardRenderer` card), but not to rows
-   * a plugin both synthesizes and renders itself — group headers, pivot rows and grouped loading
-   * placeholders are skipped because they are not `TRow` values. ServerSide's
-   * `{ __loading: true }` placeholders take the default render path and are NOT skipped.
+   * a plugin both synthesizes and renders itself — group headers, pivot rows and loading
+   * placeholders (grouped or ServerSide) are skipped because they are not `TRow` values.
+   * ServerSide placeholders only reach `rowClass` under its opt-in
+   * `placeholderRendering: 'columns'`.
    *
    * @example
    * ```typescript
@@ -2817,6 +2821,8 @@ export interface GridConfig<TRow = any, TField extends string = ColumnFieldKey<T
    *
    * **Variable Row Heights**: When a function is provided, the grid enables variable height
    * virtualization. Heights are measured on first render and cached by row identity.
+   * The function is never called for plugin loading placeholders (ServerSide rows whose
+   * block has not loaded); they use the default row height.
    *
    * **Numeric form**: the value is written to the `--tbw-row-height` custom property on the host
    * element (overriding the theme) and is never replaced by a measured height, even when a plugin
@@ -2983,6 +2989,9 @@ export interface GridConfig<TRow = any, TField extends string = ColumnFieldKey<T
    * If not provided, falls back to `row.id` or `row._id` if present.
    * Rows without IDs are silently skipped during map building.
    * Only throws when explicitly calling `getRowId()` or `updateRow()` on a row without an ID.
+   *
+   * Never called for plugin loading placeholders (ServerSide blocks or grouped rows in
+   * flight). The grid gives those an internal id of the form `__loading:<index>`.
    *
    * @example
    * ```ts
@@ -3366,7 +3375,8 @@ export type SortHandler<TRow = any> = (
  * Loading indicator size variant.
  *
  * - `'large'`: 48x48px max - used for grid-level loading overlay (`grid.loading = true`)
- * - `'small'`: Follows row height - used for row/cell loading states
+ * - `'small'`: Follows row height - used for row loading states (`grid.setRowLoading()`,
+ *   ServerSide loading placeholders). Cell loading (`setCellLoading()`) always uses the built-in spinner.
  *
  * @example
  * ```typescript
@@ -3411,7 +3421,7 @@ export type LoadingSize = 'large' | 'small';
  * @since 1.7.0
  */
 export interface LoadingContext {
-  /** The size variant being rendered: 'large' for grid-level, 'small' for row/cell */
+  /** The size variant being rendered: 'large' for grid-level, 'small' for row loading */
   size: LoadingSize;
 }
 

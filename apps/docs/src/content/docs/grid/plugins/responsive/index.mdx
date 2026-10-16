@@ -625,6 +625,11 @@ features: {
 },
 ```
 
+With the [Server-Side](../server-side/) plugin, rows whose block is still loading are drawn as
+loading placeholders at the height of a real card (`cardRowHeight` with a `cardRenderer`, the
+measured card height without one), so the list does not shift when the data arrives. Your
+`cardRenderer` is not called for them.
+
 ### Keyboard Navigation with cardRenderer
 
 When using a custom `cardRenderer`, the grid's built-in arrow key navigation is disabled. This allows you to implement your own navigation within the card content.

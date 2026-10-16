@@ -227,6 +227,34 @@ describe('PluginManager hookPriority', () => {
       manager.onKeyDown(event);
       expect(executionOrder).toEqual(['low', 'high']);
     });
+
+    it('should order renderRow by priority and stop at the first plugin that handles the row (#508)', () => {
+      class CardRenderer extends BaseGridPlugin {
+        readonly name = 'card';
+        override renderRow(): boolean {
+          executionOrder.push('card');
+          return true;
+        }
+      }
+      class PlaceholderRenderer extends BaseGridPlugin {
+        static override readonly manifest: PluginManifest = { hookPriority: { renderRow: -10 } };
+        readonly name = 'placeholder';
+        override renderRow(row: { __loading?: boolean }): boolean {
+          executionOrder.push('placeholder');
+          return row.__loading === true;
+        }
+      }
+      // Attached first, but the lower priority must claim placeholders before it.
+      manager.attachAll([new CardRenderer(), new PlaceholderRenderer()]);
+      const rowEl = document.createElement('div');
+
+      expect(manager.renderRow({ __loading: true }, rowEl, 0)).toBe(true);
+      expect(executionOrder).toEqual(['placeholder']);
+
+      executionOrder.length = 0;
+      expect(manager.renderRow({ id: 1 }, rowEl, 1)).toBe(true);
+      expect(executionOrder).toEqual(['placeholder', 'card']);
+    });
   });
 
   describe('cache invalidation', () => {

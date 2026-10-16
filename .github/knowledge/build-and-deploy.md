@@ -12,13 +12,13 @@ related: [build-css, release-versioning, docs-agent-endpoints, grid-core]
 - OWNS: ES + UMD outputs (core + all-in-one), per-plugin builds, per-feature builds, theme distribution, `__GRID_VERSION__` injection.
 - INPUT: `src/index.ts`, `src/all.ts`, `src/lib/plugins/*/index.ts` (auto-discovered), `src/lib/features/*.ts` (auto-discovered), `libs/themes/*.css`.
 - OUTPUT: `dist/libs/grid/` → `index.js`, `all.js`, `lib/plugins/*/index.js`, `lib/features/*.js`, `umd/*.umd.js`, `themes/*.css`.
-- INVARIANT: plugin scan auto-discovers from `src/lib/plugins/` (excludes `all/`, `shared/`).
-- INVARIANT: plugins externalize core imports (`@toolbox-web/grid`) to prevent duplication.
-- DECIDED (#504): a plugin's HARD dependency on another plugin is imported statically from that plugin's INDEX (`import { HierarchyPlugin } from '../hierarchy'`). ESM: `externalizeCore()` maps it to external `@toolbox-web/grid/plugins/<dep>` (resolved path must be `lib/plugins/<dep>` ≠ own, ≠ `shared`) — consumer bundler includes it once, no runtime load step. UMD: it matches neither external regex, so it is INLINED into the dependent `.umd.js` (tree/grouping-rows +~1.2–1.7 kB) — deprecated, removal tracked in release-versioning.md. Optional deps are never imported.
+- INVARIANT: plugin scan auto-discovers from `src/lib/plugins/` (excludes `all/`, `shared/`). `plugins/shared/*` is inlined into each importing plugin bundle (never its own chunk).
+- DECIDED (Oct 2026, bundle composition = global rule, see development-principles): per-plugin ESM+UMD builds route core imports PER SYMBOL ([tools/vite-core-imports.ts](tools/vite-core-imports.ts)): `src/index.ts` value exports → `@toolbox-web/grid` / `TbwGrid`; internals inline; literal-only consts inline (terser folds). WHY: path-depth (ESM) / regex (UMD) rules left ~60 undefined `TbwGrid.<internal>` reads and per-plugin copies of `BaseGridPlugin`, `aggregatorRegistry`, accessor cache. Plugin ESM −6…−8 kB each.
+- INVARIANT: module state (top-level `let`, `const x = new Map|Set|WeakMap|WeakSet()`) has ONE runtime copy — build fails if a plugin keeps it while core has it (`index.js.map` sources) or 2+ plugins keep it (`assertSingleStateCopy`). Fix: `@internal` export from `public.ts`. Check reads Rolldown `chunk.modules[id].code`; terser sourcemap `names` are empty. Runtime proof: `bundle-check/smoke-dist.mjs`.
+- DECIDED (#504): a plugin's HARD dependency on another plugin is imported statically from that plugin's INDEX (`import { HierarchyPlugin } from '../hierarchy'`). ESM: `externalizeCore()` maps it to external `@toolbox-web/grid/plugins/<dep>` (resolved path must be `lib/plugins/<dep>` ≠ own, ≠ `shared`) — consumer bundler includes it once, no runtime load step. UMD: no external rule for it, so it is INLINED into the dependent `.umd.js` (tree/grouping-rows +~1.2–1.7 kB) — deprecated, removal tracked in release-versioning.md. Optional deps are never imported.
 - INVARIANT: UMD global naming `"pinned-rows"` → `TbwGridPlugin_pinnedRows`.
 - DECIDED: parallel plugin/feature builds in the `writeBundle` hook with pre-created directories (race avoidance); ES only for plugins (no CJS); each entry self-contained (`manualChunks: undefined`); all comments stripped.
 - DECIDED: terser inlines constant property accesses (`GridClasses.CELL_FOCUS` → `"cell-focus"`) — using `constants.ts` has ZERO bundle overhead vs raw strings.
-- TENSION: bundle duplication vs shared chunks — larger total, simpler per-import.
 
 ## bundle budget ([tools/vite-bundle-budget.ts](tools/vite-bundle-budget.ts))
 

@@ -352,7 +352,11 @@ export function buildPreDefinedGroupModel({
         flat.push(...childRows);
       } else if (isLoading) {
         // Loading placeholder — rendered by the plugin as a loading indicator
-        flat.push({ kind: 'data', row: { __loading: true, __groupKey: group.key }, rowIndex: -1 });
+        flat.push({
+          kind: 'data',
+          row: { __loading: true, __groupKey: group.key, __rowCacheKey: `__loading:group:${group.key}` },
+          rowIndex: -1,
+        });
       } else {
         // Leaf rows from the groupRows map
         rows.forEach((row, idx) => {

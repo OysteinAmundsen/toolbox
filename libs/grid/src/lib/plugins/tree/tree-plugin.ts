@@ -445,9 +445,11 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       // Lazy children: either a custom `hasChildren` predicate reports the node
       // has children, or (default heuristic) a truthy non-array value such as
       // `children: true` signals children exist but haven't been fetched yet.
+      // A loading placeholder (ServerSide) is a leaf and never reaches `hasChildren`.
       const hasChildren =
         embeddedChildren ||
-        (hasChildrenFn ? hasChildrenFn(row) : children != null && !Array.isArray(children) && !!children);
+        (row.__loading !== true &&
+          (hasChildrenFn ? hasChildrenFn(row) : children != null && !Array.isArray(children) && !!children));
       const isExpanded = this.expandedKeys.has(key);
 
       this.#rowMeta.set(row as object, {
@@ -977,10 +979,12 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
 
       // Announce in-flight lazy child loading. MUST clear on the negative
       // branch — virtualization recycles row elements, so a row reusing a
-      // previously-loading element would inherit a stale `aria-busy`.
+      // previously-loading element would inherit a stale `aria-busy`. A row in
+      // the CORE row-loading state (`.tbw-row-loading`: a ServerSide placeholder,
+      // or `grid.setRowLoading()`) owns its own `aria-busy` — leave it alone.
       if (this.loadingKeys.has(treeRow.key)) {
         rowEl.setAttribute('aria-busy', 'true');
-      } else if (rowEl.hasAttribute('aria-busy')) {
+      } else if (rowEl.hasAttribute('aria-busy') && !rowEl.classList.contains('tbw-row-loading')) {
         rowEl.removeAttribute('aria-busy');
       }
 

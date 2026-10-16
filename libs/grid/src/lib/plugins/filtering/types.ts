@@ -37,6 +37,9 @@ declare module '../../core/types' {
      * - **`notIn`** (set filter): row is hidden if ANY extracted value is in the excluded set
      * - **`in`** (set filter): row passes if ANY extracted value is in the included set
      *
+     * Not called for ServerSide loading placeholders under `filterMode: 'local'`;
+     * they filter as `undefined`.
+     *
      * @example
      * ```typescript
      * // Array-of-objects column: extract individual names for filtering

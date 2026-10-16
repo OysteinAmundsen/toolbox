@@ -9,6 +9,8 @@ import {
   warnDiagnostic,
 } from './diagnostics';
 import { ensureCellVisible } from './keyboard';
+import { setRowLoadingState } from './loading';
+import { clearRowForRebuild } from './row-teardown';
 import { evalTemplateString, finalCellScrub, setSanitizedHTML } from './sanitize';
 import { booleanCellHTML, clearCellFocus, formatDateValue, getRowIndexFromCell } from './utils';
 import { resolveCellValue } from './value-accessor';
@@ -448,14 +450,21 @@ export function renderVisibleRows(
     }
 
     // Let plugins handle custom row rendering (e.g., group rows)
-    if (hasRenderRowPlugins && renderRowHook!(rowData, rowEl, rowIndex)) {
-      rowEl.__epoch = epoch;
-      rowEl.__rowDataRef = rowData;
-      // Custom renderers assign `className` wholesale (responsive cards, pivot rows), so
-      // rowClass has to run AFTER the hook — it would otherwise be wiped, or never applied.
-      if (hasRowClass && !isSyntheticRow(rowData)) applyRowClass(grid, rowEl, rowData);
-      if (rowEl.parentNode !== bodyEl) bodyEl.appendChild(rowEl);
-      continue;
+    const dataRefChanged = rowEl.__rowDataRef !== rowData;
+    if (hasRenderRowPlugins) {
+      // A recycled element can still carry the previous row's loading state (a
+      // placeholder's spinner + aria-busy). Custom renderers replace children and
+      // classes but don't own it; grid.setRowLoading() state is re-applied after render.
+      if (dataRefChanged && rowEl.hasAttribute('aria-busy')) setRowLoadingState(rowEl, false);
+      if (renderRowHook!(rowData, rowEl, rowIndex)) {
+        rowEl.__epoch = epoch;
+        rowEl.__rowDataRef = rowData;
+        // Custom renderers assign `className` wholesale (responsive cards, pivot rows), so
+        // rowClass has to run AFTER the hook — it would otherwise be wiped, or never applied.
+        if (hasRowClass && !isSyntheticRow(rowData)) applyRowClass(grid, rowEl, rowData);
+        if (rowEl.parentNode !== bodyEl) bodyEl.appendChild(rowEl);
+        continue;
+      }
     }
 
     let cellCount = rowEl.children.length;
@@ -465,8 +474,9 @@ export function renderVisibleRows(
       cellCount--;
     }
 
-    const dataRefChanged = rowEl.__rowDataRef !== rowData;
-    let structureValid = rowEl.__epoch === epoch && cellCount === colLen;
+    // A plugin-rendered custom row (group header, loading placeholder) has foreign
+    // cell structure even when its cell count happens to match (single-column grids).
+    let structureValid = rowEl.__epoch === epoch && cellCount === colLen && !rowEl.__isCustomRow;
     // A valid-looking structure can still have lost an external-view placeholder
     // when the element was recycled for a different row.
     if (structureValid && dataRefChanged && hasMissingExternalView(rowEl, columns, colLen)) {
@@ -482,8 +492,10 @@ export function renderVisibleRows(
     // Cells bind to this variable (min-height: var(--tbw-row-height)), so setting
     // it on the row element makes both the row and its cells respect the override.
     // The `measureRowHeight` guard in virtualization-manager.ts prevents this from corrupting s.rowHeight.
+    // Loading placeholders (`placeholderRendering: 'columns'`) skip the consumer callback
+    // and keep the default height — the same estimate the position cache uses for them.
     if (varHeightFn) {
-      const h = varHeightFn(rowData, rowIndex);
+      const h = rowData?.__loading === true ? undefined : varHeightFn(rowData, rowIndex);
       if (h !== undefined && h > 0) {
         rowEl.style.setProperty('--tbw-row-height', `${h}px`);
       } else {
@@ -818,40 +830,6 @@ function fastPatchRow(grid: GridHost, rowEl: HTMLElement, rowData: any, rowIndex
 // #endregion
 
 // #region Cell Rendering
-/**
- * Wipe a pooled row's cells ahead of a full rebuild.
- *
- * Framework editor views are released BEFORE the DOM is wiped — without this,
- * Angular EmbeddedViewRefs / React roots / Vue apps created by editor factories
- * stay alive in the adapter's tracking arrays after their DOM is destroyed,
- * leaking memory on every edit cycle. Wrapped in `beginBatch`/`endBatch` because
- * `innerHTML = ''` detaches every cell as a group, letting adapters defer
- * per-cell sync commits to a single render once detachment completes (#330).
- */
-function clearRowForRebuild(grid: GridHost, rowEl: HTMLElement): void {
-  // Clear loading state before rebuild — grid re-applies it after render for
-  // actually-loading rows. Prevents a stale tbw-row-loading class from
-  // persisting when pool elements are recycled.
-  rowEl.classList.remove('tbw-row-loading');
-  rowEl.removeAttribute('aria-busy');
-
-  const adapter = grid.__frameworkAdapter;
-  if (!adapter?.releaseCell) {
-    rowEl.innerHTML = '';
-    return;
-  }
-  adapter.beginBatch?.(grid);
-  try {
-    const children = rowEl.children;
-    for (let i = children.length - 1; i >= 0; i--) {
-      adapter.releaseCell(children[i] as HTMLElement);
-    }
-    rowEl.innerHTML = '';
-  } finally {
-    adapter.endBatch?.(grid);
-  }
-}
-
 /** Clone the cell template and stamp the per-cell identity attributes. */
 function buildCellElement(col: ColumnInternal, colIndex: number, rowIndex: number): HTMLDivElement {
   // Template cloning is 3-4x faster than createElement + setAttribute.

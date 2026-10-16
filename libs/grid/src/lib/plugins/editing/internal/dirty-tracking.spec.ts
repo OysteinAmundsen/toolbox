@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { captureBaselines, getOriginalRow, isCellDirty, isRowDirty, markPristine, revertToBaseline } from './dirty-tracking';
+import {
+  captureBaselines,
+  getOriginalRow,
+  isCellDirty,
+  isRowDirty,
+  markPristine,
+  revertToBaseline,
+} from './dirty-tracking';
 
 interface TestRow {
   id: number;
@@ -81,6 +88,22 @@ describe('dirty-tracking pure functions', () => {
       captureBaselines(baselines, rows, throwingGetId);
 
       expect(baselines.size).toBe(0);
+    });
+
+    it('should skip loading placeholders even though they resolve an id (PR #511)', () => {
+      const rows = [
+        { id: 1, name: 'Alice', age: 30 },
+        { __loading: true, __index: 1 },
+        { __loading: true, __index: 2 },
+      ] as unknown as TestRow[];
+      const idOf = (row: TestRow) => {
+        const r = row as unknown as { id?: number; __index?: number };
+        return r.id != null ? String(r.id) : `__loading:${r.__index}`;
+      };
+
+      captureBaselines(baselines, rows, idOf);
+
+      expect([...baselines.keys()]).toEqual(['1']);
     });
   });
 

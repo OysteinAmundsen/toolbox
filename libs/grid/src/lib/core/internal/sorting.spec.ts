@@ -425,6 +425,39 @@ describe('builtInSort', () => {
       expect(result.map((r: any) => (r.__loading ? '__loading' : r.value))).toEqual([1, 2, '__loading']);
       expect(seenRows.some((r) => r?.__loading === true)).toBe(true);
     });
+
+    // #508: a consumer valueAccessor must never receive a placeholder — on every sort path.
+    it('never calls valueAccessor for placeholders on the extracted-keys path', () => {
+      const accessor = vi.fn(({ row }: any) => row.customer.name);
+      const accessorCols = [{ field: 'customer', valueAccessor: accessor }] as any;
+      const rows = [{ customer: { name: 'B' } }, { __loading: true, __index: 1 }, { customer: { name: 'A' } }];
+      const result = builtInSort(rows, { field: 'customer', direction: -1 }, accessorCols);
+      expect(result.map((r: any) => r.customer?.name ?? '__loading')).toEqual(['B', 'A', '__loading']);
+      expect(accessor.mock.calls.some(([ctx]) => ctx.row.__loading)).toBe(false);
+    });
+
+    it('custom comparator still receives placeholder rows, with an undefined value instead of an accessor call', () => {
+      const accessor = vi.fn(({ row }: any) => row.customer.name);
+      const seen: Array<[unknown, any]> = [];
+      const customCols = [
+        {
+          field: 'customer',
+          valueAccessor: accessor,
+          sortComparator: (a: unknown, b: unknown, rA: any, rB: any) => {
+            seen.push([a, rA], [b, rB]);
+            if (rA.__loading !== rB.__loading) return rA.__loading ? 1 : -1;
+            return String(a).localeCompare(String(b));
+          },
+        },
+      ] as any;
+      const rows = [{ customer: { name: 'B' } }, { __loading: true, __index: 1 }, { customer: { name: 'A' } }];
+      const result = builtInSort(rows, { field: 'customer', direction: 1 }, customCols);
+      expect(result.map((r: any) => r.customer?.name ?? '__loading')).toEqual(['A', 'B', '__loading']);
+      expect(accessor.mock.calls.some(([ctx]) => ctx.row.__loading)).toBe(false);
+      const placeholderPairs = seen.filter(([, row]) => row.__loading);
+      expect(placeholderPairs.length).toBeGreaterThan(0);
+      expect(placeholderPairs.every(([value]) => value === undefined)).toBe(true);
+    });
   });
 });
 

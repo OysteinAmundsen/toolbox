@@ -604,6 +604,35 @@ describe('ResponsivePlugin', () => {
   });
 
   describe('cardRenderer (Phase 2)', () => {
+    // PR #511: loading placeholders are drawn by their owning plugin at the height reported here.
+    it('getRowHeight reserves the real card slot for loading placeholders in both card modes', () => {
+      const placeholder = { __loading: true, __index: 3 };
+      const withRenderer = new ResponsivePlugin({
+        breakpoint: 500,
+        cardRowHeight: 120,
+        cardRenderer: () => document.createElement('div'),
+      });
+      withRenderer.attach(createMockGrid() as never);
+      expect(withRenderer.getRowHeight(placeholder, 3)).toBeUndefined(); // table mode
+      withRenderer.setResponsive(true);
+      expect(withRenderer.getRowHeight(placeholder, 3)).toBe(120);
+      expect(withRenderer.getRowHeight({ id: 1 }, 0)).toBe(120);
+
+      // CSS-only cards grow to fit their cells; `cardRowHeight` does not size them,
+      // so a placeholder takes the MEASURED card height, never the config value.
+      const cssOnly = new ResponsivePlugin({ breakpoint: 500, cardRowHeight: 120 });
+      const grid = createMockGrid();
+      cssOnly.attach(grid as never);
+      cssOnly.setResponsive(true);
+      expect(cssOnly.getRowHeight(placeholder, 3)).toBeUndefined(); // not measured yet → grid estimate
+      const card = grid.querySelector('.data-grid-row') as HTMLElement;
+      card.getBoundingClientRect = () => ({ height: 73 }) as DOMRect;
+      cssOnly.afterRender();
+      expect(cssOnly.getRowHeight(placeholder, 3)).toBe(73);
+      // CSS-only data rows stay unreported (uniform height via the measured card).
+      expect(cssOnly.getRowHeight({ id: 1 }, 0)).toBeUndefined();
+    });
+
     it('should not call cardRenderer when not in responsive mode', () => {
       const cardRenderer = vi.fn(() => document.createElement('div'));
       const plugin = new ResponsivePlugin({

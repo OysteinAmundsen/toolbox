@@ -161,6 +161,33 @@ describe('loading', () => {
       expect(overlays.length).toBe(1);
     });
 
+    it('should use loadingRenderer with size "small" instead of the default spinner (PR #511)', () => {
+      const row = document.createElement('div');
+      const renderer = vi.fn((_ctx: { size: 'large' | 'small' }) => {
+        const el = document.createElement('span');
+        el.className = 'my-row-loader';
+        return el;
+      });
+
+      setRowLoadingState(row, true, renderer);
+      setRowLoadingState(row, true, renderer); // re-applied every render: no second call
+
+      expect(renderer).toHaveBeenCalledTimes(1);
+      expect(renderer).toHaveBeenCalledWith({ size: 'small' });
+      expect(row.querySelector('.tbw-row-loading-overlay .my-row-loader')).not.toBeNull();
+      expect(row.querySelector('.tbw-row-loading-spinner')).toBeNull();
+    });
+
+    it('should sanitize a string returned by loadingRenderer', () => {
+      const row = document.createElement('div');
+
+      setRowLoadingState(row, true, () => '<em>Loading…</em><img src=x onerror="alert(1)">');
+
+      const overlay = row.querySelector('.tbw-row-loading-overlay')!;
+      expect(overlay.querySelector('em')?.textContent).toBe('Loading…');
+      expect(overlay.querySelector('[onerror]')).toBeNull();
+    });
+
     it('should remove loading class and aria-busy when loading is false', () => {
       const row = document.createElement('div');
       row.className = 'data-grid-row tbw-row-loading';

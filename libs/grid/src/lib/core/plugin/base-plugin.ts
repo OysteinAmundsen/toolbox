@@ -351,7 +351,8 @@ export type HookName =
   | 'onKeyDown'
   | 'onRowClick'
   | 'onScroll'
-  | 'onScrollRender';
+  | 'onScrollRender'
+  | 'renderRow';
 
 /**
  * Static metadata about a plugin's capabilities and requirements.

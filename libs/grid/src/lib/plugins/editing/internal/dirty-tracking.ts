@@ -76,6 +76,9 @@ export function captureBaselines<T>(
   getRowId: (row: T) => string | undefined,
 ): void {
   for (const row of rows) {
+    // Loading placeholders (ServerSide blocks in flight) have a stable internal id but
+    // hold no data — snapshotting them would retain one clone per unloaded slot.
+    if ((row as { __loading?: unknown } | null)?.__loading === true) continue;
     try {
       const id = getRowId(row);
       if (id != null && !baselines.has(id)) {

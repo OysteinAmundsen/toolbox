@@ -58,6 +58,17 @@ Avoid shortcuts and quick hacks. Prefer correct, maintainable solutions even whe
 - **Minimize abstraction overhead**: Prefer inline code over creating classes/wrappers for simple operations
 - **Audit before adding**: New features must justify their byte cost
 
+## Bundle Composition (global rule)
+
+The build output must be as small, fast and correct as possible. These rules govern **where** code lives and **how** it is bundled:
+
+- **No shared chunks.** Every entry (`index.js`, each plugin, each feature, each UMD file) is self-contained. Consumers never download an extra "shared" bundle.
+- **Code shared by plugins only** lives in `libs/grid/src/lib/plugins/shared/`. It is inlined into each plugin bundle that imports it. Never move plugin-only code into `core/` to share it.
+- **Code goes in core only** when core itself uses it, or its byte cost in `index.js` is negligible.
+- **No source duplication.** Extract a shared helper instead of copying code between plugins. Duplication in _build output_ (an inlined helper) is acceptable; duplication in the _repo_ is not.
+- **Plugins import core freely by relative path.** `tools/vite-core-imports.ts` routes every imported symbol: public API (value exports of `src/index.ts`) comes from `@toolbox-web/grid` (the `TbwGrid` global in UMD), internal helpers are inlined, and literal-only constants (`GridClasses`, …) stay inlined because terser folds them.
+- **Module-level state exists once at runtime.** If a plugin needs a function from a core module that holds module-level state (caches, registries, `let` bindings), export that function from `public.ts` (`@internal` when it is not consumer API). Otherwise the plugin carries its own copy of the state. The build fails on violations: `[core-imports] … inlines module state`.
+
 ## Performance
 
 - **Hot path awareness**: Scroll handlers, cell rendering, and virtualization are hot paths — optimize aggressively

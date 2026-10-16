@@ -2092,9 +2092,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // visible order; if there is no following source column, it belongs at the end.
     for (const added of pluginAdded) {
       const processedIndex = processedVisible.indexOf(added);
-      const nextSource = processedVisible
-        .slice(processedIndex + 1)
-        .find((col) => sourceFields.has(col.field));
+      const nextSource = processedVisible.slice(processedIndex + 1).find((col) => sourceFields.has(col.field));
 
       if (!nextSource) {
         result.push(added);
@@ -2475,7 +2473,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const rowEl = this.findRenderedRowElement?.(rowData.index);
     if (!rowEl) return;
 
-    setRowLoadingState(rowEl, loading);
+    setRowLoadingState(rowEl, loading, this.#effectiveConfig?.loadingRenderer);
   }
 
   /**

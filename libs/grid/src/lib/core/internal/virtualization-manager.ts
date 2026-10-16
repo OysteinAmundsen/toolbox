@@ -184,7 +184,9 @@ export class VirtualizationManager<T = any> {
     s.positionCache = rebuildPositionCache(rows, s.heightCache, estimatedHeight, { rowId: rowIdFn }, (row, index) => {
       const pluginHeight = grid._getPluginRowHeight(row, index);
       if (pluginHeight !== undefined) return pluginHeight;
-      if (rowHeightFn) {
+      // A consumer `rowHeight(row, index)` never sees a loading placeholder (#508): it
+      // keeps the estimate, matching the default height its DOM is rendered at.
+      if (rowHeightFn && (row as { __loading?: unknown } | null)?.__loading !== true) {
         const height = rowHeightFn(row, index);
         if (height !== undefined && height > 0) return height;
       }

@@ -96,8 +96,8 @@ export interface ServerSideConfig {
    *   Use when the backend supports the requested sort shape natively.
    * - `'local'`: keep the loaded blocks; sort the loaded rows in-place via
    *   the active sort plugin (MultiSort or core sort). `sortModel` is **not**
-   *   sent on subsequent block fetches. Placeholder rows (`__loading: true`)
-   *   are pinned to the end regardless of direction.
+   *   sent on subsequent block fetches. Loading placeholder rows
+   *   (see `isLoadingPlaceholder()`) are pinned to the end regardless of direction.
    *
    * Use `'local'` when the server cannot sort by every column the user can sort
    * (e.g. APIs that only support a single sort field, or no sort at all).
@@ -118,6 +118,38 @@ export interface ServerSideConfig {
    * @default 'server'
    */
   filterMode?: 'server' | 'local';
+  /**
+   * How rows whose block is still loading are rendered.
+   * - `'loading-row'` (default): the grid renders each placeholder itself, as a
+   *   full-width row in the core row-loading state (`.tbw-row-loading`,
+   *   `aria-busy="true"`, the `.tbw-row-loading-overlay` spinner). Column
+   *   renderers, `format`, `cellClass`, `rowClass` and a Responsive
+   *   `cardRenderer` are not called for it, and context menus (mouse or
+   *   keyboard) do not open on it.
+   * - `'columns'`: placeholders take the normal cell render path, so your column
+   *   renderers and callbacks receive them and can draw a custom loading look.
+   *   Detect them with `isLoadingPlaceholder()`.
+   *
+   * In both modes a placeholder gets an internal row id (`__loading:<index>`),
+   * so `gridConfig.getRowId` and a `rowHeight` function are never called with one, and `valueAccessor` /
+   * `filterValue` are never called with one (the value is `undefined`).
+   *
+   * @default 'loading-row'
+   * @since 3.9.1
+   */
+  placeholderRendering?: 'loading-row' | 'columns';
+}
+
+/**
+ * Synthetic row that stands in for a node whose block has not loaded yet.
+ * `__index` is the node index. The object is replaced by the real row when the
+ * block arrives. Detect it with `isLoadingPlaceholder()`.
+ * @since 3.9.1
+ */
+export interface LoadingPlaceholderRow {
+  readonly __loading: true;
+  /** Node index (position in the server-side row model). */
+  readonly __index: number;
 }
 
 export interface ServerSideState {

@@ -80,6 +80,8 @@ Every feature, fix, or refactor must complete **all seven steps** before it is c
 
 7. **Suggest a commit** — End the final message with the `📦 **Good commit point:** ...` line described in the Commit Hygiene section. Do not run `git commit` yourself unless the user explicitly asked in the current turn.
 
+**Bugs found but not fixed → file a GitHub issue.** If the task uncovers a real bug outside its scope, do not leave it as a line in the summary or a `TENSION` in a knowledge file. File it with `gh issue create --label bug`, following `.github/ISSUE_TEMPLATE/bug_report.md`. Title it `fix(<scope>): …` like recent bug issues, and search for duplicates first (`gh issue list --state all --search …`). Include a reproduction with measured evidence, plus the root-cause location if known. Reference the issue number from any knowledge entry. This is standing consent for creating bug issues only. It does not cover PRs, pushes, or any other remote mutation. Not a bug: local-environment leftovers (stale `node_modules`, gitignored generated files, a missing browser build). Mention those to the user instead.
+
 Do **not** consider work complete until all seven steps are finished. Skipping steps is not acceptable. When in doubt about whether tests or docs are needed, **default to including them**.
 
 ### Docs-only changesets

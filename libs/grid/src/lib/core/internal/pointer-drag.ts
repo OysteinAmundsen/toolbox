@@ -172,6 +172,7 @@ function _releasePointer(el: Element, id: number): void {
  * @param handlers - `onMove`, `onEnd`, and optional `onCancel` callbacks.
  * @param options - Threshold, long-press, and slop configuration.
  *
+ * @internal
  * @since 3.5.0
  */
 export function startPointerDrag(

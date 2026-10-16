@@ -10,6 +10,7 @@ import {
   isBlockLoading,
   loadBlock,
 } from './datasource';
+import { createLoadingPlaceholder, isLoadingPlaceholder } from './placeholder';
 import { ServerSidePlugin } from './server-side-plugin';
 import type { ServerSideDataSource } from './types';
 
@@ -934,6 +935,44 @@ describe('ServerSidePlugin', () => {
       expect(() => plugin.processRows([])).not.toThrow();
       // Short block (1 row < blockSize 5) auto-detects end → total = 1
       expect(plugin.processRows([]).length).toBe(1);
+    });
+  });
+
+  describe('loading placeholders (#508)', () => {
+    it('createLoadingPlaceholder carries the node index and a height-cache key', () => {
+      const p = createLoadingPlaceholder(7);
+      expect(p).toMatchObject({ __loading: true, __index: 7, __rowCacheKey: '__loading:7' });
+      expect(isLoadingPlaceholder(p)).toBe(true);
+    });
+
+    it('isLoadingPlaceholder rejects data rows and grouped placeholders', () => {
+      expect(isLoadingPlaceholder({ id: 1 })).toBe(false);
+      expect(isLoadingPlaceholder(null)).toBe(false);
+      expect(isLoadingPlaceholder('row')).toBe(false);
+      expect(isLoadingPlaceholder({ __loading: true, __groupKey: 'a' })).toBe(false);
+    });
+
+    it('renderRow renders placeholders in the row-loading state and ignores data rows', () => {
+      const plugin = new ServerSidePlugin();
+      plugin.attach(createServerSideMockGrid() as any);
+      const rowEl = document.createElement('div');
+
+      expect(plugin.renderRow({ id: 1 }, rowEl)).toBe(false);
+      expect(plugin.renderRow(createLoadingPlaceholder(0), rowEl)).toBe(true);
+      expect(rowEl.classList.contains('tbw-row-loading')).toBe(true);
+      expect(rowEl.getAttribute('aria-busy')).toBe('true');
+    });
+
+    it("renderRow leaves placeholders to the default path with placeholderRendering: 'columns'", () => {
+      const plugin = new ServerSidePlugin({ placeholderRendering: 'columns' });
+      plugin.attach(createServerSideMockGrid() as any);
+      const rowEl = document.createElement('div');
+      expect(plugin.renderRow(createLoadingPlaceholder(0), rowEl)).toBe(false);
+      expect(rowEl.classList.contains('tbw-row-loading')).toBe(false);
+    });
+
+    it('claims renderRow before default-priority plugins', () => {
+      expect(ServerSidePlugin.manifest.hookPriority?.renderRow).toBeLessThan(0);
     });
   });
 

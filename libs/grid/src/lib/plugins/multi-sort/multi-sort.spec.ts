@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ColumnConfig } from '../../core/types';
 import { applySorts, defaultComparator, getSortDirection, getSortIndex, toggleSort } from './multi-sort';
 import type { SortModel } from './types';
@@ -537,6 +537,27 @@ describe('multiSort', () => {
       expect(sorted.map((r: any) => (r.__loading ? '__loading' : r.value))).toEqual([1, 2, '__loading']);
       // Custom comparator was reachable (received placeholders)
       expect(seenRows.some((r) => r?.__loading === true)).toBe(true);
+    });
+
+    // #508: extracting the multi-column keys must not call a consumer valueAccessor on a placeholder.
+    it('never calls valueAccessor for placeholders while extracting keys', () => {
+      const accessor = vi.fn(({ row }: any) => row.customer.name);
+      const accessorCols = [{ field: 'customer', valueAccessor: accessor }, { field: 'age' }] as any;
+      const rows = [
+        { customer: { name: 'B' }, age: 1 },
+        { __loading: true, __index: 1 },
+        { customer: { name: 'A' }, age: 2 },
+      ];
+      const sorted = applySorts(
+        rows,
+        [
+          { field: 'customer', direction: 'asc' },
+          { field: 'age', direction: 'asc' },
+        ],
+        accessorCols,
+      );
+      expect(sorted.map((r: any) => r.customer?.name ?? '__loading')).toEqual(['A', 'B', '__loading']);
+      expect(accessor.mock.calls.some(([ctx]) => ctx.row.__loading)).toBe(false);
     });
   });
 });

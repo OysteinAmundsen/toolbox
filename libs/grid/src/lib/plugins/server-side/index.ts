@@ -4,22 +4,23 @@
  *
  * @module Plugins/Server-Side
  */
+export { isLoadingPlaceholder } from './placeholder';
 export { ServerSidePlugin } from './server-side-plugin';
 export type {
-    DataRequestModel,
-    DataSourceChildrenDetail,
-    DataSourceDataDetail,
-    DataSourceErrorDetail,
-    DataSourceLoadingDetail,
-    FetchChildrenQuery,
-    GetChildRowsParams,
-    GetChildRowsResult,
-    GetRowsParams,
-    GetRowsResult,
-    ServerSideConfig,
-    ServerSideDataSource,
-    Subscribable,
-    ViewportMappingQuery,
-    ViewportMappingResponse
+  DataRequestModel,
+  DataSourceChildrenDetail,
+  DataSourceDataDetail,
+  DataSourceErrorDetail,
+  DataSourceLoadingDetail,
+  FetchChildrenQuery,
+  GetChildRowsParams,
+  GetChildRowsResult,
+  GetRowsParams,
+  GetRowsResult,
+  LoadingPlaceholderRow,
+  ServerSideConfig,
+  ServerSideDataSource,
+  Subscribable,
+  ViewportMappingQuery,
+  ViewportMappingResponse,
 } from './types';
-

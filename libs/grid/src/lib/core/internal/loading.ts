@@ -84,8 +84,14 @@ export function hideLoadingOverlay(overlayEl: HTMLElement | undefined): void {
  * because the selection plugin already uses ::after on rows for border styling.
  * @param rowEl - The row element
  * @param loading - Whether the row is loading
+ * @param renderer - Optional `gridConfig.loadingRenderer`; called with `{ size: 'small' }`
+ *   in place of the default spinner. Only invoked when the overlay is created.
  */
-export function setRowLoadingState(rowEl: HTMLElement, loading: boolean): void {
+export function setRowLoadingState(
+  rowEl: HTMLElement,
+  loading: boolean,
+  renderer?: GridConfig['loadingRenderer'],
+): void {
   if (loading) {
     rowEl.classList.add('tbw-row-loading');
     rowEl.setAttribute('aria-busy', 'true');
@@ -96,9 +102,13 @@ export function setRowLoadingState(rowEl: HTMLElement, loading: boolean): void {
       overlay.className = 'tbw-row-loading-overlay';
       overlay.setAttribute('aria-hidden', 'true');
 
-      const spinner = document.createElement('div');
-      spinner.className = 'tbw-row-loading-spinner';
-      overlay.appendChild(spinner);
+      if (renderer) {
+        overlay.appendChild(createLoadingContent('small', renderer));
+      } else {
+        const spinner = document.createElement('div');
+        spinner.className = 'tbw-row-loading-spinner';
+        overlay.appendChild(spinner);
+      }
 
       rowEl.appendChild(overlay);
     }

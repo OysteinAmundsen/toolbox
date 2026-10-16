@@ -83,6 +83,7 @@ function _getMql(): MediaQueryList | null {
  * Falls back to `'fine'` in SSR environments or browsers that do not
  * support `matchMedia`.
  *
+ * @internal
  * @since 3.5.0
  */
 export function getPrimaryPointer(): PointerModality {

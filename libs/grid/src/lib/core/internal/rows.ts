@@ -9,7 +9,7 @@ import {
   warnDiagnostic,
 } from './diagnostics';
 import { ensureCellVisible } from './keyboard';
-import { setRowLoadingState } from './loading';
+import { removeCellLoadingOverlay, removeRowLoadingOverlay, setCellLoadingState, setRowLoadingState } from './loading';
 import { clearRowForRebuild } from './row-teardown';
 import { evalTemplateString, finalCellScrub, setSanitizedHTML } from './sanitize';
 import { booleanCellHTML, clearCellFocus, formatDateValue, getRowIndexFromCell } from './utils';
@@ -253,16 +253,42 @@ function syncRowPool(grid: GridHost, needed: number, bodyEl: HTMLElement | null)
   try {
     for (let i = needed; i < grid._rowPool.length; i++) {
       const el = grid._rowPool[i];
-      if (release) {
+      if (release || adapter?.unmount) {
+        removeRowLoadingOverlay(el, adapter);
         const cells = el.children;
         for (let c = 0; c < cells.length; c++) {
           const cell = cells[c] as HTMLElement;
-          if (cell.firstElementChild) release.call(adapter, cell);
+          removeCellLoadingOverlay(cell, adapter);
+          if (cell.firstElementChild) release?.call(adapter, cell);
         }
       }
       if (el.parentNode === bodyEl) el.remove();
     }
     grid._rowPool.length = needed;
+  } finally {
+    adapter?.endBatch?.(grid);
+  }
+}
+
+/**
+ * Clear loading state from a pooled row's cells, releasing adapter-mounted loader
+ * content before those cells are reused or discarded.
+ *
+ * Wrapped in `beginBatch`/`endBatch` like the pool-shrink and rebuild paths: each
+ * `unmount` can force a synchronous framework commit, and a scroll render can
+ * recycle many loading cells at once (#330).
+ */
+function releaseLoadingCells(grid: GridHost, rowEl: RowElementInternal, cells: ArrayLike<Element>): void {
+  const adapter = grid.__frameworkAdapter;
+  adapter?.beginBatch?.(grid);
+  try {
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells[i] as HTMLElement;
+      if (cell.classList.contains('tbw-cell-loading')) {
+        setCellLoadingState(cell, false, undefined, adapter);
+      }
+    }
+    rowEl.__hasCellLoading = false;
   } finally {
     adapter?.endBatch?.(grid);
   }
@@ -451,12 +477,23 @@ export function renderVisibleRows(
 
     // Let plugins handle custom row rendering (e.g., group rows)
     const dataRefChanged = rowEl.__rowDataRef !== rowData;
+    if (dataRefChanged && rowEl.__hasCellLoading) {
+      releaseLoadingCells(grid, rowEl, rowEl.children);
+    }
+
     if (hasRenderRowPlugins) {
+      // Custom renderers wipe the row via replaceChildren(), so a cell holding an
+      // adapter-mounted loader has to be released first — even when the row object is
+      // unchanged (e.g. toggling ResponsivePlugin's card layout). The hook may still
+      // decline the row, so snapshot the cells now and only release once it claims it.
+      const loadingCells = rowEl.__hasCellLoading ? Array.from(rowEl.children) : undefined;
       // A recycled element can still carry the previous row's loading state (a
       // placeholder's spinner + aria-busy). Custom renderers replace children and
       // classes but don't own it; grid.setRowLoading() state is re-applied after render.
-      if (dataRefChanged && rowEl.hasAttribute('aria-busy')) setRowLoadingState(rowEl, false);
+      if (dataRefChanged && rowEl.hasAttribute('aria-busy'))
+        setRowLoadingState(rowEl, false, undefined, grid.__frameworkAdapter);
       if (renderRowHook!(rowData, rowEl, rowIndex)) {
+        if (loadingCells) releaseLoadingCells(grid, rowEl, loadingCells);
         rowEl.__epoch = epoch;
         rowEl.__rowDataRef = rowData;
         // Custom renderers assign `className` wholesale (responsive cards, pivot rows), so
@@ -608,7 +645,9 @@ function patchPlainCells(
 
     // Release editor views if cell has element children (indicating prior editor/renderer DOM).
     // Plain text cells (textContent-only) have no element children, so this is a fast O(1) skip.
-    if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
+    const hasContent = !!cell.firstElementChild;
+    removeCellLoadingOverlay(cell, grid.__frameworkAdapter);
+    if (hasContent) grid.__frameworkAdapter?.releaseCell?.(cell);
 
     const col = columns[i];
     const value = resolveCellValue(rowData, col, rowIndex);
@@ -653,18 +692,21 @@ function applyRendererOutput(
   });
   if (typeof produced === 'string') {
     // Release editor views before wiping cell content
+    removeCellLoadingOverlay(cell, grid.__frameworkAdapter);
     grid.__frameworkAdapter?.releaseCell?.(cell);
     setSanitizedHTML(cell, produced);
   } else if (produced instanceof Node) {
     // Skip when the container is already a child of the cell — the framework
     // adapter reused it and re-rendered in place.
     if (produced.parentElement !== cell) {
+      removeCellLoadingOverlay(cell, grid.__frameworkAdapter);
       grid.__frameworkAdapter?.releaseCell?.(cell);
       cell.innerHTML = '';
       cell.appendChild(produced);
     }
   } else if (produced == null) {
     // Renderer returned null/undefined - show raw value
+    removeCellLoadingOverlay(cell, grid.__frameworkAdapter);
     grid.__frameworkAdapter?.releaseCell?.(cell);
     cell.textContent = value == null ? '' : String(value);
   }
@@ -680,11 +722,14 @@ function applyRendererOutput(
  */
 function applyTemplateOutput(grid: GridHost, cell: HTMLElement, html: string | null): void {
   if (html === null) {
+    removeCellLoadingOverlay(cell, grid.__frameworkAdapter);
     cell.textContent = '';
     return;
   }
   // Release any framework views before replacing innerHTML
-  if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
+  const hasContent = !!cell.firstElementChild;
+  removeCellLoadingOverlay(cell, grid.__frameworkAdapter);
+  if (hasContent) grid.__frameworkAdapter?.releaseCell?.(cell);
   setSanitizedHTML(cell, html);
   finalCellScrub(cell);
 }
@@ -697,7 +742,9 @@ function applyTemplateOutput(grid: GridHost, cell: HTMLElement, html: string | n
 function applyFormattedValue(grid: GridHost, cell: HTMLElement, col: ColumnInternal, rowData: any, value: unknown) {
   // Release editor views if cell has element children (indicating prior editor/renderer DOM).
   // Plain text cells (textContent-only) have no element children, so this is a fast O(1) skip.
-  if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
+  const hasContent = !!cell.firstElementChild;
+  removeCellLoadingOverlay(cell, grid.__frameworkAdapter);
+  if (hasContent) grid.__frameworkAdapter?.releaseCell?.(cell);
 
   const formatFn = resolveFormat(grid, col);
   if (formatFn) {

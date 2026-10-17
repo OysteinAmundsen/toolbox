@@ -4,7 +4,8 @@
  * @vitest-environment happy-dom
  */
 import type { CellRenderContext, ColumnEditorContext } from '@toolbox-web/grid';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, Component, createElement } from 'react';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Side-effect imports: install editor + filter-panel feature bridges on the
 // adapter so the `before-edit-close` listener and type-default
@@ -22,6 +23,10 @@ import {
   registerColumnEditor,
   registerColumnRenderer,
 } from './react-grid-adapter';
+
+beforeAll(() => {
+  (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+});
 
 describe('GridAdapter', () => {
   describe('field-based registry', () => {
@@ -488,6 +493,34 @@ describe('GridAdapter', () => {
 
         // Should not throw even for unknown container
         expect(() => adapter.unmount(unknownContainer)).not.toThrow();
+      });
+
+      it('unmounts a React loading component nested in the cell overlay', () => {
+        let didUnmount = false;
+        class LoadingComponent extends Component<{ size: string }> {
+          override componentWillUnmount(): void {
+            didUnmount = true;
+          }
+
+          override render() {
+            return createElement('span', null, this.props.size);
+          }
+        }
+
+        const config = adapter.processConfig({
+          loadingRenderer: ({ size }: { size: 'large' | 'small' }) => createElement(LoadingComponent, { size }),
+        } as any);
+        const loadingContent = config.loadingRenderer?.({ size: 'small' });
+        expect(loadingContent).toBeInstanceOf(HTMLElement);
+
+        const overlay = document.createElement('div');
+        document.body.appendChild(overlay);
+        act(() => overlay.appendChild(loadingContent as HTMLElement));
+        expect(overlay.querySelector('span')?.textContent).toBe('small');
+
+        act(() => adapter.unmount(overlay));
+
+        expect(didUnmount).toBe(true);
       });
     });
 

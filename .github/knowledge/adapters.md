@@ -14,6 +14,7 @@ related: [adapters-react, adapters-vue, adapters-angular, grid-core, grid-featur
 - INVARIANT: the adapter MUST be registered BEFORE the grid parses light DOM. One adapter per app.
 - INTERFACE: `processConfig`, `createComponentRenderer`, `createComponentEditor`, `releaseCell`, plus `CORE_CONSUMED_ADAPTER_METHODS`.
 - DECIDED (#330): `beginBatch?()` / `endBatch?()` defer per-cell teardown across bulk `releaseCell` loops (`_clearRowPool`, `renderVisibleRows` pool-shrink, `renderInlineRow` pre-wipe). Calls NEST — outermost `endBatch` flushes. Vue/Angular are no-ops.
+- INVARIANT (#518): `FrameworkAdapter.unmount(container)` MUST dispose framework-owned renderer roots contained by the supplied container, not only roots registered under that exact element. Core uses it on wrapper overlays (e.g. `.tbw-cell-loading-overlay`) before permanent removal; React/Vue resolve nested loader containers, Angular destroys refs contained by it.
 - DECIDED (#338/#340, reverted): adapter Context / `InjectionKey` / `InjectionToken` are plain module constants, MUST NOT be routed through `globalThis` (rationale: grid-core.md § shared-store). Micro-frontend `customElements.define` collision: #339.
 
 ## adapter conformance

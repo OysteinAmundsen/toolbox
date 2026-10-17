@@ -133,6 +133,13 @@ export function injectEditor<T>(
 
   const editorHost = document.createElement('div');
   editorHost.className = 'tbw-editor-host';
+  const loadingOverlay = cell.querySelector<HTMLElement>(':scope > .tbw-cell-loading-overlay');
+  const cellParent = cell.parentElement;
+  if (loadingOverlay && cellParent) {
+    cellParent.insertBefore(loadingOverlay, cell);
+  } else {
+    loadingOverlay?.remove();
+  }
   // Let the framework adapter (React/Vue/Angular) tear down any renderer
   // it mounted into this cell BEFORE we wipe the DOM. The `cell.innerHTML`
   // assignment below removes adapter-managed nodes synchronously without
@@ -146,6 +153,7 @@ export function injectEditor<T>(
   if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
   cell.innerHTML = '';
   cell.appendChild(editorHost);
+  if (loadingOverlay) cell.appendChild(loadingOverlay);
 
   // Keydown handler for Enter/Escape
   editorHost.addEventListener('keydown', (e: KeyboardEvent) => {

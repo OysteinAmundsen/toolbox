@@ -12,6 +12,7 @@ vi.mock('./columns', async (importOriginal) => {
   };
 });
 
+import { setCellLoadingState } from './loading';
 import { handleRowClick, renderVisibleRows } from './rows';
 
 /**
@@ -997,6 +998,155 @@ describe('releaseCell lifecycle', () => {
 
     // releaseCell should have been called for cells being recycled
     expect(releaseSpy).toHaveBeenCalled();
+  });
+
+  it('clears loading state when the virtual window recycles a pooled row', () => {
+    const g = makeGrid();
+    const unmount = vi.fn((_container: HTMLElement) => undefined);
+    g.__frameworkAdapter = { unmount };
+    g._rows = [
+      { id: 1, name: 'Alpha' },
+      { id: 2, name: 'Beta' },
+      { id: 3, name: 'Gamma' },
+    ];
+
+    renderVisibleRows(g, 0, 2, 1);
+    const recycledCell = (g._rowPool[0] as HTMLElement).children[1] as HTMLElement;
+    setCellLoadingState(
+      recycledCell,
+      true,
+      () => {
+        const loader = document.createElement('span');
+        loader.className = 'custom-cell-loader';
+        return loader;
+      },
+      g.__frameworkAdapter,
+    );
+    const overlay = recycledCell.querySelector(':scope > .tbw-cell-loading-overlay');
+
+    renderVisibleRows(g, 1, 3, 1);
+
+    expect((g._rowPool[0] as HTMLElement).children[1]).toBe(recycledCell);
+    expect(recycledCell.classList.contains('tbw-cell-loading')).toBe(false);
+    expect(recycledCell.classList.contains('tbw-cell-loading-custom')).toBe(false);
+    expect(recycledCell.getAttribute('aria-busy')).toBeNull();
+    expect(recycledCell.querySelector('.tbw-cell-loading-overlay')).toBeNull();
+    expect(unmount).toHaveBeenCalledWith(overlay);
+  });
+
+  it('batches loader unmounts when the virtual window recycles several loading cells (#330)', () => {
+    const order: string[] = [];
+    const g = makeGrid();
+    g.__frameworkAdapter = {
+      unmount: () => order.push('unmount'),
+      beginBatch: () => order.push('begin'),
+      endBatch: () => order.push('end'),
+    };
+    g._rows = [
+      { id: 1, name: 'Alpha' },
+      { id: 2, name: 'Beta' },
+      { id: 3, name: 'Gamma' },
+    ];
+
+    renderVisibleRows(g, 0, 2, 1);
+    const renderer = () => document.createElement('span');
+    for (const cell of Array.from((g._rowPool[0] as HTMLElement).children)) {
+      setCellLoadingState(cell as HTMLElement, true, renderer, g.__frameworkAdapter);
+    }
+    order.length = 0;
+
+    renderVisibleRows(g, 1, 3, 1);
+
+    let depth = 0;
+    let unmounts = 0;
+    let unbatched = 0;
+    for (const ev of order) {
+      if (ev === 'begin') depth++;
+      else if (ev === 'end') depth--;
+      else if (++unmounts && depth === 0) unbatched++;
+    }
+    expect(unmounts).toBeGreaterThanOrEqual(2);
+    expect(unbatched).toBe(0);
+    expect(depth).toBe(0);
+  });
+
+  it('unmounts a loading renderer when a row is rebuilt', () => {
+    const g = makeGrid();
+    const unmount = vi.fn((_container: HTMLElement) => undefined);
+    g.__frameworkAdapter = { unmount };
+    g._rows = [{ id: 1, name: 'Alpha' }];
+    g._columns = [{ field: 'name' }];
+
+    renderVisibleRows(g, 0, 1, 1);
+    const cell = (g._rowPool[0] as HTMLElement).children[0] as HTMLElement;
+    setCellLoadingState(cell, true, () => document.createElement('span'), g.__frameworkAdapter);
+    const overlay = cell.querySelector(':scope > .tbw-cell-loading-overlay');
+
+    renderVisibleRows(g, 0, 1, 2);
+
+    expect(unmount).toHaveBeenCalledWith(overlay);
+  });
+
+  it('unmounts a loading renderer before patching a plain cell', () => {
+    const g = makeGrid();
+    const unmount = vi.fn((_container: HTMLElement) => undefined);
+    g.__frameworkAdapter = { unmount };
+    g._rows = [{ id: 1, name: 'Alpha' }];
+    g._columns = [{ field: 'name' }];
+    g.__hasSpecialColumns = false;
+
+    renderVisibleRows(g, 0, 1, 1);
+    const cell = (g._rowPool[0] as HTMLElement).children[0] as HTMLElement;
+    setCellLoadingState(cell, true, () => document.createElement('span'), g.__frameworkAdapter);
+    const overlay = cell.querySelector(':scope > .tbw-cell-loading-overlay');
+    g._rows[0].name = 'Updated';
+
+    renderVisibleRows(g, 0, 1, 1);
+
+    expect(unmount).toHaveBeenCalledWith(overlay);
+    expect(cell.textContent).toBe('Updated');
+  });
+
+  it('unmounts a loading renderer when a custom row renderer replaces an unchanged row', () => {
+    const g = makeGrid();
+    const unmount = vi.fn((_container: HTMLElement) => undefined);
+    g.__frameworkAdapter = { unmount };
+    g._rows = [{ id: 1, name: 'Alpha' }];
+    g._columns = [{ field: 'name' }];
+
+    renderVisibleRows(g, 0, 1, 1);
+    const cell = (g._rowPool[0] as HTMLElement).children[0] as HTMLElement;
+    setCellLoadingState(cell, true, () => document.createElement('span'), g.__frameworkAdapter);
+    const overlay = cell.querySelector(':scope > .tbw-cell-loading-overlay');
+
+    // Same row object, same epoch: only the switch to a card renderer changes.
+    const renderRowHook = vi.fn((_row: unknown, rowEl: HTMLElement) => {
+      rowEl.replaceChildren(document.createElement('article'));
+      return true;
+    });
+    renderVisibleRows(g, 0, 1, 1, renderRowHook);
+
+    expect(renderRowHook).toHaveBeenCalled();
+    expect(unmount).toHaveBeenCalledWith(overlay);
+  });
+
+  it('keeps a cell loader alive when the custom row renderer declines the row', () => {
+    const g = makeGrid();
+    const unmount = vi.fn((_container: HTMLElement) => undefined);
+    g.__frameworkAdapter = { unmount };
+    g._rows = [{ id: 1, name: 'Alpha' }];
+    g._columns = [{ field: 'name' }];
+
+    renderVisibleRows(g, 0, 1, 1);
+    const rowEl = g._rowPool[0] as HTMLElement;
+    const cell = rowEl.children[0] as HTMLElement;
+    setCellLoadingState(cell, true, () => document.createElement('span'), g.__frameworkAdapter);
+
+    // Declining hook must not consume the snapshot — the regular patch path owns
+    // the cell from here, and the row keeps its loading breadcrumb.
+    renderVisibleRows(g, 0, 1, 1, () => false);
+
+    expect((rowEl as HTMLElement & { __hasCellLoading?: boolean }).__hasCellLoading).toBe(true);
   });
 
   it('calls adapter.releaseCell in fastPatchRow standard path for format-only cells with editor children', () => {

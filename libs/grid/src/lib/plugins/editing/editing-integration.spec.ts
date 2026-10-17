@@ -629,6 +629,41 @@ describe('EditingPlugin', () => {
       const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
       expect(nameCell.querySelector('input')).toBeTruthy();
     });
+
+    it('preserves custom cell loading content when editing begins', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'manual' });
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        getRowId: (row: { id: number }) => String(row.id),
+        loadingRenderer: (ctx: { size: 'large' | 'small' }) => {
+          const el = document.createElement('span');
+          el.className = 'custom-cell-loader';
+          el.textContent = ctx.size;
+          return el;
+        },
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alpha' }];
+      await waitUpgrade(grid);
+
+      grid.setCellLoading('1', 'name', true);
+      expect(grid.isCellLoading('1', 'name')).toBe(true);
+      const nameCell = grid.querySelector('.data-grid-row .cell[data-col="1"]') as HTMLElement;
+      editingPlugin.beginCellEdit(0, 'name');
+      expect(nameCell.querySelector('.tbw-editor-host')).not.toBeNull();
+      expect(nameCell.querySelector('.tbw-cell-loading-overlay .custom-cell-loader')?.textContent).toBe('small');
+      await nextFrame();
+      await nextFrame();
+
+      const currentCell = grid.querySelector('.data-grid-row .cell[data-col="1"]') as HTMLElement;
+      expect(currentCell.querySelector('.tbw-editor-host')).not.toBeNull();
+      expect(currentCell.querySelector('.tbw-cell-loading-overlay .custom-cell-loader')?.textContent).toBe('small');
+      expect(currentCell.classList.contains('tbw-cell-loading-custom')).toBe(true);
+      expect(grid.isCellLoading('1', 'name')).toBe(true);
+    });
   });
 
   describe('row-based editing', () => {

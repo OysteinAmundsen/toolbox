@@ -22,6 +22,7 @@ import { ensureCellVisible } from './internal/keyboard';
 import {
   createLoadingOverlay,
   hideLoadingOverlay,
+  removeCellLoadingOverlay,
   setCellLoadingState,
   setRowLoadingState,
   showLoadingOverlay,
@@ -735,7 +736,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /**
    * Set loading state for a specific row.
-   * Shows a small spinner indicator on the row.
+   * Shows a small spinner or custom loadingRenderer on the row.
    *
    * @param rowId - The row's unique identifier (from getRowId)
    * @param loading - Whether the row is loading
@@ -764,7 +765,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /**
    * Set loading state for a specific cell.
-   * Shows a small spinner indicator on the cell.
+   * Shows a small spinner or custom loadingRenderer on the cell.
    *
    * @param rowId - The row's unique identifier
    * @param field - The column field
@@ -2118,12 +2119,18 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
     renderVisibleRows(this, start, end, epoch, this.#renderRowHook);
 
-    // Re-apply loading state for rows that are currently loading.
-    // renderInlineRow clears innerHTML (destroying overlay DOM) and removes the loading class,
-    // so we must re-inject the overlay after row rendering completes.
+    // Re-apply active loading states after row rendering rebuilds pooled DOM.
     if (this.#loadingRows.size > 0) {
       for (const rowId of this.#loadingRows) {
         this.#updateRowLoadingState(rowId, true);
+      }
+    }
+
+    if (this.#loadingCells.size > 0) {
+      for (const [rowId, fields] of this.#loadingCells) {
+        for (const field of fields) {
+          this.#updateCellLoadingState(rowId, field, true);
+        }
       }
     }
   }
@@ -2291,7 +2298,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // warning storm on grouping changes (#330).
     const adapter = this.__frameworkAdapter;
     const release = adapter?.releaseCell;
-    if (release) {
+    if (release || adapter?.unmount) {
       adapter?.beginBatch?.(this);
       try {
         for (let r = 0; r < this._rowPool.length; r++) {
@@ -2299,7 +2306,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           const cells = rowEl.children;
           for (let c = 0; c < cells.length; c++) {
             const cell = cells[c] as HTMLElement;
-            if (cell.firstElementChild) release.call(adapter, cell);
+            removeCellLoadingOverlay(cell, adapter);
+            if (cell.firstElementChild) release?.call(adapter, cell);
           }
         }
         this._rowPool.length = 0;
@@ -2406,7 +2414,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const rowEl = this.findRenderedRowElement?.(rowData.index);
     if (!rowEl) return;
 
-    setRowLoadingState(rowEl, loading, this.#effectiveConfig?.loadingRenderer);
+    setRowLoadingState(rowEl, loading, this.#effectiveConfig?.loadingRenderer, this.__frameworkAdapter);
   }
 
   /**
@@ -2428,10 +2436,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const colIndex = this._visibleColumns.findIndex((c) => c.field === field);
     if (colIndex < 0) return;
 
-    const cellEl = rowEl.children[colIndex] as HTMLElement | undefined;
+    // Match the `data-col` marker rather than indexing `children`: a plugin-rendered
+    // custom row (responsive card, group header) and the row-loading overlay also live
+    // there, so a positional lookup can land on non-cell DOM.
+    const cellEl = rowEl.querySelector<HTMLElement>(`:scope > .cell[data-col="${colIndex}"]`);
     if (!cellEl) return;
 
-    setCellLoadingState(cellEl, loading);
+    setCellLoadingState(cellEl, loading, this.#effectiveConfig?.loadingRenderer, this.__frameworkAdapter);
   }
 
   /**

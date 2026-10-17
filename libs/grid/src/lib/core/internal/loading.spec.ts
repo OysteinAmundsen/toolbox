@@ -209,11 +209,52 @@ describe('loading', () => {
       setRowLoadingState(row, false);
       expect(row.querySelector('.tbw-row-loading-overlay')).toBeNull();
     });
+
+    it('should unmount adapter-rendered content when the overlay is removed', () => {
+      const unmount = vi.fn();
+      const row = document.createElement('div');
+      row.className = 'data-grid-row';
+
+      setRowLoadingState(row, true, () => document.createElement('span'));
+      const overlay = row.querySelector('.tbw-row-loading-overlay');
+
+      setRowLoadingState(row, false, undefined, { unmount });
+
+      expect(unmount).toHaveBeenCalledWith(overlay);
+      expect(row.querySelector('.tbw-row-loading-overlay')).toBeNull();
+    });
+
+    it('should leave a nested grid row overlay alone', () => {
+      const outerRow = document.createElement('div');
+      const nestedRow = document.createElement('div');
+      outerRow.appendChild(nestedRow);
+
+      setRowLoadingState(nestedRow, true);
+      const nestedOverlay = nestedRow.querySelector('.tbw-row-loading-overlay');
+
+      setRowLoadingState(outerRow, true);
+      expect(outerRow.querySelector(':scope > .tbw-row-loading-overlay')).not.toBeNull();
+
+      setRowLoadingState(outerRow, false);
+      expect(outerRow.querySelector(':scope > .tbw-row-loading-overlay')).toBeNull();
+      expect(nestedRow.querySelector('.tbw-row-loading-overlay')).toBe(nestedOverlay);
+    });
   });
   // #endregion
 
   // #region setCellLoadingState
   describe('setCellLoadingState', () => {
+    it('skips overlay lookup when the cell has no element children', () => {
+      const cell = document.createElement('div');
+      const querySelector = vi.spyOn(cell, 'querySelector');
+      const unmount = vi.fn((_container: HTMLElement) => undefined);
+
+      setCellLoadingState(cell, false, undefined, { unmount });
+
+      expect(querySelector).not.toHaveBeenCalled();
+      expect(unmount).not.toHaveBeenCalled();
+    });
+
     it('should add loading class and aria-busy when loading is true', () => {
       const cell = document.createElement('div');
       cell.className = 'cell';
@@ -233,6 +274,71 @@ describe('loading', () => {
 
       expect(cell.classList.contains('tbw-cell-loading')).toBe(false);
       expect(cell.getAttribute('aria-busy')).toBeNull();
+    });
+
+    it('should use loadingRenderer with size "small" and avoid duplicate overlays', () => {
+      const cell = document.createElement('div');
+      const renderer = vi.fn((_ctx: { size: 'large' | 'small' }) => {
+        const el = document.createElement('span');
+        el.className = 'my-cell-loader';
+        return el;
+      });
+
+      setCellLoadingState(cell, true, renderer);
+      setCellLoadingState(cell, true, renderer);
+
+      expect(renderer).toHaveBeenCalledTimes(1);
+      expect(renderer).toHaveBeenCalledWith({ size: 'small' });
+      expect(cell.classList.contains('tbw-cell-loading-custom')).toBe(true);
+      expect(cell.querySelector('.tbw-cell-loading-overlay .my-cell-loader')).not.toBeNull();
+      expect(cell.querySelectorAll('.tbw-cell-loading-overlay')).toHaveLength(1);
+      expect(cell.querySelector('.tbw-spinner')).toBeNull();
+
+      setCellLoadingState(cell, false, renderer);
+
+      expect(cell.querySelector('.tbw-cell-loading-overlay')).toBeNull();
+      expect(cell.classList.contains('tbw-cell-loading-custom')).toBe(false);
+      expect(cell.getAttribute('aria-busy')).toBeNull();
+    });
+
+    it('should manage only its direct overlay and unmount it when cleared', () => {
+      const outerCell = document.createElement('div');
+      const nestedGrid = document.createElement('div');
+      const nestedCell = document.createElement('div');
+      nestedCell.className = 'cell';
+      nestedGrid.appendChild(nestedCell);
+      outerCell.appendChild(nestedGrid);
+
+      const renderer = (ctx: { size: 'large' | 'small' }) => {
+        const el = document.createElement('span');
+        el.textContent = ctx.size;
+        return el;
+      };
+      const unmount = vi.fn((_container: HTMLElement) => undefined);
+      const adapter = { unmount };
+
+      setCellLoadingState(nestedCell, true, renderer, adapter);
+      const nestedOverlay = nestedCell.querySelector(':scope > .tbw-cell-loading-overlay');
+      setCellLoadingState(outerCell, true, renderer, adapter);
+      const outerOverlay = outerCell.querySelector(':scope > .tbw-cell-loading-overlay');
+
+      expect(outerOverlay).not.toBeNull();
+      expect(nestedCell.querySelector(':scope > .tbw-cell-loading-overlay')).toBe(nestedOverlay);
+
+      setCellLoadingState(outerCell, false, renderer, adapter);
+
+      expect(unmount).toHaveBeenCalledExactlyOnceWith(outerOverlay);
+      expect(nestedCell.querySelector(':scope > .tbw-cell-loading-overlay')).toBe(nestedOverlay);
+    });
+
+    it('should keep the built-in cell spinner when no renderer is provided', () => {
+      const cell = document.createElement('div');
+
+      setCellLoadingState(cell, true);
+
+      expect(cell.classList.contains('tbw-cell-loading')).toBe(true);
+      expect(cell.classList.contains('tbw-cell-loading-custom')).toBe(false);
+      expect(cell.querySelector('.tbw-cell-loading-overlay')).toBeNull();
     });
   });
   // #endregion

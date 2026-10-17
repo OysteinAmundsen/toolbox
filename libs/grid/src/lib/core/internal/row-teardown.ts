@@ -3,6 +3,7 @@
  * (loading placeholders), so framework-adapter cleanup has one implementation.
  */
 import type { GridHost } from '../types';
+import { removeCellLoadingOverlay, removeRowLoadingOverlay } from './loading';
 
 /**
  * Wipe a pooled row's cells ahead of a full rebuild.
@@ -22,15 +23,18 @@ export function clearRowForRebuild(grid: Pick<GridHost, '__frameworkAdapter'> & 
   rowEl.removeAttribute('aria-busy');
 
   const adapter = grid.__frameworkAdapter;
-  if (!adapter?.releaseCell) {
+  if (!adapter?.releaseCell && !adapter?.unmount) {
     rowEl.innerHTML = '';
     return;
   }
   adapter.beginBatch?.(grid);
   try {
+    removeRowLoadingOverlay(rowEl, adapter);
     const children = rowEl.children;
     for (let i = children.length - 1; i >= 0; i--) {
-      adapter.releaseCell(children[i] as HTMLElement);
+      const cell = children[i] as HTMLElement;
+      removeCellLoadingOverlay(cell, adapter);
+      adapter.releaseCell?.(cell);
     }
     rowEl.innerHTML = '';
   } finally {

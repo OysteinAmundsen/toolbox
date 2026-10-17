@@ -137,7 +137,7 @@ const mountedPortals = new Map<HTMLElement, MountedEntry>();
  * to unmount portals created by `wrapReactEditor` / `wrapReactRenderer`
  * (which bypass the adapter's per-cell portal tracking).
  *
- * Targets both `.react-cell-editor` AND `.react-cell-renderer` containers:
+ * Targets cell editor, cell renderer, and loading renderer containers:
  * editors always tear down on cell release, and renderers MUST also tear
  * down before the editing pipeline runs `cell.innerHTML = ''` (otherwise
  * React's still-mounted fiber tree points at orphan DOM and throws on the
@@ -150,7 +150,9 @@ const mountedPortals = new Map<HTMLElement, MountedEntry>();
 export function cleanupConfigRootsIn(parentEl: HTMLElement): void {
   // Scoped DOM query keeps cost proportional to the cell's contents
   // instead of the global mount count.
-  const containers = parentEl.querySelectorAll<HTMLElement>('.react-cell-editor, .react-cell-renderer');
+  const containers = parentEl.querySelectorAll<HTMLElement>(
+    '.react-cell-editor, .react-cell-renderer, .react-loading-renderer',
+  );
   for (const container of containers) {
     const entry = mountedPortals.get(container);
     if (!entry) continue;

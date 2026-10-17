@@ -1,9 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
+import { BaseGridPlugin } from '../../lib/core/plugin';
 import { createGrid, type DataGridElement } from '../../public';
 
 function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+/** `ready()` only settles for the initial render, so later config changes need the render event. */
+function nextRender(grid: HTMLElement): Promise<void> {
+  return new Promise((resolve) => grid.addEventListener('render', () => resolve(), { once: true }));
 }
 
 async function waitUpgrade(grid: DataGridElement): Promise<void> {
@@ -234,6 +240,34 @@ describe('Loading State', () => {
       expect(nameCell?.classList.contains('tbw-cell-loading')).toBe(true);
     });
 
+    it('should render custom loading content and restore it after rows are rebuilt', async () => {
+      const renderer = vi.fn((ctx: { size: 'large' | 'small' }) => {
+        const el = document.createElement('span');
+        el.className = 'custom-cell-loader';
+        el.textContent = ctx.size;
+        return el;
+      });
+      grid.gridConfig = { ...grid.gridConfig, loadingRenderer: renderer };
+      await nextRender(grid);
+
+      grid.setCellLoading('1', 'name', true);
+      await nextFrame();
+
+      let nameCell = grid.querySelector('.data-grid-row')?.children[1] as HTMLElement;
+      expect(nameCell.querySelector('.custom-cell-loader')?.textContent).toBe('small');
+      expect(renderer).toHaveBeenCalledWith({ size: 'small' });
+
+      // Fresh row identities force a real cell rebuild, which discards the overlay and
+      // makes the post-render replay re-invoke the renderer.
+      grid.rows = grid.rows.map((row) => ({ ...row }));
+      await nextRender(grid);
+
+      nameCell = grid.querySelector('.data-grid-row')?.children[1] as HTMLElement;
+      expect(nameCell.classList.contains('tbw-cell-loading')).toBe(true);
+      expect(nameCell.querySelector('.custom-cell-loader')?.textContent).toBe('small');
+      expect(renderer).toHaveBeenCalledTimes(2);
+    });
+
     it('should handle multiple cells loading in same row', () => {
       grid.setCellLoading?.('1', 'id', true);
       grid.setCellLoading?.('1', 'name', true);
@@ -252,6 +286,41 @@ describe('Loading State', () => {
 
       expect(grid.isCellLoading?.('1', 'name')).toBe(true);
       expect(grid.isCellLoading?.('2', 'name')).toBe(true);
+    });
+
+    it('should skip fields with no rendered cell on a plugin-rendered row', async () => {
+      /** Stand-in for Responsive's `cardRenderer`: the row's children are no longer cells. */
+      class CardRowPlugin extends BaseGridPlugin {
+        readonly name = 'cardRowTest';
+        override renderRow(_row: unknown, rowEl: HTMLElement): boolean {
+          rowEl.replaceChildren();
+          rowEl.className = 'data-grid-row card';
+          const card = document.createElement('div');
+          card.setAttribute('role', 'gridcell');
+          rowEl.appendChild(card);
+          return true;
+        }
+      }
+
+      const cardGrid = createGrid<{ id: string; name: string }>({
+        columns: [{ field: 'id' }, { field: 'name' }],
+        getRowId: (row) => row.id,
+        plugins: [new CardRowPlugin()],
+      });
+      cardGrid.rows = [{ id: '1', name: 'Alice' }];
+      document.body.appendChild(cardGrid);
+      await waitUpgrade(cardGrid);
+
+      // Row loading appends an overlay, so `children[1]` is no longer column 1's cell.
+      cardGrid.setRowLoading('1', true);
+      cardGrid.setCellLoading('1', 'name', true);
+      await nextFrame();
+
+      const rowEl = cardGrid.querySelector('.data-grid-row') as HTMLElement;
+      expect(rowEl.querySelector('.tbw-row-loading-overlay')).not.toBeNull();
+      expect(rowEl.querySelector('.tbw-cell-loading')).toBeNull();
+      expect(rowEl.querySelector('.tbw-cell-loading-overlay')).toBeNull();
+      expect(rowEl.querySelector('[aria-busy="true"]')).toBeNull();
     });
   });
 

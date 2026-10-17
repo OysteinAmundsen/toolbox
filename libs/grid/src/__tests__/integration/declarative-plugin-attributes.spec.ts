@@ -122,5 +122,31 @@ describe('declarative plugin attributes (issue #272)', () => {
       const headerCells = grid.querySelectorAll('.header-row .cell');
       expect(headerCells.length).toBe(2);
     });
+
+    it('does not duplicate a declaratively hidden column when another column is already hidden (#512)', async () => {
+      grid.innerHTML = `
+        <tbw-grid-column field="a" header="A"></tbw-grid-column>
+        <tbw-grid-column field="b" header="B" hidden></tbw-grid-column>
+        <tbw-grid-column field="c" header="C"></tbw-grid-column>
+      `;
+      grid.gridConfig = {
+        columns: [{ field: 'c', hidden: true }],
+        plugins: [new ShellPlugin(), new VisibilityPlugin()],
+      };
+      grid.rows = [{ a: 1, b: 2, c: 3 }];
+      await waitUpgrade(grid);
+
+      // Light-DOM + config merge decides the order; what matters is each field appears once.
+      const order: string[] = grid.getColumnOrder();
+      expect([...order].sort()).toEqual(['a', 'b', 'c']);
+
+      grid.setColumnVisible('b', true);
+      await nextFrame();
+      await nextFrame();
+      const fields = Array.from(grid.querySelectorAll('.header-row .cell')).map((c: any) =>
+        c.getAttribute('data-field'),
+      );
+      expect(fields).toEqual(['a', 'b']);
+    });
   });
 });

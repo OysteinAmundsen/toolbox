@@ -189,15 +189,14 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
 
   // #region Hooks
 
-  /** @internal */
-  override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
-    const cols = [...columns];
-    // Read the declarative `pinned` attribute from the originating light-DOM
-    // element (issue #272). Each element seeds a column at most once: after the
-    // first pass the element is recorded, so a later runtime unpin (which
-    // clears `col.pinned`) is never overridden by re-reading the attribute.
-    // The `pinned != null` guard additionally lets a programmatic config value
-    // win over the attribute on that first pass.
+  /**
+   * Seed `col.pinned` from the declarative `pinned` attribute on the originating
+   * light-DOM element (issue #272). Each element seeds a column at most once: after
+   * the first pass the element is recorded, so a later runtime unpin (which clears
+   * `col.pinned`) is never overridden by re-reading the attribute. The
+   * `pinned != null` guard lets a programmatic config value win on that first pass.
+   */
+  #seedFromAttributes(cols: readonly ColumnConfig[]): void {
     for (const col of cols) {
       const el = (col as ColumnInternal).__element;
       if (!el || this.#seededFromAttr.has(el)) continue;
@@ -208,6 +207,25 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         col.pinned = pinned;
       }
     }
+  }
+
+  /**
+   * Move pinned columns to the edges on the FULL column list, so hidden columns keep
+   * their place among the unpinned ones and reappear there when shown (#512).
+   * @internal
+   */
+  override orderColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
+    const cols = [...columns];
+    this.#seedFromAttributes(cols);
+    if (!hasStickyColumns(cols)) return cols;
+    const host = this.gridElement;
+    return reorderColumnsForPinning(cols, host ? getDirection(host) : 'ltr') as ColumnConfig[];
+  }
+
+  /** @internal */
+  override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
+    const cols = [...columns];
+    this.#seedFromAttributes(cols);
     this.isApplied = hasStickyColumns(cols);
     if (!this.isApplied) return cols;
 

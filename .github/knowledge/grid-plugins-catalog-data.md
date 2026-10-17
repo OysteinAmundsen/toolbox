@@ -47,8 +47,9 @@ OWNS: pivot result, flattened pivot rows, expanded keys, column totals, sort sta
 
 ### PinnedColumns
 
-OWNS: pinned state per column. HOOKS: processColumns(-10), afterCellRender. TENSION: runs first, before ColumnVirtualization.
+OWNS: pinned state per column. HOOKS: orderColumns (`@internal`, full list incl. hidden — does the edge partition, #512), processColumns(-10), afterCellRender. TENSION: runs first, before ColumnVirtualization.
 
+- INVARIANT (#512): header/group-cell `grid-column` tracks are VISIBLE-column index space, but `this.columns` includes hidden columns. `applyStickyOffsets` filters `hidden` first — else one hidden column shifts the `columns.slice(start, end)` group mapping and the group cell above a right-pinned column never gets `sticky-right`.
 - INVARIANT (sticky-cell painting): `.sticky-left`/`.sticky-right` carry opaque `background: var(--tbw-color-panel-bg)` (`rows.css`) + `position: sticky; z-index: 25` (`base.css`). So (1) row tints (`.row-focus`, `:hover`, `:nth-child(even)`) are HIDDEN under sticky cells — re-paint with `background: linear-gradient(<tint>,<tint>), var(--tbw-color-panel-bg)`; (2) `::after` border overlays need row-level `z-index: 26` (cell-level `::after { inset: 0 }` is clipped by `overflow: hidden`). Canonical: `selection.css .data-grid-row.row-focus`.
 
 ### ColumnVirtualization / Visibility

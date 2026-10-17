@@ -276,6 +276,93 @@ export function applyInitialOrder<T>(columns: ColumnInternal<T>[]): ColumnIntern
 
   return columns;
 }
+
+/**
+ * Fields of the source columns whose relative order survived plugin processing —
+ * the longest increasing subsequence of their source indices in `processed` order.
+ * Every other source column was moved by a plugin (e.g. pinned to an edge).
+ */
+function stableSourceFields(processed: readonly ColumnConfig[], sourceIndex: Map<string, number>): Set<string> {
+  const seq: Array<{ field: string; idx: number }> = [];
+  for (const col of processed) {
+    const idx = sourceIndex.get(col.field);
+    if (idx !== undefined) seq.push({ field: col.field, idx });
+  }
+
+  // Patience sorting: tails[k] = position in `seq` of the smallest tail of an increasing run of length k+1.
+  const tails: number[] = [];
+  const prev = new Array<number>(seq.length).fill(-1);
+  for (let i = 0; i < seq.length; i++) {
+    let lo = 0;
+    let hi = tails.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (seq[tails[mid]].idx < seq[i].idx) lo = mid + 1;
+      else hi = mid;
+    }
+    if (lo > 0) prev[i] = tails[lo - 1];
+    tails[lo] = i;
+  }
+
+  const stable = new Set<string>();
+  for (let i = tails.length ? tails[tails.length - 1] : -1; i !== -1; i = prev[i]) stable.add(seq[i].field);
+  return stable;
+}
+
+/**
+ * Re-insert hidden columns into the plugin-processed visible columns.
+ *
+ * The processed order is authoritative — plugins may add (expander, selection), drop
+ * (column virtualization) or annotate visible columns. Built-in plugins that MOVE columns do
+ * it in the `orderColumns` hook on the full list beforehand, so `sourceColumns` already holds
+ * every hidden column at its final place and nothing moves here. The anchoring below covers a
+ * plugin that still reorders inside `processColumns`: each hidden column follows its nearest
+ * preceding source column that kept its relative order (LIS of source indices); with no such
+ * predecessor it goes before the first of them, keeping plugin-prepended columns in front.
+ *
+ * A column a plugin hid DURING processing (e.g. VisibilityPlugin seeding a declarative
+ * `hidden`) is still in `processedVisible` and is not inserted a second time.
+ *
+ * @param sourceColumns - All columns (visible + hidden) in source order
+ * @param processedVisible - Visible columns as returned by the plugin pipeline
+ * @returns `processedVisible` with every remaining hidden source column interleaved
+ */
+export function interleaveHiddenColumns<C extends ColumnConfig>(
+  sourceColumns: readonly C[],
+  processedVisible: readonly C[],
+): C[] {
+  const sourceIndex = new Map<string, number>();
+  sourceColumns.forEach((col, i) => sourceIndex.set(col.field, i));
+  const stable = stableSourceFields(processedVisible, sourceIndex);
+  const processedFields = new Set(processedVisible.map((col) => col.field));
+
+  const leading: C[] = [];
+  const trailing = new Map<string, C[]>();
+  let anchor: string | undefined;
+  for (const col of sourceColumns) {
+    if (stable.has(col.field)) {
+      anchor = col.field;
+    } else if (col.hidden && !processedFields.has(col.field)) {
+      if (anchor === undefined) {
+        leading.push(col);
+      } else {
+        const list = trailing.get(anchor);
+        if (list) list.push(col);
+        else trailing.set(anchor, [col]);
+      }
+    }
+  }
+
+  const result: C[] = [];
+  for (const col of processedVisible) {
+    if (leading.length && stable.has(col.field)) result.push(...leading.splice(0));
+    result.push(col);
+    const after = trailing.get(col.field);
+    if (after) result.push(...after);
+  }
+  result.push(...leading);
+  return result;
+}
 // #endregion
 
 // #region Column Merging

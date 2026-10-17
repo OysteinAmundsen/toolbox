@@ -207,16 +207,20 @@ export interface SplitGroupState {
  * This modifies the DOM elements in place.
  *
  * @param host - The grid host element (render root for DOM queries)
- * @param columns - Array of column configurations
+ * @param allColumns - Array of column configurations (hidden columns are ignored)
  * @returns Sticky offsets result with group-end adjustments and measured offset maps
  */
-export function applyStickyOffsets(host: HTMLElement, columns: any[]): StickyOffsetsResult {
+export function applyStickyOffsets(host: HTMLElement, allColumns: any[]): StickyOffsetsResult {
   const emptyResult: StickyOffsetsResult = {
     groupEndAdjustments: { addGroupEnd: new Set(), removeGroupEnd: new Set() },
     leftOffsets: new Map(),
     rightOffsets: new Map(),
     splitGroups: [],
   };
+
+  // Group header cells address columns by `grid-column` track index, and only visible
+  // columns get a track — so hidden columns must not shift the index mapping (#512).
+  const columns = allColumns.filter((col) => !col.hidden);
 
   // With light DOM, query the host element directly
   const headerCells = Array.from(host.querySelectorAll('.header-row .cell')) as HTMLElement[];

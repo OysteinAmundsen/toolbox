@@ -240,6 +240,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
 
   /** Cached original (unwrapped) renderer to prevent re-wrapping on repeated processColumns calls. */
   private originalTreeColumnRenderer: ColumnViewRenderer | undefined;
+  /** Property used by the original renderer, matching core's renderer precedence. */
+  private originalTreeColumnRendererProperty: 'renderer' | 'viewRenderer' = 'viewRenderer';
   /** Field name of the column currently wrapped with tree decorations. */
   private wrappedTreeColumnField: string | undefined;
   /** True while `processColumns` has the tree renderer installed on the tree column. */
@@ -264,6 +266,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     for (const controller of this.#childRequests.values()) controller.abort();
     this.#childRequests.clear();
     this.originalTreeColumnRenderer = undefined;
+    this.originalTreeColumnRendererProperty = 'viewRenderer';
     this.wrappedTreeColumnField = undefined;
     this.#treeColumnWrapped = false;
     // WeakMaps GC themselves once row references are dropped — nothing to clear.
@@ -764,10 +767,17 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       // already baked into the columns handed to us. Put the original back.
       if (this.#treeColumnWrapped) {
         const idx = cols.findIndex((c) => c.field === this.wrappedTreeColumnField);
-        if (idx >= 0) cols[idx] = { ...cols[idx], viewRenderer: this.originalTreeColumnRenderer };
+        if (idx >= 0) {
+          cols[idx] = {
+            ...cols[idx],
+            renderer:
+              this.originalTreeColumnRendererProperty === 'renderer' ? this.originalTreeColumnRenderer : undefined,
+          };
+        }
       }
       this.#treeColumnWrapped = false;
       this.originalTreeColumnRenderer = undefined;
+      this.originalTreeColumnRendererProperty = 'viewRenderer';
       this.wrappedTreeColumnField = undefined;
       return cols;
     }
@@ -790,7 +800,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     // On subsequent processColumns calls, reuse the cached original so we
     // don't nest tree-cell-wrappers.
     if (this.wrappedTreeColumnField !== targetField) {
-      this.originalTreeColumnRenderer = targetCol.viewRenderer;
+      this.originalTreeColumnRenderer = targetCol.renderer || targetCol.viewRenderer;
+      this.originalTreeColumnRendererProperty = targetCol.renderer ? 'renderer' : 'viewRenderer';
       this.wrappedTreeColumnField = targetField;
     }
     const originalRenderer = this.originalTreeColumnRenderer;
@@ -850,7 +861,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       return container;
     };
 
-    cols[targetIndex] = { ...targetCol, viewRenderer: wrappedRenderer };
+    cols[targetIndex] = { ...targetCol, renderer: wrappedRenderer };
     this.#treeColumnWrapped = true;
     return cols;
   }

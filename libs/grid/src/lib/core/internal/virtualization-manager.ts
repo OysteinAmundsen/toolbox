@@ -171,27 +171,16 @@ export class VirtualizationManager<T = any> {
     const grid = this.#grid;
     const rows = grid._rows;
     const estimatedHeight = s.rowHeight || 28;
-    // `rowHeight` may be a number — a plugin with `getRowHeight()` enables variable heights
-    // regardless of its form, so the callable form must be checked, not assumed.
-    const userRowHeight = grid.effectiveConfig?.rowHeight;
-    const rowHeightFn =
-      typeof userRowHeight === 'function'
-        ? (userRowHeight as (row: T, index: number) => number | undefined)
-        : undefined;
     const getRowId = grid.effectiveConfig?.getRowId;
     const rowIdFn = getRowId ? (row: T) => getRowId(row) : undefined;
 
-    s.positionCache = rebuildPositionCache(rows, s.heightCache, estimatedHeight, { rowId: rowIdFn }, (row, index) => {
-      const pluginHeight = grid._getPluginRowHeight(row, index);
-      if (pluginHeight !== undefined) return pluginHeight;
-      // A consumer `rowHeight(row, index)` never sees a loading placeholder (#508): it
-      // keeps the estimate, matching the default height its DOM is rendered at.
-      if (rowHeightFn && (row as { __loading?: unknown } | null)?.__loading !== true) {
-        const height = rowHeightFn(row, index);
-        if (height !== undefined && height > 0) return height;
-      }
-      return undefined;
-    });
+    s.positionCache = rebuildPositionCache(
+      rows,
+      s.heightCache,
+      estimatedHeight,
+      { rowId: rowIdFn },
+      this.#assignedRowHeightResolver(),
+    );
 
     const stats = computeAverageExcludingPluginRows(s.positionCache, rows, estimatedHeight, (row, index) =>
       grid._getPluginRowHeight(row, index),
@@ -200,6 +189,35 @@ export class VirtualizationManager<T = any> {
     if (stats.measuredCount > 0) {
       s.averageHeight = stats.averageHeight;
     }
+  }
+
+  /**
+   * Height a plugin or a consumer `rowHeight(row, index)` assigns to a row; `undefined`
+   * leaves the row to DOM auto-measurement. Shared by the position-cache rebuild and
+   * `measureRenderedRowHeights` so a DOM read never overrides an assigned height.
+   */
+  #assignedRowHeightResolver(): (row: T, index: number) => number | undefined {
+    const grid = this.#grid;
+    // `rowHeight` may be a number — a plugin with `getRowHeight()` enables variable heights
+    // regardless of its form, so the callable form must be checked, not assumed.
+    const userRowHeight = grid.effectiveConfig?.rowHeight;
+    const rowHeightFn =
+      typeof userRowHeight === 'function'
+        ? (userRowHeight as (row: T, index: number) => number | undefined)
+        : undefined;
+    // A numeric `rowHeight` is a contract: never replaced by a measured height.
+    const fixedHeight = typeof userRowHeight === 'number' && userRowHeight > 0 ? userRowHeight : undefined;
+    return (row, index) => {
+      const pluginHeight = grid._getPluginRowHeight(row, index);
+      if (pluginHeight !== undefined) return pluginHeight;
+      // A consumer `rowHeight(row, index)` never sees a loading placeholder (#508): it
+      // keeps the estimate, matching the default height its DOM is rendered at.
+      if (rowHeightFn && (row as { __loading?: unknown } | null)?.__loading !== true) {
+        const height = rowHeightFn(row, index);
+        if (height !== undefined && height > 0) return height;
+      }
+      return fixedHeight;
+    };
   }
 
   /**
@@ -259,7 +277,8 @@ export class VirtualizationManager<T = any> {
     const bodyEl = grid._bodyEl;
     if (!bodyEl) return;
 
-    const rowElements = bodyEl.querySelectorAll('.data-grid-row');
+    // Direct children only — a nested grid (e.g. in a detail panel) has its own local aria-rowindex values.
+    const rowElements = bodyEl.querySelectorAll(':scope > .data-grid-row');
     const getRowId = grid.effectiveConfig?.getRowId;
     const rows = grid._rows;
 
@@ -271,7 +290,8 @@ export class VirtualizationManager<T = any> {
         defaultHeight: s.rowHeight,
         start,
         end,
-        getPluginHeight: (row, index) => grid._getPluginRowHeight(row, index),
+        headerRowCount: grid.__cachedHeaderRowCount ?? 1,
+        getPluginHeight: this.#assignedRowHeightResolver(),
         getRowId: getRowId ? (row: T) => getRowId(row) : undefined,
       },
       rowElements,

@@ -606,4 +606,112 @@ describe('variable row height with plugins', () => {
       expect(grid._virtualization.rowHeight).toBe(36);
     });
   });
+
+  describe('DOM auto-measurement of rendered rows (#513)', () => {
+    // Auto rows (rowHeight → undefined) render at a content-dependent height; the rest at 32px.
+    const autoHeight = (row: TestRow) => 60 + (row.id % 4) * 40;
+    const isAuto = (row: TestRow) => row.id % 2 === 1;
+
+    function stubOffsetHeight() {
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+        const row = (this as HTMLElement & { __rowDataRef?: TestRow }).__rowDataRef;
+        if (!this.classList.contains('data-grid-row') || !row) return 0;
+        return isAuto(row) ? autoHeight(row) : 32;
+      });
+    }
+
+    it('measures each auto-measured row on render and caches its own height', async () => {
+      stubOffsetHeight();
+      grid.rows = createRows(100);
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+        ],
+        rowHeight: (row: TestRow) => (isAuto(row) ? undefined : 32),
+      };
+      document.body.appendChild(grid);
+      await waitUpgrade(grid);
+      await nextFrame();
+      await nextFrame();
+
+      const cache = grid._virtualization.positionCache!;
+      const rendered = [...grid.querySelectorAll<HTMLElement>('.data-grid-row')].map(
+        (el) => Number(el.getAttribute('aria-rowindex')) - 2,
+      );
+      const autoRows = rendered.filter((i) => isAuto(grid._rows[i] as TestRow));
+      expect(autoRows.length).toBeGreaterThan(1);
+
+      for (const i of rendered) {
+        const row = grid._rows[i] as TestRow;
+        expect(cache[i]).toMatchObject({ height: isAuto(row) ? autoHeight(row) : 32, measured: true });
+      }
+      // Offsets follow the measured heights, not a shared estimate.
+      expect(cache[1].offset).toBe(cache[0].height);
+    });
+
+    it('ignores rows of a nested grid, whose aria-rowindex values are local to the child', async () => {
+      stubOffsetHeight();
+      grid.rows = createRows(100);
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+        ],
+        rowHeight: (row: TestRow) => (isAuto(row) ? undefined : 32),
+      };
+      document.body.appendChild(grid);
+      await waitUpgrade(grid);
+      await nextFrame();
+      await nextFrame();
+      expect(grid._virtualization.positionCache![0]).toMatchObject({
+        height: autoHeight(grid._rows[0]),
+        measured: true,
+      });
+
+      // Child row 0 (aria-rowindex 2, 32px) would map onto parent row 0 (100px).
+      const parentScrollbar = grid.querySelector('.faux-vscroll')!;
+      const child = document.createElement('tbw-grid') as DataGridElement<TestRow>;
+      child.rows = [{ id: 4, name: 'Child' }];
+      child.gridConfig = { columns: [{ field: 'id', header: 'ID' }] };
+      grid.querySelector('.data-grid-row .cell')!.appendChild(child);
+      await waitUpgrade(child);
+      await nextFrame();
+      expect(child.querySelector('.data-grid-row')?.getAttribute('aria-rowindex')).toBe('2');
+
+      // The debounced post-scroll measurement re-reads every rendered row without re-rendering them.
+      parentScrollbar.dispatchEvent(new Event('scroll'));
+      await nextFrame();
+      await new Promise((r) => setTimeout(r, 150));
+
+      expect(child.isConnected).toBe(true);
+      expect(grid._virtualization.positionCache![0].height).toBe(autoHeight(grid._rows[0]));
+    });
+  });
+
+  it('keeps a numeric rowHeight for collapsed rows when a plugin enables variable heights (#513)', async () => {
+    // The DOM disagrees with the configured height; the numeric contract must win.
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('data-grid-row') ? 40 : 0;
+    });
+    grid.rows = createRows(100);
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name' },
+      ],
+      rowHeight: 36,
+      plugins: [new MasterDetailPlugin({ detailRenderer: () => document.createElement('div') })],
+    };
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+    await nextFrame();
+    await nextFrame();
+
+    const virt = grid._virtualization;
+    expect(virt.variableHeights).toBe(true);
+    expect(grid.querySelectorAll('.data-grid-row').length).toBeGreaterThan(0);
+    expect(virt.positionCache![0].height).toBe(36);
+    expect(virt.positionCache![1].offset).toBe(36);
+  });
 });

@@ -5,23 +5,23 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-    calculateAverageHeight,
-    computeScrollMapping,
-    computeVirtualWindow,
-    createHeightCache,
-    fromVirtualScrollTop,
-    getCachedHeight,
-    getRowIndexAtOffset,
-    getTotalHeight,
-    MAX_ELEMENT_HEIGHT_PX,
-    rebuildPositionCache,
-    setCachedHeight,
-    shouldBypassVirtualization,
-    toVirtualScrollTop,
-    updateRowHeight,
-    updateRowHeights,
-    type HeightCache,
-    type RowPosition,
+  calculateAverageHeight,
+  computeScrollMapping,
+  computeVirtualWindow,
+  createHeightCache,
+  fromVirtualScrollTop,
+  getCachedHeight,
+  getRowIndexAtOffset,
+  getTotalHeight,
+  MAX_ELEMENT_HEIGHT_PX,
+  rebuildPositionCache,
+  setCachedHeight,
+  shouldBypassVirtualization,
+  toVirtualScrollTop,
+  updateRowHeight,
+  updateRowHeights,
+  type HeightCache,
+  type RowPosition,
 } from './virtualization';
 
 // #region HeightCache Tests
@@ -334,10 +334,11 @@ describe('measureRenderedRowHeights', () => {
     measureRenderedRowHeights = module.measureRenderedRowHeights;
   });
 
+  // Mirrors the render loop: aria-rowindex = rowIndex + headerRowCount (1) + 1.
   function createMockRowElements(heights: number[]): NodeListOf<Element> {
     const elements: Element[] = heights.map((height, index) => {
       const el = document.createElement('div');
-      el.dataset.rowIndex = String(index);
+      el.setAttribute('aria-rowindex', String(index + 2));
       Object.defineProperty(el, 'offsetHeight', { value: height, configurable: true });
       return el;
     });
@@ -360,6 +361,7 @@ describe('measureRenderedRowHeights', () => {
         defaultHeight: 28,
         start: 0,
         end: 2,
+        headerRowCount: 1,
       },
       createMockRowElements([40, 50]),
     );
@@ -389,6 +391,7 @@ describe('measureRenderedRowHeights', () => {
         defaultHeight: 28,
         start: 1,
         end: 2,
+        headerRowCount: 1,
       },
       createMockRowElements([40, 50, 60]),
     );
@@ -415,6 +418,7 @@ describe('measureRenderedRowHeights', () => {
         defaultHeight: 28,
         start: 0,
         end: 1,
+        headerRowCount: 1,
         getPluginHeight: () => 100, // Plugin says row is 100px
       },
       createMockRowElements([40]), // DOM says 40px
@@ -438,6 +442,7 @@ describe('measureRenderedRowHeights', () => {
         defaultHeight: 28,
         start: 0,
         end: 1,
+        headerRowCount: 1,
       },
       createMockRowElements([40]), // Same height as cached
     );
@@ -456,6 +461,7 @@ describe('measureRenderedRowHeights', () => {
       defaultHeight: 28,
       start: 0,
       end: 1,
+      headerRowCount: 1,
     };
 
     const first = measureRenderedRowHeights(context, createMockRowElements([40]));
@@ -464,6 +470,34 @@ describe('measureRenderedRowHeights', () => {
 
     const second = measureRenderedRowHeights(context, createMockRowElements([40]));
     expect(second.hasChanges).toBe(false);
+  });
+
+  it('offsets aria-rowindex by the header row count and skips rows without it', () => {
+    const positionCache: RowPosition[] = [
+      { offset: 0, height: 28, measured: false },
+      { offset: 28, height: 28, measured: false },
+    ];
+    const elements = createMockRowElements([40, 50]);
+    // Two header rows (column groups) → data row 0 is aria-rowindex 3.
+    elements[0].setAttribute('aria-rowindex', '3');
+    // A clone without aria-rowindex (e.g. a sticky row) must not be measured.
+    elements[1].removeAttribute('aria-rowindex');
+
+    measureRenderedRowHeights(
+      {
+        positionCache,
+        heightCache: createHeightCache(),
+        rows: [{ id: 1 }, { id: 2 }],
+        defaultHeight: 28,
+        start: 0,
+        end: 2,
+        headerRowCount: 2,
+      },
+      elements,
+    );
+
+    expect(positionCache[0]).toMatchObject({ height: 40, measured: true });
+    expect(positionCache[1]).toMatchObject({ height: 28, measured: false });
   });
 });
 // #endregion

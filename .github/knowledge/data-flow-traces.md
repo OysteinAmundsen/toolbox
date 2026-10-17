@@ -98,7 +98,7 @@ EVENT: scroll on .rows-viewport
   │   │   heights) or scrollTop / rowHeight (uniform)
   │   ├─ calculate new start/end indices
   │   └─ if window changed: renderVisibleRows(start, end)
-  │       ├─ per row: get/create pooled element, set data-row-index, render cells
+  │       ├─ per row: get/create pooled element, set aria-rowindex, render cells
   │       │   (reuse or create), afterCellRender, afterRowRender, onScrollRender hooks
   │       └─ recycle unused row elements back to pool
   └─ pluginManager.onScroll(event)

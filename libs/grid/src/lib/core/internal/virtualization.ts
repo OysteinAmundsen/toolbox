@@ -384,6 +384,8 @@ export interface RowMeasurementContext<T> {
   start: number;
   /** End index of rendered window (exclusive) */
   end: number;
+  /** Header rows above the data rows — offsets `aria-rowindex` (row index + headerRowCount + 1) */
+  headerRowCount: number;
   /** Function to get plugin height for a row */
   getPluginHeight?: (row: T, index: number) => number | undefined;
   /** Function to get row ID for height cache keying */
@@ -402,16 +404,17 @@ export function measureRenderedRowHeights<T>(
   context: RowMeasurementContext<T>,
   rowElements: NodeListOf<Element>,
 ): RowMeasurementResult {
-  const { positionCache, heightCache, rows, start, end, getPluginHeight, getRowId } = context;
+  const { positionCache, heightCache, rows, start, end, headerRowCount, getPluginHeight, getRowId } = context;
 
   let hasChanges = false;
   const heightChanges: RowHeightChange[] = [];
 
   rowElements.forEach((rowEl) => {
-    const rowIndexStr = (rowEl as HTMLElement).dataset.rowIndex;
-    if (!rowIndexStr) return;
+    // The render loop writes `aria-rowindex` on every data row; clones without it (sticky rows) are skipped.
+    const ariaRowIndex = rowEl.getAttribute('aria-rowindex');
+    if (!ariaRowIndex) return;
 
-    const rowIndex = parseInt(rowIndexStr, 10);
+    const rowIndex = parseInt(ariaRowIndex, 10) - headerRowCount - 1;
     if (rowIndex < start || rowIndex >= end || rowIndex >= rows.length) return;
 
     const row = rows[rowIndex];

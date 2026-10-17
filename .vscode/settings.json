@@ -2,5 +2,6 @@
   "chat.tools.terminal.autoApprove": {
     "gh": true,
     "uniq": true
-  }
+  },
+  "js/ts.experimental.useTsgo": false
 }

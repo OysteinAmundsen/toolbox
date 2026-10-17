@@ -15,6 +15,7 @@ related: [adapters, adapters-react, adapters-vue, grid-core, grid-features, buil
 ## angular-grid-adapter
 
 - OWNS: `viewRefs`, `componentRefs`, per-cell editor tracking. KEY FILES: `angular-grid-adapter.ts`, `angular-column-config.ts`, `inject-grid.ts`, `directives/grid.directive.ts`.
+- INVARIANT (#518): `createComponentLoadingRenderer()` stores loader refs in `componentRefs`, not the editor-specific pools swept by `releaseCell()`. Core must call `unmount(overlay)` before removing a custom loading overlay; Angular's `unmount destroys component refs inside the container` spec covers the lifecycle.
 - BRIDGE: `createEmbeddedView(template, ctx)` + `syncRootNodes(viewRef, container)` — compares `viewRef.rootNodes` vs `container.childNodes`, replaces all if different (handles `@if`/`@for`).
 - TENSION: two renderer syntaxes (`*tbwRenderer` structural directive vs nested `tbw-grid-column-view`); registration requires manual DI setup (not auto like React/Vue).
 - DECIDED (#256): `mountComponentRenderer<TCtx>(componentClass, mapInputs, pool)` is the canonical primitive for mounting a standalone component into a cell/header/panel → `{ hostElement, componentRef }`. All `createComponent*Renderer` methods are thin wrappers; the cell cache (WeakMap pool reuse) and editor wiring stay AROUND it.

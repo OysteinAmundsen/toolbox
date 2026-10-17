@@ -14,6 +14,7 @@
  * - injectEditor: value-change callback registration
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { setCellLoadingState } from '../../../core/internal/loading';
 import type { ColumnConfig, ColumnInternal } from '../../../core/types';
 import { injectEditor, type EditorInjectionDeps } from './editor-injection';
 
@@ -141,6 +142,45 @@ describe('editor-injection', () => {
       injectEditor(deps, { id: '1', name: 'Alice' }, 0, col('name'), 0, cell, true);
 
       expect(cell.textContent).not.toContain('Original content');
+    });
+
+    it('should leave a nested cell loading overlay in its own grid when injecting an editor', () => {
+      const deps = createDeps();
+      const { cell } = createCellInRow();
+      const nestedGrid = document.createElement('div');
+      const nestedCell = document.createElement('div');
+      nestedCell.className = 'cell';
+      nestedGrid.appendChild(nestedCell);
+      cell.appendChild(nestedGrid);
+      setCellLoadingState(nestedCell, true, () => document.createElement('span'));
+      const nestedOverlay = nestedCell.querySelector(':scope > .tbw-cell-loading-overlay');
+
+      injectEditor(deps, { id: '1', name: 'Alice' }, 0, col('name'), 0, cell, true);
+
+      expect(cell.querySelector(':scope > .tbw-editor-host')).not.toBeNull();
+      expect(cell.querySelector(':scope > .tbw-cell-loading-overlay')).toBeNull();
+      expect(nestedCell.querySelector(':scope > .tbw-cell-loading-overlay')).toBe(nestedOverlay);
+    });
+
+    it('keeps a loading renderer connected while releasing sibling cell content', () => {
+      const deps = createDeps();
+      const { cell } = createCellInRow();
+      const cellRenderer = document.createElement('div');
+      cellRenderer.className = 'react-cell-renderer';
+      cell.appendChild(cellRenderer);
+      setCellLoadingState(cell, true, () => document.createElement('span'));
+      const overlay = cell.querySelector(':scope > .tbw-cell-loading-overlay')!;
+      const releaseCell = vi.fn((releasedCell: HTMLElement) => {
+        expect(overlay.isConnected).toBe(true);
+        expect(releasedCell.contains(overlay)).toBe(false);
+      });
+      deps.grid.__frameworkAdapter = { releaseCell } as any;
+
+      injectEditor(deps, { id: '1', name: 'Alice' }, 0, col('name'), 0, cell, true);
+
+      expect(releaseCell).toHaveBeenCalledWith(cell);
+      expect(cell.querySelector(':scope > .tbw-editor-host')).not.toBeNull();
+      expect(cell.querySelector(':scope > .tbw-cell-loading-overlay')).toBe(overlay);
     });
   });
 

@@ -451,6 +451,9 @@ function isVNodeRenderFunction(value: unknown): value is (...args: unknown[]) =>
  */
 const PROCESSED_MARKER = Symbol.for('tbw:vue-processed');
 
+/** Container class marking a loading-renderer teleport host, used for scoped `unmount()` lookup. */
+const LOADING_RENDERER_CLASS = 'vue-loading-renderer';
+
 /**
  * Creates a teleport host `<div>` with the given class name and `display:contents`
  * so it is layout-transparent inside the grid cell. Used by all `createConfig*`
@@ -509,6 +512,13 @@ interface CellTeleportCache {
 export class GridAdapter implements FrameworkAdapter {
   /** Teleport keys tracked for cleanup. */
   private teleportKeys: string[] = [];
+  /**
+   * Loading renderer teleports, keyed by their returned DOM containers. Weak so a
+   * loader container discarded without an `unmount()` call (e.g. DOM wiped by a
+   * plugin or consumer outside core's teardown paths) cannot pin detached DOM.
+   * Lookups are scoped by DOM query instead of iteration — see `unmount()`.
+   */
+  private loadingTeleportKeys: WeakMap<HTMLElement, string> = new WeakMap();
   /** Editor-specific teleport keys tracked separately for per-cell cleanup. */
   private editorTeleportKeys: Map<HTMLElement, string> = new Map();
   /**
@@ -1003,11 +1013,12 @@ export class GridAdapter implements FrameworkAdapter {
    */
   private createComponentLoadingRenderer(component: Component): (ctx: LoadingContext) => HTMLElement {
     return (ctx: LoadingContext) => {
-      const container = createTeleportContainer('vue-loading-renderer');
+      const container = createTeleportContainer(LOADING_RENDERER_CLASS);
 
       const comp = component;
       const teleportKey = renderToContainer(container, createVNode(comp, { size: ctx.size }));
       this.teleportKeys.push(teleportKey);
+      this.loadingTeleportKeys.set(container, teleportKey);
 
       return container;
     };
@@ -1019,10 +1030,11 @@ export class GridAdapter implements FrameworkAdapter {
    */
   private createVNodeLoadingRenderer(renderFn: (ctx: LoadingContext) => VNode): (ctx: LoadingContext) => HTMLElement {
     return (ctx: LoadingContext) => {
-      const container = createTeleportContainer('vue-loading-renderer');
+      const container = createTeleportContainer(LOADING_RENDERER_CLASS);
 
       const teleportKey = renderToContainer(container, renderFn(ctx));
       this.teleportKeys.push(teleportKey);
+      this.loadingTeleportKeys.set(container, teleportKey);
 
       return container;
     };
@@ -1437,6 +1449,7 @@ export class GridAdapter implements FrameworkAdapter {
       removeFromContainer(key);
     }
     this.teleportKeys = [];
+    this.loadingTeleportKeys = new WeakMap();
     for (const [, key] of this.editorTeleportKeys) {
       removeFromContainer(key);
     }
@@ -1451,11 +1464,27 @@ export class GridAdapter implements FrameworkAdapter {
 
   /**
    * Unmount a specific container (e.g., detail panel, tool panel).
-   * Currently a no-op for teleport-based rendering — the TeleportManager's
-   * prune pass handles disconnected containers automatically.
+   * Loading renderer teleports are removed explicitly because clearing a cell
+   * does not guarantee another TeleportManager prune pass will run.
    */
-  unmount(_container: HTMLElement): void {
-    // Teleport-based rendering is handled by the TeleportManager prune pass
+  unmount(container: HTMLElement): void {
+    if (container.classList.contains(LOADING_RENDERER_CLASS)) this.releaseLoadingTeleport(container);
+    for (const loader of container.querySelectorAll<HTMLElement>(`.${LOADING_RENDERER_CLASS}`)) {
+      this.releaseLoadingTeleport(loader);
+    }
+  }
+
+  /**
+   * Drop a loading renderer's teleport entry and its tracking key.
+   * @internal
+   */
+  private releaseLoadingTeleport(loader: HTMLElement): void {
+    const key = this.loadingTeleportKeys.get(loader);
+    if (key === undefined) return;
+    removeFromContainer(key);
+    this.loadingTeleportKeys.delete(loader);
+    const index = this.teleportKeys.indexOf(key);
+    if (index !== -1) this.teleportKeys.splice(index, 1);
   }
 
   /**

@@ -292,7 +292,7 @@ export interface PublicGrid<T = any> {
 
   /**
    * Set loading state for a specific row.
-   * Displays a small spinner indicator on the row.
+   * Displays a small spinner or custom loadingRenderer on the row.
    *
    * Use when persisting row data or performing row-level async operations.
    *
@@ -311,7 +311,7 @@ export interface PublicGrid<T = any> {
 
   /**
    * Set loading state for a specific cell.
-   * Displays a small spinner indicator on the cell.
+   * Displays a small spinner or custom loadingRenderer on the cell.
    *
    * Use when performing cell-level async operations (e.g., validation, lookup).
    *
@@ -2020,6 +2020,12 @@ export interface RowElementInternal extends HTMLElement {
   __editingCellCount?: number;
   /** Flag indicating this is a custom-rendered row (group row, etc.) */
   __isCustomRow?: boolean;
+  /**
+   * Set when any of the row's cells entered `setCellLoading()` state. A conservative
+   * hint (never cleared by the cell itself) that lets the render hot path skip the
+   * per-cell loader scan for rows that have never shown a loading overlay.
+   */
+  __hasCellLoading?: boolean;
   /** Last `aria-rowindex` value written, so unchanged rows skip the attribute mutation */
   __ariaRowIndex?: number;
 }
@@ -3376,7 +3382,7 @@ export type SortHandler<TRow = any> = (
  *
  * - `'large'`: 48x48px max - used for grid-level loading overlay (`grid.loading = true`)
  * - `'small'`: Follows row height - used for row loading states (`grid.setRowLoading()`,
- *   ServerSide loading placeholders). Cell loading (`setCellLoading()`) always uses the built-in spinner.
+ *   ServerSide loading placeholders) and cell loading (`grid.setCellLoading()`).
  *
  * @example
  * ```typescript
@@ -3421,7 +3427,7 @@ export type LoadingSize = 'large' | 'small';
  * @since 1.7.0
  */
 export interface LoadingContext {
-  /** The size variant being rendered: 'large' for grid-level, 'small' for row loading */
+  /** The size variant: 'large' for grid-level, 'small' for row and cell loading */
   size: LoadingSize;
 }
 

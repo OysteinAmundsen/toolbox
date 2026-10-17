@@ -13,10 +13,12 @@
  * `applyColumnState`. The ref callback must only sync on first attach.
  */
 import type { DataGridElement, GridConfig } from '@toolbox-web/grid';
-import { act, useState } from 'react';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import { act, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DataGrid } from './data-grid';
+import type { GridConfig as ReactGridConfig } from './react-column-config';
 
 beforeAll(() => {
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -215,5 +217,84 @@ describe('DataGrid smart row diffing', () => {
     expect(h.getRowsSetCount()).toBeGreaterThan(0);
 
     await h.unmount();
+  });
+});
+
+describe('DataGrid cell loading renderer lifecycle', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('preserves a React loading renderer while a React cell renderer is released for editing', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    let loadingUnmounts = 0;
+
+    function LoadingProbe({ size }: { size: 'large' | 'small' }) {
+      useEffect(
+        () => () => {
+          loadingUnmounts++;
+        },
+        [],
+      );
+      return <span className="react-loading-probe">{size}</span>;
+    }
+
+    const editingPlugin = new EditingPlugin({ editOn: 'manual' });
+    const gridConfig: ReactGridConfig<Row> = {
+      columns: [
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name', editable: true, renderer: () => <span>Cell</span> },
+      ],
+      getRowId: (row) => String(row.id),
+      plugins: [editingPlugin],
+      loadingRenderer: ({ size }) => <LoadingProbe size={size} />,
+    };
+
+    await act(async () => {
+      root.render(<DataGrid<Row> rows={[{ id: 1, name: 'Alpha' }]} gridConfig={gridConfig} />);
+    });
+
+    const grid = container.querySelector('tbw-grid') as DataGridElement<Row>;
+    await act(async () => {
+      await grid.ready();
+    });
+
+    const nameCell = grid.querySelector('.data-grid-row .cell[data-col="1"]') as HTMLElement;
+    await act(async () => {
+      grid.setCellLoading('1', 'name', true);
+      await Promise.resolve();
+    });
+    const loadingOverlay = nameCell.querySelector(':scope > .tbw-cell-loading-overlay');
+    await vi.waitFor(() => {
+      expect(loadingOverlay?.querySelector('.react-loading-probe')?.textContent).toBe('small');
+    });
+
+    act(() => editingPlugin.beginCellEdit(0, 'name'));
+
+    expect(loadingUnmounts).toBe(0);
+    expect(nameCell.querySelector('.tbw-editor-host')).not.toBeNull();
+    expect(nameCell.querySelector(':scope > .tbw-cell-loading-overlay')).toBe(loadingOverlay);
+    expect(loadingOverlay?.querySelector('.react-loading-probe')?.textContent).toBe('small');
+
+    // Closing the edit releases the editor through React's releaseCell; the loader must survive.
+    await act(async () => {
+      editingPlugin.cancelActiveRowEdit();
+      await Promise.resolve();
+    });
+
+    const closedCell = grid.querySelector('.data-grid-row .cell[data-col="1"]') as HTMLElement;
+    expect(closedCell.querySelector('.tbw-editor-host')).toBeNull();
+    expect(loadingUnmounts).toBe(0);
+    expect(closedCell.querySelector(':scope > .tbw-cell-loading-overlay')).toBe(loadingOverlay);
+    expect(loadingOverlay?.querySelector('.react-loading-probe')?.textContent).toBe('small');
+
+    act(() => grid.setCellLoading('1', 'name', false));
+    expect(loadingUnmounts).toBe(1);
+
+    await act(async () => {
+      root.unmount();
+    });
   });
 });

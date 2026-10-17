@@ -9,6 +9,7 @@
  */
 
 import { EDITOR_MOUNT_ERROR, warnDiagnostic } from '../../../core/internal/diagnostics';
+import { parkCellLoadingOverlay } from '../../../core/internal/loading';
 import { readCellField, writeCellField } from '../../../core/internal/value-accessor';
 import type {
   ColumnConfig,
@@ -133,6 +134,7 @@ export function injectEditor<T>(
 
   const editorHost = document.createElement('div');
   editorHost.className = 'tbw-editor-host';
+  const loadingOverlay = parkCellLoadingOverlay(cell);
   // Let the framework adapter (React/Vue/Angular) tear down any renderer
   // it mounted into this cell BEFORE we wipe the DOM. The `cell.innerHTML`
   // assignment below removes adapter-managed nodes synchronously without
@@ -146,6 +148,7 @@ export function injectEditor<T>(
   if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
   cell.innerHTML = '';
   cell.appendChild(editorHost);
+  if (loadingOverlay) cell.appendChild(loadingOverlay);
 
   // Keydown handler for Enter/Escape
   editorHost.addEventListener('keydown', (e: KeyboardEvent) => {

@@ -17,6 +17,7 @@ import {
   type PluginQuery,
 } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
+import { readCellDisplayText } from '../shared/cell-text';
 import { formatValueAsText, resolveColumns, resolveRows } from '../shared/data-collection';
 import { buildClipboardHtml, parseClipboardHtmlPayload } from './clipboard-payload';
 import { copyToClipboard } from './copy';
@@ -679,7 +680,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     const cell = host.querySelector<HTMLElement>(`.cell[data-row="${rowIndex}"][data-field="${field}"]`);
     if (!cell) return null;
 
-    return cell.textContent?.trim() ?? null;
+    return readCellDisplayText(cell);
   }
 
   /**

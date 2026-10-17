@@ -269,6 +269,54 @@ describe('DataGridElement', () => {
       expect(grid._rowPool.length).toBe(0);
     });
 
+    it('unmounts loading overlays when the adapter has no releaseCell hook', () => {
+      const unmount = vi.fn((_container: HTMLElement) => undefined);
+      const grid = document.createElement('tbw-grid') as DataGridElement;
+      document.body.appendChild(grid);
+      grid._bodyEl = document.createElement('div');
+
+      const row = document.createElement('div');
+      const cell = document.createElement('div');
+      cell.className = 'cell tbw-cell-loading tbw-cell-loading-custom';
+      cell.setAttribute('aria-busy', 'true');
+      const overlay = document.createElement('div');
+      overlay.className = 'tbw-cell-loading-overlay';
+      cell.appendChild(overlay);
+      row.appendChild(cell);
+      grid._rowPool = [row];
+      grid.__frameworkAdapter = { unmount };
+
+      grid._clearRowPool();
+
+      expect(unmount).toHaveBeenCalledExactlyOnceWith(overlay);
+      expect(grid._rowPool).toHaveLength(0);
+    });
+
+    it('unmounts the row loading overlay before wiping the pool', () => {
+      const unmount = vi.fn((_container: HTMLElement) => undefined);
+      const grid = document.createElement('tbw-grid') as DataGridElement;
+      document.body.appendChild(grid);
+      grid._bodyEl = document.createElement('div');
+
+      const row = document.createElement('div');
+      row.className = 'data-grid-row tbw-row-loading';
+      row.setAttribute('aria-busy', 'true');
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      row.appendChild(cell);
+      const overlay = document.createElement('div');
+      overlay.className = 'tbw-row-loading-overlay';
+      overlay.appendChild(document.createElement('span'));
+      row.appendChild(overlay);
+      grid._rowPool = [row];
+      grid.__frameworkAdapter = { unmount };
+
+      grid._clearRowPool();
+
+      expect(unmount).toHaveBeenCalledExactlyOnceWith(overlay);
+      expect(grid._rowPool).toHaveLength(0);
+    });
+
     it('still calls endBatch in finally when releaseCell throws', () => {
       const order: string[] = [];
       const grid = document.createElement('tbw-grid') as DataGridElement;

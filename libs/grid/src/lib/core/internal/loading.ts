@@ -7,7 +7,7 @@
  * @module internal/loading
  */
 
-import type { GridConfig, LoadingContext } from '../types';
+import type { FrameworkAdapter, GridConfig, LoadingContext, RowElementInternal } from '../types';
 import { setSanitizedHTML } from './sanitize';
 
 /**
@@ -78,6 +78,39 @@ export function hideLoadingOverlay(overlayEl: HTMLElement | undefined): void {
   overlayEl?.remove();
 }
 
+/** Remove a cell's owned loading overlay and release adapter-managed content. */
+export function removeCellLoadingOverlay(cellEl: HTMLElement, adapter?: Pick<FrameworkAdapter, 'unmount'>): void {
+  if (!cellEl.firstElementChild) return;
+  const overlay = cellEl.querySelector<HTMLElement>(':scope > .tbw-cell-loading-overlay');
+  if (!overlay) return;
+  adapter?.unmount?.(overlay);
+  overlay.remove();
+}
+
+/**
+ * Move a cell's owned loading overlay in front of the cell while its content is rewritten,
+ * so the still-active loader survives adapter release and content replacement. The caller
+ * appends it back. The overlay stays connected because React prunes detached portal containers.
+ */
+export function parkCellLoadingOverlay(cellEl: HTMLElement): HTMLElement | null {
+  if (!cellEl.firstElementChild) return null;
+  const overlay = cellEl.querySelector<HTMLElement>(':scope > .tbw-cell-loading-overlay');
+  if (!overlay) return null;
+  const parent = cellEl.parentElement;
+  if (parent) parent.insertBefore(overlay, cellEl);
+  else overlay.remove();
+  return overlay;
+}
+
+/** Remove a row's owned loading overlay and release adapter-managed content. */
+export function removeRowLoadingOverlay(rowEl: HTMLElement, adapter?: Pick<FrameworkAdapter, 'unmount'>): void {
+  if (!rowEl.firstElementChild) return;
+  const overlay = rowEl.querySelector<HTMLElement>(':scope > .tbw-row-loading-overlay');
+  if (!overlay) return;
+  adapter?.unmount?.(overlay);
+  overlay.remove();
+}
+
 /**
  * Update a row element's loading state.
  * Uses real DOM elements instead of ::before/::after pseudo-elements
@@ -86,18 +119,21 @@ export function hideLoadingOverlay(overlayEl: HTMLElement | undefined): void {
  * @param loading - Whether the row is loading
  * @param renderer - Optional `gridConfig.loadingRenderer`; called with `{ size: 'small' }`
  *   in place of the default spinner. Only invoked when the overlay is created.
+ * @param adapter - Framework adapter used to release renderer-owned content on removal.
  */
 export function setRowLoadingState(
   rowEl: HTMLElement,
   loading: boolean,
   renderer?: GridConfig['loadingRenderer'],
+  adapter?: Pick<FrameworkAdapter, 'unmount'>,
 ): void {
   if (loading) {
     rowEl.classList.add('tbw-row-loading');
     rowEl.setAttribute('aria-busy', 'true');
 
-    // Create overlay + spinner DOM elements if not already present
-    if (!rowEl.querySelector('.tbw-row-loading-overlay')) {
+    // Create overlay + spinner DOM elements if not already present.
+    // Direct children only — a nested grid's row overlay must not be mistaken for this row's.
+    if (!rowEl.querySelector(':scope > .tbw-row-loading-overlay')) {
       const overlay = document.createElement('div');
       overlay.className = 'tbw-row-loading-overlay';
       overlay.setAttribute('aria-hidden', 'true');
@@ -117,7 +153,7 @@ export function setRowLoadingState(
     rowEl.removeAttribute('aria-busy');
 
     // Remove overlay + spinner DOM elements
-    rowEl.querySelector('.tbw-row-loading-overlay')?.remove();
+    removeRowLoadingOverlay(rowEl, adapter);
   }
 }
 
@@ -125,13 +161,41 @@ export function setRowLoadingState(
  * Update a cell element's loading state.
  * @param cellEl - The cell element
  * @param loading - Whether the cell is loading
+ * @param renderer - Optional `gridConfig.loadingRenderer`; called with `{ size: 'small' }`
  */
-export function setCellLoadingState(cellEl: HTMLElement, loading: boolean): void {
+export function setCellLoadingState(
+  cellEl: HTMLElement,
+  loading: boolean,
+  renderer?: GridConfig['loadingRenderer'],
+  adapter?: Pick<FrameworkAdapter, 'unmount'>,
+): void {
   if (loading) {
     cellEl.classList.add('tbw-cell-loading');
     cellEl.setAttribute('aria-busy', 'true');
+
+    // Breadcrumb so the render hot path can skip the per-cell scan on the
+    // overwhelming majority of rows. Conservative: only ever set here, so it can
+    // read stale-true after the last loading cell clears (costs one extra scan).
+    const rowEl = cellEl.parentElement as RowElementInternal | null;
+    if (rowEl) rowEl.__hasCellLoading = true;
+
+    if (renderer) {
+      cellEl.classList.add('tbw-cell-loading-custom');
+      if (!cellEl.querySelector(':scope > .tbw-cell-loading-overlay')) {
+        const overlay = document.createElement('div');
+        overlay.className = 'tbw-cell-loading-overlay';
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.appendChild(createLoadingContent('small', renderer));
+        cellEl.appendChild(overlay);
+      }
+    } else {
+      cellEl.classList.remove('tbw-cell-loading-custom');
+      removeCellLoadingOverlay(cellEl, adapter);
+    }
   } else {
     cellEl.classList.remove('tbw-cell-loading');
+    cellEl.classList.remove('tbw-cell-loading-custom');
     cellEl.removeAttribute('aria-busy');
+    removeCellLoadingOverlay(cellEl, adapter);
   }
 }

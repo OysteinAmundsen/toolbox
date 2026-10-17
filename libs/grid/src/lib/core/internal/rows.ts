@@ -9,8 +9,8 @@ import {
   warnDiagnostic,
 } from './diagnostics';
 import { ensureCellVisible } from './keyboard';
-import { setRowLoadingState } from './loading';
-import { clearRowForRebuild } from './row-teardown';
+import { parkCellLoadingOverlay, setCellLoadingState, setRowLoadingState } from './loading';
+import { clearRowForRebuild, releasePooledRow } from './row-teardown';
 import { evalTemplateString, finalCellScrub, setSanitizedHTML } from './sanitize';
 import { booleanCellHTML, clearCellFocus, formatDateValue, getRowIndexFromCell } from './utils';
 import { resolveCellValue } from './value-accessor';
@@ -248,21 +248,38 @@ function syncRowPool(grid: GridHost, needed: number, bodyEl: HTMLElement | null)
   if (grid._rowPool.length <= needed) return;
 
   const adapter = grid.__frameworkAdapter;
-  const release = adapter?.releaseCell;
   adapter?.beginBatch?.(grid);
   try {
     for (let i = needed; i < grid._rowPool.length; i++) {
       const el = grid._rowPool[i];
-      if (release) {
-        const cells = el.children;
-        for (let c = 0; c < cells.length; c++) {
-          const cell = cells[c] as HTMLElement;
-          if (cell.firstElementChild) release.call(adapter, cell);
-        }
-      }
+      releasePooledRow(adapter, el);
       if (el.parentNode === bodyEl) el.remove();
     }
     grid._rowPool.length = needed;
+  } finally {
+    adapter?.endBatch?.(grid);
+  }
+}
+
+/**
+ * Clear loading state from a pooled row's cells, releasing adapter-mounted loader
+ * content before those cells are reused or discarded.
+ *
+ * Wrapped in `beginBatch`/`endBatch` like the pool-shrink and rebuild paths: each
+ * `unmount` can force a synchronous framework commit, and a scroll render can
+ * recycle many loading cells at once (#330).
+ */
+function releaseLoadingCells(grid: GridHost, rowEl: RowElementInternal, cells: ArrayLike<Element>): void {
+  const adapter = grid.__frameworkAdapter;
+  adapter?.beginBatch?.(grid);
+  try {
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells[i] as HTMLElement;
+      if (cell.classList.contains('tbw-cell-loading')) {
+        setCellLoadingState(cell, false, undefined, adapter);
+      }
+    }
+    rowEl.__hasCellLoading = false;
   } finally {
     adapter?.endBatch?.(grid);
   }
@@ -451,12 +468,29 @@ export function renderVisibleRows(
 
     // Let plugins handle custom row rendering (e.g., group rows)
     const dataRefChanged = rowEl.__rowDataRef !== rowData;
+    if (dataRefChanged && rowEl.__hasCellLoading) {
+      releaseLoadingCells(grid, rowEl, rowEl.children);
+    }
+
     if (hasRenderRowPlugins) {
+      // Custom renderers wipe the row via replaceChildren(), so a cell holding an
+      // adapter-mounted loader has to be released first — even when the row object is
+      // unchanged (e.g. toggling ResponsivePlugin's card layout). The hook may still
+      // decline the row, so snapshot the cells now and only release once it claims it.
+      const loadingCells = rowEl.__hasCellLoading ? Array.from(rowEl.children) : undefined;
       // A recycled element can still carry the previous row's loading state (a
       // placeholder's spinner + aria-busy). Custom renderers replace children and
       // classes but don't own it; grid.setRowLoading() state is re-applied after render.
-      if (dataRefChanged && rowEl.hasAttribute('aria-busy')) setRowLoadingState(rowEl, false);
+      if (dataRefChanged && rowEl.hasAttribute('aria-busy'))
+        setRowLoadingState(rowEl, false, undefined, grid.__frameworkAdapter);
+      // An active `setRowLoading()` overlay is wiped by the same replaceChildren(); the
+      // post-pass replay mounts a fresh one, so the wiped loader must be unmounted.
+      const rowLoader = rowEl.hasAttribute('aria-busy')
+        ? rowEl.querySelector<HTMLElement>(':scope > .tbw-row-loading-overlay')
+        : null;
       if (renderRowHook!(rowData, rowEl, rowIndex)) {
+        if (loadingCells) releaseLoadingCells(grid, rowEl, loadingCells);
+        if (rowLoader && rowLoader.parentNode !== rowEl) grid.__frameworkAdapter?.unmount?.(rowLoader);
         rowEl.__epoch = epoch;
         rowEl.__rowDataRef = rowData;
         // Custom renderers assign `className` wholesale (responsive cards, pivot rows), so
@@ -599,6 +633,7 @@ function patchPlainCells(
 ): void {
   const focusRow = grid._focusRow;
   const focusCol = grid._focusCol;
+  const hasLoaders = (rowEl as RowElementInternal).__hasCellLoading === true;
 
   for (let i = 0; i < minLen; i++) {
     const cell = children[i] as HTMLElement;
@@ -606,6 +641,8 @@ function patchPlainCells(
     // Skip cells in edit mode - they have editors that must be preserved
     if (cell.classList.contains(GridClasses.EDITING)) continue;
 
+    // Same row object: an active loader is kept, not remounted.
+    const loader = hasLoaders ? parkCellLoadingOverlay(cell) : null;
     // Release editor views if cell has element children (indicating prior editor/renderer DOM).
     // Plain text cells (textContent-only) have no element children, so this is a fast O(1) skip.
     if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
@@ -613,6 +650,7 @@ function patchPlainCells(
     const col = columns[i];
     const value = resolveCellValue(rowData, col, rowIndex);
     cell.textContent = value == null ? '' : String(value);
+    if (loader) cell.appendChild(loader);
     // Update data-row for click handling
     if (cell.getAttribute('data-row') !== rowIndexStr) {
       cell.setAttribute('data-row', rowIndexStr);
@@ -743,6 +781,9 @@ function patchCellContent(
   // Renderer priority chain: column → typeDefaults → adapter → built-in.
   const cellRenderer = resolveRenderer(grid, col);
   let value: unknown;
+  // Same row object: an active loader is kept, not remounted. The row breadcrumb
+  // skips the per-cell DOM query for rows that never showed a cell loader.
+  const loader = (rowEl as RowElementInternal).__hasCellLoading ? parkCellLoadingOverlay(cell) : null;
 
   if (cellRenderer) {
     // Must re-invoke to get updated content.
@@ -761,11 +802,13 @@ function patchCellContent(
     applyTemplateOutput(grid, cell, html);
   } else if (col.externalView) {
     // External view cells are mounted once and manage their own state.
+    if (loader) cell.appendChild(loader);
     return;
   } else {
     value = resolveCellValue(rowData, col, rowIndex);
     applyFormattedValue(grid, cell, col, rowData, value);
   }
+  if (loader) cell.appendChild(loader);
 
   if (hasCellHook) emitAfterCellRender(grid, rowEl, cell, col, colIndex, rowData, rowIndex, value);
 }

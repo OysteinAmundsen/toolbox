@@ -113,4 +113,19 @@
       z-index: 27;
     }
   }
+
+  .cell.tbw-cell-loading-custom::after {
+    display: none;
+  }
+
+  .tbw-cell-loading-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 27;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: tbw-fade-in 0.15s ease-out;
+    pointer-events: none;
+  }
 }

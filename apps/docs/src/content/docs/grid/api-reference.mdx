@@ -557,7 +557,8 @@ await grid.animateRows([0, 1, 2], 'change');
 grid.loading = true;
 grid.loading = false;
 
-// To customise the loading indicator, configure a renderer at config time:
+// To customise the grid, row, and cell indicators, configure a renderer at config time.
+// It receives { size: 'large' } for grid loading and { size: 'small' } for row/cell loading.
 grid.gridConfig = {
   loadingRenderer: (ctx) => {
     const el = document.createElement('div');

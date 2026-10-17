@@ -3,6 +3,23 @@
  * (loading placeholders), so framework-adapter cleanup has one implementation.
  */
 import type { GridHost } from '../types';
+import { removeCellLoadingOverlay, removeRowLoadingOverlay } from './loading';
+
+/**
+ * Release a pooled row's adapter-owned content — its row loader, cell loaders, then
+ * cell views — before the row is discarded. Callers own the `beginBatch`/`endBatch`
+ * bracket so a multi-row teardown collapses into one deferred commit (#330).
+ */
+export function releasePooledRow(adapter: GridHost['__frameworkAdapter'], rowEl: HTMLElement): void {
+  if (!adapter?.releaseCell && !adapter?.unmount) return;
+  removeRowLoadingOverlay(rowEl, adapter);
+  const cells = rowEl.children;
+  for (let c = 0; c < cells.length; c++) {
+    const cell = cells[c] as HTMLElement;
+    removeCellLoadingOverlay(cell, adapter);
+    if (cell.firstElementChild) adapter.releaseCell?.(cell);
+  }
+}
 
 /**
  * Wipe a pooled row's cells ahead of a full rebuild.
@@ -22,15 +39,18 @@ export function clearRowForRebuild(grid: Pick<GridHost, '__frameworkAdapter'> & 
   rowEl.removeAttribute('aria-busy');
 
   const adapter = grid.__frameworkAdapter;
-  if (!adapter?.releaseCell) {
+  if (!adapter?.releaseCell && !adapter?.unmount) {
     rowEl.innerHTML = '';
     return;
   }
   adapter.beginBatch?.(grid);
   try {
+    removeRowLoadingOverlay(rowEl, adapter);
     const children = rowEl.children;
     for (let i = children.length - 1; i >= 0; i--) {
-      adapter.releaseCell(children[i] as HTMLElement);
+      const cell = children[i] as HTMLElement;
+      removeCellLoadingOverlay(cell, adapter);
+      adapter.releaseCell?.(cell);
     }
     rowEl.innerHTML = '';
   } finally {

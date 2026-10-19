@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.6.1...grid-vue-2.6.2) (2026-10-19)
+
+
+### Bug Fixes
+
+* **grid:** honor loadingRenderer for cell loading ([#515](https://github.com/OysteinAmundsen/toolbox/issues/515)) ([#518](https://github.com/OysteinAmundsen/toolbox/issues/518)) ([6420531](https://github.com/OysteinAmundsen/toolbox/commit/64205315f6da75f3625ddd766e8b567735ad020d))
+
 ## [2.6.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.6.0...grid-vue-2.6.1) (2026-09-30)
 
 

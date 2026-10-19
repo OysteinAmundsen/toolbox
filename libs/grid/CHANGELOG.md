@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.9.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.9.0...grid-3.9.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* **grid/pinned-columns:** keep pinned columns at the edge when a column is hidden ([#512](https://github.com/OysteinAmundsen/toolbox/issues/512)) ([#516](https://github.com/OysteinAmundsen/toolbox/issues/516)) ([b01a8b0](https://github.com/OysteinAmundsen/toolbox/commit/b01a8b0e8e0e80bfeef9bfb3bda0c669a5f54a96))
+* **grid/server-side:** render loading placeholders with core row-loading state and hide them from consumer callbacks ([#508](https://github.com/OysteinAmundsen/toolbox/issues/508)) ([#511](https://github.com/OysteinAmundsen/toolbox/issues/511)) ([cb71d05](https://github.com/OysteinAmundsen/toolbox/commit/cb71d055e41a7d24de571fb72c0e40d683df1d57))
+* **grid:** honor loadingRenderer for cell loading ([#515](https://github.com/OysteinAmundsen/toolbox/issues/515)) ([#518](https://github.com/OysteinAmundsen/toolbox/issues/518)) ([6420531](https://github.com/OysteinAmundsen/toolbox/commit/64205315f6da75f3625ddd766e8b567735ad020d))
+* **grid:** measure rendered rows by aria-rowindex so auto-measured row heights are cached ([#513](https://github.com/OysteinAmundsen/toolbox/issues/513)) ([#517](https://github.com/OysteinAmundsen/toolbox/issues/517)) ([8a47343](https://github.com/OysteinAmundsen/toolbox/commit/8a4734329fe5bb0086e4391545ac457be304d7f1))
+* **server-side:** fill viewport taller than one block after initial render ([#507](https://github.com/OysteinAmundsen/toolbox/issues/507)) ([#509](https://github.com/OysteinAmundsen/toolbox/issues/509)) ([bac5cc3](https://github.com/OysteinAmundsen/toolbox/commit/bac5cc3ac1ff0080f8c2430b18ca875793266741))
+* **tree:** preserve custom renderers in decorated tree column ([#514](https://github.com/OysteinAmundsen/toolbox/issues/514)) ([99d2009](https://github.com/OysteinAmundsen/toolbox/commit/99d2009b3fc0fb49ced2f7bbf5cd7f56fc3be115))
+
 ## [3.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.8.3...grid-3.9.0) (2026-10-07)
 
 

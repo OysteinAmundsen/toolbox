@@ -16,10 +16,12 @@ export function createLoadingPlaceholder(index: number): LoadingPlaceholderRow {
  * Type guard for ServerSide loading placeholders.
  *
  * With the default `placeholderRendering: 'loading-row'` the grid renders placeholders
- * itself, so column renderers, value accessors, `format` and `rowClass` never see
- * them. Use this guard where placeholders still reach your code: with
- * `placeholderRendering: 'columns'`, in a `sortComparator` under `sortMode: 'local'`,
- * or when reading `grid.rows` directly.
+ * itself, so column renderers, value accessors, `format` and `rowClass` are never called
+ * for them while rendering. Use this guard where placeholders still reach your code: with
+ * `placeholderRendering: 'columns'` (including a Responsive `cardRenderer`), in a
+ * `sortComparator` or `gridConfig.sortHandler` under `sortMode: 'local'`, in Export
+ * `mode: 'formatted'` / `processCell` and Clipboard copy (which call `format`), or when
+ * reading `grid.rows` directly.
  *
  * @example
  * ```ts

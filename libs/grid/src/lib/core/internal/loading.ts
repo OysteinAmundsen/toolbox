@@ -162,6 +162,7 @@ export function setRowLoadingState(
  * @param cellEl - The cell element
  * @param loading - Whether the cell is loading
  * @param renderer - Optional `gridConfig.loadingRenderer`; called with `{ size: 'small' }`
+ * @param adapter - Framework adapter used to release renderer-owned content on removal.
  */
 export function setCellLoadingState(
   cellEl: HTMLElement,

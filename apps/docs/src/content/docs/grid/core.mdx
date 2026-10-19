@@ -1517,7 +1517,7 @@ grid.setRowLoading('row-42', true);
 grid.setRowLoading('row-42', false);
 ```
 
-**Cell-level** — Shows a spinner on a specific cell:
+**Cell-level** — Shows a spinner or your `loadingRenderer` with `size: 'small'` on a specific cell:
 
 ```typescript
 grid.setCellLoading('row-42', 'status', true);
@@ -1640,7 +1640,7 @@ export class MyGridComponent {
   </TabItem>
 </Tabs>
 
-The `LoadingContext` provides a `size` property: `'large'` for the grid-wide overlay (up to 48×48 px) and `'small'` for row indicators (`setRowLoading()` and Server-Side loading placeholders). Cell-level loading always uses the built-in spinner.
+The `LoadingContext` provides a `size` property: `'large'` for the grid-wide overlay (up to 48×48 px) and `'small'` for row loading (`setRowLoading()` and Server-Side placeholders) and cell loading (`setCellLoading()`).
 
 <ShowSource file="demos/CustomLoadingRendererDemo.astro">
   <CustomLoadingRendererDemo />

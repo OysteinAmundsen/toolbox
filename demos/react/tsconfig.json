@@ -18,5 +18,12 @@
   },
   "include": ["src/**/*", "*.ts", "*.tsx"],
   "exclude": ["node_modules"],
-  "references": []
+  "references": [
+    {
+      "path": "../../libs/grid"
+    },
+    {
+      "path": "../../libs/grid-react"
+    }
+  ]
 }

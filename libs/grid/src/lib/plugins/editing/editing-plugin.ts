@@ -18,6 +18,7 @@
 import { GridDataAttrs } from '../../core/constants';
 import { announce, getA11yMessage } from '../../core/internal/aria';
 import { ensureCellVisible } from '../../core/internal/keyboard';
+import { parkCellLoadingOverlay } from '../../core/internal/loading';
 import { compileTemplate } from '../../core/internal/sanitize';
 import { invalidateAccessorCache, readCellField, writeCellField } from '../../core/internal/value-accessor';
 import type {
@@ -2492,11 +2493,16 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // still inside each cell, so the adapter can find and destroy ComponentRefs.
     // Without this, overlay editors (BaseOverlayEditor) leak panels on <body>
     // with active MutationObservers that react to cell-focus class changes.
+    // An active cell loader is parked outside the cell meanwhile, as in
+    // editor injection: React's releaseCell would otherwise unmount it, and the
+    // loading replay never refills an overlay that is still present.
     const adapter = internalGrid.__frameworkAdapter;
     const editingCells = rowEl.querySelectorAll('.cell.editing');
     if (adapter?.releaseCell) {
       editingCells.forEach((cell) => {
+        const loader = parkCellLoadingOverlay(cell as HTMLElement);
         adapter.releaseCell!(cell as HTMLElement);
+        if (loader) cell.appendChild(loader);
       });
     }
 

@@ -2,7 +2,7 @@
  * Tests for GridAdapter registration and lookup
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { defineComponent, h } from 'vue';
+import { defineComponent, h, onUnmounted } from 'vue';
 
 // Side-effect imports: install detail / responsive / editing / filtering
 // bridges on the adapter so `parseDetailElement` / `parseResponsiveCardElement`
@@ -1551,6 +1551,76 @@ describe('GridAdapter', () => {
       const container = (result.loadingRenderer as (...args: unknown[]) => HTMLElement)(ctx);
       expect(container).toBeInstanceOf(HTMLElement);
       expect(container.className).toBe('vue-loading-renderer');
+    });
+
+    it('unmounts a Vue loading component when its cell overlay is removed', () => {
+      let didUnmount = false;
+      const LoadingComp = defineComponent({
+        props: { size: String },
+        setup(props) {
+          onUnmounted(() => {
+            didUnmount = true;
+          });
+          return () => h('span', `Loading ${props.size}`);
+        },
+      });
+      const adapter = new GridAdapter();
+      const result = adapter.processGridConfig({
+        columns: [{ field: 'name' }],
+        loadingRenderer: LoadingComp,
+      });
+      const render = result.loadingRenderer as (ctx: { size: 'large' | 'small' }) => HTMLElement;
+      const grid = document.createElement('tbw-grid');
+      const overlay = document.createElement('div');
+      grid.appendChild(overlay);
+      document.body.appendChild(grid);
+      const loader = render({ size: 'small' });
+      overlay.appendChild(loader);
+
+      expect(loader.querySelector('span')?.textContent).toBe('Loading small');
+      adapter.unmount(overlay);
+
+      expect(didUnmount).toBe(true);
+    });
+
+    it('releases loader tracking across repeated row-loading cycles', () => {
+      let mounts = 0;
+      let unmounts = 0;
+      const LoadingComp = defineComponent({
+        props: { size: String },
+        setup(props) {
+          mounts++;
+          onUnmounted(() => {
+            unmounts++;
+          });
+          return () => h('span', `Loading ${props.size}`);
+        },
+      });
+      const adapter = new GridAdapter();
+      const result = adapter.processGridConfig({
+        columns: [{ field: 'name' }],
+        loadingRenderer: LoadingComp,
+      });
+      const render = result.loadingRenderer as (ctx: { size: 'large' | 'small' }) => HTMLElement;
+      const grid = document.createElement('tbw-grid');
+      const rowEl = document.createElement('div');
+      grid.appendChild(rowEl);
+      document.body.appendChild(grid);
+
+      // Mirrors core's setRowLoadingState(true/false) loop: the overlay is created and
+      // discarded on every cycle, so nothing may accumulate in the adapter.
+      for (let i = 0; i < 3; i++) {
+        const overlay = document.createElement('div');
+        overlay.className = 'tbw-row-loading-overlay';
+        rowEl.appendChild(overlay);
+        overlay.appendChild(render({ size: 'small' }));
+        adapter.unmount(overlay);
+        overlay.remove();
+      }
+
+      expect(mounts).toBe(3);
+      expect(unmounts).toBe(3);
+      expect(adapter['teleportKeys']).toHaveLength(0);
     });
 
     it('should produce working DOM from typeDefaults VNode editor via processGridConfig', () => {

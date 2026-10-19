@@ -12,6 +12,7 @@
 import type { GridElement, PluginManifest } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { CellRenderContext, ColumnConfig, HeaderLabelContext } from '../../core/types';
+import { readCellDisplayText } from '../shared/cell-text';
 import tooltipStyles from './tooltip.css?inline';
 import type { TooltipConfig } from './types';
 
@@ -57,7 +58,7 @@ function resolveCellTooltip(
 
   // Default: show textContent only when overflowing
   if (isOverflowing(cell)) {
-    return cell.textContent?.trim() || null;
+    return readCellDisplayText(cell) || null;
   }
 
   return null;

@@ -1839,6 +1839,27 @@ describe('clipboard', () => {
       expect(text).toBe('Active Badge');
     });
 
+    it('should exclude a custom cell loader from DOM text of a loading renderer cell', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'status', header: 'Status', renderer: () => document.createElement('span') },
+      ];
+      const rows = [{ status: 'active' }];
+      const plugin = new ClipboardPlugin();
+
+      const mockCell = document.createElement('div');
+      mockCell.innerHTML = '<span>Active</span><div class="tbw-cell-loading-overlay" aria-hidden="true">Loading…</div>';
+
+      const grid = {
+        ...createGridMockForPlugin(rows, columns),
+        querySelector: (selector: string) => (selector.includes('data-field="status"') ? mockCell : null),
+      };
+      (grid as any)._hostElement = grid;
+
+      plugin.attach(grid as any);
+
+      expect(plugin.getSelectionAsText()).toBe('Active');
+    });
+
     it('should fall back to raw value for renderer columns when row is not in DOM', () => {
       const columns: ColumnConfig[] = [
         {

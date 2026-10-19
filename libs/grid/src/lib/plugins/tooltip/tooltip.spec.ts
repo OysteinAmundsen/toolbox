@@ -254,6 +254,26 @@ describe('TooltipPlugin', () => {
       expect(getPopover()!.textContent).toBe('Alice Anderson');
     });
 
+    it('should exclude a custom cell loader from the overflow tooltip text', () => {
+      const columns: ColumnConfig[] = [{ field: 'name' }];
+      const rows = [{ name: 'Alice Anderson' }];
+      grid = createMockGrid({ _visibleColumns: columns, rows });
+      plugin = new TooltipPlugin();
+      plugin.attach(grid as any);
+
+      const cell = createDataCell(0, 0, 'Alice Anderson', true);
+      const loader = document.createElement('div');
+      loader.className = 'tbw-cell-loading-overlay';
+      loader.textContent = 'Loading…';
+      cell.appendChild(loader);
+      (grid as any)._root.appendChild(cell);
+
+      plugin.afterRender();
+      cell.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+
+      expect(getPopover()!.textContent).toBe('Alice Anderson');
+    });
+
     it('should forward wheel over the popover to the anchor cell and hide the tooltip', () => {
       const columns: ColumnConfig[] = [{ field: 'name' }];
       const rows = [{ name: 'Alice Anderson' }];

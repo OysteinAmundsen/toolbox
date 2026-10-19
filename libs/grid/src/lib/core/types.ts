@@ -2997,7 +2997,8 @@ export interface GridConfig<TRow = any, TField extends string = ColumnFieldKey<T
    * Only throws when explicitly calling `getRowId()` or `updateRow()` on a row without an ID.
    *
    * Never called for plugin loading placeholders (ServerSide blocks or grouped rows in
-   * flight). The grid gives those an internal id of the form `__loading:<index>`.
+   * flight). The grid gives those an internal id: `__loading:<index>` for ServerSide
+   * blocks, `__loading:group:<groupKey>` for GroupingRows groups.
    *
    * @example
    * ```ts

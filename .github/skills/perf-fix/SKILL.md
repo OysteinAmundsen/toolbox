@@ -1,6 +1,6 @@
 ---
 name: perf-fix
-description: Execute one item from a `/bench` fix plan end-to-end: profile the regression, apply a targeted patch, re-run the benchmark, and confirm the delta. Pairs with `/bench`.
+description: 'Execute one item from a `/bench` fix plan end-to-end: profile the regression, apply a targeted patch, re-run the benchmark, and confirm the delta. Pairs with `/bench`.'
 disable-model-invocation: true
 argument-hint: '[optional hotspot name or suite] [optional baseline tag, e.g. 2.7.0]'
 ---

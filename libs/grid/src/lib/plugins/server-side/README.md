@@ -46,7 +46,7 @@ serverSide.setDataSource({
 
 ## Loading Placeholders
 
-Rows whose block hasn't arrived are placeholder objects (`{ __loading: true, __index }`). By default the grid renders them itself in the core row-loading state (`.tbw-row-loading`, `aria-busy`, spinner overlay, `loadingRenderer({ size: 'small' })`). Column renderers, `format`, `cellClass`, `rowClass` and context menus (mouse or keyboard) never see them. In every mode `valueAccessor`, `filterValue` and a `rowHeight` function are never called with a placeholder, so local sort/filter is safe mid-load, and `getRowId` is never called with one: placeholders get an internal id `__loading:<index>`.
+Rows whose block hasn't arrived are placeholder objects (`{ __loading: true, __index }`). By default the grid renders them itself in the core row-loading state (`.tbw-row-loading`, `aria-busy`, spinner overlay, `loadingRenderer({ size: 'small' })`). Column renderers, `format`, `cellClass`, `rowClass` and context menus (mouse or keyboard) are never called for them while the grid renders (Export `mode: 'formatted'` and Clipboard copy still run `format` over every row — guard with `isLoadingPlaceholder()`). In every mode `valueAccessor`, `filterValue` and a `rowHeight` function are never called with a placeholder, so local sort/filter is safe mid-load, and `getRowId` is never called with one: placeholders get an internal id `__loading:<index>`.
 
 Set `placeholderRendering: 'columns'` to render placeholders through your own column renderers instead, and detect them with the exported guard:
 

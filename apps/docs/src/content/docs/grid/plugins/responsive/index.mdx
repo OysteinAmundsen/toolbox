@@ -628,7 +628,7 @@ features: {
 With the [Server-Side](../server-side/) plugin, rows whose block is still loading are drawn as
 loading placeholders at the height of a real card (`cardRowHeight` with a `cardRenderer`, the
 measured card height without one), so the list does not shift when the data arrives. Your
-`cardRenderer` is not called for them.
+`cardRenderer` is not called for them (unless ServerSide's `placeholderRendering: 'columns'` is set).
 
 ### Keyboard Navigation with cardRenderer
 

@@ -299,7 +299,7 @@ A column with a custom `sortComparator` is treated as user-owned: loading placeh
 
 ### Prefetching with `loadThreshold`
 
-By default the plugin only fetches a block when the **visible viewport** enters it. This also applies on the initial load: if the grid is taller than one block, every block the viewport covers is requested as soon as the first one has rendered, with no scroll needed. On gentle scrolling, users see placeholder rows for the duration of the network round-trip. Set `loadThreshold` to prefetch the next block(s) before the user scrolls into them:
+By default the plugin only fetches a block when the **visible viewport** enters it. This also applies on the initial load: if the grid is taller than one block, every block the viewport covers is requested as soon as the first one has rendered (up to `maxConcurrentRequests` at a time; the rest follow as those land), with no scroll needed. On gentle scrolling, users see placeholder rows for the duration of the network round-trip. Set `loadThreshold` to prefetch the next block(s) before the user scrolls into them:
 
 ```ts
 serverSide: {
@@ -401,14 +401,16 @@ it too. When the block arrives the row is rebuilt with real data and the loading
 
 Your code does not have to know about placeholders:
 
-- Column renderers, `format`, `cellClass`, `rowClass` and a Responsive `cardRenderer` are never called for them.
+- Column renderers, `format`, `cellClass`, `rowClass` and a Responsive `cardRenderer` are never called for them while the grid renders.
 - `valueAccessor` and `filterValue` are never called for them, so local sorting and filtering (`sortMode: 'local'`, `filterMode: 'local'`) are safe while a block is still loading. Placeholders resolve to `undefined` and sort to the end.
 - A `rowHeight` function is never called for them either; a placeholder uses the default row height. In Responsive card mode it takes the height of a real card, so nothing shifts when the data arrives.
 - The context menu does not open on them, whether by right-click or by keyboard (<kbd>Shift</kbd>+<kbd>F10</kbd>, the <kbd>ContextMenu</kbd> key).
 - `getRowId` is never called with one. The grid gives each placeholder an internal id, `__loading:<index>`.
 
-Placeholders still appear in `grid.rows`, and in a custom `sortComparator` under `sortMode: 'local'`, where
-they arrive with an `undefined` value. Use the exported `isLoadingPlaceholder()` guard to detect them there.
+Placeholders still appear in `grid.rows`; in a custom `sortComparator` or `gridConfig.sortHandler` under
+`sortMode: 'local'`, where they arrive with an `undefined` value; and in Export (`mode: 'formatted'` runs
+`format` and `processCell` on every row) and Clipboard copy. Use the exported `isLoadingPlaceholder()` guard
+to detect them there.
 
 To draw your own loading look instead, set `placeholderRendering: 'columns'`. Placeholders then take the
 normal cell render path, as they did before 3.9.1. `valueAccessor` and `filterValue` are still never called with one, so read placeholder state from `row`, not `value`:

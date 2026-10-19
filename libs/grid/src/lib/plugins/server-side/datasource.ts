@@ -139,6 +139,9 @@ export function isBlockLoading(blockNumber: number, loadingBlocks: Set<number>):
   return loadingBlocks.has(blockNumber);
 }
 
+/** Sources built by {@link createUrlDataSource}. */
+const urlDataSources = new WeakSet<ServerSideDataSource>();
+
 /**
  * Build a default {@link ServerSideDataSource} that fetches the whole dataset
  * from a URL once and serves it in blocks from memory. Powers the declarative
@@ -189,10 +192,22 @@ export function createUrlDataSource(url: string): ServerSideDataSource {
     return datasetPromise;
   };
 
-  return {
+  const source: ServerSideDataSource = {
     async getRows({ startNode, endNode, signal }: GetRowsParams): Promise<GetRowsResult> {
       const { rows, total } = await loadDataset(signal);
       return { rows: rows.slice(startNode, endNode), totalNodeCount: total };
     },
   };
+  urlDataSources.add(source);
+  return source;
+}
+
+/**
+ * Whether `source` was built by {@link createUrlDataSource}. Such a source only
+ * slices a cached dataset and ignores `sortModel` / `filterModel`, so the grid
+ * must sort and filter its rows locally.
+ * @internal
+ */
+export function isUrlDataSource(source: ServerSideDataSource | null): boolean {
+  return source != null && urlDataSources.has(source);
 }

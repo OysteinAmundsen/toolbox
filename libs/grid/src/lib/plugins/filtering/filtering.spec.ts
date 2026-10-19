@@ -724,6 +724,18 @@ describe('filter-model', () => {
       expect(result.length).toBe(0);
     });
 
+    it('should pass rows matched by keep through every filter, in order', () => {
+      const placeholder: Record<string, unknown> = { __loading: true, __index: 1 };
+      const rows: Record<string, unknown>[] = [sampleRows[0], placeholder, sampleRows[2]];
+      const single: FilterModel[] = [{ field: 'name', type: 'text', operator: 'equals', value: 'Alice' }];
+      const multi: FilterModel[] = [...single, { field: 'age', type: 'number', operator: 'greaterThan', value: 1 }];
+      const keep = (row: Record<string, unknown>) => row.__loading === true;
+
+      expect(filterRows(rows, single, false, undefined, keep)).toEqual([sampleRows[0], placeholder]);
+      expect(filterRows(rows, multi, false, undefined, keep)).toEqual([sampleRows[0], placeholder]);
+      expect(filterRows(rows, single)).toEqual([sampleRows[0]]);
+    });
+
     it('should preserve row references', () => {
       const filters: FilterModel[] = [{ field: 'name', type: 'text', operator: 'equals', value: 'Alice' }];
       const result = filterRows(sampleRows, filters);

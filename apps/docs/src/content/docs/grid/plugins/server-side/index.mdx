@@ -220,7 +220,9 @@ envelope:
 
 :::note
 `data-src` is read **once at attach time** and fetches the entire dataset (it caches
-the result and slices it per block). A JS `dataSource` always takes precedence. For
+the result and slices it per block), so sorting and filtering always run in the
+browser, as if `sortMode` and `filterMode` were `'local'`. A JS `dataSource` always
+takes precedence. For
 true server-side pagination, remote sort/filter, or per-block fetching, provide a
 `dataSource` callback as shown above instead.
 
@@ -281,6 +283,9 @@ When a mode is `'local'`:
 - The plugin no longer refetches on `sort-change` / `filter-change` — it just requests a re-render.
 - The corresponding `sortModel` / `filterModel` is **omitted** from `GetRowsParams` so scroll-triggered block fetches don't leak local state to the backend.
 - Already-loading placeholder rows are pinned to the end of the sort order so the in-progress fetch stays visually grouped.
+- Under `filterMode: 'local'`, placeholder rows always pass the filter, so they keep their slots (and the scroll height that triggers the next fetch). Each block is filtered when it arrives.
+
+Under the default `filterMode: 'server'`, the FilteringPlugin does **not** re-filter rows in the browser. Your `getRows()` result is shown as-is, so server-side semantics (analysed text, joins on other data) are preserved.
 
 | Use case                                      | `sortMode` | `filterMode` |
 | --------------------------------------------- | ---------- | ------------ |
@@ -834,6 +839,7 @@ The Server-Side plugin **cannot** be used with:
 | `datasource:error` | ServerSide → plugins | Fetch failed (with optional context) |
 | `datasource:fetch-children` | Plugins → ServerSide | Query requesting child rows for a context |
 | `datasource:is-active` | Plugins → ServerSide | Query checking if a data source is configured |
+| `datasource:filter-mode` | Plugins → ServerSide | Query returning who filters rows while a data source is active: `'server'` (the data source; FilteringPlugin passes rows through) or `'local'` (the grid; placeholders pass until their block loads) |
 | `datasource:viewport-mapping` | ServerSide → plugins | Query mapping viewport indices to node-space indices |
 
 ## Diagnostic Codes

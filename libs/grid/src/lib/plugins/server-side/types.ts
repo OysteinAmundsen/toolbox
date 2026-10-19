@@ -101,6 +101,7 @@ export interface ServerSideConfig {
    *
    * Use `'local'` when the server cannot sort by every column the user can sort
    * (e.g. APIs that only support a single sort field, or no sort at all).
+   * Ignored for the `data-src` URL source, which always sorts locally.
    *
    * @default 'server'
    */
@@ -108,9 +109,14 @@ export interface ServerSideConfig {
   /**
    * How filter changes affect the cache.
    * - `'server'` (default): purge cache and refetch via `getRows({ filterModel })`.
+   *   FilteringPlugin does not re-filter the returned rows locally — the data
+   *   source's result (and its loading placeholders) is shown as-is.
    * - `'local'`: keep the loaded blocks; filter only the rows currently in cache
    *   via FilteringPlugin's normal pipeline. `filterModel` is **not** sent on
-   *   subsequent block fetches.
+   *   subsequent block fetches. Loading placeholders (see `isLoadingPlaceholder()`)
+   *   always pass the filter until their block loads.
+   *
+   * Ignored for the `data-src` URL source, which always filters locally.
    *
    * In `'local'` mode the user only filters the currently loaded subset —
    * scrolling further loads more blocks which then re-enter the local filter.

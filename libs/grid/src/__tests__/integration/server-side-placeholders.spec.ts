@@ -223,12 +223,15 @@ describe('ServerSide placeholders never reach value extractors while a block is 
     );
     await loadFirstBlock(grid, ds);
     const filtering = grid.getPluginByName('filtering');
+    // Placeholders keep their slots until their block loads (#520).
+    const loadedNames = () => grid._rows.filter((r: unknown) => !isLoadingPlaceholder(r)).map((r: Row) => r.name);
 
     filtering.setFilter('upper', { type: 'text', operator: 'contains', value: 'ROW 1' });
-    await vi.waitFor(() => expect(grid._rows.map((r: Row) => r.name)).toEqual(['Row 1']));
+    await vi.waitFor(() => expect(loadedNames()).toEqual(['Row 1']));
     filtering.setFilter('upper', null);
     filtering.setFilter('name', { type: 'text', operator: 'contains', value: 'row 2' });
-    await vi.waitFor(() => expect(grid._rows.map((r: Row) => r.name)).toEqual(['Row 2']));
+    await vi.waitFor(() => expect(loadedNames()).toEqual(['Row 2']));
+    expect(grid._rows.slice(1).every(isLoadingPlaceholder)).toBe(true);
 
     expect(sawPlaceholder(accessor, 0, (ctx) => ctx.row)).toBe(false);
     expect(filterValue).toHaveBeenCalled();

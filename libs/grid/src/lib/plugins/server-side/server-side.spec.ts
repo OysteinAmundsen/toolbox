@@ -12,7 +12,7 @@ import {
 } from './datasource';
 import { createLoadingPlaceholder, isLoadingPlaceholder } from './placeholder';
 import { ServerSidePlugin } from './server-side-plugin';
-import type { ServerSideDataSource } from './types';
+import type { ServerSideConfig, ServerSideDataSource } from './types';
 
 // #region Mock Grid
 
@@ -79,6 +79,18 @@ function createServerSideMockGrid(overrides: Record<string, unknown> = {}) {
 
   return el as HTMLElement & Record<string, any>;
 }
+
+/** Data source serving `{ id }` rows for any requested range of a `total`-row dataset. */
+const pagedDS = (total: number): ServerSideDataSource => ({
+  getRows: vi.fn().mockImplementation(({ startNode, endNode }: { startNode: number; endNode: number }) =>
+    Promise.resolve({
+      rows: Array.from({ length: Math.max(0, Math.min(total, endNode) - startNode) }, (_, i) => ({
+        id: startNode + i,
+      })),
+      totalNodeCount: total,
+    }),
+  ),
+});
 
 // #endregion
 
@@ -447,6 +459,37 @@ describe('ServerSidePlugin', () => {
       expect(manifest.incompatibleWith).toBeDefined();
       expect(manifest.incompatibleWith!.length).toBe(1);
       expect(manifest.incompatibleWith!.map((i) => i.name)).toEqual(['pivot']);
+    });
+
+    it('should answer datasource:filter-mode only while a data source is active (#520)', () => {
+      expect(ServerSidePlugin.manifest.queries!.map((q) => q.type)).toContain('datasource:filter-mode');
+      const query = { type: 'datasource:filter-mode', context: null };
+      const getRows = vi.fn().mockResolvedValue({ rows: [], totalNodeCount: 0 });
+
+      const serverMode = new ServerSidePlugin({ pageSize: 10 });
+      serverMode.attach(createServerSideMockGrid() as any);
+      expect(serverMode.handleQuery(query)).toBeUndefined();
+      serverMode.setDataSource({ getRows });
+      expect(serverMode.handleQuery(query)).toBe('server');
+
+      const localMode = new ServerSidePlugin({ pageSize: 10, filterMode: 'local', dataSource: { getRows } });
+      localMode.attach(createServerSideMockGrid() as any);
+      expect(localMode.handleQuery(query)).toBe('local');
+
+      // The URL source (`data-src`) slices a cached dataset and cannot filter.
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => new Promise(() => undefined)),
+      );
+      const urlSource = new ServerSidePlugin({ pageSize: 10, filterMode: 'server' });
+      try {
+        urlSource.attach(createServerSideMockGrid() as any);
+        urlSource.setDataSource(createUrlDataSource('/rows.json'));
+        expect(urlSource.handleQuery(query)).toBe('local');
+      } finally {
+        urlSource.detach();
+        vi.unstubAllGlobals();
+      }
     });
   });
 
@@ -1166,7 +1209,7 @@ describe('ServerSidePlugin', () => {
 
       // Size managedNodes so the second block would otherwise take the cheap
       // in-place path (previousManagedLength > 0, length === totalNodeCount).
-      plugin.processRows([]);
+      grid.rows = plugin.processRows([]);
       (grid.requestRender as any).mockClear();
 
       grid._virtualization.start = 20;
@@ -1200,7 +1243,8 @@ describe('ServerSidePlugin', () => {
       plugin.setDataSource(mockDS);
       await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
 
-      plugin.processRows([]);
+      // Mirror core: with no downstream transform, `_rows` IS managedNodes.
+      grid.rows = plugin.processRows([]);
       (grid.requestRender as any).mockClear();
 
       grid._virtualization.start = 20;
@@ -1209,6 +1253,157 @@ describe('ServerSidePlugin', () => {
 
       await vi.waitFor(() => expect(requestVirtualRefresh).toHaveBeenCalled());
       expect(grid.requestRender).not.toHaveBeenCalled();
+
+      plugin.detach();
+    });
+
+    /** Plugin on a mock grid with block 0 of a paged `total`-row source loaded. */
+    async function withFirstBlock(
+      config: Partial<ServerSideConfig>,
+      total: number,
+      gridOverrides: Record<string, unknown>,
+    ) {
+      const plugin = new ServerSidePlugin({ pageSize: 10, ...config });
+      const grid = createServerSideMockGrid(gridOverrides);
+      plugin.attach(grid as any);
+      const ds = pagedDS(total);
+      plugin.setDataSource(ds);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+      return { plugin, grid, ds };
+    }
+
+    it("should re-check the viewport after the render a filterMode: 'local' filter change requests (#520)", async () => {
+      const { plugin, grid, ds } = await withFirstBlock({ filterMode: 'local' }, 30, {
+        _virtualization: { enabled: true, start: 0, end: 5 },
+      });
+      // The render block 0 requested: the 5-row viewport needs nothing more.
+      grid.rows = plugin.processRows([]);
+      plugin.afterRender();
+      expect(ds.getRows).toHaveBeenCalledTimes(1);
+
+      // A local filter rejects block 0. Its render moves block 1's placeholders into
+      // view without any scroll.
+      grid._pluginManager.emitPluginEvent('filter-change', {});
+      grid.rows = grid.rows.filter(isLoadingPlaceholder);
+      plugin.afterRender();
+
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(2));
+      expect(ds.getRows).toHaveBeenLastCalledWith(expect.objectContaining({ startNode: 10, endNode: 20 }));
+
+      plugin.detach();
+    });
+
+    it('should request the blocks of on-screen placeholders after a later stage dropped rows above them (#520)', async () => {
+      const { plugin, grid, ds } = await withFirstBlock({}, 30, {
+        _virtualization: { enabled: true, start: 0, end: 5 },
+      });
+
+      // Unfiltered: the 5-row viewport needs only block 0.
+      grid.rows = plugin.processRows([]);
+      plugin.onScroll({ scrollTop: 0, scrollLeft: 0, direction: 'vertical' } as any);
+      expect(ds.getRows).toHaveBeenCalledTimes(1);
+
+      // A local filter drops every row of block 0: placeholders 10–29 now sit at display 0–19.
+      grid.rows = grid.rows.filter(isLoadingPlaceholder);
+      plugin.onScroll({ scrollTop: 0, scrollLeft: 0, direction: 'vertical' } as any);
+
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(2));
+      expect(ds.getRows).toHaveBeenLastCalledWith(expect.objectContaining({ startNode: 10, endNode: 20 }));
+
+      plugin.detach();
+    });
+
+    it('should requestRender with a new managedNodes identity when a later stage transformed the rows (#520)', async () => {
+      const requestVirtualRefresh = vi.fn();
+      const { plugin, grid } = await withFirstBlock({}, 100, {
+        requestVirtualRefresh,
+        _virtualization: { enabled: true, start: 0, end: 10 },
+      });
+
+      const managed = plugin.processRows([]);
+      // Stand in for a later stage (e.g. MultiSort's `[...rows]`) that derived `_rows` from managedNodes.
+      grid.rows = [...managed];
+      (grid.requestRender as any).mockClear();
+
+      grid._virtualization.start = 20;
+      grid._virtualization.end = 30;
+      plugin.onScroll({ scrollTop: 800, scrollLeft: 0, direction: 'vertical' } as any);
+
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(2));
+      expect(grid.requestRender).toHaveBeenCalled();
+      expect(requestVirtualRefresh).not.toHaveBeenCalled();
+      // Downstream caches keyed on the input reference must see a new array.
+      const next = plugin.processRows([]);
+      expect(next).not.toBe(managed);
+      expect(next[25]).toEqual({ id: 25 });
+
+      plugin.detach();
+    });
+
+    it('should not request blocks past a total that shrank before the scheduled render (#520)', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 10, maxConcurrentRequests: 1 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 20 } });
+      plugin.attach(grid as any);
+      // Block 0 reports 100 nodes; block 1 declares the real end at node 14.
+      const getRows = vi.fn(({ startNode }: { startNode: number }) =>
+        Promise.resolve(
+          startNode === 0
+            ? { rows: Array.from({ length: 10 }, (_, i) => ({ id: i })), totalNodeCount: 100 }
+            : { rows: Array.from({ length: 5 }, (_, i) => ({ id: startNode + i })), totalNodeCount: 100, lastNode: 14 },
+        ),
+      );
+      plugin.setDataSource({ getRows });
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      // A local filter dropped block 0: placeholders 10–29 fill the 20-row viewport.
+      grid.rows = plugin.processRows([]).filter(isLoadingPlaceholder);
+      plugin.onScroll({ scrollTop: 0, scrollLeft: 0, direction: 'vertical' } as any);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(2));
+
+      // Block 1's synchronous re-check still sees the old placeholders 15–29.
+      expect(getRows.mock.calls.map(([params]) => params.startNode)).toEqual([0, 10]);
+      expect(plugin.getTotalNodeCount()).toBe(15);
+
+      plugin.detach();
+    });
+
+    it('should request the blocks of on-screen placeholders a structural mapping renumbered (#520)', async () => {
+      const { plugin, grid, ds } = await withFirstBlock({ filterMode: 'local' }, 30, {
+        _virtualization: { enabled: true, start: 0, end: 5 },
+      });
+      // Stand in for Tree after a local filter kept only root 0: it numbers the remaining
+      // roots from zero, so it maps the viewport to nodes [0, 6) — cached block 0 only.
+      Object.defineProperty(grid, 'query', {
+        value: (type: string) =>
+          type === 'datasource:viewport-mapping' ? [{ startNode: 0, endNode: 6, totalLoadedNodes: 21 }] : [],
+        configurable: true,
+      });
+      const managed = plugin.processRows([]);
+      grid.rows = [managed[0], ...managed.slice(10)];
+
+      plugin.onScroll({ scrollTop: 0, scrollLeft: 0, direction: 'vertical' } as any);
+
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(2));
+      expect(ds.getRows).toHaveBeenLastCalledWith(expect.objectContaining({ startNode: 10, endNode: 20 }));
+
+      plugin.detach();
+    });
+
+    it('should find on-screen placeholders with a fractional loadThreshold (#520)', async () => {
+      const { plugin, grid, ds } = await withFirstBlock({ loadThreshold: 2.5 }, 30, {
+        _virtualization: { enabled: true, start: 0, end: 5 },
+      });
+      // A local filter dropped block 0: placeholders 10–29 sit at display 0–19.
+      grid.rows = plugin.processRows([]).filter(isLoadingPlaceholder);
+      grid._virtualization.start = 5;
+      grid._virtualization.end = 10;
+
+      plugin.onScroll({ scrollTop: 0, scrollLeft: 0, direction: 'vertical' } as any);
+
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(3));
+      expect((ds.getRows as any).mock.calls.map(([params]: [{ startNode: number }]) => params.startNode)).toEqual([
+        0, 10, 20,
+      ]);
 
       plugin.detach();
     });
@@ -1310,17 +1505,6 @@ describe('ServerSidePlugin', () => {
   });
 
   describe('viewport taller than one block (#507)', () => {
-    const pagedDS = (total: number): ServerSideDataSource => ({
-      getRows: vi.fn().mockImplementation(({ startNode, endNode }: { startNode: number; endNode: number }) =>
-        Promise.resolve({
-          rows: Array.from({ length: Math.max(0, Math.min(total, endNode) - startNode) }, (_, i) => ({
-            id: startNode + i,
-          })),
-          totalNodeCount: total,
-        }),
-      ),
-    });
-
     it('should load further visible blocks after the post-data render, without loadThreshold or scroll', async () => {
       const plugin = new ServerSidePlugin({ pageSize: 10 });
       // Before data arrives the grid has no rows, so the virtual window is empty.
@@ -1335,8 +1519,8 @@ describe('ServerSidePlugin', () => {
       expect(ds.getRows).toHaveBeenCalledTimes(1);
 
       // Simulate the render that block 0 requested: rows exist now and the
-      // virtual window spans 28 rows (blocks 0, 1 and 2).
-      plugin.processRows([]);
+      // virtual window spans 28 rows (blocks 0, 1 and 2). Core assigns `_rows`.
+      grid.rows = plugin.processRows([]);
       grid._virtualization.end = 28;
       plugin.afterRender();
 

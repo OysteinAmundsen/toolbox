@@ -16,10 +16,17 @@ import {
   warnDiagnostic,
 } from '../../core/internal/diagnostics';
 import { builtInSort } from '../../core/internal/sorting';
-import { renderLoadingPlaceholderRow } from '../shared/loading-placeholder';
 import { BaseGridPlugin, ScrollEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
-import { createUrlDataSource, getBlockNumber, getRequiredBlocks, getRowFromCache, loadBlock } from './datasource';
+import { renderLoadingPlaceholderRow } from '../shared/loading-placeholder';
+import {
+  createUrlDataSource,
+  getBlockNumber,
+  getRequiredBlocks,
+  getRowFromCache,
+  isUrlDataSource,
+  loadBlock,
+} from './datasource';
 import type {
   DataSourceChildrenDetail,
   DataSourceDataDetail,
@@ -37,6 +44,13 @@ import type { ServerSideConfig } from './types';
 
 /** Scroll debounce delay in ms */
 const SCROLL_DEBOUNCE_MS = 100;
+
+/** Add the blocks covering nodes `[start, end)`, clamped to `[0, knownTotal)`. */
+function addRangeBlocks(blocks: Set<number>, start: number, end: number, blockSize: number, knownTotal: number): void {
+  const from = Math.max(0, start);
+  const to = Math.min(knownTotal, end);
+  if (to > from) for (const block of getRequiredBlocks(from, to, blockSize)) blocks.add(block);
+}
 
 /**
  * Server-Side Data Plugin for tbw-grid
@@ -118,6 +132,10 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     queries: [
       { type: 'datasource:fetch-children', description: 'Request child rows for a parent context' },
       { type: 'datasource:is-active', description: 'Check if ServerSide plugin has an active data source' },
+      {
+        type: 'datasource:filter-mode',
+        description: "Who filters rows while a data source is active: 'server' (data source) or 'local' (grid)",
+      },
     ],
   };
 
@@ -167,14 +185,17 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     // See getEnrichmentParams() — local-mode state is also omitted from block fetch params
     // so scroll-triggered loadRequiredBlocks() doesn't leak local state to the backend.
     this.on('sort-change', () => {
-      if (this.config.sortMode === 'local') {
+      if (this.sortMode === 'local') {
         this.requestRender();
       } else {
         this.onModelChange();
       }
     });
     this.on('filter-change', () => {
-      if (this.config.filterMode === 'local') {
+      if (this.filterMode === 'local') {
+        // The filter can reject rows above unloaded placeholders, moving them into
+        // view without a scroll — re-check the viewport after this render (#520).
+        this.pendingViewportCheck = true;
         this.requestRender();
       } else {
         this.onModelChange();
@@ -230,6 +251,20 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   }
 
   /**
+   * Effective sort/filter ownership. The `data-src` URL source only slices a cached
+   * dataset and ignores `sortModel` / `filterModel`, so it is always `'local'` —
+   * otherwise a sort or filter would refetch the unchanged rows and nobody would
+   * apply it.
+   */
+  private get sortMode(): 'server' | 'local' {
+    return isUrlDataSource(this.dataSource) ? 'local' : (this.config.sortMode ?? 'server');
+  }
+
+  private get filterMode(): 'server' | 'local' {
+    return isUrlDataSource(this.dataSource) ? 'local' : (this.config.filterMode ?? 'server');
+  }
+
+  /**
    * Build enrichment params by querying sort/filter models from loaded plugins.
    *
    * When `sortMode === 'local'` the `sortModel` is omitted so scroll-triggered
@@ -237,8 +272,8 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
    * Same for `filterMode === 'local'` and `filterModel`.
    */
   private getEnrichmentParams(): Partial<GetRowsParams> {
-    const sortLocal = this.config.sortMode === 'local';
-    const filterLocal = this.config.filterMode === 'local';
+    const sortLocal = this.sortMode === 'local';
+    const filterLocal = this.filterMode === 'local';
     const sortResults = sortLocal
       ? undefined
       : (this.grid?.query?.('sort:get-model', null) as
@@ -264,22 +299,73 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   }
 
   /**
-   * Translate visible viewport indices to node-space indices via structural plugins.
-   * Falls back to 1:1 mapping (flat data) when no structural plugin responds.
+   * Blocks (ascending) the viewport — expanded by `threshold` rows both ways to
+   * prefetch — needs loaded. The viewport is translated through a structural
+   * plugin's `datasource:viewport-mapping` when one responds, else 1:1 (flat data).
+   *
+   * When the displayed rows are not `managedNodes` itself, a later stage may have
+   * dropped or reordered rows (local filter or sort), or a structural plugin
+   * renumbered the rows it kept (Tree counts the remaining roots from zero). Then a
+   * display index is no longer a node index, so the blocks of the placeholders on
+   * screen are added: their `__index` is their node index, and loaded rows need no fetch.
    */
-  private getViewportMapping(viewportStart: number, viewportEnd: number): ViewportMappingResponse {
+  private getRequiredBlockNumbers(
+    viewportStart: number,
+    viewportEnd: number,
+    threshold: number,
+    blockSize: number,
+  ): number[] {
+    // Blocks past the end of data are never requested (see `knownTotal`).
+    const knownTotal = this.knownTotal;
+    const blocks = new Set<number>();
+    const mapped = this.queryViewportMapping(viewportStart, viewportEnd);
+    const displayDiffers = this.displayDiffers;
+
+    if (mapped || !displayDiffers) {
+      const range = mapped ?? { startNode: viewportStart, endNode: viewportEnd };
+      addRangeBlocks(blocks, range.startNode - threshold, range.endNode + threshold, blockSize, knownTotal);
+    }
+    if (displayDiffers) {
+      this.addPlaceholderBlocks(blocks, viewportStart - threshold, viewportEnd + threshold, blockSize, knownTotal);
+    }
+    return [...blocks].sort((a, b) => a - b);
+  }
+
+  /**
+   * `totalNodeCount`, or `Infinity` while it is unknown — `0` means "not yet loaded"
+   * (just after purgeCache, or before the first fetch resolves), and block 0 must
+   * still be fetchable then.
+   */
+  private get knownTotal(): number {
+    return this.totalNodeCount > 0 ? this.totalNodeCount : Infinity;
+  }
+
+  /** Whether the displayed rows are not `managedNodes` itself, so display indices may not be node indices. */
+  private get displayDiffers(): boolean {
+    return this.rows !== this.managedNodes && this.managedNodes.length > 0;
+  }
+
+  /** A structural plugin's (Tree, GroupingRows) translation of the viewport to node space, if any. */
+  private queryViewportMapping(viewportStart: number, viewportEnd: number): ViewportMappingResponse | undefined {
     const query: ViewportMappingQuery = { viewportStart, viewportEnd };
     const results = this.grid?.query?.('datasource:viewport-mapping', query) as ViewportMappingResponse[] | undefined;
+    return results?.[0];
+  }
 
-    // Structural plugin responded — use its mapping
-    if (results?.[0]) return results[0];
-
-    // No structural plugin → 1:1 mapping (flat data)
-    return {
-      startNode: viewportStart,
-      endNode: viewportEnd,
-      totalLoadedNodes: this.totalNodeCount,
-    };
+  /** Add the block of every placeholder displayed in `[displayStart, displayEnd)` (may be fractional). */
+  private addPlaceholderBlocks(
+    blocks: Set<number>,
+    displayStart: number,
+    displayEnd: number,
+    blockSize: number,
+    knownTotal: number,
+  ): void {
+    const rows = this.rows;
+    const last = Math.min(rows.length, Math.ceil(displayEnd));
+    for (let i = Math.max(0, Math.floor(displayStart)); i < last; i++) {
+      const row = rows[i];
+      if (isLoadingPlaceholder(row) && row.__index < knownTotal) blocks.add(getBlockNumber(row.__index, blockSize));
+    }
   }
 
   /**
@@ -348,23 +434,17 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     const { _virtualization } = this.grid;
     const blockSize = this.config.pageSize ?? 100;
 
-    // Translate viewport to node space via structural plugins
-    const viewport = this.getViewportMapping(_virtualization.start, _virtualization.end);
-
-    // Expand the viewport by loadThreshold in both directions to prefetch
-    // blocks the user is about to scroll into. The end is clamped to
-    // totalNodeCount when known so we don't request blocks past the end of
-    // data — but `totalNodeCount = 0` means "not yet loaded" (e.g. just after
-    // purgeCache or before the first fetch resolves), in which case we leave
-    // it unclamped so the initial block can be fetched.
+    // Blocks the viewport covers in node space, expanded by loadThreshold in both
+    // directions to prefetch blocks the user is about to scroll into.
     const threshold = Math.max(0, this.config.loadThreshold ?? 0);
-    const expandedStart = Math.max(0, viewport.startNode - threshold);
-    const knownTotal = this.totalNodeCount > 0 ? this.totalNodeCount : Infinity;
-    const expandedEnd = Math.min(knownTotal, viewport.endNode + threshold);
-    if (expandedEnd <= expandedStart) return;
+    const requiredBlocks = this.getRequiredBlockNumbers(
+      _virtualization.start,
+      _virtualization.end,
+      threshold,
+      blockSize,
+    );
+    if (requiredBlocks.length === 0) return;
 
-    // Determine which blocks are needed for current viewport (in node space)
-    const requiredBlocks = getRequiredBlocks(expandedStart, expandedEnd, blockSize);
     const enrichment = this.getEnrichmentParams();
     const gridId = this.grid?.getAttribute?.('id') ?? undefined;
 
@@ -437,12 +517,19 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
           // its own row model from `managedNodes`. The in-place element swap above
           // is invisible to that derived model — it still references the discarded
           // placeholder objects — so processRows MUST re-run for it to re-derive.
+          // The same holds when `_rows` is not `managedNodes` itself: a later
+          // processRows stage (local sort, local filter, MultiSort) produced it
+          // from the previous contents (#520).
           const needsRowModelRebuild =
             previousManagedLength === 0 ||
             detail.claimed ||
+            this.rows !== this.managedNodes ||
             this.managedNodes.length < (Number.isFinite(this.totalNodeCount) ? this.totalNodeCount : 0);
 
           if (needsRowModelRebuild) {
+            // New identity so downstream processRows caches keyed on the input
+            // reference (e.g. FilteringPlugin) see the loaded rows (#520).
+            this.managedNodes = this.managedNodes.slice();
             // Scheduled render: re-check against its viewport in afterRender().
             this.pendingViewportCheck = true;
             this.requestRender();
@@ -520,7 +607,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     // Note: any plugin sort that runs after us (priority > -10, e.g. multi-sort)
     // will further re-sort our output, which is the intended chain.
     const host = this.grid;
-    if (this.config.sortMode === 'local' && host?._sortState) {
+    if (this.sortMode === 'local' && host?._sortState) {
       const columns = (host._columns ?? []) as ColumnConfig[];
       // Honor user's gridConfig.sortHandler when provided — same resolution
       // as core's reapplyCoreSort/applySort. processRows is synchronous, so
@@ -575,6 +662,9 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     switch (query.type) {
       case 'datasource:is-active':
         return this.dataSource != null;
+
+      case 'datasource:filter-mode':
+        return this.dataSource ? this.filterMode : undefined;
 
       case 'datasource:fetch-children': {
         const { context } = query.context as FetchChildrenQuery;
@@ -678,6 +768,9 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
         // rendered — see afterRender(). Checking here would use the empty
         // pre-data virtual window and request nothing.
         this.pendingViewportCheck = true;
+        // processRows grows managedNodes in place; a new identity invalidates
+        // input-ref caches (a local filter rendered while block 0 was pending).
+        this.managedNodes = this.managedNodes.slice();
         this.requestRender();
       })
       .catch((error: unknown) => {

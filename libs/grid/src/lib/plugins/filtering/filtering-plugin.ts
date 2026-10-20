@@ -26,6 +26,9 @@ import styles from './filtering.css?inline';
 import filterPanelStyles from './FilteringPlugin.css?inline';
 import type { BlankMode, FilterChangeDetail, FilterConfig, FilterModel, FilterPanelParams } from './types';
 
+/** A data-source loading placeholder (e.g. ServerSide's `{ __loading: true, __index }`). */
+const isLoadingRow = (row: Record<string, unknown>): boolean => row.__loading === true;
+
 /**
  * Filtering Plugin for tbw-grid
  *
@@ -484,6 +487,15 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       return rows as unknown[];
     }
 
+    // A ServerSide data source in `filterMode: 'server'` already applied the
+    // filter (via `getRows({ filterModel })`) with its own semantics, and its
+    // loading placeholders must keep their slots. In `'local'` mode the loaded
+    // rows are filtered here, but placeholders pass until their block loads so
+    // the scroll height (and the fetch of the next block) survives (#520).
+    const dataSourceMode = this.grid.query?.<'server' | 'local'>('datasource:filter-mode', null)?.[0];
+    if (dataSourceMode === 'server') return rows as unknown[];
+    const keep = dataSourceMode === 'local' ? isLoadingRow : undefined;
+
     // Check cache — also verify input rows haven't changed (e.g. due to sort).
     // Upstream plugins return a new array on every change, so reference
     // equality is a sufficient invalidation signal.
@@ -510,6 +522,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       filterList,
       this.config.caseSensitive,
       this.getFilterValues(),
+      keep,
     );
 
     // Update cache

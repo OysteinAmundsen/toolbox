@@ -384,6 +384,7 @@ function compileTextPredicate(
  * @param filters - Array of filters to apply
  * @param caseSensitive - Whether text comparisons are case sensitive
  * @param filterValues - Optional map of field → value extractor for complex columns
+ * @param keep - Optional predicate for rows that bypass the filters (e.g. loading placeholders)
  * @returns Filtered rows
  */
 export function filterRows<T extends Record<string, unknown>>(
@@ -391,6 +392,7 @@ export function filterRows<T extends Record<string, unknown>>(
   filters: FilterModel[],
   caseSensitive = false,
   filterValues?: Map<string, (value: unknown, row: T) => unknown | unknown[]>,
+  keep?: (row: T) => boolean,
 ): T[] {
   if (!filters.length) return rows as T[];
 
@@ -404,16 +406,18 @@ export function filterRows<T extends Record<string, unknown>>(
   );
 
   // Single-filter fast path avoids per-row loop overhead
-  if (predicates.length === 1) {
-    return rows.filter(predicates[0]);
-  }
+  const matchAll =
+    predicates.length === 1
+      ? predicates[0]
+      : (row: T) => {
+          for (let i = 0; i < predicates.length; i++) {
+            if (!predicates[i](row)) return false;
+          }
+          return true;
+        };
 
-  return rows.filter((row) => {
-    for (let i = 0; i < predicates.length; i++) {
-      if (!predicates[i](row)) return false;
-    }
-    return true;
-  });
+  if (keep) return rows.filter((row) => keep(row) || matchAll(row));
+  return rows.filter(matchAll);
 }
 
 /**

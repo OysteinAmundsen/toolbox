@@ -449,3 +449,62 @@ describe('ServerSide placeholders with other plugins and loadingRenderer (PR #51
     expect(rowEl?.querySelector('.tbw-row-loading-overlay .my-row-loader')).not.toBeNull();
   });
 });
+
+describe('ServerSide block loads with variable row heights (PR #525)', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  const BIG_TOTAL = 60; // above the virtualization bypass threshold (24)
+  const BIG_PAGE = 30;
+
+  it.each([
+    ['without a sort plugin', {}],
+    ['with MultiSort (sortMode server)', { multiSort: true }],
+  ])('rebuilds row positions when a deferred block lands (%s)', async (_label, extraFeatures) => {
+    const pending: Array<{ params: GetRowsParams; resolve: (r: GetRowsResult) => void }> = [];
+    const getRows = vi.fn(
+      (params: GetRowsParams) =>
+        new Promise<GetRowsResult>((resolve) => {
+          pending.push({ params, resolve });
+        }),
+    );
+    const flush = () => {
+      for (const { params, resolve } of pending.splice(0)) {
+        const rows: Row[] = [];
+        for (let i = params.startNode; i < Math.min(params.endNode, BIG_TOTAL); i++) {
+          rows.push({ id: i, name: `Row ${i}` });
+        }
+        resolve({ rows, totalNodeCount: BIG_TOTAL });
+      }
+    };
+    const grid = document.createElement('tbw-grid') as any;
+    grid.style.height = '400px';
+    grid.gridConfig = {
+      columns: [{ field: 'name', header: 'Name' }],
+      getRowId: (row: Row) => String(row.id),
+      // Loaded rows are 70px; placeholders keep the default estimate.
+      rowHeight: () => 70,
+      features: {
+        ...extraFeatures,
+        serverSide: { pageSize: BIG_PAGE, loadThreshold: BIG_TOTAL, dataSource: { getRows } },
+      },
+    };
+    document.body.appendChild(grid);
+    await grid.ready();
+
+    await vi.waitFor(() => expect(pending.length).toBe(1));
+    flush(); // block 0
+    await vi.waitFor(() => expect(pending.length).toBe(1)); // block 1 prefetched via loadThreshold
+    await vi.waitFor(() => expect(grid._virtualization.positionCache?.length).toBe(BIG_TOTAL));
+    expect(grid._virtualization.positionCache[BIG_PAGE].height).not.toBe(70);
+
+    flush(); // block 1 lands in place
+    await vi.waitFor(() => expect(isLoadingPlaceholder(grid._rows[BIG_PAGE])).toBe(false));
+    await vi.waitFor(() => {
+      const cache = grid._virtualization.positionCache as Array<{ offset: number; height: number }>;
+      expect(cache[BIG_TOTAL - 1].height).toBe(70);
+      expect(cache[BIG_TOTAL - 1].offset).toBe((BIG_TOTAL - 1) * 70);
+    });
+  });
+});

@@ -399,15 +399,54 @@ describe('MultiSortPlugin', () => {
   });
 
   describe('processRows', () => {
-    it('should return rows copy when no sorts', () => {
+    it('should return the input untouched when no sorts', () => {
       const plugin = new MultiSortPlugin();
       const rows = [{ name: 'Charlie' }, { name: 'Alice' }, { name: 'Bob' }];
       const grid = createGridMock(rows, sortableColumns);
       plugin.attach(grid as any);
 
       const result = plugin.processRows(rows);
-      expect(result).toEqual(rows);
-      expect(result).not.toBe(rows);
+      expect(result).toBe(rows);
+    });
+
+    it('should not reorder the input array (it can be the consumer rows)', () => {
+      const plugin = new MultiSortPlugin();
+      const rows = [{ name: 'Charlie' }, { name: 'Alice' }, { name: 'Bob' }];
+      const grid = createGridMock(rows, sortableColumns);
+      plugin.attach(grid as any);
+
+      plugin.setSortModel([{ field: 'name', direction: 'asc' }]);
+      const result = plugin.processRows(rows);
+
+      expect(result.map((r: any) => r.name)).toEqual(['Alice', 'Bob', 'Charlie']);
+      expect(rows.map((r) => r.name)).toEqual(['Charlie', 'Alice', 'Bob']);
+    });
+
+    it("should pass rows through when a data source sorts them (datasource:sort-mode 'server')", () => {
+      const plugin = new MultiSortPlugin();
+      const rows = [{ name: 'Charlie' }, { name: 'Alice' }, { name: 'Bob' }];
+      const grid = createGridMock(rows, sortableColumns);
+      grid.query = vi.fn((type: string) => (type === 'datasource:sort-mode' ? ['server'] : [])) as any;
+      plugin.attach(grid as any);
+
+      plugin.setSortModel([{ field: 'name', direction: 'asc' }]);
+      const result = plugin.processRows(rows);
+
+      expect(result).toBe(rows);
+      expect(result.map((r: any) => r.name)).toEqual(['Charlie', 'Alice', 'Bob']);
+    });
+
+    it("should sort locally when the data source leaves sorting to the grid (datasource:sort-mode 'local')", () => {
+      const plugin = new MultiSortPlugin();
+      const rows = [{ name: 'Charlie' }, { name: 'Alice' }, { name: 'Bob' }];
+      const grid = createGridMock(rows, sortableColumns);
+      grid.query = vi.fn((type: string) => (type === 'datasource:sort-mode' ? ['local'] : [])) as any;
+      plugin.attach(grid as any);
+
+      plugin.setSortModel([{ field: 'name', direction: 'asc' }]);
+      const result = plugin.processRows(rows);
+
+      expect(result.map((r: any) => r.name)).toEqual(['Alice', 'Bob', 'Charlie']);
     });
 
     it('should sort rows by single column', () => {

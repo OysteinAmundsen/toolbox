@@ -491,6 +491,37 @@ describe('ServerSidePlugin', () => {
         vi.unstubAllGlobals();
       }
     });
+
+    it('should answer datasource:sort-mode only while a data source is active (#521)', () => {
+      expect(ServerSidePlugin.manifest.queries!.map((q) => q.type)).toContain('datasource:sort-mode');
+      const query = { type: 'datasource:sort-mode', context: null };
+      const getRows = vi.fn().mockResolvedValue({ rows: [], totalNodeCount: 0 });
+
+      const serverMode = new ServerSidePlugin({ pageSize: 10 });
+      serverMode.attach(createServerSideMockGrid() as any);
+      expect(serverMode.handleQuery(query)).toBeUndefined();
+      serverMode.setDataSource({ getRows });
+      expect(serverMode.handleQuery(query)).toBe('server');
+
+      const localMode = new ServerSidePlugin({ pageSize: 10, sortMode: 'local', dataSource: { getRows } });
+      localMode.attach(createServerSideMockGrid() as any);
+      expect(localMode.handleQuery(query)).toBe('local');
+
+      // The URL source (`data-src`) slices a cached dataset and cannot sort.
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(() => new Promise(() => undefined)),
+      );
+      const urlSource = new ServerSidePlugin({ pageSize: 10, sortMode: 'server' });
+      try {
+        urlSource.attach(createServerSideMockGrid() as any);
+        urlSource.setDataSource(createUrlDataSource('/rows.json'));
+        expect(urlSource.handleQuery(query)).toBe('local');
+      } finally {
+        urlSource.detach();
+        vi.unstubAllGlobals();
+      }
+    });
   });
 
   describe('setDataSource', () => {
@@ -2061,6 +2092,162 @@ describe('ServerSidePlugin', () => {
 
       // Async handler can't be awaited inside processRows — managedNodes order is preserved.
       expect(result.map((r) => r.name)).toEqual(['Alice', 'Bob', 'Charlie']);
+    });
+  });
+
+  describe('QA regressions: row-model sizing, superseded requests, sync throws', () => {
+    /** Data source serving full `pageSize`-row blocks with an unknown total (infinite scroll). */
+    const infiniteDS = (blockSize: number, lastBlockRows = blockSize, lastBlock = Infinity): ServerSideDataSource => ({
+      getRows: vi.fn(({ startNode }: { startNode: number }) => {
+        const length = startNode / blockSize === lastBlock ? lastBlockRows : blockSize;
+        return Promise.resolve({
+          rows: Array.from({ length }, (_, i) => ({ id: startNode + i })),
+          totalNodeCount: -1,
+        });
+      }),
+    });
+
+    it('re-runs processRows when a block grows the infinite-scroll estimate', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid({ requestVirtualRefresh: vi.fn() });
+      grid._virtualization = { enabled: false, start: 0, end: 10 };
+      plugin.attach(grid as any);
+      plugin.setDataSource(infiniteDS(5));
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+      grid.rows = plugin.processRows([]);
+      expect(grid.rows.length).toBe(10);
+
+      grid.requestRender.mockClear();
+      plugin.afterRender(); // fetches block 1 (rows 5..9)
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(2));
+
+      expect(grid.requestRender).toHaveBeenCalled();
+      expect(plugin.processRows([]).length).toBe(15); // 10 loaded + one placeholder block
+    });
+
+    it('re-runs processRows when a short block shrinks the infinite-scroll estimate', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid({ requestVirtualRefresh: vi.fn() });
+      grid._virtualization = { enabled: false, start: 0, end: 10 };
+      plugin.attach(grid as any);
+      plugin.setDataSource(infiniteDS(5, 2, 1)); // block 1 returns 2 rows → total 7
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+      grid.rows = plugin.processRows([]);
+
+      grid.requestRender.mockClear();
+      plugin.afterRender();
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(2));
+
+      expect(plugin.getTotalNodeCount()).toBe(7);
+      expect(grid.requestRender).toHaveBeenCalled();
+      const result = plugin.processRows([]);
+      expect(result.length).toBe(7);
+      expect(result.some(isLoadingPlaceholder)).toBe(false);
+    });
+
+    it('keeps a superseding request abortable after the superseded one settles', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+      const signals: AbortSignal[] = [];
+      const ds: ServerSideDataSource = {
+        getRows: vi.fn(({ signal }: { signal: AbortSignal }) => {
+          signals.push(signal);
+          return new Promise<never>(() => undefined);
+        }),
+      };
+      plugin.setDataSource(ds);
+      plugin.refresh(); // aborts request #0, starts #1 for the same block
+      await new Promise((r) => setTimeout(r, 0)); // let #0's rejection settle
+
+      grid._pluginManager.emitPluginEvent('sort-change', {});
+
+      expect(signals[0].aborted).toBe(true);
+      expect(signals[1].aborted).toBe(true); // was orphaned before the fix
+    });
+
+    it('does not let a superseded block-0 result overwrite the current one', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+      // Ignores the abort signal, resolving in call order on demand.
+      const resolvers: Array<(rows: unknown[]) => void> = [];
+      const ds: ServerSideDataSource = {
+        getRows: vi.fn(
+          () =>
+            new Promise((resolve) => {
+              resolvers.push((rows) => resolve({ rows, totalNodeCount: rows.length }));
+            }),
+        ),
+      };
+      plugin.setDataSource(ds); // #0
+      plugin.refresh(); // #1
+      await new Promise((r) => setTimeout(r, 0));
+      grid._pluginManager.emitPluginEvent('sort-change', {}); // #2 (+ viewport blocks)
+      await new Promise((r) => setTimeout(r, 0));
+
+      resolvers[2]([{ id: 'current' }]);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+      resolvers[1]([{ id: 'stale' }]);
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(plugin.processRows([])[0]).toEqual({ id: 'current' });
+    });
+
+    it('purgeCache() releases loading slots so purged blocks can be refetched', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid();
+      grid._virtualization = { enabled: false, start: 0, end: 5 };
+      plugin.attach(grid as any);
+      const ds: ServerSideDataSource = { getRows: vi.fn(() => new Promise<never>(() => undefined)) };
+      plugin.setDataSource(ds);
+      plugin.purgeCache();
+      await new Promise((r) => setTimeout(r, 0));
+
+      plugin.onScroll({} as any);
+      expect(ds.getRows).toHaveBeenCalledTimes(2);
+    });
+
+    it('surfaces a synchronous getRows() throw as datasource:error', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+      const errors: unknown[] = [];
+      const loading: boolean[] = [];
+      grid.addEventListener('datasource:error', (e: Event) => errors.push((e as CustomEvent).detail.error));
+      grid.addEventListener('datasource:loading', (e: Event) => loading.push((e as CustomEvent).detail.loading));
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const ds: ServerSideDataSource = {
+        getRows: () => {
+          throw new Error('boom');
+        },
+      };
+
+      expect(() => plugin.setDataSource(ds)).not.toThrow();
+      await vi.waitFor(() => expect(errors).toHaveLength(1));
+      expect((errors[0] as Error).message).toBe('boom');
+      expect(loading.at(-1)).toBe(false);
+    });
+
+    it('surfaces a synchronous getChildRows() throw as datasource:error', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+      const errors: unknown[] = [];
+      grid.addEventListener('datasource:error', (e: Event) => errors.push((e as CustomEvent).detail.error));
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      plugin.setDataSource({
+        getRows: vi.fn().mockResolvedValue({ rows: [], totalNodeCount: 0 }),
+        getChildRows: () => {
+          throw new Error('child boom');
+        },
+      });
+
+      expect(() =>
+        plugin.handleQuery({ type: 'datasource:fetch-children', context: { context: { source: 'tree' } } }),
+      ).not.toThrow();
+      await vi.waitFor(() => expect(errors).toHaveLength(1));
+      expect((errors[0] as Error).message).toBe('child boom');
     });
   });
 });

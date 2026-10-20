@@ -182,9 +182,20 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
 
   /** @internal */
   override processRows(rows: readonly unknown[]): unknown[] {
+    // Nothing to sort: hand the input on untouched. A copy here would give every
+    // render an O(n) slice and make ServerSide's `_rows !== managedNodes` check
+    // treat each block load as a derived row model (#521).
     if (this.sortModel.length === 0) {
       this.cachedSortResult = null;
-      return [...rows];
+      return rows as unknown[];
+    }
+
+    // A ServerSide data source in `sortMode: 'server'` already sorted the rows
+    // (via `getRows({ sortModel })`) with its own collation / computed keys, and
+    // its loading placeholders sit at their block positions — keep that order (#521).
+    if (this.grid?.query?.<'server' | 'local'>('datasource:sort-mode', null)?.[0] === 'server') {
+      this.cachedSortResult = null;
+      return rows as unknown[];
     }
 
     // Freeze sort order while a row is actively being edited (row mode only).
@@ -201,13 +212,16 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
       }
     }
 
-    // Sort in-place — the input array is already a mutable copy from plugin-manager.
-    // Pre-resolved comparator chain avoids column lookup on every pair comparison.
+    // Sort a copy: with no earlier copying stage the input IS the consumer's
+    // `rows` array (`grid.sourceRows`) — sorting it in place reordered their data
+    // and left nothing to restore when the sort is cleared. The copy is O(n)
+    // next to the O(n log n) sort. A pre-resolved comparator chain avoids
+    // column lookup on every pair comparison.
     // Exclude fields owned by the grouping plugin — group header order is handled
     // by GroupingRowsPlugin, so multi-sort should only affect within-group data order.
     const effectiveModel = this.#filterGroupedFields(this.sortModel);
 
-    const mutableRows = rows as unknown[];
+    const mutableRows = [...rows];
     if (effectiveModel.length > 0) {
       sortRowsInPlace(mutableRows, effectiveModel, this.columns);
     }

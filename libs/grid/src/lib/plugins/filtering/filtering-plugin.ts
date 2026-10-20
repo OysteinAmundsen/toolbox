@@ -238,8 +238,11 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   private cacheKey: string | null = null;
   /**
    * Reference to the input rows used to compute {@link cachedResult}.
-   * Upstream plugins (e.g. sort) produce a new array on every change, so
-   * reference inequality is a sufficient invalidation signal.
+   * Upstream stages produce a new array when they reorder or reshape rows, but
+   * the SAME array is passed through when nothing upstream changed it (core with
+   * no sort, MultiSort with no model, ServerSide's `managedNodes`) — including
+   * after an in-place mutation, so edit/revert/`cell-change` signals clear this
+   * reference (see `attach`).
    */
   private cachedInputRows: readonly unknown[] | null = null;
   private openPanelField: string | null = null;
@@ -391,10 +394,22 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   override attach(grid: GridElement): void {
     super.attach(grid);
     this.injectGlobalStyles();
+    // A row mutated in place keeps the input array's identity, so the input-identity
+    // cache would keep showing a row that no longer matches. Forget only the input
+    // ref — the async `filterHandler` path still serves `cachedResult`. Covers edits
+    // (`cell-edit-committed`), rollbacks (`cell-edit-reverted`) and every
+    // `updateRow`/`updateRows` (core `cell-change`, incl. undo/redo's `'history'`).
+    const forgetInput = () => {
+      this.cachedInputRows = null;
+    };
+    this.on('cell-edit-committed', forgetInput);
+    this.on('cell-edit-reverted', forgetInput);
+    this.gridElement?.addEventListener('cell-change', forgetInput, { signal: this.disconnectSignal });
   }
 
   /** @internal */
   override detach(): void {
+    super.detach();
     this.filters.clear();
     this.invalidateCache();
     this.columnLookup = null;
@@ -497,8 +512,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     const keep = dataSourceMode === 'local' ? isLoadingRow : undefined;
 
     // Check cache — also verify input rows haven't changed (e.g. due to sort).
-    // Upstream plugins return a new array on every change, so reference
-    // equality is a sufficient invalidation signal.
+    // Reference equality covers reorders/reshapes upstream; in-place mutations keep
+    // the reference, so edit/revert/`cell-change` signals clear `cachedInputRows` (see attach).
     const newCacheKey = computeFilterCacheKey(filterList);
     const inputUnchanged = rows === this.cachedInputRows;
 

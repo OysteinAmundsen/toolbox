@@ -185,6 +185,11 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         type: 'cell-edit-committed',
         description: 'Emitted when a cell edit is committed (for plugin-to-plugin coordination)',
       },
+      {
+        type: 'cell-edit-reverted',
+        description:
+          'Emitted when row values are rolled back in place (revertRow/revertAll, row-edit cancel, grid-mode Escape) — not recorded as history',
+      },
     ],
     queries: [
       {
@@ -561,7 +566,33 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           this.markAsNew(String(rowId));
         }
       });
+
+      // ServerSide blocks can land via an in-place swap + lightweight refresh that
+      // never runs processRows, so capture their baselines on arrival — otherwise
+      // the loaded rows have no original and an edit could never be reverted.
+      // That refresh skips afterRender() on the virtualized path, so request a
+      // STYLE pass to emit `baselines-captured` post-render (drained once, so a
+      // coalesced full render still emits a single event).
+      this.on('datasource:data', (detail: { rows: readonly T[] }) => {
+        if (this.#captureBaselines(detail.rows)) this.requestAfterRender();
+      });
     }
+  }
+
+  /**
+   * Capture dirty-tracking baselines for `rows` (first-write-wins; rows without an id are skipped).
+   * @returns whether any new baseline was captured
+   */
+  #captureBaselines(rows: readonly T[]): boolean {
+    const internalGrid = this.#internalGrid;
+    if (!internalGrid.getRowId) return false;
+    return this.#dirty.capture(rows, (r) => {
+      try {
+        return internalGrid.getRowId?.(r);
+      } catch {
+        return undefined;
+      }
+    });
   }
 
   /**
@@ -1294,18 +1325,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * @internal Plugin API — part of the render pipeline
    */
   override processRows(rows: readonly T[]): T[] {
-    const internalGrid = this.#internalGrid;
-
     // --- Dirty tracking: capture baselines (first-write-wins) ---
-    if (this.config.dirtyTracking && internalGrid.getRowId) {
-      this.#dirty.capture(rows, (r) => {
-        try {
-          return internalGrid.getRowId?.(r);
-        } catch {
-          return undefined;
-        }
-      });
-    }
+    if (this.config.dirtyTracking) this.#captureBaselines(rows);
 
     // --- Editing stability: swap in the in-progress row ---
     if (this.#activeEditRow === -1 || this.#isGridMode) return rows as T[];
@@ -1700,6 +1721,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (!row) return;
     if (this.#dirty.revertRow(rowId, row)) {
       this.#emitDirtyChange(rowId, row, 'reverted');
+      this.emitPluginEvent('cell-edit-reverted', { rowId });
       this.requestRender();
     }
   }
@@ -1711,6 +1733,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (!this.config.dirtyTracking) return;
     const internalGrid = this.#internalGrid;
     this.#dirty.revertAll((rowId) => internalGrid._getRowEntry(rowId)?.row as T | undefined);
+    this.emitPluginEvent('cell-edit-reverted', {});
     this.requestRender();
   }
 
@@ -1985,6 +2008,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       this.#dirty.committedDirtyRowIds.delete(rowId);
       this.clearRowInvalid(rowId);
     }
+    this.emitPluginEvent('cell-edit-reverted', { rowId });
   }
 
   /**
@@ -2106,6 +2130,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const rowData = internalGrid._rows?.[snapshot.rowIndex];
     if (rowData) {
       writeCellField(rowData, snapshot.field, snapshot.value);
+      this.emitPluginEvent('cell-edit-reverted', { rowId: this.#safeGetRowId(rowData as T) });
     }
 
     // Push the reverted value to the editor's input element so that the

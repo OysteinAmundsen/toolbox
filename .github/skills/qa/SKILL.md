@@ -107,10 +107,14 @@ bunx fallow audit --base <resolved-base-ref> --format json > tmp/fallow-audit.js
 **For single-file or folder mode**:
 
 ```bash
-bunx fallow health --file <path> --format json > tmp/fallow-audit.json
+# `health` has no `--file` flag — run it whole-repo, then keep only findings[] whose `path` is in scope.
+bunx fallow health --format json > tmp/fallow-audit.json
 # or for dead-code:
 bunx fallow dead-code --format json > tmp/fallow-audit.json
 ```
+
+Without coverage input, `crap` assumes 0 % coverage (CRAP = cyclomatic² + cyclomatic), so treat high CRAP on a
+well-tested file as complexity debt, not an introduced regression.
 
 **For full working-tree scope** (uncommitted changes):
 

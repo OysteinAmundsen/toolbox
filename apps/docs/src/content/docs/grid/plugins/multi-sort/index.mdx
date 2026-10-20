@@ -313,7 +313,10 @@ For backends that own sort ordering, use
 [`ServerSidePlugin`](../server-side/) — it ships the current `sortModel` (all
 columns, in priority order) to your `getRows` handler so the backend can
 return rows in the requested order. This is the right pattern for paginated /
-infinite-scroll datasets where client-side sort isn't viable.
+infinite-scroll datasets where client-side sort isn't viable. Under the default
+`sortMode: 'server'`, MultiSort shows the returned order as-is (it does not
+re-sort it in the browser), so server collation and computed sort keys are
+preserved. Set `sortMode: 'local'` to have MultiSort sort the loaded rows instead.
 
 ```ts
 import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';

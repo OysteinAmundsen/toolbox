@@ -18,15 +18,15 @@ for this monorepo. It is run on demand via `bunx` and is not a project dependenc
 
 ## Quick reference
 
-| Goal                                     | Command                                                         |
-| ---------------------------------------- | --------------------------------------------------------------- |
-| Full-project maintainability report      | `bunx fallow health --score --hotspots --targets --format json` |
-| PR-scoped risk gate (changed files only) | `bunx fallow audit --changed-since origin/main --format json`   |
-| Dead code + unused exports               | `bunx fallow dead-code --format json`                           |
-| Duplication across the codebase          | `bunx fallow dupes --format json`                               |
-| Everything at once                       | `bunx fallow --format json`                                     |
-| Single-file deep dive                    | `bunx fallow health --file <path> --format json`                |
-| Per-package scores (monorepo)            | `bunx fallow health --group-by package --score --format json`   |
+| Goal                                     | Command                                                                                  |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Full-project maintainability report      | `bunx fallow health --score --hotspots --targets --format json`                          |
+| PR-scoped risk gate (changed files only) | `bunx fallow audit --changed-since origin/main --format json`                            |
+| Dead code + unused exports               | `bunx fallow dead-code --format json`                                                    |
+| Duplication across the codebase          | `bunx fallow dupes --format json`                                                        |
+| Everything at once                       | `bunx fallow --format json`                                                              |
+| Single-file deep dive                    | `bunx fallow health --format json` then filter `findings[]` by `path` (no `--file` flag) |
+| Per-package scores (monorepo)            | `bunx fallow health --group-by package --score --format json`                            |
 
 ### Scoped summary (monorepo triage)
 

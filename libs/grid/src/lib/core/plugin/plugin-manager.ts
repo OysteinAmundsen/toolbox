@@ -286,6 +286,8 @@ export class PluginManager {
       this.unsubscribeAll(plugin); // Clean up event subscriptions
       this.unregisterQueryHandlers(plugin); // Clean up query handlers
       plugin.detach();
+      // Guarantee the `disconnectSignal` contract even when an override skips super.detach().
+      plugin.__releaseDisconnectSignal();
     }
     this.plugins = [];
     this.pluginMap.clear();

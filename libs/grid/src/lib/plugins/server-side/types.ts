@@ -94,6 +94,8 @@ export interface ServerSideConfig {
    * How sort changes affect the cache.
    * - `'server'` (default): purge cache and refetch via `getRows({ sortModel })`.
    *   Use when the backend supports the requested sort shape natively.
+   *   MultiSortPlugin does not re-sort the returned rows locally — the data
+   *   source's order (and its loading placeholders' block positions) is shown as-is.
    * - `'local'`: keep the loaded blocks; sort the loaded rows in-place via
    *   the active sort plugin (MultiSort or core sort). `sortModel` is **not**
    *   sent on subsequent block fetches. Loading placeholder rows

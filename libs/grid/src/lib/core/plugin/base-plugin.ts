@@ -707,9 +707,19 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   detach(): void {
     // Abort the plugin's abort controller to clean up all event listeners
     // registered with { signal: this.disconnectSignal }
+    this.__releaseDisconnectSignal();
+    // Override in subclass for additional cleanup
+  }
+
+  /**
+   * Abort {@link disconnectSignal} (idempotent). The plugin manager calls this after
+   * every `detach()` so listeners bound to the signal are released even when an
+   * override does not call `super.detach()`.
+   * @internal
+   */
+  __releaseDisconnectSignal(): void {
     this.#abortController?.abort();
     this.#abortController = undefined;
-    // Override in subclass for additional cleanup
   }
 
   /**

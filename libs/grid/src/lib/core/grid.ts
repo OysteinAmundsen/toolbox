@@ -1032,9 +1032,18 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @internal Plugin API
    */
   requestVirtualRefresh(): void {
+    // Rows were swapped in place (e.g. ServerSide placeholders → loaded rows), so
+    // ids in a row-ID map built before the swap are stale. Mark it dirty — O(1);
+    // the lazy rebuild runs only if something reads it.
+    this.#rowIdMapDirty = true;
     // Invalidate start so refreshVirtualWindow doesn't early-exit
     this._virtualization.start = -1;
-    this.refreshVirtualWindow(false);
+    // The rebuilt rows lost plugin visual state (selection classes, aria-selected);
+    // the virtualized non-force path runs no afterRender, so reapply it exactly as
+    // a scroll that changes the window does (#onScrollBatched).
+    if (this.refreshVirtualWindow(false)) {
+      this.#pluginManager?.onScrollRender();
+    }
   }
 
   /**

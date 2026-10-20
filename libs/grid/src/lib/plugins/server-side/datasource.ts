@@ -107,14 +107,21 @@ export function loadBlock(
 ): Promise<GetRowsResult> {
   const range = getBlockRange(blockNumber, blockSize);
 
-  const result = dataSource.getRows({
-    startNode: range.start,
-    endNode: range.end,
-    pageSize: range.end - range.start,
-    sortModel: params.sortModel,
-    filterModel: params.filterModel,
-    signal,
-  });
+  let result: Promise<GetRowsResult> | Subscribable<GetRowsResult>;
+  try {
+    result = dataSource.getRows({
+      startNode: range.start,
+      endNode: range.end,
+      pageSize: range.end - range.start,
+      sortModel: params.sortModel,
+      filterModel: params.filterModel,
+      signal,
+    });
+  } catch (error) {
+    // A non-async getRows() can throw synchronously — surface it as a rejection
+    // so the caller's .catch releases the block and broadcasts datasource:error.
+    return Promise.reject(error);
+  }
   return toResultPromise(result, signal);
 }
 

@@ -39,6 +39,15 @@ function createMockGrid(
     _focusRow: -1,
     _focusCol: -1,
     findRenderedRowElement: vi.fn().mockReturnValue(null),
+    // Internal id lookups used by #applyValue / #focusActionCell (mock: rows are both view and source)
+    _getRowEntry: vi.fn((id: string) => {
+      const index = rows.findIndex((r) => String(r['id']) === id);
+      return index >= 0 ? { row: rows[index], index } : undefined;
+    }),
+    _getSourceRowEntry: vi.fn((id: string) => {
+      const index = rows.findIndex((r) => String(r['id']) === id);
+      return index >= 0 ? { row: rows[index], index } : undefined;
+    }),
     // updateRow: mutates the row in-place (simulating the real grid behavior)
     updateRow: vi.fn((id: string, changes: Record<string, unknown>) => {
       const row = rows.find((r) => String(r['id']) === id);
@@ -305,6 +314,111 @@ describe('UndoRedoPlugin', () => {
 
   // #endregion
 
+  // #region Row identity (#526)
+
+  describe('row identity (#526)', () => {
+    it('captures the row id when recording', () => {
+      plugin.recordEdit(1, 'name', 'Beta', 'Changed');
+      expect(plugin.getUndoStack()[0]).toMatchObject({ rowIndex: 1, rowId: '2' });
+    });
+
+    it('omits rowId when the row has no resolvable id', () => {
+      const emptyIdGrid = createMockGrid(rows, { getRowId: () => '' });
+      const p = new UndoRedoPlugin();
+      p.attach(emptyIdGrid);
+      p.recordEdit(0, 'name', 'Alpha', 'Changed');
+      expect(p.getUndoStack()[0]).not.toHaveProperty('rowId');
+      p.detach();
+    });
+
+    it('undoes the recorded row after the view reorders', () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      rows[0]['name'] = 'Changed';
+      rows.reverse(); // row 1 now at index 1; index 0 is row 2
+
+      plugin.undo();
+
+      expect(grid.updateRow).toHaveBeenCalledWith('1', { name: 'Alpha' }, 'history');
+      expect(rows.find((r) => r['id'] === 2)?.['name']).toBe('Beta');
+    });
+
+    it('delegates a removed row to updateRow (silent no-op for history) without a pre-scan', () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      rows.splice(0, 1);
+
+      expect(plugin.undo()).not.toBeNull();
+      expect(grid.updateRow).toHaveBeenCalledTimes(1);
+      expect(grid.updateRow).toHaveBeenCalledWith('1', { name: 'Alpha' }, 'history');
+      expect(grid._getSourceRowEntry).not.toHaveBeenCalled();
+      expect(rows[0]['name']).toBe('Beta');
+    });
+
+    it('defers focus to afterRender and targets the row at its post-render index', () => {
+      plugin.recordEdit(0, 'price', 10, 99);
+
+      plugin.undo();
+      expect(grid._focusRow).toBe(-1); // nothing applied before the render
+
+      rows.reverse(); // the render re-sorts the view
+      plugin.afterRender();
+
+      expect(grid._focusRow).toBe(1);
+      expect(grid._focusCol).toBe(2);
+    });
+
+    it('applies the deferred focus only once', () => {
+      plugin.recordEdit(0, 'price', 10, 99);
+      plugin.undo();
+      plugin.afterRender();
+      grid._focusRow = 0;
+
+      plugin.afterRender();
+
+      expect(grid._focusRow).toBe(0);
+    });
+
+    it('does not move focus when the row is not in the view after render', () => {
+      plugin.recordEdit(0, 'price', 10, 99);
+      grid._getRowEntry.mockReturnValue(undefined); // e.g. filtered out
+
+      plugin.undo();
+      plugin.afterRender();
+
+      expect(grid._focusRow).toBe(-1);
+    });
+
+    it('detach drops a pending focus', () => {
+      plugin.recordEdit(0, 'price', 10, 99);
+      plugin.undo();
+      plugin.detach();
+
+      plugin.afterRender();
+
+      expect(grid._focusRow).toBe(-1);
+    });
+
+    it('recordEdit uses an explicit rowId for a row outside the view', () => {
+      plugin.recordEdit(-1, 'name', 'Beta', 'Changed', '2');
+      expect(plugin.getUndoStack()[0]).toMatchObject({ rowIndex: -1, rowId: '2' });
+
+      plugin.undo();
+      expect(grid.updateRow).toHaveBeenCalledWith('2', { name: 'Beta' }, 'history');
+    });
+
+    it('prefers the rowId carried by cell-edit-committed over the display index', () => {
+      const commitHandler = grid._pluginManager.subscribe.mock.calls.find(
+        (c: unknown[]) => c[1] === 'cell-edit-committed',
+      )?.[2] as (d: Record<string, unknown>) => void;
+
+      // rowIndex -1: Editing committed a row that is filtered out of view (updateRow path)
+      commitHandler({ rowIndex: -1, rowId: '2', field: 'name', oldValue: 'Beta', newValue: 'X' });
+
+      expect(plugin.getUndoStack()[0]).toMatchObject({ rowIndex: -1, rowId: '2' });
+    });
+  });
+
+  // #endregion
+
   // #region preventDefault on Ctrl+Z / Ctrl+Y
 
   describe('preventDefault', () => {
@@ -534,11 +648,14 @@ describe('UndoRedoPlugin', () => {
   // #region Focus management after undo/redo
 
   describe('focus management', () => {
+    // Focus is applied in afterRender (after the render requestRenderWithFocus schedules);
+    // the mock grid never renders, so each test runs the hook explicitly.
     it('should set _focusRow and _focusCol after undo', () => {
       plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
       rows[0]['name'] = 'Changed';
 
       plugin.undo();
+      plugin.afterRender();
 
       // 'name' is at index 1 in _visibleColumns [id, name, price]
       expect(grid._focusRow).toBe(0);
@@ -551,6 +668,7 @@ describe('UndoRedoPlugin', () => {
 
       plugin.undo();
       plugin.redo();
+      plugin.afterRender();
 
       // 'price' is at index 2 in _visibleColumns [id, name, price]
       expect(grid._focusRow).toBe(1);
@@ -562,6 +680,7 @@ describe('UndoRedoPlugin', () => {
       rows[0]['price'] = 99;
 
       plugin.onKeyDown(ctrlZ());
+      plugin.afterRender();
 
       expect(grid._focusRow).toBe(0);
       expect(grid._focusCol).toBe(2);
@@ -573,6 +692,7 @@ describe('UndoRedoPlugin', () => {
 
       plugin.onKeyDown(ctrlZ());
       plugin.onKeyDown(ctrlY());
+      plugin.afterRender();
 
       expect(grid._focusRow).toBe(0);
       expect(grid._focusCol).toBe(1);
@@ -583,11 +703,12 @@ describe('UndoRedoPlugin', () => {
 
       // Should not throw, focus should not be set
       expect(() => plugin.undo()).not.toThrow();
+      plugin.afterRender();
       expect(grid._focusRow).toBe(-1);
       expect(grid._focusCol).toBe(-1);
     });
 
-    it('should focus editor input when cell is in editing mode', async () => {
+    it('should focus editor input when cell is in editing mode', () => {
       // Create a mock row element with an editing cell containing an input
       const input = document.createElement('input');
       const focusSpy = vi.spyOn(input, 'focus');
@@ -604,14 +725,12 @@ describe('UndoRedoPlugin', () => {
       rows[0]['name'] = 'Changed';
 
       plugin.undo();
-
-      // The focus happens in a queueMicrotask, so we need to wait
-      await new Promise((r) => queueMicrotask(r));
+      plugin.afterRender();
 
       expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
     });
 
-    it('should not focus editor when cell is not in editing mode', async () => {
+    it('should not focus editor when cell is not in editing mode', () => {
       const input = document.createElement('input');
       const focusSpy = vi.spyOn(input, 'focus');
       const cellEl = document.createElement('div');
@@ -627,9 +746,9 @@ describe('UndoRedoPlugin', () => {
       rows[0]['name'] = 'Changed';
 
       plugin.undo();
+      plugin.afterRender();
 
-      await new Promise((r) => queueMicrotask(r));
-
+      expect(grid.findRenderedRowElement).toHaveBeenCalledWith(0);
       expect(focusSpy).not.toHaveBeenCalled();
     });
   });
@@ -820,6 +939,7 @@ describe('UndoRedoPlugin', () => {
       plugin.endTransaction();
 
       plugin.undo();
+      plugin.afterRender();
 
       // Last action is 'price' at _visibleColumns index 2 (the primary field
       // when using beginTransaction + queueMicrotask endTransaction pattern)

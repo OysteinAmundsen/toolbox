@@ -95,7 +95,7 @@ describe('Filtering re-filters after an in-place edit', () => {
     const undoRedo = grid.getPluginByName('undoRedo');
     toggleActive(grid, 0); // row 1: true → false
     await vi.waitFor(() => expect(grid.getRow('1')?.active).toBe(false));
-    undoRedo.undo(); // row 1 back to true, before any filter (UndoRedo targets the action's display index)
+    undoRedo.undo(); // row 1 back to true, before any filter
     await vi.waitFor(() => expect(grid.getRow('1')?.active).toBe(true));
     grid.getPluginByName('filtering').setFilter('active', { type: 'boolean', operator: 'equals', value: true });
     await vi.waitFor(() => expect(visibleIds(grid)).toEqual([1, 2]));

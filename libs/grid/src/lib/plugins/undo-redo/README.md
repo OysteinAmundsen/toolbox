@@ -57,8 +57,9 @@ const canRedo = history.canRedo();
 // Clear history
 history.clearHistory();
 
-// Record an edit manually
-history.recordEdit(rowIndex, field, oldValue, newValue);
+// Record an edit manually. rowIndex = current display index; the row's ID is captured from it
+// unless you pass rowId (needed when the row may not be in view)
+history.recordEdit(rowIndex, field, oldValue, newValue, rowId);
 
 // Get stacks
 const undoStack = history.getUndoStack();
@@ -72,12 +73,13 @@ into one undo step using `beginTransaction()` / `endTransaction()`:
 
 ```typescript
 grid.addEventListener('cell-commit', (e) => {
+  const { row, rowId, rowIndex } = e.detail;
   const undoRedo = grid.getPluginByName('undoRedo');
   undoRedo.beginTransaction();
 
-  // Manually record cascaded side-effects
+  // Manually record cascaded side-effects (rowId keeps off-screen rows targeted correctly)
   const oldTotal = row.total;
-  undoRedo.recordEdit(rowIndex, 'total', oldTotal, newTotal);
+  undoRedo.recordEdit(rowIndex, 'total', oldTotal, newTotal, rowId);
   grid.updateRow(rowId, { total: newTotal });
 
   // End after the auto-recorded original edit is captured

@@ -358,8 +358,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // #endregion
 
   // #region Derived State
-  // _rows: result of applying plugin processRows hooks
-  _rows: T[] = [];
+  // _rows: result of applying plugin processRows hooks.
+  // Accessor so EVERY reassignment (sort fast path, clear-sort, RowDragDrop, …) marks the
+  // lazy row-ID map dirty — otherwise `_getRowEntry(id).index` goes stale (#526).
+  #processedRows: T[] = [];
+  get _rows(): T[] {
+    return this.#processedRows;
+  }
+  set _rows(value: T[]) {
+    this.#processedRows = value;
+    this.#rowIdMapDirty = true;
+  }
 
   // _baseColumns: columns before plugin transformation (analogous to #rows for row processing)
   // This is the source of truth for processColumns - plugins transform these
@@ -2959,7 +2968,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    *
    * Resolves the row from the full dataset, so a row that is filtered or paged
    * out of the visible view can still be updated. If the ID matches no row at
-   * all, a `TBW041` warning is logged and the call is a no-op (never throws).
+   * all, a `TBW041` warning is logged and the call is a no-op (never throws);
+   * with `source: 'history'` (an undo/redo replay of a since-deleted row) the
+   * no-op is silent.
    *
    * **Filtered/paged-out rows:** the emitted `cell-change.rowIndex` is `-1`
    * (the row is not in the processed view). The update only schedules a
@@ -2991,8 +3002,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * More efficient than multiple `updateRow()` calls - single render cycle.
    *
    * Each row is resolved from the full dataset, so filtered/paged-out rows are
-   * updated too. An unresolvable ID logs a `TBW041` warning and is skipped
-   * without aborting the rest of the batch (never throws).
+   * updated too. An unresolvable ID logs a `TBW041` warning (silent for
+   * `source: 'history'`) and is skipped without aborting the rest of the batch
+   * (never throws).
    *
    * **Filtered/paged-out rows:** for a row resolved from the source dataset but
    * not currently in the processed view, the emitted `cell-change.rowIndex` is

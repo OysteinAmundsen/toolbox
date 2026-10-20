@@ -132,10 +132,17 @@ export function clearHistory(): UndoRedoState {
  * @param field - The field (column key) that was edited
  * @param oldValue - The value before the edit
  * @param newValue - The value after the edit
+ * @param rowId - Stable ID of the edited row, when resolvable
  * @returns A new EditAction object
  */
-export function createEditAction(rowIndex: number, field: string, oldValue: unknown, newValue: unknown): EditAction {
-  return {
+export function createEditAction(
+  rowIndex: number,
+  field: string,
+  oldValue: unknown,
+  newValue: unknown,
+  rowId?: string,
+): EditAction {
+  const action: EditAction = {
     type: 'cell-edit',
     rowIndex,
     field,
@@ -143,6 +150,8 @@ export function createEditAction(rowIndex: number, field: string, oldValue: unkn
     newValue,
     timestamp: Date.now(),
   };
+  if (rowId !== undefined) action.rowId = rowId;
+  return action;
 }
 
 /**

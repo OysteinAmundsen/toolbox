@@ -355,7 +355,7 @@ Key imperative methods per plugin:
 | RowDragDropPlugin | `rowDragDrop` | `moveRow(fromIndex, toIndex)`, `canMoveRow(fromIndex, toIndex)` |
 | ColumnVirtualizationPlugin | `columnVirtualization` | `getIsVirtualized()`, `getVisibleColumnRange()`, `scrollToColumn(idx)`, `getTotalWidth()` |
 | PrintPlugin | `print` | `isPrinting()`, `print()`, `print({ orientation, title, maxRows })` |
-| UndoRedoPlugin | `undoRedo` | `undo()`, `redo()`, `canUndo()`, `canRedo()`, `clearHistory()`, `getUndoStack()`, `getRedoStack()`, `recordEdit(idx, field, old, new)`, `beginTransaction()`, `endTransaction()` |
+| UndoRedoPlugin | `undoRedo` | `undo()`, `redo()`, `canUndo()`, `canRedo()`, `clearHistory()`, `getUndoStack()`, `getRedoStack()`, `recordEdit(idx, field, old, new, rowId?)`, `beginTransaction()`, `endTransaction()` |
 
 Inter-plugin queries (`grid.query(name, ...)`) — used when one plugin reads
 another without a hard dependency. SelectionPlugin exposes: `'getSelection'`,

@@ -105,7 +105,10 @@ describe('@toolbox-web/grid-vue/features/undo-redo', () => {
     expect(plugin.clearHistory).toHaveBeenCalled();
 
     api().recordEdit(3, 'name', 'a', 'b');
-    expect(plugin.recordEdit).toHaveBeenCalledWith(3, 'name', 'a', 'b');
+    expect(plugin.recordEdit).toHaveBeenCalledWith(3, 'name', 'a', 'b', undefined);
+
+    api().recordEdit(-1, 'name', 'a', 'b', 'row-7');
+    expect(plugin.recordEdit).toHaveBeenLastCalledWith(-1, 'name', 'a', 'b', 'row-7');
 
     api().beginTransaction();
     expect(plugin.beginTransaction).toHaveBeenCalled();

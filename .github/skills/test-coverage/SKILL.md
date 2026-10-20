@@ -164,7 +164,9 @@ unreachable through the integration suite**. Test it as a unit with a hand-built
 
 **Diagnosing failures:** the repo's Nx test reporter suppresses assertion diffs. When a spec fails
 with no useful message, re-run it through the `runTests` VS Code tool to get the real
-expected/received output. Filtering with `--testPathPattern=` is **not** honoured — pass positional
+expected/received output (caveat: for `grid-angular` the tool executes `bun test`, which has no
+DOM and fails with `document is not defined` — use Nx there, where positional patterns were also
+ignored and the full suite ran). Filtering with `--testPathPattern=` is **not** honoured — pass positional
 patterns instead: `bun nx test grid -- <pattern1> <pattern2>`.
 
 ## Step 4: Verify

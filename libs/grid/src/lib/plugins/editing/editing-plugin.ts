@@ -545,16 +545,27 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // --- Dirty tracking: listen for undo/redo events to re-evaluate dirty state ---
     if (this.config.dirtyTracking) {
+      type HistoryEdit = { rowIndex: number; rowId?: string };
       const handleUndoRedo = (e: Event) => {
-        const detail = (e as CustomEvent).detail as { action?: { rowIndex: number; field: string } };
-        const action = detail?.action;
+        const action = (e as CustomEvent).detail?.action as
+          (HistoryEdit & { type: 'cell-edit' }) | { type: 'compound'; actions: HistoryEdit[] } | undefined;
         if (!action) return;
-        const row = this.rows[action.rowIndex] as T | undefined;
-        if (!row) return;
-        const rowId = this.#safeGetRowId(row);
-        if (!rowId) return;
-        const dirty = this.#dirty.isRowDirty(rowId, row);
-        this.#emitDirtyChange(rowId, row, dirty ? 'modified' : 'pristine');
+        const edits = action.type === 'compound' ? action.actions : [action];
+        const seen = new Set<string>();
+        for (const edit of edits) {
+          // Resolve by id (#526) — the display index is stale once the view is sorted/filtered.
+          // O(1) visible-map lookup only: rows outside the view were already re-evaluated by
+          // the 'history' branch of #handleCommitCellValue, so a source scan would buy nothing.
+          const row = (
+            edit.rowId !== undefined ? this.#internalGrid._getRowEntry(edit.rowId)?.row : this.rows[edit.rowIndex]
+          ) as T | undefined;
+          if (!row) continue;
+          const rowId = edit.rowId ?? this.#safeGetRowId(row);
+          if (!rowId || seen.has(rowId)) continue;
+          seen.add(rowId);
+          const dirty = this.#dirty.isRowDirty(rowId, row);
+          this.#emitDirtyChange(rowId, row, dirty ? 'modified' : 'pristine');
+        }
       };
       this.gridElement.addEventListener('undo', handleUndoRedo, { signal });
       this.gridElement.addEventListener('redo', handleUndoRedo, { signal });
@@ -2657,6 +2668,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Notify other plugins (e.g., UndoRedoPlugin) about the committed edit
     this.emitPluginEvent('cell-edit-committed', {
       rowIndex,
+      rowId,
       field,
       oldValue,
       newValue,

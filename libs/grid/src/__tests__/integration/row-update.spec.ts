@@ -227,6 +227,24 @@ describe('Row Update API', () => {
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('Row with ID "unknown" not found'));
       warn.mockRestore();
     });
+
+    it("skips an unknown row ID silently for source 'history' (undo/redo of a deleted row)", async () => {
+      const rows: TestRow[] = [{ id: 'r1', name: 'Alice', status: 'active', count: 10 }];
+      const grid = await createGrid(rows);
+
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      grid.updateRow('gone', { status: 'x' }, 'history');
+      grid.updateRows(
+        [
+          { id: 'r1', changes: { status: 'ok' } },
+          { id: 'gone', changes: { status: 'x' } },
+        ],
+        'history',
+      );
+      expect(rows[0].status).toBe('ok');
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
   });
 
   describe('cascade safety', () => {

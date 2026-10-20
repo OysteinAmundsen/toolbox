@@ -113,17 +113,35 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
    */
   #transactionDepth = 0;
 
+  /** Cell to focus after the render scheduled by the last undo/redo (see `afterRender`). */
+  #pendingFocus: EditAction | null = null;
+
+  /**
+   * Resolve the stable ID of the row currently displayed at `rowIndex`.
+   * Returns `undefined` when there is no such row or it has no resolvable ID.
+   */
+  #resolveRowId(rowIndex: number): string | undefined {
+    const row = this.rows[rowIndex];
+    if (!row) return undefined;
+    try {
+      return this.grid.getRowId(row) || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   /**
    * Apply a value to a row cell, using `updateRow()` when possible so that
    * active editors (during row-edit mode) are notified via the `cell-change`
    * → `onValueChange` pipeline. Falls back to direct mutation when the row
    * has no ID.
+   *
+   * The row is resolved by `action.rowId` (searching the full source data, so
+   * filtered-out rows are reachable) — never by `action.rowIndex` when an ID
+   * exists, because the display index goes stale once the view is sorted or
+   * filtered (#526).
    */
   #applyValue(action: EditAction, value: unknown): void {
-    const rows = this.rows as Record<string, unknown>[];
-    const row = rows[action.rowIndex];
-    if (!row) return;
-
     // Prefer updateRow() — it emits `cell-change` events which notify active
     // editors via their `onValueChange` callbacks. Without this, undo/redo
     // during row-edit mode is invisible because the render pipeline skips
@@ -133,17 +151,17 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     // and recompute dirty state WITHOUT recording a fresh history entry or
     // re-marking the row changed — the undo stack owns this change. This is
     // what breaks the updateRow→commit→cell-edit-committed→record feedback loop.
-    try {
-      const rowId = this.grid.getRowId(row);
-      if (rowId) {
-        this.grid.updateRow(rowId, { [action.field]: value }, 'history');
-        return;
-      }
-    } catch {
-      // No row ID configured — fall back to direct mutation
+    if (action.rowId !== undefined) {
+      // updateRow resolves the id against the full source data (filtered-out rows
+      // included); a row deleted since the edit is a silent no-op for 'history'.
+      this.grid.updateRow(action.rowId, { [action.field]: value }, 'history');
+      return;
     }
 
-    // Fallback: direct mutation (editors won't see the change during editing)
+    // No row identity: fall back to the display index captured at edit time.
+    const rows = this.rows as Record<string, unknown>[];
+    const row = rows[action.rowIndex];
+    if (!row) return;
     writeCellField(row, action.field, value);
   }
 
@@ -159,11 +177,16 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     const colIdx = internalGrid._visibleColumns?.findIndex((c) => c.field === action.field) ?? -1;
     if (colIdx < 0) return;
 
-    internalGrid._focusRow = action.rowIndex;
+    // Resolve the row's CURRENT display index; skip focus when it is not in view.
+    const rowIndex =
+      action.rowId !== undefined ? (internalGrid._getRowEntry(action.rowId)?.index ?? -1) : action.rowIndex;
+    if (rowIndex < 0) return;
+
+    internalGrid._focusRow = rowIndex;
     internalGrid._focusCol = colIdx;
 
     // If we're in row-edit mode, focus the editor input in the target cell
-    const rowEl = internalGrid.findRenderedRowElement?.(action.rowIndex);
+    const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
     if (!rowEl) return;
 
     const cellEl = rowEl.querySelector(`.cell[data-col="${colIdx}"]`) as HTMLElement | null;
@@ -198,10 +221,25 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
    * primary field edit is appended last. Focusing it ensures the cursor
    * lands on the field the user originally edited, not on a cascaded field
    * whose column may not even be visible.
+   *
+   * Focus is applied in `afterRender()`, not here: the change can re-sort or
+   * re-filter the view, so the row's display index is only known after the
+   * ROWS phase that `requestRenderWithFocus()` schedules.
    */
   #focusUndoRedoAction(action: UndoRedoAction): void {
     const target = action.type === 'compound' ? action.actions[action.actions.length - 1] : action;
-    if (target) this.#focusActionCell(target);
+    this.#pendingFocus = target ?? null;
+  }
+
+  /**
+   * Apply the focus deferred by an undo/redo once the view reflects the change.
+   * @internal
+   */
+  override afterRender(): void {
+    const target = this.#pendingFocus;
+    if (!target) return;
+    this.#pendingFocus = null;
+    this.#focusActionCell(target);
   }
 
   /**
@@ -213,14 +251,14 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     // Auto-record edits via Event Bus
     this.on(
       'cell-edit-committed',
-      (detail: { rowIndex: number; field: string; oldValue: unknown; newValue: unknown }) => {
+      (detail: { rowIndex: number; rowId?: string; field: string; oldValue: unknown; newValue: unknown }) => {
         // Skip recording during undo/redo operations. When undo/redo applies a
         // value via updateRow, two things can cause re-entry:
         // 1. updateRow → cell-change → onValueChange → editor triggers commit
         // 2. Browser native undo (if not fully suppressed) fires input event → commit
         // The suppress flag prevents these from corrupting the history stacks.
         if (this.#suppressRecording) return;
-        this.recordEdit(detail.rowIndex, detail.field, detail.oldValue, detail.newValue);
+        this.recordEdit(detail.rowIndex, detail.field, detail.oldValue, detail.newValue, detail.rowId);
       },
     );
   }
@@ -234,6 +272,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     this.redoStack = [];
     this.#transactionBuffer = null;
     this.#transactionDepth = 0;
+    this.#pendingFocus = null;
   }
 
   /**
@@ -329,13 +368,21 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
    * Record a cell edit for undo/redo tracking.
    * Call this when a cell value changes.
    *
-   * @param rowIndex - The row index where the edit occurred
+   * The row's stable ID is captured from the row currently displayed at `rowIndex`,
+   * so call this while `rowIndex` still points at the edited row (e.g. synchronously
+   * inside a `cell-commit` handler). Undo/redo then target that row by ID even after
+   * the view is sorted or filtered. Pass `rowId` explicitly when the row is not in
+   * the view (e.g. `cell-commit` from an `updateRow()` on a filtered-out row reports
+   * `rowIndex: -1`) — `detail.rowId` from `cell-commit` is the natural source.
+   *
+   * @param rowIndex - The display (processed-row) index where the edit occurred
    * @param field - The field (column key) that was edited
    * @param oldValue - The value before the edit
    * @param newValue - The value after the edit
+   * @param rowId - Stable ID of the edited row; resolved from `rowIndex` when omitted (since 3.9.2)
    */
-  recordEdit(rowIndex: number, field: string, oldValue: unknown, newValue: unknown): void {
-    const action = createEditAction(rowIndex, field, oldValue, newValue);
+  recordEdit(rowIndex: number, field: string, oldValue: unknown, newValue: unknown, rowId?: string): void {
+    const action = createEditAction(rowIndex, field, oldValue, newValue, rowId || this.#resolveRowId(rowIndex));
 
     // Buffer during transactions instead of pushing to undo stack
     if (this.#transactionBuffer) {

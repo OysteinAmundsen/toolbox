@@ -3569,6 +3569,8 @@ export interface TbwScrollDetail {
  * - `'history'`: Re-application of a value by the undo/redo plugin. Data
  *   plugins (e.g. editing) apply the value but MUST NOT record a fresh
  *   history entry or mark the row changed — the undo stack owns this change.
+ *   An ID that no longer resolves (row deleted since the edit) is skipped
+ *   without the `TBW041` warning.
  *
  * @example
  * ```typescript

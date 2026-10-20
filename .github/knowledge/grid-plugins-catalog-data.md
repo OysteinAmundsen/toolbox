@@ -73,7 +73,7 @@ OWNS: `sortModel[]`, cached sort result. HOOKS: processRows, onHeaderClick. QUER
 - INVARIANT: MultiSort is the AUTHORITATIVE sort source — Tree and GroupingRows must query `sort:get-model` when it is loaded, never keep independent sort state.
 - TENSION: caches the sort during a row edit so the edited row doesn't jump.
 - DECIDED (#521): `processRows`: empty model OR `datasource:sort-mode` `'server'` → return input UNTOUCHED (data source sorted via `getRows({sortModel})`, placeholders keep block positions; a copy made ServerSide see every block load as derived). Else sort ONE own copy (`[...rows]` + `sortRowsInPlace`). WHY: plugin-manager does NOT copy between stages — input may BE consumer `grid.sourceRows`; in-place sort reordered it and `clearSort()` couldn't restore. Tests: `integration/server-side-sorting.spec.ts`, `multi-sort-source-rows.spec.ts`.
-- TENSION (#524): Tree `#sortLevel` still re-sorts ServerSide roots under `sortMode:'server'` — should honor `datasource:sort-mode`.
+- Tree honors `datasource:sort-mode` too (#524) → grid-plugins-hierarchy.md (Tree).
 
 ### Filtering
 

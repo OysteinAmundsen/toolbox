@@ -407,9 +407,12 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       return false;
     }
 
-    // When MultiSort is active, use its model instead of local sort state so
-    // Tree and MultiSort don't fight over sort ownership.
-    this.#levelSort = this.resolveEffectiveSortState();
+    // A ServerSide data source in `sortMode: 'server'` already ordered the roots
+    // (`getRows({ sortModel })`) and lazy children (`getChildRows({ sortModel })`)
+    // — keep its order (#524). Otherwise prefer MultiSort's model over local sort
+    // state so Tree and MultiSort don't fight over sort ownership.
+    const serverSorts = this.grid?.query?.<'server' | 'local'>('datasource:sort-mode', null)?.[0] === 'server';
+    this.#levelSort = serverSorts ? null : this.resolveEffectiveSortState();
 
     if (this.config.defaultExpanded && !this.initialExpansionDone) {
       this.expandedKeys = expandAll(treeRows, this.config);

@@ -118,7 +118,7 @@ override attach(grid: GridElement): void {
 
 ### `detach()`
 
-Called when the plugin is removed. Clean up event listeners, timers, etc.
+Called when the plugin is removed. Clean up event listeners, timers, etc. Listeners registered with `{ signal: this.disconnectSignal }` are removed for you — the grid aborts that signal on detach even if an override forgets `super.detach()`.
 
 ```typescript
 override detach(): void {

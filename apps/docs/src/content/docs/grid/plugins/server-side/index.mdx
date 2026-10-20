@@ -285,7 +285,7 @@ When a mode is `'local'`:
 - Already-loading placeholder rows are pinned to the end of the sort order so the in-progress fetch stays visually grouped.
 - Under `filterMode: 'local'`, placeholder rows always pass the filter, so they keep their slots (and the scroll height that triggers the next fetch). Each block is filtered when it arrives.
 
-Under the default `filterMode: 'server'`, the FilteringPlugin does **not** re-filter rows in the browser. Your `getRows()` result is shown as-is, so server-side semantics (analysed text, joins on other data) are preserved.
+Under the default `filterMode: 'server'`, the FilteringPlugin does **not** re-filter rows in the browser. Likewise, under the default `sortMode: 'server'`, the MultiSortPlugin does **not** re-sort them. Your `getRows()` result is shown as-is, so server-side semantics (analysed text, joins on other data, server collation, computed sort keys) are preserved, and loading placeholders keep their block positions.
 
 | Use case                                      | `sortMode` | `filterMode` |
 | --------------------------------------------- | ---------- | ------------ |
@@ -840,6 +840,7 @@ The Server-Side plugin **cannot** be used with:
 | `datasource:fetch-children` | Plugins → ServerSide | Query requesting child rows for a context |
 | `datasource:is-active` | Plugins → ServerSide | Query checking if a data source is configured |
 | `datasource:filter-mode` | Plugins → ServerSide | Query returning who filters rows while a data source is active: `'server'` (the data source; FilteringPlugin passes rows through) or `'local'` (the grid; placeholders pass until their block loads) |
+| `datasource:sort-mode` | Plugins → ServerSide | Query returning who sorts rows while a data source is active: `'server'` (the data source; MultiSortPlugin passes rows through) or `'local'` (the grid sorts the loaded rows) |
 | `datasource:viewport-mapping` | ServerSide → plugins | Query mapping viewport indices to node-space indices |
 
 ## Diagnostic Codes

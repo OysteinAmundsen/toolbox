@@ -106,10 +106,12 @@ The plugin broadcasts lifecycle events that other plugins can subscribe to:
 
 ## Queries
 
-| Query Type                  | Response             | Purpose                          |
-| --------------------------- | -------------------- | -------------------------------- |
-| `datasource:is-active`      | `boolean`            | Check if a data source is active |
-| `datasource:fetch-children` | `GetChildRowsResult` | Request child rows for a parent  |
+| Query Type                  | Response              | Purpose                                        |
+| --------------------------- | --------------------- | ---------------------------------------------- |
+| `datasource:is-active`      | `boolean`             | Check if a data source is active               |
+| `datasource:filter-mode`    | `'server' \| 'local'` | Who filters rows while a data source is active |
+| `datasource:sort-mode`      | `'server' \| 'local'` | Who sorts rows while a data source is active   |
+| `datasource:fetch-children` | `GetChildRowsResult`  | Request child rows for a parent                |
 
 ## API Methods
 

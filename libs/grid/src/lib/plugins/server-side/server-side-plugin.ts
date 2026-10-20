@@ -33,6 +33,7 @@ import type {
   DataSourceErrorDetail,
   DataSourceLoadingDetail,
   FetchChildrenQuery,
+  GetChildRowsResult,
   GetRowsParams,
   GetRowsResult,
   ServerSideDataSource,
@@ -136,6 +137,10 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
         type: 'datasource:filter-mode',
         description: "Who filters rows while a data source is active: 'server' (data source) or 'local' (grid)",
       },
+      {
+        type: 'datasource:sort-mode',
+        description: "Who sorts rows while a data source is active: 'server' (data source) or 'local' (grid)",
+      },
     ],
   };
 
@@ -162,7 +167,6 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
    * can cancel the underlying network call.
    */
   private blockControllers = new Map<number, AbortController>();
-  private lastRequestId = 0;
   private scrollDebounceTimer?: ReturnType<typeof setTimeout>;
   /**
    * One-shot flag set when a block lands; consumed in `afterRender()` to re-check
@@ -224,10 +228,8 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.totalNodeCount = 0;
     this.infiniteScrollMode = false;
     this.loadedBlocks.clear();
-    this.loadingBlocks.clear();
     this.abortAllBlocks();
     this.managedNodes = [];
-    this.lastRequestId = 0;
     this.pendingViewportCheck = false;
     if (this.scrollDebounceTimer) {
       clearTimeout(this.scrollDebounceTimer);
@@ -239,15 +241,30 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   // #region Private Methods
 
   /**
-   * Abort all in-flight block requests. Called when the plugin tears down,
-   * the data source is replaced, the cache is purged, or the sort/filter
-   * model changes (the previously loaded block coordinates no longer apply).
+   * Abort all in-flight block requests and release their loading slots. Called
+   * when the plugin tears down, the data source is replaced, the cache is purged,
+   * or the sort/filter model changes (the previously loaded block coordinates no
+   * longer apply).
    */
   private abortAllBlocks(): void {
     for (const controller of this.blockControllers.values()) {
       controller.abort();
     }
     this.blockControllers.clear();
+    this.loadingBlocks.clear();
+  }
+
+  /**
+   * Release `blockNum`'s in-flight slot when its request settles — but only if
+   * `controller` still owns it. An aborted request settles a microtask after the
+   * abort, by which time a superseding request (refresh, sort/filter change) may
+   * have re-registered the same block; deleting that entry would orphan the new
+   * request from `abortAllBlocks()` and let stale rows land in the cache.
+   */
+  private releaseBlock(blockNum: number, controller: AbortController): void {
+    if (this.blockControllers.get(blockNum) !== controller) return;
+    this.blockControllers.delete(blockNum);
+    this.loadingBlocks.delete(blockNum);
   }
 
   /**
@@ -376,7 +393,6 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     if (!this.dataSource) return;
     this.abortAllBlocks();
     this.loadedBlocks.clear();
-    this.loadingBlocks.clear();
     this.managedNodes = [];
     this.totalNodeCount = 0;
     this.infiniteScrollMode = false;
@@ -426,6 +442,16 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   }
 
   /**
+   * Length `managedNodes` must have: the infinite-scroll estimate, else
+   * `totalNodeCount` (guarded against an invalid value from a malformed
+   * datasource response, e.g. `undefined`).
+   */
+  private getNodeCount(blockSize: number): number {
+    if (this.infiniteScrollMode) return this.getInfiniteScrollEstimate(blockSize);
+    return Number.isFinite(this.totalNodeCount) && this.totalNodeCount >= 0 ? this.totalNodeCount : 0;
+  }
+
+  /**
    * Check current viewport and load any missing blocks.
    */
   private loadRequiredBlocks(): void {
@@ -467,12 +493,11 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
 
       loadBlock(this.dataSource, blockNum, blockSize, enrichment, controller.signal)
         .then((result) => {
-          this.blockControllers.delete(blockNum);
+          this.releaseBlock(blockNum, controller);
           // Drop results from a request that was superseded after the await
           // resolved (data source ignored the abort signal). Without this guard
           // a stale block would land in the cache after a sort/filter change.
           if (controller.signal.aborted) {
-            this.loadingBlocks.delete(blockNum);
             if (this.loadingBlocks.size === 0) {
               this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
             }
@@ -483,7 +508,6 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
           // re-run to grow the managedNodes array (e.g. after onModelChange reset).
           const previousManagedLength = this.managedNodes.length;
           this.applyServerResult(result, blockNum, blockSize);
-          this.loadingBlocks.delete(blockNum);
 
           // Update managed nodes in place for this block (avoids full processRows rebuild)
           const start = blockNum * blockSize;
@@ -507,12 +531,13 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
             this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
           }
 
-          // If managedNodes still hasn't been sized for the (possibly newly known)
-          // totalNodeCount — typically because onModelChange() reset it to 0 right
-          // before this fetch — we MUST run processRows to grow the array. The
-          // in-place writes above are no-ops in that case (length is 0).
+          // If managedNodes is not sized for the (possibly newly known) node count
+          // — reset to 0 by onModelChange() right before this fetch, an infinite-
+          // scroll estimate that grows by a block, or a short block that finalized
+          // a smaller total — we MUST run processRows to resize the array. The
+          // in-place writes above cannot grow or shrink it.
           // Without this, sort/filter changes leave the grid permanently blank
-          // until something else triggers a ROWS phase.
+          // and infinite scroll stalls after the second block.
           // A structural plugin (Tree, GroupingRows) that claimed the data derives
           // its own row model from `managedNodes`. The in-place element swap above
           // is invisible to that derived model — it still references the discarded
@@ -520,11 +545,15 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
           // The same holds when `_rows` is not `managedNodes` itself: a later
           // processRows stage (local sort, local filter, MultiSort) produced it
           // from the previous contents (#520).
+          // With variable row heights the loaded rows can differ in height from the
+          // placeholders they replace; only the ROWS → forced-refresh path rebuilds
+          // the position cache and spacer (refreshVirtualWindow(false) does neither).
           const needsRowModelRebuild =
             previousManagedLength === 0 ||
             detail.claimed ||
             this.rows !== this.managedNodes ||
-            this.managedNodes.length < (Number.isFinite(this.totalNodeCount) ? this.totalNodeCount : 0);
+            this.managedNodes.length !== this.getNodeCount(blockSize) ||
+            this.grid._virtualization?.variableHeights === true;
 
           if (needsRowModelRebuild) {
             // New identity so downstream processRows caches keyed on the input
@@ -536,8 +565,9 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
           } else {
             // Re-render visible rows without force geometry recalculation.
             // requestVirtualRefresh() skips spacer height writes that cause oscillation
-            // with the scheduler's afterRender microtask. Node count hasn't changed —
-            // only cached data replaced placeholders — so geometry is stable.
+            // with the scheduler's afterRender microtask. Node count hasn't changed and
+            // row heights are uniform — only cached data replaced placeholders — so
+            // geometry is stable.
             this.requestVirtualRefresh();
           }
 
@@ -546,8 +576,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
           this.loadRequiredBlocks();
         })
         .catch((error: unknown) => {
-          this.blockControllers.delete(blockNum);
-          this.loadingBlocks.delete(blockNum);
+          this.releaseBlock(blockNum, controller);
           // A superseded request may surface as either an AbortError or as a
           // user-thrown error after the data source detected the abort —
           // suppress diagnostics in both cases. Real failures still surface.
@@ -576,14 +605,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     if (!this.dataSource) return [...rows];
 
     const blockSize = this.config.pageSize ?? 100;
-
-    // Guard against invalid totalNodeCount (e.g. undefined from a malformed datasource response).
-    // In infinite scroll mode, estimate the total from loaded data + one extra block.
-    const nodeCount = this.infiniteScrollMode
-      ? this.getInfiniteScrollEstimate(blockSize)
-      : Number.isFinite(this.totalNodeCount) && this.totalNodeCount >= 0
-        ? this.totalNodeCount
-        : 0;
+    const nodeCount = this.getNodeCount(blockSize);
 
     // Grow array with stable placeholder objects (created once, reused across renders)
     while (this.managedNodes.length < nodeCount) {
@@ -666,6 +688,9 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
       case 'datasource:filter-mode':
         return this.dataSource ? this.filterMode : undefined;
 
+      case 'datasource:sort-mode':
+        return this.dataSource ? this.sortMode : undefined;
+
       case 'datasource:fetch-children': {
         const { context } = query.context as FetchChildrenQuery;
         this.fetchChildren(context);
@@ -698,8 +723,19 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     const enrichment = this.getEnrichmentParams();
     this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: true, context });
 
-    this.dataSource
-      .getChildRows({ context, sortModel: enrichment.sortModel, filterModel: enrichment.filterModel })
+    let request: Promise<GetChildRowsResult>;
+    try {
+      request = this.dataSource.getChildRows({
+        context,
+        sortModel: enrichment.sortModel,
+        filterModel: enrichment.filterModel,
+      });
+    } catch (error) {
+      // A non-async getChildRows() can throw synchronously — route it through .catch below.
+      request = Promise.reject(error);
+    }
+
+    request
       .then((result) => {
         const detail: DataSourceChildrenDetail = {
           rows: result.rows,
@@ -728,7 +764,6 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.abortAllBlocks();
     this.dataSource = dataSource;
     this.loadedBlocks.clear();
-    this.loadingBlocks.clear();
     this.managedNodes = [];
     this.totalNodeCount = 0;
     this.infiniteScrollMode = false;
@@ -746,10 +781,11 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
 
     loadBlock(dataSource, 0, blockSize, enrichment, controller.signal)
       .then((result) => {
-        this.blockControllers.delete(0);
-        this.loadingBlocks.delete(0);
+        this.releaseBlock(0, controller);
         if (controller.signal.aborted) {
-          this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
+          if (this.loadingBlocks.size === 0) {
+            this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
+          }
           return;
         }
         this.loadedBlocks.set(0, result.rows);
@@ -774,10 +810,11 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
         this.requestRender();
       })
       .catch((error: unknown) => {
-        this.blockControllers.delete(0);
-        this.loadingBlocks.delete(0);
+        this.releaseBlock(0, controller);
         if (controller.signal.aborted) {
-          this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
+          if (this.loadingBlocks.size === 0) {
+            this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
+          }
           return;
         }
         const err = error instanceof Error ? error : new Error(String(error));

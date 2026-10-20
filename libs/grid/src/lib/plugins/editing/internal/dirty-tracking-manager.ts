@@ -69,13 +69,16 @@ export class DirtyTrackingManager<T> {
   /**
    * Capture baselines for rows not already tracked (first-write-wins).
    * Sets the `baselinesWereCaptured` flag when new rows are snapshotted.
+   * @returns whether any new baseline was captured
    */
-  capture(rows: readonly T[], getRowId: (r: T) => string | undefined): void {
+  capture(rows: readonly T[], getRowId: (r: T) => string | undefined): boolean {
     const sizeBefore = this.baselines.size;
     captureBaselines(this.baselines, rows, getRowId);
     if (this.baselines.size > sizeBefore) {
       this.baselinesWereCaptured = true;
+      return true;
     }
+    return false;
   }
 
   /**

@@ -401,8 +401,12 @@ export function applySort(grid: GridHost, col: ColumnConfig<any>, dir: 1 | -1): 
 
   // Reference equality gate — see comment in reapplyCoreSort above.
   if (handler === builtInSort) {
-    // Fast path: sort grid._rows in-place — avoids allocating a 1M-element copy.
+    // Sort a copy, never `_rows` in place: `_rows` can BE the consumer's `rows`
+    // array (core hands `#rows` through when unsorted) or a plugin stage's cached
+    // result (e.g. Filtering's `cachedResult`, reused while its input is unchanged).
+    // The O(n) copy is small next to the O(n log n) sort.
     // __originalOrder was already saved by toggleSort before calling applySort.
+    grid._rows = grid._rows.slice();
     executeBuiltInSortInPlace(grid._rows as any[], sortState.field, dir, columns);
     finalizeSortResult(grid, grid._rows, col, dir);
     return;

@@ -233,6 +233,8 @@ features: {
 
 For large hierarchical datasets, use `ServerSidePlugin` to fetch top-level tree nodes in blocks as the user scrolls. TreePlugin claims the incoming data and renders the hierarchy. Children can be embedded in the response or fetched lazily via `getChildRows()`.
 
+Under the default `sortMode: 'server'`, sorting is the data source's job: both `getRows()` and `getChildRows()` receive the current `sortModel`, and TreePlugin keeps the order they return instead of re-sorting each level. Set `sortMode: 'local'` to have TreePlugin sort the loaded levels in the browser.
+
 <Tabs syncKey="framework">
   <TabItem label="TypeScript">
 ```ts

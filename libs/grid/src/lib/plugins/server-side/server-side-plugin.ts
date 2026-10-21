@@ -167,6 +167,13 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
    * can cancel the underlying network call.
    */
   private blockControllers = new Map<number, AbortController>();
+  /**
+   * In-flight `getChildRows` requests. Aborted only on `detach()` or when the
+   * requester's `FetchChildrenQuery.signal` fires — NOT on sort/filter/refresh:
+   * GroupingRows and MasterDetail release their loading state only on
+   * `datasource:children`, so an unrequested abort would strand them.
+   */
+  private childControllers = new Set<AbortController>();
   private scrollDebounceTimer?: ReturnType<typeof setTimeout>;
   /**
    * One-shot flag set when a block lands; consumed in `afterRender()` to re-check
@@ -229,6 +236,8 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.infiniteScrollMode = false;
     this.loadedBlocks.clear();
     this.abortAllBlocks();
+    for (const controller of this.childControllers) controller.abort();
+    this.childControllers.clear();
     this.managedNodes = [];
     this.pendingViewportCheck = false;
     if (this.scrollDebounceTimer) {
@@ -692,8 +701,8 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
         return this.dataSource ? this.sortMode : undefined;
 
       case 'datasource:fetch-children': {
-        const { context } = query.context as FetchChildrenQuery;
-        this.fetchChildren(context);
+        const { context, signal } = query.context as FetchChildrenQuery;
+        this.fetchChildren(context, signal);
         return undefined;
       }
     }
@@ -705,9 +714,12 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
 
   /**
    * Fetch child rows via the datasource and broadcast the result.
+   * `requesterSignal` (from `FetchChildrenQuery.signal`) aborts the request;
+   * an aborted request broadcasts only `datasource:loading` `false`.
    */
-  private fetchChildren(context: { source: string; [key: string]: unknown }): void {
+  private fetchChildren(context: { source: string; [key: string]: unknown }, requesterSignal?: AbortSignal): void {
     if (!this.dataSource) return;
+    if (requesterSignal?.aborted) return;
 
     const gridId = this.grid?.getAttribute?.('id') ?? undefined;
 
@@ -721,6 +733,18 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     }
 
     const enrichment = this.getEnrichmentParams();
+    const controller = new AbortController();
+    const abort = (): void => controller.abort();
+    requesterSignal?.addEventListener('abort', abort, { once: true });
+    this.childControllers.add(controller);
+    // Release the request; `false` when it was aborted and its result must be dropped.
+    const settle = (): boolean => {
+      this.childControllers.delete(controller);
+      requesterSignal?.removeEventListener('abort', abort);
+      if (!controller.signal.aborted) return true;
+      this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false, context });
+      return false;
+    };
     this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: true, context });
 
     let request: Promise<GetChildRowsResult>;
@@ -729,6 +753,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
         context,
         sortModel: enrichment.sortModel,
         filterModel: enrichment.filterModel,
+        signal: controller.signal,
       });
     } catch (error) {
       // A non-async getChildRows() can throw synchronously — route it through .catch below.
@@ -737,6 +762,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
 
     request
       .then((result) => {
+        if (!settle()) return;
         const detail: DataSourceChildrenDetail = {
           rows: result.rows,
           context,
@@ -746,6 +772,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
         this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false, context });
       })
       .catch((error: unknown) => {
+        if (!settle()) return;
         const err = error instanceof Error ? error : new Error(String(error));
         errorDiagnostic(DATASOURCE_CHILD_FETCH_ERROR, `getChildRows() failed: ${err.message}`, gridId);
         this.broadcast<DataSourceErrorDetail>('datasource:error', { error: err, context });

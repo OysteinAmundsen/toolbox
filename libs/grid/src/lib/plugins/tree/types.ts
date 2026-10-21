@@ -201,8 +201,17 @@ export interface TreeLoadStartDetail<T = TreeRow> {
  * @since 3.4.0
  */
 export interface TreeLoadEndDetail<T = TreeRow> extends TreeLoadStartDetail<T> {
-  /** Number of child rows received */
+  /** Number of child rows received (`0` when {@link TreeLoadEndDetail.cancelled | cancelled}) */
   childCount: number;
+  /**
+   * `true` when the load was superseded before it settled: the node's row was
+   * replaced by a new object for the same key (e.g. a ServerSide refetch after a
+   * sort/filter change or `refresh()`), so the request was aborted and nothing
+   * was merged. A still-expanded node requests its children again for the new
+   * row, firing a fresh `tree-load-start`.
+   * @since 3.9.2
+   */
+  cancelled?: boolean;
 }
 
 /**
@@ -222,12 +231,16 @@ declare module '../../core/types' {
     /**
      * Fired when lazy child loading starts for a node — i.e. a node with
      * unloaded children was expanded and `loadChildren` (or the ServerSide
-     * data source) was invoked. @group Tree Events
+     * data source) was invoked. Every `tree-load-start` is followed by exactly
+     * one `tree-load-end` or `tree-load-error` (unless the grid is torn down).
+     * @group Tree Events
      */
     'tree-load-start': TreeLoadStartDetail;
     /**
      * Fired when lazy child loading completes and the children have been
-     * merged into the parent row. @group Tree Events
+     * merged into the parent row — or, with `cancelled: true`, when the load
+     * was superseded because the row was replaced before its children arrived.
+     * @group Tree Events
      */
     'tree-load-end': TreeLoadEndDetail;
     /**

@@ -84,8 +84,10 @@ For hierarchical data (tree nodes, grouped rows, master-detail), implement `getC
 
 ```typescript
 interface GetChildRowsParams {
-  parentRow: unknown;
-  context: { source: string }; // e.g. 'tree', 'groupingRows', 'masterDetail'
+  context: { source: string; [key: string]: unknown }; // source: 'tree' | 'grouping-rows' | 'master-detail'
+  sortModel?: Array<{ field: string; direction: 'asc' | 'desc' }>;
+  filterModel?: Record<string, unknown>;
+  signal: AbortSignal; // aborted when the requester supersedes the request, or on detach
 }
 
 interface GetChildRowsResult<TRow = any> {

@@ -142,46 +142,22 @@ jobs:
         run: bun nx affected -t test --exclude='demo-*' --coverage --base=${{
           steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
 
-      - name: Coverage Report - Grid
-        if: always() && github.event_name == 'pull_request' &&
-          hashFiles('coverage/libs/grid/coverage-summary.json') != ''
-        uses: davelosert/vitest-coverage-report-action@v2
-        with:
-          name: Grid
-          json-summary-path: coverage/libs/grid/coverage-summary.json
-          file-coverage-mode: none
+      # One combined table (column per library) → step summary + ONE sticky PR
+      # comment. Every library writes its summary to coverage/libs/<project>/.
+      - name: Coverage report
+        if: always() && hashFiles('coverage/libs/*/coverage-summary.json') != ''
+        run: bun tools/coverage-report.ts --out coverage/coverage-report.md
+        env:
+          COVERAGE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         continue-on-error: true
 
-      - name: Coverage Report - Grid Angular
+      - name: Coverage report - PR comment
         if: always() && github.event_name == 'pull_request' &&
-          hashFiles('libs/grid-angular/test-output/vitest/coverage/coverage-summary.json')
-          != ''
-        uses: davelosert/vitest-coverage-report-action@v2
+          hashFiles('coverage/coverage-report.md') != ''
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
-          name: Grid Angular
-          json-summary-path: libs/grid-angular/test-output/vitest/coverage/coverage-summary.json
-          file-coverage-mode: none
-        continue-on-error: true
-
-      - name: Coverage Report - Grid React
-        if: always() && github.event_name == 'pull_request' &&
-          hashFiles('libs/grid-react/test-output/vitest/coverage/coverage-summary.json')
-          != ''
-        uses: davelosert/vitest-coverage-report-action@v2
-        with:
-          name: Grid React
-          json-summary-path: libs/grid-react/test-output/vitest/coverage/coverage-summary.json
-          file-coverage-mode: none
-        continue-on-error: true
-
-      - name: Coverage Report - Grid Vue
-        if: always() && github.event_name == 'pull_request' &&
-          hashFiles('coverage/libs/grid-vue/coverage-summary.json') != ''
-        uses: davelosert/vitest-coverage-report-action@v2
-        with:
-          name: Grid Vue
-          json-summary-path: coverage/libs/grid-vue/coverage-summary.json
-          file-coverage-mode: none
+          header: coverage
+          path: coverage/coverage-report.md
         continue-on-error: true
 
       # ----------------------------------------------------------------

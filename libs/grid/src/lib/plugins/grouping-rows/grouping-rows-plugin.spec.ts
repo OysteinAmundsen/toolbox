@@ -1551,8 +1551,9 @@ describe('GroupingRowsPlugin', () => {
           expect(plugin.processRows([]).some((r: any) => r.name === 'fresh')).toBe(true);
         });
 
-        it('re-requests loaded expanded groups on refetch; skips removed and never-loaded groups', () => {
+        it('re-requests loaded expanded groups on refetch; skips removed groups', async () => {
           const { plugin, eventListeners, fetches } = setup();
+          const keys = () => fetches().map((q) => (q.context as any).context.groupKey);
           plugin.toggle('A');
           eventListeners.get('datasource:children')?.({
             rows: [{ name: 'old' }],
@@ -1567,13 +1568,17 @@ describe('GroupingRowsPlugin', () => {
           expect(fetches()).toHaveLength(2);
 
           refetch(eventListeners, ['A', 'B']);
-          // A had rows → re-requested; B failed (no rows, no load) → stays as the user left it
-          expect(fetches().map((q) => (q.context as any).context.groupKey)).toEqual(['A', 'B', 'A']);
+          // A had rows → re-requested by the claim itself
+          expect(keys()).toEqual(['A', 'B', 'A']);
           expect(plugin.processRows([]).some((r: any) => r.name === 'old')).toBe(false);
+          // B failed (no rows, no load) → one automatic attempt for the new definitions after the render (#534)
+          await Promise.resolve();
+          expect(keys()).toEqual(['A', 'B', 'A', 'B']);
 
+          plugin.toggle('B'); // collapse — B's load keeps running
           refetch(eventListeners, ['B']);
           // A's load was in flight but A is gone from the new definitions → not re-requested
-          expect(fetches()).toHaveLength(3);
+          expect(keys()).toEqual(['A', 'B', 'A', 'B']);
         });
 
         it('aborts in-flight loads on setGroups() so re-expanding requests the new definition', () => {
@@ -1624,6 +1629,185 @@ describe('GroupingRowsPlugin', () => {
           expect((fetch!.context as any).signal).toBeUndefined();
           // clearGroupRows() leaves a consumer-driven loading state alone
           expect(plugin.processRows([]).some((r: any) => r.__loading)).toBe(true);
+        });
+      });
+
+      describe('automatic requests for groups expanded without toggle() (#534)', () => {
+        const flush = () => Promise.resolve();
+
+        function setup(config: Record<string, unknown> = {}, groups?: unknown[]) {
+          const harness = createMockGridWithEvents(true);
+          const plugin = new GroupingRowsPlugin(config);
+          plugin.attach(harness.grid as any);
+          harness.eventListeners.get('datasource:data')?.({
+            rows: groups ?? [
+              { key: 'A', value: 'Group A', rowCount: 1 },
+              { key: 'B', value: 'Group B', rowCount: 1 },
+            ],
+            totalNodeCount: 2,
+            startNode: 0,
+            endNode: 2,
+            claimed: false,
+          });
+          const fetches = () => harness.queryCalls.filter((q) => q.type === 'datasource:fetch-children');
+          const keys = () => fetches().map((q) => (q.context as any).context.groupKey);
+          const fail = (groupKey: string) =>
+            harness.eventListeners.get('datasource:error')?.({
+              error: new Error('boom'),
+              context: { source: 'grouping-rows', groupKey },
+            });
+          return { ...harness, plugin, fetches, keys, fail };
+        }
+
+        it('requests every group opened by defaultExpanded, outside the render', async () => {
+          const { plugin, fetches, keys } = setup({ defaultExpanded: true });
+          plugin.processRows([]);
+          expect(fetches()).toHaveLength(0);
+
+          await flush();
+          expect(keys()).toEqual(['A', 'B']);
+          const query = fetches()[0].context as any;
+          expect(query.context).toMatchObject({ source: 'grouping-rows', groupPath: ['A'] });
+          expect(query.context.group).toMatchObject({ key: 'A', rowCount: 1 });
+          expect(query.signal.aborted).toBe(false);
+          expect(plugin.processRows([]).filter((r: any) => r.__loading)).toHaveLength(2);
+        });
+
+        it('requests the groups opened by expandAll() and expand()', async () => {
+          const { plugin, keys } = setup();
+          plugin.processRows([]);
+          plugin.expand('B');
+          plugin.processRows([]);
+          await flush();
+          expect(keys()).toEqual(['B']);
+
+          plugin.expandAll();
+          plugin.processRows([]);
+          await flush();
+          expect(keys()).toEqual(['B', 'A']);
+        });
+
+        it('requests each group once per definitions generation, even across renders and failures', async () => {
+          const { plugin, eventListeners, keys, fail } = setup({ defaultExpanded: true });
+          plugin.processRows([]);
+          plugin.processRows([]);
+          await flush();
+          fail('A');
+          plugin.processRows([]);
+          await flush();
+          expect(keys()).toEqual(['A', 'B']);
+
+          // Manual collapse + re-expand still retries
+          plugin.toggle('A');
+          plugin.toggle('A');
+          expect(keys()).toEqual(['A', 'B', 'A']);
+
+          // New definitions → B (still loading) is re-requested by the claim; failed A gets a fresh attempt
+          fail('A');
+          eventListeners.get('datasource:data')?.({
+            rows: [
+              { key: 'A', value: 'Group A' },
+              { key: 'B', value: 'Group B' },
+            ],
+            totalNodeCount: 2,
+            startNode: 0,
+            endNode: 2,
+            claimed: false,
+          });
+          plugin.processRows([]);
+          await flush();
+          expect(keys()).toEqual(['A', 'B', 'A', 'B', 'A']);
+        });
+
+        it('retries a failed automatic request when the group is re-expanded via expand() or expandAll()', async () => {
+          const { plugin, keys, fail } = setup({ defaultExpanded: true });
+          plugin.processRows([]);
+          await flush();
+          fail('A');
+
+          plugin.collapse('A');
+          plugin.expand('A');
+          plugin.processRows([]);
+          await flush();
+          expect(keys()).toEqual(['A', 'B', 'A']);
+
+          fail('A');
+          plugin.collapseAll();
+          plugin.processRows([]);
+          plugin.expandAll();
+          plugin.processRows([]);
+          await flush();
+          // A failed again → retried; B is still loading → not re-requested
+          expect(keys()).toEqual(['A', 'B', 'A', 'A']);
+        });
+
+        it('skips groups collapsed before the deferred flush, keeping them eligible (PR #537)', async () => {
+          const { plugin, keys } = setup({ defaultExpanded: true });
+          plugin.processRows([]);
+          plugin.collapse('A');
+          await flush();
+          expect(keys()).toEqual(['B']);
+
+          plugin.expand('A');
+          plugin.processRows([]);
+          await flush();
+          expect(keys()).toEqual(['B', 'A']);
+        });
+
+        it('skips descendants of a parent collapsed before the deferred flush (PR #537)', async () => {
+          const { plugin, keys } = setup({}, [
+            { key: 'P', value: 'Parent', children: [{ key: 'P1', value: 'Child 1' }] },
+            { key: 'L', value: 'Leaf' },
+          ]);
+          plugin.processRows([]);
+          plugin.expand('P');
+          plugin.expand('P1');
+          plugin.processRows([]);
+          plugin.collapse('P');
+          await flush();
+          expect(keys()).toEqual([]);
+
+          plugin.expand('L');
+          plugin.processRows([]);
+          plugin.collapseAll();
+          await flush();
+          expect(keys()).toEqual([]);
+        });
+
+        it('skips collapsed, loaded and parent groups and requests leaf groups once visible', async () => {
+          const groups = [
+            { key: 'P', value: 'Parent', children: [{ key: 'P1', value: 'Child 1' }] },
+            { key: 'L', value: 'Leaf' },
+          ];
+          const { plugin, keys, fetches } = setup({}, groups);
+          plugin.setGroupRows('L', [{ name: 'cached' }]);
+          plugin.processRows([]);
+          plugin.expand('L');
+          plugin.expand('P');
+          plugin.processRows([]);
+          await flush();
+          expect(keys()).toEqual([]); // P renders child groups; P1 is collapsed; L has rows
+
+          plugin.expand('P1');
+          plugin.processRows([]);
+          await flush();
+          expect(keys()).toEqual(['P1']);
+          expect((fetches()[0].context as any).context.groupPath).toEqual(['P', 'P1']);
+        });
+
+        it('does not request rows when ServerSide is not active (imperative mode)', async () => {
+          const harness = createMockGridWithEvents(false);
+          const plugin = new GroupingRowsPlugin({ groups: [{ key: 'A', value: 'Group A' }], defaultExpanded: true });
+          plugin.attach(harness.grid as any);
+          plugin.processRows([]);
+          await flush();
+          plugin.processRows([]);
+          await flush();
+
+          expect(harness.queryCalls.filter((q) => q.type === 'datasource:fetch-children')).toHaveLength(0);
+          // Checked once, then remembered — not re-queried every render
+          expect(harness.queryCalls.filter((q) => q.type === 'datasource:is-active')).toHaveLength(1);
+          expect(plugin.processRows([]).some((r: any) => r.__loading)).toBe(false);
         });
       });
     });

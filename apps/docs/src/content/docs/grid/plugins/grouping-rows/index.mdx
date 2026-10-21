@@ -541,7 +541,7 @@ The row grouping plugin uses these class names:
 
 > **Requires:** `ServerSidePlugin` — [see Server-Side Plugin](/grid/plugins/server-side/)
 
-For server-side scenarios where group structure is fetched from the server and rows are loaded on demand, use `ServerSidePlugin` alongside Row Grouping. ServerSide returns group definitions as root data; when the user expands a group, the plugin fetches group rows via `getChildRows()`.
+For server-side scenarios where group structure is fetched from the server and rows are loaded on demand, use `ServerSidePlugin` alongside Row Grouping. ServerSide returns group definitions as root data; whenever a group is expanded (by the user, `toggle()`, `expand()`, `expandAll()`, or `defaultExpanded`), the plugin fetches its rows via `getChildRows()`.
 
 <Tabs syncKey="framework">
   <TabItem label="TypeScript">
@@ -706,11 +706,11 @@ export class ServerGroupedGridComponent {
 **Data flow:**
 1. ServerSide fetches block → broadcasts `datasource:data`
 2. GroupingRowsPlugin claims data as pre-defined groups
-3. On group expand → fires `datasource:fetch-children` with `{ source: 'grouping-rows', groupKey }`
+3. On group expand (any path, including `defaultExpanded` and `expandAll()`) → fires `datasource:fetch-children` with `{ source: 'grouping-rows', groupKey }`
 4. ServerSide calls `getChildRows()` → broadcasts `datasource:children`
 5. GroupingRowsPlugin receives rows and renders them under the group
 
-**Errors and cancellation:** If `getChildRows()` rejects, the group leaves its loading state (it stays expanded, with no rows) and the grid fires `group-load-error` with `{ groupKey, groupPath, error }`. Collapsing and re-expanding the group retries the fetch. A request that is still in flight is aborted (`params.signal`) and its result discarded when new group definitions arrive (a server sort/filter change, `refresh()`, or `setGroups()`), and when `setGroupRows()` / `clearGroupRows()` replaces or clears that group's rows. After a server refetch, every group that is still expanded and had its rows loaded (or loading) requests them again under the new sort/filter, so it does not end up expanded and empty. Collapsing a group does **not** cancel its request: the rows are cached for the next expand.
+**Errors and cancellation:** If `getChildRows()` rejects, the group leaves its loading state (it stays expanded, with no rows) and the grid fires `group-load-error` with `{ groupKey, groupPath, error }`. Collapsing and re-expanding the group retries the fetch. A request that is still in flight is aborted (`params.signal`) and its result discarded when new group definitions arrive (a server sort/filter change, `refresh()`, or `setGroups()`), and when `setGroupRows()` / `clearGroupRows()` replaces or clears that group's rows. After a server refetch, every group that is still expanded and had its rows loaded (or loading) requests them again under the new sort/filter, so it does not end up expanded and empty. A group that is expanded without rows (for example after a failed fetch) gets one automatic attempt per set of group definitions, so a failing group is not re-requested on every render. Collapsing a group does **not** cancel its request: the rows are cached for the next expand.
 
 ```ts
 grid.on('group-load-error', ({ groupKey, error }) => {

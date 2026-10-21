@@ -211,7 +211,8 @@ grid.gridConfig = {
 ```
 
 The `ServerSidePlugin` manages data fetching while GroupingRows handles group
-rendering and expand/collapse. When a group is expanded, GroupingRows automatically
+rendering and expand/collapse. Whenever a group is expanded (by the user, `toggle()`,
+`expand()`, `expandAll()`, or `defaultExpanded`), GroupingRows automatically
 fires a `datasource:fetch-children` query — the ServerSide plugin calls
 `getChildRows()` and delivers the results back via `datasource:children`.
 Viewport mapping is handled automatically for correct pagination.
@@ -221,7 +222,9 @@ fires. An in-flight request is aborted (`params.signal`) when new group definiti
 arrive (server sort/filter change, `refresh()`, or `setGroups()`), and when
 `setGroupRows()` / `clearGroupRows()` replaces or clears that group's rows; collapsing
 a group keeps its request. After a server refetch, still-expanded groups whose rows
-were loaded (or loading) request them again.
+were loaded (or loading) request them again. An expanded group without rows gets one
+automatic attempt per set of group definitions (a failing group is not re-requested
+on every render).
 
 ### Imperative API (Without ServerSide)
 

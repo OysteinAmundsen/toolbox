@@ -924,6 +924,17 @@ describe('ServerSidePlugin', () => {
         expect(events.at(-1)!.detail.loading).toBe(false);
       });
 
+      it('untracks a requester-aborted request even when getChildRows never settles (#539)', () => {
+        const { plugin, fetch } = setup(() => new Promise(() => undefined));
+        const requesters = Array.from({ length: 3 }, () => new AbortController());
+        for (const requester of requesters) fetch(requester.signal);
+        expect(plugin['childControllers'].size).toBe(3);
+
+        for (const requester of requesters) requester.abort();
+
+        expect(plugin['childControllers'].size).toBe(0);
+      });
+
       it('reports no error when an aborted getChildRows rejects', async () => {
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
         const { events, fetch } = setup(
@@ -947,6 +958,19 @@ describe('ServerSidePlugin', () => {
         fetch(AbortSignal.abort());
 
         expect(getChildRows).not.toHaveBeenCalled();
+      });
+
+      it('settles the request with datasource:error when getChildRows is not implemented (#539)', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const { events, fetch } = setup(undefined);
+
+        fetch();
+
+        expect(warnSpy).toHaveBeenCalled();
+        expect(events.map((e) => e.type)).toEqual(['datasource:error']);
+        expect(events[0].detail.error.message).toContain('getChildRows() is not implemented');
+        expect(events[0].detail.context.source).toBe('tree');
+        warnSpy.mockRestore();
       });
 
       it('aborts in-flight child requests on detach', () => {

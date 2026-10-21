@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import { collapseDetailRow, expandDetailRow, isDetailExpanded, toggleDetailRow } from './master-detail';
+import { collapseDetailRow, expandDetailRow, isDetailExpanded } from './master-detail';
 
 // #region Data Generators
 
@@ -18,29 +18,6 @@ function buildExpandedSet(rows: object[], expandedRatio: number): Set<object> {
   }
   return expanded;
 }
-
-// #endregion
-
-// #region toggleDetailRow
-
-describe('toggleDetailRow', () => {
-  const rows1K = generateRows(1_000);
-  const rows10K = generateRows(10_000);
-  const expanded1K = buildExpandedSet(rows1K, 0.5);
-  const expanded10K = buildExpandedSet(rows10K, 0.5);
-
-  bench('1K rows — 50% expanded — toggle', () => {
-    for (const row of rows1K) {
-      toggleDetailRow(expanded1K, row);
-    }
-  });
-
-  bench('10K rows — 50% expanded — toggle', () => {
-    for (const row of rows10K) {
-      toggleDetailRow(expanded10K, row);
-    }
-  });
-});
 
 // #endregion
 

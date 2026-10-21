@@ -271,23 +271,39 @@ grid.gridConfig = {
 **Data flow:**
 1. ServerSide fetches master rows in blocks (virtual scroll or pagination) → renders normally (MasterDetail does not claim root data)
 2. User scrolls → ServerSide loads more master rows on demand
-3. On detail expand — expander click, or `expand()` / `toggle()` / `expandAll()` — MasterDetailPlugin queries `datasource:fetch-children` with `{ source: 'master-detail', row, rowIndex }` when the row's data is neither cached nor already loading (rows whose block has not loaded yet are not fetched)
+3. On detail expand — expander click, or `expand()` / `toggle()` / `expandAll()` — MasterDetailPlugin queries `datasource:fetch-children` with `{ source: 'master-detail', row, rowIndex }` when the row's data is neither cached nor already loading. Loading placeholders (rows whose block has not loaded yet) are never expanded, fetched, or passed to `detailRenderer`.
 4. ServerSide calls `getChildRows()` → broadcasts `datasource:children`
 5. MasterDetailPlugin stores the data and re-renders the detail panel
 6. `detailRenderer` uses `getDetailData(rowIndex)` to access the async data
 
-**Errors and cancellation:** If `getChildRows()` rejects, the row leaves its loading state, its detail panel re-renders (`isDetailLoading()` is `false` and `getDetailData()` is `undefined`), and the grid fires `detail-load-error` with `{ rowIndex, row, error }`. Collapsing and re-expanding the row retries the fetch. Collapsing a row while its detail data is loading aborts the request (`params.signal`) and discards the result.
+**`expandAll()` with lazy blocks:** `expandAll()` makes expansion the default for every row and stays in effect until `collapseAll()`. Rows that appear later therefore render expanded straight away: blocks that replace loading placeholders, and Tree / Row Grouping children — whether loaded through `getChildRows()` or embedded in a block's payload. Their detail data is fetched once they scroll into view, with their display `rowIndex`. Collapsing a single row does not end this mode; that row stays collapsed.
+
+**Errors and cancellation:** If `getChildRows()` rejects, the row leaves its loading state, its detail panel re-renders (`isDetailLoading()` is `false` and `getDetailData()` is `undefined`), and the grid fires `detail-load-error` with `{ rowIndex, row, error }`. Collapsing and re-expanding the row retries the fetch — either individually or through `collapseAll()` / `expandAll()`. Collapsing a row while its detail data is loading aborts the request (`params.signal`) and discards the result. The same happens when the data source replaces the master rows (a block load, page change, or `refresh()`): pending detail requests for the discarded rows are aborted, so repeated refreshes never accumulate obsolete requests. Rows that a hierarchy plugin merely hides (a collapsed Tree or Row Grouping parent) keep their in-flight request.
+
+`detail-expand` is fired only for click and keyboard expansions, and always before the fetch starts — so a `detail-load-error` for that expansion can never precede it, even when the request fails synchronously, and collapsing the row from the `detail-expand` listener skips the fetch entirely. The programmatic API (`expand()`, `toggle()`, `expandAll()`) and rows that `expandAll()` expands later fire no `detail-expand`, so a programmatic retry must clear the marker itself:
 
 ```ts
-const failed = new WeakSet<object>();
+const plugin = grid.getPluginByName('masterDetail');
+let failed = new WeakSet<object>();
 grid.on('detail-load-error', ({ row, error }) => {
   failed.add(row);
   console.error('Order items failed to load', error);
 });
-// Re-expanding retries the fetch, so clear the marker
+// Click/keyboard re-expansion retries the fetch, so clear the marker
 grid.on('detail-expand', ({ row, expanded }) => {
   if (expanded) failed.delete(row);
 });
+// Programmatic retries fire no detail-expand — clear the marker explicitly
+function retryDetail(rowIndex: number) {
+  plugin.collapse(rowIndex);
+  failed.delete(grid.rows[rowIndex]);
+  plugin.expand(rowIndex);
+}
+function retryAllDetails() {
+  failed = new WeakSet();
+  plugin.collapseAll();
+  plugin.expandAll();
+}
 // In detailRenderer: if (failed.has(row)) return '<div class="error">Could not load order items.</div>';
 ```
 
@@ -382,7 +398,7 @@ The master-detail plugin uses these class names:
 
 | Event               | Detail                                         | Description                          |
 | ------------------- | ---------------------------------------------- | ------------------------------------ |
-| `detail-expand`     | `{ rowIndex, row, expanded }`                  | Fired when a detail row is expanded/collapsed |
+| `detail-expand`     | `{ rowIndex, row, expanded }`                  | Fired when a detail row is expanded/collapsed by click or keyboard (not by the programmatic API) |
 | `detail-load-error` | `{ rowIndex, row, error }`                     | Fired when the ServerSide `getChildRows()` request for a row's detail data fails. See [Server-Side Data](#server-side-data). |
 
 See [`DetailExpandDetail`](./interfaces/detailexpanddetail/) and [`DetailLoadErrorDetail`](./interfaces/detailloaderrordetail/) for the payload types.

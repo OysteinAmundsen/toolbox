@@ -94,6 +94,6 @@ Existing benchmark files:
 | `column-virtualization.bench.ts` | `computeColumnOffsets`, `getVisibleColumnRange`, `getColumnWidths` (50–500 columns)                                                                              |
 | `pinned-columns.bench.ts`        | `reorderColumnsForPinning`, `hasStickyColumns`, `getLeftStickyColumns`                                                                                           |
 | `grouping-columns.bench.ts`      | `computeColumnGroups`, `resolveColumnGroupDefs`, `mergeGroups`                                                                                                   |
-| `master-detail.bench.ts`         | `toggleDetailRow`, `isDetailExpanded`, `expandDetailRow`, `collapseDetailRow`                                                                                    |
+| `master-detail.bench.ts`         | `isDetailExpanded`, `expandDetailRow`, `collapseDetailRow`                                                                                                       |
 | `datasource.bench.ts`            | `getBlockNumber`, `getRequiredBlocks`, `getRowFromCache`, `isBlockLoaded`                                                                                        |
 | `render-pipeline.bench.ts`       | Combined pipeline benchmarks: sort→filter→virtualization, sort→grouping, tree→virtualization, pivot→flatten→virtualization, column pinning→column-virtualization |

@@ -726,23 +726,30 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     const gridId = this.grid?.getAttribute?.('id') ?? undefined;
 
     if (!this.dataSource.getChildRows) {
-      warnDiagnostic(
-        DATASOURCE_NO_CHILD_HANDLER,
-        `Plugin "${context.source}" requested child rows but getChildRows() is not implemented on the dataSource`,
-        gridId,
-      );
+      const message = `Plugin "${context.source}" requested child rows but getChildRows() is not implemented on the dataSource`;
+      warnDiagnostic(DATASOURCE_NO_CHILD_HANDLER, message, gridId);
+      // Settle the request: requesters hold a pending-load entry from the moment
+      // they query, and only `datasource:children`/`error` releases it (#539).
+      this.broadcast<DataSourceErrorDetail>('datasource:error', { error: new Error(message), context });
       return;
     }
 
     const enrichment = this.getEnrichmentParams();
     const controller = new AbortController();
     const abort = (): void => controller.abort();
-    requesterSignal?.addEventListener('abort', abort, { once: true });
-    this.childControllers.add(controller);
-    // Release the request; `false` when it was aborted and its result must be dropped.
-    const settle = (): boolean => {
+    // Untrack on abort rather than on settlement — a getChildRows() that ignores
+    // the signal may never settle, and its controller must not outlive cancellation.
+    const release = (): void => {
       this.childControllers.delete(controller);
       requesterSignal?.removeEventListener('abort', abort);
+      controller.signal.removeEventListener('abort', release);
+    };
+    controller.signal.addEventListener('abort', release, { once: true });
+    requesterSignal?.addEventListener('abort', abort, { once: true });
+    this.childControllers.add(controller);
+    // Settle the request; `false` when it was aborted and its result must be dropped.
+    const settle = (): boolean => {
+      release();
       if (!controller.signal.aborted) return true;
       this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false, context });
       return false;

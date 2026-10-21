@@ -10,22 +10,6 @@
 import { setSanitizedHTML } from '../../core/internal/sanitize';
 
 /**
- * Toggle the expansion state of a detail row.
- *
- * **Mutates the input `Set` in place and returns the same reference** (avoids
- * O(n) copy per toggle). Do NOT rely on reference inequality (`result !== input`)
- * to detect change — inspect the returned set's contents instead.
- */
-export function toggleDetailRow(expandedRows: Set<object>, row: object): Set<object> {
-  if (expandedRows.has(row)) {
-    expandedRows.delete(row);
-  } else {
-    expandedRows.add(row);
-  }
-  return expandedRows;
-}
-
-/**
  * Expand a detail row.
  *
  * **Mutates the input `Set` in place and returns the same reference** (avoids

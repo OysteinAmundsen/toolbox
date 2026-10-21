@@ -44,7 +44,8 @@ grid.gridConfig = {
 
 ### `detail-expand`
 
-Fired when detail row is expanded/collapsed.
+Fired when a detail row is expanded/collapsed by click or keyboard. The programmatic
+API (`expand()`, `collapse()`, `toggle()`, `expandAll()`, `collapseAll()`) does not fire it.
 
 ```typescript
 grid.addEventListener('detail-expand', (e) => {
@@ -58,7 +59,8 @@ grid.addEventListener('detail-expand', (e) => {
 
 Fired when the ServerSide `getChildRows()` request for a row's detail data fails
 (see [Server-Side Data](#server-side-data-unified-datasource)). The row leaves its
-loading state; collapsing and re-expanding it retries the fetch.
+loading state; collapsing and re-expanding it retries the fetch (`collapseAll()` /
+`expandAll()` too).
 
 ```typescript
 grid.addEventListener('detail-load-error', (e) => {
@@ -81,10 +83,10 @@ masterDetail.toggle(rowIndex);
 // Check state
 const isExpanded = masterDetail.isExpanded(rowIndex);
 
-// Expand all rows
+// Expand all rows (rows that appear later expand too, until collapseAll())
 masterDetail.expandAll();
 
-// Collapse all
+// Collapse all (also stops expanding later-appearing rows)
 masterDetail.collapseAll();
 
 // Get indices of all expanded rows
@@ -105,7 +107,9 @@ const loading = masterDetail.isDetailLoading(rowIndex);
 When used together with `ServerSidePlugin`, detail data can be loaded asynchronously.
 On expand — expander click or the `expand()` / `toggle()` / `expandAll()` API — MasterDetail
 fires a `datasource:fetch-children` query. The ServerSide plugin calls `getChildRows()` and
-delivers the result via `datasource:children`.
+delivers the result via `datasource:children`. Loading placeholders are never expanded or
+passed to `detailRenderer`; after `expandAll()`, rows that appear later — including Tree
+children embedded in a block — render expanded and fetch their detail data once rendered.
 
 ```typescript
 import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';

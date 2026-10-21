@@ -849,7 +849,7 @@ The Server-Side plugin **cannot** be used with:
 | --- | --- | --- |
 | `TBW140` | error | `getRows()` fetch failed |
 | `TBW141` | error | `getChildRows()` fetch failed |
-| `TBW142` | warn | Plugin requested children but `getChildRows()` is not implemented |
+| `TBW142` | warn | Plugin requested children but `getChildRows()` is not implemented (the request is settled as a failure, so the requester leaves its loading state) |
 | `TBW143` | info | `datasource:data` was not claimed by any structural plugin (flat grid mode) |
 
 ## Limitations

@@ -11,16 +11,11 @@ import { createExpanderColumnConfig, findExpanderColumn, isExpanderColumn } from
 import type { ColumnConfig, GridHost } from '../../core/types';
 import type {
   DataSourceChildrenDetail,
+  DataSourceDataDetail,
   DataSourceErrorDetail,
   FetchChildrenQuery,
 } from '../server-side/datasource-types';
-import {
-  collapseDetailRow,
-  createDetailElement,
-  expandDetailRow,
-  isDetailExpanded,
-  toggleDetailRow,
-} from './master-detail';
+import { collapseDetailRow, createDetailElement, expandDetailRow, isDetailExpanded } from './master-detail';
 import styles from './master-detail.css?inline';
 import type { DetailExpandDetail, DetailLoadErrorDetail, ExpandCollapseAnimation, MasterDetailConfig } from './types';
 
@@ -139,9 +134,8 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
       const row = d.context.row;
       this.detailLoads.delete(row);
-      if (row && this.expandedRows.has(row)) {
+      if (row && this.#isRowExpanded(row)) {
         this.detailDataMap.set(row, d.rows);
-        this.loadingDetails.delete(row);
         this.#invalidateDetail(row);
         this.requestRender();
       }
@@ -154,7 +148,6 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       if (d.context?.source !== 'master-detail') return;
       const row = d.context.row as Record<string, unknown> | undefined;
       if (!row || !this.detailLoads.delete(row)) return;
-      this.loadingDetails.delete(row);
       this.#invalidateDetail(row);
       this.emit<DetailLoadErrorDetail>('detail-load-error', {
         rowIndex: this.rows.indexOf(row),
@@ -163,6 +156,70 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       });
       this.requestRender();
     });
+
+    // Root rows were replaced (block load, page change, refresh). Sweep on the
+    // next render, once `rows` reflects the new data and `claimed` is settled.
+    this.on('datasource:data', (detail: unknown) => {
+      this.#rootDataReplaced = detail as DataSourceDataDetail;
+    });
+  }
+
+  /**
+   * Abort detail loads whose master row was discarded by a root-data replacement.
+   * ServerSide leaves child-request cancellation to the requester, so without this
+   * repeated refreshes with slow responses pile up obsolete rows forever (#539).
+   *
+   * Skipped when a hierarchy plugin claimed the data: it derives its own row model
+   * and keeps collapsed children off `rows`, so absence is not proof of discard.
+   */
+  #sweepDiscardedLoads(): void {
+    const replaced = this.#rootDataReplaced;
+    this.#rootDataReplaced = undefined;
+    if (!replaced || replaced.claimed || this.detailLoads.size === 0) return;
+
+    const live = new Set<unknown>(this.rows);
+    for (const row of this.detailLoads.keys()) {
+      if (!live.has(row)) this.#cancelDetailLoad(row);
+    }
+  }
+
+  /**
+   * Whether a row can have a detail panel. Synthetic group headers and
+   * ServerSide loading placeholders (`__loading`) never do (#535).
+   */
+  #isDetailRow(row: unknown): boolean {
+    if (row == null) return false;
+    const r = row as { __isGroupRow?: unknown; __loading?: unknown };
+    return !r.__isGroupRow && r.__loading !== true;
+  }
+
+  /**
+   * Whether a row's detail is currently expanded. While `expandAll()` is active
+   * expansion is DERIVED — every detail row counts as expanded unless it was
+   * explicitly collapsed — so rows the data source delivers later (ServerSide
+   * blocks, Tree / GroupingRows children) are expanded the moment they appear,
+   * without storing a reference to every row ever seen (#535).
+   */
+  #isRowExpanded(row: unknown): boolean {
+    if (!this.#isDetailRow(row)) return false;
+    if (isDetailExpanded(this.expandedRows, row as object)) return true;
+    return this.#expandAllActive && !this.#expandAllExcluded.has(row as object);
+  }
+
+  /** Whether any row could be expanded — cheap pre-check for the render paths. */
+  #hasExpandedRows(): boolean {
+    return this.#expandAllActive || this.expandedRows.size > 0;
+  }
+
+  /** Record an explicit expand/collapse, overriding the `expandAll()` default. */
+  #setExpanded(row: object, expanded: boolean): void {
+    if (expanded) {
+      this.#expandAllExcluded.delete(row);
+      this.expandedRows = expandDetailRow(this.expandedRows, row);
+    } else {
+      this.expandedRows = collapseDetailRow(this.expandedRows, row);
+      if (this.#expandAllActive) this.#expandAllExcluded.add(row);
+    }
   }
 
   /** Remove a row's detail element so `#syncDetailRows` recreates it on the next render. */
@@ -200,11 +257,14 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    */
   #requestDetailData(row: unknown, rowIndex: number, serverSideActive?: boolean): void {
     if (this.detailDataMap.has(row) || this.detailLoads.has(row)) return;
-    if ((row as { __loading?: unknown } | null)?.__loading === true) return;
+    if (!this.#isDetailRow(row)) return;
+    // One attempt per row until it is explicitly collapsed — `#syncDetailRows`
+    // calls this on every render, so a failed fetch must not retry in a loop.
+    if (this.#detailRequested.has(row as object)) return;
     if (!(serverSideActive ?? this.queryBoolean('datasource:is-active'))) return;
+    this.#detailRequested.add(row as object);
     const controller = new AbortController();
     this.detailLoads.set(row, controller);
-    this.loadingDetails.add(row);
     this.grid.query('datasource:fetch-children', {
       context: { source: 'master-detail', row, rowIndex },
       signal: controller.signal,
@@ -215,7 +275,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   #cancelDetailLoad(row: unknown): void {
     this.detailLoads.get(row)?.abort();
     this.detailLoads.delete(row);
-    this.loadingDetails.delete(row);
+    if (row !== null && typeof row === 'object') this.#detailRequested.delete(row);
   }
 
   /**
@@ -384,21 +444,39 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   // #region Internal State
   private expandedRows: Set<any> = new Set();
   private detailElements: Map<any, HTMLElement> = new Map();
-  /** Cached measured heights - persists even when elements are virtualized out */
-  private measuredDetailHeights: Map<any, number> = new Map();
+  /**
+   * Cached measured heights - persists even when elements are virtualized out.
+   * Weak: under `expandAll()` every row scrolled into view is measured, so a
+   * strong map would pin rows the ServerSide block cache has already evicted.
+   */
+  private measuredDetailHeights: WeakMap<any, number> = new WeakMap();
   /** Rows that were just expanded by user action and should animate.
    * Prevents re-animation when rows scroll back into the virtual window. */
   private rowsToAnimate: Set<any> = new Set();
-  /** Rows currently waiting for datasource:children response. */
-  private loadingDetails: Set<any> = new Set();
   /**
-   * In-flight `datasource:fetch-children` requests, keyed by row. Each
-   * controller's signal is passed as `FetchChildrenQuery.signal`, so aborting
-   * it (collapse, detach) cancels `getChildRows()` and drops its result.
+   * In-flight `datasource:fetch-children` requests, keyed by row — also the
+   * source of truth for {@link isDetailLoading}. Each controller's signal is
+   * passed as `FetchChildrenQuery.signal`, so aborting it (collapse, detach)
+   * cancels `getChildRows()` and drops its result.
    */
   private detailLoads: Map<unknown, AbortController> = new Map();
-  /** Child rows received via datasource:children, keyed by parent row reference. */
-  private detailDataMap: Map<any, unknown[]> = new Map();
+  /**
+   * Child rows received via datasource:children, keyed by parent row reference.
+   * Weak for the same reason as `measuredDetailHeights`.
+   */
+  private detailDataMap: WeakMap<any, unknown[]> = new WeakMap();
+  /**
+   * Set by `expandAll()`, cleared by `collapseAll()` / `detach()`. While set,
+   * every detail row counts as expanded unless listed in `#expandAllExcluded`,
+   * so rows delivered later are expanded without being tracked (#535).
+   */
+  #expandAllActive = false;
+  /** Rows explicitly collapsed while `#expandAllActive` — weak, so dropped rows are collectable. */
+  #expandAllExcluded = new WeakSet<object>();
+  /** Rows whose detail data was already requested once (reset on explicit collapse). */
+  #detailRequested = new WeakSet<object>();
+  /** Pending `datasource:data` broadcast, consumed by the next `#sweepDiscardedLoads()`. */
+  #rootDataReplaced: DataSourceDataDetail | undefined;
 
   /** Default height for detail rows when not configured */
   private static readonly DEFAULT_DETAIL_HEIGHT = 150;
@@ -441,22 +519,24 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    * Skips synthetic rows (e.g., group headers from GroupingRowsPlugin).
    */
   private toggleAndEmit(row: any, rowIndex: number): void {
-    // Synthetic rows (e.g., group headers) don't have detail content
-    if (row?.__isGroupRow) return;
+    // Synthetic rows (group headers, loading placeholders) don't have detail content
+    if (!this.#isDetailRow(row)) return;
 
-    this.expandedRows = toggleDetailRow(this.expandedRows, row as object);
-    const expanded = this.expandedRows.has(row as object);
-    if (expanded) {
-      this.rowsToAnimate.add(row);
-      this.#requestDetailData(row, rowIndex);
-    } else {
-      this.#cancelDetailLoad(row);
-    }
+    const expanded = !this.#isRowExpanded(row);
+    this.#setExpanded(row as object, expanded);
+    if (expanded) this.rowsToAnimate.add(row);
+    else this.#cancelDetailLoad(row);
+
+    // Announce the new state before fetching: the request can fail synchronously,
+    // and `detail-load-error` must never precede its `detail-expand` (#539).
     this.emit<DetailExpandDetail>('detail-expand', {
       rowIndex,
       row: row as Record<string, unknown>,
       expanded,
     });
+
+    // A `detail-expand` listener may have collapsed the row again.
+    if (expanded && this.#isRowExpanded(row)) this.#requestDetailData(row, rowIndex);
     this.requestRender();
   }
   // #endregion
@@ -467,12 +547,15 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   override detach(): void {
     this.expandedRows.clear();
     this.detailElements.clear();
-    this.measuredDetailHeights.clear();
+    this.measuredDetailHeights = new WeakMap();
     this.rowsToAnimate.clear();
     for (const controller of this.detailLoads.values()) controller.abort();
     this.detailLoads.clear();
-    this.loadingDetails.clear();
-    this.detailDataMap.clear();
+    this.detailDataMap = new WeakMap();
+    this.#expandAllActive = false;
+    this.#expandAllExcluded = new WeakSet();
+    this.#detailRequested = new WeakSet();
+    this.#rootDataReplaced = undefined;
   }
   // #endregion
 
@@ -508,7 +591,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     const expanderCol = createExpanderColumnConfig(this.name);
     expanderCol.viewRenderer = (renderCtx) => {
       const { row } = renderCtx;
-      const isExpanded = this.expandedRows.has(row as object);
+      const isExpanded = this.#isRowExpanded(row);
 
       const container = document.createElement('span');
       container.className = 'master-detail-expander expander-cell';
@@ -550,7 +633,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
     // Sync detail rows after cell click triggers refreshVirtualWindow
     // This runs in microtask to ensure DOM updates are complete
-    if (this.expandedRows.size > 0) {
+    if (this.#hasExpandedRows()) {
       queueMicrotask(() => this.#syncDetailRows());
     }
     return; // Don't prevent default
@@ -582,6 +665,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
   /** @internal */
   override afterRender(): void {
+    this.#sweepDiscardedLoads();
     this.#fixExpanderHeaderSpan();
     this.#syncDetailRows();
   }
@@ -612,7 +696,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    * @internal
    */
   override onScrollRender(): void {
-    if (!this.config.detailRenderer || this.expandedRows.size === 0) return;
+    if (!this.config.detailRenderer || !this.#hasExpandedRows()) return;
     // Full sync needed on scroll to clean up orphaned details
     this.#syncDetailRows();
   }
@@ -642,24 +726,42 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     // button, not the row). MUST clear on the negative branch — the row
     // pool recycles elements as the virtual window slides.
     const columnCount = this.columns.length;
+    // Once per sync, not per row — this runs on every render and scroll frame.
+    const serverSideActive = this.#hasExpandedRows() && this.queryBoolean('datasource:is-active');
     for (const [rowIndex, rowEl] of visibleRowMap) {
       const row = this.rows[rowIndex];
-      if (!row) continue;
-      const isExpanded = this.expandedRows.has(row);
-      rowEl.classList.toggle('tbw-row-expanded', isExpanded);
-      if (!isExpanded) continue;
+      if (row) this.#syncDetailRow(row, rowIndex, rowEl, columnCount, detailRenderer, serverSideActive);
+    }
+  }
 
-      // Check if detail already exists for this row
-      const existingDetail = this.detailElements.get(row);
-      if (existingDetail) {
-        // Ensure it's positioned correctly (as next sibling of row element)
-        if (existingDetail.previousElementSibling !== rowEl) {
-          rowEl.after(existingDetail);
-        }
-        continue;
-      }
+  /** Sync one visible master row: expanded class, deferred fetch, and its detail panel. */
+  #syncDetailRow(
+    row: object,
+    rowIndex: number,
+    rowEl: Element,
+    columnCount: number,
+    detailRenderer: NonNullable<MasterDetailConfig['detailRenderer']>,
+    serverSideActive: boolean,
+  ): void {
+    // Defense in depth: a loading placeholder never gets a detail panel (#535).
+    const isExpanded = this.#isRowExpanded(row);
+    rowEl.classList.toggle('tbw-row-expanded', isExpanded);
+    if (!isExpanded) return;
 
+    this.#requestDetailData(row, rowIndex, serverSideActive);
+    // The fetch can fail synchronously (no `getChildRows`), and a
+    // `detail-load-error` listener may have collapsed the row (#539).
+    if (!this.#isRowExpanded(row)) {
+      rowEl.classList.remove('tbw-row-expanded');
+      return;
+    }
+
+    const existingDetail = this.detailElements.get(row);
+    if (!existingDetail) {
       this.#insertDetailRow(row, rowIndex, rowEl, columnCount, detailRenderer);
+    } else if (existingDetail.previousElementSibling !== rowEl) {
+      // Keep the detail positioned as the master row's next sibling.
+      rowEl.after(existingDetail);
     }
   }
 
@@ -706,7 +808,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     for (const [row, detailEl] of this.detailElements) {
       const rowIndex = this.rows.indexOf(row);
       const isRowVisible = rowIndex >= 0 && visibleRowMap.has(rowIndex);
-      if (this.expandedRows.has(row) && isRowVisible) continue;
+      if (this.#isRowExpanded(row) && isRowVisible) continue;
       this.#releaseDetail(row, detailEl);
     }
   }
@@ -758,7 +860,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    * @returns The row height in pixels (base height for collapsed, base + detail for expanded)
    */
   override getRowHeight(row: unknown, _index: number): number | undefined {
-    const isExpanded = this.expandedRows.has(row as object);
+    const isExpanded = this.#isRowExpanded(row);
 
     if (!isExpanded) {
       // Collapsed row - return undefined to let the grid use its measured/estimated height.
@@ -774,58 +876,65 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     return baseHeight + detailHeight;
   }
 
+  /** Expanded rows displayed before `start`, ascending. */
+  #expandedRowsBefore(start: number): Array<{ index: number; row: unknown }> {
+    const rows = this.rows;
+    const result: Array<{ index: number; row: unknown }> = [];
+    for (let i = 0, end = Math.min(start, rows.length); i < end; i++) {
+      if (this.#isRowExpanded(rows[i])) result.push({ index: i, row: rows[i] });
+    }
+    return result;
+  }
+
+  /**
+   * Variable-heights path of {@link adjustVirtualStart}. Each entry's height
+   * already includes its detail, so a row's bottom (`offset + height`) grows
+   * with its index: only the run directly above `start` can still reach
+   * `scrollTop`. Walking back from `start` keeps this O(visible) on the scroll
+   * hot path instead of O(start) under `expandAll()`.
+   */
+  #adjustStartFromPositionCache(
+    start: number,
+    scrollTop: number,
+    positionCache: ReadonlyArray<{ offset: number; height: number }>,
+  ): number {
+    const rows = this.rows;
+    let minStart = start;
+    for (let i = Math.min(start, positionCache.length) - 1; i >= 0; i--) {
+      const entry = positionCache[i];
+      if (entry.offset + entry.height <= scrollTop) break;
+      if (this.#isRowExpanded(rows[i])) minStart = i;
+    }
+    return minStart;
+  }
+
   /**
    * Adjust the virtualization start index to keep expanded row visible while its detail is visible.
    * This ensures the detail scrolls smoothly out of view instead of disappearing abruptly.
    */
   override adjustVirtualStart(start: number, scrollTop: number, rowHeight: number): number {
-    if (this.expandedRows.size === 0) return start;
+    if (!this.#hasExpandedRows()) return start;
 
     // Use position cache for accurate row positions when available (variable heights mode)
     const positionCache = (this.grid as any)?._virtualization?.positionCache as
       Array<{ offset: number; height: number }> | undefined;
 
-    let minStart = start;
-
     if (positionCache && positionCache.length > 0) {
-      // Variable heights: use position cache for accurate offset
-      for (const row of this.expandedRows) {
-        const rowIndex = this.rows.indexOf(row);
-        if (rowIndex < 0 || rowIndex >= start) continue;
+      return this.#adjustStartFromPositionCache(start, scrollTop, positionCache);
+    }
 
-        // Position cache already includes cumulative heights from all expanded details
-        const detailBottom = positionCache[rowIndex].offset + positionCache[rowIndex].height;
+    // Fixed heights fallback: accumulate detail heights manually
+    let minStart = start;
+    let cumulativeExtraHeight = 0;
+    for (const { index: rowIndex, row } of this.#expandedRowsBefore(start)) {
+      const actualRowTop = rowIndex * rowHeight + cumulativeExtraHeight;
+      const detailHeight = this.getDetailHeight(row);
+      const actualDetailBottom = actualRowTop + rowHeight + detailHeight;
 
-        if (detailBottom > scrollTop && rowIndex < minStart) {
-          minStart = rowIndex;
-        }
-      }
-    } else {
-      // Fixed heights fallback: accumulate detail heights manually
-      // Build sorted list of expanded row indices for cumulative height calculation
-      const expandedIndices: Array<{ index: number; row: any }> = [];
-      for (const row of this.expandedRows) {
-        const index = this.rows.indexOf(row);
-        if (index >= 0) {
-          expandedIndices.push({ index, row });
-        }
-      }
-      expandedIndices.sort((a, b) => a.index - b.index);
+      cumulativeExtraHeight += detailHeight;
 
-      let cumulativeExtraHeight = 0;
-
-      for (const { index: rowIndex, row } of expandedIndices) {
-        const actualRowTop = rowIndex * rowHeight + cumulativeExtraHeight;
-        const detailHeight = this.getDetailHeight(row);
-        const actualDetailBottom = actualRowTop + rowHeight + detailHeight;
-
-        cumulativeExtraHeight += detailHeight;
-
-        if (rowIndex >= start) continue;
-
-        if (actualDetailBottom > scrollTop && rowIndex < minStart) {
-          minStart = rowIndex;
-        }
+      if (actualDetailBottom > scrollTop && rowIndex < minStart) {
+        minStart = rowIndex;
       }
     }
 
@@ -843,10 +952,10 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    */
   expand(rowIndex: number): void {
     const row = this.rows[rowIndex];
-    if (row && !row.__isGroupRow) {
-      const wasExpanded = this.expandedRows.has(row);
+    if (this.#isDetailRow(row)) {
+      const wasExpanded = this.#isRowExpanded(row);
       this.rowsToAnimate.add(row);
-      this.expandedRows = expandDetailRow(this.expandedRows, row);
+      this.#setExpanded(row, true);
       if (!wasExpanded) this.#requestDetailData(row, rowIndex);
       this.requestRender();
     }
@@ -859,7 +968,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   collapse(rowIndex: number): void {
     const row = this.rows[rowIndex];
     if (row) {
-      this.expandedRows = collapseDetailRow(this.expandedRows, row);
+      this.#setExpanded(row, false);
       this.#cancelDetailLoad(row);
       this.requestRender();
     }
@@ -872,9 +981,10 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    */
   toggle(rowIndex: number): void {
     const row = this.rows[rowIndex];
-    if (row && !row.__isGroupRow) {
-      this.expandedRows = toggleDetailRow(this.expandedRows, row);
-      if (this.expandedRows.has(row)) {
+    if (this.#isDetailRow(row)) {
+      const expanded = !this.#isRowExpanded(row);
+      this.#setExpanded(row, expanded);
+      if (expanded) {
         this.rowsToAnimate.add(row);
         this.#requestDetailData(row, rowIndex);
       } else {
@@ -891,49 +1001,61 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    */
   isExpanded(rowIndex: number): boolean {
     const row = this.rows[rowIndex];
-    return row ? isDetailExpanded(this.expandedRows, row) : false;
+    return row ? this.#isRowExpanded(row) : false;
   }
 
   /**
    * Expand all detail rows.
-   * Skips synthetic rows (e.g., group headers from GroupingRowsPlugin).
+   * Skips synthetic rows (group headers from GroupingRowsPlugin, ServerSide loading placeholders).
    * With `ServerSidePlugin` active, requests detail data for every newly expanded
-   * loaded row (one `getChildRows()` call per row); loading placeholders are not fetched.
+   * loaded row (one `getChildRows()` call per row). Expansion then becomes the
+   * default for every detail row until {@link collapseAll} is called, so rows that
+   * appear later — ServerSide blocks replacing loading placeholders, or Tree /
+   * GroupingRows children — render expanded straight away; their detail data is
+   * requested once they scroll into view.
    */
   expandAll(): void {
     const serverSideActive = this.queryBoolean('datasource:is-active');
     const rows = this.rows;
+    const newlyExpanded: Array<{ row: unknown; index: number }> = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      if (row?.__isGroupRow) continue;
+      if (!this.#isDetailRow(row) || this.#isRowExpanded(row)) continue;
+      newlyExpanded.push({ row, index: i });
+    }
+    this.#expandAllActive = true;
+    this.#expandAllExcluded = new WeakSet();
+    // Fetch only after the mode is live: a request can fail synchronously, and a
+    // `detail-load-error` listener collapsing rows must not be undone here (#539).
+    for (const { row, index } of newlyExpanded) {
+      if (!this.#isRowExpanded(row)) continue;
       this.rowsToAnimate.add(row);
-      if (this.expandedRows.has(row)) continue;
-      this.expandedRows.add(row);
-      this.#requestDetailData(row, i, serverSideActive);
+      this.#requestDetailData(row, index, serverSideActive);
     }
     this.requestRender();
   }
 
   /**
    * Collapse all detail rows.
+   * Also ends the {@link expandAll} mode, so rows appearing later stay collapsed.
    */
   collapseAll(): void {
+    this.#expandAllActive = false;
+    this.#expandAllExcluded = new WeakSet();
     for (const row of [...this.detailLoads.keys()]) this.#cancelDetailLoad(row);
+    // Rows whose fetch already failed are no longer in `detailLoads`, so clear
+    // every one-shot marker here — re-expanding must retry those too.
+    this.#detailRequested = new WeakSet();
     this.expandedRows.clear();
     this.requestRender();
   }
 
   /**
    * Get the indices of all expanded rows.
-   * @returns Array of row indices that are expanded
+   * @returns Array of row indices that are expanded, ascending
    */
   getExpandedRows(): number[] {
-    const indices: number[] = [];
-    for (const row of this.expandedRows) {
-      const idx = this.rows.indexOf(row);
-      if (idx >= 0) indices.push(idx);
-    }
-    return indices;
+    return this.#expandedRowsBefore(this.rows.length).map((e) => e.index);
   }
 
   /**
@@ -968,7 +1090,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    */
   isDetailLoading(rowIndex: number): boolean {
     const row = this.rows[rowIndex];
-    return row ? this.loadingDetails.has(row) : false;
+    return row ? this.detailLoads.has(row) : false;
   }
 
   /**

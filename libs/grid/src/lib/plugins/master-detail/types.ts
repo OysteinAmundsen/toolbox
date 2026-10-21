@@ -93,7 +93,11 @@ export interface DetailLoadErrorDetail {
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
   interface DataGridEventMap {
-    /** Fired when a detail panel is expanded or collapsed. @group Master-Detail Events */
+    /**
+     * Fired when a detail panel is expanded or collapsed by click or keyboard.
+     * Not fired by the programmatic API (`expand()`, `toggle()`, `expandAll()`, …).
+     * @group Master-Detail Events
+     */
     'detail-expand': DetailExpandDetail;
     /**
      * Fired when loading detail data through the ServerSide data source

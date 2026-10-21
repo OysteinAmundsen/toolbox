@@ -30,6 +30,7 @@ bun nx serve demo-vanilla  # Serve a demo app
 - ❌ `bunx vitest …` — same issue
 - ❌ `npx eslint …` — use `bun nx lint <project>` instead
 - ✅ Always use `bun nx <target> <project>` or `bun run <script>`
+- ⚠️ `bun nx run-many … > out.log` captures ONLY the Nx summary (no test counts, no lint warnings) — add `--outputStyle=static` when you need per-task output in a file. Strip ANSI codes before grepping it.
 
 ## Path Mappings
 

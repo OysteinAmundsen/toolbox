@@ -224,7 +224,7 @@ features: {
 ```
 
 :::note
-`loadChildren` is ignored when `ServerSidePlugin` is active — child data then flows through `dataSource.getChildRows()` instead (see below). A node is fetched at most once; collapsing and re-expanding does not re-request.
+`loadChildren` is ignored when `ServerSidePlugin` is active — child data then flows through `dataSource.getChildRows()` instead (see below). A row object's children are fetched at most once; collapsing and re-expanding does not re-request. When the rows are replaced with new objects (a new `grid.rows` array, or a ServerSide refetch after a server sort/filter change or `refresh()`), a node that is still expanded fetches its children again for the new row.
 :::
 
 ### Server-Side Data
@@ -234,6 +234,8 @@ features: {
 For large hierarchical datasets, use `ServerSidePlugin` to fetch top-level tree nodes in blocks as the user scrolls. TreePlugin claims the incoming data and renders the hierarchy. Children can be embedded in the response or fetched lazily via `getChildRows()`.
 
 Under the default `sortMode: 'server'`, sorting is the data source's job: both `getRows()` and `getChildRows()` receive the current `sortModel`, and TreePlugin keeps the order they return instead of re-sorting each level. Set `sortMode: 'local'` to have TreePlugin sort the loaded levels in the browser.
+
+A server sort/filter change or `refresh()` refetches the roots as new row objects. Expanded nodes stay expanded and call `getChildRows()` again, so their children also come back in the new server order.
 
 <Tabs syncKey="framework">
   <TabItem label="TypeScript">
@@ -266,7 +268,9 @@ grid.gridConfig = {
         },
         async getChildRows(params) {
           // Called the first time a node is expanded (lazy children only).
-          const res = await fetch(`/api/tree/${params.context.parentNode.id}/children`);
+          // `signal` aborts when a refetch replaced the node's row before the
+          // children arrived; the result would belong to an obsolete row.
+          const res = await fetch(`/api/tree/${params.context.parentNode.id}/children`, { signal: params.signal });
           return { rows: await res.json() };
         },
       },
@@ -483,7 +487,8 @@ grid.on('tree-load-start', ({ key, row, depth }) => {
   console.log(`Loading children of ${key}…`);
 });
 
-grid.on('tree-load-end', ({ key, childCount }) => {
+grid.on('tree-load-end', ({ key, childCount, cancelled }) => {
+  if (cancelled) return; // superseded — the row was replaced before its children arrived
   console.log(`Loaded ${childCount} children into ${key}`);
 });
 
@@ -491,6 +496,8 @@ grid.on('tree-load-error', ({ key, error }) => {
   console.error(`Failed to load children of ${key}`, error);
 });
 ```
+
+Every `tree-load-start` is followed by exactly one `tree-load-end` or `tree-load-error`. When a node's row is replaced by a new object for the same key while its children are still loading (a new `grid.rows` array, or a ServerSide refetch after a sort/filter change or `refresh()`), the old request is aborted once the new row renders, whether the node is expanded or collapsed and whether the new row embeds its children or not. Its load ends with `cancelled: true` and `childCount: 0`, and nothing is merged. If the node is still expanded and the new row's children are lazy, a `tree-load-start` for the new row follows. A load whose node is not rendered (hidden under a collapsed parent, or no longer in the data) is left to finish normally.
 
 See [`TreeLoadStartDetail`](./interfaces/treeloadstartdetail/), [`TreeLoadEndDetail`](./interfaces/treeloadenddetail/), and [`TreeLoadErrorDetail`](./interfaces/treeloaderrordetail/) for the payload types.
 

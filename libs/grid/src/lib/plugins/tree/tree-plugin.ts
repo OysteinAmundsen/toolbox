@@ -205,17 +205,41 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
   private sortState: { field: string; direction: 1 | -1 } | null = null;
   /** Sort applied to every sibling list during the current rebuild. */
   #levelSort: { field: string; direction: 1 | -1 } | null = null;
-  /** Keys of nodes that are currently loading lazy children. */
-  private loadingKeys = new Set<string>();
   /**
-   * Keys whose children have already been fetched. Prevents a re-fetch on
+   * In-flight lazy child loads, keyed by node key. `row` is the row OBJECT the
+   * request is for — a ServerSide refetch can hand a new object for the same key
+   * while the old request is still pending (#527). Both routes carry a
+   * `controller`: local `loadChildren` gets its `signal`, ServerSide receives it
+   * as `FetchChildrenQuery.signal` and links it to `getChildRows({ signal })`.
+   */
+  #loads = new Map<string, { row: TreeRow; depth: number; controller: AbortController }>();
+  /**
+   * Row objects whose children have already been fetched. Prevents a re-fetch on
    * collapse → re-expand, and prevents an infinite retry loop when a node
    * legitimately resolves to zero children but a custom `hasChildren`
    * predicate keeps reporting `true`.
+   *
+   * Keyed by row IDENTITY, not by node key: a ServerSide refetch (server
+   * sort/filter change, `refresh()`) or a `grid.rows` reassignment delivers a
+   * NEW object for the same key whose children are lazy again (#527).
    */
-  private loadedKeys = new Set<string>();
-  /** In-flight local `loadChildren` requests, keyed by node key. */
-  #childRequests = new Map<string, AbortController>();
+  #loadedRows = new WeakSet<object>();
+  /**
+   * Row objects with a child fetch that was started and NOT cancelled (in
+   * flight, loaded, or failed). Limits the automatic re-request of
+   * still-expanded lazy nodes (see {@link endHierarchy}) to one attempt per row
+   * object, so a failing fetch can't retry on every render.
+   */
+  #requestedRows = new WeakSet<object>();
+  /**
+   * Row objects whose load was cancelled because a same-key row superseded it.
+   * Kept apart from {@link #requestedRows} so a restored row (A → B → A) loads
+   * again automatically, while a late response for the cancelled request is
+   * still dropped.
+   */
+  #cancelledRows = new WeakSet<object>();
+  /** Rendered nodes queued for load reconciliation (cancel / auto-request), flushed in one microtask. */
+  #pendingReconcile: Array<{ meta: FlattenedTreeRow; flat: boolean }> = [];
 
   /**
    * Stable key cache keyed by row identity.
@@ -261,10 +285,13 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     this.keysToAnimate.clear();
     this.sortState = null;
     this.#levelSort = null;
-    this.loadingKeys.clear();
-    this.loadedKeys.clear();
-    for (const controller of this.#childRequests.values()) controller.abort();
-    this.#childRequests.clear();
+    this.#loadedRows = new WeakSet();
+    this.#requestedRows = new WeakSet();
+    this.#cancelledRows = new WeakSet();
+    this.#pendingReconcile = [];
+    // Silent on teardown — no `tree-load-end` for loads the detach aborts.
+    for (const load of this.#loads.values()) load.controller.abort();
+    this.#loads.clear();
     this.originalTreeColumnRenderer = undefined;
     this.originalTreeColumnRendererProperty = 'viewRenderer';
     this.wrappedTreeColumnField = undefined;
@@ -325,12 +352,17 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       const parentRow = d.context.parentNode as TreeRow | undefined;
       if (parentRow) {
         const key = this.#keyOf(parentRow);
+        const load = this.#takeLoad(key, parentRow);
+        // Requested by Tree but no longer active: superseded and already reported
+        // as cancelled — never merge stale children into the replaced row.
+        if (!load && (this.#requestedRows.has(parentRow as object) || this.#cancelledRows.has(parentRow as object))) {
+          return;
+        }
         this.#mergeChildren(parentRow, (d.rows ?? []) as TreeRow[]);
-        this.loadingKeys.delete(key);
         this.broadcast<TreeLoadEndDetail>('tree-load-end', {
           key,
           row: parentRow,
-          depth: this.rowKeyMap.get(key)?.depth ?? 0,
+          depth: load?.depth ?? this.rowKeyMap.get(key)?.depth ?? 0,
           childCount: d.rows?.length ?? 0,
         });
         this.requestRender();
@@ -338,19 +370,20 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     });
 
     // Listen for datasource:error — release the node's loading state so the
-    // user can retry by collapsing and re-expanding. Without this the key
-    // stays in `loadingKeys` forever and `requestLazyChildren` short-circuits.
+    // user can retry by collapsing and re-expanding. Without this the load
+    // stays in `#loads` forever and `requestLazyChildren` short-circuits.
     this.on('datasource:error', (detail: unknown) => {
       const d = detail as DataSourceErrorDetail;
       if (d.context?.source !== 'tree') return;
       const parentRow = d.context.parentNode as TreeRow | undefined;
       if (!parentRow) return;
       const key = this.#keyOf(parentRow);
-      if (!this.loadingKeys.delete(key)) return;
+      const load = this.#takeLoad(key, parentRow);
+      if (!load) return;
       this.broadcast<TreeLoadErrorDetail>('tree-load-error', {
         key,
         row: parentRow,
-        depth: this.rowKeyMap.get(key)?.depth ?? 0,
+        depth: load.depth,
         error: d.error,
       });
       this.requestRender();
@@ -403,6 +436,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       this.#rootCount = 0;
       this.rowKeyMap.clear();
       this.previousVisibleKeys.clear();
+      this.#reconcileFlatRows(treeRows);
       this.#syncTreeColumn();
       return false;
     }
@@ -506,6 +540,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       currentKeys.add(meta.key);
       if (!this.previousVisibleKeys.has(meta.key) && meta.depth > 0) {
         this.keysToAnimate.add(meta.key);
+      }
+      if (this.#needsReconcile(meta)) {
+        this.#queueReconcile(meta);
       }
     }
     this.previousVisibleKeys = currentKeys;
@@ -611,20 +648,103 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
   /** Write fetched children onto the parent row and mark the node as loaded. */
   #mergeChildren(row: TreeRow, children: TreeRow[]): void {
     (row as Record<string, unknown>)[this.config.childrenField ?? 'children'] = children;
-    this.loadedKeys.add(this.#keyOf(row));
+    this.#loadedRows.add(row as object);
   }
 
   /**
    * Whether a node's children still need to be fetched — it reports having
    * children (via the lazy indicator or a custom `hasChildren` predicate) but
-   * none are embedded yet, and no previous fetch has already resolved.
+   * none are embedded yet, and no previous fetch for this row object has resolved.
    */
-  #needsChildFetch(row: TreeRow, key: string): boolean {
-    if (this.loadedKeys.has(key)) return false;
+  #needsChildFetch(row: TreeRow): boolean {
+    if (this.#loadedRows.has(row as object)) return false;
     const children = row[this.config.childrenField ?? 'children'];
     if (Array.isArray(children) && children.length > 0) return false;
     const custom = this.config.hasChildren;
     return custom ? custom(row) : children != null && !Array.isArray(children) && !!children;
+  }
+
+  /**
+   * Whether a rendered node needs reconciling with `#loads`:
+   * - a pending load belongs to a DIFFERENT row object under this key — the row
+   *   was replaced, so that load is obsolete whether or not the replacement needs
+   *   a fetch (it may embed its children, or the node may be collapsed);
+   * - or the node is expanded with lazy children its row object never requested
+   *   — e.g. a root replaced by a ServerSide refetch (#527), or a node passed to
+   *   {@link expand} before its row existed.
+   *
+   * ServerSide placeholders never supersede a load: their path key can collide
+   * with a real row's id.
+   */
+  #needsReconcile(meta: FlattenedTreeRow): boolean {
+    if (meta.data.__loading === true) return false;
+    const load = this.#loads.get(meta.key);
+    if (load) return load.row !== meta.data;
+    return (
+      meta.isExpanded &&
+      meta.hasChildren &&
+      !this.#requestedRows.has(meta.data as object) &&
+      this.#needsChildFetch(meta.data)
+    );
+  }
+
+  /**
+   * Cancel pending loads whose key now belongs to a different row object in data
+   * that is no longer a tree (e.g. the only lazy root replaced by a same-key row
+   * with `children: []`). `endHierarchy` never runs for flat data, so the
+   * {@link #needsReconcile} pass doesn't see these replacements. Cancel-only:
+   * flat data never requests children. Placeholders are skipped as in
+   * `#needsReconcile`; on duplicate keys the last row owns the key, as in `rowKeyMap`.
+   */
+  #reconcileFlatRows(rows: readonly TreeRow[]): void {
+    if (this.#loads.size === 0) return;
+    const owners = new Map<string, TreeRow>();
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (row.__loading === true) continue;
+      // Read-only key lookup — matches `#keyFor` without caching keys for flat rows.
+      const key = row.id !== undefined ? String(row.id) : (this.#rowKeys.get(row as object) ?? String(i));
+      if (this.#loads.has(key)) owners.set(key, row);
+    }
+    for (const [key, row] of owners) {
+      if (this.#loads.get(key)?.row === row) continue;
+      this.#queueReconcile(
+        { key, data: row, depth: 0, hasChildren: false, isExpanded: false, parentKey: null, posInSet: 0, setSize: 0 },
+        true,
+      );
+    }
+  }
+
+  /**
+   * Queue a node for {@link #needsReconcile} handling. Deferred to ONE microtask:
+   * `endHierarchy` runs inside the render pipeline, and cancelling / requesting
+   * broadcasts `tree-load-end` / `tree-load-start` and queries ServerSide
+   * synchronously. Loads of nodes that are not rendered (hidden under a
+   * collapsed ancestor, or gone from the data) are left to settle.
+   *
+   * @param flat - Entry from {@link #reconcileFlatRows}: cancel only. `rowKeyMap`
+   *   is empty for flat data, so the owner check was already applied by the caller.
+   */
+  #queueReconcile(meta: FlattenedTreeRow, flat = false): void {
+    if (this.#pendingReconcile.push({ meta, flat }) > 1) return;
+    queueMicrotask(() => {
+      const pending = this.#pendingReconcile;
+      this.#pendingReconcile = [];
+      if (!this.grid) return;
+      let started = false;
+      for (const { meta: node, flat: cancelOnly } of pending) {
+        // Only the key's current owner acts — skips rows replaced again by a later
+        // rebuild, and keeps duplicate keys from cancelling each other in a loop.
+        if (!cancelOnly && this.rowKeyMap.get(node.key)?.data !== node.data) continue;
+        const load = this.#loads.get(node.key);
+        if (load && load.row !== node.data) this.#cancelLoad(node.key);
+        if (cancelOnly || !this.expandedKeys.has(node.key) || this.#requestedRows.has(node.data as object)) continue;
+        // One automatic attempt per row object, even when no loader is configured.
+        this.#requestedRows.add(node.data as object);
+        started = this.requestLazyChildren(node) || started;
+      }
+      if (started) this.requestRender();
+    });
   }
 
   /**
@@ -638,29 +758,73 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
    *    without `ServerSidePlugin` for grids that only need lazy tree children
    *    and not server-side root pagination/sorting/filtering.
    *
-   * No-op when neither route is configured, the node is already loading, or
-   * its children are already embedded.
+   * No-op when neither route is configured, this row is already loading, or
+   * its children are already embedded. A pending load for a DIFFERENT row
+   * object under the same key (replaced by a refetch) is cancelled first.
+   *
+   * @returns `true` when a fetch was started.
    */
-  private requestLazyChildren(flatRow: FlattenedTreeRow): void {
+  private requestLazyChildren(flatRow: FlattenedTreeRow): boolean {
     const { key, depth, data: row } = flatRow;
-    if (this.loadingKeys.has(key)) return;
-    if (!this.#needsChildFetch(row, key)) return;
+    const active = this.#loads.get(key);
+    if (active?.row === row) return false;
+    if (!this.#needsChildFetch(row)) return false;
 
     const isServerSideActive = this.queryBoolean('datasource:is-active');
     const { loadChildren } = this.config;
-    if (!isServerSideActive && !loadChildren) return;
+    if (!isServerSideActive && !loadChildren) return false;
 
-    this.loadingKeys.add(key);
+    if (active) this.#cancelLoad(key);
+    const controller = new AbortController();
+    this.#loads.set(key, { row, depth, controller });
+    this.#requestedRows.add(row as object);
+    this.#cancelledRows.delete(row as object);
     this.broadcast<TreeLoadStartDetail>('tree-load-start', { key, row, depth });
 
     if (isServerSideActive) {
       this.grid.query('datasource:fetch-children', {
         context: { source: 'tree', parentNode: row, nodePath: [key] },
+        signal: controller.signal,
       } satisfies FetchChildrenQuery);
-      return;
+      return true;
     }
 
-    this.#loadChildrenLocally(key, row, depth);
+    this.#loadChildrenLocally(key, row, depth, controller);
+    return true;
+  }
+
+  /** Whether `meta`'s row object (not just its key) has a child load in flight. */
+  #isLoading(meta: FlattenedTreeRow): boolean {
+    return this.#loads.get(meta.key)?.row === meta.data;
+  }
+
+  /** Remove and return the in-flight load for `key` when it belongs to `row`. */
+  #takeLoad(key: string, row: TreeRow): { row: TreeRow; depth: number; controller: AbortController } | undefined {
+    const load = this.#loads.get(key);
+    if (load?.row !== row) return undefined;
+    this.#loads.delete(key);
+    return load;
+  }
+
+  /**
+   * Abort a superseded load and close its event pair with a cancelled
+   * `tree-load-end`, so every `tree-load-start` gets exactly one end or error.
+   */
+  #cancelLoad(key: string): void {
+    const load = this.#loads.get(key);
+    if (!load) return;
+    this.#loads.delete(key);
+    // Not a settled attempt: a restored row must be able to load again automatically.
+    this.#requestedRows.delete(load.row as object);
+    this.#cancelledRows.add(load.row as object);
+    load.controller.abort();
+    this.broadcast<TreeLoadEndDetail>('tree-load-end', {
+      key,
+      row: load.row,
+      depth: load.depth,
+      childCount: 0,
+      cancelled: true,
+    });
   }
 
   /**
@@ -668,17 +832,14 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
    * `Subscribable` results; the subscription is torn down on abort so an
    * Angular `HttpClient` request is cancelled natively.
    */
-  #loadChildrenLocally(key: string, row: TreeRow, depth: number): void {
+  #loadChildrenLocally(key: string, row: TreeRow, depth: number, controller: AbortController): void {
     // A callback is guaranteed by the caller's guard.
     const loadChildren = this.config.loadChildren as NonNullable<TreeConfig['loadChildren']>;
-    const controller = new AbortController();
-    this.#childRequests.set(key, controller);
 
     const finish = (): boolean => {
-      // Superseded or detached — drop the result silently.
+      // Superseded (already reported as cancelled) or detached — drop the result.
       if (controller.signal.aborted) return false;
-      this.#childRequests.delete(key);
-      this.loadingKeys.delete(key);
+      this.#loads.delete(key);
       return true;
     };
 
@@ -709,7 +870,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       // `finish()`), so hold the subscription only until the first emission.
       // Without this, a source that never completes (a subject-like stream)
       // stays subscribed forever once its value has been consumed, because
-      // `finish()` has already removed the controller that `detach()` aborts.
+      // `finish()` has already removed the load whose controller `detach()` aborts.
       let settled = false;
       let active: { unsubscribe(): void } | null = null;
       const release = (): void => {
@@ -827,7 +988,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
 
       // Add expand/collapse icon, loading spinner, or spacer
       if (showExpandIcons) {
-        if (meta && this.loadingKeys.has(meta.key)) {
+        if (meta && this.#isLoading(meta)) {
           // Reuse the core loading UI (`.tbw-spinner--small`) instead of a
           // tree-specific indicator so custom spinner theming applies here too.
           const spinner = createDefaultSpinner('small');
@@ -996,7 +1157,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       // previously-loading element would inherit a stale `aria-busy`. A row in
       // the CORE row-loading state (`.tbw-row-loading`: a ServerSide placeholder,
       // or `grid.setRowLoading()`) owns its own `aria-busy` — leave it alone.
-      if (this.loadingKeys.has(treeRow.key)) {
+      if (this.#isLoading(treeRow)) {
         rowEl.setAttribute('aria-busy', 'true');
       } else if (rowEl.hasAttribute('aria-busy') && !rowEl.classList.contains('tbw-row-loading')) {
         rowEl.removeAttribute('aria-busy');

@@ -71,18 +71,24 @@ grid.addEventListener('tree-expand', (e) => {
 ### `tree-load-start` / `tree-load-end` / `tree-load-error`
 
 Fired around lazy child loading (both the `loadChildren` and `ServerSidePlugin` routes).
+Every start is followed by exactly one end or error. When a node's row is replaced by a
+new object for the same key (new `grid.rows`, ServerSide refetch) while its children are
+loading, the old load is aborted once the new row renders — expanded or collapsed,
+lazy or embedded — and ends with `cancelled: true` and `childCount: 0`. Loads of nodes
+that are not rendered (hidden under a collapsed parent) are left to finish.
 
 ```typescript
 grid.addEventListener('tree-load-start', (e) => console.log('loading', e.detail.key));
-grid.addEventListener('tree-load-end', (e) => console.log('loaded', e.detail.childCount));
+grid.addEventListener('tree-load-end', (e) => !e.detail.cancelled && console.log('loaded', e.detail.childCount));
 grid.addEventListener('tree-load-error', (e) => console.error(e.detail.error));
 ```
 
 ## Lazy Loading Children (no ServerSidePlugin)
 
 Use `loadChildren` when you only need on-demand children — not server-side
-pagination/sorting/filtering of the root nodes. It is called once per node the
-first time that node is expanded while its children are unloaded.
+pagination/sorting/filtering of the root nodes. It is called once per row object
+the first time that node is expanded while its children are unloaded, and again
+for a still-expanded node when `grid.rows` is replaced with new objects.
 
 ```typescript
 new TreePlugin({

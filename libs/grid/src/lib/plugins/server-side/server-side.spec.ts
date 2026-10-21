@@ -873,6 +873,109 @@ describe('ServerSidePlugin', () => {
       expect(plugin.getTotalNodeCount()).toBe(1);
       expect(plugin.getLoadedBlockCount()).toBe(1);
     });
+
+    describe('getChildRows signal', () => {
+      function setup(getChildRows: ServerSideDataSource['getChildRows']) {
+        const plugin = new ServerSidePlugin({ pageSize: 10 });
+        const grid = createServerSideMockGrid();
+        plugin.attach(grid as any);
+        plugin.setDataSource({ getRows: vi.fn().mockResolvedValue({ rows: [], totalNodeCount: 0 }), getChildRows });
+        const events: Array<{ type: string; detail: any }> = [];
+        for (const type of ['datasource:children', 'datasource:error', 'datasource:loading']) {
+          // Child-request events only — the root block's `datasource:loading` carries no context.
+          grid.addEventListener(type, (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            if (detail.context) events.push({ type, detail });
+          });
+        }
+        const fetch = (signal?: AbortSignal) =>
+          plugin.handleQuery({ type: 'datasource:fetch-children', context: { context: { source: 'tree' }, signal } });
+        return { plugin, events, fetch };
+      }
+
+      it('passes a non-aborted signal to getChildRows', async () => {
+        const getChildRows = vi.fn(async () => ({ rows: [{ id: 1 }] }));
+        const { events, fetch } = setup(getChildRows);
+
+        fetch();
+
+        await vi.waitFor(() => expect(events.some((e) => e.type === 'datasource:children')).toBe(true));
+        const params = getChildRows.mock.calls[0] as unknown[];
+        expect((params[0] as { signal: AbortSignal }).signal).toBeInstanceOf(AbortSignal);
+        expect((params[0] as { signal: AbortSignal }).signal.aborted).toBe(false);
+      });
+
+      it('aborts getChildRows and drops its result when the requester signal aborts (#527)', async () => {
+        let childSignal: AbortSignal | undefined;
+        let resolve!: (value: { rows: unknown[] }) => void;
+        const { events, fetch } = setup((params) => {
+          childSignal = params.signal;
+          return new Promise((r) => (resolve = r));
+        });
+        const requester = new AbortController();
+        fetch(requester.signal);
+
+        requester.abort();
+        expect(childSignal!.aborted).toBe(true);
+        resolve({ rows: [{ id: 'stale' }] });
+        await new Promise((r) => setTimeout(r, 0));
+
+        expect(events.map((e) => e.type)).toEqual(['datasource:loading', 'datasource:loading']);
+        expect(events.at(-1)!.detail.loading).toBe(false);
+      });
+
+      it('reports no error when an aborted getChildRows rejects', async () => {
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        const { events, fetch } = setup(
+          ({ signal }) =>
+            new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(new Error('aborted')))),
+        );
+        const requester = new AbortController();
+        fetch(requester.signal);
+
+        requester.abort();
+        await new Promise((r) => setTimeout(r, 0));
+
+        expect(events.some((e) => e.type === 'datasource:error')).toBe(false);
+        expect(errorSpy).not.toHaveBeenCalled();
+      });
+
+      it('does not call getChildRows for an already-aborted requester signal', () => {
+        const getChildRows = vi.fn(async () => ({ rows: [] }));
+        const { fetch } = setup(getChildRows);
+
+        fetch(AbortSignal.abort());
+
+        expect(getChildRows).not.toHaveBeenCalled();
+      });
+
+      it('aborts in-flight child requests on detach', () => {
+        let childSignal: AbortSignal | undefined;
+        const { plugin, fetch } = setup((params) => {
+          childSignal = params.signal;
+          return new Promise(() => undefined);
+        });
+        fetch();
+
+        plugin.detach();
+
+        expect(childSignal!.aborted).toBe(true);
+      });
+
+      it('keeps child requests alive across refresh() (GroupingRows/MasterDetail rely on the result)', async () => {
+        let childSignal: AbortSignal | undefined;
+        const { plugin, events, fetch } = setup(async (params) => {
+          childSignal = params.signal;
+          return { rows: [{ id: 1 }] };
+        });
+        fetch();
+
+        plugin.refresh();
+
+        await vi.waitFor(() => expect(events.some((e) => e.type === 'datasource:children')).toBe(true));
+        expect(childSignal!.aborted).toBe(false);
+      });
+    });
   });
 
   describe('Subscribable getRows (RxJS / HttpClient)', () => {

@@ -170,8 +170,10 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   /**
    * In-flight `getChildRows` requests. Aborted only on `detach()` or when the
    * requester's `FetchChildrenQuery.signal` fires — NOT on sort/filter/refresh:
-   * GroupingRows and MasterDetail release their loading state only on
-   * `datasource:children`, so an unrequested abort would strand them.
+   * cancellation is requester-owned (Tree, GroupingRows, MasterDetail each
+   * abort their own stale loads). An abort broadcasts only `datasource:loading`
+   * `false`, which no requester treats as a release, so an unrequested abort
+   * would strand its loading state.
    */
   private childControllers = new Set<AbortController>();
   private scrollDebounceTimer?: ReturnType<typeof setTimeout>;

@@ -29,6 +29,7 @@ import type {
   DataChangeDetail,
   DataGridEventMap,
   DetailExpandDetail,
+  DetailLoadErrorDetail,
   DirtyChangeDetail,
   EditCloseDetail,
   EditOpenDetail,
@@ -41,6 +42,7 @@ import type {
   GroupExpandDetail,
   GroupingColumnsConfig,
   GroupingRowsConfig,
+  GroupLoadErrorDetail,
   GroupToggleDetail,
   MasterDetailConfig,
   MultiSortConfig,
@@ -371,68 +373,70 @@ const props = defineProps({
 });
 
 /**
- * Event name → CustomEvent detail type map.
- * Used internally to wire up event listeners.
+ * Grid events forwarded as Vue emits (`grid.on` → `emit`). Payload types live on
+ * `defineEmits`; `satisfies` rejects names that are not core grid events.
  */
-const EVENT_MAP = {
-  'cell-click': '' as unknown as CellClickDetail,
-  'row-click': '' as unknown as RowClickDetail,
-  'cell-activate': '' as unknown as CellActivateDetail,
-  'cell-change': '' as unknown as CellChangeDetail,
-  'cell-commit': '' as unknown as CellCommitDetail,
-  'cell-cancel': '' as unknown as CellCancelDetail,
-  'row-commit': '' as unknown as RowCommitDetail,
-  'changed-rows-reset': '' as unknown as ChangedRowsResetDetail,
-  'edit-open': '' as unknown as EditOpenDetail,
-  'before-edit-close': '' as unknown as BeforeEditCloseDetail,
-  'edit-close': '' as unknown as EditCloseDetail,
-  'dirty-change': '' as unknown as DirtyChangeDetail,
-  'baselines-captured': '' as unknown as BaselinesCapturedDetail,
-  'data-change': '' as unknown as DataChangeDetail,
-  'sort-change': '' as unknown as SortChangeDetail,
-  'filter-change': '' as unknown as FilterChangeDetail,
-  'column-resize': '' as unknown as ColumnResizeDetail,
-  'column-resize-reset': '' as unknown as ColumnResizeResetDetail,
-  'column-move': '' as unknown as ColumnMoveDetail,
-  'column-visibility': '' as unknown as ColumnVisibilityDetail,
-  'column-state-change': '' as unknown as GridColumnState,
-  'selection-change': '' as unknown as SelectionChangeDetail,
-  'row-move': '' as unknown as RowMoveDetail,
-  'row-drag-start': '' as unknown as RowDragStartDetail,
-  'row-drag-end': '' as unknown as RowDragEndDetail,
-  'row-drop': '' as unknown as RowDropDetail,
-  'row-transfer': '' as unknown as RowTransferDetail,
-  'group-toggle': '' as unknown as GroupToggleDetail,
-  'group-expand': '' as unknown as GroupExpandDetail,
-  'group-collapse': '' as unknown as GroupCollapseDetail,
-  'tree-expand': '' as unknown as TreeExpandDetail,
-  'tree-load-start': '' as unknown as TreeLoadStartDetail,
-  'tree-load-end': '' as unknown as TreeLoadEndDetail,
-  'tree-load-error': '' as unknown as TreeLoadErrorDetail,
-  'detail-expand': '' as unknown as DetailExpandDetail,
-  'responsive-change': '' as unknown as ResponsiveChangeDetail,
-  'context-menu-open': '' as unknown as ContextMenuOpenDetail,
-  copy: '' as unknown as CopyDetail,
-  paste: '' as unknown as PasteDetail,
-  'paste-rejected': '' as unknown as PasteRejectedDetail,
+const FORWARDED_EVENTS = [
+  'cell-click',
+  'row-click',
+  'cell-activate',
+  'cell-change',
+  'cell-commit',
+  'cell-cancel',
+  'row-commit',
+  'changed-rows-reset',
+  'edit-open',
+  'before-edit-close',
+  'edit-close',
+  'dirty-change',
+  'baselines-captured',
+  'data-change',
+  'sort-change',
+  'filter-change',
+  'column-resize',
+  'column-resize-reset',
+  'column-move',
+  'column-visibility',
+  'column-state-change',
+  'selection-change',
+  'row-move',
+  'row-drag-start',
+  'row-drag-end',
+  'row-drop',
+  'row-transfer',
+  'group-toggle',
+  'group-expand',
+  'group-collapse',
+  'group-load-error',
+  'tree-expand',
+  'tree-load-start',
+  'tree-load-end',
+  'tree-load-error',
+  'detail-expand',
+  'detail-load-error',
+  'responsive-change',
+  'context-menu-open',
+  'copy',
+  'paste',
+  'paste-rejected',
   // The UndoRedoPlugin emits two distinct events: `undo` and `redo` (not the
   // combined `undo-redo` name). Listening to `undo-redo` would silently never
   // fire — keep these separate to mirror the React adapter and match the
   // plugin's actual emit calls.
-  undo: '' as unknown as UndoRedoDetail,
-  redo: '' as unknown as UndoRedoDetail,
-  'export-complete': '' as unknown as ExportCompleteDetail,
-  'print-start': '' as unknown as PrintStartDetail,
-  'print-complete': '' as unknown as PrintCompleteDetail,
-  'tbw-scroll': '' as unknown as TbwScrollDetail,
-  render: '' as unknown as RenderDetail,
-} as const;
+  'undo',
+  'redo',
+  'export-complete',
+  'print-start',
+  'print-complete',
+  'tbw-scroll',
+  'render',
+] as const satisfies readonly (keyof DataGridEventMap<unknown>)[];
 
 // ──────────────────────────────────────────────────────────────────────
 // Forward-only event coverage guard (mirrors React `event-props.ts` and the
 // Angular `Grid` directive). If a new event lands in core's `DataGridEventMap`
 // — including via plugin module augmentation from `@toolbox-web/grid/all` — but
-// `EVENT_MAP` has no entry, the assignment below stops type-checking.
+// `FORWARDED_EVENTS` lacks it, the assignment below stops type-checking.
 //
 // `mount-external-editor` / `mount-external-view` are internal plumbing (the
 // adapter itself is the sole listener); `column-reorder-request` is an
@@ -443,7 +447,10 @@ const EVENT_MAP = {
 // ──────────────────────────────────────────────────────────────────────
 type _IntentionallyOmittedEvents = 'mount-external-editor' | 'mount-external-view' | 'column-reorder-request';
 
-type _MissingEmits = Exclude<keyof DataGridEventMap<unknown>, keyof typeof EVENT_MAP | _IntentionallyOmittedEvents>;
+type _MissingEmits = Exclude<
+  keyof DataGridEventMap<unknown>,
+  (typeof FORWARDED_EVENTS)[number] | _IntentionallyOmittedEvents
+>;
 
 const _emitsCoverCore: [_MissingEmits] extends [never]
   ? true
@@ -484,11 +491,13 @@ const emit = defineEmits<{
   (e: 'group-toggle', event: CustomEvent<GroupToggleDetail>): void;
   (e: 'group-expand', event: CustomEvent<GroupExpandDetail>): void;
   (e: 'group-collapse', event: CustomEvent<GroupCollapseDetail>): void;
+  (e: 'group-load-error', event: CustomEvent<GroupLoadErrorDetail>): void;
   (e: 'tree-expand', event: CustomEvent<TreeExpandDetail<TRow>>): void;
   (e: 'tree-load-start', event: CustomEvent<TreeLoadStartDetail<TRow>>): void;
   (e: 'tree-load-end', event: CustomEvent<TreeLoadEndDetail<TRow>>): void;
   (e: 'tree-load-error', event: CustomEvent<TreeLoadErrorDetail<TRow>>): void;
   (e: 'detail-expand', event: CustomEvent<DetailExpandDetail>): void;
+  (e: 'detail-load-error', event: CustomEvent<DetailLoadErrorDetail>): void;
   (e: 'responsive-change', event: CustomEvent<ResponsiveChangeDetail>): void;
   (e: 'context-menu-open', event: CustomEvent<ContextMenuOpenDetail>): void;
   (e: 'copy', event: CustomEvent<CopyDetail>): void;
@@ -621,7 +630,7 @@ onMounted(() => {
 
   // Subscribe to grid events and store unsubscribe functions
   // Subscribe to all grid events and forward as Vue emits
-  for (const eventName of Object.keys(EVENT_MAP)) {
+  for (const eventName of FORWARDED_EVENTS) {
     eventCleanups.push(grid.on(eventName as string, (_d: unknown, e: CustomEvent) => emit(eventName as any, e)));
   }
 

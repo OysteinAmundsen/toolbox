@@ -1,6 +1,6 @@
 /**
  * `GridGroupingRowsDirective` — owns `[groupingRows]` and the group
- * toggle/expand/collapse outputs on `<tbw-grid>`. See
+ * toggle/expand/collapse/load-error outputs on `<tbw-grid>`. See
  * `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
@@ -12,6 +12,7 @@ import type {
   GroupingRowsConfig as CoreGroupingRowsConfig,
   GroupCollapseDetail,
   GroupExpandDetail,
+  GroupLoadErrorDetail,
   GroupRowRenderParams,
   GroupToggleDetail,
 } from '@toolbox-web/grid/plugins/grouping-rows';
@@ -30,12 +31,13 @@ export type GroupingRowsConfig = Omit<CoreGroupingRowsConfig, 'groupRowRenderer'
 };
 
 /**
- * Owns the binding(s) `[groupingRows], [groupToggle], [groupExpand], [groupCollapse]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
+ * Owns the binding(s) `[groupingRows], [groupToggle], [groupExpand], [groupCollapse], [groupLoadError]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */
 @Directive({
-  selector: 'tbw-grid[groupingRows], tbw-grid[groupToggle], tbw-grid[groupExpand], tbw-grid[groupCollapse]',
+  selector:
+    'tbw-grid[groupingRows], tbw-grid[groupToggle], tbw-grid[groupExpand], tbw-grid[groupCollapse], tbw-grid[groupLoadError]',
   standalone: true,
 })
 export class GridGroupingRowsDirective implements OnInit, OnDestroy {
@@ -45,9 +47,16 @@ export class GridGroupingRowsDirective implements OnInit, OnDestroy {
   readonly groupToggle = output<GroupToggleDetail>();
   readonly groupExpand = output<GroupExpandDetail>();
   readonly groupCollapse = output<GroupCollapseDetail>();
+  /**
+   * Fired when loading a pre-defined group's rows through the ServerSide data
+   * source (`getChildRows()`) fails. Re-expanding the group retries the fetch.
+   *
+   * @since 2.7.0
+   */
+  readonly groupLoadError = output<GroupLoadErrorDetail>();
 
   private readonly listeners = new Map<string, (e: Event) => void>();
-  private static readonly EVENTS = ['group-toggle', 'group-expand', 'group-collapse'] as const;
+  private static readonly EVENTS = ['group-toggle', 'group-expand', 'group-collapse', 'group-load-error'] as const;
 
   constructor() {
     const grid = this.elementRef.nativeElement;
@@ -65,6 +74,7 @@ export class GridGroupingRowsDirective implements OnInit, OnDestroy {
     wire<GroupToggleDetail>('group-toggle', this.groupToggle);
     wire<GroupExpandDetail>('group-expand', this.groupExpand);
     wire<GroupCollapseDetail>('group-collapse', this.groupCollapse);
+    wire<GroupLoadErrorDetail>('group-load-error', this.groupLoadError);
   }
 
   ngOnDestroy(): void {

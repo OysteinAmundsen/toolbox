@@ -9,7 +9,11 @@ import { evalTemplateString, sanitizeHTML } from '../../core/internal/sanitize';
 import { BaseGridPlugin, CellClickEvent, GridElement, RowClickEvent } from '../../core/plugin/base-plugin';
 import { createExpanderColumnConfig, findExpanderColumn, isExpanderColumn } from '../../core/plugin/expander-column';
 import type { ColumnConfig, GridHost } from '../../core/types';
-import type { DataSourceChildrenDetail, FetchChildrenQuery } from '../server-side/datasource-types';
+import type {
+  DataSourceChildrenDetail,
+  DataSourceErrorDetail,
+  FetchChildrenQuery,
+} from '../server-side/datasource-types';
 import {
   collapseDetailRow,
   createDetailElement,
@@ -18,7 +22,7 @@ import {
   toggleDetailRow,
 } from './master-detail';
 import styles from './master-detail.css?inline';
-import type { DetailExpandDetail, ExpandCollapseAnimation, MasterDetailConfig } from './types';
+import type { DetailExpandDetail, DetailLoadErrorDetail, ExpandCollapseAnimation, MasterDetailConfig } from './types';
 
 /**
  * Master-Detail Plugin for tbw-grid
@@ -134,19 +138,64 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       d.claimed = true;
 
       const row = d.context.row;
+      this.detailLoads.delete(row);
       if (row && this.expandedRows.has(row)) {
         this.detailDataMap.set(row, d.rows);
         this.loadingDetails.delete(row);
-        // Re-render: remove existing detail element so #syncDetailRows recreates it
-        const existingDetail = this.detailElements.get(row);
-        if (existingDetail) {
-          existingDetail.remove();
-          this.detailElements.delete(row);
-          this.measuredDetailHeights.delete(row);
-        }
+        this.#invalidateDetail(row);
         this.requestRender();
       }
     });
+
+    // Listen for datasource:error — release the row's loading state so the
+    // detail re-renders; collapsing and re-expanding retries the fetch.
+    this.on('datasource:error', (detail: unknown) => {
+      const d = detail as DataSourceErrorDetail;
+      if (d.context?.source !== 'master-detail') return;
+      const row = d.context.row as Record<string, unknown> | undefined;
+      if (!row || !this.detailLoads.delete(row)) return;
+      this.loadingDetails.delete(row);
+      this.#invalidateDetail(row);
+      this.emit<DetailLoadErrorDetail>('detail-load-error', {
+        rowIndex: this.rows.indexOf(row),
+        row,
+        error: d.error,
+      });
+      this.requestRender();
+    });
+  }
+
+  /** Remove a row's detail element so `#syncDetailRows` recreates it on the next render. */
+  #invalidateDetail(row: unknown): void {
+    const existingDetail = this.detailElements.get(row);
+    if (existingDetail) {
+      this.#releaseDetail(row, existingDetail);
+      this.measuredDetailHeights.delete(row);
+    }
+  }
+
+  /**
+   * Tear down a detail panel: release framework adapter resources (React root,
+   * Vue app, Angular view) BEFORE removing the DOM, then stop tracking it.
+   * Every removal path MUST go through here — dropping the `detailElements`
+   * entry without `unmount` orphans the framework view until adapter teardown.
+   */
+  #releaseDetail(row: unknown, detailEl: HTMLElement): void {
+    const adapter = this.#internalGrid.__frameworkAdapter;
+    if (adapter?.unmount) {
+      const detailCell = detailEl.querySelector('.master-detail-cell');
+      const container = detailCell?.firstElementChild as HTMLElement | null;
+      if (container) adapter.unmount(container);
+    }
+    if (detailEl.parentNode) detailEl.remove();
+    this.detailElements.delete(row);
+  }
+
+  /** A collapsed row discards its detail data, so abort its in-flight fetch. */
+  #cancelDetailLoad(row: unknown): void {
+    this.detailLoads.get(row)?.abort();
+    this.detailLoads.delete(row);
+    this.loadingDetails.delete(row);
   }
 
   /**
@@ -322,6 +371,12 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   private rowsToAnimate: Set<any> = new Set();
   /** Rows currently waiting for datasource:children response. */
   private loadingDetails: Set<any> = new Set();
+  /**
+   * In-flight `datasource:fetch-children` requests, keyed by row. Each
+   * controller's signal is passed as `FetchChildrenQuery.signal`, so aborting
+   * it (collapse, detach) cancels `getChildRows()` and drops its result.
+   */
+  private detailLoads: Map<unknown, AbortController> = new Map();
   /** Child rows received via datasource:children, keyed by parent row reference. */
   private detailDataMap: Map<any, unknown[]> = new Map();
 
@@ -378,14 +433,17 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       if (!this.detailDataMap.has(row)) {
         const isServerSideActive = this.queryBoolean('datasource:is-active');
         if (isServerSideActive) {
+          const controller = new AbortController();
+          this.detailLoads.set(row, controller);
           this.loadingDetails.add(row);
           this.grid.query('datasource:fetch-children', {
             context: { source: 'master-detail', row, rowIndex },
+            signal: controller.signal,
           } satisfies FetchChildrenQuery);
         }
       }
     } else {
-      this.loadingDetails.delete(row);
+      this.#cancelDetailLoad(row);
     }
     this.emit<DetailExpandDetail>('detail-expand', {
       rowIndex,
@@ -404,6 +462,8 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     this.detailElements.clear();
     this.measuredDetailHeights.clear();
     this.rowsToAnimate.clear();
+    for (const controller of this.detailLoads.values()) controller.abort();
+    this.detailLoads.clear();
     this.loadingDetails.clear();
     this.detailDataMap.clear();
   }
@@ -640,17 +700,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       const rowIndex = this.rows.indexOf(row);
       const isRowVisible = rowIndex >= 0 && visibleRowMap.has(rowIndex);
       if (this.expandedRows.has(row) && isRowVisible) continue;
-
-      // Clean up framework adapter resources (React root, Vue app, Angular view)
-      // before removing to prevent memory leaks.
-      const adapter = this.#internalGrid.__frameworkAdapter;
-      if (adapter?.unmount) {
-        const detailCell = detailEl.querySelector('.master-detail-cell');
-        const container = detailCell?.firstElementChild as HTMLElement | null;
-        if (container) adapter.unmount(container);
-      }
-      if (detailEl.parentNode) detailEl.remove();
-      this.detailElements.delete(row);
+      this.#releaseDetail(row, detailEl);
     }
   }
 
@@ -799,6 +849,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     const row = this.rows[rowIndex];
     if (row) {
       this.expandedRows = collapseDetailRow(this.expandedRows, row);
+      this.#cancelDetailLoad(row);
       this.requestRender();
     }
   }
@@ -813,6 +864,8 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       this.expandedRows = toggleDetailRow(this.expandedRows, row);
       if (this.expandedRows.has(row)) {
         this.rowsToAnimate.add(row);
+      } else {
+        this.#cancelDetailLoad(row);
       }
       this.requestRender();
     }
@@ -845,6 +898,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    * Collapse all detail rows.
    */
   collapseAll(): void {
+    for (const row of [...this.detailLoads.keys()]) this.#cancelDetailLoad(row);
     this.expandedRows.clear();
     this.requestRender();
   }

@@ -16,6 +16,7 @@ const ANSI = /\x1b\[[0-9;]*m/g;
 
 /** ESLint stylish output: a bare file path, then indented `line:col rule` rows. */
 const FILE_LINE = /^(?:[A-Za-z]:\\|\/).*$/;
+const STREAM_PREFIX = /^([\w@.-]+): /;
 const WARNING_LINE = /^\s+\d+:\d+\s+warning\s+(.*?)\s{2,}([\w@/-]+)\s*$/;
 
 type Counts = Map<string, number>;
@@ -35,9 +36,11 @@ function gitQuiet(...args: string[]): string {
 
 function lint(projects: string[]): string {
   try {
+    // `stream` — Nx's default (condensed) style drops the ESLint report of a task
+    // that exits 0, so warnings-only runs would parse as zero warnings.
     return execFileSync(
       'bun',
-      ['nx', 'run-many', '-t', 'lint', `--projects=${projects.join(',')}`, '--skip-nx-cache'],
+      ['nx', 'run-many', '-t', 'lint', `--projects=${projects.join(',')}`, '--skip-nx-cache', '--output-style=stream'],
       { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
     );
   } catch (err) {
@@ -50,17 +53,26 @@ function lint(projects: string[]): string {
 /**
  * Key on file + rule + message rather than line:col — line numbers drift as
  * code moves, which would report every shifted warning as a false change.
+ *
+ * Stream output prefixes every line with `<project>: ` and parallel lint tasks
+ * interleave, so the "current file" is tracked PER PROJECT — a single cursor
+ * would attribute project A's warning to project B's file header that landed
+ * in between, and different interleavings would show up as false diffs.
  */
 function parse(output: string): Counts {
   const counts: Counts = new Map();
-  let file = '';
+  const currentFile = new Map<string, string>();
   for (const raw of output.replace(ANSI, '').split(/\r?\n/)) {
-    const line = raw.trimEnd();
+    const trimmed = raw.trimEnd();
+    const prefix = STREAM_PREFIX.exec(trimmed);
+    const project = prefix?.[1] ?? '';
+    const line = prefix ? trimmed.slice(prefix[0].length) : trimmed;
     if (FILE_LINE.test(line)) {
-      file = line.replace(/\\/g, '/');
+      currentFile.set(project, line.replace(/\\/g, '/'));
       continue;
     }
     const match = WARNING_LINE.exec(line);
+    const file = currentFile.get(project);
     if (!match || !file) continue;
     const key = `${file}\u0000${match[2]}\u0000${match[1]}`;
     counts.set(key, (counts.get(key) ?? 0) + 1);

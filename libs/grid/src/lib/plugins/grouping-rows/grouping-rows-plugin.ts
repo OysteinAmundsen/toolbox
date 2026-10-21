@@ -24,6 +24,7 @@ import { buildHierarchy, HierarchyPlugin } from '../hierarchy';
 import type {
   DataSourceChildrenDetail,
   DataSourceDataDetail,
+  DataSourceErrorDetail,
   FetchChildrenQuery,
   ViewportMappingQuery,
   ViewportMappingResponse,
@@ -48,6 +49,7 @@ import type {
   GroupDefinition,
   GroupExpandDetail,
   GroupingRowsConfig,
+  GroupLoadErrorDetail,
   GroupOnContext,
   GroupRowModelItem,
   GroupToggleDetail,
@@ -161,6 +163,11 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
         type: 'group-collapse',
         description: 'Emitted when a pre-defined group is collapsed.',
       },
+      {
+        type: 'group-load-error',
+        description:
+          "Emitted when a pre-defined group's ServerSide getChildRows() fails. The group leaves its loading state.",
+      },
     ],
     queries: [
       {
@@ -262,6 +269,18 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
   private groupRowsMap = new Map<string, unknown[]>();
   /** Groups currently in a loading state */
   private loadingGroups = new Set<string>();
+  /**
+   * In-flight `datasource:fetch-children` requests (ServerSide active only),
+   * keyed by group key. Each controller's signal is passed as
+   * `FetchChildrenQuery.signal`, so aborting it cancels `getChildRows()` and
+   * drops its result. Aborted when new group definitions arrive (`setGroups()`,
+   * or a ServerSide refetch after sort/filter/`refresh()` — which then
+   * re-requests every still-expanded group whose rows were loaded or loading),
+   * on `setGroupRows`/`clearGroupRows`, and on detach. Collapsing keeps the
+   * load: its rows are cached for the next expand, and re-expanding while it is
+   * in flight does not re-request.
+   */
+  #groupLoads = new Map<string, AbortController>();
   /** Column fields that produce group values (depth 0, 1, ...). Cached for
    *  the `grouping:get-grouped-fields` query so MultiSort can filter them out. */
   private groupedFields: string[] = [];
@@ -310,6 +329,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
     this.groupConfigDirty = false;
     this.preDefinedGroups = [];
     this.groupRowsMap.clear();
+    this.#abortGroupLoads();
     this.loadingGroups.clear();
     this.groupedFields = [];
     this.userGroupSortDirections.clear();
@@ -400,11 +420,19 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
       const d = detail as DataSourceDataDetail;
       if (!d.claimed) {
         d.claimed = true;
+        // Expanded groups whose rows were loaded or loading — the refetch
+        // (refresh / server sort / filter) invalidates them, so re-request below.
+        const reload = [...this.expandedKeys].filter((k) => this.groupRowsMap.has(k) || this.#groupLoads.has(k));
         // Interpret incoming rows as group definitions
         this.preDefinedGroups = d.rows as unknown as GroupDefinition[];
         this.groupRowsMap.clear();
+        this.#abortGroupLoads();
         this.loadingGroups.clear();
         this.hasAppliedDefaultExpanded = false;
+        for (const key of reload) {
+          const groupDef = this.findGroupDefinition(this.preDefinedGroups, key);
+          if (groupDef) this.#requestGroupRows(key, groupDef, getGroupPath(this.preDefinedGroups, key));
+        }
         this.requestRender();
       }
     });
@@ -418,11 +446,57 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
       // Store the rows for the group and clear loading state
       const groupKey = d.context.groupKey as string;
       if (groupKey) {
+        this.#groupLoads.delete(groupKey);
         this.groupRowsMap.set(groupKey, d.rows);
         this.loadingGroups.delete(groupKey);
         this.requestRender();
       }
     });
+
+    // Listen for datasource:error — release the group's loading state;
+    // collapsing and re-expanding retries the fetch.
+    this.on('datasource:error', (detail: unknown) => {
+      const d = detail as DataSourceErrorDetail;
+      if (d.context?.source !== 'grouping-rows') return;
+      const groupKey = d.context.groupKey as string | undefined;
+      if (!groupKey || !this.#groupLoads.delete(groupKey)) return;
+      this.loadingGroups.delete(groupKey);
+      this.emit<GroupLoadErrorDetail>('group-load-error', {
+        groupKey,
+        groupPath: (d.context.groupPath as string[] | undefined) ?? [groupKey],
+        error: d.error,
+      });
+      this.requestRender();
+    });
+  }
+
+  /**
+   * Abort a group's in-flight fetch (or every fetch when `groupKey` is omitted)
+   * and release its loading state — an aborted request never settles.
+   */
+  #abortGroupLoads(groupKey?: string): void {
+    for (const [key, controller] of this.#groupLoads) {
+      if (groupKey != null && key !== groupKey) continue;
+      controller.abort();
+      this.#groupLoads.delete(key);
+      this.loadingGroups.delete(key);
+    }
+  }
+
+  /**
+   * Show a group's loading state and request its rows via `datasource:fetch-children`,
+   * unless a request for it is already in flight. The request is tracked (and made
+   * cancellable) only when a ServerSide data source will answer it.
+   */
+  #requestGroupRows(key: string, group: GroupDefinition, groupPath: string[]): void {
+    this.loadingGroups.add(key);
+    if (this.#groupLoads.has(key)) return;
+    const controller = this.queryBoolean('datasource:is-active') ? new AbortController() : undefined;
+    if (controller) this.#groupLoads.set(key, controller);
+    this.grid?.query?.('datasource:fetch-children', {
+      context: { source: 'grouping-rows', groupKey: key, group, groupPath },
+      signal: controller?.signal,
+    } satisfies FetchChildrenQuery);
   }
 
   /**
@@ -1201,15 +1275,10 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
       if (isExpanding) {
         this.emit<GroupExpandDetail>('group-expand', { groupKey: key, groupPath });
 
-        // Request child rows via unified DataSource if not already cached
+        // Request child rows via unified DataSource if not already cached or in flight
         if (!this.groupRowsMap.has(key)) {
           const groupDef = this.findGroupDefinition(activeGroups, key);
-          if (groupDef) {
-            this.loadingGroups.add(key);
-            this.grid?.query?.('datasource:fetch-children', {
-              context: { source: 'grouping-rows', groupKey: key, group: groupDef, groupPath },
-            } satisfies FetchChildrenQuery);
-          }
+          if (groupDef) this.#requestGroupRows(key, groupDef, groupPath);
         }
       } else {
         this.emit<GroupCollapseDetail>('group-collapse', { groupKey: key, groupPath });
@@ -1372,6 +1441,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
   setGroups(groups: GroupDefinition[]): void {
     this.preDefinedGroups = groups;
     this.groupRowsMap.clear();
+    this.#abortGroupLoads();
     this.loadingGroups.clear();
     this.expandedKeys.clear();
     this.hasAppliedDefaultExpanded = false;
@@ -1404,6 +1474,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
    * @param rows - The row data for this group
    */
   setGroupRows(groupKey: string, rows: unknown[]): void {
+    this.#abortGroupLoads(groupKey);
     this.groupRowsMap.set(groupKey, rows);
     this.loadingGroups.delete(groupKey);
     this.requestRender();
@@ -1431,11 +1502,13 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
    * Clear cached row data for one or all groups.
    *
    * Use when the server data has changed and groups need to be re-fetched
-   * on next expand.
+   * on next expand. Also cancels any in-flight ServerSide fetch for the
+   * cleared groups, so a stale response cannot repopulate them.
    *
    * @param groupKey - Specific group key to clear, or omit to clear all
    */
   clearGroupRows(groupKey?: string): void {
+    this.#abortGroupLoads(groupKey);
     if (groupKey != null) {
       this.groupRowsMap.delete(groupKey);
     } else {

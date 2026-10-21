@@ -81,6 +81,21 @@ export interface GroupCollapseDetail {
 }
 
 /**
+ * Detail payload for the `group-load-error` event — the ServerSide data
+ * source's `getChildRows()` failed for an expanded pre-defined group.
+ *
+ * @since 3.10.0
+ */
+export interface GroupLoadErrorDetail {
+  /** The key of the group whose rows failed to load. */
+  groupKey: string;
+  /** The full path of group keys from root to this group. */
+  groupPath: string[];
+  /** The error reported by the data source. */
+  error: Error;
+}
+
+/**
  * Default expanded state for group rows.
  * - `boolean`: true = expand all, false = collapse all
  * - `number`: expand group at this index (0-based)
@@ -333,6 +348,13 @@ declare module '../../core/types' {
     'group-expand': GroupExpandDetail;
     /** Fired when a pre-defined group is collapsed. @group Grouping Events */
     'group-collapse': GroupCollapseDetail;
+    /**
+     * Fired when loading a pre-defined group's rows through the ServerSide
+     * data source (`getChildRows()`) fails. The group leaves its loading
+     * state; collapsing and re-expanding it retries the fetch.
+     * @group Grouping Events
+     */
+    'group-load-error': GroupLoadErrorDetail;
   }
 
   interface PluginNameMap {

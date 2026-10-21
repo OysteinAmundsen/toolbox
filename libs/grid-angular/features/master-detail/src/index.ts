@@ -125,13 +125,17 @@ registerFeatureConfigPreprocessor('masterDetail', (config, adapter) => {
     row: ctx.row,
     rowIndex: ctx.rowIndex,
   }));
-  const cached = new Map<unknown, HTMLElement>();
+  // Cached per row so re-renders reuse the instance, but only while it is alive:
+  // MasterDetailPlugin calls `adapter.unmount()` (destroying the ComponentRef)
+  // when a detail panel is collapsed, scrolled out, or re-rendered after async
+  // data/error, and the next render must mount a fresh component.
+  const cached = new Map<unknown, ReturnType<typeof mount>>();
   const detailRenderer: MasterDetailConfig['detailRenderer'] = (row, rowIndex) => {
     const existing = cached.get(row);
-    if (existing) return existing;
-    const { hostElement } = mount({ row, rowIndex });
-    cached.set(row, hostElement);
-    return hostElement;
+    if (existing && !existing.componentRef.hostView.destroyed) return existing.hostElement;
+    const mounted = mount({ row, rowIndex });
+    cached.set(row, mounted);
+    return mounted.hostElement;
   };
   return { ...cfg, detailRenderer };
 });

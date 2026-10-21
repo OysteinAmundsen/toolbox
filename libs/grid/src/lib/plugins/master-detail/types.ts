@@ -75,11 +75,32 @@ export interface DetailExpandDetail {
   expanded: boolean;
 }
 
+/**
+ * Event detail for the `detail-load-error` event — the ServerSide data
+ * source's `getChildRows()` failed for an expanded detail row.
+ *
+ * @since 3.10.0
+ */
+export interface DetailLoadErrorDetail {
+  /** Current index of the row in the processed rows, or `-1` when it is no longer present */
+  rowIndex: number;
+  /** The row data whose detail failed to load */
+  row: Record<string, unknown>;
+  /** The error reported by the data source */
+  error: Error;
+}
+
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
   interface DataGridEventMap {
     /** Fired when a detail panel is expanded or collapsed. @group Master-Detail Events */
     'detail-expand': DetailExpandDetail;
+    /**
+     * Fired when loading detail data through the ServerSide data source
+     * (`getChildRows()`) fails. The row leaves its loading state; collapsing
+     * and re-expanding it retries the fetch. @group Master-Detail Events
+     */
+    'detail-load-error': DetailLoadErrorDetail;
   }
 
   interface PluginNameMap {

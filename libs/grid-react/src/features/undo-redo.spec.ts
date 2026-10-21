@@ -118,7 +118,10 @@ describe('@toolbox-web/grid-react/features/undo-redo', () => {
     expect(plugin.clearHistory).toHaveBeenCalled();
 
     api().recordEdit(2, 'name', 'a', 'b');
-    expect(plugin.recordEdit).toHaveBeenCalledWith(2, 'name', 'a', 'b');
+    expect(plugin.recordEdit).toHaveBeenCalledWith(2, 'name', 'a', 'b', undefined);
+
+    api().recordEdit(-1, 'name', 'a', 'b', 'row-7');
+    expect(plugin.recordEdit).toHaveBeenLastCalledWith(-1, 'name', 'a', 'b', 'row-7');
 
     api().beginTransaction();
     api().endTransaction();

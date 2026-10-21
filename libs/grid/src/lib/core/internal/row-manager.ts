@@ -167,12 +167,15 @@ export class RowManager<T = any> {
     const entry = grid._getSourceRowEntry(id);
     if (!entry) {
       // The row exists in neither the view nor the source data. Warn instead of
-      // throwing so a single stale ID can never crash the grid.
-      warnDiagnostic(
-        ROW_NOT_FOUND,
-        `Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
-        grid.id,
-      );
+      // throwing so a single stale ID can never crash the grid. Undo/redo replays
+      // ('history') legitimately outlive deleted rows, so they skip silently.
+      if (source !== 'history') {
+        warnDiagnostic(
+          ROW_NOT_FOUND,
+          `Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
+          grid.id,
+        );
+      }
       return;
     }
 
@@ -202,12 +205,14 @@ export class RowManager<T = any> {
       const entry = grid._getSourceRowEntry(id);
       if (!entry) {
         // Warn and skip this row instead of throwing — the rest of the batch
-        // (and the grid) must survive an unresolvable ID.
-        warnDiagnostic(
-          ROW_NOT_FOUND,
-          `Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
-          grid.id,
-        );
+        // (and the grid) must survive an unresolvable ID. 'history' skips silently.
+        if (source !== 'history') {
+          warnDiagnostic(
+            ROW_NOT_FOUND,
+            `Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
+            grid.id,
+          );
+        }
         continue;
       }
 

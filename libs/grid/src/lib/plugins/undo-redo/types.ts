@@ -32,8 +32,20 @@ export interface UndoRedoConfig {
 export interface EditAction {
   /** Type of action - currently only 'cell-edit' is supported */
   type: 'cell-edit';
-  /** The row index where the edit occurred */
+  /**
+   * The display (processed-row) index where the edit occurred, at the time of the edit.
+   * Only used to locate the row when {@link EditAction.rowId | rowId} is unavailable —
+   * it goes stale as soon as a sort, filter, or row insert/removal changes the view.
+   */
   rowIndex: number;
+  /**
+   * Stable ID of the edited row (from `getRowId` / `row.id`), captured when the edit is recorded.
+   * Undo/redo resolve the target row by this ID, so they keep hitting the right row after the
+   * view is sorted or filtered — including rows currently filtered out of view.
+   * `undefined` when the row has no resolvable ID; the action then falls back to `rowIndex`.
+   * @since 3.9.2
+   */
+  rowId?: string;
   /** The field (column key) that was edited */
   field: string;
   /** The value before the edit */

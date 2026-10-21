@@ -185,19 +185,36 @@ const canRedo = plugin.canRedo();
 plugin.clearHistory();
 ```
 
+### Row identity
+
+Each recorded edit stores the row's ID (from [`getRowId`](/grid/api/core/interfaces/gridconfig/#getrowid) or `row.id`) alongside its
+display index. Undo and redo find the row by that ID, so they still target the right row after the
+grid is sorted or filtered, even when the row is filtered out of view. If a row has no ID, the
+plugin falls back to the display index captured when the edit was made. That index goes stale once
+the view changes, so configure `getRowId` when you combine undo/redo with sorting or filtering.
+
+`recordEdit(rowIndex, field, oldValue, newValue, rowId?)` reads the ID from the row currently shown at
+`rowIndex`, so call it while that index still points at the edited row. If the row may not be in
+view, pass `rowId` yourself. For example, a `cell-commit` raised by `updateRow()` on a filtered-out
+row reports `rowIndex: -1`, but its `detail.rowId` is still set.
+
+After an undo or redo, focus moves to the restored cell once the grid has re-rendered, so it lands
+on the row's new position after any re-sort or re-filter. If the row is filtered out, focus stays
+where it was. Undoing an edit on a row that has since been deleted does nothing.
+
 ### Compound Actions (Transactions)
 
 When a user edit cascades programmatic changes to other fields, group them into
 a single undo step so Ctrl+Z reverts everything at once:
 
 ```ts
-grid.on('cell-commit', () => {
+grid.on('cell-commit', ({ row, rowId, rowIndex }) => {
   const undoRedo = grid.getPluginByName('undoRedo');
   undoRedo.beginTransaction();
 
-  // Record cascaded updates manually
+  // Record cascaded updates manually (pass rowId so off-screen rows are targeted correctly)
   const oldTotal = row.total;
-  undoRedo.recordEdit(rowIndex, 'total', oldTotal, newTotal);
+  undoRedo.recordEdit(rowIndex, 'total', oldTotal, newTotal, rowId);
   grid.updateRow(rowId, { total: newTotal });
 
   // End after the auto-recorded original edit is captured
@@ -223,11 +240,16 @@ Fired after an undo or redo action is applied:
 
 ```ts
 grid.on('undo', ({ action, type }) => {
-  console.log(`${type}: reverted ${action.field} on row ${action.rowIndex}`);
+  // `action` is a single 'cell-edit' or a 'compound' group (see Compound Actions above)
+  if (action.type === 'cell-edit') {
+    console.log(`${type}: reverted ${action.field} on row ${action.rowId ?? action.rowIndex}`);
+  }
 });
 
 grid.on('redo', ({ action, type }) => {
-  console.log(`${type}: reapplied ${action.field} on row ${action.rowIndex}`);
+  if (action.type === 'cell-edit') {
+    console.log(`${type}: reapplied ${action.field} on row ${action.rowId ?? action.rowIndex}`);
+  }
 });
 ```
 

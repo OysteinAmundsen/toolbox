@@ -89,8 +89,10 @@ export interface UndoRedoMethods {
   /**
    * Manually record an edit action.
    * If a transaction is active, the action is buffered; otherwise it's pushed to the undo stack.
+   * Pass `rowId` (since 2.6.3) — e.g. `cell-commit`'s `detail.rowId` — when the row may not be
+   * in the view; otherwise it is resolved from `rowIndex`.
    */
-  recordEdit: (rowIndex: number, field: string, oldValue: unknown, newValue: unknown) => void;
+  recordEdit: (rowIndex: number, field: string, oldValue: unknown, newValue: unknown, rowId?: string) => void;
 
   /**
    * Begin a transaction. All edits recorded until `endTransaction()` are grouped
@@ -216,7 +218,7 @@ export function useGridUndoRedo(selector?: string): UndoRedoMethods {
   const getRedoStack = useCallback(() => getPlugin()?.getRedoStack() ?? [], [getPlugin]);
 
   const recordEdit = useCallback(
-    (rowIndex: number, field: string, oldValue: unknown, newValue: unknown) => {
+    (rowIndex: number, field: string, oldValue: unknown, newValue: unknown, rowId?: string) => {
       const plugin = getPlugin();
       if (!plugin) {
         console.warn(
@@ -226,7 +228,7 @@ export function useGridUndoRedo(selector?: string): UndoRedoMethods {
         );
         return;
       }
-      plugin.recordEdit(rowIndex, field, oldValue, newValue);
+      plugin.recordEdit(rowIndex, field, oldValue, newValue, rowId);
     },
     [getPlugin],
   );

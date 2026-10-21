@@ -103,8 +103,9 @@ const loading = masterDetail.isDetailLoading(rowIndex);
 ## Server-Side Data (Unified DataSource)
 
 When used together with `ServerSidePlugin`, detail data can be loaded asynchronously.
-On expand, MasterDetail fires a `datasource:fetch-children` query. The ServerSide
-plugin calls `getChildRows()` and delivers the result via `datasource:children`.
+On expand — expander click or the `expand()` / `toggle()` / `expandAll()` API — MasterDetail
+fires a `datasource:fetch-children` query. The ServerSide plugin calls `getChildRows()` and
+delivers the result via `datasource:children`.
 
 ```typescript
 import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';

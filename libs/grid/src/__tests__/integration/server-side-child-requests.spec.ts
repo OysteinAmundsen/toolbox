@@ -93,6 +93,18 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
       await nextFrames();
       expect(plugin.getDetailData(0)).toBeUndefined();
     });
+
+    it('fetches detail data on programmatic expand() (#532)', async () => {
+      const { grid, plugin, getChildRows } = await createGrid(async () => ({ rows: [{ id: 10 }] }));
+
+      plugin.expand(0);
+      expect(getChildRows).toHaveBeenCalledTimes(1);
+      expect(getChildRows.mock.calls[0][0].context).toMatchObject({ source: 'master-detail', row: grid.rows[0] });
+      expect(plugin.isDetailLoading(0)).toBe(true);
+
+      await vi.waitFor(() => expect(plugin.getDetailData(0)).toEqual([{ id: 10 }]));
+      expect(plugin.isDetailLoading(0)).toBe(false);
+    });
   });
 
   describe('GroupingRows (pre-defined groups)', () => {

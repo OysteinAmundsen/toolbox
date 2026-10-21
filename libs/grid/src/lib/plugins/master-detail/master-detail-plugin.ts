@@ -191,6 +191,26 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     this.detailElements.delete(row);
   }
 
+  /**
+   * Request a newly expanded row's detail data from ServerSide. EVERY expand
+   * path (expander click, `expand`, `toggle`, `expandAll`) MUST call this (#532).
+   * No-op when the data is cached or in flight, for ServerSide loading
+   * placeholders, or when no data source is active. `expandAll` passes
+   * `serverSideActive` so the query runs once, not once per row.
+   */
+  #requestDetailData(row: unknown, rowIndex: number, serverSideActive?: boolean): void {
+    if (this.detailDataMap.has(row) || this.detailLoads.has(row)) return;
+    if ((row as { __loading?: unknown } | null)?.__loading === true) return;
+    if (!(serverSideActive ?? this.queryBoolean('datasource:is-active'))) return;
+    const controller = new AbortController();
+    this.detailLoads.set(row, controller);
+    this.loadingDetails.add(row);
+    this.grid.query('datasource:fetch-children', {
+      context: { source: 'master-detail', row, rowIndex },
+      signal: controller.signal,
+    } satisfies FetchChildrenQuery);
+  }
+
   /** A collapsed row discards its detail data, so abort its in-flight fetch. */
   #cancelDetailLoad(row: unknown): void {
     this.detailLoads.get(row)?.abort();
@@ -428,20 +448,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     const expanded = this.expandedRows.has(row as object);
     if (expanded) {
       this.rowsToAnimate.add(row);
-
-      // Request detail data from ServerSide if available and not already cached
-      if (!this.detailDataMap.has(row)) {
-        const isServerSideActive = this.queryBoolean('datasource:is-active');
-        if (isServerSideActive) {
-          const controller = new AbortController();
-          this.detailLoads.set(row, controller);
-          this.loadingDetails.add(row);
-          this.grid.query('datasource:fetch-children', {
-            context: { source: 'master-detail', row, rowIndex },
-            signal: controller.signal,
-          } satisfies FetchChildrenQuery);
-        }
-      }
+      this.#requestDetailData(row, rowIndex);
     } else {
       this.#cancelDetailLoad(row);
     }
@@ -830,13 +837,17 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
   /**
    * Expand the detail row at the given index.
+   * With `ServerSidePlugin` active, requests the row's detail data via `getChildRows()`
+   * (unless already cached or loading), exactly like clicking the expander.
    * @param rowIndex - Index of the row to expand
    */
   expand(rowIndex: number): void {
     const row = this.rows[rowIndex];
     if (row && !row.__isGroupRow) {
+      const wasExpanded = this.expandedRows.has(row);
       this.rowsToAnimate.add(row);
       this.expandedRows = expandDetailRow(this.expandedRows, row);
+      if (!wasExpanded) this.#requestDetailData(row, rowIndex);
       this.requestRender();
     }
   }
@@ -856,6 +867,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
   /**
    * Toggle the detail row at the given index.
+   * Expanding requests ServerSide detail data like {@link expand}; collapsing aborts an in-flight request.
    * @param rowIndex - Index of the row to toggle
    */
   toggle(rowIndex: number): void {
@@ -864,6 +876,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       this.expandedRows = toggleDetailRow(this.expandedRows, row);
       if (this.expandedRows.has(row)) {
         this.rowsToAnimate.add(row);
+        this.#requestDetailData(row, rowIndex);
       } else {
         this.#cancelDetailLoad(row);
       }
@@ -884,12 +897,19 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /**
    * Expand all detail rows.
    * Skips synthetic rows (e.g., group headers from GroupingRowsPlugin).
+   * With `ServerSidePlugin` active, requests detail data for every newly expanded
+   * loaded row (one `getChildRows()` call per row); loading placeholders are not fetched.
    */
   expandAll(): void {
-    for (const row of this.rows) {
+    const serverSideActive = this.queryBoolean('datasource:is-active');
+    const rows = this.rows;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
       if (row?.__isGroupRow) continue;
       this.rowsToAnimate.add(row);
+      if (this.expandedRows.has(row)) continue;
       this.expandedRows.add(row);
+      this.#requestDetailData(row, i, serverSideActive);
     }
     this.requestRender();
   }

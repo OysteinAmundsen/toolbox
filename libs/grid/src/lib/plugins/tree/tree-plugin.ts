@@ -208,12 +208,24 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
   /** Keys of nodes that are currently loading lazy children. */
   private loadingKeys = new Set<string>();
   /**
-   * Keys whose children have already been fetched. Prevents a re-fetch on
+   * Row objects whose children have already been fetched. Prevents a re-fetch on
    * collapse → re-expand, and prevents an infinite retry loop when a node
    * legitimately resolves to zero children but a custom `hasChildren`
    * predicate keeps reporting `true`.
+   *
+   * Keyed by row IDENTITY, not by node key: a ServerSide refetch (server
+   * sort/filter change, `refresh()`) or a `grid.rows` reassignment delivers a
+   * NEW object for the same key whose children are lazy again (#527).
    */
-  private loadedKeys = new Set<string>();
+  #loadedRows = new WeakSet<object>();
+  /**
+   * Row objects a child fetch was ever started for. Limits the automatic
+   * re-request of still-expanded lazy nodes (see {@link endHierarchy}) to one
+   * attempt per row object, so a failing fetch can't retry on every render.
+   */
+  #requestedRows = new WeakSet<object>();
+  /** Expanded lazy nodes queued for an automatic child request, flushed in one microtask. */
+  #pendingAutoRequests: FlattenedTreeRow[] = [];
   /** In-flight local `loadChildren` requests, keyed by node key. */
   #childRequests = new Map<string, AbortController>();
 
@@ -262,7 +274,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     this.sortState = null;
     this.#levelSort = null;
     this.loadingKeys.clear();
-    this.loadedKeys.clear();
+    this.#loadedRows = new WeakSet();
+    this.#requestedRows = new WeakSet();
+    this.#pendingAutoRequests = [];
     for (const controller of this.#childRequests.values()) controller.abort();
     this.#childRequests.clear();
     this.originalTreeColumnRenderer = undefined;
@@ -507,6 +521,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       if (!this.previousVisibleKeys.has(meta.key) && meta.depth > 0) {
         this.keysToAnimate.add(meta.key);
       }
+      if (meta.isExpanded && meta.hasChildren && !this.#requestedRows.has(meta.data as object)) {
+        this.#queueAutoRequest(meta);
+      }
     }
     this.previousVisibleKeys = currentKeys;
     this.#rootOwners = rootOwners;
@@ -611,20 +628,48 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
   /** Write fetched children onto the parent row and mark the node as loaded. */
   #mergeChildren(row: TreeRow, children: TreeRow[]): void {
     (row as Record<string, unknown>)[this.config.childrenField ?? 'children'] = children;
-    this.loadedKeys.add(this.#keyOf(row));
+    this.#loadedRows.add(row as object);
   }
 
   /**
    * Whether a node's children still need to be fetched — it reports having
    * children (via the lazy indicator or a custom `hasChildren` predicate) but
-   * none are embedded yet, and no previous fetch has already resolved.
+   * none are embedded yet, and no previous fetch for this row object has resolved.
    */
-  #needsChildFetch(row: TreeRow, key: string): boolean {
-    if (this.loadedKeys.has(key)) return false;
+  #needsChildFetch(row: TreeRow): boolean {
+    if (this.#loadedRows.has(row as object)) return false;
     const children = row[this.config.childrenField ?? 'children'];
     if (Array.isArray(children) && children.length > 0) return false;
     const custom = this.config.hasChildren;
     return custom ? custom(row) : children != null && !Array.isArray(children) && !!children;
+  }
+
+  /**
+   * Queue an automatic child request for a node that is rendered expanded but
+   * whose row object was never fetched — e.g. a root replaced by a ServerSide
+   * refetch (#527), or a node passed to {@link expand} before its row existed.
+   *
+   * Deferred to a microtask: `endHierarchy` runs inside the render pipeline, and
+   * a request broadcasts `tree-load-start` / queries ServerSide synchronously.
+   */
+  #queueAutoRequest(meta: FlattenedTreeRow): void {
+    if (this.loadingKeys.has(meta.key) || !this.#needsChildFetch(meta.data)) return;
+    if (this.#pendingAutoRequests.push(meta) > 1) return;
+    queueMicrotask(() => {
+      const pending = this.#pendingAutoRequests;
+      this.#pendingAutoRequests = [];
+      if (!this.grid) return;
+      let started = false;
+      for (const node of pending) {
+        // Superseded by a later rebuild (collapsed, or the row was replaced again).
+        if (!this.expandedKeys.has(node.key) || this.rowKeyMap.get(node.key)?.data !== node.data) continue;
+        if (this.#requestedRows.has(node.data as object)) continue;
+        // One automatic attempt per row object, even when no loader is configured.
+        this.#requestedRows.add(node.data as object);
+        started = this.requestLazyChildren(node) || started;
+      }
+      if (started) this.requestRender();
+    });
   }
 
   /**
@@ -640,27 +685,31 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
    *
    * No-op when neither route is configured, the node is already loading, or
    * its children are already embedded.
+   *
+   * @returns `true` when a fetch was started.
    */
-  private requestLazyChildren(flatRow: FlattenedTreeRow): void {
+  private requestLazyChildren(flatRow: FlattenedTreeRow): boolean {
     const { key, depth, data: row } = flatRow;
-    if (this.loadingKeys.has(key)) return;
-    if (!this.#needsChildFetch(row, key)) return;
+    if (this.loadingKeys.has(key)) return false;
+    if (!this.#needsChildFetch(row)) return false;
 
     const isServerSideActive = this.queryBoolean('datasource:is-active');
     const { loadChildren } = this.config;
-    if (!isServerSideActive && !loadChildren) return;
+    if (!isServerSideActive && !loadChildren) return false;
 
     this.loadingKeys.add(key);
+    this.#requestedRows.add(row as object);
     this.broadcast<TreeLoadStartDetail>('tree-load-start', { key, row, depth });
 
     if (isServerSideActive) {
       this.grid.query('datasource:fetch-children', {
         context: { source: 'tree', parentNode: row, nodePath: [key] },
       } satisfies FetchChildrenQuery);
-      return;
+      return true;
     }
 
     this.#loadChildrenLocally(key, row, depth);
+    return true;
   }
 
   /**

@@ -224,7 +224,7 @@ features: {
 ```
 
 :::note
-`loadChildren` is ignored when `ServerSidePlugin` is active — child data then flows through `dataSource.getChildRows()` instead (see below). A node is fetched at most once; collapsing and re-expanding does not re-request.
+`loadChildren` is ignored when `ServerSidePlugin` is active — child data then flows through `dataSource.getChildRows()` instead (see below). A row object's children are fetched at most once; collapsing and re-expanding does not re-request. When the rows are replaced with new objects (a new `grid.rows` array, or a ServerSide refetch after a server sort/filter change or `refresh()`), a node that is still expanded fetches its children again for the new row.
 :::
 
 ### Server-Side Data
@@ -234,6 +234,8 @@ features: {
 For large hierarchical datasets, use `ServerSidePlugin` to fetch top-level tree nodes in blocks as the user scrolls. TreePlugin claims the incoming data and renders the hierarchy. Children can be embedded in the response or fetched lazily via `getChildRows()`.
 
 Under the default `sortMode: 'server'`, sorting is the data source's job: both `getRows()` and `getChildRows()` receive the current `sortModel`, and TreePlugin keeps the order they return instead of re-sorting each level. Set `sortMode: 'local'` to have TreePlugin sort the loaded levels in the browser.
+
+A server sort/filter change or `refresh()` refetches the roots as new row objects. Expanded nodes stay expanded and call `getChildRows()` again, so their children also come back in the new server order.
 
 <Tabs syncKey="framework">
   <TabItem label="TypeScript">

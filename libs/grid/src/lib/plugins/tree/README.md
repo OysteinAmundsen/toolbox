@@ -81,8 +81,9 @@ grid.addEventListener('tree-load-error', (e) => console.error(e.detail.error));
 ## Lazy Loading Children (no ServerSidePlugin)
 
 Use `loadChildren` when you only need on-demand children — not server-side
-pagination/sorting/filtering of the root nodes. It is called once per node the
-first time that node is expanded while its children are unloaded.
+pagination/sorting/filtering of the root nodes. It is called once per row object
+the first time that node is expanded while its children are unloaded, and again
+for a still-expanded node when `grid.rows` is replaced with new objects.
 
 ```typescript
 new TreePlugin({

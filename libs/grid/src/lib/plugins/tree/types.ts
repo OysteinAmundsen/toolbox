@@ -82,9 +82,11 @@ export interface TreeConfig {
   /**
    * Lazy-load child rows when a node is expanded.
    *
-   * Called once per node the first time it is expanded while its children are
-   * not yet loaded. The resolved rows are written to `row[childrenField]` and
-   * the grid re-renders. While the request is in flight the node's toggle is
+   * Called once per row object the first time it is expanded while its children
+   * are not yet loaded — and again for a still-expanded node when the rows are
+   * replaced with new objects (e.g. a new `grid.rows` array). The resolved rows
+   * are written to `row[childrenField]` and the grid re-renders. While the
+   * request is in flight the node's toggle is
    * replaced by the grid's small spinner and the row carries `aria-busy`.
    *
    * Returns a `Promise` or a {@link Subscribable} (e.g. an Angular

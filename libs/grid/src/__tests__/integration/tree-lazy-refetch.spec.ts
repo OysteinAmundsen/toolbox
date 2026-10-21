@@ -1,0 +1,191 @@
+/**
+ * Integration tests: expanded lazy tree nodes after their root rows are replaced (issue #527).
+ *
+ * A ServerSide refetch (server sort change, `refresh()`) or a `grid.rows` reassignment
+ * delivers NEW row objects for the same keys. A node that stays expanded must re-fetch its
+ * lazy children for the new row object instead of rendering expanded with no children.
+ */
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import '../../index';
+import '../../lib/features/multi-sort';
+import '../../lib/features/server-side';
+import '../../lib/features/tree';
+import type { GetChildRowsParams, GetChildRowsResult, GetRowsParams } from '../../lib/plugins/server-side';
+import type { TreeLoadChildrenParams } from '../../lib/plugins/tree';
+
+interface Row {
+  id: number;
+  name: string;
+  children?: Row[] | boolean;
+}
+
+const roots = (): Row[] => [0, 1, 2].map((id) => ({ id, name: `n${id}`, children: true }));
+const kids = (): Row[] => [100, 101, 102].map((id) => ({ id, name: 'c' }));
+const ids = (grid: any) => (grid.rows as Row[]).map((r) => r.id);
+const nextFrames = async (n = 3) => {
+  for (let i = 0; i < n; i++) await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+};
+
+/** `getRows` builds new row objects on every call, like any real server. */
+async function createServerGrid(getChildRows: (params: GetChildRowsParams) => Promise<GetChildRowsResult>) {
+  const getRows = vi.fn(async (_params: GetRowsParams) => ({ rows: roots(), totalNodeCount: 3 }));
+  const childRows = vi.fn(getChildRows);
+  const grid = document.createElement('tbw-grid') as any;
+  grid.style.height = '600px';
+  grid.gridConfig = {
+    columns: [
+      { field: 'name', header: 'Name', sortable: true },
+      { field: 'id', header: 'Id', sortable: true },
+    ],
+    getRowId: (row: Row) => String(row.id),
+    features: {
+      multiSort: true,
+      tree: true,
+      serverSide: { pageSize: 5, dataSource: { getRows, getChildRows: childRows } },
+    },
+  };
+  document.body.appendChild(grid);
+  await grid.ready();
+  await vi.waitFor(() => expect(ids(grid)).toEqual([0, 1, 2]));
+  return { grid, getRows, getChildRows: childRows };
+}
+
+/** Run `trigger`, then wait until none of the previously shown root objects remain. */
+async function refetch(grid: any, trigger: () => void) {
+  const before = new Set(grid.rows as Row[]);
+  trigger();
+  await vi.waitFor(() => expect((grid.rows as Row[]).some((r) => before.has(r))).toBe(false));
+}
+
+describe('Tree lazy children after root rows are replaced (#527)', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  describe('ServerSide', () => {
+    it('re-fetches children of an expanded node after a server sort refetch, with the new sortModel', async () => {
+      const { grid, getChildRows } = await createServerGrid(async () => ({ rows: kids() }));
+      const tree = grid.getPluginByName('tree');
+      tree.expand('0');
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
+      expect(getChildRows).toHaveBeenCalledTimes(1);
+
+      await refetch(grid, () => grid.getPluginByName('multiSort').setSortModel([{ field: 'id', direction: 'desc' }]));
+
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
+      expect(getChildRows).toHaveBeenCalledTimes(2);
+      expect(getChildRows.mock.calls[1][0].sortModel).toEqual([{ field: 'id', direction: 'desc' }]);
+      expect(getChildRows.mock.calls[1][0].context.parentNode).toBe(grid.rows[0]);
+      expect(tree.isExpanded('0')).toBe(true);
+    });
+
+    it('re-fetches children of an expanded node after refresh()', async () => {
+      const { grid, getChildRows } = await createServerGrid(async () => ({ rows: kids() }));
+      grid.getPluginByName('tree').expand('0');
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
+
+      await refetch(grid, () => grid.getPluginByName('serverSide').refresh());
+
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
+      expect(getChildRows).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not re-fetch on collapse → re-expand of the same row object', async () => {
+      const { grid, getChildRows } = await createServerGrid(async () => ({ rows: kids() }));
+      const tree = grid.getPluginByName('tree');
+      tree.expand('0');
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
+
+      tree.collapse('0');
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 1, 2]));
+      tree.expand('0');
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
+      await nextFrames();
+
+      expect(getChildRows).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops a stale in-flight child response and fetches for the refetched root', async () => {
+      let resolveFirst!: (result: GetChildRowsResult) => void;
+      let call = 0;
+      const { grid, getChildRows } = await createServerGrid(() => {
+        call++;
+        if (call === 1) return new Promise((resolve) => (resolveFirst = resolve));
+        return Promise.resolve({ rows: kids() });
+      });
+      grid.getPluginByName('tree').expand('0');
+      await vi.waitFor(() => expect(getChildRows).toHaveBeenCalledTimes(1));
+
+      await refetch(grid, () => grid.getPluginByName('multiSort').setSortModel([{ field: 'id', direction: 'desc' }]));
+      resolveFirst({ rows: [{ id: 999, name: 'stale' }] });
+
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
+      expect(getChildRows).toHaveBeenCalledTimes(2);
+      expect(getChildRows.mock.calls[1][0].sortModel).toEqual([{ field: 'id', direction: 'desc' }]);
+    });
+
+    it('tries a failing automatic re-fetch once, and retries on manual re-expand', async () => {
+      let call = 0;
+      const { grid, getChildRows } = await createServerGrid(async () => {
+        call++;
+        if (call === 2) throw new Error('server exploded');
+        return { rows: kids() };
+      });
+      const tree = grid.getPluginByName('tree');
+      tree.expand('0');
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
+
+      await refetch(grid, () => grid.getPluginByName('serverSide').refresh());
+      await vi.waitFor(() => expect(getChildRows).toHaveBeenCalledTimes(2));
+      await nextFrames(5);
+      expect(getChildRows).toHaveBeenCalledTimes(2);
+      expect(ids(grid)).toEqual([0, 1, 2]);
+
+      tree.toggle('0');
+      tree.toggle('0');
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
+      expect(getChildRows).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe('local loadChildren', () => {
+    async function createLocalGrid() {
+      const loadChildren = vi.fn(async (_params: TreeLoadChildrenParams) => kids());
+      const grid = document.createElement('tbw-grid') as any;
+      grid.style.height = '600px';
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name' }],
+        getRowId: (row: Row) => String(row.id),
+        features: { tree: { loadChildren } },
+      };
+      document.body.appendChild(grid);
+      await grid.ready();
+      return { grid, loadChildren };
+    }
+
+    it('re-fetches children of an expanded node after grid.rows is replaced with new objects', async () => {
+      const { grid, loadChildren } = await createLocalGrid();
+      grid.rows = roots();
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 1, 2]));
+      grid.getPluginByName('tree').expand('0');
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
+
+      grid.rows = roots();
+
+      await vi.waitFor(() => expect(loadChildren).toHaveBeenCalledTimes(2));
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
+      expect(loadChildren.mock.calls[1][0].row).toBe(grid.rows[0]);
+    });
+
+    it('fetches children for a node expanded before its row existed', async () => {
+      const { grid, loadChildren } = await createLocalGrid();
+      grid.getPluginByName('tree').expand('1');
+
+      grid.rows = roots();
+
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 1, 100, 101, 102, 2]));
+      expect(loadChildren).toHaveBeenCalledTimes(1);
+    });
+  });
+});

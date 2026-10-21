@@ -239,7 +239,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
    */
   #cancelledRows = new WeakSet<object>();
   /** Rendered nodes queued for load reconciliation (cancel / auto-request), flushed in one microtask. */
-  #pendingReconcile: FlattenedTreeRow[] = [];
+  #pendingReconcile: Array<{ meta: FlattenedTreeRow; flat: boolean }> = [];
 
   /**
    * Stable key cache keyed by row identity.
@@ -436,6 +436,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       this.#rootCount = 0;
       this.rowKeyMap.clear();
       this.previousVisibleKeys.clear();
+      this.#reconcileFlatRows(treeRows);
       this.#syncTreeColumn();
       return false;
     }
@@ -688,26 +689,56 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
   }
 
   /**
+   * Cancel pending loads whose key now belongs to a different row object in data
+   * that is no longer a tree (e.g. the only lazy root replaced by a same-key row
+   * with `children: []`). `endHierarchy` never runs for flat data, so the
+   * {@link #needsReconcile} pass doesn't see these replacements. Cancel-only:
+   * flat data never requests children. Placeholders are skipped as in
+   * `#needsReconcile`; on duplicate keys the last row owns the key, as in `rowKeyMap`.
+   */
+  #reconcileFlatRows(rows: readonly TreeRow[]): void {
+    if (this.#loads.size === 0) return;
+    const owners = new Map<string, TreeRow>();
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (row.__loading === true) continue;
+      // Read-only key lookup — matches `#keyFor` without caching keys for flat rows.
+      const key = row.id !== undefined ? String(row.id) : (this.#rowKeys.get(row as object) ?? String(i));
+      if (this.#loads.has(key)) owners.set(key, row);
+    }
+    for (const [key, row] of owners) {
+      if (this.#loads.get(key)?.row === row) continue;
+      this.#queueReconcile(
+        { key, data: row, depth: 0, hasChildren: false, isExpanded: false, parentKey: null, posInSet: 0, setSize: 0 },
+        true,
+      );
+    }
+  }
+
+  /**
    * Queue a node for {@link #needsReconcile} handling. Deferred to ONE microtask:
    * `endHierarchy` runs inside the render pipeline, and cancelling / requesting
    * broadcasts `tree-load-end` / `tree-load-start` and queries ServerSide
    * synchronously. Loads of nodes that are not rendered (hidden under a
    * collapsed ancestor, or gone from the data) are left to settle.
+   *
+   * @param flat - Entry from {@link #reconcileFlatRows}: cancel only. `rowKeyMap`
+   *   is empty for flat data, so the owner check was already applied by the caller.
    */
-  #queueReconcile(meta: FlattenedTreeRow): void {
-    if (this.#pendingReconcile.push(meta) > 1) return;
+  #queueReconcile(meta: FlattenedTreeRow, flat = false): void {
+    if (this.#pendingReconcile.push({ meta, flat }) > 1) return;
     queueMicrotask(() => {
       const pending = this.#pendingReconcile;
       this.#pendingReconcile = [];
       if (!this.grid) return;
       let started = false;
-      for (const node of pending) {
+      for (const { meta: node, flat: cancelOnly } of pending) {
         // Only the key's current owner acts — skips rows replaced again by a later
         // rebuild, and keeps duplicate keys from cancelling each other in a loop.
-        if (this.rowKeyMap.get(node.key)?.data !== node.data) continue;
+        if (!cancelOnly && this.rowKeyMap.get(node.key)?.data !== node.data) continue;
         const load = this.#loads.get(node.key);
         if (load && load.row !== node.data) this.#cancelLoad(node.key);
-        if (!this.expandedKeys.has(node.key) || this.#requestedRows.has(node.data as object)) continue;
+        if (cancelOnly || !this.expandedKeys.has(node.key) || this.#requestedRows.has(node.data as object)) continue;
         // One automatic attempt per row object, even when no loader is configured.
         this.#requestedRows.add(node.data as object);
         started = this.requestLazyChildren(node) || started;

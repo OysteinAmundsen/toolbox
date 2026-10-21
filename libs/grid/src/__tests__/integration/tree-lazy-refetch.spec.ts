@@ -329,5 +329,52 @@ describe('Tree lazy children after root rows are replaced (#527)', () => {
       tree.expand('0');
       await vi.waitFor(() => expect(ids(grid)).toEqual([0, 10, 100, 101, 102]));
     });
+
+    it('cancels a pending load when the only lazy root is replaced by flat data with the same key', async () => {
+      const { grid, loadChildren } = await createLocalGrid();
+      let resolveFirst!: (rows: Row[]) => void;
+      loadChildren.mockImplementationOnce(() => new Promise<Row[]>((resolve) => (resolveFirst = resolve)));
+      const ends: any[] = [];
+      grid.addEventListener('tree-load-end', (e: CustomEvent) => ends.push(e.detail));
+      const rootA: Row = { id: 0, name: 'A', children: true };
+      grid.rows = [rootA];
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0]));
+      grid.getPluginByName('tree').expand('0');
+      await vi.waitFor(() => expect(loadChildren).toHaveBeenCalledTimes(1));
+
+      grid.rows = [{ id: 0, name: 'B', children: [] }]; // not a tree any more
+
+      await vi.waitFor(() => expect(ends[0]).toMatchObject({ key: '0', row: rootA, childCount: 0, cancelled: true }));
+      expect(loadChildren.mock.calls[0][0].signal.aborted).toBe(true);
+
+      resolveFirst([{ id: 999, name: 'stale' }]);
+      await nextFrames();
+      expect(rootA.children).toBe(true);
+      expect(ends).toHaveLength(1);
+
+      grid.rows = [rootA]; // restored A fetches again instead of exposing stale children
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102]));
+      expect(loadChildren).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not let a loading placeholder in flat data cancel a pending load with the same key', async () => {
+      const { grid, loadChildren } = await createLocalGrid();
+      let resolveFirst!: (rows: Row[]) => void;
+      loadChildren.mockImplementationOnce(() => new Promise<Row[]>((resolve) => (resolveFirst = resolve)));
+      const ends: any[] = [];
+      grid.addEventListener('tree-load-end', (e: CustomEvent) => ends.push(e.detail));
+      grid.rows = [{ id: 0, name: 'A', children: true }];
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0]));
+      grid.getPluginByName('tree').expand('0');
+      await vi.waitFor(() => expect(loadChildren).toHaveBeenCalledTimes(1));
+
+      grid.rows = [{ __loading: true, __index: 0 }]; // path key '0', not a replacement row
+      await nextFrames();
+      expect(loadChildren.mock.calls[0][0].signal.aborted).toBe(false);
+
+      resolveFirst(kids());
+      await vi.waitFor(() => expect(ends[0]).toMatchObject({ key: '0', childCount: 3 }));
+      expect(ends[0].cancelled).toBeUndefined();
+    });
   });
 });

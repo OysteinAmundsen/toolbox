@@ -32,11 +32,18 @@ import type {
 import {
   buildGroupedRowModel,
   buildPreDefinedGroupModel,
+  buildRootSlots,
   collapseAllGroups,
+  collectGroupKeys,
+  computeRootOwners,
   expandAllGroups,
+  findGroupDefinition,
   getGroupKeys,
   getGroupPath,
   getGroupRowCount,
+  interleaveRootNodes,
+  leadingGroups,
+  mapViewportToNodes,
   resolveDefaultExpanded,
   resolveGroupFields,
   toggleGroupExpansion,
@@ -265,6 +272,21 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
   private groupConfigDirty = false;
   /** Pre-defined group definitions (from config, setGroups(), or datasource:data) */
   private preDefinedGroups: GroupDefinition[] = [];
+  /**
+   * ServerSide-fed definitions, sparse and indexed by node (`startNode + i` of each
+   * `datasource:data` block). `preDefinedGroups` is its compacted form. Merged per
+   * block within one ServerSide cache generation, reset when the generation changes (#538).
+   */
+  #nodeGroups: (GroupDefinition | undefined)[] = [];
+  /** Definitions come from generation-stamped ServerSide blocks — unloaded root nodes render as its placeholders. */
+  #serverFed = false;
+  /** `DataSourceDataDetail.generation` of the claimed blocks (`undefined` = none, or a legacy emitter). */
+  #serverGeneration: number | undefined;
+  /**
+   * Every group key a ServerSide block delivered, across generations — `defaultExpanded: true`
+   * opens only keys not in here, so a group the user collapsed stays collapsed after a refetch.
+   */
+  #seenServerKeys = new Set<string>();
   /** Row data keyed by group key (from setGroupRows() or datasource:children) */
   private groupRowsMap = new Map<string, unknown[]>();
   /** Groups currently in a loading state */
@@ -273,10 +295,11 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
    * In-flight `datasource:fetch-children` requests (ServerSide active only),
    * keyed by group key. Each controller's signal is passed as
    * `FetchChildrenQuery.signal`, so aborting it cancels `getChildRows()` and
-   * drops its result. Aborted when new group definitions arrive (`setGroups()`,
-   * or a ServerSide refetch after sort/filter/`refresh()` — which then
-   * re-requests every still-expanded group whose rows were loaded or loading),
-   * on `setGroupRows`/`clearGroupRows`, and on detach. Collapsing keeps the
+   * drops its result. Aborted when the group definitions are replaced (`setGroups()`,
+   * or a new ServerSide cache generation — sort/filter, `refresh()`, `purgeCache()` —
+   * which then re-requests every still-expanded group whose rows were loaded or
+   * loading; an appended ServerSide block keeps them), on `setGroupRows`/`clearGroupRows`,
+   * and on detach. Collapsing keeps the
    * load: its rows are cached for the next expand, and re-expanding while it is
    * in flight does not re-request.
    */
@@ -288,7 +311,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
    * after the render that shows it (#534); a failing group is therefore not
    * re-requested on every render. A manual collapsed → expanded transition
    * (`toggle()`, `expand()`, `expandAll()`) is a fresh attempt, so collapse +
-   * re-expand still retries. Cleared when new definitions arrive.
+   * re-expand still retries. Cleared when the definitions are replaced (`setGroups()`,
+   * a new ServerSide cache generation, detach) — not when a later ServerSide block is appended.
    */
   #requestedKeys = new Set<string>();
   #groupRequestsQueued = false;
@@ -308,6 +332,10 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
   #groupFieldsResolved = false;
   /** Render-model item of every row emitted by this rebuild, keyed by row object. */
   #renderItems = new WeakMap<object, RenderRow>();
+  /** Node index of every root row (top-level group or ServerSide placeholder) emitted by this rebuild. */
+  #rootIndexOf = new WeakMap<object, number>();
+  /** Pre-defined mode: node index of the root each `flattenedRows` entry belongs to, and the root count. */
+  #rootOwners: { owners: number[]; count: number } = { owners: [], count: 0 };
   #anyGroup = false;
   /** Top-level keys of nested (tree child) lists already seen, for `defaultExpanded: true`. */
   #seenNestedKeys = new Set<string>();
@@ -339,6 +367,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
     this.pendingExpansion = undefined;
     this.groupConfigDirty = false;
     this.preDefinedGroups = [];
+    this.#resetServerGroups();
+    this.#rootOwners = { owners: [], count: 0 };
     this.groupRowsMap.clear();
     this.#abortGroupLoads();
     this.#requestedKeys.clear();
@@ -389,36 +419,13 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
       return [...this.groupedFields];
     }
     if (query.type === 'datasource:viewport-mapping') {
-      // Translate visible flat row indices → top-level group indices for ServerSide pagination
+      // Translate visible flat row indices → top-level node indices for ServerSide pagination.
+      // Unloaded nodes are placeholder roots, so the mapping reaches past the loaded groups (#538).
       const { viewportStart, viewportEnd } = query.context as ViewportMappingQuery;
-      if (this.flattenedRows.length === 0) return undefined;
-      // Only respond in pre-defined groups mode (when datasource data is being consumed)
-      if (this.preDefinedGroups.length === 0 && !Array.isArray(this.config.groups)) return undefined;
-
-      const activeGroups = this.getActiveGroups();
-      const startNode = this.getTopLevelGroupIndex(viewportStart);
-      const endNode = this.getTopLevelGroupIndex(viewportEnd) + 1; // exclusive
-      const totalLoadedNodes = activeGroups.length;
-
-      return { startNode, endNode, totalLoadedNodes } satisfies ViewportMappingResponse;
+      if (this.flattenedRows.length === 0 || this.#mode !== 'predefined') return undefined;
+      return mapViewportToNodes(this.#rootOwners, viewportStart, viewportEnd) satisfies ViewportMappingResponse;
     }
     return undefined;
-  }
-
-  /**
-   * Translate a flat row index to the top-level group index it belongs to.
-   * Walks flattenedRows up to the given index and counts depth-0 groups encountered.
-   */
-  private getTopLevelGroupIndex(flatIndex: number): number {
-    let groupIndex = -1;
-    const clampedIndex = Math.min(flatIndex, this.flattenedRows.length - 1);
-    for (let i = 0; i <= clampedIndex; i++) {
-      const row = this.flattenedRows[i];
-      if (row.kind === 'group' && row.depth === 0) {
-        groupIndex++;
-      }
-    }
-    return Math.max(0, groupIndex);
   }
 
   // #region Lifecycle
@@ -429,25 +436,37 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
 
     // Listen for datasource:data from ServerSidePlugin — claim data as group definitions
     this.on('datasource:data', (detail: unknown) => {
-      const d = detail as DataSourceDataDetail;
-      if (!d.claimed) {
-        d.claimed = true;
-        // Expanded groups whose rows were loaded or loading — the refetch
-        // (refresh / server sort / filter) invalidates them, so re-request below.
-        const reload = [...this.expandedKeys].filter((k) => this.groupRowsMap.has(k) || this.#groupLoads.has(k));
-        // Interpret incoming rows as group definitions
-        this.preDefinedGroups = d.rows as unknown as GroupDefinition[];
-        this.groupRowsMap.clear();
-        this.#abortGroupLoads();
-        this.#requestedKeys.clear();
-        this.loadingGroups.clear();
-        this.hasAppliedDefaultExpanded = false;
-        for (const key of reload) {
-          const groupDef = this.findGroupDefinition(this.preDefinedGroups, key);
-          if (groupDef) this.#requestGroupRows(key, groupDef, getGroupPath(this.preDefinedGroups, key));
-        }
+      const d = detail as DataSourceDataDetail<GroupDefinition>;
+      if (d.claimed) return;
+      d.claimed = true;
+      const groups = d.rows;
+      // Another block of the current dataset: merge it at its node offset and keep
+      // loaded rows, in-flight loads and expansion (#538).
+      if (this.#serverFed && d.generation !== undefined && d.generation === this.#serverGeneration) {
+        this.#mergeServerGroups(groups, d.startNode);
         this.requestRender();
+        return;
       }
+      // A new dataset (first load, refresh, purge, server sort/filter): expanded groups
+      // whose rows were loaded or loading are invalidated, so re-request them below.
+      const reload = [...this.expandedKeys].filter((k) => this.groupRowsMap.has(k) || this.#groupLoads.has(k));
+      this.#nodeGroups = [];
+      // Only generation-stamped blocks are node-indexed; a legacy emitter's block is a compact replacement.
+      this.#serverFed = d.generation !== undefined;
+      this.#serverGeneration = d.generation;
+      // The default resolves once: an applied default (or retained expansion) survives a refetch,
+      // so collapsed groups stay collapsed; never-seen groups still open via `#seenServerKeys`.
+      this.hasAppliedDefaultExpanded ||= this.expandedKeys.size > 0;
+      this.#mergeServerGroups(groups, this.#serverFed ? d.startNode : 0);
+      this.groupRowsMap.clear();
+      this.#abortGroupLoads();
+      this.#requestedKeys.clear();
+      this.loadingGroups.clear();
+      for (const key of reload) {
+        const groupDef = findGroupDefinition(this.preDefinedGroups, key);
+        if (groupDef) this.#requestGroupRows(key, groupDef, getGroupPath(this.preDefinedGroups, key));
+      }
+      this.requestRender();
     });
 
     // Listen for datasource:children — consume child rows from ServerSide
@@ -493,6 +512,30 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
       controller.abort();
       this.#groupLoads.delete(key);
       this.loadingGroups.delete(key);
+    }
+  }
+
+  /** Forget ServerSide-fed definitions (`setGroups()`, detach). */
+  #resetServerGroups(): void {
+    this.#nodeGroups = [];
+    this.#serverFed = false;
+    this.#serverGeneration = undefined;
+    this.#seenServerKeys.clear();
+  }
+
+  /**
+   * Place a block's definitions at their node indices and refresh the compacted `preDefinedGroups`.
+   * Once the default has been applied (the render-time resolution runs once), `defaultExpanded: true`
+   * opens the block's never-seen groups like the first block's.
+   */
+  #mergeServerGroups(groups: GroupDefinition[], startNode: number): void {
+    const start = Number.isInteger(startNode) && startNode > 0 ? startNode : 0;
+    for (let i = 0; i < groups.length; i++) this.#nodeGroups[start + i] = groups[i];
+    this.preDefinedGroups = this.#nodeGroups.filter((group): group is GroupDefinition => group != null);
+    const openNew = this.config.defaultExpanded === true && this.hasAppliedDefaultExpanded;
+    for (const key of collectGroupKeys(groups)) {
+      if (openNew && !this.#seenServerKeys.has(key)) this.expandedKeys.add(key);
+      this.#seenServerKeys.add(key);
     }
   }
 
@@ -550,7 +593,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
       if (!this.#needsGroupRows(item)) continue;
       const groupPath = getGroupPath(groups, item.key);
       if (!groupPath.every((key) => this.expandedKeys.has(key))) continue;
-      const group = this.findGroupDefinition(groups, item.key);
+      const group = findGroupDefinition(groups, item.key);
       // A parent group renders its child groups, never rows.
       if (!serverSideActive || !group || group.children?.length) {
         this.#requestedKeys.add(item.key);
@@ -683,6 +726,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
     this.#pendingApplied = false;
     this.#anyGroup = false;
     this.#renderItems = new WeakMap();
+    this.#rootIndexOf = new WeakMap();
 
     // Pre-defined groups path — use external group structure instead of groupOn analysis
     if (this.preDefinedGroups.length > 0 || Array.isArray(this.config.groups)) {
@@ -706,7 +750,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
   /** @internal Hierarchy contributor hook */
   processSiblings(nodes: HierarchyNode[], context: HierarchySiblingContext): HierarchyNode[] {
     const isRoot = context.parentKey === null && context.parent === null;
-    if (this.#mode === 'predefined') return isRoot ? this.#preDefinedNodes(context.depth) : nodes;
+    if (this.#mode === 'predefined') return isRoot ? this.#preDefinedNodes(context.depth, nodes) : nodes;
 
     const config = this.config;
     const rows = nodes.map((node) => node.row);
@@ -757,6 +801,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
     this.keysToAnimate.clear();
     const currentVisibleKeys = new Set<string>();
     const predefined = this.#mode === 'predefined';
+    if (predefined) this.#rootOwners = computeRootOwners(rows, this.#rootIndexOf);
     let needsGroupRows = false;
     this.flattenedRows.forEach((item, idx) => {
       if (item.kind === 'data') {
@@ -1024,15 +1069,35 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
   /**
    * Build the root nodes from pre-defined group definitions.
    * Used when `groups` config or `setGroups()` provides external group structure.
+   *
+   * ServerSide-fed (#538): the root list is node-indexed — a loaded definition, or the
+   * ServerSide placeholder `input` holds for an unloaded node, so unloaded groups take up
+   * scroll space and scrolling to them maps (`datasource:viewport-mapping`) onto their
+   * block. `input` is authoritative: a definition ServerSide no longer lists (its block was
+   * purged) does not render — see `buildRootSlots`.
    */
-  #preDefinedNodes(baseDepth: number): HierarchyNode[] {
-    const groups = this.getActiveGroups();
-    if (groups.length === 0) return [];
+  #preDefinedNodes(baseDepth: number, input: readonly HierarchyNode[]): HierarchyNode[] {
+    const active = this.getActiveGroups();
+    const { slots, groups } = this.#serverFed
+      ? buildRootSlots(this.#nodeGroups, input)
+      : { slots: active, groups: active };
+    if (slots.length === 0) return [];
 
-    // Resolve defaultExpanded on first render only
-    if (!this.hasAppliedDefaultExpanded && this.expandedKeys.size === 0 && this.config.defaultExpanded !== false) {
-      const allKeys = this.collectGroupKeys(groups);
-      const initialExpanded = resolveDefaultExpanded(this.config.defaultExpanded ?? false, allKeys);
+    // Resolve defaultExpanded on first render only. A numeric index waits until every
+    // definition before it has loaded (blocks may land out of order, #538). Server-fed, the
+    // default resolves against the LOADED definitions, never the rendered `slots`/`groups`: a
+    // local filter hides a definition without unloading it, and must not stall or shift a
+    // numeric index, nor leave a hidden group out of `true` (the default resolves only once).
+    const defaultExpanded = this.config.defaultExpanded ?? false;
+    if (!this.hasAppliedDefaultExpanded && this.expandedKeys.size === 0 && defaultExpanded !== false) {
+      // Not server-fed: `slots` === `groups`, unfiltered.
+      const loaded = !this.#serverFed
+        ? groups
+        : typeof defaultExpanded === 'number'
+          ? leadingGroups(this.#nodeGroups)
+          : this.preDefinedGroups;
+      const allKeys = collectGroupKeys(loaded);
+      const initialExpanded = resolveDefaultExpanded(defaultExpanded, allKeys);
       if (initialExpanded.size > 0) {
         this.expandedKeys = new Set(initialExpanded);
         this.hasAppliedDefaultExpanded = true;
@@ -1046,26 +1111,13 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
       loadingGroups: this.loadingGroups,
     });
     // Prefer the server-reported row count over the loaded rows.
-    return this.#nest(
+    const groupNodes = this.#nest(
       grouped,
       baseDepth,
       (row) => ({ row }),
-      (item) => this.findGroupDefinition(groups, item.key)?.rowCount ?? item.rows.length,
+      (item) => findGroupDefinition(groups, item.key)?.rowCount ?? item.rows.length,
     );
-  }
-
-  /**
-   * Collect all group keys from a pre-defined group tree.
-   */
-  private collectGroupKeys(groups: GroupDefinition[]): string[] {
-    const keys: string[] = [];
-    for (const g of groups) {
-      keys.push(g.key);
-      if (g.children?.length) {
-        keys.push(...this.collectGroupKeys(g.children));
-      }
-    }
-    return keys;
+    return interleaveRootNodes(slots, groupNodes, this.#rootIndexOf);
   }
 
   /**
@@ -1074,20 +1126,6 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
   private getActiveGroups(): GroupDefinition[] {
     if (this.preDefinedGroups.length > 0) return this.preDefinedGroups;
     return Array.isArray(this.config.groups) ? this.config.groups : [];
-  }
-
-  /**
-   * Find a group definition by key in the pre-defined group tree.
-   */
-  private findGroupDefinition(groups: GroupDefinition[], key: string): GroupDefinition | undefined {
-    for (const g of groups) {
-      if (g.key === key) return g;
-      if (g.children?.length) {
-        const found = this.findGroupDefinition(g.children, key);
-        if (found) return found;
-      }
-    }
-    return undefined;
   }
   // #endregion
 
@@ -1350,7 +1388,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
 
         // Request child rows via unified DataSource if not already cached or in flight
         if (!this.groupRowsMap.has(key)) {
-          const groupDef = this.findGroupDefinition(activeGroups, key);
+          const groupDef = findGroupDefinition(activeGroups, key);
           if (groupDef) this.#requestGroupRows(key, groupDef, groupPath);
         }
       } else {
@@ -1515,6 +1553,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
    * @param groups - Array of group definitions, or empty array to clear
    */
   setGroups(groups: GroupDefinition[]): void {
+    this.#resetServerGroups();
     this.preDefinedGroups = groups;
     this.groupRowsMap.clear();
     this.#abortGroupLoads();

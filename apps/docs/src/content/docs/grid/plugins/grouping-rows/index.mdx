@@ -705,10 +705,12 @@ export class ServerGroupedGridComponent {
 
 **Data flow:**
 1. ServerSide fetches block → broadcasts `datasource:data`
-2. GroupingRowsPlugin claims data as pre-defined groups
+2. GroupingRowsPlugin claims data as pre-defined groups, merging each block at its node offset (`startNode`)
 3. On group expand (any path, including `defaultExpanded` and `expandAll()`) → fires `datasource:fetch-children` with `{ source: 'grouping-rows', groupKey }`
 4. ServerSide calls `getChildRows()` → broadcasts `datasource:children`
 5. GroupingRowsPlugin receives rows and renders them under the group
+
+**More groups than `pageSize`:** Top-level groups load in blocks, like flat ServerSide rows. Groups whose block has not loaded yet show as loading rows and take up scroll space. Scrolling to them (or `loadThreshold` prefetching) requests their block, and each block is added to the groups already loaded. Loaded groups keep their rows and expanded state while more blocks arrive. With `defaultExpanded: true`, groups that have not been shown before open as their block loads, while groups the user collapsed stay collapsed, even after a refetch. A server sort/filter change, `refresh()`, or `purgeCache()` starts over from a fresh set of groups.
 
 **Errors and cancellation:** If `getChildRows()` rejects, the group leaves its loading state (it stays expanded, with no rows) and the grid fires `group-load-error` with `{ groupKey, groupPath, error }`. Collapsing and re-expanding the group retries the fetch. A request that is still in flight is aborted (`params.signal`) and its result discarded when new group definitions arrive (a server sort/filter change, `refresh()`, or `setGroups()`), and when `setGroupRows()` / `clearGroupRows()` replaces or clears that group's rows. After a server refetch, every group that is still expanded and had its rows loaded (or loading) requests them again under the new sort/filter, so it does not end up expanded and empty. A group that is expanded without rows (for example after a failed fetch) gets one automatic attempt per set of group definitions, so a failing group is not re-requested on every render. Collapsing a group does **not** cancel its request: the rows are cached for the next expand.
 

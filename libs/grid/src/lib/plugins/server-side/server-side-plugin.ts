@@ -185,6 +185,11 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   private pendingViewportCheck = false;
   /** Persistent node array with stable placeholder references to avoid unnecessary DOM rebuilds. */
   private managedNodes: unknown[] = [];
+  /**
+   * Bumped whenever the block cache is discarded; stamped on `datasource:data` so
+   * structural consumers (GroupingRows) can tell an appended block from a new dataset.
+   */
+  #generation = 0;
   // #endregion
 
   // #region Lifecycle
@@ -237,6 +242,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.totalNodeCount = 0;
     this.infiniteScrollMode = false;
     this.loadedBlocks.clear();
+    this.#generation++;
     this.abortAllBlocks();
     for (const controller of this.childControllers) controller.abort();
     this.childControllers.clear();
@@ -404,6 +410,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     if (!this.dataSource) return;
     this.abortAllBlocks();
     this.loadedBlocks.clear();
+    this.#generation++;
     this.managedNodes = [];
     this.totalNodeCount = 0;
     this.infiniteScrollMode = false;
@@ -535,6 +542,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
             startNode: start,
             endNode: start + result.rows.length,
             claimed: false,
+            generation: this.#generation,
           };
           this.broadcast('datasource:data', detail);
 
@@ -800,6 +808,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.abortAllBlocks();
     this.dataSource = dataSource;
     this.loadedBlocks.clear();
+    this.#generation++;
     this.managedNodes = [];
     this.totalNodeCount = 0;
     this.infiniteScrollMode = false;
@@ -833,6 +842,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
           startNode: 0,
           endNode: result.rows.length,
           claimed: false,
+          generation: this.#generation,
         };
         this.broadcast('datasource:data', detail);
         this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
@@ -883,6 +893,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   purgeCache(): void {
     this.abortAllBlocks();
     this.loadedBlocks.clear();
+    this.#generation++;
     this.managedNodes = [];
     // Drop a deferred viewport fill so the purge doesn't refetch on the next render.
     this.pendingViewportCheck = false;

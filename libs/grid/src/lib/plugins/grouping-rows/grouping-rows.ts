@@ -6,6 +6,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import type { HierarchyNode } from '../hierarchy';
 import type {
   DefaultExpandedValue,
   GroupDefinition,
@@ -390,5 +391,120 @@ export function getGroupPath(groups: GroupDefinition[], targetKey: string, paren
     }
   }
   return [];
+}
+
+/** Every group key of a pre-defined group tree, depth-first. */
+export function collectGroupKeys(groups: GroupDefinition[]): string[] {
+  const keys: string[] = [];
+  for (const g of groups) {
+    keys.push(g.key);
+    if (g.children?.length) keys.push(...collectGroupKeys(g.children));
+  }
+  return keys;
+}
+
+/** Find a group definition by key anywhere in a pre-defined group tree. */
+export function findGroupDefinition(groups: GroupDefinition[], key: string): GroupDefinition | undefined {
+  for (const g of groups) {
+    if (g.key === key) return g;
+    const found = g.children?.length ? findGroupDefinition(g.children, key) : undefined;
+    if (found) return found;
+  }
+  return undefined;
+}
+// #endregion
+
+// #region ServerSide Root Nodes (#538)
+
+/** A ServerSide loading placeholder standing in for an unloaded root node (mirrors `isLoadingPlaceholder`). */
+export function isRootPlaceholder(row: unknown): row is { __loading: true; __index: number } {
+  const r = row as { __loading?: unknown; __index?: unknown } | null;
+  return r != null && typeof r === 'object' && r.__loading === true && typeof r.__index === 'number';
+}
+
+/**
+ * The definitions before the first gap or placeholder — the contiguous run from node 0.
+ * A numeric `defaultExpanded` (a depth-first key index) resolves against the leading LOADED
+ * definitions (`#nodeGroups`, never the filtered render slots), so blocks landing out of order
+ * cannot shift it onto a later group.
+ */
+export function leadingGroups(slots: readonly unknown[]): GroupDefinition[] {
+  const leading: GroupDefinition[] = [];
+  for (const slot of slots) {
+    if (slot == null || isRootPlaceholder(slot)) break;
+    leading.push(slot as GroupDefinition);
+  }
+  return leading;
+}
+
+/**
+ * Node-indexed root slots. ServerSide's root list (`input`) is authoritative: a placeholder sits
+ * at its `__index`, and a definition renders only while ServerSide still lists that object — at
+ * its node index in `nodeGroups` (sparse, by node index). So definitions whose block ServerSide
+ * dropped (`purgeCache()`, an infinite-scroll estimate that shrank) or that a local filter
+ * removed do not render. An empty `input` means no node count yet (a refetch in flight, or no
+ * ServerSide input) → the loaded definitions. `groups` = the rendered definitions, in node order.
+ */
+export function buildRootSlots(nodeGroups: readonly (GroupDefinition | undefined)[], input: readonly HierarchyNode[]) {
+  let slots: unknown[] = nodeGroups.slice();
+  if (input.length > 0) {
+    const nodeIndexOf = new Map<unknown, number>();
+    nodeGroups.forEach((group, i) => nodeIndexOf.set(group, i));
+    slots = [];
+    for (const { row } of input) {
+      const index = isRootPlaceholder(row) ? row.__index : nodeIndexOf.get(row);
+      if (index !== undefined) slots[index] = row;
+    }
+  }
+  const groups = slots.filter((slot): slot is GroupDefinition => slot != null && !isRootPlaceholder(slot));
+  return { slots, groups };
+}
+
+/**
+ * Root list in node order: `groupNodes[k]` (the node of the k-th definition in `slots`) or a
+ * placeholder node. Records each root's node index (slot index) in `rootIndexOf`.
+ */
+export function interleaveRootNodes(
+  slots: readonly unknown[],
+  groupNodes: readonly HierarchyNode[],
+  rootIndexOf: WeakMap<object, number>,
+): HierarchyNode[] {
+  const roots: HierarchyNode[] = [];
+  let next = 0;
+  for (let i = 0; i < slots.length; i++) {
+    const slot = slots[i];
+    if (slot == null) continue;
+    const node = isRootPlaceholder(slot) ? { row: slot } : groupNodes[next++];
+    rootIndexOf.set(node.row as object, i);
+    roots.push(node);
+  }
+  return roots;
+}
+
+/** Index-aligned with `rows`: node index of the root each rendered row belongs to, plus the root count. */
+export function computeRootOwners(rows: readonly unknown[], rootIndexOf: WeakMap<object, number>) {
+  const owners: number[] = new Array(rows.length);
+  let owner = 0;
+  let count = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const rootIndex = rootIndexOf.get(rows[i] as object);
+    if (rootIndex !== undefined) {
+      owner = rootIndex;
+      count++;
+    }
+    owners[i] = owner;
+  }
+  return { owners, count };
+}
+
+/** Translate a rendered row range to the root nodes that own it (see {@link computeRootOwners}). */
+export function mapViewportToNodes(
+  { owners, count }: { owners: readonly number[]; count: number },
+  viewportStart: number,
+  viewportEnd: number,
+): { startNode: number; endNode: number; totalLoadedNodes: number } {
+  const last = owners.length - 1;
+  const ownerAt = (index: number) => owners[Math.max(0, Math.min(index, last))] ?? 0;
+  return { startNode: ownerAt(viewportStart), endNode: ownerAt(viewportEnd) + 1, totalLoadedNodes: count };
 }
 // #endregion

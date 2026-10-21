@@ -215,7 +215,13 @@ rendering and expand/collapse. Whenever a group is expanded (by the user, `toggl
 `expand()`, `expandAll()`, or `defaultExpanded`), GroupingRows automatically
 fires a `datasource:fetch-children` query — the ServerSide plugin calls
 `getChildRows()` and delivers the results back via `datasource:children`.
-Viewport mapping is handled automatically for correct pagination.
+Viewport mapping is handled automatically for correct pagination: top-level groups
+load in blocks of `pageSize`, unloaded groups render as loading placeholders that
+take up scroll space, and each block's definitions are merged at their `startNode`
+(loaded rows and expansion survive later blocks; `defaultExpanded: true` opens groups
+not shown before, and user-collapsed groups stay collapsed across refetches). A new
+ServerSide cache generation — server sort/filter, `refresh()`, `purgeCache()` —
+replaces the definitions.
 
 If `getChildRows()` rejects, the group leaves its loading state and `group-load-error`
 fires. An in-flight request is aborted (`params.signal`) when new group definitions

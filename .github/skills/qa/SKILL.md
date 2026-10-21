@@ -114,7 +114,13 @@ bunx fallow dead-code --format json > tmp/fallow-audit.json
 ```
 
 Without coverage input, `crap` assumes 0 % coverage (CRAP = cyclomatic² + cyclomatic), so treat high CRAP on a
-well-tested file as complexity debt, not an introduced regression.
+well-tested file as complexity debt, not an introduced regression. When `audit` fails on CRAP alone, re-score it
+with real coverage before reporting anything, once per affected project that writes lcov — today only `grid`:
+`bun nx test grid --coverage`, then
+`bun .github/skills/fallow/scripts/crap-from-lcov.ts --lcov coverage/libs/grid/lcov.info --root libs/grid`
+(see the `fallow` skill). Only `ok (coverage artifact)` rows are cleared. Report `REAL` rows at their fallow
+tier, and `UNVERIFIED (no lcov)` rows (files outside that lcov, e.g. adapter code — the adapters emit no lcov)
+at their fallow tier marked "unverified, no coverage" — never drop them.
 
 **For full working-tree scope** (uncommitted changes):
 

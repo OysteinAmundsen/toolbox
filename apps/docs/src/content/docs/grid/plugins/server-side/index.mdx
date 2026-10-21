@@ -773,7 +773,7 @@ flowchart TB
 
 ### getChildRows() Interface
 
-When composing with Tree, Row Grouping, or Master-Detail, implement `getChildRows()` on the data source. The `context.source` discriminator tells you which plugin is requesting children. `params.signal` is aborted when the requesting plugin supersedes the request (Tree: the parent row was replaced by a refetch before its children arrived) or the grid is torn down. The result of an aborted request is discarded.
+When composing with Tree, Row Grouping, or Master-Detail, implement `getChildRows()` on the data source. The `context.source` discriminator tells you which plugin is requesting children. `params.signal` is aborted when the requesting plugin supersedes the request (Tree: a refetch replaced the parent row before its children arrived) or the grid is torn down. The result of an aborted request is discarded.
 
 ```typescript
 import type { GetChildRowsParams, GetChildRowsResult } from '@toolbox-web/grid/plugins/server-side';

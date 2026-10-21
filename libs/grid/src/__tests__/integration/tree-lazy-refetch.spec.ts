@@ -251,5 +251,83 @@ describe('Tree lazy children after root rows are replaced (#527)', () => {
       pending[2](kids());
       await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
     });
+
+    it('cancels a pending load when the replacement row embeds its children, and rejects the late result', async () => {
+      const { grid, loadChildren } = await createLocalGrid();
+      let resolveFirst!: (rows: Row[]) => void;
+      loadChildren.mockImplementationOnce(() => new Promise<Row[]>((resolve) => (resolveFirst = resolve)));
+      const ends: any[] = [];
+      grid.addEventListener('tree-load-end', (e: CustomEvent) => ends.push(e.detail));
+      const rowsA = roots();
+      grid.rows = rowsA;
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 1, 2]));
+      grid.getPluginByName('tree').expand('0');
+      await vi.waitFor(() => expect(loadChildren).toHaveBeenCalledTimes(1));
+
+      const rowsB = roots();
+      rowsB[0].children = [{ id: 200, name: 'embedded' }];
+      grid.rows = rowsB;
+
+      await vi.waitFor(() =>
+        expect(ends[0]).toMatchObject({ key: '0', row: rowsA[0], childCount: 0, cancelled: true }),
+      );
+      expect(loadChildren.mock.calls[0][0].signal.aborted).toBe(true);
+      expect(ids(grid)).toEqual([0, 200, 1, 2]);
+
+      resolveFirst([{ id: 999, name: 'stale' }]);
+      await nextFrames();
+      expect(rowsA[0].children).toBe(true);
+      expect(ends).toHaveLength(1);
+
+      grid.rows = rowsA; // restored A reloads instead of exposing stale children
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
+      expect(loadChildren).toHaveBeenCalledTimes(2);
+      expect(loadChildren.mock.calls[1][0].row).toBe(rowsA[0]);
+    });
+
+    it('cancels the load of a collapsed node whose row is replaced, without requesting for the new row', async () => {
+      const { grid, loadChildren } = await createLocalGrid();
+      loadChildren.mockImplementationOnce(() => new Promise<Row[]>(() => undefined));
+      const ends: any[] = [];
+      grid.addEventListener('tree-load-end', (e: CustomEvent) => ends.push(e.detail));
+      grid.rows = roots();
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 1, 2]));
+      const tree = grid.getPluginByName('tree');
+      tree.expand('0');
+      await vi.waitFor(() => expect(loadChildren).toHaveBeenCalledTimes(1));
+      tree.collapse('0');
+
+      grid.rows = roots();
+
+      await vi.waitFor(() => expect(ends[0]).toMatchObject({ key: '0', cancelled: true }));
+      expect(loadChildren.mock.calls[0][0].signal.aborted).toBe(true);
+      await nextFrames();
+      expect(loadChildren).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the load of a node hidden under a collapsed ancestor', async () => {
+      const { grid, loadChildren } = await createLocalGrid();
+      let resolveFirst!: (rows: Row[]) => void;
+      loadChildren.mockImplementationOnce(() => new Promise<Row[]>((resolve) => (resolveFirst = resolve)));
+      const ends: any[] = [];
+      grid.addEventListener('tree-load-end', (e: CustomEvent) => ends.push(e.detail));
+      grid.rows = [{ id: 0, name: 'root', children: [{ id: 10, name: 'lazy', children: true }] }];
+      const tree = grid.getPluginByName('tree');
+      tree.expand('0');
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 10]));
+      tree.expand('10');
+      await vi.waitFor(() => expect(loadChildren).toHaveBeenCalledTimes(1));
+
+      tree.collapse('0');
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0]));
+      await nextFrames();
+      expect(loadChildren.mock.calls[0][0].signal.aborted).toBe(false);
+
+      resolveFirst(kids());
+      await vi.waitFor(() => expect(ends[0]).toMatchObject({ key: '10', childCount: 3 }));
+      expect(ends[0].cancelled).toBeUndefined();
+      tree.expand('0');
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 10, 100, 101, 102]));
+    });
   });
 });

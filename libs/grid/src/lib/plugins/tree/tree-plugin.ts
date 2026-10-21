@@ -238,8 +238,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
    * still dropped.
    */
   #cancelledRows = new WeakSet<object>();
-  /** Expanded lazy nodes queued for an automatic child request, flushed in one microtask. */
-  #pendingAutoRequests: FlattenedTreeRow[] = [];
+  /** Rendered nodes queued for load reconciliation (cancel / auto-request), flushed in one microtask. */
+  #pendingReconcile: FlattenedTreeRow[] = [];
 
   /**
    * Stable key cache keyed by row identity.
@@ -288,7 +288,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     this.#loadedRows = new WeakSet();
     this.#requestedRows = new WeakSet();
     this.#cancelledRows = new WeakSet();
-    this.#pendingAutoRequests = [];
+    this.#pendingReconcile = [];
     // Silent on teardown — no `tree-load-end` for loads the detach aborts.
     for (const load of this.#loads.values()) load.controller.abort();
     this.#loads.clear();
@@ -540,8 +540,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       if (!this.previousVisibleKeys.has(meta.key) && meta.depth > 0) {
         this.keysToAnimate.add(meta.key);
       }
-      if (meta.isExpanded && meta.hasChildren && !this.#requestedRows.has(meta.data as object)) {
-        this.#queueAutoRequest(meta);
+      if (this.#needsReconcile(meta)) {
+        this.#queueReconcile(meta);
       }
     }
     this.previousVisibleKeys = currentKeys;
@@ -664,25 +664,50 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
   }
 
   /**
-   * Queue an automatic child request for a node that is rendered expanded but
-   * whose row object was never fetched — e.g. a root replaced by a ServerSide
-   * refetch (#527), or a node passed to {@link expand} before its row existed.
+   * Whether a rendered node needs reconciling with `#loads`:
+   * - a pending load belongs to a DIFFERENT row object under this key — the row
+   *   was replaced, so that load is obsolete whether or not the replacement needs
+   *   a fetch (it may embed its children, or the node may be collapsed);
+   * - or the node is expanded with lazy children its row object never requested
+   *   — e.g. a root replaced by a ServerSide refetch (#527), or a node passed to
+   *   {@link expand} before its row existed.
    *
-   * Deferred to a microtask: `endHierarchy` runs inside the render pipeline, and
-   * a request broadcasts `tree-load-start` / queries ServerSide synchronously.
+   * ServerSide placeholders never supersede a load: their path key can collide
+   * with a real row's id.
    */
-  #queueAutoRequest(meta: FlattenedTreeRow): void {
-    if (this.#isLoading(meta) || !this.#needsChildFetch(meta.data)) return;
-    if (this.#pendingAutoRequests.push(meta) > 1) return;
+  #needsReconcile(meta: FlattenedTreeRow): boolean {
+    if (meta.data.__loading === true) return false;
+    const load = this.#loads.get(meta.key);
+    if (load) return load.row !== meta.data;
+    return (
+      meta.isExpanded &&
+      meta.hasChildren &&
+      !this.#requestedRows.has(meta.data as object) &&
+      this.#needsChildFetch(meta.data)
+    );
+  }
+
+  /**
+   * Queue a node for {@link #needsReconcile} handling. Deferred to ONE microtask:
+   * `endHierarchy` runs inside the render pipeline, and cancelling / requesting
+   * broadcasts `tree-load-end` / `tree-load-start` and queries ServerSide
+   * synchronously. Loads of nodes that are not rendered (hidden under a
+   * collapsed ancestor, or gone from the data) are left to settle.
+   */
+  #queueReconcile(meta: FlattenedTreeRow): void {
+    if (this.#pendingReconcile.push(meta) > 1) return;
     queueMicrotask(() => {
-      const pending = this.#pendingAutoRequests;
-      this.#pendingAutoRequests = [];
+      const pending = this.#pendingReconcile;
+      this.#pendingReconcile = [];
       if (!this.grid) return;
       let started = false;
       for (const node of pending) {
-        // Superseded by a later rebuild (collapsed, or the row was replaced again).
-        if (!this.expandedKeys.has(node.key) || this.rowKeyMap.get(node.key)?.data !== node.data) continue;
-        if (this.#requestedRows.has(node.data as object)) continue;
+        // Only the key's current owner acts — skips rows replaced again by a later
+        // rebuild, and keeps duplicate keys from cancelling each other in a loop.
+        if (this.rowKeyMap.get(node.key)?.data !== node.data) continue;
+        const load = this.#loads.get(node.key);
+        if (load && load.row !== node.data) this.#cancelLoad(node.key);
+        if (!this.expandedKeys.has(node.key) || this.#requestedRows.has(node.data as object)) continue;
         // One automatic attempt per row object, even when no loader is configured.
         this.#requestedRows.add(node.data as object);
         started = this.requestLazyChildren(node) || started;

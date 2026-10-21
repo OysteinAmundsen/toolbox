@@ -206,9 +206,10 @@ export interface TreeLoadEndDetail<T = TreeRow> extends TreeLoadStartDetail<T> {
   /**
    * `true` when the load was superseded before it settled: the node's row was
    * replaced by a new object for the same key (e.g. a ServerSide refetch after a
-   * sort/filter change or `refresh()`), so the request was aborted and nothing
-   * was merged. A still-expanded node requests its children again for the new
-   * row, firing a fresh `tree-load-start`.
+   * sort/filter change or `refresh()`) and the replacement rendered, so the
+   * request was aborted and nothing was merged. If the node is still expanded and
+   * the new row's children are lazy, they are requested again (a fresh
+   * `tree-load-start`).
    * @since 3.9.2
    */
   cancelled?: boolean;

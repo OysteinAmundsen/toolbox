@@ -268,7 +268,8 @@ grid.gridConfig = {
         },
         async getChildRows(params) {
           // Called the first time a node is expanded (lazy children only).
-          // `signal` aborts when the node's row is replaced by a refetch first.
+          // `signal` aborts when a refetch replaced the node's row before the
+          // children arrived; the result would belong to an obsolete row.
           const res = await fetch(`/api/tree/${params.context.parentNode.id}/children`, { signal: params.signal });
           return { rows: await res.json() };
         },
@@ -496,7 +497,7 @@ grid.on('tree-load-error', ({ key, error }) => {
 });
 ```
 
-Every `tree-load-start` is followed by exactly one `tree-load-end` or `tree-load-error`. When a node's row is replaced while its children are still loading (a new `grid.rows` array, or a ServerSide refetch after a sort/filter change or `refresh()`), the pending request is aborted and its load ends with `cancelled: true` and `childCount: 0`. Nothing is merged. A node that is still expanded then fires a new `tree-load-start` for the new row.
+Every `tree-load-start` is followed by exactly one `tree-load-end` or `tree-load-error`. When a node's row is replaced by a new object for the same key while its children are still loading (a new `grid.rows` array, or a ServerSide refetch after a sort/filter change or `refresh()`), the old request is aborted once the new row renders, whether the node is expanded or collapsed and whether the new row embeds its children or not. Its load ends with `cancelled: true` and `childCount: 0`, and nothing is merged. If the node is still expanded and the new row's children are lazy, a `tree-load-start` for the new row follows. A load whose node is not rendered (hidden under a collapsed parent, or no longer in the data) is left to finish normally.
 
 See [`TreeLoadStartDetail`](./interfaces/treeloadstartdetail/), [`TreeLoadEndDetail`](./interfaces/treeloadenddetail/), and [`TreeLoadErrorDetail`](./interfaces/treeloaderrordetail/) for the payload types.
 

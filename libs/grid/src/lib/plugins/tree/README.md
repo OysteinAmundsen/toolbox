@@ -71,9 +71,11 @@ grid.addEventListener('tree-expand', (e) => {
 ### `tree-load-start` / `tree-load-end` / `tree-load-error`
 
 Fired around lazy child loading (both the `loadChildren` and `ServerSidePlugin` routes).
-Every start is followed by exactly one end or error. A load superseded because its row
-was replaced (new `grid.rows`, ServerSide refetch) is aborted and ends with
-`cancelled: true` and `childCount: 0`.
+Every start is followed by exactly one end or error. When a node's row is replaced by a
+new object for the same key (new `grid.rows`, ServerSide refetch) while its children are
+loading, the old load is aborted once the new row renders — expanded or collapsed,
+lazy or embedded — and ends with `cancelled: true` and `childCount: 0`. Loads of nodes
+that are not rendered (hidden under a collapsed parent) are left to finish.
 
 ```typescript
 grid.addEventListener('tree-load-start', (e) => console.log('loading', e.detail.key));

@@ -112,7 +112,7 @@ export interface GetChildRowsParams extends DataRequestModel {
   /**
    * Cancellation signal for the request. Aborted when:
    * - the requesting plugin supersedes the request (TreePlugin: the parent row was
-   *   replaced by a refetch before its children arrived)
+   *   replaced by a refetch and the replacement rendered before the children arrived)
    * - the plugin detaches or the grid disconnects
    *
    * A result for an aborted request is discarded. Pass it to `fetch(url, { signal })`

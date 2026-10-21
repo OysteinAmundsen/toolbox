@@ -1539,5 +1539,72 @@ describe('masterDetail', () => {
         expect(third.aborted).toBe(true);
       });
     });
+
+    describe('programmatic expand fetches detail data (#532)', () => {
+      function setup(rows: any[] = [{ id: 1 }, { id: 2 }]) {
+        const harness = createMockGridWithEvents(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => '<div>Detail</div>' });
+        plugin.attach(harness.gridEl as any);
+        const fetches = () =>
+          harness.queryCalls
+            .filter((q) => q.type === 'datasource:fetch-children')
+            .map((q) => (q.context as any).context);
+        return { ...harness, rows, plugin, fetches };
+      }
+
+      it('expand() requests detail data and tracks loading', () => {
+        const { rows, plugin, fetches } = setup();
+        plugin.expand(1);
+
+        expect(fetches()).toEqual([{ source: 'master-detail', row: rows[1], rowIndex: 1 }]);
+        expect(plugin.isDetailLoading(1)).toBe(true);
+      });
+
+      it('expand() on an already expanded or loading row does not request again', () => {
+        const { plugin, fetches } = setup();
+        plugin.expand(0);
+        plugin.expand(0);
+
+        expect(fetches()).toHaveLength(1);
+      });
+
+      it('toggle() requests on expand and aborts on collapse', () => {
+        const { plugin, queryCalls, fetches } = setup();
+        plugin.toggle(0);
+        expect(fetches()).toHaveLength(1);
+        const signal = (queryCalls.find((q) => q.type === 'datasource:fetch-children')!.context as any)
+          .signal as AbortSignal;
+
+        plugin.toggle(0);
+        expect(signal.aborted).toBe(true);
+        expect(plugin.isDetailLoading(0)).toBe(false);
+      });
+
+      it('expandAll() requests every newly expanded row and skips group rows and loading placeholders', () => {
+        const rows = [{ id: 1 }, { __isGroupRow: true }, { __loading: true, __index: 2 }, { id: 3 }];
+        const { plugin, fetches } = setup(rows);
+        plugin.expand(0);
+        plugin.expandAll();
+
+        expect(fetches().map((c) => c.rowIndex)).toEqual([0, 3]);
+        expect(plugin.isDetailLoading(3)).toBe(true);
+        expect(plugin.isDetailLoading(2)).toBe(false);
+      });
+
+      it('does not request rows whose detail data is already cached', () => {
+        const { rows, plugin, eventListeners, fetches } = setup();
+        plugin.expand(0);
+        eventListeners.get('datasource:children')?.({
+          rows: [{ id: 10 }],
+          context: { source: 'master-detail', row: rows[0], rowIndex: 0 },
+          claimed: false,
+        });
+        plugin.collapse(0);
+        plugin.expand(0);
+
+        expect(fetches()).toHaveLength(1);
+        expect(plugin.getDetailData(0)).toEqual([{ id: 10 }]);
+      });
+    });
   });
 });

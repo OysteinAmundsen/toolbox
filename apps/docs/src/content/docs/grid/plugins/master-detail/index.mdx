@@ -271,7 +271,7 @@ grid.gridConfig = {
 **Data flow:**
 1. ServerSide fetches master rows in blocks (virtual scroll or pagination) → renders normally (MasterDetail does not claim root data)
 2. User scrolls → ServerSide loads more master rows on demand
-3. On detail expand → MasterDetailPlugin queries `datasource:fetch-children` with `{ source: 'master-detail', row, rowIndex }`
+3. On detail expand — expander click, or `expand()` / `toggle()` / `expandAll()` — MasterDetailPlugin queries `datasource:fetch-children` with `{ source: 'master-detail', row, rowIndex }` when the row's data is neither cached nor already loading (rows whose block has not loaded yet are not fetched)
 4. ServerSide calls `getChildRows()` → broadcasts `datasource:children`
 5. MasterDetailPlugin stores the data and re-renders the detail panel
 6. `detailRenderer` uses `getDetailData(rowIndex)` to access the async data

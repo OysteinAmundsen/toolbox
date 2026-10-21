@@ -225,11 +225,19 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
    */
   #loadedRows = new WeakSet<object>();
   /**
-   * Row objects a child fetch was ever started for. Limits the automatic
-   * re-request of still-expanded lazy nodes (see {@link endHierarchy}) to one
-   * attempt per row object, so a failing fetch can't retry on every render.
+   * Row objects with a child fetch that was started and NOT cancelled (in
+   * flight, loaded, or failed). Limits the automatic re-request of
+   * still-expanded lazy nodes (see {@link endHierarchy}) to one attempt per row
+   * object, so a failing fetch can't retry on every render.
    */
   #requestedRows = new WeakSet<object>();
+  /**
+   * Row objects whose load was cancelled because a same-key row superseded it.
+   * Kept apart from {@link #requestedRows} so a restored row (A → B → A) loads
+   * again automatically, while a late response for the cancelled request is
+   * still dropped.
+   */
+  #cancelledRows = new WeakSet<object>();
   /** Expanded lazy nodes queued for an automatic child request, flushed in one microtask. */
   #pendingAutoRequests: FlattenedTreeRow[] = [];
 
@@ -279,6 +287,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     this.#levelSort = null;
     this.#loadedRows = new WeakSet();
     this.#requestedRows = new WeakSet();
+    this.#cancelledRows = new WeakSet();
     this.#pendingAutoRequests = [];
     // Silent on teardown — no `tree-load-end` for loads the detach aborts.
     for (const load of this.#loads.values()) load.controller.abort();
@@ -346,7 +355,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
         const load = this.#takeLoad(key, parentRow);
         // Requested by Tree but no longer active: superseded and already reported
         // as cancelled — never merge stale children into the replaced row.
-        if (!load && this.#requestedRows.has(parentRow as object)) return;
+        if (!load && (this.#requestedRows.has(parentRow as object) || this.#cancelledRows.has(parentRow as object))) {
+          return;
+        }
         this.#mergeChildren(parentRow, (d.rows ?? []) as TreeRow[]);
         this.broadcast<TreeLoadEndDetail>('tree-load-end', {
           key,
@@ -711,6 +722,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     const controller = new AbortController();
     this.#loads.set(key, { row, depth, controller });
     this.#requestedRows.add(row as object);
+    this.#cancelledRows.delete(row as object);
     this.broadcast<TreeLoadStartDetail>('tree-load-start', { key, row, depth });
 
     if (isServerSideActive) {
@@ -746,6 +758,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     const load = this.#loads.get(key);
     if (!load) return;
     this.#loads.delete(key);
+    // Not a settled attempt: a restored row must be able to load again automatically.
+    this.#requestedRows.delete(load.row as object);
+    this.#cancelledRows.add(load.row as object);
     load.controller.abort();
     this.broadcast<TreeLoadEndDetail>('tree-load-end', {
       key,

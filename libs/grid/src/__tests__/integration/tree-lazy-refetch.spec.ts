@@ -227,5 +227,29 @@ describe('Tree lazy children after root rows are replaced (#527)', () => {
       expect(oldRoot.children).toBe(true);
       expect(ends).toHaveLength(2);
     });
+
+    it('reloads a restored row whose load was cancelled (A → B → A), still dropping stale results', async () => {
+      const { grid, loadChildren } = await createLocalGrid();
+      const pending: Array<(rows: Row[]) => void> = [];
+      loadChildren.mockImplementation(() => new Promise<Row[]>((resolve) => pending.push(resolve)));
+      const rowsA = roots();
+      grid.rows = rowsA;
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 1, 2]));
+      grid.getPluginByName('tree').expand('0');
+      await vi.waitFor(() => expect(loadChildren).toHaveBeenCalledTimes(1));
+
+      grid.rows = roots(); // B supersedes A
+      await vi.waitFor(() => expect(loadChildren).toHaveBeenCalledTimes(2));
+      grid.rows = rowsA; // A restored while B is still loading
+
+      await vi.waitFor(() => expect(loadChildren).toHaveBeenCalledTimes(3));
+      expect(loadChildren.mock.calls[2][0].row).toBe(rowsA[0]);
+      expect(loadChildren.mock.calls[1][0].signal.aborted).toBe(true);
+
+      pending[0]([{ id: 998, name: 'stale A' }]); // A's first (aborted) request
+      pending[1]([{ id: 999, name: 'stale B' }]); // B's (aborted) request
+      pending[2](kids());
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
+    });
   });
 });

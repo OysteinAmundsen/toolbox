@@ -1,6 +1,6 @@
 /**
  * Integration tests: GroupingRows / MasterDetail child requests through a real
- * ServerSidePlugin (issue #531).
+ * ServerSidePlugin (issues #531, #532, #534).
  *
  * A failing `getChildRows()` must release the requester's loading state and
  * surface a plugin-level error event; the requester's `FetchChildrenQuery.signal`
@@ -108,7 +108,10 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
   });
 
   describe('GroupingRows (pre-defined groups)', () => {
-    async function createGrid(getChildRows: (p: GetChildRowsParams) => Promise<GetChildRowsResult>) {
+    async function createGrid(
+      getChildRows: (p: GetChildRowsParams) => Promise<GetChildRowsResult>,
+      groupingRows: Record<string, unknown> = {},
+    ) {
       const childRows = vi.fn(getChildRows);
       const getRows = vi.fn(async () => ({
         rows: [
@@ -120,7 +123,7 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
       const grid = await mount({
         columns: [{ field: 'name', header: 'Name' }],
         features: {
-          groupingRows: {},
+          groupingRows,
           serverSide: { dataSource: { getRows, getChildRows: childRows } },
         },
       });
@@ -189,6 +192,28 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
       await vi.waitFor(() => expect(names()).toEqual(['v2']));
       expect(getChildRows).toHaveBeenCalledTimes(2);
       expect(plugin.isExpanded('A')).toBe(true);
+    });
+
+    it('fetches the rows of groups opened by defaultExpanded (#534)', async () => {
+      const { grid, getChildRows } = await createGrid(async (p) => ({ rows: [{ name: `${p.context.groupKey}1` }] }), {
+        defaultExpanded: true,
+      });
+      const names = () => (grid.rows as any[]).map((r) => r.name).filter(Boolean);
+
+      await vi.waitFor(() => expect(names()).toEqual(['A1', 'B1']));
+      expect(getChildRows).toHaveBeenCalledTimes(2);
+      expect(hasPlaceholder(grid)).toBe(false);
+    });
+
+    it('fetches the rows of groups opened by expandAll() (#534)', async () => {
+      const { grid, plugin, getChildRows } = await createGrid(async (p) => ({
+        rows: [{ name: `${p.context.groupKey}1` }],
+      }));
+      const names = () => (grid.rows as any[]).map((r) => r.name).filter(Boolean);
+
+      plugin.expandAll();
+      await vi.waitFor(() => expect(names()).toEqual(['A1', 'B1']));
+      expect(getChildRows).toHaveBeenCalledTimes(2);
     });
   });
 });

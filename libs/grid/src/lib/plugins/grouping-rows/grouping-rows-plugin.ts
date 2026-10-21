@@ -281,6 +281,17 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
    * in flight does not re-request.
    */
   #groupLoads = new Map<string, AbortController>();
+  /**
+   * Group keys already requested in the current definitions generation (any
+   * request path). An expanded group whose rows were never requested —
+   * `defaultExpanded`, `expandAll()`, `expand()` — gets ONE automatic request
+   * after the render that shows it (#534); a failing group is therefore not
+   * re-requested on every render. A manual collapsed → expanded transition
+   * (`toggle()`, `expand()`, `expandAll()`) is a fresh attempt, so collapse +
+   * re-expand still retries. Cleared when new definitions arrive.
+   */
+  #requestedKeys = new Set<string>();
+  #groupRequestsQueued = false;
   /** Column fields that produce group values (depth 0, 1, ...). Cached for
    *  the `grouping:get-grouped-fields` query so MultiSort can filter them out. */
   private groupedFields: string[] = [];
@@ -330,6 +341,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
     this.preDefinedGroups = [];
     this.groupRowsMap.clear();
     this.#abortGroupLoads();
+    this.#requestedKeys.clear();
     this.loadingGroups.clear();
     this.groupedFields = [];
     this.userGroupSortDirections.clear();
@@ -427,6 +439,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
         this.preDefinedGroups = d.rows as unknown as GroupDefinition[];
         this.groupRowsMap.clear();
         this.#abortGroupLoads();
+        this.#requestedKeys.clear();
         this.loadingGroups.clear();
         this.hasAppliedDefaultExpanded = false;
         for (const key of reload) {
@@ -489,6 +502,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
    * cancellable) only when a ServerSide data source will answer it.
    */
   #requestGroupRows(key: string, group: GroupDefinition, groupPath: string[]): void {
+    this.#requestedKeys.add(key);
     this.loadingGroups.add(key);
     if (this.#groupLoads.has(key)) return;
     const controller = this.queryBoolean('datasource:is-active') ? new AbortController() : undefined;
@@ -497,6 +511,55 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
       context: { source: 'grouping-rows', groupKey: key, group, groupPath },
       signal: controller?.signal,
     } satisfies FetchChildrenQuery);
+  }
+
+  /** An expanded pre-defined group whose rows were never loaded, loading, or requested this generation. */
+  #needsGroupRows(item: RenderRow): item is GroupRowModelItem {
+    return (
+      item.kind === 'group' &&
+      item.expanded &&
+      !this.groupRowsMap.has(item.key) &&
+      !this.loadingGroups.has(item.key) &&
+      !this.#requestedKeys.has(item.key)
+    );
+  }
+
+  /** Flush automatic group-row requests in a microtask — side effects stay out of the render pipeline (#534). */
+  #queueGroupRowRequests(): void {
+    if (this.#groupRequestsQueued) return;
+    this.#groupRequestsQueued = true;
+    queueMicrotask(() => {
+      this.#groupRequestsQueued = false;
+      this.#requestExpandedGroupRows();
+    });
+  }
+
+  /**
+   * Request the rows of every rendered, expanded leaf group that has none, however it
+   * was expanded (`defaultExpanded`, `expandAll()`, `expand()`). ServerSide only —
+   * imperative mode leaves loading to the consumer (`group-expand` / `setGroupRows`).
+   * Expansion is rechecked against `expandedKeys`: a group (or ancestor) collapsed
+   * after the render that queued this flush is skipped, and stays eligible.
+   */
+  #requestExpandedGroupRows(): void {
+    if (!this.isActive || this.#mode !== 'predefined') return;
+    const serverSideActive = this.queryBoolean('datasource:is-active');
+    const groups = this.getActiveGroups();
+    let requested = false;
+    for (const item of this.flattenedRows) {
+      if (!this.#needsGroupRows(item)) continue;
+      const groupPath = getGroupPath(groups, item.key);
+      if (!groupPath.every((key) => this.expandedKeys.has(key))) continue;
+      const group = this.findGroupDefinition(groups, item.key);
+      // A parent group renders its child groups, never rows.
+      if (!serverSideActive || !group || group.children?.length) {
+        this.#requestedKeys.add(item.key);
+        continue;
+      }
+      this.#requestGroupRows(item.key, group, groupPath);
+      requested = true;
+    }
+    if (requested) this.requestRender();
   }
 
   /**
@@ -693,6 +756,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
     // Track which data rows are newly visible (for animation)
     this.keysToAnimate.clear();
     const currentVisibleKeys = new Set<string>();
+    const predefined = this.#mode === 'predefined';
+    let needsGroupRows = false;
     this.flattenedRows.forEach((item, idx) => {
       if (item.kind === 'data') {
         const key = `data-${idx}`;
@@ -700,9 +765,12 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
         if (!this.previousVisibleKeys.has(key)) {
           this.keysToAnimate.add(key);
         }
+      } else if (predefined && !needsGroupRows) {
+        needsGroupRows = this.#needsGroupRows(item);
       }
     });
     this.previousVisibleKeys = currentVisibleKeys;
+    if (needsGroupRows) this.#queueGroupRowRequests();
     return true;
   }
 
@@ -1184,6 +1252,9 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
    * call defers until the next render rebuilds the group model against the
    * new `groupOn` (issue #335). The `group-toggle` event is emitted once
    * the new keys are known.
+   *
+   * With `ServerSidePlugin` active, every newly expanded pre-defined group
+   * requests its rows via `getChildRows()` after the next render (#534).
    */
   expandAll(): void {
     if (this.groupConfigDirty) {
@@ -1195,7 +1266,9 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
       this.requestRender();
       return;
     }
-    this.expandedKeys = expandAllGroups(this.flattenedRows);
+    const expanded = expandAllGroups(this.flattenedRows);
+    for (const key of expanded) if (!this.expandedKeys.has(key)) this.#requestedKeys.delete(key);
+    this.expandedKeys = expanded;
     this.broadcast<GroupToggleDetail>('group-toggle', { expandedKeys: [...this.expandedKeys] });
     this.requestRender();
   }
@@ -1309,11 +1382,14 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
 
   /**
    * Expand a specific group.
+   * With `ServerSidePlugin` active, an expanded pre-defined group without rows requests
+   * them via `getChildRows()` after the next render, like {@link toggle}.
    * @param key - The group key to expand
    */
   expand(key: string): void {
     if (!this.expandedKeys.has(key)) {
       this.expandedKeys = new Set([...this.expandedKeys, key]);
+      this.#requestedKeys.delete(key);
       this.requestRender();
     }
   }
@@ -1442,6 +1518,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
     this.preDefinedGroups = groups;
     this.groupRowsMap.clear();
     this.#abortGroupLoads();
+    this.#requestedKeys.clear();
     this.loadingGroups.clear();
     this.expandedKeys.clear();
     this.hasAppliedDefaultExpanded = false;

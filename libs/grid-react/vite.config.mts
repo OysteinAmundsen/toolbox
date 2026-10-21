@@ -144,7 +144,7 @@ export default defineConfig(() => ({
         ]
       : ['default'],
     coverage: {
-      reportsDirectory: './test-output/vitest/coverage',
+      reportsDirectory: '../../coverage/libs/grid-react',
       provider: 'v8' as const,
       reporter: ['text', 'json-summary'],
       thresholds: { statements: 70, branches: 70, functions: 70, lines: 70 },

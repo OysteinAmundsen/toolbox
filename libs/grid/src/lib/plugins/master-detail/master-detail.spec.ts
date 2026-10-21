@@ -1216,6 +1216,55 @@ describe('masterDetail', () => {
       expect(unmountSpy).toHaveBeenCalledWith(detailContainer);
     });
 
+    it('should call adapter.unmount when datasource:children/error invalidates a rendered detail (#531)', () => {
+      const rows = [{ id: 1 }];
+      const { gridEl, unmountSpy } = createGridWithAdapter(rows);
+      const listeners = new Map<string, (detail: unknown) => void>();
+      Object.defineProperties(gridEl, {
+        query: { value: (type: string) => type === 'datasource:is-active' },
+        _pluginManager: {
+          value: {
+            subscribe: (_p: unknown, type: string, cb: (detail: unknown) => void) => listeners.set(type, cb),
+            unsubscribe: vi.fn(),
+            emitPluginEvent: vi.fn(),
+          },
+        },
+      });
+
+      const containers: HTMLElement[] = [];
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: () => {
+          const c = document.createElement('div');
+          containers.push(c);
+          return c;
+        },
+      });
+      plugin.attach(gridEl);
+
+      // Expand via the fetching path, render the (loading) detail, then fail the load.
+      plugin['toggleAndEmit'](rows[0], 0);
+      plugin.afterRender();
+      listeners.get('datasource:error')?.({
+        error: new Error('boom'),
+        context: { source: 'master-detail', row: rows[0], rowIndex: 0 },
+      });
+      expect(unmountSpy).toHaveBeenCalledTimes(1);
+      expect(unmountSpy).toHaveBeenLastCalledWith(containers[0]);
+      expect(plugin['detailElements'].has(rows[0])).toBe(false);
+
+      // Retry, render, and land data — the loading panel is torn down the same way.
+      plugin['toggleAndEmit'](rows[0], 0);
+      plugin['toggleAndEmit'](rows[0], 0);
+      plugin.afterRender();
+      listeners.get('datasource:children')?.({
+        rows: [{ id: 10 }],
+        context: { source: 'master-detail', row: rows[0], rowIndex: 0 },
+        claimed: false,
+      });
+      expect(unmountSpy).toHaveBeenCalledTimes(2);
+      expect(unmountSpy).toHaveBeenLastCalledWith(containers[1]);
+    });
+
     it('should not call adapter.unmount when no adapter is registered', () => {
       const rows = [{ id: 1 }];
       const { gridEl } = createGridWithAdapter(rows);
@@ -1404,6 +1453,91 @@ describe('masterDetail', () => {
       const fetchQuery = queryCalls.find((q) => q.type === 'datasource:fetch-children');
       expect(fetchQuery).toBeUndefined();
       expect(plugin.isDetailLoading(0)).toBe(false);
+    });
+
+    describe('getChildRows failure and cancellation (#531)', () => {
+      function setup() {
+        const rows = [{ id: 1, name: 'Alice' }];
+        const harness = createMockGridWithEvents(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => '<div>Detail</div>' });
+        plugin.attach(harness.gridEl as any);
+        const errors: unknown[] = [];
+        harness.gridEl.addEventListener('detail-load-error', (e) => errors.push((e as CustomEvent).detail));
+        const fetchSignal = (): AbortSignal =>
+          (harness.queryCalls.filter((q) => q.type === 'datasource:fetch-children').at(-1)!.context as any).signal;
+        const fail = (error = new Error('boom')) =>
+          harness.eventListeners.get('datasource:error')?.({
+            error,
+            context: { source: 'master-detail', row: rows[0], rowIndex: 0 },
+          });
+        return { ...harness, rows, plugin, errors, fetchSignal, fail };
+      }
+
+      it('releases the loading state and emits detail-load-error on datasource:error', () => {
+        const { rows, plugin, errors, fail } = setup();
+        plugin['toggleAndEmit'](rows[0], 0);
+        expect(plugin.isDetailLoading(0)).toBe(true);
+
+        const error = new Error('boom');
+        fail(error);
+
+        expect(plugin.isDetailLoading(0)).toBe(false);
+        expect(plugin.isExpanded(0)).toBe(true);
+        expect(errors).toEqual([{ rowIndex: 0, row: rows[0], error }]);
+      });
+
+      it('retries the fetch when the row is collapsed and re-expanded after an error', () => {
+        const { rows, plugin, queryCalls, fail } = setup();
+        plugin['toggleAndEmit'](rows[0], 0);
+        fail();
+        plugin['toggleAndEmit'](rows[0], 0);
+        plugin['toggleAndEmit'](rows[0], 0);
+
+        expect(queryCalls.filter((q) => q.type === 'datasource:fetch-children')).toHaveLength(2);
+        expect(plugin.isDetailLoading(0)).toBe(true);
+      });
+
+      it('ignores datasource:error for other sources and for rows it is not loading', () => {
+        const { rows, plugin, errors, eventListeners, fail } = setup();
+        fail(); // never requested
+        plugin['toggleAndEmit'](rows[0], 0);
+        eventListeners.get('datasource:error')?.({ error: new Error('x'), context: { source: 'tree' } });
+
+        expect(errors).toHaveLength(0);
+        expect(plugin.isDetailLoading(0)).toBe(true);
+      });
+
+      it('passes a FetchChildrenQuery.signal that collapsing aborts', () => {
+        const { rows, plugin, errors, fetchSignal, fail } = setup();
+        plugin['toggleAndEmit'](rows[0], 0);
+        const signal = fetchSignal();
+        expect(signal.aborted).toBe(false);
+
+        plugin['toggleAndEmit'](rows[0], 0);
+        expect(signal.aborted).toBe(true);
+
+        fail(); // a late error for the collapsed row is not reported
+        expect(errors).toHaveLength(0);
+      });
+
+      it('aborts in-flight loads on collapse(), collapseAll() and detach()', () => {
+        const { rows, plugin, fetchSignal } = setup();
+        plugin['toggleAndEmit'](rows[0], 0);
+        const first = fetchSignal();
+        plugin.collapse(0);
+        expect(first.aborted).toBe(true);
+
+        plugin['toggleAndEmit'](rows[0], 0);
+        const second = fetchSignal();
+        plugin.collapseAll();
+        expect(second.aborted).toBe(true);
+        expect(plugin.isDetailLoading(0)).toBe(false);
+
+        plugin['toggleAndEmit'](rows[0], 0);
+        const third = fetchSignal();
+        plugin.detach();
+        expect(third.aborted).toBe(true);
+      });
     });
   });
 });

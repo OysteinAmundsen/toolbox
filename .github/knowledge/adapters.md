@@ -71,7 +71,7 @@ related: [adapters-react, adapters-vue, adapters-angular, grid-core, grid-featur
 
 ## event props (drift-safety pattern)
 
-- OWNS: React `EventProps<TRow>` + `EVENT_PROP_MAP` (`libs/grid-react/src/lib/event-props.ts`, bidirectional `satisfies`); Vue `EVENT_MAP` + `defineEmits` (`TbwGrid.vue`, `_emitsCoverCore`); Angular `output<T>()` + `eventOutputMap` (`directives/grid.directive.ts`, `satisfies` + `_assertEventOutputMapCoversCore`).
+- OWNS: React `EventProps<TRow>` + `EVENT_PROP_MAP` (`libs/grid-react/src/lib/event-props.ts`, bidirectional `satisfies`); Vue `FORWARDED_EVENTS` (`as const satisfies readonly (keyof DataGridEventMap)[]`) + `defineEmits` (sole payload types; `TbwGrid.vue`, `_emitsCoverCore`); Angular `output<T>()` + `eventOutputMap` (`directives/grid.directive.ts`, `satisfies` + `_assertEventOutputMapCoversCore`).
 - INVARIANT: adding a `DataGridEventMap` entry wires ALL THREE. Each adapter has an `_IntentionallyOmittedEvents` union that must be widened to consciously skip an event.
 - INVARIANT: NEVER widen `satisfies` to silence a complaint — the complaint IS the feature. Either drop the prop or add the missing `declare module '../../core/types'` augmentation. When `satisfies` rejects an event, check emit sites (`grep "_emit("`) — plugins and the registry can diverge silently.
 - INVARIANT (guard shape): a drift guard MUST be a real VALUE assignment — `const _x: [Missing] extends [never] ? true : ['msg', Missing] = true;`. A `declare private x: <conditional>` or a bare `type _Assert = …` alias is NEVER checked and is silently inert (see adapters-angular.md).
@@ -118,7 +118,7 @@ Feature props auto-load plugins (React `<DataGrid selection="range" editing="dbl
 
 ## three-way parity
 
-- STATE (Jul 2026; prop keys re-verified Aug 2026): 25/25 feature subpath entry points byte-identical across React/Vue `src/features/*.ts` and Angular `features/*/`. 5/5 per-feature accessors identical after `useGridX`↔`injectGridX` normalization. 47/47 events. Prop keys: React 24 = Vue 24.
+- STATE (Jul 2026; prop keys re-verified Aug 2026): 25/25 feature subpath entry points byte-identical across React/Vue `src/features/*.ts` and Angular `features/*/`. 5/5 per-feature accessors identical after `useGridX`↔`injectGridX` normalization. 49/49 events (re-verified Oct 2026). Prop keys: React 24 = Vue 24.
 - INVARIANT: a public export added to one adapter is mirrored in the SAME PR; `index.ts` is the canonical surface. `AllFeatureProps<TRow>` stays identical React/Vue.
 - DECIDED (#289): cell/editor context generics use asymmetric defaults `TRow = unknown`, `TValue = any` (Vue `CellSlotProps`/`EditorSlotProps`/`GridCellContext`/`GridEditorContext`; React `GridCellContext`/`GridEditorContext`). WHY: `unknown` for row safety; `any` for `TValue` unblocks single-generic `CellSlotProps<MyRow>`. Tests: `slot-types.spec.ts`, `context-types.spec.ts`.
 - DECIDED (#438, nested dotted-path fields): all three adapters inherit nested-path `field` automatically (their `ColumnConfig` `Omit`s only renderers). Each gained a defaulted `TField extends string = ColumnFieldKey<TRow>` generic (`GridConfig<Deal, NestedPaths<Deal>>`). GOTCHA: adapters alias core `ColumnConfig` as `BaseColumnConfig`, and core `ColumnConfig<TRow, TField>` has only **2** params — write `extends Omit<BaseColumnConfig<TRow, TField>, …>`; `<TRow, any, TField>` fails ng-packagr with `TS2707`. `ColumnFieldKey`/`NestedPaths` re-exported from all three `index.ts`; context `field` types are `string`. Tests: `nested-field-parity.spec.ts`.

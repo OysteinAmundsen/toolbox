@@ -54,6 +54,18 @@ grid.addEventListener('detail-expand', (e) => {
 });
 ```
 
+### `detail-load-error`
+
+Fired when the ServerSide `getChildRows()` request for a row's detail data fails
+(see [Server-Side Data](#server-side-data-unified-datasource)). The row leaves its
+loading state; collapsing and re-expanding it retries the fetch.
+
+```typescript
+grid.addEventListener('detail-load-error', (e) => {
+  console.error('Detail for row', e.detail.rowIndex, 'failed:', e.detail.error);
+});
+```
+
 ## API Methods
 
 Access via `grid.getPluginByName('masterDetail')`:
@@ -126,3 +138,7 @@ grid.gridConfig = {
 ```
 
 When ServerSide is not present, `detailRenderer` works synchronously as today.
+
+If `getChildRows()` rejects, the row leaves its loading state, its detail panel
+re-renders, and `detail-load-error` fires. Collapsing a row while its detail data is
+loading aborts the request (`params.signal`) and discards the result.

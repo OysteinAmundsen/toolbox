@@ -1,6 +1,7 @@
 /**
- * `GridMasterDetailDirective` — owns `[masterDetail]` and `(detailExpand)`
- * on `<tbw-grid>`. See `GridFilteringDirective` for the full rationale.
+ * `GridMasterDetailDirective` — owns `[masterDetail]`, `(detailExpand)` and
+ * `(detailLoadError)` on `<tbw-grid>`. See `GridFilteringDirective` for the
+ * full rationale.
  *
  * Note: this directive is independent of the higher-level
  * `<tbw-grid-detail>` template element + `GridDetailView` wrapper, which
@@ -15,6 +16,7 @@ import { claimEvent, registerFeatureClaim, unclaimEvent, unregisterFeatureClaim 
 import type {
   MasterDetailConfig as CoreMasterDetailConfig,
   DetailExpandDetail,
+  DetailLoadErrorDetail,
 } from '@toolbox-web/grid/plugins/master-detail';
 
 /**
@@ -38,12 +40,12 @@ export type MasterDetailConfig = Omit<CoreMasterDetailConfig, 'detailRenderer'> 
 };
 
 /**
- * Owns the binding(s) `[masterDetail], [detailExpand]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
+ * Owns the binding(s) `[masterDetail], [detailExpand], [detailLoadError]` on `<tbw-grid>` for the matching feature plugin. See `GridFilteringDirective` for the full rationale.
  *
  * @category Directive
  */
 @Directive({
-  selector: 'tbw-grid[masterDetail], tbw-grid[detailExpand]',
+  selector: 'tbw-grid[masterDetail], tbw-grid[detailExpand], tbw-grid[detailLoadError]',
   standalone: true,
 })
 export class GridMasterDetailDirective implements OnInit, OnDestroy {
@@ -51,28 +53,39 @@ export class GridMasterDetailDirective implements OnInit, OnDestroy {
 
   readonly masterDetail = input<MasterDetailConfig>();
   readonly detailExpand = output<DetailExpandDetail>();
+  /**
+   * Fired when loading detail data through the ServerSide data source
+   * (`getChildRows()`) fails. Re-expanding the row retries the fetch.
+   *
+   * @since 2.7.0
+   */
+  readonly detailLoadError = output<DetailLoadErrorDetail>();
 
-  private listener?: (e: Event) => void;
+  private readonly listeners = new Map<string, (e: Event) => void>();
+  private static readonly EVENTS = ['detail-expand', 'detail-load-error'] as const;
 
   constructor() {
     const grid = this.elementRef.nativeElement;
     registerFeatureClaim(grid, 'masterDetail', () => this.masterDetail());
-    claimEvent(grid, 'detail-expand');
+    for (const ev of GridMasterDetailDirective.EVENTS) claimEvent(grid, ev);
   }
 
   ngOnInit(): void {
     const grid = this.elementRef.nativeElement;
-    this.listener = (e: Event): void => this.detailExpand.emit((e as CustomEvent<DetailExpandDetail>).detail);
-    grid.addEventListener('detail-expand', this.listener);
+    const wire = <T>(name: string, out: { emit: (v: T) => void }): void => {
+      const l = (e: Event): void => out.emit((e as CustomEvent<T>).detail);
+      grid.addEventListener(name, l);
+      this.listeners.set(name, l);
+    };
+    wire<DetailExpandDetail>('detail-expand', this.detailExpand);
+    wire<DetailLoadErrorDetail>('detail-load-error', this.detailLoadError);
   }
 
   ngOnDestroy(): void {
     const grid = this.elementRef.nativeElement;
-    if (this.listener) {
-      grid.removeEventListener('detail-expand', this.listener);
-      this.listener = undefined;
-    }
+    for (const [name, l] of this.listeners) grid.removeEventListener(name, l);
+    this.listeners.clear();
     unregisterFeatureClaim(grid, 'masterDetail');
-    unclaimEvent(grid, 'detail-expand');
+    for (const ev of GridMasterDetailDirective.EVENTS) unclaimEvent(grid, ev);
   }
 }

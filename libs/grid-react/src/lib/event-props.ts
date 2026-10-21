@@ -33,9 +33,11 @@ import type {
   CopyDetail,
   DataGridEventMap,
   DetailExpandDetail,
+  DetailLoadErrorDetail,
   ExportCompleteDetail,
   FilterChangeDetail,
   GridColumnState,
+  GroupLoadErrorDetail,
   GroupToggleDetail,
   PasteDetail,
   PasteRejectedDetail,
@@ -421,6 +423,15 @@ export interface EventProps<TRow = unknown> {
    */
   onGroupCollapse?: EventHandler<DataGridEventMap<TRow>['group-collapse']>;
 
+  /**
+   * Fired when loading a pre-defined group's rows through the ServerSide data
+   * source (`getChildRows()`) fails. Re-expanding the group retries the fetch.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/grouping-rows';`
+   * @since 2.7.0
+   */
+  onGroupLoadError?: EventHandler<GroupLoadErrorDetail>;
+
   // ═══════════════════════════════════════════════════════════════════
   // CONTEXT MENU EVENTS
   // ═══════════════════════════════════════════════════════════════════
@@ -484,6 +495,15 @@ export interface EventProps<TRow = unknown> {
    * ```
    */
   onDetailExpand?: EventHandler<DetailExpandDetail>;
+
+  /**
+   * Fired when loading detail data through the ServerSide data source
+   * (`getChildRows()`) fails. Re-expanding the row retries the fetch.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/master-detail';`
+   * @since 2.7.0
+   */
+  onDetailLoadError?: EventHandler<DetailLoadErrorDetail>;
 
   // ═══════════════════════════════════════════════════════════════════
   // RESPONSIVE EVENTS
@@ -704,11 +724,13 @@ export const EVENT_PROP_MAP = {
   onGroupToggle: 'group-toggle',
   onGroupExpand: 'group-expand',
   onGroupCollapse: 'group-collapse',
+  onGroupLoadError: 'group-load-error',
   onTreeExpand: 'tree-expand',
   onTreeLoadStart: 'tree-load-start',
   onTreeLoadEnd: 'tree-load-end',
   onTreeLoadError: 'tree-load-error',
   onDetailExpand: 'detail-expand',
+  onDetailLoadError: 'detail-load-error',
   onResponsiveChange: 'responsive-change',
   onContextMenuOpen: 'context-menu-open',
   onCopy: 'copy',

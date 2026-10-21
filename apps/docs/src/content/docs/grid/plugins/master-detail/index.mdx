@@ -276,6 +276,21 @@ grid.gridConfig = {
 5. MasterDetailPlugin stores the data and re-renders the detail panel
 6. `detailRenderer` uses `getDetailData(rowIndex)` to access the async data
 
+**Errors and cancellation:** If `getChildRows()` rejects, the row leaves its loading state, its detail panel re-renders (`isDetailLoading()` is `false` and `getDetailData()` is `undefined`), and the grid fires `detail-load-error` with `{ rowIndex, row, error }`. Collapsing and re-expanding the row retries the fetch. Collapsing a row while its detail data is loading aborts the request (`params.signal`) and discards the result.
+
+```ts
+const failed = new WeakSet<object>();
+grid.on('detail-load-error', ({ row, error }) => {
+  failed.add(row);
+  console.error('Order items failed to load', error);
+});
+// Re-expanding retries the fetch, so clear the marker
+grid.on('detail-expand', ({ row, expanded }) => {
+  if (expanded) failed.delete(row);
+});
+// In detailRenderer: if (failed.has(row)) return '<div class="error">Could not load order items.</div>';
+```
+
 **Async API:**
 ```ts
 const plugin = grid.getPluginByName('masterDetail');
@@ -365,9 +380,12 @@ The master-detail plugin uses these class names:
   <MasterDetailEventsDemo />
 </ShowSource>
 
-| Event           | Detail                                         | Description                          |
-| --------------- | ---------------------------------------------- | ------------------------------------ |
-| `detail-expand` | `{ rowIndex, row, expanded }`                  | Fired when a detail row is expanded/collapsed |
+| Event               | Detail                                         | Description                          |
+| ------------------- | ---------------------------------------------- | ------------------------------------ |
+| `detail-expand`     | `{ rowIndex, row, expanded }`                  | Fired when a detail row is expanded/collapsed |
+| `detail-load-error` | `{ rowIndex, row, error }`                     | Fired when the ServerSide `getChildRows()` request for a row's detail data fails. See [Server-Side Data](#server-side-data). |
+
+See [`DetailExpandDetail`](./interfaces/detailexpanddetail/) and [`DetailLoadErrorDetail`](./interfaces/detailloaderrordetail/) for the payload types.
 
 ## See Also
 

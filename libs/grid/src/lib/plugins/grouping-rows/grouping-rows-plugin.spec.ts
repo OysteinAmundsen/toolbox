@@ -1268,7 +1268,7 @@ describe('GroupingRowsPlugin', () => {
     });
 
     describe('datasource integration', () => {
-      function createMockGridWithEvents() {
+      function createMockGridWithEvents(serverSideActive = false) {
         const eventListeners = new Map<string, (detail: unknown) => void>();
         const renderCalls: unknown[] = [];
         const queryCalls: Array<{ type: string; context: unknown }> = [];
@@ -1279,6 +1279,7 @@ describe('GroupingRowsPlugin', () => {
         Object.defineProperty(grid, 'query', {
           value: (type: string, context: unknown) => {
             queryCalls.push({ type, context });
+            if (type === 'datasource:is-active') return serverSideActive;
             return undefined;
           },
           configurable: true,
@@ -1437,6 +1438,193 @@ describe('GroupingRowsPlugin', () => {
         // 1 group + 1 loading placeholder (children not yet received)
         expect(result.length).toBe(2);
         expect(result[1].__loading).toBe(true);
+      });
+
+      describe('getChildRows failure and cancellation (#531)', () => {
+        function setup() {
+          const harness = createMockGridWithEvents(true);
+          const plugin = new GroupingRowsPlugin({});
+          plugin.attach(harness.grid as any);
+          harness.eventListeners.get('datasource:data')?.({
+            rows: [
+              { key: 'A', value: 'Group A' },
+              { key: 'B', value: 'Group B' },
+            ],
+            totalNodeCount: 2,
+            startNode: 0,
+            endNode: 2,
+            claimed: false,
+          });
+          plugin.processRows([]);
+          const errors: unknown[] = [];
+          harness.grid.addEventListener('group-load-error', (e) => errors.push((e as CustomEvent).detail));
+          const fetches = () => harness.queryCalls.filter((q) => q.type === 'datasource:fetch-children');
+          const signalOf = (key: string): AbortSignal =>
+            (
+              fetches()
+                .filter((q) => (q.context as any).context.groupKey === key)
+                .at(-1)!.context as any
+            ).signal;
+          const fail = (groupKey: string, error = new Error('boom')) =>
+            harness.eventListeners.get('datasource:error')?.({
+              error,
+              context: { source: 'grouping-rows', groupKey, groupPath: [groupKey] },
+            });
+          const isLoading = () => plugin.processRows([]).some((r: any) => r.__loading);
+          return { ...harness, plugin, errors, fetches, signalOf, fail, isLoading };
+        }
+
+        it('releases the loading state and emits group-load-error on datasource:error', () => {
+          const { plugin, errors, fail, isLoading } = setup();
+          plugin.toggle('A');
+          expect(isLoading()).toBe(true);
+
+          const error = new Error('boom');
+          fail('A', error);
+
+          expect(isLoading()).toBe(false);
+          expect(plugin.isExpanded('A')).toBe(true);
+          expect(errors).toEqual([{ groupKey: 'A', groupPath: ['A'], error }]);
+        });
+
+        it('retries the fetch when the group is collapsed and re-expanded after an error', () => {
+          const { plugin, fetches, fail, isLoading } = setup();
+          plugin.toggle('A');
+          fail('A');
+          plugin.toggle('A');
+          plugin.toggle('A');
+
+          expect(fetches()).toHaveLength(2);
+          expect(isLoading()).toBe(true);
+        });
+
+        it('ignores datasource:error for other sources and for groups it is not loading', () => {
+          const { plugin, errors, eventListeners, fail, isLoading } = setup();
+          fail('B'); // never requested
+          plugin.toggle('A');
+          eventListeners.get('datasource:error')?.({ error: new Error('x'), context: { source: 'tree' } });
+
+          expect(errors).toHaveLength(0);
+          expect(isLoading()).toBe(true);
+        });
+
+        it('keeps an in-flight load across collapse and does not re-request on re-expand', () => {
+          const { plugin, fetches, signalOf } = setup();
+          plugin.toggle('A');
+          plugin.toggle('A');
+          plugin.toggle('A');
+
+          expect(fetches()).toHaveLength(1);
+          expect(signalOf('A').aborted).toBe(false);
+        });
+
+        const refetch = (eventListeners: Map<string, (d: unknown) => void>, keys: string[]) =>
+          eventListeners.get('datasource:data')?.({
+            rows: keys.map((key) => ({ key, value: `Group ${key} v2`, rowCount: 2 })),
+            totalNodeCount: keys.length,
+            startNode: 0,
+            endNode: keys.length,
+            claimed: false,
+          });
+
+        it('aborts an in-flight load on refetch and re-requests the still-expanded group', () => {
+          const { plugin, eventListeners, fetches, signalOf, isLoading } = setup();
+          plugin.toggle('A');
+          const stale = signalOf('A');
+
+          refetch(eventListeners, ['A', 'B']);
+
+          expect(stale.aborted).toBe(true);
+          expect(fetches()).toHaveLength(2);
+          const fresh = fetches()[1].context as any;
+          expect(fresh.signal.aborted).toBe(false);
+          expect(fresh.context.group).toEqual({ key: 'A', value: 'Group A v2', rowCount: 2 });
+          expect(fresh.context.groupPath).toEqual(['A']);
+          expect(plugin.isExpanded('A')).toBe(true);
+          expect(isLoading()).toBe(true);
+
+          eventListeners.get('datasource:children')?.({
+            rows: [{ name: 'fresh' }],
+            context: fresh.context,
+            claimed: false,
+          });
+          expect(plugin.processRows([]).some((r: any) => r.name === 'fresh')).toBe(true);
+        });
+
+        it('re-requests loaded expanded groups on refetch; skips removed and never-loaded groups', () => {
+          const { plugin, eventListeners, fetches } = setup();
+          plugin.toggle('A');
+          eventListeners.get('datasource:children')?.({
+            rows: [{ name: 'old' }],
+            context: { source: 'grouping-rows', groupKey: 'A' },
+            claimed: false,
+          });
+          plugin.toggle('B');
+          eventListeners.get('datasource:error')?.({
+            error: new Error('x'),
+            context: { source: 'grouping-rows', groupKey: 'B' },
+          });
+          expect(fetches()).toHaveLength(2);
+
+          refetch(eventListeners, ['A', 'B']);
+          // A had rows → re-requested; B failed (no rows, no load) → stays as the user left it
+          expect(fetches().map((q) => (q.context as any).context.groupKey)).toEqual(['A', 'B', 'A']);
+          expect(plugin.processRows([]).some((r: any) => r.name === 'old')).toBe(false);
+
+          refetch(eventListeners, ['B']);
+          // A's load was in flight but A is gone from the new definitions → not re-requested
+          expect(fetches()).toHaveLength(3);
+        });
+
+        it('aborts in-flight loads on setGroups() so re-expanding requests the new definition', () => {
+          const { plugin, fetches, signalOf, isLoading } = setup();
+          plugin.toggle('A');
+          const signal = signalOf('A');
+
+          plugin.setGroups([{ key: 'A', value: 'Group A v2' }]);
+          expect(signal.aborted).toBe(true);
+          expect(isLoading()).toBe(false);
+
+          plugin.processRows([]);
+          plugin.toggle('A');
+          expect(fetches()).toHaveLength(2);
+          expect(signalOf('A').aborted).toBe(false);
+        });
+
+        it('aborts in-flight loads on setGroupRows(), clearGroupRows() and detach()', () => {
+          const { plugin, signalOf, isLoading } = setup();
+          plugin.toggle('A');
+          const first = signalOf('A');
+          plugin.setGroupRows('A', [{ id: 1 }]);
+          expect(first.aborted).toBe(true);
+
+          plugin.clearGroupRows('A');
+          plugin.toggle('A');
+          plugin.toggle('A');
+          const second = signalOf('A');
+          plugin.clearGroupRows();
+          expect(second.aborted).toBe(true);
+          expect(isLoading()).toBe(false);
+
+          plugin.toggle('B');
+          const third = signalOf('B');
+          plugin.detach();
+          expect(third.aborted).toBe(true);
+        });
+
+        it('does not track or pass a signal when ServerSide is not active (imperative mode)', () => {
+          const harness = createMockGridWithEvents(false);
+          const plugin = new GroupingRowsPlugin({ groups: [{ key: 'A', value: 'Group A' }] });
+          plugin.attach(harness.grid as any);
+          plugin.processRows([]);
+          plugin.toggle('A');
+          plugin.clearGroupRows('A');
+
+          const fetch = harness.queryCalls.find((q) => q.type === 'datasource:fetch-children');
+          expect((fetch!.context as any).signal).toBeUndefined();
+          // clearGroupRows() leaves a consumer-driven loading state alone
+          expect(plugin.processRows([]).some((r: any) => r.__loading)).toBe(true);
+        });
       });
     });
   });

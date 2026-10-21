@@ -90,6 +90,7 @@ Class is `Grid<Name>Directive`; selector input is `[<name>]` — EXCEPT `export`
 - DECIDED: Angular `registerTemplateBridge` callbacks (master-detail, responsive) MUST look up via `(grid as any).getPluginByName?.(name)`, NOT scan `gridConfig.plugins` — feature-resolver plugins live only in `PluginManager`, so scanning emitted spurious "is not configured" warnings.
 - INVARIANT: `angular-grid-adapter.spec.ts` registers bridges/preprocessors INLINE in `beforeAll` from `./internal/feature-bridges` and `./internal/feature-extensions` — NOT via a barrel side-effect import (that would define `tbw-grid` and trip ResizeObserver in jsdom).
 - INVARIANT: feature secondary VALUE imports MUST go through the `@toolbox-web/grid-angular` barrel, NOT relative `../../../src/lib/...` — ng-packagr fails `TS6059: File … is not under 'rootDir'` (template typecheck generates `.ngtypecheck.ts` outside the secondary's rootDir). Type-only imports may use relative paths.
+- INVARIANT (PR #533): the master-detail component-class preprocessor caches `mount()` results per row but reuses one ONLY while `componentRef.hostView.destroyed` is false — core MasterDetail `adapter.unmount()`s the panel on collapse, scroll-out, and async re-render, destroying the ref; returning the cached host would show a dead component. Cache value typed `ReturnType<typeof mount>` (a local `@angular/core` type import is brand-incompatible under ng-packagr). Test: `features/master-detail/src/index.spec.ts`.
 
 ## testing
 

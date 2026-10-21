@@ -303,8 +303,10 @@ function onSortChange(e: CustomEvent<SortChangeDetail>) {
 | `@selection-change`    | `SelectionChangeDetail`  | Selection state changed           |
 | `@row-move`            | `RowMoveDetail`          | Row was reordered                 |
 | `@group-toggle`        | `GroupToggleDetail`      | Row group expanded/collapsed      |
+| `@group-load-error`    | `GroupLoadErrorDetail`   | Server group rows failed to load  |
 | `@tree-expand`         | `TreeExpandDetail`       | Tree node expanded/collapsed      |
 | `@detail-expand`       | `DetailExpandDetail`     | Master-detail row toggled         |
+| `@detail-load-error`   | `DetailLoadErrorDetail`  | Server detail data failed to load |
 | `@responsive-change`   | `ResponsiveChangeDetail` | Responsive layout mode changed    |
 | `@copy`                | `CopyDetail`             | Data copied to clipboard          |
 | `@paste`               | `PasteDetail`            | Data pasted from clipboard        |

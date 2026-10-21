@@ -18,13 +18,18 @@ import type { MasterDetailConfig } from './index';
 class DetailComponent {}
 
 function makeAdapter(): { adapter: GridAdapter; mount: ReturnType<typeof vi.fn> } {
-  const hostElement = document.createElement('section');
-  hostElement.className = 'mocked';
-  const componentRef = {
-    setInput: vi.fn(),
-    changeDetectorRef: { detectChanges: vi.fn() },
-  } as unknown as ComponentRef<unknown>;
-  const mount = vi.fn(() => ({ hostElement, componentRef }));
+  // Each mount yields a fresh host + ComponentRef whose `hostView.destroyed`
+  // flips when the adapter tears it down (adapter.unmount → ref.destroy()).
+  const mount = vi.fn(() => {
+    const hostElement = document.createElement('section');
+    hostElement.className = 'mocked';
+    const componentRef = {
+      setInput: vi.fn(),
+      changeDetectorRef: { detectChanges: vi.fn() },
+      hostView: { destroyed: false },
+    } as unknown as ComponentRef<unknown>;
+    return { hostElement, componentRef };
+  });
   const adapter = {
     mountComponentRenderer: <TCtx>(_cls: Type<unknown>, _map: (ctx: TCtx) => Record<string, unknown>) =>
       mount as (ctx: TCtx) => { hostElement: HTMLElement; componentRef: ComponentRef<unknown> },
@@ -62,6 +67,24 @@ describe('master-detail preprocessor bridge', () => {
     expect(first).toBeInstanceOf(HTMLElement);
     expect(second).toBe(first); // cached per row
     expect(mount).toHaveBeenCalledTimes(1);
+  });
+
+  it('remounts instead of returning a destroyed cached host (MasterDetail unmounted the panel)', () => {
+    const pre = getFeatureConfigPreprocessor('masterDetail');
+    const { adapter, mount } = makeAdapter();
+    const out = pre!({ detailRenderer: DetailComponent } satisfies MasterDetailConfig, adapter) as MasterDetailConfig;
+    const render = out.detailRenderer as (r: unknown, i: number) => HTMLElement;
+    const row = { id: 1 };
+    const first = render(row, 0);
+
+    // adapter.unmount() destroys the ComponentRef when the panel is collapsed,
+    // scrolled out, or re-rendered after a datasource:children/error broadcast.
+    (mount.mock.results[0].value.componentRef.hostView as { destroyed: boolean }).destroyed = true;
+
+    const second = render(row, 0);
+    expect(second).not.toBe(first);
+    expect(mount).toHaveBeenCalledTimes(2);
+    expect(render(row, 0)).toBe(second); // the fresh instance is cached again
   });
 
   it('passes through when config is undefined or boolean', () => {

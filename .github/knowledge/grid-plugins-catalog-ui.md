@@ -43,10 +43,13 @@ OWNS: selected rows/cells/ranges/columns (`Set<field>`), `activeAxis`, normalize
 
 ### MasterDetail
 
-OWNS: expanded rows, detail height, animation state. HOOKS: processColumns (expander), onCellClick, afterRowRender, getRowHeight, adjustVirtualStart. EVENTS: `master-detail-toggle`.
+OWNS: expanded rows, detail height, animation state, `loadingDetails`, `detailDataMap`, `detailLoads: Map<row,AbortController>`. HOOKS: processColumns (expander), onCellClick, afterRowRender, getRowHeight, adjustVirtualStart. EVENTS: `detail-expand`, `detail-load-error`. FIRES: `datasource:fetch-children` (`toggleAndEmit` only, when `datasource:is-active`). LISTENS: `datasource:children|error`.
+
+- DECIDED (#531): `datasource:error` (`source:'master-detail'`, row in `detailLoads`) → release `loadingDetails`, drop the detail element (`#invalidateDetail` → `detailRenderer` re-runs) + `emit('detail-load-error', {rowIndex: rows.indexOf(row), row, error})`. Every collapse path (`toggleAndEmit`, `collapse`, `toggle`, `collapseAll`) → `#cancelDetailLoad` aborts the `FetchChildrenQuery.signal` — collapsed rows discard `datasource:children` anyway, and a late error must not fire for them. TENSION (#532): public `expand()`/`toggle()`/`expandAll()` never fetch — only the expander-click path does. Tests: `master-detail.spec.ts` "(#531)", `integration/server-side-child-requests.spec.ts`.
 
 - SHARED expander util `core/plugin/expander-column.ts`: `EXPANDER_COLUMN_FIELD`, `EXPANDER_COLUMN_WIDTH`, `isExpanderColumn`, `isUtilityColumn`, `findExpanderColumn`, `createExpanderColumnConfig`, `ExpanderColumnRenderer`. DECIDED (Jun 2026): `createExpanderContainer`/`EXPANDER_COLUMN_STYLES` removed (zero consumers) — do not reintroduce.
 - DECIDED (Jul 2026, `#syncDetailRows`): `#collectVisibleRowMap` (prefers the index-aligned `_rowPool`, `querySelectorAll` as fallback) → `#pruneDetachedDetails` (adapter `unmount` BEFORE `remove()`) → per-row `#insertDetailRow`. INVARIANT: the `.tbw-row-expanded` toggle MUST run on the collapsed branch too — recycling otherwise leaks the class onto another row.
+- INVARIANT (PR #533): EVERY detail-panel removal goes through `#releaseDetail` (adapter `unmount(cell.firstElementChild)` → `remove()` → drop `detailElements` entry) — prune AND `#invalidateDetail` (async `datasource:children`/`error` re-render). Dropping the map entry without `unmount` orphans the framework view until adapter teardown (prune can never find it again). Consequence: any adapter renderer caching hosts per row MUST revalidate (Angular → adapters-angular.md).
 
 ## Reordering
 

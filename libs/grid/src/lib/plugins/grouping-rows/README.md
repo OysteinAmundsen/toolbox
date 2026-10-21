@@ -107,6 +107,18 @@ grid.addEventListener('group-expand', (e) => {
 });
 ```
 
+### `group-load-error`
+
+Fired when the ServerSide `getChildRows()` request for a pre-defined group's rows fails
+(see [Server-Side Data](#server-side-data-unified-datasource)). The group leaves its
+loading state; collapsing and re-expanding it retries the fetch.
+
+```typescript
+grid.addEventListener('group-load-error', (e) => {
+  console.error('Group', e.detail.groupKey, 'failed:', e.detail.error);
+});
+```
+
 ## API Methods
 
 Access via `grid.getPluginByName('groupingRows')`:
@@ -203,6 +215,13 @@ rendering and expand/collapse. When a group is expanded, GroupingRows automatica
 fires a `datasource:fetch-children` query — the ServerSide plugin calls
 `getChildRows()` and delivers the results back via `datasource:children`.
 Viewport mapping is handled automatically for correct pagination.
+
+If `getChildRows()` rejects, the group leaves its loading state and `group-load-error`
+fires. An in-flight request is aborted (`params.signal`) when new group definitions
+arrive (server sort/filter change, `refresh()`, or `setGroups()`), and when
+`setGroupRows()` / `clearGroupRows()` replaces or clears that group's rows; collapsing
+a group keeps its request. After a server refetch, still-expanded groups whose rows
+were loaded (or loading) request them again.
 
 ### Imperative API (Without ServerSide)
 

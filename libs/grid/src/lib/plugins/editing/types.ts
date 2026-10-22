@@ -259,7 +259,11 @@ declare module '../../core/types' {
     editable?: boolean | ((row: TRow) => boolean);
     /** Optional custom editor factory or element tag name. Requires EditingPlugin. */
     editor?: ColumnEditorSpec<TRow, TValue>;
-    /** For select type - allow multi select. Requires EditingPlugin. */
+    /**
+     * For select type - allow multi select. Requires EditingPlugin.
+     * The cell value is an array of the selected options' `value`s (their original types
+     * are kept); a `nullable` column commits `null` when only its blank option is selected.
+     */
     multi?: boolean;
     /**
      * Configuration parameters for built-in editors.

@@ -39,7 +39,7 @@ import type {
   UpdateSource,
 } from '../../core/types';
 import styles from './editing.css?inline';
-import { getInputValue } from './editors';
+import { getInputValue, isSameEditorValue } from './editors';
 import { CellValidationManager } from './internal/cell-validation';
 import { type BaselinesCapturedDetail, type DirtyChangeDetail, type DirtyRowEntry } from './internal/dirty-tracking';
 import { DirtyTrackingManager } from './internal/dirty-tracking-manager';
@@ -2439,7 +2439,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       const field = col.field;
       const originalValue = readCellField(current, field) as T[keyof T];
       const val = getInputValue(input, col, originalValue);
-      if (originalValue !== val) {
+      if (!isSameEditorValue(originalValue, val)) {
         this.#commitCellValue(rowIndex, col, val, current);
       }
     });

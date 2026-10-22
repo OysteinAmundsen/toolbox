@@ -9,6 +9,17 @@ import { gzipSync } from 'zlib';
 import { bundleBudget } from '../../tools/vite-bundle-budget';
 import { assertSingleStateCopy, coreImports } from '../../tools/vite-core-imports';
 
+// These options were migrated by @nx/vite:convert-to-inferred from the project.json file.
+const configValues = { default: {}, development: {}, production: {} };
+
+// Determine the correct configValue to use based on the configuration
+const nxConfiguration = process.env.NX_TASK_TARGET_CONFIGURATION ?? 'default';
+
+const options = {
+  ...configValues.default,
+  ...(configValues[nxConfiguration] ?? {}),
+};
+
 // Read package.json version for build-time injection
 const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'));
 const gridVersion = pkg.version;

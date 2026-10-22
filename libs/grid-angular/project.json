@@ -42,11 +42,10 @@
       }
     },
     "test": {
-      "executor": "@nx/vitest:test",
-      "outputs": ["{options.reportsDirectory}"],
+      "outputs": ["{projectRoot}/{options.coverage.reportsDirectory}", "{workspaceRoot}/coverage/libs/grid-angular"],
       "options": {
         "passWithNoTests": true,
-        "reportsDirectory": "{projectRoot}/../../coverage/libs/grid-angular"
+        "coverage.reportsDirectory": "../../coverage/libs/grid-angular"
       }
     },
     "lint": {

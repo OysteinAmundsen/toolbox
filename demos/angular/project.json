@@ -68,6 +68,9 @@
         "development": {
           "buildTarget": "demo-angular:build:development"
         }
+      },
+      "readyWhen": {
+        "signal": true
       }
     },
     "serve:dist": {

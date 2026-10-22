@@ -2,13 +2,14 @@ import { resolve } from 'path';
 import { defineConfig } from 'vite';
 import { bookingLogsApiPlugin } from '../shared/booking-logs/vite-plugin';
 import { getResolveAliases } from '../shared/resolve-aliases';
+import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
 
 export default defineConfig({
   root: resolve(__dirname),
   resolve: {
     alias: getResolveAliases(__dirname),
   },
-  plugins: [bookingLogsApiPlugin()],
+  plugins: [bookingLogsApiPlugin(), nxReadySignal()],
   server: {
     port: 4000,
     open: false,

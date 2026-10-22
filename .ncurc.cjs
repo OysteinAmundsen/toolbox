@@ -35,6 +35,7 @@ const majorLocked = [
   // Astro/Starlight docs cluster — Starlight gates the safe Astro major.
   'astro',
   'astro-mermaid',
+  'mermaid', // astro-mermaid peer range caps it (^10 || ^11 as of 2.1.0)
   '@astrojs/', // mdx, starlight, cloudflare, ...
   // Vue ecosystem — router/i18n majors track Vue; bump deliberately, not via ncu.
   'vue',

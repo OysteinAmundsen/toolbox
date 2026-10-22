@@ -143,7 +143,7 @@ function createMockGrid(overrides = {}) {
 2. **Always `await waitUpgrade(grid)`** after creating grid elements
 3. **Use `await nextFrame()`** after data changes to wait for rendering
 4. **Mock `document.execCommand`** when testing clipboard (not in happy-dom)
-5. **Run tests through Nx**: `bun nx test grid --testFile=path/to/spec.ts`
+5. **Run tests through Nx**: `bun nx test grid path/to/spec.ts` (positional substring filter; `--testFile` is rejected by Vitest 4)
 6. **Never use `npx vitest`** directly — always use `bun nx test <project>`
 
 ### happy-dom gotchas (layout, timers, plugin identity)
@@ -168,8 +168,10 @@ with no useful message, re-run it through the `runTests` VS Code tool to get the
 expected/received output (caveat: for `grid-angular` the tool executes `bun test`, which has no
 DOM and fails with `document is not defined` — use Nx there, where positional patterns were also
 ignored and the full suite ran). Filtering with `--testPathPattern=` is **not** honoured, and positional
-patterns (`bun nx test grid -- <pattern1> <pattern2>`) were also ignored for `grid` (Oct 2026, #534 —
-the full 144-file suite ran). Use `bun nx test grid --testFile=<path>` per spec, or accept the ~20 s full run.
+patterns after a `--` separator (`bun nx test grid -- <pattern>`) were also ignored for `grid` (Oct 2026, #534 —
+the full 144-file suite ran). `--testFile=` is rejected by Vitest 4 (`Unknown option`). Pass the pattern
+positionally WITHOUT `--`: `bun nx test grid <file-substring>` (verified #547 — ran only the matching
+files), or accept the ~20 s full run.
 
 ## Step 4: Verify
 

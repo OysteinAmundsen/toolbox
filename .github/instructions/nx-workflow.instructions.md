@@ -17,7 +17,7 @@ applyTo: '{libs,apps,demos,e2e}/**'
 bun nx serve docs          # Start docs site (port 4401)
 bun nx build grid          # Build grid library
 bun nx test grid           # Run grid tests
-bun nx test grid --testFile=src/lib/plugins/visibility/group-drag.spec.ts
+bun nx test grid group-drag.spec.ts   # positional file filter (no `--`; `--testFile` is rejected by Vitest 4)
 bun run lint               # Lint all projects
 bun run lint && bun run test && bun run build  # CI flow
 bun nx affected -t test    # Run affected tests

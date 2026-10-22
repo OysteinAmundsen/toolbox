@@ -155,6 +155,11 @@ spec with long-standing repeated setup floods the list. Keep only groups where s
 `[start_line, end_line]` overlaps a `git diff -U0 <base>` hunk range of the same file — those are clones the change
 added. No duplication is allowed, tests included: extract a local helper in the enclosing `describe`.
 
+If `duplication_introduced` suddenly jumps to ~the whole repo's group count (#547: 1 → 109) after a file was
+rewritten by a script, check line endings first. On this Windows (`core.autocrlf=true`) tree, a file saved with LF
+while the base worktree is CRLF makes fallow's baseline comparison miss every group. Restore CRLF and re-run.
+`git diff` hides this because it normalizes line endings.
+
 Hunk overlap is only a proxy: a uniform rename across a file (e.g. `foo()` → `bar()` at every call site) overlaps
 pre-existing clones without creating any. Before reporting an overlap from such an edit, confirm per file that the
 clone-group count actually grew. Run `bunx fallow dupes --format json` on the current tree, then on a **separate

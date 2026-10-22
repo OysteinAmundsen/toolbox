@@ -3787,6 +3787,67 @@ describe('EditingPlugin', () => {
         expect(select.options[0].selected).toBe(true);
         expect(select.options[0].textContent).toBe('(Blank)');
       });
+
+      // #547: row close re-reads native editors via getInputValue, which must map the
+      // internal blank-option sentinel back to null instead of committing it.
+      async function openNullableSelectRow(options: { label: string; value: unknown }[], value: unknown) {
+        const editingPlugin = new EditingPlugin({ editOn: 'dblclick' });
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'val', header: 'Value', type: 'select', editable: true, nullable: true, options },
+          ],
+          getRowId: (r: any) => String(r.id),
+          plugins: [editingPlugin],
+        };
+        grid.rows = [{ id: 1, val: value }];
+        await waitUpgrade(grid);
+
+        const commits: unknown[] = [];
+        grid.on('cell-commit', (detail: { value: unknown }) => commits.push(detail.value));
+
+        const cell = grid.querySelector('.data-grid-row .cell[data-col="1"]') as HTMLElement;
+        cell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+        const select = cell.querySelector('select') as HTMLSelectElement;
+        expect(select).toBeTruthy();
+        return { editingPlugin, select, commits };
+      }
+
+      it('nullable: true — closing the row with an untouched null value does not commit the sentinel', async () => {
+        const { editingPlugin, commits } = await openNullableSelectRow(
+          [
+            { label: 'Active', value: 'active' },
+            { label: 'Inactive', value: 'inactive' },
+          ],
+          null,
+        );
+
+        editingPlugin.commitActiveRowEdit();
+        await nextFrame();
+
+        expect(commits).toEqual([]);
+        expect(grid.rows[0].val).toBeNull();
+      });
+
+      it('nullable: true — closing the row with the blank option on a numeric column commits null, not NaN', async () => {
+        const { editingPlugin, select, commits } = await openNullableSelectRow(
+          [
+            { label: 'One', value: 1 },
+            { label: 'Two', value: 2 },
+          ],
+          2,
+        );
+        // Pick the blank option without a change event, so only the row-close path reads it.
+        select.value = select.options[0].value;
+
+        editingPlugin.commitActiveRowEdit();
+        await nextFrame();
+
+        expect(commits).toEqual([null]);
+        expect(grid.rows[0].val).toBeNull();
+      });
     });
 
     // ---- Date editors ----

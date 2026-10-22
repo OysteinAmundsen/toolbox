@@ -338,6 +338,11 @@ function readTextControlValue(
   column?: AnyColumn,
   originalValue?: unknown,
 ): unknown {
+  // Nullable select's "(Blank)" option carries an internal sentinel — map it back to null
+  // (before the numeric branch, which would turn it into NaN). Mirrors createSelectEditor's commit.
+  if (input instanceof HTMLSelectElement && column?.nullable && input.value === NULLABLE_BLANK_VALUE) {
+    return null;
+  }
   // Check column type OR original value type — preserves numeric type for
   // custom column types (e.g., currency).
   if (input.value !== '' && (column?.type === 'number' || typeof originalValue === 'number')) {

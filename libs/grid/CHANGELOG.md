@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.9.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.9.1...grid-3.9.2) (2026-10-22)
+
+
+### Bug Fixes
+
+* **filtering/server-side:** stop re-filtering server results and refresh stale filter cache on block load ([#520](https://github.com/OysteinAmundsen/toolbox/issues/520)) ([#522](https://github.com/OysteinAmundsen/toolbox/issues/522)) ([bda5c42](https://github.com/OysteinAmundsen/toolbox/commit/bda5c4223d5109a3710ca1a9f0a5bf0db67ca64d))
+* **grid/editing/undo-redo:** resolve undo/redo actions by row id ([#526](https://github.com/OysteinAmundsen/toolbox/issues/526)) ([#529](https://github.com/OysteinAmundsen/toolbox/issues/529)) ([e383edb](https://github.com/OysteinAmundsen/toolbox/commit/e383edb89768783e4c6192566dc1776dfc44c862))
+* **grouping-rows/master-detail:** release loading state and emit load-error events when getChildRows fails ([#531](https://github.com/OysteinAmundsen/toolbox/issues/531)) ([#533](https://github.com/OysteinAmundsen/toolbox/issues/533)) ([b0bb93b](https://github.com/OysteinAmundsen/toolbox/commit/b0bb93bd5ab6878fda986434db4abe89a2bd2334))
+* **grouping-rows/server-side:** merge ServerSide group-definition blocks by node index and load groups past the first block ([#538](https://github.com/OysteinAmundsen/toolbox/issues/538)) ([#540](https://github.com/OysteinAmundsen/toolbox/issues/540)) ([b9374e1](https://github.com/OysteinAmundsen/toolbox/commit/b9374e12ce56b0f942c1f083a85bbcec27c41b0d))
+* **grouping-rows:** fetch ServerSide group rows for defaultExpanded/expandAll()/expand() ([#534](https://github.com/OysteinAmundsen/toolbox/issues/534)) ([#537](https://github.com/OysteinAmundsen/toolbox/issues/537)) ([c6d465b](https://github.com/OysteinAmundsen/toolbox/commit/c6d465b5d19a6d3bdd459f01be7f84517a539d39))
+* **master-detail:** fetch ServerSide detail data on programmatic expand()/toggle()/expandAll() ([#532](https://github.com/OysteinAmundsen/toolbox/issues/532)) ([#536](https://github.com/OysteinAmundsen/toolbox/issues/536)) ([bfea041](https://github.com/OysteinAmundsen/toolbox/commit/bfea041e0db4263deeb0cbf886498e7d1dd5c0a3))
+* **master-detail:** skip ServerSide loading placeholders and keep expandAll() active for rows that load later ([#535](https://github.com/OysteinAmundsen/toolbox/issues/535)) ([#539](https://github.com/OysteinAmundsen/toolbox/issues/539)) ([78c1bf0](https://github.com/OysteinAmundsen/toolbox/commit/78c1bf04556e84a0246b4de64f4b8af2b2f65ac4))
+* **multi-sort/server-side:** honor sortMode 'server' and stop mutating consumer rows ([#521](https://github.com/OysteinAmundsen/toolbox/issues/521)) ([#525](https://github.com/OysteinAmundsen/toolbox/issues/525)) ([e215cf4](https://github.com/OysteinAmundsen/toolbox/commit/e215cf4465c59ea2ac4bb1141c58e29b52a732aa))
+* **selection/context-menu:** make getSelectedRowIndices mode-aware so context menu selectedRows covers range/cell selection ([#541](https://github.com/OysteinAmundsen/toolbox/issues/541)) ([#543](https://github.com/OysteinAmundsen/toolbox/issues/543)) ([79a2cd3](https://github.com/OysteinAmundsen/toolbox/commit/79a2cd396c66813b4a86f65400f78188ee6facee))
+* **tree:** keep ServerSide order under sortMode 'server' ([#524](https://github.com/OysteinAmundsen/toolbox/issues/524)) ([#528](https://github.com/OysteinAmundsen/toolbox/issues/528)) ([4b6f590](https://github.com/OysteinAmundsen/toolbox/commit/4b6f590fa69140f5159dd072cf35bf0fd62fc70a))
+* **tree:** re-fetch lazy children of expanded nodes after their rows are replaced ([#527](https://github.com/OysteinAmundsen/toolbox/issues/527)) ([#530](https://github.com/OysteinAmundsen/toolbox/issues/530)) ([82b42b5](https://github.com/OysteinAmundsen/toolbox/commit/82b42b5ddee5dc659fb962f76dc158ebf96a3a47))
+
 ## [3.9.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.9.0...grid-3.9.1) (2026-10-19)
 
 

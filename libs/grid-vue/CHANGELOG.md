@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.6.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.6.2...grid-vue-2.6.3) (2026-10-22)
+
+
+### Bug Fixes
+
+* **grid/editing/undo-redo:** resolve undo/redo actions by row id ([#526](https://github.com/OysteinAmundsen/toolbox/issues/526)) ([#529](https://github.com/OysteinAmundsen/toolbox/issues/529)) ([e383edb](https://github.com/OysteinAmundsen/toolbox/commit/e383edb89768783e4c6192566dc1776dfc44c862))
+* **grouping-rows/master-detail:** release loading state and emit load-error events when getChildRows fails ([#531](https://github.com/OysteinAmundsen/toolbox/issues/531)) ([#533](https://github.com/OysteinAmundsen/toolbox/issues/533)) ([b0bb93b](https://github.com/OysteinAmundsen/toolbox/commit/b0bb93bd5ab6878fda986434db4abe89a2bd2334))
+
 ## [2.6.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.6.1...grid-vue-2.6.2) (2026-10-19)
 
 

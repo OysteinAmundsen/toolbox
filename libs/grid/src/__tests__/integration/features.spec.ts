@@ -6,34 +6,7 @@ import '../../lib/features/editing';
 import '../../lib/features/filtering';
 import '../../lib/features/multi-sort';
 import '../../lib/features/selection';
-
-function nextFrame() {
-  return new Promise((r) => requestAnimationFrame(r));
-}
-
-async function waitUpgrade(grid: any) {
-  await customElements.whenDefined('tbw-grid');
-  const start = Date.now();
-  while (!grid.hasAttribute('data-upgraded')) {
-    if (Date.now() - start > 3000) break;
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  if (grid.ready) {
-    try {
-      await grid.ready();
-    } catch {
-      /* empty */
-    }
-  }
-  if (grid.forceLayout) {
-    try {
-      await grid.forceLayout();
-    } catch {
-      /* empty */
-    }
-  }
-  await nextFrame();
-}
+import { waitUpgrade } from '../../../test/helpers';
 
 describe('gridConfig.features integration', () => {
   let grid: any;

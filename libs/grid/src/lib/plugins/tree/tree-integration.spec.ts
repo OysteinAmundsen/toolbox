@@ -5,13 +5,7 @@ import type { TreeConfig } from './types';
 // Import grid for full integration test
 import '../../../index';
 import type { GridElement } from '../../../public';
-
-/** Wait for custom element upgrade + ready promise */
-async function waitUpgrade(el: GridElement): Promise<void> {
-  await customElements.whenDefined('tbw-grid');
-  await (el as any).ready?.();
-  await new Promise((r) => requestAnimationFrame(r));
-}
+import { nextFrame, waitUpgrade } from '../../../../test/helpers';
 
 describe('tree plugin integration', () => {
   beforeEach(() => {
@@ -1255,8 +1249,6 @@ describe('tree plugin integration', () => {
       await waitUpgrade(grid);
       return { grid, plugin };
     }
-
-    const nextFrame = () => new Promise((r) => requestAnimationFrame(r));
 
     it('fetches children on expand, merges them, and emits tree-load-start/end', async () => {
       const calls: Array<{ key: string; depth: number }> = [];

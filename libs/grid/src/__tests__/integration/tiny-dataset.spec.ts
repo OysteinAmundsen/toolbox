@@ -1,9 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DataGridElement } from '../../lib/core/grid';
-
-function nextFrame() {
-  return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-}
+import { nextFrame } from '../../../test/helpers';
 
 describe('tiny dataset virtualization bypass', () => {
   beforeEach(() => {

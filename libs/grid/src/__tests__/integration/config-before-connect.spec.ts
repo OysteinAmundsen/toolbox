@@ -13,22 +13,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
 import type { DataGridElement } from '../../lib/core/grid';
 import { ShellPlugin } from '../../lib/plugins/shell';
-
-function nextFrame() {
-  return new Promise((r) => requestAnimationFrame(r));
-}
-
-async function waitForReady(grid: DataGridElement): Promise<void> {
-  // Wait for upgrade
-  await customElements.whenDefined('tbw-grid');
-  // Wait for grid.ready()
-  if (typeof grid.ready === 'function') {
-    await grid.ready();
-  }
-  // Extra frame for rendering
-  await nextFrame();
-  await nextFrame();
-}
+import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 describe('Vanilla Demo Pattern - Config Before Connect', () => {
   afterEach(() => {
@@ -57,7 +42,7 @@ describe('Vanilla Demo Pattern - Config Before Connect', () => {
 
     // Now connect to DOM
     document.body.appendChild(grid);
-    await waitForReady(grid);
+    await waitUpgrade(grid);
 
     // Verify columns are configured
     expect(grid.gridConfig.columns?.length).toBe(3);
@@ -115,7 +100,7 @@ describe('Vanilla Demo Pattern - Config Before Connect', () => {
 
     // Connect to DOM
     document.body.appendChild(grid);
-    await waitForReady(grid);
+    await waitUpgrade(grid);
 
     // Verify shell header is rendered
     const shellHeader = grid.querySelector('.tbw-shell-header');
@@ -150,7 +135,7 @@ describe('Vanilla Demo Pattern - Config Before Connect', () => {
     };
     grid.rows = [{ id: 1, name: 'Test' }];
 
-    await waitForReady(grid);
+    await waitUpgrade(grid);
     await nextFrame();
 
     // Verify headers rendered
@@ -253,7 +238,7 @@ describe('Vanilla Demo Pattern - Config Before Connect', () => {
 
     // Connect to DOM
     document.body.appendChild(grid);
-    await waitForReady(grid);
+    await waitUpgrade(grid);
 
     const headerRow = grid.querySelector('.header-row');
 
@@ -313,7 +298,7 @@ describe('Vanilla Demo Pattern - Config Before Connect', () => {
 
     // Connect to DOM
     document.body.appendChild(grid);
-    await waitForReady(grid);
+    await waitUpgrade(grid);
 
     // Verify initial state has column groups
     let groupRow = grid.querySelector('.header-group-row');

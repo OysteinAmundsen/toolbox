@@ -1,27 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
 import { MultiSortPlugin } from '../../lib/plugins/multi-sort/multi-sort-plugin';
-
-function nextFrame() {
-  return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-}
-
-async function waitUpgrade(grid: any) {
-  await customElements.whenDefined('tbw-grid');
-  const start = Date.now();
-  while (!grid.hasAttribute('data-upgraded')) {
-    if (Date.now() - start > 3000) break;
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  if (grid.ready) {
-    try {
-      await grid.ready();
-    } catch {
-      /* empty */
-    }
-  }
-  await nextFrame();
-}
+import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 describe('columnState width-only fast path', () => {
   afterEach(() => {
@@ -50,7 +30,7 @@ describe('columnState width-only fast path', () => {
     const state = grid.getColumnState();
     state.columns[0].width = 200;
     grid.applyColumnState(state);
-    await nextFrame();
+    await nextFrame(2);
 
     // Epoch should NOT have been bumped (no full row rebuild)
     expect(grid.__rowRenderEpoch).toBe(epochBefore);
@@ -79,7 +59,7 @@ describe('columnState width-only fast path', () => {
     const state = grid.getColumnState();
     state.columns[1].visible = false;
     grid.applyColumnState(state);
-    await nextFrame();
+    await nextFrame(2);
 
     // Epoch SHOULD have been bumped (structural change)
     expect(grid.__rowRenderEpoch).toBeGreaterThan(epochBefore);
@@ -105,7 +85,7 @@ describe('columnState width-only fast path', () => {
     state.columns[0].order = 1;
     state.columns[1].order = 0;
     grid.applyColumnState(state);
-    await nextFrame();
+    await nextFrame(2);
 
     // Epoch SHOULD have been bumped (structural change)
     expect(grid.__rowRenderEpoch).toBeGreaterThan(epochBefore);
@@ -129,7 +109,7 @@ describe('columnState width-only fast path', () => {
     const state = grid.getColumnState();
     state.columns[2].width = 300;
     grid.applyColumnState(state);
-    await nextFrame();
+    await nextFrame(2);
 
     // Columns should still be in same order
     const fields = grid._visibleColumns.map((c: any) => c.field);
@@ -158,7 +138,7 @@ describe('columnState width-only fast path', () => {
     const state = grid.getColumnState();
     state.columns[0].width = 250;
     grid.applyColumnState(state);
-    await nextFrame();
+    await nextFrame(2);
 
     const idCol = grid._visibleColumns.find((c: any) => c.field === 'id');
     expect(idCol.width).toBe(250);
@@ -186,7 +166,7 @@ describe('columnState width-only fast path', () => {
     const state = grid.getColumnState();
     state.columns[0].sort = { direction: 'asc', priority: 0 };
     grid.applyColumnState(state);
-    await nextFrame();
+    await nextFrame(2);
 
     // Behavioral assertion: processed rows are in ascending id order.
     // `_rows` is the output of processRows() — the data path MultiSortPlugin
@@ -219,7 +199,7 @@ describe('columnState width-only fast path', () => {
     const sortedState = grid.getColumnState();
     sortedState.columns[0].sort = { direction: 'asc', priority: 0 };
     grid.applyColumnState(sortedState);
-    await nextFrame();
+    await nextFrame(2);
     expect(sortPlugin.sortModel.length).toBe(1);
 
     // Listen for the sort-change broadcast that fires after sort clears.
@@ -230,7 +210,7 @@ describe('columnState width-only fast path', () => {
     const clearedState = grid.getColumnState();
     clearedState.columns.forEach((c: any) => delete c.sort);
     grid.applyColumnState(clearedState);
-    await nextFrame();
+    await nextFrame(2);
 
     // Behavioral assertions that this PR's fix guarantees:
     //  1. The plugin's sort model is now empty.
@@ -263,12 +243,12 @@ describe('columnState width-only fast path', () => {
     const savedState = grid.getColumnState();
     savedState.columns[0].width = 200;
     grid.applyColumnState(savedState);
-    await nextFrame();
+    await nextFrame(2);
     expect(grid._visibleColumns.find((c: any) => c.field === 'id').width).toBe(200);
 
     // First reset — must restore the default 60px width.
     grid.columns = [...defaultColumns];
-    await nextFrame();
+    await nextFrame(2);
     expect(grid._visibleColumns.find((c: any) => c.field === 'id').width).toBe(60);
   }, 20000);
 });

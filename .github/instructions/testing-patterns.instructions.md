@@ -27,11 +27,11 @@ Tests are co-located with source files (`feature.ts` → `feature.spec.ts`). Int
 
 ## Test Helpers (`test/helpers.ts`)
 
-**Import these — never redefine them inline in a spec.** No code duplication, tests included; ~29 legacy specs still carry inline copies (cleanup tracked in #542 — do not add more). The helpers' own spec, `test/helpers.spec.ts`, runs because the grid vitest `include` covers `test/**/*.spec.ts` — in `grid`, a spec outside `src/**` or `test/**` is silently never run (each project's `include` in its own `vite.config.ts` decides).
+**Import these — never redefine them inline in a spec** (no code duplication, tests included; #542 migrated the last 36 specs that carried inline copies, some under other names like `settle`/`waitForReady` — `bunx fallow dupes` flags new ones). The helpers' own spec, `test/helpers.spec.ts`, runs because the grid vitest `include` covers `test/**/*.spec.ts` — in `grid`, a spec outside `src/**` or `test/**` is silently never run (each project's `include` in its own `vite.config.ts` decides).
 
 - **`createGrid()`** — Creates a `<tbw-grid>` element, appends it to `document.body`, and returns it. Use for setting up test fixtures.
-- **`waitUpgrade(grid)`** — `whenDefined('tbw-grid')` → `grid.ready()` → two `nextFrame()`s. The spec must still import `core/grid` (e.g. `import '../../core/grid'`) so the element is defined.
-- **`nextFrame()`** — Resolves on the next animation frame.
+- **`waitUpgrade(grid)`** — `whenDefined('tbw-grid')` → `grid.ready()` → two `nextFrame()`s. The spec must still import `core/grid` (e.g. `import '../../core/grid'`) so the element is defined. Never poll `data-upgraded` instead: it is set synchronously in `#afterConnect()`, before the scheduler's first flush resolves `ready()`, so `ready()` already implies it (the old polling copies just added a 3 s worst-case stall). Calling `forceLayout()` on top is likewise unnecessary straight after upgrade.
+- **`nextFrame(frames = 1)`** — Resolves after `frames` consecutive animation frames. Use `nextFrame(2)` where a spec needs a double-rAF settle — never a local `requestAnimationFrame(() => requestAnimationFrame(r))` wrapper.
 - **`rafDebounce(fn)`** — RAF-based debounce wrapper with `.cancel()` support. Ensures callback runs at most once per animation frame.
 
 ## DOM Testing Guidelines

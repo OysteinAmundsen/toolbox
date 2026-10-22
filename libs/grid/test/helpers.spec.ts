@@ -90,6 +90,19 @@ describe('test helpers', () => {
       expect(promise).toBeInstanceOf(Promise);
       await promise;
     });
+
+    it('waits for the requested number of consecutive frames', async () => {
+      let framesSeen = 0;
+      const countFrames = () => {
+        framesSeen++;
+        if (framesSeen < 10) requestAnimationFrame(countFrames);
+      };
+      requestAnimationFrame(countFrames);
+
+      await nextFrame(3);
+
+      expect(framesSeen).toBe(3);
+    });
   });
 
   describe('createGrid', () => {

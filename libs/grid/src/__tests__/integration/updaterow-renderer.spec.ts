@@ -3,34 +3,7 @@ import '../../lib/core/grid';
 import { EditingPlugin } from '../../lib/plugins/editing';
 import { SelectionPlugin } from '../../lib/plugins/selection';
 import { UndoRedoPlugin } from '../../lib/plugins/undo-redo';
-
-function nextFrame() {
-  return new Promise((r) => requestAnimationFrame(r));
-}
-
-async function waitUpgrade(grid: any) {
-  await customElements.whenDefined('tbw-grid');
-  const start = Date.now();
-  while (!grid.hasAttribute('data-upgraded')) {
-    if (Date.now() - start > 3000) break;
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  if (grid.ready) {
-    try {
-      await grid.ready();
-    } catch {
-      /* empty */
-    }
-  }
-  if (grid.forceLayout) {
-    try {
-      await grid.forceLayout();
-    } catch {
-      /* empty */
-    }
-  }
-  await nextFrame();
-}
+import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 describe('updateRow with custom boolean renderer', () => {
   afterEach(() => {

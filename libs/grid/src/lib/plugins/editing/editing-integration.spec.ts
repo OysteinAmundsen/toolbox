@@ -13,18 +13,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { UndoRedoPlugin } from '../undo-redo/undo-redo-plugin';
 import { EditingPlugin } from './editing-plugin';
-
-// Test helpers
-async function nextFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-}
-
-async function waitUpgrade(el: HTMLElement & { ready?: () => Promise<void> }): Promise<void> {
-  await customElements.whenDefined('tbw-grid');
-  await el.ready?.();
-  await nextFrame();
-  await nextFrame();
-}
+import { nextFrame, waitUpgrade } from '../../../../test/helpers';
 
 describe('EditingPlugin', () => {
   let grid: any;

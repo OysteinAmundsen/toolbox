@@ -7,30 +7,11 @@ import '../../lib/core/grid';
 import type { DataGridElement } from '../../lib/core/grid';
 import type { GridConfig } from '../../lib/core/types';
 import { MasterDetailPlugin } from '../../lib/plugins/master-detail';
+import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 interface TestRow {
   id: number;
   name: string;
-}
-
-function nextFrame() {
-  return new Promise((r) => requestAnimationFrame(r));
-}
-
-async function waitUpgrade(grid: DataGridElement<TestRow>) {
-  await customElements.whenDefined('tbw-grid');
-  const start = Date.now();
-  while (!(grid as any).hasAttribute('data-upgraded')) {
-    if (Date.now() - start > 3000) break;
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  if (grid.ready) {
-    try {
-      await grid.ready();
-    } catch {
-      /* empty */
-    }
-  }
 }
 
 function createRows(count: number): TestRow[] {

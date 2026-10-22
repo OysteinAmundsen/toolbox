@@ -13,6 +13,7 @@ import '../../lib/features/server-side';
 import '../../lib/features/tree';
 import type { GetChildRowsParams, GetChildRowsResult, GetRowsParams } from '../../lib/plugins/server-side';
 import type { TreeLoadChildrenParams } from '../../lib/plugins/tree';
+import { nextFrame } from '../../../test/helpers';
 
 interface Row {
   id: number;
@@ -23,9 +24,6 @@ interface Row {
 const roots = (): Row[] => [0, 1, 2].map((id) => ({ id, name: `n${id}`, children: true }));
 const kids = (): Row[] => [100, 101, 102].map((id) => ({ id, name: 'c' }));
 const ids = (grid: any) => (grid.rows as Row[]).map((r) => r.id);
-const nextFrames = async (n = 3) => {
-  for (let i = 0; i < n; i++) await new Promise((r) => requestAnimationFrame(() => r(undefined)));
-};
 
 /** `getRows` builds new row objects on every call, like any real server. */
 async function createServerGrid(getChildRows: (params: GetChildRowsParams) => Promise<GetChildRowsResult>) {
@@ -101,7 +99,7 @@ describe('Tree lazy children after root rows are replaced (#527)', () => {
       await vi.waitFor(() => expect(ids(grid)).toEqual([0, 1, 2]));
       tree.expand('0');
       await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
-      await nextFrames();
+      await nextFrame(3);
 
       expect(getChildRows).toHaveBeenCalledTimes(1);
     });
@@ -132,7 +130,7 @@ describe('Tree lazy children after root rows are replaced (#527)', () => {
 
       resolveFirst({ rows: [{ id: 999, name: 'stale' }] });
       await vi.waitFor(() => expect(ids(grid)).toEqual([0, 100, 101, 102, 1, 2]));
-      await nextFrames();
+      await nextFrame(3);
 
       expect(oldRoot.children).toBe(true);
       expect(starts).toHaveLength(2);
@@ -154,7 +152,7 @@ describe('Tree lazy children after root rows are replaced (#527)', () => {
 
       await refetch(grid, () => grid.getPluginByName('serverSide').refresh());
       await vi.waitFor(() => expect(getChildRows).toHaveBeenCalledTimes(2));
-      await nextFrames(5);
+      await nextFrame(5);
       expect(getChildRows).toHaveBeenCalledTimes(2);
       expect(ids(grid)).toEqual([0, 1, 2]);
 
@@ -223,7 +221,7 @@ describe('Tree lazy children after root rows are replaced (#527)', () => {
       expect(ends[0]).toMatchObject({ key: '0', row: oldRoot, childCount: 0, cancelled: true });
 
       resolveFirst([{ id: 999, name: 'stale' }]);
-      await nextFrames();
+      await nextFrame(3);
       expect(oldRoot.children).toBe(true);
       expect(ends).toHaveLength(2);
     });
@@ -275,7 +273,7 @@ describe('Tree lazy children after root rows are replaced (#527)', () => {
       expect(ids(grid)).toEqual([0, 200, 1, 2]);
 
       resolveFirst([{ id: 999, name: 'stale' }]);
-      await nextFrames();
+      await nextFrame(3);
       expect(rowsA[0].children).toBe(true);
       expect(ends).toHaveLength(1);
 
@@ -301,7 +299,7 @@ describe('Tree lazy children after root rows are replaced (#527)', () => {
 
       await vi.waitFor(() => expect(ends[0]).toMatchObject({ key: '0', cancelled: true }));
       expect(loadChildren.mock.calls[0][0].signal.aborted).toBe(true);
-      await nextFrames();
+      await nextFrame(3);
       expect(loadChildren).toHaveBeenCalledTimes(1);
     });
 
@@ -320,7 +318,7 @@ describe('Tree lazy children after root rows are replaced (#527)', () => {
 
       tree.collapse('0');
       await vi.waitFor(() => expect(ids(grid)).toEqual([0]));
-      await nextFrames();
+      await nextFrame(3);
       expect(loadChildren.mock.calls[0][0].signal.aborted).toBe(false);
 
       resolveFirst(kids());
@@ -348,7 +346,7 @@ describe('Tree lazy children after root rows are replaced (#527)', () => {
       expect(loadChildren.mock.calls[0][0].signal.aborted).toBe(true);
 
       resolveFirst([{ id: 999, name: 'stale' }]);
-      await nextFrames();
+      await nextFrame(3);
       expect(rootA.children).toBe(true);
       expect(ends).toHaveLength(1);
 
@@ -369,7 +367,7 @@ describe('Tree lazy children after root rows are replaced (#527)', () => {
       await vi.waitFor(() => expect(loadChildren).toHaveBeenCalledTimes(1));
 
       grid.rows = [{ __loading: true, __index: 0 }]; // path key '0', not a replacement row
-      await nextFrames();
+      await nextFrame(3);
       expect(loadChildren.mock.calls[0][0].signal.aborted).toBe(false);
 
       resolveFirst(kids());

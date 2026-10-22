@@ -2,21 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../lib/core/grid';
 import { BaseGridPlugin } from '../../lib/core/plugin';
 import { createGrid, type DataGridElement } from '../../public';
-
-function nextFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-}
+import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 /** `ready()` only settles for the initial render, so later config changes need the render event. */
 function nextRender(grid: HTMLElement): Promise<void> {
   return new Promise((resolve) => grid.addEventListener('render', () => resolve(), { once: true }));
-}
-
-async function waitUpgrade(grid: DataGridElement): Promise<void> {
-  await customElements.whenDefined('tbw-grid');
-  if ('ready' in grid && typeof grid.ready === 'function') {
-    await grid.ready();
-  }
 }
 
 describe('Loading State', () => {

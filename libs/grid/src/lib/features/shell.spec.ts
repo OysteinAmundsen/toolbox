@@ -3,34 +3,7 @@ import '../core/grid';
 import { ShellPlugin } from '../plugins/shell';
 // Side-effect import: registers the `shell` feature factory.
 import './shell';
-
-function nextFrame() {
-  return new Promise((r) => requestAnimationFrame(r));
-}
-
-async function waitUpgrade(grid: any) {
-  await customElements.whenDefined('tbw-grid');
-  const start = Date.now();
-  while (!grid.hasAttribute('data-upgraded')) {
-    if (Date.now() - start > 3000) break;
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  if (grid.ready) {
-    try {
-      await grid.ready();
-    } catch {
-      /* empty */
-    }
-  }
-  if (grid.forceLayout) {
-    try {
-      await grid.forceLayout();
-    } catch {
-      /* empty */
-    }
-  }
-  await nextFrame();
-}
+import { waitUpgrade } from '../../../test/helpers';
 
 describe('shell feature (features: { shell })', () => {
   let grid: any;

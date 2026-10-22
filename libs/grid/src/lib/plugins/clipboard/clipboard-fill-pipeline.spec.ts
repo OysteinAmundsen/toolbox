@@ -16,17 +16,7 @@ import { SelectionPlugin } from '../selection/selection-plugin';
 import { UndoRedoPlugin } from '../undo-redo/undo-redo-plugin';
 import { ClipboardPlugin } from './clipboard-plugin';
 import { defaultPasteHandler, type PasteDetail } from './types';
-
-async function nextFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-}
-
-async function waitUpgrade(el: HTMLElement & { ready?: () => Promise<void> }): Promise<void> {
-  await customElements.whenDefined('tbw-grid');
-  await el.ready?.();
-  await nextFrame();
-  await nextFrame();
-}
+import { nextFrame, waitUpgrade } from '../../../../test/helpers';
 
 describe('clipboard fillSelection over updateRows pipeline', () => {
   let grid: any;

@@ -12,14 +12,7 @@ import { HierarchyPlugin } from './hierarchy-plugin';
 
 import '../../../index';
 import type { ColumnConfig, GridElement } from '../../../public';
-
-async function waitUpgrade(el: GridElement): Promise<void> {
-  await customElements.whenDefined('tbw-grid');
-  await el.ready();
-  await new Promise((r) => requestAnimationFrame(r));
-}
-
-const nextFrame = () => new Promise((r) => requestAnimationFrame(r));
+import { nextFrame, waitUpgrade } from '../../../../test/helpers';
 
 /** Delivery plans (tree) whose children are grouped by kind. */
 function plans() {

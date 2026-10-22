@@ -1,26 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
-
-function nextFrame() {
-  return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-}
-
-async function waitUpgrade(grid: any) {
-  await customElements.whenDefined('tbw-grid');
-  const start = Date.now();
-  while (!grid.hasAttribute('data-upgraded')) {
-    if (Date.now() - start > 3000) break;
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  if (grid.ready) {
-    try {
-      await grid.ready();
-    } catch {
-      /* empty */
-    }
-  }
-  await nextFrame();
-}
+import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 describe('grid.sort() API', () => {
   afterEach(() => {
@@ -45,7 +25,7 @@ describe('grid.sort() API', () => {
     await waitUpgrade(grid);
 
     grid.sort('id', 'asc');
-    await nextFrame();
+    await nextFrame(2);
 
     expect(grid.sortModel).toEqual({ field: 'id', direction: 'asc' });
     expect(grid._rows.map((r: any) => r.id)).toEqual([1, 2, 3]);
@@ -62,7 +42,7 @@ describe('grid.sort() API', () => {
     await waitUpgrade(grid);
 
     grid.sort('id', 'desc');
-    await nextFrame();
+    await nextFrame(2);
 
     expect(grid.sortModel).toEqual({ field: 'id', direction: 'desc' });
     expect(grid._rows.map((r: any) => r.id)).toEqual([3, 2, 1]);
@@ -79,11 +59,11 @@ describe('grid.sort() API', () => {
     await waitUpgrade(grid);
 
     grid.sort('id', 'asc');
-    await nextFrame();
+    await nextFrame(2);
     expect(grid._rows.map((r: any) => r.id)).toEqual([1, 2, 3]);
 
     grid.sort(null);
-    await nextFrame();
+    await nextFrame(2);
 
     expect(grid.sortModel).toBeNull();
     expect(grid._rows.map((r: any) => r.id)).toEqual([3, 1, 2]);
@@ -101,17 +81,17 @@ describe('grid.sort() API', () => {
 
     // First toggle: asc
     grid.sort('id');
-    await nextFrame();
+    await nextFrame(2);
     expect(grid.sortModel?.direction).toBe('asc');
 
     // Second toggle: desc
     grid.sort('id');
-    await nextFrame();
+    await nextFrame(2);
     expect(grid.sortModel?.direction).toBe('desc');
 
     // Third toggle: clear
     grid.sort('id');
-    await nextFrame();
+    await nextFrame(2);
     expect(grid.sortModel).toBeNull();
   });
 

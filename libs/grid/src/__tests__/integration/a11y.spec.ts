@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
 import { EditingPlugin } from '../../lib/plugins/editing';
-
-function nextFrame() {
-  return new Promise((r) => requestAnimationFrame(r));
-}
+import { nextFrame } from '../../../test/helpers';
 
 describe('tbw-grid accessibility', () => {
   it('sets grid role and aria counts on inner grid element', async () => {

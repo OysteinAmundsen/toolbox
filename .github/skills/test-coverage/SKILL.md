@@ -73,7 +73,8 @@ describe('myFunction', () => {
 });
 
 // Integration test (full component lifecycle)
-import { waitUpgrade, nextFrame } from '../../test/utils';
+// From src/__tests__/integration/ — `libs/grid/test/helpers.ts`; never redefine these inline
+import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 describe('Grid feature', () => {
   afterEach(() => {

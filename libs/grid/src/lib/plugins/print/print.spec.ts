@@ -4,11 +4,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '../../../index';
 import { PrintPlugin } from './print-plugin';
-
-// Helper to wait for next frame
-function nextFrame() {
-  return new Promise((r) => requestAnimationFrame(r));
-}
+import { nextFrame } from '../../../../test/helpers';
 
 // Helper to create and wait for grid
 async function createGrid(config?: any) {

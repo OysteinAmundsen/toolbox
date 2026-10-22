@@ -14,17 +14,7 @@ import '../../lib/core/grid';
 import { PinnedColumnsPlugin } from '../../lib/plugins/pinned-columns';
 import { ShellPlugin } from '../../lib/plugins/shell';
 import { VisibilityPlugin } from '../../lib/plugins/visibility';
-
-async function nextFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-}
-
-async function waitUpgrade(el: HTMLElement & { ready?: () => Promise<void> }): Promise<void> {
-  await customElements.whenDefined('tbw-grid');
-  await el.ready?.();
-  await nextFrame();
-  await nextFrame();
-}
+import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 describe('declarative plugin attributes (issue #272)', () => {
   let grid: any;

@@ -13,27 +13,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
-
-function nextFrame() {
-  return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-}
-
-async function waitUpgrade(grid: any) {
-  await customElements.whenDefined('tbw-grid');
-  const start = Date.now();
-  while (!grid.hasAttribute('data-upgraded')) {
-    if (Date.now() - start > 3000) break;
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  if (grid.ready) {
-    try {
-      await grid.ready();
-    } catch {
-      /* empty */
-    }
-  }
-  await nextFrame();
-}
+import { waitUpgrade } from '../../../test/helpers';
 
 function makeRows(count: number) {
   return Array.from({ length: count }, (_, i) => ({ id: i, name: `Row ${i}` }));

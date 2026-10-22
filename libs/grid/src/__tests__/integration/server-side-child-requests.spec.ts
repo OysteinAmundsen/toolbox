@@ -14,10 +14,7 @@ import '../../lib/features/master-detail';
 import '../../lib/features/server-side';
 import '../../lib/features/tree';
 import type { GetChildRowsParams, GetChildRowsResult } from '../../lib/plugins/server-side';
-
-const nextFrames = async (n = 3) => {
-  for (let i = 0; i < n; i++) await new Promise((r) => requestAnimationFrame(() => r(undefined)));
-};
+import { nextFrame } from '../../../test/helpers';
 
 async function mount(gridConfig: Record<string, unknown>) {
   const grid = document.createElement('tbw-grid') as any;
@@ -91,7 +88,7 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
       expect(signal.aborted).toBe(true);
 
       release({ rows: [{ id: 10 }] });
-      await nextFrames();
+      await nextFrame(3);
       expect(plugin.getDetailData(0)).toBeUndefined();
     });
 
@@ -264,7 +261,7 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
       expect((grid.rows as any[]).filter((r) => r.__loading)).toHaveLength(8);
 
       plugin.expandAll();
-      await nextFrames();
+      await nextFrame(3);
 
       expect(rendered.filter((r) => r.__loading)).toHaveLength(0);
       expect(rendered.map((r) => r.name)).toEqual(['A', 'B']);
@@ -274,12 +271,12 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
     it('expands rows that arrive after expandAll() and fetches their detail with the display rowIndex', async () => {
       const { grid, plugin, rendered, getChildRows, deliver } = await createGrid();
       plugin.expandAll();
-      await nextFrames();
+      await nextFrame(3);
       expect(getChildRows).toHaveBeenCalledTimes(2);
 
       deliver(2);
       await vi.waitFor(() => expect(grid.rows[2]?.name).toBe('R3'));
-      await nextFrames();
+      await nextFrame(3);
 
       expect(plugin.isExpanded(2)).toBe(true);
       expect(plugin.isExpanded(3)).toBe(true);
@@ -292,12 +289,12 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
     it('stops expanding arriving rows after collapseAll()', async () => {
       const { grid, plugin, rendered, deliver } = await createGrid();
       plugin.expandAll();
-      await nextFrames();
+      await nextFrame(3);
       plugin.collapseAll();
 
       deliver(2);
       await vi.waitFor(() => expect(grid.rows[2]?.name).toBe('R3'));
-      await nextFrames();
+      await nextFrame(3);
 
       expect(plugin.getExpandedRows()).toEqual([]);
       expect(rendered.map((r) => r.name)).not.toContain('R3');
@@ -322,7 +319,7 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
 
       // expandAll() runs before the first response — only placeholders exist.
       plugin.expandAll();
-      await nextFrames();
+      await nextFrame(3);
       expect(rendered).toHaveLength(0);
 
       release({
@@ -330,7 +327,7 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
         totalNodeCount: 1,
       });
       await vi.waitFor(() => expect((grid.rows as any[]).map((r) => r.name)).toEqual(['Parent', 'Child']));
-      await nextFrames();
+      await nextFrame(3);
 
       expect(plugin.isExpanded(0)).toBe(true);
       expect(plugin.isExpanded(1)).toBe(true);
@@ -371,13 +368,13 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
       const serverSide = grid.getPluginByName('serverSide');
 
       plugin.expandAll();
-      await nextFrames();
+      await nextFrame(3);
       expect(plugin.isDetailLoading(0)).toBe(false);
 
       for (state.generation = 1; state.generation <= 5; state.generation++) {
         serverSide.refresh();
         await vi.waitFor(() => expect(grid.rows[0]?.name).toBe(`A${state.generation}`));
-        await nextFrames();
+        await nextFrame(3);
       }
 
       // Each unsupported request settles through datasource:error, so no row
@@ -394,7 +391,7 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
       });
 
       plugin.expandAll();
-      await nextFrames();
+      await nextFrame(3);
 
       expect(plugin.isExpanded(0)).toBe(false);
       expect(plugin.isExpanded(1)).toBe(true);
@@ -406,7 +403,7 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
       grid.addEventListener('detail-load-error', () => plugin.collapseAll());
 
       plugin.expandAll();
-      await nextFrames();
+      await nextFrame(3);
 
       expect(plugin.getExpandedRows()).toEqual([]);
       expect(plugin.isExpanded(0)).toBe(false);
@@ -430,7 +427,7 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
       });
 
       grid.querySelector<HTMLElement>('.master-detail-toggle')!.click();
-      await nextFrames();
+      await nextFrame(3);
 
       expect(order).toEqual(['expand:true', 'error']);
       expect(failed.has(grid.rows[0])).toBe(true);
@@ -446,7 +443,7 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
       });
 
       grid.querySelector<HTMLElement>('.master-detail-toggle')!.click();
-      await nextFrames();
+      await nextFrame(3);
 
       expect(plugin.isExpanded(0)).toBe(false);
       expect(errors).toEqual([]);
@@ -482,7 +479,7 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
       const plugin = grid.getPluginByName('masterDetail');
 
       plugin.expandAll();
-      await nextFrames();
+      await nextFrame(3);
       rendered.length = 0;
 
       // Collapse only the rows that arrive later, from inside the sync error.
@@ -500,7 +497,7 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
         totalNodeCount: 4,
       });
       await vi.waitFor(() => expect(grid.rows[2]?.name).toBe('C'));
-      await nextFrames();
+      await nextFrame(3);
 
       expect(plugin.isExpanded(2)).toBe(false);
       expect(rendered.map((r) => r.name)).not.toContain('C');
@@ -542,13 +539,13 @@ describe('ServerSide child requests from GroupingRows / MasterDetail (#531)', ()
       const serverSide = grid.getPluginByName('serverSide');
 
       plugin.expandAll();
-      await nextFrames();
+      await nextFrame(3);
       expect(plugin['detailLoads'].size).toBe(2);
 
       for (state.generation = 1; state.generation <= 5; state.generation++) {
         serverSide.refresh();
         await vi.waitFor(() => expect(grid.rows[0]?.name).toBe(`A${state.generation}`));
-        await nextFrames();
+        await nextFrame(3);
         expect(plugin['detailLoads'].size).toBeLessThanOrEqual(2);
         expect(serverSide['childControllers'].size).toBeLessThanOrEqual(2);
       }

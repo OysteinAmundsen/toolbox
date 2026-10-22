@@ -12,11 +12,9 @@ import '../../index';
 import '../../lib/features/grouping-rows';
 import '../../lib/features/server-side';
 import type { GetChildRowsResult, GetRowsParams } from '../../lib/plugins/server-side';
+import { nextFrame } from '../../../test/helpers';
 
 const keysOf = (count: number) => Array.from({ length: count }, (_, i) => `G${i}`);
-const nextFrames = async (n = 3) => {
-  for (let i = 0; i < n; i++) await new Promise((r) => requestAnimationFrame(() => r(undefined)));
-};
 
 async function createGrid(
   groupCount: number,
@@ -114,7 +112,7 @@ describe('ServerSide group definitions across blocks (#538)', () => {
     grid._virtualization.end = 121;
     serverSidePlugin['loadRequiredBlocks']();
     await vi.waitFor(() => expect(groupKeys()).toHaveLength(70));
-    await nextFrames();
+    await nextFrame(3);
 
     expect(groupKeys()).toEqual([...keysOf(50), ...keysOf(120).slice(100)]);
     expect(getChildRows).toHaveBeenCalledTimes(1);
@@ -149,7 +147,7 @@ describe('ServerSide group definitions across blocks (#538)', () => {
 
     serverSidePlugin.refresh();
     await vi.waitFor(() => expect(groupKeys()).toHaveLength(50));
-    await nextFrames();
+    await nextFrame(3);
 
     // Jump to block 2 (100-150), never shown before
     grid._virtualization.start = 115;
@@ -175,7 +173,7 @@ describe('ServerSide group definitions across blocks (#538)', () => {
     grid._virtualization.end = 120;
     serverSidePlugin['loadRequiredBlocks']();
     await vi.waitFor(() => expect(groupKeys()).toContain('G110'));
-    await nextFrames();
+    await nextFrame(3);
     expect(plugin.isExpanded('G101')).toBe(false);
 
     grid._virtualization.start = 55;

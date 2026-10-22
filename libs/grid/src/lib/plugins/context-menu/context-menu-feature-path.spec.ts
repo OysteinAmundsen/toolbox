@@ -3,17 +3,7 @@ import '../../core/grid';
 import '../../features/context-menu';
 import type { ContextMenuItem, ContextMenuParams } from './types';
 import type { DataGridElement } from '../../core/grid';
-
-function nextFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-}
-
-async function settle(grid: DataGridElement): Promise<void> {
-  await customElements.whenDefined('tbw-grid');
-  if (typeof grid.ready === 'function') await grid.ready();
-  await nextFrame();
-  await nextFrame();
-}
+import { waitUpgrade } from '../../../../test/helpers';
 
 function openMenuOnFirstCell(grid: DataGridElement): string {
   document.querySelectorAll('.tbw-context-menu').forEach((m) => m.remove());
@@ -46,7 +36,7 @@ describe('context-menu — feature path config survives gridConfig re-resolution
     };
     grid.rows = [{ id: 1 }];
     document.body.appendChild(grid);
-    await settle(grid);
+    await waitUpgrade(grid);
 
     expect(openMenuOnFirstCell(grid)).toContain('Custom Item');
 
@@ -56,7 +46,7 @@ describe('context-menu — feature path config survives gridConfig re-resolution
       columns: [{ field: 'id', header: 'ID' }],
       features: { contextMenu: contextMenuConfig },
     };
-    await settle(grid);
+    await waitUpgrade(grid);
 
     const text = openMenuOnFirstCell(grid);
     expect(text).toContain('Custom Item');

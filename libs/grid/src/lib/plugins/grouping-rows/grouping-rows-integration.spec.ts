@@ -9,12 +9,7 @@ import { GroupingRowsPlugin } from './grouping-rows-plugin';
 
 import '../../../index';
 import type { GridElement } from '../../../public';
-
-async function waitUpgrade(el: GridElement): Promise<void> {
-  await customElements.whenDefined('tbw-grid');
-  await (el as unknown as { ready?: () => Promise<void> }).ready?.();
-  await new Promise((r) => requestAnimationFrame(r));
-}
+import { waitUpgrade } from '../../../../test/helpers';
 
 describe('grouping-rows plugin integration', () => {
   beforeEach(() => {

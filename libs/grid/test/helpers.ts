@@ -11,10 +11,12 @@ export async function waitUpgrade(grid: HTMLElement & { ready?: () => Promise<vo
 }
 
 /**
- * Wait for next animation frame
+ * Wait for the next animation frame, or for `frames` consecutive animation frames.
  */
-export function nextFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+export async function nextFrame(frames = 1): Promise<void> {
+  for (let i = 0; i < frames; i++) {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  }
 }
 
 /**

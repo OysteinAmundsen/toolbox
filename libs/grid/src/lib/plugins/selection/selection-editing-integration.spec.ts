@@ -16,17 +16,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EditingPlugin } from '../editing/editing-plugin';
 import { SelectionPlugin } from './selection-plugin';
-
-async function nextFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-}
-
-async function waitUpgrade(el: HTMLElement & { ready?: () => Promise<void> }): Promise<void> {
-  await customElements.whenDefined('tbw-grid');
-  await el.ready?.();
-  await nextFrame();
-  await nextFrame();
-}
+import { nextFrame, waitUpgrade } from '../../../../test/helpers';
 
 describe('Selection × Editing × external row replacement (#284)', () => {
   let grid: any;

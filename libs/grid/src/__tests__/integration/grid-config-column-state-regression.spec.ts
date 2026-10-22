@@ -3,27 +3,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
-
-function nextFrame() {
-  return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-}
-
-async function waitUpgrade(grid: any) {
-  await customElements.whenDefined('tbw-grid');
-  const start = Date.now();
-  while (!grid.hasAttribute('data-upgraded')) {
-    if (Date.now() - start > 3000) break;
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  if (grid.ready) {
-    try {
-      await grid.ready();
-    } catch {
-      /* empty */
-    }
-  }
-  await nextFrame();
-}
+import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 describe('gridConfig re-assignment preserves runtime column visibility', () => {
   afterEach(() => {
@@ -63,7 +43,7 @@ describe('gridConfig re-assignment preserves runtime column visibility', () => {
     // Imperative apply (mirrors the cargo-list `useEffect` that re-applies
     // the saved state after every fetch).
     grid.applyColumnState(savedState);
-    await nextFrame();
+    await nextFrame(2);
 
     expect(grid.columnState.columns.find((c: any) => c.field === 'age').visible).toBe(false);
 
@@ -74,8 +54,8 @@ describe('gridConfig re-assignment preserves runtime column visibility', () => {
       columns: columns.map((c) => ({ ...c })),
       columnState: savedState,
     };
-    await nextFrame();
-    await nextFrame();
+    await nextFrame(2);
+    await nextFrame(2);
 
     // The 'age' column must still be hidden — the new gridConfig also says so.
     const ageState = grid.columnState.columns.find((c: any) => c.field === 'age');
@@ -114,8 +94,8 @@ describe('gridConfig re-assignment preserves runtime column visibility', () => {
         ],
       },
     };
-    await nextFrame();
-    await nextFrame();
+    await nextFrame(2);
+    await nextFrame(2);
 
     // _rows must be in age-desc order (50, 30, 20) — not the input order
     // and not just the indicator updated.

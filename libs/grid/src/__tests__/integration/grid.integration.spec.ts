@@ -11,34 +11,7 @@ import { GroupingRowsPlugin } from '../../lib/plugins/grouping-rows';
 import { PinnedColumnsPlugin } from '../../lib/plugins/pinned-columns';
 import { ResponsivePlugin } from '../../lib/plugins/responsive';
 import { SelectionPlugin } from '../../lib/plugins/selection';
-
-function nextFrame() {
-  return new Promise((r) => requestAnimationFrame(r));
-}
-
-async function waitUpgrade(grid: any) {
-  await customElements.whenDefined('tbw-grid');
-  const start = Date.now();
-  while (!grid.hasAttribute('data-upgraded')) {
-    if (Date.now() - start > 3000) break;
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  if (grid.ready) {
-    try {
-      await grid.ready();
-    } catch {
-      /* empty */
-    }
-  }
-  if (grid.forceLayout) {
-    try {
-      await grid.forceLayout();
-    } catch {
-      /* empty */
-    }
-  }
-  await nextFrame();
-}
+import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 describe('tbw-grid integration: inference, sorting, editing', () => {
   let grid: any;

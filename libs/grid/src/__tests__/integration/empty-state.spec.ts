@@ -4,27 +4,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
 import { DEFAULT_EMPTY_MESSAGE, DEFAULT_FILTERED_OUT_MESSAGE } from '../../lib/core/internal/empty';
-
-function nextFrame() {
-  return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-}
-
-async function waitUpgrade(grid: any) {
-  await customElements.whenDefined('tbw-grid');
-  const start = Date.now();
-  while (!grid.hasAttribute('data-upgraded')) {
-    if (Date.now() - start > 3000) break;
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  if (grid.ready) {
-    try {
-      await grid.ready();
-    } catch {
-      /* empty */
-    }
-  }
-  await nextFrame();
-}
+import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 const columns = [
   { field: 'id', header: 'ID' },
@@ -51,7 +31,7 @@ describe('emptyRenderer integration (#321)', () => {
   it('shows the default no-data message when rows is empty', async () => {
     const grid = await makeGrid();
     grid.rows = [];
-    await nextFrame();
+    await nextFrame(2);
 
     const overlay = getOverlay(grid);
     expect(overlay).not.toBeNull();
@@ -61,25 +41,25 @@ describe('emptyRenderer integration (#321)', () => {
     // `role="grid"` (which only owns rows/rowgroups). The message is announced
     // through the grid's `.tbw-sr-only` live region instead.
     expect(overlay?.getAttribute('role')).toBe('presentation');
-    await nextFrame();
+    await nextFrame(2);
     expect(grid.querySelector('.tbw-sr-only')?.textContent).toBe(DEFAULT_EMPTY_MESSAGE);
   });
 
   it('hides the overlay once rows are populated', async () => {
     const grid = await makeGrid();
     grid.rows = [];
-    await nextFrame();
+    await nextFrame(2);
     expect(getOverlay(grid)).not.toBeNull();
 
     grid.rows = [{ id: 1, name: 'Alice' }];
-    await nextFrame();
+    await nextFrame(2);
     expect(getOverlay(grid)).toBeNull();
   });
 
   it('switches to the filtered-out message when rows go from populated to empty', async () => {
     const grid = await makeGrid();
     grid.rows = [{ id: 1, name: 'Alice' }];
-    await nextFrame();
+    await nextFrame(2);
     expect(getOverlay(grid)).toBeNull();
 
     // Simulate an external filter clearing the row array while sourceRows
@@ -87,7 +67,7 @@ describe('emptyRenderer integration (#321)', () => {
     // this layer; emulate the "had data, then filtered out" case by clearing
     // through a fresh assignment.
     grid.rows = [];
-    await nextFrame();
+    await nextFrame(2);
 
     const overlay = getOverlay(grid);
     expect(overlay).not.toBeNull();
@@ -103,7 +83,7 @@ describe('emptyRenderer integration (#321)', () => {
       emptyRenderer: () => 'Failed to load deals: timeout',
     });
     grid.rows = [];
-    await nextFrame();
+    await nextFrame(2);
 
     const overlay = getOverlay(grid);
     expect(overlay?.textContent).toBe('Failed to load deals: timeout');
@@ -119,7 +99,7 @@ describe('emptyRenderer integration (#321)', () => {
       },
     });
     grid.rows = [];
-    await nextFrame();
+    await nextFrame(2);
 
     const overlay = getOverlay(grid);
     expect(overlay?.querySelector('.my-empty')?.textContent).toBe('Nothing here');
@@ -128,7 +108,7 @@ describe('emptyRenderer integration (#321)', () => {
   it('opts out completely when emptyRenderer is null', async () => {
     const grid = await makeGrid({ emptyRenderer: null });
     grid.rows = [];
-    await nextFrame();
+    await nextFrame(2);
     expect(getOverlay(grid)).toBeNull();
   });
 
@@ -136,7 +116,7 @@ describe('emptyRenderer integration (#321)', () => {
     const grid = await makeGrid();
     grid.rows = [];
     grid.loading = true;
-    await nextFrame();
+    await nextFrame(2);
 
     expect(getOverlay(grid)).toBeNull();
     expect(grid.querySelector('.tbw-loading-overlay')).not.toBeNull();
@@ -146,11 +126,11 @@ describe('emptyRenderer integration (#321)', () => {
     const grid = await makeGrid();
     grid.rows = [];
     grid.loading = true;
-    await nextFrame();
+    await nextFrame(2);
     expect(getOverlay(grid)).toBeNull();
 
     grid.loading = false;
-    await nextFrame();
+    await nextFrame(2);
     expect(getOverlay(grid)).not.toBeNull();
     expect(grid.querySelector('.tbw-loading-overlay')).toBeNull();
   });
@@ -158,7 +138,7 @@ describe('emptyRenderer integration (#321)', () => {
   it('mounts in .rows-container by default (headers stay visible)', async () => {
     const grid = await makeGrid();
     grid.rows = [];
-    await nextFrame();
+    await nextFrame(2);
 
     const overlay = getOverlay(grid);
     expect(overlay?.getAttribute('data-overlay-target')).toBe('rows');
@@ -171,7 +151,7 @@ describe('emptyRenderer integration (#321)', () => {
   it('mounts on .tbw-grid-root when emptyOverlay is "grid"', async () => {
     const grid = await makeGrid({ emptyOverlay: 'grid' });
     grid.rows = [];
-    await nextFrame();
+    await nextFrame(2);
 
     const overlay = getOverlay(grid);
     expect(overlay?.getAttribute('data-overlay-target')).toBe('grid');
@@ -203,7 +183,7 @@ describe('emptyRenderer integration (#321)', () => {
       plugins: [plugin],
     });
     grid.rows = data;
-    await nextFrame();
+    await nextFrame(2);
 
     // Sanity: data is rendered, no overlay yet.
     expect(getOverlay(grid)).toBeNull();
@@ -219,8 +199,8 @@ describe('emptyRenderer integration (#321)', () => {
     // Filter resolution + render cycle.
     await new Promise((r) => setTimeout(r, 10));
     grid.refreshVirtualWindow?.(true);
-    await nextFrame();
-    await nextFrame();
+    await nextFrame(2);
+    await nextFrame(2);
 
     const overlay = getOverlay(grid);
     expect(overlay).not.toBeNull();

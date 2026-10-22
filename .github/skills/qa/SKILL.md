@@ -155,6 +155,27 @@ spec with long-standing repeated setup floods the list. Keep only groups where s
 `[start_line, end_line]` overlaps a `git diff -U0 <base>` hunk range of the same file — those are clones the change
 added. No duplication is allowed, tests included: extract a local helper in the enclosing `describe`.
 
+Hunk overlap is only a proxy: a uniform rename across a file (e.g. `foo()` → `bar()` at every call site) overlaps
+pre-existing clones without creating any. Before reporting an overlap from such an edit, confirm per file that the
+clone-group count actually grew. Run `bunx fallow dupes --format json` on the current tree, then on a **separate
+checkout of the comparison revision** — the merge-base from §1 in `branch` mode, `HEAD` otherwise — so the user's
+working tree and stash are never touched (`git stash` would leave committed branch changes in place, and on a clean
+tree `git stash pop` would pop an unrelated stash):
+
+```powershell
+$wt = "$env:TEMP\qa-dupes-base"; git worktree add --detach $wt <rev>
+New-Item -ItemType Junction -Path "$wt\node_modules" -Target "$PWD\node_modules" | Out-Null
+try { Push-Location $wt; bunx fallow dupes --format json --quiet > "$env:TEMP\dupes-base.json" }
+finally { Pop-Location; (Get-Item "$wt\node_modules").Delete(); git worktree remove --force $wt }
+```
+
+The `node_modules` junction is required: without it fallow's test plugins never activate, specs and e2e drop out of the
+scan, and the baseline is silently partial (640 vs 951 files, ≈200 vs ≈1400 groups). That is also why fallow's own
+`%TEMP%\fallow-audit-base-cache-*` worktrees are not a usable baseline. Delete the junction with `.Delete()` **before**
+`git worktree remove`, so the removal cannot recurse into the real `node_modules`. In PowerShell, never dedupe
+clone-group objects with `Select-Object -Unique` — it compares `ToString()` and collapses every group into one; dedupe
+on a `"path:start-end"` string instead.
+
 Each fallow finding becomes one report item with the fallow `path:line` as the location. Quote the fallow `description` as the Problem and use the `actions[0].description` as the Fix suggestion.
 
 ### Documentation accuracy (treat prose as untrusted)

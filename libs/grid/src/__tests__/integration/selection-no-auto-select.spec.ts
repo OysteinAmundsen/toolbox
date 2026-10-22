@@ -9,18 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-// Test helpers
-async function nextFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-}
-
-async function waitUpgrade(el: HTMLElement & { ready?: () => Promise<void> }): Promise<void> {
-  await customElements.whenDefined('tbw-grid');
-  await el.ready?.();
-  await nextFrame();
-  await nextFrame();
-}
+import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 type TestGrid = HTMLElement & {
   gridConfig?: Record<string, unknown>;

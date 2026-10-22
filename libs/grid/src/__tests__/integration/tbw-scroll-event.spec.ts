@@ -1,27 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
 import type { TbwScrollDetail } from '../../lib/core/types';
-
-function nextFrame() {
-  return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-}
-
-async function waitUpgrade(grid: any) {
-  await customElements.whenDefined('tbw-grid');
-  const start = Date.now();
-  while (!grid.hasAttribute('data-upgraded')) {
-    if (Date.now() - start > 3000) break;
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  if (grid.ready) {
-    try {
-      await grid.ready();
-    } catch {
-      /* empty */
-    }
-  }
-  await nextFrame();
-}
+import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 function makeRows(count: number) {
   return Array.from({ length: count }, (_, i) => ({ id: i, name: `Row ${i}` }));
@@ -58,8 +38,8 @@ describe('tbw-scroll CustomEvent', () => {
     }
     fauxScrollbar.scrollTop = 250;
     fauxScrollbar.dispatchEvent(new Event('scroll'));
-    await nextFrame();
-    await nextFrame();
+    await nextFrame(2);
+    await nextFrame(2);
 
     expect(events.length).toBeGreaterThan(0);
     const detail = events[events.length - 1];
@@ -88,12 +68,12 @@ describe('tbw-scroll CustomEvent', () => {
     const fauxScrollbar = grid._virtualization.container as HTMLElement;
     fauxScrollbar.scrollTop = 100;
     fauxScrollbar.dispatchEvent(new Event('scroll'));
-    await nextFrame();
-    await nextFrame();
+    await nextFrame(2);
+    await nextFrame(2);
     fauxScrollbar.scrollTop = 200;
     fauxScrollbar.dispatchEvent(new Event('scroll'));
-    await nextFrame();
-    await nextFrame();
+    await nextFrame(2);
+    await nextFrame(2);
 
     // We need at least two dispatches to verify they're distinct objects
     expect(details.length).toBeGreaterThanOrEqual(2);
@@ -122,8 +102,8 @@ describe('tbw-scroll CustomEvent', () => {
     const fauxScrollbar = grid._virtualization.container as HTMLElement;
     fauxScrollbar.scrollTop = 150;
     fauxScrollbar.dispatchEvent(new Event('scroll'));
-    await nextFrame();
-    await nextFrame();
+    await nextFrame(2);
+    await nextFrame(2);
 
     expect(received).toBeDefined();
     expect((received as Event).bubbles).toBe(true);
@@ -145,7 +125,7 @@ describe('tbw-scroll CustomEvent', () => {
     grid.addEventListener('tbw-scroll', () => count++);
 
     grid.remove();
-    await nextFrame();
+    await nextFrame(2);
 
     // After removal, even if internals fire, #emit guards on #connected
     const fauxScrollbar = grid._virtualization.container as HTMLElement | undefined;
@@ -153,8 +133,8 @@ describe('tbw-scroll CustomEvent', () => {
       fauxScrollbar.scrollTop = 100;
       fauxScrollbar.dispatchEvent(new Event('scroll'));
     }
-    await nextFrame();
-    await nextFrame();
+    await nextFrame(2);
+    await nextFrame(2);
 
     expect(count).toBe(0);
   });

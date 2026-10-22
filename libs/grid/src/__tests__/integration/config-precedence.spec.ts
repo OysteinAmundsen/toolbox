@@ -3,16 +3,7 @@ import '../../lib/core/grid';
 import { FitModeEnum } from '../../lib/core/types';
 import { EditingPlugin } from '../../lib/plugins/editing';
 import { GroupingRowsPlugin } from '../../lib/plugins/grouping-rows';
-
-async function waitForUpgraded(el: HTMLElement, timeout = 5000) {
-  const start = Date.now();
-  while (!el.hasAttribute('data-upgraded')) {
-    if (Date.now() - start > timeout) throw new Error('upgrade timeout');
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  // allow double rAF like other tests in suite
-  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-}
+import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 describe('config precedence', () => {
   it('prop fitMode overrides gridConfig.fitMode', async () => {
@@ -26,8 +17,7 @@ describe('config precedence', () => {
     // Assign overriding props after base config
     grid.fitMode = 'fixed';
     grid.rows = [{ id: 1, type: 'a' }];
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
     const cfg = await grid.getConfig();
     expect(cfg.fitMode).toBe('fixed');
   }, 20000);
@@ -39,8 +29,7 @@ describe('config precedence', () => {
     grid.gridConfig = { columns: [{ field: 'a' }], fitMode: FitModeEnum.STRETCH };
     grid.columns = [{ field: 'b' }];
     grid.rows = [{ a: 1, b: 2 }];
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
     const cfg = await grid.getConfig();
     expect(cfg.columns.map((c: any) => c.field)).toEqual(['b']);
   }, 20000);
@@ -54,8 +43,7 @@ describe('columnInference: merge', () => {
     grid.columnInference = 'merge';
     grid.columns = [{ field: 'salary', type: 'number', header: 'Salary (USD)' }];
     grid.rows = [{ id: 1, name: 'Alice', salary: 100 }];
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
     const cfg = await grid.getConfig();
     // All data fields appear in data-key order
     expect(cfg.columns.map((c: any) => c.field)).toEqual(['id', 'name', 'salary']);
@@ -74,8 +62,7 @@ describe('columnInference: merge', () => {
     grid.columnInference = 'merge';
     grid.columns = [{ field: 'actions', header: 'Actions' }];
     grid.rows = [{ id: 1, name: 'Alice' }];
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
     const cfg = await grid.getConfig();
     expect(cfg.columns.map((c: any) => c.field)).toEqual(['id', 'name', 'actions']);
   }, 20000);
@@ -87,8 +74,7 @@ describe('columnInference: merge', () => {
     grid.setAttribute('column-inference', 'merge');
     grid.gridConfig = { columns: [{ field: 'salary', type: 'number' }] };
     grid.rows = [{ id: 1, name: 'Alice', salary: 100 }];
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
     const cfg = await grid.getConfig();
     expect(cfg.columns.map((c: any) => c.field)).toEqual(['id', 'name', 'salary']);
   }, 20000);
@@ -99,8 +85,7 @@ describe('columnInference: merge', () => {
     document.body.appendChild(grid);
     grid.columns = [{ field: 'salary', type: 'number' }];
     grid.rows = [{ id: 1, name: 'Alice', salary: 100 }];
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
     const cfg = await grid.getConfig();
     expect(cfg.columns.map((c: any) => c.field)).toEqual(['salary']);
   }, 20000);
@@ -121,8 +106,7 @@ describe('HTML attribute configuration', () => {
       ]),
     );
 
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
 
     expect(grid.rows.length).toBe(2);
     expect(grid.rows[0].name).toBe('Alice');
@@ -143,8 +127,7 @@ describe('HTML attribute configuration', () => {
     );
     grid.rows = [{ id: 1, name: 'Test' }];
 
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
 
     const cfg = await grid.getConfig();
     expect(cfg.columns.length).toBe(2);
@@ -161,8 +144,7 @@ describe('HTML attribute configuration', () => {
     grid.setAttribute('fit-mode', 'fixed');
     grid.rows = [{ id: 1 }];
 
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
 
     expect(grid.fitMode).toBe('fixed');
   }, 20000);
@@ -181,8 +163,7 @@ describe('HTML attribute configuration', () => {
     );
     grid.rows = [{ name: 'Test' }];
 
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
 
     const cfg = await grid.getConfig();
     expect(cfg.fitMode).toBe('stretch');
@@ -200,8 +181,7 @@ describe('HTML attribute configuration', () => {
     grid.fitMode = 'fixed';
     grid.rows = [{ id: 1 }];
 
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
 
     expect(grid.fitMode).toBe('fixed');
   }, 20000);
@@ -216,8 +196,7 @@ describe('HTML attribute configuration', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     grid.setAttribute('rows', 'not valid json');
 
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
 
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid JSON'));
     expect(grid.rows).toEqual([]);
@@ -236,8 +215,7 @@ describe('HTML attribute configuration', () => {
     document.body.appendChild(grid);
 
     // Wait for grid to initialize (simulates initial render before content projection)
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
 
     // Now simulate Angular projecting content into light DOM
     grid.innerHTML = `
@@ -251,7 +229,7 @@ describe('HTML attribute configuration', () => {
     grid.rows = [{ id: 1, name: 'Test' }];
 
     // Wait for update
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await nextFrame(2);
 
     const cfg = await grid.getConfig();
 
@@ -285,8 +263,7 @@ describe('column order attribute', () => {
     // Clear light DOM cache so columns are re-parsed (triggers on gridConfig change)
     grid.gridConfig = {};
     grid.rows = [{ a: 1, b: 2, c: 3 }];
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
 
     const cfg = await grid.getConfig();
     expect(cfg.columns.map((c: any) => c.field)).toEqual(['a', 'c', 'b']);
@@ -305,8 +282,7 @@ describe('column order attribute', () => {
     // Clear light DOM cache so columns are re-parsed (triggers on gridConfig change)
     grid.gridConfig = {};
     grid.rows = [{ id: 1, name: 'Alice', special: 'value' }];
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
 
     const cfg = await grid.getConfig();
     // Data columns in order, then special repositioned to index 1
@@ -328,8 +304,7 @@ describe('column order attribute', () => {
     // Clear light DOM cache so columns are re-parsed (triggers on gridConfig change)
     grid.gridConfig = {};
     grid.rows = [{ a: 1, b: 2, c: 3 }];
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
 
     const cfg = await grid.getConfig();
     // Initial order after order attribute: a at index 2, b and c before it = [b, c, a]
@@ -344,7 +319,7 @@ describe('column order attribute', () => {
       ],
     };
     grid.applyColumnState(columnState);
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await nextFrame(2);
 
     const cfgAfterState = await grid.getConfig();
     // State should win over order attribute
@@ -365,8 +340,7 @@ describe('column order attribute', () => {
     // Clear light DOM cache so columns are re-parsed (triggers on gridConfig change)
     grid.gridConfig = {};
     grid.rows = [{ a: 1, b: 2, c: 3 }];
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
+    await waitUpgrade(grid);
 
     let cfg = await grid.getConfig();
     // Initial order after order attribute
@@ -376,13 +350,13 @@ describe('column order attribute', () => {
     const reorder = grid.getPluginByName('reorderColumns');
     if (reorder) {
       reorder.updateColumnOrder(['c', 'b', 'a']);
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await nextFrame(2);
       cfg = await grid.getConfig();
       expect(cfg.columns.map((c: any) => c.field)).toEqual(['c', 'b', 'a']);
 
       // Reset should return to order-influenced order
       reorder.resetColumnOrder();
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await nextFrame(2);
       cfg = await grid.getConfig();
       expect(cfg.columns.map((c: any) => c.field)).toEqual(['b', 'a', 'c']);
     }

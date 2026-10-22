@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../lib/core/grid';
 import type { DataGridElement } from '../../lib/core/grid';
 import type { GridConfig } from '../../lib/core/types';
+import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 interface Row {
   id: number;
@@ -35,26 +36,6 @@ class MockResizeObserver implements ResizeObserver {
 }
 
 vi.stubGlobal('ResizeObserver', MockResizeObserver);
-
-function nextFrame() {
-  return new Promise<void>((r) => requestAnimationFrame(() => r()));
-}
-
-async function waitUpgrade(grid: DataGridElement<Row>) {
-  await customElements.whenDefined('tbw-grid');
-  const start = Date.now();
-  while (!grid.hasAttribute('data-upgraded')) {
-    if (Date.now() - start > 3000) break;
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  if (grid.ready) {
-    try {
-      await grid.ready();
-    } catch {
-      /* empty */
-    }
-  }
-}
 
 function setRowHeights(grid: DataGridElement<Row>, heights: number[]) {
   const rows = Array.from(grid._bodyEl.querySelectorAll<HTMLElement>('.data-grid-row'));

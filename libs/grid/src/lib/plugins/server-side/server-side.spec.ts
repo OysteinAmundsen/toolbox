@@ -1338,6 +1338,49 @@ describe('ServerSidePlugin', () => {
     });
   });
 
+  describe('datasource:data generation (#538)', () => {
+    it('stamps blocks of one cache with the same generation and bumps it on every cache discard', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 10 } });
+      plugin.attach(grid as any);
+      const blocks: Array<{ startNode: number; generation: number }> = [];
+      grid._pluginManager.subscribe({}, 'datasource:data', (detail: any) => blocks.push(detail));
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockImplementation(({ startNode }: { startNode: number }) =>
+          Promise.resolve({
+            rows: Array.from({ length: 10 }, (_, i) => ({ id: startNode + i })),
+            totalNodeCount: 100,
+          }),
+        ),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(blocks).toHaveLength(1));
+      grid.rows = plugin.processRows([]);
+
+      grid._virtualization.start = 20;
+      grid._virtualization.end = 30;
+      plugin.onScroll({ scrollTop: 800, scrollLeft: 0, direction: 'vertical' } as any);
+      await vi.waitFor(() => expect(blocks.length).toBeGreaterThan(1));
+      expect(blocks[1].startNode).toBe(20);
+      expect(blocks[1].generation).toBe(blocks[0].generation);
+      const firstGeneration = blocks[0].generation;
+      // Aborted old-generation blocks are dropped, never broadcast — wait on the new generation, not on time.
+      const latest = () => Math.max(...blocks.map((b) => b.generation));
+
+      plugin.refresh();
+      await vi.waitFor(() => expect(latest()).toBeGreaterThan(firstGeneration));
+      const refreshed = latest();
+
+      plugin.purgeCache();
+      grid.rows = plugin.processRows([]);
+      plugin.onScroll({ scrollTop: 800, scrollLeft: 0, direction: 'vertical' } as any);
+      await vi.waitFor(() => expect(latest()).toBeGreaterThan(refreshed));
+
+      plugin.detach();
+    });
+  });
+
   describe('claimed data (structural plugin) rebuilds the row model', () => {
     it('should requestRender, not requestVirtualRefresh, when a plugin claimed the block', async () => {
       const requestVirtualRefresh = vi.fn();

@@ -238,6 +238,16 @@ export interface DataSourceDataDetail<TRow = unknown> {
   endNode: number;
   /** Mutable flag — structural plugins set this to `true` when they consume the data. */
   claimed: boolean;
+  /**
+   * Cache generation the block belongs to. It changes whenever ServerSide discards its
+   * cache (`setDataSource()`, `refresh()`, `purgeCache()`, a server-side sort/filter
+   * change). Blocks with the same generation are slices of one dataset that a consumer
+   * merges at `startNode`; a changed generation means every earlier block is gone.
+   * Omitted by emitters that predate it — treat such a block as a full replacement.
+   *
+   * @since 3.9.2
+   */
+  generation?: number;
 }
 
 /**

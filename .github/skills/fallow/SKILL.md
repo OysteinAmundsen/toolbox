@@ -45,9 +45,17 @@ It prints per-function findings sorted by CRAP, refactor targets, hotspots, in-s
 dead-code hits, and non-test clone groups. Caveats the script cannot resolve for you:
 
 - Without `--coverage <istanbul.json>` the `coverage_model` is `static_estimated` and every
-  function reads `cov=none`, so CRAP is inflated (`CC² + CC`). Generate real coverage first
-  (`bun nx test grid -- --coverage`, add `'json'` to the reporter list if only `json-summary`
-  is configured) before treating CRAP as a refactor trigger.
+  function reads `cov=none`, so CRAP is inflated (`CC² + CC`) — `fallow audit` then FAILS on
+  well-tested functions with CC ≥ 5. Fallow takes only Istanbul JSON / raw V8, and the Nx executor
+  cannot switch the reporter from the CLI (dotted `--coverage.*` flags are rejected; `--` passthrough
+  overrides are ignored). Instead run `bun nx test <project> --coverage`, then re-score once per
+  affected project:
+  `bun .github/skills/fallow/scripts/crap-from-lcov.ts --lcov coverage/libs/<project>/lcov.info --root libs/<project>`
+  (plus `--audit tmp/fallow-audit.json` if elsewhere). Only `grid` writes lcov today (the default
+  paths); the adapters' vitest configs emit no lcov. It prints `REAL`, `ok (coverage artifact)`, or
+  `UNVERIFIED (no lcov)` per finding. `REAL` findings are refactor triggers; `UNVERIFIED` ones (file
+  absent from every lcov you passed) are NOT cleared — keep them at their fallow tier, marked
+  unverified pending coverage.
 - `unused_class_members` / `unused_exports` are syntactic. In this repo they are almost
   always documented plugin/adapter public API or members reached via `this.#manager.x()`.
   Verify against `apps/docs/src/content/docs/grid/**` and a `grep -rn '\bname\b'` before deleting.

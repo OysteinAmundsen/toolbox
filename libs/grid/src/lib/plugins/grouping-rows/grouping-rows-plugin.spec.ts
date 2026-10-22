@@ -1810,6 +1810,253 @@ describe('GroupingRowsPlugin', () => {
           expect(plugin.processRows([]).some((r: any) => r.__loading)).toBe(false);
         });
       });
+
+      describe('ServerSide blocks of group definitions (#538)', () => {
+        const flush = () => Promise.resolve();
+        const def = (i: number) => ({ key: `G${i}`, value: `Group ${i}`, rowCount: 1 });
+        const placeholder = (i: number) => ({ __loading: true, __index: i, __rowCacheKey: `__loading:${i}` });
+
+        function setup(config: Record<string, unknown> = {}) {
+          const harness = createMockGridWithEvents(true);
+          const plugin = new GroupingRowsPlugin(config);
+          plugin.attach(harness.grid as any);
+          const deliver = (startNode: number, count: number, generation: number | null = 1, total = 5) => {
+            const rows = Array.from({ length: count }, (_, i) => def(startNode + i));
+            const detail = { rows, totalNodeCount: total, startNode, endNode: startNode + count, claimed: false };
+            harness.eventListeners.get('datasource:data')?.(generation === null ? detail : { ...detail, generation });
+            return rows;
+          };
+          const keys = () => plugin.getGroups().map((g) => g.key);
+          const fetchKeys = () =>
+            harness.queryCalls
+              .filter((q) => q.type === 'datasource:fetch-children')
+              .map((q) => (q.context as any).context.groupKey);
+          return { ...harness, plugin, deliver, keys, fetchKeys };
+        }
+
+        it('merges blocks of one generation at their node offsets', () => {
+          const { deliver, keys } = setup();
+          deliver(0, 2);
+          deliver(4, 1);
+          deliver(2, 2);
+          expect(keys()).toEqual(['G0', 'G1', 'G2', 'G3', 'G4']);
+        });
+
+        it('replaces the definitions when the generation changes, or is absent (legacy emitter)', () => {
+          const { deliver, keys } = setup();
+          deliver(0, 2, 1);
+          deliver(2, 2, 2);
+          expect(keys()).toEqual(['G2', 'G3']);
+
+          deliver(0, 1, null);
+          deliver(4, 1, null);
+          expect(keys()).toEqual(['G4']);
+        });
+
+        it('renders unloaded root nodes as the ServerSide placeholders, in node order', () => {
+          const { plugin, deliver } = setup();
+          const [g0, g1] = deliver(0, 2);
+          const input = [g0, g1, placeholder(2), placeholder(3), placeholder(4)];
+
+          const rows = plugin.processRows(input);
+          expect(rows.map((r: any) => r.__groupKey ?? `ph${r.__index}`)).toEqual(['G0', 'G1', 'ph2', 'ph3', 'ph4']);
+          expect(rows[2]).toBe(input[2]);
+        });
+
+        it('maps the viewport onto node indices past the loaded groups', () => {
+          const { plugin, deliver } = setup();
+          const [g0, g1] = deliver(0, 2);
+          const input = [g0, g1, placeholder(2), placeholder(3), placeholder(4)];
+          plugin.processRows(input);
+          plugin.setGroupRows('G0', [{ name: 'a' }, { name: 'b' }]);
+          plugin.expand('G0');
+          // G0, a, b, G1, ph2, ph3, ph4
+          expect(plugin.processRows(input)).toHaveLength(7);
+
+          const map = (viewportStart: number, viewportEnd: number) =>
+            plugin.handleQuery({ type: 'datasource:viewport-mapping', context: { viewportStart, viewportEnd } });
+          expect(map(0, 2)).toEqual({ startNode: 0, endNode: 1, totalLoadedNodes: 5 });
+          expect(map(3, 5)).toEqual({ startNode: 1, endNode: 4, totalLoadedNodes: 5 });
+          expect(map(6, 50)).toEqual({ startNode: 4, endNode: 5, totalLoadedNodes: 5 });
+        });
+
+        it('keeps loaded rows and in-flight loads when a later block is appended', async () => {
+          const { plugin, deliver, eventListeners, queryCalls, fetchKeys } = setup();
+          const [g0, g1] = deliver(0, 2);
+          plugin.processRows([g0, g1]);
+          plugin.toggle('G0');
+          plugin.toggle('G1');
+          eventListeners.get('datasource:children')?.({
+            rows: [{ name: 'a' }],
+            context: { source: 'grouping-rows', groupKey: 'G0' },
+            claimed: false,
+          });
+          const g1Fetch = queryCalls.find(
+            (q) => q.type === 'datasource:fetch-children' && (q.context as any).context.groupKey === 'G1',
+          );
+          const g1Signal = (g1Fetch!.context as any).signal as AbortSignal;
+
+          const [g2] = deliver(2, 1);
+          const rows = plugin.processRows([g0, g1, g2]);
+          await flush();
+
+          const label = (r: any) => (r.__isGroupRow ? r.__groupKey : r.__loading ? 'loading' : r.name);
+          expect(rows.map(label)).toEqual(['G0', 'a', 'G1', 'loading', 'G2']);
+          expect(g1Signal.aborted).toBe(false);
+          expect(fetchKeys()).toEqual(['G0', 'G1']);
+        });
+
+        it('opens the groups of later blocks with defaultExpanded: true', () => {
+          const { plugin, deliver } = setup({ defaultExpanded: true });
+          const [g0, g1] = deliver(0, 2);
+          plugin.processRows([g0, g1, placeholder(2)]);
+          plugin.collapse('G1');
+
+          const [g2] = deliver(2, 1);
+          plugin.processRows([g0, g1, g2]);
+          expect(plugin.isExpanded('G0')).toBe(true);
+          expect(plugin.isExpanded('G1')).toBe(false);
+          expect(plugin.isExpanded('G2')).toBe(true);
+        });
+
+        it('shows a placeholder over a loaded definition whose block ServerSide dropped (purgeCache)', () => {
+          const { plugin, deliver } = setup();
+          deliver(0, 2);
+          const rows = plugin.processRows([placeholder(0), placeholder(1)]);
+          expect(rows.every((r: any) => r.__loading === true && typeof r.__index === 'number')).toBe(true);
+          expect(
+            plugin.handleQuery({ type: 'datasource:viewport-mapping', context: { viewportStart: 0, viewportEnd: 1 } }),
+          ).toEqual({ startNode: 0, endNode: 2, totalLoadedNodes: 2 });
+        });
+
+        it('setGroups() leaves ServerSide mode: the input placeholders are ignored', () => {
+          const { plugin, deliver } = setup();
+          deliver(0, 2);
+          plugin.setGroups([{ key: 'X', value: 'X' }]);
+          const rows = plugin.processRows([placeholder(0), placeholder(1)]);
+          expect(rows.map((r: any) => r.__groupKey)).toEqual(['X']);
+        });
+
+        it('opens never-seen groups of a block after a refetch that kept expansion (PR #540)', async () => {
+          const { plugin, deliver, fetchKeys } = setup({ defaultExpanded: true });
+          const [g0, g1] = deliver(0, 2, 1);
+          plugin.processRows([g0, g1, placeholder(2)]);
+          plugin.collapse('G1');
+
+          // refresh(): new generation, G0 still expanded → the default counts as applied
+          const [h0, h1] = deliver(0, 2, 2);
+          plugin.processRows([h0, h1, placeholder(2)]);
+          const [h2] = deliver(2, 1, 2);
+          plugin.processRows([h0, h1, h2]);
+          await flush();
+
+          expect(plugin.isExpanded('G0')).toBe(true);
+          expect(plugin.isExpanded('G1')).toBe(false); // collapsed by the user before the refetch
+          expect(plugin.isExpanded('G2')).toBe(true);
+          expect(fetchKeys()).toContain('G2');
+        });
+
+        it('resolves a numeric defaultExpanded only once the definitions before it loaded (PR #540)', () => {
+          const { plugin, deliver } = setup({ defaultExpanded: 3 });
+          const [g0, g1] = deliver(0, 2, 1, 8);
+          const [g4, g5] = deliver(4, 2, 1, 8);
+          // Nodes 2–3 still loading: index 3 must not land on G5 (the 4th LOADED definition)
+          plugin.processRows([g0, g1, placeholder(2), placeholder(3), g4, g5, placeholder(6), placeholder(7)]);
+          expect(['G0', 'G1', 'G4', 'G5'].filter((k) => plugin.isExpanded(k))).toEqual([]);
+
+          const [g2, g3] = deliver(2, 2, 1, 8);
+          plugin.processRows([g0, g1, g2, g3, g4, g5, placeholder(6), placeholder(7)]);
+          expect(plugin.isExpanded('G3')).toBe(true);
+          expect(plugin.isExpanded('G5')).toBe(false);
+        });
+
+        it('resolves a numeric defaultExpanded against loaded definitions, not a locally filtered prefix (PR #540)', async () => {
+          const { plugin, deliver, fetchKeys } = setup({ defaultExpanded: 1 });
+          const [, g1] = deliver(0, 2, 1, 4);
+          // filterMode 'local' removed G0 before the default was first resolved: slot 0 is empty, not unloaded
+          const rows = plugin.processRows([g1, placeholder(2), placeholder(3)]);
+          await flush();
+
+          expect(rows.map((r: any) => r.__groupKey ?? `ph${r.__index}`)).toEqual(['G1', 'ph2', 'ph3']);
+          expect(plugin.isExpanded('G1')).toBe(true);
+          expect(fetchKeys()).toContain('G1');
+        });
+
+        it('resolves defaultExpanded: true against every loaded definition, not only the locally filtered ones (PR #540)', async () => {
+          const { plugin, deliver, fetchKeys } = setup({ defaultExpanded: true });
+          const [g0, g1] = deliver(0, 2, 1, 2);
+          // filterMode 'local' hides G0 on the first render
+          plugin.processRows([g1]);
+          expect(plugin.isExpanded('G0')).toBe(true);
+          expect(plugin.isExpanded('G1')).toBe(true);
+
+          // Clearing the filter reveals G0 expanded, and its rows are fetched once it renders
+          plugin.processRows([g0, g1]);
+          await flush();
+          expect(fetchKeys()).toContain('G0');
+        });
+
+        it('keeps depth-first indexing for a numeric defaultExpanded over nested definitions', () => {
+          const { plugin, eventListeners } = setup({ defaultExpanded: 2 });
+          const rows = [
+            { key: 'P', value: 'P', children: [{ key: 'P1', value: 'P1' }] },
+            { key: 'Q', value: 'Q' },
+          ];
+          eventListeners.get('datasource:data')?.({
+            rows,
+            totalNodeCount: 3,
+            startNode: 0,
+            endNode: 2,
+            claimed: false,
+            generation: 1,
+          });
+          plugin.processRows([...rows, placeholder(2)]);
+          expect(plugin.isExpanded('Q')).toBe(true); // keys: P, P1, Q
+        });
+
+        it('treats a generation-less block as a compact replacement (legacy emitter, PR #540)', () => {
+          const { plugin, deliver } = setup({ defaultExpanded: 0 });
+          deliver(4, 1, null);
+          // startNode is ignored: G4 is index 0, and the input placeholders are not consulted
+          const rows = plugin.processRows([placeholder(0), placeholder(1)]);
+          expect(rows.map((r: any) => r.__groupKey)).toEqual(['G4']);
+          expect(plugin.isExpanded('G4')).toBe(true);
+        });
+
+        it('keeps every group collapsed after a refetch when the user collapsed all of them', () => {
+          const { plugin, deliver } = setup({ defaultExpanded: true });
+          const [g0, g1] = deliver(0, 2, 1);
+          plugin.processRows([g0, g1]);
+          plugin.collapseAll();
+          plugin.processRows([g0, g1]);
+
+          const [h0, h1] = deliver(0, 2, 2);
+          plugin.processRows([h0, h1]);
+          expect(plugin.isExpanded('G0')).toBe(false);
+          expect(plugin.isExpanded('G1')).toBe(false);
+
+          // A never-seen group still opens
+          const [h2] = deliver(2, 1, 2);
+          plugin.processRows([h0, h1, h2]);
+          expect(plugin.isExpanded('G2')).toBe(true);
+        });
+
+        it('renders only the definitions ServerSide still lists (purge after several infinite-scroll blocks, PR #540)', () => {
+          const { plugin, deliver } = setup();
+          const [g0, g1] = deliver(0, 2, 1, -1);
+          const [g2, g3] = deliver(2, 2, 1, -1);
+          const [g4] = deliver(4, 1, 1, -1);
+          expect(plugin.processRows([g0, g1, g2, g3, g4, placeholder(5)])).toHaveLength(6);
+
+          // purgeCache(): the infinite estimate shrinks to one page of placeholders
+          const rows = plugin.processRows([placeholder(0), placeholder(1)]);
+          expect(rows.map((r: any) => r.__groupKey ?? `ph${r.__index}`)).toEqual(['ph0', 'ph1']);
+
+          // A definition dropped from the list (e.g. a local filter) does not render either
+          const filtered = plugin.processRows([g0, g2, placeholder(5)]);
+          expect(filtered.map((r: any) => r.__groupKey ?? `ph${r.__index}`)).toEqual(['G0', 'G2', 'ph5']);
+        });
+      });
     });
   });
 

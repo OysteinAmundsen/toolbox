@@ -811,7 +811,7 @@ See the [Tree plugin docs](/grid/plugins/tree/#server-side-data) for full detail
 
 ### ServerSide + Row Grouping
 
-ServerSidePlugin fetches group definitions as root data. When a group is expanded, GroupingRowsPlugin fires `datasource:fetch-children` to load the group's rows.
+ServerSidePlugin fetches group definitions as root data, in blocks of `pageSize` top-level groups (unloaded groups are placeholders that load on scroll). When a group is expanded, GroupingRowsPlugin fires `datasource:fetch-children` to load the group's rows.
 
 See the [Row Grouping plugin docs](/grid/plugins/grouping-rows/#server-side-data) for full details and examples.
 
@@ -833,7 +833,7 @@ The Server-Side plugin **cannot** be used with:
 
 | Event / Query | Direction | Description |
 | --- | --- | --- |
-| `datasource:data` | ServerSide → plugins | Root data block loaded. Structural plugins may claim it; unclaimed data is rendered as flat rows |
+| `datasource:data` | ServerSide → plugins | Root data block loaded (`startNode`/`endNode`, and a `generation` that changes whenever the cache is discarded — blocks of one generation belong to one dataset). Structural plugins may claim it; unclaimed data is rendered as flat rows |
 | `datasource:children` | ServerSide → plugins | Child data loaded. Filtered by `context.source` |
 | `datasource:loading` | ServerSide → plugins | Loading state changed (with optional context) |
 | `datasource:error` | ServerSide → plugins | Fetch failed (with optional context) |

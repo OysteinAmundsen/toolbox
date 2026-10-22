@@ -67,13 +67,29 @@ interface ContextMenuParams {
 
 ### Selection Sync Behavior
 
-When the `SelectionPlugin` is active in row mode, right-clicking a row automatically
-syncs the selection:
+When the `SelectionPlugin` is active, opening the menu syncs the selection to the
+target cell and reports it in `params.selectedRows`. Every invocation syncs the
+same way — right-click, touch long-press, `Shift+F10`, the ContextMenu key, or a
+synthesised `contextmenu`:
 
-- **Right-click on a selected row** → preserves existing multi-selection
-- **Right-click on an unselected row** → selects only that row
-- **No SelectionPlugin loaded** → `selectedRows` contains just the right-clicked row index
-- **Header right-click** → `selectedRows` is `[]`
+- **Row mode, on a selected row** → preserves existing multi-selection
+- **Row mode, on an unselected row** → selects only that row
+- **Range mode, inside a range** → range preserved; `selectedRows` lists every row it covers
+- **Range mode, outside every range** → range collapses to that cell; `selectedRows` is `[rowIndex]`
+- **Cell mode** → the cell selection moves to that cell; `selectedRows` is `[rowIndex]`
+- **Mixed modes (`[..., 'column']`), inside a selected column** → column selection preserved; `selectedRows` is `[rowIndex]`
+- **No SelectionPlugin loaded** → `selectedRows` contains just the target row index
+- **Header** → `selectedRows` is `[]`
+
+## Accessibility
+
+- [SC 2.1.1 Keyboard](https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html) — `Shift+F10` and the
+  dedicated ContextMenu key open the menu at the focused cell with focus on the first item, and sync the
+  selection exactly as a right-click on that cell does (see [Selection Sync Behavior](#selection-sync-behavior)).
+  Arrow keys navigate, `Enter`/`Space` activate, `Escape` closes. Automatic — no configuration.
+- [WAI-ARIA Menu pattern](https://www.w3.org/WAI/ARIA/apg/patterns/menubar/) — the popup is `role="menu"`; items are
+  `role="menuitem"` (`tabindex="-1"`), dividers `role="separator"`, disabled items `aria-disabled="true"` (skipped by
+  the arrow keys). Clicking outside or scrolling also closes the menu.
 
 ## Dynamic Menu Example
 

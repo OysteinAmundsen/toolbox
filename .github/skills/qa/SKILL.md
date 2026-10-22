@@ -62,6 +62,10 @@ For each file (or each hunk, when reviewing a diff), check:
 - Dead code, unreachable branches, contradictory conditions.
 - Race conditions, stale closures (especially in React hooks: missing/incorrect `useEffect` deps).
 - Type assertions that hide real type errors (`as any`, `as unknown as T`, non-null `!`).
+- **Spec type errors** — no gate type-checks `*.spec.ts` (lint/test/build all pass over a hard `TS2322`): see
+  `build-and-deploy.md` → `INVARIANT (#470)`. For each touched spec, run that one-file `tsc --ignoreConfig` recipe
+  and report only errors on lines the diff changed (intersect with `git diff -U0` hunk ranges) — specs on `main`
+  already carry dozens of pre-existing errors.
 
 ### Security (OWASP-aware)
 
@@ -125,8 +129,12 @@ at their fallow tier marked "unverified, no coverage" — never drop them.
 **For full working-tree scope** (uncommitted changes):
 
 ```bash
-bunx fallow --format json > tmp/fallow-audit.json
+bunx fallow audit --base HEAD --format json > tmp/fallow-audit.json
 ```
+
+Use `audit --base HEAD`, not bare `bunx fallow`: bare output (11 MB, `check`/`dupes`/`health` keys) has no
+`introduced` flags and no `complexity.findings`, so `crap-from-lcov.ts` silently prints "No complexity findings
+to re-score". `audit` exits 1 on any introduced finding — read `verdict` and the findings, not the exit code.
 
 After running, read `tmp/fallow-audit.json` and extract findings. Map to report severity:
 
@@ -137,9 +145,15 @@ After running, read `tmp/fallow-audit.json` and extract findings. Map to report 
 | `moderate`                                                              | **Nit**                                         |
 | dead-code (`unused-export`, `unused-file`) in `libs/grid/src/public.ts` | **Blocking**                                    |
 | dead-code elsewhere                                                     | **Should fix**                                  |
+| `duplication` clone group overlapping a changed hunk (specs included)   | **Should fix**                                  |
 | `circular-dependencies`                                                 | **Blocking**                                    |
 
 Filter out findings in `libs/grid/scripts/`, `tools/`, `demos/`, and `apps/docs/` with CRAP < 900 (these have relaxed thresholds per `.fallowrc.json`). Include all others.
+
+**Duplication is scoped by hunk, not by file.** `audit` marks every clone group in a touched file `introduced`, so a
+spec with long-standing repeated setup floods the list. Keep only groups where some instance's
+`[start_line, end_line]` overlaps a `git diff -U0 <base>` hunk range of the same file — those are clones the change
+added. No duplication is allowed, tests included: extract a local helper in the enclosing `describe`.
 
 Each fallow finding becomes one report item with the fallow `path:line` as the location. Quote the fallow `description` as the Problem and use the `actions[0].description` as the Fix suggestion.
 

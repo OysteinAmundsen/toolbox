@@ -88,7 +88,7 @@ const selection = grid.getPluginByName('selection');
 // Get current selection (all modes - returns { mode, ranges, anchor })
 const result = selection.getSelection();
 
-// Get selected row indices (row mode, sorted ascending)
+// Get indices of rows touched by the selection (all modes, sorted ascending)
 const indices = selection.getSelectedRowIndices();
 
 // Get actual row objects (preferred — works in all modes)

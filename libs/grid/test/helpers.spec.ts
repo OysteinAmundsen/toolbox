@@ -4,33 +4,32 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createGrid, nextFrame, waitUpgrade } from './helpers';
 
-// Mock the DataGridElement for testing
-class MockDataGridElement extends HTMLElement {
-  private _ready = false;
-  private _readyPromise: Promise<void>;
-  private _resolveReady!: () => void;
-
-  constructor() {
-    super();
-    this._readyPromise = new Promise((resolve) => {
-      this._resolveReady = resolve;
-    });
-  }
+/** Stand-in for `<tbw-grid>` whose `ready()` resolves only when the test says so. */
+class MockGridElement extends HTMLElement {
+  #resolveReady!: () => void;
+  readonly #readyPromise = new Promise<void>((resolve) => {
+    this.#resolveReady = resolve;
+  });
 
   ready(): Promise<void> {
-    return this._readyPromise;
+    return this.#readyPromise;
   }
 
   simulateReady(): void {
-    this._ready = true;
-    this._resolveReady();
+    this.#resolveReady();
   }
 }
 
-// Register mock element if not already defined
-if (!customElements.get('data-grid')) {
-  customElements.define('data-grid', MockDataGridElement);
+// `isolate: true` gives this file its own registry, so the mock never meets the real grid.
+if (!customElements.get('tbw-grid')) {
+  customElements.define('tbw-grid', MockGridElement);
 }
+
+const pendingGrid = (): MockGridElement => {
+  const grid = new MockGridElement();
+  document.body.appendChild(grid);
+  return grid;
+};
 
 describe('test helpers', () => {
   afterEach(() => {
@@ -38,41 +37,36 @@ describe('test helpers', () => {
   });
 
   describe('waitUpgrade', () => {
-    it('should wait for custom element to be defined', async () => {
-      const grid = document.createElement('data-grid') as MockDataGridElement;
-      document.body.appendChild(grid);
+    it('resolves only after the element is defined and ready() has resolved', async () => {
+      const grid = pendingGrid();
+      let settled = false;
+      const waiting = waitUpgrade(grid).then(() => {
+        settled = true;
+      });
 
-      // Simulate the grid becoming ready
-      setTimeout(() => grid.simulateReady(), 10);
+      await nextFrame();
+      expect(settled).toBe(false);
 
-      await waitUpgrade(grid as any);
-
-      // If we reach here without timeout, the test passes
-      expect(true).toBe(true);
+      grid.simulateReady();
+      await waiting;
+      expect(settled).toBe(true);
     });
 
-    it('should call ready() if available on the element', async () => {
-      const grid = document.createElement('data-grid') as MockDataGridElement;
-      document.body.appendChild(grid);
+    it('calls ready() when the element has it', async () => {
+      const grid = pendingGrid();
       const readySpy = vi.spyOn(grid, 'ready');
+      grid.simulateReady();
 
-      // Simulate the grid becoming ready
-      setTimeout(() => grid.simulateReady(), 10);
+      await waitUpgrade(grid);
 
-      await waitUpgrade(grid as any);
-
-      expect(readySpy).toHaveBeenCalled();
+      expect(readySpy).toHaveBeenCalledOnce();
     });
 
-    it('should handle elements without ready() method', async () => {
-      const grid = document.createElement('data-grid') as any;
-      delete grid.ready; // Remove ready method
+    it('handles elements without a ready() method', async () => {
+      const plain = document.createElement('div');
+      document.body.appendChild(plain);
 
-      document.body.appendChild(grid);
-
-      // Should not throw
-      await waitUpgrade(grid);
-      expect(true).toBe(true);
+      await expect(waitUpgrade(plain)).resolves.toBeUndefined();
     });
   });
 
@@ -99,10 +93,10 @@ describe('test helpers', () => {
   });
 
   describe('createGrid', () => {
-    it('should create a data-grid element', () => {
+    it('should create a tbw-grid element', () => {
       const grid = createGrid();
 
-      expect(grid.tagName.toLowerCase()).toBe('data-grid');
+      expect(grid.tagName.toLowerCase()).toBe('tbw-grid');
     });
 
     it('should append the grid to document body', () => {

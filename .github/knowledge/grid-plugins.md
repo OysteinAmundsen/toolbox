@@ -5,7 +5,7 @@ related: [grid-plugins-catalog-data, grid-plugins-catalog-ui, grid-plugins-shell
 
 # Grid Plugin System — Mental Model
 
-> Per-plugin OWNS/HOOKS/DECIDED → grid-plugins-catalog-data.md (row/column model, sorting, filtering, pinned rows, clipboard/export/print), grid-plugins-hierarchy.md (Hierarchy, Tree, GroupingRows), grid-plugins-catalog-ui.md (selection, master-detail, reordering, display), grid-plugin-responsive.md (responsive/card layout) and grid-plugins-editing.md (editing, undo). Shell plugin → grid-plugins-shell.md. This file = the SYSTEM (manager, lifecycle, hooks, communication, manifest, scroll, compatibility).
+> Per-plugin OWNS/HOOKS/DECIDED → grid-plugins-catalog-data.md (row/column model, sorting, filtering, pinned rows, clipboard/export/print), grid-plugins-hierarchy.md (Hierarchy, Tree, GroupingRows), grid-plugin-selection.md (selection, context menu), grid-plugins-catalog-ui.md (master-detail, reordering, display), grid-plugin-responsive.md (responsive/card layout) and grid-plugins-editing.md (editing, undo). Shell plugin → grid-plugins-shell.md. This file = the SYSTEM (manager, lifecycle, hooks, communication, manifest, scroll, compatibility).
 
 ## plugin-manager
 

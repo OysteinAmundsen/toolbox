@@ -590,7 +590,8 @@ export default defineConfig(({ command }) => ({
     name: '@toolbox-web/grid',
     globals: true,
     environment: 'happy-dom',
-    include: ['src/**/*.spec.ts', 'src/**/__tests__/**/*.spec.ts'],
+    // `test/**` holds the shared spec helpers (`test/helpers.ts`) and their own spec.
+    include: ['src/**/*.spec.ts', 'src/**/__tests__/**/*.spec.ts', 'test/**/*.spec.ts'],
     benchmark: {
       include: ['src/**/*.bench.ts'],
     },

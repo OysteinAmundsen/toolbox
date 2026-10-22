@@ -19,7 +19,7 @@ The Selection plugin exists to maintain a **selection state** — a set of cells
 
 - [ClipboardPlugin](/grid/plugins/clipboard/) — copy/paste the current selection
 - [ExportPlugin](/grid/plugins/export/) — when `onlySelected: true`, export only the rows the user has selected (without it, all rows are exported)
-- [ContextMenuPlugin](/grid/plugins/context-menu/) — when present, the context menu will operate on the **multi-row** selection instead of just the right-clicked row (the menu itself works fine without it)
+- [ContextMenuPlugin](/grid/plugins/context-menu/) — when present, the context menu will operate on the **multi-row** selection instead of just the target row (the menu itself works fine without it)
 - Any custom logic that needs to know "which rows/cells did the user pick?"
 
 If all you want is to **visually highlight the row the user has navigated to** (the focused row), you do **not** need this plugin. The grid core already tracks keyboard focus on the active cell via the `.cell-focus` class — you can style the surrounding row with a small CSS snippet:
@@ -327,11 +327,9 @@ features: {
 
 In range mode, `Shift + Space` and `Ctrl/⌘ + Space` follow the [WAI-ARIA grid pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/). They replace the selection with a normal range, so a following `Shift + Arrow` extends it while keeping the selected rows full width (or columns full height). With `mode: ['range', 'column']`, `Ctrl/⌘ + Space` keeps its column-axis meaning. Both are ignored while a cell editor is open, so editors still type spaces. The result is announced via the `rangeSpanSelected` [`A11yMessages`](/grid/api/core/interfaces/a11ymessages/) key.
 
-### Range Mouse Behavior
+### Context Menu Targeting
 
-In `mode: 'range'`, right-clicking **inside** an existing range keeps the current range selection. This lets context-menu actions target the full selected range without requiring Ctrl/⌘.
-
-Right-clicking outside the current range follows normal behavior and moves selection to the clicked cell.
+With [ContextMenuPlugin](/grid/plugins/context-menu/) installed, opening the menu on a cell **inside** an existing range keeps the current range selection, so context-menu actions target the full selected range without requiring Ctrl/⌘. Opening it outside every range moves the selection to that cell. This holds for every way of opening the menu — right-click, long-press, `Shift+F10`, or the ☰ Menu key — so keyboard users act on exactly the selection a mouse user would. Cell and row modes sync the same way; see [Selection Sync](/grid/plugins/context-menu/#selection-sync).
 
 ## Programmatic API
 
@@ -423,13 +421,13 @@ tbw-grid {
 | [EditingPlugin](/grid/plugins/editing/) | Click-to-select + double-click-to-edit. In `mode: 'row'` the row entering edit is auto-added to the selection so `getSelectedRows()` always reflects the row the user is visibly editing. With `multiSelect: false` the selection is replaced; otherwise the edited row is added to the existing set. Selection is also automatically cleared when the host replaces the `rows` array with a different number of source rows, preventing stale indices from pointing at the wrong rows. |
 | [ClipboardPlugin](/grid/plugins/clipboard/) | Copy/paste selected cells (requires SelectionPlugin) |
 | [FilteringPlugin](/grid/plugins/filtering/) | Filter data, then select from results |
-| [ContextMenuPlugin](/grid/plugins/context-menu/) | Right-click selected rows for actions. In range mode, right-click inside the existing range preserves that range so actions apply to the full selection. |
+| [ContextMenuPlugin](/grid/plugins/context-menu/) | Act on the selection from the menu. Opening it inside the selection keeps it (in range mode, the whole range) so actions apply to all of it; opening it elsewhere moves the selection there — identically for right-click, long-press, and the keyboard. |
 
 ## Accessibility
 
 Range selection is built on a drag: press one cell, sweep to the opposite corner, release. WCAG 2.2 [SC 2.5.7 Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) requires a single-pointer alternative for every such gesture, so `mode: 'range'` ships two.
 
-- **Extend selection to here** — click the first cell as usual, then open the context menu on the opposite corner and pick *Extend selection to here*. The context menu opens on right-click, long-press, or `Shift+F10`, so it is reachable with one pointer and no keyboard. Right-clicking outside the current range still re-targets the menu at the clicked cell; the extension anchor is the last cell you selected with a **primary** click, so the action always extends from where you started.
+- **Extend selection to here** — click the first cell as usual, then open the context menu on the opposite corner and pick *Extend selection to here*. The context menu opens on right-click, long-press, or `Shift+F10`, so it is reachable with one pointer and no keyboard. Opening it outside the current range re-targets the selection at that cell; the extension anchor is the last cell you selected with a **primary** click, so the action always extends from where you started.
 - **Tap a corner handle** — the two dots on an active range are buttons as well as drag targets. Tap one and it arms (`aria-pressed="true"`); the next cell you tap becomes that corner. Tap the handle again, or press `Escape`, to cancel. Handles only appear for a range that was started with a finger or stylus — on a mouse they would sit inside other ranges and block drag-select.
 - **Merges with the Context Menu plugin** — when [ContextMenuPlugin](/grid/plugins/context-menu/) is installed, the action is contributed to the normal menu (its own order band, below the column-move group). Without it, the plugin hosts a minimal `role="group"` menu of plain buttons instead, so the alternative exists either way. The two never stack.
 - **No reserved chrome** — nothing extra is drawn in the grid body. The alternative reuses affordances that already exist: the cell you would have dragged from and the handle you would have dragged.

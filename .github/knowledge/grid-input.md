@@ -1,6 +1,6 @@
 ---
 domain: grid-input
-related: [grid-core, grid-render-pipeline, grid-plugins-catalog-ui, grid-features]
+related: [grid-core, grid-render-pipeline, grid-plugin-selection, grid-plugins-catalog-ui, grid-features]
 ---
 
 # Grid Input & Pointer — Mental Model
@@ -9,7 +9,7 @@ related: [grid-core, grid-render-pipeline, grid-plugins-catalog-ui, grid-feature
 
 - Keyboard nav / focus / a11y → grid-core.md § focus & a11y.
 - Wheel + faux-scrollbar plumbing (`touch-scroll.ts#setupWheelScrollListeners`) → grid-render-pipeline.md § virtualization-manager.
-- Consumer plugins (Selection, ContextMenu, reorder/DnD) → grid-plugins-catalog-ui.md.
+- Consumer plugins: Selection, ContextMenu → grid-plugin-selection.md; reorder/DnD → grid-plugins-catalog-ui.md.
 
 Read order for "my gesture doesn't fire on touch": long-press priority policy (is another handler claiming it?) → pointer-drag promotion FLOW → pointer-modality.
 
@@ -29,6 +29,7 @@ Read order for "my gesture doesn't fire on touch": long-press priority policy (i
 - FLOW (promotion): no threshold/long-press → synchronous; `threshold > 0` → first move past distance; `longPressDuration > 0` → timer, and an earlier move beyond `longPressSlop` **cancels the drag** (it was a scroll). `onPromote` fires at all three sites.
 - DECIDED (#303, Jul 2026): fine-vs-coarse uses per-event `e.pointerType` (`touch`/`pen` → coarse, `mouse` → fine), not `getPrimaryPointer()`. WHY: hybrid devices (Surface) report `(pointer: coarse)` while a mouse is in use; `getPrimaryPointer()` is only the fallback for synthetic events lacking `pointerType`.
 - Consumers: `resize.ts` (column resize), `plugins/shell/shell.ts` (tool-panel splitter), `event-delegation.ts` (cell-range paint, `LONG_PRESS_MS = 400` coarse, `DRAG_THRESHOLD_PX = 3` fine — the threshold keeps plain clicks from capturing). Tests: `pointer-drag.spec.ts` (24), `resize.spec.ts` (8); happy-dom does not route pointer capture, so specs MUST stub `setPointerCapture`/`hasPointerCapture`/`releasePointerCapture` on the capture target and dispatch pointer events **directly on it**.
+- INVARIANT: `handlePointerDown` returns early for any non-primary **mouse** button (`e.button !== 0 && pointerType === 'mouse'`), so plugin `onCellMouseDown` NEVER sees a right-click in a browser — `button === 2` branches there are dead code that only unit tests reach (one shipped in Selection until #541). Context-menu behavior MUST hang off the `contextmenu` path (`ContextMenuPlugin`), which every invocation — mouse, long-press, Shift+F10, ContextMenu key — shares.
 
 ## long-press priority policy (#307 / touch-input epic #302)
 

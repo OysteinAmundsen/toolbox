@@ -138,6 +138,13 @@ function verify(opts: CliOptions): void {
       label: 'build',
       cmd: 'bun nx run-many --target=build --exclude=docs --output-style=stream',
     },
+    // The Astro/Starlight cluster is the most upgrade-sensitive surface and its
+    // peer ranges are only checked when the docs actually build (#545 shipped a
+    // stranded `@astrojs/mdx` 7 that only `astro build` rejected).
+    {
+      label: 'build (docs)',
+      cmd: 'bun nx build docs --output-style=stream',
+    },
   ];
   // e2e builds + serves the demos itself (see the `e2e:full` script). docs-e2e
   // is self-serving (own Playwright webServer) and is the ONLY suite that

@@ -1,7 +1,9 @@
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
+import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
 
 export default defineConfig({
+  plugins: [nxReadySignal()],
   resolve: {
     alias: {
       // Map @toolbox-web/grid imports to the local source

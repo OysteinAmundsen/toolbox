@@ -25,8 +25,7 @@
       }
     },
     "build": {
-      "executor": "@nx/vite:build",
-      "outputs": ["{options.outputPath}"],
+      "outputs": ["{projectRoot}/{options.outDir}", "{workspaceRoot}/dist/libs/grid-react"],
       "defaultConfiguration": "production",
       "dependsOn": [
         "typecheck",
@@ -37,8 +36,8 @@
         }
       ],
       "options": {
-        "outputPath": "dist/libs/grid-react",
-        "emptyOutDir": true
+        "emptyOutDir": true,
+        "outDir": "../../dist/libs/grid-react"
       },
       "configurations": {
         "development": {
@@ -57,11 +56,10 @@
       }
     },
     "test": {
-      "executor": "@nx/vitest:test",
-      "outputs": ["{options.reportsDirectory}"],
+      "outputs": ["{projectRoot}/{options.coverage.reportsDirectory}", "{workspaceRoot}/coverage/libs/grid-react"],
       "options": {
         "passWithNoTests": true,
-        "reportsDirectory": "{projectRoot}/../../coverage/libs/grid-react"
+        "coverage.reportsDirectory": "../../coverage/libs/grid-react"
       }
     },
     "bench": {

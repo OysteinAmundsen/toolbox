@@ -2,6 +2,7 @@ import vue from '@vitejs/plugin-vue';
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
 import { getResolveAliases } from '../shared/resolve-aliases';
+import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
 
 export default defineConfig({
   root: resolve(__dirname),
@@ -14,6 +15,7 @@ export default defineConfig({
         },
       },
     }),
+    nxReadySignal(),
   ],
   resolve: {
     alias: getResolveAliases(__dirname, { includeVue: true }),

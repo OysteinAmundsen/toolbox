@@ -70,6 +70,14 @@
       "options": {
         "testTargetName": "test"
       }
+    },
+    {
+      "plugin": "@nx/vitest",
+      "options": {
+        "testMode": "watch",
+        "testTargetName": "test"
+      },
+      "include": ["libs/grid/**/*", "libs/grid-angular/**/*", "libs/grid-react/**/*"]
     }
   ],
   "targetDefaults": {
@@ -83,7 +91,13 @@
     },
     "test": {
       "cache": true,
-      "inputs": ["default", "^production", { "externalDependencies": ["vitest"] }]
+      "inputs": [
+        "default",
+        "^production",
+        {
+          "externalDependencies": ["vitest"]
+        }
+      ]
     },
     "bench": {
       "cache": false
@@ -114,5 +128,8 @@
     "enabled": false
   },
   "nxCloudId": "69873edf9cc8c6c43ef996ed",
-  "analytics": false
+  "analytics": false,
+  "affected": {
+    "legacy": true
+  }
 }

@@ -12,13 +12,12 @@
       }
     },
     "build": {
-      "executor": "@nx/vite:build",
-      "outputs": ["{options.outputPath}"],
+      "outputs": ["{projectRoot}/{options.outDir}", "{workspaceRoot}/dist/libs/grid"],
       "defaultConfiguration": "production",
       "dependsOn": ["typecheck"],
       "options": {
-        "outputPath": "dist/libs/grid",
-        "emptyOutDir": true
+        "emptyOutDir": true,
+        "outDir": "../../dist/libs/grid"
       },
       "configurations": {
         "development": {
@@ -30,11 +29,10 @@
       }
     },
     "test": {
-      "executor": "@nx/vitest:test",
-      "outputs": ["{options.reportsDirectory}"],
+      "outputs": ["{projectRoot}/{options.coverage.reportsDirectory}", "{workspaceRoot}/coverage/libs/grid"],
       "options": {
         "passWithNoTests": true,
-        "reportsDirectory": "{projectRoot}/../../coverage/libs/grid"
+        "coverage.reportsDirectory": "../../coverage/libs/grid"
       }
     },
     "typedoc": {

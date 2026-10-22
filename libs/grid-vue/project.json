@@ -25,8 +25,7 @@
       }
     },
     "build": {
-      "executor": "@nx/vite:build",
-      "outputs": ["{options.outputPath}"],
+      "outputs": ["{projectRoot}/{options.outDir}", "{workspaceRoot}/dist/libs/grid-vue"],
       "defaultConfiguration": "production",
       "dependsOn": [
         "typecheck",
@@ -37,8 +36,8 @@
         }
       ],
       "options": {
-        "outputPath": "dist/libs/grid-vue",
-        "emptyOutDir": true
+        "emptyOutDir": true,
+        "outDir": "../../dist/libs/grid-vue"
       },
       "configurations": {
         "development": {

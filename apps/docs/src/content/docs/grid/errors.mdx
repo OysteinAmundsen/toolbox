@@ -296,7 +296,11 @@ A column's `cellClass` function threw an error. The cell will render without dyn
 
 A column's `format` function threw an error. The raw value will be displayed instead.
 
-**Fix:** Check the `format` function on the named column. Ensure it handles null/undefined values gracefully.
+Also logged by the filter panel and the Pivot plugin, once per panel or value field. They format
+values that may have no source row (`valuesHandler` results, pivot aggregates), so `format`
+receives `row` as `undefined` there.
+
+**Fix:** Check the `format` function on the named column. Ensure it handles null/undefined values gracefully. If it reads the row, return `{ value, label }` entries from the filtering `valuesHandler`, or set a `format` on the pivot value field.
 
 <div id="tbw063" />
 

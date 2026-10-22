@@ -6,6 +6,7 @@ import {
   getUniqueValues,
   getUniqueValuesBatch,
   matchesFilter,
+  normalizeValuesHandlerResult,
 } from './filter-model';
 import { FilteringPlugin } from './filtering-plugin';
 import type { FilterModel } from './types';
@@ -971,6 +972,78 @@ describe('filter-model', () => {
       expect(values).toContain(1);
       expect(values).toContain(2);
       expect(values).toHaveLength(3);
+    });
+
+    // #548: the filter panel formats each value with the row it came from.
+    it('records the first row each value was seen in', () => {
+      const rows = [
+        { id: 1, city: 'NYC' },
+        { id: 2, city: 'LA' },
+        { id: 3, city: 'NYC' },
+        { id: 4, city: null },
+      ];
+      const rowsByValue = new Map<unknown, (typeof rows)[number]>();
+      getUniqueValues(rows, 'city', undefined, rowsByValue);
+      expect(rowsByValue.get('NYC')).toBe(rows[0]);
+      expect(rowsByValue.get('LA')).toBe(rows[1]);
+      expect(rowsByValue.has(BLANK_FILTER_VALUE)).toBe(false);
+    });
+
+    it('records rows for values produced by a filterValue extractor', () => {
+      const rows = [
+        { id: 1, tags: ['a', 'b'] },
+        { id: 2, tags: ['b', 'c'] },
+        { id: 3, tags: 'd' },
+      ];
+      const rowsByValue = new Map<unknown, (typeof rows)[number]>();
+      getUniqueValues(rows, 'tags', (value) => value, rowsByValue);
+      expect(rowsByValue.get('b')).toBe(rows[0]);
+      expect(rowsByValue.get('c')).toBe(rows[1]);
+      expect(rowsByValue.get('d')).toBe(rows[2]);
+    });
+  });
+
+  describe('normalizeValuesHandlerResult', () => {
+    it('returns plain values untouched and no labels', () => {
+      expect(normalizeValuesHandlerResult(['a', 1, 0, false], true)).toEqual({
+        values: ['a', 1, 0, false],
+        labels: undefined,
+      });
+    });
+
+    it('unwraps { value, label } options into values and a label map', () => {
+      const { values, labels } = normalizeValuesHandlerResult(
+        [{ value: 'd1', label: 'Engineering' }, 'plain', { value: 'd2', label: 'Sales' }],
+        true,
+      );
+      expect(values).toEqual(['d1', 'plain', 'd2']);
+      expect(labels).toEqual(
+        new Map<unknown, string>([
+          ['d1', 'Engineering'],
+          ['d2', 'Sales'],
+        ]),
+      );
+    });
+
+    it('treats objects without a string label as plain values', () => {
+      const obj = { value: 1, label: 2 };
+      const date = new Date(0);
+      expect(normalizeValuesHandlerResult([obj, date], true)).toEqual({ values: [obj, date], labels: undefined });
+    });
+
+    // PR #553: blanks must use the sentinel the set predicate matches blank cells against.
+    it('maps null, undefined and empty-string values onto BLANK_FILTER_VALUE, keeping the first label', () => {
+      const { values, labels } = normalizeValuesHandlerResult(
+        ['Oslo', { value: null, label: 'Unassigned' }, undefined, { value: '', label: 'Empty' }],
+        true,
+      );
+      expect(values).toEqual(['Oslo', BLANK_FILTER_VALUE]);
+      expect(labels).toEqual(new Map([[BLANK_FILTER_VALUE, 'Unassigned']]));
+    });
+
+    it('keeps an empty string as a real value when the column has an extractor', () => {
+      const { values } = normalizeValuesHandlerResult([null, ''], false);
+      expect(values).toEqual([BLANK_FILTER_VALUE, '']);
     });
   });
 

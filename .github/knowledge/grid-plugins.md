@@ -65,12 +65,14 @@ related: [grid-plugins-catalog-data, grid-plugins-catalog-ui, grid-plugins-shell
 - Consumers clamp with `Math.max(0, …)` and bail when `usableHeight <= 0` — a malformed report can't invert the band or yield NaN.
 
 - INVARIANT (`renderRow` contract): when a plugin's `renderRow` takes over cell creation (Pivot, GroupingRows, Tree custom rows, MasterDetail panels), the grid's normal cell pipeline is **skipped entirely** — `format`, `cellRenderer`, `cellClass`, value-accessor caching and sanitize wrapping MUST be re-applied manually. Canonical pattern: the cell render path in [rows.ts](libs/grid/src/lib/core/internal/rows.ts). Forgetting = silent formatter loss inside grouped/pivot rows.
+- DECIDED (#548): `column.format(value, row)` keeps its required-row type — pass a REAL row where one exists (set filter: first row per value, `getUniqueValues(…, rowsByValue)`). No row (`valuesHandler` values, Pivot aggregates) → `plugins/shared/format-value.ts#tryFormat` with `row` undefined: throw → raw value + one TBW062 (warn-once state on the plugin, e.g. Pivot `formatErrorFields`, since `buildValueFormatters` reruns per `processRows`). Never fake a row (`{}`) or `undefined as never`. WHY: `TRow | undefined` breaks row-reading formats; a row-free 2nd formatter = two callbacks per column.
+- INVARIANT (PR #553): `BLANK_FILTER_VALUE` is the ONLY blank `compileSetPredicate` matches → `valuesHandler` results go through `normalizeValuesHandlerResult`: `null`/`undefined` (+ `''` if no `filterValue`/`valueAccessor` extractor) → sentinel, labels re-keyed, dupes dropped (raw `null` became `notIn: [null]`, never hiding blanks). The panel never formats the sentinel.
 
 ### State-persistence hooks
 
 - `getColumnState()` → plugin's column state for save; `applyColumnState()` → restore.
 - INVARIANT: a plugin owning sort (MultiSortPlugin) MUST broadcast `sort-change` from `applyColumnState`, deferred via microtask to batch per-column calls.
-- DECIDED (Apr 2026, plugin-side render trigger): when a plugin owns state that core's `#applyColumnState` width-only fast path cannot observe (plugin nulled `_sortState`), the PLUGIN — not core — forces the re-render. MultiSortPlugin snapshots the model at batch start, compares in the deferred microtask, and on change broadcasts `sort-change` AND calls `this.requestRender()` (ROWS). Covers sort-add (core fast path bypassed via `incomingHasSort`) and sort-removal. WHY not a core `hasOwnedSort` query: ~30 bytes over budget. RULE: any plugin mutating owned state during `applyColumnState` must self-trigger the render.
+- DECIDED (Apr 2026, plugin-side render trigger): plugin state that core's `#applyColumnState` width-only fast path can't observe (plugin nulled `_sortState`) → the PLUGIN forces the re-render. MultiSortPlugin snapshots the model at batch start, compares in the deferred microtask, and on change broadcasts `sort-change` + `this.requestRender()` (ROWS); covers sort-add (`incomingHasSort` bypass) and removal. WHY not a core `hasOwnedSort` query: ~30 bytes over budget. RULE: a plugin mutating owned state in `applyColumnState` self-triggers the render.
 
 ## inter-plugin communication
 

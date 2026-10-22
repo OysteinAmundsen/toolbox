@@ -5,7 +5,7 @@
  */
 
 import { createFieldReader, isPlainField } from '../../core/internal/value-accessor';
-import type { FilterModel } from './types';
+import type { FilterModel, FilterValueOption } from './types';
 
 /**
  * Sentinel value used in set-filter unique values to represent rows with
@@ -450,12 +450,15 @@ export function computeFilterCacheKey(filters: FilterModel[]): string {
  * @param rows - The rows to extract values from
  * @param field - The field name
  * @param filterValue - Optional extractor for complex cell values
+ * @param rowsByValue - Optional map filled with the first row each value was seen in, so the
+ *   filter panel can call `column.format(value, row)` with a real row. The blank sentinel has no entry.
  * @returns Sorted array of unique non-null values
  */
 export function getUniqueValues<T extends Record<string, unknown>>(
   rows: T[],
   field: string,
   filterValue?: (value: unknown, row: T) => unknown | unknown[],
+  rowsByValue?: Map<unknown, T>,
 ): unknown[] {
   const values = new Set<unknown>();
   let hasBlank = false;
@@ -469,16 +472,21 @@ export function getUniqueValues<T extends Record<string, unknown>>(
           hasBlank = true;
         }
         for (const v of extracted) {
-          if (v != null) values.add(v);
+          if (v != null) {
+            values.add(v);
+            if (rowsByValue && !rowsByValue.has(v)) rowsByValue.set(v, row);
+          }
         }
       } else if (extracted != null) {
         values.add(extracted);
+        if (rowsByValue && !rowsByValue.has(extracted)) rowsByValue.set(extracted, row);
       } else {
         hasBlank = true;
       }
     } else {
       if (cellValue != null && cellValue !== '') {
         values.add(cellValue);
+        if (rowsByValue && !rowsByValue.has(cellValue)) rowsByValue.set(cellValue, row);
       } else {
         hasBlank = true;
       }
@@ -559,4 +567,50 @@ export function getUniqueValuesBatch<T extends Record<string, unknown>>(
     );
   }
   return result;
+}
+
+/** Whether a `valuesHandler` entry is a `{ value, label }` option rather than a plain value. */
+function isFilterValueOption(entry: unknown): entry is FilterValueOption {
+  return (
+    typeof entry === 'object' &&
+    entry !== null &&
+    'value' in entry &&
+    'label' in entry &&
+    typeof entry.label === 'string'
+  );
+}
+
+/**
+ * Normalize a `valuesHandler` result for the set filter panel: unwrap `{ value, label }`
+ * options into plain values plus a label map, and map blank values onto
+ * {@link BLANK_FILTER_VALUE} — the representation `compileSetPredicate` matches blank cells
+ * against. Without that, unchecking a server-supplied `null` would submit `notIn: [null]`,
+ * which never hides a blank row.
+ *
+ * Blank means `null` / `undefined`, plus `''` when `emptyStringIsBlank` — `false` for columns
+ * with a `filterValue` / `valueAccessor` extractor, whose predicate treats `''` as a real value.
+ * Duplicate values (e.g. `null` and `''`) collapse to their first occurrence and first label.
+ *
+ * @returns Values in first-seen order, and `labels` (value → label) when any option was present.
+ */
+export function normalizeValuesHandlerResult(
+  entries: readonly unknown[],
+  emptyStringIsBlank: boolean,
+): {
+  values: unknown[];
+  labels: Map<unknown, string> | undefined;
+} {
+  let labels: Map<unknown, string> | undefined;
+  const seen = new Set<unknown>();
+  const values: unknown[] = [];
+  for (const entry of entries) {
+    const option = isFilterValueOption(entry) ? entry : undefined;
+    const raw = option ? option.value : entry;
+    const value = raw == null || (emptyStringIsBlank && raw === '') ? BLANK_FILTER_VALUE : raw;
+    if (seen.has(value)) continue;
+    seen.add(value);
+    values.push(value);
+    if (option) (labels ??= new Map()).set(value, option.label);
+  }
+  return { values, labels };
 }

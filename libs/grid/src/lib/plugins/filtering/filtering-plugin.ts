@@ -7,6 +7,7 @@
  */
 
 import { announce, getA11yMessage } from '../../core/internal/aria';
+import { FORMAT_ERROR } from '../../core/internal/diagnostics';
 import { resolveCellValue } from '../../core/internal/value-accessor';
 import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import { isUtilityColumn } from '../../core/plugin/expander-column';
@@ -18,9 +19,10 @@ import {
   filterRows,
   getUniqueValues,
   getUniqueValuesBatch,
+  normalizeValuesHandlerResult,
 } from './filter-model';
 import { renderDateFilterPanel } from './filter-panel-date';
-import { renderDefaultFilterPanel } from './filter-panel-default';
+import { renderDefaultFilterPanel, type FilterValueLabelSource } from './filter-panel-default';
 import { renderNumberFilterPanel } from './filter-panel-number';
 import styles from './filtering.css?inline';
 import filterPanelStyles from './FilteringPlugin.css?inline';
@@ -931,18 +933,21 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       this.positionPanel(panel, buttonEl);
       this.setupPanelCloseHandler(panel, buttonEl);
 
-      this.config.valuesHandler(field, column).then((values) => {
+      this.config.valuesHandler(field, column).then((entries) => {
         // Check if panel is still open for this field
         if (this.openPanelField !== field || !this.panelElement) return;
         panel.innerHTML = '';
-        this.renderPanelContent(field, column, panel, values);
+        const { values, labels } = normalizeValuesHandlerResult(entries, !this.getFilterExtractor(column));
+        this.renderPanelContent(field, column, panel, values, { labels });
       });
       return;
     }
 
     // Sync path: get unique values from locally available rows (raw input or
     // plugin-managed processed rows when a plugin owns the data, e.g. ServerSide).
-    const uniqueValues = getUniqueValues(this.getDataRows(), field, this.getFilterExtractor(column));
+    // The first row per value lets the panel call `column.format(value, row)` with a real row.
+    const rowsByValue = new Map<unknown, Record<string, unknown>>();
+    const uniqueValues = getUniqueValues(this.getDataRows(), field, this.getFilterExtractor(column), rowsByValue);
 
     // Position and append to body BEFORE rendering content
     // so getListItemHeight() can read CSS variables from computed styles.
@@ -950,14 +955,20 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.promoteToTopLayer(panel);
     this.positionPanel(panel, buttonEl);
 
-    this.renderPanelContent(field, column, panel, uniqueValues);
+    this.renderPanelContent(field, column, panel, uniqueValues, { rows: rowsByValue });
     this.setupPanelCloseHandler(panel, buttonEl);
   }
 
   /**
    * Render filter panel content with given values
    */
-  private renderPanelContent(field: string, column: ColumnConfig, panel: HTMLElement, uniqueValues: unknown[]): void {
+  private renderPanelContent(
+    field: string,
+    column: ColumnConfig,
+    panel: HTMLElement,
+    uniqueValues: unknown[],
+    labelSource: Omit<FilterValueLabelSource, 'onFormatError'>,
+  ): void {
     // For `in` filters, recompute excludedValues from current data if not yet populated.
     // This handles the case where setFilterModel was called before rows were loaded.
     const currentFilter = this.filters.get(field);
@@ -1045,6 +1056,11 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
           excludedSet,
           { caseSensitive: this.config.caseSensitive, debounceMs: this.config.debounceMs },
           this.searchText,
+          {
+            ...labelSource,
+            onFormatError: (error) =>
+              this.warn(FORMAT_ERROR, `Format error in column '${field}' while labelling filter values: ${error}`),
+          },
         );
       }
     }

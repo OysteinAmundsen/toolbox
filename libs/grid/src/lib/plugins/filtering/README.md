@@ -97,9 +97,11 @@ grid.columns = [
 ];
 ```
 
-> **Note:** The `format` function's `row` parameter is `undefined` in the filter panel context
-> (there is no row when formatting standalone values). Avoid accessing `row` properties
-> in format functions that should also work in the filter panel.
+> **Note:** The filter panel lists each distinct value once and calls `format(value, row)` with
+> the first row that holds the value, so formatters that read the row work there too. Values
+> returned by a `valuesHandler` have no row: `row` is `undefined`, and a `format` that throws
+> falls back to the raw value (TBW062 warning). Return `{ value, label }` entries from the
+> `valuesHandler` to supply labels for those values instead.
 
 For fully custom filter UIs, use the `filterPanelRenderer` config option or a type-level
 `filterPanelRenderer` in `typeDefaults`.

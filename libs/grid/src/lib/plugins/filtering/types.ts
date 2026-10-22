@@ -465,7 +465,9 @@ export interface FilterPanelParams {
    * these are the extracted/flattened values (not the raw cell values).
    *
    * When a `valuesHandler` is provided in the plugin config, this array
-   * contains the values returned by the handler instead of locally-extracted ones.
+   * contains the values returned by the handler instead of locally-extracted ones
+   * (unwrapped from any `{ value, label }` options). Blank handler values are
+   * normalized to `BLANK_FILTER_VALUE`, as local blanks are.
    *
    * Typical use: render checkboxes, radio buttons, or a searchable list.
    */
@@ -593,15 +595,55 @@ export interface FilterPanelParams {
 export type FilterPanelRenderer = (container: HTMLElement, params: FilterPanelParams) => void | undefined;
 
 /**
+ * A filter value paired with the label the set filter panel should show for it.
+ *
+ * Return these from a {@link FilterValuesHandler} when the server knows the
+ * display text. Server-fetched values have no rows, so the panel can't call
+ * `column.format(value, row)` with a real row for them. Same `{ value, label }`
+ * shape as {@link ColumnConfig.options}.
+ *
+ * @example
+ * ```ts
+ * valuesHandler: async (field) => {
+ *   const res = await fetch(`/api/distinct/${field}`);
+ *   const rows: { id: string; name: string }[] = await res.json();
+ *   return rows.map((d) => ({ value: d.id, label: d.name }));
+ * }
+ * ```
+ * @since 3.10.0
+ */
+export interface FilterValueOption {
+  /** The value the filter matches against (what ends up in the filter model). */
+  value: unknown;
+  /** Text shown next to the checkbox and matched by the panel's search box. */
+  label: string;
+}
+
+/**
  * Async handler for fetching unique filter values from a server.
  *
  * For server-side datasets where not all values are available locally,
  * this handler is called when the filter panel opens to fetch all
  * possible values for the column.
  *
+ * Each entry is either a plain value or a {@link FilterValueOption}
+ * (`{ value, label }`); the two may be mixed. Without a label the panel uses
+ * `column.format(value, row)` — but there is no row for server-fetched values,
+ * so `row` is `undefined`, and a `format` that throws (e.g. by reading the row)
+ * falls back to the raw value with a TBW062 warning. Return labels when the
+ * column's `format` needs the row.
+ *
+ * Blank values — `null`, `undefined`, and `''` (unless the column has a
+ * `filterValue` or `valueAccessor`, where `''` is a real value) — become the
+ * panel's single blank entry (`BLANK_FILTER_VALUE`), so unchecking it hides
+ * blank rows just like the locally built "(Blank)" entry. A label on a blank
+ * option (`{ value: null, label: 'Unassigned' }`) names that entry. The filter
+ * model — and therefore a `filterHandler` — receives `BLANK_FILTER_VALUE` for
+ * that entry, never the raw `null` / `''`.
+ *
  * @param field - The field/column name
  * @param column - The column configuration
- * @returns Promise resolving to array of unique values
+ * @returns Promise resolving to an array of unique values and/or `{ value, label }` options
  *
  * @example
  * ```ts
@@ -612,7 +654,7 @@ export type FilterPanelRenderer = (container: HTMLElement, params: FilterPanelPa
  * ```
  * @since 0.2.7
  */
-export type FilterValuesHandler = (field: string, column: ColumnConfig) => Promise<unknown[]>;
+export type FilterValuesHandler = (field: string, column: ColumnConfig) => Promise<unknown[] | FilterValueOption[]>;
 
 /**
  * Async handler for applying filters on a server.
@@ -815,6 +857,8 @@ export interface FilterConfig<TRow = unknown> {
    *
    * The returned values populate `FilterPanelParams.uniqueValues` and appear
    * in the checkbox list (or are passed to your custom `filterPanelRenderer`).
+   * Entries may be `{ value, label }` options ({@link FilterValueOption}) to
+   * supply the checkbox text; `uniqueValues` then holds just the values.
    *
    * @example
    * ```typescript
@@ -822,6 +866,18 @@ export interface FilterConfig<TRow = unknown> {
    *   valuesHandler: async (field, column) => {
    *     const res = await fetch(`/api/data/distinct/${field}`);
    *     return res.json(); // ['Engineering', 'Marketing', 'Sales', ...]
+   *   },
+   * })
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Server-provided labels (e.g. IDs shown as names)
+   * new FilteringPlugin({
+   *   valuesHandler: async (field) => {
+   *     const res = await fetch(`/api/data/distinct/${field}`);
+   *     const items: { id: string; name: string }[] = await res.json();
+   *     return items.map((i) => ({ value: i.id, label: i.name }));
    *   },
    * })
    * ```

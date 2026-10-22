@@ -15,6 +15,7 @@ import {
   type PluginQuery,
 } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
+import { isFormFieldKeyTarget } from '../shared/form-field-target';
 import type { ToolPanelDefinition } from '../shell/types';
 import {
   buildPivot,
@@ -475,6 +476,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     // SPACE toggles expansion on pivot group rows
     if (event.key !== ' ') return;
     if (!this.isActive) return;
+    // Inputs (e.g. the pivot tool panel or a custom renderer) own Space (#546).
+    if (isFormFieldKeyTarget(event)) return;
 
     const focusRow = this.grid._focusRow;
     const row = this.rows[focusRow] as Record<string, unknown> | undefined;

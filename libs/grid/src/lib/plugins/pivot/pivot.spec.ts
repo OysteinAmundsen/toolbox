@@ -829,6 +829,27 @@ describe('PivotPlugin lifecycle and API', () => {
       expect(plugin.isExpanded('Electronics')).toBe(false);
       expect(plugin.isExpanded('Clothing')).toBe(false);
     });
+
+    it('Space from a form field does not toggle the focused group row (#546)', () => {
+      const { plugin, mockGrid } = setupPluginWithData();
+      mockGrid.rows = plugin.processRows(mockGrid.rows);
+      mockGrid._focusRow = mockGrid.rows.findIndex((r: any) => r.__pivotRowKey === 'Electronics');
+      expect(mockGrid._focusRow).toBeGreaterThanOrEqual(0);
+
+      const pressSpaceFrom = (el: Element) => {
+        let handled: boolean | void = undefined;
+        el.addEventListener('keydown', (e) => (handled = plugin.onKeyDown(e as KeyboardEvent)), { once: true });
+        el.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+        return handled;
+      };
+
+      expect(pressSpaceFrom(document.createElement('input'))).toBeFalsy();
+      expect(plugin.isExpanded('Electronics')).toBe(false);
+
+      // Control: the same key from a non-editable target still toggles.
+      expect(pressSpaceFrom(document.createElement('div'))).toBe(true);
+      expect(plugin.isExpanded('Electronics')).toBe(true);
+    });
   });
 
   describe('Public API', () => {

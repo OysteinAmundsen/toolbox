@@ -214,6 +214,14 @@ export default defineConfig({
         '@components': resolve(import.meta.dirname, 'src/components'),
         '@data': resolve(import.meta.dirname, 'src/data'),
       },
+      // Astro marks integration packages `noExternal` by crawling the project's
+      // package.json — `apps/docs/package.json`, which declares no deps (they are
+      // hoisted to the repo root). Since 0.42 Starlight ships compiled JS instead
+      // of `.ts`, so without this its `astro:middleware` import is left external
+      // and Node's loader rejects the `astro:` scheme while prerendering.
+      // `resolve.noExternal` (not `ssr.noExternal`) so it also reaches Astro's
+      // separate `prerender` Vite environment.
+      noExternal: ['@astrojs/starlight'],
     },
   },
 

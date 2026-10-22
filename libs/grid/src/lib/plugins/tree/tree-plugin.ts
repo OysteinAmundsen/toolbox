@@ -28,6 +28,7 @@ import type {
   ViewportMappingQuery,
 } from '../server-side/datasource-types';
 import { collapseAll, expandAll, expandToKey, toggleExpand } from './tree-data';
+import { isFormFieldKeyTarget } from '../shared/form-field-target';
 import { mapViewportToRoots } from './tree-datasource';
 import { detectTreeStructure, inferChildrenField } from './tree-detect';
 import styles from './tree.css?inline';
@@ -1067,6 +1068,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
   override onKeyDown(event: KeyboardEvent): boolean | void {
     // SPACE toggles expansion when on a row with children
     if (event.key !== ' ') return;
+    // An open editor (or any input in the row) owns Space — let it type (#546).
+    if (isFormFieldKeyTarget(event)) return;
 
     const focusRow = this.grid._focusRow;
     const flatRow = this.#rowMeta.get(this.rows[focusRow] as object);

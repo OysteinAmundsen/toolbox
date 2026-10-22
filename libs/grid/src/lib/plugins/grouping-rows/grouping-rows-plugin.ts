@@ -7,6 +7,7 @@
 import { GridClasses } from '../../core/constants';
 import { aggregatorRegistry } from '../../core/internal/aggregators';
 import { announce, getA11yMessage } from '../../core/internal/aria';
+import { isFormFieldKeyTarget } from '../shared/form-field-target';
 import { renderLoadingPlaceholderRow } from '../shared/loading-placeholder';
 import { setSanitizedHTML } from '../../core/internal/sanitize';
 import {
@@ -946,6 +947,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
   override onKeyDown(event: KeyboardEvent): boolean | void {
     // SPACE toggles expansion on group rows
     if (event.key !== ' ') return;
+    // Inputs (e.g. in a custom group renderer) own Space (#546).
+    if (isFormFieldKeyTarget(event)) return;
 
     const focusRow = this.grid._focusRow;
     const row = this.rows[focusRow] as Record<string, unknown> | undefined;

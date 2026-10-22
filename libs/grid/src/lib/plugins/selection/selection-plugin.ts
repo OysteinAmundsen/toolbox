@@ -22,6 +22,7 @@ import {
   type DragAlternativeAction,
   type DragAlternativeMenu,
 } from '../shared/drag-alternative-menu';
+import { isFormFieldKeyTarget } from '../shared/form-field-target';
 import {
   computeKeyboardExtension,
   fieldsBetween,
@@ -76,12 +77,6 @@ const CHECKBOX_COLUMN_FIELD = '__tbw_checkbox';
 const EXTEND_ITEM_ORDER = 60;
 
 /** Keys that move grid focus — selection reacts to these in cell/range mode. */
-function isFormField(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || target.isContentEditable;
-}
-
 const NAV_KEYS: readonly string[] = [
   'ArrowUp',
   'ArrowDown',
@@ -1116,7 +1111,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     const ctrlOrMeta = event.ctrlKey || event.metaKey;
     if (!ctrlOrMeta) return false;
     // Editors keep their own Ctrl+Space / Ctrl+Shift+Arrow (word selection) behaviour.
-    if (isFormField(event.target) || this.grid.query<boolean>('isEditing').some(Boolean)) return false;
+    if (isFormFieldKeyTarget(event) || this.grid.query<boolean>('isEditing').some(Boolean)) return false;
 
     if (event.key === ' ' || event.key === 'Spacebar') {
       const column = this.visibleColumns[this.grid._focusCol];
@@ -1261,7 +1256,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     else if (ctrlOrMeta && !event.shiftKey && !this.#mode.columnEnabled) axis = 'column';
     else return false;
     if (event.altKey) return false;
-    if (isFormField(event.target)) return false;
+    if (isFormFieldKeyTarget(event)) return false;
     if (this.grid.query<boolean>('isEditing').some(Boolean)) return false;
 
     const rowCount = this.rows.length;

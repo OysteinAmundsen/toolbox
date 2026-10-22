@@ -15,6 +15,7 @@ import type {
   DataSourceErrorDetail,
   FetchChildrenQuery,
 } from '../server-side/datasource-types';
+import { isFormFieldKeyTarget } from '../shared/form-field-target';
 import { collapseDetailRow, createDetailElement, expandDetailRow, isDetailExpanded } from './master-detail';
 import styles from './master-detail.css?inline';
 import type { DetailExpandDetail, DetailLoadErrorDetail, ExpandCollapseAnimation, MasterDetailConfig } from './types';
@@ -643,6 +644,8 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   override onKeyDown(event: KeyboardEvent): boolean | void {
     // SPACE toggles expansion when focus is on the expander column
     if (event.key !== ' ') return;
+    // Inputs in an editor or the detail panel own Space (#546).
+    if (isFormFieldKeyTarget(event)) return;
 
     const focusCol = this.grid._focusCol;
     const focusRow = this.grid._focusRow;

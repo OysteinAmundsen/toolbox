@@ -106,21 +106,21 @@ Compares Vitest `bench()` output (`hz`, `mean`, `moe`, `rme`) of PR head against
 
 ## dependency clusters ([.ncurc.cjs](.ncurc.cjs))
 
-Keeps `npm-check-updates` from proposing breaking upgrades. Default `target: latest`; cluster-anchored packages forced to `minor`; Nx + Angular toolchain `reject`ed (owned by `nx migrate`).
+Keeps `npm-check-updates` from proposing breaking upgrades. Default `target: latest`; cluster-anchored packages forced to `minor`; Nx + Angular toolchain `reject`ed (owned by `nx migrate`). Cluster: members (gate):
 
-| Cluster            | Members / anchor                                                                                             | Gate                                                        |
-| ------------------ | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| Nx                 | `nx` == every `@nx/*` (byte-identical)                                                                       | rejected — only via `nx migrate latest`                     |
-| Angular            | `@angular/*` pinned 21.2.x via root `overrides`; `@angular-devkit/build-angular` + `ng-packagr` match major  | rejected — `@nx/angular` 22.7.x supports Ng 20–21 only      |
-| TypeScript ceiling | `typescript` capped `<6`                                                                                     | Angular 21 + typescript-eslint 8                            |
-| ESLint             | `eslint` + `@eslint/js` held at 9                                                                            | typescript-eslint 8 / `@nx/eslint` lack ESLint 10           |
-| Vite/Vitest        | `vite`, `vite-plugin-dts`, `@vitejs/plugin-react`, `@vitejs/plugin-vue`, `vitest`, `@vitest/*` (== `vitest`) | `@nx/vite` 22.7.x → Vite 7                                  |
-| Astro/Starlight    | `astro`, `@astrojs/mdx`, `@astrojs/starlight`, `@astrojs/cloudflare`, `astro-mermaid`, `mermaid`             | Starlight gates Astro; `astro-mermaid` peer gates `mermaid` |
-| Vue                | `vue` + `vue-router` (demo-only)                                                                             | —                                                           |
+- Nx: `nx` == every `@nx/*`, byte-identical (rejected — only via `nx migrate latest`).
+- Angular: `@angular/*` pinned 21.2.x via root `overrides`; `@angular-devkit/build-angular` + `ng-packagr` match major (rejected — `@nx/angular` 22.7.x supports Ng 20–21 only).
+- TypeScript ceiling: `typescript` capped `<6` (Angular 21 + typescript-eslint 8).
+- ESLint: `eslint` + `@eslint/js` held at 9 (typescript-eslint 8 / `@nx/eslint` lack ESLint 10).
+- Vite/Vitest: `vite`, `vite-plugin-dts`, `@vitejs/*`, `vitest`, `@vitest/*` == `vitest` (`@nx/vite` 22.7.x → Vite 7).
+- Astro/Starlight: `astro`, `@astrojs/*` (`mdx`, `markdown-remark`, `starlight`, `cloudflare`), `astro-mermaid`, `mermaid` (Starlight gates Astro AND the `@astrojs/mdx` major; `astro-mermaid` peer gates `mermaid`).
+- Vue: `vue` + `vue-router`, demo-only.
 
 - FREE (majors OK): `concurrently`, `jsdom`, `jsonc-eslint-parser`, `wait-on`, `happy-dom`, `pagefind`, `@types/node`, `typedoc*`.
 - HARDENING: `majorLocked` entries ending in `/` (`@astrojs/`, `@vitejs/`, `@vitest/`) match by PREFIX via `isMajorLocked()` so new family members auto-lock.
-- FLOW: `bun run update` → [tools/update-deps.ts](tools/update-deps.ts) sequences `nx migrate latest` + run-migrations → `bunx npm-check-updates -u` (**no `--target` flag** — a CLI flag would override `.ncurc.cjs`) → `bun install` → verify lint/test/build. `bun run update:dry` reports only; `bun run update:full` adds both e2e suites (`e2e:full` + `nx e2e docs-e2e`, the only suite exercising the Astro/Starlight cluster). Never auto-commits; prints a rollback SHA on failure.
+- GOTCHA (post-#545 docs CI break): `minor` does NOT protect 0.x — Starlight 0.42 needs `@astrojs/mdx ^8`; root mdx stayed at 7, which pins `@astrojs/markdown-remark` 7.2.4 at root, but astro 7.4 / Starlight / mdx 8 take it as PEER `^7.3.0` → "`@astrojs/markdown-remark` is too old". RULE: root mdx major == Starlight's mdx dep major; keep `@astrojs/markdown-remark` an explicit root devDep. Hand-edited `package.json` + `bun install` may say "no changes" and skip the lock — use `bun add -d --exact`.
+- GOTCHA: `apps/docs/package.json` has no deps, so Astro's `crawlFrameworkPkgs` never marks integrations `noExternal`; compiled-JS ones (Starlight ≥0.42; ≤0.41 shipped `.ts`) stay external → Node rejects `astro:*` (`ERR_UNSUPPORTED_ESM_URL_SCHEME`). Fix: `vite.resolve.noExternal` in `astro.config.mjs`; `vite.ssr.noExternal` misses Astro 7's `prerender` env.
+- FLOW: `bun run update` → [tools/update-deps.ts](tools/update-deps.ts) sequences `nx migrate latest` + run-migrations → `bunx npm-check-updates -u` (**no `--target` flag** — a CLI flag would override `.ncurc.cjs`) → `bun install` → verify lint/test/build + `build (docs)` (root `build` excludes docs; only `astro build` checks the Astro cluster's peers). `bun run update:dry` reports only; `bun run update:full` adds both e2e suites (`e2e:full` + `nx e2e docs-e2e`). Never auto-commits; prints a rollback SHA on failure.
 
 ## workspace tooling (`tools/`)
 

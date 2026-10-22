@@ -235,6 +235,9 @@ valueFields: [{
 ```
 
 If no `format` is provided, the plugin falls back to the original column's `format` function.
+Aggregated values have no source row, so that function receives `row` as `undefined`; if it
+throws (for example by reading the row), the raw number is shown with a `TBW062` warning. Give
+the value field its own `format` when the column's formatter depends on the row.
 
 ## Programmatic-Only Usage
 

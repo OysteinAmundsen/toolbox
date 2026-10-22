@@ -484,13 +484,34 @@ grid.gridConfig = {
 
 **Handler signatures:**
 
-| Handler         | Signature                                                    | Returns                  |
-| --------------- | ------------------------------------------------------------ | ------------------------ |
-| `valuesHandler` | `(field: string, column: ColumnConfig) => Promise<T[]>`      | Unique values for filter |
-| `filterHandler` | `(filters: FilterModel[], rows: T[]) => T[] \| Promise<T[]>` | Filtered rows            |
+| Handler         | Signature                                                                       | Returns                                     |
+| --------------- | ------------------------------------------------------------------------------- | ------------------------------------------- |
+| `valuesHandler` | `(field: string, column: ColumnConfig) => Promise<T[] \| FilterValueOption[]>` | Unique values (optionally `{ value, label }`) |
+| `filterHandler` | `(filters: FilterModel[], rows: T[]) => T[] \| Promise<T[]>`                    | Filtered rows                               |
 
 When `valuesHandler` is provided, the filter panel shows a loading indicator while fetching values.
 When `filterHandler` is provided, filter application bypasses the local `processRows` hook.
+
+**Labels for server-fetched values.** Locally, the panel labels each value with the column's
+`format(value, row)`, passing the first row that holds the value. Server-fetched values have no
+row, so `row` is `undefined` there — a `format` that reads the row falls back to the raw value
+(with a `TBW062` warning). Return `{ value, label }` entries to supply the labels yourself; the
+filter still works on `value`, and the panel's search matches `label`:
+
+```ts
+valuesHandler: async (field) => {
+  const response = await fetch(`/api/distinct-values?field=${field}`);
+  const items: { id: string; name: string }[] = await response.json();
+  return items.map((item) => ({ value: item.id, label: item.name }));
+},
+```
+
+Blank values from the handler (`null`, `undefined`, and `''` unless the column has a `filterValue`
+or `valueAccessor`) become the panel's single **(Blank)** entry (`BLANK_FILTER_VALUE`), so
+unchecking it hides blank rows. Give it a name with a labelled option, e.g.
+`{ value: null, label: 'Unassigned' }`. The filter model — and so your `filterHandler` — receives
+`BLANK_FILTER_VALUE` for that entry, not the raw `null` or `''`; import the constant from
+`@toolbox-web/grid/plugins/filtering` to recognise it on the server side.
 
 ## Configuration Options
 

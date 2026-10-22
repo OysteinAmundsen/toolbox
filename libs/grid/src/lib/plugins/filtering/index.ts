@@ -17,5 +17,6 @@ export type {
   FilterPanelRenderer,
   FilterParams,
   FilterType,
+  FilterValueOption,
   FilterValuesHandler,
 } from './types';

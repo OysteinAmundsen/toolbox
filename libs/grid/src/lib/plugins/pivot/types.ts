@@ -182,6 +182,8 @@ export interface PivotValueField {
   /**
    * Format function for display values. Receives the aggregated number and returns a string.
    * When omitted, the original column's `format` is used if available, otherwise raw `String(value)`.
+   * Aggregates have no source row, so the column's `format` is called with `row` undefined; if it
+   * throws (e.g. it reads the row), the raw number is shown. Set this when the column's `format` needs the row.
    *
    * @example
    * ```typescript

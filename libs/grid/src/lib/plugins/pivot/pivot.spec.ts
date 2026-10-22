@@ -1423,6 +1423,47 @@ describe('PivotPlugin lifecycle and API', () => {
       expect((sumCol?.format as (v: unknown) => string)(1)).toBe('sum:1');
       expect((avgCol?.format as (v: unknown) => string)(1)).toBe('avg:1');
     });
+
+    // #548: aggregates have no source row — the column's own format gets `row` undefined.
+    function pivotValueColumnWithColumnFormat(format: (value: unknown, row: any) => string) {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+      });
+      const mockGrid = createMockGrid();
+      (mockGrid.columns as Array<{ field: string; format?: unknown }>)[2].format = format;
+      mockGrid.rows = [{ category: 'A', sales: 100 }];
+      plugin.attach(mockGrid as any);
+      (plugin as any).captureOriginalColumns();
+      plugin.enablePivot();
+      const rebuild = () => {
+        plugin.processRows(mockGrid.rows);
+        const valueCol = plugin
+          .processColumns([])
+          .find((c) => c.field !== '__pivotLabel' && c.field !== '__pivotTotal');
+        return valueCol?.format as (v: unknown) => string;
+      };
+      return rebuild;
+    }
+
+    it('falls back to the original column format, called without a row', () => {
+      const format = vi.fn((v: unknown) => `$${v}`);
+      const fmt = pivotValueColumnWithColumnFormat(format)();
+      expect(fmt(100)).toBe('$100');
+      expect(format).toHaveBeenCalledWith(100, undefined);
+    });
+
+    it('shows the raw number and warns once per value field, across pivot rebuilds', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const rebuild = pivotValueColumnWithColumnFormat((v, row) => `${row.currency}${v}`);
+      const fmt = rebuild();
+      expect(fmt(100)).toBe('100');
+      expect(fmt(250)).toBe('250');
+      expect(rebuild()(300)).toBe('300');
+      const formatWarnings = warnSpy.mock.calls.filter((args) => String(args[0]).includes('TBW062'));
+      expect(formatWarnings).toHaveLength(1);
+      warnSpy.mockRestore();
+    });
   });
 });
 

@@ -1050,9 +1050,12 @@ export interface BaseColumnConfig<TRow = any, TValue = any, TField extends strin
    * - In the filter panel (set filter), checkbox labels show the formatted value
    *   instead of the raw value, and search matches against the formatted text.
    *
-   * The `row` parameter is available during cell rendering but is `undefined`
-   * when called from the filter panel (standalone value formatting). Avoid
-   * accessing `row` properties in format functions intended for filter display.
+   * `row` is the row the value belongs to. The filter panel lists each distinct
+   * value once and passes the first row containing it. Where a value has no
+   * source row — values returned by the filtering `valuesHandler`, and Pivot
+   * aggregates — `row` is `undefined`; if `format` then throws, the raw value is
+   * shown and a TBW062 warning is logged. For server-fetched filter values, return
+   * `{ value, label }` options from `valuesHandler` to supply the label instead.
    *
    * @example
    * ```typescript

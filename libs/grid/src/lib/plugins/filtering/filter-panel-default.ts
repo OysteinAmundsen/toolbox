@@ -6,7 +6,23 @@
  */
 
 import { computeVirtualWindow, shouldBypassVirtualization } from '../../core/internal/virtualization';
+import { tryFormat } from '../shared/format-value';
+import { BLANK_FILTER_VALUE } from './filter-model';
 import type { FilterPanelParams } from './types';
+
+/**
+ * Where the set filter panel gets checkbox labels from, besides `column.format`.
+ * The blank entry ({@link BLANK_FILTER_VALUE}) is never formatted: it shows its label, else "(Blank)".
+ * @internal
+ */
+export interface FilterValueLabelSource {
+  /** First data row each value was seen in (locally extracted values), passed to `column.format`. */
+  rows?: Map<unknown, unknown>;
+  /** Labels supplied by `valuesHandler` as `{ value, label }` options. Take precedence over `format`. */
+  labels?: Map<unknown, string>;
+  /** Reports a throwing `column.format`. Called at most once per render. */
+  onFormatError?: (error: unknown) => void;
+}
 
 // #region Constants
 
@@ -53,6 +69,7 @@ export function getListItemHeight(panelElement: HTMLElement | null): number {
  * @param excludedValues - Currently excluded values
  * @param config - Plugin config (caseSensitive, debounceMs)
  * @param searchTextMap - Map of field → current search text
+ * @param labelSource - Rows, server labels and error reporting used to label values
  */
 export function renderDefaultFilterPanel(
   panel: HTMLElement,
@@ -61,19 +78,43 @@ export function renderDefaultFilterPanel(
   excludedValues: Set<unknown>,
   config: { caseSensitive?: boolean; debounceMs?: number },
   searchTextMap: Map<string, string>,
+  labelSource: FilterValueLabelSource = {},
 ): void {
   const { field, column } = params;
   const itemHeight = getListItemHeight(panel);
+  const { rows, labels, onFormatError } = labelSource;
 
-  // Helper: format a value using the column's format function (for ID-to-name translation, etc.)
   // When filterValue is set, unique values are already extracted primitives — skip format.
-  const formatValue = (value: unknown): string => {
-    if (value == null) return '(Blank)';
-    if (column.format && !column.filterValue) {
-      const formatted = column.format(value, undefined as never);
+  const format = column.filterValue ? undefined : column.format;
+  let formatErrorReported = false;
+  const reportFormatError = (error: unknown) => {
+    if (formatErrorReported) return;
+    formatErrorReported = true;
+    onFormatError?.(error);
+  };
+
+  const resolveLabel = (value: unknown): string => {
+    const label = labels?.get(value);
+    if (label != null) return label;
+    if (value == null || value === BLANK_FILTER_VALUE) return BLANK_FILTER_VALUE;
+    // Local values are formatted with the row they came from. valuesHandler values have no
+    // rows, so `format` gets `undefined` and a row-reading formatter falls back to String(value).
+    if (format) {
+      const formatted = tryFormat(format, value, rows?.get(value), reportFormatError);
       if (formatted) return formatted;
     }
     return String(value);
+  };
+
+  // Labels are read by sorting, search and every virtualized re-render — resolve each once.
+  const labelCache = new Map<unknown, string>();
+  const formatValue = (value: unknown): string => {
+    let label = labelCache.get(value);
+    if (label === undefined) {
+      label = resolveLabel(value);
+      labelCache.set(value, label);
+    }
+    return label;
   };
 
   // Sort unique values — numbers numerically, everything else by display name

@@ -187,3 +187,96 @@ describe('renderDefaultFilterPanel', () => {
     expect(labels.map((l) => l.checked)).toEqual([true, true, false]);
   });
 });
+
+// #548: format(value, row) must get a real row where one exists, and never crash the panel.
+describe('renderDefaultFilterPanel labels', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  type Row = { name: string; prefix: string };
+  const rowReadingFormat = (value: unknown, row: Row) => `${row.prefix}${value}`;
+
+  function render(
+    column: ColumnConfig,
+    uniqueValues: unknown[],
+    labelSource?: Parameters<typeof renderDefaultFilterPanel>[6],
+    searchText = '',
+  ) {
+    const panel = createPanel();
+    renderDefaultFilterPanel(
+      panel,
+      createParams({ column, uniqueValues }),
+      uniqueValues,
+      new Set(),
+      {},
+      new Map([['status', searchText]]),
+      labelSource,
+    );
+    return getCheckboxLabels(panel).map((l) => l.text);
+  }
+
+  it('passes the row each value came from to column.format', () => {
+    const rows = new Map<unknown, Row>([
+      ['Oslo', { name: 'Oslo', prefix: 'NO-' }],
+      ['Bergen', { name: 'Bergen', prefix: 'NO-' }],
+    ]);
+    const column = { field: 'status', format: rowReadingFormat } as ColumnConfig;
+
+    expect(render(column, ['Oslo', 'Bergen'], { rows })).toEqual(['NO-Bergen', 'NO-Oslo']);
+  });
+
+  it('does not format the blank sentinel, which has no row', () => {
+    const format = vi.fn(rowReadingFormat);
+    const rows = new Map<unknown, Row>([['Oslo', { name: 'Oslo', prefix: 'NO-' }]]);
+    const column = { field: 'status', format } as ColumnConfig;
+
+    expect(render(column, ['Oslo', '(Blank)'], { rows })).toEqual(['(Blank)', 'NO-Oslo']);
+    expect(format).toHaveBeenCalledTimes(1);
+    // valuesHandler values (no rows map): the normalized blank keeps its label or "(Blank)".
+    expect(render(column, ['(Blank)'])).toEqual(['(Blank)']);
+    expect(render(column, ['(Blank)'], { labels: new Map([['(Blank)', 'Unassigned']]) })).toEqual(['Unassigned']);
+    expect(format).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the raw value and reports once when format needs a missing row', () => {
+    const onFormatError = vi.fn();
+    const column = { field: 'status', format: rowReadingFormat } as ColumnConfig;
+
+    expect(render(column, ['Oslo', 'Bergen'], { onFormatError })).toEqual(['Bergen', 'Oslo']);
+    expect(onFormatError).toHaveBeenCalledTimes(1);
+    expect(onFormatError.mock.calls[0][0]).toBeInstanceOf(TypeError);
+  });
+
+  it('still formats row-free formatters for values without rows (valuesHandler)', () => {
+    const departments = new Map([['d1', 'Engineering']]);
+    const column = {
+      field: 'status',
+      format: (v: unknown) => departments.get(v as string) ?? String(v),
+    } as ColumnConfig;
+
+    expect(render(column, ['d1'])).toEqual(['Engineering']);
+  });
+
+  it('prefers valuesHandler labels over format, and searches them', () => {
+    const format = vi.fn(() => 'formatted');
+    const labels = new Map<unknown, string>([
+      ['d1', 'Engineering'],
+      ['d2', 'Sales'],
+    ]);
+    const column = { field: 'status', format } as ColumnConfig;
+
+    expect(render(column, ['d1', 'd2'], { labels })).toEqual(['Engineering', 'Sales']);
+    expect(render(column, ['d1', 'd2'], { labels }, 'sal')).toEqual(['Sales']);
+    expect(format).not.toHaveBeenCalled();
+  });
+
+  it('formats each value once per render', () => {
+    const format = vi.fn((v: unknown) => `#${v}`);
+    const values = ['c', 'a', 'b', 'd', 'e'];
+    const column = { field: 'status', format } as ColumnConfig;
+
+    render(column, values, { rows: new Map(values.map((v) => [v, { v }])) });
+    expect(format).toHaveBeenCalledTimes(values.length);
+  });
+});

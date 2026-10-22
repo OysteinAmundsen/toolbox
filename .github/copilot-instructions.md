@@ -77,7 +77,8 @@ Loaded on demand from `.github/knowledge/` — read relevant files before starti
 | `grid-plugins`              | Plugin system               | Plugin manager, lifecycle, hooks, inter-plugin communication, manifest, scroll dispatch                                     |
 | `grid-plugins-catalog-data` | Plugin catalog (data)       | ServerSide, Pivot, pinned/virtualized/grouped columns, sorting, filtering, pinned rows, clipboard/export/print              |
 | `grid-plugins-hierarchy`    | Row hierarchy plugins       | HierarchyPlugin contributor contract, Tree, GroupingRows, treegrid ARIA, Tree + GroupingRows composition                    |
-| `grid-plugins-catalog-ui`   | Plugin catalog (UI)         | Selection, MasterDetail, reordering & drag-drop, Responsive, Tooltip, StickyRows, ContextMenu                               |
+| `grid-plugins-catalog-ui`   | Plugin catalog (UI)         | MasterDetail, reordering & drag-drop, Responsive, Tooltip, StickyRows                                                       |
+| `grid-plugin-selection`     | Selection & ContextMenu     | Selection modes, keyboard/touch selection, context-menu selection sync (#541), menu contribution `order` bands              |
 | `grid-plugin-responsive`    | Responsive plugin           | Breakpoints, card layout, view transitions & morph, column fades/`hiddenColumns`, card height                               |
 | `grid-plugins-editing`      | Editing & UndoRedo          | Editor injection, commit/cancel flow, keyboard guards, dirty tracking, undo transactions                                    |
 | `grid-plugins-shell`        | Shell plugin                | v3 opt-in model, HARD RULE #370, tool panels, header/toolbar content, dropdown mode                                         |

@@ -360,7 +360,9 @@ Key imperative methods per plugin:
 Inter-plugin queries (`grid.query(name, ...)`) — used when one plugin reads
 another without a hard dependency. SelectionPlugin exposes: `'getSelection'`,
 `'selectRows'`, `'getSelectedRowIndices'`, `'getSelectedRows'`,
-`'getSelectedColumns'`.
+`'getSelectedColumns'`, `'selectColumns'`, `'selectContextMenuTarget'` (moves the
+selection to `{ rowIndex, colIndex }` unless already selected; returns
+`getSelectedRowIndices()`).
 
 </Audience>
 

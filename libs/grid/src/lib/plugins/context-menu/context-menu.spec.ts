@@ -804,9 +804,7 @@ describe('contextMenu', () => {
       const grid = createMockGridForPlugin();
       plugin.attach(grid as never);
 
-      const result = plugin['syncSelectionOnContextMenu'](-1);
-
-      expect(result).toEqual([]);
+      expect(plugin['syncSelectionOnContextMenu'](-1, 0)).toEqual([]);
     });
 
     it('should return [rowIndex] when no selection plugin is loaded', () => {
@@ -815,63 +813,28 @@ describe('contextMenu', () => {
       const grid = createMockGridForPlugin(() => []);
       plugin.attach(grid as never);
 
-      const result = plugin['syncSelectionOnContextMenu'](2);
-
-      expect(result).toEqual([2]);
+      expect(plugin['syncSelectionOnContextMenu'](2, 1)).toEqual([2]);
     });
 
-    it('should preserve multi-selection when right-clicked row is already selected', () => {
+    it('should target the invoked cell and return the synced selection when it covers the row', () => {
       const plugin = new ContextMenuPlugin();
-      // getSelectedRowIndices returns [0, 2, 3]
-      const grid = createMockGridForPlugin((type: unknown) => {
-        if (type === 'getSelectedRowIndices') return [[0, 2, 3]];
-        return [];
-      });
+      const query = vi.fn((type: unknown, _context?: unknown) =>
+        type === 'selectContextMenuTarget' ? [[0, 2, 3]] : [],
+      );
+      const grid = createMockGridForPlugin(query);
       plugin.attach(grid as never);
 
-      const result = plugin['syncSelectionOnContextMenu'](2);
-
-      expect(result).toEqual([0, 2, 3]);
-      // selectRows should NOT have been called
-      const queryCalls = (grid as unknown as { query: ReturnType<typeof vi.fn> }).query.mock.calls;
-      const selectRowsCalls = queryCalls.filter((c: unknown[]) => c[0] === 'selectRows');
-      expect(selectRowsCalls).toHaveLength(0);
+      expect(plugin['syncSelectionOnContextMenu'](2, 1)).toEqual([0, 2, 3]);
+      expect(query).toHaveBeenCalledWith('selectContextMenuTarget', { rowIndex: 2, colIndex: 1 });
     });
 
-    it('should select only the right-clicked row when it is not in the current selection', () => {
+    it('should fall back to [rowIndex] when the target row could not be selected', () => {
       const plugin = new ContextMenuPlugin();
-      const grid = createMockGridForPlugin((type: unknown) => {
-        if (type === 'getSelectedRowIndices') return [[0, 1]];
-        return [];
-      });
+      // e.g. `isSelectable` rejected the row — the selection plugin reports nothing for it
+      const grid = createMockGridForPlugin((type: unknown) => (type === 'selectContextMenuTarget' ? [[]] : []));
       plugin.attach(grid as never);
 
-      const result = plugin['syncSelectionOnContextMenu'](3);
-
-      expect(result).toEqual([3]);
-      // selectRows SHOULD have been called with [3]
-      const queryCalls = (grid as unknown as { query: ReturnType<typeof vi.fn> }).query.mock.calls;
-      const selectRowsCalls = queryCalls.filter((c: unknown[]) => c[0] === 'selectRows');
-      expect(selectRowsCalls).toHaveLength(1);
-      expect(selectRowsCalls[0][1]).toEqual([3]);
-    });
-
-    it('should select the right-clicked row when selection is empty', () => {
-      const plugin = new ContextMenuPlugin();
-      const grid = createMockGridForPlugin((type: unknown) => {
-        if (type === 'getSelectedRowIndices') return [[]];
-        return [];
-      });
-      plugin.attach(grid as never);
-
-      const result = plugin['syncSelectionOnContextMenu'](1);
-
-      expect(result).toEqual([1]);
-      // selectRows should have been called
-      const queryCalls = (grid as unknown as { query: ReturnType<typeof vi.fn> }).query.mock.calls;
-      const selectRowsCalls = queryCalls.filter((c: unknown[]) => c[0] === 'selectRows');
-      expect(selectRowsCalls).toHaveLength(1);
-      expect(selectRowsCalls[0][1]).toEqual([1]);
+      expect(plugin['syncSelectionOnContextMenu'](3, 0)).toEqual([3]);
     });
   });
 

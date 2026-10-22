@@ -3,6 +3,7 @@ domain: grid-plugins-catalog-ui
 related:
   [
     grid-plugins,
+    grid-plugin-selection,
     grid-plugins-catalog-data,
     grid-plugin-responsive,
     grid-plugins-editing,
@@ -14,30 +15,9 @@ related:
 
 # Plugin Catalog — Interaction & Display Plugins
 
-> Architecture → grid-plugins.md · Shell → grid-plugins-shell.md · Editing/UndoRedo → grid-plugins-editing.md · Responsive → grid-plugin-responsive.md · row/column model, sorting, filtering, pinned rows, export → grid-plugins-catalog-data.md.
+> Architecture → grid-plugins.md · Selection & ContextMenu (incl. menu contribution `order` bands) → grid-plugin-selection.md · Shell → grid-plugins-shell.md · Editing/UndoRedo → grid-plugins-editing.md · Responsive → grid-plugin-responsive.md · row/column model, sorting, filtering, pinned rows, export → grid-plugins-catalog-data.md.
 >
-> Read order for "a pointer gesture does the wrong thing": Selection dispatchers → the drag-alternative `DECIDED` bullets (#449) → ContextMenu order bands.
-
-## Selection & Navigation
-
-### Selection
-
-OWNS: selected rows/cells/ranges/columns (`Set<field>`), `activeAxis`, normalized mode. HOOKS: onCellClick, onRowClick, onHeaderClick, onKeyDown, afterCellRender, processColumns (checkbox column), afterRender, onScrollRender. EVENTS: `selection-change`. MODES: `cell | row | range | column`, or an array of `'column'` + exactly one in-row axis.
-
-- DECIDED (#269): mode normalized at `attach()` into `NormalizedModeConfig { primary, columnEnabled, bothAxes }`; throws on empty, 3+ items, 2-element without `'column'`, duplicates, unknown. RULED OUT: `['cell','row']`. Column selection keys on **field names**; `clearSelectionSilent()` preserves `selectedColumns`; row↔column mutual exclusion in `#buildEvent()`. Chords: header plain/Shift+Click = sort; **Ctrl/⌘+Click** toggles a column, **Ctrl/⌘+Shift+Click** extends; **Ctrl/⌘+Space** toggles the focused cell's column, **Ctrl/⌘+Shift+←/→** extends. Utility columns skip every column-axis path. `column-selection.ts` (+ spec).
-- DECIDED (#308): `selection-change.detail.selectedColumns` + `getSelectedColumns()` emit in **visible-column order** via `buildSelectionEvent` → `selectableColumnFields(visibleColumns)`; the `selectColumns` query batches through `#setColumnSelection(fields)`. `#applySelectionClasses()` MUST reset stale `aria-selected` **scoped** to cells that previously carried `.selected`/`.column-selected` — clearing all wipes the active-cell focused marker (e2e `accessibility.spec.ts`).
-- DECIDED (#284): clears selection when the host swaps source `rows` to a DIFFERENT size (`data-change` + changed `sourceRowCount`, cached `lastSourceRowCount = -1`); same-count edits preserve. RULED OUT: clearing on every `data-change`; deep equality. Also auto-selects the row entering edit in `mode:'row'` (listens `edit-open` via `broadcast()`); skips if mode isn't row, `isRowSelectable` false, or already selected; `multiSelect:false` replaces. NO `edit-close` listener. Tests: `selection-editing-integration.spec.ts`.
-- DECIDED (Jul 2026): `onCellClick`/`onKeyDown` are thin dispatchers; semantics live in `#clickSelect{Cell,Row,Range}` and `#key{ColumnAxis,ClearSelection,NavCellMode,RowMode,RangeMode,RangeSpan,SelectAll}`; `NAV_KEYS` is module-level. MUST NOT re-inline — mode PRECEDENCE belongs to the dispatcher, SEMANTICS to the branch.
-- DECIDED (Jul 2026): range-mode right-click (`onCellMouseDown`, `button === 2`) inside an existing range preserves the selection (early return, no drag) so the context menu acts on the whole range (`isCellInAnyRange`); outside falls through to clear+select.
-- DECIDED (#492, `@since 3.9.0`): range-mode APG chords in `#keyRangeSpan` — `Shift+Space` → rows spanned by `activeRange` (else focus row) × all visible cols; `Ctrl/⌘+Space` → spanned cols × all rows, ONLY when `!columnEnabled` (column axis wins via `#keyColumnAxis`). Result is a plain range; `cellAnchor` = corner farthest from focus. A single corner can't hold an interior-focus span, so `#spanRange {axis, range}` keeps the spanned axis full on `Shift+Arrow` extension while `span.range === activeRange` (identity → any other range write silently ends the lock; no reset sites). Guards: form-field target, `isEditing` — also applied to ALL of `#keyColumnAxis` (PR #502 review). Announced via `#pendingSpanAnnouncement` → `rangeSpanSelected` inside the shared 150 ms debounce. RULED OUT (#486): parallel `wholeRows/wholeCols` model, `Ctrl+Click` header column-select in range mode, `Ctrl+Shift+Space` select-all.
-- DECIDED (#304, `@since 3.5.0`): **touch selection mode** — long-press a row → mode on + row selected; taps then toggle (as Ctrl); a second long-press range-extends from the anchor; `Done`/`Escape` exits. API: `touchSelectionActive`, `exitTouchSelection()`, `SelectionConfig.touchMode: 'sticky' | 'transient'` (default `'transient'` = exiting clears). UI in `plugins/selection/touch-selection.ts`: `SelectionToolbar` (role=toolbar, `data-action` buttons) + `RangeCornerHandles` (`startPointerDrag` dots, hidden when the anchor cell is virtualized away); "More…" proxies to `ContextMenuPlugin.showMenu()` via `getPluginByName('contextMenu')`. Header presses (`rowIndex < 0`) ignored — reserved for #270.
-  - INVARIANT: entry gates on the **event's** `pointerType` (`#isCoarseEvent`), NOT `getPrimaryPointer()` — a hybrid device reports `(pointer: coarse)` with a mouse in use. `#renderTouchChrome` MUST NOT re-test the media query.
-  - INVARIANT: mouse chords untouched — the only change is `|| this.#touchActive` in `#clickSelectRow`'s `ctrlKey`. Long-press detection is free: `event-delegation.ts` dispatches the coarse `mousedown` hook only after 400 ms (#303); no plugin-side timer.
-  - DECIDED (Aug 2026): range corner handles are **touch-only** — `#rangeFromCoarsePointer` (set from `#isCoarseEvent(originalEvent)` in BOTH `onCellMouseDown` range branch and `#clickSelectRange`) gates `#renderTouchChrome`'s `rect`. WHY: on desktop only the most recent Ctrl-range carries handles, so they sit inside other ranges and obstruct drag-select.
-  - TENSION: selection chunk +2.39 kB gz — `pointer-drag.ts` inlines (plugin entries are self-contained, `manualChunks: undefined`); ≤50 kB gz/plugin passes.
-  - Tests: `touch-selection.spec.ts` → "does not render handles for a mouse-started range" / "renders handles for a tap-created range". Stubbing `matchMedia` per-test does NOT work for `getPrimaryPointer()` — `pointer-modality.ts` caches one shared MediaQueryList module-level; assert via `pointerType`.
-- DECIDED (#449, SC 2.5.7): range paint-drag gets TWO pointer alternatives, both reusing existing affordances (zero new chrome). (1) `getContextMenuItems` contributes **"Extend selection to here"** at `EXTEND_ITEM_ORDER = 60` (own tens band, below column move 50s); extends from `#extendAnchor` → `params.rowIndex/columnIndex` (`ContextMenuParams.columnIndex` IS `data-col`, same space as `colIndex`). `#extendAnchor` is SEPARATE from `cellAnchor` because right-click outside the range re-anchors `cellAnchor` at the clicked cell — `#setExtendAnchor` skips `button === 2`. (2) `RangeCornerHandles` handles are now `role="button"` + `aria-label` + `aria-pressed`; `#onPointerDown` tracks `moved` inside `onMove` and branches in `onEnd` (tap → `callbacks.arm(corner)`, drag → `commit()`), because `startPointerDrag` promotes immediately. Armed corner: `onCellMouseDown` returns `true` early (swallow, no drag reset), `#clickSelectRange` places it, `Escape` disarms BEFORE the touch-mode/clear branches.
-  - INVARIANT: the fallback `createDragAlternativeMenu('tbw-range-extend-menu', …)` is bound as ONE delegated `contextmenu` listener on the grid host (cells are recycled every render) and MUST bail when `#contextMenuPlugin()` is truthy — else two menus stack.
+> Read order for "a drag/reorder does the wrong thing": grid-input.md (pointer dispatch) → RowDragDrop → ReorderColumns `DECIDED` bullets (#449).
 
 ## Row Details
 
@@ -117,8 +97,3 @@ OWNS: `.tbw-sticky-rows` overlay container, clone cache by row index, displayed 
 - INVARIANT: any config/data change (`detach`, or a sticky-index change in `recomputeStickyIndices`) clears `cloneCache` while **scroll position is preserved**; only sticky rows inside the render window can be re-primed — this, not fast scrolling, caused the `'stack'`-mode "stuck at 1 row" bug (same on mount-while-scrolled).
 - DECIDED (#279): zero core bytes — reads `_virtualization` internals directly. RULED OUT: `core/internal/rows.ts#renderInlineRow` (#240 — module-level `document.createElement('template')` crashes happy-dom-less tests).
 - DECIDED (#449, SC 2.4.11): implements `getVerticalScrollOffsets(focusedRowIndex?)` → `{ top: container.offsetHeight, bottom: 0 }` while any clone is displayed, so keyboard navigation scrolls a focused row clear of the overlay instead of under it. Returns `{ top: 0, bottom: 0, skipScroll: true }` when `displayedIndices.includes(focusedRowIndex)` (the row is already pinned in view). Returns `undefined` before the container exists or when nothing is stuck.
-
-### ContextMenu
-
-OWNS: menu items, open state. HOOKS: afterRender, onKeyDown. QUERIES: `getContextMenuItems` (collects contributions from all plugins).
-INVARIANT: contributions sort by `order` (default 100); `insertGroupSeparators` groups by the TENS digit. Bands: sort 10s, filter 20s, visibility 30s, pinning 40s, column move 50-53 (reorder-columns, #449), selection 60 (range extend, #449). A plugin that contributes AND self-hosts its own menu MUST bail when `grid.getPluginByName('contextMenu')` is truthy, else two menus stack.

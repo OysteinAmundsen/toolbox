@@ -55,10 +55,14 @@ export interface ContextMenuParams {
   /** The original mouse or keyboard event */
   event: MouseEvent | KeyboardEvent;
   /**
-   * The currently selected row indices (sorted ascending).
-   * Populated when the SelectionPlugin is active in row mode.
-   * If the right-clicked row was not part of a multi-selection,
-   * this contains only the right-clicked row index.
+   * The currently selected row indices (sorted ascending), after the selection
+   * was synced to the target cell — identically for right-click, touch
+   * long-press, Shift+F10, and the ContextMenu key.
+   * Populated from the SelectionPlugin in every mode: the selected rows in
+   * row mode, the selected cell's row in cell mode, and every row a selected
+   * range covers in range mode.
+   * If the target row is not part of the selection (or no SelectionPlugin is
+   * loaded), this contains only the target row index.
    */
   selectedRows: number[];
 }

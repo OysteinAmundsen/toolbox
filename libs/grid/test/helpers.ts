@@ -1,13 +1,13 @@
 import type { DataGridElement } from '../src/lib/core/grid';
 
 /**
- * Wait for element upgrade and ready state
+ * Wait for `<tbw-grid>` to upgrade, finish `ready()`, and paint its first frames.
  */
-export async function waitUpgrade(grid: DataGridElement): Promise<void> {
-  await customElements.whenDefined('data-grid');
-  if ('ready' in grid && typeof grid.ready === 'function') {
-    await grid.ready();
-  }
+export async function waitUpgrade(grid: HTMLElement & { ready?: () => Promise<void> }): Promise<void> {
+  await customElements.whenDefined('tbw-grid');
+  await grid.ready?.();
+  await nextFrame();
+  await nextFrame();
 }
 
 /**
@@ -21,7 +21,7 @@ export function nextFrame(): Promise<void> {
  * Create a grid element and append to body
  */
 export function createGrid(): DataGridElement {
-  const grid = document.createElement('data-grid') as DataGridElement;
+  const grid = document.createElement('tbw-grid') as DataGridElement;
   document.body.appendChild(grid);
   return grid;
 }

@@ -225,30 +225,21 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
   // #region Private Methods
 
   /**
-   * Sync selection with the right-clicked row.
-   * If the right-clicked row is already selected, keeps the multi-selection.
-   * If not, selects only the right-clicked row (standard behavior in file managers / spreadsheets).
+   * Sync the selection with the cell the menu was invoked on — identically for
+   * every invocation (mouse right-click, touch long-press, Shift+F10, the
+   * ContextMenu key, a synthesised `contextmenu`), since all of them land here.
    *
-   * @returns Sorted array of selected row indices after sync
+   * `SelectionPlugin` keeps a selection the cell is already part of (so the menu
+   * acts on all of it) and otherwise moves the selection to that row/cell, in
+   * every selection mode. Queried rather than imported for loose coupling.
+   *
+   * @returns Sorted row indices the menu acts on — `[rowIndex]` when no selection
+   * plugin is loaded or the target could not be selected (e.g. `isSelectable`).
    */
-  private syncSelectionOnContextMenu(rowIndex: number): number[] {
+  private syncSelectionOnContextMenu(rowIndex: number, colIndex: number): number[] {
     if (rowIndex < 0) return [];
-
-    // Use the query system for loose coupling — no import of SelectionPlugin needed
-    const selectionResult = this.grid?.query<number[]>('getSelectedRowIndices');
-    const currentSelection = selectionResult?.[0];
-
-    // No selection plugin loaded
-    if (!currentSelection) return [rowIndex];
-
-    if (currentSelection.includes(rowIndex)) {
-      // Right-clicked row is already selected — preserve multi-selection
-      return currentSelection;
-    }
-
-    // Right-clicked row is NOT selected — select only this row
-    this.grid?.query('selectRows', [rowIndex]);
-    return [rowIndex];
+    const selected = this.grid?.query<number[]>('selectContextMenuTarget', { rowIndex, colIndex })?.[0];
+    return selected?.includes(rowIndex) ? selected : [rowIndex];
   }
 
   /**
@@ -564,7 +555,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
       y = rect.bottom;
     }
 
-    const selectedRows = this.syncSelectionOnContextMenu(rowIndex);
+    const selectedRows = this.syncSelectionOnContextMenu(rowIndex, colIndex);
 
     this.openMenuAt(
       {
@@ -612,9 +603,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
       const column = this.visibleColumns[colIndex];
       const row = this.rows[rowIndex];
 
-      // Sync selection: if the right-clicked row is not already selected,
-      // select it (clearing multi-selection). If it IS selected, keep all.
-      const selectedRows = this.syncSelectionOnContextMenu(rowIndex);
+      const selectedRows = this.syncSelectionOnContextMenu(rowIndex, colIndex);
 
       params = {
         row,

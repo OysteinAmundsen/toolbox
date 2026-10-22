@@ -231,15 +231,23 @@ Plugins like FilteringPlugin, VisibilityPlugin, and PinnedColumnsPlugin can cont
 
 ### Selection Sync
 
-When used with the `SelectionPlugin` (row mode), the context menu automatically syncs
-the selection on right-click:
+When used with the `SelectionPlugin`, the context menu reports the selection in
+`params.selectedRows` and syncs it to the cell the menu was opened on. Every way
+of opening the menu syncs identically — right-click, touch long-press,
+<kbd>Shift</kbd> + <kbd>F10</kbd>, the <kbd>☰ Menu</kbd> key, or a synthesised
+`contextmenu` — so keyboard, touch, and assistive-technology users act on
+exactly the selection a mouse user would.
 
-| Scenario | Behavior |
+| Opened on… | Behavior |
 |----------|----------|
-| Right-click a selected row | Multi-selection preserved |
-| Right-click an unselected row | Selects only that row |
-| No SelectionPlugin loaded | `selectedRows` = `[rowIndex]` |
-| Right-click on header | `selectedRows` = `[]` |
+| A selected row (row mode) | Multi-selection preserved; `selectedRows` = all selected rows |
+| An unselected row (row mode) | Selects only that row |
+| A cell inside a range (range mode) | Range preserved; `selectedRows` = every row the range covers |
+| A cell outside every range (range mode) | Range collapses to that cell; `selectedRows` = `[rowIndex]` |
+| Any cell (cell mode) | Cell selection moves to that cell; `selectedRows` = `[rowIndex]` |
+| A cell in a selected column (`mode: [..., 'column']`) | Column selection preserved; `selectedRows` = `[rowIndex]` |
+| A cell with no SelectionPlugin loaded | `selectedRows` = `[rowIndex]` |
+| A header | `selectedRows` = `[]` |
 
 This uses the **plugin query system** for loose coupling — no hard dependency on `SelectionPlugin`.
 
@@ -323,21 +331,23 @@ The menu uses these class names for advanced customization:
 
 ## Accessibility
 
-When the plugin is loaded, the grid's right-click target advertises the popup
-trigger to assistive technologies following the
-[WAI-ARIA Menu Button pattern](https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/):
+The popup follows the
+[WAI-ARIA Menu pattern](https://www.w3.org/WAI/ARIA/apg/patterns/menubar/):
 
-- `aria-haspopup="menu"` is set on the grid root once the plugin is attached.
-- `aria-expanded` is toggled between `"false"` and `"true"` to reflect the
-  menu's open state — including when it closes via <kbd>Esc</kbd>, click
-  outside, or a scroll event.
-- Menu items inside the popup use `role="menuitem"` and are reachable with
-  the arrow keys; <kbd>Enter</kbd> / <kbd>Space</kbd> activates and
-  <kbd>Esc</kbd> closes (see [Accessibility guide](/grid/guides/accessibility/)).
+- The popup is `role="menu"`; items are `role="menuitem"` (`tabindex="-1"`,
+  focus moved between them by the keyboard), dividers are `role="separator"`,
+  and disabled items carry `aria-disabled="true"` and are skipped.
+- <kbd>↑</kbd> / <kbd>↓</kbd> move between items (wrapping),
+  <kbd>Enter</kbd> / <kbd>Space</kbd> activates, and <kbd>Esc</kbd> closes.
+  Clicking outside or scrolling also closes it (see
+  [Accessibility guide](/grid/guides/accessibility/)).
 
 The plugin also respects the keyboard-open path: <kbd>Shift</kbd> +
 <kbd>F10</kbd> and the dedicated <kbd>☰ Menu</kbd> key open the menu at the
-focused cell with focus moved to the first item.
+focused cell with focus moved to the first item, and sync the selection exactly
+as a right-click on that cell does (see [Selection Sync](#selection-sync)), so
+the menu is fully operable from the keyboard
+([SC 2.1.1 Keyboard](https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html)).
 
 ## Touch input
 

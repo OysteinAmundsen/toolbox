@@ -5,7 +5,7 @@ related: [grid-plugins, grid-plugins-catalog-ui, grid-plugins-catalog-data, adap
 
 # Plugin Catalog — Editing & UndoRedo
 
-> Architecture → grid-plugins.md · selection, reordering, tooltip, sticky rows, context menu → grid-plugins-catalog-ui.md · row model, clipboard/export → grid-plugins-catalog-data.md · adapter-side editor bridges → adapters-{react,vue,angular}.md.
+> Architecture → grid-plugins.md · selection, context menu → grid-plugin-selection.md · reordering, tooltip, sticky rows → grid-plugins-catalog-ui.md · row model, clipboard/export → grid-plugins-catalog-data.md · adapter-side editor bridges → adapters-{react,vue,angular}.md.
 >
 > Read order for "the editor commits/discards the wrong value": Editing FLOW (`#exitRowEdit`) → the keyboard `DECIDED` bullets (#347/#427/#250) → `ColumnEditorContext` idempotency → UndoRedo transactions.
 

@@ -27,7 +27,11 @@ Tests are co-located with source files (`feature.ts` → `feature.spec.ts`). Int
 
 ## Test Helpers (`test/helpers.ts`)
 
-- **`createGrid(config?)`** — Creates a `<tbw-grid>` element, appends it to `document.body`, and returns it. Use for setting up test fixtures.
+**Import these — never redefine them inline in a spec.** No code duplication, tests included; ~29 legacy specs still carry inline copies (cleanup tracked in #542 — do not add more). The helpers' own spec, `test/helpers.spec.ts`, runs because the grid vitest `include` covers `test/**/*.spec.ts` — in `grid`, a spec outside `src/**` or `test/**` is silently never run (each project's `include` in its own `vite.config.ts` decides).
+
+- **`createGrid()`** — Creates a `<tbw-grid>` element, appends it to `document.body`, and returns it. Use for setting up test fixtures.
+- **`waitUpgrade(grid)`** — `whenDefined('tbw-grid')` → `grid.ready()` → two `nextFrame()`s. The spec must still import `core/grid` (e.g. `import '../../core/grid'`) so the element is defined.
+- **`nextFrame()`** — Resolves on the next animation frame.
 - **`rafDebounce(fn)`** — RAF-based debounce wrapper with `.cancel()` support. Ensures callback runs at most once per animation frame.
 
 ## DOM Testing Guidelines
@@ -41,8 +45,9 @@ All DOM-, CSS-, and happy-dom-environment quirks are grouped here. Check this se
 
 ### Missing browser APIs in happy-dom
 
+- **Per-test `matchMedia` stubs don't reach `getPrimaryPointer()`** — `core/internal/pointer-modality.ts` caches ONE shared `MediaQueryList` module-level on first use, so a later `vi.stubGlobal('matchMedia', …)` is ignored. Drive coarse/fine behaviour through the event's `pointerType` instead (`Object.defineProperty(event, 'pointerType', { value: 'touch' })`).
 - **Popover API** (`showPopover`/`hidePopover`) is not available in happy-dom. Use `supportsPopover()` guards in the plugin and test `popover.textContent` rather than popover visibility state.
-- **`KeyboardEvent` constructor** is not available in happy-dom. Use object literals cast to `KeyboardEvent` instead: `{ key: 'Enter' } as KeyboardEvent`.
+- **`KeyboardEvent` works in happy-dom** — construct it for real (`new KeyboardEvent('keydown', { key: 'F10', shiftKey: true, bubbles: true })`) and dispatch it on the grid host to exercise the full key pipeline. An object literal cast (`{ key: 'Enter' } as KeyboardEvent`) is only for calling a hook such as `plugin.onKeyDown(...)` directly — it cannot be dispatched.
 
 ### Event-dispatch quirks
 

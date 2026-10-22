@@ -1843,52 +1843,49 @@ describe('SelectionPlugin', () => {
       plugin.handleQuery({ type: 'getContextMenuItems', context: params(rowIndex, columnIndex) }) as
         { id: string; label: string; order?: number; action: () => void }[] | undefined;
 
-    it('contributes nothing until a cell has been anchored', () => {
+    const rangePlugin = () => {
       const plugin = new SelectionPlugin({ mode: 'range' });
       plugin.attach(createMockGrid(rows, columns));
+      return plugin;
+    };
 
-      expect(items(plugin, 2, 1)).toBeUndefined();
+    /** A range plugin whose primary anchor is cell (0, 0). */
+    const anchoredRange = () => {
+      const plugin = rangePlugin();
+      clickCell(plugin, 0, 0);
+      return plugin;
+    };
+
+    /** Run "Extend selection to here" on (2, 1) and assert it extended from the (0, 0) anchor. */
+    const expectExtendsFromAnchor = (plugin: SelectionPlugin) => {
+      items(plugin, 2, 1)![0].action();
+      expect(plugin['ranges']).toEqual([{ startRow: 0, startCol: 0, endRow: 2, endCol: 1 }]);
+    };
+
+    it('contributes nothing until a cell has been anchored', () => {
+      expect(items(rangePlugin(), 2, 1)).toBeUndefined();
     });
 
     it('offers a single-pointer extension once an anchor exists', () => {
-      const plugin = new SelectionPlugin({ mode: 'range' });
-      plugin.attach(createMockGrid(rows, columns));
-      clickCell(plugin, 0, 0);
-
-      const menu = items(plugin, 2, 1);
+      const menu = items(anchoredRange(), 2, 1);
       expect(menu?.map((i) => i.label)).toEqual(['Extend selection to here']);
       // Own order band, below column move (50-59).
       expect(menu?.[0].order).toBe(60);
     });
 
     it('extends the range from the anchor to the targeted cell', () => {
-      const plugin = new SelectionPlugin({ mode: 'range' });
-      plugin.attach(createMockGrid(rows, columns));
-      clickCell(plugin, 0, 0);
-
-      items(plugin, 2, 1)![0].action();
-
-      expect(plugin['ranges']).toEqual([{ startRow: 0, startCol: 0, endRow: 2, endCol: 1 }]);
+      expectExtendsFromAnchor(anchoredRange());
     });
 
-    it('keeps the anchor when a right-click re-targets the menu outside the range', () => {
-      const plugin = new SelectionPlugin({ mode: 'range' });
-      plugin.attach(createMockGrid(rows, columns));
-      clickCell(plugin, 0, 0);
+    it('keeps the anchor when the menu re-targets the selection outside the range', () => {
+      const plugin = anchoredRange();
 
-      // Right-click outside the range clears + selects the clicked cell so the
-      // menu targets it — but must not become the extension anchor.
-      plugin.onCellMouseDown!({
-        type: 'mousedown',
-        rowIndex: 2,
-        colIndex: 1,
-        isHeader: false,
-        column: columns[1],
-        originalEvent: new MouseEvent('mousedown', { button: 2, bubbles: true }),
-      } as any);
+      // Opening the menu outside the range collapses it to the invoked cell so
+      // the menu targets it — but that cell must not become the extension anchor.
+      plugin.handleQuery({ type: 'selectContextMenuTarget', context: { rowIndex: 2, colIndex: 1 } });
+      expect(plugin['ranges']).toEqual([{ startRow: 2, startCol: 1, endRow: 2, endCol: 1 }]);
 
-      items(plugin, 2, 1)![0].action();
-      expect(plugin['ranges']).toEqual([{ startRow: 0, startCol: 0, endRow: 2, endCol: 1 }]);
+      expectExtendsFromAnchor(plugin);
     });
 
     it('offers nothing on the anchor itself, on headers, or outside range mode', () => {
@@ -2034,6 +2031,141 @@ describe('SelectionPlugin', () => {
 
       // Should clamp to actual row count
       expect(result).toEqual([{ id: 1 }, { id: 2 }]);
+    });
+  });
+
+  // #541: guards of the shared context-menu target sync; the per-invocation,
+  // per-mode behaviour is covered end-to-end in context-menu-selection-integration.spec.ts.
+  describe('selectContextMenuTarget query', () => {
+    const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+    const target = (plugin: SelectionPlugin, rowIndex: number, colIndex: number) =>
+      plugin.handleQuery({ type: 'selectContextMenuTarget', context: { rowIndex, colIndex } });
+
+    /** Mixed `['range', 'column']` plugin with column `id` selected (column axis active). */
+    const columnSelected = () => {
+      const plugin = new SelectionPlugin({ mode: ['range', 'column'] });
+      plugin.attach(createMockGrid(rows, [{ field: 'id' }, { field: 'name' }]));
+      plugin.handleQuery({ type: 'selectColumns', context: ['id'] });
+      return plugin;
+    };
+
+    it('leaves the selection alone on a utility column', () => {
+      const plugin = new SelectionPlugin({ mode: 'range' });
+      plugin.attach(createMockGrid(rows, [{ field: '__expander', utility: true }, { field: 'id' }]));
+      plugin['ranges'] = [{ startRow: 0, startCol: 1, endRow: 0, endCol: 1 }];
+
+      expect(target(plugin, 2, 0)).toEqual([0]);
+    });
+
+    it('leaves the selection alone on a cell rejected by isSelectable', () => {
+      const plugin = new SelectionPlugin({ mode: 'cell', isSelectable: (_row, rowIndex) => rowIndex !== 2 });
+      plugin.attach(createMockGrid(rows, [{ field: 'id' }]));
+      plugin['selectedCell'] = { row: 0, col: 0 };
+
+      expect(target(plugin, 2, 0)).toEqual([0]);
+    });
+
+    it('leaves the selection alone when selection is disabled', () => {
+      const plugin = new SelectionPlugin({ mode: 'row', enabled: false });
+      plugin.attach(createMockGrid(rows, [{ field: 'id' }]));
+      plugin['selected'].add(0);
+
+      expect(target(plugin, 2, 0)).toEqual([0]);
+    });
+
+    it('does nothing outside row/cell/range modes', () => {
+      const plugin = new SelectionPlugin({ mode: 'column' });
+      plugin.attach(createMockGrid(rows, [{ field: 'id' }]));
+
+      expect(target(plugin, 1, 0)).toEqual([]);
+      expect(plugin.getSelection().ranges).toEqual([]);
+    });
+
+    it('keeps a column selection when the target is inside a selected column (mixed modes)', () => {
+      const plugin = columnSelected();
+
+      target(plugin, 1, 0);
+
+      expect(plugin.getSelectedColumns()).toEqual(['id']);
+      expect(plugin.getSelection().ranges).toEqual([]);
+    });
+
+    it('moves off a column selection when the target is in another column (mixed modes)', () => {
+      const plugin = columnSelected();
+
+      expect(target(plugin, 1, 1)).toEqual([1]);
+      expect(plugin.getSelectedColumns()).toEqual([]);
+      expect(plugin.getSelection().ranges).toEqual([{ from: { row: 1, col: 1 }, to: { row: 1, col: 1 } }]);
+    });
+  });
+
+  // #541: getSelectedRowIndices must agree with getSelectedRows in every mode,
+  // because ContextMenuPlugin builds `params.selectedRows` from it.
+  describe('getSelectedRowIndices (mode-aware)', () => {
+    /** Plugin in `mode` attached to `rowCount` rows `{ id: i }`. */
+    const attached = (mode: 'cell' | 'range', rowCount: number) => {
+      const rows = Array.from({ length: rowCount }, (_, i) => ({ id: i }));
+      const plugin = new SelectionPlugin({ mode });
+      plugin.attach(createMockGrid(rows, [{ field: 'id' }, { field: 'name' }]));
+      return { plugin, rows };
+    };
+
+    it('returns the selected cell row in cell mode', () => {
+      const { plugin } = attached('cell', 3);
+
+      expect(plugin.getSelectedRowIndices()).toEqual([]);
+      plugin['selectedCell'] = { row: 2, col: 0 };
+      expect(plugin.getSelectedRowIndices()).toEqual([2]);
+    });
+
+    it('returns [] in cell mode when the selected cell row is out of bounds', () => {
+      const { plugin } = attached('cell', 1);
+
+      plugin['selectedCell'] = { row: 4, col: 0 };
+      expect(plugin.getSelectedRowIndices()).toEqual([]);
+    });
+
+    it('returns unique sorted rows intersecting any range in range mode', () => {
+      const { plugin } = attached('range', 8);
+
+      expect(plugin.getSelectedRowIndices()).toEqual([]);
+      plugin['ranges'] = [
+        { startRow: 5, startCol: 0, endRow: 3, endCol: 1 }, // reversed drag
+        { startRow: 1, startCol: 0, endRow: 1, endCol: 0 },
+        { startRow: 4, startCol: 1, endRow: 20, endCol: 1 }, // overlaps + out of bounds
+      ];
+
+      expect(plugin.getSelectedRowIndices()).toEqual([1, 3, 4, 5, 6, 7]);
+    });
+
+    it('skips nested and fully out-of-bounds ranges in range mode', () => {
+      const { plugin } = attached('range', 8);
+
+      plugin['ranges'] = [
+        { startRow: 0, startCol: 0, endRow: 5, endCol: 0 },
+        { startRow: 2, startCol: 0, endRow: 3, endCol: 0 }, // nested
+        { startRow: 20, startCol: 0, endRow: 30, endCol: 0 }, // entirely past the last row
+      ];
+
+      expect(plugin.getSelectedRowIndices()).toEqual([0, 1, 2, 3, 4, 5]);
+    });
+
+    it('agrees with getSelectedRows in range mode', () => {
+      const { plugin, rows } = attached('range', 6);
+
+      plugin['ranges'] = [{ startRow: 0, startCol: 0, endRow: 4, endCol: 0 }];
+
+      const indices = plugin.getSelectedRowIndices();
+      expect(indices).toEqual([0, 1, 2, 3, 4]);
+      expect(plugin.getSelectedRows()).toEqual(indices.map((i) => rows[i]));
+    });
+
+    it('is exposed through the getSelectedRowIndices query in range mode', () => {
+      const { plugin } = attached('range', 6);
+
+      plugin['ranges'] = [{ startRow: 1, startCol: 0, endRow: 3, endCol: 0 }];
+
+      expect(plugin.handleQuery({ type: 'getSelectedRowIndices', context: undefined })).toEqual([1, 2, 3]);
     });
   });
 

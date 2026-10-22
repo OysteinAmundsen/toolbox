@@ -269,10 +269,18 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     queries: [
       { type: 'getSelection', description: 'Get the current selection state' },
       { type: 'selectRows', description: 'Select specific rows by index (row mode only)' },
-      { type: 'getSelectedRowIndices', description: 'Get sorted array of selected row indices' },
+      {
+        type: 'getSelectedRowIndices',
+        description: 'Get sorted array of row indices touched by the current selection (works in all modes)',
+      },
       { type: 'getSelectedRows', description: 'Get actual row objects for the current selection (works in all modes)' },
       { type: 'getSelectedColumns', description: 'Get field names of selected columns (column mode only)' },
       { type: 'selectColumns', description: 'Select specific columns by field name (column mode only)' },
+      {
+        type: 'selectContextMenuTarget',
+        description:
+          'Move the selection to the cell a context menu was invoked on unless it is already selected; returns getSelectedRowIndices()',
+      },
       {
         type: 'getContextMenuItems',
         description: 'Contribute the non-dragging range-extension action (WCAG 2.2 SC 2.5.7)',
@@ -347,9 +355,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   #armedCorner: RangeCorner | null = null;
   /**
    * Last cell the user deliberately anchored with a *primary* interaction.
-   * Kept separate from {@link cellAnchor} because a right-click outside the
-   * range re-anchors that one so the menu targets the clicked cell — which
-   * would leave "Extend selection to here" with nothing to extend from.
+   * Kept separate from {@link cellAnchor} because opening a context menu outside
+   * the range re-anchors that one so the menu targets the invoked cell (see
+   * `#selectContextMenuTarget`) — which would leave "Extend selection to here"
+   * with nothing to extend from.
    */
   #extendAnchor: { row: number; col: number } | null = null;
   #extendMenu: DragAlternativeMenu | null = null;
@@ -571,6 +580,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       const fields = query.context as string[];
       this.#setColumnSelection(fields);
       return true;
+    }
+    if (query.type === 'selectContextMenuTarget') {
+      const { rowIndex, colIndex } = query.context as { rowIndex: number; colIndex: number };
+      this.#selectContextMenuTarget(rowIndex, colIndex);
+      return this.getSelectedRowIndices();
     }
     if (query.type === 'getContextMenuItems') {
       const params = query.context as ContextMenuParams | undefined;
@@ -1328,14 +1342,6 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
     this.#rangeFromCoarsePointer = this.#isCoarseEvent(event.originalEvent);
 
-    // Right-click (secondary button) inside an existing range must NOT clear the
-    // selection: this lets the context menu act on the whole range without the
-    // user having to hold Ctrl. Outside any range, fall through to the normal
-    // behavior (clear + select the clicked cell so the menu targets it).
-    if (event.originalEvent.button === 2 && isCellInAnyRange(event.rowIndex, event.colIndex, this.ranges)) {
-      return; // keep selection, don't start a drag
-    }
-
     // Skip utility columns (expander columns, etc.)
     // event.column is already resolved from _visibleColumns in the event builder
     if (event.column && isUtilityColumn(event.column)) {
@@ -1371,12 +1377,12 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (!ctrlKey && this.ranges.length === 1 && rangesEqual(this.ranges[0], newRange)) {
       // Same cell already selected, just update anchor for potential drag
       this.cellAnchor = { row: rowIndex, col: colIndex };
-      this.#setExtendAnchor(event, rowIndex, colIndex);
+      this.#extendAnchor = { row: rowIndex, col: colIndex };
       return true;
     }
 
     this.cellAnchor = { row: rowIndex, col: colIndex };
-    this.#setExtendAnchor(event, rowIndex, colIndex);
+    this.#extendAnchor = { row: rowIndex, col: colIndex };
 
     if (!ctrlKey) {
       this.ranges = [];
@@ -1391,14 +1397,43 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   }
 
   /**
-   * Remember where a *primary* press anchored the range. A secondary press is
-   * deliberately ignored: right-clicking outside the range re-anchors
-   * {@link cellAnchor} so the menu targets the clicked cell, and reusing that
-   * would make "Extend selection to here" extend from itself.
+   * Point the selection at the cell a context menu was invoked on — however it
+   * was invoked: mouse right-click, touch long-press, Shift+F10, the ContextMenu
+   * key, or a synthesised `contextmenu`. A target already inside the selection
+   * keeps it, so the menu acts on all of it; otherwise the selection moves to
+   * the target row (row mode) or cell (cell/range mode), as file managers and
+   * spreadsheets do. `#extendAnchor` is left alone so "Extend selection to here"
+   * still extends from the last primary anchor rather than from the target.
    */
-  #setExtendAnchor(event: CellMouseEvent, row: number, col: number): void {
-    if (event.originalEvent.button === 2) return;
-    this.#extendAnchor = { row, col };
+  #selectContextMenuTarget(rowIndex: number, colIndex: number): void {
+    if (rowIndex < 0 || !this.isSelectionEnabled()) return;
+    // Column axis (mixed modes): a cell in a selected column is part of the selection.
+    if (this.activeAxis === 'column' && this.selectedColumns.has(this.visibleColumns[colIndex]?.field ?? '')) return;
+    const mode = this.#mode.primary;
+
+    if (mode === 'row') {
+      if (!this.selected.has(rowIndex)) this.selectRows([rowIndex]);
+      return;
+    }
+    if (mode !== 'cell' && mode !== 'range') return;
+
+    const column = this.visibleColumns[colIndex];
+    if (!column || isUtilityColumn(column) || !this.isCellSelectable(rowIndex, colIndex)) return;
+
+    if (mode === 'cell') {
+      const current = this.selectedCell;
+      if (current && current.row === rowIndex && current.col === colIndex) return;
+      this.selectedCell = { row: rowIndex, col: colIndex };
+    } else {
+      if (isCellInAnyRange(rowIndex, colIndex, this.ranges)) return;
+      const range: InternalCellRange = { startRow: rowIndex, startCol: colIndex, endRow: rowIndex, endCol: colIndex };
+      this.ranges = [range];
+      this.activeRange = range;
+      this.cellAnchor = { row: rowIndex, col: colIndex };
+    }
+
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
   }
 
   /** @internal */
@@ -2111,8 +2146,15 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   }
 
   /**
-   * Get the indices of all selected rows (convenience for row mode).
+   * Get the indices of all rows touched by the current selection.
    * Returns indices sorted in ascending order.
+   *
+   * Works across all selection modes:
+   * - **Row mode**: The selected row indices.
+   * - **Cell mode**: The row index of the selected cell, or `[]`.
+   * - **Range mode**: The unique row indices that intersect any selected range.
+   *
+   * Indices refer to the grid's processed (sorted/filtered) row array.
    *
    * @example
    * ```ts
@@ -2121,7 +2163,39 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * ```
    */
   getSelectedRowIndices(): number[] {
-    return [...this.selected].sort((a, b) => a - b);
+    const mode = this.#mode.primary;
+
+    if (mode === 'row') {
+      return [...this.selected].sort((a, b) => a - b);
+    }
+
+    const rowCount = this.rows.length;
+
+    if (mode === 'cell' && this.selectedCell) {
+      const { row } = this.selectedCell;
+      return row >= 0 && row < rowCount ? [row] : [];
+    }
+
+    if (mode === 'range' && this.ranges.length > 0) {
+      // Merge clamped row intervals instead of Set + sort — a select-all range on a
+      // large grid is read on every context-menu invocation / drag start (#541).
+      const intervals: Array<[number, number]> = [];
+      for (const range of this.ranges) {
+        const minRow = Math.max(0, Math.min(range.startRow, range.endRow));
+        const maxRow = Math.min(rowCount - 1, Math.max(range.startRow, range.endRow));
+        if (minRow <= maxRow) intervals.push([minRow, maxRow]);
+      }
+      intervals.sort((a, b) => a[0] - b[0]);
+      const result: number[] = [];
+      let next = 0;
+      for (const [minRow, maxRow] of intervals) {
+        for (let r = Math.max(minRow, next); r <= maxRow; r++) result.push(r);
+        next = Math.max(next, maxRow + 1);
+      }
+      return result;
+    }
+
+    return [];
   }
 
   /**
@@ -2142,34 +2216,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * ```
    */
   getSelectedRows<T = unknown>(): T[] {
-    const mode = this.#mode.primary;
     const rows = this.rows;
-
-    if (mode === 'row') {
-      return this.getSelectedRowIndices()
-        .filter((i) => i >= 0 && i < rows.length)
-        .map((i) => rows[i]) as T[];
-    }
-
-    if (mode === 'cell' && this.selectedCell) {
-      const { row } = this.selectedCell;
-      return row >= 0 && row < rows.length ? [rows[row] as T] : [];
-    }
-
-    if (mode === 'range' && this.ranges.length > 0) {
-      // Collect unique row indices across all ranges
-      const rowIndices = new Set<number>();
-      for (const range of this.ranges) {
-        const minRow = Math.max(0, Math.min(range.startRow, range.endRow));
-        const maxRow = Math.min(rows.length - 1, Math.max(range.startRow, range.endRow));
-        for (let r = minRow; r <= maxRow; r++) {
-          rowIndices.add(r);
-        }
-      }
-      return [...rowIndices].sort((a, b) => a - b).map((i) => rows[i]) as T[];
-    }
-
-    return [];
+    return this.getSelectedRowIndices()
+      .filter((i) => i >= 0 && i < rows.length)
+      .map((i) => rows[i]) as T[];
   }
 
   /**

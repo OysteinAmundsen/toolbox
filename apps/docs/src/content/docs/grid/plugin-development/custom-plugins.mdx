@@ -530,6 +530,12 @@ static override readonly manifest: PluginManifest = {
 - Plugins with equal priority preserve their original array order
 - Priority is configured **per hook** — a plugin can run early for one hook and late for another
 
+:::note[Built-in `onCellClick` priorities]
+Tree and MasterDetail handle their expand/collapse toggles in `onCellClick`, declared at `-10`. A toggle click is therefore claimed (the handler returns `true`) before any default-priority plugin sees it, whatever the registration order. A custom plugin that must observe those clicks needs an `onCellClick` priority below `-10`. To react to expansion changes, listen for the `tree-expand` / `detail-expand` events instead.
+
+GroupingRows' built-in group toggle buttons handle their own click and call `stopPropagation()`, so those clicks never reach `onCellClick` at any priority. Listen for the `group-toggle` event instead. GroupingRows' `onCellClick: -10` only covers `.group-toggle` elements rendered by a custom [`groupRowRenderer`](/grid/plugins/grouping-rows/#custom-group-row-renderer).
+:::
+
 Available hooks: `processColumns`, `processRows`, `afterRender`, `afterCellRender`, `afterRowRender`, `onHeaderClick`, `onRowClick`, `onCellClick`, `onCellMouseDown`, `onCellMouseMove`, `onCellMouseUp`, `onKeyDown`, `onScroll`, `onScrollRender`.
 
 That list is exported as the [`HookName`](/grid/api/plugin-development/types/hookname/) union, so you can type your own hook-aware code against it instead of re-declaring the strings:

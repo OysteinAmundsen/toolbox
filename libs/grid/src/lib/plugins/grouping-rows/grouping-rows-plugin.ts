@@ -149,6 +149,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
       processRows: 10, // Run after ServerSide (-10) so we receive managedNodes[]
       // Run before MultiSort so we can intercept header clicks on grouped columns
       onHeaderClick: -1,
+      // Claim toggle clicks before Editing/Selection, whatever the registration order (#565)
+      onCellClick: -10,
     },
     incompatibleWith: [
       {

@@ -994,7 +994,11 @@ Built-in editors are deliberately plain `<input>` / `<select>` elements. For pho
 ### Cascade Updates (onValueChange)
 
 When one cell's commit updates other fields via `updateRow()`, any editors open on those fields
-receive the new value automatically. The grid does this for built-in editors out of the box.
+receive the new value automatically. The grid does this for built-in editors out of the box, and
+also for a plain native `<input>`, `<textarea>` or `<select>` (including `<select multiple>`) that a
+custom editor factory returns or an editor template contains — array values select the matching
+options, `null` selects a nullable column's blank option, and date inputs accept `Date` objects and
+ISO strings.
 
 For custom editors, use `onValueChange` to keep your inputs in sync:
 

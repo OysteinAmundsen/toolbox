@@ -59,6 +59,19 @@ function col(field: string, extra: Partial<ColumnConfig<any>> = {}): ColumnConfi
   return { field, editable: true, ...extra } as ColumnConfig<any>;
 }
 
+const MULTI_SELECT_HTML =
+  '<select multiple><option value="a">A</option><option value="b">B</option><option value="c">C</option></select>';
+
+/** Open `column`'s editor on `tags: ['a']`, push `next` as an external update, and return the option flags (#555). */
+function pushIntoMultiSelect(column: ColumnConfig<any>, next: unknown[]): boolean[] {
+  const deps = createDeps();
+  const { cell } = createCellInRow();
+  injectEditor(deps, { id: '1', tags: ['a'] }, 0, column, 0, cell, true);
+  deps.editorValueCallbacks.get('0:tags')!(next);
+  const select = cell.querySelector('select') as HTMLSelectElement;
+  return Array.from(select.options).map((o) => o.selected);
+}
+
 // #endregion
 
 describe('editor-injection', () => {
@@ -637,6 +650,22 @@ describe('editor-injection', () => {
 
       // The spy registered inside the editor factory should have been called
     });
+
+    it('should apply array values to a multi-select returned by a factory (#555)', () => {
+      const column = col('tags', {
+        editor: () => {
+          const host = document.createElement('div');
+          host.innerHTML = MULTI_SELECT_HTML;
+          return host.firstElementChild as HTMLSelectElement;
+        },
+      });
+      expect(pushIntoMultiSelect(column, ['a', 'c'])).toEqual([true, false, true]);
+    });
+
+    it('should apply array values to a multi-select produced by an HTML-string factory (#555)', () => {
+      const column = col('tags', { editor: () => MULTI_SELECT_HTML });
+      expect(pushIntoMultiSelect(column, ['b', 'c'])).toEqual([false, true, true]);
+    });
   });
 
   // #endregion
@@ -754,6 +783,32 @@ describe('editor-injection', () => {
       // Trigger with a primitive string — should update
       cb!('updated');
       expect(input.value).toBe('updated');
+    });
+
+    it('should apply array values to a multi-select template editor (#555)', () => {
+      const column = col('tags') as ColumnInternal<any>;
+      const tplHolder = document.createElement('div');
+      tplHolder.innerHTML = MULTI_SELECT_HTML;
+      column.__editorTemplate = tplHolder as any;
+
+      expect(pushIntoMultiSelect(column, ['a', 'c'])).toEqual([true, false, true]);
+    });
+
+    it('should apply a Date to a date-input template editor, but not to a text input (#555)', () => {
+      const push = (html: string) => {
+        const deps = createDeps();
+        const { cell } = createCellInRow();
+        const column = col('due') as ColumnInternal<any>;
+        const tplHolder = document.createElement('div');
+        tplHolder.innerHTML = html;
+        column.__editorTemplate = tplHolder as any;
+        injectEditor(deps, { id: '1', due: '2024-06-15' }, 0, column, 0, cell, true);
+        deps.editorValueCallbacks.get('0:due')!(new Date(Date.UTC(2026, 9, 23)));
+        return (cell.querySelector('input') as HTMLInputElement).value;
+      };
+
+      expect(push('<input type="date" />')).toBe('2026-10-23');
+      expect(push('<input type="text" />')).toBe('2024-06-15');
     });
   });
 

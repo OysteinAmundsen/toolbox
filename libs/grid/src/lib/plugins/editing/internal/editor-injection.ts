@@ -24,6 +24,7 @@ import {
   FOCUSABLE_EDITOR_SELECTOR,
   getEditorAncestor,
   incrementEditingCount,
+  isEscapeForOpenOverlay,
   isSafePropertyKey,
   noopUpdateRow,
   resolveEditor,
@@ -162,9 +163,9 @@ export function injectEditor<T>(
     // Enter to the overlay so combobox confirmation does not close the
     // row edit. Covers libraries like Downshift / Headless UI / MUI
     // Autocomplete that do not call preventDefault on confirm.
-    // Only short-circuit Enter — Escape and other keys must still flow
-    // through the normal handlers (Escape closes the overlay first via
-    // its own listener, then dispatches up to cancel-edit if unhandled).
+    // Only short-circuit Enter here — Escape is guarded below by
+    // `isEscapeForOpenOverlay` (#558), whose verdict is cached per event
+    // because the overlay's own handler may already have closed it.
     if (e.key === 'Enter') {
       const ariaTarget = e.target as HTMLElement | null;
       if (
@@ -223,6 +224,7 @@ export function injectEditor<T>(
         e.preventDefault();
         return;
       }
+      if (isEscapeForOpenOverlay(e, editorHost)) return;
       if (shouldPreventEditClose(config, e)) return;
       e.stopPropagation();
       e.preventDefault();
@@ -481,6 +483,7 @@ function renderTemplateEditor<T>(
         deps.exitRowEdit(rowIndex, false);
       }
       if (e.key === 'Escape') {
+        if (isEscapeForOpenOverlay(e, editorHost)) return;
         if (shouldPreventEditClose(deps.config, e)) return;
         e.stopPropagation();
         e.preventDefault();

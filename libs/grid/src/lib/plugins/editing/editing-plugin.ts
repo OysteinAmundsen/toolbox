@@ -50,6 +50,7 @@ import {
   getEditorAncestor,
   hasRowChanged,
   isInsideOpenAriaOverlay,
+  isEscapeForOpenOverlay,
   isSafePropertyKey,
   noopUpdateRow,
   shouldPreventEditClose,
@@ -441,6 +442,10 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         // In grid mode, Escape doesn't exit edit mode
         if (this.#isGridMode) return;
         if (e.key === 'Escape' && this.#activeEditRow !== -1) {
+          // #558: this capture listener runs before the editor's own handlers,
+          // so an open combobox/listbox would otherwise be torn down with the
+          // whole row. Let the overlay consume this Escape; the next one cancels.
+          if (isEscapeForOpenOverlay(e, internalGrid.findRenderedRowElement?.(this.#activeEditRow))) return;
           if (shouldPreventEditClose(this.config, e)) return;
           this.#exitRowEdit(this.#activeEditRow, true);
         }
@@ -924,11 +929,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   /**
    * Escape: cancel the current edit (row mode) or leave edit mode (grid mode).
    *
-   * NOTE: No `onBeforeEditClose` check here — the capture-phase handler is the
-   * authoritative overlay guard. If the event reaches this bubble-phase handler,
-   * either (a) the capture handler already bailed (overlay was open) and the
-   * template handler (e.g. `select.close()`) addressed it, or (b) no overlay was
-   * open. In both cases we should transition to navigation mode.
+   * Row mode defers to an open ARIA overlay (#558) and to `onBeforeEditClose`;
+   * both verdicts are cached per event, so this bubble-phase path agrees with
+   * the capture-phase document listener even after the overlay has closed.
    */
   #onEscapeKey(event: KeyboardEvent): boolean {
     // In grid mode: revert cell, blur input, enter navigation mode.
@@ -941,6 +944,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // In row mode: cancel edit
     if (this.#activeEditRow !== -1 && !this.#isGridMode) {
+      if (isEscapeForOpenOverlay(event, this.#internalGrid.findRenderedRowElement?.(this.#activeEditRow))) return true;
       if (shouldPreventEditClose(this.config, event)) return true;
       this.#exitRowEdit(this.#activeEditRow, true);
       return true;

@@ -474,6 +474,17 @@ export interface EditingConfig {
    * overlay container, allowing keyboard navigation and selection within
    * open dropdowns before the edit commits.
    *
+   * The callback is consulted **at most once per event**: Enter/Escape reach
+   * several close paths, and all of them reuse the first verdict, so a check
+   * against live DOM state (e.g. "is a listbox open?") stays consistent even
+   * after the overlay's own handler has closed it.
+   *
+   * In row mode, Escape from (or from inside the panel of) a control that
+   * declares an open overlay via `aria-expanded="true"` + `aria-controls` is
+   * left to that overlay automatically — the first Escape closes the popup,
+   * the next one cancels the row edit. No callback is needed for such
+   * ARIA-compliant comboboxes.
+   *
    * @example
    * ```typescript
    * // Angular Material / CDK - prevent close when overlay is open

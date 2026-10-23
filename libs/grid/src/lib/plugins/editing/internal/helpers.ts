@@ -152,10 +152,7 @@ export function wireEditorInputs(
   originalValue?: unknown,
 ): void {
   const input = editorHost.querySelector('input,textarea,select') as
-    | HTMLInputElement
-    | HTMLTextAreaElement
-    | HTMLSelectElement
-    | null;
+    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
   if (!input) return;
 
   input.addEventListener('blur', () => {
@@ -173,6 +170,11 @@ export function wireEditorInputs(
 
 // #region Edit Guard
 
+type BeforeEditCloseFn = NonNullable<EditingConfig['onBeforeEditClose']>;
+
+/** Per-event cache of `onBeforeEditClose` verdicts, keyed by callback (#558). */
+const editCloseVerdicts = new WeakMap<Event, Map<BeforeEditCloseFn, boolean>>();
+
 /**
  * Returns `true` when the configured `onBeforeEditClose` callback vetoes
  * the close (i.e. returns `false`).  Use as a one-liner guard:
@@ -180,9 +182,22 @@ export function wireEditorInputs(
  * ```ts
  * if (shouldPreventEditClose(config, e)) return;
  * ```
+ *
+ * The callback is consulted at most once per event (#558): one keystroke
+ * reaches several close paths (document capture, editor host, plugin
+ * `onKeyDown`) with different DOM state in between, so every path reuses
+ * the first verdict instead of re-asking.
  */
 export function shouldPreventEditClose(config: EditingConfig, event: MouseEvent | KeyboardEvent): boolean {
-  return config.onBeforeEditClose?.(event) === false;
+  const callback = config.onBeforeEditClose;
+  if (!callback) return false;
+  let verdicts = editCloseVerdicts.get(event);
+  const cached = verdicts?.get(callback);
+  if (cached !== undefined) return cached;
+  const prevent = callback(event) === false;
+  if (!verdicts) editCloseVerdicts.set(event, (verdicts = new Map()));
+  verdicts.set(callback, prevent);
+  return prevent;
 }
 
 // #endregion
@@ -215,6 +230,51 @@ export function isInsideOpenAriaOverlay(target: Node | null | undefined, scopeEl
     if (panel && panel.contains(target as Node)) return true;
   }
   return false;
+}
+
+/** Escape keystrokes already claimed by an open ARIA overlay → the scope that claimed them (#558). */
+const escapesForOpenOverlay = new WeakMap<Event, HTMLElement>();
+
+/**
+ * `true` when the event's composed path (crosses web-component shadow roots)
+ * passes through an expanded overlay trigger between its target and `scopeEl`.
+ */
+function pathHasOpenAriaTrigger(event: Event, scopeEl: HTMLElement): boolean {
+  const path = event.composedPath?.() ?? [];
+  if (!path.includes(scopeEl)) return false;
+  for (const node of path) {
+    if (node === scopeEl) return false;
+    const el = node as Element;
+    if (el.getAttribute?.('aria-expanded') === 'true' && el.hasAttribute('aria-controls')) return true;
+  }
+  return false;
+}
+
+/**
+ * Returns `true` when this Escape keystroke belongs to an open ARIA overlay
+ * (combobox list, menu, picker) rather than to the row edit — i.e. the
+ * keystroke originates from an `aria-expanded="true"` + `aria-controls`
+ * control (or a descendant of one) inside `scopeEl`, or from inside the
+ * panel such a control owns — whether that panel is portalled to `<body>`
+ * or rendered inline beside its trigger. Standard dialog-stack behaviour:
+ * the first Escape closes the overlay, the next one cancels the edit (#558).
+ *
+ * The verdict is remembered per event: the overlay's own handler flips
+ * `aria-expanded` to `"false"` while the event is still propagating, so the
+ * later (bubble-phase) close paths must not re-read the live DOM. It is
+ * shared only with related scopes (the row and its editor host nest); an
+ * unrelated grid's row judges the keystroke on its own.
+ *
+ * @internal
+ */
+export function isEscapeForOpenOverlay(event: KeyboardEvent, scopeEl: HTMLElement | null | undefined): boolean {
+  if (!scopeEl) return false;
+  const claimedBy = escapesForOpenOverlay.get(event);
+  if (claimedBy && (claimedBy.contains(scopeEl) || scopeEl.contains(claimedBy))) return true;
+  const claimed =
+    pathHasOpenAriaTrigger(event, scopeEl) || isInsideOpenAriaOverlay(event.target as Node | null, scopeEl);
+  if (claimed) escapesForOpenOverlay.set(event, scopeEl);
+  return claimed;
 }
 
 // #endregion

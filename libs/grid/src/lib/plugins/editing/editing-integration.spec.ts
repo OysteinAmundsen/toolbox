@@ -3909,6 +3909,48 @@ describe('EditingPlugin', () => {
         expect(grid.rows[0].val).toEqual(['a']);
       });
 
+      // #555: the external-update push must set the option selection, not `select.value = 'a,c'`
+      // (which matches no option and deselects everything, so row close then commits []).
+      it('multi: true — an external updateRow updates the open editor and survives row close', async () => {
+        const { editingPlugin, select, commits } = await openMultiSelectRow(abcOptions, ['a']);
+
+        grid.updateRow('1', { val: ['a', 'c'] });
+        await nextFrame();
+        expect(Array.from(select.options).map((o) => o.selected)).toEqual([true, false, true]);
+
+        editingPlugin.commitActiveRowEdit();
+        await nextFrame();
+
+        expect(commits).toEqual([['a', 'c']]);
+        expect(grid.rows[0].val).toEqual(['a', 'c']);
+      });
+
+      it('multi: true — an external updateRow to null on a nullable column selects the blank option', async () => {
+        const { editingPlugin, select } = await openSelectRow(abcOptions, ['a'], { multi: true, nullable: true });
+
+        grid.updateRow('1', { val: null });
+        await nextFrame();
+        expect(Array.from(select.options).map((o) => o.selected)).toEqual([true, false, false, false]);
+
+        editingPlugin.commitActiveRowEdit();
+        await nextFrame();
+
+        expect(grid.rows[0].val).toBeNull();
+      });
+
+      it('single, nullable: true — an external updateRow to null selects the blank option', async () => {
+        const { editingPlugin, select } = await openSelectRow(abcOptions, 'a', { nullable: true });
+
+        grid.updateRow('1', { val: null });
+        await nextFrame();
+        expect(select.value).toBe('__tbw_null__');
+
+        editingPlugin.commitActiveRowEdit();
+        await nextFrame();
+
+        expect(grid.rows[0].val).toBeNull();
+      });
+
       it('multi: true — a vetoed change is retried by the next blur', async () => {
         const { select, commits } = await openMultiSelectRow(abcOptions, ['a']);
         let veto = true;
@@ -3962,6 +4004,38 @@ describe('EditingPlugin', () => {
 
     // ---- Date editors ----
     describe('date editor', () => {
+      // #555: `String(date)` is not a valid date-input value — the push used to blank the
+      // editor, and row close then committed null over the externally-set date.
+      it('nullable: true — an external updateRow with a Date updates the open editor and survives row close', async () => {
+        const editingPlugin = new EditingPlugin({ editOn: 'dblclick' });
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'startDate', header: 'Start Date', type: 'date', editable: true, nullable: true },
+          ],
+          getRowId: (r: any) => String(r.id),
+          plugins: [editingPlugin],
+        };
+        grid.rows = [{ id: 1, startDate: new Date(Date.UTC(2024, 5, 15)) }];
+        await waitUpgrade(grid);
+
+        const dateCell = grid.querySelector('.data-grid-row .cell[data-col="1"]') as HTMLElement;
+        dateCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+        const input = dateCell.querySelector('input') as HTMLInputElement;
+
+        const next = new Date(Date.UTC(2026, 9, 23));
+        grid.updateRow('1', { startDate: next });
+        await nextFrame();
+        expect(input.value).toBe('2026-10-23');
+
+        editingPlugin.commitActiveRowEdit();
+        await nextFrame();
+
+        expect(grid.rows[0].startDate).toEqual(next);
+      });
+
       it('nullable: true — clearing date commits null', async () => {
         grid.gridConfig = {
           columns: [

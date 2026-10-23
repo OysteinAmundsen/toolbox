@@ -18,7 +18,7 @@ import type {
   GridHost,
   RowElementInternal,
 } from '../../../core/types';
-import { defaultEditorFor, getInputValue } from '../editors';
+import { defaultEditorFor, getInputValue, setInputValue } from '../editors';
 import type { EditingConfig } from '../types';
 import {
   FOCUSABLE_EDITOR_SELECTOR,
@@ -251,19 +251,17 @@ export function injectEditor<T>(
     renderTemplateEditor(deps, editorHost, colInternal, rowData, originalValue, commit, cancel, skipFocus, rowIndex);
     // Auto-update built-in template editors when value changes externally.
     // Skip non-primitive values (arrays, objects) — framework adapters manage
-    // those via the cell-cancel event. String() on arrays produces comma-separated junk.
+    // those via the cell-cancel event — except those setInputValue can map:
+    // arrays onto a multi-select's options, and a Date into a date input (#555).
     onValueChange((newVal) => {
-      if (newVal != null && typeof newVal === 'object') return;
       const input = editorHost.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
         'input,textarea,select',
       );
-      if (input) {
-        if (input instanceof HTMLInputElement && input.type === 'checkbox') {
-          input.checked = !!newVal;
-        } else {
-          input.value = String(newVal ?? '');
-        }
-      }
+      if (!input) return;
+      const isMultiSelect = input instanceof HTMLSelectElement && input.multiple;
+      const isDateIntoDateInput = newVal instanceof Date && input instanceof HTMLInputElement && input.type === 'date';
+      if (!isMultiSelect && !isDateIntoDateInput && newVal != null && typeof newVal === 'object') return;
+      setInputValue(input, newVal, column);
     });
   } else if (typeof editorSpec === 'string') {
     const el = document.createElement(editorSpec) as HTMLElement & { value?: unknown };
@@ -310,13 +308,7 @@ export function injectEditor<T>(
         const input = editorHost.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
           'input,textarea,select',
         );
-        if (input) {
-          if (input instanceof HTMLInputElement && input.type === 'checkbox') {
-            input.checked = !!newVal;
-          } else {
-            input.value = String(newVal ?? '');
-          }
-        }
+        if (input) setInputValue(input, newVal, column);
       });
     } else if (produced instanceof Node) {
       editorHost.appendChild(produced);
@@ -328,13 +320,7 @@ export function injectEditor<T>(
         cell.setAttribute('data-editor-managed', '');
       } else {
         // Auto-update simple inputs returned by factory functions
-        onValueChange((newVal) => {
-          if (produced instanceof HTMLInputElement && produced.type === 'checkbox') {
-            produced.checked = !!newVal;
-          } else {
-            (produced as HTMLInputElement).value = String(newVal ?? '');
-          }
-        });
+        onValueChange((newVal) => setInputValue(produced, newVal, column));
       }
     } else if (!produced && editorHost.hasChildNodes()) {
       // Factory returned void but mounted content into the editor host

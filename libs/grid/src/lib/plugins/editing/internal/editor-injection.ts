@@ -210,8 +210,11 @@ export function injectEditor<T>(
       if (shouldPreventEditClose(config, e)) return;
       e.stopPropagation();
       e.preventDefault();
-      editFinalized = true;
+      // Finalize AFTER exitRowEdit (#557): it emits `before-edit-close`, during
+      // which blur-commit editors (adapter blur bridge) must still be able to
+      // flush via commit(). Teardown blurs are rejected by the session guard.
       deps.exitRowEdit(rowIndex, false);
+      editFinalized = true;
     }
     if (e.key === 'Escape') {
       // In grid mode, Escape doesn't exit edit mode

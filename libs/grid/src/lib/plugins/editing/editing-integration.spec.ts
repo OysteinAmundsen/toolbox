@@ -2296,6 +2296,61 @@ describe('EditingPlugin', () => {
       // The row should have exited edit mode
       expect(grid._activeEditRows).toBe(-1);
     });
+
+    // #557: Enter on the editor host must not finalize the cell before
+    // `before-edit-close` lets blur-commit editors flush their draft.
+    it('commits a blur-commit managed editor when the row is closed with Enter (#557)', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          {
+            field: 'notes',
+            header: 'Notes',
+            editable: true,
+            editor: (ctx: { value: unknown; commit: (v: unknown) => void }) => {
+              let draft = String(ctx.value ?? '');
+              const input = document.createElement('input');
+              input.value = draft;
+              input.addEventListener('input', () => (draft = input.value));
+              input.addEventListener('blur', () => ctx.commit(draft));
+              // Wrapped like an adapter mount so the cell is `data-editor-managed`.
+              const wrapper = document.createElement('div');
+              wrapper.appendChild(input);
+              return wrapper;
+            },
+          },
+        ],
+        getRowId: (row: any) => String(row.id),
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+      };
+      grid.rows = [{ id: 1, notes: 'old' }];
+      await waitUpgrade(grid);
+
+      // Emulate the adapters' `before-edit-close` blur bridge (makeFlushFocusedInput).
+      grid.on('before-edit-close', () => {
+        const focused = document.activeElement;
+        if (focused instanceof HTMLInputElement && grid.contains(focused)) focused.blur();
+      });
+      const commits: unknown[] = [];
+      grid.on('cell-commit', (detail: any) => commits.push(detail.value));
+
+      const notesCell = grid.querySelector('.data-grid-row .cell[data-col="1"]') as HTMLElement;
+      notesCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame(2);
+      expect(notesCell.hasAttribute('data-editor-managed')).toBe(true);
+
+      const input = notesCell.querySelector('input') as HTMLInputElement;
+      input.focus();
+      input.value = 'new';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      await nextFrame(2);
+
+      expect(grid._activeEditRows).toBe(-1);
+      expect(commits).toEqual(['new']);
+      expect(grid.rows[0].notes).toBe('new');
+    });
   });
 
   // #endregion

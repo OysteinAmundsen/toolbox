@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.9.2...grid-3.10.0) (2026-10-23)
+
+
+### Features
+
+* **filtering/pivot:** format set-filter values with their row and accept { value, label } from valuesHandler ([#548](https://github.com/OysteinAmundsen/toolbox/issues/548)) ([#553](https://github.com/OysteinAmundsen/toolbox/issues/553)) ([25bf813](https://github.com/OysteinAmundsen/toolbox/commit/25bf813a415989e96685cf59d860015c515e7855))
+
+
+### Bug Fixes
+
+* **editing:** map nullable select blank sentinel to null on row close ([#547](https://github.com/OysteinAmundsen/toolbox/issues/547)) ([#552](https://github.com/OysteinAmundsen/toolbox/issues/552)) ([8f68af1](https://github.com/OysteinAmundsen/toolbox/commit/8f68af15a9a6a30927f6bb30315cc4b70226a3a7))
+* **editing:** push external updates into open editors via setInputValue so multi-select keeps its selection ([#555](https://github.com/OysteinAmundsen/toolbox/issues/555)) ([#556](https://github.com/OysteinAmundsen/toolbox/issues/556)) ([6140f9e](https://github.com/OysteinAmundsen/toolbox/commit/6140f9e55b2ad9b01991fb73c624d4a98d399d84))
+* **editing:** read the full multi-select selection and compare as a set on row close ([#551](https://github.com/OysteinAmundsen/toolbox/issues/551)) ([#554](https://github.com/OysteinAmundsen/toolbox/issues/554)) ([11c0ce7](https://github.com/OysteinAmundsen/toolbox/commit/11c0ce77e6ed46005e93e70840b588b4e5fa423f))
+* **grid/grouping-rows/master-detail/pivot/selection/tree:** let form fields keep Space instead of toggling rows ([#546](https://github.com/OysteinAmundsen/toolbox/issues/546)) ([#549](https://github.com/OysteinAmundsen/toolbox/issues/549)) ([bad793b](https://github.com/OysteinAmundsen/toolbox/commit/bad793b9eaf95d35d79ece14048d16fe37bcee39))
+
 ## [3.9.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.9.1...grid-3.9.2) (2026-10-22)
 
 

@@ -38,6 +38,7 @@ import type {
   TypeDefault,
   UpdateSource,
 } from '../../core/types';
+import { isStructuralToggleTarget } from '../shared/structural-toggle';
 import styles from './editing.css?inline';
 import { getInputValue, isSameEditorValue } from './editors';
 import { CellValidationManager } from './internal/cell-validation';
@@ -888,6 +889,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // first editor. Returning false lets core `handleRowClick` sync `_focusCol`
     // and focus the clicked editor.
     if (rowIndex === this.#activeEditRow && event.cellEl.classList.contains('editing')) return false;
+
+    // #565: expand/collapse toggles belong to the expander plugin, never start an edit.
+    if (isStructuralToggleTarget(event.originalEvent)) return false;
 
     // Check if any column in the row is potentially editable
     const hasEditableColumn = internalGrid._columns?.some((col) => this.#hasEditableConfig(col as ColumnConfig<T>));

@@ -59,6 +59,9 @@ dead-code hits, and non-test clone groups. Caveats the script cannot resolve for
 - `unused_class_members` / `unused_exports` are syntactic. In this repo they are almost
   always documented plugin/adapter public API or members reached via `this.#manager.x()`.
   Verify against `apps/docs/src/content/docs/grid/**` and a `grep -rn '\bname\b'` before deleting.
+  A plugin's `static manifest`/`dependencies` (read via `p.constructor` in `plugin-manager.ts`) is
+  always a false positive; a NEW one shows as `introduced` — clear it by referencing it directly in a
+  spec (`FooPlugin.manifest?.hookPriority…`), not through a loop variable (#565).
 - Cross-adapter clone groups (`grid-react` ↔ `grid-vue` feature files) are intentional
   parity code; consolidating them would create a shared runtime dependency between adapters.
 

@@ -6,7 +6,13 @@
  */
 
 import { evalTemplateString, sanitizeHTML } from '../../core/internal/sanitize';
-import { BaseGridPlugin, CellClickEvent, GridElement, RowClickEvent } from '../../core/plugin/base-plugin';
+import {
+  BaseGridPlugin,
+  CellClickEvent,
+  GridElement,
+  type PluginManifest,
+  RowClickEvent,
+} from '../../core/plugin/base-plugin';
 import { createExpanderColumnConfig, findExpanderColumn, isExpanderColumn } from '../../core/plugin/expander-column';
 import type { ColumnConfig, GridHost } from '../../core/types';
 import type {
@@ -16,6 +22,11 @@ import type {
   FetchChildrenQuery,
 } from '../server-side/datasource-types';
 import { isFormFieldKeyTarget } from '../shared/form-field-target';
+import {
+  isMasterDetailToggleTarget,
+  isStructuralToggleTarget,
+  MASTER_DETAIL_TOGGLE_CLASS,
+} from '../shared/structural-toggle';
 import { collapseDetailRow, createDetailElement, expandDetailRow, isDetailExpanded } from './master-detail';
 import styles from './master-detail.css?inline';
 import type { DetailExpandDetail, DetailLoadErrorDetail, ExpandCollapseAnimation, MasterDetailConfig } from './types';
@@ -90,6 +101,17 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   readonly name = 'masterDetail';
   /** @internal */
   override readonly styles = styles;
+
+  /**
+   * Plugin manifest - declares hook priorities.
+   * @internal
+   */
+  static override readonly manifest: PluginManifest<MasterDetailConfig> = {
+    hookPriority: {
+      // Claim toggle clicks before Editing/Selection, whatever the registration order (#565)
+      onCellClick: -10,
+    },
+  };
 
   /**
    * Optional dependency on ServerSide for async detail data.
@@ -599,7 +621,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
       // Expand/collapse toggle icon
       const toggle = document.createElement('span');
-      toggle.className = `master-detail-toggle${isExpanded ? ' expanded' : ''}`;
+      toggle.className = `${MASTER_DETAIL_TOGGLE_CLASS}${isExpanded ? ' expanded' : ''}`;
       // Use grid-level icons (fall back to defaults)
       this.setIcon(toggle, isExpanded ? 'collapse' : 'expand');
       // role="button" is required for aria-expanded to be valid
@@ -619,6 +641,9 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /** @internal */
   override onRowClick(event: RowClickEvent): boolean | void {
     if (!this.config.expandOnRowClick || !this.config.detailRenderer) return;
+    // Toggle clicks (ours, tree, group) belong to their expander's onCellClick; toggling here
+    // too would undo ours or open a detail for someone else's (PR #567 review)
+    if (isStructuralToggleTarget(event.originalEvent)) return;
     this.toggleAndEmit(event.row, event.rowIndex);
     return false;
   }
@@ -626,8 +651,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /** @internal */
   override onCellClick(event: CellClickEvent): boolean | void {
     // Handle click on master-detail toggle icon (same pattern as TreePlugin)
-    const target = event.originalEvent?.target as HTMLElement;
-    if (target?.classList.contains('master-detail-toggle')) {
+    if (isMasterDetailToggleTarget(event.originalEvent)) {
       this.toggleAndEmit(event.row, event.rowIndex);
       return true; // Prevent default handling
     }

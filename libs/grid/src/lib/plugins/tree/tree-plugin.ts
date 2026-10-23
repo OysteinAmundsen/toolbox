@@ -117,6 +117,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     modifiesRowStructure: true,
     hookPriority: {
       processRows: 10, // Run after ServerSide (-10) so we receive managedNodes[]
+      // Claim toggle clicks before Editing/Selection, whatever the registration order (#565)
+      onCellClick: -10,
     },
     incompatibleWith: [
       {
@@ -1037,10 +1039,11 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
 
   /** @internal */
   override onCellClick(event: CellClickEvent): boolean {
-    const target = event.originalEvent?.target as HTMLElement;
-    if (!target?.classList.contains(GridClasses.TREE_TOGGLE)) return false;
+    // closest(): a custom icon (setIcon HTML/element) puts the click target inside the toggle
+    const toggle = (event.originalEvent?.target as Element | null)?.closest?.(`.${GridClasses.TREE_TOGGLE}`);
+    if (!toggle) return false;
 
-    const key = target.getAttribute('data-tree-key');
+    const key = toggle.getAttribute('data-tree-key');
     if (!key) return false;
 
     const flatRow = this.rowKeyMap.get(key);

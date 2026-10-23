@@ -169,7 +169,8 @@ expected/received output (caveat: for `grid-angular` the tool executes `bun test
 DOM and fails with `document is not defined` — use Nx there, where positional patterns were also
 ignored and the full suite ran). Filtering with `--testPathPattern=` is **not** honoured, and positional
 patterns after a `--` separator (`bun nx test grid -- <pattern>`) were also ignored for `grid` (Oct 2026, #534 —
-the full 144-file suite ran). `--testFile=` is rejected by Vitest 4 (`Unknown option`). Pass the pattern
+the full 144-file suite ran; but in #565 `bun nx test grid --output-style=static -- <pattern>` DID run only the
+matching file — inconsistent, so don't rely on it). `--testFile=` is rejected by Vitest 4 (`Unknown option`). Pass the pattern
 positionally WITHOUT `--`: `bun nx test grid <file-substring>` (verified #547 — ran only the matching
 files), or accept the ~20 s full run.
 

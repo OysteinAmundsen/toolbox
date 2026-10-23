@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.6.3...grid-vue-2.6.4) (2026-10-23)
+
+
+### Bug Fixes
+
+* **undo-redo/grid-angular/grid-react/grid-vue:** emit undo/redo from programmatic calls and add history-change event ([#563](https://github.com/OysteinAmundsen/toolbox/issues/563)) ([#566](https://github.com/OysteinAmundsen/toolbox/issues/566)) ([1aacb63](https://github.com/OysteinAmundsen/toolbox/commit/1aacb63023c94deef5b160deafcb50e1e6b5b4c3))
+
 ## [2.6.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.6.2...grid-vue-2.6.3) (2026-10-22)
 
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.10.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.10.0...grid-3.10.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **editing:** commit blur-commit editors when row is closed with Enter ([#557](https://github.com/OysteinAmundsen/toolbox/issues/557)) ([#560](https://github.com/OysteinAmundsen/toolbox/issues/560)) ([f30ef89](https://github.com/OysteinAmundsen/toolbox/commit/f30ef896874b26014ebd7c22ab4534bf5245e484))
+* **editing:** keep focus in clicked editor of the row already in edit ([#559](https://github.com/OysteinAmundsen/toolbox/issues/559)) ([#564](https://github.com/OysteinAmundsen/toolbox/issues/564)) ([2ca0261](https://github.com/OysteinAmundsen/toolbox/commit/2ca0261b63dff86ccaed9e010b4089f091f92243))
+* **editing:** let Escape close an open ARIA combobox popup before cancelling the row edit ([#558](https://github.com/OysteinAmundsen/toolbox/issues/558)) ([#562](https://github.com/OysteinAmundsen/toolbox/issues/562)) ([db90ba2](https://github.com/OysteinAmundsen/toolbox/commit/db90ba2c0c5af10ee9f61edf445f5f28ce3ca7b4))
+* **grid/editing/grouping-rows/master-detail/tree:** structural toggle clicks never start a row edit ([#565](https://github.com/OysteinAmundsen/toolbox/issues/565)) ([#567](https://github.com/OysteinAmundsen/toolbox/issues/567)) ([b93ae8e](https://github.com/OysteinAmundsen/toolbox/commit/b93ae8eec004cd16c4d6fd01d40f283b135ef49d))
+* **grid/grouping-rows/master-detail/tree:** double-clicking an expand toggle toggles twice, not three times ([#568](https://github.com/OysteinAmundsen/toolbox/issues/568)) ([#569](https://github.com/OysteinAmundsen/toolbox/issues/569)) ([0bf4222](https://github.com/OysteinAmundsen/toolbox/commit/0bf42224be64edf3c97cb1ed0e7f411a9146a02b))
+* **undo-redo/grid-angular/grid-react/grid-vue:** emit undo/redo from programmatic calls and add history-change event ([#563](https://github.com/OysteinAmundsen/toolbox/issues/563)) ([#566](https://github.com/OysteinAmundsen/toolbox/issues/566)) ([1aacb63](https://github.com/OysteinAmundsen/toolbox/commit/1aacb63023c94deef5b160deafcb50e1e6b5b4c3))
+
 ## [3.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.9.2...grid-3.10.0) (2026-10-23)
 
 

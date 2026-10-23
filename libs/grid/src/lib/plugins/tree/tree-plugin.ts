@@ -1042,6 +1042,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     // closest(): a custom icon (setIcon HTML/element) puts the click target inside the toggle
     const toggle = (event.originalEvent?.target as Element | null)?.closest?.(`.${GridClasses.TREE_TOGGLE}`);
     if (!toggle) return false;
+    // #568: core also routes `dblclick` here; toggle only on clicks so a double-click
+    // toggles twice (click, click), not three times. Still claim it — the toggle owns it.
+    if (event.originalEvent.type === 'dblclick') return true;
 
     const key = toggle.getAttribute('data-tree-key');
     if (!key) return false;

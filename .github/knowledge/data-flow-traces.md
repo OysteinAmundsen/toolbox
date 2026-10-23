@@ -163,6 +163,7 @@ SCROLL RECYCLE:
 ```
 EVENT: click on tree expander cell
   ├─ Tree.onCellClick(detail)   — hookPriority -10: runs before Editing/Selection (#565)
+  │   ├─ dblclick (core routes it here too) → return true, no toggle (#568)
   │   ├─ toggle expandedKeys set (add or remove row key)
   │   ├─ IF expanding AND lazy children (truthy non-array childrenField):
   │   │   ├─ query datasource:is-active → ServerSide responds true

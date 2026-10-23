@@ -48,14 +48,19 @@ function makeStubPlugin(): StubUndoRedoPlugin {
 function makeGridEl(plugin: StubUndoRedoPlugin | undefined, id?: string): HTMLElement {
   const grid = document.createElement('tbw-grid');
   if (id) grid.id = id;
-  (grid as unknown as { getPluginByName: (name: string) => unknown }).getPluginByName = (name: string) =>
-    name === 'undoRedo' ? plugin : undefined;
+  Object.assign(grid, {
+    getPluginByName: (name: string) => (name === 'undoRedo' ? plugin : undefined),
+    on: (name: string, cb: () => void) => {
+      grid.addEventListener(name, cb);
+      return () => grid.removeEventListener(name, cb);
+    },
+  });
   document.body.appendChild(grid);
   return grid;
 }
 
 function renderHook(selector?: string, gridEl?: HTMLElement | null) {
-  const captured: { current: UndoRedoMethods | null } = { current: null };
+  const captured: { current: UndoRedoMethods | null; renders: number } = { current: null, renders: 0 };
   const container = document.createElement('div');
   document.body.appendChild(container);
 
@@ -69,6 +74,7 @@ function renderHook(selector?: string, gridEl?: HTMLElement | null) {
   }
   function Inner() {
     captured.current = useGridUndoRedo(selector);
+    captured.renders++;
     return null;
   }
 
@@ -77,6 +83,7 @@ function renderHook(selector?: string, gridEl?: HTMLElement | null) {
 
   return {
     api: () => captured.current!,
+    renders: () => captured.renders,
     cleanup: () => {
       flushSync(() => root.unmount());
       container.remove();
@@ -127,6 +134,21 @@ describe('@toolbox-web/grid-react/features/undo-redo', () => {
     api().endTransaction();
     expect(plugin.beginTransaction).toHaveBeenCalled();
     expect(plugin.endTransaction).toHaveBeenCalled();
+    cleanup();
+  });
+
+  // #563 — clearHistory / recordEdit / programmatic undo change the stacks without cell-commit
+  it('re-renders the consumer on history-change so canUndo()/canRedo() refresh', async () => {
+    const plugin = makeStubPlugin();
+    const grid = makeGridEl(plugin);
+    const { api, renders, cleanup } = renderHook(undefined, grid);
+    const before = renders();
+
+    plugin.canUndo.mockReturnValue(false);
+    grid.dispatchEvent(new CustomEvent('history-change', { detail: { canUndo: false, canRedo: false } }));
+
+    await vi.waitFor(() => expect(renders()).toBeGreaterThan(before));
+    expect(api().canUndo()).toBe(false);
     cleanup();
   });
 

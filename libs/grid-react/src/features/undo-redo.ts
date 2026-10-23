@@ -165,7 +165,7 @@ export function useGridUndoRedo(selector?: string): UndoRedoMethods {
     if (!grid?.on) return;
 
     const bump = () => setHistoryVersion((v) => v + 1);
-    const unsubs = [grid.on('undo', bump), grid.on('redo', bump), grid.on('cell-commit', bump)];
+    const unsubs = [grid.on('history-change', bump)];
 
     return () => unsubs.forEach((fn) => fn());
   }, [getGrid]);

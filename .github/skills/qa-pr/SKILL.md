@@ -1,4 +1,5 @@
 ---
+
 name: qa-pr
 description: Remote QA — evaluate and address review comments on a GitHub pull request (from Copilot or a human reviewer). Fetch every unresolved thread, classify each as valid / partially valid / wrong, fix what's valid (via qa-apply-findings), push back on what isn't (citing DECIDED entries), reply inline and resolve threads with the bundled gh-CLI scripts. Never closes, merges, or pushes the PR. Counterpart to `qa` (local review). Use for any PR feedback triage; prefer this over the generic address-pr-comments skill.
 argument-hint: '<PR number>'

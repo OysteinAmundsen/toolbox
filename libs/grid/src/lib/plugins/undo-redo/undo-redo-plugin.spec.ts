@@ -211,31 +211,148 @@ describe('UndoRedoPlugin', () => {
   // #region Event emission
 
   describe('events', () => {
-    it('should emit undo event on Ctrl+Z', () => {
-      const events: CustomEvent[] = [];
-      grid.addEventListener('undo', (e: Event) => events.push(e as CustomEvent));
+    const collect = (name: 'undo' | 'redo') => {
+      const details: unknown[] = [];
+      grid.addEventListener(name, (e: Event) => details.push((e as CustomEvent).detail));
+      return details;
+    };
 
+    // #563 — programmatic and keyboard undo/redo must be indistinguishable to listeners
+    const trigger = {
+      keyboard: { undo: () => plugin.onKeyDown(ctrlZ()), redo: () => plugin.onKeyDown(ctrlY()) },
+      programmatic: { undo: () => plugin.undo(), redo: () => plugin.redo() },
+    };
+
+    it.each(['keyboard', 'programmatic'] as const)('should emit undo with the undone action (%s)', (via) => {
+      const events = collect('undo');
       plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
-      rows[0]['name'] = 'Changed';
+      const [action] = plugin.getUndoStack();
 
-      plugin.onKeyDown(ctrlZ());
+      trigger[via].undo();
 
-      expect(events).toHaveLength(1);
-      expect(events[0].detail).toMatchObject({ type: 'undo' });
+      expect(events).toEqual([{ action, type: 'undo' }]);
     });
 
-    it('should emit redo event on Ctrl+Y', () => {
-      const events: CustomEvent[] = [];
-      grid.addEventListener('redo', (e: Event) => events.push(e as CustomEvent));
+    it.each(['keyboard', 'programmatic'] as const)('should emit redo with the redone action (%s)', (via) => {
+      const events = collect('redo');
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      const [action] = plugin.getUndoStack();
+
+      trigger[via].undo();
+      trigger[via].redo();
+
+      expect(events).toEqual([{ action, type: 'redo' }]);
+    });
+
+    it('should not emit undo/redo when there is nothing to undo/redo', () => {
+      const spy = vi.fn();
+      grid.addEventListener('undo', spy);
+      grid.addEventListener('redo', spy);
+
+      expect(plugin.undo()).toBeNull();
+      expect(plugin.redo()).toBeNull();
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('should update the stacks before the undo event fires', () => {
+      let seen: { canUndo: boolean; canRedo: boolean } | undefined;
+      grid.addEventListener('undo', () => (seen = { canUndo: plugin.canUndo(), canRedo: plugin.canRedo() }));
 
       plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
-      rows[0]['name'] = 'Changed';
+      plugin.undo();
 
+      expect(seen).toEqual({ canUndo: false, canRedo: true });
+    });
+  });
+
+  // #endregion
+
+  // #region history-change (#563)
+
+  describe('history-change event', () => {
+    let changes: { canUndo: boolean; canRedo: boolean }[];
+
+    beforeEach(() => {
+      changes = [];
+      grid.addEventListener('history-change', (e: Event) => changes.push((e as CustomEvent).detail));
+    });
+
+    it('fires on recordEdit', () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      expect(changes).toEqual([{ canUndo: true, canRedo: false }]);
+    });
+
+    it('fires on programmatic undo() and redo()', () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      plugin.undo();
+      plugin.redo();
+      expect(changes).toEqual([
+        { canUndo: true, canRedo: false },
+        { canUndo: false, canRedo: true },
+        { canUndo: true, canRedo: false },
+      ]);
+    });
+
+    it('fires on keyboard undo / redo', () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
       plugin.onKeyDown(ctrlZ());
       plugin.onKeyDown(ctrlY());
+      expect(changes.slice(1)).toEqual([
+        { canUndo: false, canRedo: true },
+        { canUndo: true, canRedo: false },
+      ]);
+    });
 
-      expect(events).toHaveLength(1);
-      expect(events[0].detail).toMatchObject({ type: 'redo' });
+    it('fires after the undo event so listeners see consistent state', () => {
+      const order: string[] = [];
+      grid.addEventListener('undo', () => order.push('undo'));
+      grid.addEventListener('history-change', () => order.push('history-change'));
+
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      order.length = 0;
+      plugin.undo();
+
+      expect(order).toEqual(['undo', 'history-change']);
+    });
+
+    it('fires on clearHistory when there was history', () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      plugin.clearHistory();
+      expect(changes.at(-1)).toEqual({ canUndo: false, canRedo: false });
+    });
+
+    it('does not fire on clearHistory of an empty history', () => {
+      plugin.clearHistory();
+      expect(changes).toEqual([]);
+    });
+
+    it('does not fire for no-op undo / redo', () => {
+      plugin.undo();
+      plugin.redo();
+      expect(changes).toEqual([]);
+    });
+
+    it('fires once on endTransaction, not for buffered edits', () => {
+      plugin.beginTransaction();
+      plugin.recordEdit(0, 'name', 'Alpha', 'A');
+      plugin.recordEdit(0, 'price', 10, 11);
+      expect(changes).toEqual([]);
+
+      plugin.endTransaction();
+      expect(changes).toEqual([{ canUndo: true, canRedo: false }]);
+    });
+
+    it('does not fire on an empty endTransaction', () => {
+      plugin.beginTransaction();
+      plugin.endTransaction();
+      expect(changes).toEqual([]);
+    });
+
+    it('fires when a new edit clears the redo stack', () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'A');
+      plugin.undo();
+      plugin.recordEdit(0, 'name', 'Alpha', 'B');
+      expect(changes.at(-1)).toEqual({ canUndo: true, canRedo: false });
     });
   });
 

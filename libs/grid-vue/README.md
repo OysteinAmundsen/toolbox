@@ -130,30 +130,30 @@ import '@toolbox-web/grid-vue/features/filtering';
 
 Import from `@toolbox-web/grid-vue/features/<name>`:
 
-| Feature                 | Prop                    | Example                                                               |
-| ----------------------- | ----------------------- | --------------------------------------------------------------------- |
-| `selection`             | `selection`             | `selection="range"` or `:selection="{ mode: 'row', checkbox: true }"` |
-| `multi-sort`            | `multi-sort`            | `multi-sort` or `:multi-sort="{ maxSortLevels: 3 }"`                  |
-| `filtering`             | `filtering`             | `filtering` or `:filtering="{ debounceMs: 200 }"`                     |
-| `editing`               | `editing`               | `editing="dblclick"` or `editing="click"`                             |
-| `clipboard`             | `clipboard`             | `clipboard` (requires selection)                                      |
-| `undoRedo`              | `undoRedo`              | `undoRedo` (requires editing — emits separate `@undo`/`@redo` events) |
-| `context-menu`          | `context-menu`          | `context-menu`                                                        |
-| `reorder`               | `reorder`               | `reorder` (column drag-to-reorder)                                    |
-| `row-reorder`           | `row-reorder`           | `row-reorder` (row drag-to-reorder)                                   |
-| `visibility`            | `visibility`            | `visibility` (column visibility panel)                                |
-| `pinned-columns`        | `pinned-columns`        | `pinned-columns`                                                      |
-| `pinned-rows`           | `pinned-rows`           | `pinned-rows`                                                         |
-| `grouping-columns`      | `grouping-columns`      | `grouping-columns`                                                    |
-| `grouping-rows`         | `grouping-rows`         | `:grouping-rows="{ groupBy: 'department' }"`                          |
-| `tree`                  | `tree`                  | `:tree="{ childrenField: 'children' }"`                               |
-| `column-virtualization` | `column-virtualization` | `column-virtualization`                                               |
-| `export`                | `export`                | `export`                                                              |
-| `print`                 | `print`                 | `print`                                                               |
-| `responsive`            | `responsive`            | `responsive` (card layout on mobile)                                  |
-| `master-detail`         | `master-detail`         | `master-detail` (use with `<TbwGridDetailPanel>`)                     |
-| `pivot`                 | `pivot`                 | `:pivot="{ rowFields: [...], columnFields: [...] }"`                  |
-| `server-side`           | `server-side`           | `:server-side="{ ... }"`                                              |
+| Feature                 | Prop                    | Example                                                                                       |
+| ----------------------- | ----------------------- | --------------------------------------------------------------------------------------------- |
+| `selection`             | `selection`             | `selection="range"` or `:selection="{ mode: 'row', checkbox: true }"`                         |
+| `multi-sort`            | `multi-sort`            | `multi-sort` or `:multi-sort="{ maxSortLevels: 3 }"`                                          |
+| `filtering`             | `filtering`             | `filtering` or `:filtering="{ debounceMs: 200 }"`                                             |
+| `editing`               | `editing`               | `editing="dblclick"` or `editing="click"`                                                     |
+| `clipboard`             | `clipboard`             | `clipboard` (requires selection)                                                              |
+| `undoRedo`              | `undoRedo`              | `undoRedo` (requires editing — emits separate `@undo`/`@redo` events, plus `@history-change`) |
+| `context-menu`          | `context-menu`          | `context-menu`                                                                                |
+| `reorder`               | `reorder`               | `reorder` (column drag-to-reorder)                                                            |
+| `row-reorder`           | `row-reorder`           | `row-reorder` (row drag-to-reorder)                                                           |
+| `visibility`            | `visibility`            | `visibility` (column visibility panel)                                                        |
+| `pinned-columns`        | `pinned-columns`        | `pinned-columns`                                                                              |
+| `pinned-rows`           | `pinned-rows`           | `pinned-rows`                                                                                 |
+| `grouping-columns`      | `grouping-columns`      | `grouping-columns`                                                                            |
+| `grouping-rows`         | `grouping-rows`         | `:grouping-rows="{ groupBy: 'department' }"`                                                  |
+| `tree`                  | `tree`                  | `:tree="{ childrenField: 'children' }"`                                                       |
+| `column-virtualization` | `column-virtualization` | `column-virtualization`                                                                       |
+| `export`                | `export`                | `export`                                                                                      |
+| `print`                 | `print`                 | `print`                                                                                       |
+| `responsive`            | `responsive`            | `responsive` (card layout on mobile)                                                          |
+| `master-detail`         | `master-detail`         | `master-detail` (use with `<TbwGridDetailPanel>`)                                             |
+| `pivot`                 | `pivot`                 | `:pivot="{ rowFields: [...], columnFields: [...] }"`                                          |
+| `server-side`           | `server-side`           | `:server-side="{ ... }"`                                                                      |
 
 ### Import All Features
 
@@ -312,6 +312,7 @@ function onSortChange(e: CustomEvent<SortChangeDetail>) {
 | `@paste`               | `PasteDetail`            | Data pasted from clipboard        |
 | `@undo`                | `UndoRedoDetail`         | Undo action performed             |
 | `@redo`                | `UndoRedoDetail`         | Redo action performed             |
+| `@history-change`      | `HistoryChangeDetail`    | Undo/redo history changed         |
 | `@export-complete`     | `ExportCompleteDetail`   | Export operation completed        |
 | `@print-start`         | `PrintStartDetail`       | Print operation started           |
 | `@print-complete`      | `PrintCompleteDetail`    | Print operation completed         |

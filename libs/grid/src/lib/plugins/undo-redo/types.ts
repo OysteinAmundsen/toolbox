@@ -100,13 +100,32 @@ export interface UndoRedoDetail {
   type: 'undo' | 'redo';
 }
 
+/**
+ * Event detail emitted whenever the undo/redo history changes.
+ *
+ * Fired when an edit is pushed onto the undo stack (by `recordEdit()` outside a
+ * transaction, or by the outermost `endTransaction()` of a non-empty transaction),
+ * after an undo or redo (keyboard or programmatic), and when `clearHistory()`
+ * empties a non-empty history. Bind toolbar buttons' `disabled` state to it.
+ *
+ * @since 3.10.1
+ */
+export interface HistoryChangeDetail {
+  /** Whether there is an action that can be undone */
+  canUndo: boolean;
+  /** Whether there is an action that can be redone */
+  canRedo: boolean;
+}
+
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
   interface DataGridEventMap {
-    /** Fired after an undo operation (Ctrl+Z). Provides the undone action. @group Undo/Redo Events */
+    /** Fired after an undo operation (Ctrl+Z or `undo()`). Provides the undone action. @group Undo/Redo Events */
     undo: UndoRedoDetail;
-    /** Fired after a redo operation (Ctrl+Y). Provides the redone action. @group Undo/Redo Events */
+    /** Fired after a redo operation (Ctrl+Y or `redo()`). Provides the redone action. @group Undo/Redo Events */
     redo: UndoRedoDetail;
+    /** Fired whenever the undo/redo history changes. Provides `canUndo` / `canRedo`. @group Undo/Redo Events */
+    'history-change': HistoryChangeDetail;
   }
 
   interface PluginNameMap {

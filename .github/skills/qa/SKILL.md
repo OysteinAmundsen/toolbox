@@ -79,7 +79,9 @@ For each file (or each hunk, when reviewing a diff), check:
 ### Workspace conventions
 
 - File/folder naming, public-API boundaries (no deep imports into `internal/`, `src/lib/...`).
-- Forbidden patterns called out in instruction files (e.g. `as unknown as`, `T[]` vs `Array<T>`).
+- Forbidden patterns called out in instruction files (e.g. `as unknown as`, `T[]` vs `Array<T>`). Grep the
+  added lines instead of eyeballing hunks — reading misses casts in spec fixtures (PR #566 shipped one):
+  `git diff <base> -U0 | Select-String '^\+.*as unknown as'` (diff mode: `git diff -U0` + `git diff --staged -U0`).
 - Generated/legacy preferences.
 - Test conventions (co-located `*.spec.ts`, `waitUpgrade()`, no skipped tests left behind).
 

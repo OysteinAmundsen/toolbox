@@ -21,7 +21,7 @@ import {
   redo,
   undo,
 } from './history';
-import type { EditAction, UndoRedoAction, UndoRedoConfig, UndoRedoDetail } from './types';
+import type { EditAction, HistoryChangeDetail, UndoRedoAction, UndoRedoConfig, UndoRedoDetail } from './types';
 
 /**
  * Undo/Redo Plugin for tbw-grid
@@ -315,19 +315,28 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
 
   /**
    * Apply an undo or redo against the grid's own history stack.
+   * Shared by the keyboard path and the public `undo()` / `redo()` so listeners
+   * cannot tell them apart (#563).
    */
-  #performHistory(kind: 'undo' | 'redo'): void {
+  #performHistory(kind: 'undo' | 'redo'): UndoRedoAction | null {
     const state = { undoStack: this.undoStack, redoStack: this.redoStack };
     const result = kind === 'undo' ? undo(state) : redo(state);
-    if (!result.action) return;
+    if (!result.action) return null;
 
     this.#applyUndoRedoAction(result.action, kind);
     this.undoStack = result.newState.undoStack;
     this.redoStack = result.newState.redoStack;
 
     this.emit<UndoRedoDetail>(kind, { action: result.action, type: kind });
+    this.#emitHistoryChange();
     this.#focusUndoRedoAction(result.action);
     this.requestRenderWithFocus();
+    return result.action;
+  }
+
+  /** Notify listeners that the undo/redo stacks changed. */
+  #emitHistoryChange(): void {
+    this.emit<HistoryChangeDetail>('history-change', { canUndo: this.canUndo(), canRedo: this.canRedo() });
   }
 
   /**
@@ -397,6 +406,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     );
     this.undoStack = newState.undoStack;
     this.redoStack = newState.redoStack;
+    this.#emitHistoryChange();
   }
 
   /**
@@ -473,40 +483,32 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     );
     this.undoStack = newState.undoStack;
     this.redoStack = newState.redoStack;
+    this.#emitHistoryChange();
   }
 
   /**
    * Programmatically undo the last action.
    *
+   * Behaves exactly like Ctrl+Z: emits `undo` (with the undone action) and
+   * `history-change`, so app state that replays actions from the `undo` event
+   * stays in sync.
+   *
    * @returns The undone action, or null if nothing to undo
    */
   undo(): UndoRedoAction | null {
-    const result = undo({ undoStack: this.undoStack, redoStack: this.redoStack });
-    if (result.action) {
-      this.#applyUndoRedoAction(result.action, 'undo');
-      this.undoStack = result.newState.undoStack;
-      this.redoStack = result.newState.redoStack;
-      this.#focusUndoRedoAction(result.action);
-      this.requestRenderWithFocus();
-    }
-    return result.action;
+    return this.#performHistory('undo');
   }
 
   /**
    * Programmatically redo the last undone action.
    *
+   * Behaves exactly like Ctrl+Y: emits `redo` (with the redone action) and
+   * `history-change`.
+   *
    * @returns The redone action, or null if nothing to redo
    */
   redo(): UndoRedoAction | null {
-    const result = redo({ undoStack: this.undoStack, redoStack: this.redoStack });
-    if (result.action) {
-      this.#applyUndoRedoAction(result.action, 'redo');
-      this.undoStack = result.newState.undoStack;
-      this.redoStack = result.newState.redoStack;
-      this.#focusUndoRedoAction(result.action);
-      this.requestRenderWithFocus();
-    }
-    return result.action;
+    return this.#performHistory('redo');
   }
 
   /**
@@ -525,13 +527,16 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
 
   /**
    * Clear all undo/redo history.
+   * Emits `history-change` when there was history to clear.
    */
   clearHistory(): void {
+    const hadHistory = this.undoStack.length > 0 || this.redoStack.length > 0;
     const newState = clearHistory();
     this.undoStack = newState.undoStack;
     this.redoStack = newState.redoStack;
     this.#transactionBuffer = null;
     this.#transactionDepth = 0;
+    if (hadHistory) this.#emitHistoryChange();
   }
 
   /**

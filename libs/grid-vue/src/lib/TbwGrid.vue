@@ -44,6 +44,7 @@ import type {
   GroupingRowsConfig,
   GroupLoadErrorDetail,
   GroupToggleDetail,
+  HistoryChangeDetail,
   MasterDetailConfig,
   MultiSortConfig,
   PasteDetail,
@@ -425,6 +426,7 @@ const FORWARDED_EVENTS = [
   // plugin's actual emit calls.
   'undo',
   'redo',
+  'history-change',
   'export-complete',
   'print-start',
   'print-complete',
@@ -505,6 +507,7 @@ const emit = defineEmits<{
   (e: 'paste-rejected', event: CustomEvent<PasteRejectedDetail>): void;
   (e: 'undo', event: CustomEvent<UndoRedoDetail>): void;
   (e: 'redo', event: CustomEvent<UndoRedoDetail>): void;
+  (e: 'history-change', event: CustomEvent<HistoryChangeDetail>): void;
   (e: 'export-complete', event: CustomEvent<ExportCompleteDetail>): void;
   (e: 'print-start', event: CustomEvent<PrintStartDetail>): void;
   (e: 'print-complete', event: CustomEvent<PrintCompleteDetail>): void;

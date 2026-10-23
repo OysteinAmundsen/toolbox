@@ -153,9 +153,9 @@ describe('injectGridUndoRedo', () => {
       expect(plugin.undo).toHaveBeenCalledOnce();
     });
 
-    it('caches the grid and attaches undo/redo/cell-commit listeners once', () => {
+    it('caches the grid and attaches the history-change listener once', () => {
       const plugin = createPlugin();
-      const { grid, listeners } = createGrid(plugin);
+      const { grid, listeners, unsubs } = createGrid(plugin);
       const host = mountHost(grid);
       const querySpy = vi.spyOn(host, 'querySelector');
       const api = injectGridUndoRedo();
@@ -164,11 +164,12 @@ describe('injectGridUndoRedo', () => {
       api.getRedoStack();
 
       expect(querySpy).toHaveBeenCalledOnce();
-      expect((grid as unknown as { on: ReturnType<typeof vi.fn> }).on).toHaveBeenCalledTimes(3);
-      expect([...listeners.keys()]).toEqual(['undo', 'redo', 'cell-commit']);
+      expect(unsubs).toHaveLength(1);
+      expect([...listeners.keys()]).toEqual(['history-change']);
     });
 
-    it('grid events re-sync the signals', () => {
+    // #563 — the plugin emits `history-change` on every stack mutation (incl. clearHistory / recordEdit)
+    it('a grid history-change event re-syncs the signals', () => {
       const plugin = createPlugin();
       const { grid, listeners } = createGrid(plugin);
       mountHost(grid);
@@ -177,7 +178,7 @@ describe('injectGridUndoRedo', () => {
 
       plugin.canUndo.mockReturnValue(false);
       plugin.canRedo.mockReturnValue(true);
-      listeners.get('cell-commit')?.();
+      listeners.get('history-change')?.();
 
       expect(api.canUndo()).toBe(false);
       expect(api.canRedo()).toBe(true);
@@ -190,7 +191,7 @@ describe('injectGridUndoRedo', () => {
 
       destroyCallbacks.forEach((cb) => cb());
 
-      expect(unsubs).toHaveLength(3);
+      expect(unsubs).toHaveLength(1);
       unsubs.forEach((unsub) => expect(unsub).toHaveBeenCalledOnce());
     });
 

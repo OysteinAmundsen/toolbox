@@ -156,7 +156,8 @@ describe('@toolbox-web/grid-vue/features/undo-redo', () => {
     cleanup();
   });
 
-  it('re-evaluates canUndo in a computed when history events fire', () => {
+  // #563 — the plugin emits `history-change` on every stack mutation (incl. clearHistory / recordEdit)
+  it('re-evaluates canUndo in a computed when history-change fires', () => {
     const plugin = makeStubPlugin();
     plugin.canUndo.mockReturnValue(false);
     const { grid, emit } = makeGridEl(plugin);
@@ -167,7 +168,7 @@ describe('@toolbox-web/grid-vue/features/undo-redo', () => {
 
     plugin.canUndo.mockReturnValue(true);
     // Without the history subscription the computed would stay cached at false.
-    emit('undo');
+    emit('history-change');
     expect(canUndo.value).toBe(true);
 
     cleanup();
@@ -178,9 +179,9 @@ describe('@toolbox-web/grid-vue/features/undo-redo', () => {
     const { grid, listenerCount } = makeGridEl(plugin);
     const { cleanup } = mountComposable(undefined, grid);
 
-    expect(listenerCount('undo')).toBe(1);
+    expect(listenerCount('history-change')).toBe(1);
     cleanup();
-    expect(listenerCount('undo')).toBe(0);
+    expect(listenerCount('history-change')).toBe(0);
   });
 
   it('exposes isReady as false before the grid resolves', () => {

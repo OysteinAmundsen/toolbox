@@ -39,6 +39,7 @@ import type {
   GridColumnState,
   GroupLoadErrorDetail,
   GroupToggleDetail,
+  HistoryChangeDetail,
   PasteDetail,
   PasteRejectedDetail,
   PrintCompleteDetail,
@@ -569,28 +570,42 @@ export interface EventProps<TRow = unknown> {
   // ═══════════════════════════════════════════════════════════════════
 
   /**
-   * Fired when an undo action is performed.
+   * Fired when an undo action is performed (Ctrl+Z or programmatic `undo()`).
    *
    * @requires `import '@toolbox-web/grid-react/features/undo-redo';`
    *
    * @example
    * ```tsx
-   * onUndo={(detail) => console.log('Undid:', detail.action.type, '- Can undo:', detail.canUndo)}
+   * onUndo={(detail) => console.log('Undid:', detail.action.type)}
    * ```
    */
   onUndo?: EventHandler<UndoRedoDetail>;
 
   /**
-   * Fired when a redo action is performed.
+   * Fired when a redo action is performed (Ctrl+Y or programmatic `redo()`).
    *
    * @requires `import '@toolbox-web/grid-react/features/undo-redo';`
    *
    * @example
    * ```tsx
-   * onRedo={(detail) => console.log('Redid:', detail.action.type, '- Can redo:', detail.canRedo)}
+   * onRedo={(detail) => console.log('Redid:', detail.action.type)}
    * ```
    */
   onRedo?: EventHandler<UndoRedoDetail>;
+
+  /**
+   * Fired whenever the undo/redo history changes (edit recorded, undo, redo, history cleared).
+   * Use it to keep external Undo/Redo buttons' enabled state in sync.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/undo-redo';`
+   *
+   * @example
+   * ```tsx
+   * onHistoryChange={({ canUndo, canRedo }) => setToolbar({ canUndo, canRedo })}
+   * ```
+   * @since 2.6.4
+   */
+  onHistoryChange?: EventHandler<HistoryChangeDetail>;
 
   // ═══════════════════════════════════════════════════════════════════
   // EXPORT EVENTS
@@ -738,6 +753,7 @@ export const EVENT_PROP_MAP = {
   onPasteRejected: 'paste-rejected',
   onUndo: 'undo',
   onRedo: 'redo',
+  onHistoryChange: 'history-change',
   onExportComplete: 'export-complete',
   onPrintStart: 'print-start',
   onPrintComplete: 'print-complete',

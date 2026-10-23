@@ -92,9 +92,11 @@ redoing replays them in forward order.
 
 ## Events
 
+`undo()` / `redo()` behave exactly like the keyboard shortcuts: both paths emit the same events.
+
 ### `undo`
 
-Fired when an undo operation is performed.
+Fired when an undo operation is performed (Ctrl+Z or `undo()`).
 
 ```typescript
 grid.addEventListener('undo', (e) => {
@@ -104,10 +106,23 @@ grid.addEventListener('undo', (e) => {
 
 ### `redo`
 
-Fired when a redo operation is performed.
+Fired when a redo operation is performed (Ctrl+Y or `redo()`).
 
 ```typescript
 grid.addEventListener('redo', (e) => {
   console.log('Action redone:', e.detail.action);
+});
+```
+
+### `history-change`
+
+Fired whenever the history changes: an edit is recorded outside a transaction, a non-empty
+transaction ends, an undo or redo runs, or `clearHistory()` empties a non-empty history. Use it
+to enable/disable toolbar buttons.
+
+```typescript
+grid.addEventListener('history-change', (e) => {
+  undoButton.disabled = !e.detail.canUndo;
+  redoButton.disabled = !e.detail.canRedo;
 });
 ```

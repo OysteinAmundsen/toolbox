@@ -158,6 +158,10 @@ bun nx build docs
 > `.md` companion-endpoint suffix and the `redirects` map in `astro.config.mjs`.
 > If it reports an issue in a file you did **not** modify, treat it as pre-existing —
 > note it in your PR description rather than fixing it in an unrelated change.
+> **Exception — stale generated pages:** a hit inside `grid/plugins/<name>/{Classes,Interfaces,Types,…}/`
+> for a `<name>` that no longer exists under `libs/grid/src/lib/plugins/` is a gitignored TypeDoc
+> leftover (`nx typedoc` never prunes removed plugins; e.g. `reorder-rows`, removed in #400). Confirm
+> `git ls-files <dir>` is empty, then delete the folder locally — there is nothing to fix in the repo.
 >
 > `bun tools/docs-api-coverage.ts` compares every symbol exported from each library's
 > public entry points against the generated API pages. It counts a symbol as documented

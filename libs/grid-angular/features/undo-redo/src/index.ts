@@ -185,14 +185,14 @@ export function injectGridUndoRedo(selector = 'tbw-grid'): UndoRedoMethods {
   };
 
   /**
-   * Attach event listeners to the grid for undo/redo state changes.
-   * Listens for `undo`, `redo`, and `cell-commit` DOM events.
+   * Attach the `history-change` listener that keeps the signals in sync.
+   * The plugin emits it on every undo/redo stack mutation.
    */
   const attachListeners = (grid: DataGridElement): void => {
     if (listenerAttached) return;
     listenerAttached = true;
 
-    const unsubs = [grid.on('undo', syncSignals), grid.on('redo', syncSignals), grid.on('cell-commit', syncSignals)];
+    const unsubs = [grid.on('history-change', syncSignals)];
 
     destroyRef.onDestroy(() => {
       unsubs.forEach((fn) => fn());

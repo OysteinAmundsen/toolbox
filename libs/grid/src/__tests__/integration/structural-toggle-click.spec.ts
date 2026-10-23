@@ -40,8 +40,14 @@ const flatRows = (): Row[] => [
   { id: '2', name: 'Beta', dept: 'B' },
 ];
 
-async function setup(order: Order, other: BaseGridPlugin | BaseGridPlugin[], rows: Row[], icons?: GridIcons) {
-  const editing = new EditingPlugin({ editOn: 'click' });
+async function setup(
+  order: Order,
+  other: BaseGridPlugin | BaseGridPlugin[],
+  rows: Row[],
+  icons?: GridIcons,
+  editOn: 'click' | 'dblclick' = 'click',
+) {
+  const editing = new EditingPlugin({ editOn });
   const others = [other].flat();
   const grid = document.createElement('tbw-grid') as any;
   grid.gridConfig = {
@@ -66,6 +72,23 @@ async function clickToggle(grid: HTMLElement, selector: string, iconChild = fals
   target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
   await nextFrame();
   return toggle;
+}
+
+/**
+ * Replays the browser's event sequence for one double-click (`click, click, dblclick`).
+ * Re-queries the target before each event: a toggle re-renders between the clicks.
+ */
+async function doubleClick(grid: HTMLElement, selector: string): Promise<void> {
+  for (const [type, detail] of [
+    ['click', 1],
+    ['click', 2],
+    ['dblclick', 2],
+  ] as const) {
+    const target = grid.querySelector(selector) as HTMLElement;
+    expect(target, `${type} target ${selector}`).toBeTruthy();
+    target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, detail }));
+    await nextFrame();
+  }
 }
 
 function expectNoRowEdit(grid: any) {
@@ -185,5 +208,114 @@ describe('structural toggle click vs. editing (#565)', () => {
     expect(TreePlugin.manifest?.hookPriority?.onCellClick).toBeLessThan(0);
     expect(MasterDetailPlugin.manifest?.hookPriority?.onCellClick).toBeLessThan(0);
     expect(GroupingRowsPlugin.manifest?.hookPriority?.onCellClick).toBeLessThan(0);
+  });
+});
+
+// Core routes `dblclick` through the same handler as `click`, so one double-click reaches
+// `onCellClick` / `onRowClick` three times. It must act like two clicks: toggle twice, end
+// where it started, and (in `editOn: 'dblclick'` mode) never start a row edit.
+describe('double-clicking a structural toggle (#568)', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it.each(orders)('tree toggle toggles twice and starts no edit (%s)', async (order) => {
+    const tree = new TreePlugin({ childrenField: 'children' });
+    const { grid } = await setup(order, tree, treeRows(), undefined, 'dblclick');
+    const events: boolean[] = [];
+    grid.addEventListener('tree-expand', (e: CustomEvent<{ expanded: boolean }>) => events.push(e.detail.expanded));
+
+    await doubleClick(grid, '.tree-toggle');
+
+    expect(events).toEqual([true, false]);
+    expect(tree.isExpanded('p1')).toBe(false);
+    expectNoRowEdit(grid);
+  });
+
+  it.each(orders)('master-detail toggle toggles twice and starts no edit (%s)', async (order) => {
+    const detail = new MasterDetailPlugin({ detailRenderer: () => 'detail' });
+    const { grid } = await setup(order, detail, flatRows(), undefined, 'dblclick');
+    const events: boolean[] = [];
+    grid.addEventListener('detail-expand', (e: CustomEvent<{ expanded: boolean }>) => events.push(e.detail.expanded));
+
+    await doubleClick(grid, '.master-detail-toggle');
+
+    expect(events).toEqual([true, false]);
+    expect(detail.isExpanded(0)).toBe(false);
+    expectNoRowEdit(grid);
+  });
+
+  it('master-detail expandOnRowClick toggles twice on a double-clicked cell', async () => {
+    const detail = new MasterDetailPlugin({ detailRenderer: () => 'detail', expandOnRowClick: true });
+    const grid = document.createElement('tbw-grid') as any;
+    grid.gridConfig = { columns: [{ field: 'name' }, { field: 'dept' }], plugins: [detail] };
+    grid.rows = flatRows();
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+    const events: boolean[] = [];
+    grid.addEventListener('detail-expand', (e: CustomEvent<{ expanded: boolean }>) => events.push(e.detail.expanded));
+
+    await doubleClick(grid, '.data-grid-row .cell[data-field="name"]');
+
+    expect(events).toEqual([true, false]);
+    expect(detail.isExpanded(0)).toBe(false);
+  });
+
+  it.each(orders)('group-row toggle toggles twice and starts no edit (%s)', async (order) => {
+    const grouping = new GroupingRowsPlugin({ groupOn: (row) => (row as Row).dept, defaultExpanded: true });
+    const { grid } = await setup(order, grouping, flatRows(), undefined, 'dblclick');
+    const before = [...grouping.getExpandedGroups()].sort();
+    let toggles = 0;
+    grid.addEventListener('group-toggle', () => toggles++);
+
+    await doubleClick(grid, '.group-toggle');
+
+    expect(toggles).toBe(2);
+    expect([...grouping.getExpandedGroups()].sort()).toEqual(before);
+    expectNoRowEdit(grid);
+  });
+
+  it('a double-click on a regular cell still starts the row edit (editOn: dblclick)', async () => {
+    const { grid } = await setup(
+      'editing last',
+      new TreePlugin({ childrenField: 'children' }),
+      treeRows(),
+      undefined,
+      'dblclick',
+    );
+
+    await doubleClick(grid, '.data-grid-row .cell[data-col="1"]');
+
+    expect(grid._activeEditRows).toBe(0);
+  });
+
+  // Built-in group rows never reach core's click hooks: the button stops its own `click`, and
+  // its `dblclick` finds no `.cell[data-row]`, so `handleRowClick` bails. Only a custom
+  // `groupRowRenderer` emitting `.cell[data-row]` + `.group-toggle` reaches GroupingRows.onCellClick.
+  it('GroupingRows.onCellClick toggles a custom group toggle on click, claims a dblclick without toggling', () => {
+    const grouping = new GroupingRowsPlugin({ groupOn: (row) => (row as Row).dept });
+    const toggleSpy = vi.spyOn(grouping, 'toggle').mockImplementation(() => undefined);
+    const cellEl = document.createElement('div');
+    const toggle = document.createElement('span');
+    toggle.className = 'group-toggle';
+    cellEl.appendChild(toggle);
+    const cellClick = (type: 'click' | 'dblclick') => {
+      const originalEvent = new MouseEvent(type);
+      Object.defineProperty(originalEvent, 'target', { value: toggle });
+      return grouping.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        column: { field: 'name' },
+        field: 'name',
+        value: undefined,
+        row: { __isGroupRow: true, __groupKey: 'A' },
+        cellEl,
+        originalEvent,
+      });
+    };
+
+    expect(cellClick('click')).toBe(true);
+    expect(cellClick('dblclick')).toBe(true);
+    expect(toggleSpy).toHaveBeenCalledTimes(1);
   });
 });

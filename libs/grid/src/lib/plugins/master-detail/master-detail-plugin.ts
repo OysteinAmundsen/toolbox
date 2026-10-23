@@ -641,6 +641,8 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /** @internal */
   override onRowClick(event: RowClickEvent): boolean | void {
     if (!this.config.expandOnRowClick || !this.config.detailRenderer) return;
+    // #568: core also routes `dblclick` here — only clicks toggle, else a double-click toggles 3×
+    if (event.originalEvent.type === 'dblclick') return;
     // Toggle clicks (ours, tree, group) belong to their expander's onCellClick; toggling here
     // too would undo ours or open a detail for someone else's (PR #567 review)
     if (isStructuralToggleTarget(event.originalEvent)) return;
@@ -652,6 +654,8 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   override onCellClick(event: CellClickEvent): boolean | void {
     // Handle click on master-detail toggle icon (same pattern as TreePlugin)
     if (isMasterDetailToggleTarget(event.originalEvent)) {
+      // #568: claim but ignore the `dblclick` core routes here — its two clicks already toggled
+      if (event.originalEvent.type === 'dblclick') return true;
       this.toggleAndEmit(event.row, event.rowIndex);
       return true; // Prevent default handling
     }

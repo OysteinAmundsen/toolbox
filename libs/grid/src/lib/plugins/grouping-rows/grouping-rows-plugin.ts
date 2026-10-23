@@ -939,6 +939,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
     if (row?.__isGroupRow) {
       const target = event.originalEvent.target as HTMLElement;
       if (target?.closest(`.${GridClasses.GROUP_TOGGLE}`)) {
+        // #568: claim but ignore the `dblclick` core routes here — its two clicks already toggled
+        if (event.originalEvent.type === 'dblclick') return true;
         this.toggle(row.__groupKey as string);
         return true; // Prevent default
       }

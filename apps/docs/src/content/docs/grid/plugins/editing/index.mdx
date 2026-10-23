@@ -346,7 +346,7 @@ The demo above uses `editOn: 'click'` — a single click enters edit mode.
 | --- | -------- |
 | **Enter** | Start editing the entire row (all editable cells get editors) |
 | **F2** | Start editing only the focused cell (single-cell edit) |
-| **Escape** | Cancel the current edit and revert changes |
+| **Escape** | Cancel the current edit and revert changes. If the focused editor has an open popup declared with `aria-expanded="true"` + `aria-controls` (combobox, autocomplete, picker), the first Escape only closes the popup; the next one cancels the edit. |
 | **Tab** / **Shift+Tab** | Move to next/previous editable cell |
 | **Arrow Up/Down** | Handled by the focused editor (e.g. number stepper, select options, textarea caret). Press **Enter**, **Escape**, or **Tab** to leave edit mode before arrow keys resume cell navigation. |
 | **Space** | Toggle boolean cells (when not in edit mode). Space with a modifier (Shift, Ctrl/⌘, Alt) never toggles — those chords belong to selection. |

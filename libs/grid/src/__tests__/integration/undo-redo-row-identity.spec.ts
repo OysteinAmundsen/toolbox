@@ -175,6 +175,67 @@ describe('UndoRedo resolves actions by row id (#526)', () => {
   });
 });
 
+describe('programmatic undo()/redo() match the keyboard path (#563)', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('a toolbar undo()/redo() emits undo/redo so app-owned state follows (issue repro)', async () => {
+    const grid = await createGrid({ filtering: false, multiSort: false });
+    const appState = new Map<string, boolean>([['1', true]]);
+    const replay = (e: CustomEvent, kind: 'undo' | 'redo') => {
+      const a = e.detail.action;
+      appState.set(a.rowId, kind === 'undo' ? a.oldValue : a.newValue);
+    };
+    grid.addEventListener('undo', (e: CustomEvent) => replay(e, 'undo'));
+    grid.addEventListener('redo', (e: CustomEvent) => replay(e, 'redo'));
+
+    toggleActive(grid, 0); // row 1: true → false
+    await vi.waitFor(() => expect(grid.getRow('1')?.active).toBe(false));
+    appState.set('1', false); // app mirrors the commit
+
+    grid.getPluginByName('undoRedo').undo();
+    await vi.waitFor(() => expect(grid.getRow('1')?.active).toBe(true));
+    expect(appState.get('1')).toBe(true);
+
+    grid.getPluginByName('undoRedo').redo();
+    await vi.waitFor(() => expect(grid.getRow('1')?.active).toBe(false));
+    expect(appState.get('1')).toBe(false);
+  });
+
+  it('history-change drives toolbar enabled state across commit, undo, redo and clear', async () => {
+    const grid = await createGrid({ filtering: false, multiSort: false });
+    const undoRedo = grid.getPluginByName('undoRedo');
+    const states: Array<{ canUndo: boolean; canRedo: boolean }> = [];
+    grid.addEventListener('history-change', (e: CustomEvent) => states.push(e.detail));
+
+    toggleActive(grid, 0); // auto-recorded from the real commit pipeline
+    await vi.waitFor(() => expect(states).toEqual([{ canUndo: true, canRedo: false }]));
+
+    undoRedo.undo();
+    undoRedo.redo();
+    undoRedo.clearHistory();
+    expect(states.slice(1)).toEqual([
+      { canUndo: false, canRedo: true },
+      { canUndo: true, canRedo: false },
+      { canUndo: false, canRedo: false },
+    ]);
+  });
+
+  it('dirty tracking re-evaluates the row on programmatic undo', async () => {
+    const grid = await createGrid({ filtering: false, multiSort: false, editing: { dirtyTracking: true } });
+    toggleActive(grid, 0); // row 1 dirty
+    await vi.waitFor(() => expect(grid.getRow('1')?.active).toBe(false));
+
+    const dirtyEvents: Array<{ rowId: string; type: string }> = [];
+    grid.addEventListener('dirty-change', (e: CustomEvent) => dirtyEvents.push(e.detail));
+    grid.getPluginByName('undoRedo').undo();
+
+    await vi.waitFor(() => expect(grid.getRow('1')?.active).toBe(true));
+    expect(dirtyEvents.at(-1)).toMatchObject({ rowId: '1', type: 'pristine' });
+  });
+});
+
 describe('row-ID map tracks direct _rows reassignment', () => {
   afterEach(() => {
     document.body.innerHTML = '';

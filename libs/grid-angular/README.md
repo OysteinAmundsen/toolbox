@@ -1214,6 +1214,9 @@ export class TextFilterComponent extends BaseFilterPanel {
 | `responsiveChange`  | `OutputEmitterRef<ResponsiveChangeDetail>` | Responsive mode changed      |
 | `copy`              | `OutputEmitterRef<CopyDetail>`             | Data copied to clipboard     |
 | `paste`             | `OutputEmitterRef<PasteDetail>`            | Data pasted from clipboard   |
+| `undo`              | `OutputEmitterRef<UndoRedoDetail>`         | Undo performed               |
+| `redo`              | `OutputEmitterRef<UndoRedoDetail>`         | Redo performed               |
+| `historyChange`     | `OutputEmitterRef<HistoryChangeDetail>`    | Undo/redo history changed    |
 
 ### GridDetailView Inputs
 

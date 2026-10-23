@@ -75,6 +75,7 @@ Recipe:
 - ALWAYS `import '@angular/compiler';` at the top of the spec, before any other Angular import. Without it, vitest fails with "JIT compilation failed" on first directive instantiation.
 - For `getOrCreate*` lazy patterns: call a public method that materialises (`ctx.getRowFormGroup(0)`), then assert cache via `directive.getAllFormGroups().size` or re-call to verify the factory ran once.
 - DO NOT use `coverage.exclude` to prop up the 70% threshold. Write real specs instead — a refactor that expands V8's measurement scope is exposing a real coverage gap, not a config problem.
+- **Thin feature directives (claims + output wiring only):** skip the ~80-line `@angular/core` + `@angular/forms` mock block. Replace the barrel with the real registry, `vi.mock('@toolbox-web/grid-angular', () => import('../../../src/lib/internal/feature-claims'))`, so `@angular/forms` never loads; then `@angular/core` needs only `Directive`, `ElementRef`, `inject`, `input`, `output`. Reference: `features/undo-redo/src/grid-undo-redo.directive.spec.ts`.
 
 ## Vitest Benchmarks
 

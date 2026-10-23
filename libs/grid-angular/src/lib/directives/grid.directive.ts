@@ -783,6 +783,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     | 'paste-rejected'
     | 'undo'
     | 'redo'
+    | 'history-change'
     | 'export-complete'
     | 'print-start'
     | 'print-complete'

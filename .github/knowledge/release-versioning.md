@@ -34,6 +34,7 @@ Config: [release-please-config.json](release-please-config.json) + `.release-ple
 - DECIDED (#411): adapter `devDependencies."@toolbox-web/grid"` stays `>=1.0.0` — adapters compile against workspace SOURCE via tsconfig paths, so the floor only keys the workspace symlink and must match the CURRENT local grid. Any v3 range would break install/linking. The peer/dev "mismatch" is intentional.
 - DECIDED (#262, `@nx/dependency-checks` bites grid-vue only): the intentional peer/local mismatch trips the rule for grid-vue because Vite surfaces `@toolbox-web/grid` in the build inputs; ng-packagr does NOT (proven: even `^99.0.0` yields no error) and grid-react has no project-level eslint config enabling the JSON rule. FIX: add `'@toolbox-web/grid'` to `ignoredDependencies` in `libs/grid-vue/eslint.config.mjs`. The `devDependencies` entry does NOT satisfy the rule.
 - DECIDED: publish order on a coordinated multi-major is `grid` first, then the three adapters (peer range satisfied at install time). v1.x deprecation commits deliberately do NOT use `!` — that is reserved for the major-bump PR itself.
+- DECIDED (PR #566, peer FLOOR within a major): adapter versions stay independent of grid's, but the `peerDependencies."@toolbox-web/grid"` floor MUST be ≥ the grid release that exports every core type/API the adapter's `.d.ts` references. An adapter that imports a NEW core export (e.g. an event detail type) raises the floor in all three `package.json`s in the SAME PR — to the version `resolve-since.mjs grid <bump>` prints — then `bun install --lockfile-only` (bun.lock mirrors peers). WHY: adapter `.d.ts` imports from `@toolbox-web/grid/all` → TS2305 against an older grid under `skipLibCheck: false`, even if runtime works. Not a major: only raises the floor, never narrows below current. Local "No version matching ^X found for peer" warning is expected until that grid version publishes.
 
 ## publishing & docs deploy
 
@@ -61,7 +62,7 @@ Config: [release-please-config.json](release-please-config.json) + `.release-ple
 
 ## v3.0.0 cleanup (COMPLETED — epic #263)
 
-Shipped: grid **3.x**, adapters **2.x** (peer `^3.0.0`). Every item in #259/#260/#261/#262/#228 landed.
+Shipped: grid **3.x**, adapters **2.x** (peer `^3.0.0`, floor since raised per § peer-dependency cascade). Every item in #259/#260/#261/#262/#228 landed.
 
 - INVARIANT (Jun 2026 audit): `grep -rn '@deprecated' libs/grid/src libs/grid-{angular,react,vue}/src libs/grid-angular/features --include=*.ts --include=*.tsx --include=*.vue | grep -v '\.spec\.'` returns **ZERO**. Keep it that way — anything newly marked `@deprecated` must carry a removal milestone.
 - Removed in v3: `DGEvents`/`DGEventName`/`PluginEvents`/`PluginEventName`; `plugins/reorder-rows/**` + `features/reorder-rows.ts` (and, Jun 2026, the residual `['reorderRows','rowReorder']` aliases on `RowDragDropPlugin`); legacy `PinnedRowsConfig` fields; `RowDragDropConfig.canDragRow`; `ServerSidePlugin.getNodeCount`/`isLoaded`; `activate-cell` event; `SSRProps`/`ssr` prop (React + Vue); `Angular*`/`React*`/`Vue*` config type aliases; per-feature `@deprecated` inputs on `GridDirective`; the 6 shell type re-aliases in `core/types.ts`; the `grid.*` shell delegate methods; TBW076.

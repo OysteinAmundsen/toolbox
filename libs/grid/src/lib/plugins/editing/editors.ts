@@ -9,6 +9,7 @@
  * inlineEnterEdit) is responsible for focusing the correct editor after insertion.
  */
 
+import { readCellField } from '../../core/internal/value-accessor';
 import type { ColumnConfig, ColumnEditorContext } from '../../core/types';
 import type { DateEditorParams, NumberEditorParams, SelectEditorParams, TextEditorParams } from './types';
 
@@ -148,6 +149,35 @@ function createDateEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HTML
 /** Sentinel value used internally to identify the nullable "(Blank)" option */
 const NULLABLE_BLANK_VALUE = '__tbw_null__';
 
+/** Configured value behind each built-in select `<option>` — string matching would conflate `1` and `'1'`. */
+const optionValues = new WeakMap<HTMLOptionElement, unknown>();
+
+/**
+ * Read a `multiple` select as an array of the configured option values, preserving
+ * their original type (DOM option values are always strings). For nullable columns the
+ * blank sentinel maps to `null` when it is the only selection and is dropped otherwise.
+ */
+function readMultiSelectValue(select: HTMLSelectElement, column?: AnyColumn): unknown {
+  let options: ReturnType<typeof resolveOptions> | undefined;
+  const values: unknown[] = [];
+  let blankSelected = false;
+  for (const o of Array.from(select.selectedOptions)) {
+    if (optionValues.has(o)) {
+      values.push(optionValues.get(o));
+      continue;
+    }
+    if (column?.nullable && o.value === NULLABLE_BLANK_VALUE) {
+      blankSelected = true;
+      continue;
+    }
+    // Fallback for selects not built by createSelectEditor (custom editors).
+    options ??= column ? resolveOptions(column) : [];
+    const match = options.find((opt) => String(opt.value) === o.value);
+    values.push(match ? match.value : o.value);
+  }
+  return blankSelected && values.length === 0 ? null : values;
+}
+
 /** Creates a select dropdown editor */
 function createSelectEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HTMLElement {
   return (ctx) => {
@@ -171,6 +201,7 @@ function createSelectEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HT
       const o = document.createElement('option');
       o.value = String(opt.value);
       o.textContent = opt.label;
+      optionValues.set(o, opt.value);
       if (column.multi && Array.isArray(ctx.value) && ctx.value.includes(opt.value)) {
         o.selected = true;
       } else if (!column.multi && ctx.value === opt.value) {
@@ -181,8 +212,10 @@ function createSelectEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HT
 
     const commit = () => {
       if (column.multi) {
-        const values = Array.from(select.selectedOptions).map((o) => o.value);
-        ctx.commit(values);
+        const next = readMultiSelectValue(select, column);
+        // Compare with the row, not a local cache: a vetoed commit leaves it unchanged, so blur retries.
+        if (isSameEditorValue(readCellField(ctx.row, ctx.field), next)) return;
+        ctx.commit(next);
       } else if (column.nullable && select.value === NULLABLE_BLANK_VALUE) {
         ctx.commit(null);
       } else {
@@ -338,6 +371,8 @@ function readTextControlValue(
   column?: AnyColumn,
   originalValue?: unknown,
 ): unknown {
+  // `input.value` on a multi-select is only the FIRST selected option — read the full set.
+  if (input instanceof HTMLSelectElement && input.multiple) return readMultiSelectValue(input, column);
   // Nullable select's "(Blank)" option carries an internal sentinel — map it back to null
   // (before the numeric branch, which would turn it into NaN). Mirrors createSelectEditor's commit.
   if (input instanceof HTMLSelectElement && column?.nullable && input.value === NULLABLE_BLANK_VALUE) {
@@ -376,4 +411,18 @@ export function getInputValue(
     default:
       return readTextInputValue(input, column, originalValue);
   }
+}
+
+/**
+ * Whether a value re-read from an editor equals the cell's original value. Arrays
+ * (multi-select) compare as sets, since the DOM reports selections in option order
+ * and every read yields a new array instance.
+ */
+export function isSameEditorValue(originalValue: unknown, value: unknown): boolean {
+  if (Array.isArray(originalValue) && Array.isArray(value)) {
+    const original = new Set(originalValue);
+    const next = new Set(value);
+    return original.size === next.size && [...next].every((v) => original.has(v));
+  }
+  return originalValue === value;
 }

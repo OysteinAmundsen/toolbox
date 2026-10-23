@@ -11,9 +11,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { nextFrame, waitUpgrade } from '../../../../test/helpers';
 import { UndoRedoPlugin } from '../undo-redo/undo-redo-plugin';
 import { EditingPlugin } from './editing-plugin';
-import { nextFrame, waitUpgrade } from '../../../../test/helpers';
 
 describe('EditingPlugin', () => {
   let grid: any;
@@ -3790,12 +3790,16 @@ describe('EditingPlugin', () => {
 
       // #547: row close re-reads native editors via getInputValue, which must map the
       // internal blank-option sentinel back to null instead of committing it.
-      async function openNullableSelectRow(options: { label: string; value: unknown }[], value: unknown) {
+      async function openSelectRow(
+        options: { label: string; value: unknown }[],
+        value: unknown,
+        extra: Record<string, unknown>,
+      ) {
         const editingPlugin = new EditingPlugin({ editOn: 'dblclick' });
         grid.gridConfig = {
           columns: [
             { field: 'id', header: 'ID' },
-            { field: 'val', header: 'Value', type: 'select', editable: true, nullable: true, options },
+            { field: 'val', header: 'Value', type: 'select', editable: true, options, ...extra },
           ],
           getRowId: (r: any) => String(r.id),
           plugins: [editingPlugin],
@@ -3815,29 +3819,37 @@ describe('EditingPlugin', () => {
         return { editingPlugin, select, commits };
       }
 
-      it('nullable: true — closing the row with an untouched null value does not commit the sentinel', async () => {
-        const { editingPlugin, commits } = await openNullableSelectRow(
-          [
-            { label: 'Active', value: 'active' },
-            { label: 'Inactive', value: 'inactive' },
-          ],
-          null,
-        );
+      it.each([
+        ['single', { nullable: true }],
+        ['multi (#551)', { nullable: true, multi: true }],
+      ])(
+        'nullable: true, %s — closing the row with an untouched null value does not commit the sentinel',
+        async (_, extra) => {
+          const { editingPlugin, commits } = await openSelectRow(
+            [
+              { label: 'Active', value: 'active' },
+              { label: 'Inactive', value: 'inactive' },
+            ],
+            null,
+            extra,
+          );
 
-        editingPlugin.commitActiveRowEdit();
-        await nextFrame();
+          editingPlugin.commitActiveRowEdit();
+          await nextFrame();
 
-        expect(commits).toEqual([]);
-        expect(grid.rows[0].val).toBeNull();
-      });
+          expect(commits).toEqual([]);
+          expect(grid.rows[0].val).toBeNull();
+        },
+      );
 
       it('nullable: true — closing the row with the blank option on a numeric column commits null, not NaN', async () => {
-        const { editingPlugin, select, commits } = await openNullableSelectRow(
+        const { editingPlugin, select, commits } = await openSelectRow(
           [
             { label: 'One', value: 1 },
             { label: 'Two', value: 2 },
           ],
           2,
+          { nullable: true },
         );
         // Pick the blank option without a change event, so only the row-close path reads it.
         select.value = select.options[0].value;
@@ -3847,6 +3859,104 @@ describe('EditingPlugin', () => {
 
         expect(commits).toEqual([null]);
         expect(grid.rows[0].val).toBeNull();
+      });
+
+      // #551: a multi-select's `input.value` is only its first selected option — row close
+      // must read the full selection and compare it as a set against the original array.
+      async function openMultiSelectRow(options: { label: string; value: unknown }[], value: unknown) {
+        const opened = await openSelectRow(options, value, { multi: true });
+        expect(opened.select.multiple).toBe(true);
+        return opened;
+      }
+
+      const abcOptions = [
+        { label: 'A', value: 'a' },
+        { label: 'B', value: 'b' },
+        { label: 'C', value: 'c' },
+      ];
+
+      it('multi: true — closing the row with an untouched array value does not commit', async () => {
+        // Original order differs from DOM option order: equality must be order-insensitive.
+        const { editingPlugin, select, commits } = await openMultiSelectRow(abcOptions, ['b', 'a']);
+        expect(Array.from(select.selectedOptions).map((o) => o.value)).toEqual(['a', 'b']);
+
+        editingPlugin.commitActiveRowEdit();
+        await nextFrame();
+
+        expect(commits).toEqual([]);
+        expect(grid.rows[0].val).toEqual(['b', 'a']);
+      });
+
+      it('multi: true — blurring an untouched multi-select does not commit', async () => {
+        const { select, commits } = await openMultiSelectRow(abcOptions, ['b', 'a']);
+
+        select.dispatchEvent(new Event('blur'));
+
+        expect(commits).toEqual([]);
+      });
+
+      it('multi: true — re-selecting the original value after an external updateRow commits it', async () => {
+        const { select, commits } = await openMultiSelectRow(abcOptions, ['a']);
+        grid.updateRow('1', { val: ['b'] });
+        await nextFrame();
+        commits.length = 0;
+
+        select.options[0].selected = true;
+        select.options[1].selected = false;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(commits).toEqual([['a']]);
+        expect(grid.rows[0].val).toEqual(['a']);
+      });
+
+      it('multi: true — a vetoed change is retried by the next blur', async () => {
+        const { select, commits } = await openMultiSelectRow(abcOptions, ['a']);
+        let veto = true;
+        grid.addEventListener('cell-commit', (e: Event) => {
+          if (veto) e.preventDefault();
+        });
+
+        select.options[0].selected = false;
+        select.options[1].selected = true;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(grid.rows[0].val).toEqual(['a']);
+
+        veto = false;
+        select.dispatchEvent(new Event('blur'));
+
+        expect(commits).toEqual([['b'], ['b']]);
+        expect(grid.rows[0].val).toEqual(['b']);
+      });
+
+      it('multi: true — closing the row commits the full selection, not the first option', async () => {
+        const { editingPlugin, select, commits } = await openMultiSelectRow(abcOptions, ['a', 'b']);
+        // Change the selection without a change event, so only the row-close path reads it.
+        select.options[2].selected = true;
+
+        editingPlugin.commitActiveRowEdit();
+        await nextFrame();
+
+        expect(commits).toEqual([['a', 'b', 'c']]);
+        expect(grid.rows[0].val).toEqual(['a', 'b', 'c']);
+      });
+
+      it('multi: true — numeric option values keep their type on row close and on change', async () => {
+        const numericOptions = [
+          { label: 'One', value: 1 },
+          { label: 'Two', value: 2 },
+          { label: 'Three', value: 3 },
+        ];
+        const { editingPlugin, select, commits } = await openMultiSelectRow(numericOptions, [1, 2]);
+
+        select.options[1].selected = false;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(commits).toEqual([[1]]);
+
+        editingPlugin.commitActiveRowEdit();
+        await nextFrame();
+
+        expect(commits).toEqual([[1]]);
+        expect(grid.rows[0].val).toEqual([1]);
       });
     });
 

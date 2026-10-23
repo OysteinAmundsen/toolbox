@@ -777,6 +777,47 @@ describe('EditingPlugin', () => {
       const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
       expect(nameCell.querySelector('input')).toBeTruthy();
     });
+
+    // #559: a click on another editor in the row already being edited must not
+    // restart the row edit — beginBulkEdit's deferred focus would snap focus
+    // back to the `_focusCol` / first editor on every click.
+    it.each(['click', 'dblclick'] as const)(
+      'keeps focus in the clicked editor of the row already in edit (%s mode, #559)',
+      async (editOn) => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID', editable: false },
+            { field: 'name', header: 'Name', editable: true },
+            { field: 'email', header: 'Email', editable: true },
+          ],
+          plugins: [new EditingPlugin({ editOn })],
+        };
+        grid.rows = [{ id: 1, name: 'Alpha', email: 'alpha@test.com' }];
+        await waitUpgrade(grid);
+
+        const editingPlugin = grid.getPluginByName('editing') as EditingPlugin;
+        grid._focusRow = 0;
+        grid._focusCol = 0; // non-editable column, as after an "Add row" action button
+        editingPlugin.beginBulkEdit(0);
+        await new Promise((r) => setTimeout(r, 0));
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const nameInput = row.querySelector('.cell[data-col="1"] input') as HTMLInputElement;
+        const emailInput = row.querySelector('.cell[data-col="2"] input') as HTMLInputElement;
+        expect(document.activeElement).toBe(nameInput);
+
+        const beginSpy = vi.spyOn(editingPlugin, 'beginBulkEdit');
+        emailInput.focus();
+        emailInput.dispatchEvent(new MouseEvent(editOn, { bubbles: true }));
+        await new Promise((r) => setTimeout(r, 0));
+        await nextFrame();
+
+        expect(beginSpy).not.toHaveBeenCalled();
+        expect(document.activeElement).toBe(emailInput);
+        expect(grid._focusCol).toBe(2);
+        expect(grid._activeEditRows).toBe(0);
+      },
+    );
   });
 
   describe('keyboard navigation after failed edit attempt', () => {

@@ -883,6 +883,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     const { rowIndex } = event;
 
+    // #559: a click on an editor of the row already in edit must not restart the
+    // edit — beginBulkEdit's deferred focus would yank focus to `_focusCol` / the
+    // first editor. Returning false lets core `handleRowClick` sync `_focusCol`
+    // and focus the clicked editor.
+    if (rowIndex === this.#activeEditRow && event.cellEl.classList.contains('editing')) return false;
+
     // Check if any column in the row is potentially editable
     const hasEditableColumn = internalGrid._columns?.some((col) => this.#hasEditableConfig(col as ColumnConfig<T>));
     if (!hasEditableColumn) return false;

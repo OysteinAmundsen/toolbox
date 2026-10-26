@@ -1641,6 +1641,142 @@ describe('renderVisibleRows — epoch-based row reuse', () => {
   });
 });
 
+describe('renderVisibleRows — edit row relocation (#572)', () => {
+  const makeRows = (n: number) => Array.from({ length: n }, (_, i) => ({ id: i, name: `R${i}` }));
+
+  function setup(rowCount: number) {
+    const g = makeGrid();
+    g._columns = [{ field: 'id' }, { field: 'name' }];
+    g._rows = makeRows(rowCount);
+    return g;
+  }
+
+  /** Put a live editor holding `draft` into the name cell of `rowEl` (as EditingPlugin would). */
+  function markEditing(rowEl: HTMLElement, draft: string): HTMLInputElement {
+    const cell = rowEl.querySelector('.cell[data-col="1"]') as HTMLElement;
+    cell.classList.add('editing');
+    (rowEl as any).__editingCellCount = 1;
+    const input = document.createElement('input');
+    input.value = draft;
+    cell.replaceChildren(input);
+    return input;
+  }
+
+  /** DOM order and pool order agree, and every row shows its own id. */
+  function expectAligned(g: any, start: number) {
+    const domRows = [...g._bodyEl.querySelectorAll('.data-grid-row')];
+    expect(domRows).toEqual(g._rowPool);
+    domRows.forEach((el, i) => {
+      expect(el.querySelector('.cell[data-col="0"]')?.textContent).toBe(String(g._rows[start + i].id));
+    });
+  }
+
+  it('keeps the edit element with its row when the virtual window shifts (scroll)', () => {
+    const g = setup(6);
+    renderVisibleRows(g, 0, 4, 1);
+    const editEl = g._rowPool[2];
+    const input = markEditing(editEl, 'draft');
+    g._activeEditRows = 2;
+    g._focusRow = 3; // on another row: a scroll must not drag it along
+
+    renderVisibleRows(g, 1, 5, 1);
+
+    expect(g._rowPool[1]).toBe(editEl);
+    expect(editEl.querySelector('input')).toBe(input);
+    expect(input.value).toBe('draft');
+    expect(g._focusRow).toBe(3);
+    expectAligned(g, 1);
+  });
+
+  it('moves the edit element down when rows are inserted above it', () => {
+    const g = setup(3);
+    renderVisibleRows(g, 0, 3, 1);
+    const editEl = g._rowPool[0];
+    const input = markEditing(editEl, 'draft');
+    g._activeEditRows = 0; // stale — insertRow-style paths skip processRows
+    g._focusRow = 0;
+    g._focusCol = 0;
+
+    const [r0, r1, r2] = g._rows;
+    g._rows = [r1, r2, r0];
+    renderVisibleRows(g, 0, 3, 1);
+
+    expect(g._rowPool[2]).toBe(editEl);
+    expect(editEl.querySelector('input')).toBe(input);
+    // The focus cursor follows the editor, before the cells are patched.
+    expect(g._focusRow).toBe(2);
+    expect(editEl.querySelector('.cell[data-col="0"]')?.classList.contains('cell-focus')).toBe(true);
+    expectAligned(g, 0);
+  });
+
+  it('moves the focus cursor when the edit row stays in the same pool slot', () => {
+    // Row 2 → index 4 while the window start moves 0 → 2: same slot, no DOM move needed,
+    // but the focus cursor must still follow the editor.
+    const g = setup(6);
+    renderVisibleRows(g, 0, 4, 1);
+    const editEl = g._rowPool[2];
+    const input = markEditing(editEl, 'draft');
+    g._activeEditRows = 2;
+    g._focusRow = 2;
+    g._focusCol = 0;
+
+    const [r0, r1, r2, r3, r4, r5] = g._rows;
+    g._rows = [r0, r1, r3, r4, r2, r5];
+    renderVisibleRows(g, 2, 6, 1);
+
+    expect(g._rowPool[2]).toBe(editEl);
+    expect(editEl.querySelector('input')).toBe(input);
+    expect(g._focusRow).toBe(4);
+    const ring = [...g._bodyEl.querySelectorAll('.cell-focus')];
+    expect(ring.length).toBe(1);
+    expect(ring[0].closest('.data-grid-row')).toBe(editEl);
+    expectAligned(g, 2);
+  });
+
+  it('rescues the edit element from a trailing slot when the window shrinks', () => {
+    const g = setup(2);
+    renderVisibleRows(g, 0, 2, 1);
+    const editEl = g._rowPool[1];
+    const input = markEditing(editEl, 'draft');
+    g._activeEditRows = 1;
+
+    g._rows = [g._rows[1]];
+    renderVisibleRows(g, 0, 1, 1);
+
+    expect(g._rowPool).toEqual([editEl]);
+    expect(editEl.querySelector('input')).toBe(input);
+    expectAligned(g, 0);
+  });
+
+  it('lets normal recycling clear the editors when the edit row leaves the window', () => {
+    const g = setup(6);
+    renderVisibleRows(g, 0, 3, 1);
+    const editEl = g._rowPool[0];
+    markEditing(editEl, 'draft');
+    g._activeEditRows = 0;
+
+    renderVisibleRows(g, 3, 6, 1);
+
+    expect(g._bodyEl.querySelector('input')).toBeNull();
+    expect(g._bodyEl.querySelector('.cell.editing')).toBeNull();
+    expectAligned(g, 3);
+  });
+
+  it('does not relocate in grid edit mode', () => {
+    const g = setup(6);
+    renderVisibleRows(g, 0, 4, 1);
+    const pool = [...g._rowPool];
+    markEditing(pool[2], 'draft');
+    g._isGridEditMode = true;
+    // An active index too, so only the grid-mode guard can prevent the relocation.
+    g._activeEditRows = 2;
+
+    renderVisibleRows(g, 1, 5, 1);
+
+    expect(g._rowPool).toEqual(pool);
+  });
+});
+
 describe('renderVisibleRows — variable row height CSS property', () => {
   it('sets --tbw-row-height on rows where rowHeight function returns a value', () => {
     const g = makeGrid();

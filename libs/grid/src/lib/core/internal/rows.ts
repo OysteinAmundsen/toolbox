@@ -232,6 +232,10 @@ function resolveHeaderRowCount(grid: GridHost): number {
 /**
  * Grow / shrink the recyclable row pool to exactly `needed` elements.
  *
+ * The live edit row is relocated between the grow and the shrink, so an edit
+ * element sitting in a trailing slot is moved into the window instead of being
+ * released (#572).
+ *
  * Excess elements are released BEFORE detaching so framework adapters (React
  * portals, Vue teleports, Angular EmbeddedViewRefs) can unmount cleanly.
  * Skipping this leaves portals tracked against detached containers, causing
@@ -239,12 +243,13 @@ function resolveHeaderRowCount(grid: GridHost): number {
  * in `beginBatch` / `endBatch` so adapters can defer per-cell sync commits to a
  * single render at the end (#330).
  */
-function syncRowPool(grid: GridHost, needed: number, bodyEl: HTMLElement | null): void {
+function syncRowPool(grid: GridHost, start: number, needed: number, bodyEl: HTMLElement | null): void {
   // Note: click/dblclick handlers are delegated at grid level, so pooled rows
   // need no per-element listeners. Template cloning beats createElement 3-4x.
   while (grid._rowPool.length < needed) {
     grid._rowPool.push(createRowFromTemplate());
   }
+  relocateEditRow(grid, start, needed, bodyEl);
   if (grid._rowPool.length <= needed) return;
 
   const adapter = grid.__frameworkAdapter;
@@ -341,7 +346,12 @@ function reconcileRow(
   // In grid edit mode every row carries editors — but only rows that were NOT
   // recycled (same data ref) still own them. A recycled row must rebuild so
   // afterCellRender can re-evaluate per-cell editability for the new row data.
-  const isActivelyEditedRow = (!!grid._isGridEditMode && !dataRefChanged) || grid._activeEditRows === rowIndex;
+  // In row mode, an element still bound to the same row keeps its editors too:
+  // `relocateEditRow` moved it here, and `_activeEditRows` can lag behind when
+  // rows were spliced without running processRows (insertRow/removeRow, #572).
+  const isActivelyEditedRow =
+    (!dataRefChanged && (!!grid._isGridEditMode || (grid._activeEditRows ?? -1) >= 0)) ||
+    grid._activeEditRows === rowIndex;
 
   if (!structureValid) {
     if (hasEditing && isActivelyEditedRow) {
@@ -368,6 +378,51 @@ function reconcileRow(
 
   fastPatchRow(grid, rowEl, rowData, rowIndex);
   if (dataRefChanged) rowEl.__rowDataRef = rowData;
+}
+
+/**
+ * Move the pooled element holding the live row-mode editors to the slot its row
+ * renders at now (#572). The pool is positional (`_rowPool[i]` ↔ `_rows[start + i]`),
+ * so when the edit row changes index (reorder, insert/remove above it, scroll) its
+ * editors — and the user's uncommitted draft — would otherwise be cleared and
+ * re-injected from the committed row data.
+ *
+ * The neighbours are moved in the DOM, never the edit element: detaching it would
+ * blur a focused editor. Keyed on the element's row reference rather than
+ * `_activeEditRows`, which lags on paths that skip processRows. Also moves the
+ * grid's focus row along with the editor, even when the pool slot is unchanged.
+ */
+function relocateEditRow(grid: GridHost, start: number, needed: number, bodyEl: HTMLElement | null): void {
+  if (grid._isGridEditMode || (grid._activeEditRows ?? -1) < 0 || !bodyEl) return;
+  const pool = grid._rowPool;
+  const rows = grid._rows;
+  // Scan the whole pool: a shrinking window leaves the edit element in a trailing slot.
+  let from = 0;
+  while (from < pool.length && !hasEditingCells(pool[from])) from++;
+  if (from === pool.length) return;
+  const editEl = pool[from];
+  const ref = editEl.__rowDataRef;
+  if (editEl.parentNode !== bodyEl) return;
+  let to = 0;
+  while (to < needed && rows[start + to] !== ref) to++;
+  // Row left the window (or the data): normal recycling clears the editors.
+  if (to === needed) return;
+
+  // The focus cursor follows the editor that holds DOM focus — moved BEFORE the
+  // cells are patched, so `cell-focus`/`aria-selected` land on the right row. Its
+  // cells still carry the index it was last rendered at. Runs even when the slot
+  // is unchanged: the row index and the window start can shift by the same offset.
+  if (grid._focusRow === Number(editEl.firstElementChild?.getAttribute('data-row'))) grid._focusRow = start + to;
+  if (from === to) return;
+
+  pool.splice(from, 1);
+  pool.splice(to, 0, editEl);
+  if (from < to) {
+    for (let i = from; i < to; i++) bodyEl.insertBefore(pool[i], editEl);
+  } else {
+    const next = editEl.nextSibling;
+    for (let i = to + 1; i <= from; i++) bodyEl.insertBefore(pool[i], next);
+  }
 }
 
 /** Toggle the `changed` class from EditingPlugin's dirty-row id set. */
@@ -434,7 +489,7 @@ export function renderVisibleRows(
   const colLen = columns.length;
   const headerRowCount = resolveHeaderRowCount(grid);
 
-  syncRowPool(grid, needed, bodyEl);
+  syncRowPool(grid, start, needed, bodyEl);
 
   // Check if any plugin has a renderRow hook (cache this)
   const hasRenderRowPlugins = renderRowHook && grid.__hasRenderRowPlugins !== false;
@@ -638,6 +693,12 @@ function patchPlainCells(
   for (let i = 0; i < minLen; i++) {
     const cell = children[i] as HTMLElement;
 
+    // Update data-row for click handling — editing cells too: a relocated edit
+    // row (#572) must report its new index, or a click restarts the edit elsewhere.
+    if (cell.getAttribute('data-row') !== rowIndexStr) {
+      cell.setAttribute('data-row', rowIndexStr);
+    }
+
     // Skip cells in edit mode - they have editors that must be preserved
     if (cell.classList.contains(GridClasses.EDITING)) continue;
 
@@ -651,10 +712,6 @@ function patchPlainCells(
     const value = resolveCellValue(rowData, col, rowIndex);
     cell.textContent = value == null ? '' : String(value);
     if (loader) cell.appendChild(loader);
-    // Update data-row for click handling
-    if (cell.getAttribute('data-row') !== rowIndexStr) {
-      cell.setAttribute('data-row', rowIndexStr);
-    }
     // aria-selected only valid for gridcell, not checkbox (but this path has no special cols)
     patchCellFocus(cell, focusRow === rowIndex && focusCol === i);
 

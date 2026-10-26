@@ -401,8 +401,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       editingCells: this.#editingCells,
       editorValueCallbacks: this.#editorValueCallbacks,
       isEditSessionActive: () => this.#activeEditRow !== -1,
-      commitCellValue: (ri, col, val, row) => this.#commitCellValue(ri, col, val, row),
-      exitRowEdit: (ri, revert) => this.#exitRowEdit(ri, revert),
+      // Row mode: editors survive their row moving to another index (#572), so the index
+      // they captured at injection can be stale — both callbacks target the active edit row.
+      commitCellValue: (ri, col, val, row) => this.#commitCellValue(this.#editorRow(ri), col, val, row),
+      exitRowEdit: (ri, revert) => {
+        ri = this.#editorRow(ri);
+        if (ri !== -1) this.#exitRowEdit(ri, revert);
+      },
     };
 
     // Inject editing state and methods onto grid for backward compatibility
@@ -2097,11 +2102,21 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   }
 
   /**
+   * Row index an injected editor's callbacks act on. Grid mode: the index captured
+   * at injection. Row mode: the active edit row — the only row with live editors,
+   * whose index moves while its editors survive (#572).
+   */
+  #editorRow(capturedIndex: number): number {
+    return this.#isGridMode ? capturedIndex : this.#activeEditRow;
+  }
+
+  /**
    * Migrate all index-keyed editing state when the active edit row moves to
    * a different position in `_rows` (e.g. after sort, filter, or new data push).
    *
    * Updates: `#activeEditRow`, `#editingCells`, `#rowEditSnapshots`,
-   * `#editorValueCallbacks`, and syncs `_activeEditRows` on the grid.
+   * `#editorValueCallbacks`, and syncs `_activeEditRows` on the grid. The focus
+   * cursor follows the live editor in core `rows.ts#relocateEditRow` (#572).
    */
   #migrateEditRowIndex(oldIndex: number, newIndex: number): void {
     this.#activeEditRow = newIndex;

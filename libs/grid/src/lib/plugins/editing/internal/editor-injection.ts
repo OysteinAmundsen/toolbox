@@ -51,9 +51,16 @@ export interface EditorInjectionDeps<T> {
   editorValueCallbacks: Map<string, (newValue: unknown) => void>;
   /** Returns `true` when an edit session is active (#activeEditRow !== -1). */
   isEditSessionActive: () => boolean;
-  /** Commit a single cell value change. */
+  /**
+   * Commit a single cell value change. `rowIndex` is honoured in grid mode only — in
+   * row mode the plugin substitutes the active edit row, because editors outlive
+   * their row moving to another index and this index can be stale (#572).
+   */
   commitCellValue: (rowIndex: number, column: ColumnConfig<T>, newValue: unknown, rowData: T) => void;
-  /** Exit editing for a row (commit or revert). */
+  /**
+   * Exit editing for a row (commit or revert). `rowIndex` is honoured in grid mode
+   * only — row mode always exits the active edit row (#572).
+   */
   exitRowEdit: (rowIndex: number, revert: boolean) => void;
 }
 

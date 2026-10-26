@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.10.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.10.1...grid-3.10.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **editing/hierarchy:** keep nested tree row edit alive across re-renders ([#570](https://github.com/OysteinAmundsen/toolbox/issues/570)) ([#571](https://github.com/OysteinAmundsen/toolbox/issues/571)) ([8a41f78](https://github.com/OysteinAmundsen/toolbox/commit/8a41f78f0fb340a3c7794cd4dfcad64eb1ae247d))
+* **grid/editing:** keep uncommitted row-edit draft when the edit row moves to another index ([#572](https://github.com/OysteinAmundsen/toolbox/issues/572)) ([#574](https://github.com/OysteinAmundsen/toolbox/issues/574)) ([07478a5](https://github.com/OysteinAmundsen/toolbox/commit/07478a5f93532c543acf2a4abd362569e2877b83))
+
 ## [3.10.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.10.0...grid-3.10.1) (2026-10-23)
 
 

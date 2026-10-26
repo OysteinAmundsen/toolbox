@@ -159,6 +159,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * @internal
    */
   static override readonly manifest: PluginManifest = {
+    hookPriority: {
+      // Run after every row-shaping plugin (ServerSide -10, Filtering/MultiSort 0,
+      // Tree/GroupingRows 10) so the edit row's index matches the final rows BEFORE
+      // DOM reconciliation preserves the editing row element (#570).
+      processRows: 50,
+    },
     ownedProperties: [
       {
         property: 'editable',
@@ -207,6 +213,11 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         type: 'commitCellValue',
         description:
           'Commits a single cell value coming from a core row mutation (updateRow/updateRows), running the full edit pipeline: cancelable cell-commit (validation/abortion), dirty tracking, history, and cascade. Returns true (applied), false (vetoed), or undefined (not handled).',
+      },
+      {
+        type: 'getRowSubstitutes',
+        description:
+          'Returns a Map<rowId, row> of the in-progress row-mode edit row (or undefined when none), so structural plugins (Hierarchy) keep the edited object when rows are replaced with new objects at any nesting level',
       },
     ],
   };
@@ -784,6 +795,14 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (query.type === 'commitCellValue') {
       return this.#handleCommitCellValue(query.context as CommitCellValueContext);
     }
+    if (query.type === 'getRowSubstitutes') {
+      // Swap the in-progress row in BEFORE Tree builds the hierarchy, so its keys,
+      // indent and aria-level are built around this object (#570).
+      if (this.#activeEditRow === -1 || this.#isGridMode || !this.#activeEditRowId || !this.#activeEditRowRef) {
+        return undefined;
+      }
+      return new Map<string, unknown>([[this.#activeEditRowId, this.#activeEditRowRef]]);
+    }
     return undefined;
   }
 
@@ -1337,21 +1356,27 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * Stabilize the actively edited row across `rows` array replacements and
    * capture dirty tracking baselines.
    *
+   * Runs LAST in the row pipeline (`hookPriority.processRows: 50`), so `rows`
+   * is the final flattened model (sorted, filtered, tree/group-flattened).
+   *
    * **Editing stability:** When the consumer reassigns `grid.rows` while
    * editing, the full pipeline (sort, filter, group) runs on the new data.
-   * This hook finds the edited row in the new array by ID and swaps in the
-   * in-progress row reference (`#activeEditRowRef`) so editors survive.
+   * This hook finds the edited row in the new array by ID, swaps in the
+   * in-progress row reference (`#activeEditRowRef`) so editors survive, and
+   * moves the edit index there before the DOM is reconciled. Nested rows are
+   * swapped earlier by HierarchyPlugin (`getRowSubstitutes`, #570).
    *
    * **Dirty tracking baselines:** When `dirtyTracking` is enabled, captures
-   * a `structuredClone` snapshot of each row on first appearance
-   * (first-write-wins). This prevents Angular's feedback loop from
-   * overwriting baselines.
+   * a `structuredClone` snapshot of each SOURCE row on first appearance
+   * (first-write-wins) — `sourceRows`, not `rows`, so rows hidden by a filter
+   * or a collapsed parent still get one. This prevents Angular's feedback loop
+   * from overwriting baselines.
    *
    * @internal Plugin API — part of the render pipeline
    */
   override processRows(rows: readonly T[]): T[] {
     // --- Dirty tracking: capture baselines (first-write-wins) ---
-    if (this.config.dirtyTracking) this.#captureBaselines(rows);
+    if (this.config.dirtyTracking) this.#captureBaselines(this.sourceRows);
 
     // --- Editing stability: swap in the in-progress row ---
     if (this.#activeEditRow === -1 || this.#isGridMode) return rows as T[];
@@ -1362,29 +1387,28 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Without a stable row ID we cannot match across array replacements
     if (!editRowId || !editRowRef) return rows as T[];
 
-    const result = [...rows] as T[];
-
     // Find the edited row's new position by ID
     let newIndex = -1;
-    for (let i = 0; i < result.length; i++) {
-      if (this.#safeGetRowId(result[i]) === editRowId) {
+    for (let i = 0; i < rows.length; i++) {
+      if (this.#safeGetRowId(rows[i]) === editRowId) {
         newIndex = i;
         break;
       }
     }
 
-    if (newIndex === -1) {
-      // Row was deleted server-side — close the editor.
-      // Cannot close synchronously during the processRows pipeline;
-      // schedule for after the current render cycle completes.
-      setTimeout(() => this.cancelActiveRowEdit(), 0);
-      return result;
+    // Not rendered (removed, filtered out, parent collapsed): `afterRender` closes
+    // the editor — the single "row gone" verdict, scheduled after this render.
+    if (newIndex === -1) return rows as T[];
+
+    let result = rows as T[];
+    if (rows[newIndex] !== editRowRef) {
+      // Swap in the in-progress row data to preserve editor state
+      result = [...rows] as T[];
+      result[newIndex] = editRowRef;
     }
 
-    // Swap in the in-progress row data to preserve editor state
-    result[newIndex] = editRowRef;
-
-    // Update index-keyed state if the position changed (due to sort/filter)
+    // Move index-keyed state BEFORE reconciliation: rows.ts keeps the live editor
+    // on the element at `_activeEditRows`, so a stale index misplaces it (#570).
     if (this.#activeEditRow !== newIndex) {
       this.#migrateEditRowIndex(this.#activeEditRow, newIndex);
     }
@@ -1402,9 +1426,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const internalGrid = this.#internalGrid;
 
     // --- Editing stability: verify active edit row index ---
-    // After processRows, subsequent plugins (filtering, grouping) may have
-    // shifted row indices. Verify the index is still correct and fix if needed
-    // before re-injecting editors.
+    // processRows already moved the index against the final rows; this is the
+    // safety net for paths that skip processRows, and the single place that
+    // decides a row was removed (#570).
     if (this.#activeEditRow !== -1 && this.#activeEditRowRef && !this.#isGridMode) {
       if (internalGrid._rows[this.#activeEditRow] !== this.#activeEditRowRef) {
         const newIndex = (internalGrid._rows as T[]).indexOf(this.#activeEditRowRef);

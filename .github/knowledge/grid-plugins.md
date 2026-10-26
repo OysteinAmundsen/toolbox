@@ -134,6 +134,7 @@ modifiesRowStructure — affects the render scheduler
 | GroupingRows  | `onHeaderClick`  | -1       | intercept group headers before MultiSort   |
 | Tree          | `processRows`    | 10       | after ServerSide, before others            |
 | GroupingRows  | `processRows`    | 10       | after ServerSide                           |
+| Editing       | `processRows`    | 50       | final rows → edit index before reconcile   |
 | Pivot         | `processRows`    | 100      | after MultiSort, apply aggregation         |
 
 ## scroll dispatch

@@ -1475,7 +1475,13 @@ by identity (object reference) and remaps the edit index after the data pipeline
 runs, so the editor stays attached to the correct row even when its position changes.
 
 If the editing row is removed from the processed data (e.g., filtered out), the
-edit session is automatically canceled to prevent stale state.
+edit session is automatically canceled to prevent stale state. This check runs
+against the final rendered rows, so nested rows behave the same as top-level
+ones: re-rendering (for example `grid.requestRender()` from a `cell-commit`
+handler) or replacing `rows` with new objects that keep the same row IDs (with
+`getRowId` configured) while a child row of a [tree](/grid/plugins/tree/) is in
+edit keeps the edit open on the in-progress row. The session ends only when the
+row is no longer rendered (removed, filtered out, or its parent collapsed).
 
 ## See Also
 

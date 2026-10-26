@@ -66,18 +66,21 @@ const rowElOf = (grid: HTMLElement, row: Row) =>
 
 /**
  * Type an uncommitted draft into the edit row's column-`a` editor (input event only, no change/blur).
- * Carrying the draft across an index move is #572; these tests assert it never lands on another row.
+ * Returns the editor so tests can assert the draft is carried across an index move (#572).
  */
-function typeDraft(grid: HTMLElement, row: Row, value: string): void {
+function typeDraft(grid: HTMLElement, row: Row, value: string): HTMLInputElement {
   const input = rowElOf(grid, row)?.querySelector('.cell.editing[data-col="1"] input') as HTMLInputElement;
   input.value = value;
   input.dispatchEvent(new Event('input', { bubbles: true }));
+  return input;
 }
 
-/** Both editors sit on `row`'s element, and no other row shows or received the draft. */
-function expectEditorsOnlyOn(grid: HTMLElement, row: Row, draft: string): void {
+/** Both editors sit on `row`'s element, the live draft editor survived, and no other row has it. */
+function expectEditorsOnlyOn(grid: HTMLElement, row: Row, draft: string, input: HTMLInputElement): void {
   expect(rowElOf(grid, row)?.querySelectorAll('.cell.editing').length).toBe(2);
   expect(editorCount(grid)).toBe(2);
+  expect(rowElOf(grid, row)?.querySelector('.cell.editing[data-col="1"] input')).toBe(input);
+  expect(input.value).toBe(draft);
   for (const el of grid.querySelectorAll('.data-grid-row')) {
     const data = (el as any).__rowDataRef as Row;
     if (data === row) continue;
@@ -206,7 +209,7 @@ describe('row-mode editing of nested tree rows (#570)', () => {
 
     editing.beginBulkEdit(1);
     await settle();
-    typeDraft(grid, child, 'draft');
+    const input = typeDraft(grid, child, 'draft');
 
     const sibling: Row = { id: 'c0', a: 'sib', b: 'ling' };
     rows[0].children!.unshift(sibling);
@@ -215,7 +218,7 @@ describe('row-mode editing of nested tree rows (#570)', () => {
 
     expect(grid._rows[2]).toBe(child);
     expect(grid._activeEditRows).toBe(2);
-    expectEditorsOnlyOn(grid, child, 'draft');
+    expectEditorsOnlyOn(grid, child, 'draft', input);
   });
 
   it('keeps a top-level row editor on its row when a filter hides a row above it', async () => {
@@ -231,14 +234,14 @@ describe('row-mode editing of nested tree rows (#570)', () => {
 
     grid.getPluginByName('editing').beginBulkEdit(1);
     await settle();
-    typeDraft(grid, r2, 'draft');
+    const input = typeDraft(grid, r2, 'draft');
 
     grid.getPluginByName('filtering').setFilter('a', { type: 'text', operator: 'equals', value: 'keep' });
     await settle();
 
     expect(grid._rows[0]).toBe(r2);
     expect(grid._activeEditRows).toBe(0);
-    expectEditorsOnlyOn(grid, r2, 'draft');
+    expectEditorsOnlyOn(grid, r2, 'draft', input);
   });
 
   it('still closes the editor when the nested row is removed from the data', async () => {

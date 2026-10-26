@@ -1474,6 +1474,12 @@ EditingPlugin preserves the active edit session. The plugin tracks the editing r
 by identity (object reference) and remaps the edit index after the data pipeline
 runs, so the editor stays attached to the correct row even when its position changes.
 
+The live editors move with the row, so values the user has typed but not yet
+committed — and the focused editor itself — survive the move. This holds whether the
+row changes position because `rows` was reassigned in a different order, a row was
+added or removed above it (`insertRow()`, `removeRow()`, a new tree child), or the
+grid scrolled while the row stayed in view.
+
 If the editing row is removed from the processed data (e.g., filtered out), the
 edit session is automatically canceled to prevent stale state. This check runs
 against the final rendered rows, so nested rows behave the same as top-level

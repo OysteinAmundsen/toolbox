@@ -143,4 +143,75 @@ describe('buildHierarchy', () => {
     expect(seen).toEqual([{ level: 1, setSize: 1, posInSet: 1 }]);
     expect(meta.has(a)).toBe(false);
   });
+
+  it('substitutes rows at every nesting level before contributors see them', () => {
+    const tree = treeLike();
+    const pinnedChild = { id: 'c', value: 'in-progress' };
+    const pinnedParent = { id: 'p', children: [{ id: 'old-kid' }] };
+    const freshChild = { id: 'c', value: 'fresh' };
+    const freshParent = { id: 'p', children: [freshChild] };
+    const pinned = new Map<string, unknown>([['c', pinnedChild]]);
+    const substitute = (row: unknown) => pinned.get((row as Row).id) ?? row;
+    const meta = new WeakMap<object, HierarchyRowMeta>();
+
+    const out = buildHierarchy([freshParent], [tree], meta, substitute);
+
+    expect(out).toEqual([freshParent, pinnedChild]);
+    expect(out[1]).toBe(pinnedChild);
+    expect(meta.get(pinnedChild)).toEqual({ level: 2, setSize: 1, posInSet: 1 });
+
+    // A pinned PARENT keeps its own children, like EditingPlugin's top-level swap.
+    pinned.set('p', pinnedParent);
+    expect(buildHierarchy([freshParent], [treeLike()], undefined, substitute)).toEqual([
+      pinnedParent,
+      { id: 'old-kid' },
+    ]);
+  });
+
+  it('copies on write: a contributor-owned children list is left untouched', () => {
+    const fresh = { id: 'c' };
+    const pinnedRow = { id: 'c', pinned: true };
+    let ownedChildren: HierarchyNode[] | undefined;
+    const tree: HierarchyContributor = {
+      hierarchyStage: 'structure',
+      beginHierarchy: () => true,
+      processSiblings(nodes) {
+        for (const node of nodes) {
+          const row = node.row as Row;
+          if (row.children) {
+            node.expanded = true;
+            node.children = ownedChildren = row.children.map((child) => ({ row: child }));
+          }
+        }
+        return nodes;
+      },
+      endHierarchy: () => true,
+    };
+    const substitute = (row: unknown) => ((row as Row).id === 'c' ? pinnedRow : row);
+
+    const out = buildHierarchy([{ id: 'p', children: [fresh] }], [tree], undefined, substitute);
+
+    expect(out[1]).toBe(pinnedRow);
+    expect(ownedChildren?.[0].row).toBe(fresh);
+  });
+
+  it('substitutes roots once, before contributors decide whether to activate', () => {
+    const pinnedParent = { id: 'p', children: [{ id: 'kid' }] };
+    const freshParent = { id: 'p', children: [] };
+    const seenByBegin: unknown[][] = [];
+    const calls: unknown[] = [];
+    const tree = treeLike();
+    const gated: HierarchyContributor = {
+      ...tree,
+      // Like TreePlugin: sit out unless some root actually has children.
+      beginHierarchy: (rows) => (seenByBegin.push([...rows]), rows.some((r) => (r as Row).children?.length)),
+    };
+    const substitute = (row: unknown) => (calls.push(row), (row as Row).id === 'p' ? pinnedParent : row);
+
+    const out = buildHierarchy([freshParent], [gated], undefined, substitute);
+
+    expect(seenByBegin).toEqual([[pinnedParent]]);
+    expect(out).toEqual([pinnedParent, { id: 'kid' }]);
+    expect(calls.filter((r) => (r as Row).id === 'p')).toHaveLength(1);
+  });
 });

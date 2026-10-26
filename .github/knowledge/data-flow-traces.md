@@ -180,7 +180,8 @@ RAF:
   │   ├─ Tree.processRows(10) — query sort:get-model (hierarchical sort), flatten tree
   │   │   (include children of expanded keys), set __treeLevel/__isExpanded/__hasChildren
   │   ├─ MultiSort.processRows — sort flattened tree respecting hierarchy
-  │   └─ Filtering.processRows — filter respecting tree structure
+  │   ├─ Filtering.processRows — filter respecting tree structure
+  │   └─ Editing.processRows(50) — LAST: move edit index to the final row (before reconcile)
   ├─ virtualization recalculates (row count changed) → initializePositionCache
   │   (variable heights) → refreshVirtualWindow → renderVisibleRows
   └─ _schedulerAfterRender() → Tree.afterCellRender — indent styling, expander icon state

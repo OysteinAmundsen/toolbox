@@ -6,6 +6,30 @@
 
 import type { HierarchyContributor, HierarchyNode, HierarchyRowMeta } from './types';
 
+/** Copy-on-write: contributors may hold on to node objects, so a substituted node is a new object. */
+function substituteRows(nodes: HierarchyNode[], substitute: (row: unknown) => unknown): HierarchyNode[] {
+  let out: HierarchyNode[] | undefined;
+  for (let i = 0; i < nodes.length; i++) {
+    const row = substitute(nodes[i].row);
+    if (row === nodes[i].row) continue;
+    out ??= nodes.slice();
+    out[i] = { ...nodes[i], row };
+  }
+  return out ?? nodes;
+}
+
+/** Copy-on-write substitution of a plain row list (the roots, before any node exists). */
+function substituteValues(rows: readonly unknown[], substitute: (row: unknown) => unknown): readonly unknown[] {
+  let out: unknown[] | undefined;
+  for (let i = 0; i < rows.length; i++) {
+    const row = substitute(rows[i]);
+    if (row === rows[i]) continue;
+    out ??= rows.slice();
+    out[i] = row;
+  }
+  return out ?? rows;
+}
+
 /**
  * Build the flat row list for `rows` from every contributor's sibling-list
  * transforms, recording each emitted row's ARIA position in `meta`.
@@ -29,6 +53,10 @@ import type { HierarchyContributor, HierarchyNode, HierarchyRowMeta } from './ty
  * @param rows - The root rows.
  * @param contributors - Contributors to run, in `processRows` hook order.
  * @param meta - Receives each emitted row's position. Pass a fresh map per rebuild.
+ * @param substitute - Optional. Maps a row to the object to use in its place, at
+ * every nesting level, before any contributor sees it. Return the row itself to
+ * keep it. `HierarchyPlugin` uses this to keep a row being edited when the data
+ * is replaced with new objects. Added in 3.10.2.
  * @returns The flattened rows, in render order.
  * @since 3.9.0
  */
@@ -36,17 +64,22 @@ export function buildHierarchy(
   rows: readonly unknown[],
   contributors: readonly HierarchyContributor[],
   meta: WeakMap<object, HierarchyRowMeta> = new WeakMap(),
+  substitute?: (row: unknown) => unknown,
 ): unknown[] {
+  // Roots are substituted BEFORE activation: `beginHierarchy` decides from them whether
+  // there is any structure (a pinned parent may be the only row with children).
+  const roots = substitute ? substituteValues(rows, substitute) : rows;
   const active: HierarchyContributor[] = [];
   for (const stage of ['structure', 'transform'] as const) {
     for (const c of contributors) {
-      if (c.hierarchyStage === stage && c.beginHierarchy(rows)) active.push(c);
+      if (c.hierarchyStage === stage && c.beginHierarchy(roots)) active.push(c);
     }
   }
-  if (active.length === 0) return [...rows];
+  if (active.length === 0) return [...roots];
 
   const out: unknown[] = [];
   const process = (nodes: HierarchyNode[], parent: HierarchyNode | null, depth: number): HierarchyNode[] => {
+    if (substitute && parent) nodes = substituteRows(nodes, substitute);
     const context = { parent: parent ? parent.row : null, parentKey: parent?.key ?? null, depth };
     for (const c of active) nodes = c.processSiblings(nodes, context);
     return nodes;
@@ -66,9 +99,9 @@ export function buildHierarchy(
     }
   };
 
-  const roots: HierarchyNode[] = new Array(rows.length);
-  for (let i = 0; i < rows.length; i++) roots[i] = { row: rows[i] };
-  emit(process(roots, null, 0), 0);
+  const rootNodes: HierarchyNode[] = new Array(roots.length);
+  for (let i = 0; i < roots.length; i++) rootNodes[i] = { row: roots[i] };
+  emit(process(rootNodes, null, 0), 0);
 
   const positionOf = (row: unknown) => (typeof row === 'object' && row !== null ? meta.get(row) : undefined);
   let shaped = false;

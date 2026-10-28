@@ -3,7 +3,6 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GridElement } from '../../core/plugin/base-plugin';
-import type { InternalGrid } from '../../core/types';
 import { ShellPlugin } from './shell-plugin';
 
 /**
@@ -52,6 +51,109 @@ describe('ShellPlugin (skeleton)', () => {
   });
 });
 
+describe('ShellPlugin toolPanel.width (#575)', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  function setup() {
+    const host = document.createElement('div');
+    const renderRoot = document.createElement('div');
+    const panel = document.createElement('div');
+    panel.className = 'tbw-tool-panel';
+    renderRoot.appendChild(panel);
+    host.appendChild(renderRoot);
+    document.body.appendChild(host);
+    const mock: Partial<GridElement> = {
+      _renderRoot: renderRoot,
+      _hostElement: host,
+      _registerLightDomHandler: () => undefined,
+      _unregisterLightDomHandler: () => undefined,
+      _getToolPanelRendererFactory: () => undefined,
+      _pluginShellContributions: () => ({ toolPanels: [], headerContents: [] }),
+    };
+    // Each call models a fresh `new ShellPlugin()` replacing the previous one.
+    const attachInstance = () => {
+      const plugin = new ShellPlugin();
+      plugin.attach(mock as GridElement);
+      return (width?: number) => plugin.processConfig({ shell: { toolPanel: { width } } });
+    };
+    const merge = attachInstance();
+    const cssVar = () => host.style.getPropertyValue('--tbw-tool-panel-width');
+    return { merge, attachInstance, host, panel, cssVar };
+  }
+
+  it('writes the configured width to --tbw-tool-panel-width', () => {
+    const { merge, cssVar } = setup();
+    merge(400);
+    expect(cssVar()).toBe('400px');
+  });
+
+  it('re-applies when the configured width changes', () => {
+    const { merge, cssVar } = setup();
+    merge(400);
+    merge(320);
+    expect(cssVar()).toBe('320px');
+  });
+
+  it('clears the variable when the configured width is removed', () => {
+    const { merge, cssVar } = setup();
+    merge(400);
+    merge(undefined);
+    expect(cssVar()).toBe('');
+  });
+
+  it('keeps a user-dragged width while the configured width is unchanged or removed', () => {
+    const { merge, host, cssVar } = setup();
+    merge(400);
+    // The resize handle writes the dragged width to the same host variable.
+    host.style.setProperty('--tbw-tool-panel-width', '512px');
+    merge(400);
+    expect(cssVar()).toBe('512px');
+    merge(undefined);
+    expect(cssVar()).toBe('512px');
+  });
+
+  it('leaves a consumer-set variable alone when no width is configured', () => {
+    const { merge, host, cssVar } = setup();
+    host.style.setProperty('--tbw-tool-panel-width', '300px');
+    merge(undefined);
+    expect(cssVar()).toBe('300px');
+  });
+
+  it.each([0, -10, Number.NaN, Number.POSITIVE_INFINITY])('ignores an invalid width (%s)', (width) => {
+    const { merge, cssVar } = setup();
+    merge(width);
+    expect(cssVar()).toBe('');
+  });
+
+  it("releases a replaced instance's configured width", () => {
+    const { merge, attachInstance, cssVar } = setup();
+    merge(400);
+    attachInstance()(undefined);
+    expect(cssVar()).toBe('');
+  });
+
+  it('keeps a dragged width when a replacing instance carries the same configured width', () => {
+    const { merge, attachInstance, host, cssVar } = setup();
+    merge(400);
+    host.style.setProperty('--tbw-tool-panel-width', '512px');
+    attachInstance()(400);
+    expect(cssVar()).toBe('512px');
+  });
+
+  it('clears the dragged inline panel width only when the configured width changes', () => {
+    const { merge, panel } = setup();
+    merge(400);
+    // `setupToolPanelResize` leaves the dragged width inline on the panel.
+    panel.style.width = '512px';
+    merge(400);
+    expect(panel.style.width).toBe('512px');
+    merge(320);
+    expect(panel.style.width).toBe('');
+  });
+});
+
 describe('ShellPlugin re-anchor observer lifecycle', () => {
   afterEach(() => {
     document.body.innerHTML = '';
@@ -77,7 +179,7 @@ describe('ShellPlugin re-anchor observer lifecycle', () => {
       host.appendChild(renderRoot);
       document.body.appendChild(host);
       const toolPanel = { mode: 'dropdown' as 'dropdown' | 'overlay' | 'push' };
-      const mock: Partial<InternalGrid> = {
+      const mock: Partial<GridElement> = {
         id: 'g1',
         _renderRoot: renderRoot,
         _hostElement: host,
@@ -85,10 +187,10 @@ describe('ShellPlugin re-anchor observer lifecycle', () => {
         _unregisterLightDomHandler: () => undefined,
         effectiveConfig: { shell: { toolPanel } },
       };
-      const grid = mock as InternalGrid;
+      const grid = mock as GridElement;
 
       const plugin = new ShellPlugin();
-      plugin.attach(grid as GridElement);
+      plugin.attach(grid);
       plugin.ensureState(grid);
       plugin.shellState.isPanelOpen = true;
 

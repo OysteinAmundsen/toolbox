@@ -78,6 +78,12 @@ Validated by `validatePluginDependencies`. Tests: `validate-config.spec.ts` "she
 - INVARIANT: the popover's `setSize` clamps through the SAME `minWidth` (200) and `availableMax()` (`shellBody` width − 20) as `onMove`, so no pointer path can reach a size the drag cannot. `availableMax()` is re-measured per call (the shell body resizes). Safe to leave open across clicks because `onResize` here only sets `--tbw-tool-panel-width` on the host (`shell-plugin.ts#setupListeners`) — no re-render, so the anchor handle survives.
 - The splitter is a FULL-HEIGHT anchor, which is why `place()` has a `tall` branch (anchor > 3× popover height ⇒ center on the anchor); the default below/above flip would land past the bottom of the grid. `shell.css` only adds `.tbw-tool-panel-resize[data-tbw-size-open]` to keep the seam lit while it is open.
 
+## configured width (#575)
+
+- DECIDED: `toolPanel.width` → host inline `--tbw-tool-panel-width` (same var the drag writes), written only when the config value CHANGES; cleared on removal only if still the configured value. A change also clears the drag's inline `panel.style.width` (it outranks the var). Precedence: dragged (until config changes) > config > stylesheet > `17.5em`. Never read before #575 (declared since the initial commit).
+- INVARIANT (PR #576): last configured value is recorded ON THE HOST (`Symbol.for` key, survives duplicated module copies), not the instance — a replacing `new ShellPlugin(...)` must still release / not re-clobber its predecessor's write.
+- INVARIANT: sync runs at the END of `processConfig`, not a render hook — a value-only `gridConfig` change re-merges but may fire NO render.
+
 ## tool-panel width clamp (#449, SC 1.4.10)
 
 - INVARIANT (#449): the docked panel's `&.open` rule carries BOTH `width: min(var(--tbw-tool-panel-width), 100% - 20px)` AND `max-width: calc(100% - 20px)`. The `width` clamps the auto-open size; only the `max-width` can rein in a **dragged** width, which `setupToolPanelResize` writes as an INLINE `el.style.width` that no ordinary declaration outranks. Dropping either half reopens the bug.

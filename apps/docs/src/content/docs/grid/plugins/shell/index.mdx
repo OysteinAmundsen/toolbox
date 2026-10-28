@@ -317,7 +317,7 @@ All options live under `features.shell` and are typed by `ShellConfig`
 | `header.visible` | `boolean` | `true` | Render the header bar. Set `false` to suppress the entire `.tbw-shell-header` and own all chrome yourself |
 | `header.toolPanelToggle` | `boolean` | `true` | Render the built-in panel toggle button + separator |
 | `toolPanel.position` | `'left' \| 'right'` | `'right'` | Sidebar position |
-| `toolPanel.width` | `number` | `280` | Sidebar width in pixels |
+| `toolPanel.width` | `number` | `17.5em` (~280px) | Sidebar width in pixels. Sets `--tbw-tool-panel-width` on the grid host; a user-dragged width is kept until this value changes |
 | `toolPanel.defaultOpen` | `string` | — | Accordion section to auto-expand on first open. Also opens the sidebar on load — see [#259](https://github.com/OysteinAmundsen/toolbox/issues/259) for the planned split. Prefer `initialState` / `locked` to control the open state and `defaultOpen` purely for section selection. |
 | `toolPanel.initialState` | `'open' \| 'closed'` | `'closed'` | Whether the sidebar starts open on grid load. Takes precedence over `defaultOpen`'s open-on-load behavior when set. |
 | `toolPanel.locked` | `boolean` | `false` | Lock the sidebar open. Implies `initialState: 'open'`, makes `closeToolPanel()` a no-op, and hides the built-in toggle button. |
@@ -348,7 +348,7 @@ grid.gridConfig = {
 };
 ```
 
-In `'push'` mode the user-facing resize handle is hidden (the panel's width is part of the layout, so drag-to-resize would fight the flex container) and `closeOnClickOutside` is treated as a no-op (there is no overlap to dismiss against). Drive the width via the `--tbw-tool-panel-width` CSS variable instead.
+In `'push'` mode the user-facing resize handle is hidden (the panel's width is part of the layout, so drag-to-resize would fight the flex container) and `closeOnClickOutside` is treated as a no-op (there is no overlap to dismiss against). Set the width with `toolPanel.width` (or the `--tbw-tool-panel-width` CSS variable) instead.
 
 ### Dropdown mode + a custom column-header trigger
 

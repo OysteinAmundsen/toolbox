@@ -138,7 +138,15 @@ export interface ShellHeaderConfig {
 export interface ToolPanelConfig {
   /** Panel position: 'left' | 'right' (default: 'right') */
   position?: 'left' | 'right';
-  /** Default panel width in pixels (default: 280) */
+  /**
+   * Panel width in pixels. Written to the grid host as the
+   * `--tbw-tool-panel-width` CSS variable, so it overrides a stylesheet value
+   * for that variable. When omitted, the theme default (`17.5em`, ~280px at a
+   * 16px font size) applies.
+   *
+   * The docked panel is still clamped to the grid width (minus 20px). A width
+   * the user drags to is kept until this value changes.
+   */
   width?: number;
   /**
    * Accordion section to auto-expand the first time the tool panel opens.

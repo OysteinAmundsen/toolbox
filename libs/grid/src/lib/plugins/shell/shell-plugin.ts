@@ -47,6 +47,11 @@ import type {
   ToolPanelDefinition,
 } from './types';
 
+// `Symbol.for` so every bundled copy of this module shares the key.
+const CONFIGURED_PANEL_WIDTH: unique symbol = Symbol.for('@toolbox-web/grid:shell-configured-panel-width');
+/** Host carrying the last configured `toolPanel.width` written by any ShellPlugin instance (#575). */
+type PanelWidthHost = HTMLElement & { [CONFIGURED_PANEL_WIDTH]?: string };
+
 /**
  * Shell plugin for `<tbw-grid>`.
  *
@@ -473,6 +478,9 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
     }
     mergedContents.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     config.shell.header.toolbarContents = mergedContents;
+
+    // Applied on merge, not render: a width-only config change may not render.
+    if (grid) this.#syncConfiguredPanelWidth(grid, config.shell.toolPanel?.width);
   }
 
   /**
@@ -577,6 +585,30 @@ export class ShellPlugin extends BaseGridPlugin<ShellConfig> {
       titleEl.textContent = title;
     } else if (titleEl) {
       titleEl.remove();
+    }
+  }
+
+  /**
+   * @internal Bridge `toolPanel.width` to the `--tbw-tool-panel-width` host
+   * variable the shell CSS sizes the panel from (#575). Writes only when the
+   * configured value changes; on removal it clears the variable only if it
+   * still holds the configured value (a dragged width is kept). The last
+   * configured value is recorded on the host, not the instance, so a replaced
+   * plugin instance still releases its predecessor's override.
+   */
+  #syncConfiguredPanelWidth(grid: GridElement, width: number | undefined): void {
+    const host: PanelWidthHost = grid._hostElement;
+    const next = typeof width === 'number' && Number.isFinite(width) && width > 0 ? `${width}px` : undefined;
+    const previous = host[CONFIGURED_PANEL_WIDTH];
+    if (next === previous) return;
+    host[CONFIGURED_PANEL_WIDTH] = next;
+    const style = host.style;
+    if (next) {
+      style.setProperty('--tbw-tool-panel-width', next);
+      // A drag leaves an inline width on the open panel that outranks the variable.
+      grid._renderRoot.querySelector<HTMLElement>('.tbw-tool-panel')?.style.removeProperty('width');
+    } else if (style.getPropertyValue('--tbw-tool-panel-width') === previous) {
+      style.removeProperty('--tbw-tool-panel-width');
     }
   }
 

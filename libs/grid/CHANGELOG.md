@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.10.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.10.2...grid-3.10.3) (2026-10-28)
+
+
+### Bug Fixes
+
+* **shell:** honor configured tool panel width ([#575](https://github.com/OysteinAmundsen/toolbox/issues/575)) ([#576](https://github.com/OysteinAmundsen/toolbox/issues/576)) ([f574431](https://github.com/OysteinAmundsen/toolbox/commit/f57443136924873fad330a70cc23c6409aff91d6))
+
 ## [3.10.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.10.1...grid-3.10.2) (2026-10-26)
 
 

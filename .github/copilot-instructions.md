@@ -71,7 +71,8 @@ Loaded on demand from `.github/knowledge/` — read relevant files before starti
 | Knowledge file              | Domain                      | Content                                                                                                                     |
 | --------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `grid-core`                 | Grid internals              | Config-manager, column groups, grid.ts lifecycle, DOM structure, state ownership                                            |
-| `grid-render-pipeline`      | Render pipeline             | Render-scheduler, virtualization, rows hot path, sanitize, `core/internal/` module index                                    |
+| `grid-render-pipeline`      | Render pipeline             | Render-scheduler, virtualization, rows hot path, `core/internal/` module index                                              |
+| `grid-sanitize`             | Sanitize & templates        | HTML sanitizer invariants, URL-scheme normalisation, `{{ }}` escaping, editor-markup scrub, `keepMarkupWhenEmpty`           |
 | `grid-data-pipeline`        | Data pipeline               | value-accessor & field paths, row-manager & transactions, sort hot path, aggregators                                        |
 | `grid-input`                | Input & pointer             | Pointer modality, pointer-drag capture/promotion, coarse long-press priority policy (#302)                                  |
 | `grid-plugins`              | Plugin system               | Plugin manager, lifecycle, hooks, inter-plugin communication, manifest, scroll dispatch                                     |

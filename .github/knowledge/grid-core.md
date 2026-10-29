@@ -7,7 +7,7 @@ related: [grid-render-pipeline, grid-data-pipeline, grid-input, grid-plugins, gr
 
 Core = `libs/grid/src/lib/core/`. Lifecycle, config precedence, DOM structure, state ownership — the "what exists and who owns it" file.
 
-- Render scheduler, virtualization, `rows.ts` hot path, sanitize → grid-render-pipeline.md.
+- Render scheduler, virtualization, `rows.ts` hot path → grid-render-pipeline.md; sanitizer & `{{ }}` templates → grid-sanitize.md.
 - value-accessor, row-manager, sorting, aggregators → grid-data-pipeline.md.
 - Pointer modality, drag capture, long-press policy → grid-input.md.
 - Shell chrome (header/toolbar/panels) = PLUGIN → grid-plugins-shell.md.

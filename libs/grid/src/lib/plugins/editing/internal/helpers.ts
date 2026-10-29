@@ -14,7 +14,7 @@ import type {
   InternalGrid,
   RowElementInternal,
 } from '../../../core/types';
-import { getInputValue } from '../editors';
+import { getInputValue, isSameEditorValue } from '../editors';
 import type { EditingConfig } from '../types';
 
 // #region Constants
@@ -143,26 +143,39 @@ export function noopUpdateRow(_changes: unknown): void {
 // #region Editor Input Wiring
 
 /**
- * Auto-wire commit/cancel lifecycle for input elements in string-returned editors.
+ * Auto-wire blur/change commits for the first native control in an editor host
+ * (HTML-string factory editors and `<tbw-grid-column-editor>` templates).
+ *
+ * `currentValue` reads the row's live value. A re-read that is already equal to
+ * it is skipped — `getInputValue` returns a fresh array per call for a
+ * `<select multiple>` and `#commitCellValue` compares by reference, so `change`
+ * followed by `blur` would otherwise emit two accepted `cell-commit`s for one
+ * selection (#551). The comparison is against the ROW, never a cached baseline:
+ * a vetoed commit or an external update must stay retryable.
  */
-export function wireEditorInputs(
+export function wireEditorInputs<T>(
   editorHost: HTMLElement,
-  column: ColumnConfig<unknown>,
+  column: ColumnConfig<T>,
   commit: (value: unknown) => void,
   originalValue?: unknown,
+  currentValue?: () => unknown,
 ): void {
   const input = editorHost.querySelector('input,textarea,select') as
     HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
   if (!input) return;
 
-  input.addEventListener('blur', () => {
-    commit(getInputValue(input, column, originalValue));
-  });
+  const commitRead = () => {
+    const next = getInputValue(input, column, originalValue);
+    if (currentValue && isSameEditorValue(currentValue(), next)) return;
+    commit(next);
+  };
+
+  input.addEventListener('blur', commitRead);
 
   if (input instanceof HTMLInputElement && input.type === 'checkbox') {
     input.addEventListener('change', () => commit(input.checked));
   } else if (input instanceof HTMLSelectElement) {
-    input.addEventListener('change', () => commit(getInputValue(input, column, originalValue)));
+    input.addEventListener('change', commitRead);
   }
 }
 
@@ -171,6 +184,32 @@ export function wireEditorInputs(
 // #region Edit Guard
 
 type BeforeEditCloseFn = NonNullable<EditingConfig['onBeforeEditClose']>;
+
+/**
+ * Enter events the editor host deferred to the editor itself — editor-level
+ * `preventDefault()` (#250) or an open ARIA overlay (#251). Marked per event so
+ * `EditingPlugin`'s grid-mode Enter handler, which runs later on the same
+ * bubble, can tell "the editor owns this Enter" from "the host already
+ * committed it" — both reach the plugin with `defaultPrevented === true`.
+ */
+const enterDeferredToEditor = new WeakSet<Event>();
+
+/** Record that the host keydown handler handed `event` (Enter) to the editor. */
+export function markEnterDeferredToEditor(event: KeyboardEvent): void {
+  enterDeferredToEditor.add(event);
+}
+
+/**
+ * Whether Enter belongs to the editor: the host deferred it, or the target
+ * declares an open overlay (`aria-expanded="true"` + `aria-controls`). The
+ * attribute check repeats the host's so the verdict holds even when the host
+ * handler did not see the event (editor focused outside the host).
+ */
+export function isEnterOwnedByEditor(event: KeyboardEvent): boolean {
+  if (enterDeferredToEditor.has(event)) return true;
+  const target = event.target as HTMLElement | null;
+  return target?.getAttribute?.('aria-expanded') === 'true' && !!target.hasAttribute?.('aria-controls');
+}
 
 /** Per-event cache of `onBeforeEditClose` verdicts, keyed by callback (#558). */
 const editCloseVerdicts = new WeakMap<Event, Map<BeforeEditCloseFn, boolean>>();

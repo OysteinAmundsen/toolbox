@@ -58,9 +58,30 @@ const DANGEROUS_ATTR_PATTERN = /^on\w+$/i;
 const URL_ATTRS = new Set('href|src|action|formaction|data|srcdoc|xlink:href|poster|srcset'.split('|'));
 
 /**
- * Protocol patterns that are dangerous in URLs.
+ * Protocol patterns that are dangerous in URLs. Tested against the value AFTER
+ * {@link normalizeUrlForSchemeCheck}, which is why there is no leading `\s*`.
  */
-const DANGEROUS_URL_PROTOCOL = /^\s*(javascript|vbscript|data|blob):/i;
+const DANGEROUS_URL_PROTOCOL = /^(javascript|vbscript|data|blob):/i;
+
+/**
+ * Leading/trailing C0 controls and space, which the URL parser strips before
+ * it reads the scheme.
+ */
+// eslint-disable-next-line no-control-regex
+const URL_EDGE_CONTROLS = /^[\u0000-\u0020]+|[\u0000-\u0020]+$/g;
+
+/** ASCII tab and newlines, which the URL parser removes from anywhere in the input. */
+const URL_INNER_WHITESPACE = /[\t\n\r]/g;
+
+/**
+ * Reduce a URL attribute value to what the browser's URL parser actually sees
+ * before scheme detection (WHATWG URL § 4.4 "basic URL parser", steps 1–3).
+ * Without this, `java\tscript:alert(1)` or `\u0001javascript:…` pass the raw
+ * regex yet execute on activation.
+ */
+function normalizeUrlForSchemeCheck(url: string): string {
+  return url.replace(URL_EDGE_CONTROLS, '').replace(URL_INNER_WHITESPACE, '');
+}
 
 /**
  * Sanitize an HTML string by removing dangerous tags and attributes.
@@ -135,10 +156,32 @@ export function setSanitizedHTML(el: Element, html: string): void {
   el.replaceChildren(sanitizeToFragment(html));
 }
 
+/** Form controls an editor is made of; {@link scrubEditorMarkup} keeps these. */
+const EDITOR_CONTROL_TAGS = new Set(['input', 'button', 'textarea', 'select']);
+
 /**
- * Recursively sanitize a DOM node tree.
+ * Sanitize already-parsed editor markup **in place**, keeping form controls.
+ *
+ * Editor templates and HTML-string editor factories cannot go through
+ * {@link setSanitizedHTML}: it strips `<input>`/`<select>`/`<textarea>`/`<button>`,
+ * which is exactly what an editor consists of. They still interpolate row data,
+ * and `{{ }}` escaping only stops data from breaking out of an attribute — a
+ * `javascript:` value in `href="{{ row.url }}"` survives escaping intact. This
+ * pass applies the same attribute rules as the sanitizer (event handlers, `is`,
+ * dangerous URL protocols, `style` expressions) and drops every dangerous tag
+ * except the editor controls.
+ *
+ * @internal
  */
-function sanitizeNode(root: DocumentFragment | Element): void {
+export function scrubEditorMarkup(root: Element): void {
+  sanitizeNode(root, EDITOR_CONTROL_TAGS);
+}
+
+/**
+ * Recursively sanitize a DOM node tree. `keepTags` exempts tag names from the
+ * dangerous-tag removal (attribute scrubbing still applies to them).
+ */
+function sanitizeNode(root: DocumentFragment | Element, keepTags?: ReadonlySet<string>): void {
   const toRemove: Element[] = [];
 
   // Use querySelectorAll to find all elements, then filter
@@ -148,7 +191,7 @@ function sanitizeNode(root: DocumentFragment | Element): void {
     const tagName = el.tagName.toLowerCase();
 
     // Check if tag is dangerous
-    if (DANGEROUS_TAGS.has(tagName)) {
+    if (DANGEROUS_TAGS.has(tagName) && !keepTags?.has(tagName)) {
       toRemove.push(el);
       continue;
     }
@@ -184,7 +227,7 @@ function sanitizeNode(root: DocumentFragment | Element): void {
       }
 
       // URL attributes with dangerous protocols
-      if (URL_ATTRS.has(attrName) && DANGEROUS_URL_PROTOCOL.test(attr.value)) {
+      if (URL_ATTRS.has(attrName) && DANGEROUS_URL_PROTOCOL.test(normalizeUrlForSchemeCheck(attr.value))) {
         attrsToRemove.push(attr.name);
         continue;
       }
@@ -484,7 +527,22 @@ function safeEval(expr: string, ctx: EvalContext): unknown {
 }
 // #endregion
 
-export function evalTemplateString(raw: string, ctx: EvalContext): string {
+/**
+ * Options for {@link evalTemplateString} / {@link compileTemplate}.
+ *
+ * @internal
+ */
+export interface TemplateEvalOptions {
+  /**
+   * Keep the static markup when every `{{ }}` evaluates to empty. View templates
+   * collapse to `''` so an all-blank cell renders nothing; an editor template's
+   * markup IS the control (`<input value="{{ value }}">`), so it must survive a
+   * `null`/`''` value. Forbidden-token templates still return `''`.
+   */
+  keepMarkupWhenEmpty?: boolean;
+}
+
+export function evalTemplateString(raw: string, ctx: EvalContext, options?: TemplateEvalOptions): string {
   if (!raw || raw.indexOf('{{') === -1) return raw; // fast path (no expressions)
   const parts: { expr: string; result: string }[] = [];
   const evaluated = raw.replace(EXPR_RE, (_m, expr) => {
@@ -499,7 +557,8 @@ export function evalTemplateString(raw: string, ctx: EvalContext): string {
   // If every part evaluated to EMPTY_SENTINEL we treat this as intentionally blank.
   // If any expression was blocked due to forbidden token (EMPTY_SENTINEL) we *still* only output ''
   // but do not escalate to BLOCKED_SENTINEL unless the original contained explicit forbidden tokens.
-  const allEmpty = parts.length && parts.every((p) => p.result === '' || p.result === EMPTY_SENTINEL);
+  const allEmpty =
+    !options?.keepMarkupWhenEmpty && parts.length && parts.every((p) => p.result === '' || p.result === EMPTY_SENTINEL);
   const hadForbidden = REFLECTIVE_RE.test(raw);
   if (hadForbidden || allEmpty) return '';
   return finalStr;
@@ -558,13 +617,13 @@ export function finalCellScrub(cell: HTMLElement): void {
 // #endregion
 
 // #region Template Compilation
-export function compileTemplate(raw: string) {
+export function compileTemplate(raw: string, options?: TemplateEvalOptions) {
   if (REFLECTIVE_RE.test(raw)) {
     const fn = (() => '') as CompiledViewFunction;
     fn.__blocked = true;
     return fn;
   }
-  const fn = ((ctx: EvalContext) => evalTemplateString(raw, ctx)) as CompiledViewFunction;
+  const fn = ((ctx: EvalContext) => evalTemplateString(raw, ctx, options)) as CompiledViewFunction;
   fn.__blocked = false;
   return fn;
 }

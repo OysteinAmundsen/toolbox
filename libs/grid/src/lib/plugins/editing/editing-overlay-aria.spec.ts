@@ -251,3 +251,69 @@ describe('ColumnEditorContext.grid (#251)', () => {
     );
   });
 });
+
+describe('EditingPlugin grid mode: Enter while an overlay is open (#251 mirror)', () => {
+  let grid: any;
+
+  beforeEach(async () => {
+    ({ grid } = await mountFixture());
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  /** Grid-mode City column with `editor`; returns the focused editor input. */
+  async function focusGridModeEditor(editor: (ctx: any) => HTMLElement): Promise<HTMLInputElement> {
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID' },
+        { field: 'city', header: 'City', editable: true, editor },
+      ],
+      plugins: [new EditingPlugin({ mode: 'grid' })],
+    };
+    grid.rows = [{ id: 1, city: 'Paris' }] satisfies Row[];
+    await waitUpgrade(grid);
+    grid._focusRow = 0;
+    grid._focusCol = 1;
+    const cityCell = grid.querySelector('.cell[data-col="1"][data-row="0"]') as HTMLElement;
+    const input = cityCell.querySelector('input') as HTMLInputElement;
+    input.focus();
+    expect(document.activeElement).toBe(input);
+    return input;
+  }
+
+  const pressEnter = (target: Element) =>
+    dispatchAndSettle(target, new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+
+  it('keeps focus in an aria-expanded combobox (the overlay owns Enter)', async () => {
+    const combobox = await focusGridModeEditor(comboboxEditor);
+
+    await pressEnter(combobox);
+
+    expect(document.activeElement).toBe(combobox);
+  });
+
+  it('keeps focus in an editor that preventDefault()s Enter (#250)', async () => {
+    const input = await focusGridModeEditor((ctx: any) => {
+      const el = document.createElement('input');
+      el.value = String(ctx.value ?? '');
+      el.addEventListener('keydown', (e) => e.key === 'Enter' && e.preventDefault());
+      return el;
+    });
+
+    await pressEnter(input);
+
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('still blurs the editor and returns to navigation on an ordinary Enter', async () => {
+    const combobox = await focusGridModeEditor(comboboxEditor);
+    combobox.setAttribute('aria-expanded', 'false'); // overlay closed
+
+    await pressEnter(combobox);
+
+    expect(document.activeElement).not.toBe(combobox);
+    expect(document.activeElement).toBe(grid);
+  });
+});

@@ -50,6 +50,7 @@ import {
   FOCUSABLE_EDITOR_SELECTOR,
   getEditorAncestor,
   hasRowChanged,
+  isEnterOwnedByEditor,
   isInsideOpenAriaOverlay,
   isEscapeForOpenOverlay,
   isSafePropertyKey,
@@ -1125,6 +1126,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       // run. We don't call preventDefault, so the browser still commits the popup.
       return true;
     }
+    // Mirror of the editor-host guards (#250/#251) for the grid-mode path: an
+    // editor that owns Enter — it called `preventDefault` or has an open
+    // overlay — is confirming an option, not leaving the cell; blurring it
+    // here would close that overlay. `defaultPrevented` alone cannot tell this
+    // apart from the host's own commit (which also prevents), hence the marker.
+    if (isEnterOwnedByEditor(event)) return true;
     // Editor itself — commit + blur + return to navigation mode.
     this.#gridModeCellSnapshot = null;
     const activeEl = document.activeElement as HTMLElement | null;
@@ -1274,7 +1281,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
       if (!editor && editorTpl) {
         const params = this.#readTypeParams(typeEl);
-        const compiled = compileTemplate(editorTpl.innerHTML);
+        const compiled = compileTemplate(editorTpl.innerHTML, { keepMarkupWhenEmpty: true });
         editor = ((ctx) =>
           compiled({
             row: ctx.row as T,

@@ -458,13 +458,12 @@ export class ConfigManager<T = unknown> {
         }
       });
 
-      // Compile inline templates (from light DOM <template> elements)
+      // Compile inline view templates (from light DOM <template> elements).
+      // Editor templates are plugin-owned: the editing plugin compiles
+      // `__editorTemplate` itself with editor semantics (keep markup on blank).
       columns.forEach((c) => {
         if (c.__viewTemplate && !c.__compiledView) {
           c.__compiledView = compileTemplate((c.__viewTemplate as HTMLElement).innerHTML);
-        }
-        if (c.__editorTemplate && !c.__compiledEditor) {
-          c.__compiledEditor = compileTemplate(c.__editorTemplate.innerHTML);
         }
       });
 

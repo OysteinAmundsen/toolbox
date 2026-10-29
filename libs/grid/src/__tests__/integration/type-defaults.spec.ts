@@ -628,7 +628,14 @@ describe('Type Defaults - Light DOM tbw-grid-type', () => {
     expect(grid.querySelector('[role="gridcell"] .currency-cell')).toBeFalsy();
   }, 20000);
 
-  it('supports editor-only tbw-grid-type definitions for editing plugin', async () => {
+  /**
+   * Mount a grid whose `currency` type carries only a `<tbw-grid-column-editor>`
+   * template, click the price cell, and resolve with the rendered editor input.
+   * Scoped to the rendered cell — the raw template input stays in light DOM by
+   * design, so an unscoped `.currency-editor` query would match the inert
+   * template (value `{{ value }}`) first.
+   */
+  async function openCurrencyTypeEditor(price: number | null): Promise<HTMLInputElement> {
     const grid = document.createElement('tbw-grid') as any;
     grid.innerHTML = `
       <tbw-grid-type name="currency" data-currency="USD">
@@ -638,31 +645,26 @@ describe('Type Defaults - Light DOM tbw-grid-type', () => {
       </tbw-grid-type>
       <tbw-grid-column field="price" type="currency" editable></tbw-grid-column>
     `;
-    grid.gridConfig = {
-      plugins: [new EditingPlugin({ editOn: 'click' })],
-    };
-    grid.rows = [{ id: 1, name: 'Alice', country: 'US', status: 'active', price: 100 }];
+    grid.gridConfig = { plugins: [new EditingPlugin({ editOn: 'click' })] };
+    grid.rows = [{ id: 1, name: 'Alice', country: 'US', status: 'active', price }];
     document.body.appendChild(grid);
-
     await waitUpgrade(grid);
 
     const priceCell = grid.querySelector('[role="gridcell"][data-field="price"]') as HTMLElement;
     expect(priceCell).toBeTruthy();
     priceCell.click();
-    await vi.waitFor(() => {
-      const editor = grid.querySelector(
-        '[role="gridcell"][data-field="price"] .currency-editor',
-      ) as HTMLInputElement | null;
-      expect(editor).toBeTruthy();
-    });
+    const selector = '[role="gridcell"][data-field="price"] .currency-editor';
+    await vi.waitFor(() => expect(grid.querySelector(selector)).toBeTruthy());
+    return grid.querySelector(selector) as HTMLInputElement;
+  }
 
-    // Scope to the rendered cell — the raw `<tbw-grid-column-editor>` template
-    // input stays in light DOM by design, so an unscoped `.currency-editor`
-    // query would match the inert template (value `{{ value }}`) first.
-    const editor = grid.querySelector(
-      '[role="gridcell"][data-field="price"] .currency-editor',
-    ) as HTMLInputElement | null;
-    expect(editor).toBeTruthy();
-    expect(editor?.value).toBe('100');
+  it('supports editor-only tbw-grid-type definitions for editing plugin', async () => {
+    const editor = await openCurrencyTypeEditor(100);
+    expect(editor.value).toBe('100');
+  }, 20000);
+
+  it('renders a tbw-grid-type editor template for a blank cell (every {{ }} empty, PR #578)', async () => {
+    const editor = await openCurrencyTypeEditor(null);
+    expect(editor.value).toBe('');
   }, 20000);
 });

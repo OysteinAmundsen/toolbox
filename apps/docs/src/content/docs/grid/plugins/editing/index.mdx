@@ -919,16 +919,21 @@ const type: ColumnType = 'country'; // Works! Custom types allowed
 </ShowSource>
 
 :::caution[Editor markup is a code-trust boundary]
-Editor markup is **not** passed through the grid's HTML sanitizer. It cannot be — the sanitizer
+Editor markup does **not** go through the grid's full HTML sanitizer. It cannot — the sanitizer
 strips `input`, `select`, `textarea` and `button`, which is everything an editor is made of.
+Instead, template editors and HTML-string `editor` factories get an **editor-safe pass** that keeps
+those form controls but still removes event-handler attributes, `javascript:`/`data:` URLs (so an
+interpolated `href="{{ row.url }}"` cannot become an executable link) and non-control dangerous tags.
 
 That is safe as long as editor definitions come from your **source code**: an `editor` function or
 a light-DOM `<template editor>` is code, the same as any other component you ship. Interpolated
-row values are still HTML-escaped by the compiled template, so untrusted *data* cannot break out.
+row values are HTML-escaped by the compiled template, so untrusted *data* cannot break out of an
+attribute or inject elements.
 
 It stops being safe if editor definitions ever become **data**. Never build an `editor` function,
 an editor `template`, or the HTML inside one from a serialized config, a database column, a URL
-parameter, or any other remote source — that turns editors into an XSS sink.
+parameter, or any other remote source — that turns editors into an XSS sink. Editors that return a
+DOM node (or mount into the host) are not scrubbed at all; their safety is entirely your code's.
 :::
 
 For specialized input needs, provide a custom `editor` function:

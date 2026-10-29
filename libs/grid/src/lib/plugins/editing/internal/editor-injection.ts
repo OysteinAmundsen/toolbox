@@ -10,6 +10,7 @@
 
 import { EDITOR_MOUNT_ERROR, warnDiagnostic } from '../../../core/internal/diagnostics';
 import { parkCellLoadingOverlay } from '../../../core/internal/loading';
+import { compileTemplate, scrubEditorMarkup } from '../../../core/internal/sanitize';
 import { readCellField, writeCellField } from '../../../core/internal/value-accessor';
 import type {
   ColumnConfig,
@@ -18,7 +19,7 @@ import type {
   GridHost,
   RowElementInternal,
 } from '../../../core/types';
-import { defaultEditorFor, getInputValue, setInputValue } from '../editors';
+import { defaultEditorFor, getInputValue, isSameEditorValue, setInputValue } from '../editors';
 import type { EditingConfig } from '../types';
 import {
   FOCUSABLE_EDITOR_SELECTOR,
@@ -26,6 +27,7 @@ import {
   incrementEditingCount,
   isEscapeForOpenOverlay,
   isSafePropertyKey,
+  markEnterDeferredToEditor,
   noopUpdateRow,
   resolveEditor,
   shouldPreventEditClose,
@@ -64,6 +66,10 @@ export interface EditorInjectionDeps<T> {
   exitRowEdit: (rowIndex: number, revert: boolean) => void;
 }
 
+type NativeInput = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+
+const NATIVE_INPUT_SELECTOR = 'input,textarea,select';
+
 // #endregion
 
 // #region Editor Injection
@@ -90,18 +96,11 @@ export function injectEditor<T>(
 
   const { grid, isGridMode, config, editingCells, editorValueCallbacks } = deps;
 
-  // Get row ID for updateRow helper (may not exist)
-  let rowId: string | undefined;
-  try {
-    rowId = grid.getRowId?.(rowData);
-  } catch {
-    // Row has no ID
-  }
+  const rowId = tryGetRowId(grid, rowData);
 
-  // Create updateRow helper for cascade updates (noop if row has no ID)
+  // Cascade updates from the editor context (noop if the row has no ID)
   const updateRow: (changes: Partial<T>) => void = rowId
-    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (changes) => (grid as any).updateRow(rowId!, changes as Record<string, unknown>, 'cascade')
+    ? (changes) => grid.updateRow?.(rowId, changes, 'cascade')
     : noopUpdateRow;
 
   const originalValue = isSafePropertyKey(column.field) ? readCellField(rowData, column.field) : undefined;
@@ -114,30 +113,30 @@ export function injectEditor<T>(
   const rowEl = (parentRowEl ?? cell.parentElement) as RowElementInternal | null;
   if (rowEl) incrementEditingCount(rowEl);
 
+  // Resolve row and index fresh at commit/cancel time. With a row ID we use
+  // _getRowEntry for O(1) lookup — resilient against _rows being replaced
+  // (e.g. Angular directive effect). Without a row ID we fall back to the
+  // captured rowData reference: _rows[rowIndex] would be unsafe because the
+  // index may be stale after replacement and commit to the WRONG row.
+  const resolveCurrentRow = (): { row: T; index: number } => {
+    const entry = rowId ? grid._getRowEntry(rowId) : undefined;
+    return { row: (entry?.row ?? rowData) as T, index: entry?.index ?? rowIndex };
+  };
+  // The row's CURRENT value — what native-control re-reads dedupe against (#551).
+  const currentValue = (): unknown =>
+    isSafePropertyKey(column.field) ? readCellField(resolveCurrentRow().row, column.field) : undefined;
+
   let editFinalized = false;
   const commit = (newValue: unknown) => {
     // In grid mode, always allow commits (we're always editing)
     // In row mode, only allow commits if we're in an active edit session
     if (editFinalized || (!isGridMode && !deps.isEditSessionActive())) return;
-    // Resolve row and index fresh at commit time.
-    // With a row ID we use _getRowEntry for O(1) lookup — this is resilient
-    // against _rows being replaced (e.g. Angular directive effect).
-    // Without a row ID we fall back to the captured rowData reference.
-    // Using _rows[rowIndex] without an ID is unsafe: the index may be stale
-    // after _rows replacement, which would commit to the WRONG row.
-    const entry = rowId ? grid._getRowEntry(rowId) : undefined;
-    const currentRowData = (entry?.row ?? rowData) as T;
-    const currentIndex = entry?.index ?? rowIndex;
-    deps.commitCellValue(currentIndex, column, newValue, currentRowData);
+    const { row, index } = resolveCurrentRow();
+    deps.commitCellValue(index, column, newValue, row);
   };
   const cancel = () => {
     editFinalized = true;
-    if (isSafePropertyKey(column.field)) {
-      // Same ID-first / captured-rowData fallback as commit — see comment above.
-      const entry = rowId ? grid._getRowEntry(rowId) : undefined;
-      const currentRowData = (entry?.row ?? rowData) as T;
-      writeCellField(currentRowData, column.field, originalValue);
-    }
+    if (isSafePropertyKey(column.field)) writeCellField(resolveCurrentRow().row, column.field, originalValue);
   };
 
   const editorHost = document.createElement('div');
@@ -158,32 +157,33 @@ export function injectEditor<T>(
   cell.appendChild(editorHost);
   if (loadingOverlay) cell.appendChild(loadingOverlay);
 
-  // Keydown handler for Enter/Escape
+  // Single Enter/Escape handler for EVERY editor kind — template editors
+  // included. Keeping the guards below in one place is what makes the
+  // #250/#251/#427/#557/#558 behaviour hold across all paths.
   editorHost.addEventListener('keydown', (e: KeyboardEvent) => {
     // Respect editor-level preventDefault: portal-based pickers (combobox,
     // autocomplete, calendar) call preventDefault on Enter to confirm an
     // option without exiting the row. Bubbling reaches editorHost with
     // defaultPrevented=true; honor that and skip the row-exit logic (#250).
-    if (e.defaultPrevented) return;
-    // ARIA-expanded fallback (#251): when the focused control declares
-    // an open overlay via aria-expanded="true" + aria-controls, defer
-    // Enter to the overlay so combobox confirmation does not close the
-    // row edit. Covers libraries like Downshift / Headless UI / MUI
-    // Autocomplete that do not call preventDefault on confirm.
-    // Only short-circuit Enter here — Escape is guarded below by
-    // `isEscapeForOpenOverlay` (#558), whose verdict is cached per event
-    // because the overlay's own handler may already have closed it.
-    if (e.key === 'Enter') {
-      const ariaTarget = e.target as HTMLElement | null;
-      if (
-        ariaTarget &&
-        ariaTarget.getAttribute?.('aria-expanded') === 'true' &&
-        ariaTarget.hasAttribute?.('aria-controls')
-      ) {
-        return;
-      }
+    // Marked so the plugin's grid-mode Enter handler leaves focus alone too.
+    if (e.defaultPrevented) {
+      if (e.key === 'Enter') markEnterDeferredToEditor(e);
+      return;
     }
     if (e.key === 'Enter') {
+      // ARIA-expanded fallback (#251): when the focused control declares
+      // an open overlay via aria-expanded="true" + aria-controls, defer
+      // Enter to the overlay so combobox confirmation does not close the
+      // row edit. Covers libraries like Downshift / Headless UI / MUI
+      // Autocomplete that do not call preventDefault on confirm.
+      // Only short-circuit Enter here — Escape is guarded below by
+      // `isEscapeForOpenOverlay` (#558), whose verdict is cached per event
+      // because the overlay's own handler may already have closed it.
+      const target = e.target as HTMLElement | null;
+      if (target?.getAttribute?.('aria-expanded') === 'true' && target.hasAttribute?.('aria-controls')) {
+        markEnterDeferredToEditor(e);
+        return;
+      }
       // Native <select> open-popup guard — applies in BOTH grid and row mode.
       // When Enter's target is a *descendant* of the editor (most notably an
       // <option> inside an open native <select> popup), do nothing: let the
@@ -194,11 +194,8 @@ export function injectEditor<T>(
       // (popup closed → target IS the editor) then exits the row as usual.
       // Row mode previously lacked this guard, so keyboard selection in custom
       // <select> editors closed the row instead of picking the value (#427).
-      const enterTarget = e.target as Element | null;
-      const enterEditorAncestor = getEditorAncestor(enterTarget);
-      if (enterEditorAncestor && enterEditorAncestor !== enterTarget) {
-        return;
-      }
+      const enterEditorAncestor = getEditorAncestor(target);
+      if (enterEditorAncestor && enterEditorAncestor !== target) return;
       // In grid mode, Enter just commits without exiting
       if (isGridMode) {
         // Target IS the editor itself (SELECT with no popup open, or
@@ -208,11 +205,19 @@ export function injectEditor<T>(
         // bubble so EditingPlugin can blur the editor and return
         // focus to the grid for cell navigation.
         e.preventDefault();
-        const input = editorHost.querySelector('input,textarea,select') as
-          HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
-        if (input) {
-          commit(getInputValue(input, column as ColumnConfig<unknown>, originalValue));
-        }
+        // Framework / wrapper editors own their value: reading a raw inner
+        // input here would commit a draft string ahead of the editor's own
+        // blur-commit (mirrors the `#commitActiveEditors` skip on row close).
+        if (cell.hasAttribute('data-editor-managed')) return;
+        const input = editorHost.querySelector<NativeInput>(NATIVE_INPUT_SELECTOR);
+        if (!input) return;
+        // Same live-row dedupe as `wireEditorInputs` (#551): a multi-select's
+        // `change` already committed this selection, and `getInputValue`
+        // returns a fresh array that `#commitCellValue`'s `===` would accept
+        // again — repeating consumer validation and cascades.
+        const next = getInputValue(input, column, originalValue);
+        if (isSameEditorValue(currentValue(), next)) return;
+        commit(next);
         return;
       }
       if (shouldPreventEditClose(config, e)) return;
@@ -223,8 +228,7 @@ export function injectEditor<T>(
       // flush via commit(). Teardown blurs are rejected by the session guard.
       deps.exitRowEdit(rowIndex, false);
       editFinalized = true;
-    }
-    if (e.key === 'Escape') {
+    } else if (e.key === 'Escape') {
       // In grid mode, Escape doesn't exit edit mode
       if (isGridMode) {
         e.stopPropagation();
@@ -244,31 +248,47 @@ export function injectEditor<T>(
   const tplHolder = colInternal.__editorTemplate;
   // Resolve editor using priority chain: column → template → typeDefaults → adapter → built-in
   const editorSpec = resolveEditor(grid, colInternal) ?? defaultEditorFor(column);
-  const value = originalValue;
 
   // Value-change callback registration.
   // Editors call onValueChange(cb) to receive pushes when the underlying row
   // is mutated externally (e.g., via updateRow from another cell's commit).
   // Multiple callbacks can be registered (user + auto-wire).
-  const callbackKey = `${rowIndex}:${column.field}`;
   const callbacks: Array<(newValue: unknown) => void> = [];
-  editorValueCallbacks.set(callbackKey, (newVal) => {
+  editorValueCallbacks.set(`${rowIndex}:${column.field}`, (newVal) => {
     for (const cb of callbacks) cb(newVal);
   });
   const onValueChange = (cb: (newValue: unknown) => void) => {
     callbacks.push(cb);
   };
+  // Push an external update into the host's first native control — the
+  // inverse of getInputValue (#555), never `input.value = String(v)`.
+  const pushIntoNativeInput = (newVal: unknown) => {
+    const input = editorHost.querySelector<NativeInput>(NATIVE_INPUT_SELECTOR);
+    if (input) setInputValue(input, newVal, column);
+  };
+
+  const ctx: ColumnEditorContext<T> = {
+    row: rowData,
+    rowId: rowId ?? '',
+    value: originalValue,
+    field: column.field,
+    column,
+    commit,
+    cancel,
+    updateRow,
+    onValueChange,
+    grid: grid as ColumnEditorContext<T>['grid'],
+  };
+
+  let autoFocus = !skipFocus;
 
   if (editorSpec === 'template' && tplHolder) {
-    renderTemplateEditor(deps, editorHost, colInternal, rowData, originalValue, commit, cancel, skipFocus, rowIndex);
-    // Auto-update built-in template editors when value changes externally.
+    renderTemplateEditor(editorHost, colInternal, tplHolder, rowData, originalValue, commit, cancel, currentValue);
     // Skip non-primitive values (arrays, objects) — framework adapters manage
     // those via the cell-cancel event — except those setInputValue can map:
     // arrays onto a multi-select's options, and a Date into a date input (#555).
     onValueChange((newVal) => {
-      const input = editorHost.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
-        'input,textarea,select',
-      );
+      const input = editorHost.querySelector<NativeInput>(NATIVE_INPUT_SELECTOR);
       if (!input) return;
       const isMultiSelect = input instanceof HTMLSelectElement && input.multiple;
       const isDateIntoDateInput = newVal instanceof Date && input instanceof HTMLInputElement && input.type === 'date';
@@ -277,62 +297,36 @@ export function injectEditor<T>(
     });
   } else if (typeof editorSpec === 'string') {
     const el = document.createElement(editorSpec) as HTMLElement & { value?: unknown };
-    el.value = value;
+    el.value = originalValue;
     el.addEventListener('change', () => commit(el.value));
-    // Auto-update custom element editors when value changes externally
     onValueChange((newVal) => {
       el.value = newVal;
     });
     editorHost.appendChild(el);
-    if (!skipFocus) {
-      queueMicrotask(() => {
-        const focusable = editorHost.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
-        focusable?.focus({ preventScroll: true });
-      });
-    }
   } else if (typeof editorSpec === 'function') {
-    const ctx: ColumnEditorContext<T> = {
-      row: rowData,
-      rowId: rowId ?? '',
-      value,
-      field: column.field,
-      column,
-      commit,
-      cancel,
-      updateRow,
-      onValueChange,
-      grid: deps.grid as ColumnEditorContext<T>['grid'],
-    };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const produced = (editorSpec as any)(ctx);
+    // Adapter factories mount into the host and return nothing, which the
+    // declared `HTMLElement | string` return type does not admit.
+    const produced = (editorSpec as (context: ColumnEditorContext<T>) => HTMLElement | string | undefined)(ctx);
     if (typeof produced === 'string') {
-      // NOT sanitized on purpose: sanitizeHTML strips `input`/`select`/
-      // `textarea`/`button`, which is exactly what an editor is made of. The
-      // string comes from an author-supplied editor factory (code, not row
-      // data) — row values reach the DOM through the compiled-template path
-      // below, which escapes interpolated values.
+      // Not `setSanitizedHTML`: it strips `input`/`select`/`textarea`/`button`,
+      // which is exactly what an editor is made of. The string is author code,
+      // but it may interpolate row data, so the parsed tree gets the editor-safe
+      // scrub (event handlers, `javascript:` URLs) with the controls kept.
       // eslint-disable-next-line no-restricted-syntax
       editorHost.innerHTML = produced;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      wireEditorInputs(editorHost, column as any, commit, originalValue);
-      // Auto-update wired inputs when value changes externally
-      onValueChange((newVal) => {
-        const input = editorHost.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
-          'input,textarea,select',
-        );
-        if (input) setInputValue(input, newVal, column);
-      });
+      scrubEditorMarkup(editorHost);
+      wireEditorInputs(editorHost, column, commit, originalValue, currentValue);
+      onValueChange(pushIntoNativeInput);
     } else if (produced instanceof Node) {
       editorHost.appendChild(produced);
-      const isSimpleInput =
+      if (
         produced instanceof HTMLInputElement ||
         produced instanceof HTMLSelectElement ||
-        produced instanceof HTMLTextAreaElement;
-      if (!isSimpleInput) {
-        cell.setAttribute('data-editor-managed', '');
-      } else {
-        // Auto-update simple inputs returned by factory functions
+        produced instanceof HTMLTextAreaElement
+      ) {
         onValueChange((newVal) => setInputValue(produced, newVal, column));
+      } else {
+        cell.setAttribute('data-editor-managed', '');
       }
     } else if (!produced && editorHost.hasChildNodes()) {
       // Factory returned void but mounted content into the editor host
@@ -341,49 +335,43 @@ export function injectEditor<T>(
       // does not read raw input values from framework editor DOM.
       cell.setAttribute('data-editor-managed', '');
     }
-    if (!skipFocus) {
-      queueMicrotask(() => {
-        const focusable = editorHost.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
-        focusable?.focus({ preventScroll: true });
-      });
-    }
   } else if (editorSpec && typeof editorSpec === 'object') {
+    autoFocus = false;
     const placeholder = document.createElement('div');
     placeholder.setAttribute('data-external-editor', '');
     placeholder.setAttribute('data-field', column.field);
     editorHost.appendChild(placeholder);
     cell.setAttribute('data-editor-managed', '');
-    const context: ColumnEditorContext<T> = {
-      row: rowData,
-      rowId: rowId ?? '',
-      value,
-      field: column.field,
-      column,
-      commit,
-      cancel,
-      updateRow,
-      onValueChange,
-      grid: deps.grid as ColumnEditorContext<T>['grid'],
-    };
     if (editorSpec.mount) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        editorSpec.mount({ placeholder, context: context as any, spec: editorSpec });
+        editorSpec.mount({ placeholder, context: ctx, spec: editorSpec });
       } catch (e) {
-        warnDiagnostic(
-          EDITOR_MOUNT_ERROR,
-          `External editor mount error for column '${column.field}': ${e}`,
-          deps.grid.id,
-        );
+        warnDiagnostic(EDITOR_MOUNT_ERROR, `External editor mount error for column '${column.field}': ${e}`, grid.id);
       }
     } else {
       grid.dispatchEvent(
-        new CustomEvent('mount-external-editor', { detail: { placeholder, spec: editorSpec, context } }),
+        new CustomEvent('mount-external-editor', { detail: { placeholder, spec: editorSpec, context: ctx } }),
       );
     }
   }
 
-  nameEditorFromHeader(editorHost, column);
+  // Deferred a microtask so editors that mount asynchronously are covered.
+  // Name BEFORE focus: the initial screen-reader announcement reads the name
+  // present at focus time, so a label assigned afterwards is announced late.
+  queueMicrotask(() => {
+    const control = editorHost.querySelector<HTMLElement>(FOCUSABLE_EDITOR_SELECTOR);
+    if (!control) return;
+    nameEditorFromHeader(control, editorHost, column);
+    if (autoFocus) control.focus({ preventScroll: true });
+  });
+}
+
+function tryGetRowId<T>(grid: GridHost<T>, row: T): string | undefined {
+  try {
+    return grid.getRowId?.(row);
+  } catch {
+    return undefined; // Row has no ID
+  }
 }
 
 /**
@@ -392,24 +380,18 @@ export function injectEditor<T>(
  * A screen reader announces the header when focus lands on a *gridcell*, but an
  * `<input>` inside that cell is a control in its own right and needs its own
  * name (SC 4.1.2 / SC 3.3.2) — otherwise it is announced as a bare "edit text".
- * Deferred a microtask so editors that mount asynchronously are covered, and
- * skipped entirely whenever the control already has a name of any kind.
+ * Skipped entirely whenever the control already has a name of any kind.
  */
-function nameEditorFromHeader<T>(editorHost: HTMLElement, column: ColumnConfig<T>): void {
+function nameEditorFromHeader<T>(control: HTMLElement, editorHost: HTMLElement, column: ColumnConfig<T>): void {
   const label = typeof column.header === 'string' ? column.header : column.field;
   if (!label) return;
-
-  queueMicrotask(() => {
-    const control = editorHost.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
-    if (!control) return;
-    const named =
-      control.hasAttribute('aria-label') ||
-      control.hasAttribute('aria-labelledby') ||
-      control.hasAttribute('title') ||
-      (control.id && editorHost.querySelector(`label[for="${CSS.escape(control.id)}"]`)) ||
-      control.closest('label');
-    if (!named) control.setAttribute('aria-label', label);
-  });
+  const named =
+    control.hasAttribute('aria-label') ||
+    control.hasAttribute('aria-labelledby') ||
+    control.hasAttribute('title') ||
+    (control.id && editorHost.querySelector(`label[for="${CSS.escape(control.id)}"]`)) ||
+    control.closest('label');
+  if (!named) control.setAttribute('aria-label', label);
 }
 
 // #endregion
@@ -417,95 +399,52 @@ function nameEditorFromHeader<T>(editorHost: HTMLElement, column: ColumnConfig<T
 // #region Template Editor
 
 /**
- * Render a template-based editor inside an editor host element.
+ * Render a `<tbw-grid-column-editor>` template inside an editor host element.
+ *
+ * Enter/Escape are handled by the host keydown listener in {@link injectEditor};
+ * only blur/change commits are wired here (via `wireEditorInputs`, like the
+ * HTML-string factory path).
  */
 function renderTemplateEditor<T>(
-  deps: Pick<EditorInjectionDeps<T>, 'config' | 'exitRowEdit'>,
   editorHost: HTMLElement,
   column: ColumnInternal<T>,
+  tplHolder: HTMLElement,
   rowData: T,
   originalValue: unknown,
   commit: (value: unknown) => void,
   cancel: () => void,
-  skipFocus: boolean,
-  rowIndex: number,
+  currentValue: () => unknown,
 ): void {
-  const tplHolder = column.__editorTemplate;
-  if (!tplHolder) return;
+  // Compiled lazily and plugin-owned: `__editorTemplate` is assigned in the
+  // plugin's `processColumns` hook; config-manager compiles view templates only.
+  // `keepMarkupWhenEmpty` — unlike a view, an editor whose every `{{ }}` is
+  // blank (`<input value="{{ value }}">` on a null cell) must still render.
+  const compiled = (column.__compiledEditor ??= compileTemplate(tplHolder.innerHTML, { keepMarkupWhenEmpty: true }));
 
-  const clone = tplHolder.cloneNode(true) as HTMLElement;
-  const compiledEditor = column.__compiledEditor;
+  const wrapper = tplHolder.cloneNode(false) as HTMLElement;
+  // Not `setSanitizedHTML`: editor markup is author light-DOM (`<template editor>`)
+  // and contains form controls the sanitizer would strip. `{{ }}` escaping stops
+  // row data from breaking out of an attribute, but not a `javascript:` value
+  // landing in `href="{{ row.url }}"` — the editor-safe scrub below drops those
+  // (and event handlers) while keeping the controls.
+  // eslint-disable-next-line no-restricted-syntax
+  wrapper.innerHTML = compiled({
+    row: rowData,
+    value: originalValue,
+    field: column.field,
+    column,
+    commit,
+    cancel,
+  });
+  scrubEditorMarkup(wrapper);
+  editorHost.appendChild(wrapper);
 
-  if (compiledEditor) {
-    // NOT sanitized: editor markup is author light-DOM (`<template editor>`) and
-    // contains form controls the sanitizer would strip. Row data interpolated
-    // via `{{ }}` is HTML-escaped by the compiled template itself.
-    // eslint-disable-next-line no-restricted-syntax
-    clone.innerHTML = compiledEditor({
-      row: rowData,
-      value: originalValue,
-      field: column.field,
-      column,
-      commit,
-      cancel,
-    });
-  } else {
-    clone.querySelectorAll<HTMLElement>('*').forEach((node) => {
-      if (node.childNodes.length === 1 && node.firstChild?.nodeType === Node.TEXT_NODE) {
-        node.textContent =
-          node.textContent
-            ?.replace(/{{\s*value\s*}}/g, originalValue == null ? '' : String(originalValue))
-            .replace(/{{\s*row\.([a-zA-Z0-9_]+)\s*}}/g, (_m, g: string) => {
-              if (!isSafePropertyKey(g)) return '';
-              const v = (rowData as Record<string, unknown>)[g];
-              return v == null ? '' : String(v);
-            }) || '';
-      }
-    });
-  }
-
-  const input = clone.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
-    'input,textarea,select',
-  );
-  if (input) {
-    if (input instanceof HTMLInputElement && input.type === 'checkbox') {
-      input.checked = !!originalValue;
-    } else {
-      input.value = String(originalValue ?? '');
-    }
-
-    let editFinalized = false;
-    input.addEventListener('blur', () => {
-      if (editFinalized) return;
-      commit(getInputValue(input, column, originalValue));
-    });
-    input.addEventListener('keydown', (evt) => {
-      const e = evt as KeyboardEvent;
-      if (e.key === 'Enter') {
-        if (shouldPreventEditClose(deps.config, e)) return;
-        e.stopPropagation();
-        e.preventDefault();
-        editFinalized = true;
-        commit(getInputValue(input, column, originalValue));
-        deps.exitRowEdit(rowIndex, false);
-      }
-      if (e.key === 'Escape') {
-        if (isEscapeForOpenOverlay(e, editorHost)) return;
-        if (shouldPreventEditClose(deps.config, e)) return;
-        e.stopPropagation();
-        e.preventDefault();
-        cancel();
-        deps.exitRowEdit(rowIndex, true);
-      }
-    });
-    if (input instanceof HTMLInputElement && input.type === 'checkbox') {
-      input.addEventListener('change', () => commit(input.checked));
-    }
-    if (!skipFocus) {
-      setTimeout(() => input.focus({ preventScroll: true }), 0);
-    }
-  }
-  editorHost.appendChild(clone);
+  const input = wrapper.querySelector<NativeInput>(NATIVE_INPUT_SELECTOR);
+  if (!input) return;
+  // Seed through the inverse of getInputValue (#555): `input.value = String(v)`
+  // would deselect every option of a multi-select and blank a date input.
+  setInputValue(input, originalValue, column);
+  wireEditorInputs(editorHost, column, commit, originalValue, currentValue);
 }
 
 // #endregion

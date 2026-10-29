@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { compileTemplate, escapeHtml, evalTemplateString, finalCellScrub, sanitizeHTML } from './sanitize';
+import {
+  compileTemplate,
+  escapeHtml,
+  evalTemplateString,
+  finalCellScrub,
+  sanitizeHTML,
+  scrubEditorMarkup,
+} from './sanitize';
 
 describe('escapeHtml', () => {
   it('escapes HTML special characters', () => {
@@ -88,6 +95,21 @@ describe('sanitize functions', () => {
     const bad = compileTemplate('x {{ Reflect.get(value) }}');
     expect((bad as any).__blocked).toBe(true);
     expect(bad({ value: 1, row: {} })).toBe('');
+  });
+  it('keepMarkupWhenEmpty preserves static markup around all-blank interpolations (editor templates)', () => {
+    const tpl = '<input value="{{ value }}" placeholder="{{ row.hint }}">';
+    const ctx = { value: null, row: {} };
+    // View semantics: an all-blank template is an intentionally blank cell.
+    expect(evalTemplateString(tpl, ctx)).toBe('');
+    // Editor semantics: the markup IS the control and must survive a blank value.
+    const editor = compileTemplate(tpl, { keepMarkupWhenEmpty: true });
+    expect(editor(ctx as any)).toBe('<input value="" placeholder="">');
+    expect(editor({ value: '', row: {} } as any)).toBe('<input value="" placeholder="">');
+    expect(editor({ value: 'a"b', row: {} } as any)).toBe('<input value="a&quot;b" placeholder="">');
+    // Forbidden tokens still blank the whole template in either mode.
+    expect(evalTemplateString('<input value="{{ Reflect.ownKeys(value) }}">', ctx, { keepMarkupWhenEmpty: true })).toBe(
+      '',
+    );
   });
   it('finalCellScrub removes residual forbidden tokens', () => {
     const cell = document.createElement('div');
@@ -180,6 +202,29 @@ describe('sanitizeHTML - XSS prevention', () => {
     it('removes data: URLs', () => {
       const result = sanitizeHTML('<a href="data:text/html,<script>alert(1)</script>">Click</a>');
       expect(result).not.toContain('data:');
+    });
+
+    it('removes dangerous schemes obfuscated with embedded tab/newline or leading control chars', () => {
+      // The URL parser strips leading/trailing C0 controls and removes ASCII
+      // tab/LF/CR anywhere before reading the scheme, so these all execute.
+      const hrefs = [
+        'java\tscript:alert(1)',
+        'java\nscript:alert(1)',
+        'javascr\ript:alert(1)',
+        '\u0001javascript:alert(1)',
+        ' \u0003 javascript:alert(1)',
+        'da\tta:text/html,x',
+      ];
+      for (const href of hrefs) {
+        const result = sanitizeHTML(`<a href="${href}">Click</a>`);
+        expect(result, JSON.stringify(href)).not.toMatch(/href=/i);
+        expect(result).toContain('Click');
+      }
+    });
+
+    it('keeps safe URLs that merely carry surrounding whitespace', () => {
+      const result = sanitizeHTML('<a href="  https://example.com/a\tb ">Click</a>');
+      expect(result).toMatch(/href=/i);
     });
   });
 
@@ -310,5 +355,45 @@ describe('sanitizeHTML - XSS prevention', () => {
       const result = sanitizeHTML('<div style="color: red; font-size: 16px;">Test</div>');
       expect(result).toContain('style="color: red; font-size: 16px;"');
     });
+  });
+});
+
+describe('scrubEditorMarkup (editor-safe pass)', () => {
+  const scrub = (html: string): HTMLElement => {
+    const root = document.createElement('div');
+    root.innerHTML = html;
+    scrubEditorMarkup(root);
+    return root;
+  };
+
+  it('keeps form controls the full sanitizer would strip', () => {
+    const root = scrub('<input value="x"><select><option>a</option></select><textarea></textarea><button>ok</button>');
+    expect(root.querySelector('input')).not.toBeNull();
+    expect(root.querySelector('select option')).not.toBeNull();
+    expect(root.querySelector('textarea')).not.toBeNull();
+    expect(root.querySelector('button')).not.toBeNull();
+  });
+
+  it('drops javascript: URLs and event handlers while keeping the element', () => {
+    const root = scrub('<a href="javascript:alert(1)" onclick="alert(2)">Help</a><input onfocus="alert(3)">');
+    const a = root.querySelector('a') as HTMLAnchorElement;
+    expect(a).not.toBeNull();
+    expect(a.hasAttribute('href')).toBe(false);
+    expect(a.hasAttribute('onclick')).toBe(false);
+    expect(root.querySelector('input')?.hasAttribute('onfocus')).toBe(false);
+  });
+
+  it('drops a javascript: URL obfuscated with an embedded tab (PR #578 review)', () => {
+    const root = scrub('<a href="java\tscript:alert(1)">Help</a><input>');
+    expect(root.querySelector('a')?.hasAttribute('href')).toBe(false);
+    expect(root.querySelector('input')).not.toBeNull();
+  });
+
+  it('keeps safe URLs and still removes non-control dangerous tags', () => {
+    const root = scrub('<a href="https://example.com/help">Help</a><script>alert(1)</script><iframe></iframe><input>');
+    expect(root.querySelector('a')?.getAttribute('href')).toBe('https://example.com/help');
+    expect(root.querySelector('script')).toBeNull();
+    expect(root.querySelector('iframe')).toBeNull();
+    expect(root.querySelector('input')).not.toBeNull();
   });
 });

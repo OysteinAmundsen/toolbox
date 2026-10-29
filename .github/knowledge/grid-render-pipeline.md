@@ -1,6 +1,6 @@
 ---
 domain: grid-render-pipeline
-related: [grid-data-pipeline, grid-core, grid-plugins, data-flow-traces, build-and-deploy]
+related: [grid-data-pipeline, grid-core, grid-plugins, grid-sanitize, data-flow-traces, build-and-deploy]
 ---
 
 # Grid Render Pipeline — Mental Model
@@ -8,6 +8,7 @@ related: [grid-data-pipeline, grid-core, grid-plugins, data-flow-traces, build-a
 `libs/grid/src/lib/core/internal/`. How a frame is scheduled and how rows/cells reach the DOM — the render half only.
 
 - Resolving/mutating/sorting/aggregating cell VALUES → grid-data-pipeline.md.
+- HTML sanitizer, `{{ }}` template evaluation, editor-markup scrub → grid-sanitize.md.
 - Lifecycle, config precedence, DOM structure, state-ownership matrix → grid-core.md.
 - Pointer capture, drag promotion, long-press → grid-input.md.
 
@@ -58,16 +59,7 @@ Read order for a "wrong pixels" bug: render-scheduler (did the phase run?) → v
 `rows` · `dom-builder` · `event-delegation` · `columns` · `header` · `keyboard` · `sorting` · `row-manager` · `focus-manager` · `row-animation` · `resize` · `touch-scroll` · `idle-scheduler` · `sanitize` · `style-injector` · `aria` / `aria-labels` · `aggregators` (sum/avg/min/max/count/first/last) · `value-accessor` · `tag-registry` (`GRID_TAG_NAME`, `get/setActiveGridTag`; leaf) · `column-shorthand` (`field="price:number"`, #276) · `inference` (`overlayInferred`, #384) · `empty` / `loading` · `virtualization*`
 
 > `shell.ts`/`shell-controller.ts` live in `plugins/shell/` (#370).
-> `sorting` · `row-manager` · `aggregators` · `value-accessor` are documented in grid-data-pipeline.md; `touch-scroll` (pointer side) in grid-input.md.
-
-### sanitize
-
-- INVARIANT: EVERY string a **user renderer** returns into `innerHTML` MUST pass `sanitizeHTML()`. NO opt-out config — do not add one. Covered: `rows.ts` (6 sites), `header.ts`, `empty.ts`, `loading.ts`, `dom-builder.ts`, `base-plugin.ts`, `context-menu/menu.ts`, `grouping-columns`, `master-detail.ts`, `shell.ts`. Grep `innerHTML =` before merging a new renderer — recurring miss = hand-written `string` branch beside a correct `HTMLElement` one.
-- INVARIANT: **`setSanitizedHTML(el, html)` (`core/internal/sanitize.ts`) is the ONLY sanctioned way to put a computed string into the DOM** — sanitizes into a `DocumentFragment` + `replaceChildren()`; no parse→serialize→re-parse, so mXSS round trips are impossible. `sanitizeToFragment()` = fragment variant (append into existing content). `sanitizeHTML()` returns a STRING, kept only where needed (`shell.ts` `iconToString()`, toolbar templates).
-- ENFORCED: ESLint `no-restricted-syntax` ([eslint.config.mjs](eslint.config.mjs)) fails the build on `X.innerHTML = <computed>` under `libs/grid/src/lib/**`. Allowed RHS: string literal, zero-expression template literal, `sanitizeHTML(...)`, `booleanCellHTML(...)`. Ignores specs/benches + `internal/sanitize.ts`. `math` ∈ `DANGEROUS_TAGS` (foreign-content mXSS gadget); `svg` allowed for icons.
-- INVARIANT (Aug 2026 audit S3): `is=` ALWAYS stripped, right after the `DANGEROUS_ATTR_PATTERN` event-handler check — upgrades an allow-listed tag into a registered customized built-in, past the tag-name allow-list. Test: `sanitize-security.spec.ts > strips the \`is=\` attribute`.
-- EXEMPTION (only one): `plugins/editing/internal/editor-injection.ts` assigns editor markup raw with an inline `eslint-disable-next-line`. WHY: sanitizer strips `input`/`select`/`textarea`/`button` — every editor. Editor strings are author code, not row data; `{{ }}` values are escaped by the compiled template. TENSION: column editor = code-trust boundary — do NOT make editor specs loadable from a remote/serialized source.
-- DECIDED (audit 2026-08-07): `evalTemplateString` HTML-escapes `{{ }}` values via `escapeHtml`. WHY: template markup is author-controlled, row data is not; `sanitizeHTML` strips only _dangerous_ markup, so unescaped values allowed layout-breaking / overlay clickjacking. Escape the VALUES, never the template. Spec: `sanitize-security.spec.ts`.
+> `sorting` · `row-manager` · `aggregators` · `value-accessor` are documented in grid-data-pipeline.md; `touch-scroll` (pointer side) in grid-input.md; `sanitize` (sanitizer, `{{ }}` templates, editor scrub) in grid-sanitize.md.
 
 ### rows.ts (hot path)
 

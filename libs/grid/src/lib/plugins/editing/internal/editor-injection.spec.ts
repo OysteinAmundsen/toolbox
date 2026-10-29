@@ -72,6 +72,29 @@ function pushIntoMultiSelect(column: ColumnConfig<any>, next: unknown[]): boolea
   return Array.from(select.options).map((o) => o.selected);
 }
 
+/** Create an editable column whose `<tbw-grid-column-editor>` template is `html`. */
+function templateColumn(field: string, html: string): ColumnInternal<any> {
+  const column = col(field) as ColumnInternal<any>;
+  const tplHolder = document.createElement('div');
+  tplHolder.innerHTML = html;
+  column.__editorTemplate = tplHolder as any;
+  return column;
+}
+
+/** Inject a template editor built from `html` on `row`; returns the deps and the rendered cell. */
+function injectTemplate(
+  html: string,
+  row: Record<string, unknown>,
+  field: string,
+  overrides: Partial<EditorInjectionDeps<any>> = {},
+) {
+  const deps = createDeps(overrides);
+  const { cell, row: rowEl } = createCellInRow();
+  const column = templateColumn(field, html);
+  injectEditor(deps, row, 0, column, 0, cell, true);
+  return { deps, cell, rowEl, column };
+}
+
 // #endregion
 
 describe('editor-injection', () => {
@@ -237,6 +260,28 @@ describe('editor-injection', () => {
 
       injectEditor(deps, { id: '1', name: 'Alice' }, 0, column, 0, cell, true);
 
+      expect(cell.querySelector('.custom-input')).not.toBeNull();
+    });
+
+    it('should drop a tab-obfuscated javascript: URL interpolated from row data in string-returned HTML', () => {
+      const { cell } = createCellInRow();
+      const column = col('name', {
+        editor: (ctx) => `<a class="help" href="${(ctx.row as any).helpUrl}">?</a><input class="custom-input" />`,
+      });
+
+      injectEditor(
+        createDeps(),
+        { id: '1', name: 'Alice', helpUrl: 'java\tscript:alert(1)' },
+        0,
+        column,
+        0,
+        cell,
+        true,
+      );
+
+      const help = cell.querySelector('a.help') as HTMLAnchorElement;
+      expect(help).not.toBeNull();
+      expect(help.hasAttribute('href')).toBe(false);
       expect(cell.querySelector('.custom-input')).not.toBeNull();
     });
 
@@ -612,6 +657,32 @@ describe('editor-injection', () => {
 
       expect(deps.exitRowEdit).not.toHaveBeenCalled();
     });
+
+    it('should NOT read raw input DOM on grid-mode Enter for data-editor-managed cells', () => {
+      const inject = (editor: ColumnConfig<any>['editor']) => {
+        const deps = createDeps({ isGridMode: true });
+        const { cell } = createCellInRow();
+        injectEditor(deps, { id: '1', amount: 1234 }, 0, col('amount', { editor }), 0, cell, true);
+        const input = cell.querySelector('input') as HTMLInputElement;
+        input.value = '1,234.00'; // formatted draft owned by the wrapper editor
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        return { deps, cell };
+      };
+
+      // Wrapper node → managed: the editor's own blur-commit owns the value.
+      const managed = inject(() => {
+        const wrap = document.createElement('div');
+        wrap.appendChild(document.createElement('input'));
+        return wrap;
+      });
+      expect(managed.cell.hasAttribute('data-editor-managed')).toBe(true);
+      expect(managed.deps.commitCellValue).not.toHaveBeenCalled();
+
+      // Bare input → not managed: Enter commits the DOM value as before.
+      const plain = inject(() => document.createElement('input'));
+      expect(plain.cell.hasAttribute('data-editor-managed')).toBe(false);
+      expect(plain.deps.commitCellValue).toHaveBeenCalledTimes(1);
+    });
   });
 
   // #endregion
@@ -674,32 +745,133 @@ describe('editor-injection', () => {
 
   describe('template editor', () => {
     it('should render a template editor when column has __editorTemplate', () => {
-      const deps = createDeps();
-      const { cell } = createCellInRow();
-      const column = col('name') as ColumnInternal<any>;
-
-      // Create a template holder with an input
-      const tplHolder = document.createElement('div');
-      tplHolder.innerHTML = '<input type="text" />';
-      column.__editorTemplate = tplHolder as any;
-
-      injectEditor(deps, { id: '1', name: 'Alice' }, 0, column, 0, cell, true);
+      const { cell } = injectTemplate('<input type="text" />', { id: '1', name: 'Alice' }, 'name');
 
       const input = cell.querySelector('input') as HTMLInputElement;
       expect(input).not.toBeNull();
-      expect(input?.value).toBe('Alice');
+      expect(input.value).toBe('Alice');
+    });
+
+    it('strips a javascript: URL interpolated into an attribute, keeping the control (security)', () => {
+      const { cell } = injectTemplate(
+        '<a href="{{ row.helpUrl }}">Help</a><input type="text" />',
+        { id: '1', name: 'Alice', helpUrl: 'javascript:alert(1)' },
+        'name',
+      );
+
+      const link = cell.querySelector('a') as HTMLAnchorElement;
+      expect(link).not.toBeNull();
+      expect(link.hasAttribute('href')).toBe(false);
+      expect((cell.querySelector('input') as HTMLInputElement).value).toBe('Alice');
+    });
+
+    it('keeps a safe interpolated URL', () => {
+      const { cell } = injectTemplate(
+        '<a href="{{ row.helpUrl }}">Help</a><input type="text" />',
+        { id: '1', name: 'Alice', helpUrl: 'https://example.com/help' },
+        'name',
+      );
+
+      expect(cell.querySelector('a')?.getAttribute('href')).toBe('https://example.com/help');
+    });
+
+    it('scrubs a javascript: URL in an HTML-string factory editor too', () => {
+      const deps = createDeps();
+      const { cell } = createCellInRow();
+      const row = { id: '1', name: 'Alice', helpUrl: 'javascript:alert(1)' };
+      const column = col('name', {
+        editor: (ctx: any) => `<a href="${ctx.row.helpUrl}">Help</a><input type="text" value="${ctx.value}">`,
+      });
+
+      injectEditor(deps, row, 0, column, 0, cell, true);
+
+      expect(cell.querySelector('a')?.hasAttribute('href')).toBe(false);
+      expect((cell.querySelector('input') as HTMLInputElement).value).toBe('Alice');
+    });
+
+    describe('multi-select commit dedupe (#551)', () => {
+      /** Selects option `value` and fires `change`, then `blur`, on the template's select. */
+      function selectThenBlur(cell: HTMLElement, value: string): HTMLSelectElement {
+        const select = cell.querySelector('select') as HTMLSelectElement;
+        for (const o of select.options) if (o.value === value) o.selected = true;
+        select.dispatchEvent(new Event('change'));
+        select.dispatchEvent(new FocusEvent('blur'));
+        return select;
+      }
+
+      it('emits one commit for change + blur when the commit was applied to the row', () => {
+        const commitCellValue = vi.fn((_ri: number, _col: unknown, val: unknown, row: any) => {
+          row.tags = val; // the plugin's #commitCellValue writes the accepted value
+        });
+        const { cell } = injectTemplate(MULTI_SELECT_HTML, { id: '1', tags: ['a'] }, 'tags', { commitCellValue });
+
+        selectThenBlur(cell, 'b');
+
+        expect(commitCellValue).toHaveBeenCalledTimes(1);
+        expect(commitCellValue.mock.calls[0][2]).toEqual(['a', 'b']);
+      });
+
+      it('retries on blur when the change commit was vetoed (row unchanged)', () => {
+        const commitCellValue = vi.fn(); // never writes the row — a vetoed `cell-commit`
+        const { cell } = injectTemplate(MULTI_SELECT_HTML, { id: '1', tags: ['a'] }, 'tags', { commitCellValue });
+
+        selectThenBlur(cell, 'b');
+
+        expect(commitCellValue).toHaveBeenCalledTimes(2);
+      });
+
+      it('does not commit at all when the selection equals the row value', () => {
+        const commitCellValue = vi.fn();
+        const { cell } = injectTemplate(MULTI_SELECT_HTML, { id: '1', tags: ['a'] }, 'tags', { commitCellValue });
+
+        selectThenBlur(cell, 'a');
+
+        expect(commitCellValue).not.toHaveBeenCalled();
+      });
+
+      it('emits one commit for change → Enter → blur in grid mode (Enter re-reads a fresh array)', () => {
+        const commitCellValue = vi.fn((_ri: number, _col: unknown, val: unknown, row: any) => {
+          row.tags = val;
+        });
+        const { cell } = injectTemplate(MULTI_SELECT_HTML, { id: '1', tags: ['a'] }, 'tags', {
+          commitCellValue,
+          isGridMode: true,
+        });
+        const select = cell.querySelector('select') as HTMLSelectElement;
+        for (const o of select.options) if (o.value === 'b') o.selected = true;
+
+        select.dispatchEvent(new Event('change'));
+        // Dispatched on the host, not the select: happy-dom hands `closest()` a
+        // different wrapper object than `e.target` for `<select>`, so the #427
+        // descendant guard (`ancestor !== target`) would swallow Enter here even
+        // though browsers see one identity. Target = host still runs the same
+        // grid-mode commit branch.
+        const host = cell.querySelector('.tbw-editor-host') as HTMLElement;
+        const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+        host.dispatchEvent(enter);
+        expect(enter.defaultPrevented).toBe(true); // the grid-mode branch ran
+        select.dispatchEvent(new FocusEvent('blur'));
+
+        expect(commitCellValue).toHaveBeenCalledTimes(1);
+        expect(commitCellValue.mock.calls[0][2]).toEqual(['a', 'b']);
+      });
+    });
+
+    it('should drop a tab-obfuscated javascript: URL interpolated from row data (scrubEditorMarkup)', () => {
+      const { cell } = injectTemplate(
+        '<a class="help" href="{{ row.helpUrl }}">?</a><input type="text" />',
+        { id: '1', name: 'Alice', helpUrl: 'java\tscript:alert(1)' },
+        'name',
+      );
+
+      const help = cell.querySelector('a.help') as HTMLAnchorElement;
+      expect(help).not.toBeNull();
+      expect(help.hasAttribute('href')).toBe(false);
+      expect(cell.querySelector('input')).not.toBeNull();
     });
 
     it('should handle checkbox template editor', () => {
-      const deps = createDeps();
-      const { cell } = createCellInRow();
-      const column = col('active') as ColumnInternal<any>;
-
-      const tplHolder = document.createElement('div');
-      tplHolder.innerHTML = '<input type="checkbox" />';
-      column.__editorTemplate = tplHolder as any;
-
-      injectEditor(deps, { id: '1', active: true }, 0, column, 0, cell, true);
+      const { cell } = injectTemplate('<input type="checkbox" />', { id: '1', active: true }, 'active');
 
       const input = cell.querySelector('input[type="checkbox"]') as HTMLInputElement;
       expect(input).not.toBeNull();
@@ -707,15 +879,11 @@ describe('editor-injection', () => {
     });
 
     it('should apply compiled editor function when available', () => {
-      const deps = createDeps();
-      const { cell } = createCellInRow();
-      const column = col('name') as ColumnInternal<any>;
-
-      const tplHolder = document.createElement('div');
-      column.__editorTemplate = tplHolder as any;
+      const column = templateColumn('name', '');
       column.__compiledEditor = vi.fn().mockReturnValue('<input type="text" value="compiled" />');
+      const { cell } = createCellInRow();
 
-      injectEditor(deps, { id: '1', name: 'Alice' }, 0, column, 0, cell, true);
+      injectEditor(createDeps(), { id: '1', name: 'Alice' }, 0, column, 0, cell, true);
 
       expect(column.__compiledEditor).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -727,45 +895,27 @@ describe('editor-injection', () => {
     });
 
     it('should interpolate {{value}} in template text nodes', () => {
-      const deps = createDeps();
-      const { cell } = createCellInRow();
-      const column = col('name') as ColumnInternal<any>;
+      const { cell } = injectTemplate(
+        '<span>Current: {{value}}</span><input type="text" />',
+        { id: '1', name: 'Alice' },
+        'name',
+      );
 
-      const tplHolder = document.createElement('div');
-      tplHolder.innerHTML = '<span>Current: {{value}}</span><input type="text" />';
-      column.__editorTemplate = tplHolder as any;
-
-      injectEditor(deps, { id: '1', name: 'Alice' }, 0, column, 0, cell, true);
-
-      const span = cell.querySelector('span');
-      expect(span?.textContent).toBe('Current: Alice');
+      expect(cell.querySelector('span')?.textContent).toBe('Current: Alice');
     });
 
     it('should interpolate {{row.field}} in template text nodes', () => {
-      const deps = createDeps();
-      const { cell } = createCellInRow();
-      const column = col('name') as ColumnInternal<any>;
+      const { cell } = injectTemplate(
+        '<span>ID: {{row.id}}</span><input type="text" />',
+        { id: '42', name: 'Alice' },
+        'name',
+      );
 
-      const tplHolder = document.createElement('div');
-      tplHolder.innerHTML = '<span>ID: {{row.id}}</span><input type="text" />';
-      column.__editorTemplate = tplHolder as any;
-
-      injectEditor(deps, { id: '42', name: 'Alice' }, 0, column, 0, cell, true);
-
-      const span = cell.querySelector('span');
-      expect(span?.textContent).toBe('ID: 42');
+      expect(cell.querySelector('span')?.textContent).toBe('ID: 42');
     });
 
     it('should skip auto-update for non-primitive values (arrays, objects)', () => {
-      const deps = createDeps();
-      const { cell } = createCellInRow();
-      const column = col('tags') as ColumnInternal<any>;
-
-      const tplHolder = document.createElement('div');
-      tplHolder.innerHTML = '<input type="text" />';
-      column.__editorTemplate = tplHolder as any;
-
-      injectEditor(deps, { id: '1', tags: 'initial' }, 0, column, 0, cell, true);
+      const { deps, cell } = injectTemplate('<input type="text" />', { id: '1', tags: 'initial' }, 'tags');
 
       const input = cell.querySelector('input') as HTMLInputElement;
       expect(input.value).toBe('initial');
@@ -786,29 +936,118 @@ describe('editor-injection', () => {
     });
 
     it('should apply array values to a multi-select template editor (#555)', () => {
-      const column = col('tags') as ColumnInternal<any>;
-      const tplHolder = document.createElement('div');
-      tplHolder.innerHTML = MULTI_SELECT_HTML;
-      column.__editorTemplate = tplHolder as any;
-
-      expect(pushIntoMultiSelect(column, ['a', 'c'])).toEqual([true, false, true]);
+      expect(pushIntoMultiSelect(templateColumn('tags', MULTI_SELECT_HTML), ['a', 'c'])).toEqual([true, false, true]);
     });
 
     it('should apply a Date to a date-input template editor, but not to a text input (#555)', () => {
       const push = (html: string) => {
-        const deps = createDeps();
-        const { cell } = createCellInRow();
-        const column = col('due') as ColumnInternal<any>;
-        const tplHolder = document.createElement('div');
-        tplHolder.innerHTML = html;
-        column.__editorTemplate = tplHolder as any;
-        injectEditor(deps, { id: '1', due: '2024-06-15' }, 0, column, 0, cell, true);
+        const { deps, cell } = injectTemplate(html, { id: '1', due: '2024-06-15' }, 'due');
         deps.editorValueCallbacks.get('0:due')!(new Date(Date.UTC(2026, 9, 23)));
         return (cell.querySelector('input') as HTMLInputElement).value;
       };
 
       expect(push('<input type="date" />')).toBe('2026-10-23');
       expect(push('<input type="text" />')).toBe('2024-06-15');
+    });
+
+    it('should seed a multi-select template from an array value via setInputValue (#555 seed)', () => {
+      const { cell } = injectTemplate(MULTI_SELECT_HTML, { id: '1', tags: ['a', 'c'] }, 'tags');
+      const select = cell.querySelector('select') as HTMLSelectElement;
+      expect(Array.from(select.options).map((o) => o.selected)).toEqual([true, false, true]);
+    });
+
+    it('should seed a date-input template from a Date value (#555 seed)', () => {
+      const { cell } = injectTemplate(
+        '<input type="date" />',
+        { id: '1', due: new Date(Date.UTC(2026, 9, 23)) },
+        'due',
+      );
+      expect((cell.querySelector('input') as HTMLInputElement).value).toBe('2026-10-23');
+    });
+
+    it('should compile the template lazily and interpolate attributes (config-manager runs before processColumns)', () => {
+      const { cell, column } = injectTemplate(
+        '<input type="text" placeholder="Hi {{row.id}}" />',
+        { id: '42' },
+        'name',
+      );
+      expect(column.__compiledEditor).toBeTypeOf('function');
+      expect((cell.querySelector('input') as HTMLInputElement).placeholder).toBe('Hi 42');
+
+      const compiled = column.__compiledEditor;
+      const { cell: second } = createCellInRow();
+      injectEditor(createDeps(), { id: '7' }, 1, column, 0, second, true);
+      expect(column.__compiledEditor).toBe(compiled);
+      expect((second.querySelector('input') as HTMLInputElement).placeholder).toBe('Hi 7');
+    });
+
+    it('should still render the control when every {{ }} is blank (null / "" / undefined cell, PR #578)', () => {
+      for (const amount of [null, '', undefined]) {
+        const { cell } = injectTemplate('<input type="number" value="{{ value }}" />', { id: '1', amount }, 'amount');
+        const input = cell.querySelector('input') as HTMLInputElement | null;
+        expect(input, `value ${String(amount)}`).not.toBeNull();
+        expect(input!.type).toBe('number');
+        expect(input!.value).toBe('');
+      }
+    });
+
+    describe('keyboard (shares the host handler)', () => {
+      const enter = () => new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+
+      it('should exit the row on Enter in row mode', () => {
+        const { deps, cell } = injectTemplate('<input type="text" />', { id: '1', name: 'Alice' }, 'name');
+        cell.querySelector('input')!.dispatchEvent(enter());
+        expect(deps.exitRowEdit).toHaveBeenCalledWith(0, false);
+      });
+
+      it('should commit without exiting and let Enter bubble in grid mode', () => {
+        const { deps, cell, rowEl } = injectTemplate('<input type="text" />', { id: '1', name: 'Alice' }, 'name', {
+          isGridMode: true,
+        });
+        const reachedRow = vi.fn();
+        rowEl.addEventListener('keydown', reachedRow);
+        const input = cell.querySelector('input') as HTMLInputElement;
+        input.value = 'Bob';
+        input.dispatchEvent(enter());
+
+        expect(deps.commitCellValue).toHaveBeenCalledWith(0, expect.anything(), 'Bob', expect.anything());
+        expect(deps.exitRowEdit).not.toHaveBeenCalled();
+        // The plugin's onKeyDown blurs the editor and returns focus to the grid — it must see the event.
+        expect(reachedRow).toHaveBeenCalled();
+      });
+
+      it('should NOT exit on Enter when defaultPrevented (#250 parity)', () => {
+        const { deps, cell } = injectTemplate('<input type="text" />', { id: '1', name: 'Alice' }, 'name');
+        const evt = enter();
+        evt.preventDefault();
+        cell.querySelector('input')!.dispatchEvent(evt);
+        expect(deps.exitRowEdit).not.toHaveBeenCalled();
+      });
+
+      it('should NOT exit or preventDefault on Enter from an <option> of an open <select> popup (#427 parity)', () => {
+        const { deps, cell } = injectTemplate(
+          '<select><option value="a">A</option><option value="b">B</option></select>',
+          { id: '1', kind: 'a' },
+          'kind',
+        );
+        const evt = enter();
+        cell.querySelector('option[value="b"]')!.dispatchEvent(evt);
+        expect(deps.exitRowEdit).not.toHaveBeenCalled();
+        expect(deps.commitCellValue).not.toHaveBeenCalled();
+        expect(evt.defaultPrevented).toBe(false);
+      });
+
+      it('should commit on change for a template <select> (same wiring as HTML-string editors)', () => {
+        const { deps, cell } = injectTemplate(
+          '<select><option value="a">A</option><option value="b">B</option></select>',
+          { id: '1', kind: 'a' },
+          'kind',
+        );
+        const select = cell.querySelector('select') as HTMLSelectElement;
+        select.value = 'b';
+        select.dispatchEvent(new Event('change'));
+        expect(deps.commitCellValue).toHaveBeenCalledWith(0, expect.anything(), 'b', expect.anything());
+      });
     });
   });
 
@@ -929,6 +1168,21 @@ describe('editor-injection', () => {
       await flush();
 
       expect(cell.querySelector('input')?.hasAttribute('aria-label')).toBe(false);
+    });
+
+    it('assigns the name BEFORE focusing a template editor (initial announcement)', async () => {
+      const column = templateColumn('name', '<input type="text" />');
+      column.header = 'Full name';
+      const { cell } = createCellInRow();
+      let labelAtFocus: string | null | undefined;
+
+      injectEditor(createDeps(), { id: '1', name: 'Alice' }, 0, column, 0, cell, false);
+      const input = cell.querySelector('input') as HTMLInputElement;
+      input.addEventListener('focus', () => (labelAtFocus = input.getAttribute('aria-label')));
+      await flush();
+
+      expect(document.activeElement).toBe(input);
+      expect(labelAtFocus).toBe('Full name');
     });
   });
 
